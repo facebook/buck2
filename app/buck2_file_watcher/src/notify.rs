@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
 use std::mem;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -27,6 +26,7 @@ use buck2_data::FileWatcherKind;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_events::dispatch::span_async;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
+use buck2_hash::StdBuckHashMap;
 use dice::DiceTransactionUpdater;
 use dupe::Dupe;
 use notify::EventKind;
@@ -79,7 +79,7 @@ impl NotifyFileData {
         event: notify::Result<notify::Event>,
         root: &ProjectRoot,
         cells: &CellResolver,
-        ignore_specs: &HashMap<CellName, IgnoreSet>,
+        ignore_specs: &StdBuckHashMap<CellName, IgnoreSet>,
     ) -> buck2_error::Result<()> {
         let event =
             event.map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::NotifyWatcher))?;
@@ -259,7 +259,7 @@ impl NotifyFileWatcher {
     pub fn new(
         root: &ProjectRoot,
         cells: CellResolver,
-        ignore_specs: HashMap<CellName, IgnoreSet>,
+        ignore_specs: StdBuckHashMap<CellName, IgnoreSet>,
     ) -> buck2_error::Result<Self> {
         let data = Arc::new(Mutex::new(Ok(NotifyFileData::new())));
         let data2 = data.dupe();

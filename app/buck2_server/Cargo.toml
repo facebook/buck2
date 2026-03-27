@@ -10,6 +10,7 @@ version = "0.1.0"
 async-recursion = { workspace = true }
 async-trait = { workspace = true }
 bincode = { workspace = true }
+buck2_hash = { workspace = true }
 buck2_re_configuration = { workspace = true }
 chrono = { workspace = true }
 constant_time_eq = { workspace = true }

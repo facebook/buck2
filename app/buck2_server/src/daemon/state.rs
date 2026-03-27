@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
 use std::path::Path;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -67,6 +66,7 @@ use buck2_execute_impl::sqlite::materializer_db::MaterializerState;
 use buck2_execute_impl::sqlite::materializer_db::MaterializerStateSqliteDb;
 use buck2_file_watcher::file_watcher::FileWatcher;
 use buck2_fs::cwd::WorkingDirectory;
+use buck2_hash::StdBuckHashMap;
 use buck2_http::HttpClient;
 use buck2_http::HttpClientBuilder;
 use buck2_re_configuration::RemoteExecutionStaticMetadata;
@@ -386,7 +386,7 @@ impl DaemonState {
                 root_config,
             )?);
 
-            let mut ignore_specs: HashMap<CellName, IgnoreSet> = HashMap::new();
+            let mut ignore_specs: StdBuckHashMap<CellName, IgnoreSet> = StdBuckHashMap::default();
             for (cell, _) in cells.cells() {
                 let config = legacy_cells.parse_single_cell(cell, &fs).await?;
                 ignore_specs.insert(

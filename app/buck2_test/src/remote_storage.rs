@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -25,6 +24,7 @@ use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::re::manager::UnconfiguredRemoteExecutionClient;
 use buck2_fs::paths::abs_path::AbsPathBuf;
+use buck2_hash::StdBuckHashSet;
 use buck2_test_api::data::RemoteStorageConfig;
 use dupe::Dupe;
 use remote_execution::NamedDigest;
@@ -34,14 +34,14 @@ type CacheKey = TDigest;
 
 pub struct ReClientWithCache {
     client: UnconfiguredRemoteExecutionClient,
-    cache: Mutex<HashSet<Arc<CacheKey>>>,
+    cache: Mutex<StdBuckHashSet<Arc<CacheKey>>>,
 }
 
 impl ReClientWithCache {
     pub fn new(client: UnconfiguredRemoteExecutionClient) -> Self {
         Self {
             client,
-            cache: Mutex::new(HashSet::new()),
+            cache: Mutex::new(StdBuckHashSet::default()),
         }
     }
 

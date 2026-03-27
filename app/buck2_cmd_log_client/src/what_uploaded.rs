@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::io::Write;
@@ -24,6 +23,7 @@ use buck2_data::ReUploadMetrics;
 use buck2_event_log::stream_value::StreamValue;
 use buck2_event_observer::display;
 use buck2_event_observer::display::TargetDisplayOptions;
+use buck2_hash::StdBuckHashMap;
 use tokio_stream::StreamExt;
 
 use crate::LogCommandOutputFormat;
@@ -79,7 +79,7 @@ impl Display for ExtensionRecord {
 }
 
 fn get_action_record(
-    state: &HashMap<u64, buck2_data::ActionExecutionStart>,
+    state: &StdBuckHashMap<u64, buck2_data::ActionExecutionStart>,
     upload: &ReUploadEvent,
 ) -> ActionRecord {
     let digests_uploaded = upload.inner.digests_uploaded.unwrap_or_default();
@@ -120,7 +120,7 @@ fn print_uploads(
 
 fn print_extension_stats(
     output: &mut LogCommandOutputFormatWithWriter,
-    stats_by_extension: &HashMap<String, ReUploadMetrics>,
+    stats_by_extension: &StdBuckHashMap<String, ReUploadMetrics>,
 ) -> Result<(), ClientIoError> {
     let mut records: Vec<ExtensionRecord> = stats_by_extension
         .iter()
@@ -179,8 +179,8 @@ impl BuckSubcommand for WhatUploadedCommand {
 
             let mut total_digests_uploaded = 0;
             let mut total_bytes_uploaded = 0;
-            let mut state = HashMap::new();
-            let mut stats_by_extension: HashMap<String, ReUploadMetrics> = HashMap::new();
+            let mut state = StdBuckHashMap::default();
+            let mut stats_by_extension: StdBuckHashMap<String, ReUploadMetrics> = StdBuckHashMap::default();
             while let Some(event) = events.try_next().await? {
                 match event {
                     // Insert parent span information so we can refer back to it later.

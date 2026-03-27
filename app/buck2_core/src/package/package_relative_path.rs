@@ -695,14 +695,14 @@ impl Deref for PackageRelativePathBuf {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+    use buck2_hash::StdBuckHashMap;
 
     use crate::package::package_relative_path::PackageRelativePath;
     use crate::package::package_relative_path::PackageRelativePathBuf;
 
     #[test]
     fn paths_work_in_maps() -> buck2_error::Result<()> {
-        let mut map = HashMap::new();
+        let mut map = StdBuckHashMap::default();
 
         let p1 = PackageRelativePath::new("foo")?;
         let p2 = PackageRelativePath::new("bar")?;

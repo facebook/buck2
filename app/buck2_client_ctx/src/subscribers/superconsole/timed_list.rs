@@ -245,7 +245,6 @@ impl Component for TimedList<'_> {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
     use std::sync::Arc;
     use std::time::SystemTime;
 
@@ -256,6 +255,7 @@ mod tests {
     use buck2_event_observer::verbosity::Verbosity;
     use buck2_events::BuckEvent;
     use buck2_events::span::SpanId;
+    use buck2_hash::StdBuckHashMap;
     use buck2_wrapper_common::invocation_id::TraceId;
     use dupe::Dupe;
     use itertools::Itertools;
@@ -664,7 +664,7 @@ mod tests {
                 data: Some(
                     buck2_data::DiceStateSnapshot {
                         key_states: {
-                            let mut map = HashMap::new();
+                            let mut map = StdBuckHashMap::default();
                             map.insert(
                                 "BuildKey".to_owned(),
                                 buck2_data::DiceKeyState {

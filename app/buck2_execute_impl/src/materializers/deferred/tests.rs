@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
-
 use buck2_common::file_ops::metadata::FileMetadata;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_error::internal_error;
@@ -18,6 +16,7 @@ use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::insert_file;
 use buck2_execute::materialize::materializer::DeferredMaterializerSubscription;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_hash::StdBuckHashMap;
 use parking_lot::Mutex;
 
 use super::*;
@@ -56,9 +55,9 @@ fn test_find_artifacts() -> buck2_error::Result<()> {
     tree.insert(artifact3.iter().map(|f| f.to_owned()), ());
     tree.insert(artifact4.iter().map(|f| f.to_owned()), ());
 
-    let expected_artifacts: HashSet<_> =
+    let expected_artifacts: StdBuckHashSet<_> =
         vec![artifact1, artifact2, artifact3].into_iter().collect();
-    let found_artifacts: HashSet<_> = tree.find_artifacts(&builder).into_iter().collect();
+    let found_artifacts: StdBuckHashSet<_> = tree.find_artifacts(&builder).into_iter().collect();
     assert_eq!(found_artifacts, expected_artifacts);
     Ok(())
 }
@@ -80,8 +79,8 @@ fn test_remove_path() {
     insert(&mut tree, "a/c");
 
     let removed_subtree = tree.remove_path(ProjectRelativePath::unchecked_new("a/b"));
-    // Convert to HashMap<String, String> so it's easier to test
-    let removed_subtree: HashMap<String, String> = removed_subtree
+    // Convert to StdBuckHashMap<String, String> so it's easier to test
+    let removed_subtree: StdBuckHashMap<String, String> = removed_subtree
         .map(|(k, v)| (k.as_str().to_owned(), v))
         .collect();
 
@@ -140,7 +139,7 @@ mod state_machine {
         fail: Mutex<bool>,
         fail_paths: Mutex<Vec<ProjectRelativePathBuf>>,
         // If set, add a sleep when materializing to simulate a long materialization period
-        materialization_config: HashMap<ProjectRelativePathBuf, TokioDuration>,
+        materialization_config: StdBuckHashMap<ProjectRelativePathBuf, TokioDuration>,
         #[allocative(skip)]
         read_dir_barriers: Option<Arc<(Barrier, Barrier)>>,
         #[allocative(skip)]
@@ -180,7 +179,7 @@ mod state_machine {
                 log: Default::default(),
                 fail: Default::default(),
                 fail_paths: Default::default(),
-                materialization_config: HashMap::new(),
+                materialization_config: StdBuckHashMap::default(),
                 read_dir_barriers: None,
                 clean_barriers: None,
                 digest_config: DigestConfig::testing_default(),
@@ -191,7 +190,7 @@ mod state_machine {
 
         pub fn with_materialization_config(
             mut self,
-            materialization_config: HashMap<ProjectRelativePathBuf, TokioDuration>,
+            materialization_config: StdBuckHashMap<ProjectRelativePathBuf, TokioDuration>,
         ) -> Self {
             self.materialization_config = materialization_config;
             self
@@ -419,8 +418,8 @@ mod state_machine {
     fn make_db(fs: &ProjectRoot) -> (MaterializerStateSqliteDb, Option<MaterializerState>) {
         let (db, state) = testing_materializer_state_sqlite_db(
             fs,
-            HashMap::from([("version".to_owned(), "0".to_owned())]),
-            HashMap::new(),
+            StdBuckHashMap::from([("version".to_owned(), "0".to_owned())]),
+            StdBuckHashMap::default(),
             None,
         )
         .unwrap();
@@ -466,7 +465,7 @@ mod state_machine {
     }
 
     fn make_processor(
-        materialization_config: HashMap<ProjectRelativePathBuf, TokioDuration>,
+        materialization_config: StdBuckHashMap<ProjectRelativePathBuf, TokioDuration>,
     ) -> (
         DeferredMaterializerCommandProcessor<StubIoHandler>,
         MaterializerReceiver<StubIoHandler>,
@@ -608,7 +607,7 @@ mod state_machine {
             let target_path = make_path("foo/bar_target");
             let target_from_symlink = RelativePathBuf::from_path(Path::new("bar_target"))?;
 
-            let mut materialization_config = HashMap::new();
+            let mut materialization_config = StdBuckHashMap::default();
             // Materialize the symlink target slowly so that we actually hit the logic point where we
             // await for symlink targets and the entry materialization
             materialization_config.insert(target_path.clone(), TokioDuration::from_millis(100));
@@ -674,7 +673,7 @@ mod state_machine {
             let target_path = make_path("foo/bar_target");
             let target_from_symlink = RelativePathBuf::from_path(Path::new("bar_target"))?;
 
-            let mut materialization_config = HashMap::new();
+            let mut materialization_config = StdBuckHashMap::default();
             // Materialize the symlink target slowly so that we actually hit the logic point where we
             // await for symlink targets and the entry materialization
             materialization_config.insert(target_path.clone(), TokioDuration::from_millis(100));

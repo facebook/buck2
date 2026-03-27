@@ -9,8 +9,6 @@
  */
 
 use std::collections::BTreeSet;
-use std::collections::HashMap;
-use std::collections::HashSet;
 use std::io::BufWriter;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -94,6 +92,8 @@ use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::file_name::FileNameBuf;
 use buck2_fs::working_dir::AbsWorkingDir;
+use buck2_hash::StdBuckHashMap;
+use buck2_hash::StdBuckHashSet;
 use buck2_interpreter::dice::starlark_debug::SetStarlarkDebugger;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
@@ -513,7 +513,7 @@ impl ServerCommandContext<'_> {
                 Ok(BuckConfigBasedCells {
                     cell_resolver: new_configs.cell_resolver,
                     root_config: new_configs.root_config,
-                    config_paths: HashSet::new(),
+                    config_paths: StdBuckHashSet::default(),
                     external_data: (*dice_ctx.get_injected_external_buckconfig_data().await?)
                         .clone(),
                 })
@@ -530,7 +530,10 @@ impl ServerCommandContext<'_> {
         }
     }
 
-    fn report_traced_config_paths(&self, paths: &HashSet<ConfigPath>) -> buck2_error::Result<()> {
+    fn report_traced_config_paths(
+        &self,
+        paths: &StdBuckHashSet<ConfigPath>,
+    ) -> buck2_error::Result<()> {
         if let Some(tracing_provider) = TracingIoProvider::from_io(&*self.base_context.daemon.io) {
             for config_path in paths {
                 match config_path {
@@ -954,14 +957,14 @@ impl DiceCommandUpdater<'_, '_> {
     }
 }
 
-struct ConfigMetadataHolder(HashMap<String, String>);
+struct ConfigMetadataHolder(StdBuckHashMap<String, String>);
 
 fn collect_config_metadata_into(config: &LegacyBuckConfig, data: &mut UserComputationData) {
     // Facebook only: metadata collection for Scribe writes
     facebook_only();
 
     fn add_config(
-        map: &mut HashMap<String, String>,
+        map: &mut StdBuckHashMap<String, String>,
         cfg: &LegacyBuckConfig,
         key: BuckconfigKeyRef<'static>,
         field_name: &'static str,
@@ -983,7 +986,7 @@ fn collect_config_metadata_into(config: &LegacyBuckConfig, data: &mut UserComput
         sample_json.get("normals")?.as_object().cloned()
     }
 
-    let mut metadata = HashMap::new();
+    let mut metadata = StdBuckHashMap::default();
 
     add_config(
         &mut metadata,
@@ -1159,7 +1162,7 @@ impl ServerCommandContextTrait for ServerCommandContext<'_> {
     }
 
     /// Gathers metadata to attach to events for when a command starts and stops.
-    async fn request_metadata(&self) -> buck2_error::Result<HashMap<String, String>> {
+    async fn request_metadata(&self) -> buck2_error::Result<StdBuckHashMap<String, String>> {
         // Facebook only: metadata collection for Scribe writes
         facebook_only();
 
@@ -1209,7 +1212,7 @@ impl ServerCommandContextTrait for ServerCommandContext<'_> {
     async fn config_metadata(
         &self,
         ctx: &mut DiceComputations<'_>,
-    ) -> buck2_error::Result<HashMap<String, String>> {
+    ) -> buck2_error::Result<StdBuckHashMap<String, String>> {
         ctx.per_transaction_data()
             .data
             .get::<ConfigMetadataHolder>()

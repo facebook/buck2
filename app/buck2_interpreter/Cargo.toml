@@ -38,4 +38,5 @@ buck2_util = { workspace = true }
 dice_futures = { workspace = true }
 
 [dev-dependencies]
+buck2_hash = { workspace = true }
 tempfile = { workspace = true }

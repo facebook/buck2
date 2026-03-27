@@ -8,10 +8,9 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
-
 use async_trait::async_trait;
 use buck2_downward_api::DownwardApi;
+use buck2_hash::StdBuckHashMap;
 use tracing::Level;
 
 pub struct BuckTestDownwardApi;
@@ -28,7 +27,7 @@ impl DownwardApi for BuckTestDownwardApi {
         unimplemented!("TODO(bobyf)")
     }
 
-    async fn external(&self, _data: HashMap<String, String>) -> buck2_error::Result<()> {
+    async fn external(&self, _data: StdBuckHashMap<String, String>) -> buck2_error::Result<()> {
         unimplemented!("need buck event stream to implement")
     }
 }

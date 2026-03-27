@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::time::Duration;
 use std::time::Instant;
@@ -16,6 +15,7 @@ use std::time::Instant;
 use buck2_common::init::ActionSuspendStrategy;
 use buck2_common::init::ResourceControlConfig;
 use buck2_events::daemon_id::DaemonId;
+use buck2_hash::StdBuckHashMap;
 use dupe::Dupe;
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
@@ -439,7 +439,7 @@ impl Scheduler {
     pub(crate) fn update(
         &mut self,
         memory_reading: MemoryReading,
-        scene_readings: HashMap<SceneIdRef, SceneResourceReading>,
+        scene_readings: StdBuckHashMap<SceneIdRef, SceneResourceReading>,
         now: Instant,
     ) {
         self.allprocs_memory_current
@@ -805,11 +805,11 @@ mod tests {
 
     use super::*;
 
-    struct UpdateBuilder(HashMap<SceneIdRef, SceneResourceReading>);
+    struct UpdateBuilder(StdBuckHashMap<SceneIdRef, SceneResourceReading>);
 
     impl UpdateBuilder {
         fn new() -> Self {
-            Self(HashMap::new())
+            Self(StdBuckHashMap::default())
         }
 
         fn add(self, scene_id: SceneIdRef, memory_current: u64) -> Self {
@@ -832,7 +832,7 @@ mod tests {
             self
         }
 
-        fn build(self) -> HashMap<SceneIdRef, SceneResourceReading> {
+        fn build(self) -> StdBuckHashMap<SceneIdRef, SceneResourceReading> {
             self.0
         }
     }

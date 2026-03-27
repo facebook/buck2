@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -19,6 +18,7 @@ use buck2_execute::re::manager::ReConnectionManager;
 use buck2_fs::fs_util::DiskSpaceStats;
 use buck2_fs::fs_util::disk_space_stats;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_hash::StdBuckHashMap;
 use buck2_util::process_stats::process_stats;
 use buck2_util::system_stats::UnixSystemStats;
 use dupe::Dupe;
@@ -275,7 +275,7 @@ impl SnapshotCollector {
                 })
                 .collect();
         } else {
-            snapshot.network_interface_stats = HashMap::new();
+            snapshot.network_interface_stats = StdBuckHashMap::default();
         }
     }
 

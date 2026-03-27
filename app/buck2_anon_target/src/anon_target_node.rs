@@ -9,7 +9,6 @@
  */
 
 use std::any::Any;
-use std::collections::HashMap;
 use std::fmt;
 use std::hash::Hash;
 use std::hash::Hasher;
@@ -41,6 +40,7 @@ use buck2_data::ToProtoMessage;
 use buck2_data::action_key_owner::BaseDeferredKeyProto;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_hash::BuckHasher;
+use buck2_hash::StdBuckHashMap;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_node::rule_type::StarlarkRuleType;
 use buck2_util::strong_hasher::Blake3StrongHasher;
@@ -202,7 +202,7 @@ impl AnonTargetDyn for AnonTarget {
         let rule_analysis_attr_resolution_ctx = RuleAnalysisAttrResolutionContext {
             module: env,
             dep_analysis_results,
-            query_results: HashMap::new(),
+            query_results: StdBuckHashMap::default(),
             execution_platform_resolution: exec_resolution,
         };
 
@@ -230,8 +230,8 @@ impl AnonTargetDyn for AnonTarget {
         promise_artifact_mappings: SmallMap<String, Value<'v>>,
         anon_target_result: Value<'v>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> buck2_error::Result<HashMap<PromiseArtifactId, Artifact>> {
-        let mut fulfilled_artifact_mappings = HashMap::new();
+    ) -> buck2_error::Result<StdBuckHashMap<PromiseArtifactId, Artifact>> {
+        let mut fulfilled_artifact_mappings = StdBuckHashMap::default();
 
         for (id, func) in promise_artifact_mappings.values().enumerate() {
             let artifact = eval.eval_function(*func, &[anon_target_result], &[])?;

@@ -14,8 +14,6 @@
 //! Implementation of the `TestOrchestrator` from `buck2_test_api`.
 
 use std::borrow::Cow;
-use std::collections::HashMap;
-use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::fmt::Display;
 use std::hash::Hash;
@@ -125,6 +123,8 @@ use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_hash::BuckDefaultHasher;
 use buck2_hash::BuckHashMap;
+use buck2_hash::StdBuckHashMap;
+use buck2_hash::StdBuckHashSet;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_resource_control::HasResourceControl;
@@ -304,7 +304,7 @@ impl<'a> BuckTestOrchestrator<'a> {
 
         Self::require_alive(self.liveliness_observer.dupe()).await?;
 
-        let mut output_map = HashMap::new();
+        let mut output_map = StdBuckHashMap::default();
         let mut paths_to_materialize = vec![];
 
         let remote_storage_config_update_futures = FuturesUnordered::new();
@@ -437,7 +437,7 @@ impl<'a> BuckTestOrchestrator<'a> {
                 agv.iter()
                     .filter_map(|(artifact, _)| artifact.action_key().map(|k| k.dupe()))
             })
-            .collect::<HashSet<_>>() // dedupe
+            .collect::<StdBuckHashSet<_>>() // dedupe
             .into_iter()
             .collect();
 
@@ -1852,7 +1852,7 @@ struct Execute2RequestExpander<'a> {
 
 fn make_visit_arg_artifacts<'v>(
     cli_args_for_interpolation: Vec<&'v dyn CommandLineArgLike<'v>>,
-    env_for_interpolation: HashMap<&'v str, &'v dyn CommandLineArgLike<'v>>,
+    env_for_interpolation: StdBuckHashMap<&'v str, &'v dyn CommandLineArgLike<'v>>,
 ) -> impl for<'a> Fn(&'a mut dyn CommandLineArtifactVisitor<'v>, &'a ArgValue) -> buck2_error::Result<()>
 {
     move |artifact_visitor: &mut dyn CommandLineArtifactVisitor<'_>, value: &ArgValue| {
@@ -1891,7 +1891,7 @@ impl<'a> Execute2RequestExpander<'a> {
                 TestCommandMember::Arglike(a) => Some(a),
             })
             .collect::<Vec<_>>();
-        let env_for_interpolation = test_info.env().collect::<HashMap<_, _>>();
+        let env_for_interpolation = test_info.env().collect::<StdBuckHashMap<_, _>>();
 
         let visit_arg_artifacts =
             make_visit_arg_artifacts(cli_args_for_interpolation, env_for_interpolation);
@@ -1940,7 +1940,7 @@ impl<'a> Execute2RequestExpander<'a> {
                 TestCommandMember::Arglike(a) => Some(a),
             })
             .collect::<Vec<_>>();
-        let env_for_interpolation = test_info.env().collect::<HashMap<_, _>>();
+        let env_for_interpolation = test_info.env().collect::<StdBuckHashMap<_, _>>();
 
         let artifact_path_mapping = ArtifactPathMapperImpl::from(ensured_inputs);
 

@@ -9,8 +9,6 @@
  */
 
 use std::borrow::Cow;
-use std::collections::HashMap;
-use std::collections::HashSet;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -78,6 +76,8 @@ use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathNormalizer;
 use buck2_hash::BuckDashMap;
+use buck2_hash::StdBuckHashMap;
+use buck2_hash::StdBuckHashSet;
 use derive_more::Display;
 use dupe::Dupe;
 use futures::StreamExt;
@@ -1415,7 +1415,8 @@ impl DeclaredDepFiles {
         fs: &ArtifactFs,
         result: &ActionOutputs,
     ) -> buck2_error::Result<Option<ConcreteDepFiles>> {
-        let mut contents = HashMap::with_capacity(self.tagged.len());
+        let mut contents =
+            StdBuckHashMap::with_capacity_and_hasher(self.tagged.len(), Default::default());
 
         for declared_dep_file in self.tagged.values() {
             let content_hash = if declared_dep_file
@@ -1475,8 +1476,8 @@ impl DeclaredDepFiles {
         match other {
             None => self.tagged.is_empty(),
             Some(other) => {
-                let this = self.tagged.values().collect::<HashSet<_>>();
-                let other = other.tagged.values().collect::<HashSet<_>>();
+                let this = self.tagged.values().collect::<StdBuckHashSet<_>>();
+                let other = other.tagged.values().collect::<StdBuckHashSet<_>>();
                 this == other
             }
         }
@@ -1500,7 +1501,7 @@ enum MaterializeDepFilesError {
 /// content of the corresponding dep file.
 #[derive(Clone)]
 pub(crate) struct ConcreteDepFiles {
-    contents: HashMap<Arc<str>, String>,
+    contents: StdBuckHashMap<Arc<str>, String>,
 }
 
 impl ConcreteDepFiles {

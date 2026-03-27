@@ -22,7 +22,6 @@ pub(crate) mod file_tree;
 #[cfg(test)]
 mod tests;
 
-use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::AtomicUsize;
@@ -67,6 +66,7 @@ use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_execute::re::manager::ReConnectionManager;
+use buck2_hash::StdBuckHashSet;
 use buck2_http::HttpClient;
 use buck2_util::threads::thread_spawn;
 use chrono::DateTime;
@@ -643,7 +643,7 @@ impl DeferredMaterializerAccessor<DefaultIoHandler> {
         };
         let access_times_buffer =
             (!matches!(configs.update_access_times, AccessTimesUpdates::Disabled))
-                .then(HashSet::new);
+                .then(StdBuckHashSet::new);
 
         let tree = ArtifactTree::initialize(sqlite_state);
 

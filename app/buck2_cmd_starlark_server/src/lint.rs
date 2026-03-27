@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
-use std::collections::HashSet;
 use std::io::Write;
 use std::sync::Arc;
 
@@ -22,6 +20,8 @@ use buck2_common::io::IoProvider;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::name::CellName;
 use buck2_error::internal_error;
+use buck2_hash::StdBuckHashMap;
+use buck2_hash::StdBuckHashSet;
 use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_interpreter::paths::path::StarlarkPath;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -43,21 +43,21 @@ use crate::util::paths::starlark_files;
 /// The cache of names for a path, keyed by its CellName and its path type.
 struct Cache<'a> {
     dice: &'a DiceTransaction,
-    cached: HashMap<(CellName, StarlarkFileType), Arc<HashSet<String>>>,
+    cached: StdBuckHashMap<(CellName, StarlarkFileType), Arc<StdBuckHashSet<String>>>,
 }
 
 impl<'a> Cache<'a> {
     pub(crate) fn new(dice: &'a DiceTransaction) -> Cache<'a> {
         Self {
             dice,
-            cached: HashMap::new(),
+            cached: StdBuckHashMap::default(),
         }
     }
 
     pub(crate) async fn get_names(
         &mut self,
         path: &StarlarkPath<'_>,
-    ) -> buck2_error::Result<Arc<HashSet<String>>> {
+    ) -> buck2_error::Result<Arc<StdBuckHashSet<String>>> {
         let path_type = path.file_type();
         let cell = path.cell();
         if let Some(res) = self.cached.get(&(cell, path_type)) {

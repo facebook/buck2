@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
 use std::future::Future;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -36,6 +35,7 @@ use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::working_dir::AbsWorkingDir;
+use buck2_hash::StdBuckHashMap;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dice::DiceComputations;
 use dice::DiceTransaction;
@@ -133,12 +133,12 @@ pub trait ServerCommandContextTrait: Send + Sync {
         data: buck2_data::command_start::Data,
     ) -> buck2_error::Result<buck2_data::CommandStart>;
 
-    async fn request_metadata(&self) -> buck2_error::Result<HashMap<String, String>>;
+    async fn request_metadata(&self) -> buck2_error::Result<StdBuckHashMap<String, String>>;
 
     async fn config_metadata(
         &self,
         ctx: &mut DiceComputations<'_>,
-    ) -> buck2_error::Result<HashMap<String, String>>;
+    ) -> buck2_error::Result<StdBuckHashMap<String, String>>;
 
     fn log_target_pattern(
         &self,

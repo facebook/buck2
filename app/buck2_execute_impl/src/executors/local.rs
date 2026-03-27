@@ -1748,7 +1748,6 @@ mod unix {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
     use std::str;
 
     use assert_matches::assert_matches;
@@ -1761,6 +1760,7 @@ mod tests {
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_execute::execute::blocking::testing::DummyBlockingExecutor;
     use buck2_execute::materialize::nodisk::NoDiskMaterializer;
+    use buck2_hash::StdBuckHashMap;
     use host_sharing::HostSharingStrategy;
 
     use super::*;
@@ -1812,7 +1812,7 @@ mod tests {
             .exec(
                 interpreter,
                 ["-c", "echo $PWD; pwd"],
-                &HashMap::<String, String>::default(),
+                &StdBuckHashMap::<String, String>::default(),
                 ProjectRelativePath::empty(),
                 None,
                 None,
@@ -1855,7 +1855,7 @@ mod tests {
             .exec(
                 interpreter,
                 ["-c", command],
-                &HashMap::<String, String>::default(),
+                &StdBuckHashMap::<String, String>::default(),
                 ProjectRelativePath::empty(),
                 Some(Duration::from_secs(1)),
                 None,
@@ -1882,7 +1882,7 @@ mod tests {
             .exec(
                 "sh",
                 ["-c", "echo $USER"],
-                &HashMap::<String, String>::default(),
+                &StdBuckHashMap::<String, String>::default(),
                 ProjectRelativePath::empty(),
                 None,
                 Some(&EnvironmentInheritance::empty()),

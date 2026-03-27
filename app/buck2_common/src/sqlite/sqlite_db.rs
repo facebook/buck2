@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -19,6 +18,7 @@ use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileName;
+use buck2_hash::StdBuckHashMap;
 use chrono::Utc;
 use derive_more::Display;
 use derive_more::From;
@@ -41,8 +41,8 @@ enum SqliteDbError {
 
     #[error("Expected versions {:?}. Found versions {:?} in sqlite db at {}", .expected, .found, .path)]
     VersionMismatch {
-        expected: HashMap<String, String>,
-        found: HashMap<String, String>,
+        expected: StdBuckHashMap<String, String>,
+        found: StdBuckHashMap<String, String>,
         path: AbsNormPathBuf,
     },
 
@@ -79,8 +79,8 @@ pub trait SqliteDb {
 
     fn get_sqlite_db(
         db_dir: &AbsNormPathBuf,
-        versions: &HashMap<String, String>,
-        mut current_instance_metadata: HashMap<String, String>,
+        versions: &StdBuckHashMap<String, String>,
+        mut current_instance_metadata: StdBuckHashMap<String, String>,
         reject_identity: Option<&SqliteIdentity>,
     ) -> buck2_error::Result<Self>
     where
@@ -124,8 +124,8 @@ pub trait SqliteDb {
     // Initialize a new db from scratch.
     fn create_sqlite_db(
         db_dir: AbsNormPathBuf,
-        versions: HashMap<String, String>,
-        mut current_instance_metadata: HashMap<String, String>,
+        versions: StdBuckHashMap<String, String>,
+        mut current_instance_metadata: StdBuckHashMap<String, String>,
     ) -> buck2_error::Result<Self>
     where
         Self: std::marker::Sized,
@@ -237,11 +237,11 @@ impl<T: SqliteTable> SqliteTables<T> {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
     use std::sync::Arc;
 
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
+    use buck2_hash::StdBuckHashMap;
     use dupe::Dupe;
     use parking_lot::Mutex;
     use rusqlite::Connection;
@@ -329,15 +329,15 @@ mod tests {
         }
     }
 
-    fn create_test_versions() -> HashMap<String, String> {
-        HashMap::from([
+    fn create_test_versions() -> StdBuckHashMap<String, String> {
+        StdBuckHashMap::from([
             ("schema_version".to_owned(), "1".to_owned()),
             ("app_version".to_owned(), "test".to_owned()),
         ])
     }
 
-    fn create_test_metadata() -> HashMap<String, String> {
-        HashMap::from([
+    fn create_test_metadata() -> StdBuckHashMap<String, String> {
+        StdBuckHashMap::from([
             ("created_by".to_owned(), "test_suite".to_owned()),
             ("test_run".to_owned(), "true".to_owned()),
         ])
@@ -420,8 +420,8 @@ mod tests {
             .path()
             .resolve(ProjectRelativePath::unchecked_new("test_db_dir"));
 
-        let v1_versions = HashMap::from([("schema_version".to_owned(), "1".to_owned())]);
-        let v2_versions = HashMap::from([("schema_version".to_owned(), "2".to_owned())]);
+        let v1_versions = StdBuckHashMap::from([("schema_version".to_owned(), "1".to_owned())]);
+        let v2_versions = StdBuckHashMap::from([("schema_version".to_owned(), "2".to_owned())]);
         let metadata = create_test_metadata();
 
         // Create database with version 1
@@ -502,7 +502,7 @@ mod tests {
         tables.create_all_tables()?;
 
         // Test version table functionality
-        let test_versions = HashMap::from([
+        let test_versions = StdBuckHashMap::from([
             ("key1".to_owned(), "value1".to_owned()),
             ("key2".to_owned(), "value2".to_owned()),
         ]);
@@ -511,7 +511,7 @@ mod tests {
         assert_eq!(read_versions, test_versions);
 
         // Test created_by table functionality
-        let test_metadata = HashMap::from([
+        let test_metadata = StdBuckHashMap::from([
             (
                 "timestamp_on_initialization".to_owned(),
                 "test_timestamp".to_owned(),

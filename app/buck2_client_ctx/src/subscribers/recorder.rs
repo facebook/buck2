@@ -10,8 +10,6 @@
 
 use std::cmp::max;
 use std::cmp::min;
-use std::collections::HashMap;
-use std::collections::HashSet;
 use std::io::Write;
 use std::ops::Sub;
 use std::sync::Arc;
@@ -60,6 +58,8 @@ use buck2_events::sink::remote::new_remote_event_sink_if_enabled;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_path::AbsPathBuf;
+use buck2_hash::StdBuckHashMap;
+use buck2_hash::StdBuckHashSet;
 use buck2_util::network_speed_average::NetworkSpeedAverage;
 use buck2_util::sliding_window::SlidingWindow;
 use buck2_wrapper_common::BUCK_WRAPPER_START_TIME_ENV_VAR;
@@ -172,9 +172,9 @@ pub struct InvocationRecorder {
     initial_sink_dropped_count: Option<u64>,
     initial_sink_bytes_written: Option<u64>,
     sink_max_buffer_depth: u64,
-    soft_error_categories: HashSet<SoftError>,
+    soft_error_categories: StdBuckHashSet<SoftError>,
     concurrent_command_blocking_duration: Option<Duration>,
-    metadata: HashMap<String, String>,
+    metadata: StdBuckHashMap<String, String>,
     analysis_count: u64,
     load_count: u64,
     daemon_in_memory_state_is_corrupted: bool,
@@ -208,7 +208,7 @@ pub struct InvocationRecorder {
     initial_hedwig_download_bytes: Option<u64>,
     initial_hedwig_upload_queries: Option<u64>,
     initial_hedwig_upload_bytes: Option<u64>,
-    concurrent_command_ids: HashSet<String>,
+    concurrent_command_ids: StdBuckHashSet<String>,
     daemon_connection_failure: bool,
     /// Daemon started by this command.
     daemon_was_started: Option<buck2_data::DaemonWasStartedReason>,
@@ -228,7 +228,7 @@ pub struct InvocationRecorder {
     peak_process_memory_bytes: Option<u64>,
     has_new_buckconfigs: bool,
     peak_used_disk_space_bytes: Option<u64>,
-    active_networks_kinds: HashSet<i32>,
+    active_networks_kinds: StdBuckHashSet<i32>,
     target_cfg: Option<TargetCfg>,
     hg_revision: Option<String>,
     has_local_changes: Option<bool>,
@@ -242,7 +242,7 @@ pub struct InvocationRecorder {
     previous_uuid_with_mismatched_config: Option<String>,
     file_watcher: Option<String>,
     health_check_tags_receiver: Option<Receiver<Vec<String>>>,
-    health_check_tags: HashSet<String>,
+    health_check_tags: StdBuckHashSet<String>,
     exec_time_ms: u64,
     initial_local_cache_hits_files_from_memory_cache: Option<i64>,
     initial_local_cache_hits_files_from_filesystem_cache: Option<i64>,
@@ -259,7 +259,7 @@ pub struct InvocationRecorder {
     current_in_progress_remote_uploads: u64,
     max_in_progress_remote_uploads: u64,
     // Track executor stage types by span ID to know which counter to decrement on end
-    executor_stages_by_span: HashMap<u64, ExecutorStageType>,
+    executor_stages_by_span: StdBuckHashMap<u64, ExecutorStageType>,
     // Track maximum buck2 daemon anon memory usage
     memory_max_anon_allprocs: Option<u64>,
     // Track maximum buck2 forkserver anon memory usage
@@ -376,7 +376,7 @@ impl InvocationRecorder {
             initial_sink_dropped_count: None,
             initial_sink_bytes_written: None,
             sink_max_buffer_depth: 0,
-            soft_error_categories: HashSet::new(),
+            soft_error_categories: StdBuckHashSet::default(),
             concurrent_command_blocking_duration: None,
             // Use a null daemon_id here initially - if we later get metadata back from the daemon,
             // we'll overwrite this then
@@ -414,7 +414,7 @@ impl InvocationRecorder {
             initial_hedwig_download_bytes: None,
             initial_hedwig_upload_queries: None,
             initial_hedwig_upload_bytes: None,
-            concurrent_command_ids: HashSet::new(),
+            concurrent_command_ids: StdBuckHashSet::default(),
             daemon_connection_failure: false,
             daemon_was_started: None,
             should_restart: false,
@@ -440,7 +440,7 @@ impl InvocationRecorder {
             peak_process_memory_bytes: None,
             has_new_buckconfigs: false,
             peak_used_disk_space_bytes: None,
-            active_networks_kinds: HashSet::new(),
+            active_networks_kinds: StdBuckHashSet::default(),
             target_cfg: None,
             hg_revision: None,
             has_local_changes: None,
@@ -454,7 +454,7 @@ impl InvocationRecorder {
             previous_uuid_with_mismatched_config: None,
             file_watcher: None,
             health_check_tags_receiver: None,
-            health_check_tags: HashSet::new(),
+            health_check_tags: StdBuckHashSet::default(),
             exec_time_ms: 0,
             initial_local_cache_hits_files_from_memory_cache: None,
             initial_local_cache_hits_files_from_filesystem_cache: None,
@@ -470,7 +470,7 @@ impl InvocationRecorder {
             max_in_progress_remote_actions: 0,
             current_in_progress_remote_uploads: 0,
             max_in_progress_remote_uploads: 0,
-            executor_stages_by_span: HashMap::new(),
+            executor_stages_by_span: StdBuckHashMap::default(),
             memory_max_anon_allprocs: None,
             memory_max_anon_forkserver_actions: None,
             memory_max_total_allprocs: None,
@@ -1249,11 +1249,11 @@ impl InvocationRecorder {
     // Collects client-side state and data, suitable for telemetry.
     // NOTE: If data is visible from the daemon, put it in cli::metadata::collect()
     fn default_metadata() -> buck2_data::TypedMetadata {
-        let mut ints = HashMap::new();
+        let mut ints = StdBuckHashMap::default();
         ints.insert("is_tty".to_owned(), std::io::stderr().is_tty() as i64);
         buck2_data::TypedMetadata {
             ints,
-            strings: HashMap::new(),
+            strings: StdBuckHashMap::default(),
         }
     }
 

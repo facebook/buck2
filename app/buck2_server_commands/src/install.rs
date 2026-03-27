@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::io::Read;
@@ -285,7 +284,7 @@ async fn collect_install_request_data<'a>(
         .convert_pattern()
         .buck_error_context("Install with explicit configuration pattern is not supported yet")?;
 
-    let mut installer_to_files_map = HashMap::new();
+    let mut installer_to_files_map = std::collections::HashMap::new();
     for (package_with_modifiers, spec) in resolved_pattern.specs {
         let PackageLabelWithModifiers { package, modifiers } = package_with_modifiers;
 
@@ -501,7 +500,7 @@ impl<'a> ConnectedInstaller<'a> {
             let install_id = install_id(installed_target);
             let install_info_request = tonic::Request::new(InstallInfoRequest {
                 install_id: install_id.to_owned(),
-                files: HashMap::new(),
+                files: std::collections::HashMap::new(),
                 file_names,
             });
 

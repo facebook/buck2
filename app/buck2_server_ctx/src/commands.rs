@@ -8,10 +8,9 @@
  * above-listed licenses.
  */
 
-use std::collections::HashSet;
-
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_hash::StdBuckHashSet;
 
 /// Common code executed in the end of command to produce `CommandEnd`.
 pub fn command_end<R, D>(result: &buck2_error::Result<R>, data: D) -> buck2_data::CommandEnd
@@ -43,7 +42,7 @@ pub fn send_target_cfg_event(
     conf_labels: impl IntoIterator<Item = &ConfiguredProvidersLabel>,
     target_cfg: &Option<buck2_cli_proto::TargetCfg>,
 ) {
-    let mut target_platforms = HashSet::new();
+    let mut target_platforms = StdBuckHashSet::default();
     for conf in conf_labels {
         // cfg can be unbound
         if let Ok(label) = conf.cfg().label() {

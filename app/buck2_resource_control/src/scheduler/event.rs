@@ -8,12 +8,12 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
 use std::time::Duration;
 use std::time::Instant;
 use std::time::SystemTime;
 
 use buck2_events::daemon_id::DaemonId;
+use buck2_hash::StdBuckHashMap;
 use buck2_wrapper_common::invocation_id::TraceId;
 use tokio::sync::mpsc;
 
@@ -22,7 +22,7 @@ use crate::memory_tracker::MemoryReading;
 use crate::scheduler::Scene;
 
 pub(crate) struct EventSenderState {
-    metadata: HashMap<String, String>,
+    metadata: StdBuckHashMap<String, String>,
     estimated_memory_cap: u64,
     memory_reading: MemoryReading,
     last_scheduled_event_time: Option<Instant>,
@@ -132,7 +132,7 @@ impl EventSenderState {
 #[derive(Clone)]
 pub(crate) struct ResourceControlEventMostly {
     time_event_generated: SystemTime,
-    metadata: HashMap<String, String>,
+    metadata: StdBuckHashMap<String, String>,
     kind: buck2_data::ResourceControlEventKind,
 
     memory_reading: MemoryReading,

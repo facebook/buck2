@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -36,6 +35,7 @@ use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::file_name::FileNameBuf;
+use buck2_hash::StdBuckHashMap;
 use buck2_wrapper_common::invocation_id::TraceId;
 use chrono::DateTime;
 use chrono::Utc;
@@ -251,7 +251,7 @@ impl CleanStaleArtifactsCommand {
                 let dir_subtree = match dir_subtree {
                     Some(t) => t,
                     None => {
-                        empty = HashMap::new();
+                        empty = StdBuckHashMap::default();
                         &empty
                     }
                 };
@@ -508,7 +508,7 @@ impl<T: IoHandler> StaleFinder<'_, T> {
     fn visit_recursively(
         &mut self,
         path: ProjectRelativePathBuf,
-        subtree: &HashMap<FileNameBuf, ArtifactTree>,
+        subtree: &StdBuckHashMap<FileNameBuf, ArtifactTree>,
     ) -> buck2_error::Result<()> {
         let mut queue = vec![(path, subtree)];
 
@@ -526,10 +526,10 @@ impl<T: IoHandler> StaleFinder<'_, T> {
     fn visit<'t>(
         &mut self,
         path: &ProjectRelativePath,
-        subtree: &'t HashMap<FileNameBuf, ArtifactTree>,
+        subtree: &'t StdBuckHashMap<FileNameBuf, ArtifactTree>,
         queue: &mut Vec<(
             ProjectRelativePathBuf,
-            &'t HashMap<FileNameBuf, ArtifactTree>,
+            &'t StdBuckHashMap<FileNameBuf, ArtifactTree>,
         )>,
     ) -> buck2_error::Result<()> {
         let abs_path = self.io.fs().resolve(path);

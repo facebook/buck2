@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -19,6 +18,7 @@ use buck2_data::ReleaseLocalResourcesEnd;
 use buck2_data::ReleaseLocalResourcesStart;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::span_async_simple;
+use buck2_hash::StdBuckHashMap;
 use dice::DiceComputations;
 use dice::UserComputationData;
 use dupe::Dupe;
@@ -26,7 +26,7 @@ use tokio::sync::Mutex;
 
 #[derive(Default)]
 pub struct LocalResourceRegistry(
-    pub Arc<Mutex<HashMap<ConfiguredTargetLabel, buck2_error::Result<LocalResourceState>>>>,
+    pub Arc<Mutex<StdBuckHashMap<ConfiguredTargetLabel, buck2_error::Result<LocalResourceState>>>>,
 );
 
 impl LocalResourceRegistry {

@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
-
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_directory::directory::directory::Directory;
@@ -24,6 +22,7 @@ use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_hash::StdBuckHashMap;
 
 pub struct MaterializeTreeStructure {
     pub path: ProjectRelativePathBuf,
@@ -122,7 +121,7 @@ where
 /// `file_dest`. It's then removed from `srcs`.
 fn _materialize_files_from_map<P, D>(
     entry: DirectoryEntry<&D, &ActionDirectoryMember>,
-    srcs: &mut HashMap<AbsNormPathBuf, AbsNormPathBuf>,
+    srcs: &mut StdBuckHashMap<AbsNormPathBuf, AbsNormPathBuf>,
     dest: P,
 ) -> buck2_error::Result<()>
 where

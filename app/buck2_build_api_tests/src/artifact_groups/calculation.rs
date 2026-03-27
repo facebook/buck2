@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use buck2_analysis::analysis::calculation::AnalysisKey;
@@ -47,6 +46,7 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::SetDigestConfig;
+use buck2_hash::StdBuckHashMap;
 use dice::UserComputationData;
 use dice::testing::DiceBuilder;
 use dupe::Dupe;
@@ -62,10 +62,10 @@ fn mock_analysis_for_tsets(
     mut dice_builder: DiceBuilder,
     tsets: Vec<OwnedFrozenValueTyped<FrozenTransitiveSet>>,
 ) -> DiceBuilder {
-    let mut by_target: HashMap<
+    let mut by_target: StdBuckHashMap<
         ConfiguredTargetLabel,
         Vec<(TransitiveSetKey, OwnedFrozenValueTyped<FrozenTransitiveSet>)>,
-    > = HashMap::new();
+    > = StdBuckHashMap::default();
 
     for value in tsets {
         let key = value.key().dupe();
@@ -90,7 +90,7 @@ fn mock_analysis_for_tsets(
                     RecordedActions::new(0),
                 ),
                 None,
-                HashMap::new(),
+                StdBuckHashMap::default(),
                 0,
                 0,
                 None,

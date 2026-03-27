@@ -18,12 +18,12 @@
 // data in the right format and maybe escaping. It's not been imported to tp2 so we implement it
 // ourselves for now.
 
-use std::collections::HashMap;
 use std::collections::hash_map::Entry::Occupied;
 use std::collections::hash_map::Entry::Vacant;
 use std::fmt::Display;
 use std::io::Write;
 
+use buck2_hash::StdBuckHashMap;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use starlark_map::small_map::SmallMap;
@@ -143,7 +143,7 @@ impl DotCompact {
         writeln!(w, "digraph {} {{", graph.name())?;
 
         let mut next_id: u32 = 0;
-        let mut lookup_numeric_id: HashMap<String, u32> = HashMap::new();
+        let mut lookup_numeric_id: StdBuckHashMap<String, u32> = StdBuckHashMap::default();
 
         let mut name_to_number = |node_name: &str| -> u32 {
             match lookup_numeric_id.entry(node_name.to_owned()) {

@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use buck2_common::sqlite::sqlite_db::SqliteDb;
@@ -23,6 +22,7 @@ use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_hash::BuckDashMap;
+use buck2_hash::StdBuckHashMap;
 use chrono::DateTime;
 use chrono::Utc;
 use dupe::Dupe;
@@ -162,8 +162,8 @@ impl IncrementalStateSqliteDb {
     /// (2) the `IncrementalState` if loading was successful or the load error.
     pub async fn initialize(
         incremental_state_dir: AbsNormPathBuf,
-        versions: HashMap<String, String>,
-        current_instance_metadata: HashMap<String, String>,
+        versions: StdBuckHashMap<String, String>,
+        current_instance_metadata: StdBuckHashMap<String, String>,
         io_executor: Arc<dyn BlockingExecutor>,
         reject_identity: Option<&SqliteIdentity>,
     ) -> buck2_error::Result<IncrementalDbState> {
@@ -181,8 +181,8 @@ impl IncrementalStateSqliteDb {
 
     fn initialize_incremental_sqlite_db(
         incremental_state_dir: AbsNormPathBuf,
-        versions: HashMap<String, String>,
-        current_instance_metadata: HashMap<String, String>,
+        versions: StdBuckHashMap<String, String>,
+        current_instance_metadata: StdBuckHashMap<String, String>,
         reject_identity: Option<&SqliteIdentity>,
     ) -> buck2_error::Result<IncrementalDbState> {
         let reject_identity = reject_identity.cloned();
@@ -241,8 +241,8 @@ impl IncrementalStateSqliteDb {
 #[allow(unused)] // Used by test modules
 pub(crate) fn testing_incremental_state_sqlite_db(
     fs: &ProjectRoot,
-    versions: HashMap<String, String>,
-    metadata: HashMap<String, String>,
+    versions: StdBuckHashMap<String, String>,
+    metadata: StdBuckHashMap<String, String>,
     reject_identity: Option<&SqliteIdentity>,
 ) -> buck2_error::Result<IncrementalDbState> {
     IncrementalStateSqliteDb::initialize_incremental_sqlite_db(
@@ -266,7 +266,7 @@ mod tests {
 
     #[test]
     fn test_initialize_incremental_sqlite_db() -> buck2_error::Result<()> {
-        fn testing_metadatas() -> Vec<HashMap<String, String>> {
+        fn testing_metadatas() -> Vec<StdBuckHashMap<String, String>> {
             let metadata = buck2_events::metadata::collect(&DaemonId::new());
             let mut metadatas = vec![metadata; 5];
             for (i, metadata) in metadatas.iter_mut().enumerate() {
@@ -276,8 +276,8 @@ mod tests {
         }
 
         fn assert_metadata_matches(
-            mut have: HashMap<String, String>,
-            want: &HashMap<String, String>,
+            mut have: StdBuckHashMap<String, String>,
+            want: &StdBuckHashMap<String, String>,
         ) {
             // Remove the key we inject (and check it's there).
             have.remove("timestamp_on_initialization").unwrap();
@@ -297,8 +297,8 @@ mod tests {
         let incremental_path_map = IncrementalPathMap::new(mapping);
         let metadatas = testing_metadatas();
 
-        let v0 = HashMap::from([("version".to_owned(), "0".to_owned())]);
-        let v1 = HashMap::from([("version".to_owned(), "1".to_owned())]);
+        let v0 = StdBuckHashMap::from([("version".to_owned(), "0".to_owned())]);
+        let v1 = StdBuckHashMap::from([("version".to_owned(), "1".to_owned())]);
 
         // Initialize with non-existent DB (should create new DB)
         {

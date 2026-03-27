@@ -9,7 +9,6 @@
  */
 
 use std::borrow::Cow;
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use buck2_common::external_symlink::ExternalSymlink;
@@ -33,6 +32,7 @@ use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::directory::INTERNER;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_hash::StdBuckHashMap;
 use chrono::DateTime;
 use chrono::TimeZone;
 use chrono::Utc;
@@ -297,7 +297,8 @@ fn convert_sqlite_entries_to_materializer_state(
         children: Vec<SqliteEntry<'a>>,
     }
 
-    let mut directories: HashMap<ProjectRelativePathBuf, DirectoryData> = HashMap::new();
+    let mut directories: StdBuckHashMap<ProjectRelativePathBuf, DirectoryData> =
+        StdBuckHashMap::default();
 
     let mut results = Vec::new();
 

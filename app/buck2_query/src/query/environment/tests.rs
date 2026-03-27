@@ -10,11 +10,11 @@
 
 #![cfg(test)]
 
-use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
 
 use buck2_error::internal_error;
+use buck2_hash::StdBuckHashMap;
 use buck2_query::query::traversal::NodeLookup;
 use buck2_query::query::traversal::async_depth_first_postorder_traversal;
 use buck2_query::query::traversal::async_depth_limited_traversal;
@@ -130,7 +130,7 @@ impl QueryTarget for TestTarget {
 }
 
 struct TestEnv {
-    graph: HashMap<TestTargetId, TestTarget>,
+    graph: StdBuckHashMap<TestTargetId, TestTarget>,
 }
 
 impl NodeLookup<TestTarget> for TestEnv {
@@ -230,7 +230,7 @@ impl TestEnv {
 
 #[derive(Default)]
 pub struct TestEnvBuilder {
-    graph: HashMap<u64, IndexSet<u64>>,
+    graph: StdBuckHashMap<u64, IndexSet<u64>>,
 }
 
 impl TestEnvBuilder {

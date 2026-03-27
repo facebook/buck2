@@ -17,11 +17,11 @@
 
 #![feature(once_cell_try)]
 
-use std::collections::HashSet;
 use std::thread;
 use std::time::Duration;
 use std::time::Instant;
 
+use buck2_hash::StdBuckHashSet;
 use is_buck2::WhoIsAsking;
 use sysinfo::ProcessesToUpdate;
 use sysinfo::System;
@@ -57,16 +57,16 @@ struct ProcessInfo {
 /// PIDs), and not just all posix PIDs (what the kernel calls TGIDs). In order to make sure that we
 /// don't kill any of the TIDs in our PID, we need to filter the list of TIDs down. This function
 /// returns the list of all PIDs on the system.
-fn get_all_tgids_linux() -> Option<HashSet<sysinfo::Pid>> {
+fn get_all_tgids_linux() -> Option<StdBuckHashSet<sysinfo::Pid>> {
     if !cfg!(target_os = "linux") {
         return None;
     }
 
     let Ok(entries) = std::fs::read_dir("/proc") else {
-        return Some(HashSet::new());
+        return Some(StdBuckHashSet::default());
     };
 
-    let mut all_tgids = HashSet::new();
+    let mut all_tgids = StdBuckHashSet::default();
 
     for e in entries {
         let Ok(e) = e else {
@@ -92,7 +92,7 @@ fn find_buck2_processes(who_is_asking: WhoIsAsking) -> Vec<ProcessInfo> {
     let mut system = System::new();
     system.refresh_processes(ProcessesToUpdate::All, true);
 
-    let mut current_parents = HashSet::new();
+    let mut current_parents = StdBuckHashSet::default();
     let mut parent = Some(sysinfo::Pid::from_u32(std::process::id()));
     while let Some(pid) = parent {
         // There is a small chance on Windows that the PID of a dead parent

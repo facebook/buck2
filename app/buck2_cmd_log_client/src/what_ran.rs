@@ -9,7 +9,6 @@
  */
 
 use std::borrow::Cow;
-use std::collections::HashMap;
 use std::io::Write;
 
 use buck2_client_ctx::client_ctx::BuckSubcommand;
@@ -33,6 +32,7 @@ use buck2_event_observer::what_ran::WhatRanOutputWriter;
 use buck2_event_observer::what_ran::WhatRanRelevantAction;
 use buck2_event_observer::what_ran::WhatRanState;
 use buck2_events::span::SpanId;
+use buck2_hash::StdBuckHashMap;
 use futures::TryStreamExt;
 use futures::stream::Stream;
 use indexmap::IndexMap;
@@ -205,7 +205,7 @@ impl WhatRanEntry {
 #[derive(Default)]
 pub struct WhatRanCommandState {
     /// Maps action spans to their details.
-    known_actions: HashMap<SpanId, WhatRanEntry>,
+    known_actions: StdBuckHashMap<SpanId, WhatRanEntry>,
 }
 
 impl WhatRanState for WhatRanCommandState {

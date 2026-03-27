@@ -32,6 +32,7 @@ rust_library(
         "//buck2/app/buck2_wrapper_common:buck2_wrapper_common",
         "//buck2/gazebo/dupe:dupe",
         "//buck2/gazebo/gazebo:gazebo",
+        "//buck2/shed/buck2_hash:buck2_hash",
         # @oss-disable[end= ]: "//buck2/shed/scribe_client:scribe_client",
         # @oss-disable[end= ]: "//common/rust/devserver_fingerprint/devserver_fingerprint:devserver_fingerprint",
         "//common/rust/shed/fbinit:fbinit",

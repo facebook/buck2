@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
 use std::fmt;
 use std::future::Future;
 use std::process::Stdio;
@@ -40,6 +39,7 @@ use buck2_events::sink::remote::ScribeConfig;
 use buck2_events::sink::remote::new_remote_event_sink_if_enabled;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_hash::StdBuckHashMap;
 use buck2_util::process::async_background_command;
 use buck2_wrapper_common::invocation_id::TraceId;
 use chrono::DateTime;
@@ -285,7 +285,7 @@ impl RageCommand {
             .map(|inv| inv.to_string())
             .unwrap_or_default();
 
-        let mut string_data: std::collections::HashMap<String, _> = [
+        let mut string_data: StdBuckHashMap<String, _> = [
             ("dice_dump", dice_dump.clone()),
             ("materializer_state", materializer_state.clone()),
             ("materializer_fsck", materializer_fsck.clone()),
@@ -314,7 +314,7 @@ impl RageCommand {
         insert_if_some(&mut string_data, "os", os.clone());
         insert_if_some(&mut string_data, "os_version", os_version.clone());
 
-        let mut int_data = HashMap::new();
+        let mut int_data = StdBuckHashMap::default();
         let daemon_uptime_s = build_info.get_field(|o| o.daemon_uptime_s);
         insert_if_some(&mut int_data, "daemon_uptime_s", daemon_uptime_s);
 
@@ -496,7 +496,7 @@ where
     }
 }
 
-fn insert_if_some<D>(data: &mut HashMap<String, D>, key: &str, value: Option<D>) {
+fn insert_if_some<D>(data: &mut StdBuckHashMap<String, D>, key: &str, value: Option<D>) {
     if let Some(value) = value {
         data.insert(key.to_owned(), value);
     }

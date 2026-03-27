@@ -11,7 +11,6 @@
 #![feature(error_generic_member_access)]
 
 use std::any::Any;
-use std::collections::HashMap;
 use std::fmt;
 use std::hash::Hash;
 use std::sync::Arc;
@@ -55,6 +54,7 @@ use buck2_events::dispatch::EventDispatcher;
 use buck2_events::dispatch::instant_event;
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_events::span::SpanId;
+use buck2_hash::StdBuckHashMap;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterResultsKey;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterResultsKeyActivationData;
 use buck2_node::nodes::eval_result::EvaluationResult;
@@ -550,12 +550,12 @@ struct BuildSignalReceiver<T> {
     // Maps a PackageLabel to the first PackageLabel that had an edge to it. When that PackageLabel
     // shows up, we'll give it a dependency on said first PackageLabel that had an edge to it, which
     // is how we discovered its existence.
-    first_edge_to_load: HashMap<PackageLabel, PackageLabel>,
+    first_edge_to_load: StdBuckHashMap<PackageLabel, PackageLabel>,
     backend: T,
 
     // TODO(rajneeshl): When Test listing and execution are on DICE, we can remove this and use
     // DICE keys instead.
-    test_listing_keys: HashMap<String, NodeKey>,
+    test_listing_keys: StdBuckHashMap<String, NodeKey>,
 }
 
 impl<T> BuildSignalReceiver<T>
@@ -566,8 +566,8 @@ where
         Self {
             receiver: UnboundedReceiverStream::new(receiver),
             backend,
-            first_edge_to_load: HashMap::new(),
-            test_listing_keys: HashMap::new(),
+            first_edge_to_load: StdBuckHashMap::default(),
+            test_listing_keys: StdBuckHashMap::default(),
         }
     }
 

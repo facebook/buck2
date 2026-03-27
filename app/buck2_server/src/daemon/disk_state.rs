@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -33,6 +32,7 @@ use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::file_name::FileName;
+use buck2_hash::StdBuckHashMap;
 
 use crate::daemon::server::BuckdServerInitPreferences;
 
@@ -70,10 +70,13 @@ fn sqlite_db_setup_metadata_and_versions(
     version_config: &str,
     deferred_materializer_config: Option<&DeferredMaterializerConfigs>,
     daemon_id: &DaemonId,
-) -> buck2_error::Result<(HashMap<String, String>, HashMap<String, String>)> {
+) -> buck2_error::Result<(
+    StdBuckHashMap<String, String>,
+    StdBuckHashMap<String, String>,
+)> {
     let metadata = buck2_events::metadata::collect(daemon_id);
 
-    let mut versions = HashMap::from([("schema_version".to_owned(), schema_version)]);
+    let mut versions = StdBuckHashMap::from([("schema_version".to_owned(), schema_version)]);
 
     if let Some(config) = deferred_materializer_config {
         versions.insert(

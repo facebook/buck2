@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashSet;
 use std::path;
 use std::time::Instant;
 
@@ -22,6 +21,7 @@ use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::abs_path::AbsPath;
+use buck2_hash::StdBuckHashSet;
 use buck2_query::__derive_refs::indexmap::IndexMap;
 use itertools::Itertools;
 use tracing::info;
@@ -35,7 +35,8 @@ pub(crate) fn create_unhashed_outputs(
 
     let start = std::time::Instant::now();
     // The following IndexMap will contain a key of the unhashed/symlink path and values of all the hashed locations that map to the unhashed location.
-    let mut unhashed_to_hashed: IndexMap<AbsNormPathBuf, HashSet<AbsNormPathBuf>> = IndexMap::new();
+    let mut unhashed_to_hashed: IndexMap<AbsNormPathBuf, StdBuckHashSet<AbsNormPathBuf>> =
+        IndexMap::new();
     for provider_artifact in provider_artifacts {
         if !matches!(provider_artifact.provider_type, BuildProviderType::Default) {
             continue;

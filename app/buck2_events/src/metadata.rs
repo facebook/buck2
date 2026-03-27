@@ -9,26 +9,26 @@
  */
 
 //! Metadata collection, for telemetry purposes.
-use std::collections::HashMap;
 use std::env;
 use std::sync::OnceLock;
 
 use buck2_core::ci::ci_identifiers;
 use buck2_core::facebook_only;
+use buck2_hash::StdBuckHashMap;
 use buck2_wrapper_common::BUCK2_WRAPPER_ENV_VAR;
 
 use crate::daemon_id::DaemonId;
 
 /// Collects metadata from the current binary and environment and writes it as map, suitable for telemetry purposes.
-pub fn collect(daemon: &DaemonId) -> HashMap<String, String> {
+pub fn collect(daemon: &DaemonId) -> StdBuckHashMap<String, String> {
     facebook_only();
-    fn add_env_var(map: &mut HashMap<String, String>, key: &'static str, var: &'static str) {
+    fn add_env_var(map: &mut StdBuckHashMap<String, String>, key: &'static str, var: &'static str) {
         if let Ok(data) = env::var(var) {
             map.insert(key.to_owned(), data);
         }
     }
 
-    let mut map = HashMap::new();
+    let mut map = StdBuckHashMap::default();
 
     let info = system_info();
     if let Some(hostname) = info.hostname {

@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::OnceLock;
 
@@ -28,6 +27,7 @@ use buck2_build_api::keep_going::KeepGoing;
 use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+use buck2_hash::StdBuckHashMap;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_node::attrs::attr_type::dep::DepAttrType;
 use buck2_node::attrs::attr_type::query::ResolvedQueryLiterals;
@@ -48,7 +48,7 @@ use crate::anon_targets::get_artifact_from_anon_target_analysis;
 // No macros in anon targets, so query results are empty. Execution platform resolution should
 // always be inherited from the anon target.
 pub(crate) struct AnonTargetAttrResolutionContext<'a, 'v> {
-    pub(crate) promised_artifacts_map: HashMap<&'a PromiseArtifactAttr, Artifact>,
+    pub(crate) promised_artifacts_map: StdBuckHashMap<&'a PromiseArtifactAttr, Artifact>,
     pub(crate) rule_analysis_attr_resolution_ctx: RuleAnalysisAttrResolutionContext<'a, 'v>,
 }
 
@@ -260,7 +260,7 @@ impl AnonTargetDependents {
                 .boxed()
             })
             .await?;
-        let promised_artifacts: HashMap<_, _> = {
+        let promised_artifacts: StdBuckHashMap<_, _> = {
             KeepGoing::try_compute_join_all(
                 dice,
                 self.promise_artifacts.iter(),

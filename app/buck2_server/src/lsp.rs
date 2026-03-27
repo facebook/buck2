@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
-use std::collections::HashSet;
 use std::future::Future;
 use std::path::Path;
 use std::thread;
@@ -39,6 +37,8 @@ use buck2_events::dispatch::with_dispatcher;
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_fs::paths::abs_path::AbsPath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_hash::StdBuckHashMap;
+use buck2_hash::StdBuckHashSet;
 use buck2_interpreter::allow_relative_paths::HasAllowRelativePaths;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
@@ -159,7 +159,7 @@ async fn get_builtin_globals_docs(
 
 async fn get_prelude_docs(
     ctx: &DiceTransaction,
-    existing_globals: &HashSet<&str>,
+    existing_globals: &StdBuckHashSet<&str>,
 ) -> buck2_error::Result<Option<(ImportPath, DocModule)>> {
     let ctx = &mut ctx.clone();
     let cell_resolver = ctx.get_cell_resolver().await?;
@@ -189,9 +189,9 @@ async fn get_prelude_docs(
 struct DocsCache {
     /// Mapping of global names to URLs. These can either be files (for global symbols in the
     /// prelude), or `starlark:` urls for rust native types and functions.
-    global_urls: HashMap<String, LspUrl>,
+    global_urls: StdBuckHashMap<String, LspUrl>,
     /// Mapping of starlark: urls to a synthesized starlark representation.
-    native_starlark_files: HashMap<LspUrl, String>,
+    native_starlark_files: StdBuckHashMap<LspUrl, String>,
 }
 
 #[derive(buck2_error::Error, Debug)]
@@ -238,7 +238,8 @@ impl DocsCache {
         builtin_symbols: &'a [(Option<ImportPath>, DocModule)],
         location_lookup: F,
     ) -> buck2_error::Result<Self> {
-        let mut global_urls = HashMap::with_capacity(builtin_symbols.len());
+        let mut global_urls =
+            StdBuckHashMap::with_capacity_and_hasher(builtin_symbols.len(), Default::default());
 
         let mut insert_global = |sym: String, url: LspUrl| {
             if let Some(existing) = global_urls.insert(sym.clone(), url.clone()) {
@@ -253,7 +254,7 @@ impl DocsCache {
             }
         };
 
-        let mut native_starlark_files = HashMap::new();
+        let mut native_starlark_files = StdBuckHashMap::default();
         for (import_path, docs) in builtin_symbols {
             match import_path {
                 Some(l) => {

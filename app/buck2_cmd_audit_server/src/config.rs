@@ -9,7 +9,6 @@
  */
 
 use std::collections::BTreeSet;
-use std::collections::HashMap;
 use std::io::Write;
 
 use async_trait::async_trait;
@@ -25,6 +24,7 @@ use buck2_common::legacy_configs::configs::LegacyBuckConfigValue;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::name::CellName;
+use buck2_hash::StdBuckHashMap;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -260,7 +260,7 @@ impl CellConfigRenderer for SimpleCellConfigRenderer<'_> {
 struct JsonCellConfigRenderer<'a> {
     stdout: StdoutPartialOutput<'a>,
     scope_keys_to_cell: bool,
-    json_output: HashMap<String, String>,
+    json_output: StdBuckHashMap<String, String>,
 }
 
 impl CellConfigRenderer for JsonCellConfigRenderer<'_> {
@@ -361,7 +361,7 @@ impl ServerAuditSubcommand for AuditConfigCommand {
                     OutputFormat::Json => Box::new(JsonCellConfigRenderer {
                         stdout,
                         scope_keys_to_cell: self.all_cells,
-                        json_output: HashMap::new(),
+                        json_output: StdBuckHashMap::default(),
                     }),
                 };
 

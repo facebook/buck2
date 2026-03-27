@@ -8,8 +8,7 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
-
+use buck2_hash::StdBuckHashMap;
 use dupe::Dupe;
 use serde::Serialize;
 use starlark::collections::SmallMap;
@@ -35,7 +34,7 @@ fn serialize_opt_ty<S: serde::Serializer>(ty: &Option<Ty>, s: S) -> Result<S::Ok
 struct JsonDoc {
     id: JsonIdentifier,
     item: JsonDocItem,
-    custom_attrs: HashMap<String, String>,
+    custom_attrs: StdBuckHashMap<String, String>,
 }
 
 #[derive(Serialize)]
@@ -57,7 +56,7 @@ impl JsonDoc {
                 location: Some(JsonLocation { path: doc.location }),
             },
             item: JsonDocItem::from_starlark(doc.item),
-            custom_attrs: HashMap::new(),
+            custom_attrs: StdBuckHashMap::default(),
         }
     }
 }

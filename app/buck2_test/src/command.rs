@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashSet;
 use std::ops::ControlFlow;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -72,6 +71,7 @@ use buck2_events::dispatch::with_dispatcher_async;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_path::AbsPathBuf;
+use buck2_hash::StdBuckHashSet;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter_for_build::interpreter::context::HasInterpreterContext;
 use buck2_node::load_patterns::MissingTargetBehavior;
@@ -570,7 +570,7 @@ async fn test_targets(
     ignore_tests_attribute: bool,
     build_default_info: bool,
     build_run_info: bool,
-    tpx_experiments: HashSet<String>,
+    tpx_experiments: StdBuckHashSet<String>,
 ) -> buck2_error::Result<TestOutcome> {
     let session = Arc::new(session);
 
@@ -822,8 +822,8 @@ struct TestDriverState<'a, 'e> {
 struct TestDriver<'a, 'e> {
     state: TestDriverState<'a, 'e>,
     work: FuturesUnordered<BoxFuture<'a, ControlFlow<Vec<BuildEvent>, Vec<TestDriverTask>>>>,
-    labels_configured: HashSet<(ProvidersLabelWithModifiers, bool)>,
-    labels_tested: HashSet<ConfiguredProvidersLabel>,
+    labels_configured: StdBuckHashSet<(ProvidersLabelWithModifiers, bool)>,
+    labels_tested: StdBuckHashSet<ConfiguredProvidersLabel>,
     error_events: Vec<BuildEvent>,
     build_target_result: BuildTargetResult,
 }
@@ -833,8 +833,8 @@ impl<'a, 'e> TestDriver<'a, 'e> {
         Self {
             state,
             work: FuturesUnordered::new(),
-            labels_configured: HashSet::new(),
-            labels_tested: HashSet::new(),
+            labels_configured: StdBuckHashSet::default(),
+            labels_tested: StdBuckHashSet::default(),
             error_events: Vec::new(),
             build_target_result: BuildTargetResult::new(),
         }

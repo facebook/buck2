@@ -57,8 +57,6 @@
 
 use std::borrow::Cow;
 use std::collections::BTreeSet;
-use std::collections::HashMap;
-use std::collections::HashSet;
 use std::io::Write;
 use std::sync::Arc;
 use std::time::Duration;
@@ -85,6 +83,8 @@ use buck2_event_observer::unpack_event::UnpackedBuckEvent;
 use buck2_event_observer::unpack_event::unpack_event;
 use buck2_events::BuckEvent;
 use buck2_fs::paths::abs_path::AbsPathBuf;
+use buck2_hash::StdBuckHashMap;
+use buck2_hash::StdBuckHashSet;
 use derive_more::Display;
 use dupe::Dupe;
 use flate2::Compression;
@@ -161,12 +161,12 @@ struct ChromeTraceFirstPass {
     ///    of the last events.
     ///
     /// So this first pass builds up several lists of "interesting" span IDs.
-    pub long_analyses: HashSet<buck2_events::span::SpanId>,
-    pub long_loads: HashSet<buck2_events::span::SpanId>,
-    pub long_load_packages: HashSet<buck2_events::span::SpanId>,
-    pub local_actions: HashSet<buck2_events::span::SpanId>,
-    pub critical_path_action_keys: HashSet<buck2_data::ActionKey>,
-    pub critical_path_span_ids: HashSet<u64>,
+    pub long_analyses: StdBuckHashSet<buck2_events::span::SpanId>,
+    pub long_loads: StdBuckHashSet<buck2_events::span::SpanId>,
+    pub long_load_packages: StdBuckHashSet<buck2_events::span::SpanId>,
+    pub local_actions: StdBuckHashSet<buck2_events::span::SpanId>,
+    pub critical_path_action_keys: StdBuckHashSet<buck2_data::ActionKey>,
+    pub critical_path_span_ids: StdBuckHashSet<u64>,
     pub command_start: SystemTime,
     pub command_options: Option<buck2_data::CommandOptions>,
 }
@@ -177,12 +177,12 @@ impl ChromeTraceFirstPass {
     const LONG_LOAD_PACKAGE_CUTOFF: Duration = Duration::from_millis(50);
     fn new() -> Self {
         Self {
-            long_analyses: HashSet::new(),
-            long_loads: HashSet::new(),
-            long_load_packages: HashSet::new(),
-            local_actions: HashSet::new(),
-            critical_path_action_keys: HashSet::new(),
-            critical_path_span_ids: HashSet::new(),
+            long_analyses: StdBuckHashSet::default(),
+            long_loads: StdBuckHashSet::default(),
+            long_load_packages: StdBuckHashSet::default(),
+            local_actions: StdBuckHashSet::default(),
+            critical_path_action_keys: StdBuckHashSet::default(),
+            critical_path_span_ids: StdBuckHashSet::default(),
             command_start: SystemTime::UNIX_EPOCH,
             command_options: None,
         }
@@ -518,7 +518,7 @@ struct SimpleCounters<T> {
     /// Stores the current value of each timeseries.
     /// Set to None when we output a zero, so we can save a bit of filesize
     /// by omitting them from the JSON output.
-    counters: HashMap<String, SimpleCounter<T>>,
+    counters: StdBuckHashMap<String, SimpleCounter<T>>,
     zero_value: T,
     trace_events: Vec<serde_json::Value>,
 }
@@ -543,7 +543,7 @@ where
         Self {
             name,
             next_flush: SystemTime::UNIX_EPOCH,
-            counters: HashMap::new(),
+            counters: StdBuckHashMap::default(),
             trace_events: vec![],
             zero_value,
         }
@@ -670,13 +670,13 @@ struct TimestampAndAmount {
 
 struct AverageRateOfChangeCounters {
     counters: SimpleCounters<u64>,
-    previous_timestamp_and_amount_by_key: HashMap<String, TimestampAndAmount>,
+    previous_timestamp_and_amount_by_key: StdBuckHashMap<String, TimestampAndAmount>,
 }
 
 impl AverageRateOfChangeCounters {
     pub fn new(name: &'static str) -> Self {
         Self {
-            previous_timestamp_and_amount_by_key: HashMap::new(),
+            previous_timestamp_and_amount_by_key: StdBuckHashMap::default(),
             counters: SimpleCounters::<u64>::new(name, 0),
         }
     }
@@ -710,14 +710,14 @@ impl AverageRateOfChangeCounters {
 struct SpanCounters {
     counter: SimpleCounters<i32>,
     // Stores how current open spans contribute to counter values.
-    open_spans: HashMap<buck2_events::span::SpanId, (&'static str, i32)>,
+    open_spans: StdBuckHashMap<buck2_events::span::SpanId, (&'static str, i32)>,
 }
 
 impl SpanCounters {
     pub fn new(name: &'static str) -> Self {
         Self {
             counter: SimpleCounters::new(name, 0),
-            open_spans: HashMap::new(),
+            open_spans: StdBuckHashMap::default(),
         }
     }
 
@@ -746,12 +746,12 @@ impl SpanCounters {
 
 struct ChromeTraceWriter {
     trace_events: Vec<serde_json::Value>,
-    open_spans: HashMap<buck2_events::span::SpanId, ChromeTraceOpenSpan>,
+    open_spans: StdBuckHashMap<buck2_events::span::SpanId, ChromeTraceOpenSpan>,
     invocation: Invocation,
     first_pass: ChromeTraceFirstPass,
     max_tracks: u64,
     span_counters: SpanCounters,
-    unused_track_ids: HashMap<SpanCategorization, TrackIdAllocator>,
+    unused_track_ids: StdBuckHashMap<SpanCategorization, TrackIdAllocator>,
     // Wrappers to contain values from InstantEvent.Data.Snapshot as a timeseries
     snapshot_counters: SimpleCounters<u64>,
     process_memory_counters: SimpleCounters<f64>,
@@ -777,11 +777,11 @@ impl ChromeTraceWriter {
     pub fn new(invocation: Invocation, first_pass: ChromeTraceFirstPass, max_tracks: u64) -> Self {
         Self {
             trace_events: vec![],
-            open_spans: HashMap::new(),
+            open_spans: StdBuckHashMap::default(),
             invocation,
             first_pass,
             max_tracks,
-            unused_track_ids: HashMap::new(),
+            unused_track_ids: StdBuckHashMap::default(),
             span_counters: SpanCounters::new("spans"),
             snapshot_counters: SimpleCounters::<u64>::new("snapshot_counters", 0),
             process_memory_counters: SimpleCounters::<f64>::new("process_memory", 0.0),

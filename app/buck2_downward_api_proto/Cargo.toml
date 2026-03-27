@@ -8,6 +8,7 @@ version = "0.1.0"
 
 [dependencies]
 buck2_error = { workspace = true }
+buck2_hash = { workspace = true }
 prost = { workspace = true }
 tonic = { workspace = true }
 tonic-prost = { workspace = true }

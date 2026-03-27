@@ -9,7 +9,6 @@
  */
 
 use std::cell::RefCell;
-use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::LazyLock;
 
@@ -19,6 +18,7 @@ use buck2_core::bzl::ImportPath;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_error::BuckErrorContext;
+use buck2_hash::StdBuckHashSet;
 use buck2_interpreter::build_context::starlark_path_from_build_context;
 use buck2_interpreter::coerce::COERCE_PROVIDERS_LABEL_FOR_BZL;
 use buck2_interpreter::downstream_crate_starlark_defs::REGISTER_BUCK2_TRANSITION_GLOBALS;
@@ -287,7 +287,7 @@ fn register_transition_function(builder: &mut GlobalsBuilder) {
         .clone();
 
         if let Some(attrs) = &attrs {
-            let attrs_set: HashSet<StringValue> = attrs.items.iter().copied().collect();
+            let attrs_set: StdBuckHashSet<StringValue> = attrs.items.iter().copied().collect();
             if attrs_set.len() != attrs.items.len() {
                 return Err(buck2_error::Error::from(TransitionError::NonUniqueAttrs).into());
             }

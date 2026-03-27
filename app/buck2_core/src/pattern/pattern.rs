@@ -1272,10 +1272,10 @@ pub enum PackageSpec<T: PatternType> {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
     use std::marker::PhantomData;
 
     use assert_matches::assert_matches;
+    use buck2_hash::StdBuckHashMap;
     use dupe::Dupe;
     use gazebo::prelude::*;
     use test_case::test_case;
@@ -1429,7 +1429,7 @@ mod tests {
                     CellRootPathBuf::testing_new("cell2"),
                 ),
             ],
-            HashMap::from_iter([
+            StdBuckHashMap::from_iter([
                 (
                     NonEmptyCellAlias::testing_new("cell1"),
                     CellName::testing_new("cell1"),

@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
 use std::time::Duration;
 
 use buck2_data::ParsedTargetPatterns;
@@ -17,6 +16,7 @@ use buck2_fs::async_fs_util;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileName;
+use buck2_hash::StdBuckHashMap;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -55,19 +55,19 @@ impl BuildCount {
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 struct BuildCountMap {
     merge_base: String,
-    counts: HashMap<String, BuildCount>,
+    counts: StdBuckHashMap<String, BuildCount>,
 }
 
 impl BuildCountMap {
     fn new(merge_base: String) -> Self {
         Self {
             merge_base,
-            counts: HashMap::new(),
+            counts: StdBuckHashMap::default(),
         }
     }
 
     #[cfg(test)]
-    fn testing_new(counts: HashMap<String, BuildCount>) -> Self {
+    fn testing_new(counts: StdBuckHashMap<String, BuildCount>) -> Self {
         Self {
             merge_base: "testing".to_owned(),
             counts,
@@ -234,13 +234,13 @@ mod tests {
 
     #[test]
     fn test_update_normal_input() -> buck2_error::Result<()> {
-        let mut before = HashMap::new();
+        let mut before = StdBuckHashMap::default();
         before.insert("//some:target".to_owned(), BuildCount::new(1, 1));
         before.insert("//some/other:target".to_owned(), BuildCount::new(2, 2));
         let mut bc = BuildCountMap::testing_new(before);
         let target_patterns = make_patterns(vec!["//some/other:target", "//yet/another:target"]);
         bc.increment(&target_patterns, true);
-        let mut expected = HashMap::new();
+        let mut expected = StdBuckHashMap::default();
         expected.insert("//some:target".to_owned(), BuildCount::new(1, 1));
         expected.insert("//some/other:target".to_owned(), BuildCount::new(3, 3));
         expected.insert("//yet/another:target".to_owned(), BuildCount::new(1, 1));
@@ -251,7 +251,7 @@ mod tests {
 
     #[test]
     fn test_update_empty_input() -> buck2_error::Result<()> {
-        let mut before = HashMap::new();
+        let mut before = StdBuckHashMap::default();
         before.insert("//some:target".to_owned(), BuildCount::new(1, 1));
         let expected = before.clone();
         let mut bc = BuildCountMap::testing_new(before);
@@ -264,7 +264,7 @@ mod tests {
 
     #[test]
     fn test_min_count_some_value() -> buck2_error::Result<()> {
-        let mut data = HashMap::new();
+        let mut data = StdBuckHashMap::default();
         data.insert("//some:target1".to_owned(), BuildCount::new(3, 3));
         data.insert("//some:target2".to_owned(), BuildCount::new(4, 4));
         data.insert("//some:target3".to_owned(), BuildCount::new(5, 5));
@@ -277,7 +277,7 @@ mod tests {
 
     #[test]
     fn test_min_count_ignores_others() -> buck2_error::Result<()> {
-        let mut data = HashMap::new();
+        let mut data = StdBuckHashMap::default();
         data.insert("//some:target1".to_owned(), BuildCount::new(3, 3));
         data.insert("//some:target2".to_owned(), BuildCount::new(4, 4));
         data.insert("//some:target3".to_owned(), BuildCount::new(5, 5));
@@ -290,7 +290,7 @@ mod tests {
 
     #[test]
     fn test_min_count_empty_data() -> buck2_error::Result<()> {
-        let data = HashMap::new();
+        let data = StdBuckHashMap::default();
         let bc = BuildCountMap::testing_new(data);
         assert_eq!(bc.min_count(&make_patterns(vec![])), BuildCount::new(0, 0));
 
@@ -321,7 +321,7 @@ mod tests {
         )
         .await?;
         let bc = bcm.read_mergebase("testing").await?;
-        let mut expected = HashMap::new();
+        let mut expected = StdBuckHashMap::default();
         expected.insert("//some:target".to_owned(), BuildCount::new(1, 1));
         assert_eq!(bc.counts, expected);
 
@@ -342,7 +342,7 @@ mod tests {
     async fn test_write_normal_input() -> buck2_error::Result<()> {
         let temp_dir = tempfile::tempdir()?;
         let bcm = BuildCountManager::new(temp_dir.path().to_path_buf().try_into()?)?;
-        let mut data = HashMap::new();
+        let mut data = StdBuckHashMap::default();
         data.insert("//some:target".to_owned(), BuildCount::new(1, 1));
         bcm.write(&BuildCountMap::testing_new(data)).await?;
         assert_eq!(
@@ -357,7 +357,7 @@ mod tests {
     async fn test_write_empty_input() -> buck2_error::Result<()> {
         let temp_dir = tempfile::tempdir()?;
         let bcm = BuildCountManager::new(temp_dir.path().to_path_buf().try_into()?)?;
-        let data = HashMap::new();
+        let data = StdBuckHashMap::default();
         bcm.write(&BuildCountMap::testing_new(data)).await?;
         assert_eq!(
             std::str::from_utf8(&tokio::fs::read(bcm.file_path).await?)?,

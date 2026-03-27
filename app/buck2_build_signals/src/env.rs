@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
 use std::future::Future;
 use std::str::FromStr;
 use std::time::Duration;
@@ -19,6 +18,7 @@ use async_trait::async_trait;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_fs::paths::file_name::FileNameBuf;
+use buck2_hash::StdBuckHashMap;
 use buck2_util::time_span::TimeSpan;
 use dice::UserComputationData;
 use dupe::Dupe;
@@ -211,7 +211,7 @@ impl EarlyCommandTimingBuilder {
 
 pub struct BuildSignalsContext {
     pub command_name: String,
-    pub metadata: HashMap<String, String>,
+    pub metadata: StdBuckHashMap<String, String>,
     pub isolation_prefix: FileNameBuf,
     pub early_command_timing: EarlyCommandTiming,
 }

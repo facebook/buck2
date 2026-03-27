@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashSet;
 use std::convert::Infallible;
 use std::ops::ControlFlow;
 use std::ops::FromResidual;
@@ -55,6 +54,7 @@ use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
 use buck2_execute::re::remote_action_result::RemoteActionResult;
 use buck2_fs::paths::RelativePathBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_hash::StdBuckHashSet;
 use buck2_util::time_span::TimeSpan;
 use buck2_util::time_span::TimeSpanBuilder;
 use chrono::DateTime;
@@ -228,7 +228,7 @@ async fn materialize_failed_build_outputs(
         return Ok(paths);
     }
 
-    let materialize_select_outputs: HashSet<&BuildArtifactPath> =
+    let materialize_select_outputs: StdBuckHashSet<&BuildArtifactPath> =
         request.outputs_for_error_handler().iter().collect();
 
     for output in request.outputs() {

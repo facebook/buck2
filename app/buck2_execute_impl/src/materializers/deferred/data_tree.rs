@@ -21,7 +21,6 @@
 //! "foo/bar", and we need to find out which artifact "foo/bar/c" belongs to.
 
 use std::borrow::Borrow;
-use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::collections::hash_map::IntoIter;
 use std::collections::hash_map::Iter;
@@ -29,6 +28,7 @@ use std::hash::Hash;
 use std::marker::PhantomData;
 
 use buck2_error::buck2_error;
+use buck2_hash::StdBuckHashMap;
 
 /// Tree that stores data in the leaves. Think of the key as the path to the
 /// leaf containing the value. The data/value is of type `V`, and each edge
@@ -38,13 +38,13 @@ use buck2_error::buck2_error;
 #[derive(Debug)]
 pub enum DataTree<K, V> {
     /// Stores data of type `V` with key of type `Iterator<Item = K>`.
-    Tree(HashMap<K, DataTree<K, V>>),
+    Tree(StdBuckHashMap<K, DataTree<K, V>>),
     Data(V),
 }
 
 impl<K: 'static + Eq + Hash + Clone, V: 'static> DataTree<K, V> {
     pub fn new() -> Self {
-        Self::Tree(HashMap::new())
+        Self::Tree(StdBuckHashMap::default())
     }
 
     /// Gets the value at `key` or one of its prefixes, and returns it.
@@ -108,7 +108,7 @@ impl<K: 'static + Eq + Hash + Clone, V: 'static> DataTree<K, V> {
     pub fn get_subtree<'a, I, Q>(
         &self,
         key: &mut I,
-    ) -> buck2_error::Result<Option<&HashMap<K, Self>>>
+    ) -> buck2_error::Result<Option<&StdBuckHashMap<K, Self>>>
     where
         K: 'a + Borrow<Q>,
         Q: 'a + Hash + Eq + ?Sized,
@@ -199,14 +199,14 @@ impl<K: 'static + Eq + Hash + Clone, V: 'static> DataTree<K, V> {
         }
     }
 
-    pub fn children(&self) -> Option<&HashMap<K, DataTree<K, V>>> {
+    pub fn children(&self) -> Option<&StdBuckHashMap<K, DataTree<K, V>>> {
         match self {
             Self::Tree(children) => Some(children),
             Self::Data(_) => None,
         }
     }
 
-    fn children_mut(&mut self) -> Option<&mut HashMap<K, DataTree<K, V>>> {
+    fn children_mut(&mut self) -> Option<&mut StdBuckHashMap<K, DataTree<K, V>>> {
         match self {
             Self::Tree(children) => Some(children),
             Self::Data(_) => None,

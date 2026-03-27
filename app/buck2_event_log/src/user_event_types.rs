@@ -189,13 +189,12 @@ pub(crate) fn try_get_user_event(buck_event: &BuckEvent) -> buck2_error::Result<
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
     use buck2_data::StarlarkUserEvent;
     use buck2_data::StarlarkUserMetadataDictValue;
     use buck2_data::StarlarkUserMetadataListValue;
     use buck2_data::StarlarkUserMetadataValue;
     use buck2_data::starlark_user_metadata_value::Value;
+    use buck2_hash::StdBuckHashMap;
     use maplit::hashmap;
 
     #[test]
@@ -204,7 +203,7 @@ mod tests {
             value: Some(Value::BoolValue(true)),
         };
 
-        let mut metadata = HashMap::new();
+        let mut metadata = StdBuckHashMap::default();
         metadata.insert("bool_value".to_owned(), val1);
 
         let starlark_user_event = StarlarkUserEvent {
@@ -240,7 +239,7 @@ mod tests {
             value: Some(Value::ListValue(list)),
         };
 
-        let mut metadata = HashMap::new();
+        let mut metadata = StdBuckHashMap::default();
         metadata.insert("list_value".to_owned(), val);
 
         let starlark_user_event = StarlarkUserEvent {
@@ -274,7 +273,7 @@ mod tests {
             value: Some(Value::DictValue(dict)),
         };
 
-        let mut metadata = HashMap::new();
+        let mut metadata = StdBuckHashMap::default();
         metadata.insert("dict_value".to_owned(), val);
 
         let starlark_user_event = StarlarkUserEvent {

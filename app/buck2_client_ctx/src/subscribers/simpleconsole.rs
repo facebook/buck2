@@ -9,7 +9,6 @@
  */
 
 use std::borrow::Cow;
-use std::collections::HashMap;
 use std::fmt::Display;
 use std::fmt::Write as _;
 use std::sync::Arc;
@@ -33,6 +32,7 @@ use buck2_event_observer::what_ran::WhatRanCommandConsoleFormat;
 use buck2_event_observer::what_ran::WhatRanOutputCommand;
 use buck2_event_observer::what_ran::WhatRanOutputWriter;
 use buck2_events::BuckEvent;
+use buck2_hash::StdBuckHashMap;
 use buck2_health_check::interface::HealthCheckType;
 use buck2_health_check::report::DisplayReport;
 use buck2_wrapper_common::invocation_id::TraceId;
@@ -58,8 +58,8 @@ use crate::ticker::Tick;
 /// within this duration.
 const KEEPALIVE_TIME_LIMIT: Duration = Duration::from_secs(7);
 
-static ELAPSED_HEALTH_CHECK_MAP: Lazy<Mutex<HashMap<HealthCheckType, (Instant, u64)>>> =
-    Lazy::new(|| Mutex::new(HashMap::new()));
+static ELAPSED_HEALTH_CHECK_MAP: Lazy<Mutex<StdBuckHashMap<HealthCheckType, (Instant, u64)>>> =
+    Lazy::new(|| Mutex::new(StdBuckHashMap::default()));
 
 fn now_display() -> impl Display {
     chrono::Local::now().to_rfc3339_opts(::chrono::SecondsFormat::Millis, false)

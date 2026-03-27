@@ -8,8 +8,7 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
-
+use buck2_hash::StdBuckHashMap;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use buck2_node::attrs::inspect_options::AttrInspectOptions;
@@ -66,7 +65,7 @@ pub(crate) fn gen_fbs(
             })
             .collect();
 
-        let mut node_map: HashMap<String, &mut TargetData> = HashMap::new();
+        let mut node_map: StdBuckHashMap<String, &mut TargetData> = StdBuckHashMap::default();
         for node in data.iter_mut() {
             let key = node.node.label().to_string();
             node_map.insert(key, node);

@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashSet;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::sync::Arc;
@@ -19,6 +18,7 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::name::CellName;
 use buck2_fs::paths::file_name::FileNameBuf;
+use buck2_hash::StdBuckHashSet;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::DiceTransactionUpdater;
@@ -161,12 +161,12 @@ pub(crate) enum CheckIgnores {
 
 #[derive(Allocative)]
 pub struct FileChangeTracker {
-    files_to_dirty: HashSet<ReadFileKey>,
-    dirs_to_dirty: HashSet<ReadDirKey>,
-    paths_to_dirty: HashSet<PathMetadataKey>,
-    exists_matching_exact_case_to_dirty: HashSet<ExistsMatchingExactCaseKey>,
+    files_to_dirty: StdBuckHashSet<ReadFileKey>,
+    dirs_to_dirty: StdBuckHashSet<ReadDirKey>,
+    paths_to_dirty: StdBuckHashSet<PathMetadataKey>,
+    exists_matching_exact_case_to_dirty: StdBuckHashSet<ExistsMatchingExactCaseKey>,
 
-    maybe_modified_dirs: HashSet<CellPath>,
+    maybe_modified_dirs: StdBuckHashSet<CellPath>,
 }
 
 impl FileChangeTracker {

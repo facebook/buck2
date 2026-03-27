@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -25,6 +24,7 @@ use buck2_core::target::label::label::TargetLabel;
 use buck2_error::BuckErrorContext;
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::file_name::FileNameBuf;
+use buck2_hash::StdBuckHashMap;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;
@@ -82,7 +82,7 @@ enum RBuildFilesError {
 pub(crate) trait UqueryDelegate: Send + Sync {
     async fn get_buildfile_names_by_cell(
         &self,
-    ) -> buck2_error::Result<HashMap<CellName, Arc<[FileNameBuf]>>>;
+    ) -> buck2_error::Result<StdBuckHashMap<CellName, Arc<[FileNameBuf]>>>;
 
     /// Resolves a target pattern.
     async fn resolve_target_patterns(
@@ -120,12 +120,12 @@ pub(crate) struct UqueryEnvironment<'c> {
 }
 
 pub(crate) struct PreresolvedQueryLiterals<T: QueryTarget> {
-    resolved_literals: HashMap<String, buck2_error::Result<TargetSet<T>>>,
+    resolved_literals: StdBuckHashMap<String, buck2_error::Result<TargetSet<T>>>,
 }
 
 impl<T: QueryTarget> PreresolvedQueryLiterals<T> {
     pub(crate) fn new(
-        resolved_literals: HashMap<String, buck2_error::Result<TargetSet<T>>>,
+        resolved_literals: StdBuckHashMap<String, buck2_error::Result<TargetSet<T>>>,
     ) -> Self {
         Self { resolved_literals }
     }
@@ -140,7 +140,7 @@ impl<T: QueryTarget> PreresolvedQueryLiterals<T> {
                 async move { (lit.to_owned(), base.eval_literals(&[lit], ctx).await) }.boxed()
             })
             .await;
-        let mut resolved_literals = HashMap::new();
+        let mut resolved_literals = StdBuckHashMap::default();
         for (literal, result) in resolved_literal_results {
             resolved_literals.insert(literal, result);
         }
@@ -474,7 +474,7 @@ pub(crate) async fn rbuildfiles(
     let mut output_paths: Vec<ImportPath> = Vec::new();
 
     struct Delegate<'a> {
-        first_order_import_map: &'a HashMap<ImportPath, Vec<ImportPath>>,
+        first_order_import_map: &'a StdBuckHashMap<ImportPath, Vec<ImportPath>>,
     }
 
     let visit = |node: Node| {
@@ -595,8 +595,8 @@ async fn top_level_imports_by_build_file(
     buildfiles: &[ArcCellPath],
     bzlfiles: &[ArcCellPath],
     delegate: &dyn UqueryDelegate,
-) -> buck2_error::Result<HashMap<ArcCellPath, Vec<ImportPath>>> {
-    let mut top_level_import_by_build_file = HashMap::<ArcCellPath, Vec<ImportPath>>::new();
+) -> buck2_error::Result<StdBuckHashMap<ArcCellPath, Vec<ImportPath>>> {
+    let mut top_level_import_by_build_file = StdBuckHashMap::<ArcCellPath, Vec<ImportPath>>::new();
 
     for file in bzlfiles {
         let imports = vec![ImportPath::new_same_cell(file.as_ref().clone())?];
@@ -635,7 +635,7 @@ async fn top_level_imports_by_build_file(
 async fn first_order_imports(
     all_top_level_imports: &[ImportPath],
     delegate: &dyn UqueryDelegate,
-) -> buck2_error::Result<HashMap<ImportPath, Vec<ImportPath>>> {
+) -> buck2_error::Result<StdBuckHashMap<ImportPath, Vec<ImportPath>>> {
     let all_imports = get_transitive_loads(
         all_top_level_imports.to_vec(),
         delegate.linear_dice_computations(),
@@ -647,7 +647,7 @@ async fn first_order_imports(
         .map(|node| async move { (node, delegate.ctx().get_loaded_module_imports(node).await) })
         .collect();
 
-    let mut first_order_import_map = HashMap::<ImportPath, Vec<ImportPath>>::new();
+    let mut first_order_import_map = StdBuckHashMap::<ImportPath, Vec<ImportPath>>::new();
 
     while let Some((import, first_order_imports)) =
         tokio::task::unconstrained(all_first_order_futs.next()).await

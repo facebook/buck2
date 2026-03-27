@@ -36,6 +36,7 @@ use buck2_events::dispatch::record_root_spans;
 use buck2_events::dispatch::span_async;
 use buck2_events::dispatch::span_async_simple;
 use buck2_events::span::SpanId;
+use buck2_hash::StdBuckHashMap;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::load_module::InterpreterCalculation;
@@ -135,7 +136,7 @@ impl RuleAnalysisCalculationImpl for RuleAnalysisCalculationInstance {
 pub async fn resolve_queries(
     ctx: &mut DiceComputations<'_>,
     configured_node: ConfiguredTargetNodeRef<'_>,
-) -> buck2_error::Result<HashMap<String, Arc<AnalysisQueryResult>>> {
+) -> buck2_error::Result<StdBuckHashMap<String, Arc<AnalysisQueryResult>>> {
     let mut queries = configured_node.queries().peekable();
 
     if queries.peek().is_none() {
@@ -156,7 +157,7 @@ async fn resolve_queries_impl(
     ctx: &mut DiceComputations<'_>,
     configured_node: ConfiguredTargetNodeRef<'_>,
     queries: impl IntoIterator<Item = (String, ResolvedQueryLiterals<ConfiguredProvidersLabel>)>,
-) -> buck2_error::Result<HashMap<String, Arc<AnalysisQueryResult>>> {
+) -> buck2_error::Result<StdBuckHashMap<String, Arc<AnalysisQueryResult>>> {
     let deps: TargetSet<_> = configured_node.deps().duped().collect();
     let query_results = ctx
         .try_compute_join(
@@ -208,7 +209,7 @@ async fn resolve_queries_impl(
         )
         .await?;
 
-    let query_results: HashMap<_, _> = query_results.into_iter().collect();
+    let query_results: StdBuckHashMap<_, _> = query_results.into_iter().collect();
     Ok(query_results)
 }
 

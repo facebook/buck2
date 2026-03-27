@@ -8,11 +8,10 @@
  * above-listed licenses.
  */
 
-use std::collections::HashSet;
-
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::name::CellName;
+use buck2_hash::StdBuckHashSet;
 use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_interpreter::import_paths::HasImportPaths;
 use buck2_interpreter::load_module::INTERPRETER_CALCULATION_IMPL;
@@ -73,9 +72,9 @@ impl Environment {
         &self,
         path_type: StarlarkFileType,
         dice: &DiceTransaction,
-    ) -> buck2_error::Result<HashSet<String>> {
+    ) -> buck2_error::Result<StdBuckHashSet<String>> {
         let mut dice = dice.clone();
-        let mut names = HashSet::new();
+        let mut names = StdBuckHashSet::default();
 
         for x in self.globals.names() {
             names.insert(x.as_str().to_owned());

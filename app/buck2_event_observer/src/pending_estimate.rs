@@ -49,13 +49,13 @@ pub fn estimate_completion_percentage<T: SpanTrackable>(roots: &Roots<T>, dice: 
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
     use std::sync::Arc;
     use std::time::UNIX_EPOCH;
 
     use buck2_data::SpanStartEvent;
     use buck2_events::BuckEvent;
     use buck2_events::span::SpanId;
+    use buck2_hash::StdBuckHashMap;
     use buck2_wrapper_common::invocation_id::TraceId;
 
     use crate::dice_state::DiceState;
@@ -104,7 +104,7 @@ mod tests {
     fn setup_dice_state(dice_state: &mut DiceState, finished: u32, total: u32) {
         dice_state.update(&buck2_data::DiceStateSnapshot {
             key_states: {
-                let mut map = HashMap::new();
+                let mut map = StdBuckHashMap::default();
                 map.insert(
                     "BuildKey".to_owned(),
                     buck2_data::DiceKeyState {

@@ -8,6 +8,7 @@ rust_library(
     test_deps = [
         "fbsource//third-party/rust:maplit",
         "fbsource//third-party/rust:tempfile",
+        "//buck2/shed/buck2_hash:buck2_hash",
     ],
     deps = [
         "fbsource//third-party/rust:async-compression",

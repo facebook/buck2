@@ -8,4 +8,5 @@ version = "0.1.0"
 [dependencies]
 async-trait = { workspace = true }
 buck2_error = { workspace = true }
+buck2_hash = { workspace = true }
 tracing = { workspace = true }

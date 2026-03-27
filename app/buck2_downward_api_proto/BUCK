@@ -10,6 +10,7 @@ rust_protobuf_library(
     deps = [
         "fbsource//third-party/rust:tracing",
         "//buck2/app/buck2_error:buck2_error",
+        "//buck2/shed/buck2_hash:buck2_hash",
     ],
 )
 

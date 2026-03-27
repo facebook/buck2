@@ -9,7 +9,6 @@
  */
 
 use core::fmt;
-use std::collections::HashSet;
 use std::fmt::Display;
 use std::hash::Hash;
 use std::ops::Deref;
@@ -172,8 +171,11 @@ impl CoercedSelector {
                 }
             }
         } else {
-            let mut visited_keys: HashSet<&ConfigurationSettingKey, _> =
-                HashSet::with_capacity_and_hasher(entries.len(), StarlarkHasherBuilder);
+            let mut visited_keys: std::collections::HashSet<&ConfigurationSettingKey, _> =
+                std::collections::HashSet::with_capacity_and_hasher(
+                    entries.len(),
+                    StarlarkHasherBuilder,
+                );
             for (k, _) in entries {
                 if !visited_keys.insert(k) {
                     return Err(duplicate_key(k));

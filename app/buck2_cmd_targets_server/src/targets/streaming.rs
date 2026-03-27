@@ -10,7 +10,6 @@
 
 //! Server-side implementation of `buck2 targets --streaming` command.
 
-use std::collections::HashSet;
 use std::io::Write;
 use std::mem;
 use std::sync::Arc;
@@ -26,6 +25,7 @@ use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::PatternType;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::target::name::TargetName;
+use buck2_hash::StdBuckHashSet;
 use buck2_interpreter::load_module::INTERPRETER_CALCULATION_IMPL;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::paths::package::PackageFilePath;
@@ -177,7 +177,7 @@ pub(crate) async fn targets_streaming(
     // Recursively chase down all `imported` paths, and output them.
     // This will only be done if `imports` is set
     let mut todo = mem::take(&mut *imported.lock().unwrap());
-    let mut seen_imported = HashSet::new();
+    let mut seen_imported = StdBuckHashSet::default();
     while let Some(path) = todo.pop() {
         if seen_imported.insert(path.path().clone()) {
             // If these lead to an error, that's surpsing (we had a working module with it loaded)

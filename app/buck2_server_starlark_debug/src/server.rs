@@ -9,7 +9,6 @@
  */
 
 use std::collections::BTreeSet;
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::AtomicU32;
 use std::sync::atomic::Ordering;
@@ -22,6 +21,7 @@ use buck2_error::internal_error;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
+use buck2_hash::StdBuckHashMap;
 use buck2_interpreter::starlark_debug::StarlarkDebugController;
 use debugserver_types as dap;
 use dupe::Dupe;
@@ -268,16 +268,16 @@ struct ServerState {
     to_client: mpsc::UnboundedSender<ToClientMessage>,
 
     /// The currently set breakpoints. New hooks will be initialized with these.
-    set_breakpoints: HashMap<String, ResolvedBreakpoints>,
+    set_breakpoints: StdBuckHashMap<String, ResolvedBreakpoints>,
 
     /// The project root is used to get the current source code to resolve breakpoints.
     project_root: ProjectRoot,
 
     /// Currently executing buck commands, this is primarily used to send debugger snapshots.
-    current_commands: HashMap<HandleId, CommandState>,
+    current_commands: StdBuckHashMap<HandleId, CommandState>,
 
     /// Current starlark evaluation hooks.
-    current_hooks: HashMap<HookId, HookState>,
+    current_hooks: StdBuckHashMap<HookId, HookState>,
 
     /// HookIds are simply incrementing.
     next_hook_id: HookId,
@@ -292,7 +292,7 @@ struct ServerState {
     /// This data structure keeps track of destructured local variables obtained by debugger at breakpoint
     /// this is required to satify incremental nature of VariablesRequeste
     /// variables are lazily fetched from starlark evaluator and cached by thread id
-    variables_by_thread: HashMap<u32, VariablesKnownPaths>,
+    variables_by_thread: StdBuckHashMap<u32, VariablesKnownPaths>,
 }
 
 /// This type is using bitmasking to pack "is_top_frame, thread_id, variable_id" into an integer value
@@ -670,13 +670,13 @@ impl ServerState {
         Self {
             to_client,
             project_root,
-            current_commands: HashMap::new(),
-            current_hooks: HashMap::new(),
+            current_commands: StdBuckHashMap::default(),
+            current_hooks: StdBuckHashMap::default(),
             free_pseudo_threads: BTreeSet::new(),
             next_pseudo_thread: 0,
             next_hook_id: HookId(0),
-            set_breakpoints: HashMap::new(),
-            variables_by_thread: HashMap::new(),
+            set_breakpoints: StdBuckHashMap::default(),
+            variables_by_thread: StdBuckHashMap::default(),
         }
     }
 
@@ -732,7 +732,7 @@ impl ServerState {
     /// debugger isn't attached, and so when a command receives the snapshot it can know
     /// that a debugger is attached to the buck daemon.
     fn get_snapshot(&self) -> buck2_data::DebugAdapterSnapshot {
-        let mut current_handles = HashMap::new();
+        let mut current_handles = StdBuckHashMap::default();
 
         for hook_state in self.current_hooks.values() {
             if let Some(v) = &hook_state.stopped_at {

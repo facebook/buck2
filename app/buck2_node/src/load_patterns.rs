@@ -9,7 +9,6 @@
  */
 
 use std::collections::BTreeMap;
-use std::collections::HashSet;
 use std::sync::Arc;
 
 use buck2_common::file_ops::trait_::DiceFileOps;
@@ -50,7 +49,7 @@ enum BuildErrors {
 
 struct Builder<'c, 'd> {
     ctx: &'c LinearRecomputeDiceComputations<'d>,
-    already_loading: HashSet<PackageLabel, BuckHasherBuilder>,
+    already_loading: std::collections::HashSet<PackageLabel, BuckHasherBuilder>,
     load_package_futs:
         FuturesUnordered<BoxFuture<'c, (PackageLabel, buck2_error::Result<Arc<EvaluationResult>>)>>,
 }
@@ -59,7 +58,7 @@ impl Builder<'_, '_> {
     pub fn new<'c, 'd>(ctx: &'c LinearRecomputeDiceComputations<'d>) -> Builder<'c, 'd> {
         Builder {
             ctx,
-            already_loading: HashSet::default(),
+            already_loading: std::collections::HashSet::default(),
             load_package_futs: FuturesUnordered::new(),
         }
     }

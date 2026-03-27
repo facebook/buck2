@@ -36,6 +36,7 @@ winapi = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
+buck2_hash = { workspace = true }
 serde_json = { workspace = true }
 tempfile = { workspace = true }
 

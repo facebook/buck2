@@ -8,9 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
-use std::collections::HashSet;
-
 use async_trait::async_trait;
 use futures::StreamExt;
 use futures::stream::FuturesOrdered;
@@ -102,7 +99,8 @@ pub async fn async_fast_depth_first_postorder_traversal<
     // mean changing the delegate's for_each_children to return an iterator,
     // but idk.
 
-    let mut visited: HashSet<T::Key, StarlarkHasherBuilder> = HashSet::default();
+    let mut visited: std::collections::HashSet<T::Key, StarlarkHasherBuilder> =
+        std::collections::HashSet::default();
     let mut work: Vec<WorkItem<T>> = root.into_iter().map(|t| WorkItem::Visit(t)).collect();
 
     while let Some(curr) = work.pop() {
@@ -145,7 +143,8 @@ pub async fn async_depth_limited_traversal<
     mut visit: impl FnMut(T) -> buck2_error::Result<()>,
     max_depth: u32,
 ) -> buck2_error::Result<()> {
-    let mut visited: HashMap<_, _, StarlarkHasherBuilder> = HashMap::default();
+    let mut visited: std::collections::HashMap<_, _, StarlarkHasherBuilder> =
+        std::collections::HashMap::default();
     let mut push =
         |queue: &mut FuturesOrdered<_>, target: &T::Key, parent: Option<T::Key>, depth: u32| {
             if visited.contains_key(target) {
@@ -221,6 +220,7 @@ mod tests {
 
     use buck2_core::build_file_path::BuildFilePath;
     use buck2_core::cells::cell_path::CellPath;
+    use buck2_hash::StdBuckHashMap;
     use derive_more::Display;
     use dupe::Dupe;
     use dupe::IterDupedExt;
@@ -346,7 +346,7 @@ mod tests {
         }
     }
 
-    struct Graph(HashMap<Ref, Node>);
+    struct Graph(StdBuckHashMap<Ref, Node>);
 
     impl Graph {
         fn child_visitor<'a>(&self) -> impl AsyncChildVisitor<Node> + use<'a> {
@@ -394,7 +394,7 @@ mod tests {
     }
 
     fn make_graph(nodes: &[(i64, &[i64])]) -> buck2_error::Result<Graph> {
-        let mut map = HashMap::new();
+        let mut map = StdBuckHashMap::default();
         for (n, deps) in nodes {
             map.insert(Ref(*n), Node(Ref(*n), deps.map(|v| Ref(*v))));
         }

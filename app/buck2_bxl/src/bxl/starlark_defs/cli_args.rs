@@ -10,7 +10,6 @@
 
 //! Command line arguments definition for bxl functions
 
-use std::collections::HashSet;
 use std::fmt::Formatter;
 use std::hash::Hash;
 use std::path::Path;
@@ -33,6 +32,7 @@ use buck2_core::target::label::label::TargetLabel;
 use buck2_error::conversion::clap::buck_error_clap_parser;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_hash::StdBuckHashSet;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
@@ -318,7 +318,7 @@ pub(crate) enum CliArgType {
     Int,
     Float,
     String,
-    Enumeration(Arc<HashSet<String>>),
+    Enumeration(Arc<StdBuckHashSet<String>>),
     List(Arc<CliArgType>),
     Option(Arc<CliArgType>),
     TargetLabel,
@@ -402,7 +402,7 @@ impl CliArgType {
         CliArgType::SubTargetExpr
     }
 
-    fn enumeration(vs: HashSet<String>) -> Self {
+    fn enumeration(vs: StdBuckHashSet<String>) -> Self {
         CliArgType::Enumeration(Arc::new(vs))
     }
 
@@ -1077,13 +1077,12 @@ impl<'a> ArgAccessor<'a> {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
-
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::provider::label::ProvidersLabel;
     use buck2_core::provider::label::testing::ProvidersLabelTestExt;
     use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
     use buck2_core::target::label::label::TargetLabel;
+    use buck2_hash::StdBuckHashSet;
     use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
     use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
     use buck2_interpreter::types::target_label::StarlarkTargetLabel;
@@ -1166,7 +1165,7 @@ mod tests {
             );
 
             assert_eq!(
-                CliArgType::enumeration(HashSet::from_iter([
+                CliArgType::enumeration(StdBuckHashSet::from_iter([
                     "a".to_owned(),
                     "b".to_owned(),
                     "c".to_owned()

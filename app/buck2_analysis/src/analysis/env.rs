@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use buck2_build_api::analysis::AnalysisResult;
@@ -34,6 +33,7 @@ use buck2_error::conversion::from_any_with_tag;
 use buck2_error::internal_error;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_execute::digest_config::HasDigestConfig;
+use buck2_hash::StdBuckHashMap;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::factory::BuckStarlarkModule;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
@@ -77,8 +77,8 @@ enum AnalysisError {
 // that are NOT tied to that module. Must claim ownership of them via `add_reference` before returning them.
 pub struct RuleAnalysisAttrResolutionContext<'a, 'v> {
     pub module: &'a Module<'v>,
-    pub dep_analysis_results: HashMap<ConfiguredTargetLabel, FrozenProviderCollectionValue>,
-    pub query_results: HashMap<String, Arc<AnalysisQueryResult>>,
+    pub dep_analysis_results: StdBuckHashMap<ConfiguredTargetLabel, FrozenProviderCollectionValue>,
+    pub query_results: StdBuckHashMap<String, Arc<AnalysisQueryResult>>,
     pub execution_platform_resolution: ExecutionPlatformResolution,
 }
 
@@ -115,7 +115,7 @@ impl<'a, 'v> AttrResolutionContext<'v> for &'_ RuleAnalysisAttrResolutionContext
 }
 
 pub fn get_dep<'v>(
-    dep_analysis_results: &HashMap<ConfiguredTargetLabel, FrozenProviderCollectionValue>,
+    dep_analysis_results: &StdBuckHashMap<ConfiguredTargetLabel, FrozenProviderCollectionValue>,
     target: &ConfiguredProvidersLabel,
     module: &Module<'v>,
 ) -> buck2_error::Result<FrozenValueTyped<'v, FrozenProviderCollection>> {
@@ -130,7 +130,7 @@ pub fn get_dep<'v>(
 }
 
 pub fn resolve_unkeyed_placeholder(
-    dep_analysis_results: &HashMap<ConfiguredTargetLabel, FrozenProviderCollectionValue>,
+    dep_analysis_results: &StdBuckHashMap<ConfiguredTargetLabel, FrozenProviderCollectionValue>,
     name: &str,
     module: &Module,
 ) -> Option<FrozenCommandLineArg> {
@@ -153,7 +153,7 @@ pub fn resolve_unkeyed_placeholder(
 }
 
 pub fn resolve_query(
-    query_results: &HashMap<String, Arc<AnalysisQueryResult>>,
+    query_results: &StdBuckHashMap<String, Arc<AnalysisQueryResult>>,
     query: &str,
     module: &Module,
 ) -> buck2_error::Result<Arc<AnalysisQueryResult>> {
@@ -186,7 +186,7 @@ pub trait RuleSpec: Sync {
 struct AnalysisEnv<'a> {
     rule_spec: &'a dyn RuleSpec,
     deps: Vec<(&'a ConfiguredTargetLabel, AnalysisResult)>,
-    query_results: HashMap<String, Arc<AnalysisQueryResult>>,
+    query_results: StdBuckHashMap<String, Arc<AnalysisQueryResult>>,
     execution_platform: &'a ExecutionPlatformResolution,
     label: ConfiguredTargetLabel,
     cancellation: &'a CancellationContext,
@@ -196,7 +196,7 @@ pub(crate) async fn run_analysis<'a>(
     dice: &'a mut DiceComputations<'_>,
     label: &ConfiguredTargetLabel,
     results: Vec<(&'a ConfiguredTargetLabel, AnalysisResult)>,
-    query_results: HashMap<String, Arc<AnalysisQueryResult>>,
+    query_results: StdBuckHashMap<String, Arc<AnalysisQueryResult>>,
     execution_platform: &'a ExecutionPlatformResolution,
     rule_spec: &'a dyn RuleSpec,
     node: ConfiguredTargetNodeRef<'a>,
@@ -215,11 +215,11 @@ pub(crate) async fn run_analysis<'a>(
 
 pub fn get_deps_from_analysis_results(
     results: Vec<(&ConfiguredTargetLabel, AnalysisResult)>,
-) -> buck2_error::Result<HashMap<ConfiguredTargetLabel, FrozenProviderCollectionValue>> {
+) -> buck2_error::Result<StdBuckHashMap<ConfiguredTargetLabel, FrozenProviderCollectionValue>> {
     results
         .into_iter()
         .map(|(label, result)| Ok((label.dupe(), result.providers()?.to_owned())))
-        .collect::<buck2_error::Result<HashMap<ConfiguredTargetLabel, FrozenProviderCollectionValue>>>()
+        .collect::<buck2_error::Result<StdBuckHashMap<ConfiguredTargetLabel, FrozenProviderCollectionValue>>>()
 }
 
 // Used to express that the impl Future below captures multiple named lifetimes.
@@ -333,7 +333,7 @@ async fn run_analysis_with_env_underlying(
             AnalysisResult::new(
                 recorded_values,
                 profile_data,
-                HashMap::new(),
+                StdBuckHashMap::default(),
                 declared_actions,
                 declared_artifacts,
                 validations,

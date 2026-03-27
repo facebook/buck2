@@ -134,10 +134,9 @@ impl TargetPlatformDetector {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
     use buck2_core::cells::alias::NonEmptyCellAlias;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
+    use buck2_hash::StdBuckHashMap;
 
     use super::*;
 
@@ -154,7 +153,7 @@ mod tests {
                     CellRootPathBuf::testing_new("cell1"),
                 ),
             ],
-            HashMap::from_iter([(
+            StdBuckHashMap::from_iter([(
                 NonEmptyCellAlias::testing_new("alias1"),
                 CellName::testing_new("cell1"),
             )]),
@@ -218,7 +217,7 @@ mod tests {
                     CellRootPathBuf::testing_new("cell1"),
                 ),
             ],
-            HashMap::from_iter([(
+            StdBuckHashMap::from_iter([(
                 NonEmptyCellAlias::testing_new("alias1"),
                 CellName::testing_new("cell1"),
             )]),

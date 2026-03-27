@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
 use std::path::PathBuf;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -22,6 +21,7 @@ use buck2_error::BuckErrorContext as _;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_grpc::DuplexChannel;
 use buck2_grpc::ServerHandle;
+use buck2_hash::StdBuckHashMap;
 use buck2_test_api::grpc::TestExecutorClient;
 use buck2_test_api::grpc::spawn_orchestrator_server;
 use buck2_test_api::protocol::TestExecutor;
@@ -39,8 +39,8 @@ use tokio::process::Child;
 use crate::downward_api::BuckTestDownwardApi;
 use crate::orchestrator::BuckTestOrchestrator;
 
-static TEST_EXECUTOR_CLIENTS: Lazy<Mutex<HashMap<u16, Arc<dyn TestExecutor>>>> =
-    Lazy::new(|| Mutex::new(HashMap::new()));
+static TEST_EXECUTOR_CLIENTS: Lazy<Mutex<StdBuckHashMap<u16, Arc<dyn TestExecutor>>>> =
+    Lazy::new(|| Mutex::new(StdBuckHashMap::default()));
 
 pub struct TestExecutorClientWrapper(u16);
 impl TestExecutorClientWrapper {

@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -36,6 +35,7 @@ use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_hash::StdBuckHashMap;
 use buck2_util::thin_box::ThinBoxSlice;
 use dupe::Dupe;
 use either::Either;
@@ -307,7 +307,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
 
         struct RunCommandArtifactVisitor<'v> {
             inner: SimpleCommandLineArtifactVisitor<'v>,
-            tagged_outputs: HashMap<ArtifactTag, Vec<OutputArtifact<'v>>>,
+            tagged_outputs: StdBuckHashMap<ArtifactTag, Vec<OutputArtifact<'v>>>,
             depth: u64,
             dep_file_artifact_tags: Option<SmallSet<&'v ArtifactTag>>,
             inputs_with_multiple_tags_for_dep_files: Vec<(ArtifactGroup, Vec<ArtifactTag>)>,
@@ -326,7 +326,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
                 };
                 Self {
                     inner: SimpleCommandLineArtifactVisitor::new(),
-                    tagged_outputs: HashMap::new(),
+                    tagged_outputs: StdBuckHashMap::default(),
                     depth: 0,
                     dep_file_artifact_tags,
                     inputs_with_multiple_tags_for_dep_files: Vec::new(),

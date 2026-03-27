@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use buck2_build_api::actions::execute::dice_data::set_fallback_executor_config;
@@ -43,6 +42,7 @@ use buck2_core::target::label::label::TargetLabel;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::SetDigestConfig;
+use buck2_hash::StdBuckHashMap;
 use buck2_interpreter::dice::starlark_debug::SetStarlarkDebugger;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
@@ -75,7 +75,7 @@ async fn test_analysis_calculation() -> buck2_error::Result<()> {
         ),
     ]);
     let mut interpreter = Tester::with_cells((
-        CellAliasResolver::new(CellName::testing_new("cell"), HashMap::new())?,
+        CellAliasResolver::new(CellName::testing_new("cell"), StdBuckHashMap::default())?,
         resolver.dupe(),
         LegacyBuckConfig::empty(),
         CellPathWithAllowedRelativeDir::new(CellPath::testing_new("cell//pkg"), None),

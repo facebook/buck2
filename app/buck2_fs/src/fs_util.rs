@@ -878,7 +878,6 @@ pub mod uncategorized {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
     use std::fs;
     use std::fs::File;
     use std::io;
@@ -887,6 +886,7 @@ mod tests {
 
     use assert_matches::assert_matches;
     use buck2_error::ErrorTag;
+    use buck2_hash::StdBuckHashMap;
     use relative_path::RelativePath;
 
     use crate::error::IoResultExt;
@@ -1523,7 +1523,7 @@ mod tests {
         use std::io::ErrorKind;
 
         let tempdir = tempfile::tempdir().unwrap();
-        let mut test_cases = HashMap::new();
+        let mut test_cases = StdBuckHashMap::default();
         // The behavior of these test cases varies by platform
         let should_succeed = cfg!(target_os = "macos");
         let expected_attempts = if should_succeed { MAX_IO_ATTEMPTS } else { 1 };

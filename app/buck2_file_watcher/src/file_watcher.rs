@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -23,6 +22,7 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
+use buck2_hash::StdBuckHashMap;
 use dice::DiceTransactionUpdater;
 
 #[cfg(fbcode_build)]
@@ -50,7 +50,7 @@ impl dyn FileWatcher {
         project_root: &ProjectRoot,
         root_config: &LegacyBuckConfig,
         cells: CellResolver,
-        ignore_specs: HashMap<CellName, IgnoreSet>,
+        ignore_specs: StdBuckHashMap<CellName, IgnoreSet>,
     ) -> buck2_error::Result<Arc<dyn FileWatcher>> {
         #[cfg(fbcode_build)]
         let default = if detect_eden::is_eden(project_root.root().to_path_buf())? {

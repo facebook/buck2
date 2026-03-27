@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
-use std::collections::HashSet;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -48,6 +46,8 @@ use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::fs_util::ReadDir;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_hash::StdBuckHashMap;
+use buck2_hash::StdBuckHashSet;
 use buck2_http::HttpClient;
 use chrono::Duration;
 use chrono::Utc;
@@ -473,7 +473,7 @@ fn maybe_tombstone_digest(digest: &FileDigest) -> buck2_error::Result<&FileDiges
     // instead of a not-found error.
     static TOMBSTONE_DIGEST: Lazy<FileDigest> = Lazy::new(|| FileDigest::new_sha1([0; 20], 1));
 
-    fn convert_digests(val: &str) -> buck2_error::Result<HashSet<FileDigest>> {
+    fn convert_digests(val: &str) -> buck2_error::Result<StdBuckHashSet<FileDigest>> {
         val.split(' ')
             .map(|digest| {
                 let digest = TDigest::from_str(digest)
@@ -489,7 +489,7 @@ fn maybe_tombstone_digest(digest: &FileDigest) -> buck2_error::Result<&FileDiges
 
     let tombstoned_digests = buck2_env!(
         "BUCK2_TEST_TOMBSTONED_DIGESTS",
-        type=HashSet<FileDigest>,
+        type=StdBuckHashSet<FileDigest>,
         converter=convert_digests,
         applicability=testing,
     )?;
@@ -509,7 +509,7 @@ pub(super) fn create_ttl_refresh(
     min_ttl: Duration,
     digest_config: DigestConfig,
 ) -> Option<impl Future<Output = buck2_error::Result<()>> + use<>> {
-    let mut digests_to_refresh = HashMap::<_, HashSet<_>>::new();
+    let mut digests_to_refresh = StdBuckHashMap::<_, StdBuckHashSet<_>>::new();
 
     let ttl_deadline = Utc::now() + min_ttl;
 
