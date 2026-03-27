@@ -76,6 +76,7 @@ struct ValidatedCommand {
     std_redirects: Option<StdRedirectPaths>,
     graceful_shutdown_timeout_s: Option<u32>,
     command_cgroup: Option<CgroupPathBuf>,
+    #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
     network_access: Option<buck2_data::NetworkAccess>,
 }
 
