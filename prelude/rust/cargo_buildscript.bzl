@@ -321,6 +321,7 @@ def _cargo_buildscript_impl(ctx: AnalysisContext) -> list[Provider]:
         cmd = cmd_args(
             cxx_toolchain_info.c_compiler_info.compiler,
             cmd_args(env["LD"], format = "--ld-path={}"),
+            cxx_toolchain_info.c_compiler_info.preprocessor_flags,
             cxx_toolchain_info.c_compiler_info.compiler_flags,
             deps_preprocessor_flags,
             deps_link,
@@ -335,6 +336,7 @@ def _cargo_buildscript_impl(ctx: AnalysisContext) -> list[Provider]:
         cmd = cmd_args(
             cxx_toolchain_info.cxx_compiler_info.compiler,
             cmd_args(env["LD"], format = "--ld-path={}"),
+            cxx_toolchain_info.cxx_compiler_info.preprocessor_flags,
             cxx_toolchain_info.cxx_compiler_info.compiler_flags,
             deps_preprocessor_flags,
             deps_link,
