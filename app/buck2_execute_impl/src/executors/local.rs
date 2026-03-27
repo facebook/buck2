@@ -1846,10 +1846,15 @@ mod tests {
         let (executor, _, _tmpdir) = test_executor()?;
 
         let interpreter = if cfg!(windows) { "powershell" } else { "sh" };
+        let command = if cfg!(windows) {
+            "Start-Sleep -Seconds 2"
+        } else {
+            "sleep 2"
+        };
         let CommandResult { status, .. } = executor
             .exec(
                 interpreter,
-                ["-c", "sleep 2s"],
+                ["-c", command],
                 &HashMap::<String, String>::default(),
                 ProjectRelativePath::empty(),
                 Some(Duration::from_secs(1)),
