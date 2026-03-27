@@ -68,7 +68,7 @@ Note: If you set this parameter, you must setup your NDK, otherwise Buck build w
     "default_module_manifest_skeleton": attrs.option(attrs.source(), default = None, doc = ""),
     "deps": attrs.list(attrs.dep(), default = [], doc = """List of build targets whose corresponding compiled Java code, Android resources, and native libraries will be included in the APK. \
 From the transitive closure of these dependencies, the outputs of rules of the following type will be included in the APK: \
-android_library(), android_resource(), cxx_library(), groovy_library(), java_library(), java_binary(), prebuilt_jar(), ndk_library(), prebuilt_native_library()."""),
+android_library(), android_resource(), cxx_library(), groovy_library(), java_library(), java_binary(), prebuilt_jar(), prebuilt_native_library()."""),
     "dex_compression": attrs.option(attrs.enum(DexStore), default = None, doc = ""),
     "disable_pre_dex": attrs.bool(default = False, doc = ""),
     "duplicate_class_checker_enabled": attrs.bool(default = False, doc = ""),
@@ -214,9 +214,7 @@ android_aar = prelude_rule(
                  * `android_library()` Will be included in the final `classes.jar`* `android_resource()` Will be included in the final `R.txt`,
                  `res/` and `assets/`* `android_build_config()` Will be included in the final `classes.jar`
                  if `include_build_config_class` is True
-                 * `groovy_library()` Will be included in the final `classes.jar`* `java_library()` Will be included in the final `classes.jar`* `prebuilt_jar()` Will be included in the final `classes.jar`* `ndk_library()` Will be included in the final `jni/` or
-                 `assets/` if `is_asset` is True
-                 * `prebuilt_native_library()` Will be included in the final `jni/` or
+                 * `groovy_library()` Will be included in the final `classes.jar`* `java_library()` Will be included in the final `classes.jar`* `prebuilt_jar()` Will be included in the final `classes.jar`* `prebuilt_native_library()` Will be included in the final `jni/` or
                  `assets/` if `is_asset` is True
             """),
             "remove_classes": attrs.list(attrs.regex(), default = [], doc = """
@@ -1145,59 +1143,6 @@ keystore = prelude_rule(
     ),
 )
 
-ndk_library = prelude_rule(
-    name = "ndk_library",
-    docs = """
-        An `ndk_library()` is used to define a set of C/C++ files,
-        an `Android.mk` and an `Application.mk` file that
-        are used by the NDK's `ndk-build` tool to generate one or more shared
-        objects.
-    """,
-    examples = None,
-    further = """
-        An `android_binary()` that includes this library will
-        aggregate all of the native shared objects into a directory in the
-        root of the APK named `lib/` or `assets/lib/`.
-
-        Unlike the default invocation of `ndk-build`,
-         `buck` will put all intermediate files and build output
-        into a subdirectory under `buck-out/gen`.
-    """,
-    attrs = (
-        # @unsorted-dict-items
-        {
-            "srcs": attrs.list(attrs.source(), default = [], doc = """
-                The set of files to compile for this rule.
-                 If not provided, `buck` assumes
-                 that all files with the following extensions are part of the build:
-                 `c, cpp, cc, cxx, h, hpp, mk`.
-            """),
-            "deps": attrs.list(attrs.dep(), default = [], doc = """
-                List of build targets to build before this rule.
-            """),
-            "flags": attrs.list(attrs.arg(), default = [], doc = """
-                Array of strings passed verbatim to `ndk-build`. Normally
-                 this is not needed, but in some cases you may want to put something
-                 here. For example, this can be used to build the libraries in debug
-                 mode (`NDK_DEBUG=1`) or set the number of jobs spawned by
-                 `ndk-build` (by default, the same as the number of
-                 cores).
-            """),
-            "is_asset": attrs.bool(default = False, doc = """
-                Normally native shared objects end up in a directory in the root of the APK
-                 named `lib/`. If this parameter is set to `True`, then
-                 these objects are placed in `assets/lib/`. Placing shared objects in
-                 a non-standard location prevents Android from extracting them to the device's
-                 internal storage.
-            """),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-        } |
-        buck.licenses_arg() |
-        buck.labels_arg() |
-        buck.contacts_arg()
-    ),
-)
-
 prebuilt_native_library = prelude_rule(
     name = "prebuilt_native_library",
     docs = """
@@ -1362,7 +1307,6 @@ android_rules = struct(
     apk_genrule = apk_genrule,
     gen_aidl = gen_aidl,
     keystore = keystore,
-    ndk_library = ndk_library,
     prebuilt_native_library = prebuilt_native_library,
     robolectric_test = robolectric_test,
 )

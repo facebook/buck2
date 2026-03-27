@@ -41,7 +41,7 @@ def _deps_apk_arg():
     List of build targets whose corresponding compiled Java code,
      Android resources, and native libraries will be included in the APK.
      From the transitive closure of these dependencies, the outputs of rules of the following type will be included in the APK:
-     * `android_library()`* `android_resource()`* `cxx_library()`* `groovy_library()`* `java_library()`* `java_binary()`* `prebuilt_jar()`* `ndk_library()`* `prebuilt_native_library()`
+     * `android_library()`* `android_resource()`* `cxx_library()`* `groovy_library()`* `java_library()`* `java_binary()`* `prebuilt_jar()`* `prebuilt_native_library()`
 """),
     }
 
