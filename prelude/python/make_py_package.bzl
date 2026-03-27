@@ -36,6 +36,7 @@ load(
 )
 load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
 load("@prelude//python:manifest.bzl", "create_manifest_for_entries")
+load("@prelude//python:python.bzl", "python_attr_preload_deps")
 load("@prelude//unix:providers.bzl", "UnixEnv", "create_unix_env_info")
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load(":compile.bzl", "PycInvalidationMode")
@@ -274,7 +275,7 @@ def make_py_package(
     if ctx.attrs._exec_os_type[OsLookup].os == Os("macos"):
         # preload_deps might include additional shared libraries which macOS will
         # not be able to load unless they're inside the PAR.
-        _, preload_deps_shared_libraries = gather_dep_libraries(ctx.attrs.preload_deps)
+        _, preload_deps_shared_libraries = gather_dep_libraries(python_attr_preload_deps(ctx))
         shared_libraries = shared_libraries + [
             (lib, "")
             for info in preload_deps_shared_libraries

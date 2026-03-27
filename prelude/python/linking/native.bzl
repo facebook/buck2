@@ -66,6 +66,7 @@ load(
 )
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//python:internal_tools.bzl", "PythonInternalToolsInfo")
+load("@prelude//python:python.bzl", "python_attr_preload_deps")
 load("@prelude//python:toolchain.bzl", "PackageStyle")
 load("@prelude//utils:argfile.bzl", "at_argfile")
 load(":native_python_util.bzl", "CxxExtensionLinkInfo", "CxxExtensionLinkInfoReduced", "merge_cxx_extension_info", "reduce_cxx_extension_info")  # @unused Used as a type
@@ -241,7 +242,7 @@ def _compute_cxx_extension_info(ctx, deps) -> (CxxExtensionLinkInfo, CxxExtensio
         ctx.actions,
         deps + executable_deps,
         # Add in dlopen-enabled libs from first-order deps.
-        shared_deps = ctx.attrs.deps + ctx.attrs.preload_deps,
+        shared_deps = ctx.attrs.deps + python_attr_preload_deps(ctx),
     )
     extension_info_reduced = reduce_cxx_extension_info(extension_info)
     return extension_info, extension_info_reduced
@@ -265,7 +266,7 @@ def _compute_cxx_executable_info(
 
     # All deps inolved in the link.
     link_deps = (
-        linkables(ctx.attrs.executable_deps + ctx.attrs.preload_deps) +
+        linkables(ctx.attrs.executable_deps + python_attr_preload_deps(ctx)) +
         extension_info_reduced.linkable_providers
     )
 

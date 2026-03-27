@@ -36,6 +36,7 @@ load(
 )
 load("@prelude//linking:strip.bzl", "strip_debug_with_gnu_debuglink")
 load("@prelude//python:compute_providers.bzl", "ExecutableType", "compute_providers")
+load("@prelude//python:python.bzl", "python_attr_preload_deps")
 load(
     "@prelude//python/linking:link_helper.bzl",
     "LinkProviders",
@@ -135,7 +136,8 @@ def python_executable(
     # `preload_deps` is used later to configure `LD_PRELOAD` environment variable,
     # here we make the actual libraries to appear in the distribution.
     # TODO: make fully consistent with its usage later
-    raw_deps.extend(ctx.attrs.preload_deps)
+    preload_deps = python_attr_preload_deps(ctx)
+    raw_deps.extend(preload_deps)
 
     selected_deps = resolve_versions(
         gather_versioned_dependencies(raw_deps),
@@ -393,7 +395,7 @@ def _compute_pex_providers(
     )
 
     # Convert preloaded deps to a set of their names to be loaded by.
-    preload_labels = set([_linkable_graph(d).label for d in ctx.attrs.preload_deps if _linkable_graph(d)])
+    preload_labels = set([_linkable_graph(d).label for d in python_attr_preload_deps(ctx) if _linkable_graph(d)])
 
     # Build the PEX.
     pex = make_py_package(

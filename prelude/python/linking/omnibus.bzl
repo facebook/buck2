@@ -23,6 +23,7 @@ load(
     "@prelude//linking:shared_libraries.bzl",
     "SharedLibrary",  # @unused Used as a type
 )
+load("@prelude//python:python.bzl", "python_attr_preload_deps")
 load(
     "@prelude//python:toolchain.bzl",
     "PythonToolchainInfo",  # @unused Used as a type
@@ -57,7 +58,7 @@ def process_omnibus_linking(
         roots = get_roots(deps),
         # Exclude preloaded deps from omnibus linking, to prevent preloading
         # the monolithic omnibus library.
-        excluded = get_excluded(deps = ctx.attrs.preload_deps),
+        excluded = get_excluded(deps = python_attr_preload_deps(ctx)),
     )
 
     # Link omnibus libraries.
