@@ -146,4 +146,28 @@ public class InstrumentationTpxStandardOutputTestListenerTest {
       Assert.assertNull(reader.readLine());
     }
   }
+
+  @Test
+  public void testIgnoredWithoutTestStarted() throws IOException {
+    // Android instrumentation reports DISABLED_ tests and @Ignore tests by calling
+    // testIgnored() without a preceding testStarted(). This must not crash.
+    try (FileOutputStream fileOutputStream = new FileOutputStream(tempFile)) {
+      InstrumentationTpxStandardOutputTestListener listener = createListener(fileOutputStream);
+
+      TestIdentifier testIdentifier = new TestIdentifier("TestClass", "DISABLED_testSkipped");
+      listener.testIgnored(testIdentifier);
+    }
+
+    try (BufferedReader reader = new BufferedReader(new FileReader(tempFile))) {
+      String startLine = reader.readLine();
+      Assert.assertTrue(startLine.contains("start"));
+      Assert.assertTrue(startLine.contains("DISABLED_testSkipped (TestClass)"));
+
+      String endLine = reader.readLine();
+      Assert.assertTrue(endLine.contains("finish"));
+      Assert.assertTrue(endLine.contains("DISABLED_testSkipped (TestClass)"));
+
+      Assert.assertNull(reader.readLine());
+    }
+  }
 }

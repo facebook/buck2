@@ -143,6 +143,31 @@ public class JUnitTpxStandardOutputTestListenerTest {
   }
 
   @Test
+  public void testIgnoredWithoutTestStarted() throws IOException {
+    // JUnit calls testIgnored() without testStarted() for @Ignore annotated tests.
+    // This must not crash.
+    try (FileOutputStream fileOutputStream = new FileOutputStream(tempFile)) {
+      JUnitTpxStandardOutputListener listener = createListener(fileOutputStream);
+
+      Description description =
+          Description.createTestDescription("TestClass", "DISABLED_testSkipped");
+      listener.testIgnored(description);
+    }
+
+    try (BufferedReader reader = new BufferedReader(new FileReader(tempFile))) {
+      String startLine = reader.readLine();
+      Assert.assertTrue(startLine.contains("start"));
+      Assert.assertTrue(startLine.contains("DISABLED_testSkipped (TestClass)"));
+
+      String endLine = reader.readLine();
+      Assert.assertTrue(endLine.contains("finish"));
+      Assert.assertTrue(endLine.contains("DISABLED_testSkipped (TestClass)"));
+
+      Assert.assertNull(reader.readLine());
+    }
+  }
+
+  @Test
   public void testNoTestsRemainExceptionIsIgnored() throws IOException {
     // When all tests are filtered out (e.g., TPX retries only @Ignore tests),
     // JUnit fires testStarted/testFailure/testFinished for an "initializationError"
