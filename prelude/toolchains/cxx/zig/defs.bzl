@@ -133,6 +133,65 @@ load(
     "releases",
 )
 
+def _write_zig_wrapper(ctx: AnalysisContext, name: str, zig_artifact: Artifact, subcmd: str) -> cmd_args:
+    """Write a zig wrapper script that resolves paths from its own location.
+
+    Uses BASH_SOURCE to calculate the script's directory, then constructs
+    paths relative to that location. This ensures the script works regardless
+    of the caller's working directory - go_go_wrapper changes to a temporary
+    directory which breaks scripts using relative paths.
+
+    Also expands nested @argsfile references since zig cc doesn't support them.
+    """
+    script = ctx.actions.declare_output("{}.sh".format(name))
+    ctx.actions.write(
+        script,
+        [
+            "#!/usr/bin/env bash",
+            'SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"',
+            # Expand nested @argsfile references - zig cc doesn't support them
+            # Write expanded args to a temp file to handle shell quoting correctly
+            'expand_argsfile() {',
+            '  local file="$1"',
+            '  while IFS= read -r line || [[ -n "$line" ]]; do',
+            '    if [[ "$line" == @* ]]; then',
+            '      expand_argsfile "${line:1}"',
+            '    else',
+            '      echo "$line"',
+            '    fi',
+            '  done < "$file"',
+            '}',
+            'args=()',
+            'argfile_n=0',
+            'for arg in "$@"; do',
+            '  if [[ "$arg" == @* ]]; then',
+            '    file="${arg:1}"',
+            '    if [[ -f "$file" ]]; then',
+            '      tmpfile="$BUCK_SCRATCH_PATH/argsfile_$argfile_n"',
+            '      argfile_n=$((argfile_n + 1))',
+            '      expand_argsfile "$file" > "$tmpfile"',
+            '      args+=("@$tmpfile")',
+            '    else',
+            '      args+=("$arg")',
+            '    fi',
+            '  else',
+            '    args+=("$arg")',
+            '  fi',
+            'done',
+            cmd_args(
+                'exec "$SCRIPT_DIR/',
+                cmd_args(zig_artifact, relative_to = (script, 1)),
+                '" ',
+                subcmd,
+                ' "${args[@]}"',
+                delimiter = "",
+            ),
+        ],
+        is_executable = True,
+        allow_args = True,
+    )
+    return cmd_args(script, hidden = zig_artifact)
+
 ZigReleaseInfo = provider(
     # @unsorted-dict-items
     fields = {
@@ -326,31 +385,42 @@ def _get_linker_type(os: str) -> LinkerType:
 def _cxx_zig_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
     dist = ctx.attrs.distribution[ZigDistributionInfo]
     zig = ctx.attrs.distribution[RunInfo]
+    zig_artifact = ctx.attrs.distribution[DefaultInfo].default_outputs[0]
     target = ["-target", ctx.attrs.target] if ctx.attrs.target else []
-    zig_cc = cmd_script(
-        actions = ctx.actions,
-        name = "zig_cc",
-        cmd = cmd_args(zig, "cc"),
-        language = ScriptLanguage("bat" if dist.os == "windows" else "sh"),
-    )
-    zig_cxx = cmd_script(
-        actions = ctx.actions,
-        name = "zig_cxx",
-        cmd = cmd_args(zig, "c++"),
-        language = ScriptLanguage("bat" if dist.os == "windows" else "sh"),
-    )
-    zig_ar = cmd_script(
-        actions = ctx.actions,
-        name = "zig_ar",
-        cmd = cmd_args(zig, "ar"),
-        language = ScriptLanguage("bat" if dist.os == "windows" else "sh"),
-    )
-    zig_ranlib = cmd_script(
-        actions = ctx.actions,
-        name = "zig_ranlib",
-        cmd = cmd_args(zig, "ranlib"),
-        language = ScriptLanguage("bat" if dist.os == "windows" else "sh"),
-    )
+
+    # On Unix, use BASH_SOURCE-based wrapper scripts that resolve paths
+    # relative to the script's location. This ensures they work when invoked
+    # from different working directories (go_go_wrapper changes to a temp dir).
+    if dist.os == "windows":
+        zig_cc = cmd_script(
+            actions = ctx.actions,
+            name = "zig_cc",
+            cmd = cmd_args(zig, "cc"),
+            language = ScriptLanguage("bat"),
+        )
+        zig_cxx = cmd_script(
+            actions = ctx.actions,
+            name = "zig_cxx",
+            cmd = cmd_args(zig, "c++"),
+            language = ScriptLanguage("bat"),
+        )
+        zig_ar = cmd_script(
+            actions = ctx.actions,
+            name = "zig_ar",
+            cmd = cmd_args(zig, "ar"),
+            language = ScriptLanguage("bat"),
+        )
+        zig_ranlib = cmd_script(
+            actions = ctx.actions,
+            name = "zig_ranlib",
+            cmd = cmd_args(zig, "ranlib"),
+            language = ScriptLanguage("bat"),
+        )
+    else:
+        zig_cc = _write_zig_wrapper(ctx, "zig_cc", zig_artifact, "cc")
+        zig_cxx = _write_zig_wrapper(ctx, "zig_cxx", zig_artifact, "c++")
+        zig_ar = _write_zig_wrapper(ctx, "zig_ar", zig_artifact, "ar")
+        zig_ranlib = _write_zig_wrapper(ctx, "zig_ranlib", zig_artifact, "ranlib")
     return [ctx.attrs.distribution[DefaultInfo]] + cxx_toolchain_infos(
         internal_tools = ctx.attrs._cxx_internal_tools[CxxInternalTools],
         platform_name = dist.arch,
