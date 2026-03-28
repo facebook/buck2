@@ -165,7 +165,7 @@ pub struct TargetsCommand {
 
     /// When true, emit the hash or target node and all dependencies recursively.
     /// When false, hash only the target node.
-    #[clap(long, action = clap::ArgAction::Set, default_value = "true", conflicts_with = "streaming")]
+    #[clap(long, action = clap::ArgAction::Set, default_value = "false", conflicts_with = "streaming")]
     target_hash_recursive: bool,
 
     #[clap(flatten)]

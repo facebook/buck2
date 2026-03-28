@@ -34,6 +34,7 @@ async def assert_hashes(
         "--json",
         "--target-hash-file-mode",
         "PATHS_ONLY",
+        "--target-hash-recursive=true",
     )
 
     modified_result = await buck.targets(
@@ -42,6 +43,7 @@ async def assert_hashes(
         "--json",
         "--target-hash-file-mode",
         "PATHS_ONLY",
+        "--target-hash-recursive=true",
         "--target-hash-modified-paths",
         modified_path,
     )

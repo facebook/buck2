@@ -56,7 +56,7 @@ Options:
           When true, emit the hash or target node and all dependencies recursively. When false, hash
           only the target node
 
-          [default: true]
+          [default: false]
           [possible values: true, false]
 
   -A, --output-all-attributes

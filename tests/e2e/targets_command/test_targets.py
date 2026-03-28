@@ -59,6 +59,7 @@ async def test_configured_target_hashing(
         "--json",
         "--target-hash-file-mode",
         "PATHS_ONLY",
+        "--target-hash-recursive=true",
     )
 
     # Modify a target
@@ -68,6 +69,7 @@ async def test_configured_target_hashing(
         "--json",
         "--target-hash-file-mode",
         "PATHS_ONLY",
+        "--target-hash-recursive=true",
         "--target-hash-modified-paths",
         "buck2/tests/targets/target_hashing/{}".format(src_changed),
     )
@@ -109,13 +111,17 @@ async def test_configured_ignores_unconfigured(buck: Buck) -> None:
 @buck_test(inplace=True)
 async def test_non_recursive_target_hash(buck: Buck) -> None:
     target = "fbcode//buck2/tests/targets/target_hashing:rule9"
-    pre_recursive = await buck.targets(target, "--show-target-hash", "--json")
+    pre_recursive = await buck.targets(
+        target, "--show-target-hash", "--json", "--target-hash-recursive=true"
+    )
     pre_direct = await buck.targets(
         target, "--show-target-hash", "--json", "--target-hash-recursive=false"
     )
 
     config = "-ctesting.hashing=1"
-    post_recursive = await buck.targets(target, config, "--show-target-hash", "--json")
+    post_recursive = await buck.targets(
+        target, config, "--show-target-hash", "--json", "--target-hash-recursive=true"
+    )
     post_direct = await buck.targets(
         target, config, "--show-target-hash", "--json", "--target-hash-recursive=false"
     )
