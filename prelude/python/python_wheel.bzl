@@ -565,6 +565,7 @@ python_wheel = rule(
         rpaths = attrs.list(attrs.string(), default = []),
         lib_dir = attrs.option(attrs.string(), default = None),
         labels = attrs.list(attrs.string(), default = []),
+        deffile = attrs.option(attrs.source(), default = None),
         linker_flags = attrs.list(attrs.arg(anon_target_compatible = True), default = []),
         anonymous_link = attrs.bool(default = True),
         link_execution_preference = link_execution_preference_attr(),
