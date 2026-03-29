@@ -19,3 +19,25 @@ ignore = \
 
 [rust]
 default_edition = 2024
+
+[buck2]
+digest_algorithms         = SHA256
+materializations          = deferred
+sqlite_materializer_state = true
+defer_write_actions       = true
+clean_stale_enabled       = true
+restarter                 = true
+hash_all_commands         = true
+
+[build]
+execution_platforms = //platforms:platforms
+
+[buck2_re_client]
+use_fbcode_metadata = false
+capabilities         = true
+tls                  = true
+engine_address       = grpc://remote.buildbuddy.io
+action_cache_address = grpc://remote.buildbuddy.io
+cas_address          = grpc://remote.buildbuddy.io
+http_headers         = x-buildbuddy-api-key:$BUILDBUDDY_API_KEY
+instance_name        = $REMOTE_INSTANCE_NAME
