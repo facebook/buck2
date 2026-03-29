@@ -17,13 +17,24 @@ load(
     "cxx_attr_exported_deps",
 )
 
+GraphQLiOSInfo = record(
+    header_path_prefix = str | None,
+)
+
+GraphQLAndroidInfo = record(
+    allow_legacy_fragments = bool,
+    allow_type_models = bool,
+    composition_mode = str | None,
+    enable_associated_library = bool,
+)
+
 GraphQLInfo = provider(
     fields = {
         "config_name": provider_field(str),
         "enforce_colocation": provider_field(bool),
-        "header_path_prefix": provider_field(str | None),
         "is_subconfig": provider_field(bool),
         "is_test_target": provider_field(bool),
+        "platform_config": provider_field(GraphQLAndroidInfo | GraphQLiOSInfo),
         "srcs": provider_field(list[Artifact]),
         "target": provider_field(Label),
     },

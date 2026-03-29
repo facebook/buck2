@@ -16,6 +16,7 @@ load(
 )
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:r_dot_java.bzl", "get_dummy_r_dot_java")
+load("@prelude//graphql:graphql.bzl", "graphql_providers")
 load("@prelude//java:java_library.bzl", "build_java_library")
 load(
     "@prelude//java:java_providers.bzl",
@@ -81,7 +82,7 @@ def android_library_impl(ctx: AnalysisContext) -> list[Provider]:
             manifest = ctx.attrs.manifest,
         ),
         merge_exported_android_resource_info(ctx.attrs.exported_deps),
-    ] + android_providers + [LabelInfo(labels = ctx.attrs.labels)]
+    ] + android_providers + [LabelInfo(labels = ctx.attrs.labels)] + graphql_providers(ctx)
 
 def optional_jars(ctx: AnalysisContext) -> list[Artifact]:
     if not ctx.attrs.android_optional_jars:
