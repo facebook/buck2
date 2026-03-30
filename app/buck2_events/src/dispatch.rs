@@ -107,6 +107,22 @@ impl EventDispatcher {
         self.instant_event(buck2_data::StdoutStreamingOutput { message })
     }
 
+    /// Like `instant_event`, but bypasses internal buffering. See [`EventSink::send_now`].
+    pub async fn instant_event_send_now<E: Into<buck2_data::instant_event::Data>>(&self, data: E) {
+        let instant = buck2_data::InstantEvent {
+            data: Some(data.into()),
+        };
+        let now = SystemTime::now();
+        let event = BuckEvent::new(
+            now,
+            self.trace_id.dupe(),
+            None,
+            current_span(),
+            instant.into(),
+        );
+        self.sink.send_now(Event::Buck(event)).await;
+    }
+
     fn event_with_span_id<E: Into<buck_event::Data>>(
         &self,
         data: E,

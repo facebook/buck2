@@ -39,6 +39,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::SystemTime;
 
+use async_trait::async_trait;
 use buck2_cli_proto::CommandResult;
 use buck2_cli_proto::PartialResult;
 use buck2_wrapper_common::invocation_id::TraceId;
@@ -251,11 +252,21 @@ impl EventSinkStats {
 
 /// A sink for events, easily plumbable to the guts of systems that intend to produce events consumeable by
 /// higher-level clients. Sending an event is synchronous.
+#[async_trait]
 pub trait EventSink: Send + Sync {
     /// Sends an event into this sink, to be consumed elsewhere. Explicitly does not return a Result type; if sending
     /// an event does fail, implementations will handle the failure by panicking or performing some other graceful
     /// recovery; callers of EventSink are not expected to handle failures.
     fn send(&self, event: Event);
+
+    /// Like `send`, but bypasses any internal buffering and delivers the event
+    /// as directly as possible. For the scribe sink this means calling thrift
+    /// synchronously instead of going through the producer queue. This is
+    /// useful for high-priority events that must be delivered even under memory
+    /// pressure. The default implementation falls back to `send`.
+    async fn send_now(&self, event: Event) {
+        self.send(event);
+    }
 }
 
 pub trait EventSinkWithStats: Send + Sync {
@@ -265,9 +276,14 @@ pub trait EventSinkWithStats: Send + Sync {
     fn stats(&self) -> EventSinkStats;
 }
 
+#[async_trait]
 impl EventSink for Arc<dyn EventSink> {
     fn send(&self, event: Event) {
         EventSink::send(self.as_ref(), event);
+    }
+
+    async fn send_now(&self, event: Event) {
+        EventSink::send_now(self.as_ref(), event).await;
     }
 }
 

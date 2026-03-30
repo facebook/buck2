@@ -90,7 +90,15 @@ pub fn spawn_memory_reporter(
             tokio::select! {
                 Some(resource_control_event) = resource_control_event_rx.recv() => {
                     let event = resource_control_event.complete(dispatcher.trace_id());
-                    dispatcher.instant_event(event);
+                    // Spawn and detach the send_now call so we don't block
+                    // the event loop. send_now bypasses the scribe producer
+                    // queue; under memory pressure the queue-based path gets
+                    // blocked while send_now can still deliver events directly
+                    // to scribed.
+                    let dispatcher = dispatcher.dupe();
+                    tokio::spawn(async move {
+                        dispatcher.instant_event_send_now(event).await;
+                    });
                 }
                 _ = cancel.cancelled() => {
                     break;

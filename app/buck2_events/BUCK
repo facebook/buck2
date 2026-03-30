@@ -9,6 +9,7 @@ rust_library(
     ),
     test_deps = ["fbsource//third-party/rust:tokio"],
     deps = [
+        "fbsource//third-party/rust:async-trait",
         "fbsource//third-party/rust:console",
         "fbsource//third-party/rust:crossbeam-channel",
         "fbsource//third-party/rust:derive_more",

@@ -11,6 +11,7 @@
 use std::sync::Arc;
 use std::time::SystemTime;
 
+use async_trait::async_trait;
 use buck2_core::buck2_env;
 use buck2_data::ActionExecutionEnd;
 use buck2_data::InstantEvent;
@@ -245,12 +246,25 @@ impl RemoteEventSink {
     }
 }
 
+#[async_trait]
 impl EventSink for RemoteEventSink {
     fn send(&self, event: Event) {
         match event {
             Event::Buck(event) => {
                 if self.should_send_event(event.data()) {
                     self.offer(event);
+                }
+            }
+            Event::CommandResult(..) => {}
+            Event::PartialResult(..) => {}
+        }
+    }
+
+    async fn send_now(&self, event: Event) {
+        match event {
+            Event::Buck(event) => {
+                if self.should_send_event(event.data()) {
+                    let _ignored = RemoteEventSink::send_now(self, event).await;
                 }
             }
             Event::CommandResult(..) => {}
