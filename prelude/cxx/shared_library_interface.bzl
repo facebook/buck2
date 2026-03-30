@@ -19,6 +19,13 @@ def _shared_library_interface(
     Convert the given shared library into an interface used for linking.
     """
     linker_info = get_cxx_toolchain_info(ctx).linker_info
+    if linker_info.mk_shlib_intf == None:
+        fail(
+            "Shared library interface generation is enabled (shlib_interfaces != \"disabled\") " +
+            "but the toolchain does not define `shared_library_interface_producer`. " +
+            "Either set `shared_library_interface_producer` in the toolchain or " +
+            "disable shared library interfaces by setting `shlib_interfaces = \"disabled\"`.",
+        )
     args = cmd_args(linker_info.mk_shlib_intf[RunInfo])
     args.add(shared_lib)
     output = ctx.actions.declare_output(output, has_content_based_path = False)

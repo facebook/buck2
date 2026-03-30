@@ -1200,8 +1200,8 @@ def create_link_groups(
             # If link group has root it always being linked statically
             targets_consumed_by_link_groups[link_group_spec.root.label] = link_group_spec.group.name
 
-        # On GNU, use shlib interfaces.
-        if cxx_is_gnu(ctx):
+        # On GNU, use shlib interfaces when the tool is available.
+        if cxx_is_gnu(ctx) and get_cxx_toolchain_info(ctx).linker_info.mk_shlib_intf != None:
             shlib_for_link = shared_library_interface(
                 ctx = ctx,
                 shared_lib = link_group_lib.output,
