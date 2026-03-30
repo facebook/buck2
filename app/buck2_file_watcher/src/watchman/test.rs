@@ -207,6 +207,7 @@ async fn test_syncable_query() -> buck2_error::Result<()> {
         Box::new(TestQueryProcessor),
         None,
         true,
+        true,
     )?;
 
     // Startup

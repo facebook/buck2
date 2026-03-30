@@ -100,6 +100,7 @@ pub(crate) struct EdenFsFileWatcher {
     mergebase: RwLock<Option<MergebaseDetails>>,
     last_mergebase: RwLock<Option<MergebaseDetails>>,
     mergebase_with: Option<String>,
+    dice_clear_on_mergebase_change: bool,
     eden_version: RwLock<Option<String>>,
 }
 
@@ -110,7 +111,7 @@ impl EdenFsFileWatcher {
         root_config: &LegacyBuckConfig,
         cells: CellResolver,
         ignore_specs: StdBuckHashMap<CellName, IgnoreSet>,
-    ) -> Result<Self, EdenFsWatcherError> {
+    ) -> buck2_error::Result<Self> {
         let manager = EdenConnectionManager::new(
             fb,
             project_root,
@@ -137,6 +138,9 @@ impl EdenFsFileWatcher {
             })
             .map(|s| s.to_owned());
 
+        let dice_clear_on_mergebase_change =
+            crate::file_watcher::dice_clear_on_mergebase_change(root_config)?;
+
         Ok(Self {
             manager,
             mount_point,
@@ -148,6 +152,7 @@ impl EdenFsFileWatcher {
             mergebase: RwLock::new(None),
             last_mergebase: RwLock::new(None),
             mergebase_with,
+            dice_clear_on_mergebase_change,
             eden_version: RwLock::new(None),
         })
     }
@@ -673,15 +678,17 @@ impl EdenFsFileWatcher {
         to: &str,
         processed_changes: &mut StdBuckHashSet<EdenFsEvent>,
     ) -> buck2_error::Result<ProcessChangeStatus> {
-        if self
+        let mergebase_changed = self
             .update_mergebase(to)
             .await
-            .buck_error_context("Failed to update mergebase.")?
-        {
+            .buck_error_context("Failed to update mergebase.")?;
+
+        if mergebase_changed && self.dice_clear_on_mergebase_change {
             // Mergebase has changed - invalidate DICE.
             Ok(ProcessChangeStatus::LargeOrUnknown)
         } else {
-            // Mergebase has not changed - compute changes form source control
+            // Mergebase has not changed (or dice_clear_on_mergebase_change is disabled) -
+            // compute changes from source control
             self.process_source_control_changes(tracker, stats, from, Some(to), processed_changes)
                 .await
         }

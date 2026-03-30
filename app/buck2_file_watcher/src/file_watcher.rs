@@ -15,20 +15,21 @@ use async_trait::async_trait;
 use buck2_common::ignores::ignore_set::IgnoreSet;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
+use buck2_core::buck2_env;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::name::CellName;
 use buck2_core::fs::project::ProjectRoot;
 #[cfg(fbcode_build)]
 use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
+#[cfg(fbcode_build)]
+use buck2_error::ErrorTag;
 use buck2_error::buck2_error;
 use buck2_hash::StdBuckHashMap;
 use dice::DiceTransactionUpdater;
 
 #[cfg(fbcode_build)]
 use crate::edenfs::interface::EdenFsFileWatcher;
-#[cfg(fbcode_build)]
-use crate::edenfs::interface::EdenFsWatcherError;
 use crate::fs_hash_crawler::FsHashCrawler;
 use crate::mergebase::Mergebase;
 use crate::notify::NotifyFileWatcher;
@@ -40,6 +41,27 @@ pub trait FileWatcher: Allocative + Send + Sync + 'static {
         &self,
         dice: DiceTransactionUpdater,
     ) -> buck2_error::Result<(DiceTransactionUpdater, Mergebase)>;
+}
+
+/// Parse the `dice_clear_on_mergebase_change` config, honoring both the buckconfig
+/// and the `BUCK2_TEST_SKIP_DICE_CLEAR_ON_MERGEBASE_CHANGE` env var override.
+pub(crate) fn dice_clear_on_mergebase_change(
+    root_config: &LegacyBuckConfig,
+) -> buck2_error::Result<bool> {
+    let config_value = root_config
+        .parse::<bool>(BuckconfigKeyRef {
+            section: "buck2",
+            property: "dice_clear_on_mergebase_change",
+        })
+        .buck_error_context("Failed to parse dice_clear_on_mergebase_change config")?
+        .unwrap_or(true);
+    let env_skip = buck2_env!(
+        "BUCK2_TEST_SKIP_DICE_CLEAR_ON_MERGEBASE_CHANGE",
+        bool,
+        applicability = testing
+    )
+    .buck_error_context("Failed to parse BUCK2_TEST_SKIP_DICE_CLEAR_ON_MERGEBASE_CHANGE env")?;
+    Ok(config_value && !env_skip)
 }
 
 impl dyn FileWatcher {
@@ -81,12 +103,12 @@ impl dyn FileWatcher {
                 ignore_specs.clone(),
             ) {
                 Ok(edenfs) => return Ok(Arc::new(edenfs)),
-                Err(EdenFsWatcherError::EdenConnectionError(e)) => {
+                Err(e) if e.has_tag(ErrorTag::IoNotConnected) => {
                     soft_error!("edenfs_watcher_creation_failure", e)?;
                     // fallback to watchman if failed to create edenfs watcher
                     "watchman"
                 }
-                Err(e) => return Err(e.into()),
+                Err(e) => return Err(e),
             }
             #[cfg(not(fbcode_build))]
             default

@@ -384,6 +384,9 @@ impl WatchmanFileWatcher {
             })?
             .unwrap_or(false);
 
+        let dice_clear_on_mergebase_change =
+            crate::file_watcher::dice_clear_on_mergebase_change(root_config)?;
+
         let query = SyncableQuery::new(
             Connector::new(),
             project_root,
@@ -403,6 +406,7 @@ impl WatchmanFileWatcher {
             }),
             watchman_merge_base,
             empty_on_fresh_instance,
+            dice_clear_on_mergebase_change,
         )?;
 
         Ok(Self { query })
