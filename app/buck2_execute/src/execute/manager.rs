@@ -17,10 +17,10 @@ use buck2_build_signals::env::WaitingData;
 use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_core::buck2_env;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_hash::BuckIndexMap;
 use buck2_util::time_span::TimeSpan;
 use futures::future::Future;
 use futures::future::FutureExt;
-use indexmap::IndexMap;
 
 use crate::artifact_value::ArtifactValue;
 use crate::execute::claim::Claim;
@@ -40,7 +40,7 @@ trait CommandExecutionManagerLike: Sized {
     fn result(
         self,
         status: CommandExecutionStatus,
-        outputs: IndexMap<CommandExecutionOutput, ArtifactValue>,
+        outputs: BuckIndexMap<CommandExecutionOutput, ArtifactValue>,
         std_streams: CommandStdStreams,
         exit_code: Option<i32>,
         timing: CommandExecutionMetadata,
@@ -127,7 +127,7 @@ impl CommandExecutionManager {
                 execution_kind,
                 reason: Some(reason),
             },
-            IndexMap::new(),
+            BuckIndexMap::default(),
             Default::default(),
             None,
             metadata,
@@ -159,7 +159,7 @@ impl CommandExecutionManagerLike for CommandExecutionManager {
     fn result(
         self,
         status: CommandExecutionStatus,
-        outputs: IndexMap<CommandExecutionOutput, ArtifactValue>,
+        outputs: BuckIndexMap<CommandExecutionOutput, ArtifactValue>,
         std_streams: CommandStdStreams,
         exit_code: Option<i32>,
         timing: CommandExecutionMetadata,
@@ -212,7 +212,7 @@ impl CommandExecutionManagerWithClaim {
     pub fn success(
         self,
         execution_kind: CommandExecutionKind,
-        outputs: IndexMap<CommandExecutionOutput, ArtifactValue>,
+        outputs: BuckIndexMap<CommandExecutionOutput, ArtifactValue>,
         std_streams: CommandStdStreams,
         timing: CommandExecutionMetadata,
     ) -> CommandExecutionResult {
@@ -236,7 +236,7 @@ impl CommandExecutionManagerWithClaim {
                 execution_kind,
                 reason: None,
             },
-            IndexMap::new(),
+            BuckIndexMap::default(),
             Default::default(),
             None,
             timing,
@@ -254,7 +254,7 @@ impl CommandExecutionManagerLike for CommandExecutionManagerWithClaim {
     fn result(
         self,
         status: CommandExecutionStatus,
-        outputs: IndexMap<CommandExecutionOutput, ArtifactValue>,
+        outputs: BuckIndexMap<CommandExecutionOutput, ArtifactValue>,
         std_streams: CommandStdStreams,
         exit_code: Option<i32>,
         timing: CommandExecutionMetadata,
@@ -292,7 +292,7 @@ pub trait CommandExecutionManagerExt: Sized {
     fn failure(
         self,
         execution_kind: CommandExecutionKind,
-        outputs: IndexMap<CommandExecutionOutput, ArtifactValue>,
+        outputs: BuckIndexMap<CommandExecutionOutput, ArtifactValue>,
         std_streams: CommandStdStreams,
         exit_code: Option<i32>,
         timing: CommandExecutionMetadata,
@@ -309,7 +309,7 @@ pub trait CommandExecutionManagerExt: Sized {
     fn timeout(
         self,
         execution_kind: CommandExecutionKind,
-        outputs: IndexMap<CommandExecutionOutput, ArtifactValue>,
+        outputs: BuckIndexMap<CommandExecutionOutput, ArtifactValue>,
         duration: Duration,
         std_streams: CommandStdStreams,
         timing: CommandExecutionMetadata,
@@ -339,7 +339,7 @@ where
     fn failure(
         self,
         execution_kind: CommandExecutionKind,
-        outputs: IndexMap<CommandExecutionOutput, ArtifactValue>,
+        outputs: BuckIndexMap<CommandExecutionOutput, ArtifactValue>,
         std_streams: CommandStdStreams,
         exit_code: Option<i32>,
         timing: CommandExecutionMetadata,
@@ -377,7 +377,7 @@ where
     fn timeout(
         self,
         execution_kind: CommandExecutionKind,
-        outputs: IndexMap<CommandExecutionOutput, ArtifactValue>,
+        outputs: BuckIndexMap<CommandExecutionOutput, ArtifactValue>,
         duration: Duration,
         std_streams: CommandStdStreams,
         timing: CommandExecutionMetadata,
@@ -410,7 +410,7 @@ where
                 execution_kind,
                 typ: error_type,
             },
-            IndexMap::new(),
+            BuckIndexMap::default(),
             Default::default(),
             None,
             CommandExecutionMetadata::empty(TimeSpan::empty_now()),

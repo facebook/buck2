@@ -12,11 +12,11 @@ use std::fmt;
 use std::fmt::Display;
 
 use allocative::Allocative;
+use buck2_hash::BuckIndexSet;
 use display_container::fmt_container;
 use dupe::IterDupedExt;
 use fancy_regex::Regex;
 use fancy_regex::RegexBuilder;
-use indexmap::IndexSet;
 use pagable::Pagable;
 
 use crate::query::environment::QueryTarget;
@@ -73,7 +73,7 @@ impl<T: QueryTarget> TargetSet<T> {
     }
 
     pub fn buildfile(&self) -> FileSet {
-        let mut files = IndexSet::new();
+        let mut files = BuckIndexSet::default();
         for target in self.targets.iter() {
             files.insert(FileNode(target.buildfile_path().path()));
         }
@@ -81,7 +81,7 @@ impl<T: QueryTarget> TargetSet<T> {
     }
 
     pub fn inputs(&self) -> buck2_error::Result<FileSet> {
-        let mut files = IndexSet::new();
+        let mut files = BuckIndexSet::default();
         for target in self.targets.iter() {
             target.inputs_for_each(|file| {
                 files.insert(FileNode(file));

@@ -12,7 +12,6 @@ clap = { workspace = true }
 csv = { workspace = true }
 derive_more = { workspace = true }
 futures = { workspace = true }
-indexmap = { workspace = true }
 linked-hash-map = { workspace = true }
 prost-types = { workspace = true }
 serde = { workspace = true }

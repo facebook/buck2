@@ -83,6 +83,7 @@ use buck2_fs::async_fs_util;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::abs_path::AbsPath;
+use buck2_hash::BuckIndexMap;
 use buck2_resource_control::ActionFreezeEvent;
 use buck2_resource_control::ActionFreezeEventReceiver;
 use buck2_resource_control::CommandType;
@@ -105,7 +106,6 @@ use gazebo::prelude::*;
 use host_sharing::HostSharingBroker;
 use host_sharing::HostSharingRequirements;
 use host_sharing::host_sharing::HostSharingGuard;
-use indexmap::IndexMap;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::info;
 
@@ -883,7 +883,10 @@ impl LocalExecutor {
         &self,
         request: &CommandExecutionRequest,
         digest_config: DigestConfig,
-    ) -> buck2_error::Result<(IndexMap<CommandExecutionOutput, ArtifactValue>, HashingInfo)> {
+    ) -> buck2_error::Result<(
+        BuckIndexMap<CommandExecutionOutput, ArtifactValue>,
+        HashingInfo,
+    )> {
         let mut builder = inputs_directory(request.inputs(), digest_config, &self.artifact_fs)?;
 
         // Read outputs from disk and add them to the builder
@@ -915,7 +918,7 @@ impl LocalExecutor {
         }
 
         let mut to_declare = vec![];
-        let mut mapped_outputs = IndexMap::with_capacity(entries.len());
+        let mut mapped_outputs = BuckIndexMap::with_capacity(entries.len());
         let mut configuration_path_to_content_based_path_symlinks = vec![];
         let mut output_path_to_content_based_path_copies = vec![];
 

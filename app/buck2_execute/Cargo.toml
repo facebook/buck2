@@ -22,7 +22,6 @@ futures = { workspace = true }
 hex = { workspace = true }
 http = { workspace = true }
 hyper = { workspace = true }
-indexmap = { workspace = true }
 itertools = { workspace = true }
 once_cell = { workspace = true }
 pathdiff = { workspace = true }

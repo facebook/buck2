@@ -14,8 +14,8 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::V
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_execute::execute::request::OutputType;
+use buck2_hash::buck_indexset;
 use dupe::OptionDupedExt;
-use indexmap::indexset;
 use starlark::environment::MethodsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
@@ -41,7 +41,7 @@ fn create_dir_tree<'v>(
     let mut this = this.state()?;
     let (declaration, output_artifact) =
         this.get_or_declare_output(eval, output, OutputType::Directory, has_content_based_path)?;
-    this.register_action(indexset![output_artifact], action, None, None)?;
+    this.register_action(buck_indexset![output_artifact], action, None, None)?;
 
     Ok(declaration.into_declared_artifact(unioned_associated_artifacts))
 }
@@ -64,7 +64,7 @@ fn copy_file_impl<'v>(
         this.get_or_declare_output(eval, dest, output_type, has_content_based_path)?;
 
     this.register_action(
-        indexset![output_artifact],
+        buck_indexset![output_artifact],
         UnregisteredCopyAction::new(artifact, copy),
         None,
         None,

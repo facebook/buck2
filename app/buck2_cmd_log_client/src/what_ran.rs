@@ -32,10 +32,10 @@ use buck2_event_observer::what_ran::WhatRanOutputWriter;
 use buck2_event_observer::what_ran::WhatRanRelevantAction;
 use buck2_event_observer::what_ran::WhatRanState;
 use buck2_events::span::SpanId;
+use buck2_hash::BuckIndexMap;
 use buck2_hash::StdBuckHashMap;
 use futures::TryStreamExt;
 use futures::stream::Stream;
-use indexmap::IndexMap;
 
 use crate::LogCommandOutputFormat;
 use crate::LogCommandOutputFormatWithWriter;
@@ -497,8 +497,8 @@ impl WhatRanOutputWriter for OutputFormatWithWriter<'_> {
     }
 }
 
-fn into_index_map(platform: &Option<buck2_data::RePlatform>) -> IndexMap<&str, &str> {
-    platform.as_ref().map_or_else(IndexMap::new, |p| {
+fn into_index_map(platform: &Option<buck2_data::RePlatform>) -> BuckIndexMap<&str, &str> {
+    platform.as_ref().map_or_else(BuckIndexMap::new, |p| {
         p.properties
             .iter()
             .map(|Property { name, value }| (name.as_ref(), value.as_ref()))
@@ -545,27 +545,27 @@ mod json_reproducer {
         LocalDepFileCache,
         Re {
             digest: &'a str,
-            platform_properties: IndexMap<&'a str, &'a str>,
+            platform_properties: BuckIndexMap<&'a str, &'a str>,
             #[serde(skip_serializing_if = "Option::is_none")]
             action_key: Option<&'a str>,
         },
         ReWorker {
             digest: &'a str,
-            platform_properties: IndexMap<&'a str, &'a str>,
+            platform_properties: BuckIndexMap<&'a str, &'a str>,
             #[serde(skip_serializing_if = "Option::is_none")]
             action_key: Option<&'a str>,
         },
         Local {
             command: Cow<'a, [String]>,
-            env: IndexMap<&'a str, &'a str>,
+            env: BuckIndexMap<&'a str, &'a str>,
         },
         Worker {
             command: Cow<'a, [String]>,
-            env: IndexMap<&'a str, &'a str>,
+            env: BuckIndexMap<&'a str, &'a str>,
         },
         WorkerInit {
             command: Cow<'a, [String]>,
-            env: IndexMap<&'a str, &'a str>,
+            env: BuckIndexMap<&'a str, &'a str>,
         },
     }
 }
@@ -592,7 +592,7 @@ mod tests {
 
     fn make_base_command() -> JsonCommand<'static> {
         let command = Cow::Owned(vec!["some".to_owned(), "command".to_owned()]);
-        let mut env = IndexMap::new();
+        let mut env = BuckIndexMap::default();
         env.insert("KEY", "val");
 
         JsonCommand {
@@ -612,7 +612,7 @@ mod tests {
             identity: "some/target",
             reproducer: JsonReproducer::Re {
                 digest: "placeholder",
-                platform_properties: indexmap::indexmap! {
+                platform_properties: buck2_hash::buck_indexmap! {
                     "platform" => "linux-remote-execution"
                 },
                 action_key: None,

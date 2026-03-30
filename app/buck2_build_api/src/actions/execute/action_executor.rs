@@ -66,6 +66,9 @@ use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
 use buck2_file_watcher::mergebase::GetMergebase;
 use buck2_file_watcher::mergebase::Mergebase;
 use buck2_hash::BuckHashMap;
+use buck2_hash::BuckIndexMap;
+use buck2_hash::BuckIndexSet;
+use buck2_hash::buck_indexmap;
 use buck2_http::HttpClient;
 use derivative::Derivative;
 use derive_more::Display;
@@ -73,9 +76,6 @@ use dice::DiceComputations;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use either::Either;
-use indexmap::IndexMap;
-use indexmap::IndexSet;
-use indexmap::indexmap;
 use itertools::Itertools;
 use pagable::PagablePanic;
 use remote_execution::TActionResult2;
@@ -117,7 +117,7 @@ impl OutputSize for ActionOutputs {
 #[derive(Derivative, Debug, Allocative)]
 #[derivative(PartialEq, Eq)]
 struct ActionOutputsData {
-    outputs: IndexMap<BuildArtifactPath, ArtifactValue>,
+    outputs: BuckIndexMap<BuildArtifactPath, ArtifactValue>,
 }
 
 /// Metadata associated with the execution of this action.
@@ -222,12 +222,12 @@ impl ActionExecutionKind {
 }
 
 impl ActionOutputs {
-    pub fn new(outputs: IndexMap<BuildArtifactPath, ArtifactValue>) -> Self {
+    pub fn new(outputs: BuckIndexMap<BuildArtifactPath, ArtifactValue>) -> Self {
         Self(Arc::new(ActionOutputsData { outputs }))
     }
 
     pub fn from_single(artifact: BuildArtifactPath, value: ArtifactValue) -> Self {
-        Self::new(indexmap! {artifact => value})
+        Self::new(buck_indexmap! {artifact => value})
     }
 
     pub fn get(&self, artifact: &BuildArtifactPath) -> Option<&ArtifactValue> {
@@ -360,7 +360,7 @@ impl BuckActionExecutor {
 struct BuckActionExecutionContext<'a> {
     executor: &'a BuckActionExecutor,
     action: &'a RegisteredAction,
-    inputs: IndexMap<ArtifactGroup, ArtifactGroupValues>,
+    inputs: BuckIndexMap<ArtifactGroup, ArtifactGroupValues>,
     outputs: &'a [BuildArtifact],
     command_reports: &'a mut Vec<CommandExecutionReport>,
     cancellations: &'a CancellationContext,
@@ -403,7 +403,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
 
     fn artifact_path_mapping(
         &self,
-        filter: Option<IndexSet<ArtifactGroup>>,
+        filter: Option<BuckIndexSet<ArtifactGroup>>,
     ) -> BuckHashMap<&Artifact, ContentBasedPathHash> {
         self.inputs
             .iter()
@@ -681,7 +681,7 @@ impl BuckActionExecutor {
     pub(crate) async fn execute(
         &self,
         waiting_data: WaitingData,
-        inputs: IndexMap<ArtifactGroup, ArtifactGroupValues>,
+        inputs: BuckIndexMap<ArtifactGroup, ArtifactGroupValues>,
         action: &RegisteredAction,
         cancellations: &CancellationContext,
     ) -> (
@@ -852,10 +852,10 @@ mod tests {
     use buck2_execute::re::manager::UnconfiguredRemoteExecutionClient;
     use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
     use buck2_fs::fs_util::uncategorized as fs_util;
+    use buck2_hash::buck_indexset;
     use buck2_http::HttpClientBuilder;
     use dice_futures::cancellation::CancellationContext;
     use dupe::Dupe;
-    use indexmap::indexset;
     use sorted_vector_map::SortedVectorMap;
 
     use crate::actions::Action;
@@ -1038,12 +1038,12 @@ mod tests {
             }
         }
 
-        let inputs = indexset![ArtifactGroup::Artifact(Artifact::from(
+        let inputs = buck_indexset![ArtifactGroup::Artifact(Artifact::from(
             SourceArtifact::new(SourcePath::testing_new("cell//pkg", "source"))
         ))];
         let label =
             TargetLabel::testing_parse("cell//pkg:foo").configure(ConfigurationData::testing_new());
-        let outputs = indexset![BuildArtifact::testing_new(
+        let outputs = buck_indexset![BuildArtifact::testing_new(
             label.dupe(),
             "output",
             ActionIndex::new(0),

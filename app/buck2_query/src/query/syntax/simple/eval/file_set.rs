@@ -12,10 +12,10 @@ use std::fmt;
 
 use allocative::Allocative;
 use buck2_core::cells::cell_path::CellPath;
+use buck2_hash::BuckIndexSet;
 use derive_more::Display;
 use display_container::fmt_container;
 use fancy_regex::Regex;
-use indexmap::IndexSet;
 
 use crate::query::environment::QueryEnvironment;
 use crate::query::environment::QueryTarget;
@@ -28,7 +28,7 @@ pub struct FileNode(pub CellPath);
 
 #[derive(Debug, Eq, PartialEq, Clone, Allocative)]
 pub struct FileSet {
-    files: IndexSet<FileNode>,
+    files: BuckIndexSet<FileNode>,
 }
 
 impl fmt::Display for FileSet {
@@ -38,7 +38,7 @@ impl fmt::Display for FileSet {
 }
 
 impl FileSet {
-    pub fn new(files: IndexSet<FileNode>) -> Self {
+    pub fn new(files: BuckIndexSet<FileNode>) -> Self {
         Self { files }
     }
 
@@ -51,7 +51,7 @@ impl FileSet {
         &self,
         filter: F,
     ) -> buck2_error::Result<Self> {
-        let mut files = IndexSet::new();
+        let mut files = BuckIndexSet::default();
         for file in self.files.iter() {
             if filter(file)? {
                 files.insert(file.clone());
@@ -120,7 +120,7 @@ impl FileSet {
 impl FromIterator<FileNode> for FileSet {
     fn from_iter<T: IntoIterator<Item = FileNode>>(iter: T) -> FileSet {
         FileSet {
-            files: IndexSet::from_iter(iter),
+            files: BuckIndexSet::from_iter(iter),
         }
     }
 }

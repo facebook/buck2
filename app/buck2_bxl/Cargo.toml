@@ -22,7 +22,6 @@ dupe = { workspace = true }
 either = { workspace = true }
 futures = { workspace = true }
 gazebo = { workspace = true }
-indexmap = { workspace = true }
 itertools = { workspace = true }
 num-bigint = { workspace = true }
 pagable = { workspace = true }

@@ -89,15 +89,15 @@ use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_fs::fs_util;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_hash::BuckIndexMap;
+use buck2_hash::BuckIndexSet;
+use buck2_hash::buck_indexmap;
 use buck2_util::thin_box::ThinBoxSlice;
 use derive_more::Display;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use host_sharing::HostSharingRequirements;
 use host_sharing::WeightClass;
-use indexmap::IndexMap;
-use indexmap::IndexSet;
-use indexmap::indexmap;
 use itertools::Itertools;
 use pagable::Pagable;
 use serde_json::json;
@@ -262,7 +262,7 @@ pub(crate) struct UnregisteredRunAction {
 impl UnregisteredAction for UnregisteredRunAction {
     fn register(
         self: Box<Self>,
-        outputs: IndexSet<BuildArtifact>,
+        outputs: BuckIndexSet<BuildArtifact>,
         starlark_data: Option<OwnedFrozenValue>,
         error_handler: Option<OwnedFrozenValue>,
     ) -> buck2_error::Result<Box<dyn Action>> {
@@ -412,13 +412,13 @@ type ExpandedCommandLineDigestForDepFiles = ExpandedCommandLineDigest;
 
 /// A CommandLineArtifactVisitor that gathers non-hidden inputs.
 pub struct SkipHiddenCommandLineArtifactVisitor {
-    pub inputs: IndexSet<ArtifactGroup>,
+    pub inputs: BuckIndexSet<ArtifactGroup>,
 }
 
 impl SkipHiddenCommandLineArtifactVisitor {
     pub fn new() -> Self {
         Self {
-            inputs: IndexSet::new(),
+            inputs: BuckIndexSet::default(),
         }
     }
 }
@@ -599,7 +599,7 @@ impl RunAction {
 
             let input_paths = CommandExecutionPaths::new(
                 inputs,
-                IndexSet::new(),
+                BuckIndexSet::default(),
                 action_execution_ctx.fs(),
                 action_execution_ctx.digest_config(),
                 action_execution_ctx
@@ -698,7 +698,7 @@ impl RunAction {
 
             let input_paths = CommandExecutionPaths::new(
                 inputs,
-                IndexSet::new(),
+                BuckIndexSet::default(),
                 action_execution_ctx.fs(),
                 action_execution_ctx.digest_config(),
                 action_execution_ctx
@@ -774,7 +774,7 @@ impl RunAction {
     pub(crate) fn new(
         inner: UnregisteredRunAction,
         starlark_values: OwnedFrozenValue,
-        outputs: IndexSet<BuildArtifact>,
+        outputs: BuckIndexSet<BuildArtifact>,
         error_handler: Option<OwnedFrozenValue>,
     ) -> buck2_error::Result<Self> {
         let starlark_values = starlark_values
@@ -1399,7 +1399,7 @@ impl Action for RunAction {
         &self,
         fs: &ExecutorFs,
         artifact_path_mapping: &dyn ArtifactPathMapper,
-    ) -> IndexMap<String, String> {
+    ) -> BuckIndexMap<String, String> {
         let mut cli_rendered = Vec::<String>::new();
         let mut ctx = DefaultCommandLineContext::new(fs);
         let values = Self::unpack(&self.starlark_values).unwrap();
@@ -1412,7 +1412,7 @@ impl Action for RunAction {
             .add_to_command_line(&mut cli_rendered, &mut ctx, artifact_path_mapping)
             .unwrap();
         let cmd = format!("[{}]", cli_rendered.iter().join(", "));
-        indexmap! {
+        buck_indexmap! {
             "cmd".to_owned() => cmd,
             "executor_preference".to_owned() => self.inner.executor_preference.to_string(),
             "always_print_stderr".to_owned() => self.inner.always_print_stderr.to_string(),

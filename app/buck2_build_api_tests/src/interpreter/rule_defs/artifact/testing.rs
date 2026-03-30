@@ -47,11 +47,11 @@ use buck2_execute::execute::request::OutputType;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_hash::BuckHashMap;
+use buck2_hash::buck_indexset;
 use buck2_interpreter_for_build::interpreter::build_context::BuildContext;
 use buck2_interpreter_for_build::interpreter::testing::cells;
 use buck2_util::arc_str::ArcS;
 use dupe::Dupe;
-use indexmap::indexset;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
@@ -145,12 +145,12 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
             BuckOutPathKind::default(),
             eval.heap(),
         )?;
-        let outputs = indexset![artifact.as_output()];
+        let outputs = buck_indexset![artifact.as_output()];
         registry.register(
             &DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target_label.dupe())),
             outputs,
             SimpleUnregisteredAction::new(
-                indexset![],
+                buck_indexset![],
                 vec![],
                 CategoryRef::new("fake_action").unwrap().to_owned(),
                 None,
@@ -216,9 +216,9 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
 
         actions_registry.register(
             &DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target_label.dupe())),
-            indexset![output_artifact],
+            buck_indexset![output_artifact],
             SimpleUnregisteredAction::new(
-                indexset![],
+                buck_indexset![],
                 vec![],
                 CategoryRef::new("fake_action").unwrap().to_owned(),
                 None,

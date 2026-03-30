@@ -39,9 +39,9 @@ mod tests {
     use buck2_core::package::source_path::SourcePath;
     use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
     use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
+    use buck2_hash::buck_indexset;
     use dupe::Dupe;
     use dupe::IterDupedExt;
-    use indexmap::indexset;
     use starlark::values::OwnedFrozenValueTyped;
 
     use crate::actions::testings::SimpleAction;
@@ -170,7 +170,7 @@ mod tests {
                 key.dupe(),
                 Box::new(SimpleAction::new(
                     inputs.into_iter().duped().collect(),
-                    indexset! {output.dupe()},
+                    buck_indexset! {output.dupe()},
                     Vec::new(),
                     Category::new("category".to_owned()).unwrap(),
                     Some(format!("id-{idx}")),

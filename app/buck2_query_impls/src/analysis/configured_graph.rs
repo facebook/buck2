@@ -16,6 +16,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+use buck2_hash::BuckIndexMap;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_node::nodes::configured_ref::ConfiguredGraphNodeRef;
@@ -31,7 +32,6 @@ use dupe::Dupe;
 use dupe::IterDupedExt;
 use dupe::OptionDupedExt;
 use futures::FutureExt;
-use indexmap::IndexMap;
 use pagable::Pagable;
 use pagable::StaticStr;
 use pagable::pagable_typetag;
@@ -165,7 +165,7 @@ impl ConfiguredGraphQueryEnvironmentDelegate for AnalysisConfiguredGraphQueryDel
 /// don't inadvertently cause flattening of those sets.
 fn find_target_nodes(
     targets: TargetSet<ConfiguredGraphNodeRef>,
-    label_to_artifact: IndexMap<ConfiguredTargetLabel, Artifact>,
+    label_to_artifact: BuckIndexMap<ConfiguredTargetLabel, Artifact>,
 ) -> buck2_error::Result<TargetSet<ConfiguredGraphNodeRef>> {
     let mut queue: VecDeque<_> = targets.iter().duped().collect();
     let mut seen = targets;

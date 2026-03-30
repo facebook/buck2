@@ -35,9 +35,9 @@ use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::CopiedArtifact;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_hash::BuckIndexSet;
 use dupe::Dupe;
 use gazebo::prelude::*;
-use indexmap::IndexSet;
 use itertools::Itertools;
 use pagable::Pagable;
 use starlark::values::OwnedFrozenValue;
@@ -166,7 +166,7 @@ impl UnregisteredSymlinkedDirAction {
 impl UnregisteredAction for UnregisteredSymlinkedDirAction {
     fn register(
         self: Box<Self>,
-        outputs: IndexSet<BuildArtifact>,
+        outputs: BuckIndexSet<BuildArtifact>,
         _starlark_data: Option<OwnedFrozenValue>,
         _error_handler: Option<OwnedFrozenValue>,
     ) -> buck2_error::Result<Box<dyn Action>> {

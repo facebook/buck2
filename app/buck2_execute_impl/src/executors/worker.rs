@@ -38,6 +38,7 @@ use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileName;
 use buck2_hash::BuckDashMap;
+use buck2_hash::BuckIndexMap;
 use buck2_hash::StdBuckHashMap;
 use buck2_util::time_span::TimeSpan;
 use buck2_worker_proto::ExecuteCommand;
@@ -53,7 +54,6 @@ use futures::future::BoxFuture;
 use futures::future::Shared;
 use host_sharing::HostSharingBroker;
 use host_sharing::HostSharingStrategy;
-use indexmap::IndexMap;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::task::JoinHandle;
 use tokio_stream::wrappers::UnboundedReceiverStream;
@@ -116,7 +116,7 @@ impl WorkerInitError {
                 // implies that it is the primary command and that exit code != 0
                 manager.failure(
                     execution_kind,
-                    IndexMap::default(),
+                    BuckIndexMap::default(),
                     std_streams,
                     *exit_code,
                     CommandExecutionMetadata::empty(TimeSpan::empty_now()),
@@ -127,7 +127,7 @@ impl WorkerInitError {
             WorkerInitError::ConnectionTimeout(..) | WorkerInitError::SpawnFailed(..) => manager
                 .failure(
                     execution_kind,
-                    IndexMap::default(),
+                    BuckIndexMap::default(),
                     CommandStdStreams::Local {
                         stdout: Default::default(),
                         stderr: format!("Error initializing worker: {self}").into_bytes(),

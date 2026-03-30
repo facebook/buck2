@@ -13,8 +13,8 @@ use std::time::Duration;
 use allocative::Allocative;
 use buck2_build_api_derive::internal_provider;
 use buck2_error::internal_error;
+use buck2_hash::BuckIndexMap;
 use either::Either;
-use indexmap::IndexMap;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
@@ -142,7 +142,7 @@ fn local_resource_info_creator(globals: &mut GlobalsBuilder) {
 impl FrozenLocalResourceInfo {
     /// Mapping from keys in setup command JSON output to environment variables keys which
     /// should be appended to execution commands dependent on this local resource.
-    pub fn env_var_mapping(&self) -> IndexMap<String, String> {
+    pub fn env_var_mapping(&self) -> BuckIndexMap<String, String> {
         let env_vars = DictRef::from_value(self.resource_env_vars.to_value().get()).unwrap();
         env_vars
             .iter()

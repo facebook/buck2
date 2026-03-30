@@ -19,11 +19,11 @@ use buck2_common::package_listing::dice::DicePackageListingResolver;
 use buck2_common::package_listing::resolver::PackageListingResolver;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_fs::working_dir::AbsWorkingDir;
+use buck2_hash::BuckIndexMap;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use dice::DiceComputations;
-use indexmap::IndexMap;
 
 use crate::ServerAuditSubcommand;
 
@@ -73,10 +73,10 @@ async fn audit_build_package(
     paths: &[String],
     cwd_abs: &AbsWorkingDir,
     project_root: &ProjectRoot,
-) -> buck2_error::Result<IndexMap<String, Package>> {
+) -> buck2_error::Result<BuckIndexMap<String, Package>> {
     let cells = ctx.get_cell_resolver().await?;
 
-    let mut mappings = IndexMap::new();
+    let mut mappings = BuckIndexMap::default();
 
     for path_str in paths {
         // Resolve path to absolute (handles both relative and absolute inputs),

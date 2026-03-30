@@ -39,6 +39,7 @@ use buck2_error::internal_error;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
+use buck2_hash::BuckIndexMap;
 use buck2_hash::StdBuckHashMap;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::factory::BuckStarlarkModule;
@@ -48,7 +49,6 @@ use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use dice::DiceComputations;
 use dice_futures::cancellation::CancellationObserver;
 use dupe::Dupe;
-use indexmap::IndexMap;
 use itertools::Itertools;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
@@ -72,7 +72,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
     dynamic_lambda: OwnedRefFrozenRef<'v, FrozenDynamicLambdaParams>,
     dice_ctx: &'v mut DiceComputations<'_>,
     input_artifacts_materialized: InputArtifactsMaterialized,
-    ensured_artifacts: &'v IndexMap<&'v Artifact, &'v ArtifactValue>,
+    ensured_artifacts: &'v BuckIndexMap<&'v Artifact, &'v ArtifactValue>,
     resolved_dynamic_values: StdBuckHashMap<DynamicValue, FrozenProviderCollectionValue>,
     _digest_config: DigestConfig,
     liveness: CancellationObserver,
@@ -157,7 +157,7 @@ struct BxlDynamicOutputEvaluator<'f> {
     dynamic_data: DynamicBxlContextData,
     digest_config: DigestConfig,
     input_artifacts_materialized: InputArtifactsMaterialized,
-    ensured_artifacts: &'f IndexMap<&'f Artifact, &'f ArtifactValue>,
+    ensured_artifacts: &'f BuckIndexMap<&'f Artifact, &'f ArtifactValue>,
     resolved_dynamic_values: StdBuckHashMap<DynamicValue, FrozenProviderCollectionValue>,
     artifact_fs: ArtifactFs,
     print: EventDispatcherPrintHandler,

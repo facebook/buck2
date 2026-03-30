@@ -15,7 +15,7 @@ use buck2_common::local_resource_state::LocalResource;
 use buck2_common::local_resource_state::LocalResourceState;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::ErrorTag;
-use indexmap::IndexMap;
+use buck2_hash::BuckIndexMap;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -35,11 +35,11 @@ impl LocalResourcesSetupResult {
     pub(crate) fn into_state(
         self,
         resource_target: ConfiguredTargetLabel,
-        provider_env_mapping: &IndexMap<String, String>,
+        provider_env_mapping: &BuckIndexMap<String, String>,
     ) -> buck2_error::Result<LocalResourceState> {
         fn make_resource(
             alias_to_value: BTreeMap<String, String>,
-            env_var_to_alias: &IndexMap<String, String>,
+            env_var_to_alias: &BuckIndexMap<String, String>,
         ) -> buck2_error::Result<LocalResource> {
             let env_vars = env_var_to_alias
                 .iter()
@@ -74,7 +74,7 @@ mod tests {
     use buck2_common::local_resource_state::LocalResource;
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-    use indexmap::indexmap;
+    use buck2_hash::buck_indexmap;
     use maplit::btreemap;
 
     use crate::local_resource_api::LocalResourcesSetupResult;
@@ -91,7 +91,7 @@ mod tests {
         };
         let target =
             ConfiguredTargetLabel::testing_parse("foo//bar:baz", ConfigurationData::testing_new());
-        let provider_env_mapping = indexmap! {
+        let provider_env_mapping = buck_indexmap! {
             "ENV_SOCKET".to_owned() => "socket_address".to_owned(),
         };
         let state = setup_result.into_state(target, &provider_env_mapping)?;
@@ -134,7 +134,7 @@ mod tests {
         };
         let target =
             ConfiguredTargetLabel::testing_parse("foo//bar:baz", ConfigurationData::testing_new());
-        let provider_env_mapping = indexmap! {
+        let provider_env_mapping = buck_indexmap! {
             "ENV_SOCKET".to_owned() => "socket_address".to_owned(),
         };
         let result = setup_result.into_state(target, &provider_env_mapping);

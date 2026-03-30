@@ -16,7 +16,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_fs::paths::RelativePathBuf;
-use indexmap::IndexSet;
+use buck2_hash::BuckIndexSet;
 
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineLocation;
@@ -40,7 +40,7 @@ pub struct DefaultCommandLineContext<'v> {
     // First element is list of artifacts, each corresponding to a file with macro contents. Ordering is very important.
     // Second element is a current position in that list.
     maybe_macros_state: Option<(
-        &'v IndexSet<(&'v Artifact, Option<&'v ContentBasedPathHash>)>,
+        &'v BuckIndexSet<(&'v Artifact, Option<&'v ContentBasedPathHash>)>,
         usize,
     )>,
 }
@@ -58,7 +58,7 @@ impl<'v> DefaultCommandLineContext<'v> {
 
     pub fn new_with_write_to_file_macros_support(
         fs: &'v ExecutorFs,
-        macro_files: &'v IndexSet<(&'v Artifact, Option<&'v ContentBasedPathHash>)>,
+        macro_files: &'v BuckIndexSet<(&'v Artifact, Option<&'v ContentBasedPathHash>)>,
     ) -> Self {
         Self {
             fs,

@@ -32,11 +32,11 @@ use buck2_directory::directory::directory::Directory;
 use buck2_directory::directory::directory_iterator::DirectoryIterator;
 use buck2_directory::directory::fingerprinted_directory::FingerprintedDirectory;
 use buck2_error::buck2_error;
+use buck2_hash::BuckIndexSet;
 use derive_more::Display;
 use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
 use host_sharing::host_sharing::HostSharingRequirements;
-use indexmap::IndexSet;
 use itertools::Itertools;
 use pagable::Pagable;
 use prost::Message;
@@ -209,7 +209,7 @@ impl ExecutorPreference {
 
 pub struct CommandExecutionPaths {
     inputs: Vec<CommandExecutionInput>,
-    outputs: IndexSet<CommandExecutionOutput>,
+    outputs: BuckIndexSet<CommandExecutionOutput>,
 
     input_directory: ActionImmutableDirectory,
     output_paths: Vec<(ProjectRelativePathBuf, OutputType)>,
@@ -221,7 +221,7 @@ pub struct CommandExecutionPaths {
 impl CommandExecutionPaths {
     pub fn new(
         inputs: Vec<CommandExecutionInput>,
-        outputs: IndexSet<CommandExecutionOutput>,
+        outputs: BuckIndexSet<CommandExecutionOutput>,
         fs: &ArtifactFs,
         digest_config: DigestConfig,
         interner: Option<&DashMapDirectoryInterner<ActionDirectoryMember, TrackedFileDigest>>,
@@ -231,7 +231,7 @@ impl CommandExecutionPaths {
         // RE spec requires outputs to be sorted:
         // https://github.com/bazelbuild/remote-apis/blob/1f36c310b28d762b258ea577ed08e8203274efae/build/bazel/remote/execution/v2/remote_execution.proto#L667-L669
         // We sort early here and not when we create RE action in order for local and remote actions to be in-sync.
-        let outputs: IndexSet<_> = outputs
+        let outputs: BuckIndexSet<_> = outputs
             .into_iter()
             .sorted_by_key(|e| {
                 let resolved = e

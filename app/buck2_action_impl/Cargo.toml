@@ -16,7 +16,6 @@ either = { workspace = true }
 futures = { workspace = true }
 hex = { workspace = true }
 http = { workspace = true }
-indexmap = { workspace = true }
 itertools = { workspace = true }
 once_cell = { workspace = true }
 parking_lot = { workspace = true }

@@ -11,6 +11,7 @@
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::target_aliases::TargetAliasResolver;
+use buck2_hash::BuckIndexSet;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -18,7 +19,6 @@ use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
-use indexmap::IndexSet;
 use itertools::Itertools;
 use pagable::Pagable;
 use pagable::pagable_typetag;
@@ -92,7 +92,7 @@ impl BuckConfigTargetAliasResolver {
         let mut alias = alias;
 
         let section = self.config.get_section("alias");
-        let mut stack = IndexSet::<&str>::new();
+        let mut stack = BuckIndexSet::<&str>::default();
         loop {
             if stack.contains(alias) {
                 return Err(AliasResolutionError::AliasCycle(

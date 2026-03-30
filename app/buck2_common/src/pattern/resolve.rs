@@ -19,10 +19,10 @@ use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::PatternType;
 use buck2_core::target::name::TargetName;
 use buck2_error::BuckErrorContext;
+use buck2_hash::BuckIndexMap;
 use dice::DiceComputations;
 use dupe::Dupe;
 use gazebo::prelude::VecExt;
-use indexmap::IndexMap;
 
 use crate::file_ops::trait_::DiceFileOps;
 use crate::file_ops::trait_::FileOps;
@@ -32,7 +32,7 @@ use crate::pattern::package_roots::find_package_roots;
 /// Targets are not validated yet, and `:` is not yet expanded.
 #[derive(Debug)]
 pub struct ResolvedPattern<T: PatternType> {
-    pub specs: IndexMap<PackageLabelWithModifiers, PackageSpec<T>>,
+    pub specs: BuckIndexMap<PackageLabelWithModifiers, PackageSpec<T>>,
 }
 
 impl<T> ResolvedPattern<T>
@@ -41,7 +41,7 @@ where
 {
     pub fn new() -> Self {
         Self {
-            specs: IndexMap::new(),
+            specs: BuckIndexMap::default(),
         }
     }
 
@@ -77,7 +77,7 @@ where
 
 impl ResolvedPattern<ConfiguredProvidersPatternExtra> {
     pub fn convert_pattern<U: PatternType>(self) -> buck2_error::Result<ResolvedPattern<U>> {
-        let mut specs = IndexMap::with_capacity(self.specs.len());
+        let mut specs = BuckIndexMap::with_capacity(self.specs.len());
         for (package_with_modifiers, spec) in self.specs {
             let spec = match spec {
                 PackageSpec::Targets(targets) => {

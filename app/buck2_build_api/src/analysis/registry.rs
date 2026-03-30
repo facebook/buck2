@@ -29,11 +29,11 @@ use buck2_error::internal_error;
 use buck2_execute::execute::request::OutputType;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_hash::BuckIndexSet;
 use buck2_interpreter::testing::Buck2TestHeapName;
 use buck2_util::thin_box::ThinBoxSlice;
 use derivative::Derivative;
 use dupe::Dupe;
-use indexmap::IndexSet;
 use itertools::Itertools;
 use starlark::any::ProvidesStaticType;
 use starlark::codemap::FileSpan;
@@ -259,7 +259,7 @@ impl<'v> AnalysisRegistry<'v> {
 
     pub fn register_action<A: UnregisteredAction + 'static>(
         &mut self,
-        outputs: IndexSet<OutputArtifact>,
+        outputs: BuckIndexSet<OutputArtifact>,
         action: A,
         associated_value: Option<Value<'v>>,
         error_handler: Option<StarlarkCallable<'v>>,

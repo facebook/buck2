@@ -39,10 +39,10 @@ use buck2_error::internal_error;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::WriteRequest;
+use buck2_hash::BuckIndexMap;
+use buck2_hash::BuckIndexSet;
+use buck2_hash::buck_indexmap;
 use dupe::Dupe;
-use indexmap::IndexMap;
-use indexmap::IndexSet;
-use indexmap::indexmap;
 use pagable::Pagable;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::UnpackValue;
@@ -61,7 +61,7 @@ enum WriteActionValidationError {
 }
 
 pub(crate) struct CommandLineContentBasedInputVisitor {
-    pub(crate) content_based_inputs: IndexSet<ArtifactGroup>,
+    pub(crate) content_based_inputs: BuckIndexSet<ArtifactGroup>,
 }
 
 impl CommandLineContentBasedInputVisitor {
@@ -105,14 +105,14 @@ impl<'v> CommandLineArtifactVisitor<'v> for CommandLineContentBasedInputVisitor 
 pub(crate) struct UnregisteredWriteAction {
     pub(crate) is_executable: bool,
     pub(crate) absolute: bool,
-    pub(crate) macro_files: Option<IndexSet<Artifact>>,
+    pub(crate) macro_files: Option<BuckIndexSet<Artifact>>,
     pub(crate) use_dep_files_placeholder_for_content_based_paths: bool,
 }
 
 impl UnregisteredAction for UnregisteredWriteAction {
     fn register(
         self: Box<Self>,
-        outputs: IndexSet<BuildArtifact>,
+        outputs: BuckIndexSet<BuildArtifact>,
         starlark_data: Option<OwnedFrozenValue>,
         _error_handler: Option<OwnedFrozenValue>,
     ) -> buck2_error::Result<Box<dyn Action>> {
@@ -133,7 +133,7 @@ struct WriteAction {
 impl WriteAction {
     fn new(
         contents: OwnedFrozenValue,
-        outputs: IndexSet<BuildArtifact>,
+        outputs: BuckIndexSet<BuildArtifact>,
         inner: UnregisteredWriteAction,
     ) -> buck2_error::Result<Self> {
         let mut outputs = outputs.into_iter();
@@ -242,9 +242,9 @@ impl Action for WriteAction {
         &self,
         fs: &ExecutorFs,
         artifact_path_mapping: &dyn ArtifactPathMapper,
-    ) -> IndexMap<String, String> {
+    ) -> BuckIndexMap<String, String> {
         // TODO(cjhopman): We should change this api to support returning a Result.
-        indexmap! {
+        buck_indexmap! {
             "contents".to_owned() => match self.get_contents(fs, artifact_path_mapping) {
                 Ok(v) => v,
                 Err(e) => format!("ERROR: constructing contents ({e})")
@@ -304,7 +304,7 @@ impl Action for WriteAction {
                 .ok_or_else(|| internal_error!("Action did not set execution_start"))?;
 
         Ok((
-            ActionOutputs::new(indexmap![self.output.get_path().dupe() => value]),
+            ActionOutputs::new(buck_indexmap![self.output.get_path().dupe() => value]),
             ActionExecutionMetadata {
                 execution_kind: ActionExecutionKind::Simple,
                 timing: ActionExecutionTimingData { wall_time },

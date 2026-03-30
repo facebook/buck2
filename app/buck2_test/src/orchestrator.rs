@@ -123,8 +123,11 @@ use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_hash::BuckDefaultHasher;
 use buck2_hash::BuckHashMap;
+use buck2_hash::BuckIndexMap;
+use buck2_hash::BuckIndexSet;
 use buck2_hash::StdBuckHashMap;
 use buck2_hash::StdBuckHashSet;
+use buck2_hash::buck_indexset;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_resource_control::HasResourceControl;
@@ -163,9 +166,6 @@ use futures::channel::mpsc::UnboundedSender;
 use futures::stream::FuturesUnordered;
 use futures::stream::StreamExt;
 use host_sharing::HostSharingRequirements;
-use indexmap::IndexMap;
-use indexmap::IndexSet;
-use indexmap::indexset;
 use itertools::Itertools;
 use pagable::Pagable;
 use pagable::pagable_typetag;
@@ -663,7 +663,7 @@ impl Display for TestExecutionKey {
 struct PreparedLocalResourceSetupContext {
     pub target: ConfiguredTargetLabel,
     pub execution_request: CommandExecutionRequest,
-    pub env_var_mapping: IndexMap<String, String>,
+    pub env_var_mapping: BuckIndexMap<String, String>,
 }
 
 #[derive(Clone, Dupe, Allocative)]
@@ -1453,7 +1453,7 @@ impl BuckTestOrchestrator<'_> {
     ) -> buck2_error::Result<ExpandedTestExecutable> {
         let output_root = resolve_output_root(dice, test_target, stage).await?;
 
-        let mut declared_outputs = IndexMap::<BuckOutTestPath, OutputCreationBehavior>::new();
+        let mut declared_outputs = BuckIndexMap::<BuckOutTestPath, OutputCreationBehavior>::new();
 
         let mut supports_re = true;
 
@@ -1524,7 +1524,7 @@ impl BuckTestOrchestrator<'_> {
         cmd: Vec<String>,
         env: SortedVectorMap<String, String>,
         ensured_inputs: Vec<(ArtifactGroup, ArtifactGroupValues)>,
-        declared_outputs: IndexMap<BuckOutTestPath, OutputCreationBehavior>,
+        declared_outputs: BuckIndexMap<BuckOutTestPath, OutputCreationBehavior>,
         fs: &ArtifactFs,
         timeout: Option<Duration>,
         host_sharing_requirements: Option<Arc<HostSharingRequirements>>,
@@ -1712,7 +1712,7 @@ impl BuckTestOrchestrator<'_> {
             .collect();
         let paths = CommandExecutionPaths::new(
             inputs,
-            indexset![],
+            buck_indexset![],
             fs,
             digest_config,
             dice.per_transaction_data()
@@ -1843,7 +1843,7 @@ impl Drop for BuckTestOrchestrator<'_> {
 struct Execute2RequestExpander<'a> {
     test_info: &'a FrozenExternalRunnerTestInfo,
     output_root: &'a ForwardRelativePath,
-    declared_outputs: &'a mut IndexMap<BuckOutTestPath, OutputCreationBehavior>,
+    declared_outputs: &'a mut BuckIndexMap<BuckOutTestPath, OutputCreationBehavior>,
     fs: &'a ExecutorFs<'a>,
     cmd: Cow<'a, [ArgValue]>,
     env: Cow<'a, SortedVectorMap<String, ArgValue>>,
@@ -1877,7 +1877,7 @@ fn make_visit_arg_artifacts<'v>(
 }
 
 impl<'a> Execute2RequestExpander<'a> {
-    fn get_inputs(&self) -> buck2_error::Result<IndexSet<ArtifactGroup>> {
+    fn get_inputs(&self) -> buck2_error::Result<BuckIndexSet<ArtifactGroup>> {
         let Execute2RequestExpander {
             test_info,
             cmd,
@@ -1946,7 +1946,7 @@ impl<'a> Execute2RequestExpander<'a> {
 
         let expand_arg_value = |cli: &mut dyn CommandLineBuilder,
                                 ctx: &mut dyn CommandLineContext,
-                                declared_outputs: &mut IndexMap<
+                                declared_outputs: &mut BuckIndexMap<
             BuckOutTestPath,
             OutputCreationBehavior,
         >,
@@ -2040,7 +2040,7 @@ impl<'a> Execute2RequestExpander<'a> {
                     // TODO(ianc): Support input_paths on test workers
                     input_paths: CommandExecutionPaths::new(
                         vec![],
-                        indexset![],
+                        buck_indexset![],
                         fs.fs(),
                         digest_config,
                         None,
@@ -2127,7 +2127,7 @@ struct ExpandedTestExecutable {
     env: SortedVectorMap<String, String>,
     ensured_inputs: Vec<(ArtifactGroup, ArtifactGroupValues)>,
     supports_re: bool,
-    declared_outputs: IndexMap<BuckOutTestPath, OutputCreationBehavior>,
+    declared_outputs: BuckIndexMap<BuckOutTestPath, OutputCreationBehavior>,
     worker: Option<WorkerSpec>,
 }
 

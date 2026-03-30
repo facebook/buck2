@@ -14,13 +14,13 @@ use std::fmt;
 use std::sync::Arc;
 
 use buck2_error::internal_error;
+use buck2_hash::BuckIndexSet;
 use buck2_hash::StdBuckHashMap;
 use buck2_query::query::traversal::NodeLookup;
 use buck2_query::query::traversal::async_depth_first_postorder_traversal;
 use buck2_query::query::traversal::async_depth_limited_traversal;
 use derive_more::Display;
 use derive_more::From;
-use indexmap::IndexSet;
 
 use super::*;
 
@@ -35,7 +35,7 @@ struct TestTargetAttr;
 #[derive(Clone, Dupe, Eq, PartialEq)]
 struct TestTarget {
     id: TestTargetId,
-    deps: Arc<IndexSet<TestTargetId>>,
+    deps: Arc<BuckIndexSet<TestTargetId>>,
 }
 
 /// Custom debug to make the test output more readable
@@ -230,7 +230,7 @@ impl TestEnv {
 
 #[derive(Default)]
 pub struct TestEnvBuilder {
-    graph: StdBuckHashMap<u64, IndexSet<u64>>,
+    graph: StdBuckHashMap<u64, BuckIndexSet<u64>>,
 }
 
 impl TestEnvBuilder {

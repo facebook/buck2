@@ -19,9 +19,9 @@ use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_error::BuckErrorContext;
 use buck2_execute::execute::request::OutputType;
 use buck2_execute::materialize::http::Checksum;
+use buck2_hash::buck_indexset;
 use chrono::TimeZone;
 use chrono::Utc;
-use indexmap::indexset;
 use starlark::environment::MethodsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
@@ -70,7 +70,7 @@ pub(crate) fn analysis_actions_methods_download(methods: &mut MethodsBuilder) {
         let checksum = Checksum::new(sha1.into_option(), sha256.into_option())?;
 
         this.register_action(
-            indexset![output_artifact],
+            buck_indexset![output_artifact],
             UnregisteredDownloadFileAction::new(
                 checksum,
                 size_bytes.into_option(),
@@ -143,7 +143,7 @@ pub(crate) fn analysis_actions_methods_download(methods: &mut MethodsBuilder) {
         )?;
 
         registry.register_action(
-            indexset![output_artifact],
+            buck_indexset![output_artifact],
             UnregisteredCasArtifactAction {
                 digest,
                 re_use_case: use_case,

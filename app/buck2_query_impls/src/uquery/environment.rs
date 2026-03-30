@@ -24,6 +24,7 @@ use buck2_core::target::label::label::TargetLabel;
 use buck2_error::BuckErrorContext;
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::file_name::FileNameBuf;
+use buck2_hash::BuckIndexSet;
 use buck2_hash::StdBuckHashMap;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
@@ -54,7 +55,6 @@ use futures::FutureExt;
 use futures::StreamExt;
 use futures::stream::FuturesUnordered;
 use gazebo::prelude::*;
-use indexmap::IndexSet;
 use itertools::Itertools;
 use ref_cast::RefCast;
 use tracing::warn;
@@ -387,7 +387,7 @@ pub(crate) async fn allbuildfiles<T: QueryTarget>(
     universe: &TargetSet<T>,
     delegate: &dyn UqueryDelegate,
 ) -> buck2_error::Result<FileSet> {
-    let mut paths = IndexSet::<FileNode>::new();
+    let mut paths = BuckIndexSet::<FileNode>::default();
 
     let mut top_level_imports = Vec::<ImportPath>::new();
 
@@ -405,7 +405,7 @@ pub(crate) async fn allbuildfiles<T: QueryTarget>(
     let loads =
         get_transitive_loads(top_level_imports, delegate.linear_dice_computations()).await?;
 
-    let mut new_paths = IndexSet::<FileNode>::new();
+    let mut new_paths = BuckIndexSet::<FileNode>::default();
     for load in &loads {
         new_paths.insert(FileNode(load.path().clone()));
     }
@@ -528,7 +528,7 @@ pub(crate) async fn rbuildfiles(
     )
     .await?;
 
-    let mut output_files = IndexSet::<FileNode>::new();
+    let mut output_files = BuckIndexSet::<FileNode>::default();
     for file in &output_paths {
         output_files.insert(FileNode(file.path().clone()));
     }

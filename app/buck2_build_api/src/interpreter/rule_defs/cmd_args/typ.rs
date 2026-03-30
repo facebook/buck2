@@ -23,13 +23,13 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_error::internal_error;
 use buck2_fs::paths::RelativePathBuf;
+use buck2_hash::BuckIndexSet;
 use display_container::display_pair;
 use display_container::fmt_container;
 use display_container::iter_display_chain;
 use dupe::Dupe;
 use either::Either;
 use gazebo::prelude::*;
-use indexmap::IndexSet;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
@@ -92,7 +92,7 @@ use crate::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
 pub enum CommandLineError {
     #[error("Artifact(s) {0:?} cannot be used with ignore_artifacts as they are content-based")]
     #[buck2(input)]
-    ContentBasedIgnoreArtifacts(IndexSet<String>),
+    ContentBasedIgnoreArtifacts(BuckIndexSet<String>),
 }
 
 /// Fields of `cmd_args`. Abstract mutable and frozen versions.
@@ -277,13 +277,13 @@ impl<'v, F: Fields<'v>> CommandLineArgLike<'v> for FieldsRef<'v, F> {
             }
         } else {
             struct IgnoredArtifactsVisitor {
-                content_based_artifacts: IndexSet<String>,
+                content_based_artifacts: BuckIndexSet<String>,
             }
 
             impl IgnoredArtifactsVisitor {
                 fn new() -> Self {
                     Self {
-                        content_based_artifacts: IndexSet::new(),
+                        content_based_artifacts: BuckIndexSet::default(),
                     }
                 }
             }
@@ -1099,7 +1099,7 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
 /// debug-printing and querying the length to tell if any inputs exist.
 #[derive(Debug, PartialEq, ProvidesStaticType, NoSerialize, Allocative)]
 pub struct StarlarkCommandLineInputs {
-    pub inputs: IndexSet<ArtifactGroup>,
+    pub inputs: BuckIndexSet<ArtifactGroup>,
 }
 
 starlark_simple_value!(StarlarkCommandLineInputs);

@@ -42,11 +42,11 @@ use buck2_execute::directory::re_tree_to_directory;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
+use buck2_hash::BuckIndexSet;
 use chrono::DateTime;
 use chrono::TimeZone;
 use chrono::Utc;
 use dupe::Dupe;
-use indexmap::IndexSet;
 use pagable::Pagable;
 use remote_execution as RE;
 use starlark::values::OwnedFrozenValue;
@@ -107,7 +107,7 @@ pub(crate) struct UnregisteredCasArtifactAction {
 impl UnregisteredAction for UnregisteredCasArtifactAction {
     fn register(
         self: Box<Self>,
-        outputs: IndexSet<BuildArtifact>,
+        outputs: BuckIndexSet<BuildArtifact>,
         _starlark_data: Option<OwnedFrozenValue>,
         _error_handler: Option<OwnedFrozenValue>,
     ) -> buck2_error::Result<Box<dyn Action>> {
@@ -123,7 +123,7 @@ struct CasArtifactAction {
 
 impl CasArtifactAction {
     fn new(
-        outputs: IndexSet<BuildArtifact>,
+        outputs: BuckIndexSet<BuildArtifact>,
         inner: UnregisteredCasArtifactAction,
     ) -> buck2_error::Result<Self> {
         let outputs_len = outputs.len();

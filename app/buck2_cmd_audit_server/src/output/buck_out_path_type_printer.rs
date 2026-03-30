@@ -10,7 +10,7 @@
 
 use std::io::Write;
 
-use indexmap::IndexMap;
+use buck2_hash::BuckIndexMap;
 use regex::RegexSet;
 
 use super::buck_out_path_parser::BuckOutPathType;
@@ -50,7 +50,7 @@ impl BuckOutPathTypePrinter {
         Ok(())
     }
 
-    fn printable_attributes(&self, path_type: &BuckOutPathType) -> IndexMap<String, String> {
+    fn printable_attributes(&self, path_type: &BuckOutPathType) -> BuckIndexMap<String, String> {
         let all_attributes = self.all_attributes(path_type);
 
         if let Some(attributes) = &self.attributes {
@@ -63,9 +63,9 @@ impl BuckOutPathTypePrinter {
         }
     }
 
-    fn all_attributes(&self, path_type: &BuckOutPathType) -> IndexMap<String, String> {
+    fn all_attributes(&self, path_type: &BuckOutPathType) -> BuckIndexMap<String, String> {
         // Deterministic order
-        let mut attributes = IndexMap::new();
+        let mut attributes = BuckIndexMap::default();
 
         match path_type {
             BuckOutPathType::BxlOutput {

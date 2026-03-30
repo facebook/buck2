@@ -50,6 +50,7 @@ use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::materialize::materializer::HasMaterializer;
+use buck2_hash::BuckIndexMap;
 use buck2_hash::StdBuckHashMap;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::factory::BuckStarlarkModule;
@@ -63,7 +64,6 @@ use dice::DiceComputations;
 use dice_futures::cancellation::CancellationObserver;
 use dupe::Dupe;
 use futures::FutureExt;
-use indexmap::IndexMap;
 use smallvec::SmallVec;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
@@ -178,7 +178,7 @@ fn execute_lambda_inner<'v>(
     lambda: OwnedRefFrozenRef<'_, FrozenDynamicLambdaParams>,
     self_key: &DynamicLambdaResultsKey,
     resolved_dynamic_values: StdBuckHashMap<DynamicValue, FrozenProviderCollectionValue>,
-    ensured_artifacts: &IndexMap<&Artifact, &ArtifactValue>,
+    ensured_artifacts: &BuckIndexMap<&Artifact, &ArtifactValue>,
     input_artifacts_materialized: InputArtifactsMaterialized,
     digest_config: DigestConfig,
     artifact_fs: &ArtifactFs,
@@ -262,7 +262,7 @@ async fn execute_lambda(
     dice: &mut DiceComputations<'_>,
     self_key: DynamicLambdaResultsKey,
     resolved_dynamic_values: StdBuckHashMap<DynamicValue, FrozenProviderCollectionValue>,
-    ensured_artifacts: &IndexMap<&Artifact, &ArtifactValue>,
+    ensured_artifacts: &BuckIndexMap<&Artifact, &ArtifactValue>,
     input_artifacts_materialized: InputArtifactsMaterialized,
     digest_config: DigestConfig,
     liveness: CancellationObserver,
@@ -369,7 +369,7 @@ pub(crate) async fn prepare_and_execute_lambda(
     // the grand scheme of things that's probably not a huge deal.
     let all_artifact_group_values =
         ensure_artifacts_built(&lambda.as_ref().static_fields.artifact_values, ctx).await?;
-    let ensured_artifacts: IndexMap<_, _> = all_artifact_group_values
+    let ensured_artifacts: BuckIndexMap<_, _> = all_artifact_group_values
         .iter()
         .flat_map(|x| x.iter())
         .map(|(a, v)| (a, v))
@@ -456,7 +456,7 @@ async fn ensure_artifacts_built(
 pub struct InputArtifactsMaterialized(());
 
 async fn materialize_inputs(
-    ensured_artifacts: &IndexMap<&Artifact, &ArtifactValue>,
+    ensured_artifacts: &BuckIndexMap<&Artifact, &ArtifactValue>,
     ctx: &mut DiceComputations<'_>,
 ) -> buck2_error::Result<InputArtifactsMaterialized> {
     if ensured_artifacts.is_empty() {
@@ -535,7 +535,7 @@ pub struct DynamicLambdaCtxData<'v> {
 
 /// Prepare dict of artifact values for dynamic actions.
 fn artifact_values<'v>(
-    ensured_artifacts: &IndexMap<&Artifact, &ArtifactValue>,
+    ensured_artifacts: &BuckIndexMap<&Artifact, &ArtifactValue>,
     _: InputArtifactsMaterialized,
     artifact_fs: &ArtifactFs,
     heap: Heap<'v>,
@@ -587,7 +587,7 @@ fn outputs<'v>(
 fn new_attr_value<'v>(
     value: &DynamicAttrValue<FrozenValue>,
     _input_artifacts_materialized: InputArtifactsMaterialized,
-    ensured_artifacts: &IndexMap<&Artifact, &ArtifactValue>,
+    ensured_artifacts: &BuckIndexMap<&Artifact, &ArtifactValue>,
     artifact_fs: &ArtifactFs,
     registry: &mut AnalysisRegistry<'v>,
     resolved_dynamic_values: &StdBuckHashMap<DynamicValue, FrozenProviderCollectionValue>,
@@ -719,7 +719,7 @@ fn new_attr_values<'v>(
     values: &DynamicAttrValues<FrozenValue>,
     callable: &FrozenStarlarkDynamicActionsCallable,
     input_artifacts_materialized: InputArtifactsMaterialized,
-    ensured_artifacts: &IndexMap<&Artifact, &ArtifactValue>,
+    ensured_artifacts: &BuckIndexMap<&Artifact, &ArtifactValue>,
     artifact_fs: &ArtifactFs,
     registry: &mut AnalysisRegistry<'v>,
     resolved_dynamic_values: &StdBuckHashMap<DynamicValue, FrozenProviderCollectionValue>,
@@ -754,7 +754,7 @@ pub fn dynamic_lambda_ctx_data<'v>(
     dynamic_lambda: OwnedRefFrozenRef<'_, FrozenDynamicLambdaParams>,
     self_key: DynamicLambdaResultsKey,
     input_artifacts_materialized: InputArtifactsMaterialized,
-    ensured_artifacts: &IndexMap<&Artifact, &ArtifactValue>,
+    ensured_artifacts: &BuckIndexMap<&Artifact, &ArtifactValue>,
     resolved_dynamic_values: &StdBuckHashMap<DynamicValue, FrozenProviderCollectionValue>,
     artifact_fs: &ArtifactFs,
     digest_config: DigestConfig,

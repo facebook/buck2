@@ -60,13 +60,13 @@ use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
 use buck2_file_watcher::mergebase::Mergebase;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_hash::BuckHashMap;
+use buck2_hash::BuckIndexMap;
+use buck2_hash::BuckIndexSet;
+use buck2_hash::buck_indexmap;
 use buck2_http::HttpClient;
 use derivative::Derivative;
 use derive_more::Display;
 use dice_futures::cancellation::CancellationContext;
-use indexmap::IndexMap;
-use indexmap::IndexSet;
-use indexmap::indexmap;
 use remote_execution::TActionResult2;
 use starlark::values::Heap;
 use starlark::values::OwnedFrozenValue;
@@ -103,7 +103,7 @@ pub trait UnregisteredAction: Allocative + Send {
     /// and no longer bindable to any other 'Artifact's.
     fn register(
         self: Box<Self>,
-        outputs: IndexSet<BuildArtifact>,
+        outputs: BuckIndexSet<BuildArtifact>,
         starlark_data: Option<OwnedFrozenValue>,
         error_handler: Option<OwnedFrozenValue>,
     ) -> buck2_error::Result<Box<dyn Action>>;
@@ -172,8 +172,8 @@ pub trait Action: Allocative + Debug + Send + Sync + 'static {
         &self,
         _fs: &ExecutorFs,
         _artifact_path_mapping: &dyn ArtifactPathMapper,
-    ) -> IndexMap<String, String> {
-        indexmap! {}
+    ) -> BuckIndexMap<String, String> {
+        buck_indexmap! {}
     }
 
     fn error_handler(&self) -> Option<&OwnedFrozenValue> {
@@ -297,7 +297,7 @@ pub trait ActionExecutionCtx: Send + Sync {
 
     fn artifact_path_mapping(
         &self,
-        filter: Option<IndexSet<ArtifactGroup>>,
+        filter: Option<BuckIndexSet<ArtifactGroup>>,
     ) -> BuckHashMap<&Artifact, ContentBasedPathHash>;
 
     fn blocking_executor(&self) -> &dyn BlockingExecutor;
@@ -430,14 +430,14 @@ impl Deref for RegisteredAction {
 #[derive(Allocative)]
 struct ActionToBeRegistered {
     key: ActionKey,
-    outputs: IndexSet<BuildArtifact>,
+    outputs: BuckIndexSet<BuildArtifact>,
     action: Box<dyn UnregisteredAction>,
 }
 
 impl ActionToBeRegistered {
     fn new<A: UnregisteredAction + 'static>(
         key: ActionKey,
-        outputs: IndexSet<BuildArtifact>,
+        outputs: BuckIndexSet<BuildArtifact>,
         a: A,
     ) -> Self {
         Self {

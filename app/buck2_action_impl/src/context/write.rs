@@ -28,9 +28,9 @@ use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedMacro;
 use buck2_execute::execute::request::OutputType;
 use buck2_hash::BuckHashMap;
+use buck2_hash::buck_indexset;
 use dupe::Dupe;
 use either::Either;
-use indexmap::indexset;
 use relative_path::RelativePathBuf;
 use sha1::Digest;
 use sha1::Sha1;
@@ -152,7 +152,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
         cli.visit_contents(&mut visitor)?;
 
         this.register_action(
-            indexset![output_artifact],
+            buck_indexset![output_artifact],
             UnregisteredWriteJsonAction::new(
                 pretty,
                 absolute,
@@ -303,7 +303,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
                 format!("__macros/{sha}")
             };
 
-            let mut written_macro_files = indexset![];
+            let mut written_macro_files = buck_indexset![];
             for i in 0..written_macro_count {
                 let macro_file = this.declare_output(
                     None,
@@ -332,12 +332,12 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
 
             written_macro_files
         } else {
-            indexset![]
+            buck_indexset![]
         };
 
         let action = {
             let maybe_macro_files = if allow_args {
-                let mut macro_files = indexset![];
+                let mut macro_files = buck_indexset![];
                 for a in &written_macro_files {
                     let artifact = a.dupe().ensure_bound()?.into_artifact();
                     macro_files.insert(artifact.dupe());
@@ -354,7 +354,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
             }
         };
         this.register_action(
-            indexset![output_artifact],
+            buck_indexset![output_artifact],
             action,
             Some(content_cli.to_value()),
             None,

@@ -217,8 +217,8 @@ mod tests {
     use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_hash::BuckHashMap;
     use buck2_hash::BuckHashSet;
+    use buck2_hash::BuckIndexSet;
     use dupe::Dupe;
-    use indexmap::IndexSet;
 
     use crate::actions::Action;
     use crate::actions::ActionExecutionCtx;
@@ -266,8 +266,8 @@ mod tests {
 
     impl MockAction {
         fn new(
-            inputs: IndexSet<ArtifactGroup>,
-            outputs: IndexSet<BuildArtifact>,
+            inputs: BuckIndexSet<ArtifactGroup>,
+            outputs: BuckIndexSet<BuildArtifact>,
             identifier: Option<String>,
         ) -> Self {
             Self {
@@ -344,7 +344,7 @@ mod tests {
             action_key.dupe(),
             Box::new(MockAction::new(
                 inputs.into_iter().cloned().collect(),
-                IndexSet::from([output.dupe()]),
+                BuckIndexSet::from([output.dupe()]),
                 Some(format!("action-{index}")),
             )),
             CommandExecutorConfig::testing_local(),

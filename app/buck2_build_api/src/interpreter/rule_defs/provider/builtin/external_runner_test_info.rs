@@ -18,9 +18,9 @@ use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_error::internal_error;
 use buck2_execute::execute::request::NetworkAccess;
+use buck2_hash::BuckIndexMap;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use either::Either;
-use indexmap::IndexMap;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
@@ -175,7 +175,7 @@ impl FrozenExternalRunnerTestInfo {
             .map(|v| StarlarkCommandExecutorConfig::from_value(v.to_value()).unwrap())
     }
 
-    pub fn local_resources(&self) -> IndexMap<&str, Option<&ConfiguredProvidersLabel>> {
+    pub fn local_resources(&self) -> BuckIndexMap<&str, Option<&ConfiguredProvidersLabel>> {
         unwrap_all(iter_local_resources(self.local_resources.get().to_value())).collect()
     }
 
@@ -510,9 +510,10 @@ where
         info.executor_overrides.get().to_value(),
     ))?;
 
-    let provided_local_resources =
-        iter_local_resources(info.local_resources.get().to_value())
-            .collect::<buck2_error::Result<IndexMap<&str, Option<&ConfiguredProvidersLabel>>>>()?;
+    let provided_local_resources = iter_local_resources(info.local_resources.get().to_value())
+        .collect::<buck2_error::Result<
+        BuckIndexMap<&str, Option<&ConfiguredProvidersLabel>>,
+    >>()?;
 
     let required_local_resources = info.required_local_resources.get().to_value();
     if !required_local_resources.is_none() {

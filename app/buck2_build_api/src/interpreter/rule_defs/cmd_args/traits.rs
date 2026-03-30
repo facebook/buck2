@@ -25,11 +25,11 @@ use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_fs::paths::RelativePathBuf;
 use buck2_hash::BuckHashMap;
+use buck2_hash::BuckIndexSet;
 use buck2_interpreter::types::cell_root::CellRoot;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::project_root::StarlarkProjectRoot;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
-use indexmap::IndexSet;
 use starlark::any::ProvidesStaticType;
 use starlark::typing::Ty;
 use starlark::values::string::StarlarkStr;
@@ -74,17 +74,17 @@ pub trait CommandLineArtifactVisitor<'v> {
 
 /// A CommandLineArtifactVisitor that gathers inputs and outputs.
 pub struct SimpleCommandLineArtifactVisitor<'v> {
-    pub inputs: IndexSet<ArtifactGroup>,
-    pub declared_outputs: IndexSet<OutputArtifact<'v>>,
-    pub frozen_outputs: IndexSet<Artifact>,
+    pub inputs: BuckIndexSet<ArtifactGroup>,
+    pub declared_outputs: BuckIndexSet<OutputArtifact<'v>>,
+    pub frozen_outputs: BuckIndexSet<Artifact>,
 }
 
 impl SimpleCommandLineArtifactVisitor<'_> {
     pub fn new() -> Self {
         Self {
-            inputs: IndexSet::new(),
-            declared_outputs: IndexSet::new(),
-            frozen_outputs: IndexSet::new(),
+            inputs: BuckIndexSet::default(),
+            declared_outputs: BuckIndexSet::default(),
+            frozen_outputs: BuckIndexSet::default(),
         }
     }
 

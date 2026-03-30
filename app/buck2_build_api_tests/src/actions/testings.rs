@@ -28,9 +28,9 @@ use buck2_execute::execute::request::CommandExecutionOutput;
 use buck2_execute::execute::request::CommandExecutionPaths;
 use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::request::OutputType;
+use buck2_hash::BuckIndexSet;
 use derivative::Derivative;
 use dupe::Dupe;
-use indexmap::IndexSet;
 use pagable::Pagable;
 use sorted_vector_map::sorted_vector_map;
 use starlark::values::OwnedFrozenValue;
@@ -42,7 +42,7 @@ use starlark::values::OwnedFrozenValue;
 /// modules
 #[derive(Allocative, Clone, PartialEq)]
 pub(crate) struct SimpleUnregisteredAction {
-    inputs: IndexSet<ArtifactGroup>,
+    inputs: BuckIndexSet<ArtifactGroup>,
     cmd: Vec<String>,
     category: Category,
     identifier: Option<String>,
@@ -50,7 +50,7 @@ pub(crate) struct SimpleUnregisteredAction {
 
 impl SimpleUnregisteredAction {
     pub(crate) fn new(
-        inputs: IndexSet<ArtifactGroup>,
+        inputs: BuckIndexSet<ArtifactGroup>,
         cmd: Vec<String>,
         category: Category,
         identifier: Option<String>,
@@ -77,8 +77,8 @@ pub(crate) struct SimpleAction {
 
 impl SimpleAction {
     pub(crate) fn new(
-        inputs: IndexSet<ArtifactGroup>,
-        outputs: IndexSet<BuildArtifact>,
+        inputs: BuckIndexSet<ArtifactGroup>,
+        outputs: BuckIndexSet<BuildArtifact>,
         cmd: Vec<String>,
         category: Category,
         identifier: Option<String>,
@@ -96,7 +96,7 @@ impl SimpleAction {
 impl UnregisteredAction for SimpleUnregisteredAction {
     fn register(
         self: Box<Self>,
-        outputs: IndexSet<BuildArtifact>,
+        outputs: BuckIndexSet<BuildArtifact>,
         _starlark_data: Option<OwnedFrozenValue>,
         _error_handler: Option<OwnedFrozenValue>,
     ) -> buck2_error::Result<Box<dyn Action>> {

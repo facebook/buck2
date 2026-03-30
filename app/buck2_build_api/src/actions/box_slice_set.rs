@@ -12,7 +12,7 @@ use std::slice;
 use std::vec;
 
 use allocative::Allocative;
-use indexmap::IndexSet;
+use buck2_hash::BuckIndexSet;
 use pagable::Pagable;
 
 /// It is a boxed slice, where all elements are unique.
@@ -31,9 +31,9 @@ impl<T> BoxSliceSet<T> {
     }
 }
 
-impl<T> From<IndexSet<T>> for BoxSliceSet<T> {
+impl<T> From<BuckIndexSet<T>> for BoxSliceSet<T> {
     #[inline]
-    fn from(set: IndexSet<T>) -> BoxSliceSet<T> {
+    fn from(set: BuckIndexSet<T>) -> BoxSliceSet<T> {
         BoxSliceSet(set.into_iter().collect())
     }
 }

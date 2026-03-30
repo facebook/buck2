@@ -15,11 +15,11 @@ use buck2_build_api::build::graph_properties::debug_compute_configured_graph_pro
 use buck2_cli_proto::ClientContext;
 use buck2_cmd_audit_client::perf::configured_graph_size::ConfiguredGraphSizeCommand;
 use buck2_core::configuration::compatibility::MaybeCompatible;
+use buck2_hash::BuckIndexMap;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
-use indexmap::IndexMap;
 use serde::Serialize;
 
 use crate::common::configured_target_labels::audit_command_configured_target_labels;
@@ -46,7 +46,7 @@ pub(crate) async fn server_execute(
                 sketch: Option<String>,
                 duration_ms: u64,
             }
-            let mut results = IndexMap::new();
+            let mut results = BuckIndexMap::default();
 
             // We intentionally don't do this in parallel so that we can get the computation time for them.
             for target in &targets {

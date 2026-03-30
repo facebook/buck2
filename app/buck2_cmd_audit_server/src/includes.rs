@@ -24,6 +24,7 @@ use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileNameBuf;
+use buck2_hash::buck_indexmap;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::paths::module::StarlarkModulePath;
@@ -45,7 +46,6 @@ use dupe::Dupe;
 use futures::StreamExt;
 use futures::stream::FuturesOrdered;
 use gazebo::prelude::*;
-use indexmap::indexmap;
 use itertools::Itertools;
 use ref_cast::RefCast;
 use serde::Serialize;
@@ -259,12 +259,13 @@ impl ServerAuditSubcommand for AuditIncludesCommand {
                         let mut map = ser.serialize_map(Some(results.len()))?;
                         for (path, includes) in &results {
                             match includes {
-                                Ok(includes) => {
-                                    map.serialize_entry(path, &indexmap! {"includes" => &includes})?
-                                }
+                                Ok(includes) => map.serialize_entry(
+                                    path,
+                                    &buck_indexmap! {"includes" => &includes},
+                                )?,
                                 Err(e) => map.serialize_entry(
                                     path,
-                                    &indexmap! {"$error" => format!("{:#}", e)},
+                                    &buck_indexmap! {"$error" => format!("{:#}", e)},
                                 )?,
                             }
                         }

@@ -50,11 +50,11 @@ use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
 use buck2_execute::re::remote_action_result::ExecuteResponseWithQueueStats;
 use buck2_execute::re::remote_action_result::RemoteActionResult;
+use buck2_hash::BuckIndexMap;
 use buck2_util::time_span::TimeSpan;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::FutureExt;
-use indexmap::IndexMap;
 use remote_execution as RE;
 use remote_execution::TCode;
 use remote_execution::TCodeReasonGroup;
@@ -286,7 +286,7 @@ impl ReExecutor {
                 // do here is just pass on the error.
                 manager.failure(
                     execution_kind,
-                    IndexMap::new(),
+                    BuckIndexMap::default(),
                     CommandStdStreams::Local {
                         stdout: Vec::new(),
                         stderr: out.to_owned().into(),
@@ -301,7 +301,7 @@ impl ReExecutor {
             {
                 manager.timeout(
                     execution_kind,
-                    IndexMap::new(),
+                    BuckIndexMap::default(),
                     // Checked above: we fallthrough to the error path if we didn't set a timeout
                     // and yet received one.
                     request.timeout().unwrap(),

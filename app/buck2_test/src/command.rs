@@ -71,6 +71,7 @@ use buck2_events::dispatch::with_dispatcher_async;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_path::AbsPathBuf;
+use buck2_hash::BuckIndexSet;
 use buck2_hash::StdBuckHashSet;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter_for_build::interpreter::context::HasInterpreterContext;
@@ -102,7 +103,6 @@ use futures::future::FutureExt;
 use futures::stream::FuturesUnordered;
 use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
-use indexmap::IndexSet;
 use itertools::Itertools;
 
 use crate::downward_api::BuckTestDownwardApi;
@@ -1440,9 +1440,9 @@ struct TestLabelFiltering {
     /// If positive include label filters are present, then this filter will ONLY match sets of
     /// labels that contains the label filter. Otherwise, if only exclusion filters are present, or
     /// no label filters are present, this will match any set of labels as long as its not excluded.
-    included_labels: IndexSet<String>,
+    included_labels: BuckIndexSet<String>,
     /// Additional excluded labels. These have order of precedence after `included_labels`.
-    excluded_labels: IndexSet<String>,
+    excluded_labels: BuckIndexSet<String>,
     /// If true, ignores order of precedence such that as long as an exclusion filter matches, we
     /// don't match the set of labels.
     always_exclude: bool,

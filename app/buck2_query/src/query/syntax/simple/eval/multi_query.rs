@@ -12,8 +12,8 @@
 
 use std::iter;
 
+use buck2_hash::BuckIndexMap;
 use dupe::Dupe;
-use indexmap::IndexMap;
 use itertools::Either;
 
 use crate::query::environment::QueryTarget;
@@ -22,7 +22,7 @@ use crate::query::syntax::simple::eval::values::QueryEvaluationValue;
 
 /// Used to represent the results for a "multi-query" (one that contains a "%s" and potentially is applied against multiple literals).
 pub struct MultiQueryResult<T: QueryTarget>(
-    pub IndexMap<String, buck2_error::Result<QueryEvaluationValue<T>>>,
+    pub BuckIndexMap<String, buck2_error::Result<QueryEvaluationValue<T>>>,
 );
 
 impl<T: QueryTarget> MultiQueryResult<T> {

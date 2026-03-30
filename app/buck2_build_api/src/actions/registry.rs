@@ -34,10 +34,10 @@ use buck2_error::internal_error;
 use buck2_execute::execute::request::OutputType;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_hash::BuckIndexSet;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
 use gazebo::prelude::SliceExt;
-use indexmap::IndexSet;
 use starlark::codemap::FileSpan;
 use starlark::collections::SmallMap;
 use starlark::collections::SmallSet;
@@ -195,7 +195,7 @@ impl<'v> ActionsRegistry<'v> {
     pub fn register<A: UnregisteredAction + 'static>(
         &mut self,
         self_key: &DeferredHolderKey,
-        outputs: IndexSet<OutputArtifact>,
+        outputs: BuckIndexSet<OutputArtifact>,
         action: A,
     ) -> buck2_error::Result<ActionKey> {
         let key = ActionKey::new(
@@ -207,7 +207,7 @@ impl<'v> ActionsRegistry<'v> {
                 (self.declared_dynamic_outputs.len() + self.pending.len()).try_into()?,
             ),
         );
-        let mut bound_outputs = IndexSet::with_capacity(outputs.len());
+        let mut bound_outputs = BuckIndexSet::with_capacity(outputs.len());
         for output in outputs {
             let bound = output.bind(key.dupe())?.as_base_artifact().dupe();
             bound_outputs.insert(bound);

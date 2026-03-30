@@ -40,8 +40,8 @@ use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_fs::paths::RelativePathBuf;
+use buck2_hash::BuckIndexSet;
 use dupe::Dupe;
-use indexmap::IndexSet;
 use pagable::Pagable;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::UnpackValue;
@@ -70,7 +70,7 @@ impl UnregisteredWriteMacrosToFileAction {
 impl UnregisteredAction for UnregisteredWriteMacrosToFileAction {
     fn register(
         self: Box<Self>,
-        outputs: IndexSet<BuildArtifact>,
+        outputs: BuckIndexSet<BuildArtifact>,
         starlark_data: Option<OwnedFrozenValue>,
         _error_handler: Option<OwnedFrozenValue>,
     ) -> buck2_error::Result<Box<dyn Action>> {
@@ -105,7 +105,7 @@ struct WriteMacrosToFileAction {
 impl WriteMacrosToFileAction {
     fn new(
         contents: OwnedFrozenValue,
-        outputs: IndexSet<BuildArtifact>,
+        outputs: BuckIndexSet<BuildArtifact>,
         inner: UnregisteredWriteMacrosToFileAction,
     ) -> buck2_error::Result<Self> {
         if outputs.is_empty() {

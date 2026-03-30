@@ -11,7 +11,7 @@
 use std::borrow::Cow;
 use std::fmt::Write;
 
-use indexmap::IndexMap;
+use buck2_hash::BuckIndexMap;
 use itertools::Itertools;
 
 use crate::query::syntax::simple::functions::helpers::QueryArgType;
@@ -97,7 +97,7 @@ impl FunctionDescription {
 
 // Instances created by #[query_module]
 pub struct ModuleDescription {
-    pub functions: IndexMap<&'static str, FunctionDescription>,
+    pub functions: BuckIndexMap<&'static str, FunctionDescription>,
 
     pub short_help: Option<String>,
     pub details: Option<String>,
@@ -113,7 +113,7 @@ impl QueryEnvironmentDescription {
         let merged_sorted_functions = self
             .mods
             .iter()
-            .fold(IndexMap::new(), |acc, module| {
+            .fold(BuckIndexMap::default(), |acc, module| {
                 acc.into_iter().chain(module.functions.iter()).collect()
             })
             .into_iter()

@@ -9,7 +9,7 @@
  */
 
 use allocative::Allocative;
-use indexmap::IndexSet;
+use buck2_hash::BuckIndexSet;
 
 use crate::analysis::registry::RecordedAnalysisValues;
 use crate::artifact_groups::ArtifactGroup;
@@ -35,8 +35,8 @@ impl BxlResult {
         output: Vec<u8>,
         error: Vec<u8>,
         streaming: Vec<u8>,
-        ensured_artifacts: IndexSet<ArtifactGroup>,
-        pending_streaming_outputs: Vec<(IndexSet<ArtifactGroup>, Vec<u8>)>,
+        ensured_artifacts: BuckIndexSet<ArtifactGroup>,
+        pending_streaming_outputs: Vec<(BuckIndexSet<ArtifactGroup>, Vec<u8>)>,
         analysis_values: RecordedAnalysisValues,
     ) -> Self {
         Self {
@@ -79,16 +79,16 @@ impl BxlResult {
 
 #[derive(Allocative, Debug, Clone)]
 pub struct PendingStreamingOutput {
-    waits_on: IndexSet<ArtifactGroup>,
+    waits_on: BuckIndexSet<ArtifactGroup>,
     output: Vec<u8>,
 }
 
 impl PendingStreamingOutput {
-    pub fn new(waits_on: IndexSet<ArtifactGroup>, output: Vec<u8>) -> Self {
+    pub fn new(waits_on: BuckIndexSet<ArtifactGroup>, output: Vec<u8>) -> Self {
         Self { waits_on, output }
     }
 
-    pub fn waits_on(&self) -> &IndexSet<ArtifactGroup> {
+    pub fn waits_on(&self) -> &BuckIndexSet<ArtifactGroup> {
         &self.waits_on
     }
 

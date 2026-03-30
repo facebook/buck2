@@ -17,8 +17,8 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact:
 use buck2_build_api::interpreter::rule_defs::artifact::unpack_artifact::UnpackNonPromiseInputArtifact;
 use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
 use buck2_error::buck2_error;
+use buck2_hash::BuckIndexSet;
 use dupe::Dupe;
-use indexmap::IndexSet;
 use starlark::collections::SmallSet;
 use starlark::typing::Ty;
 use starlark::values::Freeze;
@@ -197,7 +197,7 @@ impl<'v> DynamicAttrValue<Value<'v>> {
 pub fn dedupe_output_artifacts<'v>(
     v: Vec<ValueTyped<'v, StarlarkOutputArtifact<'v>>>,
 ) -> Box<[ValueTyped<'v, StarlarkOutputArtifact<'v>>]> {
-    let mut found = IndexSet::new();
+    let mut found = BuckIndexSet::default();
     let mut outputs = Vec::new();
     for i in v {
         if found.insert(i.artifact()) {
@@ -228,7 +228,7 @@ impl<'v> DynamicAttrValues<Value<'v>> {
     }
 
     pub(crate) fn artifact_values(&self) -> Box<[Artifact]> {
-        let mut artifact_values = IndexSet::new();
+        let mut artifact_values = BuckIndexSet::default();
         self.for_each_node(&mut |value| {
             if let DynamicAttrValue::ArtifactValue(artifact) = value {
                 artifact_values.insert(artifact.dupe());

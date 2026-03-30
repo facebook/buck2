@@ -11,7 +11,6 @@ async-trait = { workspace = true }
 derive_more = { workspace = true }
 futures = { workspace = true }
 indent_write = { workspace = true }
-indexmap = { workspace = true }
 itertools = { workspace = true }
 ref-cast = { workspace = true }
 regex = { workspace = true }

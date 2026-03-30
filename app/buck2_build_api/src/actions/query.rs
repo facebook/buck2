@@ -31,6 +31,7 @@ use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_hash::BuckIndexMap;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::graph::node::LabeledNode;
@@ -41,7 +42,6 @@ use dice::DiceComputations;
 use dupe::Dupe;
 use either::Either;
 use gazebo::variants::VariantName;
-use indexmap::IndexMap;
 use internment::ArcIntern;
 use pagable::Pagable;
 use ref_cast::RefCast;
@@ -236,7 +236,7 @@ pub struct ActionData {
 }
 
 impl ActionData {
-    fn attrs(&self) -> IndexMap<String, String> {
+    fn attrs(&self) -> BuckIndexMap<String, String> {
         let mut attrs = self.action.action().aquery_attributes(
             &ExecutorFs::new(
                 &self.fs,

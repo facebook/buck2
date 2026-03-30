@@ -13,7 +13,6 @@ dashmap = { workspace = true }
 derive_more = { workspace = true }
 either = { workspace = true }
 futures = { workspace = true }
-indexmap = { workspace = true }
 itertools = { workspace = true }
 ref-cast = { workspace = true }
 tokio = { workspace = true }

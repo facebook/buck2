@@ -26,12 +26,12 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::Starla
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkInputArtifactLike;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
 use buck2_execute::path::artifact_path::ArtifactPath;
+use buck2_hash::BuckIndexSet;
 use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Dupe;
 use dupe::IterDupedExt;
 use futures::FutureExt;
-use indexmap::IndexSet;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
@@ -444,7 +444,7 @@ fn artifact_group_methods(builder: &mut MethodsBuilder) {
 #[derive(Debug, Allocative)]
 pub(crate) struct LazyBuildArtifact {
     /// The artifacts that are associated with this artifact. This is used to materialize.
-    artifacts_to_build: IndexSet<ArtifactGroup>,
+    artifacts_to_build: BuckIndexSet<ArtifactGroup>,
     artifact: StarlarkArtifact,
 }
 
@@ -460,7 +460,7 @@ impl LazyBuildArtifact {
             .flat_map(|v| v.iter())
             .cloned()
             .chain(iter::once(ArtifactGroup::Artifact(bound_artifact)))
-            .collect::<IndexSet<_>>();
+            .collect::<BuckIndexSet<_>>();
 
         LazyBuildArtifact {
             artifacts_to_build: artifacts,

@@ -41,9 +41,9 @@ use buck2_execute::materialize::http::http_download;
 use buck2_execute::materialize::http::http_head;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::HttpDownloadInfo;
+use buck2_hash::BuckIndexSet;
 use buck2_http::HttpClient;
 use dupe::Dupe;
-use indexmap::IndexSet;
 use pagable::Pagable;
 use starlark::values::OwnedFrozenValue;
 
@@ -90,7 +90,7 @@ impl UnregisteredDownloadFileAction {
 impl UnregisteredAction for UnregisteredDownloadFileAction {
     fn register(
         self: Box<Self>,
-        outputs: IndexSet<BuildArtifact>,
+        outputs: BuckIndexSet<BuildArtifact>,
         _starlark_data: Option<OwnedFrozenValue>,
         _error_handler: Option<OwnedFrozenValue>,
     ) -> buck2_error::Result<Box<dyn Action>> {
@@ -106,7 +106,7 @@ struct DownloadFileAction {
 
 impl DownloadFileAction {
     fn new(
-        outputs: IndexSet<BuildArtifact>,
+        outputs: BuckIndexSet<BuildArtifact>,
         inner: UnregisteredDownloadFileAction,
     ) -> buck2_error::Result<Self> {
         if outputs.len() != 1 {

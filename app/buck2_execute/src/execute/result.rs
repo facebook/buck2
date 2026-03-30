@@ -21,10 +21,10 @@ use buck2_build_signals::env::WaitingData;
 use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_data::SchedulingMode;
+use buck2_hash::BuckIndexMap;
 use buck2_util::time_span::TimeSpan;
 use derivative::Derivative;
 use dupe::Dupe;
-use indexmap::IndexMap;
 use remote_execution::TActionResult2;
 
 use crate::artifact_value::ArtifactValue;
@@ -228,7 +228,7 @@ impl CommandExecutionMetadata {
 #[derivative(Debug)]
 pub struct CommandExecutionResult {
     /// The outputs produced by this command
-    pub outputs: IndexMap<CommandExecutionOutput, ArtifactValue>,
+    pub outputs: BuckIndexMap<CommandExecutionOutput, ArtifactValue>,
     /// How it executed.
     pub report: CommandExecutionReport,
     /// A previously rejected execution of this command.

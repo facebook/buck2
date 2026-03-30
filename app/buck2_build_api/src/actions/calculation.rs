@@ -35,6 +35,7 @@ use buck2_events::span::SpanId;
 use buck2_execute::execute::result::CommandExecutionReport;
 use buck2_execute::execute::result::CommandExecutionStatus;
 use buck2_execute::output_size::OutputSize;
+use buck2_hash::BuckIndexMap;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
@@ -50,7 +51,6 @@ use dupe::Dupe;
 use futures::FutureExt;
 use futures::future::BoxFuture;
 use futures::future::{self};
-use indexmap::IndexMap;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use ref_cast::RefCast;
@@ -114,7 +114,7 @@ async fn build_action_no_redirect(
     let inputs = action.inputs()?;
     let waiting_data = WaitingData::new();
     let ensured_inputs = if inputs.is_empty() {
-        IndexMap::new()
+        BuckIndexMap::default()
     } else {
         let ready_inputs: Vec<_> = tokio::task::unconstrained(KeepGoing::try_compute_join_all(
             ctx,
@@ -133,7 +133,7 @@ async fn build_action_no_redirect(
         ))
         .await?;
 
-        let mut results = IndexMap::with_capacity(inputs.len());
+        let mut results = BuckIndexMap::with_capacity(inputs.len());
         for (artifact, ready) in zip(inputs.iter(), ready_inputs) {
             results.insert(artifact.clone(), ready);
         }
@@ -216,7 +216,7 @@ async fn build_action_inner(
     cancellation: &CancellationContext,
     executor: &BuckActionExecutor,
     waiting_data: WaitingData,
-    ensured_inputs: IndexMap<ArtifactGroup, ArtifactGroupValues>,
+    ensured_inputs: BuckIndexMap<ArtifactGroup, ArtifactGroupValues>,
     action: &Arc<RegisteredAction>,
     target_rule_type_name: Option<String>,
 ) -> (ActionExecutionData, Box<buck2_data::ActionExecutionEnd>) {
@@ -462,7 +462,7 @@ async fn build_action_inner(
 
 fn is_action_eligible_for_dedupe(
     action: &Arc<RegisteredAction>,
-    inputs: &IndexMap<ArtifactGroup, ArtifactGroupValues>,
+    inputs: &BuckIndexMap<ArtifactGroup, ArtifactGroupValues>,
 ) -> buck2_data::EligibleForDedupe {
     if let BaseDeferredKey::TargetLabel(configured_label) = action.key().owner() {
         if configured_label.cfg().is_bound_execution_platform() {

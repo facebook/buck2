@@ -43,10 +43,10 @@ use buck2_error::internal_error;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::WriteRequest;
+use buck2_hash::BuckIndexMap;
+use buck2_hash::BuckIndexSet;
+use buck2_hash::buck_indexmap;
 use dupe::Dupe;
-use indexmap::IndexMap;
-use indexmap::IndexSet;
-use indexmap::indexmap;
 use pagable::Pagable;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
@@ -110,7 +110,7 @@ impl UnregisteredWriteJsonAction {
 impl UnregisteredAction for UnregisteredWriteJsonAction {
     fn register(
         self: Box<Self>,
-        outputs: IndexSet<BuildArtifact>,
+        outputs: BuckIndexSet<BuildArtifact>,
         starlark_data: Option<OwnedFrozenValue>,
         _error_handler: Option<OwnedFrozenValue>,
     ) -> buck2_error::Result<Box<dyn Action>> {
@@ -130,7 +130,7 @@ struct WriteJsonAction {
 impl WriteJsonAction {
     fn new(
         contents: OwnedFrozenValue,
-        outputs: IndexSet<BuildArtifact>,
+        outputs: BuckIndexSet<BuildArtifact>,
         inner: UnregisteredWriteJsonAction,
     ) -> buck2_error::Result<Self> {
         validate_json(JsonUnpack::unpack_value_err(contents.value())?)?;
@@ -208,13 +208,13 @@ impl Action for WriteJsonAction {
         &self,
         fs: &ExecutorFs,
         artifact_path_mapping: &dyn ArtifactPathMapper,
-    ) -> IndexMap<String, String> {
+    ) -> BuckIndexMap<String, String> {
         let res: buck2_error::Result<String> = try {
             let content = self.get_contents(fs, artifact_path_mapping)?;
             String::from_utf8(content).map_err(buck2_error::Error::from)?
         };
         // TODO(cjhopman): We should change this api to support returning a Result.
-        indexmap! {
+        buck_indexmap! {
             "contents".to_owned() => match res {
                 Ok(v) => v,
                 Err(e) => format!("ERROR: constructing contents ({e})")
@@ -272,7 +272,7 @@ impl Action for WriteJsonAction {
                 .ok_or_else(|| internal_error!("Action did not set execution_start"))?;
 
         Ok((
-            ActionOutputs::new(indexmap![self.output.get_path().dupe() => value]),
+            ActionOutputs::new(buck_indexmap![self.output.get_path().dupe() => value]),
             ActionExecutionMetadata {
                 execution_kind: ActionExecutionKind::Simple,
                 timing: ActionExecutionTimingData { wall_time },
