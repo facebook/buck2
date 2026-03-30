@@ -24,6 +24,7 @@ use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::dispatch::get_dispatcher_opt;
+use buck2_events::dispatch::maybe_proxy_current_span;
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_events::span::SpanId;
 use buck2_execute::artifact_value::ArtifactValue;
@@ -141,6 +142,7 @@ pub(super) enum MaterializerCommand<T: 'static> {
         DeclareArtifactPayload,
         Box<ArtifactMaterializationMethod>, // Boxed to avoid growing all variants
         EventDispatcher,
+        Option<SpanId>,
     ),
 
     MatchArtifacts(
@@ -157,6 +159,7 @@ pub(super) enum MaterializerCommand<T: 'static> {
         Vec<ProjectRelativePathBuf>,
         oneshot::Sender<CleaningFuture>,
         EventDispatcher,
+        Option<SpanId>,
     ),
 
     /// Takes a list of artifact paths, and materializes all artifacts in the
@@ -167,6 +170,7 @@ pub(super) enum MaterializerCommand<T: 'static> {
     Ensure(
         Vec<ProjectRelativePathBuf>,
         EventDispatcher,
+        Option<SpanId>,
         oneshot::Sender<BoxStream<'static, Result<(), MaterializationError>>>,
     ),
 
@@ -212,6 +216,7 @@ impl<T> std::fmt::Debug for MaterializerCommand<T> {
                 },
                 method,
                 _dispatcher,
+                _parent_id,
             ) => {
                 write!(f, "Declare({path:?}, {artifact:?}, {method:?})",)
             }
@@ -224,7 +229,7 @@ impl<T> std::fmt::Debug for MaterializerCommand<T> {
             MaterializerCommand::InvalidateFilePaths(paths, ..) => {
                 write!(f, "InvalidateFilePaths({paths:?})")
             }
-            MaterializerCommand::Ensure(paths, _, _) => write!(f, "Ensure({paths:?}, _)",),
+            MaterializerCommand::Ensure(paths, _, _, _) => write!(f, "Ensure({paths:?}, _)",),
             MaterializerCommand::Subscription(op) => write!(f, "Subscription({op:?})",),
             MaterializerCommand::Extension(ext) => write!(f, "Extension({ext:?})"),
             MaterializerCommand::Abort => write!(f, "Abort"),
@@ -592,7 +597,8 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 },
                 method,
                 event_dispatcher,
-            ) => {
+                parent_id,
+            ) => maybe_proxy_current_span(parent_id, || {
                 self.maybe_log_command(&event_dispatcher, || {
                     buck2_data::materializer_command::Data::Declare(
                         buck2_data::materializer_command::Declare {
@@ -606,7 +612,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 if self.subscriptions.should_materialize_eagerly(&path) {
                     self.materialize_artifact(&path, event_dispatcher);
                 }
-            }
+            }),
             MaterializerCommand::MatchArtifacts(paths, sender) => {
                 let all_matches = paths
                     .into_iter()
@@ -616,45 +622,54 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             MaterializerCommand::HasArtifact(path, sender) => {
                 sender.send(self.has_artifact(path)).ok();
             }
-            MaterializerCommand::InvalidateFilePaths(paths, sender, event_dispatcher) => {
-                tracing::trace!(
-                    paths = ?paths,
-                    "invalidate paths",
-                );
-                self.maybe_log_command(&event_dispatcher, || {
-                    buck2_data::materializer_command::Data::InvalidateFilePaths(
-                        buck2_data::materializer_command::InvalidateFilePaths {
-                            paths: paths.iter().map(|p| p.to_string()).collect::<Vec<_>>(),
-                        },
-                    )
-                });
+            MaterializerCommand::InvalidateFilePaths(
+                paths,
+                sender,
+                event_dispatcher,
+                parent_id,
+            ) => {
+                maybe_proxy_current_span(parent_id, || {
+                    tracing::trace!(
+                        paths = ?paths,
+                        "invalidate paths",
+                    );
+                    self.maybe_log_command(&event_dispatcher, || {
+                        buck2_data::materializer_command::Data::InvalidateFilePaths(
+                            buck2_data::materializer_command::InvalidateFilePaths {
+                                paths: paths.iter().map(|p| p.to_string()).collect::<Vec<_>>(),
+                            },
+                        )
+                    });
 
-                let existing_futs = self
-                    .tree
-                    .invalidate_paths_and_collect_futures(paths, self.sqlite_db.as_mut());
+                    let existing_futs = self
+                        .tree
+                        .invalidate_paths_and_collect_futures(paths, self.sqlite_db.as_mut());
 
-                // TODO: This probably shouldn't return a CleanFuture
-                sender
-                    .send(
-                        async move { join_all_existing_futs(existing_futs?).await }
-                            .boxed()
-                            .shared(),
-                    )
-                    .ok();
+                    // TODO: This probably shouldn't return a CleanFuture
+                    sender
+                        .send(
+                            async move { join_all_existing_futs(existing_futs?).await }
+                                .boxed()
+                                .shared(),
+                        )
+                        .ok();
+                })
             }
             // Entry point for `ensure_materialized` calls
-            MaterializerCommand::Ensure(paths, event_dispatcher, fut_sender) => {
-                self.maybe_log_command(&event_dispatcher, || {
-                    buck2_data::materializer_command::Data::Ensure(
-                        buck2_data::materializer_command::Ensure {
-                            paths: paths.iter().map(|p| p.to_string()).collect::<Vec<_>>(),
-                        },
-                    )
-                });
+            MaterializerCommand::Ensure(paths, event_dispatcher, parent_id, fut_sender) => {
+                maybe_proxy_current_span(parent_id, || {
+                    self.maybe_log_command(&event_dispatcher, || {
+                        buck2_data::materializer_command::Data::Ensure(
+                            buck2_data::materializer_command::Ensure {
+                                paths: paths.iter().map(|p| p.to_string()).collect::<Vec<_>>(),
+                            },
+                        )
+                    });
 
-                fut_sender
-                    .send(self.materialize_many_artifacts(paths, event_dispatcher))
-                    .ok();
+                    fut_sender
+                        .send(self.materialize_many_artifacts(paths, event_dispatcher))
+                        .ok();
+                })
             }
             MaterializerCommand::Subscription(sub) => sub.execute(self),
             MaterializerCommand::Extension(ext) => ext.execute(self),

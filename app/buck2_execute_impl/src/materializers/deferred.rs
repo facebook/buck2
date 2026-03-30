@@ -364,6 +364,7 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
             },
             Box::new(ArtifactMaterializationMethod::LocalCopy(srcs_tree, srcs)),
             get_dispatcher(),
+            current_span(),
         );
         self.command_sender.send(cmd)?;
         Ok(())
@@ -379,6 +380,7 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
                 a,
                 Box::new(ArtifactMaterializationMethod::CasDownload { info: info.dupe() }),
                 get_dispatcher(),
+                current_span(),
             );
             self.command_sender.send(cmd)?;
         }
@@ -398,6 +400,7 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
             },
             Box::new(ArtifactMaterializationMethod::HttpDownload { info }),
             get_dispatcher(),
+            current_span(),
         );
         self.command_sender.send(cmd)?;
 
@@ -459,6 +462,7 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
                 },
                 Box::new(method),
                 get_dispatcher(),
+                current_span(),
             ))?;
         }
 
@@ -502,6 +506,7 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
                 paths,
                 sender,
                 get_dispatcher(),
+                current_span(),
             ))?;
 
         // Wait on future to finish before invalidation can continue.
@@ -513,14 +518,13 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
         &self,
         artifact_paths: Vec<ProjectRelativePathBuf>,
     ) -> buck2_error::Result<BoxStream<'static, Result<(), MaterializationError>>> {
-        let event_dispatcher = get_dispatcher();
-
         // TODO: display [materializing] in superconsole
         let (sender, recv) = oneshot::channel();
         self.command_sender
             .send(MaterializerCommand::Ensure(
                 artifact_paths,
-                event_dispatcher,
+                get_dispatcher(),
+                current_span(),
                 sender,
             ))
             .buck_error_context("Sending Ensure() command.")?;
