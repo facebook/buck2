@@ -500,7 +500,6 @@ impl<'a> ConnectedInstaller<'a> {
             let install_id = install_id(installed_target);
             let install_info_request = tonic::Request::new(InstallInfoRequest {
                 install_id: install_id.to_owned(),
-                files: std::collections::HashMap::new(),
                 file_names,
             });
 
