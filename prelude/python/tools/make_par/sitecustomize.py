@@ -77,14 +77,56 @@ def __patch_ctypes(saved_env: dict[str, str]) -> None:
     ctypes_util.find_library = lambda name: _patched_find_library(name)
 
 
+_SITECUSTOMIZE_SUBDIR: str = "__par_sitecustomize_proxy__"
+
+
+def _extract_sitecustomize() -> str | None:
+    """Extract sitecustomize.py from the PAR zip to a subdir of the unpack dir.
+
+    Returns the directory containing the extracted file, or None if not needed.
+    Uses a dedicated subdirectory to prevent unrelated Python processes from
+    picking it up when the unpack dir appears on PYTHONPATH.
+    """
+    unpack_dir = os.environ.get("FB_PAR_UNZIP_LOCATION")
+    par_filename = os.environ.get("FB_PAR_FILENAME")
+    if not unpack_dir or not par_filename:
+        return None
+    if not any(entry.startswith(("/proc/self/fd/", "/dev/fd/")) for entry in sys.path):
+        return None  # Not a fastzip PAR — real sitecustomize is findable
+
+    extract_dir = os.path.join(unpack_dir, _SITECUSTOMIZE_SUBDIR)
+    extract_path = os.path.join(extract_dir, "sitecustomize.py")
+    if os.path.exists(extract_path):
+        return extract_dir  # Already extracted
+
+    try:
+        import zipfile
+
+        os.makedirs(extract_dir, exist_ok=True)
+        with zipfile.ZipFile(par_filename) as zf:
+            with zf.open("sitecustomize.py") as src, open(extract_path, "wb") as dst:
+                dst.write(src.read())
+        return extract_dir
+    except (OSError, KeyError, zipfile.BadZipFile):
+        return None  # Best effort
+
+
 def __patch_spawn(var_names: list[str], saved_env: dict[str, str]) -> None:
     std_spawn = mp_util.spawnv_passfds
+
+    # Compute resolved PYTHONPATH once at patch time (not per-spawn).
+    # dirs_only=True filters out zip files to avoid RecursionError from
+    # zipimport's lazy `import struct` cycle.
+    resolved_pythonpath = os.path.pathsep.join(
+        _resolve_path_entries(sys.path, dirs_only=True)
+    )
 
     # pyre-fixme[53]: Captured variable is not annotated.
     # pyre-fixme[2]: Parameter must be annotated.
     def spawnv_passfds(path, args, passfds) -> None | int:
         with lock:
             try:
+                proxy_dir = _extract_sitecustomize()
                 for var in var_names:
                     val = os.environ.get(var, None)
                     if val is not None:
@@ -92,6 +134,20 @@ def __patch_spawn(var_names: list[str], saved_env: dict[str, str]) -> None:
                     saved_val = saved_env.get(var, None)
                     if saved_val is not None:
                         os.environ[var] = saved_val
+
+                # Ensure PYTHONPATH includes resolved sys.path dirs so the
+                # child interpreter finds sitecustomize.py during Py_Initialize.
+                # The extraction dir (if any) is prepended so the child finds
+                # the extracted sitecustomize.py first.
+                parts = []
+                if proxy_dir:
+                    parts.append(proxy_dir)
+                existing = os.environ.get("PYTHONPATH", "")
+                if existing:
+                    parts.append(existing)
+                parts.append(resolved_pythonpath)
+                os.environ["PYTHONPATH"] = os.path.pathsep.join(parts)
+
                 return std_spawn(path, args, passfds)
             finally:
                 __clear_env(apply_monkeypatching=False)
@@ -181,11 +237,18 @@ def __patch_subprocess_run(saved_env: dict[str, str]) -> None:
             # avoid RecursionError during early Python init (zipimport's
             # _read_directory triggers a lazy `import struct` cycle).
             resolved = _resolve_path_entries(sys.path, dirs_only=True)
-            env["PYTHONPATH"] = os.path.pathsep.join(resolved)
+            # Extract sitecustomize.py from the PAR zip to a namespaced
+            # subdir so the child interpreter can find it via PYTHONPATH.
+            proxy_dir = _extract_sitecustomize()
+            parts = []
+            if proxy_dir:
+                parts.append(proxy_dir)
+            parts.extend(resolved)
+            env["PYTHONPATH"] = os.path.pathsep.join(parts)
             # Only set PYTHONHOME if the child will find sitecustomize.py
             # (which clears it). Otherwise PYTHONHOME leaks and the child
             # uses the PAR's prefix for stdlib, causing hangs.
-            if any(
+            if proxy_dir is not None or any(
                 os.path.isfile(os.path.join(d, "sitecustomize.py")) for d in resolved
             ):
                 env["PYTHONHOME"] = sys.prefix
@@ -298,7 +361,23 @@ def __startup__() -> None:
     try:
         # pyre-fixme[21]: Could not find module `__par__.__startup_function_loader__`.
         from __par__.__startup_function_loader__ import load_startup_functions
+    except ImportError:
+        par = os.environ.get("FB_PAR_FILENAME", "")
+        if par and os.path.isfile(par) and par not in sys.path:
+            sys.path.insert(0, par)
+            try:
+                from __par__.__startup_function_loader__ import load_startup_functions
+            except ImportError:
+                warnings.warn("could not load startup functions", stacklevel=1)
+                return
+        else:
+            warnings.warn("could not load startup functions", stacklevel=1)
+            return
+    except Exception:
+        warnings.warn("could not load startup functions", stacklevel=1)
+        return
 
+    try:
         load_startup_functions()
     except Exception:
         warnings.warn("could not load startup functions", stacklevel=1)
