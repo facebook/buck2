@@ -248,6 +248,9 @@ impl CommandExecutor {
                     .remote_execution_caf_fbpkgs,
                 request.remote_worker(),
                 re_outputs_required,
+                request
+                    .meta_internal_extra_params()
+                    .allow_unsandboxed_action_cache_uploads,
             )?;
 
             buck2_error::Ok(action)
@@ -274,6 +277,7 @@ fn re_create_action(
     remote_execution_caf_fbpkgs: &[RemoteExecutorCafFbpkg],
     worker: &Option<RemoteWorkerSpec>,
     re_outputs_required: bool,
+    allow_unsandboxed_action_cache_uploads: bool,
 ) -> buck2_error::Result<PreparedAction> {
     let (worker_tool_init_action, command_args) = if let Some(worker) = worker {
         let mut action_and_blobs = ActionDigestAndBlobsBuilder::new(digest_config);
@@ -383,6 +387,7 @@ fn re_create_action(
             .transpose()
             .buck_error_context("Cannot convert timeout to GRPC")?,
         do_not_cache,
+        allow_unsandboxed_action_cache_uploads,
         #[cfg(fbcode_build)]
         worker_tool_action_digest: worker_tool_init_action.clone().map(|a| a.action.to_grpc()),
         ..Default::default()

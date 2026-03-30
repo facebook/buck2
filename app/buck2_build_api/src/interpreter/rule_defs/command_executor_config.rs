@@ -553,6 +553,11 @@ pub fn parse_meta_internal_extra_params<'v>(
             .transpose()?
             .flatten();
 
+        let allow_unsandboxed_action_cache_uploads = params
+            .get_str("allow_unsandboxed_action_cache_uploads")
+            .and_then(|v| v.unpack_bool())
+            .unwrap_or(false);
+
         Ok(MetaInternalExtraParams {
             remote_execution_policy: parse_remote_execution_policy(
                 params.get_str("remote_execution_policy"),
@@ -561,6 +566,7 @@ pub fn parse_meta_internal_extra_params<'v>(
                 params.get_str("remote_execution_caf_fbpkgs"),
             )?,
             gang,
+            allow_unsandboxed_action_cache_uploads,
         })
     } else {
         Ok(MetaInternalExtraParams::default())

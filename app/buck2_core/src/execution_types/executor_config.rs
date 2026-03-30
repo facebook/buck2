@@ -491,6 +491,10 @@ pub struct MetaInternalExtraParams {
     pub remote_execution_policy: RemoteExecutionPolicy,
     pub remote_execution_caf_fbpkgs: Vec<RemoteExecutorCafFbpkg>,
     pub gang: Option<ReGang>,
+    /// Allow RE workers to upload action results to the action cache even
+    /// when the action runs without network isolation. Useful for actions
+    /// that require network access but produce deterministic outputs.
+    pub allow_unsandboxed_action_cache_uploads: bool,
 }
 
 #[cfg(test)]
