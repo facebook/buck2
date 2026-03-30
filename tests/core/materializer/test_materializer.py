@@ -14,6 +14,7 @@ from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
+from buck2.tests.e2e_util.helper.utils import filter_events
 
 
 def watchman_dependency_linux_only() -> bool:
@@ -236,6 +237,34 @@ async def test_sqlite_materializer_state_buckconfig_version_change(
 
     # just starting the buck2 daemon should delete the sqlite materializer state
     await buck.audit_config()
+
+
+@buck_test(
+    data_dir="modify_deferred_materialization_deps",
+    skip_for_os=["windows"],
+)
+async def test_materialization_spans_have_parent_id(buck: Buck) -> None:
+    """Materialization spans emitted from the deferred materializer currently
+    lack a parent span. This test documents that behavior; later diffs in
+    this stack fix it by proxying the current_span across threads/tasks."""
+    await buck.build("//:check")
+
+    materialization_events = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "SpanStart",
+        "data",
+        "Materialization",
+        return_root=True,
+    )
+
+    assert len(materialization_events) > 0, "Expected at least one Materialization span"
+    for event in materialization_events:
+        # TODO(D93334098): These should have parent_id != 0.
+        assert event["Event"]["parent_id"] == 0, (
+            f"Materialization span unexpectedly has a parent: {event}"
+        )
 
 
 def disable_sqlite_materializer_state(buck: Buck) -> None:

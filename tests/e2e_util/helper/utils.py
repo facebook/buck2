@@ -73,27 +73,31 @@ async def expect_exec_count(buck: Buck, n: int) -> None:
 
 
 async def filter_events(
-    buck: Buck, *args: str, rel_cwd: typing.Optional[Path] = None
+    buck: Buck,
+    *args: str,
+    rel_cwd: typing.Optional[Path] = None,
+    return_root: bool = False,
 ) -> typing.List[typing.Any]:
     log = (await buck.log("show", rel_cwd=rel_cwd)).stdout.strip().splitlines()
     found = []
     for line in log:
-        e = json_get(line, *args)
+        e = json_get(line, *args, return_root_on_match=return_root)
         if e is None:
             continue
         found.append(e)
     return found
 
 
-def json_get(data: str, *key: str) -> typing.Any:
-    data = json.loads(data)
+def json_get(data: str, *key: str, return_root_on_match: bool = False) -> typing.Any:
+    root = json.loads(data)
+    cur = root
 
     for k in key:
-        data = data.get(k)
-        if data is None:
-            break
+        cur = cur.get(k)
+        if cur is None:
+            return None
 
-    return data
+    return root if return_root_on_match else cur
 
 
 def random_string() -> str:
