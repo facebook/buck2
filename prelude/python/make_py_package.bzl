@@ -750,6 +750,14 @@ def _make_py_package_live(
         bytecode_artifacts = pex_modules.manifests.bytecode_artifacts(PycInvalidationMode("checked_hash"))
         runtime_files.extend(bytecode_artifacts)
 
+        # Pass resolved bytecode artifact paths so the Rust builder can replace
+        # the /output_artifacts/ placeholder with actual content hashes.
+        bytecode_artifacts_path = ctx.actions.write(
+            "__bytecode_artifacts{}.txt".format(output_suffix),
+            cmd_args(bytecode_artifacts),
+        )
+        cmd.add(cmd_args(bytecode_artifacts_path, format = "--bytecode-artifacts={}"))
+
     if pex_modules.extra_manifests != None:
         extras_manifest = ctx.actions.write("{}-extra.txt".format(name), [cmd_args(a, p, delimiter = "::") for a, p in pex_modules.extra_manifests.artifacts], with_inputs = True)
         cmd.add(cmd_args(extras_manifest.without_associated_artifacts(), format = "--extras={}"))
