@@ -24,7 +24,6 @@ def _rust_common_attributes(is_binary: bool):
     return buck.licenses_arg() | buck.labels_arg() | buck.contacts_arg() | {
         "clippy_configuration": attrs.option(attrs.dep(providers = [ClippyConfiguration]), default = None),
         "coverage": attrs.bool(default = False),
-        "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
         "default_platform": attrs.option(attrs.string(), default = None),
         "flagged_deps": attrs.list(attrs.tuple(rust_target_dep(is_binary), attrs.list(attrs.string())), default = []),
         "incremental_enabled": attrs.bool(default = False),

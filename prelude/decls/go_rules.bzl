@@ -93,7 +93,6 @@ go_binary = prelude_rule(
                 Static files to be symlinked into the working directory of the test. You can access these in your
                  by opening the files as relative paths, e.g. `ioutil.ReadFile("testdata/input")`.
             """),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "platform": attrs.option(attrs.string(), default = None),
         } |
         buck.licenses_arg() |
@@ -181,7 +180,6 @@ go_exported_library = prelude_rule(
                 Static files to be symlinked into the working directory of the test. You can access these in your
                  by opening the files as relative paths, e.g. `ioutil.ReadFile("testdata/input")`.
             """),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "platform": attrs.option(attrs.string(), default = None),
         } |
         buck.licenses_arg() |
@@ -233,7 +231,6 @@ go_library = prelude_rule(
         go_common.coverage_enabled_arg() |
         go_common.generate_exported_header() |
         {
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
         } |
         buck.licenses_arg() |
         buck.labels_arg() |
@@ -360,7 +357,6 @@ go_test = prelude_rule(
         } |
         buck.run_test_separately_arg(run_test_separately_type = attrs.bool(default = False)) |
         {
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "platform": attrs.option(attrs.string(), default = None),
             "runner": attrs.option(attrs.dep(), default = None),
             "specs": attrs.option(attrs.arg(json = True), default = None),

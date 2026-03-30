@@ -111,7 +111,6 @@ def apple_bundle_base_attrs():
             apple_common.asset_catalogs_compilation_options_arg() |
             apple_common.info_plist_substitutions_arg() |
             buck.contacts_arg() |
-            apple_common.default_host_platform_arg() |
             apple_common.default_platform_arg() |
             buck.labels_arg() |
             buck.licenses_arg() |
@@ -187,7 +186,6 @@ apple_asset_catalog = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         buck.contacts_arg() |
-        apple_common.default_host_platform_arg() |
         buck.labels_arg() |
         buck.licenses_arg() |
         {
@@ -217,7 +215,6 @@ apple_app_intents = prelude_rule(
     further = None,
     attrs = (
         buck.contacts_arg() |
-        apple_common.default_host_platform_arg() |
         buck.labels_arg() |
         buck.licenses_arg()
     ),
@@ -302,7 +299,6 @@ apple_binary = prelude_rule(
         apple_common.info_plist_substitutions_arg() |
         cxx_common.supported_platforms_regex_arg() |
         buck.contacts_arg() |
-        apple_common.default_host_platform_arg() |
         apple_common.default_platform_arg() |
         buck.labels_arg() |
         buck.licenses_arg() |
@@ -503,7 +499,6 @@ apple_bundle = prelude_rule(
         apple_common.product_name_from_module_name_arg() |
         apple_common.asset_catalogs_compilation_options_arg() |
         buck.contacts_arg() |
-        apple_common.default_host_platform_arg() |
         apple_common.default_platform_arg() |
         buck.labels_arg() |
         buck.licenses_arg() |
@@ -609,7 +604,6 @@ apple_library = prelude_rule(
         apple_common.apple_toolchain_arg() |
         validation_common.attrs_validators_arg() |
         buck.contacts_arg() |
-        apple_common.default_host_platform_arg() |
         apple_common.default_platform_arg() |
         buck.labels_arg() |
         buck.licenses_arg() |
@@ -786,7 +780,6 @@ apple_package = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         buck.contacts_arg() |
-        apple_common.default_host_platform_arg() |
         apple_common.default_platform_arg() |
         buck.labels_arg() |
         buck.licenses_arg() |
@@ -883,7 +876,6 @@ apple_resource = prelude_rule(
             "codesign_flags_override": attrs.option(attrs.list(attrs.string()), default = None),
         } |
         buck.contacts_arg() |
-        apple_common.default_host_platform_arg() |
         buck.labels_arg() |
         buck.licenses_arg() |
         apple_common.skip_universal_resource_dedupe_arg()
@@ -960,7 +952,6 @@ apple_test = prelude_rule(
         apple_common.asset_catalogs_compilation_options_arg() |
         cxx_common.supported_platforms_regex_arg() |
         buck.contacts_arg() |
-        apple_common.default_host_platform_arg() |
         apple_common.default_platform_arg() |
         buck.licenses_arg() |
         apple_common.codesign_flags_arg() |
@@ -1056,7 +1047,6 @@ apple_toolchain = prelude_rule(
     further = None,
     attrs = (
         buck.contacts_arg() |
-        apple_common.default_host_platform_arg() |
         buck.labels_arg() |
         buck.licenses_arg() |
         {
@@ -1139,7 +1129,6 @@ core_data_model = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         buck.contacts_arg() |
-        apple_common.default_host_platform_arg() |
         buck.labels_arg() |
         buck.licenses_arg() |
         {
@@ -1176,7 +1165,6 @@ prebuilt_apple_framework = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         buck.contacts_arg() |
-        apple_common.default_host_platform_arg() |
         buck.labels_arg() |
         buck.licenses_arg() |
         apple_common.deps_arg() |
@@ -1224,7 +1212,6 @@ scene_kit_assets = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         buck.contacts_arg() |
-        apple_common.default_host_platform_arg() |
         buck.labels_arg() |
         buck.licenses_arg() |
         {
@@ -1241,7 +1228,6 @@ swift_toolchain = prelude_rule(
     further = None,
     attrs = (
         buck.contacts_arg() |
-        apple_common.default_host_platform_arg() |
         buck.labels_arg() |
         buck.licenses_arg() |
         {

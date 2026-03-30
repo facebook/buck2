@@ -278,9 +278,6 @@ def _enforce_minimum_os_plist_key():
         "enforce_minimum_os_plist_key": attrs.bool(default = False),
     }
 
-def _default_host_platform_arg():
-    return {"default_host_platform": attrs.option(attrs.configuration_label(), default = None)}
-
 def _default_platform_arg():
     return {"default_platform": attrs.option(attrs.string(), default = None)}
 
@@ -413,7 +410,6 @@ apple_common = struct(
     asset_catalogs_compilation_options_arg = _asset_catalogs_compilation_options_arg,
     apple_installer_arg = _apple_installer_arg,
     enforce_minimum_os_plist_key = _enforce_minimum_os_plist_key,
-    default_host_platform_arg = _default_host_platform_arg,
     default_platform_arg = _default_platform_arg,
     codesign_flags_arg = _codesign_flags_arg,
     codesign_identity_arg = _codesign_identity_arg,

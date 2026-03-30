@@ -224,7 +224,6 @@ android_aar = prelude_rule(
             "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
             "annotation_processing_tool": attrs.option(attrs.enum(AnnotationProcessingTool), default = None),
             "build_config_values_file": attrs.option(attrs.source(), default = None),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "enable_relinker": attrs.bool(default = False),
             "excluded_java_deps": attrs.list(attrs.dep(), default = []),
             "extra_arguments": attrs.list(attrs.string(), default = []),
@@ -443,7 +442,6 @@ android_build_config = prelude_rule(
                  Note that values\\_file can be a generated file, as can build\\_config\\_values\\_file as
                  demonstrated in the example below.
             """),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
         } |
         buck.licenses_arg() |
         buck.labels_arg() |
@@ -521,7 +519,6 @@ android_instrumentation_apk = prelude_rule(
         } |
         android_common.deps_apk_arg() |
         {
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "multidex_min_api": attrs.option(attrs.string(), default = None),
             "disable_pre_dex": attrs.bool(default = False),
             "enable_bootstrap_dexes": attrs.bool(default = False),
@@ -594,7 +591,6 @@ android_instrumentation_test = prelude_rule(
             "clear_package_data": attrs.bool(default = False, doc = """
                 Runs `pm clear` on the app and test packages before the test run if set to True.
             """),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "disable_animations": attrs.bool(default = False, doc = """
                 Disables animations on the emulator if set to True.
             """),
@@ -714,7 +710,6 @@ android_library = prelude_rule(
                 List of classes to remove from the output jar. It only removes classes from the target's own
                  sources, not from any of its dependencies.
             """),
-                    "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
                     "friend_paths": attrs.list(attrs.dep(), default = []),
                     "java_version": attrs.option(attrs.string(), default = None),
                     "jar_postprocessor": attrs.option(attrs.exec_dep(), default = None),
@@ -798,7 +793,6 @@ android_manifest = prelude_rule(
                  `android_library()` rules will be filtered out to become dependent source files for
                  the manifest.
             """),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
         } |
         buck.licenses_arg() |
         buck.labels_arg() |
@@ -860,7 +854,6 @@ android_prebuilt_aar = prelude_rule(
                  files originating from this `.aar` file. The `.so` files will always be packaged directly into
                  the main `.apk`.
             """),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "desugar_deps": attrs.list(attrs.dep(), default = []),
             "dex_weight_factor": attrs.int(default = 1),
@@ -940,7 +933,6 @@ android_resource = prelude_rule(
                  running `aapt`.
             """),
             "allowlisted_locales": attrs.option(attrs.set(attrs.string(), sorted = False), default = None),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "has_whitelisted_strings": attrs.bool(default = False),
             "resource_union": attrs.bool(default = False),
         }
@@ -1029,7 +1021,6 @@ apk_genrule = prelude_rule(
                  `aab` can be provided.
             """),
             "cacheable": attrs.option(attrs.bool(), default = None),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "enable_sandbox": attrs.option(attrs.bool(), default = None),
             "is_cacheable": attrs.bool(default = False),
             "remote": attrs.option(attrs.bool(), default = None),
@@ -1092,7 +1083,6 @@ gen_aidl = prelude_rule(
             "deps": attrs.list(attrs.dep(), default = [], doc = """
                 A list of rules that must be built before this rule.
             """),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
         } |
         buck.licenses_arg() |
         buck.labels_arg() |
@@ -1134,7 +1124,6 @@ keystore = prelude_rule(
                 key.alias.password=alias_password
                 ```
             """),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
         } |
         buck.licenses_arg() |
@@ -1193,7 +1182,6 @@ prebuilt_native_library = prelude_rule(
                  script, which must be included in the primary APK to take effect. Only one
                  of `is_asset` and `has_wrap_script` can be set for a rule.
             """),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
         } |
         buck.licenses_arg() |
@@ -1230,7 +1218,6 @@ robolectric_test = prelude_rule(
                 This can be useful if some dependencies are Android-only and won't build for the test host platform.
             """),
             "default_cxx_platform": attrs.option(attrs.string(), default = None),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}),
             "exported_deps": attrs.list(attrs.dep(), default = []),

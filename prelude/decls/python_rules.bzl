@@ -237,7 +237,6 @@ cxx_python_extension = prelude_rule(
         third_party_common.create_third_party_build_root_attrs() |
         {
             "cxx_runtime_type": attrs.option(attrs.enum(CxxRuntimeType), default = None),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "default_platform": attrs.option(attrs.string(), default = None),
             "defaults": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),
             "executable_name": attrs.option(attrs.string(), default = None),
@@ -351,7 +350,6 @@ prebuilt_python_library = prelude_rule(
         {
             "cxx_header_dirs": attrs.option(attrs.list(attrs.string()), default = None),
             "infer_cxx_header_dirs": attrs.bool(default = False),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "strip_soabi_tags": attrs.bool(
                 default = False,
                 doc = """
@@ -437,7 +435,6 @@ python_binary = prelude_rule(
         {
             "build_args": attrs.list(attrs.arg(), default = []),
             "compile": attrs.option(attrs.bool(), default = None),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "dummy_omnibus": attrs.option(attrs.dep(), default = None),
             "extension": attrs.option(attrs.string(), default = None),
             "repl_only_deps": attrs.list(attrs.dep(), default = []),
@@ -499,7 +496,6 @@ python_library = prelude_rule(
         python_common.exclude_deps_from_merged_linking_arg() |
         third_party_common.create_third_party_build_root_attrs() |
         {
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "ignore_compile_errors": attrs.bool(default = False),
             "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
             "type_stubs": attrs.named_set(attrs.source(), sorted = True, default = []),
@@ -603,7 +599,6 @@ python_test = prelude_rule(
             "additional_coverage_targets": attrs.list(attrs.dep(), default = []),
             "build_args": attrs.list(attrs.arg(), default = []),
             "compile": attrs.option(attrs.bool(), default = None),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "dummy_omnibus": attrs.option(attrs.dep(), default = None),
             "extension": attrs.option(attrs.string(), default = None),
             "needed_coverage": attrs.list(attrs.tuple(attrs.int(), attrs.dep(), attrs.option(attrs.string())), default = []),
@@ -635,7 +630,6 @@ python_test_runner = prelude_rule(
         # @unsorted-dict-items
         buck.labels_arg() |
         {
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "main_module": attrs.string(default = ""),
             "src": attrs.source(),
         } |

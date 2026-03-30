@@ -145,7 +145,6 @@ cxx_binary = prelude_rule(
         cxx_common.use_content_based_paths_arg() |
         {
             "cxx_runtime_type": attrs.option(attrs.enum(CxxRuntimeType), default = None),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "default_platform": attrs.option(attrs.string(), default = None),
             "defaults": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),
             "deps": attrs.list(attrs.dep(), default = []),
@@ -407,7 +406,6 @@ cxx_genrule = prelude_rule(
                 Whether this target should be executed in a sandbox or not.
             """),
             "cacheable": attrs.option(attrs.bool(), default = None),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "default_outs": attrs.option(attrs.set(attrs.string(), sorted = False), default = None),
             "outs": attrs.option(attrs.dict(key = attrs.string(), value = attrs.set(attrs.string(), sorted = False), sorted = False), default = None),
             "remote": attrs.option(attrs.bool(), default = None),
@@ -741,7 +739,6 @@ cxx_precompiled_header = prelude_rule(
             "compile_pch_file": attrs.bool(default = False, doc = """
                 Whether to compile the precompiled header file or use legacy mode.
             """),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = [], doc = """
                 Dependency rules which export headers used by the header specified in `src`.
             """),
@@ -899,7 +896,6 @@ cxx_test = prelude_rule(
         {
             "additional_coverage_targets": attrs.list(attrs.source(), default = []),
             "cxx_runtime_type": attrs.option(attrs.enum(CxxRuntimeType), default = None),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "default_platform": attrs.option(attrs.string(), default = None),
             "defaults": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),
             "deps": attrs.list(attrs.dep(), default = []),
@@ -999,7 +995,6 @@ cxx_toolchain = prelude_rule(
             "cxx_compiler_type": attrs.option(attrs.enum(CxxToolProviderType), default = None),
             "cxx_preprocessor_flags": attrs.list(attrs.arg(), default = []),
             "debug_path_prefix_map_sanitizer_format": attrs.option(attrs.string(), default = None),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "dist_thin_lto_codegen_flags": attrs.list(attrs.arg(), default = []),
             "executable_linker_flags": attrs.list(
                 attrs.arg(anon_target_compatible = True),
@@ -1131,7 +1126,6 @@ prebuilt_cxx_library = prelude_rule(
         cxx_common.version_arg() |
         {
             "can_be_asset": attrs.bool(default = False),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deffile": attrs.option(attrs.source(), default = None, doc = """
                 Specifies the *.def file used on windows to modify a dll's exports in place of explicit `__declspec(dllexport)` declarations.
                  The default is to not use a defile.
@@ -1260,7 +1254,6 @@ prebuilt_cxx_library_group = prelude_rule(
         cxx_common.version_arg() |
         cxx_common.supported_platforms_regex_arg() |
         {
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "import_libs": attrs.dict(key = attrs.string(), value = attrs.source(), sorted = False, default = {}),
             "include_dirs": attrs.list(attrs.source(allow_directory = True), default = []),

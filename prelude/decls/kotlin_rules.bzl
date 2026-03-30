@@ -130,7 +130,6 @@ kotlin_library = prelude_rule(
         buck.labels_arg() |
         {
             "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "extra_arguments": attrs.list(attrs.string(), default = []),
             "java_version": attrs.option(attrs.string(), default = None),
             "jdk_release": attrs.option(attrs.string(), default = None),
@@ -221,7 +220,6 @@ kotlin_test = prelude_rule(
                 This can be useful if some dependencies are Android-only and won't build for the test host platform.
             """),
             "default_cxx_platform": attrs.option(attrs.string(), default = None),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps_query": attrs.option(attrs.query(), default = None),
             "exported_deps": attrs.list(attrs.dep(), default = []),
             "exported_provided_deps": attrs.list(attrs.dep(), default = []),

@@ -72,7 +72,6 @@ cxx_lua_extension = prelude_rule(
         cxx_common.linker_flags_arg() |
         {
             "cxx_runtime_type": attrs.option(attrs.enum(CxxRuntimeType), default = None),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "default_platform": attrs.option(attrs.string(), default = None),
             "defaults": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),
             "deps": attrs.list(attrs.dep(), default = []),
@@ -128,7 +127,6 @@ lua_binary = prelude_rule(
             "deps": attrs.list(attrs.dep(), default = [], doc = """
                 `lua_library()` rules to this binary will access.
             """),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "native_starter_library": attrs.option(attrs.dep(), default = None),
             "package_style": attrs.option(attrs.enum(LuaPlatformPackageStyle), default = None),
             "platform": attrs.option(attrs.string(), default = None),
@@ -172,7 +170,6 @@ lua_library = prelude_rule(
                 Other `lua_library()` rules which list `srcs` from
                  which this rule imports modules.
             """),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
         } |
         buck.licenses_arg() |
         buck.labels_arg() |

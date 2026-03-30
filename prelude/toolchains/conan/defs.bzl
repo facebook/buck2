@@ -362,7 +362,6 @@ def conan_component(
         # TODO[AH] Implement prebuilt_cxx_library_group.
         fail("Support for package components with multiple libraries is not yet implemented.")
         #"contacts": attrs.list(attrs.string(), default = []),
-        #"default_host_platform": attrs.option(attrs.configuration_label(), default = None),
         #"deps": attrs.list(attrs.dep(), default = []),
         #"exported_deps": attrs.list(attrs.dep(), default = []),
         #"exported_preprocessor_flags": attrs.list(attrs.string(), default = []),

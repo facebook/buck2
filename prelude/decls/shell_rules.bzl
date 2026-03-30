@@ -84,7 +84,6 @@ sh_binary = prelude_rule(
                 By default, sh_binary attempts to use symbolic links for the resources. This can be changed so,
                 that copies are made instead.
             """),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "_target_os_type": buck.target_os_type_arg(),
             "has_content_based_path": attrs.bool(default = True),
@@ -180,7 +179,6 @@ sh_test = prelude_rule(
             "type": attrs.option(attrs.string(), default = None, doc = """
                 If provided, this will be sent to any configured `.buckconfig`
             """),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "list_args": attrs.option(attrs.list(attrs.string()), default = None),
             "list_env": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False), default = None),

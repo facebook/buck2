@@ -28,7 +28,6 @@ gwt_binary = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "draft_compile": attrs.bool(default = False),
             "experimental_args": attrs.list(attrs.string(), default = []),
@@ -58,7 +57,6 @@ jar_genrule = prelude_rule(
             "cacheable": attrs.option(attrs.bool(), default = None),
             "cmd": attrs.option(attrs.arg(), default = None),
             "cmd_exe": attrs.option(attrs.arg(), default = None),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "enable_sandbox": attrs.option(attrs.bool(), default = None),
             "environment_expansion_separator": attrs.option(attrs.string(), default = None),
             "weight": attrs.option(attrs.int(), default = None),
@@ -80,7 +78,6 @@ java_annotation_processor = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "does_not_affect_abi": attrs.bool(default = False),
             "isolate_class_loader": attrs.bool(default = False),
@@ -164,7 +161,6 @@ java_binary = prelude_rule(
             """),
             "concat_deps": attrs.bool(default = False, doc = "Use zip concatenation instead of repacking all dependency jars, which is faster"),
             "default_cxx_platform": attrs.option(attrs.string(), default = None),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "generate_wrapper": attrs.bool(default = False),
             "do_not_create_inner_jar": attrs.bool(default = False),
             "incremental_target_prefix": attrs.option(attrs.string(), default = None),
@@ -293,7 +289,6 @@ java_library = prelude_rule(
         jvm_common.javac() |
         jvm_common.classic_java_content_based_paths() |
         {
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "jar_postprocessor": attrs.option(attrs.exec_dep(), default = None),
             "manifest_file": attrs.option(attrs.source(), default = None),
             "maven_coords": attrs.option(attrs.string(), default = None),
@@ -316,7 +311,6 @@ java_plugin = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "does_not_affect_abi": attrs.bool(default = False),
             "isolate_class_loader": attrs.bool(default = False),
@@ -397,7 +391,6 @@ java_test = prelude_rule(
         {
             "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
             "default_cxx_platform": attrs.option(attrs.string(), default = None),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps_query": attrs.option(attrs.query(), default = None),
             "exported_deps": attrs.list(attrs.dep(), default = []),
             "exported_provided_deps": attrs.list(attrs.dep(), default = []),
@@ -437,7 +430,6 @@ java_test_runner = prelude_rule(
         # @unsorted-dict-items
         {
             "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "exported_deps": attrs.list(attrs.dep(), default = []),
             "exported_provided_deps": attrs.list(attrs.dep(), default = []),
@@ -517,7 +509,6 @@ prebuilt_jar = prelude_rule(
                  build, so this should be empty.
             """),
             "desugar_deps": attrs.list(attrs.dep(), default = []),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "generate_abi": attrs.bool(default = False),
             "maven_coords": attrs.option(attrs.string(), default = None),
             "required_for_source_only_abi": attrs.bool(default = False),

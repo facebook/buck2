@@ -75,7 +75,6 @@ ocaml_binary = prelude_rule(
         ocaml_common.compiler_flags_arg() |
         {
             "bytecode_only": attrs.option(attrs.bool(), default = None),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "linker_flags": attrs.list(attrs.string(), default = []),
             "ocamldep_flags": attrs.list(attrs.arg(), default = []),
             "platform": attrs.option(attrs.string(), default = None),
@@ -120,7 +119,6 @@ ocaml_library = prelude_rule(
         ocaml_common.compiler_flags_arg() |
         {
             "bytecode_only": attrs.bool(default = False),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "linker_flags": attrs.list(attrs.arg(), default = []),
             "native_plugin": attrs.bool(default = False),
             "ocamldep_flags": attrs.list(attrs.arg(), default = []),
@@ -144,7 +142,6 @@ prebuilt_ocaml_library = prelude_rule(
             "bytecode_lib": attrs.option(attrs.string(), default = None),
             "bytecode_only": attrs.bool(default = False),
             "c_libs": attrs.list(attrs.string(), default = []),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "include_dir": attrs.string(default = ""),
             "lib_dir": attrs.string(default = ""),

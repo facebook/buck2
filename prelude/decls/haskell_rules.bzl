@@ -48,7 +48,6 @@ haskell_binary = prelude_rule(
         haskell_common.compiler_flags_arg() |
         haskell_common.deps_arg() |
         {
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps_query": attrs.option(attrs.query(), default = None),
             "enable_profiling": attrs.bool(default = False),
             "ghci_platform_preload_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
@@ -72,7 +71,6 @@ haskell_ghci = prelude_rule(
         # @unsorted-dict-items
         {
             "compiler_flags": attrs.list(attrs.string(), default = []),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "deps_query": attrs.option(attrs.query(), default = None),
             "enable_profiling": attrs.bool(default = False),
@@ -98,7 +96,6 @@ haskell_haddock = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "deps_query": attrs.option(attrs.query(), default = None),
             "haddock_flags": attrs.list(attrs.arg(), default = []),
@@ -119,7 +116,6 @@ haskell_ide = prelude_rule(
         # @unsorted-dict-items
         {
             "compiler_flags": attrs.list(attrs.string(), default = []),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "deps_query": attrs.option(attrs.query(), default = None),
             "extra_script_templates": attrs.list(attrs.source(), default = []),
@@ -159,7 +155,6 @@ haskell_library = prelude_rule(
         native_common.link_whole(link_whole_type = attrs.bool(default = False)) |
         native_common.preferred_linkage(preferred_linkage_type = attrs.enum(Linkage.values())) |
         {
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "enable_profiling": attrs.bool(default = False),
             "ghci_platform_preload_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
             "ghci_preload_deps": attrs.set(attrs.dep(), sorted = True, default = []),
@@ -222,7 +217,6 @@ haskell_prebuilt_library = prelude_rule(
             "exported_post_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
             "cxx_header_dirs": attrs.list(attrs.source(), default = []),
             "db": attrs.source(),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "enable_profiling": attrs.bool(default = False),
             "id": attrs.string(default = ""),
             "import_dirs": attrs.list(attrs.source(), default = []),
