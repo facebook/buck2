@@ -179,6 +179,10 @@ pub(crate) struct TargetBuildMetrics {
     /// Distinct RE platform names used by actions for this target.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub re_platform_names: Vec<String>,
+    /// Wall-clock time in milliseconds from the start of the build at which
+    /// this top-level target succeeded, failed, or timed out.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wall_clock_completion_ms: Option<u64>,
 }
 
 /// DO NOT UPDATE WITHOUT UPDATING `docs/users/build_observability/build_report.md`!
@@ -606,6 +610,7 @@ impl<'a> BuildReportCollector<'a> {
             remote_max_memory_peak_bytes: metrics.remote_max_memory_peak_bytes,
             local_max_memory_peak_bytes: metrics.local_max_memory_peak_bytes,
             re_platform_names: metrics.re_platform_names.to_vec(),
+            wall_clock_completion_ms: metrics.wall_clock_completion_ms,
         }
     }
 

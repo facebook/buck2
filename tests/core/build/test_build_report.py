@@ -25,6 +25,8 @@ def _sanitize_timing_fields(obj: Any) -> None:
         for key in list(obj.keys()):
             if key == "compute_time_ms":
                 obj[key] = "<COMPUTE_TIME_MS>"
+            elif key == "wall_clock_completion_ms":
+                obj[key] = "<WALL_CLOCK_COMPLETION_MS>"
             else:
                 _sanitize_timing_fields(obj[key])
     elif isinstance(obj, list):
@@ -216,6 +218,10 @@ async def test_build_report_contains_per_target_build_metrics(
 
         # re_platform_names should be absent for local-only actions (skip_serializing_if empty)
         assert "re_platform_names" not in rule1_metrics
+
+        # wall_clock_completion_ms should be present for completed targets
+        assert "wall_clock_completion_ms" in rule1_metrics
+        assert rule1_metrics["wall_clock_completion_ms"] > 0
 
         rule2_metrics = report["results"]["root//:rule2"]["configured"][
             "<unspecified>"

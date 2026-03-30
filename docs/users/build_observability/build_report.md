@@ -174,6 +174,12 @@ TargetBuildMetrics {
     # (e.g. "linux-remote-execution", "gpu-remote-execution").
     # Omitted when empty (no remote actions).
     re_platform_names: Optional[List[str]]
+
+    # Wall-clock time in milliseconds from the start of the build at which
+    # this top-level target succeeded, failed, or timed out.
+    # Use this to compare durations but don't add it to a start timestamp
+    # to produce an end timestamp.
+    wall_clock_completion_ms: Optional[u64]
 }
 
 AggregatedBuildMetrics {
