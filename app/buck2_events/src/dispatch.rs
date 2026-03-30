@@ -372,6 +372,51 @@ impl Drop for Span {
     }
 }
 
+struct RestoreSpan<'a> {
+    tl_span: &'a Cell<Option<SpanId>>,
+    previous_span: Option<SpanId>,
+}
+
+impl Drop for RestoreSpan<'_> {
+    fn drop(&mut self) {
+        self.tl_span.set(self.previous_span);
+    }
+}
+
+/// Temporarily installs a captured `SpanId` as the `CURRENT_SPAN` on the
+/// current thread while executing `fun`. This is used to propagate span
+/// context from a parent thread into worker threads (e.g. the IO executor),
+/// so that actions executed on those threads appear under the correct span.
+///
+/// If the current thread already has its own span set, the proxied span is
+/// **not** installed (don't-clobber semantics). The thread-local
+/// `RootSpansRecorder` is also cleared for the duration to prevent the worker
+/// thread from accidentally recording spans belonging to the caller.
+///
+/// No-op when `span_id` is `None`.
+pub fn maybe_proxy_current_span<T, Fun>(span_id: Option<SpanId>, fun: Fun) -> T
+where
+    Fun: FnOnce() -> T,
+{
+    match span_id {
+        Some(span_id) => unset_thread_local_recorder(|| {
+            CURRENT_SPAN.with(|tl_span| {
+                let previous_span = tl_span.replace(Some(span_id));
+                if previous_span.is_some() {
+                    // This thread already has its own span; don't override it.
+                    tl_span.set(previous_span);
+                }
+                let _guard = RestoreSpan {
+                    tl_span,
+                    previous_span,
+                };
+                fun()
+            })
+        }),
+        None => fun(),
+    }
+}
+
 thread_local! {
     static CURRENT_SPAN: Cell<Option<SpanId>> = const { Cell::new(None) };
 }
