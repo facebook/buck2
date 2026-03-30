@@ -219,6 +219,50 @@ where
     }
 }
 
+/// A [`Future`] wrapper that captures the current [`SpanId`] at construction
+/// time and proxies it into each [`Future::poll`] call via
+/// [`maybe_proxy_current_span`]. This is the async counterpart to the
+/// synchronous `maybe_proxy_current_span`, allowing span context to follow
+/// futures that may be polled on a different tokio task or thread.
+#[pin_project]
+pub struct SpanProxyAsync<Fut, R>
+where
+    Fut: Future<Output = R>,
+{
+    #[pin]
+    fut: Fut,
+    span_id: Option<SpanId>,
+}
+
+impl<Fut, R> SpanProxyAsync<Fut, R>
+where
+    Fut: Future<Output = R>,
+{
+    pub fn new(fut: Fut) -> Self {
+        SpanProxyAsync {
+            fut,
+            span_id: current_span(),
+        }
+    }
+
+    pub fn new_with_span(fut: Fut, span_id: Option<SpanId>) -> Self {
+        SpanProxyAsync { fut, span_id }
+    }
+}
+
+impl<Fut, R> Future for SpanProxyAsync<Fut, R>
+where
+    Fut: Future<Output = R>,
+{
+    type Output = R;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut task::Context<'_>) -> task::Poll<Self::Output> {
+        let this = self.project();
+        let span_id = *this.span_id;
+        maybe_proxy_current_span(span_id, || this.fut.poll(cx))
+    }
+}
+
 impl Debug for EventDispatcher {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "EventDispatcher(TraceId = {})", self.trace_id().dupe())
