@@ -71,7 +71,7 @@ impl IncrementalDbState {
 
                 self.state.insert(key.to_owned(), value.clone().into());
                 if let Err(e) = db.incremental_state_table().insert(key.to_owned(), value) {
-                    soft_error!(
+                    let _unused = soft_error!(
                         "insert_to_incremental_db",
                         buck2_error::buck2_error!(
                             buck2_error::ErrorTag::Tier0,
@@ -79,8 +79,7 @@ impl IncrementalDbState {
                             key, e
                         ),
                         quiet: true
-                    )
-                    .unwrap();
+                    );
                 };
             }
             None => {
@@ -95,7 +94,7 @@ impl IncrementalDbState {
         {
             // This should be converted into a real error later, marking as a soft error for now as the row not existing
             // might show up as an error but doesn't actually matter in reality.
-            soft_error!(
+            let _unused = soft_error!(
                 "delete_from_incremental_db",
                 buck2_error::buck2_error!(
                     buck2_error::ErrorTag::Tier0,
@@ -103,8 +102,7 @@ impl IncrementalDbState {
                     e
                 ),
                 quiet: true
-            )
-            .unwrap();
+            );
         }
 
         self.state.remove(key);

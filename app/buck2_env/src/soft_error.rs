@@ -291,14 +291,6 @@ pub fn handle_soft_error(
         return Err(err.context("Upgraded warning to failure via $BUCK2_HARD_ERROR"));
     }
 
-    // @oss-disable: let is_open_source = false;
-    let is_open_source = true; // @oss-enable
-    if is_open_source {
-        // We don't log these, and we have no legacy users, and they might not upgrade that often,
-        // so lets just break open source things immediately.
-        return Err(err);
-    }
-
     Ok(err)
 }
 
