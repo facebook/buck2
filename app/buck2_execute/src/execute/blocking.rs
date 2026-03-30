@@ -16,6 +16,9 @@ use buck2_core::buck2_env;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
+use buck2_events::dispatch::current_span;
+use buck2_events::dispatch::maybe_proxy_current_span;
+use buck2_events::span::SpanId;
 use buck2_util::threads::thread_spawn;
 use crossbeam_channel::unbounded;
 use dice::DiceComputations;
@@ -74,6 +77,7 @@ pub trait IoRequest: Send + Sync + 'static {
 
 struct ThreadPoolIoRequest {
     io: Box<dyn IoRequest>,
+    parent_id: Option<SpanId>,
     sender: oneshot::Sender<buck2_error::Result<()>>,
 }
 
@@ -108,8 +112,13 @@ impl BuckBlockingExecutor {
             let command_receiver = command_receiver.clone();
             let fs = fs.dupe();
             thread_spawn(&format!("buck-io-{i}"), move || {
-                for ThreadPoolIoRequest { sender, io } in command_receiver.iter() {
-                    let res = io.execute(&fs);
+                for ThreadPoolIoRequest {
+                    sender,
+                    parent_id,
+                    io,
+                } in command_receiver.iter()
+                {
+                    let res = maybe_proxy_current_span(parent_id, || io.execute(&fs));
                     let _ignored = sender.send(res);
                 }
             })
@@ -147,7 +156,11 @@ impl BlockingExecutor for BuckBlockingExecutor {
 
         // Ignore errors sending as they'll translate to an error receiving once we drop the
         // sender.
-        let _ignored = self.command_sender.send(ThreadPoolIoRequest { io, sender });
+        let _ignored = self.command_sender.send(ThreadPoolIoRequest {
+            io,
+            parent_id: current_span(),
+            sender,
+        });
 
         cancellations
             .critical_section(
