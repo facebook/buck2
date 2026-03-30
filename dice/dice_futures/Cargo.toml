@@ -11,7 +11,7 @@ futures = "0.3"
 once_cell = { workspace = true }
 parking_lot = { workspace = true }
 pin-project = "0.4"
-slab = "0.4.7"
+slab = "0.4.12"
 thiserror = { workspace = true }
 tokio = { version = "1.5", features = ["full"] }
 

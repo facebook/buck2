@@ -33,7 +33,7 @@ parking_lot = { version = "0.12.1", features = ["send_guard"] }
 ref-cast = { workspace = true }
 scopeguard = { workspace = true }
 serde = { version = "1.0", features = ["derive"] }
-slab = "0.4.7"
+slab = "0.4.12"
 # @oss-disable: sorted_vector_map.path = "../../../common/rust/shed/sorted_vector_map"
 sorted_vector_map.git = "https://github.com/facebookexperimental/rust-shed" # @oss-enable
 sorted_vector_map.version = "0.2"

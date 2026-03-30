@@ -8,7 +8,6 @@ version = "0.1.0"
 [dependencies]
 rustls = { workspace = true }
 rustls-native-certs = { workspace = true }
-rustls-pemfile = { workspace = true }
 rustls-pki-types = { workspace = true }
 tokio = { workspace = true }
 
