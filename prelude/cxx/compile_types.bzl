@@ -150,6 +150,8 @@ CxxSrcCompileCommand = record(
     # The index store factory to use to generate index store for this source file.
     index_store_factory = field(IndexStoreFactory | None, None),
     error_handler = field([typing.Callable, None], None),
+    # Whether to set expect_eligible_for_dedupe on compile actions.
+    expect_eligible_for_dedupe = field(bool, False),
 )
 
 CxxSrcPrecompileCommand = record(

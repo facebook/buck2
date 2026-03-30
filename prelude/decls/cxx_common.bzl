@@ -342,6 +342,11 @@ def _use_content_based_paths_arg():
         "use_content_based_paths": attrs.bool(default = True),
     }
 
+def _expect_eligible_for_dedupe_arg():
+    return {
+        "expect_eligible_for_dedupe": attrs.bool(default = False),
+    }
+
 cxx_common = struct(
     srcs_arg = _srcs_arg,
     deps_arg = _deps_arg,
@@ -376,5 +381,6 @@ cxx_common = struct(
     runtime_dependency_handling_arg = _runtime_dependency_handling_arg,
     use_fbcc_rust_wrapper_arg = _use_fbcc_rust_wrapper_arg,
     use_content_based_paths_arg = _use_content_based_paths_arg,
+    expect_eligible_for_dedupe_arg = _expect_eligible_for_dedupe_arg,
     supports_stripping = _supports_stripping,
 )

@@ -259,6 +259,7 @@ def cxx_library_generate(ctx: AnalysisContext, rule_type: str) -> list[Provider]
         # @oss-disable[end= ]: extra_linker_outputs_factory = get_extra_linker_outputs,
         # @oss-disable[end= ]: extra_linker_outputs_flags_factory = get_extra_linker_output_flags,
         supports_stripping = ctx.attrs.supports_stripping,
+        expect_eligible_for_dedupe = getattr(ctx.attrs, "expect_eligible_for_dedupe", False),
     )
     output = cxx_library_parameterized(ctx, params)
     return output.providers

@@ -473,6 +473,7 @@ library_attrs = (
     cxx_common.version_arg() |
     cxx_common.use_fbcc_rust_wrapper_arg() |
     cxx_common.use_content_based_paths_arg() |
+    cxx_common.expect_eligible_for_dedupe_arg() |
     validation_common.attrs_validators_arg() |
     {
         "archive_allow_cache_upload": attrs.bool(default = False),

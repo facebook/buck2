@@ -315,6 +315,7 @@ def create_compile_cmds(
             uses_content_based_paths = cxx_compile_cmd.allow_content_based_paths,
             index_store_factory = impl_params.index_store_factory,
             error_handler = impl_params.error_handler,
+            expect_eligible_for_dedupe = impl_params.expect_eligible_for_dedupe,
         )
 
         if src.is_header:
@@ -735,6 +736,7 @@ def _compile_single_cxx(
             error_handler = src_compile_cmd.error_handler,
             outputs_for_error_handler = outputs_for_error_handler,
             local_only = is_producing_compiled_pch or is_consuming_compiled_pch,
+            expect_eligible_for_dedupe = src_compile_cmd.expect_eligible_for_dedupe,
         )
 
     # Generate asm for compiler which accept `-S` (TODO: support others)

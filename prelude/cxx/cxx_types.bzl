@@ -293,4 +293,6 @@ CxxRuleConstructorParams = record(
     # Cuda compile stype
     cuda_compile_style = field(CudaCompileStyle | None, None),
     supports_stripping = field(bool, True),
+    # Whether to set expect_eligible_for_dedupe on compile actions.
+    expect_eligible_for_dedupe = field(bool, False),
 )
