@@ -13,7 +13,6 @@ The `alias` rule has the following relevant attributes:
 
 - `name` - (required) what the `actual`'s label should be aliased as.
 - `actual` - (required) a target label.
-- `default_host_platform` - default host platform to use for the aliased target.
 
 **Example**
 
