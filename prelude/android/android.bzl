@@ -12,11 +12,11 @@ load(
     "VALIDATION_DEPS_ATTR_NAME",
 )
 load("@prelude//android:cpu_filters.bzl", "ALL_CPU_FILTERS")
+load("@prelude//decls:android_rules.bzl", "DISABLE_STRIPPING")
 load("@prelude//decls:common.bzl", "buck")
 load("@prelude//decls:core_rules.bzl", "TargetCpuType")
 load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//java:java.bzl", "AbiGenerationMode", "dex_min_sdk_version")
-load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
 load(":android_aar.bzl", "android_aar_impl")
 load(":android_apk.bzl", "android_apk_impl")
 load(":android_build_config.bzl", "android_build_config_impl")
@@ -56,7 +56,6 @@ implemented_rules = {
 # Can't load `read_bool` here because it will cause circular load.
 FORCE_SINGLE_CPU = read_root_config("buck2", "android_force_single_cpu") in ("True", "true")
 FORCE_SINGLE_DEFAULT_CPU = read_root_config("buck2", "android_force_single_default_cpu") in ("True", "true")
-DISABLE_STRIPPING = read_root_config("android", "disable_stripping") in ("True", "true")
 
 # Format is {"ovveride_name": {"re_cap_key": "re_cap_value"}}; for example:
 #    {
@@ -84,16 +83,6 @@ RE_USE_CASE = attrs.option(attrs.dict(key = attrs.string(), value = attrs.string
 #    }
 META_INTERNAL_EXTRA_PARAMS = attrs.option(attrs.dict(key = attrs.string(), value = attrs.any()), default = None)
 
-# android_binary specific extra attributes
-ANDROID_BINARY_EXTRA_ATTRS = {
-    "strip_libraries": attrs.bool(default = not DISABLE_STRIPPING),
-} | constraint_overrides.attributes
-
-# android_bundle specific extra attributes
-ANDROID_BUNDLE_EXTRA_ATTRS = {
-    "use_derived_apk": attrs.bool(default = False),
-}
-
 extra_attributes = {
     "android_aar": {
         "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
@@ -119,14 +108,14 @@ extra_attributes = {
         "_android_toolchain": toolchains_common.android(),
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
     },
-    "android_binary": ANDROID_BINARY_EXTRA_ATTRS,
+    "android_binary": {},
     "android_build_config": {
         "_android_toolchain": toolchains_common.android(),
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
         "_is_building_android_binary": is_building_android_binary_attr(),
         "_java_toolchain": toolchains_common.java_for_android(),
     },
-    "android_bundle": ANDROID_BUNDLE_EXTRA_ATTRS,
+    "android_bundle": {},
     "android_instrumentation_apk": {
         "apk": attrs.dep(),
         "cpu_filters": attrs.list(attrs.enum(TargetCpuType), default = []),

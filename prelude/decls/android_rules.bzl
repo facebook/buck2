@@ -50,6 +50,7 @@ SdkProguardType = ["default", "optimized", "none"]
 
 FORCE_SINGLE_CPU = read_root_config("buck2", "android_force_single_cpu") in ("True", "true")
 FORCE_SINGLE_DEFAULT_CPU = read_root_config("buck2", "android_force_single_default_cpu") in ("True", "true")
+DISABLE_STRIPPING = read_root_config("android", "disable_stripping") in ("True", "true")
 
 # Common attributes shared between android_binary and android_bundle rules
 ANDROID_BINARY_BUNDLE_COMMON_ATTRS = {
@@ -171,14 +172,13 @@ work around the 64K limit on the number of methods that can be referenced in a s
 } | buck.licenses_arg() | buck.labels_arg() | buck.contacts_arg()
 
 ANDROID_BINARY_ATTRS = ANDROID_BINARY_BUNDLE_COMMON_ATTRS | {
-    # android_binary-specific attribute
-    "strip_libraries": attrs.bool(default = True, doc = ""),
-}
+    "strip_libraries": attrs.bool(default = not DISABLE_STRIPPING),
+} | constraint_overrides.attributes
 ANDROID_BUNDLE_ATTRS = ANDROID_BINARY_BUNDLE_COMMON_ATTRS | {
-    # android_bundle-specific attributes
     "bundle_config_file": attrs.option(attrs.source(), default = None, doc = ""),
     "module_manifest_skeleton": attrs.dict(default = {}, key = attrs.string(), sorted = False, value = attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), doc = ""),
     "module_manifests": attrs.option(attrs.transition_dep(cfg = cpu_transition), default = None, doc = ""),
+    "use_derived_apk": attrs.bool(default = False),
 }
 
 android_aar = prelude_rule(
