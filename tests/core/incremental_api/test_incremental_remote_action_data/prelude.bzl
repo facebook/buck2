@@ -7,7 +7,7 @@
 # above-listed licenses.
 
 def _china_impl(ctx) -> list[Provider]:
-    out = ctx.actions.declare_output("out")
+    out = ctx.actions.declare_output("out", has_content_based_path = False)
     ctx.actions.run(
         cmd_args(["fbpython", ctx.attrs.increment] + (["--dir"] if ctx.attrs.dir else []) + ["--out", out.as_output()]),
         category = "increment",
@@ -28,7 +28,7 @@ china = rule(impl = _china_impl, attrs = {
 })
 
 def _whistle_impl(ctx) -> list[Provider]:
-    intermediate = ctx.actions.declare_output("intermediate")
+    intermediate = ctx.actions.declare_output("intermediate", has_content_based_path = False)
     ctx.actions.run(
         cmd_args(["fbpython", ctx.attrs.increment] + (["--dir"] if ctx.attrs.dir else []) + ["--out", intermediate.as_output()]),
         category = "increment",
@@ -37,7 +37,7 @@ def _whistle_impl(ctx) -> list[Provider]:
         prefer_remote = True,
         env = {"INVALIDATE_ACTION": ctx.attrs.invalidate},
     )
-    out = ctx.actions.declare_output("out")
+    out = ctx.actions.declare_output("out", has_content_based_path = False)
     ctx.actions.run(
         cmd_args(["sh", "-c", 'cp -rf "$1" "$2"', "--", intermediate, out.as_output()]),
         category = "copy",

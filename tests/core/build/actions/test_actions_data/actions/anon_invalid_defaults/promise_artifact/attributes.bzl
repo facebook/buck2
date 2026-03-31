@@ -28,7 +28,7 @@ def _build_impl(ctx: AnalysisContext) -> list[Provider]:
 build = rule(impl = _build_impl, attrs = {})
 
 def _bad_short_path_impl(ctx: AnalysisContext) -> list[Provider]:
-    out = ctx.actions.declare_output("output")
+    out = ctx.actions.declare_output("output", has_content_based_path = False)
 
     def f(ctx: AnalysisContext, _artifacts, outputs):
         ctx.actions.write(outputs[out], "")

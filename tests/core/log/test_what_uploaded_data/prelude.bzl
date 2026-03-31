@@ -9,7 +9,7 @@
 def _upload_action(ctx):
     val = read_config("test", "content", "")
     tmp = ctx.actions.write("tmp.txt", val)
-    out = ctx.actions.declare_output("out")
+    out = ctx.actions.declare_output("out", has_content_based_path = False)
     ctx.actions.run(
         cmd_args(["sh", "-c", 'echo > "$1"', "--", out.as_output()], hidden = [tmp]),
         category = "run",

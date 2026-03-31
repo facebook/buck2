@@ -26,7 +26,7 @@ def _test_impl(ctx):
 
     # Concatenate all the files declared by the tset, into a single file
     # (agg.txt), which we'll return as our output.
-    agg = ctx.actions.declare_output("agg.txt")
+    agg = ctx.actions.declare_output("agg.txt", has_content_based_path = False)
     ctx.actions.run([
         "sh",
         "-c",
@@ -108,7 +108,7 @@ def _optional_args_impl(ctx):
     tset = ctx.actions.tset(OptionalArgsNameSet, value = OptionalArtifact(artifact = out), children = children)
 
     # Write the projection of the tset to a file.
-    agg = ctx.actions.declare_output("agg.txt")
+    agg = ctx.actions.declare_output("agg.txt", has_content_based_path = False)
     ctx.actions.write(agg, tset.project_as_args("project"))
 
     return [
@@ -145,7 +145,7 @@ def _optional_json_args_impl(ctx):
 
     # Concatenate all the files declared by the tset, into a single file
     # (agg.txt), which we'll return as our output.
-    agg = ctx.actions.declare_output("agg.txt")
+    agg = ctx.actions.declare_output("agg.txt", has_content_based_path = False)
 
     ctx.actions.write_json(agg, tset.project_as_json("project_json"))
 

@@ -7,7 +7,7 @@
 # above-listed licenses.
 
 def _action_fail(ctx):
-    out = ctx.actions.declare_output("out.txt")
+    out = ctx.actions.declare_output("out.txt", has_content_based_path = False)
     ctx.actions.run(cmd_args("false", hidden = out.as_output()), category = "run")
     return [DefaultInfo(default_outputs = [out])]
 
@@ -17,7 +17,7 @@ action_fail = rule(
 )
 
 def _action_missing_output(ctx):
-    out = ctx.actions.declare_output("out")
+    out = ctx.actions.declare_output("out", has_content_based_path = False)
     ctx.actions.run(cmd_args("true", hidden = out.as_output()), category = "run")
     return [DefaultInfo(default_outputs = [out])]
 
@@ -27,7 +27,7 @@ missing_outputs = rule(
 )
 
 def _bad_url(ctx):
-    out = ctx.actions.declare_output("out.txt")
+    out = ctx.actions.declare_output("out.txt", has_content_based_path = False)
     ctx.actions.download_file(out.as_output(), "doesnotexist640693486.com", sha1 = "1" * 40)
     return [DefaultInfo(default_output = out)]
 
@@ -37,7 +37,7 @@ bad_url = rule(
 )
 
 def _run_action(ctx):
-    out = ctx.actions.declare_output("out")
+    out = ctx.actions.declare_output("out", has_content_based_path = False)
     ctx.actions.run(cmd_args(["sh", "-c", 'echo > "$1"', "--", out.as_output()]), category = "run", local_only = ctx.attrs.local_only)
     return [DefaultInfo(default_outputs = [out])]
 
@@ -49,7 +49,7 @@ run_action = rule(
 )
 
 def _slow(ctx):
-    slow = ctx.actions.declare_output("slow")
+    slow = ctx.actions.declare_output("slow", has_content_based_path = False)
 
     ctx.actions.run(
         ["fbpython", "-c", "import time, sys; time.sleep(60); sys.exit(1)", slow.as_output()],

@@ -10,7 +10,7 @@ def _simple(ctx):
     re_use_case = read_config("buck2_re_client", "override_use_case")
     if re_use_case != None:
         fail("RE use case is set to: {}".format(re_use_case))
-    output = ctx.actions.declare_output("output")
+    output = ctx.actions.declare_output("output", has_content_based_path = False)
     run = ctx.actions.write(
         "run.py",
         [

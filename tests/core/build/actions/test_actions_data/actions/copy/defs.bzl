@@ -9,11 +9,11 @@
 def _copy_file_impl(ctx):
     test = ctx.attrs.test or ctx.attrs.name
     if test == "uses_declared_output":
-        declared = ctx.actions.declare_output(ctx.attrs.out)
+        declared = ctx.actions.declare_output(ctx.attrs.out, has_content_based_path = False)
         output = ctx.actions.copy_file(declared, ctx.attrs.src)
         return [DefaultInfo(default_output = output)]
     elif test == "uses_declared_output_as_output":
-        declared = ctx.actions.declare_output(ctx.attrs.out)
+        declared = ctx.actions.declare_output(ctx.attrs.out, has_content_based_path = False)
         output = ctx.actions.copy_file(declared.as_output(), ctx.attrs.src)
         return [DefaultInfo(default_output = output)]
     elif test == "declares_output":

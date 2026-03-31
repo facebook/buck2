@@ -7,7 +7,7 @@
 # above-listed licenses.
 
 def _run_with_timeout_impl(ctx):
-    output = ctx.actions.declare_output(ctx.attrs.out)
+    output = ctx.actions.declare_output(ctx.attrs.out, has_content_based_path = False)
     ctx.actions.run(
         ["sh", ctx.attrs.script, output.as_output()],
         category = "test",

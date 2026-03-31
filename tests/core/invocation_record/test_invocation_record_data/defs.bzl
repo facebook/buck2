@@ -7,7 +7,7 @@
 # above-listed licenses.
 
 def _hang(ctx):
-    out = ctx.actions.declare_output("out")
+    out = ctx.actions.declare_output("out", has_content_based_path = False)
     ctx.actions.run(
         ["fbpython", "-c", 'import os, time; open(os.environ["TOUCH"], "w"); time.sleep(100)'],
         env = {"OUT": out.as_output(), "TOUCH": ctx.attrs.touch},
@@ -25,7 +25,7 @@ def _pass(ctx):
 pass_ = rule(attrs = {}, impl = _pass)
 
 def _kill(ctx):
-    out = ctx.actions.declare_output("out")
+    out = ctx.actions.declare_output("out", has_content_based_path = False)
     ctx.actions.run(
         ["fbpython", "-c", 'import os, signal; os.kill(int(os.environ["PID"]), signal.SIGKILL)'],
         env = {"OUT": out.as_output(), "PID": ctx.attrs.pid},
@@ -36,7 +36,7 @@ def _kill(ctx):
 kill = rule(attrs = {"pid": attrs.string()}, impl = _kill)
 
 def _fail(ctx):
-    out = ctx.actions.declare_output("out")
+    out = ctx.actions.declare_output("out", has_content_based_path = False)
     ctx.actions.run(
         cmd_args(
             "sh",
@@ -68,7 +68,7 @@ two = rule(
 
 def _sleep(ctx):
     # sleep for 5 seconds to ensure all hg commands are finished
-    out = ctx.actions.declare_output("out")
+    out = ctx.actions.declare_output("out", has_content_based_path = False)
     ctx.actions.run(
         cmd_args(["fbpython", "-c", "import sys, time; time.sleep(5); open(sys.argv[1], 'w').write('something')"], out.as_output()),
         category = "sleep",
@@ -81,7 +81,7 @@ sleep = rule(
 )
 
 def _run(ctx):
-    out = ctx.actions.declare_output("out")
+    out = ctx.actions.declare_output("out", has_content_based_path = False)
     ctx.actions.run(
         cmd_args(["fbpython", "-c", "import sys; open(sys.argv[1], 'w').write('something')"], out.as_output()),
         category = "sleep",

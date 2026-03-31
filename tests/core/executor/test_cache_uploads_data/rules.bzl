@@ -10,7 +10,7 @@ def _write_impl(ctx):
     # NOTE: This uses a run action so that we can exercise local uploads.
     tmp = ctx.actions.write("tmp", ctx.attrs.text)
 
-    out = ctx.actions.declare_output("out", dir = ctx.attrs.dir)
+    out = ctx.actions.declare_output("out", dir = ctx.attrs.dir, has_content_based_path = False)
     ctx.actions.run(
         [
             "fbpython",

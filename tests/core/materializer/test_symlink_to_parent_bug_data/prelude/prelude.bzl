@@ -7,7 +7,7 @@
 # above-listed licenses.
 
 def _whistle(ctx):
-    whistle = ctx.actions.declare_output("whistle")
+    whistle = ctx.actions.declare_output("whistle", has_content_based_path = False)
     ctx.actions.run([
         "ln",
         "-s",
@@ -19,7 +19,7 @@ def _whistle(ctx):
 whistle = rule(impl = _whistle, attrs = {})
 
 def _flute(ctx):
-    flute = ctx.actions.declare_output("flute")
+    flute = ctx.actions.declare_output("flute", has_content_based_path = False)
     ctx.actions.run([
         "ln",
         "-s",

@@ -7,12 +7,12 @@
 # above-listed licenses.
 
 def _make_failing_action(ctx, name):
-    out = ctx.actions.declare_output(name)
+    out = ctx.actions.declare_output(name, has_content_based_path = False)
     ctx.actions.run(cmd_args("false", hidden = out.as_output()), category = "fail" + name)
     return out
 
 def _action_alias(ctx, actual, name):
-    out = ctx.actions.declare_output(name)
+    out = ctx.actions.declare_output(name, has_content_based_path = False)
     ctx.actions.run(
         cmd_args("doesntmatter", hidden = [out.as_output(), actual]),
         category = "alias" + name,
@@ -42,7 +42,7 @@ def _action_alias_impl(ctx):
 def _fail_two_deps_impl(ctx):
     first = _make_failing_action(ctx, "first")
     second = _make_failing_action(ctx, "second")
-    out = ctx.actions.declare_output("out")
+    out = ctx.actions.declare_output("out", has_content_based_path = False)
     ctx.actions.run(
         cmd_args("doesntmatter", hidden = [first, second, out.as_output()]),
         category = "out",
@@ -50,7 +50,7 @@ def _fail_two_deps_impl(ctx):
     return [DefaultInfo(default_outputs = [out])]
 
 def _fail_script_impl(ctx):
-    out = ctx.actions.declare_output("fail_script")
+    out = ctx.actions.declare_output("fail_script", has_content_based_path = False)
     ctx.actions.run(
         [
             "fbpython",

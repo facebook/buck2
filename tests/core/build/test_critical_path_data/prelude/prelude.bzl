@@ -15,7 +15,7 @@ write = rule(impl = _write, attrs = {
 
 def _cp(ctx: AnalysisContext) -> list[Provider]:
     inp = ctx.attrs.dep[DefaultInfo].default_outputs[0]
-    out = ctx.actions.declare_output("out")
+    out = ctx.actions.declare_output("out", has_content_based_path = False)
 
     ctx.actions.run([
         "sh",
@@ -37,7 +37,7 @@ def _dynamic_cp(ctx: AnalysisContext) -> list[Provider]:
     dummy = ctx.actions.write("dummy", "")
 
     inp = ctx.attrs.dep[DefaultInfo].default_outputs[0]
-    out = ctx.actions.declare_output("out")
+    out = ctx.actions.declare_output("out", has_content_based_path = False)
 
     def f(ctx: AnalysisContext, _artifacts, outputs):
         # NOTE: dummy doesn't show in the critical path calculation at all.
@@ -58,7 +58,7 @@ def _dynamic_cp2(ctx: AnalysisContext) -> list[Provider]:
     ctx.actions.write("dummy", "")
 
     inp = ctx.attrs.dep[DefaultInfo].default_outputs[0]
-    out = ctx.actions.declare_output("out")
+    out = ctx.actions.declare_output("out", has_content_based_path = False)
 
     def f(ctx: AnalysisContext, artifacts, outputs):
         ctx.actions.write(outputs[out].as_output(), artifacts[inp].read_string())

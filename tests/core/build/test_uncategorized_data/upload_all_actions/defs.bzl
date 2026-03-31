@@ -7,7 +7,7 @@
 # above-listed licenses.
 
 def _cp_impl(ctx: AnalysisContext):
-    out = ctx.actions.declare_output("out")
+    out = ctx.actions.declare_output("out", has_content_based_path = False)
     ctx.actions.run(["fbpython", "-c", "import shutil, sys; from pathlib import Path; shutil.copyfile(Path(sys.argv[1]), Path(sys.argv[2]))", ctx.attrs.src, out.as_output()], category = "cp", local_only = True)
 
     return [

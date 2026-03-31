@@ -11,7 +11,7 @@ _use_some_memory = read_config("use_some_memory", "path")
 _cache_buster = read_config("test", "cache_buster", default = "")
 
 def _impl(ctx):
-    usm_bin = ctx.actions.declare_output("usm.bin")
+    usm_bin = ctx.actions.declare_output("usm.bin", has_content_based_path = False)
     ctx.actions.run(
         # Copy the helper binary into buck-out so the action below can
         # run remotely
@@ -33,7 +33,7 @@ def _impl(ctx):
         "10",
     )
 
-    out = ctx.actions.declare_output("out")
+    out = ctx.actions.declare_output("out", has_content_based_path = False)
     ctx.actions.run(
         cmd_args(
             args,

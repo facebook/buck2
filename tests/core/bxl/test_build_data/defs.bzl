@@ -7,7 +7,7 @@
 # above-listed licenses.
 
 def _run_remote(ctx):
-    out = ctx.actions.declare_output("out.txt")
+    out = ctx.actions.declare_output("out.txt", has_content_based_path = False)
     data = ctx.actions.write("src.txt", "abcd")
     ctx.actions.run(
         cmd_args(["cp", data, out.as_output()]),

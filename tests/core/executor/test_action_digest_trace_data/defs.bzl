@@ -7,7 +7,7 @@
 # above-listed licenses.
 
 def _simple(ctx):
-    output = ctx.actions.declare_output("output")
+    output = ctx.actions.declare_output("output", has_content_based_path = False)
     run = ctx.actions.write(
         "run.py",
         [

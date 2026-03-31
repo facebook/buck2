@@ -9,7 +9,7 @@
 def _slow_impl(ctx: AnalysisContext) -> list[Provider]:
     outs = {}
     for i in range(ctx.attrs.count):
-        o = ctx.actions.declare_output("out/{}".format(i))
+        o = ctx.actions.declare_output("out/{}".format(i), has_content_based_path = False)
         ctx.actions.run(
             ["fbpython", ctx.attrs.src, ctx.attrs.duration, ctx.attrs.pids, o.as_output()],
             category = "test",

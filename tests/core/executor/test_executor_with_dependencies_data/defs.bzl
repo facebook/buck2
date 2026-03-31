@@ -7,7 +7,7 @@
 # above-listed licenses.
 
 def _test_impl(ctx):
-    out = ctx.actions.declare_output("file")
+    out = ctx.actions.declare_output("file", has_content_based_path = False)
     ctx.actions.run(
         ["cp", "/run/re_worker/action_dependencies", out.as_output()],
         category = "cp",

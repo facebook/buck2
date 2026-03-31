@@ -8,7 +8,7 @@
 
 def _action_impl(ctx):
     isdir = ctx.attrs.isdir
-    out = ctx.actions.declare_output("out", dir = isdir)
+    out = ctx.actions.declare_output("out", dir = isdir, has_content_based_path = False)
 
     ctx.actions.run(
         [

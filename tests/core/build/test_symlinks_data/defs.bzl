@@ -7,7 +7,7 @@
 # above-listed licenses.
 
 def _cp_impl(ctx: AnalysisContext):
-    out = ctx.actions.declare_output("out")
+    out = ctx.actions.declare_output("out", has_content_based_path = False)
     ctx.actions.run(cmd_args(
         "fbpython",
         "-c",
@@ -40,7 +40,7 @@ cp_via_builtin = rule(
 )
 
 def _stat_path_impl(ctx: AnalysisContext):
-    out = ctx.actions.declare_output("out")
+    out = ctx.actions.declare_output("out", has_content_based_path = False)
     if ctx.attrs.project != None:
         project = " / '" + ctx.attrs.project + "'"
     else:

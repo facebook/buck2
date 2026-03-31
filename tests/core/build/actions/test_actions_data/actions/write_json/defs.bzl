@@ -11,12 +11,12 @@ def _create_artifact(ctx: AnalysisContext):
     return (a,)
 
 def _create_artifact_declared(ctx: AnalysisContext):
-    a = ctx.actions.declare_output("path/test.txt")
+    a = ctx.actions.declare_output("path/test.txt", has_content_based_path = False)
     ctx.actions.write(a, "")
     return (a,)
 
 def _create_artifact_as_output(ctx: AnalysisContext):
-    a = ctx.actions.declare_output("path/test.txt")
+    a = ctx.actions.declare_output("path/test.txt", has_content_based_path = False)
     ctx.actions.write(a, "")
     return (a.as_output(),)
 
@@ -103,7 +103,7 @@ def _write_json_rule_impl(ctx: AnalysisContext) -> list[Provider]:
     for name, input, output in tests:
         if name == want:
             input_file = ctx.actions.write_json("input", input(ctx))
-            output_file = ctx.actions.declare_output("output")
+            output_file = ctx.actions.declare_output("output", has_content_based_path = False)
 
             def f(ctx: AnalysisContext, artifacts, outputs):
                 contents = artifacts[input_file].read_json()
@@ -128,17 +128,17 @@ def _write_json_pretty_rule_impl(ctx: AnalysisContext) -> list[Provider]:
     tests = {
         "default": (
             ctx.actions.write_json("default_input", value),
-            ctx.actions.declare_output("default_output"),
+            ctx.actions.declare_output("default_output", has_content_based_path = False),
             '{"key1":[1],"key2":[true,false]}',
         ),
         "compact": (
             ctx.actions.write_json("compact_input", value, pretty = False),
-            ctx.actions.declare_output("compact_output"),
+            ctx.actions.declare_output("compact_output", has_content_based_path = False),
             '{"key1":[1],"key2":[true,false]}',
         ),
         "pretty": (
             ctx.actions.write_json("pretty_input", value, pretty = True),
-            ctx.actions.declare_output("pretty_output"),
+            ctx.actions.declare_output("pretty_output", has_content_based_path = False),
             '{\n  "key1": [\n    1\n  ],\n  "key2": [\n    true,\n    false\n  ]\n}\n',
         ),
     }
@@ -168,14 +168,14 @@ def _write_json_with_inputs_rule(ctx: AnalysisContext) -> list[Provider]:
     input = ctx.actions.write("input", ctx.attrs.content)
     as_json = ctx.actions.write_json("json", input, with_inputs = True)
 
-    output = ctx.actions.declare_output("output")
+    output = ctx.actions.declare_output("output", has_content_based_path = False)
 
     # as_json will contain a quoted-path and we want to read the contents of that path
     script = ctx.actions.write("script.py", ["import sys;p_fp=open(sys.argv[1],'r');p=p_fp.read().replace('\"',\"\");i_fp=open(p,'r');i=i_fp.read();o_fp=open(sys.argv[2],'w');o_fp.write(i)"])
     cmd = cmd_args("fbpython", script, as_json, output.as_output())
     ctx.actions.run(cmd, category = "cmd")
 
-    marker = ctx.actions.declare_output("marker")
+    marker = ctx.actions.declare_output("marker", has_content_based_path = False)
 
     def f(ctx: AnalysisContext, artifacts, outputs):
         expected = artifacts[input].read_string()

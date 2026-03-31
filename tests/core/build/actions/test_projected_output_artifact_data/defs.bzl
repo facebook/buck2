@@ -7,7 +7,7 @@
 # above-listed licenses.
 
 def _write_rel_action(ctx: AnalysisContext) -> list[Provider]:
-    a = ctx.actions.declare_output("uuuuuu")
+    a = ctx.actions.declare_output("uuuuuu", has_content_based_path = False)
     b = a.project("rel")
     ctx.actions.write(b.as_output(), "ccoonntteenntt")
     return [DefaultInfo(default_output = a)]
@@ -18,7 +18,7 @@ write_rel_action = rule(
 )
 
 def _run_rel_action(ctx: AnalysisContext) -> list[Provider]:
-    a = ctx.actions.declare_output("uuuuuu")
+    a = ctx.actions.declare_output("uuuuuu", has_content_based_path = False)
     b = a.project("rel")
     ctx.actions.run(cmd_args("fbpython", "-c", """
 import sys

@@ -10,7 +10,7 @@ def _impl(ctx):
     base = ctx.attrs.base[DefaultInfo].default_outputs[0]
     final_component = base.short_path.split("/")[-1]
     if ctx.attrs.via_parent:
-        to_parent = ctx.actions.declare_output("to_parent")
+        to_parent = ctx.actions.declare_output("to_parent", has_content_based_path = False)
         ctx.actions.run(
             cmd_args(
                 "fbpython",

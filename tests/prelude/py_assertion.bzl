@@ -7,7 +7,7 @@
 # above-listed licenses.
 
 def _impl(ctx: AnalysisContext) -> list[Provider]:
-    marker = ctx.actions.declare_output("marker")
+    marker = ctx.actions.declare_output("marker", has_content_based_path = False)
     write_args = cmd_args(
         ctx.attrs.script,
         cmd_args(

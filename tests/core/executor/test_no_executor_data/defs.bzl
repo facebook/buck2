@@ -7,7 +7,7 @@
 # above-listed licenses.
 
 def _run_action(ctx):
-    out = ctx.actions.declare_output("out")
+    out = ctx.actions.declare_output("out", has_content_based_path = False)
     ctx.actions.run(cmd_args(out.as_output()), category = "test")
     return [DefaultInfo(out)]
 

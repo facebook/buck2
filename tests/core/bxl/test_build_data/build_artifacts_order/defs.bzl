@@ -8,7 +8,7 @@
 
 def _artifacts(ctx):
     fast = ctx.actions.write("fast", "")
-    slow = ctx.actions.declare_output("slow")
+    slow = ctx.actions.declare_output("slow", has_content_based_path = False)
 
     ctx.actions.run(
         [

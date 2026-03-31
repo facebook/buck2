@@ -24,7 +24,7 @@ def _error_handler_produced_error_categories(ctx):
 
         return categories
 
-    out = ctx.actions.declare_output(ctx.attrs.name)
+    out = ctx.actions.declare_output(ctx.attrs.name, has_content_based_path = False)
 
     # error handler is invoked but won't catch anything
     ctx.actions.run(

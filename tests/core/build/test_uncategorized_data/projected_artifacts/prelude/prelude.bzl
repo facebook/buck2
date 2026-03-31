@@ -7,7 +7,7 @@
 # above-listed licenses.
 
 def _declare_sub_targets(ctx: AnalysisContext) -> list[Provider]:
-    out_dir = ctx.actions.declare_output("out_dir", dir = True)
+    out_dir = ctx.actions.declare_output("out_dir", dir = True, has_content_based_path = False)
     sub_targets = {
         name: [DefaultInfo(default_output = out_dir.project(name))]
         for name in ctx.attrs.sub_targets
@@ -21,7 +21,7 @@ declare_sub_targets = rule(
 )
 
 def _exists(ctx: AnalysisContext) -> list[Provider]:
-    out = ctx.actions.declare_output("check")
+    out = ctx.actions.declare_output("check", has_content_based_path = False)
     ctx.actions.run(
         ["fbpython", ctx.attrs.command, out.as_output(), ctx.attrs.paths],
         category = "check",

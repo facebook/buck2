@@ -91,7 +91,7 @@ def _artifact_generator_impl(ctx: AnalysisContext) -> list[Provider]:
     tset = _build_tset_tree(ctx, artifacts, nodes_per_tset * artifacts_per_node)
 
     # Create root output that depends on all artifacts via tset
-    out = ctx.actions.declare_output("out")
+    out = ctx.actions.declare_output("out", has_content_based_path = False)
     if tset:
         ctx.actions.run(
             cmd_args(

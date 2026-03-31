@@ -18,10 +18,10 @@ def _simple_write_impl(ctx):
 
 def _write_file_impl(ctx):
     if ctx.attrs.name == "uses_declared_output":
-        declared = ctx.actions.declare_output(ctx.attrs.out)
+        declared = ctx.actions.declare_output(ctx.attrs.out, has_content_based_path = False)
         output = ctx.actions.write(declared, ctx.attrs.content)
     elif ctx.attrs.name == "uses_declared_output_as_output":
-        declared = ctx.actions.declare_output(ctx.attrs.out)
+        declared = ctx.actions.declare_output(ctx.attrs.out, has_content_based_path = False)
         output = ctx.actions.write(declared.as_output(), ctx.attrs.content)
     elif ctx.attrs.name == "declares_output":
         output = ctx.actions.write(ctx.attrs.out, ctx.attrs.content)
@@ -37,7 +37,7 @@ def _write_file_impl(ctx):
         output = ctx.actions.write(ctx.attrs.out, ctx.attrs.dep[FooInfo].args)
     elif ctx.attrs.name == "with_inputs_and_copy":
         output1 = ctx.actions.write("intermediate.txt", ctx.attrs.content)
-        output2 = ctx.actions.declare_output(ctx.attrs.out)
+        output2 = ctx.actions.declare_output(ctx.attrs.out, has_content_based_path = False)
 
         # Create script with output1 as its associated artifact
         cmd = cmd_args(output1, format = "import sys; fp1=open('{}','r'); all=fp1.read(); fp2=open(sys.argv[1], 'w'); fp2.write(all);")

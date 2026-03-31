@@ -43,7 +43,7 @@ def _check_all_exists(ctx: AnalysisContext) -> list[Provider]:
     (out1, out2) = dep2.artifacts
     inputs.append(out1.with_associated_artifacts([out2]))
 
-    check = ctx.actions.declare_output("check")
+    check = ctx.actions.declare_output("check", has_content_based_path = False)
     ctx.actions.run(
         [
             "fbpython",
@@ -73,7 +73,7 @@ def _check_dropped_artifacts(ctx: AnalysisContext) -> list[Provider]:
     second = ctx.actions.write("second", "").with_associated_artifacts([first])
     third = ctx.actions.write("third", "").with_associated_artifacts([second])
 
-    check = ctx.actions.declare_output("check")
+    check = ctx.actions.declare_output("check", has_content_based_path = False)
     ctx.actions.run(
         [
             "fbpython",

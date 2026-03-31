@@ -7,7 +7,7 @@
 # above-listed licenses.
 
 def _action_with_unbound_artifact_impl(ctx):
-    out = ctx.actions.declare_output("out")
+    out = ctx.actions.declare_output("out", has_content_based_path = False)
     script = ctx.actions.write(
         "script.py",
         [
@@ -37,7 +37,7 @@ SimpleTSet = transitive_set(args_projections = {
 })
 
 def _action_with_unbound_artifact_inside_tset_impl(ctx):
-    out = ctx.actions.declare_output("out")
+    out = ctx.actions.declare_output("out", has_content_based_path = False)
     tset = ctx.actions.tset(SimpleTSet, value = out)
     script = ctx.actions.write(
         "script.py",

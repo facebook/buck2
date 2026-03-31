@@ -46,7 +46,7 @@ def _rule_impl_with_tset(ctx):
 
     # Concatenate all the files declared by the tset, into a single file
     # (agg.txt), which we'll return as our output.
-    agg = ctx.actions.declare_output("tset_out")
+    agg = ctx.actions.declare_output("tset_out", has_content_based_path = False)
     projected = tset.project_as_args("project")
 
     ctx.actions.run([

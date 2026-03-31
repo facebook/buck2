@@ -28,7 +28,7 @@ basic_incremental_action = rule(impl = _basic_incremental_actions_impl, attrs = 
 })
 
 def _incremental_action_with_metadata_optout_impl(ctx) -> list[Provider]:
-    out = ctx.actions.declare_output("out")
+    out = ctx.actions.declare_output("out", has_content_based_path = False)
     input_not_in_metadata = ctx.actions.write("input_not_in_metadata", "input_not_in_metadata")
     input_in_metadata = ctx.actions.write("input_in_metadata", "input_in_metadata")
 

@@ -30,7 +30,7 @@ def _c_binary_impl(ctx):
     )
 
     dep_file = ctx.actions.declare_output("depfile", has_content_based_path = use_content_based_paths)
-    app = ctx.actions.declare_output(ctx.attrs.name)
+    app = ctx.actions.declare_output(ctx.attrs.name, has_content_based_path = False)
 
     cmd = cmd_args([
         ctx.attrs._cc[RunInfo].args,

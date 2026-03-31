@@ -15,7 +15,7 @@ BuildModeInfo = provider(
 )
 
 def _unified_foo_impl(ctx):
-    output = ctx.actions.declare_output("output.txt")
+    output = ctx.actions.declare_output("output.txt", has_content_based_path = False)
     ctx.actions.write(output, "hello world!")
 
     return [DefaultInfo(default_output = output)]
@@ -53,7 +53,7 @@ def _unified_with_transition_impl(ctx: AnalysisContext) -> list[Provider]:
     dep_build_mode = ctx.attrs.dep[BuildModeInfo].mode
     opt_dep_build_mode = ctx.attrs.opt_dep[BuildModeInfo].mode
 
-    output = ctx.actions.declare_output("output.txt")
+    output = ctx.actions.declare_output("output.txt", has_content_based_path = False)
 
     content = "self: {}\ndep: {}\nopt_dep:{}\n".format(build_mode, dep_build_mode, opt_dep_build_mode)
 

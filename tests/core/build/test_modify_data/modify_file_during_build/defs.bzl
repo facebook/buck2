@@ -9,7 +9,7 @@
 def _modify_file_impl(ctx):
     text = ctx.attrs.text
 
-    out = ctx.actions.declare_output("out")
+    out = ctx.actions.declare_output("out", has_content_based_path = False)
 
     ctx.actions.run([
         "fbpython",
@@ -32,7 +32,7 @@ def _depend_impl(ctx):
     text = ctx.attrs.text
     modify_file = ctx.attrs.modify_file[DefaultInfo].default_outputs[0]
 
-    out = ctx.actions.declare_output("out")
+    out = ctx.actions.declare_output("out", has_content_based_path = False)
 
     ctx.actions.run(
         cmd_args(

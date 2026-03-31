@@ -28,7 +28,7 @@ def _error_handler_impl(ctx: ActionErrorCtx) -> list[ActionSubError]:
     return categories
 
 def _make_failing_action(ctx, src, name):
-    out = ctx.actions.declare_output(src.short_path)
+    out = ctx.actions.declare_output(src.short_path, has_content_based_path = False)
     ctx.actions.run(
         [
             "fbpython",
@@ -49,7 +49,7 @@ def _fail_many(ctx):
     return [DefaultInfo(default_outputs = [_make_failing_action(ctx, src, ctx.attrs.name + str(i)) for (i, src) in enumerate(ctx.attrs.srcs)])]
 
 def _make_failing_action_no_source(ctx, error_handler):
-    out = ctx.actions.declare_output(ctx.attrs.name)
+    out = ctx.actions.declare_output(ctx.attrs.name, has_content_based_path = False)
 
     # error handler is invoked but won't catch anything
     ctx.actions.run(
@@ -92,7 +92,7 @@ def _error_handler_produced_multiple_categories(ctx):
 
         return categories
 
-    out = ctx.actions.declare_output(ctx.attrs.name)
+    out = ctx.actions.declare_output(ctx.attrs.name, has_content_based_path = False)
 
     # error handler is invoked but won't catch anything
     ctx.actions.run(

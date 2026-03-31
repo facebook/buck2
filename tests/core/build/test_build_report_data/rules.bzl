@@ -29,7 +29,7 @@ def _touch_file_impl(ctx):
     return providers
 
 def _mkdir_impl(ctx):
-    out = ctx.actions.declare_output("out", dir = True)
+    out = ctx.actions.declare_output("out", dir = True, has_content_based_path = False)
     ctx.actions.run(cmd_args("fbpython", "-c", """
 import sys
 import os

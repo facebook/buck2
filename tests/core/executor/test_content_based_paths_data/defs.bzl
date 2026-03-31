@@ -665,7 +665,7 @@ def _non_content_based_exec_dep_impl(ctx):
             "  f.write('hello world')",
         ],
     )
-    out = ctx.actions.declare_output("out")
+    out = ctx.actions.declare_output("out", has_content_based_path = False)
     ctx.actions.run(
         cmd_args(["fbpython", script, out.as_output()]),
         category = "test_exec_dep",

@@ -7,7 +7,7 @@
 # above-listed licenses.
 
 def _binary_impl(ctx):
-    out = ctx.actions.declare_output("out")
+    out = ctx.actions.declare_output("out", has_content_based_path = False)
     ctx.actions.run(
         cmd_args(
             "touch",
@@ -32,7 +32,7 @@ my_library = rule(impl = _library_impl, attrs = {
 })
 
 def _cached_binary_impl(ctx):
-    out = ctx.actions.declare_output("out.txt")
+    out = ctx.actions.declare_output("out.txt", has_content_based_path = False)
     ctx.actions.run(
         cmd_args(
             "sh",
@@ -52,7 +52,7 @@ cached_binary = rule(impl = _cached_binary_impl, attrs = {
 })
 
 def _uncached_binary_impl(ctx):
-    out = ctx.actions.declare_output("out.txt")
+    out = ctx.actions.declare_output("out.txt", has_content_based_path = False)
     ctx.actions.run(
         cmd_args(
             "sh",

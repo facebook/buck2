@@ -8,7 +8,7 @@
 
 # Pass the same artifact twice to `run` action.
 def _test_output_artifact_twice_same(ctx: AnalysisContext) -> list[Provider]:
-    a = ctx.actions.declare_output("uuuuuu")
+    a = ctx.actions.declare_output("uuuuuu", has_content_based_path = False)
     ctx.actions.run(["fbpython", "-c", """
 import sys
 [_, f1, f2] = sys.argv
@@ -25,7 +25,7 @@ test_output_artifact_twice_same = rule(
 
 # Pass the same artifact twice to `run` action, but the second as a projection.
 def _test_output_artifact_twice_with_projection(ctx: AnalysisContext) -> list[Provider]:
-    a = ctx.actions.declare_output("ttttttttt")
+    a = ctx.actions.declare_output("ttttttttt", has_content_based_path = False)
     b = a.project("rel")
     ctx.actions.run(["fbpython", "-c", r"""
 import sys

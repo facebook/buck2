@@ -9,7 +9,7 @@
 _cache_buster = read_config("test", "cache_buster", default = "")
 
 def _impl(ctx):
-    out = ctx.actions.declare_output("out")
+    out = ctx.actions.declare_output("out", has_content_based_path = False)
     ctx.actions.run(
         cmd_args(
             "sh",
@@ -30,7 +30,7 @@ spawn_orphan = rule(
 )
 
 def _timeout_impl(ctx):
-    out = ctx.actions.declare_output("out")
+    out = ctx.actions.declare_output("out", has_content_based_path = False)
     ctx.actions.run(
         cmd_args(
             "sh",

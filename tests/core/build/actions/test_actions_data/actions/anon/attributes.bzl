@@ -158,7 +158,7 @@ def _builder_impl(ctx: AnalysisContext) -> list[Provider]:
 _builder = anon_rule(impl = _builder_impl, artifact_promise_mappings = {"artifact": lambda x: x[HelloInfo].output}, attrs = {})
 
 def _promise_artifact_mirror_impl(ctx: AnalysisContext) -> list[Provider]:
-    out = ctx.actions.declare_output("output")
+    out = ctx.actions.declare_output("output", has_content_based_path = False)
     ctx.actions.run(["cp", ctx.attrs.promise_artifact, out.as_output()], category = "cp")
     return [DefaultInfo(default_output = out), MirrorInfo(info = ctx.attrs)]
 
@@ -181,7 +181,7 @@ def _promise_artifact_impl(ctx: AnalysisContext) -> Promise:
 _promise_artifact = rule(impl = _promise_artifact_impl, attrs = {})
 
 def _check_impl(ctx: AnalysisContext) -> list[Provider]:
-    out = ctx.actions.declare_output("output")
+    out = ctx.actions.declare_output("output", has_content_based_path = False)
 
     def f(ctx: AnalysisContext, artifacts, outputs):
         _assert_eq(artifacts[ctx.attrs.src].read_string(), "hello")

@@ -19,7 +19,7 @@ write_string = rule(
 )
 
 def _copy_impl(ctx):
-    out = ctx.actions.declare_output("action_output")
+    out = ctx.actions.declare_output("action_output", has_content_based_path = False)
     ctx.actions.run(
         cmd_args(["cp", ctx.attrs.src, out.as_output()]),
         category = "cp",
@@ -35,7 +35,7 @@ copy = rule(
 )
 
 def _copy_to_dir_impl(ctx):
-    out = ctx.actions.declare_output("action_output", dir = True)
+    out = ctx.actions.declare_output("action_output", dir = True, has_content_based_path = False)
     ctx.actions.run(
         cmd_args([
             "sh",

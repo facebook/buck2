@@ -7,10 +7,10 @@
 # above-listed licenses.
 
 def _http_archive_impl(ctx: AnalysisContext):
-    download = ctx.actions.declare_output("download")
+    download = ctx.actions.declare_output("download", has_content_based_path = False)
     ctx.actions.download_file(download, ctx.attrs.urls[0], sha1 = ctx.attrs.sha1)
 
-    output = ctx.actions.declare_output("output")
+    output = ctx.actions.declare_output("output", has_content_based_path = False)
     ctx.actions.run(["cp", download, output.as_output()], category = "cp")
 
     return [
@@ -42,7 +42,7 @@ cas_artifact = rule(impl = _cas_artifact_impl, attrs = {
 })
 
 def _genrule_impl(ctx: AnalysisContext):
-    out = ctx.actions.declare_output(ctx.attrs.out)
+    out = ctx.actions.declare_output(ctx.attrs.out, has_content_based_path = False)
 
     # Use environment variable to pass output path
     ctx.actions.run(

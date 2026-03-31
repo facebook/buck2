@@ -7,7 +7,7 @@
 # above-listed licenses.
 
 def _noisy_rule_impl(ctx):
-    out = ctx.actions.declare_output("out.txt")
+    out = ctx.actions.declare_output("out.txt", has_content_based_path = False)
     script = ctx.actions.write("cmd.sh", """\
 #!/bin/bash
 for i in $(seq 1 10); do
@@ -37,7 +37,7 @@ sys.exit(1)
 """
 
 def _noisy_test_rule_impl(ctx):
-    out = ctx.actions.declare_output("file")
+    out = ctx.actions.declare_output("file", has_content_based_path = False)
     ctx.actions.run(["touch", out.as_output()], category = "touch")
     return [
         DefaultInfo(out),

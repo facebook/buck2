@@ -18,7 +18,7 @@ write_file = rule(
 def _test_rule(ctx):
     arg = ctx.attrs.arg
 
-    f = ctx.actions.declare_output("out.txt")
+    f = ctx.actions.declare_output("out.txt", has_content_based_path = False)
     f, _ = ctx.actions.write(f, [
         cmd_args(arg, hidden = arg),
         cmd_args(arg, relative_to = f),

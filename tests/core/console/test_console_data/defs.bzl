@@ -7,7 +7,7 @@
 # above-listed licenses.
 
 def _slow_genrule_impl(ctx):
-    out = ctx.actions.declare_output("out.txt")
+    out = ctx.actions.declare_output("out.txt", has_content_based_path = False)
     ctx.actions.run(
         cmd_args(["sh", "-c", 'sleep 10 && echo done > "$1"', "--", out.as_output()]),
         category = "run",

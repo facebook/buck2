@@ -7,7 +7,7 @@
 # above-listed licenses.
 
 def _normal_impl(ctx):
-    out = ctx.actions.declare_output("out.txt")
+    out = ctx.actions.declare_output("out.txt", has_content_based_path = False)
 
     cmd = cmd_args(
         ctx.attrs.buck2_path,
@@ -30,8 +30,8 @@ def _normal_impl(ctx):
     return [DefaultInfo(default_output = out)]
 
 def _trace_impl(ctx):
-    trace_out = ctx.actions.declare_output("trace_out.txt")
-    nested_out = ctx.actions.declare_output("nested_out.txt")
+    trace_out = ctx.actions.declare_output("trace_out.txt", has_content_based_path = False)
+    nested_out = ctx.actions.declare_output("nested_out.txt", has_content_based_path = False)
 
     script = ctx.actions.write("script.py", """
 import subprocess

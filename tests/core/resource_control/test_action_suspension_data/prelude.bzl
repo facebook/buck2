@@ -16,7 +16,7 @@ def _memory_allocating_actions_impl(ctx: AnalysisContext) -> list[Provider]:
         last_output = cmd_args()
         for j in range(ctx.attrs.depth):
             ident = "action_{}_{}".format(i, j)
-            output = ctx.actions.declare_output(ident)
+            output = ctx.actions.declare_output(ident, has_content_based_path = False)
             all_outputs.append(output)
 
             if _start_marker_files:

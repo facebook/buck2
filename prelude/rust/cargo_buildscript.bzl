@@ -161,7 +161,7 @@ def _make_cc_shim(ctx: AnalysisContext, name: str, cmd: cmd_args) -> cmd_args:
 
     language = ctx.attrs._exec_os_type[OsLookup].script
     if language == ScriptLanguage("sh"):
-        script = ctx.actions.declare_output("{}.sh".format(name))
+        script = ctx.actions.declare_output("{}.sh".format(name), has_content_based_path = False)
         wrapper, _ = ctx.actions.write(
             script,
             [
@@ -191,7 +191,7 @@ def _make_cc_shim(ctx: AnalysisContext, name: str, cmd: cmd_args) -> cmd_args:
             allow_args = True,
         )
     elif language == ScriptLanguage("bat"):
-        script = ctx.actions.declare_output("{}.bat".format(name))
+        script = ctx.actions.declare_output("{}.bat".format(name), has_content_based_path = False)
         wrapper, _ = ctx.actions.write(
             script,
             [

@@ -42,7 +42,7 @@ export_file = rule(impl = _export_file_impl, attrs = {
 })
 
 def _fail_build_impl(ctx: AnalysisContext) -> list[Provider]:
-    out = ctx.actions.declare_output("out")
+    out = ctx.actions.declare_output("out", has_content_based_path = False)
     ctx.actions.run(cmd_args("false", hidden = out.as_output()), category = "fail_build", local_only = True)
     return [
         DefaultInfo(default_output = out),
