@@ -94,7 +94,12 @@ public class WorkerGrpcServer implements ServerInterceptor {
                   System.err.println("*** server shut down");
                 }));
 
-    Executors.newSingleThreadScheduledExecutor()
+    Executors.newSingleThreadScheduledExecutor(
+            r -> {
+              Thread t = new Thread(r, serverName + "-health-check");
+              t.setDaemon(true);
+              return t;
+            })
         .scheduleAtFixedRate(this::checkCDState, 1, 10, TimeUnit.SECONDS);
   }
 
