@@ -137,6 +137,9 @@ resolver = "2"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/facebook/buck2"
 
+[workspace.lints.rust]
+unexpected_cfgs = { level = "allow", check-cfg = ['cfg(fbcode_build)', 'cfg(buck_build)'] }
+
 [workspace.dependencies]
 anyhow = "1.0.98"
 anymap3 = "1.0.1"
