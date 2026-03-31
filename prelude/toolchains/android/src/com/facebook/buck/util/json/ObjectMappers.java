@@ -33,7 +33,6 @@ import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import com.fasterxml.jackson.datatype.guava.GuavaModule;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
-import com.fasterxml.jackson.module.kotlin.KotlinModule;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -181,7 +180,6 @@ public class ObjectMappers {
     // Add support for serializing Guava collections.
     mapper.registerModule(new GuavaModule());
     mapper.registerModule(new Jdk8Module());
-    mapper.registerModule(new KotlinModule.Builder().build());
 
     // With some version of Jackson JDK8 module, it starts to serialize Path objects using
     // getURI() function, this results for serialized paths to be absolute paths with 'file:///'

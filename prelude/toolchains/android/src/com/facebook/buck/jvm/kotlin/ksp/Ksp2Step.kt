@@ -35,7 +35,6 @@ import com.google.devtools.ksp.processing.SymbolProcessorProvider
 import java.io.File
 import java.io.IOException
 import java.io.PrintStream
-import java.net.URLClassLoader
 import java.nio.charset.StandardCharsets
 import java.nio.file.Path
 import java.util.Optional
@@ -102,11 +101,16 @@ class Ksp2Step(
   ): KotlinSymbolProcessing.ExitCode {
     val logger = BuckKsp2Logger(stdErr)
 
-    // Load processors
+    // Load processors using cached classloader to avoid re-loading processor
+    // classes on every KSP2 invocation. The ClassLoaderCache is keyed on
+    // (parent classloader, classpath URLs), so the same set of processor JARs
+    // will reuse the same classloader across compilations in the worker.
     val processorClassloader: ClassLoader =
-        URLClassLoader(
-            kspProcessorsClasspathList.map { File(it).toURI().toURL() }.toTypedArray(),
+        context.classLoaderCache.getClassLoaderForClassPath(
             filteringClassLoader,
+            ImmutableList.copyOf(
+                kspProcessorsClasspathList.map { File(it).toURI().toURL() },
+            ),
         )
     val processorProviders =
         ServiceLoader.load(
@@ -262,6 +266,8 @@ class Ksp2Step(
       }
 
   companion object {
+    // Singleton: ClassLoaderCache keys on parent classloader identity (not equals),
+    // so this must be a single shared instance for cache hits to work.
     private val filteringClassLoader =
         FilteringClassLoader(
             this::class.java.classLoader,
