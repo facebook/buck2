@@ -27,6 +27,7 @@ import io.grpc.ServerCallHandler;
 import io.grpc.ServerInterceptor;
 import io.grpc.netty.NettyServerBuilder;
 import io.netty.channel.EventLoopGroup;
+import io.netty.channel.MultithreadEventLoopGroup;
 import io.netty.channel.epoll.Epoll;
 import io.netty.channel.epoll.EpollEventLoopGroup;
 import io.netty.channel.epoll.EpollServerDomainSocketChannel;
@@ -48,6 +49,11 @@ import java.util.stream.Collectors;
 @Nullsafe(Nullsafe.Mode.LOCAL)
 public class WorkerGrpcServer implements ServerInterceptor {
   private static final Logger LOG = Logger.get(WorkerGrpcServer.class);
+
+  // The gRPC server handles sequential compilation requests from a single buck2 client
+  // over UDS, so minimal threads suffice. Default Netty thread count is 2x CPU cores
+  // (~144 on production hosts), which wastes ~140MB of memory on thread stacks.
+  static final int EVENT_LOOP_THREADS = 1;
 
   String serverName;
   EventLoopGroup eventLoopGroup;
@@ -174,16 +180,20 @@ public class WorkerGrpcServer implements ServerInterceptor {
     NettyServerBuilder builder =
         NettyServerBuilder.forAddress(socketAddress).addService(service).intercept(this);
     if (KQueue.isAvailable()) {
-      this.eventLoopGroup = new KQueueEventLoopGroup();
+      this.eventLoopGroup = new KQueueEventLoopGroup(EVENT_LOOP_THREADS);
       builder = builder.channelType(KQueueServerDomainSocketChannel.class);
     } else if (Epoll.isAvailable()) {
-      this.eventLoopGroup = new EpollEventLoopGroup();
+      this.eventLoopGroup = new EpollEventLoopGroup(EVENT_LOOP_THREADS);
       builder = builder.channelType(EpollServerDomainSocketChannel.class);
     } else {
       throw new RuntimeException("Server only supports epoll and kqueue (windows not supported)");
     }
     builder = builder.workerEventLoopGroup(eventLoopGroup).bossEventLoopGroup(eventLoopGroup);
     return builder.build();
+  }
+
+  int getEventLoopThreadCount() {
+    return ((MultithreadEventLoopGroup) eventLoopGroup).executorCount();
   }
 
   private void stopServer(Server grpcServer) {

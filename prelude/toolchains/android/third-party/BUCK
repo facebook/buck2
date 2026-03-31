@@ -311,6 +311,7 @@ third_party_jar(
     url = "mvn:io.grpc:grpc-netty:jar:1.24.0",
     visibility = [
         "prelude//toolchains/android/src/com/facebook/buck/jvm/cd/workertool/grpc:workertool_grpc",
+        "prelude//toolchains/android/test/com/facebook/buck/jvm/cd/workertool/grpc:workertool_grpc",
     ],
 )
 
@@ -452,6 +453,7 @@ buck_java_library(
     name = "netty",
     visibility = [
         "prelude//toolchains/android/src/com/facebook/buck/jvm/cd/workertool/grpc:workertool_grpc",
+        "prelude//toolchains/android/test/com/facebook/buck/jvm/cd/workertool/grpc:workertool_grpc",
     ],
     exported_deps = [
         ":netty-buffer",
