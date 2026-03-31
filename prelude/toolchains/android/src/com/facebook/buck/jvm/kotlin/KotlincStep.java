@@ -50,7 +50,6 @@ public class KotlincStep implements IsolatedStep {
 
   private static final String CLASSPATH_FLAG = "-classpath";
   private static final String DESTINATION_FLAG = "-d";
-  private static final String INCLUDE_RUNTIME_FLAG = "-include-runtime";
   private static final String EXCLUDE_REFLECT = "-no-reflect";
   private static final String X_PLUGIN_ARG = "-Xplugin=";
   private static final String PLUGIN = "-P";
@@ -280,7 +279,7 @@ public class KotlincStep implements IsolatedStep {
       }
     }
 
-    builder.add(INCLUDE_RUNTIME_FLAG);
+    // Note: -include-runtime is intentionally omitted; stdlib is a classpath dependency.
     builder.add(EXCLUDE_REFLECT);
 
     if (trackClassUsage) {
