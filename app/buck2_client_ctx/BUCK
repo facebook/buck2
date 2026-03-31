@@ -37,7 +37,7 @@ rust_library(
         "fbsource//third-party/rust:pin-project",
         "fbsource//third-party/rust:prost",
         "fbsource//third-party/rust:prost-types",
-        "fbsource//third-party/rust:rand",
+        "fbsource//third-party/rust:rand_09",
         "fbsource//third-party/rust:regex",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_json",

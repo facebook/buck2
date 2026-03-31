@@ -53,7 +53,7 @@ rust_library(
         "DEFAULT": [],
     }),
     test_deps = [
-        "fbsource//third-party/rust:rand",
+        "fbsource//third-party/rust:rand_09",
         # This is a hack to build `:testcases` when invoking a test.
         # Otherwise `OUT_DIR` is set, but it points to non-existing directory.
         # This is likely a bug in `rust_test` rule.

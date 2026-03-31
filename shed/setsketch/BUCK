@@ -11,7 +11,7 @@ rust_library(
     ],
     deps = [
         "fbsource//third-party/rust:base64",
-        "fbsource//third-party/rust:rand",
+        "fbsource//third-party/rust:rand_09",
         "fbsource//third-party/rust:rand_distr",
         "fbsource//third-party/rust:rand_xoshiro",
     ],
