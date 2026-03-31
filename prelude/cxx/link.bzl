@@ -298,9 +298,10 @@ def cxx_link_into(
         # If we ask the linker to produce a shared library interface, it won't produce any other outputs
         # so we shouldn't declare any extra outputs.
         shared_library_interface_generation_linker_args = create_local_linker_invocation(add_linker_outputs = False).link_args
+        output_as_string = cmd_args(get_output_flags(linker_info.type, output), ignore_artifacts = True)
         shared_library_interface_generation_argfile, _ = ctx.actions.write(
             output.short_path + ".cxx_shared_library_interface_generation_argsfile",
-            shared_library_interface_generation_linker_args,
+            cmd_args(shared_library_interface_generation_linker_args, output_as_string),
             allow_args = True,
             with_inputs = True,
             has_content_based_path = cxx_toolchain_info.cxx_compiler_info.supports_content_based_paths,
