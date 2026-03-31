@@ -10,13 +10,11 @@
 
 
 import os
-import sys
 from pathlib import Path
 from typing import Any, Union
 
 import pytest
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.api.buck_result import BuckException
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 output_cleanup_targets = [
@@ -32,23 +30,6 @@ output_cleanup_targets = [
     "remote_readonly_dir",
     "remote_nonexec_dir",
 ]
-
-
-# RE is unable to list and upload files from nonexec directories on mac
-DARWIN_EXPECTED_UPLOAD_ERROR = "re_message=CAS operation[uploading_directories] failed"
-EXPECTED_FAILURES: dict[str, str] = {
-    k: DARWIN_EXPECTED_UPLOAD_ERROR
-    for k in [
-        "darwin-test_permissions_match_local_remote[nonexec_dir]",
-    ]
-}
-for x in output_cleanup_targets:
-    EXPECTED_FAILURES[f"darwin-test_output_cleanup[remote_nonexec_dir-{x}]"] = (
-        DARWIN_EXPECTED_UPLOAD_ERROR
-    )
-    EXPECTED_FAILURES[f"darwin-test_output_cleanup[{x}-remote_nonexec_dir]"] = (
-        DARWIN_EXPECTED_UPLOAD_ERROR
-    )
 
 
 @buck_test()
@@ -82,26 +63,16 @@ async def test_output_cleanup(
 
     rebuild = tmp_path / "rebuild"
     clean = tmp_path / "clean"
-    test_key = f"{sys.platform}-test_output_cleanup[{first}-{second}]"
     first = f"{first}-a"
     second = f"{second}-b"
 
-    try:
-        await buck.build(":main", "-c", f"test.main={first}")
-        await buck.build(":main", "-c", f"test.main={second}", "--out", str(rebuild))
+    await buck.build(":main", "-c", f"test.main={first}")
+    await buck.build(":main", "-c", f"test.main={second}", "--out", str(rebuild))
 
-        await buck.clean()
-        await buck.build(":main", "-c", f"test.main={second}", "--out", str(clean))
+    await buck.clean()
+    await buck.build(":main", "-c", f"test.main={second}", "--out", str(clean))
 
-        assert read_dir(rebuild) == read_dir(clean)
-
-        if test_key in EXPECTED_FAILURES:
-            raise Exception(f"Expected failure for {test_key}")
-    except BuckException as e:
-        msg = EXPECTED_FAILURES.get(test_key)
-        if msg is not None and e.stderr and msg in e.stderr:
-            return
-        raise e
+    assert read_dir(rebuild) == read_dir(clean)
 
 
 @buck_test()
@@ -141,34 +112,22 @@ async def test_permissions_match_local_remote(
                     add_entry(ret, root, dirname / filename, with_file_contents)
         return ret
 
-    test_key = f"{sys.platform}-test_permissions_match_local_remote[{kind}]"
-    lhs_entries = rhs_entries = lhs_entries_and_contents = rhs_entries_and_contents = (
-        None
+    lhs_res = (
+        (await buck.build(":main", "-c", f"test.main={lhs}"))
+        .get_build_report()
+        .output_for_target(target)
     )
-    try:
-        lhs_res = (
-            (await buck.build(":main", "-c", f"test.main={lhs}"))
-            .get_build_report()
-            .output_for_target(target)
-        )
-        lhs_entries = get_entries(lhs_res, False)
-        lhs_entries_and_contents = get_entries(lhs_res, True)
+    lhs_entries = get_entries(lhs_res, False)
+    lhs_entries_and_contents = get_entries(lhs_res, True)
 
-        await buck.clean()
-        rhs_res = (
-            (await buck.build(":main", "-c", f"test.main={rhs}"))
-            .get_build_report()
-            .output_for_target(target)
-        )
-        rhs_entries = get_entries(rhs_res, False)
-        rhs_entries_and_contents = get_entries(rhs_res, True)
-        if test_key in EXPECTED_FAILURES:
-            raise Exception("Expected failure for {test_key}")
-    except BuckException as e:
-        msg = EXPECTED_FAILURES.get(test_key)
-        if msg is not None and e.stderr and msg in e.stderr:
-            return
-        raise e
+    await buck.clean()
+    rhs_res = (
+        (await buck.build(":main", "-c", f"test.main={rhs}"))
+        .get_build_report()
+        .output_for_target(target)
+    )
+    rhs_entries = get_entries(rhs_res, False)
+    rhs_entries_and_contents = get_entries(rhs_res, True)
 
     if lhs_entries != rhs_entries:
         raise ValueError(

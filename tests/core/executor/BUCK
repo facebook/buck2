@@ -17,6 +17,13 @@ buck2_core_tests(
                 "windows",
             ],
         },
+        "test_output_cleanup": {
+            # RE CASd runs as non-root on mac, so it will fail to read directories
+            # produced by the test.
+            "skip_for_os": [
+                "darwin",
+            ],
+        },
         "test_outputs_ordering": {
             "env": {
                 "RECLI": "$(location fbsource//xplat/remote_execution/dotslash:recli)",
