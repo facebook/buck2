@@ -70,7 +70,7 @@ load("@prelude//haskell:haskell_haddock.bzl", "haskell_haddock_impl")
 load("@prelude//haskell:haskell_ide.bzl", "haskell_ide_impl")
 load("@prelude//haskell:library_info.bzl", "HaskellLibraryProvider")
 load("@prelude//http_archive:http_archive.bzl", "http_archive_impl")
-load("@prelude//java:java.bzl", _java_extra_attributes = "extra_attributes", _java_implemented_rules = "implemented_rules")
+load("@prelude//java:java.bzl", _java_implemented_rules = "implemented_rules")
 load("@prelude//js:js.bzl", _js_extra_attributes = "extra_attributes", _js_implemented_rules = "implemented_rules")
 load("@prelude//js:worker_tool.bzl", "worker_tool")
 load("@prelude//julia:julia.bzl", _julia_extra_attributes = "extra_attributes", _julia_implemented_rules = "implemented_rules")
@@ -503,7 +503,7 @@ categorized_extra_attributes = {
     _GO_RULES_KEY: _go_extra_attributes,
     _HASKELL_RULES_KEY: _haskell_extra_attributes,
     _APPLE_RULES_KEY: _apple_extra_attributes,
-    _JAVA_RULES_KEY: _java_extra_attributes,
+    _JAVA_RULES_KEY: {},
     _JS_RULES_KEY: _js_extra_attributes,
     _JULIA_RULES_KEY: _julia_extra_attributes,
     _KOTLIN_RULES_KEY: {},
