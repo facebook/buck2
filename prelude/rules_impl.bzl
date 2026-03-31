@@ -37,6 +37,7 @@ load("@prelude//decls:android_rules.bzl", "android_rules")
 load("@prelude//decls:common.bzl", "IncludeType", "buck")
 load("@prelude//decls:core_rules.bzl", "core_rules")
 load("@prelude//decls:cxx_rules.bzl", "BUILD_INFO_ATTR", "cxx_rules")
+load("@prelude//decls:cython_rules.bzl", "cython_rules")
 load("@prelude//decls:dotnet_rules.bzl", "dotnet_rules")
 load("@prelude//decls:erlang_rules.bzl", "erlang_rules")
 load("@prelude//decls:git_rules.bzl", "git_rules")
@@ -91,6 +92,9 @@ load("@prelude//python:python_library.bzl", "python_library_impl")
 load("@prelude//python:python_needed_coverage_test.bzl", "python_needed_coverage_test_impl")
 load("@prelude//python:python_runtime_bundle.bzl", "python_runtime_bundle_impl")
 load("@prelude//python:python_test.bzl", "python_test_impl")
+load("@prelude//python/cython:cython_library.bzl", "cython_library_impl")
+load("@prelude//python/cython:cython_static_extension.bzl", "cython_static_extension_impl")
+load("@prelude//python/cython:cython_toolchain.bzl", "cython_toolchain_impl")
 load("@prelude//python_bootstrap:python_bootstrap.bzl", "PythonBootstrapSources", "python_bootstrap_binary_impl", "python_bootstrap_library_impl")
 load("@prelude//third-party:providers.bzl", "ThirdPartyBuildInfo")
 load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
@@ -99,6 +103,7 @@ load("@prelude//zip_file:zip_file.bzl", _zip_file_extra_attributes = "extra_attr
 _ANDROID_RULES_KEY = "android"
 _CORE_RULES_KEY = "core"
 _CXX_RULES_KEY = "cxx"
+_CYTHON_RULES_KEY = "cython"
 _DOTNET_RULES_KEY = ".NET"
 _ERLANG_RULES_KEY = "erlang"
 _GIT_RULES_KEY = "git"
@@ -122,6 +127,7 @@ categorized_rule_decl_records = {
     _ANDROID_RULES_KEY: android_rules,
     _CORE_RULES_KEY: core_rules,
     _CXX_RULES_KEY: cxx_rules,
+    _CYTHON_RULES_KEY: cython_rules,
     _DOTNET_RULES_KEY: dotnet_rules,
     _ERLANG_RULES_KEY: erlang_rules,
     _GIT_RULES_KEY: git_rules,
@@ -183,6 +189,11 @@ extra_implemented_rules = struct(
     prebuilt_cxx_library_group = prebuilt_cxx_library_group_impl,
     windows_resource = windows_resource_impl,
     transformation_spec = transformation_spec_impl,
+
+    #cython
+    cython_library = cython_library_impl,
+    cython_static_extension = cython_static_extension_impl,
+    cython_toolchain = cython_toolchain_impl,
 
     # C++ / LLVM
     llvm_link_bitcode = llvm_link_bitcode_impl,
@@ -495,10 +506,16 @@ _uncategorized_extra_attributes = {
     },
 }
 
+_cython_extra_attributes = {
+    "cython_library": _cxx_extra_library_attrs,
+    "cython_static_extension": _cxx_extra_library_attrs,
+}
+
 categorized_extra_attributes = {
     _ANDROID_RULES_KEY: {},
     _CORE_RULES_KEY: _core_extra_attributes,
     _CXX_RULES_KEY: cxx_extra_attributes,
+    _CYTHON_RULES_KEY: _cython_extra_attributes,
     _DOTNET_RULES_KEY: _dotnet_extra_attributes,
     _GO_RULES_KEY: _go_extra_attributes,
     _HASKELL_RULES_KEY: _haskell_extra_attributes,

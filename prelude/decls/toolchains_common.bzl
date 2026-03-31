@@ -25,6 +25,7 @@ load(
 )
 load("@prelude//python:python_wheel_toolchain.bzl", "PythonWheelToolchainInfo")
 load("@prelude//python:toolchain.bzl", "PythonPlatformInfo", "PythonToolchainInfo")
+load("@prelude//python/cython:cython_toolchain.bzl", "CythonToolchainInfo")
 load("@prelude//python_bootstrap:python_bootstrap.bzl", "PythonBootstrapToolchainInfo")
 load("@prelude//rust:rust_toolchain.bzl", "RustToolchainInfo")
 load("@prelude//tests:remote_test_execution_toolchain.bzl", "RemoteTestExecutionToolchainInfo")
@@ -40,6 +41,9 @@ def _android_toolchain():
 
 def _csharp_toolchain():
     return _toolchain("csharp", [CSharpToolchainInfo])
+
+def _cython_toolchain():
+    return _toolchain("cython", [CythonToolchainInfo])
 
 def _cxx_toolchain():
     # `CxxToolchainInfo, CxxPlatformInfo`, but python doesn't require it
@@ -107,6 +111,7 @@ toolchains_common = struct(
     android = _android_toolchain,
     csharp = _csharp_toolchain,
     cxx = _cxx_toolchain,
+    cython = _cython_toolchain,
     dex = _dex_toolchain,
     go = _go_toolchain,
     go_bootstrap = _go_bootstrap_toolchain,
