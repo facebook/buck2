@@ -16,7 +16,7 @@ load("@prelude//:remote_file.bzl", "remote_file_impl")
 load("@prelude//:sh_binary.bzl", "sh_binary_impl")
 load("@prelude//:sh_test.bzl", "sh_test_impl")
 load("@prelude//:test_suite.bzl", "test_suite_impl")
-load("@prelude//android:android.bzl", _android_extra_attributes = "extra_attributes", _android_implemented_rules = "implemented_rules")
+load("@prelude//android:android.bzl", _android_implemented_rules = "implemented_rules")
 load("@prelude//android:configuration.bzl", "is_building_android_binary_attr")
 load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//apple:apple_rules_decls.bzl", "apple_rules")
@@ -496,7 +496,7 @@ _uncategorized_extra_attributes = {
 }
 
 categorized_extra_attributes = {
-    _ANDROID_RULES_KEY: _android_extra_attributes,
+    _ANDROID_RULES_KEY: {},
     _CORE_RULES_KEY: _core_extra_attributes,
     _CXX_RULES_KEY: cxx_extra_attributes,
     _DOTNET_RULES_KEY: _dotnet_extra_attributes,
