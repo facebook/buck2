@@ -63,7 +63,11 @@ load(
     "cxx_attr_dep_metadata",
     "cxx_attr_use_content_based_paths",
     "cxx_inherited_link_info",
-    "cxx_use_shlib_intfs",
+    "cxx_use_shlib_intfs_mode",
+)
+load(
+    ":cxx_toolchain_types.bzl",
+    "ShlibInterfacesMode",
 )
 load(
     ":shared_library_interface.bzl",
@@ -323,7 +327,7 @@ def prebuilt_cxx_library_group_impl(ctx: AnalysisContext) -> list[Provider]:
                 ctx = ctx,
                 shared_libs = flatten_dict([ctx.attrs.shared_libs, ctx.attrs.provided_shared_libs]),
                 args = ctx.attrs.shared_link,
-                shlib_intfs = ctx.attrs.supports_shared_library_interface and cxx_use_shlib_intfs(ctx),
+                shlib_intfs = ctx.attrs.supports_shared_library_interface and cxx_use_shlib_intfs_mode(ctx, ShlibInterfacesMode("defined_only")),
             )
             solibs.update({n: LinkedObject(output = lib, unstripped_output = lib) for n, lib in ctx.attrs.shared_libs.items()})
         outputs[output_style] = outs

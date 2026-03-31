@@ -24,6 +24,7 @@ load("@prelude//cxx:cxx_sources.bzl", "get_srcs_with_flags")
 load(
     "@prelude//cxx:cxx_toolchain_types.bzl",
     "RuntimeDependencyHandling",
+    "ShlibInterfacesMode",
 )
 load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload", "cxx_attrs_use_fbcc_rust_wrapper")
 load(
@@ -120,7 +121,7 @@ load(
     "cxx_attr_use_content_based_paths",
     "cxx_inherited_link_info",
     "cxx_platform_supported",
-    "cxx_use_shlib_intfs",
+    "cxx_use_shlib_intfs_mode",
 )
 load(
     ":cxx_types.bzl",
@@ -535,7 +536,7 @@ def _create_prebuilt_library_outputs(
                     shared_lib_for_linking = shared_lib.output
 
                     # Generate a shared library interface if the rule supports it.
-                    if ctx.attrs.supports_shared_library_interface and cxx_use_shlib_intfs(ctx):
+                    if ctx.attrs.supports_shared_library_interface and cxx_use_shlib_intfs_mode(ctx, ShlibInterfacesMode("defined_only")):
                         shared_lib_for_linking = shared_library_interface(
                             ctx = ctx,
                             shared_lib = shared_lib.output,
