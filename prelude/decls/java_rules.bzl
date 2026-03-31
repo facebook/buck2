@@ -14,7 +14,7 @@
 load("@prelude//:attrs_validators.bzl", "validation_common")
 load("@prelude//decls:test_common.bzl", "test_common")
 load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
-load(":common.bzl", "AbiGenerationMode", "SourceAbiVerificationMode", "TestType", "buck", "prelude_rule")
+load(":common.bzl", "SourceAbiVerificationMode", "TestType", "buck", "prelude_rule")
 load(":jvm_common.bzl", "jvm_common")
 load(":re_test_common.bzl", "re_test_common")
 
@@ -388,8 +388,8 @@ java_test = prelude_rule(
             """),
         } |
         jvm_common.test_env() |
+        jvm_common.abi_generation_mode() |
         {
-            "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
             "default_cxx_platform": attrs.option(attrs.string(), default = None),
             "deps_query": attrs.option(attrs.query(), default = None),
             "exported_deps": attrs.list(attrs.dep(), default = []),
@@ -429,7 +429,6 @@ java_test_runner = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "exported_deps": attrs.list(attrs.dep(), default = []),
             "exported_provided_deps": attrs.list(attrs.dep(), default = []),
@@ -454,6 +453,7 @@ java_test_runner = prelude_rule(
         buck.licenses_arg() |
         buck.labels_arg() |
         buck.contacts_arg() |
+        jvm_common.abi_generation_mode() |
         jvm_common.annotation_processors() |
         jvm_common.plugins() |
         jvm_common.javac()

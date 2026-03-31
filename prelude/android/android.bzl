@@ -16,7 +16,7 @@ load("@prelude//decls:android_rules.bzl", "DISABLE_STRIPPING")
 load("@prelude//decls:common.bzl", "buck")
 load("@prelude//decls:core_rules.bzl", "TargetCpuType")
 load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
-load("@prelude//java:java.bzl", "AbiGenerationMode", "dex_min_sdk_version")
+load("@prelude//java:java.bzl", "dex_min_sdk_version")
 load(":android_aar.bzl", "android_aar_impl")
 load(":android_apk.bzl", "android_apk_impl")
 load(":android_build_config.bzl", "android_build_config_impl")
@@ -85,7 +85,6 @@ META_INTERNAL_EXTRA_PARAMS = attrs.option(attrs.dict(key = attrs.string(), value
 
 extra_attributes = {
     "android_aar": {
-        "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
         "compress_asset_libraries": attrs.default_only(attrs.bool(default = False)),
         "cpu_filters": attrs.list(attrs.enum(TargetCpuType), default = ALL_CPU_FILTERS),
         "deps": attrs.list(attrs.split_transition_dep(cfg = cpu_split_transition), default = []),
@@ -148,7 +147,6 @@ extra_attributes = {
         "_test_srcs": attrs.list(attrs.source(allow_directory = True), default = []),
     },
     "android_library": {
-        "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
         "android_optional_jars": attrs.option(attrs.list(attrs.dep()), default = None),
         "resources_root": attrs.option(attrs.string(), default = None),
         VALIDATION_DEPS_ATTR_NAME: attrs.set(attrs.dep(), sorted = True, default = []),
@@ -206,7 +204,6 @@ extra_attributes = {
         "native_libs": attrs.source(allow_directory = True),
     },
     "robolectric_test": {
-        "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
         "android_optional_jars": attrs.option(attrs.list(attrs.dep()), default = None),
         "discover_all_test_classes": attrs.bool(default = False),
         "java_agents": attrs.list(attrs.source(), default = []),

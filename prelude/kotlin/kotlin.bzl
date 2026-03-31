@@ -11,7 +11,7 @@ load("@prelude//android:build_only_native_code.bzl", "is_build_only_native_code"
 load("@prelude//android:configuration.bzl", "is_building_android_binary_attr")
 load("@prelude//decls:common.bzl", "buck")
 load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
-load("@prelude//java:java.bzl", "AbiGenerationMode", "dex_min_sdk_version")
+load("@prelude//java:java.bzl", "dex_min_sdk_version")
 load(":kotlin_library.bzl", "kotlin_library_impl")
 load(":kotlin_test.bzl", "kotlin_test_impl")
 
@@ -22,7 +22,6 @@ implemented_rules = {
 
 extra_attributes = {
     "kotlin_library": {
-        "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
         "keep_synthetics_in_class_abi": attrs.option(attrs.bool(), default = None),
         VALIDATION_DEPS_ATTR_NAME: attrs.set(attrs.dep(), sorted = True, default = []),
         "resources_root": attrs.option(attrs.string(), default = None),
@@ -35,7 +34,6 @@ extra_attributes = {
         "_kotlin_toolchain": toolchains_common.kotlin(),
     },
     "kotlin_test": {
-        "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
         "discover_all_test_classes": attrs.bool(default = False),
         "java_agents": attrs.list(attrs.source(), default = []),
         "resources_root": attrs.option(attrs.string(), default = None),

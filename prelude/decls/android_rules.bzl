@@ -21,7 +21,7 @@ load("@prelude//decls:test_common.bzl", "test_common")
 load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
 load("@prelude//utils:clear_platform.bzl", "clear_platform_transition")
 load(":android_common.bzl", "android_common")
-load(":common.bzl", "AbiGenerationMode", "AnnotationProcessingTool", "SourceAbiVerificationMode", "TestType", "buck", "prelude_rule")
+load(":common.bzl", "AnnotationProcessingTool", "SourceAbiVerificationMode", "TestType", "buck", "prelude_rule")
 load(":core_rules.bzl", "TargetCpuType")
 load(":genrule_common.bzl", "genrule_common")
 load(":jvm_common.bzl", "jvm_common")
@@ -247,7 +247,6 @@ android_aar = prelude_rule(
                 List of classes to remove from the output aar. It removes classes from the target's own sources,
                  and its dependencies.
             """),
-            "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
             "annotation_processing_tool": attrs.option(attrs.enum(AnnotationProcessingTool), default = None),
             "build_config_values_file": attrs.option(attrs.source(), default = None),
             "enable_relinker": attrs.bool(default = False),
@@ -299,7 +298,7 @@ android_aar = prelude_rule(
         buck.licenses_arg() |
         buck.labels_arg() |
         buck.contacts_arg()
-    ) | jvm_common.annotation_processors() | jvm_common.plugins() | jvm_common.javac(),
+    ) | jvm_common.abi_generation_mode() | jvm_common.annotation_processors() | jvm_common.plugins() | jvm_common.javac(),
 )
 
 android_app_modularity = prelude_rule(
@@ -1236,7 +1235,6 @@ robolectric_test = prelude_rule(
             "extra_kotlinc_arguments": attrs.list(attrs.arg(anon_target_compatible = True), default = [], doc = """
                 List of additional arguments to pass into the Kotlin compiler.
             """),
-            "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
             "annotation_processing_tool": attrs.option(attrs.enum(AnnotationProcessingTool), default = None),
             "compiled_resource_apks": attrs.list(attrs.source(), default = []),
             "cxx_library_allowlist": attrs.list(attrs.dep(), default = [], doc = """
@@ -1288,6 +1286,7 @@ robolectric_test = prelude_rule(
             "vm_args": attrs.list(attrs.arg(), default = []),
         } |
         android_common.manifest_arg() |
+        jvm_common.abi_generation_mode() |
         jvm_common.annotation_processors() |
         jvm_common.k2() |
         jvm_common.incremental() |

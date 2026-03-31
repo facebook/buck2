@@ -24,8 +24,6 @@ load(":java_test.bzl", "java_test_impl")
 load(":keystore.bzl", "keystore_impl")
 load(":prebuilt_jar.bzl", "prebuilt_jar_impl")
 
-AbiGenerationMode = ["class", "source", "source_only", "none"]
-
 def dex_min_sdk_version():
     min_sdk_version_dict = {"DEFAULT": None}
     for min_sdk in get_min_sdk_version_range():
@@ -66,7 +64,6 @@ extra_attributes = {
         "_java_toolchain": toolchains_common.java(),
     } | constraint_overrides.attributes,
     "java_library": {
-        "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
         # Dependencies used only for inheriting class-to-source map info for debugging.
         # This allows libraries that don't compile sources (e.g., java version wrappers
         # that depend on prebuilt jars) to inherit classmap info from the source library.
@@ -84,7 +81,6 @@ extra_attributes = {
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
     },
     "java_test": {
-        "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
         "discover_all_test_classes": attrs.bool(default = False),
         "java_agents": attrs.list(attrs.source(), default = []),
         "resources_root": attrs.option(attrs.string(), default = None),
@@ -97,7 +93,6 @@ extra_attributes = {
         "_java_toolchain": toolchains_common.java(),
     },
     "java_test_runner": {
-        "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
         "resources_root": attrs.option(attrs.string(), default = None),
     },
     "prebuilt_jar": {

@@ -13,7 +13,7 @@
 
 load("@prelude//:attrs_validators.bzl", "validation_common")
 load("@prelude//decls:test_common.bzl", "test_common")
-load(":common.bzl", "AbiGenerationMode", "AnnotationProcessingTool", "SourceAbiVerificationMode", "TestType", "buck", "prelude_rule")
+load(":common.bzl", "AnnotationProcessingTool", "SourceAbiVerificationMode", "TestType", "buck", "prelude_rule")
 load(":jvm_common.bzl", "jvm_common")
 load(":re_test_common.bzl", "re_test_common")
 
@@ -128,8 +128,8 @@ kotlin_library = prelude_rule(
         jvm_common.enable_used_classes() |
         jvm_common.classic_java_content_based_paths() |
         buck.labels_arg() |
+        jvm_common.abi_generation_mode() |
         {
-            "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
             "extra_arguments": attrs.list(attrs.string(), default = []),
             "java_version": attrs.option(attrs.string(), default = None),
             "jdk_release": attrs.option(attrs.string(), default = None),
@@ -212,8 +212,8 @@ kotlin_test = prelude_rule(
         jvm_common.kotlin_compiler_plugins() |
         jvm_common.plugins() |
         jvm_common.test_env() |
+        jvm_common.abi_generation_mode() |
         {
-            "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
             "annotation_processing_tool": attrs.option(attrs.enum(AnnotationProcessingTool), default = None),
             "cxx_library_allowlist": attrs.list(attrs.dep(), default = [], doc = """
                 List of cxx_library targets to build, if use_cxx_libraries is true.

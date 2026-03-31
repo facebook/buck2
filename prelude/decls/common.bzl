@@ -30,7 +30,7 @@ prelude_rule = record(
     cfg = field(typing.Any | None, None),
 )
 
-AbiGenerationMode = ["unknown", "class", "source", "migrating_to_source_only", "source_only", "unrecognized"]
+AbiGenerationMode = ["class", "source", "source_only", "none"]
 
 AnnotationProcessingTool = ["kapt", "javac"]
 
