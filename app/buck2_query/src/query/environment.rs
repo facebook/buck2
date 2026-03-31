@@ -395,7 +395,7 @@ pub async fn deps<Env: QueryEnvironment + ?Sized>(
 
     match depth {
         QueryValueDepth::Bounded(v) => {
-            env.depth_limited_traversal(targets, visitor, visit, v as u32)
+            env.depth_limited_traversal(targets, visitor, visit, v)
                 .await?;
         }
         QueryValueDepth::Unbounded => {
