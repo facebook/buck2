@@ -577,6 +577,9 @@ impl<'a> BuckArgMatches<'a> {
                         ConfigFlagValue::TargetPlatforms(v) => {
                             RepresentativeConfigFlagSource::TargetPlatforms(v)
                         }
+                        ConfigFlagValue::TargetUniverse(v) => {
+                            RepresentativeConfigFlagSource::TargetUniverse(v)
+                        }
                     };
                     args.push(RepresentativeConfigFlag {
                         source: Some(source),
@@ -617,6 +620,8 @@ mod tests {
         argv.push("--config-file".to_owned());
         argv.push("//cfg.bcfg".to_owned());
         argv.push("--target-platforms=ovr//p:linux".to_owned());
+        argv.push("--target-universe".to_owned());
+        argv.push("//uni:target".to_owned());
 
         let argv = argv.build();
         let clap = clap::ArgMatches::default();
@@ -637,6 +642,9 @@ mod tests {
                 )),
                 source(RepresentativeConfigFlagSource::TargetPlatforms(
                     "ovr//p:linux".to_owned()
+                )),
+                source(RepresentativeConfigFlagSource::TargetUniverse(
+                    "//uni:target".to_owned()
                 )),
             ]
         );

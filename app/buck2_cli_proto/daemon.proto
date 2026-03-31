@@ -114,6 +114,7 @@ message RepresentativeConfigFlag {
     string mode_file = 3;
     string modifier = 4;
     string target_platforms = 5;
+    string target_universe = 6;
   }
 }
 

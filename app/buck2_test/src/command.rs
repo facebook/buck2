@@ -1547,6 +1547,9 @@ fn generate_config_entry_args(
                         target_platforms.push_str(s);
                     }
                 }
+                representative_config_flag::Source::TargetUniverse(_) => {
+                    // Target universe is not passed to TPX
+                }
             }
         }
     }
@@ -1753,10 +1756,17 @@ mod tests {
                     "platform1".to_owned(),
                 )),
             },
+            RepresentativeConfigFlag {
+                source: Some(representative_config_flag::Source::TargetUniverse(
+                    "//uni:target".to_owned(),
+                )),
+            },
         ];
 
         generate_config_entry_args(&mut args, &config_flags);
 
+        // TargetUniverse is intentionally not passed to TPX, so the output
+        // should contain all other types but no entry for target_universe.
         let expected = vec![
             "--config-entry",
             "config=config_key=config_value",

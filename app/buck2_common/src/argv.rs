@@ -143,6 +143,7 @@ pub enum ConfigFlagValue {
     ConfigFile(String),
     Modifier(String),
     TargetPlatforms(String),
+    TargetUniverse(String),
 }
 
 /// Returns the innermost project-internal flagfile source, if any.
@@ -194,6 +195,10 @@ pub fn parse_config_flags(
                         state = State::Matched("--target-platforms");
                         None
                     }
+                    "--target-universe" | "-u" => {
+                        state = State::Matched("--target-universe");
+                        None
+                    }
                     v if v.starts_with("-m") && !v.starts_with("-m=") => Some(
                         ConfigFlagValue::Modifier(v.split_at("-m".len()).1.trim().to_owned()),
                     ),
@@ -212,6 +217,13 @@ pub fn parse_config_flags(
                     v if v.starts_with("--target-platforms=") => Some(
                         ConfigFlagValue::TargetPlatforms(v.split_once('=').unwrap().1.to_owned()),
                     ),
+                    v if v.starts_with("--target-universe=") || v.starts_with("-u=") => Some(
+                        ConfigFlagValue::TargetUniverse(v.split_once('=').unwrap().1.to_owned()),
+                    ),
+                    // Handle concatenated form: `-u//target` (no space or `=`)
+                    v if v.starts_with("-u") && v.len() > 2 => Some(
+                        ConfigFlagValue::TargetUniverse(v.split_at("-u".len()).1.trim().to_owned()),
+                    ),
                     "--" => {
                         state = State::Finished;
                         None
@@ -226,6 +238,9 @@ pub fn parse_config_flags(
                         "-m" => Some(ConfigFlagValue::Modifier(value.to_owned())),
                         "--target-platforms" => {
                             Some(ConfigFlagValue::TargetPlatforms(value.to_owned()))
+                        }
+                        "--target-universe" => {
+                            Some(ConfigFlagValue::TargetUniverse(value.to_owned()))
                         }
                         _ => unreachable!("impossible flag"),
                     }
@@ -260,6 +275,7 @@ pub fn get_representative_config_flags(expanded_argv: &ExpandedArgv) -> Vec<Stri
                     ConfigFlagValue::ConfigFile(v) => format!("--config-file {v}"),
                     ConfigFlagValue::Modifier(v) => format!("-m {v}"),
                     ConfigFlagValue::TargetPlatforms(v) => format!("--target-platforms {v}"),
+                    ConfigFlagValue::TargetUniverse(v) => format!("--target-universe {v}"),
                 };
                 result.push(formatted);
             }
@@ -345,6 +361,13 @@ mod tests {
         argv.push("--modifier".to_owned());
         argv.push("//bar:foo".to_owned());
         argv.push("--target-platforms=ovr_config//platforms/linux:some_linux_platform".to_owned());
+        argv.push("--target-universe".to_owned());
+        argv.push("//some:target".to_owned());
+        argv.push("-u".to_owned());
+        argv.push("//other:target".to_owned());
+        argv.push("--target-universe=//third:target".to_owned());
+        argv.push("-u=//fourth:target".to_owned());
+        argv.push("-u//fifth:target".to_owned());
 
         let argv = argv.build();
         let flags = get_representative_config_flags(&argv);
@@ -366,7 +389,12 @@ mod tests {
                 "-m //foo:bar",
                 "-m //bar3:baz",
                 "-m //bar:foo",
-                "--target-platforms ovr_config//platforms/linux:some_linux_platform"
+                "--target-platforms ovr_config//platforms/linux:some_linux_platform",
+                "--target-universe //some:target",
+                "--target-universe //other:target",
+                "--target-universe //third:target",
+                "--target-universe //fourth:target",
+                "--target-universe //fifth:target",
             ]
         );
         Ok(())
