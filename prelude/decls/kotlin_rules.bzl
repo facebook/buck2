@@ -12,10 +12,15 @@
 # well-formatted (and then delete this TODO)
 
 load("@prelude//:attrs_validators.bzl", "validation_common")
+load("@prelude//:validation_deps.bzl", "VALIDATION_DEPS_ATTR_NAME")
+load("@prelude//android:build_only_native_code.bzl", "is_build_only_native_code")
+load("@prelude//android:configuration.bzl", "is_building_android_binary_attr")
 load("@prelude//decls:test_common.bzl", "test_common")
+load("@prelude//java:java.bzl", "dex_min_sdk_version")
 load(":common.bzl", "AnnotationProcessingTool", "SourceAbiVerificationMode", "TestType", "buck", "prelude_rule")
 load(":jvm_common.bzl", "jvm_common")
 load(":re_test_common.bzl", "re_test_common")
+load(":toolchains_common.bzl", "toolchains_common")
 
 _no_x_jdk_release_doc = """
         By default, classic kotlin adds -Xjdk-release=java_version to the kotlinc arguments.
@@ -134,17 +139,27 @@ kotlin_library = prelude_rule(
             "java_version": attrs.option(attrs.string(), default = None),
             "jdk_release": attrs.option(attrs.string(), default = None),
             "jar_postprocessor": attrs.option(attrs.exec_dep(), default = None),
+            "keep_synthetics_in_class_abi": attrs.option(attrs.bool(), default = None),
             "manifest_file": attrs.option(attrs.source(), default = None),
             "maven_coords": attrs.option(attrs.string(), default = None),
             "no_x_jdk_release": attrs.bool(default = False, doc = _no_x_jdk_release_doc),
             "proguard_config": attrs.option(attrs.source(), default = None),
             "required_for_source_only_abi": attrs.bool(default = False),
+            "resources_root": attrs.option(attrs.string(), default = None),
             "runtime_deps": attrs.list(attrs.dep(), default = []),
             "source": attrs.option(attrs.string(), default = None),
             "source_abi_verification_mode": attrs.option(attrs.enum(SourceAbiVerificationMode), default = None),
             "source_only_abi_deps": attrs.list(attrs.dep(), default = []),
             "target": attrs.option(attrs.string(), default = None),
             "use_jvm_abi_gen": attrs.option(attrs.bool(), default = None),
+            VALIDATION_DEPS_ATTR_NAME: attrs.set(attrs.dep(), sorted = True, default = []),
+            "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
+            "_dex_min_sdk_version": attrs.option(attrs.int(), default = dex_min_sdk_version()),
+            "_dex_toolchain": toolchains_common.dex(),
+            "_exec_os_type": buck.exec_os_type_arg(),
+            "_is_building_android_binary": is_building_android_binary_attr(),
+            "_java_toolchain": toolchains_common.java(),
+            "_kotlin_toolchain": toolchains_common.kotlin(),
         } |
         buck.licenses_arg() |
         buck.contacts_arg() |
@@ -221,6 +236,7 @@ kotlin_test = prelude_rule(
             """),
             "default_cxx_platform": attrs.option(attrs.string(), default = None),
             "deps_query": attrs.option(attrs.query(), default = None),
+            "discover_all_test_classes": attrs.bool(default = False),
             "exported_deps": attrs.list(attrs.dep(), default = []),
             "exported_provided_deps": attrs.list(attrs.dep(), default = []),
             "extra_arguments": attrs.list(attrs.string(), default = []),
@@ -229,6 +245,7 @@ kotlin_test = prelude_rule(
             "java_version": attrs.option(attrs.string(), default = None),
             "jdk_release": attrs.option(attrs.string(), default = None),
             "java": attrs.option(attrs.dep(), default = None),
+            "java_agents": attrs.list(attrs.source(), default = []),
             "manifest_file": attrs.option(attrs.source(), default = None),
             "maven_coords": attrs.option(attrs.string(), default = None),
             "no_x_jdk_release": attrs.bool(default = False, doc = _no_x_jdk_release_doc),
@@ -236,7 +253,7 @@ kotlin_test = prelude_rule(
             "provided_deps": attrs.list(attrs.dep(), default = []),
             "remove_classes": attrs.list(attrs.regex(), default = []),
             "required_for_source_only_abi": attrs.bool(default = False),
-            "resources_root": attrs.option(attrs.source(), default = None),
+            "resources_root": attrs.option(attrs.string(), default = None),
             "runtime_deps": attrs.list(attrs.dep(), default = []),
             "source": attrs.option(attrs.string(), default = None),
             "source_abi_verification_mode": attrs.option(attrs.enum(SourceAbiVerificationMode), default = None),
@@ -244,10 +261,17 @@ kotlin_test = prelude_rule(
             "supports_test_execution_caching": attrs.bool(default = False),
             "target": attrs.option(attrs.string(), default = None),
             "test_case_timeout_ms": attrs.option(attrs.int(), default = None),
+            "test_class_names_file": attrs.option(attrs.source(), default = None),
             "unbundled_resources_root": attrs.option(attrs.source(allow_directory = True), default = None),
             "use_cxx_libraries": attrs.option(attrs.bool(), default = None),
             "use_dependency_order_classpath": attrs.option(attrs.bool(), default = None),
             "use_jvm_abi_gen": attrs.option(attrs.bool(), default = None),
+            "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
+            "_exec_os_type": buck.exec_os_type_arg(),
+            "_is_building_android_binary": attrs.default_only(attrs.bool(default = False)),
+            "_java_test_toolchain": toolchains_common.java_test(),
+            "_java_toolchain": toolchains_common.java(),
+            "_kotlin_toolchain": toolchains_common.kotlin(),
         } |
         buck.licenses_arg() |
         buck.contacts_arg() |

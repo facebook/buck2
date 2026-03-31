@@ -74,7 +74,7 @@ load("@prelude//java:java.bzl", _java_extra_attributes = "extra_attributes", _ja
 load("@prelude//js:js.bzl", _js_extra_attributes = "extra_attributes", _js_implemented_rules = "implemented_rules")
 load("@prelude//js:worker_tool.bzl", "worker_tool")
 load("@prelude//julia:julia.bzl", _julia_extra_attributes = "extra_attributes", _julia_implemented_rules = "implemented_rules")
-load("@prelude//kotlin:kotlin.bzl", _kotlin_extra_attributes = "extra_attributes", _kotlin_implemented_rules = "implemented_rules")
+load("@prelude//kotlin:kotlin.bzl", _kotlin_implemented_rules = "implemented_rules")
 load("@prelude//linking:execution_preference.bzl", "link_execution_preference_attr")
 load("@prelude//linking:link_info.bzl", "LinkOrdering")
 load("@prelude//linking:types.bzl", "Linkage")
@@ -506,7 +506,7 @@ categorized_extra_attributes = {
     _JAVA_RULES_KEY: _java_extra_attributes,
     _JS_RULES_KEY: _js_extra_attributes,
     _JULIA_RULES_KEY: _julia_extra_attributes,
-    _KOTLIN_RULES_KEY: _kotlin_extra_attributes,
+    _KOTLIN_RULES_KEY: {},
     _MATLAB_RULES_KEY: _matlab_extra_attributes,
     _OCAML_RULES_KEY: _ocaml_extra_attributes,
     _PYTHON_RULES_KEY: _python_extra_attributes,

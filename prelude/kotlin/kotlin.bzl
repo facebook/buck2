@@ -6,44 +6,10 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//:validation_deps.bzl", "VALIDATION_DEPS_ATTR_NAME")
-load("@prelude//android:build_only_native_code.bzl", "is_build_only_native_code")
-load("@prelude//android:configuration.bzl", "is_building_android_binary_attr")
-load("@prelude//decls:common.bzl", "buck")
-load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
-load("@prelude//java:java.bzl", "dex_min_sdk_version")
 load(":kotlin_library.bzl", "kotlin_library_impl")
 load(":kotlin_test.bzl", "kotlin_test_impl")
 
 implemented_rules = {
     "kotlin_library": kotlin_library_impl,
     "kotlin_test": kotlin_test_impl,
-}
-
-extra_attributes = {
-    "kotlin_library": {
-        "keep_synthetics_in_class_abi": attrs.option(attrs.bool(), default = None),
-        VALIDATION_DEPS_ATTR_NAME: attrs.set(attrs.dep(), sorted = True, default = []),
-        "resources_root": attrs.option(attrs.string(), default = None),
-        "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
-        "_dex_min_sdk_version": attrs.option(attrs.int(), default = dex_min_sdk_version()),
-        "_dex_toolchain": toolchains_common.dex(),
-        "_exec_os_type": buck.exec_os_type_arg(),
-        "_is_building_android_binary": is_building_android_binary_attr(),
-        "_java_toolchain": toolchains_common.java(),
-        "_kotlin_toolchain": toolchains_common.kotlin(),
-    },
-    "kotlin_test": {
-        "discover_all_test_classes": attrs.bool(default = False),
-        "java_agents": attrs.list(attrs.source(), default = []),
-        "resources_root": attrs.option(attrs.string(), default = None),
-        "test_class_names_file": attrs.option(attrs.source(), default = None),
-        "unbundled_resources_root": attrs.option(attrs.source(allow_directory = True), default = None),
-        "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
-        "_exec_os_type": buck.exec_os_type_arg(),
-        "_is_building_android_binary": attrs.default_only(attrs.bool(default = False)),
-        "_java_test_toolchain": toolchains_common.java_test(),
-        "_java_toolchain": toolchains_common.java(),
-        "_kotlin_toolchain": toolchains_common.kotlin(),
-    },
 }
