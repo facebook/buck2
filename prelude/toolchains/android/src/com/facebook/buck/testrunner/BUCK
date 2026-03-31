@@ -33,6 +33,27 @@ buck_java_library(
 )
 
 buck_kotlin_library(
+    name = "timeout",
+    srcs = [
+        "ThreadDumpUtils.kt",
+        "TpxTimeoutBufferManager.kt",
+    ],
+    # @oss-disable[end= ]: source = "8",
+    # @oss-disable[end= ]: target = "8",
+    source = "11", # @oss-enable
+    target = "11", # @oss-enable
+    tests = [
+        "prelude//toolchains/android/test/com/facebook/buck/testrunner:tpx_timeout_buffer_manager_test",
+    ],
+    visibility = [
+        "prelude//toolchains/android/test/com/facebook/buck/testrunner:tpx_timeout_buffer_manager_test",
+    ],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/testresultsoutput:testresultsoutput",
+    ],
+)
+
+buck_kotlin_library(
     name = "junit",
     srcs = [
         "BuckBlockJUnit4ClassRunner.java",
@@ -50,9 +71,7 @@ buck_kotlin_library(
         "SkipTestCondition.java",
         "StandardOutputRecorder.java",
         "TestRecorder.java",
-        "ThreadDumpUtils.kt",
         "TpxStandardOutputTestListener.java",
-        "TpxTimeoutBufferManager.kt",
     ],
     resources = glob(["META-INF/**/*"]),
     resources_root = ".",
@@ -73,6 +92,7 @@ buck_kotlin_library(
     # test, as not to interfere with the results of the test.
     deps = [
         ":base",
+        ":timeout",
         # This is loaded by reflection. Joy.
         "prelude//toolchains/android/src/com/facebook/buck/jvm/java/runner:runner",
         "prelude//toolchains/android/src/com/facebook/buck/core/util/log/appendablelogrecord:appendablelogrecord",
@@ -124,6 +144,7 @@ buck_kotlin_library(
         "prelude//toolchains/android/src/com/facebook/buck/testresultsoutput:testresultsoutput",
         "prelude//toolchains/android/src/com/facebook/buck/util/escaper:bash",
         "prelude//toolchains/android/third-party:ddmlib",
+        ":timeout",
     ],
 )
 

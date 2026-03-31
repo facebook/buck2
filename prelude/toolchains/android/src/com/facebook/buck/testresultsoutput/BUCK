@@ -21,6 +21,7 @@ buck_java_library(
     visibility = [
         "prelude//toolchains/android/src/com/facebook/buck/testrunner:instrumentation",
         "prelude//toolchains/android/src/com/facebook/buck/testrunner:junit",
+        "prelude//toolchains/android/src/com/facebook/buck/testrunner:timeout",
         "prelude//toolchains/android/test/com/facebook/buck/testresultsoutput:testresultsoutput",
         "prelude//toolchains/android/test/com/facebook/buck/testrunner:testrunner",
         "prelude//toolchains/android/test/com/facebook/buck/testrunner:tpx_timeout_buffer_manager_test",

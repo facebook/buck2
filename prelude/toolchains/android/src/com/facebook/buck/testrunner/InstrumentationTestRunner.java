@@ -46,6 +46,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -88,6 +89,9 @@ public class InstrumentationTestRunner extends DeviceRunner {
 
   /** Env var to enable per-test timeout enforcement. */
   static final String PER_TEST_TIMEOUT_ENABLED_ENV = "ANDROID_PER_TEST_TIMEOUT_ENABLED";
+
+  /** Env var to enable proactive target-level timeout stack traces. */
+  static final String PROACTIVE_TIMEOUT_ENABLED_ENV = "ANDROID_PROACTIVE_TIMEOUT_ENABLED";
 
   /** Env var to set the timeout multiplier for long-running tests. */
   static final String PER_TEST_TIMEOUT_MULTIPLIER_ENV = "ANDROID_PER_TEST_TIMEOUT_MULTIPLIER";
@@ -690,6 +694,19 @@ public class InstrumentationTestRunner extends DeviceRunner {
 
   @SuppressWarnings({"PMD.BlacklistedSystemGetenv", "PMD.BlacklistedDefaultProcessMethod"})
   public void run() throws Throwable {
+    // Proactive timeout: start the timer as early as possible since TPX_TIMEOUT_SEC counts from
+    // process start. ADB setup (APK install, directory creation) can consume significant time,
+    // so placing this after setup would cause the timer to fire too late.
+    Optional<TestResultsOutputSender> testResultsOutputSender =
+        TestResultsOutputSender.fromDefaultEnvName();
+    TpxTimeoutBufferManager tpxTimeoutBufferManager = null;
+    if (testResultsOutputSender.isPresent()
+        && "true".equals(System.getenv(PROACTIVE_TIMEOUT_ENABLED_ENV))) {
+      ScheduledExecutorService watchdogExecutor = Executors.newScheduledThreadPool(1);
+      tpxTimeoutBufferManager =
+          TpxTimeoutBufferManager.create(testResultsOutputSender.get(), watchdogExecutor);
+    }
+
     // Resolve a ddmlib IDevice solely for RemoteAndroidTestRunner compatibility.
     // All other device interactions use this.androidDevice (AdbUtils-based).
     IDevice iDevice = resolveIDevice(androidDevice.getSerialNumber());
@@ -971,8 +988,6 @@ public class InstrumentationTestRunner extends DeviceRunner {
       // Determine the result listener for timeout enforcement.
       ITestRunListener resultListener = buckXmlListener;
 
-      Optional<TestResultsOutputSender> testResultsOutputSender =
-          TestResultsOutputSender.fromDefaultEnvName();
       if (testResultsOutputSender.isPresent()) {
         InstrumentationTpxStandardOutputTestListener tpxListener =
             new InstrumentationTpxStandardOutputTestListener(
@@ -989,6 +1004,11 @@ public class InstrumentationTestRunner extends DeviceRunner {
         runner.addInstrumentationArg("user", this.userId.toString());
       }
       runner.run(listeners);
+
+      // All tests completed normally — mark as completed so proactive timer is a no-op
+      if (tpxTimeoutBufferManager != null) {
+        tpxTimeoutBufferManager.markCompleted();
+      }
 
       if (this.disableAnimations) {
         setAnimationScales(originalWindowAnimationScales);

@@ -58,7 +58,7 @@ buck_kotlin_test(
     srcs = ["TpxTimeoutBufferManagerTest.kt"],
     deps = [
         "prelude//toolchains/android/src/com/facebook/buck/testresultsoutput:testresultsoutput",
-        "prelude//toolchains/android/src/com/facebook/buck/testrunner:junit",
+        "prelude//toolchains/android/src/com/facebook/buck/testrunner:timeout",
         "prelude//toolchains/android/third-party:junit",
     ],
 )
