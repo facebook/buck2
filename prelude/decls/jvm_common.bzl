@@ -284,7 +284,7 @@ def _content_based_path_attr():
 
 def _kotlincd_content_based_paths():
     return {
-        "uses_content_based_paths_for_kotlincd": _content_based_path_attr(),
+        "uses_content_based_paths_for_kotlincd": attrs.bool(default = True),
     }
 
 def _classic_java_content_based_paths():
