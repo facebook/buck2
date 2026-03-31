@@ -322,6 +322,13 @@ def __clear_env(
         # processes don't inherit it), but it can be read via
         # `/proc/<pid>/environ`.
         "PAR_INVOKED_NAME_TAG",
+        # PYTHON_GIL=0 is set by the PAR bootstrap for free-threading builds
+        # to force-disable the GIL.  The interpreter reads it once during
+        # Py_Initialize and stores the result in config->enable_gil, so the
+        # env var is not needed after startup.  Clearing it prevents leakage
+        # to child processes that may use non-free-threading Python builds,
+        # which would crash with "Disabling the GIL is not supported".
+        "PYTHON_GIL",
     ]
 
     if sys.platform == "darwin":
