@@ -718,9 +718,7 @@ class MainProgram:
 
     def run_tests(self, test_suite):
         # Install a signal handler to catch Ctrl-C and display the results
-        # (but only if running >2.6).
-        if sys.version_info[0] > 2 or sys.version_info[1] > 6:
-            unittest.installHandler()
+        unittest.installHandler()
 
         # Run the tests
         runner = BuckTestRunner(
