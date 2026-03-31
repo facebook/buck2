@@ -70,6 +70,17 @@ buck_java_library(
 
 buck_java_binary(
     name = "run_d8_binary",
+    java_args_for_run_info = select({
+        "DEFAULT": [],
+        "config//os/constraints:windows": [
+            # Cap heap size to prevent JVM ergonomic sizing from requesting
+            # a 2GB mmap that exceeds the Windows paging file limit.
+            "-Xmx256m",
+            # Use SerialGC to minimize native memory overhead — G1GC's region
+            # reservations compound the paging file pressure on Windows.
+            "-XX:+UseSerialGC",
+        ],
+    }),
     main_class = "com.facebook.buck.android.dex.D8ExecutableMain",
     visibility = [
         "PUBLIC",
