@@ -50,7 +50,6 @@ public class KotlincStep implements IsolatedStep {
 
   private static final String CLASSPATH_FLAG = "-classpath";
   private static final String DESTINATION_FLAG = "-d";
-  private static final String EXCLUDE_REFLECT = "-no-reflect";
   private static final String X_PLUGIN_ARG = "-Xplugin=";
   private static final String PLUGIN = "-P";
 
@@ -278,9 +277,6 @@ public class KotlincStep implements IsolatedStep {
         builder.add(X_PLUGIN_ARG + applicabilityPlugin);
       }
     }
-
-    // Note: -include-runtime is intentionally omitted; stdlib is a classpath dependency.
-    builder.add(EXCLUDE_REFLECT);
 
     if (trackClassUsage) {
       depTrackerPath.ifPresentOrElse(
