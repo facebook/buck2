@@ -43,5 +43,6 @@ KotlinToolchainInfo = provider(
         "semanticdb_kotlinc": provider_field(typing.Any, default = None),
         "semanticdb_sourceroot": provider_field(typing.Any, default = None),
         "track_class_usage_plugin": provider_field(typing.Any, default = None),
+        "track_files_which_skipped_compilation": provider_field(bool, default = False),
     },
 )

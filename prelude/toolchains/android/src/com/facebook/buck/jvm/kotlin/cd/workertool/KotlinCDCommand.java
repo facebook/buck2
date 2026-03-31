@@ -33,6 +33,8 @@ import com.facebook.buck.jvm.kotlin.cd.workertool.postexecutors.ClassAbiWriter;
 import com.facebook.buck.jvm.kotlin.cd.workertool.postexecutors.ClassAbiWriterFactory;
 import com.facebook.buck.jvm.kotlin.cd.workertool.postexecutors.PreviousStateWriter;
 import com.facebook.buck.jvm.kotlin.cd.workertool.postexecutors.PreviousStateWriterFactory;
+import com.facebook.buck.jvm.kotlin.cd.workertool.postexecutors.SkippedCompilationTracker;
+import com.facebook.buck.jvm.kotlin.cd.workertool.postexecutors.SkippedCompilationTrackerFactory;
 import com.facebook.buck.util.zip.ZipScrubber;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
@@ -87,6 +89,8 @@ public class KotlinCDCommand implements JvmCDCommand {
   private final PostBuildParams postBuildParams;
   private final Optional<Path> actionMetadataPath;
   private final Logger logger;
+  private final SkippedCompilationTracker kotlinClassesTracker;
+  private final SkippedCompilationTracker jvmAbiTracker;
 
   public KotlinCDCommand(String[] args, ImmutableMap<String, String> env)
       throws CmdLineException, IOException {
@@ -115,6 +119,20 @@ public class KotlinCDCommand implements JvmCDCommand {
     this.executionPlatform = env.get("INSIDE_RE_WORKER") != null ? "remote_execution" : "local";
     KotlinCDAnalytics kotlinCDAnalytics = initKotlinCDAnalytics();
     cleanupOldPostBuildOutputs();
+
+    // Capture pre-compilation timestamps for tracking which files skip compilation.
+    this.kotlinClassesTracker =
+        SkippedCompilationTrackerFactory.create(
+            postBuildParams.getFilesWhichSkippedCompilation(),
+            buildKotlinCommand.getKotlinExtraParams().getKotlinClassesDir().getPath());
+    this.jvmAbiTracker =
+        SkippedCompilationTrackerFactory.create(
+            postBuildParams.getJvmAbiFilesWhichSkippedCompilation(),
+            buildKotlinCommand
+                .getKotlinExtraParams()
+                .getJvmAbiGenWorkingDir()
+                .map(absPath -> absPath.getPath())
+                .orElse(null));
 
     this.stepsBuilder =
         new KotlinStepsBuilder(
@@ -346,6 +364,8 @@ public class KotlinCDCommand implements JvmCDCommand {
     maybeRunPostProcessor();
     maybeWriteClassAbi();
     maybeWriteAbiDir();
+    kotlinClassesTracker.writeSkippedFiles();
+    jvmAbiTracker.writeSkippedFiles();
     maybeWriteDepFile();
     maybeCreateOptionalDirs();
     maybeWriteUsedJarsFile();

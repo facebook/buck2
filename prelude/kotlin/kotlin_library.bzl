@@ -534,7 +534,7 @@ def build_kotlin_library(
                 "target_level": target_level,
             }
 
-            outputs, proto = create_jar_artifact_kotlincd(
+            outputs, proto, tracking_outputs = create_jar_artifact_kotlincd(
                 plugin_params = create_plugin_params(ctx, ctx.attrs.plugins + ctx.attrs.non_exec_dep_plugins_deprecated),
                 extra_arguments = extra_arguments,
                 actions_identifier = "",
@@ -542,6 +542,7 @@ def build_kotlin_library(
                 uses_content_based_paths = ctx.attrs.uses_content_based_paths_for_kotlincd,
                 bootclasspath_snapshot_entries = bootclasspath_jar_snapshots_for_kotlinc,
                 skip_classpath_removal_rebuild = getattr(ctx.attrs, "skip_classpath_removal_rebuild", False),
+                track_files_which_skipped_compilation = kotlin_toolchain.track_files_which_skipped_compilation,
                 **common_kotlincd_kwargs
             )
 
@@ -555,6 +556,11 @@ def build_kotlin_library(
             if outputs and outputs.kotlin_classes:
                 extra_sub_targets = extra_sub_targets | {"kotlin_classes": [
                     DefaultInfo(default_output = outputs.kotlin_classes),
+                ]}
+
+            for subtarget_name, tracking_artifact in tracking_outputs.items():
+                extra_sub_targets = extra_sub_targets | {subtarget_name: [
+                    DefaultInfo(default_output = tracking_artifact),
                 ]}
 
             if outputs and outputs.annotation_processor_output:

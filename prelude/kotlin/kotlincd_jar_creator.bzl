@@ -87,7 +87,8 @@ def create_jar_artifact_kotlincd(
         jar_postprocessor: [RunInfo, None] = None,
         debug_port: [int, None] = None,
         skip_classpath_removal_rebuild: bool = False,
-        enable_depfiles: [bool, None] = True) -> (JavaCompileOutputs, Artifact):
+        enable_depfiles: [bool, None] = True,
+        track_files_which_skipped_compilation: bool = False) -> (JavaCompileOutputs, Artifact, dict[str, Artifact]):
     resources_map = get_resources_map(
         java_toolchain = java_toolchain,
         package = label.package,
@@ -126,6 +127,13 @@ def create_jar_artifact_kotlincd(
 
     track_class_usage = enable_used_classes and enable_depfiles and kotlin_toolchain.track_class_usage_plugin != None
 
+    if track_files_which_skipped_compilation:
+        files_which_skipped_compilation = declare_prefixed_output(actions, actions_identifier, "files_which_skipped_compilation", uses_content_based_paths)
+        jvm_abi_files_which_skipped_compilation = declare_prefixed_output(actions, actions_identifier, "jvm_abi_files_which_skipped_compilation", uses_content_based_paths) if should_use_jvm_abi_gen else None
+    else:
+        files_which_skipped_compilation = None
+        jvm_abi_files_which_skipped_compilation = None
+
     define_kotlincd_action = partial(
         _define_kotlincd_action,
         actions,
@@ -143,6 +151,8 @@ def create_jar_artifact_kotlincd(
         uses_content_based_paths,
         incremental_metadata_ignored_inputs_tag,
         jar_postprocessor,
+        files_which_skipped_compilation,
+        jvm_abi_files_which_skipped_compilation,
     )
 
     library_classpath_jars_tag = actions.artifact_tag()
@@ -263,6 +273,11 @@ def create_jar_artifact_kotlincd(
             kotlin_extra_params_builder = kotlin_extra_params_builder,
         )
         abi_jar_snapshot = generate_java_classpath_snapshot(actions, java_toolchain.cp_snapshot_generator, ClasspathSnapshotGranularity("CLASS_MEMBER_LEVEL"), classpath_abi, actions_identifier)
+        tracking_outputs = {}
+        if files_which_skipped_compilation:
+            tracking_outputs["files_which_skipped_compilation"] = files_which_skipped_compilation
+        if jvm_abi_files_which_skipped_compilation:
+            tracking_outputs["jvm_abi_files_which_skipped_compilation"] = jvm_abi_files_which_skipped_compilation
         return make_compile_outputs(
             full_library = final_jar_output.final_jar,
             preprocessed_library = final_jar_output.preprocessed_jar,
@@ -276,7 +291,7 @@ def create_jar_artifact_kotlincd(
             abi_jar_snapshot = abi_jar_snapshot,
             used_jars_json = used_jars_json,
             kotlin_classes = kotlin_classes,
-        ), proto
+        ), proto, tracking_outputs
     else:
         full_jar_snapshot = generate_java_classpath_snapshot(actions, java_toolchain.cp_snapshot_generator, ClasspathSnapshotGranularity("CLASS_MEMBER_LEVEL"), final_jar_output.final_jar, actions_identifier)
         return make_compile_outputs(
@@ -286,7 +301,7 @@ def create_jar_artifact_kotlincd(
             annotation_processor_output = output_paths.annotations,
             abi_jar_snapshot = full_jar_snapshot,
             used_jars_json = used_jars_json,
-        ), proto
+        ), proto, {}
 
 def _encode_kotlin_extra_params(
         kotlin_toolchain: KotlinToolchainInfo,
@@ -440,6 +455,8 @@ def _define_kotlincd_action(
         uses_content_based_paths: bool,
         incremental_metadata_ignored_inputs_tag: ArtifactTag,
         jar_postprocessor: [RunInfo, None],
+        files_which_skipped_compilation: [Artifact, None],
+        jvm_abi_files_which_skipped_compilation: [Artifact, None],
         # end of factory provided
         category_prefix: str,
         actions_identifier: [str, None],
@@ -489,6 +506,11 @@ def _define_kotlincd_action(
 
     if incremental_state_dir:
         post_build_params["incrementalStateDir"] = incremental_state_dir.as_output()
+
+    if target_type == TargetType("library") and files_which_skipped_compilation:
+        post_build_params["filesWhichSkippedCompilation"] = files_which_skipped_compilation.as_output()
+    if target_type == TargetType("library") and jvm_abi_files_which_skipped_compilation:
+        post_build_params["jvmAbiFilesWhichSkippedCompilation"] = jvm_abi_files_which_skipped_compilation.as_output()
 
     if jar_postprocessor and target_type == TargetType("library"):
         if "libraryJar" not in post_build_params:

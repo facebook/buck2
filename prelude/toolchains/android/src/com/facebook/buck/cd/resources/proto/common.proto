@@ -45,4 +45,6 @@ message PostBuildParams {
   bool shouldCreateClassAbi = 11;
   string usedJarsFile = 12;
   string postProcessorCmd = 13;
+  string filesWhichSkippedCompilation = 14;
+  string jvmAbiFilesWhichSkippedCompilation = 15;
 }

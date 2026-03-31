@@ -27,6 +27,8 @@ class PostBuildParams(
     val shouldCreateClassAbi: Boolean,
     val usedJarsPath: Path?,
     val postProcessorCmd: String?,
+    val filesWhichSkippedCompilation: Path?,
+    val jvmAbiFilesWhichSkippedCompilation: Path?,
 ) {
   companion object {
     fun fromProto(model: PostBuildParamsProto): PostBuildParams =
@@ -43,6 +45,8 @@ class PostBuildParams(
             model.shouldCreateClassAbi,
             model.usedJarsFile.takeIf { it.isNotEmpty() }?.let(Paths::get),
             model.postProcessorCmd.takeIf { it.isNotEmpty() },
+            model.filesWhichSkippedCompilation.takeIf { it.isNotEmpty() }?.let(Paths::get),
+            model.jvmAbiFilesWhichSkippedCompilation.takeIf { it.isNotEmpty() }?.let(Paths::get),
         )
   }
 }
