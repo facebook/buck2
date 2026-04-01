@@ -32,6 +32,7 @@ use crate::console::control_reader;
 use crate::console::emit_unknown_control;
 
 pub mod blocks;
+pub mod breakout;
 pub mod life;
 pub mod snake;
 pub mod r#static;

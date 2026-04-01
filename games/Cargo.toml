@@ -21,6 +21,10 @@ tokio = { workspace = true }
 termios = { workspace = true }
 
 [[bin]]
+name = "breakout"
+path = "bin/breakout.rs"
+
+[[bin]]
 name = "blocks"
 path = "bin/blocks.rs"
 
