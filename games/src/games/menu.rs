@@ -70,7 +70,7 @@ pub struct Menu {
     /// sub-menu cursor: 0 = New Game, 1 = Continue
     sub_selected: usize,
     /// Callback to check if a save exists for a game name
-    has_save_fn: Box<dyn Fn(&str) -> bool>,
+    has_save_fn: Box<dyn Fn(&str) -> bool + Send>,
 }
 
 // Total width between the two border chars ║...║
@@ -109,7 +109,7 @@ pub fn hline(left: &str, right: &str) -> Line {
 }
 
 impl Menu {
-    pub fn new(items: Vec<MenuItem>, has_save_fn: Box<dyn Fn(&str) -> bool>) -> Self {
+    pub fn new(items: Vec<MenuItem>, has_save_fn: Box<dyn Fn(&str) -> bool + Send>) -> Self {
         Self {
             items,
             selected: 0,

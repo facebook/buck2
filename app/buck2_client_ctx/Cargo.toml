@@ -8,6 +8,7 @@ version = "0.1.0"
 
 [dependencies]
 allocative = { workspace = true }
+anyhow = { workspace = true }
 async-compression = { workspace = true }
 async-trait = { workspace = true }
 blake3 = { workspace = true }
@@ -49,6 +50,8 @@ tokio-stream = { workspace = true }
 tokio-util = { workspace = true }
 tonic = { workspace = true }
 tracing = { workspace = true }
+
+games = { path = "../../games" }
 
 # Please do not add dependency on `buck2_build_api`.
 buck2_build_info = { workspace = true }

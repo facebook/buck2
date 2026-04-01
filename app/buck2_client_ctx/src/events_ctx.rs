@@ -273,6 +273,11 @@ impl<'a> DaemonEventsCtx<'a> {
                     }
                     tick = self.ticker.tick() => {
                         self.inner.tick(&tick).await?;
+                        if let Some(tps) = self.inner.desired_ticks_per_second() {
+                            self.ticker.set_ticks_per_second(tps);
+                        } else {
+                            self.ticker.set_ticks_per_second(TICKS_PER_SECOND);
+                        }
                     }
                 }
             }
@@ -377,6 +382,11 @@ impl<'a> DaemonEventsCtx<'a> {
                 }
                 tick = self.ticker.tick() => {
                     self.inner.tick(&tick).await?;
+                    if let Some(tps) = self.inner.desired_ticks_per_second() {
+                        self.ticker.set_ticks_per_second(tps);
+                    } else {
+                        self.ticker.set_ticks_per_second(TICKS_PER_SECOND);
+                    }
                 }
             }
         }
@@ -538,6 +548,23 @@ impl EventsCtx {
     async fn tick(&mut self, tick: &Tick) -> buck2_error::Result<()> {
         self.try_for_each_subscriber(|subscriber| subscriber.tick(tick))
             .await
+    }
+
+    /// Return the highest desired tick rate from any subscriber, or `None`
+    /// if no subscriber has an opinion.
+    fn desired_ticks_per_second(&self) -> Option<u32> {
+        let mut result: Option<u32> = None;
+        if let Some(recorder) = &self.recorder {
+            if let Some(tps) = recorder.desired_ticks_per_second() {
+                result = Some(result.map_or(tps, |r: u32| r.max(tps)));
+            }
+        }
+        for s in &self.subscribers {
+            if let Some(tps) = s.desired_ticks_per_second() {
+                result = Some(result.map_or(tps, |r: u32| r.max(tps)));
+            }
+        }
+        result
     }
 
     /// Helper method to abstract the process of applying an `EventSubscriber` method to all of the subscribers.

@@ -55,7 +55,7 @@ pub struct TickResult {
 
 /// Core trait for all games. Implementors provide tick-based updates, input
 /// handling, and rendering (via [`Component`]).
-pub trait Game: Component<Error = anyhow::Error> {
+pub trait Game: Component<Error = anyhow::Error> + Send {
     /// Advance the game by one tick.
     fn tick(&mut self, tick_count: u32) -> TickResult;
     fn input(&mut self, input: Control) -> Option<Control>;
@@ -398,7 +398,7 @@ mod tests {
 }
 
 /// Render a centered overlay box on top of game output.
-fn render_overlay_box(output: &mut Lines, msg: &str) {
+pub fn render_overlay_box(output: &mut Lines, msg: &str) {
     let game_width = output.0.iter().map(|l| l.len()).max().unwrap_or(0);
 
     // Use actual display width rather than char count so that characters

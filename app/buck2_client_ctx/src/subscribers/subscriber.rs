@@ -63,6 +63,13 @@ pub trait EventSubscriber: Send {
         Ok(())
     }
 
+    /// Return a desired tick rate override. The event loop will adjust its
+    /// ticker when this differs from the current rate. Return `None` to keep
+    /// the default rate.
+    fn desired_ticks_per_second(&self) -> Option<u32> {
+        None
+    }
+
     fn as_error_observer(&self) -> Option<&dyn ErrorObserver> {
         None
     }

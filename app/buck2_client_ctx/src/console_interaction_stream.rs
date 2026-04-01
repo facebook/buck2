@@ -201,6 +201,10 @@ pub enum SuperConsoleToggle {
     DecreaseReplaySpeed,
     PauseReplay,
     Help,
+    /// Raw character that didn't match any known toggle.
+    /// Not included in help or iteration.
+    #[strum(disabled)]
+    Char(char),
 }
 
 impl SuperConsoleToggle {
@@ -220,6 +224,7 @@ impl SuperConsoleToggle {
             SuperConsoleToggle::DecreaseReplaySpeed => "decrease replay speed",
             SuperConsoleToggle::PauseReplay => "pause replay",
             SuperConsoleToggle::Help => "help",
+            SuperConsoleToggle::Char(_) => "char",
         }
     }
 
@@ -239,6 +244,7 @@ impl SuperConsoleToggle {
             SuperConsoleToggle::DecreaseReplaySpeed => 'j',
             SuperConsoleToggle::PauseReplay => 'y',
             SuperConsoleToggle::Help => '?',
+            SuperConsoleToggle::Char(c) => *c,
         }
     }
 }
@@ -269,7 +275,7 @@ impl SuperConsoleInteraction for ConsoleInteractionStream<'_> {
                     'j' => Some(SuperConsoleToggle::DecreaseReplaySpeed),
                     'y' => Some(SuperConsoleToggle::PauseReplay),
                     '?' | 'h' => Some(SuperConsoleToggle::Help),
-                    _ => None,
+                    _ => Some(SuperConsoleToggle::Char(c)),
                 };
                 Ok(console_toggle)
             }
