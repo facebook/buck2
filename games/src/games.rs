@@ -33,6 +33,7 @@ use crate::console::emit_unknown_control;
 
 pub mod blocks;
 pub mod breakout;
+pub mod jump;
 pub mod life;
 pub mod minesweeper;
 pub mod snake;

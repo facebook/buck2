@@ -29,6 +29,10 @@ name = "blocks"
 path = "bin/blocks.rs"
 
 [[bin]]
+name = "jump"
+path = "bin/jump.rs"
+
+[[bin]]
 name = "minesweeper"
 path = "bin/minesweeper.rs"
 

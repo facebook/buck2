@@ -31,6 +31,19 @@ rust_library(
 )
 
 rust_binary(
+    name = "jump",
+    srcs = ["bin/jump.rs"],
+    crate_root = "bin/jump.rs",
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:clap",
+        "fbsource//third-party/rust:tokio",
+        ":games",
+        "//buck2/superconsole:superconsole",
+    ],
+)
+
+rust_binary(
     name = "breakout",
     srcs = ["bin/breakout.rs"],
     crate_root = "bin/breakout.rs",
