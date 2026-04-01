@@ -536,7 +536,8 @@ def _create_prebuilt_library_outputs(
                     shared_lib_for_linking = shared_lib.output
 
                     # Generate a shared library interface if the rule supports it.
-                    if ctx.attrs.supports_shared_library_interface and cxx_use_shlib_intfs_mode(ctx, ShlibInterfacesMode("stub_from_library")):
+                    # TODO: We should not permit both modes, but to keep builds green we have to for now.
+                    if ctx.attrs.supports_shared_library_interface and (cxx_use_shlib_intfs_mode(ctx, ShlibInterfacesMode("defined_only")) or cxx_use_shlib_intfs_mode(ctx, ShlibInterfacesMode("stub_from_library"))):
                         shared_lib_for_linking = shared_library_interface(
                             ctx = ctx,
                             shared_lib = shared_lib.output,
