@@ -26,7 +26,6 @@ use buck2_build_info::Buck2BuildInfo;
 use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::restarter::Restarter;
-use buck2_client_ctx::stdin::Stdin;
 use buck2_client_ctx::stdio;
 use buck2_client_ctx::subscribers::recorder::InvocationRecorder;
 use buck2_core::buck2_env;
@@ -36,6 +35,7 @@ use buck2_core::logging::log_file::TracingLogFile;
 use buck2_fs::working_dir::AbsWorkingDir;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
+use superconsole::Stdin;
 
 // fbcode likes to set its own allocator in fbcode.default_allocator
 // So when we set our own allocator, buck build buck2 or buck2 build buck2 often breaks.
@@ -174,9 +174,16 @@ fn main() -> ! {
         // Log the start timestamp
         tracing::debug!("Client initialized logging");
 
+        let stdin_buffer_size = buck2_env!(
+            "BUCK2_TEST_STDIN_BUFFER_SIZE",
+            type=usize,
+            applicability=testing,
+        )?
+        .unwrap_or(8192);
+
         Ok(SharedProcessContext {
             log_reload_handle: init_logging()?,
-            stdin: Stdin::new()?,
+            stdin: Stdin::new(stdin_buffer_size),
             working_dir: AbsWorkingDir::current_dir()?,
             args: std::env::args().collect::<Vec<String>>(),
             restarter: Restarter::new(),

@@ -28,6 +28,7 @@ use buck2_fs::paths::file_name::FileNameBuf;
 use buck2_fs::working_dir::AbsWorkingDir;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
+use superconsole::Stdin;
 use tokio::runtime::Runtime;
 
 use crate::client_metadata::ClientMetadata;
@@ -44,7 +45,6 @@ use crate::events_ctx::EventsCtx;
 use crate::exit_result::ExitResult;
 use crate::immediate_config::ImmediateConfigContext;
 use crate::restarter::Restarter;
-use crate::stdin::Stdin;
 use crate::streaming::StreamingCommand;
 
 pub struct ClientCommandContext<'a> {

@@ -37,7 +37,6 @@ pub mod query_args;
 pub mod restarter;
 pub mod signal_handler;
 pub mod startup_deadline;
-pub mod stdin;
 pub mod stdio;
 pub mod stream_util;
 pub mod streaming;

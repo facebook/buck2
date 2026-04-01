@@ -20,6 +20,8 @@ serde_json = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 
+superconsole = { version = "0.2.0", path = "../../superconsole" }
+
 # Buck2 dependencies
 buck2_cli_proto = { workspace = true }
 buck2_client_ctx = { workspace = true }

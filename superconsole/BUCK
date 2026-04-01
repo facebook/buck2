@@ -14,13 +14,29 @@ rust_library(
         "fbsource//third-party/rust:derive_more",
     ],
     deps = [
+        "fbsource//third-party/rust:bytes",
         "fbsource//third-party/rust:crossbeam-channel",
         "fbsource//third-party/rust:crossterm",
+        "fbsource//third-party/rust:futures",
         "fbsource//third-party/rust:itertools",
+        "fbsource//third-party/rust:pin-project",
+        "fbsource//third-party/rust:take_mut",
         "fbsource//third-party/rust:termwiz",
         "fbsource//third-party/rust:thiserror",
+        "fbsource//third-party/rust:tokio",
+        "fbsource//third-party/rust:tokio-stream",
+        "fbsource//third-party/rust:tokio-util",
+        "fbsource//third-party/rust:tracing",
         "fbsource//third-party/rust:unicode-segmentation",
-    ],
+    ] + select({
+        "DEFAULT": [],
+        "ovr_config//os:linux": [
+            "fbsource//third-party/rust:nix",
+        ],
+        "ovr_config//os:macos": [
+            "fbsource//third-party/rust:nix",
+        ],
+    }),
 )
 
 rust_binary(

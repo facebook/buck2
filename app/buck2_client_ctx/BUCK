@@ -34,7 +34,6 @@ rust_library(
         "fbsource//third-party/rust:memmap2",
         "fbsource//third-party/rust:object",
         "fbsource//third-party/rust:once_cell",
-        "fbsource//third-party/rust:pin-project",
         "fbsource//third-party/rust:prost",
         "fbsource//third-party/rust:prost-types",
         "fbsource//third-party/rust:rand_09",
@@ -74,11 +73,9 @@ rust_library(
     ] + select({
         "DEFAULT": [],
         "ovr_config//os:linux": [
-            "fbsource//third-party/rust:nix",
             "fbsource//third-party/rust:termios",
         ],
         "ovr_config//os:macos": [
-            "fbsource//third-party/rust:nix",
             "fbsource//third-party/rust:termios",
         ],
         "ovr_config//os:windows": [

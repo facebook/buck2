@@ -8,6 +8,8 @@
  * above-listed licenses.
  */
 
+//! Async stdin reader backed by a blocking background thread.
+
 use std::io;
 use std::io::Read;
 use std::pin::Pin;
@@ -15,8 +17,6 @@ use std::task::Context;
 use std::task::Poll;
 use std::thread::JoinHandle;
 
-use buck2_core::buck2_env;
-use buck2_util::threads::thread_spawn;
 use bytes::Bytes;
 use futures::stream::Fuse;
 use futures::stream::StreamExt;
@@ -27,6 +27,11 @@ use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tokio_util::io::StreamReader;
 
+/// An async reader for stdin that performs blocking reads on a background thread.
+///
+/// Reading is deferred until the first `poll_read` call, at which point a background thread
+/// is spawned to read from stdin and forward data via a channel. On unix, raw unbuffered
+/// reads are used to avoid double-buffering.
 #[pin_project]
 pub struct Stdin {
     #[pin]
@@ -49,22 +54,19 @@ impl AsyncRead for Stdin {
 }
 
 impl Stdin {
-    pub fn new() -> buck2_error::Result<Self> {
-        let buffer_size = buck2_env!(
-            "BUCK2_TEST_STDIN_BUFFER_SIZE",
-            type=usize,
-            applicability=testing,
-        )?
-        .unwrap_or(8192);
-
+    /// Creates a new `Stdin` reader.
+    ///
+    /// `buffer_size` controls the size of the read buffer used by the background thread
+    /// (typically 8192 bytes).
+    pub fn new(buffer_size: usize) -> Self {
         // Small buffer, this isn't bytes we're buffering, just buffers of bytes. That said, since
         // we're on separate threads, give ourselves a bit of buffering.
         let (tx, rx) = mpsc::channel(4);
 
-        Ok(Self {
+        Self {
             stream: StreamReader::new(ReceiverStream::new(rx).fuse()),
             state: State::Pending { buffer_size, tx },
-        })
+        }
     }
 }
 
@@ -89,21 +91,23 @@ impl State {
                     buffer_size,
                     mut tx,
                 } => {
-                    let handle = thread_spawn("buck2-stdin", {
-                        move || {
-                            #[allow(clippy::let_and_return)]
-                            let stdin = std::io::stdin().lock();
+                    let handle = std::thread::Builder::new()
+                        .name("superconsole-stdin".to_owned())
+                        .spawn({
+                            move || {
+                                #[allow(clippy::let_and_return)]
+                                let stdin = std::io::stdin().lock();
 
-                            // Disable buffering, since we don't do small reads anyway (we have a 8KB buffer
-                            // already). We probably need something similar on Windows here.
-                            #[cfg(unix)]
-                            let stdin = raw_reader::RawReader::new(stdin);
+                                // Disable buffering, since we don't do small reads anyway (we have a 8KB buffer
+                                // already). We probably need something similar on Windows here.
+                                #[cfg(unix)]
+                                let stdin = raw_reader::RawReader::new(stdin);
 
-                            // NOTE: We ignore send errors since there is no point in reading without a receiver.
-                            let _ignored = read_and_forward(stdin, &mut tx, buffer_size);
-                        }
-                    })
-                    .unwrap();
+                                // NOTE: We ignore send errors since there is no point in reading without a receiver.
+                                let _ignored = read_and_forward(stdin, &mut tx, buffer_size);
+                            }
+                        })
+                        .unwrap();
 
                     Self::Started(handle)
                 }

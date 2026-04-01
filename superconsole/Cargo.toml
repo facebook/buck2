@@ -11,12 +11,23 @@ repository = "https://github.com/facebookincubator/superconsole"
 version = "0.2.0"
 
 [dependencies]
+bytes = "1.0"
 crossbeam-channel = "0.5"
 crossterm = "0.28"
+futures = "0.3"
 itertools = "0.14.0"
+pin-project = "1.0"
+take_mut = "0.2"
 termwiz = "0.23"
 thiserror = "2.0.18"
+tokio = { version = "1.5", features = ["io-util", "rt", "sync"] }
+tokio-stream = "0.1"
+tokio-util = { version = "0.7", features = ["io"] }
+tracing = "0.1"
 unicode-segmentation = "1.12.0"
+
+[target.'cfg(unix)'.dependencies]
+nix = { version = "0.30.1", features = ["fs"] }
 
 [dev-dependencies]
 anyhow = "1.0.98"

@@ -39,6 +39,7 @@ rust_library(
         "//buck2/app/buck2_wrapper_common:buck2_wrapper_common",
         "//buck2/gazebo/dupe:dupe",
         "//buck2/shed/buck2_hash:buck2_hash",
+        "//buck2/superconsole:superconsole",
         "//common/rust/shed/fbinit:fbinit",
     ] + select({
         ":buck2_client_only_build": [],
@@ -101,6 +102,7 @@ buck_rust_binary(
         "//buck2/app/buck2_fs:buck2_fs",
         "//buck2/app/buck2_wrapper_common:buck2_wrapper_common",
         "//buck2/gazebo/dupe:dupe",
+        "//buck2/superconsole:superconsole",
     ] + select({
         "DEFAULT": [],
         "ovr_config//os:windows": [

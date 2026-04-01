@@ -9,9 +9,8 @@
  */
 
 use strum::EnumIter;
+use superconsole::Stdin;
 use tokio::io::AsyncReadExt;
-
-use crate::stdin::Stdin;
 
 pub struct ConsoleInteractionStream<'a> {
     stdin: &'a mut Stdin,

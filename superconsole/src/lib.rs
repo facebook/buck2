@@ -36,6 +36,7 @@ pub use dimensions::Direction;
 pub use error::Error;
 
 pub use crate::builder::Builder;
+pub use crate::stdin::Stdin;
 pub use crate::superconsole::SuperConsole;
 
 #[allow(type_alias_bounds)]
@@ -48,6 +49,7 @@ pub mod content;
 mod dimensions;
 pub mod error;
 pub mod output;
+pub mod stdin;
 pub mod style;
 mod superconsole;
 pub mod testing;

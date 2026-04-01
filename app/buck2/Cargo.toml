@@ -19,6 +19,7 @@ tracing = { workspace = true }
 dupe = { workspace = true }
 gazebo = { workspace = true }
 host_sharing = { workspace = true }
+superconsole = { version = "0.2.0", path = "../../superconsole" }
 
 buck2_action_impl = { workspace = true }
 buck2_analysis = { workspace = true }
