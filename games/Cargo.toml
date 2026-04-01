@@ -19,3 +19,7 @@ tokio = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
 termios = { workspace = true }
+
+[[bin]]
+name = "static"
+path = "bin/static.rs"
