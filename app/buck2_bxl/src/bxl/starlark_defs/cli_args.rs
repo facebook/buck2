@@ -603,9 +603,9 @@ impl CliArgType {
                         )
                     }))
             }
-            CliArgType::TargetExpr => clap.num_args(1),
-            CliArgType::ConfiguredTargetExpr => clap.num_args(1),
-            CliArgType::SubTargetExpr => clap.num_args(1),
+            CliArgType::TargetExpr => clap.num_args(1).action(ArgAction::Append),
+            CliArgType::ConfiguredTargetExpr => clap.num_args(1).action(ArgAction::Append),
+            CliArgType::SubTargetExpr => clap.num_args(1).action(ArgAction::Append),
             CliArgType::Json => clap.num_args(1),
             CliArgType::JsonFile => clap.num_args(1),
         }
@@ -742,20 +742,25 @@ impl CliArgType {
                     r.map(Some)
                 })?,
                 CliArgType::TargetExpr => {
-                    let x = clap.value_of().unwrap_or("");
-                    let pattern = ParsedPattern::<TargetPatternExtra>::parse_relaxed(
-                        &ctx.target_alias_resolver,
-                        ctx.relative_dir.as_cell_path(),
-                        x,
-                        &ctx.cell_resolver,
-                        &ctx.cell_alias_resolver,
-                    )?;
-                    let loaded = load_patterns(
-                        &mut ctx.dice.clone(),
-                        vec![pattern],
-                        MissingTargetBehavior::Fail,
-                    )
-                    .await?;
+                    let patterns = clap
+                        .values_of()
+                        .map(|xs| {
+                            xs.map(|x| {
+                                ParsedPattern::<TargetPatternExtra>::parse_relaxed(
+                                    &ctx.target_alias_resolver,
+                                    ctx.relative_dir.as_cell_path(),
+                                    x,
+                                    &ctx.cell_resolver,
+                                    &ctx.cell_alias_resolver,
+                                )
+                            })
+                            .collect::<buck2_error::Result<Vec<_>>>()
+                        })
+                        .unwrap_or(Ok(Vec::new()))?;
+
+                    let loaded =
+                        load_patterns(&mut ctx.dice.clone(), patterns, MissingTargetBehavior::Fail)
+                            .await?;
                     Some(CliArgValue::List(
                         loaded
                             .iter_loaded_targets()
@@ -764,18 +769,25 @@ impl CliArgType {
                     ))
                 }
                 CliArgType::ConfiguredTargetExpr => {
-                    let arg = clap.value_of().unwrap_or("");
-                    let pattern_with_modifiers =
-                        ParsedPatternWithModifiers::<TargetPatternExtra>::parse_relaxed(
-                            &ctx.target_alias_resolver,
-                            ctx.relative_dir.as_cell_path(),
-                            arg,
-                            &ctx.cell_resolver,
-                            &ctx.cell_alias_resolver,
-                        )?;
+                    let patterns = clap
+                        .values_of()
+                        .map(|xs| {
+                            xs.map(|x| {
+                                ParsedPatternWithModifiers::<TargetPatternExtra>::parse_relaxed(
+                                    &ctx.target_alias_resolver,
+                                    ctx.relative_dir.as_cell_path(),
+                                    x,
+                                    &ctx.cell_resolver,
+                                    &ctx.cell_alias_resolver,
+                                )
+                            })
+                            .collect::<buck2_error::Result<Vec<_>>>()
+                        })
+                        .unwrap_or(Ok(Vec::new()))?;
+
                     let result = load_compatible_patterns_with_modifiers(
                         &mut ctx.dice.clone(),
-                        vec![pattern_with_modifiers],
+                        patterns,
                         &ctx.global_cfg_options,
                         MissingTargetBehavior::Fail,
                         false,
@@ -790,20 +802,25 @@ impl CliArgType {
                     ))
                 }
                 CliArgType::SubTargetExpr => {
-                    let x = clap.value_of().unwrap_or("");
-                    let pattern = ParsedPattern::<ProvidersPatternExtra>::parse_relaxed(
-                        &ctx.target_alias_resolver,
-                        ctx.relative_dir.as_cell_path(),
-                        x,
-                        &ctx.cell_resolver,
-                        &ctx.cell_alias_resolver,
-                    )?;
-                    let loaded = load_patterns(
-                        &mut ctx.dice.clone(),
-                        vec![pattern],
-                        MissingTargetBehavior::Fail,
-                    )
-                    .await?;
+                    let patterns = clap
+                        .values_of()
+                        .map(|xs| {
+                            xs.map(|x| {
+                                ParsedPattern::<ProvidersPatternExtra>::parse_relaxed(
+                                    &ctx.target_alias_resolver,
+                                    ctx.relative_dir.as_cell_path(),
+                                    x,
+                                    &ctx.cell_resolver,
+                                    &ctx.cell_alias_resolver,
+                                )
+                            })
+                            .collect::<buck2_error::Result<Vec<_>>>()
+                        })
+                        .unwrap_or(Ok(Vec::new()))?;
+
+                    let loaded =
+                        load_patterns(&mut ctx.dice.clone(), patterns, MissingTargetBehavior::Fail)
+                            .await?;
 
                     Some(CliArgValue::List(
                         loaded
