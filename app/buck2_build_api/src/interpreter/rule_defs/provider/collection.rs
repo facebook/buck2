@@ -420,11 +420,13 @@ unsafe impl<'v> Trace<'v> for ProviderCollection<'v> {
 impl<'v> Freeze for ProviderCollection<'v> {
     type Frozen = FrozenProviderCollection;
     fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
-        let providers = self
-            .providers
-            .into_iter()
-            .map(|(k, v)| Ok((k, freezer.freeze(v)?)))
-            .collect::<FreezeResult<_>>()?;
+        // N.B. collect::<Result<_>> sets the lower bound to zero,
+        // which can cause over-allocations in frozen containers.
+        let mut providers = SmallMap::with_capacity(self.providers.len());
+        for (k, v) in self.providers {
+            providers.insert(k, freezer.freeze(v)?);
+        }
+
         Ok(FrozenProviderCollection { providers })
     }
 }

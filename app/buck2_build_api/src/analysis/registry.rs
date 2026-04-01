@@ -441,19 +441,25 @@ impl<'v> Freeze for AnalysisValueStorage<'v> {
             result_value,
         } = self;
 
+        // N.B. collect::<Result<_>> sets the lower bound to zero,
+        // which can cause over-allocations in frozen containers.
+        let mut frozen_action_data = SmallMap::with_capacity(action_data.len());
+        for (k, v) in action_data {
+            frozen_action_data.insert(k, v.freeze(freezer)?);
+        }
+        let mut frozen_transitive_sets = Vec::with_capacity(transitive_sets.len());
+        for v in transitive_sets {
+            frozen_transitive_sets.push(
+                FrozenValueTyped::new_err(v.to_value().freeze(freezer)?)
+                    .map_err(|e| FreezeError::new(e.to_string()))?,
+            );
+        }
         Ok(FrozenAnalysisValueStorage {
             self_key,
-            action_data: action_data
+            action_data: frozen_action_data,
+            transitive_sets: frozen_transitive_sets
                 .into_iter()
-                .map(|(k, v)| Ok((k, v.freeze(freezer)?)))
-                .collect::<FreezeResult<_>>()?,
-            transitive_sets: transitive_sets
-                .into_iter()
-                .map(|v| {
-                    FrozenValueTyped::new_err(v.to_value().freeze(freezer)?)
-                        .map_err(|e| FreezeError::new(e.to_string()))
-                })
-                .collect::<FreezeResult<ThinBoxSlice<_>>>()?,
+                .collect::<ThinBoxSlice<_>>(),
             lambda_params: lambda_params.freeze(freezer)?,
             result_value: result_value.freeze(freezer)?,
         })

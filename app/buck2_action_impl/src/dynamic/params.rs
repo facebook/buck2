@@ -119,11 +119,15 @@ impl<'v> Freeze for DynamicLambdaParams<'v> {
             plugins: self.plugins.freeze(freezer)?,
             lambda: self.lambda.freeze(freezer)?,
             attr_values,
-            outputs: self
-                .outputs
-                .into_iter()
-                .map(|o| o.freeze(freezer))
-                .collect::<FreezeResult<_>>()?,
+            // N.B. collect::<Result<_>> sets the lower bound to zero,
+            // which can cause over-allocations in frozen containers.
+            outputs: {
+                let mut outputs = Vec::with_capacity(self.outputs.len());
+                for output in self.outputs {
+                    outputs.push(output.freeze(freezer)?);
+                }
+                outputs.into_boxed_slice()
+            },
             static_fields: self.static_fields,
         })
     }

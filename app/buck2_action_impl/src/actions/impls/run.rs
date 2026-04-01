@@ -330,11 +330,15 @@ impl<'v> Freeze for StarlarkRunActionValues<'v> {
             remote_worker: remote_worker.freeze(freezer)?,
             category: category.freeze(freezer)?,
             identifier: identifier.freeze(freezer)?,
-            outputs_for_error_handler: outputs_for_error_handler
-                .iter()
-                .copied()
-                .map(|x| x.freeze(freezer))
-                .collect::<FreezeResult<_>>()?,
+            // N.B. collect::<Result<_>> sets the lower bound to zero,
+            // which can cause over-allocations in frozen containers.
+            outputs_for_error_handler: {
+                let mut frozen_outputs = Vec::with_capacity(outputs_for_error_handler.len());
+                for output in outputs_for_error_handler {
+                    frozen_outputs.push(output.freeze(freezer)?);
+                }
+                frozen_outputs
+            },
         })
     }
 }

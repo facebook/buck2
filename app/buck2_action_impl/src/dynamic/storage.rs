@@ -130,12 +130,14 @@ impl<'v> DynamicLambdaParamsStorage<'v> for DynamicLambdaParamsStorageImpl<'v> {
             lambda_params,
             self_key: _,
         } = self.into_inner();
-        let lambda_params = lambda_params
-            .into_iter_hashed()
-            .map(|(k, v)| Ok((k, v.freeze(freezer)?)))
-            .collect::<FreezeResult<_>>()?;
+        // N.B. collect::<Result<_>> sets the lower bound to zero,
+        // which can cause over-allocations in frozen containers.
+        let mut frozen_lambda_params = SmallMap::with_capacity(lambda_params.len());
+        for (k, v) in lambda_params.into_iter_hashed() {
+            frozen_lambda_params.insert_hashed(k, v.freeze(freezer)?);
+        }
         Ok(Box::new(FrozenDynamicLambdaParamsStorageImpl {
-            lambda_params,
+            lambda_params: frozen_lambda_params,
         }))
     }
 }

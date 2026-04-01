@@ -107,19 +107,19 @@ impl<'v> Freeze for PackageFileExtra<'v> {
             package_values,
         } = self;
         let cfg_constructor = cfg_constructor.into_inner().freeze(freezer)?;
-        let package_values = package_values
-            .into_inner()
-            .into_iter_hashed()
-            .map(|(k, v)| {
-                let v = v
-                    .freeze(freezer)
-                    .freeze_error_context(&format!("freezing `{k}`"))?;
-                Ok((k, v))
-            })
-            .collect::<FreezeResult<SmallMap<MetadataKey, FrozenStarlarkPackageValue>>>()?;
+        let package_values = package_values.into_inner();
+        // N.B. collect::<Result<_>> sets the lower bound to zero,
+        // which can cause over-allocations in frozen containers.
+        let mut frozen_package_values = SmallMap::with_capacity(package_values.len());
+        for (k, v) in package_values.into_iter_hashed() {
+            let v = v
+                .freeze(freezer)
+                .freeze_error_context(&format!("freezing `{k}`"))?;
+            frozen_package_values.insert_hashed(k, v);
+        }
         Ok(FrozenPackageFileExtra {
             cfg_constructor,
-            package_values,
+            package_values: frozen_package_values,
         })
     }
 }

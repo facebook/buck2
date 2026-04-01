@@ -141,11 +141,12 @@ impl Freeze for Transition<'_> {
         let id = self.id.into_inner().ok_or(FreezeError::new(
             TransitionError::TransitionNotAssigned.to_string(),
         ))?;
-        let refs = self
-            .refs
-            .into_iter()
-            .map(|(k, v)| Ok((k.freeze(freezer)?, v.0)))
-            .collect::<FreezeResult<_>>()?;
+        // N.B. collect::<Result<_>> sets the lower bound to zero,
+        // which can cause over-allocations in frozen containers.
+        let mut refs = SmallMap::with_capacity(self.refs.len());
+        for (k, v) in self.refs {
+            refs.insert(k.freeze(freezer)?, v.0);
+        }
         let attrs = self
             .attrs
             .map(|a| a.into_try_map(|a| a.freeze(freezer)))
