@@ -33,8 +33,8 @@ load("@prelude//tests:test_listing.bzl", "TestListingInfo")
 load("@prelude//tests:test_toolchain.bzl", "TestToolchainInfo")
 load("@prelude//zip_file:zip_file_toolchain.bzl", "ZipFileToolchainInfo")
 
-def _toolchain(lang: str, providers: list[typing.Any]) -> Attr:
-    return attrs.toolchain_dep(default = "toolchains//:" + lang, providers = providers)
+def _toolchain(lang: str, providers: list[typing.Any], *, default: typing.Any = None) -> Attr:
+    return attrs.toolchain_dep(default = default or ("toolchains//:" + lang), providers = providers)
 
 def _android_toolchain():
     return _toolchain("android", [AndroidToolchainInfo, AndroidPlatformInfo, TestListingInfo])
@@ -47,7 +47,15 @@ def _cython_toolchain():
 
 def _cxx_toolchain():
     # `CxxToolchainInfo, CxxPlatformInfo`, but python doesn't require it
-    return _toolchain("cxx", [])
+    lang = "cxx"
+
+    # Portions of the macro layers use the `default_deps` attribute to set this
+    # to the `:cxx_no_default_deps` option. If a targets has within_view checks
+    # that don't list `toolchains//:` they will experience an error. We can avoid
+    # this by ensuring the `within_deps` checks inside buck see either of the
+    # toolchains below as a possible default value, even though one of them is
+    # never able to be selected in this expression.
+    return _toolchain(lang, [], default = select({"DEFAULT": "toolchains//:" + lang, "config//:none": "toolchains//:cxx_no_default_deps"}))
 
 def _dex_toolchain():
     return _toolchain("dex", [DexToolchainInfo])
