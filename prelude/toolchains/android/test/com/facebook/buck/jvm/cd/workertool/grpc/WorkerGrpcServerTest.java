@@ -50,9 +50,7 @@ public class WorkerGrpcServerTest {
             .findFirst();
 
     assertTrue(
-        "Health check thread should exist with name containing '"
-            + serverName
-            + "-health-check'",
+        "Health check thread should exist with name containing '" + serverName + "-health-check'",
         healthCheckThread.isPresent());
     assertTrue("Health check thread should be a daemon thread", healthCheckThread.get().isDaemon());
   }
