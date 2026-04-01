@@ -12,6 +12,7 @@ clap = { workspace = true }
 futures = { workspace = true }
 image = { workspace = true }
 itertools = { workspace = true }
+rand = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 superconsole = { version = "0.2.0", path = "../superconsole" }

@@ -29,7 +29,7 @@ num_enum = { workspace = true }
 once_cell = { workspace = true }
 parking_lot = { workspace = true }
 prost-types = { workspace = true }
-rand = { workspace = true }
+rand = { version = "0.9", features = ["small_rng"] }
 ref-cast = { workspace = true }
 regex = { workspace = true }
 rusqlite = { workspace = true }

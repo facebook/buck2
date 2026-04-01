@@ -20,7 +20,7 @@ once_cell = { workspace = true }
 os_str_bytes = { workspace = true }
 pagable = { workspace = true }
 pin-project = { workspace = true }
-rand = { workspace = true }
+rand = { version = "0.9", features = ["small_rng"] }
 ref-cast = { workspace = true }
 regex = { workspace = true }
 relative-path = { workspace = true }

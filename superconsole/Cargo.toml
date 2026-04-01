@@ -13,7 +13,7 @@ version = "0.2.0"
 [dependencies]
 bytes = "1.0"
 crossbeam-channel = "0.5"
-crossterm = "0.28"
+crossterm = { version = "0.28", features = ["serde"] }
 futures = "0.3"
 itertools = "0.14.0"
 pin-project = "1.0"

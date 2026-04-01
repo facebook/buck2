@@ -35,7 +35,7 @@ object = { workspace = true }
 once_cell = { workspace = true }
 prost = { workspace = true }
 prost-types = { workspace = true }
-rand = { workspace = true }
+rand = { version = "0.9", features = ["small_rng"] }
 regex = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

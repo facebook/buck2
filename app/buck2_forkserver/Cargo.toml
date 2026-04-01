@@ -11,7 +11,7 @@ async-trait = { workspace = true }
 futures = { workspace = true }
 libc = { workspace = true }
 nix = { workspace = true }
-rand = { workspace = true }
+rand = { version = "0.9", features = ["small_rng"] }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
 tonic = { workspace = true }
