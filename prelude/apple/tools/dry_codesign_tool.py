@@ -56,7 +56,9 @@ def _main() -> None:
         # This is always empty string if you check `DryCodeSignStep` class usages in buck1
         "relative-path-to-sign": "",
         "use-entitlements": args.entitlements is not None,
-        "identity": args.identity,
+        "debug-info": {
+            "identity": args.identity,
+        },
     }
     if args.extra_paths_to_sign:
         content["extra-paths-to-sign"] = args.extra_paths_to_sign
