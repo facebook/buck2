@@ -16,6 +16,7 @@ load("@prelude//rust:link_info.bzl", "RustProcMacroPlugin")
 load("@prelude//rust:rust_binary.bzl", "rust_binary_impl", "rust_test_impl")
 load("@prelude//rust:rust_library.bzl", "rust_library_impl")
 load(":common.bzl", "RuntimeDependencyHandling", "buck", "prelude_rule")
+load(":cxx_common.bzl", "cxx_common")
 load(":native_common.bzl", "native_common")
 load(":re_test_common.bzl", "re_test_common")
 load(":rust_common.bzl", "rust_common", "rust_target_dep")
@@ -34,7 +35,7 @@ def _rust_common_attributes(is_binary: bool):
         "uses_restricted_rustc_flags": attrs.bool(default = False),
         "_exec_os_type": buck.exec_os_type_arg(),
         "_target_os_type": buck.target_os_type_arg(),
-    }
+    } | cxx_common.default_deps_arg()
 
 def _rust_binary_attrs_group(prefix: str) -> dict[str, Attr]:
     attrs = (rust_common.deps_arg(is_binary = True) |

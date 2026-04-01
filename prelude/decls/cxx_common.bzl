@@ -11,7 +11,7 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
-load(":common.bzl", "CxxSourceType", "IncludeType", "RawHeadersAsHeadersMode", "RuntimeDependencyHandling")
+load(":common.bzl", "CxxSourceType", "DefaultDepsMode", "IncludeType", "RawHeadersAsHeadersMode", "RuntimeDependencyHandling")
 
 def _srcs_arg():
     return {
@@ -31,6 +31,13 @@ def _deps_arg():
     return {
         "deps": attrs.list(attrs.dep(), default = [], doc = """
     Other rules that list `srcs` from which this rule imports.
+"""),
+    }
+
+def _default_deps_arg(default = "deps"):
+    return {
+        "default_deps": attrs.enum(DefaultDepsMode, default = default, doc = """
+    Whether to include the default deps from the toolchain, and where to include them (deps, exported_deps, etc).
 """),
     }
 
@@ -350,6 +357,7 @@ def _expect_eligible_for_dedupe_arg():
 cxx_common = struct(
     srcs_arg = _srcs_arg,
     deps_arg = _deps_arg,
+    default_deps_arg = _default_deps_arg,
     supported_platforms_regex_arg = _supported_platforms_regex_arg,
     headers_arg = _headers_arg,
     exported_headers_arg = _exported_headers_arg,

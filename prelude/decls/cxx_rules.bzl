@@ -132,6 +132,7 @@ cxx_binary = prelude_rule(
         cxx_common.linker_extra_outputs_arg() |
         cxx_common.linker_flags_arg() |
         cxx_common.precompiled_header_arg() |
+        cxx_common.default_deps_arg() |
         native_common.link_style() |
         native_common.link_group_deps() |
         native_common.link_group_public_deps_label() |
@@ -619,7 +620,8 @@ cxx_library = prelude_rule(
         ```
     """,
     further = None,
-    attrs = library_attrs,
+    attrs = library_attrs |
+            cxx_common.default_deps_arg("exported_deps"),
 )
 
 cxx_precompiled_header = prelude_rule(
@@ -833,6 +835,7 @@ cxx_test = prelude_rule(
         buck.inject_test_env_arg() |
         cxx_common.srcs_arg() |
         cxx_common.headers_arg() |
+        cxx_common.default_deps_arg() |
         cxx_common.preprocessor_flags_arg() |
         cxx_common.compiler_flags_arg() |
         cxx_common.linker_flags_arg() |
@@ -1121,6 +1124,7 @@ prebuilt_cxx_library = prelude_rule(
         cxx_common.force_static(force_static_type = attrs.bool(default = False)) |
         native_common.preferred_linkage(preferred_linkage_type = attrs.option(attrs.enum(Linkage.values()), default = None)) |
         cxx_common.exported_deps_arg() |
+        cxx_common.default_deps_arg("exported_deps") |
         cxx_common.supports_merged_linking() |
         cxx_common.local_linker_flags_arg() |
         cxx_common.local_linker_script_flags_arg() |

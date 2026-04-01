@@ -38,6 +38,8 @@ CxxRuntimeType = ["dynamic", "static"]
 
 CxxSourceType = ["c", "cxx", "cxx_thinlink", "objc", "objcxx", "cuda", "hip", "swift", "c_cpp_output", "cxx_cpp_output", "objc_cpp_output", "objcxx_cpp_output", "cuda_cpp_output", "hip_cpp_output", "assembler_with_cpp", "assembler", "asm_with_cpp", "asm", "pcm"]
 
+DefaultDepsMode = ["none", "deps", "exported_deps"]
+
 HeadersAsRawHeadersMode = ["required", "preferred", "disabled"]
 
 IncludeType = ["local", "system", "raw"]

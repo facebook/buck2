@@ -38,9 +38,14 @@ load(
 
 OBJECTS_SUBTARGET = "objects"
 
-# The dependencies
+# The dependencies, and the default deps (if selected)
 def cxx_attr_deps(ctx: AnalysisContext) -> list[Dependency]:
     deps = ctx.attrs.deps
+
+    if getattr(ctx.attrs, "default_deps", "") == "deps":
+        toolchain_info = get_cxx_toolchain_info(ctx)
+        if toolchain_info.default_deps:
+            deps.extend(toolchain_info.default_deps)
 
     deps_query_attr = getattr(ctx.attrs, "deps_query", None)
     if deps_query_attr:
@@ -49,8 +54,20 @@ def cxx_attr_deps(ctx: AnalysisContext) -> list[Dependency]:
     # Avoid making a copy of deps if deps_query is not set.
     return deps
 
+# The exported dependencies, and the default deps (if selected)
 def cxx_attr_exported_deps(ctx: AnalysisContext) -> list[Dependency]:
-    return getattr(ctx.attrs, "exported_deps", [])
+    exported_deps = []
+
+    exported_deps_attr = getattr(ctx.attrs, "exported_deps", None)
+    if exported_deps_attr:
+        exported_deps.extend(exported_deps_attr)
+
+    if getattr(ctx.attrs, "default_deps", "") == "exported_deps":
+        toolchain_info = get_cxx_toolchain_info(ctx)
+        if toolchain_info.default_deps:
+            exported_deps.extend(toolchain_info.default_deps)
+
+    return exported_deps
 
 def cxx_attr_linker_flags_all(ctx: AnalysisContext) -> LinkerFlags:
     flags = cxx_attr_linker_flags(ctx)
