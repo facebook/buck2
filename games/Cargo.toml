@@ -31,3 +31,7 @@ path = "bin/snake.rs"
 [[bin]]
 name = "static"
 path = "bin/static.rs"
+
+[[bin]]
+name = "twenty48"
+path = "bin/twenty48.rs"

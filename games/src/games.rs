@@ -34,6 +34,7 @@ use crate::console::emit_unknown_control;
 pub mod life;
 pub mod snake;
 pub mod r#static;
+pub mod twenty48;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Score {
     pub category: String,
