@@ -57,6 +57,19 @@ rust_binary(
 )
 
 rust_binary(
+    name = "minesweeper",
+    srcs = ["bin/minesweeper.rs"],
+    crate_root = "bin/minesweeper.rs",
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:clap",
+        "fbsource//third-party/rust:tokio",
+        ":games",
+        "//buck2/superconsole:superconsole",
+    ],
+)
+
+rust_binary(
     name = "life",
     srcs = ["bin/life.rs"],
     crate_root = "bin/life.rs",
