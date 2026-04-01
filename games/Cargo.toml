@@ -45,6 +45,14 @@ name = "snake"
 path = "bin/snake.rs"
 
 [[bin]]
+name = "sokoban"
+path = "bin/sokoban.rs"
+
+[[bin]]
+name = "sokoban_gen"
+path = "bin/sokoban_gen.rs"
+
+[[bin]]
 name = "static"
 path = "bin/static.rs"
 

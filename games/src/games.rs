@@ -37,6 +37,7 @@ pub mod jump;
 pub mod life;
 pub mod minesweeper;
 pub mod snake;
+pub mod sokoban;
 pub mod r#static;
 pub mod twenty48;
 #[derive(Debug, Clone, Serialize, Deserialize)]
