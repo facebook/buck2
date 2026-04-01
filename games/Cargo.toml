@@ -41,6 +41,10 @@ name = "life"
 path = "bin/life.rs"
 
 [[bin]]
+name = "menu"
+path = "bin/menu.rs"
+
+[[bin]]
 name = "snake"
 path = "bin/snake.rs"
 

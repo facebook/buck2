@@ -35,6 +35,7 @@ pub mod blocks;
 pub mod breakout;
 pub mod jump;
 pub mod life;
+pub mod menu;
 pub mod minesweeper;
 pub mod snake;
 pub mod sokoban;
