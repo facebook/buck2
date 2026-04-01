@@ -103,6 +103,7 @@ members = [
     # @oss-disable: "dice/fuzzy_dice",
     "dice/read_dump",
     # @oss-disable: "host_sharing",
+    "games",
     "gazebo/display_container",
     "gazebo/cmp_any",
     "gazebo/gazebo",
@@ -150,6 +151,7 @@ async-compression = { version = "0.4.41", features = ["tokio", "brotli", "deflat
 async-condvar-fair = { version = "1.0", features = ["parking_lot_0_12", "tokio"] }
 async-recursion = "1.1.1"
 async-scoped = { version = "0.9", features = ["use-tokio"] }
+async-stream = "0.3"
 async-trait = "0.1.86"
 atomic = "0.5.3"
 backtrace = "0.3.76"
@@ -216,6 +218,7 @@ hyper-rustls = { version = "0.27.0", features = ["http2"] }
 hyper-timeout = "0.5"
 hyper-util = "0.1.10"
 hyperlocal = { version = "0.9", features = ["client"] }
+image = { version = "0.25.9", features = ["png"], default-features = false }
 indent_write = "2.2.0"
 indenter = "0.3.4"
 index_vec = "0.1.4"

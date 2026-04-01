@@ -1,0 +1,29 @@
+load("@fbsource//tools/build_defs:rust_library.bzl", "rust_library")
+
+oncall("build_infra")
+
+rust_library(
+    name = "games",
+    srcs = glob(["src/**/*.rs"]) + glob(["src/**/*.txt"]) + glob(["sprites/**/*.png"]),
+    crate_root = "src/lib.rs",
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:async-stream",
+        "fbsource//third-party/rust:async-trait",
+        "fbsource//third-party/rust:futures",
+        "fbsource//third-party/rust:image",
+        "fbsource//third-party/rust:itertools",
+        "fbsource//third-party/rust:serde",
+        "fbsource//third-party/rust:serde_json",
+        "fbsource//third-party/rust:tokio",
+        "//buck2/superconsole:superconsole",
+    ] + select({
+        "DEFAULT": [],
+        "ovr_config//os:linux": [
+            "fbsource//third-party/rust:termios",
+        ],
+        "ovr_config//os:macos": [
+            "fbsource//third-party/rust:termios",
+        ],
+    }),
+)
