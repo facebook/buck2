@@ -29,6 +29,15 @@ git_fetch = prelude_rule(
             "allow_cache_upload": attrs.bool(doc = """
                 Whether the results of the fetch can be written to the action cache and CAS.
             """, default = True),
+            "git": attrs.option(
+                attrs.string(),
+                default = None,
+                doc = """
+                Path to the git binary to use. If not specified, the system
+                git from PATH is used, with fallback to common system
+                locations (/usr/bin/git, /usr/local/bin/git).
+            """,
+            ),
             "object_format": attrs.option(
                 attrs.enum(["sha1", "sha256"]),
                 default = None,

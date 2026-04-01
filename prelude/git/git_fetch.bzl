@@ -45,6 +45,8 @@ def git_fetch_impl(ctx: AnalysisContext) -> list[Provider]:
         cmd_args("--repo=", ctx.attrs.repo, delimiter = ""),
         cmd_args("--rev=", rev, delimiter = ""),
     ]
+    if ctx.attrs.git != None:
+        cmd.append(cmd_args("--git=", ctx.attrs.git, delimiter = ""))
     if object_format != None:
         cmd.append(cmd_args("--object-format=", object_format, delimiter = ""))
 
