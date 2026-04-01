@@ -387,6 +387,7 @@ fn re_create_action(
             .transpose()
             .buck_error_context("Cannot convert timeout to GRPC")?,
         do_not_cache,
+        #[cfg(fbcode_build)]
         allow_unsandboxed_action_cache_uploads,
         #[cfg(fbcode_build)]
         worker_tool_action_digest: worker_tool_init_action.clone().map(|a| a.action.to_grpc()),
@@ -452,6 +453,7 @@ fn re_create_action(
     {
         let _unused = &mut action;
         let _unused = re_outputs_required;
+        let _unused = allow_unsandboxed_action_cache_uploads;
     }
 
     let action_and_blobs = action_and_blobs.build(&action);
