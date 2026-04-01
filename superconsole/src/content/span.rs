@@ -162,6 +162,16 @@ impl Span {
         }
     }
 
+    /// Equivalent to [`Self::new_styled`] except it will sanitize the content.
+    pub fn new_styled_lossy_str(span: StyledContent<&'static str>) -> Self {
+        let content = sanitize(span.content());
+        Self {
+            content: Cow::Owned(content),
+            style: *span.style(),
+            hyperlink: None,
+        }
+    }
+
     pub fn new_colored(text: &str, color: Color) -> Result<Self, SpanError> {
         Self::new_styled(StyledContent::new(
             ContentStyle {
