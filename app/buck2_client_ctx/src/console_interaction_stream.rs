@@ -13,7 +13,7 @@ use superconsole::Stdin;
 use tokio::io::AsyncReadExt;
 
 pub struct ConsoleInteractionStream<'a> {
-    stdin: &'a mut Stdin,
+    pub stdin: &'a mut Stdin,
     term: InteractiveTerminal,
 }
 
