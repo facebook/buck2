@@ -137,6 +137,20 @@ pub fn control_reader<'a>(
     async_stream::try_stream! {
         loop {
             let c = console.char().await?;
+
+            // Legacy cmd.exe sends 0xe0 or 0x00 prefix for arrow/function keys.
+            if c as u32 == 0xe0 || c as u32 == 0x00 {
+                let scan = console.char().await?;
+                match scan {
+                    'H' => yield Control::Up,
+                    'P' => yield Control::Down,
+                    'K' => yield Control::Left,
+                    'M' => yield Control::Right,
+                    _ => {}
+                }
+                continue;
+            }
+
             if (c as u32) != 0x1b {
                 yield Control::Char(c);
                 continue;

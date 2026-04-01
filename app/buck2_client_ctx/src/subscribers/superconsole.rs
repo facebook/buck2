@@ -199,6 +199,8 @@ enum EscapeState {
     SawBracket,
     /// CSI with parameter bytes collected so far (e.g. "1;2").
     CsiParam(Vec<char>),
+    /// Saw 0xe0 prefix (legacy cmd.exe arrow key encoding).
+    SawE0,
 }
 
 impl EscapeState {
@@ -219,6 +221,10 @@ impl EscapeState {
             EscapeState::Normal => {
                 if c as u32 == 0x1b {
                     *self = EscapeState::SawEscape { ticks_waiting: 0 };
+                    (None, None)
+                } else if c as u32 == 0xe0 || c as u32 == 0x00 {
+                    // Legacy cmd.exe sends 0xe0 or 0x00 prefix for arrow/function keys.
+                    *self = EscapeState::SawE0;
                     (None, None)
                 } else {
                     (Some(Control::Char(c)), None)
@@ -248,6 +254,16 @@ impl EscapeState {
                 }
                 _ => (None, None), // Unknown CSI sequence, drop it
             },
+            EscapeState::SawE0 => {
+                // Legacy cmd.exe scan codes: H=Up, P=Down, K=Left, M=Right
+                match c {
+                    'H' => (Some(Control::Up), None),
+                    'P' => (Some(Control::Down), None),
+                    'K' => (Some(Control::Left), None),
+                    'M' => (Some(Control::Right), None),
+                    _ => (None, None),
+                }
+            }
             EscapeState::CsiParam(mut params) => {
                 if c.is_ascii_alphabetic() {
                     // Final byte — interpret the sequence
