@@ -423,7 +423,16 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
     ///
     /// The first parameter `targets` is a specific target or target pattern. It specifies the targets to find dependencies for.
     /// The second argument `depth` is an optional integer literal specifying an upper bound on the depth of the search. A value of one (1) specifies that buck query should return only direct dependencies. If the depth parameter is omitted, the search is unbounded.
-    /// The third argument `captured_expr` is an optional expression that can be used to filter the results.
+    /// The third argument `captured_expr` is an optional filter expression that controls the
+    /// traversal. The expression is evaluated for each node and returns the child nodes to recurse
+    /// on when collecting transitive dependencies. Available filters are `configuration_deps()`,
+    /// `exec_deps()`, `first_order_deps()`, `target_deps()`, and `toolchain_deps()`.
+    ///
+    /// The `first_order_deps()` operator returns a set that contains the first-order dependencies
+    /// of the current node. It can be combined with other filter functions, for example,
+    /// `kind(java_library, first_order_deps())` to make the `deps` traversal only traverse
+    /// `java_library` targets. The `first_order_deps()` operator can only be used as an argument
+    /// passed to `deps()`.
     ///
     /// The returned values include the nodes from the `targets` argument itself.
     ///
@@ -432,7 +441,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
     /// ```text
     /// $ buck2 uquery "deps(//buck2:buck2, 1)"
     /// ```
-    /// returns all targets that `//buck2:buck2` depends on directly.    
+    /// returns all targets that `//buck2:buck2` depends on directly.
     async fn deps(
         &self,
         evaluator: &QueryEvaluator<'_, Env>,
@@ -629,6 +638,8 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
 
     /// A filter function that can be used in the query expression of `deps` query function.
     /// Returns the output of deps function for the immediate dependencies of the given targets. Output is equivalent to `deps(<targets>, 1)`.
+    ///
+    /// See `deps()` for more information on how filter expressions work.
     ///
     /// Example:
     /// `buck2 cquery "deps('//foo:bar', 1, first_order_deps())"` is equivalent to `buck2 cquery "deps('//foo:bar', 1)"`
