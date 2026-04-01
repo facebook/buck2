@@ -13,6 +13,7 @@ use std::env;
 use std::io;
 
 use crossterm::QueueableCommand;
+use crossterm::cursor;
 use crossterm::cursor::MoveToColumn;
 use crossterm::cursor::MoveUp;
 use crossterm::terminal::Clear;
@@ -309,6 +310,7 @@ impl SuperConsole {
         };
 
         let mut buffer = Vec::new();
+        buffer.queue(cursor::Hide).map_err(OutputError::Terminal)?;
 
         Self::clear_canvas_pre(&mut buffer, self.canvas_contents.len() - reuse_prefix)?;
 
@@ -339,12 +341,24 @@ impl SuperConsole {
         self.to_emit.render_with_limit(&mut buffer, limit);
 
         canvas.render_from_line(&mut buffer, reuse_prefix);
+
+        buffer.queue(cursor::Show).map_err(OutputError::Terminal)?;
         Self::clear_canvas_post(&mut buffer)?;
         self.canvas_contents = canvas;
 
         self.output_mut().output(buffer)?;
 
         Ok(())
+    }
+}
+
+impl Drop for SuperConsole {
+    fn drop(&mut self) {
+        if let Some(v) = &mut self.output {
+            let mut buffer = Vec::new();
+            let _ = buffer.queue(cursor::Show);
+            let _ = v.output(buffer);
+        }
     }
 }
 
