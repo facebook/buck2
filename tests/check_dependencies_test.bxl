@@ -22,7 +22,8 @@ def _impl_check_dependencies_test(
         allowlist_patterns: list[str] | None,
         blocklist_patterns: list[str] | None,
         target: TargetLabel,
-        target_deps: bool):
+        target_deps: bool,
+        deps_filter_pattern: str | None = None):
     """Test the dependencies of a given rule.
 
     The behavior is determined by the verification_mode string value:
@@ -39,7 +40,10 @@ def _impl_check_dependencies_test(
 
     cquery = ctx.cquery()
     cquery_kwargs = {}
-    if target_deps:
+    if deps_filter_pattern:
+        base = "target_deps()" if target_deps else "first_order_deps()"
+        cquery_kwargs["filter"] = 'filter("{}", {})'.format(deps_filter_pattern, base)
+    elif target_deps:
         cquery_kwargs["filter"] = "target_deps()"
 
     transitive_deps = cquery.deps(
@@ -79,12 +83,14 @@ def _impl(ctx: bxl.Context):
         ctx.cli_args.blocklist_patterns,
         ctx.cli_args.target,
         ctx.cli_args.target_deps,
+        ctx.cli_args.deps_filter_pattern,
     )
 
 test = bxl_main(
     cli_args = {
         "allowlist_patterns": cli_args.option(cli_args.list(cli_args.string())),
         "blocklist_patterns": cli_args.option(cli_args.list(cli_args.string())),
+        "deps_filter_pattern": cli_args.option(cli_args.string()),
         "target": cli_args.target_label(),
         "target_deps": cli_args.bool(default = True),
         "verification_mode": cli_args.string(),
