@@ -21,5 +21,9 @@ tokio = { workspace = true }
 termios = { workspace = true }
 
 [[bin]]
+name = "snake"
+path = "bin/snake.rs"
+
+[[bin]]
 name = "static"
 path = "bin/static.rs"

@@ -31,6 +31,19 @@ rust_library(
 )
 
 rust_binary(
+    name = "snake",
+    srcs = ["bin/snake.rs"],
+    crate_root = "bin/snake.rs",
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:clap",
+        "fbsource//third-party/rust:tokio",
+        ":games",
+        "//buck2/superconsole:superconsole",
+    ],
+)
+
+rust_binary(
     name = "static",
     srcs = ["bin/static.rs"],
     crate_root = "bin/static.rs",
