@@ -1607,28 +1607,37 @@ impl RemoteExecutionClientImpl {
             induced_cache_miss.store(true, std::sync::atomic::Ordering::Relaxed);
         }
 
-        // Emit event for remote executions with cache writes enabled.
-        //
-        // Cancelling an execution request from the RE client causes it to be cancelled on the
-        // server side if and only if it had not yet started executing - if it had started
-        // executing, it'll run to completion and be written to the cache, so treat it mostly like
-        // a completed execution.
         let trace = match &res {
-            Ok(ExecuteResponseOrCancelled::Response(r)) => Some((Some(r.ttl()), "completed")),
-            Ok(ExecuteResponseOrCancelled::Cancelled(_, _, ExecutionStarted::Yes)) => {
-                Some((None, "cancelled-after-execution-started"))
+            Ok(ExecuteResponseOrCancelled::Response(r)) => {
+                // If the action was served from cache or deduplicated, we don't treat it as a cache
+                // hit instead of an execution - it'll be treated as an execution on the side of the
+                // thing that it got a hit or deduplicated against.
+                let was_not_actually_executed = r
+                    .execute_response
+                    .executed_action_details
+                    .was_served_from_cache
+                    || r.execute_response.executed_action_details.was_deduplicated;
+                let event = if was_not_actually_executed {
+                    buck2_data::action_digest_trace::ActionDigestTraceEvent::CacheHit
+                } else {
+                    buck2_data::action_digest_trace::ActionDigestTraceEvent::RemoteExecution
+                };
+                Some((event, Some(r.ttl()), "completed"))
             }
+            // Cancelling an execution request from the RE client causes it to be cancelled on the
+            // server side if and only if it had not yet started executing - if it had started
+            // executing, it'll run to completion and be written to the cache, so treat it mostly
+            // like a completed execution.
+            Ok(ExecuteResponseOrCancelled::Cancelled(_, _, ExecutionStarted::Yes)) => Some((
+                buck2_data::action_digest_trace::ActionDigestTraceEvent::RemoteExecution,
+                None,
+                "cancelled-after-execution-started",
+            )),
             Ok(ExecuteResponseOrCancelled::Cancelled(_, _, ExecutionStarted::No)) => None,
             Err(_) => None,
         };
-        if let Some((ttl, subtype)) = trace {
-            trace_action_digest(
-                &action_digest,
-                ttl,
-                use_case,
-                buck2_data::action_digest_trace::ActionDigestTraceEvent::RemoteExecution,
-                Some(subtype),
-            );
+        if let Some((event, ttl, subtype)) = trace {
+            trace_action_digest(&action_digest, ttl, use_case, event, Some(subtype));
         }
 
         res
