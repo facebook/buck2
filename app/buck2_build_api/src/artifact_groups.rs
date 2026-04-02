@@ -19,6 +19,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 pub use artifact_group_values::ArtifactGroupValues;
 use buck2_artifact::artifact::artifact_type::Artifact;
+use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -135,7 +136,10 @@ impl ArtifactGroup {
     /// This is true if the underlying artifacts are source artifacts, or if they are content-based.
     /// It is also true if they are configured for an execution platform (since execution platforms
     /// are generally shared across target configuration changes).
-    pub fn is_eligible_for_dedupe(&self) -> buck2_data::EligibleForDedupe {
+    pub fn is_eligible_for_dedupe(
+        &self,
+        target_platform: Option<&ConfigurationData>,
+    ) -> buck2_data::EligibleForDedupe {
         let is_artifact_group_eligible_for_dedupe = match self {
             ArtifactGroup::Artifact(a) => !a.has_configuration_based_path(),
             ArtifactGroup::TransitiveSetProjection(p) => p.is_eligible_for_dedupe,
@@ -159,7 +163,11 @@ impl ArtifactGroup {
         match artifact_group_owner {
             BaseDeferredKey::TargetLabel(a) => {
                 if a.cfg().is_marked_as_exec_platform() {
-                    buck2_data::EligibleForDedupe::Eligible
+                    if target_platform.is_some_and(|tp| tp == a.cfg()) {
+                        buck2_data::EligibleForDedupe::ExecutionPlatformUnknownEligibility
+                    } else {
+                        buck2_data::EligibleForDedupe::Eligible
+                    }
                 } else {
                     buck2_data::EligibleForDedupe::IneligibleInput
                 }

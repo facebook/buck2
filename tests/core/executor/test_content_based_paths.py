@@ -635,7 +635,8 @@ async def test_expect_eligible_for_dedupe_ineligible_output(buck: Buck) -> None:
 @buck_test()
 async def test_execution_platform_returns_unknown_eligibility(buck: Buck) -> None:
     # When an action's owner is configured for an execution platform (i.e. via
-    # exec_dep), eligible_for_dedupe should return EXECUTION_PLATFORM_UNKNOWN_ELIGIBILITY
+    # exec_dep), eligible_for_dedupe will return EXECUTION_PLATFORM_UNKNOWN_ELIGIBILITY
+    # if an input is configured for the same platform as the action itself.
     await buck.build(
         "root//:uses_exec_dep",
         "--target-platforms",
@@ -652,8 +653,8 @@ async def test_execution_platform_returns_unknown_eligibility(buck: Buck) -> Non
         "eligible_for_dedupe",
     )
 
-    # The exec dep (non_content_based_exec_dep) has two actions configured
-    assert eligible_for_dedupe_events.count(EXECUTION_PLATFORM_UNKNOWN_ELIGIBILITY) == 2
+    # The exec dep (non_content_based_exec_dep) has a single run action that hits this.
+    assert eligible_for_dedupe_events.count(EXECUTION_PLATFORM_UNKNOWN_ELIGIBILITY) == 1
 
 
 @buck_test()

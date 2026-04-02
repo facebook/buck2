@@ -15,6 +15,8 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
+use buck2_core::configuration::data::ConfigurationData;
+use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use display_container::display_pair;
@@ -498,29 +500,39 @@ impl<'v> TransitiveSet<'v> {
             })
             .collect::<Result<Box<[_]>, _>>()?;
 
-        struct InputVisitor {
+        let target_platform =
+            if let BaseDeferredKey::TargetLabel(configured_label) = key.holder_key().owner() {
+                Some(configured_label.cfg())
+            } else {
+                None
+            };
+
+        struct InputVisitor<'a> {
             path_resolution_may_require_artifact_value: bool,
             is_eligible_for_dedupe: bool,
+            target_platform: Option<&'a ConfigurationData>,
         }
 
-        impl InputVisitor {
-            fn new() -> Self {
+        impl<'a> InputVisitor<'a> {
+            fn new(target_platform: Option<&'a ConfigurationData>) -> Self {
                 Self {
                     path_resolution_may_require_artifact_value: false,
                     is_eligible_for_dedupe: true,
+                    target_platform,
                 }
             }
         }
 
-        impl<'v> CommandLineArtifactVisitor<'v> for InputVisitor {
+        impl<'a, 'v> CommandLineArtifactVisitor<'v> for InputVisitor<'a> {
             fn visit_input(&mut self, input: ArtifactGroup, _tags: Vec<&ArtifactTag>) {
                 if input.path_resolution_may_require_artifact_value() {
                     self.path_resolution_may_require_artifact_value = true;
                 }
 
                 if self.is_eligible_for_dedupe {
-                    self.is_eligible_for_dedupe =
-                        input.is_eligible_for_dedupe() == buck2_data::EligibleForDedupe::Eligible;
+                    self.is_eligible_for_dedupe = input
+                        .is_eligible_for_dedupe(self.target_platform)
+                        == buck2_data::EligibleForDedupe::Eligible;
                 }
             }
 
@@ -552,7 +564,7 @@ impl<'v> TransitiveSet<'v> {
                         .get(idx)
                         .ok_or_else(|| internal_error!("Invalid projection id"))?;
 
-                    let mut visitor = InputVisitor::new();
+                    let mut visitor = InputVisitor::new(target_platform);
                     match spec.kind {
                         TransitiveSetProjectionKind::Args => {
                             TransitiveSetArgsProjection::as_command_line(*projection)?

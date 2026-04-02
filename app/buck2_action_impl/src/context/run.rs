@@ -616,22 +616,15 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         };
 
         let expect_eligible_for_dedupe = expect_eligible_for_dedupe.into_option().unwrap_or(false);
-        let verify_eligibility = if expect_eligible_for_dedupe {
+        if expect_eligible_for_dedupe {
             let deferred_holder_key = &this.state()?.analysis_value_storage.self_key;
-            let is_marked_as_exec_platform = if let BaseDeferredKey::TargetLabel(configured_label) =
+            let target_platform = if let BaseDeferredKey::TargetLabel(configured_label) =
                 deferred_holder_key.owner()
             {
-                configured_label.cfg().is_marked_as_exec_platform()
+                Some(configured_label.cfg())
             } else {
-                false
+                None
             };
-            // We can't accurately calculate eligibility for dedupe when building for the execution platform,
-            // so ignore expected eligibility in that case.
-            !is_marked_as_exec_platform
-        } else {
-            false
-        };
-        if verify_eligibility {
             for o in artifacts.declared_outputs.iter() {
                 if !o.has_content_based_path() {
                     return Err(buck2_error::Error::from(
@@ -644,7 +637,9 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             }
 
             for i in artifacts.inputs.iter() {
-                if i.is_eligible_for_dedupe() != buck2_data::EligibleForDedupe::Eligible {
+                if i.is_eligible_for_dedupe(target_platform)
+                    == buck2_data::EligibleForDedupe::IneligibleInput
+                {
                     return Err(buck2_error::Error::from(
                         RunActionError::ExpectEligibleForDedupeWithIneligibleInput {
                             input: i.dupe(),
