@@ -19,6 +19,7 @@ use buck2_util::strong_hasher::Blake3StrongHasher;
 use dupe::Dupe;
 use equivalent::Equivalent;
 use once_cell::sync::Lazy;
+use once_cell::sync::OnceCell;
 use pagable::Pagable;
 use serde::Serialize;
 use serde::Serializer;
@@ -34,6 +35,22 @@ use crate::configuration::constraints::ConstraintKey;
 use crate::configuration::constraints::ConstraintValue;
 use crate::configuration::hash::ConfigurationHash;
 use crate::event::EVENT_DISPATCH;
+
+/// Whether to include `is_marked_as_exec_platform` in the configuration hash.
+/// When true, execution platforms will have a different hash from target platforms
+/// with the same constraints. Default is false for backwards compatibility.
+pub static HASH_CFG_WITH_EXEC_PLATFORM: OnceCell<bool> = OnceCell::new();
+
+pub fn init_hash_cfg_with_exec_platform(value: Option<bool>) -> buck2_error::Result<()> {
+    let value = value.unwrap_or(false);
+    HASH_CFG_WITH_EXEC_PLATFORM.set(value).map_err(|_| {
+        buck2_error::buck2_error!(
+            buck2_error::ErrorTag::Tier0,
+            "HASH_CFG_WITH_EXEC_PLATFORM is already initialized"
+        )
+    })?;
+    Ok(())
+}
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(input)]
@@ -442,13 +459,15 @@ impl StrongHash for HashedConfigurationPlatform {
 
 impl HashedConfigurationPlatform {
     fn new(configuration_platform: ConfigurationPlatform) -> Self {
-        // Compute output_hash excluding `is_marked_as_exec_platform` so that it doesn't
-        // affect output paths.
-        let output_hash = {
+        let hash_with_exec_platform = *HASH_CFG_WITH_EXEC_PLATFORM.get().unwrap_or(&false);
+        let output_hash = if hash_with_exec_platform {
+            let mut hasher = Blake3StrongHasher::new();
+            configuration_platform.strong_hash(&mut hasher);
+            ConfigurationHash::new(hasher.finish())
+        } else {
+            // Exclude `is_marked_as_exec_platform` so that it doesn't affect output paths.
             let mut hasher = Blake3StrongHasher::new();
             match &configuration_platform {
-                // TODO(ianc) We exclude the is_marked_as_exec_platform bool for consistency across bumps.
-                // Switch this to just use the default.
                 ConfigurationPlatform::Bound(label, data, _is_marked_as_exec_platform) => {
                     StrongHash::strong_hash("Bound", &mut hasher);
                     label.strong_hash(&mut hasher);

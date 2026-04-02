@@ -32,6 +32,7 @@ use buck2_common::sqlite::sqlite_db::SqliteDb;
 use buck2_common::sqlite::sqlite_db::SqliteIdentity;
 use buck2_core::buck2_env;
 use buck2_core::cells::name::CellName;
+use buck2_core::configuration::data::init_hash_cfg_with_exec_platform;
 use buck2_core::facebook_only;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -690,6 +691,14 @@ impl DaemonState {
             init_declare_output_has_content_based_path_default(
                 declare_output_has_content_based_path_default,
             )?;
+
+            // Modifies output paths: when true, includes is_modifier_marked_as_exec_platform in the
+            // configuration hash so execution platforms get distinct hashes.
+            let hash_cfg_with_exec_platform = root_config.parse(BuckconfigKeyRef {
+                section: "buck2",
+                property: "hash_cfg_with_exec_platform",
+            })?;
+            init_hash_cfg_with_exec_platform(hash_cfg_with_exec_platform)?;
 
             // Kick off an initial sync eagerly. This gets Watchamn to start watching the path we care
             // about (potentially kicking off an initial crawl).
