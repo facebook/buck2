@@ -8,7 +8,7 @@
 
 def _projected_output_impl(ctx):
     f = ctx.actions.write("f", "")
-    d = ctx.actions.copied_dir("dir", {"file": f})
+    d = ctx.actions.copied_dir("dir", {"file": f}, has_content_based_path = False)
     return [
         DefaultInfo(default_output = d.project("file")),
     ]

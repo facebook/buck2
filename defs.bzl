@@ -45,7 +45,7 @@ def _buck2_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         copied_dir[buck2_tpx_binary] = ctx.actions.symlink_file(buck2_tpx_binary, tpx, has_content_based_path = False)
         materialisations.extend(ctx.attrs.tpx[DefaultInfo].other_outputs)
 
-    out = ctx.actions.copied_dir("out", copied_dir)
+    out = ctx.actions.copied_dir("out", copied_dir, has_content_based_path = False)
 
     return [DefaultInfo(out, other_outputs = materialisations), RunInfo(cmd_args(out.project("buck2" + binary_extension), hidden = materialisations))]
 

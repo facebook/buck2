@@ -75,6 +75,7 @@ def get_apple_bundle_resource_part_list(ctx: AnalysisContext) -> AppleBundleReso
                 name: resource.default_output
                 for name, resource in cxx_resources.items()
             },
+            has_content_based_path = False,
         )
         selection.resource_specs.append(
             AppleResourceSpec(

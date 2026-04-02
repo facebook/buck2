@@ -80,6 +80,7 @@ def _get_ipa_contents(ctx: AnalysisContext) -> Artifact:
     return ctx.actions.copied_dir(
         "__unzipped_ipa_contents__",
         contents,
+        has_content_based_path = False,
     )
 
 def _build_symbols_dir(ctx) -> Artifact:

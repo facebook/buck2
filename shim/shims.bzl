@@ -439,7 +439,7 @@ def _proto_srcs_impl(ctx):
             if src.basename in srcs:
                 fail("Duplicate src:", src.basename)
             srcs[src.basename] = src
-    out = ctx.actions.copied_dir(ctx.attrs.name, srcs)
+    out = ctx.actions.copied_dir(ctx.attrs.name, srcs, has_content_based_path = False)
     return [DefaultInfo(default_output = out), ProtoSrcsInfo(srcs = srcs.values())]
 
 proto_srcs = rule(

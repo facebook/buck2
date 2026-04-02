@@ -566,6 +566,7 @@ def _linker_maps_data(actions: AnalysisActions, deps_with_binary: list[Dependenc
     directory = actions.copied_dir(
         "LinkMap",
         all_maps,
+        has_content_based_path = False,
     )
     provider = AppleBundleLinkerMapInfo(linker_maps = all_maps.values())
     return (directory, provider)

@@ -70,6 +70,7 @@ def xplugins_get_debug_artifacts_subtargets(actions: AnalysisActions, info: XPlu
     directory = actions.copied_dir(
         "XPluginsFunctionMappings",
         dir_contents,
+        has_content_based_path = False,
     )
 
     return [

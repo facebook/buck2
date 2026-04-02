@@ -99,7 +99,7 @@ def symlinked_srcs(ctx: AnalysisContext) -> Artifact:
         # VS Code will expand symlinks when doing go-to-definition. In normal source
         # files this takes us back to the correct path, but for generated files the
         # expanded path may not be a well-formed crate layout.
-        return ctx.actions.copied_dir("__srcs", srcs)
+        return ctx.actions.copied_dir("__srcs", srcs, has_content_based_path = False)
     else:
         # Decide whether to use symlinked_dir or copied_dir.
         #
@@ -110,7 +110,7 @@ def symlinked_srcs(ctx: AnalysisContext) -> Artifact:
         prefixes = {}
         for src in sorted(srcs.keys(), key = len, reverse = True):
             if src in prefixes:
-                return ctx.actions.copied_dir("__srcs", srcs)
+                return ctx.actions.copied_dir("__srcs", srcs, has_content_based_path = False)
             components = src.split("/")
             for i in range(1, len(components)):
                 prefixes["/".join(components[:i])] = None
