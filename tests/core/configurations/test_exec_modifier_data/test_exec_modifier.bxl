@@ -369,26 +369,6 @@ def _test_buckconfig_backed_modifiers_not_applied_to_exec_deps(ctx: bxl.Context)
         "buckconfig_backed:none",
     )
 
-def _test_exec_dep_config_name(ctx: bxl.Context):
-    """
-    Test that exec dep configurations have an exec_cfg: prefixed name
-    instead of cfg:<empty>.
-    """
-    ctx.output.stream("\n=== Testing exec dep config name ===")
-
-    node = ctx.configured_targets("//:binary")
-    universe = ctx.target_universe(node)
-
-    # gcc_tool is an exec dep — its config name should be exec_cfg: + exec platform label
-    deps = list(universe.lookup("root//:gcc_tool"))
-    _assert_eq(len(deps), 1, "Should find exactly one gcc_tool")
-    cfg_name = deps[0].label.config().name
-    _assert_eq(
-        cfg_name,
-        "exec_cfg:root//cfg:exec_linux_x86_64",
-        "Exec dep config name should be exec_cfg:<exec_platform_label>",
-    )
-
 def _main(ctx: bxl.Context):
     ctx.output.stream("Testing exec modifiers and toolchain dependencies...\n")
 
@@ -407,9 +387,6 @@ def _main(ctx: bxl.Context):
 
     # Buckconfig-backed modifiers test
     _test_buckconfig_backed_modifiers_not_applied_to_exec_deps(ctx)
-
-    # Exec dep config naming
-    _test_exec_dep_config_name(ctx)
 
     ctx.output.stream("\n✅ All tests passed!")
 

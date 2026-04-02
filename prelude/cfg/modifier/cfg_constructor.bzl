@@ -225,11 +225,7 @@ def cfg_constructor_post_constraint_analysis(
             if constraint_value:
                 cfg.constraints[constraint_setting] = constraint_value
 
-    name = cfg_name(
-        cfg,
-        legacy_platform = params.legacy_platform,
-        configuring_exec_dep = params.configuring_exec_dep,
-    )
+    name = cfg_name(cfg)
     return PlatformInfo(
         label = name,
         configuration = cfg,
