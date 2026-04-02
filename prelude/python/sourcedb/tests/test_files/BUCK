@@ -48,6 +48,7 @@ python_library(
 
 genrule(
     name = "generated_files",
+    srcs = ["gen.sh"],
     outs = {
         "generated1.py": [
             "generated1.py",

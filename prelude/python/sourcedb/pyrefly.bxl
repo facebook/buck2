@@ -21,12 +21,20 @@
 load("@prelude//python/meta_only:config.bzl", "DEFAULT_PY_VERSION")  # @oss-disable
 
 _MODULE_SUFFIXES = set([
-    ".dll",
-    ".py",
-    ".pyi",
-    ".pyd",
-    ".so",
+    "dll",
+    "py",
+    "pyi",
+    "pyd",
+    "so",
 ])
+
+def _get_suffix(path: str) -> str | None:
+    """Extract the file suffix without leading dot (e.g. 'py') from a path, or None if no suffix."""
+    last_sep = path.rfind("/")
+    dot = path.rfind(".")
+    if dot > last_sep and dot + 1 < len(path):
+        return path[dot + 1:]
+    return None
 
 def _append_to_or_set_list(
         mapping: dict[str, list[str | bxl.EnsuredArtifact]],
@@ -40,15 +48,22 @@ def _append_to_or_set_list(
 def _append_or_default_if_module(
         srcs: dict[str, list[str | bxl.EnsuredArtifact]],
         module: str,
-        path: str | bxl.EnsuredArtifact) -> None:
+        path: str | bxl.EnsuredArtifact,
+        extra_filetypes: dict[str, None]) -> None:
     if isinstance(path, bxl.EnsuredArtifact):
         # we can't filter ensured artifacts, since there's no way to inspect the path
         _append_to_or_set_list(srcs, module, path)
         return
     for suffix in _MODULE_SUFFIXES:
-        if path.endswith(suffix):
+        if path.endswith("." + suffix):
             _append_to_or_set_list(srcs, module, path)
             return
+
+    # File has a non-standard suffix — still include it and record the suffix
+    suffix = _get_suffix(path)
+    if suffix != None:
+        _append_to_or_set_list(srcs, module, path)
+        extra_filetypes[suffix] = None
 
 # Produce a list of all the targets that I care about.
 # This should be everything reachable from the command line arguments.
@@ -130,7 +145,8 @@ def _handle_genrule(
         to_remove: dict[str, None],
         to_build: list,
         to_insert: list,
-        genrule_to_insert: list) -> None:
+        genrule_to_insert: list,
+        extra_filetypes: dict[str, None]) -> None:
     labels = attrs.get("labels")
     if "custom_rule_internal" in labels.value():
         # skip internal targets, since they will be materialized as part
@@ -139,6 +155,21 @@ def _handle_genrule(
         return
 
     srcs = _set_entry_common_fields(entry, attrs, fs, target, known_targets)
+
+    # Collect suffixes from genrule source files
+    attr_srcs = attrs.get("srcs")
+    if attr_srcs != None:
+        attr_srcs_value = attr_srcs.value()
+        if attr_srcs_value != None:
+            if type(attr_srcs_value) == type({}):
+                attr_srcs_value = attr_srcs_value.values()
+            for src in attr_srcs_value:
+                path = getattr(src, "short_path", None)
+                if path != None:
+                    suffix = _get_suffix(path)
+                    if suffix != None and suffix not in _MODULE_SUFFIXES:
+                        extra_filetypes[suffix] = None
+
     to_build.append(target)
 
     # Only one of these will have a value, but get both of them now since
@@ -154,20 +185,22 @@ def _handle_genrule(
 
     if len(items) == 1:
         module_path = list(items.keys())[0]
-        for suffix in _MODULE_SUFFIXES:
-            if module_path.endswith(suffix):
-                to_insert.append((srcs, _clean_module("", module_path), target.label.with_sub_target()))
-                break
+        suffix = _get_suffix(module_path)
+        if suffix != None:
+            if suffix not in _MODULE_SUFFIXES:
+                extra_filetypes[suffix] = None
+            to_insert.append((srcs, _clean_module("", module_path), target.label.with_sub_target()))
     else:
         # we need to handle building the full genrule
         genrule_to_insert.append((target, entry))
         for (module_path, src_paths) in items.items():
             if len(src_paths) < 1:
                 fail("Target src has no output path: {}".format(target.label))
-            for suffix in _MODULE_SUFFIXES:
-                if module_path.endswith(suffix):
-                    _append_or_default_if_module(srcs, _clean_module("", module_path), src_paths[0])
-                    break
+            suffix = _get_suffix(module_path)
+            if suffix != None:
+                if suffix not in _MODULE_SUFFIXES:
+                    extra_filetypes[suffix] = None
+                _append_or_default_if_module(srcs, _clean_module("", module_path), src_paths[0], extra_filetypes)
 
 def _handle_python_library(
         entry: dict,
@@ -177,7 +210,8 @@ def _handle_python_library(
         known_targets: dict[TargetLabel, bxl.ConfiguredTargetNode],
         to_remove: dict[str, None],
         to_build: list,
-        to_insert: list) -> None:
+        to_insert: list,
+        extra_filetypes: dict[str, None]) -> None:
     base_module = attrs.get("base_module")
     if base_module != None and base_module.value() != None:
         base_module = base_module.value()
@@ -197,6 +231,7 @@ def _handle_python_library(
         to_build,
         to_insert,
         fs,
+        extra_filetypes,
     )
 
     # python_binary might be the root target, which doesn't have `srcs`.
@@ -210,13 +245,15 @@ def _handle_python_library(
         to_build,
         to_insert,
         fs,
+        extra_filetypes,
     )
 
 def _build_generated_files(
         ctx: bxl.Context,
         to_build: list,
         to_insert: list,
-        genrule_to_insert: list) -> None:
+        genrule_to_insert: list,
+        extra_filetypes: dict[str, None]) -> None:
     if not to_build:
         return
 
@@ -225,7 +262,7 @@ def _build_generated_files(
 
     # handle individual generated files
     for srcs, module_name, target in to_insert:
-        _append_or_default_if_module(srcs, module_name, ensured[target][0].rel_path())
+        _append_or_default_if_module(srcs, module_name, ensured[target][0].rel_path(), extra_filetypes)
 
     # handle genrules
     for target, entry in genrule_to_insert:
@@ -240,7 +277,8 @@ def _get_and_materialize_sources(
         srcs: dict[str, list[str | bxl.EnsuredArtifact]],
         to_build: list,
         to_insert: list,
-        fs: bxl.Filesystem):
+        fs: bxl.Filesystem,
+        extra_filetypes: dict[str, None]):
     if type(to_add) == type([]):
         for v in to_add:
             if getattr(v, "is_source", False):
@@ -248,6 +286,7 @@ def _get_and_materialize_sources(
                     srcs,
                     _clean_module(base_module, v.short_path),
                     fs.project_rel_path(v),
+                    extra_filetypes,
                 )
             elif type(v) != "Label" and getattr(v, "short_path"):
                 to_build.append(v)
@@ -276,6 +315,7 @@ def _get_and_materialize_sources(
                     srcs,
                     _clean_module(base_module, k),
                     fs.project_rel_path(v),
+                    extra_filetypes,
                 )
             else:
                 to_build.append(v)
@@ -283,6 +323,7 @@ def _get_and_materialize_sources(
 
 def _main(ctx: bxl.Context) -> None:
     fs = ctx.fs
+    extra_filetypes = {}  # Set of non-Python file types discovered (dict used as mutable set)
     to_remove = {}  # Set of targets to remove at the end
     to_build = []  # List of targets I need to build
     to_insert = []  # Triples of (target srcs ref, module name, artifact) to insert after building
@@ -321,18 +362,19 @@ def _main(ctx: bxl.Context) -> None:
         elif x.rule_type == "prelude//rules.bzl:cxx_python_extension":
             _handle_python_extension(entry, attrs, fs, x, known_targets)
         elif "genrule" in x.rule_type:
-            _handle_genrule(entry, attrs, fs, x, known_targets, to_remove, to_build, to_insert, genrule_to_insert)
+            _handle_genrule(entry, attrs, fs, x, known_targets, to_remove, to_build, to_insert, genrule_to_insert, extra_filetypes)
         elif "python_library" in x.rule_type:
-            _handle_python_library(entry, attrs, fs, x, known_targets, to_remove, to_build, to_insert)
+            _handle_python_library(entry, attrs, fs, x, known_targets, to_remove, to_build, to_insert, extra_filetypes)
         else:
             fail("Unknown rule type `{}` for target `{}`".format(x.rule_type, x.label.raw_target()))
 
-    _build_generated_files(ctx, to_build, to_insert, genrule_to_insert)
+    _build_generated_files(ctx, to_build, to_insert, genrule_to_insert, extra_filetypes)
 
     # remove any targets we decided we shouldn't output
     for remove in to_remove:
         entries.pop(remove)
 
+    json["extra_filetypes"] = sorted(extra_filetypes.keys())
     ctx.output.print_json(json)
 
 main = bxl_main(

@@ -86,6 +86,7 @@ class Manifest:
 class DB:
     db: dict[str, Manifest | Alias]
     root: str
+    extra_filetypes: list[str]
 
     def strip_root(self) -> None:
         self.root = strip_prefix(self.root)
@@ -97,12 +98,11 @@ class DB:
 
     @staticmethod
     def from_json(json: Any) -> "DB":
-        for key in ("db", "root"):
-            if key not in json:
-                raise ValueError(
-                    f"Unknown type returned from Buck, does not have '{key}' key. Keys are: "
-                    + ", ".join(json.keys())
-                )
+        expected_keys = {"db", "root", "extra_filetypes"}
+        if set(json.keys()) != expected_keys:
+            raise ValueError(
+                f"Mismatched keys from DB. Expected {expected_keys}, got {json.keys()}"
+            )
 
         inner_db = {}
 
@@ -116,6 +116,7 @@ class DB:
             # strip root, since it's not relevant to these tests
             root="",
             db=inner_db,
+            extra_filetypes=json["extra_filetypes"],
         )
 
         db.strip_root()

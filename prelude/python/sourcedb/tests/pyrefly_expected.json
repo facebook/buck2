@@ -129,5 +129,8 @@
       }
     }
   },
+  "extra_filetypes": [
+    "sh"
+  ],
   "root": ""
 }
