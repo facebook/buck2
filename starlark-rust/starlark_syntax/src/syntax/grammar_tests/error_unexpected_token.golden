@@ -1,0 +1,66 @@
+# @generated
+# To regenerate, run:
+# ```
+# STARLARK_RUST_REGENERATE_GOLDEN_TESTS=1 cargo test -p starlark --lib
+# ```
+
+Program:
+x = = 1
+
+Error:
+error: Parse error: unexpected symbol '=' here, expected one of "(", "+", "-", "...", "FLOAT", "FSTRING", "IDENTIFIER", "INTEGER", "STRING", "[", "lambda", "not", "{" or "~"
+ --> error_unexpected_token:1:5
+  |
+1 | x = = 1
+  |     ^
+  |
+
+
+Program:
+def foo(,):
+  pass
+
+Error:
+error: Parse error: unexpected symbol ',' here, expected one of ")", "*", "**", "/" or "IDENTIFIER"
+ --> error_unexpected_token:1:9
+  |
+1 | def foo(,):
+  |         ^
+  |
+
+
+Program:
+x = [1, , 2]
+
+Error:
+error: Parse error: unexpected symbol ',' here, expected one of "(", "+", "-", "...", "FLOAT", "FSTRING", "IDENTIFIER", "INTEGER", "STRING", "[", "]", "lambda", "not", "{" or "~"
+ --> error_unexpected_token:1:9
+  |
+1 | x = [1, , 2]
+  |         ^
+  |
+
+
+Program:
+x = {,}
+
+Error:
+error: Parse error: unexpected symbol ',' here, expected one of "(", "+", "-", "...", "FLOAT", "FSTRING", "IDENTIFIER", "INTEGER", "STRING", "[", "lambda", "not", "{", "}" or "~"
+ --> error_unexpected_token:1:6
+  |
+1 | x = {,}
+  |      ^
+  |
+
+
+Program:
+def foo(x,,y):
+  pass
+
+Error:
+error: Parse error: unexpected symbol ',' here, expected one of ")", "*", "**", "/" or "IDENTIFIER"
+ --> error_unexpected_token:1:11
+  |
+1 | def foo(x,,y):
+  |           ^
+  |

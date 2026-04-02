@@ -372,6 +372,107 @@ fn test_test_list_in_index_expr() {
 
     parse_fail("list_in_index_expr", "x[1, 2] = 3");
 }
+#[test]
+fn test_error_unmatched_parens() {
+    parse_fails(
+        "error_unmatched_parens",
+        &[
+            "(1 + 2",
+            "f(x, y",
+            "[1, 2, 3",
+            "{1: 2",
+            "x = (1 +\n  2 +\n  3",
+        ],
+    );
+}
+
+#[test]
+fn test_error_unexpected_token() {
+    parse_fails(
+        "error_unexpected_token",
+        &[
+            "x = = 1",
+            "def foo(,):\n  pass",
+            "x = [1, , 2]",
+            "x = {,}",
+            "def foo(x,,y):\n  pass",
+        ],
+    );
+}
+
+#[test]
+fn test_error_missing_colon() {
+    parse_fails(
+        "error_missing_colon",
+        &[
+            "if True\n  pass",
+            "def foo()\n  pass",
+            "for x in []\n  pass",
+        ],
+    );
+}
+
+#[test]
+fn test_error_missing_expression() {
+    parse_fails("error_missing_expression", &["x =", "x +=", "return\n1 +"]);
+}
+
+#[test]
+fn test_error_bad_def() {
+    parse_fails(
+        "error_bad_def",
+        &[
+            "def :\n  pass",
+            "def foo(x y):\n  pass",
+            "def foo(**x, y):\n  pass",
+        ],
+    );
+}
+
+#[test]
+fn test_error_bad_load() {
+    parse_fails(
+        "error_bad_load",
+        &["load()", "load(123)", "load(\"foo.bzl\")"],
+    );
+}
+
+#[test]
+fn test_error_bad_for() {
+    parse_fails("error_bad_for", &["for x + y in []:\n  pass"]);
+}
+
+#[test]
+fn test_error_chained_comparison() {
+    parse_fails(
+        "error_chained_comparison",
+        &["0 <= 1 < 2", "a == b != c", "a < b > c", "a in b in c"],
+    );
+}
+
+#[test]
+fn test_error_string_unterminated() {
+    parse_fails("error_string_unterminated", &["x = \"hello", "x = 'hello"]);
+}
+
+#[test]
+fn test_error_indentation() {
+    parse_fails(
+        "error_indentation",
+        &[
+            "if True:\n    x = 1\n  y = 2",
+            "def foo():\n  x = 1\n    y = 2",
+        ],
+    );
+}
+
+#[test]
+fn test_error_reserved_keyword() {
+    parse_fails(
+        "error_reserved_keyword",
+        &["class Foo:\n  pass", "import os", "raise ValueError"],
+    );
+}
 
 pub fn parse(program: &str) -> String {
     parse_ast(program).statement.to_string()

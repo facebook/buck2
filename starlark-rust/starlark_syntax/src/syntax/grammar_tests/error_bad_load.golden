@@ -1,0 +1,40 @@
+# @generated
+# To regenerate, run:
+# ```
+# STARLARK_RUST_REGENERATE_GOLDEN_TESTS=1 cargo test -p starlark --lib
+# ```
+
+Program:
+load()
+
+Error:
+error: Parse error: unexpected symbol ')' here, expected one of "STRING"
+ --> error_bad_load:1:6
+  |
+1 | load()
+  |      ^
+  |
+
+
+Program:
+load(123)
+
+Error:
+error: Parse error: unexpected integer literal '123' here, expected one of "STRING"
+ --> error_bad_load:1:6
+  |
+1 | load(123)
+  |      ^^^
+  |
+
+
+Program:
+load("foo.bzl")
+
+Error:
+error: `load` statement requires at least two arguments
+ --> error_bad_load:1:6
+  |
+1 | load("foo.bzl")
+  |      ^^^^^^^^^
+  |
