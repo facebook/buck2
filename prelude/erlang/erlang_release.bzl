@@ -321,6 +321,7 @@ def _build_erts(
             "erts-{}".format(toolchain.erts_toolchain_info.erts_version),
         ),
         toolchain.erts_toolchain_info.output,
+        has_content_based_path = False,
     )
 
     return {"erts-{}".format(toolchain.erts_toolchain_info.erts_version): erts_dir}

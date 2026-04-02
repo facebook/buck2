@@ -228,6 +228,7 @@ def executable_shared_lib_arguments(
         return [ctx.actions.symlink_file(
             shlib.lib.output.basename,
             shlib.lib.output,
+            has_content_based_path = False,
         ) for shlib in shared_libs]
 
     def create_shared_libs_symlink_trees(shared_libs_symlink_tree_name_arg: str, dwp_symlink_tree_name_arg: str) -> (Artifact, Artifact) | None:

@@ -35,7 +35,7 @@ def _impl(ctx):
         )
         out = cmd_args(to_parent, final_component, delimiter = ctx.attrs.path_sep)
     else:
-        out = ctx.actions.symlink_file(final_component, base)
+        out = ctx.actions.symlink_file(final_component, base, has_content_based_path = False)
     args = cmd_args(out, hidden = ctx.attrs.base[DefaultInfo].other_outputs)
     return [DefaultInfo(), RunInfo(args = args)]
 

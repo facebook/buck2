@@ -779,6 +779,7 @@ def executable_shared_lib_arguments_from_shared_library_info(
         return [ctx.actions.symlink_file(
             shlib.lib.output.basename,
             shlib.lib.output,
+            has_content_based_path = False,
         ) for shlib in shared_libs]
 
     def create_shared_libs_symlink_trees(

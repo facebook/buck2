@@ -577,11 +577,11 @@ def _post_native_lib_graph_finalization_steps(
     ctx.actions.symlink_file(native_libs, dynamic_info.native_libs)
     ctx.actions.symlink_file(native_libs_metadata, dynamic_info.native_libs_metadata)
     ctx.actions.symlink_file(native_libs_always_in_primary_apk, dynamic_info.native_libs_always_in_primary_apk)
-    ctx.actions.symlink_file(native_lib_assets_for_primary_apk, dynamic_info.native_lib_assets_for_primary_apk if dynamic_info.native_lib_assets_for_primary_apk else ctx.actions.symlinked_dir("empty_native_lib_assets", {}))
-    ctx.actions.symlink_file(stripped_native_linkable_assets_for_primary_apk, dynamic_info.stripped_native_linkable_assets_for_primary_apk if dynamic_info.stripped_native_linkable_assets_for_primary_apk else ctx.actions.symlinked_dir("empty_stripped_native_linkable_assets", {}))
+    ctx.actions.symlink_file(native_lib_assets_for_primary_apk, dynamic_info.native_lib_assets_for_primary_apk if dynamic_info.native_lib_assets_for_primary_apk else ctx.actions.symlinked_dir("empty_native_lib_assets", {}), has_content_based_path = False)
+    ctx.actions.symlink_file(stripped_native_linkable_assets_for_primary_apk, dynamic_info.stripped_native_linkable_assets_for_primary_apk if dynamic_info.stripped_native_linkable_assets_for_primary_apk else ctx.actions.symlinked_dir("empty_stripped_native_linkable_assets", {}), has_content_based_path = False)
     ctx.actions.symlink_file(root_module_metadata_assets, dynamic_info.root_module_metadata_assets)
     ctx.actions.symlink_file(non_root_module_metadata_assets, dynamic_info.non_root_module_metadata_assets)
-    ctx.actions.symlink_file(non_root_module_lib_assets, dynamic_info.non_root_module_lib_assets if dynamic_info.non_root_module_lib_assets else ctx.actions.symlinked_dir("empty_non_root_module_lib_assets", {}))
+    ctx.actions.symlink_file(non_root_module_lib_assets, dynamic_info.non_root_module_lib_assets if dynamic_info.non_root_module_lib_assets else ctx.actions.symlinked_dir("empty_non_root_module_lib_assets", {}), has_content_based_path = False)
 
     return final_shared_libs_by_platform
 
