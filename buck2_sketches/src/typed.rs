@@ -11,19 +11,29 @@
 //! Type-safe wrappers around [`SetSketch`] that distinguish between different
 //! semantic uses of sketches.
 //!
-//! Two sketch types are currently defined:
+//! Three sketch types are currently defined:
 //!
 //! - [`DependencyGraphSketch`] — the configured dependency graph of a target;
 //!   cardinality estimates the number of configured targets.
+//! - [`ActionGraphSketch`] — the action graph of a target; cardinality
+//!   estimates the number of unique actions.
 //! - [`MemoryUsageSketch`] — retained analysis memory of a target; cardinality
 //!   estimates the number of bytes.
 //!
-//! Both share the same underlying [`SetSketch`] data structure and serialization
-//! format, but expose domain-specific accessor names so callers don't have to
-//! guess what `cardinality()` means in context.
+//! All three share the same underlying [`SetSketch`] data structure and
+//! serialization format, but expose domain-specific accessor names so callers
+//! don't have to guess what `cardinality()` means in context.
 //!
-//! The shared behavior is provided by the [`TypedSketch`] trait; each concrete
-//! type only needs to implement the four required accessors.
+//! The shared behavior is provided by the [`TypedSketch`] trait; a single
+//! generic [`Sketch<D>`] wrapper implements it for every domain marker `D`.
+//! Domain markers are grouped by category:
+//!
+//! - **Unweighted** (`DependencyGraph`, `ActionGraph`) — sketches that count
+//!   distinct elements inserted via `sketch()`.
+//! - **Weighted** (`MemoryUsage`) — sketches whose cardinality represents a
+//!   sum of weights inserted via `sketch_weighted()`.
+
+use std::marker::PhantomData;
 
 use setsketch::SetSketch;
 use setsketch::SetSketchDecodeError;
@@ -92,21 +102,57 @@ pub trait TypedSketch: Sized + Clone {
     fn decode_base64_versioned(encoded: &str) -> Result<Self, SetSketchDecodeError> {
         SetSketch::decode_base64_versioned(encoded).map(Self::from_inner)
     }
+
+    /// Encode to a versioned base64 string (e.g. `"V1:<base64_data>"`).
+    fn to_base64_versioned(&self) -> String {
+        let registers = self.inner().get_registers();
+        let mut res = b"V1:".to_vec();
+        let mut enc = base64::write::EncoderWriter::new(
+            &mut res,
+            &base64::engine::general_purpose::STANDARD_NO_PAD,
+        );
+        for v in registers {
+            use std::io::Write;
+            enc.write_all(&v.to_ne_bytes()).unwrap();
+        }
+        enc.finish().unwrap();
+        drop(enc);
+        String::from_utf8(res).unwrap()
+    }
 }
 
 // ---------------------------------------------------------------------------
-// DependencyGraphSketch
+// Generic sketch wrapper
 // ---------------------------------------------------------------------------
 
-/// A sketch representing the configured dependency graph of a target.
+/// A typed sketch parameterized by a domain marker `D`.
 ///
-/// Cardinality estimates the number of configured targets in the graph.
-#[derive(Clone, Debug, Default)]
-pub struct DependencyGraphSketch(SetSketch);
+/// All domain-specific sketch types ([`DependencyGraphSketch`],
+/// [`ActionGraphSketch`], [`MemoryUsageSketch`]) are aliases for this type
+/// with different markers.
+pub struct Sketch<D>(SetSketch, PhantomData<D>);
 
-impl TypedSketch for DependencyGraphSketch {
+impl<D> Clone for Sketch<D> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone(), PhantomData)
+    }
+}
+
+impl<D> std::fmt::Debug for Sketch<D> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("Sketch").field(&self.0).finish()
+    }
+}
+
+impl<D> Default for Sketch<D> {
+    fn default() -> Self {
+        Self(SetSketch::default(), PhantomData)
+    }
+}
+
+impl<D> TypedSketch for Sketch<D> {
     fn from_inner(sketch: SetSketch) -> Self {
-        Self(sketch)
+        Self(sketch, PhantomData)
     }
     fn inner(&self) -> &SetSketch {
         &self.0
@@ -119,47 +165,89 @@ impl TypedSketch for DependencyGraphSketch {
     }
 }
 
-impl DependencyGraphSketch {
-    /// Estimate the number of configured targets in the dependency graph.
-    pub fn estimated_target_count(&self) -> f64 {
+// ---------------------------------------------------------------------------
+// Domain category traits
+// ---------------------------------------------------------------------------
+
+/// Marker for unweighted sketches that count distinct elements.
+pub trait UnweightedDomain {}
+
+/// Marker for weighted sketches whose cardinality represents a sum of weights.
+pub trait WeightedDomain {}
+
+impl<D: UnweightedDomain> Sketch<D> {
+    /// Estimate the number of distinct elements in the sketch.
+    pub fn estimated_count(&self) -> f64 {
+        self.0.cardinality()
+    }
+}
+
+impl<D: WeightedDomain> Sketch<D> {
+    /// Estimate the total weight (sum of all weights inserted).
+    pub fn estimated_total(&self) -> f64 {
         self.0.cardinality()
     }
 }
 
 // ---------------------------------------------------------------------------
-// MemoryUsageSketch
+// Domain markers
 // ---------------------------------------------------------------------------
 
-/// A sketch representing the retained analysis memory of a target.
-///
-/// Cardinality estimates the number of bytes of retained analysis memory.
-#[derive(Clone, Debug, Default)]
-pub struct MemoryUsageSketch(SetSketch);
+/// Domain marker for configured dependency graph sketches.
+pub struct DependencyGraph;
+impl UnweightedDomain for DependencyGraph {}
 
-impl TypedSketch for MemoryUsageSketch {
-    fn from_inner(sketch: SetSketch) -> Self {
-        Self(sketch)
+/// Domain marker for action graph sketches.
+pub struct ActionGraph;
+impl UnweightedDomain for ActionGraph {}
+
+/// Domain marker for retained analysis memory sketches.
+pub struct MemoryUsage;
+impl WeightedDomain for MemoryUsage {}
+
+// ---------------------------------------------------------------------------
+// Public type aliases
+// ---------------------------------------------------------------------------
+
+/// A sketch representing the configured dependency graph of a target.
+/// Cardinality estimates the number of configured targets in the graph.
+pub type DependencyGraphSketch = Sketch<DependencyGraph>;
+
+/// A sketch representing the action graph of a build target.
+/// Cardinality estimates the number of unique actions in the graph.
+pub type ActionGraphSketch = Sketch<ActionGraph>;
+
+/// A sketch representing the retained analysis memory of a target.
+/// Cardinality estimates the number of bytes of retained analysis memory.
+pub type MemoryUsageSketch = Sketch<MemoryUsage>;
+
+// ---------------------------------------------------------------------------
+// Domain-specific accessors
+// ---------------------------------------------------------------------------
+
+impl DependencyGraphSketch {
+    /// Estimate the number of configured targets in the dependency graph.
+    pub fn estimated_target_count(&self) -> f64 {
+        self.estimated_count()
     }
-    fn inner(&self) -> &SetSketch {
-        &self.0
-    }
-    fn inner_mut(&mut self) -> &mut SetSketch {
-        &mut self.0
-    }
-    fn into_inner(self) -> SetSketch {
-        self.0
+}
+
+impl ActionGraphSketch {
+    /// Estimate the number of unique actions in the action graph.
+    pub fn estimated_action_count(&self) -> f64 {
+        self.estimated_count()
     }
 }
 
 impl MemoryUsageSketch {
     /// Estimate the number of bytes of retained analysis memory.
     pub fn estimated_bytes(&self) -> f64 {
-        self.0.cardinality()
+        self.estimated_total()
     }
 
     /// Estimate the megabytes of retained analysis memory.
     pub fn estimated_megabytes(&self) -> f64 {
-        self.0.cardinality() / 1_000_000.0
+        self.estimated_total() / 1_000_000.0
     }
 }
 
@@ -179,7 +267,7 @@ fn sketch_from_bytes(bytes: &[u8]) -> Result<SetSketch, String> {
     Ok(SetSketch::from_recommended_registers(registers))
 }
 
-/// Serialize a sketch to raw u16 register bytes.
+/// Serialize a sketch to raw register bytes.
 fn sketch_to_bytes(sketch: &SetSketch) -> Vec<u8> {
     sketch
         .get_registers()

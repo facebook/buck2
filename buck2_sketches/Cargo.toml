@@ -7,4 +7,5 @@ repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]
+base64 = { workspace = true }
 setsketch = { path = "../shed/setsketch" }
