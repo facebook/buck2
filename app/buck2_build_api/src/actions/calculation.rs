@@ -465,7 +465,7 @@ fn is_action_eligible_for_dedupe(
     inputs: &BuckIndexMap<ArtifactGroup, ArtifactGroupValues>,
 ) -> buck2_data::EligibleForDedupe {
     if let BaseDeferredKey::TargetLabel(configured_label) = action.key().owner() {
-        if configured_label.cfg().is_bound_execution_platform() {
+        if configured_label.cfg().is_marked_as_exec_platform() {
             return buck2_data::EligibleForDedupe::ExecutionPlatformUnknownEligibility;
         }
     }

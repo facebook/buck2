@@ -41,7 +41,7 @@ pub struct PlatformInfoGen<V: ValueLifetimeless> {
 impl<'v, V: ValueLike<'v>> PlatformInfoGen<V> {
     pub fn to_configuration(
         &self,
-        is_exec_platform: bool,
+        is_marked_as_exec_platform: bool,
     ) -> buck2_error::Result<ConfigurationData> {
         let label = self
             .label
@@ -53,7 +53,7 @@ impl<'v, V: ValueLike<'v>> PlatformInfoGen<V> {
         let data = ConfigurationInfo::from_value(self.configuration.get().to_value())
             .expect("type checked during construction")
             .to_configuration_data()?;
-        ConfigurationData::from_platform(label, data, is_exec_platform)
+        ConfigurationData::from_platform(label, data, is_marked_as_exec_platform)
     }
 }
 

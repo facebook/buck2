@@ -589,7 +589,7 @@ impl<'v> TransitiveSet<'v> {
                             .holder_key()
                             .owner()
                             .configured_label()
-                            .is_some_and(|l| l.cfg().is_bound_execution_platform());
+                            .is_some_and(|l| l.cfg().is_marked_as_exec_platform());
                         if !is_child_eligible_for_dedupe {
                             is_eligible_for_dedupe = false;
                         }

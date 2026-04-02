@@ -157,7 +157,7 @@ impl ArtifactGroup {
         };
 
         match artifact_group_owner {
-            BaseDeferredKey::TargetLabel(a) => a.cfg().is_bound_execution_platform(),
+            BaseDeferredKey::TargetLabel(a) => a.cfg().is_marked_as_exec_platform(),
             // TODO(ianc) do we have a better way of detecting if an artifact being built for an anon target is eligible for dedupe?
             BaseDeferredKey::AnonTarget(_) => true,
             BaseDeferredKey::BxlLabel(_) => false,

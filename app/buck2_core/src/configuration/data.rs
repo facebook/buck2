@@ -130,11 +130,11 @@ impl ConfigurationData {
     pub fn from_platform(
         label: String,
         data: ConfigurationDataData,
-        is_exec_platform: bool,
+        is_marked_as_exec_platform: bool,
     ) -> buck2_error::Result<Self> {
         let label = BoundConfigurationLabel::new(label)?;
         let (cfg, disposition) = Self::from_data(HashedConfigurationPlatform::new(
-            ConfigurationPlatform::Bound(label, data, is_exec_platform),
+            ConfigurationPlatform::Bound(label, data, is_marked_as_exec_platform),
         ));
         if let InternDisposition::Computed = disposition {
             emit_configuration_instant_event(&cfg)?;
@@ -300,7 +300,7 @@ impl ConfigurationData {
         )
     }
 
-    pub fn is_bound_execution_platform(&self) -> bool {
+    pub fn is_marked_as_exec_platform(&self) -> bool {
         matches!(
             &self.0.configuration_platform,
             ConfigurationPlatform::Bound(_, _, true)
@@ -345,7 +345,7 @@ impl ToProtoMessage for ConfigurationData {
 )]
 enum ConfigurationPlatform {
     /// This represents the normal case where a platform has been defined by a `platform()` (or similar) target.
-    /// The `bool` indicates whether this is an execution platform.
+    /// The `bool` indicates whether the user provided a modifier constraint to mark this as an execution platform.
     Bound(BoundConfigurationLabel, ConfigurationDataData, bool),
     Builtin(BuiltinPlatform),
 }
@@ -442,14 +442,14 @@ impl StrongHash for HashedConfigurationPlatform {
 
 impl HashedConfigurationPlatform {
     fn new(configuration_platform: ConfigurationPlatform) -> Self {
-        // Compute output_hash excluding `is_exec_platform` so that it doesn't
+        // Compute output_hash excluding `is_marked_as_exec_platform` so that it doesn't
         // affect output paths.
         let output_hash = {
             let mut hasher = Blake3StrongHasher::new();
             match &configuration_platform {
-                // TODO(ianc) We exclude the is_exec_platform bool for consistency across bumps.
+                // TODO(ianc) We exclude the is_marked_as_exec_platform bool for consistency across bumps.
                 // Switch this to just use the default.
-                ConfigurationPlatform::Bound(label, data, _is_exec_platform) => {
+                ConfigurationPlatform::Bound(label, data, _is_marked_as_exec_platform) => {
                     StrongHash::strong_hash("Bound", &mut hasher);
                     label.strong_hash(&mut hasher);
                     data.strong_hash(&mut hasher);

@@ -618,16 +618,16 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         let expect_eligible_for_dedupe = expect_eligible_for_dedupe.into_option().unwrap_or(false);
         let verify_eligibility = if expect_eligible_for_dedupe {
             let deferred_holder_key = &this.state()?.analysis_value_storage.self_key;
-            let is_bound_execution_platform =
-                if let BaseDeferredKey::TargetLabel(configured_label) = deferred_holder_key.owner()
-                {
-                    configured_label.cfg().is_bound_execution_platform()
-                } else {
-                    false
-                };
+            let is_marked_as_exec_platform = if let BaseDeferredKey::TargetLabel(configured_label) =
+                deferred_holder_key.owner()
+            {
+                configured_label.cfg().is_marked_as_exec_platform()
+            } else {
+                false
+            };
             // We can't accurately calculate eligibility for dedupe when building for the execution platform,
             // so ignore expected eligibility in that case.
-            !is_bound_execution_platform
+            !is_marked_as_exec_platform
         } else {
             false
         };
