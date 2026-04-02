@@ -324,18 +324,18 @@ impl DapAdapter for DapAdapterImpl {
         }))
     }
 
-    fn scopes(&self) -> anyhow::Result<ScopesInfo> {
-        self.with_ctx(Box::new(|_, eval| {
-            let vars = eval.local_variables();
+    fn scopes(&self, frame_id: usize) -> anyhow::Result<ScopesInfo> {
+        self.with_ctx(Box::new(move |_, eval| {
+            let vars = eval.local_variables_at_frame(frame_id);
             Ok(ScopesInfo {
                 num_locals: vars.len(),
             })
         }))
     }
 
-    fn variables(&self) -> anyhow::Result<VariablesInfo> {
-        self.with_ctx(Box::new(|_, eval| {
-            let vars = eval.local_variables();
+    fn variables(&self, frame_id: usize) -> anyhow::Result<VariablesInfo> {
+        self.with_ctx(Box::new(move |_, eval| {
+            let vars = eval.local_variables_at_frame(frame_id);
             Ok(VariablesInfo {
                 locals: vars
                     .into_iter()
@@ -345,20 +345,31 @@ impl DapAdapter for DapAdapterImpl {
         }))
     }
 
-    fn inspect_variable(&self, path: VariablePath) -> anyhow::Result<InspectVariableInfo> {
+    fn inspect_variable(
+        &self,
+        frame_id: usize,
+        path: VariablePath,
+    ) -> anyhow::Result<InspectVariableInfo> {
         let state = self.state.dupe();
         self.with_ctx(Box::new(move |_span, eval| {
             let access_path = &path.access_path;
             let mut value = match &path.scope {
                 super::Scope::Local(name) => {
-                    let mut vars = eval.local_variables();
+                    let mut vars = eval.local_variables_at_frame(frame_id);
                     // since vars is owned within this closure scope we can just remove value from the map
                     // obtaining owned variable as the rest of the map will be dropped anyway
                     vars.shift_remove(name).ok_or_else(|| {
                         anyhow::Error::msg(format!("Local variable {name} not found"))
                     })
                 }
-                super::Scope::Expr(expr) => evaluate_expr(&state, eval, expr.to_owned()),
+                super::Scope::Expr(expr) => {
+                    if frame_id != 0 {
+                        return Err(anyhow::anyhow!(
+                            "Expression evaluation is only supported in the top-level frame"
+                        ));
+                    }
+                    evaluate_expr(&state, eval, expr.to_owned())
+                }
             }?;
 
             for p in access_path.iter() {

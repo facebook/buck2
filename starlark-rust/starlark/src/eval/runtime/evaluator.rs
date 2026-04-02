@@ -191,6 +191,9 @@ pub struct Evaluator<'v, 'a, 'e> {
     // The Starlark-level call-stack of functions.
     // Must go last because it's quite a big structure
     pub(crate) call_stack: CheapCallStack<'v>,
+    /// Stack of parent `BcFramePtr`s, pushed/popped in `alloca_frame`.
+    /// Used by the debugger to read local variables of non-top stack frames.
+    pub(crate) frame_stack: Vec<BcFramePtr<'v>>,
     /// Function to check if evaluation should be cancelled early
     pub(crate) is_cancelled: Box<dyn Fn() -> bool + 'a>,
     /// A counter to track when to perform "infrequent" checks like cancellation, timeouts, etc
@@ -292,6 +295,7 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
             max_callstack_size: None,
             max_heap_size: None,
             max_tick_count: None,
+            frame_stack: Vec::with_capacity(DEFAULT_STACK_SIZE),
             is_cancelled: Box::new(|| false),
             infrequent_instr_check_counter: 0,
             total_tick_count_at_last_infrequent_check: 0,
@@ -787,6 +791,11 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
             .record_call_enter(const_frozen_string!("trace/walk").to_value());
         self.module_env.trace(tracer);
         self.current_frame.trace(tracer);
+        for frame in &mut self.frame_stack {
+            if frame.is_inititalized() {
+                frame.trace(tracer);
+            }
+        }
         self.call_stack.trace(tracer);
         self.time_flame_profile.record_call_exit();
         self.time_flame_profile

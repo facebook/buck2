@@ -175,7 +175,7 @@ impl DebugServer for Backend {
     }
 
     fn scopes(&self, _: ScopesArguments) -> anyhow::Result<ScopesResponseBody> {
-        let scopes_info = self.adapter.scopes()?;
+        let scopes_info = self.adapter.scopes(0)?;
         Ok(ScopesResponseBody {
             scopes: vec![Scope {
                 name: "Locals".to_owned(),
@@ -193,7 +193,7 @@ impl DebugServer for Backend {
     }
 
     fn variables(&self, _: VariablesArguments) -> anyhow::Result<VariablesResponseBody> {
-        let vars_info = self.adapter.variables()?;
+        let vars_info = self.adapter.variables(0)?;
         Ok(VariablesResponseBody {
             variables: vars_info
                 .locals

@@ -295,41 +295,63 @@ struct ServerState {
     variables_by_thread: StdBuckHashMap<u32, VariablesKnownPaths>,
 }
 
-/// This type is using bitmasking to pack "is_top_frame, thread_id, variable_id" into an integer value
+/// This type is using bitmasking to pack "frame_id, thread_id, variable_id" into an integer value
 /// Since this is a JSON serialized number it's safer to only rely on 53 bits
 /// thread_id is u32 but we're putting a limit of 20 bits on it for now to simplify DAP implementation
+/// frame_id supports up to 127 frames (0 = top frame).
+/// Layout (47 bits used):
+///   [frame_id: 7 bits (40-46)]
+///   [thread_id: 20 bits (20-39)]
+///   [variable_id: 20 bits (0-19)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct VariableId(i64);
 
 impl VariableId {
     const MASK_53_BITS: i64 = (1 << 53) - 1;
+    const MAX_THREAD_ID: u32 = 0xFFFFF; // 20 bits
+    const MAX_VARIABLE_ID: u32 = 0xFFFFF; // 20 bits
+    const MAX_FRAME_ID: u32 = 0x7F; // 7 bits
 
-    pub fn new(top_frame: bool, thread_id: u32, variable_id: u32) -> buck2_error::Result<Self> {
-        if thread_id > 0xFFFFF {
+    pub fn new(frame_id: u32, thread_id: u32, variable_id: u32) -> buck2_error::Result<Self> {
+        if thread_id > Self::MAX_THREAD_ID {
             return Err(buck2_error::buck2_error!(
                 buck2_error::ErrorTag::StarlarkServer,
-                "{}",
-                format!(
-                    "Thread ID exceeds 20-bit limit: max is 0xFFFFF, received {}",
-                    thread_id
-                )
+                "Thread ID exceeds 20-bit limit: max is {}, received {}",
+                Self::MAX_THREAD_ID,
+                thread_id
             ));
         }
-        let top_frame_flag = (if top_frame { 1 } else { 0 }) << 52;
-        let thread_id_part = ((thread_id as i64) << 32) & 0xFFFFF00000000;
-        Ok(Self(top_frame_flag | thread_id_part | variable_id as i64))
+        if variable_id > Self::MAX_VARIABLE_ID {
+            return Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::StarlarkServer,
+                "Variable ID exceeds 20-bit limit: max is {}, received {}",
+                Self::MAX_VARIABLE_ID,
+                variable_id
+            ));
+        }
+        if frame_id > Self::MAX_FRAME_ID {
+            return Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::StarlarkServer,
+                "Frame ID exceeds 7-bit limit: max is {}, received {}",
+                Self::MAX_FRAME_ID,
+                frame_id
+            ));
+        }
+        let frame_id_part = (frame_id as i64) << 40;
+        let thread_id_part = (thread_id as i64) << 20;
+        Ok(Self(frame_id_part | thread_id_part | variable_id as i64))
     }
 
-    pub fn is_top_frame(self) -> bool {
-        (self.0 >> 52) != 0
+    pub fn frame_id(self) -> u32 {
+        ((self.0 >> 40) & 0x7F) as u32
     }
 
     pub fn thread_id(self) -> u32 {
-        ((self.0 >> 32) & 0xFFFFF) as u32
+        ((self.0 >> 20) & 0xFFFFF) as u32
     }
 
     pub fn variable_id(self) -> u32 {
-        (self.0 & 0xFFFFFFFF) as u32
+        (self.0 & 0xFFFFF) as u32
     }
 
     pub fn as_i64(self) -> i64 {
@@ -346,8 +368,8 @@ impl TryFrom<i64> for VariableId {
         } else {
             Err(buck2_error::buck2_error!(
                 buck2_error::ErrorTag::Input,
-                "{}",
-                format!("value exceeds 53-bit limit. value: {}", value)
+                "value exceeds 53-bit limit. value: {}",
+                value
             ))
         }
     }
@@ -454,24 +476,18 @@ impl DebugServer for ServerState {
 
     fn scopes(&mut self, x: dap::ScopesArguments) -> buck2_error::Result<dap::ScopesResponseBody> {
         let thread_id = x.frame_id >> 16;
-        let frame_id = x.frame_id & 0xFFFF;
-        if frame_id != 0 {
-            return Ok(dap::ScopesResponseBody { scopes: Vec::new() });
-        }
+        let frame_id = (x.frame_id & 0xFFFF) as u32;
 
         let hook = self.find_hook_by_pseudo_thread(thread_id)?;
         let scopes_info = hook
             .adapter
-            .scopes()
+            .scopes(frame_id as usize)
             .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::StarlarkServer))?;
         Ok(dap::ScopesResponseBody {
             scopes: vec![dap::Scope {
                 name: "Locals".to_owned(),
                 named_variables: Some(scopes_info.num_locals as i64),
-                // rewrite variables reference to include our threadid. we don't currently send back any
-                // variables other than locals so the TOP_FRAME_LOCALS_ID doesnt really matter (though we
-                // do check against it below).
-                variables_reference: VariableId::new(true, thread_id as u32, 0)?.as_i64(),
+                variables_reference: VariableId::new(frame_id, thread_id as u32, 0)?.as_i64(),
                 expensive: false,
                 column: None,
                 end_column: None,
@@ -489,12 +505,7 @@ impl DebugServer for ServerState {
     ) -> buck2_error::Result<dap::VariablesResponseBody> {
         let encoded_variable_id = VariableId::try_from(x.variables_reference)?;
         let thread_id = encoded_variable_id.thread_id();
-        // We only understand the TOP_FRAME_LOCALS_ID id
-        if !encoded_variable_id.is_top_frame() {
-            return Ok(dap::VariablesResponseBody {
-                variables: Vec::new(),
-            });
-        }
+        let frame_id = encoded_variable_id.frame_id();
 
         let mut result = Vec::new();
 
@@ -502,7 +513,7 @@ impl DebugServer for ServerState {
             let hook = self.find_hook_by_pseudo_thread(thread_id.into())?;
             let vars_info = hook
                 .adapter
-                .variables()
+                .variables(frame_id as usize)
                 .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::StarlarkServer))?;
             let known_variables = self.variables_by_thread.entry(thread_id).or_default();
 
@@ -513,7 +524,7 @@ impl DebugServer for ServerState {
                 if has_children {
                     let var_id = known_variables.insert(var_path);
                     dap_message.variables_reference =
-                        VariableId::new(true, thread_id, var_id)?.into();
+                        VariableId::new(frame_id, thread_id, var_id)?.into();
                 }
                 result.push(dap_message);
             }
@@ -528,7 +539,7 @@ impl DebugServer for ServerState {
                 let hook = self.find_hook_by_pseudo_thread(thread_id.into())?;
                 let inspect_result = hook
                     .adapter
-                    .inspect_variable(path.to_owned())
+                    .inspect_variable(frame_id as usize, path.to_owned())
                     .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::StarlarkServer))?;
                 let current_frame_vars =
                     self.variables_by_thread
@@ -543,7 +554,7 @@ impl DebugServer for ServerState {
                     let mut dap_result = child.to_dap();
                     if has_children {
                         let reference_id = VariableId::new(
-                            true,
+                            frame_id,
                             thread_id,
                             current_frame_vars.insert(child_path),
                         )?;
@@ -637,8 +648,8 @@ impl DebugServer for ServerState {
                     presentation_hint: None,
                     result: v.result,
                     type_: Some(v.type_),
-                    variables_reference: VariableId::new(true, thread_id as u32, variable_id)?
-                        .as_i64() as f64,
+                    variables_reference: VariableId::new(0, thread_id as u32, variable_id)?.as_i64()
+                        as f64,
                 })
             }
             Ok(v) => Ok(dap::EvaluateResponseBody {
@@ -1006,37 +1017,42 @@ fn describe_frame(frame: dap::StackFrame) -> String {
 mod tests {
     use super::VariableId;
 
-    fn check_variable_err(is_top_frame: bool, thread_id: u32, variable_id: u32) {
+    fn check_variable_err(frame_id: u32, thread_id: u32, variable_id: u32) {
         assert!(
-            VariableId::new(is_top_frame, thread_id, variable_id).is_err(),
-            "Expecting error for values ({is_top_frame}, {thread_id}, {variable_id})"
+            VariableId::new(frame_id, thread_id, variable_id).is_err(),
+            "Expecting error for values ({frame_id}, {thread_id}, {variable_id})"
         );
     }
 
-    fn check_variable_id(is_top_frame: bool, thread_id: u32, variable_id: u32) {
-        let var = VariableId::new(is_top_frame, thread_id, variable_id).unwrap();
+    fn check_variable_id(frame_id: u32, thread_id: u32, variable_id: u32) {
+        let var = VariableId::new(frame_id, thread_id, variable_id).unwrap();
         assert_eq!(
-            (var.is_top_frame(), var.thread_id(), var.variable_id()),
-            (is_top_frame, thread_id, variable_id)
+            (var.frame_id(), var.thread_id(), var.variable_id()),
+            (frame_id, thread_id, variable_id)
         );
     }
 
     #[test]
     fn test_variable_id_failures() {
-        check_variable_err(true, u32::MAX, u32::MAX);
-        check_variable_err(true, 0xFFFFF + 1, u32::MAX);
+        check_variable_err(0, u32::MAX, u32::MAX);
+        // thread_id exceeds 20-bit limit
+        check_variable_err(0, 0xFFFFF + 1, 0);
+        // variable_id exceeds 20-bit limit
+        check_variable_err(0, 0, 0xFFFFF + 1);
+        // frame_id exceeds 7-bit limit
+        check_variable_err(0x80, 0, 0);
     }
 
     #[test]
     fn test_variable_id() {
-        check_variable_id(true, 1234, 9867324);
-        check_variable_id(true, 0, 0);
-        check_variable_id(false, 0, 0);
-        check_variable_id(true, u16::MAX as u32, u32::MAX);
-        check_variable_id(false, u16::MAX as u32, u32::MAX);
-        check_variable_id(true, 0xFFFFF, u32::MAX);
-        check_variable_id(false, 0xFFFFF, u32::MAX);
-        check_variable_id(false, 0xFFFFF - 1, u32::MAX / 2);
-        check_variable_id(true, 0xFFFFF - 1, u32::MAX / 2);
+        check_variable_id(0, 1234, 98673);
+        check_variable_id(0, 0, 0);
+        check_variable_id(1, 0, 0);
+        check_variable_id(0, 0xFFFFF, 0xFFFFF);
+        check_variable_id(1, 0xFFFFF, 0xFFFFF);
+        check_variable_id(0x7F, 0xFFFFF, 0xFFFFF);
+        check_variable_id(0, 0xFFFFF, 0);
+        check_variable_id(5, 0xFFFFF - 1, 0xFFFFF / 2);
+        check_variable_id(0x7F, 0xFFFFF - 1, 0xFFFFF / 2);
     }
 }

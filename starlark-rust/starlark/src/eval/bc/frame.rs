@@ -354,7 +354,9 @@ pub(crate) fn alloca_frame<'v, 'a, 'e, R>(
             // TODO(nga): no need to fill the slots for parameters.
             frame.frame_mut().init();
             let old_frame = mem::replace(&mut eval.current_frame, frame);
+            eval.frame_stack.push(old_frame);
             let r = k(eval);
+            eval.frame_stack.pop();
             eval.current_frame = old_frame;
             r
         },

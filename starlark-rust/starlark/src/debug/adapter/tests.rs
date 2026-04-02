@@ -538,7 +538,7 @@ print(do())
             let eval_result =
                 s.spawn(move || -> crate::Result<_> { eval_with_hook(ast, eval_hook) });
             controller.wait_for_eval_stopped(1, TIMEOUT);
-            let result = adapter.variables();
+            let result = adapter.variables(0);
             adapter.continue_()?;
             join_timeout(eval_result, TIMEOUT)?;
             result.map_err(crate::Error::from)
@@ -600,10 +600,10 @@ print(do())
                 s.spawn(move || -> crate::Result<_> { eval_with_hook(ast, eval_hook) });
             controller.wait_for_eval_stopped(1, TIMEOUT);
             result.extend([
-                adapter.inspect_variable(VariablePath::new_local("a")),
-                adapter.inspect_variable(VariablePath::new_local("arr")),
-                adapter.inspect_variable(VariablePath::new_local("t")),
-                adapter.inspect_variable(VariablePath::new_local("d")),
+                adapter.inspect_variable(0, VariablePath::new_local("a")),
+                adapter.inspect_variable(0, VariablePath::new_local("arr")),
+                adapter.inspect_variable(0, VariablePath::new_local("t")),
+                adapter.inspect_variable(0, VariablePath::new_local("d")),
             ]);
             adapter.continue_()?;
             join_timeout(eval_result, TIMEOUT)?;
@@ -688,6 +688,90 @@ print(do())
                 .map(|v| (v.result.as_str(), v.has_children))
                 .collect::<Vec<_>>()
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_stack_trace() -> crate::Result<()> {
+        if is_wasm() {
+            return Ok(());
+        }
+
+        let file_contents = "\
+def inner(z):
+    return z + 1
+
+def middle(y):
+    return inner(y * 2)
+
+def outer(x):
+    return middle(x + 1)
+
+outer(5)
+";
+        let result = dap_test_template(|s, controller, adapter, eval_hook| {
+            let ast = AstModule::parse(
+                "test.bzl",
+                file_contents.to_owned(),
+                &Dialect::AllOptionsInternal,
+            )?;
+            let breakpoints =
+                resolve_breakpoints(&breakpoints_args("test.bzl", &[(2, None)]), &ast)?;
+            adapter.set_breakpoints("test.bzl", &breakpoints)?;
+            let eval_result =
+                s.spawn(move || -> crate::Result<_> { eval_with_hook(ast, eval_hook) });
+            controller.wait_for_eval_stopped(1, TIMEOUT);
+
+            let stack = adapter.stack_trace(StackTraceArguments {
+                thread_id: 0,
+                start_frame: None,
+                levels: None,
+                format: None,
+            })?;
+
+            let scopes_0 = adapter.scopes(0)?;
+            let scopes_1 = adapter.scopes(1)?;
+            let scopes_2 = adapter.scopes(2)?;
+
+            let vars_0 = adapter.variables(0)?;
+            let vars_1 = adapter.variables(1)?;
+            let vars_2 = adapter.variables(2)?;
+
+            adapter.continue_()?;
+            join_timeout(eval_result, TIMEOUT)?;
+
+            crate::Result::Ok((stack, scopes_0, scopes_1, scopes_2, vars_0, vars_1, vars_2))
+        })?;
+
+        let (stack, scopes_0, scopes_1, scopes_2, vars_0, vars_1, vars_2) = result;
+
+        // Verify stack frames: inner, middle, outer, Root
+        assert_eq!(Some(4), stack.total_frames.map(|v| v as usize));
+        assert_eq!(4, stack.stack_frames.len());
+        assert_eq!("inner", stack.stack_frames[0].name);
+        assert_eq!(2, stack.stack_frames[0].line);
+        assert_eq!("middle", stack.stack_frames[1].name);
+        assert_eq!("outer", stack.stack_frames[2].name);
+        assert_eq!("Root", stack.stack_frames[3].name);
+
+        // Verify scopes: num_locals for each frame
+        assert_eq!(1, scopes_0.num_locals); // inner: z
+        assert_eq!(1, scopes_1.num_locals); // middle: y
+        assert_eq!(1, scopes_2.num_locals); // outer: x
+
+        // Verify variables in each frame
+        assert_eq!(1, vars_0.locals.len());
+        assert_eq!("z", vars_0.locals[0].name.to_string());
+        assert_eq!("12", vars_0.locals[0].value); // (5+1)*2
+
+        assert_eq!(1, vars_1.locals.len());
+        assert_eq!("y", vars_1.locals[0].name.to_string());
+        assert_eq!("6", vars_1.locals[0].value); // 5+1
+
+        assert_eq!(1, vars_2.locals.len());
+        assert_eq!("x", vars_2.locals[0].name.to_string());
+        assert_eq!("5", vars_2.locals[0].value);
 
         Ok(())
     }
