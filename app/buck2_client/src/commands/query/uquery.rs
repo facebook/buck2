@@ -77,6 +77,8 @@ When printed, values with `select()`s use a special json encoding.
     name = "uquery",
     about = "Perform queries on the unconfigured target graph",
     long_about = help(),
+    after_help = "Run `buck2 docs uquery` for detailed information about query functions such as allbuildfiles, allpaths, attrfilter, and more.",
+    after_long_help = "",
     verbatim_doc_comment,
 )]
 pub struct UqueryCommand {
