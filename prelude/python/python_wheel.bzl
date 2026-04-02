@@ -162,11 +162,20 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
     sub_targets = {}
 
     libraries = {}
+    seen_raw_targets = {}
     for lib in ctx.attrs.libraries:
         libraries[lib.label] = lib
+        seen_raw_targets[str(lib.label.raw_target())] = True
     if ctx.attrs.libraries_query != None:
         for lib in ctx.attrs.libraries_query:
             if PythonLibraryInfo in lib:
+                raw = str(lib.label.raw_target())
+                if raw in seen_raw_targets:
+                    # Same target in a different configuration (e.g. due to
+                    # a configuration transition in the dep graph).
+                    # Keep the first instance.
+                    continue
+                seen_raw_targets[raw] = True
                 libraries[lib.label] = lib
 
     python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
@@ -216,6 +225,12 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
         if manifests.extensions != None:
             ((extension, _),) = manifests.extensions.items()
             if extension in extensions:
+                existing = extensions[extension]
+                if existing.label.raw_target() == dep.label.raw_target():
+                    # Same target in a different configuration (e.g. due to
+                    # a configuration transition in the dep graph).
+                    # Keep the first instance.
+                    continue
                 fail("Duplicate extension entry for {}. Did your library_query forget to filter by `target_deps()`?".format(extension))
             extensions[extension] = dep
 
@@ -531,7 +546,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
 
 python_wheel = rule(
     impl = _impl,
-    cfg = constraint_overrides.transition,
+    cfg = constraint_overrides.python_transition,
     attrs = dict(
         dist = attrs.option(attrs.string(), default = None),
         version = attrs.string(default = "1.0.0"),
@@ -575,5 +590,6 @@ python_wheel = rule(
         _create_link_tree = attrs.default_only(attrs.exec_dep(default = "prelude//python/tools:create_link_tree")),
         _cxx_toolchain = toolchains_common.cxx(),
         _python_toolchain = toolchains_common.python(),
+        opt_by_default_enabled = attrs.bool(default = False),
     ) | constraint_overrides.attributes,
 )
