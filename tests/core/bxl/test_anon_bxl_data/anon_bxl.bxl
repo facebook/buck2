@@ -80,7 +80,7 @@ def _check_anon_ouput_artifact(ctx: bxl.Context):
     promise = actions.anon_target(anon, attrs = {"x": 42}).promise
     anon_res = ctx.resolve(actions, promise)
 
-    output = actions.declare_output("output")
+    output = actions.declare_output("output", has_content_based_path = False)
 
     actions.dynamic_output_new(_check_content(
         src = anon_res[Info].hello,

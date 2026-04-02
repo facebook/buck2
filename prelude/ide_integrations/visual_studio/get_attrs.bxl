@@ -220,7 +220,7 @@ def _main(bxl_ctx):
     target_node = bxl_ctx.configured_targets(target_label, modifiers = bxl_ctx.modifiers)
     output = get_attrs(target_node, bxl_ctx)
     action_factory = bxl_ctx.bxl_actions().actions
-    outfile = action_factory.declare_output("attrs.json")
+    outfile = action_factory.declare_output("attrs.json", has_content_based_path = False)
     action_factory.write_json(outfile, output, pretty = True)
     bxl_ctx.output.print(bxl_ctx.output.ensure(outfile))
 

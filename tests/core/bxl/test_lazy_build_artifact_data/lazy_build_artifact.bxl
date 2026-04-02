@@ -64,7 +64,7 @@ _basic_f = bxl.dynamic_actions(
 def _dynamic(ctx):
     bxl_actions = ctx.bxl_actions().actions
     input = bxl_actions.write("input", "foo")
-    output = bxl_actions.declare_output("output")
+    output = bxl_actions.declare_output("output", has_content_based_path = False)
 
     bxl_actions.dynamic_output_new(_basic_f(
         src = input,
@@ -80,7 +80,7 @@ dynamic = bxl_main(
 
 def _bxl_action_output(ctx):
     bxl_actions = ctx.bxl_actions().actions
-    output = bxl_actions.declare_output("output")
+    output = bxl_actions.declare_output("output", has_content_based_path = False)
     bxl_actions.write("input", output.as_output())
     ctx.lazy.build_artifact(output).resolve()
 

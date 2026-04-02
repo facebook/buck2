@@ -17,7 +17,7 @@ def _test_action_error_handler_types(ctx):
 
     stdout = action_factory.write("stdout", "foo")
     stderr = action_factory.write("stderr", "bar")
-    unused_out = action_factory.declare_output("out")
+    unused_out = action_factory.declare_output("out", has_content_based_path = False)
 
     def validate_action_error_handler_impl(ctx, artifacts, outputs):
         stdout_content = artifacts[stdout].read_string()

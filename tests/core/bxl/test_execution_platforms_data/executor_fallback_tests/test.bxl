@@ -9,7 +9,7 @@
 def _test_exec_platforms(ctx):
     bxl_actions = ctx.bxl_actions(exec_deps = ctx.cli_args.exec_deps, toolchains = ctx.cli_args.toolchains, target_platform = "//platforms:target")
     actions = bxl_actions.actions
-    out = actions.declare_output("out")
+    out = actions.declare_output("out", has_content_based_path = False)
 
     dependency = None
     if len(bxl_actions.exec_deps) != 0:
@@ -42,7 +42,7 @@ test_exec_platforms = bxl_main(
 def _test_exec_compatible_with(ctx):
     bxl_actions = ctx.bxl_actions(target_platform = "//platforms:target", exec_compatible_with = "//platforms:local_only")
     actions = bxl_actions.actions
-    out = actions.declare_output("out")
+    out = actions.declare_output("out", has_content_based_path = False)
 
     actions.run(
         [

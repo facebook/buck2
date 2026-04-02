@@ -10,7 +10,7 @@ def _dynamic(ctx):
     action_factory = ctx.bxl_actions().actions
 
     foo = action_factory.write("foo", "content")
-    dynamic = action_factory.declare_output("dynamic")
+    dynamic = action_factory.declare_output("dynamic", has_content_based_path = False)
 
     def my_deferred(ctx, artifacts, outputs):
         content = artifacts[foo].read_string()
@@ -31,11 +31,11 @@ def _dynamic_test_with_bxl_ctx(ctx):
 
     query_params = action_factory.write_json("query_params", {"rule_type": "foo_rule", "universe": "root//..."})
 
-    configured_targets_output = action_factory.declare_output("configured_targets")
-    configured_targets_different_platform_output = action_factory.declare_output("configured_targets_different_platform")
-    providers_output = action_factory.declare_output("providers")
-    resolved_attrs_lazy_output = action_factory.declare_output("resolved_attrs_lazy")
-    resolved_attrs_eager_output = action_factory.declare_output("resolved_attrs_eager")
+    configured_targets_output = action_factory.declare_output("configured_targets", has_content_based_path = False)
+    configured_targets_different_platform_output = action_factory.declare_output("configured_targets_different_platform", has_content_based_path = False)
+    providers_output = action_factory.declare_output("providers", has_content_based_path = False)
+    resolved_attrs_lazy_output = action_factory.declare_output("resolved_attrs_lazy", has_content_based_path = False)
+    resolved_attrs_eager_output = action_factory.declare_output("resolved_attrs_eager", has_content_based_path = False)
 
     def my_deferred(ctx, artifacts, outputs):
         params = artifacts[query_params].read_json()
@@ -92,7 +92,7 @@ def _dynamic_test_execution_resolution(ctx):
     root_bxl_actions = ctx.bxl_actions(exec_deps = ["//:runnable"], toolchains = ["//:toolchain"])
     action_factory = root_bxl_actions.actions
 
-    dynamic = action_factory.declare_output("dynamic")
+    dynamic = action_factory.declare_output("dynamic", has_content_based_path = False)
 
     # unused - just used as a placeholder for `dynamic` in the dynamic_output call
     foo = action_factory.write("foo", "content")
@@ -139,7 +139,7 @@ dynamic_test_execution_resolution = bxl_main(
 def _dynamic_test_incompatible_targets(ctx):
     action_factory = ctx.bxl_actions().actions
 
-    output = action_factory.declare_output("output")
+    output = action_factory.declare_output("output", has_content_based_path = False)
 
     # unused - just used as a placeholder for `dynamic` in the dynamic_output call
     foo = action_factory.write("foo", "content")

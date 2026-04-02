@@ -131,7 +131,7 @@ def cython_compile(
         src_layout,
     )
 
-    out_dir = actions.declare_output("__cython__/" + identifier, dir = True)
+    out_dir = actions.declare_output("__cython__/" + identifier, dir = True, has_content_based_path = False)
 
     cython_cmd = cmd_args()
     cython_cmd.add(cython_toolchain.compiler)
