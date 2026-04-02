@@ -206,7 +206,7 @@ pub trait Action: Allocative + Debug + Send + Sync + 'static {
     fn all_ineligible_for_dedup_inputs(&self) -> Vec<String> {
         let mut ineligible_inputs = Vec::new();
         for ag in self.inputs().unwrap_or_default().iter() {
-            if !ag.is_eligible_for_dedupe() {
+            if ag.is_eligible_for_dedupe() == buck2_data::EligibleForDedupe::IneligibleInput {
                 ineligible_inputs.push(ag.to_string());
             }
         }

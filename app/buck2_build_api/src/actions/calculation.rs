@@ -475,8 +475,9 @@ fn is_action_eligible_for_dedupe(
     }
 
     for (ag, _agv) in inputs.iter() {
-        if !ag.is_eligible_for_dedupe() {
-            return buck2_data::EligibleForDedupe::IneligibleInput;
+        let eligibility = ag.is_eligible_for_dedupe();
+        if eligibility != buck2_data::EligibleForDedupe::Eligible {
+            return eligibility;
         }
     }
 

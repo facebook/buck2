@@ -519,7 +519,8 @@ impl<'v> TransitiveSet<'v> {
                 }
 
                 if self.is_eligible_for_dedupe {
-                    self.is_eligible_for_dedupe = input.is_eligible_for_dedupe();
+                    self.is_eligible_for_dedupe =
+                        input.is_eligible_for_dedupe() == buck2_data::EligibleForDedupe::Eligible;
                 }
             }
 

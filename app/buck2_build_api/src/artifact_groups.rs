@@ -135,7 +135,7 @@ impl ArtifactGroup {
     /// This is true if the underlying artifacts are source artifacts, or if they are content-based.
     /// It is also true if they are configured for an execution platform (since execution platforms
     /// are generally shared across target configuration changes).
-    pub fn is_eligible_for_dedupe(&self) -> bool {
+    pub fn is_eligible_for_dedupe(&self) -> buck2_data::EligibleForDedupe {
         let is_artifact_group_eligible_for_dedupe = match self {
             ArtifactGroup::Artifact(a) => !a.has_configuration_based_path(),
             ArtifactGroup::TransitiveSetProjection(p) => p.is_eligible_for_dedupe,
@@ -143,7 +143,7 @@ impl ArtifactGroup {
         };
 
         if is_artifact_group_eligible_for_dedupe {
-            return true;
+            return buck2_data::EligibleForDedupe::Eligible;
         }
 
         let artifact_group_owner = match self {
@@ -153,14 +153,20 @@ impl ArtifactGroup {
             ArtifactGroup::TransitiveSetProjection(p) => p.key.key.holder_key().owner(),
             // We have to assume that anonymous targets are not eligible for dedupe unless they are content-based,
             // since they have a hash based on their inputs, which will very likely be different across configurations.
-            ArtifactGroup::Promise(_) => return false,
+            ArtifactGroup::Promise(_) => return buck2_data::EligibleForDedupe::IneligibleInput,
         };
 
         match artifact_group_owner {
-            BaseDeferredKey::TargetLabel(a) => a.cfg().is_marked_as_exec_platform(),
+            BaseDeferredKey::TargetLabel(a) => {
+                if a.cfg().is_marked_as_exec_platform() {
+                    buck2_data::EligibleForDedupe::Eligible
+                } else {
+                    buck2_data::EligibleForDedupe::IneligibleInput
+                }
+            }
             // TODO(ianc) do we have a better way of detecting if an artifact being built for an anon target is eligible for dedupe?
-            BaseDeferredKey::AnonTarget(_) => true,
-            BaseDeferredKey::BxlLabel(_) => false,
+            BaseDeferredKey::AnonTarget(_) => buck2_data::EligibleForDedupe::Eligible,
+            BaseDeferredKey::BxlLabel(_) => buck2_data::EligibleForDedupe::IneligibleInput,
         }
     }
 }

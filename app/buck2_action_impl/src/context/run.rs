@@ -644,7 +644,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             }
 
             for i in artifacts.inputs.iter() {
-                if !i.is_eligible_for_dedupe() {
+                if i.is_eligible_for_dedupe() != buck2_data::EligibleForDedupe::Eligible {
                     return Err(buck2_error::Error::from(
                         RunActionError::ExpectEligibleForDedupeWithIneligibleInput {
                             input: i.dupe(),
