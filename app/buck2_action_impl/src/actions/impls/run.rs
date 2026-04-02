@@ -10,6 +10,7 @@
 
 use std::borrow::Cow;
 use std::ops::ControlFlow;
+use std::sync::Arc;
 use std::time::Duration;
 
 use allocative::Allocative;
@@ -254,7 +255,7 @@ pub(crate) struct UnregisteredRunAction {
     // Since this is usually None, use a Box to avoid using memory that is the size
     // of RemoteExecutorCustomImage.
     pub(crate) remote_execution_custom_image: Option<Box<RemoteExecutorCustomImage>>,
-    pub(crate) meta_internal_extra_params: MetaInternalExtraParams,
+    pub(crate) meta_internal_extra_params: Arc<MetaInternalExtraParams>,
     pub(crate) expected_eligible_for_dedupe: Option<bool>,
     pub(crate) timeout: Option<Duration>,
 }

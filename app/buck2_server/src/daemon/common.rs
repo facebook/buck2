@@ -520,7 +520,7 @@ pub fn get_default_executor_config(host_platform: HostPlatformOverride) -> Comma
             dependencies: vec![],
             gang_workers: vec![],
             custom_image: None,
-            meta_internal_extra_params: MetaInternalExtraParams::default(),
+            meta_internal_extra_params: MetaInternalExtraParams::default_arc(),
             priority: None,
         })
     };

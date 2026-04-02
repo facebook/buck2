@@ -394,7 +394,7 @@ pub struct CommandExecutionRequest {
     /// RE custom tupperware image.
     remote_execution_custom_image: Option<RemoteExecutorCustomImage>,
     /// RE execution policy.
-    meta_internal_extra_params: MetaInternalExtraParams,
+    meta_internal_extra_params: Arc<MetaInternalExtraParams>,
     /// Failed action outputs to materialize
     outputs_for_error_handler: Vec<BuildArtifactPath>,
     /// String representation of a key that uniquely identifies a RunAction
@@ -439,7 +439,7 @@ impl CommandExecutionRequest {
             re_gang_workers: Vec::new(),
             remote_execution_dependencies: Vec::new(),
             remote_execution_custom_image: None,
-            meta_internal_extra_params: MetaInternalExtraParams::default(),
+            meta_internal_extra_params: MetaInternalExtraParams::default_arc(),
             outputs_for_error_handler: Vec::new(),
             run_action_key: None,
             is_test: false,
@@ -698,7 +698,7 @@ impl CommandExecutionRequest {
 
     pub fn with_meta_internal_extra_params(
         mut self,
-        meta_internal_extra_params: MetaInternalExtraParams,
+        meta_internal_extra_params: Arc<MetaInternalExtraParams>,
     ) -> Self {
         self.meta_internal_extra_params = meta_internal_extra_params;
         self

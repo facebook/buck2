@@ -52,7 +52,7 @@ pub struct RemoteEnabledExecutorOptions {
     pub dependencies: Vec<RemoteExecutorDependency>,
     pub gang_workers: Vec<ReGangWorker>,
     pub custom_image: Option<Box<RemoteExecutorCustomImage>>,
-    pub meta_internal_extra_params: MetaInternalExtraParams,
+    pub meta_internal_extra_params: Arc<MetaInternalExtraParams>,
     pub priority: Option<i32>,
 }
 
@@ -495,6 +495,14 @@ pub struct MetaInternalExtraParams {
     /// when the action runs without network isolation. Useful for actions
     /// that require network access but produce deterministic outputs.
     pub allow_unsandboxed_action_cache_uploads: bool,
+}
+
+impl MetaInternalExtraParams {
+    pub fn default_arc() -> Arc<MetaInternalExtraParams> {
+        static DEFAULT: Lazy<Arc<MetaInternalExtraParams>> =
+            Lazy::new(|| Arc::new(MetaInternalExtraParams::default()));
+        DEFAULT.clone()
+    }
 }
 
 #[cfg(test)]

@@ -1532,7 +1532,7 @@ impl BuckTestOrchestrator<'_> {
         required_local_resources: Vec<LocalResourceState>,
         worker: Option<WorkerSpec>,
         re_dynamic_image: Option<RemoteExecutorCustomImage>,
-        meta_internal_extra_params: MetaInternalExtraParams,
+        meta_internal_extra_params: Arc<MetaInternalExtraParams>,
         network_access: Option<NetworkAccess>,
     ) -> buck2_error::Result<CommandExecutionRequest> {
         let inputs = ensured_inputs
@@ -2336,11 +2336,11 @@ impl TestExecutor {
         }
     }
 
-    pub fn meta_internal_extra_params(&self) -> MetaInternalExtraParams {
+    pub fn meta_internal_extra_params(&self) -> Arc<MetaInternalExtraParams> {
         if let Executor::RemoteEnabled(options) = &self.executor_config.executor {
             options.meta_internal_extra_params.clone()
         } else {
-            MetaInternalExtraParams::default()
+            MetaInternalExtraParams::default_arc()
         }
     }
 }

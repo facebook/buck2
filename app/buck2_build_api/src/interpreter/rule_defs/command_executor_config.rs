@@ -544,32 +544,38 @@ fn parse_remote_execution_caf_fbpkgs(
 
 pub fn parse_meta_internal_extra_params<'v>(
     params: Option<DictRef<'v>>,
-) -> buck2_error::Result<MetaInternalExtraParams> {
-    if let Some(params) = params {
-        let gang = params
-            .get_str("remote_execution_gang")
-            .and_then(DictRef::from_value)
-            .map(|dict| parse_remote_execution_gang(Some(dict)))
-            .transpose()?
-            .flatten();
+) -> buck2_error::Result<Arc<MetaInternalExtraParams>> {
+    let Some(params) = params else {
+        return Ok(MetaInternalExtraParams::default_arc());
+    };
 
-        let allow_unsandboxed_action_cache_uploads = params
-            .get_str("allow_unsandboxed_action_cache_uploads")
-            .and_then(|v| v.unpack_bool())
-            .unwrap_or(false);
+    let gang = params
+        .get_str("remote_execution_gang")
+        .and_then(DictRef::from_value)
+        .map(|dict| parse_remote_execution_gang(Some(dict)))
+        .transpose()?
+        .flatten();
 
-        Ok(MetaInternalExtraParams {
-            remote_execution_policy: parse_remote_execution_policy(
-                params.get_str("remote_execution_policy"),
-            )?,
-            remote_execution_caf_fbpkgs: parse_remote_execution_caf_fbpkgs(
-                params.get_str("remote_execution_caf_fbpkgs"),
-            )?,
-            gang,
-            allow_unsandboxed_action_cache_uploads,
-        })
+    let allow_unsandboxed_action_cache_uploads = params
+        .get_str("allow_unsandboxed_action_cache_uploads")
+        .and_then(|v| v.unpack_bool())
+        .unwrap_or(false);
+
+    let result = MetaInternalExtraParams {
+        remote_execution_policy: parse_remote_execution_policy(
+            params.get_str("remote_execution_policy"),
+        )?,
+        remote_execution_caf_fbpkgs: parse_remote_execution_caf_fbpkgs(
+            params.get_str("remote_execution_caf_fbpkgs"),
+        )?,
+        gang,
+        allow_unsandboxed_action_cache_uploads,
+    };
+
+    if result == MetaInternalExtraParams::default() {
+        Ok(MetaInternalExtraParams::default_arc())
     } else {
-        Ok(MetaInternalExtraParams::default())
+        Ok(Arc::new(result))
     }
 }
 fn parse_remote_execution_gang<'v>(
