@@ -21,7 +21,6 @@ use buck2_build_api::bxl::result::BxlResult;
 use buck2_build_api::bxl::result::PendingStreamingOutput;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
 use buck2_build_api::materialize::HasMaterializationQueueTracker;
-use buck2_build_api::materialize::HasMaterializerFastRolloutConfig;
 use buck2_build_api::materialize::MaterializationAndUploadContext;
 use buck2_build_api::materialize::materialize_and_upload_artifact_group;
 use buck2_cli_proto::BxlRequest;
@@ -360,10 +359,6 @@ impl BxlServerCommand {
         output: &mut (impl Write + Send),
     ) -> Result<(), Vec<buck2_error::Error>> {
         let artifacts_to_materialize: Vec<_> = bxl_result.artifacts().iter().duped().collect();
-        let unconstrained = ctx
-            .per_transaction_data()
-            .get_materializer_fast_rollout_config()
-            .unconstrained;
 
         let mut futs: FuturesUnordered<_> = ctx
             .compute_many(artifacts_to_materialize.into_iter().map(|artifact| {
@@ -393,11 +388,7 @@ impl BxlServerCommand {
 
         let mut errors: Vec<buck2_error::Error> = Vec::new();
 
-        while let Some(res) = if unconstrained {
-            tokio::task::unconstrained(futs.next()).await
-        } else {
-            futs.next().await
-        } {
+        while let Some(res) = tokio::task::unconstrained(futs.next()).await {
             match res {
                 Ok(artifact) => {
                     let outputs = pending_streaming.next_outputs(&artifact);
