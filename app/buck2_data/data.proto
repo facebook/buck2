@@ -2075,6 +2075,10 @@ message ActionDigestTrace {
   uint64 weight = 7;
   // Schedule type (e.g., "diff", "continuous")
   optional string schedule_type = 8;
+  // Sum of output digest sizes in bytes
+  optional uint64 storage_cost_bytes = 9;
+  // Execution time in milliseconds
+  optional uint64 compute_cost_ms = 10;
 }
 
 message LocalStage {

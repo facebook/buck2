@@ -546,12 +546,37 @@ fn anticipated_queue_duration(
     Ok(None)
 }
 
+fn action_result_costs(result: &remote_execution::TActionResult2) -> (u64, u64) {
+    let storage: u64 = result
+        .output_files
+        .iter()
+        .map(|f| f.digest.digest.size_in_bytes.max(0) as u64)
+        .chain(
+            result
+                .output_directories
+                .iter()
+                // Note: This size is not at all the size of the constituent files;
+                // however we can't know that value without talking to CAS, so this
+                // will have to do.
+                .map(|d| d.tree_digest.size_in_bytes.max(0) as u64),
+        )
+        .sum();
+    let meta = &result.execution_metadata;
+    let execution_time = meta
+        .execution_completed_timestamp
+        .saturating_duration_since(&meta.execution_start_timestamp);
+    let compute = execution_time.as_millis() as u64;
+    (storage, compute)
+}
+
 fn trace_action_digest(
     digest: &ActionDigest,
     ttl_secs: Option<i64>,
     use_case: RemoteExecutorUseCase,
     event: buck2_data::action_digest_trace::ActionDigestTraceEvent,
     event_subtype: Option<&'static str>,
+    storage_cost_bytes: Option<u64>,
+    compute_cost_ms: Option<u64>,
 ) {
     if let Some(weight) = should_sample_action_digest(digest) {
         let dispatcher = get_dispatcher();
@@ -568,6 +593,8 @@ fn trace_action_digest(
             re_use_case: use_case.as_str().to_owned(),
             weight,
             schedule_type,
+            storage_cost_bytes,
+            compute_cost_ms,
         });
     }
 }
@@ -1051,6 +1078,8 @@ impl RemoteExecutionClientImpl {
             } else {
                 buck2_data::action_digest_trace::ActionDigestTraceEvent::CacheMiss
             },
+            None,
+            None,
             None,
         );
         Ok(res)
@@ -1622,7 +1651,19 @@ impl RemoteExecutionClientImpl {
                 } else {
                     buck2_data::action_digest_trace::ActionDigestTraceEvent::RemoteExecution
                 };
-                Some((event, Some(r.ttl()), "completed"))
+                let (storage_cost_bytes, compute_cost_ms) = if !was_not_actually_executed {
+                    let (storage, compute) = action_result_costs(&r.execute_response.action_result);
+                    (Some(storage), Some(compute))
+                } else {
+                    (None, None)
+                };
+                Some((
+                    event,
+                    Some(r.ttl()),
+                    "completed",
+                    storage_cost_bytes,
+                    compute_cost_ms,
+                ))
             }
             // Cancelling an execution request from the RE client causes it to be cancelled on the
             // server side if and only if it had not yet started executing - if it had started
@@ -1632,12 +1673,22 @@ impl RemoteExecutionClientImpl {
                 buck2_data::action_digest_trace::ActionDigestTraceEvent::RemoteExecution,
                 None,
                 "cancelled-after-execution-started",
+                None,
+                None,
             )),
             Ok(ExecuteResponseOrCancelled::Cancelled(_, _, ExecutionStarted::No)) => None,
             Err(_) => None,
         };
-        if let Some((event, ttl, subtype)) = trace {
-            trace_action_digest(&action_digest, ttl, use_case, event, Some(subtype));
+        if let Some((event, ttl, subtype, storage_cost_bytes, compute_cost_ms)) = trace {
+            trace_action_digest(
+                &action_digest,
+                ttl,
+                use_case,
+                event,
+                Some(subtype),
+                storage_cost_bytes,
+                compute_cost_ms,
+            );
         }
 
         res
@@ -1858,6 +1909,14 @@ impl RemoteExecutionClientImpl {
         platform: &RE::Platform,
         write_type: ActionCacheWriteType,
     ) -> buck2_error::Result<WriteActionResultResponse> {
+        let (storage_cost_bytes, compute_cost_ms) =
+            if matches!(write_type, ActionCacheWriteType::LocalCacheUpload) {
+                let (storage, compute) = action_result_costs(&result);
+                (Some(storage), Some(compute))
+            } else {
+                (None, None)
+            };
+
         let attributes =
             BTreeMap::from([("write_type".to_owned(), write_type.as_str().to_owned())]);
         let response = with_error_handler(
@@ -1891,6 +1950,8 @@ impl RemoteExecutionClientImpl {
             use_case,
             buck2_data::action_digest_trace::ActionDigestTraceEvent::CacheUpload,
             Some(write_type.as_str()),
+            storage_cost_bytes,
+            compute_cost_ms,
         );
 
         Ok(response)
