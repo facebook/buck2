@@ -16,7 +16,7 @@ def _impl(ctx):
     else:
         fail("Must specify either src or write_executable_bit")
 
-    copied = ctx.actions.copy_file(ctx.label.name, src, executable_bit_override = ctx.attrs.executable_bit_override)
+    copied = ctx.actions.copy_file(ctx.label.name, src, executable_bit_override = ctx.attrs.executable_bit_override, has_content_based_path = False)
     perms = ctx.actions.declare_output("{}_perms.txt".format(ctx.label.name), has_content_based_path = False)
     script = cmd_args(
         "ls -lR",

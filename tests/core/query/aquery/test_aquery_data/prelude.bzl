@@ -8,7 +8,7 @@
 
 def _test(ctx: AnalysisContext):
     dep = ctx.actions.write("dep", "")
-    default = ctx.actions.copy_file("default", dep)
+    default = ctx.actions.copy_file("default", dep, has_content_based_path = False)
     other = ctx.actions.write("other", "")
 
     sub_default = ctx.actions.write("sub_default", "")

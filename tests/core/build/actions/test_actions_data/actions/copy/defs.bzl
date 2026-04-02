@@ -17,13 +17,13 @@ def _copy_file_impl(ctx):
         output = ctx.actions.copy_file(declared.as_output(), ctx.attrs.src)
         return [DefaultInfo(default_output = output)]
     elif test == "declares_output":
-        output = ctx.actions.copy_file(ctx.attrs.out, ctx.attrs.src)
+        output = ctx.actions.copy_file(ctx.attrs.out, ctx.attrs.src, has_content_based_path = False)
         return [DefaultInfo(default_output = output)]
     elif test == "fails_on_invalid_src":
-        ctx.actions.copy_file(ctx.attrs.out, [])
+        ctx.actions.copy_file(ctx.attrs.out, [], has_content_based_path = False)
         fail("should fail in copy() function")
     elif test == "fails_on_invalid_dest":
-        ctx.actions.copy_file([], ctx.attrs.src)
+        ctx.actions.copy_file([], ctx.attrs.src, has_content_based_path = False)
         fail("should fail in copy() function")
     else:
         fail("invalid test")

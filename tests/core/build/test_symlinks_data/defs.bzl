@@ -29,7 +29,7 @@ cp = rule(
 )
 
 def _cp_via_builtin_impl(ctx: AnalysisContext):
-    out = ctx.actions.copy_file("out", ctx.attrs.src)
+    out = ctx.actions.copy_file("out", ctx.attrs.src, has_content_based_path = False)
     return [DefaultInfo(default_output = out)]
 
 cp_via_builtin = rule(

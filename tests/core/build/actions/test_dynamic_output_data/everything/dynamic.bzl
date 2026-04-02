@@ -145,7 +145,7 @@ def _create_duplicate(ctx: AnalysisContext) -> list[Provider]:
         # I.e. the two copy() actions below can't end "output" and outputs[output].
         # We could allow copy to take an explicit identifier, but this is a corner
         # case and I don't think its a good idea to reuse names heavily anyway.
-        new_input = ctx.actions.copy_file("input", new_output)
+        new_input = ctx.actions.copy_file("input", new_output, has_content_based_path = False)
         ctx.actions.copy_file(outputs[output], new_input)
 
     ctx.actions.dynamic_output(dynamic = [input], inputs = [], outputs = [output.as_output()], f = f)

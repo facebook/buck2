@@ -77,7 +77,7 @@ _check_symlink_files = rule(
 
 def _check_copy_impl(ctx):
     artifact = ctx.actions.anon_target(_builder, {}).artifact("artifact")
-    out = ctx.actions.copy_file("copied", artifact)
+    out = ctx.actions.copy_file("copied", artifact, has_content_based_path = False)
     return [DefaultInfo(default_output = out)]
 
 _check_copy = rule(

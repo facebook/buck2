@@ -1865,7 +1865,7 @@ def _bolt_libraries(
             # Create pre-BOLT copy with .pre_bolt.so suffix
             pre_bolt_soname = soname.removesuffix(".so") + ".pre_bolt.so"
             pre_bolt_output_path = "pre-bolt-libs/{}/{}".format(platform, pre_bolt_soname)
-            pre_bolt_copy = ctx.actions.copy_file(pre_bolt_output_path, original_shared_library.lib.output)
+            pre_bolt_copy = ctx.actions.copy_file(pre_bolt_output_path, original_shared_library.lib.output, has_content_based_path = False)
 
             # Create pre-BOLT SharedLibrary object
             pre_bolt_linked_object = LinkedObject(

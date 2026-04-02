@@ -156,7 +156,7 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
     # As per v1, copy in resources next to binary.
     copied_resources = []
     for resource in ctx.attrs.resources:
-        copied_resources.append(ctx.actions.copy_file(resource.short_path, resource))
+        copied_resources.append(ctx.actions.copy_file(resource.short_path, resource, has_content_based_path = False))
 
     run_cmd = cmd_args(bin, hidden = [runtime_files, external_debug_info] + copied_resources)
 

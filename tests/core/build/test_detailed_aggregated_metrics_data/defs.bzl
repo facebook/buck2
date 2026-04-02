@@ -15,7 +15,7 @@ MyInfo = provider(fields = ["data"])
 
 # We just want an impl that uses some dynamic outputs and tsets and that we can conditionally make the dynamic output's input fail.
 def _impl(ctx):
-    out1 = ctx.actions.copy_file("out1", ctx.attrs.input)
+    out1 = ctx.actions.copy_file("out1", ctx.attrs.input, has_content_based_path = False)
     out2 = ctx.actions.declare_output("out2", has_content_based_path = False)
     if ctx.attrs.dyn_input_good:
         ctx.actions.write(out2, "data")

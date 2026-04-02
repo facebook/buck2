@@ -570,7 +570,7 @@ def _create_prebuilt_library_outputs(
                     # Provide a sub-target that always provides the shared lib
                     # using the soname.
                     if soname and soname.is_str and shared_lib.output.basename != paths.basename(soname.ensure_str()):
-                        soname_lib = ctx.actions.copy_file(soname.ensure_str(), shared_lib.output)
+                        soname_lib = ctx.actions.copy_file(soname.ensure_str(), shared_lib.output, has_content_based_path = False)
                     else:
                         soname_lib = shared_lib.output
                     sub_targets["soname-lib"] = [DefaultInfo(default_output = soname_lib)]

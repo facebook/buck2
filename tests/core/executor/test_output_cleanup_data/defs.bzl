@@ -74,7 +74,7 @@ write = rule(
 
 def _copy_impl(ctx):
     f = ctx.actions.write("dst/f", ctx.attrs.seed)
-    out = ctx.actions.copy_file("out", f)
+    out = ctx.actions.copy_file("out", f, has_content_based_path = False)
     return [DefaultInfo(default_output = out)]
 
 copy = rule(

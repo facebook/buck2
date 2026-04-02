@@ -247,7 +247,7 @@ def _get_dsym_input_binary_arg(ctx: AnalysisContext, binary_output: AppleBundleB
     if unstripped_binary:
         if ctx.attrs.selective_debugging != None:
             unstripped_binary = _scrub_binary(ctx, unstripped_binary, get_default_binary_dep(ctx.attrs.binary).get(LinkExecutionPreferenceInfo), identifier = "unstripped")
-        renamed_unstripped_binary = ctx.actions.copy_file(get_product_name(ctx), unstripped_binary)
+        renamed_unstripped_binary = ctx.actions.copy_file(get_product_name(ctx), unstripped_binary, has_content_based_path = False)
         return cmd_args(renamed_unstripped_binary)
     else:
         return primary_binary_path_arg
