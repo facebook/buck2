@@ -407,9 +407,13 @@ impl DaemonState {
             let disk_state_options = DiskStateOptions::new(root_config, materializations.dupe())?;
 
             let blocking_executor: Arc<dyn BlockingExecutor> =
-                if cfg!(any(target_os = "macos", target_os = "windows")) {
-                    Arc::new(DirectIoExecutor::new(fs.dupe())?)
-                } else {
+                // NOTE: Due to this issue: https://github.com/facebook/buck2/issues/1282
+                // We need to revert DirectIoExecutor as a default to BuckBlockingExecutor on macOS.
+                //
+                //if cfg!(any(target_os = "macos", target_os = "windows")) {
+                //    Arc::new(DirectIoExecutor::new(fs.dupe())?)
+                //} else
+                {
                     Arc::new(BuckBlockingExecutor::default_concurrency(fs.dupe())?)
                 };
 
