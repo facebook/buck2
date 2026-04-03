@@ -440,7 +440,7 @@ impl OccupiedGraphNode {
             metadata: NodeMetadata {
                 deps,
                 rdeps: LazyDepsSet::new(),
-                verified_ranges: Arc::new(verified_ranges),
+                verified_ranges: verified_ranges.into_arc(),
                 dirtied_history,
             },
             invalidation_paths,

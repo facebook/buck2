@@ -16,6 +16,7 @@ use gazebo::variants::VariantName;
 use itertools::Either;
 use itertools::Itertools;
 
+use crate::arc::Arc;
 use crate::impls::deps::encoding::SPEncoder;
 use crate::impls::deps::iterator::SeriesNodeIterator;
 use crate::impls::deps::iterator::SeriesParallelDepsIteratorItem;
@@ -163,6 +164,14 @@ impl SeriesParallelDeps {
     ) {
         self.upgrade_to_many()
             .insert_parallel(parallel, new_keys, new_specs);
+    }
+
+    pub(crate) fn into_arc(mut self) -> Arc<Self> {
+        if let SeriesParallelDeps::Many(many) = &mut self {
+            many.deps.shrink_to_fit();
+            many.spec.shrink_to_fit();
+        }
+        Arc::new(self)
     }
 }
 

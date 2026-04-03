@@ -26,6 +26,8 @@ use allocative::Allocative;
 use derive_more::Display;
 use dupe::Dupe;
 
+use crate::arc::Arc;
+
 /// The incrementing Version number associated with all the cache entries
 #[derive(Copy, Eq, Debug, Display, Dupe)]
 // split this due to formatters not agreeing
@@ -549,6 +551,11 @@ impl VersionRanges {
 
     pub(crate) fn clear(&mut self) {
         self.0.clear()
+    }
+
+    pub(crate) fn into_arc(mut self) -> Arc<Self> {
+        self.0.shrink_to_fit();
+        Arc::new(self)
     }
 }
 

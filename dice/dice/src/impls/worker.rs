@@ -264,7 +264,7 @@ impl DiceTaskWorker {
                             self.version_epoch,
                             result.storage,
                             value,
-                            Arc::new(result.deps),
+                            result.deps.into_arc(),
                             result.invalidation_paths,
                         )
                         .await
@@ -504,7 +504,7 @@ pub(crate) fn project_for_key(
                         version_epoch,
                         storage,
                         value,
-                        Arc::new(deps),
+                        deps.into_arc(),
                         invalidation_paths.dupe(),
                     );
 
