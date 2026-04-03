@@ -133,6 +133,12 @@ def parse_args() -> argparse.Namespace:
         default=[],
         help="environment variables to set before launching the runtime. (e.g. -e FOO=BAR BAZ=QUX)",
     )
+    parser.add_argument(
+        "--interpreter_flags",
+        action="append",
+        default=[],
+        help="additional flags to pass to the Python interpreter (e.g. -Xgil=0)",
+    )
     # Compatibility with existing make_par scripts
     parser.add_argument("--passthrough", action="append", default=[])
     # No-op, added for compatibility with existing make_par scripts
@@ -173,7 +179,14 @@ def write_bootstrapper(args: argparse.Namespace) -> None:
         python = os.path.abspath(python)
 
     new_data = data.replace("<PYTHON>", f"/usr/bin/env {python}")
+    # Keep the shebang placeholder empty — Linux doesn't support multiple args
+    # after /usr/bin/env, so interpreter flags can't go in the shebang line.
     new_data = new_data.replace("<PYTHON_INTERPRETER_FLAGS>", "")
+    # Instead, pass interpreter flags via the Python variable that the re-exec
+    # path uses (e.g. -Xgil=0 for free-threaded builds).
+    new_data = new_data.replace(
+        "<PYTHON_RUNTIME_FLAGS>", " ".join(args.interpreter_flags or [])
+    )
 
     new_data = new_data.replace("<MODULES_DIR>", str(relative_modules_dir))
     main_module = args.entry_point

@@ -15,7 +15,7 @@ native_libs_env_var = "<NATIVE_LIBS_ENV_VAR>"
 native_libs_dirs = <NATIVE_LIBS_DIRS>
 native_libs_preload_env_var = "<NATIVE_LIBS_PRELOAD_ENV_VAR>"
 native_libs_preload = <NATIVE_LIBS_PRELOAD>
-interpreter_flags = "<PYTHON_INTERPRETER_FLAGS>"
+interpreter_flags = "<PYTHON_RUNTIME_FLAGS>"
 unc_prefix = "\\\\?\\"
 
 import os
@@ -142,7 +142,7 @@ __run()
 
 args = [sys.executable]
 if interpreter_flags:
-    args.append(interpreter_flags)
+    args.extend(interpreter_flags.split())
 args.extend(["-c", STARTUP])
 
 # Default to 'd' warnings, but allow users to control this via PYTHONWARNINGS

@@ -25,6 +25,7 @@ class ParBuilder:
         self.warnings = options.warnings
         self.mode = mode
         self.runtime_env = options.runtime_env
+        self.runtime_args = options.runtime_args
         self.ld_preload = options.ld_preload
         self.exe = None
 
@@ -85,5 +86,8 @@ class ParBuilder:
             flags.append(f"W{self.warnings}")
         if flags:
             cmd.append("-" + "".join(flags))
+
+        if self.runtime_args:
+            cmd.extend(self.runtime_args)
 
         return " ".join(arg for arg in cmd)
