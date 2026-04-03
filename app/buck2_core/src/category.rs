@@ -16,12 +16,19 @@
 //! implementation.
 
 use allocative::Allocative;
+use buck2_hash::BuckHasher;
 use dupe::Dupe;
 use once_cell::sync::Lazy;
 use pagable::Pagable;
+use pagable::PagableDeserialize;
+use pagable::PagableDeserializer;
+use pagable::PagableSerialize;
+use pagable::PagableSerializer;
 use regex::Regex;
+use static_interner::Intern;
+use static_interner::interner;
 
-/// A category, representing a family of actions.
+/// Interned category data, representing a family of actions.
 #[derive(
     Clone,
     Debug,
@@ -32,24 +39,56 @@ use regex::Regex;
     derive_more::Display,
     Pagable
 )]
-pub struct Category(String);
+struct CategoryData(String);
 
+interner!(CATEGORY_INTERNER, BuckHasher, CategoryData, String);
+
+/// A category, representing a family of actions.
+#[derive(
+    Clone,
+    Copy,
+    Dupe,
+    Debug,
+    PartialEq,
+    Eq,
+    Hash,
+    Allocative,
+    derive_more::Display
+)]
+pub struct Category(Intern<CategoryData>);
+
+// TODO(dcssiva): remove CategoryRef because Category has a cheap Copy
 #[derive(Debug, Clone, Copy, Dupe, PartialEq, Eq, Hash, derive_more::Display)]
 pub struct CategoryRef<'a>(&'a str);
 
 impl Category {
     pub fn new(s: String) -> buck2_error::Result<Self> {
         CategoryRef::new(&s)?;
-        Ok(Category(s))
+        Ok(Category(CATEGORY_INTERNER.intern(s)))
     }
 
     /// Returns a string representation of this category.
     pub fn as_str(&self) -> &str {
-        self.0.as_str()
+        self.0.0.as_str()
     }
 
     pub fn as_ref(&self) -> CategoryRef<'_> {
-        CategoryRef(self.0.as_str())
+        CategoryRef(self.0.0.as_str())
+    }
+}
+
+impl PagableSerialize for Category {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
+        self.as_str().pagable_serialize(serializer)
+    }
+}
+
+impl<'de> PagableDeserialize<'de> for Category {
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> pagable::Result<Self> {
+        let s = String::pagable_deserialize(deserializer)?;
+        Ok(Category(CATEGORY_INTERNER.intern(s)))
     }
 }
 
@@ -74,7 +113,7 @@ impl<'a> CategoryRef<'a> {
     }
 
     pub fn to_owned(self) -> Category {
-        Category(self.0.to_owned())
+        Category(CATEGORY_INTERNER.intern(self.0.to_owned()))
     }
 }
 
