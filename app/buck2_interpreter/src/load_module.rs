@@ -65,8 +65,12 @@ pub trait InterpreterCalculation {
         &mut self,
         path: &ImportPath,
     ) -> buck2_error::Result<LoadedModule> {
-        self.get_loaded_module(StarlarkModulePath::LoadFile(path))
-            .await
+        let module_path = match path.path().path().extension() {
+            Some("json") => StarlarkModulePath::JsonFile(path),
+            Some("toml") => StarlarkModulePath::TomlFile(path),
+            _ => StarlarkModulePath::LoadFile(path),
+        };
+        self.get_loaded_module(module_path).await
     }
 
     async fn get_loaded_module_imports(
