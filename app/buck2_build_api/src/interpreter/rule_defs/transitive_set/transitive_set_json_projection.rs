@@ -96,12 +96,9 @@ impl<'v, V: ValueLike<'v>> TransitiveSetJsonProjectionGen<V> {
                 key: set.key().dupe(),
                 projection: self.projection,
             },
-            *set.projection_path_resolution_may_require_artifact_value
-                .get(self.projection)
-                .expect("Valid ID"),
-            *set.projection_is_eligible_for_dedupe
-                .get(self.projection)
-                .expect("Valid ID"),
+            set.projection_path_resolution_may_require_artifact_value
+                .get(self.projection)?,
+            set.projection_is_eligible_for_dedupe.get(self.projection)?,
         ))
     }
 }

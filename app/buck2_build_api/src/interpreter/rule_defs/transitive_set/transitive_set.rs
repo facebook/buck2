@@ -18,6 +18,7 @@ use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_error::BuckErrorContext;
+use buck2_error::buck2_error;
 use buck2_error::internal_error;
 use display_container::display_pair;
 use display_container::fmt_container;
@@ -110,6 +111,43 @@ impl TypeMatcher for TransitiveSetMatcher {
     }
 }
 
+/// Compact bitfield for per-projection boolean flags, stored as a u64.
+#[derive(Debug, Clone, Copy, Trace, Allocative, PartialEq, Eq)]
+pub(crate) struct ProjectionBitSet(u64);
+
+impl ProjectionBitSet {
+    const MAX_PROJECTIONS: usize = 64;
+
+    pub fn from_bools(bools: &[bool]) -> buck2_error::Result<Self> {
+        if bools.len() > Self::MAX_PROJECTIONS {
+            return Err(buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "TransitiveSet has {} projections, but at most {} are supported",
+                bools.len(),
+                Self::MAX_PROJECTIONS,
+            ));
+        }
+        let mut bits: u64 = 0;
+        for (i, b) in bools.iter().enumerate() {
+            if *b {
+                bits |= 1u64 << i;
+            }
+        }
+        Ok(Self(bits))
+    }
+
+    pub fn get(self, index: usize) -> buck2_error::Result<bool> {
+        match self.0.checked_shr(index as u32) {
+            Some(shifted) => Ok(shifted & 1 != 0),
+            None => Err(internal_error!(
+                "Projection index {} out of range (max {})",
+                index,
+                Self::MAX_PROJECTIONS
+            )),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Trace, ProvidesStaticType, Allocative)]
 #[repr(C)]
 pub struct TransitiveSetGen<V: ValueLifetimeless> {
@@ -126,11 +164,9 @@ pub struct TransitiveSetGen<V: ValueLifetimeless> {
     /// Pre-computed reductions. Those are arbitrary values based on the set's definition.
     pub(crate) reductions: Box<[V]>,
 
-    /// For each projection, whether it uses content based paths or not.
-    pub(crate) projection_path_resolution_may_require_artifact_value: Box<[bool]>,
+    pub(crate) projection_path_resolution_may_require_artifact_value: ProjectionBitSet,
 
-    /// For each projection, whether it uses configuration based paths or not.
-    pub(crate) projection_is_eligible_for_dedupe: Box<[bool]>,
+    pub(crate) projection_is_eligible_for_dedupe: ProjectionBitSet,
 
     /// Further transitive sets.
     pub children: Box<[V]>,
@@ -280,8 +316,9 @@ impl FrozenTransitiveSet {
                         key: v.key().dupe(),
                         projection,
                     },
-                    v.projection_path_resolution_may_require_artifact_value[projection],
-                    v.projection_is_eligible_for_dedupe[projection],
+                    v.projection_path_resolution_may_require_artifact_value
+                        .get(projection)?,
+                    v.projection_is_eligible_for_dedupe.get(projection)?,
                 ),
             )));
         }
@@ -402,8 +439,6 @@ impl<'v> Freeze for TransitiveSet<'v> {
         let node = node.try_map(|node| node.freeze(freezer))?;
         let children = children.freeze(freezer)?;
         let reductions = reductions.freeze(freezer)?;
-        let projection_path_resolution_may_require_artifact_value =
-            projection_path_resolution_may_require_artifact_value.freeze(freezer)?;
         Ok(TransitiveSetGen {
             key,
             definition,
@@ -583,19 +618,15 @@ impl<'v> TransitiveSet<'v> {
                 }
 
                 for child in children_sets.iter() {
-                    if *child
+                    if child
                         .projection_path_resolution_may_require_artifact_value
-                        .get(idx)
-                        .ok_or_else(|| internal_error!("Invalid projection id"))?
+                        .get(idx)?
                     {
                         path_resolution_may_require_artifact_value = true;
                     }
 
                     if is_eligible_for_dedupe
-                        && !*child
-                            .projection_is_eligible_for_dedupe
-                            .get(idx)
-                            .ok_or_else(|| internal_error!("Invalid projection id"))?
+                        && !child.projection_is_eligible_for_dedupe.get(idx)?
                     {
                         let is_child_eligible_for_dedupe = child
                             .key
@@ -618,13 +649,16 @@ impl<'v> TransitiveSet<'v> {
             .into_iter()
             .unzip();
 
-        let (
-            projection_path_resolution_may_require_artifact_value,
-            projection_is_eligible_for_dedupe,
-        ) = (
-            projection_path_resolution_may_require_artifact_value.into_boxed_slice(),
-            projection_is_eligible_for_dedupe_iter.into_boxed_slice(),
-        );
+        let projection_path_resolution_may_require_artifact_value =
+            ProjectionBitSet::from_bools(&projection_path_resolution_may_require_artifact_value)
+                .with_buck_error_context(|| {
+                    format!("in transitive set {:?}", definition.as_debug())
+                })?;
+        let projection_is_eligible_for_dedupe =
+            ProjectionBitSet::from_bools(&projection_is_eligible_for_dedupe_iter)
+                .with_buck_error_context(|| {
+                    format!("in transitive set {:?}", definition.as_debug())
+                })?;
 
         // Cast lifetime from 'v to 'static
         let definition =
