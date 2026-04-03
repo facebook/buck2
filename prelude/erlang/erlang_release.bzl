@@ -94,6 +94,7 @@ def build_lib_dir(
     lib_dir = ctx.actions.symlinked_dir(
         paths.join(erlang_build.utils.BUILD_DIR, "lib"),
         link_spec,
+        has_content_based_path = False,
     )
     return {"lib": lib_dir}
 
@@ -357,6 +358,7 @@ def _symlink_primary_toolchain_output(ctx: AnalysisContext, artifacts: dict[str,
     return ctx.actions.symlinked_dir(
         _relname(ctx),
         artifacts,
+        has_content_based_path = False,
     )
 
 def _relname(ctx: AnalysisContext) -> str:

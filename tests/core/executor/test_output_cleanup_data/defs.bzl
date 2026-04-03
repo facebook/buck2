@@ -51,7 +51,7 @@ action = rule(
 
 def _symlinked_dir_impl(ctx):
     f = ctx.actions.write("dst/f", "file")
-    out = ctx.actions.symlinked_dir("out", {ctx.attrs.seed: f})
+    out = ctx.actions.symlinked_dir("out", {ctx.attrs.seed: f}, has_content_based_path = False)
     return [DefaultInfo(default_output = out)]
 
 symlinked_dir = rule(

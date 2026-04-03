@@ -530,6 +530,7 @@ def rust_compile(
             clippy_conf_dir = ctx.actions.symlinked_dir(
                 common_args.subdir + "-clippy-configuration",
                 {"clippy.toml": clippy_toml},
+                has_content_based_path = False,
             )
             emit_op.env["CLIPPY_CONF_DIR"] = clippy_conf_dir
 

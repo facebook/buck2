@@ -529,7 +529,7 @@ def _build_preload_deps_root(
 
             preload_symlinks[preload_so_name] = preload_so
 
-    preload_deps_root = ctx.actions.symlinked_dir(preload_libs_root, preload_symlinks)
+    preload_deps_root = ctx.actions.symlinked_dir(preload_libs_root, preload_symlinks, has_content_based_path = False)
     return GHCiPreloadDepsInfo(
         preload_deps_root = preload_deps_root,
         preload_symlinks = preload_symlinks,
@@ -667,6 +667,7 @@ def haskell_ghci_impl(ctx: AnalysisContext) -> list[Provider]:
             symlinked_things = ctx.actions.symlinked_dir(
                 lib_symlinks_root,
                 lib_symlinks,
+                has_content_based_path = False,
             )
 
             package_symlinks.append(symlinked_things)
@@ -727,6 +728,7 @@ def haskell_ghci_impl(ctx: AnalysisContext) -> list[Provider]:
     root_output_dir = ctx.actions.symlinked_dir(
         "__{}__".format(ctx.label.name),
         output_artifacts,
+        has_content_based_path = False,
     )
     run = cmd_args(final_ghci_script, hidden = outputs)
 

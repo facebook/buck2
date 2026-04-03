@@ -32,7 +32,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
             ctx.attrs.limit,
             len(headers),
         )
-    output = ctx.actions.symlinked_dir(ctx.label.name, headers)
+    output = ctx.actions.symlinked_dir(ctx.label.name, headers, has_content_based_path = False)
     artifacts = [output.project(name, hide_prefix = True) for name in headers]
     return [
         ArtifactGroupInfo(artifacts = artifacts),

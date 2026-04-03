@@ -209,6 +209,7 @@ def _gen_parse_transform_beam(
         resource_dir = ctx.actions.symlinked_dir(
             paths.join(name, "resources"),
             {infile.basename: infile for infile in extra},
+            has_content_based_path = False,
         )
 
     # build beam
@@ -292,6 +293,7 @@ def _gen_util_beams(
     beam_dir = ctx.actions.symlinked_dir(
         "utility_modules",
         {beam.basename: beam for beam in beams},
+        has_content_based_path = False,
     )
 
     return beam_dir

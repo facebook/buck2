@@ -154,7 +154,7 @@ def _build_erlang_test(
 
     suite = ctx.attrs.suite
     suite_name = module_name(suite)
-    hermetic_src_dir = ctx.actions.symlinked_dir(paths.join(erlang_build.utils.BUILD_DIR, "src"), {suite.basename: suite})
+    hermetic_src_dir = ctx.actions.symlinked_dir(paths.join(erlang_build.utils.BUILD_DIR, "src"), {suite.basename: suite}, has_content_based_path = False)
 
     erlang_build.build_steps.generate_beam_artifacts(
         ctx,
@@ -289,6 +289,7 @@ def _build_resource_dir(ctx: AnalysisContext, resources: list, target_dir: str) 
     return ctx.actions.symlinked_dir(
         target_dir,
         include_symlinks,
+        has_content_based_path = False,
     )
 
 def link_output(
@@ -302,7 +303,7 @@ def link_output(
     }
     if data_dir:
         link_spec[data_dir.basename] = data_dir
-    return ctx.actions.symlinked_dir(ctx.attrs.name, link_spec)
+    return ctx.actions.symlinked_dir(ctx.attrs.name, link_spec, has_content_based_path = False)
 
 def generate_file_map_target(suite: str, prefix: str | None, dir_name: str) -> str | None:
     suite_dir = paths.dirname(suite)

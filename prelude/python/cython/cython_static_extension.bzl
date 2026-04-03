@@ -143,6 +143,7 @@ def _gather_cython_includes_static(
     include_tree = ctx.actions.symlinked_dir(
         "__cython_includes__",
         layout,
+        has_content_based_path = False,
     )
 
     return include_tree, raw_headers

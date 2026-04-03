@@ -129,6 +129,7 @@ def cython_compile(
     src_dir = actions.symlinked_dir(
         "__cython_src__/" + identifier,
         src_layout,
+        has_content_based_path = False,
     )
 
     out_dir = actions.declare_output("__cython__/" + identifier, dir = True, has_content_based_path = False)

@@ -207,6 +207,7 @@ def _generate_priv_dir(ctx: AnalysisContext) -> Artifact:
             "priv",
         ),
         priv_symlinks,
+        has_content_based_path = False,
     )
 
 def _generate_app_file(
@@ -306,7 +307,7 @@ def link_output(
     if name in build_environment.include_dirs:
         link_spec["include"] = build_environment.include_dirs[name]
 
-    return ctx.actions.symlinked_dir(link_path, link_spec)
+    return ctx.actions.symlinked_dir(link_path, link_spec, has_content_based_path = False)
 
 def _link_src_dir(ctx: AnalysisContext, *, extra_srcs: list[Artifact]) -> Artifact:
     """Link all sources in a src folder"""
@@ -320,7 +321,7 @@ def _link_src_dir(ctx: AnalysisContext, *, extra_srcs: list[Artifact]) -> Artifa
     for extra_srcs in extra_srcs:
         srcs[extra_srcs.basename] = extra_srcs
 
-    return ctx.actions.symlinked_dir(paths.join(erlang_build.utils.BUILD_DIR, "src"), srcs)
+    return ctx.actions.symlinked_dir(paths.join(erlang_build.utils.BUILD_DIR, "src"), srcs, has_content_based_path = False)
 
 def _build_start_dependencies(ctx: AnalysisContext) -> list[StartDependencySet]:
     return build_apps_start_dependencies(

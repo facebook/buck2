@@ -698,7 +698,7 @@ def get_cxx_resources(ctx: AnalysisContext, deps: list[Dependency], dir_name: st
         for name, resource in resource_map.items():
             symlink_tree_dict["cxx-resources/{}".format(name)] = resource.default_output
 
-    return ctx.actions.symlinked_dir(dir_name, symlink_tree_dict) if symlink_tree_dict else None
+    return ctx.actions.symlinked_dir(dir_name, symlink_tree_dict, has_content_based_path = False) if symlink_tree_dict else None
 
 def _is_store_strings_as_assets(resource_compression: str) -> bool:
     return resource_compression == "enabled_strings_only" or resource_compression == "enabled_with_strings_as_assets"

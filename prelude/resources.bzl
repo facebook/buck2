@@ -60,6 +60,7 @@ def create_relocatable_resources_info(
     resources_dir = ctx.actions.symlinked_dir(
         resources_dir_name,
         resources_dir_mapping,
+        has_content_based_path = False,
     )
 
     packaged_resources_json = ctx.actions.write_json(

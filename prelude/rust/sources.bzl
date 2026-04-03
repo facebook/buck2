@@ -116,7 +116,7 @@ def symlinked_srcs(ctx: AnalysisContext) -> Artifact:
                 prefixes["/".join(components[:i])] = None
 
     # Otherwise, symlink it.
-    return ctx.actions.symlinked_dir("__srcs", srcs)
+    return ctx.actions.symlinked_dir("__srcs", srcs, has_content_based_path = False)
 
 def _rust_filegroup_impl(ctx: AnalysisContext) -> list[Provider]:
     srcs = symlinked_srcs(ctx)

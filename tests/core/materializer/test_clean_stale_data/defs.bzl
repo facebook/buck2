@@ -99,7 +99,7 @@ def symlink_files_impl(ctx):
         "subdir/{}.suffix".format(src.short_path): src
         for src in ctx.attrs.srcs
     })
-    out = ctx.actions.symlinked_dir("out", srcs)
+    out = ctx.actions.symlinked_dir("out", srcs, has_content_based_path = False)
     return [DefaultInfo(default_output = out)]
 
 symlink_files = rule(

@@ -138,7 +138,7 @@ def _compile_apple_metal_library(ctx: AnalysisContext) -> Artifact:
 
     header_symlink_tree = None
     if len(header_map):
-        header_symlink_tree = ctx.actions.symlinked_dir(str(ctx.label.name) + "_header_symlink_tree", header_map)
+        header_symlink_tree = ctx.actions.symlinked_dir(str(ctx.label.name) + "_header_symlink_tree", header_map, has_content_based_path = False)
 
     sysroot = ctx.attrs._apple_toolchain[AppleToolchainInfo].sdk_path
     air_files = []

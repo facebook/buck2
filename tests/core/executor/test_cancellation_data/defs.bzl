@@ -17,7 +17,7 @@ def _slow_impl(ctx: AnalysisContext) -> list[Provider]:
         )
         outs[str(i)] = o
 
-    out = ctx.actions.symlinked_dir("outs", outs)
+    out = ctx.actions.symlinked_dir("outs", outs, has_content_based_path = False)
     return [DefaultInfo(out)]
 
 slow_actions = rule(impl = _slow_impl, attrs = {

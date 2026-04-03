@@ -371,6 +371,7 @@ def create_shlib_symlink_tree(actions: AnalysisActions, out: str, shared_libs: l
         gen_action = lambda actions, output, shared_libs: actions.symlinked_dir(
             output,
             {name: shlib.lib.output for name, shlib in shared_libs.items()},
+            has_content_based_path = False,
         ),
         dir = True,
     )
@@ -383,6 +384,7 @@ def create_shlib_dwp_tree(actions: AnalysisActions, out: str, shared_libs: list[
         gen_action = lambda actions, output, shared_libs: actions.symlinked_dir(
             output,
             {name + ".dwp": shlib.lib.dwp for name, shlib in shared_libs.items() if shlib.lib.dwp != None},
+            has_content_based_path = False,
         ),
         dir = True,
     )

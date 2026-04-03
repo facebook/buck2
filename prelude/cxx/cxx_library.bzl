@@ -981,7 +981,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                         header_symlink_mapping[mapping_path] = header
 
         sub_targets["header-symlink-tree"] = [DefaultInfo(
-            default_output = ctx.actions.symlinked_dir("header_symlink_tree", header_symlink_mapping),
+            default_output = ctx.actions.symlinked_dir("header_symlink_tree", header_symlink_mapping, has_content_based_path = False),
         )]
 
     for additional_subtarget, subtarget_providers in impl_params.additional.subtargets.items():

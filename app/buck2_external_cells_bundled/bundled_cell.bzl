@@ -41,7 +41,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
     contents = ctx.actions.write("contents.rs", cmd_args(parts, delimiter = "\n"), with_inputs = True)
     files["contents.rs"] = contents
 
-    out = ctx.actions.symlinked_dir("out", files)
+    out = ctx.actions.symlinked_dir("out", files, has_content_based_path = False)
 
     return [DefaultInfo(default_output = out)]
 

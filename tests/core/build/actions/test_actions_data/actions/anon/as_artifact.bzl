@@ -65,7 +65,7 @@ def _check_symlink_files_impl(ctx):
     artifact = ctx.actions.anon_target(_builder, {}).artifact("artifact")
     srcs = {"hello": artifact}
 
-    out = ctx.actions.symlinked_dir("out", srcs)
+    out = ctx.actions.symlinked_dir("out", srcs, has_content_based_path = False)
     return [DefaultInfo(default_output = out)]
 
 _check_symlink_files = rule(

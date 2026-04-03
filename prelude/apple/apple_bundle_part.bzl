@@ -167,6 +167,7 @@ def assemble_bundle(
                         profiles_dir = ctx.actions.symlinked_dir(
                             "provisioning_profile_source_{}".format(i),
                             {profile.short_path: profile for profile in source.profiles},
+                            has_content_based_path = False,
                         )
                         codesign_args.extend(["--profiles-dir", profiles_dir])
                     elif source.directory:

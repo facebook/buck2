@@ -130,11 +130,11 @@ def get_android_binary_native_library_info(
 
     if not all_prebuilt_native_library_dirs and not included_shared_lib_targets:
         enhance_ctx.debug_output("native_libs", ctx.actions.write("native_libs", []))
-        enhance_ctx.debug_output("linker_argsfiles", ctx.actions.symlinked_dir("linker_argsfiles", {}))
+        enhance_ctx.debug_output("linker_argsfiles", ctx.actions.symlinked_dir("linker_argsfiles", {}, has_content_based_path = False))
         enhance_ctx.debug_output("linker_commands", ctx.actions.write("linker_commands", []))
         enhance_ctx.debug_output("unstripped_native_libraries", ctx.actions.write("unstripped_native_libraries", []))
         enhance_ctx.debug_output("unstripped_native_libraries_json", ctx.actions.write_json("unstripped_native_libraries_json", {}))
-        enhance_ctx.debug_output("unstripped_native_libraries_files", ctx.actions.symlinked_dir("unstripped_native_libraries_files", {}))
+        enhance_ctx.debug_output("unstripped_native_libraries_files", ctx.actions.symlinked_dir("unstripped_native_libraries_files", {}, has_content_based_path = False))
         return AndroidBinaryNativeLibsInfo(
             prebuilt_native_library_dirs = [],
             shared_libraries = [],
@@ -478,6 +478,7 @@ def get_android_binary_native_library_info(
             "others": native_libs,
             "primary": native_libs_always_in_primary_apk,
         },
+        has_content_based_path = False,
     )
 
     lib_subtargets = _create_library_subtargets(
@@ -577,11 +578,11 @@ def _post_native_lib_graph_finalization_steps(
     ctx.actions.symlink_file(native_libs, dynamic_info.native_libs)
     ctx.actions.symlink_file(native_libs_metadata, dynamic_info.native_libs_metadata)
     ctx.actions.symlink_file(native_libs_always_in_primary_apk, dynamic_info.native_libs_always_in_primary_apk)
-    ctx.actions.symlink_file(native_lib_assets_for_primary_apk, dynamic_info.native_lib_assets_for_primary_apk if dynamic_info.native_lib_assets_for_primary_apk else ctx.actions.symlinked_dir("empty_native_lib_assets", {}), has_content_based_path = False)
-    ctx.actions.symlink_file(stripped_native_linkable_assets_for_primary_apk, dynamic_info.stripped_native_linkable_assets_for_primary_apk if dynamic_info.stripped_native_linkable_assets_for_primary_apk else ctx.actions.symlinked_dir("empty_stripped_native_linkable_assets", {}), has_content_based_path = False)
+    ctx.actions.symlink_file(native_lib_assets_for_primary_apk, dynamic_info.native_lib_assets_for_primary_apk if dynamic_info.native_lib_assets_for_primary_apk else ctx.actions.symlinked_dir("empty_native_lib_assets", {}, has_content_based_path = False))
+    ctx.actions.symlink_file(stripped_native_linkable_assets_for_primary_apk, dynamic_info.stripped_native_linkable_assets_for_primary_apk if dynamic_info.stripped_native_linkable_assets_for_primary_apk else ctx.actions.symlinked_dir("empty_stripped_native_linkable_assets", {}, has_content_based_path = False))
     ctx.actions.symlink_file(root_module_metadata_assets, dynamic_info.root_module_metadata_assets)
     ctx.actions.symlink_file(non_root_module_metadata_assets, dynamic_info.non_root_module_metadata_assets)
-    ctx.actions.symlink_file(non_root_module_lib_assets, dynamic_info.non_root_module_lib_assets if dynamic_info.non_root_module_lib_assets else ctx.actions.symlinked_dir("empty_non_root_module_lib_assets", {}), has_content_based_path = False)
+    ctx.actions.symlink_file(non_root_module_lib_assets, dynamic_info.non_root_module_lib_assets if dynamic_info.non_root_module_lib_assets else ctx.actions.symlinked_dir("empty_non_root_module_lib_assets", {}, has_content_based_path = False))
 
     return final_shared_libs_by_platform
 
@@ -919,8 +920,8 @@ def _get_native_libs_and_assets(
         native_libs_always_in_primary_apk = combined_native_libs_always_in_primary_apk,
         native_lib_assets_for_primary_apk = native_lib_assets_for_primary_apk,
         stripped_native_linkable_assets_for_primary_apk = stripped_linkable_assets_for_primary_apk,
-        root_module_metadata_assets = ctx.actions.symlinked_dir("root_module_metadata_assets", root_module_metadata_srcs),
-        non_root_module_metadata_assets = ctx.actions.symlinked_dir("non_root_module_metadata_assets", non_root_module_metadata_srcs),
+        root_module_metadata_assets = ctx.actions.symlinked_dir("root_module_metadata_assets", root_module_metadata_srcs, has_content_based_path = False),
+        non_root_module_metadata_assets = ctx.actions.symlinked_dir("non_root_module_metadata_assets", non_root_module_metadata_srcs, has_content_based_path = False),
         non_root_module_lib_assets = non_root_module_libs,
     )
 
@@ -1008,20 +1009,24 @@ def _get_native_linkables(
     stripped_native_linkables = ctx.actions.symlinked_dir(
         "stripped_native_linkables",
         stripped_native_linkables_srcs,
+        has_content_based_path = False,
     )
     stripped_native_linkables_always_in_primary_apk = ctx.actions.symlinked_dir(
         "stripped_native_linkables_always_in_primary_apk",
         stripped_native_linkables_always_in_primary_apk_srcs,
+        has_content_based_path = False,
     )
     stripped_native_linkable_assets_for_primary_apk = ctx.actions.symlinked_dir(
         "stripped_native_linkables_assets_for_primary_apk",
         stripped_native_linkable_assets_for_primary_apk_srcs,
+        has_content_based_path = False,
     ) if stripped_native_linkable_assets_for_primary_apk_srcs else None
     stripped_native_linkable_module_assets_map = {}
     for module, srcs in stripped_native_linkable_module_assets_srcs.items():
         stripped_native_linkable_module_assets_map[module] = ctx.actions.symlinked_dir(
             "stripped_native_linkable_assets_for_module_{}".format(module),
             srcs,
+            has_content_based_path = False,
         )
 
     return _StrippedNativeLinkables(

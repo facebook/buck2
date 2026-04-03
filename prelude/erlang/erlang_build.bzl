@@ -111,7 +111,7 @@ def _generate_include_artifacts(
 
     include_files = {hrl.basename: hrl for hrl in header_artifacts}
     dir_name = "{}_private".format(name) if is_private else name
-    include_dir = ctx.actions.symlinked_dir(paths.join(_BUILD_DIR, dir_name, "include"), include_files)
+    include_dir = ctx.actions.symlinked_dir(paths.join(_BUILD_DIR, dir_name, "include"), include_files, has_content_based_path = False)
 
     # dep files
     deps_files = _get_deps_files(ctx, toolchain, header_artifacts)

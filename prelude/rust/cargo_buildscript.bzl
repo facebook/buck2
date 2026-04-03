@@ -236,7 +236,7 @@ def _cargo_buildscript_impl(ctx: AnalysisContext) -> list[Provider]:
     if ctx.attrs.manifest_dir != None:
         manifest_dir = ctx.attrs.manifest_dir[DefaultInfo].default_outputs[0]
     else:
-        manifest_dir = ctx.actions.symlinked_dir("manifest_dir", ctx.attrs.filegroup_for_manifest_dir)
+        manifest_dir = ctx.actions.symlinked_dir("manifest_dir", ctx.attrs.filegroup_for_manifest_dir, has_content_based_path = False)
 
     cmd = [
         ctx.attrs.runner[RunInfo],

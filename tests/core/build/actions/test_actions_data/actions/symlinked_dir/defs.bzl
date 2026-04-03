@@ -21,7 +21,7 @@ def symlink_files_impl(ctx):
         "subdir/{}.suffix".format(src.short_path): src
         for src in ctx.attrs.srcs
     })
-    out = ctx.actions.symlinked_dir("out", srcs)
+    out = ctx.actions.symlinked_dir("out", srcs, has_content_based_path = False)
     return [DefaultInfo(default_output = out)]
 
 write_file = rule(
@@ -51,7 +51,7 @@ def symlink_transitive_files_impl(ctx):
         src.short_path: src
         for src in ctx.attrs.srcs
     }
-    out = ctx.actions.symlinked_dir("out_dir", srcs)
+    out = ctx.actions.symlinked_dir("out_dir", srcs, has_content_based_path = False)
     return [DefaultInfo(default_output = out)]
 
 write_transitive_file = rule(

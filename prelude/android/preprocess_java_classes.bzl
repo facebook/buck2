@@ -31,7 +31,7 @@ def get_preprocessed_java_classes(enhance_ctx: EnhancementContext, input_jars: d
         output_jar = output_dir.project(jar_name)
         output_jars_to_owners[output_jar] = target_label
 
-    input_dir = ctx.actions.symlinked_dir("preprocessed_java_classes/input_dir", input_srcs)
+    input_dir = ctx.actions.symlinked_dir("preprocessed_java_classes/input_dir", input_srcs, has_content_based_path = False)
     input_jars_map = ctx.actions.write_json("preprocessed_java_classes/input_jars_map.json", input_jars_to_owners)
     materialized_artifacts_dir = ctx.actions.declare_output("preprocessed_java_classes/materialized_artifacts", has_content_based_path = False)
 

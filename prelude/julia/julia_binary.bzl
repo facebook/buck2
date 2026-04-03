@@ -97,7 +97,7 @@ def build_load_path_symtree(ctx: AnalysisContext):
         k: p
         for k, p in zip(src_labels, srcs)
     }
-    symlink_dir = ctx.actions.symlinked_dir("_modules_", dict_from_tree)
+    symlink_dir = ctx.actions.symlinked_dir("_modules_", dict_from_tree, has_content_based_path = False)
 
     return symlink_dir
 
@@ -115,7 +115,7 @@ def build_julia_command(ctx):
 
     # build symdir for sources
     srcs_by_path = {f.short_path: f for f in ctx.attrs.srcs}
-    srcs = ctx.actions.symlinked_dir("srcs_tree", srcs_by_path)
+    srcs = ctx.actions.symlinked_dir("srcs_tree", srcs_by_path, has_content_based_path = False)
     if ctx.attrs.main not in srcs_by_path:
         fail("main should be in srcs!")
 

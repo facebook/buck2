@@ -199,6 +199,7 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
                     default_output = ctx.actions.symlinked_dir(
                         "proguard_text_output",
                         dir_srcs,
+                        has_content_based_path = False,
                     ),
                 ),
             ]
