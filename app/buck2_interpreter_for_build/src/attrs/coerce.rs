@@ -15,7 +15,7 @@ use starlark::values::Value;
 
 use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 
-mod arc_str_interner;
+pub mod arc_str_interner;
 pub mod attr_type;
 pub mod coerced_attr;
 pub mod ctx;

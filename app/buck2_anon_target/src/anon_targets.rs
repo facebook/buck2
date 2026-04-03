@@ -64,6 +64,7 @@ use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
+use buck2_interpreter_for_build::attrs::coerce::arc_str_interner::ArcStrInterner;
 use buck2_interpreter_for_build::rule::FrozenStarlarkRuleCallable;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
@@ -533,18 +534,19 @@ impl AnonTargetKey {
 /// Several attribute functions need a context, make one that is mostly useless.
 pub(crate) struct AnonAttrCtx {
     pub(crate) execution_platform_resolution: ExecutionPlatformResolution,
+    str_interner: ArcStrInterner,
 }
 
 impl AnonAttrCtx {
     fn new(execution_platform_resolution: &ExecutionPlatformResolution) -> Self {
         Self {
             execution_platform_resolution: execution_platform_resolution.clone(),
+            str_interner: ArcStrInterner::new(),
         }
     }
 
     pub(crate) fn intern_str(&self, value: &str) -> ArcStr {
-        // TODO(scottcao): do intern.
-        ArcStr::from(value)
+        self.str_interner.intern(value)
     }
 }
 
