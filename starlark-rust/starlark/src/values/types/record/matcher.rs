@@ -28,9 +28,11 @@ use crate::values::types::type_instance_id::TypeInstanceId;
 use crate::values::typing::type_compiled::matcher::TypeMatcher;
 use crate::values::typing::type_compiled::matcher::TypeMatcherDyn;
 
+/// Allows you to compare `Record`'s from different files, since they otherwise have no unique
+/// identity.
 #[derive(Hash, Debug, Eq, PartialEq, Clone, Dupe, Allocative, Pagable)]
 #[pagable_typetag(TypeMatcherDyn)]
-pub(crate) struct RecordTypeMatcher {
+pub struct RecordTypeMatcher {
     pub(crate) id: TypeInstanceId,
 }
 
