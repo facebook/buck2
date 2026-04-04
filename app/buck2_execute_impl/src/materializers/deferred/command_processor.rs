@@ -558,12 +558,11 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                             Some(cmd.create_clean_fut(&mut self, None, daemon_id));
                     } else {
                         // This should never happen
-                        soft_error!(
+                        let _unused = soft_error!(
                             "clean_stale_no_config",
                             buck2_error!(buck2_error::ErrorTag::Tier0, "clean scheduled without being configured"),
                             quiet: true
-                        )
-                            .unwrap();
+                        );
                     }
                 }
             }
@@ -767,12 +766,11 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     .materializer_state_table()
                     .update_access_times(buffer.iter().collect::<Vec<_>>())
                 {
-                    soft_error!(
+                    let _unused = soft_error!(
                         "materializer_materialize_error",
                         e,
                         quiet: true
-                    )
-                    .unwrap();
+                    );
                     return "Found error while updating access times in sqlite db".to_owned();
                 }
             }
@@ -1042,7 +1040,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         .materializer_state_table()
                         .update_access_times(vec![&path])
                     {
-                        soft_error!("has_artifact_update_time", e, quiet: true).unwrap();
+                        let _unused = soft_error!("has_artifact_update_time", e, quiet: true);
                     }
                 }
             }
@@ -1490,7 +1488,7 @@ fn on_materialization(
             .materializer_state_table()
             .insert(path, metadata, timestamp)
         {
-            soft_error!(error_name, e, quiet: true).unwrap();
+            let _unused = soft_error!(error_name, e, quiet: true);
         }
     }
 
