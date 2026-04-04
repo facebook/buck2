@@ -264,7 +264,7 @@ def _compute_cxx_executable_info(
         CxxSrcWithFlags(file = static_extension_info_out, flags = []),
     ]
 
-    # All deps inolved in the link.
+    # All deps involved in the link.
     link_deps = (
         linkables(ctx.attrs.executable_deps + python_attr_preload_deps(ctx)) +
         extension_info_reduced.linkable_providers

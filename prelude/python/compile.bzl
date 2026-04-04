@@ -64,7 +64,7 @@ def compile_manifests_for_mode(
         env["CINDER_DUMMY_PYC_CACHE_BUSTER"] = "3451"
     elif version and "3.12" in version:
         # for CPython, the magic number *shouldn't* change during the lifetime of a feature release
-        # but internally we do make more signifcant changes (rarely),
+        # but internally we do make more significant changes (rarely),
         # so for those cases we support forced invalidation using this env var
         env["PYTHON312_DUMMY_PYC_CACHE_BUSTER"] = "3532"
 

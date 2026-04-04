@@ -61,7 +61,7 @@ from pathlib import Path
 from typing import Dict, Set, Tuple
 
 # Suffixes which should trigger `__init__.py` additions.
-# TODO(agallaher): This was coped from v1, but some things below probably
+# TODO(agallaher): This was copied from v1, but some things below probably
 # don't need to be here (e.g. `.pyd`).
 _MODULE_SUFFIXES = {
     ".dll",
@@ -382,7 +382,7 @@ def create_modules_dir(args: argparse.Namespace) -> None:
 
     # Fill in __init__.py for sources that were provided by the user
     # These are filtered such that we only create this for sources specified
-    # by the user; if a .whl fortgets an __init__.py file, that's their problem
+    # by the user; if a .whl forgets an __init__.py file, that's their problem
     for init_py_dir in init_py_paths:
         init_py_path = args.modules_dir / init_py_dir / "__init__.py"
         # We still do this check because python insists on touching some read only
