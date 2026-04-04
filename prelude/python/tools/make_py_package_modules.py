@@ -101,9 +101,6 @@ def replace_pyc_hash_placeholder(path: str, pyc_hash_dict: Dict[str, str]) -> st
 
 
 def parse_args() -> argparse.Namespace:
-    # TODO(nmj): Go back and verify all of the various flags that make_xar
-    #                 takes, and standardize on that so that the calling convention
-    #                 is the same regardless of the "make_X" binary that's used.
     parser = argparse.ArgumentParser(
         description=(
             "Create a python inplace binary, writing a symlink tree to a directory, "

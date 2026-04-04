@@ -236,10 +236,6 @@ def _fail(
     # occur at analysis time
     fail(msg)
 
-# TODO(nmj): Resources
-# TODO(nmj): Figure out how to harmonize these flags w/ existing make_xar
-#                 invocations. It might be perfectly reasonable to just have a wrapper
-#                 script that invokes make_xar in a slightly different way.
 def make_py_package(
         ctx: AnalysisContext,
         python_toolchain: PythonToolchainInfo,

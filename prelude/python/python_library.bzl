@@ -194,12 +194,9 @@ def gather_dep_libraries(
         elif SharedLibraryInfo in dep:
             shared_libraries.append(dep[SharedLibraryInfo])
         else:
-            # TODO(nmj): This is disabled for the moment because of:
-            #                 - the 'genrule-hack' rules that are added as deps
-            #                   on third-party whls. Not quite sure what's up
-            #                   there, but shouldn't be necessary on v2.
-            #                   (e.g. fbsource//third-party/pypi/zstandard:0.12.0-genrule-hack)
-            #fail("Dependency {} is neither a python_library, nor a prebuilt_python_library".format(dep.label))
+            # Non-Python dependencies (e.g. genrule deps on third-party whls) are
+            # silently ignored here; they don't provide PythonLibraryInfo or
+            # SharedLibraryInfo but are valid transitive deps.
             pass
     return (deps, shared_libraries)
 

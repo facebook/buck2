@@ -372,7 +372,6 @@ def process_native_linking(
     dict[str, typing.Any],
     [CxxLinkerMapData, None],
 ):
-    #TODO @dcssiva: fix types
     extra = {}
     extra_artifacts = {}
 
@@ -396,7 +395,6 @@ def process_native_linking(
     cmd.add(cmd_args(argfile))
     cmd.add(cmd_args(static_extension_info_out.as_output(), format = "--output={}"))
 
-    # TODO we don't need to do this ...
     ctx.actions.run(cmd, category = "generate_static_extension_info")
 
     extra["static_extension_info"] = [DefaultInfo(default_output = static_extension_info_out)]
@@ -436,7 +434,6 @@ def process_native_linking(
     # potentially all of them before startup.
     shared_libs = [(s, "runtime/lib") for s in executable_info.shared_libs]
 
-    # TODO expect(len(executable_info.runtime_files) == 0, "OH NO THERE ARE RUNTIME FILES")
     extra_artifacts.update(extension_info_reduced.artifacts)
     shared_libs.append((
         create_shlib(
