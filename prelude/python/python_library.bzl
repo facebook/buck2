@@ -222,14 +222,10 @@ def _exclude_deps_from_omnibus(
     return False
 
 def _attr_srcs(ctx: AnalysisContext) -> dict[str, Artifact]:
-    all_srcs = {}
-    all_srcs.update(from_named_set(ctx.attrs.srcs))
-    return all_srcs
+    return dict(from_named_set(ctx.attrs.srcs))
 
 def _attr_resources(ctx: AnalysisContext) -> dict[str, Artifact | Dependency]:
-    all_resources = {}
-    all_resources.update(from_named_set(ctx.attrs.resources))
-    return all_resources
+    return dict(from_named_set(ctx.attrs.resources))
 
 def py_attr_resources(ctx: AnalysisContext) -> (dict[str, ArtifactOutputs], dict[str, ArtifactOutputs]):
     """
