@@ -6,9 +6,9 @@ rust_library(
     name = "buck2_critical_path",
     srcs = glob(["src/**/*.rs"]),
     test_deps = [
-        "fbsource//third-party/rust:rand_08",
-        "fbsource//third-party/rust:rand_chacha_03",
-        "fbsource//third-party/rust:rand_distr_04",
+        "fbsource//third-party/rust:rand_09",
+        "fbsource//third-party/rust:rand_chacha_09",
+        "fbsource//third-party/rust:rand_distr",
     ],
     deps = [
         "fbsource//third-party/rust:crossbeam",
