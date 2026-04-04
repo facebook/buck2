@@ -739,8 +739,7 @@ def _make_py_package_live(
         )
 
         # Since we allow including directories for resources we have to enumerate the directory at build time, so we pass the resource artifacts as a hidden arg so that it will be materialized on disk when we build the par.
-        # cmd.add(cmd_args(resource_manifests_path, format = "--resources={}", hidden = [resources, resource_artifacts]))
-        # This was previously broken and the fix incurs a non-trivial build speed regression
+        # Note: resource_artifacts are intentionally omitted from `hidden` here to avoid a non-trivial build speed regression.
         cmd.add(cmd_args(resource_manifests_path, format = "--resources={}", hidden = [resources]))
         runtime_files.extend(resource_artifacts)
 
