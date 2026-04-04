@@ -52,6 +52,7 @@ def _python_executable_attrs():
         ),
         "executable_name": attrs.option(attrs.string(), default = None),
         "inplace_build_args": attrs.list(attrs.arg(), default = []),
+        "interpreter_args": attrs.list(attrs.string(), default = []),
         "lazy_imports_analyzer": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "link_group": attrs.option(attrs.string(), default = None),
         "link_group_map": LINK_GROUP_MAP_ATTR,

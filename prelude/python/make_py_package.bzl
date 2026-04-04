@@ -137,6 +137,8 @@ def _live_par_generated_files(
     if ctx.attrs.runtime_env:
         for k, v in ctx.attrs.runtime_env.items():
             gen_bootstrap.add(cmd_args(["--runtime_env={}={}".format(k, v)]))
+    if ctx.attrs.interpreter_args:
+        gen_bootstrap.add(cmd_args(["--runtime-args={}".format(json.encode(ctx.attrs.interpreter_args))]))
 
     gen_bootstrap.add([
         "--python",
@@ -177,6 +179,8 @@ def _live_par_windows_bootstrap(
     if ctx.attrs.runtime_env:
         for k, v in ctx.attrs.runtime_env.items():
             bootstrap.add(cmd_args(["--runtime_env", "{}={}".format(k, v)]))
+    for flag in ctx.attrs.interpreter_args:
+        bootstrap.add(cmd_args(["--interpreter_flags={}".format(flag)]))
     ctx.actions.run(bootstrap, category = "par", identifier = "bootstrap{}".format(output_suffix))
 
 def make_default_info(pex: PexProviders) -> Provider:
@@ -568,6 +572,8 @@ def _make_py_package_impl(
         if ctx.attrs.runtime_env:
             for k, v in ctx.attrs.runtime_env.items():
                 cmd.add(cmd_args(["--passthrough", "--runtime_env={}={}".format(k, v)]))
+        if ctx.attrs.interpreter_args:
+            cmd.add(cmd_args(["--passthrough", "--runtime-args={}".format(json.encode(ctx.attrs.interpreter_args))]))
         if package_style == PackageStyle("outplace"):
             cmd.add(cmd_args("--passthrough=--copy-files", hidden = runtime_artifacts))
 
@@ -597,6 +603,8 @@ def _make_py_package_impl(
         if ctx.attrs.runtime_env:
             for k, v in ctx.attrs.runtime_env.items():
                 bootstrap.add(cmd_args(["--runtime_env", "{}={}".format(k, v)]))
+        for flag in ctx.attrs.interpreter_args:
+            bootstrap.add(cmd_args(["--interpreter_flags={}".format(flag)]))
 
         ctx.actions.run(bootstrap, category = "par", identifier = "bootstrap{}".format(output_suffix))
 
