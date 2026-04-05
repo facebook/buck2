@@ -422,16 +422,7 @@ impl ConfigurationDataData {
     }
 }
 
-#[derive(
-    Debug,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    Allocative,
-    derive_more::Display,
-    Pagable
-)]
+#[derive(Debug, Allocative, derive_more::Display, Pagable)]
 #[display("{}", full_name)]
 pub(crate) struct HashedConfigurationPlatform {
     configuration_platform: ConfigurationPlatform,
@@ -442,11 +433,32 @@ pub(crate) struct HashedConfigurationPlatform {
     output_hash: ConfigurationHash,
 }
 
-/// This will hash just the "output_hash" which should uniquely identify this data.
-#[allow(clippy::derived_hash_with_manual_eq)] // The derived PartialEq is still correct.
+/// Hash, equality, and ordering use only `output_hash` so that they are
+/// always consistent with each other. Whether `is_exec_platform` is folded
+/// into `output_hash` depends on `HASH_CFG_WITH_EXEC_PLATFORM`.
 impl std::hash::Hash for HashedConfigurationPlatform {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.output_hash.hash(state)
+    }
+}
+
+impl PartialEq for HashedConfigurationPlatform {
+    fn eq(&self, other: &Self) -> bool {
+        self.output_hash == other.output_hash
+    }
+}
+
+impl Eq for HashedConfigurationPlatform {}
+
+impl PartialOrd for HashedConfigurationPlatform {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for HashedConfigurationPlatform {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.output_hash.cmp(&other.output_hash)
     }
 }
 
@@ -564,5 +576,53 @@ mod tests {
             ConfigurationData::lookup_bound(BoundConfigurationId::parse(expected_cfg_str).unwrap())
                 .unwrap();
         assert_eq!(configuration, looked_up);
+    }
+
+    /// With `HASH_CFG_WITH_EXEC_PLATFORM` unset (the default), configs that
+    /// differ only in `is_exec_platform` must be equal with matching hashes.
+    #[test]
+    fn test_exec_vs_non_exec_hash_eq_consistency() {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::Hash;
+        use std::hash::Hasher;
+
+        fn compute_hash(cfg: &ConfigurationData) -> u64 {
+            let mut hasher = DefaultHasher::new();
+            cfg.hash(&mut hasher);
+            hasher.finish()
+        }
+
+        let constraints = BTreeMap::from_iter([(
+            ConstraintKey::testing_new("foo//bar:c"),
+            ConstraintValue::testing_new("foo//bar:v", None),
+        )]);
+
+        let cfg_non_exec = ConfigurationData::from_platform(
+            "my//platform:cfg".to_owned(),
+            ConfigurationDataData {
+                constraints: constraints.clone(),
+            },
+            false,
+        )
+        .unwrap();
+
+        let cfg_exec = ConfigurationData::from_platform(
+            "my//platform:cfg".to_owned(),
+            ConfigurationDataData {
+                constraints: constraints.clone(),
+            },
+            true,
+        )
+        .unwrap();
+
+        assert_eq!(
+            cfg_non_exec, cfg_exec,
+            "Configs differing only in is_exec_platform must be equal"
+        );
+        assert_eq!(
+            compute_hash(&cfg_non_exec),
+            compute_hash(&cfg_exec),
+            "Equal configs must have equal hashes"
+        );
     }
 }
