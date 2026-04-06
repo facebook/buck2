@@ -128,7 +128,6 @@ def apple_bundle_base_attrs():
                 "info_plist": attrs.source(),
                 "resource_group_map": attrs.option(RESOURCE_GROUP_MAP_ATTR, default = None),
                 "skip_copying_swift_stdlib": attrs.option(attrs.bool(), default = None),
-                "try_skip_code_signing": attrs.option(attrs.bool(), default = None),
             })
 
 def apple_bundle_default_attrs():
@@ -515,7 +514,6 @@ apple_bundle = prelude_rule(
             "platform_binary": attrs.option(attrs.list(attrs.tuple(attrs.regex(), attrs.dep())), default = None),
             "resource_group_map": attrs.option(RESOURCE_GROUP_MAP_ATTR, default = None),
             "skip_copying_swift_stdlib": attrs.option(attrs.bool(), default = None),
-            "try_skip_code_signing": attrs.option(attrs.bool(), default = None),
         } | apple_bundle_extra_attrs()
     ),
     impl = apple_bundle_impl,
@@ -1025,7 +1023,6 @@ apple_test = prelude_rule(
             "swift_macro_deps": attrs.list(attrs.plugin_dep(kind = SwiftMacroPlugin), default = []),
             "swift_version": attrs.enum(SwiftVersion, default = SwiftVersion[0]),
             "test_rule_timeout_ms": attrs.option(attrs.int(), default = None),
-            "try_skip_code_signing": attrs.option(attrs.bool(), default = None),
             "ui_test_target_app": attrs.option(attrs.dep(), default = None),
         } |
         buck.allow_cache_upload_arg() |
