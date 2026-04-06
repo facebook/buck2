@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-use buck2_critical_path::TopoSortError;
-
 /// We consider buck's critical path computation to be a core feature of buck and so
 /// treat failures severely, but logically the command results don't really depend on it and
 /// so failing a build on a spurious critical path computation failure is a high cost.
@@ -21,12 +19,6 @@ use buck2_critical_path::TopoSortError;
 pub enum CriticalPathError {
     #[error("Overflow building critical path graph graph")]
     GraphBuildOverflow,
-    #[error("Critical path graph has a cycle")]
-    TopoSortError(TopoSortError),
-}
-
-impl From<TopoSortError> for CriticalPathError {
-    fn from(value: TopoSortError) -> Self {
-        Self::TopoSortError(value)
-    }
+    #[error("Critical path graph has a cycle: {0}")]
+    CycleDetected(String),
 }

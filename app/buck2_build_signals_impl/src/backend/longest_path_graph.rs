@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::collections::HashSet;
 use std::time::Duration;
 
 use buck2_analysis::analysis::calculation::AnalysisKey;
@@ -22,12 +23,15 @@ use buck2_critical_path::Graph;
 use buck2_critical_path::GraphBuilder;
 use buck2_critical_path::OptionalVertexId;
 use buck2_critical_path::PushError;
+use buck2_critical_path::TopoSortError;
 use buck2_critical_path::VertexData;
+use buck2_critical_path::VertexId;
 use buck2_critical_path::VertexKeys;
 use buck2_critical_path::compute_critical_path_potentials;
 use buck2_error::internal_error;
 use buck2_events::span::SpanId;
 use dupe::Dupe;
+use itertools::Itertools;
 use smallvec::SmallVec;
 
 use crate::BuildInfo;
@@ -199,6 +203,7 @@ impl BuildListenerBackend for LongestPathGraphBackend {
             (slow, cp)
         });
 
+        let slowest_path = slowest_path?;
         let (critical_path, critical_path_for_top_level_targets) = cp_res?;
 
         Ok(BuildInfo {
@@ -223,7 +228,8 @@ fn compute_critical_paths(
     top_level_targets: &[TopLevelTarget],
 ) -> Result<(DetailedCriticalPath, Vec<(ConfiguredTargetLabel, Duration)>), CriticalPathError> {
     let (critical_path, critical_path_cost, replacement_durations, critical_path_accessor) =
-        compute_critical_path_potentials(graph, &durations)?;
+        compute_critical_path_potentials(graph, &durations)
+            .map_err(|e| format_topo_sort_cycle_error(e, keys))?;
 
     let critical_path_for_top_level_targets = top_level_targets
         .iter()
@@ -301,7 +307,7 @@ fn compute_slowest_paths(
     graph: &Graph,
     keys: &VertexKeys<NodeKey>,
     data: &VertexData<NodeData>,
-) -> DetailedCriticalPath {
+) -> Result<DetailedCriticalPath, CriticalPathError> {
     let mut last = None;
 
     for d in graph.iter_vertices() {
@@ -311,9 +317,14 @@ fn compute_slowest_paths(
         }
     }
 
+    let mut visited: HashSet<VertexId> = HashSet::new();
     let mut slowest_path = Vec::new();
     let mut node = last.unzip().1;
     while let Some(curr) = node {
+        if !visited.insert(curr) {
+            return Err(format_slowest_path_cycle_error(keys, &slowest_path, curr));
+        }
+
         let mut prev = None;
         for d in graph.iter_edges(curr) {
             let d_end = data[d].duration.total.end();
@@ -335,5 +346,41 @@ fn compute_slowest_paths(
 
     slowest_path.reverse();
 
-    DetailedCriticalPath::new(slowest_path)
+    Ok(DetailedCriticalPath::new(slowest_path))
+}
+
+fn format_topo_sort_cycle_error(
+    error: TopoSortError,
+    keys: &VertexKeys<NodeKey>,
+) -> CriticalPathError {
+    let TopoSortError::Cycle(cycle_vertices) = error;
+    let cycle_desc = cycle_vertices.iter().map(|v| &keys[*v]).join(" -> ");
+    CriticalPathError::CycleDetected(format!(
+        "{} nodes in cycle: {}",
+        cycle_vertices.len(),
+        cycle_desc
+    ))
+}
+
+fn format_slowest_path_cycle_error(
+    keys: &VertexKeys<NodeKey>,
+    path: &[DetailedCriticalPathEntry],
+    cycle_target: VertexId,
+) -> CriticalPathError {
+    let cycle_target_key = &keys[cycle_target];
+
+    let cycle_start_idx = path
+        .iter()
+        .position(|e| &e.key == cycle_target_key)
+        .unwrap_or(0);
+
+    let cycle_nodes = &path[cycle_start_idx..];
+    let cycle_len = cycle_nodes.len() + 1;
+    let cycle_desc = cycle_nodes
+        .iter()
+        .map(|e| &e.key)
+        .chain(std::iter::once(cycle_target_key))
+        .join(" -> ");
+
+    CriticalPathError::CycleDetected(format!("{} nodes in cycle: {}", cycle_len, cycle_desc))
 }
