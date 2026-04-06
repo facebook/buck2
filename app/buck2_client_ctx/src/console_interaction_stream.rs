@@ -115,15 +115,14 @@ mod interactive_terminal {
     use std::os::windows::io::AsRawHandle;
 
     use buck2_error::BuckErrorContext;
-    use winapi::shared::minwindef::DWORD;
-    use winapi::um::consoleapi::GetConsoleMode;
-    use winapi::um::consoleapi::SetConsoleMode;
-    use winapi::um::wincon::ENABLE_ECHO_INPUT;
-    use winapi::um::wincon::ENABLE_LINE_INPUT;
-    use winapi::um::winnt::HANDLE;
+    use windows_sys::Win32::Foundation::HANDLE;
+    use windows_sys::Win32::System::Console::ENABLE_ECHO_INPUT;
+    use windows_sys::Win32::System::Console::ENABLE_LINE_INPUT;
+    use windows_sys::Win32::System::Console::GetConsoleMode;
+    use windows_sys::Win32::System::Console::SetConsoleMode;
 
-    fn get_console_mode(handle: HANDLE) -> buck2_error::Result<DWORD> {
-        let mut mode: DWORD = 0;
+    fn get_console_mode(handle: HANDLE) -> buck2_error::Result<u32> {
+        let mut mode: u32 = 0;
         if unsafe { GetConsoleMode(handle, &mut mode) } != 0 {
             Ok(mode)
         } else {
@@ -131,7 +130,7 @@ mod interactive_terminal {
         }
     }
 
-    fn set_console_mode(handle: HANDLE, mode: DWORD) -> buck2_error::Result<()> {
+    fn set_console_mode(handle: HANDLE, mode: u32) -> buck2_error::Result<()> {
         if unsafe { SetConsoleMode(handle, mode) != 0 } {
             Ok(())
         } else {
@@ -140,12 +139,12 @@ mod interactive_terminal {
     }
 
     pub struct InteractiveTerminal {
-        mode: DWORD,
+        mode: u32,
     }
 
     impl InteractiveTerminal {
         pub fn enable() -> buck2_error::Result<Option<Self>> {
-            let handle = std::io::stdin().as_raw_handle();
+            let handle = std::io::stdin().as_raw_handle() as HANDLE;
 
             if !std::io::stdin().is_terminal()
                 || !std::io::stdout().is_terminal()
@@ -161,7 +160,7 @@ mod interactive_terminal {
         }
 
         pub fn disable(&mut self) -> buck2_error::Result<()> {
-            let handle = std::io::stdin().as_raw_handle();
+            let handle = std::io::stdin().as_raw_handle() as HANDLE;
             set_console_mode(handle, self.mode)?;
             Ok(())
         }

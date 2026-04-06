@@ -81,7 +81,7 @@ rust_library(
             "fbsource//third-party/rust:termios",
         ],
         "ovr_config//os:windows": [
-            "fbsource//third-party/rust:winapi",
+            "fbsource//third-party/rust:windows-sys",
         ],
     }),
 )

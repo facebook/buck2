@@ -36,7 +36,7 @@ perf-event = { workspace = true }
 libc = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
-winapi = { workspace = true }
+windows-sys = { workspace = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }

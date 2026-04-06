@@ -44,15 +44,14 @@ pub(crate) fn spawn_background_process_on_windows<'a>(
     use buck2_error::buck2_error;
     use buck2_hash::StdBuckHashMap;
     use buck2_util::os::win::os_str::os_str_to_wide_null_term;
-    use winapi::shared::minwindef::DWORD;
-    use winapi::shared::minwindef::FALSE;
-    use winapi::um::handleapi::CloseHandle;
-    use winapi::um::processthreadsapi::CreateProcessW;
-    use winapi::um::processthreadsapi::PROCESS_INFORMATION;
-    use winapi::um::processthreadsapi::STARTUPINFOW;
-    use winapi::um::winbase::CREATE_NEW_PROCESS_GROUP;
-    use winapi::um::winbase::CREATE_UNICODE_ENVIRONMENT;
-    use winapi::um::winbase::DETACHED_PROCESS;
+    use windows_sys::Win32::Foundation::CloseHandle;
+    use windows_sys::Win32::Foundation::FALSE;
+    use windows_sys::Win32::System::Threading::CREATE_NEW_PROCESS_GROUP;
+    use windows_sys::Win32::System::Threading::CREATE_UNICODE_ENVIRONMENT;
+    use windows_sys::Win32::System::Threading::CreateProcessW;
+    use windows_sys::Win32::System::Threading::DETACHED_PROCESS;
+    use windows_sys::Win32::System::Threading::PROCESS_INFORMATION;
+    use windows_sys::Win32::System::Threading::STARTUPINFOW;
 
     // We have to call CreateProcessW manually because std::process::Command
     // doesn't allow to set 'bInheritHandles' to false. Without this waiting on
@@ -175,7 +174,7 @@ pub(crate) fn spawn_background_process_on_windows<'a>(
     let mut cmd = make_command_line(program, args);
 
     let mut sinfo: STARTUPINFOW = unsafe { mem::zeroed() };
-    sinfo.cb = mem::size_of::<STARTUPINFOW>() as DWORD;
+    sinfo.cb = mem::size_of::<STARTUPINFOW>() as u32;
     let mut pinfo: PROCESS_INFORMATION = unsafe { mem::zeroed() };
     let creation_flags = CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS | CREATE_UNICODE_ENVIRONMENT;
 
@@ -185,13 +184,13 @@ pub(crate) fn spawn_background_process_on_windows<'a>(
         CreateProcessW(
             os_str_to_wide_null_term(program).as_ptr(), // lpApplicationName
             cmd.as_mut_ptr(),                           // lpCommandLine
-            ptr::null_mut(),                            // lpProcessAttributes
-            ptr::null_mut(),                            // lpThreadAttributes
+            ptr::null(),                                // lpProcessAttributes
+            ptr::null(),                                // lpThreadAttributes
             FALSE,                                      // bInheritHandles
             creation_flags,                             // dwCreationFlags
             envp,                                       // lpEnvironment
             os_str_to_wide_null_term(cwd).as_ptr(),     // lpCurrentDirectory
-            &mut sinfo,
+            &sinfo,
             &mut pinfo,
         )
     };

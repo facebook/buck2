@@ -41,7 +41,7 @@ rust_library(
             "fbsource//third-party/rust:nix",
         ],
         "ovr_config//os:windows": [
-            "fbsource//third-party/rust:winapi",
+            "fbsource//third-party/rust:windows-sys",
             "//buck2/app/buck2_wrapper_common:buck2_wrapper_common",
             "//buck2/gazebo/dupe:dupe",
         ],

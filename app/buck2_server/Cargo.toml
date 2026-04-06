@@ -81,9 +81,6 @@ dice_futures = { workspace = true }
 buck2_forkserver = { workspace = true }
 psutil = { workspace = true }
 
-[target.'cfg(windows)'.dependencies]
-winapi = { workspace = true }
-
 [dev-dependencies]
 assert_matches = { workspace = true }
 buck2_util = { workspace = true }

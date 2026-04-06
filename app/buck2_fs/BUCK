@@ -44,7 +44,7 @@ rust_library(
         ],
         "ovr_config//os:windows": [
             "fbsource//third-party/rust:common-path",
-            "fbsource//third-party/rust:winapi",
+            "fbsource//third-party/rust:windows-sys",
         ],
     }),
 )

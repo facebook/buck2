@@ -62,15 +62,14 @@ pub fn process_stats() -> ProcessStats {
 
 #[cfg(windows)]
 pub fn process_stats() -> ProcessStats {
-    use winapi::shared::minwindef::DWORD;
-    use winapi::shared::minwindef::FILETIME;
-    use winapi::um::processthreadsapi::GetCurrentProcess;
-    use winapi::um::processthreadsapi::GetProcessTimes;
-    use winapi::um::psapi::K32GetProcessMemoryInfo;
-    use winapi::um::psapi::PROCESS_MEMORY_COUNTERS;
+    use windows_sys::Win32::Foundation::FILETIME;
+    use windows_sys::Win32::System::ProcessStatus::K32GetProcessMemoryInfo;
+    use windows_sys::Win32::System::ProcessStatus::PROCESS_MEMORY_COUNTERS;
+    use windows_sys::Win32::System::Threading::GetCurrentProcess;
+    use windows_sys::Win32::System::Threading::GetProcessTimes;
 
     let mut pmc: PROCESS_MEMORY_COUNTERS = unsafe { std::mem::zeroed() };
-    pmc.cb = std::mem::size_of_val(&pmc) as DWORD;
+    pmc.cb = std::mem::size_of_val(&pmc) as u32;
     // Code is referenced from eden/scm/lib/procinfo/src/lib.rs
     // API reference: https://learn.microsoft.com/en-us/windows/win32/api/psapi/ns-psapi-process_memory_counters
     let (wss_bytes, max_wss_bytes) =

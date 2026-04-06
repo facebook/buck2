@@ -16,13 +16,15 @@ use std::process::Command;
 use std::process::ExitStatus;
 use std::time::Duration;
 
-use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use buck2_resource_control::ActionFreezeEventReceiver;
 use buck2_resource_control::path::CgroupPathBuf;
 use tokio::process::ChildStderr;
 use tokio::process::ChildStdout;
-use winapi::um::processthreadsapi;
+use windows_sys::Win32::Foundation::HANDLE;
+use windows_sys::Win32::System::Threading::CREATE_NO_WINDOW;
+use windows_sys::Win32::System::Threading::CREATE_SUSPENDED;
+use windows_sys::Win32::System::Threading::ResumeThread;
 
 use crate::process_group::SpawnError;
 use crate::win::child_process::ChildProcess;
@@ -40,9 +42,7 @@ impl ProcessCommandImpl {
     ) -> buck2_error::Result<Self> {
         // On windows we create suspended process to assign it to a job (group) and then resume.
         // This is necessary because the process might finish before we add it to a job
-        cmd.creation_flags(
-            winapi::um::winbase::CREATE_NO_WINDOW | winapi::um::winbase::CREATE_SUSPENDED,
-        );
+        cmd.creation_flags(CREATE_NO_WINDOW | CREATE_SUSPENDED);
         Ok(Self { inner: cmd })
     }
 
@@ -89,7 +89,7 @@ pub(crate) struct ProcessGroupImpl {
 impl ProcessGroupImpl {
     fn new(child: Child) -> buck2_error::Result<ProcessGroupImpl> {
         let job = JobObject::new()?;
-        job.assign_process(child.as_raw_handle())?;
+        job.assign_process(child.as_raw_handle() as HANDLE)?;
         let process = ProcessGroupImpl {
             child: FusedChild::Child(Box::new(ChildProcess::new(child))),
             job,
@@ -166,6 +166,6 @@ impl ProcessGroupImpl {
             .as_std()
             .main_thread_handle()
             .as_raw_handle();
-        result_dword(unsafe { processthreadsapi::ResumeThread(handle) })
+        result_dword(unsafe { ResumeThread(handle as HANDLE) })
     }
 }

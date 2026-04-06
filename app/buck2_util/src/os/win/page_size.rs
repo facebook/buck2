@@ -12,8 +12,8 @@
 
 use std::sync::OnceLock;
 
-use winapi::um::sysinfoapi::GetSystemInfo;
-use winapi::um::sysinfoapi::SYSTEM_INFO;
+use windows_sys::Win32::System::SystemInformation::GetSystemInfo;
+use windows_sys::Win32::System::SystemInformation::SYSTEM_INFO;
 
 pub fn page_size() -> buck2_error::Result<usize> {
     static PAGE_SIZE: OnceLock<usize> = OnceLock::new();

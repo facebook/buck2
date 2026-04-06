@@ -30,7 +30,7 @@ nix = { workspace = true }
 [target.'cfg(windows)'.dependencies]
 buck2_wrapper_common = { workspace = true }
 dupe = { workspace = true }
-winapi = { workspace = true }
+windows-sys = { workspace = true }
 
 [dev-dependencies]
 assert_matches = { workspace = true }

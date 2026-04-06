@@ -618,7 +618,6 @@ pub fn disk_space_stats<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<DiskS
 
     #[cfg(windows)]
     fn disk_space_stats_impl(path: &AbsPath) -> buck2_error::Result<DiskSpaceStats> {
-        use std::mem::MaybeUninit;
         use std::ptr;
 
         use buck2_util::os::win::os_str::os_str_to_wide_null_term;
@@ -626,15 +625,13 @@ pub fn disk_space_stats<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<DiskS
         let path_c = os_str_to_wide_null_term(path.as_os_str());
 
         unsafe {
-            let mut free_bytes =
-                MaybeUninit::<winapi::shared::ntdef::ULARGE_INTEGER>::zeroed().assume_init();
-            let mut total_bytes =
-                MaybeUninit::<winapi::shared::ntdef::ULARGE_INTEGER>::zeroed().assume_init();
-            let r = winapi::um::fileapi::GetDiskFreeSpaceExW(
+            let mut free_bytes: u64 = 0;
+            let mut total_bytes: u64 = 0;
+            let r = windows_sys::Win32::Storage::FileSystem::GetDiskFreeSpaceExW(
                 path_c.as_ptr(),
-                &mut free_bytes as *mut _,  // lpFreeBytesAvailableToCaller
-                &mut total_bytes as *mut _, // lpTotalNumberOfBytes
-                ptr::null_mut(),            // lpTotalNumberOfFreeBytes
+                &mut free_bytes,  // lpFreeBytesAvailableToCaller
+                &mut total_bytes, // lpTotalNumberOfBytes
+                ptr::null_mut(),  // lpTotalNumberOfFreeBytes
             );
             if r == 0 {
                 let e = io::Error::last_os_error();
@@ -643,8 +640,8 @@ pub fn disk_space_stats<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<DiskS
                 );
             }
             Ok(DiskSpaceStats {
-                free_space: *free_bytes.QuadPart(),
-                total_space: *total_bytes.QuadPart(),
+                free_space: free_bytes,
+                total_space: total_bytes,
             })
         }
     }

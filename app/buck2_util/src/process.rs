@@ -18,7 +18,7 @@ pub fn background_command<S: AsRef<OsStr>>(program: S) -> std::process::Command 
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
-        cmd.creation_flags(winapi::um::winbase::CREATE_NO_WINDOW);
+        cmd.creation_flags(windows_sys::Win32::System::Threading::CREATE_NO_WINDOW);
     }
     // Prevent sub buck commands (persist-event-log, internal-test-runner, forkserver, etc.) from
     // reusing the UUID of the original command.
