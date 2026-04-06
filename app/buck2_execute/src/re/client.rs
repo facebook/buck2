@@ -96,6 +96,8 @@ use crate::execute::executor_stage_async;
 use crate::execute::manager::CommandExecutionManager;
 use crate::knobs::ExecutorGlobalKnobs;
 use crate::materialize::materializer::Materializer;
+use crate::materialize::utils::priority_semaphore::Priority;
+use crate::materialize::utils::priority_semaphore::PrioritySemaphore;
 use crate::re::action_identity::ReActionIdentity;
 use crate::re::convert::platform_to_proto;
 use crate::re::digest_sampler::should_sample_action_digest;
@@ -500,7 +502,7 @@ struct RemoteExecutionClientImpl {
     exec_semaphore: Arc<Semaphore>,
     /// How many files we can be downloading concurrently.
     #[allocative(skip)]
-    download_files_semapore: Arc<Semaphore>,
+    download_files_semapore: Arc<PrioritySemaphore>,
     /// How many files to kick off downloading concurrently for one request. This should be smaller
     /// than the files semaphore to ensure we can actually *acquire* that semaphore.
     download_chunk_size: usize,
@@ -1011,7 +1013,10 @@ impl RemoteExecutionClientImpl {
                 skip_remote_cache: re_config.skip_remote_cache,
                 cas_semaphore: Arc::new(Semaphore::new(static_metadata.cas_semaphore_size())),
                 exec_semaphore: Arc::new(Semaphore::new(static_metadata.exec_semaphore_size())),
-                download_files_semapore: Arc::new(Semaphore::new(download_concurrency)),
+                download_files_semapore: Arc::new(PrioritySemaphore::new(
+                    "buck2-download-priority-sem",
+                    download_concurrency,
+                )),
                 download_chunk_size,
                 respect_file_symlinks,
                 persistent_cache_mode,
@@ -1815,6 +1820,7 @@ impl RemoteExecutionClientImpl {
                         .len()
                         .try_into()
                         .buck_error_context("chunk is too large")?,
+                    Priority::High,
                 )
                 .await
                 .buck_error_context("Failed to acquire download_files_semapore")?;
