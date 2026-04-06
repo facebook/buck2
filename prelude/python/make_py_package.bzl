@@ -801,7 +801,7 @@ def _make_py_package_live(
 
     generated_manifest = ctx.actions.write("{}-generated.txt".format(name), [cmd_args(a, p, delimiter = "::") for a, p in generated_files], with_inputs = True)
     cmd.add(cmd_args(generated_manifest.without_associated_artifacts(), format = "--generated={}"))
-    runtime_files.append(generated_manifest)
+    runtime_files.extend([a for a, _ in generated_files])
 
     allow_cache_upload = None
     if ctx.attrs._exec_os_type[OsLookup].os == Os("windows"):
