@@ -21,8 +21,6 @@ use buck2_core::package::PackageLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_util::arc_str::ThinArcStr;
-use dice_futures::cancellation::CancellationContext;
-use dice_futures::cancellation::CancellationObserver;
 use dupe::Dupe;
 use strong_hash::StrongHash;
 
@@ -158,36 +156,5 @@ impl std::fmt::Display for StarlarkEvalKind {
             StarlarkEvalKind::BxlDynamic(bxl_dynamic) => write!(f, "bxl_dynamic/{}", bxl_dynamic),
             StarlarkEvalKind::Unknown(label) => write!(f, "unknown/{}", label),
         }
-    }
-}
-
-#[derive(Clone, Dupe)]
-pub enum CancellationPoller<'a> {
-    None,
-    Context(&'a CancellationContext),
-    Observer(CancellationObserver),
-}
-
-impl<'a> From<&'a CancellationContext> for CancellationPoller<'a> {
-    fn from(v: &'a CancellationContext) -> Self {
-        Self::Context(v)
-    }
-}
-
-impl<'a> From<Option<&'a CancellationContext>> for CancellationPoller<'a> {
-    fn from(v: Option<&'a CancellationContext>) -> Self {
-        v.map_or(Self::None, |c| c.into())
-    }
-}
-
-impl<'a> From<Option<()>> for CancellationPoller<'a> {
-    fn from(_v: Option<()>) -> Self {
-        Self::None
-    }
-}
-
-impl<'a> From<CancellationObserver> for CancellationPoller<'a> {
-    fn from(v: CancellationObserver) -> Self {
-        Self::Observer(v)
     }
 }
