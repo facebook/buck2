@@ -80,6 +80,12 @@ Options:
       --skip-run-info
           Do not build RunInfo provider (this is the default)
 
+      --print-passing-details
+          Show stdout/stderr output for passing tests.
+
+          By default, passing tests only show a summary line. This flag causes their full
+          stdout/stderr to be displayed.
+
       --build-report <PATH>
           Print a build report
 

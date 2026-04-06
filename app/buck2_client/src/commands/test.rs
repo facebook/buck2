@@ -38,6 +38,8 @@ use buck2_client_ctx::subscribers::superconsole::test::span_from_build_failure_c
 use buck2_error::BuckErrorContext;
 use buck2_error::ExitCode;
 use buck2_error::internal_error;
+use buck2_event_observer::verbosity::Verbosity;
+use buck2_event_observer::verbosity::VerbosityItem;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::working_dir::AbsWorkingDir;
@@ -199,6 +201,13 @@ If include patterns are present, regardless of whether exclude patterns are pres
     #[allow(unused)]
     #[clap(long, group = "run-info")]
     skip_run_info: bool,
+
+    /// Show stdout/stderr output for passing tests.
+    ///
+    /// By default, passing tests only show a summary line. This flag
+    /// causes their full stdout/stderr to be displayed.
+    #[clap(long)]
+    print_passing_details: bool,
 
     /// This option does nothing. It is here to keep compatibility with Buck1 and ci
     #[clap(long = "deep", hide = true)]
@@ -559,6 +568,13 @@ impl StreamingCommand for TestCommand {
             }
             _ => exit_result,
         }
+    }
+
+    fn adjust_verbosity(&self, mut verbosity: Verbosity) -> Verbosity {
+        if self.print_passing_details {
+            verbosity.add_item(VerbosityItem::TestPassingDetails);
+        }
+        verbosity
     }
 
     fn console_opts(&self) -> &CommonConsoleOptions {
