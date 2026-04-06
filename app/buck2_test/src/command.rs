@@ -342,6 +342,23 @@ async fn test(
     let cell_resolver = ctx.ctx().get_cell_resolver().await?;
     let working_dir_cell = cell_resolver.find(cwd);
 
+    let test_builds_targets =
+        if request.build_default_info.is_none() || request.build_run_info.is_none() {
+            ctx.ctx().parse_legacy_config_property::<bool>(
+                cell_resolver.root_cell(),
+                BuckconfigKeyRef {
+                    section: "buck2",
+                    property: "test_builds_targets",
+                },
+            )
+            .await?
+            .unwrap_or(false)
+        } else {
+            false
+        };
+    let build_default_info = request.build_default_info.unwrap_or(test_builds_targets);
+    let build_run_info = request.build_run_info.unwrap_or(test_builds_targets);
+
     let client_ctx = request.client_context()?;
     let global_cfg_options = global_cfg_options_from_client_context(
         request
@@ -481,8 +498,8 @@ async fn test(
         MissingTargetBehavior::from_skip(build_opts.skip_missing_targets),
         timeout,
         request.ignore_tests_attribute,
-        request.build_default_info,
-        request.build_run_info,
+        build_default_info,
+        build_run_info,
         tpx_experiments,
     )
     .await?;

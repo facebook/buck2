@@ -566,12 +566,14 @@ message TestRequest {
   bool ignore_tests_attribute = 13;
 
   // Whether `DefaultInfo` providers for targets matching `target_patterns`
-  // should be built instead of only `ExternalTestInfo` providers.
-  bool build_default_info = 15;
+  // should be built instead of only test providers. When unset, this defaults
+  // to `[buck2] test_builds_targets`.
+  optional bool build_default_info = 15;
 
   // Whether `RunInfo` providers for targets matching `target_patterns`
-  // should be built instead of only `ExternalTestInfo` providers.
-  bool build_run_info = 16;
+  // should be built instead of only test providers. When unset, this defaults
+  // to `[buck2] test_builds_targets`.
+  optional bool build_run_info = 16;
 }
 
 message BxlRequest {
