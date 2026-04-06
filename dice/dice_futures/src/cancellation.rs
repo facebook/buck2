@@ -155,6 +155,16 @@ impl<'a> CriticalSectionGuard<'a> {
 #[derive(Clone, Dupe)]
 pub struct CancellationObserver(pub(crate) CancellationObserverInner);
 
+/// Similar to a CancellationObserver, but meant for use in synchronous code for
+/// detecting and exiting early from work when it's been cancelled.
+/// CancellationPoller may be created inside or outside structured cancellation,
+/// it offers no guarantees that asynchronous callers will be able to clean up
+/// state on a cancellation. Asynchronous code that needs to guarantee being
+/// able to cleanup state before honoring a cancellation must hold a
+/// CancellationObserver, via `CancellationContext::with_structured_cancellation`
+#[derive(Clone, Dupe)]
+pub struct CancellationPoller(pub(crate) CancellationObserverInner);
+
 impl CancellationObserver {
     pub(crate) fn never_cancelled() -> Self {
         CancellationObserver(CancellationObserverInner::NeverCancelled)
@@ -166,6 +176,38 @@ impl CancellationObserver {
             CancellationObserverInner::Explicit(fut) => fut.is_cancelled(),
             CancellationObserverInner::NeverCancelled => false,
         }
+    }
+}
+
+impl CancellationPoller {
+    pub(crate) fn never_cancelled() -> Self {
+        CancellationPoller(CancellationObserverInner::NeverCancelled)
+    }
+
+    #[inline(always)]
+    pub fn is_cancelled(&self) -> bool {
+        match &self.0 {
+            CancellationObserverInner::Explicit(fut) => fut.is_cancelled(),
+            CancellationObserverInner::NeverCancelled => false,
+        }
+    }
+}
+
+impl From<CancellationObserver> for CancellationPoller {
+    fn from(observer: CancellationObserver) -> Self {
+        CancellationPoller(observer.0)
+    }
+}
+
+impl From<&CancellationObserver> for CancellationPoller {
+    fn from(observer: &CancellationObserver) -> Self {
+        CancellationPoller(observer.0.clone())
+    }
+}
+
+impl From<&CancellationContext> for CancellationPoller {
+    fn from(context: &CancellationContext) -> Self {
+        context.0.poller()
     }
 }
 
