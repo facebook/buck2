@@ -57,6 +57,13 @@ use crate::ticker::Ticker;
 /// Other than tick() calls, implementations will only be notified when new events arrive.
 const TICKS_PER_SECOND: u32 = 10;
 
+/// The client message processing loop will try to yield if this much time has
+/// passed since the last yield. This guarantees that any outer futures get
+/// polled occasionally, notably the Ctrl-C-detecting future, allowing the
+/// client loop future to get dropped when the user interrupts us, even if we're
+/// processing continuous streams of messages from the server.
+const STREAM_PROCESSING_YIELD_INTERVAL: Duration = Duration::from_millis(125);
+
 #[derive(Debug, buck2_error::Error)]
 #[allow(clippy::large_enum_variant)]
 enum BuckdCommunicationError {
@@ -133,6 +140,17 @@ pub struct DaemonEventsCtx<'a> {
 }
 
 impl<'a> DaemonEventsCtx<'a> {
+    async fn yield_if_stream_processing_took_too_long(
+        last_yield: &mut Instant,
+        _location: &'static str,
+    ) {
+        let elapsed = Instant::now() - *last_yield;
+        if elapsed >= STREAM_PROCESSING_YIELD_INTERVAL {
+            tokio::task::yield_now().await;
+            *last_yield = Instant::now();
+        }
+    }
+
     pub(crate) fn new(
         client: &mut BuckdClient,
         events_ctx: &'a mut EventsCtx,
@@ -158,6 +176,7 @@ impl<'a> DaemonEventsCtx<'a> {
         partial_result_handler: &mut Handler,
         next: Option<Vec<buck2_error::Result<StreamValue>>>,
         shutdown: &mut Option<buck2_data::DaemonShutdown>,
+        last_yield: &mut Instant,
     ) -> buck2_error::Result<ControlFlow<Box<CommandResult>, ()>>
     where
         Handler: PartialResultHandler,
@@ -212,6 +231,8 @@ impl<'a> DaemonEventsCtx<'a> {
                     return Ok(ControlFlow::Break(res));
                 }
             }
+
+            Self::yield_if_stream_processing_took_too_long(last_yield, "handle_stream_next").await;
         }
         self.inner.handle_events(events, shutdown).await?;
         Ok(ControlFlow::Continue(()))
@@ -250,6 +271,7 @@ impl<'a> DaemonEventsCtx<'a> {
         // NOTE: When unpacking the stream we capture any shutdown event we encounter. If we fail
         // to unpack the stream to completion, we'll use that later.
         let mut shutdown = None;
+        let mut last_yield = Instant::now();
 
         let command_result: buck2_error::Result<CommandResult> = try {
             loop {
@@ -259,7 +281,8 @@ impl<'a> DaemonEventsCtx<'a> {
                         match self.handle_stream_next(
                             partial_result_handler,
                             next,
-                            &mut shutdown
+                            &mut shutdown,
+                            &mut last_yield,
                         ).await? {
                             ControlFlow::Continue(()) => {}
                             ControlFlow::Break(res) => break *res,

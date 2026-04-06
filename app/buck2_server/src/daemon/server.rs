@@ -65,6 +65,7 @@ use buck2_profile::starlark_profiler_configuration_from_request;
 use buck2_resource_control::buck_cgroup_tree::BuckCgroupTree;
 use buck2_resource_control::buck_cgroup_tree::PreppedBuckCgroups;
 use buck2_server_ctx::bxl::BXL_SERVER_COMMANDS;
+use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::late_bindings::AUDIT_SERVER_COMMAND;
 use buck2_server_ctx::late_bindings::OTHER_SERVER_COMMANDS;
 use buck2_server_ctx::late_bindings::QUERY_SERVER_COMMANDS;
@@ -577,9 +578,15 @@ impl BuckdServer {
                             command_start,
                         )?;
 
-                        let res =
-                            func(&context, PartialResultDispatcher::new(dispatch.dupe()), req)
-                                .await;
+                        let res = func(
+                            &context,
+                            PartialResultDispatcher::new(
+                                dispatch.dupe(),
+                                context.cancellation_context().into(),
+                            ),
+                            req,
+                        )
+                        .await;
 
                         context.finalize().await?;
                         res?

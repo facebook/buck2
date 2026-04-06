@@ -12,7 +12,23 @@ use std::io;
 use std::io::BufWriter;
 use std::io::Write;
 
+use dice_futures::cancellation::CancellationPoller;
+use dice_futures::cancellation::CancelledError;
+
 use crate::partial_result_dispatcher::PartialResultDispatcher;
+
+// Buffer writes so that many individual small writes can't cause too many gRPC
+// messages to be sent.
+//
+// Limit the size of the buffer, which implicitly chunks any writes to it to
+// prevent gRPC transport failures with large messages. Without this, very large
+// responses can cause the stream to terminate before sending the final
+// CommandResult.
+//
+// Finally, keep the buffer size reasonable small so that clients handling these
+// messages have a chance to detect client interrupts like Ctrl-C, and
+// drop/cancel the command mid-output.
+const BUFFER_CAPACITY: usize = 16 * 1024;
 
 /// A wrapper that implements Write for a PartialResultDispatcher that emits StdoutBytes.
 pub struct StdoutPartialOutput<'a> {
@@ -20,9 +36,18 @@ pub struct StdoutPartialOutput<'a> {
 }
 
 impl<'a> StdoutPartialOutput<'a> {
-    pub fn new(dispatcher: &'a mut PartialResultDispatcher<buck2_cli_proto::StdoutBytes>) -> Self {
+    pub fn new(
+        dispatcher: &'a mut PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
+        cancellation: CancellationPoller,
+    ) -> Self {
         Self {
-            inner: BufWriter::new(WriterWrapper { inner: dispatcher }),
+            inner: BufWriter::with_capacity(
+                BUFFER_CAPACITY,
+                WriterWrapper {
+                    inner: dispatcher,
+                    cancellation,
+                },
+            ),
         }
     }
 }
@@ -39,25 +64,49 @@ impl Write for StdoutPartialOutput<'_> {
 
 struct WriterWrapper<'a> {
     inner: &'a mut PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
+    cancellation: CancellationPoller,
+}
+
+impl WriterWrapper<'_> {
+    fn cancelled() -> io::Error {
+        io::Error::other(CancelledError)
+    }
 }
 
 impl Write for WriterWrapper<'_> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        // Chunk writes to prevent gRPC transport failures with large messages.
-        // Without this, very large responses can cause the stream to terminate
-        // before sending the final CommandResult.
-        const CHUNK_SIZE: usize = 128 * 1024 * 1024; // 128MB
-
-        for chunk in buf.chunks(CHUNK_SIZE) {
-            self.inner.emit(buck2_cli_proto::StdoutBytes {
-                data: chunk.to_owned(),
-            });
+        if self.cancellation.is_cancelled() {
+            return Err(Self::cancelled());
         }
+
+        self.inner.emit(buck2_cli_proto::StdoutBytes {
+            data: buf.to_owned(),
+        });
 
         Ok(buf.len())
     }
 
     fn flush(&mut self) -> io::Result<()> {
+        if self.cancellation.is_cancelled() {
+            return Err(Self::cancelled());
+        }
+
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use dice_futures::cancellation::CancelledError;
+
+    use crate::stdout_partial_output::WriterWrapper;
+
+    #[test]
+    fn test_cancelled_error_is_wrapped() {
+        let err = WriterWrapper::cancelled();
+        assert!(
+            err.get_ref()
+                .is_some_and(|e| e.downcast_ref::<CancelledError>().is_some())
+        );
     }
 }
