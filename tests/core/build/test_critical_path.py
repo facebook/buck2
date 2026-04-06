@@ -463,3 +463,80 @@ async def test_critical_path_tset_final_materialization(buck: Buck) -> None:
         "Expected FinalMaterialization for tset_leaf to depend on "
         "EnsureTransitiveSetProjectionKey, but got deps: " + str(tset_leaf_deps)
     )
+
+
+@buck_test()
+async def test_critical_path_anon_targets(buck: Buck) -> None:
+    """Test that anon target nodes appear on the critical path with correct
+    splitting when anon targets themselves have anon target dependencies.
+
+    The rule graph is:
+      uses_anon -> anon_outer -> anon_inner
+
+    uses_anon's analysis is split because it depends on anon_outer.
+    anon_outer's analysis is split because it depends on anon_inner.
+    anon_inner is a leaf (no anon deps) so it is NOT split.
+
+    Expected critical path ordering:
+      analysis[part1] -> anon_analysis[part1] -> anon_analysis -> anon_analysis[part2] -> analysis[part2]
+    """
+    await buck.build("//:anon_step", "--no-remote-cache")
+
+    critical_path_actions = await critical_path_helper(buck)
+
+    # Collect the entry types we care about
+    entry_kinds = []
+    for action in critical_path_actions:
+        entry = action["entry"]
+        if "Analysis" in entry:
+            part = entry["Analysis"].get("part")
+            if part == 1:
+                entry_kinds.append("analysis[part1]")
+            elif part == 2:
+                entry_kinds.append("analysis[part2]")
+            else:
+                entry_kinds.append("analysis")
+        elif "AnonAnalysis" in entry:
+            part = entry["AnonAnalysis"].get("part")
+            if part is None or part == 0:
+                entry_kinds.append("anon_analysis")
+            elif part == 1:
+                entry_kinds.append("anon_analysis[part1]")
+            elif part == 2:
+                entry_kinds.append("anon_analysis[part2]")
+        elif "ActionExecution" in entry:
+            entry_kinds.append("action")
+        elif "FinalMaterialization" in entry:
+            entry_kinds.append("materialization")
+
+    # The critical path should contain all of these entries:
+    # - analysis[part1]: uses_anon pre-anon-target analysis
+    # - anon_analysis[part1]: outer anon target pre-inner-anon analysis
+    # - anon_analysis: inner anon target (leaf, not split)
+    # - anon_analysis[part2]: outer anon target post-inner-anon analysis
+    # - analysis[part2]: uses_anon post-anon-target analysis
+    for expected in [
+        "analysis[part1]",
+        "anon_analysis[part1]",
+        "anon_analysis",
+        "anon_analysis[part2]",
+        "analysis[part2]",
+    ]:
+        assert expected in entry_kinds, (
+            f"Expected {expected} in critical path, got: {entry_kinds}"
+        )
+
+    # Verify ordering:
+    #   analysis[part1] < anon_analysis[part1] < anon_analysis < anon_analysis[part2] < analysis[part2]
+    idx_analysis_p1 = entry_kinds.index("analysis[part1]")
+    idx_anon_p1 = entry_kinds.index("anon_analysis[part1]")
+    idx_anon_inner = entry_kinds.index("anon_analysis")
+    idx_anon_p2 = entry_kinds.index("anon_analysis[part2]")
+    idx_analysis_p2 = entry_kinds.index("analysis[part2]")
+    assert (
+        idx_analysis_p1 < idx_anon_p1 < idx_anon_inner < idx_anon_p2 < idx_analysis_p2
+    ), (
+        f"Expected analysis[part1] < anon_analysis[part1] < anon_analysis < anon_analysis[part2] < analysis[part2], "
+        f"got indices {idx_analysis_p1}, {idx_anon_p1}, {idx_anon_inner}, {idx_anon_p2}, {idx_analysis_p2} "
+        f"in {entry_kinds}"
+    )

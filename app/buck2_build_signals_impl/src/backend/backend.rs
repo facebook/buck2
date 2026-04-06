@@ -8,6 +8,8 @@
  * above-listed licenses.
  */
 
+use std::collections::HashMap;
+
 use buck2_build_signals::env::CriticalPathBackendName;
 use buck2_build_signals::env::NodeDuration;
 use buck2_build_signals::env::WaitingData;
@@ -37,7 +39,10 @@ pub(crate) trait BuildListenerBackend {
         artifacts: impl IntoIterator<Item = NodeKey>,
     );
 
-    fn finish(self) -> Result<BuildInfo, CriticalPathError>;
+    fn finish(
+        self,
+        anon_target_discovery_edges: HashMap<NodeKey, NodeKey>,
+    ) -> Result<BuildInfo, CriticalPathError>;
 
     fn name() -> CriticalPathBackendName;
 }

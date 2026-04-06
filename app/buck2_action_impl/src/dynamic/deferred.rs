@@ -424,6 +424,7 @@ pub(crate) async fn prepare_and_execute_lambda(
                 analysis_with_extra_data: AnalysisWithExtraData {
                     target_rule_type_name: None,
                 },
+                anon_target_split: None,
             })?;
             res
         },
