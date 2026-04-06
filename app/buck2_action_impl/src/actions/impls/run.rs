@@ -1399,6 +1399,10 @@ impl Action for RunAction {
         self.inner.expected_eligible_for_dedupe
     }
 
+    fn executor_preference(&self) -> Option<ExecutorPreference> {
+        Some(self.inner.executor_preference)
+    }
+
     fn aquery_attributes(
         &self,
         fs: &ExecutorFs,

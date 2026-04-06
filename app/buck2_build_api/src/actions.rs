@@ -226,6 +226,13 @@ pub trait Action: Allocative + Debug + Send + Sync + 'static {
         None
     }
 
+    /// Returns the executor preference for this action, if applicable.
+    /// Only command-based actions (like RunAction) have executor preferences.
+    /// Returns None for actions that don't support executor preferences.
+    fn executor_preference(&self) -> Option<ExecutorPreference> {
+        None
+    }
+
     // TODO this probably wants more data for execution, like printing a short_name and the target
 }
 
