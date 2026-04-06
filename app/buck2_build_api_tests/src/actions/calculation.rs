@@ -336,7 +336,6 @@ async fn test_build_action() -> buck2_error::Result<()> {
             outputs: vec![CommandExecutionOutput::BuildArtifact {
                 path: build_artifact.get_path().dupe(),
                 output_type: OutputType::File,
-                supports_incremental_remote: false,
             }],
             env: sorted_vector_map![]
         }
@@ -386,7 +385,6 @@ async fn test_build_artifact() -> buck2_error::Result<()> {
             outputs: vec![CommandExecutionOutput::BuildArtifact {
                 path: build_artifact.get_path().dupe(),
                 output_type: OutputType::File,
-                supports_incremental_remote: false,
             }],
             env: sorted_vector_map![]
         }
@@ -436,7 +434,6 @@ async fn test_ensure_artifact_build_artifact() -> buck2_error::Result<()> {
             outputs: vec![CommandExecutionOutput::BuildArtifact {
                 path: build_artifact.get_path().dupe(),
                 output_type: OutputType::File,
-                supports_incremental_remote: false,
             }],
             env: sorted_vector_map![]
         }

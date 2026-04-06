@@ -48,7 +48,6 @@ use crate::materializers::artifact_type::ARTIFACT_TYPE_FILE;
 use crate::materializers::artifact_type::ARTIFACT_TYPE_SYMLINK;
 use crate::materializers::artifact_type::ArtifactType;
 use crate::materializers::deferred::artifact_tree::ArtifactMetadata;
-use crate::materializers::deferred::directory_metadata::DirectoryMetadata;
 use crate::sqlite::materializer_db::MaterializerState;
 use crate::sqlite::materializer_db::MaterializerStateEntry;
 
@@ -80,12 +79,12 @@ type SqliteDigest = Vec<u8>;
 /// Representation of row in sqlite table. All datatypes used implement rusqlite's `FromSql` trait.
 /// A single row might represent different things:
 /// 1. Row fully represent an artifact.
-///    That could be file, symlink, external symlink or directory stored in "compact" form (see [`DirectoryMetadata::Compact`]).
-/// 2. Row represents a directory when it's stored in "full" form (see [`DirectoryMetadata::Full`]).
+///    That could be file, symlink or external symlink.
+/// 2. Row represents a directory artifact.
 ///    In this case all directory's content will be stored in other rows as well in order to be able to recreate [`ActionSharedDirectory`] from DB.
 ///    Only `path`, `last_access_time` and `artifact_type` equal to [`ArtifactType::Directory`] will be present for such rows.
 ///    Other rows which have `parent_path` equal to `path` of this row represent directory's content.
-/// 3. Row represents a content inside a "full" directory.
+/// 3. Row represents a content inside a directory.
 ///    `path` is prefixed by a directory artifact path (not relative to containing directory).
 ///    `parent_path` will be present for such rows. `last_access_time` will be missing from such rows.
 #[derive(Debug)]
@@ -97,8 +96,6 @@ struct SqliteEntry<'a> {
     entry_hash_kind: Option<u8>,
     file_is_executable: Option<bool>,
     symlink_target: Option<Cow<'a, str>>,
-    /// When field is not present and type is directory, that means compact directory representation.
-    directory_size: Option<u64>,
     /// Only present for entries which represent an actual artifact.
     last_access_time: Option<i64>,
     /// Path of the directory artifact which this entry belongs to.
@@ -115,7 +112,6 @@ impl<'a> SqliteEntry<'a> {
         entry_hash_kind: Option<u8>,
         file_is_executable: Option<bool>,
         symlink_target: Option<String>,
-        directory_size: Option<u64>,
         last_access_time: Option<i64>,
         parent_path: Option<String>,
     ) -> Self {
@@ -127,7 +123,6 @@ impl<'a> SqliteEntry<'a> {
             entry_hash_kind,
             file_is_executable,
             symlink_target: symlink_target.map(Cow::Owned),
-            directory_size,
             last_access_time,
             parent_path: parent_path.map(Cow::Owned),
         }
@@ -148,26 +143,8 @@ fn convert_artifact_metadata_to_sqlite_entries<'a>(
     timestamp: &'_ DateTime<Utc>,
 ) -> Vec<SqliteEntry<'a>> {
     let last_access_time = timestamp.timestamp();
-    match &metadata.0 {
-        DirectoryEntry::Dir(DirectoryMetadata::Compact {
-            fingerprint,
-            total_size,
-        }) => {
-            let (entry_size, entry_hash, entry_hash_kind) = digest_parts(fingerprint);
-            vec![SqliteEntry {
-                path: Cow::Borrowed(path.as_str()),
-                artifact_type: ArtifactType::Directory,
-                entry_size: Some(entry_size),
-                entry_hash: Some(Cow::Borrowed(entry_hash)),
-                entry_hash_kind: Some(entry_hash_kind),
-                file_is_executable: None,
-                symlink_target: None,
-                directory_size: Some(*total_size),
-                last_access_time: Some(last_access_time),
-                parent_path: None,
-            }]
-        }
-        DirectoryEntry::Dir(DirectoryMetadata::Full(action_shared_directory)) => {
+    match metadata {
+        DirectoryEntry::Dir(action_shared_directory) => {
             convert_action_shared_directory_to_sqlite_entries(
                 path,
                 action_shared_directory,
@@ -199,7 +176,6 @@ fn convert_action_shared_directory_to_sqlite_entries<'a>(
         entry_hash_kind: None,
         file_is_executable: None,
         symlink_target: None,
-        directory_size: None,
         last_access_time: Some(last_access_time),
         parent_path: None,
     }];
@@ -221,7 +197,6 @@ fn convert_action_shared_directory_to_sqlite_entries<'a>(
                 entry_hash_kind: None,
                 file_is_executable: None,
                 symlink_target: None,
-                directory_size: None,
                 last_access_time: None,
                 parent_path,
             },
@@ -255,7 +230,6 @@ fn convert_action_directory_member_to_sqlite_entry<'a>(
                 entry_hash_kind: Some(entry_hash_kind),
                 file_is_executable: Some(file_metadata.is_executable),
                 symlink_target: None,
-                directory_size: None,
                 last_access_time,
                 parent_path,
             }
@@ -268,7 +242,6 @@ fn convert_action_directory_member_to_sqlite_entry<'a>(
             entry_hash_kind: None,
             file_is_executable: None,
             symlink_target: Some(Cow::Borrowed(symlink.target().as_str())),
-            directory_size: None,
             last_access_time,
             parent_path,
         },
@@ -280,7 +253,6 @@ fn convert_action_directory_member_to_sqlite_entry<'a>(
             entry_hash_kind: None,
             file_is_executable: None,
             symlink_target: Some(Cow::Borrowed(external_symlink.target_str())),
-            directory_size: None,
             last_access_time,
             parent_path,
         },
@@ -324,29 +296,8 @@ fn convert_sqlite_entries_to_materializer_state(
                 .ok_or_else(|| internal_error!("invalid timestamp"))?;
             match entry.artifact_type {
                 ArtifactType::Directory => {
-                    if let Some(directory_size) = entry.directory_size {
-                        // Compact representation
-                        let state_entry = MaterializerStateEntry {
-                            path,
-                            metadata: ArtifactMetadata(DirectoryEntry::Dir(
-                                DirectoryMetadata::Compact {
-                                    fingerprint: digest(
-                                        entry.entry_size,
-                                        entry.entry_hash.as_deref(),
-                                        entry.entry_hash_kind,
-                                        entry.artifact_type,
-                                        digest_config,
-                                    )?,
-                                    total_size: directory_size,
-                                },
-                            )),
-                            last_access_time,
-                        };
-                        results.push(state_entry);
-                    } else {
-                        let DirectoryData { timestamp, .. } = directories.entry(path).or_default();
-                        _ = timestamp.insert(last_access_time);
-                    }
+                    let DirectoryData { timestamp, .. } = directories.entry(path).or_default();
+                    _ = timestamp.insert(last_access_time);
                 }
                 _ => {
                     let state_entry =
@@ -396,7 +347,7 @@ fn convert_sqlite_entries_to_materializer_state(
         };
         results.push(MaterializerStateEntry {
             path,
-            metadata: ArtifactMetadata(ActionDirectoryEntry::Dir(DirectoryMetadata::Full(dir))),
+            metadata: ActionDirectoryEntry::Dir(dir),
             last_access_time,
         })
     }
@@ -414,7 +365,7 @@ fn convert_non_directory_sqlite_entry_to_materializer_state_entry(
         convert_non_directory_sqlite_entry_to_action_directory_member(sqlite_entry, digest_config)?;
     Ok(MaterializerStateEntry {
         path,
-        metadata: ArtifactMetadata(DirectoryEntry::Leaf(member)),
+        metadata: DirectoryEntry::Leaf(member),
         last_access_time,
     })
 }
@@ -525,7 +476,6 @@ impl MaterializerStateSqliteTable {
                 file_is_executable      INTEGER NULL DEFAULT NULL,
                 symlink_target          TEXT NULL DEFAULT NULL,
                 last_access_time        INTEGER NULL DEFAULT NULL,
-                directory_size          INTEGER NULL DEFAULT NULL,
                 parent_path             TEXT NULL DEFAULT NULL
             )",
         );
@@ -562,7 +512,7 @@ impl MaterializerStateSqliteTable {
         let entries = convert_artifact_metadata_to_sqlite_entries(path, metadata, &timestamp);
         static SQL: Lazy<String> = Lazy::new(|| {
             format!(
-                "INSERT INTO {STATE_TABLE_NAME} (path, artifact_type, digest_size, entry_hash, entry_hash_kind, file_is_executable, symlink_target, directory_size, last_access_time, parent_path) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)"
+                "INSERT INTO {STATE_TABLE_NAME} (path, artifact_type, digest_size, entry_hash, entry_hash_kind, file_is_executable, symlink_target, last_access_time, parent_path) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)"
             )
         });
         let mut conn = self.connection.lock();
@@ -579,7 +529,6 @@ impl MaterializerStateSqliteTable {
                     entry.entry_hash_kind,
                     entry.file_is_executable,
                     entry.symlink_target,
-                    entry.directory_size,
                     entry.last_access_time,
                     entry.parent_path,
                 ],
@@ -626,7 +575,7 @@ impl MaterializerStateSqliteTable {
     fn read_all_entries(&self) -> buck2_error::Result<Vec<SqliteEntry<'_>>> {
         static SQL: Lazy<String> = Lazy::new(|| {
             format!(
-                "SELECT path, artifact_type, digest_size, entry_hash, entry_hash_kind, file_is_executable, symlink_target, directory_size, last_access_time, parent_path FROM {STATE_TABLE_NAME}",
+                "SELECT path, artifact_type, digest_size, entry_hash, entry_hash_kind, file_is_executable, symlink_target, last_access_time, parent_path FROM {STATE_TABLE_NAME}",
             )
         });
         tracing::trace!(sql = %*SQL, "reading all from table");
@@ -643,7 +592,6 @@ impl MaterializerStateSqliteTable {
                 row.get(6)?,
                 row.get(7)?,
                 row.get(8)?,
-                row.get(9)?,
             ))
         })?
         .collect::<Result<Vec<_>, _>>()
@@ -729,39 +677,14 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn test_artifact_metadata_compact_dir_sqlite_entry_conversion_succeeds() {
-        let digest_config = DigestConfig::testing_default();
-
-        let path = ProjectRelativePath::new("artifact_path").unwrap();
-        let last_access_time = DateTime::from_timestamp_nanos(0);
-
-        let metadata = {
-            let digest = TrackedFileDigest::from_content(b"foo", digest_config.cas_digest_config());
-            let entry = ActionDirectoryEntry::Dir(DirectoryMetadata::Compact {
-                fingerprint: digest,
-                total_size: 32,
-            });
-            ArtifactMetadata(entry)
-        };
-
-        let entries =
-            convert_artifact_metadata_to_sqlite_entries(path, &metadata, &last_access_time);
-
-        let mut state =
-            convert_sqlite_entries_to_materializer_state(entries, digest_config).unwrap();
-
-        assert_eq!(state.len(), 1);
-
-        let MaterializerStateEntry {
-            path: result_path,
-            metadata: result_metadata,
-            last_access_time: result_last_access_time,
-        } = state.pop().unwrap();
-
-        assert_eq!(path, result_path);
-        assert_eq!(metadata, result_metadata);
-        assert_eq!(last_access_time, result_last_access_time);
+    fn artifact_metadata_eq(a: &ArtifactMetadata, b: &ArtifactMetadata) -> bool {
+        match (a, b) {
+            (DirectoryEntry::Dir(d1), DirectoryEntry::Dir(d2)) => {
+                d1.fingerprint() == d2.fingerprint()
+            }
+            (DirectoryEntry::Leaf(l1), DirectoryEntry::Leaf(l2)) => l1 == l2,
+            _ => false,
+        }
     }
 
     #[test]
@@ -812,8 +735,8 @@ mod tests {
                     .fingerprint(digest_config.as_directory_serializer())
                     .shared(&interner)
             };
-            let entry = ActionDirectoryEntry::Dir(DirectoryMetadata::Full(directory));
-            ArtifactMetadata(entry)
+            let entry = ActionDirectoryEntry::Dir(directory);
+            entry
         };
 
         let entries =
@@ -831,7 +754,7 @@ mod tests {
         } = state.pop().unwrap();
 
         assert_eq!(path, result_path);
-        assert_eq!(metadata, result_metadata);
+        assert!(artifact_metadata_eq(&metadata, &result_metadata));
         assert_eq!(last_access_time, result_last_access_time);
     }
 
@@ -840,12 +763,10 @@ mod tests {
         let digest_config = DigestConfig::testing_default();
 
         let digest = TrackedFileDigest::from_content(b"foo", digest_config.cas_digest_config());
-        let metadata = ArtifactMetadata(DirectoryEntry::Leaf(ActionDirectoryMember::File(
-            FileMetadata {
-                digest,
-                is_executable: false,
-            },
-        )));
+        let metadata = DirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata {
+            digest,
+            is_executable: false,
+        }));
         let path = ProjectRelativePath::new("foo/bar").unwrap();
         let last_access_time = DateTime::from_timestamp_nanos(0);
 
@@ -864,7 +785,7 @@ mod tests {
         } = state.pop().unwrap();
 
         assert_eq!(path, result_path);
-        assert_eq!(metadata, result_metadata);
+        assert!(artifact_metadata_eq(&metadata, &result_metadata));
         assert_eq!(last_access_time, result_last_access_time);
     }
 
@@ -877,7 +798,7 @@ mod tests {
         // Verify that we have a Symlink here.
         assert_matches!(symlink, ActionDirectoryMember::Symlink(..));
 
-        let metadata = ArtifactMetadata(DirectoryEntry::Leaf(symlink));
+        let metadata = DirectoryEntry::Leaf(symlink);
         let path = ProjectRelativePath::new("foo/bar").unwrap();
         let last_access_time = DateTime::from_timestamp_nanos(0);
 
@@ -896,7 +817,7 @@ mod tests {
         } = state.pop().unwrap();
 
         assert_eq!(path, result_path);
-        assert_eq!(metadata, result_metadata);
+        assert!(artifact_metadata_eq(&metadata, &result_metadata));
         assert_eq!(last_access_time, result_last_access_time);
     }
 
@@ -915,7 +836,7 @@ mod tests {
         // Verify that we have an ExternalSymlink here.
         assert_matches!(external_symlink, ActionDirectoryMember::ExternalSymlink(..));
 
-        let metadata = ArtifactMetadata(DirectoryEntry::Leaf(external_symlink));
+        let metadata = DirectoryEntry::Leaf(external_symlink);
         let path = ProjectRelativePath::new("foo/bar").unwrap();
         let last_access_time = DateTime::from_timestamp_nanos(0);
 
@@ -934,7 +855,7 @@ mod tests {
         } = state.pop().unwrap();
 
         assert_eq!(path, result_path);
-        assert_eq!(metadata, result_metadata);
+        assert!(artifact_metadata_eq(&metadata, &result_metadata));
         assert_eq!(last_access_time, result_last_access_time);
     }
 

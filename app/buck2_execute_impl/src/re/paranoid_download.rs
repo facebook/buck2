@@ -87,7 +87,6 @@ impl ParanoidDownloader {
                 |DeclareArtifactPayload {
                      path,
                      artifact: value,
-                     persist_full_directory_structure: _,
                  }| {
                     let path = inner.cache_path.join(path);
                     paths_to_clean.push(path.clone());

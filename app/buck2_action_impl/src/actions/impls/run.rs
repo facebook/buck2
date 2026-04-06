@@ -870,7 +870,6 @@ impl RunAction {
                 .map(|b| CommandExecutionOutput::BuildArtifact {
                     path: b.get_path().dupe(),
                     output_type: b.output_type(),
-                    supports_incremental_remote: self.inner.incremental_remote_outputs,
                 })
                 .collect(),
             ctx.fs(),

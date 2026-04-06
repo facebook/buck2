@@ -129,8 +129,6 @@ pub enum MaterializationError {
 pub struct DeclareArtifactPayload {
     pub path: ProjectRelativePathBuf,
     pub artifact: ArtifactValue,
-    /// Whether materializer state should store full information about directory artifact.
-    pub persist_full_directory_structure: bool,
 }
 
 /// A trait providing methods to asynchronously materialize artifacts.
@@ -305,8 +303,7 @@ pub trait Materializer: Allocative + Send + Sync + 'static {
     /// returning the root artifact's entry (not the subpath's). The subpath need
     /// not actually exist within the artifact's directory structure.
     ///
-    /// Returns `None` for any path that doesn't match a known artifact, or whose
-    /// materializer state lacks sufficient metadata (e.g., compact directory metadata).
+    /// Returns `None` for any path that doesn't match a known artifact.
     async fn get_artifact_entries_for_materialized_paths(
         &self,
         paths: Vec<ProjectRelativePathBuf>,

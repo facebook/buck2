@@ -1351,23 +1351,15 @@ mod state_machine {
             assert_eq!(returned_path, materialized_file_path);
             assert_eq!(&returned_entry, file_value.entry());
 
-            let compact_dir_path = make_path("materialized/compact_dir");
+            let materialized_dir_path = make_path("materialized/dir");
             let dir_value = ArtifactValue::dir(digest_config.empty_directory());
-            dm.testing_declare_existing(&compact_dir_path, dir_value.dupe());
+            dm.testing_declare_existing(&materialized_dir_path, dir_value.dupe());
             let result = dm.testing_get_artifact_entries_for_materialized_paths(vec![
-                compact_dir_path.clone(),
+                materialized_dir_path.clone(),
             ]);
             assert_eq!(result.len(), 1);
-            assert!(result[0].is_none());
-
-            let full_dir_path = make_path("materialized/full_dir");
-            let dir_value = ArtifactValue::dir(digest_config.empty_directory());
-            dm.testing_declare_existing_full(&full_dir_path, dir_value.dupe());
-            let result =
-                dm.testing_get_artifact_entries_for_materialized_paths(vec![full_dir_path.clone()]);
-            assert_eq!(result.len(), 1);
             let (returned_path, returned_entry) = result[0].clone().unwrap();
-            assert_eq!(returned_path, full_dir_path);
+            assert_eq!(returned_path, materialized_dir_path);
             assert!(matches!(returned_entry, ActionDirectoryEntry::Dir(_)));
 
             // Subpath of an artifact via projected artifact; returns None

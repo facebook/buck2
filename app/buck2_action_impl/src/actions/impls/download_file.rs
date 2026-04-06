@@ -338,7 +338,6 @@ impl Action for DownloadFileAction {
                         .declare_existing(vec![DeclareArtifactPayload {
                             path: rel_path,
                             artifact: ArtifactValue::file(metadata.dupe()),
-                            persist_full_directory_structure: false,
                         }])
                         .await?;
 

@@ -19,7 +19,6 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
 use buck2_data::error::ErrorTag;
-use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_events::dispatch::EventDispatcher;
@@ -82,10 +81,10 @@ use crate::materializers::deferred::artifact_tree::MaterializingFuture;
 use crate::materializers::deferred::artifact_tree::Processing;
 use crate::materializers::deferred::artifact_tree::ProcessingFuture;
 use crate::materializers::deferred::artifact_tree::Version;
+use crate::materializers::deferred::artifact_tree::artifact_metadata_matches_entry;
 use crate::materializers::deferred::clean_stale::CleanResult;
 use crate::materializers::deferred::clean_stale::CleanStaleArtifactsCommand;
 use crate::materializers::deferred::clean_stale::CleanStaleConfig;
-use crate::materializers::deferred::directory_metadata::DirectoryMetadata;
 use crate::materializers::deferred::extension::ExtensionCommand;
 use crate::materializers::deferred::io_handler::IoHandler;
 use crate::materializers::deferred::join_all_existing_futs;
@@ -209,11 +208,7 @@ impl<T> std::fmt::Debug for MaterializerCommand<T> {
                 )
             }
             MaterializerCommand::Declare(
-                DeclareArtifactPayload {
-                    path,
-                    artifact,
-                    persist_full_directory_structure: _,
-                },
+                DeclareArtifactPayload { path, artifact },
                 method,
                 _dispatcher,
                 _parent_id,
@@ -579,13 +574,8 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 result_sender.send(result).ok();
             }
             MaterializerCommand::DeclareExisting(artifacts, ..) => {
-                for DeclareArtifactPayload {
-                    path,
-                    artifact,
-                    persist_full_directory_structure,
-                } in artifacts
-                {
-                    self.declare_existing(&path, artifact, persist_full_directory_structure);
+                for DeclareArtifactPayload { path, artifact } in artifacts {
+                    self.declare_existing(&path, artifact);
                 }
             }
             // Entry point for `declare_{copy|cas}` calls
@@ -593,7 +583,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 DeclareArtifactPayload {
                     path,
                     artifact: value,
-                    persist_full_directory_structure,
                 },
                 method,
                 event_dispatcher,
@@ -607,7 +596,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     )
                 });
 
-                self.declare(&path, value, persist_full_directory_structure, method);
+                self.declare(&path, value, method);
 
                 if self.subscriptions.should_materialize_eagerly(&path) {
                     self.materialize_artifact(&path, event_dispatcher);
@@ -807,13 +796,8 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         tasks.collect::<FuturesOrdered<_>>().boxed()
     }
 
-    fn declare_existing(
-        &mut self,
-        path: &ProjectRelativePath,
-        value: ArtifactValue,
-        persist_full_directory_structure: bool,
-    ) {
-        let metadata = ArtifactMetadata::new(value.entry(), !persist_full_directory_structure);
+    fn declare_existing(&mut self, path: &ProjectRelativePath, value: ArtifactValue) {
+        let metadata = value.entry().dupe();
         on_materialization(
             self.sqlite_db.as_mut(),
             &self.subscriptions,
@@ -841,7 +825,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         &mut self,
         path: &ProjectRelativePath,
         value: ArtifactValue,
-        persist_full_directory_structure: bool,
         method: Box<ArtifactMaterializationMethod>,
     ) {
         self.stats.declares.fetch_add(1, Ordering::Relaxed);
@@ -865,7 +848,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     .unwrap();
 
                     if path_iter.next().is_none()
-                        && metadata.matches_entry(value.entry())
+                        && artifact_metadata_matches_entry(metadata, value.entry())
                         && !force_mismatch
                     {
                         // In this case, the entry declared matches the already materialized
@@ -963,7 +946,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             stage: ArtifactMaterializationStage::Declared {
                 entry: value.entry().dupe(),
                 method,
-                persist_full_directory_structure,
             },
             processing: Processing::Active { future, version },
         });
@@ -990,7 +972,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
 
         let is_match = match &data.stage {
             ArtifactMaterializationStage::Materialized { metadata, .. } => {
-                let is_match = metadata.matches_entry(value.entry());
+                let is_match = artifact_metadata_matches_entry(metadata, value.entry());
                 tracing::trace!("materialized: found {}, is_match: {}", metadata, is_match);
                 is_match
             }
@@ -1101,17 +1083,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
 
                 let base_entry = match &data.stage {
                     ArtifactMaterializationStage::Materialized { metadata, .. } => {
-                        match &metadata.0 {
-                            DirectoryEntry::Dir(dir) => match dir {
-                                DirectoryMetadata::Compact { .. } => None,
-                                DirectoryMetadata::Full(shared_directory) => {
-                                    Some(ActionDirectoryEntry::Dir(shared_directory.dupe()))
-                                }
-                            },
-                            DirectoryEntry::Leaf(leaf) => {
-                                Some(ActionDirectoryEntry::Leaf(leaf.dupe()))
-                            }
-                        }
+                        Some(metadata.dupe())
                     }
                     ArtifactMaterializationStage::Declared { entry, .. } => Some(entry.dupe()),
                 }?;
@@ -1175,11 +1147,9 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         let deps = data.deps.dupe();
         let check_deps = deps.is_some();
         let entry_and_method = match &mut data.stage {
-            ArtifactMaterializationStage::Declared {
-                entry,
-                method,
-                persist_full_directory_structure: _,
-            } => Some((entry.dupe(), method.dupe())),
+            ArtifactMaterializationStage::Declared { entry, method } => {
+                Some((entry.dupe(), method.dupe()))
+            }
             ArtifactMaterializationStage::Materialized {
                 last_access_time, ..
             } => match check_deps {
@@ -1428,10 +1398,8 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         ArtifactMaterializationStage::Declared {
                             entry,
                             method: _method,
-                            persist_full_directory_structure,
                         } => {
-                            let metadata =
-                                ArtifactMetadata::new(entry, !persist_full_directory_structure);
+                            let metadata = entry.dupe();
                             // NOTE: We only insert this artifact if there isn't an in-progress cleanup
                             // future on this path.
                             on_materialization(
@@ -1554,7 +1522,6 @@ impl ExistingFutures {
 pub(super) trait TestingDeferredMaterializerCommandProcessor<T> {
     fn testing_has_artifact(&mut self, path: ProjectRelativePathBuf) -> bool;
     fn testing_declare_existing(&mut self, path: &ProjectRelativePath, value: ArtifactValue);
-    fn testing_declare_existing_full(&mut self, path: &ProjectRelativePath, value: ArtifactValue);
 
     fn testing_process_one_low_priority_command(&mut self, command: LowPriorityMaterializerCommand);
 
@@ -1600,11 +1567,7 @@ impl<T: IoHandler> TestingDeferredMaterializerCommandProcessor<T>
     }
 
     fn testing_declare_existing(&mut self, path: &ProjectRelativePath, value: ArtifactValue) {
-        self.declare_existing(path, value, false)
-    }
-
-    fn testing_declare_existing_full(&mut self, path: &ProjectRelativePath, value: ArtifactValue) {
-        self.declare_existing(path, value, true)
+        self.declare_existing(path, value)
     }
 
     fn testing_process_one_low_priority_command(
@@ -1639,12 +1602,7 @@ impl<T: IoHandler> TestingDeferredMaterializerCommandProcessor<T>
     }
 
     fn testing_declare(&mut self, path: &ProjectRelativePath, value: ArtifactValue) {
-        self.declare(
-            path,
-            value,
-            false,
-            Box::new(ArtifactMaterializationMethod::Test),
-        )
+        self.declare(path, value, Box::new(ArtifactMaterializationMethod::Test))
     }
 
     fn testing_process_one_command(&mut self, command: MaterializerCommand<T>) {

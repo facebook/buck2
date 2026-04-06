@@ -50,6 +50,7 @@ use crate::materializers::deferred::ArtifactMaterializationStage;
 use crate::materializers::deferred::DeferredMaterializerCommandProcessor;
 use crate::materializers::deferred::artifact_tree::ArtifactMaterializationData;
 use crate::materializers::deferred::artifact_tree::ArtifactTree;
+use crate::materializers::deferred::artifact_tree::artifact_metadata_size;
 use crate::materializers::deferred::extension::ExtensionCommand;
 use crate::materializers::deferred::io_handler::IoHandler;
 use crate::materializers::deferred::join_all_existing_futs;
@@ -583,14 +584,15 @@ impl<T: IoHandler> StaleFinder<'_, T> {
                     // This is something we can invalidate.
                     tracing::trace!(path = %path, file_type = ?file_type, "marking as stale");
                     self.found_paths
-                        .push(FoundPath::Stale(path, metadata.size()));
+                        .push(FoundPath::Stale(path, artifact_metadata_size(metadata)));
                 }
                 ArtifactTree::Data(box ArtifactMaterializationData {
                     stage: ArtifactMaterializationStage::Materialized { metadata, .. },
                     ..
                 }) => {
                     tracing::trace!(path = %path, file_type = ?file_type, "marking as retained");
-                    self.found_paths.push(FoundPath::Retained(metadata.size()));
+                    self.found_paths
+                        .push(FoundPath::Retained(artifact_metadata_size(metadata)));
                 }
                 _ => {
                     // What we have on disk does not match what we have in the materializer (which is

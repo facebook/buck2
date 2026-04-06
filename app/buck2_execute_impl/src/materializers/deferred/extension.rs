@@ -47,6 +47,7 @@ use crate::materializers::deferred::DeferredMaterializerCommandProcessor;
 use crate::materializers::deferred::MaterializerCommand;
 use crate::materializers::deferred::Processing;
 use crate::materializers::deferred::ProcessingFuture;
+use crate::materializers::deferred::artifact_tree::artifact_metadata_size;
 use crate::materializers::deferred::clean_stale::CleanStaleArtifactsCommand;
 use crate::materializers::deferred::clean_stale::CleanStaleArtifactsExtensionCommand;
 use crate::materializers::deferred::io_handler::IoHandler;
@@ -140,7 +141,7 @@ impl<T: IoHandler> ExtensionCommand<T> for Iterate {
                         .unwrap();
                     PathStage::Materialized {
                         ts,
-                        size: Some(metadata.size()),
+                        size: Some(artifact_metadata_size(metadata)),
                     }
                 }
             };

@@ -514,11 +514,7 @@ pub(super) fn create_ttl_refresh(
     let ttl_deadline = Utc::now() + min_ttl;
 
     for data in tree.iter_without_paths() {
-        if let ArtifactMaterializationStage::Declared {
-            entry,
-            method,
-            persist_full_directory_structure: _,
-        } = &data.stage
+        if let ArtifactMaterializationStage::Declared { entry, method } = &data.stage
             && let ArtifactMaterializationMethod::CasDownload { info } = method.as_ref()
         {
             let mut walk = unordered_entry_walk(entry.as_ref().map_dir(Directory::as_ref));

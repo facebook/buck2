@@ -17,7 +17,6 @@ mod subscriptions;
 
 pub(crate) mod artifact_tree;
 mod command_processor;
-pub mod directory_metadata;
 pub(crate) mod file_tree;
 #[cfg(test)]
 mod tests;
@@ -360,7 +359,6 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
             DeclareArtifactPayload {
                 path,
                 artifact: value,
-                persist_full_directory_structure: false,
             },
             Box::new(ArtifactMaterializationMethod::LocalCopy(srcs_tree, srcs)),
             get_dispatcher(),
@@ -396,7 +394,6 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
             DeclareArtifactPayload {
                 path,
                 artifact: ArtifactValue::file(info.metadata.dupe()),
-                persist_full_directory_structure: false,
             },
             Box::new(ArtifactMaterializationMethod::HttpDownload { info }),
             get_dispatcher(),
@@ -458,7 +455,6 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
                 DeclareArtifactPayload {
                     path,
                     artifact: value.dupe(),
-                    persist_full_directory_structure: false,
                 },
                 Box::new(method),
                 get_dispatcher(),

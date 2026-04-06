@@ -35,7 +35,6 @@ use tracing::instrument;
 
 use crate::materializers::deferred::SharedMaterializingError;
 use crate::materializers::deferred::WriteFile;
-use crate::materializers::deferred::directory_metadata::DirectoryMetadata;
 use crate::materializers::deferred::file_tree::FileTree;
 use crate::sqlite::materializer_db::MaterializerState;
 use crate::sqlite::materializer_db::MaterializerStateEntry;
@@ -106,65 +105,37 @@ impl Processing {
 }
 
 /// Metadata used to identify an artifact entry and stored for every materialized artifact.
-/// For directory entries it might only store their fingerprints for optimization purposes.
-/// For everything else (files, symlinks, and external symlinks), we use `ActionDirectoryMember`
-/// as is.
-#[derive(Clone, Dupe, Debug, Display)]
-pub struct ArtifactMetadata(pub(crate) ActionDirectoryEntry<DirectoryMetadata>);
+pub type ArtifactMetadata = ActionDirectoryEntry<ActionSharedDirectory>;
 
-impl ArtifactMetadata {
-    pub(crate) fn matches_entry(
-        &self,
-        entry: &ActionDirectoryEntry<ActionSharedDirectory>,
-    ) -> bool {
-        match (&self.0, entry) {
-            (DirectoryEntry::Dir(d1), DirectoryEntry::Dir(d2)) => {
-                d1.fingerprint() == d2.fingerprint()
-            }
-            (DirectoryEntry::Leaf(l1), DirectoryEntry::Leaf(l2)) => {
-                // In Windows, the 'executable bit' absence can cause Buck2 to re-download identical artifacts.
-                // To avoid this, we exclude the executable bit from the comparison.
-                if cfg!(windows) {
-                    if let (
-                        ActionDirectoryMember::File(meta1),
-                        ActionDirectoryMember::File(meta2),
-                    ) = (l1, l2)
-                    {
-                        return meta1.digest == meta2.digest;
-                    }
+pub(crate) fn artifact_metadata_matches_entry(
+    metadata: &ArtifactMetadata,
+    entry: &ArtifactMetadata,
+) -> bool {
+    match (metadata, entry) {
+        (DirectoryEntry::Dir(d1), DirectoryEntry::Dir(d2)) => d1.fingerprint() == d2.fingerprint(),
+        (DirectoryEntry::Leaf(l1), DirectoryEntry::Leaf(l2)) => {
+            // In Windows, the 'executable bit' absence can cause Buck2 to re-download identical artifacts.
+            // To avoid this, we exclude the executable bit from the comparison.
+            if cfg!(windows) {
+                if let (ActionDirectoryMember::File(meta1), ActionDirectoryMember::File(meta2)) =
+                    (l1, l2)
+                {
+                    return meta1.digest == meta2.digest;
                 }
-                l1 == l2
             }
-            _ => false,
+            l1 == l2
         }
+        _ => false,
     }
+}
 
-    pub(crate) fn new(entry: &ActionDirectoryEntry<ActionSharedDirectory>, compact: bool) -> Self {
-        let new_entry = match entry {
-            DirectoryEntry::Dir(dir) => {
-                let metadata = if compact {
-                    DirectoryMetadata::Compact {
-                        fingerprint: dir.fingerprint().dupe(),
-                        total_size: entry.calc_output_count_and_bytes(false).bytes,
-                    }
-                } else {
-                    DirectoryMetadata::Full(dir.dupe())
-                };
-                DirectoryEntry::Dir(metadata)
-            }
-            DirectoryEntry::Leaf(leaf) => DirectoryEntry::Leaf(leaf.dupe()),
-        };
-        Self(new_entry)
-    }
-
-    pub(crate) fn size(&self) -> u64 {
-        match &self.0 {
-            DirectoryEntry::Dir(dir) => dir.size(),
-            DirectoryEntry::Leaf(ActionDirectoryMember::File(file_metadata)) => {
-                file_metadata.digest.size()
-            }
-            DirectoryEntry::Leaf(_) => 0,
+pub(crate) fn artifact_metadata_size(metadata: &ArtifactMetadata) -> u64 {
+    match metadata {
+        DirectoryEntry::Dir(_) => metadata.calc_output_count_and_bytes(false).bytes,
+        DirectoryEntry::Leaf(ActionDirectoryMember::File(file_metadata)) => {
+            file_metadata.digest.size()
         }
+        DirectoryEntry::Leaf(_) => 0,
     }
 }
 
@@ -177,7 +148,6 @@ pub enum ArtifactMaterializationStage {
         /// Taken from `entry` of `ArtifactValue`. Used to materialize the actual artifact.
         entry: ActionDirectoryEntry<ActionSharedDirectory>,
         method: Arc<ArtifactMaterializationMethod>,
-        persist_full_directory_structure: bool,
     },
     /// This artifact was materialized
     Materialized {
@@ -297,11 +267,9 @@ impl ArtifactTree {
             ArtifactMaterializationStage::Materialized { .. } => {
                 return Ok(path);
             }
-            ArtifactMaterializationStage::Declared {
-                entry,
-                method,
-                persist_full_directory_structure: _,
-            } => (entry.dupe(), method.dupe()),
+            ArtifactMaterializationStage::Declared { entry, method } => {
+                (entry.dupe(), method.dupe())
+            }
         };
         match method.as_ref() {
             ArtifactMaterializationMethod::CasDownload { info } => {

@@ -339,7 +339,6 @@ impl Action for CasArtifactAction {
                 vec![DeclareArtifactPayload {
                     path,
                     artifact: value.dupe(),
-                    persist_full_directory_structure: false,
                 }],
             )
             .await?;

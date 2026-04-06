@@ -926,10 +926,7 @@ impl LocalExecutor {
             let value = extract_artifact_value(&builder, &output_path, digest_config)?;
             if let Some(value) = value {
                 match output {
-                    CommandExecutionOutput::BuildArtifact {
-                        supports_incremental_remote,
-                        ..
-                    } => {
+                    CommandExecutionOutput::BuildArtifact { .. } => {
                         // For content-based paths, things are a bit complicated here, because (a) the action
                         // wrote outputs at "placeholder" paths, not the final content-based paths (because
                         // they are not know until the output is produced), and (b) other actions can declare
@@ -968,7 +965,6 @@ impl LocalExecutor {
                             to_declare.push(DeclareArtifactPayload {
                                 path: output_path.clone(),
                                 artifact: value.dupe(),
-                                persist_full_directory_structure: supports_incremental_remote,
                             });
                             output_path_to_content_based_path_copies.push((
                                 hashed_path.clone(),
@@ -984,7 +980,6 @@ impl LocalExecutor {
                             to_declare.push(DeclareArtifactPayload {
                                 path: output_path,
                                 artifact: value.dupe(),
-                                persist_full_directory_structure: supports_incremental_remote,
                             });
                         }
                     }
