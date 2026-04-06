@@ -13,7 +13,6 @@ use std::io::BufWriter;
 use std::path::Path;
 use std::sync::Arc;
 
-use bincode::Options;
 use buck2_cli_proto::unstable_dice_dump_request::DiceDumpFormat;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
@@ -129,16 +128,14 @@ fn dice_dump_bincode(dice: &Arc<Dice>, path: &Path) -> buck2_error::Result<()> {
         .buck_error_context("Failed to create directory")?;
     let out = File::create(&path)
         .buck_error_context(format!("Failed to open serde DICE dumpfile {:?}", &path))?;
-    let out = GzEncoder::new(BufWriter::new(out), Compression::default());
+    let mut out = GzEncoder::new(BufWriter::new(out), Compression::default());
 
-    let mut writer = bincode::Serializer::new(
-        out,
-        bincode::config::DefaultOptions::new()
-            .with_fixint_encoding()
-            .allow_trailing_bytes(),
-    );
-    serialize_dense_graph(&dice.to_introspectable(), &mut writer)
-        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+    bincode::serde::encode_into_std_write(
+        dice.to_introspectable(),
+        &mut out,
+        bincode::config::legacy(),
+    )
+    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
 
     Ok(())
 }

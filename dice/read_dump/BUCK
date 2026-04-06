@@ -7,7 +7,7 @@ rust_binary(
     srcs = ["src/main.rs"],
     deps = [
         "fbsource//third-party/rust:anyhow",
-        "fbsource//third-party/rust:bincode",
+        "fbsource//third-party/rust:bincode-2",
         "fbsource//third-party/rust:clap",
         "fbsource//third-party/rust:serde_json",
         "//buck2/dice/dice:dice",

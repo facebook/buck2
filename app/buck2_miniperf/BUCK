@@ -22,7 +22,7 @@ rust_binary(
         # Ideally we'd use compatible_with, but TD does not understand that.
         "DEFAULT": [],
         "ovr_config//os:linux": [
-            "fbsource//third-party/rust:bincode",
+            "fbsource//third-party/rust:bincode-2",
             "fbsource//third-party/rust:perf-event",
             "fbsource//third-party/rust:smallvec",
             "fbsource//third-party/rust:thiserror",
@@ -42,7 +42,7 @@ rust_library(
         "DEFAULT": [],
         "ovr_config//os:linux": [
             "fbsource//third-party/rust:anyhow",
-            "fbsource//third-party/rust:bincode",
+            "fbsource//third-party/rust:bincode-2",
             "fbsource//third-party/rust:tempfile",
             "//buck2/app/buck2_miniperf_proto:buck2_miniperf_proto",
         ],

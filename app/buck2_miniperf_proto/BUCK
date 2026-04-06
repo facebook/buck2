@@ -6,7 +6,7 @@ rust_library(
     name = "buck2_miniperf_proto",
     srcs = glob(["src/**/*.rs"]),
     test_deps = [
-        "fbsource//third-party/rust:bincode",
+        "fbsource//third-party/rust:bincode-2",
     ],
     deps = [
         "fbsource//third-party/rust:serde",

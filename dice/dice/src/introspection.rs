@@ -148,9 +148,11 @@ mod tests {
         let mut ctx = dice.updater().commit().await;
         ctx.compute(&KeyA(3)).await?;
 
-        let node = bincode::serialize(&dice.to_introspectable())?;
+        let node =
+            bincode::serde::encode_to_vec(dice.to_introspectable(), bincode::config::legacy())?;
 
-        let _out: Vec<SerializedGraphNodeForKey> = bincode::deserialize(&node)?;
+        let (_out, _): (Vec<SerializedGraphNodeForKey>, _) =
+            bincode::serde::decode_from_slice(&node, bincode::config::legacy())?;
         Ok(())
     }
 }

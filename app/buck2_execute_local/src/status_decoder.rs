@@ -110,11 +110,14 @@ impl StatusDecoder for MiniperfStatusDecoder {
                 format!("Error removing miniperf output at `{}`", self.out_path)
             })?;
 
-        let status = bincode::deserialize::<MiniperfOutput>(&status)
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
-            .with_buck_error_context(|| {
-                format!("Invalid miniperf output at `{}`", self.out_path.display())
-            })?;
+        let (status, _) = bincode::serde::decode_from_slice::<MiniperfOutput, _>(
+            &status,
+            bincode::config::legacy(),
+        )
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
+        .with_buck_error_context(|| {
+            format!("Invalid miniperf output at `{}`", self.out_path.display())
+        })?;
 
         match status.raw_exit_code {
             #[allow(unused_variables)]

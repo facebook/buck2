@@ -29,9 +29,10 @@ fn main() -> anyhow::Result<()> {
     let matches = clap.get_matches_from(std::env::args().collect::<Vec<String>>());
     let opt = Opt::from_arg_matches(&matches)?;
 
-    let file = File::open(opt.file)?;
+    let mut file = File::open(opt.file)?;
 
-    let out: Vec<SerializedGraphNodeForKey> = bincode::deserialize_from(&file)?;
+    let out: Vec<SerializedGraphNodeForKey> =
+        bincode::serde::decode_from_std_read(&mut file, bincode::config::legacy())?;
 
     match opt.out {
         Some(path) => {

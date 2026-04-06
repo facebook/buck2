@@ -122,7 +122,9 @@ mod tests {
         };
 
         assert_eq!(
-            bincode::serialized_size(&output).unwrap() as usize,
+            bincode::serde::encode_to_vec(&output, bincode::config::legacy())
+                .unwrap()
+                .len(),
             MiniperfOutput::EXPECTED_SIZE
         );
     }

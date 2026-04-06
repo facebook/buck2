@@ -126,7 +126,7 @@ pub fn main() -> anyhow::Result<()> {
     // Stack allocate in the happy path.
     let mut buff = SmallVec::<[u8; MiniperfOutput::EXPECTED_SIZE]>::new();
 
-    bincode::serialize_into(&mut buff, &output)
+    bincode::serde::encode_into_std_write(&output, &mut buff, bincode::config::legacy())
         .with_context(|| format!("Failed to write to `{out:?}`"))?;
 
     std::fs::write(&out, &buff).with_context(|| format!("Failed to write to `{out:?}`"))?;

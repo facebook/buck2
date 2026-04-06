@@ -11,7 +11,7 @@ rust_library(
     features = ["pagable"],
     test_deps = [
         "fbsource//third-party/rust:assert_matches",
-        "fbsource//third-party/rust:bincode",
+        "fbsource//third-party/rust:bincode-2",
         "fbsource//third-party/rust:derivative",
         "fbsource//third-party/rust:indoc",
         "fbsource//third-party/rust:tempfile",

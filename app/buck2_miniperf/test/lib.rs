@@ -32,7 +32,9 @@ fn test_miniperf() -> anyhow::Result<()> {
     cmd.status()?.exit_ok()?;
 
     let out = std::fs::read(&path).context("Failed to read")?;
-    let out = bincode::deserialize::<MiniperfOutput>(&out).context("Failed to deserialize")?;
+    let (out, _) =
+        bincode::serde::decode_from_slice::<MiniperfOutput, _>(&out, bincode::config::legacy())
+            .context("Failed to deserialize")?;
 
     // Check that we're within 5%
     assert!(
