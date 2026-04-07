@@ -27,6 +27,8 @@ use crate::DiceKeyDyn;
 use crate::api::computations::DiceComputations;
 use crate::api::data::DiceData;
 use crate::api::key::Key;
+use crate::api::key::NoValueSerialize;
+use crate::api::key::ValueSerialize;
 use crate::impls::dice::Dice;
 
 #[tokio::test]
@@ -63,6 +65,10 @@ async fn concurrent_identical_requests_are_deduped() -> anyhow::Result<()> {
 
         fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
             true
+        }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            NoValueSerialize::<Self::Value>::new()
         }
     }
 
@@ -131,6 +137,10 @@ fn different_requests_are_spawned_in_parallel() -> anyhow::Result<()> {
 
         fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
             true
+        }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            NoValueSerialize::<Self::Value>::new()
         }
     }
 

@@ -130,6 +130,10 @@ pub struct TopKey(u32);
 impl Key for TopKey {
     type Value = u32;
 
+    fn value_serialize() -> impl dice::ValueSerialize<Value = Self::Value> {
+        dice::NoValueSerialize::<Self::Value>::new()
+    }
+
     async fn compute(
         &self,
         ctx: &mut DiceComputations,
@@ -176,6 +180,10 @@ pub struct BottomKey(u32);
 impl Key for BottomKey {
     type Value = u32;
 
+    fn value_serialize() -> impl dice::ValueSerialize<Value = Self::Value> {
+        dice::NoValueSerialize::<Self::Value>::new()
+    }
+
     async fn compute(
         &self,
         ctx: &mut DiceComputations,
@@ -207,6 +215,10 @@ pub struct DenseKey(u32);
 #[async_trait]
 impl Key for DenseKey {
     type Value = u32;
+
+    fn value_serialize() -> impl dice::ValueSerialize<Value = Self::Value> {
+        dice::NoValueSerialize::<Self::Value>::new()
+    }
 
     async fn compute(
         &self,
@@ -243,6 +255,10 @@ pub struct Leaf;
 impl InjectedKey for Leaf {
     type Value = u32;
 
+    fn value_serialize() -> impl dice::ValueSerialize<Value = Self::Value> {
+        dice::NoValueSerialize::<Self::Value>::new()
+    }
+
     fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
         false
     }
@@ -255,6 +271,10 @@ pub struct ConfigKey;
 
 impl InjectedKey for ConfigKey {
     type Value = Config;
+
+    fn value_serialize() -> impl dice::ValueSerialize<Value = Self::Value> {
+        dice::NoValueSerialize::<Self::Value>::new()
+    }
 
     fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
         false

@@ -35,6 +35,8 @@ mod tests {
     use crate::api::computations::DiceComputations;
     use crate::api::cycles::DetectCycles;
     use crate::api::key::Key;
+    use crate::api::key::NoValueSerialize;
+    use crate::api::key::ValueSerialize;
     use crate::impls::dice::Dice;
     use crate::introspection::graph::SerializedGraphNodeForKey;
     use crate::introspection::serialize_graph;
@@ -63,6 +65,10 @@ mod tests {
         fn equality(_: &Self::Value, _: &Self::Value) -> bool {
             unimplemented!()
         }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            NoValueSerialize::<Self::Value>::new()
+        }
     }
 
     #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
@@ -84,6 +90,10 @@ mod tests {
 
         fn equality(_: &Self::Value, _: &Self::Value) -> bool {
             unimplemented!()
+        }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            NoValueSerialize::<Self::Value>::new()
         }
     }
 

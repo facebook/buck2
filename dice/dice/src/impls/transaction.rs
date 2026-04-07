@@ -232,6 +232,8 @@ mod tests {
     use crate::api::data::DiceData;
     use crate::api::key::InvalidationSourcePriority;
     use crate::api::key::Key;
+    use crate::api::key::NoValueSerialize;
+    use crate::api::key::ValueSerialize;
     use crate::impls::dice::Dice;
     use crate::impls::key::CowDiceKeyHashed;
     use crate::impls::transaction::ChangeType;
@@ -255,6 +257,10 @@ mod tests {
 
         fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
             unimplemented!("test")
+        }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            NoValueSerialize::<Self::Value>::new()
         }
     }
 

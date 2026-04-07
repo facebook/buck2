@@ -200,6 +200,8 @@ mod tests {
     use crate::api::computations::DiceComputations;
     use crate::api::key::InvalidationSourcePriority;
     use crate::api::key::Key;
+    use crate::api::key::NoValueSerialize;
+    use crate::api::key::ValueSerialize;
     use crate::arc::Arc;
     use crate::impls::cache::DiceTaskRef;
     use crate::impls::core::graph::storage::ValueReusable;
@@ -486,6 +488,10 @@ mod tests {
 
         fn equality(_: &Self::Value, _: &Self::Value) -> bool {
             true
+        }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            NoValueSerialize::<Self::Value>::new()
         }
     }
 }

@@ -47,6 +47,10 @@ struct EncodingConfig();
 impl InjectedKey for EncodingConfig {
     type Value = Encoding;
 
+    fn value_serialize() -> impl dice::ValueSerialize<Value = Self::Value> {
+        dice::NoValueSerialize::<Self::Value>::new()
+    }
+
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {
         x == y
     }
@@ -93,6 +97,9 @@ struct File(#[pagable(flatten_serde)] PathBuf);
 #[async_trait]
 impl Key for File {
     type Value = Result<Arc<String>, Arc<anyhow::Error>>;
+    fn value_serialize() -> impl dice::ValueSerialize<Value = Self::Value> {
+        dice::NoValueSerialize::<Self::Value>::new()
+    }
     async fn compute(
         &self,
         ctx: &mut DiceComputations,

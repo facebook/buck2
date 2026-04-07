@@ -37,6 +37,10 @@ struct BaseK;
 impl Key for BaseK {
     type Value = ();
 
+    fn value_serialize() -> impl dice::ValueSerialize<Value = Self::Value> {
+        dice::NoValueSerialize::<Self::Value>::new()
+    }
+
     async fn compute(
         &self,
         _ctx: &mut DiceComputations,
@@ -51,9 +55,13 @@ impl Key for BaseK {
 
 #[tokio::test]
 async fn concurrent_identical_requests_are_reused() -> anyhow::Result<()> {
-    #[derive(Allocative, Clone, Debug, Display)]
+    #[derive(Allocative, Clone, Debug, Display, Pagable)]
     #[display("{:?}", self)]
-    struct ComputeOnce(#[allocative(skip)] Arc<AtomicU8>);
+    struct ComputeOnce(
+        #[allocative(skip)]
+        #[pagable(discard = "(|| unimplemented!())()")]
+        Arc<AtomicU8>,
+    );
 
     impl PartialEq for ComputeOnce {
         fn eq(&self, _other: &Self) -> bool {
@@ -70,6 +78,10 @@ async fn concurrent_identical_requests_are_reused() -> anyhow::Result<()> {
     impl ProjectionKey for ComputeOnce {
         type DeriveFromKey = BaseK;
         type Value = ();
+
+        fn value_serialize() -> impl dice::ValueSerialize<Value = Self::Value> {
+            dice::NoValueSerialize::<Self::Value>::new()
+        }
 
         fn compute(
             &self,

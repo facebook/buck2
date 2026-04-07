@@ -28,6 +28,8 @@ use crate::DiceKeyDyn;
 use crate::api::computations::DiceComputations;
 use crate::api::cycles::DetectCycles;
 use crate::api::key::Key;
+use crate::api::key::NoValueSerialize;
+use crate::api::key::ValueSerialize;
 use crate::api::user_data::UserComputationData;
 use crate::impls::dice::Dice;
 
@@ -62,6 +64,10 @@ impl Key for K {
 
     fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
         true
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        NoValueSerialize::<Self::Value>::new()
     }
 }
 

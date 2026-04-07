@@ -33,6 +33,8 @@ use crate::api::computations::DiceComputations;
 use crate::api::cycles::DetectCycles;
 use crate::api::injected::InjectedKey;
 use crate::api::key::Key;
+use crate::api::key::NoValueSerialize;
+use crate::api::key::ValueSerialize;
 use crate::api::transaction::DiceTransactionUpdater;
 
 #[derive(Debug, Clone, Dupe, PartialEq, Allocative)]
@@ -51,6 +53,9 @@ impl InjectedKey for EncodingConfig {
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {
         x == y
+    }
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        NoValueSerialize::<Self::Value>::new()
     }
 }
 
@@ -115,6 +120,10 @@ impl Key for File {
             (Ok(x), Ok(y)) => x == y,
             _ => false,
         }
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        NoValueSerialize::<Self::Value>::new()
     }
 }
 

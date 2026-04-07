@@ -69,6 +69,9 @@ struct ComputationsTracker {
 
 #[async_trait]
 impl Key for IsOpaque {
+    fn value_serialize() -> impl dice::ValueSerialize<Value = Self::Value> {
+        dice::NoValueSerialize::<Self::Value>::new()
+    }
     type Value = Arc<String>;
 
     async fn compute(
@@ -97,6 +100,9 @@ impl Key for IsOpaque {
 impl Key for DoesNotReadOpaque {
     type Value = Arc<String>;
 
+    fn value_serialize() -> impl dice::ValueSerialize<Value = Self::Value> {
+        dice::NoValueSerialize::<Self::Value>::new()
+    }
     async fn compute(
         &self,
         ctx: &mut DiceComputations,

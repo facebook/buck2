@@ -35,6 +35,8 @@ use tokio::sync::oneshot;
 use crate::DiceKeyDyn;
 use crate::api::computations::DiceComputations;
 use crate::api::key::Key;
+use crate::api::key::NoValueSerialize;
+use crate::api::key::ValueSerialize;
 use crate::arc::Arc;
 use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
@@ -66,6 +68,10 @@ impl Key for K {
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {
         x == y
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        NoValueSerialize::<Self::Value>::new()
     }
 }
 

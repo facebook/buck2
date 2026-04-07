@@ -25,6 +25,8 @@ use crate::DiceKeyDyn;
 use crate::api::computations::DiceComputations;
 use crate::api::cycles::DetectCycles;
 use crate::api::key::Key;
+use crate::api::key::NoValueSerialize;
+use crate::api::key::ValueSerialize;
 use crate::impls::dice::Dice;
 
 #[tokio::test]
@@ -54,6 +56,10 @@ async fn invalid_results_are_not_cached() -> anyhow::Result<()> {
 
         fn validity(_x: &Self::Value) -> bool {
             false
+        }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            NoValueSerialize::<Self::Value>::new()
         }
     }
 
@@ -143,6 +149,10 @@ async fn demo_with_transient() -> anyhow::Result<()> {
             // intermediate nodes won't be directly invalid, but rely on the children to
             // propagate transient-ness
             if let Err(x) = x { !*x } else { true }
+        }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            NoValueSerialize::<Self::Value>::new()
         }
     }
 

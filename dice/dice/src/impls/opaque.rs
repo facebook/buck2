@@ -62,6 +62,8 @@ mod tests {
     use crate::HashSet;
     use crate::api::data::DiceData;
     use crate::api::key::Key;
+    use crate::api::key::NoValueSerialize;
+    use crate::api::key::ValueSerialize;
     use crate::impls::deps::testing::RecordingDepsTrackersExt;
     use crate::impls::key::DiceKey;
     use crate::impls::opaque::OpaqueValueModern;
@@ -88,6 +90,10 @@ mod tests {
 
         fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
             unimplemented!("test")
+        }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            NoValueSerialize::<Self::Value>::new()
         }
     }
 

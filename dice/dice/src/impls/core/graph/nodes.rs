@@ -729,6 +729,8 @@ mod tests {
     use crate::DiceKeyDyn;
     use crate::api::computations::DiceComputations;
     use crate::api::key::Key;
+    use crate::api::key::NoValueSerialize;
+    use crate::api::key::ValueSerialize;
     use crate::arc::Arc;
     use crate::impls::core::graph::nodes::ForceDirtyHistory;
     use crate::impls::core::graph::nodes::OccupiedGraphNode;
@@ -759,6 +761,10 @@ mod tests {
 
         fn equality(x: &Self::Value, y: &Self::Value) -> bool {
             x == y
+        }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            NoValueSerialize::<Self::Value>::new()
         }
     }
 

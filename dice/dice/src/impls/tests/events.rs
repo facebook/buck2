@@ -28,6 +28,8 @@ use crate::InjectedKey;
 use crate::api::computations::DiceComputations;
 use crate::api::cycles::DetectCycles;
 use crate::api::key::Key;
+use crate::api::key::NoValueSerialize;
+use crate::api::key::ValueSerialize;
 use crate::api::user_data::UserComputationData;
 
 #[derive(Default, Allocative)]
@@ -53,6 +55,9 @@ impl InjectedKey for Injected {
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {
         x == y
     }
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        NoValueSerialize::<Self::Value>::new()
+    }
 }
 
 #[derive(Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Allocative, Pagable)]
@@ -75,6 +80,10 @@ impl Key for Stage0 {
     fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
         true
     }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        NoValueSerialize::<Self::Value>::new()
+    }
 }
 
 #[derive(Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Allocative, Pagable)]
@@ -96,6 +105,10 @@ impl Key for Stage1 {
 
     fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
         true
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        NoValueSerialize::<Self::Value>::new()
     }
 }
 

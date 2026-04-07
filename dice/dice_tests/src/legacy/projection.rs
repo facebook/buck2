@@ -75,6 +75,10 @@ struct FileKey {
 impl Key for FileKey {
     type Value = Result<Arc<String>, Arc<anyhow::Error>>;
 
+    fn value_serialize() -> impl dice::ValueSerialize<Value = Self::Value> {
+        dice::NoValueSerialize::<Self::Value>::new()
+    }
+
     async fn compute(
         &self,
         ctx: &mut DiceComputations,
@@ -132,6 +136,10 @@ struct ConfigKey;
 impl Key for ConfigKey {
     type Value = Arc<HashMap<String, String>>;
 
+    fn value_serialize() -> impl dice::ValueSerialize<Value = Self::Value> {
+        dice::NoValueSerialize::<Self::Value>::new()
+    }
+
     async fn compute(
         &self,
         ctx: &mut DiceComputations,
@@ -161,7 +169,16 @@ impl Key for ConfigKey {
 }
 
 /// One "property" of the "configuration".
-#[derive(Debug, derive_more::Display, Clone, Hash, PartialEq, Eq, Allocative)]
+#[derive(
+    Debug,
+    derive_more::Display,
+    Clone,
+    Hash,
+    PartialEq,
+    Eq,
+    Allocative,
+    Pagable
+)]
 #[display("{}", key)]
 struct ConfigPropertyKey {
     key: String,
@@ -172,6 +189,10 @@ impl ProjectionKey for ConfigPropertyKey {
     type DeriveFromKey = ConfigKey;
     /// And produce a string.
     type Value = Arc<String>;
+
+    fn value_serialize() -> impl dice::ValueSerialize<Value = Self::Value> {
+        dice::NoValueSerialize::<Self::Value>::new()
+    }
 
     fn compute(
         &self,

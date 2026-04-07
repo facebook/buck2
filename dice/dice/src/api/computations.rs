@@ -23,11 +23,13 @@ use pagable::Pagable;
 use pagable::pagable_typetag;
 
 use crate::DiceKeyTrackedInvalidationPaths;
+use crate::OpaqueValue;
 use crate::ProjectionKey;
 use crate::UserCycleDetectorGuard;
 use crate::api::data::DiceData;
 use crate::api::key::Key;
-use crate::api::opaque::OpaqueValue;
+use crate::api::key::NoValueSerialize;
+use crate::api::key::ValueSerialize;
 use crate::api::user_data::UserComputationData;
 use crate::ctx::DiceComputationsImpl;
 use crate::ctx::LinearRecomputeDiceComputationsImpl;
@@ -458,6 +460,10 @@ fn _assert_dice_compute_future_sizes() {
 
         fn equality(x: &Self::Value, y: &Self::Value) -> bool {
             panic!()
+        }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            NoValueSerialize::<Self::Value>::new()
         }
     }
     let k: K = panic!();

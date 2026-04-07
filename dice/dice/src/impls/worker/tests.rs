@@ -46,6 +46,8 @@ use crate::api::computations::DiceComputations;
 use crate::api::data::DiceData;
 use crate::api::key::InvalidationSourcePriority;
 use crate::api::key::Key;
+use crate::api::key::NoValueSerialize;
+use crate::api::key::ValueSerialize;
 use crate::api::storage_type::StorageType;
 use crate::api::user_data::NoOpTracker;
 use crate::api::user_data::UserComputationData;
@@ -98,6 +100,10 @@ impl Key for K {
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {
         x == y
     }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        NoValueSerialize::<Self::Value>::new()
+    }
 }
 
 #[derive(Allocative, Clone, Debug, Display, PagablePanic)]
@@ -119,6 +125,10 @@ impl Key for IsRan {
 
     fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
         false
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        NoValueSerialize::<Self::Value>::new()
     }
 }
 
@@ -149,6 +159,10 @@ impl Key for Finish {
 
     fn equality(_: &Self::Value, _: &Self::Value) -> bool {
         true
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        NoValueSerialize::<Self::Value>::new()
     }
 }
 
@@ -288,6 +302,10 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
 
         fn equality(x: &Self::Value, y: &Self::Value) -> bool {
             x == y
+        }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            NoValueSerialize::<Self::Value>::new()
         }
     }
     impl PartialEq for InstanceEqualKey {
@@ -437,6 +455,10 @@ async fn spawn_with_previously_cancelled_task_that_cancelled() {
         fn equality(_: &Self::Value, _: &Self::Value) -> bool {
             unreachable!("test")
         }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            NoValueSerialize::<Self::Value>::new()
+        }
     }
 
     let k = dice.key_index.index_key(CancellableNeverFinish);
@@ -504,6 +526,10 @@ async fn spawn_with_previously_cancelled_task_that_finished() {
 
         fn equality(_: &Self::Value, _: &Self::Value) -> bool {
             true
+        }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            NoValueSerialize::<Self::Value>::new()
         }
     }
 
@@ -646,6 +672,10 @@ async fn spawn_with_previously_cancelled_task_nested_cancelled() -> anyhow::Resu
         fn equality(x: &Self::Value, y: &Self::Value) -> bool {
             x == y
         }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            NoValueSerialize::<Self::Value>::new()
+        }
     }
 
     let dice = Dice::new(DiceData::new());
@@ -749,6 +779,10 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
 
         fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
             false
+        }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            NoValueSerialize::<Self::Value>::new()
         }
     }
 
@@ -1322,6 +1356,10 @@ async fn _run_cancellation_caching_test(
         fn equality(_: &Self::Value, _: &Self::Value) -> bool {
             unreachable!("test")
         }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            NoValueSerialize::<Self::Value>::new()
+        }
     }
 
     let dice = Dice::builder().build(DetectCycles::Disabled);
@@ -1509,5 +1547,9 @@ impl Key for SPKey {
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {
         x == y
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        NoValueSerialize::<Self::Value>::new()
     }
 }

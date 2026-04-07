@@ -37,13 +37,13 @@ use pagable::pagable_typetag;
 #[display("Var({})", _0)]
 pub struct Var(pub Arc<String>);
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug, Allocative)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Allocative, Pagable)]
 pub enum Unit {
     Var(Var),
     Literal(i64),
 }
 
-#[derive(PartialEq, Eq, Clone, Debug, Allocative)]
+#[derive(PartialEq, Eq, Clone, Debug, Allocative, Pagable)]
 pub enum Equation {
     Add(Vec<Unit>),
     Unit(Unit),
@@ -137,6 +137,10 @@ pub struct EvalVar(pub Var);
 impl Key for EvalVar {
     type Value = Result<i64, Arc<anyhow::Error>>;
 
+    fn value_serialize() -> impl dice::ValueSerialize<Value = Self::Value> {
+        dice::NoValueSerialize::<Self::Value>::new()
+    }
+
     async fn compute(
         &self,
         ctx: &mut DiceComputations,
@@ -198,6 +202,10 @@ async fn lookup_unit(ctx: &mut DiceComputations<'_>, var: &Var) -> anyhow::Resul
 struct LookupVar(Var);
 impl InjectedKey for LookupVar {
     type Value = Arc<Equation>;
+
+    fn value_serialize() -> impl dice::ValueSerialize<Value = Self::Value> {
+        dice::NoValueSerialize::<Self::Value>::new()
+    }
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {
         x == y

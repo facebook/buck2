@@ -19,6 +19,8 @@ use dice::DiceComputations;
 use dice::DiceKeyDyn;
 use dice::InjectedKey;
 use dice::Key;
+use dice::NoValueSerialize;
+use dice::ValueSerialize;
 use dice_futures::cancellation::CancellationContext;
 use pagable::Pagable;
 use pagable::PagableTagged;
@@ -34,6 +36,10 @@ async fn test_a_multiversion_bug() {
     #[async_trait]
     impl InjectedKey for Leaf {
         type Value = u32;
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            NoValueSerialize::<Self::Value>::new()
+        }
 
         fn equality(x: &Self::Value, y: &Self::Value) -> bool {
             x == y
@@ -56,6 +62,10 @@ async fn test_a_multiversion_bug() {
     #[async_trait]
     impl Key for Derived {
         type Value = u32;
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            NoValueSerialize::<Self::Value>::new()
+        }
 
         async fn compute(
             &self,

@@ -21,6 +21,8 @@ use dice::DiceKeyDyn;
 use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
 use dice::Key;
+use dice::NoValueSerialize;
+use dice::ValueSerialize;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::FutureExt;
@@ -38,7 +40,17 @@ use serde::Serialize;
 #[serde(transparent)]
 pub struct Var(pub usize);
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize, Allocative)]
+#[derive(
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    Debug,
+    Serialize,
+    Deserialize,
+    Allocative,
+    Pagable
+)]
 pub enum Unit {
     Variable(Var),
     Literal(bool),
@@ -87,6 +99,10 @@ impl InjectedKey for LookupVar {
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {
         x == y
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        NoValueSerialize::<Self::Value>::new()
     }
 }
 
@@ -205,6 +221,10 @@ impl<T> MaybeTransient<T> {
 #[async_trait]
 impl Key for EvalVar {
     type Value = Result<MaybeTransient<bool>, Arc<anyhow::Error>>;
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        NoValueSerialize::<Self::Value>::new()
+    }
 
     async fn compute(
         &self,

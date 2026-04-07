@@ -172,6 +172,7 @@
 #![feature(fn_traits)]
 #![feature(test)]
 #![feature(map_try_insert)]
+#![feature(type_alias_impl_trait)]
 // This sometimes flag false positives where proc-macros expand pass by value into pass by refs
 #![allow(clippy::trivially_copy_pass_by_ref)]
 

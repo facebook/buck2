@@ -223,6 +223,10 @@ async fn lookup_company_resource_cost(
     struct LookupCompanyResourceCost(LookupCompany, Resource);
     #[async_trait]
     impl Key for LookupCompanyResourceCost {
+        fn value_serialize() -> impl dice::ValueSerialize<Value = Self::Value> {
+            dice::NoValueSerialize::<Self::Value>::new()
+        }
+
         type Value = Result<Option<u16>, Arc<anyhow::Error>>;
 
         async fn compute(
@@ -291,6 +295,10 @@ impl Cost for DiceComputations<'_> {
         struct LookupResourceCost(Resource);
         #[async_trait]
         impl Key for LookupResourceCost {
+            fn value_serialize() -> impl dice::ValueSerialize<Value = Self::Value> {
+                dice::NoValueSerialize::<Self::Value>::new()
+            }
+
             type Value = Result<Option<u16>, Arc<anyhow::Error>>;
 
             async fn compute(
@@ -365,6 +373,9 @@ impl CostUpdater for DiceTransactionUpdater {
 pub struct LookupCompany(pub Arc<String>);
 impl InjectedKey for LookupCompany {
     type Value = Arc<Company>;
+    fn value_serialize() -> impl dice::ValueSerialize<Value = Self::Value> {
+        dice::NoValueSerialize::<Self::Value>::new()
+    }
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {
         x == y
@@ -379,6 +390,9 @@ impl InjectedKey for LookupCompany {
 pub struct LookupResource(pub Resource);
 impl InjectedKey for LookupResource {
     type Value = Arc<Vec<LookupCompany>>;
+    fn value_serialize() -> impl dice::ValueSerialize<Value = Self::Value> {
+        dice::NoValueSerialize::<Self::Value>::new()
+    }
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {
         x == y

@@ -34,6 +34,9 @@ async fn test_dice_recompute_doesnt_reuse_wrong_deps() -> anyhow::Result<()> {
 
     impl InjectedKey for Leaf {
         type Value = u32;
+        fn value_serialize() -> impl dice::ValueSerialize<Value = Self::Value> {
+            dice::NoValueSerialize::<Self::Value>::new()
+        }
         fn equality(x: &Self::Value, y: &Self::Value) -> bool {
             *x == *y
         }
@@ -49,6 +52,10 @@ async fn test_dice_recompute_doesnt_reuse_wrong_deps() -> anyhow::Result<()> {
     #[async_trait]
     impl Key for Derived {
         type Value = u32;
+
+        fn value_serialize() -> impl dice::ValueSerialize<Value = Self::Value> {
+            dice::NoValueSerialize::<Self::Value>::new()
+        }
 
         async fn compute(
             &self,
@@ -97,6 +104,9 @@ async fn test_dice_clear_doesnt_break_ongoing_computation() -> anyhow::Result<()
     #[async_trait]
     impl Key for Fib {
         type Value = Option<u32>;
+        fn value_serialize() -> impl dice::ValueSerialize<Value = Self::Value> {
+            dice::NoValueSerialize::<Self::Value>::new()
+        }
 
         async fn compute(
             &self,
@@ -158,6 +168,9 @@ fn test_dice_clear_doesnt_cause_inject_compute() {
         #[async_trait]
         impl Key for Node {
             type Value = u32;
+            fn value_serialize() -> impl dice::ValueSerialize<Value = Self::Value> {
+                dice::NoValueSerialize::<Self::Value>::new()
+            }
 
             async fn compute(
                 &self,
@@ -182,6 +195,9 @@ fn test_dice_clear_doesnt_cause_inject_compute() {
 
         impl InjectedKey for Leaf {
             type Value = u32;
+            fn value_serialize() -> impl dice::ValueSerialize<Value = Self::Value> {
+                dice::NoValueSerialize::<Self::Value>::new()
+            }
 
             fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
                 false

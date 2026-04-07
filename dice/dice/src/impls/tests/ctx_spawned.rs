@@ -27,6 +27,8 @@ use crate::api::computations::DiceComputations;
 use crate::api::cycles::DetectCycles;
 use crate::api::injected::InjectedKey;
 use crate::api::key::Key;
+use crate::api::key::NoValueSerialize;
+use crate::api::key::ValueSerialize;
 use crate::impls::dice::Dice;
 
 #[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative, Pagable)]
@@ -40,6 +42,10 @@ impl InjectedKey for Injected {
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {
         x == y
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        NoValueSerialize::<Self::Value>::new()
     }
 }
 
@@ -65,6 +71,10 @@ impl Key for SpawnedKey {
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {
         x == y
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        NoValueSerialize::<Self::Value>::new()
     }
 }
 
@@ -111,6 +121,10 @@ async fn spawned_tracks_deps() -> anyhow::Result<()> {
 
         fn equality(x: &Self::Value, y: &Self::Value) -> bool {
             x == y
+        }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            NoValueSerialize::<Self::Value>::new()
         }
     }
 
@@ -177,6 +191,10 @@ async fn spawned_multiple() -> anyhow::Result<()> {
 
         fn equality(x: &Self::Value, y: &Self::Value) -> bool {
             x == y
+        }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            NoValueSerialize::<Self::Value>::new()
         }
     }
 

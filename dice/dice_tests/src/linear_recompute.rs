@@ -39,6 +39,9 @@ async fn test_linear_recompute_tracks_deps() {
 
     #[async_trait]
     impl Key for K {
+        fn value_serialize() -> impl dice::ValueSerialize<Value = Self::Value> {
+            dice::NoValueSerialize::<Self::Value>::new()
+        }
         type Value = u32;
 
         async fn compute(

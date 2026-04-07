@@ -38,6 +38,8 @@ use crate::api::computations::DiceComputations;
 use crate::api::cycles::DetectCycles;
 use crate::api::injected::InjectedKey;
 use crate::api::key::Key;
+use crate::api::key::NoValueSerialize;
+use crate::api::key::ValueSerialize;
 use crate::api::user_data::UserComputationData;
 use crate::versions::VersionNumber;
 
@@ -52,6 +54,9 @@ impl InjectedKey for Foo {
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {
         x == y
+    }
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        NoValueSerialize::<Self::Value>::new()
     }
 }
 
@@ -85,6 +90,10 @@ impl Key for KeyThatRuns {
 
     fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
         true
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        NoValueSerialize::<Self::Value>::new()
     }
 }
 
@@ -176,6 +185,10 @@ fn dice_computations_are_parallel() {
         fn equality(x: &Self::Value, y: &Self::Value) -> bool {
             x == y
         }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            NoValueSerialize::<Self::Value>::new()
+        }
     }
 
     rt.block_on(async move {
@@ -216,6 +229,7 @@ async fn different_data_per_compute_ctx() {
     #[display("{:?}", self)]
     #[pagable_typetag(DiceKeyDyn)]
     struct DataRequest(u8);
+
     #[async_trait]
     impl Key for DataRequest {
         type Value = usize;
@@ -230,6 +244,10 @@ async fn different_data_per_compute_ctx() {
 
         fn equality(x: &Self::Value, y: &Self::Value) -> bool {
             x == y
+        }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            NoValueSerialize::<Self::Value>::new()
         }
     }
 
@@ -281,6 +299,10 @@ fn invalid_update() {
         fn validity(_x: &Self::Value) -> bool {
             false
         }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            NoValueSerialize::<Self::Value>::new()
+        }
     }
 
     let dice = Dice::new(DiceData::new());
@@ -329,6 +351,10 @@ impl Key for Fib {
             (Ok(x), Ok(y)) => x == y,
             _ => false,
         }
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        NoValueSerialize::<Self::Value>::new()
     }
 }
 
@@ -496,6 +522,10 @@ async fn dropping_request_future_cancels_execution() {
         fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
             true
         }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            NoValueSerialize::<Self::Value>::new()
+        }
     }
 
     let barrier1 = Arc::new(tokio::sync::Barrier::new(2));
@@ -598,6 +628,10 @@ async fn user_cycle_detector_is_present(dice: Arc<Dice>) -> anyhow::Result<()> {
 
         fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
             true
+        }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            NoValueSerialize::<Self::Value>::new()
         }
     }
 

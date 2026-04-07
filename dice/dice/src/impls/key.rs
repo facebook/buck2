@@ -578,6 +578,8 @@ mod tests {
     use crate::DiceKeyDyn;
     use crate::api::computations::DiceComputations;
     use crate::api::key::Key;
+    use crate::api::key::NoValueSerialize;
+    use crate::api::key::ValueSerialize;
     use crate::api::projection::DiceProjectionComputations;
     use crate::api::projection::ProjectionKey;
     use crate::impls::key::DiceKey;
@@ -603,6 +605,10 @@ mod tests {
 
             fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
                 unimplemented!("test")
+            }
+
+            fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+                NoValueSerialize::<Self::Value>::new()
             }
         }
 
@@ -634,6 +640,10 @@ mod tests {
 
             fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
                 unimplemented!("test")
+            }
+
+            fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+                NoValueSerialize::<Self::Value>::new()
             }
         }
 
