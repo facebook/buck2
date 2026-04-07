@@ -20,6 +20,7 @@ use buck2_wrapper_common::pid::Pid;
 use sysinfo::ProcessRefreshKind;
 use sysinfo::ProcessesToUpdate;
 use sysinfo::System;
+use sysinfo::UpdateKind;
 use tonic::Request;
 use tonic::codegen::InterceptedService;
 use tonic::transport::Channel;
@@ -218,23 +219,31 @@ async fn hard_kill_impl(
 }
 
 fn get_callers_for_kill() -> Vec<String> {
+    let refresh_kind = ProcessRefreshKind::nothing().with_cmd(UpdateKind::OnlyIfNotSet);
+
     /// Add a process to our parts and return its parent PID.
     fn push_process(
         pid: sysinfo::Pid,
         creation_time: Duration,
         system: &mut System,
         process_tree: &mut Vec<String>,
+        refresh_kind: ProcessRefreshKind,
     ) -> Option<(sysinfo::Pid, Duration)> {
         // Specifics about this process need to be refreshed by this time.
         let proc = system.process(pid)?;
         let title = shlex::try_join(proc.cmd().iter().filter_map(|s| s.to_str()))
             .expect("Null byte unexpected");
+        let title = if title.is_empty() {
+            proc.name().to_str().unwrap_or("<unknown>").to_owned()
+        } else {
+            title
+        };
         process_tree.push(title);
         let parent_pid = proc.parent()?;
         system.refresh_processes_specifics(
             ProcessesToUpdate::Some(&[parent_pid]),
             true,
-            ProcessRefreshKind::nothing(),
+            refresh_kind,
         );
         let parent_proc = system.process(parent_pid)?;
         let parent_creation_time = kill::process_creation_time(parent_proc)?;
@@ -249,16 +258,18 @@ fn get_callers_for_kill() -> Vec<String> {
     let mut process_tree = Vec::new();
 
     let pid = sysinfo::Pid::from_u32(std::process::id());
-    system.refresh_processes_specifics(
-        ProcessesToUpdate::Some(&[pid]),
-        true,
-        ProcessRefreshKind::nothing(),
-    );
+    system.refresh_processes_specifics(ProcessesToUpdate::Some(&[pid]), true, refresh_kind);
     let mut curr = system
         .process(pid)
         .and_then(|proc| Some((pid, kill::process_creation_time(proc)?)));
     while let Some((pid, creation_time)) = curr {
-        curr = push_process(pid, creation_time, &mut system, &mut process_tree);
+        curr = push_process(
+            pid,
+            creation_time,
+            &mut system,
+            &mut process_tree,
+            refresh_kind,
+        );
     }
 
     process_tree.into_iter().rev().collect()
