@@ -18,8 +18,6 @@ main module, you can import this module as tools.test.stubs.fbpyunit, to access
 any of its code to help implement your main module.
 """
 
-from __future__ import print_function
-
 import contextlib
 import ctypes
 import fnmatch
@@ -34,20 +32,13 @@ import time
 import traceback
 import unittest
 from importlib.machinery import PathFinder
+from io import StringIO
 
-
-try:
-    from StringIO import StringIO  # type: ignore
-except ImportError:
-    from io import StringIO
 try:
     import coverage  # type: ignore
 except ImportError:
     coverage = None
-try:
-    from importlib.machinery import SourceFileLoader
-except ImportError:
-    SourceFileLoader = None
+from importlib.machinery import SourceFileLoader
 
 
 EXIT_CODE_SUCCESS = 0
@@ -134,10 +125,10 @@ class DebugWipeFinder(PathFinder):
 def optimize_for_coverage(cov, include_patterns, omit_patterns):
     """
     We get better performance if we zero out debug information for files which
-    we're not interested in. Only available in CPython 3.3+
+    we're not interested in. Only available in CPython.
     """
     matcher = PathMatcher(include_patterns, omit_patterns)
-    if SourceFileLoader and platform.python_implementation() == "CPython":
+    if platform.python_implementation() == "CPython":
         sys.meta_path.insert(0, DebugWipeFinder(matcher))
 
 

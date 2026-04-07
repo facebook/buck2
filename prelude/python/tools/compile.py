@@ -23,6 +23,8 @@ compile.py --output=out-dir --bytecode-manifest=output.manifest --ignore-errors 
 
 import argparse
 import errno
+import importlib
+import importlib.util
 import json
 import os
 import re
@@ -33,14 +35,7 @@ from py_compile import compile, PycInvalidationMode, PyCompileError
 from types import TracebackType
 from typing import List, Type
 
-
-if sys.version_info[0] == 3:
-    import importlib
-    import importlib.util
-
-    DEFAULT_FORMAT: str = importlib.util.cache_from_source("{pkg}/{name}.py")
-else:
-    DEFAULT_FORMAT: str = "{pkg}/{name}.pyc"
+DEFAULT_FORMAT: str = importlib.util.cache_from_source("{pkg}/{name}.py")
 
 
 def get_py_path(module: str) -> str:
