@@ -88,9 +88,7 @@ class LiveBuilder(ParBuilder):
                     handle.write(entry.src_data)
 
         header = self._gen_header()
-        if sys.version_info[0] >= 3:
-            header = bytes(header, "UTF-8")
-        output_file.write(header)
+        output_file.write(bytes(header, "UTF-8"))
 
         bootstrap_template = os.path.join(
             os.path.dirname(__file__), "_lpar_bootstrap.sh.template"

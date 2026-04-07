@@ -17,7 +17,7 @@ class ParBuilder:
     Abstract class that represents the process of building a .par file
     """
 
-    def __init__(self, options, manifest, mode=None, warnings=None):
+    def __init__(self, options, manifest, mode=None):
         self.options = options
         self.manifest = manifest
         self.output = options.output
@@ -27,7 +27,6 @@ class ParBuilder:
         self.runtime_env = options.runtime_env
         self.runtime_args = options.runtime_args
         self.ld_preload = options.ld_preload
-        self.exe = None
 
         self.python = options.python
         self.python_home = options.python_home or None
