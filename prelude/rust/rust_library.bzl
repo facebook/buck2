@@ -893,7 +893,7 @@ def _advanced_unstable_link_providers(
                 # if this target actually requested that. Opt ourselves out
                 # if it didn't.
                 ignore_force_static_follows_dependents = preferred_linkage != Linkage("static"),
-                include_in_android_mergemap = False,  # TODO(pickett): Plumb D54748362 to the macro layer
+                include_in_android_mergemap = getattr(ctx.attrs, "include_in_android_merge_map_output", True),
             ),
         ),
         deps = inherited_graphs + inherited_exported_deps,
@@ -1097,7 +1097,7 @@ def _native_link_providers(
                 link_infos = link_infos,
                 shared_libs = shared_libs,
                 default_soname = shlib_name,
-                include_in_android_mergemap = False,
+                include_in_android_mergemap = getattr(ctx.attrs, "include_in_android_merge_map_output", True),
             ),
         ),
         deps = inherited_link_graphs + inherited_exported_deps,

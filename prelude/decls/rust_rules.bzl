@@ -206,6 +206,7 @@ rust_library = prelude_rule(
             "crate_dynamic": attrs.option(attrs.dep(), default = None),
             "doc_env": rust_common.env_arg()["env"],
             "doctests": attrs.option(attrs.bool(), default = None),
+            "include_in_android_merge_map_output": attrs.bool(default = True),
             "proc_macro": attrs.bool(default = False),
             "supports_python_dlopen": attrs.option(attrs.bool(), default = None),
         } |
