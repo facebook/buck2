@@ -244,9 +244,8 @@ async def test_sqlite_materializer_state_buckconfig_version_change(
     skip_for_os=["windows"],
 )
 async def test_materialization_spans_have_parent_id(buck: Buck) -> None:
-    """Materialization spans emitted from the deferred materializer currently
-    lack a parent span. This test documents that behavior; later diffs in
-    this stack fix it by proxying the current_span across threads/tasks."""
+    """Materialization spans should be parented to the span that triggered them,
+    not appear as root spans with parent_id == 0."""
     await buck.build("//:check")
 
     materialization_events = await filter_events(
@@ -261,9 +260,39 @@ async def test_materialization_spans_have_parent_id(buck: Buck) -> None:
 
     assert len(materialization_events) > 0, "Expected at least one Materialization span"
     for event in materialization_events:
-        # TODO(D93334098): These should have parent_id != 0.
-        assert event["Event"]["parent_id"] == 0, (
-            f"Materialization span unexpectedly has a parent: {event}"
+        assert event["Event"]["parent_id"] != 0, (
+            f"Materialization span has parent_id == 0 (no parent): {event}"
+        )
+
+
+@buck_test(
+    data_dir="modify_deferred_materialization_deps",
+    skip_for_os=["windows"],
+)
+async def test_materializer_command_events_have_parent_id(buck: Buck) -> None:
+    """MaterializerCommand instant events emitted on the synchronous command
+    processing thread should be parented to the span that sent the command,
+    not appear as root events with parent_id == 0.  This requires
+    verbose_materializer_event_log = true in .buckconfig."""
+    await buck.build("//:check")
+
+    command_events = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "Instant",
+        "data",
+        "MaterializerCommand",
+        return_root=True,
+    )
+
+    assert len(command_events) > 0, (
+        "Expected at least one MaterializerCommand instant event "
+        "(is verbose_materializer_event_log enabled?)"
+    )
+    for event in command_events:
+        assert event["Event"]["parent_id"] != 0, (
+            f"MaterializerCommand event has parent_id == 0 (no parent): {event}"
         )
 
 

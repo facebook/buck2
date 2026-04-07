@@ -22,6 +22,7 @@ use buck2_data::error::ErrorTag;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_events::dispatch::SpanProxyAsync;
 use buck2_events::dispatch::get_dispatcher_opt;
 use buck2_events::dispatch::maybe_proxy_current_span;
 use buck2_events::dispatch::with_dispatcher_async;
@@ -397,7 +398,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         // well enough to be confident in removing it
         match get_dispatcher_opt() {
             Some(dispatcher) => rt.spawn(with_dispatcher_async(dispatcher, f)),
-            None => rt.spawn(f),
+            None => rt.spawn(SpanProxyAsync::new(f)),
         }
     }
 

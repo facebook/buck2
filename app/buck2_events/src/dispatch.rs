@@ -497,12 +497,12 @@ where
     EVENTS.sync_scope(dispatcher, func)
 }
 
-// Wraps the Future fut with a TaskLocalFuture that sets the task_local dispatcher before polling fut.
+// Wraps the Future fut with a TaskLocalFuture that sets the task_local dispatcher and the current_span (if any) before polling fut.
 pub fn with_dispatcher_async<F, R>(dispatcher: EventDispatcher, fut: F) -> impl Future<Output = R>
 where
     F: Future<Output = R>,
 {
-    EVENTS.scope(dispatcher, fut)
+    EVENTS.scope(dispatcher, SpanProxyAsync::new(fut))
 }
 
 /// Get the ambient dispatcher, if one is available (and None otherwise). In contexts that aren't
