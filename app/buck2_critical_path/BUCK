@@ -8,7 +8,7 @@ rust_library(
     test_deps = [
         "fbsource//third-party/rust:rand_09",
         "fbsource//third-party/rust:rand_chacha_09",
-        "fbsource//third-party/rust:rand_distr",
+        "fbsource//third-party/rust:rand_distr_05",
     ],
     deps = [
         "fbsource//third-party/rust:crossbeam",
