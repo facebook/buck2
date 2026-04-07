@@ -536,14 +536,14 @@ impl DaemonCommand {
                             let _ignored = buck2_client_ctx::eprintln!("{:#}", err);
                             if inaccessible_count == 1 {
                                 let _ignored = soft_error!(
-                                    "daemon_working_dir_inaccessible_first", err, quiet: true,
+                                    "project_root_inaccessible_first", err, quiet: true,
                                     // Log at least one sample per error code.
                                     low_cardinality_key_for_additional_logview_samples: Some(Box::new(
                                         raw_os_error.map_or("none".to_owned(), |c| c.to_string())
                                     )),
                                 );
                             } else {
-                                let _ignored = soft_error!("daemon_working_dir_inaccessible_again", err, quiet: true);
+                                let _ignored = soft_error!("project_root_inaccessible_again", err, quiet: true);
                             }
                         }
                         // TODO: hard shutdown when working directory is inaccessible
@@ -569,7 +569,7 @@ impl DaemonCommand {
                                 let raw_os_error =
                                 recovered_error.as_ref().and_then(|e| e.raw_os_error());
                                 let _ignored = soft_error!(
-                                    "daemon_working_dir_returned_first", err,
+                                    "project_root_returned_first", err,
                                     quiet: true,
                                     // Log at least one sample per error code.
                                     low_cardinality_key_for_additional_logview_samples: Some(Box::new(
@@ -577,7 +577,7 @@ impl DaemonCommand {
                                     )),
                                 );
                             } else {
-                                let _ignored = soft_error!("daemon_working_dir_returned_again", err, quiet: true);
+                                let _ignored = soft_error!("project_root_returned_again", err, quiet: true);
                             }
                         }
                     }
