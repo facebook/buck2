@@ -17,9 +17,9 @@ import os
 import sys
 import threading
 import warnings
+from collections.abc import Callable
 from importlib.machinery import PathFinder
 from importlib.util import module_from_spec
-from typing import Callable
 
 lock = threading.Lock()
 
@@ -33,9 +33,7 @@ def __patch_ctypes(saved_env: dict[str, str]) -> None:
         if sys.platform == "darwin":
             from ctypes.macholib.dyld import dyld_find
 
-            env = {}
-            env.update(os.environ)
-            env.update(saved_env)
+            env = {**os.environ, **saved_env}
             for candidate in [
                 f"lib{name}.dylib",
                 f"{name}.dylib",
