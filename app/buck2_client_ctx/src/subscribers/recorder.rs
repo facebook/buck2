@@ -228,6 +228,8 @@ pub struct InvocationRecorder {
     peak_process_memory_bytes: Option<u64>,
     has_new_buckconfigs: bool,
     peak_used_disk_space_bytes: Option<u64>,
+    peak_normalized_system_load1: Option<f64>,
+    peak_normalized_system_load5: Option<f64>,
     active_networks_kinds: StdBuckHashSet<i32>,
     target_cfg: Option<TargetCfg>,
     hg_revision: Option<String>,
@@ -440,6 +442,8 @@ impl InvocationRecorder {
             peak_process_memory_bytes: None,
             has_new_buckconfigs: false,
             peak_used_disk_space_bytes: None,
+            peak_normalized_system_load1: None,
+            peak_normalized_system_load5: None,
             active_networks_kinds: StdBuckHashSet::default(),
             target_cfg: None,
             hg_revision: None,
@@ -1123,6 +1127,8 @@ impl InvocationRecorder {
             event_log_manifold_ttl_s: manifold_event_log_ttl().ok().map(|t| t.as_secs()),
             total_disk_space_bytes: self.system_info.total_disk_space_bytes.take(),
             peak_used_disk_space_bytes: self.peak_used_disk_space_bytes.take(),
+            peak_normalized_system_load1: self.peak_normalized_system_load1.take(),
+            peak_normalized_system_load5: self.peak_normalized_system_load5.take(),
             zdb_download_queries,
             zdb_download_bytes,
             zdb_upload_queries,
@@ -1981,6 +1987,20 @@ impl InvocationRecorder {
             self.peak_used_disk_space_bytes,
             update.used_disk_space_bytes,
         );
+
+        if let Some(ref unix_stats) = update.unix_system_stats {
+            let num_cores = self.system_info.num_cores.unwrap_or(1) as f64;
+            let normalized_load1 = unix_stats.load1 / num_cores;
+            let normalized_load5 = unix_stats.load5 / num_cores;
+            self.peak_normalized_system_load1 = Some(
+                self.peak_normalized_system_load1
+                    .map_or(normalized_load1, |v| f64::max(v, normalized_load1)),
+            );
+            self.peak_normalized_system_load5 = Some(
+                self.peak_normalized_system_load5
+                    .map_or(normalized_load5, |v| f64::max(v, normalized_load5)),
+            );
+        }
 
         // Track maximum buck2 daemon memory usage from cgroup
         if let Some(allprocs_cgroup) = &update.allprocs_cgroup {

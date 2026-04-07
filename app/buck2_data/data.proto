@@ -2783,6 +2783,10 @@ message InvocationRecord {
 
   // Absolute path to the repo (project root).
   optional string repo_path = 431;
+
+  // Peak normalized system load averages during the invocation.
+  optional double peak_normalized_system_load1 = 432;
+  optional double peak_normalized_system_load5 = 433;
 }
 
 enum InvocationOutcome {
