@@ -100,7 +100,6 @@ class LiveBuilder(ParBuilder):
             os.chmod(f.name, self.mode)
 
     def _gen_header(self):
-        # TODO we should use pathlib for all this
         linktreedir = self.linktree.rsplit("/", 1)[-1]
 
         base_dir = '$(dirname $(readlink -f "$0"))/' + linktreedir

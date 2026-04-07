@@ -14,11 +14,11 @@ import tempfile
 
 class ParBuilder:
     """
-    Asbtract class that represents the process of build a .par file
+    Abstract class that represents the process of building a .par file
     """
 
     def __init__(self, options, manifest, mode=None, warnings=None):
-        self.options = options  # lets not pass this around anymore
+        self.options = options
         self.manifest = manifest
         self.output = options.output
         self.strict_tabs = options.strict_tabs
