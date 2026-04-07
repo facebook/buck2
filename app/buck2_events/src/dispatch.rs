@@ -82,6 +82,19 @@ impl EventDispatcher {
         }
     }
 
+    /// Creates an Event Dispatcher that reports a soft_error if any event is
+    /// dispatched through it. Used as a sentinel for code paths that should not
+    /// emit events; if they do, it means a real EventDispatcher needs to be
+    /// threaded through from the caller/requestor.
+    pub fn error_on_event() -> EventDispatcher {
+        use crate::sink::error_on_event::ErrorOnEventSink;
+        EventDispatcher {
+            trace_id: TraceId::null(),
+            daemon_id: DaemonId::null(),
+            sink: Arc::new(ErrorOnEventSink),
+        }
+    }
+
     /// Emits an event annotated with the current trace ID.
     pub fn buck_event(&self, data: buck_event::Data) {
         self.event_with_span_id(data, None, current_span());

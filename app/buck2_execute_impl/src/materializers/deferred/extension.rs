@@ -18,6 +18,7 @@ use std::time::Instant;
 use async_trait::async_trait;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
+use buck2_events::dispatch::EventDispatcher;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_execute::materialize::materializer::DeferredMaterializerEntry;
 use buck2_execute::materialize::materializer::DeferredMaterializerExtensions;
@@ -248,7 +249,7 @@ impl<T: IoHandler> ExtensionCommand<T> for RefreshTtls {
             Duration::seconds(self.min_ttl),
             processor.io.digest_config(),
         )
-        .map(|f| processor.spawn(f));
+        .map(|f| processor.spawn(&EventDispatcher::error_on_event(), f));
         let _ignored = self.sender.send(task);
     }
 }

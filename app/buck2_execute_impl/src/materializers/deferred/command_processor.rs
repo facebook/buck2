@@ -22,8 +22,6 @@ use buck2_data::error::ErrorTag;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_events::dispatch::EventDispatcher;
-use buck2_events::dispatch::SpanProxyAsync;
-use buck2_events::dispatch::get_dispatcher_opt;
 use buck2_events::dispatch::maybe_proxy_current_span;
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_events::span::SpanId;
@@ -389,17 +387,13 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         }
     }
 
-    fn spawn_from_rt<F>(rt: &Handle, f: F) -> JoinHandle<F::Output>
+    fn spawn_from_rt<F>(rt: &Handle, dispatcher: &EventDispatcher, f: F) -> JoinHandle<F::Output>
     where
         F: std::future::Future + Send + 'static,
         F::Output: Send + 'static,
     {
-        // FIXME(JakobDegen): Ideally there wouldn't be a `None` case, but I don't know this code
-        // well enough to be confident in removing it
-        match get_dispatcher_opt() {
-            Some(dispatcher) => rt.spawn(with_dispatcher_async(dispatcher, f)),
-            None => rt.spawn(SpanProxyAsync::new(f)),
-        }
+        let dispatcher = dispatcher.dupe();
+        rt.spawn(with_dispatcher_async(dispatcher, f))
     }
 
     fn get_artifact_ttl(
@@ -429,12 +423,12 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         }
     }
 
-    pub(super) fn spawn<F>(&self, f: F) -> JoinHandle<F::Output>
+    pub(super) fn spawn<F>(&self, dispatcher: &EventDispatcher, f: F) -> JoinHandle<F::Output>
     where
         F: std::future::Future + Send + 'static,
         F::Output: Send + 'static,
     {
-        Self::spawn_from_rt(&self.rt, f)
+        Self::spawn_from_rt(&self.rt, dispatcher, f)
     }
 
     /// Loop that runs for as long as the materializer is alive.
@@ -508,7 +502,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                                 // `try_recv`.
                                 let (tx, rx) = oneshot::channel();
 
-                                self.spawn(async {
+                                self.spawn(&EventDispatcher::error_on_event(), async {
                                     let res = fut.await;
                                     let _ignored = tx.send((Utc::now(), res));
                                 });
@@ -597,7 +591,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     )
                 });
 
-                self.declare(&path, value, method);
+                self.declare(&path, value, method, &event_dispatcher);
 
                 if self.subscriptions.should_materialize_eagerly(&path) {
                     self.materialize_artifact(&path, event_dispatcher);
@@ -827,6 +821,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         path: &ProjectRelativePath,
         value: ArtifactValue,
         method: Box<ArtifactMaterializationMethod>,
+        event_dispatcher: &EventDispatcher,
     ) {
         self.stats.declares.fetch_add(1, Ordering::Relaxed);
 
@@ -939,6 +934,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 existing_futs,
                 &self.rt,
                 self.cancellations,
+                event_dispatcher,
             )),
         };
 
@@ -1204,6 +1200,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         let materialize_symlink_destination_tasks =
             self.materialize_symlink_destination_tasks(&stack, &event_dispatcher, path, deps);
 
+        let spawn_dispatcher = event_dispatcher.dupe();
         let materialize_entry = if let Some((entry, method)) = entry_and_method {
             let io = self.io.dupe();
             let path_buf = path.to_buf();
@@ -1220,7 +1217,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         let path_buf = path.to_buf();
         let command_sender = self.command_sender.dupe();
         let task = self
-            .spawn(async move {
+            .spawn(&spawn_dispatcher, async move {
                 let timestamp = Utc::now();
                 // Materialize the deps and this entry. Regardless of whether this succeeds or fails we
                 // need to notify the materializer, so don't check the result.
@@ -1382,6 +1379,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                                 ExistingFutures::empty(),
                                 &self.rt,
                                 self.cancellations,
+                                &EventDispatcher::error_on_event(),
                             ));
                             info.processing = Processing::Active { future, version };
                         }
@@ -1476,6 +1474,7 @@ fn clean_path<T: IoHandler>(
     existing_futs: ExistingFutures,
     rt: &Handle,
     cancellations: &'static CancellationContext,
+    dispatcher: &EventDispatcher,
 ) -> CleaningFuture {
     if existing_futs.is_empty() {
         return io
@@ -1483,7 +1482,7 @@ fn clean_path<T: IoHandler>(
             .shared();
     }
 
-    DeferredMaterializerCommandProcessor::<T>::spawn_from_rt(rt, {
+    DeferredMaterializerCommandProcessor::<T>::spawn_from_rt(rt, dispatcher, {
         let io = io.dupe();
         let cancellations = CancellationContext::never_cancelled();
         async move {
@@ -1603,7 +1602,13 @@ impl<T: IoHandler> TestingDeferredMaterializerCommandProcessor<T>
     }
 
     fn testing_declare(&mut self, path: &ProjectRelativePath, value: ArtifactValue) {
-        self.declare(path, value, Box::new(ArtifactMaterializationMethod::Test))
+        let dispatcher = self.daemon_dispatcher.dupe();
+        self.declare(
+            path,
+            value,
+            Box::new(ArtifactMaterializationMethod::Test),
+            &dispatcher,
+        )
     }
 
     fn testing_process_one_command(&mut self, command: MaterializerCommand<T>) {
