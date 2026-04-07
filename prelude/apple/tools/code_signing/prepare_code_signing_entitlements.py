@@ -37,15 +37,6 @@ def _postprocess_entitlements(
         entitlements = plistlib.load(f)
     original = copy.deepcopy(entitlements)
 
-    if entitlements_suffixed_key_map:
-        for key, suffix in entitlements_suffixed_key_map.items():
-            if key in entitlements:
-                value = entitlements[key]
-                if isinstance(value, str):
-                    entitlements[key] = value + suffix
-                elif isinstance(value, list):
-                    entitlements[key] = [v + suffix for v in value]
-
     if entitlements_removed_keys:
         for key in entitlements_removed_keys:
             entitlements.pop(key, None)
@@ -61,6 +52,15 @@ def _postprocess_entitlements(
                 elif isinstance(current, dict):
                     for v in values_to_remove:
                         current.pop(v, None)
+
+    if entitlements_suffixed_key_map:
+        for key, suffix in entitlements_suffixed_key_map.items():
+            if key in entitlements:
+                value = entitlements[key]
+                if isinstance(value, str):
+                    entitlements[key] = value + suffix
+                elif isinstance(value, list):
+                    entitlements[key] = [v + suffix for v in value]
 
     if entitlements != original:
         with open(output_path, "wb") as f:
