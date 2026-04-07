@@ -33,7 +33,7 @@ use std::ops::DerefMut;
 use std::sync::LazyLock;
 
 use base64::Engine;
-use rand::Rng;
+use rand::RngExt as _;
 use rand_distr::Exp1;
 use rand_distr::StandardUniform;
 use rand_xoshiro::Xoshiro256PlusPlus;

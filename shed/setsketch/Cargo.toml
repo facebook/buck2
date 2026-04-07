@@ -8,7 +8,7 @@ version = "0.1.0"
 
 [dependencies]
 base64 = { workspace = true }
-rand = { version = "0.9", features = ["small_rng"] }
+rand = { workspace = true }
 rand_distr = { workspace = true }
 rand_xoshiro = { workspace = true }
 
