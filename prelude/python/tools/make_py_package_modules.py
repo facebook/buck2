@@ -58,7 +58,6 @@ import platform
 import re
 import shutil
 from pathlib import Path
-from typing import Dict, Set, Tuple
 
 # Suffixes which should trigger `__init__.py` additions.
 # TODO(agallaher): This was copied from v1, but some things below probably
@@ -73,9 +72,9 @@ _MODULE_SUFFIXES = {
 _CONTENT_HASH_PLACEHOLDER: str = "/output_artifacts/"
 
 
-def create_pyc_hash_dict(args: argparse.Namespace) -> Dict[str, str]:
+def create_pyc_hash_dict(args: argparse.Namespace) -> dict[str, str]:
     """Construct a map of bytecode artifact path prefixes to content hashes."""
-    pyc_hash_dict: Dict[str, str] = {}
+    pyc_hash_dict: dict[str, str] = {}
     pattern = re.compile(
         r"(.*)/([a-fA-F0-9]{16})/(?:bytecode_CHECKED_HASH|bytecode_UNCHECKED_HASH)"
     )
@@ -90,7 +89,7 @@ def create_pyc_hash_dict(args: argparse.Namespace) -> Dict[str, str]:
     return pyc_hash_dict
 
 
-def replace_pyc_hash_placeholder(path: str, pyc_hash_dict: Dict[str, str]) -> str:
+def replace_pyc_hash_placeholder(path: str, pyc_hash_dict: dict[str, str]) -> str:
     """Replace the placeholder string in a bytecode artifact path with the actual content hash."""
     if _CONTENT_HASH_PLACEHOLDER in path:
         prefix = path.split(_CONTENT_HASH_PLACEHOLDER)[0]
@@ -190,7 +189,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _same_pyc(src1: Tuple[Path, str], src2: Tuple[Path, str]) -> bool:
+def _same_pyc(src1: tuple[Path, str], src2: tuple[Path, str]) -> bool:
     """
     Given two paths to .pyc files, return True if they are the same.
     """
@@ -218,8 +217,8 @@ def _same_pyc(src1: Tuple[Path, str], src2: Tuple[Path, str]) -> bool:
 
 
 def add_path_mapping(
-    path_mapping: Dict[Path, Tuple[str, str]],
-    dirs_to_create: Set[Path],
+    path_mapping: dict[Path, tuple[str, str]],
+    dirs_to_create: set[Path],
     src: Path,
     new_dest: Path,
     origin: str = "unknown",
@@ -293,10 +292,10 @@ def create_modules_dir(args: argparse.Namespace) -> None:
     pyc_hash_dict = create_pyc_hash_dict(args)
 
     # Mapping of destination files -> the symlink target (e.g. "../foo")
-    path_mapping: Dict[Path, Tuple[str, str]] = {}
+    path_mapping: dict[Path, tuple[str, str]] = {}
     # Set of directories that need to be created in the link tree before
     # symlinking
-    dirs_to_create: Set[Path] = set()
+    dirs_to_create: set[Path] = set()
     # Set of __init__.py files that need to be created at the end of the
     # link tree building if they don't exist, so that python recognizes them
     # as modules.

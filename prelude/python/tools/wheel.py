@@ -19,7 +19,7 @@ import shutil
 import sys
 import zipfile
 from types import TracebackType
-from typing import cast, Optional
+from typing import cast
 
 
 def normalize_name(name: str) -> str:
@@ -47,8 +47,8 @@ class WheelBuilder(contextlib.AbstractContextManager):
         python_tag: str = "py3",
         abi_tag: str = "none",
         platform_tag: str = "any",
-        entry_points: Optional[dict[str, str]] = None,
-        metadata: Optional[list[tuple[str, str]]] = None,
+        entry_points: dict[str, str] | None = None,
+        metadata: list[tuple[str, str]] | None = None,
     ) -> None:
         self._name = name
 
@@ -64,7 +64,7 @@ class WheelBuilder(contextlib.AbstractContextManager):
         self._platform_tag = platform_tag
         self._record: list[str] = []
         self._outf = zipfile.ZipFile(output, mode="w")
-        self._entry_points: Optional[dict[str, str]] = entry_points
+        self._entry_points: dict[str, str] | None = entry_points
         self._metadata: list[tuple[str, str]] = []
         self._metadata.append(("Name", name))
         self._metadata.append(("Version", version))
@@ -148,9 +148,9 @@ Tag: {self._python_tag}-{self._abi_tag}-{self._platform_tag}
 
     def __exit__(
         self,
-        exc_type: Optional[type[BaseException]],
-        exc_value: Optional[BaseException],
-        exc_tb: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> None:
         self.close()
 

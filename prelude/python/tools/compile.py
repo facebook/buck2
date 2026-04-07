@@ -33,7 +33,6 @@ import traceback
 from functools import partial
 from py_compile import compile, PycInvalidationMode, PyCompileError
 from types import TracebackType
-from typing import List, Type
 
 DEFAULT_FORMAT: str = importlib.util.cache_from_source("{pkg}/{name}.py")
 
@@ -79,7 +78,7 @@ def _hyperlink(file: str, line: int, text: str) -> str:
 
 
 def pretty_exception(
-    typ: Type[BaseException], exc: BaseException, tb: TracebackType, src: str
+    typ: type[BaseException], exc: BaseException, tb: TracebackType, src: str
 ) -> None:
     try:
         from colorama import Fore, just_fix_windows_console, Style
@@ -134,7 +133,7 @@ def pretty_exception(
         traceback.print_exception(typ, exc, tb)
 
 
-def main(argv: List[str]) -> None:
+def main(argv: list[str]) -> None:
     parser = argparse.ArgumentParser(fromfile_prefix_chars="@")
     parser.add_argument("-o", "--output", required=True)
     parser.add_argument(

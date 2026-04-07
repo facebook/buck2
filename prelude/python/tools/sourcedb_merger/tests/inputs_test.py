@@ -14,8 +14,8 @@ import json
 import os
 import tempfile
 import unittest
+from collections.abc import Generator, Mapping
 from pathlib import Path
-from typing import Generator, Mapping
 
 # pyre-fixme[21]: Could not find module `sourcedb_merger.inputs`.
 from sourcedb_merger.inputs import (
