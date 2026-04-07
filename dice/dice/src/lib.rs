@@ -27,6 +27,8 @@
 //!     use allocative::Allocative;
 //!     use dice_futures::cancellation::CancellationContext;
 //!     use dice::DiceKeyDyn;
+//!     use dice::ValueSerialize;
+//!     use dice::NoValueSerialize;
 //!     use pagable::Pagable;
 //!     use pagable::pagable_typetag;
 //!
@@ -50,6 +52,10 @@
 //!
 //!         fn equality(x: &Self::Value,y: &Self::Value) -> bool {
 //!             x == y
+//!         }
+//!
+//!         fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+//!             NoValueSerialize::<Self::Value>::new()
 //!         }
 //!     }
 //!
@@ -75,6 +81,10 @@
 //!
 //!                 fn equality(x: &Self::Value,y: &Self::Value) -> bool {
 //!                     x == y
+//!                 }
+//!
+//!                 fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+//!                     NoValueSerialize::<Self::Value>::new()
 //!                 }
 //!             }
 //!
@@ -102,6 +112,10 @@
 //!
 //!         fn equality(x: &Self::Value,y: &Self::Value) -> bool {
 //!             x == y
+//!         }
+//!
+//!         fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+//!             NoValueSerialize::<Self::Value>::new()
 //!         }
 //!     }
 //!

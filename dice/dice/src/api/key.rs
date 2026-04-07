@@ -84,9 +84,7 @@ pub trait Key:
         InvalidationSourcePriority::Normal
     }
 
-    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
-        TodoValueSerialize::new()
-    }
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value>;
 }
 
 pub trait ValueSerialize {

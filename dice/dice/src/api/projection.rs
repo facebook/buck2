@@ -17,7 +17,6 @@ use std::hash::Hash;
 use allocative::Allocative;
 use dupe::Dupe;
 
-use crate::TodoValueSerialize;
 use crate::ValueSerialize;
 use crate::api::data::DiceData;
 use crate::api::key::Key;
@@ -64,9 +63,7 @@ pub trait ProjectionKey:
         short_type_name(std::any::type_name::<Self>())
     }
 
-    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
-        TodoValueSerialize::new()
-    }
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value>;
 }
 
 /// Context for projection key computation.

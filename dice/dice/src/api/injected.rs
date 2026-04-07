@@ -20,7 +20,6 @@ use pagable::Pagable;
 use pagable::typetag::PagableTagged;
 
 use crate::InvalidationSourcePriority;
-use crate::TodoValueSerialize;
 use crate::api::computations::DiceComputations;
 use crate::api::key::Key;
 use crate::api::key::ValueSerialize;
@@ -46,9 +45,7 @@ pub trait InjectedKey:
         InvalidationSourcePriority::Normal
     }
 
-    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
-        TodoValueSerialize::new()
-    }
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value>;
 }
 
 #[async_trait]
