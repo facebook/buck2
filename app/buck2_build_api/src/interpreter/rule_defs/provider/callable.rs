@@ -116,13 +116,94 @@ impl BuildHasher for StarlarkHasherSmallPromoteBuilder {
     }
 }
 
+// IMPORTANT: `Hasher` wrappers must explicitly forward every `write_*` method
+// to the inner hasher. Without forwarding, a wrapper's `write_usize` (for
+// example) takes the default byte-serialization path — which produces a
+// different hash than the inner hasher's native `write_usize`. With the
+// current `fxhash::FxHasher64` the two paths happen to agree, but this
+// breaks with `rustc_hash::FxHasher` (introduced in a follow-up diff)
+// where `write_u64` hashes the value directly as a word while
+// `write(&[u8; 8])` runs it through a different byte-hashing path.
+#[deny(clippy::missing_trait_methods)]
 impl Hasher for StarlarkHasherSmallPromote {
+    #[inline]
     fn finish(&self) -> u64 {
         self.0.finish_small().promote()
     }
 
+    #[inline]
     fn write(&mut self, bytes: &[u8]) {
         self.0.write(bytes)
+    }
+
+    #[inline]
+    fn write_u8(&mut self, i: u8) {
+        self.0.write_u8(i)
+    }
+
+    #[inline]
+    fn write_u16(&mut self, i: u16) {
+        self.0.write_u16(i)
+    }
+
+    #[inline]
+    fn write_u32(&mut self, i: u32) {
+        self.0.write_u32(i)
+    }
+
+    #[inline]
+    fn write_u64(&mut self, i: u64) {
+        self.0.write_u64(i)
+    }
+
+    #[inline]
+    fn write_u128(&mut self, i: u128) {
+        self.0.write_u128(i)
+    }
+
+    #[inline]
+    fn write_usize(&mut self, i: usize) {
+        self.0.write_usize(i)
+    }
+
+    #[inline]
+    fn write_i8(&mut self, i: i8) {
+        self.0.write_i8(i)
+    }
+
+    #[inline]
+    fn write_i16(&mut self, i: i16) {
+        self.0.write_i16(i)
+    }
+
+    #[inline]
+    fn write_i32(&mut self, i: i32) {
+        self.0.write_i32(i)
+    }
+
+    #[inline]
+    fn write_i64(&mut self, i: i64) {
+        self.0.write_i64(i)
+    }
+
+    #[inline]
+    fn write_i128(&mut self, i: i128) {
+        self.0.write_i128(i)
+    }
+
+    #[inline]
+    fn write_isize(&mut self, i: isize) {
+        self.0.write_isize(i)
+    }
+
+    #[inline]
+    fn write_length_prefix(&mut self, len: usize) {
+        self.0.write_length_prefix(len)
+    }
+
+    #[inline]
+    fn write_str(&mut self, s: &str) {
+        self.0.write_str(s)
     }
 }
 

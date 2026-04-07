@@ -71,6 +71,14 @@ impl BuckTargetHasher for siphasher::sip128::SipHasher24 {
 /// We use blake3 as our "strong" hash.
 struct Blake3Adapter(blake3::Hasher);
 
+// This `Hasher` impl only provides `write` and `finish` (not the full set of
+// `write_*` forwarding methods). That is acceptable here because blake3 is a
+// streaming hash — every `write_*` default implementation ultimately calls
+// `self.write()`, and blake3's `update` treats all byte sequences uniformly.
+// For hash functions where individual `write_u8` / `write_usize` / etc.
+// produce different results than the default byte-serialisation path (e.g.
+// FxHasher), all methods *must* be forwarded explicitly; see the comment on
+// `StarlarkHasherSmallPromote` in `buck2_build_api/.../provider/callable.rs`.
 impl Hasher for Blake3Adapter {
     fn finish(&self) -> u64 {
         unimplemented!()
