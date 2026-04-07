@@ -26,7 +26,7 @@ from util import (
 class LiveBuilder(ParBuilder):
     def __init__(self, options, manifest, mode=0o755, linktree_suffix="#linktree"):
         # Default to "default" warnings, as per buck1/buck2.
-        super(LiveBuilder, self).__init__(options, manifest, mode)
+        super().__init__(options, manifest, mode)
         # foo.par -> foo#linktree
         # foo.bar.par -> foo.bar#linktree
         if self.python_home:
@@ -150,7 +150,7 @@ class LiveBuilder(ParBuilder):
 
         if options.runtime_env:
             env_list = ["export"]
-            env_list.extend(self.options.runtime_env)
+            env_list.extend(options.runtime_env)
             env = " ".join(env_list)
         else:
             env = ""
