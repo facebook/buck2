@@ -385,6 +385,17 @@ def _entitlements_removed_keys_arg():
 """),
     }
 
+def _entitlements_removed_values_map_arg():
+    return {
+        "entitlements_removed_values_map": attrs.dict(key = attrs.string(), value = attrs.list(attrs.string()), sorted = False, default = {}, doc = """
+    A map of entitlement keys to a list of values to remove from that key's value in the
+     entitlements plist. If the entitlement value is a list, the specified values are removed
+     from it. If the entitlement value is a dict, the specified values are removed as keys
+     from it. For example, `{"keychain-access-groups": ["group1"]}` will remove "group1"
+     from the `keychain-access-groups` list.
+"""),
+    }
+
 apple_common = struct(
     headers_arg = _headers_arg,
     exported_headers_arg = _exported_headers_arg,
@@ -441,4 +452,5 @@ apple_common = struct(
     xcode_product_type_arg = _xcode_product_type_arg,
     entitlements_suffixed_key_map_arg = _entitlements_suffixed_key_map_arg,
     entitlements_removed_keys_arg = _entitlements_removed_keys_arg,
+    entitlements_removed_values_map_arg = _entitlements_removed_values_map_arg,
 )

@@ -403,6 +403,7 @@ def _main() -> None:
             codesign_manifest_path=args.codesign_manifest,
             entitlements_suffixed_key_map=args.entitlements_suffixed_key_map,
             entitlements_removed_keys=args.entitlements_removed_keys,
+            entitlements_removed_values_map=args.entitlements_removed_values_map,
             prepared_entitlements_output_path=prepared_entitlements_path,
         )
     elif args.codesign_manifest:

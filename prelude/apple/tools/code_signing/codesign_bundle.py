@@ -299,6 +299,7 @@ def codesign_bundle(
     codesign_manifest_path: Optional[Path] = None,
     entitlements_suffixed_key_map: Optional[Dict[str, str]] = None,
     entitlements_removed_keys: Optional[List[str]] = None,
+    entitlements_removed_values_map: Optional[Dict[str, List[str]]] = None,
     prepared_entitlements_output_path: Optional[Path] = None,
 ) -> None:
     codesign_on_copy_paths = sorted(
@@ -321,6 +322,7 @@ def codesign_bundle(
                     tmp_dir=tmp_dir,
                     entitlements_suffixed_key_map=entitlements_suffixed_key_map,
                     entitlements_removed_keys=entitlements_removed_keys,
+                    entitlements_removed_values_map=entitlements_removed_values_map,
                 )
             )
             selected_identity_fingerprint = (
@@ -406,6 +408,7 @@ def _prepare_entitlements_and_info_plist(
     tmp_dir: str,
     entitlements_suffixed_key_map: Optional[Dict[str, str]] = None,
     entitlements_removed_keys: Optional[List[str]] = None,
+    entitlements_removed_values_map: Optional[Dict[str, List[str]]] = None,
 ) -> CodesignedPath:
     info_plist_metadata = signing_context.info_plist_metadata
     selected_profile = signing_context.selected_profile_info.profile
@@ -416,6 +419,7 @@ def _prepare_entitlements_and_info_plist(
         tmp_dir,
         entitlements_suffixed_key_map=entitlements_suffixed_key_map,
         entitlements_removed_keys=entitlements_removed_keys,
+        entitlements_removed_values_map=entitlements_removed_values_map,
     )
     prepared_info_plist_path = prepare_info_plist(
         signing_context.info_plist_source,

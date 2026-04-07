@@ -256,4 +256,5 @@ def apple_bundle_extra_attrs():
     attribs.update(_apple_bundle_like_common_attrs())
     attribs.update(apple_common.entitlements_suffixed_key_map_arg())
     attribs.update(apple_common.entitlements_removed_keys_arg())
+    attribs.update(apple_common.entitlements_removed_values_map_arg())
     return attribs

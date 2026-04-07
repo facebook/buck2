@@ -199,6 +199,8 @@ def assemble_bundle(
             codesign_args += ["--entitlements-suffixed-key-map", json.encode(ctx.attrs.entitlements_suffixed_key_map)]
         if getattr(ctx.attrs, "entitlements_removed_keys", None):
             codesign_args += ["--entitlements-removed-keys", json.encode(ctx.attrs.entitlements_removed_keys)]
+        if getattr(ctx.attrs, "entitlements_removed_values_map", None):
+            codesign_args += ["--entitlements-removed-values-map", json.encode(ctx.attrs.entitlements_removed_values_map)]
         codesign_bundle_extra_args += _get_extra_codesign_args(ctx)
 
         info_plist_args = [
