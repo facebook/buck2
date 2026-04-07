@@ -50,7 +50,7 @@ class ParBuilder:
             if self.mode:
                 os.chmod(self.output, self.mode)
 
-    def _gen_contents(self):
+    def _gen_contents(self, output_file):
         raise NotImplementedError
 
     def _postbuild(self):
@@ -89,4 +89,4 @@ class ParBuilder:
         if self.runtime_args:
             cmd.extend(self.runtime_args)
 
-        return " ".join(arg for arg in cmd)
+        return " ".join(cmd)
