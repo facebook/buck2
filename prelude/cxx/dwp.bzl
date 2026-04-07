@@ -23,30 +23,15 @@ def run_dwp_action(
         category_suffix: [str, None],
         referenced_objects: [ArgLike, list[Artifact]],
         dwp_output: Artifact,
-        local_only: bool,
-        from_exe = True):
+        local_only: bool):
     dwp = toolchain.binary_utilities_info.dwp
 
-    if from_exe:
-        args = cmd_args(
-            [dwp, "-o", dwp_output.as_output(), "-e", obj] + getattr(ctx.attrs, "extra_dwp_flags", []),
-            # All object/dwo files referenced in the library/executable are implicitly
-            # processed by dwp.
-            hidden = referenced_objects,
-        )
-    else:
-        args = cmd_args(
-            [dwp, "-o", dwp_output.as_output()] + getattr(ctx.attrs, "extra_dwp_flags", []),
-        )
-        argsfile, _ = ctx.actions.write(
-            "dwp{}{}.argsfile".format(
-                "_" + category_suffix if category_suffix else "",
-                "_" + identifier if identifier else "",
-            ),
-            referenced_objects,
-            allow_args = True,
-        )
-        args.add(cmd_args(argsfile, format = "@{}", hidden = referenced_objects))
+    args = cmd_args(
+        [dwp, "-o", dwp_output.as_output(), "-e", obj] + getattr(ctx.attrs, "extra_dwp_flags", []),
+        # All object/dwo files referenced in the library/executable are implicitly
+        # processed by dwp.
+        hidden = referenced_objects,
+    )
 
     category = "dwp"
     if category_suffix != None:
@@ -76,8 +61,7 @@ def dwp(
         # overspecification.
         referenced_objects: [ArgLike, list[Artifact]],
         name_suffix: str = "",
-        local_only: bool = False,
-        from_exe = True) -> Artifact:
+        local_only: bool = False) -> Artifact:
     # gdb/lldb expect to find a file named $file.dwp next to $file.
     output = ctx.actions.declare_output(obj.short_path + name_suffix + ".dwp", has_content_based_path = False)
     run_dwp_action(
@@ -89,6 +73,38 @@ def dwp(
         referenced_objects,
         output,
         local_only = local_only,
-        from_exe = from_exe,
     )
     return output
+
+def _dwp_rule_impl(ctx: AnalysisContext) -> list[Provider]:
+    toolchain = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
+
+    exe = ctx.attrs.exe
+    output = ctx.actions.declare_output(exe.short_path + ".dwp")
+
+    run_dwp_action(
+        ctx = ctx,
+        toolchain = toolchain,
+        obj = exe,
+        identifier = ctx.attrs.name,
+        category_suffix = None,
+        referenced_objects = ctx.attrs.srcs,
+        dwp_output = output,
+        local_only = ctx.attrs.local_only,
+    )
+
+    return [DefaultInfo(default_output = output)]
+
+dwp_rule = rule(
+    impl = _dwp_rule_impl,
+    attrs = {
+        "exe": attrs.source(doc = "The executable to generate a DWP for"),
+        "extra_dwp_flags": attrs.list(attrs.string(), default = [], doc = "Additional flags to pass to the dwp tool"),
+        "local_only": attrs.bool(default = False, doc = "Whether to force local execution"),
+        "srcs": attrs.list(attrs.source(), default = [], doc = "Referenced objects (debug info / dwo files) as hidden inputs"),
+        "_cxx_toolchain": attrs.toolchain_dep(
+            default = "toolchains//:cxx",
+            providers = [CxxToolchainInfo],
+        ),
+    },
+)
