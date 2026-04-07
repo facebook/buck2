@@ -239,6 +239,11 @@ CxxToolchainInfo = provider(
         "binary_utilities_info": provider_field(typing.Any, default = None),
         "bolt_enabled": provider_field(typing.Any, default = None),
         "c_compiler_info": provider_field(typing.Any, default = None),
+        # Maps cell names to their repo-relative path prefix. Used by coverage
+        # prefix maps to translate cell-relative paths to repo-relative paths.
+        # e.g. {"fbcode": "fbcode"} means cell "fbcode" maps to the "fbcode/"
+        # subdirectory. Cells not in the map are assumed to be the repo root.
+        "cell_to_path_prefix_map": provider_field(dict[str, str], default = {}),
         "clang_llvm_statistics": provider_field(typing.Any, default = None),
         "clang_remarks": provider_field(typing.Any, default = None),
         # Produce a time profiler JSON report by calling clang with `-ftime-trace`.
@@ -325,6 +330,7 @@ def cxx_toolchain_infos(
         strip_flags_info = None,
         split_debug_mode = SplitDebugMode("none"),
         bolt_enabled = False,
+        cell_to_path_prefix_map = {},
         llvm_cgdata = None,
         llvm_link = None,
         platform_deps_aliases = [],
@@ -368,6 +374,7 @@ def cxx_toolchain_infos(
         asm_compiler_info = asm_compiler_info,
         binary_utilities_info = binary_utilities_info,
         bolt_enabled = bolt_enabled,
+        cell_to_path_prefix_map = cell_to_path_prefix_map,
         c_compiler_info = c_compiler_info,
         clang_remarks = clang_remarks,
         clang_llvm_statistics = clang_llvm_statistics,
