@@ -3155,6 +3155,8 @@ message SystemInfo {
   optional string daemon_cgroup_path = 11;
   optional string allprocs_cgroup_path = 12;
   optional string daemon_cgroup_slice_path = 13;
+  // Number of CPU cores on the system (from sysconf _SC_NPROCESSORS_ONLN).
+  optional uint64 num_cores = 14;
 }
 
 message CpuCounter {

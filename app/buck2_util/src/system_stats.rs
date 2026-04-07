@@ -8,6 +8,8 @@
  * above-listed licenses.
  */
 
+use crate::threads::available_parallelism;
+
 pub struct UnixSystemStats {
     pub load1: f64,
     pub load5: f64,
@@ -33,6 +35,26 @@ impl UnixSystemStats {
     pub fn get() -> Option<Self> {
         None
     }
+}
+
+/// Returns the number of CPU cores on the system.
+#[cfg(unix)]
+pub fn num_cores() -> usize {
+    use std::sync::OnceLock;
+    static NUM_CORES: OnceLock<usize> = OnceLock::new();
+    *NUM_CORES.get_or_init(|| {
+        let n = unsafe { libc::sysconf(libc::_SC_NPROCESSORS_ONLN) };
+        if n < 1 {
+            available_parallelism()
+        } else {
+            n as usize
+        }
+    })
+}
+
+#[cfg(not(unix))]
+pub fn num_cores() -> usize {
+    available_parallelism()
 }
 
 pub fn system_memory_stats() -> u64 {
