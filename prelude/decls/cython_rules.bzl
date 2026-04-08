@@ -27,6 +27,7 @@ cython_library = prelude_rule(
         {k: attrs.default_only(v) for k, v in cxx_rules.cxx_library.attrs.items()} |
         python_common.base_module_arg() |
         buck.labels_arg() |
+        buck.contacts_arg() |
         {
             "allow_embedding": attrs.option(attrs.bool(), default = None, doc = """
                 Whether to allow embedding this extension into the main binary.

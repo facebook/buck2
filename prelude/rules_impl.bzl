@@ -268,7 +268,7 @@ def _python_runtime_bundle_attrs():
         "py_version": attrs.string(doc = "The version of python this represents"),
         "shared_libs": attrs.list(attrs.dep(), default = [], doc = "Additional shared libraries required by this runtime"),
         "stdlib": attrs.string(doc = "The python standard library"),
-    }
+    } | buck.labels_arg() | buck.contacts_arg()
 
 _dotnet_extra_attributes = {
     "csharp_library": {
@@ -464,12 +464,12 @@ _python_extra_attributes = {
         "has_content_based_path": attrs.bool(default = False),
         "main": attrs.source(),
         "_python_bootstrap_toolchain": toolchains_common.python_bootstrap(),
-    },
+    } | buck.labels_arg() | buck.contacts_arg(),
     "python_bootstrap_library": {
         "deps": attrs.list(attrs.dep(providers = [PythonBootstrapSources]), default = []),
         "has_content_based_path": attrs.bool(default = False),
         "srcs": attrs.list(attrs.source()),
-    },
+    } | buck.labels_arg() | buck.contacts_arg(),
     "python_needed_coverage_test": dict(
         contacts = attrs.list(attrs.string(), default = []),
         env = attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}),

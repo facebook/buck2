@@ -735,6 +735,7 @@ apple_metal_library = prelude_rule(
     further = None,
     attrs = (
         buck.labels_arg() |
+        buck.contacts_arg() |
         {
             "headers": attrs.list(attrs.source(), default = []),
             "metal_compiler_flags": attrs.list(attrs.arg(), default = [], doc = """
@@ -1295,6 +1296,7 @@ apple_universal_executable = prelude_rule(
     further = None,
     attrs = (
         buck.labels_arg() |
+        buck.contacts_arg() |
         {
             "executable": attrs.split_transition_dep(cfg = cpu_split_transition, doc = """
                     A build target identifying the binary which will be built for multiple architectures.
@@ -1399,6 +1401,7 @@ cxx_universal_executable = prelude_rule(
     further = None,
     attrs = (
         buck.labels_arg() |
+        buck.contacts_arg() |
         {
             "executable": attrs.split_transition_dep(cfg = cpu_split_transition, doc = """
                     A build target identifying the binary which will be built for multiple architectures.
@@ -1429,7 +1432,7 @@ apple_ipa_package = prelude_rule(
 apple_xcframework = prelude_rule(
     name = "apple_xcframework",
     impl = apple_xcframework_impl,
-    attrs = {
+    attrs = buck.labels_arg() | buck.contacts_arg() | {
         "framework": attrs.split_transition_dep(cfg = framework_split_transition),
         "framework_name": attrs.option(attrs.string(), default = None),
         "framework_name_from_product_name": attrs.bool(default = False),
@@ -1455,6 +1458,7 @@ apple_static_archive = prelude_rule(
     impl = apple_static_archive_impl,
     attrs = (
         buck.labels_arg() |
+        buck.contacts_arg() |
         apple_common.deps_arg() |
         {
             "archive_name": attrs.option(attrs.string(), default = None),
@@ -1497,6 +1501,7 @@ apple_resource_bundle = prelude_rule(
     impl = apple_resource_bundle_impl,
     attrs = (
         buck.labels_arg() |
+        buck.contacts_arg() |
         apple_common.deps_arg() |
         apple_common.ibtool_flags_arg() |
         apple_common.product_name_arg() |

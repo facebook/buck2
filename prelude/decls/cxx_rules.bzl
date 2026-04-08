@@ -808,7 +808,8 @@ windows_resource = prelude_rule(
         {
             "deps": attrs.list(attrs.dep(), default = []),
         } |
-        buck.labels_arg()
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
