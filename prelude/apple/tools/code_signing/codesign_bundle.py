@@ -48,6 +48,7 @@ from .prepare_code_signing_entitlements import (
 from .prepare_info_plist import prepare_info_plist
 from .provisioning_profile_diagnostics import (
     interpret_provisioning_profile_diagnostics,
+    IProvisioningProfileDiagnostics,
     META_IOS_BUILD_AND_RUN_ON_DEVICE_LINK,
     META_IOS_PROVISIONING_PROFILES_COMMAND,
     META_IOS_PROVISIONING_PROFILES_LINK,
@@ -121,6 +122,62 @@ def _log_codesign_identities(
             )
 
 
+def _read_profiles_from_dir(
+    profiles_dir: Path,
+    should_use_fast_provisioning_profile_parsing: bool,
+) -> List[ProvisioningProfileMetadata]:
+    read_provisioning_profile_command_factory = (
+        _default_read_provisioning_profile_command_factory
+    )
+    if should_use_fast_provisioning_profile_parsing:
+        return asyncio.run(
+            _fast_read_provisioning_profiles_async(
+                profiles_dir,
+                read_provisioning_profile_command_factory,
+            )
+        )
+    else:
+        return _read_provisioning_profiles(
+            profiles_dir,
+            read_provisioning_profile_command_factory,
+        )
+
+
+# Used in a later diff to iterate over multiple profile directories.
+def _try_select_from_profiles_dir(
+    profiles_dir: Path,
+    info_plist_metadata: InfoPlistMetadata,
+    identities: List[CodeSigningIdentity],
+    entitlements: Optional[Dict[str, Any]],
+    platform: ApplePlatform,
+    should_use_fast_provisioning_profile_parsing: bool,
+    strict_provisioning_profile_search: bool,
+    provisioning_profile_filter: Optional[str],
+    no_check_certificates: bool,
+) -> tuple[
+    Optional[SelectedProvisioningProfileInfo],
+    Optional[List[ProvisioningProfileMetadata]],
+    Optional[List[IProvisioningProfileDiagnostics]],
+]:
+    provisioning_profiles = _read_profiles_from_dir(
+        profiles_dir,
+        should_use_fast_provisioning_profile_parsing,
+    )
+    if not provisioning_profiles:
+        return None, None, None
+    selected_profile_info, mismatches = select_best_provisioning_profile_core(
+        info_plist_metadata,
+        identities,
+        provisioning_profiles,
+        entitlements,
+        platform,
+        strict_provisioning_profile_search,
+        provisioning_profile_filter,
+        no_check_certificates,
+    )
+    return selected_profile_info, provisioning_profiles, mismatches
+
+
 def _select_best_provisioning_profile(
     info_plist_metadata: InfoPlistMetadata,
     provisioning_profiles_dir: Path,
@@ -133,9 +190,6 @@ def _select_best_provisioning_profile(
     no_check_certificates: bool = False,
     log_file_path: Optional[Path] = None,
 ) -> SelectedProvisioningProfileInfo:
-    read_provisioning_profile_command_factory = (
-        _default_read_provisioning_profile_command_factory
-    )
     if no_check_certificates:
         identities = []
         _LOGGER.info(
@@ -147,19 +201,10 @@ def _select_best_provisioning_profile(
     _LOGGER.info(
         f"Fast provisioning profile parsing enabled: {should_use_fast_provisioning_profile_parsing}"
     )
-    provisioning_profiles = []
-    if should_use_fast_provisioning_profile_parsing:
-        provisioning_profiles = asyncio.run(
-            _fast_read_provisioning_profiles_async(
-                provisioning_profiles_dir,
-                read_provisioning_profile_command_factory,
-            )
-        )
-    else:
-        provisioning_profiles = _read_provisioning_profiles(
-            provisioning_profiles_dir,
-            read_provisioning_profile_command_factory,
-        )
+    provisioning_profiles = _read_profiles_from_dir(
+        provisioning_profiles_dir,
+        should_use_fast_provisioning_profile_parsing,
+    )
     if not provisioning_profiles:
         raise CodeSignProvisioningError(
             (
