@@ -267,8 +267,6 @@ async def test_brr_transient_listing_failure_suppresses_execution(
             "--",
             "--env",
             "TPX_PLAYGROUND_FATAL=1",
-            "--experiment",
-            "kill_main_test_for_isolated_mode",
             "--save-failures-for-retry-in-file",
             str(report_file),
         )
@@ -291,8 +289,6 @@ async def test_brr_transient_listing_failure_suppresses_execution(
             BROKEN_LISTING_TARGET,
             mode,
             "--",
-            "--experiment",
-            "kill_main_test_for_isolated_mode",
             "--base-rev-retry-with-input-file",
             str(report_file),
         )
