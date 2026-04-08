@@ -630,23 +630,22 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         )]
 
     all_diagnostics = None
+
+    # Collect source diagnostics; defer check_sub_target until after header-unit diagnostics
+    input_diagnostics = {}
     if impl_params.generate_sub_targets.objects:
         objects_sub_targets = compiled_srcs.pic.objects_sub_targets
         if compiled_srcs.non_pic:
             objects_sub_targets = objects_sub_targets | compiled_srcs.non_pic.objects_sub_targets
         sub_targets[OBJECTS_SUBTARGET] = [DefaultInfo(sub_targets = objects_sub_targets)]
         contains_extra_diagnostics = (impl_params.extra_diagnostics and len(impl_params.extra_diagnostics) > 0)
-        if len(compiled_srcs.pic.diagnostics) > 0 or contains_extra_diagnostics:
+        if len(compiled_srcs.pic.diagnostics) > 0 or contains_extra_diagnostics or impl_params.export_header_unit:
             input_diagnostics = compiled_srcs.pic.diagnostics
-            if contains_extra_diagnostics:
+            if contains_extra_diagnostics or impl_params.export_header_unit:
                 # Avoid creation of merged dict unless needed, for efficiency reasons
                 input_diagnostics = dict(input_diagnostics)
-                input_diagnostics.update(impl_params.extra_diagnostics)
-            sub_targets["check"], all_diagnostics = check_sub_target(
-                ctx,
-                input_diagnostics,
-                error_handler = impl_params.error_handler,
-            )
+                if contains_extra_diagnostics:
+                    input_diagnostics.update(impl_params.extra_diagnostics)
 
     # Compilation DB.
     if impl_params.generate_sub_targets.compilation_database:
@@ -858,6 +857,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         propagated_preprocessor_merge_list = inherited_non_exported_preprocessor_infos + propagated_preprocessor_merge_list
 
     # Header unit PCM.
+    header_unit_diagnostics = {}
     if impl_params.generate_sub_targets.header_unit:
         if compiled_srcs.header_unit_preprocessors:
             header_unit_preprocessors = []
@@ -878,12 +878,32 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                 header_unit_clang_traces.extend(clang_traces)
                 return header_unit_clang_trace_sub_target(clang_traces)
 
+            def add_header_unit_check_sub_target(group_diagnostics, header_unit_group_idx):
+                if group_diagnostics:
+                    header_unit_diagnostics.update(group_diagnostics)
+                    group_check_providers, _ = check_sub_target(
+                        ctx,
+                        group_diagnostics,
+                        error_handler = impl_params.error_handler,
+                        output_name = "header_unit{}.diagnostics.txt".format(header_unit_group_idx),
+                    )
+                    return {
+                        "check": group_check_providers,
+                    }
+                else:
+                    return {}
+
+            header_unit_group_idx = 0
             for x in compiled_srcs.header_unit_preprocessors:
                 header_unit_preprocessors.append(x)
+                header_unit_group_idx += 1
                 header_unit_sub_targets.append([
                     DefaultInfo(
                         default_outputs = [h.module for h in x.header_units],
-                        sub_targets = add_header_unit_clang_trace_sub_target(filter(None, [h.clang_trace for h in x.header_units])),
+                        sub_targets = (
+                            add_header_unit_clang_trace_sub_target(filter(None, [h.clang_trace for h in x.header_units])) |
+                            add_header_unit_check_sub_target({h.name: h.diagnostics for h in x.header_units if h.diagnostics != None}, header_unit_group_idx)
+                        ),
                     ),
                     cxx_merge_cpreprocessors(
                         ctx.actions,
@@ -891,6 +911,17 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                         propagated_preprocessor_merge_list,
                     ),
                 ])
+
+            # Build [header-unit][check] from all header unit diagnostics
+            header_unit_check_sub = {}
+            if header_unit_diagnostics:
+                header_unit_check_providers, _ = check_sub_target(
+                    ctx,
+                    header_unit_diagnostics,
+                    error_handler = impl_params.error_handler,
+                    output_name = "header_unit_diagnostics.txt",
+                )
+                header_unit_check_sub["check"] = header_unit_check_providers
             sub_targets["header-unit"] = [
                 DefaultInfo(
                     default_outputs = [
@@ -901,7 +932,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                     sub_targets = {
                         str(i): x
                         for i, x in enumerate(header_unit_sub_targets)
-                    } | header_unit_clang_trace_sub_target(header_unit_clang_traces),
+                    } | header_unit_clang_trace_sub_target(header_unit_clang_traces) | header_unit_check_sub,
                 ),
                 header_unit_sub_targets[-1][1],
             ]
@@ -916,6 +947,29 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                     propagated_preprocessor_merge_list,
                 ),
             ]
+
+    # Build top-level [check]: source diagnostics + header unit diagnostics
+    # only when export_header_unit is set (the header unit is active).
+    if impl_params.export_header_unit:
+        input_diagnostics.update(header_unit_diagnostics)
+    if len(input_diagnostics) > 0:
+        sub_targets["check"], all_diagnostics = check_sub_target(
+            ctx,
+            input_diagnostics,
+            error_handler = impl_params.error_handler,
+        )
+
+    # Build [check-all]: always includes source + header unit diagnostics,
+    # regardless of export_header_unit.
+    if header_unit_diagnostics:
+        check_all_diagnostics = dict(input_diagnostics)
+        check_all_diagnostics.update(header_unit_diagnostics)
+        sub_targets["check-all"], _ = check_sub_target(
+            ctx,
+            check_all_diagnostics,
+            error_handler = impl_params.error_handler,
+            output_name = "all_diagnostics.txt",
+        )
 
     propagated_preprocessor = cxx_merge_cpreprocessors(
         ctx.actions,

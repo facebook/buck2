@@ -12,7 +12,8 @@ load(":cxx_context.bzl", "get_cxx_toolchain_info")
 def check_sub_target(
         ctx: AnalysisContext,
         diagnostics: dict[str, Artifact],
-        error_handler: [typing.Callable, None] = None) -> (list[Provider], Artifact):
+        error_handler: [typing.Callable, None] = None,
+        output_name: str = "diagnostics.txt") -> (list[Provider], Artifact):
     expect(len(diagnostics) > 0)
 
     if len(diagnostics) == 1:
@@ -20,7 +21,7 @@ def check_sub_target(
     else:
         toolchain = get_cxx_toolchain_info(ctx)
         concatenate_diagnostics_tool = toolchain.internal_tools.concatenate_diagnostics
-        all_diagnostics = ctx.actions.declare_output("diagnostics.txt", has_content_based_path = False)
+        all_diagnostics = ctx.actions.declare_output(output_name, has_content_based_path = False)
         ctx.actions.run(
             [
                 concatenate_diagnostics_tool,
@@ -28,6 +29,7 @@ def check_sub_target(
                 diagnostics.values(),
             ],
             category = "diagnostics",
+            identifier = output_name,
             error_handler = error_handler,
         )
 

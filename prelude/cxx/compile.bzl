@@ -1203,7 +1203,6 @@ module "{}" {{
 
     args = []
     args.extend([
-        "-DFACEBOOK_CPP_HEADER_UNIT=1",
         # TODO(nml): Fix warning bugs.
         "-Wno-uninitialized",
         "-Wno-conversion",
@@ -1225,13 +1224,22 @@ module "{}" {{
     args.extend(["-xc++-user-header", "-fmodule-header"])
     args.extend(["-fmodule-name={}".format(module_name)])
     args.extend(["-Xclang", "-fmodule-file-home-is-cwd"])
+
+    # check_args: same setup but -fsyntax-only instead of --precompile, and
+    # without -DFACEBOOK_CPP_HEADER_UNIT=1 (the `export` keyword in import
+    # stubs is only valid inside module purview set up by --precompile).
+    check_args = list(args)
+
     args.extend(["-Xclang", cmd_args(input_header, format = "-fmodules-embed-file={}")])
-    args.extend(["--precompile", input_header])
+    args.extend(["-DFACEBOOK_CPP_HEADER_UNIT=1", "--precompile", input_header])
+
+    check_args.extend(["-fsyntax-only", input_header])
 
     return CxxSrcPrecompileCommand(
         src = src_dir,
         cxx_compile_cmd = cmd,
         args = args,
+        check_args = check_args,
         extra_argsfile = extra_argsfile,
     )
 
@@ -1287,6 +1295,39 @@ def _precompile_single_cxx(
         low_pass_filter = False,
     )
 
+    # Diagnostics: run -fsyntax-only variant for [check] subtarget.
+    # This is cheaper than --precompile because it skips module serialization.
+    # We must remove -DFACEBOOK_CPP_HEADER_UNIT=1 because that macro gates
+    # `export` keywords in import stubs, which are only valid inside module
+    # purview (set up by --precompile but not -fsyntax-only).
+    diagnostics = None
+    if cxx_cmd.compiler_type == "clang":
+        diagnostics = actions.declare_output(
+            "__diagnostics__",
+            "{}.header-unit.diag.txt".format(identifier),
+            has_content_based_path = False,
+        )
+        check_cmd = cmd_args(cxx_cmd.base_compile_cmd)
+        if cxx_cmd.header_units_argsfile:
+            check_cmd.add(cxx_cmd.header_units_argsfile.cmd_form)
+        if src_compile_cmd.extra_argsfile:
+            check_cmd.add(src_compile_cmd.extra_argsfile.cmd_form)
+        check_cmd.add(cxx_cmd.argsfile.cmd_form)
+
+        # Add all precompile args except --precompile and -DFACEBOOK_CPP_HEADER_UNIT=1
+        check_cmd.add(src_compile_cmd.check_args)
+        actions.run(
+            [
+                toolchain.internal_tools.stderr_to_file,
+                cmd_args(diagnostics.as_output(), format = "--out={}"),
+                check_cmd,
+            ],
+            category = "check",
+            identifier = identifier + " (header-unit)",
+            allow_cache_upload = cxx_cmd.allow_cache_upload,
+            low_pass_filter = False,
+        )
+
     # Build the stub artifact using the stub_header_unit tool
     stub_cmd = cmd_args(toolchain.internal_tools.stub_header_unit)
     stub_cmd.add(cxx_cmd.base_compile_cmd)
@@ -1311,6 +1352,7 @@ def _precompile_single_cxx(
         include_dir = src_compile_cmd.src,
         import_include = _get_import_filename(target_label, group_name) if impl_params.export_header_unit == "preload" else None,
         clang_trace = clang_trace,
+        diagnostics = diagnostics,
     )
 
 def precompile_cxx(

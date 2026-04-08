@@ -161,6 +161,9 @@ CxxSrcPrecompileCommand = record(
     cxx_compile_cmd = field(CxxCompileCommand),
     # Arguments specific to the source file.
     args = field(list[typing.Any]),
+    # Arguments for -fsyntax-only check (args without --precompile and
+    # -DFACEBOOK_CPP_HEADER_UNIT=1, with -fsyntax-only instead).
+    check_args = field(list[typing.Any], []),
     # Extra argsfile to include after any other header units argsfile but before the
     # main argsfiles.
     extra_argsfile = field([CompileArgsfile, None], None),
