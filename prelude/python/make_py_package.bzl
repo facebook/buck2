@@ -433,7 +433,7 @@ def _make_py_package_wrapper(
         pex_modules: PexModules,
         output_suffix: str,
         allow_cache_upload: bool) -> PexProviders:
-    if package_style == PackageStyle("inplace") and ctx.attrs.use_rust_make_par:
+    if package_style in [PackageStyle("inplace"), PackageStyle("outplace")] and ctx.attrs.use_rust_make_par:
         return _make_py_package_live(
             ctx,
             python_toolchain.make_py_package_live[RunInfo],
@@ -446,7 +446,7 @@ def _make_py_package_wrapper(
             python_toolchain,
             python_internal_tools,
             output_suffix,
-            False,
+            package_style == PackageStyle("outplace"),
         )
     return _make_py_package_impl(
         ctx,
