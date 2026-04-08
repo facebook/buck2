@@ -16,7 +16,7 @@ OCaml, and more. Google employs a different but functionally similar monorepo.
 
 These large scale and multi-language repositories are generally beyond the
 capabilities of traditional build systems like `make`. To optimize the build and
-performance of these large systems, Facebook and Google developed their own
+performance of these large systems, Meta (then called Facebook) and Google developed their own
 build systems, respectively Buck and Bazel. While the internal version of Bazel
 was started first (also known as Blaze), Buck was open sourced first (back in
 March 2013), followed by Bazel a few years later (March 2015).

@@ -35,7 +35,7 @@ $> 1+2
 This project was started by
 [Damien Martin-Guillerez](https://github.com/damienmg). Version 0.4.0 of this
 library changed ownership [from Google](https://github.com/google/starlark-rust)
-to Facebook.
+to Meta (formerly Facebook).
 
 ## Learn More
 
