@@ -116,8 +116,8 @@ def compile_context(ctx: AnalysisContext, binary: bool = False) -> CompileContex
         # in order to appease rustc. For instance, even with -Zexternal-clangrt, rustc will emit a
         # -L{sysroot}/lib/rustlib/{target}/lib on the link line, which will fail if the sysroot dir is empty.
         empty_sysroot = ctx.actions.copied_dir("empty_dir", {
-            "lib/rustlib/{}/lib".format(toolchain_info.rustc_target_triple): ctx.actions.copied_dir("__empty__", {}, has_content_based_path = False),
-        }, has_content_based_path = False)
+            "lib/rustlib/{}/lib".format(toolchain_info.rustc_target_triple): ctx.actions.copied_dir("__empty__", {}, has_content_based_path = True),
+        }, has_content_based_path = True)
         sysroot_args = cmd_args("--sysroot=", empty_sysroot, delimiter = "")
     elif toolchain_info.sysroot_path:
         sysroot_args = cmd_args("--sysroot=", toolchain_info.sysroot_path, delimiter = "")
@@ -168,6 +168,7 @@ def _linker(
             pre_args,
         ),
         language = ctx.attrs._exec_os_type[OsLookup].script,
+        has_content_based_path = True,
     ), pre_args
 
 # Return wrapper script for clippy-driver to make sure sysroot is set right
@@ -187,7 +188,7 @@ def _clippy_wrapper(
 
     if ctx.attrs._exec_os_type[OsLookup].os == Os("windows"):
         wrapper_file, _ = ctx.actions.write(
-            ctx.actions.declare_output("__clippy_driver_wrapper.bat", has_content_based_path = False),
+            ctx.actions.declare_output("__clippy_driver_wrapper.bat", has_content_based_path = True),
             [
                 "@echo off",
                 "set __CLIPPY_INTERNAL_TESTS=true",
@@ -196,10 +197,11 @@ def _clippy_wrapper(
                 cmd_args(clippy_driver, format = "{} %*"),
             ],
             allow_args = True,
+            has_content_based_path = True,
         )
     else:
         wrapper_file, _ = ctx.actions.write(
-            ctx.actions.declare_output("__clippy_driver_wrapper.sh", has_content_based_path = False),
+            ctx.actions.declare_output("__clippy_driver_wrapper.sh", has_content_based_path = True),
             [
                 "#!/usr/bin/env bash",
                 # Force clippy to be clippy: https://github.com/rust-lang/rust-clippy/blob/e405c68b3c1265daa9a091ed9b4b5c5a38c0c0ba/src/driver.rs#L334
@@ -211,6 +213,7 @@ def _clippy_wrapper(
             ],
             is_executable = True,
             allow_args = True,
+            has_content_based_path = True,
         )
 
     return cmd_args(wrapper_file, hidden = [clippy_driver, rustc_print_sysroot])
