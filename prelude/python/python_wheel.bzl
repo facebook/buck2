@@ -102,7 +102,8 @@ def _whl_cmd(
         python: str,
         manifests: list[ManifestInfo] = [],
         srcs: dict[str, Artifact] = {},
-        computed_metadata: dict[str, str] = {}) -> cmd_args:
+        computed_metadata: dict[str, str] = {},
+        readme: Artifact | None = None) -> cmd_args:
     cmd = []
 
     cmd.append(ctx.attrs._wheel[RunInfo])
@@ -126,6 +127,9 @@ def _whl_cmd(
 
     for requires in ctx.attrs.requires:
         cmd.extend(["--metadata", "Requires-Dist", requires])
+
+    if readme != None:
+        cmd.extend(["--readme", readme])
 
     for name, script in ctx.attrs.scripts.items():
         cmd.extend(["--data", paths.join("scripts", name), script])
@@ -476,6 +480,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
         python = python,
         manifests = srcs + native_srcs,
         computed_metadata = computed_metadata,
+        readme = ctx.attrs.readme,
     )
     ctx.actions.run(whl_cmd, category = "wheel")
 
@@ -528,6 +533,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
         python = python,
         srcs = {"{}.pth".format(dist): pth},
         computed_metadata = computed_metadata,
+        readme = ctx.attrs.readme,
     )
     ctx.actions.run(ewhl_cmd, category = "editable_wheel")
     sub_targets["editable"] = [
@@ -566,6 +572,7 @@ python_wheel = rule(
             value = attrs.string(),
             default = {},
         ),
+        readme = attrs.option(attrs.source(), default = None),
         platform = attrs.option(
             attrs.string(),
             default = None,

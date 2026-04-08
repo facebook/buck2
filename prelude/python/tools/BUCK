@@ -119,6 +119,16 @@ prelude.python_bootstrap_binary(
     visibility = ["PUBLIC"],
 )
 
+# Run the test suite with this command:
+# buck2 run prelude//python/tools:wheel_tests --target-platforms prelude//platforms:default
+prelude.sh_binary(
+    name = "wheel_tests",
+    main = "tests/main.sh",
+    resources = [
+        "wheel.py",
+    ] + glob(["tests/**/*.py"]),
+)
+
 prelude.export_file(
     name = "patchelf.py",
     src = "patchelf.py",
