@@ -41,7 +41,10 @@ from .fast_adhoc import is_fast_adhoc_codesign_allowed, should_skip_adhoc_signin
 from .identity import CodeSigningIdentity
 from .info_plist_metadata import InfoPlistMetadata
 from .list_codesign_identities import IListCodesignIdentities
-from .prepare_code_signing_entitlements import prepare_code_signing_entitlements
+from .prepare_code_signing_entitlements import (
+    postprocess_entitlements,
+    prepare_code_signing_entitlements,
+)
 from .prepare_info_plist import prepare_info_plist
 from .provisioning_profile_diagnostics import (
     interpret_provisioning_profile_diagnostics,
@@ -289,6 +292,32 @@ def selection_profile_context_from_signing_context(
         return selection_profile_context
 
 
+def _postprocess_entitlements_if_needed_for_adhoc_signed_bundle(
+    bundle_path: CodesignedPath,
+    tmp_dir: str,
+    entitlements_suffixed_key_map: Optional[Dict[str, str]] = None,
+    entitlements_removed_keys: Optional[List[str]] = None,
+    entitlements_removed_values_map: Optional[Dict[str, List[str]]] = None,
+) -> CodesignedPath:
+    if bundle_path.entitlements:
+        fd, postprocessed_path = tempfile.mkstemp(dir=tmp_dir)
+        os.close(fd)
+        shutil.copy2(bundle_path.entitlements, postprocessed_path)
+        postprocess_entitlements(
+            postprocessed_path,
+            entitlements_suffixed_key_map=entitlements_suffixed_key_map,
+            entitlements_removed_keys=entitlements_removed_keys,
+            entitlements_removed_values_map=entitlements_removed_values_map,
+        )
+        return CodesignedPath(
+            path=bundle_path.path,
+            entitlements=Path(postprocessed_path),
+            flags=bundle_path.flags,
+            extra_file_paths=bundle_path.extra_file_paths,
+        )
+    return bundle_path
+
+
 def codesign_bundle(
     bundle_path: CodesignedPath,
     signing_context: Union[AdhocSigningContext, SigningContextWithProfileSelection],
@@ -337,7 +366,15 @@ def codesign_bundle(
                 raise AssertionError(
                     "Expected no profile selection context in `AdhocSigningContext` when `selection_profile_context` is `None`."
                 )
-            bundle_path_with_prepared_entitlements = bundle_path
+            bundle_path_with_prepared_entitlements = (
+                _postprocess_entitlements_if_needed_for_adhoc_signed_bundle(
+                    bundle_path,
+                    tmp_dir,
+                    entitlements_suffixed_key_map,
+                    entitlements_removed_keys,
+                    entitlements_removed_values_map,
+                )
+            )
             selected_identity_fingerprint = signing_context.codesign_identity
 
         if codesign_configuration is CodesignConfiguration.dryRun:

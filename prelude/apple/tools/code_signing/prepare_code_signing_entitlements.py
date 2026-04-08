@@ -20,7 +20,7 @@ from apple.tools.info_plist_processor.process import process as process_info_pli
 from .provisioning_profile_metadata import ProvisioningProfileMetadata
 
 
-def _postprocess_entitlements(
+def postprocess_entitlements(
     output_path: str,
     entitlements_suffixed_key_map: Optional[Dict[str, str]] = None,
     entitlements_removed_keys: Optional[List[str]] = None,
@@ -94,7 +94,7 @@ def prepare_code_signing_entitlements(
             entitlements["keychain-access-groups"] = [app_id]
             plistlib.dump(entitlements, output, fmt=plistlib.FMT_XML)
 
-    _postprocess_entitlements(
+    postprocess_entitlements(
         output_path,
         entitlements_suffixed_key_map=entitlements_suffixed_key_map,
         entitlements_removed_keys=entitlements_removed_keys,
