@@ -43,6 +43,7 @@ data class KotlinExtraParams(
     val shouldKosabiJvmAbiGenUseK2: Boolean,
     val kotlinClassesDir: AbsPath,
     val skipClasspathRemovalRebuild: Boolean,
+    val javaBinary: Optional<String>,
 ) : CompileToJarStepFactory.ExtraParams {
 
   val shouldActionRunIncrementally: Boolean =

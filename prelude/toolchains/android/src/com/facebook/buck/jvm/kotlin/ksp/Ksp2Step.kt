@@ -60,6 +60,7 @@ class Ksp2Step(
     private val jvmTarget: Optional<String>,
     private val languageVersion: LanguageVersion,
     private val jvmDefaultMode: String,
+    private val javaBinary: Optional<String>,
     private val kotlinCDAnalytics: KotlinCDAnalytics,
     private val ksp2Mode: Ksp2Mode,
 ) : IsolatedStep {
@@ -155,6 +156,7 @@ class Ksp2Step(
               apiVersion = this@Ksp2Step.languageVersion.value
               libraries = allClasspaths.map { it.toFile() }
               jvmDefaultMode = this@Ksp2Step.jvmDefaultMode
+              resolveJdkHome(this@Ksp2Step.javaBinary)?.let { jdkHome = it }
 
               when (ksp2Mode) {
                 is Ksp2Mode.NonIncremental -> {
@@ -193,6 +195,7 @@ class Ksp2Step(
               |  apiVersion = ${kspConfig.apiVersion}
               |  libraries = ${kspConfig.libraries}
               |  jvmDefaultMode = ${kspConfig.jvmDefaultMode}
+              |  jdkHome = ${kspConfig.jdkHome}
               |  incremental = ${kspConfig.incremental}
               |  incrementalLog = ${kspConfig.incrementalLog}
               |  modifiedSources = ${kspConfig.modifiedSources.joinToString()}
@@ -262,6 +265,62 @@ class Ksp2Step(
       }
 
   companion object {
+    private val jdkHomeCache = java.util.concurrent.ConcurrentHashMap<String, File>()
+    private val JAVA_HOME_REGEX = Regex("""java\.home\s*=\s*(.+)""")
+
+    /**
+     * Resolves the JDK home directory from the declared java binary input.
+     *
+     * KSP2 needs jdkHome to resolve JDK types (java.lang.AutoCloseable, etc.) for JVM targets.
+     * Android targets use android.jar instead and do not need jdkHome — returns null when
+     * javaBinary is absent so callers can skip setting jdkHome (KSP2 defaults to
+     * System.getProperty("java.home")).
+     *
+     * Similar to compile_kotlin.py's _get_jdk_home() which uses jdk_locator, this invokes the java
+     * binary with -XshowSettings:properties to discover java.home at action time. The java binary
+     * is a declared Buck2 input (from java_toolchain.java), making this hermetic.
+     *
+     * Result is cached per java binary path (subprocess runs at most once per distinct binary).
+     */
+    private fun resolveJdkHome(javaBinary: Optional<String>): File? {
+      val binary = javaBinary.filter { it.isNotEmpty() }.orElse(null) ?: return null
+      return jdkHomeCache.computeIfAbsent(binary) { resolveJdkHomeUncached(it) }
+    }
+
+    private fun resolveJdkHomeUncached(binary: String): File {
+      val process =
+          ProcessBuilder(binary, "-XshowSettings:properties", "-version")
+              .redirectErrorStream(true)
+              .start()
+      // Drain the pipe in a background thread to avoid deadlock: the process can
+      // write more than the OS pipe buffer (~64KB), blocking if no one reads.
+      // Meanwhile waitFor() provides the timeout guarantee.
+      val outputFuture =
+          java.util.concurrent.CompletableFuture.supplyAsync {
+            process.inputStream.bufferedReader().readText()
+          }
+      val completed = process.waitFor(60, java.util.concurrent.TimeUnit.SECONDS)
+      if (!completed) {
+        process.destroyForcibly()
+        throw RuntimeException("Timed out resolving JDK home from java binary: $binary")
+      }
+      val exitCode = process.exitValue()
+      val output = outputFuture.get()
+      if (exitCode != 0) {
+        throw RuntimeException(
+            "java binary exited with code $exitCode: $binary\n" + "Output: ${output.take(500)}"
+        )
+      }
+      val match = JAVA_HOME_REGEX.find(output)
+      val path =
+          match?.groupValues?.get(1)?.trim()
+              ?: throw RuntimeException(
+                  "Could not parse java.home from java binary output: $binary\n" +
+                      "Output (first 500 chars): ${output.take(500)}"
+              )
+      return File(path)
+    }
+
     private val filteringClassLoader =
         FilteringClassLoader(
             this::class.java.classLoader,

@@ -170,6 +170,7 @@ public class KspStepsBuilder {
               extraParams.getJvmTarget(),
               extraParams.getLanguageVersion(),
               getJvmDefaultMode(extraParams.getExtraKotlincArguments()),
+              extraParams.getJavaBinary(),
               kotlinCDAnalytics,
               Ksp2ModeFactory.create(
                   rootPath,
