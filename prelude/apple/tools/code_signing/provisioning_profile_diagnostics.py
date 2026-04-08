@@ -154,7 +154,7 @@ _T = TypeVar("T")
 def interpret_provisioning_profile_diagnostics(
     diagnostics: List[IProvisioningProfileDiagnostics],
     bundle_id: str,
-    provisioning_profiles_dir: Path,
+    provisioning_profiles_dirs: List[Path],
     identities: List[CodeSigningIdentity],
     log_file_path: Optional[Path] = None,
 ) -> str:
@@ -162,8 +162,11 @@ def interpret_provisioning_profile_diagnostics(
         raise RuntimeError(
             "Expected diagnostics information for at least one mismatching provisioning profile."
         )
+    if not provisioning_profiles_dirs:
+        raise RuntimeError("Expected at least one provisioning profiles directory.")
 
-    header = f"Failed to find provisioning profile in directory `{provisioning_profiles_dir}` that is suitable for code signing. Here is the best guess for how to fix it:\n\n⚠️  "
+    dirs_msg = ", ".join(f"`{d}`" for d in provisioning_profiles_dirs)
+    header = f"Failed to find provisioning profile in directories {dirs_msg} that is suitable for code signing. Here is the best guess for how to fix it:\n\n⚠️  "
     footer = f"\n\nFor more info about running on an iOS device read {META_IOS_BUILD_AND_RUN_ON_DEVICE_LINK}."
     if log_file_path:
         non_bundle_id_mismatches = [

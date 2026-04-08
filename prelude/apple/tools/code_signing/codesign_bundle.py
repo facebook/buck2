@@ -189,7 +189,7 @@ def _select_best_provisioning_profile(
             interpret_provisioning_profile_diagnostics(
                 diagnostics=mismatches,
                 bundle_id=info_plist_metadata.bundle_id,
-                provisioning_profiles_dir=provisioning_profiles_dir,
+                provisioning_profiles_dirs=[provisioning_profiles_dir],
                 identities=identities,
                 log_file_path=log_file_path,
             )
