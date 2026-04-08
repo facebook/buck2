@@ -89,6 +89,8 @@ def symlinked_srcs(ctx: AnalysisContext) -> Artifact:
     srcs = {src.short_path: src for src in ctx.attrs.srcs}
     srcs.update({k: v for v, k in ctx.attrs.mapped_srcs.items()})
 
+    use_cbp = getattr(ctx.attrs, "use_content_based_paths", False)
+
     if "generated" in getattr(ctx.attrs, "labels", []):
         # For generated code targets, we always want to copy files in the [sources]
         # subtarget, never symlink.
@@ -99,7 +101,7 @@ def symlinked_srcs(ctx: AnalysisContext) -> Artifact:
         # VS Code will expand symlinks when doing go-to-definition. In normal source
         # files this takes us back to the correct path, but for generated files the
         # expanded path may not be a well-formed crate layout.
-        return ctx.actions.copied_dir("__srcs", srcs, has_content_based_path = False)
+        return ctx.actions.copied_dir("__srcs", srcs, has_content_based_path = use_cbp)
     else:
         # Decide whether to use symlinked_dir or copied_dir.
         #
@@ -110,13 +112,13 @@ def symlinked_srcs(ctx: AnalysisContext) -> Artifact:
         prefixes = {}
         for src in sorted(srcs.keys(), key = len, reverse = True):
             if src in prefixes:
-                return ctx.actions.copied_dir("__srcs", srcs, has_content_based_path = False)
+                return ctx.actions.copied_dir("__srcs", srcs, has_content_based_path = use_cbp)
             components = src.split("/")
             for i in range(1, len(components)):
                 prefixes["/".join(components[:i])] = None
 
     # Otherwise, symlink it.
-    return ctx.actions.symlinked_dir("__srcs", srcs, has_content_based_path = False)
+    return ctx.actions.symlinked_dir("__srcs", srcs, has_content_based_path = use_cbp)
 
 def _rust_filegroup_impl(ctx: AnalysisContext) -> list[Provider]:
     srcs = symlinked_srcs(ctx)
@@ -132,5 +134,7 @@ def _rust_filegroup_impl(ctx: AnalysisContext) -> list[Provider]:
 
 rust_filegroup = rule(
     impl = _rust_filegroup_impl,
-    attrs = srcs_arg() | mapped_srcs_arg(),
+    attrs = srcs_arg() | mapped_srcs_arg() | {
+        "use_content_based_paths": attrs.bool(default = True),
+    },
 )
