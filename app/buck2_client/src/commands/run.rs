@@ -114,7 +114,10 @@ impl StreamingCommand for RunCommand {
         events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         let run_args_missing_separator =
-            !self.extra_run_args.is_empty() && !std::env::args().any(|arg| arg == "--");
+            // We will soon require a separator before the start of the runs args.
+            // Check that the expanded argv has a separator (so we catch them in @ files), 
+            // and if not print a warning.
+            !self.extra_run_args.is_empty() && !ctx.expanded_argv_has_separator();
 
         let context = ctx.client_context(matches, &self)?;
         let has_target_universe = !self.target_cfg.target_universe.is_empty();

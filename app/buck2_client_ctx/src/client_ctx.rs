@@ -106,6 +106,11 @@ impl<'a> ClientCommandContext<'a> {
         }
     }
 
+    /// Check whether the expanded argv (after flagfile expansion) contains a `--` separator.
+    pub fn expanded_argv_has_separator(&self) -> bool {
+        self.argv.expanded_argv.args().any(|arg| arg == "--")
+    }
+
     pub fn fbinit(&self) -> fbinit::FacebookInit {
         self.init
     }
