@@ -10,7 +10,7 @@
 # error messages when the user doesn't run "reindeer" much more obvious,
 # because the default BUCK file just errors out. We then make reindeer generate
 # BUCK.reindeer to override that.
-name = BUCK.reindeer,BUCK
+name = BUCK.pydeer,BUCK.reindeer,BUCK
 
 [cells]
 gh_facebook_buck2_shims_meta = .
