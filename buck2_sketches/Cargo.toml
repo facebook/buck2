@@ -8,4 +8,4 @@ version = "0.1.0"
 
 [dependencies]
 base64 = { workspace = true }
-setsketch = { path = "../shed/setsketch" }
+setsketch = { workspace = true }

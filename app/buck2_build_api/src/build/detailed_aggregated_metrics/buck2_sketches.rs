@@ -17,6 +17,9 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_hash::BuckHashSet;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
+use buck2_sketches::ActionGraphSketch;
+use buck2_sketches::DependencyGraphSketch;
+use buck2_sketches::MemoryUsageSketch;
 use dice::CancellationContext;
 use dice::DiceComputations;
 use dice::DiceKeyDyn;
@@ -35,6 +38,7 @@ use crate::build::graph_properties::ConfiguredGraphPropertiesValues;
 use crate::build::sketch_impl::DEFAULT_SKETCH_VERSION;
 use crate::build::sketch_impl::MergeableGraphSketch;
 use crate::build::sketch_impl::Sketcher;
+use crate::build::sketch_impl::VersionedSketcher;
 use crate::deferred::calculation::DeferredHolder;
 
 /// Computes an unweighted sketch of the action graph by traversing from root artifacts.
@@ -49,7 +53,7 @@ use crate::deferred::calculation::DeferredHolder;
 pub fn compute_action_graph_sketch<'a>(
     root_artifacts: impl IntoIterator<Item = &'a ArtifactGroup>,
     state: &buck2_hash::BuckHashMap<DeferredHolderKey, DeferredHolder>,
-) -> buck2_error::Result<(bool, MergeableGraphSketch<ActionKey>)> {
+) -> buck2_error::Result<(bool, MergeableGraphSketch<ActionKey, ActionGraphSketch>)> {
     let mut sketcher = DEFAULT_SKETCH_VERSION.create_sketcher();
     let complete = compute_action_graph_sketch_impl(root_artifacts, state, &mut sketcher)?;
     Ok((complete, sketcher.into_mergeable_graph_sketch()))
@@ -78,11 +82,12 @@ pub fn compute_configured_graph_sketch(
     node: ConfiguredTargetNode,
     compute_sketch: bool,
 ) -> ConfiguredGraphPropertiesValues {
-    let mut sketcher = if compute_sketch {
-        Some(DEFAULT_SKETCH_VERSION.create_sketcher())
-    } else {
-        None
-    };
+    let mut sketcher: Option<VersionedSketcher<ConfiguredTargetLabel, DependencyGraphSketch>> =
+        if compute_sketch {
+            Some(DEFAULT_SKETCH_VERSION.create_sketcher())
+        } else {
+            None
+        };
     let size = compute_configured_graph_sketch_impl(&node, &mut sketcher);
     ConfiguredGraphPropertiesValues {
         configured_graph_size: size as _,
@@ -131,7 +136,9 @@ pub(crate) struct AnalysisGraphPropertiesKey {
 
 #[async_trait]
 impl Key for AnalysisGraphPropertiesKey {
-    type Value = buck2_error::Result<MaybeCompatible<MergeableGraphSketch<StarlarkEvalKind>>>;
+    type Value = buck2_error::Result<
+        MaybeCompatible<MergeableGraphSketch<StarlarkEvalKind, MemoryUsageSketch>>,
+    >;
 
     async fn compute(
         &self,
@@ -189,7 +196,9 @@ fn gather_heap_graph_sketch_impl(
 /// analysis results don't otherwise directly encode the structure of the analysis graph. "Guessing"
 /// at what the graph is, while probably possible in practice, is a bit brittle. It would also mean
 /// that we wouldn't know about anon targets, which would be a bit of a shame.
-fn gather_heap_graph_sketch(root: &FrozenHeapRef) -> MergeableGraphSketch<StarlarkEvalKind> {
+fn gather_heap_graph_sketch(
+    root: &FrozenHeapRef,
+) -> MergeableGraphSketch<StarlarkEvalKind, MemoryUsageSketch> {
     let mut sketcher = DEFAULT_SKETCH_VERSION.create_sketcher();
     gather_heap_graph_sketch_impl(root, &mut sketcher);
     sketcher.into_mergeable_graph_sketch()

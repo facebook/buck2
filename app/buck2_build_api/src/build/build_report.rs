@@ -58,6 +58,7 @@ use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_hash::BuckDefaultHasher;
+use buck2_sketches::DependencyGraphSketch;
 use buck2_wrapper_common::invocation_id::TraceId;
 use derivative::Derivative;
 use dice::DiceComputations;
@@ -284,7 +285,8 @@ pub struct BuildReportCollector<'a> {
     exclude_action_error_diagnostics: bool,
     truncate_error_content: bool,
     graph_properties_opts: GraphPropertiesOptions,
-    total_configured_graph_sketch: Option<VersionedSketcher<ConfiguredTargetLabel>>,
+    total_configured_graph_sketch:
+        Option<VersionedSketcher<ConfiguredTargetLabel, DependencyGraphSketch>>,
 }
 
 // Build report generation should never produce an input error, always return an error with an infra tag

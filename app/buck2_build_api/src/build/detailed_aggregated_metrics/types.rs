@@ -17,6 +17,7 @@ use buck2_core::provider::label::ProvidersName;
 use buck2_data::ActionExecutionKind;
 use buck2_data::ToProtoMessage;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
+use buck2_sketches::ActionGraphSketch;
 use dupe::Dupe;
 
 use crate::artifact_groups::ArtifactGroup;
@@ -55,7 +56,7 @@ pub struct PerBuildEvents {
 pub struct ActionGraphSketchResult {
     pub per_target_sketches: Vec<(
         ConfiguredProvidersLabel,
-        Option<MergeableGraphSketch<ActionKey>>,
+        Option<MergeableGraphSketch<ActionKey, ActionGraphSketch>>,
     )>,
 }
 

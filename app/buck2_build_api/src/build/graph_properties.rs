@@ -17,6 +17,8 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
+use buck2_sketches::DependencyGraphSketch;
+use buck2_sketches::MemoryUsageSketch;
 use buck2_util::commas::commas;
 use dice::CancellationContext;
 use dice::DiceComputations;
@@ -108,13 +110,15 @@ impl GraphPropertiesOptions {
 #[derive(Clone, Dupe, Debug, Eq, PartialEq, Allocative, PagablePanic)]
 pub struct ConfiguredGraphPropertiesValues {
     pub configured_graph_size: u64,
-    pub configured_graph_sketch: Option<MergeableGraphSketch<ConfiguredTargetLabel>>,
+    pub configured_graph_sketch:
+        Option<MergeableGraphSketch<ConfiguredTargetLabel, DependencyGraphSketch>>,
 }
 
 #[derive(Clone, Dupe, Debug, Eq, PartialEq, Allocative)]
 pub struct GraphPropertiesValues {
     pub configured: ConfiguredGraphPropertiesValues,
-    pub retained_analysis_memory_sketch: Option<MergeableGraphSketch<StarlarkEvalKind>>,
+    pub retained_analysis_memory_sketch:
+        Option<MergeableGraphSketch<StarlarkEvalKind, MemoryUsageSketch>>,
 }
 
 #[derive(

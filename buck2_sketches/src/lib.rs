@@ -13,6 +13,7 @@
 
 mod typed;
 
+pub use typed::ActionGraphSketch;
 pub use typed::DependencyGraphSketch;
 pub use typed::MemoryUsageSketch;
 pub use typed::TypedSketch;
