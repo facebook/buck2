@@ -300,6 +300,7 @@ fn get_event_log_subscriber<T: StreamingCommand>(
     let user_event_log = cmd.user_event_log();
 
     let logdir = paths.log_dir();
+    let daemon_startup_config = ctx.immediate_config.daemon_startup_config().ok();
     let log = EventLog::new(
         logdir,
         ctx.working_dir.clone(),
@@ -312,10 +313,10 @@ fn get_event_log_subscriber<T: StreamingCommand>(
         T::COMMAND_NAME.to_owned(),
         ctx.start_time,
         log_size_counter_bytes,
-        ctx.immediate_config
-            .daemon_startup_config()
-            .map(|daemon_startup_config| daemon_startup_config.retained_event_logs)
+        daemon_startup_config
+            .map(|c| c.retained_event_logs)
             .unwrap_or(DEFAULT_RETAINED_EVENT_LOGS),
+        daemon_startup_config.and_then(|c| c.log_upload_url.clone()),
     );
     Box::new(log)
 }

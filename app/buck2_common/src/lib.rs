@@ -59,3 +59,4 @@ pub mod sqlite;
 pub mod starlark_profiler;
 pub mod target_aliases;
 pub mod temp_path;
+pub mod upload_client;
