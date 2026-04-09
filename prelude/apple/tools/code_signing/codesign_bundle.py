@@ -263,6 +263,14 @@ class AdhocSigningContext:
         self.codesign_identity = codesign_identity or "-"
         self.profile_selection_context = profile_selection_context
 
+    def identity(self) -> CodeSigningIdentity:
+        if self.profile_selection_context:
+            return self.profile_selection_context.selected_profile_info.identity
+        return CodeSigningIdentity(
+            fingerprint=self.codesign_identity,
+            subject_common_name="",
+        )
+
 
 def signing_context_with_profile_selection(
     info_plist_source: Path,
@@ -399,9 +407,7 @@ def codesign_bundle(
                     entitlements_removed_values_map=entitlements_removed_values_map,
                 )
             )
-            selected_identity_fingerprint = (
-                selection_profile_context.selected_profile_info.identity.fingerprint
-            )
+            selected_identity = selection_profile_context.selected_profile_info.identity
         else:
             if not isinstance(signing_context, AdhocSigningContext):
                 raise AssertionError(
@@ -420,7 +426,7 @@ def codesign_bundle(
                     entitlements_removed_values_map,
                 )
             )
-            selected_identity_fingerprint = signing_context.codesign_identity
+            selected_identity = signing_context.identity()
 
         if codesign_configuration is CodesignConfiguration.dryRun:
             if codesign_tool is None:
@@ -428,12 +434,15 @@ def codesign_bundle(
                     "Expected codesign tool not to be the default one when dry run codesigning is requested."
                 )
             manifest_codesign_factory = ManifestCodesignCommandFactory(
-                DryRunCodesignCommandFactory(codesign_tool)
+                DryRunCodesignCommandFactory(
+                    codesign_tool,
+                    selected_identity.subject_common_name,
+                )
             )
             _dry_codesign_everything(
                 root=bundle_path_with_prepared_entitlements,
                 codesign_on_copy_paths=codesign_on_copy_paths,
-                identity_fingerprint=selected_identity_fingerprint,
+                identity=selected_identity,
                 tmp_dir=tmp_dir,
                 codesign_command_factory=manifest_codesign_factory,
                 platform=platform,
@@ -457,7 +466,7 @@ def codesign_bundle(
             _codesign_everything(
                 root=bundle_path_with_prepared_entitlements,
                 codesign_on_copy_paths=codesign_on_copy_paths,
-                identity_fingerprint=selected_identity_fingerprint,
+                identity_fingerprint=selected_identity.fingerprint,
                 tmp_dir=tmp_dir,
                 codesign_command_factory=manifest_codesign_factory,
                 platform=platform,
@@ -627,7 +636,7 @@ def _read_entitlements_file(path: Optional[Path]) -> Optional[Dict[str, Any]]:
 def _dry_codesign_everything(
     root: CodesignedPath,
     codesign_on_copy_paths: List[CodesignedPath],
-    identity_fingerprint: str,
+    identity: CodeSigningIdentity,
     tmp_dir: str,
     codesign_command_factory: ICodesignCommandFactory,
     platform: ApplePlatform,
@@ -639,7 +648,7 @@ def _dry_codesign_everything(
     # First sign codesign-on-copy directory paths
     _codesign_paths(
         paths=codesign_on_copy_directory_paths,
-        identity_fingerprint=identity_fingerprint,
+        identity_fingerprint=identity.fingerprint,
         tmp_dir=tmp_dir,
         codesign_command_factory=codesign_command_factory,
         platform=platform,
@@ -668,7 +677,7 @@ def _dry_codesign_everything(
     # Lastly sign whole bundle
     _codesign_paths(
         paths=[root_with_extra_paths],
-        identity_fingerprint=identity_fingerprint,
+        identity_fingerprint=identity.fingerprint,
         tmp_dir=tmp_dir,
         codesign_command_factory=codesign_command_factory,
         platform=platform,
