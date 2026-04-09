@@ -19,7 +19,8 @@ def write_named_deps_names(
     if not is_list(ctx.attrs.named_deps):
         return None
 
-    named_deps_names = ctx.actions.declare_output("named_deps", has_content_based_path = False)
+    use_cbp = getattr(ctx.attrs, "use_content_based_paths", False)
+    named_deps_names = ctx.actions.declare_output("named_deps", has_content_based_path = use_cbp)
     ctx.actions.run(
         cmd_args(
             compile_ctx.internal_tools_info.rustc_action,
@@ -29,6 +30,7 @@ def write_named_deps_names(
                 name = "named_deps.args",
                 args = [name for name, _dep in ctx.attrs.named_deps],
                 allow_args = True,
+                has_content_based_path = use_cbp,
             ),
         ),
         category = "named_deps",

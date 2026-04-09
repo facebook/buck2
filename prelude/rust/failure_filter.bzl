@@ -25,7 +25,7 @@ def failure_filter(
     if predeclared_output:
         output = predeclared_output
     else:
-        output = ctx.actions.declare_output("out/" + required.short_path, has_content_based_path = False)
+        output = ctx.actions.declare_output("out/" + required.short_path, has_content_based_path = getattr(ctx.attrs, "use_content_based_paths", False))
 
     cmd = cmd_args(
         failure_filter_action,
