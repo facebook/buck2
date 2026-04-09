@@ -44,6 +44,7 @@ pub(crate) struct DeserTypeId;
 
 #[cfg(not(feature = "pagable"))]
 impl DeserTypeId {
+    #[allow(clippy::extra_unused_type_parameters)]
     pub const fn of<T: ?Sized>() -> Self {
         DeserTypeId
     }
