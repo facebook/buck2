@@ -7,6 +7,8 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+# pyre-strict
+
 """
 Usage: remap_cwd.py path/to/compiler [args...]
 
