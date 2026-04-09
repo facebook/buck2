@@ -44,7 +44,7 @@ config_setting(
 
 prelude.constraint_setting(
     name = "maybe_building_android_binary",
-    visibility = ["prelude//..."],
+    visibility = ["PUBLIC"],
 )
 
 prelude.constraint_value(
