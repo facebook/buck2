@@ -164,7 +164,8 @@ def generate_rustdoc(
     )
 
     subdir = common_args.subdir + "-rustdoc"
-    output = ctx.actions.declare_output(subdir, has_content_based_path = False)
+    use_cbp = getattr(ctx.attrs, "use_content_based_paths", False)
+    output = ctx.actions.declare_output(subdir, has_content_based_path = use_cbp)
 
     plain_env, path_env = process_env(compile_ctx, toolchain_info.rustdoc_env | ctx.attrs.env)
     plain_env["RUSTDOC_BUCK_TARGET"] = cmd_args(str(ctx.label.raw_target()))
@@ -196,6 +197,7 @@ def generate_rustdoc(
         exe = compile_ctx.internal_tools_info.rustc_action,
         args = rustdoc_cmd_action,
         argfile_name = "{}.args".format(subdir),
+        has_content_based_path = use_cbp,
     )
 
     ctx.actions.run(rustdoc_cmd, category = "rustdoc")
@@ -227,7 +229,8 @@ def generate_rustdoc_coverage(
     )
 
     file = common_args.subdir + "-rustdoc-coverage"
-    output = ctx.actions.declare_output(file, has_content_based_path = False)
+    use_cbp = getattr(ctx.attrs, "use_content_based_paths", False)
+    output = ctx.actions.declare_output(file, has_content_based_path = use_cbp)
 
     plain_env, path_env = process_env(compile_ctx, ctx.attrs.env)
     plain_env["RUSTDOC_BUCK_TARGET"] = cmd_args(str(ctx.label.raw_target()))
@@ -256,6 +259,7 @@ def generate_rustdoc_coverage(
         exe = compile_ctx.internal_tools_info.rustc_action,
         args = rustdoc_cmd_action,
         argfile_name = "{}.args".format(file),
+        has_content_based_path = use_cbp,
     )
 
     cmd = cmd_args([compile_ctx.internal_tools_info.rustdoc_coverage, output.as_output(), rustdoc_cmd])
@@ -424,6 +428,7 @@ def generate_rustdoc_test(
         exe = internal_tools_info.rustc_action,
         args = rustdoc_cmd,
         argfile_name = "{}.args".format(common_args.subdir),
+        has_content_based_path = getattr(ctx.attrs, "use_content_based_paths", False),
     )
 
 # Generate a compilation action. A single instance of rustc can emit
@@ -451,6 +456,8 @@ def rust_compile(
     toolchain_info = compile_ctx.toolchain_info
 
     lints = _lint_flags(compile_ctx, infallible_diagnostics, emit == Emit("clippy"))
+    use_cbp = getattr(ctx.attrs, "use_content_based_paths", False)
+    emit_cbp = use_cbp if predeclared_output == None else False
 
     common_args = _compute_common_args(
         ctx = ctx,
@@ -530,7 +537,7 @@ def rust_compile(
             clippy_conf_dir = ctx.actions.symlinked_dir(
                 common_args.subdir + "-clippy-configuration",
                 {"clippy.toml": clippy_toml},
-                has_content_based_path = False,
+                has_content_based_path = use_cbp,
             )
             emit_op.env["CLIPPY_CONF_DIR"] = clippy_conf_dir
 
@@ -578,6 +585,7 @@ def rust_compile(
                 LinkArgs(flags = import_library_args),
             ],
             output_short_path = emit_op.output.short_path,
+            has_content_based_path = emit_cbp,
         )
 
         separate_debug_info_args = cmd_args()
@@ -632,8 +640,8 @@ def rust_compile(
         dwp_inputs.append(link_args_output.link_args)
 
         if deferred_link_enabled:
-            out_argsfile = ctx.actions.declare_output(common_args.subdir + "/extracted-link-args.args", has_content_based_path = False)
-            out_artifacts_dir = ctx.actions.declare_output(common_args.subdir + "/extracted-link-artifacts", dir = True, has_content_based_path = False)
+            out_argsfile = ctx.actions.declare_output(common_args.subdir + "/extracted-link-args.args", has_content_based_path = emit_cbp)
+            out_artifacts_dir = ctx.actions.declare_output(common_args.subdir + "/extracted-link-artifacts", dir = True, has_content_based_path = emit_cbp)
             linker_cmd = cmd_args(
                 compile_ctx.internal_tools_info.extract_link_action,
                 cmd_args(out_argsfile.as_output(), format = "--out_argsfile={}"),
@@ -646,6 +654,7 @@ def rust_compile(
                 name = common_args.subdir + "/linker_wrapper",
                 cmd = linker_cmd,
                 language = ctx.attrs._exec_os_type[OsLookup].script,
+                has_content_based_path = True,
             )
 
             deferred_link_cmd = cmd_args(
@@ -1373,6 +1382,12 @@ def _rustc_emit(
     emit_env = {}
     extra_out = None
     profile_out = None
+    use_cbp = getattr(ctx.attrs, "use_content_based_paths", False)
+
+    # When a predeclared_output is used (e.g. from rust_binary), all related
+    # outputs must match its content-based path setting (False) so that
+    # side-effect outputs like PDB are consistent with the binary.
+    emit_cbp = use_cbp if predeclared_output == None else False
 
     if predeclared_output:
         emit_output = predeclared_output
@@ -1385,7 +1400,7 @@ def _rustc_emit(
         filename = subdir + "/" + output_filename(compile_ctx, simple_crate, emit, params, extra_hash)
         crate_name_and_extra_for_profile = simple_crate + extra_hash
 
-        emit_output = ctx.actions.declare_output(filename, has_content_based_path = False)
+        emit_output = ctx.actions.declare_output(filename, has_content_based_path = emit_cbp)
 
     if emit == Emit("expand"):
         emit_env["RUSTC_BOOTSTRAP"] = "1"
@@ -1499,8 +1514,9 @@ def _rustc_invoke(
 
     # Save diagnostic outputs
     diag = "clippy" if is_clippy else "diag"
-    diag_json = ctx.actions.declare_output("{}-{}.json".format(prefix, diag), has_content_based_path = False)
-    diag_txt = ctx.actions.declare_output("{}-{}.txt".format(prefix, diag), has_content_based_path = False)
+    use_cbp = getattr(ctx.attrs, "use_content_based_paths", False)
+    diag_json = ctx.actions.declare_output("{}-{}.json".format(prefix, diag), has_content_based_path = use_cbp)
+    diag_txt = ctx.actions.declare_output("{}-{}.txt".format(prefix, diag), has_content_based_path = use_cbp)
 
     compile_cmd = cmd_args(
         cmd_args(diag_json.as_output(), format = "--diag-json={}"),
@@ -1520,7 +1536,7 @@ def _rustc_invoke(
     build_status = None
     if infallible_diagnostics:
         # Build status for fail filter
-        build_status = ctx.actions.declare_output("{}_build_status-{}.json".format(prefix, diag), has_content_based_path = False)
+        build_status = ctx.actions.declare_output("{}_build_status-{}.json".format(prefix, diag), has_content_based_path = use_cbp)
         compile_cmd.add(cmd_args(build_status.as_output(), format = "--failure-filter={}"))
         for out in required_outputs:
             compile_cmd.add("--required-output", out.short_path, out.as_output())
@@ -1532,6 +1548,7 @@ def _rustc_invoke(
         exe = compile_ctx.internal_tools_info.rustc_action,
         args = compile_cmd,
         argfile_name = "{}-{}.args".format(prefix, diag),
+        has_content_based_path = use_cbp,
     )
 
     local_only = False
@@ -1598,7 +1615,8 @@ def _long_command(
         ctx: AnalysisContext,
         exe: RunInfo,
         args: cmd_args,
-        argfile_name: str) -> cmd_args:
+        argfile_name: str,
+        has_content_based_path: bool = False) -> cmd_args:
     return cmd_args(
         exe,
         at_argfile(
@@ -1606,6 +1624,7 @@ def _long_command(
             name = argfile_name,
             args = args,
             allow_args = True,
+            has_content_based_path = has_content_based_path,
         ),
     )
 

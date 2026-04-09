@@ -106,7 +106,8 @@ def make_link_args(
         cxx_toolchain_info: CxxToolchainInfo,
         links: list[LinkArgs],
         output_short_path: [str, None] = None,
-        link_ordering: [LinkOrdering, None] = None) -> LinkArgsOutput:
+        link_ordering: [LinkOrdering, None] = None,
+        has_content_based_path: bool = False) -> LinkArgsOutput:
     """
     Merges LinkArgs. Returns the args, files that must be present for those
     args to work when passed to a linker, and optionally an artifact where DWO
@@ -126,7 +127,7 @@ def make_link_args(
     pdb_artifact = None
     if linker_info.is_pdb_generated and output_short_path != None:
         pdb_filename = paths.replace_extension(output_short_path, ".pdb")
-        pdb_artifact = actions.declare_output(pdb_filename, has_content_based_path = False)
+        pdb_artifact = actions.declare_output(pdb_filename, has_content_based_path = has_content_based_path)
         hidden.append(pdb_artifact.as_output())
 
     if linker_type == LinkerType("darwin"):
