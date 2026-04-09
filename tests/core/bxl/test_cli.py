@@ -36,10 +36,16 @@ async def test_bxl_cli(buck: Buck) -> None:
         "3",
         "--target",
         ":foo",
+        "--target",
+        ":bar",
         "--sub_target",
         "cell/pkg:bar[sub]",
+        "--sub_target",
+        "cell/pkg:bar[sub2]",
         "--configured_target",
         "root//:t1?root//:macos",
+        "--configured_target",
+        "root//:t1?root//:linux",
     )
 
     golden(
