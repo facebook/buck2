@@ -143,7 +143,6 @@ def _read_profiles_from_dir(
         )
 
 
-# Used in a later diff to iterate over multiple profile directories.
 def _try_select_from_profiles_dir(
     profiles_dir: Path,
     info_plist_metadata: InfoPlistMetadata,
@@ -180,7 +179,7 @@ def _try_select_from_profiles_dir(
 
 def _select_best_provisioning_profile(
     info_plist_metadata: InfoPlistMetadata,
-    provisioning_profiles_dir: Path,
+    provisioning_profiles_dirs: List[Path],
     entitlements_path: Optional[Path],
     platform: ApplePlatform,
     list_codesign_identities: IListCodesignIdentities,
@@ -201,45 +200,59 @@ def _select_best_provisioning_profile(
     _LOGGER.info(
         f"Fast provisioning profile parsing enabled: {should_use_fast_provisioning_profile_parsing}"
     )
-    provisioning_profiles = _read_profiles_from_dir(
-        provisioning_profiles_dir,
-        should_use_fast_provisioning_profile_parsing,
-    )
-    if not provisioning_profiles:
+    entitlements = _read_entitlements_file(entitlements_path)
+
+    # Try each profiles directory in order, returning as soon as a match is found
+    all_mismatches: List[IProvisioningProfileDiagnostics] = []
+    has_profiles = False
+    for profiles_dir in provisioning_profiles_dirs:
+        selected_profile_info, profiles, mismatches = _try_select_from_profiles_dir(
+            profiles_dir=profiles_dir,
+            info_plist_metadata=info_plist_metadata,
+            identities=identities,
+            entitlements=entitlements,
+            platform=platform,
+            should_use_fast_provisioning_profile_parsing=should_use_fast_provisioning_profile_parsing,
+            strict_provisioning_profile_search=strict_provisioning_profile_search,
+            provisioning_profile_filter=provisioning_profile_filter,
+            no_check_certificates=no_check_certificates,
+        )
+        if selected_profile_info is not None:
+            return selected_profile_info
+        if profiles is not None:
+            has_profiles = True
+            if mismatches:
+                all_mismatches.extend(mismatches)
+        _LOGGER.info(
+            f"No matching profile found in '{profiles_dir}', trying next source"
+        )
+
+    # No profile found in any directory — generate diagnostics
+    if not has_profiles:
+        dirs_msg = ", ".join(f"'{d}'" for d in provisioning_profiles_dirs)
         raise CodeSignProvisioningError(
             (
-                f"\n\nFailed to find any provisioning profiles. Please make sure to install required provisioning profiles and make sure they are located at '{provisioning_profiles_dir}'.\n\n"
+                f"\n\nFailed to find any provisioning profiles. Please make sure to install required provisioning profiles and make sure they are located at {dirs_msg}.\n\n"
                 f"Execute `{META_IOS_PROVISIONING_PROFILES_COMMAND}` to download the profiles.\n"
                 f"Please follow the wiki to build & run on device: {META_IOS_BUILD_AND_RUN_ON_DEVICE_LINK}.\n"
                 f"Provisioning profiles for your app can also be downloaded from {META_IOS_PROVISIONING_PROFILES_LINK}.\n"
             )
         )
-    entitlements = _read_entitlements_file(entitlements_path)
-    selected_profile_info, mismatches = select_best_provisioning_profile_core(
-        info_plist_metadata,
-        identities,
-        provisioning_profiles,
-        entitlements,
-        platform,
-        strict_provisioning_profile_search,
-        provisioning_profile_filter,
-        no_check_certificates,
-    )
-    if selected_profile_info is None:
-        if not mismatches:
-            raise RuntimeError(
-                f"Expected diagnostics information for at least one mismatching provisioning profile when `{provisioning_profiles_dir}` directory is not empty."
-            )
-        raise CodeSignProvisioningError(
-            interpret_provisioning_profile_diagnostics(
-                diagnostics=mismatches,
-                bundle_id=info_plist_metadata.bundle_id,
-                provisioning_profiles_dirs=[provisioning_profiles_dir],
-                identities=identities,
-                log_file_path=log_file_path,
-            )
+
+    if not all_mismatches:
+        dirs_msg = ", ".join(f"`{d}`" for d in provisioning_profiles_dirs)
+        raise RuntimeError(
+            f"Expected diagnostics information for at least one mismatching provisioning profile when {dirs_msg} directories are not empty."
         )
-    return selected_profile_info
+    raise CodeSignProvisioningError(
+        interpret_provisioning_profile_diagnostics(
+            diagnostics=all_mismatches,
+            bundle_id=info_plist_metadata.bundle_id,
+            provisioning_profiles_dirs=provisioning_profiles_dirs,
+            identities=identities,
+            log_file_path=log_file_path,
+        )
+    )
 
 
 @dataclass
@@ -275,7 +288,7 @@ class AdhocSigningContext:
 def signing_context_with_profile_selection(
     info_plist_source: Path,
     info_plist_destination: Path,
-    provisioning_profiles_dir: Path,
+    provisioning_profiles_dirs: List[Path],
     entitlements_path: Optional[Path],
     platform: ApplePlatform,
     list_codesign_identities: IListCodesignIdentities,
@@ -290,7 +303,7 @@ def signing_context_with_profile_selection(
         info_plist_metadata = InfoPlistMetadata.from_file(info_plist_file)
     selected_profile_info = _select_best_provisioning_profile(
         info_plist_metadata=info_plist_metadata,
-        provisioning_profiles_dir=provisioning_profiles_dir,
+        provisioning_profiles_dirs=provisioning_profiles_dirs,
         entitlements_path=entitlements_path,
         platform=platform,
         list_codesign_identities=list_codesign_identities,

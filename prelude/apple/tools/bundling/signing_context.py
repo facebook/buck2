@@ -176,7 +176,7 @@ def signing_context_and_selected_identity_from_args(
                 profile_selection_context = signing_context_with_profile_selection(
                     info_plist_source=args.info_plist_source,
                     info_plist_destination=args.info_plist_destination,
-                    provisioning_profiles_dir=args.profiles_dir[0],
+                    provisioning_profiles_dirs=args.profiles_dir,
                     entitlements_path=args.entitlements,
                     platform=args.platform,
                     list_codesign_identities=AdHocListCodesignIdentities(
@@ -204,7 +204,7 @@ def signing_context_and_selected_identity_from_args(
             signing_context = signing_context_with_profile_selection(
                 info_plist_source=args.info_plist_source,
                 info_plist_destination=args.info_plist_destination,
-                provisioning_profiles_dir=args.profiles_dir[0],
+                provisioning_profiles_dirs=args.profiles_dir,
                 entitlements_path=args.entitlements,
                 platform=args.platform,
                 list_codesign_identities=list_codesign_identities,
