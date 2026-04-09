@@ -16,6 +16,10 @@ load(
     ":swift_debug_info_utils.bzl",
     "extract_and_merge_clang_debug_infos",
 )
+load(
+    ":swift_incremental_support.bzl",
+    "get_uses_content_based_paths",
+)
 load(":swift_pcm_compilation_types.bzl", "SwiftPCMUncompiledInfo", "WrappedSwiftPCMCompiledInfo")
 load(":swift_sdk_flags.bzl", "get_sdk_flags")
 load(":swift_sdk_pcm_compilation.bzl", "get_shared_pcm_compilation_args", "get_swift_sdk_pcm_anon_targets")
@@ -54,7 +58,7 @@ def get_swift_pcm_anon_targets(
         deps.append((_swift_pcm_compilation, {
             "dep": uncompiled_dep,
             "enable_cxx_interop": enable_cxx_interop,
-            "has_content_based_path": False,
+            "has_content_based_path": True,
             "name": uncompiled_dep.label,
             "swift_cxx_args": swift_cxx_args,
             "_swift_toolchain": get_swift_toolchain_info_dep(ctx),
@@ -258,7 +262,7 @@ def _get_base_pcm_flags(
         sdk_deps_tset: SwiftCompiledModuleTset,
         pcm_deps_tset: SwiftCompiledModuleTset,
         swift_cxx_args: list[str]) -> (cmd_args, cmd_args, Artifact):
-    uses_content_based_paths = False
+    uses_content_based_paths = get_uses_content_based_paths(ctx)
     pcm_output = ctx.actions.declare_output(module_name + ".pcm", has_content_based_path = uses_content_based_paths)
     cmd = cmd_args(
         get_shared_pcm_compilation_args(module_name),
