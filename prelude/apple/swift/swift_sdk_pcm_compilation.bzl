@@ -13,10 +13,6 @@ load(
     ":swift_debug_info_utils.bzl",
     "extract_and_merge_clang_debug_infos",
 )
-load(
-    ":swift_incremental_support.bzl",
-    "get_uses_content_based_paths",
-)
 load(":swift_sdk_flags.bzl", "get_sdk_flags")
 load(":swift_toolchain.bzl", "get_swift_toolchain_info_dep")
 load(":swift_toolchain_types.bzl", "SdkUncompiledModuleInfo", "SwiftCompiledModuleInfo", "SwiftCompiledModuleTset", "SwiftToolchainInfo", "WrappedSdkCompiledModuleInfo")
@@ -101,7 +97,7 @@ def get_swift_sdk_pcm_anon_targets(
         (_swift_sdk_pcm_compilation, {
             "dep": module_dep,
             "enable_cxx_interop": enable_cxx_interop,
-            "has_content_based_path": True,
+            "has_content_based_path": False,
             "name": module_dep.label,
             "swift_cxx_args": swift_cxx_args,
             "_swift_toolchain": get_swift_toolchain_info_dep(ctx),
@@ -113,7 +109,7 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Prov
     def k(sdk_pcm_deps_providers) -> list[Provider]:
         uncompiled_sdk_module_info = ctx.attrs.dep[SdkUncompiledModuleInfo]
         sdk_deps_tset = get_compiled_sdk_clang_deps_tset(ctx, sdk_pcm_deps_providers)
-        uses_content_based_paths = get_uses_content_based_paths(ctx)
+        uses_content_based_paths = False
 
         # We pass in Swift and Clang SDK module deps to get the transitive
         # Clang dependencies compiled with the correct Swift cxx args. For
