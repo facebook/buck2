@@ -31,6 +31,17 @@ enum ImportPathError {
     Suffix(CellPath),
 }
 
+/// The format a loadable file should be parsed as, when it can't be inferred
+/// from the file extension. Set via an `?as=` hint in a `load()` string, e.g.
+/// `load(":uv.lock?as=toml", "value")`.
+#[derive(
+    Clone, Copy, Hash, StrongHash, Eq, PartialEq, Debug, Allocative, Pagable
+)]
+pub enum ImportFormat {
+    Json,
+    Toml,
+}
+
 /// Path of a `.bzl` file.
 #[derive(Clone, Hash, StrongHash, Eq, PartialEq, Debug, Allocative, Pagable)]
 pub struct ImportPath {
@@ -40,6 +51,12 @@ pub struct ImportPath {
     /// The cell of the top-level build module that this is being loaded
     /// (perhaps transitively) into.
     build_file_cell: BuildFileCell,
+    /// If set, the file is parsed as this format regardless of its extension,
+    /// as requested by an `?as=` load hint. `None` means infer from the
+    /// extension. This is part of the path's identity: it rides along wherever
+    /// the `ImportPath` goes (including across the `buck2_node` boundary), so
+    /// the module type never has to be re-guessed from the extension.
+    format: Option<ImportFormat>,
 }
 
 impl ImportPath {
@@ -70,7 +87,41 @@ impl ImportPath {
         Ok(Self {
             path,
             build_file_cell,
+            format: None,
         })
+    }
+
+    /// Create an ImportPath for a file with an explicit format override (e.g. `?as=toml`).
+    /// Skips the file extension validation since the format is determined by the hint,
+    /// not the extension.
+    ///
+    /// Do not include the ?as=toml hint as part of the path.
+    pub fn new_with_explicit_format(
+        path: CellPath,
+        build_file_cell: BuildFileCell,
+        format: ImportFormat,
+    ) -> buck2_error::Result<Self> {
+        if path.parent().is_none() {
+            return Err(ImportPathError::Invalid(path).into());
+        }
+
+        if path.path().as_str().contains('?') {
+            return Err(ImportPathError::Invalid(path).into());
+        }
+
+        Ok(Self {
+            path,
+            build_file_cell,
+            format: Some(format),
+        })
+    }
+
+    pub fn new_same_cell_with_explicit_format(
+        path: CellPath,
+        format: ImportFormat,
+    ) -> buck2_error::Result<Self> {
+        let build_file_cell = BuildFileCell::new(path.cell());
+        Self::new_with_explicit_format(path, build_file_cell, format)
     }
 
     /// LSP creates imports for non-bzl files.
@@ -89,6 +140,7 @@ impl ImportPath {
         Ok(Self {
             path,
             build_file_cell,
+            format: None,
         })
     }
 
@@ -126,6 +178,13 @@ impl ImportPath {
 
     pub fn path(&self) -> &CellPath {
         &self.path
+    }
+
+    /// The explicit format this file should be parsed as, if set via an `?as=`
+    /// load hint. `None` means the module type should be inferred from the
+    /// extension.
+    pub fn format_override(&self) -> Option<ImportFormat> {
+        self.format
     }
 
     /// Parent directory of the import path.

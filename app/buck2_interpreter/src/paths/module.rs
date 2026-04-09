@@ -13,6 +13,7 @@ use std::hash::Hasher;
 
 use allocative::Allocative;
 use buck2_core::bxl::BxlFilePath;
+use buck2_core::bzl::ImportFormat;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
@@ -59,6 +60,24 @@ impl Equivalent<OwnedStarlarkModulePath> for StarlarkModulePath<'_> {
 }
 
 impl<'a> StarlarkModulePath<'a> {
+    /// Choose the module type for a loadable import. An explicit `?as=` format
+    /// override on the path wins; otherwise the type is inferred from the file
+    /// extension. This is the single place that decision is made, so a bare
+    /// `ImportPath` (e.g. seen when re-fetching an already-loaded module) always
+    /// resolves to the same type it was loaded as, even for files whose
+    /// extension doesn't match their format (`uv.lock?as=toml`).
+    pub fn from_import_path(path: &'a ImportPath) -> Self {
+        match path.format_override() {
+            Some(ImportFormat::Json) => StarlarkModulePath::JsonFile(path),
+            Some(ImportFormat::Toml) => StarlarkModulePath::TomlFile(path),
+            None => match path.path().path().extension() {
+                Some("json") => StarlarkModulePath::JsonFile(path),
+                Some("toml") => StarlarkModulePath::TomlFile(path),
+                _ => StarlarkModulePath::LoadFile(path),
+            },
+        }
+    }
+
     pub fn cell(&self) -> CellName {
         match self {
             StarlarkModulePath::LoadFile(l) => l.cell(),
@@ -130,6 +149,11 @@ impl OwnedStarlarkModulePath {
             StarlarkModulePath::JsonFile(p) => Self::JsonFile(p.clone()),
             StarlarkModulePath::TomlFile(t) => Self::TomlFile(t.clone()),
         }
+    }
+
+    /// Owned counterpart of [`StarlarkModulePath::from_import_path`].
+    pub fn from_import_path(path: ImportPath) -> Self {
+        OwnedStarlarkModulePath::new(StarlarkModulePath::from_import_path(&path))
     }
 
     pub fn borrow(&self) -> StarlarkModulePath<'_> {
