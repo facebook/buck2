@@ -23,6 +23,7 @@ use pagable::PagableSerialize;
 use pagable::PagableSerializer;
 
 use crate::pagable::heap_ref_id::HeapRefId;
+use crate::pagable::serialized_frozen_value::SerializedFrozenValue;
 use crate::pagable::starlark_serialize::StarlarkSerializeContext;
 use crate::values::FrozenValue;
 use crate::values::layout::heap::arena::ArenaOffset;
@@ -68,7 +69,8 @@ impl StarlarkSerializeContext for StarlarkSerializerImpl<'_> {
 
     fn serialize_frozen_value(&mut self, fv: FrozenValue) -> crate::Result<()> {
         match fv.ptr_value().tags() {
-            PointerTags::OtherFrozen => {
+            PointerTags::OtherFrozen | PointerTags::StrFrozen => {
+                let is_str = fv.ptr_value().tags() == PointerTags::StrFrozen;
                 let heap_id = self
                     .current_heap_id
                     .expect("serialize_frozen_value called outside of heap serialization");
@@ -77,15 +79,18 @@ impl StarlarkSerializeContext for StarlarkSerializerImpl<'_> {
                     .get(&heap_id)
                     .expect("offset map must exist for current heap");
                 let raw_ptr = fv.ptr_value().ptr_value_untagged();
-                let arena_offset = offset_map.get(&raw_ptr).unwrap_or_else(|| {
+                let arena_offset = *offset_map.get(&raw_ptr).unwrap_or_else(|| {
                     panic!(
                         "FrozenValue pointer {:#x} not found in current heap's offset map",
                         raw_ptr
                     )
                 });
-                arena_offset.pagable_serialize(self.pagable)?;
+                let serialized = SerializedFrozenValue::SameHeapPtr {
+                    offset: arena_offset,
+                    is_str,
+                };
+                serialized.pagable_serialize(self.pagable)?;
             }
-            PointerTags::StrFrozen => unimplemented!("serialization of frozen string FrozenValue"),
             PointerTags::Int => unimplemented!("serialization of inline int FrozenValue"),
             PointerTags::OtherUnfrozen | PointerTags::StrUnfrozen => {
                 unreachable!("FrozenValue cannot have unfrozen tag")

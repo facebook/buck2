@@ -15,8 +15,12 @@
  * limitations under the License.
  */
 
+use std::mem::MaybeUninit;
+use std::ptr;
 use std::ptr::copy_nonoverlapping;
 
+use pagable::PagableDeserialize;
+use pagable::PagableSerialize;
 use starlark_map::Hashed;
 
 use crate::collections::StarlarkHashValue;
@@ -107,6 +111,40 @@ impl<'v> AValue<'v> for StarlarkStrAValue {
             );
             v
         }
+    }
+
+    fn starlark_serialize(
+        me: *const AValueRepr<Self::StarlarkValue>,
+        ctx: &mut dyn crate::pagable::StarlarkSerializeContext,
+    ) -> crate::Result<()> {
+        let value = unsafe { &(*me).payload };
+        value.as_str().pagable_serialize(ctx.pagable())?;
+        Ok(())
+    }
+
+    fn starlark_deserialize(
+        me: *mut AValueRepr<Self::StarlarkValue>,
+        ctx: &mut dyn crate::pagable::StarlarkDeserializeContext<'_>,
+    ) -> crate::Result<()> {
+        let s = String::pagable_deserialize(ctx.pagable())?;
+        let len = s.len();
+        unsafe {
+            ptr::write(
+                &mut (*me).payload,
+                StarlarkStr::new(len, StarlarkHashValue::new_unchecked(0)),
+            );
+            let extra_offset = AValueRepr::<Self::StarlarkValue>::offset_of_payload()
+                + <Self as AValue>::offset_of_extra();
+            let extra_ptr = (me as *mut u8).add(extra_offset) as *mut MaybeUninit<usize>;
+            let payload_len = StarlarkStr::payload_len_for_len(len);
+            // Zero the last word for padding.
+            if payload_len > 0 {
+                (*extra_ptr.add(payload_len - 1)).write(0usize);
+            }
+            // Copy string bytes.
+            copy_nonoverlapping(s.as_ptr(), extra_ptr as *mut u8, len);
+        }
+        Ok(())
     }
 }
 

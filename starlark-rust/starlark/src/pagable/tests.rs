@@ -512,3 +512,47 @@ fn test_frozen_tuple_round_trip() -> crate::Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_frozen_str_value_round_trip() -> crate::Result<()> {
+    use crate::values::string::str_type::StarlarkStr;
+
+    // RefData (undrop) holds a FrozenValue pointing to a frozen string (also undrop).
+    // Strings with len > 1 are heap-allocated with StrFrozen tag.
+    let heap = FrozenHeap::new();
+    let str_fv = heap.alloc_str("hello world").to_frozen_value();
+    heap.alloc_simple(RefData {
+        label: 42,
+        target: str_fv,
+    });
+    let heap_ref = heap.into_ref_named(TestHeapName::heap_name("test"));
+
+    let restored = round_trip_heap_ref(&heap_ref)?;
+
+    // Both the string and RefData are in the undrop bump.
+    let undrop_headers = restored.collect_undrop_headers_ordered();
+    assert_eq!(undrop_headers.len(), 2);
+
+    // First header is the string.
+    let restored_str = undrop_headers[0]
+        .unpack()
+        .downcast_ref::<StarlarkStr>()
+        .unwrap();
+    assert_eq!(restored_str.as_str(), "hello world");
+
+    // Second header is the RefData.
+    let ref_data: &RefData = undrop_headers[1].unpack().downcast_ref().unwrap();
+    assert_eq!(ref_data.label, 42);
+
+    // The FrozenValue should be a string (is_str tag set).
+    assert!(ref_data.target.is_str());
+    assert_eq!(ref_data.target.unpack_str().unwrap(), "hello world");
+
+    // Pointer identity check.
+    assert_eq!(
+        ref_data.target.ptr_value().ptr_value_untagged(),
+        undrop_headers[0] as *const _ as usize
+    );
+
+    Ok(())
+}

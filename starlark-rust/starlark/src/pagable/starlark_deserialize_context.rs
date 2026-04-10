@@ -24,6 +24,7 @@ use pagable::PagableDeserializer;
 
 use crate::pagable::error::PagableError;
 use crate::pagable::heap_ref_id::HeapRefId;
+use crate::pagable::serialized_frozen_value::SerializedFrozenValue;
 use crate::pagable::starlark_deserialize::StarlarkDeserializeContext;
 use crate::values::FrozenValue;
 use crate::values::layout::heap::arena::ArenaOffset;
@@ -94,19 +95,20 @@ impl<'de> StarlarkDeserializeContext<'de> for StarlarkDeserializerImpl<'_, 'de> 
     }
 
     fn deserialize_frozen_value(&mut self) -> crate::Result<FrozenValue> {
-        let arena_offset = ArenaOffset::pagable_deserialize(self.pagable)?;
-        let heap_id = self
-            .current_heap_id
-            .ok_or(PagableError::NoCurrentHeapContext)?;
-        let bases = self
-            .heap_bases
-            .get(&heap_id)
-            .ok_or(PagableError::HeapBasesNotRegistered)?;
-        let ptr = bases.resolve(&arena_offset);
-        let header = unsafe { &*(ptr as *const AValueHeader) };
-        // Currently only OtherFrozen (non-string) pointers are serialized,
-        // so is_str is always false. The header may not be initialized yet
-        // (cross-bump references), so we cannot query it.
-        Ok(FrozenValue::new_ptr(header, false))
+        let serialized = SerializedFrozenValue::pagable_deserialize(self.pagable)?;
+        match serialized {
+            SerializedFrozenValue::SameHeapPtr { offset, is_str } => {
+                let heap_id = self
+                    .current_heap_id
+                    .ok_or(PagableError::NoCurrentHeapContext)?;
+                let bases = self
+                    .heap_bases
+                    .get(&heap_id)
+                    .ok_or(PagableError::HeapBasesNotRegistered)?;
+                let ptr = bases.resolve(&offset);
+                let header = unsafe { &*(ptr as *const AValueHeader) };
+                Ok(FrozenValue::new_ptr(header, is_str))
+            }
+        }
     }
 }
