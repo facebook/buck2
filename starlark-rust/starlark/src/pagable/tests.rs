@@ -88,6 +88,44 @@ fn round_trip_heap_ref(heap_ref: &FrozenHeapRef) -> anyhow::Result<FrozenHeapRef
     Ok(restored)
 }
 
+/// A test type with rust heap-allocated fields (Vec, Box, String).
+#[derive(Debug, Display, Allocative, ProvidesStaticType, NoSerialize)]
+#[display("HeapData({:?}, {:?}, {:?})", self.items, self.label, self.boxed)]
+struct HeapData {
+    items: Vec<u32>,
+    label: String,
+    boxed: Box<i64>,
+}
+
+starlark_simple_value!(HeapData);
+
+#[starlark_value(type = "HeapData", skip_pagable)]
+impl<'v> StarlarkValue<'v> for HeapData {
+    type Canonical = Self;
+}
+
+impl StarlarkSerialize for HeapData {
+    fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
+        self.items.pagable_serialize(ctx.pagable())?;
+        self.label.pagable_serialize(ctx.pagable())?;
+        self.boxed.pagable_serialize(ctx.pagable())?;
+        Ok(())
+    }
+}
+
+impl StarlarkDeserialize for HeapData {
+    fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
+        let items = Vec::<u32>::pagable_deserialize(ctx.pagable())?;
+        let label = String::pagable_deserialize(ctx.pagable())?;
+        let boxed = Box::<i64>::pagable_deserialize(ctx.pagable())?;
+        Ok(HeapData {
+            items,
+            label,
+            boxed,
+        })
+    }
+}
+
 #[test]
 fn test_simple_value_round_trip() -> anyhow::Result<()> {
     // 1. Create heap with a SimpleData value.
@@ -108,6 +146,33 @@ fn test_simple_value_round_trip() -> anyhow::Result<()> {
     let data: &SimpleData = avalue.downcast_ref().unwrap();
     assert_eq!(data.flag, true);
     assert_eq!(data.count, 42);
+
+    Ok(())
+}
+
+#[test]
+fn test_heap_allocated_value_round_trip() -> crate::Result<()> {
+    // 1. Create heap with a HeapData value containing Vec, String, Box.
+    let heap = FrozenHeap::new();
+    heap.alloc_simple(HeapData {
+        items: vec![10, 20, 30],
+        label: "hello".to_owned(),
+        boxed: Box::new(-99),
+    });
+    let heap_ref = heap.into_ref_named(TestHeapName::heap_name("test_heap_data_round_trip"));
+
+    // 2. Round-trip via pagable serialize/deserialize.
+    let restored = round_trip_heap_ref(&heap_ref)?;
+
+    // 3. Verify: downcast to typed value and check fields.
+    // HeapData has Drop (Vec, String, Box), so it's in the drop bump.
+    let headers = restored.collect_drop_headers_ordered();
+    assert_eq!(headers.len(), 1);
+    let avalue = headers[0].unpack();
+    let data: &HeapData = avalue.downcast_ref().unwrap();
+    assert_eq!(data.items, vec![10, 20, 30]);
+    assert_eq!(data.label, "hello");
+    assert_eq!(*data.boxed, -99);
 
     Ok(())
 }

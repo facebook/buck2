@@ -631,6 +631,15 @@ impl FrozenHeapRef {
             None => Vec::new(),
         }
     }
+
+    /// Collect live value headers from the drop bump in allocation order.
+    #[cfg(test)]
+    pub(crate) fn collect_drop_headers_ordered(&self) -> Vec<&AValueHeader> {
+        match &self.0 {
+            Some(inner) => inner.arena.collect_drop_headers_ordered(),
+            None => Vec::new(),
+        }
+    }
 }
 
 impl FrozenHeap {
