@@ -65,5 +65,5 @@ pub use starlark_deserialize::StarlarkDeserializeContext;
 pub use starlark_serialize::StarlarkSerialize;
 pub use starlark_serialize::StarlarkSerializeContext;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "pagable"))]
 mod tests;
