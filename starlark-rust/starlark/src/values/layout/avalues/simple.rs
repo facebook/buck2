@@ -82,6 +82,25 @@ impl<'v, T: StarlarkValue<'v> + HeapSendable<'v> + HeapSyncable<'v>> AValue<'v>
     ) -> Value<'v> {
         unsafe { heap_copy_impl::<Self>(me, tracer, |_v, _tracer| {}) }
     }
+
+    fn starlark_serialize(
+        me: *const AValueRepr<Self::StarlarkValue>,
+        ctx: &mut dyn crate::pagable::StarlarkSerializeContext,
+    ) -> crate::Result<()> {
+        let value = unsafe { &(*me).payload };
+        value.starlark_serialize(ctx)
+    }
+
+    fn starlark_deserialize(
+        me: *mut AValueRepr<Self::StarlarkValue>,
+        ctx: &mut dyn crate::pagable::StarlarkDeserializeContext<'_>,
+    ) -> crate::Result<()> {
+        let value = T::starlark_deserialize(ctx)?;
+        unsafe {
+            std::ptr::write(&mut (*me).payload, value);
+        }
+        Ok(())
+    }
 }
 
 impl FrozenHeap {
