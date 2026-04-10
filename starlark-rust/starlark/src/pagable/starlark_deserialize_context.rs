@@ -31,7 +31,6 @@ pub struct StarlarkDeserializerImpl<'a, 'de> {
 
 impl<'a, 'de> StarlarkDeserializerImpl<'a, 'de> {
     /// Create a new deserializer context wrapping the given pagable deserializer.
-    #[expect(dead_code, reason = "will be used when deserialization is wired up")]
     pub fn new(pagable: &'a mut dyn PagableDeserializer<'de>) -> Self {
         Self { pagable }
     }

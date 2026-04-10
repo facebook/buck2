@@ -36,7 +36,11 @@ use allocative::Allocative;
 use bumpalo::Bump;
 use dupe::Dupe;
 use dupe::IterDupedExt;
+use pagable::PagableBoxDeserialize;
 use pagable::PagableDeserialize;
+use pagable::PagableDeserializer;
+use pagable::PagableSerialize;
+use pagable::PagableSerializer;
 use starlark_map::small_set::SmallSet;
 
 use crate::cast;
@@ -47,8 +51,10 @@ use crate::environment::MethodFrozenHeapName;
 use crate::eval::runtime::profile::instant::ProfilerInstant;
 use crate::pagable::DeserTypeId;
 use crate::pagable::lookup_vtable;
-use crate::pagable::starlark_deserialize::StarlarkDeserialize;
 use crate::pagable::starlark_deserialize::StarlarkDeserializeContext;
+use crate::pagable::starlark_deserialize_context::StarlarkDeserializerImpl;
+use crate::pagable::starlark_serialize::StarlarkSerializeContext;
+use crate::pagable::starlark_serialize_context::StarlarkSerializerImpl;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenStringValue;
@@ -337,12 +343,80 @@ struct FrozenFrozenHeap {
 unsafe impl Sync for FrozenFrozenHeap {}
 unsafe impl Send for FrozenFrozenHeap {}
 
-impl StarlarkDeserialize for FrozenFrozenHeap {
-    fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
-        fn deserialize_bump(
+impl FrozenFrozenHeap {
+    /// Serialization format:
+    /// ```text
+    /// [drop_total_bytes: u32]
+    /// [non_drop_total_bytes: u32]
+    /// (drop bump):
+    ///   [count: usize]
+    ///   for each value (count times):
+    ///     [deser_type_id: str]
+    ///     [alloc_size: u32]
+    ///     [value_data...]
+    /// (non-drop bump):
+    ///   [count: usize]
+    ///   for each value (count times):
+    ///     [deser_type_id: str]
+    ///     [alloc_size: u32]
+    ///     [value_data...]
+    /// ```
+    fn serialize_inner(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
+        fn bump_total_bytes(headers: &[&AValueHeader]) -> u32 {
+            headers
+                .iter()
+                .map(|h| h.unpack().memory_size().bytes())
+                .sum()
+        }
+
+        fn serialize_bump(
+            headers: &[&AValueHeader],
+            ctx: &mut dyn StarlarkSerializeContext,
+        ) -> crate::Result<()> {
+            headers.len().pagable_serialize(ctx.pagable())?;
+            for header in headers {
+                let avalue = header.unpack();
+                avalue
+                    .vtable()
+                    .deser_type_id
+                    .pagable_serialize(ctx.pagable())?;
+                avalue
+                    .memory_size()
+                    .bytes()
+                    .pagable_serialize(ctx.pagable())?;
+                avalue.starlark_serialize(ctx)?;
+            }
+            Ok(())
+        }
+
+        assert!(
+            self.refs.is_empty(),
+            "Serialization of heaps with refs is not yet supported"
+        );
+
+        let drop_headers = self.arena.collect_drop_headers_ordered();
+        let non_drop_headers = self.arena.collect_undrop_headers_ordered();
+
+        // Serialize both total_bytes upfront so the deserializer can
+        // pre-allocate both arena bumps before reading any values.
+        bump_total_bytes(&drop_headers).pagable_serialize(serializer)?;
+        bump_total_bytes(&non_drop_headers).pagable_serialize(serializer)?;
+
+        let mut ctx = StarlarkSerializerImpl::new(serializer);
+
+        serialize_bump(&drop_headers, &mut ctx)?;
+        serialize_bump(&non_drop_headers, &mut ctx)?;
+
+        Ok(())
+    }
+
+    fn deserialize_inner<'de, D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> crate::Result<Self> {
+        fn deserialize_bump<'a, 'de>(
             cursor: &mut ArenaRawCursor,
             count: usize,
-            ctx: &mut dyn StarlarkDeserializeContext<'_>,
+            ctx: &mut StarlarkDeserializerImpl<'a, 'de>,
         ) -> crate::Result<u32> {
             let mut consumed_bytes: u32 = 0;
             for _ in 0..count {
@@ -377,16 +451,18 @@ impl StarlarkDeserialize for FrozenFrozenHeap {
         }
 
         // Read both total_bytes upfront so we can pre-allocate both arena bumps.
-        let drop_total_bytes = u32::pagable_deserialize(ctx.pagable())?;
-        let non_drop_total_bytes = u32::pagable_deserialize(ctx.pagable())?;
+        let drop_total_bytes = u32::pagable_deserialize(deserializer)?;
+        let non_drop_total_bytes = u32::pagable_deserialize(deserializer)?;
 
         let arena = Arena::default();
         let mut drop_cursor = arena.alloc_raw_drop_cursor(drop_total_bytes);
         let mut non_drop_cursor = arena.alloc_raw_non_drop_cursor(non_drop_total_bytes);
 
+        let mut ctx = StarlarkDeserializerImpl::new(deserializer.as_dyn());
+
         let drop_count = usize::pagable_deserialize(ctx.pagable())?;
         let drop_consumed = if let Some(ref mut cursor) = drop_cursor {
-            deserialize_bump(cursor, drop_count, ctx)?
+            deserialize_bump(cursor, drop_count, &mut ctx)?
         } else {
             0
         };
@@ -394,7 +470,7 @@ impl StarlarkDeserialize for FrozenFrozenHeap {
 
         let undrop_count = usize::pagable_deserialize(ctx.pagable())?;
         let undrop_consumed = if let Some(ref mut cursor) = non_drop_cursor {
-            deserialize_bump(cursor, undrop_count, ctx)?
+            deserialize_bump(cursor, undrop_count, &mut ctx)?
         } else {
             0
         };
@@ -405,6 +481,54 @@ impl StarlarkDeserialize for FrozenFrozenHeap {
             refs: Box::new([]),
             name: None,
         })
+    }
+}
+
+/// PagableSerialize for FrozenFrozenHeap — delegates to StarlarkSerialize
+/// by creating a local StarlarkSerializerImpl from the pagable serializer.
+impl PagableSerialize for FrozenFrozenHeap {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
+        self.serialize_inner(serializer)
+            .map_err(|e| e.into_anyhow())
+    }
+}
+
+/// PagableBoxDeserialize for FrozenFrozenHeap — delegates to StarlarkDeserialize
+/// by creating a local StarlarkDeserializerImpl from the pagable deserializer.
+impl<'de> PagableBoxDeserialize<'de> for FrozenFrozenHeap {
+    fn deserialize_box<D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> pagable::Result<Box<Self>> {
+        let heap =
+            FrozenFrozenHeap::deserialize_inner(deserializer).map_err(|e| e.into_anyhow())?;
+        Ok(Box::new(heap))
+    }
+}
+
+/// PagableSerialize for FrozenHeapRef — serializes the inner Arc via pagable arc mechanism.
+impl PagableSerialize for FrozenHeapRef {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
+        let is_some = self.0.is_some();
+        is_some.pagable_serialize(serializer)?;
+        if let Some(ref arc) = self.0 {
+            serializer.serialize_arc(arc)?;
+        }
+        Ok(())
+    }
+}
+
+/// PagableDeserialize for FrozenHeapRef — deserializes the inner Arc via pagable arc mechanism.
+impl<'de> PagableDeserialize<'de> for FrozenHeapRef {
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> pagable::Result<Self> {
+        let is_some = bool::pagable_deserialize(deserializer)?;
+        if is_some {
+            let arc: Arc<FrozenFrozenHeap> = pagable::arc_erase::deserialize_arc(deserializer)?;
+            Ok(FrozenHeapRef(Some(arc)))
+        } else {
+            Ok(FrozenHeapRef::default())
+        }
     }
 }
 

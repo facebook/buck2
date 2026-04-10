@@ -128,7 +128,6 @@ pub struct AValueVTable {
 
     /// Deserialization type identifier
     /// Used for vtable lookup during deserialization.
-    #[expect(dead_code, reason = "will be read when deserialization is wired up")]
     pub(crate) deser_type_id: DeserTypeId,
 
     // `Drop`
@@ -363,7 +362,6 @@ impl<'v> AValueDyn<'v> {
         (self.vtable.heap_copy)(self.value, tracer)
     }
 
-    #[expect(dead_code, reason = "will be used when serialization is wired up")]
     pub(crate) fn starlark_serialize(
         self,
         ctx: &mut dyn StarlarkSerializeContext,

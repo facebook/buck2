@@ -394,20 +394,12 @@ impl<A: ArenaAllocator> Arena<A> {
 
     /// Collect live value headers from the `drop` bump in allocation order.
     /// Forward pointers (from GC) are skipped.
-    #[expect(
-        dead_code,
-        reason = "used by FrozenFrozenHeap serialization in later diffs"
-    )]
     pub(crate) fn collect_drop_headers_ordered(&self) -> Vec<&AValueHeader> {
         Self::collect_bump_headers_ordered(&self.drop)
     }
 
     /// Collect live value headers from the `non_drop` bump in allocation order.
     /// Forward pointers (from GC) are skipped.
-    #[expect(
-        dead_code,
-        reason = "used by FrozenFrozenHeap serialization in later diffs"
-    )]
     pub(crate) fn collect_undrop_headers_ordered(&self) -> Vec<&AValueHeader> {
         Self::collect_bump_headers_ordered(&self.non_drop)
     }

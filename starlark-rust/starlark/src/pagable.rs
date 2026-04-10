@@ -52,6 +52,7 @@ pub use static_value::StaticValueEntry;
 #[allow(unused_imports)]
 pub(crate) use static_value::get_static_value_id;
 
+pub(crate) mod heap_ref_id;
 pub(crate) mod starlark_deserialize;
 pub(crate) mod starlark_deserialize_context;
 pub(crate) mod starlark_serialize;

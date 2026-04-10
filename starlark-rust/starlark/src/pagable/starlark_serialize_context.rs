@@ -31,7 +31,6 @@ pub struct StarlarkSerializerImpl<'a> {
 
 impl<'a> StarlarkSerializerImpl<'a> {
     /// Create a new serializer context wrapping the given pagable serializer.
-    #[expect(dead_code, reason = "will be used when serialization is wired up")]
     pub fn new(pagable: &'a mut dyn PagableSerializer) -> Self {
         Self { pagable }
     }
