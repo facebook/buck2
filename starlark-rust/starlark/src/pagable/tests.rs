@@ -383,3 +383,68 @@ fn test_frozen_value_undrop_to_drop_round_trip() -> crate::Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_frozen_list_round_trip() -> crate::Result<()> {
+    use crate::values::list::value::ListGen;
+    use crate::values::types::list::value::FrozenListData;
+
+    // Create a heap with SimpleData values and a frozen list referencing them.
+    let heap = FrozenHeap::new();
+    let a = heap.alloc_simple(SimpleData {
+        flag: true,
+        count: 10,
+    });
+    let b = heap.alloc_simple(SimpleData {
+        flag: false,
+        count: 20,
+    });
+    heap.alloc_list(&[a, b]);
+    let heap_ref = heap.into_ref_named(TestHeapName::heap_name("test"));
+
+    let restored = round_trip_heap_ref(&heap_ref)?;
+
+    // All three values (2 SimpleData + 1 list) are in the undrop bump (no Drop).
+    let undrop_headers = restored.collect_undrop_headers_ordered();
+    assert_eq!(undrop_headers.len(), 3);
+
+    let a_data: &SimpleData = undrop_headers[0].unpack().downcast_ref().unwrap();
+    assert_eq!(a_data.flag, true);
+    assert_eq!(a_data.count, 10);
+
+    let b_data: &SimpleData = undrop_headers[1].unpack().downcast_ref().unwrap();
+    assert_eq!(b_data.flag, false);
+    assert_eq!(b_data.count, 20);
+
+    // Third header is the list.
+    let list_value: &ListGen<FrozenListData> = undrop_headers[2].unpack().downcast_ref().unwrap();
+    let content = list_value.0.content();
+    assert_eq!(content.len(), 2);
+
+    // Verify list elements point to the restored SimpleData values.
+    let elem_a: &SimpleData = content[0]
+        .downcast_frozen_ref::<SimpleData>()
+        .expect("element 0 should be SimpleData")
+        .value;
+    assert_eq!(elem_a.flag, true);
+    assert_eq!(elem_a.count, 10);
+
+    let elem_b: &SimpleData = content[1]
+        .downcast_frozen_ref::<SimpleData>()
+        .expect("element 1 should be SimpleData")
+        .value;
+    assert_eq!(elem_b.flag, false);
+    assert_eq!(elem_b.count, 20);
+
+    // Pointer identity: list elements should point to the same headers.
+    assert_eq!(
+        content[0].ptr_value().ptr_value_untagged(),
+        undrop_headers[0] as *const _ as usize
+    );
+    assert_eq!(
+        content[1].ptr_value().ptr_value_untagged(),
+        undrop_headers[1] as *const _ as usize
+    );
+
+    Ok(())
+}
