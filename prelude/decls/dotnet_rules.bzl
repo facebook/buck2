@@ -12,7 +12,33 @@
 # well-formatted (and then delete this TODO)
 
 load(":common.bzl", "buck", "prelude_rule")
-load(":dotnet_common.bzl", "dotnet_common")
+load(":dotnet_common.bzl", "FrameworkVersion")
+
+_CSHARP_LIBRARY_OR_EXE_ATTRIBUTES = {
+    "srcs": attrs.list(attrs.source(), default = [], doc = """
+              The set of C# source files to be compiled, and assembled by this rule.
+              Each element must a string specifying a source file.
+          """),
+    "resources": attrs.dict(key = attrs.string(), value = attrs.source(), sorted = False, default = {}, doc = """
+              Resources that should be embedded within the built DLL. The format
+              is the name of the resource once mapped into the DLL as the key, and
+              the value being the resource that should be merged. This allows
+              non-unique keys to be identified quickly.
+          """),
+    "framework_ver": attrs.enum(FrameworkVersion, doc = """
+              The version of the .Net framework that this library targets. This is
+              one of 'net35', 'net40', 'net45' and 'net46'.
+          """),
+    "deps": attrs.list(attrs.one_of(attrs.dep(), attrs.string()), default = [], doc = """
+              The set of targets or system-provided assemblies to rely on. Any
+              values that are targets must be either csharp\\_library or `prebuilt_dotnet_library`
+              instances.
+          """),
+    "compiler_flags": attrs.list(attrs.string(), default = [], doc = """
+              The set of additional compiler flags to pass to the compiler.
+          """),
+    "add_hermetic_arguments": attrs.bool(default = True),
+}
 
 csharp_library = prelude_rule(
     name = "csharp_library",
@@ -57,12 +83,7 @@ csharp_library = prelude_rule(
                  the short name of the target.
             """),
         } |
-        dotnet_common.srcs_arg() |
-        dotnet_common.resources_arg() |
-        dotnet_common.framework_ver_arg() |
-        dotnet_common.deps_arg() |
-        dotnet_common.compiler_flags_arg() |
-        dotnet_common.add_hermetic_arguments_arg() |
+        _CSHARP_LIBRARY_OR_EXE_ATTRIBUTES |
         buck.licenses_arg() |
         buck.labels_arg() |
         buck.contacts_arg()
@@ -114,12 +135,7 @@ csharp_binary = prelude_rule(
                  the short name of the target.
             """),
         } |
-        dotnet_common.srcs_arg() |
-        dotnet_common.resources_arg() |
-        dotnet_common.framework_ver_arg() |
-        dotnet_common.deps_arg() |
-        dotnet_common.compiler_flags_arg() |
-        dotnet_common.add_hermetic_arguments_arg() |
+        _CSHARP_LIBRARY_OR_EXE_ATTRIBUTES |
         buck.licenses_arg() |
         buck.labels_arg() |
         buck.contacts_arg()
