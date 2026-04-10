@@ -22,6 +22,7 @@
 //! to know which vtable to use for a given type, and this registry provides
 //! that mapping.
 
+use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
@@ -49,6 +50,20 @@ impl pagable::PagableSerialize for DeserTypeId {
     }
 }
 
+impl<'de> pagable::PagableDeserialize<'de> for DeserTypeId {
+    fn pagable_deserialize<D: pagable::PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> pagable::Result<Self> {
+        let name = String::pagable_deserialize(deserializer)?;
+        VTABLE_REGISTRY
+            .get_key_value(name.as_str())
+            .map(|(k, _)| *k)
+            .ok_or_else(|| {
+                anyhow::anyhow!("Type `{}` was not registered for deserialization", name)
+            })
+    }
+}
+
 impl DeserTypeId {
     /// Create a `DeserTypeId` for a type.
     #[inline]
@@ -66,6 +81,12 @@ impl DeserTypeId {
 impl Display for DeserTypeId {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         Display::fmt(self.0, f)
+    }
+}
+
+impl Borrow<str> for DeserTypeId {
+    fn borrow(&self) -> &str {
+        self.0
     }
 }
 

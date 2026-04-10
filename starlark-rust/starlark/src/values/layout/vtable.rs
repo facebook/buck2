@@ -141,7 +141,7 @@ pub struct AValueVTable {
     heap_copy: for<'v> fn(StarlarkValueRawPtr, &Tracer<'v>) -> Value<'v>,
     starlark_serialize:
         fn(StarlarkValueRawPtr, &mut dyn StarlarkSerializeContext) -> crate::Result<()>,
-    starlark_deserialize: for<'de> fn(
+    pub(crate) starlark_deserialize: for<'de> fn(
         StarlarkValueRawPtr,
         &mut dyn StarlarkDeserializeContext<'de>,
     ) -> crate::Result<()>,

@@ -36,6 +36,7 @@ use allocative::Allocative;
 use bumpalo::Bump;
 use dupe::Dupe;
 use dupe::IterDupedExt;
+use pagable::PagableDeserialize;
 use starlark_map::small_set::SmallSet;
 
 use crate::cast;
@@ -44,6 +45,10 @@ use crate::collections::StarlarkHashValue;
 use crate::environment::GlobalFrozenHeapName;
 use crate::environment::MethodFrozenHeapName;
 use crate::eval::runtime::profile::instant::ProfilerInstant;
+use crate::pagable::DeserTypeId;
+use crate::pagable::lookup_vtable;
+use crate::pagable::starlark_deserialize::StarlarkDeserialize;
+use crate::pagable::starlark_deserialize::StarlarkDeserializeContext;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::FrozenStringValue;
@@ -63,6 +68,7 @@ use crate::values::layout::avalue::AValue;
 use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::heap::allocator::alloc::allocator::ChunkAllocator;
 use crate::values::layout::heap::arena::Arena;
+use crate::values::layout::heap::arena::ArenaRawCursor;
 use crate::values::layout::heap::arena::ArenaVisitor;
 use crate::values::layout::heap::arena::Reservation;
 use crate::values::layout::heap::call_enter_exit::CallEnter;
@@ -71,11 +77,13 @@ use crate::values::layout::heap::call_enter_exit::NeedsDrop;
 use crate::values::layout::heap::call_enter_exit::NoDrop;
 use crate::values::layout::heap::fast_cell::FastCell;
 use crate::values::layout::heap::profile::by_type::HeapSummary;
+use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::repr::AValueOrForwardUnpack;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::layout::heap::send::HeapSyncable;
 use crate::values::layout::value::FrozenValue;
 use crate::values::layout::value::Value;
+use crate::values::layout::vtable::StarlarkValueRawPtr;
 use crate::values::string::intern::interner::FrozenStringValueInterner;
 use crate::values::string::intern::interner::StringValueInterner;
 
@@ -328,6 +336,77 @@ struct FrozenFrozenHeap {
 // Safe because we never mutate the Arena other than with &mut
 unsafe impl Sync for FrozenFrozenHeap {}
 unsafe impl Send for FrozenFrozenHeap {}
+
+impl StarlarkDeserialize for FrozenFrozenHeap {
+    fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
+        fn deserialize_bump(
+            cursor: &mut ArenaRawCursor,
+            count: usize,
+            ctx: &mut dyn StarlarkDeserializeContext<'_>,
+        ) -> crate::Result<u32> {
+            let mut consumed_bytes: u32 = 0;
+            for _ in 0..count {
+                let deser_type_id = DeserTypeId::pagable_deserialize(ctx.pagable())?;
+                let vtable = lookup_vtable(deser_type_id)?;
+                let alloc_size = u32::pagable_deserialize(ctx.pagable())?;
+                consumed_bytes += alloc_size;
+                unsafe {
+                    let header_ptr = cursor.next(alloc_size);
+                    ptr::write(header_ptr, AValueHeader(vtable));
+                    let raw_ptr = StarlarkValueRawPtr::new_header(&*header_ptr);
+                    (vtable.starlark_deserialize)(raw_ptr, ctx)?;
+                }
+            }
+            Ok(consumed_bytes)
+        }
+
+        fn validate_arena_size(
+            expected_bytes: u32,
+            actual_bytes: u32,
+            count: usize,
+        ) -> crate::Result<()> {
+            if actual_bytes != expected_bytes {
+                return Err(crate::pagable::error::PagableError::InconsistentArenaSize {
+                    count,
+                    expected_bytes,
+                    actual_bytes,
+                }
+                .into());
+            }
+            Ok(())
+        }
+
+        // Read both total_bytes upfront so we can pre-allocate both arena bumps.
+        let drop_total_bytes = u32::pagable_deserialize(ctx.pagable())?;
+        let non_drop_total_bytes = u32::pagable_deserialize(ctx.pagable())?;
+
+        let arena = Arena::default();
+        let mut drop_cursor = arena.alloc_raw_drop_cursor(drop_total_bytes);
+        let mut non_drop_cursor = arena.alloc_raw_non_drop_cursor(non_drop_total_bytes);
+
+        let drop_count = usize::pagable_deserialize(ctx.pagable())?;
+        let drop_consumed = if let Some(ref mut cursor) = drop_cursor {
+            deserialize_bump(cursor, drop_count, ctx)?
+        } else {
+            0
+        };
+        validate_arena_size(drop_total_bytes, drop_consumed, drop_count)?;
+
+        let undrop_count = usize::pagable_deserialize(ctx.pagable())?;
+        let undrop_consumed = if let Some(ref mut cursor) = non_drop_cursor {
+            deserialize_bump(cursor, undrop_count, ctx)?
+        } else {
+            0
+        };
+        validate_arena_size(non_drop_total_bytes, undrop_consumed, undrop_count)?;
+
+        Ok(FrozenFrozenHeap {
+            arena,
+            refs: Box::new([]),
+            name: None,
+        })
+    }
+}
 
 impl Debug for FrozenHeap {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {

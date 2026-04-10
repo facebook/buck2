@@ -29,25 +29,21 @@
 //! The type identifier is `std::any::type_name<T>()` for the Rust type that
 //! defines the Starlark value.
 
-#[cfg(feature = "pagable")]
 pub(crate) mod error;
+
 #[cfg(feature = "pagable")]
 pub(crate) mod vtable_registry;
+#[cfg(not(feature = "pagable"))]
+pub(crate) mod vtable_registry_stub;
 
 #[cfg(feature = "pagable")]
 pub(crate) use vtable_registry::DeserTypeId;
-
-/// Stub `DeserTypeId` when the `pagable` feature is disabled.
+#[cfg(feature = "pagable")]
+pub(crate) use vtable_registry::lookup_vtable;
 #[cfg(not(feature = "pagable"))]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub(crate) struct DeserTypeId;
-
+pub(crate) use vtable_registry_stub::DeserTypeId;
 #[cfg(not(feature = "pagable"))]
-impl DeserTypeId {
-    pub const fn of<T: ?Sized>() -> Self {
-        DeserTypeId
-    }
-}
+pub(crate) use vtable_registry_stub::lookup_vtable;
 
 pub(crate) mod vtable_register;
 

@@ -61,6 +61,7 @@ use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::repr::AValueOrForward;
 use crate::values::layout::heap::repr::AValueOrForwardUnpack;
 use crate::values::layout::heap::repr::AValueRepr;
+use crate::values::layout::value_alloc_size::ValueAllocSize;
 use crate::values::layout::vtable::AValueVTable;
 use crate::values::string::str_type::StarlarkStr;
 
@@ -76,6 +77,33 @@ pub(crate) const MIN_ALLOC: AlignedSize = {
         AlignedSize::of::<AValueRepr<BlackHole>>(),
     )
 };
+
+/// Cursor for writing values into a pre-allocated raw block in the arena.
+/// Handles allocation direction internally so callers don't need to care.
+pub(crate) struct ArenaRawCursor {
+    cursor: *mut u8,
+    direction: ChunkAllocationDirection,
+}
+
+impl ArenaRawCursor {
+    /// Get pointer to the next value slot and advance cursor by `alloc_size`.
+    /// Returns a pointer to the `AValueHeader` position for this value.
+    pub(crate) unsafe fn next(&mut self, alloc_size: u32) -> *mut AValueHeader {
+        unsafe {
+            match self.direction {
+                ChunkAllocationDirection::Up => {
+                    let ptr = self.cursor;
+                    self.cursor = self.cursor.add(alloc_size as usize);
+                    ptr as *mut AValueHeader
+                }
+                ChunkAllocationDirection::Down => {
+                    self.cursor = self.cursor.sub(alloc_size as usize);
+                    self.cursor as *mut AValueHeader
+                }
+            }
+        }
+    }
+}
 
 #[derive(Default)]
 pub(crate) struct Arena<A: ArenaAllocator> {
@@ -382,6 +410,34 @@ impl<A: ArenaAllocator> Arena<A> {
     )]
     pub(crate) fn collect_undrop_headers_ordered(&self) -> Vec<&AValueHeader> {
         Self::collect_bump_headers_ordered(&self.non_drop)
+    }
+
+    /// Allocate a raw block in the `drop` bump and return a cursor for filling values.
+    /// Returns `None` if `total_bytes` is 0.
+    pub(crate) fn alloc_raw_drop_cursor(&self, total_bytes: u32) -> Option<ArenaRawCursor> {
+        Self::alloc_raw_cursor(&self.drop, total_bytes)
+    }
+
+    /// Allocate a raw block in the `non_drop` bump and return a cursor for filling values.
+    /// Returns `None` if `total_bytes` is 0.
+    pub(crate) fn alloc_raw_non_drop_cursor(&self, total_bytes: u32) -> Option<ArenaRawCursor> {
+        Self::alloc_raw_cursor(&self.non_drop, total_bytes)
+    }
+
+    fn alloc_raw_cursor(bump: &A, total_bytes: u32) -> Option<ArenaRawCursor> {
+        if total_bytes == 0 {
+            return None;
+        }
+        let size = ValueAllocSize::new(AlignedSize::new_bytes(total_bytes as usize));
+        let block = bump.alloc(size);
+        let cursor = match A::CHUNK_ALLOCATION_DIRECTION {
+            ChunkAllocationDirection::Up => block.as_ptr(),
+            ChunkAllocationDirection::Down => unsafe { block.as_ptr().add(total_bytes as usize) },
+        };
+        Some(ArenaRawCursor {
+            cursor,
+            direction: A::CHUNK_ALLOCATION_DIRECTION,
+        })
     }
 
     fn collect_bump_headers_ordered(bump: &A) -> Vec<&AValueHeader> {
