@@ -48,6 +48,8 @@ use crate::docs::DocProperty;
 use crate::environment::Methods;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
+use crate::pagable::StarlarkDeserialize;
+use crate::pagable::StarlarkSerialize;
 use crate::private::Private;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
@@ -238,7 +240,15 @@ where
 #[starlark_internal_vtable]
 #[allow(non_upper_case_globals, non_snake_case)] // For generated members.
 pub trait StarlarkValue<'v>:
-    'v + ProvidesStaticType<'v> + Allocative + Debug + Display + Serialize + Sized
+    'v
+    + ProvidesStaticType<'v>
+    + Allocative
+    + Debug
+    + Display
+    + Serialize
+    + StarlarkSerialize
+    + StarlarkDeserialize
+    + Sized
 {
     /// Two implementations of `StarlarkValue` are considered to have the same type,
     /// if `Canonical` field points to the same type.
