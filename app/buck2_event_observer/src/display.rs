@@ -396,7 +396,10 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> buck2_err
                 Ok(format!("Connecting to installer on port {tcp_port}"))
             }
             Data::Fake(fake) => Ok(format!("{} -- speak of the devil", fake.caramba)),
-            Data::LocalResources(..) => Ok("Local resources setup".to_owned()),
+            Data::LocalResources(res) => {
+                let target = display_configured_target_label_opt(res.target_label.as_ref(), opts)?;
+                Ok(format!("{target} -- Local resources setup"))
+            }
             Data::ReleaseLocalResources(..) => Ok("Releasing local resources".to_owned()),
             Data::BxlEnsureArtifacts(..) => Err(ParseEventError::UnexpectedEvent.into()),
             Data::ActionErrorHandlerExecution(..) => {
