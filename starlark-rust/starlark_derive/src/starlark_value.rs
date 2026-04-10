@@ -41,6 +41,9 @@ struct StarlarkValueAttrs {
     unpack_value: bool,
     /// Implement `StarlarkTypeRepr` for `&T`.
     starlark_type_repr: bool,
+    /// Skip auto-generating `StarlarkSerialize` impl.
+    /// Use this when providing a custom implementation.
+    skip_pagable: bool,
 }
 
 impl syn::parse::Parse for StarlarkValueAttrs {
@@ -52,6 +55,7 @@ impl syn::parse::Parse for StarlarkValueAttrs {
             typ,
             unpack_value: false,
             starlark_type_repr: false,
+            skip_pagable: false,
         };
 
         loop {
@@ -68,10 +72,12 @@ impl syn::parse::Parse for StarlarkValueAttrs {
                 attrs.unpack_value = true;
             } else if name == "StarlarkTypeRepr" {
                 attrs.starlark_type_repr = true;
+            } else if name == "skip_pagable" {
+                attrs.skip_pagable = true;
             } else {
                 return Err(syn::Error::new_spanned(
                     name,
-                    "unknown attribute, allowed attributes are `UnpackValue`, `StarlarkTypeRepr`",
+                    "unknown attribute, allowed attributes are `UnpackValue`, `StarlarkTypeRepr`, `skip_pagable`",
                 ));
             }
         }
@@ -583,6 +589,45 @@ impl ImplStarlarkValue {
             starlark::register_avalue_simple_frozen!(#frozen_ty);
         }))
     }
+
+    /// Generate `impl StarlarkSerialize` and `impl StarlarkDeserialize` with
+    /// panic bodies for the self type.
+    ///
+    /// Uses the same generics and where clause as the `StarlarkValue` impl.
+    fn impl_starlark_pagable(&self) -> proc_macro2::TokenStream {
+        if self.attrs.skip_pagable {
+            return proc_macro2::TokenStream::new();
+        }
+
+        let self_ty = &self.input.self_ty;
+        let generics = &self.input.generics;
+        let (impl_generics, _, where_clause) = generics.split_for_impl();
+
+        quote! {
+            impl #impl_generics starlark::pagable::StarlarkSerialize for #self_ty #where_clause {
+                fn starlark_serialize(
+                    &self,
+                    _ctx: &mut dyn starlark::pagable::StarlarkSerializeContext,
+                ) -> starlark::Result<()> {
+                    panic!(
+                        "StarlarkSerialize not implemented for {}",
+                        std::any::type_name::<Self>()
+                    )
+                }
+            }
+
+            impl #impl_generics starlark::pagable::StarlarkDeserialize for #self_ty #where_clause {
+                fn starlark_deserialize(
+                    _ctx: &mut dyn starlark::pagable::StarlarkDeserializeContext<'_>,
+                ) -> starlark::Result<Self> {
+                    panic!(
+                        "StarlarkDeserialize not implemented for {}",
+                        std::any::type_name::<Self>()
+                    )
+                }
+            }
+        }
+    }
 }
 
 fn derive_starlark_value_impl(
@@ -602,6 +647,7 @@ fn derive_starlark_value_impl(
     let bit_or = impl_starlark_value.bit_or()?;
     let canonical = impl_starlark_value.canonical_member()?;
     let vtable_registration = impl_starlark_value.vtable_registration()?;
+    let impl_starlark_pagable = impl_starlark_value.impl_starlark_pagable();
 
     input.items.splice(
         0..0,
@@ -623,6 +669,8 @@ fn derive_starlark_value_impl(
 
     Ok(quote! {
         #impl_unpack_value
+
+        #impl_starlark_pagable
 
         #input
 
