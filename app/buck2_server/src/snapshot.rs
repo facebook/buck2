@@ -341,12 +341,16 @@ impl SnapshotCollector {
             fn convert_stats(
                 stats: &MemoryStat,
                 swap_bytes: u64,
+                memory_pressure_10s_avg: f64,
+                memory_pressure_60s_avg: f64,
             ) -> buck2_data::UnixCgroupMemoryStats {
                 buck2_data::UnixCgroupMemoryStats {
                     anon: stats.anon,
                     file: stats.file,
                     kernel: stats.kernel,
                     swap_bytes,
+                    memory_pressure_10s_avg,
+                    memory_pressure_60s_avg,
                 }
             }
 
@@ -354,22 +358,28 @@ impl SnapshotCollector {
 
             if let Some(memory_tracker) = self.daemon.memory_tracker.as_ref() {
                 let cgroup_tree = &memory_tracker.cgroup_tree;
-                let (stat, swap) = futures::future::join(
+                let (stat, swap, pressure) = futures::future::join3(
                     cgroup_tree.allprocs().read_memory_stat(),
                     cgroup_tree.allprocs().read_swap_current(),
+                    cgroup_tree.allprocs().read_memory_pressure(),
                 )
                 .await;
-                if let (Ok(stat), Ok(swap)) = (stat, swap) {
-                    snapshot.allprocs_cgroup = Some(convert_stats(&stat, swap));
+                if let (Ok(stat), Ok(swap), Ok(pressure)) = (stat, swap, pressure) {
+                    let cgroup_stats =
+                        convert_stats(&stat, swap, pressure.full.avg10, pressure.full.avg60);
+                    snapshot.allprocs_cgroup = Some(cgroup_stats);
                 }
 
-                let (stat, swap) = futures::future::join(
+                let (stat, swap, pressure) = futures::future::join3(
                     cgroup_tree.forkserver_and_actions().read_memory_stat(),
                     cgroup_tree.forkserver_and_actions().read_swap_current(),
+                    cgroup_tree.forkserver_and_actions().read_memory_pressure(),
                 )
                 .await;
-                if let (Ok(stat), Ok(swap)) = (stat, swap) {
-                    snapshot.forkserver_actions_cgroup = Some(convert_stats(&stat, swap));
+                if let (Ok(stat), Ok(swap), Ok(pressure)) = (stat, swap, pressure) {
+                    let cgroup_stats =
+                        convert_stats(&stat, swap, pressure.full.avg10, pressure.full.avg60);
+                    snapshot.forkserver_actions_cgroup = Some(cgroup_stats);
                 }
             }
         }

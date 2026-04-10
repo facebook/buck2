@@ -903,8 +903,7 @@ message Snapshot {
   uint64 tokio_num_idle_blocking_threads = 15;
   // Tokio total number of blocking threads.
   uint64 tokio_num_blocking_threads = 16;
-  // Memory pressure as seen from all Buck2 processes (under buck2.slice)
-  uint32 allprocs_memory_pressure = 17;
+  reserved 17;
 
   uint64 re_download_bytes = 5;
   uint64 re_upload_bytes = 6;
@@ -1075,6 +1074,12 @@ message UnixCgroupMemoryStats {
   uint64 file = 2;
   uint64 kernel = 3;
   uint64 swap_bytes = 4;
+  // Memory pressure (PSI full avg10 %) from cgroup memory.pressure.
+  // Kernel-maintained 10-second EWMA.
+  double memory_pressure_10s_avg = 5;
+  // Memory pressure (PSI full avg60 %) from cgroup memory.pressure.
+  // Kernel-maintained 60-second EWMA.
+  double memory_pressure_60s_avg = 6;
 }
 
 message UnixSystemStats {

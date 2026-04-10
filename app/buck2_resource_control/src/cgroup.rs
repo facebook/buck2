@@ -30,6 +30,7 @@ use crate::OrphanProcessInfo;
 use crate::cgroup_files::CgroupFile;
 use crate::cgroup_files::CgroupFileMode;
 use crate::cgroup_files::MemoryStat;
+use crate::cgroup_files::ResourcePressure;
 use crate::path::CgroupPath;
 use crate::path::CgroupPathBuf;
 
@@ -625,6 +626,10 @@ impl<K: CgroupKind> Cgroup<WithMemoryMonitoring, K> {
         handle.time = Some(before);
         handle.total = new_total;
         Ok(pressure)
+    }
+
+    pub async fn read_memory_pressure(&self) -> buck2_error::Result<ResourcePressure> {
+        self.memory.memory_pressure.read_resource_pressure().await
     }
 }
 

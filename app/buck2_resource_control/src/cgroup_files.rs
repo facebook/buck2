@@ -272,12 +272,14 @@ impl MemoryStat {
     }
 }
 
-pub(crate) struct ResourcePressurePart {
-    pub(crate) total: u64,
+pub struct ResourcePressurePart {
+    pub avg10: f64,
+    pub avg60: f64,
+    pub total: u64,
 }
 
-pub(crate) struct ResourcePressure {
-    pub(crate) full: ResourcePressurePart,
+pub struct ResourcePressure {
+    pub full: ResourcePressurePart,
 }
 
 impl ResourcePressure {
@@ -313,14 +315,16 @@ impl ResourcePressure {
                     Some(value)
                 }
             };
-            let _avg10 = getitem("avg10")?;
-            let _avg60 = getitem("avg60")?;
+            let avg10: f64 = getitem("avg10")?.parse().ok()?;
+            let avg60: f64 = getitem("avg60")?.parse().ok()?;
             let _avg300 = getitem("avg300")?;
             let total = getitem("total")?;
             if !rest.is_empty() {
                 return None;
             }
             Some(ResourcePressurePart {
+                avg10,
+                avg60,
                 total: total.parse().ok()?,
             })
         };
@@ -381,5 +385,7 @@ full avg10=1.10 avg60=2.20 avg300=3.30 total=45781727"#;
 
         let pressure = crate::cgroup_files::ResourcePressure::parse(sample_pressure).unwrap();
         assert_eq!(pressure.full.total, 45781727);
+        assert_eq!(pressure.full.avg10, 1.10);
+        assert_eq!(pressure.full.avg60, 2.20);
     }
 }
