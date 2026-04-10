@@ -32,7 +32,7 @@ type Package struct {
 	Module     interface{}
 }
 
-func queryGoList(workDir, rootModuleName string, extraArgs ...string) (chan *Package, chan error) {
+func queryGoList(workDir, rootModuleName, goos, goarch string, extraArgs ...string) (chan *Package, chan error) {
 	pkgChan := make(chan *Package, 1000) // 1000 is a guess, but should be enough
 	errChan := make(chan error, 1)
 	go func() {
@@ -44,8 +44,8 @@ func queryGoList(workDir, rootModuleName string, extraArgs ...string) (chan *Pac
 			[]string{"all"},
 		)
 		cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
-		// need for consistent behaviour on any host machine
-		cmd.Env = append(os.Environ(), "CGO_ENABLED=1")
+		// CGO_ENABLED=1 is needed for consistent behaviour on any host machine
+		cmd.Env = append(os.Environ(), "CGO_ENABLED=1", "GOOS="+goos, "GOARCH="+goarch)
 
 		stdout, err := cmd.StdoutPipe()
 		if err != nil {
