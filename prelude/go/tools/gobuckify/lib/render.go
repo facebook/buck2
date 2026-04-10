@@ -8,7 +8,7 @@
  * above-listed licenses.
  */
 
-package main
+package gobuckifylib
 
 import (
 	"fmt"
@@ -19,7 +19,7 @@ import (
 	"text/template"
 )
 
-var targetTempate = `
+var TargetTemplate = `
 {{- .Config.Preambule }}
 {{- if .Target.IsBinary }}
 {{- .Config.LoadGoBinaryRule}}
@@ -35,7 +35,7 @@ var targetTempate = `
     {{.Config.DepsAttr}} = [
         {{- range .Target.CommonDeps }}
         {{- if $.Config.DepsTargetLabelPrefix }}
-        "{{targetLabelFromImportPath $.Config.DepsTargetLabelPrefix .}}",
+        "{{TargetLabelFromImportPath $.Config.DepsTargetLabelPrefix .}}",
         {{- else }}
         "{{.}}",
         {{- end }}
@@ -49,7 +49,7 @@ var targetTempate = `
             "{{ $arch }}": [
                 {{- range $archDeps.Deps.SortedList }}
                 {{- if $.Config.DepsTargetLabelPrefix }}
-                "{{targetLabelFromImportPath $.Config.DepsTargetLabelPrefix .}}",
+                "{{TargetLabelFromImportPath $.Config.DepsTargetLabelPrefix .}}",
                 {{- else }}
                 "{{.}}",
                 {{- end }}
@@ -84,17 +84,17 @@ var targetTempate = `
 )
 `
 
-type templateData struct {
+type TemplateData struct {
 	Config BuckConfig
 	Target *BuckTarget
 }
 
-func renderBuckFiles(cfg *Config, thirdPartyDir string, buckTargets BuckTargets) error {
+func RenderBuckFiles(cfg *Config, thirdPartyDir string, buckTargets BuckTargets) error {
 	tmpl1 := template.New("buck")
 	tmpl1.Funcs(template.FuncMap{
-		"targetLabelFromImportPath": targetLabelFromImportPath,
+		"TargetLabelFromImportPath": TargetLabelFromImportPath,
 	})
-	tmpl1 = template.Must(tmpl1.Parse(targetTempate))
+	tmpl1 = template.Must(tmpl1.Parse(TargetTemplate))
 
 	errors := make(chan error)
 	wg := sync.WaitGroup{}
@@ -114,10 +114,11 @@ func renderBuckFiles(cfg *Config, thirdPartyDir string, buckTargets BuckTargets)
 			f, err := os.Create(buckFile)
 			if err != nil {
 				errors <- fmt.Errorf("can't create BUCK file: %w", err)
+				return
 			}
 			defer f.Close()
 
-			if err := tmpl1.Execute(f, templateData{Config: cfg.Buck, Target: target}); err != nil {
+			if err := tmpl1.Execute(f, TemplateData{Config: cfg.Buck, Target: target}); err != nil {
 				errors <- fmt.Errorf("can't execute template: %w", err)
 			}
 		}()
@@ -130,7 +131,7 @@ func renderBuckFiles(cfg *Config, thirdPartyDir string, buckTargets BuckTargets)
 
 	var lastErr error
 	for err := range errors {
-		slog.Error("renderBuckFiles", "err", err)
+		slog.Error("RenderBuckFiles", "err", err)
 		lastErr = err
 	}
 

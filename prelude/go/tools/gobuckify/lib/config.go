@@ -8,7 +8,7 @@
  * above-listed licenses.
  */
 
-package main
+package gobuckifylib
 
 import (
 	"encoding/json"

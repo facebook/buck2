@@ -8,42 +8,42 @@
  * above-listed licenses.
  */
 
-package main
+package gobuckifylib
 
 import "slices"
 
-type stringSet map[string]struct{}
+type StringSet map[string]struct{}
 
-func newSet() *stringSet {
-	newSet := make(stringSet)
+func NewSet() *StringSet {
+	newSet := make(StringSet)
 	return &newSet
 }
 
-func newFromList(vs []string) *stringSet {
-	newSet := newSet()
+func NewFromList(vs []string) *StringSet {
+	newSet := NewSet()
 	newSet.AddList(vs)
 	return newSet
 }
 
-func (s *stringSet) Add(v string) {
+func (s *StringSet) Add(v string) {
 	(*s)[v] = struct{}{}
 }
 
-func (s *stringSet) AddList(vs []string) {
+func (s *StringSet) AddList(vs []string) {
 	for _, v := range vs {
 		(*s)[v] = struct{}{}
 	}
 }
 
-func (s *stringSet) Remove(v string) {
+func (s *StringSet) Remove(v string) {
 	delete((*s), v)
 }
 
-func (s *stringSet) Len() int {
+func (s *StringSet) Len() int {
 	return len((*s))
 }
 
-func (s *stringSet) SortedList() []string {
+func (s *StringSet) SortedList() []string {
 	result := make([]string, 0, len((*s)))
 	for k := range *s {
 		result = append(result, k)

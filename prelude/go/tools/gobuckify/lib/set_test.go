@@ -8,7 +8,7 @@
  * above-listed licenses.
  */
 
-package main
+package gobuckifylib
 
 import (
 	"reflect"
@@ -16,9 +16,9 @@ import (
 )
 
 func TestNewSet(t *testing.T) {
-	s := newSet()
+	s := NewSet()
 	if s == nil {
-		t.Fatal("newSet() returned nil")
+		t.Fatal("NewSet() returned nil")
 	}
 	if len(*s) != 0 {
 		t.Errorf("Expected empty set, got set with %d elements", len(*s))
@@ -26,7 +26,7 @@ func TestNewSet(t *testing.T) {
 }
 
 func TestAdd(t *testing.T) {
-	s := newSet()
+	s := NewSet()
 
 	// Add a single element
 	s.Add("test1")
@@ -54,7 +54,7 @@ func TestAdd(t *testing.T) {
 }
 
 func TestRemove(t *testing.T) {
-	s := newSet()
+	s := NewSet()
 
 	// Add and then remove an element
 	s.Add("test1")
@@ -88,7 +88,7 @@ func TestRemove(t *testing.T) {
 }
 
 func TestLen(t *testing.T) {
-	s := newSet()
+	s := NewSet()
 
 	// Empty set
 	if s.Len() != 0 {
@@ -116,7 +116,7 @@ func TestLen(t *testing.T) {
 }
 
 func TestSortedList(t *testing.T) {
-	s := newSet()
+	s := NewSet()
 
 	// Empty set
 	list := s.SortedList()
@@ -149,7 +149,7 @@ func TestSortedList(t *testing.T) {
 
 func TestSetOperations(t *testing.T) {
 	// Test multiple operations together
-	s := newSet()
+	s := NewSet()
 
 	// Add elements
 	s.Add("apple")

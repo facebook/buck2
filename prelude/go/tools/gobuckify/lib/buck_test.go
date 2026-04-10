@@ -8,7 +8,7 @@
  * above-listed licenses.
  */
 
-package main
+package gobuckifylib
 
 import (
 	"reflect"
@@ -36,9 +36,9 @@ func TestTargetNameFromImportPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := targetNameFromImportPath(tt.importPath)
+			got := TargetNameFromImportPath(tt.importPath)
 			if got != tt.want {
-				t.Errorf("targetNameFromImportPath(%q) = %q, want %q", tt.importPath, got, tt.want)
+				t.Errorf("TargetNameFromImportPath(%q) = %q, want %q", tt.importPath, got, tt.want)
 			}
 		})
 	}
@@ -46,9 +46,9 @@ func TestTargetNameFromImportPath(t *testing.T) {
 
 func TestTargetLabelFromImportPath(t *testing.T) {
 	want := "//prefix/github.com/example/pkg:pkg"
-	got := targetLabelFromImportPath("//prefix/", "github.com/example/pkg")
+	got := TargetLabelFromImportPath("//prefix/", "github.com/example/pkg")
 	if got != want {
-		t.Errorf("targetLabelFromImportPath(%q, %q) = %q, want %q",
+		t.Errorf("TargetLabelFromImportPath(%q, %q) = %q, want %q",
 			"//prefix/", "github.com/example/pkg", got, want)
 	}
 }
@@ -74,8 +74,8 @@ func TestBuckTargetNormalise(t *testing.T) {
 						ArchDeps: map[string]*ArchDeps{
 							"x86_64": {
 								Arch: "x86_64",
-								Deps: func() *stringSet {
-									s := newSet()
+								Deps: func() *StringSet {
+									s := NewSet()
 									s.Add("common/dep1")
 									s.Add("common/dep2")
 									s.Add("linux/dep")
@@ -89,8 +89,8 @@ func TestBuckTargetNormalise(t *testing.T) {
 						ArchDeps: map[string]*ArchDeps{
 							"x86_64": {
 								Arch: "x86_64",
-								Deps: func() *stringSet {
-									s := newSet()
+								Deps: func() *StringSet {
+									s := NewSet()
 									s.Add("common/dep1")
 									s.Add("common/dep2")
 									s.Add("darwin/dep")
@@ -122,7 +122,7 @@ func TestBuckTargetNormalise(t *testing.T) {
 						ArchDeps: map[string]*ArchDeps{
 							"x86_64": {
 								Arch: "x86_64",
-								Deps: newSet(),
+								Deps: NewSet(),
 							},
 						},
 					},
@@ -131,7 +131,7 @@ func TestBuckTargetNormalise(t *testing.T) {
 						ArchDeps: map[string]*ArchDeps{
 							"x86_64": {
 								Arch: "x86_64",
-								Deps: newSet(),
+								Deps: NewSet(),
 							},
 						},
 					},

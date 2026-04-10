@@ -8,7 +8,7 @@
  * above-listed licenses.
  */
 
-package main
+package gobuckifylib
 
 import (
 	"bufio"
@@ -16,11 +16,19 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"os/exec"
 	"slices"
 	"strings"
+	"sync"
 )
+
+// Module represents a Go module from go list output
+type Module struct {
+	Path    string `json:"Path"`
+	Version string `json:"Version"`
+}
 
 // Package is a subset of the fields of the golist output
 type Package struct {
@@ -29,10 +37,10 @@ type Package struct {
 	Imports    []string
 	EmbedFiles []string
 	Standard   bool
-	Module     interface{}
+	Module     *Module
 }
 
-func queryGoList(workDir, rootModuleName string, extraArgs ...string) (chan *Package, chan error) {
+func QueryGoList(workDir, rootModuleName string, extraArgs ...string) (chan *Package, chan error) {
 	pkgChan := make(chan *Package, 1000) // 1000 is a guess, but should be enough
 	errChan := make(chan error, 1)
 	go func() {
@@ -97,7 +105,7 @@ func queryGoList(workDir, rootModuleName string, extraArgs ...string) (chan *Pac
 	return pkgChan, errChan
 }
 
-func readModuleName(path string) (string, error) {
+func ReadModuleName(path string) (string, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return "", fmt.Errorf("failed to open %s: %w", path, err)
@@ -114,4 +122,95 @@ func readModuleName(path string) (string, error) {
 		return "", fmt.Errorf("failed to parse first line: %s", line)
 	}
 	return parts[1], nil
+}
+
+// CollectPackagesResult contains the results of collecting packages from go list
+type CollectPackagesResult struct {
+	BuckTargets BuckTargets
+	Modules     map[string]*Module
+}
+
+// CollectPackages queries go list for all platforms and collects packages into BuckTargets and unique Modules
+func CollectPackages(cfg *Config, thirdPartyDir, rootModuleName string) (*CollectPackagesResult, error) {
+	type result struct {
+		pkg      *Package
+		buckOS   string
+		buckArch string
+	}
+
+	results := make(chan *result, 1000*len(cfg.Platforms))
+	mainErrChan := make(chan error)
+
+	// Limit concurrency to avoid OOMs as `go list` can use a lot of memory
+	maxConcurrency := 10
+	semaphore := make(chan struct{}, maxConcurrency)
+
+	wg := sync.WaitGroup{}
+	for _, p := range cfg.Platforms {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			semaphore <- struct{}{}
+			defer func() { <-semaphore }()
+
+			tags := slices.Concat([]string{p.GoOS, p.GoArch}, cfg.DefaultTags)
+			pkgChan, errChan := QueryGoList(thirdPartyDir, rootModuleName, fmt.Sprintf("-tags=%s", strings.Join(tags, ",")))
+			pkgCount := 0
+			for pkg := range pkgChan {
+				pkgCount++
+				results <- &result{pkg: pkg, buckOS: p.BuckOS, buckArch: p.BuckArch}
+			}
+			slog.Info("Found packages", "count", pkgCount, "os", p.GoOS, "arch", p.GoArch)
+			for err := range errChan {
+				mainErrChan <- fmt.Errorf("error querying golist for %s: %w", p, err)
+			}
+		}()
+	}
+
+	go func() {
+		wg.Wait()
+		close(results)
+		close(mainErrChan)
+	}()
+
+	buckTargets := make(BuckTargets)
+	modules := make(map[string]*Module)
+
+	resultsClosed, mainErrChanClosed, hadErrors := false, false, false
+	for {
+		if resultsClosed && mainErrChanClosed {
+			break
+		}
+		select {
+		case res, ok := <-results:
+			if !ok {
+				resultsClosed = true
+				continue
+			}
+			buckTargets.AddPackage(res.pkg, res.buckOS, res.buckArch)
+			if res.pkg.Module != nil {
+				modules[res.pkg.Module.Path] = res.pkg.Module
+			}
+		case err, ok := <-mainErrChan:
+			if !ok {
+				mainErrChanClosed = true
+				continue
+			}
+			slog.Error("Error querying golist", "err", err)
+			hadErrors = true
+		}
+	}
+
+	if hadErrors {
+		return nil, fmt.Errorf("errors occurred while collecting packages")
+	}
+
+	slog.Info("Packages collected", "count", len(buckTargets))
+	slog.Info("Modules collected", "count", len(modules))
+
+	return &CollectPackagesResult{
+		BuckTargets: buckTargets,
+		Modules:     modules,
+	}, nil
 }

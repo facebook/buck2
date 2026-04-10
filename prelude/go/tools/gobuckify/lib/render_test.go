@@ -8,7 +8,7 @@
  * above-listed licenses.
  */
 
-package main
+package gobuckifylib
 
 import (
 	"bytes"
@@ -38,7 +38,7 @@ func TestTargetTemplate(t *testing.T) {
 				Name:       "test_binary",
 				ImportPath: "github.com/example/test_binary",
 				IsBinary:   true,
-				EmbedFiles: *newFromList([]string{"embed1.txt", "embed2.txt"}),
+				EmbedFiles: *NewFromList([]string{"embed1.txt", "embed2.txt"}),
 				CommonDeps: []string{"github.com/example/dep1", "github.com/example/dep2"},
 			},
 			expectedOutput: `
@@ -85,8 +85,8 @@ go_binary(
 						ArchDeps: map[string]*ArchDeps{
 							"x86_64": {
 								Arch: "x86_64",
-								Deps: func() *stringSet {
-									s := newSet()
+								Deps: func() *StringSet {
+									s := NewSet()
 									s.Add("github.com/example/linux_dep")
 									return s
 								}(),
@@ -170,16 +170,16 @@ go_library(
 						ArchDeps: map[string]*ArchDeps{
 							"x86_64": {
 								Arch: "x86_64",
-								Deps: func() *stringSet {
-									s := newSet()
+								Deps: func() *StringSet {
+									s := NewSet()
 									s.Add("github.com/example/linux_x86_dep")
 									return s
 								}(),
 							},
 							"arm64": {
 								Arch: "arm64",
-								Deps: func() *stringSet {
-									s := newSet()
+								Deps: func() *StringSet {
+									s := NewSet()
 									s.Add("github.com/example/linux_arm_dep")
 									return s
 								}(),
@@ -191,8 +191,8 @@ go_library(
 						ArchDeps: map[string]*ArchDeps{
 							"x86_64": {
 								Arch: "x86_64",
-								Deps: func() *stringSet {
-									s := newSet()
+								Deps: func() *StringSet {
+									s := NewSet()
 									s.Add("github.com/example/darwin_dep")
 									return s
 								}(),
@@ -257,15 +257,15 @@ go_library(
 		t.Run(tt.name, func(t *testing.T) {
 			tmpl := template.New("test")
 			tmpl.Funcs(template.FuncMap{
-				"targetLabelFromImportPath": targetLabelFromImportPath,
+				"TargetLabelFromImportPath": TargetLabelFromImportPath,
 			})
-			tmpl, err := tmpl.Parse(targetTempate)
+			tmpl, err := tmpl.Parse(TargetTemplate)
 			if err != nil {
 				t.Fatalf("Failed to parse template: %v", err)
 			}
 
 			var buf bytes.Buffer
-			err = tmpl.Execute(&buf, templateData{
+			err = tmpl.Execute(&buf, TemplateData{
 				Config: tt.config,
 				Target: tt.target,
 			})

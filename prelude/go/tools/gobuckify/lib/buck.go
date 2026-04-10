@@ -8,7 +8,7 @@
  * above-listed licenses.
  */
 
-package main
+package gobuckifylib
 
 import (
 	"fmt"
@@ -25,7 +25,7 @@ type OSDeps struct {
 // ArchDeps is a map of Buck-Arch to set of go packages
 type ArchDeps struct {
 	Arch string
-	Deps *stringSet
+	Deps *StringSet
 }
 
 // BuckTarget is a buck-friendly representation of a go package
@@ -33,7 +33,7 @@ type BuckTarget struct {
 	Name                 string
 	ImportPath           string
 	IsBinary             bool
-	EmbedFiles           stringSet
+	EmbedFiles           StringSet
 	CommonDeps           []string
 	PlatformDeps         map[string]*OSDeps
 	TargetCompatibleWith map[string][]string // os => []arch
@@ -102,10 +102,10 @@ func (b *BuckTargets) AddPackage(pkg *Package, buckOS, buckArch string) {
 	var ok bool
 	if target, ok = (*b)[pkg.ImportPath]; !ok {
 		target = &BuckTarget{
-			Name:                 targetNameFromImportPath(pkg.ImportPath),
+			Name:                 TargetNameFromImportPath(pkg.ImportPath),
 			ImportPath:           pkg.ImportPath,
 			PlatformDeps:         make(map[string]*OSDeps),
-			EmbedFiles:           *newSet(),
+			EmbedFiles:           *NewSet(),
 			IsBinary:             pkg.Name == "main",
 			TargetCompatibleWith: map[string][]string{},
 		}
@@ -124,7 +124,7 @@ func (b *BuckTargets) AddPackage(pkg *Package, buckOS, buckArch string) {
 
 	target.PlatformDeps[buckOS].ArchDeps[buckArch] = &ArchDeps{
 		Arch: buckArch,
-		Deps: newSet(),
+		Deps: NewSet(),
 	}
 
 	for _, dep := range pkg.Imports {
@@ -135,7 +135,7 @@ func (b *BuckTargets) AddPackage(pkg *Package, buckOS, buckArch string) {
 	}
 }
 
-func targetNameFromImportPath(importPath string) string {
+func TargetNameFromImportPath(importPath string) string {
 	lastSlash := strings.LastIndex(importPath, "/")
 	var targetName string
 	if lastSlash == -1 {
@@ -146,6 +146,6 @@ func targetNameFromImportPath(importPath string) string {
 	return targetName
 }
 
-func targetLabelFromImportPath(targetLabelPrefix, importPath string) string {
-	return fmt.Sprintf("%s%s:%s", targetLabelPrefix, importPath, targetNameFromImportPath(importPath))
+func TargetLabelFromImportPath(targetLabelPrefix, importPath string) string {
+	return fmt.Sprintf("%s%s:%s", targetLabelPrefix, importPath, TargetNameFromImportPath(importPath))
 }
