@@ -276,7 +276,7 @@ def _content_based_path_attr():
     return attrs.bool(default = select({
         "DEFAULT": False,
         # @oss-disable[end= ]: "config//build_mode/constraints:whatsapp": True,
-        # @oss-disable[end= ]: "config//build_mode:arvr_mode": True,
+        # @oss-disable[end= ]: "config//build_mode:arvr_mode[enabled]": True,
         # @oss-disable[end= ]: "config//os/constraints:android": True,
         # @oss-disable[end= ]: "config//runtime/constraints:android-host-test": True,
         # @oss-disable[end= ]: "config//runtime/constraints:android-unit-test": True,

@@ -193,7 +193,7 @@ def _meta_apple_library_validation_enabled_default_value():
         }),
         # arvr targets do not use suffixed targets, as any xplat target deps
         # get rewritten without the Apple-specific suffixes.
-        "config//build_mode/constraints:arvr_mode_enabled": False,
+        "config//build_mode:arvr_mode[enabled]": False,
     })
 
 def _meta_apple_library_validation_enabled_arg():
