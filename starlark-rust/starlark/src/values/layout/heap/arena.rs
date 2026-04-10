@@ -36,6 +36,10 @@ use allocative::Allocative;
 use allocative::Visitor;
 use bumpalo::Bump;
 use dupe::Dupe;
+use pagable::PagableDeserialize;
+use pagable::PagableDeserializer;
+use pagable::PagableSerialize;
+use pagable::PagableSerializer;
 use starlark_map::small_map::SmallMap;
 
 use crate::collections::StarlarkHashValue;
@@ -78,14 +82,53 @@ pub(crate) const MIN_ALLOC: AlignedSize = {
     )
 };
 
+/// Which bump region a value is allocated in.
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub(crate) enum BumpKind {
+    Drop = 0,
+    NonDrop = 1,
+}
+
+impl PagableSerialize for BumpKind {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
+        (*self as u8).pagable_serialize(serializer)
+    }
+}
+
+impl<'de> PagableDeserialize<'de> for BumpKind {
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> pagable::Result<Self> {
+        match u8::pagable_deserialize(deserializer)? {
+            0 => Ok(BumpKind::Drop),
+            1 => Ok(BumpKind::NonDrop),
+            tag => Err(anyhow::anyhow!("Invalid BumpKind tag: {}", tag)),
+        }
+    }
+}
+
+/// Location of a value within a heap's arena.
+#[derive(Copy, Clone, Debug, PagableSerialize, PagableDeserialize)]
+pub(crate) struct ArenaOffset {
+    pub(crate) bump: BumpKind,
+    pub(crate) offset: u32,
+}
+
 /// Cursor for writing values into a pre-allocated raw block in the arena.
 /// Handles allocation direction internally so callers don't need to care.
 pub(crate) struct ArenaRawCursor {
     cursor: *mut u8,
     direction: ChunkAllocationDirection,
+    /// Base address of the allocated block (lowest address).
+    base: usize,
 }
 
 impl ArenaRawCursor {
+    /// Get the base address (lowest address) of the allocated block.
+    pub(crate) fn base(&self) -> usize {
+        self.base
+    }
+
     /// Get pointer to the next value slot and advance cursor by `alloc_size`.
     /// Returns a pointer to the `AValueHeader` position for this value.
     pub(crate) unsafe fn next(&mut self, alloc_size: u32) -> *mut AValueHeader {
@@ -422,6 +465,7 @@ impl<A: ArenaAllocator> Arena<A> {
         }
         let size = ValueAllocSize::new(AlignedSize::new_bytes(total_bytes as usize));
         let block = bump.alloc(size);
+        let base = block.as_ptr() as usize;
         let cursor = match A::CHUNK_ALLOCATION_DIRECTION {
             ChunkAllocationDirection::Up => block.as_ptr(),
             ChunkAllocationDirection::Down => unsafe { block.as_ptr().add(total_bytes as usize) },
@@ -429,6 +473,7 @@ impl<A: ArenaAllocator> Arena<A> {
         Some(ArenaRawCursor {
             cursor,
             direction: A::CHUNK_ALLOCATION_DIRECTION,
+            base,
         })
     }
 
@@ -440,6 +485,39 @@ impl<A: ArenaAllocator> Arena<A> {
             }
         });
         headers
+    }
+
+    /// Build a map from raw header pointer address to `ArenaOffset`
+    /// for all values in both bump regions.
+    pub(crate) fn build_ptr_to_offset_map(&self) -> HashMap<usize, ArenaOffset> {
+        let mut map = HashMap::new();
+
+        fn build_for_bump<A: ArenaAllocator>(
+            bump: &A,
+            bump_kind: BumpKind,
+            map: &mut HashMap<usize, ArenaOffset>,
+        ) {
+            let mut cumulative_offset: u32 = 0;
+            Arena::<A>::for_each_bump_ordered(bump, |value| {
+                if let Some(header) = value.unpack_header() {
+                    let ptr_addr = header as *const AValueHeader as usize;
+                    map.insert(
+                        ptr_addr,
+                        ArenaOffset {
+                            bump: bump_kind,
+                            offset: cumulative_offset,
+                        },
+                    );
+                }
+                let size = value.alloc_size();
+                cumulative_offset += size.bytes();
+            });
+        }
+
+        build_for_bump(&self.drop, BumpKind::Drop, &mut map);
+        build_for_bump(&self.non_drop, BumpKind::NonDrop, &mut map);
+
+        map
     }
 
     pub(crate) unsafe fn visit_arena<'v>(

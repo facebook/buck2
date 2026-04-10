@@ -66,6 +66,10 @@ use crate::eval::compiler::def::Def;
 use crate::eval::compiler::def::FrozenDef;
 use crate::eval::runtime::arguments::ArgumentsFull;
 use crate::eval::runtime::frame_span::FrameSpan;
+use crate::pagable::starlark_deserialize::StarlarkDeserialize;
+use crate::pagable::starlark_deserialize::StarlarkDeserializeContext;
+use crate::pagable::starlark_serialize::StarlarkSerialize;
+use crate::pagable::starlark_serialize::StarlarkSerializeContext;
 use crate::sealed::Sealed;
 use crate::typing::ParamIsRequired;
 use crate::typing::ParamSpec;
@@ -1255,6 +1259,18 @@ impl Serialize for FrozenValue {
         S: Serializer,
     {
         self.to_value().serialize(s)
+    }
+}
+
+impl StarlarkSerialize for FrozenValue {
+    fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
+        ctx.serialize_frozen_value(*self)
+    }
+}
+
+impl StarlarkDeserialize for FrozenValue {
+    fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
+        ctx.deserialize_frozen_value()
     }
 }
 

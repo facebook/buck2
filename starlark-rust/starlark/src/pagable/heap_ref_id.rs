@@ -61,14 +61,10 @@ use crate::values::FrozenHeapName;
     PagableSerialize,
     PagableDeserialize
 )]
-pub(super) struct HeapRefId(u64);
+pub(crate) struct HeapRefId(u64);
 
 impl HeapRefId {
-    #[expect(
-        dead_code,
-        reason = "used by FrozenFrozenHeap serialization in later diffs"
-    )]
-    pub(super) fn from_heap_name(name: &FrozenHeapName) -> Self {
+    pub(crate) fn from_heap_name(name: &FrozenHeapName) -> Self {
         let mut hasher = DefaultHasher::new();
         name.hash(&mut hasher);
         Self(hasher.finish())

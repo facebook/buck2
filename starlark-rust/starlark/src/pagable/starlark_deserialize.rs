@@ -19,6 +19,8 @@
 
 use pagable::PagableDeserializer;
 
+use crate::values::FrozenValue;
+
 /// Trait for Starlark values that can be deserialized.
 ///
 /// This trait is used during arena deserialization to reconstruct each value
@@ -39,4 +41,7 @@ pub trait StarlarkDeserialize: Sized {
 pub trait StarlarkDeserializeContext<'de> {
     /// Get mutable access to the underlying pagable deserializer.
     fn pagable(&mut self) -> &mut dyn PagableDeserializer<'de>;
+
+    /// Deserialize a `FrozenValue`
+    fn deserialize_frozen_value(&mut self) -> crate::Result<FrozenValue>;
 }

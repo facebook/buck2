@@ -19,6 +19,8 @@
 
 use pagable::PagableSerializer;
 
+use crate::values::FrozenValue;
+
 /// Trait for Starlark values that can be serialized.
 ///
 /// This trait is used during arena serialization to serialize each value
@@ -39,4 +41,7 @@ pub trait StarlarkSerialize {
 pub trait StarlarkSerializeContext {
     /// Get mutable access to the underlying pagable serializer.
     fn pagable(&mut self) -> &mut dyn PagableSerializer;
+
+    /// Serialize a `FrozenValue`
+    fn serialize_frozen_value(&mut self, fv: FrozenValue) -> crate::Result<()>;
 }
