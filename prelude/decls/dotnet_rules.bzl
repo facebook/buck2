@@ -47,8 +47,6 @@ csharp_library = prelude_rule(
          and dependencies by invoking csc.
     """,
     examples = """
-        For more examples, check out our [integration tests](https://github.com/facebook/buck/tree/dev/test/com/facebook/buck/rust/testdata/).
-
         ```
         csharp_library(
           name = 'simple',
@@ -98,9 +96,6 @@ csharp_binary = prelude_rule(
          and dependencies by invoking csc.
     """,
     examples = """
-        For more examples, check out our [integration tests](https://github.com/facebook/buck/tree/dev/test/com/facebook/buck/rust/testdata/).
-
-
         ```
 
         csharp_binary(
