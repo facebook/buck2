@@ -873,7 +873,7 @@ def symlinked_dirs(
     # because there can be a lot of them. This avoids running out of command
     # line length, particularly on Windows.
     artifacts_json = ctx.actions.write_json(
-        ctx.actions.declare_output("{}-symlinked_dirs.json".format(prefix), has_content_based_path = False),
+        ctx.actions.declare_output("{}-symlinked_dirs.json".format(prefix), has_content_based_path = getattr(ctx.attrs, "use_content_based_paths", False)),
         artifacts,
         pretty = True,
     )
