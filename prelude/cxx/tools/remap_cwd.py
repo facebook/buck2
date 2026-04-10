@@ -12,12 +12,11 @@
 """
 Usage: remap_cwd.py path/to/compiler [args...]
 
-Runs `path/to/compiler -ffile-prefix-map=$PWD/= [args...]`
+Runs `path/to/compiler [args...] -ffile-prefix-map=$PWD/= -Wa,--debug-prefix-map=$PWD=.`
 
-Also adds -Wa,--debug-prefix-map=$PWD=. so that the assembler remaps
-DW_AT_comp_dir for hand-written assembly files. GCC does not pass
--ffile-prefix-map through to the assembler, so this is needed for
-assembly (.s, .S, .sx) sources to get relative debug-info paths.
+Flags are appended so that compiler wrappers using "$@" see the real binary as $1.
+-Wa,--debug-prefix-map is needed because GCC does not pass -ffile-prefix-map through to the
+assembler for .s/.S/.sx files.
 """
 
 import os
@@ -30,10 +29,9 @@ if __name__ == "__main__":
 
     ret = subprocess.call(
         [
-            sys.argv[1],
+            *sys.argv[1:],
             f"-ffile-prefix-map={cwd}/=",
             f"-Wa,--debug-prefix-map={cwd}=.",
-            *sys.argv[2:],
         ],
     )
     sys.exit(ret)
