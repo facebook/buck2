@@ -63,3 +63,6 @@ pub use starlark_deserialize::StarlarkDeserialize;
 pub use starlark_deserialize::StarlarkDeserializeContext;
 pub use starlark_serialize::StarlarkSerialize;
 pub use starlark_serialize::StarlarkSerializeContext;
+
+#[cfg(test)]
+mod tests;

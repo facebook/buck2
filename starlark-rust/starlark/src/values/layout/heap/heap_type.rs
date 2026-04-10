@@ -622,6 +622,15 @@ impl FrozenHeapRef {
     pub fn refs(&self) -> impl Iterator<Item = &FrozenHeapRef> {
         self.0.as_ref().map(|h| h.refs.iter()).into_iter().flatten()
     }
+
+    /// Collect live value headers from the non-drop bump in allocation order.
+    #[cfg(test)]
+    pub(crate) fn collect_undrop_headers_ordered(&self) -> Vec<&AValueHeader> {
+        match &self.0 {
+            Some(inner) => inner.arena.collect_undrop_headers_ordered(),
+            None => Vec::new(),
+        }
+    }
 }
 
 impl FrozenHeap {
