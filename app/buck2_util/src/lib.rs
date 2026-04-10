@@ -14,6 +14,7 @@
 #![feature(used_with_arg)]
 
 pub mod arc_str;
+pub mod env_vars;
 pub mod async_move_clone;
 pub mod commas;
 pub mod cycle_detector;

@@ -12,6 +12,7 @@
 //! .buckconfig files as configuration)
 
 mod access;
+pub use access::parse_buckconfig_metadata;
 mod aggregator;
 pub mod args;
 pub mod cells;
