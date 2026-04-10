@@ -272,6 +272,10 @@ pub struct InvocationRecorder {
     memory_max_total_forkserver_actions: Option<u64>,
     // Track peak allprocs swap usage (bytes)
     memory_max_swap_bytes_allprocs: Option<u64>,
+    // Track peak allprocs memory pressure (PSI full avg10 %)
+    memory_max_pressure_10s_avg_allprocs: Option<f64>,
+    // Track peak allprocs memory pressure (PSI full avg60 %)
+    memory_max_pressure_60s_avg_allprocs: Option<f64>,
     // CommandOptions data
     command_options: Option<buck2_data::CommandOptions>,
     // Initial IO counters captured at invocation start
@@ -482,6 +486,8 @@ impl InvocationRecorder {
             memory_max_total_allprocs: None,
             memory_max_total_forkserver_actions: None,
             memory_max_swap_bytes_allprocs: None,
+            memory_max_pressure_10s_avg_allprocs: None,
+            memory_max_pressure_60s_avg_allprocs: None,
             command_options: None,
             initial_io_copy_count: None,
             initial_io_symlink_count: None,
@@ -1185,6 +1191,12 @@ impl InvocationRecorder {
             memory_max_total_allprocs: self.memory_max_total_allprocs,
             memory_max_total_forkserver_actions: self.memory_max_total_forkserver_actions,
             memory_max_swap_bytes_allprocs: self.memory_max_swap_bytes_allprocs.unwrap_or(0),
+            memory_max_pressure_10s_avg_allprocs: self
+                .memory_max_pressure_10s_avg_allprocs
+                .unwrap_or(0.0),
+            memory_max_pressure_60s_avg_allprocs: self
+                .memory_max_pressure_60s_avg_allprocs
+                .unwrap_or(0.0),
             command_options: self.command_options,
             io_copy_count,
             io_symlink_count,
@@ -2018,6 +2030,18 @@ impl InvocationRecorder {
             self.memory_max_swap_bytes_allprocs = max(
                 self.memory_max_swap_bytes_allprocs,
                 Some(allprocs_cgroup.swap_bytes),
+            );
+            // Track peak allprocs memory pressure (avg10 from PSI)
+            let pct = allprocs_cgroup.memory_pressure_10s_avg;
+            self.memory_max_pressure_10s_avg_allprocs = Some(
+                self.memory_max_pressure_10s_avg_allprocs
+                    .map_or(pct, |v| f64::max(v, pct)),
+            );
+            // Track peak allprocs memory pressure (avg60 from PSI)
+            let pct = allprocs_cgroup.memory_pressure_60s_avg;
+            self.memory_max_pressure_60s_avg_allprocs = Some(
+                self.memory_max_pressure_60s_avg_allprocs
+                    .map_or(pct, |v| f64::max(v, pct)),
             );
         }
 
