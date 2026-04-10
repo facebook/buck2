@@ -106,6 +106,36 @@ async def test_full_clean_cycle(buck: Buck) -> None:
 
 
 @buck_test()
+async def test_noop_commit_change_causes_rebuild(buck: Buck) -> None:
+    """Changing the commit hash of a git external cell causes a full rebuild
+    even when the file contents are identical. This test uses a non-deterministic
+    action to detect whether a rebuild occurred: if the outputs differ, the
+    action was re-executed rather than cached.
+
+    When external cell caching is fixed to be content-based, this assertion
+    should flip to `output1 == output2`."""
+    _init_repo(cwd=buck.cwd)
+
+    res1 = await buck.build_without_report(
+        "libfoo//:nondeterministic", "--show-full-simple-output", "--local-only"
+    )
+    output1 = Path(res1.stdout.strip()).read_text().strip()
+
+    # New commit that adds an unrelated file (no build-relevant changes)
+    (_repo(cwd=buck.cwd) / "README.md").write_text("unrelated file")
+    rev = _git_commit(cwd=buck.cwd)
+    _set_revision(rev, cwd=buck.cwd)
+
+    res2 = await buck.build_without_report(
+        "libfoo//:nondeterministic", "--show-full-simple-output", "--local-only"
+    )
+    output2 = Path(res2.stdout.strip()).read_text().strip()
+
+    # Currently rebuilds (different output). After fix: should be cached (same output).
+    assert output1 != output2
+
+
+@buck_test()
 async def test_no_refetch_on_restart(buck: Buck) -> None:
     _init_repo(cwd=buck.cwd)
 
