@@ -1074,6 +1074,7 @@ message UnixCgroupMemoryStats {
   uint64 anon = 1;
   uint64 file = 2;
   uint64 kernel = 3;
+  uint64 swap_bytes = 4;
 }
 
 message UnixSystemStats {

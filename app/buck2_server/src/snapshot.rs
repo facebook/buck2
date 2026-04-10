@@ -338,11 +338,15 @@ impl SnapshotCollector {
         {
             use buck2_resource_control::cgroup_files::MemoryStat;
 
-            fn convert_stats(stats: &MemoryStat) -> buck2_data::UnixCgroupMemoryStats {
+            fn convert_stats(
+                stats: &MemoryStat,
+                swap_bytes: u64,
+            ) -> buck2_data::UnixCgroupMemoryStats {
                 buck2_data::UnixCgroupMemoryStats {
                     anon: stats.anon,
                     file: stats.file,
                     kernel: stats.kernel,
+                    swap_bytes,
                 }
             }
 
@@ -350,16 +354,22 @@ impl SnapshotCollector {
 
             if let Some(memory_tracker) = self.daemon.memory_tracker.as_ref() {
                 let cgroup_tree = &memory_tracker.cgroup_tree;
-                if let Ok(stat) = cgroup_tree.allprocs().read_memory_stat().await {
-                    snapshot.allprocs_cgroup = Some(convert_stats(&stat))
+                let (stat, swap) = futures::future::join(
+                    cgroup_tree.allprocs().read_memory_stat(),
+                    cgroup_tree.allprocs().read_swap_current(),
+                )
+                .await;
+                if let (Ok(stat), Ok(swap)) = (stat, swap) {
+                    snapshot.allprocs_cgroup = Some(convert_stats(&stat, swap));
                 }
 
-                if let Ok(stat) = cgroup_tree
-                    .forkserver_and_actions()
-                    .read_memory_stat()
-                    .await
-                {
-                    snapshot.forkserver_actions_cgroup = Some(convert_stats(&stat))
+                let (stat, swap) = futures::future::join(
+                    cgroup_tree.forkserver_and_actions().read_memory_stat(),
+                    cgroup_tree.forkserver_and_actions().read_swap_current(),
+                )
+                .await;
+                if let (Ok(stat), Ok(swap)) = (stat, swap) {
+                    snapshot.forkserver_actions_cgroup = Some(convert_stats(&stat, swap));
                 }
             }
         }
