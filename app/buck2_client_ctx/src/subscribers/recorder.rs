@@ -270,6 +270,8 @@ pub struct InvocationRecorder {
     memory_max_total_allprocs: Option<u64>,
     // Track maximum total buck2 forkserver memory usage (anon+file+kernel)
     memory_max_total_forkserver_actions: Option<u64>,
+    // Track peak allprocs swap usage (bytes)
+    memory_max_swap_bytes_allprocs: Option<u64>,
     // CommandOptions data
     command_options: Option<buck2_data::CommandOptions>,
     // Initial IO counters captured at invocation start
@@ -479,6 +481,7 @@ impl InvocationRecorder {
             memory_max_anon_forkserver_actions: None,
             memory_max_total_allprocs: None,
             memory_max_total_forkserver_actions: None,
+            memory_max_swap_bytes_allprocs: None,
             command_options: None,
             initial_io_copy_count: None,
             initial_io_symlink_count: None,
@@ -1181,6 +1184,7 @@ impl InvocationRecorder {
             memory_max_anon_forkserver_actions: self.memory_max_anon_forkserver_actions,
             memory_max_total_allprocs: self.memory_max_total_allprocs,
             memory_max_total_forkserver_actions: self.memory_max_total_forkserver_actions,
+            memory_max_swap_bytes_allprocs: self.memory_max_swap_bytes_allprocs.unwrap_or(0),
             command_options: self.command_options,
             io_copy_count,
             io_symlink_count,
@@ -2010,6 +2014,11 @@ impl InvocationRecorder {
                 allprocs_cgroup.anon + allprocs_cgroup.file + allprocs_cgroup.kernel;
             self.memory_max_total_allprocs =
                 max(self.memory_max_total_allprocs, Some(total_daemon_memory));
+            // Track peak allprocs swap usage
+            self.memory_max_swap_bytes_allprocs = max(
+                self.memory_max_swap_bytes_allprocs,
+                Some(allprocs_cgroup.swap_bytes),
+            );
         }
 
         // Track maximum buck2 forkserver memory usage from cgroup
