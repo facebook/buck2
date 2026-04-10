@@ -43,6 +43,9 @@ internal class BuckKotlinLogger(
     if (msg.startsWith("Non-incremental compilation will be performed")) {
       loggingContext.addExtras(BuckKotlinLogger::class.java.simpleName, msg)
     }
+    if (msg.startsWith("KOTLIN_BUILD_METRIC|")) {
+      loggingContext.addExtras("BuildMetrics", msg.removePrefix("KOTLIN_BUILD_METRIC|"))
+    }
 
     if (!LOG.isLoggable(Level.INFO)) return
     LOG.info(msg)
