@@ -556,3 +556,26 @@ fn test_frozen_str_value_round_trip() -> crate::Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_frozen_value_inline_int_round_trip() -> crate::Result<()> {
+    // RefData holds a FrozenValue that is an inline integer (not a heap pointer).
+    let heap = FrozenHeap::new();
+    let int_fv = FrozenValue::testing_new_int(42);
+    heap.alloc_simple(RefData {
+        label: 1,
+        target: int_fv,
+    });
+    let heap_ref = heap.into_ref_named(TestHeapName::heap_name("test"));
+
+    let restored = round_trip_heap_ref(&heap_ref)?;
+
+    let undrop_headers = restored.collect_undrop_headers_ordered();
+    assert_eq!(undrop_headers.len(), 1);
+
+    let ref_data: &RefData = undrop_headers[0].unpack().downcast_ref().unwrap();
+    assert_eq!(ref_data.label, 1);
+    assert_eq!(ref_data.target.unpack_i32(), Some(42));
+
+    Ok(())
+}

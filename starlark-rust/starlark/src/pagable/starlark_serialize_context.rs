@@ -91,7 +91,11 @@ impl StarlarkSerializeContext for StarlarkSerializerImpl<'_> {
                 };
                 serialized.pagable_serialize(self.pagable)?;
             }
-            PointerTags::Int => unimplemented!("serialization of inline int FrozenValue"),
+            PointerTags::Int => {
+                let int_val = fv.unpack_inline_int().expect("Int tag implies inline int");
+                let serialized = SerializedFrozenValue::InlineInt(int_val.to_i32());
+                serialized.pagable_serialize(self.pagable)?;
+            }
             PointerTags::OtherUnfrozen | PointerTags::StrUnfrozen => {
                 unreachable!("FrozenValue cannot have unfrozen tag")
             }

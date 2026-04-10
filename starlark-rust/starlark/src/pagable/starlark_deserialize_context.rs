@@ -30,6 +30,7 @@ use crate::values::FrozenValue;
 use crate::values::layout::heap::arena::ArenaOffset;
 use crate::values::layout::heap::arena::BumpKind;
 use crate::values::layout::heap::repr::AValueHeader;
+use crate::values::types::int::inline_int::InlineInt;
 
 /// Bump base addresses for a deserialized heap.
 struct HeapBumpBases {
@@ -108,6 +109,11 @@ impl<'de> StarlarkDeserializeContext<'de> for StarlarkDeserializerImpl<'_, 'de> 
                 let ptr = bases.resolve(&offset);
                 let header = unsafe { &*(ptr as *const AValueHeader) };
                 Ok(FrozenValue::new_ptr(header, is_str))
+            }
+            SerializedFrozenValue::InlineInt(v) => {
+                let inline = InlineInt::try_from(v)
+                    .map_err(|_| anyhow::anyhow!("Integer {} does not fit in InlineInt", v))?;
+                Ok(FrozenValue::new_int(inline))
             }
         }
     }
