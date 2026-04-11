@@ -344,6 +344,20 @@ impl InterpreterForDir {
         }))
         .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Interpreter))?;
 
+        // Suppport for buildfile.includes
+        if matches!(starlark_path, StarlarkPath::BuildFile(..)) {
+            if let Some(root_import) = self.root_import() {
+                let root_env = loaded_modules
+                    .map
+                    .get(&StarlarkModulePath::LoadFile(&root_import))
+                    .ok_or_else(|| {
+                        internal_error!("Should've had an env for the root import `{root_import}`")
+                    })?
+                    .env();
+                env.import_public_symbols(root_env);
+            }
+        }
+
         Ok(env)
     }
 
@@ -374,17 +388,6 @@ impl InterpreterForDir {
                 .to_owned(),
         )?;
         let env = self.create_env(env, StarlarkPath::BuildFile(build_file), loaded_modules)?;
-
-        if let Some(root_import) = self.root_import() {
-            let root_env = loaded_modules
-                .map
-                .get(&StarlarkModulePath::LoadFile(&root_import))
-                .ok_or_else(|| {
-                    internal_error!("Should've had an env for the root import `{root_import}`")
-                })?
-                .env();
-            env.import_public_symbols(root_env);
-        }
 
         Ok((env, internals))
     }
