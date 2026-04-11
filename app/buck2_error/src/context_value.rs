@@ -72,7 +72,7 @@ impl std::fmt::Debug for ContextValue {
             Self::Tags(tags) => write!(f, "{tags:?}"),
             Self::Typed(v) => write!(f, "{}", v.display().unwrap_or_default()),
             Self::StringTag(v) => f.write_str(&v.tag),
-            Self::StarlarkError(v) => write!(f, "{v}"),
+            Self::StarlarkError(v) => write!(f, "{}", v.display_with_message("")),
         }
     }
 }
@@ -127,12 +127,15 @@ impl StarlarkContext {
             self
         }
     }
-}
 
-impl std::fmt::Display for StarlarkContext {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let span = span_display(self.span.as_ref().map(|s| s.as_ref()), "", false);
-        write!(f, "{}\n{}", span, self.call_stack)
+    pub fn display_with_message(&self, message: &str) -> String {
+        let span = span_display(self.span.as_ref().map(|s| s.as_ref()), message, false);
+        if self.call_stack.is_empty() {
+            format!("{}", span)
+        } else {
+            let call_stack = self.call_stack.to_string();
+            format!("{}\n{}", span, call_stack)
+        }
     }
 }
 
