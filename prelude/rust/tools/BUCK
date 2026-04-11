@@ -121,6 +121,7 @@ prelude.python_bootstrap_binary(
 
 prelude.export_file(
     name = "linkable_symbol.rs",
+    has_content_based_path = True,
     visibility = ["PUBLIC"],
 )
 
@@ -136,6 +137,7 @@ rust_internal_tools_toolchain(
 
 prelude.export_file(
     name = "attrs.bzl",
+    has_content_based_path = True,
     visibility = ["PUBLIC"],
 )
 
