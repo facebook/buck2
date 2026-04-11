@@ -23,7 +23,6 @@ use std::fmt::Display;
 use dupe::Dupe;
 use starlark_map::unordered_map::UnorderedMap;
 use starlark_syntax::slice_vec_ext::VecExt;
-use starlark_syntax::syntax::ast::StmtP;
 use starlark_syntax::syntax::ast::Visibility;
 use starlark_syntax::syntax::module::AstModuleFields;
 use starlark_syntax::syntax::top_level_stmts::top_level_stmts_mut;
@@ -46,6 +45,7 @@ use crate::typing::bindings::BindingsCollect;
 use crate::typing::ctx::TypingContext;
 use crate::typing::error::InternalError;
 use crate::typing::error::TypingError;
+use crate::typing::error::TypingOrInternalError;
 use crate::typing::fill_types_for_lint::ModuleVarTypes;
 use crate::typing::fill_types_for_lint::fill_types_for_lint_typechecker;
 use crate::typing::interface::Interface;
@@ -54,6 +54,110 @@ use crate::typing::oracle::ctx::TypingOracleCtx;
 use crate::typing::ty::Approximation;
 use crate::typing::ty::Ty;
 use crate::values::FrozenHeap;
+
+/// Recursive function type-checker.
+///
+/// You can call `solve_bindings` on as big or as little input as you like, but it
+/// is O(n * m) where n is the number of expressions assigned to bindings, and m is
+/// a measure of complexity of the assignments (`a=1; b=a; b=""; c=b; a=c` is
+/// deliberately complex). If you lump all bindings in an entire module together and
+/// solve them all at once, `m` is set to the most complex function and `n` is large.
+///
+/// Fortunately, because of variable shadowing and no `global` keyword, we only ever
+/// need to look at a function body to determine the types of its local bindings from
+/// the assignments made to it.
+///
+/// ```python
+/// x = 5
+/// def child():
+///     x = "string"   # completely different binding, no relation to outer `x`
+/// ```
+///
+/// In some circumstances child scopes could influence parent scopes via mutation
+/// methods, but it's not a big loss if we don't infer in these cases.
+///
+/// ```python
+/// xs = list()
+/// def child():
+///     xs.push(5)  # could influence type of xs, but we will not support this
+/// ```
+///
+/// So we can solve bindings for every scope individually. That's what this does.
+/// As for ordering, a parent scope is finished and solved before we check any of
+/// its child scopes, so child scopes have access to parent binding solutions.
+///
+/// ```python
+/// x = 5
+/// def child():
+///     y = x    # y solves to `int | str`
+/// x = "string"
+/// ```
+///
+pub(crate) struct TypeChecker<'a> {
+    pub(crate) oracle: TypingOracleCtx<'a>,
+    pub(crate) typecheck_mode: TypecheckMode,
+    pub(crate) module_var_types: &'a ModuleVarTypes,
+    pub(crate) approximations: &'a mut Vec<Approximation>,
+    pub(crate) all_solved_types: HashMap<BindingId, Ty>,
+}
+
+impl<'a> TypeChecker<'a> {
+    fn codemap(&self) -> &'a CodeMap {
+        self.oracle.codemap
+    }
+
+    /// Typecheck an entire module.
+    ///
+    /// To just immediately return on encountering a type error, pass `&mut Err` as the error
+    /// handler. To collect errors and continue, be sure to return Ok from the error handler.
+    pub(crate) fn check_module_scope(
+        &mut self,
+        module: &CstStmt,
+        eh: &mut dyn FnMut(TypingError) -> Result<(), TypingError>,
+    ) -> Result<(), TypingOrInternalError> {
+        self.check_scope(module, &Ty::any(), &HashMap::default(), eh)
+    }
+
+    /// Recursive scope check. Checks the scope's bindings, and then all child defs.
+    pub(crate) fn check_scope(
+        &mut self,
+        body: &CstStmt,
+        return_type: &Ty,
+        visible: &HashMap<BindingId, Ty>,
+        eh: &mut dyn FnMut(TypingError) -> Result<(), TypingError>,
+    ) -> Result<(), TypingOrInternalError> {
+        let mut children = Vec::new();
+        let bindings = BindingsCollect::collect_scope(
+            body,
+            return_type,
+            visible,
+            self.typecheck_mode,
+            self.codemap(),
+            self.approximations,
+            &mut children,
+        )?;
+        let (errors, solved, mut approx) =
+            solve_bindings(bindings, self.oracle, self.module_var_types)?;
+
+        self.approximations.append(&mut approx);
+
+        for error in errors {
+            eh(error)?;
+        }
+
+        // Save all solved types to the output
+        let solved_copy = solved.iter().map(|(&b, ty)| (b, ty.dupe()));
+        self.all_solved_types.extend(solved_copy.clone());
+
+        for child in children {
+            let mut child_visible = visible.clone();
+            child_visible.extend(solved_copy.clone());
+            child_visible.extend(child.param_types);
+            self.check_scope(child.body, &child.return_type, &child_visible, eh)?;
+        }
+        Ok(())
+    }
+}
 
 // Things which are None in the map have type void - they are never constructed
 pub(crate) fn solve_bindings(
@@ -216,12 +320,12 @@ impl AstModuleTypecheck for AstModule {
         let scope_errors = scope_errors.into_map(TypingError::from_eval_exception);
         // We don't really need to properly unpack top-level statements,
         // but make it safe against future changes.
-        let mut cst: Vec<&mut CstStmt> = top_level_stmts_mut(&mut cst);
+        let mut cst_toplevel: Vec<&mut CstStmt> = top_level_stmts_mut(&mut cst);
         let oracle = TypingOracleCtx { codemap: &codemap };
 
         let mut approximations = Vec::new();
         let (fill_types_errors, module_var_types) = match fill_types_for_lint_typechecker(
-            &mut cst,
+            &mut cst_toplevel,
             oracle,
             &scope_data,
             &mut approximations,
@@ -241,58 +345,43 @@ impl AstModuleTypecheck for AstModule {
         };
 
         let mut typemap = UnorderedMap::new();
+        let oracle = TypingOracleCtx { codemap: &codemap };
+        let mut type_checker = TypeChecker {
+            oracle,
+            typecheck_mode: TypecheckMode::Lint,
+            module_var_types: &module_var_types,
+            approximations: &mut approximations,
+            all_solved_types: HashMap::new(),
+        };
         let mut all_solve_errors = Vec::new();
 
-        for top in cst.iter_mut() {
-            if let StmtP::Def(_) = &mut top.node {
-                let bindings = match BindingsCollect::collect_one(
-                    top,
-                    TypecheckMode::Lint,
-                    &codemap,
-                    &mut approximations,
-                ) {
-                    Ok(bindings) => bindings,
-                    Err(e) => {
-                        return (
-                            vec![InternalError::into_error(e)],
-                            TypeMap {
-                                codemap,
-                                bindings: UnorderedMap::new(),
-                            },
-                            Interface::default(),
-                            Vec::new(),
-                        );
-                    }
-                };
-                let (solve_errors, types, solve_approximations) =
-                    match solve_bindings(bindings.bindings, oracle, &module_var_types) {
-                        Ok(x) => x,
-                        Err(e) => {
-                            return (
-                                vec![e.into_error()],
-                                TypeMap {
-                                    codemap,
-                                    bindings: UnorderedMap::new(),
-                                },
-                                Interface::default(),
-                                Vec::new(),
-                            );
-                        }
-                    };
+        let mut error_handler = |error| {
+            all_solve_errors.push(error);
+            // continue checking
+            Ok(())
+        };
+        if let Err(unrecoverable) = type_checker.check_module_scope(&cst, &mut error_handler) {
+            // This is generally an internal error, since most typing errors are handled
+            // by error_handler. Except some type errors that can't (yet?) be recovered.
+            return (
+                vec![unrecoverable.into_error()],
+                TypeMap {
+                    codemap,
+                    bindings: UnorderedMap::new(),
+                },
+                Interface::default(),
+                Vec::new(),
+            );
+        }
 
-                all_solve_errors.extend(solve_errors);
-                approximations.extend(solve_approximations);
-
-                for (id, ty) in &types {
-                    let binding = scope_data.get_binding(*id);
-                    let name = binding.name.as_str().to_owned();
-                    let span = match binding.source {
-                        BindingSource::Source(span) => span,
-                        BindingSource::FromModule => Span::default(),
-                    };
-                    typemap.insert(*id, (name, span, ty.clone()));
-                }
-            }
+        for (id, ty) in &type_checker.all_solved_types {
+            let binding = scope_data.get_binding(*id);
+            let name = binding.name.as_str().to_owned();
+            let span = match binding.source {
+                BindingSource::Source(span) => span,
+                BindingSource::FromModule => Span::default(),
+            };
+            typemap.insert(*id, (name, span, ty.clone()));
         }
 
         let typemap = TypeMap {

@@ -39,6 +39,7 @@ use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::eval::compiler::scope::BindingId;
 use crate::eval::compiler::scope::ResolvedIdent;
+use crate::eval::compiler::scope::payload::CstAssignIdent;
 use crate::eval::compiler::scope::payload::CstAssignIdentExt;
 use crate::eval::compiler::scope::payload::CstAssignTarget;
 use crate::eval::compiler::scope::payload::CstExpr;
@@ -100,28 +101,41 @@ pub(crate) struct Bindings<'a> {
     pub(crate) check_type: Vec<(Span, Option<&'a CstExpr>, Ty)>,
 }
 
+/// Basically a child `def`.
+pub(crate) struct ChildDef<'a> {
+    pub(crate) body: &'a CstStmt,
+    pub(crate) return_type: Ty,
+    pub(crate) param_types: HashMap<BindingId, Ty>,
+}
+
 pub(crate) struct BindingsCollect<'a, 'b> {
     pub(crate) bindings: Bindings<'a>,
     pub(crate) approximations: &'b mut Vec<Approximation>,
+    pub(crate) children_sink: &'b mut Vec<ChildDef<'a>>,
 }
 
 impl<'a, 'b> BindingsCollect<'a, 'b> {
-    /// Collect all the assignments to variables.
+    /// Collect all the assignments to variables in a scope.
     ///
     /// This function only fails on internal errors.
-    pub(crate) fn collect_one(
-        x: &'a mut CstStmt,
+    pub(crate) fn collect_scope(
+        scope: &'a CstStmt,
+        return_type: &Ty,
+        visible: &HashMap<BindingId, Ty>,
         typecheck_mode: TypecheckMode,
         codemap: &CodeMap,
         approximations: &'b mut Vec<Approximation>,
-    ) -> Result<Self, InternalError> {
+        children_sink: &'b mut Vec<ChildDef<'a>>,
+    ) -> Result<Bindings<'a>, InternalError> {
         let mut res = BindingsCollect {
             bindings: Bindings::default(),
             approximations,
+            children_sink,
         };
+        res.bindings.types = visible.clone();
 
-        res.visit(Visit::Stmt(x), &Ty::any(), typecheck_mode, codemap)?;
-        Ok(res)
+        res.visit(Visit::Stmt(scope), return_type, typecheck_mode, codemap)?;
+        Ok(res.bindings)
     }
 
     fn assign(
@@ -206,6 +220,21 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
         }
     }
 
+    /// Insert an explicit type for the binding.
+    fn type_annotation(
+        &mut self,
+        binding: &CstAssignIdent,
+        ty: Ty,
+        _error_span: Span,
+        codemap: &CodeMap,
+    ) -> Result<(), InternalError> {
+        let resolved_id = binding.resolved_binding_id(codemap)?;
+        // FIXME: This could be duplicated if you declare the type of a variable twice.
+        // We would only see the second one.
+        self.bindings.types.insert(resolved_id, ty);
+        Ok(())
+    }
+
     fn visit_def(
         &mut self,
         def: &'a DefP<CstPayload>,
@@ -226,12 +255,13 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
         let mut args = None;
         let mut named_only = Vec::new();
         let mut kwargs = None;
+        let mut param_types = HashMap::new();
 
         for p in params {
             let name = &p.node.ident;
             let ty = p.node.ty;
             let ty = Self::resolve_ty_opt(ty, typecheck_mode, codemap)?;
-            let name_ty = match &p.node.kind {
+            let ty = match &p.node.kind {
                 DefParamKind::Regular(mode, default_value) => {
                     let required = match default_value.is_some() {
                         true => ParamIsRequired::No,
@@ -256,34 +286,48 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
                             ));
                         }
                     }
-                    Some((name, ty))
+                    ty
                 }
                 DefParamKind::Args => {
                     // There is the type we require people calling us use (usually any)
                     // and then separately the type we are when we are running (always tuple)
                     args = Some(ty.dupe());
-                    Some((name, Ty::basic(TyBasic::Tuple(TyTuple::Of(ArcTy::new(ty))))))
+                    Ty::basic(TyBasic::Tuple(TyTuple::Of(ArcTy::new(ty))))
                 }
                 DefParamKind::Kwargs => {
                     let var_ty = Ty::dict(Ty::string(), ty.clone());
                     kwargs = Some(ty.dupe());
-                    Some((name, var_ty))
+                    var_ty
                 }
             };
-            if let Some((name, ty)) = name_ty {
-                self.bindings
-                    .types
-                    .insert(name.resolved_binding_id(codemap)?, ty);
-            }
+            param_types.insert(name.resolved_binding_id(codemap)?, ty);
         }
         let params2 = ParamSpec::new_parts(pos_only, pos_or_named, args, named_only, kwargs)
             .map_err(|e| InternalError::from_error(e, def.signature_span(), codemap))?;
         let ret_ty = Self::resolve_ty_opt(return_type.as_deref(), typecheck_mode, codemap)?;
-        self.bindings.types.insert(
-            name.resolved_binding_id(codemap)?,
+
+        // Defining a function is like an annotated assignment
+        //
+        //     foo: Function[...] = lambda x, y: ...
+        //
+        // (even if there are no type annotations, because even just having parameters
+        // is a kind of type annotation).
+        //
+        self.type_annotation(
+            name,
             Ty::function(params2, ret_ty.clone()),
-        );
-        def.visit_children_err(|x| self.visit(x, &ret_ty, typecheck_mode, codemap))?;
+            name.span,
+            codemap,
+        )?;
+
+        def.visit_header_err(|x| self.visit(x, &ret_ty, typecheck_mode, codemap))?;
+
+        // Function body just gets added to the queue.
+        self.children_sink.push(ChildDef {
+            body: &def.body,
+            param_types,
+            return_type: ret_ty,
+        });
         Ok(())
     }
 
@@ -303,11 +347,7 @@ impl<'a, 'b> BindingsCollect<'a, 'b> {
                             .check_type
                             .push((ty.span, Some(rhs), ty2.clone()));
                         if let AssignTargetP::Identifier(id) = &**lhs {
-                            // FIXME: This could be duplicated if you declare the type of a variable twice,
-                            // we would only see the second one.
-                            self.bindings
-                                .types
-                                .insert(id.resolved_binding_id(codemap)?, ty2);
+                            self.type_annotation(id, ty2, lhs.span.merge(ty.span), codemap)?;
                         }
                     }
                     self.assign(lhs, BindExpr::Expr(rhs), codemap)?
