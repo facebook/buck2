@@ -40,14 +40,12 @@ use buck2_events::dispatch::with_dispatcher;
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_fs::paths::abs_path::AbsPath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
-use buck2_hash::StdBuckHashMap;
-use buck2_hash::StdBuckHashSet;
 use buck2_interpreter::allow_relative_paths::HasAllowRelativePaths;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
+use buck2_interpreter::paths::module::StarlarkModulePath;
 use buck2_interpreter::paths::package::PackageFilePath;
 use buck2_interpreter::paths::path::OwnedStarlarkPath;
-use buck2_interpreter::prelude_path::prelude_path;
 use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
 use buck2_interpreter_for_build::interpreter::global_interpreter_state::HasGlobalInterpreterState;
 use buck2_interpreter_for_build::interpreter::interpreter_for_dir::ParseData;
@@ -56,7 +54,6 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::streaming_request_handler::StreamingRequestHandler;
-use dice::DiceEquality;
 use dice::DiceTransaction;
 use dupe::Dupe;
 use futures::FutureExt;
@@ -79,8 +76,6 @@ use starlark_lsp::server::LspUrl;
 use starlark_lsp::server::StringLiteralResult;
 use starlark_lsp::server::server_with_connection;
 use tokio::runtime::Handle;
-use tokio::sync::Mutex;
-use tokio::sync::MutexGuard;
 
 /// Errors when [`LspContext::resolve_load()`] cannot resolve a given path.
 #[derive(buck2_error::Error, Debug)]
@@ -91,226 +86,38 @@ enum ResolveLoadError {
     WrongScheme(String, LspUrl),
 }
 
-/// Manage refreshing DocsCache.
-struct DocsCacheManager {
-    docs_cache: Mutex<DocsCache>,
-    fs: ProjectRoot,
-    /// Used for checking if the DocsCache need refreshing. We need to refresh the DocsCache
-    /// if the previous dice version does not match the current one.
-    valid_at: DiceEquality,
+/// Construct a `starlark:` URL for a native builtin symbol.
+fn native_starlark_url(sym: &str) -> buck2_error::Result<LspUrl> {
+    let filename = Path::new(sym);
+    let filename = filename.with_extension(match filename.extension() {
+        None => "bzl".to_owned(),
+        Some(e) => format!("{}.bzl", e.to_str().expect("path is UTF-8")),
+    });
+    let path = Path::new("/native").join(filename);
+    LspUrl::try_from(
+        Url::parse(&format!("starlark:{}", path.display()))
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Lsp))?,
+    )
+    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Lsp))
 }
 
-impl DocsCacheManager {
-    async fn new(fs: ProjectRoot, mut dice_ctx: DiceTransaction) -> buck2_error::Result<Self> {
-        Ok(Self {
-            docs_cache: Mutex::new(Self::new_docs_cache(&fs, &mut dice_ctx).await?),
-            fs,
-            valid_at: dice_ctx.equality_token(),
-        })
-    }
-
-    async fn get_cache(
-        &self,
-        mut current_dice_ctx: DiceTransaction,
-    ) -> buck2_error::Result<MutexGuard<'_, DocsCache>> {
-        let mut docs_cache = self.docs_cache.lock().await;
-
-        let fs = &self.fs;
-        match self.is_reusable(&current_dice_ctx) {
-            true => (),
-            false => {
-                let new_docs_cache = Self::new_docs_cache(fs, &mut current_dice_ctx).await?;
-                *docs_cache = new_docs_cache
-            }
-        };
-
-        Ok(docs_cache)
-    }
-
-    fn is_reusable(&self, dice_ctx: &DiceTransaction) -> bool {
-        dice_ctx.equivalent(&self.valid_at)
-    }
-
-    async fn new_docs_cache(
-        fs: &ProjectRoot,
-        dice_ctx: &mut DiceTransaction,
-    ) -> buck2_error::Result<DocsCache> {
-        let mut builtin_docs = Vec::new();
-
-        let cell_resolver = dice_ctx.get_cell_resolver().await?;
-        builtin_docs.push((None, get_builtin_globals_docs(dice_ctx).await?));
-
-        let builtin_names = builtin_docs
-            .iter()
-            .flat_map(|(_, d)| d.members.keys().map(|s| s.as_str()))
-            .collect();
-        if let Some((import_path, docs)) = get_prelude_docs(dice_ctx, &builtin_names).await? {
-            builtin_docs.push((Some(import_path), docs));
-        }
-        DocsCache::new(&builtin_docs, fs, &cell_resolver).await
-    }
-}
-
-async fn get_builtin_globals_docs(
-    dice_ctx: &mut DiceTransaction,
-) -> buck2_error::Result<DocModule> {
-    Ok(dice_ctx
-        .get_global_interpreter_state()
-        .await?
-        .globals()
-        .documentation())
-}
-
-async fn get_prelude_docs(
-    ctx: &DiceTransaction,
-    existing_globals: &StdBuckHashSet<&str>,
-) -> buck2_error::Result<Option<(ImportPath, DocModule)>> {
-    let ctx = &mut ctx.clone();
-    let cell_resolver = ctx.get_cell_resolver().await?;
-    let Some(prelude_path) = prelude_path(&cell_resolver)? else {
-        return Ok(None);
-    };
-    let import_path = prelude_path.import_path();
-
-    let module = ctx.get_loaded_module_from_import_path(import_path).await?;
-    let frozen_module = module.env();
-    let mut module_docs = frozen_module.documentation();
-
-    // For the prelude, we want to promote `native` symbol up one level
-    for (name, value) in module.extra_globals_from_prelude_for_buck_files()? {
-        if !existing_globals.contains(&name) && !module_docs.members.contains_key(name) {
-            let doc = value.to_value().documentation();
-
-            module_docs.members.insert(name.to_owned(), doc);
-        }
-    }
-
-    Ok(Some((import_path.clone(), module_docs)))
-}
-
-/// Store rendered starlark representations of Doc objects for builtin symbols,
-/// their names, and their real or virtual paths
-struct DocsCache {
-    /// Mapping of global names to URLs. These can either be files (for global symbols in the
-    /// prelude), or `starlark:` urls for rust native types and functions.
-    global_urls: StdBuckHashMap<String, LspUrl>,
-    /// Mapping of starlark: urls to a synthesized starlark representation.
-    native_starlark_files: StdBuckHashMap<LspUrl, String>,
-}
-
-#[derive(buck2_error::Error, Debug)]
-#[buck2(tag = Environment)]
-enum DocsCacheError {
-    #[error("Duplicate global symbol `{}` detected. Existing URL was `{}`, new URL was `{}`", .name, .existing, .new)]
-    DuplicateGlobalSymbol {
-        name: String,
-        existing: LspUrl,
-        new: LspUrl,
-    },
-}
-
-impl DocsCache {
-    async fn get_prelude_uri(
-        location: &ImportPath,
-        fs: &ProjectRoot,
-        cell_resolver: &CellResolver,
-    ) -> buck2_error::Result<LspUrl> {
-        let relative_path = cell_resolver.resolve_path(location.path().as_ref())?;
-        let abs_path = fs.resolve(&relative_path);
-        Url::from_file_path(abs_path)
-            .unwrap()
-            .try_into()
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Lsp))
-    }
-
-    async fn new(
-        builtin_symbols: &[(Option<ImportPath>, DocModule)],
-        fs: &ProjectRoot,
-        cell_resolver: &CellResolver,
-    ) -> buck2_error::Result<Self> {
-        Self::new_with_lookup(builtin_symbols, |location| async {
-            Self::get_prelude_uri(location, fs, cell_resolver).await
-        })
-        .await
-    }
-
-    async fn new_with_lookup<
-        'a,
-        F: Fn(&'a ImportPath) -> Fut + 'a,
-        Fut: Future<Output = buck2_error::Result<LspUrl>>,
-    >(
-        builtin_symbols: &'a [(Option<ImportPath>, DocModule)],
-        location_lookup: F,
-    ) -> buck2_error::Result<Self> {
-        let mut global_urls =
-            StdBuckHashMap::with_capacity_and_hasher(builtin_symbols.len(), Default::default());
-
-        let mut insert_global = |sym: String, url: LspUrl| {
-            if let Some(existing) = global_urls.insert(sym.clone(), url.clone()) {
-                Err(DocsCacheError::DuplicateGlobalSymbol {
-                    name: sym,
-                    existing,
-                    new: url,
-                }
-                .into())
-            } else {
-                buck2_error::Ok(())
-            }
-        };
-
-        let mut native_starlark_files = StdBuckHashMap::default();
-        for (import_path, docs) in builtin_symbols {
-            match import_path {
-                Some(l) => {
-                    let url = location_lookup(l).await?;
-                    for (sym, _) in &docs.members {
-                        insert_global(sym.clone(), url.clone())?;
-                    }
-                }
-                None => {
-                    for (sym, mem) in &docs.members {
-                        let filename = Path::new(&sym);
-                        let filename = filename.with_extension(match filename.extension() {
-                            None => "bzl".to_owned(),
-                            Some(e) => format!("{}.bzl", e.to_str().expect("path is UTF-8")),
-                        });
-                        let path = Path::new("/native").join(filename);
-
-                        let url = LspUrl::try_from(
-                            Url::parse(&format!("starlark:{}", path.display()))
-                                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Lsp))?,
-                        )
-                        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Lsp))?;
-                        let rendered = render_doc_item_no_link(sym, mem);
-                        let prev = native_starlark_files.insert(url.clone(), rendered);
-                        assert!(prev.is_none());
-
-                        insert_global(sym.clone(), url)?;
-                    }
-                }
-            };
-        }
-        Ok(Self {
-            global_urls,
-            native_starlark_files,
-        })
-    }
-
-    fn native_starlark_file(&self, url: &LspUrl) -> Option<&String> {
-        // We only load starlark: urls into this hash map, so other types
-        // will just get a "None" back.
-        self.native_starlark_files.get(url)
-    }
-
-    fn url_for_symbol(&self, symbol: &str) -> Option<&LspUrl> {
-        self.global_urls.get(symbol)
-    }
+/// Construct a `file:` URL for the prelude import path.
+fn prelude_uri(
+    location: &ImportPath,
+    fs: &ProjectRoot,
+    cell_resolver: &CellResolver,
+) -> buck2_error::Result<LspUrl> {
+    let relative_path = cell_resolver.resolve_path(location.path().as_ref())?;
+    let abs_path = fs.resolve(&relative_path);
+    Url::from_file_path(abs_path)
+        .unwrap()
+        .try_into()
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Lsp))
 }
 
 struct BuckLspContext<'a> {
     server_ctx: &'a dyn ServerCommandContextTrait,
     fs: ProjectRoot,
-    docs_cache_manager: DocsCacheManager,
     runtime: Handle,
 }
 
@@ -326,20 +133,15 @@ impl<'a> BuckLspContext<'a> {
     async fn new(
         server_ctx: &'a dyn ServerCommandContextTrait,
     ) -> buck2_error::Result<BuckLspContext<'a>> {
-        let (fs, docs_cache_manager) = server_ctx
-            .with_dice_ctx(|server_ctx, dice_ctx| async move {
-                let fs = server_ctx.project_root().clone();
-
-                let docs_cache_manager = DocsCacheManager::new(fs.clone(), dice_ctx).await?;
-
-                Ok((fs, docs_cache_manager))
-            })
+        let fs = server_ctx
+            .with_dice_ctx(
+                |server_ctx, _dice_ctx| async move { Ok(server_ctx.project_root().clone()) },
+            )
             .await?;
 
         Ok(Self {
             server_ctx,
             fs,
-            docs_cache_manager,
             runtime: Handle::current(),
         })
     }
@@ -721,13 +523,23 @@ impl LspContext for BuckLspContext<'_> {
                         .await
                     }
                     LspUrl::Starlark(_) => {
-                        let docs_cache = self
-                            .with_dice_ctx(|dice_ctx| async move {
-                                self.docs_cache_manager.get_cache(dice_ctx).await
-                            })
-                            .await?;
-
-                        Ok(docs_cache.native_starlark_file(uri).cloned())
+                        // Look up the symbol name from the starlark: URL and
+                        // render its docs as starlark source on the fly.
+                        self.with_dice_ctx(|mut dice_ctx| async move {
+                            let globals_docs = dice_ctx
+                                .get_global_interpreter_state()
+                                .await?
+                                .globals()
+                                .documentation();
+                            for (sym, mem) in &globals_docs.members {
+                                let sym_url = native_starlark_url(sym)?;
+                                if &sym_url == uri {
+                                    return Ok(Some(render_doc_item_no_link(sym, mem)));
+                                }
+                            }
+                            buck2_error::Ok(None)
+                        })
+                        .await
                     }
                     _ => Err(
                         BuckLspContextError::WrongScheme("file://".to_owned(), uri.clone()).into(),
@@ -743,14 +555,39 @@ impl LspContext for BuckLspContext<'_> {
         symbol: &str,
     ) -> Result<Option<LspUrl>, String> {
         let dispatcher = self.server_ctx.events().dupe();
+        let symbol = symbol.to_owned();
         self.runtime
             .block_on(with_dispatcher_async(dispatcher, async {
-                let docs_cache = self
-                    .with_dice_ctx(|dice_ctx| async {
-                        self.docs_cache_manager.get_cache(dice_ctx).await
-                    })
-                    .await?;
-                buck2_error::Ok(docs_cache.url_for_symbol(symbol).cloned())
+                self.with_dice_ctx(|mut dice_ctx| async move {
+                    let global_state = dice_ctx.get_global_interpreter_state().await?;
+                    let globals_docs = global_state.globals().documentation();
+
+                    // Check native builtins first
+                    if globals_docs.members.contains_key(&symbol) {
+                        return Ok(Some(native_starlark_url(&symbol)?));
+                    }
+
+                    // Check prelude symbols
+                    if let Some(prelude_path) = global_state.configuror.prelude_import() {
+                        let cell_resolver = dice_ctx.get_cell_resolver().await?;
+                        let prelude_url =
+                            prelude_uri(prelude_path.import_path(), &self.fs, &cell_resolver)?;
+                        if let Ok(prelude_module) = dice_ctx
+                            .get_loaded_module(StarlarkModulePath::LoadFile(
+                                prelude_path.import_path(),
+                            ))
+                            .await
+                        {
+                            let prelude_docs = prelude_module.env().documentation();
+                            if prelude_docs.members.contains_key(&symbol) {
+                                return Ok(Some(prelude_url));
+                            }
+                        }
+                    }
+
+                    buck2_error::Ok(None)
+                })
+                .await
             }))
             .map_err(|e| format!("{:#}", e))
     }
@@ -937,105 +774,30 @@ fn handle_outgoing_lsp_message(
 
 #[cfg(test)]
 mod tests {
-    use buck2_core::bzl::ImportPath;
     use buck2_error::conversion::from_any_with_tag;
     use lsp_types::Url;
-    use starlark::docs::DocFunction;
-    use starlark::docs::DocItem;
-    use starlark::docs::DocMember;
-    use starlark::docs::DocModule;
     use starlark_lsp::server::LspUrl;
 
-    use crate::lsp::DocsCache;
+    use crate::lsp::native_starlark_url;
 
     #[test]
-    fn cache_builds() -> buck2_error::Result<()> {
-        const P: &str = "cell//foo:bar.bzl";
-
-        let docs = vec![
-            (
-                None,
-                DocModule {
-                    docs: None,
-                    members: [
-                        (
-                            "native_function1".to_owned(),
-                            DocItem::Member(DocMember::Function(DocFunction::default())),
-                        ),
-                        (
-                            "native_function2".to_owned(),
-                            DocItem::Member(DocMember::Function(DocFunction::default())),
-                        ),
-                    ]
-                    .into_iter()
-                    .collect(),
-                },
-            ),
-            (
-                Some(ImportPath::testing_new(P)),
-                DocModule {
-                    docs: None,
-                    members: [(
-                        "prelude_function".to_owned(),
-                        DocItem::Member(DocMember::Function(DocFunction::default())),
-                    )]
-                    .into_iter()
-                    .collect(),
-                },
-            ),
-        ];
-
-        let runtime = tokio::runtime::Builder::new_current_thread()
-            .build()
-            .unwrap();
-
-        async fn lookup_function(location: &ImportPath) -> buck2_error::Result<LspUrl> {
-            if location == &ImportPath::testing_new(P) {
-                Ok(LspUrl::try_from(
-                    Url::parse(
-                        // Make sure we use a Url which is an absolute path on Linux and Windows
-                        "file:////c:/usr/local/dir/prelude.bzl",
-                    )
-                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Lsp))?,
-                )
-                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Lsp))?)
-            } else {
-                Err(buck2_error::buck2_error!(
-                    buck2_error::ErrorTag::Lsp,
-                    "Unknown path {}",
-                    location
-                ))
-            }
-        }
-
-        let cache =
-            runtime.block_on(async { DocsCache::new_with_lookup(&docs, lookup_function).await })?;
-
+    fn native_starlark_url_construction() -> buck2_error::Result<()> {
         assert_eq!(
-            &LspUrl::try_from(
+            LspUrl::try_from(
                 Url::parse("starlark:/native/native_function1.bzl")
                     .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Lsp))?
             )
             .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Lsp))?,
-            cache.url_for_symbol("native_function1").unwrap()
+            native_starlark_url("native_function1")?
         );
         assert_eq!(
-            &LspUrl::try_from(
+            LspUrl::try_from(
                 Url::parse("starlark:/native/native_function2.bzl")
                     .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Lsp))?
             )
             .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Lsp))?,
-            cache.url_for_symbol("native_function2").unwrap()
+            native_starlark_url("native_function2")?
         );
-        assert_eq!(
-            &LspUrl::try_from(
-                Url::parse("file:/c:/usr/local/dir/prelude.bzl")
-                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Lsp))?
-            )
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Lsp))?,
-            cache.url_for_symbol("prelude_function").unwrap()
-        );
-
         Ok(())
     }
 }
