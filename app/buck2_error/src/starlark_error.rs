@@ -124,7 +124,6 @@ fn from_starlark_impl(
 
             let starlark_context = StarlarkContext {
                 call_stack: e.call_stack().clone(),
-                error_msg: format!("{}", e.without_diagnostic()),
                 span: e.span().cloned(),
             };
 
@@ -275,7 +274,6 @@ mod tests {
         let error_tag = crate::ErrorTag::IoWindowsSharingViolation;
         let starlark_context = StarlarkContext {
             call_stack: example_call_stack(),
-            error_msg: "Some error message".to_owned(),
             span: None,
         };
 
@@ -298,11 +296,11 @@ mod tests {
         let starlark_call_stack = example_call_stack();
         let starlark_context = StarlarkContext {
             call_stack: starlark_call_stack.clone(),
-            error_msg: starlark_error.to_owned(),
             span: None,
         };
 
-        let e = buck2_error!(crate::ErrorTag::StarlarkError, "{}", base_error);
+        let e = buck2_error!(crate::ErrorTag::StarlarkError, "{}", base_error)
+            .context(starlark_error.to_owned());
 
         let base_replaced = error_with_starlark_context(&e, starlark_context);
 
@@ -318,17 +316,18 @@ mod tests {
     #[test]
     fn test_conversion_with_typed_context() {
         let base_error = "Some base error";
+        let starlark_error_msg = "This should be ignored";
         let e = buck2_error!(crate::ErrorTag::StarlarkError, "{}", base_error);
-        let e = e.compute_context(
-            |_: Arc<FullMetadataError>| FullMetadataError,
-            || FullMetadataError,
-        );
+        let e = e
+            .compute_context(
+                |_: Arc<FullMetadataError>| FullMetadataError,
+                || FullMetadataError,
+            )
+            .context(starlark_error_msg.to_owned());
 
         let starlark_call_stack = example_call_stack();
-        let starlark_error_msg = "Starlark error message";
         let starlark_context = StarlarkContext {
             call_stack: starlark_call_stack.clone(),
-            error_msg: starlark_error_msg.to_owned(),
             span: None,
         };
 

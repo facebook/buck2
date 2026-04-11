@@ -104,7 +104,6 @@ impl<T: TypedContext> From<T> for ContextValue {
 #[derive(Clone, allocative::Allocative, Debug, PartialEq, Eq, Hash)]
 pub struct StarlarkContext {
     pub call_stack: CallStack,
-    pub error_msg: String,
     pub span: Option<FileSpan>,
 }
 
@@ -118,7 +117,6 @@ impl StarlarkContext {
 
             Self {
                 call_stack: self.call_stack,
-                error_msg: self.error_msg,
                 span: inner.span,
             }
         } else {
@@ -129,11 +127,7 @@ impl StarlarkContext {
 
 impl std::fmt::Display for StarlarkContext {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let span = span_display(
-            self.span.as_ref().map(|s| s.as_ref()),
-            self.error_msg.as_str(),
-            false,
-        );
+        let span = span_display(self.span.as_ref().map(|s| s.as_ref()), "", false);
         write!(f, "{}\n{}", span, self.call_stack)
     }
 }
