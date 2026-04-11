@@ -8,7 +8,7 @@
  * above-listed licenses.
  */
 
-//! Type-safe wrappers around [`SetSketch`] that distinguish between different
+//! Type-safe wrappers around [`SetSketch`](setsketch::SetSketch) that distinguish between different
 //! semantic uses of sketches.
 
 mod typed;

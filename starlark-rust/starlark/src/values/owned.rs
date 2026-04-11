@@ -45,7 +45,7 @@ enum OwnedError {
 
 /// A [`FrozenValue`] along with a [`FrozenHeapRef`] that ensures it is kept alive.
 /// Obtained from [`FrozenModule::get`](crate::environment::FrozenModule::get) or
-/// [`OwnedFrozenValue::alloc`].
+/// [`OwnedFrozenValue::new`].
 ///
 /// While it is possible to obtain the underlying [`FrozenValue`] with
 /// [`unchecked_frozen_value`](OwnedFrozenValue::unchecked_frozen_value), that approach

@@ -683,7 +683,7 @@ impl FrozenHeapRef {
     /// Get the name of this heap.
     ///
     /// Names can be assigned when finalizing frozen heaps; in practice, this is done when freezing
-    /// modules, see [`Module::freeze_named`].
+    /// modules, see [`Module::freeze_named`](crate::environment::Module::freeze_named).
     ///
     /// The name is intentionally made available here and not at a higher point like the module
     /// level so that it can be inspected even when traversing the dependency graph of frozen heaps.
