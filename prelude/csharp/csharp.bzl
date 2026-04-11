@@ -9,40 +9,37 @@
 load(":csharp_providers.bzl", "DllDepTSet", "DllReference", "DotNetLibraryInfo", "generate_target_tset_children")
 load(":toolchain.bzl", "CSharpToolchainInfo")
 
-def csharp_library_impl(ctx: AnalysisContext) -> list[Provider]:
+def _csharp_library_or_exe_artifact(ctx: AnalysisContext, library_or_exe_name: str, target_type: str) -> (Artifact, list[DllDepTSet]):
     toolchain = ctx.attrs._csharp_toolchain[CSharpToolchainInfo]
 
-    # Automatically set the output dll_name to this target's name if the caller did not specify a
-    # custom name.
-    dll_name = "{}.dll".format(ctx.attrs.name) if not ctx.attrs.dll_name else ctx.attrs.dll_name
+    # Declare that this rule will produce a dll or exe.
+    library_or_exe_artifact = ctx.actions.declare_output(library_or_exe_name, has_content_based_path = False)
 
-    # Declare that this rule will produce a dll.
-    library = ctx.actions.declare_output(dll_name, has_content_based_path = False)
-
-    # Create a command invoking a wrapper script that calls csc.exe to compile the .dll.
+    # Create a command invoking a wrapper script that calls csc.exe to compile the .dll or the .exe.
     cmd = [toolchain.csc]
 
     # Add caller specified compiler flags.
     cmd.append(ctx.attrs.compiler_flags)
 
     # Set the output target as a .NET library.
-    cmd.append("/target:library")
+    cmd.append("/target:" + target_type)
     cmd.append(cmd_args(
-        library.as_output(),
+        library_or_exe_artifact.as_output(),
         format = "/out:{}",
     ))
 
-    # Don't include any default .NET framework assemblies like "mscorlib" or "System" unless
-    # explicitly requested with `/reference:{}`. This flag also stops injection of other
-    # default compiler flags.
-    cmd.append("/noconfig")
+    if ctx.attrs.add_hermetic_arguments:
+        # Don't include any default .NET framework assemblies like "mscorlib" or "System" unless
+        # explicitly requested with `/reference:{}`. This flag also stops injection of other
+        # default compiler flags.
+        cmd.append("/noconfig")
 
-    # Don't reference mscorlib.dll unless asked for. This is required for targets that target
-    # embedded platforms such as Silverlight or WASM. (Originally for Buck1 compatibility.)
-    cmd.append("/nostdlib")
+        # Don't reference mscorlib.dll unless asked for. This is required for targets that target
+        # embedded platforms such as Silverlight or WASM. (Originally for Buck1 compatibility.)
+        cmd.append("/nostdlib")
 
-    # Don't search any paths for .NET libraries unless explicitly referenced with `/lib:{}`.
-    cmd.append("/nosdkpath")
+        # Don't search any paths for .NET libraries unless explicitly referenced with `/lib:{}`.
+        cmd.append("/nosdkpath")
 
     # Let csc know the directory path where it can find system assemblies. This is the path
     # that is searched by `/reference:{libname}` if `libname` is just a DLL name.
@@ -62,13 +59,36 @@ def csharp_library_impl(ctx: AnalysisContext) -> list[Provider]:
     # Run the C# compiler to produce the output artifact.
     ctx.actions.run(cmd, category = "csharp_compile")
 
+    return library_or_exe_artifact, child_deps
+
+def csharp_library_impl(ctx: AnalysisContext) -> list[Provider]:
+    # Automatically set the output dll_name to this target's name if the caller did not specify a
+    # custom name.
+    dll_name = "{}.dll".format(ctx.attrs.name) if not ctx.attrs.dll_name else ctx.attrs.dll_name
+
+    library_or_exe_artifact, child_deps = _csharp_library_or_exe_artifact(ctx, dll_name, "library")
+
     return [
-        DefaultInfo(default_output = library),
+        DefaultInfo(default_output = library_or_exe_artifact),
         DotNetLibraryInfo(
-            name = ctx.attrs.dll_name,
-            object = library,
-            dll_deps = ctx.actions.tset(DllDepTSet, value = DllReference(reference = library), children = child_deps),
+            name = library_or_exe_artifact.basename,
+            object = library_or_exe_artifact,
+            dll_deps = ctx.actions.tset(DllDepTSet, value = DllReference(reference = library_or_exe_artifact), children = child_deps),
         ),
+    ]
+
+def csharp_binary_impl(ctx: AnalysisContext) -> list[Provider]:
+    exe_name = "{}.exe".format(ctx.attrs.name) if not ctx.attrs.exe_name else ctx.attrs.exe_name
+
+    library_or_exe_artifact, child_deps = _csharp_library_or_exe_artifact(ctx, exe_name, "exe")
+
+    new_runtime_files = []
+    for child in child_deps:
+        new_runtime_files.extend([ctx.actions.symlink_file(dll_dep.reference.basename, dll_dep.reference) for dll_dep in child.traverse()])
+
+    return [
+        DefaultInfo(default_output = library_or_exe_artifact, other_outputs = new_runtime_files),
+        RunInfo(args = cmd_args(library_or_exe_artifact, hidden = new_runtime_files)),
     ]
 
 def prebuilt_dotnet_library_impl(ctx: AnalysisContext) -> list[Provider]:
