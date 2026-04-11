@@ -354,7 +354,11 @@ impl<'a> BuckLspContext<'a> {
             .await?
     }
 
-    async fn import_path(&self, path: &Path) -> buck2_error::Result<OwnedStarlarkModulePath> {
+    /// A user has an LSP file open, we need a starlark path for it.
+    async fn resolve_lsp_file_path(
+        &self,
+        path: &Path,
+    ) -> buck2_error::Result<OwnedStarlarkModulePath> {
         let abs_path = AbsPath::new(path)?;
         let relative_path = self.fs.relativize_any(abs_path)?;
         let cell_resolver = self
@@ -379,7 +383,13 @@ impl<'a> BuckLspContext<'a> {
         }
     }
 
-    async fn starlark_import_path(
+    /// starlark:path/into/project -> a fake starlark module path
+    ///
+    /// `starlark:` URIs are used for markdown doc rendering, e.g. for builtins.
+    /// But we do currently set their filetype to starlark and they do start
+    /// hitting the LSP with requests. Ideally those docs would have the correct
+    /// filetype.
+    async fn resolve_fake_starlark_path(
         &self,
         path: &Path,
     ) -> buck2_error::Result<OwnedStarlarkModulePath> {
@@ -410,11 +420,8 @@ impl<'a> BuckLspContext<'a> {
 
     async fn resolve_lsp_uri(&self, uri: &LspUrl) -> buck2_error::Result<OwnedStarlarkModulePath> {
         match uri {
-            LspUrl::File(path) => self.import_path(path).await,
-            // FIXME: `starlark:` URIs are used for markdown doc rendering.
-            // But we do currently set their filetype to starlark
-            // and they do start hitting the LSP with requests.
-            LspUrl::Starlark(path) => self.starlark_import_path(path).await,
+            LspUrl::File(path) => self.resolve_lsp_file_path(path).await,
+            LspUrl::Starlark(path) => self.resolve_fake_starlark_path(path).await,
             LspUrl::Other(_) => Err(BuckLspContextError::WrongScheme(
                 "file:// or starlark:".to_owned(),
                 uri.clone(),
@@ -593,7 +600,7 @@ impl LspContext for BuckLspContext<'_> {
             .block_on(with_dispatcher_async(dispatcher, async {
                 match current_file {
                     LspUrl::File(current_file) => {
-                        let current_import_path = self.import_path(current_file).await?;
+                        let current_import_path = self.resolve_lsp_file_path(current_file).await?;
                         let borrowed_current_import_path = current_import_path.borrow();
                         let url = self
                             .with_dice_ctx(|mut dice_ctx| async move {
@@ -640,9 +647,9 @@ impl LspContext for BuckLspContext<'_> {
         self.runtime
             .block_on(with_dispatcher_async(dispatcher, async {
                 let import_path = match current_file {
-                    LspUrl::File(current_file) => {
-                        Ok(self.import_path(current_file.parent().unwrap()).await?)
-                    }
+                    LspUrl::File(current_file) => Ok(self
+                        .resolve_lsp_file_path(current_file.parent().unwrap())
+                        .await?),
                     _ => Err(ResolveLoadError::WrongScheme(
                         "file://".to_owned(),
                         current_file.clone(),
@@ -680,7 +687,7 @@ impl LspContext for BuckLspContext<'_> {
             .block_on(with_dispatcher_async(dispatcher, async {
                 match uri {
                     LspUrl::File(path) => {
-                        let path = self.import_path(path).await?;
+                        let path = self.resolve_lsp_file_path(path).await?;
 
                         self.with_dice_ctx(|mut dice_ctx| async move {
                             DiceFileComputations::read_file_if_exists(
