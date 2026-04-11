@@ -283,7 +283,7 @@ rand = { version = "0.10" }
 rand_08 = { package = "rand", version = "0.8.4", features = ["small_rng"] }
 rand_09 = { package = "rand", version = "0.9", features = ["small_rng"] }
 rand_chacha = "0.3"
-rand_distr = "0.5"
+rand_distr = "0.6"
 rand_distr_04 = { package = "rand_distr", version = "0.4" }
 rand_xoshiro = "0.8"
 ref-cast = "1.0.18"

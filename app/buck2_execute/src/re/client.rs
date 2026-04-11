@@ -1646,11 +1646,14 @@ impl RemoteExecutionClientImpl {
                 // If the action was served from cache or deduplicated, we don't treat it as a cache
                 // hit instead of an execution - it'll be treated as an execution on the side of the
                 // thing that it got a hit or deduplicated against.
+                #[cfg(fbcode_build)]
                 let was_not_actually_executed = r
                     .execute_response
                     .executed_action_details
                     .was_served_from_cache
                     || r.execute_response.executed_action_details.was_deduplicated;
+                #[cfg(not(fbcode_build))]
+                let was_not_actually_executed = r.execute_response.cached_result;
                 let event = if was_not_actually_executed {
                     buck2_data::action_digest_trace::ActionDigestTraceEvent::CacheHit
                 } else {
