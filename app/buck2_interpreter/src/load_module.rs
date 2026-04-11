@@ -8,17 +8,21 @@
  * above-listed licenses.
  */
 
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use buck2_core::bzl::ImportPath;
 use buck2_core::package::PackageLabel;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
+use starlark::docs::DocModule;
 use starlark::environment::Globals;
 
 use crate::file_loader::LoadedModule;
 use crate::file_loader::ModuleDeps;
 use crate::paths::module::StarlarkModulePath;
 use crate::paths::package::PackageFilePath;
+use crate::paths::path::StarlarkPath;
 use crate::prelude_path::PreludePath;
 
 #[async_trait]
@@ -48,6 +52,13 @@ pub trait InterpreterCalculationImpl: Send + Sync + 'static {
         &self,
         ctx: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<Option<PreludePath>>;
+
+    /// Get the doc environment (available symbols) for a given starlark file type.
+    async fn get_doc_environment(
+        &self,
+        ctx: &mut DiceComputations<'_>,
+        starlark_path: StarlarkPath<'_>,
+    ) -> buck2_error::Result<Arc<DocModule>>;
 }
 
 pub static INTERPRETER_CALCULATION_IMPL: LateBinding<&'static dyn InterpreterCalculationImpl> =
@@ -85,6 +96,12 @@ pub trait InterpreterCalculation {
             .cloned()
             .collect())
     }
+
+    /// Get the doc environment (available symbols) for a given starlark file type.
+    async fn get_doc_environment(
+        &mut self,
+        starlark_path: StarlarkPath<'_>,
+    ) -> buck2_error::Result<Arc<DocModule>>;
 }
 
 #[async_trait]
@@ -96,6 +113,16 @@ impl InterpreterCalculation for DiceComputations<'_> {
         INTERPRETER_CALCULATION_IMPL
             .get()?
             .get_loaded_module(self, path)
+            .await
+    }
+
+    async fn get_doc_environment(
+        &mut self,
+        starlark_path: StarlarkPath<'_>,
+    ) -> buck2_error::Result<Arc<DocModule>> {
+        INTERPRETER_CALCULATION_IMPL
+            .get()?
+            .get_doc_environment(self, starlark_path)
             .await
     }
 }

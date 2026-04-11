@@ -764,8 +764,21 @@ impl LspContext for BuckLspContext<'_> {
         Err("Not yet implemented, render_as_load".to_owned())
     }
 
-    fn get_environment(&self, _uri: &LspUrl) -> DocModule {
-        DocModule::default()
+    fn get_environment(&self, url: &LspUrl) -> DocModule {
+        let dispatcher = self.server_ctx.events().dupe();
+        self.runtime
+            .block_on(with_dispatcher_async(dispatcher, async {
+                let Ok(starlark_path) = self.resolve_lsp_uri(url).await else {
+                    return Ok(DocModule::default());
+                };
+
+                self.with_dice_ctx(|mut dice_ctx| async move {
+                    let docs = dice_ctx.get_doc_environment(starlark_path.borrow()).await?;
+                    buck2_error::Ok((*docs).clone())
+                })
+                .await
+            }))
+            .unwrap_or_default()
     }
 }
 

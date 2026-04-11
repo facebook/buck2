@@ -17,12 +17,15 @@ use async_trait::async_trait;
 use buck2_common::package_listing::dice::DicePackageListingResolver;
 use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bzl::ImportPath;
+use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::package::PackageLabel;
 use buck2_events::dispatch::async_record_root_spans;
 use buck2_events::span::SpanId;
 use buck2_interpreter::file_loader::LoadedModule;
 use buck2_interpreter::file_loader::ModuleDeps;
+use buck2_interpreter::import_paths::HasImportPaths;
 use buck2_interpreter::load_module::INTERPRETER_CALCULATION_IMPL;
+use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::load_module::InterpreterCalculationImpl;
 use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
 use buck2_interpreter::paths::module::StarlarkModulePath;
@@ -41,6 +44,7 @@ use buck2_util::time_span::TimeSpan;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
+use dice::NoValueSerialize;
 use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
 use dice_futures::cancellation::CancellationContext;
@@ -50,10 +54,12 @@ use futures::future::BoxFuture;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use smallvec::SmallVec;
+use starlark::docs::DocModule;
 use starlark::environment::Globals;
 use starlark_map::small_map::SmallMap;
 
 use crate::interpreter::dice_calculation_delegate::HasCalculationDelegate;
+use crate::interpreter::dice_calculation_delegate::keys::DocEnvironmentKey;
 use crate::interpreter::dice_calculation_delegate::keys::EvalImportKey;
 use crate::interpreter::global_interpreter_state::HasGlobalInterpreterState;
 use crate::interpreter::package_file_calculation::EvalPackageFile;
@@ -181,6 +187,118 @@ impl Key for EvalImportKey {
     }
 }
 
+impl DocEnvironmentKey {
+    /// Construct the key for a given starlark path.
+    async fn for_path(
+        starlark_path: StarlarkPath<'_>,
+        ctx: &mut DiceComputations<'_>,
+    ) -> buck2_error::Result<DocEnvironmentKey> {
+        let global_state = ctx.get_global_interpreter_state().await?;
+        let include_prelude = global_state
+            .configuror
+            .prelude_for_file(starlark_path)
+            .is_some();
+        // Recall, starlark_path is a file open in LSP. It's not loaded from a buildfile.
+        let buildfile_cell = match starlark_path {
+            StarlarkPath::BuildFile(bf) => Some(bf.cell()),
+            _ => None,
+        };
+        Ok(DocEnvironmentKey {
+            buildfile_cell,
+            include_prelude,
+        })
+    }
+}
+
+#[async_trait]
+impl Key for DocEnvironmentKey {
+    type Value = buck2_error::Result<Arc<DocModule>>;
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellation: &CancellationContext,
+    ) -> Self::Value {
+        let global_state = ctx.get_global_interpreter_state().await?;
+        let mut docs = global_state.globals().documentation();
+
+        if self.include_prelude {
+            if let Some(prelude_path) = global_state.configuror.prelude_import() {
+                // Don't propagate prelude errors — fall back to builtins only.
+                if let Ok(prelude_module) = ctx
+                    .get_loaded_module(StarlarkModulePath::LoadFile(prelude_path.import_path()))
+                    .await
+                {
+                    let prelude_docs = prelude_module.env().documentation();
+                    for (name, item) in prelude_docs.members {
+                        docs.members.insert(name, item);
+                    }
+
+                    // For build files, promote `native` struct members into top-level symbols
+                    if self.buildfile_cell.is_some() {
+                        if let Ok(extra) =
+                            prelude_module.extra_globals_from_prelude_for_buck_files()
+                        {
+                            for (name, value) in extra {
+                                if !docs.members.contains_key(name) {
+                                    docs.members
+                                        .insert(name.to_owned(), value.to_value().documentation());
+                                }
+                            }
+                        }
+                    }
+
+                    // Override `native` with a short summary. The full documentation for
+                    // the native struct is enormous and crashes some editors.
+                    docs.members.insert(
+                        "native".to_owned(),
+                        starlark::docs::DocItem::Member(starlark::docs::DocMember::Property(
+                            starlark::docs::DocProperty {
+                                docs: Some(starlark::docs::DocString {
+                                    summary: format!(
+                                        "The prelude, defined in {}",
+                                        prelude_path.import_path()
+                                    ),
+                                    details: None,
+                                    examples: None,
+                                }),
+                                typ: starlark::typing::Ty::any(),
+                            },
+                        )),
+                    );
+                }
+            }
+        }
+
+        // For build files, include buildfile.includes (root_import), which is per-cell
+        if let Some(cell_name) = self.buildfile_cell {
+            let import_paths = ctx
+                .import_paths_for_cell(BuildFileCell::new(cell_name))
+                .await?;
+            if let Some(root_import) = import_paths.root_import() {
+                let root_module = ctx.get_loaded_module_from_import_path(root_import).await?;
+                let root_docs = root_module.env().documentation();
+                for (name, item) in root_docs.members {
+                    docs.members.insert(name, item);
+                }
+            }
+        }
+
+        Ok(Arc::new(docs))
+    }
+
+    fn equality(_: &Self::Value, _: &Self::Value) -> bool {
+        false
+    }
+
+    fn validity(x: &Self::Value) -> bool {
+        x.is_ok()
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        NoValueSerialize::<Self::Value>::new()
+    }
+}
+
 #[async_trait]
 impl InterpreterCalculationImpl for InterpreterCalculationInstance {
     async fn get_loaded_module(
@@ -256,6 +374,15 @@ impl InterpreterCalculationImpl for InterpreterCalculationInstance {
             .configuror
             .prelude_import()
             .cloned())
+    }
+
+    async fn get_doc_environment(
+        &self,
+        ctx: &mut DiceComputations<'_>,
+        starlark_path: StarlarkPath<'_>,
+    ) -> buck2_error::Result<Arc<DocModule>> {
+        let key = DocEnvironmentKey::for_path(starlark_path, ctx).await?;
+        ctx.compute(&key).await?
     }
 }
 

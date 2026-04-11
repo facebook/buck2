@@ -706,6 +706,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
 
 pub(crate) mod keys {
     use allocative::Allocative;
+    use buck2_core::cells::name::CellName;
     use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
     use derive_more::Display;
     use pagable::Pagable;
@@ -714,6 +715,33 @@ pub(crate) mod keys {
     #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
     #[pagable_typetag(dice::DiceKeyDyn)]
     pub struct EvalImportKey(pub OwnedStarlarkModulePath);
+
+    /// DICE key for computing the doc environment  for a starlark file.
+    /// This covers builtins and prelude symbols only, not explicit `load()` statements.
+    ///
+    /// Buildfiles have `buildfile.includes` injected, which affects doc environment
+    /// and varies across cells but not between buildfiles.
+    /// Prelude is injected for buildfiles both inside and outside the prelude.
+    /// Starlark and BXL have the builtins, plus potentially prelude, but only if the file
+    /// is outside the prelude.
+    ///
+    /// Ideally this would be an enum, to more accurately represent the minimum number of
+    /// variations. When Pagable supports that, go for it.
+    ///
+    #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
+    #[display(
+        "DocEnvironmentKey(buildfile_cell={:?}, include_prelude={})",
+        buildfile_cell,
+        include_prelude
+    )]
+    #[pagable_typetag(dice::DiceKeyDyn)]
+    pub struct DocEnvironmentKey {
+        /// If set, this is for a build file in the given cell (includes `buildfile.includes`).
+        pub buildfile_cell: Option<CellName>,
+        /// Whether to include prelude symbols. True for most files; false for
+        /// .bzl files inside the prelude directory itself.
+        pub include_prelude: bool,
+    }
 }
 
 pub mod testing {
