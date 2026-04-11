@@ -17,6 +17,6 @@ buck2_error = { workspace = true }
 [dev-dependencies]
 # Can't use workspace dependencies here because rand = { package = "rand_08", workspace = true } is
 # not valid syntax.
-rand = { package = "rand", version = "0.8.4", features = ["small_rng"] }
-rand_chacha = "0.3"
-rand_distr = { package = "rand_distr", version = "0.4" }
+rand = { package = "rand", version = "0.9", features = ["small_rng"] }
+rand_chacha = "0.9"
+rand_distr = { package = "rand_distr", version = "0.5" }

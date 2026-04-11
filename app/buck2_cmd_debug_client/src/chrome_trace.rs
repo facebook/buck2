@@ -305,7 +305,7 @@ struct ChromeTraceInstant {
 }
 
 impl ChromeTraceInstant {
-    fn to_json(self) -> buck2_error::Result<serde_json::Value> {
+    fn into_json(self) -> buck2_error::Result<serde_json::Value> {
         let mut js = json!(
             {
                 "name": self.name,
@@ -1232,7 +1232,7 @@ impl ChromeTraceWriter {
                             scope: ChromeTraceInstantScope::Global,
                             args: None,
                         }
-                        .to_json()?,
+                        .into_json()?,
                     );
                 }
                 _ => {}
@@ -1248,7 +1248,7 @@ impl ChromeTraceWriter {
     fn write_instant_events(&mut self, events: Vec<ChromeTraceInstant>) -> buck2_error::Result<()> {
         self.trace_events.reserve(events.len());
         for event in events.into_iter() {
-            self.trace_events.push(event.to_json()?);
+            self.trace_events.push(event.into_json()?);
         }
         Ok(())
     }
@@ -1605,7 +1605,7 @@ impl ChromeTraceWriter {
                                 // "method": materialization.method, // TODO: convert to string?
                             })),
                         }
-                        .to_json()?,
+                        .into_json()?,
                     );
                 }
             }

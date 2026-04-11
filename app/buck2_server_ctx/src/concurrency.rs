@@ -1519,6 +1519,7 @@ mod tests {
     impl Key for CleanupTestKey {
         type Value = ();
 
+        #[allow(clippy::await_holding_lock)] // Intentional: testing exclusive access
         async fn compute(
             &self,
             _ctx: &mut DiceComputations,
@@ -1707,6 +1708,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(clippy::await_holding_lock)] // Intentional: testing exclusive access
     async fn exclusive_command_lock() -> buck2_error::Result<()> {
         let dice = make_default_dice().await;
         let concurrency = ConcurrencyHandler::new(dice.dupe());

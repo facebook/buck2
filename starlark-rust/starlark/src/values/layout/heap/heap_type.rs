@@ -697,7 +697,7 @@ impl FrozenHeapRef {
     }
 
     /// Collect live value headers from the non-drop bump in allocation order.
-    #[cfg(test)]
+    #[cfg(all(test, feature = "pagable"))]
     pub(crate) fn collect_undrop_headers_ordered(&self) -> Vec<&AValueHeader> {
         match &self.0 {
             Some(inner) => inner.arena.collect_undrop_headers_ordered(),
@@ -706,7 +706,7 @@ impl FrozenHeapRef {
     }
 
     /// Collect live value headers from the drop bump in allocation order.
-    #[cfg(test)]
+    #[cfg(all(test, feature = "pagable"))]
     pub(crate) fn collect_drop_headers_ordered(&self) -> Vec<&AValueHeader> {
         match &self.0 {
             Some(inner) => inner.arena.collect_drop_headers_ordered(),

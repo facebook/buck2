@@ -276,40 +276,41 @@ impl<'a> QueryResultPrinter<'a> {
                 let multi_result = multi_result.0;
                 let mut captured_error = Ok(());
 
-                let mut ser = serde_json::Serializer::pretty(&mut output);
-                let mut seq = ser.serialize_map(Some(multi_result.len()))?;
-                for (arg, result) in multi_result {
-                    match result {
-                        Ok(v) => match v {
-                            QueryEvaluationValue::TargetSet(targets) => seq.serialize_entry(
-                                &arg,
-                                &TargetSetJsonPrinter::new(
-                                    target_call_stacks,
-                                    print_providers,
-                                    &self.attributes,
-                                    &targets,
-                                )
-                                .await?,
-                            )?,
-                            QueryEvaluationValue::FileSet(files) => seq.serialize_entry(
-                                &arg,
-                                &FileSetJsonPrinter {
-                                    resolver: self.resolver,
-                                    value: &files,
-                                },
-                            )?,
-                        },
-                        Err(e) => {
-                            seq.serialize_entry(
-                                &arg,
-                                &serde_json::json!({ "$error": format!("{:#}", e) }),
-                            )?;
-                            captured_error = Err(e);
+                {
+                    let mut ser = serde_json::Serializer::pretty(&mut output);
+                    let mut seq = ser.serialize_map(Some(multi_result.len()))?;
+                    for (arg, result) in multi_result {
+                        match result {
+                            Ok(v) => match v {
+                                QueryEvaluationValue::TargetSet(targets) => seq.serialize_entry(
+                                    &arg,
+                                    &TargetSetJsonPrinter::new(
+                                        target_call_stacks,
+                                        print_providers,
+                                        &self.attributes,
+                                        &targets,
+                                    )
+                                    .await?,
+                                )?,
+                                QueryEvaluationValue::FileSet(files) => seq.serialize_entry(
+                                    &arg,
+                                    &FileSetJsonPrinter {
+                                        resolver: self.resolver,
+                                        value: &files,
+                                    },
+                                )?,
+                            },
+                            Err(e) => {
+                                seq.serialize_entry(
+                                    &arg,
+                                    &serde_json::json!({ "$error": format!("{:#}", e) }),
+                                )?;
+                                captured_error = Err(e);
+                            }
                         }
                     }
+                    SerializeMap::end(seq)?;
                 }
-                SerializeMap::end(seq)?;
-                std::mem::drop(ser);
                 // need to add a newline to flush the output.
                 writeln!(&mut output)?;
                 Ok(captured_error?)
@@ -380,16 +381,17 @@ impl<'a> QueryResultPrinter<'a> {
                     }
                 }
                 QueryOutputFormatInfo::Json => {
-                    let mut ser = serde_json::Serializer::pretty(&mut output);
-                    TargetSetJsonPrinter::new(
-                        call_stack,
-                        print_providers,
-                        &self.attributes,
-                        &targets,
-                    )
-                    .await?
-                    .serialize(&mut ser)?;
-                    std::mem::drop(ser);
+                    {
+                        let mut ser = serde_json::Serializer::pretty(&mut output);
+                        TargetSetJsonPrinter::new(
+                            call_stack,
+                            print_providers,
+                            &self.attributes,
+                            &targets,
+                        )
+                        .await?
+                        .serialize(&mut ser)?;
+                    }
                     // need to add a newline to flush the output.
                     writeln!(&mut output)?
                 }
@@ -430,13 +432,14 @@ impl<'a> QueryResultPrinter<'a> {
                         }
                     }
                     QueryOutputFormatInfo::Json => {
-                        let mut ser = serde_json::Serializer::pretty(&mut output);
-                        FileSetJsonPrinter {
-                            resolver: self.resolver,
-                            value: &files,
+                        {
+                            let mut ser = serde_json::Serializer::pretty(&mut output);
+                            FileSetJsonPrinter {
+                                resolver: self.resolver,
+                                value: &files,
+                            }
+                            .serialize(&mut ser)?;
                         }
-                        .serialize(&mut ser)?;
-                        std::mem::drop(ser);
                         // need to add a newline to flush the output.
                         writeln!(&mut output)?;
                     }

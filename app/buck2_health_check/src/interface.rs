@@ -25,7 +25,7 @@ pub enum HealthCheckType {
 }
 
 /// Trait to generalize a buck2 health check.
-/// Refer https://fburl.com/buck_health_checks for details on adding a new health check.
+/// Refer <https://fburl.com/buck_health_checks> for details on adding a new health check.
 #[async_trait::async_trait]
 pub trait HealthCheck: Send + Sync {
     /// Returns an optional report when invoked at every `snapshot` event.

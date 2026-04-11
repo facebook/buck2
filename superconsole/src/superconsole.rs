@@ -356,8 +356,8 @@ impl Drop for SuperConsole {
     fn drop(&mut self) {
         if let Some(v) = &mut self.output {
             let mut buffer = Vec::new();
-            let _ = buffer.queue(cursor::Show);
-            let _ = v.output(buffer);
+            drop(buffer.queue(cursor::Show));
+            drop(v.output(buffer));
         }
     }
 }

@@ -512,6 +512,7 @@ struct RemoteExecutionClientImpl {
 }
 
 fn re_platform(x: &RE::Platform) -> remote_execution::TPlatform {
+    #[allow(clippy::needless_update)] // Defaults are needed internally but not in OSS
     remote_execution::TPlatform {
         properties: x.properties.map(|x| remote_execution::TProperty {
             name: x.name.clone(),

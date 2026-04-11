@@ -735,8 +735,7 @@ mod tests {
                     .fingerprint(digest_config.as_directory_serializer())
                     .shared(&interner)
             };
-            let entry = ActionDirectoryEntry::Dir(directory);
-            entry
+            ActionDirectoryEntry::Dir(directory)
         };
 
         let entries =

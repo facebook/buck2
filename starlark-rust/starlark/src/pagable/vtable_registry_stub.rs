@@ -26,9 +26,10 @@ use crate::values::layout::vtable::AValueVTable;
 
 /// Stub `DeserTypeId` when the `pagable` feature is disabled.
 #[derive(Debug, Display, Clone, Copy, PartialEq, Eq, Hash)]
-pub(crate) struct DeserTypeId;
+pub struct DeserTypeId;
 
 impl DeserTypeId {
+    #[allow(clippy::extra_unused_type_parameters)]
     pub const fn of<T: ?Sized>() -> Self {
         DeserTypeId
     }

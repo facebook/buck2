@@ -237,6 +237,7 @@ pub struct MaterializerSender<T: 'static> {
 }
 
 impl<T> MaterializerSender<T> {
+    #[allow(clippy::result_large_err)]
     fn send(
         &self,
         command: MaterializerCommand<T>,

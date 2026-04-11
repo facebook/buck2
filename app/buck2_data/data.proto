@@ -3210,7 +3210,7 @@ enum NetworkAccess {
 message OrphanProcessesKilled {
   message OrphanProcess {
     uint32 pid = 1;
-    // Process name from /proc/<pid>/comm
+    // Process name from `/proc/<pid>/comm`
     string comm = 2;
   }
   repeated OrphanProcess orphan_processes = 1;

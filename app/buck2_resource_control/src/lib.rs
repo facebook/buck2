@@ -39,7 +39,7 @@ pub struct HasResourceControl(pub bool);
 pub struct OrphanProcessInfo {
     /// The process ID.
     pub pid: u32,
-    /// The process name from /proc/<pid>/comm.
+    /// The process name from `/proc/<pid>/comm`.
     pub comm: String,
 }
 

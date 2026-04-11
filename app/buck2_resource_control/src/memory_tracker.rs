@@ -302,14 +302,20 @@ mod tests {
             10000000,
             "allprocs_memory_current",
         );
-        let mut check_memory_pressure = true;
+        let check_memory_pressure;
         #[cfg(fbcode_build)]
         {
             if environment::is_on_demand() {
                 // In OD environments, memory pressure may be lower due to different cgroup configurations
                 // or resource constraints, so skip this assertion there.
                 check_memory_pressure = false;
+            } else {
+                check_memory_pressure = true;
             }
+        }
+        #[cfg(not(fbcode_build))]
+        {
+            check_memory_pressure = true;
         }
         if check_memory_pressure {
             assert_max_over(
