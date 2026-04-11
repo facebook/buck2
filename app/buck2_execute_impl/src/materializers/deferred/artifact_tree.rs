@@ -11,7 +11,6 @@
 use std::sync::Arc;
 
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_core::soft_error;
 use buck2_directory::directory::directory_ref::DirectoryRef;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_error::BuckErrorContext;
@@ -359,8 +358,7 @@ impl ArtifactTree {
                 }
             }
             Err(e) => {
-                // NOTE: This shouldn't normally happen?
-                let _unused = soft_error!("cleanup_finished_vacant", e, quiet: true);
+                tracing::debug!("cleanup_finished_vacant: {}", e);
             }
         }
     }
