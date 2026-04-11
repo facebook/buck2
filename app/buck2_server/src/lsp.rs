@@ -474,15 +474,15 @@ impl<'a> BuckLspContext<'a> {
         uri: &LspUrl,
         content: String,
     ) -> buck2_error::Result<LspEvalResult> {
-        let import_path = self.resolve_lsp_uri(uri).await?;
+        let starlark_path = self.resolve_lsp_uri(uri).await?;
 
         self.with_dice_ctx(|mut dice_ctx| async move {
             let calculator = dice_ctx
-                .get_interpreter_calculator(import_path.clone())
+                .get_interpreter_calculator(starlark_path.clone())
                 .await?;
 
             let parse_result =
-                calculator.prepare_eval_with_content(import_path.borrow(), content)?;
+                calculator.prepare_eval_with_content(starlark_path.borrow(), content)?;
             match parse_result {
                 Ok(ParseData(ast, _)) => Ok(LspEvalResult {
                     diagnostics: Vec::new(),
@@ -666,7 +666,7 @@ impl LspContext for BuckLspContext<'_> {
         let dispatcher = self.server_ctx.events().dupe();
         self.runtime
             .block_on(with_dispatcher_async(dispatcher, async {
-                let import_path = match current_file {
+                let starlark_path = match current_file {
                     LspUrl::File(current_file) => Ok(self
                         .resolve_lsp_file_path(current_file.parent().unwrap())
                         .await?),
@@ -677,7 +677,7 @@ impl LspContext for BuckLspContext<'_> {
                 }
                 .map_err(buck2_error::Error::from)?;
 
-                let current_package = import_path.borrow().path();
+                let current_package = starlark_path.borrow().path();
                 let current_package_ref = current_package.as_ref().as_ref();
 
                 // Right now we swallow the errors up as they can happen for a lot of reasons that are
