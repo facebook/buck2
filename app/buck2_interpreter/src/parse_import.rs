@@ -20,6 +20,27 @@ use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_fs::paths::RelativePath;
 use buck2_fs::paths::file_name::FileName;
 
+/// Format hint parsed from `?as=toml` or `?as=json` suffix in load() strings.
+/// Allows loading a file as a specific format regardless of its extension,
+/// e.g. `load(":blah.lock?as=toml", "value")`.
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum FormatHint {
+    Json,
+    Toml,
+}
+
+/// Strip a `?as=toml` or `?as=json` format hint from a load string.
+/// Returns the stripped string and the format hint if present.
+pub fn strip_format_hint(import: &str) -> (&str, Option<FormatHint>) {
+    if let Some(base) = import.strip_suffix("?as=toml") {
+        (base, Some(FormatHint::Toml))
+    } else if let Some(base) = import.strip_suffix("?as=json") {
+        (base, Some(FormatHint::Json))
+    } else {
+        (import, None)
+    }
+}
+
 #[derive(buck2_error::Error, Debug)]
 #[buck2(input)]
 enum ImportParseError {

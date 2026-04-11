@@ -73,6 +73,34 @@ impl ImportPath {
         })
     }
 
+    /// Create an ImportPath for a file with an explicit format override (e.g. `?as=toml`).
+    /// Skips the file extension validation since the format is determined by the hint,
+    /// not the extension.
+    ///
+    /// Do not include the ?as=toml hint as part of the path.
+    pub fn new_with_explicit_format(
+        path: CellPath,
+        build_file_cell: BuildFileCell,
+    ) -> buck2_error::Result<Self> {
+        if path.parent().is_none() {
+            return Err(ImportPathError::Invalid(path).into());
+        }
+
+        if path.path().as_str().contains('?') {
+            return Err(ImportPathError::Invalid(path).into());
+        }
+
+        Ok(Self {
+            path,
+            build_file_cell,
+        })
+    }
+
+    pub fn new_same_cell_with_explicit_format(path: CellPath) -> buck2_error::Result<Self> {
+        let build_file_cell = BuildFileCell::new(path.cell());
+        Self::new_with_explicit_format(path, build_file_cell)
+    }
+
     /// LSP creates imports for non-bzl files.
     pub fn new_hack_for_lsp(
         path: CellPath,
