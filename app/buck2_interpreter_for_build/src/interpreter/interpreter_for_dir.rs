@@ -414,24 +414,7 @@ impl InterpreterForDir {
     }
 
     fn prelude_import(&self, import: StarlarkPath) -> Option<&PreludePath> {
-        let prelude_import = self.global_state.configuror.prelude_import();
-        if let Some(prelude_import) = prelude_import {
-            let import_path = import.path();
-
-            match import {
-                StarlarkPath::BuildFile(_)
-                | StarlarkPath::PackageFile(_)
-                | StarlarkPath::BxlFile(_) => return Some(prelude_import),
-                StarlarkPath::LoadFile(_) => {
-                    if !prelude_import.is_prelude_path(&import_path) {
-                        return Some(prelude_import);
-                    }
-                }
-                StarlarkPath::JsonFile(_) | StarlarkPath::TomlFile(_) => return None,
-            }
-        }
-
-        None
+        self.global_state.configuror.prelude_for_file(import)
     }
 
     /// Parses skylark code to an AST.
