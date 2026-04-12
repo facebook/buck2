@@ -38,6 +38,7 @@ use crate::file_ops::delegate::get_delegated_file_ops;
 use crate::file_ops::error::FileReadError;
 use crate::file_ops::error::extended_ignore_error;
 use crate::file_ops::metadata::RawPathMetadata;
+use crate::file_ops::metadata::RawSymlink;
 use crate::file_ops::metadata::ReadDirOutput;
 use crate::ignores::file_ignores::FileIgnoreResult;
 use crate::io::ReadDirError;
@@ -300,10 +301,27 @@ impl Key for ReadFileKey {
         ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
-        get_delegated_file_ops(ctx, self.0.cell(), CheckIgnores::No)
-            .await?
-            .read_file_if_exists(ctx, self.0.path())
-            .await
+        let file_ops = get_delegated_file_ops(ctx, self.0.cell(), CheckIgnores::No).await?;
+
+        // Check if the path is a symlink. We call the delegate directly (not
+        // via PathMetadataKey) to avoid a circular DICE dependency, since
+        // PathMetadataKey::compute depends on ReadFileKey.
+        let metadata = file_ops
+            .read_path_metadata_if_exists(ctx, self.0.path())
+            .await?;
+        if let Some(RawPathMetadata::Symlink {
+            to: RawSymlink::Relative(ref target, _),
+            ..
+        }) = metadata
+        {
+            // Create a DICE dependency on the symlink target's ReadFileKey.
+            // When the target file is modified, the file watcher invalidates
+            // ReadFileKey(target), which cascades here. Symlink chains are
+            // handled recursively since the target's compute will also check.
+            return ctx.compute(&ReadFileKey(target.dupe())).await?;
+        }
+
+        file_ops.read_file_if_exists(ctx, self.0.path()).await
     }
 
     fn equality(_: &Self::Value, _: &Self::Value) -> bool {
