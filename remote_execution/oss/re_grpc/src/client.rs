@@ -1872,7 +1872,6 @@ fn with_re_metadata<T>(
     // Meta builds catch those issues earlier.
 
     let mut msg = tonic::Request::new(t);
-    msg.set_timeout(runtime_opts.rpc_timeout);
 
     if runtime_opts.use_fbcode_metadata {
         // This is pretty ugly, but the protobuf spec that defines this is
