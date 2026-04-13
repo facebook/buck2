@@ -17,7 +17,7 @@ use derive_more::Display;
 use dice::DynKey;
 use gazebo::prelude::VecExt;
 
-use crate::interpreter::dice_calculation_delegate::testing::EvalImportKey;
+use crate::interpreter::dice_calculation_delegate::keys::EvalImportKey;
 
 #[derive(Debug)]
 pub struct LoadCycleDescriptor;
