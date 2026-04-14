@@ -1,0 +1,15 @@
+# @generated
+# To regenerate, append -- --env BUCK2_RUST_REGENERATE_GOLDEN_TESTS=1 and re-run the test
+
+eval.bzl:1:1-11: [first] outermost context of inner span
+
+Caused by:
+    0: [first] message for first span
+    1: [first] root cause
+
+---
+
+eval.bzl:2:1-12: [second] outermost
+
+Caused by:
+    [second] message for second span

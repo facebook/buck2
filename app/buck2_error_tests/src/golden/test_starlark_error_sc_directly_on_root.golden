@@ -1,0 +1,12 @@
+# @generated
+# To regenerate, append -- --env BUCK2_RUST_REGENERATE_GOLDEN_TESTS=1 and re-run the test
+
+error: fail:the root cause
+ --> build.bzl:1:1
+  |
+1 | some_rule(
+  | ^^^^^^^^^
+  |
+Traceback (most recent call last):
+  File <builtin>, in <module>
+  File <builtin>, in frame

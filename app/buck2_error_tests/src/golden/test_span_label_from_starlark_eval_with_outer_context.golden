@@ -1,0 +1,17 @@
+# @generated
+# To regenerate, append -- --env BUCK2_RUST_REGENERATE_GOLDEN_TESTS=1 and re-run the test
+
+added after starlark eval
+
+Caused by:
+    0: error: error during native call
+        --> assert.bzl:1:1
+         |
+       1 | native_failure()
+         | ^^^^^^^^^^^^^^^^
+         |
+       Traceback (most recent call last):
+         * assert.bzl:1, in <module>
+             native_failure()
+       
+    1: native error root cause

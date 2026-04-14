@@ -1,0 +1,8 @@
+# @generated
+# To regenerate, append -- --env BUCK2_RUST_REGENERATE_GOLDEN_TESTS=1 and re-run the test
+
+outer context
+
+Caused by:
+    0: span label
+    1: root cause

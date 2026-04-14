@@ -156,3 +156,128 @@ fn test_from_starlark_source_location_is_caller() {
         loc,
     );
 }
+
+#[test]
+fn test_starlark_fail() {
+    let mut a = Assert::new();
+
+    a.module(
+        "helper",
+        r#"
+def will_fail():
+    fail("root error")"#,
+    );
+
+    let e = a.fail(
+        r#"
+load('helper', 'will_fail')
+will_fail()"#,
+        "root error",
+    );
+
+    golden_test_template(
+        "src/golden/test_starlark_fail.golden",
+        trim_rust_backtrace(&format!("{:?}", buck2_error::Error::from(e))),
+    );
+}
+
+/// fail() goes through starlark -> buck2 -> starlark again, producing
+/// multiple starlark contexts that get concatenated.
+#[test]
+fn test_starlark_fail_through_multiple_evals() {
+    #[starlark_module]
+    fn module(builder: &mut GlobalsBuilder) {
+        fn re_eval_failure() -> starlark::Result<NoneType> {
+            let mut a = Assert::new();
+            a.module(
+                "inner",
+                r#"
+def will_fail():
+    fail("root error")"#,
+            );
+            let e = a.fail(
+                r#"
+load('inner', 'will_fail')
+will_fail()"#,
+                "root error",
+            );
+            let buck: buck2_error::Error = e.into();
+            Err(buck.context("between evals").into())
+        }
+    }
+
+    let mut a = Assert::new();
+    a.globals_add(module);
+
+    let e = a.fail(r#"re_eval_failure()"#, "between evals");
+
+    golden_test_template(
+        "src/golden/test_starlark_fail_through_multiple_evals.golden",
+        trim_rust_backtrace(&format!("{:?}", buck2_error::Error::from(e))),
+    );
+}
+
+#[test]
+fn test_span_label_from_starlark_eval() {
+    #[starlark_module]
+    fn module(builder: &mut GlobalsBuilder) {
+        fn native_failure() -> starlark::Result<NoneType> {
+            let e = buck2_error::buck2_error!(
+                buck2_error::ErrorTag::StarlarkError,
+                "native error root cause"
+            )
+            .context("error during native call");
+            Err(e.into())
+        }
+    }
+
+    let mut a = Assert::new();
+    a.globals_add(module);
+
+    a.module(
+        "helper",
+        r#"
+def call_native():
+    native_failure()"#,
+    );
+
+    let e = a.fail(
+        r#"
+load('helper', 'call_native')
+call_native()"#,
+        "error during native call",
+    );
+
+    golden_test_template(
+        "src/golden/test_span_label_from_starlark_eval.golden",
+        trim_rust_backtrace(&format!("{:?}", buck2_error::Error::from(e))),
+    );
+}
+
+/// Same native failure, but with an extra .context() added after
+/// the starlark evaluation, to verify it layers on top.
+#[test]
+fn test_span_label_from_starlark_eval_with_outer_context() {
+    #[starlark_module]
+    fn module(builder: &mut GlobalsBuilder) {
+        fn native_failure() -> starlark::Result<NoneType> {
+            let e = buck2_error::buck2_error!(
+                buck2_error::ErrorTag::StarlarkError,
+                "native error root cause"
+            )
+            .context("error during native call");
+            Err(e.into())
+        }
+    }
+
+    let mut a = Assert::new();
+    a.globals_add(module);
+
+    let e = a.fail(r#"native_failure()"#, "error during native call");
+
+    let buck = buck2_error::Error::from(e).context("added after starlark eval");
+    golden_test_template(
+        "src/golden/test_span_label_from_starlark_eval_with_outer_context.golden",
+        trim_rust_backtrace(&format!("{buck:?}")),
+    );
+}
