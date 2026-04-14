@@ -55,33 +55,178 @@ pub(crate) fn into_anyhow_for_format(
         }
     };
 
-    let mut starlark_error: Option<StarlarkContext> = None;
-    let mut out: anyhow::Error = base.into();
-    for context in context_stack.into_iter().rev() {
-        if let ContextValue::StarlarkError(ctx) = context {
-            // Because context_stack is reversed, the right ordering would be first error last to preserve stack ordering
-            starlark_error = Some(ctx.concat(starlark_error));
-            continue;
-        }
-        if let Some(ctx) = starlark_error {
-            out = out.context(format!("{ctx}"));
-            starlark_error = None;
-        }
-        if let Some(s) = context.display() {
-            out = out.context(s);
-        }
-    }
+    let root_msg = match &base {
+        AnyhowWrapperForFormat::Root(s) => s.clone(),
+        AnyhowWrapperForFormat::LateFormat(_) => String::new(),
+    };
 
-    if let Some(ctx) = starlark_error {
-        out = out.context(format!("{ctx}"));
+    let chain = build_display_chain(&context_stack, &root_msg);
+
+    // Build the anyhow error from the chain. The first element replaces the
+    // root if a StarlarkContext absorbed it; otherwise it IS the root message.
+    let mut iter = chain.into_iter();
+    let first = iter.next().unwrap_or_default();
+    let mut out: anyhow::Error = if first == root_msg {
+        base.into()
+    } else {
+        // Root was absorbed into a starlark span display.
+        AnyhowWrapperForFormat::Root(first).into()
+    };
+    for seg in iter {
+        out = out.context(seg);
     }
     (out, was_late_formatted)
 }
 
-// Keep 3 variables
-// backtrace string which just continuously concatenates
-// error message which is the first error message since stack is reversed so first error is the right one
-// span which is the same as error message
+// --- Intermediate representation for building the display chain ---
+
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum DisplaySegment {
+    /// A plain context string.
+    String(String),
+    /// A starlark span + call stack. The label is the `.context("msg")`
+    /// that immediately precedes the StarlarkContext in the error chain.
+    Starlark {
+        sc: StarlarkContext,
+        label: Option<String>,
+    },
+}
+
+impl DisplaySegment {
+    pub(crate) fn render(self) -> String {
+        match self {
+            Self::String(s) => s,
+            Self::Starlark { sc, label } => sc.display_with_message(&label.unwrap_or_default()),
+        }
+    }
+}
+
+/// Walk the context stack (inner to outer) and build a display chain.
+///
+/// Returns a Vec<String> where the first element is the root (possibly
+/// absorbed into a starlark display) and subsequent elements are context
+/// layers from inner to outer.
+///
+/// StarlarkContexts consume the preceding context as their span label
+/// (the `.context("msg").context(SC)` convention). Adjacent starlark
+/// contexts get their call stacks concatenated, with the inner SC's
+/// label emitted as a plain context.
+fn build_display_chain(context_stack: &[&ContextValue], root_msg: &str) -> Vec<String> {
+    let mut segments: Vec<DisplaySegment> = vec![DisplaySegment::String(root_msg.to_owned())];
+    segments.extend(context_stack.iter().rev().filter_map(|cv| match cv {
+        ContextValue::StarlarkError(sc) if sc.show_span_in_buck_output => {
+            Some(DisplaySegment::Starlark {
+                sc: sc.clone(),
+                label: None,
+            })
+        }
+        ContextValue::StarlarkError(_) => None,
+        _ => cv.display().map(DisplaySegment::String),
+    }));
+
+    let segments = absorb_starlark_labels(segments);
+    let segments = concat_starlark_segments(segments);
+    segments.into_iter().map(DisplaySegment::render).collect()
+}
+
+/// Each Starlark segment absorbs the immediately preceding String segment
+/// as its label (the `.context("msg").context(SC)` convention). This also accounts
+/// for starlark context immediately after the root error.
+pub(crate) fn absorb_starlark_labels(segments: Vec<DisplaySegment>) -> Vec<DisplaySegment> {
+    let mut result: Vec<DisplaySegment> = Vec::with_capacity(segments.len());
+    for seg in segments {
+        if let DisplaySegment::Starlark { sc, .. } = seg {
+            let label = match result.last() {
+                Some(DisplaySegment::String(_)) => match result.pop() {
+                    Some(DisplaySegment::String(s)) => Some(s),
+                    _ => None,
+                },
+                _ => None,
+            };
+            result.push(DisplaySegment::Starlark { sc, label });
+        } else {
+            result.push(seg);
+        }
+    }
+    result
+}
+
+/// Merge adjacent Starlark segments by concatenating their call stacks.
+/// The inner segment's label is emitted as a Context before the merged segment.
+pub(crate) fn concat_starlark_segments(segments: Vec<DisplaySegment>) -> Vec<DisplaySegment> {
+    let mut result: Vec<DisplaySegment> = Vec::with_capacity(segments.len());
+    for seg in segments {
+        if let DisplaySegment::Starlark {
+            sc: new_sc,
+            label: new_label,
+        } = seg
+        {
+            if let Some(DisplaySegment::Starlark { .. }) = result.last() {
+                // Adjacent: merge inner (prev) into outer (new).
+                let prev = result.pop().unwrap();
+                if let DisplaySegment::Starlark {
+                    sc: prev_sc,
+                    label: prev_label,
+                } = prev
+                {
+                    // If the outer has a label, the inner's label becomes
+                    // a plain context. If the outer has no label, it
+                    // inherits the inner's (like the old error_msg behavior).
+                    let merged_label = if new_label.is_some() {
+                        if let Some(l) = prev_label {
+                            result.push(DisplaySegment::String(l));
+                        }
+                        new_label
+                    } else {
+                        prev_label
+                    };
+                    result.push(DisplaySegment::Starlark {
+                        sc: new_sc.concat(Some(prev_sc)),
+                        label: merged_label,
+                    });
+                }
+            } else {
+                result.push(DisplaySegment::Starlark {
+                    sc: new_sc,
+                    label: new_label,
+                });
+            }
+        } else {
+            result.push(seg);
+        }
+    }
+    result
+}
+
+#[test]
+fn test_concat_starlark_segments() {
+    let sc = StarlarkContext {
+        call_stack: starlark_syntax::call_stack::CallStack { frames: vec![] },
+        span: None,
+        show_span_in_buck_output: true,
+    };
+    assert_eq!(
+        concat_starlark_segments(vec![
+            DisplaySegment::String("root".into()),
+            DisplaySegment::Starlark {
+                sc: sc.clone(),
+                label: Some("first".into()),
+            },
+            DisplaySegment::Starlark {
+                sc: sc.clone(),
+                label: Some("second".into()),
+            },
+        ]),
+        vec![
+            DisplaySegment::String("root".into()),
+            DisplaySegment::String("first".into()),
+            DisplaySegment::Starlark {
+                sc: sc.clone(),
+                label: Some("second".into()),
+            }
+        ]
+    );
+}
 
 impl fmt::Debug for crate::Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
