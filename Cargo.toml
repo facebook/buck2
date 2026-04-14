@@ -511,3 +511,9 @@ incremental = true
 # Base on the comment in https://github.com/jimblandy/perf-event/pull/53, we will no long need this patch in future.
 perf-event = { git = "https://github.com/Nero5023/perf-event.git", rev = "6dae86b6d4807acec081e6dc0a53167f57f8c0f4", version = "0.4" }
 perf-event-open-sys = { git = "https://github.com/Nero5023/perf-event.git", rev = "6dae86b6d4807acec081e6dc0a53167f57f8c0f4", version = "5.0" }
+hyper = { git = "https://github.com/arianvp/hyper.git", branch = "push-ktssyytnyrru" }
+tonic = { git = "https://github.com/edef1c/tonic.git", branch = "push-rosuyzxnysvw" }
+tonic-health = { git = "https://github.com/edef1c/tonic.git", branch = "push-rosuyzxnysvw" }
+tonic-reflection = { git = "https://github.com/edef1c/tonic.git", branch = "push-rosuyzxnysvw" }
+tonic-prost = { git = "https://github.com/edef1c/tonic.git", branch = "push-rosuyzxnysvw" }
+tonic-prost-build = { git = "https://github.com/edef1c/tonic.git", branch = "push-rosuyzxnysvw" }
