@@ -274,6 +274,8 @@ pub fn handle_soft_error(
         options.quiet = false;
     }
 
+    let is_deprecation = options.deprecation;
+
     // We want to limit each error to appearing at most 10 times in a build (no point spamming people)
     if count.fetch_add(1, Ordering::SeqCst) < 10 {
         if let Some(handler) = HANDLER.get() {
@@ -289,6 +291,14 @@ pub fn handle_soft_error(
     }
     if hard_error_config()?.should_hard_error(category) {
         return Err(err.context("Upgraded warning to failure via $BUCK2_HARD_ERROR"));
+    }
+
+    // @oss-disable: let is_open_source = false;
+    let is_open_source = true; // @oss-enable
+    if is_open_source && is_deprecation {
+        // Deprecation warnings should be hard errors in OSS since there are
+        // no legacy users that need the grace period.
+        return Err(err);
     }
 
     Ok(err)
