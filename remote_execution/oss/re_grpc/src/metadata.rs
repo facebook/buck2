@@ -13,27 +13,27 @@ use std::collections::BTreeMap;
 pub type TPlatform = crate::grpc::Platform;
 pub type TProperty = crate::grpc::Property;
 
-#[derive(Clone, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct ActionHistoryInfo {
     pub action_key: String,
     pub disable_retry_on_oom: bool,
     pub _dot_dot: (),
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct BuckInfo {
     pub build_id: String,
     pub version: String,
     pub _dot_dot: (),
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct TClientContextMetadata {
     pub attributes: BTreeMap<String, String>,
     pub _dot_dot: (),
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct RemoteExecutionMetadata {
     pub action_history_info: Option<ActionHistoryInfo>,
     pub buck_info: Option<BuckInfo>,

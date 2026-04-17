@@ -7,12 +7,16 @@
  * of this source tree.
  */
 
+use std::sync::Arc;
 use std::time::Duration;
 use std::future::Future;
+use futures::Stream;
+use futures::TryStreamExt;
 use crate::error::{REClientError, TCode};
 use tracing::warn;
 
 pub async fn retry<F, Fut, T>(
+    method: &str,
     mut f: F,
     max_retries: usize,
     initial_delay: Duration,
@@ -53,7 +57,10 @@ where
                 };
 
                 if retryable == Retryable::Wait {
-                    warn!("Retrying request after error: {}. Attempt {}/{} (waiting {:?})", msg, retries, max_retries, delay);
+                    warn!(
+                        "Retrying {} request after error: {}. Attempt {}/{} (waiting {:?})",
+                        method, msg, retries, max_retries, delay
+                    );
                     tokio::time::sleep(delay).await;
 
                     delay *= 2;
@@ -61,7 +68,10 @@ where
                         delay = max_delay;
                     }
                 } else {
-                    warn!("Retrying request after error: {}. Attempt {}/{}", msg, retries, max_retries);
+                    warn!(
+                        "Retrying {} request after error: {}. Attempt {}/{}",
+                        method, msg, retries, max_retries
+                    );
                 }
             }
         }
@@ -105,4 +115,109 @@ fn is_retryable(err: &anyhow::Error, retry_not_found: bool) -> Retryable {
         }
     }
     Retryable::No
+}
+
+/// Like [`retry`], but covers both stream establishment and stream reading.
+///
+/// `make_stream` is called to open the gRPC streaming call. If the call itself fails, or if
+/// reading a message from the resulting stream fails, and the error is retryable, `make_stream`
+/// is called again to establish a fresh stream (which causes tonic to obtain a new h2 connection
+/// when the old one was closed by a GOAWAY frame, e.g. `ENHANCE_YOUR_CALM` /
+/// `"too_many_internal_resets"`).
+///
+/// Items from the stream are yielded progressively to the caller (preserving streaming progress
+/// updates), so this is a drop-in replacement for `retry(make_stream) + try_unfold(try_next)`.
+pub fn retrying_stream<F, Fut, S, T>(
+    method: &'static str,
+    make_stream: F,
+    max_retries: usize,
+    initial_delay: Duration,
+    max_delay: Duration,
+    retry_not_found: bool,
+) -> impl Stream<Item = anyhow::Result<T>> + Send + 'static
+where
+    F: Fn() -> Fut + Send + Sync + 'static,
+    Fut: Future<Output = anyhow::Result<S>> + Send + 'static,
+    S: futures::TryStream<Ok = T, Error = tonic::Status> + Send + Unpin + 'static,
+    T: Send + 'static,
+{
+    struct RetryState<F, S> {
+        make_stream: Arc<F>,
+        stream: Option<S>,
+        retries_left: usize,
+        delay: Duration,
+        max_delay: Duration,
+        retry_not_found: bool,
+    }
+
+    let state = RetryState {
+        make_stream: Arc::new(make_stream),
+        stream: None,
+        retries_left: max_retries,
+        delay: initial_delay,
+        max_delay,
+        retry_not_found,
+    };
+
+    futures::stream::try_unfold(state, move |mut state| async move {
+        loop {
+            // Establish a stream if we don't have one (first call or after a retry).
+            if state.stream.is_none() {
+                match (state.make_stream)().await {
+                    Ok(s) => {
+                        state.stream = Some(s);
+                    }
+                    Err(err) => {
+                        if is_retryable(&err, state.retry_not_found) != Retryable::No
+                            && state.retries_left > 0
+                        {
+                            warn!(
+                                "Retrying {} stream open after error: {}. Attempts remaining: {}",
+                                method,
+                                err,
+                                state.retries_left,
+                            );
+                            tokio::time::sleep(state.delay).await;
+                            state.delay *= 2;
+                            if state.delay > state.max_delay {
+                                state.delay = state.max_delay;
+                            }
+                            state.retries_left -= 1;
+                            continue;
+                        }
+                        return Err(err);
+                    }
+                }
+            }
+
+            // Read the next message from the stream.
+            match state.stream.as_mut().unwrap().try_next().await {
+                Ok(Some(item)) => return Ok(Some((item, state))),
+                Ok(None) => return Ok(None),
+                Err(status) => {
+                    let err = anyhow::Error::from(status);
+                    if is_retryable(&err, state.retry_not_found) != Retryable::No
+                        && state.retries_left > 0
+                    {
+                        warn!(
+                            "Retrying {} stream read after error: {}. Attempts remaining: {}",
+                            method,
+                            err,
+                            state.retries_left,
+                        );
+                        tokio::time::sleep(state.delay).await;
+                        state.delay *= 2;
+                        if state.delay > state.max_delay {
+                            state.delay = state.max_delay;
+                        }
+                        state.retries_left -= 1;
+                        // Drop the broken stream; next iteration re-establishes it.
+                        state.stream = None;
+                        continue;
+                    }
+                    return Err(err);
+                }
+            }
+        }
+    })
 }

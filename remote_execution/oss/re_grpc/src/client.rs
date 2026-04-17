@@ -74,6 +74,7 @@ use re_grpc_proto::google::bytestream::ReadResponse;
 use re_grpc_proto::google::bytestream::WriteRequest;
 use re_grpc_proto::google::bytestream::WriteResponse;
 use re_grpc_proto::google::bytestream::byte_stream_client::ByteStreamClient;
+use re_grpc_proto::google::longrunning::Operation;
 use re_grpc_proto::google::longrunning::operation::Result as OpResult;
 use re_grpc_proto::google::rpc::Code;
 use re_grpc_proto::google::rpc::Status;
@@ -95,12 +96,14 @@ use tonic::transport::Channel;
 use tonic::transport::Identity;
 use tonic::transport::Uri;
 use tonic::transport::channel::ClientTlsConfig;
+use tracing::debug;
 
 use crate::error::*;
 use crate::metadata::*;
 use crate::request::*;
 use crate::response::*;
 use crate::retry::retry;
+use crate::retry::retrying_stream;
 use crate::stats::CountingConnector;
 
 const DEFAULT_MAX_TOTAL_BATCH_SIZE: usize = 4 * 1000 * 1000;
@@ -316,7 +319,7 @@ impl REClientBuilder {
 
         let tls_config = &tls_config;
 
-        let create_channel = |address: Option<String>| async move {
+        let create_channel = |address: Option<String>, with_timeout: bool| async move {
             let address = address.as_ref().context("No address")?;
             let address = substitute_env_vars(address).context("Invalid address")?;
             let uri = address.parse().context("Invalid address")?;
@@ -347,7 +350,14 @@ impl REClientBuilder {
             http.set_keepalive(Some(Duration::from_secs(180)));
             let connector = CountingConnector::new(http);
 
-            endpoint = endpoint.timeout(Duration::from_secs(opts.grpc_timeout));
+            // Apply a per-RPC deadline to all channels except the execution channel.
+            // The Execute RPC is a long-lived stream that stays open for the entire
+            // duration of the remote action (queued + executing), so a fixed short
+            // timeout would spuriously cancel it. All other RPCs are short unary calls
+            // where a deadline is appropriate.
+            if with_timeout {
+                endpoint = endpoint.timeout(Duration::from_secs(opts.grpc_timeout));
+            }
 
             anyhow::Ok(
                 endpoint
@@ -358,11 +368,11 @@ impl REClientBuilder {
         };
 
         let (cas, execution, action_cache, bytestream, capabilities) = futures::future::join5(
-            create_channel(opts.cas_address.clone()),
-            create_channel(opts.engine_address.clone()),
-            create_channel(opts.action_cache_address.clone()),
-            create_channel(opts.cas_address.clone()),
-            create_channel(opts.engine_address.clone()),
+            create_channel(opts.cas_address.clone(), true),
+            create_channel(opts.engine_address.clone(), false), // Execute streams are long-lived; no channel timeout
+            create_channel(opts.action_cache_address.clone(), true),
+            create_channel(opts.cas_address.clone(), true),
+            create_channel(opts.engine_address.clone(), true),
         )
         .await;
 
@@ -670,6 +680,82 @@ impl BatchUploadReqAggregator {
     }
 }
 
+/// Converts a longrunning `Operation` message received from the Execute streaming RPC into a
+/// `ExecuteWithProgressResponse`. This is extracted so it can be used with `retrying_stream`.
+fn process_operation_message(msg: Operation) -> anyhow::Result<ExecuteWithProgressResponse> {
+    debug!(?msg, "RE ACTION RESPONSE");
+
+    if let Some(metadata) = &msg.metadata {
+        if let Ok(meta) = ExecuteOperationMetadata::decode(&metadata.value[..]) {
+            debug!(?meta, "RE ACTION RESPONSE METADATA");
+        }
+    }
+
+    if msg.done {
+        match msg
+            .result
+            .context("Missing `result` when message was `done`")?
+        {
+            OpResult::Error(rpc_status) => Err(REClientError {
+                code: TCode(rpc_status.code),
+                message: rpc_status.message,
+                group: TCodeReasonGroup::UNKNOWN,
+            }
+            .into()),
+            OpResult::Response(any) => {
+                let execute_response_grpc: GExecuteResponse =
+                    GExecuteResponse::decode(&any.value[..])?;
+
+                check_status(execute_response_grpc.status.unwrap_or_default())?;
+
+                let action_result = execute_response_grpc
+                    .result
+                    .with_context(|| "The action result is not defined.")?;
+
+                debug!(?action_result, "BUCK2 ACTION RESULT");
+
+                let action_result = convert_action_result(action_result)?;
+
+                let execute_response = ExecuteResponse {
+                    action_result,
+                    action_result_digest: TDigest::default(),
+                    action_result_ttl: 0,
+                    status: TStatus {
+                        code: TCode::OK,
+                        message: execute_response_grpc.message,
+                        ..Default::default()
+                    },
+                    cached_result: execute_response_grpc.cached_result,
+                    action_digest: Default::default(), // Filled in below.
+                };
+
+                Ok(ExecuteWithProgressResponse {
+                    stage: Stage::COMPLETED,
+                    execute_response: Some(execute_response),
+                    ..Default::default()
+                })
+            }
+        }
+    } else {
+        let meta = ExecuteOperationMetadata::decode(&msg.metadata.unwrap_or_default().value[..])?;
+
+        let stage = match execution_stage::Value::try_from(meta.stage) {
+            Ok(execution_stage::Value::Unknown) => Stage::UNKNOWN,
+            Ok(execution_stage::Value::CacheCheck) => Stage::CACHE_CHECK,
+            Ok(execution_stage::Value::Queued) => Stage::QUEUED,
+            Ok(execution_stage::Value::Executing) => Stage::EXECUTING,
+            Ok(execution_stage::Value::Completed) => Stage::COMPLETED,
+            _ => Stage::UNKNOWN,
+        };
+
+        Ok(ExecuteWithProgressResponse {
+            stage,
+            execute_response: None,
+            ..Default::default()
+        })
+    }
+}
+
 impl REClient {
     fn new(
         runtime_opts: RERuntimeOpts,
@@ -698,6 +784,7 @@ impl REClient {
         request: ActionResultRequest,
     ) -> anyhow::Result<ActionResultResponse> {
         retry(
+            "GetActionResultRequest",
             || async {
                 let mut client = self.grpc_clients.action_cache_client.clone();
                 let request = request.clone();
@@ -734,6 +821,7 @@ impl REClient {
         request: WriteActionResultRequest,
     ) -> anyhow::Result<WriteActionResultResponse> {
         retry(
+            "UpdateActionResult",
             || async {
                 let mut client = self.grpc_clients.action_cache_client.clone();
                 let request = request.clone();
@@ -790,98 +878,35 @@ impl REClient {
             ..Default::default()
         };
 
-        let stream = retry(
-            || async {
-                let mut client = self.grpc_clients.execution_client.clone();
+        debug!(?request, "RE ACTION REQUEST");
+        debug!(?metadata, "RE ACTION REQUEST METADATA");
+
+        let execution_client = self.grpc_clients.execution_client.clone();
+        let runtime_opts = self.runtime_opts;
+
+        // retrying_stream covers both stream establishment and stream reading, so errors like
+        // h2 GOAWAY (ENHANCE_YOUR_CALM / "too_many_internal_resets") that surface during
+        // stream reading are retried and cause tonic to reconnect with a fresh h2 connection.
+        let stream = retrying_stream(
+            "Execute",
+            move || {
+                let mut client = execution_client.clone();
                 let request = request.clone();
                 let metadata = metadata.clone();
-
-                let stream = client
-                    .execute(with_re_metadata(request, metadata, self.runtime_opts))
-                    .await?
-                    .into_inner();
-                Ok(stream)
+                async move {
+                    Ok(client
+                        .execute(with_re_metadata(request, metadata, runtime_opts))
+                        .await?
+                        .into_inner())
+                }
             },
             self.runtime_opts.max_retries,
             INITIAL_DELAY,
             MAX_DELAY,
             true,
-        )
-        .await?;
+        );
 
-        let stream = futures::stream::try_unfold(stream, move |mut stream| async {
-            let msg = match stream.try_next().await.context("RE channel error")? {
-                Some(msg) => msg,
-                None => return Ok(None),
-            };
-
-            let status = if msg.done {
-                match msg
-                    .result
-                    .context("Missing `result` when message was `done`")?
-                {
-                    OpResult::Error(rpc_status) => {
-                        return Err(REClientError {
-                            code: TCode(rpc_status.code),
-                            message: rpc_status.message,
-                            group: TCodeReasonGroup::UNKNOWN,
-                        }
-                        .into());
-                    }
-                    OpResult::Response(any) => {
-                        let execute_response_grpc: GExecuteResponse =
-                            GExecuteResponse::decode(&any.value[..])?;
-
-                        check_status(execute_response_grpc.status.unwrap_or_default())?;
-
-                        let action_result = execute_response_grpc
-                            .result
-                            .with_context(|| "The action result is not defined.")?;
-
-                        let action_result = convert_action_result(action_result)?;
-
-                        let execute_response = ExecuteResponse {
-                            action_result,
-                            action_result_digest: TDigest::default(),
-                            action_result_ttl: 0,
-                            status: TStatus {
-                                code: TCode::OK,
-                                message: execute_response_grpc.message,
-                                ..Default::default()
-                            },
-                            cached_result: execute_response_grpc.cached_result,
-                            action_digest: Default::default(), // Filled in below.
-                        };
-
-                        ExecuteWithProgressResponse {
-                            stage: Stage::COMPLETED,
-                            execute_response: Some(execute_response),
-                            ..Default::default()
-                        }
-                    }
-                }
-            } else {
-                let meta =
-                    ExecuteOperationMetadata::decode(&msg.metadata.unwrap_or_default().value[..])?;
-
-                let stage = match execution_stage::Value::try_from(meta.stage) {
-                    Ok(execution_stage::Value::Unknown) => Stage::UNKNOWN,
-                    Ok(execution_stage::Value::CacheCheck) => Stage::CACHE_CHECK,
-                    Ok(execution_stage::Value::Queued) => Stage::QUEUED,
-                    Ok(execution_stage::Value::Executing) => Stage::EXECUTING,
-                    Ok(execution_stage::Value::Completed) => Stage::COMPLETED,
-                    _ => Stage::UNKNOWN,
-                };
-
-                ExecuteWithProgressResponse {
-                    stage,
-                    execute_response: None,
-                    ..Default::default()
-                }
-            };
-
-            anyhow::Ok(Some((status, stream)))
-        });
+        let stream = stream.and_then(|msg| async move { process_operation_message(msg) });
 
         // We fill in the action digest a little later here. We do it this way so we don't have to
         // clone the execute_request into every future we create above.
@@ -920,6 +945,7 @@ impl REClient {
                 let runtime_opts = self.runtime_opts;
 
                 retry(
+                    "BatchUpdateBlobs",
                     move || {
                         let metadata = metadata.clone();
                         let mut cas_client = cas_client.clone();
@@ -948,6 +974,7 @@ impl REClient {
                 let runtime_opts = self.runtime_opts;
 
                 retry(
+                    "BS.write",
                     move || {
                         let metadata = metadata.clone();
                         let mut bytestream_client = bytestream_client.clone();
@@ -1013,6 +1040,7 @@ impl REClient {
                 let runtime_opts = self.runtime_opts;
 
                 retry(
+                    "BatchReadBlobs",
                     move || {
                         let metadata = metadata.clone();
                         let mut client = client.clone();
@@ -1041,6 +1069,7 @@ impl REClient {
                 async move {
                     let client = self.grpc_clients.bytestream_client.clone();
                     retry(
+                        "Read",
                         move || {
                             let metadata = metadata.clone();
                             let mut client = client.clone();
@@ -1112,6 +1141,7 @@ impl REClient {
                 tracing::debug!(num_digests = digests_to_check.len(), "FindMissingBlobs");
                 let runtime_opts = self.runtime_opts;
                 let missing_blobs = retry(
+                    "FindMissingBlobs",
                     || {
                         let mut cas_client = cas_client.clone();
                         let metadata = metadata.clone();
@@ -1612,6 +1642,7 @@ where
     Cas: Future<Output = anyhow::Result<BatchReadBlobsResponse>>,
 {
     retry(
+        "BatchReadBlobs",
         || async { cas_f(read_blobs_request.clone()).await },
         opts.max_retries,
         INITIAL_DELAY,
@@ -1872,7 +1903,6 @@ fn with_re_metadata<T>(
     // Meta builds catch those issues earlier.
 
     let mut msg = tonic::Request::new(t);
-    msg.set_timeout(runtime_opts.rpc_timeout);
 
     if runtime_opts.use_fbcode_metadata {
         // This is pretty ugly, but the protobuf spec that defines this is
