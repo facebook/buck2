@@ -34,6 +34,11 @@ system_rust_toolchain(
         "--default-theme=ayu",
         "--cap-lints=warn",
     ],
+    # Real theme CSS used by `[doc]` and `rustdoc --merge=finalize`. The
+    # per-crate rustdoc actions that feed the merge step instead see an
+    # empty stub with the same basename, so edits to this file don't
+    # invalidate every crate's rustdoc output.
+    rustdoc_themes = ["example_theme.css"],
     visibility = ["PUBLIC"],
 )
 
