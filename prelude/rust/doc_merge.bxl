@@ -28,10 +28,26 @@ your own BXL around it.
 """
 
 load("@prelude//rust:doc_merge.bzl", "rustdoc_merge")
+load("@prelude//rust:outputs.bzl", "RustcExtraOutputsInfo")
 
 # rust_test intentionally excluded — test targets don't emit user-facing
 # docs worth merging.
 _RUST_DOC_RULE_KINDS = "^(rust_binary|rust_library)$"
+
+def _drop_externed(
+        ctx: bxl.Context,
+        targets: list[bxl.ConfiguredTargetNode]) -> list[bxl.ConfiguredTargetNode]:
+    # Crates with `rustdoc_html_root_url` set have their docs hosted
+    # elsewhere (e.g. docs.rs); downstream rustdoc links out to that URL,
+    # so there's no point bundling their HTML into the merged tree.
+    kept = []
+    for t in targets:
+        providers = ctx.analysis(t).providers()
+        if RustcExtraOutputsInfo in providers:
+            if providers[RustcExtraOutputsInfo].rustdoc_externed_url != None:
+                continue
+        kept.append(t)
+    return kept
 
 def _collect_targets(ctx: bxl.Context) -> list[bxl.ConfiguredTargetNode]:
     # `cli_args.list(cli_args.target_expr())` produces a list of lists (one
@@ -46,7 +62,9 @@ def _collect_targets(ctx: bxl.Context) -> list[bxl.ConfiguredTargetNode]:
     else:
         configured_targets = ctx.configured_targets(targets)
 
-    return list(ctx.cquery().kind(_RUST_DOC_RULE_KINDS, configured_targets))
+    rust_nodes = list(ctx.cquery().kind(_RUST_DOC_RULE_KINDS, configured_targets))
+
+    return _drop_externed(ctx, rust_nodes)
 
 def _merge_impl(ctx: bxl.Context) -> None:
     targets = _collect_targets(ctx)

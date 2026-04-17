@@ -414,6 +414,7 @@ def _rust_binary_common(
         remarks = None,  # Exposed via subtargets, not this provider
         rustdoc_parts = doc_parts_output.parts,
         rustdoc_html = doc_parts_output.html,
+        rustdoc_externed_url = getattr(ctx.attrs, "rustdoc_html_root_url", None),
     )]
 
     incr_enabled = ctx.attrs.incremental_enabled

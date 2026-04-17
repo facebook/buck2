@@ -45,6 +45,12 @@ def main() -> int:
     p.add_argument("--rustdoc", required=True)
     p.add_argument("--html-dir", action="append", default=[])
     p.add_argument("--parts-dir", action="append", default=[])
+    p.add_argument(
+        "--rustdoc-flag",
+        action="append",
+        default=[],
+        help="Extra flag forwarded verbatim to rustdoc (repeatable).",
+    )
     args = p.parse_args()
 
     out = Path(args.out_dir)
@@ -73,6 +79,7 @@ def main() -> int:
         cmd.append(emit_arg)
     for pd in args.parts_dir:
         cmd.append(f"--include-parts-dir={pd}")
+    cmd.extend(args.rustdoc_flag)
 
     return subprocess.run(cmd, env=env).returncode
 

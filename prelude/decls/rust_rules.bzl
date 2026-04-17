@@ -30,6 +30,40 @@ def _rust_common_attributes(is_binary: bool):
         "incremental_enabled": attrs.bool(default = False),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source()), sorted = True, default = []),
         "rustdoc_flags": attrs.list(attrs.arg(), default = []),
+        "rustdoc_html_root_url": attrs.option(attrs.string(), default = None, doc = """
+            If set, injects `#![doc(html_root_url = "...")]` into the crate via
+            `-Zcrate-attr=doc(html_root_url="...")`. This controls how *consumers*'
+            rustdoc renders cross-crate links to items in this crate: instead of
+            bundling this crate's HTML alongside the consumer's, rustdoc emits a
+            link pointing at the given URL.
+
+            The canonical use case is third-party / reindeer-generated libraries
+            in a buck2 workspace: set this to the crate's `https://docs.rs/<name>/<ver>/`
+            URL so that `prelude//rust:doc_merge.bxl` can produce a merged tree
+            containing only your first-party crates, with outbound links to
+            docs.rs for everything else.
+
+            Once set, the URL lives inside the crate's metadata and there is no
+            way to override it at doc-merge time to get a local link instead.
+            Rustdoc's extern-crate link resolution order is:
+
+              1. Local dir wins first: e.g. under `cargo doc`, if
+                 `target/doc/<crate>/` exists at the time the consumer's
+                 rustdoc runs, it's used and nothing else is consulted. Buck's
+                 per-crate rustdoc actions write into isolated output dirs
+                 before the merge step, so this branch never fires for us in
+                 practice.
+              2. `--extern-html-root-url` + `--extern-html-root-takes-precedence`
+                 when documenting a dependent crate.
+              3. `#[doc(html_root_url = "...")]` from crate metadata — what this
+                 attr sets.
+              4. `--extern-html-root-url` when documenting dependent as fallback.
+
+            So a crate is either externed or it isn't: we can only bake the URL
+            into metadata, and callers who want local links must leave the attr
+            unset. Accurate as of rustc 2026-04.
+
+        """),
         "separate_debug_info": attrs.bool(default = False),
         "use_content_based_paths": attrs.bool(default = True),
         "uses_restricted_rustc_flags": attrs.bool(default = False),

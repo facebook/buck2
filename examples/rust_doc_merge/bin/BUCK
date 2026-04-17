@@ -3,6 +3,7 @@ rust_binary(
     srcs = glob(["src/**/*.rs"]),
     crate_root = "src/main.rs",
     deps = [
+        "//buck_resources_stub:buck_resources",
         "//crate_a:crate_a",
         "//crate_b:crate_b",
     ],

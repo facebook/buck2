@@ -608,12 +608,20 @@ def rust_compile(
     # deferred_link_action
     deferred_link_enabled = requires_linking and _deferred_link_enabled(compile_ctx, params, emit)
 
+    rustdoc_html_root_url = getattr(ctx.attrs, "rustdoc_html_root_url", None)
+    rustdoc_html_root_url_flag = (
+        # Injected at compile time so the URL is recorded in crate metadata;
+        # downstream rustdoc reads it from there to resolve cross-crate links.
+        ['-Zcrate-attr=doc(html_root_url="{}")'.format(rustdoc_html_root_url)] if rustdoc_html_root_url else []
+    )
+
     rustc_cmd = cmd_args(
         # Lints go first to allow other args to override them.
         lints,
         # Report unused --extern crates in the notification stream.
         ["--json=unused-externs-silent", "-Wunused-crate-dependencies"] if toolchain_info.report_unused_deps else [],
         common_args.args,
+        rustdoc_html_root_url_flag,
         cmd_args("--remap-path-prefix=", compile_ctx.symlinked_srcs, compile_ctx.path_sep, "=", compile_ctx.symlinked_srcs.owner.path, compile_ctx.path_sep, delimiter = ""),
         ["-Zremap-cwd-prefix=."] if toolchain_info.nightly_features else [],
         extra_flags,

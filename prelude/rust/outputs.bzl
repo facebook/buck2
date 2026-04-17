@@ -74,5 +74,10 @@ RustcExtraOutputsInfo = provider(
         # Paired with `rustdoc_parts`: both are needed to assemble a merged
         # cross-crate HTML tree.
         "rustdoc_html": Artifact | None,
+        # If set, this crate's docs live at this URL (via its
+        # `rustdoc_html_root_url` attr) and are not meant to be bundled into
+        # a merged tree — downstream rustdoc links out to this URL instead.
+        # Consumers like `prelude//rust:doc_merge.bxl` skip such crates.
+        "rustdoc_externed_url": str | None,
     },
 )

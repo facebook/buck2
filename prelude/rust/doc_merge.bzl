@@ -84,6 +84,12 @@ def rustdoc_merge(
         cmd.add(cmd_args(html, format = "--html-dir={}"))
     for parts in parts_artifacts:
         cmd.add(cmd_args(parts, format = "--parts-dir={}"))
+    # Forward the toolchain's `rustdoc_flags` to the finalize invocation so
+    # that flags like `--theme FILE.css`, `--default-theme`, etc. apply
+    # consistently to both per-crate rustdoc steps (which already see these
+    # via `toolchain_info.rustdoc_flags` in build.bzl) and the merged tree.
+    for flag in rust_toolchain.rustdoc_flags:
+        cmd.add(cmd_args(flag, format = "--rustdoc-flag={}"))
 
     actions.run(cmd, category = "rustdoc_merge")
     return out_dir

@@ -1,0 +1,8 @@
+rust_library(
+    name = "buck_resources",
+    srcs = glob(["src/**/*.rs"]),
+    crate_root = "src/lib.rs",
+    crate = "buck_resources",
+    rustdoc_html_root_url = "https://docs.rs/buck-resources/1.0.0/",
+    visibility = ["PUBLIC"],
+)

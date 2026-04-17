@@ -461,6 +461,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         clippy_artifacts = clippy_artifacts,
         rustdoc_parts = rustdoc_parts.parts,
         rustdoc_html = rustdoc_parts.html,
+        rustdoc_externed_url = getattr(ctx.attrs, "rustdoc_html_root_url", None),
     )
 
     if ctx.attrs.proc_macro:
@@ -807,7 +808,8 @@ def _rust_metadata_providers(
         diag_artifacts: dict[bool, RustcOutput],
         clippy_artifacts: dict[bool, RustcOutput],
         rustdoc_parts: Artifact | None,
-        rustdoc_html: Artifact | None) -> list[Provider]:
+        rustdoc_html: Artifact | None,
+        rustdoc_externed_url: str | None) -> list[Provider]:
     return [
         RustcExtraOutputsInfo(
             metadata = diag_artifacts[False],
@@ -817,6 +819,7 @@ def _rust_metadata_providers(
             remarks = None,  # Exposed via subtargets, not this provider
             rustdoc_parts = rustdoc_parts,
             rustdoc_html = rustdoc_html,
+            rustdoc_externed_url = rustdoc_externed_url,
         ),
     ]
 
