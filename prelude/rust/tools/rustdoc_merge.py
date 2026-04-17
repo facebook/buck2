@@ -31,11 +31,27 @@ from rustdoc_emit_compat import resolve_emits
 def stage_html(out_dir: Path, html_dirs: list[str]) -> None:
     for html_dir in html_dirs:
         src = Path(html_dir)
-        if not src.is_dir():
-            continue
-        for entry in src.iterdir():
-            dest = out_dir / entry.name
-            if dest.exists() or dest.is_symlink():
+        if src.is_dir():
+            _merge_into(out_dir, src)
+
+
+def _merge_into(dest_dir: Path, src_dir: Path) -> None:
+    # Per-crate html artifacts share top-level dirs (`src/`, `trait.impl/`),
+    # so collisions have to be unioned recursively rather than replaced.
+    # RFC 3662 was supposed to handle cross-crate html assembly itself;
+    # hopefully a future rustdoc makes this manual merge unnecessary.
+    for entry in src_dir.iterdir():
+        dest = dest_dir / entry.name
+        if entry.is_dir() and (dest.exists() or dest.is_symlink()):
+            if dest.is_symlink():
+                prior = dest.resolve()
+                dest.unlink()
+                dest.mkdir()
+                if prior.is_dir():
+                    _merge_into(dest, prior)
+            _merge_into(dest, entry)
+        else:
+            if dest.is_symlink() or dest.exists():
                 dest.unlink()
             os.symlink(entry.resolve(), dest)
 
