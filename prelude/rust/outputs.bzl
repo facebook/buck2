@@ -64,5 +64,15 @@ RustcExtraOutputsInfo = provider(
         "metadata": RustcOutput,
         "metadata_incr": RustcOutput,
         "remarks": RustcOutput | None,
+        # Directory of rustdoc "parts" produced by rustdoc with
+        # `--merge=none --parts-out-dir=...`. See RFC 3662 and
+        # `generate_rustdoc_parts` in build.bzl. Consumed by
+        # `prelude//rust:doc_merge.bxl` to produce a merged HTML tree.
+        "rustdoc_parts": Artifact | None,
+        # Directory of per-crate rustdoc HTML produced alongside the parts
+        # artifacts (the `--out-dir` argument to `rustdoc --merge=none`).
+        # Paired with `rustdoc_parts`: both are needed to assemble a merged
+        # cross-crate HTML tree.
+        "rustdoc_html": Artifact | None,
     },
 )

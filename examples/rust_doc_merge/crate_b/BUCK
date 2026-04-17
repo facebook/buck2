@@ -1,0 +1,7 @@
+rust_library(
+    name = "crate_b",
+    srcs = glob(["src/**/*.rs"]),
+    crate_root = "src/lib.rs",
+    deps = ["//crate_a:crate_a"],
+    visibility = ["PUBLIC"],
+)

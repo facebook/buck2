@@ -1,0 +1,73 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is dual-licensed under either the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree or the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree. You may select, at your option, one of the
+# above-listed licenses.
+
+"""Produce a unified rustdoc HTML tree across a set of rust crates.
+
+Uses RFC 3662 (`rustdoc --merge=finalize`) to combine the per-crate HTML
+and sidecar "parts" outputs produced by the `[doc-html-parts]` /
+`[doc-parts]` sub-targets of `rust_library` / `rust_binary`.
+
+Usage:
+
+    buck2 bxl prelude//rust:doc_merge.bxl:merge \\
+        -- --targets //my:lib --targets //my:bin
+
+Pass `--include-deps=true` to also include all transitive rust
+dependencies in the merged tree. Without that flag, only the explicitly
+listed targets are merged.
+
+For customised workflows (different target discovery, filtering, later
+opting specific crates out to link to docs.rs, etc.) import
+`rustdoc_merge` from `@prelude//rust:doc_merge.bzl` directly and write
+your own BXL around it.
+"""
+
+load("@prelude//rust:doc_merge.bzl", "rustdoc_merge")
+
+# rust_test intentionally excluded — test targets don't emit user-facing
+# docs worth merging.
+_RUST_DOC_RULE_KINDS = "^(rust_binary|rust_library)$"
+
+def _collect_targets(ctx: bxl.Context) -> list[bxl.ConfiguredTargetNode]:
+    # `cli_args.list(cli_args.target_expr())` produces a list of lists (one
+    # sublist per `--targets` occurrence). Flatten before handing to buck.
+    targets = []
+    for group in ctx.cli_args.targets:
+        targets.extend(group)
+
+    if ctx.cli_args.include_deps:
+        universe = ctx.target_universe(targets)
+        configured_targets = ctx.cquery().deps(universe.target_set())
+    else:
+        configured_targets = ctx.configured_targets(targets)
+
+    return list(ctx.cquery().kind(_RUST_DOC_RULE_KINDS, configured_targets))
+
+def _merge_impl(ctx: bxl.Context) -> None:
+    targets = _collect_targets(ctx)
+    if not targets:
+        fail("doc_merge.bxl: no rust targets resolved from --targets")
+
+    out_dir = rustdoc_merge(ctx, targets)
+    ctx.output.print(ctx.output.ensure(out_dir).abs_path())
+
+merge = bxl_main(
+    doc = "Produce a unified rustdoc HTML tree across a set of rust crates.",
+    impl = _merge_impl,
+    cli_args = {
+        "include-deps": cli_args.bool(
+            default = False,
+            doc = "Also merge all transitive rust dependencies of the given targets.",
+        ),
+        "targets": cli_args.list(
+            cli_args.target_expr(
+                doc = "Rust target(s) whose docs to merge.",
+            ),
+        ),
+    },
+)

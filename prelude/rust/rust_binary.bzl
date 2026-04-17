@@ -74,6 +74,7 @@ load("@prelude//utils:utils.bzl", "flatten_dict")
 load(
     ":build.bzl",
     "generate_rustdoc",
+    "generate_rustdoc_parts",
     "rust_compile",
 )
 load(
@@ -397,12 +398,22 @@ def _rust_binary_common(
             transformation_spec_context = transformation_spec_context,
         )
 
+    doc_parts_output = generate_rustdoc_parts(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        params = strategy_param[DEFAULT_STATIC_LINK_STRATEGY],
+        default_roots = default_roots,
+        document_private_items = True,
+    )
+
     providers = [RustcExtraOutputsInfo(
         metadata = diag_artifacts[False],
         metadata_incr = diag_artifacts[True],
         clippy = clippy_artifacts[False],
         clippy_incr = clippy_artifacts[True],
         remarks = None,  # Exposed via subtargets, not this provider
+        rustdoc_parts = doc_parts_output.parts,
+        rustdoc_html = doc_parts_output.html,
     )]
 
     incr_enabled = ctx.attrs.incremental_enabled
@@ -497,6 +508,8 @@ def _rust_binary_common(
         document_private_items = True,
     )
     extra_compiled_targets["doc"] = doc_output
+    extra_compiled_targets["doc-parts"] = doc_parts_output.parts
+    extra_compiled_targets["doc-html-parts"] = doc_parts_output.html
 
     named_deps_names = write_named_deps_names(ctx, compile_ctx)
     if named_deps_names:

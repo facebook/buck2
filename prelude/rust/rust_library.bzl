@@ -74,8 +74,10 @@ load(
 load("@prelude//unix:providers.bzl", "UnixEnv", "create_unix_env_info")
 load(
     ":build.bzl",
+    "RustdocPartsOutputs",  # @unused Used as a type
     "generate_rustdoc",
     "generate_rustdoc_coverage",
+    "generate_rustdoc_parts",
     "generate_rustdoc_test",
     "rust_compile",
     "rust_link_shared",
@@ -305,6 +307,14 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         default_roots = _DEFAULT_ROOTS,
     )
 
+    rustdoc_parts = generate_rustdoc_parts(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        params = static_library_params,
+        default_roots = _DEFAULT_ROOTS,
+        document_private_items = False,
+    )
+
     expand = rust_compile(
         ctx = ctx,
         compile_ctx = compile_ctx,
@@ -442,12 +452,15 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         sources = compile_ctx.symlinked_srcs,
         transitive_srcs = compile_ctx.transitive_srcs,
         rustdoc_coverage = rustdoc_coverage,
+        rustdoc_parts = rustdoc_parts,
         named_deps_names = write_named_deps_names(ctx, compile_ctx),
         profiles = profiles,
     )
     providers += _rust_metadata_providers(
         diag_artifacts = diag_artifacts,
         clippy_artifacts = clippy_artifacts,
+        rustdoc_parts = rustdoc_parts.parts,
+        rustdoc_html = rustdoc_parts.html,
     )
 
     if ctx.attrs.proc_macro:
@@ -717,6 +730,7 @@ def _default_providers(
         sources: Artifact,
         transitive_srcs: RustSourcesTSet,
         rustdoc_coverage: Artifact,
+        rustdoc_parts: RustdocPartsOutputs,
         named_deps_names: Artifact | None,
         profiles: list[Provider]) -> list[Provider]:
     targets = {}
@@ -725,6 +739,8 @@ def _default_providers(
     targets["expand"] = expand
     targets["doc"] = rustdoc
     targets["doc-coverage"] = rustdoc_coverage
+    targets["doc-parts"] = rustdoc_parts.parts
+    targets["doc-html-parts"] = rustdoc_parts.html
     targets["remarks.txt"] = remarks_artifact.compile_output.remarks_txt
     targets["remarks.json"] = remarks_artifact.compile_output.remarks_json
     if named_deps_names:
@@ -789,7 +805,9 @@ def _default_providers(
 
 def _rust_metadata_providers(
         diag_artifacts: dict[bool, RustcOutput],
-        clippy_artifacts: dict[bool, RustcOutput]) -> list[Provider]:
+        clippy_artifacts: dict[bool, RustcOutput],
+        rustdoc_parts: Artifact | None,
+        rustdoc_html: Artifact | None) -> list[Provider]:
     return [
         RustcExtraOutputsInfo(
             metadata = diag_artifacts[False],
@@ -797,6 +815,8 @@ def _rust_metadata_providers(
             clippy = clippy_artifacts[False],
             clippy_incr = clippy_artifacts[True],
             remarks = None,  # Exposed via subtargets, not this provider
+            rustdoc_parts = rustdoc_parts,
+            rustdoc_html = rustdoc_html,
         ),
     ]
 

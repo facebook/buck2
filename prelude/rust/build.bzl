@@ -204,6 +204,135 @@ def generate_rustdoc(
 
     return output
 
+RustdocPartsOutputs = record(
+    parts = Artifact,
+    html = Artifact,
+)
+
+def _rustdoc_emit_argfile(
+        ctx: AnalysisContext,
+        compile_ctx: CompileContext,
+        argfile_name: str,
+        emit: list[str]) -> Artifact:
+    """Write an argfile containing one `--emit=<name>` line per value in
+    `emit`. Handles the 2026-03 rustdoc rename of `invocation-specific`
+    / `toolchain-shared-resources` → `html-non-static-files` /
+    `html-static-files`: pass the post-rename names and the helper
+    substitutes the older name when the current rustdoc doesn't know the
+    new one. See `tools/rustdoc_parts_emit_argfile.py`.
+    """
+    toolchain_info = compile_ctx.toolchain_info
+    use_cbp = getattr(ctx.attrs, "use_content_based_paths", False)
+    argfile = ctx.actions.declare_output(argfile_name, has_content_based_path = use_cbp)
+    ctx.actions.run(
+        cmd_args(
+            compile_ctx.internal_tools_info.rustdoc_parts_emit_argfile,
+            cmd_args(toolchain_info.rustdoc, format = "--rustdoc={}"),
+            cmd_args(argfile.as_output(), format = "--out={}"),
+            "--emit={}".format(",".join(emit)),
+        ),
+        category = "rustdoc_parts_emit_argfile",
+        identifier = argfile_name,
+    )
+    return argfile
+
+def generate_rustdoc_parts(
+        ctx: AnalysisContext,
+        compile_ctx: CompileContext,
+        # link style doesn't matter, but caller should pass in build params
+        # with static-pic (to get best cache hits for deps)
+        params: BuildParams,
+        default_roots: list[str],
+        document_private_items: bool) -> RustdocPartsOutputs:
+    """Build per-crate rustdoc "parts" via RFC3662 (`--parts-out-dir`).
+
+    These parts can be collected from multiple crates and combined into a
+    single merged HTML tree using `rustdoc --merge=finalize
+    --include-parts-dir=...`. See `prelude//rust:doc_merge.bxl`.
+
+    Uses `-Zunstable-options`, so requires `RUSTC_BOOTSTRAP=1` in the rustdoc environment.
+    """
+    toolchain_info = compile_ctx.toolchain_info
+
+    common_args = _compute_common_args(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        dep_ctx = compile_ctx.dep_ctx,
+        emit = Emit("metadata-fast"),
+        params = params,
+        default_roots = default_roots,
+        infallible_diagnostics = False,
+        incremental_enabled = False,
+        is_rustdoc_test = False,
+        profile_mode = None,
+    )
+
+    subdir = common_args.subdir + "-rustdoc-parts"
+    use_cbp = getattr(ctx.attrs, "use_content_based_paths", False)
+
+    # `--merge=none` writes per-crate HTML into `--out-dir` and the sidecar
+    # "parts" metadata into `--parts-out-dir`. Both are needed to later run
+    # `rustdoc --merge=finalize` against a combined tree: the parts drive the
+    # cross-crate index and the HTML provides the per-crate docs.
+    html_out = ctx.actions.declare_output(subdir + "-html", dir = True, has_content_based_path = use_cbp)
+    parts_out = ctx.actions.declare_output(subdir, dir = True, has_content_based_path = use_cbp)
+
+    plain_env, path_env = process_env(compile_ctx, toolchain_info.rustdoc_env | ctx.attrs.env)
+    plain_env["RUSTDOC_BUCK_TARGET"] = cmd_args(str(ctx.label.raw_target()))
+
+    # `--parts-out-dir`, `--include-parts-dir`, and `--merge=` are behind
+    # `-Zunstable-options` as of rustc 1.90 (RFC 3662 is not yet stabilised).
+    plain_env["RUSTC_BOOTSTRAP"] = cmd_args("1")
+
+    if toolchain_info.rust_target_path != None:
+        path_env["RUST_TARGET_PATH"] = toolchain_info.rust_target_path[DefaultInfo].default_outputs[0]
+
+    # Skip emitting shared toolchain assets (CSS/JS) in each per-crate tree;
+    # the merge step produces them once in the combined output. Rustdoc
+    # renamed the emit value here in 2026-03 — `_rustdoc_emit_argfile`
+    # handles the rename transparently.
+    emit_argfile = _rustdoc_emit_argfile(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        argfile_name = subdir + "-emit.args",
+        emit = ["html-non-static-files"],
+    )
+
+    rustdoc_cmd = cmd_args(
+        toolchain_info.rustdoc,
+        "--rustc-action-separator",
+        toolchain_info.rustdoc_flags,
+        ctx.attrs.rustdoc_flags,
+        common_args.args,
+        "-Zunstable-options",
+        "--merge=none",
+        cmd_args("@", emit_argfile, delimiter = ""),
+        cmd_args(html_out.as_output(), format = "--out-dir={}"),
+        cmd_args(parts_out.as_output(), format = "--parts-out-dir={}"),
+        hidden = [toolchain_info.rustdoc, compile_ctx.symlinked_srcs],
+    )
+
+    if document_private_items:
+        rustdoc_cmd.add("--document-private-items")
+
+    rustdoc_cmd_action = cmd_args(
+        [cmd_args("--env=", k, "=", v, delimiter = "") for k, v in plain_env.items()],
+        [cmd_args("--path-env=", k, "=", v, delimiter = "") for k, v in path_env.items()],
+        rustdoc_cmd,
+    )
+
+    rustdoc_cmd = _long_command(
+        ctx = ctx,
+        exe = compile_ctx.internal_tools_info.rustc_action,
+        args = rustdoc_cmd_action,
+        argfile_name = "{}.args".format(subdir),
+        has_content_based_path = use_cbp,
+    )
+
+    ctx.actions.run(rustdoc_cmd, category = "rustdoc_parts")
+
+    return RustdocPartsOutputs(parts = parts_out, html = html_out)
+
 def generate_rustdoc_coverage(
         ctx: AnalysisContext,
         compile_ctx: CompileContext,

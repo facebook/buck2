@@ -21,6 +21,7 @@ _internal_tool_attrs = {
     "redirect_stdout": _internal_tool("prelude//rust/tools:redirect_stdout"),
     "rustc_action": _internal_tool("prelude//rust/tools:rustc_action"),
     "rustdoc_coverage": _internal_tool("prelude//rust/tools:rustdoc_coverage"),
+    "rustdoc_parts_emit_argfile": _internal_tool("prelude//rust/tools:rustdoc_parts_emit_argfile"),
     "rustdoc_test_with_resources": _internal_tool("prelude//rust/tools:rustdoc_test_with_resources"),
     "shared_libraries_symlink_tree": _internal_tool("prelude//rust/tools:shared_libraries_symlink_tree"),
     "symlink_only_dir_entry": _internal_tool("prelude//rust/tools:symlink_only_dir_entry"),
