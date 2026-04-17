@@ -29,6 +29,7 @@ Typical custom BXL:
 
 load("@prelude//rust:outputs.bzl", "RustcExtraOutputsInfo")
 load("@prelude//rust:rust_toolchain.bzl", "RustToolchainInfo")
+load("@prelude//utils:argfile.bzl", "at_argfile")
 
 _MERGE_TOOL = "prelude//rust/tools:rustdoc_merge"
 
@@ -75,27 +76,23 @@ def rustdoc_merge(
 
     out_dir = actions.declare_output("merged-rustdoc", dir = True)
 
-    argfile_content = cmd_args()
-    for html in html_artifacts:
-        argfile_content.add(cmd_args(html, format = "--html-dir={}"))
-    for parts in parts_artifacts:
-        argfile_content.add(cmd_args(parts, format = "--parts-dir={}"))
-    for flag in rust_toolchain.rustdoc_flags:
-        argfile_content.add(cmd_args(flag, format = "--rustdoc-flag={}"))
-    for theme in rust_toolchain.rustdoc_themes:
-        argfile_content.add(cmd_args(theme, format = "--theme={}"))
-
-    argfile, hidden = actions.write(
-        "rustdoc_merge.argfile",
-        argfile_content,
-        allow_args = True,
+    argfile_content = cmd_args(
+        cmd_args(out_dir.as_output(), format = "--out-dir={}"),
+        cmd_args(rust_toolchain.rustdoc, format = "--rustdoc={}"),
+        [cmd_args(h, format = "--html-dir={}") for h in html_artifacts],
+        [cmd_args(p, format = "--parts-dir={}") for p in parts_artifacts],
+        [cmd_args(f, format = "--rustdoc-flag={}") for f in rust_toolchain.rustdoc_flags],
+        [cmd_args(t, format = "--theme={}") for t in rust_toolchain.rustdoc_themes],
     )
 
     cmd = cmd_args(
         merge_tool,
-        cmd_args(out_dir.as_output(), format = "--out-dir={}"),
-        cmd_args(rust_toolchain.rustdoc, format = "--rustdoc={}"),
-        cmd_args(argfile, format = "@{}", hidden = hidden),
+        at_argfile(
+            actions = actions,
+            name = "rustdoc_merge.argfile",
+            args = argfile_content,
+            allow_args = True,
+        ),
     )
 
     actions.run(cmd, category = "rustdoc_merge")
