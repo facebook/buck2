@@ -75,26 +75,28 @@ def rustdoc_merge(
 
     out_dir = actions.declare_output("merged-rustdoc", dir = True)
 
+    argfile_content = cmd_args()
+    for html in html_artifacts:
+        argfile_content.add(cmd_args(html, format = "--html-dir={}"))
+    for parts in parts_artifacts:
+        argfile_content.add(cmd_args(parts, format = "--parts-dir={}"))
+    for flag in rust_toolchain.rustdoc_flags:
+        argfile_content.add(cmd_args(flag, format = "--rustdoc-flag={}"))
+    for theme in rust_toolchain.rustdoc_themes:
+        argfile_content.add(cmd_args(theme, format = "--theme={}"))
+
+    argfile, hidden = actions.write(
+        "rustdoc_merge.argfile",
+        argfile_content,
+        allow_args = True,
+    )
+
     cmd = cmd_args(
         merge_tool,
         cmd_args(out_dir.as_output(), format = "--out-dir={}"),
         cmd_args(rust_toolchain.rustdoc, format = "--rustdoc={}"),
+        cmd_args(argfile, format = "@{}", hidden = hidden),
     )
-    for html in html_artifacts:
-        cmd.add(cmd_args(html, format = "--html-dir={}"))
-    for parts in parts_artifacts:
-        cmd.add(cmd_args(parts, format = "--parts-dir={}"))
-    # Forward the toolchain's `rustdoc_flags` to the finalize invocation so
-    # that flags like `--default-theme`, `--cap-lints`, etc. apply
-    # consistently to both per-crate rustdoc steps (which already see these
-    # via `toolchain_info.rustdoc_flags` in build.bzl) and the merged tree.
-    for flag in rust_toolchain.rustdoc_flags:
-        cmd.add(cmd_args(flag, format = "--rustdoc-flag={}"))
-    # Real theme CSS goes to the finalize step (which emits static files);
-    # per-crate steps use matching-basename stubs. See `rustdoc_themes` /
-    # `rustdoc_theme_stubs` in `rust_toolchain.bzl`.
-    for theme in rust_toolchain.rustdoc_themes:
-        cmd.add(cmd_args(theme, format = "--theme={}"))
 
     actions.run(cmd, category = "rustdoc_merge")
     return out_dir

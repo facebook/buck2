@@ -22,6 +22,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 from rustdoc_emit_compat import resolve_emits
@@ -40,7 +41,7 @@ def stage_html(out_dir: Path, html_dirs: list[str]) -> None:
 
 
 def main() -> int:
-    p = argparse.ArgumentParser()
+    p = argparse.ArgumentParser(fromfile_prefix_chars="@")
     p.add_argument("--out-dir", required=True)
     p.add_argument("--rustdoc", required=True)
     p.add_argument("--html-dir", action="append", default=[])
@@ -70,27 +71,35 @@ def main() -> int:
     env = dict(os.environ)
     env["RUSTC_BOOTSTRAP"] = "1"
 
-    cmd = [
-        args.rustdoc,
-        "-Zunstable-options",
-        "--merge=finalize",
-        "--enable-index-page",
-        f"--out-dir={args.out_dir}",
-    ]
     # Finalize is the one step that should emit the shared CSS/JS for
     # the whole tree (the per-crate parts step skipped them); also
     # emit the non-static files (index.html, search.index, etc.) that
     # finalize itself produces.
     emit_arg = resolve_emits(args.rustdoc, ["html-static-files", "html-non-static-files"])
-    if emit_arg is not None:
-        cmd.append(emit_arg)
-    for pd in args.parts_dir:
-        cmd.append(f"--include-parts-dir={pd}")
-    for theme in args.theme:
-        cmd.extend(["--theme", theme])
-    cmd.extend(args.rustdoc_flag)
 
-    return subprocess.run(cmd, env=env).returncode
+    rustdoc_args = [
+        "-Zunstable-options",
+        "--merge=finalize",
+        "--enable-index-page",
+        f"--out-dir={args.out_dir}",
+    ]
+    if emit_arg is not None:
+        rustdoc_args.append(emit_arg)
+    for pd in args.parts_dir:
+        rustdoc_args.append(f"--include-parts-dir={pd}")
+    for theme in args.theme:
+        rustdoc_args.append("--theme")
+        rustdoc_args.append(theme)
+    rustdoc_args.extend(args.rustdoc_flag)
+
+    with tempfile.NamedTemporaryFile(
+        mode="w",
+        suffix=".argfile",
+        dir=os.environ.get("BUCK_SCRATCH_PATH"),
+    ) as f:
+        f.write("\n".join(rustdoc_args))
+        f.flush()
+        return subprocess.run([args.rustdoc, f"@{f.name}"], env=env).returncode
 
 
 if __name__ == "__main__":
