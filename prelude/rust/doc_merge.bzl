@@ -84,6 +84,8 @@ def rustdoc_merge(
         [cmd_args(f, format = "--rustdoc-flag={}") for f in rust_toolchain.rustdoc_flags],
         [cmd_args(t, format = "--theme={}") for t in rust_toolchain.rustdoc_themes],
     )
+    if rust_toolchain.default_edition != None:
+        argfile_content.add(cmd_args(rust_toolchain.default_edition, format = "--edition={}"))
 
     cmd = cmd_args(
         merge_tool,

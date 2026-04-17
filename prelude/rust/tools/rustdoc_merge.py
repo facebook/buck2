@@ -15,10 +15,18 @@ HTML plus a sidecar parts directory) and a "finalize" pass
 (`--merge=finalize` reading the parts dirs). Finalize only writes the
 top-level index/search pages; the per-crate HTML must be present
 alongside for the merged tree to be browseable.
+
+Rustdoc's `--enable-index-page` only emits `index.html` when a crate
+input is provided, so we feed finalize an empty dummy crate on stdin
+(`-`) with a deliberately unguessable name (see DUMMY_CRATE_NAME) and
+strip its entry from the rendered `index.html` afterwards. The dummy
+still ends up in `crates.js` and as an empty `<name>/` subdir, which is
+harmless.
 """
 
 import argparse
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -26,6 +34,26 @@ import tempfile
 from pathlib import Path
 
 from rustdoc_emit_compat import resolve_emits
+
+# Long, unique name so we can grep it out of the generated index.html
+# without risking a collision with a real user crate.
+DUMMY_CRATE_NAME = "doc_merge_dummy_crate_a8f3k2m9s_zzz"
+
+
+def strip_dummy_from_index(index_html: Path, dummy: str) -> None:
+    """Remove the `<li><a href="{dummy}/index.html">{dummy}</a></li>` entry
+    that rustdoc writes into the cross-crate index page.
+    """
+    if not index_html.is_file():
+        return
+    html = index_html.read_text()
+    pattern = re.compile(
+        r'<li><a href="' + re.escape(dummy) + r'/index\.html">'
+        + re.escape(dummy) + r'</a></li>'
+    )
+    new_html = pattern.sub("", html)
+    if new_html != html:
+        index_html.write_text(new_html)
 
 
 def stage_html(out_dir: Path, html_dirs: list[str]) -> None:
@@ -75,6 +103,7 @@ def main() -> int:
         help="Path to a real theme CSS file to register with rustdoc at "
         "finalize time (repeatable).",
     )
+    p.add_argument("--edition", default="2021")
     args = p.parse_args()
 
     out = Path(args.out_dir)
@@ -97,6 +126,8 @@ def main() -> int:
         "-Zunstable-options",
         "--merge=finalize",
         "--enable-index-page",
+        f"--edition={args.edition}",
+        f"--crate-name={DUMMY_CRATE_NAME}",
         f"--out-dir={args.out_dir}",
     ]
     if emit_arg is not None:
@@ -107,6 +138,10 @@ def main() -> int:
         rustdoc_args.append("--theme")
         rustdoc_args.append(theme)
     rustdoc_args.extend(args.rustdoc_flag)
+    # Feed an empty crate source on stdin so rustdoc has an input to hang
+    # `--enable-index-page` off of, without having to materialise a dummy .rs
+    # file on disk.
+    rustdoc_args.append("-")
 
     with tempfile.NamedTemporaryFile(
         mode="w",
@@ -115,7 +150,17 @@ def main() -> int:
     ) as f:
         f.write("\n".join(rustdoc_args))
         f.flush()
-        return subprocess.run([args.rustdoc, f"@{f.name}"], env=env).returncode
+        rc = subprocess.run(
+            [args.rustdoc, f"@{f.name}"],
+            env=env,
+            input="",
+            text=True,
+        ).returncode
+    if rc != 0:
+        return rc
+
+    strip_dummy_from_index(Path(args.out_dir) / "index.html", DUMMY_CRATE_NAME)
+    return 0
 
 
 if __name__ == "__main__":
