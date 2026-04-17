@@ -36,6 +36,14 @@ _DEFAULT_TRIPLE = select({
 })
 
 def _system_rust_toolchain_impl(ctx):
+    # Stub out each real theme CSS with an empty file of the same basename.
+    # Per-crate rustdoc parts actions only need the basename (for the theme
+    # name baked into generated HTML), not the contents — so feeding them the
+    # real CSS would pointlessly invalidate every crate on theme edits.
+    theme_stubs = [
+        ctx.actions.write("rustdoc_theme_stubs/" + theme.basename, "")
+        for theme in ctx.attrs.rustdoc_themes
+    ]
     return [
         DefaultInfo(),
         RustToolchainInfo(
@@ -55,6 +63,8 @@ def _system_rust_toolchain_impl(ctx):
             rustc_test_flags = ctx.attrs.rustc_test_flags,
             rustdoc = RunInfo(args = ["rustdoc"]),
             rustdoc_flags = ctx.attrs.rustdoc_flags,
+            rustdoc_themes = ctx.attrs.rustdoc_themes,
+            rustdoc_theme_stubs = theme_stubs,
             warn_lints = ctx.attrs.warn_lints,
         ),
     ]
@@ -74,6 +84,7 @@ system_rust_toolchain = rule(
         "rustc_target_triple": attrs.string(default = _DEFAULT_TRIPLE),
         "rustc_test_flags": attrs.list(attrs.arg(), default = []),
         "rustdoc_flags": attrs.list(attrs.arg(), default = []),
+        "rustdoc_themes": attrs.list(attrs.source(), default = []),
         "warn_lints": attrs.list(attrs.string(), default = []),
     },
     is_toolchain_rule = True,

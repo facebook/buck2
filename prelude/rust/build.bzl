@@ -178,6 +178,8 @@ def generate_rustdoc(
         "--rustc-action-separator",
         toolchain_info.rustdoc_flags,
         ctx.attrs.rustdoc_flags,
+        # Standalone `[doc]` emits full static files, so pass real theme CSS.
+        _theme_flags(toolchain_info.rustdoc_themes),
         common_args.args,
         cmd_args(output.as_output(), format = "--out-dir={}"),
         hidden = [toolchain_info.rustdoc, compile_ctx.symlinked_srcs],
@@ -203,6 +205,12 @@ def generate_rustdoc(
     ctx.actions.run(rustdoc_cmd, category = "rustdoc")
 
     return output
+
+def _theme_flags(themes: list[Artifact]) -> cmd_args:
+    # Expand a list of CSS files into repeated `--theme <file>` args for
+    # rustdoc. Rustdoc uses each file's basename-minus-`.css` as the theme
+    # name in the generated HTML.
+    return cmd_args([cmd_args("--theme", t) for t in themes])
 
 RustdocPartsOutputs = record(
     parts = Artifact,
@@ -303,6 +311,10 @@ def generate_rustdoc_parts(
         "--rustc-action-separator",
         toolchain_info.rustdoc_flags,
         ctx.attrs.rustdoc_flags,
+        # This step skips static-file emission, so feed rustdoc the stub CSS
+        # per theme — same basename as the real file, empty contents. This
+        # keeps per-crate rustdoc actions independent of theme content edits.
+        _theme_flags(toolchain_info.rustdoc_theme_stubs),
         common_args.args,
         "-Zunstable-options",
         "--merge=none",

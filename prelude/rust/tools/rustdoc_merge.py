@@ -51,6 +51,13 @@ def main() -> int:
         default=[],
         help="Extra flag forwarded verbatim to rustdoc (repeatable).",
     )
+    p.add_argument(
+        "--theme",
+        action="append",
+        default=[],
+        help="Path to a real theme CSS file to register with rustdoc at "
+        "finalize time (repeatable).",
+    )
     args = p.parse_args()
 
     out = Path(args.out_dir)
@@ -79,6 +86,8 @@ def main() -> int:
         cmd.append(emit_arg)
     for pd in args.parts_dir:
         cmd.append(f"--include-parts-dir={pd}")
+    for theme in args.theme:
+        cmd.extend(["--theme", theme])
     cmd.extend(args.rustdoc_flag)
 
     return subprocess.run(cmd, env=env).returncode
