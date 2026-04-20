@@ -289,6 +289,115 @@ impl ReadFileProxy {
     }
 }
 
+/// Split a CellPath into a Vec of components for use in the BTreeSet.
+/// Vec<T> uses lexicographic Ord over elements, so descendants always sort
+/// immediately after their ancestors — unlike CellPath's string-based Ord
+/// where characters like `-` and `.` (< `/`) can interleave.
+fn path_components(path: &CellPath) -> PathComponents {
+    PathComponents(
+        path.cell(),
+        path.path().iter().map(|c| c.to_owned()).collect(),
+    )
+}
+
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+struct PathComponents(CellName, Vec<buck2_fs::paths::file_name::FileNameBuf>);
+
+impl PathComponents {
+    fn starts_with(&self, other: &Self) -> bool {
+        self.0 == other.0 && self.1.starts_with(&other.1)
+    }
+}
+
+/// Walk the symlink chain from `start` via delegates (no DICE keys) and
+/// return an error if we detect a cycle or expansion. Checks:
+///   i.  exact revisit  (p → a → b → a)
+///   ii. descendant of a visited path (p → a/b → c/d → a/b/e)
+///   iii. ancestor of a visited path  (p → a/b → c/d → a)
+async fn verify_no_symlink_cycle(
+    ctx: &mut DiceComputations<'_>,
+    origin: &Arc<CellPath>,
+    start: &Arc<CellPath>,
+) -> buck2_error::Result<()> {
+    use std::collections::BTreeSet;
+
+    let mut visited: BTreeSet<PathComponents> = BTreeSet::new();
+    visited.insert(path_components(origin));
+    let mut current: Arc<CellPath> = start.dupe();
+
+    // We stop iteration at 40 resolves, like Linux does when it hits ELOOP.
+    for _ in 0..40 {
+        let key = path_components(&current);
+        if has_path_overlap(&visited, &key) {
+            return Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Environment,
+                "symlink cycle detected resolving `{}`: \
+                 `{}` overlaps with a previously visited path",
+                origin,
+                current
+            ));
+        }
+        visited.insert(key);
+
+        let ops = get_delegated_file_ops(ctx, current.cell(), CheckIgnores::No).await?;
+        let metadata = ops
+            .read_path_metadata_if_exists(ctx, current.path())
+            .await?;
+        match metadata {
+            Some(RawPathMetadata::Symlink {
+                to: RawSymlink::Relative(target, _),
+                ..
+            }) => {
+                current = target;
+            }
+            _ => return Ok(()),
+        }
+    }
+    Err(buck2_error::buck2_error!(
+        buck2_error::ErrorTag::Environment,
+        "too many levels of symbolic links resolving `{}`",
+        origin
+    ))
+}
+
+/// Returns true if `key` is equal to, a descendant of, or an ancestor of
+/// any component-vec already in `visited`.
+///
+/// Because Vec<FileNameBuf> sorts component-wise, descendants of a path
+/// form a contiguous range immediately after it in the BTreeSet.
+/// The predecessor is the only ancestor candidate, and the successor
+/// is the only descendant candidate.
+fn has_path_overlap(
+    visited: &std::collections::BTreeSet<PathComponents>,
+    key: &PathComponents,
+) -> bool {
+    use std::ops::Bound;
+
+    // exact match
+    if visited.contains(key) {
+        return true;
+    }
+    // Key is a descendant of a visited path.
+    // With component-wise ordering, the only candidate ancestor is the
+    // largest element < key.
+    if let Some(prev) = visited.range::<PathComponents, _>(..key).next_back() {
+        if key.starts_with(prev) {
+            return true;
+        }
+    }
+    // Key is an ancestor of a visited path.
+    // The only candidate descendant is the smallest element > key.
+    if let Some(next) = visited
+        .range::<PathComponents, _>((Bound::Excluded(key), Bound::Unbounded))
+        .next()
+    {
+        if next.starts_with(key) {
+            return true;
+        }
+    }
+    false
+}
+
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
 #[pagable_typetag(dice::DiceKeyDyn)]
 struct ReadFileKey(Arc<CellPath>);
@@ -314,6 +423,12 @@ impl Key for ReadFileKey {
             to: RawSymlink::Relative(ref target, _),
         }) = metadata
         {
+            // DICE doesn't detect cycles between distinct keys, so
+            // a→b→a would recurse forever. Walk the chain via
+            // delegates (no DICE deps) to verify it terminates before
+            // we make the recursive DICE call.
+            verify_no_symlink_cycle(ctx, &self.0, target).await?;
+
             let at = at.as_ref();
             // If the symlink is an ancestor directory (at != requested path),
             // track it via PathMetadataKey. The file watcher will dirty
@@ -1004,6 +1119,107 @@ mod tests {
             content.as_deref(),
             Some("external-content"),
             "stale: DICE has no dep on the external target, so the cached proxy returns old content"
+        );
+    }
+
+    /// a -> b -> a: DICE detects the cycle and returns an error.
+    #[tokio::test]
+    async fn recursive_leaf_symlink_returns_error() {
+        let file_ops = TestFileOps::new_with_files_and_symlinks(
+            BTreeMap::new(),
+            vec![
+                (cell_path("a"), cell_path("b")),
+                (cell_path("b"), cell_path("a")),
+            ],
+        );
+        let mut ctx = build_dice(&file_ops).await;
+
+        let err = DiceFileComputations::read_file_if_exists(&mut ctx, cell_path("a").as_ref())
+            .await
+            .expect_err("symlink cycle should produce an error")
+            .to_string();
+        assert!(
+            err.contains("overlaps"),
+            "must be detected by overlap check, not the 40-hop limit: {err}"
+        );
+    }
+
+    /// Case ii: infinite expansion via descendant.
+    /// a/b -> c/d (leaf), c -> a/b (directory).
+    /// Reading a/b: a/b → c/d → (c resolves to a/b) a/b/d → c/d/d → a/b/d/d → ...
+    /// The path grows by /d each hop. Detected because a/b/d is a
+    /// descendant of the previously visited a/b.
+    #[tokio::test]
+    async fn recursive_via_descendant_returns_error() {
+        let file_ops = TestFileOps::new_with_files_and_symlinks(
+            BTreeMap::new(),
+            vec![
+                (cell_path("a/b"), cell_path("c/d")),
+                (cell_path("c"), cell_path("a/b")),
+            ],
+        );
+        let mut ctx = build_dice(&file_ops).await;
+
+        let err = DiceFileComputations::read_file_if_exists(&mut ctx, cell_path("a/b").as_ref())
+            .await
+            .expect_err("symlink expansion via descendant should produce an error")
+            .to_string();
+        assert!(
+            err.contains("overlaps"),
+            "must be detected by overlap check, not the 40-hop limit: {err}"
+        );
+    }
+
+    /// Case iii: resolution to ancestor.
+    /// p -> a/b/c (leaf), a/b/c -> d/e (leaf), d/e -> a (leaf).
+    /// We visit a/b/c, then d/e, then a — an ancestor of a/b/c.
+    /// Although a is a directory and the chain would terminate naturally,
+    /// we reject it as a suspect resolution. Trying to glob inside
+    /// of such a directory would expand forever, for example.
+    #[tokio::test]
+    async fn symlink_resolution_to_ancestor_returns_error() {
+        let file_ops = TestFileOps::new_with_files_and_symlinks(
+            BTreeMap::new(),
+            vec![
+                (cell_path("p"), cell_path("a/b/c")),
+                (cell_path("a/b/c"), cell_path("d/e")),
+                (cell_path("d/e"), cell_path("a")),
+            ],
+        );
+        let mut ctx = build_dice(&file_ops).await;
+
+        let err = DiceFileComputations::read_file_if_exists(&mut ctx, cell_path("p").as_ref())
+            .await
+            .expect_err("symlink resolution to ancestor should produce an error")
+            .to_string();
+        assert!(
+            err.contains("overlaps"),
+            "must be detected by overlap check, not the 40-hop limit: {err}"
+        );
+    }
+
+    /// Detects use of naive String ordering by paths in set of visited
+    /// symlink resolutions.
+    #[tokio::test]
+    async fn ancestor_detection_not_foiled_by_interleaving_path() {
+        let file_ops = TestFileOps::new_with_files_and_symlinks(
+            BTreeMap::new(),
+            vec![
+                (cell_path("p"), cell_path("a/b/c")),
+                (cell_path("a/b/c"), cell_path("a-z")),
+                (cell_path("a-z"), cell_path("a")),
+            ],
+        );
+        let mut ctx = build_dice(&file_ops).await;
+
+        let result =
+            DiceFileComputations::read_file_if_exists(&mut ctx, cell_path("p").as_ref()).await;
+        let err = result
+            .expect_err("Should have found symlink cycle")
+            .to_string();
+        assert!(
+            err.contains("overlaps"),
+            "must be detected by overlap check, not the 40-hop limit: {err}"
         );
     }
 
