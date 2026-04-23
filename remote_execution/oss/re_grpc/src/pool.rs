@@ -183,16 +183,15 @@ pub fn create_channel(config: &ChannelConfig, address: &str) -> Result<Channel, 
         endpoint = endpoint.tls_config(tls_config.clone())?;
     }
 
-    // Configure gRPC keepalive settings
-    if let Some(keepalive_time_secs) = config.grpc_keepalive_time_secs {
-        endpoint = endpoint.http2_keep_alive_interval(Duration::from_secs(keepalive_time_secs));
-    }
-    if let Some(keepalive_timeout_secs) = config.grpc_keepalive_timeout_secs {
-        endpoint = endpoint.keep_alive_timeout(Duration::from_secs(keepalive_timeout_secs));
-    }
-    if let Some(keepalive_while_idle) = config.grpc_keepalive_while_idle {
-        endpoint = endpoint.keep_alive_while_idle(keepalive_while_idle);
-    }
+    // Configure gRPC keepalive settings (always enabled with sensible defaults)
+    endpoint = endpoint
+        .http2_keep_alive_interval(Duration::from_secs(
+            config.grpc_keepalive_time_secs.unwrap_or(30),
+        ))
+        .keep_alive_timeout(Duration::from_secs(
+            config.grpc_keepalive_timeout_secs.unwrap_or(10),
+        ))
+        .keep_alive_while_idle(config.grpc_keepalive_while_idle.unwrap_or(true));
 
     // Since we are creating the HttpConnector ourselves, any TCP
     // settings (tcp_nodelay, tcp_keepalive, connect_timeout), need to
