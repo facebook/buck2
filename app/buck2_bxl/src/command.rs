@@ -581,7 +581,8 @@ pub(crate) fn parse_bxl_label_from_cli(
                 got: bxl_path.to_owned(),
                 wanted: reformed_path,
             }
-            .into()
+            .into(),
+            error_on_oss: true
         )?;
     }
 

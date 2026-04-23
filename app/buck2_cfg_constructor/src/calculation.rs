@@ -180,6 +180,7 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
                         target.label(),
                     ),
                     quiet: true,
+                    error_on_oss: true,
                 )
                 .ok();
                 let mut merged = match m.as_json() {

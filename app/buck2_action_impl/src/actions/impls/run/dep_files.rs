@@ -1527,7 +1527,7 @@ impl ConcreteDepFiles {
                 .buck_error_context("Invalid line encountered in dep file")?;
 
             if let Err(e) = Self::add_path_to_selector(path, &mut selector, fs, builder) {
-                soft_error!("failed_to_add_dep_file_path_to_selector", e)?;
+                soft_error!("failed_to_add_dep_file_path_to_selector", e, error_on_oss: true)?;
                 return Ok(None);
             }
         }

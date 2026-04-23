@@ -87,7 +87,7 @@ pub(crate) fn check_user_allowed() -> buck2_error::Result<()> {
         if let Ok(home_dir) = AbsPath::new(&home_dir) {
             let home_dir_metadata = fs_util::metadata(home_dir).categorize_internal()?;
             if home_dir_metadata.uid() != 0 {
-                soft_error!("root_not_allowed", RootError.into())?;
+                soft_error!("root_not_allowed", RootError.into(), error_on_oss: true)?;
             }
         }
     }

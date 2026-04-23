@@ -84,6 +84,7 @@ impl CommonAttributeArgs {
                 "output_attributes",
                 ArgErrors::OutputAttributesDeprecated.into(),
                 deprecation: true,
+                error_on_oss: true,
             )?;
         }
 

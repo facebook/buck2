@@ -297,7 +297,7 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
                 if self.package_boundary_exception {
                     info!("{} (could be due to a package boundary violation)", e);
                 } else {
-                    soft_error!("source_directory_includes_subpackage", e.into())?;
+                    soft_error!("source_directory_includes_subpackage", e.into(), error_on_oss: true)?;
                 }
             }
             let files = listing.files_within(&path).duped().collect();
@@ -311,7 +311,7 @@ impl AttrCoercionContext for BuildAttrCoercionContext {
             if self.package_boundary_exception {
                 info!("{} (could be due to a package boundary violation)", e);
             } else {
-                soft_error!("source_file_missing", e.into(), quiet: true)?;
+                soft_error!("source_file_missing", e.into(), quiet: true, error_on_oss: true)?;
             }
 
             Ok(CoercedPath::File(path.to_arc()))

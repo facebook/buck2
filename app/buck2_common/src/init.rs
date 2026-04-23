@@ -625,7 +625,8 @@ impl DaemonStartupConfig {
                              This will be the default very soon."
                         ),
                         deprecation: true,
-                        quiet: false
+                        quiet: false,
+                        error_on_oss: true
                     )?;
                     Some(from_config.unwrap_or_else(|| "skip_lowering".to_owned()))
                 } else {

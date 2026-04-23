@@ -15,7 +15,6 @@ use std::sync::Once;
 use buck2_core::error::StructuredErrorOptions;
 use buck2_core::error::initialize;
 use buck2_core::error::reset_soft_error_counters;
-use buck2_core::is_open_source;
 use buck2_core::soft_error;
 use buck2_error::buck2_error;
 
@@ -51,9 +50,6 @@ fn test_init() -> MutexGuard<'static, ()> {
 
 #[test]
 fn test_soft_error() {
-    if is_open_source() {
-        return; // Errors are always hard in open source
-    }
     let _guard = test_init();
 
     let before_error_line = line!();
@@ -73,9 +69,6 @@ fn test_soft_error() {
 
 #[test]
 fn test_reset_counters() {
-    if is_open_source() {
-        return; // Errors are always hard in open source
-    }
     let _guard = test_init();
 
     assert_eq!(0, RESULT.lock().unwrap().len(), "Sanity check");

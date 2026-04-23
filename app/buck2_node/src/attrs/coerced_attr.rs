@@ -727,6 +727,7 @@ impl CoercedAttr {
                             select.as_display_no_ctx()
                         ),
                         quiet: true,
+                        error_on_oss: true,
                     );
                 }
                 _ => {}

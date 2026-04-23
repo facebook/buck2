@@ -734,7 +734,8 @@ impl ConcurrencyHandler {
                     active_commands,
                     current_command.format_argv(),
                 )
-                .into()
+                .into(),
+                error_on_oss: true
             )?;
         }
 

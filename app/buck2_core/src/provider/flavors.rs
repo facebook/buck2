@@ -58,7 +58,8 @@ pub fn map_flavors(flavors: &str, full_target: &str) -> buck2_error::Result<Prov
             "platform_flavor",
             buck2_error::buck2_error!(buck2_error::ErrorTag::Input, "Platform flavor found in target: {}", full_target),
             deprecation: true,
-            quiet: true
+            quiet: true,
+            error_on_oss: true
         )?;
         flavors_parts.remove(index);
     }

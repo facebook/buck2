@@ -334,7 +334,8 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
                 soft_error!(
                     "bxl_unconfigured_target_in_cquery",
                     TargetExprError::UnconfiguredTargetInCquery(unconfigured_label.to_owned())
-                        .into()
+                        .into(),
+                    error_on_oss: true
                 )?;
             }
         }

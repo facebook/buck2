@@ -109,7 +109,8 @@ impl TargetName {
                 "label_has_comma",
                 TargetNameError::LabelHasSpecialCharacter(name.to_owned(), ',').into(),
                 deprecation: true,
-                quiet: true
+                quiet: true,
+                error_on_oss: true
             )?;
         }
         if name.contains('$') {
@@ -117,7 +118,8 @@ impl TargetName {
                 "label_has_dollar_sign",
                 TargetNameError::LabelHasSpecialCharacter(name.to_owned(), '$').into(),
                 deprecation: true,
-                quiet: true
+                quiet: true,
+                error_on_oss: true
             )?;
         }
 

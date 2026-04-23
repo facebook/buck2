@@ -273,7 +273,8 @@ fn to_anon_target_any(value: Value, ctx: &AnonAttrCtx) -> buck2_error::Result<An
     } else {
         soft_error!(
             "coerce_to_any",
-            AnonTargetCoercionError::CannotCoerceToAny(value.get_type(), value.to_repr()).into()
+            AnonTargetCoercionError::CannotCoerceToAny(value.get_type(), value.to_repr()).into(),
+            error_on_oss: true
         )?;
         Ok(AnonTargetAttr::String(StringLiteral(
             ctx.intern_str(&value.to_str()),

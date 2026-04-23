@@ -159,6 +159,7 @@ async fn build(
             RunArgsMissingSeparator.into(),
             quiet: false,
             deprecation: true,
+            error_on_oss: true,
         )?;
     }
 

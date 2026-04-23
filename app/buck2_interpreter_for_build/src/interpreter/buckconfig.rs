@@ -234,7 +234,8 @@ fn read_config_and_report_deprecated(
         soft_error!(
             format!("deprecated_config_{section}_{prop}").as_str(),
             DeprecatedConfigError(property, msg).into(),
-            quiet: true
+            quiet: true,
+            error_on_oss: true
         )?;
     }
     Ok(result)

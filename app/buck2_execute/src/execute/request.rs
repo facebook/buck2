@@ -794,7 +794,8 @@ impl OutputType {
                 )
                 .into(),
                 deprecation: true,
-                quiet: true
+                quiet: true,
+                error_on_oss: true
             )?;
             Ok(())
         } else if self == output_type

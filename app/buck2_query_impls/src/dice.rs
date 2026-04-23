@@ -100,7 +100,8 @@ impl LiteralParser {
                         LiteralParserError::ExpectingTargetPatternWithoutProviders(
                             value.to_owned()
                         )
-                        .into()
+                        .into(),
+                        error_on_oss: true
                     )?;
                 }
                 ParsedPattern::Target(package, target_name, TargetPatternExtra)

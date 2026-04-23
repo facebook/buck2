@@ -1030,6 +1030,7 @@ fn collect_config_metadata_into(config: &LegacyBuckConfig, data: &mut UserComput
             ),
             quiet: false,
             deprecation: true,
+            error_on_oss: true,
         ).ok();
     }
 
