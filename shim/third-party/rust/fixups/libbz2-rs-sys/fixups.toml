@@ -1,0 +1,4 @@
+cargo_env = [
+    "CARGO_PKG_VERSION_MAJOR",
+    "CARGO_PKG_VERSION",
+]

@@ -1,0 +1,3 @@
+['cfg(version = ">=0.29")']
+cargo_env = ["CARGO_MANIFEST_DIR"]
+extra_srcs = ["Cargo.toml"]

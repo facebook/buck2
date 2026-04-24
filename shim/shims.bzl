@@ -351,11 +351,12 @@ def rust_protobuf_library(
         srcs,
         build_script,
         "buck2_protoc_dev",
-        "prost",
-        "prost-types",
-        "tonic",
+        "0.14",
         protos,
-        deps,
+        [
+            "fbsource//third-party/rust:tonic",
+            "fbsource//third-party/rust:tonic-prost",
+        ] + (deps or []),
         test_deps,
         doctests,
         build_env,
@@ -363,14 +364,18 @@ def rust_protobuf_library(
         crate_name,
     )
 
+    native.alias(
+        name = name,
+        actual = ":" + name + "_prost",
+        visibility = ["PUBLIC"],
+    )
+
 def _rust_protobuf_library(
         name,
         srcs,
         build_script,
         buck2_protoc_dev,
-        versioned_prost_target,
-        versioned_prost_types_target,
-        versioned_tonic_target,
+        prost_version,
         protos,  # Pass a list of files. They'll be placed in the cwd. Prefer using proto_srcs.
         deps,
         test_deps,
@@ -378,32 +383,26 @@ def _rust_protobuf_library(
         build_env,
         proto_srcs,
         crate_name):  # Use a proto_srcs() target, path is exposed as BUCK_PROTO_SRCS.
-    build_name = name + "-build"
-    proto_name = name + "-proto"
-
-    deps = (deps or []) + [
-        "fbsource//third-party/rust:" + versioned_prost_target,
-        "fbsource//third-party/rust:" + versioned_prost_types_target,
-        "fbsource//third-party/rust:" + versioned_tonic_target,
-    ]
+    versioned_prost_target = {
+        "0.14": "prost",
+    }[prost_version]
+    build_name = name + "-build-" + versioned_prost_target
+    proto_name = name + "-proto-" + versioned_prost_target
 
     rust_binary(
         name = build_name,
         srcs = [build_script],
         crate_root = build_script,
         deps = [
-            "fbsource//third-party/rust:" + versioned_tonic_target,
             "//buck2/app/buck2_protoc_dev:" + buck2_protoc_dev,
         ],
     )
 
     build_env = build_env or {}
-    build_env.update(
-        {
-            "PROTOC": "$(exe shim//third-party/proto:protoc)",
-            "PROTOC_INCLUDE": "$(location shim//third-party/proto:google_protobuf)",
-        },
-    )
+    build_env.update({
+        "PROTOC": "$(exe shim//third-party/proto:protoc)",
+        "PROTOC_INCLUDE": "$(location shim//third-party/proto:google_protobuf)",
+    })
     if proto_srcs:
         build_env["BUCK_PROTO_SRCS"] = "$(location {})".format(proto_srcs)
 
@@ -417,17 +416,25 @@ def _rust_protobuf_library(
         env = build_env,
     )
 
+    new_deps = [{
+        "0.14": "fbsource//third-party/rust:prost",
+    }[prost_version]] + (deps or [])
+
     rust_library(
-        name = name,
+        name = name + "_" + versioned_prost_target,
+        crate = crate_name or name,
         srcs = srcs,
         doctests = doctests,
         env = {
             # This is where prost looks for generated .rs files
             "OUT_DIR": "$(location :{})".format(proto_name),
         },
+        named_deps = {
+            "generated_prost_target": ":{}".format(proto_name),
+        },
+        deps = new_deps,
         test_deps = test_deps,
-        deps = deps,
-        crate = crate_name or name,
+        rustc_flags = ["-Aunused-crate-dependencies"],
     )
 
 ProtoSrcsInfo = provider(fields = ["srcs"])

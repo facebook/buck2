@@ -6,3 +6,6 @@
 # of this source tree.
 
 buildscript.run = false
+
+['cfg(version = "0.23")']
+omit_features = ["aws-lc-rs", "aws_lc_rs"]

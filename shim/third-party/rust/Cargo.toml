@@ -26,258 +26,234 @@ path = "top/main.rs"
 # List of packages to be imported, with version constraints, features
 # and all options Cargo supports.
 [dependencies]
-annotate-snippets = { version = "0.9.0", features = ["color"] }
-anyhow = "1.0.65"
+annotate-snippets = { version = "0.9.1", features = ["color"] }
+anyhow = "1.0.102"
 anymap3 = "1.0.1"
-arc-swap = "1.6.0"
-argfile = "0.1.0"
+arc-swap = "1.9.0"
+argfile = "0.2.1"
 assert_matches = "1.5"
-async-compression = { version = "0.4.41", features = ["gzip", "tokio", "zstd"] }
-async-condvar-fair = { version = "0.2.2", features = ["parking_lot_0_11", "tokio"] }
-async-recursion = "1.0"
-async-scoped = { version = "0.8", features = ["use-tokio"] }
+async-compression = { version = "0.4.41", features = ["brotli", "bzip2", "deflate", "futures-io", "gzip", "tokio", "zlib", "zstd", "zstdmt"] }
+async-condvar-fair = { version = "1.0.1", features = ["parking_lot_0_12", "tokio"] }
+async-recursion = "1.1.1"
+async-scoped = { version = "0.9", features = ["use-tokio"] }
 async-stream = "0.3"
-async-trait = "0.1.24"
-atomic = "0.5.1"
-backtrace = ">=0.3.51,<0.3.74" # backtrace 0.3.74 is failing to build on Windows
-base64 = "0.21.7"
-bincode-1 = { package = "bincode", version = "1.3.3" }
-bitflags = "2.4"
-blake3 = { version = "1.3.1", features = ["default", "digest", "rayon", "std", "traits-preview"] }
-bstr = { version = "1.4.0", features = ["serde", "std", "unicode"] }
+async-trait = "0.1.86"
+atomic = "0.5.3"
+backtrace = "0.3.76"
+base64 = "0.22.1"
+bincode = { version = "2", features = ["serde"] }
+bitflags = "2.9"
+blake3 = { version = "=1.8.2", features = ["mmap", "rayon", "traits-preview"] } # Check overlay before updating
+bstr = { version = "1.10.0", features = ["serde", "std", "unicode"] }
 buck-resources = "1"
-bumpalo = { version = "3.14.0", features = ["allocator_api", "collections"] }
-byteorder = "1.4.3"
-bytemuck = { version = "1.24", features = ["const_zeroed", "derive", "min_const_generics", "must_cast", "nightly_portable_simd", "nightly_stdsimd"] }
-bytes = "1.0"
-bytesize = "2.0"
-chrono = "0.4.28"
-clap = { package = "clap", version = "4.5.4", features = ["derive", "env", "string"] }
-clap_complete = { package = "clap_complete", version = "4.5.1" }
+bumpalo = { version = "3.20.2", features = ["allocator_api", "collections"] }
+byteorder = "1.5"
+bytemuck = { version = "1.25", features = ["const_zeroed", "derive", "min_const_generics", "must_cast", "nightly_portable_simd", "nightly_stdsimd"] }
+bytes = "1.11.1"
+bytesize = "2.3.1"
+chrono = { version = "0.4.44", features = ["serde"] }
+clap = { version = "4.6.0", features = ["derive", "env", "string", "unicode", "wrap_help"] }
+clap_complete = "4.6.0"
 common-path = "1.0.0"
-compact_str = "0.6.1"
-console = "0.15.7"
-const_format = "0.2.32"
-constant_time_eq = "0.2.4"
-convert_case = "0.4.0"
-criterion = { version = "0.3.1", features = [] }
+compact_str = { version = "0.9.0", features = ["serde"] }
+console = "0.15.11"
+const_format = "0.2.35"
+constant_time_eq = "0.2.6"
+convert_case = "0.11"
+criterion = { version = "0.5.1", features = ["async_tokio", "csv_output"] }
 crossbeam = "0.8"
-crossbeam-channel = "0.5"
-crossbeam-epoch = "0.9.18"
-crossterm = "0.29"
-csv = "1.1"
-ctor = "0.1.16"
-dashmap = "5.5.3"
+crossbeam-channel = "0.5.15"
+crossterm = { version = "0.29", features = ["event-stream", "serde"] }
+csv = "1.4"
+ctor = "0.1.26"
+dashmap = { version = "6.1.0", features = ["rayon", "serde"] }
 debugserver-types = "0.5.0"
 derivative = "2.2"
 derive_more = { version = "1.0.0", features = ["full"] }
-digest = "0.10"
-dirs = "3.0.1"
-dunce = "1.0.2"
-either = "1.8"
-elf = "0.7.4"
-enum-iterator = "1.4.1"
-enum-map = "0.6.3"
-env_logger = "0.9.0"
-equivalent = "1.0.0"
-erased-serde = "0.3.20"
-faccess = "0.2.3"
-fancy-regex = "0.10.0"
+digest = { version = "0.10", features = ["rand_core"] }
+dirs = "6.0"
+dunce = "1.0.5"
+either = "1.5"
+elf = "0.8"
+enum-iterator = "2.3.0"
+enum-map = "2.7.3"
+env_logger = { version = "0.11.10", features = ["color"] }
+equivalent = "1.0.2"
+erased-serde = "0.4.10"
+faccess = "0.2.4"
+fancy-regex = "0.16.2"
 fbinit = "0.2"
-flate2 = "1.1.9"
-fnv = "1.0.7"
-form_urlencoded = "1"
+flate2 = "1.0.33"
+fnv = "1.0"
+form_urlencoded = "1.2.1"
 fs4 = { version = "0.9.1", features = ["sync"] }
-futures = { version = "0.3.28", features = ["async-await", "compat"] }
-futures-intrusive = "0.4"
+futures = "0.3.31"
+futures-intrusive = "0.4.2"
 fxhash = "0.2.1"
 gazebo = { version = "0.8.1", features = ["str_pattern_extensions"] }
-glob = "0.3.0"
-globset = "0.4.10"
-hashbrown = { version = "0.14.3", features = ["raw"] }
+glob = "0.3.2"
+globset = { version = "0.4.13", features = ["serde1"] }
+hashbrown = "0.17"
 hex = "0.4.3"
-higher-order-closure = "0.0.5"
-hostname = "0.3.1"
-http = "0.2"
+hostname = "0.4.2"
+http = "1.4.0"
 http-body-util = "0.1.0"
 httparse = "1.7.1"
-httptest = "0.15"
-httptest-0-16 = { package = "httptest", version = "0.16" }
-humantime = "2.0.1"
-hyper = { version = "1.8.1", features = ["client", "http1", "http2"] }
-hyper-0-14 = { package = "hyper", version = "0.14.26", features = ["client", "http1", "http2", "stream"] }
+httptest = "0.16.4"
+humantime = "2.1"
+hyper = { version = "1.9.0", features = ["client", "http1", "http2"] }
+hyper-0-14 = { package = "hyper", version = "0.14.32", features = ["client", "http1", "http2", "stream"] }
 hyper-http-proxy = "1.0"
 hyperlocal = { version = "0.9", features = ["client"] }
-hyper-proxy = { git = "https://github.com/get9/hyper-proxy", rev = "80ac13e5bc89fa8e41c6155aa1bcc733242a158d", features = ["rustls"], default_features = false } # branch = tokio-rustls-0.23 Many PRs to bump versions (#28, #30, #31) are several years old, possibly abandoned crate. This fork contains changes from #28 + changes to upgrade rustls to 0.21.
 hyper-proxy2 = { version = "0.1", features = ["rustls"], default-features = false }
-hyper-rustls = { version = "0.24.0", features = ["http2"] }
-hyper-rustls-0-26 = { package = "hyper-rustls", version = "0.26.0", features = ["http2"] }
-hyper-rustls-0-27 = { package = "hyper-rustls", version = "0.27.0", features = ["http2"] }
-hyper-timeout = "0.4"
-hyper-timeout-0-5 = { package = "hyper-timeout", version = "0.5" }
-hyper-util = "0.1.10"
-image = { version = "0.25.9", features = ["png"], default-features = false }
+hyper-rustls = { version = "0.27.7", features = ["http2"] }
+hyper-timeout = "0.5.2"
+hyper-util = { version = "0.1.20", features = ["client-legacy", "http1", "http2", "server-auto", "service", "tokio"] }
+image = { version = "0.25.10", features = ["bmp", "dds", "ff", "gif", "hdr", "ico", "jpeg", "png", "pnm", "tga", "tiff", "webp"], default-features = false }
 indent_write = "2.2.0"
-indenter = "0.3.3"
+indenter = "0.3.4"
 index_vec = "0.1.4"
-indexmap = { version = "2.9.0", features = ["arbitrary", "rayon", "serde"] }
-indoc = "1.0.3"
-inferno = { version = "0.11.11", default-features = false }
-internment = { version = "0.7", features = ["arc"] }
-inventory = "0.3.8"
+indexmap = { version = "2.13.0", features = ["arbitrary", "rayon", "serde"] }
+indoc = "2.0.2"
+inferno = { version = "0.11.21", default-features = false }
+internment = { version = "0.8.6", features = ["arc", "serde"] }
+inventory = "0.3.24"
 ipnetwork = "0.20.0"
 is_proc_translated = "0.1.1"
-itertools = "0.13.0"
-jemallocator = { version = "0.5.0", features = ["profiling"] }
-lalrpop = { version = "0.19.7", artifact = "bin", features = ["pico-args"] }
-lalrpop-util = "0.19.7"
-libc = "0.2.158"
-libfuzzer-sys = "0.4"
-libmimalloc-sys = "0.1.42"
+itertools = "0.14.0"
+jemallocator = { version = "0.6.1", package = "tikv-jemallocator" }
+lalrpop = { version = "0.19.12", features = ["pico-args"], artifact = "bin:lalrpop", lib = true }
+lalrpop-util = "0.19.12"
+libc = "0.2.183"
+libfuzzer-sys = "0.4.12"
 linked-hash-map = { version = "0.5", features = ["serde_impl"] }
-linkme = { version = "0.3.17", features = ["used_linker"] }
-log = "0.4"
+linkme = { version = "0.3.32", features = ["used_linker"] }
+log = { version = "0.4.29", features = ["kv_unstable"] }
 logos = "0.15"
-lru = "0.12.3"
-lsp-server = "0.7.2"
+lru = "0.16.3"
+lsp-server = "0.7.9"
 lsp-types = "0.94.1"
-maplit = "1.0.2"
-mappable-rc = { version = "0.1.1", features = ["std"] }
+maplit = "1.0"
 md-5 = "0.10"
 memchr = "2.8.0"
-memmap2 = "0.5.0"
-memoffset = "0.6.4"
+memmap2 = "0.9.10"
+memoffset = "0.9.1"
 mimalloc = { version = "0.1.48", default-features = false }
-multimap = "0.8.2"
-native-tls = "0.2"
+multimap = "0.8.3"
+native-tls = "0.2.18"
 nix = { version = "0.30.1", features = ["dir", "event", "hostname", "inotify", "ioctl", "mman", "mount", "net", "poll", "ptrace", "reboot", "resource", "sched", "signal", "term", "time", "user", "zerocopy"] }
 nom = "8"
 nom-language = "0.1"
-notify = "=5.0.0-pre.16"
-num-bigint = { version = "0.4.3", features = ["serde"] }
-num-traits = "0.2"
-num_cpus = "1.11"
-num_enum = "0.5"
-object = "0.29.0"
-oid-registry = "0.6.1"
-once_cell = "1.8"
-os_str_bytes = { version = "6.6.0", features = ["conversions"] }
-parking_lot = { version = "0.11.2", features = ["send_guard"] }
-paste = "1.0"
+notify = "8.2.0"
+num-bigint = { version = "0.4.6", features = ["rand", "serde"] }
+num-traits = "0.2.19"
+num_cpus = "1.16"
+num_enum = "0.7.6"
+object = { version = "0.36.7", features = ["read", "write"] }
+oid-registry = "0.4"
+once_cell = "1.21.4"
+os_str_bytes = { version = "6.6.1", features = ["conversions"] }
+parking_lot = { version = "0.12.1", features = ["send_guard"] }
+paste = "1.0.14"
 pathdiff = "0.2"
 perf-event = "0.4"
 perf-event-open-sys = "5.0"
-pin-project = "0.4.29"
-plist = "0.5"
+pin-project = "1.1.11"
+plist = "1.8.0"
 postcard = { version = "1.0.8", features = ["use-crc", "use-std"] }
-pretty_assertions = "1.2.1"
+pretty_assertions = "1.4.1"
 probminhash = { git = "https://github.com/krallin/probminhash", rev = "3d6b7a5315305c2893a7a04e0de9e23b305992c5", default-features = false } # WAITING_FOR_PR https://github.com/jean-pierreBoth/probminhash/pull/4
-proc-macro2 = { version = "1.0.70", features = ["span-locations"] }
-prost = { version = "0.12", default-features = false }
-prost-0-13-4 = { package = "prost", version = "0.13.4", default-features = false }
-prost-types = { version = "0.12", default-features = false }
-prost-types-0-13-4 = { package = "prost-types", version = "0.13.4", default-features = false }
-prost-build = { version = "0.12", features = ["cleanup-markdown"] }
-prost-build-0-13-4 = { package = "prost-build", version = "0.13.4", features = ["cleanup-markdown"] }
-prost-derive = "0.12"
-prost-derive-0-13-4 = { package = "prost-derive", version = "0.13.4" }
+proc-macro2 = { version = "1.0.106", features = ["span-locations"] }
+prost = { version = "0.14.3", default-features = false }
+prost-types = { version = "0.14.3", default-features = false }
+prost-build = { version = "0.14.3", features = ["cleanup-markdown"] }
 protoc-bin-vendored = "3.0.0"
-psutil = "3.2"
-ptyprocess = "0.4"
+psutil = "3.3.0"
+ptyprocess = "0.4.1"
 quick-xml = { version = "0.37", features = ["overlapped-lists", "serialize"] }
 quickcheck = "1.0"
-quote = "1.0.3"
+quote = "1.0.45"
 rand = "0.10"
-rand_08 = { package = "rand", version = "0.8", features = ["small_rng"] }
 rand_chacha = "0.10"
 rand_distr = "0.6"
-rand_distr_04 = { package = "rand_distr", version = "0.4" }
 rand_xoshiro = "0.8"
-ref-cast = "1.0.0"
-regex = "1.12.2"
+ref-cast = "1.0.18"
+regex = "1.12.3"
 relative-path = { version = "1.7.0", features = ["serde"] }
-ring = "=0.17.5" # Upgrading this is possible, but a pain, so we don't want to pick up every new minor version
-rusqlite = { version = "0.33", features = ["bundled"] }
-rustc-hash = "2.1.0"
-rustls = "0.21.0"
-rustls-0-22 = { package = "rustls", version = "0.22" }
-rustls-0-23 = { package = "rustls", version = "0.23.29", features = ["logging", "ring", "std", "tls12"], default-features = false }
-rustls-native-certs = { package = "rustls-native-certs", version = "0.6.2" }
-rustls-native-certs-0-8-1 = { package = "rustls-native-certs", version = "0.8.1" }
-rustls-pemfile = { package = "rustls-pemfile", version = "1.0.0" }
-rustls-pki-types = { version = "1.0", features = ["alloc", "std"] }
-rustyline = "11.0"
-scopeguard = "1.0.0"
-sequence_trie = "0.3.6"
-serde = { version = "1.0.228", features = ["derive", "rc"] }
-serde_json = { version = "1.0.149", features = ["raw_value"] }
-sha1 = "0.10"
-sha2 = "0.10"
+ring = "=0.17.14" # Upgrading this is possible, but a pain, so we don't want to pick up every new minor version
+rusqlite = { version = "0.37.0", features = ["backup", "blob", "bundled", "column_decltype", "functions", "limits", "modern_sqlite", "serde_json"] }
+rustc-hash = "2.1.2"
+rustls = { version = "0.23.37", features = ["logging", "ring", "std", "tls12"], default-features = false }
+rustls-native-certs = "0.8.3"
+rustls-pemfile = "2.2.0"
+rustls-pki-types = { version = "1.14.0", features = ["alloc", "std"] }
+rustyline = { version = "18.0.0", features = ["derive"] }
+scopeguard = "1.2.0"
+sequence_trie = { version = "0.3.6", features = ["serde"] }
+serde = { version = "1.0.219", features = ["derive", "rc"] }
+serde_json = { version = "1.0.140", features = ["raw_value"] }
+sha1 = "0.10.5"
+sha2 = "0.10.6"
 shlex = "1.3"
-similar = { version = "2.2.0", features = ["inline"] }
-siphasher = "0.3.3"
+similar = { version = "2.2.0", features = ["bytes", "inline"] }
+siphasher = "0.3.11"
 slab = "0.4.12"
-sled = "0.34"
-slog = "2.7.0"
-smallvec = { version = "1.10", features = ["const_generics", "const_new", "serde", "specialization", "union", "write"] }
-sorted_vector_map = "0.2"
+sled = "0.34.7"
+slog = { version = "2.8.2", features = ["max_level_trace", "nested-values"] }
+smallvec = { version = "1.15", features = ["impl_bincode", "serde", "specialization", "union", "write"] }
+sorted_vector_map = "0.2.1"
 static_assertions = "1.1.0"
 strsim = "0.10.0"
-structopt = "0.3.23"
-strum = { version = "0.26.2", features = ["derive", "strum_macros"] }
-syn = { version = "2.0.101", features = ["extra-traits", "full", "visit"] }
+structopt = "0.3.26"
+strum = { version = "0.27.1", features = ["derive"] }
+syn = { version = "2.0.117", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
 syn1 = { package = "syn", version = "1.0.109", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
-sync_wrapper = "0.1.0"
-synstructure = "0.12"
+sync_wrapper = "1.0.2"
+synstructure = "0.12.6"
 sys-info = "0.9.1"
-sysinfo = "0.35.1"
-take_mut = "0.2.2"
-tar = "0.4.38"
-target-triple = "0.1"
-tempfile = "3.1.0"
-termimad = "0.20.1"
+sysinfo = "0.38.4"
+take_mut = "0.2"
+tar = "0.4.45"
+tempfile = "3.27.0"
+termimad = "0.34.1"
 termios = "0.3"
-termwiz = "0.18"
-test-case = "3.1.0"
-textwrap = { version = "0.11", features = ["term_size"] }
-thiserror = "1.0.36"
+termwiz = { version = "0.23.3", features = ["use_serde", "widgets"] }
+test-case = "3.3.1"
+textwrap = { version = "0.16.0", features = ["terminal_size"] }
+thiserror = "2.0.18"
 threadpool = "1.8.1"
-tokio = { version = "1.50.0", features = ["full", "test-util", "tracing"] }
-tokio-rustls = { version = "0.24.1", features = ["dangerous_configuration"] }
-tokio-rustls-0-25 = { package = "tokio-rustls", version = "0.25" }
-tokio-rustls-026 = { package = "tokio-rustls", version = "0.26.2" }
-tokio-stream = { version = "0.1.14", features = ["fs", "io-util", "net", "signal", "sync", "time"] }
-tokio-util = { version = "0.6", features = ["full"] }
-toml = "0.5"
-tonic = { version = "0.10.2", features = ["tls", "tls-webpki-roots"] }
-tonic-0-12-3 = { package = "tonic", version = "0.12.3", features = ["tls", "tls-webpki-roots"] }
-tonic-build = { version = "0.10.2", features = ["prost", "cleanup-markdown"] }
-tonic-build-0-12-3 = { package = "tonic-build", version = "0.12.3", features = ["prost", "cleanup-markdown"] }
+tokio = { version = "1.52.1", features = ["full", "test-util", "tracing"] }
+tokio-rustls = "0.26.4"
+tokio-stream = { version = "0.1.18", features = ["fs", "io-util", "net", "signal", "sync", "time"] }
+tokio-util = { version = "0.7.18", features = ["full"] }
+toml = { version = "0.9.12", features = ["preserve_order"] }
+tonic = { version = "0.14.5", features = ["codegen", "gzip", "tls-native-roots", "tls-ring", "tls-webpki-roots", "transport"] }
+tonic-build = "0.14.5"
+tonic-prost = "0.14.5"
 tonic-prost-build = "0.14.5"
-tower = "0.4"
-tower-layer = "0.3.1"
+tower = { version = "0.5.3", features = ["util"] }
+tower-layer = "0.3.3"
 tower-service = "0.3.3"
-tracing = "0.1.22"
-tracing-core = "0.1.32"
-tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+tracing = { version = "0.1.41", features = ["attributes", "valuable"] }
+tracing-core = { version = "0.1.33", features = ["valuable"] }
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 triomphe = "0.1.11"
-trybuild = "1.0.56"
 twox-hash = "1.6.1"
-typed-arena = "2.0"
-unicode-segmentation = "1.7"
-uuid = { version = "1.2", features = ["v4"] }
-vt100 = "0.15"
-walkdir = "2.3.2"
-watchman_client = "0.8.0"
-which = "4.3.0"
-whoami = "1.5.1"
+typed-arena = "2"
+unicode-segmentation = "1.13.2"
+uuid = { version = "1.23.0", features = ["serde", "rng-getrandom", "v4", "v5", "v6", "v7", "v8"] }
+vt100 = "0.16.2"
+walkdir = "2.3"
+watchman_client = "0.9"
+which = "8.0.2"
+whoami = "1.5"
 winapi = { version = "0.3", features = ["everything", "std"] }
-windows-sys = { version = "0.59.0", features = ["Win32_Foundation", "Win32_NetworkManagement_IpHelper", "Win32_NetworkManagement_Ndis", "Win32_Security", "Win32_Storage_FileSystem", "Win32_System_Console", "Win32_System_IO", "Win32_System_JobObjects", "Win32_System_ProcessStatus", "Win32_System_SystemInformation", "Win32_System_SystemServices", "Win32_System_Threading"] }
+windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_Globalization", "Win32_NetworkManagement_IpHelper", "Win32_NetworkManagement_Ndis", "Win32_Security", "Win32_Security_Credentials", "Win32_Storage_FileSystem", "Win32_System_Console", "Win32_System_Environment", "Win32_System_IO", "Win32_System_JobObjects", "Win32_System_LibraryLoader", "Win32_System_Memory", "Win32_System_ProcessStatus", "Win32_System_SystemServices", "Win32_System_Threading", "Win32_UI_Shell"] }
 windows_x86_64_msvc = "=0.48.0" # our fixup only works if we are on precisely 0.48.0
-x509-parser = { version = "0.14.0", features = ["verify"] }
-xattr = "0.2.2"
-zip = "0.5"
-zstd = "0.13.3"
+x509-parser = "0.18.1"
+xattr = "1.6.1"
+zip = { version = "8.5.1", features = ["aes-crypto", "bzip2", "deflate", "time"] }
+zstd = { version = "0.13.3", features = ["experimental", "zstdmt"] }
 
 [patch.crates-io]
 # For https://github.com/jimblandy/perf-event/pull/29
