@@ -24,27 +24,11 @@ impl NamedSemaphores {
     }
 
     pub fn get(&self, name: &str) -> SharedSemaphore {
-        // Fast path: a read-locked shard lookup, no allocation, no write lock.
+        // Fast path avoids allocating a `String` key on the hot path.
         if let Some(bucket_semaphore) = self.buckets.get(name) {
             return bucket_semaphore.clone();
         }
-        // Slow path: atomically insert-if-absent. Using `entry().or_insert_with(..)`
-        // (rather than a separate `get` followed by `insert`) is required for
-        // correctness: the previous check-then-act pattern was racy and could let
-        // two concurrent callers each install a different `SharedSemaphore` for
-        // the same name, breaking the "OnePerToken" exclusivity guarantee that
-        // `HostSharingBroker` relies on.
-        //
-        // Fairness on this semaphore doesn't control the order in which waiters
-        // are woken up, but simply whether we delay wakeups to wait for waiters
-        // that want > 1 permit. Since we only ever request a single permit here,
-        // the fairness doesn't matter for correctness.
-        //
-        // Since a fair semaphore will only ever wake a single waiter, that code
-        // path is a bit faster and doesn't require any additional looping.
-        // Therefore despite the fact that a fair and unfair semaphore would have
-        // the same end result, we use a fair semaphore here as a small
-        // performance optimization.
+        // Fair semaphore: slightly faster wakeups for single-permit requests.
         self.buckets
             .entry(name.to_owned())
             .or_insert_with(|| SharedSemaphore::new(true, SINGLE_WORKER))
