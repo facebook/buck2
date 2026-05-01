@@ -18,7 +18,7 @@ rust_binary(
         },
     }),
     deps = [
-        "fbsource//third-party/rust:buck-resources",
+        "fbcode//buck2/integrations/resources/rust:buck_resources",
         "fbsource//third-party/rust:clap",
         "fbsource//third-party/rust:ptyprocess",
         "fbsource//third-party/rust:tempfile",
