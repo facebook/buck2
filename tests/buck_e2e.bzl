@@ -11,6 +11,7 @@ load("@fbcode_macros//build_defs:native_rules.bzl", "buck_filegroup")
 load("@fbcode_macros//build_defs:python_pytest.bzl", "python_pytest")
 load("@fbsource//tools/target_determinator/macros:ci.bzl", "ci")
 load("@fbsource//tools/target_determinator/macros:ci_hint.bzl", "ci_hint")
+load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
 
 def buck_e2e_test(
         name,
@@ -35,10 +36,13 @@ def buck_e2e_test(
         cfg_modifiers = None,
         ci_srcs = [],
         ci_deps = [],
-        compatible_with = None):
+        compatible_with = None,
+        meta_only = False):
     """
     Custom macro for buck2/buckaemon end-to-end tests using pytest.
     """
+    if meta_only and not is_full_meta_repo():
+        return
     srcs = srcs or []
     labels = labels or []
     deps = deps or []
@@ -60,7 +64,12 @@ def buck_e2e_test(
     # ---tb=native shows python native traceback instead of default pytest traceback with source code.
     # --no-header disables headers printed after "test session starts" on output
     # --no-summary disables pytest summary printed after each test run on output
-    env["PYTEST_ADDOPTS"] = "-vv --tb=native --no-header --no-summary"
+    if is_full_meta_repo():
+        # tpx captures per-test output, so the pytest header/summary is redundant.
+        env["PYTEST_ADDOPTS"] = "-vv --tb=native --no-header --no-summary"
+    else:
+        # OSS has no per-test capture; keep the summary so failures are visible.
+        env["PYTEST_ADDOPTS"] = "-vv --tb=native"
 
     # For autodeps
     read_package_value = getattr(native, "read_package_value", None)
@@ -205,7 +214,8 @@ def buck2_e2e_test(
         require_nano_prelude = None,
         ci_srcs = [],
         ci_deps = [],
-        compatible_with = None):
+        compatible_with = None,
+        meta_only = False):
     """
     Custom macro for buck2 end-to-end tests using pytest. All tests are run against buck2 compiled in-repo (compiled buck2).
 
@@ -231,6 +241,8 @@ def buck2_e2e_test(
         dependency for Target Determinator purposes (e.g., bxl tests that test Starlark logic).
         Default is False.
     """
+    if meta_only and not is_full_meta_repo():
+        return
     kwargs = {
         "base_module": base_module,
         "ci_deps": ci_deps,
