@@ -6,8 +6,13 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-def python_binary(srcs = [], **kwargs):
+load("@shim//build_defs/lib:oss.bzl", "default_base_module")
+
+def python_binary(srcs = [], base_module = None, **kwargs):
     _unused = srcs  # @unused
 
+    if base_module == None:
+        base_module = default_base_module()
+
     # @lint-ignore BUCKLINT: avoid "Direct usage of native rules is not allowed."
-    native.python_binary(**kwargs)
+    native.python_binary(base_module = base_module, **kwargs)

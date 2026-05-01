@@ -6,8 +6,13 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-def python_unittest(srcs = [], py_version = None, **kwargs):
+load("@shim//build_defs/lib:oss.bzl", "default_base_module")
+
+def python_unittest(srcs = [], py_version = None, base_module = None, **kwargs):
     _unused = (srcs, py_version)  # @unused
 
+    if base_module == None:
+        base_module = default_base_module()
+
     # @lint-ignore BUCKLINT: avoid "Direct usage of native rules is not allowed."
-    native.python_test(**kwargs)
+    native.python_test(base_module = base_module, **kwargs)

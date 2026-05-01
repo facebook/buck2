@@ -116,6 +116,18 @@ PREFIX_MAPPINGS = _parse_prefix_mappings(
     _filter_empty_strings(read_config("oss", "prefix_mappings", "").split(" ")),
 )
 
+# Prepended to default `base_module` in python rules, so that source files keep
+# the same dotted import path they have inside the internal monorepo (e.g.
+# `fbcode/buck2/tests/foo.py` is imported as `buck2.tests.foo`, but in OSS the
+# package_name is `tests/foo` and would otherwise be `tests.foo`).
+PYTHON_MODULE_PREFIX = read_config("oss", "python_module_prefix", "")
+
+def default_base_module():
+    pkg = native.package_name().replace("/", ".")
+    if PYTHON_MODULE_PREFIX:
+        return PYTHON_MODULE_PREFIX + "." + pkg if pkg else PYTHON_MODULE_PREFIX
+    return pkg
+
 # Hardcoded rewrite rules that apply to many projects and only produce targets
 # within the shim cell. They are applied after the rules from .buckconfig, and
 # will not be applied if any other rules match.
@@ -235,3 +247,4 @@ def _swap_root_dir_for_path(path: str, root_dir: str, new_root_dir) -> str:
         suffix = "/" + suffix
     replace_path = new_root_dir.removesuffix("/") + suffix
     return replace_path.removeprefix("/")
+
