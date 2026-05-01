@@ -102,7 +102,7 @@ _pagable_transition_alias = rule(
     cfg = _pagable_transition,
 )
 
-def pagable_transition_alias(name: str, actual, labels):
+def pagable_transition_alias(name: str, actual, labels, visibility = None):
     platform = platform_utils.get_cxx_platform_for_base_path(native.package_name())
     default_target_platform = platform.target_platform
     _pagable_transition_alias(
@@ -110,4 +110,5 @@ def pagable_transition_alias(name: str, actual, labels):
         actual = translate_target(actual),
         labels = labels,
         default_target_platform = default_target_platform,
+        visibility = visibility,
     )
