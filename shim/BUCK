@@ -28,7 +28,10 @@ system_cxx_toolchain(
     # with clang-only flags and rejects them.
     compiler_type = "gcc",
     cxx_compiler = "g++",
-    cxx_flags = ["-std=c++20"],
+    cxx_flags = ["-std=c++20"] + select({
+        "ovr_config//build_mode/default_opt_cxx:enabled": ["-O2"],
+        "DEFAULT": [],
+    }),
     # The sandcastle OSS-bootstrap environment has `gcc`/`g++` on PATH but
     # not `clang`/`clang++` or `lld`, which are the defaults pulled in by
     # `prelude//toolchains/cxx/clang:path_clang_tools`. Using `g++` as the
@@ -77,6 +80,11 @@ system_python_bootstrap_toolchain(
 system_rust_toolchain(
     name = "rust",
     default_edition = "2021",
+    rustc_flags = select({
+        "ovr_config//build_mode:opt": ["-O"],
+        "ovr_config//build_mode:dev": ["-C", "debuginfo=2"],
+        "DEFAULT": [],
+    }),
     visibility = ["PUBLIC"],
 )
 

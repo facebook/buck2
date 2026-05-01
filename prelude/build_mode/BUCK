@@ -10,3 +10,15 @@ config_setting(
     name = "arvr_mode",
     visibility = ["PUBLIC"],
 )
+
+constraint_value(
+    name = "dev",
+    constraint_setting = "//build_mode/constraints:core_build_mode",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "opt",
+    constraint_setting = "//build_mode/constraints:core_build_mode",
+    visibility = ["PUBLIC"],
+)
