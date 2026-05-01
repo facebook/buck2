@@ -46,7 +46,6 @@ bincode = { version = "2", features = ["serde"] }
 bitflags = "2.9"
 blake3 = { version = "=1.8.2", features = ["mmap", "rayon", "traits-preview"] } # Check overlay before updating
 bstr = { version = "1.10.0", features = ["serde", "std", "unicode"] }
-buck-resources = "1"
 bumpalo = { version = "3.20.2", features = ["allocator_api", "collections"] }
 byteorder = "1.5"
 bytemuck = { version = "1.25", features = ["const_zeroed", "derive", "min_const_generics", "must_cast", "nightly_portable_simd", "nightly_stdsimd"] }
