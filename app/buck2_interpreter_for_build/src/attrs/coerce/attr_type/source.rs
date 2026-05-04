@@ -43,7 +43,7 @@ impl AttrTypeCoerce for SourceAttrType {
     ) -> buck2_error::Result<CoercedAttr> {
         let source_label = value.unpack_str_err()?;
 
-        let label_err = if source_label.contains(':') {
+        let label_err = if source_label.contains(':') || source_label.contains("//") {
             match ctx.coerce_providers_label(source_label) {
                 Ok(l) => return Ok(CoercedAttr::SourceLabel(l)),
                 Err(e) => Some(e),
