@@ -100,7 +100,6 @@ load(
     "LibOutputStyle",
 )
 load("@prelude//utils:arglike.bzl", "ArgLike")
-load("@prelude//utils:expect.bzl", "expect")
 load(":apple_bundle_types.bzl", "AppleBundleLinkerMapInfo", "AppleMinDeploymentVersionInfo")
 load(":apple_error_handler.bzl", "apple_build_error_handler", "cxx_error_deserializer", "cxx_error_handler")
 load(":apple_frameworks.bzl", "get_framework_search_path_flags")
@@ -630,13 +629,6 @@ def _get_link_style_sub_targets_and_providers(
         )
 
         if get_apple_stripped_attr_value_with_default_fallback(ctx):
-            if False:
-                # TODO(nga): `output.unstripped` is never `None`.
-                def unknown():
-                    pass
-
-                output = unknown()
-            expect(output.unstripped != None, "Expecting unstripped output to be non-null when stripping is enabled.")
             dsym_executable = output.unstripped
         else:
             dsym_executable = output.default
