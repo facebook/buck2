@@ -9,8 +9,8 @@
 # Returns refs that aren't configuration rules
 def _bad_pre_constraint_analysis(
         legacy_platform,
-        package_modifiers: dict[str, typing.Any] | None,
-        target_modifiers: dict[str, typing.Any] | None,
+        package_modifiers: list[typing.Any] | None,
+        target_modifiers: list[typing.Any] | None,
         cli_modifiers: list[str],
         **_kwargs):
     _unused = package_modifiers  # buildifier: disable=unused-variable

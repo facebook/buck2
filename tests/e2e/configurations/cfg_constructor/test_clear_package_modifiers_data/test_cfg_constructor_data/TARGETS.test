@@ -8,12 +8,10 @@ test_rule(
 test_rule(
     name = "has_target_modifier",
     default_target_platform = "ovr_config//platform:base",
-    metadata = {
-        "buck.cfg_modifiers": [
-            "ovr_config//os:linux",
-            "fbcode//buck2/tests/e2e/configurations/cfg_constructor/test_clear_package_modifiers_data/test_cfg_constructor_data:some_constraint_value",
-        ],
-    }
+    modifiers = [
+        "ovr_config//os:linux",
+        "fbcode//buck2/tests/e2e/configurations/cfg_constructor/test_clear_package_modifiers_data/test_cfg_constructor_data:some_constraint_value",
+    ],
 )
 
 native.constraint_setting(
