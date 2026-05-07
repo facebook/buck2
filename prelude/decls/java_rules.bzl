@@ -449,7 +449,6 @@ java_test = prelude_rule(
         jvm_common.test_env() |
         jvm_common.abi_generation_mode() |
         {
-            "default_cxx_platform": attrs.option(attrs.string(), default = None),
             "deps_query": attrs.option(attrs.query(), default = None),
             "discover_all_test_classes": attrs.bool(default = False),
             "exported_deps": attrs.list(attrs.dep(), default = []),

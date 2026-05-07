@@ -233,7 +233,6 @@ kotlin_test = prelude_rule(
                 List of cxx_library targets to build, if use_cxx_libraries is true.
                 This can be useful if some dependencies are Android-only and won't build for the test host platform.
             """),
-            "default_cxx_platform": attrs.option(attrs.string(), default = None),
             "deps_query": attrs.option(attrs.query(), default = None),
             "discover_all_test_classes": attrs.bool(default = False),
             "exported_deps": attrs.list(attrs.dep(), default = []),
