@@ -25,6 +25,7 @@ use std::collections::BTreeMap;
 
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
+use buck2_data::AgentContextEntry;
 
 /// Schema for a single agent context field.
 struct FieldSchema {
@@ -158,6 +159,12 @@ pub(crate) fn validate_agent_context(
         let key = &entry.key;
         let value = &entry.value;
 
+        // Skip keys injected from BUCK2_CLIENT_METADATA env var —
+        // these are not user-provided --agent-context fields.
+        if AgentContextEntry::ENV_INJECTED_KEYS.contains(&key.as_str()) {
+            continue;
+        }
+
         match schema.fields.get(key.as_str()) {
             None => {
                 let valid_keys: Vec<&str> = schema.fields.keys().map(|k| k.as_str()).collect();
@@ -191,4 +198,60 @@ pub(crate) fn validate_agent_context(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn schema_with_intent() -> AgentContextSchema {
+        let mut fields = BTreeMap::new();
+        fields.insert(
+            "intent".to_owned(),
+            FieldSchema {
+                required: false,
+                allowed_values: vec!["build".to_owned(), "test".to_owned()],
+                description: String::new(),
+            },
+        );
+        AgentContextSchema {
+            enforced_clients: vec!["claude_code".to_owned()],
+            fields,
+        }
+    }
+
+    fn entry(key: &str, value: &str) -> buck2_data::AgentContextEntry {
+        buck2_data::AgentContextEntry {
+            key: key.to_owned(),
+            value: value.to_owned(),
+        }
+    }
+
+    #[test]
+    fn test_env_injected_keys_bypass_validation() {
+        let schema = schema_with_intent();
+        let entries = vec![
+            entry("id", "claude_code"),
+            entry("invocation_id", "claude_code_invocation_abc123"),
+            entry("intent", "test"),
+        ];
+        assert!(validate_agent_context(&schema, Some("claude_code"), &entries).is_ok());
+    }
+
+    #[test]
+    fn test_env_injected_keys_alone_pass_validation() {
+        let schema = schema_with_intent();
+        let entries = vec![
+            entry("id", "claude_code"),
+            entry("invocation_id", "claude_code_invocation_abc123"),
+        ];
+        assert!(validate_agent_context(&schema, Some("claude_code"), &entries).is_ok());
+    }
+
+    #[test]
+    fn test_unknown_key_still_rejected() {
+        let schema = schema_with_intent();
+        let entries = vec![entry("id", "claude_code"), entry("bogus_key", "value")];
+        assert!(validate_agent_context(&schema, Some("claude_code"), &entries).is_err());
+    }
 }

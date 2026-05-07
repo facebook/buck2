@@ -250,6 +250,14 @@ pub fn exec(process: ProcessContext<'_>) -> ExitResult {
             .splice(0..0, client_metadata);
     }
 
+    let agent_env_metadata = AgentContextEntry::from_env()?;
+    if !agent_env_metadata.is_empty() {
+        opt.opt
+            .common_opts
+            .agent_context
+            .splice(0..0, agent_env_metadata);
+    }
+
     // If --client-metadata=? was not set and from_env did not find "id", then
     // if we are running in a terminal, we add id=terminal-fallback to
     // opt.opt.common_opts.client_metadata to transmit to scuba that the client

@@ -400,11 +400,21 @@ async fn test(
 
     let project_root = server_ctx.project_root();
     let tpx_experiments = get_tpx_experiments(ctx.dupe(), project_root).await?;
+
+    // Forward AI agent identity to TPX as run tags (e.g. ai_agent_id=claude_code).
+    #[allow(unused_mut)]
+    let mut extra_tpx_args: Vec<String> = Vec::new();
+    #[cfg(fbcode_build)]
+    extra_tpx_args.extend(ai_agent_tpx_args(&client_ctx.agent_context));
+
+    let mut test_executor_args = request.test_executor_args.clone();
+    test_executor_args.extend(extra_tpx_args);
+
     let test_outcome = test_targets(
         ctx.dupe(),
         resolved_pattern,
         global_cfg_options,
-        request.test_executor_args.clone(),
+        test_executor_args,
         Arc::new(TestLabelFiltering::new(
             request.included_labels.clone(),
             request.excluded_labels.clone(),
@@ -1613,12 +1623,49 @@ fn post_process_test_executor(s: &str) -> buck2_error::Result<PathBuf> {
     }
 }
 
+/// Generates `--tags` TPX args from agent context entries.
+/// Tags exceeding 80 chars are silently dropped to avoid TPX failures
+/// (testinfra MAXIMUM_TAG_LENGTH = 80).
+fn ai_agent_tpx_args(agent_context: &[buck2_data::AgentContextEntry]) -> Vec<String> {
+    use buck2_data::AgentContextEntry;
+
+    const MAX_TAG_LEN: usize = 80;
+
+    let find = |key: &str| agent_context.iter().find(|e| e.key == key);
+
+    let Some(id_entry) = find(AgentContextEntry::KEY_ID) else {
+        return Vec::new();
+    };
+
+    let mut args = Vec::new();
+    let mut push_tag = |tag: String| {
+        if tag.len() <= MAX_TAG_LEN {
+            args.extend(["--tags".to_owned(), tag]);
+        }
+    };
+
+    push_tag("ai-agent".to_owned());
+    push_tag(format!("ai_agent_id={}", &id_entry.value));
+
+    if let Some(inv) = find(AgentContextEntry::KEY_INVOCATION_ID) {
+        let inv_id = inv
+            .value
+            .rsplit_once("_invocation_")
+            .map_or(inv.value.as_str(), |(_, uuid)| uuid);
+        push_tag(format!("ai_inv_id={}", inv_id));
+    }
+
+    args
+}
+
 #[cfg(test)]
 mod tests {
     use buck2_cli_proto::RepresentativeConfigFlag;
     use buck2_cli_proto::representative_config_flag;
+    use buck2_data::AgentContextEntry;
 
     use crate::command::TestLabelFiltering;
+    use crate::command::ai_agent_tpx_args;
     use crate::command::generate_config_entry_args;
 
     #[test]
@@ -1843,5 +1890,82 @@ mod tests {
         generate_config_entry_args(&mut args, &config_flags);
 
         assert_eq!(args, vec!["--config-entry", "config=key=value"]);
+    }
+
+    fn agent_entry(key: &str, value: &str) -> AgentContextEntry {
+        AgentContextEntry {
+            key: key.to_owned(),
+            value: value.to_owned(),
+        }
+    }
+
+    #[test]
+    fn test_ai_agent_tpx_args_claude_code() {
+        let ctx = vec![
+            agent_entry("id", "claude_code"),
+            agent_entry(
+                "invocation_id",
+                "claude_code_invocation_c9e892fa-148a-4494-8466-c1f44f1647d3",
+            ),
+        ];
+        assert_eq!(
+            ai_agent_tpx_args(&ctx),
+            vec![
+                "--tags",
+                "ai-agent",
+                "--tags",
+                "ai_agent_id=claude_code",
+                "--tags",
+                "ai_inv_id=c9e892fa-148a-4494-8466-c1f44f1647d3",
+            ]
+        );
+    }
+
+    #[test]
+    fn test_ai_agent_tpx_args_devmate() {
+        let ctx = vec![
+            agent_entry("id", "devmate_vscode"),
+            agent_entry(
+                "invocation_id",
+                "agent--38920caa-4558-45dd-bc90-b6abff501f8a",
+            ),
+        ];
+        let args = ai_agent_tpx_args(&ctx);
+        assert_eq!(
+            args,
+            vec![
+                "--tags",
+                "ai-agent",
+                "--tags",
+                "ai_agent_id=devmate_vscode",
+                "--tags",
+                "ai_inv_id=agent--38920caa-4558-45dd-bc90-b6abff501f8a",
+            ]
+        );
+    }
+
+    #[test]
+    fn test_ai_agent_tpx_args_no_invocation_id() {
+        let ctx = vec![agent_entry("id", "some_agent")];
+        assert_eq!(
+            ai_agent_tpx_args(&ctx),
+            vec!["--tags", "ai-agent", "--tags", "ai_agent_id=some_agent"]
+        );
+    }
+
+    #[test]
+    fn test_ai_agent_tpx_args_no_agent() {
+        let ctx = vec![agent_entry("intent", "build")];
+        let args = ai_agent_tpx_args(&ctx);
+        assert!(args.is_empty());
+    }
+
+    #[test]
+    fn test_ai_agent_tpx_args_tag_too_long() {
+        let long_name = "a".repeat(80); // ai_agent_id= is 14 chars + 80 = 94 > 80
+        let ctx = vec![agent_entry("id", &long_name)];
+        let args = ai_agent_tpx_args(&ctx);
+        // ai-agent (8 chars) is kept, ai_agent_id=aaa... (94 chars) is dropped
+        assert_eq!(args, vec!["--tags", "ai-agent"]);
     }
 }

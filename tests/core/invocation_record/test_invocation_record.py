@@ -145,6 +145,21 @@ async def test_client_metadata_env(buck: Buck) -> None:
     assert record["metadata"]["strings"]["client"] == "baz"
 
 
+@buck_test(skip_for_os=["windows"], write_invocation_record=True)
+async def test_agent_context_from_env(buck: Buck) -> None:
+    res = await buck.build(
+        env={
+            "CODING_AGENT_METADATA": "id=test_agent,invocation_id=test_inv_123",
+        },
+    )
+
+    record = res.invocation_record()
+    agent_ctx = {e["key"]: e["value"] for e in record["agent_context"]}
+
+    assert agent_ctx["id"] == "test_agent"
+    assert agent_ctx["invocation_id"] == "test_inv_123"
+
+
 @buck_test(skip_for_os=["windows"], write_invocation_record=True)  # TODO(T154836632)
 async def test_client_metadata_clean(buck: Buck) -> None:
     # Start the daemon
