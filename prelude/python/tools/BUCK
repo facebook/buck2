@@ -157,3 +157,9 @@ prelude.python_bootstrap_binary(
     main = "gather_libpython_symbols.py",
     visibility = ["PUBLIC"],
 )
+
+prelude.python_bootstrap_binary(
+    name = "make_py_package_standalone",
+    main = "make_py_package_standalone.py",
+    visibility = ["PUBLIC"],
+)
