@@ -105,8 +105,18 @@ in many places:
 
 ### Example remote execution
 
-We are compiling `libfoo.o`. The diagram shows Buck2 calculating an Action that represents
-compiling `libfoo.o`, looking it up in the Action Cache, and alternatively:
+This example follows these actions
+
+```sh
+# elided: compile main.o
+gcc -c foo.c -o libfoo.o
+gcc libfoo.o main.o -o exe
+```
+
+First we will focus on the first action, compiling `libfoo.o`. The 
+diagram shows Buck2 calculating an Action that represents compiling 
+`libfoo.o`,
+looking it up in the Action Cache, and alternatively:
 
 - **cache miss**: executing the action and populating its entry in the action cache, finally materializing
   `libfoo.o` locally; or
@@ -151,6 +161,66 @@ sequenceDiagram
     Note right of B: real_hash = hex(first 8 bytes of digest D) = 97752af0dd8a8d17
     Note right of B: Materialize libfoo.o at resolved path:<br/>buck-out/v2/art/97752af0dd8a8d17/__target__/libfoo.o
     end
+```
+
+Now we'll think about the second action, `gcc libfoo.o main.o -o exe`. 
+This depends on the first action. Before `libfoo.o` is compiled, the 
+second action's action key is incomplete, and we cannot query the
+action cache for it:
+
+```mermaid
+flowchart LR
+    classDef action fill:#fff0d7,stroke:#e69e22;
+    classDef artifact fill:#d5eafc;
+    classDef unresolved fill:#eeeeee,stroke:#aaaaaa,color:#444;
+    %% Action[Action] ~~~ Art{{Artifact}} ~~~ Action2[Unresolved Action] ~~~ Art2{{Unresolved Artifact}}
+    A[gcc -c foo.c -o output_artifacts/libfoo.o] -.-> L{{<b>???/libfoo.o</b>}}
+    C[...] --> M
+    L -.-> B[gcc <b>???/libfoo.o</b> 0d0932f1/main.o -o exe]
+    M{{0d0932f1/main.o}} --> B
+    B -.-> E{{<b>???/exe</b>}}
+    class Action,A action
+    class Art2,L,Action2,B,E unresolved
+    class Art,M artifact
+    style C fill:transparent,stroke:transparent
+```
+
+After `libfoo.o` is resolved to its content-based path, the action key is
+fully known and it can be queried or executed:
+
+```mermaid
+flowchart LR
+    classDef action fill:#fff0d7,stroke:#e69e22;
+    classDef artifact fill:#d5eafc;
+    classDef unresolved fill:#eeeeee,stroke:#aaaaaa,color:#444;
+    A[gcc -c foo.c -o output_artifacts/libfoo.o] --> 
+    L{{<b>97752af0/libfoo.o</b>}}
+    C[...] --> M
+    L --> B[gcc <b>97752af0/libfoo.o</b> 0d0932f1/main.o -o exe]
+    M{{0d0932f1/main.o}} --> B
+    B -.-> E{{<b>???/exe</b>}}
+    class Action,A,B action
+    class Art,M,L artifact
+    class E unresolved
+    style C fill:transparent,stroke:transparent
+```
+
+And finally querying or executing this action gives you the output 
+artifact `exe`:
+
+```mermaid
+flowchart LR
+    classDef action fill:#fff0d7,stroke:#e69e22;
+    classDef artifact fill:#d5eafc;
+    A[gcc -c foo.c -o output_artifacts/libfoo.o] --> 
+    L{{<b>97752af0/libfoo.o</b>}}
+    C[...] --> M
+    L --> B[gcc <b>97752af0/libfoo.o</b> 0d0932f1/main.o -o exe]
+    M{{0d0932f1/main.o}} --> B
+    B --> E{{<b>37e0f5f7/exe</b>}}
+    class Action,A,B action
+    class Art,M,L,E artifact
+    style C fill:transparent,stroke:transparent
 ```
 
 ## Enabling content-based paths
