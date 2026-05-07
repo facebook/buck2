@@ -31,7 +31,10 @@ def get_apple_stripped_attr_value_with_default_fallback(ctx: AnalysisContext) ->
         return stripped
 
     # Fallback to the default stripped override which is driven by buckconfig
-    return ctx.attrs._stripped_default
+    if ctx.attrs._stripped_default:
+        return True
+
+    return ctx.attrs.strip_level != "unstripped"
 
 def expand_relative_prefixed_sdk_path(
         swift_toolchain_info: SwiftToolchainInfo,

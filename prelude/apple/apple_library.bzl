@@ -632,6 +632,7 @@ def _get_link_style_sub_targets_and_providers(
             dsym_executable = output.unstripped
         else:
             dsym_executable = output.default
+
         dsym_artifact = get_apple_dsym(
             ctx = ctx,
             executable = dsym_executable,
