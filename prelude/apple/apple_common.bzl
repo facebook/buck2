@@ -338,6 +338,12 @@ def _sdk_modules_arg():
 def _static_library_basename_arg():
     return {"static_library_basename": attrs.option(attrs.string(), default = None)}
 
+def _strip_level_arg():
+    return {"strip_level": attrs.enum(
+        ["unstripped", "all", "non_global", "debug"],
+        default = read_root_config("apple", "strip_level", "unstripped"),
+    )}
+
 def _stripped_default_arg():
     return {"_stripped_default": attrs.bool(default = False)}
 
@@ -441,6 +447,7 @@ apple_common = struct(
     resource_group_arg = _resource_group_arg,
     sdk_modules_arg = _sdk_modules_arg,
     static_library_basename_arg = _static_library_basename_arg,
+    strip_level_arg = _strip_level_arg,
     stripped_default_arg = _stripped_default_arg,
     swift_module_skip_function_bodies_arg = _swift_module_skip_function_bodies_arg,
     swift_package_name_arg = _swift_package_name_arg,

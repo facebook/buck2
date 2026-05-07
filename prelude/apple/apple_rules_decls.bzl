@@ -321,6 +321,7 @@ apple_binary = prelude_rule(
         apple_common.sdk_modules_arg() |
         native_common.soname() |
         apple_common.static_library_basename_arg() |
+        apple_common.strip_level_arg() |
         apple_common.stripped_default_arg() |
         apple_common.swift_module_skip_function_bodies_arg() |
         apple_common.swift_package_name_arg() |
@@ -621,6 +622,7 @@ apple_library = prelude_rule(
         apple_common.sdk_modules_arg() |
         native_common.soname() |
         apple_common.static_library_basename_arg() |
+        apple_common.strip_level_arg() |
         apple_common.stripped_default_arg() |
         apple_common.swift_module_skip_function_bodies_arg() |
         apple_common.swift_package_name_arg() |
@@ -1174,6 +1176,7 @@ prebuilt_apple_framework = prelude_rule(
         apple_common.deps_arg() |
         apple_common.libraries_arg() |
         apple_common.sdk_modules_arg() |
+        apple_common.strip_level_arg() |
         apple_common.stripped_default_arg() |
         {
             "preferred_linkage": attrs.enum(Linkage.values(), default = "any", doc = """
