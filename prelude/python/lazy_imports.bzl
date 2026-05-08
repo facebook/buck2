@@ -8,6 +8,15 @@
 
 load(":toolchain.bzl", "PythonToolchainInfo")
 
+def _get_main_module(ctx: AnalysisContext) -> str | None:
+    main_module = getattr(ctx.attrs, "main_module", None)
+    if main_module != None:
+        return main_module
+    main_function = getattr(ctx.attrs, "main_function", None)
+    if main_function != None:
+        return ""
+    return None
+
 def run_lazy_imports_analyzer(
         ctx: AnalysisContext,
         resources,
@@ -23,6 +32,11 @@ def run_lazy_imports_analyzer(
     cmd.add(output.as_output())  # Second arg: <OUTPUT_PATH>
     cmd.add("--buck_mode")
     cmd.add("buck-build")
+
+    main_module = _get_main_module(ctx)
+    if main_module != None:
+        cmd.add("--main-module")
+        cmd.add(main_module)
 
     ctx.actions.run(
         cmd,
@@ -71,6 +85,11 @@ def run_lazy_imports_cached_analysis(
     for cache in dep_caches:
         cmd.add("--cache")
         cmd.add(cache)
+
+    main_module = _get_main_module(ctx)
+    if main_module != None:
+        cmd.add("--main-module")
+        cmd.add(main_module)
 
     ctx.actions.run(
         cmd,
