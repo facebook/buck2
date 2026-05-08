@@ -30,6 +30,7 @@ use dupe::Dupe;
 use itertools::Itertools;
 use starlark_syntax::syntax::ast::Visibility;
 
+use crate as starlark;
 use crate::collections::Hashed;
 use crate::docs::DocModule;
 use crate::docs::DocString;
@@ -95,7 +96,12 @@ pub struct FrozenModule {
     pub(crate) eval_duration: Duration,
 }
 
-#[derive(Debug, Allocative)]
+#[derive(
+    Debug,
+    Allocative,
+    pagable::PagablePanic,
+    starlark_derive::StarlarkPagableViaPagable
+)]
 pub(crate) struct FrozenModuleData {
     pub(crate) names: FrozenNames,
     pub(crate) slots: FrozenSlots,

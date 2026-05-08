@@ -20,12 +20,22 @@ use std::fmt::Display;
 
 use dupe::Dupe;
 
+use crate as starlark;
 use crate::eval::runtime::frozen_file_span::FrozenFileSpan;
 use crate::eval::runtime::inlined_frame::InlinedFrames;
 use crate::register_starlark_any;
 
 /// Span of the call frame (including inlined call frames).
-#[derive(Debug, Clone, Copy, Dupe, PartialEq, Eq, Default)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Dupe,
+    PartialEq,
+    Eq,
+    Default,
+    starlark_derive::StarlarkPagable
+)]
 pub(crate) struct FrameSpan {
     pub(crate) span: FrozenFileSpan,
     /// Parent frames.

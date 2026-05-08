@@ -33,10 +33,11 @@
 //!
 //! use starlark::assert::Assert;
 //! use starlark::environment::GlobalsBuilder;
+//! use starlark::values::StarlarkPagablePanic;
 //! use starlark::values::Value;
 //! use starlark::values::any::StarlarkAny;
 //!
-//! #[derive(Debug)]
+//! #[derive(Debug, StarlarkPagablePanic)]
 //! struct MyInstant(Instant);
 //!
 //! starlark::register_starlark_any!(MyInstant);
@@ -79,6 +80,7 @@ use dupe::Clone_;
 use dupe::Copy_;
 use dupe::Dupe_;
 use starlark_derive::NoSerialize;
+use starlark_derive::StarlarkPagable;
 use starlark_derive::starlark_value;
 
 use crate as starlark;
@@ -115,6 +117,25 @@ pub struct StarlarkAny<T: Debug + Send + Sync + 'static>(
     pub  T,
 );
 
+impl<T: StarlarkAnyRegistered> crate::pagable::StarlarkSerialize for StarlarkAny<T> {
+    fn starlark_serialize(
+        &self,
+        ctx: &mut dyn crate::pagable::StarlarkSerializeContext,
+    ) -> crate::Result<()> {
+        <T as crate::pagable::StarlarkSerialize>::starlark_serialize(&self.0, ctx)
+    }
+}
+
+impl<T: StarlarkAnyRegistered> crate::pagable::StarlarkDeserialize for StarlarkAny<T> {
+    fn starlark_deserialize(
+        ctx: &mut dyn crate::pagable::StarlarkDeserializeContext<'_>,
+    ) -> crate::Result<Self> {
+        Ok(StarlarkAny(
+            <T as crate::pagable::StarlarkDeserialize>::starlark_deserialize(ctx)?,
+        ))
+    }
+}
+
 /// Marker trait certifying that `T` has been registered for both the
 /// heap vtable (`StarlarkAny<T>` usable as a `Value`) and the typing
 /// vtable (`HasTyVTable` for `StarlarkAny<T>`).
@@ -130,7 +151,9 @@ pub struct StarlarkAny<T: Debug + Send + Sync + 'static>(
 /// `StarlarkAny<Self>` via [`register_simple_vtable_entry!`]. Use the
 /// [`register_starlark_any!`] macro instead of implementing this trait
 /// manually — it handles both the trait impl and the vtable registration.
-pub unsafe trait StarlarkAnyRegistered: Debug + Send + Sync + 'static {
+pub unsafe trait StarlarkAnyRegistered:
+    Debug + Send + Sync + 'static + crate::pagable::StarlarkPagable
+{
     /// Typing vtable entry for `StarlarkAny<Self>`.
     const TY_VTABLE_STATIC: pagable::StaticValue<TyStarlarkValueVTable>;
 }
@@ -144,7 +167,7 @@ where
         <T as StarlarkAnyRegistered>::TY_VTABLE_STATIC;
 }
 
-#[starlark_value(type = "any")]
+#[starlark_value(type = "any", skip_pagable)]
 impl<'v, T: StarlarkAnyRegistered> StarlarkValue<'v> for StarlarkAny<T> {
     type Canonical = Self;
 }
@@ -296,7 +319,7 @@ macro_rules! static_starlark_any {
 /// - `Deref` trait with `Target = T` directly to the inner value (skipping `StarlarkAny`)
 /// - `Display` trait delegating to `T::Display` (not the Starlark `<any>` repr)
 /// - `Debug` trait delegating to `T::Debug`
-#[derive(Allocative, Copy_, Clone_, Dupe_)]
+#[derive(Allocative, StarlarkPagable, Copy_, Clone_, Dupe_)]
 #[allocative(skip)]
 pub struct FrozenAnyValue<T: StarlarkAnyRegistered>(FrozenValueTyped<'static, StarlarkAny<T>>);
 

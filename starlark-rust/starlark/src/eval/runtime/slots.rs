@@ -83,7 +83,7 @@ impl LocalCapturedSlotId {
 /// Local slot id, when we don't know if it is captured or not.
 ///
 /// This is used only during AST analysis.
-#[derive(Clone, Copy, Dupe, Debug, PartialEq, Eq, Trace)]
+#[derive(Clone, Copy, Dupe, Debug, PartialEq, Eq, Trace, pagable::Pagable)]
 pub(crate) struct LocalSlotIdCapturedOrNot(pub(crate) u32);
 
 register_starlark_any!(LocalSlotId);

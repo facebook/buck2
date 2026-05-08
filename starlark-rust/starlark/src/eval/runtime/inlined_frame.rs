@@ -19,6 +19,7 @@ use std::ptr;
 
 use dupe::Dupe;
 
+use crate as starlark;
 use crate::errors::Frame;
 use crate::eval::runtime::frame_span::FrameSpan;
 use crate::register_starlark_any;
@@ -28,7 +29,7 @@ use crate::values::any::FrozenAnyValue;
 
 /// When a function `a` is inlined into `b`, this struct contains
 /// the inlined frame for expressions in `a` which now reside in `b`.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, starlark_derive::StarlarkPagable)]
 pub(crate) struct InlinedFrame {
     pub(crate) span: FrameSpan,
     pub(crate) fun: FrozenValue,
@@ -48,7 +49,7 @@ impl InlinedFrame {
 }
 
 /// Stack of inlined frames (maybe empty).
-#[derive(Copy, Clone, Dupe, Debug, Default)]
+#[derive(Copy, Clone, Dupe, Debug, Default, starlark_derive::StarlarkPagable)]
 pub(crate) struct InlinedFrames {
     /// Linked list.
     pub(crate) frames: Option<FrozenAnyValue<InlinedFrame>>,

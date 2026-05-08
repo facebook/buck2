@@ -317,7 +317,13 @@ impl<T> ParametersCompiled<T> {
 }
 
 /// Copy local variable slot to nested function.
-#[derive(Debug, Clone, Dupe)]
+#[derive(
+    Debug,
+    Clone,
+    Dupe,
+    pagable::Pagable,
+    starlark_derive::StarlarkPagableViaPagable
+)]
 pub(crate) struct CopySlotFromParent {
     /// Slot in the outer function.
     pub(crate) parent: LocalSlotIdCapturedOrNot,
@@ -329,6 +335,7 @@ pub(crate) struct CopySlotFromParent {
 #[derive(Derivative, Display)]
 #[derivative(Debug)]
 #[display("DefInfo")]
+#[derive(pagable::PagablePanic, starlark_derive::StarlarkPagableViaPagable)]
 pub(crate) struct DefInfo {
     pub(crate) name: FrozenStringValue,
     /// Span of function signature.

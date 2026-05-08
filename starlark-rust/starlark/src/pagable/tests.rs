@@ -1732,3 +1732,75 @@ fn test_arc_blanket_round_trip() -> crate::Result<()> {
 
     Ok(())
 }
+
+// ============================================================================
+// StarlarkAny<T> / FrozenAnyValue<T> round-trip
+// ============================================================================
+
+/// Pure-data payload for `StarlarkAny` tests. `StarlarkPagable` derive so the
+/// inner data round-trips; `register_starlark_any!` registers the typing
+/// vtable entry needed for `StarlarkAny<AnyPayload>` to participate in ser/de.
+#[derive(Debug, Clone, PartialEq, Eq, StarlarkPagable)]
+struct AnyPayload {
+    name: String,
+    count: u32,
+}
+
+crate::register_starlark_any!(AnyPayload);
+crate::register_any_array!(AnyPayload);
+
+#[test]
+fn test_starlark_any_round_trip() -> crate::Result<()> {
+    // 1. Allocate a `StarlarkAny<AnyPayload>` via `alloc_any_value`.
+    let heap = FrozenHeap::new();
+    let payload = AnyPayload {
+        name: "hello".to_owned(),
+        count: 7,
+    };
+    heap.alloc_any_value(payload.clone());
+    let heap_ref = heap.into_ref_named(TestHeapName::heap_name("test_starlark_any"));
+
+    // 2. Round-trip via pagable serialize/deserialize.
+    let restored = round_trip_heap_ref(&heap_ref)?;
+
+    // 3. Verify: downcast to typed value and check fields.
+    //    `StarlarkAny<AnyPayload>` lives in the drop bump because `AnyPayload`
+    //    owns `String` (needs Drop).
+    let headers = restored.collect_drop_headers_ordered();
+    assert_eq!(headers.len(), 1);
+    let avalue = headers[0].unpack();
+    let any_payload: &crate::values::any::StarlarkAny<AnyPayload> = avalue.downcast_ref().unwrap();
+    assert_eq!(any_payload.0, payload);
+
+    Ok(())
+}
+
+#[test]
+fn test_starlark_any_multiple_values_round_trip() -> crate::Result<()> {
+    // Two independent `StarlarkAny<AnyPayload>` on the same heap.
+    let heap = FrozenHeap::new();
+    let a = AnyPayload {
+        name: "first".to_owned(),
+        count: 1,
+    };
+    let b = AnyPayload {
+        name: "second".to_owned(),
+        count: 2,
+    };
+    heap.alloc_any_value(a.clone());
+    heap.alloc_any_value(b.clone());
+    let heap_ref = heap.into_ref_named(TestHeapName::heap_name("test_starlark_any_multi"));
+
+    let restored = round_trip_heap_ref(&heap_ref)?;
+
+    let headers = restored.collect_drop_headers_ordered();
+    assert_eq!(headers.len(), 2);
+    let got_a: &crate::values::any::StarlarkAny<AnyPayload> =
+        headers[0].unpack().downcast_ref().unwrap();
+    let got_b: &crate::values::any::StarlarkAny<AnyPayload> =
+        headers[1].unpack().downcast_ref().unwrap();
+    assert_eq!(got_a.0, a);
+    assert_eq!(got_b.0, b);
+
+    Ok(())
+}

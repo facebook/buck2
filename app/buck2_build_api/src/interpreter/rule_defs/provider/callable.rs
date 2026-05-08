@@ -237,7 +237,7 @@ fn create_callable_function_signature(
     Ok((parameters_spec, TyCallable::new(param_spec, ret_ty)))
 }
 
-#[derive(Debug, Allocative)]
+#[derive(Debug, Allocative, starlark::values::StarlarkPagablePanic)]
 pub(crate) struct UserProviderCallableData {
     pub(crate) provider_id: Arc<ProviderId>,
     /// Type id of provider callable instance.

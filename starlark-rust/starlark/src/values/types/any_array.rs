@@ -163,11 +163,12 @@ mod tests {
 
     use dupe::Dupe;
 
+    use crate as starlark;
     use crate::register_starlark_any;
     use crate::values::FrozenHeap;
 
     // Type used for drop test - must be at module level for registration.
-    #[derive(Debug, Clone, Dupe)]
+    #[derive(Debug, Clone, Dupe, starlark_derive::StarlarkPagablePanic)]
     struct IncrementOnDrop(Arc<AtomicU32>);
 
     impl Drop for IncrementOnDrop {

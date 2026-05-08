@@ -47,7 +47,13 @@ assert_eq(y, str(x))
     );
 }
 
-#[derive(Default, Debug, Display, starlark::any::ProvidesStaticType)]
+#[derive(
+    Default,
+    Debug,
+    Display,
+    starlark::any::ProvidesStaticType,
+    starlark_derive::StarlarkPagablePanic
+)]
 struct Dealloc;
 
 impl Drop for Dealloc {

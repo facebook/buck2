@@ -300,6 +300,25 @@ impl<T: ?Sized> StarlarkDeserialize for PhantomData<T> {
     }
 }
 
+// ============================================================================
+// CodeMap (from starlark_syntax) — bridges its `pagable::Pagable` impl into the
+// starlark ser/de layer. Manual impl because we can't add `StarlarkPagableViaPagable`
+// derive on a foreign type from outside its crate.
+// ============================================================================
+
+impl StarlarkSerialize for starlark_syntax::codemap::CodeMap {
+    fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
+        PagableSerialize::pagable_serialize(self, ctx.pagable())?;
+        Ok(())
+    }
+}
+
+impl StarlarkDeserialize for starlark_syntax::codemap::CodeMap {
+    fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
+        Ok(PagableDeserialize::pagable_deserialize(ctx.pagable())?)
+    }
+}
+
 impl StarlarkSerialize for NonZeroI32 {
     fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
         self.get().pagable_serialize(ctx.pagable())?;

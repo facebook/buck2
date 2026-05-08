@@ -22,6 +22,7 @@ use dupe::Dupe;
 use itertools::Itertools;
 use once_cell::sync::OnceCell;
 
+use crate as starlark;
 use crate::__derive_refs::components::NativeCallableComponents;
 use crate::collections::SmallMap;
 use crate::collections::symbol::map::SymbolMap;
@@ -51,7 +52,7 @@ use crate::values::types::function::NativeFunction;
 
 /// The global values available during execution.
 #[derive(Clone, Dupe, Debug, Allocative)]
-#[derive(pagable::PagablePanic)]
+#[derive(pagable::PagablePanic, starlark_derive::StarlarkPagableViaPagable)]
 pub struct Globals(Arc<GlobalsData>);
 
 type GlobalValue = MaybeDocHiddenValue<'static, FrozenValue>;
