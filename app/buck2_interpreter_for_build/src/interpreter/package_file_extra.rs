@@ -27,6 +27,7 @@ use starlark::values::FrozenValue;
 use starlark::values::NoSerialize;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::OwnedFrozenValueTyped;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Tracer;
@@ -75,7 +76,8 @@ unsafe impl<'v> Trace<'v> for PackageFileExtra<'v> {
     NoSerialize,
     derive_more::Display,
     ProvidesStaticType,
-    Allocative
+    Allocative,
+    StarlarkPagable
 )]
 #[display("{:?}", self)]
 pub struct FrozenPackageFileExtra {
@@ -90,10 +92,10 @@ pub static MAKE_CFG_CONSTRUCTOR: LateBinding<
 
 // TODO(nga): this does not need to be fully starlark_value,
 // but we don't have lighter machinery for that.
-#[starlark_value(type = "PackageFileExtra")]
+#[starlark_value(type = "PackageFileExtra", skip_pagable)]
 impl<'v> StarlarkValue<'v> for PackageFileExtra<'v> {}
 
-#[starlark_value(type = "PackageFileExtra")]
+#[starlark_value(type = "PackageFileExtra", skip_pagable)]
 impl<'v> StarlarkValue<'v> for FrozenPackageFileExtra {
     type Canonical = FrozenPackageFileExtra;
 }

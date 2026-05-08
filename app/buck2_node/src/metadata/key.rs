@@ -17,6 +17,11 @@ use dupe::Dupe;
 use pagable::Pagable;
 use ref_cast::RefCast;
 use serde::Serialize;
+use starlark::collections::Hashed;
+use starlark::pagable::SmallMapKeyDeserialize;
+use starlark::pagable::StarlarkDeserialize;
+use starlark::pagable::StarlarkDeserializeContext;
+use starlark::values::StarlarkPagableViaPagable;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]
@@ -28,8 +33,19 @@ pub enum MetadataKeyError {
 /// A String that we validated conforms to our rules for metadata keys (whih are quite relaxed:
 /// they must contain exactly one dot).
 #[derive(
-    PartialEq, Eq, PartialOrd, Ord, Display, Debug, Clone, Dupe, Allocative, Serialize, Hash,
-    Pagable
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Display,
+    Debug,
+    Clone,
+    Dupe,
+    Allocative,
+    Serialize,
+    Hash,
+    Pagable,
+    StarlarkPagableViaPagable
 )]
 #[serde(transparent)]
 pub struct MetadataKey(ArcStr);
@@ -37,6 +53,15 @@ pub struct MetadataKey(ArcStr);
 impl MetadataKey {
     pub fn as_str(&self) -> &str {
         self.0.as_str()
+    }
+}
+
+impl SmallMapKeyDeserialize for MetadataKey {
+    fn starlark_deserialize_hashed(
+        ctx: &mut dyn StarlarkDeserializeContext<'_>,
+    ) -> starlark::Result<Hashed<Self>> {
+        let k = Self::starlark_deserialize(ctx)?;
+        Ok(Hashed::new(k))
     }
 }
 

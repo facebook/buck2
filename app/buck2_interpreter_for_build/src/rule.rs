@@ -59,6 +59,7 @@ use starlark::values::FrozenValue;
 use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
 use starlark::values::Trace;
@@ -130,7 +131,7 @@ struct ArtifactPromiseMappings<'v> {
 }
 
 /// Mappings of frozen promise artifact name to the frozen starlark function that will produce it, for anon targets.
-#[derive(Debug, ProvidesStaticType, Trace, Allocative)]
+#[derive(Debug, ProvidesStaticType, Trace, Allocative, StarlarkPagable)]
 pub struct FrozenArtifactPromiseMappings {
     pub mappings: SmallMap<FrozenStringValue, FrozenValue>,
 }
@@ -359,7 +360,7 @@ impl<'v> StarlarkRuleCallable<'v> {
     }
 }
 
-#[starlark_value(type = "Rule")]
+#[starlark_value(type = "Rule", skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkRuleCallable<'v> {
     fn export_as(
         &self,
@@ -395,7 +396,7 @@ impl<'v> StarlarkValue<'v> for StarlarkRuleCallable<'v> {
     }
 }
 
-#[derive(Debug, ProvidesStaticType, Allocative, Clone, Dupe)]
+#[derive(Debug, ProvidesStaticType, Allocative, Clone, Dupe, StarlarkPagable)]
 enum FrozenRuleImpl {
     BuildRule(FrozenStarlarkCallable<(FrozenValue,), ListType<FrozenValue>>),
     BxlAnon(FrozenStarlarkCallable<(FrozenValue, FrozenValue), ListType<FrozenValue>>),
@@ -472,17 +473,28 @@ impl<'v> Freeze for StarlarkRuleCallable<'v> {
     }
 }
 
-#[derive(Debug, Display, ProvidesStaticType, NoSerialize, Allocative)]
+#[derive(
+    Debug,
+    Display,
+    ProvidesStaticType,
+    NoSerialize,
+    Allocative,
+    StarlarkPagable
+)]
 #[display("{}()", rule.rule_type.name())]
 pub struct FrozenStarlarkRuleCallable {
+    #[starlark_pagable(pagable)]
     rule: Arc<Rule>,
     /// Identical to `rule.rule_type` but more specific type.
+    #[starlark_pagable(pagable)]
     rule_type: Arc<StarlarkRuleType>,
     implementation: FrozenRuleImpl,
     /// We don't need rely on `signature` to get the default value here, instead we get the default
     /// value from `Rule.attributes`. So use in the ParametersSpecNoDefaults for more clarity
     signature: ParametersSpec<FrozenValue>,
+    #[starlark_pagable(pagable)]
     rule_docs: DocItem,
+    #[starlark_pagable(pagable)]
     ty: Ty,
     ignore_attrs_for_profiling: bool,
     artifact_promise_mappings: Option<FrozenArtifactPromiseMappings>,
@@ -526,7 +538,7 @@ impl FrozenStarlarkRuleCallable {
     }
 }
 
-#[starlark_value(type = "Rule")]
+#[starlark_value(type = "Rule", skip_pagable)]
 impl<'v> StarlarkValue<'v> for FrozenStarlarkRuleCallable {
     type Canonical = StarlarkRuleCallable<'v>;
 

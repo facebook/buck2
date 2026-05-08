@@ -30,6 +30,7 @@ mod tests;
 use std::iter;
 
 use allocative::Allocative;
+use pagable::Pagable;
 pub use parse::DocStringKind;
 use starlark_map::small_map::SmallMap;
 
@@ -42,7 +43,7 @@ use crate::values::Trace;
 use crate::values::type_repr::StarlarkTypeRepr;
 
 /// The documentation provided by a user for a specific module, object, function, etc.
-#[derive(Debug, Clone, PartialEq, Trace, Default, Allocative)]
+#[derive(Debug, Clone, PartialEq, Trace, Default, Allocative, Pagable)]
 pub struct DocString {
     /// The first line of a doc string. This has whitespace trimmed from it.
     pub summary: String,
@@ -56,7 +57,7 @@ pub struct DocString {
 /// The documentation for a module/namespace.
 ///
 /// See the docs on [`DocType`] for the distinction between that type and this one.
-#[derive(Debug, Clone, PartialEq, Default, Allocative)]
+#[derive(Debug, Clone, PartialEq, Default, Allocative, Pagable)]
 pub struct DocModule {
     pub docs: Option<DocString>,
     pub members: SmallMap<String, DocItem>,
@@ -81,7 +82,7 @@ impl DocModule {
 }
 
 /// Documents a single function.
-#[derive(Debug, Clone, PartialEq, Default, Allocative)]
+#[derive(Debug, Clone, PartialEq, Default, Allocative, Pagable)]
 pub struct DocFunction {
     /// Documentation for the function. If parsed, this should generally be the first statement
     /// of a function's body if that statement is a string literal. Any sections like "Args:",
@@ -106,7 +107,7 @@ impl DocFunction {
 }
 
 /// Function parameters.
-#[derive(Debug, Clone, PartialEq, Default, Allocative)]
+#[derive(Debug, Clone, PartialEq, Default, Allocative, Pagable)]
 pub struct DocParams {
     pub pos_only: Vec<DocParam>,
     pub pos_or_named: Vec<DocParam>,
@@ -167,7 +168,7 @@ impl DocParams {
 }
 
 /// A single parameter of a function.
-#[derive(Debug, Clone, PartialEq, Allocative)]
+#[derive(Debug, Clone, PartialEq, Allocative, Pagable)]
 pub struct DocParam {
     /// Does not include `*` or `**`.
     pub name: String,
@@ -178,7 +179,7 @@ pub struct DocParam {
 }
 
 /// Details about the return value of a function.
-#[derive(Debug, Clone, PartialEq, Allocative)]
+#[derive(Debug, Clone, PartialEq, Allocative, Pagable)]
 pub struct DocReturn {
     /// Extra semantic details around the returned value's meaning.
     pub docs: Option<DocString>,
@@ -195,7 +196,7 @@ impl Default for DocReturn {
 }
 
 /// A single property of an object. These are explicitly not functions (see [`DocMember`]).
-#[derive(Debug, Clone, PartialEq, Allocative)]
+#[derive(Debug, Clone, PartialEq, Allocative, Pagable)]
 pub struct DocProperty {
     pub docs: Option<DocString>,
     pub typ: Ty,
@@ -203,7 +204,7 @@ pub struct DocProperty {
 
 /// A named member of an object.
 #[allow(clippy::large_enum_variant)]
-#[derive(Debug, Clone, PartialEq, Allocative)]
+#[derive(Debug, Clone, PartialEq, Allocative, Pagable)]
 pub enum DocMember {
     Property(DocProperty),
     Function(DocFunction),
@@ -217,7 +218,7 @@ pub enum DocMember {
 /// that it's a type with member `x`, then the expectation is not that `FooRecord.x` works, but
 /// rather that `foo.x` works, where `foo` is of type `FooRecord`. On the other hand, if there's a
 /// global `m`, and `m`'s documentation says it's a module with member `x`, then `m.x` should work.
-#[derive(Debug, Clone, PartialEq, Allocative)]
+#[derive(Debug, Clone, PartialEq, Allocative, Pagable)]
 pub struct DocType {
     pub docs: Option<DocString>,
     /// Name and details of each attr/function that can be accessed on this type.
@@ -241,7 +242,7 @@ impl DocType {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Allocative)]
+#[derive(Debug, Clone, PartialEq, Allocative, Pagable)]
 pub enum DocItem {
     Module(DocModule),
     Type(DocType),

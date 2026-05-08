@@ -23,6 +23,7 @@ use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::NoSerialize;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::starlark_value;
 
@@ -38,9 +39,10 @@ enum StarlarkAttributeError {
     Debug,
     ProvidesStaticType,
     NoSerialize,
-    Allocative
+    Allocative,
+    StarlarkPagable
 )]
-pub struct StarlarkAttribute(Attribute);
+pub struct StarlarkAttribute(#[starlark_pagable(pagable)] Attribute);
 
 starlark_simple_value!(StarlarkAttribute);
 
@@ -48,7 +50,7 @@ starlark_simple_value!(StarlarkAttribute);
 #[starlark_module]
 fn starlark_attribute_methods(builder: &mut MethodsBuilder) {}
 
-#[starlark_value(type = "Attr")]
+#[starlark_value(type = "Attr", skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkAttribute {
     // Used to add type documentation to the generated documentation
     fn get_methods() -> Option<&'static Methods> {

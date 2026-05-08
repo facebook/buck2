@@ -64,7 +64,7 @@ enum InnerStarlarkPluginKind {
 #[display("{}", RefCell::borrow(_0))]
 pub struct StarlarkPluginKind(RefCell<InnerStarlarkPluginKind>);
 
-#[starlark_value(type = "PluginKind")]
+#[starlark_value(type = "PluginKind", skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkPluginKind {
     fn export_as(
         &self,

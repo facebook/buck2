@@ -34,6 +34,7 @@ use starlark::values::Freezer;
 use starlark::values::FrozenStringValue;
 use starlark::values::FrozenValue;
 use starlark::values::Heap;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
 use starlark::values::Trace;
@@ -51,7 +52,7 @@ use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
 
 /// Representation of `select()` in Starlark.
-#[derive(Debug, ProvidesStaticType, Allocative)]
+#[derive(Debug, ProvidesStaticType, Allocative, StarlarkPagable)]
 #[repr(C)]
 pub enum StarlarkSelectorGen<V: ValueLifetimeless> {
     /// Simplest form, backed by dictionary representation
@@ -292,7 +293,7 @@ impl StarlarkSelectorBase<'_> for FrozenStarlarkSelector {
     type Item = FrozenValue;
 }
 
-#[starlark_value(type = "Select")]
+#[starlark_value(type = "Select", skip_pagable)]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkSelectorGen<V>
 where
     Self: ProvidesStaticType<'v> + StarlarkSelectorBase<'v, Item = V>,

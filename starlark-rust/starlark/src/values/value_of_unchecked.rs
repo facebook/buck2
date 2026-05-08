@@ -26,7 +26,9 @@ use allocative::Allocative;
 use dupe::Clone_;
 use dupe::Copy_;
 use dupe::Dupe_;
+use starlark_derive::StarlarkPagable;
 
+use crate as starlark;
 use crate::coerce::Coerce;
 use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
@@ -48,7 +50,7 @@ use crate::values::type_repr::StarlarkTypeRepr;
 /// Store value annotated with type, but do not check the type.
 #[derive(Clone_, Copy_, Dupe_, Allocative)]
 #[allocative(bound = "")]
-#[derive(pagable::PagablePanic)]
+#[derive(pagable::PagablePanic, StarlarkPagable)]
 pub struct ValueOfUncheckedGeneric<V: ValueLifetimeless, T: StarlarkTypeRepr>(
     V,
     PhantomData<fn() -> T>,
@@ -187,28 +189,6 @@ impl<'v, T: StarlarkTypeRepr> UnpackValue<'v> for ValueOfUnchecked<'v, T> {
     #[inline]
     fn unpack_value_impl(value: Value<'v>) -> Result<Option<Self>, Self::Error> {
         Ok(Some(Self::new(value)))
-    }
-}
-
-impl<T: StarlarkTypeRepr> crate::pagable::StarlarkSerialize
-    for ValueOfUncheckedGeneric<FrozenValue, T>
-{
-    fn starlark_serialize(
-        &self,
-        ctx: &mut dyn crate::pagable::starlark_serialize::StarlarkSerializeContext,
-    ) -> crate::Result<()> {
-        self.0.starlark_serialize(ctx)
-    }
-}
-
-impl<T: StarlarkTypeRepr> crate::pagable::StarlarkDeserialize
-    for ValueOfUncheckedGeneric<FrozenValue, T>
-{
-    fn starlark_deserialize(
-        ctx: &mut dyn crate::pagable::starlark_deserialize::StarlarkDeserializeContext<'_>,
-    ) -> crate::Result<Self> {
-        let fv = FrozenValue::starlark_deserialize(ctx)?;
-        Ok(Self::new(fv))
     }
 }
 

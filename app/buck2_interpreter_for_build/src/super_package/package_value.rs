@@ -32,6 +32,7 @@ use starlark::values::Freezer;
 use starlark::values::FrozenHeapRef;
 use starlark::values::FrozenValue;
 use starlark::values::OwnedFrozenValue;
+use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::none::NoneType;
@@ -122,7 +123,7 @@ impl SuperPackageValues for SuperPackageValuesImpl {
 #[derive(Trace, Debug, Allocative, Clone, Dupe, Copy)]
 pub(crate) struct StarlarkPackageValue<'v>(Value<'v>);
 
-#[derive(Debug, Allocative, Clone, Dupe, Copy)]
+#[derive(Debug, Allocative, Clone, Dupe, Copy, StarlarkPagable)]
 pub(crate) struct FrozenStarlarkPackageValue(FrozenValue);
 
 #[derive(Debug, Allocative, Clone, Dupe)]
