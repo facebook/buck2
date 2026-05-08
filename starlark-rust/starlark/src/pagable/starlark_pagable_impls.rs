@@ -470,3 +470,39 @@ where
         Ok(map)
     }
 }
+
+// ============================================================================
+// Either<A, B>
+//
+// Wire format: one u8 tag (0 = Left, 1 = Right) followed by the chosen variant.
+// ============================================================================
+
+impl<A: StarlarkSerialize, B: StarlarkSerialize> StarlarkSerialize for either::Either<A, B> {
+    fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
+        match self {
+            either::Either::Left(a) => {
+                0u8.pagable_serialize(ctx.pagable())?;
+                a.starlark_serialize(ctx)?;
+            }
+            either::Either::Right(b) => {
+                1u8.pagable_serialize(ctx.pagable())?;
+                b.starlark_serialize(ctx)?;
+            }
+        }
+        Ok(())
+    }
+}
+
+impl<A: StarlarkDeserialize, B: StarlarkDeserialize> StarlarkDeserialize for either::Either<A, B> {
+    fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
+        let tag = u8::pagable_deserialize(ctx.pagable())?;
+        match tag {
+            0 => Ok(either::Either::Left(A::starlark_deserialize(ctx)?)),
+            1 => Ok(either::Either::Right(B::starlark_deserialize(ctx)?)),
+            _ => Err(crate::Error::new_other(anyhow::anyhow!(
+                "invalid Either tag: {}",
+                tag
+            ))),
+        }
+    }
+}

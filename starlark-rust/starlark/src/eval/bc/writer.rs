@@ -19,6 +19,9 @@
 
 use std::cmp;
 
+use starlark_derive::StarlarkPagable;
+
+use crate as starlark;
 use crate::eval::bc::addr::BcAddr;
 use crate::eval::bc::addr::BcAddrOffset;
 use crate::eval::bc::bytecode::Bc;
@@ -58,7 +61,7 @@ use crate::values::FrozenValue;
 use crate::values::any::FrozenAnyValue;
 use crate::values::types::any_array::FrozenAnyArray;
 
-#[derive(Debug)]
+#[derive(Debug, StarlarkPagable)]
 pub(crate) struct BcStmtLoc {
     pub(crate) span: FrameSpan,
 }
@@ -67,6 +70,7 @@ pub(crate) struct BcStmtLoc {
 /// Map<BcAddr, BcStmtLoc>. This is very performance sensitive (when profiling/debugging are enabled we
 /// do a lookup for every instruction) and so it's implemented as a vec of statements and then a vec of
 /// statement indexes for each possible BcAddr in a bytecode Bc.
+#[derive(StarlarkPagable)]
 pub(crate) struct BcStatementLocations {
     pub(crate) locs: Vec<BcStmtLoc>,
     /// Map bytecode offset to index in `locs`.

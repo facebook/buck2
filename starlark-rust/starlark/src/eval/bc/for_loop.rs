@@ -16,6 +16,7 @@
  */
 
 use dupe::Dupe;
+use pagable::Pagable;
 
 /// Depth of the loop. For example,
 ///
@@ -35,6 +36,7 @@ use dupe::Dupe;
     Eq,
     PartialEq,
     Ord,
-    PartialOrd
+    PartialOrd,
+    Pagable
 )]
 pub(crate) struct LoopDepth(pub(crate) u32);

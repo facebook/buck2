@@ -19,8 +19,10 @@
 
 use std::fmt::Write;
 
+use starlark_derive::StarlarkPagable;
 use starlark_syntax::eval_exception::EvalException;
 
+use crate as starlark;
 use crate::eval::Evaluator;
 use crate::eval::bc::addr::BcPtrAddr;
 use crate::eval::bc::for_loop::LoopDepth;
@@ -38,7 +40,7 @@ use crate::eval::runtime::evaluator::EvaluationCallbacks;
 use crate::values::Value;
 
 /// Ready to execute bytecode.
-#[derive(Default)]
+#[derive(Default, StarlarkPagable)]
 pub(crate) struct Bc {
     pub(crate) instrs: BcInstrs,
     /// Number of local variable slots.
@@ -46,6 +48,7 @@ pub(crate) struct Bc {
     /// Max stack size in values (`Value`).
     pub(crate) max_stack_size: u32,
     /// Max depth of loops.
+    #[starlark_pagable(pagable)]
     pub(crate) max_loop_depth: LoopDepth,
 }
 
