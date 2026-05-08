@@ -136,6 +136,27 @@ impl<T: StarlarkDeserialize> StarlarkDeserialize for Option<T> {
 }
 
 // ============================================================================
+// Tuples (A, B) — composes with `Vec<T>: StarlarkSerialize` to give
+// `Vec<(A, B)>: StarlarkSerialize` for free.
+// ============================================================================
+
+impl<A: StarlarkSerialize, B: StarlarkSerialize> StarlarkSerialize for (A, B) {
+    fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
+        self.0.starlark_serialize(ctx)?;
+        self.1.starlark_serialize(ctx)?;
+        Ok(())
+    }
+}
+
+impl<A: StarlarkDeserialize, B: StarlarkDeserialize> StarlarkDeserialize for (A, B) {
+    fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
+        let a = A::starlark_deserialize(ctx)?;
+        let b = B::starlark_deserialize(ctx)?;
+        Ok((a, b))
+    }
+}
+
+// ============================================================================
 // SmallMap
 // ============================================================================
 

@@ -38,6 +38,10 @@ use crate::eval::Evaluator;
 use crate::eval::runtime::arguments::ArgNames;
 use crate::eval::runtime::arguments::ArgumentsFull;
 use crate::eval::runtime::rust_loc::rust_loc;
+use crate::pagable::starlark_deserialize::StarlarkDeserialize;
+use crate::pagable::starlark_deserialize::StarlarkDeserializeContext;
+use crate::pagable::starlark_serialize::StarlarkSerialize;
+use crate::pagable::starlark_serialize::StarlarkSerializeContext;
 use crate::register_avalue_simple_frozen;
 use crate::starlark_complex_values;
 use crate::values::Freeze;
@@ -54,6 +58,19 @@ use crate::values::dict::DictRef;
 use crate::values::function::FUNCTION_TYPE;
 use crate::values::layout::typed::string::StringValueLike;
 use crate::values::types::tuple::value::Tuple;
+
+/// Build an index keyed by each symbol's hash, mapping to its position in the
+/// input. Shared between [`partial`] construction and
+/// [`PartialGen::starlark_deserialize`], where `names_index` is skipped on the
+/// wire and rebuilt from the symbols.
+fn build_names_index<'a>(symbols: impl IntoIterator<Item = &'a Symbol>) -> HashTable<usize> {
+    let symbols: Vec<&Symbol> = symbols.into_iter().collect();
+    let mut names_index = HashTable::with_capacity(symbols.len());
+    for (i, k) in symbols.iter().enumerate() {
+        names_index.insert_unique(k.hash(), i, |i| symbols[*i].hash());
+    }
+    names_index
+}
 
 #[starlark_module]
 pub fn partial(builder: &mut GlobalsBuilder) {
@@ -76,10 +93,7 @@ pub fn partial(builder: &mut GlobalsBuilder) {
                 )
             })
             .collect();
-        let mut names_index = HashTable::with_capacity(names.len());
-        for (i, (k, _)) in names.iter().enumerate() {
-            names_index.insert_unique(k.hash(), i, |i| names[*i].0.hash());
-        }
+        let names_index = build_names_index(names.iter().map(|(s, _)| s));
         Ok(Partial {
             func,
             pos: args,
@@ -151,7 +165,36 @@ impl<'v> Freeze for Partial<'v> {
     }
 }
 
-#[starlark_value(type = FUNCTION_TYPE)]
+impl StarlarkSerialize for PartialGen<FrozenValue, FrozenStringValue> {
+    fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
+        self.func.starlark_serialize(ctx)?;
+        self.pos.starlark_serialize(ctx)?;
+        self.named.starlark_serialize(ctx)?;
+        self.names.starlark_serialize(ctx)?;
+        // names_index: skipped, rebuilt from names on deserialize.
+        Ok(())
+    }
+}
+
+impl StarlarkDeserialize for PartialGen<FrozenValue, FrozenStringValue> {
+    fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
+        let func = FrozenValue::starlark_deserialize(ctx)?;
+        let pos = FrozenValue::starlark_deserialize(ctx)?;
+        let named = Vec::<FrozenValue>::starlark_deserialize(ctx)?;
+        let names: Vec<(Symbol, FrozenStringValue)> = Vec::starlark_deserialize(ctx)?;
+        // Rebuild names_index from names.
+        let names_index = build_names_index(names.iter().map(|(s, _)| s));
+        Ok(PartialGen {
+            func,
+            pos,
+            named,
+            names,
+            names_index,
+        })
+    }
+}
+
+#[starlark_value(type = FUNCTION_TYPE, skip_pagable)]
 impl<'v, V: ValueLike<'v>, S: StringValueLike<'v>> StarlarkValue<'v> for PartialGen<V, S>
 where
     Self: ProvidesStaticType<'v>,
