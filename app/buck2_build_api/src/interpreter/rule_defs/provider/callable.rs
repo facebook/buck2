@@ -55,6 +55,8 @@ use starlark::values::Freezer;
 use starlark::values::FrozenValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
+use starlark::values::StarlarkPagable;
+use starlark::values::StarlarkPagableViaPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
@@ -107,7 +109,7 @@ enum ProviderCallableError {
 /// we get it in `UserProvider::get_hashed`.
 /// To lookup in `IndexMap` we can promote it to `u64`.
 /// This is what this hasher does.
-#[derive(Default, Debug, Clone, Copy, Dupe)]
+#[derive(Default, Debug, Clone, Copy, Dupe, Pagable, StarlarkPagableViaPagable)]
 pub(crate) struct StarlarkHasherSmallPromoteBuilder(StarlarkHasherBuilder);
 pub(crate) struct StarlarkHasherSmallPromote(StarlarkHasher);
 
@@ -237,8 +239,9 @@ fn create_callable_function_signature(
     Ok((parameters_spec, TyCallable::new(param_spec, ret_ty)))
 }
 
-#[derive(Debug, Allocative, starlark::values::StarlarkPagablePanic)]
+#[derive(Debug, Allocative, StarlarkPagable)]
 pub(crate) struct UserProviderCallableData {
+    #[starlark_pagable(pagable)]
     pub(crate) provider_id: Arc<ProviderId>,
     /// Type id of provider callable instance.
     pub(crate) ty_provider_type_instance_id: TypeInstanceId,
@@ -274,7 +277,16 @@ impl UserProviderCallableNamed {
     }
 }
 
-#[derive(Debug, Trace, Allocative, ProvidesStaticType, NoSerialize, Clone, Dupe)]
+#[derive(
+    Debug,
+    Trace,
+    Allocative,
+    ProvidesStaticType,
+    NoSerialize,
+    Clone,
+    Dupe,
+    StarlarkPagable
+)]
 pub(crate) struct UserProviderField {
     /// Field type.
     pub(crate) ty: TypeCompiled<FrozenValue>,
@@ -309,7 +321,7 @@ impl UserProviderField {
     }
 }
 
-#[starlark_value(type = "ProviderField")]
+#[starlark_value(type = "ProviderField", skip_pagable)]
 impl<'v> StarlarkValue<'v> for UserProviderField {}
 
 /// The result of calling `provider()`. This is a callable that accepts the fields

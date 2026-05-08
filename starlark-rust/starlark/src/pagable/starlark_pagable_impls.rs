@@ -21,12 +21,15 @@
 //! This allows these types to be used directly in `#[derive(StarlarkPagable)]`
 //! without needing `#[starlark_pagable(pagable)]`.
 
+use std::hash::BuildHasher;
+use std::hash::Hash;
 use std::marker::PhantomData;
 use std::num::NonZeroI32;
 use std::sync::Arc;
 use std::sync::Weak;
 
 use dupe::Dupe;
+use indexmap::IndexMap;
 use pagable::PagableDeserialize;
 use pagable::PagableDeserializer;
 use pagable::PagableSerialize;
@@ -430,5 +433,40 @@ impl<T: StarlarkSerialize + StarlarkDeserialize + Send + Sync + 'static> Starlar
     fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
         let bridge: StarlarkArcBridge<T> = deserialize_arc(ctx.pagable())?;
         Ok(bridge.0)
+    }
+}
+
+// ============================================================================
+// IndexMap — insertion-order-preserving hash map. Mirrors `pagable::impls`'s
+// `IndexMap` impl: the hasher is not serialized; deserialize constructs a
+// default-hasher map and inserts entries in order.
+// ============================================================================
+
+impl<K: StarlarkSerialize, V: StarlarkSerialize, S> StarlarkSerialize for IndexMap<K, V, S> {
+    fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
+        self.len().pagable_serialize(ctx.pagable())?;
+        for (k, v) in self.iter() {
+            k.starlark_serialize(ctx)?;
+            v.starlark_serialize(ctx)?;
+        }
+        Ok(())
+    }
+}
+
+impl<K, V, S> StarlarkDeserialize for IndexMap<K, V, S>
+where
+    K: StarlarkDeserialize + Hash + Eq,
+    V: StarlarkDeserialize,
+    S: Default + BuildHasher,
+{
+    fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
+        let len = usize::pagable_deserialize(ctx.pagable())?;
+        let mut map: IndexMap<K, V, S> = IndexMap::default();
+        for _ in 0..len {
+            let k = K::starlark_deserialize(ctx)?;
+            let v = V::starlark_deserialize(ctx)?;
+            map.insert(k, v);
+        }
+        Ok(map)
     }
 }

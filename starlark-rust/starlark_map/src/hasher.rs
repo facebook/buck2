@@ -20,6 +20,7 @@ use std::hash::Hasher;
 
 use dupe::Dupe;
 use fxhash::FxHasher64;
+use pagable::Pagable;
 
 use crate::hash_value::StarlarkHashValue;
 
@@ -92,7 +93,7 @@ impl Hasher for StarlarkHasher {
 }
 
 /// [`BuildHasher`] implementation which produces [`StarlarkHasher`].
-#[derive(Default, Debug, Clone, Copy, Dupe)]
+#[derive(Default, Debug, Clone, Copy, Dupe, Pagable)]
 pub struct StarlarkHasherBuilder;
 
 impl BuildHasher for StarlarkHasherBuilder {

@@ -30,6 +30,7 @@ dupe = { workspace = true }
 either = "1.8"
 erased-serde = "0.3.12"
 hashbrown = { version = "0.16.1" }
+indexmap = "2.2"
 inventory = "0.3.8"
 itertools = "0.14.0"
 maplit = "1.0.2"
