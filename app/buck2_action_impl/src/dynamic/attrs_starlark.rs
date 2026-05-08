@@ -16,6 +16,7 @@ use starlark::starlark_module;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use starlark::values::ValueOf;
@@ -32,14 +33,15 @@ use crate::dynamic::attrs::DynamicAttrType;
     derive_more::Display,
     ProvidesStaticType,
     Allocative,
-    NoSerialize
+    NoSerialize,
+    StarlarkPagable
 )]
 #[display("{}", ty)]
 pub struct StarlarkDynamicAttrType {
     pub(crate) ty: DynamicAttrType,
 }
 
-#[starlark_value(type = "DynamicAttrType", StarlarkTypeRepr, UnpackValue)]
+#[starlark_value(type = "DynamicAttrType", StarlarkTypeRepr, UnpackValue, skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkDynamicAttrType {}
 
 impl<'v> AllocValue<'v> for StarlarkDynamicAttrType {

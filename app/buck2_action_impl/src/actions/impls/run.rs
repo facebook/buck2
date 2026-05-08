@@ -312,7 +312,7 @@ pub(crate) struct FrozenStarlarkRunActionValues {
         Vec<FrozenValueTyped<'static, FrozenStarlarkOutputArtifact>>,
 }
 
-#[starlark_value(type = "RunActionValues")]
+#[starlark_value(type = "RunActionValues", skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkRunActionValues<'v> {}
 
 #[starlark_value(type = "RunActionValues", skip_pagable)]

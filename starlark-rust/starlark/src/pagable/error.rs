@@ -54,6 +54,15 @@ pub enum PagableError {
         /// The HeapRefId of the referenced heap whose bases were not found.
         heap_id: crate::pagable::heap_ref_id::HeapRefId,
     },
+
+    /// A `StarlarkPagable`-derived enum was deserialized with an unknown variant tag.
+    #[error("Invalid `{enum_name}` variant tag: {tag}")]
+    InvalidVariantTag {
+        /// Name of the enum being deserialized.
+        enum_name: &'static str,
+        /// The tag byte read from the input.
+        tag: u8,
+    },
 }
 
 impl From<PagableError> for crate::Error {

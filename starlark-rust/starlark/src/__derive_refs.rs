@@ -41,6 +41,8 @@ pub mod sig;
 // Re-export for const_frozen_string!, static_starlark_value!, and
 // declare_starlark_value_as_type! macro registry.
 pub use crate::pagable::StaticValueEntry;
+// Re-exports for error types.
+pub use crate::pagable::error::PagableError;
 // Re-exports for vtable registration macro.
 pub use crate::pagable::vtable_register::VtableRegistered;
 #[cfg(feature = "pagable")]

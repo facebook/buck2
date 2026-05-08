@@ -40,6 +40,7 @@ use starlark::values::FrozenValue;
 use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
@@ -123,10 +124,12 @@ pub struct DynamicActionsCallable<'v> {
     NoSerialize,
     ProvidesStaticType,
     Allocative,
-    derive_more::Display
+    derive_more::Display,
+    StarlarkPagable
 )]
 #[display("DynamicActionsCallable[{}]", name)]
 pub struct FrozenStarlarkDynamicActionsCallable {
+    #[starlark_pagable(pagable)]
     pub(crate) self_ty: Ty,
     pub(crate) implementation:
         FrozenStarlarkCallable<DynamicActionsCallbackParamSpec, DynamicActionsCallbackReturnType>,
@@ -135,7 +138,7 @@ pub struct FrozenStarlarkDynamicActionsCallable {
     signature: ParametersSpec<FrozenValue>,
 }
 
-#[starlark_value(type = "DynamicActionCallable")]
+#[starlark_value(type = "DynamicActionCallable", skip_pagable)]
 impl<'v> StarlarkValue<'v> for DynamicActionsCallable<'v> {
     type Canonical = FrozenStarlarkDynamicActionsCallable;
 
@@ -169,7 +172,7 @@ impl<'v> StarlarkValue<'v> for DynamicActionsCallable<'v> {
     }
 }
 
-#[starlark_value(type = "DynamicActionCallable")]
+#[starlark_value(type = "DynamicActionCallable", skip_pagable)]
 impl<'v> StarlarkValue<'v> for FrozenStarlarkDynamicActionsCallable {
     type Canonical = Self;
 

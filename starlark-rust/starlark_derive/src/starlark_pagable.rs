@@ -750,11 +750,11 @@ fn gen_deserialize_enum(
         let tag = <u8 as pagable::PagableDeserialize>::pagable_deserialize(ctx.pagable())?;
         match tag {
             #(#arms)*
-            _ => Err(starlark::Error::new_other(anyhow::anyhow!(
-                "invalid {} variant tag: {}",
-                #enum_name_str,
+            _ => Err(starlark::__derive_refs::PagableError::InvalidVariantTag {
+                enum_name: #enum_name_str,
                 tag,
-            ))),
+            }
+            .into()),
         }
     })
 }

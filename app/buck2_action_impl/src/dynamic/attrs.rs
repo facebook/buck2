@@ -25,6 +25,7 @@ use starlark::values::Freeze;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenValue;
+use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
 use starlark::values::Tracer;
 use starlark::values::UnpackValue;
@@ -43,7 +44,7 @@ use crate::context::dynamic_output::DynamicActionsOutputArtifactBinder;
 use crate::dynamic::dynamic_value::StarlarkDynamicValue;
 use crate::dynamic::resolved_dynamic_value::StarlarkResolvedDynamicValue;
 
-#[derive(Clone, Debug, derive_more::Display, Allocative)]
+#[derive(Clone, Debug, derive_more::Display, Allocative, StarlarkPagable)]
 pub(crate) enum DynamicAttrType {
     /// `OutputArtifact`.
     #[display("dynattrs.output()")]

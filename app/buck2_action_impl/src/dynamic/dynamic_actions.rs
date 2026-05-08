@@ -48,7 +48,7 @@ pub(crate) struct StarlarkDynamicActions<'v> {
 }
 
 // TODO(nero): the type name is not aligan with the registered type `DynamicActions`, fix it.
-#[starlark_value(type = "DynamicAction")]
+#[starlark_value(type = "DynamicAction", skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkDynamicActions<'v> {
     // Used to add type documentation to the generated documentation
     fn get_methods() -> Option<&'static Methods> {

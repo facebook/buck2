@@ -57,6 +57,7 @@ use starlark::values::Demand;
 use starlark::values::Freeze;
 use starlark::values::NoSerialize;
 use starlark::values::OwnedFrozenValue;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
@@ -289,7 +290,16 @@ impl Action for WriteJsonAction {
 /// WriteJsonCommandLineArgGen represents the artifact produced by write_json in a way that it can
 /// be added to commandlines while including the artifacts referenced by cmdargs in the content that
 /// was written.
-#[derive(Debug, Clone, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
+#[derive(
+    Debug,
+    Clone,
+    Trace,
+    Coerce,
+    Freeze,
+    ProvidesStaticType,
+    Allocative,
+    StarlarkPagable
+)]
 #[derive(NoSerialize)] // TODO we should probably have a serialization for transitive set
 #[repr(C)]
 pub(crate) struct StarlarkWriteJsonCommandLineArgGen<V: ValueLifetimeless> {
@@ -308,7 +318,7 @@ impl<'v, V: ValueLike<'v>> fmt::Display for StarlarkWriteJsonCommandLineArgGen<V
 
 starlark_complex_value!(pub(crate) StarlarkWriteJsonCommandLineArg);
 
-#[starlark_value(type = "WriteJsonCliArgs")]
+#[starlark_value(type = "WriteJsonCliArgs", skip_pagable)]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkWriteJsonCommandLineArgGen<V>
 where
     Self: ProvidesStaticType<'v>,
