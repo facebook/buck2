@@ -119,6 +119,7 @@ mod tests {
     use allocative::Allocative;
     use starlark_derive::NoSerialize;
     use starlark_derive::ProvidesStaticType;
+    use starlark_derive::StarlarkPagable;
     use starlark_derive::starlark_value;
 
     use crate as starlark;
@@ -133,7 +134,8 @@ mod tests {
             derive_more::Display,
             ProvidesStaticType,
             NoSerialize,
-            Allocative
+            Allocative,
+            StarlarkPagable
         )]
         #[display("MySimpleValue")]
         struct MySimpleValue(u32);
@@ -141,7 +143,7 @@ mod tests {
         // SAFETY: For testing purposes only.
         unsafe impl StaticValueRegistered for MySimpleValue {}
 
-        #[starlark_value(type = "MySimpleValue")]
+        #[starlark_value(type = "MySimpleValue", skip_pagable)]
         impl<'v> StarlarkValue<'v> for MySimpleValue {}
 
         static VALUE: AllocStaticSimple<MySimpleValue> =

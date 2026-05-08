@@ -18,6 +18,7 @@
 use allocative::Allocative;
 use derive_more::Display;
 use starlark_derive::NoSerialize;
+use starlark_derive::StarlarkPagable;
 use starlark_derive::starlark_attrs;
 use starlark_derive::starlark_value;
 
@@ -36,7 +37,8 @@ fn test_derive_attrs() {
         Display,
         ProvidesStaticType,
         NoSerialize,
-        Allocative
+        Allocative,
+        StarlarkPagable
     )]
     #[display("{:?}", self)]
     struct Example {
@@ -50,7 +52,7 @@ fn test_derive_attrs() {
     }
     starlark_simple_value!(Example);
 
-    #[starlark_value(type = "example")]
+    #[starlark_value(type = "example", skip_pagable)]
     impl<'v> StarlarkValue<'v> for Example {
         starlark_attrs!();
     }
@@ -62,7 +64,8 @@ fn test_derive_attrs() {
         Display,
         ProvidesStaticType,
         NoSerialize,
-        Allocative
+        Allocative,
+        StarlarkPagable
     )]
     #[display("{}", foo)]
     struct Nested {
@@ -70,7 +73,7 @@ fn test_derive_attrs() {
     }
     starlark_simple_value!(Nested);
 
-    #[starlark_value(type = "nested")]
+    #[starlark_value(type = "nested", skip_pagable)]
     impl<'v> StarlarkValue<'v> for Nested {
         starlark_attrs!();
     }

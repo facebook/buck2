@@ -161,6 +161,7 @@ mod tests {
     use derive_more::Display;
     use dupe::Dupe;
     use starlark_derive::NoSerialize;
+    use starlark_derive::StarlarkPagable;
     use starlark_derive::starlark_module;
     use starlark_derive::starlark_value;
 
@@ -202,12 +203,13 @@ mod tests {
             Display,
             ProvidesStaticType,
             NoSerialize,
-            Allocative
+            Allocative,
+            StarlarkPagable
         )]
         struct Bool2(bool);
         starlark_simple_value!(Bool2);
 
-        #[starlark_value(type = "bool2")]
+        #[starlark_value(type = "bool2", skip_pagable)]
         impl<'v> StarlarkValue<'v> for Bool2 {
             fn get_methods() -> Option<&'static Methods> {
                 static RES: MethodsStatic = MethodsStatic::new();

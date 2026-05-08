@@ -304,6 +304,8 @@ mod tests {
     use dupe::Dupe;
     use starlark_derive::NoSerialize;
     use starlark_derive::ProvidesStaticType;
+    use starlark_derive::StarlarkPagable;
+    use starlark_derive::StarlarkPagablePanic;
     use starlark_derive::starlark_module;
     use starlark_derive::starlark_value;
 
@@ -329,12 +331,13 @@ mod tests {
         derive_more::Display,
         ProvidesStaticType,
         Allocative,
-        NoSerialize
+        NoSerialize,
+        StarlarkPagablePanic
     )]
     #[display("plant")]
     enum AbstractPlant {}
 
-    #[starlark_value(type = "plant")]
+    #[starlark_value(type = "plant", skip_pagable)]
     impl<'v> StarlarkValue<'v> for AbstractPlant {
         fn get_type_starlark_repr() -> Ty {
             Ty::starlark_value::<Self>()
@@ -346,12 +349,15 @@ mod tests {
         derive_more::Display,
         ProvidesStaticType,
         Allocative,
-        NoSerialize
+        NoSerialize,
+        StarlarkPagable
     )]
     #[display("fruit_callable")]
     struct FruitCallable {
         name: String,
+        #[starlark_pagable(pagable)]
         ty_fruit_callable: Ty,
+        #[starlark_pagable(pagable)]
         ty_fruit: Ty,
     }
 
@@ -361,7 +367,7 @@ mod tests {
         }
     }
 
-    #[starlark_value(type = "fruit_callable")]
+    #[starlark_value(type = "fruit_callable", skip_pagable)]
     impl<'v> StarlarkValue<'v> for FruitCallable {
         fn get_type_starlark_repr() -> Ty {
             Ty::starlark_value::<Self>()
@@ -390,7 +396,8 @@ mod tests {
         derive_more::Display,
         ProvidesStaticType,
         Allocative,
-        NoSerialize
+        NoSerialize,
+        StarlarkPagable
     )]
     struct Fruit {
         name: String,
@@ -402,7 +409,7 @@ mod tests {
         }
     }
 
-    #[starlark_value(type = "fruit")]
+    #[starlark_value(type = "fruit", skip_pagable)]
     impl<'v> StarlarkValue<'v> for Fruit {
         fn get_type_starlark_repr() -> Ty {
             Ty::starlark_value::<Fruit>()

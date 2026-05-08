@@ -20,6 +20,7 @@ use derive_more::Display;
 use serde::Serialize;
 use starlark_derive::NoSerialize;
 use starlark_derive::ProvidesStaticType;
+use starlark_derive::StarlarkPagable;
 use starlark_derive::starlark_module;
 use starlark_derive::starlark_value;
 use starlark_map::small_map::SmallMap;
@@ -50,7 +51,8 @@ use crate::values::tuple::UnpackTuple;
     derive_more::Display,
     Allocative,
     NoSerialize,
-    ProvidesStaticType
+    ProvidesStaticType,
+    StarlarkPagable
 )]
 #[display("input")]
 struct InputTypeRepr;
@@ -59,15 +61,16 @@ struct InputTypeRepr;
     derive_more::Display,
     Allocative,
     NoSerialize,
-    ProvidesStaticType
+    ProvidesStaticType,
+    StarlarkPagable
 )]
 #[display("output")]
 struct OutputTypeRepr;
 
-#[starlark_value(type = "input")]
+#[starlark_value(type = "input", skip_pagable)]
 impl<'v> StarlarkValue<'v> for InputTypeRepr {}
 
-#[starlark_value(type = "output")]
+#[starlark_value(type = "output", skip_pagable)]
 impl<'v> StarlarkValue<'v> for OutputTypeRepr {}
 
 #[starlark_module]
@@ -153,11 +156,18 @@ def with_arguments(*args, **kwargs) -> int: pass
     }
 }
 
-#[derive(ProvidesStaticType, Debug, Display, Allocative, Serialize)]
+#[derive(
+    ProvidesStaticType,
+    Debug,
+    Display,
+    Allocative,
+    Serialize,
+    StarlarkPagable
+)]
 #[display("obj")]
 struct Obj;
 
-#[starlark_value(type = "obj")]
+#[starlark_value(type = "obj", skip_pagable)]
 impl<'v> StarlarkValue<'v> for Obj {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();

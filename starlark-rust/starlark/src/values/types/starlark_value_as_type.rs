@@ -291,6 +291,7 @@ mod tests {
     use allocative::Allocative;
     use starlark_derive::NoSerialize;
     use starlark_derive::ProvidesStaticType;
+    use starlark_derive::StarlarkPagable;
     use starlark_derive::starlark_module;
     use starlark_derive::starlark_value;
 
@@ -308,11 +309,12 @@ mod tests {
         Debug,
         NoSerialize,
         Allocative,
-        ProvidesStaticType
+        ProvidesStaticType,
+        StarlarkPagable
     )]
     struct StarlarkCompilerArgs(String);
 
-    #[starlark_value(type = "compiler_args")]
+    #[starlark_value(type = "compiler_args", skip_pagable)]
     impl<'v> StarlarkValue<'v> for StarlarkCompilerArgs {}
 
     impl<'v> AllocValue<'v> for StarlarkCompilerArgs {

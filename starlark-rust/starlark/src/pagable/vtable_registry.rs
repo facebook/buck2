@@ -134,6 +134,7 @@ mod tests {
     use derive_more::Display;
     use starlark_derive::Freeze;
     use starlark_derive::NoSerialize;
+    use starlark_derive::StarlarkPagable;
     use starlark_derive::Trace;
     use starlark_derive::starlark_value;
 
@@ -149,13 +150,20 @@ mod tests {
     use crate::values::ValueLike;
 
     /// A simple test type to verify vtable registration works for simple values.
-    #[derive(Debug, Display, ProvidesStaticType, NoSerialize, Allocative)]
+    #[derive(
+        Debug,
+        Display,
+        ProvidesStaticType,
+        NoSerialize,
+        Allocative,
+        StarlarkPagable
+    )]
     #[display("TestSimpleType")]
     struct TestSimpleType;
 
     starlark_simple_value!(TestSimpleType);
 
-    #[starlark_value(type = "TestSimpleType")]
+    #[starlark_value(type = "TestSimpleType", skip_pagable)]
     impl<'v> StarlarkValue<'v> for TestSimpleType {}
 
     /// A simple complex type to verify vtable registration works for complex values.
@@ -168,7 +176,8 @@ mod tests {
         Clone,
         Trace,
         Freeze,
-        Coerce
+        Coerce,
+        StarlarkPagable
     )]
     #[display("TestComplex")]
     #[repr(C)]
@@ -178,7 +187,7 @@ mod tests {
 
     starlark_complex_value!(TestComplex);
 
-    #[starlark_value(type = "TestComplex")]
+    #[starlark_value(type = "TestComplex", skip_pagable)]
     impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for TestComplexGen<V> where Self: ProvidesStaticType<'v>
     {}
 

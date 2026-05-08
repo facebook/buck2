@@ -365,6 +365,7 @@ mod tests {
     use derive_more::Display;
     use starlark_derive::NoSerialize;
     use starlark_derive::ProvidesStaticType;
+    use starlark_derive::StarlarkPagable;
     use starlark_derive::starlark_value;
 
     use crate as starlark;
@@ -376,12 +377,19 @@ mod tests {
 
     #[test]
     fn test_set_attribute() {
-        #[derive(Debug, Display, ProvidesStaticType, NoSerialize, Allocative)]
+        #[derive(
+            Debug,
+            Display,
+            ProvidesStaticType,
+            NoSerialize,
+            Allocative,
+            StarlarkPagable
+        )]
         #[display("Magic")]
         struct Magic;
         starlark_simple_value!(Magic);
 
-        #[starlark_value(type = "magic")]
+        #[starlark_value(type = "magic", skip_pagable)]
         impl<'v> StarlarkValue<'v> for Magic {
             fn get_methods() -> Option<&'static Methods> {
                 static RES: MethodsStatic = MethodsStatic::new();

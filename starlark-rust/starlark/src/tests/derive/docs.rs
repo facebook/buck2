@@ -21,6 +21,7 @@ use serde::Serialize;
 use serde::Serializer;
 use starlark_derive::Freeze;
 use starlark_derive::NoSerialize;
+use starlark_derive::StarlarkPagable;
 use starlark_derive::Trace;
 use starlark_derive::starlark_module;
 use starlark_derive::starlark_value;
@@ -50,12 +51,19 @@ fn object_docs_1(_: &mut MethodsBuilder) {
     }
 }
 
-#[derive(Debug, Display, ProvidesStaticType, NoSerialize, Allocative)]
+#[derive(
+    Debug,
+    Display,
+    ProvidesStaticType,
+    NoSerialize,
+    Allocative,
+    StarlarkPagable
+)]
 struct TestExample {}
 
 starlark_simple_value!(TestExample);
 
-#[starlark_value(type = "TestExample")]
+#[starlark_value(type = "TestExample", skip_pagable)]
 impl<'v> StarlarkValue<'v> for TestExample {
     fn get_methods() -> Option<&'static Methods>
     where
@@ -74,7 +82,8 @@ impl<'v> StarlarkValue<'v> for TestExample {
     Trace,
     Freeze,
     ProvidesStaticType,
-    Allocative
+    Allocative,
+    StarlarkPagable
 )]
 #[repr(C)]
 struct ComplexTestExampleGen<V>(V);
@@ -93,7 +102,7 @@ where
 
 starlark_complex_value!(ComplexTestExample);
 
-#[starlark_value(type = "ComplexTestExample")]
+#[starlark_value(type = "ComplexTestExample", skip_pagable)]
 impl<'v, T: ValueLike<'v> + ProvidesStaticType<'v>> StarlarkValue<'v> for ComplexTestExampleGen<T>
 where
     Self: ProvidesStaticType<'v>,

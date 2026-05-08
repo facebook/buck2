@@ -17,6 +17,7 @@
 
 use allocative::Allocative;
 use starlark_derive::NoSerialize;
+use starlark_derive::StarlarkPagable;
 use starlark_derive::starlark_module;
 use starlark_derive::starlark_value;
 
@@ -38,7 +39,8 @@ use crate::values::ValueLike;
     derive_more::Display,
     ProvidesStaticType,
     NoSerialize,
-    Allocative
+    Allocative,
+    StarlarkPagable
 )]
 #[display("{:?}", self)]
 struct Applaud {
@@ -53,7 +55,7 @@ fn methods(builder: &mut MethodsBuilder) {
     }
 }
 
-#[starlark_value(type = "applaud")]
+#[starlark_value(type = "applaud", skip_pagable)]
 impl<'v> StarlarkValue<'v> for Applaud {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();

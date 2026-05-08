@@ -22,6 +22,7 @@ use allocative::Allocative;
 use dupe::Dupe;
 use starlark_derive::NoSerialize;
 use starlark_derive::ProvidesStaticType;
+use starlark_derive::StarlarkPagable;
 use starlark_derive::starlark_module;
 use starlark_derive::starlark_value;
 use starlark_map::small_map::SmallMap;
@@ -73,12 +74,13 @@ struct TypeCheck {
     Debug,
     NoSerialize,
     Allocative,
-    ProvidesStaticType
+    ProvidesStaticType,
+    StarlarkPagable
 )]
 #[display("MyType")]
 struct MyCustomType;
 
-#[starlark_value(type = "my_custom_type")]
+#[starlark_value(type = "my_custom_type", skip_pagable)]
 impl<'v> StarlarkValue<'v> for MyCustomType {}
 
 impl<'v> AllocValue<'v> for MyCustomType {

@@ -21,6 +21,7 @@ use itertools::Itertools;
 use serde::Serialize;
 use starlark::starlark_simple_value;
 use starlark_derive::NoSerialize;
+use starlark_derive::StarlarkPagable;
 use starlark_derive::starlark_module;
 use starlark_derive::starlark_value;
 use starlark_map::small_map::SmallMap;
@@ -106,14 +107,15 @@ def _do_not_export():
     derive_more::Display,
     ProvidesStaticType,
     Allocative,
-    NoSerialize
+    NoSerialize,
+    StarlarkPagable
 )]
 #[display("magic")]
 struct Magic;
 
 starlark_simple_value!(Magic);
 
-#[starlark_value(type = "magic")]
+#[starlark_value(type = "magic", skip_pagable)]
 impl<'v> StarlarkValue<'v> for Magic {}
 
 /// These are where the module docs go
@@ -212,13 +214,20 @@ fn get_globals() -> Globals {
         .build()
 }
 
-#[derive(ProvidesStaticType, Debug, Display, Allocative, Serialize)]
+#[derive(
+    ProvidesStaticType,
+    Debug,
+    Display,
+    Allocative,
+    Serialize,
+    StarlarkPagable
+)]
 #[display("obj")]
 struct Obj;
 
 starlark_simple_value!(Obj);
 
-#[starlark_value(type = "obj")]
+#[starlark_value(type = "obj", skip_pagable)]
 impl<'v> StarlarkValue<'v> for Obj {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();

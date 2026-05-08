@@ -21,6 +21,7 @@ use std::fmt::Write;
 use allocative::Allocative;
 use anyhow::Context;
 use derive_more::Display;
+use starlark_derive::StarlarkPagable;
 use starlark_derive::starlark_module;
 use starlark_derive::starlark_value;
 use starlark_syntax::golden_test_template::golden_test_template;
@@ -288,7 +289,15 @@ xs[1] += 1
 fn test_radd() {
     // We want select append to always produce a select, much like the
     // Bazel/Buck `select` function.
-    #[derive(Debug, Display, Clone, ProvidesStaticType, NoSerialize, Allocative)]
+    #[derive(
+        Debug,
+        Display,
+        Clone,
+        ProvidesStaticType,
+        NoSerialize,
+        Allocative,
+        StarlarkPagable
+    )]
     #[display("${:?}", _0)]
     struct Select(Vec<i32>);
     starlark_simple_value!(Select);
@@ -316,7 +325,7 @@ fn test_radd() {
         }
     }
 
-    #[starlark_value(type = "select")]
+    #[starlark_value(type = "select", skip_pagable)]
     impl<'v> StarlarkValue<'v> for Select {
         fn radd(&self, lhs: Value<'v>, heap: Heap<'v>) -> Option<crate::Result<Value<'v>>> {
             let lhs: Select = Select::unpack_value(lhs).unwrap().unwrap();
@@ -769,11 +778,18 @@ fn test_label_assign() {
         }
     }
 
-    #[derive(Debug, ProvidesStaticType, Display, NoSerialize, Allocative)]
+    #[derive(
+        Debug,
+        ProvidesStaticType,
+        Display,
+        NoSerialize,
+        Allocative,
+        StarlarkPagable
+    )]
     #[display("FrozenWrapper")]
     struct FrozenWrapper;
 
-    #[starlark_value(type = "wrapper")]
+    #[starlark_value(type = "wrapper", skip_pagable)]
     impl<'v> StarlarkValue<'v> for FrozenWrapper {
         type Canonical = Wrapper<'v>;
     }
