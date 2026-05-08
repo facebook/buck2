@@ -1632,3 +1632,103 @@ fn test_with_starlark_context_arc_dedup_round_trip() -> crate::Result<()> {
 
     Ok(())
 }
+
+// ============================================================================
+// Arc<T> blanket: starlark-only T, plain `Arc<T>` field — round-trips through
+// the `Arc<T>: StarlarkSerialize` blanket, no manual bridge.
+// ============================================================================
+
+/// Inner type carries inside an `Arc` and h a `FrozenValue`
+#[derive(Debug, Allocative, ProvidesStaticType, StarlarkPagable)]
+struct ArcBlanketInner {
+    target: FrozenValue,
+    label: u32,
+}
+
+/// Outer `StarlarkValue` with a plain `Arc<ArcBlanketInner>` field
+#[derive(
+    Debug,
+    Display,
+    Allocative,
+    ProvidesStaticType,
+    NoSerialize,
+    StarlarkPagable
+)]
+#[display("ArcBlanketOuter({})", self.outer_label)]
+struct ArcBlanketOuter {
+    inner: Arc<ArcBlanketInner>,
+    outer_label: u32,
+    items: Vec<u32>,
+}
+
+starlark_simple_value!(ArcBlanketOuter);
+
+#[starlark_value(type = "ArcBlanketOuter", skip_pagable)]
+impl<'v> StarlarkValue<'v> for ArcBlanketOuter {
+    type Canonical = Self;
+}
+
+#[test]
+fn test_arc_blanket_round_trip() -> crate::Result<()> {
+    let heap = FrozenHeap::new();
+    let target_fv = heap.alloc_simple(SimpleData {
+        flag: true,
+        count: 271,
+    });
+
+    let shared = Arc::new(ArcBlanketInner {
+        target: target_fv,
+        label: 7,
+    });
+
+    heap.alloc_simple(ArcBlanketOuter {
+        inner: shared.clone(),
+        outer_label: 1,
+        items: vec![1, 2, 3],
+    });
+    heap.alloc_simple(ArcBlanketOuter {
+        inner: shared,
+        outer_label: 2,
+        items: vec![4, 5],
+    });
+
+    let heap_ref = heap.into_ref_named(TestHeapName::heap_name("test_arc_blanket"));
+    let restored = round_trip_heap_ref(&heap_ref)?;
+
+    let undrop = restored.collect_undrop_headers_ordered();
+    assert_eq!(undrop.len(), 1);
+    let target_data: &SimpleData = undrop[0].unpack().downcast_ref().unwrap();
+    assert_eq!(target_data.flag, true);
+    assert_eq!(target_data.count, 271);
+
+    let drop_headers = restored.collect_drop_headers_ordered();
+    assert_eq!(drop_headers.len(), 2);
+    let outer_a: &ArcBlanketOuter = drop_headers[0].unpack().downcast_ref().unwrap();
+    let outer_b: &ArcBlanketOuter = drop_headers[1].unpack().downcast_ref().unwrap();
+    assert_eq!(outer_a.outer_label, 1);
+    assert_eq!(outer_b.outer_label, 2);
+    assert_eq!(outer_a.items, vec![1, 2, 3]);
+    assert_eq!(outer_b.items, vec![4, 5]);
+
+    // Inner data round-tripped, including the FrozenValue resolved against
+    // the same heap.
+    assert_eq!(outer_a.inner.label, 7);
+    assert_eq!(outer_b.inner.label, 7);
+    let target_addr = undrop[0] as *const _ as usize;
+    assert_eq!(
+        outer_a.inner.target.ptr_value().ptr_value_untagged(),
+        target_addr,
+    );
+    assert_eq!(
+        outer_b.inner.target.ptr_value().ptr_value_untagged(),
+        target_addr,
+    );
+
+    // Arc dedup via the blanket: both restored Arcs must be pointer-equal.
+    assert!(
+        Arc::ptr_eq(&outer_a.inner, &outer_b.inner),
+        "Arc<T> blanket should preserve Arc identity across round-trip",
+    );
+
+    Ok(())
+}

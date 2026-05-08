@@ -131,17 +131,12 @@ enum RecordTypeError {
     Allocative,
     starlark_derive::StarlarkPagable
 )]
-#[starlark_pagable(bound = "V: StarlarkPagable, V::TyRecordDataOpt: pagable::Pagable")]
+#[starlark_pagable(bound = "V: StarlarkPagable, V::TyRecordDataOpt: StarlarkPagable")]
 pub struct RecordTypeGen<V: RecordCell> {
     pub(crate) id: TypeInstanceId,
     #[allocative(skip)] // TODO(nga): do not skip.
     // TODO(nga): teach derive to do something like `#[trace(static)]`.
     #[trace(unsafe_ignore)]
-    // `Option<Arc<TyRecordData>>` routes through pagable so the inner
-    // `Arc<TyRecordData>` participates in pagable's arc-dedup mechanism
-    // `TyRecordData::pagable_serialize` bridges back into the starlark
-    // layer for its `ParametersSpec<FrozenValue>` field.
-    #[starlark_pagable(pagable)]
     pub(crate) ty_record_data: V::TyRecordDataOpt,
     /// The V is the type the field must satisfy (e.g. `"string"`)
     pub(crate) fields: SmallMap<String, FieldGen<V>>,

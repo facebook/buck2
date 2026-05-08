@@ -23,17 +23,30 @@
 
 use std::marker::PhantomData;
 use std::num::NonZeroI32;
+use std::sync::Arc;
+use std::sync::Weak;
 
+use dupe::Dupe;
 use pagable::PagableDeserialize;
+use pagable::PagableDeserializer;
 use pagable::PagableSerialize;
+use pagable::PagableSerializer;
+use pagable::arc_erase::ArcErase;
+use pagable::arc_erase::ArcEraseDyn;
+use pagable::arc_erase::ArcEraseType;
+use pagable::arc_erase::StdArcEraseType;
+use pagable::arc_erase::WeakErase;
+use pagable::arc_erase::deserialize_arc;
 use starlark_map::Hashed;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
 use crate::pagable::starlark_deserialize::StarlarkDeserialize;
 use crate::pagable::starlark_deserialize::StarlarkDeserializeContext;
+use crate::pagable::starlark_deserialize_context::StarlarkDeserializerImpl;
 use crate::pagable::starlark_serialize::StarlarkSerialize;
 use crate::pagable::starlark_serialize::StarlarkSerializeContext;
+use crate::pagable::starlark_serialize_context::StarlarkSerializerImpl;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::ValueLike;
@@ -297,5 +310,104 @@ impl StarlarkDeserialize for NonZeroI32 {
         let v = i32::pagable_deserialize(ctx.pagable())?;
         NonZeroI32::new(v)
             .ok_or_else(|| crate::Error::new_other(anyhow::anyhow!("expected non-zero i32, got 0")))
+    }
+}
+
+// ============================================================================
+// Arc<T> — Arc-identity dedup for `T: StarlarkSerialize + StarlarkDeserialize`.
+//
+// Pagable's `ArcErase` blanket requires `T: PagableSerialize`, which
+// starlark-only types don't have. `StarlarkArcBridge<T>` wraps `Arc<T>` and
+// impls `ArcErase` itself — recovering the starlark context inside ser/de.
+// ============================================================================
+
+/// Wrapper that lets `Arc<T: StarlarkSerialize + StarlarkDeserialize>` plug
+/// into pagable's `Arc` dedup machinery via starlark-context recovery.
+struct StarlarkArcBridge<T: 'static>(Arc<T>);
+
+impl<T: 'static> Clone for StarlarkArcBridge<T> {
+    fn clone(&self) -> Self {
+        Self(self.0.dupe())
+    }
+}
+impl<T: 'static> Dupe for StarlarkArcBridge<T> {}
+
+/// Weak counterpart of [`StarlarkArcBridge`]. Wraps `Weak<T>` so its
+/// `WeakErase::upgrade_weak` produces a boxed `StarlarkArcBridge<T>` rather
+/// than the pagable-flavored Arc that pagable's blanket would produce.
+struct StarlarkArcBridgeWeak<T: 'static>(Weak<T>);
+
+impl<T: StarlarkSerialize + StarlarkDeserialize + Send + Sync + 'static> WeakErase
+    for StarlarkArcBridgeWeak<T>
+{
+    fn is_expired(&self) -> bool {
+        self.0.strong_count() == 0
+    }
+
+    fn upgrade_weak(&self) -> Option<Box<dyn ArcEraseDyn>> {
+        self.0
+            .upgrade()
+            .map(|arc| Box::new(StarlarkArcBridge(arc)) as _)
+    }
+}
+
+impl<T: StarlarkSerialize + StarlarkDeserialize + Send + Sync + 'static> ArcErase
+    for StarlarkArcBridge<T>
+{
+    type Weak = StarlarkArcBridgeWeak<T>;
+
+    fn dupe_strong(&self) -> Self {
+        self.dupe()
+    }
+
+    fn erase_type() -> impl ArcEraseType {
+        StdArcEraseType::<Self>::new()
+    }
+
+    fn identity(&self) -> usize {
+        Arc::as_ptr(&self.0) as *const () as usize
+    }
+
+    fn downgrade(&self) -> Option<Self::Weak> {
+        Some(StarlarkArcBridgeWeak(Arc::downgrade(&self.0)))
+    }
+
+    fn upgrade_weak(weak: &Self::Weak) -> Option<Self> {
+        weak.0.upgrade().map(Self)
+    }
+
+    fn serialize_inner(&self, ser: &mut dyn PagableSerializer) -> pagable::Result<()> {
+        let mut ctx = StarlarkSerializerImpl::recover_from_pagable(ser)
+            .map_err(|e: crate::Error| e.into_anyhow())?;
+        <T as StarlarkSerialize>::starlark_serialize(&self.0, &mut ctx)
+            .map_err(|e: crate::Error| e.into_anyhow())
+    }
+
+    fn deserialize_inner<'de, D: PagableDeserializer<'de> + ?Sized>(
+        deser: &mut D,
+    ) -> pagable::Result<Self> {
+        let mut ctx = StarlarkDeserializerImpl::recover_from_pagable(deser.as_dyn())
+            .map_err(|e: crate::Error| e.into_anyhow())?;
+        let inner = T::starlark_deserialize(&mut ctx).map_err(|e: crate::Error| e.into_anyhow())?;
+        Ok(Self(Arc::new(inner)))
+    }
+}
+
+impl<T: StarlarkSerialize + StarlarkDeserialize + Send + Sync + 'static> StarlarkSerialize
+    for Arc<T>
+{
+    fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
+        let bridge = StarlarkArcBridge(self.clone());
+        ctx.pagable().serialize_arc(&bridge)?;
+        Ok(())
+    }
+}
+
+impl<T: StarlarkSerialize + StarlarkDeserialize + Send + Sync + 'static> StarlarkDeserialize
+    for Arc<T>
+{
+    fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
+        let bridge: StarlarkArcBridge<T> = deserialize_arc(ctx.pagable())?;
+        Ok(bridge.0)
     }
 }
