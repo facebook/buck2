@@ -1910,3 +1910,95 @@ fn test_frozen_any_array_empty_round_trip() -> crate::Result<()> {
 
     Ok(())
 }
+
+/// Host type holding an `AtomicFrozenAnyValueOption<AnyPayload>` field.
+#[derive(Display, Allocative, ProvidesStaticType, NoSerialize, StarlarkPagable)]
+#[display("AtomicHost({})", self.label)]
+struct AtomicHost {
+    label: String,
+    #[allocative(skip)]
+    option: crate::values::any::AtomicFrozenAnyValueOption<AnyPayload>,
+}
+
+impl std::fmt::Debug for AtomicHost {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AtomicHost")
+            .field("label", &self.label)
+            .field("option_is_some", &self.option.load_relaxed().is_some())
+            .finish()
+    }
+}
+
+starlark_simple_value!(AtomicHost);
+
+#[starlark_value(type = "AtomicHost", skip_pagable)]
+impl<'v> StarlarkValue<'v> for AtomicHost {
+    type Canonical = Self;
+}
+
+#[test]
+fn test_atomic_frozen_any_value_option_some_round_trip() -> crate::Result<()> {
+    let heap = FrozenHeap::new();
+    let payload_fv = heap.alloc_any_value(AnyPayload {
+        name: "target".to_owned(),
+        count: 42,
+    });
+    heap.alloc_simple(AtomicHost {
+        label: "host_with_some".to_owned(),
+        option: crate::values::any::AtomicFrozenAnyValueOption::new(Some(payload_fv)),
+    });
+    let heap_ref = heap.into_ref_named(TestHeapName::heap_name(
+        "test_atomic_frozen_any_value_option_some",
+    ));
+
+    let restored = round_trip_heap_ref(&heap_ref)?;
+
+    // StarlarkAny<AnyPayload> goes to drop bump (AnyPayload owns String);
+    // AtomicHost also owns a String so it lives in the drop bump too.
+    let drop_headers = restored.collect_drop_headers_ordered();
+    assert_eq!(drop_headers.len(), 2);
+
+    // Find which header is which (order is alloc order).
+    let host: &AtomicHost = drop_headers[1].unpack().downcast_ref().unwrap();
+    assert_eq!(host.label, "host_with_some");
+
+    // Load and verify the Option<FrozenAnyValue<AnyPayload>>.
+    let loaded = host.option.load_relaxed();
+    let fv = loaded.expect("option should be Some after round-trip");
+    assert_eq!(
+        *fv.as_ref(),
+        AnyPayload {
+            name: "target".to_owned(),
+            count: 42,
+        }
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_atomic_frozen_any_value_option_none_round_trip() -> crate::Result<()> {
+    let heap = FrozenHeap::new();
+    heap.alloc_simple(AtomicHost {
+        label: "host_with_none".to_owned(),
+        option: crate::values::any::AtomicFrozenAnyValueOption::new(None),
+    });
+    let heap_ref = heap.into_ref_named(TestHeapName::heap_name(
+        "test_atomic_frozen_any_value_option_none",
+    ));
+
+    let restored = round_trip_heap_ref(&heap_ref)?;
+
+    let drop_headers = restored.collect_drop_headers_ordered();
+    assert_eq!(drop_headers.len(), 1);
+    let host: &AtomicHost = drop_headers[0].unpack().downcast_ref().unwrap();
+    assert_eq!(host.label, "host_with_none");
+
+    // After round-trip, option should still be None.
+    assert!(
+        host.option.load_relaxed().is_none(),
+        "option should be None after round-trip"
+    );
+
+    Ok(())
+}

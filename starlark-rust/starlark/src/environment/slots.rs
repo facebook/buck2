@@ -20,14 +20,29 @@ use std::cell::RefMut;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use pagable::Pagable;
+use starlark_derive::StarlarkPagable;
+use starlark_derive::StarlarkPagableViaPagable;
 
+use crate as starlark;
 use crate::values::Freeze;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenValue;
 use crate::values::Value;
 
-#[derive(Clone, Copy, Dupe, Debug, PartialEq, Eq, Allocative, Hash)]
+#[derive(
+    Clone,
+    Copy,
+    Dupe,
+    Debug,
+    PartialEq,
+    Eq,
+    Allocative,
+    Hash,
+    Pagable,
+    StarlarkPagableViaPagable
+)]
 pub(crate) struct ModuleSlotId(pub(crate) u32);
 
 impl ModuleSlotId {
@@ -41,7 +56,7 @@ impl ModuleSlotId {
 pub(crate) struct MutableSlots<'v>(RefCell<Vec<Option<Value<'v>>>>);
 
 // Indexed slots of a module. May contain unassigned values as `None`.
-#[derive(Debug, Allocative)]
+#[derive(Debug, Allocative, StarlarkPagable)]
 pub(crate) struct FrozenSlots(Vec<Option<FrozenValue>>);
 
 impl<'v> MutableSlots<'v> {

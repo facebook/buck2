@@ -322,6 +322,19 @@ impl StarlarkDeserialize for starlark_syntax::codemap::CodeMap {
     }
 }
 
+impl StarlarkSerialize for starlark_syntax::syntax::ast::Visibility {
+    fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
+        PagableSerialize::pagable_serialize(self, ctx.pagable())?;
+        Ok(())
+    }
+}
+
+impl StarlarkDeserialize for starlark_syntax::syntax::ast::Visibility {
+    fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
+        Ok(PagableDeserialize::pagable_deserialize(ctx.pagable())?)
+    }
+}
+
 impl StarlarkSerialize for NonZeroI32 {
     fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
         self.get().pagable_serialize(ctx.pagable())?;

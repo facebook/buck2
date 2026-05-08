@@ -18,8 +18,10 @@
 use std::cell::RefCell;
 
 use allocative::Allocative;
+use starlark_derive::StarlarkPagable;
 use starlark_syntax::syntax::ast::Visibility;
 
+use crate as starlark;
 use crate::collections::Hashed;
 use crate::collections::SmallMap;
 use crate::environment::slots::ModuleSlotId;
@@ -45,7 +47,7 @@ use crate::values::FrozenStringValue;
 #[derive(Debug)]
 pub(crate) struct MutableNames(RefCell<SmallMap<FrozenStringValue, (ModuleSlotId, Visibility)>>);
 
-#[derive(Debug, Allocative)]
+#[derive(Debug, Allocative, StarlarkPagable)]
 pub(crate) struct FrozenNames(SmallMap<FrozenStringValue, (ModuleSlotId, Visibility)>);
 
 impl MutableNames {

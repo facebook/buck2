@@ -28,6 +28,7 @@ use std::time::Instant;
 use allocative::Allocative;
 use dupe::Dupe;
 use itertools::Itertools;
+use starlark_derive::StarlarkPagable;
 use starlark_syntax::syntax::ast::Visibility;
 
 use crate as starlark;
@@ -80,7 +81,6 @@ enum ModuleError {
 /// these values after the [`FrozenModule`] has been released unless you obtain a reference
 /// to the frozen heap.
 #[derive(Debug, Clone, Dupe, Allocative)]
-#[derive(pagable::PagablePanic)]
 // We store the two elements separately since the FrozenHeapRef contains
 // a copy of the FrozenModuleData inside it.
 // Two Arc's should still be plenty cheap enough to qualify for `Dupe`.
@@ -96,17 +96,15 @@ pub struct FrozenModule {
     pub(crate) eval_duration: Duration,
 }
 
-#[derive(
-    Debug,
-    Allocative,
-    pagable::PagablePanic,
-    starlark_derive::StarlarkPagableViaPagable
-)]
+#[derive(Debug, Allocative, StarlarkPagable)]
 pub(crate) struct FrozenModuleData {
     pub(crate) names: FrozenNames,
     pub(crate) slots: FrozenSlots,
     docstring: Option<String>,
     /// When heap profile enabled, this field stores retained memory info.
+    /// Runtime profiling data — not meaningful to round-trip, so we skip
+    /// serialization and restore as `None`.
+    #[starlark_pagable(skip)]
     heap_profile: Option<RetainedHeapProfile>,
 }
 

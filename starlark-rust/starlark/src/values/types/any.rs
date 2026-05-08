@@ -444,6 +444,28 @@ impl<T: StarlarkAnyRegistered> AtomicFrozenAnyValueOption<T> {
     }
 }
 
+impl<T: StarlarkAnyRegistered> crate::pagable::StarlarkSerialize for AtomicFrozenAnyValueOption<T> {
+    fn starlark_serialize(
+        &self,
+        ctx: &mut dyn crate::pagable::StarlarkSerializeContext,
+    ) -> crate::Result<()> {
+        let value = self.load_relaxed();
+        value.starlark_serialize(ctx)
+    }
+}
+
+impl<T: StarlarkAnyRegistered> crate::pagable::StarlarkDeserialize
+    for AtomicFrozenAnyValueOption<T>
+{
+    fn starlark_deserialize(
+        ctx: &mut dyn crate::pagable::StarlarkDeserializeContext<'_>,
+    ) -> crate::Result<Self> {
+        let value: Option<FrozenAnyValue<T>> =
+            <Option<FrozenAnyValue<T>> as crate::pagable::StarlarkDeserialize>::starlark_deserialize(ctx)?;
+        Ok(AtomicFrozenAnyValueOption::new(value))
+    }
+}
+
 impl FrozenHeap {
     /// Allocate any value on the frozen heap, returning a [`FrozenAnyValue`].
     pub fn alloc_any_value<T: StarlarkAnyRegistered>(&self, value: T) -> FrozenAnyValue<T> {

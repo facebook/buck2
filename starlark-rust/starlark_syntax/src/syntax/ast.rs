@@ -337,7 +337,7 @@ pub enum AssignOp {
     RightShift,  // >>=
 }
 
-#[derive(Debug, Copy, Clone, Dupe, Eq, PartialEq, Allocative)]
+#[derive(Debug, Copy, Clone, Dupe, Eq, PartialEq, Allocative, pagable::Pagable)]
 pub enum Visibility {
     Private,
     Public,
