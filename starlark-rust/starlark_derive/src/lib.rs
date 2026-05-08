@@ -32,6 +32,7 @@ mod module;
 mod serde;
 mod starlark_pagable;
 mod starlark_pagable_panic;
+mod starlark_pagable_via_pagable;
 mod starlark_type_repr;
 mod starlark_value;
 mod trace;
@@ -241,6 +242,19 @@ pub fn derive_starlark_pagable(input: proc_macro::TokenStream) -> proc_macro::To
 #[proc_macro_derive(StarlarkPagablePanic)]
 pub fn derive_starlark_pagable_panic(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     starlark_pagable_panic::derive_starlark_pagable_panic(input)
+}
+
+/// Derive `StarlarkSerialize` / `StarlarkDeserialize` impls that bridge to the
+/// type's `pagable::PagableSerialize` / `pagable::PagableDeserialize` impls.
+///
+/// Use on types that are `pagable::Pagable` and don't reference Starlark values.
+/// The type must already implement `PagableSerialize` and `PagableDeserialize`
+/// (typically via `#[derive(pagable::Pagable)]`).
+#[proc_macro_derive(StarlarkPagableViaPagable)]
+pub fn derive_starlark_pagable_via_pagable(
+    input: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    starlark_pagable_via_pagable::derive_starlark_pagable_via_pagable(input)
 }
 
 /// Derive the `StarlarkSerialize` trait.

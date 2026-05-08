@@ -22,13 +22,26 @@ use allocative::Allocative;
 use dupe::Dupe;
 use pagable::Pagable;
 use starlark_derive::Freeze;
+use starlark_derive::StarlarkPagableViaPagable;
 
 use crate as starlark;
 
 /// Globally unique identifier for a type, like record type or enum type.
 // TODO(nero): We need redesign it to be able to truely ser/de
 #[derive(
-    Debug, Copy, Clone, Dupe, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative, Freeze, Pagable
+    Debug,
+    Copy,
+    Clone,
+    Dupe,
+    Hash,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Allocative,
+    Freeze,
+    Pagable,
+    StarlarkPagableViaPagable
 )]
 pub struct TypeInstanceId(pub(crate) u64);
 
