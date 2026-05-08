@@ -779,11 +779,7 @@ impl<'a, I: Iterator<Item = Lexeme>> ParserRd<'a, I> {
             self.parse_unary()?
         };
 
-        loop {
-            let Some(tok) = self.peek() else {
-                break;
-            };
-
+        while let Some(tok) = self.peek() {
             // Handle `not in` as a two-token operator
             if matches!(tok, Token::Not) {
                 let left_bp = 5u8;
@@ -1369,11 +1365,7 @@ impl<'a, I: Iterator<Item = Lexeme>> ParserRd<'a, I> {
 
     /// Continue parsing infix operators on an already-parsed LHS.
     fn continue_infix(&mut self, mut lhs: AstExpr, min_bp: u8) -> Result<AstExpr, EvalException> {
-        loop {
-            let Some(tok) = self.peek() else {
-                break;
-            };
-
+        while let Some(tok) = self.peek() {
             if matches!(tok, Token::Not) {
                 let (_, left_bp, right_bp) = (BinOp::NotIn, 5u8, 6u8);
                 if left_bp < min_bp {
