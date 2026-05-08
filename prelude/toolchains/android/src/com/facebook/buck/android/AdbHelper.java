@@ -361,18 +361,7 @@ public class AdbHelper implements AndroidDevicesHelper {
   }
 
   private Set<String> getDeviceAbis(String abi, Set<String> abiList) {
-    Set<String> deviceAbis =
-        new HashSet<String>() {
-          {
-            add(abi);
-          }
-        };
-    if (abi.equals("x86_64") && abiList.contains("x86")) {
-      deviceAbis.add("x86");
-    } else if (abi.equals("arm64-v8a") && abiList.contains("armeabi-v7a")) {
-      deviceAbis.add("armeabi-v7a");
-    }
-    return deviceAbis;
+    return ImmutableSet.<String>builder().add(abi).addAll(abiList).build();
   }
 
   private Set<String> getApkAbis(File apk) {

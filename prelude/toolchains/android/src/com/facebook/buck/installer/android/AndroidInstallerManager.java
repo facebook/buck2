@@ -304,12 +304,11 @@ class AndroidInstallerManager implements InstallCommand {
         Process abiProcess = Runtime.getRuntime().exec(abiCommand);
         BufferedReader abiReader =
             new BufferedReader(new InputStreamReader(abiProcess.getInputStream()));
-        Set<String> abiList = new HashSet<>(Arrays.asList(abiReader.readLine().split(",")));
-        if (abis.contains("x86_64") && abiList.contains("x86")) {
-          abis.add("x86");
-        } else if (abis.contains("arm64-v8a") && abiList.contains("armeabi-v7a")) {
-          abis.add("armeabi-v7a");
-        }
+        Set<String> abiList =
+            Arrays.stream(abiReader.readLine().split(","))
+                .map(String::trim)
+                .collect(Collectors.toSet());
+        abis.addAll(abiList);
       } catch (Exception _e) {
         // no op
       }
