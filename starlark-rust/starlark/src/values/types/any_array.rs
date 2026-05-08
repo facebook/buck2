@@ -144,6 +144,21 @@ macro_rules! register_any_array {
                     $crate::__derive_refs::TyStarlarkValueVTable,
                 > = VTABLE_STATIC;
             }
+
+            $crate::__starlark_pagable_only! {
+                // Register the deserialization vtable so heap-level ser/de of
+                // `FrozenAnyArray<T>` can look up `AValueAnyArray<T>`.
+                $crate::__derive_refs::inventory::submit! {
+                    $crate::__derive_refs::VTableRegistryEntry {
+                        deser_type_id: $crate::__derive_refs::DeserTypeId::of::<
+                            $crate::values::types::any_array::AnyArray<$t>
+                        >(),
+                        vtable: $crate::__derive_refs::AValueVTable::new::<
+                            $crate::__derive_refs::AValueAnyArray<$t>
+                        >(),
+                    }
+                }
+            }
         };
     };
 }

@@ -54,6 +54,7 @@ pub use crate::typing::starlark_value::HasTyVTable;
 pub use crate::typing::starlark_value::TyStarlarkValueVTable;
 pub use crate::typing::starlark_value::TyStarlarkValueVTableGet;
 pub use crate::typing::starlark_value::TyStarlarkValueVTableStaticEntry;
+pub use crate::values::layout::avalues::array::AValueAnyArray;
 pub use crate::values::layout::avalues::simple::AValueSimple;
 pub use crate::values::layout::vtable::AValueVTable;
 // Re-export for declare_starlark_value_as_type! and #[starlark_types] proc macro output.

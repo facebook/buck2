@@ -1846,3 +1846,67 @@ fn test_starlark_any_multiple_values_round_trip() -> crate::Result<()> {
 
     Ok(())
 }
+
+// ============================================================================
+// FrozenAnyArray<T> round-trip
+//
+// `AnyArray<T>` uses `alloc_raw_extra` for a trailing elements array — the
+// elements live beyond the struct bounds. Its `AValue` impl
+// (`AValueAnyArray<T>`) provides `starlark_serialize`/`starlark_deserialize`
+// that walk `as_slice()` on the way out and reconstruct elements in-place on
+// the way in (same pattern as `AValueList`).
+// ============================================================================
+
+#[test]
+fn test_frozen_any_array_round_trip() -> crate::Result<()> {
+    let heap = FrozenHeap::new();
+    let items = vec![
+        AnyPayload {
+            name: "alpha".to_owned(),
+            count: 10,
+        },
+        AnyPayload {
+            name: "beta".to_owned(),
+            count: 20,
+        },
+        AnyPayload {
+            name: "gamma".to_owned(),
+            count: 30,
+        },
+    ];
+    heap.alloc_any_array_value(&items);
+    let heap_ref = heap.into_ref_named(TestHeapName::heap_name("test_frozen_any_array"));
+
+    let restored = round_trip_heap_ref(&heap_ref)?;
+
+    // `AnyPayload` owns a `String` → the array lives in the drop bump.
+    let headers = restored.collect_drop_headers_ordered();
+    assert_eq!(headers.len(), 1);
+    let avalue = headers[0].unpack();
+    let any_array: &crate::values::types::any_array::AnyArray<AnyPayload> =
+        avalue.downcast_ref().unwrap();
+    assert_eq!(any_array.as_slice().len(), 3);
+    assert_eq!(any_array.as_slice()[0], items[0]);
+    assert_eq!(any_array.as_slice()[1], items[1]);
+    assert_eq!(any_array.as_slice()[2], items[2]);
+
+    Ok(())
+}
+
+#[test]
+fn test_frozen_any_array_empty_round_trip() -> crate::Result<()> {
+    let heap = FrozenHeap::new();
+    heap.alloc_any_array_value::<AnyPayload>(&[]);
+    let heap_ref = heap.into_ref_named(TestHeapName::heap_name("test_frozen_any_array_empty"));
+
+    let restored = round_trip_heap_ref(&heap_ref)?;
+
+    let headers = restored.collect_drop_headers_ordered();
+    assert_eq!(headers.len(), 1);
+    let avalue = headers[0].unpack();
+    let any_array: &crate::values::types::any_array::AnyArray<AnyPayload> =
+        avalue.downcast_ref().unwrap();
+    assert_eq!(any_array.as_slice().len(), 0);
+
+    Ok(())
+}

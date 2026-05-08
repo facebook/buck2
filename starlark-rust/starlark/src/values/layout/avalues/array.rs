@@ -16,10 +16,16 @@
  */
 
 use std::marker::PhantomData;
+use std::mem::MaybeUninit;
+use std::ptr;
+
+use pagable::PagableDeserialize;
+use pagable::PagableSerialize;
 
 use crate::cast;
 use crate::collections::maybe_uninit_backport::maybe_uninit_write_slice;
 use crate::collections::maybe_uninit_backport::maybe_uninit_write_slice_cloned;
+use crate::pagable::StarlarkPagable;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
@@ -47,7 +53,7 @@ fn array_avalue<'v>(
     AValueImpl::<AValueArray>::new(unsafe { Array::new(0, cap) })
 }
 
-fn any_array_avalue<T: AnyArrayRegistered>(
+fn any_array_avalue<T: AnyArrayRegistered + StarlarkPagable>(
     cap: usize,
 ) -> AValueImpl<'static, impl AValue<'static, StarlarkValue = AnyArray<T>, ExtraElem = T>> {
     AValueImpl::<AValueAnyArray<T>>::new(unsafe { AnyArray::new(cap) })
@@ -112,9 +118,11 @@ impl<'v> AValue<'v> for AValueArray {
     }
 }
 
-pub(crate) struct AValueAnyArray<T>(PhantomData<T>);
+/// `AValue` impl for [`AnyArray<T>`]: stored on the frozen heap with a
+/// trailing slice of `T` (see `alloc_any_array_value`).
+pub struct AValueAnyArray<T>(PhantomData<T>);
 
-impl<'v, T: AnyArrayRegistered> AValue<'v> for AValueAnyArray<T> {
+impl<'v, T: AnyArrayRegistered + StarlarkPagable> AValue<'v> for AValueAnyArray<T> {
     type StarlarkValue = AnyArray<T>;
     type ExtraElem = T;
 
@@ -139,11 +147,62 @@ impl<'v, T: AnyArrayRegistered> AValue<'v> for AValueAnyArray<T> {
     ) -> Value<'v> {
         panic!("AnyArray for now can only be allocated in FrozenHeap");
     }
+
+    /// Wire format: `len: usize` followed by `len` elements serialized via
+    /// `T::starlark_serialize`. Mirrors `AValueList::starlark_serialize`.
+    fn starlark_serialize(
+        me: *const AValueRepr<Self::StarlarkValue>,
+        ctx: &mut dyn crate::pagable::StarlarkSerializeContext,
+    ) -> crate::Result<()> {
+        let any_array = unsafe { &(*me).payload };
+        any_array.len.pagable_serialize(ctx.pagable())?;
+        for elem in any_array.as_slice() {
+            elem.starlark_serialize(ctx)?;
+        }
+        Ok(())
+    }
+
+    /// Reconstruct into pre-allocated memory. Layout at `me`:
+    ///
+    /// ```text
+    ///        ┌─────────────────────────────┐  ← me
+    ///        │ AValueHeader                │
+    ///        ├─────────────────────────────┤  ← + offset_of_payload()
+    ///   (1)  │ AnyArray<T> { len }         │  payload
+    ///        ├─────────────────────────────┤  ← + offset_of_extra()
+    ///   (2)  │ T[0], T[1], ..., T[len-1]   │  trailing element slots
+    ///        └─────────────────────────────┘
+    /// ```
+    ///
+    /// 1. Write the `AnyArray<T>` payload (with `len`) into `me.payload`.
+    /// 2. Deserialize each of `len` elements into its trailing slot.
+    fn starlark_deserialize(
+        me: *mut AValueRepr<Self::StarlarkValue>,
+        ctx: &mut dyn crate::pagable::StarlarkDeserializeContext<'_>,
+    ) -> crate::Result<()> {
+        let len = usize::pagable_deserialize(ctx.pagable())?;
+        unsafe {
+            // Initialize the `AnyArray<T>` shell with the correct len.
+            ptr::write(&mut (*me).payload, AnyArray::new(len));
+
+            // The trailing `T`s live at `offset_of_payload + offset_of_extra`.
+            let extra_offset = AValueRepr::<Self::StarlarkValue>::offset_of_payload()
+                + <Self as AValue>::offset_of_extra();
+            let extra_ptr = (me as *mut u8).add(extra_offset) as *mut MaybeUninit<T>;
+            for i in 0..len {
+                let elem = T::starlark_deserialize(ctx)?;
+                (*extra_ptr.add(i)).write(elem);
+            }
+        }
+        Ok(())
+    }
 }
 
 impl FrozenHeap {
     /// Allocate a slice in the frozen heap, returning a [`FrozenAnyArray`].
-    pub(crate) fn alloc_any_array_value<T: AnyArrayRegistered + Send + Sync + Clone>(
+    pub(crate) fn alloc_any_array_value<
+        T: AnyArrayRegistered + StarlarkPagable + Send + Sync + Clone,
+    >(
         &self,
         values: &[T],
     ) -> FrozenAnyArray<T> {
