@@ -1470,6 +1470,48 @@ fn test_static_frozen_value_round_trip() -> crate::Result<()> {
     Ok(())
 }
 
+/// Phantom type used only as the `T` of `StarlarkValueAsType<T>` in the
+/// round-trip test below. Never allocated on a heap.
+#[derive(Debug, Display, Allocative, ProvidesStaticType, NoSerialize)]
+#[display("AsTypeRoundTripTestType")]
+struct AsTypeRoundTripTestType;
+
+#[starlark_value(type = "AsTypeRoundTripTestType")]
+impl<'v> StarlarkValue<'v> for AsTypeRoundTripTestType {}
+
+crate::declare_starlark_value_as_type!(AS_TYPE_RT_STATIC, AsTypeRoundTripTestType);
+
+#[test]
+fn test_starlark_value_as_type_round_trip() -> crate::Result<()> {
+    // A `FrozenValue` pointing at a `StarlarkValueAsTypeStarlarkValue` static
+    // (registered via `declare_starlark_value_as_type!`) must survive a
+    // round-trip with pointer identity preserved — the static lives outside
+    // any heap and is resolved by the inventory-backed static-value registry.
+    let heap = FrozenHeap::new();
+    let static_fv = AS_TYPE_RT_STATIC.to_frozen_value();
+    heap.alloc_simple(RefData {
+        label: 7,
+        target: static_fv,
+    });
+    let heap_ref = heap.into_ref_named(TestHeapName::heap_name(
+        "test_starlark_value_as_type_round_trip",
+    ));
+
+    let restored = round_trip_heap_ref(&heap_ref)?;
+
+    let headers = restored.collect_undrop_headers_ordered();
+    assert_eq!(headers.len(), 1, "only RefData lives on the heap");
+    let ref_data: &RefData = headers[0].unpack().downcast_ref().unwrap();
+    assert_eq!(ref_data.label, 7);
+
+    assert_eq!(
+        ref_data.target.ptr_value().ptr_value_untagged(),
+        static_fv.ptr_value().ptr_value_untagged(),
+        "StarlarkValueAsType static should round-trip to the same static address"
+    );
+    Ok(())
+}
+
 // ============================================================================
 // `StarlarkSerializerImpl::recover_from_pagable` /
 // `StarlarkDeserializerImpl::recover_from_pagable`:

@@ -25,6 +25,7 @@ use std::marker::PhantomData;
 
 use allocative::Allocative;
 use starlark_derive::NoSerialize;
+use starlark_derive::StarlarkPagablePanic;
 use starlark_derive::starlark_value;
 
 use crate as starlark;
@@ -63,14 +64,23 @@ pub unsafe trait AsTypeStaticRegistered {}
 #[cfg(not(feature = "pagable"))]
 unsafe impl<T> AsTypeStaticRegistered for T {}
 
-#[derive(Debug, NoSerialize, Allocative, ProvidesStaticType)]
+#[derive(
+    Debug,
+    NoSerialize,
+    Allocative,
+    ProvidesStaticType,
+// Instances are allocated via `AllocStaticSimple` and pagable round-trip is
+// handled by the static-value registry, so a real `StarlarkPagable` impl is
+// not needed.
+    StarlarkPagablePanic
+)]
 struct StarlarkValueAsTypeStarlarkValue(fn() -> Ty, fn() -> DocItem);
 
 // SAFETY: This type is only used in static contexts via StarlarkValueAsType::new()
 // which creates a static value that is properly registered for pagable serialization.
 unsafe impl StaticValueRegistered for StarlarkValueAsTypeStarlarkValue {}
 
-#[starlark_value(type = "type")]
+#[starlark_value(type = "type", skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkValueAsTypeStarlarkValue {
     type Canonical = AbstractType;
 
