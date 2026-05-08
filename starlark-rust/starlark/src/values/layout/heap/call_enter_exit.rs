@@ -21,6 +21,7 @@ use std::fmt::Debug;
 
 use allocative::Allocative;
 use starlark_derive::NoSerialize;
+use starlark_derive::StarlarkPagablePanic;
 use starlark_derive::starlark_value;
 
 use crate as starlark;
@@ -67,7 +68,7 @@ pub(crate) struct CallEnter<'v, D: MaybeDrop + 'static> {
     pub(crate) maybe_drop: D,
 }
 
-#[starlark_value(type = "call_enter")]
+#[starlark_value(type = "call_enter", skip_pagable)]
 impl<'v, D: MaybeDrop + Trace<'v> + 'v> StarlarkValue<'v> for CallEnter<'v, D>
 where
     Self: HasTyVTable,
@@ -85,7 +86,8 @@ crate::register_ty_starlark_value!(CallEnter<'_, NoDrop>);
     derive_more::Display,
     ProvidesStaticType,
     NoSerialize,
-    Allocative
+    Allocative,
+    StarlarkPagablePanic
 )]
 #[display("CallExit")]
 pub(crate) struct CallExit<D: MaybeDrop + 'static> {
@@ -93,7 +95,7 @@ pub(crate) struct CallExit<D: MaybeDrop + 'static> {
     pub(crate) maybe_drop: D,
 }
 
-#[starlark_value(type = "call_exit")]
+#[starlark_value(type = "call_exit", skip_pagable)]
 impl<'v, D: MaybeDrop> StarlarkValue<'v> for CallExit<D>
 where
     Self: HasTyVTable,

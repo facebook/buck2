@@ -18,6 +18,7 @@
 use allocative::Allocative;
 use starlark_derive::NoSerialize;
 use starlark_derive::ProvidesStaticType;
+use starlark_derive::StarlarkPagablePanic;
 use starlark_derive::starlark_value;
 
 use crate as starlark;
@@ -32,12 +33,13 @@ use crate::values::StarlarkValue;
     derive_more::Display,
     Allocative,
     ProvidesStaticType,
-    NoSerialize
+    NoSerialize,
+    StarlarkPagablePanic
 )]
 #[display("type")]
 pub enum AbstractType {}
 
-#[starlark_value(type = "type")]
+#[starlark_value(type = "type", skip_pagable)]
 impl<'v> StarlarkValue<'v> for AbstractType {
     fn get_type_starlark_repr() -> Ty {
         Ty::basic(TyBasic::Type)
