@@ -15,6 +15,7 @@ use starlark::coerce::Coerce;
 use starlark::starlark_complex_value;
 use starlark::values::Freeze;
 use starlark::values::NoSerialize;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
 use starlark::values::Trace;
@@ -30,7 +31,8 @@ use starlark::values::starlark_value;
     Allocative,
     Freeze,
     Trace,
-    Coerce
+    Coerce,
+    StarlarkPagable
 )]
 #[repr(C)]
 pub struct StarlarkSelectIncompatibleGen<V>(V);
@@ -47,7 +49,7 @@ impl<'v> StarlarkSelectIncompatible<'v> {
 
 starlark_complex_value!(pub StarlarkSelectIncompatible);
 
-#[starlark_value(type = "SelectIncompatible")]
+#[starlark_value(type = "SelectIncompatible", skip_pagable)]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkSelectIncompatibleGen<V> where
     Self: ProvidesStaticType<'v>
 {
