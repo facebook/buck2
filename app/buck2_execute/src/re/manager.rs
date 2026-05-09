@@ -384,6 +384,10 @@ impl ManagedRemoteExecutionClient {
         self.inner.lock()
     }
 
+    pub async fn action_cache_update_enabled(&self) -> buck2_error::Result<Option<bool>> {
+        Ok(self.lock()?.get().await?.action_cache_update_enabled())
+    }
+
     pub async fn action_cache(
         &self,
         action_digest: ActionDigest,
