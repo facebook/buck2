@@ -172,6 +172,35 @@ operation in the `buck audit` command.
 Expands to the named output file or directory of the given target, for rules
 that expose supplementary outputs.
 
+## Materialization of referenced artifacts
+
+Note that, unlike in systems such as [Nix](https://nixos.org/),
+artifacts that are referenced via string parameter macros are not
+necessarily materialized.
+
+This means that using string parameter macros to pass for example the
+path to a binary to a configuration file or a script, the binary may not
+be present on the filesystem at the path that is embedded in the
+configuration file/script.
+
+To ensure that the referenced artifacts are materialized, the rule being
+called must do one of the following:
+
+1. Call [`Artifact.with_associated_artifacts`](../api/build/Artifact/#artifactwith_associated_artifacts)
+   to add the input as an associated artifact to the output.
+2. Add the input to the [`DefaultInfo`'s `other_outputs`](../api/build/DefaultInfo/#defaultinfoother_outputs).
+
+For the associated/other input to be propagated upwards, the target must
+be depended on as a [dependency](../api/build/attrs/#dep), not a
+[source](../api/build/attrs/#source), otherwise the dependency on the
+associated artifacts will not be propagated.
+
+For example, consider the case of a generated configuration file that contains
+paths to binaries that are passed via `$(location)`. If another target
+depends on that configuration file as an `attr.dep`, the binaries will
+be materialized. If it depends on it as an `attr.source`, the binaries
+may not be materialized.
+
 ## How to manage long expanded values
 
 In some cases, the results of the expanded macro might be so long that they
