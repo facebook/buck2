@@ -113,6 +113,8 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
     /// If both remote_enabled and local_enabled are `True`, we will use the hybrid executor
     /// * `remote_enabled`: Whether to use remote execution for this execution platform
     /// * `remote_cache_enabled`: Whether to query RE caches
+    /// * `remote_cache_unavailable_fallback`: Whether to keep executing when cache lookup
+    ///   infra is unavailable
     /// * `remote_execution_properties`: Properties for remote execution for this platform
     /// * `remote_execution_action_key`: A component to inject into the action key
     /// This should typically used to inject variability into the action key so that
@@ -153,6 +155,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
         #[starlark(require = named)] local_enabled: bool,
         #[starlark(require = named)] remote_enabled: bool,
         #[starlark(default = NoneOr::None, require = named)] remote_cache_enabled: NoneOr<bool>,
+        #[starlark(default = false, require = named)] remote_cache_unavailable_fallback: bool,
         #[starlark(default = false, require = named)] remote_dep_file_cache_enabled: bool,
         #[starlark(default = NoneType, require = named)] remote_execution_properties: Value<'v>,
         #[starlark(default = NoneType, require = named)] remote_execution_action_key: Value<'v>,
@@ -353,6 +356,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                         re_action_key,
                         cache_upload_behavior,
                         remote_cache_enabled,
+                        remote_cache_unavailable_fallback,
                         remote_dep_file_cache_enabled,
                         dependencies: re_dependencies,
                         gang_workers: re_gang_workers,
@@ -372,6 +376,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                         re_action_key,
                         cache_upload_behavior,
                         remote_cache_enabled: true,
+                        remote_cache_unavailable_fallback,
                         remote_dep_file_cache_enabled,
                         dependencies: re_dependencies,
                         gang_workers: re_gang_workers,
