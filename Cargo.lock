@@ -4688,6 +4688,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "fastcdc"
+version = "4.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77af40d8a8dadb92dc178569a5f5edb5f3056e98255c2de48ab5d59a52892e0c"
+
+[[package]]
 name = "fastrand"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7581,6 +7587,7 @@ dependencies = [
  "buck2_re_configuration",
  "buck2_util",
  "dupe",
+ "fastcdc",
  "futures 0.3.34",
  "h2",
  "hex",
