@@ -224,10 +224,22 @@ async fn query_action_cache_and_download_result(
         false,
         None,
         output_trees_download_config,
+        true,
     )
     .await;
 
-    let DownloadResult::Result(mut res) = res;
+    let mut res = match res {
+        DownloadResult::Result(res) => res,
+        DownloadResult::CacheMiss { manager, error } => {
+            tracing::info!(
+                "Ignoring stale remote cache entry for action `{}` because referenced CAS blobs \
+                are missing: {:#}",
+                digest,
+                error
+            );
+            return ControlFlow::Continue(manager);
+        }
+    };
     match &cache_type {
         CacheType::RemoteDepFileCache(key) => {
             tracing::trace!(

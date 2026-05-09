@@ -67,6 +67,7 @@ use futures::FutureExt;
 use futures::future;
 use jiff::Timestamp;
 use remote_execution as RE;
+use remote_execution::TCode;
 
 use crate::executors::local::materialize_inputs;
 use crate::re::paranoid_download::ParanoidDownloader;
@@ -94,6 +95,7 @@ pub async fn download_action_results<'a>(
     materialize_failed_re_action_outputs: bool,
     additional_message: Option<String>,
     output_trees_download_config: &OutputTreesDownloadConfig,
+    missing_cas_as_cache_miss: bool,
 ) -> DownloadResult {
     let std_streams = response.std_streams(re_client, digest_config);
     let std_streams = async {
@@ -128,6 +130,7 @@ pub async fn download_action_results<'a>(
         digest_config,
         paranoid,
         output_trees_download_config,
+        missing_cas_as_cache_miss,
     };
 
     let download = downloader.download(
@@ -301,6 +304,7 @@ pub struct CasDownloader<'a> {
     pub digest_config: DigestConfig,
     pub paranoid: Option<&'a ParanoidDownloader>,
     pub output_trees_download_config: &'a OutputTreesDownloadConfig,
+    pub missing_cas_as_cache_miss: bool,
 }
 
 impl CasDownloader<'_> {
@@ -347,27 +351,31 @@ impl CasDownloader<'_> {
                 )
                 .await;
 
-            let artifacts =
-                match artifacts {
-                    Ok(artifacts) => artifacts,
-                    Err(e) => {
-                        let error: buck2_error::Error =
-                            e.context(format!("action_digest={}", details.action_digest));
-                        let is_storage_resource_exhausted = error
-                            .find_typed_context::<RemoteExecutionError>()
-                            .is_some_and(|re_client_error| {
-                                is_storage_resource_exhausted(re_client_error.as_ref())
-                            });
-                        let error_type = if is_storage_resource_exhausted {
-                            CommandExecutionErrorType::StorageResourceExhausted
-                        } else {
-                            CommandExecutionErrorType::Other
-                        };
-                        return ControlFlow::Break(DownloadResult::Result(
-                            manager.error_classified("extract_artifacts", error, error_type),
-                        ));
+            let artifacts = match artifacts {
+                Ok(artifacts) => artifacts,
+                Err(e) => {
+                    let error: buck2_error::Error =
+                        e.context(format!("action_digest={}", details.action_digest));
+                    if self.missing_cas_as_cache_miss && is_missing_cas_error(&error) {
+                        return ControlFlow::Break(DownloadResult::CacheMiss { manager, error });
                     }
-                };
+                    let is_storage_resource_exhausted = error
+                        .find_typed_context::<RemoteExecutionError>()
+                        .is_some_and(|re_client_error| {
+                            is_storage_resource_exhausted(re_client_error.as_ref())
+                        });
+                    let error_type = if is_storage_resource_exhausted {
+                        CommandExecutionErrorType::StorageResourceExhausted
+                    } else {
+                        CommandExecutionErrorType::Other
+                    };
+                    return ControlFlow::Break(DownloadResult::Result(manager.error_classified(
+                        "extract_artifacts",
+                        error,
+                        error_type,
+                    )));
+                }
+            };
 
             let (manager, outputs) = match self.paranoid {
                 Some(paranoid) => {
@@ -569,6 +577,13 @@ pub enum DownloadResult {
     /// Got a result: might be a success, might be a failure. Caller needs to deal with this
     /// result.
     Result(CommandExecutionResult),
+    /// The cache entry referenced CAS blobs that were not available anymore.
+    /// Optional cache executors can continue to the next executor instead of
+    /// turning a stale cache hit into an action error.
+    CacheMiss {
+        manager: CommandExecutionManager,
+        error: buck2_error::Error,
+    },
 }
 
 impl FromResidual<ControlFlow<Self, Infallible>> for DownloadResult {
@@ -576,5 +591,32 @@ impl FromResidual<ControlFlow<Self, Infallible>> for DownloadResult {
         match residual {
             ControlFlow::Break(v) => v,
         }
+    }
+}
+
+fn is_missing_cas_error(error: &buck2_error::Error) -> bool {
+    error
+        .find_typed_context::<RemoteExecutionError>()
+        .is_some_and(|re_client_error| re_client_error.code == TCode::NOT_FOUND)
+}
+
+#[cfg(test)]
+mod tests {
+    use buck2_execute::re::error::test_re_error;
+
+    use super::*;
+
+    #[test]
+    fn identifies_missing_cas_errors() {
+        let error = test_re_error("missing tree", TCode::NOT_FOUND);
+
+        assert!(is_missing_cas_error(&error));
+    }
+
+    #[test]
+    fn ignores_non_missing_cas_errors() {
+        let error = test_re_error("remote unavailable", TCode::UNAVAILABLE);
+
+        assert!(!is_missing_cas_error(&error));
     }
 }
