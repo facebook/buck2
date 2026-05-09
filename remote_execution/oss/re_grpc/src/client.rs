@@ -420,6 +420,22 @@ fn is_operation_not_found(err: &anyhow::Error) -> bool {
     error_tcode(err) == Some(TCode::NOT_FOUND)
 }
 
+fn should_retry_execute_after_wait_execution_error(err: &anyhow::Error) -> bool {
+    is_operation_not_found(err)
+}
+
+fn should_retry_execute_after_operation_error(code: TCode) -> bool {
+    tcode_is_retryable(code)
+}
+
+fn should_retry_execute_after_execute_response_status(code: TCode) -> bool {
+    code != TCode::DEADLINE_EXCEEDED && tcode_is_retryable(code)
+}
+
+fn can_retry_execute(retry_attempts: usize, retries: usize) -> bool {
+    retry_attempts < retries
+}
+
 fn jittered_retry_delay(base_delay: Duration) -> Duration {
     let random_bytes = Uuid::new_v4().into_bytes();
     let random = u16::from_be_bytes([random_bytes[0], random_bytes[1]]) as f64 / u16::MAX as f64;
@@ -462,6 +478,28 @@ where
     }
 }
 
+async fn execute_stream(
+    client: ExecutionClient<GrpcService>,
+    metadata: RemoteExecutionMetadata,
+    use_fbcode_metadata: bool,
+    request: GExecuteRequest,
+    retries: usize,
+    retry_max_delay: Duration,
+) -> anyhow::Result<tonic::Streaming<Operation>> {
+    retry_grpc_request(retries, retry_max_delay, || {
+        let mut client = client.clone();
+        let metadata = metadata.clone();
+        let request = request.clone();
+        async move {
+            Ok(client
+                .execute(with_re_metadata(request, &metadata, use_fbcode_metadata))
+                .await?
+                .into_inner())
+        }
+    })
+    .await
+}
+
 async fn wait_execution_stream(
     client: ExecutionClient<GrpcService>,
     metadata: RemoteExecutionMetadata,
@@ -488,6 +526,60 @@ async fn wait_execution_stream(
         }
     })
     .await
+}
+
+async fn wait_execution_or_retry_execute(
+    client: ExecutionClient<GrpcService>,
+    metadata: RemoteExecutionMetadata,
+    use_fbcode_metadata: bool,
+    operation_name: String,
+    execute_request: GExecuteRequest,
+    execute_retry_attempts: usize,
+    retries: usize,
+    retry_max_delay: Duration,
+    wait_failure_context: &'static str,
+) -> anyhow::Result<(tonic::Streaming<Operation>, Option<String>, usize)> {
+    match wait_execution_stream(
+        client.clone(),
+        metadata.clone(),
+        use_fbcode_metadata,
+        operation_name.clone(),
+        retries,
+        retry_max_delay,
+    )
+    .await
+    {
+        Ok(stream) => Ok((stream, Some(operation_name), execute_retry_attempts)),
+        Err(wait_err) if should_retry_execute_after_wait_execution_error(&wait_err) => {
+            if !can_retry_execute(execute_retry_attempts, retries) {
+                return Err(wait_err.context(format!(
+                    "RE operation `{operation_name}` was lost after retry limit"
+                )));
+            }
+
+            let execute_retry_attempts = execute_retry_attempts + 1;
+            tracing::debug!(
+                operation_name = %operation_name,
+                retry_attempt = execute_retry_attempts,
+                retries,
+                "RE operation was lost; retrying Execute"
+            );
+            let stream = execute_stream(
+                client,
+                metadata,
+                use_fbcode_metadata,
+                execute_request,
+                retries,
+                retry_max_delay,
+            )
+            .await
+            .context(format!(
+                "RE operation `{operation_name}` was lost and Execute retry failed"
+            ))?;
+            Ok((stream, None, execute_retry_attempts))
+        }
+        Err(wait_err) => Err(wait_err.context(wait_failure_context)),
+    }
 }
 
 enum BystreamWritePlan {
@@ -2571,158 +2663,265 @@ impl REClient {
             ..Default::default()
         };
 
-        let stream = retry_grpc_request(
+        let stream = execute_stream(
+            self.execution_client().await?,
+            metadata.clone(),
+            self.runtime_opts.use_fbcode_metadata,
+            grpc_request.clone(),
             self.runtime_opts.retries,
             Duration::from_millis(self.runtime_opts.retry_max_delay_ms),
-            || {
-                let metadata = metadata.clone();
-                let request = grpc_request.clone();
-                async move {
-                    let mut client = self.execution_client().await?;
-                    Ok(client
-                        .execute(with_re_metadata(
-                            request,
-                            &metadata,
-                            self.runtime_opts.use_fbcode_metadata,
-                        ))
-                        .await?
-                        .into_inner())
-                }
-            },
         )
         .await?;
 
         let execution_client = self.execution_client().await?;
         let metadata_for_wait_execution = metadata.clone();
+        let grpc_request_for_retry = grpc_request.clone();
         let use_fbcode_metadata = self.runtime_opts.use_fbcode_metadata;
         let retries = self.runtime_opts.retries;
         let retry_max_delay = Duration::from_millis(self.runtime_opts.retry_max_delay_ms);
         let cas_ttl_secs = self.runtime_opts.cas_ttl_secs;
 
         let stream = futures::stream::try_unfold(
-            (stream, None::<String>),
-            move |(mut stream, mut operation_name)| {
+            (stream, None::<String>, 0usize),
+            move |(mut stream, mut operation_name, mut execute_retry_attempts)| {
                 let execution_client = execution_client.clone();
                 let metadata = metadata_for_wait_execution.clone();
+                let grpc_request = grpc_request_for_retry.clone();
                 async move {
-                    let msg = loop {
-                        match stream.try_next().await {
-                            Ok(Some(msg)) => break msg,
-                            Ok(None) => return Ok(None),
-                            Err(err) => {
-                                let err = anyhow::Error::from(err);
-                                let Some(name) = operation_name.clone() else {
-                                    return Err(normalize_re_error(
-                                        err.context("RE channel error"),
-                                    ));
-                                };
-                                if !is_retryable_grpc_error(&err) {
-                                    return Err(normalize_re_error(
-                                        err.context("RE channel error"),
-                                    ));
-                                }
+                    loop {
+                        let msg = loop {
+                            match stream.try_next().await {
+                                Ok(Some(msg)) => break msg,
+                                Ok(None) => {
+                                    let Some(name) = operation_name.clone() else {
+                                        return Err(anyhow::anyhow!(
+                                            "RE Execute stream ended before operation creation"
+                                        ));
+                                    };
 
-                                tracing::debug!(
-                                    operation_name = %name,
-                                    "Execute stream failed after operation creation; resuming with WaitExecution"
-                                );
-                                stream = match wait_execution_stream(
-                                    execution_client.clone(),
-                                    metadata.clone(),
-                                    use_fbcode_metadata,
-                                    name.clone(),
-                                    retries,
-                                    retry_max_delay,
-                                )
-                                .await
-                                {
-                                    Ok(stream) => stream,
-                                    Err(wait_err) if is_operation_not_found(&wait_err) => {
-                                        return Err(wait_err
-                                            .context(format!("RE operation `{name}` was lost")));
-                                    }
-                                    Err(wait_err) => {
-                                        return Err(wait_err.context(
-                                            "RE WaitExecution failed after Execute stream interruption",
+                                    tracing::debug!(
+                                        operation_name = %name,
+                                        "Execute stream ended before completion; resuming with WaitExecution"
+                                    );
+                                    let (
+                                        next_stream,
+                                        next_operation_name,
+                                        next_execute_retry_attempts,
+                                    ) = wait_execution_or_retry_execute(
+                                        execution_client.clone(),
+                                        metadata.clone(),
+                                        use_fbcode_metadata,
+                                        name,
+                                        grpc_request.clone(),
+                                        execute_retry_attempts,
+                                        retries,
+                                        retry_max_delay,
+                                        "RE WaitExecution failed after Execute stream ended before completion",
+                                    )
+                                    .await?;
+                                    stream = next_stream;
+                                    operation_name = next_operation_name;
+                                    execute_retry_attempts = next_execute_retry_attempts;
+                                }
+                                Err(err) => {
+                                    let err = anyhow::Error::from(err);
+                                    if !is_retryable_grpc_error(&err) {
+                                        return Err(normalize_re_error(
+                                            err.context("RE channel error"),
                                         ));
                                     }
-                                };
-                            }
-                        }
-                    };
 
-                    if !msg.name.is_empty() {
-                        operation_name = Some(msg.name.clone());
-                    }
+                                    let Some(name) = operation_name.clone() else {
+                                        if !can_retry_execute(execute_retry_attempts, retries) {
+                                            return Err(err.context(
+                                                "RE Execute stream failed before operation creation after retry limit",
+                                            ));
+                                        }
 
-                    let status = if msg.done {
-                        match msg
-                            .result
-                            .context("Missing `result` when message was `done`")?
-                        {
-                            OpResult::Error(rpc_status) => {
-                                return Err(REClientError {
-                                    code: TCode(rpc_status.code),
-                                    message: rpc_status.message,
-                                    group: TCodeReasonGroup::UNKNOWN,
+                                        execute_retry_attempts += 1;
+                                        tracing::debug!(
+                                            retry_attempt = execute_retry_attempts,
+                                            retries,
+                                            "Execute stream failed before operation creation; retrying Execute"
+                                        );
+                                        stream = execute_stream(
+                                            execution_client.clone(),
+                                            metadata.clone(),
+                                            use_fbcode_metadata,
+                                            grpc_request.clone(),
+                                            retries,
+                                            retry_max_delay,
+                                        )
+                                        .await
+                                        .context(
+                                            "Execute stream failed before operation creation and Execute retry failed",
+                                        )?;
+                                        continue;
+                                    };
+
+                                    tracing::debug!(
+                                        operation_name = %name,
+                                        "Execute stream failed after operation creation; resuming with WaitExecution"
+                                    );
+                                    let (
+                                        next_stream,
+                                        next_operation_name,
+                                        next_execute_retry_attempts,
+                                    ) = wait_execution_or_retry_execute(
+                                        execution_client.clone(),
+                                        metadata.clone(),
+                                        use_fbcode_metadata,
+                                        name,
+                                        grpc_request.clone(),
+                                        execute_retry_attempts,
+                                        retries,
+                                        retry_max_delay,
+                                        "RE WaitExecution failed after Execute stream interruption",
+                                    )
+                                    .await?;
+                                    stream = next_stream;
+                                    operation_name = next_operation_name;
+                                    execute_retry_attempts = next_execute_retry_attempts;
                                 }
-                                .into());
                             }
-                            OpResult::Response(any) => {
-                                let execute_response_grpc: GExecuteResponse =
-                                    GExecuteResponse::decode(&any.value[..])?;
-
-                                check_status(execute_response_grpc.status.unwrap_or_default())?;
-
-                                let action_result = execute_response_grpc
-                                    .result
-                                    .with_context(|| "The action result is not defined.")?;
-
-                                let action_result =
-                                    convert_action_result(action_result, cas_ttl_secs)?;
-
-                                let execute_response = ExecuteResponse {
-                                    action_result,
-                                    action_result_digest: TDigest::default(),
-                                    action_result_ttl: cas_ttl_secs,
-                                    status: TStatus {
-                                        code: TCode::OK,
-                                        message: execute_response_grpc.message,
-                                        ..Default::default()
-                                    },
-                                    cached_result: execute_response_grpc.cached_result,
-                                    action_digest: Default::default(), // Filled in below.
-                                };
-
-                                ExecuteWithProgressResponse {
-                                    stage: Stage::COMPLETED,
-                                    execute_response: Some(execute_response),
-                                    ..Default::default()
-                                }
-                            }
-                        }
-                    } else {
-                        let meta = ExecuteOperationMetadata::decode(
-                            &msg.metadata.unwrap_or_default().value[..],
-                        )?;
-
-                        let stage = match execution_stage::Value::try_from(meta.stage) {
-                            Ok(execution_stage::Value::Unknown) => Stage::UNKNOWN,
-                            Ok(execution_stage::Value::CacheCheck) => Stage::CACHE_CHECK,
-                            Ok(execution_stage::Value::Queued) => Stage::QUEUED,
-                            Ok(execution_stage::Value::Executing) => Stage::EXECUTING,
-                            Ok(execution_stage::Value::Completed) => Stage::COMPLETED,
-                            _ => Stage::UNKNOWN,
                         };
 
-                        ExecuteWithProgressResponse {
-                            stage,
-                            execute_response: None,
-                            ..Default::default()
+                        if !msg.name.is_empty() {
+                            operation_name = Some(msg.name.clone());
                         }
-                    };
 
-                    anyhow::Ok(Some((status, (stream, operation_name))))
+                        let status = if msg.done {
+                            match msg
+                                .result
+                                .context("Missing `result` when message was `done`")?
+                            {
+                                OpResult::Error(rpc_status) => {
+                                    let code = TCode(rpc_status.code);
+                                    if should_retry_execute_after_operation_error(code)
+                                        && can_retry_execute(execute_retry_attempts, retries)
+                                    {
+                                        execute_retry_attempts += 1;
+                                        tracing::debug!(
+                                            operation_name =
+                                                operation_name.as_deref().unwrap_or(""),
+                                            retry_attempt = execute_retry_attempts,
+                                            retries,
+                                            code = rpc_status.code,
+                                            "Execute operation returned retryable error; retrying Execute"
+                                        );
+                                        stream = execute_stream(
+                                            execution_client.clone(),
+                                            metadata.clone(),
+                                            use_fbcode_metadata,
+                                            grpc_request.clone(),
+                                            retries,
+                                            retry_max_delay,
+                                        )
+                                        .await
+                                        .context(
+                                            "Execute operation failed and Execute retry failed",
+                                        )?;
+                                        operation_name = None;
+                                        continue;
+                                    }
+
+                                    return Err(REClientError {
+                                        code,
+                                        message: rpc_status.message,
+                                        group: TCodeReasonGroup::UNKNOWN,
+                                    }
+                                    .into());
+                                }
+                                OpResult::Response(any) => {
+                                    let execute_response_grpc: GExecuteResponse =
+                                        GExecuteResponse::decode(&any.value[..])?;
+
+                                    let execute_response_status =
+                                        execute_response_grpc.status.unwrap_or_default();
+                                    let execute_response_code = TCode(execute_response_status.code);
+                                    if should_retry_execute_after_execute_response_status(
+                                        execute_response_code,
+                                    ) && can_retry_execute(execute_retry_attempts, retries)
+                                    {
+                                        execute_retry_attempts += 1;
+                                        tracing::debug!(
+                                            operation_name =
+                                                operation_name.as_deref().unwrap_or(""),
+                                            retry_attempt = execute_retry_attempts,
+                                            retries,
+                                            code = execute_response_status.code,
+                                            "Execute response returned retryable status; retrying Execute"
+                                        );
+                                        stream = execute_stream(
+                                            execution_client.clone(),
+                                            metadata.clone(),
+                                            use_fbcode_metadata,
+                                            grpc_request.clone(),
+                                            retries,
+                                            retry_max_delay,
+                                        )
+                                        .await
+                                        .context(
+                                            "Execute response failed and Execute retry failed",
+                                        )?;
+                                        operation_name = None;
+                                        continue;
+                                    }
+                                    check_status(execute_response_status)?;
+
+                                    let action_result = execute_response_grpc
+                                        .result
+                                        .with_context(|| "The action result is not defined.")?;
+
+                                    let action_result =
+                                        convert_action_result(action_result, cas_ttl_secs)?;
+
+                                    let execute_response = ExecuteResponse {
+                                        action_result,
+                                        action_result_digest: TDigest::default(),
+                                        action_result_ttl: cas_ttl_secs,
+                                        status: TStatus {
+                                            code: TCode::OK,
+                                            message: execute_response_grpc.message,
+                                            ..Default::default()
+                                        },
+                                        cached_result: execute_response_grpc.cached_result,
+                                        action_digest: Default::default(), // Filled in below.
+                                    };
+
+                                    ExecuteWithProgressResponse {
+                                        stage: Stage::COMPLETED,
+                                        execute_response: Some(execute_response),
+                                        ..Default::default()
+                                    }
+                                }
+                            }
+                        } else {
+                            let meta = ExecuteOperationMetadata::decode(
+                                &msg.metadata.unwrap_or_default().value[..],
+                            )?;
+
+                            let stage = match execution_stage::Value::try_from(meta.stage) {
+                                Ok(execution_stage::Value::Unknown) => Stage::UNKNOWN,
+                                Ok(execution_stage::Value::CacheCheck) => Stage::CACHE_CHECK,
+                                Ok(execution_stage::Value::Queued) => Stage::QUEUED,
+                                Ok(execution_stage::Value::Executing) => Stage::EXECUTING,
+                                Ok(execution_stage::Value::Completed) => Stage::COMPLETED,
+                                _ => Stage::UNKNOWN,
+                            };
+
+                            ExecuteWithProgressResponse {
+                                stage,
+                                execute_response: None,
+                                ..Default::default()
+                            }
+                        };
+
+                        return anyhow::Ok(Some((
+                            status,
+                            (stream, operation_name, execute_retry_attempts),
+                        )));
+                    }
                 }
             },
         );
@@ -5160,6 +5359,53 @@ mod tests {
     use re_grpc_proto::build::bazel::remote::execution::v2::batch_update_blobs_response;
 
     use super::*;
+
+    #[test]
+    fn wait_execution_not_found_retries_execute() {
+        let err = anyhow::Error::from(tonic::Status::not_found("operation was lost"));
+
+        assert!(should_retry_execute_after_wait_execution_error(&err));
+    }
+
+    #[test]
+    fn wait_execution_transient_error_does_not_restart_execute_directly() {
+        let err = anyhow::Error::from(tonic::Status::unavailable("try wait again"));
+
+        assert!(!should_retry_execute_after_wait_execution_error(&err));
+    }
+
+    #[test]
+    fn operation_error_retry_policy_matches_grpc_retry_codes() {
+        assert!(should_retry_execute_after_operation_error(
+            TCode::UNAVAILABLE
+        ));
+        assert!(should_retry_execute_after_operation_error(
+            TCode::DEADLINE_EXCEEDED
+        ));
+        assert!(!should_retry_execute_after_operation_error(
+            TCode::PERMISSION_DENIED
+        ));
+    }
+
+    #[test]
+    fn execute_response_status_retry_policy_matches_bazel() {
+        assert!(should_retry_execute_after_execute_response_status(
+            TCode::UNAVAILABLE
+        ));
+        assert!(!should_retry_execute_after_execute_response_status(
+            TCode::DEADLINE_EXCEEDED
+        ));
+        assert!(!should_retry_execute_after_execute_response_status(
+            TCode::PERMISSION_DENIED
+        ));
+    }
+
+    #[test]
+    fn execute_retry_attempts_are_bounded() {
+        assert!(!can_retry_execute(0, 0));
+        assert!(can_retry_execute(0, 1));
+        assert!(!can_retry_execute(1, 1));
+    }
 
     #[test]
     fn test_select_download_hash_digest_function() -> anyhow::Result<()> {
