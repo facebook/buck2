@@ -512,11 +512,17 @@ impl PreparedCommandExecutor for ReExecutor {
             self.materialize_failed_outputs,
             additional_message,
             &self.output_trees_download_config,
+            false,
         )
         .boxed()
         .await;
 
-        let DownloadResult::Result(mut res) = res;
+        let mut res = match res {
+            DownloadResult::Result(res) => res,
+            DownloadResult::CacheMiss { manager, error } => {
+                manager.error("materialize_outputs", error)
+            }
+        };
         res.action_result = Some(response.execute_response.action_result);
 
         if let Some(run_action_key) = request.run_action_key()
