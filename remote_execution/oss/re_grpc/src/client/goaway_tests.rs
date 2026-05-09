@@ -254,6 +254,7 @@ async fn upload(
         None,
         max_total_batch_size,
         None,
+        DigestFunctionConfig::default(),
         |re_request| async move {
             retry_grpc_request(DEFAULT_RETRIES, retry_max_delay, || {
                 let re_request = re_request.clone();

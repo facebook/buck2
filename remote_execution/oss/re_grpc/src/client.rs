@@ -626,6 +626,16 @@ pub struct RERuntimeOpts {
     retry_max_delay_ms: u64,
     /// Digest function selected from user config and capabilities for download hash validation.
     download_hash_digest_function: Option<digest_function::Value>,
+    /// Digest functions selected from daemon config for RE request fields.
+    request_digest_function_config: DigestFunctionConfig,
+}
+
+impl RERuntimeOpts {
+    fn download_hash_digest_function_for_hash(&self, hash: &str) -> Option<digest_function::Value> {
+        self.request_digest_function_config
+            .for_hash(hash)
+            .or(self.download_hash_digest_function)
+    }
 }
 
 struct InstanceName(Option<String>);
@@ -853,12 +863,15 @@ fn select_download_hash_digest_function(
 
     if !configured.is_empty() {
         if supported.is_empty() {
-            return Ok(configured.first().copied());
+            return Ok(unique_digest_function(configured.iter().copied()));
         }
-        for configured_digest_function in &configured {
-            if supported.contains(configured_digest_function) {
-                return Ok(Some(*configured_digest_function));
-            }
+        let compatible = configured
+            .iter()
+            .copied()
+            .filter(|configured_digest_function| supported.contains(configured_digest_function))
+            .collect::<Vec<_>>();
+        if !compatible.is_empty() {
+            return Ok(unique_digest_function(compatible.into_iter()));
         }
         return Err(anyhow::anyhow!(
             "Configured digest_algorithms are incompatible with RE server capabilities. configured={}, server={}",
@@ -943,6 +956,89 @@ fn validate_digest_function_capabilities(
     }
 
     Ok(())
+}
+
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+struct DigestFunctionConfig {
+    digest160: Option<digest_function::Value>,
+    digest256: Option<digest_function::Value>,
+}
+
+impl DigestFunctionConfig {
+    fn from_configured_algorithms(configured_digest_algorithms: &[String]) -> Self {
+        let configured_digest_functions = configured_digest_functions(configured_digest_algorithms);
+        let digest160 = unique_digest_function(
+            configured_digest_functions
+                .iter()
+                .copied()
+                .filter(|digest_function| *digest_function == digest_function::Value::Sha1),
+        );
+        let digest256 = unique_digest_function(configured_digest_functions.iter().copied().filter(
+            |digest_function| {
+                matches!(
+                    digest_function,
+                    digest_function::Value::Sha256 | digest_function::Value::Blake3
+                )
+            },
+        ));
+
+        Self {
+            digest160,
+            digest256,
+        }
+    }
+
+    fn for_hash(self, hash: &str) -> Option<digest_function::Value> {
+        match hash.len() {
+            40 => self.digest160,
+            64 => self.digest256,
+            _ => None,
+        }
+    }
+
+    fn for_digest(self, digest: &Digest) -> Option<digest_function::Value> {
+        self.for_hash(&digest.hash)
+    }
+
+    fn for_common_digest_function(self, digests: &[Digest]) -> Option<digest_function::Value> {
+        let mut common = None;
+        for digest in digests {
+            let digest_function = self.for_digest(digest)?;
+            if common.is_some_and(|common| common != digest_function) {
+                return None;
+            }
+            common = Some(digest_function);
+        }
+        common
+    }
+}
+
+fn digest_function_to_grpc(digest_function: Option<digest_function::Value>) -> i32 {
+    digest_function
+        .map(|digest_function| digest_function as i32)
+        .unwrap_or_default()
+}
+
+fn digest_function_resource_segment(
+    digest_function: Option<digest_function::Value>,
+) -> Option<&'static str> {
+    match digest_function {
+        Some(digest_function::Value::Blake3) => Some("blake3"),
+        _ => None,
+    }
+}
+
+fn unique_digest_function(
+    digest_functions: impl Iterator<Item = digest_function::Value>,
+) -> Option<digest_function::Value> {
+    let mut unique = None;
+    for digest_function in digest_functions {
+        if unique.is_some_and(|unique| unique != digest_function) {
+            return None;
+        }
+        unique = Some(digest_function);
+    }
+    unique
 }
 
 fn validate_remote_execution_enabled(execution_enabled: Option<bool>) -> anyhow::Result<()> {
@@ -1164,6 +1260,8 @@ impl REClientBuilder {
             &opts.digest_algorithms,
             &capabilities.supported_digest_functions,
         )?;
+        let request_digest_function_config =
+            DigestFunctionConfig::from_configured_algorithms(&opts.digest_algorithms);
 
         let max_decoding_msg_size = opts
             .max_decoding_message_size
@@ -1258,6 +1356,7 @@ impl REClientBuilder {
                 retries,
                 retry_max_delay_ms,
                 download_hash_digest_function,
+                request_digest_function_config,
             },
             capabilities,
             instance_name,
@@ -1894,6 +1993,11 @@ impl REClient {
         request: ActionResultRequest,
     ) -> impl Future<Output = anyhow::Result<ActionResultResponse>> + Send + use<'a> {
         let action_digest = tdigest_to(&request.digest);
+        let digest_function = self
+            .runtime_opts
+            .request_digest_function_config
+            .for_digest(&action_digest);
+        let digest_function = digest_function_to_grpc(digest_function);
         let metadata = metadata.clone();
         async move {
             let res = retry_grpc_request(
@@ -1909,6 +2013,7 @@ impl REClient {
                                 GetActionResultRequest {
                                     instance_name: self.instance_name.as_str().to_owned(),
                                     action_digest: Some(action_digest),
+                                    digest_function,
                                     ..Default::default()
                                 },
                                 &metadata,
@@ -1938,6 +2043,11 @@ impl REClient {
     ) -> impl Future<Output = anyhow::Result<WriteActionResultResponse>> + Send + use<'a> {
         let action_result = convert_t_action_result2(&request.action_result);
         let action_digest = tdigest_to(&request.action_digest);
+        let digest_function = self
+            .runtime_opts
+            .request_digest_function_config
+            .for_digest(&action_digest);
+        let digest_function = digest_function_to_grpc(digest_function);
         let metadata = metadata.clone();
         async move {
             let action_result = action_result?;
@@ -1957,6 +2067,7 @@ impl REClient {
                                     action_digest: Some(action_digest),
                                     action_result: Some(action_result),
                                     results_cache_policy: None,
+                                    digest_function,
                                     ..Default::default()
                                 },
                                 &metadata,
@@ -1990,6 +2101,11 @@ impl REClient {
         // use crate::proto::build::bazel::remote::execution::v2::ExecutionPolicy;
 
         let action_digest = tdigest_to(&execute_request.action_digest);
+        let digest_function = self
+            .runtime_opts
+            .request_digest_function_config
+            .for_digest(&action_digest);
+        let digest_function = digest_function_to_grpc(digest_function);
         let execution_priority = execute_request
             .execution_policy
             .as_ref()
@@ -2009,6 +2125,7 @@ impl REClient {
             }),
             results_cache_policy: Some(ResultsCachePolicy { priority: 0 }),
             action_digest: Some(action_digest.clone()),
+            digest_function,
             ..Default::default()
         };
 
@@ -2141,13 +2258,21 @@ impl REClient {
     ) -> impl Future<Output = anyhow::Result<UploadResponse>> + Send + use<'a> {
         let metadata = metadata.clone();
         async move {
+            let mut request = request;
+            if request.upload_only_missing {
+                request = self
+                    .filter_upload_request_to_missing(metadata.clone(), request)
+                    .await?;
+            }
             validate_upload_request_sizes(&request, self.capabilities.max_cas_blob_size_bytes)?;
-            upload_impl(
+            let uploaded_digests = upload_payload_digests(&request);
+            let response = upload_impl(
                 &self.instance_name,
                 request,
                 self.bystream_compressor,
                 self.capabilities.max_total_batch_size,
                 self.runtime_opts.max_concurrent_uploads_per_action,
+                self.runtime_opts.request_digest_function_config,
                 |re_request| {
                     let metadata = metadata.clone();
                     async move {
@@ -2213,7 +2338,47 @@ impl REClient {
                     }
                 },
             )
-            .await
+            .await?;
+
+            self.mark_digests_exist_on_remote(uploaded_digests);
+
+            Ok(response)
+        }
+    }
+
+    async fn filter_upload_request_to_missing(
+        &self,
+        metadata: RemoteExecutionMetadata,
+        request: UploadRequest,
+    ) -> anyhow::Result<UploadRequest> {
+        let digests = upload_request_digests(&request);
+        if digests.is_empty() {
+            return Ok(request);
+        }
+
+        let missing = self
+            .get_digests_ttl(
+                &metadata,
+                GetDigestsTtlRequest {
+                    digests,
+                    is_for_upload: Some(true),
+                    _dot_dot: (),
+                },
+            )
+            .await?
+            .digests_with_ttl
+            .into_iter()
+            .filter(|digest| digest.ttl == 0)
+            .map(|digest| digest.digest)
+            .collect::<HashSet<_>>();
+
+        Ok(filter_upload_request_by_missing_digests(request, &missing))
+    }
+
+    fn mark_digests_exist_on_remote(&self, digests: impl IntoIterator<Item = TDigest>) {
+        let mut find_missing_cache = self.find_missing_cache.lock().unwrap();
+        for digest in digests {
+            find_missing_cache.put(digest, DigestRemoteState::ExistsOnRemote);
         }
     }
 
@@ -2257,6 +2422,7 @@ impl REClient {
                 self.bystream_compressor,
                 self.capabilities.max_total_batch_size,
                 self.runtime_opts.download_hash_digest_function,
+                self.runtime_opts.request_digest_function_config,
                 |re_request| {
                     let metadata = metadata.clone();
                     async move {
@@ -2345,6 +2511,11 @@ impl REClient {
             if !digests_to_check.is_empty() {
                 tracing::debug!(num_digests = digests_to_check.len(), "FindMissingBlobs");
                 let requested_digests = digests_to_check.iter().map(tdigest_to).collect::<Vec<_>>();
+                let request_digest_function = self
+                    .runtime_opts
+                    .request_digest_function_config
+                    .for_common_digest_function(&requested_digests);
+                let request_digest_function = digest_function_to_grpc(request_digest_function);
                 let missing_blobs = retry_grpc_request(
                     self.runtime_opts.retries,
                     Duration::from_millis(self.runtime_opts.retry_max_delay_ms),
@@ -2358,6 +2529,7 @@ impl REClient {
                                     FindMissingBlobsRequest {
                                         instance_name: self.instance_name.as_str().to_owned(),
                                         blob_digests: requested_digests,
+                                        digest_function: request_digest_function,
                                         ..Default::default()
                                     },
                                     &metadata,
@@ -2536,6 +2708,73 @@ fn validate_upload_request_sizes(
     }
 
     Ok(())
+}
+
+fn upload_request_digests(request: &UploadRequest) -> Vec<TDigest> {
+    let mut digests = Vec::new();
+
+    digests.extend(upload_payload_digests(request));
+    if let Some(directories) = &request.directories {
+        digests.extend(
+            directories
+                .iter()
+                .filter_map(|directory| directory.digest.clone()),
+        );
+    }
+
+    digests
+}
+
+fn upload_payload_digests(request: &UploadRequest) -> Vec<TDigest> {
+    let mut digests = Vec::new();
+
+    if let Some(blobs) = &request.inlined_blobs_with_digest {
+        digests.extend(blobs.iter().map(|blob| blob.digest.clone()));
+    }
+    if let Some(files) = &request.files_with_digest {
+        digests.extend(files.iter().map(|file| file.digest.clone()));
+    }
+
+    digests
+}
+
+fn filter_upload_request_by_missing_digests(
+    mut request: UploadRequest,
+    missing_digests: &HashSet<TDigest>,
+) -> UploadRequest {
+    request.upload_only_missing = false;
+
+    if let Some(blobs) = request.inlined_blobs_with_digest.take() {
+        request.inlined_blobs_with_digest = Some(
+            blobs
+                .into_iter()
+                .filter(|blob| missing_digests.contains(&blob.digest))
+                .collect(),
+        );
+    }
+    if let Some(files) = request.files_with_digest.take() {
+        request.files_with_digest = Some(
+            files
+                .into_iter()
+                .filter(|file| missing_digests.contains(&file.digest))
+                .collect(),
+        );
+    }
+    if let Some(directories) = request.directories.take() {
+        request.directories = Some(
+            directories
+                .into_iter()
+                .filter(|directory| {
+                    directory
+                        .digest
+                        .as_ref()
+                        .is_some_and(|digest| missing_digests.contains(digest))
+                })
+                .collect(),
+        );
+    }
+
+    request
 }
 
 fn digest_name(digest: &Digest) -> String {
@@ -2870,6 +3109,7 @@ async fn download_impl<Byt, BytRet, Cas>(
     bystream_compressor: Option<Compressor>,
     max_total_batch_size: usize,
     download_hash_digest_function: Option<digest_function::Value>,
+    request_digest_function_config: DigestFunctionConfig,
     cas_f: impl Fn(BatchReadBlobsRequest) -> Cas,
     bystream_fut: impl Fn(ReadRequest) -> Byt + Sync + Send + Copy,
 ) -> anyhow::Result<DownloadResponse>
@@ -2882,12 +3122,34 @@ where
         instance_name: &InstanceName,
         compressor: Option<Compressor>,
         digest: &TDigest,
+        request_digest_function_config: DigestFunctionConfig,
     ) -> String {
+        let digest_function_segment =
+            digest_function_resource_segment(request_digest_function_config.for_hash(&digest.hash));
         if let Some(compressor) = compressor {
+            if let Some(digest_function_segment) = digest_function_segment {
+                format!(
+                    "{}compressed-blobs/{}/{}/{}/{}",
+                    instance_name.as_resource_prefix(),
+                    compressor.name(),
+                    digest_function_segment,
+                    digest.hash,
+                    digest.size_in_bytes,
+                )
+            } else {
+                format!(
+                    "{}compressed-blobs/{}/{}/{}",
+                    instance_name.as_resource_prefix(),
+                    compressor.name(),
+                    digest.hash,
+                    digest.size_in_bytes,
+                )
+            }
+        } else if let Some(digest_function_segment) = digest_function_segment {
             format!(
-                "{}compressed-blobs/{}/{}/{}",
+                "{}blobs/{}/{}/{}",
                 instance_name.as_resource_prefix(),
-                compressor.name(),
+                digest_function_segment,
                 digest.hash,
                 digest.size_in_bytes,
             )
@@ -2902,7 +3164,12 @@ where
     }
 
     let bystream_fut = |digest: TDigest| async move {
-        let resource_name = resource_name(instance_name, bystream_compressor, &digest);
+        let resource_name = resource_name(
+            instance_name,
+            bystream_compressor,
+            &digest,
+            request_digest_function_config,
+        );
 
         bystream_fut(ReadRequest {
             resource_name: resource_name.clone(),
@@ -2959,10 +3226,13 @@ where
         }
         curr_size += digest.size_bytes;
         if curr_size >= max_total_batch_size as i64 {
+            let digest_function =
+                request_digest_function_config.for_common_digest_function(&curr_digests);
             let read_blob_req = BatchReadBlobsRequest {
                 instance_name: instance_name.as_str().to_owned(),
                 digests: std::mem::take(&mut curr_digests),
                 acceptable_compressors: vec![compressor::Value::Identity as i32],
+                digest_function: digest_function_to_grpc(digest_function),
                 ..Default::default()
             };
             requests.push(read_blob_req);
@@ -2972,10 +3242,13 @@ where
     }
 
     if !curr_digests.is_empty() {
+        let digest_function =
+            request_digest_function_config.for_common_digest_function(&curr_digests);
         let read_blob_req = BatchReadBlobsRequest {
             instance_name: instance_name.as_str().to_owned(),
             digests: std::mem::take(&mut curr_digests),
             acceptable_compressors: vec![compressor::Value::Identity as i32],
+            digest_function: digest_function_to_grpc(digest_function),
             ..Default::default()
         };
         requests.push(read_blob_req);
@@ -2995,9 +3268,19 @@ where
         }
     }
 
+    let download_hash_digest_function_for_hash = |hash: &str| {
+        request_digest_function_config
+            .for_hash(hash)
+            .or(download_hash_digest_function)
+    };
+
     let get = |digest: &TDigest| -> anyhow::Result<Vec<u8>> {
         if digest.size_in_bytes == 0 {
-            validate_downloaded_blob(digest, &[], download_hash_digest_function)?;
+            validate_downloaded_blob(
+                digest,
+                &[],
+                download_hash_digest_function_for_hash(&digest.hash),
+            )?;
             return Ok(Vec::new());
         }
 
@@ -3005,7 +3288,11 @@ where
             .get(digest)
             .with_context(|| format!("Did not receive digest data for `{digest}`"))?
             .clone();
-        validate_downloaded_blob(digest, &data, download_hash_digest_function)?;
+        validate_downloaded_blob(
+            digest,
+            &data,
+            download_hash_digest_function_for_hash(&digest.hash),
+        )?;
         Ok(data)
     };
 
@@ -3015,7 +3302,11 @@ where
             let mut accum = vec![];
             let mut reader = bystream_fut(digest.clone()).await?;
             tokio::io::copy(&mut reader, &mut accum).await?;
-            validate_downloaded_blob(&digest, &accum, download_hash_digest_function)?;
+            validate_downloaded_blob(
+                &digest,
+                &accum,
+                download_hash_digest_function_for_hash(&digest.hash),
+            )?;
             accum
         } else {
             get(&digest)?
@@ -3057,7 +3348,7 @@ where
                 let mut reader = bystream_fut(req.named_digest.digest.clone()).await?;
                 let mut hash_validators = BlobHashValidators::new(
                     &req.named_digest.digest.hash,
-                    download_hash_digest_function,
+                    download_hash_digest_function_for_hash(&req.named_digest.digest.hash),
                 )?;
                 let mut copied_bytes = 0usize;
                 let mut buffer = vec![0u8; 64 * 1024];
@@ -3111,6 +3402,7 @@ async fn upload_impl<Byt, Cas>(
     bystream_compressor: Option<Compressor>,
     max_total_batch_size: usize,
     max_concurrent_uploads: Option<usize>,
+    request_digest_function_config: DigestFunctionConfig,
     cas_f: impl Fn(BatchUpdateBlobsRequest) -> Cas + Sync + Send + Copy,
     bystream_fut: impl Fn(Vec<WriteRequest>) -> Byt + Sync + Send + Copy,
 ) -> anyhow::Result<UploadResponse>
@@ -3123,13 +3415,37 @@ where
         client_uuid: &str,
         compressor: Option<Compressor>,
         digest: &TDigest,
+        request_digest_function_config: DigestFunctionConfig,
     ) -> String {
+        let digest_function_segment =
+            digest_function_resource_segment(request_digest_function_config.for_hash(&digest.hash));
         if let Some(compressor) = compressor {
+            if let Some(digest_function_segment) = digest_function_segment {
+                format!(
+                    "{}uploads/{}/compressed-blobs/{}/{}/{}/{}",
+                    instance_name.as_resource_prefix(),
+                    client_uuid,
+                    compressor.name(),
+                    digest_function_segment,
+                    digest.hash,
+                    digest.size_in_bytes,
+                )
+            } else {
+                format!(
+                    "{}uploads/{}/compressed-blobs/{}/{}/{}",
+                    instance_name.as_resource_prefix(),
+                    client_uuid,
+                    compressor.name(),
+                    digest.hash,
+                    digest.size_in_bytes,
+                )
+            }
+        } else if let Some(digest_function_segment) = digest_function_segment {
             format!(
-                "{}uploads/{}/compressed-blobs/{}/{}/{}",
+                "{}uploads/{}/blobs/{}/{}/{}",
                 instance_name.as_resource_prefix(),
                 client_uuid,
-                compressor.name(),
+                digest_function_segment,
                 digest.hash,
                 digest.size_in_bytes,
             )
@@ -3215,6 +3531,7 @@ where
             &client_uuid,
             bystream_compressor,
             &blob.digest,
+            request_digest_function_config,
         );
         let fut = async move {
             retry(|| async {
@@ -3241,6 +3558,7 @@ where
             &client_uuid,
             bystream_compressor,
             &file.digest,
+            request_digest_function_config,
         );
 
         let fut = async move {
@@ -3302,6 +3620,9 @@ where
                 .iter()
                 .map(|x| x.digest.as_ref().unwrap().clone())
                 .collect::<Vec<_>>();
+            let digest_function =
+                request_digest_function_config.for_common_digest_function(&requested_digests);
+            re_request.digest_function = digest_function_to_grpc(digest_function);
 
             let response = cas_f(re_request).await?;
             validate_batch_update_blobs_response(&requested_digests, &response)?;
@@ -3489,7 +3810,14 @@ mod tests {
                     digest_function::Value::Blake3
                 ],
             )?,
-            Some(digest_function::Value::Blake3)
+            None
+        );
+        assert_eq!(
+            select_download_hash_digest_function(
+                &["SHA256".to_owned(), "SHA1".to_owned()],
+                &[digest_function::Value::Sha1, digest_function::Value::Sha256],
+            )?,
+            None
         );
         assert_eq!(
             select_download_hash_digest_function(
@@ -3616,6 +3944,88 @@ mod tests {
             test_re_capabilities(true, vec![digest_function::Value::Sha256], Vec::new());
         execution_disabled.execution_enabled = Some(false);
         validate_digest_function_capabilities(&["SHA256".to_owned()], &execution_disabled)?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_digest_function_config_selects_unambiguous_requests() {
+        let sha256 = Digest {
+            hash: "a".repeat(64),
+            size_bytes: 1,
+        };
+        let sha1 = Digest {
+            hash: "b".repeat(40),
+            size_bytes: 1,
+        };
+
+        let sha256_config = DigestFunctionConfig::from_configured_algorithms(&["SHA256".into()]);
+        assert_eq!(
+            sha256_config.for_digest(&sha256),
+            Some(digest_function::Value::Sha256)
+        );
+        assert_eq!(sha256_config.for_digest(&sha1), None);
+
+        let multi_config =
+            DigestFunctionConfig::from_configured_algorithms(&["SHA1".into(), "SHA256".into()]);
+        assert_eq!(
+            multi_config.for_digest(&sha1),
+            Some(digest_function::Value::Sha1)
+        );
+        assert_eq!(
+            multi_config.for_digest(&sha256),
+            Some(digest_function::Value::Sha256)
+        );
+        assert_eq!(
+            multi_config.for_common_digest_function(std::slice::from_ref(&sha1)),
+            Some(digest_function::Value::Sha1)
+        );
+        assert_eq!(
+            multi_config.for_common_digest_function(&[sha1.clone(), sha256.clone()]),
+            None
+        );
+
+        let ambiguous_config =
+            DigestFunctionConfig::from_configured_algorithms(&["SHA256".into(), "BLAKE3".into()]);
+        assert_eq!(ambiguous_config.for_digest(&sha256), None);
+    }
+
+    #[test]
+    fn test_download_validation_selects_digest_function_by_hash() -> anyhow::Result<()> {
+        let data = b"mixed digest validation";
+        let sha1_digest = TDigest {
+            hash: hex::encode(Sha1::digest(data)),
+            size_in_bytes: data.len() as i64,
+            ..Default::default()
+        };
+        let sha256_digest = digest_for_test_data(data);
+        let digest_function_config =
+            DigestFunctionConfig::from_configured_algorithms(&["SHA256".into(), "SHA1".into()]);
+        let runtime_opts = RERuntimeOpts {
+            use_fbcode_metadata: false,
+            max_concurrent_uploads_per_action: None,
+            cas_ttl_secs: 0,
+            find_missing_blobs_batch_size: 100,
+            retries: 0,
+            retry_max_delay_ms: 0,
+            download_hash_digest_function: Some(digest_function::Value::Sha256),
+            request_digest_function_config: digest_function_config,
+        };
+
+        assert_eq!(
+            runtime_opts.download_hash_digest_function_for_hash(&sha1_digest.hash),
+            Some(digest_function::Value::Sha1)
+        );
+        validate_downloaded_blob(
+            &sha1_digest,
+            data,
+            runtime_opts.download_hash_digest_function_for_hash(&sha1_digest.hash),
+        )?;
+        validate_downloaded_blob(
+            &sha256_digest,
+            data,
+            runtime_opts.download_hash_digest_function_for_hash(&sha256_digest.hash),
+        )?;
 
         Ok(())
     }
@@ -3838,6 +4248,99 @@ mod tests {
     }
 
     #[test]
+    fn test_filter_upload_request_by_missing_digests() {
+        let present = test_digest("aa", 1);
+        let missing_file = test_digest("bb", 2);
+        let missing_blob = test_digest("cc", 3);
+        let missing_directory = test_digest("dd", 4);
+
+        let request = UploadRequest {
+            files_with_digest: Some(vec![
+                NamedDigest {
+                    name: "present.out".to_owned(),
+                    digest: present.clone(),
+                    ..Default::default()
+                },
+                NamedDigest {
+                    name: "missing.out".to_owned(),
+                    digest: missing_file.clone(),
+                    ..Default::default()
+                },
+            ]),
+            inlined_blobs_with_digest: Some(vec![
+                InlinedBlobWithDigest {
+                    blob: b"present".to_vec(),
+                    digest: present.clone(),
+                    ..Default::default()
+                },
+                InlinedBlobWithDigest {
+                    blob: b"missing".to_vec(),
+                    digest: missing_blob.clone(),
+                    ..Default::default()
+                },
+            ]),
+            directories: Some(vec![
+                Path {
+                    path: "present-tree".to_owned(),
+                    digest: Some(present.clone()),
+                    ..Default::default()
+                },
+                Path {
+                    path: "missing-tree".to_owned(),
+                    digest: Some(missing_directory.clone()),
+                    ..Default::default()
+                },
+                Path {
+                    path: "unknown-tree".to_owned(),
+                    digest: None,
+                    ..Default::default()
+                },
+            ]),
+            upload_only_missing: true,
+            ..Default::default()
+        };
+
+        assert_eq!(upload_request_digests(&request).len(), 6);
+        assert_eq!(upload_payload_digests(&request).len(), 4);
+
+        let missing_digests = HashSet::from([
+            missing_file.clone(),
+            missing_blob.clone(),
+            missing_directory.clone(),
+        ]);
+        let request = filter_upload_request_by_missing_digests(request, &missing_digests);
+
+        assert!(!request.upload_only_missing);
+        assert_eq!(
+            request
+                .files_with_digest
+                .unwrap()
+                .into_iter()
+                .map(|file| file.digest)
+                .collect::<Vec<_>>(),
+            vec![missing_file]
+        );
+        assert_eq!(
+            request
+                .inlined_blobs_with_digest
+                .unwrap()
+                .into_iter()
+                .map(|blob| blob.digest)
+                .collect::<Vec<_>>(),
+            vec![missing_blob]
+        );
+        assert_eq!(
+            request
+                .directories
+                .unwrap()
+                .into_iter()
+                .map(|directory| directory.digest.unwrap())
+                .collect::<Vec<_>>(),
+            vec![missing_directory]
+        );
+    }
+
+    #[test]
     fn test_validate_batch_update_blobs_response_checks_digests() -> anyhow::Result<()> {
         let digest1 = tdigest_to(&test_digest("aa", 1));
         let digest2 = tdigest_to(&test_digest("bb", 2));
@@ -4027,6 +4530,14 @@ mod tests {
         }
     }
 
+    fn blake3_digest_for_test_data(data: &[u8]) -> TDigest {
+        TDigest {
+            hash: blake3::hash(data).to_hex().to_string(),
+            size_in_bytes: data.len() as i64,
+            ..Default::default()
+        }
+    }
+
     #[tokio::test]
     async fn test_retry_unauthenticated() {
         let attempts = AtomicU16::new(0);
@@ -4167,6 +4678,7 @@ mod tests {
             None,
             10000,
             None,
+            DigestFunctionConfig::default(),
             |req| {
                 let res = res.clone();
                 let digest1 = digest1.clone();
@@ -4268,6 +4780,7 @@ mod tests {
             None,
             10, // kept small to simulate a large file download
             None,
+            DigestFunctionConfig::default(),
             |req| {
                 let res = res.clone();
                 let digest1 = digest1.clone();
@@ -4345,6 +4858,7 @@ mod tests {
             None,
             100000,
             None,
+            DigestFunctionConfig::default(),
             |req| {
                 let res = res.clone();
                 let digest1 = digest1.clone();
@@ -4405,6 +4919,7 @@ mod tests {
             None,
             7,
             None,
+            DigestFunctionConfig::default(),
             |req| {
                 counter.fetch_add(1, Ordering::Relaxed);
                 let res = BatchReadBlobsResponse {
@@ -4470,6 +4985,7 @@ mod tests {
             None,
             10, // intentionally small value to keep data in the test blobs small
             None,
+            DigestFunctionConfig::default(),
             |req| {
                 let res = res.clone();
                 let digest1 = digest1.clone();
@@ -4524,6 +5040,7 @@ mod tests {
             None,
             100000,
             None,
+            DigestFunctionConfig::default(),
             |req| {
                 let res = res.clone();
                 async move {
@@ -4568,6 +5085,7 @@ mod tests {
             None,
             100000,
             None,
+            DigestFunctionConfig::default(),
             |_req| {
                 let res = res.clone();
                 async move { Ok(res) }
@@ -4615,6 +5133,7 @@ mod tests {
             None,
             10,
             None,
+            DigestFunctionConfig::default(),
             |_req| async { Ok(BatchReadBlobsResponse { responses: vec![] }) },
             |req| {
                 let read_response = read_response.clone();
@@ -4660,6 +5179,7 @@ mod tests {
             None,
             100000,
             None,
+            DigestFunctionConfig::default(),
             |_req| {
                 let res = res.clone();
                 async move { Ok(res) }
@@ -4711,6 +5231,7 @@ mod tests {
             None,
             10,
             None,
+            DigestFunctionConfig::default(),
             |_req| async { Ok(BatchReadBlobsResponse { responses: vec![] }) },
             |req| {
                 let read_response = read_response.clone();
@@ -4749,6 +5270,7 @@ mod tests {
             None,
             0,
             None,
+            DigestFunctionConfig::default(),
             |_req| async { panic!("not called") },
             |req| async move {
                 assert_eq!(
@@ -4756,6 +5278,71 @@ mod tests {
                     format!("instance/blobs/{}/0", digest1.hash)
                 );
                 anyhow::Ok(Box::pin(futures::stream::iter(vec![])))
+            },
+        )
+        .await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_download_sets_blake3_digest_function() -> anyhow::Result<()> {
+        let blob = b"aaa".to_vec();
+        let digest = blake3_digest_for_test_data(&blob);
+        let config = DigestFunctionConfig::from_configured_algorithms(&["BLAKE3".into()]);
+
+        let batch_req = DownloadRequest {
+            inlined_digests: Some(vec![digest.clone()]),
+            ..Default::default()
+        };
+
+        download_impl(
+            &InstanceName(None),
+            batch_req,
+            None,
+            10000,
+            Some(digest_function::Value::Blake3),
+            config,
+            |req| {
+                let digest = digest.clone();
+                let blob = blob.clone();
+                async move {
+                    assert_eq!(req.digest_function, digest_function::Value::Blake3 as i32);
+                    Ok(BatchReadBlobsResponse {
+                        responses: vec![batch_read_blobs_response::Response {
+                            digest: Some(tdigest_to(&digest)),
+                            data: blob,
+                            ..Default::default()
+                        }],
+                    })
+                }
+            },
+            |_req| async { anyhow::Ok(Box::pin(futures::stream::iter(vec![]))) },
+        )
+        .await?;
+
+        let stream_req = DownloadRequest {
+            inlined_digests: Some(vec![digest.clone()]),
+            ..Default::default()
+        };
+
+        download_impl(
+            &InstanceName(None),
+            stream_req,
+            None,
+            1,
+            Some(digest_function::Value::Blake3),
+            config,
+            |_req| async { panic!("not called") },
+            |req| {
+                let digest = digest.clone();
+                let blob = blob.clone();
+                async move {
+                    assert_eq!(req.resource_name, format!("blobs/blake3/{}/3", digest.hash));
+                    anyhow::Ok(Box::pin(futures::stream::iter(vec![Ok(ReadResponse {
+                        data: blob,
+                    })])))
+                }
             },
         )
         .await?;
@@ -4823,6 +5410,7 @@ mod tests {
             None,
             10000,
             None,
+            DigestFunctionConfig::default(),
             |req| {
                 let res = res.clone();
                 let digest1 = digest1.clone();
@@ -4900,6 +5488,7 @@ mod tests {
             None,
             10, // kept small to simulate a large file upload
             None,
+            DigestFunctionConfig::default(),
             |req| {
                 let res = res.clone();
                 let digest1 = digest1.clone();
@@ -4975,6 +5564,7 @@ mod tests {
             None,
             10, // kept small to simulate a large inlined upload
             None,
+            DigestFunctionConfig::default(),
             |req| {
                 let res = res.clone();
                 let digest1 = digest1.clone();
@@ -5037,6 +5627,7 @@ mod tests {
             None,
             10,
             None,
+            DigestFunctionConfig::default(),
             |_req| async move {
                 panic!("This should not be called as there are no blobs to upload in batch");
             },
@@ -5099,6 +5690,7 @@ mod tests {
             None,
             3,
             None,
+            DigestFunctionConfig::default(),
             |_req| async move {
                 panic!("Not called");
             },
@@ -5146,6 +5738,7 @@ mod tests {
                     compressor,
                     0, // max_total_batch_size=0 forces bytestream API
                     None,
+                    DigestFunctionConfig::default(),
                     |_req| async move {
                         panic!("Not called");
                     },
@@ -5171,6 +5764,7 @@ mod tests {
                     compressor,
                     1024, // forces the batch API
                     None,
+                    DigestFunctionConfig::default(),
                     |_req| async move {
                         panic!("Not called");
                     },
@@ -5218,6 +5812,7 @@ mod tests {
             None,
             1,
             None,
+            DigestFunctionConfig::default(),
             |_req| async move {
                 panic!("Not called");
             },
@@ -5225,6 +5820,82 @@ mod tests {
                 assert!(write_reqs[0].resource_name.starts_with("instance/uploads/"));
                 assert!(write_reqs[0].resource_name.ends_with("/blobs/aa/3"));
                 anyhow::Ok(WriteResponse { committed_size: 3 })
+            },
+        )
+        .await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_upload_sets_blake3_digest_function() -> anyhow::Result<()> {
+        let blob = b"aaa".to_vec();
+        let digest = blake3_digest_for_test_data(&blob);
+        let config = DigestFunctionConfig::from_configured_algorithms(&["BLAKE3".into()]);
+
+        upload_impl(
+            &InstanceName(None),
+            UploadRequest {
+                inlined_blobs_with_digest: Some(vec![InlinedBlobWithDigest {
+                    digest: digest.clone(),
+                    blob: blob.clone(),
+                    ..Default::default()
+                }]),
+                ..Default::default()
+            },
+            None,
+            10000,
+            None,
+            config,
+            |req| {
+                let digest = digest.clone();
+                async move {
+                    assert_eq!(req.digest_function, digest_function::Value::Blake3 as i32);
+                    assert_eq!(req.requests.len(), 1);
+                    Ok(BatchUpdateBlobsResponse {
+                        responses: vec![batch_update_blobs_response::Response {
+                            digest: Some(tdigest_to(&digest)),
+                            status: Some(Status::default()),
+                        }],
+                    })
+                }
+            },
+            |_req| async { panic!("not called") },
+        )
+        .await?;
+
+        upload_impl(
+            &InstanceName(None),
+            UploadRequest {
+                inlined_blobs_with_digest: Some(vec![InlinedBlobWithDigest {
+                    digest: digest.clone(),
+                    blob,
+                    ..Default::default()
+                }]),
+                ..Default::default()
+            },
+            None,
+            1,
+            None,
+            config,
+            |_req| async { panic!("not called") },
+            |write_reqs| {
+                let digest = digest.clone();
+                async move {
+                    assert_eq!(write_reqs.len(), 3);
+                    assert!(write_reqs[0].resource_name.starts_with("uploads/"));
+                    assert!(
+                        write_reqs
+                            .iter()
+                            .all(|req| req.resource_name == write_reqs[0].resource_name)
+                    );
+                    assert!(
+                        write_reqs[0]
+                            .resource_name
+                            .ends_with(&format!("/blobs/blake3/{}/3", digest.hash))
+                    );
+                    anyhow::Ok(WriteResponse { committed_size: 3 })
+                }
             },
         )
         .await?;
@@ -5265,6 +5936,7 @@ mod tests {
             Some(Compressor::Zstd),
             1,
             None,
+            DigestFunctionConfig::default(),
             |_req| async move {
                 panic!("Not called");
             },
@@ -5392,6 +6064,7 @@ async fn test_upload_compressed() -> anyhow::Result<()> {
         Some(Compressor::Zstd),
         1,
         None,
+        DigestFunctionConfig::default(),
         |_req| async move {
             panic!("Not called");
         },
@@ -5439,6 +6112,7 @@ async fn test_download_compressed() -> anyhow::Result<()> {
         Some(Compressor::Zstd),
         10,
         None,
+        DigestFunctionConfig::default(),
         |_req| async { panic!("not called") },
         |_req| async move {
             Ok(Box::pin(futures::stream::iter(
