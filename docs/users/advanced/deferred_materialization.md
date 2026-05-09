@@ -16,6 +16,20 @@ ever downloading any intermediary outputs.
 At Meta, despite very fast networks being used internally, this was observed
 to make real-world builds finish approximately 2.5 times faster.
 
+## Materialization modes
+
+Buck2 currently uses the deferred materializer for remote outputs. The
+`[buck2] materializations` setting accepts these values:
+
+- `deferred` - download outputs only when a later local action, command, or
+  materialization request needs them. This is also the default.
+- `all` - historical spelling accepted as an alias for `deferred`.
+- `deferred_skip_final_artifacts` - defer intermediate outputs and also skip
+  automatically materializing final requested artifacts.
+
+Use `deferred_skip_final_artifacts` only when the workflow consumes output
+metadata or remote artifacts without needing local files at the end of the build.
+
 ## Pitfalls
 
 Buck2's deferred materialization makes assumptions about your Remote Execution
@@ -26,6 +40,12 @@ artifacts it references.
 Nonetheless, artifacts may also eventually expire from your Remote Execution
 backend. When that happens, builds using Deferred Materialization may fail if
 those artifacts are needed locally.
+
+If an action-cache hit points at output blobs that are already missing from CAS
+during cache materialization, Buck2 treats that stale hit as a cache miss and
+allows the action to run again. Artifacts can still expire later while they are
+being held only as deferred materializer state; those later expirations are the
+unrecoverable case described below.
 
 A kill is necessary to recover from those builds. However, the
 [Restarter](restarter.md) can be used to mitigate this issue by restarting Buck2
