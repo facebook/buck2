@@ -10,6 +10,7 @@
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::sync::OnceLock;
 use std::sync::atomic::AtomicBool;
 use std::time::Duration;
@@ -39,6 +40,7 @@ use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_hash::BuckMutMap;
+use buck2_hash::BuckMutSet;
 #[cfg(fbcode_build)]
 use buck2_re_configuration::CASdMode;
 use buck2_re_configuration::RemoteExecutionStaticMetadataImpl;
@@ -255,6 +257,19 @@ impl RemoteExecutionClient {
                 presence_check_concurrency: re_config.static_metadata.presence_check_concurrency(),
             }),
         })
+    }
+
+    pub fn record_missing_remote_cas_digest(&self, digest: TDigest) {
+        self.data.client.record_missing_remote_cas_digest(digest);
+    }
+
+    pub fn record_missing_remote_cas_digests_from_action_result(
+        &self,
+        action_result: &TActionResult2,
+    ) {
+        self.data
+            .client
+            .record_missing_remote_cas_digests_from_action_result(action_result);
     }
 
     pub async fn new_retry(re_config: &RemoteExecutionConfig) -> buck2_error::Result<Self> {
@@ -588,6 +603,8 @@ struct RemoteExecutionClientImpl {
     /// Preserve file symlinks as symlinks when uploading action result.
     respect_file_symlinks: bool,
     persistent_cache_mode: Option<String>,
+    #[allocative(skip)]
+    missing_remote_cas_digests: Mutex<BuckMutSet<TDigest>>,
 }
 
 fn re_platform(x: &RE::Platform) -> remote_execution::TPlatform {
@@ -1131,6 +1148,7 @@ impl RemoteExecutionClientImpl {
                 download_chunk_size,
                 respect_file_symlinks,
                 persistent_cache_mode,
+                missing_remote_cas_digests: Mutex::new(BuckMutSet::default()),
             }
         };
 
@@ -1149,6 +1167,36 @@ impl RemoteExecutionClientImpl {
 
     fn action_cache_update_enabled(&self) -> Option<bool> {
         self.client().action_cache_update_enabled()
+    }
+
+    fn record_missing_remote_cas_digest(&self, digest: TDigest) {
+        self.missing_remote_cas_digests
+            .lock()
+            .expect("missing CAS digest mutex was poisoned")
+            .insert(digest);
+    }
+
+    fn record_missing_remote_cas_digests_from_action_result(&self, action_result: &TActionResult2) {
+        let digests = action_result_cas_digests(action_result);
+        if digests.is_empty() {
+            return;
+        }
+
+        self.missing_remote_cas_digests
+            .lock()
+            .expect("missing CAS digest mutex was poisoned")
+            .extend(digests);
+    }
+
+    fn action_result_references_missing_cas(
+        &self,
+        response: &ActionResultResponse,
+    ) -> Option<TDigest> {
+        let missing_digests = self
+            .missing_remote_cas_digests
+            .lock()
+            .expect("missing CAS digest mutex was poisoned");
+        action_result_references_any_digest(&response.action_result, &missing_digests)
     }
 
     async fn action_cache(
@@ -1178,6 +1226,21 @@ impl RemoteExecutionClientImpl {
                 Some(re_err) if re_err.code == TCode::NOT_FOUND => None,
                 _ => return Err(e),
             },
+        };
+        let res = match res {
+            Some(response) => {
+                if let Some(missing_digest) = self.action_result_references_missing_cas(&response) {
+                    tracing::info!(
+                        action_digest = %action_digest,
+                        missing_digest = %missing_digest,
+                        "Ignoring remote action cache hit because it references a known-missing CAS digest"
+                    );
+                    None
+                } else {
+                    Some(response)
+                }
+            }
+            None => None,
         };
         trace_action_digest(
             &action_digest,
@@ -2224,6 +2287,37 @@ fn compare_digest(left: &TDigest, right: &TDigest) -> std::cmp::Ordering {
         .then_with(|| left.size_in_bytes.cmp(&right.size_in_bytes))
 }
 
+fn action_result_references_any_digest(
+    action_result: &TActionResult2,
+    digests: &BuckMutSet<TDigest>,
+) -> Option<TDigest> {
+    action_result_cas_digests(action_result)
+        .into_iter()
+        .find(|digest| digests.contains(digest))
+}
+
+fn action_result_cas_digests(action_result: &TActionResult2) -> Vec<TDigest> {
+    let mut digests = Vec::new();
+
+    for output_file in &action_result.output_files {
+        digests.push(output_file.digest.digest.clone());
+    }
+
+    for output_directory in &action_result.output_directories {
+        digests.push(output_directory.tree_digest.clone());
+        digests.push(output_directory.root_directory_digest.clone());
+    }
+
+    if let Some(digest) = &action_result.stdout_digest {
+        digests.push(digest.clone());
+    }
+    if let Some(digest) = &action_result.stderr_digest {
+        digests.push(digest.clone());
+    }
+
+    digests
+}
+
 fn validate_digest_expirations(
     mut expected_digests: Vec<TDigest>,
     response: GetDigestsTtlResponse,
@@ -2292,6 +2386,63 @@ mod tests {
             },
             blob,
         }
+    }
+
+    #[test]
+    fn action_result_references_known_missing_output_digest() {
+        let missing = test_digest(1);
+        let present = test_digest(2);
+        let mut missing_digests = BuckMutSet::default();
+        missing_digests.insert(missing.clone());
+
+        let action_result = TActionResult2 {
+            output_files: vec![remote_execution::TFile {
+                digest: remote_execution::DigestWithStatus {
+                    digest: missing.clone(),
+                    ..Default::default()
+                },
+                ..Default::default()
+            }],
+            stdout_digest: Some(present),
+            ..Default::default()
+        };
+
+        assert_eq!(
+            action_result_references_any_digest(&action_result, &missing_digests),
+            Some(missing)
+        );
+    }
+
+    #[test]
+    fn action_result_cas_digests_includes_cache_references() {
+        let output_file = test_digest(1);
+        let tree = test_digest(2);
+        let root = test_digest(3);
+        let stdout = test_digest(4);
+        let stderr = test_digest(5);
+
+        let action_result = TActionResult2 {
+            output_files: vec![remote_execution::TFile {
+                digest: remote_execution::DigestWithStatus {
+                    digest: output_file.clone(),
+                    ..Default::default()
+                },
+                ..Default::default()
+            }],
+            output_directories: vec![remote_execution::TDirectory2 {
+                tree_digest: tree.clone(),
+                root_directory_digest: root.clone(),
+                ..Default::default()
+            }],
+            stdout_digest: Some(stdout.clone()),
+            stderr_digest: Some(stderr.clone()),
+            ..Default::default()
+        };
+
+        assert_eq!(
+            action_result_cas_digests(&action_result),
+            vec![output_file, tree, root, stdout, stderr]
+        );
     }
 
     #[test]

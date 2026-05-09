@@ -125,12 +125,29 @@ fallback policy.
 Buck2 also treats a stale action-cache hit as a cache miss when the action-cache
 entry exists but one of the referenced output blobs is missing from CAS during
 cache materialization. This allows the action to be re-executed instead of
-failing the build on the stale cache entry.
+failing the build on the stale cache entry. When this happens, Buck2 remembers
+the CAS digests referenced by the stale action result for the lifetime of the
+current RE client and ignores later action-cache hits that refer to those
+digests. This avoids repeatedly accepting the same stale action-cache entry
+after a CAS eviction.
+
+Deferred CAS-backed outputs include their action digest, RE use case, and
+expiration metadata. Buck2 refreshes those leases through the RE client before
+materializing or re-uploading deferred outputs. If a deferred output is old
+enough that CAS can no longer provide it, Buck2 reports the stale digest and
+its action-cache origin instead of uploading an incomplete result. This recovery
+policy applies to outputs from the current remote-cache result; Buck2 does not
+rewind arbitrary already-declared deferred CAS dependencies after they have
+expired.
 
 If the server capabilities do not advertise enabled action-cache updates, Buck2
 skips local-result cache uploads instead of issuing an unsupported
 `UpdateActionResult` RPC. When an upload path asks to upload only missing blobs,
 Buck2 checks CAS first and skips blobs that the server already has. Buck2 also
+validates uploaded bytes against the digest advertised for local cache uploads
+where the RE protocol path exposes the uploaded content to Buck2 before sending
+it. Buck2 rejects size or digest mismatches locally rather than writing a
+corrupt CAS blob or action-cache result. Buck2 also
 rejects malformed `BatchUpdateBlobs` replies and `BatchReadBlobs` replies where
 the returned digests do not match the requested batch, so batch cache operations
 require a successful response for every requested digest. `FindMissingBlobs`

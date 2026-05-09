@@ -237,6 +237,7 @@ impl Uploader {
                             // a very long time, it might have expired.
                             if file.digest.to_re() == digest {
                                 if should_error_for_missing_digest(info) {
+                                    client.record_missing_remote_cas_digest(digest.clone());
                                     soft_error!(
                                         "cas_missing_fatal",
                                         buck2_error::buck2_error!(

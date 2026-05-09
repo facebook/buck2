@@ -22,13 +22,18 @@ use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_directory::directory::directory::Directory;
+use buck2_directory::directory::directory_iterator::DirectoryIterator;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest::CasDigestFromReExt;
+use buck2_execute::digest::CasDigestToReExt;
 use buck2_execute::digest_config::DigestConfig;
+use buck2_execute::directory::ActionDirectoryEntry;
 use buck2_execute::directory::ActionDirectoryMember;
+use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::directory::extract_artifact_value;
 use buck2_execute::directory::re_tree_to_directory;
 use buck2_execute::execute::executor_stage_async;
@@ -68,6 +73,7 @@ use futures::future;
 use jiff::Timestamp;
 use remote_execution as RE;
 use remote_execution::TCode;
+use remote_execution::TDigest;
 
 use crate::executors::local::materialize_inputs;
 use crate::re::paranoid_download::ParanoidDownloader;
@@ -377,6 +383,43 @@ impl CasDownloader<'_> {
                 }
             };
 
+            if self.missing_cas_as_cache_miss {
+                let missing_digest = match self
+                    .missing_declared_artifact_digest(&artifacts, &info)
+                    .await
+                {
+                    Ok(missing_digest) => missing_digest,
+                    Err(error) => {
+                        return ControlFlow::Break(DownloadResult::Result(manager.error(
+                            "verify_artifacts",
+                            error.context(format!("action_digest={}", details.action_digest)),
+                        )));
+                    }
+                };
+
+                if let Some(missing_digest) = missing_digest {
+                    if let Err(record_error) = self
+                        .re_client
+                        .record_missing_remote_cas_digest(missing_digest.clone())
+                        .await
+                    {
+                        tracing::warn!(
+                            "Failed to remember missing CAS digest `{}` referenced by stale \
+                            remote cache entry for action `{}`: {:#}",
+                            missing_digest,
+                            details.action_digest,
+                            record_error
+                        );
+                    }
+                    let error = buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::ReCasArtifactExpired,
+                        "Remote cache result for action `{}` references missing CAS digest `{}`",
+                        details.action_digest,
+                        missing_digest
+                    );
+                    return ControlFlow::Break(DownloadResult::CacheMiss { manager, error });
+                }
+            }
             let (manager, outputs) = match self.paranoid {
                 Some(paranoid) => {
                     let manager = paranoid
@@ -542,6 +585,25 @@ impl CasDownloader<'_> {
         })
     }
 
+    async fn missing_declared_artifact_digest(
+        &self,
+        artifacts: &ExtractedArtifacts,
+        info: &CasDownloadInfo,
+    ) -> buck2_error::Result<Option<TDigest>> {
+        let digests = extracted_artifact_file_digests(&artifacts.mapped_outputs);
+        if digests.is_empty() {
+            return Ok(None);
+        }
+
+        let expirations = self.re_client.get_digest_expirations(digests, info).await?;
+        let now = Timestamp::now();
+        Ok(expirations.into_iter().find_map(
+            |(digest, expires)| {
+                if expires <= now { Some(digest) } else { None }
+            },
+        ))
+    }
+
     async fn materialize_outputs(
         &self,
         artifacts: ExtractedArtifacts,
@@ -565,6 +627,45 @@ fn re_forward_path(re_path: &str) -> buck2_error::Result<&ForwardRelativePath> {
     // RE sends us paths with trailing slash.
     ForwardRelativePath::new_trim_trailing_slashes(re_path)
         .buck_error_context("Path received from RE is not normalized.")
+}
+
+fn extracted_artifact_file_digests(
+    outputs: &BuckIndexMap<CommandExecutionOutput, ArtifactValue>,
+) -> Vec<TDigest> {
+    let mut digests = BuckMutSet::default();
+    for value in outputs.values() {
+        collect_entry_file_digests(value.entry(), &mut digests);
+        if let Some(deps) = value.deps() {
+            collect_directory_file_digests(deps, &mut digests);
+        }
+    }
+    digests.into_iter().collect()
+}
+
+fn collect_entry_file_digests(
+    entry: &ActionDirectoryEntry<ActionSharedDirectory>,
+    digests: &mut BuckMutSet<TDigest>,
+) {
+    match entry {
+        DirectoryEntry::Dir(directory) => collect_directory_file_digests(directory, digests),
+        DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) => {
+            digests.insert(file.digest.to_re());
+        }
+        DirectoryEntry::Leaf(
+            ActionDirectoryMember::Symlink(_) | ActionDirectoryMember::ExternalSymlink(_),
+        ) => {}
+    }
+}
+
+fn collect_directory_file_digests(
+    directory: &ActionSharedDirectory,
+    digests: &mut BuckMutSet<TDigest>,
+) {
+    for entry in directory.unordered_walk().without_paths() {
+        if let DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) = entry {
+            digests.insert(file.digest.to_re());
+        }
+    }
 }
 
 struct ExtractedArtifacts {
@@ -618,5 +719,31 @@ mod tests {
         let error = test_re_error("remote unavailable", TCode::UNAVAILABLE);
 
         assert!(!is_missing_cas_error(&error));
+    }
+
+    #[test]
+    fn collects_file_digests_from_artifact_values() -> buck2_error::Result<()> {
+        let digest = TDigest {
+            hash: "0123456789abcdef0123456789abcdef01234567".to_owned(),
+            size_in_bytes: 1,
+            ..Default::default()
+        };
+        let digest_config = DigestConfig::testing_default();
+        let file_digest = FileDigest::from_re(&digest, digest_config)?;
+        let tracked_digest = TrackedFileDigest::new_expires(
+            file_digest,
+            Timestamp::now(),
+            digest_config.cas_digest_config(),
+        );
+        let value = ArtifactValue::file(FileMetadata {
+            digest: tracked_digest,
+            is_executable: false,
+        });
+        let mut digests = BuckMutSet::default();
+
+        collect_entry_file_digests(value.entry(), &mut digests);
+
+        assert!(digests.contains(&digest));
+        Ok(())
     }
 }

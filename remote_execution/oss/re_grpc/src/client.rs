@@ -318,6 +318,22 @@ fn validate_downloaded_blob(
     validate_downloaded_blob_hash(digest, data, selected_digest_function)
 }
 
+fn should_validate_upload_hash(digest: &TDigest) -> bool {
+    matches!(digest.hash.len(), 40 | 64) && digest.hash.bytes().all(|b| b.is_ascii_hexdigit())
+}
+
+fn validate_upload_blob(
+    digest: &TDigest,
+    data: &[u8],
+    selected_digest_function: Option<digest_function::Value>,
+) -> anyhow::Result<()> {
+    validate_downloaded_blob_size(digest, data.len())?;
+    if should_validate_upload_hash(digest) {
+        validate_downloaded_blob_hash(digest, data, selected_digest_function)?;
+    }
+    Ok(())
+}
+
 fn check_status(status: Status) -> Result<(), REClientError> {
     if status.code == 0 {
         return Ok(());
@@ -4804,13 +4820,25 @@ where
     let mut batched_blob_updates = BatchUploadReqAggregator::new(max_total_batch_size);
 
     // Adapt the given bystream_fut to take in an AsyncBufRead
-    let bystream_fut = |resource_name: String, reader: Box<dyn AsyncBufRead + Unpin + Send>| async move {
+    let bystream_fut = |resource_name: String,
+                        reader: Box<dyn AsyncBufRead + Unpin + Send>,
+                        expected_digest: Option<TDigest>| async move {
         let mut reader: Pin<Box<dyn AsyncRead + Unpin + Send>> = match bystream_compressor {
             None => Pin::new(Box::new(reader)),
             Some(Compressor::Zstd) => Pin::new(Box::new(ZstdEncoder::new(reader))),
             Some(Compressor::Deflate) => Pin::new(Box::new(DeflateEncoder::new(reader))),
             Some(Compressor::Brotli) => Pin::new(Box::new(BrotliEncoder::new(reader))),
         };
+        let mut hash_validators = expected_digest
+            .as_ref()
+            .filter(|digest| bystream_compressor.is_none() && should_validate_upload_hash(digest))
+            .map(|digest| {
+                BlobHashValidators::new(
+                    &digest.hash,
+                    request_digest_function_config.for_hash(&digest.hash),
+                )
+            })
+            .transpose()?;
 
         let mut current_offset = 0;
         let mut upload_segments = Vec::new();
@@ -4823,6 +4851,9 @@ where
             if n_read == 0 {
                 break;
             }
+            if let Some(hash_validators) = &mut hash_validators {
+                hash_validators.update(&buf[0..n_read]);
+            }
             upload_segments.push(WriteRequest {
                 resource_name: resource_name.clone(),
                 write_offset: current_offset,
@@ -4830,6 +4861,14 @@ where
                 data: buf[0..n_read].to_vec(),
             });
             current_offset += n_read as i64;
+        }
+        if bystream_compressor.is_none() {
+            if let Some(expected_digest) = &expected_digest {
+                validate_downloaded_blob_size(expected_digest, current_offset as usize)?;
+                if let Some(hash_validators) = hash_validators {
+                    hash_validators.finish(expected_digest)?;
+                }
+            }
         }
         if let Some(last_segment) = upload_segments.last_mut() {
             last_segment.finish_write = true;
@@ -4870,11 +4909,14 @@ where
             request_digest_function_config,
         );
         let fut = async move {
-            retry(|| async {
-                bystream_fut(resource_name.clone(), Box::new(Cursor::new(data.clone()))).await?;
-                Ok(vec![hash.clone()])
-            })
-            .await
+            bystream_fut(
+                resource_name,
+                Box::new(Cursor::new(data)),
+                Some(blob.digest),
+            )
+            .await?;
+
+            Ok(vec![hash])
         };
         upload_futures.push(Box::pin(fut));
     }
@@ -4898,15 +4940,18 @@ where
         );
 
         let fut = async move {
-            retry(|| async {
-                let file = tokio::fs::File::open(&name)
-                    .await
-                    .with_context(|| format!("Opening `{name}` for reading failed"))?;
+            let expected_digest = file.digest;
+            let file = tokio::fs::File::open(&name)
+                .await
+                .with_context(|| format!("Opening `{name}` for reading failed"))?;
 
-                bystream_fut(resource_name.clone(), Box::new(BufReader::new(file))).await?;
-                Ok(vec![hash.clone()])
-            })
-            .await
+            bystream_fut(
+                resource_name,
+                Box::new(BufReader::new(file)),
+                Some(expected_digest),
+            )
+            .await?;
+            Ok(vec![hash])
         };
         upload_futures.push(Box::pin(fut));
     }
@@ -4924,6 +4969,11 @@ where
             for blob in batch {
                 match blob {
                     BatchUploadRequest::Blob(blob) => {
+                        validate_upload_blob(
+                            &blob.digest,
+                            &blob.blob,
+                            request_digest_function_config.for_hash(&blob.digest.hash),
+                        )?;
                         re_request.requests.push(Request {
                             digest: Some(tdigest_to(&blob.digest)),
                             data: blob.blob.clone(),
@@ -4937,6 +4987,11 @@ where
                             .with_context(|| format!("Opening {} for reading failed", file.name))?;
                         let mut data = vec![];
                         fin.read_to_end(&mut data).await?;
+                        validate_upload_blob(
+                            &file.digest,
+                            &data,
+                            request_digest_function_config.for_hash(&file.digest.hash),
+                        )?;
 
                         re_request.requests.push(Request {
                             digest: Some(tdigest_to(&file.digest)),

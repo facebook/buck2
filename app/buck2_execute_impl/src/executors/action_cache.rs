@@ -248,6 +248,17 @@ async fn query_action_cache_and_download_result(
     let mut res = match res {
         DownloadResult::Result(res) => res,
         DownloadResult::CacheMiss { manager, error } => {
+            if let Err(record_error) = re_client
+                .record_missing_remote_cas_digests_from_action_result(&response.0.action_result)
+                .await
+            {
+                tracing::warn!(
+                    "Failed to remember CAS digests referenced by stale remote cache entry for \
+                    action `{}`: {:#}",
+                    digest,
+                    record_error
+                );
+            }
             tracing::info!(
                 "Ignoring stale remote cache entry for action `{}` because referenced CAS blobs \
                 are missing: {:#}",
