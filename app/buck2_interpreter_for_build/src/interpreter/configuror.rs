@@ -22,6 +22,7 @@ use buck2_interpreter::extra::xcode::XcodeVersionInfo;
 use buck2_interpreter::file_loader::LoadedModules;
 use buck2_interpreter::package_imports::ImplicitImport;
 use buck2_interpreter::paths::module::StarlarkModulePath;
+use buck2_interpreter::paths::path::StarlarkPath;
 use buck2_interpreter::prelude_path::PreludePath;
 use buck2_node::super_package::SuperPackage;
 use dupe::Dupe;
@@ -158,5 +159,26 @@ impl BuildInterpreterConfiguror {
 
     pub fn prelude_import(&self) -> Option<&PreludePath> {
         self.prelude_import.as_ref()
+    }
+
+    /// Returns the prelude path if it should be injected for the given file.
+    /// Build files, package files, and bxl files always get the prelude.
+    /// Load files get it only if they are outside the prelude directory.
+    /// Json/toml files never get it.
+    pub fn prelude_for_file(&self, import: StarlarkPath) -> Option<&PreludePath> {
+        let prelude_import = self.prelude_import.as_ref()?;
+        match import {
+            StarlarkPath::BuildFile(_)
+            | StarlarkPath::PackageFile(_)
+            | StarlarkPath::BxlFile(_) => Some(prelude_import),
+            StarlarkPath::LoadFile(_) => {
+                if !prelude_import.is_prelude_path(&import.path()) {
+                    Some(prelude_import)
+                } else {
+                    None
+                }
+            }
+            StarlarkPath::JsonFile(_) | StarlarkPath::TomlFile(_) => None,
+        }
     }
 }
