@@ -58,6 +58,11 @@ use remote_execution::TTimestamp;
 use crate::executors::action_cache_upload_permission_checker::ActionCacheUploadPermissionChecker;
 use crate::executors::to_re_platform::RePlatformFieldsToRePlatform;
 
+const ACTION_CACHE_UPDATES_DISABLED_REASON: &str = concat!(
+    "remote cache does not support action-cache updates or the current account ",
+    "is not authorized to write local results"
+);
+
 // Whether to throw errors when cache uploads fail (primarily for tests).
 fn error_on_cache_upload() -> buck2_error::Result<bool> {
     buck2_env!(
@@ -345,6 +350,12 @@ impl CacheUploader {
         &self,
         info: &CacheUploadInfo<'_>,
     ) -> buck2_error::Result<Result<(), CacheUploadOutcome>> {
+        if let Err(outcome) = action_cache_update_capability_outcome(
+            self.re_client.action_cache_update_enabled().await?,
+        ) {
+            return Ok(Err(outcome));
+        }
+
         let outcome = if let Err(reason) = self
             .cache_upload_permission_checker
             .has_permission_to_upload_to_cache(&self.re_client, &self.platform, info.digest_config)
@@ -659,6 +670,17 @@ impl UploadCache for CacheUploader {
     }
 }
 
+fn action_cache_update_capability_outcome(
+    action_cache_update_enabled: Option<bool>,
+) -> Result<(), CacheUploadOutcome> {
+    match action_cache_update_enabled {
+        Some(false) => Err(CacheUploadOutcome::RejectedPermissionDenied {
+            reason: ACTION_CACHE_UPDATES_DISABLED_REASON.to_owned(),
+        }),
+        Some(true) | None => Ok(()),
+    }
+}
+
 fn systemtime_to_ttimestamp(time: SystemTime) -> buck2_error::Result<TTimestamp> {
     let duration = time.duration_since(SystemTime::UNIX_EPOCH)?;
     Ok(TTimestamp {
@@ -693,6 +715,19 @@ mod tests {
             buck2_data::UploadResult::RejectedSymlinkOutput,
             CacheUploadOutcome::RejectedSymlinkOutput.to_proto(),
         );
+    }
+
+    #[test]
+    fn test_action_cache_update_capability_rejects_disabled_uploads() {
+        assert!(action_cache_update_capability_outcome(None).is_ok());
+        assert!(action_cache_update_capability_outcome(Some(true)).is_ok());
+
+        let outcome = action_cache_update_capability_outcome(Some(false)).unwrap_err();
+        assert!(matches!(
+            outcome,
+            CacheUploadOutcome::RejectedPermissionDenied { .. }
+        ));
+        assert!(outcome.error().contains("action-cache updates"));
     }
 
     #[test]

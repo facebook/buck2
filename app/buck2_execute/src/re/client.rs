@@ -554,6 +554,10 @@ impl RemoteExecutionClient {
         stats.local_cache = LocalCacheRemoteExecutionClientStats::from(&self.data.local_cache);
     }
 
+    pub fn action_cache_update_enabled(&self) -> Option<bool> {
+        self.data.client.action_cache_update_enabled()
+    }
+
     pub(super) fn get_raw_re_client(&self) -> &REClient {
         self.data.client.client()
     }
@@ -1141,6 +1145,10 @@ impl RemoteExecutionClientImpl {
 
     fn get_session_id(&self) -> &str {
         self.client().get_session_id()
+    }
+
+    fn action_cache_update_enabled(&self) -> Option<bool> {
+        self.client().action_cache_update_enabled()
     }
 
     async fn action_cache(

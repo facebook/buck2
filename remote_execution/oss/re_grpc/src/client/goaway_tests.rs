@@ -12,8 +12,8 @@
 //! recycle connections. A rejected request was not processed and can be sent
 //! again. The transport does that by itself only while the request body fits
 //! in what it buffers for a replay. These uploads are bigger than that, so the
-//! transport fails them with `UNAVAILABLE` and they rely on `retry` in
-//! `upload_impl`.
+//! transport fails them with `UNAVAILABLE` and they rely on the
+//! `retry_grpc_request` around each upload RPC, as in `REClient::upload`.
 
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
@@ -238,22 +238,62 @@ fn upload_request(blob: Vec<u8>) -> UploadRequest {
     }
 }
 
+/// Uploads like `REClient::upload`, retrying each BatchUpdateBlobs and
+/// ByteStream.Write call.
+async fn upload(
+    request: UploadRequest,
+    max_total_batch_size: usize,
+    channel: &Channel,
+) -> anyhow::Result<UploadResponse> {
+    let cas = &ContentAddressableStorageClient::new(channel.clone());
+    let bytestream = &ByteStreamClient::new(channel.clone());
+    let retry_max_delay = Duration::from_millis(DEFAULT_RETRY_MAX_DELAY_MILLIS);
+    upload_impl(
+        &InstanceName(None),
+        request,
+        None,
+        max_total_batch_size,
+        None,
+        |re_request| async move {
+            retry_grpc_request(DEFAULT_RETRIES, retry_max_delay, || {
+                let re_request = re_request.clone();
+                async move {
+                    Ok(cas
+                        .clone()
+                        .batch_update_blobs(re_request)
+                        .await?
+                        .into_inner())
+                }
+            })
+            .await
+        },
+        |segments| async move {
+            retry_grpc_request(DEFAULT_RETRIES, retry_max_delay, || {
+                let segments = segments.clone();
+                async move {
+                    Ok(bytestream
+                        .clone()
+                        .write(stream::iter(segments))
+                        .await?
+                        .into_inner())
+                }
+            })
+            .await
+        },
+    )
+    .await
+}
+
 #[tokio::test]
 async fn test_upload_batch_after_goaway() -> anyhow::Result<()> {
     let server = GoawayServer::start().await;
-    let cas = &ContentAddressableStorageClient::new(server.channel.clone());
     let blob_size = 2 * REPLAY_BUFFER_SIZE;
 
-    let upload = upload_impl(
-        &InstanceName(None),
+    // A batch limit above the blob size puts it in a BatchUpdateBlobs request.
+    let upload = upload(
         upload_request(vec![1; blob_size]),
-        None,
-        2 * blob_size, // so the blob goes into a BatchUpdateBlobs request
-        None,
-        |req| async move { anyhow::Ok(cas.clone().batch_update_blobs(req).await?.into_inner()) },
-        |_segments| async move {
-            panic!("Not called");
-        },
+        2 * blob_size,
+        &server.channel,
     );
     tokio::time::timeout(Duration::from_secs(60), upload).await??;
 
@@ -268,27 +308,13 @@ async fn test_upload_batch_after_goaway() -> anyhow::Result<()> {
 #[tokio::test]
 async fn test_upload_bytestream_after_goaway() -> anyhow::Result<()> {
     let server = GoawayServer::start().await;
-    let bytestream = &ByteStreamClient::new(server.channel.clone());
     let blob_size = 2 * REPLAY_BUFFER_SIZE;
 
-    let upload = upload_impl(
-        &InstanceName(None),
+    // A batch limit below the blob size sends it with ByteStream.Write.
+    let upload = upload(
         upload_request(vec![1; blob_size]),
-        None,
-        REPLAY_BUFFER_SIZE, // so the blob goes through ByteStream.Write
-        None,
-        |_req| async move {
-            panic!("Not called");
-        },
-        |segments| async move {
-            anyhow::Ok(
-                bytestream
-                    .clone()
-                    .write(stream::iter(segments))
-                    .await?
-                    .into_inner(),
-            )
-        },
+        REPLAY_BUFFER_SIZE,
+        &server.channel,
     );
     tokio::time::timeout(Duration::from_secs(60), upload).await??;
 
