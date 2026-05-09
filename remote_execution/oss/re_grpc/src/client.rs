@@ -66,11 +66,16 @@ use re_grpc_proto::build::bazel::remote::execution::v2::OutputSymlink;
 use re_grpc_proto::build::bazel::remote::execution::v2::PriorityCapabilities;
 use re_grpc_proto::build::bazel::remote::execution::v2::RequestMetadata;
 use re_grpc_proto::build::bazel::remote::execution::v2::ResultsCachePolicy;
+use re_grpc_proto::build::bazel::remote::execution::v2::SpliceBlobRequest as GSpliceBlobRequest;
+use re_grpc_proto::build::bazel::remote::execution::v2::SpliceBlobResponse as GSpliceBlobResponse;
+use re_grpc_proto::build::bazel::remote::execution::v2::SplitBlobRequest as GSplitBlobRequest;
+use re_grpc_proto::build::bazel::remote::execution::v2::SplitBlobResponse as GSplitBlobResponse;
 use re_grpc_proto::build::bazel::remote::execution::v2::ToolDetails;
 use re_grpc_proto::build::bazel::remote::execution::v2::UpdateActionResultRequest;
 use re_grpc_proto::build::bazel::remote::execution::v2::action_cache_client::ActionCacheClient;
 use re_grpc_proto::build::bazel::remote::execution::v2::batch_update_blobs_request::Request;
 use re_grpc_proto::build::bazel::remote::execution::v2::capabilities_client::CapabilitiesClient;
+use re_grpc_proto::build::bazel::remote::execution::v2::chunking_function;
 use re_grpc_proto::build::bazel::remote::execution::v2::compressor;
 use re_grpc_proto::build::bazel::remote::execution::v2::content_addressable_storage_client::ContentAddressableStorageClient;
 use re_grpc_proto::build::bazel::remote::execution::v2::digest_function;
@@ -128,6 +133,7 @@ const GRPC_RETRY_JITTER: f64 = 0.1;
 const DEFAULT_GRPC_KEEPALIVE_TIME_SECS: u64 = 30;
 const DEFAULT_GRPC_KEEPALIVE_TIMEOUT_SECS: u64 = 10;
 const DEFAULT_GRPC_KEEPALIVE_WHILE_IDLE: bool = true;
+const DEFAULT_FAST_CDC_2020_AVG_CHUNK_SIZE: u64 = 512 * 1024;
 
 fn tdigest_to(tdigest: &TDigest) -> Digest {
     Digest {
@@ -608,6 +614,8 @@ pub struct RECapabilities {
     blob_split_supported: bool,
     /// Whether the server supports CAS SpliceBlob.
     blob_splice_supported: bool,
+    /// FastCDC 2020 chunking parameters advertised by the remote cache.
+    fast_cdc_2020: Option<FastCdc2020Config>,
 }
 
 /// Contains runtime options for the remote execution client as set under `buck2_re_client`
@@ -771,6 +779,78 @@ fn cache_digest_functions_from_capabilities(
 struct PriorityRange {
     min_priority: i32,
     max_priority: i32,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct FastCdc2020Config {
+    avg_chunk_size_bytes: u64,
+    seed: u32,
+}
+
+impl FastCdc2020Config {
+    fn min_chunk_size_bytes(&self) -> u64 {
+        self.avg_chunk_size_bytes / 4
+    }
+
+    fn max_chunk_size_bytes(&self) -> u64 {
+        self.avg_chunk_size_bytes * 4
+    }
+
+    fn chunking_threshold_bytes(&self) -> u64 {
+        self.max_chunk_size_bytes()
+    }
+
+    fn chunking_function(&self) -> TChunkingFunction {
+        TChunkingFunction::FastCdc2020
+    }
+}
+
+fn fast_cdc_2020_config_from_capabilities(
+    cache_capabilities: Option<&CacheCapabilities>,
+) -> Option<FastCdc2020Config> {
+    let params = cache_capabilities?.fast_cdc_2020_params.as_ref()?;
+    let configured_avg = params.avg_chunk_size_bytes;
+    let avg_chunk_size_bytes =
+        if (1024..=1024 * 1024).contains(&configured_avg) && configured_avg.is_power_of_two() {
+            configured_avg
+        } else {
+            DEFAULT_FAST_CDC_2020_AVG_CHUNK_SIZE
+        };
+
+    Some(FastCdc2020Config {
+        avg_chunk_size_bytes,
+        seed: params.seed,
+    })
+}
+
+fn preferred_split_blob_chunking_function(
+    capabilities: &RECapabilities,
+    requested: TChunkingFunction,
+) -> TChunkingFunction {
+    if requested != TChunkingFunction::Unknown {
+        return requested;
+    }
+
+    capabilities.fast_cdc_2020.as_ref().map_or(
+        TChunkingFunction::Unknown,
+        FastCdc2020Config::chunking_function,
+    )
+}
+
+fn validate_chunking_function_supported(
+    capabilities: &RECapabilities,
+    chunking_function: TChunkingFunction,
+) -> anyhow::Result<()> {
+    match chunking_function {
+        TChunkingFunction::Unknown => Ok(()),
+        TChunkingFunction::FastCdc2020 if capabilities.fast_cdc_2020.is_some() => Ok(()),
+        TChunkingFunction::FastCdc2020 => Err(anyhow::anyhow!(
+            "FastCDC 2020 chunking is not supported by the remote server"
+        )),
+        TChunkingFunction::RepMaxCdc => Err(anyhow::anyhow!(
+            "RepMaxCDC chunking is not supported by this client"
+        )),
+    }
 }
 
 fn priority_ranges(capabilities: &PriorityCapabilities) -> Vec<PriorityRange> {
@@ -1019,6 +1099,22 @@ fn digest_function_to_grpc(digest_function: Option<digest_function::Value>) -> i
         .unwrap_or_default()
 }
 
+fn chunking_function_to_grpc(chunking_function: TChunkingFunction) -> i32 {
+    (match chunking_function {
+        TChunkingFunction::Unknown => chunking_function::Value::Unknown,
+        TChunkingFunction::FastCdc2020 => chunking_function::Value::FastCdc2020,
+        TChunkingFunction::RepMaxCdc => chunking_function::Value::RepMaxCdc,
+    }) as i32
+}
+
+fn chunking_function_from_grpc(chunking_function: i32) -> TChunkingFunction {
+    match chunking_function::Value::try_from(chunking_function).ok() {
+        Some(chunking_function::Value::FastCdc2020) => TChunkingFunction::FastCdc2020,
+        Some(chunking_function::Value::RepMaxCdc) => TChunkingFunction::RepMaxCdc,
+        Some(chunking_function::Value::Unknown) | None => TChunkingFunction::Unknown,
+    }
+}
+
 fn digest_function_resource_segment(
     digest_function: Option<digest_function::Value>,
 ) -> Option<&'static str> {
@@ -1048,6 +1144,26 @@ fn validate_remote_execution_enabled(execution_enabled: Option<bool>) -> anyhow:
             "current account is not authorized to use remote execution"
         ))),
         Some(true) | None => Ok(()),
+    }
+}
+
+fn validate_blob_split_supported(blob_split_supported: bool) -> anyhow::Result<()> {
+    if blob_split_supported {
+        Ok(())
+    } else {
+        Err(anyhow::anyhow!(
+            "CAS SplitBlob is not supported by the remote server"
+        ))
+    }
+}
+
+fn validate_blob_splice_supported(blob_splice_supported: bool) -> anyhow::Result<()> {
+    if blob_splice_supported {
+        Ok(())
+    } else {
+        Err(anyhow::anyhow!(
+            "CAS SpliceBlob is not supported by the remote server"
+        ))
     }
 }
 
@@ -1251,6 +1367,7 @@ impl REClientBuilder {
                 execution_enabled: None,
                 blob_split_supported: false,
                 blob_splice_supported: false,
+                fast_cdc_2020: None,
             }
         };
 
@@ -1309,6 +1426,12 @@ impl REClientBuilder {
             execution_enabled = ?capabilities.execution_enabled,
             blob_split_supported = capabilities.blob_split_supported,
             blob_splice_supported = capabilities.blob_splice_supported,
+            fast_cdc_2020_avg_chunk_size_bytes = ?capabilities.fast_cdc_2020
+                .as_ref()
+                .map(|config| config.avg_chunk_size_bytes),
+            fast_cdc_2020_seed = ?capabilities.fast_cdc_2020
+                .as_ref()
+                .map(|config| config.seed),
             "RE server capabilities"
         );
 
@@ -1487,11 +1610,12 @@ impl REClientBuilder {
             blob_split_supported: resp
                 .cache_capabilities
                 .as_ref()
-                .is_some_and(|cache_cap| cache_cap.blob_split_support),
+                .is_some_and(|cache_cap| cache_cap.split_blob_support),
             blob_splice_supported: resp
                 .cache_capabilities
                 .as_ref()
-                .is_some_and(|cache_cap| cache_cap.blob_splice_support),
+                .is_some_and(|cache_cap| cache_cap.splice_blob_support),
+            fast_cdc_2020: fast_cdc_2020_config_from_capabilities(resp.cache_capabilities.as_ref()),
         })
     }
 }
@@ -2409,6 +2533,126 @@ impl REClient {
         }
     }
 
+    pub async fn split_blob(
+        &self,
+        metadata: RemoteExecutionMetadata,
+        request: SplitBlobRequest,
+    ) -> anyhow::Result<SplitBlobResponse> {
+        validate_blob_split_supported(self.capabilities.blob_split_supported)?;
+
+        let SplitBlobRequest {
+            blob_digest,
+            chunking_function,
+            ..
+        } = request;
+        let blob_digest = tdigest_to(&blob_digest);
+        let request_chunking_function =
+            preferred_split_blob_chunking_function(&self.capabilities, chunking_function);
+        validate_chunking_function_supported(&self.capabilities, request_chunking_function)?;
+        let request_chunking_function = chunking_function_to_grpc(request_chunking_function);
+        let digest_function = digest_function_to_grpc(
+            self.runtime_opts
+                .request_digest_function_config
+                .for_digest(&blob_digest),
+        );
+        let res: GSplitBlobResponse = retry_grpc_request(
+            self.runtime_opts.retries,
+            Duration::from_millis(self.runtime_opts.retry_max_delay_ms),
+            || {
+                let metadata = metadata.clone();
+                let blob_digest = blob_digest.clone();
+                async move {
+                    let mut client = self.cas_client().await?;
+                    client
+                        .split_blob(with_re_metadata(
+                            GSplitBlobRequest {
+                                instance_name: self.instance_name.as_str().to_owned(),
+                                blob_digest: Some(blob_digest),
+                                digest_function,
+                                chunking_function: request_chunking_function,
+                            },
+                            &metadata,
+                            self.runtime_opts.use_fbcode_metadata,
+                        ))
+                        .await
+                        .map(|response| response.into_inner())
+                        .map_err(anyhow::Error::from)
+                }
+            },
+        )
+        .await?;
+
+        let chunking_function = chunking_function_from_grpc(res.chunking_function);
+        Ok(SplitBlobResponse {
+            chunk_digests: validate_split_blob_response(&blob_digest, res)?,
+            chunking_function,
+        })
+    }
+
+    pub async fn splice_blob(
+        &self,
+        metadata: RemoteExecutionMetadata,
+        request: SpliceBlobRequest,
+    ) -> anyhow::Result<SpliceBlobResponse> {
+        validate_blob_splice_supported(self.capabilities.blob_splice_supported)?;
+
+        let SpliceBlobRequest {
+            blob_digest,
+            chunk_digests,
+            chunking_function,
+            ..
+        } = request;
+        let blob_digest = tdigest_to(&blob_digest);
+        let chunk_digests = chunk_digests.iter().map(tdigest_to).collect::<Vec<_>>();
+        validate_chunking_function_supported(&self.capabilities, chunking_function)?;
+        let request_chunking_function = chunking_function_to_grpc(chunking_function);
+        validate_chunk_digests_reconstruct_blob(
+            "SpliceBlob request",
+            &blob_digest,
+            &chunk_digests,
+        )?;
+        let mut request_digests = vec![blob_digest.clone()];
+        request_digests.extend(chunk_digests.iter().cloned());
+        let digest_function = digest_function_to_grpc(
+            self.runtime_opts
+                .request_digest_function_config
+                .for_common_digest_function(&request_digests),
+        );
+
+        let res: GSpliceBlobResponse = retry_grpc_request(
+            self.runtime_opts.retries,
+            Duration::from_millis(self.runtime_opts.retry_max_delay_ms),
+            || {
+                let metadata = metadata.clone();
+                let blob_digest = blob_digest.clone();
+                let chunk_digests = chunk_digests.clone();
+                async move {
+                    let mut client = self.cas_client().await?;
+                    client
+                        .splice_blob(with_re_metadata(
+                            GSpliceBlobRequest {
+                                instance_name: self.instance_name.as_str().to_owned(),
+                                blob_digest: Some(blob_digest),
+                                chunk_digests,
+                                digest_function,
+                                chunking_function: request_chunking_function,
+                            },
+                            &metadata,
+                            self.runtime_opts.use_fbcode_metadata,
+                        ))
+                        .await
+                        .map(|response| response.into_inner())
+                        .map_err(anyhow::Error::from)
+                }
+            },
+        )
+        .await?;
+
+        let blob_digest = validate_splice_blob_response_digest(&blob_digest, res)?;
+
+        Ok(SpliceBlobResponse { blob_digest })
+    }
+
     pub fn download<'a>(
         &'a self,
         metadata: &RemoteExecutionMetadata,
@@ -2497,6 +2741,10 @@ impl REClient {
                     if let Some(rs) = find_missing_cache.get(digest) {
                         // We have our final result already cached
                         remote_results.insert(digest.clone(), rs);
+                    } else if digests_to_check.contains(digest) {
+                        // This digest is already part of the in-flight request. The
+                        // final response is rebuilt from the original request, so this
+                        // duplicate will still get a matching TTL entry.
                     } else {
                         // We can check this blob
                         digests_to_check.push(digest.clone());
@@ -2573,19 +2821,11 @@ impl REClient {
         }
 
         Ok(GetDigestsTtlResponse {
-            digests_with_ttl: remote_results
-                .iter()
-                .map(|(digest, rs)| match rs {
-                    DigestRemoteState::Missing => DigestWithTtl {
-                        digest: digest.clone(),
-                        ttl: 0,
-                    },
-                    DigestRemoteState::ExistsOnRemote => DigestWithTtl {
-                        digest: digest.clone(),
-                        ttl: self.runtime_opts.cas_ttl_secs,
-                    },
-                })
-                .collect::<Vec<DigestWithTtl>>(),
+            digests_with_ttl: digests_with_ttl_for_requested_digests(
+                &request.digests,
+                &remote_results,
+                self.runtime_opts.cas_ttl_secs,
+            )?,
         })
     }
 
@@ -2777,6 +3017,29 @@ fn filter_upload_request_by_missing_digests(
     request
 }
 
+fn digests_with_ttl_for_requested_digests(
+    requested_digests: &[TDigest],
+    remote_results: &HashMap<TDigest, DigestRemoteState>,
+    cas_ttl_secs: i64,
+) -> anyhow::Result<Vec<DigestWithTtl>> {
+    requested_digests
+        .iter()
+        .map(|digest| {
+            let state = remote_results.get(digest).with_context(|| {
+                format!("No FindMissingBlobs result recorded for requested digest `{digest}`")
+            })?;
+            let ttl = match state {
+                DigestRemoteState::Missing => 0,
+                DigestRemoteState::ExistsOnRemote => cas_ttl_secs,
+            };
+            Ok(DigestWithTtl {
+                digest: digest.clone(),
+                ttl,
+            })
+        })
+        .collect()
+}
+
 fn digest_name(digest: &Digest) -> String {
     format!("{}/{}", digest.hash, digest.size_bytes)
 }
@@ -2897,6 +3160,91 @@ fn validate_batch_update_blobs_response(
     } else {
         Err(anyhow::anyhow!("Batch upload failed: {:?}", failures))
     }
+}
+
+fn validate_splice_blob_response_digest(
+    requested_digest: &Digest,
+    response: GSpliceBlobResponse,
+) -> anyhow::Result<TDigest> {
+    let Some(response_digest) = response.blob_digest else {
+        return Err(anyhow::anyhow!("SpliceBlob response omitted blob digest"));
+    };
+
+    if &response_digest != requested_digest {
+        return Err(anyhow::anyhow!(
+            "SpliceBlob response included unexpected digest `{}`; requested `{}`",
+            digest_name(&response_digest),
+            digest_name(requested_digest),
+        ));
+    }
+
+    Ok(tdigest_from(response_digest))
+}
+
+fn validate_split_blob_response(
+    requested_digest: &Digest,
+    response: GSplitBlobResponse,
+) -> anyhow::Result<Vec<TDigest>> {
+    validate_chunk_digests_reconstruct_blob(
+        "SplitBlob response",
+        requested_digest,
+        &response.chunk_digests,
+    )?;
+
+    Ok(response
+        .chunk_digests
+        .into_iter()
+        .map(tdigest_from)
+        .collect::<Vec<_>>())
+}
+
+fn validate_chunk_digests_reconstruct_blob(
+    context: &str,
+    requested_digest: &Digest,
+    chunk_digests: &[Digest],
+) -> anyhow::Result<()> {
+    if requested_digest.size_bytes > 0 && chunk_digests.is_empty() {
+        return Err(anyhow::anyhow!(
+            "{context} included no chunks for non-empty digest `{}`",
+            digest_name(requested_digest),
+        ));
+    }
+
+    let mut total_size = 0i64;
+    for chunk_digest in chunk_digests {
+        if chunk_digest.hash.len() != requested_digest.hash.len() {
+            return Err(anyhow::anyhow!(
+                "{context} included chunk digest `{}` with hash length {}, expected {}",
+                digest_name(chunk_digest),
+                chunk_digest.hash.len(),
+                requested_digest.hash.len(),
+            ));
+        }
+        if chunk_digest.size_bytes < 0 {
+            return Err(anyhow::anyhow!(
+                "{context} included negative-size chunk digest `{}`",
+                digest_name(chunk_digest),
+            ));
+        }
+        total_size = total_size
+            .checked_add(chunk_digest.size_bytes)
+            .with_context(|| {
+                format!(
+                    "{context} chunks are too large to sum for requested digest `{}`",
+                    digest_name(requested_digest),
+                )
+            })?;
+    }
+
+    if total_size != requested_digest.size_bytes {
+        return Err(anyhow::anyhow!(
+            "{context} chunks sum to {total_size} bytes; requested digest `{}` has {} bytes",
+            digest_name(requested_digest),
+            requested_digest.size_bytes,
+        ));
+    }
+
+    Ok(())
 }
 
 fn convert_action_result(
@@ -3764,6 +4112,7 @@ mod tests {
     use std::sync::atomic::AtomicU16;
 
     use re_grpc_proto::build::bazel::remote::execution::v2::ActionCacheUpdateCapabilities;
+    use re_grpc_proto::build::bazel::remote::execution::v2::FastCdc2020Params;
     use re_grpc_proto::build::bazel::remote::execution::v2::batch_read_blobs_response;
     use re_grpc_proto::build::bazel::remote::execution::v2::batch_update_blobs_response;
 
@@ -3855,6 +4204,7 @@ mod tests {
             execution_enabled: Some(true),
             blob_split_supported: false,
             blob_splice_supported: false,
+            fast_cdc_2020: None,
         }
     }
 
@@ -4031,6 +4381,125 @@ mod tests {
     }
 
     #[test]
+    fn test_chunking_function_conversion() {
+        assert_eq!(
+            chunking_function_to_grpc(TChunkingFunction::Unknown),
+            chunking_function::Value::Unknown as i32
+        );
+        assert_eq!(
+            chunking_function_to_grpc(TChunkingFunction::FastCdc2020),
+            chunking_function::Value::FastCdc2020 as i32
+        );
+        assert_eq!(
+            chunking_function_to_grpc(TChunkingFunction::RepMaxCdc),
+            chunking_function::Value::RepMaxCdc as i32
+        );
+
+        assert_eq!(
+            chunking_function_from_grpc(chunking_function::Value::FastCdc2020 as i32),
+            TChunkingFunction::FastCdc2020
+        );
+        assert_eq!(
+            chunking_function_from_grpc(chunking_function::Value::RepMaxCdc as i32),
+            TChunkingFunction::RepMaxCdc
+        );
+        assert_eq!(
+            chunking_function_from_grpc(i32::MAX),
+            TChunkingFunction::Unknown
+        );
+    }
+
+    #[test]
+    fn test_fast_cdc_2020_config_from_capabilities() {
+        let none = fast_cdc_2020_config_from_capabilities(Some(&CacheCapabilities::default()));
+        assert_eq!(none, None);
+
+        let config = fast_cdc_2020_config_from_capabilities(Some(&CacheCapabilities {
+            fast_cdc_2020_params: Some(FastCdc2020Params {
+                avg_chunk_size_bytes: 256 * 1024,
+                seed: 7,
+            }),
+            ..Default::default()
+        }));
+        assert_eq!(
+            config,
+            Some(FastCdc2020Config {
+                avg_chunk_size_bytes: 256 * 1024,
+                seed: 7,
+            })
+        );
+        let config = config.unwrap();
+        assert_eq!(config.min_chunk_size_bytes(), 64 * 1024);
+        assert_eq!(config.max_chunk_size_bytes(), 1024 * 1024);
+        assert_eq!(config.chunking_threshold_bytes(), 1024 * 1024);
+        assert_eq!(config.chunking_function(), TChunkingFunction::FastCdc2020);
+        assert_eq!(config.seed, 7);
+
+        let invalid_avg = fast_cdc_2020_config_from_capabilities(Some(&CacheCapabilities {
+            fast_cdc_2020_params: Some(FastCdc2020Params {
+                avg_chunk_size_bytes: 17,
+                seed: 9,
+            }),
+            ..Default::default()
+        }));
+        assert_eq!(
+            invalid_avg,
+            Some(FastCdc2020Config {
+                avg_chunk_size_bytes: DEFAULT_FAST_CDC_2020_AVG_CHUNK_SIZE,
+                seed: 9,
+            })
+        );
+    }
+
+    #[test]
+    fn test_preferred_split_blob_chunking_function() {
+        let mut capabilities = test_re_capabilities(true, Vec::new(), Vec::new());
+        assert_eq!(
+            preferred_split_blob_chunking_function(&capabilities, TChunkingFunction::Unknown),
+            TChunkingFunction::Unknown
+        );
+
+        capabilities.fast_cdc_2020 = Some(FastCdc2020Config {
+            avg_chunk_size_bytes: DEFAULT_FAST_CDC_2020_AVG_CHUNK_SIZE,
+            seed: 0,
+        });
+        assert_eq!(
+            preferred_split_blob_chunking_function(&capabilities, TChunkingFunction::Unknown),
+            TChunkingFunction::FastCdc2020
+        );
+        assert_eq!(
+            preferred_split_blob_chunking_function(&capabilities, TChunkingFunction::RepMaxCdc),
+            TChunkingFunction::RepMaxCdc
+        );
+    }
+
+    #[test]
+    fn test_validate_chunking_function_supported() -> anyhow::Result<()> {
+        let mut capabilities = test_re_capabilities(true, Vec::new(), Vec::new());
+        validate_chunking_function_supported(&capabilities, TChunkingFunction::Unknown)?;
+
+        let fast_cdc_err =
+            validate_chunking_function_supported(&capabilities, TChunkingFunction::FastCdc2020)
+                .unwrap_err()
+                .to_string();
+        assert!(fast_cdc_err.contains("FastCDC 2020"));
+
+        capabilities.fast_cdc_2020 = Some(FastCdc2020Config {
+            avg_chunk_size_bytes: DEFAULT_FAST_CDC_2020_AVG_CHUNK_SIZE,
+            seed: 0,
+        });
+        validate_chunking_function_supported(&capabilities, TChunkingFunction::FastCdc2020)?;
+
+        let rep_max_err =
+            validate_chunking_function_supported(&capabilities, TChunkingFunction::RepMaxCdc)
+                .unwrap_err()
+                .to_string();
+        assert!(rep_max_err.contains("RepMaxCDC"));
+
+        Ok(())
+    }
+
+    #[test]
     fn test_capability_names_are_readable() {
         assert_eq!(
             digest_function_names(&[
@@ -4070,6 +4539,147 @@ mod tests {
             .unwrap_err()
             .to_string();
         assert!(err.contains("Remote execution is not supported"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_validate_split_splice_supported() {
+        assert!(validate_blob_split_supported(true).is_ok());
+        assert!(
+            validate_blob_split_supported(false)
+                .unwrap_err()
+                .to_string()
+                .contains("SplitBlob")
+        );
+
+        assert!(validate_blob_splice_supported(true).is_ok());
+        assert!(
+            validate_blob_splice_supported(false)
+                .unwrap_err()
+                .to_string()
+                .contains("SpliceBlob")
+        );
+    }
+
+    #[test]
+    fn test_validate_splice_blob_response_digest() -> anyhow::Result<()> {
+        let requested = tdigest_to(&test_digest("aa", 1));
+
+        let digest = validate_splice_blob_response_digest(
+            &requested,
+            GSpliceBlobResponse {
+                blob_digest: Some(requested.clone()),
+            },
+        )?;
+        assert_eq!(digest, tdigest_from(requested.clone()));
+
+        let missing = validate_splice_blob_response_digest(
+            &requested,
+            GSpliceBlobResponse { blob_digest: None },
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(missing.contains("omitted blob digest"));
+
+        let unexpected = validate_splice_blob_response_digest(
+            &requested,
+            GSpliceBlobResponse {
+                blob_digest: Some(tdigest_to(&test_digest("bb", 2))),
+            },
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(unexpected.contains("unexpected digest"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_validate_split_blob_response() -> anyhow::Result<()> {
+        let requested = tdigest_to(&test_digest("aa", 3));
+        let chunks = validate_split_blob_response(
+            &requested,
+            GSplitBlobResponse {
+                chunk_digests: vec![
+                    tdigest_to(&test_digest("bb", 1)),
+                    tdigest_to(&test_digest("cc", 2)),
+                ],
+                ..Default::default()
+            },
+        )?;
+        assert_eq!(chunks, vec![test_digest("bb", 1), test_digest("cc", 2)]);
+
+        let empty = validate_split_blob_response(
+            &requested,
+            GSplitBlobResponse {
+                chunk_digests: Vec::new(),
+                ..Default::default()
+            },
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(empty.contains("no chunks"));
+
+        let wrong_size = validate_split_blob_response(
+            &requested,
+            GSplitBlobResponse {
+                chunk_digests: vec![tdigest_to(&test_digest("bb", 1))],
+                ..Default::default()
+            },
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(wrong_size.contains("sum to 1 bytes"));
+
+        let wrong_hash_length = validate_split_blob_response(
+            &requested,
+            GSplitBlobResponse {
+                chunk_digests: vec![tdigest_to(&test_digest("bbbb", 3))],
+                ..Default::default()
+            },
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(wrong_hash_length.contains("hash length"));
+
+        let negative_size = validate_split_blob_response(
+            &requested,
+            GSplitBlobResponse {
+                chunk_digests: vec![Digest {
+                    hash: "bb".to_owned(),
+                    size_bytes: -1,
+                }],
+                ..Default::default()
+            },
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(negative_size.contains("negative-size"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_validate_splice_blob_request_chunks() -> anyhow::Result<()> {
+        let requested = tdigest_to(&test_digest("aa", 3));
+        validate_chunk_digests_reconstruct_blob(
+            "SpliceBlob request",
+            &requested,
+            &[
+                tdigest_to(&test_digest("bb", 1)),
+                tdigest_to(&test_digest("cc", 2)),
+            ],
+        )?;
+
+        let wrong_size = validate_chunk_digests_reconstruct_blob(
+            "SpliceBlob request",
+            &requested,
+            &[tdigest_to(&test_digest("bb", 1))],
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(wrong_size.contains("SpliceBlob request"));
 
         Ok(())
     }
@@ -4173,6 +4783,32 @@ mod tests {
             size_in_bytes,
             ..Default::default()
         }
+    }
+
+    #[test]
+    fn test_digests_with_ttl_preserves_requested_duplicates() -> anyhow::Result<()> {
+        let digest1 = test_digest("aa", 1);
+        let digest2 = test_digest("bb", 2);
+
+        let mut remote_results = HashMap::new();
+        remote_results.insert(digest1.clone(), DigestRemoteState::ExistsOnRemote);
+        remote_results.insert(digest2.clone(), DigestRemoteState::Missing);
+
+        let digests_with_ttl = digests_with_ttl_for_requested_digests(
+            &[digest1.clone(), digest2.clone(), digest1.clone()],
+            &remote_results,
+            17,
+        )?;
+
+        assert_eq!(digests_with_ttl.len(), 3);
+        assert_eq!(digests_with_ttl[0].digest, digest1);
+        assert_eq!(digests_with_ttl[0].ttl, 17);
+        assert_eq!(digests_with_ttl[1].digest, digest2);
+        assert_eq!(digests_with_ttl[1].ttl, 0);
+        assert_eq!(digests_with_ttl[2].digest, digest1);
+        assert_eq!(digests_with_ttl[2].ttl, 17);
+
+        Ok(())
     }
 
     #[test]
