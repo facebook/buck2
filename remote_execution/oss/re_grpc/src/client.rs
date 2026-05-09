@@ -73,6 +73,7 @@ use re_grpc_proto::build::bazel::remote::execution::v2::SplitBlobRequest as GSpl
 use re_grpc_proto::build::bazel::remote::execution::v2::SplitBlobResponse as GSplitBlobResponse;
 use re_grpc_proto::build::bazel::remote::execution::v2::ToolDetails;
 use re_grpc_proto::build::bazel::remote::execution::v2::UpdateActionResultRequest;
+use re_grpc_proto::build::bazel::remote::execution::v2::WaitExecutionRequest;
 use re_grpc_proto::build::bazel::remote::execution::v2::action_cache_client::ActionCacheClient;
 use re_grpc_proto::build::bazel::remote::execution::v2::batch_update_blobs_request::Request;
 use re_grpc_proto::build::bazel::remote::execution::v2::capabilities_client::CapabilitiesClient;
@@ -89,6 +90,7 @@ use re_grpc_proto::google::bytestream::ReadResponse;
 use re_grpc_proto::google::bytestream::WriteRequest;
 use re_grpc_proto::google::bytestream::WriteResponse;
 use re_grpc_proto::google::bytestream::byte_stream_client::ByteStreamClient;
+use re_grpc_proto::google::longrunning::Operation;
 use re_grpc_proto::google::longrunning::operation::Result as OpResult;
 use re_grpc_proto::google::rpc::Code;
 use re_grpc_proto::google::rpc::Status;
@@ -398,6 +400,10 @@ fn is_retryable_grpc_error(err: &anyhow::Error) -> bool {
     error_tcode(err).is_some_and(tcode_is_retryable)
 }
 
+fn is_operation_not_found(err: &anyhow::Error) -> bool {
+    error_tcode(err) == Some(TCode::NOT_FOUND)
+}
+
 fn jittered_retry_delay(base_delay: Duration) -> Duration {
     let random_bytes = Uuid::new_v4().into_bytes();
     let random = u16::from_be_bytes([random_bytes[0], random_bytes[1]]) as f64 / u16::MAX as f64;
@@ -438,6 +444,34 @@ where
             }
         }
     }
+}
+
+async fn wait_execution_stream(
+    client: ExecutionClient<GrpcService>,
+    metadata: RemoteExecutionMetadata,
+    use_fbcode_metadata: bool,
+    operation_name: String,
+    retries: usize,
+    retry_max_delay: Duration,
+) -> anyhow::Result<tonic::Streaming<Operation>> {
+    retry_grpc_request(retries, retry_max_delay, || {
+        let mut client = client.clone();
+        let metadata = metadata.clone();
+        let operation_name = operation_name.clone();
+        async move {
+            Ok(client
+                .wait_execution(with_re_metadata(
+                    WaitExecutionRequest {
+                        name: operation_name,
+                    },
+                    &metadata,
+                    use_fbcode_metadata,
+                ))
+                .await?
+                .into_inner())
+        }
+    })
+    .await
 }
 
 enum BystreamWritePlan {
@@ -2542,86 +2576,140 @@ impl REClient {
         )
         .await?;
 
+        let execution_client = self.execution_client().await?;
+        let metadata_for_wait_execution = metadata.clone();
+        let use_fbcode_metadata = self.runtime_opts.use_fbcode_metadata;
+        let retries = self.runtime_opts.retries;
+        let retry_max_delay = Duration::from_millis(self.runtime_opts.retry_max_delay_ms);
         let cas_ttl_secs = self.runtime_opts.cas_ttl_secs;
 
-        let stream = futures::stream::try_unfold(stream, move |mut stream| async move {
-            let msg = match stream
-                .try_next()
-                .await
-                .context("RE channel error")
-                .map_err(normalize_re_error)?
-            {
-                Some(msg) => msg,
-                None => return Ok(None),
-            };
+        let stream = futures::stream::try_unfold(
+            (stream, None::<String>),
+            move |(mut stream, mut operation_name)| {
+                let execution_client = execution_client.clone();
+                let metadata = metadata_for_wait_execution.clone();
+                async move {
+                    let msg = loop {
+                        match stream.try_next().await {
+                            Ok(Some(msg)) => break msg,
+                            Ok(None) => return Ok(None),
+                            Err(err) => {
+                                let err = anyhow::Error::from(err);
+                                let Some(name) = operation_name.clone() else {
+                                    return Err(normalize_re_error(
+                                        err.context("RE channel error"),
+                                    ));
+                                };
+                                if !is_retryable_grpc_error(&err) {
+                                    return Err(normalize_re_error(
+                                        err.context("RE channel error"),
+                                    ));
+                                }
 
-            let status = if msg.done {
-                match msg
-                    .result
-                    .context("Missing `result` when message was `done`")?
-                {
-                    OpResult::Error(rpc_status) => {
-                        return Err(REClientError {
-                            code: TCode(rpc_status.code),
-                            message: rpc_status.message,
-                            group: TCodeReasonGroup::UNKNOWN,
+                                tracing::debug!(
+                                    operation_name = %name,
+                                    "Execute stream failed after operation creation; resuming with WaitExecution"
+                                );
+                                stream = match wait_execution_stream(
+                                    execution_client.clone(),
+                                    metadata.clone(),
+                                    use_fbcode_metadata,
+                                    name.clone(),
+                                    retries,
+                                    retry_max_delay,
+                                )
+                                .await
+                                {
+                                    Ok(stream) => stream,
+                                    Err(wait_err) if is_operation_not_found(&wait_err) => {
+                                        return Err(wait_err
+                                            .context(format!("RE operation `{name}` was lost")));
+                                    }
+                                    Err(wait_err) => {
+                                        return Err(wait_err.context(
+                                            "RE WaitExecution failed after Execute stream interruption",
+                                        ));
+                                    }
+                                };
+                            }
                         }
-                        .into());
+                    };
+
+                    if !msg.name.is_empty() {
+                        operation_name = Some(msg.name.clone());
                     }
-                    OpResult::Response(any) => {
-                        let execute_response_grpc: GExecuteResponse =
-                            GExecuteResponse::decode(&any.value[..])?;
 
-                        check_status(execute_response_grpc.status.unwrap_or_default())?;
-
-                        let action_result = execute_response_grpc
+                    let status = if msg.done {
+                        match msg
                             .result
-                            .with_context(|| "The action result is not defined.")?;
+                            .context("Missing `result` when message was `done`")?
+                        {
+                            OpResult::Error(rpc_status) => {
+                                return Err(REClientError {
+                                    code: TCode(rpc_status.code),
+                                    message: rpc_status.message,
+                                    group: TCodeReasonGroup::UNKNOWN,
+                                }
+                                .into());
+                            }
+                            OpResult::Response(any) => {
+                                let execute_response_grpc: GExecuteResponse =
+                                    GExecuteResponse::decode(&any.value[..])?;
 
-                        let action_result = convert_action_result(action_result, cas_ttl_secs)?;
+                                check_status(execute_response_grpc.status.unwrap_or_default())?;
 
-                        let execute_response = ExecuteResponse {
-                            action_result,
-                            action_result_digest: TDigest::default(),
-                            action_result_ttl: cas_ttl_secs,
-                            status: TStatus {
-                                code: TCode::OK,
-                                message: execute_response_grpc.message,
-                                ..Default::default()
-                            },
-                            cached_result: execute_response_grpc.cached_result,
-                            action_digest: Default::default(), // Filled in below.
+                                let action_result = execute_response_grpc
+                                    .result
+                                    .with_context(|| "The action result is not defined.")?;
+
+                                let action_result =
+                                    convert_action_result(action_result, cas_ttl_secs)?;
+
+                                let execute_response = ExecuteResponse {
+                                    action_result,
+                                    action_result_digest: TDigest::default(),
+                                    action_result_ttl: cas_ttl_secs,
+                                    status: TStatus {
+                                        code: TCode::OK,
+                                        message: execute_response_grpc.message,
+                                        ..Default::default()
+                                    },
+                                    cached_result: execute_response_grpc.cached_result,
+                                    action_digest: Default::default(), // Filled in below.
+                                };
+
+                                ExecuteWithProgressResponse {
+                                    stage: Stage::COMPLETED,
+                                    execute_response: Some(execute_response),
+                                    ..Default::default()
+                                }
+                            }
+                        }
+                    } else {
+                        let meta = ExecuteOperationMetadata::decode(
+                            &msg.metadata.unwrap_or_default().value[..],
+                        )?;
+
+                        let stage = match execution_stage::Value::try_from(meta.stage) {
+                            Ok(execution_stage::Value::Unknown) => Stage::UNKNOWN,
+                            Ok(execution_stage::Value::CacheCheck) => Stage::CACHE_CHECK,
+                            Ok(execution_stage::Value::Queued) => Stage::QUEUED,
+                            Ok(execution_stage::Value::Executing) => Stage::EXECUTING,
+                            Ok(execution_stage::Value::Completed) => Stage::COMPLETED,
+                            _ => Stage::UNKNOWN,
                         };
 
                         ExecuteWithProgressResponse {
-                            stage: Stage::COMPLETED,
-                            execute_response: Some(execute_response),
+                            stage,
+                            execute_response: None,
                             ..Default::default()
                         }
-                    }
+                    };
+
+                    anyhow::Ok(Some((status, (stream, operation_name))))
                 }
-            } else {
-                let meta =
-                    ExecuteOperationMetadata::decode(&msg.metadata.unwrap_or_default().value[..])?;
-
-                let stage = match execution_stage::Value::try_from(meta.stage) {
-                    Ok(execution_stage::Value::Unknown) => Stage::UNKNOWN,
-                    Ok(execution_stage::Value::CacheCheck) => Stage::CACHE_CHECK,
-                    Ok(execution_stage::Value::Queued) => Stage::QUEUED,
-                    Ok(execution_stage::Value::Executing) => Stage::EXECUTING,
-                    Ok(execution_stage::Value::Completed) => Stage::COMPLETED,
-                    _ => Stage::UNKNOWN,
-                };
-
-                ExecuteWithProgressResponse {
-                    stage,
-                    execute_response: None,
-                    ..Default::default()
-                }
-            };
-
-            anyhow::Ok(Some((status, stream)))
-        });
+            },
+        );
 
         // We fill in the action digest a little later here. We do it this way so we don't have to
         // clone the execute_request into every future we create above.
@@ -3693,11 +3781,21 @@ impl REClient {
 
     pub async fn extend_digest_ttl(
         &self,
-        _metadata: &RemoteExecutionMetadata,
-        _request: ExtendDigestsTtlRequest,
+        metadata: &RemoteExecutionMetadata,
+        request: ExtendDigestsTtlRequest,
     ) -> anyhow::Result<TDigest> {
-        // TODO(arr)
-        Err(anyhow::anyhow!("Not implemented (RE extend_digest_ttl)"))
+        let response = self
+            .get_digests_ttl(
+                metadata,
+                GetDigestsTtlRequest {
+                    digests: request.digests.clone(),
+                    ..Default::default()
+                },
+            )
+            .await
+            .context("Failed to refresh CAS TTLs with FindMissingBlobs")?;
+        validate_extend_digests_ttl_response(&request.digests, response)?;
+        Ok(TDigest::default())
     }
 
     pub fn get_execution_client(&self) -> &Self {
@@ -3900,6 +3998,34 @@ fn digests_with_ttl_for_requested_digests(
             })
         })
         .collect()
+}
+
+fn validate_extend_digests_ttl_response(
+    requested_digests: &[TDigest],
+    response: GetDigestsTtlResponse,
+) -> anyhow::Result<()> {
+    let response_count = response.digests_with_ttl.len();
+    anyhow::ensure!(
+        requested_digests.len() == response_count,
+        "Invalid CAS TTL refresh response: expected {} digests, got {}",
+        requested_digests.len(),
+        response_count,
+    );
+
+    let missing_digests = response
+        .digests_with_ttl
+        .into_iter()
+        .filter(|digest_ttl| digest_ttl.ttl <= 0)
+        .map(|digest_ttl| digest_ttl.digest.to_string())
+        .collect::<Vec<_>>();
+
+    anyhow::ensure!(
+        missing_digests.is_empty(),
+        "Cannot refresh CAS TTL for missing digests: {}",
+        missing_digests.join(", ")
+    );
+
+    Ok(())
 }
 
 fn digest_name(digest: &Digest) -> String {
@@ -5870,6 +5996,37 @@ mod tests {
         assert_eq!(digests_with_ttl[2].ttl, 17);
 
         Ok(())
+    }
+
+    #[test]
+    fn test_validate_extend_digests_ttl_response_rejects_missing() {
+        let digest = test_digest("aa", 1);
+
+        let error = validate_extend_digests_ttl_response(
+            &[digest.clone()],
+            GetDigestsTtlResponse {
+                digests_with_ttl: vec![DigestWithTtl { digest, ttl: 0 }],
+            },
+        )
+        .unwrap_err();
+
+        assert!(
+            error
+                .to_string()
+                .contains("Cannot refresh CAS TTL for missing digests")
+        );
+    }
+
+    #[test]
+    fn test_validate_extend_digests_ttl_response_accepts_present() -> anyhow::Result<()> {
+        let digest = test_digest("aa", 1);
+
+        validate_extend_digests_ttl_response(
+            &[digest.clone()],
+            GetDigestsTtlResponse {
+                digests_with_ttl: vec![DigestWithTtl { digest, ttl: 17 }],
+            },
+        )
     }
 
     #[test]
