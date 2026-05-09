@@ -12,6 +12,7 @@ use dupe::Dupe;
 
 use crate::digest::*;
 use crate::error::*;
+use crate::request::TChunkingFunction;
 
 #[derive(Clone, Default)]
 pub struct TTimestamp {
@@ -178,6 +179,17 @@ pub struct TStatus {
 #[derive(Clone, Default)]
 pub struct FindMissingBlobsResponse {
     pub missing_digests: Vec<TDigest>,
+}
+
+#[derive(Clone, Default)]
+pub struct SplitBlobResponse {
+    pub chunk_digests: Vec<TDigest>,
+    pub chunking_function: TChunkingFunction,
+}
+
+#[derive(Clone, Default)]
+pub struct SpliceBlobResponse {
+    pub blob_digest: TDigest,
 }
 
 #[derive(Clone, Default)]
