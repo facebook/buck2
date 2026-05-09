@@ -502,6 +502,10 @@ pub struct Buck2OssReConfiguration {
     pub find_missing_blobs_batch_size: Option<usize>,
     /// Time that digests are assumed to live in CAS after being touched.
     pub cas_ttl_secs: Option<i64>,
+    /// Whether to chunk large remote-cache blobs using FastCDC 2020 and SpliceBlob.
+    pub remote_cache_chunking: bool,
+    /// Optional local directory used to cache FastCDC chunk blobs.
+    pub remote_cache_chunk_cache_dir: Option<String>,
     /// Number of retry attempts for transient gRPC errors. This is the number of retries, not
     /// total attempts, so a value of 5 means each RPC may be attempted up to 6 times.
     pub retries: Option<usize>,
@@ -632,6 +636,16 @@ impl Buck2OssReConfiguration {
             cas_ttl_secs: legacy_config.parse(BuckconfigKeyRef {
                 section: BUCK2_RE_CLIENT_CFG_SECTION,
                 property: "cas_ttl_secs",
+            })?,
+            remote_cache_chunking: legacy_config
+                .parse(BuckconfigKeyRef {
+                    section: BUCK2_RE_CLIENT_CFG_SECTION,
+                    property: "remote_cache_chunking",
+                })?
+                .unwrap_or(false),
+            remote_cache_chunk_cache_dir: legacy_config.parse(BuckconfigKeyRef {
+                section: BUCK2_RE_CLIENT_CFG_SECTION,
+                property: "remote_cache_chunk_cache_dir",
             })?,
             retries: legacy_config.parse(BuckconfigKeyRef {
                 section: BUCK2_RE_CLIENT_CFG_SECTION,

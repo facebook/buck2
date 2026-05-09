@@ -13,7 +13,7 @@
 //! again. The transport does that by itself only while the request body fits
 //! in what it buffers for a replay. These uploads are bigger than that, so the
 //! transport fails them with `UNAVAILABLE` and they rely on the
-//! `retry_grpc_request` around each upload RPC, as in `REClient::upload`.
+//! `retry_grpc_request` around each upload RPC, as in `upload_direct`.
 
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
@@ -238,7 +238,7 @@ fn upload_request(blob: Vec<u8>) -> UploadRequest {
     }
 }
 
-/// Uploads like `REClient::upload`, retrying each BatchUpdateBlobs and
+/// Uploads like `REClient::upload_direct`, retrying each BatchUpdateBlobs and
 /// ByteStream.Write call.
 async fn upload(
     request: UploadRequest,
