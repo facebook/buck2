@@ -225,7 +225,7 @@ impl BuckSubcommand for WhatMaterializedCommand {
                 kv.iter()
                     .try_for_each(|(_, v)| write_output(&mut output, v))?;
             } else if sort_by_total_bytes {
-                records.sort_by(|a, b| a.total_bytes.cmp(&b.total_bytes));
+                records.sort_by_key(|a| a.total_bytes);
                 records
                     .iter()
                     .try_for_each(|r| write_output(&mut output, r))?;

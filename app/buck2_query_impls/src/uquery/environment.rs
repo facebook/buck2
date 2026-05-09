@@ -431,8 +431,8 @@ pub(crate) async fn rbuildfiles(
     // TODO(benfoxman) this is actually unnecessary, since we can get the imports while traversing.
     // Will fix this in a separate diff.
     let all_top_level_imports: Vec<ImportPath> = top_level_import_by_build_file
-        .iter()
-        .flat_map(|(_, imports)| imports.iter().cloned())
+        .values()
+        .flat_map(|imports| imports.iter().cloned())
         .collect();
 
     let first_order_import_map = first_order_imports(&all_top_level_imports, delegate).await?;

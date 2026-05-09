@@ -14,6 +14,7 @@ CLIPPY_ALLOW = [
     "clippy::cognitive_complexity",  # This is an arbitrary linter
     "clippy::collapsible_else_if",  # Sometimes nesting better expresses intent
     "clippy::collapsible_if",  # Sometimes nesting better expresses intent
+    "clippy::collapsible_match",  # Sometimes nesting better expresses intent
     "clippy::comparison_chain",  # Generates worse code and harder to read
     "clippy::comparison_to_empty",  # x == "" is clearer than x.is_empty()
     "clippy::derive_partial_eq_without_eq",  # In generated protobuf code

@@ -130,7 +130,7 @@ fn print_extension_stats(
             digests_uploaded: m.digests_uploaded,
         })
         .collect();
-    records.sort_by(|a, b| a.bytes_uploaded.cmp(&b.bytes_uploaded));
+    records.sort_by_key(|a| a.bytes_uploaded);
     for record in records {
         match output {
             LogCommandOutputFormatWithWriter::Readable(w)

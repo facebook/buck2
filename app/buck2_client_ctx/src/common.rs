@@ -330,7 +330,7 @@ impl CommonBuildConfigurationOptions {
 
         let mut ordered_merged_configs: Vec<(usize, ConfigOverride)> = config_file_args;
         ordered_merged_configs.extend(config_values_args);
-        ordered_merged_configs.sort_by(|(lhs_index, _), (rhs_index, _)| lhs_index.cmp(rhs_index));
+        ordered_merged_configs.sort_by_key(|(lhs_index, _)| *lhs_index);
 
         Ok(ordered_merged_configs.into_map(|(_, config_arg)| config_arg))
     }
