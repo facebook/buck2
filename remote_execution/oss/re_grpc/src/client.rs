@@ -653,7 +653,35 @@ fn grpc_error_retry_delay(err: &anyhow::Error) -> Option<Duration> {
         })
 }
 
+fn is_transient_io_error(err: &io::Error) -> bool {
+    matches!(
+        err.kind(),
+        io::ErrorKind::BrokenPipe
+            | io::ErrorKind::ConnectionReset
+            | io::ErrorKind::ConnectionAborted
+            | io::ErrorKind::UnexpectedEof
+            | io::ErrorKind::TimedOut
+    )
+}
+
+fn is_transient_transport_error(err: &anyhow::Error) -> bool {
+    err.chain().any(|cause| {
+        if let Some(io_error) = cause.downcast_ref::<io::Error>() {
+            return is_transient_io_error(io_error);
+        }
+        // h2 does not expose its wrapped I/O error through source().
+        cause
+            .downcast_ref::<h2::Error>()
+            .and_then(h2::Error::get_io)
+            .is_some_and(is_transient_io_error)
+    })
+}
+
 fn is_broken_connection_error(err: &anyhow::Error) -> bool {
+    if is_transient_transport_error(err) {
+        return true;
+    }
+
     if err
         .downcast_ref::<REClientError>()
         .is_some_and(|error| error.group == TCodeReasonGroup::RE_CONNECTION)
@@ -669,17 +697,6 @@ fn is_broken_connection_error(err: &anyhow::Error) -> bool {
     }
 
     if let Some(io_error) = err.downcast_ref::<io::Error>() {
-        if matches!(
-            io_error.kind(),
-            io::ErrorKind::ConnectionReset
-                | io::ErrorKind::ConnectionAborted
-                | io::ErrorKind::BrokenPipe
-                | io::ErrorKind::UnexpectedEof
-                | io::ErrorKind::TimedOut
-        ) {
-            return true;
-        }
-
         if tonic_status_from_io_error(io_error)
             .is_some_and(tonic_status_indicates_broken_connection)
         {
@@ -696,7 +713,9 @@ fn is_broken_connection_error(err: &anyhow::Error) -> bool {
 }
 
 fn is_retryable_grpc_error(err: &anyhow::Error) -> bool {
-    grpc_error_retry_delay(err).is_some() || error_tcode(err).is_some_and(tcode_is_retryable)
+    grpc_error_retry_delay(err).is_some()
+        || error_tcode(err).is_some_and(|code| code == TCode::CANCELLED || tcode_is_retryable(code))
+        || is_transient_transport_error(err)
 }
 
 fn is_operation_not_found(err: &anyhow::Error) -> bool {
@@ -2317,7 +2336,10 @@ impl REClientBuilder {
                 // NOTE: This is an arbitrary number because RBE does not return information
                 // on the TTL of the remote blob.
                 cas_ttl_secs: opts.cas_ttl_secs.unwrap_or(3 * 60 * 60),
-                find_missing_blobs_batch_size: opts.find_missing_blobs_batch_size.unwrap_or(100),
+                find_missing_blobs_batch_size: opts
+                    .find_missing_blobs_batch_size
+                    .unwrap_or(100)
+                    .max(1),
                 remote_cache_chunking: opts.remote_cache_chunking,
                 remote_cache_compression_threshold,
                 retries,
@@ -7829,6 +7851,26 @@ mod tests {
         assert!(failed.contains("bad digest"));
 
         Ok(())
+    }
+
+    #[test]
+    fn grpc_retry_preserves_transient_transport_recovery() {
+        for kind in [
+            io::ErrorKind::BrokenPipe,
+            io::ErrorKind::ConnectionReset,
+            io::ErrorKind::ConnectionAborted,
+            io::ErrorKind::UnexpectedEof,
+            io::ErrorKind::TimedOut,
+        ] {
+            let err = anyhow::Error::from(io::Error::from(kind)).context("request failed");
+            assert!(is_retryable_grpc_error(&err));
+            assert!(is_broken_connection_error(&err));
+        }
+
+        let err = anyhow::Error::from(tonic::Status::cancelled("request cancelled"));
+        assert!(is_retryable_grpc_error(&err));
+        let err = anyhow::Error::from(io::Error::from(io::ErrorKind::PermissionDenied));
+        assert!(!is_retryable_grpc_error(&err));
     }
 
     #[tokio::test]

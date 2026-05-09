@@ -136,6 +136,8 @@ async fn query_action_cache_and_download_result(
     )
     .await;
 
+    let identity = None; // TODO(#503): implement this
+
     if let Err(e) = &action_cache_response
         && remote_cache_unavailable_fallback
         && is_remote_cache_unavailable(e)
@@ -147,8 +149,6 @@ async fn query_action_cache_and_download_result(
         );
         return ControlFlow::Continue(manager);
     }
-
-    let identity = None; // TODO(#503): implement this
     if upload_all_actions {
         if let Err(e) = re_client
             .upload(
@@ -166,13 +166,7 @@ async fn query_action_cache_and_download_result(
     }
 
     let response = match action_cache_response {
-        Err(_) => {
-            // The action cache is best-effort: a failed query degrades to a
-            // miss rather than failing the action, but not silently — the
-            // failure is recorded on the CacheQuery span end and counted into
-            // the invocation record.
-            return ControlFlow::Continue(manager);
-        }
+        Err(e) => return ControlFlow::Break(manager.error("remote_action_cache", e)),
         Ok(Some(response)) => response,
         Ok(None) => return ControlFlow::Continue(manager),
     };
