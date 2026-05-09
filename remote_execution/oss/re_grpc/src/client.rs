@@ -70,6 +70,7 @@ use re_grpc_proto::build::bazel::remote::execution::v2::batch_update_blobs_reque
 use re_grpc_proto::build::bazel::remote::execution::v2::capabilities_client::CapabilitiesClient;
 use re_grpc_proto::build::bazel::remote::execution::v2::compressor;
 use re_grpc_proto::build::bazel::remote::execution::v2::content_addressable_storage_client::ContentAddressableStorageClient;
+use re_grpc_proto::build::bazel::remote::execution::v2::digest_function;
 use re_grpc_proto::build::bazel::remote::execution::v2::execution_client::ExecutionClient;
 use re_grpc_proto::build::bazel::remote::execution::v2::execution_stage;
 use re_grpc_proto::google::bytestream::QueryWriteStatusRequest;
@@ -82,6 +83,9 @@ use re_grpc_proto::google::longrunning::operation::Result as OpResult;
 use re_grpc_proto::google::rpc::Code;
 use re_grpc_proto::google::rpc::Status;
 use regex::Regex;
+use sha1::Sha1;
+use sha2::Digest as _;
+use sha2::Sha256;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncBufRead;
 use tokio::io::AsyncRead;
@@ -142,6 +146,163 @@ fn tstatus_ok() -> TStatus {
         message: "".to_owned(),
         ..Default::default()
     }
+}
+
+enum BlobHashVerifier {
+    Sha1(Sha1),
+    Sha256(Sha256),
+    Blake3(blake3::Hasher),
+}
+
+impl BlobHashVerifier {
+    fn name(&self) -> &'static str {
+        match self {
+            Self::Sha1(_) => "SHA1",
+            Self::Sha256(_) => "SHA256",
+            Self::Blake3(_) => "BLAKE3",
+        }
+    }
+
+    fn update(&mut self, data: &[u8]) {
+        match self {
+            Self::Sha1(hasher) => hasher.update(data),
+            Self::Sha256(hasher) => hasher.update(data),
+            Self::Blake3(hasher) => {
+                hasher.update(data);
+            }
+        }
+    }
+
+    fn finalize_hex(self) -> String {
+        match self {
+            Self::Sha1(hasher) => hex::encode(hasher.finalize()),
+            Self::Sha256(hasher) => hex::encode(hasher.finalize()),
+            Self::Blake3(hasher) => blake3::Hasher::finalize(&hasher).to_hex().to_string(),
+        }
+    }
+}
+
+struct BlobHashValidators {
+    expected_hash: String,
+    verifiers: Vec<BlobHashVerifier>,
+}
+
+impl BlobHashValidators {
+    fn new(
+        expected_hash: &str,
+        selected_digest_function: Option<digest_function::Value>,
+    ) -> anyhow::Result<Self> {
+        anyhow::ensure!(
+            !expected_hash.is_empty(),
+            "Digest hash is empty and cannot be validated"
+        );
+        anyhow::ensure!(
+            expected_hash.bytes().all(|b| b.is_ascii_hexdigit()),
+            "Digest hash contains non-hex characters: `{expected_hash}`"
+        );
+
+        let expected_hash = expected_hash.to_ascii_lowercase();
+        let verifiers = if let Some(digest_function) = selected_digest_function {
+            match digest_function {
+                digest_function::Value::Sha1 => {
+                    anyhow::ensure!(
+                        expected_hash.len() == 40,
+                        "Digest hash length mismatch for configured SHA1: `{expected_hash}`"
+                    );
+                    vec![BlobHashVerifier::Sha1(Sha1::new())]
+                }
+                digest_function::Value::Sha256 => {
+                    anyhow::ensure!(
+                        expected_hash.len() == 64,
+                        "Digest hash length mismatch for configured SHA256: `{expected_hash}`"
+                    );
+                    vec![BlobHashVerifier::Sha256(Sha256::new())]
+                }
+                digest_function::Value::Blake3 => {
+                    anyhow::ensure!(
+                        expected_hash.len() == 64,
+                        "Digest hash length mismatch for configured BLAKE3: `{expected_hash}`"
+                    );
+                    vec![BlobHashVerifier::Blake3(blake3::Hasher::new())]
+                }
+                _ => {
+                    anyhow::bail!(
+                        "Configured digest function {:?} is not supported for download hash validation",
+                        digest_function
+                    )
+                }
+            }
+        } else {
+            match expected_hash.len() {
+                40 => vec![BlobHashVerifier::Sha1(Sha1::new())],
+                // Could be either SHA256 or BLAKE3. Validate against both.
+                64 => vec![
+                    BlobHashVerifier::Sha256(Sha256::new()),
+                    BlobHashVerifier::Blake3(blake3::Hasher::new()),
+                ],
+                n => {
+                    anyhow::bail!(
+                        "Unsupported digest hash length `{n}` for `{expected_hash}`; cannot validate downloaded blob hash"
+                    )
+                }
+            }
+        };
+
+        Ok(Self {
+            expected_hash,
+            verifiers,
+        })
+    }
+
+    fn update(&mut self, data: &[u8]) {
+        for verifier in &mut self.verifiers {
+            verifier.update(data);
+        }
+    }
+
+    fn finish(self, digest: &TDigest) -> anyhow::Result<()> {
+        let mut tried = Vec::with_capacity(self.verifiers.len());
+        for verifier in self.verifiers {
+            let name = verifier.name();
+            tried.push(name);
+            if verifier.finalize_hex() == self.expected_hash {
+                return Ok(());
+            }
+        }
+        anyhow::bail!(
+            "Downloaded blob hash mismatch for `{digest}` after validating with [{}]",
+            tried.join(", ")
+        );
+    }
+}
+
+fn validate_downloaded_blob_size(digest: &TDigest, actual_size: usize) -> anyhow::Result<()> {
+    let expected_size = usize::try_from(digest.size_in_bytes)
+        .with_context(|| format!("Invalid negative digest size for `{digest}`"))?;
+    anyhow::ensure!(
+        actual_size == expected_size,
+        "Downloaded blob size mismatch for `{digest}`: expected {expected_size} bytes, got {actual_size} bytes"
+    );
+    Ok(())
+}
+
+fn validate_downloaded_blob_hash(
+    digest: &TDigest,
+    data: &[u8],
+    selected_digest_function: Option<digest_function::Value>,
+) -> anyhow::Result<()> {
+    let mut validators = BlobHashValidators::new(&digest.hash, selected_digest_function)?;
+    validators.update(data);
+    validators.finish(digest)
+}
+
+fn validate_downloaded_blob(
+    digest: &TDigest,
+    data: &[u8],
+    selected_digest_function: Option<digest_function::Value>,
+) -> anyhow::Result<()> {
+    validate_downloaded_blob_size(digest, data.len())?;
+    validate_downloaded_blob_hash(digest, data, selected_digest_function)
 }
 
 fn check_status(status: Status) -> Result<(), REClientError> {
@@ -401,6 +562,8 @@ pub struct RECapabilities {
     max_total_batch_size: usize,
     /// Compressors supported by the "compressed-blobs" bytestream resources.
     supported_compressors: Vec<Compressor>,
+    /// Digest functions supported by the remote cache/execution capabilities.
+    supported_digest_functions: Vec<digest_function::Value>,
 }
 
 /// Contains runtime options for the remote execution client as set under `buck2_re_client`
@@ -417,6 +580,8 @@ pub struct RERuntimeOpts {
     retries: usize,
     /// Maximum delay between retry attempts.
     retry_max_delay_ms: u64,
+    /// Digest function selected from user config and capabilities for download hash validation.
+    download_hash_digest_function: Option<digest_function::Value>,
 }
 
 struct InstanceName(Option<String>);
@@ -464,6 +629,91 @@ impl Compressor {
             Self::Deflate => "deflate",
             Self::Brotli => "brotli",
         }
+    }
+}
+
+fn digest_function_from_grpc(val: i32) -> Option<digest_function::Value> {
+    let value = digest_function::Value::try_from(val).ok()?;
+    if value == digest_function::Value::Unknown {
+        None
+    } else {
+        Some(value)
+    }
+}
+
+fn parse_configured_digest_function(value: &str) -> Option<digest_function::Value> {
+    match value.trim().to_ascii_uppercase().as_str() {
+        "SHA1" => Some(digest_function::Value::Sha1),
+        "SHA256" => Some(digest_function::Value::Sha256),
+        // RE API only has BLAKE3 (not keyed); map config tokens to that capability.
+        "BLAKE3" | "BLAKE3-KEYED" => Some(digest_function::Value::Blake3),
+        _ => None,
+    }
+}
+
+fn supports_hash_validation(digest_function: digest_function::Value) -> bool {
+    matches!(
+        digest_function,
+        digest_function::Value::Sha1
+            | digest_function::Value::Sha256
+            | digest_function::Value::Blake3
+    )
+}
+
+fn select_download_hash_digest_function(
+    configured_digest_algorithms: &[String],
+    supported_digest_functions: &[digest_function::Value],
+) -> anyhow::Result<Option<digest_function::Value>> {
+    let mut configured = vec![];
+    for configured_algorithm in configured_digest_algorithms {
+        match parse_configured_digest_function(configured_algorithm) {
+            Some(digest_function) if supports_hash_validation(digest_function) => {
+                configured.push(digest_function);
+            }
+            _ => {
+                tracing::debug!(
+                    "Ignoring unsupported digest_algorithms entry for download validation: `{}`",
+                    configured_algorithm
+                );
+            }
+        }
+    }
+    let mut configured_dedup = vec![];
+    for digest_function in configured {
+        if !configured_dedup.contains(&digest_function) {
+            configured_dedup.push(digest_function);
+        }
+    }
+    let configured = configured_dedup;
+
+    let mut supported = supported_digest_functions
+        .iter()
+        .copied()
+        .filter(|digest_function| supports_hash_validation(*digest_function))
+        .collect::<Vec<_>>();
+    supported.sort_unstable();
+    supported.dedup();
+
+    if !configured.is_empty() {
+        if supported.is_empty() {
+            return Ok(configured.first().copied());
+        }
+        for configured_digest_function in &configured {
+            if supported.contains(configured_digest_function) {
+                return Ok(Some(*configured_digest_function));
+            }
+        }
+        return Err(anyhow::anyhow!(
+            "Configured digest_algorithms are incompatible with RE server capabilities. configured={:?}, server={:?}",
+            configured,
+            supported
+        ));
+    }
+
+    if supported.len() == 1 {
+        Ok(supported.first().copied())
+    } else {
+        Ok(None)
     }
 }
 
@@ -521,8 +771,14 @@ impl REClientBuilder {
             RECapabilities {
                 max_total_batch_size: DEFAULT_MAX_TOTAL_BATCH_SIZE,
                 supported_compressors: Vec::new(),
+                supported_digest_functions: Vec::new(),
             }
         };
+
+        let download_hash_digest_function = select_download_hash_digest_function(
+            &opts.digest_algorithms,
+            &capabilities.supported_digest_functions,
+        )?;
 
         let max_decoding_msg_size = opts
             .max_decoding_message_size
@@ -597,6 +853,7 @@ impl REClientBuilder {
                 find_missing_blobs_batch_size: opts.find_missing_blobs_batch_size.unwrap_or(100),
                 retries,
                 retry_max_delay_ms,
+                download_hash_digest_function,
             },
             capabilities,
             instance_name,
@@ -640,14 +897,44 @@ impl REClientBuilder {
             Vec::new()
         };
 
+        let mut supported_digest_functions = vec![];
+        if let Some(cache_cap) = &resp.cache_capabilities {
+            supported_digest_functions.extend(
+                cache_cap
+                    .digest_functions
+                    .iter()
+                    .copied()
+                    .filter_map(digest_function_from_grpc),
+            );
+        }
+        if supported_digest_functions.is_empty() {
+            if let Some(exec_cap) = &resp.execution_capabilities {
+                if exec_cap.digest_functions.is_empty() {
+                    if let Some(digest_function) =
+                        digest_function_from_grpc(exec_cap.digest_function)
+                    {
+                        supported_digest_functions.push(digest_function);
+                    }
+                } else {
+                    supported_digest_functions.extend(
+                        exec_cap
+                            .digest_functions
+                            .iter()
+                            .copied()
+                            .filter_map(digest_function_from_grpc),
+                    );
+                }
+            }
+        }
+        supported_digest_functions.sort_unstable();
+        supported_digest_functions.dedup();
+
         let max_total_batch_size_from_capabilities: Option<usize> =
-            if let Some(cache_cap) = resp.cache_capabilities {
+            resp.cache_capabilities.as_ref().and_then(|cache_cap| {
                 let size = cache_cap.max_batch_total_size_bytes as usize;
                 // A value of 0 means no limit is set
                 if size != 0 { Some(size) } else { None }
-            } else {
-                None
-            };
+            });
 
         let max_total_batch_size =
             match (max_total_batch_size_from_capabilities, max_total_batch_size) {
@@ -660,6 +947,7 @@ impl REClientBuilder {
         Ok(RECapabilities {
             max_total_batch_size,
             supported_compressors,
+            supported_digest_functions,
         })
     }
 }
@@ -1503,6 +1791,7 @@ impl REClient {
                 request,
                 self.bystream_compressor,
                 self.capabilities.max_total_batch_size,
+                self.runtime_opts.download_hash_digest_function,
                 |re_request| {
                     let metadata = metadata.clone();
                     async move {
@@ -1948,6 +2237,7 @@ async fn download_impl<Byt, BytRet, Cas>(
     request: DownloadRequest,
     bystream_compressor: Option<Compressor>,
     max_total_batch_size: usize,
+    download_hash_digest_function: Option<digest_function::Value>,
     cas_f: impl Fn(BatchReadBlobsRequest) -> Cas,
     bystream_fut: impl Fn(ReadRequest) -> Byt + Sync + Send + Copy,
 ) -> anyhow::Result<DownloadResponse>
@@ -2076,25 +2366,26 @@ where
 
     let get = |digest: &TDigest| -> anyhow::Result<Vec<u8>> {
         if digest.size_in_bytes == 0 {
+            validate_downloaded_blob(digest, &[], download_hash_digest_function)?;
             return Ok(Vec::new());
         }
 
-        Ok(batched_blobs_response
+        let data = batched_blobs_response
             .get(digest)
             .with_context(|| format!("Did not receive digest data for `{digest}`"))?
-            .clone())
+            .clone();
+        validate_downloaded_blob(digest, &data, download_hash_digest_function)?;
+        Ok(data)
     };
 
     let mut inlined_blobs = vec![];
     for digest in inlined_digests {
         let data = if digest.size_in_bytes as usize >= max_total_batch_size {
-            retry(|| async {
-                let mut accum = vec![];
-                let mut reader = bystream_fut(digest.clone()).await?;
-                tokio::io::copy(&mut reader, &mut accum).await?;
-                Ok(accum)
-            })
-            .await?
+            let mut accum = vec![];
+            let mut reader = bystream_fut(digest.clone()).await?;
+            tokio::io::copy(&mut reader, &mut accum).await?;
+            validate_downloaded_blob(&digest, &accum, download_hash_digest_function)?;
+            accum
         } else {
             get(&digest)?
         };
@@ -2133,11 +2424,34 @@ where
                     .with_context(|| format!("Error writing: {}", req.named_digest.digest))?;
             } else {
                 let mut reader = bystream_fut(req.named_digest.digest.clone()).await?;
-                tokio::io::copy(&mut reader, &mut file)
-                    .await
-                    .with_context(|| {
-                        format!("Error writing chunk of: {}", req.named_digest.digest)
+                let mut hash_validators = BlobHashValidators::new(
+                    &req.named_digest.digest.hash,
+                    download_hash_digest_function,
+                )?;
+                let mut copied_bytes = 0usize;
+                let mut buffer = vec![0u8; 64 * 1024];
+                loop {
+                    let read_bytes = reader.read(&mut buffer).await.with_context(|| {
+                        format!("Error reading chunk of: {}", req.named_digest.digest)
                     })?;
+                    if read_bytes == 0 {
+                        break;
+                    }
+                    copied_bytes = copied_bytes.checked_add(read_bytes).with_context(|| {
+                        format!(
+                            "Downloaded blob is too large to validate on this platform: {}",
+                            req.named_digest.digest
+                        )
+                    })?;
+                    hash_validators.update(&buffer[..read_bytes]);
+                    file.write_all(&buffer[..read_bytes])
+                        .await
+                        .with_context(|| {
+                            format!("Error writing chunk of: {}", req.named_digest.digest)
+                        })?;
+                }
+                validate_downloaded_blob_size(&req.named_digest.digest, copied_bytes)?;
+                hash_validators.finish(&req.named_digest.digest)?;
             }
             file.flush().await.context("Error flushing")?;
             anyhow::Ok(())
@@ -2518,6 +2832,67 @@ mod tests {
 
     use super::*;
 
+    #[test]
+    fn test_select_download_hash_digest_function() -> anyhow::Result<()> {
+        assert_eq!(
+            select_download_hash_digest_function(
+                &["BLAKE3".to_owned()],
+                &[
+                    digest_function::Value::Sha256,
+                    digest_function::Value::Blake3
+                ],
+            )?,
+            Some(digest_function::Value::Blake3)
+        );
+        assert_eq!(
+            select_download_hash_digest_function(
+                &[],
+                &[
+                    digest_function::Value::Sha256,
+                    digest_function::Value::Blake3
+                ],
+            )?,
+            None
+        );
+        assert_eq!(
+            select_download_hash_digest_function(&[], &[digest_function::Value::Sha256],)?,
+            Some(digest_function::Value::Sha256)
+        );
+        assert!(
+            select_download_hash_digest_function(
+                &["SHA256".to_owned()],
+                &[digest_function::Value::Blake3],
+            )
+            .is_err()
+        );
+        assert_eq!(
+            select_download_hash_digest_function(
+                &["BLAKE3".to_owned(), "SHA256".to_owned()],
+                &[
+                    digest_function::Value::Sha256,
+                    digest_function::Value::Blake3
+                ],
+            )?,
+            Some(digest_function::Value::Blake3)
+        );
+        assert_eq!(
+            select_download_hash_digest_function(
+                &["SHA384".to_owned()],
+                &[digest_function::Value::Sha384],
+            )?,
+            None
+        );
+        Ok(())
+    }
+
+    fn digest_for_test_data(data: &[u8]) -> TDigest {
+        TDigest {
+            hash: hex::encode(Sha256::digest(data)),
+            size_in_bytes: data.len() as i64,
+            ..Default::default()
+        }
+    }
+
     #[tokio::test]
     async fn test_retry_unauthenticated() {
         let attempts = AtomicU16::new(0);
@@ -2607,17 +2982,10 @@ mod tests {
         let path2 = work.path().join("path2");
         let path2 = path2.to_str().context("tempdir is not utf8")?;
 
-        let digest1 = TDigest {
-            hash: "aa".to_owned(),
-            size_in_bytes: 3,
-            ..Default::default()
-        };
-
-        let digest2 = TDigest {
-            hash: "bb".to_owned(),
-            size_in_bytes: 3,
-            ..Default::default()
-        };
+        let blob1 = vec![1, 2, 3];
+        let blob2 = vec![4, 5, 6];
+        let digest1 = digest_for_test_data(&blob1);
+        let digest2 = digest_for_test_data(&blob2);
 
         let req = DownloadRequest {
             file_digests: Some(vec![
@@ -2648,12 +3016,12 @@ mod tests {
                 // Reply out of order
                 batch_read_blobs_response::Response {
                     digest: Some(tdigest_to(&digest2)),
-                    data: vec![4, 5, 6],
+                    data: blob2.clone(),
                     ..Default::default()
                 },
                 batch_read_blobs_response::Response {
                     digest: Some(tdigest_to(&digest1)),
-                    data: vec![1, 2, 3],
+                    data: blob1.clone(),
                     ..Default::default()
                 },
             ],
@@ -2664,6 +3032,7 @@ mod tests {
             req,
             None,
             10000,
+            None,
             |req| {
                 let res = res.clone();
                 let digest1 = digest1.clone();
@@ -2708,21 +3077,14 @@ mod tests {
         let path2 = work.path().join("path2");
         let path2 = path2.to_str().context("tempdir is not utf8")?;
 
-        let digest1 = TDigest {
-            hash: "aa".to_owned(),
-            size_in_bytes: 3,
-            ..Default::default()
-        };
+        let blob1 = vec![1, 2, 3];
+        let digest1 = digest_for_test_data(&blob1);
 
         let blob_data = vec![
             1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
         ];
 
-        let digest2 = TDigest {
-            hash: "xl".to_owned(),
-            size_in_bytes: 18,
-            ..Default::default()
-        };
+        let digest2 = digest_for_test_data(&blob_data);
 
         let req = DownloadRequest {
             file_digests: Some(vec![
@@ -2753,7 +3115,7 @@ mod tests {
                 // Reply out of order
                 batch_read_blobs_response::Response {
                     digest: Some(tdigest_to(&digest1)),
-                    data: vec![1, 2, 3],
+                    data: blob1.clone(),
                     ..Default::default()
                 },
             ],
@@ -2771,6 +3133,7 @@ mod tests {
             req,
             None,
             10, // kept small to simulate a large file download
+            None,
             |req| {
                 let res = res.clone();
                 let digest1 = digest1.clone();
@@ -2783,8 +3146,9 @@ mod tests {
             |req| {
                 let read_response1 = read_response1.clone();
                 let read_response2 = read_response2.clone();
+                let digest2 = digest2.clone();
                 async move {
-                    assert_eq!(req.resource_name, "blobs/xl/18");
+                    assert_eq!(req.resource_name, format!("blobs/{}/18", digest2.hash));
                     anyhow::Ok(Box::pin(futures::stream::iter(vec![
                         Ok(read_response1),
                         Ok(read_response2),
@@ -2815,17 +3179,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_download_inlined() -> anyhow::Result<()> {
-        let digest1 = &TDigest {
-            hash: "aa".to_owned(),
-            size_in_bytes: 3,
-            ..Default::default()
-        };
-
-        let digest2 = &TDigest {
-            hash: "bb".to_owned(),
-            size_in_bytes: 3,
-            ..Default::default()
-        };
+        let blob1 = vec![1, 2, 3];
+        let blob2 = vec![4, 5, 6];
+        let digest1 = &digest_for_test_data(&blob1);
+        let digest2 = &digest_for_test_data(&blob2);
 
         let req = DownloadRequest {
             inlined_digests: Some(vec![digest1.clone(), digest2.clone()]),
@@ -2837,12 +3194,12 @@ mod tests {
                 // Reply out of order
                 batch_read_blobs_response::Response {
                     digest: Some(tdigest_to(&digest2)),
-                    data: vec![4, 5, 6],
+                    data: blob2.clone(),
                     ..Default::default()
                 },
                 batch_read_blobs_response::Response {
                     digest: Some(tdigest_to(&digest1)),
-                    data: vec![1, 2, 3],
+                    data: blob1.clone(),
                     ..Default::default()
                 },
             ],
@@ -2853,6 +3210,7 @@ mod tests {
             req,
             None,
             100000,
+            None,
             |req| {
                 let res = res.clone();
                 let digest1 = digest1.clone();
@@ -2873,51 +3231,23 @@ mod tests {
         assert_eq!(inlined_blobs.len(), 2);
 
         assert_eq!(inlined_blobs[0].digest, *digest1);
-        assert_eq!(inlined_blobs[0].blob, vec![1, 2, 3]);
+        assert_eq!(inlined_blobs[0].blob, blob1);
 
         assert_eq!(inlined_blobs[1].digest, *digest2);
-        assert_eq!(inlined_blobs[1].blob, vec![4, 5, 6]);
+        assert_eq!(inlined_blobs[1].blob, blob2);
 
         Ok(())
     }
 
     #[tokio::test]
     async fn test_download_multiple_batches() -> anyhow::Result<()> {
-        let digest1 = &TDigest {
-            hash: "aa".to_owned(),
-            size_in_bytes: 3,
-            ..Default::default()
-        };
-
-        let digest2 = &TDigest {
-            hash: "bb".to_owned(),
-            size_in_bytes: 3,
-            ..Default::default()
-        };
-
-        let digest3 = &TDigest {
-            hash: "cc".to_owned(),
-            size_in_bytes: 3,
-            ..Default::default()
-        };
-
-        let digest4 = &TDigest {
-            hash: "dd".to_owned(),
-            size_in_bytes: 3,
-            ..Default::default()
-        };
-
-        let digest5 = &TDigest {
-            hash: "dd".to_owned(),
-            size_in_bytes: 3,
-            ..Default::default()
-        };
-
-        let digest6 = &TDigest {
-            hash: "dd".to_owned(),
-            size_in_bytes: 3,
-            ..Default::default()
-        };
+        let blob_data = vec![0, 1, 2];
+        let digest1 = &digest_for_test_data(&blob_data);
+        let digest2 = &digest_for_test_data(&blob_data);
+        let digest3 = &digest_for_test_data(&blob_data);
+        let digest4 = &digest_for_test_data(&blob_data);
+        let digest5 = &digest_for_test_data(&blob_data);
+        let digest6 = &digest_for_test_data(&blob_data);
 
         let digests = vec![
             digest1.clone(),
@@ -2940,6 +3270,7 @@ mod tests {
             req,
             None,
             7,
+            None,
             |req| {
                 counter.fetch_add(1, Ordering::Relaxed);
                 let res = BatchReadBlobsResponse {
@@ -2948,7 +3279,7 @@ mod tests {
                         .iter()
                         .map(|d| batch_read_blobs_response::Response {
                             digest: Some(d.clone()),
-                            data: vec![0, 1, 2],
+                            data: blob_data.clone(),
                             ..Default::default()
                         })
                         .collect::<Vec<_>>(),
@@ -2969,17 +3300,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_download_large_inlined() -> anyhow::Result<()> {
-        let digest1 = &TDigest {
-            hash: "aa".to_owned(),
-            size_in_bytes: 3,
-            ..Default::default()
-        };
-
-        let digest2 = &TDigest {
-            hash: "xl".to_owned(),
-            size_in_bytes: 18,
-            ..Default::default()
-        };
+        let blob1 = vec![1, 2, 3];
+        let digest1 = &digest_for_test_data(&blob1);
+        let blob_data = vec![
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
+        ];
+        let digest2 = &digest_for_test_data(&blob_data);
 
         let req = DownloadRequest {
             inlined_digests: Some(vec![digest1.clone(), digest2.clone()]),
@@ -2991,15 +3317,11 @@ mod tests {
                 // Reply out of order
                 batch_read_blobs_response::Response {
                     digest: Some(tdigest_to(&digest1)),
-                    data: vec![1, 2, 3],
+                    data: blob1.clone(),
                     ..Default::default()
                 },
             ],
         };
-
-        let blob_data = vec![
-            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
-        ];
 
         let read_response1 = ReadResponse {
             data: blob_data[..10].to_vec(),
@@ -3013,6 +3335,7 @@ mod tests {
             req,
             None,
             10, // intentionally small value to keep data in the test blobs small
+            None,
             |req| {
                 let res = res.clone();
                 let digest1 = digest1.clone();
@@ -3025,8 +3348,9 @@ mod tests {
             |req| {
                 let read_response1 = read_response1.clone();
                 let read_response2 = read_response2.clone();
+                let digest2 = digest2.clone();
                 async move {
-                    assert_eq!(req.resource_name, "blobs/xl/18");
+                    assert_eq!(req.resource_name, format!("blobs/{}/18", digest2.hash));
                     anyhow::Ok(Box::pin(futures::stream::iter(vec![
                         Ok(read_response1),
                         Ok(read_response2),
@@ -3041,7 +3365,7 @@ mod tests {
         assert_eq!(inlined_blobs.len(), 2);
 
         assert_eq!(inlined_blobs[0].digest, *digest1);
-        assert_eq!(inlined_blobs[0].blob, vec![1, 2, 3]);
+        assert_eq!(inlined_blobs[0].blob, blob1);
 
         assert_eq!(inlined_blobs[1].digest, *digest2);
         assert_eq!(inlined_blobs[1].blob, blob_data);
@@ -3051,11 +3375,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_download_empty() -> anyhow::Result<()> {
-        let digest1 = &TDigest {
-            hash: "aa".to_owned(),
-            size_in_bytes: 0,
-            ..Default::default()
-        };
+        let digest1 = &digest_for_test_data(&[]);
 
         let req = DownloadRequest {
             inlined_digests: Some(vec![digest1.clone()]),
@@ -3069,6 +3389,7 @@ mod tests {
             req,
             None,
             100000,
+            None,
             |req| {
                 let res = res.clone();
                 async move {
@@ -3091,12 +3412,197 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_download_resource_name() -> anyhow::Result<()> {
-        let digest1 = &TDigest {
-            hash: "aa".to_owned(),
-            size_in_bytes: 0,
+    async fn test_download_inlined_size_mismatch_fails() -> anyhow::Result<()> {
+        let digest1 = digest_for_test_data(&[1, 2, 3]);
+
+        let req = DownloadRequest {
+            inlined_digests: Some(vec![digest1.clone()]),
             ..Default::default()
         };
+
+        let res = BatchReadBlobsResponse {
+            responses: vec![batch_read_blobs_response::Response {
+                digest: Some(tdigest_to(&digest1)),
+                data: vec![1, 2],
+                ..Default::default()
+            }],
+        };
+
+        let err = match download_impl(
+            &InstanceName(None),
+            req,
+            None,
+            100000,
+            None,
+            |_req| {
+                let res = res.clone();
+                async move { Ok(res) }
+            },
+            |_digest| async move { anyhow::Ok(Box::pin(futures::stream::iter(vec![]))) },
+        )
+        .await
+        {
+            Ok(_) => anyhow::bail!("expected size mismatch error"),
+            Err(err) => err,
+        };
+
+        assert!(
+            err.chain()
+                .any(|e| e.to_string().contains("Downloaded blob size mismatch"))
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_download_named_stream_size_mismatch_fails() -> anyhow::Result<()> {
+        let work = tempfile::tempdir()?;
+
+        let path = work.path().join("path");
+        let path = path.to_str().context("tempdir is not utf8")?;
+
+        let digest = digest_for_test_data(&[1; 18]);
+        let req = DownloadRequest {
+            file_digests: Some(vec![NamedDigestWithPermissions {
+                named_digest: NamedDigest {
+                    name: path.to_owned(),
+                    digest: digest.clone(),
+                    ..Default::default()
+                },
+                is_executable: false,
+                ..Default::default()
+            }]),
+            ..Default::default()
+        };
+
+        let read_response = ReadResponse { data: vec![1; 17] };
+        let err = match download_impl(
+            &InstanceName(None),
+            req,
+            None,
+            10,
+            None,
+            |_req| async { Ok(BatchReadBlobsResponse { responses: vec![] }) },
+            |req| {
+                let read_response = read_response.clone();
+                let digest = digest.clone();
+                async move {
+                    assert_eq!(req.resource_name, format!("blobs/{}/18", digest.hash));
+                    anyhow::Ok(Box::pin(futures::stream::iter(vec![Ok(read_response)])))
+                }
+            },
+        )
+        .await
+        {
+            Ok(_) => anyhow::bail!("expected size mismatch error"),
+            Err(err) => err,
+        };
+
+        assert!(
+            err.chain()
+                .any(|e| e.to_string().contains("Downloaded blob size mismatch"))
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_download_inlined_hash_mismatch_fails() -> anyhow::Result<()> {
+        let digest = digest_for_test_data(&[1, 2, 3]);
+        let req = DownloadRequest {
+            inlined_digests: Some(vec![digest.clone()]),
+            ..Default::default()
+        };
+
+        let res = BatchReadBlobsResponse {
+            responses: vec![batch_read_blobs_response::Response {
+                digest: Some(tdigest_to(&digest)),
+                data: vec![4, 5, 6],
+                ..Default::default()
+            }],
+        };
+
+        let err = match download_impl(
+            &InstanceName(None),
+            req,
+            None,
+            100000,
+            None,
+            |_req| {
+                let res = res.clone();
+                async move { Ok(res) }
+            },
+            |_digest| async move { anyhow::Ok(Box::pin(futures::stream::iter(vec![]))) },
+        )
+        .await
+        {
+            Ok(_) => anyhow::bail!("expected hash mismatch error"),
+            Err(err) => err,
+        };
+
+        assert!(
+            err.chain()
+                .any(|e| e.to_string().contains("Downloaded blob hash mismatch"))
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_download_named_stream_hash_mismatch_fails() -> anyhow::Result<()> {
+        let work = tempfile::tempdir()?;
+
+        let path = work.path().join("path");
+        let path = path.to_str().context("tempdir is not utf8")?;
+
+        let expected_data = vec![1u8; 18];
+        let actual_data = vec![2u8; 18];
+        let digest = digest_for_test_data(&expected_data);
+        let req = DownloadRequest {
+            file_digests: Some(vec![NamedDigestWithPermissions {
+                named_digest: NamedDigest {
+                    name: path.to_owned(),
+                    digest: digest.clone(),
+                    ..Default::default()
+                },
+                is_executable: false,
+                ..Default::default()
+            }]),
+            ..Default::default()
+        };
+
+        let read_response = ReadResponse {
+            data: actual_data.clone(),
+        };
+        let err = match download_impl(
+            &InstanceName(None),
+            req,
+            None,
+            10,
+            None,
+            |_req| async { Ok(BatchReadBlobsResponse { responses: vec![] }) },
+            |req| {
+                let read_response = read_response.clone();
+                let digest = digest.clone();
+                async move {
+                    assert_eq!(req.resource_name, format!("blobs/{}/18", digest.hash));
+                    anyhow::Ok(Box::pin(futures::stream::iter(vec![Ok(read_response)])))
+                }
+            },
+        )
+        .await
+        {
+            Ok(_) => anyhow::bail!("expected hash mismatch error"),
+            Err(err) => err,
+        };
+
+        assert!(
+            err.chain()
+                .any(|e| e.to_string().contains("Downloaded blob hash mismatch"))
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_download_resource_name() -> anyhow::Result<()> {
+        let digest1 = &digest_for_test_data(&[]);
 
         let req = DownloadRequest {
             inlined_digests: Some(vec![digest1.clone()]),
@@ -3108,9 +3614,13 @@ mod tests {
             req,
             None,
             0,
+            None,
             |_req| async { panic!("not called") },
             |req| async move {
-                assert_eq!(req.resource_name, "instance/blobs/aa/0");
+                assert_eq!(
+                    req.resource_name,
+                    format!("instance/blobs/{}/0", digest1.hash)
+                );
                 anyhow::Ok(Box::pin(futures::stream::iter(vec![])))
             },
         )
@@ -3792,7 +4302,7 @@ async fn test_download_compressed() -> anyhow::Result<()> {
         &InstanceName(None),
         DownloadRequest {
             inlined_digests: Some(vec![TDigest {
-                hash: "aa".to_owned(),
+                hash: hex::encode(Sha256::digest(&blob_data)),
                 size_in_bytes: blob_data.len() as i64,
                 ..Default::default()
             }]),
@@ -3801,6 +4311,7 @@ async fn test_download_compressed() -> anyhow::Result<()> {
         },
         Some(Compressor::Zstd),
         10,
+        None,
         |_req| async { panic!("not called") },
         |_req| async move {
             Ok(Box::pin(futures::stream::iter(
