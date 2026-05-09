@@ -9,35 +9,23 @@
  */
 
 use std::collections::HashMap;
-use std::env::VarError;
 use std::pin::Pin;
 use std::sync::Arc;
-use std::sync::LazyLock;
 use std::task::Context;
 use std::task::Poll;
-use std::time::Duration;
 
 use anyhow::Context as _;
-use buck2_re_configuration::Buck2OssReConfiguration;
 use http_body::Body;
 use http_body::Frame;
 use http_body_util::combinators::UnsyncBoxBody;
-use hyper_util::client::legacy::connect::HttpConnector;
 use prost::bytes::Bytes;
-use regex::Regex;
 use tokio::sync::Mutex;
 use tokio::sync::OwnedSemaphorePermit;
 use tokio::sync::Semaphore;
 use tokio_util::sync::PollSemaphore;
 use tonic::Status;
-use tonic::transport::Certificate;
 use tonic::transport::Channel;
-use tonic::transport::Identity;
-use tonic::transport::Uri;
-use tonic::transport::channel::ClientTlsConfig;
 use tower::Service;
-
-use crate::stats::CountingConnector;
 
 /// Configuration for the connection pool
 #[derive(Debug, Clone)]
@@ -50,176 +38,13 @@ pub struct PoolConfig {
     pub max_concurrency_per_connection: usize,
 }
 
-/// Simplified configuration needed to start new connections
-#[derive(Clone)]
-pub struct ChannelConfig {
-    tls_config: Option<ClientTlsConfig>,
-    grpc_keepalive_time_secs: Option<u64>,
-    grpc_keepalive_timeout_secs: Option<u64>,
-    grpc_keepalive_while_idle: Option<bool>,
-}
+/// Opens one more connection to a host. The pool calls it whenever it needs
+/// another connection, so the channel should connect lazily.
+pub type MakeChannel = Arc<dyn Fn() -> Channel + Send + Sync>;
 
-fn substitute_env_vars(s: &str) -> anyhow::Result<String> {
-    substitute_env_vars_impl(s, |v| std::env::var(v))
-}
-
-fn substitute_env_vars_impl(
-    s: &str,
-    getter: impl Fn(&str) -> Result<String, VarError>,
-) -> anyhow::Result<String> {
-    static ENV_REGEX: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new("\\$[a-zA-Z_][a-zA-Z_0-9]*").unwrap());
-
-    let mut out = String::with_capacity(s.len());
-    let mut last_idx = 0;
-
-    for mat in ENV_REGEX.find_iter(s) {
-        out.push_str(&s[last_idx..mat.start()]);
-        let var = &mat.as_str()[1..];
-        let val = getter(var).with_context(|| format!("Error substituting `{}`", mat.as_str()))?;
-        out.push_str(&val);
-        last_idx = mat.end();
-    }
-
-    if last_idx < s.len() {
-        out.push_str(&s[last_idx..s.len()]);
-    }
-
-    Ok(out)
-}
-
-impl ChannelConfig {
-    pub async fn new(opts: &Buck2OssReConfiguration) -> anyhow::Result<Self> {
-        let tls_config = if opts.tls {
-            Some(Self::create_tls_config(opts).await?)
-        } else {
-            None
-        };
-
-        Ok(Self {
-            tls_config,
-            grpc_keepalive_time_secs: opts.grpc_keepalive_time_secs,
-            grpc_keepalive_timeout_secs: opts.grpc_keepalive_timeout_secs,
-            grpc_keepalive_while_idle: opts.grpc_keepalive_while_idle,
-        })
-    }
-
-    async fn create_tls_config(opts: &Buck2OssReConfiguration) -> anyhow::Result<ClientTlsConfig> {
-        let config = ClientTlsConfig::new().with_enabled_roots();
-
-        let config = match opts.tls_ca_certs.as_ref() {
-            Some(tls_ca_certs) => {
-                let tls_ca_certs =
-                    substitute_env_vars(tls_ca_certs).context("Invalid `tls_ca_certs`")?;
-                let data = tokio::fs::read(&tls_ca_certs)
-                    .await
-                    .with_context(|| format!("Error reading `{tls_ca_certs}`"))?;
-                config.ca_certificate(Certificate::from_pem(data))
-            }
-            None => config,
-        };
-
-        let config = match opts.tls_client_cert.as_ref() {
-            Some(tls_client_cert) => {
-                let tls_client_cert =
-                    substitute_env_vars(tls_client_cert).context("Invalid `tls_client_cert`")?;
-                let data = tokio::fs::read(&tls_client_cert)
-                    .await
-                    .with_context(|| format!("Error reading `{tls_client_cert}`"))?;
-                config.identity(Identity::from_pem(&data, &data))
-            }
-            None => config,
-        };
-
-        Ok(config)
-    }
-}
-
-fn prepare_uri(uri: Uri, tls: bool) -> anyhow::Result<Uri> {
-    // Now do some awkward things with the protocol. Why do we do all this? The reason is
-    // because we'd like our configuration to not be super confusing. We don't want to e.g.
-    // allow setting the address to `https://foobar` without enabling TLS (or enabling tls
-    // and using `http://foobar`), so we restrict ourselves to schemes that are actually
-    // remotely valid in GRPC (which is more restrictive than what Tonic allows).
-
-    // This is the GRPC spec for naming: https://github.com/grpc/grpc/blob/master/doc/naming.md
-    // Many people (including Bazel), use grpc://, so we tolerate it.
-
-    match uri.scheme_str() {
-        Some("grpc") | Some("dns") | Some("ipv4") | Some("ipv6") | None => {}
-        Some(scheme) => {
-            return Err(anyhow::anyhow!(
-                "Invalid URI scheme: `{}` for `{}` (you should omit it)",
-                scheme,
-                uri,
-            ));
-        }
-    };
-
-    // And now, let's put back a proper scheme for Tonic to be happy with. First, because
-    // Tonic will blow up if we don't. Second, so we get port inference.
-    let mut parts = uri.into_parts();
-    parts.scheme = Some(if tls {
-        http::uri::Scheme::HTTPS
-    } else {
-        http::uri::Scheme::HTTP
-    });
-
-    // Is this API actually designed to be unusable? If you've got a scheme, you must
-    // have a path_and_query. I'm sure there's a good reason, so we abide:
-    if parts.path_and_query.is_none() {
-        parts.path_and_query = Some(http::uri::PathAndQuery::from_static("/"));
-    }
-
-    Ok(Uri::from_parts(parts)?)
-}
-
-/// Create a configured endpoint for the given address. The endpoint can be
-/// reused to create multiple channels without re-processing TLS config.
-fn create_endpoint(
-    config: &ChannelConfig,
-    address: &str,
-) -> Result<tonic::transport::Endpoint, anyhow::Error> {
-    let address = substitute_env_vars(address).context("Invalid address")?;
-    let uri = address.parse().context("Invalid address")?;
-    let uri = prepare_uri(uri, config.tls_config.is_some()).context("Invalid URI")?;
-
-    let mut endpoint = Channel::builder(uri);
-    if let Some(tls_config) = &config.tls_config {
-        endpoint = endpoint.tls_config(tls_config.clone())?;
-    }
-
-    // Configure gRPC keepalive settings (always enabled with sensible defaults)
-    endpoint = endpoint
-        .http2_keep_alive_interval(Duration::from_secs(
-            config.grpc_keepalive_time_secs.unwrap_or(30),
-        ))
-        .keep_alive_timeout(Duration::from_secs(
-            config.grpc_keepalive_timeout_secs.unwrap_or(10),
-        ))
-        .keep_alive_while_idle(config.grpc_keepalive_while_idle.unwrap_or(true));
-
-    Ok(endpoint)
-}
-
-/// Create a lazy channel from an endpoint.
-fn channel_from_endpoint(endpoint: &tonic::transport::Endpoint) -> Channel {
-    // Since we are creating the HttpConnector ourselves, any TCP
-    // settings (tcp_nodelay, tcp_keepalive, connect_timeout), need to
-    // be set here instead of on the endpoint
-    let mut http = HttpConnector::new();
-    http.enforce_http(false);
-    let connector = CountingConnector::new(http);
-
-    // We need to use a lazy channel so the pool isn't blocked waiting for new
-    // connection IO
-    endpoint.connect_with_connector_lazy(connector)
-}
-
-pub fn create_channel(config: &ChannelConfig, address: &str) -> Result<Channel, anyhow::Error> {
-    let endpoint = create_endpoint(config, address)?;
-    Ok(channel_from_endpoint(&endpoint))
-}
+/// Returns the [`MakeChannel`] for an address, the first time the pool is asked
+/// for a channel to it.
+pub type MakeHost = Box<dyn Fn(&str) -> anyhow::Result<MakeChannel> + Send + Sync>;
 
 /// A response body wrapper that holds a semaphore permit until the body is fully consumed or dropped.
 ///
@@ -360,23 +185,20 @@ impl HostPoolInner {
 /// Pool of channels for a single host
 struct HostPool {
     inner: Mutex<HostPoolInner>,
-    endpoint: tonic::transport::Endpoint,
+    make_channel: MakeChannel,
     max_connections: usize,
     max_concurrency_per_connection: usize,
 }
 
 impl HostPool {
     fn new(
-        endpoint: tonic::transport::Endpoint,
+        make_channel: MakeChannel,
         min_connections: usize,
         max_connections: usize,
         max_concurrency_per_connection: usize,
     ) -> Self {
         let channel_states: Vec<_> = (0..min_connections)
-            .map(|_| {
-                let channel = channel_from_endpoint(&endpoint);
-                PooledChannelState::new(channel, max_concurrency_per_connection)
-            })
+            .map(|_| PooledChannelState::new(make_channel(), max_concurrency_per_connection))
             .collect();
 
         Self {
@@ -384,7 +206,7 @@ impl HostPool {
                 channels: channel_states,
                 next_index: 0,
             }),
-            endpoint,
+            make_channel,
             max_connections,
             max_concurrency_per_connection,
         }
@@ -410,7 +232,7 @@ impl HostPool {
 
         // All channels at capacity - create new if allowed
         if num_channels < self.max_connections {
-            let channel = channel_from_endpoint(&self.endpoint);
+            let channel = (self.make_channel)();
             let state = PooledChannelState::new(channel, self.max_concurrency_per_connection);
             let pooled = PooledChannel::new(state.channel.clone(), state.semaphore.clone());
             inner.channels.push(state);
@@ -426,21 +248,22 @@ impl HostPool {
 
 /// A pool of gRPC channels by host/address.
 ///
-/// All channels in the pool share a single `ChannelConfig`. The address-keyed
-/// cache assumes this: if per-call config variation is ever needed, the cache
-/// key must include config identity, not just the address.
+/// Each address gets its channels from the [`MakeChannel`] that `make_host`
+/// returns for it. The address-keyed cache assumes that is the same for every
+/// call: if per-call config variation is ever needed, the cache key must
+/// include config identity, not just the address.
 pub struct ChannelPool {
     pools: Mutex<HashMap<String, Arc<HostPool>>>,
     config: PoolConfig,
-    channel_config: ChannelConfig,
+    make_host: MakeHost,
 }
 
 impl ChannelPool {
-    pub fn new(config: PoolConfig, channel_config: ChannelConfig) -> Self {
+    pub fn new(config: PoolConfig, make_host: MakeHost) -> Self {
         Self {
             pools: Mutex::new(HashMap::new()),
             config,
-            channel_config,
+            make_host,
         }
     }
 
@@ -454,10 +277,10 @@ impl ChannelPool {
             match pools.entry(address.to_owned()) {
                 Entry::Occupied(e) => Arc::clone(e.get()),
                 Entry::Vacant(e) => {
-                    let endpoint = create_endpoint(&self.channel_config, address)
+                    let make_channel = (self.make_host)(address)
                         .with_context(|| format!("Failed to create endpoint for {}", address))?;
                     let host_pool = HostPool::new(
-                        endpoint,
+                        make_channel,
                         self.config.min_connections,
                         self.config.max_connections,
                         self.config.max_concurrency_per_connection,
@@ -473,19 +296,47 @@ impl ChannelPool {
 
 #[cfg(test)]
 mod tests {
-    use tonic::transport::Uri;
+    use std::sync::atomic::AtomicUsize;
+    use std::sync::atomic::Ordering;
 
-    use super::prepare_uri;
+    use super::*;
 
-    #[test]
-    fn prepare_uri_adds_root_path_when_missing() {
-        let uri = Uri::builder()
-            .authority("example.com:1234")
-            .build()
-            .unwrap();
+    fn counting_pool(config: PoolConfig) -> (ChannelPool, Arc<AtomicUsize>) {
+        let opened = Arc::new(AtomicUsize::new(0));
+        let make_host: MakeHost = Box::new({
+            let opened = opened.clone();
+            move |address| {
+                let endpoint = Channel::from_shared(format!("http://{address}"))?;
+                let opened = opened.clone();
+                Ok(Arc::new(move || {
+                    opened.fetch_add(1, Ordering::SeqCst);
+                    endpoint.connect_lazy()
+                }))
+            }
+        });
+        (ChannelPool::new(config, make_host), opened)
+    }
 
-        let uri = prepare_uri(uri, false).unwrap();
+    #[tokio::test]
+    async fn grows_when_connections_are_full() -> anyhow::Result<()> {
+        let (pool, opened) = counting_pool(PoolConfig {
+            min_connections: 1,
+            max_connections: 2,
+            max_concurrency_per_connection: 1,
+        });
 
-        assert_eq!(uri.to_string(), "http://example.com:1234/");
+        let mut first = pool.get("127.0.0.1:1").await?;
+        // Take the connection's only permit.
+        std::future::poll_fn(|cx| {
+            let _ready = first.poll_ready(cx);
+            Poll::Ready(())
+        })
+        .await;
+        assert_eq!(opened.load(Ordering::SeqCst), 1);
+
+        // The only connection has no permit left, so the pool opens another.
+        let _second = pool.get("127.0.0.1:1").await?;
+        assert_eq!(opened.load(Ordering::SeqCst), 2);
+        Ok(())
     }
 }
