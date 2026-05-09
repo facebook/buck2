@@ -583,6 +583,8 @@ fn prepare_uri(uri: Uri) -> anyhow::Result<(Uri, bool)> {
 
 /// Contains information queried from the Remote Execution Capabilities service.
 pub struct RECapabilities {
+    /// Whether these capabilities came from the remote server.
+    capabilities_queried: bool,
     /// Largest size of a message before being uploaded using bytestream service.
     /// 0 indicates no limit beyond constraint of underlying transport (which is unknown).
     max_total_batch_size: usize,
@@ -592,6 +594,10 @@ pub struct RECapabilities {
     supported_compressors: Vec<Compressor>,
     /// Digest functions supported by the remote cache/execution capabilities.
     supported_digest_functions: Vec<digest_function::Value>,
+    /// Digest functions supported by the remote cache capabilities.
+    cache_digest_functions: Vec<digest_function::Value>,
+    /// Digest functions supported by the remote execution capabilities.
+    execution_digest_functions: Vec<digest_function::Value>,
     /// Supported nonzero execution priority ranges.
     execution_priority_ranges: Vec<PriorityRange>,
     /// Whether the action cache accepts updates, if advertised by the server.
@@ -728,6 +734,29 @@ fn digest_function_names(digest_functions: &[digest_function::Value]) -> String 
         .join(",")
 }
 
+fn cache_digest_functions_from_capabilities(
+    cache_capabilities: Option<&CacheCapabilities>,
+) -> (Vec<digest_function::Value>, bool) {
+    let Some(cache_capabilities) = cache_capabilities else {
+        return (Vec::new(), false);
+    };
+
+    let mut cache_digest_functions = cache_capabilities
+        .digest_functions
+        .iter()
+        .copied()
+        .filter_map(digest_function_from_grpc)
+        .collect::<Vec<_>>();
+    cache_digest_functions.sort_unstable();
+    cache_digest_functions.dedup();
+
+    if cache_digest_functions.is_empty() {
+        (vec![digest_function::Value::Sha256], true)
+    } else {
+        (cache_digest_functions, false)
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct PriorityRange {
     min_priority: i32,
@@ -843,6 +872,77 @@ fn select_download_hash_digest_function(
     } else {
         Ok(None)
     }
+}
+
+fn configured_digest_functions(
+    configured_digest_algorithms: &[String],
+) -> Vec<digest_function::Value> {
+    let mut digest_functions = Vec::new();
+    for configured_algorithm in configured_digest_algorithms {
+        let Some(digest_function) = parse_configured_digest_function(configured_algorithm) else {
+            tracing::debug!(
+                "Ignoring unsupported digest_algorithms entry for RE capabilities validation: `{}`",
+                configured_algorithm
+            );
+            continue;
+        };
+        if !digest_functions.contains(&digest_function) {
+            digest_functions.push(digest_function);
+        }
+    }
+    digest_functions
+}
+
+fn validate_digest_functions_supported(
+    configured_digest_functions: &[digest_function::Value],
+    supported_digest_functions: &[digest_function::Value],
+    capability_name: &str,
+) -> anyhow::Result<()> {
+    let unsupported = configured_digest_functions
+        .iter()
+        .copied()
+        .filter(|digest_function| !supported_digest_functions.contains(digest_function))
+        .collect::<Vec<_>>();
+
+    if unsupported.is_empty() {
+        return Ok(());
+    }
+
+    Err(anyhow::anyhow!(
+        "Configured digest_algorithms {} are incompatible with remote {capability_name} capabilities. Server supported functions are: {}",
+        digest_function_names(&unsupported),
+        digest_function_names(supported_digest_functions),
+    ))
+}
+
+fn validate_digest_function_capabilities(
+    configured_digest_algorithms: &[String],
+    capabilities: &RECapabilities,
+) -> anyhow::Result<()> {
+    if !capabilities.capabilities_queried {
+        return Ok(());
+    }
+
+    let configured_digest_functions = configured_digest_functions(configured_digest_algorithms);
+    if configured_digest_functions.is_empty() {
+        return Ok(());
+    }
+
+    validate_digest_functions_supported(
+        &configured_digest_functions,
+        &capabilities.cache_digest_functions,
+        "cache",
+    )?;
+
+    if capabilities.execution_enabled == Some(true) {
+        validate_digest_functions_supported(
+            &configured_digest_functions,
+            &capabilities.execution_digest_functions,
+            "execution",
+        )?;
+    }
+
+    Ok(())
 }
 
 fn validate_remote_execution_enabled(execution_enabled: Option<bool>) -> anyhow::Result<()> {
@@ -1043,10 +1143,13 @@ impl REClientBuilder {
             .await?
         } else {
             RECapabilities {
+                capabilities_queried: false,
                 max_total_batch_size: DEFAULT_MAX_TOTAL_BATCH_SIZE,
                 max_cas_blob_size_bytes: None,
                 supported_compressors: Vec::new(),
                 supported_digest_functions: Vec::new(),
+                cache_digest_functions: Vec::new(),
+                execution_digest_functions: Vec::new(),
                 execution_priority_ranges: Vec::new(),
                 action_cache_update_enabled: None,
                 execution_enabled: None,
@@ -1054,6 +1157,8 @@ impl REClientBuilder {
                 blob_splice_supported: false,
             }
         };
+
+        validate_digest_function_capabilities(&opts.digest_algorithms, &capabilities)?;
 
         let download_hash_digest_function = select_download_hash_digest_function(
             &opts.digest_algorithms,
@@ -1204,34 +1309,40 @@ impl REClientBuilder {
             Vec::new()
         };
 
-        let mut supported_digest_functions = vec![];
-        if let Some(cache_cap) = &resp.cache_capabilities {
-            supported_digest_functions.extend(
-                cache_cap
-                    .digest_functions
-                    .iter()
-                    .copied()
-                    .filter_map(digest_function_from_grpc),
+        let (cache_digest_functions, assumed_sha256_cache_digest_function) =
+            cache_digest_functions_from_capabilities(resp.cache_capabilities.as_ref());
+        if assumed_sha256_cache_digest_function {
+            tracing::warn!(
+                "Remote cache capabilities did not advertise digest functions; assuming SHA256. \
+                Configure `[buck2] digest_algorithms` only when the remote cache advertises \
+                matching digest function support."
             );
         }
-        if supported_digest_functions.is_empty() {
-            if let Some(exec_cap) = &resp.execution_capabilities {
+
+        let mut execution_digest_functions = resp
+            .execution_capabilities
+            .as_ref()
+            .map(|exec_cap| {
                 if exec_cap.digest_functions.is_empty() {
-                    if let Some(digest_function) =
-                        digest_function_from_grpc(exec_cap.digest_function)
-                    {
-                        supported_digest_functions.push(digest_function);
-                    }
+                    digest_function_from_grpc(exec_cap.digest_function)
+                        .into_iter()
+                        .collect()
                 } else {
-                    supported_digest_functions.extend(
-                        exec_cap
-                            .digest_functions
-                            .iter()
-                            .copied()
-                            .filter_map(digest_function_from_grpc),
-                    );
+                    exec_cap
+                        .digest_functions
+                        .iter()
+                        .copied()
+                        .filter_map(digest_function_from_grpc)
+                        .collect::<Vec<_>>()
                 }
-            }
+            })
+            .unwrap_or_default();
+        execution_digest_functions.sort_unstable();
+        execution_digest_functions.dedup();
+
+        let mut supported_digest_functions = cache_digest_functions.clone();
+        if supported_digest_functions.is_empty() {
+            supported_digest_functions.extend(execution_digest_functions.iter().copied());
         }
         supported_digest_functions.sort_unstable();
         supported_digest_functions.dedup();
@@ -1252,6 +1363,7 @@ impl REClientBuilder {
             };
 
         Ok(RECapabilities {
+            capabilities_queried: true,
             max_total_batch_size,
             max_cas_blob_size_bytes: resp.cache_capabilities.as_ref().and_then(|cache_cap| {
                 let size = cache_cap.max_cas_blob_size_bytes;
@@ -1259,6 +1371,8 @@ impl REClientBuilder {
             }),
             supported_compressors,
             supported_digest_functions,
+            cache_digest_functions,
+            execution_digest_functions,
             execution_priority_ranges: resp
                 .execution_capabilities
                 .as_ref()
@@ -2230,23 +2344,20 @@ impl REClient {
             // Send a request and notify others of the result
             if !digests_to_check.is_empty() {
                 tracing::debug!(num_digests = digests_to_check.len(), "FindMissingBlobs");
-                let blobs_to_check = digests_to_check.clone();
+                let requested_digests = digests_to_check.iter().map(tdigest_to).collect::<Vec<_>>();
                 let missing_blobs = retry_grpc_request(
                     self.runtime_opts.retries,
                     Duration::from_millis(self.runtime_opts.retry_max_delay_ms),
                     || {
                         let metadata = metadata.clone();
-                        let blobs_to_check = blobs_to_check.clone();
+                        let requested_digests = requested_digests.clone();
                         async move {
                             let mut cas_client = self.cas_client().await?;
                             cas_client
                                 .find_missing_blobs(with_re_metadata(
                                     FindMissingBlobsRequest {
                                         instance_name: self.instance_name.as_str().to_owned(),
-                                        blob_digests: blobs_to_check
-                                            .iter()
-                                            .map(tdigest_to)
-                                            .collect(),
+                                        blob_digests: requested_digests,
                                         ..Default::default()
                                     },
                                     &metadata,
@@ -2260,6 +2371,7 @@ impl REClient {
                 .await
                 .context("Failed to request what blobs are not present on remote")?;
                 let resp: FindMissingBlobsResponse = missing_blobs.into_inner();
+                validate_find_missing_blobs_response_digests(&requested_digests, &resp)?;
 
                 // Build the set of missing digests first, so we don't
                 // prematurely cache them as ExistsOnRemote.
@@ -2428,6 +2540,74 @@ fn validate_upload_request_sizes(
 
 fn digest_name(digest: &Digest) -> String {
     format!("{}/{}", digest.hash, digest.size_bytes)
+}
+
+fn validate_find_missing_blobs_response_digests(
+    requested_digests: &[Digest],
+    response: &FindMissingBlobsResponse,
+) -> anyhow::Result<()> {
+    let mut unmatched_digests = requested_digests.to_vec();
+    let mut failures = Vec::new();
+
+    for digest in &response.missing_blob_digests {
+        let Some(index) = unmatched_digests
+            .iter()
+            .position(|requested| requested == digest)
+        else {
+            failures.push(format!(
+                "FindMissingBlobs response included unexpected digest `{}`",
+                digest_name(digest)
+            ));
+            continue;
+        };
+        unmatched_digests.swap_remove(index);
+    }
+
+    if failures.is_empty() {
+        Ok(())
+    } else {
+        Err(anyhow::anyhow!("FindMissingBlobs failed: {:?}", failures))
+    }
+}
+
+fn validate_batch_read_blobs_response_digests(
+    requested_digests: &[Digest],
+    response: &BatchReadBlobsResponse,
+) -> anyhow::Result<()> {
+    let mut missing_digests = requested_digests.to_vec();
+    let mut failures = Vec::new();
+
+    for response in &response.responses {
+        let Some(digest) = &response.digest else {
+            failures.push("BatchReadBlobs response omitted a digest".to_owned());
+            continue;
+        };
+
+        let Some(index) = missing_digests
+            .iter()
+            .position(|requested| requested == digest)
+        else {
+            failures.push(format!(
+                "BatchReadBlobs response included unexpected digest `{}`",
+                digest_name(digest)
+            ));
+            continue;
+        };
+        missing_digests.swap_remove(index);
+    }
+
+    for digest in &missing_digests {
+        failures.push(format!(
+            "BatchReadBlobs response missing digest `{}`",
+            digest_name(digest)
+        ));
+    }
+
+    if failures.is_empty() {
+        Ok(())
+    } else {
+        Err(anyhow::anyhow!("Batch download failed: {:?}", failures))
+    }
 }
 
 fn validate_batch_update_blobs_response(
@@ -2803,12 +2983,11 @@ where
 
     let mut batched_blobs_response = HashMap::new();
     for read_blob_req in requests {
-        let resp = retry(|| async {
-            cas_f(read_blob_req.clone())
-                .await
-                .context("Failed to make BatchReadBlobs request")
-        })
-        .await?;
+        let requested_digests = read_blob_req.digests.clone();
+        let resp = cas_f(read_blob_req)
+            .await
+            .context("Failed to make BatchReadBlobs request")?;
+        validate_batch_read_blobs_response_digests(&requested_digests, &resp)?;
         for r in resp.responses.into_iter() {
             let digest = tdigest_from(r.digest.context("Response digest not found.")?);
             check_status(r.status.unwrap_or_default())?;
@@ -3330,6 +3509,117 @@ mod tests {
         Ok(())
     }
 
+    fn test_re_capabilities(
+        capabilities_queried: bool,
+        cache_digest_functions: Vec<digest_function::Value>,
+        execution_digest_functions: Vec<digest_function::Value>,
+    ) -> RECapabilities {
+        RECapabilities {
+            capabilities_queried,
+            max_total_batch_size: DEFAULT_MAX_TOTAL_BATCH_SIZE,
+            max_cas_blob_size_bytes: None,
+            supported_compressors: Vec::new(),
+            supported_digest_functions: Vec::new(),
+            cache_digest_functions,
+            execution_digest_functions,
+            execution_priority_ranges: Vec::new(),
+            action_cache_update_enabled: None,
+            execution_enabled: Some(true),
+            blob_split_supported: false,
+            blob_splice_supported: false,
+        }
+    }
+
+    #[test]
+    fn cache_digest_functions_default_to_sha256_when_missing() {
+        let (digest_functions, assumed_sha256) =
+            cache_digest_functions_from_capabilities(Some(&CacheCapabilities::default()));
+
+        assert!(assumed_sha256);
+        assert_eq!(digest_functions, vec![digest_function::Value::Sha256]);
+    }
+
+    #[test]
+    fn cache_digest_functions_preserve_advertised_blake3() {
+        let (digest_functions, assumed_sha256) =
+            cache_digest_functions_from_capabilities(Some(&CacheCapabilities {
+                digest_functions: vec![digest_function::Value::Blake3 as i32],
+                ..Default::default()
+            }));
+
+        assert!(!assumed_sha256);
+        assert_eq!(digest_functions, vec![digest_function::Value::Blake3]);
+    }
+
+    #[test]
+    fn test_validate_digest_function_capabilities() -> anyhow::Result<()> {
+        validate_digest_function_capabilities(
+            &["SHA256".to_owned()],
+            &test_re_capabilities(
+                true,
+                vec![digest_function::Value::Sha256],
+                vec![digest_function::Value::Sha256],
+            ),
+        )?;
+
+        validate_digest_function_capabilities(
+            &["BLAKE3".to_owned()],
+            &test_re_capabilities(
+                true,
+                vec![digest_function::Value::Blake3],
+                vec![digest_function::Value::Blake3],
+            ),
+        )?;
+
+        let cache_err = validate_digest_function_capabilities(
+            &["SHA256".to_owned()],
+            &test_re_capabilities(
+                true,
+                vec![digest_function::Value::Blake3],
+                vec![digest_function::Value::Sha256],
+            ),
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(cache_err.contains("remote cache capabilities"));
+
+        let multi_err = validate_digest_function_capabilities(
+            &["SHA1".to_owned(), "SHA256".to_owned()],
+            &test_re_capabilities(
+                true,
+                vec![digest_function::Value::Sha256],
+                vec![digest_function::Value::Sha1, digest_function::Value::Sha256],
+            ),
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(multi_err.contains("SHA1"));
+
+        let execution_err = validate_digest_function_capabilities(
+            &["SHA256".to_owned()],
+            &test_re_capabilities(
+                true,
+                vec![digest_function::Value::Sha256],
+                vec![digest_function::Value::Blake3],
+            ),
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(execution_err.contains("remote execution capabilities"));
+
+        validate_digest_function_capabilities(
+            &["SHA256".to_owned()],
+            &test_re_capabilities(false, Vec::new(), Vec::new()),
+        )?;
+
+        let mut execution_disabled =
+            test_re_capabilities(true, vec![digest_function::Value::Sha256], Vec::new());
+        execution_disabled.execution_enabled = Some(false);
+        validate_digest_function_capabilities(&["SHA256".to_owned()], &execution_disabled)?;
+
+        Ok(())
+    }
+
     #[test]
     fn test_capability_names_are_readable() {
         assert_eq!(
@@ -3627,6 +3917,106 @@ mod tests {
         let err = result.unwrap_err();
         let err = err.downcast_ref::<REClientError>().expect("REClientError");
         assert_eq!(err.code, TCode::UNAVAILABLE);
+    }
+
+    #[test]
+    fn test_validate_batch_read_blobs_response_checks_digests() -> anyhow::Result<()> {
+        let digest1 = tdigest_to(&test_digest("aa", 1));
+        let digest2 = tdigest_to(&test_digest("bb", 2));
+
+        validate_batch_read_blobs_response_digests(
+            &[digest1.clone(), digest2.clone()],
+            &BatchReadBlobsResponse {
+                responses: vec![
+                    batch_read_blobs_response::Response {
+                        digest: Some(digest2.clone()),
+                        status: Some(Status::default()),
+                        data: Vec::new(),
+                        ..Default::default()
+                    },
+                    batch_read_blobs_response::Response {
+                        digest: Some(digest1.clone()),
+                        status: Some(Status::default()),
+                        data: Vec::new(),
+                        ..Default::default()
+                    },
+                ],
+            },
+        )?;
+
+        let missing = validate_batch_read_blobs_response_digests(
+            &[digest1.clone(), digest2.clone()],
+            &BatchReadBlobsResponse {
+                responses: vec![batch_read_blobs_response::Response {
+                    digest: Some(digest1.clone()),
+                    status: Some(Status::default()),
+                    data: Vec::new(),
+                    ..Default::default()
+                }],
+            },
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(missing.contains("missing digest"));
+
+        let unexpected = validate_batch_read_blobs_response_digests(
+            &[digest1],
+            &BatchReadBlobsResponse {
+                responses: vec![batch_read_blobs_response::Response {
+                    digest: Some(digest2),
+                    status: Some(Status::default()),
+                    data: Vec::new(),
+                    ..Default::default()
+                }],
+            },
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(unexpected.contains("unexpected digest"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_validate_find_missing_blobs_response_checks_digests() -> anyhow::Result<()> {
+        let digest1 = tdigest_to(&test_digest("aa", 1));
+        let digest2 = tdigest_to(&test_digest("bb", 2));
+
+        validate_find_missing_blobs_response_digests(
+            &[digest1.clone(), digest2.clone()],
+            &FindMissingBlobsResponse {
+                missing_blob_digests: vec![digest2.clone()],
+            },
+        )?;
+
+        validate_find_missing_blobs_response_digests(
+            &[digest1.clone(), digest2.clone()],
+            &FindMissingBlobsResponse {
+                missing_blob_digests: Vec::new(),
+            },
+        )?;
+
+        let unexpected = validate_find_missing_blobs_response_digests(
+            &[digest1],
+            &FindMissingBlobsResponse {
+                missing_blob_digests: vec![digest2.clone()],
+            },
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(unexpected.contains("unexpected digest"));
+
+        let duplicate = validate_find_missing_blobs_response_digests(
+            &[digest2.clone()],
+            &FindMissingBlobsResponse {
+                missing_blob_digests: vec![digest2.clone(), digest2],
+            },
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(duplicate.contains("unexpected digest"));
+
+        Ok(())
     }
 
     fn digest_for_test_data(data: &[u8]) -> TDigest {

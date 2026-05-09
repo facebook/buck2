@@ -16,12 +16,14 @@ use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_core::rollout_percentage::RolloutPercentage;
 
 static BUCK2_RE_CLIENT_CFG_SECTION: &str = "buck2_re_client";
-static BUCK2_CFG_SECTION: &str = "buck2";
 
 /// We put functions here that both things need to implement for code that isn't gated behind a
 /// fbcode_build or not(fbcode_build)
 pub trait RemoteExecutionStaticMetadataImpl: Sized {
-    fn from_legacy_config(legacy_config: &LegacyBuckConfig) -> buck2_error::Result<Self>;
+    fn from_legacy_config(
+        legacy_config: &LegacyBuckConfig,
+        digest_algorithms: Vec<String>,
+    ) -> buck2_error::Result<Self>;
     /// Whether there is a CAS to talk to at all. Independent of any executor configuration: a
     /// command that runs nothing remotely still has one, and asks it about blobs.
     fn cas_configured(&self) -> bool;
@@ -164,7 +166,10 @@ mod fbcode {
     }
 
     impl RemoteExecutionStaticMetadataImpl for RemoteExecutionStaticMetadata {
-        fn from_legacy_config(legacy_config: &LegacyBuckConfig) -> buck2_error::Result<Self> {
+        fn from_legacy_config(
+            legacy_config: &LegacyBuckConfig,
+            _digest_algorithms: Vec<String>,
+        ) -> buck2_error::Result<Self> {
             Ok(Self {
                 cas_address: legacy_config.parse(BuckconfigKeyRef {
                     section: BUCK2_RE_CLIENT_CFG_SECTION,
@@ -409,9 +414,13 @@ mod not_fbcode {
     pub struct RemoteExecutionStaticMetadata(pub Buck2OssReConfiguration);
 
     impl RemoteExecutionStaticMetadataImpl for RemoteExecutionStaticMetadata {
-        fn from_legacy_config(legacy_config: &LegacyBuckConfig) -> buck2_error::Result<Self> {
+        fn from_legacy_config(
+            legacy_config: &LegacyBuckConfig,
+            digest_algorithms: Vec<String>,
+        ) -> buck2_error::Result<Self> {
             Ok(Self(Buck2OssReConfiguration::from_legacy_config(
                 legacy_config,
+                digest_algorithms,
             )?))
         }
 
@@ -514,7 +523,7 @@ pub struct Buck2OssReConfiguration {
     pub max_concurrency_per_connection: Option<usize>,
     /// Interval in seconds for TCP keepalive probes on the socket.
     pub tcp_keepalive_secs: Option<u64>,
-    /// Preferred digest algorithms configured under `[buck2] digest_algorithms`.
+    /// Effective digest algorithms used by the daemon.
     /// This is used by OSS RE clients to disambiguate hash validation when
     /// multiple algorithms share the same digest length (for example, SHA256 and BLAKE3).
     pub digest_algorithms: Vec<String>,
@@ -546,7 +555,10 @@ impl FromStr for HttpHeader {
 }
 
 impl Buck2OssReConfiguration {
-    pub fn from_legacy_config(legacy_config: &LegacyBuckConfig) -> buck2_error::Result<Self> {
+    pub fn from_legacy_config(
+        legacy_config: &LegacyBuckConfig,
+        digest_algorithms: Vec<String>,
+    ) -> buck2_error::Result<Self> {
         // this is used for all three services by default, if given; if one of
         // them has an explicit address given as well though, use that instead
         let default_address: Option<String> = legacy_config.parse(BuckconfigKeyRef {
@@ -661,12 +673,7 @@ impl Buck2OssReConfiguration {
                 section: BUCK2_RE_CLIENT_CFG_SECTION,
                 property: "tcp_keepalive_secs",
             })?,
-            digest_algorithms: legacy_config
-                .parse_list(BuckconfigKeyRef {
-                    section: BUCK2_CFG_SECTION,
-                    property: "digest_algorithms",
-                })?
-                .unwrap_or_default(),
+            digest_algorithms,
         })
     }
 }
