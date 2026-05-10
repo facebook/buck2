@@ -454,7 +454,7 @@ public class APKModuleGraph<BuildTargetType extends Comparable<BuildTargetType>>
     final DirectedAcyclicGraph<String> declaredDependencies = getDeclaredDependencyGraph();
     final DirectedAcyclicGraph.Builder<String> moduleGraph = DirectedAcyclicGraph.serialBuilder();
     Multimap<BuildTargetType, String> targetToContainingApkModuleNameMap =
-        // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
+        // NULLSAFE_FIXME[Not Vetted Third-Party]
         MultimapBuilder.treeKeys().treeSetValues().build();
     for (Map.Entry<String, ImmutableList<BuildTargetType>> seedConfig :
         getSeedConfigMap().get().entrySet()) {
@@ -498,7 +498,7 @@ public class APKModuleGraph<BuildTargetType extends Comparable<BuildTargetType>>
     // Now to generate the minimal covers of APKModules for each set of APKModules that contain
     // a buildTarget
     Multimap<BuildTargetType, String> targetModuleEntriesToRemove =
-        // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
+        // NULLSAFE_FIXME[Not Vetted Third-Party]
         MultimapBuilder.treeKeys().treeSetValues().build();
     for (BuildTargetType key : targetToContainingApkModuleNameMap.keySet()) {
       Collection<String> modulesForTarget = targetToContainingApkModuleNameMap.get(key);
