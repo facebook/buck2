@@ -38,7 +38,6 @@ import org.kohsuke.args4j.Option;
 @Nullsafe(Nullsafe.Mode.LOCAL)
 public class AndroidBundleBuilderExecutableMain {
   @Option(name = "--output-bundle", required = true)
-  // NULLSAFE_FIXME[Field Not Initialized]
   private String outputBundle;
 
   @Option(name = "--path-to-bundle-config-file")
@@ -46,35 +45,27 @@ public class AndroidBundleBuilderExecutableMain {
   private String pathToBundleConfigFile = null;
 
   @Option(name = "--resource-apk", required = true)
-  // NULLSAFE_FIXME[Field Not Initialized]
   private String resourceApk;
 
   @Option(name = "--dex-file", required = true)
-  // NULLSAFE_FIXME[Field Not Initialized]
   private String dexFile;
 
   @Option(name = "--root-module-asset-directories-list", required = true)
-  // NULLSAFE_FIXME[Field Not Initialized]
   private String rootModuleAssetDirectoriesList;
 
   @Option(name = "--non-root-module-asset-directories-list", required = true)
-  // NULLSAFE_FIXME[Field Not Initialized]
   private String nonRootModuleAssetDirectoriesList;
 
   @Option(name = "--non-root-module-asset-native-lib-directories-list", required = true)
-  // NULLSAFE_FIXME[Field Not Initialized]
   private String nonRootModuleAssetNativeLibDirectoriesList;
 
   @Option(name = "--native-libraries-directories-list", required = true)
-  // NULLSAFE_FIXME[Field Not Initialized]
   private String nativeLibrariesDirectoriesList;
 
   @Option(name = "--zip-files-list", required = true)
-  // NULLSAFE_FIXME[Field Not Initialized]
   private String zipFilesList;
 
   @Option(name = "--jar-files-that-may-contain-resources-list", required = true)
-  // NULLSAFE_FIXME[Field Not Initialized]
   private String jarFilesThatMayContainResourcesList;
 
   @Option(name = "--package-meta-inf-version-files")
@@ -133,7 +124,7 @@ public class AndroidBundleBuilderExecutableMain {
     Path tempDir = Files.createTempDirectory("bundleTempDir");
     Path rootModuleZip = tempDir.resolve("base.zip");
     modulePaths.add(rootModuleZip);
-    // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
+    // NULLSAFE_FIXME[Not Vetted Third-Party]
     Path fakeResourcesApk = Files.createFile(tempDir.resolve("fake.txt"));
     Set<String> perModuleAddedFiles = new HashSet<>();
     Set<Path> addedSourceFiles = new HashSet<>();
@@ -264,17 +255,20 @@ public class AndroidBundleBuilderExecutableMain {
     }
 
     Path outputPath = Paths.get(outputBundle);
-    // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
     BuildBundleCommand.Builder bundleBuilder =
+        // NULLSAFE_FIXME[Not Vetted Third-Party]
         BuildBundleCommand.builder()
+            // NULLSAFE_FIXME[Not Vetted Third-Party]
             .setOutputPath(outputPath)
+            // NULLSAFE_FIXME[Not Vetted Third-Party]
             .setOverwriteOutput(true)
+            // NULLSAFE_FIXME[Not Vetted Third-Party]
             .setModulesPaths(modulePaths.build());
 
     if (pathToBundleConfigFile != null) {
       bundleBuilder.setBundleConfig(Paths.get(pathToBundleConfigFile));
     }
-    // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
+    // NULLSAFE_FIXME[Not Vetted Third-Party]
     bundleBuilder.build().execute();
 
     ZipScrubber.scrubZip(outputPath);
