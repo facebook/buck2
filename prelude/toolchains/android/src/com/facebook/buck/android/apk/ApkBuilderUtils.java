@@ -53,32 +53,32 @@ public class ApkBuilderUtils {
           SealedApkException,
           UnrecoverableKeyException,
           DuplicateFileException {
-    // NULLSAFE_FIXME[Parameter Not Nullable]
     ApkBuilder builder =
         new ApkBuilder(
             pathToOutputApkFile.toFile(),
             resourceApk.toFile(),
             dexFile.toFile(),
             packageMetaInfVersionFiles,
+            // NULLSAFE_FIXME[Parameter Not Nullable]
             output,
             excludedResources);
-    // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
+    // NULLSAFE_FIXME[Not Vetted Third-Party]
     for (Path nativeLibraryDirectory : nativeLibraryDirectories.stream().sorted().toList()) {
       builder.addNativeLibraries(nativeLibraryDirectory.toFile());
     }
-    // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
+    // NULLSAFE_FIXME[Not Vetted Third-Party]
     for (Path assetDirectory : assetDirectories.stream().sorted().toList()) {
       builder.addSourceFolder(assetDirectory.toFile());
     }
-    // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
+    // NULLSAFE_FIXME[Not Vetted Third-Party]
     for (Path zipFile : zipFiles.stream().sorted().toList()) {
       // TODO(natthu): Skipping silently is bad. These should really be assertions.
       if (Files.exists(zipFile) && Files.isRegularFile(zipFile)) {
         builder.addZipFile(zipFile.toFile());
       }
     }
-    // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
     for (Path jarFileThatMayContainResources :
+        // NULLSAFE_FIXME[Not Vetted Third-Party]
         jarFilesThatMayContainResources.stream().sorted().toList()) {
       builder.addResourcesFromJar(jarFileThatMayContainResources.toFile());
     }
