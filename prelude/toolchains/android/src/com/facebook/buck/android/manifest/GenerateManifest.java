@@ -180,8 +180,8 @@ public class GenerateManifest {
       Path mergeReportPath,
       ILogger logger) {
     try {
-      // NULLSAFE_FIXME[Not Vetted Third-Party]
       ManifestMerger2.Invoker manifestInvoker =
+          // NULLSAFE_FIXME[Not Vetted Third-Party]
           ManifestMerger2.newMerger(
               mainManifestFile, logger, ManifestMerger2.MergeType.APPLICATION);
       if (!APKModule.isRootModule(moduleName)) {
@@ -190,23 +190,23 @@ public class GenerateManifest {
         manifestInvoker.withFeatures(ManifestMerger2.Invoker.Feature.NO_PLACEHOLDER_REPLACEMENT);
       }
 
-      // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
       MergingReport mergingReport =
           manifestInvoker
+              // NULLSAFE_FIXME[Not Vetted Third-Party]
               .withFeatures(
                   ManifestMerger2.Invoker.Feature.REMOVE_TOOLS_DECLARATIONS,
                   ManifestMerger2.Invoker.Feature.DISABLE_PACKAGE_NAME_UNIQUENESS_CHECK)
-              // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
+              // NULLSAFE_FIXME[Not Vetted Third-Party]
               .addLibraryManifests(Iterables.toArray(libraryManifestFiles, File.class))
-              // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
+              // NULLSAFE_FIXME[Not Vetted Third-Party]
               .setMergeReportFile(mergeReportPath.toFile())
-              // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
+              // NULLSAFE_FIXME[Not Vetted Third-Party]
               .merge();
       // NULLSAFE_FIXME[Not Vetted Third-Party]
       if (mergingReport.getResult().isError()) {
         // NULLSAFE_FIXME[Not Vetted Third-Party]
         for (MergingReport.Record record : mergingReport.getLoggingRecords()) {
-          // NULLSAFE_FIXME[Not Vetted Third-Party]
+          // NULLSAFE_FIXME[Parameter Not Nullable]
           logger.error(null, record.toString());
         }
         throw new RuntimeException("Error generating manifest file");
@@ -281,7 +281,6 @@ public class GenerateManifest {
       DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
       factory.setNamespaceAware(true);
       DocumentBuilder builder = factory.newDocumentBuilder();
-      // NULLSAFE_FIXME[Not Vetted Third-Party]
       Document doc =
           Objects.requireNonNull(builder.parse(new InputSource(new StringReader(xmlContent))));
 
@@ -315,6 +314,7 @@ public class GenerateManifest {
           doc,
           prefs,
           XmlFormatStyle.get(doc),
+          // NULLSAFE_FIXME[Parameter Not Nullable]
           null, /* lineSeparator */
           false /* endWithNewline */);
 
@@ -372,7 +372,6 @@ public class GenerateManifest {
       DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
       factory.setNamespaceAware(true);
       DocumentBuilder builder = factory.newDocumentBuilder();
-      // NULLSAFE_FIXME[Not Vetted Third-Party]
       Document doc = Objects.requireNonNull(builder.parse(skeletonManifest));
 
       NodeList usesSdkNodes = doc.getElementsByTagName("uses-sdk");
@@ -456,7 +455,6 @@ public class GenerateManifest {
       DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
       factory.setNamespaceAware(true);
       DocumentBuilder builder = factory.newDocumentBuilder();
-      // NULLSAFE_FIXME[Not Vetted Third-Party]
       Document doc = Objects.requireNonNull(builder.parse(originalFile));
 
       Element usesSdk = getOrCreateUsesSdk(doc);
@@ -550,12 +548,13 @@ public class GenerateManifest {
     // NULLSAFE_FIXME[Not Vetted Third-Party]
     XmlFormatPreferences prefs = XmlFormatPreferences.defaults();
     prefs.removeEmptyLines = true;
-    // NULLSAFE_FIXME[Not Vetted Third-Party]
     String formattedXml =
+        // NULLSAFE_FIXME[Not Vetted Third-Party]
         XmlPrettyPrinter.prettyPrint(
             doc,
             prefs,
             XmlFormatStyle.get(doc),
+            // NULLSAFE_FIXME[Parameter Not Nullable]
             null, /* lineSeparator */
             false /* endWithNewline */);
 
