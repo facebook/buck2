@@ -511,6 +511,10 @@ pub struct Buck2OssReConfiguration {
     pub retries: Option<usize>,
     /// Maximum backoff delay in milliseconds between retry attempts.
     pub retry_max_delay_ms: Option<u64>,
+    /// Per-attempt timeout in seconds for unary gRPC requests.
+    pub grpc_request_timeout_secs: Option<u64>,
+    /// Maximum time in seconds a ByteStream download may make no read progress.
+    pub bytestream_progress_timeout_secs: Option<u64>,
     /// Interval in seconds for HTTP/2 ping frames to detect stale connections.
     pub grpc_keepalive_time_secs: Option<u64>,
     /// Timeout in seconds for receiving HTTP/2 ping acknowledgement.
@@ -654,6 +658,14 @@ impl Buck2OssReConfiguration {
             retry_max_delay_ms: legacy_config.parse(BuckconfigKeyRef {
                 section: BUCK2_RE_CLIENT_CFG_SECTION,
                 property: "retry_max_delay_ms",
+            })?,
+            grpc_request_timeout_secs: legacy_config.parse(BuckconfigKeyRef {
+                section: BUCK2_RE_CLIENT_CFG_SECTION,
+                property: "grpc_request_timeout_secs",
+            })?,
+            bytestream_progress_timeout_secs: legacy_config.parse(BuckconfigKeyRef {
+                section: BUCK2_RE_CLIENT_CFG_SECTION,
+                property: "bytestream_progress_timeout_secs",
             })?,
             grpc_keepalive_time_secs: legacy_config.parse(BuckconfigKeyRef {
                 section: BUCK2_RE_CLIENT_CFG_SECTION,
