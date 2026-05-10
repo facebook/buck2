@@ -71,6 +71,11 @@ use crate::re::paranoid_download::ParanoidDownloader;
 use crate::sqlite::incremental_state_db::IncrementalDbState;
 use crate::storage_resource_exhausted::is_storage_resource_exhausted;
 
+enum ReExecuteOutcome {
+    Executed(ExecuteResponseWithQueueStats),
+    MissingCasInputs(remote_execution::TStatus),
+}
+
 #[derive(Debug, buck2_error::Error)]
 pub enum RemoteExecutorError {
     #[error("Trying to execute a `local_only = True` action on remote executor")]
@@ -175,8 +180,7 @@ impl ReExecutor {
         re_gang_workers: &[buck2_core::execution_types::executor_config::ReGangWorker],
         meta_internal_extra_params: &MetaInternalExtraParams,
         worker_tool_action_digest: Option<ActionDigest>,
-    ) -> ControlFlow<CommandExecutionResult, (CommandExecutionManager, ExecuteResponseWithQueueStats)>
-    {
+    ) -> ControlFlow<CommandExecutionResult, (CommandExecutionManager, ReExecuteOutcome)> {
         info!(
             "RE command line:\n```\n$ {}\n```\n for action `{}`",
             request.all_args_str(),
@@ -275,6 +279,12 @@ impl ReExecutor {
                             CommandExecutionMetadata::empty(TimeSpan::empty_now()),
                         ));
                     }
+                    if let Some(status) = missing_cas_inputs_status_from_error(&e) {
+                        return ControlFlow::Continue((
+                            manager,
+                            ReExecuteOutcome::MissingCasInputs(status),
+                        ));
+                    }
                     return ControlFlow::Break(manager.error("remote_call_error", e));
                 }
             };
@@ -288,6 +298,13 @@ impl ReExecutor {
         };
 
         if response.execute_response.status.code != TCode::OK {
+            if is_missing_cas_inputs_error(&response.execute_response.status) {
+                return ControlFlow::Continue((
+                    manager,
+                    ReExecuteOutcome::MissingCasInputs(response.execute_response.status),
+                ));
+            }
+
             let res = if let Some(out) = as_missing_outputs_error(&response.execute_response.status)
             {
                 // TODO: Add a dedicated report variant for this.
@@ -360,7 +377,7 @@ impl ReExecutor {
             }
         }
 
-        ControlFlow::Continue((manager, response))
+        ControlFlow::Continue((manager, ReExecuteOutcome::Executed(response)))
     }
 }
 
@@ -412,24 +429,6 @@ impl PreparedCommandExecutor for ReExecutor {
         let identity =
             ReActionIdentity::new(*target, self.re_action_key.as_deref(), request.paths());
 
-        // TODO(bobyf, torozco): remote execution probably needs to explicitly handle cancellations
-        let manager = self
-            .upload(manager, &identity, &action_and_blobs.blobs, request.paths())
-            .await?;
-
-        let manager = if let (Some(worker), Some(worker_tool_init_action)) =
-            (request.remote_worker(), worker_tool_init_action)
-        {
-            self.upload(
-                manager,
-                &identity,
-                &worker_tool_init_action.blobs,
-                &worker.input_paths,
-            )
-            .await?
-        } else {
-            manager
-        };
         let worker_tool_action_digest = worker_tool_init_action.clone().map(|w| w.action);
 
         let execution_time = TimeSpan::start_now();
@@ -465,20 +464,66 @@ impl PreparedCommandExecutor for ReExecutor {
             None => Either::Right(remote_execution_dependencies),
         };
 
-        let (manager, response) = self
-            .re_execute(
-                manager,
-                &identity,
-                request,
-                &action_and_blobs.action,
-                *digest_config,
-                platform,
-                remote_execution_dependencies,
-                &re_gang_workers,
-                command.request.meta_internal_extra_params(),
-                worker_tool_action_digest,
-            )
-            .await?;
+        // TODO(bobyf, torozco): remote execution probably needs to explicitly handle cancellations
+        let mut manager = manager;
+        let mut retried_missing_cas_inputs = false;
+        let response = loop {
+            manager = self
+                .upload(manager, &identity, &action_and_blobs.blobs, request.paths())
+                .await?;
+
+            manager = if let (Some(worker), Some(worker_tool_init_action)) =
+                (request.remote_worker(), worker_tool_init_action)
+            {
+                self.upload(
+                    manager,
+                    &identity,
+                    &worker_tool_init_action.blobs,
+                    &worker.input_paths,
+                )
+                .await?
+            } else {
+                manager
+            };
+
+            let (next_manager, outcome) = self
+                .re_execute(
+                    manager,
+                    &identity,
+                    request,
+                    &action_and_blobs.action,
+                    *digest_config,
+                    platform,
+                    remote_execution_dependencies.clone(),
+                    &re_gang_workers,
+                    command.request.meta_internal_extra_params(),
+                    worker_tool_action_digest.dupe(),
+                )
+                .await?;
+            manager = next_manager;
+
+            match outcome {
+                ReExecuteOutcome::Executed(response) => break response,
+                ReExecuteOutcome::MissingCasInputs(status) => {
+                    if retried_missing_cas_inputs {
+                        return ControlFlow::Break(manager.error_classified(
+                            "remote_exec_error",
+                            ReErrorWrapper {
+                                action_digest: action_and_blobs.action.dupe(),
+                                inner: status,
+                            },
+                            CommandExecutionErrorType::Other,
+                        ))?;
+                    }
+
+                    retried_missing_cas_inputs = true;
+                    info!(
+                        "Retrying RE action `{}` after RE reported missing CAS inputs",
+                        action_and_blobs.action,
+                    );
+                }
+            }
+        };
 
         let exit_code = response.execute_response.action_result.exit_code;
         let additional_message = if response.execute_response.status.message.is_empty() {
@@ -564,6 +609,31 @@ fn as_missing_outputs_error(err: &remote_execution::TStatus) -> Option<&str> {
     } else {
         None
     }
+}
+
+fn is_missing_cas_inputs_error(err: &remote_execution::TStatus) -> bool {
+    if err.code != TCode::FAILED_PRECONDITION {
+        return false;
+    }
+
+    let message = err.message.to_ascii_lowercase();
+    message.contains("type=missing")
+        || message.contains("missing input")
+        || (message.contains("missing") && message.contains("cas"))
+        || (message.contains("missing") && message.contains("digest"))
+        || (message.contains("missing") && message.contains("precondition"))
+}
+
+fn missing_cas_inputs_status_from_error(
+    e: &buck2_error::Error,
+) -> Option<remote_execution::TStatus> {
+    let re_err = e.find_typed_context::<RemoteExecutionError>()?;
+    let status = remote_execution::TStatus {
+        code: re_err.code,
+        message: re_err.message.clone(),
+        ..Default::default()
+    };
+    is_missing_cas_inputs_error(&status).then_some(status)
 }
 
 fn is_timeout_error(err: &remote_execution::TStatus) -> bool {
