@@ -38,7 +38,6 @@ import org.kohsuke.args4j.spi.StringArrayOptionHandler;
 public class MergeAssetsExecutableMain {
 
   @Option(name = "--output-apk", required = true, usage = "path to output APK")
-  // NULLSAFE_FIXME[Field Not Initialized]
   private String outputApk;
 
   @Option(name = "--module-assets-apks-dir", usage = "path to module assets APKs")
@@ -48,7 +47,6 @@ public class MergeAssetsExecutableMain {
   private @Nullable String baseApk = null;
 
   @Option(name = "--assets-dirs", required = true, usage = "directory containing assets")
-  // NULLSAFE_FIXME[Field Not Initialized]
   private String assetsDirs;
 
   @Option(
@@ -95,6 +93,7 @@ public class MergeAssetsExecutableMain {
             new TypeReference<ImmutableMap<String, ImmutableSet<Path>>>() {});
 
     ImmutableMap<String, ImmutableSet<RelPath>> dirs =
+        // NULLSAFE_FIXME[Nullable Dereference]
         rawDirs.entrySet().stream()
             .collect(
                 ImmutableMap.toImmutableMap(
