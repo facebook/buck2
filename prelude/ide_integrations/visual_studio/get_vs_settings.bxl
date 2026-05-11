@@ -203,8 +203,14 @@ def get_vs_settings(target: bxl.ConfiguredTargetNode, toolchain, attrs: dict, vs
         # e.g., fbsource//arvr/projects/hsr/libraries/common/tooling/code_gen:idl_serializer
         exported_deps.extend(deps)
         deps = []
-    deps = [d.label.configured_target() for d in deps]  # list[configured_target_label]
-    exported_deps = [d.label.configured_target() for d in exported_deps]  # list[configured_target_label]
+
+    # NB: Some rules (e.g., xplugins_binary_direct_deps in
+    # tools/build_defs/xplugins/rules/binary_direct_deps.bzl) define `deps` as
+    # `attrs.list(attrs.label())` rather than `attrs.list(attrs.dep())`. In that
+    # case, items in `deps`/`exported_deps` are already `Label`s instead of
+    # `Dependency` objects (which have `.label`). Normalize both shapes here.
+    deps = [(d.label if isinstance(d, Dependency) else d).configured_target() for d in deps]  # list[configured_target_label]
+    exported_deps = [(d.label if isinstance(d, Dependency) else d).configured_target() for d in exported_deps]  # list[configured_target_label]
 
     # NB: We can safely assume that dependencies have been processed before this loop as cquery_ctx.deps return dependencies tree in post-order.
     aggregated_exported_compiler_settings = {}
