@@ -517,6 +517,7 @@ python_library = prelude_rule(
             "type_stubs": attrs.named_set(attrs.source(), sorted = True, default = []),
             "versioned_resources": attrs.option(attrs.versioned(attrs.named_set(attrs.source(), sorted = True)), default = None),
             "versioned_srcs": attrs.option(attrs.versioned(attrs.named_set(attrs.source(), sorted = True)), default = None),
+            "lazy_imports_analyzer": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
             "use_lifeguard_incremental": attrs.bool(default = False),
             "zip_safe": attrs.option(attrs.bool(), default = None),
             "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),

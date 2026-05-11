@@ -302,11 +302,12 @@ def _compute_pex_providers(
 
     # Run lazy import analysis if the attribute is enabled.
     # Prefer the cache-based path (analyze_binary from per-library caches) when
-    # the toolchain provides the analyzer. Fall back to the monolithic path
+    # incremental mode is on. Fall back to the monolithic path
     # (analyze against dbg-db.json) for backward compatibility.
     if getattr(ctx.attrs, "lazy_imports_analyzer", None):
         lazy_import_analysis_output = ctx.actions.declare_output("safer_lazy_imports/lazy-import-analysis.json", has_content_based_path = False)
-        if getattr(ctx.attrs, "use_lifeguard_incremental", False) and python_toolchain.lazy_imports_analyzer != None:
+        lifeguard_executable = ctx.attrs.lazy_imports_analyzer[RunInfo]
+        if getattr(ctx.attrs, "use_lifeguard_incremental", False):
             dep_caches = [
                 dep[LazyImportsCacheInfo].cache
                 for dep in ctx.attrs.deps
@@ -317,7 +318,7 @@ def _compute_pex_providers(
             binary_lib_cache = ctx.actions.declare_output("safer_lazy_imports/binary-library-cache.bin")
             run_lazy_imports_library_analyzer(
                 ctx,
-                python_toolchain.lazy_imports_analyzer,
+                lifeguard_executable,
                 binary_lib_cache,
                 source_db_no_deps,
             )
@@ -325,7 +326,7 @@ def _compute_pex_providers(
             # This call builds the Lifeguard output file
             run_lazy_imports_cached_analysis(
                 ctx,
-                python_toolchain.lazy_imports_analyzer,
+                lifeguard_executable,
                 lazy_import_analysis_output,
                 dep_caches + [binary_lib_cache],
             )
