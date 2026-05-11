@@ -110,6 +110,8 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument("--main-runner", required=True)
     parser.add_argument("--no-zip-safe", action="store_true")
+    parser.add_argument("--zip-template", type=Path, required=True)
+    parser.add_argument("--extract-template", type=Path, required=True)
     parser.add_argument(
         "--native-library-runtime-path",
         dest="native_library_runtime_paths",
@@ -219,11 +221,11 @@ def generate_main_py(args: argparse.Namespace) -> str:
 
     if args.no_zip_safe:
         preload_basenames = [os.path.basename(p) for p in args.preload_libraries]
-        template = _BOOTSTRAP_EXTRACT_TEMPLATE
+        template = args.extract_template.read_text()
         template = template.replace("<PRELOAD_BASENAMES>", repr(preload_basenames))
         template = template.replace("<NATIVE_RUNTIME_PATHS>", repr(args.native_library_runtime_paths))
     else:
-        template = _BOOTSTRAP_ZIP_TEMPLATE
+        template = args.zip_template.read_text()
 
     template = template.replace("<MAIN_MODULE>", repr(main_module))
     template = template.replace("<MAIN_FUNCTION>", repr(main_function))
@@ -231,159 +233,6 @@ def generate_main_py(args: argparse.Namespace) -> str:
     template = template.replace("<MAIN_RUNNER_FUNCTION>", main_runner_function)
     template = template.replace("<RUNTIME_ENV>", repr(runtime_env))
     return template
-
-
-_BOOTSTRAP_ZIP_TEMPLATE = """\
-import os
-import sys
-
-MAIN_MODULE = <MAIN_MODULE>
-MAIN_FUNCTION = <MAIN_FUNCTION>
-RUNTIME_ENV = <RUNTIME_ENV>
-
-for k, v in RUNTIME_ENV.items():
-    os.environ[k] = v
-
-from <MAIN_RUNNER_MODULE> import <MAIN_RUNNER_FUNCTION> as _run_as_main
-_run_as_main(MAIN_MODULE, MAIN_FUNCTION)
-"""
-
-_BOOTSTRAP_EXTRACT_TEMPLATE = """\
-import fcntl
-import hashlib
-import os
-import platform
-import signal
-import subprocess
-import sys
-import time
-import zipfile
-
-MAIN_MODULE = <MAIN_MODULE>
-MAIN_FUNCTION = <MAIN_FUNCTION>
-MAIN_RUNNER_MODULE = "<MAIN_RUNNER_MODULE>"
-MAIN_RUNNER_FUNCTION = "<MAIN_RUNNER_FUNCTION>"
-PRELOAD_BASENAMES = <PRELOAD_BASENAMES>
-NATIVE_RUNTIME_PATHS = <NATIVE_RUNTIME_PATHS>
-RUNTIME_ENV = <RUNTIME_ENV>
-
-
-def _par_path():
-    return os.path.abspath(sys.argv[0])
-
-
-def _cache_dir(par):
-    st = os.stat(par)
-    key = "{}:{}:{}".format(par, st.st_size, st.st_mtime_ns)
-    digest = hashlib.sha256(key.encode()).hexdigest()[:16]
-    base = os.environ.get(
-        "PAR_TEMP_DIR",
-        os.path.join(os.path.expanduser("~"), ".cache", "par"),
-    )
-    return os.path.join(base, "{}--{}".format(os.path.basename(par), digest))
-
-
-def _extract(par, dest):
-    stamp = os.path.join(dest, ".par_extracted")
-    if os.path.exists(stamp):
-        return
-
-    os.makedirs(dest, exist_ok=True)
-    lock_path = dest + ".lock"
-    with open(lock_path, "w") as lf:
-        # fcntl.lockf wraps POSIX fcntl() locks; prefer it over flock() which is not
-        # in POSIX. See https://apenwarr.ca/log/20101213
-        fcntl.lockf(lf, fcntl.LOCK_EX)
-        try:
-            if os.path.exists(stamp):
-                return
-            with zipfile.ZipFile(par, "r") as zf:
-                zf.extractall(dest)
-            for root, _dirs, filenames in os.walk(dest):
-                for fn in filenames:
-                    if fn.endswith(".so") or ".so." in fn:
-                        p = os.path.join(root, fn)
-                        os.chmod(p, os.stat(p).st_mode | 0o555)
-            with open(stamp, "w") as sf:
-                sf.write(par + "\\n")
-        finally:
-            fcntl.lockf(lf, fcntl.LOCK_UN)
-
-
-def main():
-    os.environ["PAR_LAUNCH_TIMESTAMP"] = str(time.time())
-
-    par = _par_path()
-    cache = _cache_dir(par)
-    _extract(par, cache)
-
-    for k, v in RUNTIME_ENV.items():
-        os.environ[k] = v
-
-    if platform.system() == "Darwin":
-        native_env = "DYLD_LIBRARY_PATH"
-    else:
-        native_env = "LD_LIBRARY_PATH"
-
-    lib_dirs = [cache] + NATIVE_RUNTIME_PATHS
-    old_lib_path = os.environ.get(native_env, "")
-    if old_lib_path:
-        os.environ["FB_SAVED_" + native_env] = old_lib_path
-    os.environ[native_env] = os.pathsep.join(
-        d for d in lib_dirs + [old_lib_path] if d
-    )
-
-    if PRELOAD_BASENAMES:
-        if platform.system() == "Darwin":
-            preload_env = "DYLD_INSERT_LIBRARIES"
-        else:
-            preload_env = "LD_PRELOAD"
-        preload_paths = [os.path.join(cache, b) for b in PRELOAD_BASENAMES]
-        old_preload = os.environ.get(preload_env, "")
-        if old_preload:
-            os.environ["FB_SAVED_" + preload_env] = old_preload
-        os.environ[preload_env] = os.pathsep.join(
-            p for p in preload_paths + [old_preload] if p
-        )
-
-    old_pythonpath = os.environ.get("PYTHONPATH", "")
-    if old_pythonpath:
-        os.environ["FB_SAVED_PYTHONPATH"] = old_pythonpath
-    os.environ["PYTHONPATH"] = cache
-
-    os.environ["PAR_INVOKED_NAME_TAG"] = sys.argv[0]
-
-    startup = (
-        "# " + sys.argv[0] + "\\n"
-        "def __run():\\n"
-        "    import sys\\n"
-        "    assert sys.argv[0] == \\"-c\\"\\n"
-        "    sys.argv[0] = " + repr(sys.argv[0]) + "\\n"
-        "    if \\"\\" in sys.path:\\n"
-        "        sys.path.remove(\\"\\")\\n"
-        "    from <MAIN_RUNNER_MODULE> import <MAIN_RUNNER_FUNCTION> as run_as_main\\n"
-        "    run_as_main(" + repr(MAIN_MODULE) + ", " + repr(MAIN_FUNCTION) + ")\\n"
-        "__run()\\n"
-    )
-
-    args = [sys.executable, "-c", startup] + sys.argv[1:]
-
-    if platform.system() == "Windows":
-        p = subprocess.Popen(args)
-        def handler(signum, frame):
-            if signum == signal.SIGINT:
-                p.send_signal(signal.CTRL_C_EVENT)
-            else:
-                p.terminate()
-        signal.signal(signal.SIGINT, handler)
-        p.wait()
-        sys.exit(p.returncode)
-    else:
-        os.execv(sys.executable, args)
-
-
-main()
-"""
 
 
 # ---------------------------------------------------------------------------
