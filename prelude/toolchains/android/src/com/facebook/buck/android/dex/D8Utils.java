@@ -71,6 +71,7 @@ public class D8Utils {
         androidJarPath,
         classpathFiles,
         minSdkVersion,
+        // NULLSAFE_FIXME[Not Vetted Third-Party]
         OptionalInt.empty());
   }
 
@@ -101,28 +102,28 @@ public class D8Utils {
     boolean outputToDex = outputDexFile.getFileName().toString().endsWith(".dex");
     Path output = outputToDex ? Files.createTempDirectory("buck-d8") : outputDexFile;
 
-    // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
     D8Command.Builder builder =
-        // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
+        // NULLSAFE_FIXME[Not Vetted Third-Party]
         D8Command.builder(diagnosticsHandler)
-            // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
+            // NULLSAFE_FIXME[Not Vetted Third-Party]
             .addProgramFiles(inputs)
-            // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
+            // NULLSAFE_FIXME[Not Vetted Third-Party]
             .setIntermediate(options.contains(D8Options.INTERMEDIATE))
-            // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
+            // NULLSAFE_FIXME[Not Vetted Third-Party]
             .addLibraryFiles(androidJarPath)
+            // NULLSAFE_FIXME[Not Vetted Third-Party]
             .setMode(
                 options.contains(D8Options.NO_OPTIMIZE)
                     ? CompilationMode.DEBUG
                     : CompilationMode.RELEASE)
-            // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
+            // NULLSAFE_FIXME[Not Vetted Third-Party]
             .setOutput(output, OutputMode.DexIndexed)
-            // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
+            // NULLSAFE_FIXME[Not Vetted Third-Party]
             .setDisableDesugaring(options.contains(D8Options.NO_DESUGAR))
-            // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
+            // NULLSAFE_FIXME[Not Vetted Third-Party]
             .setInternalOptionsModifier(
                 (InternalOptions opt) -> {
-                  // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
+                  // NULLSAFE_FIXME[Not Vetted Third-Party]
                   opt.testing.forceJumboStringProcessing = options.contains(D8Options.FORCE_JUMBO);
                   if (options.contains(D8Options.MINIMIZE_PRIMARY_DEX)) {
                     opt.minimalMainDex = true;
@@ -145,7 +146,7 @@ public class D8Utils {
       builder.addClasspathFiles(classpathFiles);
     }
 
-    // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
+    // NULLSAFE_FIXME[Not Vetted Third-Party]
     D8Command d8Command = builder.build();
     com.android.tools.r8.D8.run(d8Command);
 
@@ -153,9 +154,10 @@ public class D8Utils {
       moveSingleDexOutput(output, outputDexFile, options);
     }
 
-    // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
     return new D8Output(
+        // NULLSAFE_FIXME[Not Vetted Third-Party]
         d8Command.getDexItemFactory().computeReferencedResources(),
+        // NULLSAFE_FIXME[Not Vetted Third-Party]
         d8Command.getDexItemFactory().computeSynthesizedTypes());
   }
 
