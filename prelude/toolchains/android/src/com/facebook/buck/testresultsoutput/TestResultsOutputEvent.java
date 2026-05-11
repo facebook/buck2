@@ -73,7 +73,8 @@ public class TestResultsOutputEvent {
   /** Status of a run failure. */
   public enum RunFailureStatus {
     TIMEOUT(1),
-    FATAL(2);
+    FATAL(2),
+    INFRA_FAILURE(3);
 
     private final int value;
 
