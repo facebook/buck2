@@ -45,7 +45,6 @@ public class D8ExecutableMain {
   private static final String CLASS_NAME_SUFFIX = ".class";
 
   @Option(name = "--output-dex-file", required = true)
-  // NULLSAFE_FIXME[Field Not Initialized]
   private String outputDex;
 
   @Option(name = "--files-to-dex-list")
@@ -57,7 +56,6 @@ public class D8ExecutableMain {
   private String fileToDex = null;
 
   @Option(name = "--android-jar", required = true)
-  // NULLSAFE_FIXME[Field Not Initialized]
   private String androidJar;
 
   @Option(name = "--intermediate")
@@ -446,6 +444,7 @@ public class D8ExecutableMain {
       ZipEntry entry = entries.nextElement();
       if (entry.getName().endsWith(".dex")) {
         try (InputStream is = dexJar.getInputStream(entry)) {
+          // NULLSAFE_FIXME[Parameter Not Nullable]
           DexRefCounts counts = readDexRefCounts(is);
           methodRefCount += counts.methodIds;
           fieldRefCount += counts.fieldIds;
