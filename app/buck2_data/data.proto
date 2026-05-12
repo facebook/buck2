@@ -335,6 +335,12 @@ message InstantEvent {
 
     // RE log stream handles available for a running action
     ReLogStreamAvailable re_log_stream_available = 58;
+
+    // Rule type name for a CLI-resolved top-level target. Emitted once per
+    // resolved target so downstream subscribers (e.g. the invocation
+    // recorder) can accumulate rule types without the producing command
+    // having to thread them through its response.
+    TargetRuleTypeName target_rule_type_name = 59;
   }
 }
 
@@ -889,6 +895,14 @@ message TargetCfg {
   // resolved target platforms
   repeated string target_platforms = 1;
   repeated string cli_modifiers = 2;
+}
+
+// Rule type name for one CLI-resolved top-level target, emitted once per
+// target by commands that know the target node early (e.g. `buck2 test`'s
+// pattern interpretation step). The invocation recorder accumulates these
+// into `InvocationRecord.target_rule_type_names`.
+message TargetRuleTypeName {
+  string rule_type = 1;
 }
 
 // A snapshot of current system state, with useful info.

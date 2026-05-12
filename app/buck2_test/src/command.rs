@@ -15,7 +15,6 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
-use buck2_build_api::actions::calculation::get_target_rule_type_name;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::build::AsyncBuildTargetResultBuilder;
 use buck2_build_api::build::BuildConfiguredLabelOptions;
@@ -67,6 +66,7 @@ use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use buck2_error::internal_error;
 use buck2_events::dispatch::console_message;
+use buck2_events::dispatch::instant_event;
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
@@ -546,12 +546,6 @@ async fn test(
         None
     };
 
-    let mut target_rule_type_names: Vec<String> = Vec::new();
-    for configured in test_outcome.build_target_result.configured.keys() {
-        target_rule_type_names
-            .push(get_target_rule_type_name(&mut ctx, configured.target()).await?);
-    }
-
     Ok(TestResponse {
         executor_exit_code,
         errors: test_outcome.errors,
@@ -560,7 +554,10 @@ async fn test(
         executor_stderr: test_outcome.executor_stderr,
         executor_info_messages: test_outcome.executor_report.info_messages,
         serialized_build_report,
-        target_rule_type_names,
+        // Rule types are sourced from `TargetRuleTypeName` instant events
+        // emitted in `TestDriver::interpret_targets` and accumulated by the
+        // invocation recorder.
+        target_rule_type_names: Vec::new(),
     })
 }
 
@@ -1016,6 +1013,14 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                     targets
                         .into_iter()
                         .map(|((target_name, providers_pattern), target_node)| {
+                            // Emit one rule-type event per CLI-resolved top-level target so the
+                            // invocation recorder can populate
+                            // `InvocationRecord.target_rule_type_names`. Covers every rule kind,
+                            // including non-test rules like `genrule`/`cxx_library` siblings that
+                            // tests get bundled with via macros.
+                            instant_event(buck2_data::TargetRuleTypeName {
+                                rule_type: target_node.rule_type().name().to_owned(),
+                            });
                             (
                                 providers_pattern.into_providers_label_with_modifiers(
                                     package.dupe(),

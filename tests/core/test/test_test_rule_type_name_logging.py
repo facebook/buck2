@@ -12,65 +12,47 @@
 import typing
 
 from buck2.tests.e2e_util.api.buck import Buck
+from buck2.tests.e2e_util.api.buck_result import BuckResult
 from buck2.tests.e2e_util.buck_workspace import buck_test
-from buck2.tests.e2e_util.helper.utils import filter_events
 
 
-async def check_rule_type_names(
-    buck: Buck, expected_rule_type_names: typing.List[typing.Optional[str]]
+def check_rule_type_names(
+    res: BuckResult, expected_rule_type_names: typing.List[str]
 ) -> None:
-    test_response = await filter_events(
-        buck,
-        "Result",
-        "result",
-        "test_response",
-    )
-    assert len(test_response) == 1
-    assert test_response[0]["target_rule_type_names"] == expected_rule_type_names
+    record = res.invocation_record()
+    assert record["target_rule_type_names"] == expected_rule_type_names
 
 
-@buck_test()
+@buck_test(write_invocation_record=True)
 async def test_test_single_dep_touch(buck: Buck) -> None:
-    await buck.test(
-        "//:rule1",
-    )
-    await check_rule_type_names(buck, ["one"])
+    res = await buck.test("//:rule1")
+    check_rule_type_names(res, ["one"])
 
 
-@buck_test()
+@buck_test(write_invocation_record=True)
 async def test_test_two_out_of_order(buck: Buck) -> None:
-    await buck.test(
-        "//:rule2",
-        "//:rule1",
-    )
-    await check_rule_type_names(buck, ["one", "two"])
+    res = await buck.test("//:rule2", "//:rule1")
+    check_rule_type_names(res, ["one", "two"])
 
 
-@buck_test()
+@buck_test(write_invocation_record=True)
 async def test_test_all_in_target(buck: Buck) -> None:
-    await buck.test(
-        "//:",
-    )
-    await check_rule_type_names(
-        buck,
-        [
-            "one",
-            "one",
-            "two",
-        ],
-    )
+    res = await buck.test("//:")
+    # Includes `not_a_test` because the recorder receives a
+    # `TargetRuleTypeName` event for every CLI-resolved top-level target,
+    # not only the ones that resolve to a test rule (T269576064).
+    check_rule_type_names(res, ["not_a_test", "one", "two"])
 
 
-@buck_test()
+@buck_test(write_invocation_record=True)
 async def test_test_all_recursive(buck: Buck) -> None:
-    await buck.test(
-        "//...",
-    )
-    await check_rule_type_names(
-        buck,
-        [
-            "one",
-            "one",
-            "two",
-        ],
-    )
+    res = await buck.test("//...")
+    check_rule_type_names(res, ["not_a_test", "one", "two"])
+
+
+@buck_test(write_invocation_record=True)
+async def test_test_non_test_rule_logs_actual_rule_type(buck: Buck) -> None:
+    # `buck test` against a non-test rule logs that rule's actual type in
+    # `target_rule_type_names`.
+    res = await buck.test("//:not_a_test_target")
+    check_rule_type_names(res, ["not_a_test"])

@@ -1122,7 +1122,9 @@ impl InvocationRecorder {
             client_metadata: std::mem::take(&mut self.client_metadata),
             agent_context: std::mem::take(&mut self.agent_context),
             errors,
-            target_rule_type_names: std::mem::take(&mut self.target_rule_type_names),
+            target_rule_type_names: unique_and_sorted(
+                std::mem::take(&mut self.target_rule_type_names).into_iter(),
+            ),
             new_configs_used: Some(self.has_new_buckconfigs),
             re_max_download_speed: self
                 .re_max_download_speeds
@@ -2364,6 +2366,11 @@ impl InvocationRecorder {
                         self.target_cfg = Some(target_cfg.clone());
                         Ok(())
                     }
+                    buck2_data::instant_event::Data::TargetRuleTypeName(rule_type) => {
+                        self.target_rule_type_names
+                            .push(rule_type.rule_type.clone());
+                        Ok(())
+                    }
                     buck2_data::instant_event::Data::VersionControlRevision(revision) => {
                         self.handle_version_control(revision)
                     }
@@ -2476,23 +2483,19 @@ impl EventSubscriber for InvocationRecorder {
         self.has_command_result = true;
         match &result.result {
             Some(command_result::Result::BuildResponse(res)) => {
-                let built_rule_type_names: Vec<String> =
-                    unique_and_sorted(res.build_targets.iter().map(|t| {
+                // Append per-BuildTarget rule type names from the build
+                // response. Extending (not assigning) preserves rule types
+                // already accumulated from `TargetRuleTypeName` instant events.
+                self.target_rule_type_names
+                    .extend(res.build_targets.iter().map(|t| {
                         t.target_rule_type_name
                             .clone()
                             .unwrap_or_else(|| "NULL".to_owned())
                     }));
-                self.target_rule_type_names = built_rule_type_names;
-            }
-            Some(command_result::Result::TestResponse(res)) => {
-                let built_rule_type_names: Vec<String> =
-                    unique_and_sorted(res.target_rule_type_names.clone().into_iter());
-                self.target_rule_type_names = built_rule_type_names;
             }
             Some(command_result::Result::InstallResponse(res)) => {
-                let built_rule_type_names: Vec<String> =
-                    unique_and_sorted(res.target_rule_type_names.clone().into_iter());
-                self.target_rule_type_names = built_rule_type_names;
+                self.target_rule_type_names
+                    .extend(res.target_rule_type_names.iter().cloned());
             }
             _ => {}
         }
