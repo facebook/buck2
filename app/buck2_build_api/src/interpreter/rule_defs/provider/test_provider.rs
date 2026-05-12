@@ -88,7 +88,7 @@ impl TestProvider for FrozenExternalRunnerTestInfo {
 
         let spec = ExternalRunnerSpec {
             target,
-            test_type: self.test_type().to_owned(),
+            test_type: self.r#type().to_owned(),
             command,
             env,
             labels: self.labels().map(|l| l.to_owned()).collect(),
