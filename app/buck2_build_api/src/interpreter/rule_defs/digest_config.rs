@@ -21,6 +21,7 @@ use starlark::values::AllocValue;
 use starlark::values::Freeze;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
@@ -38,15 +39,17 @@ use starlark::values::starlark_value;
     Trace,
     ProvidesStaticType,
     NoSerialize,
-    Allocative
+    Allocative,
+    StarlarkPagable
 )]
 #[display("{}", self.digest_config)]
 pub struct StarlarkDigestConfig {
     #[freeze(identity)]
+    #[starlark_pagable(pagable)]
     pub digest_config: DigestConfig,
 }
 
-#[starlark_value(type = "DigestConfig", StarlarkTypeRepr, UnpackValue)]
+#[starlark_value(type = "DigestConfig", StarlarkTypeRepr, UnpackValue, skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkDigestConfig {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();

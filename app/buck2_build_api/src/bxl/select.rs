@@ -34,6 +34,7 @@ use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::FrozenStringValue;
 use starlark::values::Heap;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
@@ -46,9 +47,19 @@ use crate::bxl::unconfigured_attribute::CoercedAttrExt;
 
 type SelectDictKey = Either<StarlarkProvidersLabel, FrozenStringValue>;
 
-#[derive(ProvidesStaticType, Derivative, Trace, Allocative, Clone, Debug)]
+#[derive(
+    ProvidesStaticType,
+    Derivative,
+    Trace,
+    Allocative,
+    Clone,
+    Debug,
+    StarlarkPagable
+)]
 pub struct StarlarkSelectDict {
+    #[starlark_pagable(pagable)]
     selector: CoercedSelector,
+    #[starlark_pagable(pagable)]
     pkg: PackageLabel,
 }
 
@@ -119,7 +130,7 @@ impl StarlarkSelectDict {
 
 starlark_simple_value!(StarlarkSelectDict);
 
-#[starlark_value(type = "bxl.SelectDict")]
+#[starlark_value(type = "bxl.SelectDict", skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkSelectDict {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
@@ -224,9 +235,19 @@ fn select_dict_methods(builder: &mut MethodsBuilder) {
     }
 }
 
-#[derive(ProvidesStaticType, Derivative, Trace, Allocative, Clone, Debug)]
+#[derive(
+    ProvidesStaticType,
+    Derivative,
+    Trace,
+    Allocative,
+    Clone,
+    Debug,
+    StarlarkPagable
+)]
 pub struct StarlarkSelectConcat {
+    #[starlark_pagable(pagable)]
     concat: CoercedConcat,
+    #[starlark_pagable(pagable)]
     pkg: PackageLabel,
 }
 
@@ -261,7 +282,7 @@ impl Display for StarlarkSelectConcat {
 
 starlark_simple_value!(StarlarkSelectConcat);
 
-#[starlark_value(type = "bxl.SelectConcat")]
+#[starlark_value(type = "bxl.SelectConcat", skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkSelectConcat {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();

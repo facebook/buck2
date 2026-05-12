@@ -28,7 +28,18 @@ use crate::directory::INTERNER;
 use crate::directory::ReDirectorySerializer;
 
 /// This configuration describes how to interpret digests received from a RE backend.
-#[derive(Copy, Clone, Dupe, Debug, Allocative, Hash, Eq, PartialEq)]
+#[derive(
+    Copy,
+    Clone,
+    Dupe,
+    Debug,
+    Allocative,
+    Hash,
+    Eq,
+    PartialEq,
+    // TODO(nero): support pagable.
+    pagable::PagablePanic
+)]
 pub struct DigestConfig {
     inner: &'static DigestConfigInner,
 }

@@ -42,6 +42,7 @@ use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::Heap;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use starlark::values::dict::Dict;
@@ -54,8 +55,11 @@ use crate::bxl::select::StarlarkSelectConcat;
 use crate::bxl::select::StarlarkSelectDict;
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 
-#[derive(Debug, ProvidesStaticType, From, Allocative, Pagable)]
-pub struct StarlarkCoercedAttr(pub CoercedAttr, pub PackageLabel);
+#[derive(Debug, ProvidesStaticType, From, Allocative, Pagable, StarlarkPagable)]
+pub struct StarlarkCoercedAttr(
+    #[starlark_pagable(pagable)] pub CoercedAttr,
+    #[starlark_pagable(pagable)] pub PackageLabel,
+);
 
 starlark_simple_value!(StarlarkCoercedAttr);
 
@@ -87,7 +91,7 @@ impl Serialize for StarlarkCoercedAttr {
 }
 
 /// Coerced attr from an unconfigured target node.
-#[starlark_value(type = "CoercedAttr")]
+#[starlark_value(type = "CoercedAttr", skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkCoercedAttr {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();

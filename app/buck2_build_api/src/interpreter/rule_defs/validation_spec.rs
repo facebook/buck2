@@ -22,6 +22,7 @@ use starlark::values::Freeze;
 use starlark::values::FreezeError;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
 use starlark::values::Trace;
@@ -66,7 +67,8 @@ enum ValidationSpecError {
     Coerce,
     ProvidesStaticType,
     Allocative,
-    Freeze
+    Freeze,
+    StarlarkPagable
 )]
 #[freeze(validator = validate_validation_spec, bounds = "V: ValueLike<'freeze>")]
 #[repr(C)]
@@ -162,7 +164,7 @@ where
     Ok(())
 }
 
-#[starlark_value(type = "ValidationSpec")]
+#[starlark_value(type = "ValidationSpec", skip_pagable)]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkValidationSpecGen<V>
 where
     Self: ProvidesStaticType<'v>,

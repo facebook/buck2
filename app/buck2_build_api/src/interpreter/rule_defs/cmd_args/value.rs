@@ -21,6 +21,7 @@ use starlark::values::Freeze;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenValue;
+use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
@@ -110,7 +111,8 @@ impl<'v> CommandLineArg<'v> {
     derive_more::Display,
     Clone,
     Copy,
-    Dupe
+    Dupe,
+    StarlarkPagable
 )]
 #[repr(transparent)]
 pub struct FrozenCommandLineArg(FrozenValue);

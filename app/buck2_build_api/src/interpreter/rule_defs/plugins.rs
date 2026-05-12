@@ -17,26 +17,55 @@ use derive_more::Display;
 use dupe::Dupe;
 use starlark::coerce::CoerceKey;
 use starlark::coerce::coerce;
+use starlark::pagable::SmallMapKeyDeserialize;
+use starlark::pagable::StarlarkDeserialize;
+use starlark::pagable::StarlarkDeserializeContext;
 use starlark::starlark_complex_value;
 use starlark::values::Coerce;
 use starlark::values::Freeze;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::ProvidesStaticType;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::starlark_value;
+use starlark_map::Hashed;
 use starlark_map::small_map::SmallMap;
 
 /// Wrapper around `PluginKind` to impl `Trace` and `Freeze`
 #[derive(
-    Clone, Dupe, Debug, Display, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative, Freeze, Trace
+    Clone,
+    Dupe,
+    Debug,
+    Display,
+    Eq,
+    PartialEq,
+    Hash,
+    Ord,
+    PartialOrd,
+    Allocative,
+    Freeze,
+    Trace,
+    StarlarkPagable
 )]
 #[repr(transparent)]
-struct PluginKindWrapper(#[freeze(identity)] PluginKind);
+struct PluginKindWrapper(
+    #[freeze(identity)]
+    #[starlark_pagable(pagable)]
+    PluginKind,
+);
+
+impl SmallMapKeyDeserialize for PluginKindWrapper {
+    fn starlark_deserialize_hashed(
+        ctx: &mut dyn StarlarkDeserializeContext<'_>,
+    ) -> starlark::Result<Hashed<Self>> {
+        Ok(Hashed::new(Self::starlark_deserialize(ctx)?))
+    }
+}
 
 // SAFETY: Trivial coercion is always correct
 unsafe impl Coerce<PluginKindWrapper> for PluginKindWrapper {}
@@ -60,7 +89,8 @@ impl Borrow<PluginKind> for PluginKindWrapper {
     Freeze,
     ProvidesStaticType,
     NoSerialize,
-    Allocative
+    Allocative,
+    StarlarkPagable
 )]
 #[display("<ctx.plugins>")]
 #[repr(transparent)]
@@ -77,7 +107,7 @@ enum AnalysisPluginsError {
     PluginKindNotUsed(PluginKind),
 }
 
-#[starlark_value(type = "AnalysisPlugins")]
+#[starlark_value(type = "AnalysisPlugins", skip_pagable)]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for AnalysisPluginsGen<V>
 where
     Self: ProvidesStaticType<'v>,

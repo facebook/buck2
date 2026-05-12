@@ -27,6 +27,7 @@ use starlark::environment::MethodsStatic;
 use starlark::values::Demand;
 use starlark::values::FrozenValueTyped;
 use starlark::values::NoSerialize;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use starlark::values::starlark_value;
@@ -56,10 +57,10 @@ use crate::interpreter::rule_defs::resolve_query_macro::ResolvedQueryMacro;
 // parameterized on a Value type so that we can have non-frozen things. At that
 // point we could get rid of the Query variant for ResolvedMacro.
 
-#[derive(Debug, PartialEq, Allocative)]
+#[derive(Debug, PartialEq, Allocative, StarlarkPagable)]
 pub enum ResolvedMacro<'v> {
     Location(FrozenValueTyped<'v, FrozenDefaultInfo>),
-    Source(Artifact),
+    Source(#[starlark_pagable(pagable)] Artifact),
     /// Holds an arg-like value
     ArgLike(FrozenCommandLineArg),
     /// Holds a resolved query placeholder
@@ -167,9 +168,9 @@ impl<'v> ResolvedMacro<'v> {
     }
 }
 
-#[derive(Debug, PartialEq, Allocative)]
+#[derive(Debug, PartialEq, Allocative, StarlarkPagable)]
 pub enum ResolvedStringWithMacrosPart<'v> {
-    String(ArcStr),
+    String(#[starlark_pagable(pagable)] ArcStr),
     Macro(/* write_to_file */ bool, ResolvedMacro<'v>),
 }
 
@@ -187,9 +188,17 @@ impl<'v> Display for ResolvedStringWithMacrosPart<'v> {
     }
 }
 
-#[derive(Debug, PartialEq, ProvidesStaticType, NoSerialize, Allocative)]
+#[derive(
+    Debug,
+    PartialEq,
+    ProvidesStaticType,
+    NoSerialize,
+    Allocative,
+    StarlarkPagable
+)]
 pub struct ResolvedStringWithMacros {
     parts: Vec<ResolvedStringWithMacrosPart<'static>>,
+    #[starlark_pagable(pagable)]
     configured_macros: Option<ConfiguredStringWithMacros>,
 }
 
@@ -324,7 +333,7 @@ impl<'v> CommandLineArgLike<'v> for ResolvedStringWithMacros {
     }
 }
 
-#[starlark_value(type = "ResolvedStringWithMacros")]
+#[starlark_value(type = "ResolvedStringWithMacros", skip_pagable)]
 impl<'v> StarlarkValue<'v> for ResolvedStringWithMacros {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
