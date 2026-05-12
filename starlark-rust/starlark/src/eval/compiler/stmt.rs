@@ -25,6 +25,7 @@
 
 use std::cmp;
 
+use starlark_derive::StarlarkPagable;
 use starlark_derive::VisitSpanMut;
 use starlark_syntax::slice_vec_ext::SliceExt;
 use starlark_syntax::syntax::ast::AssignOp;
@@ -35,6 +36,7 @@ use starlark_syntax::syntax::ast::ForP;
 use starlark_syntax::syntax::ast::StmtP;
 use thiserror::Error;
 
+use crate as starlark;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::environment::FrozenModuleData;
@@ -103,7 +105,7 @@ pub(crate) enum StmtCompiled {
     Continue,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, StarlarkPagable)]
 pub(crate) struct StmtCompileContext {
     /// Current function has return type.
     pub(crate) has_return_type: bool,

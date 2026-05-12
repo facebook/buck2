@@ -28,6 +28,7 @@ use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
 use starlark_derive::NoSerialize;
+use starlark_derive::StarlarkPagable;
 use starlark_derive::VisitSpanMut;
 use starlark_derive::starlark_value;
 use starlark_map::StarlarkHasher;
@@ -332,10 +333,9 @@ pub(crate) struct CopySlotFromParent {
 }
 
 /// Static info for `def`, `lambda` or module.
-#[derive(Derivative, Display)]
+#[derive(Derivative, Display, StarlarkPagable)]
 #[derivative(Debug)]
 #[display("DefInfo")]
-#[derive(pagable::PagablePanic, starlark_derive::StarlarkPagableViaPagable)]
 pub(crate) struct DefInfo {
     pub(crate) name: FrozenStringValue,
     /// Span of function signature.
@@ -343,6 +343,7 @@ pub(crate) struct DefInfo {
     /// Indices of parameters, which are captured in nested defs.
     parameter_captures: FrozenAnyArray<LocalSlotId>,
     /// Type of this function, for the typechecker.
+    #[starlark_pagable(pagable)]
     ty: Ty,
     /// Codemap of the file where the function is declared.
     pub(crate) codemap: FrozenAnyValue<CodeMap>,
@@ -360,10 +361,12 @@ pub(crate) struct DefInfo {
     // The compiled expression for the body of this definition, to be run
     // after the parameters are evaluated.
     #[derivative(Debug = "ignore")]
+    #[starlark_pagable(skip = "(|| unimplemented!())()")]
     body_stmts: StmtsCompiled,
     /// How to compile the statement on freeze.
     stmt_compile_context: StmtCompileContext,
     /// Function can be inlined.
+    #[starlark_pagable(skip)]
     pub(crate) inline_def_body: Option<InlineDefBody>,
     /// Globals captured during function or module creation.
     /// Only needed for debugger evaluation.
@@ -531,7 +534,14 @@ impl Compiler<'_, '_, '_, '_> {
 
 /// Starlark function internal representation and implementation of
 /// [`StarlarkValue`].
-#[derive(Derivative, NoSerialize, ProvidesStaticType, Trace, Allocative)]
+#[derive(
+    Derivative,
+    NoSerialize,
+    ProvidesStaticType,
+    Trace,
+    Allocative,
+    starlark_derive::StarlarkPagable
+)]
 #[derivative(Debug)]
 pub(crate) struct DefGen<V> {
     pub(crate) parameters: ParametersSpec<V>, // The parameters, **kwargs etc including defaults (which are evaluated afresh each time)
@@ -560,6 +570,7 @@ pub(crate) struct DefGen<V> {
     /// This field is only used in `FrozenDef`. It is populated in `post_freeze`.
     #[derivative(Debug = "ignore")]
     #[allocative(skip)]
+    #[starlark_pagable(skip = "(|| unimplemented!())()")]
     optimized_on_freeze_stmt: StmtCompiledCell,
 }
 
@@ -633,7 +644,7 @@ impl<'v> DefLike<'v> for DefGen<FrozenValue> {
     const FROZEN: bool = true;
 }
 
-#[starlark_value(type = FUNCTION_TYPE)]
+#[starlark_value(type = FUNCTION_TYPE, skip_pagable)]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for DefGen<V>
 where
     Self: ProvidesStaticType<'v> + DefLike<'v>,
