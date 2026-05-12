@@ -20,6 +20,7 @@ allocative = { workspace = true }
 dupe = { workspace = true }
 gazebo = { workspace = true }
 pagable = { workspace = true }
+starlark = { workspace = true }
 strong_hash = { workspace = true }
 
 buck2_env = { workspace = true }
