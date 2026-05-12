@@ -94,17 +94,16 @@ def get_re_executors_from_props(ctx: AnalysisContext, dynamic_image_override: [d
     re_resource_units = re_props_copy.pop("resource_units", None)
     re_listing_resource_units = re_props_copy.pop("listing_resource_units", re_resource_units)
     re_dynamic_image = re_props_copy.pop("remote_execution_dynamic_image", None)
+    meta_internal_extra_params = re_props_copy.pop("meta_internal_extra_params", None)
     if dynamic_image_override != None:
         re_dynamic_image = dynamic_image_override
     if re_props_copy:
         unexpected_props = ", ".join(re_props_copy.keys())
         fail("found unexpected re props: " + unexpected_props)
 
-    meta_internal_extra_params = None
     if re_gang != None:
-        meta_internal_extra_params = {
-            "remote_execution_gang": re_gang,
-        }
+        meta_internal_extra_params = dict(meta_internal_extra_params or {})
+        meta_internal_extra_params["remote_execution_gang"] = re_gang
 
     default_executor = CommandExecutorConfig(
         local_enabled = local_enabled,
