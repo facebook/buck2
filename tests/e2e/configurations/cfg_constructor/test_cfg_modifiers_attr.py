@@ -36,13 +36,3 @@ async def test_cfg_modifiers_attr_ctargets(buck: Buck) -> None:
         "root//:test2",
     )
     assert ":A_1" in result
-
-
-# TODO: Delete after metadata modifiers is deleted
-@buck_test(inplace=False)
-async def test_cfg_modifiers_attr_and_metadata_together_merges(buck: Buck) -> None:
-    result = await get_cfg(
-        buck,
-        "root//:test3",
-    )
-    assert ":A_1" in result

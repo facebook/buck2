@@ -23,9 +23,14 @@ load(
     "is_modifiers_match",
 )
 
+# Key under which `set_cfg_modifiers()` writes its PACKAGE-level cfg modifiers
+# (consumed by `set_cfg_constructor(key = MODIFIER_METADATA_KEY, ...)`). The
+# string value collides with the historical per-target `metadata["buck.cfg_modifiers"]`
+# key, which is no longer supported - per-target modifiers must use the first-class
+# `modifiers` attribute.
 MODIFIER_METADATA_KEY = "buck.cfg_modifiers"
 
-_TARGET_LOCATION_STR = "`metadata` attribute of target"
+_TARGET_LOCATION_STR = "`modifiers` attribute of target"
 _CLI_LOCATION_STR = "command line"
 
 def location_to_string(location: ModifierLocation) -> str:
