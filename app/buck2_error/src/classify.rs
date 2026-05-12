@@ -402,6 +402,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::DaemonDisconnect => rank!(environment),
         // Could not determine the BuckVersion
         ErrorTag::BuckVersionError => rank!(tier0),
+        ErrorTag::MaterializationCancelled => rank!(tier0),
 
         // Input errors
         ErrorTag::ClapMatch => rank!(input),
@@ -467,7 +468,6 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::IoEden => rank!(unspecified).generic(false),
         ErrorTag::IoEdenConnectionError => rank!(unspecified),
         ErrorTag::MaterializationError => rank!(unspecified),
-        ErrorTag::MaterializationCancelled => rank!(unspecified),
         ErrorTag::CleanInterrupt => rank!(unspecified),
         ErrorTag::Tpx => rank!(unspecified),
         ErrorTag::TestExecutor => rank!(unspecified),
