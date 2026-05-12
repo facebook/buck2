@@ -173,7 +173,12 @@ fn prepare_uri(uri: Uri, tls: bool) -> anyhow::Result<Uri> {
     Ok(Uri::from_parts(parts)?)
 }
 
-pub fn create_channel(config: &ChannelConfig, address: &str) -> Result<Channel, anyhow::Error> {
+/// Create a configured endpoint for the given address. The endpoint can be
+/// reused to create multiple channels without re-processing TLS config.
+fn create_endpoint(
+    config: &ChannelConfig,
+    address: &str,
+) -> Result<tonic::transport::Endpoint, anyhow::Error> {
     let address = substitute_env_vars(address).context("Invalid address")?;
     let uri = address.parse().context("Invalid address")?;
     let uri = prepare_uri(uri, config.tls_config.is_some()).context("Invalid URI")?;
@@ -193,6 +198,11 @@ pub fn create_channel(config: &ChannelConfig, address: &str) -> Result<Channel, 
         ))
         .keep_alive_while_idle(config.grpc_keepalive_while_idle.unwrap_or(true));
 
+    Ok(endpoint)
+}
+
+/// Create a lazy channel from an endpoint.
+fn channel_from_endpoint(endpoint: &tonic::transport::Endpoint) -> Channel {
     // Since we are creating the HttpConnector ourselves, any TCP
     // settings (tcp_nodelay, tcp_keepalive, connect_timeout), need to
     // be set here instead of on the endpoint
@@ -202,7 +212,12 @@ pub fn create_channel(config: &ChannelConfig, address: &str) -> Result<Channel, 
 
     // We need to use a lazy channel so the pool isn't blocked waiting for new
     // connection IO
-    anyhow::Ok(endpoint.connect_with_connector_lazy(connector))
+    endpoint.connect_with_connector_lazy(connector)
+}
+
+pub fn create_channel(config: &ChannelConfig, address: &str) -> Result<Channel, anyhow::Error> {
+    let endpoint = create_endpoint(config, address)?;
+    Ok(channel_from_endpoint(&endpoint))
 }
 
 /// A response body wrapper that holds a semaphore permit until the body is fully consumed or dropped.
@@ -344,40 +359,34 @@ impl HostPoolInner {
 /// Pool of channels for a single host
 struct HostPool {
     inner: Mutex<HostPoolInner>,
+    endpoint: tonic::transport::Endpoint,
     max_connections: usize,
     max_concurrency_per_connection: usize,
-    channel_config: ChannelConfig,
 }
 
 impl HostPool {
     fn new(
-        address: &str,
+        endpoint: tonic::transport::Endpoint,
         min_connections: usize,
         max_connections: usize,
         max_concurrency_per_connection: usize,
-        channel_config: ChannelConfig,
-    ) -> anyhow::Result<Self> {
-        // Create min_connections channels
+    ) -> Self {
         let channel_states: Vec<_> = (0..min_connections)
             .map(|_| {
-                let channel = create_channel(&channel_config, address)?;
-                Ok(PooledChannelState::new(
-                    channel,
-                    max_concurrency_per_connection,
-                ))
+                let channel = channel_from_endpoint(&endpoint);
+                PooledChannelState::new(channel, max_concurrency_per_connection)
             })
-            .collect::<anyhow::Result<Vec<_>>>()
-            .with_context(|| format!("Failed to create initial channels for {}", address))?;
+            .collect();
 
-        Ok(Self {
+        Self {
             inner: Mutex::new(HostPoolInner {
                 channels: channel_states,
                 next_index: 0,
             }),
+            endpoint,
             max_connections,
             max_concurrency_per_connection,
-            channel_config,
-        })
+        }
     }
 
     /// Get a pooled channel from this pool.
@@ -386,7 +395,7 @@ impl HostPool {
     /// 1. Tries to find a channel with available capacity (round-robin)
     /// 2. If all channels are at capacity and we haven't hit max, creates a new channel
     /// 3. If at max channels, picks the next channel (back-pressure happens in poll_ready)
-    async fn get(&self, address: &str) -> anyhow::Result<PooledChannel> {
+    async fn get(&self) -> PooledChannel {
         let mut inner = self.inner.lock().await;
         let num_channels = inner.channels.len();
 
@@ -394,35 +403,31 @@ impl HostPool {
         for _ in 0..num_channels {
             let state = inner.next_channel();
             if state.has_capacity() {
-                return Ok(PooledChannel::new(
-                    state.channel.clone(),
-                    state.semaphore.clone(),
-                ));
+                return PooledChannel::new(state.channel.clone(), state.semaphore.clone());
             }
         }
 
         // All channels at capacity - create new if allowed
         if num_channels < self.max_connections {
-            let channel = create_channel(&self.channel_config, address)
-                .with_context(|| format!("Failed to create channel for {}", address))?;
-
+            let channel = channel_from_endpoint(&self.endpoint);
             let state = PooledChannelState::new(channel, self.max_concurrency_per_connection);
             let pooled = PooledChannel::new(state.channel.clone(), state.semaphore.clone());
             inner.channels.push(state);
 
-            return Ok(pooled);
+            return pooled;
         }
 
         // At max channels - just return next one, back-pressure happens in poll_ready
         let state = inner.next_channel();
-        Ok(PooledChannel::new(
-            state.channel.clone(),
-            state.semaphore.clone(),
-        ))
+        PooledChannel::new(state.channel.clone(), state.semaphore.clone())
     }
 }
 
-/// A pool of gRPC channels by host/address
+/// A pool of gRPC channels by host/address.
+///
+/// All channels in the pool share a single `ChannelConfig`. The address-keyed
+/// cache assumes this: if per-call config variation is ever needed, the cache
+/// key must include config identity, not just the address.
 pub struct ChannelPool {
     pools: Mutex<HashMap<String, Arc<HostPool>>>,
     config: PoolConfig,
@@ -448,18 +453,19 @@ impl ChannelPool {
             match pools.entry(address.to_owned()) {
                 Entry::Occupied(e) => Arc::clone(e.get()),
                 Entry::Vacant(e) => {
+                    let endpoint = create_endpoint(&self.channel_config, address)
+                        .with_context(|| format!("Failed to create endpoint for {}", address))?;
                     let host_pool = HostPool::new(
-                        address,
+                        endpoint,
                         self.config.min_connections,
                         self.config.max_connections,
                         self.config.max_concurrency_per_connection,
-                        self.channel_config.clone(),
-                    )?;
+                    );
                     Arc::clone(e.insert(Arc::new(host_pool)))
                 }
             }
         };
 
-        host_pool.get(address).await
+        Ok(host_pool.get().await)
     }
 }
