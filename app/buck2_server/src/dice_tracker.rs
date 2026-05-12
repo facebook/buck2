@@ -25,6 +25,10 @@ use futures::channel::mpsc;
 use futures::channel::mpsc::UnboundedReceiver;
 use futures::channel::mpsc::UnboundedSender;
 
+/// Closure used to sample the dice core-state queue depth at each snapshot
+/// tick. Boxed so that BuckDiceTracker doesn't need a generic parameter.
+type QueueDepthFn = Box<dyn Fn() -> u64 + Send + Sync + 'static>;
+
 /// The BuckDiceTracker keeps track of the started/finished events for a dice computation and periodically sends a snapshot to the client.
 ///
 /// There are too many events coming out of dice for us to forward them all to the client, so we need to aggregate
@@ -40,7 +44,7 @@ pub struct BuckDiceTracker {
 }
 
 impl BuckDiceTracker {
-    pub fn new(events: EventDispatcher) -> buck2_error::Result<Self> {
+    pub fn new(events: EventDispatcher, queue_depth_fn: QueueDepthFn) -> buck2_error::Result<Self> {
         let (event_forwarder, receiver) = mpsc::unbounded();
         let snapshot_interval =
             buck2_env!("BUCK2_DICE_SNAPSHOT_INTERVAL_MS", type=u64, default = 500)
@@ -53,7 +57,7 @@ impl BuckDiceTracker {
                 .unwrap();
             runtime.block_on(with_dispatcher_async(
                 events.dupe(),
-                Self::run_task(events, receiver, snapshot_interval),
+                Self::run_task(events, receiver, snapshot_interval, queue_depth_fn),
             ))
         })
         .unwrap();
@@ -65,6 +69,7 @@ impl BuckDiceTracker {
         events: EventDispatcher,
         mut receiver: UnboundedReceiver<DiceEvent>,
         snapshot_interval: Duration,
+        queue_depth_fn: QueueDepthFn,
     ) {
         let mut needs_update = false;
         let mut states = StdBuckHashMap::default();
@@ -108,6 +113,7 @@ impl BuckDiceTracker {
                                 .iter()
                                 .map(|(k, v)| ((*k).to_owned(), *v))
                                 .collect(),
+                            core_state_queue_depth: queue_depth_fn(),
                         });
                     }
                 }

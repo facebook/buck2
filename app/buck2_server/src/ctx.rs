@@ -849,9 +849,19 @@ impl DiceCommandUpdater<'_, '_> {
             std::sync::atomic::Ordering::Relaxed,
         );
 
+        let dice = self
+            .cmd_ctx
+            .base_context
+            .daemon
+            .dice_manager
+            .unsafe_dice()
+            .dupe();
         let mut data = UserComputationData {
             data,
-            tracker: Arc::new(BuckDiceTracker::new(self.cmd_ctx.events().dupe())?),
+            tracker: Arc::new(BuckDiceTracker::new(
+                self.cmd_ctx.events().dupe(),
+                Box::new(move || dice.core_state_queue_depth() as u64),
+            )?),
             cycle_detector,
             activation_tracker: Some(self.build_signals.activation_tracker.dupe()),
             ..Default::default()

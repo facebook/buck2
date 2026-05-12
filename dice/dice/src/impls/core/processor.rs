@@ -8,40 +8,57 @@
  * above-listed licenses.
  */
 
+use std::sync::Arc;
+
 #[allow(unused_imports)]
 use gazebo::variants::VariantName;
 
 use crate::impls::core::graph::storage::ValueReusable;
 use crate::impls::core::internals::CoreState;
 use crate::impls::core::state::CoreStateHandle;
+use crate::impls::core::state::QueueCounters;
 use crate::impls::core::state::StateRequest;
 use crate::impls::ctx::SharedLiveTransactionCtx;
 
 pub(super) struct StateProcessor {
     state: CoreState,
     rx: tokio::sync::mpsc::UnboundedReceiver<StateRequest>,
+    /// Shared with the matching `CoreStateHandle`; this thread bumps the
+    /// `retired` counter after each successful receive.
+    counters: Arc<QueueCounters>,
 }
 
 impl StateProcessor {
     pub(super) fn spawn() -> CoreStateHandle {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
         let state = CoreState::new();
+        let counters = Arc::new(QueueCounters::new());
 
+        let processor_counters = counters.clone();
         std::thread::Builder::new()
             .name("buck2-dice".to_owned())
-            .spawn(move || StateProcessor { state, rx }.event_loop())
+            .spawn(move || {
+                StateProcessor {
+                    state,
+                    rx,
+                    counters: processor_counters,
+                }
+                .event_loop()
+            })
             .unwrap();
 
-        CoreStateHandle::new(tx)
+        CoreStateHandle::new(tx, counters)
     }
 
     fn event_loop(mut self) {
         loop {
             // Skip tokio scheduling.
             while let Ok(message) = self.rx.try_recv() {
+                self.counters.record_retire();
                 self.iteration(message);
             }
             if let Some(message) = self.rx.blocking_recv() {
+                self.counters.record_retire();
                 self.iteration(message);
             } else {
                 break;

@@ -8,12 +8,16 @@
  * above-listed licenses.
  */
 
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
+
 use allocative::Allocative;
 use derivative::Derivative;
 use dice_error::result::CancellableResult;
 use dupe::Dupe;
 use futures::Future;
 use gazebo::variants::VariantName;
+use static_assertions::const_assert_eq;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::oneshot::Receiver;
 use tokio::sync::oneshot::Sender;
@@ -43,20 +47,81 @@ use crate::impls::value::TrackedInvalidationPaths;
 use crate::metrics::Metrics;
 use crate::versions::VersionNumber;
 
+/// Padded out to a full cache line so that two of these placed adjacent in a
+/// struct sit on different cache lines. 128 bytes covers both 64-byte cache
+/// lines and the 128-byte "effective" cache lines created by adjacent-line
+/// prefetching on Apple silicon and some Intel processors.
+#[repr(align(128))]
+struct CachePadded(AtomicUsize);
+
+const_assert_eq!(std::mem::size_of::<CachePadded>(), 128);
+
+/// Two cache-line-separated counters that together track the depth of the request queue feeding the
+/// dice core-state thread. The producer side bumps `enqueued`; the (single) consumer side bumps
+/// `retired`; depth is the difference.
+///
+/// Splitting the counter avoids the producer/consumer ping-ponging a single cache line on every
+/// send/receive.
+pub(super) struct QueueCounters {
+    enqueued: CachePadded,
+    retired: CachePadded,
+}
+
+impl QueueCounters {
+    pub(super) fn new() -> Self {
+        Self {
+            enqueued: CachePadded(AtomicUsize::new(0)),
+            retired: CachePadded(AtomicUsize::new(0)),
+        }
+    }
+
+    fn record_enqueue(&self) {
+        self.enqueued.0.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(super) fn record_retire(&self) {
+        self.retired.0.fetch_add(1, Ordering::Relaxed);
+    }
+
+    fn approx_depth(&self) -> usize {
+        let enqueued = self.enqueued.0.load(Ordering::Relaxed);
+        let retired = self.retired.0.load(Ordering::Relaxed);
+        // The two relaxed loads can race with concurrent enqueue/retire and
+        // momentarily yield retired > enqueued; saturate to 0 in that case.
+        enqueued.saturating_sub(retired)
+    }
+}
+
 /// A handle to the core state that allows sending requests
 #[derive(Clone)]
 pub(crate) struct CoreStateHandle {
     tx: UnboundedSender<StateRequest>,
+    /// Tracks in-flight `StateRequest`s (sent on `tx` but not yet dequeued by
+    /// the `StateProcessor`). Used to surface an immediate snapshot of the
+    /// queue depth to callers (the canonical metrics request itself runs
+    /// through the queue and so could not measure it from inside).
+    counters: std::sync::Arc<QueueCounters>,
     // should this handle hold onto the thread and terminate it when all of Dice is dropped?
 }
 
 impl CoreStateHandle {
-    pub(super) fn new(tx: UnboundedSender<StateRequest>) -> Self {
-        Self { tx }
+    pub(super) fn new(
+        tx: UnboundedSender<StateRequest>,
+        counters: std::sync::Arc<QueueCounters>,
+    ) -> Self {
+        Self { tx, counters }
     }
 
     fn request(&self, message: StateRequest) {
+        self.counters.record_enqueue();
         self.tx.send(message).expect("dice runner died");
+    }
+
+    /// Current depth of the request queue feeding the dice core-state thread.
+    /// Sampled synchronously and may be stale by the time the caller acts on
+    /// it, but does not itself enqueue a request.
+    pub(crate) fn queue_depth(&self) -> usize {
+        self.counters.approx_depth()
     }
 
     fn call<T>(

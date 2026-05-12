@@ -106,6 +106,13 @@ impl Dice {
         self.state_handle.metrics()
     }
 
+    /// Current depth of the request queue feeding the dice core-state thread.
+    /// Sampled synchronously without enqueueing a request, so this can be
+    /// called even when the queue is fully backed up.
+    pub fn core_state_queue_depth(&self) -> usize {
+        self.state_handle.queue_depth()
+    }
+
     pub fn to_introspectable(&self) -> GraphIntrospectable {
         let (graph_introspectable, version_introspectable) = self.state_handle.introspection();
         // a bit subtle, but make sure we introspect the key_index after we get the graphs as

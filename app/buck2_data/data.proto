@@ -424,6 +424,11 @@ message DebugAdapterSnapshot {
 
 message DiceStateSnapshot {
   map<string, DiceKeyState> key_states = 1;
+  // Depth of the unbounded mpsc queue feeding the dice core-state thread,
+  // sampled at snapshot time. A sustained nonzero value means callers are
+  // submitting state requests faster than the single core-state thread can
+  // process them.
+  uint64 core_state_queue_depth = 2;
 }
 
 message DiceKeyState {
