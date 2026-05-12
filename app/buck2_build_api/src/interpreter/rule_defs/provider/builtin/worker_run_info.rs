@@ -17,6 +17,7 @@ use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::values::Freeze;
+use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
@@ -37,8 +38,17 @@ use crate::interpreter::rule_defs::provider::builtin::worker_info::FrozenWorkerI
 use crate::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
 
 /// Provider that signals that a rule can run using a worker
-#[internal_provider(worker_run_info_creator)]
-#[derive(Clone, Debug, Coerce, Trace, Freeze, ProvidesStaticType, Allocative)]
+#[internal_provider(worker_run_info_creator, skip_pagable)]
+#[derive(
+    Clone,
+    Debug,
+    Coerce,
+    Trace,
+    Freeze,
+    ProvidesStaticType,
+    Allocative,
+    StarlarkPagable
+)]
 #[repr(C)]
 pub struct WorkerRunInfoGen<V: ValueLifetimeless> {
     // Configuration needed to spawn a new local worker

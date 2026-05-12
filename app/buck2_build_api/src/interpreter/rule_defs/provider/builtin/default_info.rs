@@ -31,6 +31,7 @@ use starlark::values::FrozenValue;
 use starlark::values::FrozenValueOfUnchecked;
 use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
+use starlark::values::StarlarkPagable;
 use starlark::values::StringValue;
 use starlark::values::Trace;
 use starlark::values::UnpackAndDiscard;
@@ -129,8 +130,17 @@ use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectio
 /// # both the stripped binary and the debug symbols are built.
 /// $ buck build //subdir:foo[stripped]
 /// ```
-#[internal_provider(default_info_creator)]
-#[derive(Clone, Debug, Freeze, Trace, Coerce, ProvidesStaticType, Allocative)]
+#[internal_provider(default_info_creator, skip_pagable)]
+#[derive(
+    Clone,
+    Debug,
+    Freeze,
+    Trace,
+    Coerce,
+    ProvidesStaticType,
+    Allocative,
+    StarlarkPagable
+)]
 #[freeze(validator = validate_default_info, bounds = "V: ValueLike<'freeze>")]
 #[repr(C)]
 pub struct DefaultInfoGen<V: ValueLifetimeless> {

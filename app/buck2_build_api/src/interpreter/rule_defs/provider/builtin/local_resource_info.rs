@@ -21,6 +21,7 @@ use starlark::eval::Evaluator;
 use starlark::values::Coerce;
 use starlark::values::Freeze;
 use starlark::values::FreezeError;
+use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
@@ -43,8 +44,17 @@ use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::starlark::values::UnpackValue;
 use crate::starlark::values::ValueLike;
 
-#[internal_provider(local_resource_info_creator)]
-#[derive(Clone, Debug, Freeze, Coerce, Trace, ProvidesStaticType, Allocative)]
+#[internal_provider(local_resource_info_creator, skip_pagable)]
+#[derive(
+    Clone,
+    Debug,
+    Freeze,
+    Coerce,
+    Trace,
+    ProvidesStaticType,
+    Allocative,
+    StarlarkPagable
+)]
 #[freeze(validator = validate_local_resource_info, bounds = "V: ValueLike<'freeze>")]
 #[repr(C)]
 pub struct LocalResourceInfoGen<V: ValueLifetimeless> {

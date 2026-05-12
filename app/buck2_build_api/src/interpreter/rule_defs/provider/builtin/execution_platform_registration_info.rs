@@ -20,6 +20,7 @@ use starlark::values::Freeze;
 use starlark::values::FrozenStringValue;
 use starlark::values::FrozenValue;
 use starlark::values::FrozenValueTyped;
+use starlark::values::StarlarkPagable;
 use starlark::values::StringValue;
 use starlark::values::Trace;
 use starlark::values::Value;
@@ -50,8 +51,17 @@ enum ExecutionPlatformRegistrationTypeError {
 }
 
 /// Provider that gives the list of all execution platforms available for this build.
-#[internal_provider(info_creator)]
-#[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
+#[internal_provider(info_creator, skip_pagable)]
+#[derive(
+    Clone,
+    Debug,
+    Trace,
+    Coerce,
+    Freeze,
+    ProvidesStaticType,
+    Allocative,
+    StarlarkPagable
+)]
 #[repr(C)]
 pub struct ExecutionPlatformRegistrationInfoGen<V: ValueLifetimeless> {
     /// The list of execution platforms that are available for the build.

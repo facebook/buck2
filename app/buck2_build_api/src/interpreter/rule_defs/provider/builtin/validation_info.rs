@@ -18,6 +18,7 @@ use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::Freeze;
 use starlark::values::FreezeError;
+use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
@@ -79,8 +80,17 @@ enum ValidationInfoError {
 ///
 /// See the [Validations guide](https://buck2.build/docs/rule_authors/validation/)
 /// for the end-to-end story.
-#[internal_provider(validation_info_creator)]
-#[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
+#[internal_provider(validation_info_creator, skip_pagable)]
+#[derive(
+    Clone,
+    Debug,
+    Trace,
+    Coerce,
+    Freeze,
+    ProvidesStaticType,
+    Allocative,
+    StarlarkPagable
+)]
 #[freeze(validator = validate_validation_info, bounds = "V: ValueLike<'freeze>")]
 #[repr(transparent)]
 pub struct ValidationInfoGen<V: ValueLifetimeless> {

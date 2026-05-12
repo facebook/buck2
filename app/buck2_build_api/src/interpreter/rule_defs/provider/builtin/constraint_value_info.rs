@@ -24,6 +24,7 @@ use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::Freeze;
 use starlark::values::Heap;
+use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::ValueLifetimeless;
@@ -39,8 +40,17 @@ use crate::interpreter::rule_defs::provider::builtin::constraint_setting_info::F
 
 /// Provider that signals that a target can be used as a constraint key. This is the only provider
 /// returned by a `constraint_value()` target.
-#[internal_provider(constraint_value_info_creator)]
-#[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
+#[internal_provider(constraint_value_info_creator, skip_pagable)]
+#[derive(
+    Clone,
+    Debug,
+    Trace,
+    Coerce,
+    Freeze,
+    ProvidesStaticType,
+    Allocative,
+    StarlarkPagable
+)]
 #[repr(C)]
 pub struct ConstraintValueInfoGen<V: ValueLifetimeless> {
     setting: ValueOfUncheckedGeneric<V, FrozenConstraintSettingInfo>,

@@ -17,6 +17,7 @@ use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::values::Freeze;
+use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::ValueLifetimeless;
@@ -76,8 +77,17 @@ use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 ///         ),
 ///     ]
 /// ```
-#[internal_provider(run_info_creator)]
-#[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
+#[internal_provider(run_info_creator, skip_pagable)]
+#[derive(
+    Clone,
+    Debug,
+    Trace,
+    Coerce,
+    Freeze,
+    ProvidesStaticType,
+    Allocative,
+    StarlarkPagable
+)]
 #[repr(transparent)]
 pub struct RunInfoGen<V: ValueLifetimeless> {
     /// The command to run, stored as CommandLine

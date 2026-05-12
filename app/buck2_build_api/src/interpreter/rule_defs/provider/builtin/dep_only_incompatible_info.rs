@@ -26,6 +26,7 @@ use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::values::Coerce;
 use starlark::values::Freeze;
+use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
@@ -67,8 +68,17 @@ use crate::interpreter::rule_defs::provider::builtin::dep_only_incompatible_roll
 /// buckconfig key. Once registered, soft errors will be fired under category "dep_only_incompatible_foo"
 /// when a target in `root//foo/...` is dep-only incompatible and likewise `dep_only_incompatible_bar` for
 /// a target in `root//bar/...`.
-#[internal_provider(dep_only_incompatible_info_creator)]
-#[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
+#[internal_provider(dep_only_incompatible_info_creator, skip_pagable)]
+#[derive(
+    Clone,
+    Debug,
+    Trace,
+    Coerce,
+    Freeze,
+    ProvidesStaticType,
+    Allocative,
+    StarlarkPagable
+)]
 #[repr(C)]
 pub struct DepOnlyIncompatibleInfoGen<V: ValueLifetimeless> {
     pub custom_soft_errors:

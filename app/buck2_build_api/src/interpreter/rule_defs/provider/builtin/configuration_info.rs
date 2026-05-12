@@ -28,6 +28,7 @@ use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::values::Freeze;
 use starlark::values::Heap;
+use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
 use starlark::values::UnpackAndDiscard;
 use starlark::values::Value;
@@ -52,8 +53,20 @@ use crate::interpreter::rule_defs::provider::builtin::constraint_value_info::Fro
 /// Provider that signals that a rule contains configuration info. This is used both as part of
 /// defining configurations (`platform()`, `constraint_value()`) and defining whether a target "matches"
 /// a configuration or not (`config_setting()`, `constraint_value()`)
-#[internal_provider(configuration_info_creator, methods = configuration_info_methods)]
-#[derive(Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
+#[internal_provider(
+    configuration_info_creator,
+    methods = configuration_info_methods,
+    skip_pagable
+)]
+#[derive(
+    Debug,
+    Trace,
+    Coerce,
+    Freeze,
+    ProvidesStaticType,
+    Allocative,
+    StarlarkPagable
+)]
 #[repr(C)]
 pub struct ConfigurationInfoGen<V: ValueLifetimeless> {
     constraints:

@@ -14,6 +14,7 @@ use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::Coerce;
 use starlark::values::Freeze;
+use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
 use starlark::values::ValueLifetimeless;
 use starlark::values::ValueOf;
@@ -25,8 +26,17 @@ use crate as buck2_build_api;
 
 /// A provider that is used to signal the targets that we want to soft error on
 /// within the `DepOnlyIncompatibleInfo` provider.
-#[internal_provider(dep_only_incompatible_custom_soft_error_creator)]
-#[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
+#[internal_provider(dep_only_incompatible_custom_soft_error_creator, skip_pagable)]
+#[derive(
+    Clone,
+    Debug,
+    Trace,
+    Coerce,
+    Freeze,
+    ProvidesStaticType,
+    Allocative,
+    StarlarkPagable
+)]
 #[repr(C)]
 pub struct DepOnlyIncompatibleRolloutGen<V: ValueLifetimeless> {
     /// A list of target patterns (minus exclusions) that we want to soft error on.
