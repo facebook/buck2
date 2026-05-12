@@ -542,24 +542,33 @@ impl BatchUploadReqAggregator {
 
 /// Returns true if an error is a transient connection/transport error worth
 /// retrying. Walks the error chain checking for:
-///   - `tonic::Status` with `Code::Unavailable`
-///   - `tonic::transport::Error` (broken pipe, connection reset, GOAWAY)
-///   - `io::Error` with `BrokenPipe` (mid-stream failures)
+///   - `tonic::Status` with codes the gRPC retry policy treats as transient
+///     (Unavailable, ResourceExhausted, Aborted)
+///   - `io::Error` of a kind that indicates a transport-level disruption
+///     (BrokenPipe, ConnectionReset/Aborted, UnexpectedEof, TimedOut)
 ///
-/// We do NOT retry application errors like INVALID_ARGUMENT, NOT_FOUND, etc.
+/// `tonic::transport::Error` is not matched directly — its transient subset
+/// surfaces as an `io::Error` somewhere in the chain, which we catch above.
+/// Non-transient transport errors (TLS handshake, invalid URI) do not have
+/// an `io::Error` source, so they correctly do not retry.
 fn is_retryable(err: &anyhow::Error) -> bool {
     for cause in err.chain() {
         if let Some(status) = cause.downcast_ref::<tonic::Status>() {
-            if status.code() == tonic::Code::Unavailable {
-                return true;
+            match status.code() {
+                tonic::Code::Unavailable
+                | tonic::Code::ResourceExhausted
+                | tonic::Code::Aborted => return true,
+                _ => {}
             }
         }
-        if cause.downcast_ref::<tonic::transport::Error>().is_some() {
-            return true;
-        }
         if let Some(io_err) = cause.downcast_ref::<std::io::Error>() {
-            if io_err.kind() == std::io::ErrorKind::BrokenPipe {
-                return true;
+            match io_err.kind() {
+                std::io::ErrorKind::BrokenPipe
+                | std::io::ErrorKind::ConnectionReset
+                | std::io::ErrorKind::ConnectionAborted
+                | std::io::ErrorKind::UnexpectedEof
+                | std::io::ErrorKind::TimedOut => return true,
+                _ => {}
             }
         }
     }
@@ -569,20 +578,42 @@ fn is_retryable(err: &anyhow::Error) -> bool {
 /// Retry a fallible async operation on transient connection errors.
 ///
 /// On retryable failure, the closure is called again from scratch — acquiring
-/// a fresh connection from the pool, rebuilding the request, etc.
+/// a fresh connection from the pool, rebuilding the request, etc. Up to 5
+/// attempts with exponential backoff (100ms, 200ms, 400ms, 800ms — capped at
+/// 5s) plus 0–50ms of jitter to avoid synchronized retry storms across
+/// concurrent in-flight requests.
 async fn retry<F, Fut, T>(f: F) -> anyhow::Result<T>
 where
     F: Fn() -> Fut,
     Fut: Future<Output = anyhow::Result<T>>,
 {
-    match f().await {
-        Ok(v) => Ok(v),
-        Err(e) if is_retryable(&e) => {
-            tracing::warn!("Transient error, retrying: {:#}", e);
-            f().await
+    use rand::RngExt;
+
+    const MAX_ATTEMPTS: u32 = 5;
+    const INITIAL_DELAY: Duration = Duration::from_millis(100);
+    const MAX_DELAY: Duration = Duration::from_secs(5);
+
+    let mut delay = INITIAL_DELAY;
+    for attempt in 1..=MAX_ATTEMPTS {
+        match f().await {
+            Ok(v) => return Ok(v),
+            Err(e) if is_retryable(&e) && attempt < MAX_ATTEMPTS => {
+                let jitter = Duration::from_millis(rand::rng().random_range(0..50));
+                let sleep_for = delay + jitter;
+                tracing::warn!(
+                    "Transient error (attempt {}/{}), retrying in {:?}: {:#}",
+                    attempt,
+                    MAX_ATTEMPTS,
+                    sleep_for,
+                    e
+                );
+                tokio::time::sleep(sleep_for).await;
+                delay = (delay * 2).min(MAX_DELAY);
+            }
+            Err(e) => return Err(e),
         }
-        Err(e) => Err(e),
     }
+    unreachable!()
 }
 
 impl REClient {
