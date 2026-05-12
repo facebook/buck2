@@ -281,6 +281,21 @@ public class KotlincStep implements IsolatedStep {
         AbsPath applicabilityPlugin =
             resolvedKosabiPluginOptionPath.get(KosabiConfig.PROPERTY_KOSABI_APPLICABILITY_PLUGIN);
         builder.add(X_PLUGIN_ARG + applicabilityPlugin);
+
+        // Pass source-only-abi classpath to the applicability plugin so
+        // ImplicitConstantValueChecker can suppress false positives for constants
+        // from deps that will be available during source-only ABI generation.
+        if (!sourceOnlyAbiClasspath.isEmpty()) {
+          String classpathValue =
+              Joiner.on(File.pathSeparator)
+                  .join(transform(sourceOnlyAbiClasspath, path -> path.getPath().toString()));
+          builder.add(PLUGIN);
+          builder.add(
+              "plugin:"
+                  + "com.facebook.kotlin.compilerplugins.kosabiapplicability"
+                  + ":source-only-abi-classpath="
+                  + classpathValue);
+        }
       }
     }
 
