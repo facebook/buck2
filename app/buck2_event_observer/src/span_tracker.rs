@@ -533,7 +533,7 @@ pub fn is_span_shown(event: &BuckEvent) -> bool {
             | Data::Load(..)
             | Data::LoadPackage(..)
             | Data::TestDiscovery(..)
-            | Data::TestStart(..)
+            | Data::TestRun(..)
             | Data::FileWatcher(..)
             | Data::SharedTask(..)
             | Data::CreateOutputSymlinks(..)

@@ -81,7 +81,7 @@ impl WhatRanRelevantAction {
                 Some(buck2_data::span_start_event::Data::TestDiscovery(suite)) => {
                     Some(Self::TestDiscovery(suite.clone()))
                 }
-                Some(buck2_data::span_start_event::Data::TestStart(test)) => {
+                Some(buck2_data::span_start_event::Data::TestRun(test)) => {
                     Some(Self::TestRun(test.clone()))
                 }
                 Some(buck2_data::span_start_event::Data::LocalResources(setup)) => {

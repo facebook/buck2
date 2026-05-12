@@ -295,7 +295,7 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> buck2_err
                 "Test {} -- discovering tests",
                 discovery.suite_name
             )),
-            Data::TestStart(start) => match &start.suite {
+            Data::TestRun(start) => match &start.suite {
                 Some(suite) => {
                     let tests = {
                         if suite.test_names.len() < 100 {

@@ -58,7 +58,7 @@ message SpanStartEvent {
     LoadBuildFileStart load = 53;
     ExecutorStageStart executor_stage = 54;
     TestDiscoveryStart test_discovery = 55;
-    TestRunStart test_start = 56;
+    TestRunStart test_run = 56;
     FileWatcherStart file_watcher = 57;
     MaterializeRequestedArtifactStart final_materialization = 58;
     AnalysisStageStart analysis_stage = 59;
@@ -111,7 +111,7 @@ message SpanEndEvent {
     LoadBuildFileEnd load = 53;
     ExecutorStageEnd executor_stage = 54;
     TestDiscoveryEnd test_discovery = 55;
-    TestRunEnd test_end = 56;
+    TestRunEnd test_run = 56;
     SpanCancelled span_cancelled = 57;
     FileWatcherEnd file_watcher = 58;
     MaterializeRequestedArtifactEnd final_materialization = 59;

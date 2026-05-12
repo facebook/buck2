@@ -31,7 +31,7 @@ pub(crate) fn smart_truncate_event(d: &mut buck2_data::buck_event::Data) {
                 Some(Data::Command(command_end)) => {
                     truncate_command_end(command_end, false);
                 }
-                Some(Data::TestEnd(test_end)) => {
+                Some(Data::TestRun(test_end)) => {
                     truncate_test_end(test_end);
                 }
                 Some(Data::TestDiscovery(test_discovery_end)) => {
@@ -267,7 +267,7 @@ mod tests {
 
     fn make_test_end(data: buck2_data::TestRunEnd) -> buck2_data::buck_event::Data {
         buck2_data::buck_event::Data::SpanEnd(buck2_data::SpanEndEvent {
-            data: Some(buck2_data::span_end_event::Data::TestEnd(data)),
+            data: Some(buck2_data::span_end_event::Data::TestRun(data)),
             ..Default::default()
         })
     }

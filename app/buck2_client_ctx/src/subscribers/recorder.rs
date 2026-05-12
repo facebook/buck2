@@ -2252,7 +2252,7 @@ impl InvocationRecorder {
                     buck2_data::span_start_event::Data::TestDiscovery(test_discovery) => {
                         self.handle_test_discovery_start(test_discovery, event)
                     }
-                    buck2_data::span_start_event::Data::TestStart(test_start) => {
+                    buck2_data::span_start_event::Data::TestRun(test_start) => {
                         self.handle_test_run_start(test_start, event)
                     }
                     buck2_data::span_start_event::Data::FileWatcher(file_watcher) => {

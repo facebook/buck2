@@ -210,7 +210,7 @@ impl RemoteEventSink {
                     Some(Data::DepFileUpload(..)) => true,
                     Some(Data::Materialization(..)) => true,
                     Some(Data::TestDiscovery(..)) => true,
-                    Some(Data::TestEnd(..)) => true,
+                    Some(Data::TestRun(..)) => true,
                     None => false,
                     _ => false,
                 }
