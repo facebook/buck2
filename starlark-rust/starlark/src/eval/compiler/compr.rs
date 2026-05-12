@@ -17,11 +17,13 @@
 
 //! List/dict/set comprenension evaluation.
 
+use starlark_derive::StarlarkPagable;
 use starlark_derive::VisitSpanMut;
 use starlark_syntax::slice_vec_ext::SliceExt;
 use starlark_syntax::syntax::ast::ClauseP;
 use starlark_syntax::syntax::ast::ForClauseP;
 
+use crate as starlark;
 use crate::eval::compiler::Compiler;
 use crate::eval::compiler::error::CompilerInternalError;
 use crate::eval::compiler::expr::ExprCompiled;
@@ -129,7 +131,7 @@ impl Compiler<'_, '_, '_, '_> {
     }
 }
 
-#[derive(Clone, Debug, VisitSpanMut)]
+#[derive(Clone, Debug, VisitSpanMut, StarlarkPagable)]
 pub(crate) enum ComprCompiled {
     List(Box<IrSpanned<ExprCompiled>>, ClausesCompiled),
     Dict(
@@ -164,7 +166,7 @@ impl ComprCompiled {
     }
 }
 
-#[derive(Clone, Debug, VisitSpanMut)]
+#[derive(Clone, Debug, VisitSpanMut, StarlarkPagable)]
 pub(crate) struct ClauseCompiled {
     pub(crate) var: IrSpanned<AssignCompiledValue>,
     pub(crate) over: IrSpanned<ExprCompiled>,
@@ -197,7 +199,7 @@ impl ClauseCompiled {
 }
 
 /// All clauses in a comprehension. Never empty.
-#[derive(Clone, Debug, VisitSpanMut)]
+#[derive(Clone, Debug, VisitSpanMut, StarlarkPagable)]
 pub(crate) struct ClausesCompiled {
     /// Not empty.
     ///

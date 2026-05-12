@@ -150,13 +150,14 @@ impl StmtCompiledCell {
     }
 }
 
-#[derive(Clone, Debug, VisitSpanMut)]
+#[derive(Clone, Debug, VisitSpanMut, StarlarkPagable)]
 pub(crate) struct ParameterName {
     pub(crate) name: String,
     captured: Captured,
 }
 
-#[derive(Clone, Debug, VisitSpanMut)]
+#[derive(Clone, Debug, VisitSpanMut, StarlarkPagable)]
+#[starlark_pagable(bound = "T: crate::pagable::StarlarkPagable")]
 pub(crate) enum ParameterCompiled<T> {
     Normal(
         /// Name.
@@ -231,9 +232,11 @@ impl<T> ParameterCompiled<T> {
     }
 }
 
-#[derive(Debug, Clone, VisitSpanMut)]
+#[derive(Debug, Clone, VisitSpanMut, StarlarkPagable)]
+#[starlark_pagable(bound = "T: crate::pagable::StarlarkPagable")]
 pub(crate) struct ParametersCompiled<T> {
     pub(crate) params: Vec<IrSpanned<ParameterCompiled<T>>>,
+    #[starlark_pagable(pagable)]
     pub(crate) indices: DefParamIndices,
 }
 
@@ -398,7 +401,7 @@ impl DefInfo {
     }
 }
 
-#[derive(Clone, Debug, VisitSpanMut)]
+#[derive(Clone, Debug, VisitSpanMut, StarlarkPagable)]
 pub(crate) struct DefCompiled {
     pub(crate) function_name: String,
     pub(crate) params: ParametersCompiled<IrSpanned<ExprCompiled>>,

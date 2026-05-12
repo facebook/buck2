@@ -349,7 +349,7 @@ pub(crate) enum AssignError {
     IncorrectNumberOfValueToUnpack(i32, i32),
 }
 
-#[derive(Clone, Debug, VisitSpanMut)]
+#[derive(Clone, Debug, VisitSpanMut, starlark_derive::StarlarkPagable)]
 pub(crate) enum AssignCompiledValue {
     Dot(IrSpanned<ExprCompiled>, String),
     Index(IrSpanned<ExprCompiled>, IrSpanned<ExprCompiled>),

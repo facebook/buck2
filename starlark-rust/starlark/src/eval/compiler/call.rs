@@ -17,9 +17,11 @@
 
 //! Compile function calls.
 
+use starlark_derive::StarlarkPagable;
 use starlark_derive::VisitSpanMut;
 use starlark_syntax::slice_vec_ext::VecExt;
 
+use crate as starlark;
 use crate::collections::symbol::symbol::Symbol;
 use crate::eval::compiler::args::ArgsCompiledValue;
 use crate::eval::compiler::def_inline::InlineDefBody;
@@ -39,7 +41,7 @@ use crate::values::Value;
 use crate::values::enumeration::FrozenEnumType;
 use crate::values::string::dot_format::parse_format_one;
 
-#[derive(Clone, Debug, VisitSpanMut)]
+#[derive(Clone, Debug, VisitSpanMut, StarlarkPagable)]
 pub(crate) struct CallCompiled {
     pub(crate) fun: IrSpanned<ExprCompiled>,
     pub(crate) args: ArgsCompiledValue,

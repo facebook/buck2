@@ -21,6 +21,7 @@ use std::borrow::Cow;
 use std::cmp::Ordering;
 
 use dupe::Dupe;
+use starlark_derive::StarlarkPagable;
 use starlark_derive::VisitSpanMut;
 use starlark_syntax::slice_vec_ext::SliceExt;
 use starlark_syntax::syntax::ast::AstExprP;
@@ -33,6 +34,7 @@ use starlark_syntax::syntax::ast::LambdaP;
 use starlark_syntax::syntax::ast::StmtP;
 use thiserror::Error;
 
+use crate as starlark;
 use crate::codemap::Spanned;
 use crate::collections::symbol::symbol::Symbol;
 use crate::environment::slots::ModuleSlotId;
@@ -105,7 +107,7 @@ impl MaybeNot {
 }
 
 /// Map result of comparison to boolean.
-#[derive(Copy, Clone, Dupe, Debug)]
+#[derive(Copy, Clone, Dupe, Debug, StarlarkPagable)]
 pub(crate) enum CompareOp {
     Less,
     Greater,
@@ -125,7 +127,7 @@ impl CompareOp {
 }
 
 /// Builtin function with one argument.
-#[derive(Clone, Debug, VisitSpanMut)]
+#[derive(Clone, Debug, VisitSpanMut, StarlarkPagable)]
 pub(crate) enum Builtin1 {
     Minus,
     /// `+x`.
@@ -168,7 +170,7 @@ impl Builtin1 {
 }
 
 /// Builtin function with two arguments.
-#[derive(Copy, Clone, Dupe, Debug, VisitSpanMut)]
+#[derive(Copy, Clone, Dupe, Debug, VisitSpanMut, StarlarkPagable)]
 pub(crate) enum Builtin2 {
     /// `a == b`.
     Equals,
@@ -225,13 +227,13 @@ impl Builtin2 {
 }
 
 /// Logical binary operator.
-#[derive(Copy, Clone, Dupe, Debug, VisitSpanMut, Eq, PartialEq)]
+#[derive(Copy, Clone, Dupe, Debug, VisitSpanMut, Eq, PartialEq, StarlarkPagable)]
 pub(crate) enum ExprLogicalBinOp {
     And,
     Or,
 }
 
-#[derive(Clone, Debug, VisitSpanMut)]
+#[derive(Clone, Debug, VisitSpanMut, StarlarkPagable)]
 pub(crate) enum ExprCompiled {
     Value(FrozenValue),
     /// Read local non-captured variable.

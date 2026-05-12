@@ -25,6 +25,7 @@ use std::marker::PhantomData;
 use std::mem;
 
 use dupe::Dupe;
+use starlark_derive::StarlarkPagable;
 use starlark_derive::VisitSpanMut;
 use starlark_map::small_map;
 use starlark_map::small_map::SmallMap;
@@ -47,6 +48,7 @@ use starlark_syntax::syntax::ast::Visibility;
 use starlark_syntax::syntax::top_level_stmts::top_level_stmts_mut;
 use starlark_syntax::syntax::uniplate::VisitMut;
 
+use crate as starlark;
 use crate::codemap::CodeMap;
 use crate::codemap::Span;
 use crate::environment::Module;
@@ -1051,7 +1053,7 @@ pub(crate) enum AssignCount {
 }
 
 /// Was a binding captured by nested def or lambda scopes?
-#[derive(Debug, Copy, Clone, Dupe, Eq, PartialEq, VisitSpanMut)]
+#[derive(Debug, Copy, Clone, Dupe, Eq, PartialEq, VisitSpanMut, StarlarkPagable)]
 pub(crate) enum Captured {
     Yes,
     No,

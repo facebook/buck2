@@ -15,11 +15,13 @@
  * limitations under the License.
  */
 
+use starlark_derive::StarlarkPagable;
 use starlark_derive::VisitSpanMut;
 use starlark_syntax::slice_vec_ext::SliceExt;
 use starlark_syntax::syntax::ast::ArgumentP;
 use starlark_syntax::syntax::ast::CallArgsP;
 
+use crate as starlark;
 use crate::coerce::coerce;
 use crate::collections::symbol::symbol::Symbol;
 use crate::eval::Arguments;
@@ -35,7 +37,7 @@ use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::Value;
 
-#[derive(Default, Clone, Debug, VisitSpanMut)]
+#[derive(Default, Clone, Debug, VisitSpanMut, StarlarkPagable)]
 pub(crate) struct ArgsCompiledValue {
     pub(crate) pos_named: Vec<IrSpanned<ExprCompiled>>,
     /// Named arguments compiled.
