@@ -12,6 +12,7 @@ load(
     "ArtifactTSet",
     "make_artifact_tset",
 )
+load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
 load("@prelude//apple:apple_utility.bzl", "get_base_swiftinterface_compilation_flags")
 load("@prelude//apple/swift:apple_sdk_modules_utility.bzl", "is_sdk_modules_provided")
 load(
@@ -77,7 +78,7 @@ load("@prelude//utils:utils.bzl", "filter_and_map_idx")
 load(":apple_bundle_types.bzl", "AppleBundleInfo", "AppleBundleTypeDefault")
 load(":apple_dsym.bzl", "DSYM_SUBTARGET")
 load(":apple_frameworks.bzl", "to_framework_name")
-load(":apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
+load(":apple_toolchain_types.bzl", "AppleToolsInfo")
 load(":apple_utility.bzl", "get_apple_stripped_attr_value_with_default_fallback")
 load(":debug.bzl", "AppleDebuggableInfo")
 
@@ -301,8 +302,8 @@ def _sanitize_framework_for_app_distribution(ctx: AnalysisContext, framework_dir
     ])
 
     if get_apple_stripped_attr_value_with_default_fallback(ctx):
-        strip_args = cmd_args("-x")
-        stripped = strip_object(ctx, ctx.attrs._apple_toolchain[AppleToolchainInfo].cxx_toolchain_info, framework_directory_artifact.project(framework_name), strip_args, "framework_distribution")
+        strip_args = apple_strip_args(ctx)
+        stripped = strip_object(ctx, get_cxx_toolchain_info(ctx), framework_directory_artifact.project(framework_name), strip_args, "framework_distribution")
         framework_sanitize_command.add("--replacement-binary", stripped)
 
     ctx.actions.run(framework_sanitize_command, category = "sanitize_prebuilt_apple_framework")
