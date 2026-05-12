@@ -12,6 +12,7 @@ import json
 
 from buck2.tests.e2e.configurations.cfg_constructor.modifiers_util import get_cfg
 from buck2.tests.e2e_util.api.buck import Buck
+from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
@@ -36,3 +37,12 @@ async def test_cfg_modifiers_attr_ctargets(buck: Buck) -> None:
         "root//:test2",
     )
     assert ":A_1" in result
+
+
+@buck_test(inplace=False)
+async def test_metadata_modifiers_is_hard_error(buck: Buck) -> None:
+    result = await expect_failure(buck.ctargets("root//:test_metadata_modifiers"))
+    assert (
+        'sets `metadata["buck.cfg_modifiers"]` which is no longer supported'
+        in result.stderr
+    )
