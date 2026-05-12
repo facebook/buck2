@@ -262,12 +262,23 @@ def _build_generated_files(
 
     # handle individual generated files
     for srcs, module_name, target in to_insert:
-        _append_or_default_if_module(srcs, module_name, ensured[target][0].rel_path(), extra_filetypes)
+        ensured_target = ensured[target]
+
+        # skip genrule files that failed to build
+        if len(ensured_target) < 1:
+            continue
+        _append_or_default_if_module(srcs, module_name, ensured_target[0].rel_path(), extra_filetypes)
 
     # handle genrules
     for target, entry in genrule_to_insert:
         label = target.label.with_sub_target()
-        relative_to = ensured[label][0].rel_path()
+
+        # skip full genrules that failed to build
+        ensured_label = ensured[label]
+        if len(ensured_label) < 1:
+            entry["srcs"] = {}
+            continue
+        relative_to = ensured_label[0].rel_path()
         entry["relative_to"] = relative_to
 
 def _get_and_materialize_sources(
