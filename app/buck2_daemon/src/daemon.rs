@@ -373,6 +373,17 @@ impl DaemonCommand {
             builder.max_blocking_threads(threads);
         }
 
+        // Enable the per-worker poll-time histogram, used for tokio telemetry.
+        //
+        // Tokio documents the cost of this as being 2 `Instant::new` calls per poll. Telemetry from
+        // real builds shows that we cap out at ~10k polls/sec/worker. With `Instant::new` being
+        // ~50ns, that puts the cost of these polls at 0.1% CPU, which is an acceptable cost to pay
+        // for the value of the telemetry.
+        builder.enable_metrics_poll_time_histogram();
+        builder.metrics_poll_time_histogram_configuration(
+            tokio::runtime::HistogramConfiguration::log(tokio::runtime::LogHistogram::default()),
+        );
+
         tracing::info!("Starting tokio runtime...");
 
         let rt = builder
