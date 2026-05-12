@@ -136,6 +136,9 @@ pub(crate) fn write_process_info(
 ) -> buck2_error::Result<()> {
     let file = File::create(daemon_dir.buckd_info())?;
     serde_json::to_writer(&file, &process_info)?;
+    // Fsync so the endpoint/auth token are durable before clients race
+    // to read this file; a crash here would otherwise lose them.
+    file.sync_all()?;
     Ok(())
 }
 
