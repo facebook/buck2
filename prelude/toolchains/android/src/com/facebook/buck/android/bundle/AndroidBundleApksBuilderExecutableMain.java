@@ -32,23 +32,18 @@ import org.kohsuke.args4j.Option;
 public class AndroidBundleApksBuilderExecutableMain {
 
   @Option(name = "--output-apk", required = true)
-  // NULLSAFE_FIXME[Field Not Initialized]
   private Path outputApk;
 
   @Option(name = "--input-bundle", required = true)
-  // NULLSAFE_FIXME[Field Not Initialized]
   private Path inputBundle;
 
   @Option(name = "--p7zip", required = true)
-  // NULLSAFE_FIXME[Field Not Initialized]
   private Path p7zipBinaryPath;
 
   @Option(name = "--aapt2", required = true)
-  // NULLSAFE_FIXME[Field Not Initialized]
   private Path aapt2BinaryPath;
 
   @Option(name = "--zipalign", required = true)
-  // NULLSAFE_FIXME[Field Not Initialized]
   private String zipalignTool;
 
   @Option(name = "--keystore", depends = "--keystore-properties")
@@ -61,17 +56,23 @@ public class AndroidBundleApksBuilderExecutableMain {
 
   private void run() throws Exception {
     Path apksDirectory = Files.createTempDirectory("derived.apks");
-    // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
     BuildApksCommand.Builder buildApksCommandBuilder =
+        // NULLSAFE_FIXME[Not Vetted Third-Party]
         BuildApksCommand.builder()
+            // NULLSAFE_FIXME[Not Vetted Third-Party]
             .setApkBuildMode(BuildApksCommand.ApkBuildMode.UNIVERSAL)
+            // NULLSAFE_FIXME[Not Vetted Third-Party]
             .setAapt2Command(Aapt2Command.createFromExecutablePath(aapt2BinaryPath))
+            // NULLSAFE_FIXME[Not Vetted Third-Party]
             .setP7ZipCommand(P7ZipCommand.defaultP7ZipCommand(p7zipBinaryPath, 4))
+            // NULLSAFE_FIXME[Not Vetted Third-Party]
             .setOutputFormat(BuildApksCommand.OutputFormat.DIRECTORY)
+            // NULLSAFE_FIXME[Not Vetted Third-Party]
             .setOutputFile(apksDirectory)
+            // NULLSAFE_FIXME[Not Vetted Third-Party]
             .setBundlePath(inputBundle);
 
-    // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
+    // NULLSAFE_FIXME[Not Vetted Third-Party]
     buildApksCommandBuilder.build().execute();
 
     Path universalApkPath = apksDirectory.resolve("universal.apk");
