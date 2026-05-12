@@ -46,6 +46,7 @@ use starlark::values::Freezer;
 use starlark::values::FrozenStringValue;
 use starlark::values::FrozenValue;
 use starlark::values::NoSerialize;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
 use starlark::values::Trace;
@@ -91,17 +92,26 @@ pub(crate) struct Transition<'v> {
     split: bool,
 }
 
-#[derive(Debug, Display, ProvidesStaticType, NoSerialize, Allocative)]
+#[derive(
+    Debug,
+    Display,
+    ProvidesStaticType,
+    NoSerialize,
+    Allocative,
+    StarlarkPagable
+)]
 #[display("transition")]
 pub(crate) struct FrozenTransition {
+    #[starlark_pagable(pagable)]
     id: Arc<TransitionId>,
     pub(crate) implementation: FrozenValue,
     pub(crate) refs: SmallMap<FrozenStringValue, ProvidersLabel>,
     pub(crate) attrs_names: Option<Vec<FrozenStringValue>>,
+    #[starlark_pagable(pagable)]
     pub(crate) split: bool,
 }
 
-#[starlark_value(type = "Transition")]
+#[starlark_value(type = "Transition", skip_pagable)]
 impl<'v> StarlarkValue<'v> for Transition<'v> {
     fn export_as(
         &self,
@@ -124,7 +134,7 @@ impl<'v> StarlarkValue<'v> for Transition<'v> {
     }
 }
 
-#[starlark_value(type = "Transition")]
+#[starlark_value(type = "Transition", skip_pagable)]
 impl<'v> StarlarkValue<'v> for FrozenTransition {
     type Canonical = Transition<'v>;
 

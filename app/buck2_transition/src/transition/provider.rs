@@ -23,6 +23,7 @@ use starlark::typing::ParamIsRequired;
 use starlark::typing::ParamSpec;
 use starlark::util::ArcStr;
 use starlark::values::Freeze;
+use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
@@ -61,7 +62,7 @@ impl StarlarkCallableParamSpec for TransitionImplParams {
     }
 }
 
-#[internal_provider(transition_info_creator)]
+#[internal_provider(transition_info_creator, skip_pagable)]
 #[derive(
     Clone,
     Debug,
@@ -70,7 +71,8 @@ impl StarlarkCallableParamSpec for TransitionImplParams {
     Freeze,
     ProvidesStaticType,
     Allocative,
-    Pagable
+    Pagable,
+    StarlarkPagable
 )]
 #[repr(C)]
 pub(crate) struct TransitionInfoGen<V: ValueLifetimeless> {

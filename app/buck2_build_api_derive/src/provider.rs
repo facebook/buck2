@@ -20,35 +20,41 @@ use syn::TypeParamBound;
 pub(crate) struct InternalProviderArgs {
     creator_func: syn::Ident,
     methods_func: Option<syn::Ident>,
+    /// Forwards `skip_pagable` to the generated `#[starlark_value]`. Use when the
+    /// provider supplies its own `StarlarkPagable` impl.
+    skip_pagable: bool,
 }
 
 impl syn::parse::Parse for InternalProviderArgs {
     fn parse(input: syn::parse::ParseStream) -> syn::parse::Result<Self> {
         let creator_func = syn::Ident::parse(input)?;
 
-        // Parse optional methods parameter
-        let methods_func = if input.peek(syn::Token![,]) {
-            input.parse::<syn::Token![,]>()?;
+        let mut methods_func = None;
+        let mut skip_pagable = false;
 
-            // Check if it's methods = ...
-            if input.peek(syn::Ident) {
-                let key = syn::Ident::parse(input)?;
-                if key == "methods" {
-                    input.parse::<syn::Token![=]>()?;
-                    Some(syn::Ident::parse(input)?)
-                } else {
-                    return Err(syn::Error::new_spanned(key, "expected 'methods' parameter"));
-                }
-            } else {
-                None
+        while input.peek(syn::Token![,]) {
+            input.parse::<syn::Token![,]>()?;
+            if !input.peek(syn::Ident) {
+                break;
             }
-        } else {
-            None
-        };
+            let key = syn::Ident::parse(input)?;
+            if key == "methods" {
+                input.parse::<syn::Token![=]>()?;
+                methods_func = Some(syn::Ident::parse(input)?);
+            } else if key == "skip_pagable" {
+                skip_pagable = true;
+            } else {
+                return Err(syn::Error::new_spanned(
+                    key,
+                    "expected `methods` or `skip_pagable`",
+                ));
+            }
+        }
 
         Ok(InternalProviderArgs {
             creator_func,
             methods_func,
+            skip_pagable,
         })
     }
 }
@@ -367,12 +373,21 @@ impl ProviderCodegen {
             self.provider_methods_func_name()?
         };
         let field_names = self.field_names()?;
+        let starlark_value_attr: syn::Attribute = if self.args.skip_pagable {
+            syn::parse_quote_spanned! { self.span=>
+                #[starlark::values::starlark_value(type = #name_str, skip_pagable)]
+            }
+        } else {
+            syn::parse_quote_spanned! { self.span=>
+                #[starlark::values::starlark_value(type = #name_str)]
+            }
+        };
         Ok(vec![
             syn::parse_quote_spanned! { self.span=>
                 starlark::starlark_complex_value!(#vis #name);
             },
             syn::parse_quote_spanned! { self.span=>
-                #[starlark::values::starlark_value(type = #name_str)]
+                #starlark_value_attr
                 impl<'v, V: starlark::values::ValueLike<'v>> starlark::values::StarlarkValue<'v>
                     for #gen_name<V>
                 where
