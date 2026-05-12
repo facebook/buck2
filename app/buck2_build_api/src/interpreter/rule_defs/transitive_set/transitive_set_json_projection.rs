@@ -26,6 +26,7 @@ use starlark::environment::MethodsStatic;
 use starlark::values::Freeze;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
 use starlark::values::Trace;
@@ -49,7 +50,16 @@ use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetProje
 /// The projected values are all stored on the TransitiveSet itself and this value will reference back to that. The main
 /// point of this object is to provide a distinct value that the write_json implementation understands so that the value
 /// can be passed to that.
-#[derive(Debug, Clone, Coerce, Trace, Freeze, ProvidesStaticType, Allocative)]
+#[derive(
+    Debug,
+    Clone,
+    Coerce,
+    Trace,
+    Freeze,
+    ProvidesStaticType,
+    Allocative,
+    StarlarkPagable
+)]
 #[derive(NoSerialize)] // TODO we should probably have a serialization for transitive set
 #[repr(C)]
 pub struct TransitiveSetJsonProjectionGen<V: ValueLifetimeless> {
@@ -118,7 +128,7 @@ impl<'v, V: ValueLike<'v>> TransitiveSetJsonProjectionGen<V> {
 
 starlark_complex_value!(pub TransitiveSetJsonProjection);
 
-#[starlark_value(type = "TransitiveSetJsonProjection")]
+#[starlark_value(type = "TransitiveSetJsonProjection", skip_pagable)]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for TransitiveSetJsonProjectionGen<V>
 where
     Self: ProvidesStaticType<'v>,

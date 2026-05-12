@@ -28,6 +28,7 @@ use starlark::values::Demand;
 use starlark::values::Freeze;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
 use starlark::values::Trace;
@@ -63,7 +64,16 @@ use crate::interpreter::rule_defs::transitive_set::traversal::TransitiveSetProje
 /// The projected values are all stored on the TransitiveSet itself and this value will reference back to that. The main
 /// point of this object is to provide the implementation of CommandLineArgLike so that the args projection
 /// can be used in places that accept command lines.
-#[derive(Debug, Clone, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
+#[derive(
+    Debug,
+    Clone,
+    Trace,
+    Coerce,
+    Freeze,
+    ProvidesStaticType,
+    Allocative,
+    StarlarkPagable
+)]
 #[derive(NoSerialize)] // TODO we should probably have a serialization for transitive set
 #[repr(C)]
 pub struct TransitiveSetArgsProjectionGen<V: ValueLifetimeless> {
@@ -204,7 +214,7 @@ impl<'v, V: ValueLike<'v>> TransitiveSetArgsProjectionGen<V> {
 
 starlark_complex_value!(pub TransitiveSetArgsProjection);
 
-#[starlark_value(type = "TransitiveSetArgsProjection")]
+#[starlark_value(type = "TransitiveSetArgsProjection", skip_pagable)]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for TransitiveSetArgsProjectionGen<V>
 where
     Self: ProvidesStaticType<'v>,

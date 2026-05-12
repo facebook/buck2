@@ -43,6 +43,7 @@ use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenValue;
 use starlark::values::FrozenValueTyped;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
@@ -116,7 +117,7 @@ impl TypeMatcher for TransitiveSetMatcher {
 }
 
 /// Compact bitfield for per-projection boolean flags, stored as a u64.
-#[derive(Debug, Clone, Copy, Trace, Allocative, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Trace, Allocative, PartialEq, Eq, StarlarkPagable)]
 pub(crate) struct ProjectionBitSet(u64);
 
 impl ProjectionBitSet {
@@ -152,7 +153,7 @@ impl ProjectionBitSet {
     }
 }
 
-#[derive(Debug, Clone, Trace, ProvidesStaticType, Allocative)]
+#[derive(Debug, Clone, Trace, ProvidesStaticType, Allocative, StarlarkPagable)]
 #[repr(C)]
 pub struct TransitiveSetGen<V: ValueLifetimeless> {
     /// A Deferred key that maps back to this set. This is used to compute its inputs.
@@ -176,7 +177,7 @@ pub struct TransitiveSetGen<V: ValueLifetimeless> {
     pub children: Box<[V]>,
 }
 
-#[derive(Debug, Clone, Trace, Allocative)]
+#[derive(Debug, Clone, Trace, Allocative, StarlarkPagable)]
 #[repr(C)]
 pub struct NodeGen<V: ValueLifetimeless> {
     /// The value
@@ -415,7 +416,7 @@ impl<'v> TransitiveSetLike<'v> for FrozenTransitiveSet {
 
 starlark_complex_value!(pub TransitiveSet);
 
-#[starlark_value(type = "TransitiveSet")]
+#[starlark_value(type = "TransitiveSet", skip_pagable)]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for TransitiveSetGen<V>
 where
     Self: ProvidesStaticType<'v> + TransitiveSetLike<'v>,

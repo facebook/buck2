@@ -17,6 +17,7 @@ use starlark::coerce::Coerce;
 use starlark::values::Freeze;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
@@ -29,7 +30,17 @@ use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetError;
 
-#[derive(Debug, Clone, Dupe, Copy, Trace, Freeze, PartialEq, Allocative)]
+#[derive(
+    Debug,
+    Clone,
+    Dupe,
+    Copy,
+    Trace,
+    Freeze,
+    PartialEq,
+    Allocative,
+    StarlarkPagable
+)]
 pub enum TransitiveSetOrdering {
     /// Preorder depth-first traversal, visiting parent node first, then children in an unspecified
     /// order that minimizes memory usage during traversal.
@@ -75,7 +86,8 @@ impl TransitiveSetOrdering {
     Display,
     ProvidesStaticType,
     NoSerialize,
-    Allocative
+    Allocative,
+    StarlarkPagable
 )]
 #[display("Traversal({})", inner)]
 #[repr(C)]
@@ -86,7 +98,7 @@ pub struct TransitiveSetTraversalGen<V: ValueLifetimeless> {
 
 starlark_complex_value!(pub TransitiveSetTraversal);
 
-#[starlark_value(type = "TransitiveSetIterator")]
+#[starlark_value(type = "TransitiveSetIterator", skip_pagable)]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for TransitiveSetTraversalGen<V>
 where
     Self: ProvidesStaticType<'v>,
@@ -109,7 +121,8 @@ where
     Display,
     ProvidesStaticType,
     NoSerialize,
-    Allocative
+    Allocative,
+    StarlarkPagable
 )]
 #[display("Traversal({}[\"{}\"])", transitive_set, projection)]
 #[repr(C)]
@@ -121,7 +134,7 @@ pub struct TransitiveSetProjectionTraversalGen<V: ValueLifetimeless> {
 
 starlark_complex_value!(pub TransitiveSetProjectionTraversal);
 
-#[starlark_value(type = "TransitiveSetArgsProjectionIterator")]
+#[starlark_value(type = "TransitiveSetArgsProjectionIterator", skip_pagable)]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for TransitiveSetProjectionTraversalGen<V>
 where
     Self: ProvidesStaticType<'v>,
