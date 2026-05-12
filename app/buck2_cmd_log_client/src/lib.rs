@@ -24,6 +24,7 @@ mod diff;
 mod external_configs;
 pub(crate) mod path_log;
 mod replay;
+mod shed;
 mod show_log;
 mod show_user_log;
 mod summary;
@@ -132,6 +133,8 @@ pub enum LogCommand {
     #[clap(subcommand)]
     Diff(diff::DiffCommand),
     ExternalConfigs(external_configs::ExternalConfigsCommand),
+    #[clap(subcommand, hide = true)]
+    Shed(shed::ShedCommand),
 }
 
 impl LogCommand {
@@ -157,6 +160,7 @@ impl LogCommand {
             Self::Summary(cmd) => ctx.exec(cmd, matches, events_ctx),
             Self::Diff(cmd) => cmd.exec(matches, ctx, events_ctx),
             Self::ExternalConfigs(cmd) => ctx.exec(cmd, matches, events_ctx),
+            Self::Shed(cmd) => cmd.exec(matches, ctx, events_ctx),
         }
     }
 
@@ -181,6 +185,7 @@ impl LogCommand {
             Self::Summary(cmd) => cmd.logging_name(),
             Self::Diff(_) => "log-diff",
             Self::ExternalConfigs(cmd) => cmd.logging_name(),
+            Self::Shed(_) => "log-shed",
         }
     }
 }

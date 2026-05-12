@@ -22,6 +22,7 @@ use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_fs::working_dir::AbsWorkingDir;
 use buck2_wrapper_common::invocation_id::TraceId;
+use futures::TryStreamExt;
 use futures::future::Future;
 use prost::Message;
 use serde::Serialize;
@@ -33,6 +34,7 @@ use crate::file_names::remove_old_logs;
 use crate::read::EventLogPathBuf;
 use crate::should_block_on_log_upload;
 use crate::should_upload_log;
+use crate::stream_value::StreamValue;
 use crate::user_event_types::try_get_user_event;
 use crate::utils::Encoding;
 use crate::utils::EventLogErrors;
@@ -448,6 +450,107 @@ impl SerializeForLog for StreamValueForWrite<'_> {
     }
 }
 
+/// Read every event from `input`, drop those for which `keep` returns false, and write the
+/// survivors to `output_path`. The output file is written using the same encoding (mode +
+/// compression) as the input — the caller is expected to choose `output_path`'s extension
+/// accordingly. Errors if `output_path`'s extension does not resolve to an encoding that is
+/// equivalent to the input's.
+///
+/// `keep` is only consulted for `StreamValue::Event` items. The invocation header,
+/// `StreamValue::Result`, and `StreamValue::PartialResult` are always passed through.
+pub async fn rewrite_event_log<F>(
+    input: &EventLogPathBuf,
+    output_path: AbsPathBuf,
+    mut keep: F,
+) -> buck2_error::Result<()>
+where
+    F: FnMut(&buck2_data::BuckEvent) -> bool,
+{
+    let output_log = EventLogPathBuf::infer(output_path)?;
+    if !input.encoding.equivalent_to(&output_log.encoding) {
+        return Err(buck2_error::buck2_error!(
+            buck2_error::ErrorTag::Input,
+            "Output path encoding does not match input. Expected an extension matching `{}`",
+            input.extension(),
+        ));
+    }
+
+    let (invocation, mut events) = input.unpack_stream().await?;
+
+    let file = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open(&output_log.path)
+        .await
+        .with_buck_error_context(|| {
+            format!(
+                "Failed to open event log for writing at `{}`",
+                output_log.path.display()
+            )
+        })?;
+
+    let mut writer = NamedEventLogWriter::new(output_log, file, None, EventLogType::System, None);
+
+    let mut buf = Vec::new();
+    writer.write_events(&mut buf, &[&invocation]).await?;
+
+    while let Some(stream_value) = events.try_next().await? {
+        if let StreamValue::Event(e) = &stream_value {
+            if !keep(e) {
+                continue;
+            }
+        }
+        buf.clear();
+        let value = OwnedStreamValueForWrite(stream_value);
+        writer.write_events(&mut buf, &[&value]).await?;
+    }
+
+    writer.flush().await?;
+    writer.shutdown().await;
+    Ok(())
+}
+
+/// Owned counterpart to `StreamValueForWrite` that also supports `PartialResult`. Used by
+/// `rewrite_event_log` to round-trip every variant the reader can produce.
+struct OwnedStreamValueForWrite(StreamValue);
+
+impl SerializeForLog for OwnedStreamValueForWrite {
+    fn serialize_to_json(&self, buf: &mut Vec<u8>) -> buck2_error::Result<()> {
+        serde_json::to_writer(buf, &self.0).buck_error_context("Failed to serialize event")
+    }
+
+    fn serialize_to_protobuf_length_delimited(&self, buf: &mut Vec<u8>) -> buck2_error::Result<()> {
+        match &self.0 {
+            StreamValue::Event(e) => {
+                buck2_cli_proto::CommandProgressForWrite {
+                    progress: Some(command_progress_for_write::Progress::Event(
+                        e.encode_to_vec(),
+                    )),
+                }
+                .encode_length_delimited(buf)?;
+            }
+            StreamValue::Result(r) => {
+                CommandProgress {
+                    progress: Some(command_progress::Progress::Result(r.clone())),
+                }
+                .encode_length_delimited(buf)?;
+            }
+            StreamValue::PartialResult(p) => {
+                CommandProgress {
+                    progress: Some(command_progress::Progress::PartialResult(p.clone())),
+                }
+                .encode_length_delimited(buf)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn maybe_serialize_user_event(&self, _buf: &mut Vec<u8>) -> buck2_error::Result<bool> {
+        Ok(false)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::time::SystemTime;
@@ -461,7 +564,6 @@ mod tests {
     use tempfile::TempDir;
 
     use super::*;
-    use crate::stream_value::StreamValue;
     use crate::utils::Compression;
 
     impl WriteEventLog {

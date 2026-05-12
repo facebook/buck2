@@ -46,6 +46,12 @@ pub struct Encoding {
 }
 
 impl Encoding {
+    /// Two encodings are equivalent if they would produce the same bytes for the same logical
+    /// stream of events. The `extensions` list does not participate.
+    pub(crate) fn equivalent_to(&self, other: &Encoding) -> bool {
+        self.mode == other.mode && self.compression == other.compression
+    }
+
     pub(crate) const JSON: Encoding = Encoding {
         mode: LogMode::Json,
         compression: Compression::None,
@@ -127,7 +133,7 @@ pub(crate) enum LogMode {
     Protobuf,
 }
 
-#[derive(Copy, Clone, Dupe, Debug)]
+#[derive(Copy, Clone, Dupe, Debug, PartialEq, Eq)]
 pub(crate) enum Compression {
     None,
     Gzip,
