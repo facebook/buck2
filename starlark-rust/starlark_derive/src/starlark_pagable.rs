@@ -69,6 +69,11 @@ struct FieldAttrs {
     /// combined with `skip`. If `Some("Ty::any()")`, the generated
     /// deserialize code uses that expression instead of `Default::default()`.
     skip_expr: Option<String>,
+    /// `serialize_with = "path::to::fn"` — replace the field's serialize
+    /// call with a free function.
+    serialize_with: Option<String>,
+    /// `deserialize_with = "path::to::fn"`
+    deserialize_with: Option<String>,
 }
 
 #[derive(Default)]
@@ -242,7 +247,7 @@ fn compute_auto_bounds(input: &DeriveInput) -> syn::Result<Vec<WherePredicate>> 
 
     let mut visit_field = |field: &Field| -> syn::Result<()> {
         let attrs = extract_field_attrs(&field.attrs)?;
-        if attrs.skip {
+        if attrs.skip || (attrs.serialize_with.is_some() && attrs.deserialize_with.is_some()) {
             return Ok(());
         }
         visitor.visit_type(&field.ty);
@@ -350,6 +355,8 @@ impl AutoBoundVisitor {
 fn extract_field_attrs(attrs: &[Attribute]) -> syn::Result<FieldAttrs> {
     syn::custom_keyword!(pagable);
     syn::custom_keyword!(skip);
+    syn::custom_keyword!(serialize_with);
+    syn::custom_keyword!(deserialize_with);
 
     let mut opts = FieldAttrs::default();
 
@@ -359,29 +366,49 @@ fn extract_field_attrs(attrs: &[Attribute]) -> syn::Result<FieldAttrs> {
         }
 
         attr.parse_args_with(|input: ParseStream| {
-            if input.parse::<pagable>().is_ok() {
-                if opts.pagable {
-                    return Err(input.error("`pagable` was set twice"));
-                }
-                opts.pagable = true;
-            } else if input.parse::<skip>().is_ok() {
-                if opts.skip {
-                    return Err(input.error("`skip` was set twice"));
-                }
-                opts.skip = true;
-                // Optional `= "expr"` to customize the deserialize-side value
-                // (falls back to `Default::default()` if omitted).
-                if input.peek(Token![=]) {
+            while !input.is_empty() {
+                if input.peek(pagable) {
+                    input.parse::<pagable>()?;
+                    if opts.pagable {
+                        return Err(input.error("`pagable` was set twice"));
+                    }
+                    opts.pagable = true;
+                } else if input.peek(skip) {
+                    input.parse::<skip>()?;
+                    if opts.skip {
+                        return Err(input.error("`skip` was set twice"));
+                    }
+                    opts.skip = true;
+                    if input.peek(Token![=]) {
+                        input.parse::<Token![=]>()?;
+                        let s: LitStr = input.parse()?;
+                        opts.skip_expr = Some(s.value());
+                    }
+                } else if input.peek(serialize_with) {
+                    input.parse::<serialize_with>()?;
                     input.parse::<Token![=]>()?;
                     let s: LitStr = input.parse()?;
-                    opts.skip_expr = Some(s.value());
+                    if opts.serialize_with.is_some() {
+                        return Err(input.error("`serialize_with` was set twice"));
+                    }
+                    opts.serialize_with = Some(s.value());
+                } else if input.peek(deserialize_with) {
+                    input.parse::<deserialize_with>()?;
+                    input.parse::<Token![=]>()?;
+                    let s: LitStr = input.parse()?;
+                    if opts.deserialize_with.is_some() {
+                        return Err(input.error("`deserialize_with` was set twice"));
+                    }
+                    opts.deserialize_with = Some(s.value());
+                } else {
+                    return Err(input.error(
+                        "expected `pagable`, `skip[ = \"expr\"]`, `serialize_with = \"path\"`, or `deserialize_with = \"path\"`",
+                    ));
                 }
-            }
-            if !input.is_empty() {
-                return Err(input.error(format!(
-                    "invalid attribute `{}`, expected `pagable`, `skip`, or `skip = \"expr\"` in `#[starlark_pagable(...)]`",
-                    input
-                )));
+                if input.is_empty() {
+                    break;
+                }
+                input.parse::<Token![,]>()?;
             }
             Ok(())
         })?;
@@ -464,7 +491,14 @@ fn gen_serialize_fields(fields: &Fields) -> syn::Result<proc_macro2::TokenStream
             continue;
         }
 
-        let stmt = if attrs.pagable {
+        let stmt = if let Some(fn_path) = &attrs.serialize_with {
+            let path: syn::Path = syn::parse_str(fn_path).map_err(|e| {
+                syn::Error::new(field.span(), format!("invalid `serialize_with` path: {e}"))
+            })?;
+            quote_spanned! { field.span()=>
+                #path(&self.#ident, ctx)?;
+            }
+        } else if attrs.pagable {
             quote_spanned! { field.span()=>
                 pagable::PagableSerialize::pagable_serialize(&self.#ident, ctx.pagable())?;
             }
@@ -542,6 +576,16 @@ fn gen_deserialize_struct(name: &Ident, fields: &Fields) -> syn::Result<proc_mac
 
                 let value = if attrs.skip {
                     gen_skip_value(&attrs, ty, field.span())?
+                } else if let Some(fn_path) = &attrs.deserialize_with {
+                    let path: syn::Path = syn::parse_str(fn_path).map_err(|e| {
+                        syn::Error::new(
+                            field.span(),
+                            format!("invalid `deserialize_with` path: {e}"),
+                        )
+                    })?;
+                    quote_spanned! { field.span()=>
+                        #path(ctx)?
+                    }
                 } else if attrs.pagable {
                     quote_spanned! { field.span()=>
                         pagable::PagableDeserialize::pagable_deserialize(ctx.pagable())?
@@ -565,6 +609,16 @@ fn gen_deserialize_struct(name: &Ident, fields: &Fields) -> syn::Result<proc_mac
 
                 let value = if attrs.skip {
                     gen_skip_value(&attrs, ty, field.span())?
+                } else if let Some(fn_path) = &attrs.deserialize_with {
+                    let path: syn::Path = syn::parse_str(fn_path).map_err(|e| {
+                        syn::Error::new(
+                            field.span(),
+                            format!("invalid `deserialize_with` path: {e}"),
+                        )
+                    })?;
+                    quote_spanned! { field.span()=>
+                        #path(ctx)?
+                    }
                 } else if attrs.pagable {
                     quote_spanned! { field.span()=>
                         pagable::PagableDeserialize::pagable_deserialize(ctx.pagable())?

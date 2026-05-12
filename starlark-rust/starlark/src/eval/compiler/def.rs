@@ -570,8 +570,33 @@ pub(crate) struct DefGen<V> {
     /// This field is only used in `FrozenDef`. It is populated in `post_freeze`.
     #[derivative(Debug = "ignore")]
     #[allocative(skip)]
-    #[starlark_pagable(skip = "(|| unimplemented!())()")]
+    #[starlark_pagable(
+        serialize_with = "serialize_optimized_on_freeze_stmt",
+        deserialize_with = "deserialize_optimized_on_freeze_stmt"
+    )]
     optimized_on_freeze_stmt: StmtCompiledCell,
+}
+
+fn serialize_optimized_on_freeze_stmt(
+    cell: &StmtCompiledCell,
+    ctx: &mut dyn crate::pagable::StarlarkSerializeContext,
+) -> crate::Result<()> {
+    // SAFETY: `StmtCompiledCell::set` is only called from `DefGen::post_freeze`,
+    // which runs as part of the freeze pipeline before the frozen def is
+    // exposed to any caller. Pagable serialization is downstream of freeze,
+    // so the cell is stable here.
+    let bc: &Bc = unsafe { &*cell.cell.get() };
+    <Bc as crate::pagable::StarlarkSerialize>::starlark_serialize(bc, ctx)
+}
+
+fn deserialize_optimized_on_freeze_stmt(
+    ctx: &mut dyn crate::pagable::StarlarkDeserializeContext<'_>,
+) -> crate::Result<StmtCompiledCell> {
+    Ok(StmtCompiledCell {
+        cell: UnsafeCell::new(
+            <Bc as crate::pagable::StarlarkDeserialize>::starlark_deserialize(ctx)?,
+        ),
+    })
 }
 
 impl<V> Display for DefGen<V> {
