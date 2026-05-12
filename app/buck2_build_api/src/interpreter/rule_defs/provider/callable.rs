@@ -251,17 +251,20 @@ pub(crate) struct UserProviderCallableData {
 register_starlark_any!(UserProviderCallableData);
 
 /// Initialized after the name is assigned to the provider.
-#[derive(Debug, Trace, Allocative)]
+#[derive(Debug, Trace, Allocative, StarlarkPagable)]
 struct UserProviderCallableNamed {
     /// The name of this provider, filled in by `export_as()`. This must be set before this
     /// object can be called and Providers created.
+    #[starlark_pagable(pagable)]
     id: Arc<ProviderId>,
     signature: ParametersSpec<FrozenValue>,
     /// This field is shared with provider instances.
     data: FrozenAnyValue<UserProviderCallableData>,
     /// Type of provider instance.
+    #[starlark_pagable(pagable)]
     ty_provider: Ty,
     /// Type of provider callable.
+    #[starlark_pagable(pagable)]
     ty_callable: Ty,
 }
 
@@ -448,7 +451,7 @@ impl TypeMatcher for UserProviderMatcher {
     }
 }
 
-#[starlark_value(type = "ProviderCallable")]
+#[starlark_value(type = "ProviderCallable", skip_pagable)]
 impl<'v> StarlarkValue<'v> for UserProviderCallable {
     type Canonical = FrozenUserProviderCallable;
 
@@ -548,9 +551,10 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
     }
 }
 
-#[derive(Debug, ProvidesStaticType, NoSerialize, Allocative)]
+#[derive(Debug, ProvidesStaticType, NoSerialize, Allocative, StarlarkPagable)]
 pub struct FrozenUserProviderCallable {
     /// The docstring for this provider
+    #[starlark_pagable(pagable)]
     docs: Option<DocString>,
     /// The names of the fields used in `callable`
     fields: IndexMap<String, UserProviderField, StarlarkHasherSmallPromoteBuilder>,
@@ -585,7 +589,7 @@ impl ProviderCallableLike for FrozenUserProviderCallable {
     }
 }
 
-#[starlark_value(type = "ProviderCallable")]
+#[starlark_value(type = "ProviderCallable", skip_pagable)]
 impl<'v> StarlarkValue<'v> for FrozenUserProviderCallable {
     type Canonical = Self;
 

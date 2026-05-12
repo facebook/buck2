@@ -493,8 +493,11 @@ impl ProviderCodegen {
     fn callable_struct(&self) -> syn::Result<syn::Item> {
         let vis = &self.input.vis;
         let callable_name = self.callable_name()?;
+        // `StarlarkPagablePanic` is safe here: a `*Callable` value is only created from
+        // from the starlark `Globals` registry (registered via `register_provider`).
+        // The pagable of values on Globals is hanlded by Globals pagable support.
         Ok(syn::parse_quote_spanned! { self.span=>
-            #[derive(Debug, Clone, dupe::Dupe, starlark::any::ProvidesStaticType, starlark::values::NoSerialize, allocative::Allocative)]
+            #[derive(Debug, Clone, dupe::Dupe, starlark::any::ProvidesStaticType, starlark::values::NoSerialize, allocative::Allocative, starlark::values::StarlarkPagablePanic)]
             #vis struct #callable_name {
                 id: &'static std::sync::Arc<buck2_core::provider::id::ProviderId>,
             }
@@ -513,7 +516,7 @@ impl ProviderCodegen {
                 starlark::starlark_simple_value!(#callable_name);
             },
             syn::parse_quote_spanned! {self.span=>
-                #[starlark::values::starlark_value(type = #callable_name_snake_str)]
+                #[starlark::values::starlark_value(type = #callable_name_snake_str, skip_pagable)]
                 impl<'v> starlark::values::StarlarkValue<'v> for #callable_name
                 {
                     fn invoke(

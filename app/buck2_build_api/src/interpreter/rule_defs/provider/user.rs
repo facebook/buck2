@@ -32,6 +32,7 @@ use starlark::typing::Ty;
 use starlark::values::Demand;
 use starlark::values::Freeze;
 use starlark::values::Heap;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
@@ -54,7 +55,16 @@ enum UserProviderError {
 /// The result of calling the output of `provider()`. This is just a simple data structure of
 /// either immediately available values or, later, `FutureValue` types that are resolved
 /// asynchronously
-#[derive(Debug, Clone, Coerce, Trace, Freeze, ProvidesStaticType, Allocative)]
+#[derive(
+    Debug,
+    Clone,
+    Coerce,
+    Trace,
+    Freeze,
+    ProvidesStaticType,
+    Allocative,
+    StarlarkPagable
+)]
 #[repr(C)]
 pub struct UserProviderGen<'v, V: ValueLike<'v>> {
     pub(crate) callable: FrozenAnyValue<UserProviderCallableData>,
@@ -92,7 +102,7 @@ impl<'v, V: ValueLike<'v>> Display for UserProviderGen<'v, V> {
     }
 }
 
-#[starlark_value(type = "Provider")]
+#[starlark_value(type = "Provider", skip_pagable)]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for UserProviderGen<'v, V>
 where
     Self: ProvidesStaticType<'v>,

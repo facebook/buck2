@@ -15,6 +15,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use pagable::Pagable;
+use starlark::values::StarlarkPagableViaPagable;
 
 use crate::cells::cell_path::CellPath;
 
@@ -40,7 +41,8 @@ use crate::cells::cell_path::CellPath;
     PartialOrd,
     Allocative,
     strong_hash::StrongHash,
-    Pagable
+    Pagable,
+    StarlarkPagableViaPagable
 )]
 pub struct ProviderId {
     /// This is present for all user-specified providers. This is only None if it is a

@@ -287,6 +287,18 @@ macro_rules! impl_small_map_key_hash {
 
 impl_small_map_key_hash!(String, bool, u8, u16, u32, u64, usize, i8, i16, i32, i64);
 
+impl<T> SmallMapKeyDeserialize for Arc<T>
+where
+    Arc<T>: StarlarkDeserialize + Hash + Eq,
+{
+    fn starlark_deserialize_hashed(
+        ctx: &mut dyn StarlarkDeserializeContext<'_>,
+    ) -> crate::Result<Hashed<Self>> {
+        let k = Self::starlark_deserialize(ctx)?;
+        Ok(Hashed::new(k))
+    }
+}
+
 /// FrozenValue: no `Hash` trait, use `get_hashed()` from `ValueLike`.
 /// The value is already ensure_initialized by `deserialize_frozen_value`.
 impl SmallMapKeyDeserialize for FrozenValue {

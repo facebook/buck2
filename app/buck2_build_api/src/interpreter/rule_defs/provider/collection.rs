@@ -50,6 +50,7 @@ use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::OwnedFrozenValueTyped;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Tracer;
@@ -116,7 +117,7 @@ enum ProviderCollectionError {
     AtNotFound(String, Vec<String>),
 }
 
-#[derive(Debug, ProvidesStaticType, Allocative)]
+#[derive(Debug, ProvidesStaticType, Allocative, StarlarkPagable)]
 #[repr(C)]
 pub struct ProviderCollectionGen<V: ValueLifetimeless> {
     pub(crate) providers: SmallMap<Arc<ProviderId>, V>,
@@ -378,7 +379,7 @@ fn provider_collection_methods(builder: &mut MethodsBuilder) {
     }
 }
 
-#[starlark_value(type = "ProviderCollection")]
+#[starlark_value(type = "ProviderCollection", skip_pagable)]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for ProviderCollectionGen<V>
 where
     Self: ProvidesStaticType<'v>,

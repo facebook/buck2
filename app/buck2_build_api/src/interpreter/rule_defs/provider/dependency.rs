@@ -31,6 +31,7 @@ use starlark::values::FrozenValue;
 use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
@@ -64,7 +65,8 @@ enum DependencyError {
     Freeze,
     ProvidesStaticType,
     NoSerialize,
-    Allocative
+    Allocative,
+    StarlarkPagable
 )]
 #[repr(C)]
 pub struct DependencyGen<V: ValueLifetimeless> {
@@ -126,7 +128,7 @@ impl<'v> Dependency<'v> {
     }
 }
 
-#[starlark_value(type = "Dependency")]
+#[starlark_value(type = "Dependency", skip_pagable)]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for DependencyGen<V>
 where
     Self: ProvidesStaticType<'v>,
