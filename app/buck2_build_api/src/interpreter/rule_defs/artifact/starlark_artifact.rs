@@ -26,6 +26,7 @@ use starlark::collections::StarlarkHasher;
 use starlark::environment::Methods;
 use starlark::environment::MethodsStatic;
 use starlark::values::Demand;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
 use starlark::values::Value;
@@ -53,8 +54,17 @@ use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command
 
 /// A wrapper for an `Artifact` that is guaranteed to be bound, such as outputs
 /// from dependencies, or source files.
-#[derive(Debug, Dupe, Clone, PartialEq, ProvidesStaticType, Allocative)]
+#[derive(
+    Debug,
+    Dupe,
+    Clone,
+    PartialEq,
+    ProvidesStaticType,
+    Allocative,
+    StarlarkPagable
+)]
 pub struct StarlarkArtifact {
+    #[starlark_pagable(pagable)]
     pub(crate) artifact: Artifact,
     // A set of ArtifactGroups that should be materialized along with the main artifact
     pub(crate) associated_artifacts: AssociatedArtifacts,
@@ -276,7 +286,7 @@ impl<'v> CommandLineArgLike<'v> for StarlarkArtifact {
     }
 }
 
-#[starlark_value(type = "Artifact")]
+#[starlark_value(type = "Artifact", skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkArtifact {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();

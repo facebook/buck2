@@ -20,6 +20,7 @@ use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenStringValue;
 use starlark::values::FrozenValueTyped;
+use starlark::values::StarlarkPagable;
 use starlark::values::StringValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
@@ -57,7 +58,7 @@ impl<'v> CmdArgsRegex<'v> {
     }
 }
 
-#[derive(Debug, Clone, Dupe, Copy, Allocative)]
+#[derive(Debug, Clone, Dupe, Copy, Allocative, StarlarkPagable)]
 pub(crate) enum FrozenCmdArgsRegex {
     Str(FrozenStringValue),
     Regex(FrozenValueTyped<'static, StarlarkBuckRegex>),

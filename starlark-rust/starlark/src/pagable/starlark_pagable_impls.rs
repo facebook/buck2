@@ -52,6 +52,7 @@ use crate::pagable::starlark_serialize::StarlarkSerializeContext;
 use crate::pagable::starlark_serialize_context::StarlarkSerializerImpl;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
+use crate::values::ThinBoxSliceFrozenValue;
 use crate::values::ValueLike;
 
 /// Implement `StarlarkSerialize` and `StarlarkDeserialize` for a type
@@ -342,6 +343,27 @@ impl<T: StarlarkDeserialize> StarlarkDeserialize for Box<[T]> {
             v.push(T::starlark_deserialize(ctx)?);
         }
         Ok(v.into_boxed_slice())
+    }
+}
+
+impl<'v> StarlarkSerialize for ThinBoxSliceFrozenValue<'v> {
+    fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
+        self.len().pagable_serialize(ctx.pagable())?;
+        for value in self.iter() {
+            value.starlark_serialize(ctx)?;
+        }
+        Ok(())
+    }
+}
+
+impl<'v> StarlarkDeserialize for ThinBoxSliceFrozenValue<'v> {
+    fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
+        let len = usize::pagable_deserialize(ctx.pagable())?;
+        let mut values = Vec::with_capacity(len);
+        for _ in 0..len {
+            values.push(FrozenValue::starlark_deserialize(ctx)?);
+        }
+        Ok(Self::from_iter(values))
     }
 }
 

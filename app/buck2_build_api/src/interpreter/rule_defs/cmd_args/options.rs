@@ -39,6 +39,7 @@ use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenStringValue;
 use starlark::values::FrozenValueOfUnchecked;
+use starlark::values::StarlarkPagable;
 use starlark::values::StringValue;
 use starlark::values::StringValueLike;
 use starlark::values::Trace;
@@ -61,7 +62,17 @@ use crate::interpreter::rule_defs::cmd_args::shlex_quote::shlex_quote;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineContext;
 
 /// Supported ways of quoting arguments.
-#[derive(Debug, Clone, Copy, Dupe, Trace, Freeze, Serialize, Allocative)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Dupe,
+    Trace,
+    Freeze,
+    Serialize,
+    Allocative,
+    StarlarkPagable
+)]
 pub enum QuoteStyle {
     /// Quote arguments for Unix shell:
     /// <https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html>
@@ -255,7 +266,7 @@ impl<'v> CommandLineOptionsTrait<'v> for CommandLineOptions<'v> {
     }
 }
 
-#[derive(Debug, Allocative)]
+#[derive(Debug, Allocative, StarlarkPagable)]
 enum FrozenCommandLineOption {
     RelativeTo(
         FrozenValueOfUnchecked<'static, RelativeOrigin<'static>>,
@@ -275,7 +286,7 @@ enum FrozenCommandLineOption {
 
 assert_eq_size!(FrozenCommandLineOption, [usize; 2]);
 
-#[derive(Debug, Default, Allocative)]
+#[derive(Debug, Default, Allocative, StarlarkPagable)]
 pub(crate) struct FrozenCommandLineOptions {
     options: ThinBoxSlice<FrozenCommandLineOption>,
 }

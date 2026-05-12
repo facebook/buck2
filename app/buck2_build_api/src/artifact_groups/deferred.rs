@@ -15,11 +15,23 @@ use dice::DiceComputations;
 use dupe::Dupe;
 use pagable::Pagable;
 use starlark::values::OwnedFrozenValueTyped;
+use starlark::values::StarlarkPagableViaPagable;
 
 use crate::deferred::calculation::lookup_deferred_holder;
 use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
 
-#[derive(Hash, Eq, PartialEq, Clone, Dupe, Display, Debug, Allocative, Pagable)]
+#[derive(
+    Hash,
+    Eq,
+    PartialEq,
+    Clone,
+    Dupe,
+    Display,
+    Debug,
+    Allocative,
+    Pagable,
+    StarlarkPagableViaPagable
+)]
 #[display("{:?}", self)]
 pub struct TransitiveSetKey(DeferredHolderKey, TransitiveSetIndex);
 

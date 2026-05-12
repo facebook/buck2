@@ -49,6 +49,7 @@ use starlark::values::Freezer;
 use starlark::values::FrozenValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
 use starlark::values::ThinBoxSliceFrozenValue;
@@ -396,7 +397,7 @@ impl<'v> Serialize for StarlarkCmdArgs<'v> {
     }
 }
 
-#[derive(Debug, ProvidesStaticType, Allocative)]
+#[derive(Debug, ProvidesStaticType, Allocative, StarlarkPagable)]
 pub struct FrozenStarlarkCmdArgs {
     // Elements are `FrozenCommandLineArg`s
     items: ThinBoxSliceFrozenValue<'static>,
@@ -546,7 +547,7 @@ impl<'v> StarlarkCmdArgs<'v> {
     }
 }
 
-#[starlark_value(type = "cmd_args")]
+#[starlark_value(type = "cmd_args", skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkCmdArgs<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
@@ -571,7 +572,7 @@ impl<'v> StarlarkValue<'v> for StarlarkCmdArgs<'v> {
     }
 }
 
-#[starlark_value(type = "cmd_args")]
+#[starlark_value(type = "cmd_args", skip_pagable)]
 impl<'v> StarlarkValue<'v> for FrozenStarlarkCmdArgs {
     type Canonical = StarlarkCmdArgs<'v>;
 
@@ -1096,8 +1097,16 @@ pub fn register_cmd_args(builder: &mut GlobalsBuilder) {
 
 /// A wrapper for a [StarlarkCmdArgs]'s inputs. This is an opaque type that only allows
 /// debug-printing and querying the length to tell if any inputs exist.
-#[derive(Debug, PartialEq, ProvidesStaticType, NoSerialize, Allocative)]
+#[derive(
+    Debug,
+    PartialEq,
+    ProvidesStaticType,
+    NoSerialize,
+    Allocative,
+    StarlarkPagable
+)]
 pub struct StarlarkCommandLineInputs {
+    #[starlark_pagable(pagable)]
     pub inputs: BuckIndexSet<ArtifactGroup>,
 }
 
@@ -1109,7 +1118,7 @@ impl Display for StarlarkCommandLineInputs {
     }
 }
 
-#[starlark_value(type = "CommandLineInputs")]
+#[starlark_value(type = "CommandLineInputs", skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkCommandLineInputs {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();

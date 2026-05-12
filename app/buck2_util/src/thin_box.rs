@@ -25,6 +25,10 @@ use std::slice;
 use allocative::Allocative;
 use pagable::PagableDeserialize;
 use pagable::PagableSerialize;
+use starlark::pagable::StarlarkDeserialize;
+use starlark::pagable::StarlarkDeserializeContext;
+use starlark::pagable::StarlarkSerialize;
+use starlark::pagable::StarlarkSerializeContext;
 
 #[repr(C)]
 struct ThinBoxSliceLayout<T> {
@@ -357,6 +361,29 @@ impl<'de, T: PagableDeserialize<'de>> PagableDeserialize<'de> for ThinBoxSlice<T
         let mut items = Vec::with_capacity(len);
         for _ in 0..len {
             items.push(T::pagable_deserialize(deserializer)?);
+        }
+        Ok(ThinBoxSlice::from_iter(items))
+    }
+}
+
+impl<T: StarlarkSerialize> StarlarkSerialize for ThinBoxSlice<T> {
+    fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> starlark::Result<()> {
+        self.read_len().pagable_serialize(ctx.pagable())?;
+        for item in self.iter() {
+            item.starlark_serialize(ctx)?;
+        }
+        Ok(())
+    }
+}
+
+impl<T: StarlarkDeserialize> StarlarkDeserialize for ThinBoxSlice<T> {
+    fn starlark_deserialize(
+        ctx: &mut dyn StarlarkDeserializeContext<'_>,
+    ) -> starlark::Result<Self> {
+        let len = usize::pagable_deserialize(ctx.pagable())?;
+        let mut items = Vec::with_capacity(len);
+        for _ in 0..len {
+            items.push(T::starlark_deserialize(ctx)?);
         }
         Ok(ThinBoxSlice::from_iter(items))
     }

@@ -26,6 +26,7 @@ use dice::DiceComputations;
 use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
 use pagable::Pagable;
+use starlark::values::StarlarkPagableViaPagable;
 use static_assertions::assert_eq_size;
 
 use self::calculation::EnsureTransitiveSetProjectionKey;
@@ -84,7 +85,8 @@ impl TransitiveSetProjectionWrapper {
     Hash,
     UnpackVariants,
     Allocative,
-    Pagable
+    Pagable,
+    StarlarkPagableViaPagable
 )]
 pub enum ArtifactGroup {
     Artifact(Artifact),

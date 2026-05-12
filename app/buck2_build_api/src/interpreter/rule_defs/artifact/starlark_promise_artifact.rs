@@ -29,6 +29,7 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsStatic;
 use starlark::values::Demand;
 use starlark::values::NoSerialize;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
 use starlark::values::Trace;
@@ -92,11 +93,15 @@ enum PromiseArtifactError {
     Clone,
     Hash,
     Eq,
-    PartialEq
+    PartialEq,
+    StarlarkPagable
 )]
 pub struct StarlarkPromiseArtifact {
+    #[starlark_pagable(pagable)]
     pub declaration_location: Option<FileSpan>,
+    #[starlark_pagable(pagable)]
     pub artifact: PromiseArtifact,
+    #[starlark_pagable(pagable)]
     pub short_path: Option<ForwardRelativePathBuf>,
     pub has_content_based_path: bool,
 }
@@ -300,7 +305,7 @@ impl<'v> CommandLineArgLike<'v> for StarlarkPromiseArtifact {
     }
 }
 
-#[starlark_value(type = "PromiseArtifact")]
+#[starlark_value(type = "PromiseArtifact", skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkPromiseArtifact {
     type Canonical = StarlarkArtifact;
 

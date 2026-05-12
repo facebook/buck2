@@ -19,6 +19,7 @@ use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::values::Freeze;
 use starlark::values::NoSerialize;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
@@ -38,7 +39,8 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
     Freeze,
     Display,
     ProvidesStaticType,
-    Allocative
+    Allocative,
+    StarlarkPagable
 )]
 #[derive(NoSerialize)] // TODO make artifacts serializable
 #[repr(C)]
@@ -69,7 +71,7 @@ impl<'v> StarlarkTaggedValue<'v> {
 
 starlark_complex_value!(pub StarlarkTaggedValue);
 
-#[starlark_value(type = "TaggedValue")]
+#[starlark_value(type = "TaggedValue", skip_pagable)]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkTaggedValueGen<V>
 where
     Self: ProvidesStaticType<'v>,

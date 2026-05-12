@@ -12,12 +12,23 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use dupe::*;
+use pagable::Pagable;
+use starlark::values::StarlarkPagableViaPagable;
 use starlark::values::Trace;
 use starlark_map::ordered_set::OrderedSet;
 
 use crate::artifact_groups::ArtifactGroup;
 
-#[derive(Debug, Clone, Dupe_, Allocative, Trace, PartialEq)]
+#[derive(
+    Debug,
+    Clone,
+    Dupe_,
+    Allocative,
+    Trace,
+    PartialEq,
+    Pagable,
+    StarlarkPagableViaPagable
+)]
 pub struct AssociatedArtifacts(Option<Arc<OrderedSet<ArtifactGroup>>>);
 
 impl AssociatedArtifacts {

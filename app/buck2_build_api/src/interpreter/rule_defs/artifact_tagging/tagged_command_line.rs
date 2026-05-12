@@ -20,6 +20,7 @@ use starlark::starlark_module;
 use starlark::values::Demand;
 use starlark::values::Freeze;
 use starlark::values::NoSerialize;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::UnpackValue;
@@ -46,7 +47,8 @@ use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
     Freeze,
     Display,
     ProvidesStaticType,
-    Allocative
+    Allocative,
+    StarlarkPagable
 )]
 #[derive(NoSerialize)] // TODO make artifacts serializable
 #[repr(C)]
@@ -63,7 +65,7 @@ impl<V: ValueLifetimeless> StarlarkTaggedCommandLineGen<V> {
 
 starlark_complex_value!(pub StarlarkTaggedCommandLine);
 
-#[starlark_value(type = "TaggedCommandLine")]
+#[starlark_value(type = "TaggedCommandLine", skip_pagable)]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkTaggedCommandLineGen<V>
 where
     Self: ProvidesStaticType<'v>,

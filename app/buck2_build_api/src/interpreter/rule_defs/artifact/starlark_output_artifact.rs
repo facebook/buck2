@@ -35,6 +35,7 @@ use starlark::values::FrozenValue;
 use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::StringValue;
 use starlark::values::Trace;
@@ -82,7 +83,8 @@ use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command
     Trace,
     NoSerialize,
     Allocative,
-    Freeze
+    Freeze,
+    StarlarkPagable
 )]
 #[repr(C)]
 pub struct StarlarkOutputArtifactGen<V: ValueLifetimeless> {
@@ -217,7 +219,7 @@ impl<'v, V: ValueLike<'v>> StarlarkArtifactLike<'v> for StarlarkOutputArtifactGe
     }
 }
 
-#[starlark_value(type = "OutputArtifact")]
+#[starlark_value(type = "OutputArtifact", skip_pagable)]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkOutputArtifactGen<V>
 where
     Self: ProvidesStaticType<'v> + Display + CommandLineArgLike<'v>,

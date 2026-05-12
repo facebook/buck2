@@ -29,14 +29,16 @@ use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use starlark::values::dict::Dict;
 use starlark::values::starlark_value;
 
-#[derive(Debug, ProvidesStaticType, NoSerialize, Allocative)]
+#[derive(Debug, ProvidesStaticType, NoSerialize, Allocative, StarlarkPagable)]
 pub struct StarlarkArtifactValue {
     // We only keep the artifact for Display, since we don't want to leak the underlying path by default
+    #[starlark_pagable(pagable)]
     artifact: Artifact,
     path: ProjectRelativePathBuf,
     fs: ProjectRoot,
@@ -57,7 +59,7 @@ impl StarlarkArtifactValue {
     }
 }
 
-#[starlark_value(type = "ArtifactValue")]
+#[starlark_value(type = "ArtifactValue", skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkArtifactValue {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();

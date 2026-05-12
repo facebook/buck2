@@ -9,6 +9,7 @@
  */
 
 use core::sync::atomic::AtomicI64;
+use std::sync::OnceLock;
 
 use ::serde::Deserialize;
 use ::serde::ser::Serialize;
@@ -58,6 +59,36 @@ impl<'de, T: PagableDeserialize<'de>> PagableDeserialize<'de> for Option<T> {
         } else {
             Ok(None)
         }
+    }
+}
+
+impl<T: PagableSerialize> PagableSerialize for OnceLock<T> {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
+        match self.get() {
+            Some(value) => {
+                bool::serialize(&true, serializer.serde())?;
+                value.pagable_serialize(serializer)?;
+            }
+            None => {
+                bool::serialize(&false, serializer.serde())?;
+            }
+        }
+        Ok(())
+    }
+}
+
+impl<'de, T: PagableDeserialize<'de>> PagableDeserialize<'de> for OnceLock<T> {
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> crate::Result<Self> {
+        let value = OnceLock::new();
+        if bool::deserialize(deserializer.serde())? {
+            let set = value.set(T::pagable_deserialize(deserializer)?);
+            if set.is_err() {
+                unreachable!("new OnceLock should not already be initialized");
+            }
+        }
+        Ok(value)
     }
 }
 
