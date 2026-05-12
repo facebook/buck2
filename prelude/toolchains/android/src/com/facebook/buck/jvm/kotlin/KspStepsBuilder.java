@@ -138,83 +138,46 @@ public class KspStepsBuilder {
             .map(AnnotationProcessorUtils::urlToFile)
             .collect(ImmutableList.toImmutableList());
 
-    if (isKsp2(annotationProcessorParams)) {
-      kspInvocationStatus = KSPInvocationStatus.KSP2_INVOKED;
+    kspInvocationStatus = KSPInvocationStatus.KSP2_INVOKED;
 
-      ImmutableList.Builder<AbsPath> allClassPathsBuilder = ImmutableList.builder();
+    ImmutableList.Builder<AbsPath> allClassPathsBuilder = ImmutableList.builder();
 
-      allClassPathsBuilder.addAll(allClasspaths);
+    allClassPathsBuilder.addAll(allClasspaths);
 
-      if (invokingRule.isSourceOnlyAbi()) {
-        allClassPathsBuilder.addAll(
-            sourceOnlyAbiClasspath.stream().filter(p -> !allClasspaths.contains(p)).toList());
-      }
-
-      Ksp2Step ksp2Step =
-          new Ksp2Step(
-              invokingRule,
-              compilerOutputPaths,
-              rootPath,
-              shouldTrackClassUsage,
-              allClassPathsBuilder.build(),
-              kotlinPluginGeneratedOutFullPath,
-              annotationProcessorParams.getParameters(),
-              sourceFilePaths,
-              CompilerOutputPaths.getKspDepFilePath(reportsOutput),
-              moduleName,
-              kspProcessorsClasspathList,
-              kspClassesOutput,
-              kspKotlinOutput,
-              kspJavaOutput,
-              kspOutputBaseDir,
-              extraParams.getJvmTarget(),
-              extraParams.getLanguageVersion(),
-              getJvmDefaultMode(extraParams.getExtraKotlincArguments()),
-              extraParams.getJavaBinary(),
-              kotlinCDAnalytics,
-              Ksp2ModeFactory.create(
-                  rootPath,
-                  invokingRule.isSourceOnlyAbi(),
-                  kspCachesOutput,
-                  extraParams,
-                  actionMetadata.orElse(null)));
-      steps.add(ksp2Step);
-    } else {
-      kspInvocationStatus = KSPInvocationStatus.KSP1_INVOKED;
-      String kspProcessorsClasspath =
-          Joiner.on(File.pathSeparatorChar).join(kspProcessorsClasspathList);
-      steps.add(
-          getKsp1Step(
-              invokingRule,
-              rootPath,
-              outputDirectory,
-              reportsOutput,
-              shouldTrackClassUsage,
-              allClasspaths,
-              extraParams.getKotlinCompilerPlugins(),
-              kotlinPluginGeneratedOutFullPath,
-              projectBaseDir,
-              annotationProcessorParams,
-              sourceFilePaths,
-              pathToSrcsList,
-              kotlinHomeLibraries,
-              kotlinc,
-              compilerOutputPaths,
-              configuredBuckOut,
-              resolvedKosabiPluginOptionPath,
-              extraParams.getKosabiJvmAbiGenEarlyTerminationMessagePrefix().orElse(null),
-              sourceOnlyAbiClasspath,
-              moduleName,
-              extraParams.getExtraKotlincArguments(),
-              kspProcessorsClasspath,
-              kspClassesOutput,
-              kspKotlinOutput,
-              kspJavaOutput,
-              kspCachesOutput,
-              kspMetaOutput,
-              kotlinCDAnalytics));
+    if (invokingRule.isSourceOnlyAbi()) {
+      allClassPathsBuilder.addAll(
+          sourceOnlyAbiClasspath.stream().filter(p -> !allClasspaths.contains(p)).toList());
     }
 
+    Ksp2Step ksp2Step =
+        new Ksp2Step(
+            invokingRule,
+            compilerOutputPaths,
+            rootPath,
+            shouldTrackClassUsage,
+            allClassPathsBuilder.build(),
+            kotlinPluginGeneratedOutFullPath,
+            annotationProcessorParams.getParameters(),
+            sourceFilePaths,
+            CompilerOutputPaths.getKspDepFilePath(reportsOutput),
+            moduleName,
+            kspProcessorsClasspathList,
+            kspClassesOutput,
+            kspKotlinOutput,
+            kspJavaOutput,
+            kspOutputBaseDir,
+            extraParams.getJvmTarget(),
+            extraParams.getLanguageVersion(),
+            getJvmDefaultMode(extraParams.getExtraKotlincArguments()),
+            extraParams.getJavaBinary(),
+            kotlinCDAnalytics,
+            Ksp2ModeFactory.create(
+                rootPath,
+                invokingRule.isSourceOnlyAbi(),
+                kspCachesOutput,
+                extraParams,
+                actionMetadata.orElse(null)));
+    steps.add(ksp2Step);
     steps.add(
         CopyIsolatedStep.forDirectory(
             kspKotlinOutput, kspAnnotationGenFolder, CopySourceMode.DIRECTORY_CONTENTS_ONLY));
