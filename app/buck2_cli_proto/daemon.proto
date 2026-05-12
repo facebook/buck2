@@ -676,7 +676,9 @@ message TestResponse {
   repeated string target_rule_type_names = 7;
 }
 
-message InstallResponse {}
+message InstallResponse {
+  repeated string target_rule_type_names = 1;
+}
 
 message GenericRequest {
   ClientContext context = 1;

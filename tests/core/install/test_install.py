@@ -89,6 +89,17 @@ async def test_install_logging(buck: Buck, tmp_path: Path) -> None:
     ]
 
 
+@buck_test(write_invocation_record=True)
+async def test_install_logs_target_rule_type_names(buck: Buck, tmp_path: Path) -> None:
+    _setup_sandbox(buck)
+    tmp_dir = tmp_path / "install_test"
+    tmp_dir.mkdir()
+    args = ["--dst", f"{tmp_dir}/"]
+    res = await buck.install("root//:installer_test", "--", *args)
+    record = res.invocation_record()
+    assert record["target_rule_type_names"] == ["installer"]
+
+
 @buck_test()
 @env("BUCK2_INSTALLER_SEND_TIMEOUT_S", "1")
 async def test_send_file_timeout(buck: Buck, tmp_path: Path) -> None:

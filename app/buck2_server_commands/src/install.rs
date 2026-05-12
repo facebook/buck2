@@ -22,6 +22,7 @@ use std::time::Instant;
 use async_trait::async_trait;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
+use buck2_build_api::actions::calculation::get_target_rule_type_name;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::context::HasBuildContextData;
@@ -224,10 +225,29 @@ async fn install(
     mut ctx: DiceTransaction,
     request: &InstallRequest,
 ) -> buck2_error::Result<InstallResponse> {
-    let install_request_data_vec =
-        collect_install_request_data(server_ctx, &mut ctx, request).await?;
+    let install_request_data_vec: Vec<InstallRequestData> =
+        collect_install_request_data(server_ctx, &mut ctx, request)
+            .await?
+            .into_iter()
+            .collect();
 
     let install_log_dir = &get_installer_log_directory(server_ctx, &mut ctx).await?;
+
+    // Snapshot the installed target labels for telemetry before the vec is
+    // consumed by the install pipeline below. Deduped to keep
+    // `get_target_rule_type_name` work proportional to unique targets.
+    let installed_target_labels: Vec<ConfiguredTargetLabel> = {
+        let mut seen = std::collections::HashSet::new();
+        let mut out = Vec::new();
+        for data in &install_request_data_vec {
+            for (label, _) in &data.installed_targets {
+                if seen.insert(label.dupe()) {
+                    out.push(label.dupe());
+                }
+            }
+        }
+        out
+    };
 
     let install_requests = install_request_data_vec.into_iter().map(|data| {
         let installer_run_args = &request.installer_run_args;
@@ -251,7 +271,26 @@ async fn install(
         .await
         .buck_error_context("Interaction with installer failed.")?;
 
-    Ok(InstallResponse {})
+    // Best-effort telemetry: a successful install must not be reported as failed
+    // because rule-type lookup hit an error (DICE failure, unbound late binding, etc).
+    let mut target_rule_type_names: Vec<String> = Vec::with_capacity(installed_target_labels.len());
+    for label in &installed_target_labels {
+        match get_target_rule_type_name(&mut ctx, label).await {
+            Ok(name) => target_rule_type_names.push(name),
+            Err(e) => {
+                let _unused = soft_error!(
+                    "install_target_rule_type_name_failed",
+                    e.context("Failed to resolve installed target rule type for telemetry")
+                );
+            }
+        }
+    }
+    target_rule_type_names.sort();
+    target_rule_type_names.dedup();
+
+    Ok(InstallResponse {
+        target_rule_type_names,
+    })
 }
 
 async fn collect_install_request_data<'a>(
