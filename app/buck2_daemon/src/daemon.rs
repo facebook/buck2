@@ -164,6 +164,8 @@ fn terminate_on_panic() {
     let orig_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |panic_info| {
         orig_hook(panic_info);
+        // Flush PGO profile data before _exit, which skips atexit handlers.
+        buck2_util::pgo::flush_pgo_profile();
         // We are using `_exit` instead of `exit` to avoid running global destructors.
         // This is similar to what default rust panic handler does
         // when there `panic=abort`: it does `abort`.
@@ -573,6 +575,9 @@ impl DaemonCommand {
             )
             .categorize_internal()?;
         }
+        // Flush PGO profile data on all daemon exit paths (graceful kill,
+        // dir mismatch, inactivity timeout, errors).
+        buck2_util::pgo::flush_pgo_profile();
         res
     }
 

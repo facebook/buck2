@@ -61,6 +61,13 @@ async def test_debug_filestatus(buck: Buck) -> None:
     assert "No mismatches detected" in output.stderr
 
 
+@buck_test()
+async def test_debug_flush_pgo_profile(buck: Buck) -> None:
+    await buck.build()
+    result = await buck.debug("flush-pgo-profile")
+    assert "was not flushed" in result.stderr
+
+
 @buck_test(skip_for_os=["windows", "darwin"])
 async def test_thread_dump(buck: Buck) -> None:
     # Make sure we don't start a daemon if there isn't one

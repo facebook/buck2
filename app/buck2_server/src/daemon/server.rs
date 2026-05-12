@@ -1380,6 +1380,17 @@ impl DaemonApi for BuckdServer {
         Ok(Response::new(UnstableHeapDumpResponse {}))
     }
 
+    async fn unstable_flush_pgo_profile(
+        &self,
+        _req: Request<UnstableFlushPgoProfileRequest>,
+    ) -> Result<Response<UnstableFlushPgoProfileResponse>, Status> {
+        self.check_if_accepting_requests()?;
+        let pgo_active = buck2_util::pgo::flush_pgo_profile();
+        Ok(Response::new(UnstableFlushPgoProfileResponse {
+            pgo_active,
+        }))
+    }
+
     async fn unstable_allocator_stats(
         &self,
         req: Request<UnstableAllocatorStatsRequest>,

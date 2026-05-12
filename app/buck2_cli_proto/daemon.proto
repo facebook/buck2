@@ -807,6 +807,12 @@ message UnstableHeapDumpRequest {
 
 message UnstableHeapDumpResponse {}
 
+message UnstableFlushPgoProfileRequest {}
+
+message UnstableFlushPgoProfileResponse {
+  bool pgo_active = 1;
+}
+
 message UnstableAllocatorStatsRequest {
   // Options to pass to the allocator stats backend (JEMalloc's
   // malloc_stats_print, see <https://linux.die.net/man/3/jemalloc>).
@@ -1034,6 +1040,11 @@ service DaemonApi {
   // Requests the daemon to perform a heap dump and save the dump to a file.
   rpc Unstable_HeapDump(UnstableHeapDumpRequest)
       returns (UnstableHeapDumpResponse);
+
+  // Flushes PGO profile data to disk. Only useful when the daemon was built
+  // with -Cprofile-generate.
+  rpc Unstable_FlushPgoProfile(UnstableFlushPgoProfileRequest)
+      returns (UnstableFlushPgoProfileResponse);
 
   // Requests allocator stats from the daemon.
   rpc Unstable_AllocatorStats(UnstableAllocatorStatsRequest)
