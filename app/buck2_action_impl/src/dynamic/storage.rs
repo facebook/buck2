@@ -41,7 +41,7 @@ pub(crate) struct DynamicLambdaParamsStorageImpl<'v> {
     lambda_params: SmallMap<DynamicLambdaResultsKey, DynamicLambdaParams<'v>>,
 }
 
-#[derive(Debug, Allocative, ProvidesStaticType)]
+#[derive(Debug, Allocative, ProvidesStaticType, pagable::PagablePanic)]
 pub(crate) struct FrozenDynamicLambdaParamsStorageImpl {
     lambda_params: SmallMap<DynamicLambdaResultsKey, FrozenDynamicLambdaParams>,
 }
@@ -142,6 +142,7 @@ impl<'v> DynamicLambdaParamsStorage<'v> for DynamicLambdaParamsStorageImpl<'v> {
     }
 }
 
+#[pagable::pagable_typetag]
 impl FrozenDynamicLambdaParamsStorage for FrozenDynamicLambdaParamsStorageImpl {
     fn as_any(&self) -> &dyn AnyLifetime<'static> {
         self

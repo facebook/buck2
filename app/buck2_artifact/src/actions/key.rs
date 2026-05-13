@@ -16,6 +16,8 @@ use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_data::ToProtoMessage;
 use dupe::Dupe;
 use pagable::Pagable;
+use starlark::values::StarlarkPagableViaPagable;
+use starlark_map::Hashed;
 use static_assertions::assert_eq_size;
 
 /// A key to look up an 'Action' from the 'ActionAnalysisResult'.
@@ -53,12 +55,22 @@ assert_eq_size!(ActionKey, [usize; 4]);
     derive_more::Display,
     Allocative,
     strong_hash::StrongHash,
-    Pagable
+    Pagable,
+    StarlarkPagableViaPagable
 )]
 pub struct ActionIndex(pub u32);
 impl ActionIndex {
     pub fn new(v: u32) -> ActionIndex {
         Self(v)
+    }
+}
+
+impl starlark::pagable::SmallMapKeyDeserialize for ActionIndex {
+    fn starlark_deserialize_hashed(
+        ctx: &mut dyn starlark::pagable::StarlarkDeserializeContext<'_>,
+    ) -> starlark::Result<Hashed<Self>> {
+        let k = <Self as starlark::pagable::StarlarkDeserialize>::starlark_deserialize(ctx)?;
+        Ok(Hashed::new(k))
     }
 }
 

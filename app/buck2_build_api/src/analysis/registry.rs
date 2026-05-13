@@ -35,12 +35,19 @@ use buck2_util::thin_box::ThinBoxSlice;
 use derivative::Derivative;
 use dupe::Dupe;
 use itertools::Itertools;
+use pagable::PagableDeserialize;
+use pagable::PagableSerialize;
+use starlark::StarlarkPagable;
 use starlark::StarlarkPagablePanic;
 use starlark::any::ProvidesStaticType;
 use starlark::codemap::FileSpan;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
+use starlark::pagable::StarlarkDeserialize;
+use starlark::pagable::StarlarkDeserializeContext;
+use starlark::pagable::StarlarkSerialize;
+use starlark::pagable::StarlarkSerializeContext;
 use starlark::values::DynStarlark;
 use starlark::values::Freeze;
 use starlark::values::FreezeError;
@@ -407,13 +414,44 @@ pub struct AnalysisValueStorage<'v> {
     result_value: OnceCell<ValueTypedComplex<'v, ProviderCollection<'v>>>,
 }
 
-#[derive(Debug, Allocative, ProvidesStaticType, StarlarkPagablePanic)]
+#[derive(Debug, Allocative, ProvidesStaticType, StarlarkPagable)]
 pub struct FrozenAnalysisValueStorage {
+    #[starlark_pagable(pagable)]
     pub self_key: DeferredHolderKey,
     action_data: SmallMap<ActionIndex, (Option<FrozenValue>, Option<FrozenStarlarkCallable>)>,
+    // `ThinBoxSlice` lives in `buck2_util` (cannot depend on `starlark`),
+    // so the per-element starlark bridging lives here at the use site.
+    #[starlark_pagable(
+        serialize_with = "serialize_transitive_sets",
+        deserialize_with = "deserialize_transitive_sets"
+    )]
     transitive_sets: ThinBoxSlice<FrozenValueTyped<'static, FrozenTransitiveSet>>,
+    // `Box<dyn FrozenDynamicLambdaParamsStorage>` round-trips via pagable typetag
+    #[starlark_pagable(pagable)]
     pub lambda_params: Box<dyn FrozenDynamicLambdaParamsStorage>,
     result_value: Option<FrozenValueTyped<'static, FrozenProviderCollection>>,
+}
+
+fn serialize_transitive_sets(
+    field: &ThinBoxSlice<FrozenValueTyped<'static, FrozenTransitiveSet>>,
+    ctx: &mut dyn StarlarkSerializeContext,
+) -> starlark::Result<()> {
+    PagableSerialize::pagable_serialize(&field.len(), ctx.pagable())?;
+    for item in field.iter() {
+        StarlarkSerialize::starlark_serialize(item, ctx)?;
+    }
+    Ok(())
+}
+
+fn deserialize_transitive_sets(
+    ctx: &mut dyn StarlarkDeserializeContext<'_>,
+) -> starlark::Result<ThinBoxSlice<FrozenValueTyped<'static, FrozenTransitiveSet>>> {
+    let len = usize::pagable_deserialize(ctx.pagable())?;
+    let mut items = Vec::with_capacity(len);
+    for _ in 0..len {
+        items.push(FrozenValueTyped::<'static, FrozenTransitiveSet>::starlark_deserialize(ctx)?);
+    }
+    Ok(ThinBoxSlice::from_iter(items))
 }
 
 unsafe impl<'v> Trace<'v> for AnalysisValueStorage<'v> {
