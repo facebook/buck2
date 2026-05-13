@@ -12,6 +12,7 @@ use allocative::Allocative;
 use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
 use dupe::Dupe;
 use pagable::Pagable;
+use starlark::values::StarlarkPagableViaPagable;
 
 #[derive(
     Clone,
@@ -22,7 +23,8 @@ use pagable::Pagable;
     Debug,
     Allocative,
     derive_more::Display,
-    Pagable
+    Pagable,
+    StarlarkPagableViaPagable
 )]
 #[display("{}", self.dynamic_lambda_results_key)]
 pub struct DynamicValue {

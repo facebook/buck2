@@ -19,13 +19,15 @@ use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
 use buck2_error::buck2_error;
 use buck2_hash::BuckIndexSet;
 use dupe::Dupe;
+use starlark::StarlarkPagable;
 use starlark::collections::SmallSet;
+use starlark::pagable::SmallMapKeyDeserialize;
+use starlark::pagable::StarlarkPagable;
 use starlark::typing::Ty;
 use starlark::values::Freeze;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenValue;
-use starlark::values::StarlarkPagable;
 use starlark::values::Trace;
 use starlark::values::Tracer;
 use starlark::values::UnpackValue;
@@ -72,8 +74,9 @@ pub(crate) enum DynamicAttrType {
     Dict(Box<(TypeCompiled<FrozenValue>, DynamicAttrType)>),
 }
 
-#[derive(Debug, Trace, Allocative)]
+#[derive(Debug, Trace, Allocative, StarlarkPagable)]
 #[trace(bound = "V: Trace<'v>")]
+#[starlark_pagable(bound = "V: StarlarkPagable + SmallMapKeyDeserialize")]
 pub(crate) enum DynamicAttrValue<
     // Starlark value passed as is from dynamic actions creation site to impl.
     V: ValueLifetimeless,
@@ -109,7 +112,8 @@ impl<V: ValueLifetimeless> Freeze for DynamicAttrValue<V> {
     }
 }
 
-#[derive(Debug, Allocative)]
+#[derive(Debug, Allocative, StarlarkPagable)]
+#[starlark_pagable(bound = "V: StarlarkPagable + SmallMapKeyDeserialize")]
 pub struct DynamicAttrValues<V: ValueLifetimeless> {
     /// Indexed by attrs definitions in `DynamicActionCallable`.
     pub(crate) values: Box<[DynamicAttrValue<V>]>,

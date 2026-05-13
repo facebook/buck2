@@ -26,6 +26,7 @@ pub mod serde {
     pub use serde::Serializer;
     pub use serde::ser::Error;
 }
+pub use anyhow;
 pub use inventory;
 // `pagable` re-exports so macros can reach them via `$crate::__derive_refs`,
 // without consumer crates needing a direct `pagable` dependency.

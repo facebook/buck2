@@ -62,7 +62,8 @@ use crate::artifact::source_artifact::SourceArtifact;
     Eq,
     Hash,
     strong_hash::StrongHash,
-    Pagable
+    Pagable,
+    starlark::values::StarlarkPagableViaPagable
 )]
 pub struct Artifact(Arc<ArtifactData>);
 
