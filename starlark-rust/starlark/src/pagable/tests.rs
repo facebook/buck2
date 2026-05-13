@@ -2043,3 +2043,94 @@ fn test_starlark_any_complex_round_trip() -> crate::Result<()> {
 
     Ok(())
 }
+
+// ============================================================================
+// `#[starlark_pagable_typetag]` round-trip: `Box<dyn Trait>` with a
+// concrete impl that holds a `FrozenValue`.
+// ============================================================================
+
+#[crate::starlark_pagable_typetag]
+trait TypetagPayload:
+    pagable::PagableTagged + std::fmt::Debug + Allocative + Send + Sync + 'static
+{
+    fn label(&self) -> u32;
+    fn target(&self) -> FrozenValue;
+}
+
+#[derive(Debug, Allocative, ProvidesStaticType, StarlarkPagable)]
+struct TypetagImpl {
+    target: FrozenValue,
+    label: u32,
+}
+
+#[crate::starlark_pagable_typetag]
+impl TypetagPayload for TypetagImpl {
+    fn label(&self) -> u32 {
+        self.label
+    }
+    fn target(&self) -> FrozenValue {
+        self.target
+    }
+}
+
+#[derive(
+    Debug,
+    Display,
+    Allocative,
+    ProvidesStaticType,
+    NoSerialize,
+    StarlarkPagable
+)]
+#[display("TypetagOuter({})", self.outer)]
+struct TypetagOuter {
+    #[starlark_pagable(pagable)]
+    inner: Box<dyn TypetagPayload>,
+    outer: u32,
+}
+
+starlark_simple_value!(TypetagOuter);
+
+#[starlark_value(type = "TypetagOuter", skip_pagable)]
+impl<'v> StarlarkValue<'v> for TypetagOuter {
+    type Canonical = Self;
+}
+
+#[test]
+fn test_starlark_pagable_typetag_round_trip() -> crate::Result<()> {
+    let heap = FrozenHeap::new();
+    let target_fv = heap.alloc_simple(SimpleData {
+        flag: true,
+        count: 161,
+    });
+
+    heap.alloc_simple(TypetagOuter {
+        inner: Box::new(TypetagImpl {
+            target: target_fv,
+            label: 11,
+        }),
+        outer: 1,
+    });
+
+    let heap_ref = heap.into_ref_named(TestHeapName::heap_name("test_typetag"));
+    let restored = round_trip_heap_ref(&heap_ref)?;
+
+    let undrop = restored.collect_undrop_headers_ordered();
+    assert_eq!(undrop.len(), 1);
+    let target_data: &SimpleData = undrop[0].unpack().downcast_ref().unwrap();
+    assert_eq!(target_data.count, 161);
+
+    let drop_headers = restored.collect_drop_headers_ordered();
+    assert_eq!(drop_headers.len(), 1);
+    let outer: &TypetagOuter = drop_headers[0].unpack().downcast_ref().unwrap();
+    assert_eq!(outer.outer, 1);
+    assert_eq!(outer.inner.label(), 11);
+
+    // Inner FrozenValue resolves to the same heap target.
+    let target_addr = undrop[0] as *const _ as usize;
+    assert_eq!(
+        outer.inner.target().ptr_value().ptr_value_untagged(),
+        target_addr,
+    );
+
+    Ok(())
+}

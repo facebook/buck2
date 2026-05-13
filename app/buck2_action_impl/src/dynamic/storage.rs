@@ -21,8 +21,14 @@ use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
 use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_error::internal_error;
 use dupe::Dupe;
+use pagable::PagableDeserialize;
+use pagable::PagableSerialize;
 use starlark::any::AnyLifetime;
 use starlark::any::ProvidesStaticType;
+use starlark::pagable::StarlarkDeserialize;
+use starlark::pagable::StarlarkDeserializeContext;
+use starlark::pagable::StarlarkSerialize;
+use starlark::pagable::StarlarkSerializeContext;
 use starlark::values::DynStarlark;
 use starlark::values::Freeze;
 use starlark::values::FreezeResult;
@@ -41,10 +47,47 @@ pub(crate) struct DynamicLambdaParamsStorageImpl<'v> {
     lambda_params: SmallMap<DynamicLambdaResultsKey, DynamicLambdaParams<'v>>,
 }
 
-#[derive(Debug, Allocative, ProvidesStaticType, pagable::PagablePanic)]
+#[derive(Debug, Allocative, ProvidesStaticType, starlark::StarlarkPagable)]
 pub(crate) struct FrozenDynamicLambdaParamsStorageImpl {
+    // Mixed: `DynamicLambdaResultsKey` is pagable-only (`buck2_core` cannot
+    // depend on `starlark`), values are starlark-aware — so the generic
+    // `SmallMap<K, V>: StarlarkSerialize` blanket doesn't apply. Bridge here.
+    #[starlark_pagable(
+        serialize_with = "serialize_lambda_params",
+        deserialize_with = "deserialize_lambda_params"
+    )]
     lambda_params: SmallMap<DynamicLambdaResultsKey, FrozenDynamicLambdaParams>,
 }
+
+fn serialize_lambda_params(
+    field: &SmallMap<DynamicLambdaResultsKey, FrozenDynamicLambdaParams>,
+    ctx: &mut dyn StarlarkSerializeContext,
+) -> starlark::Result<()> {
+    PagableSerialize::pagable_serialize(&field.len(), ctx.pagable())?;
+    for (k, v) in field.iter() {
+        PagableSerialize::pagable_serialize(k, ctx.pagable())?;
+        StarlarkSerialize::starlark_serialize(v, ctx)?;
+    }
+    Ok(())
+}
+
+fn deserialize_lambda_params(
+    ctx: &mut dyn StarlarkDeserializeContext<'_>,
+) -> starlark::Result<SmallMap<DynamicLambdaResultsKey, FrozenDynamicLambdaParams>> {
+    let len = usize::pagable_deserialize(ctx.pagable())?;
+    let mut map = SmallMap::with_capacity(len);
+    for _ in 0..len {
+        let k =
+            <DynamicLambdaResultsKey as PagableDeserialize>::pagable_deserialize(ctx.pagable())?;
+        let v = FrozenDynamicLambdaParams::starlark_deserialize(ctx)?;
+        map.insert(k, v);
+    }
+    Ok(map)
+}
+
+// `#[starlark_pagable_typetag]` below emits the typetag registration plus
+// the recovery bridge so embedded `FrozenValue`s in `lambda_params` resolve
+// against the current starlark heap.
 
 impl<'v> DynamicLambdaParamsStorageImpl<'v> {
     pub(crate) fn get<'a>(
@@ -142,7 +185,7 @@ impl<'v> DynamicLambdaParamsStorage<'v> for DynamicLambdaParamsStorageImpl<'v> {
     }
 }
 
-#[pagable::pagable_typetag]
+#[starlark::starlark_pagable_typetag]
 impl FrozenDynamicLambdaParamsStorage for FrozenDynamicLambdaParamsStorageImpl {
     fn as_any(&self) -> &dyn AnyLifetime<'static> {
         self

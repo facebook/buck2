@@ -76,5 +76,15 @@ pub use starlark_serialize::StarlarkSerialize;
 pub use starlark_serialize::StarlarkSerializeContext;
 pub use starlark_serialize_context::StarlarkSerializerImpl;
 
+/// Sealed marker emitted by `#[starlark_pagable_typetag]` on a trait. The
+/// impl form requires it, pairing the two structurally.
+pub trait StarlarkTypetagTraitMarker: __private::StarlarkTypetagTraitSealed {}
+
+#[doc(hidden)]
+pub mod __private {
+    /// Sealed — do not implement directly.
+    pub trait StarlarkTypetagTraitSealed {}
+}
+
 #[cfg(all(test, feature = "pagable"))]
 mod tests;
