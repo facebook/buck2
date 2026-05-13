@@ -31,10 +31,6 @@ load(
     "LinkerType",
     "ShlibInterfacesMode",
 )
-load(
-    ":headers.bzl",
-    "cxx_attr_header_namespace",
-)
 
 OBJECTS_SUBTARGET = "objects"
 
@@ -131,11 +127,30 @@ def cxx_attr_resources(ctx: AnalysisContext) -> dict[str, ArtifactOutputs]:
 
     resources_attr = getattr(ctx.attrs, "resources", None)
     if resources_attr:
-        namespace = cxx_attr_header_namespace(ctx)
+        # Resource keys prefix with `header_namespace`. Unset (None) falls
+        # back to package; explicit "" means "no prefix" UNLESS `raw_headers`
+        # is also set, which signals the xplat macros (`_unified_cxx_library`
+        # / `_fbcode_cpp_common_wrapper`) clobbered `header_namespace=""` to
+        # suppress #include namespace mangling — fall back to package in that
+        # case so consumers (e.g. `kBuckPrefix + "manifest.json"`) keep
+        # working. Idempotent: keys already prefixed (by ACME, snapshots) are
+        # left alone.
+        namespace = ctx.attrs.header_namespace
+        if namespace == None:
+            namespace = ctx.label.package
+        elif namespace == "" and getattr(ctx.attrs, "raw_headers", None):
+            namespace = ctx.label.package
+        prefix = namespace + "/" if namespace else None
 
         # Use getattr, as apple rules don't have a `resources` parameter.
         for name, resource in from_named_set(resources_attr).items():
-            resources[paths.join(namespace, name)] = single_artifact(resource)
+            if not namespace:
+                key = name
+            elif name == namespace or name.startswith(prefix):
+                key = name
+            else:
+                key = paths.join(namespace, name)
+            resources[key] = single_artifact(resource)
 
     return resources
 
