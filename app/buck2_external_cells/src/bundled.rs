@@ -16,7 +16,6 @@ use std::sync::OnceLock;
 
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_common::file_ops::delegate::FileOpsDelegate;
-use buck2_common::file_ops::dice::ReadFileProxy;
 use buck2_common::file_ops::metadata::FileMetadata;
 use buck2_common::file_ops::metadata::FileType;
 use buck2_common::file_ops::metadata::RawDirEntry;
@@ -330,11 +329,8 @@ impl FileOpsDelegate for BundledFileOpsDelegate {
         &self,
         _ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
-    ) -> buck2_error::Result<ReadFileProxy> {
-        let res = self.read_file_if_exists(path)?;
-        Ok(ReadFileProxy::new_with_captures(res, |res| async move {
-            Ok(res.map(|s| s.to_owned()))
-        }))
+    ) -> buck2_error::Result<Option<String>> {
+        Ok(self.read_file_if_exists(path)?.map(|s| s.to_owned()))
     }
 
     /// Return the list of file outputs, sorted.

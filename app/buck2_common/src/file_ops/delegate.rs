@@ -10,6 +10,7 @@
 
 use std::sync::Arc;
 
+use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
@@ -19,7 +20,7 @@ use buck2_fs::paths::file_name::FileNameBuf;
 use cmp_any::PartialEqAny;
 use dice::DiceComputations;
 use dice::Key;
-use dice::TodoValueSerialize;
+use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
@@ -32,7 +33,6 @@ use crate::external_cells::EXTERNAL_CELLS_IMPL;
 use crate::file_ops::delegate::keys::FileOpsKey;
 use crate::file_ops::delegate::keys::FileOpsValue;
 use crate::file_ops::dice::CheckIgnores;
-use crate::file_ops::dice::ReadFileProxy;
 use crate::file_ops::io::IoFileOpsDelegate;
 use crate::file_ops::metadata::RawDirEntry;
 use crate::file_ops::metadata::RawPathMetadata;
@@ -63,18 +63,18 @@ mod keys {
         pub check_ignores: CheckIgnores,
     }
 
-    #[derive(Dupe, Clone, Allocative)]
+    #[derive(Dupe, Clone, Allocative, Pagable)]
     pub(crate) struct FileOpsValue(#[allocative(skip)] pub FileOpsDelegateWithIgnores);
 }
 
 #[pagable_typetag]
 #[async_trait]
-pub trait FileOpsDelegate: PagableTagged + Send + Sync {
+pub trait FileOpsDelegate: PagableTagged + Allocative + Send + Sync {
     async fn read_file_if_exists(
         &self,
         ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
-    ) -> buck2_error::Result<ReadFileProxy>;
+    ) -> buck2_error::Result<Option<String>>;
 
     /// Return the list of file outputs, sorted.
     async fn read_dir(
@@ -149,7 +149,7 @@ impl Key for FileOpsKey {
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
-        TodoValueSerialize::<Self::Value>::new()
+        OkPagableValueSerialize::<Self::Value>::new()
     }
 }
 
@@ -167,7 +167,7 @@ pub(crate) async fn get_delegated_file_ops(
         .0)
 }
 
-#[derive(Clone, Dupe, Pagable)]
+#[derive(Clone, Dupe, Pagable, Allocative)]
 pub struct FileOpsDelegateWithIgnores {
     ignores: Option<Arc<CellFileIgnores>>,
     delegate: Arc<dyn FileOpsDelegate>,
@@ -200,7 +200,7 @@ impl FileOpsDelegateWithIgnores {
         &self,
         ctx: &mut DiceComputations<'_>,
         path: &CellRelativePath,
-    ) -> buck2_error::Result<ReadFileProxy> {
+    ) -> buck2_error::Result<Option<String>> {
         self.delegate.read_file_if_exists(ctx, path).await
     }
 

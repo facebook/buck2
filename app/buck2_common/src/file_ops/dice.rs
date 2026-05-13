@@ -25,15 +25,14 @@ use dice::DiceTransactionUpdater;
 use dice::InvalidationSourcePriority;
 use dice::Key;
 use dice::OkPagableValueSerialize;
-use dice::TodoValueSerialize;
 use dice::ValueSerialize;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
-use futures::future::BoxFuture;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 
 use crate::buildfiles::HasBuildfiles;
+use crate::file_ops::delegate::FileOpsDelegateWithIgnores;
 use crate::file_ops::delegate::get_delegated_file_ops;
 use crate::file_ops::error::FileReadError;
 use crate::file_ops::error::extended_ignore_error;
@@ -97,10 +96,10 @@ impl DiceFileComputations {
         ctx: &mut DiceComputations<'_>,
         path: CellPathRef<'_>,
     ) -> buck2_error::Result<Option<String>> {
-        (ctx.compute(&ReadFileKey(Arc::new(path.to_owned())))
+        ctx.compute(&ReadFileKey(Arc::new(path.to_owned())))
             .await??
-            .0)()
-        .await
+            .read_file_if_exists(ctx)
+            .await
     }
 
     /// Does not check if the path is ignored
@@ -261,30 +260,27 @@ impl FileChangeTracker {
 
 /// The return value of a `ReadFileKey` computation.
 ///
-/// Instead of the actual file contents, this is a closure that reads the actual file contents from
-/// disk when invoked. This is done to ensure that we don't store the file contents in memory.
-// FIXME(JakobDegen): `ReadFileKey` is not marked as transient if this returns an error, which is
-// unfortunate.
-#[derive(Clone, Dupe, Allocative)]
-pub struct ReadFileProxy(
-    #[allocative(skip)]
-    Arc<dyn Fn() -> BoxFuture<'static, buck2_error::Result<Option<String>>> + Send + Sync>,
-);
+/// Instead of the actual file contents, this holds a `FileOpsDelegateWithIgnores`
+/// and the path to read. The actual file read happens when the caller invokes
+/// `read_file_if_exists` on this value. This ensures we don't store file
+/// contents in memory.
+#[derive(Clone, Dupe, Allocative, Pagable)]
+pub struct ReadFileValue {
+    file_ops: FileOpsDelegateWithIgnores,
+    path: Arc<CellPath>,
+}
 
-impl ReadFileProxy {
-    /// This is a convenience method that avoids a little bit of boilerplate around boxing, and
-    /// cloning the captures
-    pub fn new_with_captures<D, F>(data: D, c: impl Fn(D) -> F + Send + Sync + 'static) -> Self
-    where
-        D: Clone + Send + Sync + 'static,
-        F: Future<Output = buck2_error::Result<Option<String>>> + Send + 'static,
-    {
-        use futures::FutureExt;
-
-        Self(Arc::new(move || {
-            let data = data.clone();
-            c(data).boxed()
-        }))
+impl ReadFileValue {
+    // FIXME: `ReadFileKey` is not marked as transient if this returns an error, which is
+    // unfortunate.
+    // A reasonable fix would be to take a dep on an always transient key in the error case.
+    pub async fn read_file_if_exists(
+        &self,
+        ctx: &mut DiceComputations<'_>,
+    ) -> buck2_error::Result<Option<String>> {
+        self.file_ops
+            .read_file_if_exists(ctx, self.path.path())
+            .await
     }
 }
 
@@ -294,16 +290,17 @@ struct ReadFileKey(Arc<CellPath>);
 
 #[async_trait]
 impl Key for ReadFileKey {
-    type Value = buck2_error::Result<ReadFileProxy>;
+    type Value = buck2_error::Result<ReadFileValue>;
     async fn compute(
         &self,
         ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
-        get_delegated_file_ops(ctx, self.0.cell(), CheckIgnores::No)
-            .await?
-            .read_file_if_exists(ctx, self.0.path())
-            .await
+        let file_ops = get_delegated_file_ops(ctx, self.0.cell(), CheckIgnores::No).await?;
+        Ok(ReadFileValue {
+            file_ops,
+            path: self.0.dupe(),
+        })
     }
 
     fn equality(_: &Self::Value, _: &Self::Value) -> bool {
@@ -315,7 +312,7 @@ impl Key for ReadFileKey {
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
-        TodoValueSerialize::<Self::Value>::new()
+        OkPagableValueSerialize::<Self::Value>::new()
     }
 }
 

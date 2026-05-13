@@ -24,7 +24,7 @@ use dice::DiceComputations;
 use dice::testing::DiceBuilder;
 use dupe::Dupe;
 use itertools::Itertools;
-use pagable::PagablePanic;
+use pagable::Pagable;
 use pagable::pagable_typetag;
 
 use crate::cas_digest::CasDigestConfig;
@@ -34,7 +34,6 @@ use crate::file_ops::delegate::FileOpsDelegateWithIgnores;
 use crate::file_ops::delegate::testing::FileOpsKey;
 use crate::file_ops::delegate::testing::FileOpsValue;
 use crate::file_ops::dice::CheckIgnores;
-use crate::file_ops::dice::ReadFileProxy;
 use crate::file_ops::metadata::FileMetadata;
 use crate::file_ops::metadata::FileType;
 use crate::file_ops::metadata::RawDirEntry;
@@ -46,13 +45,14 @@ use crate::file_ops::metadata::TrackedFileDigest;
 use crate::file_ops::trait_::FileOps;
 use crate::ignores::file_ignores::FileIgnoreResult;
 
+#[derive(Pagable)]
 enum TestFileOpsEntry {
     File(String /*data*/, FileMetadata),
     ExternalSymlink(Arc<ExternalSymlink>),
     Directory(BTreeSet<SimpleDirEntry>),
 }
 
-#[derive(Allocative, Clone, Dupe)]
+#[derive(Allocative, Clone, Dupe, Pagable)]
 pub struct TestFileOps {
     #[allocative(skip)]
     entries: Arc<BTreeMap<CellPath, TestFileOpsEntry>>,
@@ -239,7 +239,7 @@ impl FileOps for TestFileOps {
     }
 }
 
-#[derive(PagablePanic)]
+#[derive(Pagable, Allocative)]
 pub struct TestCellFileOps(CellName, TestFileOps);
 
 #[pagable_typetag]
@@ -249,11 +249,9 @@ impl FileOpsDelegate for TestCellFileOps {
         &self,
         _ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
-    ) -> buck2_error::Result<ReadFileProxy> {
-        Ok(ReadFileProxy::new_with_captures(
-            (CellPath::new(self.0, path.to_owned()), self.1.dupe()),
-            move |(path, ops)| async move { FileOps::read_file_if_exists(&ops, path.as_ref()).await },
-        ))
+    ) -> buck2_error::Result<Option<String>> {
+        let cell_path = CellPath::new(self.0, path.to_owned());
+        FileOps::read_file_if_exists(&self.1, cell_path.as_ref()).await
     }
 
     /// Return the list of file outputs, sorted.

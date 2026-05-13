@@ -30,7 +30,6 @@ use pagable::pagable_typetag;
 
 use crate::dice::data::HasIoProvider;
 use crate::file_ops::delegate::FileOpsDelegate;
-use crate::file_ops::dice::ReadFileProxy;
 use crate::file_ops::metadata::RawDirEntry;
 use crate::file_ops::metadata::RawPathMetadata;
 
@@ -62,11 +61,10 @@ impl FileOpsDelegate for IoFileOpsDelegate {
         &self,
         ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
-    ) -> buck2_error::Result<ReadFileProxy> {
-        Ok(ReadFileProxy::new_with_captures(
-            (self.resolve(path)?, ctx.global_data().get_io_provider()),
-            |(project_path, io)| async move { io.read_file_if_exists(project_path).await },
-        ))
+    ) -> buck2_error::Result<Option<String>> {
+        let project_path = self.resolve(path)?;
+        let io = ctx.global_data().get_io_provider();
+        io.read_file_if_exists(project_path).await
     }
 
     async fn read_dir(
