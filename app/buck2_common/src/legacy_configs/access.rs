@@ -12,6 +12,8 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use buck2_error::BuckErrorContext;
+use buck2_hash::StdBuckHashMap;
+use buck2_util::env_vars::substitute_env_vars;
 use gazebo::eq_chain;
 
 use crate::legacy_configs::configs::ConfigValue;
@@ -20,6 +22,26 @@ use crate::legacy_configs::configs::LegacyBuckConfigSection;
 use crate::legacy_configs::configs::LegacyBuckConfigValue;
 use crate::legacy_configs::key::BuckconfigKeyRef;
 use crate::legacy_configs::view::LegacyBuckConfigView;
+
+/// Read the `[buck2_metadata]` section from a `LegacyBuckConfig` and resolve any `$VAR`
+/// references. Entries whose env vars are not set are skipped with a warning.
+pub fn parse_buckconfig_metadata(config: &LegacyBuckConfig) -> StdBuckHashMap<String, String> {
+    let mut map = StdBuckHashMap::default();
+    let Some(section) = config.get_section("buck2_metadata") else {
+        return map;
+    };
+    for (key, value) in section.iter() {
+        match substitute_env_vars(value.as_str()) {
+            Ok(resolved) => {
+                map.insert(key.to_owned(), resolved);
+            }
+            Err(e) => {
+                tracing::warn!("Skipping [buck2_metadata] key `{}`: {:#}", key, e);
+            }
+        }
+    }
+    map
+}
 
 impl LegacyBuckConfigView for &LegacyBuckConfig {
     fn get(&mut self, key: BuckconfigKeyRef) -> buck2_error::Result<Option<Arc<str>>> {
