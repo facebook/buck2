@@ -19,6 +19,9 @@
 
 pub(crate) mod local_as_value;
 
+use starlark_derive::StarlarkPagable;
+
+use crate as starlark;
 use crate::eval::compiler::args::ArgsCompiledValue;
 use crate::eval::compiler::call::CallCompiled;
 use crate::eval::compiler::def::ParametersCompiled;
@@ -38,7 +41,7 @@ use crate::values::FrozenValue;
 use crate::values::FrozenValueTyped;
 
 /// Function body suitable for inlining.
-#[derive(Debug)]
+#[derive(Debug, StarlarkPagable)]
 pub(crate) enum InlineDefBody {
     /// Function body is `return type(x) == "y"`
     ReturnTypeIs(FrozenStringValue),

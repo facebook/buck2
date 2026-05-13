@@ -81,6 +81,7 @@ use crate::eval::runtime::params::spec::ParametersSpec;
 use crate::eval::runtime::profile::instant::ProfilerInstant;
 use crate::eval::runtime::slots::LocalSlotId;
 use crate::eval::runtime::slots::LocalSlotIdCapturedOrNot;
+use crate::pagable::StarlarkPagable;
 use crate::register_starlark_any;
 use crate::starlark_complex_values;
 use crate::static_starlark_value;
@@ -157,7 +158,7 @@ pub(crate) struct ParameterName {
 }
 
 #[derive(Clone, Debug, VisitSpanMut, StarlarkPagable)]
-#[starlark_pagable(bound = "T: crate::pagable::StarlarkPagable")]
+#[starlark_pagable(bound = "T: StarlarkPagable")]
 pub(crate) enum ParameterCompiled<T> {
     Normal(
         /// Name.
@@ -233,7 +234,7 @@ impl<T> ParameterCompiled<T> {
 }
 
 #[derive(Debug, Clone, VisitSpanMut, StarlarkPagable)]
-#[starlark_pagable(bound = "T: crate::pagable::StarlarkPagable")]
+#[starlark_pagable(bound = "T: StarlarkPagable")]
 pub(crate) struct ParametersCompiled<T> {
     pub(crate) params: Vec<IrSpanned<ParameterCompiled<T>>>,
     #[starlark_pagable(pagable)]
@@ -364,12 +365,10 @@ pub(crate) struct DefInfo {
     // The compiled expression for the body of this definition, to be run
     // after the parameters are evaluated.
     #[derivative(Debug = "ignore")]
-    #[starlark_pagable(skip = "(|| unimplemented!())()")]
     body_stmts: StmtsCompiled,
     /// How to compile the statement on freeze.
     stmt_compile_context: StmtCompileContext,
     /// Function can be inlined.
-    #[starlark_pagable(skip)]
     pub(crate) inline_def_body: Option<InlineDefBody>,
     /// Globals captured during function or module creation.
     /// Only needed for debugger evaluation.

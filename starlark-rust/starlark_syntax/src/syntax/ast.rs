@@ -322,7 +322,7 @@ pub enum BinOp {
     RightShift,
 }
 
-#[derive(Debug, Clone, Copy, Dupe, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Dupe, PartialEq, Eq, pagable::Pagable)]
 pub enum AssignOp {
     Add,         // +=
     Subtract,    // -=

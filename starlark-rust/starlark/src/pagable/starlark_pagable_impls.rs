@@ -43,6 +43,7 @@ use pagable::arc_erase::deserialize_arc;
 use starlark_map::Hashed;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
+use starlark_syntax::syntax::ast::AssignOp;
 
 use crate::pagable::starlark_deserialize::StarlarkDeserialize;
 use crate::pagable::starlark_deserialize::StarlarkDeserializeContext;
@@ -397,6 +398,21 @@ impl StarlarkSerialize for starlark_syntax::codemap::CodeMap {
 }
 
 impl StarlarkDeserialize for starlark_syntax::codemap::CodeMap {
+    fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
+        Ok(PagableDeserialize::pagable_deserialize(ctx.pagable())?)
+    }
+}
+
+// `AssignOp` lives in `starlark_syntax`, we bridge its `Pagable` impl into
+// the starlark layer here.
+impl StarlarkSerialize for AssignOp {
+    fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
+        PagableSerialize::pagable_serialize(self, ctx.pagable())?;
+        Ok(())
+    }
+}
+
+impl StarlarkDeserialize for AssignOp {
     fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
         Ok(PagableDeserialize::pagable_deserialize(ctx.pagable())?)
     }

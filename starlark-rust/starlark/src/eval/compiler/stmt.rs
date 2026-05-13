@@ -73,7 +73,7 @@ use crate::values::dict::DictRef;
 use crate::values::types::list::value::ListData;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, StarlarkPagable)]
 pub(crate) enum AssignModifyLhs {
     Dot(IrSpanned<ExprCompiled>, String),
     Array(IrSpanned<ExprCompiled>, IrSpanned<ExprCompiled>),
@@ -82,7 +82,7 @@ pub(crate) enum AssignModifyLhs {
     Module(IrSpanned<ModuleSlotId>),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, StarlarkPagable)]
 pub(crate) enum StmtCompiled {
     PossibleGc,
     Return(IrSpanned<ExprCompiled>),
@@ -184,7 +184,7 @@ impl IrSpanned<StmtCompiled> {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, StarlarkPagable)]
 pub(crate) struct StmtsCompiled(SmallVec1<IrSpanned<StmtCompiled>>);
 
 impl StmtsCompiled {

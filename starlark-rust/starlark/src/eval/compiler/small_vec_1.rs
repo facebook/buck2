@@ -28,9 +28,13 @@ use std::vec;
 
 use allocative::Allocative;
 use either::Either;
+use starlark_derive::StarlarkPagable;
+
+use crate as starlark;
 
 /// A small vector.
-#[derive(Clone, Allocative)]
+#[derive(Clone, Allocative, StarlarkPagable)]
+#[starlark_pagable(bound = "T: crate::pagable::StarlarkPagable")]
 pub(crate) enum SmallVec1<T> {
     One(T),
     Vec(Vec<T>),
