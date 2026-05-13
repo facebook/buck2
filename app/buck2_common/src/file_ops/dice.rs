@@ -38,6 +38,7 @@ use crate::file_ops::delegate::get_delegated_file_ops;
 use crate::file_ops::error::FileReadError;
 use crate::file_ops::error::extended_ignore_error;
 use crate::file_ops::metadata::RawPathMetadata;
+use crate::file_ops::metadata::RawSymlink;
 use crate::file_ops::metadata::ReadDirOutput;
 use crate::ignores::file_ignores::FileIgnoreResult;
 use crate::io::ReadDirError;
@@ -288,6 +289,115 @@ impl ReadFileProxy {
     }
 }
 
+/// Split a CellPath into a Vec of components for use in the BTreeSet.
+/// Vec<T> uses lexicographic Ord over elements, so descendants always sort
+/// immediately after their ancestors — unlike CellPath's string-based Ord
+/// where characters like `-` and `.` (< `/`) can interleave.
+fn path_components(path: &CellPath) -> PathComponents {
+    PathComponents(
+        path.cell(),
+        path.path().iter().map(|c| c.to_owned()).collect(),
+    )
+}
+
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+struct PathComponents(CellName, Vec<buck2_fs::paths::file_name::FileNameBuf>);
+
+impl PathComponents {
+    fn starts_with(&self, other: &Self) -> bool {
+        self.0 == other.0 && self.1.starts_with(&other.1)
+    }
+}
+
+/// Walk the symlink chain from `start` via delegates (no DICE keys) and
+/// return an error if we detect a cycle or expansion. Checks:
+///   i.  exact revisit  (p → a → b → a)
+///   ii. descendant of a visited path (p → a/b → c/d → a/b/e)
+///   iii. ancestor of a visited path  (p → a/b → c/d → a)
+async fn verify_no_symlink_cycle(
+    ctx: &mut DiceComputations<'_>,
+    origin: &Arc<CellPath>,
+    start: &Arc<CellPath>,
+) -> buck2_error::Result<()> {
+    use std::collections::BTreeSet;
+
+    let mut visited: BTreeSet<PathComponents> = BTreeSet::new();
+    visited.insert(path_components(origin));
+    let mut current: Arc<CellPath> = start.dupe();
+
+    // We stop iteration at 40 resolves, like Linux does when it hits ELOOP.
+    for _ in 0..40 {
+        let key = path_components(&current);
+        if has_path_overlap(&visited, &key) {
+            return Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Environment,
+                "symlink cycle detected resolving `{}`: \
+                 `{}` overlaps with a previously visited path",
+                origin,
+                current
+            ));
+        }
+        visited.insert(key);
+
+        let ops = get_delegated_file_ops(ctx, current.cell(), CheckIgnores::No).await?;
+        let metadata = ops
+            .read_path_metadata_if_exists(ctx, current.path())
+            .await?;
+        match metadata {
+            Some(RawPathMetadata::Symlink {
+                to: RawSymlink::Relative(target, _),
+                ..
+            }) => {
+                current = target;
+            }
+            _ => return Ok(()),
+        }
+    }
+    Err(buck2_error::buck2_error!(
+        buck2_error::ErrorTag::Environment,
+        "too many levels of symbolic links resolving `{}`",
+        origin
+    ))
+}
+
+/// Returns true if `key` is equal to, a descendant of, or an ancestor of
+/// any component-vec already in `visited`.
+///
+/// Because Vec<FileNameBuf> sorts component-wise, descendants of a path
+/// form a contiguous range immediately after it in the BTreeSet.
+/// The predecessor is the only ancestor candidate, and the successor
+/// is the only descendant candidate.
+fn has_path_overlap(
+    visited: &std::collections::BTreeSet<PathComponents>,
+    key: &PathComponents,
+) -> bool {
+    use std::ops::Bound;
+
+    // exact match
+    if visited.contains(key) {
+        return true;
+    }
+    // Key is a descendant of a visited path.
+    // With component-wise ordering, the only candidate ancestor is the
+    // largest element < key.
+    if let Some(prev) = visited.range::<PathComponents, _>(..key).next_back() {
+        if key.starts_with(prev) {
+            return true;
+        }
+    }
+    // Key is an ancestor of a visited path.
+    // The only candidate descendant is the smallest element > key.
+    if let Some(next) = visited
+        .range::<PathComponents, _>((Bound::Excluded(key), Bound::Unbounded))
+        .next()
+    {
+        if next.starts_with(key) {
+            return true;
+        }
+    }
+    false
+}
+
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
 #[pagable_typetag(dice::DiceKeyDyn)]
 struct ReadFileKey(Arc<CellPath>);
@@ -300,10 +410,44 @@ impl Key for ReadFileKey {
         ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
-        get_delegated_file_ops(ctx, self.0.cell(), CheckIgnores::No)
-            .await?
-            .read_file_if_exists(ctx, self.0.path())
-            .await
+        let file_ops = get_delegated_file_ops(ctx, self.0.cell(), CheckIgnores::No).await?;
+
+        // Check if the path goes through a symlink. We call the delegate
+        // directly (not via PathMetadataKey) to avoid a circular DICE
+        // dependency, since PathMetadataKey::compute depends on ReadFileKey.
+        let metadata = file_ops
+            .read_path_metadata_if_exists(ctx, self.0.path())
+            .await?;
+        if let Some(RawPathMetadata::Symlink {
+            ref at,
+            to: RawSymlink::Relative(ref target, _),
+        }) = metadata
+        {
+            // DICE doesn't detect cycles between distinct keys, so
+            // a→b→a would recurse forever. Walk the chain via
+            // delegates (no DICE deps) to verify it terminates before
+            // we make the recursive DICE call.
+            verify_no_symlink_cycle(ctx, &self.0, target).await?;
+
+            let at = at.as_ref();
+            // If the symlink is an ancestor directory (at != requested path),
+            // track it via PathMetadataKey. The file watcher will dirty
+            // PathMetadataKey(at) when the symlink is retargeted, cascading
+            // here.
+            //
+            // For leaf symlinks (at == self.0), the file watcher already
+            // dirties ReadFileKey(self.0) directly, so no extra dep needed —
+            // and adding one would cycle through PathMetadataKey.
+            if at != self.0.as_ref() {
+                ctx.compute(&PathMetadataKey(at.to_owned())).await??;
+            }
+            // Follow the symlink to the real path. Chains are handled
+            // recursively since the target's compute also checks.
+            return ctx.compute(&ReadFileKey(target.dupe())).await?;
+        }
+
+        // RawSymlink::External falls straight through to here
+        file_ops.read_file_if_exists(ctx, self.0.path()).await
     }
 
     fn equality(_: &Self::Value, _: &Self::Value) -> bool {
@@ -449,5 +593,677 @@ async fn read_dir_ext(
             Some(e) => Err(e),
             None => Err(e.into()),
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeMap;
+
+    use buck2_core::cells::cell_path::CellPath;
+    use buck2_core::cells::name::CellName;
+    use dice::UserComputationData;
+    use dice::testing::DiceBuilder;
+
+    use super::*;
+    use crate::file_ops::testing::TestFileOps;
+
+    fn cell() -> CellName {
+        CellName::testing_new("cell")
+    }
+
+    fn cell_path(p: &str) -> CellPath {
+        CellPath::testing_new(&format!("cell//{p}"))
+    }
+
+    async fn build_dice(file_ops: &TestFileOps) -> dice::DiceTransaction {
+        file_ops
+            .mock_in_cell(cell(), DiceBuilder::new())
+            .build(UserComputationData::new())
+            .unwrap()
+            .commit()
+            .await
+    }
+
+    #[tokio::test]
+    async fn read_file_through_leaf_symlink() {
+        let file_ops = TestFileOps::new_with_files_and_symlinks(
+            BTreeMap::from([(cell_path("target.txt"), "hello".to_owned())]),
+            vec![(cell_path("link.txt"), cell_path("target.txt"))],
+        );
+        let mut ctx = build_dice(&file_ops).await;
+        let content =
+            DiceFileComputations::read_file_if_exists(&mut ctx, cell_path("link.txt").as_ref())
+                .await
+                .unwrap();
+        assert_eq!(content.as_deref(), Some("hello"));
+    }
+
+    #[tokio::test]
+    async fn read_file_through_symlink_to_nonexistent_then_retarget() {
+        let file_ops = TestFileOps::new_with_files_and_symlinks(
+            BTreeMap::new(),
+            vec![(cell_path("link.txt"), cell_path("gone.txt"))],
+        );
+        let mut ctx = build_dice(&file_ops).await;
+        let content =
+            DiceFileComputations::read_file_if_exists(&mut ctx, cell_path("link.txt").as_ref())
+                .await
+                .unwrap();
+        assert_eq!(content, None);
+
+        // Retarget link.txt to a file that exists.
+        // In real life, that's `ln -sf real.txt link.txt`.
+        file_ops.replace_live(&TestFileOps::new_with_files_and_symlinks(
+            BTreeMap::from([(cell_path("real.txt"), "hello".to_owned())]),
+            vec![(cell_path("link.txt"), cell_path("real.txt"))],
+        ));
+
+        let mut ctx = dirty_and_commit(ctx, |t| {
+            t.file_contents_changed(cell_path("link.txt"));
+        })
+        .await;
+        let content =
+            DiceFileComputations::read_file_if_exists(&mut ctx, cell_path("link.txt").as_ref())
+                .await
+                .unwrap();
+        assert_eq!(content.as_deref(), Some("hello"));
+    }
+
+    #[tokio::test]
+    async fn read_file_through_directory_symlink() {
+        // a -> b (directory symlink), read a/e.txt which resolves to b/e.txt
+        let file_ops = TestFileOps::new_with_files_and_symlinks(
+            BTreeMap::from([(cell_path("b/e.txt"), "world".to_owned())]),
+            vec![(cell_path("a"), cell_path("b"))],
+        );
+        let mut ctx = build_dice(&file_ops).await;
+        let content =
+            DiceFileComputations::read_file_if_exists(&mut ctx, cell_path("a/e.txt").as_ref())
+                .await
+                .unwrap();
+        assert_eq!(content.as_deref(), Some("world"));
+    }
+
+    /// Tests chained relative directory symlinks:
+    ///   a -> b, b/c -> ../d
+    /// Reading a/c/e.txt resolves:
+    ///   a/c/e.txt → (a is symlink) → b/c/e.txt → (b/c is symlink to ../d = d) → d/e.txt
+    ///
+    /// DICE dep graph:
+    ///   ReadFileKey(a/c/e.txt)
+    ///     ├─ PathMetadataKey(a)        ← tracks the a symlink
+    ///     └─ ReadFileKey(b/c/e.txt)
+    ///          ├─ PathMetadataKey(b/c)  ← tracks the b/c symlink
+    ///          └─ ReadFileKey(d/e.txt)  ← the real file
+    #[tokio::test]
+    async fn read_file_through_chained_directory_symlinks() {
+        let file_ops = TestFileOps::new_with_files_and_symlinks(
+            BTreeMap::from([(cell_path("d/e.txt"), "chained".to_owned())]),
+            vec![
+                (cell_path("a"), cell_path("b")),
+                (cell_path("b/c"), cell_path("d")),
+            ],
+        );
+        let mut ctx = build_dice(&file_ops).await;
+        let content =
+            DiceFileComputations::read_file_if_exists(&mut ctx, cell_path("a/c/e.txt").as_ref())
+                .await
+                .unwrap();
+        assert_eq!(content.as_deref(), Some("chained"));
+    }
+
+    /// Helper: dirty specific keys via FileChangeTracker and commit a new transaction.
+    async fn dirty_and_commit(
+        ctx: dice::DiceTransaction,
+        dirty: impl FnOnce(&mut FileChangeTracker),
+    ) -> dice::DiceTransaction {
+        let mut updater = ctx.into_updater();
+        let mut tracker = FileChangeTracker::new();
+        dirty(&mut tracker);
+        tracker.write_to_dice(&mut updater).unwrap();
+        updater.commit().await
+    }
+
+    #[tokio::test]
+    async fn dirty_target_invalidates_leaf_symlink() {
+        let file_ops = TestFileOps::new_with_files_and_symlinks(
+            BTreeMap::from([(cell_path("target.txt"), "v1".to_owned())]),
+            vec![(cell_path("link.txt"), cell_path("target.txt"))],
+        );
+        let mut ctx = build_dice(&file_ops).await;
+
+        let content =
+            DiceFileComputations::read_file_if_exists(&mut ctx, cell_path("link.txt").as_ref())
+                .await
+                .unwrap();
+        assert_eq!(content.as_deref(), Some("v1"));
+
+        file_ops.set_file_content(&cell_path("target.txt"), "v2");
+
+        // No-op transaction: nothing dirtied → cached proxy returns old content.
+        let mut ctx = dirty_and_commit(ctx, |_| {}).await;
+        let content =
+            DiceFileComputations::read_file_if_exists(&mut ctx, cell_path("link.txt").as_ref())
+                .await
+                .unwrap();
+        assert_eq!(content.as_deref(), Some("v1"), "should still be cached");
+
+        // File watcher: target.txt changed → recomputes, picks up new content.
+        let mut ctx = dirty_and_commit(ctx, |t| {
+            t.file_contents_changed(cell_path("target.txt"));
+        })
+        .await;
+        let content =
+            DiceFileComputations::read_file_if_exists(&mut ctx, cell_path("link.txt").as_ref())
+                .await
+                .unwrap();
+        assert_eq!(
+            content.as_deref(),
+            Some("v2"),
+            "should see new content after dirtying target"
+        );
+    }
+
+    /// Retarget a leaf symlink: link.txt changes from target.txt to other.txt.
+    /// The file watcher dirties ReadFileKey(link.txt) directly (not via
+    /// PathMetadataKey), exercising the at == self.0 branch in ReadFileKey::compute.
+    #[tokio::test]
+    async fn retarget_leaf_symlink_invalidates_read() {
+        let file_ops = TestFileOps::new_with_files_and_symlinks(
+            BTreeMap::from([(cell_path("target.txt"), "v1".to_owned())]),
+            vec![(cell_path("link.txt"), cell_path("target.txt"))],
+        );
+        let mut ctx = build_dice(&file_ops).await;
+
+        let content =
+            DiceFileComputations::read_file_if_exists(&mut ctx, cell_path("link.txt").as_ref())
+                .await
+                .unwrap();
+        assert_eq!(content.as_deref(), Some("v1"));
+
+        // Retarget link.txt -> other.txt
+        file_ops.replace_live(&TestFileOps::new_with_files_and_symlinks(
+            BTreeMap::from([(cell_path("other.txt"), "v2".to_owned())]),
+            vec![(cell_path("link.txt"), cell_path("other.txt"))],
+        ));
+
+        // File watcher reports link.txt changed → dirties ReadFileKey(link.txt)
+        let mut ctx = dirty_and_commit(ctx, |t| {
+            t.file_contents_changed(cell_path("link.txt"));
+        })
+        .await;
+        let content =
+            DiceFileComputations::read_file_if_exists(&mut ctx, cell_path("link.txt").as_ref())
+                .await
+                .unwrap();
+        assert_eq!(
+            content.as_deref(),
+            Some("v2"),
+            "should see new content after retargeting leaf symlink"
+        );
+    }
+
+    #[tokio::test]
+    async fn dirty_real_path_invalidates_through_directory_symlink() {
+        // a -> b, reading a/e.txt (really b/e.txt)
+        let file_ops = TestFileOps::new_with_files_and_symlinks(
+            BTreeMap::from([(cell_path("b/e.txt"), "v1".to_owned())]),
+            vec![(cell_path("a"), cell_path("b"))],
+        );
+        let mut ctx = build_dice(&file_ops).await;
+
+        let content =
+            DiceFileComputations::read_file_if_exists(&mut ctx, cell_path("a/e.txt").as_ref())
+                .await
+                .unwrap();
+        assert_eq!(content.as_deref(), Some("v1"));
+
+        file_ops.set_file_content(&cell_path("b/e.txt"), "v2");
+
+        // No-op: nothing dirty → cached
+        let mut ctx = dirty_and_commit(ctx, |_| {}).await;
+        let content =
+            DiceFileComputations::read_file_if_exists(&mut ctx, cell_path("a/e.txt").as_ref())
+                .await
+                .unwrap();
+        assert_eq!(content.as_deref(), Some("v1"), "should still be cached");
+
+        // Dirty the real path b/e.txt → recomputes a/e.txt with new content
+        let mut ctx = dirty_and_commit(ctx, |t| {
+            t.file_contents_changed(cell_path("b/e.txt"));
+        })
+        .await;
+        let content =
+            DiceFileComputations::read_file_if_exists(&mut ctx, cell_path("a/e.txt").as_ref())
+                .await
+                .unwrap();
+        assert_eq!(
+            content.as_deref(),
+            Some("v2"),
+            "should see new content after dirtying real path b/e.txt"
+        );
+    }
+
+    #[tokio::test]
+    async fn retarget_ancestor_symlink_invalidates_read() {
+        // a -> b, reading a/e.txt (resolves to b/e.txt)
+        let file_ops = TestFileOps::new_with_files_and_symlinks(
+            BTreeMap::from([(cell_path("b/e.txt"), "v1".to_owned())]),
+            vec![(cell_path("a"), cell_path("b"))],
+        );
+        let mut ctx = build_dice(&file_ops).await;
+
+        let content =
+            DiceFileComputations::read_file_if_exists(&mut ctx, cell_path("a/e.txt").as_ref())
+                .await
+                .unwrap();
+        assert_eq!(content.as_deref(), Some("v1"));
+
+        // Retarget a -> c, with c/e.txt = "v2"
+        file_ops.replace_live(&TestFileOps::new_with_files_and_symlinks(
+            BTreeMap::from([(cell_path("c/e.txt"), "v2".to_owned())]),
+            vec![(cell_path("a"), cell_path("c"))],
+        ));
+
+        // File watcher reports `a` symlink retargeted →
+        // PathMetadataKey(a) dirty → ReadFileKey(a/e.txt) recomputes →
+        // now resolves to c/e.txt
+        let mut ctx = dirty_and_commit(ctx, |t| {
+            t.file_contents_changed(cell_path("a"));
+        })
+        .await;
+        let content =
+            DiceFileComputations::read_file_if_exists(&mut ctx, cell_path("a/e.txt").as_ref())
+                .await
+                .unwrap();
+        assert_eq!(
+            content.as_deref(),
+            Some("v2"),
+            "should see new content after retargeting ancestor symlink"
+        );
+    }
+
+    /// a -> b, b/c -> ../d, reading a/c/e.txt (resolves to d/e.txt)
+    /// Dirty the real file d/e.txt and verify it cascades through both hops.
+    #[tokio::test]
+    async fn dirty_real_path_invalidates_through_chained_symlinks() {
+        let file_ops = TestFileOps::new_with_files_and_symlinks(
+            BTreeMap::from([(cell_path("d/e.txt"), "v1".to_owned())]),
+            vec![
+                (cell_path("a"), cell_path("b")),
+                (cell_path("b/c"), cell_path("d")),
+            ],
+        );
+        let mut ctx = build_dice(&file_ops).await;
+
+        let content =
+            DiceFileComputations::read_file_if_exists(&mut ctx, cell_path("a/c/e.txt").as_ref())
+                .await
+                .unwrap();
+        assert_eq!(content.as_deref(), Some("v1"));
+
+        file_ops.set_file_content(&cell_path("d/e.txt"), "v2");
+
+        // No-op → cached
+        let mut ctx = dirty_and_commit(ctx, |_| {}).await;
+        let content =
+            DiceFileComputations::read_file_if_exists(&mut ctx, cell_path("a/c/e.txt").as_ref())
+                .await
+                .unwrap();
+        assert_eq!(content.as_deref(), Some("v1"), "should still be cached");
+
+        // Dirty d/e.txt → cascades through b/c/e.txt → a/c/e.txt
+        let mut ctx = dirty_and_commit(ctx, |t| {
+            t.file_contents_changed(cell_path("d/e.txt"));
+        })
+        .await;
+        let content =
+            DiceFileComputations::read_file_if_exists(&mut ctx, cell_path("a/c/e.txt").as_ref())
+                .await
+                .unwrap();
+        assert_eq!(
+            content.as_deref(),
+            Some("v2"),
+            "should see new content after dirtying real path d/e.txt"
+        );
+    }
+
+    /// a -> b, b/c -> ../d, reading a/c/e.txt (resolves to d/e.txt)
+    /// Retarget b/c from ../d to ../f, with f/e.txt = "v2".
+    #[tokio::test]
+    async fn retarget_intermediate_symlink_invalidates_through_chain() {
+        let file_ops = TestFileOps::new_with_files_and_symlinks(
+            BTreeMap::from([(cell_path("d/e.txt"), "v1".to_owned())]),
+            vec![
+                (cell_path("a"), cell_path("b")),
+                (cell_path("b/c"), cell_path("d")),
+            ],
+        );
+        let mut ctx = build_dice(&file_ops).await;
+
+        let content =
+            DiceFileComputations::read_file_if_exists(&mut ctx, cell_path("a/c/e.txt").as_ref())
+                .await
+                .unwrap();
+        assert_eq!(content.as_deref(), Some("v1"));
+
+        // Retarget b/c -> ../f, with f/e.txt = "v2"
+        file_ops.replace_live(&TestFileOps::new_with_files_and_symlinks(
+            BTreeMap::from([(cell_path("f/e.txt"), "v2".to_owned())]),
+            vec![
+                (cell_path("a"), cell_path("b")),
+                (cell_path("b/c"), cell_path("f")),
+            ],
+        ));
+
+        // Dirty b/c → cascades through a/c/e.txt
+        let mut ctx = dirty_and_commit(ctx, |t| {
+            t.file_contents_changed(cell_path("b/c"));
+        })
+        .await;
+        let content =
+            DiceFileComputations::read_file_if_exists(&mut ctx, cell_path("a/c/e.txt").as_ref())
+                .await
+                .unwrap();
+        assert_eq!(
+            content.as_deref(),
+            Some("v2"),
+            "should see new content after retargeting intermediate symlink b/c"
+        );
+    }
+
+    // ---- Cross-cell helpers ----
+
+    fn other_cell() -> CellName {
+        CellName::testing_new("other")
+    }
+
+    fn other_cell_path(p: &str) -> CellPath {
+        CellPath::testing_new(&format!("other//{p}"))
+    }
+
+    async fn build_dice_two_cells(
+        cell_ops: &TestFileOps,
+        other_ops: &TestFileOps,
+    ) -> dice::DiceTransaction {
+        let builder = cell_ops.mock_in_cell(cell(), DiceBuilder::new());
+        let builder = other_ops.mock_in_cell(other_cell(), builder);
+        builder
+            .build(UserComputationData::new())
+            .unwrap()
+            .commit()
+            .await
+    }
+
+    /// Leaf symlink in one cell pointing to a file in another cell.
+    /// cell//link.txt → other//target.txt
+    #[tokio::test]
+    async fn read_file_through_cross_cell_leaf_symlink() {
+        let cell_ops = TestFileOps::new_with_files_and_symlinks(
+            BTreeMap::new(),
+            vec![(cell_path("link.txt"), other_cell_path("target.txt"))],
+        );
+        let other_ops = TestFileOps::new_with_files(BTreeMap::from([(
+            other_cell_path("target.txt"),
+            "cross-cell".to_owned(),
+        )]));
+        let mut ctx = build_dice_two_cells(&cell_ops, &other_ops).await;
+
+        let content =
+            DiceFileComputations::read_file_if_exists(&mut ctx, cell_path("link.txt").as_ref())
+                .await
+                .unwrap();
+        assert_eq!(content.as_deref(), Some("cross-cell"));
+    }
+
+    /// Dirty the target file in another cell; verify invalidation cascades
+    /// back through the cross-cell symlink.
+    #[tokio::test]
+    async fn dirty_target_invalidates_cross_cell_leaf_symlink() {
+        let cell_ops = TestFileOps::new_with_files_and_symlinks(
+            BTreeMap::new(),
+            vec![(cell_path("link.txt"), other_cell_path("target.txt"))],
+        );
+        let other_ops = TestFileOps::new_with_files(BTreeMap::from([(
+            other_cell_path("target.txt"),
+            "v1".to_owned(),
+        )]));
+        let mut ctx = build_dice_two_cells(&cell_ops, &other_ops).await;
+
+        let content =
+            DiceFileComputations::read_file_if_exists(&mut ctx, cell_path("link.txt").as_ref())
+                .await
+                .unwrap();
+        assert_eq!(content.as_deref(), Some("v1"));
+
+        other_ops.set_file_content(&other_cell_path("target.txt"), "v2");
+
+        let mut ctx = dirty_and_commit(ctx, |t| {
+            t.file_contents_changed(other_cell_path("target.txt"));
+        })
+        .await;
+        let content =
+            DiceFileComputations::read_file_if_exists(&mut ctx, cell_path("link.txt").as_ref())
+                .await
+                .unwrap();
+        assert_eq!(
+            content.as_deref(),
+            Some("v2"),
+            "should see new content after dirtying cross-cell target"
+        );
+    }
+
+    /// Directory symlink crossing cells: cell//a → other//b, read cell//a/e.txt.
+    #[tokio::test]
+    async fn read_file_through_cross_cell_directory_symlink() {
+        let cell_ops = TestFileOps::new_with_files_and_symlinks(
+            BTreeMap::new(),
+            vec![(cell_path("a"), other_cell_path("b"))],
+        );
+        let other_ops = TestFileOps::new_with_files(BTreeMap::from([(
+            other_cell_path("b/e.txt"),
+            "remote-dir".to_owned(),
+        )]));
+        let mut ctx = build_dice_two_cells(&cell_ops, &other_ops).await;
+
+        let content =
+            DiceFileComputations::read_file_if_exists(&mut ctx, cell_path("a/e.txt").as_ref())
+                .await
+                .unwrap();
+        assert_eq!(content.as_deref(), Some("remote-dir"));
+    }
+
+    /// External symlinks (pointing outside the project root) are not
+    /// DICE-tracked. ReadFileKey falls through to the delegate, which
+    /// reads the content directly.
+    ///
+    /// We will then get stale reads.
+    #[tokio::test]
+    async fn external_symlink_falls_through_to_delegate() {
+        use std::path::PathBuf;
+
+        use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
+
+        use crate::external_symlink::ExternalSymlink;
+
+        let symlink = Arc::new(
+            ExternalSymlink::new(
+                PathBuf::from("/outside/project"),
+                ForwardRelativePathBuf::empty(),
+            )
+            .unwrap(),
+        );
+        let file_ops = TestFileOps::new_with_symlinks_and_external_content(BTreeMap::from([(
+            cell_path("ext_link"),
+            (symlink, "external-content".to_owned()),
+        )]));
+        let mut ctx = build_dice(&file_ops).await;
+
+        let content =
+            DiceFileComputations::read_file_if_exists(&mut ctx, cell_path("ext_link").as_ref())
+                .await
+                .unwrap();
+        assert_eq!(content.as_deref(), Some("external-content"));
+
+        // The external target changes, but the file watcher has no visibility
+        // into paths outside the project — nothing gets dirtied.
+        file_ops.set_external_symlink_content(&cell_path("ext_link"), "updated-external");
+
+        let mut ctx = dirty_and_commit(ctx, |_| {}).await;
+        let content =
+            DiceFileComputations::read_file_if_exists(&mut ctx, cell_path("ext_link").as_ref())
+                .await
+                .unwrap();
+        assert_eq!(
+            content.as_deref(),
+            Some("external-content"),
+            "stale: DICE has no dep on the external target, so the cached proxy returns old content"
+        );
+    }
+
+    /// a -> b -> a: DICE detects the cycle and returns an error.
+    #[tokio::test]
+    async fn recursive_leaf_symlink_returns_error() {
+        let file_ops = TestFileOps::new_with_files_and_symlinks(
+            BTreeMap::new(),
+            vec![
+                (cell_path("a"), cell_path("b")),
+                (cell_path("b"), cell_path("a")),
+            ],
+        );
+        let mut ctx = build_dice(&file_ops).await;
+
+        let err = DiceFileComputations::read_file_if_exists(&mut ctx, cell_path("a").as_ref())
+            .await
+            .expect_err("symlink cycle should produce an error")
+            .to_string();
+        assert!(
+            err.contains("overlaps"),
+            "must be detected by overlap check, not the 40-hop limit: {err}"
+        );
+    }
+
+    /// Case ii: infinite expansion via descendant.
+    /// a/b -> c/d (leaf), c -> a/b (directory).
+    /// Reading a/b: a/b → c/d → (c resolves to a/b) a/b/d → c/d/d → a/b/d/d → ...
+    /// The path grows by /d each hop. Detected because a/b/d is a
+    /// descendant of the previously visited a/b.
+    #[tokio::test]
+    async fn recursive_via_descendant_returns_error() {
+        let file_ops = TestFileOps::new_with_files_and_symlinks(
+            BTreeMap::new(),
+            vec![
+                (cell_path("a/b"), cell_path("c/d")),
+                (cell_path("c"), cell_path("a/b")),
+            ],
+        );
+        let mut ctx = build_dice(&file_ops).await;
+
+        let err = DiceFileComputations::read_file_if_exists(&mut ctx, cell_path("a/b").as_ref())
+            .await
+            .expect_err("symlink expansion via descendant should produce an error")
+            .to_string();
+        assert!(
+            err.contains("overlaps"),
+            "must be detected by overlap check, not the 40-hop limit: {err}"
+        );
+    }
+
+    /// Case iii: resolution to ancestor.
+    /// p -> a/b/c (leaf), a/b/c -> d/e (leaf), d/e -> a (leaf).
+    /// We visit a/b/c, then d/e, then a — an ancestor of a/b/c.
+    /// Although a is a directory and the chain would terminate naturally,
+    /// we reject it as a suspect resolution. Trying to glob inside
+    /// of such a directory would expand forever, for example.
+    #[tokio::test]
+    async fn symlink_resolution_to_ancestor_returns_error() {
+        let file_ops = TestFileOps::new_with_files_and_symlinks(
+            BTreeMap::new(),
+            vec![
+                (cell_path("p"), cell_path("a/b/c")),
+                (cell_path("a/b/c"), cell_path("d/e")),
+                (cell_path("d/e"), cell_path("a")),
+            ],
+        );
+        let mut ctx = build_dice(&file_ops).await;
+
+        let err = DiceFileComputations::read_file_if_exists(&mut ctx, cell_path("p").as_ref())
+            .await
+            .expect_err("symlink resolution to ancestor should produce an error")
+            .to_string();
+        assert!(
+            err.contains("overlaps"),
+            "must be detected by overlap check, not the 40-hop limit: {err}"
+        );
+    }
+
+    /// Detects use of naive String ordering by paths in set of visited
+    /// symlink resolutions.
+    #[tokio::test]
+    async fn ancestor_detection_not_foiled_by_interleaving_path() {
+        let file_ops = TestFileOps::new_with_files_and_symlinks(
+            BTreeMap::new(),
+            vec![
+                (cell_path("p"), cell_path("a/b/c")),
+                (cell_path("a/b/c"), cell_path("a-z")),
+                (cell_path("a-z"), cell_path("a")),
+            ],
+        );
+        let mut ctx = build_dice(&file_ops).await;
+
+        let result =
+            DiceFileComputations::read_file_if_exists(&mut ctx, cell_path("p").as_ref()).await;
+        let err = result
+            .expect_err("Should have found symlink cycle")
+            .to_string();
+        assert!(
+            err.contains("overlaps"),
+            "must be detected by overlap check, not the 40-hop limit: {err}"
+        );
+    }
+
+    /// a -> b, b/c -> ../d, reading a/c/e.txt
+    /// Retarget a from b to g (where g/c -> ../h, h/e.txt = "v2").
+    #[tokio::test]
+    async fn retarget_outermost_symlink_invalidates_through_chain() {
+        let file_ops = TestFileOps::new_with_files_and_symlinks(
+            BTreeMap::from([(cell_path("d/e.txt"), "v1".to_owned())]),
+            vec![
+                (cell_path("a"), cell_path("b")),
+                (cell_path("b/c"), cell_path("d")),
+            ],
+        );
+        let mut ctx = build_dice(&file_ops).await;
+
+        let content =
+            DiceFileComputations::read_file_if_exists(&mut ctx, cell_path("a/c/e.txt").as_ref())
+                .await
+                .unwrap();
+        assert_eq!(content.as_deref(), Some("v1"));
+
+        // Retarget a -> g, with g/c -> ../h, h/e.txt = "v2"
+        file_ops.replace_live(&TestFileOps::new_with_files_and_symlinks(
+            BTreeMap::from([(cell_path("h/e.txt"), "v2".to_owned())]),
+            vec![
+                (cell_path("a"), cell_path("g")),
+                (cell_path("g/c"), cell_path("h")),
+            ],
+        ));
+
+        // Dirty `a` → ReadFileKey(a/c/e.txt) recomputes entire chain
+        let mut ctx = dirty_and_commit(ctx, |t| {
+            t.file_contents_changed(cell_path("a"));
+        })
+        .await;
+        let content =
+            DiceFileComputations::read_file_if_exists(&mut ctx, cell_path("a/c/e.txt").as_ref())
+                .await
+                .unwrap();
+        assert_eq!(
+            content.as_deref(),
+            Some("v2"),
+            "should see new content after retargeting outermost symlink a"
+        );
     }
 }
