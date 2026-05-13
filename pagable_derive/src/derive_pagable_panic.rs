@@ -9,12 +9,11 @@
  */
 
 use proc_macro2::Span;
-use quote::quote_spanned;
+use quote::quote;
 use syn::DeriveInput;
 use syn::GenericParam;
 use syn::Lifetime;
 use syn::LifetimeParam;
-use syn::spanned::Spanned;
 
 pub(crate) fn derive_pagable_panic(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     match derive_pagable_panic_impl(input.into()) {
@@ -40,7 +39,7 @@ fn derive_pagable_panic_impl(
 
     let (de_impl_generics, _, _) = generics_for_de.split_for_impl();
 
-    let serialize_body = quote_spanned! {input.span()=>
+    let serialize_body = quote! {
         #[allow(unused)]
         impl #ser_impl_generics pagable::PagableSerialize for #name #type_generics #where_clause {
                 fn pagable_serialize(&self, serializer: &mut dyn pagable::PagableSerializer) -> pagable::__internal::anyhow::Result<()> {
@@ -49,7 +48,7 @@ fn derive_pagable_panic_impl(
         }
     };
 
-    let deserialize_body = quote_spanned! {input.span()=>
+    let deserialize_body = quote! {
         #[allow(unused)]
         impl #de_impl_generics pagable::PagableDeserialize<'de> for #name #type_generics #where_clause {
             fn pagable_deserialize<De: pagable::PagableDeserializer<'de> + ?Sized>(deserializer: &mut De) -> pagable::Result<Self> {
@@ -58,7 +57,7 @@ fn derive_pagable_panic_impl(
         }
     };
 
-    Ok(quote_spanned! {input.span()=>
+    Ok(quote! {
         #serialize_body
         #deserialize_body
     })
