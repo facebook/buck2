@@ -82,7 +82,7 @@ async fn log_upload_impl(
     session_id: String,
     isolation_dir: FileNameBuf,
 ) -> buck2_error::Result<()> {
-    if !should_upload_log()? {
+    if buck2_core::is_open_source() || !should_upload_log()? {
         return Ok(());
     }
 

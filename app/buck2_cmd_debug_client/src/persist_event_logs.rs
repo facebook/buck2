@@ -18,6 +18,7 @@ use buck2_common::chunk_reader::ChunkReader;
 use buck2_common::manifold;
 use buck2_common::manifold::ManifoldChunkedUploader;
 use buck2_common::manifold::ManifoldClient;
+use buck2_common::upload_client::HttpUploadClient;
 use buck2_core::soft_error;
 use buck2_data::InstantEvent;
 use buck2_data::PersistEventLogSubprocess;
@@ -63,6 +64,11 @@ pub struct PersistEventLogsCommand {
     local_path: String,
     #[clap(long, help = "If present, only write to disk and don't upload")]
     no_upload: bool,
+    #[clap(
+        long,
+        help = "If present, also upload the log to this HTTP endpoint"
+    )]
+    log_upload_url: Option<String>,
     #[clap(
         long,
         help = "UUID of invocation that called this subcommand for logging purposes"
@@ -122,7 +128,7 @@ impl PersistEventLogsCommand {
             }
         };
         let write = write_task(&file, tx, stdin);
-        let upload = upload_task(&file, rx, self.manifold_name, self.no_upload);
+        let upload = upload_task(&file, rx, self.manifold_name, self.log_upload_url, self.no_upload);
 
         // Wait for both tasks to finish. If the upload fails we want to keep writing to disk
         let (write_result, upload_result) = tokio::join!(write, upload);
@@ -175,6 +181,7 @@ async fn upload_task(
     file_mutex: &Mutex<File>,
     mut rx: tokio::sync::mpsc::UnboundedReceiver<u64>,
     manifold_name: String,
+    log_upload_url: Option<String>,
     no_upload: bool,
 ) -> buck2_error::Result<()> {
     if no_upload {
@@ -217,6 +224,21 @@ async fn upload_task(
 
     // Last chunk to upload is smaller than &reader
     uploader.upload_chunk().await?;
+
+    if let Some(url) = log_upload_url {
+        let mut file = file_mutex.lock().await;
+        file.seek(io::SeekFrom::Start(0))
+            .await
+            .buck_error_context("Failed to seek log file")?;
+        let mut buf = Vec::new();
+        file.read_to_end(&mut buf)
+            .await
+            .buck_error_context("Failed to read log file")?;
+        drop(file);
+
+        let client = HttpUploadClient::new(url).await?;
+        client.write(&manifold_name, buf.into()).await?;
+    }
 
     Ok(())
 }

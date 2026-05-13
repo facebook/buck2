@@ -525,6 +525,7 @@ pub struct DaemonStartupConfig {
     pub log_download_method: LogDownloadMethod,
     pub health_check_config: HealthCheckConfig,
     pub retained_event_logs: usize,
+    pub log_upload_url: Option<String>,
     pub macos_qos_class: Option<String>,
     pub daemon_idle_timeout_s: Option<u64>,
 }
@@ -609,6 +610,12 @@ impl DaemonStartupConfig {
                 })
                 .and_then(|s| s.parse::<usize>().ok())
                 .unwrap_or(DEFAULT_RETAINED_EVENT_LOGS),
+            log_upload_url: config
+                .get(BuckconfigKeyRef {
+                    section: "buck2",
+                    property: "log_upload_url",
+                })
+                .map(ToOwned::to_owned),
             macos_qos_class: {
                 let from_config = config
                     .get(BuckconfigKeyRef {
@@ -667,6 +674,7 @@ impl DaemonStartupConfig {
             },
             health_check_config: HealthCheckConfig::default(),
             retained_event_logs: DEFAULT_RETAINED_EVENT_LOGS,
+            log_upload_url: None,
             macos_qos_class: None,
             daemon_idle_timeout_s: None,
         }
