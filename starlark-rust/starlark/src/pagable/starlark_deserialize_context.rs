@@ -300,16 +300,10 @@ impl<'a, 'de> StarlarkDeserializerImpl<'a, 'de> {
         current_heap_id: HeapRefId,
         current_heap_deser_state: Arc<Mutex<HeapDeserializationState>>,
     ) -> Self {
-        {
-            let mut ctx = pagable
-                .session_context()
-                .lock()
-                .expect("session context lock poisoned");
-            ctx.set(CurrentHeapDeserState {
-                heap_id: current_heap_id,
-                deser_state: current_heap_deser_state.dupe(),
-            });
-        }
+        pagable.session_context().set(CurrentHeapDeserState {
+            heap_id: current_heap_id,
+            deser_state: current_heap_deser_state.dupe(),
+        });
         Self {
             pagable,
             state,
@@ -322,16 +316,9 @@ impl<'a, 'de> StarlarkDeserializerImpl<'a, 'de> {
     pub(crate) fn get_or_create_state(
         deserializer: &mut dyn PagableDeserializer<'_>,
     ) -> Arc<Mutex<StarlarkDeserState>> {
-        let mut ctx = deserializer
+        deserializer
             .session_context()
-            .lock()
-            .expect("session context lock poisoned");
-        if let Some(state) = ctx.get::<Arc<Mutex<StarlarkDeserState>>>() {
-            return state.dupe();
-        }
-        let state = Arc::new(Mutex::new(StarlarkDeserState::new()));
-        ctx.set(state.dupe());
-        state
+            .get_or_insert_with(|| Arc::new(Mutex::new(StarlarkDeserState::new())))
     }
 
     /// Read the currently-deserializing heap context (id + work queue) from
@@ -340,11 +327,9 @@ impl<'a, 'de> StarlarkDeserializerImpl<'a, 'de> {
     pub(crate) fn current_heap_deser_state_from_context(
         deserializer: &mut dyn PagableDeserializer<'_>,
     ) -> Option<CurrentHeapDeserState> {
-        let ctx = deserializer
+        deserializer
             .session_context()
-            .lock()
-            .expect("session context lock poisoned");
-        ctx.get::<CurrentHeapDeserState>().map(|c| c.dupe())
+            .get::<CurrentHeapDeserState>()
     }
 
     /// Lock and return the current heap's deserialization state. The guard

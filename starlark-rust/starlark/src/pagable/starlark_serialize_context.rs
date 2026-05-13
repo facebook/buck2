@@ -164,13 +164,9 @@ impl<'a> StarlarkSerializerImpl<'a> {
     pub(crate) fn get_or_create_state(
         serializer: &mut dyn PagableSerializer,
     ) -> Arc<Mutex<StarlarkSerState>> {
-        let ctx = serializer.session_context();
-        if let Some(state) = ctx.get::<Arc<Mutex<StarlarkSerState>>>() {
-            return state.clone();
-        }
-        let state = Arc::new(Mutex::new(StarlarkSerState::new()));
-        ctx.set(state.clone());
-        state
+        serializer
+            .session_context()
+            .get_or_insert_with(|| Arc::new(Mutex::new(StarlarkSerState::new())))
     }
 
     /// Read the currently-serializing heap id from the session context.

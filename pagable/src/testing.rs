@@ -35,7 +35,6 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::sync::Mutex;
 
 use postcard::ser_flavors::Flavor as _;
 use serde::Deserialize;
@@ -121,8 +120,8 @@ impl PagableSerializer for TestingSerializer {
         }
     }
 
-    fn session_context(&mut self) -> &mut SessionContext {
-        &mut self.session_context
+    fn session_context(&mut self) -> &SessionContext {
+        &self.session_context
     }
 }
 
@@ -206,19 +205,19 @@ impl<'de> PagableDeserializer<'de> for TestingDeserializer<'de> {
         self
     }
 
-    fn session_context(&self) -> &Mutex<SessionContext> {
+    fn session_context(&self) -> &SessionContext {
         self.storage.backing_storage().session_context()
     }
 }
 
 pub(crate) struct EmptyPagableStorage {
-    session_context: Mutex<SessionContext>,
+    session_context: SessionContext,
 }
 
 impl EmptyPagableStorage {
     pub(crate) fn new() -> Self {
         Self {
-            session_context: Mutex::new(SessionContext::new()),
+            session_context: SessionContext::new(),
         }
     }
 }
@@ -254,7 +253,7 @@ impl PagableStorage for EmptyPagableStorage {
         // no-op
     }
 
-    fn session_context(&self) -> &Mutex<SessionContext> {
+    fn session_context(&self) -> &SessionContext {
         &self.session_context
     }
 

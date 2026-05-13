@@ -39,7 +39,7 @@ pub struct SledBackedPagableStorage {
     db: sled::Db,
     arcs: DashMap<(TypeId, DataKey), Box<dyn ArcEraseDyn>>,
     pending: Mutex<SledPendingPageOut>,
-    session_context: Mutex<SessionContext>,
+    session_context: SessionContext,
 }
 
 /// Internal state for tracking pending paging operations.
@@ -59,7 +59,7 @@ impl SledBackedPagableStorage {
                 pending_messages: receiver,
                 pending: Vec::new(),
             }),
-            session_context: Mutex::new(SessionContext::new()),
+            session_context: SessionContext::new(),
         }
     }
 
@@ -82,7 +82,7 @@ impl SledBackedPagableStorage {
         &self,
         roots: Vec<Box<dyn ArcEraseDyn>>,
         finished: &mut HashMap<usize, DataKey>,
-        session_context: &mut SessionContext,
+        session_context: &SessionContext,
     ) {
         enum Task {
             Start(Box<dyn ArcEraseDyn>),
@@ -158,8 +158,7 @@ impl SledBackedPagableStorage {
             match item {
                 Some(v) if v.needs_paging_out() => {
                     let mut finished: HashMap<usize, DataKey> = HashMap::new();
-                    let mut session_context = self.session_context.lock().expect("lock poisoned");
-                    self.serialize_arcs(vec![v], &mut finished, &mut session_context);
+                    self.serialize_arcs(vec![v], &mut finished, &self.session_context);
                 }
                 Some(_) => continue,
                 None => break,
@@ -286,7 +285,7 @@ impl PagableStorage for SledBackedPagableStorage {
         drop(self.sender.send(arc));
     }
 
-    fn session_context(&self) -> &Mutex<SessionContext> {
+    fn session_context(&self) -> &SessionContext {
         &self.session_context
     }
 

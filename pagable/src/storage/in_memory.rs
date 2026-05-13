@@ -10,7 +10,6 @@
 
 use std::any::TypeId;
 use std::collections::HashMap;
-use std::sync::Mutex;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 
@@ -115,7 +114,7 @@ impl InMemoryPagableStorageCache {
 struct InMemoryPagableStorageHandle {
     sender: std::sync::mpsc::Sender<Box<dyn ArcEraseDyn>>,
     cache: InMemoryPagableStorageCache,
-    session_context: Mutex<SessionContext>,
+    session_context: SessionContext,
 }
 
 impl InMemoryPagableStorage {
@@ -127,7 +126,7 @@ impl InMemoryPagableStorage {
             handle: std::sync::Arc::new(InMemoryPagableStorageHandle {
                 sender,
                 cache: InMemoryPagableStorageCache::new(),
-                session_context: Mutex::new(SessionContext::new()),
+                session_context: SessionContext::new(),
             }),
             pending: InMemoryPagableStoragePendingPageOut {
                 pending_messages: receiver,
@@ -143,8 +142,8 @@ impl InMemoryPagableStorage {
 
     /// Access the session context for storing/retrieving layer-specific state.
     /// This context is passed to `SerializerForPaging` during `page_out_pending`.
-    pub fn session_context(&mut self) -> &mut SessionContext {
-        &mut self.session_context
+    pub fn session_context(&self) -> &SessionContext {
+        &self.session_context
     }
 
     /// Returns the number of arcs queued for paging but not yet serialized.
@@ -196,8 +195,7 @@ impl InMemoryPagableStorage {
                                 continue;
                             }
 
-                            let mut serializer =
-                                SerializerForPaging::new(&mut self.session_context);
+                            let mut serializer = SerializerForPaging::new(&self.session_context);
                             v.serialize(&mut serializer).unwrap();
                             let (data, arcs) = serializer.finish();
 
@@ -291,7 +289,7 @@ impl PagableStorage for InMemoryPagableStorageHandle {
         drop(self.sender.send(arc));
     }
 
-    fn session_context(&self) -> &Mutex<SessionContext> {
+    fn session_context(&self) -> &SessionContext {
         &self.session_context
     }
 

@@ -77,8 +77,8 @@ impl PagableSerializer for PagableSerializerImpl {
         }
     }
 
-    fn session_context(&mut self) -> &mut SessionContext {
-        &mut self.session_context
+    fn session_context(&mut self) -> &SessionContext {
+        &self.session_context
     }
 }
 
@@ -177,7 +177,7 @@ impl<'de, 's> PagableDeserializer<'de> for PagableDeserializerImpl<'de, 's> {
         self
     }
 
-    fn session_context(&self) -> &std::sync::Mutex<SessionContext> {
+    fn session_context(&self) -> &SessionContext {
         self.storage.backing_storage().session_context()
     }
 }

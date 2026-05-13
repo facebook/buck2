@@ -23,11 +23,11 @@ use crate::traits::SessionContext;
 pub struct SerializerForPaging<'a> {
     serde: postcard::Serializer<crate::flavors::PagableVecFlavor>,
     arcs: Vec<Box<dyn ArcEraseDyn>>,
-    session_context: &'a mut SessionContext,
+    session_context: &'a SessionContext,
 }
 
 impl<'a> SerializerForPaging<'a> {
-    pub fn new(session_context: &'a mut SessionContext) -> Self {
+    pub fn new(session_context: &'a SessionContext) -> Self {
         Self {
             serde: postcard::Serializer {
                 output: crate::flavors::PagableVecFlavor::new(),
@@ -62,7 +62,7 @@ impl PagableSerializer for SerializerForPaging<'_> {
         }
     }
 
-    fn session_context(&mut self) -> &mut SessionContext {
+    fn session_context(&mut self) -> &SessionContext {
         self.session_context
     }
 }

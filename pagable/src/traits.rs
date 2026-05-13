@@ -19,8 +19,8 @@
 
 use std::any::Any;
 use std::any::TypeId;
-use std::collections::HashMap;
-use std::sync::Mutex;
+
+use dashmap::DashMap;
 
 use crate::arc_erase::ArcEraseDyn;
 use crate::storage::handle::PagableStorageHandle;
@@ -32,9 +32,19 @@ use crate::storage::handle::PagableStorageHandle;
 /// A typed map that allows different layers to store and retrieve their own
 /// context data without coupling. Uses `TypeId` as key, so each type can
 /// store exactly one value.
-#[derive(Default)]
+///
+/// Thread-safe: backed by `DashMap` so multiple serializations can run
+/// concurrently without external locking.
 pub struct SessionContext {
-    map: HashMap<TypeId, Box<dyn Any + Send + Sync>>,
+    map: DashMap<TypeId, Box<dyn Any + Send + Sync>>,
+}
+
+impl Default for SessionContext {
+    fn default() -> Self {
+        Self {
+            map: DashMap::new(),
+        }
+    }
 }
 
 impl SessionContext {
@@ -43,18 +53,26 @@ impl SessionContext {
         Self::default()
     }
 
-    /// Get a reference to the stored value of type `T`.
-    pub fn get<T: Any + Send + Sync>(&self) -> Option<&T> {
-        self.map.get(&TypeId::of::<T>())?.downcast_ref()
+    /// Get a clone of the stored value of type `T`.
+    pub fn get<T: Any + Send + Sync + Clone>(&self) -> Option<T> {
+        self.map
+            .get(&TypeId::of::<T>())
+            .and_then(|r| r.downcast_ref::<T>().cloned())
     }
 
-    /// Get a mutable reference to the stored value of type `T`.
-    pub fn get_mut<T: Any + Send + Sync>(&mut self) -> Option<&mut T> {
-        self.map.get_mut(&TypeId::of::<T>())?.downcast_mut()
+    /// Get a clone of the stored value of type `T`, inserting the result of `f`
+    /// if no value is present. Uses `DashMap::entry` for atomicity.
+    pub fn get_or_insert_with<T: Any + Send + Sync + Clone>(&self, f: impl FnOnce() -> T) -> T {
+        self.map
+            .entry(TypeId::of::<T>())
+            .or_insert_with(|| Box::new(f()))
+            .downcast_ref::<T>()
+            .cloned()
+            .expect("downcast can't fail, type must be T")
     }
 
     /// Store a value of type `T`, replacing any previous value of the same type.
-    pub fn set<T: Any + Send + Sync>(&mut self, value: T) {
+    pub fn set<T: Any + Send + Sync>(&self, value: T) {
         self.map.insert(TypeId::of::<T>(), Box::new(value));
     }
 }
@@ -200,7 +218,7 @@ pub trait PagableSerializer {
     }
 
     /// Access the session context for storing/retrieving layer-specific state.
-    fn session_context(&mut self) -> &mut SessionContext;
+    fn session_context(&mut self) -> &SessionContext;
 }
 
 static_assertions::assert_obj_safe!(PagableSerializer);
@@ -258,7 +276,7 @@ pub trait PagableDeserializer<'de> {
     fn as_dyn(&mut self) -> &mut dyn PagableDeserializer<'de>;
 
     /// Access the session context for storing/retrieving layer-specific state.
-    fn session_context(&self) -> &Mutex<SessionContext>;
+    fn session_context(&self) -> &SessionContext;
 }
 
 static_assertions::assert_obj_safe!(PagableDeserializer<'_>);
@@ -294,7 +312,7 @@ impl<'de, D: PagableDeserializer<'de> + ?Sized> PagableDeserializer<'de> for &mu
         self
     }
 
-    fn session_context(&self) -> &Mutex<SessionContext> {
+    fn session_context(&self) -> &SessionContext {
         <D as PagableDeserializer<'de>>::session_context(self)
     }
 }

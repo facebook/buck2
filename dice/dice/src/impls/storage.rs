@@ -78,8 +78,8 @@ impl DiceStorage {
         // Lock session_context, build a serializer, serialize the value, then call
         // `page_out_item` while still holding the lock — `page_out_item` reuses the
         // same `&mut SessionContext` to recursively serialize nested arcs.
-        let mut session_context = self.storage.session_context().lock().unwrap();
-        let mut serializer = SerializerForPaging::new(&mut session_context);
+        let session_context = self.storage.session_context();
+        let mut serializer = SerializerForPaging::new(session_context);
         let serialize_result = match key_dyn {
             DiceKeyErased::Key(k) => k.pagable_serialize_value(value.as_dyn(), &mut serializer),
             DiceKeyErased::Projection(p) => p
@@ -95,7 +95,7 @@ impl DiceStorage {
                     data,
                     arcs,
                     cache,
-                    &mut session_context,
+                    session_context,
                 )))
             }
         }

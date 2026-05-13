@@ -10,7 +10,6 @@
 
 use std::any::TypeId;
 use std::collections::HashMap;
-use std::sync::Mutex;
 
 use either::Either;
 
@@ -69,7 +68,7 @@ pub trait PagableStorage: Send + Sync + 'static {
 
     /// Access the session context for storing/retrieving layer-specific state
     /// during serialization and deserialization.
-    fn session_context(&self) -> &Mutex<SessionContext>;
+    fn session_context(&self) -> &SessionContext;
 
     /// Stores a single content-addressable [`PagableData`] blob and returns its
     /// [`DataKey`]. The key is derived from the data via
@@ -94,7 +93,7 @@ pub trait PagableStorage: Send + Sync + 'static {
         item_data: Vec<u8>,
         item_arcs: Vec<Box<dyn ArcEraseDyn>>,
         finished: &mut HashMap<usize, DataKey>,
-        session_context: &mut SessionContext,
+        session_context: &SessionContext,
     ) -> DataKey {
         enum Task {
             Start(Box<dyn ArcEraseDyn>),
