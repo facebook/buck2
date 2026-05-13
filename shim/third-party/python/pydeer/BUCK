@@ -1,0 +1,31 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under both the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree and the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree.
+
+oncall("open_source")
+
+python_bootstrap_library(
+    name = "pydeer-lib",
+    srcs = [
+        "generator.py",
+        "lockfile.py",
+        "wheels.py",
+    ],
+)
+
+python_bootstrap_binary(
+    name = "pydeer",
+    main = "main.py",
+    deps = [":pydeer-lib"],
+    visibility = ["PUBLIC"],
+)
+
+command_alias(
+    name = "buckify",
+    exe = ":pydeer",
+    args = ["buckify", "--third-party-dir", "shim/third-party/pypi", "--cell-root", "shim"],
+    visibility = ["PUBLIC"],
+)

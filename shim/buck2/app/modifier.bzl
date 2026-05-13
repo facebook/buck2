@@ -6,13 +6,12 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@shim//build_defs/lib:oss.bzl", "default_base_module")
+# OSS stubs for the Meta-internal `ovr_config//`-driven modifier set used by
+# `tests/buck_e2e.bzl`. The OSS build doesn't have those config targets, so
+# return empty lists.
 
-def python_binary(srcs = [], base_module = None, **kwargs):
-    _unused = srcs  # @unused
+def buck2_modifiers():
+    return []
 
-    if base_module == None:
-        base_module = default_base_module()
-
-    # @lint-ignore BUCKLINT: avoid "Direct usage of native rules is not allowed."
-    native.python_binary(base_module = base_module, **kwargs)
+def disable_buck2_modifiers():
+    return []

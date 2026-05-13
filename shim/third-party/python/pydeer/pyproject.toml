@@ -1,0 +1,6 @@
+[project]
+name = "pydeer"
+version = "0.1.0"
+description = "Generate Buck2 BUCK files from a uv.lock"
+requires-python = ">=3.11"
+dependencies = []

@@ -20,6 +20,9 @@ def _package(
 def _labels(*args):
     return []
 
+def _remove_labels(*_args):
+    return []
+
 ci = struct(
     package = _package,
     linux = _lbl,
@@ -30,4 +33,5 @@ ci = struct(
     mode = _lbl,
     opt = _lbl,
     labels = _labels,
+    remove_labels = _remove_labels,
 )

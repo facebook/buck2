@@ -10,6 +10,7 @@ pagable_transition_alias(
     name = "buck2",
     actual = "//buck2/app/buck2:buck2-bin",
     labels = [ci.aarch64(ci.skip_test())],
+    visibility = ["PUBLIC"],
 )
 
 buck2_bundle(
