@@ -555,6 +555,7 @@ mod tests {
     use pagable::testing::TestingDeserializer;
     use pagable::testing::TestingSerializer;
     use starlark_derive::ProvidesStaticType;
+    use starlark_derive::StarlarkPagable;
 
     use super::*;
     use crate as starlark;
@@ -568,10 +569,10 @@ mod tests {
     use crate::values::types::any_array::AnyArray;
     use crate::values::types::tuple::value::FrozenTuple;
 
-    #[derive(Allocative, ProvidesStaticType, Debug)]
+    #[derive(Allocative, ProvidesStaticType, Debug, StarlarkPagable)]
     struct TestPayloadA;
 
-    #[derive(Allocative, ProvidesStaticType, Debug)]
+    #[derive(Allocative, ProvidesStaticType, Debug, StarlarkPagable)]
     struct TestPayloadB;
 
     crate::register_starlark_any_complex!(TestPayloadA);

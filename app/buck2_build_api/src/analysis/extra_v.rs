@@ -14,6 +14,8 @@ use allocative::Allocative;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_error::internal_error;
 use gazebo::prelude::OptionExt;
+use starlark::StarlarkPagable;
+use starlark::StarlarkPagablePanic;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
@@ -31,13 +33,20 @@ use starlark::values::any_complex::StarlarkAnyComplex;
 use crate::analysis::registry::AnalysisValueStorage;
 use crate::analysis::registry::FrozenAnalysisValueStorage;
 
-#[derive(Default, Debug, ProvidesStaticType, Allocative, Trace)]
+#[derive(
+    Default,
+    Debug,
+    ProvidesStaticType,
+    Allocative,
+    Trace,
+    StarlarkPagablePanic
+)]
 pub struct AnalysisExtraValue<'v> {
     pub analysis_value_storage:
         OnceCell<ValueTyped<'v, StarlarkAnyComplex<AnalysisValueStorage<'v>>>>,
 }
 
-#[derive(Debug, ProvidesStaticType, Allocative)]
+#[derive(Debug, ProvidesStaticType, Allocative, StarlarkPagable)]
 pub struct FrozenAnalysisExtraValue {
     pub(crate) analysis_value_storage:
         Option<FrozenValueTyped<'static, StarlarkAnyComplex<FrozenAnalysisValueStorage>>>,

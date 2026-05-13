@@ -36,6 +36,7 @@ use dupe::Dupe;
 use either::Either;
 use gazebo::cell::ARef;
 use pagable::Pagable;
+use starlark::StarlarkPagablePanic;
 use starlark::values::Heap;
 use starlark::values::ProvidesStaticType;
 use starlark::values::Trace;
@@ -518,7 +519,7 @@ enum DeclaredArtifactKind {
 /// Local newtype wrapper so `StarlarkAnyComplex<_>` has a local payload type
 /// we can register a typing vtable entry for (the orphan rule forbids
 /// implementing the payload marker for `RefCell<LocalT>` directly).
-#[derive(Debug, Allocative, ProvidesStaticType, Trace)]
+#[derive(Debug, Allocative, ProvidesStaticType, Trace, StarlarkPagablePanic)]
 #[repr(transparent)]
 pub struct DeclaredArtifactCell(RefCell<DeclaredArtifactKind>);
 

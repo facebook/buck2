@@ -35,6 +35,7 @@ use buck2_util::thin_box::ThinBoxSlice;
 use derivative::Derivative;
 use dupe::Dupe;
 use itertools::Itertools;
+use starlark::StarlarkPagablePanic;
 use starlark::any::ProvidesStaticType;
 use starlark::codemap::FileSpan;
 use starlark::environment::FrozenModule;
@@ -397,7 +398,7 @@ impl<'v> ArtifactDeclaration<'v> {
 ///
 /// At the end of impl function execution, `write_to_module` should be called
 /// to write this object to `Module` extra value to get the values frozen.
-#[derive(Debug, Allocative, ProvidesStaticType)]
+#[derive(Debug, Allocative, ProvidesStaticType, StarlarkPagablePanic)]
 pub struct AnalysisValueStorage<'v> {
     pub self_key: DeferredHolderKey,
     action_data: SmallMap<ActionIndex, (Option<Value<'v>>, Option<StarlarkCallable<'v>>)>,
@@ -406,7 +407,7 @@ pub struct AnalysisValueStorage<'v> {
     result_value: OnceCell<ValueTypedComplex<'v, ProviderCollection<'v>>>,
 }
 
-#[derive(Debug, Allocative, ProvidesStaticType)]
+#[derive(Debug, Allocative, ProvidesStaticType, StarlarkPagablePanic)]
 pub struct FrozenAnalysisValueStorage {
     pub self_key: DeferredHolderKey,
     action_data: SmallMap<ActionIndex, (Option<FrozenValue>, Option<FrozenStarlarkCallable>)>,

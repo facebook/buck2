@@ -95,7 +95,13 @@ impl<T> Display for StarlarkAnyComplex<T> {
 /// (both trait and outer type are foreign), but they can impl this marker on
 /// their local `T`. A blanket impl in this crate then provides `HasTyVTable`
 /// for the corresponding `StarlarkAnyComplex<T>`.
-pub trait StarlarkAnyComplexHasTyVTable {
+///
+/// `T` must implement [`StarlarkPagable`](crate::pagable::StarlarkPagable)
+/// so that `StarlarkAnyComplex<T>` can satisfy the `StarlarkSerialize` /
+/// `StarlarkDeserialize` bounds of `StarlarkValue`. Types that never actually
+/// round-trip can derive [`StarlarkPagablePanic`](starlark_derive::StarlarkPagablePanic)
+/// to satisfy the bound with panicking stubs.
+pub trait StarlarkAnyComplexHasTyVTable: crate::pagable::StarlarkPagable {
     /// Typing vtable entry for `StarlarkAnyComplex<Self>`.
     const TY_VTABLE_STATIC: StaticValue<TyStarlarkValueVTable>;
 }
@@ -109,13 +115,36 @@ where
         <T as StarlarkAnyComplexHasTyVTable>::TY_VTABLE_STATIC;
 }
 
-#[starlark_value(type = "any_complex")]
+#[starlark_value(type = "any_complex", skip_pagable)]
 impl<'v, T> StarlarkValue<'v> for StarlarkAnyComplex<T>
 where
     T: Allocative + ProvidesStaticType<'v> + 'v + StarlarkAnyComplexHasTyVTable,
     T::StaticType: Sized,
 {
     type Canonical = Self;
+}
+
+impl<T: crate::pagable::StarlarkPagable> crate::pagable::StarlarkSerialize
+    for StarlarkAnyComplex<T>
+{
+    fn starlark_serialize(
+        &self,
+        ctx: &mut dyn crate::pagable::StarlarkSerializeContext,
+    ) -> crate::Result<()> {
+        <T as crate::pagable::StarlarkSerialize>::starlark_serialize(&self.value, ctx)
+    }
+}
+
+impl<T: crate::pagable::StarlarkPagable> crate::pagable::StarlarkDeserialize
+    for StarlarkAnyComplex<T>
+{
+    fn starlark_deserialize(
+        ctx: &mut dyn crate::pagable::StarlarkDeserializeContext<'_>,
+    ) -> crate::Result<Self> {
+        Ok(StarlarkAnyComplex {
+            value: <T as crate::pagable::StarlarkDeserialize>::starlark_deserialize(ctx)?,
+        })
+    }
 }
 
 /// Register vtables for `StarlarkAnyComplex<T>`.
@@ -189,6 +218,8 @@ unsafe impl<T> VtableRegistered for StarlarkAnyComplex<T> where T: FrozenAnyComp
 mod tests {
     use allocative::Allocative;
     use starlark_derive::ProvidesStaticType;
+    use starlark_derive::StarlarkPagable;
+    use starlark_derive::StarlarkPagablePanic;
     use starlark_derive::Trace;
 
     use crate as starlark;
@@ -206,7 +237,7 @@ mod tests {
     use crate::values::types::any_complex::StarlarkAnyComplex;
 
     // Types used for StarlarkAnyComplex test - must be at module level for registration.
-    #[derive(Trace, Allocative, ProvidesStaticType)]
+    #[derive(Trace, Allocative, ProvidesStaticType, StarlarkPagablePanic)]
     struct UnfrozenData<'v> {
         string: StringValue<'v>,
         other: Value<'v>,
@@ -223,10 +254,9 @@ mod tests {
         }
     }
 
-    #[derive(Allocative, ProvidesStaticType)]
+    #[derive(Allocative, ProvidesStaticType, StarlarkPagable)]
     struct FrozenData {
         string: FrozenStringValue,
-        #[expect(dead_code)]
         other: FrozenValue,
     }
 

@@ -12,6 +12,8 @@ use std::cell::OnceCell;
 
 use allocative::Allocative;
 use buck2_error::internal_error;
+use starlark::StarlarkPagable;
+use starlark::StarlarkPagablePanic;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
@@ -27,13 +29,20 @@ use crate::interpreter::package_file_extra::FrozenPackageFileExtra;
 use crate::interpreter::package_file_extra::PackageFileExtra;
 
 /// `Module.extra_value` when evaluating build, bzl, package, and bxl files.
-#[derive(Default, Debug, ProvidesStaticType, Allocative, Trace)]
+#[derive(
+    Default,
+    Debug,
+    ProvidesStaticType,
+    Allocative,
+    Trace,
+    StarlarkPagablePanic
+)]
 pub(crate) struct InterpreterExtraValue<'v> {
     /// Set when evaluating `PACKAGE` files.
     pub(crate) package_extra: OnceCell<PackageFileExtra<'v>>,
 }
 
-#[derive(Debug, ProvidesStaticType, Allocative)]
+#[derive(Debug, ProvidesStaticType, Allocative, StarlarkPagable)]
 pub(crate) struct FrozenInterpreterExtraValue {
     pub(crate) package_extra: Option<FrozenPackageFileExtra>,
 }

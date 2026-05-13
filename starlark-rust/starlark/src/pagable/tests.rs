@@ -2002,3 +2002,44 @@ fn test_atomic_frozen_any_value_option_none_round_trip() -> crate::Result<()> {
 
     Ok(())
 }
+
+// ============================================================================
+// StarlarkAnyComplex<T> round-trip
+//
+// `StarlarkAnyComplex<T>` is the GC-traceable sibling of `StarlarkAny<T>`.
+// For pagable, we exercise the frozen-heap side: allocate
+// `StarlarkAnyComplex<FrozenComplexPayload>` directly on a `FrozenHeap` via
+// `alloc_simple` and round-trip.
+// ============================================================================
+
+#[derive(Debug, Allocative, ProvidesStaticType, StarlarkPagable)]
+struct FrozenComplexPayload {
+    label: String,
+    numbers: Vec<u32>,
+}
+
+crate::register_starlark_any_complex!(frozen FrozenComplexPayload);
+
+#[test]
+fn test_starlark_any_complex_round_trip() -> crate::Result<()> {
+    let heap = FrozenHeap::new();
+    heap.alloc_simple(crate::values::any_complex::StarlarkAnyComplex::new(
+        FrozenComplexPayload {
+            label: "complex".to_owned(),
+            numbers: vec![1, 2, 3],
+        },
+    ));
+    let heap_ref = heap.into_ref_named(TestHeapName::heap_name("test_starlark_any_complex"));
+
+    let restored = round_trip_heap_ref(&heap_ref)?;
+
+    // FrozenComplexPayload owns String/Vec → needs Drop → drop bump.
+    let drop_headers = restored.collect_drop_headers_ordered();
+    assert_eq!(drop_headers.len(), 1);
+    let got: &crate::values::any_complex::StarlarkAnyComplex<FrozenComplexPayload> =
+        drop_headers[0].unpack().downcast_ref().unwrap();
+    assert_eq!(got.value.label, "complex");
+    assert_eq!(got.value.numbers, vec![1, 2, 3]);
+
+    Ok(())
+}
