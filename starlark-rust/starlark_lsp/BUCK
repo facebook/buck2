@@ -19,7 +19,7 @@ rust_library(
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:lsp-server",
-        "fbsource//third-party/rust:lsp-types",
+        "fbsource//third-party/rust:lsp-types-94",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_json",
         "fbsource//third-party/rust:thiserror",

@@ -57,7 +57,7 @@ rust_library(
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:lalrpop-util",
         "fbsource//third-party/rust:logos",
-        "fbsource//third-party/rust:lsp-types",
+        "fbsource//third-party/rust:lsp-types-94",
         "fbsource//third-party/rust:memchr",
         "fbsource//third-party/rust:num-bigint",
         "fbsource//third-party/rust:num-traits",

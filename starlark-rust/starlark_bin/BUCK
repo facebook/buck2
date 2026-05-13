@@ -17,7 +17,7 @@ buck_rust_binary(
         "fbsource//third-party/rust:either",
         "fbsource//third-party/rust:globset",
         "fbsource//third-party/rust:itertools",
-        "fbsource//third-party/rust:lsp-types",
+        "fbsource//third-party/rust:lsp-types-94",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_json",
         "fbsource//third-party/rust:thiserror",
