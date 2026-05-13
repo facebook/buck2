@@ -127,11 +127,15 @@ where
     Debug,
     Allocative,
     ProvidesStaticType,
-    NoSerialize
+    NoSerialize,
+    StarlarkPagable
 )]
+#[starlark_pagable(bound = "T: TypeMatcher")]
 /// A compiled type expression wrapped as a Starlark value with a type matcher.
 pub struct TypeCompiledImplAsStarlarkValue<T: 'static> {
+    #[starlark_pagable(pagable)]
     type_compiled_impl: T,
+    #[starlark_pagable(pagable)]
     ty: Ty,
 }
 
@@ -147,6 +151,27 @@ unsafe impl<T: crate::values::typing::type_compiled::matcher::TypeMatcherRegiste
 unsafe impl<T: TypeCompiledStaticRegistered> StaticValueRegistered
     for TypeCompiledImplAsStarlarkValue<T>
 {
+}
+
+#[cfg(test)]
+impl<T> TypeCompiledImplAsStarlarkValue<T> {
+    pub(crate) fn new_for_test(
+        type_compiled_impl: T,
+        ty: Ty,
+    ) -> TypeCompiledImplAsStarlarkValue<T> {
+        TypeCompiledImplAsStarlarkValue {
+            type_compiled_impl,
+            ty,
+        }
+    }
+
+    pub(crate) fn ty_for_test(&self) -> &Ty {
+        &self.ty
+    }
+
+    pub(crate) fn impl_for_test(&self) -> &T {
+        &self.type_compiled_impl
+    }
 }
 
 impl<T> TypeCompiledImplAsStarlarkValue<T>
@@ -183,7 +208,7 @@ impl TypeMatcher for DummyTypeMatcher {
 // `Canonical` points here.
 crate::register_ty_starlark_value!(TypeCompiledImplAsStarlarkValue<DummyTypeMatcher>);
 
-#[starlark_value(type = "type")]
+#[starlark_value(type = "type", skip_pagable)]
 impl<'v, T: 'static> StarlarkValue<'v> for TypeCompiledImplAsStarlarkValue<T>
 where
     T: TypeMatcher,

@@ -2043,7 +2043,6 @@ fn test_starlark_any_complex_round_trip() -> crate::Result<()> {
 
     Ok(())
 }
-
 // ============================================================================
 // `#[starlark_pagable_typetag]` round-trip: `Box<dyn Trait>` with a
 // concrete impl that holds a `FrozenValue`.
@@ -2130,6 +2129,154 @@ fn test_starlark_pagable_typetag_round_trip() -> crate::Result<()> {
     assert_eq!(
         outer.inner.target().ptr_value().ptr_value_untagged(),
         target_addr,
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_type_compiled_impl_as_starlark_value_round_trip() -> crate::Result<()> {
+    use crate::typing::Ty;
+    use crate::values::typing::type_compiled::compiled::DummyTypeMatcher;
+    use crate::values::typing::type_compiled::compiled::TypeCompiledImplAsStarlarkValue;
+
+    let heap = FrozenHeap::new();
+    let original_ty = Ty::any();
+    heap.alloc_simple(
+        TypeCompiledImplAsStarlarkValue::<DummyTypeMatcher>::new_for_test(
+            DummyTypeMatcher,
+            original_ty.clone(),
+        ),
+    );
+    let heap_ref = heap.into_ref_named(TestHeapName::heap_name(
+        "test_type_compiled_impl_round_trip",
+    ));
+
+    let restored = round_trip_heap_ref(&heap_ref)?;
+
+    // `Ty` owns heap-allocated state → drop bump.
+    let drop_headers = restored.collect_drop_headers_ordered();
+    assert_eq!(drop_headers.len(), 1);
+    let got: &TypeCompiledImplAsStarlarkValue<DummyTypeMatcher> =
+        drop_headers[0].unpack().downcast_ref().unwrap();
+    assert_eq!(got.ty_for_test(), &original_ty);
+    // `DummyTypeMatcher` is a ZST; the only observable thing is that the type matched.
+    let _: &DummyTypeMatcher = got.impl_for_test();
+
+    Ok(())
+}
+
+#[test]
+fn test_type_compiled_impl_with_is_str_round_trip() -> crate::Result<()> {
+    use crate::typing::Ty;
+    use crate::values::typing::type_compiled::compiled::TypeCompiledImplAsStarlarkValue;
+    use crate::values::typing::type_compiled::matcher::TypeMatcher;
+    use crate::values::typing::type_compiled::matchers::IsStr;
+
+    let heap = FrozenHeap::new();
+    let original_ty = Ty::string();
+    heap.alloc_simple(TypeCompiledImplAsStarlarkValue::<IsStr>::new_for_test(
+        IsStr,
+        original_ty.clone(),
+    ));
+    let heap_ref = heap.into_ref_named(TestHeapName::heap_name("test_type_compiled_is_str"));
+
+    let restored = round_trip_heap_ref(&heap_ref)?;
+
+    let drop_headers = restored.collect_drop_headers_ordered();
+    assert_eq!(drop_headers.len(), 1);
+    let got: &TypeCompiledImplAsStarlarkValue<IsStr> =
+        drop_headers[0].unpack().downcast_ref().unwrap();
+    assert_eq!(got.ty_for_test(), &original_ty);
+
+    // `IsStr` matches string values — confirm behaviour survives round-trip.
+    assert!(
+        got.impl_for_test()
+            .matches(const_frozen_string!("hi").to_value())
+    );
+    assert!(
+        !got.impl_for_test()
+            .matches(FrozenValue::new_bool(true).to_value())
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_type_compiled_impl_with_is_int_round_trip() -> crate::Result<()> {
+    use crate::typing::Ty;
+    use crate::values::typing::type_compiled::compiled::TypeCompiledImplAsStarlarkValue;
+    use crate::values::typing::type_compiled::matcher::TypeMatcher;
+    use crate::values::typing::type_compiled::matchers::IsInt;
+
+    let heap = FrozenHeap::new();
+    let original_ty = Ty::int();
+    heap.alloc_simple(TypeCompiledImplAsStarlarkValue::<IsInt>::new_for_test(
+        IsInt,
+        original_ty.clone(),
+    ));
+    let heap_ref = heap.into_ref_named(TestHeapName::heap_name("test_type_compiled_is_int"));
+
+    let restored = round_trip_heap_ref(&heap_ref)?;
+
+    let drop_headers = restored.collect_drop_headers_ordered();
+    assert_eq!(drop_headers.len(), 1);
+    let got: &TypeCompiledImplAsStarlarkValue<IsInt> =
+        drop_headers[0].unpack().downcast_ref().unwrap();
+    assert_eq!(got.ty_for_test(), &original_ty);
+    assert!(
+        got.impl_for_test()
+            .matches(FrozenValue::testing_new_int(42).to_value())
+    );
+    assert!(
+        !got.impl_for_test()
+            .matches(const_frozen_string!("x").to_value())
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_type_compiled_impl_with_is_any_of_round_trip() -> crate::Result<()> {
+    use crate::typing::Ty;
+    use crate::values::typing::type_compiled::compiled::TypeCompiledImplAsStarlarkValue;
+    use crate::values::typing::type_compiled::matcher::TypeMatcher;
+    use crate::values::typing::type_compiled::matcher::TypeMatcherBox;
+    use crate::values::typing::type_compiled::matchers::IsAnyOf;
+    use crate::values::typing::type_compiled::matchers::IsInt;
+    use crate::values::typing::type_compiled::matchers::IsStr;
+
+    // `IsAnyOf` wraps a `Vec<TypeMatcherBox>` of typetag-routed matchers.
+    let inners = vec![TypeMatcherBox::new(IsStr), TypeMatcherBox::new(IsInt)];
+    let heap = FrozenHeap::new();
+    let original_ty = Ty::union2(Ty::string(), Ty::int());
+    heap.alloc_simple(TypeCompiledImplAsStarlarkValue::<IsAnyOf>::new_for_test(
+        IsAnyOf(inners),
+        original_ty.clone(),
+    ));
+    let heap_ref = heap.into_ref_named(TestHeapName::heap_name("test_type_compiled_is_any_of"));
+
+    let restored = round_trip_heap_ref(&heap_ref)?;
+
+    let drop_headers = restored.collect_drop_headers_ordered();
+    assert_eq!(drop_headers.len(), 1);
+    let got: &TypeCompiledImplAsStarlarkValue<IsAnyOf> =
+        drop_headers[0].unpack().downcast_ref().unwrap();
+    assert_eq!(got.ty_for_test(), &original_ty);
+    // Vec length preserved through the typetag path.
+    assert_eq!(got.impl_for_test().0.len(), 2);
+    // Functional round-trip: both variants still match.
+    assert!(
+        got.impl_for_test()
+            .matches(const_frozen_string!("s").to_value())
+    );
+    assert!(
+        got.impl_for_test()
+            .matches(FrozenValue::testing_new_int(1).to_value())
+    );
+    assert!(
+        !got.impl_for_test()
+            .matches(FrozenValue::new_bool(true).to_value())
     );
 
     Ok(())
