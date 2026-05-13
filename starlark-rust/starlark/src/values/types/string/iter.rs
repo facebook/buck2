@@ -21,6 +21,7 @@ use allocative::Allocative;
 use derive_more::Display;
 use starlark_derive::Freeze;
 use starlark_derive::NoSerialize;
+use starlark_derive::StarlarkPagable;
 use starlark_derive::Trace;
 use starlark_derive::starlark_value;
 
@@ -45,7 +46,8 @@ use crate::values::typing::iter::StarlarkIter;
     Freeze,
     NoSerialize,
     ProvidesStaticType,
-    Allocative
+    Allocative,
+    StarlarkPagable
 )]
 #[display("iterator")]
 #[repr(C)]
@@ -74,7 +76,7 @@ pub(crate) fn iterate_codepoints<'v>(
     }))
 }
 
-#[starlark_value(type = "iterator")]
+#[starlark_value(type = "iterator", skip_pagable)]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StringIterableGen<'v, V>
 where
     Self: ProvidesStaticType<'v>,
