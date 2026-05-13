@@ -391,6 +391,10 @@ where
         }
     }
 
+    pub fn into_sketch(self) -> SetSketch {
+        self.data
+    }
+
     pub fn sketch(&mut self, to_sketch: &T) {
         self.sketch_weighted_locality_unstable(to_sketch, 1);
     }

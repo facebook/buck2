@@ -17,7 +17,11 @@ use buck2_sketches::TypedSketch;
 use buck2_util::strong_hasher::Blake3StrongHasher;
 use derivative::Derivative;
 use dupe::Dupe;
-use pagable::PagablePanic;
+use pagable::Pagable;
+use pagable::PagableDeserialize;
+use pagable::PagableDeserializer;
+use pagable::PagableSerialize;
+use pagable::PagableSerializer;
 use ref_cast::RefCast;
 use setsketch::SetSketchParams;
 use setsketch::SetSketcher;
@@ -33,7 +37,7 @@ pub(crate) trait Sketcher<T> {
 /// This is a struct representing graph sketches returned from DICE call to compute sketches.
 /// It satisfies 2 properties.
 /// (1) It can be merged with other sketches via VersionedSketcher's `merge` method. It does
-/// so by holding directly onto the `SetSketcher` type.
+/// so by holding directly onto the `SetSketch` type.
 /// (2) It implements Dupe, Hash, and Eq. Hash and Eq are implemented by precomputing and holding
 /// onto a signature of the sketch.
 ///
@@ -41,14 +45,14 @@ pub(crate) trait Sketcher<T> {
 /// of typed sketch this mergeable sketch represents (e.g. `DependencyGraphSketch`,
 /// `MemoryUsageSketch`, `ActionGraphSketch`).  The marker is used by `serialize`
 /// to produce a correctly-typed versioned base64 string.
-#[derive(Derivative, PagablePanic)]
+#[derive(Derivative)]
 #[derivative(Debug)]
 pub struct MergeableGraphSketch<T: StrongHash, S: TypedSketch> {
     version: SketchVersion,
     #[derivative(Debug = "ignore", PartialEq = "ignore", Hash = "ignore")]
-    sketcher: Arc<SetSketcher<UseStrongHashing<T>, Blake3StrongHasher>>,
+    sketch: Arc<S>,
     #[derivative(Debug = "ignore", PartialEq = "ignore", Hash = "ignore")]
-    _phantom: PhantomData<fn() -> S>,
+    _phantom: PhantomData<fn(T) -> S>,
 }
 
 // Manual impl because Allocative derive adds S: Allocative bound
@@ -65,9 +69,35 @@ impl<T: StrongHash, S: TypedSketch> Clone for MergeableGraphSketch<T, S> {
     fn clone(&self) -> Self {
         Self {
             version: self.version,
-            sketcher: self.sketcher.clone(),
+            sketch: self.sketch.clone(),
             _phantom: PhantomData,
         }
+    }
+}
+
+impl<T: StrongHash, S: TypedSketch> PagableSerialize for MergeableGraphSketch<T, S> {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
+        self.version.pagable_serialize(serializer)?;
+        self.sketch
+            .inner()
+            .get_registers()
+            .pagable_serialize(serializer)?;
+        Ok(())
+    }
+}
+
+impl<'de, T: StrongHash, S: TypedSketch> PagableDeserialize<'de> for MergeableGraphSketch<T, S> {
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> pagable::Result<Self> {
+        let version = SketchVersion::pagable_deserialize(deserializer)?;
+        let registers: Vec<u16> = PagableDeserialize::pagable_deserialize(deserializer)?;
+        let sketch = Arc::new(S::from_recommended_registers(registers));
+        Ok(Self {
+            version,
+            sketch,
+            _phantom: PhantomData,
+        })
     }
 }
 
@@ -76,7 +106,7 @@ impl<T: StrongHash, S: TypedSketch> Dupe for MergeableGraphSketch<T, S> {}
 impl<T: StrongHash, S: TypedSketch> PartialEq for MergeableGraphSketch<T, S> {
     fn eq(&self, other: &Self) -> bool {
         self.version == other.version
-            && self.sketcher.get_registers() == other.sketcher.get_registers()
+            && self.sketch.inner().get_registers() == other.sketch.inner().get_registers()
     }
 }
 
@@ -87,10 +117,10 @@ impl<T: StrongHash, S: TypedSketch> MergeableGraphSketch<T, S> {
         version: SketchVersion,
         sketcher: SetSketcher<UseStrongHashing<T>, Blake3StrongHasher>,
     ) -> Self {
-        let sketcher = Arc::new(sketcher);
+        let sketch = Arc::new(S::from_inner(sketcher.into_sketch()));
         Self {
             version,
-            sketcher,
+            sketch,
             _phantom: PhantomData,
         }
     }
@@ -100,11 +130,11 @@ impl<T: StrongHash, S: TypedSketch> MergeableGraphSketch<T, S> {
     /// long string of 'A's in base64. Detecting this allows callers to omit the
     /// sketch from output to avoid wasting storage.
     pub fn is_empty(&self) -> bool {
-        self.sketcher.get_registers().iter().all(|&v| v == 0)
+        self.sketch.inner().get_registers().iter().all(|&v| v == 0)
     }
 
     pub fn serialize(&self) -> String {
-        S::from_recommended_registers(self.sketcher.get_registers().to_vec()).to_base64_versioned()
+        self.sketch.to_base64_versioned()
     }
 }
 
@@ -117,6 +147,7 @@ impl<T: StrongHash, S: TypedSketch> MergeableGraphSketch<T, S> {
     Hash,
     PartialEq,
     Allocative,
+    Pagable,
     derive_more::Display
 )]
 pub(crate) enum SketchVersion {
@@ -180,7 +211,7 @@ impl<T: StrongHash, S: TypedSketch> VersionedSketcher<T, S> {
 
     pub(crate) fn merge(&mut self, other: &MergeableGraphSketch<T, S>) -> buck2_error::Result<()> {
         if self.version == other.version {
-            self.sketcher.merge(&other.sketcher);
+            self.sketcher.merge(&other.sketch.inner());
             Ok(())
         } else {
             Err(buck2_error::internal_error!(
