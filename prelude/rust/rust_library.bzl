@@ -206,6 +206,14 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
                     incremental_enabled = ctx.attrs.incremental_enabled,
                 ),
                 MetadataKind("fast"): meta_fast,
+                MetadataKind("miri"): rust_compile(
+                    ctx = ctx,
+                    compile_ctx = compile_ctx,
+                    emit = Emit("miri"),
+                    params = params,
+                    default_roots = _DEFAULT_ROOTS,
+                    incremental_enabled = ctx.attrs.incremental_enabled,
+                ) if toolchain_info.miri_driver and toolchain_info.miri_sysroot_path else None
             }
 
             subtargets_to_add = {}
@@ -643,7 +651,7 @@ def _rust_artifacts(
         ctx: AnalysisContext,
         compile_ctx: CompileContext,
         lang_style_param: dict[(LinkageLang, LibOutputStyle), BuildParams],
-        param_metadata_outputs: dict[BuildParams, dict[MetadataKind, RustcOutput]]) -> dict[LinkStrategy, RustLinkStrategyInfo]:
+        param_metadata_outputs: dict[BuildParams, dict[MetadataKind, RustcOutput | None]]) -> dict[LinkStrategy, RustLinkStrategyInfo]:
     pic_behavior = compile_ctx.cxx_toolchain_info.pic_behavior
     preferred_linkage = Linkage(ctx.attrs.preferred_linkage)
 
@@ -663,7 +671,7 @@ def _handle_rust_artifact(
         ctx: AnalysisContext,
         dep_ctx: DepCollectionContext,
         link_strategy: LinkStrategy,
-        outputs: dict[MetadataKind, RustcOutput]) -> RustLinkStrategyInfo:
+        outputs: dict[MetadataKind, RustcOutput | None]) -> RustLinkStrategyInfo:
     """
     Return the RustLinkStrategyInfo for a given set of artifacts. The main consideration
     is computing the right set of dependencies.
@@ -686,8 +694,8 @@ def _handle_rust_artifact(
                 children = rust_debug_info,
             )
         return RustLinkStrategyInfo(
-            outputs = {m: x.output for m, x in outputs.items()},
-            singleton_tset = {m: x.singleton_tset for m, x in outputs.items()},
+            outputs = {m: x.output for m, x in outputs.items() if x != None},
+            singleton_tset = {m: x.singleton_tset for m, x in outputs.items() if x != None},
             transitive_deps = tdeps,
             transitive_proc_macro_deps = tprocmacrodeps,
             rust_debug_info = rust_debug_info,
@@ -706,7 +714,7 @@ def _handle_rust_artifact(
 def _default_providers(
         lang_style_param: dict[(LinkageLang, LibOutputStyle), BuildParams],
         param_output: dict[BuildParams, RustcOutput],
-        param_subtargets: dict[BuildParams, dict[str, RustcOutput]],
+        param_subtargets: dict[BuildParams, dict[str, RustcOutput | None]],
         linked_object: LinkedObject | None,
         remarks_artifact: RustcOutput,
         rustdoc: Artifact,
@@ -1145,8 +1153,9 @@ def _compute_transitive_deps(
             continue
         strategy = strategy_info(toolchain_info, dep.info, dep_link_strategy)
         for m in MetadataKind:
-            transitive_deps[m].append(strategy.singleton_tset[m])
-            transitive_deps[m].append(strategy.transitive_deps[m])
+            if strategy.singleton_tset.get(m) and strategy.transitive_deps.get(m):
+                transitive_deps[m].append(strategy.singleton_tset[m])
+                transitive_deps[m].append(strategy.transitive_deps[m])
 
         if strategy.rust_debug_info:
             rust_debug_info.append(strategy.rust_debug_info)
