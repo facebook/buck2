@@ -41,6 +41,7 @@ use buck2_directory::directory::find::find;
 use buck2_directory::directory::fingerprinted_directory::FingerprintedDirectory;
 use buck2_directory::directory::immutable_directory::ImmutableDirectory;
 use buck2_directory::directory::shared_directory::SharedDirectory;
+use buck2_directory::directory::shared_directory::SharedDirectoryInternable;
 use buck2_directory::directory::walk::unordered_entry_walk;
 use buck2_error::internal_error;
 use buck2_fs::paths::RelativePathBuf;
@@ -69,6 +70,12 @@ use crate::re::manager::ManagedRemoteExecutionClient;
 #[allocative::root]
 pub static INTERNER: Lazy<DashMapDirectoryInterner<ActionDirectoryMember, TrackedFileDigest>> =
     Lazy::new(DashMapDirectoryInterner::new);
+
+impl SharedDirectoryInternable<TrackedFileDigest> for ActionDirectoryMember {
+    fn interner() -> DashMapDirectoryInterner<Self, TrackedFileDigest> {
+        INTERNER.dupe()
+    }
+}
 
 #[derive(Clone, Debug, Dupe, PartialEq, Eq, Display, Allocative, Pagable)]
 pub enum ActionDirectoryMember {

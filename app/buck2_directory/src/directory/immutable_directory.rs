@@ -14,6 +14,7 @@ use buck2_fs::paths::file_name::FileNameBuf;
 use derivative::Derivative;
 use derive_more::Display;
 use either::Either;
+use pagable::Pagable;
 
 use crate::directory::builder::DirectoryBuilder;
 use crate::directory::dashmap_directory_interner::DashMapDirectoryInterner;
@@ -23,10 +24,12 @@ use crate::directory::exclusive_directory::ExclusiveDirectory;
 use crate::directory::fingerprinted_directory::FingerprintedDirectory;
 use crate::directory::immutable_or_exclusive::ImmutableOrExclusiveDirectoryRef;
 use crate::directory::shared_directory::SharedDirectory;
+use crate::directory::shared_directory::SharedDirectoryInternable;
 
-#[derive(Derivative, Display, Allocative)]
+#[derive(Derivative, Display, Allocative, Pagable)]
 #[derivative(Debug(bound = "L: ::std::fmt::Debug"))]
 #[derivative(Clone(bound = "L: ::std::clone::Clone"))]
+#[pagable(bound = "L: Pagable + SharedDirectoryInternable<H>, H: Pagable")]
 pub enum ImmutableDirectory<L, H>
 where
     H: DirectoryDigest,

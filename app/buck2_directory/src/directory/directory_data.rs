@@ -15,13 +15,14 @@ use buck2_core::directory_digest::DirectoryDigest;
 use buck2_fs::paths::file_name::FileNameBuf;
 use derivative::Derivative;
 use derive_more::Display;
+use pagable::Pagable;
 use sorted_vector_map::SortedVectorMap;
 
 use crate::directory::directory_hasher::DirectoryDigester;
 use crate::directory::entry::DirectoryEntry;
 use crate::directory::fingerprinted_directory::FingerprintedDirectory;
 
-#[derive(Derivative, Display, Allocative)]
+#[derive(Derivative, Display, Allocative, Pagable)]
 #[derivative(Debug(bound = "D: ::std::fmt::Debug, L: ::std::fmt::Debug"))]
 #[derivative(Clone(bound = "D: ::std::clone::Clone, L: ::std::clone::Clone"))]
 #[display("Directory({})", self.fingerprint)]
@@ -44,6 +45,7 @@ where
     pub(super) fingerprint: H,
 
     #[derivative(Debug = "ignore")]
+    #[pagable(discard = "PhantomData")]
     pub(super) _hash: PhantomData<H>,
 }
 

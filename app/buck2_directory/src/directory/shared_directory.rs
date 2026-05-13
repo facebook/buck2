@@ -18,7 +18,9 @@ use derivative::Derivative;
 use derive_more::Display;
 use dupe::Clone_;
 use dupe::Dupe_;
-use pagable::PagablePanic;
+use pagable::Pagable;
+use pagable::PagableDeserialize;
+use pagable::PagableSerialize;
 
 use crate::directory::builder::DirectoryBuilder;
 use crate::directory::dashmap_directory_interner::DashMapDirectoryInterner;
@@ -46,6 +48,10 @@ where
     pub(super) interner: DashMapDirectoryInterner<L, H>,
 }
 
+pub trait SharedDirectoryInternable<H: DirectoryDigest>: Sized + 'static {
+    fn interner() -> DashMapDirectoryInterner<Self, H>;
+}
+
 impl<L, H> Drop for SharedDirectoryInner<L, H>
 where
     H: DirectoryDigest,
@@ -55,7 +61,7 @@ where
     }
 }
 
-#[derive(Derivative, Clone_, Dupe_, Display, Allocative, PagablePanic)]
+#[derive(Derivative, Clone_, Dupe_, Display, Allocative)]
 #[derivative(Debug(bound = "L: ::std::fmt::Debug"))]
 #[display("{}", self.inner)]
 pub struct SharedDirectory<L, H>
@@ -63,6 +69,30 @@ where
     H: DirectoryDigest,
 {
     pub(super) inner: Arc<SharedDirectoryInner<L, H>>,
+}
+
+impl<L, H: Pagable + DirectoryDigest> PagableSerialize for SharedDirectory<L, H>
+where
+    L: Pagable + SharedDirectoryInternable<H>,
+{
+    fn pagable_serialize(
+        &self,
+        serializer: &mut dyn pagable::PagableSerializer,
+    ) -> pagable::Result<()> {
+        self.inner.data.pagable_serialize(serializer)
+    }
+}
+
+impl<'de, L, H: Pagable + DirectoryDigest> PagableDeserialize<'de> for SharedDirectory<L, H>
+where
+    L: Pagable + SharedDirectoryInternable<H>,
+{
+    fn pagable_deserialize<D: pagable::PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> pagable::Result<Self> {
+        let inner = SharedDirectoryData::pagable_deserialize(deserializer)?;
+        Ok(L::interner().intern(inner))
+    }
 }
 
 impl<L, H> SharedDirectory<L, H>

@@ -14,6 +14,7 @@ use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::file_name::FileNameBuf;
 use derivative::Derivative;
 use derive_more::Display;
+use pagable::Pagable;
 
 use crate::directory::builder::DirectoryBuilder;
 use crate::directory::dashmap_directory_interner::DashMapDirectoryInterner;
@@ -24,11 +25,13 @@ use crate::directory::immutable_directory::ImmutableDirectory;
 use crate::directory::immutable_or_exclusive::ImmutableOrExclusiveDirectoryRef;
 use crate::directory::macros::impl_fingerprinted_directory;
 use crate::directory::shared_directory::SharedDirectory;
+use crate::directory::shared_directory::SharedDirectoryInternable;
 
-#[derive(Derivative, Display, Allocative)]
+#[derive(Derivative, Display, Allocative, Pagable)]
 #[derivative(Debug(bound = "L: ::std::fmt::Debug"))]
 #[derivative(Clone(bound = "L: ::std::clone::Clone"))]
 #[display("{}", self.data)]
+#[pagable(bound = "L: Pagable + SharedDirectoryInternable<H>, H: Pagable")]
 pub struct ExclusiveDirectory<L, H>
 where
     H: DirectoryDigest,

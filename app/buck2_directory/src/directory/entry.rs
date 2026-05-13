@@ -12,7 +12,7 @@ use allocative::Allocative;
 use derive_more::Display;
 use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
-use pagable::PagablePanic;
+use pagable::Pagable;
 
 use crate::directory::directory::Directory;
 
@@ -28,7 +28,7 @@ use crate::directory::directory::Directory;
     Hash,
     UnpackVariants,
     Allocative,
-    PagablePanic
+    Pagable
 )]
 #[display(bound(D: ::std::fmt::Display, L: ::std::fmt::Display))]
 pub enum DirectoryEntry<D, L> {
