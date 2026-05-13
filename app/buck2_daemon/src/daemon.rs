@@ -381,9 +381,23 @@ impl DaemonCommand {
         // real builds shows that we cap out at ~10k polls/sec/worker. With `Instant::new` being
         // ~50ns, that puts the cost of these polls at 0.1% CPU, which is an acceptable cost to pay
         // for the value of the telemetry.
+        //
+        // The histogram config is sized for `buck2_webconsole`'s display bands, which bin polls at
+        // decade boundaries between 1µs and 1s. `precision_exact(0)` gives one bucket per power of
+        // 2 (≈3 buckets per decade — finer than the bands but coarse enough to not blow up event
+        // log size); `min_value` and `max_value` pin the bucket range so we don't carry hundreds
+        // of empty buckets covering the sub-ns and >1-minute extremes that tokio's default range
+        // would include. End result: ~24 buckets per worker per snapshot instead of the default
+        // ~237 — a ~10x reduction in histogram payload.
         builder.enable_metrics_poll_time_histogram();
         builder.metrics_poll_time_histogram_configuration(
-            tokio::runtime::HistogramConfiguration::log(tokio::runtime::LogHistogram::default()),
+            tokio::runtime::HistogramConfiguration::log(
+                tokio::runtime::LogHistogram::builder()
+                    .min_value(std::time::Duration::from_nanos(500))
+                    .max_value(std::time::Duration::from_secs(1))
+                    .precision_exact(0)
+                    .build(),
+            ),
         );
 
         tracing::info!("Starting tokio runtime...");

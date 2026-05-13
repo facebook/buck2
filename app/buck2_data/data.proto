@@ -1089,6 +1089,74 @@ message Snapshot {
   optional UnixCgroupMemoryStats allprocs_cgroup = 2003;
   // Memory usage of the forkserver daemon's slice from cgroup (if available)
   optional UnixCgroupMemoryStats forkserver_actions_cgroup = 2004;
+
+  // Detailed Tokio runtime metrics. Always populated by current daemons;
+  // absent in event logs recorded by older daemons that pre-date this field.
+  optional TokioRuntimeStats tokio_runtime_stats = 3001;
+}
+
+// https://docs.rs/tokio/latest/tokio/runtime/struct.RuntimeMetrics.html for
+// full details
+message TokioRuntimeStats {
+  message Worker {
+    // Per-snapshot delta of the count of times this worker unparked but
+    // found no work.
+    uint64 noop_count = 1;
+    // Cumulative count of park OR unpark events. Kept cumulative (unlike
+    // the other counters in this message) because per tokio docs: "an odd
+    // count means that the worker is currently parked" — the parity at
+    // snapshot time tells the consumer whether the worker is idly parked
+    // vs stuck in an in-progress long synchronous poll. Both pieces of
+    // info — delta and current parity — would otherwise need separate
+    // fields. The runtime-wide park count is derivable as half this value.
+    uint64 park_unpark_count = 2;
+    // Per-snapshot delta of the count of tasks this worker stole from
+    // other workers.
+    uint64 steal_count = 3;
+    // Per-snapshot delta of the count of tasks this worker has polled.
+    uint64 poll_count = 4;
+    // Per-snapshot delta of microseconds this worker spent busy (not
+    // parked).
+    uint64 total_busy_duration_us = 5;
+    // Per-snapshot delta of the count of tasks scheduled to this worker's
+    // local queue.
+    uint64 local_schedule_count = 6;
+    // Per-snapshot delta of the count of times this worker overflowed its
+    // local queue (forcing a push to the global queue).
+    uint64 overflow_count = 7;
+    // Current depth of this worker's local run queue at snapshot time.
+    // Gauge, not delta.
+    uint64 local_queue_depth = 8;
+    // Per-snapshot delta of per-bucket poll counts since the previous
+    // Snapshot the daemon emitted. Indices line up with
+    // `TokioRuntimeStats.poll_time_histogram_bucket_upper_bound_ns`. Trailing
+    // zeros are trimmed (consumers must treat missing trailing entries as 0;
+    // this is most snapshots, since long-poll buckets are usually empty).
+    // Empty if (a) the histogram isn't enabled in this daemon, (b) this is
+    // the first snapshot of the recording (no baseline to diff against), or
+    // (c) all per-bucket deltas were zero.
+    repeated uint64 poll_time_bucket_counts = 9;
+  }
+  // Number of currently alive tasks tracked by the runtime. Gauge.
+  uint64 num_alive_tasks = 1;
+  // Current depth of the runtime's global run queue. Gauge.
+  uint64 global_queue_depth = 2;
+  // Per-snapshot delta of the count of forced cooperative yields.
+  uint64 budget_forced_yield_count = 3;
+  // Per-snapshot delta of the count of tasks scheduled to the runtime from
+  // outside any worker thread (e.g. spawn from a blocking thread, or wake
+  // from an external thread). These tasks land in the global injection queue
+  // rather than a worker's local queue.
+  uint64 remote_schedule_count = 4;
+  // Per-worker metrics, indexed by worker id (i.e. workers[i] is the entry
+  // for worker i).
+  repeated Worker workers = 5;
+  // Upper bound (inclusive) of each histogram bucket, in nanoseconds. Same
+  // length as `Worker.poll_time_bucket_counts`. Constant for the daemon's
+  // lifetime, so to save space the daemon only populates this on the first
+  // Snapshot it emits per command — subsequent snapshots leave it empty and
+  // consumers should reuse the value captured from the first snapshot.
+  repeated uint64 poll_time_histogram_bucket_upper_bound_ns = 6;
 }
 
 message UnixCgroupMemoryStats {

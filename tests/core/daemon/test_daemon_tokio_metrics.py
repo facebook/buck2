@@ -41,9 +41,42 @@ async def test_notices_tokio_worker_override(buck: Buck) -> None:
     assert metrics["num_workers"] == 42  # from modification below
 
 
-# Placeholder for tests to be listed successfully on non-Linux platforms.
-async def test_noop() -> None:
-    pass
+@buck_test()
+async def test_snapshot_events_carry_tokio_runtime_stats(buck: Buck) -> None:
+    # Snapshots should always include tokio_runtime_stats — there's no toggle.
+    await buck.targets(":")
+    snapshots = await _snapshot_events(buck)
+    assert len(snapshots) > 0, "expected at least one snapshot event in the log"
+    populated = [s for s in snapshots if s.get("tokio_runtime_stats")]
+    assert len(populated) > 0, (
+        "expected at least one snapshot to carry tokio_runtime_stats"
+    )
+    stats = populated[-1]["tokio_runtime_stats"]
+    assert "workers" in stats
+    assert len(stats["workers"]) > 0
+    # At least one worker should have done some work, exposing cumulative
+    # counters. (Default-zero u64 fields are omitted by proto3 JSON, so we
+    # look for a worker that has any of them present.)
+    counter_fields = ("park_unpark_count", "poll_count", "total_busy_duration_us")
+    assert any(any(f in w for f in counter_fields) for w in stats["workers"]), (
+        f"expected some worker to expose any of {counter_fields}, got {stats['workers']}"
+    )
+
+
+async def _snapshot_events(buck: Buck) -> list[dict[str, typing.Any]]:
+    """Returns the Snapshot payloads from the most recent invocation's log."""
+    out = await buck.log("show")
+    snapshots: list[dict[str, typing.Any]] = []
+    for line in out.stdout.splitlines():
+        if not line:
+            continue
+        event = json.loads(line)
+        instant = (
+            event.get("Event", {}).get("data", {}).get("Instant", {}).get("data", {})
+        )
+        if "Snapshot" in instant:
+            snapshots.append(instant["Snapshot"])
+    return snapshots
 
 
 def append_tokio_workers_config(buck: Buck) -> None:
