@@ -91,7 +91,6 @@ use relative_path::RelativePath;
 use relative_path::RelativePathBuf;
 use serde::Deserialize;
 use serde::Serialize;
-use starlark::values::StarlarkPagableViaPagable;
 
 /// A un-owned forward pointing, fully normalized path that is relative to the
 /// project root.
@@ -125,8 +124,7 @@ pub struct ProjectRelativePath(
     Serialize,
     Deserialize,
     Pagable,
-    Allocative,
-    StarlarkPagableViaPagable
+    Allocative
 )]
 #[derivative(Debug)]
 pub struct ProjectRelativePathBuf(

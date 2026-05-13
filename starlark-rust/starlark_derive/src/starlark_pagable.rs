@@ -678,7 +678,17 @@ fn gen_serialize_enum(
                         stmts.push(quote_spanned! { field.span()=> let _ = #binding; });
                         continue;
                     }
-                    if attrs.pagable {
+                    if let Some(fn_path) = &attrs.serialize_with {
+                        let path: syn::Path = syn::parse_str(fn_path).map_err(|e| {
+                            syn::Error::new(
+                                field.span(),
+                                format!("invalid `serialize_with` path: {e}"),
+                            )
+                        })?;
+                        stmts.push(quote_spanned! { field.span()=>
+                            #path(#binding, ctx)?;
+                        });
+                    } else if attrs.pagable {
                         stmts.push(quote_spanned! { field.span()=>
                             pagable::PagableSerialize::pagable_serialize(#binding, ctx.pagable())?;
                         });
@@ -708,7 +718,17 @@ fn gen_serialize_enum(
                         stmts.push(quote_spanned! { field.span()=> let _ = #binding; });
                         continue;
                     }
-                    if attrs.pagable {
+                    if let Some(fn_path) = &attrs.serialize_with {
+                        let path: syn::Path = syn::parse_str(fn_path).map_err(|e| {
+                            syn::Error::new(
+                                field.span(),
+                                format!("invalid `serialize_with` path: {e}"),
+                            )
+                        })?;
+                        stmts.push(quote_spanned! { field.span()=>
+                            #path(#binding, ctx)?;
+                        });
+                    } else if attrs.pagable {
                         stmts.push(quote_spanned! { field.span()=>
                             pagable::PagableSerialize::pagable_serialize(#binding, ctx.pagable())?;
                         });
@@ -758,6 +778,16 @@ fn gen_deserialize_enum(
                     let ty = &field.ty;
                     let v = if attrs.skip {
                         gen_skip_value(&attrs, ty, field.span())?
+                    } else if let Some(fn_path) = &attrs.deserialize_with {
+                        let path: syn::Path = syn::parse_str(fn_path).map_err(|e| {
+                            syn::Error::new(
+                                field.span(),
+                                format!("invalid `deserialize_with` path: {e}"),
+                            )
+                        })?;
+                        quote_spanned! { field.span()=>
+                            #path(ctx)?
+                        }
                     } else if attrs.pagable {
                         quote_spanned! { field.span()=>
                             pagable::PagableDeserialize::pagable_deserialize(ctx.pagable())?
@@ -781,6 +811,16 @@ fn gen_deserialize_enum(
                     let ty = &field.ty;
                     let v = if attrs.skip {
                         gen_skip_value(&attrs, ty, field.span())?
+                    } else if let Some(fn_path) = &attrs.deserialize_with {
+                        let path: syn::Path = syn::parse_str(fn_path).map_err(|e| {
+                            syn::Error::new(
+                                field.span(),
+                                format!("invalid `deserialize_with` path: {e}"),
+                            )
+                        })?;
+                        quote_spanned! { field.span()=>
+                            #path(ctx)?
+                        }
                     } else if attrs.pagable {
                         quote_spanned! { field.span()=>
                             pagable::PagableDeserialize::pagable_deserialize(ctx.pagable())?

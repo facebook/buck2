@@ -40,7 +40,9 @@ pub struct StarlarkArtifactValue {
     // We only keep the artifact for Display, since we don't want to leak the underlying path by default
     #[starlark_pagable(pagable)]
     artifact: Artifact,
+    #[starlark_pagable(pagable)]
     path: ProjectRelativePathBuf,
+    #[starlark_pagable(pagable)]
     fs: ProjectRoot,
 }
 

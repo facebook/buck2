@@ -27,7 +27,6 @@ use dupe::Dupe;
 use pagable::Pagable;
 use ref_cast::RefCast;
 use relative_path::RelativePathBuf;
-use starlark::values::StarlarkPagableViaPagable;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(input)]
@@ -49,8 +48,7 @@ enum ProjectRootError {
     PartialEq,
     derive_more::Display,
     Allocative,
-    Pagable,
-    StarlarkPagableViaPagable
+    Pagable
 )]
 #[display("{root}")]
 pub struct ProjectRoot {

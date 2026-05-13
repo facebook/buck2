@@ -21,7 +21,6 @@ use pagable::Pagable;
 use serde::Deserialize;
 use serde::Serialize;
 use serde::Serializer;
-use starlark::values::StarlarkPagableViaPagable;
 use static_assertions::assert_eq_size;
 use strong_hash::StrongHash;
 use triomphe::Arc;
@@ -190,19 +189,8 @@ impl ProvidersName {
 /// the 'ProvidersName' referring to the specific set of inner providers of a
 /// rule.
 #[derive(
-    Clone,
-    Dupe,
-    Debug,
-    Display,
-    Hash,
-    StrongHash,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    Allocative,
-    Pagable,
-    StarlarkPagableViaPagable
+    Clone, Dupe, Debug, Display, Hash, StrongHash, Eq, PartialEq, Ord, PartialOrd, Allocative,
+    Pagable
 )]
 #[display("{}{}", target, name)]
 pub struct ProvidersLabel {

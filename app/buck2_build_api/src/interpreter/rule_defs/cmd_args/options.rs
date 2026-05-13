@@ -31,9 +31,15 @@ use display_container::fmt_container;
 use dupe::Dupe;
 use either::Either;
 use gazebo::prelude::*;
+use pagable::PagableDeserialize;
+use pagable::PagableSerialize;
 use regex::Regex;
 use serde::Serialize;
 use serde::Serializer;
+use starlark::pagable::StarlarkDeserialize;
+use starlark::pagable::StarlarkDeserializeContext;
+use starlark::pagable::StarlarkSerialize;
+use starlark::pagable::StarlarkSerializeContext;
 use starlark::values::Freeze;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
@@ -280,15 +286,51 @@ enum FrozenCommandLineOption {
     Format(FrozenStringValue),
     Prepend(FrozenStringValue),
     Quote(QuoteStyle),
+    // `ThinBoxSlice` lives in `buck2_util` (cannot depend on `starlark`),
+    // so the per-element starlark bridging lives here at the use site.
     #[allow(clippy::box_collection)]
-    Replacements(ThinBoxSlice<(FrozenCmdArgsRegex, FrozenStringValue)>),
+    Replacements(
+        #[starlark_pagable(
+            serialize_with = "serialize_thinbox_starlark",
+            deserialize_with = "deserialize_thinbox_starlark"
+        )]
+        ThinBoxSlice<(FrozenCmdArgsRegex, FrozenStringValue)>,
+    ),
 }
 
 assert_eq_size!(FrozenCommandLineOption, [usize; 2]);
 
 #[derive(Debug, Default, Allocative, StarlarkPagable)]
 pub(crate) struct FrozenCommandLineOptions {
+    // `ThinBoxSlice` lives in `buck2_util` (cannot depend on `starlark`),
+    // so the per-element starlark bridging lives here at the use site.
+    #[starlark_pagable(
+        serialize_with = "serialize_thinbox_starlark",
+        deserialize_with = "deserialize_thinbox_starlark"
+    )]
     options: ThinBoxSlice<FrozenCommandLineOption>,
+}
+
+fn serialize_thinbox_starlark<T: StarlarkSerialize + 'static>(
+    field: &ThinBoxSlice<T>,
+    ctx: &mut dyn StarlarkSerializeContext,
+) -> starlark::Result<()> {
+    PagableSerialize::pagable_serialize(&field.len(), ctx.pagable())?;
+    for item in field.iter() {
+        StarlarkSerialize::starlark_serialize(item, ctx)?;
+    }
+    Ok(())
+}
+
+fn deserialize_thinbox_starlark<T: StarlarkDeserialize + 'static>(
+    ctx: &mut dyn StarlarkDeserializeContext<'_>,
+) -> starlark::Result<ThinBoxSlice<T>> {
+    let len = usize::pagable_deserialize(ctx.pagable())?;
+    let mut items = Vec::with_capacity(len);
+    for _ in 0..len {
+        items.push(T::starlark_deserialize(ctx)?);
+    }
+    Ok(ThinBoxSlice::from_iter(items))
 }
 
 impl FrozenCommandLineOptions {

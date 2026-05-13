@@ -26,6 +26,8 @@ use buck2_interpreter::types::provider::callable::ValueAsProviderCallableLike;
 use display_container::fmt_container;
 use dupe::Dupe;
 use either::Either;
+use pagable::PagableDeserialize;
+use pagable::PagableSerialize;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
@@ -36,6 +38,10 @@ use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
+use starlark::pagable::StarlarkDeserialize;
+use starlark::pagable::StarlarkDeserializeContext;
+use starlark::pagable::StarlarkSerialize;
+use starlark::pagable::StarlarkSerializeContext;
 use starlark::static_starlark_value;
 use starlark::typing::Ty;
 use starlark::values::AllocFrozenValue;
@@ -118,9 +124,42 @@ enum ProviderCollectionError {
 }
 
 #[derive(Debug, ProvidesStaticType, Allocative, StarlarkPagable)]
+#[starlark_pagable(bound = "V: StarlarkSerialize + StarlarkDeserialize")]
 #[repr(C)]
 pub struct ProviderCollectionGen<V: ValueLifetimeless> {
+    // Mixed: `ProviderId` is pagable-only (`buck2_core` cannot depend on
+    // `starlark`), values are starlark — so the generic `SmallMap<K, V>:
+    // StarlarkSerialize` blanket doesn't apply. Bridge here.
+    #[starlark_pagable(
+        serialize_with = "serialize_providers",
+        deserialize_with = "deserialize_providers"
+    )]
     pub(crate) providers: SmallMap<Arc<ProviderId>, V>,
+}
+
+fn serialize_providers<V: StarlarkSerialize>(
+    field: &SmallMap<Arc<ProviderId>, V>,
+    ctx: &mut dyn StarlarkSerializeContext,
+) -> starlark::Result<()> {
+    PagableSerialize::pagable_serialize(&field.len(), ctx.pagable())?;
+    for (k, v) in field.iter() {
+        PagableSerialize::pagable_serialize(k, ctx.pagable())?;
+        StarlarkSerialize::starlark_serialize(v, ctx)?;
+    }
+    Ok(())
+}
+
+fn deserialize_providers<V: StarlarkDeserialize + ValueLifetimeless>(
+    ctx: &mut dyn StarlarkDeserializeContext<'_>,
+) -> starlark::Result<SmallMap<Arc<ProviderId>, V>> {
+    let len = usize::pagable_deserialize(ctx.pagable())?;
+    let mut map = SmallMap::with_capacity(len);
+    for _ in 0..len {
+        let k = <Arc<ProviderId> as PagableDeserialize>::pagable_deserialize(ctx.pagable())?;
+        let v = V::starlark_deserialize(ctx)?;
+        map.insert(k, v);
+    }
+    Ok(map)
 }
 
 pub type ProviderCollection<'v> = ProviderCollectionGen<Value<'v>>;

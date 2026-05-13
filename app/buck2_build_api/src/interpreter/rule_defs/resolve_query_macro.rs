@@ -14,6 +14,12 @@ use std::fmt::Display;
 use allocative::Allocative;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_util::thin_box::ThinBoxSlice;
+use pagable::PagableDeserialize;
+use pagable::PagableSerialize;
+use starlark::pagable::StarlarkDeserialize;
+use starlark::pagable::StarlarkDeserializeContext;
+use starlark::pagable::StarlarkSerialize;
+use starlark::pagable::StarlarkSerializeContext;
 use starlark::values::StarlarkPagable;
 use static_assertions::assert_eq_size;
 
@@ -29,14 +35,76 @@ use crate::interpreter::rule_defs::resolved_macro::add_output_to_arg;
 pub struct ResolvedQueryMacroTargetAndOutputs {
     #[starlark_pagable(pagable)]
     pub sep: Box<str>,
+    // Mixed: `ConfiguredTargetLabel` is pagable-only (`buck2_core` cannot
+    // depend on `starlark`), outputs are starlark-aware.
+    #[starlark_pagable(
+        serialize_with = "serialize_target_outputs",
+        deserialize_with = "deserialize_target_outputs"
+    )]
     pub list: Box<[(ConfiguredTargetLabel, Box<[StarlarkArtifact]>)]>,
+}
+
+fn serialize_target_outputs(
+    field: &[(ConfiguredTargetLabel, Box<[StarlarkArtifact]>)],
+    ctx: &mut dyn StarlarkSerializeContext,
+) -> starlark::Result<()> {
+    PagableSerialize::pagable_serialize(&field.len(), ctx.pagable())?;
+    for (target, outputs) in field.iter() {
+        PagableSerialize::pagable_serialize(target, ctx.pagable())?;
+        StarlarkSerialize::starlark_serialize(outputs, ctx)?;
+    }
+    Ok(())
+}
+
+fn deserialize_target_outputs(
+    ctx: &mut dyn StarlarkDeserializeContext<'_>,
+) -> starlark::Result<Box<[(ConfiguredTargetLabel, Box<[StarlarkArtifact]>)]>> {
+    let len = usize::pagable_deserialize(ctx.pagable())?;
+    let mut v = Vec::with_capacity(len);
+    for _ in 0..len {
+        let target =
+            <ConfiguredTargetLabel as PagableDeserialize>::pagable_deserialize(ctx.pagable())?;
+        let outputs = <Box<[StarlarkArtifact]> as StarlarkDeserialize>::starlark_deserialize(ctx)?;
+        v.push((target, outputs));
+    }
+    Ok(v.into_boxed_slice())
 }
 
 #[derive(Debug, PartialEq, Allocative, StarlarkPagable)]
 pub enum ResolvedQueryMacro {
-    Outputs(ThinBoxSlice<Box<[StarlarkArtifact]>>),
-    Targets(ThinBoxSlice<ConfiguredTargetLabel>),
+    // `ThinBoxSlice` lives in `buck2_util` (cannot depend on `starlark`),
+    // so the per-element starlark bridging lives here at the use site.
+    Outputs(
+        #[starlark_pagable(
+            serialize_with = "serialize_thinbox_starlark",
+            deserialize_with = "deserialize_thinbox_starlark"
+        )]
+        ThinBoxSlice<Box<[StarlarkArtifact]>>,
+    ),
+    Targets(#[starlark_pagable(pagable)] ThinBoxSlice<ConfiguredTargetLabel>),
     TargetsAndOutputs(Box<ResolvedQueryMacroTargetAndOutputs>),
+}
+
+fn serialize_thinbox_starlark<T: StarlarkSerialize + 'static>(
+    field: &ThinBoxSlice<T>,
+    ctx: &mut dyn StarlarkSerializeContext,
+) -> starlark::Result<()> {
+    PagableSerialize::pagable_serialize(&field.len(), ctx.pagable())?;
+    for item in field.iter() {
+        StarlarkSerialize::starlark_serialize(item, ctx)?;
+    }
+    Ok(())
+}
+
+fn deserialize_thinbox_starlark<T: StarlarkDeserialize + 'static>(
+    ctx: &mut dyn StarlarkDeserializeContext<'_>,
+) -> starlark::Result<ThinBoxSlice<T>> {
+    let len = usize::pagable_deserialize(ctx.pagable())?;
+    let mut items = Vec::with_capacity(len);
+    for _ in 0..len {
+        items.push(T::starlark_deserialize(ctx)?);
+    }
+    Ok(ThinBoxSlice::from_iter(items))
 }
 
 assert_eq_size!(ResolvedQueryMacro, [usize; 2]);

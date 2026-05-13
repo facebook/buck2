@@ -28,10 +28,16 @@ use derive_more::Display;
 use dupe::Dupe;
 use either::Either;
 use gazebo::prelude::*;
+use pagable::PagableDeserialize;
+use pagable::PagableSerialize;
 use starlark::any::ProvidesStaticType;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
+use starlark::pagable::StarlarkDeserialize;
+use starlark::pagable::StarlarkDeserializeContext;
+use starlark::pagable::StarlarkSerialize;
+use starlark::pagable::StarlarkSerializeContext;
 use starlark::starlark_complex_values;
 use starlark::starlark_module;
 use starlark::typing::ParamIsRequired;
@@ -105,10 +111,42 @@ pub(crate) struct FrozenTransition {
     #[starlark_pagable(pagable)]
     id: Arc<TransitionId>,
     pub(crate) implementation: FrozenValue,
+    // Mixed: keys are starlark, `ProvidersLabel` is pagable-only (`buck2_core`
+    // cannot depend on `starlark`) — so the generic `SmallMap<K, V>:
+    // StarlarkSerialize` blanket doesn't apply. Bridge here.
+    #[starlark_pagable(
+        serialize_with = "serialize_refs",
+        deserialize_with = "deserialize_refs"
+    )]
     pub(crate) refs: SmallMap<FrozenStringValue, ProvidersLabel>,
     pub(crate) attrs_names: Option<Vec<FrozenStringValue>>,
     #[starlark_pagable(pagable)]
     pub(crate) split: bool,
+}
+
+fn serialize_refs(
+    field: &SmallMap<FrozenStringValue, ProvidersLabel>,
+    ctx: &mut dyn StarlarkSerializeContext,
+) -> starlark::Result<()> {
+    PagableSerialize::pagable_serialize(&field.len(), ctx.pagable())?;
+    for (k, v) in field.iter() {
+        StarlarkSerialize::starlark_serialize(k, ctx)?;
+        PagableSerialize::pagable_serialize(v, ctx.pagable())?;
+    }
+    Ok(())
+}
+
+fn deserialize_refs(
+    ctx: &mut dyn StarlarkDeserializeContext<'_>,
+) -> starlark::Result<SmallMap<FrozenStringValue, ProvidersLabel>> {
+    let len = usize::pagable_deserialize(ctx.pagable())?;
+    let mut map = SmallMap::with_capacity(len);
+    for _ in 0..len {
+        let k = FrozenStringValue::starlark_deserialize(ctx)?;
+        let v = <ProvidersLabel as PagableDeserialize>::pagable_deserialize(ctx.pagable())?;
+        map.insert(k, v);
+    }
+    Ok(map)
 }
 
 #[starlark_value(type = "Transition", skip_pagable)]

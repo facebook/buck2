@@ -20,7 +20,6 @@ use dupe::Dupe;
 use pagable::Pagable;
 use serde::Serialize;
 use serde::Serializer;
-use starlark::values::StarlarkPagableViaPagable;
 use strong_hash::StrongHash;
 
 use crate::configuration::data::ConfigurationData;
@@ -33,17 +32,7 @@ use crate::target::name::TargetNameRef;
 /// These uniquely map to nodes of the build graph with 'Configuration's
 /// applied.
 #[derive(
-    Clone,
-    Dupe,
-    Hash,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    Allocative,
-    StrongHash,
-    Pagable,
-    StarlarkPagableViaPagable
+    Clone, Dupe, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative, StrongHash, Pagable
 )]
 pub struct ConfiguredTargetLabel {
     pub(crate) target: TargetLabel,

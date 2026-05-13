@@ -14,7 +14,6 @@ use std::fmt::Formatter;
 use allocative::Allocative;
 use buck2_fs::paths::file_name::FileName;
 use pagable::Pagable;
-use starlark::values::StarlarkPagableViaPagable;
 use strong_hash::StrongHash;
 
 use crate::cells::build_file_cell::BuildFileCell;
@@ -33,17 +32,7 @@ enum ImportPathError {
 }
 
 /// Path of a `.bzl` file.
-#[derive(
-    Clone,
-    Hash,
-    StrongHash,
-    Eq,
-    PartialEq,
-    Debug,
-    Allocative,
-    Pagable,
-    StarlarkPagableViaPagable
-)]
+#[derive(Clone, Hash, StrongHash, Eq, PartialEq, Debug, Allocative, Pagable)]
 pub struct ImportPath {
     /// The path to the import as a 'CellPath', which contains the cell
     /// information and the cell relative path to the bzl file itself, including the bzl suffix

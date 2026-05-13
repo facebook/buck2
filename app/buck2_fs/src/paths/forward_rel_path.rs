@@ -32,7 +32,6 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use smallvec::SmallVec;
-use starlark::values::StarlarkPagableViaPagable;
 use strong_hash::StrongHash;
 
 use crate::fs_util;
@@ -67,20 +66,8 @@ pub struct ForwardRelativePath(
 /// The owned version of 'ForwardRelativePath', like how 'PathBuf' relates to
 /// 'Path'
 #[derive(
-    Default,
-    Clone,
-    Display,
-    Debug,
-    Serialize,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    Allocative,
-    StrongHash,
-    Pagable,
-    StarlarkPagableViaPagable
+    Default, Clone, Display, Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash, Allocative,
+    StrongHash, Pagable
 )]
 #[repr(transparent)]
 pub struct ForwardRelativePathBuf(#[pagable(flatten_serde)] String);
