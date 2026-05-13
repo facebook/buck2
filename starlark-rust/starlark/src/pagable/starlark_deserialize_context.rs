@@ -22,6 +22,7 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::MutexGuard;
 
+use dashmap::DashMap;
 use dupe::Dupe;
 use pagable::PagableCursor;
 use pagable::PagableDeserialize;
@@ -208,24 +209,24 @@ impl HeapDeserializationState {
 }
 
 /// Shared deserialization state across all heaps deserialized in a session.
-/// Stored in `SessionContext` as `Arc<Mutex<StarlarkDeserState>>` so that
+/// Stored in `SessionContext` as `Arc<StarlarkDeserState>` so that
 /// independently-deserialized heaps (via pagable arcs) can all register
 /// their base addresses and resolve cross-heap references.
 pub(crate) struct StarlarkDeserState {
     /// Bump bases for each deserialized heap, keyed by HeapRefId.
-    heap_bases: HashMap<HeapRefId, HeapBumpBases>,
+    heap_bases: DashMap<HeapRefId, HeapBumpBases>,
 }
 
 impl StarlarkDeserState {
     pub(crate) fn new() -> Self {
         Self {
-            heap_bases: HashMap::new(),
+            heap_bases: DashMap::new(),
         }
     }
 
     /// Register a heap's base addresses.
     pub(crate) fn register_bases(
-        &mut self,
+        &self,
         heap_id: HeapRefId,
         drop_base: usize,
         non_drop_base: usize,
@@ -247,7 +248,7 @@ impl StarlarkDeserState {
 pub struct StarlarkDeserializerImpl<'a, 'de> {
     pagable: &'a mut dyn PagableDeserializer<'de>,
     /// Shared state for cross-heap base lookups.
-    state: Arc<Mutex<StarlarkDeserState>>,
+    state: Arc<StarlarkDeserState>,
     /// The HeapRefId of the heap currently being deserialized.
     current_heap_id: HeapRefId,
     /// Current heap value tracking for ensure_initialized.
@@ -296,7 +297,7 @@ impl<'a, 'de> StarlarkDeserializerImpl<'a, 'de> {
     /// Create a new deserializer with shared state and current heap id.
     pub(crate) fn new(
         pagable: &'a mut dyn PagableDeserializer<'de>,
-        state: Arc<Mutex<StarlarkDeserState>>,
+        state: Arc<StarlarkDeserState>,
         current_heap_id: HeapRefId,
         current_heap_deser_state: Arc<Mutex<HeapDeserializationState>>,
     ) -> Self {
@@ -315,10 +316,10 @@ impl<'a, 'de> StarlarkDeserializerImpl<'a, 'de> {
     /// Get or create the shared `StarlarkDeserState` from the deserializer's `SessionContext`.
     pub(crate) fn get_or_create_state(
         deserializer: &mut dyn PagableDeserializer<'_>,
-    ) -> Arc<Mutex<StarlarkDeserState>> {
+    ) -> Arc<StarlarkDeserState> {
         deserializer
             .session_context()
-            .get_or_insert_with(|| Arc::new(Mutex::new(StarlarkDeserState::new())))
+            .get_or_insert_with(|| Arc::new(StarlarkDeserState::new()))
     }
 
     /// Read the currently-deserializing heap context (id + work queue) from
@@ -348,18 +349,18 @@ impl<'de> StarlarkDeserializeContext<'de> for StarlarkDeserializerImpl<'_, 'de> 
 
     fn deserialize_frozen_value(&mut self) -> crate::Result<FrozenValue> {
         let serialized = SerializedFrozenValue::pagable_deserialize(self.pagable)?;
-        let state = self.state.lock().expect("deser state lock poisoned");
         match serialized {
             SerializedFrozenValue::SameHeapPtr { offset, is_str } => {
                 let heap_id = self.current_heap_id;
-                let bases = state
+                let bases = self
+                    .state
                     .heap_bases
                     .get(&heap_id)
                     .ok_or(PagableError::HeapBasesNotRegistered)?;
                 let ptr = bases.resolve(&offset);
                 let header = unsafe { &*(ptr as *const AValueHeader) };
                 let fv = FrozenValue::new_ptr(header, is_str);
-                drop(state);
+                drop(bases);
                 self.ensure_initialized(fv)?;
                 Ok(fv)
             }
@@ -368,7 +369,8 @@ impl<'de> StarlarkDeserializeContext<'de> for StarlarkDeserializerImpl<'_, 'de> 
                 offset,
                 is_str,
             } => {
-                let bases = state
+                let bases = self
+                    .state
                     .heap_bases
                     .get(&heap_id)
                     .ok_or(PagableError::CrossHeapBasesNotRegistered { heap_id })?;

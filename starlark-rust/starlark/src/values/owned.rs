@@ -236,10 +236,7 @@ impl PagableSerialize for OwnedFrozenValue {
         // can defer actual heap serialization, so the offset maps may not
         // exist yet when we need to serialize the FrozenValue.
         let state = StarlarkSerializerImpl::get_or_create_state(serializer);
-        state
-            .lock()
-            .unwrap()
-            .ensure_offset_maps_registered(&self.owner);
+        state.ensure_offset_maps_registered(&self.owner);
 
         // Serialize the FrozenValue using a StarlarkSerializerImpl with the
         // owner heap as the current heap.

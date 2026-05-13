@@ -483,12 +483,9 @@ impl FrozenFrozenHeap {
         // dependencies have offset maps registered before we serialize arena
         // values (which may contain cross-heap FrozenValue pointers).
         let state = StarlarkSerializerImpl::get_or_create_state(serializer);
-        state
-            .lock()
-            .expect("ser state lock poisoned")
-            .ensure_offset_maps_registered_inner(heap_id, &self.refs, || {
-                self.arena.build_ptr_to_offset_map()
-            });
+        state.ensure_offset_maps_registered_inner(heap_id, &self.refs, || {
+            self.arena.build_ptr_to_offset_map()
+        });
         // Create local StarlarkSerializerImpl with shared state.
         let mut ctx = StarlarkSerializerImpl::new(serializer, state, heap_id);
 
@@ -546,10 +543,7 @@ impl FrozenFrozenHeap {
         );
 
         // Register bases in shared state.
-        state
-            .lock()
-            .expect("deser state lock poisoned")
-            .register_bases(heap_id, drop_base, non_drop_base);
+        state.register_bases(heap_id, drop_base, non_drop_base);
 
         let heap = Self::deserialize_phase2(arena, refs, &mut ctx)?;
 

@@ -66,6 +66,7 @@ rust_library(
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:bumpalo",
+        "fbsource//third-party/rust:dashmap",
         "fbsource//third-party/rust:debugserver-types",
         "fbsource//third-party/rust:derivative",
         "fbsource//third-party/rust:derive_more",
