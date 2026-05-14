@@ -870,10 +870,11 @@ internal class ValidationStage : AbiGenStage {
  */
 internal class AbiGenPipeline(
     val firMetadataSanitizer: FirMetadataSanitizerStage = FirMetadataSanitizerStage(),
+    val composeAbi: ComposeAbiEmulationStage = ComposeAbiEmulationStage(),
     val irSanitizer: IrSanitizerStage = IrSanitizerStage(),
     val bytecodeSanitizer: BytecodeSanitizerStage = BytecodeSanitizerStage(),
     val validator: ValidationStage = ValidationStage(),
 ) {
   val stages: List<AbiGenStage>
-    get() = listOf(firMetadataSanitizer, irSanitizer, bytecodeSanitizer, validator)
+    get() = listOf(firMetadataSanitizer, composeAbi, irSanitizer, bytecodeSanitizer, validator)
 }

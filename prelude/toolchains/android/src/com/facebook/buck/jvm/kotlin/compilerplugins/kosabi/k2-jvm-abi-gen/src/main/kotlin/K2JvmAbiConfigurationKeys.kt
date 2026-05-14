@@ -25,4 +25,7 @@ object K2JvmAbiConfigurationKeys {
 
   val DEBUG_OUTPUT: CompilerConfigurationKey<Boolean> =
       CompilerConfigurationKey.create("debug output flag for K2 JVM ABI generation")
+
+  val ENABLE_COMPOSE_ABI_EMULATION: CompilerConfigurationKey<Boolean> =
+      CompilerConfigurationKey.create("enable Compose ABI emulation for K2 JVM ABI generation")
 }

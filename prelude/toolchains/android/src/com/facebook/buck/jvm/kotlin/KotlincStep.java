@@ -80,6 +80,8 @@ public class KotlincStep implements IsolatedStep {
   private final LanguageVersion languageVersion;
   private final boolean shouldKosabiJvmAbiGenUseK2;
 
+  private static final String COMPOSE_PLUGIN_PATH_FRAGMENT = "compose/compiler";
+
   KotlincStep(
       BuildTargetValue invokingRule,
       Path outputDirectory,
@@ -366,9 +368,25 @@ public class KotlincStep implements IsolatedStep {
       builder.add(
           "plugin:com.facebook.k2.jvm.abi.gen:outputDir="
               + ruleCellRoot.resolve(outputDirectory).toString());
+      // Enable Compose ABI emulation only when the Compose compiler plugin is active.
+      // The emulation adds $stable fields and @StabilityInferred annotations to match
+      // the real Compose compiler output. Only targets with the Compose plugin should
+      // get these artifacts — otherwise @StabilityInferred leaks into ABI jars of
+      // non-Compose targets and causes downstream javac failures.
+      if (shouldEnableComposeAbiEmulation()) {
+        builder.add(PLUGIN);
+        builder.add("plugin:com.facebook.k2.jvm.abi.gen:enableComposeAbiEmulation=true");
+      }
     }
 
     addClasspath(builder, this.sourceOnlyAbiClasspath);
+  }
+
+  private boolean shouldEnableComposeAbiEmulation() {
+    if (!shouldKosabiJvmAbiGenUseK2) return false;
+    return extraArguments.stream()
+        .filter(arg -> arg.startsWith("-Xplugin="))
+        .anyMatch(arg -> arg.contains(COMPOSE_PLUGIN_PATH_FRAGMENT));
   }
 
   private void addClasspath(ImmutableList.Builder<String> builder, Iterable<AbsPath> pathElements) {

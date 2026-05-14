@@ -535,7 +535,16 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
       project: Project,
   ): ModuleCompilerIrBackendInputCompat {
     val extensions = JvmFir2IrExtensions(configuration, JvmIrDeserializerImpl())
-    val allIrExtensions = listOf(pipeline.irSanitizer.createExtension(sourceFiles))
+    val composeAbiEnabled =
+        configuration.get(K2JvmAbiConfigurationKeys.ENABLE_COMPOSE_ABI_EMULATION) == true
+    val allIrExtensions = buildList {
+      // Compose ABI emulation runs before the IR sanitizer so that any emulated
+      // declarations are present when non-ABI content is stripped.
+      if (composeAbiEnabled) {
+        add(pipeline.composeAbi.createExtension())
+      }
+      add(pipeline.irSanitizer.createExtension(sourceFiles))
+    }
 
     val (moduleFragment, components, pluginContext, irActualizedResult, _, symbolTable) =
         analysisResults.convertToIrAndActualizeForJvmCompat(
