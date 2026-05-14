@@ -33,7 +33,7 @@ load(
 )
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load("@prelude//cxx:cxx_executable.bzl", "cxx_executable")
-load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps", "cxx_attr_exported_deps")
+load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps", "cxx_attr_exported_deps", "cxx_attr_link_style")
 load(
     "@prelude//cxx:cxx_sources.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
@@ -68,10 +68,15 @@ load(
     "ExtraLinkerOutputs",
     "LinkCommandDebugOutputInfo",
     "UnstrippedLinkOutputInfo",
+    "to_link_strategy",
+)
+load(
+    "@prelude//linking:linkable_graph.bzl",
+    "LinkableGraph",
 )
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load("@prelude//utils:expect.bzl", "expect")
-load("@prelude//utils:utils.bzl", "map_val")
+load("@prelude//utils:utils.bzl", "filter_and_map_idx", "map_val")
 load(":apple_bundle_types.bzl", "AppleBundleLinkerMapInfo", "AppleMinDeploymentVersionInfo")
 load(":apple_bundle_utility.bzl", "get_bundle_infos_from_graph", "merge_bundle_linker_maps_info")
 load(":apple_code_signing_types.bzl", "AppleEntitlementsInfo")
@@ -132,7 +137,12 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             swift_compile,
         )
 
-        link_group_info = get_link_group_info(ctx)
+        link_strategy = to_link_strategy(cxx_attr_link_style(ctx))
+        link_group_info = get_link_group_info(
+            ctx,
+            filter_and_map_idx(LinkableGraph, cxx_attr_deps(ctx)),
+            link_strategy,
+        )
         binary_subtargets = {
             "swift-compilation-database": [
                 DefaultInfo(

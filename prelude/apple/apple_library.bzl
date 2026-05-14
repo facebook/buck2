@@ -66,6 +66,7 @@ load(
     "@prelude//cxx:cxx_library_utility.bzl",
     "cxx_attr_deps",
     "cxx_attr_exported_deps",
+    "cxx_attr_link_style",
 )
 load(
     "@prelude//cxx:cxx_sources.bzl",
@@ -107,8 +108,17 @@ load(
     "@prelude//linking:link_info.bzl",
     "ExtraLinkerOutputs",
     "LibOutputStyle",
+    "to_link_strategy",
+)
+load(
+    "@prelude//linking:linkable_graph.bzl",
+    "LinkableGraph",
 )
 load("@prelude//utils:arglike.bzl", "ArgLike")
+load(
+    "@prelude//utils:utils.bzl",
+    "filter_and_map_idx",
+)
 load(":apple_bundle_types.bzl", "AppleBundleLinkerMapInfo", "AppleMinDeploymentVersionInfo")
 load(":apple_error_handler.bzl", "apple_build_error_handler", "cxx_error_deserializer", "cxx_error_handler")
 load(":apple_frameworks.bzl", "get_framework_search_path_flags")
@@ -542,7 +552,12 @@ def apple_library_rule_constructor_params_and_swift_providers(
     )
     subtargets["swift-sources"] = [DefaultInfo(default_output = swift_sources_list)]
 
-    link_group_info = get_link_group_info(ctx)
+    link_strategy = to_link_strategy(cxx_attr_link_style(ctx))
+    link_group_info = get_link_group_info(
+        ctx,
+        filter_and_map_idx(LinkableGraph, cxx_attr_deps(ctx)),
+        link_strategy,
+    )
 
     return CxxRuleConstructorParams(
         rule_type = params.rule_type,
