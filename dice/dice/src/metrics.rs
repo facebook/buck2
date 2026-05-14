@@ -17,4 +17,6 @@ pub struct Metrics {
     /// The number of keys currently active in the per transaction cache
     pub currently_active_key_count: usize,
     pub active_transaction_count: u32,
+    /// Number of occupied nodes whose value is paged out to storage.
+    pub paged_out_count: usize,
 }
