@@ -71,3 +71,6 @@ pub mod __internal {
     pub use once_cell;
     pub use serde;
 }
+
+// @patternlint-disable-next-line buck2-no-use-anyhow
+pub use anyhow::anyhow;

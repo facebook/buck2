@@ -23,6 +23,12 @@ use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
 use itertools::Either;
 use pagable::Pagable;
+use pagable::PagableDeserialize;
+use pagable::PagableDeserializer;
+use pagable::PagableSerialize;
+use pagable::PagableSerializer;
+use serde::Deserialize;
+use serde::Serialize;
 use strong_hash::StrongHash;
 
 use crate::provider::label::ProvidersLabel;
@@ -120,6 +126,49 @@ pub enum ResultMaybeCompatible<T> {
     Compatible(T),
     Incompatible(Arc<IncompatiblePlatformReason>),
     Err(buck2_error::Error),
+}
+
+const COMPATIBLE: u8 = 0;
+const INCOMPATIBLE: u8 = 1;
+
+impl<T: PagableSerialize> PagableSerialize for ResultMaybeCompatible<T> {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
+        match self {
+            Self::Compatible(v) => {
+                COMPATIBLE.serialize(serializer.serde())?;
+                v.pagable_serialize(serializer)?;
+            }
+            Self::Incompatible(reason) => {
+                INCOMPATIBLE.serialize(serializer.serde())?;
+                reason.pagable_serialize(serializer)?;
+            }
+            Self::Err(e) => {
+                return Err(pagable::anyhow!(
+                    "Cannot serialize `ResultMaybeCompatible::Err` {}",
+                    e
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+impl<'de, T: PagableDeserialize<'de>> PagableDeserialize<'de> for ResultMaybeCompatible<T> {
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> pagable::Result<Self> {
+        let discriminant = u8::deserialize(deserializer.serde())?;
+        match discriminant {
+            COMPATIBLE => Ok(Self::Compatible(T::pagable_deserialize(deserializer)?)),
+            INCOMPATIBLE => Ok(Self::Incompatible(PagableDeserialize::pagable_deserialize(
+                deserializer,
+            )?)),
+            _ => Err(pagable::anyhow!(
+                "Invalid `ResultMaybeCompatible` discriminant: {}",
+                discriminant
+            )),
+        }
+    }
 }
 
 impl<T> From<buck2_error::Error> for ResultMaybeCompatible<T> {

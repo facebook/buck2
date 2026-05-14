@@ -23,13 +23,48 @@ use buck2_util::commas::commas;
 use dice::CancellationContext;
 use dice::DiceComputations;
 use dice::Key;
-use dice::TodoValueSerialize;
 use dice::ValueSerialize;
 use dupe::Dupe;
 use futures::FutureExt;
 use pagable::Pagable;
 use pagable::PagablePanic;
+use pagable::PagableSerialize;
 use pagable::pagable_typetag;
+
+// TODO: this should live next to `ResultMaybeCompatible` in `buck2_core`, but that
+// would require a dependency from `buck2_core` to `dice`.
+// We should consider moving ValueSerialize (or a similar trait) to pagable, not dice, to avoid this.
+struct ResultMaybeCompatibleValueSerialize<T>(std::marker::PhantomData<T>);
+
+impl<T> ResultMaybeCompatibleValueSerialize<T> {
+    fn new() -> Self {
+        Self(std::marker::PhantomData)
+    }
+}
+
+impl<T: Pagable + Allocative + Dupe + Send + Sync + 'static> ValueSerialize
+    for ResultMaybeCompatibleValueSerialize<T>
+{
+    type Value = ResultMaybeCompatible<T>;
+
+    fn pagable_serialize_value(
+        &self,
+        v: &Self::Value,
+        ser: &mut dyn pagable::PagableSerializer,
+    ) -> Option<pagable::Result<()>> {
+        match v {
+            ResultMaybeCompatible::Err(_) => None,
+            v => Some(v.pagable_serialize(ser)),
+        }
+    }
+
+    fn pagable_deserialize_value<'de, D: pagable::PagableDeserializer<'de> + ?Sized>(
+        &self,
+        deser: &mut D,
+    ) -> pagable::Result<Self::Value> {
+        pagable::PagableDeserialize::pagable_deserialize(deser)
+    }
+}
 
 use crate::build::detailed_aggregated_metrics::buck2_sketches::AnalysisGraphPropertiesKey;
 use crate::build::detailed_aggregated_metrics::buck2_sketches::compute_configured_graph_sketch;
@@ -170,7 +205,7 @@ impl Key for ConfiguredGraphPropertiesKey {
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
-        TodoValueSerialize::<Self::Value>::new()
+        ResultMaybeCompatibleValueSerialize::<ConfiguredGraphPropertiesValues>::new()
     }
 }
 
