@@ -12,9 +12,10 @@ def _lbl(*_args):
     return ""
 
 def _package(
-        _values,
-        # starlark-lint-disable unused-argument
-        overwrite = False):  # @unused
+    _values,
+    # starlark-lint-disable unused-argument
+    overwrite = False,
+):  # @unused
     pass
 
 def _labels(*args):

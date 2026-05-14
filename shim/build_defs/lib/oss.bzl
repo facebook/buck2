@@ -174,9 +174,7 @@ Some example use cases for this:
   (eg: internal/my_library/... and oss-project/my_library/my_library/...)
 """
 
-def translate_target(
-        target: str,
-        ctx = DEFAULT_REWRITE_CTX) -> str:
+def translate_target(target: str, ctx = DEFAULT_REWRITE_CTX) -> str:
     if "//" not in target:
         # This is a local target, aka ":foo". Don't touch
         return target
@@ -213,11 +211,11 @@ def translate_target(
     if exact != None:
         return ctx.cells.shim + "//" + exact
 
-    for (match_root_dir, replace_root_dir) in getattr(rules, "dirs", []):
+    for match_root_dir, replace_root_dir in getattr(rules, "dirs", []):
         if _path_rooted_in_dir(path, match_root_dir):
             return ctx.cells.shim + "//" + _swap_root_dir_for_path(path, match_root_dir, replace_root_dir)
 
-    for (match_root_dir, fn) in getattr(rules, "dynamic", []):
+    for match_root_dir, fn in getattr(rules, "dynamic", []):
         if _path_rooted_in_dir(path, match_root_dir):
             return ctx.cells.shim + "//" + fn(path)
 
