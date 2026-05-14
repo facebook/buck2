@@ -41,6 +41,7 @@ use buck2_data::action_key_owner::BaseDeferredKeyProto;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_hash::BuckHasher;
 use buck2_hash::StdBuckHashMap;
+use buck2_interpreter::dice::starlark_provider::DynEvalKindKey;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_node::rule_type::StarlarkRuleType;
 use buck2_util::strong_hasher::Blake3StrongHasher;
@@ -106,6 +107,14 @@ impl Hash for AnonTarget {
         state.write_u64(self.hash);
     }
 }
+
+impl StrongHash for AnonTarget {
+    fn strong_hash<H: Hasher>(&self, state: &mut H) {
+        state.write_u64(self.strong_hash);
+    }
+}
+
+pagable::register_typetag!(AnonTarget as dyn DynEvalKindKey);
 
 impl AnonTarget {
     pub(crate) fn as_proto(&self) -> buck2_data::AnonTarget {
@@ -347,26 +356,5 @@ impl BaseDeferredKeyDyn for AnonTarget {
             AnonTargetVariant::Bzl => None,
             AnonTargetVariant::Bxl(global_cfg_options) => Some(global_cfg_options.dupe()),
         }
-    }
-}
-
-impl buck2_interpreter::dice::starlark_provider::DynEvalKindKey for AnonTarget {
-    fn hash(&self, state: &mut dyn Hasher) {
-        state.write_u64(self.hash);
-    }
-
-    fn strong_hash(&self, state: &mut dyn Hasher) {
-        state.write_u64(self.strong_hash);
-    }
-
-    fn eq(&self, other: &dyn buck2_interpreter::dice::starlark_provider::DynEvalKindKey) -> bool {
-        match other.as_any().downcast_ref::<Self>() {
-            None => false,
-            Some(v) => v == self,
-        }
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
     }
 }

@@ -30,6 +30,7 @@ use buck2_data::action_key_owner::BaseDeferredKeyProto;
 use buck2_error::internal_error;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_hash::BuckDefaultHasher;
+use buck2_interpreter::dice::starlark_provider::DynEvalKindKey;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_util::strong_hasher::Blake3StrongHasher;
 use cmp_any::PartialEqAny;
@@ -134,6 +135,7 @@ impl BxlKey {
     Pagable
 )]
 #[display("{}", spec)]
+#[pagable_typetag(DynEvalKindKey)]
 struct BxlKeyData {
     spec: BxlFunctionLabel,
     bxl_args: Arc<OrderedMap<String, CliArgValue>>,

@@ -84,7 +84,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
     // FIXME(JakobDegen): Audit that this string is user-friendly.
     // Currently uses BxlKey's Display, which formats as "{bxl_path}:{name}"
     // (e.g. "cell//path/to/file.bxl:function_name").
-    let eval_kind = StarlarkEvalKind::BxlDynamic(Arc::new(key.to_string()));
+    let eval_kind = StarlarkEvalKind::BxlDynamic(key.to_string().into());
     let dynamic_data = DynamicBxlContextData {
         exec_deps: dynamic_key
             .0

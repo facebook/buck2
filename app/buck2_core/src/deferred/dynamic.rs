@@ -13,8 +13,10 @@ use std::fmt::Write;
 use allocative::Allocative;
 use dupe::Dupe;
 use pagable::Pagable;
+use pagable::pagable_typetag;
 
 use crate::deferred::base_deferred_key::BaseDeferredKey;
+use crate::deferred::dyn_eval_kind_key::DynEvalKindKey;
 use crate::deferred::key::DeferredHolderKey;
 use crate::fs::dynamic_actions_action_key::DynamicActionsActionKey;
 
@@ -34,6 +36,7 @@ use crate::fs::dynamic_actions_action_key::DynamicActionsActionKey;
     Pagable
 )]
 #[display("{_0}_{_1}")]
+#[pagable_typetag(DynEvalKindKey)]
 pub struct DynamicLambdaResultsKey(DeferredHolderKey, DynamicLambdaIndex);
 
 impl DynamicLambdaResultsKey {
