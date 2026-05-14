@@ -17,6 +17,10 @@ public class InstrumentationMain {
   }
 
   public static void main(String[] args) {
+    // Suppress verbose ADB command logging in CI test context to avoid
+    // filling details_short with infrastructure noise instead of test output.
+    java.util.logging.Logger.getLogger("com.facebook.buck.android.exopackage")
+        .setLevel(java.util.logging.Level.WARNING);
     try {
       InstrumentationTestRunner.fromArgs(args).run();
     } catch (Throwable e) {
