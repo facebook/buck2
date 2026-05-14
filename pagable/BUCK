@@ -26,6 +26,7 @@ rust_library(
         "fbsource//third-party/rust:once_cell",
         "fbsource//third-party/rust:parking_lot",
         "fbsource//third-party/rust:postcard",
+        "fbsource//third-party/rust:regex",
         "fbsource//third-party/rust:relative-path",
         "fbsource//third-party/rust:sequence_trie",
         "fbsource//third-party/rust:serde",

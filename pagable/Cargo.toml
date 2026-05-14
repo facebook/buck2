@@ -23,6 +23,7 @@ once_cell = { workspace = true }
 pagable_derive = { path = "../pagable_derive" }
 parking_lot = { workspace = true }
 postcard = { workspace = true }
+regex = { workspace = true }
 relative-path = { workspace = true }
 sequence_trie = { workspace = true }
 serde = { workspace = true }

@@ -32,7 +32,6 @@ use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use itertools::Itertools;
 use pagable::Pagable;
-use pagable::PagablePanic;
 use pagable::pagable_typetag;
 use ref_cast::RefCast;
 use regex::Regex;
@@ -42,7 +41,7 @@ use crate::dice::starlark_provider::StarlarkEvalKind;
 use crate::starlark_profiler::mode::StarlarkProfileMode;
 
 /// Global profiling configuration.
-#[derive(PartialEq, Eq, Clone, Debug, Allocative, PagablePanic)]
+#[derive(PartialEq, Eq, Clone, Debug, Allocative, Pagable)]
 #[derive(Default)]
 pub enum StarlarkProfilerConfiguration {
     /// No profiling.
@@ -64,7 +63,7 @@ pub enum StarlarkProfilerConfiguration {
     ProfilePattern(ProfileMode, ProfileRegex, AbsPathBuf),
 }
 
-#[derive(Clone, Debug, Allocative)]
+#[derive(Clone, Debug, Allocative, Pagable)]
 pub struct ProfileRegex(#[allocative(skip)] Regex);
 impl ProfileRegex {
     pub fn new(patterns: &[String]) -> buck2_error::Result<Self> {
@@ -81,7 +80,7 @@ impl PartialEq for ProfileRegex {
     }
 }
 
-#[derive(PartialEq, Eq, Clone, Debug, Allocative, PagablePanic)]
+#[derive(PartialEq, Eq, Clone, Debug, Allocative, Pagable)]
 enum StarlarkProfilerConfigurationResolved {
     None,
     ProfileLastLoading(ProfileMode, PackagePredicate),
@@ -204,7 +203,7 @@ impl Key for StarlarkProfilerConfigurationResolvedKey {
     Hash,
     Allocative,
     RefCast,
-    PagablePanic
+    Pagable
 )]
 #[repr(transparent)]
 #[pagable_typetag(dice::DiceProjectionDyn)]

@@ -10,6 +10,7 @@
 
 mod arc;
 mod collections;
+mod regex;
 mod serde;
 mod std;
 mod tuples;
