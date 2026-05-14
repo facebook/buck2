@@ -1,0 +1,53 @@
+load("@prelude//tests:test_toolchain.bzl", "noop_test_toolchain")
+load("@prelude//toolchains:cxx.bzl", "system_cxx_toolchain")
+load("@prelude//toolchains:python.bzl", "remote_python_toolchain", "system_python_wheel_toolchain")
+load("@prelude//toolchains:remote_test_execution.bzl", "remote_test_execution_toolchain")
+load("@prelude//toolchains:rust.bzl", "system_rust_toolchain")
+
+# Minimal expansion of `system_demo_toolchains()` from
+# `prelude//toolchains:demo.bzl`, trimmed to just what this rust-only example
+# needs, so we can pass custom `rustdoc_flags` to `:rust`. Those flags are
+# forwarded to per-crate rustdoc and to the `rustdoc --merge=finalize` step
+# by `doc_merge.bzl`.
+
+system_cxx_toolchain(
+    name = "cxx",
+    visibility = ["PUBLIC"],
+)
+
+remote_python_toolchain(
+    name = "python",
+    visibility = ["PUBLIC"],
+)
+
+system_python_wheel_toolchain(
+    name = "python_wheel",
+    visibility = ["PUBLIC"],
+)
+
+system_rust_toolchain(
+    name = "rust",
+    default_edition = "2021",
+    # Harmless rustdoc flags. Forwarded to per-crate rustdoc and also to
+    # the `rustdoc --merge=finalize` step by `doc_merge.bzl`.
+    rustdoc_flags = [
+        "--default-theme=ayu",
+        "--cap-lints=warn",
+    ],
+    # Real theme CSS used by `[doc]` and `rustdoc --merge=finalize`. The
+    # per-crate rustdoc actions that feed the merge step instead see an
+    # empty stub with the same basename, so edits to this file don't
+    # invalidate every crate's rustdoc output.
+    rustdoc_themes = ["example_theme.css"],
+    visibility = ["PUBLIC"],
+)
+
+remote_test_execution_toolchain(
+    name = "remote_test_execution",
+    visibility = ["PUBLIC"],
+)
+
+noop_test_toolchain(
+    name = "test",
+    visibility = ["PUBLIC"],
+)

@@ -1,0 +1,23 @@
+[cells]
+root = .
+prelude = prelude
+toolchains = toolchains
+none = none
+
+[cell_aliases]
+config = prelude
+ovr_config = prelude
+fbcode = none
+fbsource = none
+buck = none
+
+[external_cells]
+prelude = bundled
+
+[build]
+execution_platforms = prelude//platforms:default
+
+[parser]
+target_platform_detector_spec = target:root//...->prelude//platforms:default \
+  target:prelude//...->prelude//platforms:default \
+  target:toolchains//...->prelude//platforms:default

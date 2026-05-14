@@ -64,6 +64,23 @@ rust_toolchain_attrs = {
     "rustdoc_env": provider_field(dict[str, typing.Any], default = {}),
     # Extra flags for rustdoc invocations
     "rustdoc_flags": provider_field(list[typing.Any], default = []),
+    # Real theme CSS files to pass to rustdoc's `--theme`. These are applied to:
+    #
+    #   - the standalone `[doc]` subtarget (`generate_rustdoc`, which emits a
+    #     full static-files tree)
+    #   - the `rustdoc --merge=finalize` step in `doc_merge.bzl` (the merged
+    #     tree's static files)
+    #
+    # Per-crate rustdoc actions for the merged tree (`generate_rustdoc_parts`,
+    # which skips static files) instead consume `rustdoc_theme_stubs` below —
+    # empty CSS files with matching basenames — so that a tweak to the real
+    # theme content doesn't invalidate every crate's rustdoc action.
+    "rustdoc_themes": provider_field(list[Artifact], default = []),
+    # Stub (empty) CSS files paired 1:1 with `rustdoc_themes` above and sharing
+    # their basenames. Passed as `--theme <stub>` in per-crate rustdoc parts
+    # actions: rustdoc only needs the basename (for the theme name referenced
+    # in the generated HTML) at that step, not the real contents.
+    "rustdoc_theme_stubs": provider_field(list[Artifact], default = []),
     # Extra flags to pass to the linker
     "linker_flags": provider_field(list[typing.Any], default = []),
     # When you `buck test` a library, also compile and run example code in its

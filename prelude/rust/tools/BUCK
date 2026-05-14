@@ -86,6 +86,27 @@ prelude.python_bootstrap_binary(
     visibility = ["PUBLIC"],
 )
 
+prelude.python_bootstrap_library(
+    name = "rustdoc_emit_compat",
+    srcs = ["rustdoc_emit_compat.py"],
+)
+
+prelude.python_bootstrap_binary(
+    name = "rustdoc_merge",
+    has_content_based_path = True,
+    main = "rustdoc_merge.py",
+    visibility = ["PUBLIC"],
+    deps = [":rustdoc_emit_compat"],
+)
+
+prelude.python_bootstrap_binary(
+    name = "rustdoc_parts_emit_argfile",
+    has_content_based_path = True,
+    main = "rustdoc_parts_emit_argfile.py",
+    visibility = ["PUBLIC"],
+    deps = [":rustdoc_emit_compat"],
+)
+
 prelude.python_bootstrap_binary(
     name = "redirect_stdout",
     has_content_based_path = True,
@@ -148,6 +169,9 @@ prelude.python_library(
         "redirect_stdout.py",
         "rustc_action.py",
         "rustdoc_coverage.py",
+        "rustdoc_emit_compat.py",
+        "rustdoc_merge.py",
+        "rustdoc_parts_emit_argfile.py",
         "rustdoc_test_with_resources.py",
         "shared_libraries_symlink_tree.py",
         "symlink_only_dir_entry.py",
