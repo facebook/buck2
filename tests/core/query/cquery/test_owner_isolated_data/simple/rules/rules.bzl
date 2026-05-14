@@ -6,9 +6,11 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-FooInfo = provider(fields = [
-    "foo",
-])
+FooInfo = provider(
+    fields = [
+        "foo",
+    ]
+)
 
 def _impl(ctx):
     return [DefaultInfo(), FooInfo(foo = ctx.attrs.name + "_foo")]

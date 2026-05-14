@@ -26,16 +26,17 @@ def _action_with_unbound_artifact_impl(ctx):
 
 action_with_unbound_artifact = rule(
     impl = _action_with_unbound_artifact_impl,
-    attrs = {
-    },
+    attrs = {},
 )
 
 def _identity(a: Artifact) -> Artifact:
     return a
 
-SimpleTSet = transitive_set(args_projections = {
-    "identity": _identity,
-})
+SimpleTSet = transitive_set(
+    args_projections = {
+        "identity": _identity,
+    }
+)
 
 def _action_with_unbound_artifact_inside_tset_impl(ctx):
     out = ctx.actions.declare_output("out", has_content_based_path = False)
@@ -58,6 +59,5 @@ def _action_with_unbound_artifact_inside_tset_impl(ctx):
 
 action_with_unbound_artifact_inside_tset = rule(
     impl = _action_with_unbound_artifact_inside_tset_impl,
-    attrs = {
-    },
+    attrs = {},
 )

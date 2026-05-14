@@ -83,12 +83,10 @@ import time
 
 PAGE = os.sysconf("SC_PAGE_SIZE")
 
-
 def touch_every_page(buf: bytearray):
     # make sure we touch every page
     for i in range(0, len(buf), PAGE):
         buf[i] = 1
-
 
 def main():
     if len(sys.argv) < 4:
@@ -109,7 +107,6 @@ def main():
 
     with open(file_path, "w") as f:
         f.write("done")
-
 
 main()
 """
@@ -146,7 +143,9 @@ _use_some_memory = read_root_config("use_some_memory", "path")
 
 def _freeze_unfreeze_impl(ctx) -> list[Provider]:
     output0 = ctx.actions.declare_output("output0.txt", has_content_based_path = False)
-    cmd0 = cmd_args([_use_some_memory, "--allocate-count", "100", "--each-tick-allocate-memory", "2", "--tick-duration", "0.1", "--output", output0.as_output()])
+    cmd0 = cmd_args(
+        [_use_some_memory, "--allocate-count", "100", "--each-tick-allocate-memory", "2", "--tick-duration", "0.1", "--output", output0.as_output()]
+    )
 
     # this action will be frozen
     ctx.actions.run(cmd0, category = "freeze_unfreeze", identifier = "action_to_be_frozen", prefer_local = prefer_local)

@@ -82,23 +82,20 @@ def _cas_artifact_impl(ctx: AnalysisContext):
     )
     return [DefaultInfo(default_output = out)]
 
-cas_artifact = rule(impl = _cas_artifact_impl, attrs = {
-    "digest": attrs.string(),
-    "expires_after_timestamp": attrs.int(default = 0),
-    "is_directory": attrs.bool(default = False),
-    "is_tree": attrs.bool(default = False),
-    "use_case": attrs.string(default = "buck2-testing"),
-})
+cas_artifact = rule(
+    impl = _cas_artifact_impl,
+    attrs = {
+        "digest": attrs.string(),
+        "expires_after_timestamp": attrs.int(default = 0),
+        "is_directory": attrs.bool(default = False),
+        "is_tree": attrs.bool(default = False),
+        "use_case": attrs.string(default = "buck2-testing"),
+    },
+)
 
 def symlink_files_impl(ctx):
-    srcs = {
-        src.short_path: src
-        for src in ctx.attrs.srcs
-    }
-    srcs.update({
-        "subdir/{}.suffix".format(src.short_path): src
-        for src in ctx.attrs.srcs
-    })
+    srcs = {src.short_path: src for src in ctx.attrs.srcs}
+    srcs.update({"subdir/{}.suffix".format(src.short_path): src for src in ctx.attrs.srcs})
     out = ctx.actions.symlinked_dir("out", srcs, has_content_based_path = False)
     return [DefaultInfo(default_output = out)]
 

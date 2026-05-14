@@ -31,10 +31,13 @@ def _subtarget_impl(ctx: AnalysisContext) -> Promise:
     _assert_eq(base_child.label, child.label)
     return ctx.actions.anon_targets([(_anon, {"dep": child}), (_anon, {"dep": base_child})]).promise.map(f)
 
-_subtarget = rule(impl = _subtarget_impl, attrs = {
-    "base": attrs.dep(),
-    "child": attrs.dep(),
-})
+_subtarget = rule(
+    impl = _subtarget_impl,
+    attrs = {
+        "base": attrs.dep(),
+        "child": attrs.dep(),
+    },
+)
 
 def _base_impl(_ctx: AnalysisContext) -> list[Provider]:
     return [DefaultInfo(sub_targets = {"child": [DefaultInfo(), SubtargetInfo(information = "hello")]})]

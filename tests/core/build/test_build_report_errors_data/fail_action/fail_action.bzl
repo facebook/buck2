@@ -23,10 +23,14 @@ def _fail_one_impl(ctx):
     return [DefaultInfo(default_outputs = [_make_failing_action(ctx, "name")])]
 
 def _fail_two_impl(ctx):
-    return [DefaultInfo(default_outputs = [
-        _make_failing_action(ctx, "name_a"),
-        _make_failing_action(ctx, "name_b"),
-    ])]
+    return [
+        DefaultInfo(
+            default_outputs = [
+                _make_failing_action(ctx, "name_a"),
+                _make_failing_action(ctx, "name_b"),
+            ]
+        )
+    ]
 
 def _fail_shared_dep_impl(ctx):
     fail = _make_failing_action(ctx, "fail")

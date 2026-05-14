@@ -14,6 +14,9 @@ def _slow_impl(ctx: AnalysisContext) -> list[Provider]:
     )
     return [DefaultInfo(out)]
 
-slow_actions = rule(impl = _slow_impl, attrs = {
-    "src": attrs.source(),
-})
+slow_actions = rule(
+    impl = _slow_impl,
+    attrs = {
+        "src": attrs.source(),
+    },
+)

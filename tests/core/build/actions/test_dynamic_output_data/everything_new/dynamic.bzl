@@ -25,10 +25,12 @@ def _basic(ctx: AnalysisContext) -> list[Provider]:
     input = ctx.actions.write("input", str(7 * 6), has_content_based_path = False)
     output = ctx.actions.declare_output("output", has_content_based_path = False)
 
-    ctx.actions.dynamic_output_new(_basic_f(
-        src = input,
-        out = output.as_output(),
-    ))
+    ctx.actions.dynamic_output_new(
+        _basic_f(
+            src = input,
+            out = output.as_output(),
+        )
+    )
     return [DefaultInfo(default_output = output)]
 
 def _two_f_impl(actions: AnalysisActions, outs: tuple, src: ArtifactValue):
@@ -52,17 +54,21 @@ def _two(ctx: AnalysisContext) -> list[Provider]:
     output1 = ctx.actions.declare_output("output1", has_content_based_path = False)
     output2 = ctx.actions.declare_output("output2", has_content_based_path = False)
 
-    ctx.actions.dynamic_output_new(_two_f(
-        src = input,
-        outs = (output1.as_output(), output2.as_output()),
-    ))
+    ctx.actions.dynamic_output_new(
+        _two_f(
+            src = input,
+            outs = (output1.as_output(), output2.as_output()),
+        )
+    )
     sub_targets = {
         "output1": [DefaultInfo(default_output = output1)],
         "output2": [DefaultInfo(default_output = output2)],
     }
-    return [DefaultInfo(
-        sub_targets = sub_targets,
-    )]
+    return [
+        DefaultInfo(
+            sub_targets = sub_targets,
+        )
+    ]
 
 def _nested_f_impl(actions: AnalysisActions, input: ArtifactValue, symlinked_dir: OutputArtifact):
     src = input.read_string()
@@ -76,11 +82,13 @@ def _nested_f_impl(actions: AnalysisActions, input: ArtifactValue, symlinked_dir
     }
     nested_output = actions.declare_output("nested_output", has_content_based_path = False)
 
-    actions.dynamic_output_new(_nested_f2(
-        output1 = output1,
-        output2 = output2,
-        nested_output = nested_output.as_output(),
-    ))
+    actions.dynamic_output_new(
+        _nested_f2(
+            output1 = output1,
+            output2 = output2,
+            nested_output = nested_output.as_output(),
+        )
+    )
 
     symlink_tree["nested_output"] = nested_output
     actions.symlinked_dir(symlinked_dir, symlink_tree)
@@ -113,10 +121,12 @@ def _nested(ctx: AnalysisContext) -> list[Provider]:
     input = ctx.actions.write("input", "test", has_content_based_path = False)
     symlinked_dir = ctx.actions.declare_output("output1_symlinked_dir", dir = True, has_content_based_path = False)
 
-    ctx.actions.dynamic_output_new(_nested_f(
-        input = input,
-        symlinked_dir = symlinked_dir.as_output(),
-    ))
+    ctx.actions.dynamic_output_new(
+        _nested_f(
+            input = input,
+            symlinked_dir = symlinked_dir.as_output(),
+        )
+    )
     return [DefaultInfo(default_output = symlinked_dir)]
 
 def _command_f_impl(actions: AnalysisActions, hello: ArtifactValue, world: OutputArtifact, universe: OutputArtifact, script: Artifact):
@@ -166,12 +176,14 @@ def _command(ctx: AnalysisContext) -> list[Provider]:
         has_content_based_path = False,
     )
 
-    ctx.actions.dynamic_output_new(_command_f(
-        hello = hello,
-        script = script,
-        world = world.as_output(),
-        universe = universe.as_output(),
-    ))
+    ctx.actions.dynamic_output_new(
+        _command_f(
+            hello = hello,
+            script = script,
+            world = world.as_output(),
+            universe = universe.as_output(),
+        )
+    )
     return [DefaultInfo(default_output = world, other_outputs = [universe])]
 
 def _create_f_impl(actions: AnalysisActions, input: ArtifactValue, output: OutputArtifact):
@@ -193,10 +205,12 @@ def _create(ctx: AnalysisContext) -> list[Provider]:
     input = ctx.actions.write("input", str(7 * 6), has_content_based_path = False)
     output = ctx.actions.declare_output("output", has_content_based_path = False)
 
-    ctx.actions.dynamic_output_new(_create_f(
-        input = input,
-        output = output.as_output(),
-    ))
+    ctx.actions.dynamic_output_new(
+        _create_f(
+            input = input,
+            output = output.as_output(),
+        )
+    )
     return [DefaultInfo(default_output = output)]
 
 def _create_duplicate_f_impl(actions: AnalysisActions, input: ArtifactValue, output: OutputArtifact):
@@ -227,10 +241,12 @@ def _create_duplicate(ctx: AnalysisContext) -> list[Provider]:
     input = ctx.actions.write("input", str(7 * 6), has_content_based_path = False)
     output = ctx.actions.declare_output("output", has_content_based_path = False)
 
-    ctx.actions.dynamic_output_new(_create_duplicate_f(
-        input = input,
-        output = output.as_output(),
-    ))
+    ctx.actions.dynamic_output_new(
+        _create_duplicate_f(
+            input = input,
+            output = output.as_output(),
+        )
+    )
     return [DefaultInfo(default_output = output)]
 
 def _impl(ctx: AnalysisContext) -> list[Provider]:
@@ -278,10 +294,13 @@ def _assert_output_value_impl(ctx: AnalysisContext) -> list[Provider]:
     ctx.actions.run(cmd_args(["fbpython", run, value, produced, output.as_output()]), category = "test_category")
     return [DefaultInfo(default_output = output)]
 
-assert_output_value = rule(impl = _assert_output_value_impl, attrs = {
-    "dep": attrs.dep(),
-    "value": attrs.string(),
-})
+assert_output_value = rule(
+    impl = _assert_output_value_impl,
+    attrs = {
+        "dep": attrs.dep(),
+        "value": attrs.string(),
+    },
+)
 
 def _proto_genrule_impl(ctx):
     out_artifact = ctx.actions.declare_output(ctx.attrs.out, has_content_based_path = False)

@@ -29,9 +29,11 @@ rule4 = rule(
 def project(f: Artifact):
     return f
 
-NameSet = transitive_set(args_projections = {
-    "project": project,
-})
+NameSet = transitive_set(
+    args_projections = {
+        "project": project,
+    }
+)
 
 NameInfo = provider(fields = ["tset"])
 
@@ -49,14 +51,17 @@ def _rule_impl_with_tset(ctx):
     agg = ctx.actions.declare_output("tset_out", has_content_based_path = False)
     projected = tset.project_as_args("project")
 
-    ctx.actions.run([
-        "sh",
-        "-c",
-        'out="$1" && shift && cat "$@" > "$out"',
-        "--",
-        agg.as_output(),
-        projected,
-    ], category = "test")
+    ctx.actions.run(
+        [
+            "sh",
+            "-c",
+            'out="$1" && shift && cat "$@" > "$out"',
+            "--",
+            agg.as_output(),
+            projected,
+        ],
+        category = "test",
+    )
 
     return [
         NameInfo(tset = tset),

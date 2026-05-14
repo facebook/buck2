@@ -7,13 +7,18 @@
 # above-listed licenses.
 
 def _impl(ctx) -> list[Provider]:
-    flute = ctx.actions.write_json("flute.json", {
-        "data": {
-            "message": "Here I am describing the failure reason" if ctx.attrs.fail else None,
-            "status": "failure" if ctx.attrs.fail else "success",
+    flute = ctx.actions.write_json(
+        "flute.json",
+        {
+            "data": {
+                "message": "Here I am describing the failure reason" if ctx.attrs.fail else None,
+                "status": "failure" if ctx.attrs.fail else "success",
+            },
+            "version": 1,
         },
-        "version": 1,
-    }, pretty = True, has_content_based_path = False)
+        pretty = True,
+        has_content_based_path = False,
+    )
     return [
         DefaultInfo(),
         RunInfo(args = ["echo", "hello"]),
@@ -30,12 +35,15 @@ def _impl(ctx) -> list[Provider]:
         ),
     ]
 
-china = rule(impl = _impl, attrs = {
-    "dep": attrs.option(attrs.dep(), default = None),
-    "fail": attrs.bool(default = False),
-    "installer": attrs.default_only(attrs.label(default = "//:my_installer")),
-    "optional": attrs.bool(default = False),
-})
+china = rule(
+    impl = _impl,
+    attrs = {
+        "dep": attrs.option(attrs.dep(), default = None),
+        "fail": attrs.bool(default = False),
+        "installer": attrs.default_only(attrs.label(default = "//:my_installer")),
+        "optional": attrs.bool(default = False),
+    },
+)
 
 def _installer_impl(ctx) -> list[Provider]:
     return [
@@ -43,6 +51,9 @@ def _installer_impl(ctx) -> list[Provider]:
         RunInfo(args = ["fbpython", ctx.attrs.main]),
     ]
 
-installer = rule(impl = _installer_impl, attrs = {
-    "main": attrs.source(),
-})
+installer = rule(
+    impl = _installer_impl,
+    attrs = {
+        "main": attrs.source(),
+    },
+)

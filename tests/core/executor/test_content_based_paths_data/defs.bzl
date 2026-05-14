@@ -69,9 +69,11 @@ rust_pattern_consumer = rule(
 def project(f: Artifact):
     return f
 
-NameSet = transitive_set(args_projections = {
-    "project": project,
-})
+NameSet = transitive_set(
+    args_projections = {
+        "project": project,
+    }
+)
 
 def _write_with_content_based_path_impl(ctx):
     artifact_input = ctx.actions.write("artifact_input", "artifact_input", has_content_based_path = True)
@@ -307,22 +309,28 @@ download_with_content_based_path = rule(
 
 def _failing_validation_with_content_based_path_impl(ctx):
     validation = ctx.actions.declare_output("validation.json", has_content_based_path = True)
-    validation = ctx.actions.write_json(validation, {
-        "data": {
-            "message": "This is a failing validation",
-            "status": "failure",
+    validation = ctx.actions.write_json(
+        validation,
+        {
+            "data": {
+                "message": "This is a failing validation",
+                "status": "failure",
+            },
+            "version": 1,
         },
-        "version": 1,
-    }, pretty = True)
+        pretty = True,
+    )
 
     return [
         DefaultInfo(default_output = ctx.actions.write("out", "hello world", has_content_based_path = False)),
-        ValidationInfo(validations = [
-            ValidationSpec(
-                name = "whistle",
-                validation_result = validation,
-            ),
-        ]),
+        ValidationInfo(
+            validations = [
+                ValidationSpec(
+                    name = "whistle",
+                    validation_result = validation,
+                ),
+            ]
+        ),
     ]
 
 failing_validation_with_content_based_path = rule(
@@ -344,8 +352,7 @@ def _dynamic_with_content_based_path_impl(ctx: AnalysisContext) -> list[Provider
 
 dynamic_with_content_based_path = rule(
     impl = _dynamic_with_content_based_path_impl,
-    attrs = {
-    },
+    attrs = {},
 )
 
 def _basic_dynamic_output_new_impl(actions: AnalysisActions, src: ArtifactValue, out: OutputArtifact):
@@ -365,16 +372,17 @@ def _dynamic_new_with_content_based_path_impl(ctx: AnalysisContext) -> list[Prov
     input = ctx.actions.write(input, str("input"))
     output = ctx.actions.declare_output("out", has_content_based_path = True)
 
-    ctx.actions.dynamic_output_new(_basic_dynamic_output_new(
-        src = input,
-        out = output.as_output(),
-    ))
+    ctx.actions.dynamic_output_new(
+        _basic_dynamic_output_new(
+            src = input,
+            out = output.as_output(),
+        )
+    )
     return [DefaultInfo(default_output = output)]
 
 dynamic_new_with_content_based_path = rule(
     impl = _dynamic_new_with_content_based_path_impl,
-    attrs = {
-    },
+    attrs = {},
 )
 
 def _use_projection_with_content_based_path_impl(ctx):
@@ -420,8 +428,7 @@ def _use_projection_with_content_based_path_impl(ctx):
 
 use_projection_with_content_based_path = rule(
     impl = _use_projection_with_content_based_path_impl,
-    attrs = {
-    },
+    attrs = {},
 )
 
 def _ignores_content_based_artifact_impl(ctx):
@@ -507,8 +514,7 @@ def _uses_relative_to_impl(ctx):
 
 uses_relative_to = rule(
     impl = _uses_relative_to_impl,
-    attrs = {
-    },
+    attrs = {},
 )
 
 def _sets_inconsistent_params_impl(ctx):
@@ -542,8 +548,7 @@ def _argsfile_with_incorrectly_declared_output_impl(ctx):
 
 argsfile_with_incorrectly_declared_output = rule(
     impl = _argsfile_with_incorrectly_declared_output_impl,
-    attrs = {
-    },
+    attrs = {},
 )
 
 def _incremental_action_impl(ctx) -> list[Provider]:
@@ -599,10 +604,13 @@ def _resolve_promise_artifact_impl(ctx: AnalysisContext) -> list[Provider]:
 
     return [DefaultInfo(default_output = written)]
 
-resolve_promise_artifact = rule(impl = _resolve_promise_artifact_impl, attrs = {
-    "artifact_has_content_based_path": attrs.bool(),
-    "assert_promised_artifact_has_content_based_path": attrs.bool(),
-})
+resolve_promise_artifact = rule(
+    impl = _resolve_promise_artifact_impl,
+    attrs = {
+        "artifact_has_content_based_path": attrs.bool(),
+        "assert_promised_artifact_has_content_based_path": attrs.bool(),
+    },
+)
 
 AnonConsumerInfo = provider(fields = ["out"])
 
@@ -716,10 +724,13 @@ def _not_eligible_for_dedupe_impl(ctx) -> list[Provider]:
 
     return [DefaultInfo(out)]
 
-not_eligible_for_dedupe = rule(impl = _not_eligible_for_dedupe_impl, attrs = {
-    "expect_eligible_for_dedupe": attrs.bool(default = False),
-    "run_action_output_has_content_based_path": attrs.bool(default = True),
-})
+not_eligible_for_dedupe = rule(
+    impl = _not_eligible_for_dedupe_impl,
+    attrs = {
+        "expect_eligible_for_dedupe": attrs.bool(default = False),
+        "run_action_output_has_content_based_path": attrs.bool(default = True),
+    },
+)
 
 def _failing_run_with_content_based_path_impl(ctx):
     script = ctx.actions.write(
@@ -743,8 +754,7 @@ def _failing_run_with_content_based_path_impl(ctx):
 
 failing_run_with_content_based_path = rule(
     impl = _failing_run_with_content_based_path_impl,
-    attrs = {
-    },
+    attrs = {},
 )
 
 def _non_content_based_exec_dep_impl(ctx):

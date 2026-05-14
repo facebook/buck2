@@ -8,8 +8,7 @@
 
 def _execution_platform(ctx):
     configuration = ConfigurationInfo(
-        constraints = {
-        },
+        constraints = {},
         values = {},
     )
 

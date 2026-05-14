@@ -21,11 +21,14 @@ def _china_impl(ctx) -> list[Provider]:
         RunInfo(args = ["cat", cmd_args(out, format = "{}/MYFILE") if ctx.attrs.dir else out]),
     ]
 
-china = rule(impl = _china_impl, attrs = {
-    "dir": attrs.bool(default = False),
-    "increment": attrs.source(),
-    "invalidate": attrs.string(),
-})
+china = rule(
+    impl = _china_impl,
+    attrs = {
+        "dir": attrs.bool(default = False),
+        "increment": attrs.source(),
+        "invalidate": attrs.string(),
+    },
+)
 
 def _whistle_impl(ctx) -> list[Provider]:
     intermediate = ctx.actions.declare_output("intermediate", has_content_based_path = False)
@@ -49,8 +52,11 @@ def _whistle_impl(ctx) -> list[Provider]:
         RunInfo(args = ["cat", cmd_args(out, format = "{}/MYFILE") if ctx.attrs.dir else out]),
     ]
 
-whistle = rule(impl = _whistle_impl, attrs = {
-    "dir": attrs.bool(default = False),
-    "increment": attrs.source(),
-    "invalidate": attrs.string(),
-})
+whistle = rule(
+    impl = _whistle_impl,
+    attrs = {
+        "dir": attrs.bool(default = False),
+        "increment": attrs.source(),
+        "invalidate": attrs.string(),
+    },
+)

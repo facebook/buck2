@@ -35,7 +35,7 @@ def _build_tset_tree(ctx, artifacts, nodes_per_tset):
     # Group into sub-tsets of size nodes_per_tset
     sub_tsets = []
     for i in range(0, len(leaf_tsets), nodes_per_tset):
-        chunk = leaf_tsets[i:i + nodes_per_tset]
+        chunk = leaf_tsets[i : i + nodes_per_tset]
         if len(chunk) == 1:
             sub_tsets.append(chunk[0])
         else:

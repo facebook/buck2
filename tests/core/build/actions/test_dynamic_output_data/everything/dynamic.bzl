@@ -35,9 +35,11 @@ def _two(ctx: AnalysisContext) -> list[Provider]:
         "output1": [DefaultInfo(default_output = output1)],
         "output2": [DefaultInfo(default_output = output2)],
     }
-    return [DefaultInfo(
-        sub_targets = sub_targets,
-    )]
+    return [
+        DefaultInfo(
+            sub_targets = sub_targets,
+        )
+    ]
 
 # Nested dynamic outputs
 def _nested(ctx: AnalysisContext) -> list[Provider]:
@@ -198,10 +200,13 @@ def _assert_output_value_impl(ctx: AnalysisContext) -> list[Provider]:
     ctx.actions.run(cmd_args(["fbpython", run, value, produced, output.as_output()]), category = "test_category")
     return [DefaultInfo(default_output = output)]
 
-assert_output_value = rule(impl = _assert_output_value_impl, attrs = {
-    "dep": attrs.dep(),
-    "value": attrs.string(),
-})
+assert_output_value = rule(
+    impl = _assert_output_value_impl,
+    attrs = {
+        "dep": attrs.dep(),
+        "value": attrs.string(),
+    },
+)
 
 def _proto_genrule_impl(ctx):
     out_artifact = ctx.actions.declare_output(ctx.attrs.out, has_content_based_path = False)

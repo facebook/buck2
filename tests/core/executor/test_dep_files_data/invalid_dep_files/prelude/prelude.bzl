@@ -102,8 +102,7 @@ def _same_tag_for_multiple_labels_impl(ctx):
     ]
 
 same_tag_for_multiple_labels = rule(
-    attrs = {
-    },
+    attrs = {},
     impl = _same_tag_for_multiple_labels_impl,
 )
 
@@ -142,7 +141,6 @@ def _input_tagged_multiple_times_impl(ctx):
     ]
 
 input_tagged_multiple_times = rule(
-    attrs = {
-    },
+    attrs = {},
     impl = _input_tagged_multiple_times_impl,
 )

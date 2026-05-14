@@ -15,7 +15,7 @@ def _top(ctx):
         [
             "import os",
             "import sys",
-            "build_id = os.environ[\"BUCK_BUILD_ID\"]",
+            'build_id = os.environ["BUCK_BUILD_ID"]',
             "with open(sys.argv[1], 'w') as f:",
             "  f.write(f'{build_id}\\n')",
         ],

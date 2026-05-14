@@ -43,10 +43,12 @@ make_script_link = rule(
     impl = _impl,
     attrs = {
         "base": attrs.dep(),
-        "path_sep": attrs.string(default = select({
-            "DEFAULT": "/",
-            "ovr_config//os:windows": "\\",
-        })),
+        "path_sep": attrs.string(
+            default = select({
+                "DEFAULT": "/",
+                "ovr_config//os:windows": "\\",
+            })
+        ),
         "via_parent": attrs.bool(),
     },
 )

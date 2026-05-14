@@ -78,6 +78,5 @@ write_file = rule(
 
 simple_write = rule(
     impl = _simple_write_impl,
-    attrs = {
-    },
+    attrs = {},
 )

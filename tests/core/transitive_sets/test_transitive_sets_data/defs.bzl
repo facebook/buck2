@@ -9,9 +9,11 @@
 def project(f: Artifact):
     return f
 
-NameSet = transitive_set(args_projections = {
-    "project": project,
-})
+NameSet = transitive_set(
+    args_projections = {
+        "project": project,
+    }
+)
 
 NameInfo = provider(fields = ["tset"])
 
@@ -27,14 +29,17 @@ def _test_impl(ctx):
     # Concatenate all the files declared by the tset, into a single file
     # (agg.txt), which we'll return as our output.
     agg = ctx.actions.declare_output("agg.txt", has_content_based_path = False)
-    ctx.actions.run([
-        "sh",
-        "-c",
-        'out="$1" && shift && cat "$@" > "$out"',
-        "--",
-        agg.as_output(),
-        tset.project_as_args("project"),
-    ], category = "test")
+    ctx.actions.run(
+        [
+            "sh",
+            "-c",
+            'out="$1" && shift && cat "$@" > "$out"',
+            "--",
+            agg.as_output(),
+            tset.project_as_args("project"),
+        ],
+        category = "test",
+    )
 
     return [
         NameInfo(tset = tset),

@@ -16,7 +16,10 @@ def _impl_cp(ctx):
     )
     return [DefaultInfo(out)]
 
-cp = rule(attrs = {
-    "local_only": attrs.bool(default = False),
-    "src": attrs.source(),
-}, impl = _impl_cp)
+cp = rule(
+    attrs = {
+        "local_only": attrs.bool(default = False),
+        "src": attrs.source(),
+    },
+    impl = _impl_cp,
+)

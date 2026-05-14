@@ -48,11 +48,14 @@ def _impl(ctx):
 
     return [DefaultInfo(default_outputs = [out4]), MyInfo(data = tset)]
 
-my_rule = rule(impl = _impl, attrs = {
-    "deps": attrs.list(attrs.dep()),
-    "dyn_input_good": attrs.bool(),
-    "input": attrs.source(),
-})
+my_rule = rule(
+    impl = _impl,
+    attrs = {
+        "deps": attrs.list(attrs.dep()),
+        "dyn_input_good": attrs.bool(),
+        "input": attrs.source(),
+    },
+)
 
 def _slow_impl(ctx: AnalysisContext) -> list[Provider]:
     out = ctx.actions.declare_output("out", has_content_based_path = False)
@@ -62,6 +65,9 @@ def _slow_impl(ctx: AnalysisContext) -> list[Provider]:
     )
     return [DefaultInfo(out)]
 
-slow_actions = rule(impl = _slow_impl, attrs = {
-    "src": attrs.source(),
-})
+slow_actions = rule(
+    impl = _slow_impl,
+    attrs = {
+        "src": attrs.source(),
+    },
+)

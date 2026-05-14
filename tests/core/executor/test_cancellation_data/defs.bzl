@@ -20,9 +20,12 @@ def _slow_impl(ctx: AnalysisContext) -> list[Provider]:
     out = ctx.actions.symlinked_dir("outs", outs, has_content_based_path = False)
     return [DefaultInfo(out)]
 
-slow_actions = rule(impl = _slow_impl, attrs = {
-    "count": attrs.int(),
-    "duration": attrs.string(),
-    "pids": attrs.string(),
-    "src": attrs.source(),
-})
+slow_actions = rule(
+    impl = _slow_impl,
+    attrs = {
+        "count": attrs.int(),
+        "duration": attrs.string(),
+        "pids": attrs.string(),
+        "src": attrs.source(),
+    },
+)

@@ -22,10 +22,12 @@ def _analysis_failure_impl(ctx: AnalysisContext) -> list[Provider]:
     input = ctx.actions.write("input", "test", has_content_based_path = False)
     output = ctx.actions.declare_output("output", has_content_based_path = False)
 
-    ctx.actions.dynamic_output_new(_analysis_failure_f(
-        input = input,
-        output = output.as_output(),
-    ))
+    ctx.actions.dynamic_output_new(
+        _analysis_failure_f(
+            input = input,
+            output = output.as_output(),
+        )
+    )
     return [DefaultInfo(default_output = output)]
 
 analysis_failure_test = rule(impl = _analysis_failure_impl, attrs = {})

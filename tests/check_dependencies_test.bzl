@@ -14,15 +14,7 @@ load("@fbsource//tools/target_determinator/macros:ci.bzl", "ci")
 # This is meant to be Open-source friendly. In our e2e tests, we invoke a variant from
 # tools/build_defs/check_dependencies_test.bzl that passes additional arguments for meta specific allowlist.
 
-def _check_dependencies_test(
-        name,
-        target,
-        contacts,
-        env,
-        labels: list[str],
-        deps,
-        compatible_with = None,
-        **kwargs):
+def _check_dependencies_test(name, target, contacts, env, labels: list[str], deps, compatible_with = None, **kwargs):
     buck2_e2e_test(
         contacts = contacts,
         name = name,
@@ -37,34 +29,35 @@ def _check_dependencies_test(
         # However, we cannot introduce a configured dep, because the `target` may not be compatible with platform of dependencies test.
         # This adds a dep on `target` in a select arm that is never satisfied. This will work for TD because TD only looks at deps on unconfigured
         # target graph.
-        deps = (deps or []) + select({
+        deps = (deps or [])
+        + select({
             "DEFAULT": [],
             "ovr_config//:none": [target],
         }),
         compatible_with = compatible_with,
-        **kwargs
+        **kwargs,
     )
 
 def check_dependencies_test(
-        name,
-        target,
-        contacts,
-        mode,
-        allowlist_patterns = None,
-        blocklist_patterns = None,
-        expect_failure_msg = None,
-        env = None,
-        deps = None,
-        extra_buck_args = [],
-        labels = [],
-        target_deps = True,
-        deps_filter_pattern = None,
-        deps_exclude_pattern = None,
-        **kwargs):
+    name,
+    target,
+    contacts,
+    mode,
+    allowlist_patterns = None,
+    blocklist_patterns = None,
+    expect_failure_msg = None,
+    env = None,
+    deps = None,
+    extra_buck_args = [],
+    labels = [],
+    target_deps = True,
+    deps_filter_pattern = None,
+    deps_exclude_pattern = None,
+    **kwargs,
+):
     """
     Creates a test target from a buck2 bxl script. BXL script must use "test" as entry
     point.
-
 
     There are two modes: "allowlist" mode, "blocklist" mode
 
@@ -83,12 +76,10 @@ def check_dependencies_test(
         pattern from "allowlist_patterns", and must not match anything from the
         "blocklist_patterns".
 
-
     "blocklist" mode"
 
         If at least one target from a transitive closure of dependnecies matches
         at least one pattern from "blocklist_patterns" the test will fail.
-
 
         In this mode "allowlist_patterns" modifies how "blocklist_patterns" are
         applied. Specifically if a specific target matches "allowlist_patterns"
@@ -140,21 +131,14 @@ def check_dependencies_test(
             "TARGET": target,
             "TARGET_DEPS": str(target_deps).lower(),
             "VERIFICATION_MODE": mode,
-        } | (env or {}),
+        }
+        | (env or {}),
         labels = ["check_dependencies_test"] + labels,
         deps = deps,
-        **kwargs
+        **kwargs,
     )
 
-def assert_dependencies_test(
-        name,
-        target,
-        contacts,
-        expected_deps,
-        expect_failure_msg = None,
-        deps = None,
-        labels = [],
-        **kwargs):
+def assert_dependencies_test(name, target, contacts, expected_deps, expect_failure_msg = None, deps = None, labels = [], **kwargs):
     """
     Creates a test target fromfbcode//buck2/tests/assert_dependencies_test.bxl:test bxl script.
 
@@ -177,18 +161,10 @@ def assert_dependencies_test(
         },
         labels = labels + ["assert_dependencies_test"],
         deps = deps,
-        **kwargs
+        **kwargs,
     )
 
-def audit_dependents_test(
-        name,
-        target,
-        contacts,
-        source_target,
-        allowlist_patterns,
-        expect_failure_msg = None,
-        deps = None,
-        **kwargs):
+def audit_dependents_test(name, target, contacts, source_target, allowlist_patterns, expect_failure_msg = None, deps = None, **kwargs):
     """
     Creates a test target from a buck2 bxl script. BXL script must use "test" as entry
     point.
@@ -215,20 +191,12 @@ def audit_dependents_test(
         },
         labels = ["audit_dependents_test"],
         deps = deps,
-        **kwargs
+        **kwargs,
     )
 
 def check_mutually_exclusive_dependencies_test(
-        name,
-        target,
-        contacts,
-        mutually_exclusive_group,
-        expect_failure_msg = None,
-        deps = None,
-        labels = [],
-        target_deps = True,
-        build_mode = None,
-        **kwargs):
+    name, target, contacts, mutually_exclusive_group, expect_failure_msg = None, deps = None, labels = [], target_deps = True, build_mode = None, **kwargs
+):
     """
     Creates a test target from a buck2 bxl script that checks for mutually exclusive dependencies.
 
@@ -291,5 +259,5 @@ def check_mutually_exclusive_dependencies_test(
         deps = deps,
         # The test binary uses Python/pytest which doesn't work on platforms like android
         compatible_with = ["ovr_config//os:linux", "ovr_config//os:macos", "ovr_config//os:windows"],
-        **kwargs
+        **kwargs,
     )

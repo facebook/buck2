@@ -16,9 +16,11 @@ def _target_impl(ctx):
     return [
         DefaultInfo(default_output = out),
         RunInfo(),
-        TemplatePlaceholderInfo(keyed_variables = {
-            CLASSPATH_KEY: cmd_args(classpaths),
-        }),
+        TemplatePlaceholderInfo(
+            keyed_variables = {
+                CLASSPATH_KEY: cmd_args(classpaths),
+            }
+        ),
     ]
 
 target = rule(

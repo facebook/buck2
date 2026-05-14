@@ -31,9 +31,9 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
         files[data_rel_path] = art
 
         parts.append("crate::BundledFile {")
-        parts.append("  path: \"" + path + "\",")
-        parts.append("  contents: include_bytes!(\"" + data_rel_path + "\"),")
-        parts.append("  is_executable: include!(\"" + exec_bit_rel_path + "\"),")
+        parts.append('  path: "' + path + '",')
+        parts.append('  contents: include_bytes!("' + data_rel_path + '"),')
+        parts.append('  is_executable: include!("' + exec_bit_rel_path + '"),')
         parts.append("},")
 
     parts.append("];")
@@ -58,7 +58,4 @@ _bundled_cell = rule(
 )
 
 def bundled_cell(**kwargs):
-    _bundled_cell(
-        _processor = ":processor",
-        **kwargs
-    )
+    _bundled_cell(_processor = ":processor", **kwargs)

@@ -96,11 +96,7 @@ rust_binary = rule(
 )
 
 def rust_proc_macro(name, **kwargs):
-    rust_library(
-        name = name + "_REAL",
-        proc_macro = True,
-        **kwargs
-    )
+    rust_library(name = name + "_REAL", proc_macro = True, **kwargs)
 
     _rust_proc_macro_alias(
         name = name,

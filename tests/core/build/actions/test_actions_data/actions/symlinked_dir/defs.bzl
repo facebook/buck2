@@ -11,16 +11,10 @@ def write_file_impl(ctx):
     return [DefaultInfo(default_output = out)]
 
 def symlink_files_impl(ctx):
-    srcs = {
-        src.short_path: src
-        for src in ctx.attrs.srcs
-    }
+    srcs = {src.short_path: src for src in ctx.attrs.srcs}
 
     # Also make sure that linking to a new location works properly
-    srcs.update({
-        "subdir/{}.suffix".format(src.short_path): src
-        for src in ctx.attrs.srcs
-    })
+    srcs.update({"subdir/{}.suffix".format(src.short_path): src for src in ctx.attrs.srcs})
     out = ctx.actions.symlinked_dir("out", srcs, has_content_based_path = False)
     return [DefaultInfo(default_output = out)]
 
@@ -47,10 +41,7 @@ def write_transitive_file_impl(ctx):
     return [DefaultInfo(default_output = out)]
 
 def symlink_transitive_files_impl(ctx):
-    srcs = {
-        src.short_path: src
-        for src in ctx.attrs.srcs
-    }
+    srcs = {src.short_path: src for src in ctx.attrs.srcs}
     out = ctx.actions.symlinked_dir("out_dir", srcs, has_content_based_path = False)
     return [DefaultInfo(default_output = out)]
 

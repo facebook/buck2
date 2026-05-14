@@ -17,17 +17,19 @@ def _test(ctx: AnalysisContext):
     # Unused
     ctx.actions.write("unused", "", has_content_based_path = False)
 
-    return [DefaultInfo(
-        default_outputs = [default],
-        other_outputs = [other],
-        sub_targets = {
-            "sub": [
-                DefaultInfo(
-                    default_outputs = [sub_default],
-                    other_outputs = [sub_other],
-                ),
-            ],
-        },
-    )]
+    return [
+        DefaultInfo(
+            default_outputs = [default],
+            other_outputs = [other],
+            sub_targets = {
+                "sub": [
+                    DefaultInfo(
+                        default_outputs = [sub_default],
+                        other_outputs = [sub_other],
+                    ),
+                ],
+            },
+        )
+    ]
 
 test = rule(impl = _test, attrs = {})

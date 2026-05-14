@@ -13,29 +13,30 @@ load("@fbsource//tools/target_determinator/macros:ci.bzl", "ci")
 load("@fbsource//tools/target_determinator/macros:ci_hint.bzl", "ci_hint")
 
 def buck_e2e_test(
-        name,
-        executable,
-        use_buck_api = True,
-        contacts = None,
-        base_module = None,
-        data = None,
-        data_dir = None,
-        srcs = None,
-        labels = None,
-        deps = None,
-        env = None,
-        resources = None,
-        skip_for_os = (),
-        pytest_config = None,
-        pytest_marks = None,
-        pytest_expr = None,
-        pytest_confcutdir = None,
-        serialize_test_cases = None,
-        require_nano_prelude = None,
-        cfg_modifiers = None,
-        ci_srcs = [],
-        ci_deps = [],
-        compatible_with = None):
+    name,
+    executable,
+    use_buck_api = True,
+    contacts = None,
+    base_module = None,
+    data = None,
+    data_dir = None,
+    srcs = None,
+    labels = None,
+    deps = None,
+    env = None,
+    resources = None,
+    skip_for_os = (),
+    pytest_config = None,
+    pytest_marks = None,
+    pytest_expr = None,
+    pytest_confcutdir = None,
+    serialize_test_cases = None,
+    require_nano_prelude = None,
+    cfg_modifiers = None,
+    ci_srcs = [],
+    ci_deps = [],
+    compatible_with = None,
+):
     """
     Custom macro for buck2/buckaemon end-to-end tests using pytest.
     """
@@ -180,32 +181,33 @@ def buck_e2e_test(
         )
 
 def buck2_e2e_test(
-        name,
-        test_with_compiled_buck2 = True,
-        test_with_deployed_buck2 = False,
-        test_with_reverted_buck2 = False,
-        use_compiled_buck2_client_and_tpx = False,
-        skip_deployed_buck2_version_dep = False,
-        deps = (),
-        env = None,
-        skip_for_os = (),
-        use_buck_api = True,
-        contacts = None,
-        base_module = None,
-        data = None,
-        data_dir = None,
-        srcs = (),
-        labels = (),
-        resources = None,
-        pytest_config = None,
-        pytest_marks = None,
-        pytest_expr = None,
-        pytest_confcutdir = None,
-        serialize_test_cases = None,
-        require_nano_prelude = None,
-        ci_srcs = [],
-        ci_deps = [],
-        compatible_with = None):
+    name,
+    test_with_compiled_buck2 = True,
+    test_with_deployed_buck2 = False,
+    test_with_reverted_buck2 = False,
+    use_compiled_buck2_client_and_tpx = False,
+    skip_deployed_buck2_version_dep = False,
+    deps = (),
+    env = None,
+    skip_for_os = (),
+    use_buck_api = True,
+    contacts = None,
+    base_module = None,
+    data = None,
+    data_dir = None,
+    srcs = (),
+    labels = (),
+    resources = None,
+    pytest_config = None,
+    pytest_marks = None,
+    pytest_expr = None,
+    pytest_confcutdir = None,
+    serialize_test_cases = None,
+    require_nano_prelude = None,
+    ci_srcs = [],
+    ci_deps = [],
+    compatible_with = None,
+):
     """
     Custom macro for buck2 end-to-end tests using pytest. All tests are run against buck2 compiled in-repo (compiled buck2).
 
@@ -284,11 +286,12 @@ def buck2_e2e_test(
             executable = exe,
             skip_for_os = skip_for_os,
             deps = deps,
-            cfg_modifiers = buck2_modifiers() + [
+            cfg_modifiers = buck2_modifiers()
+            + [
                 # Always run these tests under rust opt build
                 "ovr_config//build_mode:opt",
             ],
-            **kwargs
+            **kwargs,
         )
 
     if test_with_deployed_buck2:
@@ -298,30 +301,14 @@ def buck2_e2e_test(
         # Skip this dependency if skip_deployed_buck2_version_dep is True (e.g., for bxl tests).
         if not skip_deployed_buck2_version_dep:
             deps += ["fbsource//tools/buck2-versions:stable"]
-        buck_e2e_test(
-            name = name,
-            env = deployed_env,
-            executable = "buck2",
-            skip_for_os = skip_for_os,
-            deps = deps,
-            **kwargs
-        )
+        buck_e2e_test(name = name, env = deployed_env, executable = "buck2", skip_for_os = skip_for_os, deps = deps, **kwargs)
 
     if test_with_reverted_buck2:
         previous_env = dict(deployed_env)
         previous_env["BUCK2_CHANNEL"] = "previous"
-        buck_e2e_test(
-            name = name + "_with_reverted_buck2",
-            env = previous_env,
-            executable = "buck2",
-            skip_for_os = skip_for_os,
-            deps = deps,
-            **kwargs
-        )
+        buck_e2e_test(name = name + "_with_reverted_buck2", env = previous_env, executable = "buck2", skip_for_os = skip_for_os, deps = deps, **kwargs)
 
-def buck2_core_tests(
-        extra_attrs = {},
-        target_extra_attrs = {}):
+def buck2_core_tests(extra_attrs = {}, target_extra_attrs = {}):
     """
     A little wrapper that generates `buck2_e2e_test`s for core tests.
 
@@ -370,10 +357,7 @@ def buck2_core_tests(
             attrs["deps"] = list(attrs.get("deps") or [])
             attrs["deps"].extend(IMPLICIT_DEPS)
 
-            buck2_e2e_test(
-                name = target,
-                **attrs
-            )
+            buck2_e2e_test(name = target, **attrs)
             continue
         fail("Expected all directory entries to look like `test_*_data` or `test_*.py`, not {}".format(item))
 

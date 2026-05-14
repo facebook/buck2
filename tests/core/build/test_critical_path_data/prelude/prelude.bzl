@@ -10,28 +10,33 @@ def _write(ctx: AnalysisContext) -> list[Provider]:
     out = ctx.actions.write("out", "test", has_content_based_path = False)
     return [DefaultInfo(default_output = out)]
 
-write = rule(impl = _write, attrs = {
-})
+write = rule(impl = _write, attrs = {})
 
 def _cp(ctx: AnalysisContext) -> list[Provider]:
     inp = ctx.attrs.dep[DefaultInfo].default_outputs[0]
     out = ctx.actions.declare_output("out", has_content_based_path = False)
 
-    ctx.actions.run([
-        "sh",
-        "-c",
-        'sleep "$1" && cp "$2" "$3"',
-        "--",
-        str(ctx.attrs.sleep),
-        inp,
-        out.as_output(),
-    ], category = "cp_action")
+    ctx.actions.run(
+        [
+            "sh",
+            "-c",
+            'sleep "$1" && cp "$2" "$3"',
+            "--",
+            str(ctx.attrs.sleep),
+            inp,
+            out.as_output(),
+        ],
+        category = "cp_action",
+    )
     return [DefaultInfo(default_output = out)]
 
-cp = rule(impl = _cp, attrs = {
-    "dep": attrs.dep(),
-    "sleep": attrs.int(default = 0),
-})
+cp = rule(
+    impl = _cp,
+    attrs = {
+        "dep": attrs.dep(),
+        "sleep": attrs.int(default = 0),
+    },
+)
 
 def _dynamic_cp(ctx: AnalysisContext) -> list[Provider]:
     dummy = ctx.actions.write("dummy", "", has_content_based_path = False)
@@ -41,18 +46,24 @@ def _dynamic_cp(ctx: AnalysisContext) -> list[Provider]:
 
     def f(ctx: AnalysisContext, _artifacts, outputs):
         # NOTE: dummy doesn't show in the critical path calculation at all.
-        ctx.actions.run([
-            "cp",
-            inp,
-            outputs[out].as_output(),
-        ], category = "dynamic_cp_action")
+        ctx.actions.run(
+            [
+                "cp",
+                inp,
+                outputs[out].as_output(),
+            ],
+            category = "dynamic_cp_action",
+        )
 
     ctx.actions.dynamic_output(dynamic = [dummy], inputs = [inp], outputs = [out.as_output()], f = f)
     return [DefaultInfo(default_output = out)]
 
-dynamic_cp = rule(impl = _dynamic_cp, attrs = {
-    "dep": attrs.dep(),
-})
+dynamic_cp = rule(
+    impl = _dynamic_cp,
+    attrs = {
+        "dep": attrs.dep(),
+    },
+)
 
 def _dynamic_cp2(ctx: AnalysisContext) -> list[Provider]:
     ctx.actions.write("dummy", "", has_content_based_path = False)
@@ -66,9 +77,12 @@ def _dynamic_cp2(ctx: AnalysisContext) -> list[Provider]:
     ctx.actions.dynamic_output(dynamic = [inp], inputs = [], outputs = [out.as_output()], f = f)
     return [DefaultInfo(default_output = out)]
 
-dynamic_cp2 = rule(impl = _dynamic_cp2, attrs = {
-    "dep": attrs.dep(),
-})
+dynamic_cp2 = rule(
+    impl = _dynamic_cp2,
+    attrs = {
+        "dep": attrs.dep(),
+    },
+)
 
 script = """
 import sys;
@@ -114,9 +128,12 @@ def _tset_write(ctx: AnalysisContext) -> list[Provider]:
         ),
     ]
 
-tset_write = rule(impl = _tset_write, attrs = {
-    "deps": attrs.list(attrs.dep(providers = [TSetForTestInfo]), default = []),
-})
+tset_write = rule(
+    impl = _tset_write,
+    attrs = {
+        "deps": attrs.list(attrs.dep(providers = [TSetForTestInfo]), default = []),
+    },
+)
 
 # --- Anon target rules for critical path testing ---
 

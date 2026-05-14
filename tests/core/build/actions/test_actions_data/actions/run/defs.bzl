@@ -47,6 +47,7 @@ def _run_command_impl(ctx):
     elif test == "rejects_zero_outputs":
         ctx.actions.run(_platform_args([ctx.attrs.script, "foo"]), category = "rejects_zero_outputs")
     elif test == "rejects_bad_args":
+
         def hide_type(x):
             return x
 

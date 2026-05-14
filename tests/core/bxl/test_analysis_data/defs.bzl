@@ -6,9 +6,11 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-FooInfo = provider(fields = {
-    "foo": str,
-})
+FooInfo = provider(
+    fields = {
+        "foo": str,
+    }
+)
 
 def _provides_foo(ctx):
     return [

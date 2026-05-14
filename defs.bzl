@@ -69,7 +69,7 @@ def buck2_bundle(buck2, buck2_client, buck2_health_check, tpx, **kwargs):
         # @oss-disable[end= ]: buck2_health_check = buck2_health_check,
         # @oss-disable[end= ]: tpx = tpx,
         default_target_platform = cxx_platform.target_platform,
-        **kwargs
+        **kwargs,
     )
 
 def _pagable_transition_impl(platform: PlatformInfo, refs: struct) -> PlatformInfo:

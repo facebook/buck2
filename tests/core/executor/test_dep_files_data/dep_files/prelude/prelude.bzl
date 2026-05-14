@@ -7,10 +7,7 @@
 # above-listed licenses.
 
 def _c_binary_impl(ctx):
-    headers = {
-        "{}/{}".format(ctx.label.package, h.short_path): h
-        for h in ctx.attrs.headers
-    }
+    headers = {"{}/{}".format(ctx.label.package, h.short_path): h for h in ctx.attrs.headers}
 
     headers_tag = ctx.actions.artifact_tag()
     use_content_based_paths = ctx.attrs.use_content_based_paths
@@ -19,7 +16,9 @@ def _c_binary_impl(ctx):
     headers_dir = ctx.actions.copied_dir(headers_dir, headers)
     headers_dir = headers_tag.tag_artifacts(headers_dir)
 
-    headers_dir_written, _ = ctx.actions.write("headers_dir_written", ctx.attrs.headers_dir_written, has_content_based_path = use_content_based_paths, allow_args = True)
+    headers_dir_written, _ = ctx.actions.write(
+        "headers_dir_written", ctx.attrs.headers_dir_written, has_content_based_path = use_content_based_paths, allow_args = True
+    )
     headers_dir_written = headers_tag.tag_artifacts(headers_dir_written)
     headers_dir_written_with_dep_files_placeholder, _ = ctx.actions.write(
         "headers_dir_written_with_dep_files_placeholder",
@@ -32,18 +31,21 @@ def _c_binary_impl(ctx):
     dep_file = ctx.actions.declare_output("depfile", has_content_based_path = use_content_based_paths)
     app = ctx.actions.declare_output(ctx.attrs.name, has_content_based_path = False)
 
-    cmd = cmd_args([
-        ctx.attrs._cc[RunInfo].args,
-        ctx.attrs.unused_command_line_param,
-        ctx.attrs.main,
-        "-I",
-        headers_dir,
-        "-o",
-        app.as_output(),
-        "-MMD",
-        "-MF",
-        headers_tag.tag_artifacts(dep_file.as_output()),
-    ], hidden = [headers_dir_written, headers_dir_written_with_dep_files_placeholder])
+    cmd = cmd_args(
+        [
+            ctx.attrs._cc[RunInfo].args,
+            ctx.attrs.unused_command_line_param,
+            ctx.attrs.main,
+            "-I",
+            headers_dir,
+            "-o",
+            app.as_output(),
+            "-MMD",
+            "-MF",
+            headers_tag.tag_artifacts(dep_file.as_output()),
+        ],
+        hidden = [headers_dir_written, headers_dir_written_with_dep_files_placeholder],
+    )
 
     unused_wrapping_tag = ctx.actions.artifact_tag()
     cmd = unused_wrapping_tag.tag_artifacts(cmd)
@@ -81,10 +83,7 @@ def _tool_impl(ctx):
 tool = rule(attrs = {"src": attrs.source()}, impl = _tool_impl)
 
 def _headers_dir_impl(ctx):
-    headers = {
-        "{}/{}".format(ctx.label.package, h.short_path): h
-        for h in ctx.attrs.headers
-    }
+    headers = {"{}/{}".format(ctx.label.package, h.short_path): h for h in ctx.attrs.headers}
 
     headers_dir = ctx.actions.declare_output("headers", has_content_based_path = ctx.attrs.use_content_based_paths, dir = True)
     headers_dir = ctx.actions.copied_dir(headers_dir, headers)
@@ -107,7 +106,9 @@ def _simple_dep_file_impl(ctx):
     has_content_based_path = ctx.attrs.use_content_based_paths
     used_input1 = ctx.actions.write("used_input1", ctx.attrs.used_input1_contents, has_content_based_path = has_content_based_path)
     symlink_to_used_input1 = ctx.actions.symlink_file("symlink_to_used_input1", used_input1, has_content_based_path = has_content_based_path)
-    symlink_to_symlink_to_used_input1 = ctx.actions.symlink_file("symlink_to_symlink_to_used_input1", symlink_to_used_input1, has_content_based_path = has_content_based_path)
+    symlink_to_symlink_to_used_input1 = ctx.actions.symlink_file(
+        "symlink_to_symlink_to_used_input1", symlink_to_used_input1, has_content_based_path = has_content_based_path
+    )
     used_input2 = ctx.actions.write("used_input2", ctx.attrs.used_input2_contents, has_content_based_path = has_content_based_path)
     unused_input1 = ctx.actions.write("unused_input1", ctx.attrs.unused_input1_contents, has_content_based_path = has_content_based_path)
     unused_input2 = ctx.actions.write("unused_input2", ctx.attrs.unused_input2_contents, has_content_based_path = has_content_based_path)
@@ -166,8 +167,12 @@ def _shared_dir_dep_file_impl(ctx):
     }
     copied_dir = ctx.actions.copied_dir("dir", dir_inputs, has_content_based_path = has_content_based_path)
 
-    symlink_to_used_input_in_dir = ctx.actions.symlink_file("symlink_to_used_input_in_dir", copied_dir.project("used_input"), has_content_based_path = has_content_based_path)
-    symlink_to_unused_input_in_dir = ctx.actions.symlink_file("symlink_to_unused_input_in_dir", copied_dir.project("unused_input"), has_content_based_path = has_content_based_path)
+    symlink_to_used_input_in_dir = ctx.actions.symlink_file(
+        "symlink_to_used_input_in_dir", copied_dir.project("used_input"), has_content_based_path = has_content_based_path
+    )
+    symlink_to_unused_input_in_dir = ctx.actions.symlink_file(
+        "symlink_to_unused_input_in_dir", copied_dir.project("unused_input"), has_content_based_path = has_content_based_path
+    )
 
     dep_file = ctx.actions.declare_output("depfile", has_content_based_path = has_content_based_path)
     out = ctx.actions.declare_output("out", has_content_based_path = has_content_based_path)

@@ -8,10 +8,7 @@
 
 def _declare_sub_targets(ctx: AnalysisContext) -> list[Provider]:
     out_dir = ctx.actions.declare_output("out_dir", dir = True, has_content_based_path = False)
-    sub_targets = {
-        name: [DefaultInfo(default_output = out_dir.project(name))]
-        for name in ctx.attrs.sub_targets
-    }
+    sub_targets = {name: [DefaultInfo(default_output = out_dir.project(name))] for name in ctx.attrs.sub_targets}
     ctx.actions.run(["fbpython", ctx.attrs.command, out_dir.as_output()], category = "mkdirs")
     return [DefaultInfo(default_output = out_dir, sub_targets = sub_targets)]
 

@@ -35,26 +35,23 @@ _py_assertion = rule(
     },
 )
 
-def py_assertion(
-        name: str,
-        exec_compatible_with: list[str] = [],
-        **kwargs):
+def py_assertion(name: str, exec_compatible_with: list[str] = [], **kwargs):
     exec_compatible_with = list(exec_compatible_with)
 
     # Don't allow cross-running these tests, since they often invoke executables built for the
     # target platform
-    exec_compatible_with.append(select({
-        "ovr_config//os:linux": "ovr_config//os:linux",
-        "ovr_config//os:macos": "ovr_config//os:macos",
-        "ovr_config//os:windows": "ovr_config//os:windows",
-    }))
-    exec_compatible_with.append(select({
-        "ovr_config//cpu:arm64": "ovr_config//cpu:arm64",
-        "ovr_config//cpu:x86_64": "ovr_config//cpu:x86_64",
-    }))
-
-    _py_assertion(
-        name = name,
-        exec_compatible_with = exec_compatible_with,
-        **kwargs
+    exec_compatible_with.append(
+        select({
+            "ovr_config//os:linux": "ovr_config//os:linux",
+            "ovr_config//os:macos": "ovr_config//os:macos",
+            "ovr_config//os:windows": "ovr_config//os:windows",
+        })
     )
+    exec_compatible_with.append(
+        select({
+            "ovr_config//cpu:arm64": "ovr_config//cpu:arm64",
+            "ovr_config//cpu:x86_64": "ovr_config//cpu:x86_64",
+        })
+    )
+
+    _py_assertion(name = name, exec_compatible_with = exec_compatible_with, **kwargs)

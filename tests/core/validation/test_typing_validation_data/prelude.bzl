@@ -20,13 +20,18 @@ def _impl(ctx) -> list[Provider]:
             message = None
             status = "success"
 
-        validation_result = ctx.actions.write_json("type_check_validation.json", {
-            "data": {
-                "message": message,
-                "status": status,
+        validation_result = ctx.actions.write_json(
+            "type_check_validation.json",
+            {
+                "data": {
+                    "message": message,
+                    "status": status,
+                },
+                "version": 1,
             },
-            "version": 1,
-        }, pretty = True, has_content_based_path = False)
+            pretty = True,
+            has_content_based_path = False,
+        )
 
         return [
             DefaultInfo(),
@@ -42,8 +47,11 @@ def _impl(ctx) -> list[Provider]:
 
     return [DefaultInfo()]
 
-mock_python_library = rule(impl = _impl, attrs = {
-    "has_type_errors": attrs.bool(default = False),
-    "typing": attrs.bool(default = False),
-    "typing_validation": attrs.bool(default = False),
-})
+mock_python_library = rule(
+    impl = _impl,
+    attrs = {
+        "has_type_errors": attrs.bool(default = False),
+        "typing": attrs.bool(default = False),
+        "typing_validation": attrs.bool(default = False),
+    },
+)

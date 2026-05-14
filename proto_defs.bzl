@@ -11,15 +11,16 @@ load("@fbcode_macros//build_defs:native_rules.bzl", "alias", "buck_genrule")
 load("@fbsource//tools/build_defs:rust_library.bzl", "rust_library")
 
 def rust_protobuf_library(
-        name,
-        srcs,
-        build_script,
-        protos = None,  # Pass a list of files. Thye'll be placed in the cwd. Prefer using proto_srcs.
-        deps = None,
-        test_deps = None,
-        doctests = True,
-        build_env = None,
-        proto_srcs = None):  # Use a proto_srcs() target, path is exposed as BUCK_PROTO_SRCS.
+    name,
+    srcs,
+    build_script,
+    protos = None,  # Pass a list of files. Thye'll be placed in the cwd. Prefer using proto_srcs.
+    deps = None,
+    test_deps = None,
+    doctests = True,
+    build_env = None,
+    proto_srcs = None,
+):  # Use a proto_srcs() target, path is exposed as BUCK_PROTO_SRCS.
     _rust_protobuf_library(
         name,
         srcs,
@@ -30,7 +31,8 @@ def rust_protobuf_library(
         [
             "fbsource//third-party/rust:tonic",
             "fbsource//third-party/rust:tonic-prost",
-        ] + (deps or []),
+        ]
+        + (deps or []),
         test_deps,
         doctests,
         build_env,
@@ -44,19 +46,7 @@ def rust_protobuf_library(
         actual = ":" + name + "_prost",
     )
 
-def _rust_protobuf_library(
-        name,
-        srcs,
-        build_script,
-        buck2_protoc_dev,
-        prost_version,
-        protos,
-        deps,
-        test_deps,
-        doctests,
-        build_env,
-        proto_srcs,
-        crate_name):
+def _rust_protobuf_library(name, srcs, build_script, buck2_protoc_dev, prost_version, protos, deps, test_deps, doctests, build_env, proto_srcs, crate_name):
     versioned_prost_target = {
         "0.14": "prost",
     }[prost_version]
@@ -90,9 +80,11 @@ def _rust_protobuf_library(
         out = ".",
     )
 
-    new_deps = [{
-        "0.14": "fbsource//third-party/rust:prost",
-    }[prost_version]] + (deps or [])
+    new_deps = [
+        {
+            "0.14": "fbsource//third-party/rust:prost",
+        }[prost_version]
+    ] + (deps or [])
 
     rust_library(
         name = name + "_" + versioned_prost_target,

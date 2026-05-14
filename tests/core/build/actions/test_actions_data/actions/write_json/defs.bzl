@@ -171,7 +171,11 @@ def _write_json_with_inputs_rule(ctx: AnalysisContext) -> list[Provider]:
     output = ctx.actions.declare_output("output", has_content_based_path = False)
 
     # as_json will contain a quoted-path and we want to read the contents of that path
-    script = ctx.actions.write("script.py", ["import sys;p_fp=open(sys.argv[1],'r');p=p_fp.read().replace('\"',\"\");i_fp=open(p,'r');i=i_fp.read();o_fp=open(sys.argv[2],'w');o_fp.write(i)"], has_content_based_path = False)
+    script = ctx.actions.write(
+        "script.py",
+        ["import sys;p_fp=open(sys.argv[1],'r');p=p_fp.read().replace('\"',\"\");i_fp=open(p,'r');i=i_fp.read();o_fp=open(sys.argv[2],'w');o_fp.write(i)"],
+        has_content_based_path = False,
+    )
     cmd = cmd_args("fbpython", script, as_json, output.as_output())
     ctx.actions.run(cmd, category = "cmd")
 

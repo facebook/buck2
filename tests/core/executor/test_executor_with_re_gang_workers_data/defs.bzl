@@ -16,7 +16,10 @@ def _test_impl(ctx):
     )
     return [DefaultInfo(out)]
 
-test = rule(attrs = {
-    "cache_buster": attrs.string(default = read_config("test", "cache_buster", "")),
-    "re_gang_workers": attrs.list(attrs.dict(key = attrs.string(), value = attrs.string()), default = []),
-}, impl = _test_impl)
+test = rule(
+    attrs = {
+        "cache_buster": attrs.string(default = read_config("test", "cache_buster", "")),
+        "re_gang_workers": attrs.list(attrs.dict(key = attrs.string(), value = attrs.string()), default = []),
+    },
+    impl = _test_impl,
+)

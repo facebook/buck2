@@ -38,6 +38,5 @@ def _simple_impl(ctx):
 
 simple = rule(
     impl = _simple_impl,
-    attrs = {
-    },
+    attrs = {},
 )

@@ -10,23 +10,28 @@
 
 def get_labels():
     """Returns labels based on build_mode and compiler constraints."""
-    return select({
-        "//cfg:build_mode[debug]": ["build_mode:debug"],
-        "//cfg:build_mode[none]": ["build_mode:none"],
-        "//cfg:build_mode[release]": ["build_mode:release"],
-    }) + select({
-        "//cfg:compiler[clang]": ["compiler:clang"],
-        "//cfg:compiler[gcc]": ["compiler:gcc"],
-        "//cfg:compiler[none]": ["compiler:none"],
-    }) + select({
-        "//cfg:os[linux]": ["os:linux"],
-        "//cfg:os[macos]": ["os:macos"],
-        "//cfg:os[none]": ["os:none"],
-    }) + select({
-        "//cfg:cpu[arm64]": ["cpu:arm64"],
-        "//cfg:cpu[none]": ["cpu:none"],
-        "//cfg:cpu[x86_64]": ["cpu:x86_64"],
-    })
+    return (
+        select({
+            "//cfg:build_mode[debug]": ["build_mode:debug"],
+            "//cfg:build_mode[none]": ["build_mode:none"],
+            "//cfg:build_mode[release]": ["build_mode:release"],
+        })
+        + select({
+            "//cfg:compiler[clang]": ["compiler:clang"],
+            "//cfg:compiler[gcc]": ["compiler:gcc"],
+            "//cfg:compiler[none]": ["compiler:none"],
+        })
+        + select({
+            "//cfg:os[linux]": ["os:linux"],
+            "//cfg:os[macos]": ["os:macos"],
+            "//cfg:os[none]": ["os:none"],
+        })
+        + select({
+            "//cfg:cpu[arm64]": ["cpu:arm64"],
+            "//cfg:cpu[none]": ["cpu:none"],
+            "//cfg:cpu[x86_64]": ["cpu:x86_64"],
+        })
+    )
 
 def get_buckconfig_backed_label():
     return select({
@@ -74,10 +79,7 @@ def labeled_dummy(name, **kwargs):
     if "default_target_platform" not in kwargs:
         kwargs["default_target_platform"] = "//cfg:debug_platform"
 
-    dummy(
-        name = name,
-        **kwargs
-    )
+    dummy(name = name, **kwargs)
 
 def labeled_tool(name, **kwargs):
     """
@@ -89,10 +91,7 @@ def labeled_tool(name, **kwargs):
     if "labels" not in kwargs:
         kwargs["labels"] = get_labels()
 
-    dummy(
-        name = name,
-        **kwargs
-    )
+    dummy(name = name, **kwargs)
 
 def _toolchain_impl(ctx):
     _ignore = ctx
@@ -120,7 +119,4 @@ def labeled_toolchain(name, **kwargs):
     if "labels" not in kwargs:
         kwargs["labels"] = get_labels()
 
-    toolchain(
-        name = name,
-        **kwargs
-    )
+    toolchain(name = name, **kwargs)

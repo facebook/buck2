@@ -48,9 +48,4 @@ def proto_python_library(*, name, src, **kwargs):
         name = "{}-gen".format(name),
         src = src,
     )
-    native.python_library(
-        name = name,
-        srcs = [":{}-gen".format(name)],
-        deps = ["//python:grpcio"],
-        **kwargs
-    )
+    native.python_library(name = name, srcs = [":{}-gen".format(name)], deps = ["//python:grpcio"], **kwargs)

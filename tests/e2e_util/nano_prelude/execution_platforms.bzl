@@ -7,14 +7,17 @@
 # above-listed licenses.
 
 def _execution_platforms(ctx):
-    platforms = [
-        p[ExecutionPlatformInfo]
-        for p in ctx.attrs.platforms
-    ] if ctx.attrs.platforms else [ExecutionPlatformInfo(
-        label = ctx.label.raw_target(),
-        configuration = ConfigurationInfo(constraints = {}, values = {}),
-        executor_config = CommandExecutorConfig(local_enabled = True, remote_enabled = False),
-    )]
+    platforms = (
+        [p[ExecutionPlatformInfo] for p in ctx.attrs.platforms]
+        if ctx.attrs.platforms
+        else [
+            ExecutionPlatformInfo(
+                label = ctx.label.raw_target(),
+                configuration = ConfigurationInfo(constraints = {}, values = {}),
+                executor_config = CommandExecutorConfig(local_enabled = True, remote_enabled = False),
+            )
+        ]
+    )
 
     kwargs = {}
     if ctx.attrs.exec_marker_constraint:

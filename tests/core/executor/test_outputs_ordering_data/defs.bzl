@@ -17,6 +17,9 @@ def _impl(ctx):
     )
     return [DefaultInfo(a, other_outputs = [z])]
 
-my_rule = rule(impl = _impl, attrs = {
-    "cache_buster": attrs.string(default = read_config("test", "cache_buster", "")),
-})
+my_rule = rule(
+    impl = _impl,
+    attrs = {
+        "cache_buster": attrs.string(default = read_config("test", "cache_buster", "")),
+    },
+)

@@ -9,7 +9,10 @@
 def _basic_incremental_actions_impl(ctx) -> list[Provider]:
     out = ctx.actions.declare_output("out", has_content_based_path = ctx.attrs.use_content_based_path)
     ctx.actions.run(
-        cmd_args(["fbpython", ctx.attrs.script] + ["--out", out.as_output()], hidden = [ctx.actions.write("invalidate_action_and_metadata", ctx.attrs.invalidate, has_content_based_path = False)]),
+        cmd_args(
+            ["fbpython", ctx.attrs.script] + ["--out", out.as_output()],
+            hidden = [ctx.actions.write("invalidate_action_and_metadata", ctx.attrs.invalidate, has_content_based_path = False)],
+        ),
         category = "incremental",
         no_outputs_cleanup = ctx.attrs.use_incremental,
         metadata_env_var = "METADATA_PATH",
@@ -20,12 +23,15 @@ def _basic_incremental_actions_impl(ctx) -> list[Provider]:
         RunInfo(args = ["cat", out]),
     ]
 
-basic_incremental_action = rule(impl = _basic_incremental_actions_impl, attrs = {
-    "invalidate": attrs.string(),
-    "script": attrs.source(),
-    "use_content_based_path": attrs.bool(default = read_config("test", "use_content_based_path", "") in ["true", "True"]),
-    "use_incremental": attrs.bool(default = (read_config("test", "use_incremental", True) == True)),
-})
+basic_incremental_action = rule(
+    impl = _basic_incremental_actions_impl,
+    attrs = {
+        "invalidate": attrs.string(),
+        "script": attrs.source(),
+        "use_content_based_path": attrs.bool(default = read_config("test", "use_content_based_path", "") in ["true", "True"]),
+        "use_incremental": attrs.bool(default = (read_config("test", "use_incremental", True) == True)),
+    },
+)
 
 def _incremental_action_with_metadata_optout_impl(ctx) -> list[Provider]:
     out = ctx.actions.declare_output("out", has_content_based_path = False)
@@ -81,8 +87,11 @@ def _incremental_action_with_multiple_outputs_impl(ctx) -> list[Provider]:
         RunInfo(args = ["cat", out1, out2]),
     ]
 
-incremental_action_with_multiple_outputs = rule(impl = _incremental_action_with_multiple_outputs_impl, attrs = {
-    "invalidate": attrs.string(),
-    "script": attrs.source(),
-    "use_content_based_path": attrs.bool(default = read_config("test", "use_content_based_path", "") in ["true", "True"]),
-})
+incremental_action_with_multiple_outputs = rule(
+    impl = _incremental_action_with_multiple_outputs_impl,
+    attrs = {
+        "invalidate": attrs.string(),
+        "script": attrs.source(),
+        "use_content_based_path": attrs.bool(default = read_config("test", "use_content_based_path", "") in ["true", "True"]),
+    },
+)

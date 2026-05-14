@@ -8,14 +8,19 @@
 
 def _noisy_rule_impl(ctx):
     out = ctx.actions.declare_output("out.txt", has_content_based_path = False)
-    script = ctx.actions.write("cmd.sh", """\
+    script = ctx.actions.write(
+        "cmd.sh",
+        """\
 #!/bin/bash
 for i in $(seq 1 10); do
     echo "stderr line $i: this is some noisy output from the action" >&2
 done
 mkdir -p "$(dirname "$1")"
 touch "$1"
-""", is_executable = True, has_content_based_path = False)
+""",
+        is_executable = True,
+        has_content_based_path = False,
+    )
     ctx.actions.run(
         [script, out.as_output()],
         always_print_stderr = True,

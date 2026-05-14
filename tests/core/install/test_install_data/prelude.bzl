@@ -14,10 +14,13 @@ def _prebuilt_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         RunInfo(args = [exe] + args),
     ]
 
-prebuilt_binary = rule(impl = _prebuilt_binary_impl, attrs = {
-    "exe": attrs.source(),
-    "extra_args": attrs.list(attrs.string(), default = []),
-})
+prebuilt_binary = rule(
+    impl = _prebuilt_binary_impl,
+    attrs = {
+        "exe": attrs.source(),
+        "extra_args": attrs.list(attrs.string(), default = []),
+    },
+)
 
 def _installer_impl(ctx: AnalysisContext) -> list[Provider]:
     installer = ctx.attrs.installer
@@ -29,17 +32,23 @@ def _installer_impl(ctx: AnalysisContext) -> list[Provider]:
         ),
     ]
 
-installer = rule(impl = _installer_impl, attrs = {
-    "files": attrs.dict(key = attrs.string(), value = attrs.source(), default = {}),
-    "installer": attrs.label(),
-})
+installer = rule(
+    impl = _installer_impl,
+    attrs = {
+        "files": attrs.dict(key = attrs.string(), value = attrs.source(), default = {}),
+        "installer": attrs.label(),
+    },
+)
 
 def _export_file_impl(ctx: AnalysisContext) -> list[Provider]:
     return [DefaultInfo(default_output = ctx.attrs.src)]
 
-export_file = rule(impl = _export_file_impl, attrs = {
-    "src": attrs.source(),
-})
+export_file = rule(
+    impl = _export_file_impl,
+    attrs = {
+        "src": attrs.source(),
+    },
+)
 
 def _fail_build_impl(ctx: AnalysisContext) -> list[Provider]:
     out = ctx.actions.declare_output("out", has_content_based_path = False)

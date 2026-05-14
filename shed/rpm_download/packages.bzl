@@ -45,5 +45,5 @@ def download_rpm(**kwargs):
             ci.windows(),
             ci.mac(ci.aarch64()),
         ),
-        **kwargs
+        **kwargs,
     )

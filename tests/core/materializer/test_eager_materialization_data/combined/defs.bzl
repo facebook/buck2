@@ -41,13 +41,15 @@ def _make_dir_impl(ctx):
         category = "mkdir",
         prefer_remote = True,
     )
-    return [DefaultInfo(
-        default_output = out_dir,
-        sub_targets = {
-            "file_a": [DefaultInfo(default_output = out_dir.project("file_a"))],
-            "file_b": [DefaultInfo(default_output = out_dir.project("file_b"))],
-        },
-    )]
+    return [
+        DefaultInfo(
+            default_output = out_dir,
+            sub_targets = {
+                "file_a": [DefaultInfo(default_output = out_dir.project("file_a"))],
+                "file_b": [DefaultInfo(default_output = out_dir.project("file_b"))],
+            },
+        )
+    ]
 
 # Transitive set node: file output + a tset combining its file with its
 # children's tsets.

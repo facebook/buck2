@@ -7,7 +7,14 @@
 # above-listed licenses.
 
 load("//:asserts.bzl", _asserts = "asserts")
-load("//:cfg_rules.bzl", _config_setting = "config_setting", _constraint_setting = "constraint_setting", _constraint_value = "constraint_value", _execution_platform = "execution_platform", _platform = "platform")
+load(
+    "//:cfg_rules.bzl",
+    _config_setting = "config_setting",
+    _constraint_setting = "constraint_setting",
+    _constraint_value = "constraint_value",
+    _execution_platform = "execution_platform",
+    _platform = "platform",
+)
 load("//:execution_platforms.bzl", _execution_platforms = "execution_platforms")
 load(
     "//:stub_rules.bzl",

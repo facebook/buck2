@@ -14,6 +14,5 @@ def _test_rule(ctx):
 
 test_rule = rule(
     impl = _test_rule,
-    attrs = {
-    },
+    attrs = {},
 )

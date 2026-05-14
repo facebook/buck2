@@ -11,13 +11,17 @@ def _modify_file_impl(ctx):
 
     out = ctx.actions.declare_output("out", has_content_based_path = False)
 
-    ctx.actions.run([
-        "fbpython",
-        "-c",
-        "import sys; fp=open(sys.argv[1], 'w'); fp.write('REPLACEMENT'); open(sys.argv[2], 'w')",
-        text,
-        out.as_output(),
-    ], local_only = True, category = "test")
+    ctx.actions.run(
+        [
+            "fbpython",
+            "-c",
+            "import sys; fp=open(sys.argv[1], 'w'); fp.write('REPLACEMENT'); open(sys.argv[2], 'w')",
+            text,
+            out.as_output(),
+        ],
+        local_only = True,
+        category = "test",
+    )
 
     return [DefaultInfo(default_output = out)]
 

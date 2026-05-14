@@ -19,11 +19,15 @@ run_action = rule(
 def _execution_platforms(ctx):
     return [
         DefaultInfo(),
-        ExecutionPlatformRegistrationInfo(platforms = [ExecutionPlatformInfo(
-            label = ctx.label.raw_target(),
-            configuration = ConfigurationInfo(constraints = {}, values = {}),
-            executor_config = CommandExecutorConfig(local_enabled = False, remote_cache_enabled = False, remote_enabled = False),
-        )]),
+        ExecutionPlatformRegistrationInfo(
+            platforms = [
+                ExecutionPlatformInfo(
+                    label = ctx.label.raw_target(),
+                    configuration = ConfigurationInfo(constraints = {}, values = {}),
+                    executor_config = CommandExecutorConfig(local_enabled = False, remote_cache_enabled = False, remote_enabled = False),
+                )
+            ]
+        ),
     ]
 
 execution_platforms = rule(

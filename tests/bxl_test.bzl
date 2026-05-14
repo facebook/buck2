@@ -66,5 +66,5 @@ def bxl_test(src, name = None, labels = None, buck_args: list[str] | None = None
         test_with_compiled_buck2 = False,
         test_with_deployed_buck2 = True,
         skip_deployed_buck2_version_dep = True,
-        **kwargs
+        **kwargs,
     )

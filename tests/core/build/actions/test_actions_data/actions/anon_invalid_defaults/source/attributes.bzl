@@ -19,9 +19,12 @@ def _complex_source_impl(ctx: AnalysisContext) -> list[Provider]:
 
 source = rule(impl = _complex_source_impl, attrs = {})
 
-_artifacts_mirror = rule(impl = _mirror_impl, attrs = {
-    "source_attr": attrs.source(default = "//anon_bad/source:source"),
-})
+_artifacts_mirror = rule(
+    impl = _mirror_impl,
+    attrs = {
+        "source_attr": attrs.source(default = "//anon_bad/source:source"),
+    },
+)
 
 def _complex_artifacts_impl(ctx: AnalysisContext) -> Promise:
     def f(_providers):

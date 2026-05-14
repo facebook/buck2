@@ -39,6 +39,5 @@ def _download(ctx: AnalysisContext):
 
 download = rule(
     impl = _download,
-    attrs = {
-    },
+    attrs = {},
 )

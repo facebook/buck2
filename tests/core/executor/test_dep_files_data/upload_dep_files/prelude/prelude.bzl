@@ -9,7 +9,9 @@
 def _tag_files(tag, files):
     return [tag.tag_artifacts(f) for f in files]
 
-def _get_tagged_artifacts(ctx, dep_file: Artifact, used_files: list[Artifact], unused_files: list[Artifact]) -> (ArtifactTag, list[typing.Any], list[typing.Any], typing.Any):
+def _get_tagged_artifacts(
+    ctx, dep_file: Artifact, used_files: list[Artifact], unused_files: list[Artifact]
+) -> (ArtifactTag, list[typing.Any], list[typing.Any], typing.Any):
     tag = ctx.actions.artifact_tag()
     tagged_used_files = _tag_files(tag, used_files)
     tagged_unused_files = _tag_files(tag, unused_files)

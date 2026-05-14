@@ -14,20 +14,24 @@ def error_handler_impl(ctx: ActionErrorCtx) -> list[ActionSubError]:
     categories = []
 
     if "foo" in ctx.stdout:
-        categories.append(ctx.new_sub_error(
-            category = "foo_category",
-            message = "foo message",
-            file = "foo_file",
-            lnum = 1,
-        ))
+        categories.append(
+            ctx.new_sub_error(
+                category = "foo_category",
+                message = "foo message",
+                file = "foo_file",
+                lnum = 1,
+            )
+        )
 
     if "bar" in ctx.stderr:
-        categories.append(ctx.new_sub_error(
-            category = "bar_category",
-            message = "bar message",
-            file = "bar_file",
-            lnum = 1,
-        ))
+        categories.append(
+            ctx.new_sub_error(
+                category = "bar_category",
+                message = "bar message",
+                file = "bar_file",
+                lnum = 1,
+            )
+        )
 
     return categories
 

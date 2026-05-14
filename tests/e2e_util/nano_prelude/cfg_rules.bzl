@@ -24,10 +24,7 @@ def _configuration_info_union(infos):
     )
 
 def _constraint_values_to_configuration(values):
-    return ConfigurationInfo(constraints = {
-        info[ConstraintValueInfo].setting.label: info[ConstraintValueInfo]
-        for info in values
-    }, values = {})
+    return ConfigurationInfo(constraints = {info[ConstraintValueInfo].setting.label: info[ConstraintValueInfo] for info in values}, values = {})
 
 # This is copy-paste from `prelude/configurations/rules.bzl`
 
@@ -49,9 +46,12 @@ def _constraint_value_impl(ctx):
         DefaultInfo(),
         constraint_value,
         # Provide `ConfigurationInfo` from `constraint_value` so it could be used as select key.
-        ConfigurationInfo(constraints = {
-            constraint_value.setting.label: constraint_value,
-        }, values = {}),
+        ConfigurationInfo(
+            constraints = {
+                constraint_value.setting.label: constraint_value,
+            },
+            values = {},
+        ),
     ]
 
 constraint_value = rule(
@@ -63,10 +63,7 @@ constraint_value = rule(
 )
 
 def _platform_impl(ctx):
-    subinfos = (
-        [dep[PlatformInfo].configuration for dep in ctx.attrs.deps] +
-        [_constraint_values_to_configuration(ctx.attrs.constraint_values)]
-    )
+    subinfos = [dep[PlatformInfo].configuration for dep in ctx.attrs.deps] + [_constraint_values_to_configuration(ctx.attrs.constraint_values)]
     return [
         DefaultInfo(),
         PlatformInfo(

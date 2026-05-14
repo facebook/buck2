@@ -33,13 +33,17 @@ def _trace_impl(ctx):
     trace_out = ctx.actions.declare_output("trace_out.txt", has_content_based_path = False)
     nested_out = ctx.actions.declare_output("nested_out.txt", has_content_based_path = False)
 
-    script = ctx.actions.write("script.py", """
+    script = ctx.actions.write(
+        "script.py",
+        """
 import subprocess
 import sys
 
 buck_path = sys.argv[1]
 subprocess.run([buck_path, "debug", "trace-io", "enable"])
-    """, has_content_based_path = False)
+    """,
+        has_content_based_path = False,
+    )
     ctx.actions.run(
         [
             "fbpython",
