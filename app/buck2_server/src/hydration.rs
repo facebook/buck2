@@ -11,6 +11,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use buck2_cli_proto::HydrationSubcommand;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -22,33 +23,35 @@ use dupe::Dupe;
 
 use crate::ctx::ServerCommandContext;
 
-pub(crate) async fn hydration_page_out_command(
+pub(crate) async fn hydration_command(
     ctx: &ServerCommandContext<'_>,
     partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
-    _req: buck2_cli_proto::HydrationPageOutRequest,
+    req: buck2_cli_proto::HydrationRequest,
 ) -> buck2_error::Result<buck2_cli_proto::GenericResponse> {
     let dice = ctx.base_context.daemon.dice_manager.unsafe_dice().dupe();
+    let subcommand = HydrationSubcommand::try_from(req.subcommand)?;
     run_server_command(
-        HydrationPageOutServerCommand { dice },
+        HydrationServerCommand { dice, subcommand },
         ctx,
         partial_result_dispatcher,
     )
     .await
 }
 
-struct HydrationPageOutServerCommand {
+struct HydrationServerCommand {
     dice: Arc<Dice>,
+    subcommand: HydrationSubcommand,
 }
 
 #[async_trait]
-impl ServerCommandTemplate for HydrationPageOutServerCommand {
-    type StartEvent = buck2_data::HydrationPageOutCommandStart;
-    type EndEvent = buck2_data::HydrationPageOutCommandEnd;
+impl ServerCommandTemplate for HydrationServerCommand {
+    type StartEvent = buck2_data::HydrationCommandStart;
+    type EndEvent = buck2_data::HydrationCommandEnd;
     type Response = buck2_cli_proto::GenericResponse;
     type PartialResult = NoPartialResult;
 
     fn exclusive_command_name(&self) -> Option<String> {
-        Some("hydration-page-out".to_owned())
+        Some("hydration".to_owned())
     }
 
     async fn command(
@@ -57,9 +60,24 @@ impl ServerCommandTemplate for HydrationPageOutServerCommand {
         _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
         _ctx: DiceTransaction,
     ) -> buck2_error::Result<Self::Response> {
-        self.dice.page_out().await.map_err(|e| {
-            buck2_error::conversion::from_any_with_tag(e, buck2_error::ErrorTag::Environment)
-        })?;
+        match self.subcommand {
+            HydrationSubcommand::PageOut => {
+                self.dice.page_out().await.map_err(|e| {
+                    buck2_error::conversion::from_any_with_tag(
+                        e,
+                        buck2_error::ErrorTag::Environment,
+                    )
+                })?;
+            }
+            HydrationSubcommand::PageIn => {
+                self.dice.page_in().await.map_err(|e| {
+                    buck2_error::conversion::from_any_with_tag(
+                        e,
+                        buck2_error::ErrorTag::Environment,
+                    )
+                })?;
+            }
+        }
         Ok(buck2_cli_proto::GenericResponse {})
     }
 }

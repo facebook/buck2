@@ -317,7 +317,7 @@ partial_result_convert!(DapMessage);
 define_request!(KillRequest);
 define_request!(StatusRequest);
 define_request!(PingRequest);
-define_request!(HydrationPageOutRequest, has(context));
+define_request!(HydrationRequest, has(context));
 
 define_request!(BuildRequest, has(context, build_options));
 define_request!(BxlRequest, has(context, build_options));

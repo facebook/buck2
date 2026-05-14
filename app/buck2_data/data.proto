@@ -1260,7 +1260,7 @@ message CommandStart {
     ExplainCommandStart explain = 40;
     ExpandExternalCellsCommandStart expand_external_cell = 41;
     CompleteCommandStart complete = 42;
-    HydrationPageOutCommandStart hydration_page_out = 43;
+    HydrationCommandStart hydration = 43;
   }
 }
 
@@ -1340,7 +1340,7 @@ message ExpandExternalCellsCommandStart {}
 
 message CompleteCommandStart {}
 
-message HydrationPageOutCommandStart {}
+message HydrationCommandStart {}
 
 message CommandEnd {
   reserved 3, 4;
@@ -1368,7 +1368,7 @@ message CommandEnd {
     ExplainCommandEnd explain = 40;
     ExpandExternalCellsCommandEnd expand_external_cell = 41;
     CompleteCommandEnd complete = 42;
-    HydrationPageOutCommandEnd hydration_page_out = 43;
+    HydrationCommandEnd hydration = 43;
   }
 
   // This should eventually be deleted. Retaining only so that ingress
@@ -1487,7 +1487,7 @@ message ExpandExternalCellsCommandEnd {}
 
 message CompleteCommandEnd {}
 
-message HydrationPageOutCommandEnd {}
+message HydrationCommandEnd {}
 
 message LoadPackageStart {
   string path = 1;

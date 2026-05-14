@@ -948,8 +948,14 @@ message FlushDepFilesRequest {
   bool retain_locally_produced_dep_files = 1;
 }
 
-message HydrationPageOutRequest {
+enum HydrationSubcommand {
+  PAGE_OUT = 0;
+  PAGE_IN = 1;
+}
+
+message HydrationRequest {
   ClientContext context = 1;
+  HydrationSubcommand subcommand = 2;
 }
 
 message SetLogFilterRequest {
@@ -1026,8 +1032,7 @@ service DaemonApi {
   rpc Install(InstallRequest) returns (stream MultiCommandProgress);
   rpc CleanStale(CleanStaleRequest) returns (stream MultiCommandProgress);
   rpc FileStatus(FileStatusRequest) returns (stream MultiCommandProgress);
-  rpc HydrationPageOut(HydrationPageOutRequest)
-      returns (stream MultiCommandProgress);
+  rpc Hydration(HydrationRequest) returns (stream MultiCommandProgress);
   rpc Profile2(ProfileRequest) returns (stream MultiCommandProgress);
 
   rpc NewGenericImpl(NewGenericRequestMessage)

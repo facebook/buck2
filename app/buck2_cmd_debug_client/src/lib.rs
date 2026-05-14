@@ -136,7 +136,7 @@ impl DebugCommand {
             DebugCommand::Paranoid(cmd) => cmd.exec(matches, ctx),
             DebugCommand::Eval(cmd) => ctx.exec(cmd, matches, events_ctx),
             DebugCommand::ThreadDump(cmd) => cmd.exec(matches, ctx),
-            DebugCommand::Hydration(cmd) => cmd.exec(matches, ctx, events_ctx),
+            DebugCommand::Hydration(cmd) => ctx.exec(cmd, matches, events_ctx),
         }
     }
 

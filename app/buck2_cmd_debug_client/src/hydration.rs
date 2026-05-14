@@ -9,7 +9,8 @@
  */
 
 use async_trait::async_trait;
-use buck2_cli_proto::HydrationPageOutRequest;
+use buck2_cli_proto::HydrationRequest;
+use buck2_cli_proto::HydrationSubcommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::CommonBuildConfigurationOptions;
@@ -22,25 +23,33 @@ use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 
-/// Subcommands for `buck2 debug hydration`. Controls DICE node value page-out / page-in.
-///
-/// Pagable storage is opt-in: set the `BUCK2_DICE_DB_PATH` environment variable when
-/// starting the daemon to choose a sled database location. Without it, `page-out` is
-/// a no-op.
+/// Subcommands for `buck2 debug hydration`.
 #[derive(Debug, clap::Parser)]
 pub enum HydrationCommand {
-    /// Serialize all hydrated `OccupiedGraphNode` values in DICE to disk and replace
-    /// them in-memory with paged-out markers. Subsequent lookups hydrate values back
-    /// on demand off the DICE core thread.
-    PageOut(HydrationPageOutCommand),
+    /// Page out DICE values to storage.
+    PageOut(PageOutCommand),
+    /// Page in DICE values from storage.
+    PageIn(PageInCommand),
 }
 
 #[derive(Debug, clap::Parser)]
-pub struct HydrationPageOutCommand {}
+pub struct PageOutCommand;
+
+#[derive(Debug, clap::Parser)]
+pub struct PageInCommand;
+
+impl HydrationCommand {
+    fn subcommand(&self) -> HydrationSubcommand {
+        match self {
+            HydrationCommand::PageOut(_) => HydrationSubcommand::PageOut,
+            HydrationCommand::PageIn(_) => HydrationSubcommand::PageIn,
+        }
+    }
+}
 
 #[async_trait(?Send)]
-impl StreamingCommand for HydrationPageOutCommand {
-    const COMMAND_NAME: &'static str = "HydrationPageOut";
+impl StreamingCommand for HydrationCommand {
+    const COMMAND_NAME: &'static str = "hydration";
 
     fn existing_only() -> bool {
         true
@@ -49,19 +58,20 @@ impl StreamingCommand for HydrationPageOutCommand {
     async fn exec_impl(
         self,
         buckd: &mut BuckdClientConnector,
-        matches: BuckArgMatches<'_>,
+        _matches: BuckArgMatches<'_>,
         ctx: &mut ClientCommandContext<'_>,
         events_ctx: &mut EventsCtx,
     ) -> ExitResult {
-        let context = ctx.client_context(matches, &self)?;
+        let context = ctx.empty_client_context("debug-hydration")?;
         buckd
             .with_flushing()
-            .hydration_page_out(
-                HydrationPageOutRequest {
+            .hydration(
+                HydrationRequest {
                     context: Some(context),
+                    subcommand: self.subcommand().into(),
                 },
                 events_ctx,
-                ctx.console_interaction_stream(&self.console_opts()),
+                ctx.console_interaction_stream(self.console_opts()),
                 &mut NoPartialResultHandler,
             )
             .await??;
@@ -69,7 +79,7 @@ impl StreamingCommand for HydrationPageOutCommand {
     }
 
     fn console_opts(&self) -> &CommonConsoleOptions {
-        CommonConsoleOptions::simple_ref()
+        CommonConsoleOptions::default_ref()
     }
 
     fn event_log_opts(&self) -> &CommonEventLogOptions {
@@ -82,19 +92,5 @@ impl StreamingCommand for HydrationPageOutCommand {
 
     fn starlark_opts(&self) -> &CommonStarlarkOptions {
         CommonStarlarkOptions::default_ref()
-    }
-}
-
-impl HydrationCommand {
-    pub fn exec(
-        self,
-        matches: BuckArgMatches<'_>,
-        ctx: ClientCommandContext<'_>,
-        events_ctx: &mut EventsCtx,
-    ) -> ExitResult {
-        let matches = matches.unwrap_subcommand();
-        match self {
-            HydrationCommand::PageOut(cmd) => ctx.exec(cmd, matches, events_ctx),
-        }
     }
 }

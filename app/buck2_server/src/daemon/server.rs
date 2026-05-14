@@ -1084,21 +1084,16 @@ impl DaemonApi for BuckdServer {
         .await
     }
 
-    type HydrationPageOutStream = ResponseStream;
-    async fn hydration_page_out(
+    type HydrationStream = ResponseStream;
+    async fn hydration(
         &self,
-        req: Request<HydrationPageOutRequest>,
+        req: Request<HydrationRequest>,
     ) -> Result<Response<ResponseStream>, Status> {
         self.run_streaming(
             req,
             DefaultCommandOptions,
             |context, partial_result_dispatcher, req| {
-                crate::hydration_page_out::hydration_page_out_command(
-                    context,
-                    partial_result_dispatcher,
-                    req,
-                )
-                .boxed()
+                crate::hydration::hydration_command(context, partial_result_dispatcher, req).boxed()
             },
         )
         .await

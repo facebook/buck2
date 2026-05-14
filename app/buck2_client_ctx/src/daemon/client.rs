@@ -587,8 +587,8 @@ impl FlushingBuckdClient<'_> {
 
     oneshot_method!(flush_dep_files, FlushDepFilesRequest, GenericResponse);
     stream_method!(
-        hydration_page_out,
-        HydrationPageOutRequest,
+        hydration,
+        HydrationRequest,
         GenericResponse,
         NoPartialResult
     );

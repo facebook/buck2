@@ -165,6 +165,13 @@ impl Dice {
         }
         self.state_handle.page_out(self.dupe()).await
     }
+
+    /// Page in (rehydrate) all paged-out `OccupiedGraphNode` values from storage.
+    ///
+    /// Stub — not yet implemented.
+    pub async fn page_in(self: &Arc<Self>) -> anyhow::Result<()> {
+        Ok(())
+    }
 }
 
 #[cfg(test)]
