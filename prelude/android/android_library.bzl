@@ -61,14 +61,14 @@ def android_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 default_output = ctx.actions.write("{}/unused.jar".format(ctx.label.name), [], has_content_based_path = False),
                 sub_targets = {
                     "generated_sources": [
-                        DefaultInfo(default_output = ctx.actions.write("{}/generated_sources".format(ctx.label.name), [], has_content_based_path = False))
+                        DefaultInfo(default_output = ctx.actions.write("{}/generated_sources".format(ctx.label.name), [], has_content_based_path = False)),
                     ],
                 },
             ),
             TemplatePlaceholderInfo(
                 keyed_variables = {
                     "classpath": "unused_but_needed_for_analysis",
-                }
+                },
             ),
         ]
 
@@ -79,8 +79,8 @@ def android_library_impl(ctx: AnalysisContext) -> list[Provider]:
     android_providers = [android_library_intellij_info] if android_library_intellij_info else []
 
     return (
-        to_list(java_providers)
-        + [
+        to_list(java_providers) +
+        [
             merge_android_packageable_info(
                 ctx.label,
                 ctx.actions,
@@ -88,10 +88,10 @@ def android_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 manifest = ctx.attrs.manifest,
             ),
             merge_exported_android_resource_info(ctx.attrs.exported_deps),
-        ]
-        + android_providers
-        + [LabelInfo(labels = ctx.attrs.labels)]
-        + graphql_providers(ctx)
+        ] +
+        android_providers +
+        [LabelInfo(labels = ctx.attrs.labels)] +
+        graphql_providers(ctx)
     )
 
 def optional_jars(ctx: AnalysisContext) -> list[Artifact]:
@@ -127,12 +127,11 @@ def optional_abi_jar_snapshots(ctx: AnalysisContext) -> list[Artifact]:
     return result
 
 def build_android_library(
-    ctx: AnalysisContext,
-    r_dot_java: JavaClasspathEntry | None = None,
-    extra_sub_targets = {},
-    validation_deps_outputs: [list[Artifact], None] = None,
-    classpath_entries: JavaCompilingDepsTSet | None = None,
-) -> (JavaProviders, [AndroidLibraryIntellijInfo, None]):
+        ctx: AnalysisContext,
+        r_dot_java: JavaClasspathEntry | None = None,
+        extra_sub_targets = {},
+        validation_deps_outputs: [list[Artifact], None] = None,
+        classpath_entries: JavaCompilingDepsTSet | None = None) -> (JavaProviders, [AndroidLibraryIntellijInfo, None]):
     custom_jdk_info = get_custom_jdk_info(ctx)
     additional_classpath_entries_children = [classpath_entries] if classpath_entries else []
 
@@ -149,9 +148,7 @@ def build_android_library(
         ctx.actions.tset(
             JavaCompilingDepsTSet,
             children = additional_classpath_entries_children,
-        )
-        if additional_classpath_entries_children
-        else None
+        ) if additional_classpath_entries_children else None
     )
 
     extra_arguments = []
@@ -184,7 +181,8 @@ def _get_dummy_r_dot_java(ctx: AnalysisContext) -> (JavaClasspathEntry | None, [
     android_resources = dedupe([
         resource
         for resource in filter(
-            None, [x.get(AndroidResourceInfo) for x in ctx.attrs.deps + ctx.attrs.provided_deps + (getattr(ctx.attrs, "provided_deps_query", []) or [])]
+            None,
+            [x.get(AndroidResourceInfo) for x in ctx.attrs.deps + ctx.attrs.provided_deps + (getattr(ctx.attrs, "provided_deps_query", []) or [])],
         )
         if resource.res != None
     ])
