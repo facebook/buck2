@@ -17,6 +17,7 @@ use dice_error::result::CancellableResult;
 use dupe::Dupe;
 use futures::Future;
 use gazebo::variants::VariantName;
+use pagable::DataKey;
 use static_assertions::const_assert_eq;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::oneshot::Receiver;
@@ -240,6 +241,16 @@ impl CoreStateHandle {
         self.request(StateRequest::UnstableDropEverything)
     }
 
+    /// Returns the list of `(DiceKey, DataKey)` pairs for paged-out graph nodes.
+    /// The caller performs async hydration outside core state and sends
+    /// rehydrate messages back.
+    pub(crate) fn paged_out_keys(
+        &self,
+    ) -> impl Future<Output = anyhow::Result<Vec<(DiceKey, DataKey)>>> + use<> {
+        let (resp, recv) = oneshot::channel();
+        self.call(StateRequest::PagedOutKeys { resp }, recv)
+    }
+
     /// Page out all hydrated `OccupiedGraphNode` values to `dice.pagable_storage`.
     /// Caller must ensure DICE is idle.
     pub(crate) fn page_out(
@@ -364,6 +375,10 @@ pub(super) enum StateRequest {
     },
     /// For unstable take
     UnstableDropEverything,
+    /// Collect the keys of all paged-out graph nodes.
+    PagedOutKeys {
+        resp: Sender<anyhow::Result<Vec<(DiceKey, DataKey)>>>,
+    },
     /// Page out hydrated `OccupiedGraphNode` values via `dice.pagable_storage`.
     PageOut {
         #[derivative(Debug = "ignore")]

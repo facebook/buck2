@@ -166,10 +166,25 @@ impl Dice {
         self.state_handle.page_out(self.dupe()).await
     }
 
-    /// Page in (rehydrate) all paged-out `OccupiedGraphNode` values from storage.
+    /// Page in (rehydrate) all paged-out `OccupiedGraphNode` values from the
+    /// configured `DiceStorage`, used for debugging.
     ///
-    /// Stub — not yet implemented.
+    /// **Caller must ensure DICE is idle** before calling this.
     pub async fn page_in(self: &Arc<Self>) -> anyhow::Result<()> {
+        if !self.is_idle().await {
+            return Err(anyhow::anyhow!(
+                "Dice::page_in called while DICE is not idle; call `wait_for_idle()` first"
+            ));
+        }
+        let Some(storage) = self.pagable_storage.as_ref() else {
+            return Err(anyhow::anyhow!("No storage available for page-in"));
+        };
+        let keys = self.state_handle.paged_out_keys().await?;
+        for (dice_key, data_key) in keys {
+            let key_dyn = self.key_index.get(dice_key);
+            let value = storage.hydrate(key_dyn, data_key).await?;
+            self.state_handle.rehydrate(dice_key, value);
+        }
         Ok(())
     }
 }

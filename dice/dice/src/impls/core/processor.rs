@@ -133,6 +133,9 @@ impl StateProcessor {
                 let _ignored = resp.send(self.state.get_tasks_pending_cancellation());
             }
             StateRequest::UnstableDropEverything => self.state.unstable_drop_everything(),
+            StateRequest::PagedOutKeys { resp } => {
+                drop(resp.send(Ok(self.state.paged_out_keys())));
+            }
             StateRequest::PageOut { dice, resp } => {
                 drop(resp.send(self.state.page_out(&dice)));
             }

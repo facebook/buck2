@@ -13,6 +13,7 @@ use std::thread;
 use dice_error::result::CancellableResult;
 use dice_error::result::CancellationReason;
 use gazebo::prelude::SliceExt;
+use pagable::DataKey;
 
 use super::graph::types::RejectedReason;
 use crate::api::key::InvalidationSourcePriority;
@@ -187,6 +188,26 @@ impl CoreState {
             }
         }
         Ok(())
+    }
+
+    /// Returns the list of `(DiceKey, DataKey)` pairs for every paged-out
+    /// `OccupiedGraphNode`. The caller performs the actual (async) hydration
+    /// outside the core state thread and sends rehydrate messages back.
+    pub(super) fn paged_out_keys(&self) -> Vec<(DiceKey, DataKey)> {
+        let mut keys = Vec::new();
+        for (key, node) in &self.graph.nodes {
+            let VersionedGraphNode::Occupied(occ) = node else {
+                continue;
+            };
+            if occ.val().as_hydrated().is_some() {
+                continue;
+            }
+            let Some(data_key) = occ.val().data_key() else {
+                continue;
+            };
+            keys.push((*key, data_key));
+        }
+        keys
     }
 
     /// Replaces the paged-out value at `key` with its hydrated form. No-op if the node
