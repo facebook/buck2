@@ -69,8 +69,8 @@ pub async fn configure_dice_for_buck(
     ));
 
     // Opt-in pagable storage. When `BUCK2_DICE_DB_PATH` is set, configures a
-    // sled-backed `DiceStorage` so `Dice::page_out()` (e.g. via
-    // `buck2 debug hydration page-out`) can serialize node values to disk.
+    // `DiceStorage` backend, configured by `PAGABLE_STORAGE_BACKEND` so `Dice::page_out()`
+    // (e.g. via `buck2 debug hydration page-out`) can serialize node values to disk.
     if let Ok(path) = std::env::var("BUCK2_DICE_DB_PATH") {
         let storage = DiceStorage::open(std::path::Path::new(&path)).map_err(|e| {
             buck2_error::conversion::from_any_with_tag(e, buck2_error::ErrorTag::Environment)

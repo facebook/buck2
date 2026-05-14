@@ -27,6 +27,7 @@ use pagable::DataKey;
 use pagable::context::PagableDeserializerImpl;
 use pagable::storage::handle::PagableStorageHandle;
 use pagable::storage::sled::SledBackedPagableStorage;
+use pagable::storage::sqlite::SqliteBackedPagableStorage;
 use pagable::storage::support::SerializerForPaging;
 use pagable::storage::traits::PagableStorage;
 
@@ -48,12 +49,22 @@ impl DiceStorage {
         Self { storage }
     }
 
-    /// Convenience constructor: open (or create) a sled-backed `DiceStorage`
-    /// rooted at the given filesystem path.
+    /// Open (or create) a `DiceStorage` rooted at the given directory.
+    ///
+    /// The backend is selected by `PAGABLE_STORAGE_BACKEND`:
+    /// - `"sled"` → sled embedded DB
+    /// - anything else (including unset) → SQLite (default)
     pub fn open(path: &Path) -> anyhow::Result<Self> {
-        Ok(Self::new(Arc::new(SledBackedPagableStorage::try_new(
-            path,
-        )?)))
+        let backend = std::env::var("PAGABLE_STORAGE_BACKEND").unwrap_or_default();
+        if backend == "sled" {
+            Ok(Self::new(Arc::new(SledBackedPagableStorage::try_new(
+                path,
+            )?)))
+        } else {
+            Ok(Self::new(Arc::new(SqliteBackedPagableStorage::try_new(
+                path,
+            )?)))
+        }
     }
 
     /// Serialize `value` into the backing store via `key_dyn`'s `ValueSerialize`.

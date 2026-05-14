@@ -136,7 +136,7 @@ async fn main() -> anyhow::Result<()> {
 
     // Emit parameters as the first JSON line.
     {
-        let storage = std::env::var("PAGABLE_STORAGE_BACKEND").unwrap_or("sled".to_owned());
+        let storage = std::env::var("PAGABLE_STORAGE_BACKEND").unwrap_or("sqlite".to_owned());
         let params = json_value::json!({
             "type": "params",
             "num_keys": cli.num_keys,

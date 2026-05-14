@@ -12,5 +12,6 @@ pub mod data;
 pub mod handle;
 pub mod in_memory;
 pub mod sled;
+pub mod sqlite;
 pub mod support;
 pub mod traits;

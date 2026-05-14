@@ -340,7 +340,7 @@ impl DiceTaskWorker {
     /// so the graph node returns to the `Hydrated` state for subsequent lookups. The
     /// returned value is the worker's local copy.
     ///
-    /// Hydration I/O failures (e.g. sled corruption, missing data) are surfaced as
+    /// Hydration I/O failures (e.g. storage corruption, missing data) are surfaced as
     /// `CancellationReason::HydrationFailure` so the worker terminates cleanly rather
     /// than panicking. A missing `DiceStorage` is an internal invariant violation (we
     /// only receive a paged-out lookup result if storage is configured) and panics.
