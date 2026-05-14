@@ -25,7 +25,7 @@ mod uncategorized;
 
 #[test]
 fn init_late_bindings_for_test() {
-    #[ctor::ctor]
+    #[ctor::ctor(unsafe)]
     fn init() {
         buck2_interpreter_for_build::init_late_bindings();
         buck2_build_api::init_late_bindings();
