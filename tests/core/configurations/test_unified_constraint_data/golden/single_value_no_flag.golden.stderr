@@ -9,23 +9,23 @@
 [<TIMESTAMP>]   Caused by:
 [<TIMESTAMP>]       Traceback (most recent call last):
 [<TIMESTAMP>]         File <builtin>, in <module>
-[<TIMESTAMP>]         * prelude/configurations/rules.bzl:71, in constraint_impl
+[<TIMESTAMP>]         * prelude/configurations/rules.bzl:73, in constraint_impl
 [<TIMESTAMP>]             fail(
 [<TIMESTAMP>]       error: fail: constraint() rule must have at least two values. A single-value constraint has no selectivity: it can't express a choice between alternatives (e.g., 'linux' vs 'macos', 'enabled' vs 'disabled'), which is the whole point of a constraint. If you don't need to select between alternatives, you likely don't need a constraint at all.
 [<TIMESTAMP>]       
 [<TIMESTAMP>]       Set allow_trivial_constraint = True only if your constraint legitimately has just one value most of the time and may temporarily gain alternatives (e.g., versioned packages that pick up an extra value during an upgrade and drop it once the upgrade lands).
-[<TIMESTAMP>]         --> prelude/configurations/rules.bzl:71:13
+[<TIMESTAMP>]         --> prelude/configurations/rules.bzl:73:13
 [<TIMESTAMP>]          |
-[<TIMESTAMP>]       71 |               fail(
+[<TIMESTAMP>]       73 |               fail(
 [<TIMESTAMP>]          |  _____________^
-[<TIMESTAMP>]       72 | |                 "constraint() rule must have at least two values. " +
-[<TIMESTAMP>]       73 | |                 "A single-value constraint has no selectivity: it can't express a choice between alternatives " +
-[<TIMESTAMP>]       74 | |                 "(e.g., 'linux' vs 'macos', 'enabled' vs 'disabled'), which is the whole point of a constraint. " +
-[<TIMESTAMP>]       75 | |                 "If you don't need to select between alternatives, you likely don't need a constraint at all.\n\n" +
-[<TIMESTAMP>]       76 | |                 "Set allow_trivial_constraint = True only if your constraint legitimately has just one value " +
-[<TIMESTAMP>]       77 | |                 "most of the time and may temporarily gain alternatives (e.g., versioned packages " +
-[<TIMESTAMP>]       78 | |                 "that pick up an extra value during an upgrade and drop it once the upgrade lands).",
-[<TIMESTAMP>]       79 | |             )
+[<TIMESTAMP>]       74 | |                 "constraint() rule must have at least two values. "
+[<TIMESTAMP>]       75 | |                 + "A single-value constraint has no selectivity: it can't express a choice between alternatives "
+[<TIMESTAMP>]       76 | |                 + "(e.g., 'linux' vs 'macos', 'enabled' vs 'disabled'), which is the whole point of a constraint. "
+[<TIMESTAMP>]       77 | |                 + "If you don't need to select between alternatives, you likely don't need a constraint at all.\n\n"
+[<TIMESTAMP>]       78 | |                 + "Set allow_trivial_constraint = True only if your constraint legitimately has just one value "
+[<TIMESTAMP>]       79 | |                 + "most of the time and may temporarily gain alternatives (e.g., versioned packages "
+[<TIMESTAMP>]       80 | |                 + "that pick up an extra value during an upgrade and drop it once the upgrade lands).",
+[<TIMESTAMP>]       81 | |             )
 [<TIMESTAMP>]          | |_____________^
 [<TIMESTAMP>]          |
 [<TIMESTAMP>]       

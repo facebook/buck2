@@ -9,12 +9,12 @@
 [<TIMESTAMP>]   Caused by:
 [<TIMESTAMP>]       Traceback (most recent call last):
 [<TIMESTAMP>]         File <builtin>, in <module>
-[<TIMESTAMP>]         * prelude/configurations/rules.bzl:152, in constraint_impl
+[<TIMESTAMP>]         * prelude/configurations/rules.bzl:154, in constraint_impl
 [<TIMESTAMP>]             fail("alias '{}' conflicts with a declared constraint value.".format(alias_na...
 [<TIMESTAMP>]       error: fail: alias 'v1' conflicts with a declared constraint value.
-[<TIMESTAMP>]          --> prelude/configurations/rules.bzl:152:13
+[<TIMESTAMP>]          --> prelude/configurations/rules.bzl:154:13
 [<TIMESTAMP>]           |
-[<TIMESTAMP>]       152 |             fail("alias '{}' conflicts with a declared constraint value.".format(alias_name))
+[<TIMESTAMP>]       154 |             fail("alias '{}' conflicts with a declared constraint value.".format(alias_name))
 [<TIMESTAMP>]           |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 [<TIMESTAMP>]           |
 [<TIMESTAMP>]       
