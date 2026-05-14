@@ -165,9 +165,7 @@ async def test_lsp_stdin_eof_clears_server_command(
 
 @buck_test()
 @env("BUCK2_TESTING_INACTIVITY_TIMEOUT", "true")
-async def test_lsp_daemon_inactivity_shutdown_currently_does_not_exit_client(
-    buck: Buck,
-) -> None:
+async def test_lsp_does_not_exit_when_daemon_times_out(buck: Buck) -> None:
     await buck.server()
     status = await buck.status()
     pid = json.loads(status.stdout)["process_info"]["pid"]
@@ -227,6 +225,22 @@ async def test_lsp_daemon_inactivity_shutdown_currently_times_out_before_recover
         assert elapsed >= 90
         assert "Failed to connect to buck daemon." in exc.value.stderr
         assert "version: different-version" in exc.value.stderr
+    finally:
+        await _kill_if_alive(lsp.process)
+
+
+@buck_test()
+async def test_lsp_exits_when_daemon_disappears(buck: Buck) -> None:
+    await buck.server()
+
+    lsp = await buck.lsp()
+    try:
+        await lsp.init_connection()
+        await buck.kill()
+
+        exited = await _wait_for_exit(lsp.process, timeout=10)
+        assert exited
+        assert lsp.process.returncode is not None
     finally:
         await _kill_if_alive(lsp.process)
 
