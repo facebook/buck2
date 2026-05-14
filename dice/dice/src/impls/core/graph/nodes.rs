@@ -61,6 +61,14 @@ pub(crate) enum VersionedGraphNode {
 }
 
 impl VersionedGraphNode {
+    pub(crate) fn edge_count(&self) -> usize {
+        match self {
+            VersionedGraphNode::Occupied(occ) => occ.deps().dep_count(),
+            VersionedGraphNode::Injected(_) => 0,
+            VersionedGraphNode::Vacant(_) => 0,
+        }
+    }
+
     pub(crate) fn force_dirty(
         &mut self,
         v: VersionNumber,

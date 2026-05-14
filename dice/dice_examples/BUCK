@@ -1,3 +1,4 @@
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_command_alias")
 load("@fbsource//tools/build_defs:rust_binary.bzl", "rust_binary")
 load("@fbsource//tools/build_defs:rust_library.bzl", "rust_library")
 
@@ -76,4 +77,54 @@ rust_binary(
         "//buck2/gazebo/dupe:dupe",
         "//buck2/pagable:pagable",
     ],
+)
+
+rust_binary(
+    name = "hydration_bench",
+    srcs = [
+        "bin/benchmarks/benchmark_utils.rs",
+        "bin/benchmarks/hydration_bench.rs",
+    ],
+    compatible_with = ["ovr_config//os:linux"],
+    unittests = False,
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:async-trait",
+        "fbsource//third-party/rust:clap",
+        "fbsource//third-party/rust:derive_more",
+        "fbsource//third-party/rust:futures",
+        "fbsource//third-party/rust:jemalloc-ctl",
+        "fbsource//third-party/rust:libc",
+        "fbsource//third-party/rust:serde_json",
+        "fbsource//third-party/rust:tokio",
+        "//buck2/allocative/allocative:allocative",
+        "//buck2/dice/dice:dice",
+        "//buck2/dice/dice_futures:dice_futures",
+        "//buck2/gazebo/dupe:dupe",
+        "//buck2/pagable:pagable",
+        "//common/rust/json_value:json_value",
+    ],
+)
+
+rust_binary(
+    name = "bench_runner",
+    srcs = [
+        "bin/benchmarks/bench_runner.rs",
+        "bin/benchmarks/table.rs",
+    ],
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:clap",
+        "fbsource//third-party/rust:serde_json",
+        "//common/rust/json_value:json_value",
+    ],
+)
+
+buck_command_alias(
+    name = "run_hydration_bench",
+    compatible_with = ["ovr_config//os:linux"],
+    env = {
+        "PAGABLE_BIN": "$(exe :hydration_bench)",
+    },
+    exe = ":bench_runner",
 )

@@ -228,8 +228,11 @@ impl CoreState {
             currently_running_key_count += active.1.active_tasks_count();
         }
 
+        let edge_count: usize = self.graph.nodes.values().map(|n| n.edge_count()).sum();
+
         Metrics {
             key_count: self.graph.nodes.len(),
+            edge_count,
             currently_active_key_count: currently_running_key_count,
             active_transaction_count: active_transaction_count as u32, // probably won't support more than u32 transactions
         }
