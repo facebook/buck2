@@ -299,7 +299,12 @@ struct ServerState {
 /// Since this is a JSON serialized number it's safer to only rely on 53 bits
 /// thread_id is u32 but we're putting a limit of 20 bits on it for now to simplify DAP implementation
 /// frame_id supports up to 127 frames (0 = top frame).
-/// Layout (47 bits used):
+///
+/// Bit 47 (`DAP_SENTINEL_GUARD`) is always set so the encoded value is never 0,
+/// which DAP reserves as the `variables_reference` "no children" sentinel.
+///
+/// Layout (48 bits used):
+///   [DAP sentinel guard: 1 bit (47)]
 ///   [frame_id: 7 bits (40-46)]
 ///   [thread_id: 20 bits (20-39)]
 ///   [variable_id: 20 bits (0-19)]
@@ -308,6 +313,7 @@ struct VariableId(i64);
 
 impl VariableId {
     const MASK_53_BITS: i64 = (1 << 53) - 1;
+    const DAP_SENTINEL_GUARD: i64 = 1 << 47;
     const MAX_THREAD_ID: u32 = 0xFFFFF; // 20 bits
     const MAX_VARIABLE_ID: u32 = 0xFFFFF; // 20 bits
     const MAX_FRAME_ID: u32 = 0x7F; // 7 bits
@@ -339,7 +345,9 @@ impl VariableId {
         }
         let frame_id_part = (frame_id as i64) << 40;
         let thread_id_part = (thread_id as i64) << 20;
-        Ok(Self(frame_id_part | thread_id_part | variable_id as i64))
+        Ok(Self(
+            Self::DAP_SENTINEL_GUARD | frame_id_part | thread_id_part | variable_id as i64,
+        ))
     }
 
     pub fn frame_id(self) -> u32 {
@@ -1054,5 +1062,28 @@ mod tests {
         check_variable_id(0, 0xFFFFF, 0);
         check_variable_id(5, 0xFFFFF - 1, 0xFFFFF / 2);
         check_variable_id(0x7F, 0xFFFFF - 1, 0xFFFFF / 2);
+    }
+
+    #[test]
+    fn test_variable_id_is_never_zero() {
+        // DAP reserves `variables_reference: 0` as the "no children" sentinel.
+        // Every encoded VariableId must be non-zero so legitimate scope and variable
+        // references on `(frame_id=0, thread_id=0, variable_id=0)` don't collide
+        // with that sentinel and cause clients to render scopes as empty.
+        let permutations = [
+            (0, 0, 0),
+            (0, 0, 1),
+            (0, 1, 0),
+            (1, 0, 0),
+            (0x7F, 0xFFFFF, 0xFFFFF),
+        ];
+        for (frame_id, thread_id, variable_id) in permutations {
+            let var = VariableId::new(frame_id, thread_id, variable_id).unwrap();
+            assert_ne!(
+                var.as_i64(),
+                0,
+                "Encoded VariableId for ({frame_id}, {thread_id}, {variable_id}) was 0"
+            );
+        }
     }
 }
