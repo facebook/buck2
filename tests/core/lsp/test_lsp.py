@@ -93,6 +93,40 @@ async def _wait_for_file_to_contain(
     return False
 
 
+def _active_commands_snapshot_has_command(
+    msg: dict[str, Any],
+    command_name: str,
+) -> bool:
+    snapshot = msg.get("response", {}).get("ActiveCommandsSnapshot")
+    if snapshot is None:
+        return False
+
+    return any(
+        command_name in command["argv"] for command in snapshot["active_commands"]
+    )
+
+
+async def _wait_for_active_command_state(
+    subscribe: Any,
+    command_name: str,
+    present: bool,
+    timeout: float,
+) -> bool:
+    deadline = asyncio.get_running_loop().time() + timeout
+    while True:
+        remaining = deadline - asyncio.get_running_loop().time()
+        if remaining <= 0:
+            return False
+
+        try:
+            msg = await asyncio.wait_for(subscribe.read_message(), timeout=remaining)
+        except TimeoutError:
+            return False
+
+        if _active_commands_snapshot_has_command(msg, command_name) == present:
+            return True
+
+
 @buck_test()
 async def test_lsp_starts(buck: Buck) -> None:
     async with await buck.lsp() as lsp:
@@ -101,18 +135,32 @@ async def test_lsp_starts(buck: Buck) -> None:
 
 
 @buck_test()
-async def test_lsp_stdin_eof_currently_does_not_exit_client(
+async def test_lsp_stdin_eof_clears_server_command(
     buck: Buck,
 ) -> None:
-    lsp = await buck.lsp()
     try:
-        assert lsp.process.stdin is not None
-        lsp.process.stdin.close()
+        async with await buck.subscribe("--active-commands") as subscribe:
+            lsp = await buck.lsp()
+            try:
+                await lsp.init_connection()
+                assert await _wait_for_active_command_state(
+                    subscribe, "lsp", present=True, timeout=10
+                )
 
-        exited = await _wait_for_exit(lsp.process, timeout=10)
-        assert not exited
+                assert lsp.process.stdin is not None
+                lsp.process.stdin.close()
+
+                exited = await _wait_for_exit(lsp.process, timeout=10)
+                assert exited
+                assert lsp.process.returncode is not None
+
+                assert await _wait_for_active_command_state(
+                    subscribe, "lsp", present=False, timeout=10
+                )
+            finally:
+                await _kill_if_alive(lsp.process)
     finally:
-        await _kill_if_alive(lsp.process)
+        await buck.kill()
 
 
 @buck_test()
