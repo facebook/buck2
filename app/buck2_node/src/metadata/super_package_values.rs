@@ -12,12 +12,17 @@ use std::any::Any;
 use std::fmt::Debug;
 
 use allocative::Allocative;
+use pagable::PagableTagged;
+use pagable::pagable_typetag;
 use starlark_map::small_map::SmallMap;
 
 use crate::metadata::key::MetadataKey;
 use crate::metadata::key::MetadataKeyRef;
 
-pub trait SuperPackageValues: Debug + Allocative + Any + Send + Sync + 'static {
+#[pagable_typetag]
+pub trait SuperPackageValues:
+    PagableTagged + Debug + Allocative + Any + Send + Sync + 'static
+{
     fn as_any(&self) -> &dyn Any;
     fn is_empty(&self) -> bool;
     /// Only error is internal error: all values must be serializable to JSON,

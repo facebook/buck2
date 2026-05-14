@@ -21,6 +21,8 @@ use buck2_node::metadata::key::MetadataKey;
 use buck2_node::metadata::key::MetadataKeyRef;
 use buck2_node::metadata::super_package_values::SuperPackageValues;
 use dupe::Dupe;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
@@ -50,7 +52,7 @@ enum PackageValueError {
     KeySetInParentFile(MetadataKey),
 }
 
-#[derive(Debug, Default, Allocative)]
+#[derive(Debug, Default, Allocative, Pagable)]
 pub struct SuperPackageValuesImpl {
     values: SmallMap<MetadataKey, OwnedFrozenStarlarkPackageValue>,
 }
@@ -87,6 +89,7 @@ impl SuperPackageValuesImpl {
     }
 }
 
+#[pagable_typetag]
 impl SuperPackageValues for SuperPackageValuesImpl {
     fn as_any(&self) -> &dyn Any {
         self
@@ -126,7 +129,7 @@ pub(crate) struct StarlarkPackageValue<'v>(Value<'v>);
 #[derive(Debug, Allocative, Clone, Dupe, Copy, StarlarkPagable)]
 pub(crate) struct FrozenStarlarkPackageValue(FrozenValue);
 
-#[derive(Debug, Allocative, Clone, Dupe)]
+#[derive(Debug, Allocative, Clone, Dupe, Pagable)]
 pub struct OwnedFrozenStarlarkPackageValue(OwnedFrozenValue);
 
 impl<'v> StarlarkPackageValue<'v> {

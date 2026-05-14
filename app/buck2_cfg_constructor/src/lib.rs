@@ -45,7 +45,8 @@ use calculation::CfgConstructorCalculationInstance;
 use dice::DiceComputations;
 use dice_futures::cancellation::CancellationContext;
 use futures::FutureExt;
-use pagable::PagablePanic;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 use starlark::collections::SmallMap;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::UnpackValue;
@@ -64,7 +65,7 @@ enum CfgConstructorError {
     PostConstraintAnalysisRefsMustBeConfigurationRules(String),
 }
 
-#[derive(Allocative, Debug, PagablePanic)]
+#[derive(Allocative, Debug, Pagable)]
 pub(crate) struct CfgConstructor {
     pub(crate) cfg_constructor_pre_constraint_analysis: OwnedFrozenValue,
     pub(crate) cfg_constructor_post_constraint_analysis: OwnedFrozenValue,
@@ -292,6 +293,7 @@ async fn eval_underlying(
     .await
 }
 
+#[pagable_typetag]
 #[async_trait]
 impl CfgConstructorImpl for CfgConstructor {
     fn eval<'a>(
