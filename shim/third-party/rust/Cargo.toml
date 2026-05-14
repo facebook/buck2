@@ -66,7 +66,7 @@ crossbeam = "0.8"
 crossbeam-channel = "0.5.15"
 crossterm = { version = "0.29", features = ["event-stream", "serde"] }
 csv = "1.4"
-ctor = "0.10.1"
+ctor = "0.11.1"
 dashmap = { version = "6.1.0", features = ["rayon", "serde"] }
 debugserver-types = "0.5.0"
 derivative = "2.2"
