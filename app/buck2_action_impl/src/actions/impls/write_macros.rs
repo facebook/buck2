@@ -43,6 +43,7 @@ use buck2_fs::paths::RelativePathBuf;
 use buck2_hash::BuckIndexSet;
 use dupe::Dupe;
 use pagable::Pagable;
+use pagable::pagable_typetag;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::UnpackValue;
 
@@ -127,6 +128,7 @@ impl WriteMacrosToFileAction {
     }
 }
 
+#[pagable_typetag]
 #[async_trait]
 impl Action for WriteMacrosToFileAction {
     fn kind(&self) -> buck2_data::ActionKind {

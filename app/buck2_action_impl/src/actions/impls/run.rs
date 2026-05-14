@@ -101,6 +101,7 @@ use host_sharing::HostSharingRequirements;
 use host_sharing::WeightClass;
 use itertools::Itertools;
 use pagable::Pagable;
+use pagable::pagable_typetag;
 use serde_json::json;
 use sorted_vector_map::SortedVectorMap;
 use starlark::collections::SmallSet;
@@ -1377,6 +1378,7 @@ impl RunAction {
     }
 }
 
+#[pagable_typetag]
 #[async_trait]
 impl Action for RunAction {
     fn kind(&self) -> buck2_data::ActionKind {

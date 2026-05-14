@@ -67,6 +67,9 @@ use buck2_http::HttpClient;
 use derivative::Derivative;
 use derive_more::Display;
 use dice_futures::cancellation::CancellationContext;
+use pagable::Pagable;
+use pagable::PagableTagged;
+use pagable::pagable_typetag;
 use remote_execution::TActionResult2;
 use starlark::values::Heap;
 use starlark::values::OwnedFrozenValue;
@@ -114,8 +117,9 @@ pub trait UnregisteredAction: Allocative + Send {
 ///
 /// The 'Action' can be executed to produce the set of 'BuildArtifact's it declares. Before
 /// execution, all input 'Artifact's will be made available to access.
+#[pagable_typetag]
 #[async_trait]
-pub trait Action: Allocative + Debug + Send + Sync + 'static {
+pub trait Action: PagableTagged + Allocative + Debug + Send + Sync + 'static {
     /// A machine readable kind identifying this type of action.
     fn kind(&self) -> buck2_data::ActionKind;
 
@@ -369,7 +373,7 @@ pub enum ActionErrors {
     ActionCategoryDuplicateSingleton(Category),
 }
 
-#[derive(Derivative, Debug, Display, Allocative)]
+#[derive(Derivative, Debug, Display, Allocative, Pagable)]
 #[derivative(Eq, Hash, PartialEq)]
 #[display("Action(key={}, name={})", key, action.name())]
 pub struct RegisteredAction {

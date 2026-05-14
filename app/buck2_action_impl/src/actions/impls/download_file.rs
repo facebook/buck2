@@ -45,6 +45,7 @@ use buck2_hash::BuckIndexSet;
 use buck2_http::HttpClient;
 use dupe::Dupe;
 use pagable::Pagable;
+use pagable::pagable_typetag;
 use starlark::values::OwnedFrozenValue;
 
 use crate::actions::impls::offline;
@@ -225,6 +226,7 @@ impl DownloadFileAction {
     }
 }
 
+#[pagable_typetag]
 #[async_trait]
 impl Action for DownloadFileAction {
     fn kind(&self) -> buck2_data::ActionKind {

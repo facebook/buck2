@@ -40,6 +40,7 @@ use dupe::Dupe;
 use gazebo::prelude::*;
 use itertools::Itertools;
 use pagable::Pagable;
+use pagable::pagable_typetag;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::ValueError;
 use starlark::values::dict::UnpackDictEntries;
@@ -194,6 +195,7 @@ impl SymlinkedDirAction {
     }
 }
 
+#[pagable_typetag]
 #[async_trait]
 impl Action for SymlinkedDirAction {
     fn kind(&self) -> buck2_data::ActionKind {

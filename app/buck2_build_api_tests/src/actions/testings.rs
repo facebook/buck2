@@ -32,6 +32,7 @@ use buck2_hash::BuckIndexSet;
 use derivative::Derivative;
 use dupe::Dupe;
 use pagable::Pagable;
+use pagable::pagable_typetag;
 use sorted_vector_map::sorted_vector_map;
 use starlark::values::OwnedFrozenValue;
 
@@ -110,6 +111,7 @@ impl UnregisteredAction for SimpleUnregisteredAction {
     }
 }
 
+#[pagable_typetag]
 #[async_trait]
 impl Action for SimpleAction {
     fn kind(&self) -> buck2_data::ActionKind {

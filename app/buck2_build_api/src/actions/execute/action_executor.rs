@@ -886,6 +886,8 @@ mod tests {
     use buck2_http::HttpClientBuilder;
     use dice_futures::cancellation::CancellationContext;
     use dupe::Dupe;
+    use pagable::PagablePanic;
+    use pagable::pagable_typetag;
     use sorted_vector_map::SortedVectorMap;
 
     use crate::actions::Action;
@@ -956,13 +958,14 @@ mod tests {
             OutputTreesDownloadConfig::new(None, true),
         );
 
-        #[derive(Debug, Allocative)]
+        #[derive(Debug, Allocative, PagablePanic)] // test
         struct TestingAction {
             inputs: BoxSliceSet<ArtifactGroup>,
             outputs: BoxSliceSet<BuildArtifact>,
             ran: AtomicBool,
         }
 
+        #[pagable_typetag]
         #[async_trait]
         impl Action for TestingAction {
             fn kind(&self) -> buck2_data::ActionKind {

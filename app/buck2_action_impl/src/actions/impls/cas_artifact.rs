@@ -48,6 +48,7 @@ use chrono::TimeZone;
 use chrono::Utc;
 use dupe::Dupe;
 use pagable::Pagable;
+use pagable::pagable_typetag;
 use remote_execution as RE;
 use starlark::values::OwnedFrozenValue;
 
@@ -159,6 +160,7 @@ impl CasArtifactAction {
     }
 }
 
+#[pagable_typetag]
 #[async_trait]
 impl Action for CasArtifactAction {
     fn kind(&self) -> buck2_data::ActionKind {

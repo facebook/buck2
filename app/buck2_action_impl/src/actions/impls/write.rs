@@ -44,6 +44,7 @@ use buck2_hash::BuckIndexSet;
 use buck2_hash::buck_indexmap;
 use dupe::Dupe;
 use pagable::Pagable;
+use pagable::pagable_typetag;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::UnpackValue;
 
@@ -196,6 +197,7 @@ impl WriteAction {
     }
 }
 
+#[pagable_typetag]
 #[async_trait]
 impl Action for WriteAction {
     fn kind(&self) -> buck2_data::ActionKind {

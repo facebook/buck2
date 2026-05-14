@@ -35,6 +35,7 @@ use buck2_hash::buck_indexset;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use pagable::Pagable;
+use pagable::pagable_typetag;
 use starlark::values::OwnedFrozenValue;
 
 #[derive(Debug, buck2_error::Error)]
@@ -125,6 +126,7 @@ impl CopyAction {
     }
 }
 
+#[pagable_typetag]
 #[async_trait]
 impl Action for CopyAction {
     fn kind(&self) -> buck2_data::ActionKind {

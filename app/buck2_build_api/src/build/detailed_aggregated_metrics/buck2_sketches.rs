@@ -228,6 +228,8 @@ mod tests {
     use buck2_hash::BuckHashSet;
     use buck2_hash::BuckIndexSet;
     use dupe::Dupe;
+    use pagable::Pagable;
+    use pagable::pagable_typetag;
 
     use crate::actions::Action;
     use crate::actions::ActionExecutionCtx;
@@ -265,7 +267,7 @@ mod tests {
     }
 
     /// A minimal mock action for testing action graph traversal.
-    #[derive(Debug, Allocative)]
+    #[derive(Debug, Allocative, Pagable)]
     struct MockAction {
         inputs: BoxSliceSet<ArtifactGroup>,
         outputs: BoxSliceSet<BuildArtifact>,
@@ -288,6 +290,7 @@ mod tests {
         }
     }
 
+    #[pagable_typetag]
     #[async_trait]
     impl Action for MockAction {
         fn kind(&self) -> buck2_data::ActionKind {

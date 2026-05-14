@@ -48,6 +48,7 @@ use buck2_hash::BuckIndexSet;
 use buck2_hash::buck_indexmap;
 use dupe::Dupe;
 use pagable::Pagable;
+use pagable::pagable_typetag;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
@@ -170,6 +171,7 @@ impl WriteJsonAction {
     }
 }
 
+#[pagable_typetag]
 #[async_trait]
 impl Action for WriteJsonAction {
     fn kind(&self) -> buck2_data::ActionKind {
