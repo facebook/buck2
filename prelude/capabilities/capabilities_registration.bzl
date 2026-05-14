@@ -41,9 +41,11 @@ CapabilitiesRegistrationTSet = transitive_set(
     },
 )
 
-CapabilitiesRegistrationInfo = provider(fields = {
-    "tset": provider_field(CapabilitiesRegistrationTSet | None, default = None),
-})
+CapabilitiesRegistrationInfo = provider(
+    fields = {
+        "tset": provider_field(CapabilitiesRegistrationTSet | None, default = None),
+    }
+)
 
 def capabilities_registration_providers(ctx) -> list:
     """Collect CapabilitiesRegistrationInfo from deps and create tset entry if this target has registrations."""
@@ -57,12 +59,14 @@ def capabilities_registration_providers(ctx) -> list:
     entries = []
     if registrations:
         for reg in registrations:
-            entries.append(CapabilitiesRegistrationEntry(
-                style_id = reg["style_id"],
-                kind = reg["kind"],
-                props = reg.get("props", {}),
-                features = reg.get("features", {}),
-            ))
+            entries.append(
+                CapabilitiesRegistrationEntry(
+                    style_id = reg["style_id"],
+                    kind = reg["kind"],
+                    props = reg.get("props", {}),
+                    features = reg.get("features", {}),
+                )
+            )
 
     if not entries and not children:
         return []
