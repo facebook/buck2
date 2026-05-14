@@ -24,9 +24,7 @@ system_erlang_binary = rule(
     attrs = {},
 )
 
-def system_erlang_toolchain(
-        name,
-        visibility):
+def system_erlang_toolchain(name, visibility):
     system_erlang_binary(
         name = "{}-binaries".format(name),
         visibility = visibility,

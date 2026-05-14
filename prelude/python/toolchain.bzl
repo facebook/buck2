@@ -86,9 +86,11 @@ PythonToolchainInfo = provider(
 )
 
 # Stores "platform"/flavor name used to resolve *platform_* arguments
-PythonPlatformInfo = provider(fields = {
-    "name": provider_field(typing.Any, default = None),
-})
+PythonPlatformInfo = provider(
+    fields = {
+        "name": provider_field(typing.Any, default = None),
+    }
+)
 
 def get_package_style(ctx: AnalysisContext) -> PackageStyle:
     if ctx.attrs.package_style != None:

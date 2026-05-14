@@ -70,11 +70,12 @@ _TRAVERSALS_TO_ASSIGN_NODE = [
 
 # Creates a group from an existing group, overwriting any properties provided
 def create_group(
-        group: Group,
-        name: [None, str] = None,
-        mappings: [None, list[GroupMapping]] = None,
-        attrs: [None, GroupAttrs] = None,
-        definition_type: [None, GroupDefinition] = None):
+    group: Group,
+    name: [None, str] = None,
+    mappings: [None, list[GroupMapping]] = None,
+    attrs: [None, GroupAttrs] = None,
+    definition_type: [None, GroupDefinition] = None,
+):
     return Group(
         name = value_or(name, group.name),
         mappings = value_or(mappings, group.mappings),
@@ -87,10 +88,11 @@ def get_roots_from_mapping(mapping):
     return filter(None, deps)
 
 def parse_groups_definitions(
-        map: list,
-        # Function to parse a root label from the input type, allowing different
-        # callers to have different top-level types for the `root`s.
-        parse_root: typing.Callable = lambda d: d) -> list[Group]:
+    map: list,
+    # Function to parse a root label from the input type, allowing different
+    # callers to have different top-level types for the `root`s.
+    parse_root: typing.Callable = lambda d: d,
+) -> list[Group]:
     groups = []
     group_names = set()
     for map_entry in map:
@@ -274,9 +276,7 @@ def get_dedupped_roots_from_groups(groups: list[Group]) -> list[Label]:
 
     return list(roots.keys())
 
-def _find_targets_in_mapping(
-        graph_map: dict[Label, typing.Any],
-        mapping: GroupMapping) -> list[Label]:
+def _find_targets_in_mapping(graph_map: dict[Label, typing.Any], mapping: GroupMapping) -> list[Label]:
     # If we have no filtering, we don't need to do any traversal to find targets to include.
     if not mapping.filters:
         if not mapping.roots:
@@ -352,11 +352,7 @@ def _find_targets_in_mapping(
             for t in matching_targets:
                 targets_to_counter[t] = targets_to_counter.get(t, 0) + 1
 
-        return [
-            t
-            for t, count in targets_to_counter.items()
-            if count > 1
-        ]
+        return [t for t, count in targets_to_counter.items() if count > 1]
     else:
         if len(mapping.roots) == 1:
             matching_fn = partial(populate_matching_targets_with_root, mapping.roots[0])
@@ -371,13 +367,14 @@ def _find_targets_in_mapping(
 
 # Extracted from `_update_target_to_group_mapping` to avoid function allocations inside the loop
 def _assign_target_to_group(
-        target_to_group_map,  #: {"label": str}
-        node_traversed_targets,  #: {"label": None}
-        group,  #  Group,
-        groups_map,  # {str: Group}
-        mapping,  # GroupMapping
-        target,  # Label
-        node_traversal):  # bool
+    target_to_group_map,  #: {"label": str}
+    node_traversed_targets,  #: {"label": None}
+    group,  #  Group,
+    groups_map,  # {str: Group}
+    mapping,  # GroupMapping
+    target,  # Label
+    node_traversal,
+):  # bool
     # If the target hasn't already been assigned to a group, assign it to the
     # first group claiming the target. Return whether the target was already assigned.
     if target not in target_to_group_map:
@@ -395,10 +392,11 @@ def _assign_target_to_group(
 
 # Extracted from `_update_target_to_group_mapping` to avoid function allocations inside the loop
 def _transitively_add_targets_to_group_mapping(
-        assign_target_to_group,  # (Label, bool) -> bool
-        node_traversed_targets,  #: {"label": None}
-        graph_map,  # {"label": "_b"}
-        node):  # ([Label]) -> None
+    assign_target_to_group,  # (Label, bool) -> bool
+    node_traversed_targets,  #: {"label": None}
+    graph_map,  # {"label": "_b"}
+    node,
+):  # ([Label]) -> None
     previously_processed = assign_target_to_group(node, False)
 
     # If the node has been previously processed, and it was via tree (not node), all child nodes have been assigned
@@ -409,15 +407,18 @@ def _transitively_add_targets_to_group_mapping(
 
 # Types removed to avoid unnecessary type checking which degrades performance.
 def _update_target_to_group_mapping(
-        graph_map,  # {"label": "_b"}
-        target_to_group_map,  #: {"label": str}
-        node_traversed_targets,  #: {"label": None}
-        group,  #  Group,
-        groups_map,  # {str: Group}
-        mapping,  # GroupMapping
-        target):  # Label
+    graph_map,  # {"label": "_b"}
+    target_to_group_map,  #: {"label": str}
+    node_traversed_targets,  #: {"label": None}
+    group,  #  Group,
+    groups_map,  # {str: Group}
+    mapping,  # GroupMapping
+    target,
+):  # Label
     assign_target_to_group = partial(_assign_target_to_group, target_to_group_map, node_traversed_targets, group, groups_map, mapping)  # (Label, bool) -> bool
-    transitively_add_targets_to_group_mapping = partial(_transitively_add_targets_to_group_mapping, assign_target_to_group, node_traversed_targets, graph_map)  # (Label) -> list[Label]
+    transitively_add_targets_to_group_mapping = partial(
+        _transitively_add_targets_to_group_mapping, assign_target_to_group, node_traversed_targets, graph_map
+    )  # (Label) -> list[Label]
 
     if mapping.traversal in _TRAVERSALS_TO_ASSIGN_NODE:
         assign_target_to_group(target, True)
@@ -425,11 +426,12 @@ def _update_target_to_group_mapping(
         depth_first_traversal_by(graph_map, [target], transitively_add_targets_to_group_mapping)
 
 def _add_to_implicit_link_group(
-        generated_group_name,  # str
-        group,  # Group
-        groups_map,  # {str: Group}
-        target_to_group_map,  # {Label: str}
-        target):  # Label
+    generated_group_name,  # str
+    group,  # Group
+    groups_map,  # {str: Group}
+    target_to_group_map,  # {Label: str}
+    target,
+):  # Label
     target_to_group_map[target] = generated_group_name
     if generated_group_name not in groups_map:
         groups_map[generated_group_name] = create_group(
@@ -442,9 +444,10 @@ def _add_to_implicit_link_group(
         _add_to_implicit_link_group(hashed_group_name, group, groups_map, target_to_group_map, target)
 
 def _generate_group_subfolder_name(
-        group,  # str,
-        package):  # str
-    """ Dynamically generating link group name for "subfolders" traversal."""
+    group,  # str,
+    package,
+):  # str
+    """Dynamically generating link group name for "subfolders" traversal."""
     name = group + "_" + package.replace("/", "_")
 
     if len(name) > 246:
@@ -473,10 +476,7 @@ def _make_json_info_for_build_target_pattern(build_target_pattern: BuildTargetPa
 
 def _make_json_info_for_group_mapping(group_mapping: GroupMapping) -> dict[str, typing.Any]:
     return {
-        "filters": [
-            filter.info
-            for filter in group_mapping.filters
-        ],
+        "filters": [filter.info for filter in group_mapping.filters],
         "preferred_linkage": group_mapping.preferred_linkage,
         "roots": group_mapping.roots,
         "traversal": group_mapping.traversal,

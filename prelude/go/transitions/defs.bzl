@@ -112,13 +112,14 @@ _all_level_refs = {
     "os_windows": "config//os/constraints:windows",
 }
 
-_top_level_refs = {
-    "cgo_enabled_false": "prelude//go/constraints:cgo_enabled[false]",
-    "cgo_enabled_true": "prelude//go/constraints:cgo_enabled[true]",
-} | {
-    "tag_{}__set".format(tag): constraint_value
-    for tag, constraint_value in tag_to_constraint_value().items()
-} | _all_level_refs
+_top_level_refs = (
+    {
+        "cgo_enabled_false": "prelude//go/constraints:cgo_enabled[false]",
+        "cgo_enabled_true": "prelude//go/constraints:cgo_enabled[true]",
+    }
+    | {"tag_{}__set".format(tag): constraint_value for tag, constraint_value in tag_to_constraint_value().items()}
+    | _all_level_refs
+)
 
 _attrs = ["cgo_enabled", "build_tags"]
 
@@ -158,17 +159,27 @@ go_stdlib_transition = transition(
     attrs = [],
 )
 
-cgo_enabled_attr = attrs.default_only(attrs.option(attrs.bool(), default = select({
-    "prelude//go/constraints:cgo_enabled[auto]": None,
-    "prelude//go/constraints:cgo_enabled[false]": False,
-    "prelude//go/constraints:cgo_enabled[true]": True,
-})))
+cgo_enabled_attr = attrs.default_only(
+    attrs.option(
+        attrs.bool(),
+        default = select({
+            "prelude//go/constraints:cgo_enabled[auto]": None,
+            "prelude//go/constraints:cgo_enabled[false]": False,
+            "prelude//go/constraints:cgo_enabled[true]": True,
+        }),
+    )
+)
 
-coverage_mode_attr = attrs.default_only(attrs.option(attrs.enum(GoCoverageMode.values()), default = select({
-    "prelude//go/constraints:coverage_mode[atomic]": "atomic",
-    "prelude//go/constraints:coverage_mode[count]": "count",
-    "prelude//go/constraints:coverage_mode[none]": None,
-    "prelude//go/constraints:coverage_mode[set]": "set",
-})))
+coverage_mode_attr = attrs.default_only(
+    attrs.option(
+        attrs.enum(GoCoverageMode.values()),
+        default = select({
+            "prelude//go/constraints:coverage_mode[atomic]": "atomic",
+            "prelude//go/constraints:coverage_mode[count]": "count",
+            "prelude//go/constraints:coverage_mode[none]": None,
+            "prelude//go/constraints:coverage_mode[set]": "set",
+        }),
+    )
+)
 
 build_tags_attr = attrs.default_only(attrs.list(attrs.string(), default = selects_for_tags()))

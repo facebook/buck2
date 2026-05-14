@@ -78,8 +78,7 @@ def normalize_application(name: str) -> str:
     return name
 
 def _erlang_otp_application_impl(ctx: AnalysisContext) -> list[Provider]:
-    """virtual OTP application for referencing only
-    """
+    """virtual OTP application for referencing only"""
 
     toolchain = get_toolchain(ctx)
 

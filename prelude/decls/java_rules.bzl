@@ -58,10 +58,10 @@ gwt_binary = prelude_rule(
             "vm_args": attrs.list(attrs.string(), default = []),
             "_exec_os_type": buck.exec_os_type_arg(),
             "_java_toolchain": toolchains_common.java(),
-        } |
-        buck.licenses_arg() |
-        buck.labels_arg() |
-        buck.contacts_arg()
+        }
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
     ),
 )
 
@@ -87,14 +87,14 @@ jar_genrule = prelude_rule(
             "remote": attrs.option(attrs.bool(), default = None),
             "srcs": attrs.named_set(attrs.source(), sorted = False, default = []),
             "type": attrs.option(attrs.string(), default = None),
-        } |
-        genrule_attributes() |
-        {
+        }
+        | genrule_attributes()
+        | {
             "_java_toolchain": toolchains_common.java(),
-        } |
-        buck.licenses_arg() |
-        buck.labels_arg() |
-        buck.contacts_arg()
+        }
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
     ),
 )
 
@@ -118,10 +118,10 @@ java_annotation_processor = prelude_rule(
             "supports_abi_generation_from_source": attrs.bool(default = False),
             "runs_on_java_only": attrs.bool(default = False),
             "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
-        } |
-        buck.licenses_arg() |
-        buck.labels_arg() |
-        buck.contacts_arg()
+        }
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
     ),
 )
 
@@ -137,19 +137,34 @@ java_binary = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "base_dep": attrs.option(attrs.dep(), default = None, doc = """
+            "base_dep": attrs.option(
+                attrs.dep(),
+                default = None,
+                doc = """
                 Rule (normally of type `java_library`) that should be
                  compiled and used as a base JAR to receive all dependencies through an append operation.
-            """),
-            "build_manifest": attrs.option(attrs.source(), default = None, doc = """
+            """,
+            ),
+            "build_manifest": attrs.option(
+                attrs.source(),
+                default = None,
+                doc = """
                 MANIFEST containing stamped build attributes, that should be merged into the main jar manifest
-            """),
-            "deps": attrs.list(attrs.dep(), default = [], doc = """
+            """,
+            ),
+            "deps": attrs.list(
+                attrs.dep(),
+                default = [],
+                doc = """
                 Rules (normally of type `java_library`) that should be
                  compiled and whose `.class` files and resources should be
                  included in the generated JAR file.
-            """),
-            "main_class": attrs.option(attrs.string(), default = None, doc = """
+            """,
+            ),
+            "main_class": attrs.option(
+                attrs.string(),
+                default = None,
+                doc = """
                 If provided, this will be the value specified as the
                  `Main-Class` attribute of the `META-INF/MANIFEST.MF`
                  file in the generated JAR file. Also, when this rule is used as
@@ -157,23 +172,34 @@ java_binary = prelude_rule(
                  `main_class` will indicate the class whose `main()` method will be invoked to process the command-line arguments. This
                  is consistent with the expected usage of `java -jar
                  *<name.jar>* *<args>*`.
-            """),
-            "manifest_file": attrs.option(attrs.source(), default = None, doc = """
+            """,
+            ),
+            "manifest_file": attrs.option(
+                attrs.source(),
+                default = None,
+                doc = """
                 If provided, this manifest will be used when generating the JAR
                  file. If combined with `main_class`, the specified manifest
                  file will be used but the `main_class` will override the main
                  class in the manifest.
-            """),
+            """,
+            ),
             "java_args_for_run_info": attrs.list(attrs.string(), default = []),
-            "meta_inf_directory": attrs.option(attrs.source(allow_directory = True), default = None, doc = """
+            "meta_inf_directory": attrs.option(
+                attrs.source(allow_directory = True),
+                default = None,
+                doc = """
                 Note: This has beta support currently.
                  If provided, the contents in this directory will end up in the
                  `META-INF` directory inside the generated JAR file.
-            """),
-            "blocklist": attrs.list(attrs.regex(), default = [], doc = """
+            """,
+            ),
+            "blocklist": attrs.list(
+                attrs.regex(),
+                default = [],
+                doc = """
                 A list of patterns that identify files to exclude from the final generated JAR
                  file. Example:
-
 
                 ```
                 java_binary(
@@ -193,7 +219,8 @@ java_binary = prelude_rule(
                   ],
                 )
                 ```
-            """),
+            """,
+            ),
             "concat_deps": attrs.bool(default = False, doc = "Use zip concatenation instead of repacking all dependency jars, which is faster"),
             "default_cxx_platform": attrs.option(attrs.string(), default = None),
             "generate_wrapper": attrs.bool(default = False),
@@ -208,11 +235,11 @@ java_binary = prelude_rule(
             "_exec_os_type": buck.exec_os_type_arg(),
             "_is_building_android_binary": is_building_android_binary_attr(),
             "_java_toolchain": toolchains_common.java(),
-        } |
-        constraint_overrides.attributes |
-        buck.licenses_arg() |
-        buck.labels_arg() |
-        buck.contacts_arg()
+        }
+        | constraint_overrides.attributes
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
     ),
     cfg = constraint_overrides.transition,
 )
@@ -278,57 +305,84 @@ java_library = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "srcs": attrs.list(attrs.source(), default = [], doc = """
+            "srcs": attrs.list(
+                attrs.source(),
+                default = [],
+                doc = """
                 The set of `.java` files to compile for this rule.
                  If any of the files in this list end in `.src.zip`,
                  then the entries in the ZIP file that end in `.java` will be
                  included as ordinary inputs to compilation. This is common when using
                  a `genrule()` to auto-generate some Java source code that
                  needs to be compiled with some hand-written Java code.
-            """),
-        } |
-        jvm_common.resources_arg() |
-        {
-            "deps": attrs.list(attrs.dep(), default = [], doc = """
+            """,
+            ),
+        }
+        | jvm_common.resources_arg()
+        | {
+            "concat_resources": attrs.bool(
+                default = False,
+                doc = """
+                Use parallel compression and concatenation of intermediary jars to speed up jar time generation.
+            """,
+            ),
+            "deps": attrs.list(
+                attrs.dep(),
+                default = [],
+                doc = """
                 Rules (usually other `java_library` rules) that are used to
                  generate the classpath required to compile this `java_library`.
-            """),
-            "source": attrs.option(attrs.string(), default = None, doc = """
+            """,
+            ),
+            "extra_arguments": attrs.list(
+                attrs.string(),
+                default = [],
+                doc = """
+                List of additional arguments to pass into the Java compiler. These
+                 arguments follow the ones specified in `.buckconfig`.
+            """,
+            ),
+            "java_version": attrs.option(
+                attrs.string(),
+                default = None,
+                doc = """
+                Equivalent to setting both `source` and `target`  to the given value. Setting this and `source` or `target` (or both!) is an error.
+            """,
+            ),
+            "source": attrs.option(
+                attrs.string(),
+                default = None,
+                doc = """
                 Specifies the version of Java (as a string) to interpret source
                  files as.
                  Overrides the value in "source\\_level" in the "java" section
                  of `.buckconfig`.
-            """),
-            "target": attrs.option(attrs.string(), default = None, doc = """
+            """,
+            ),
+            "target": attrs.option(
+                attrs.string(),
+                default = None,
+                doc = """
                 Specifies the version of Java (as a string) for which to
                  generate code.
                  Overrides the value in "target\\_level" in the "java" section
                  of `.buckconfig`.
-            """),
-            "java_version": attrs.option(attrs.string(), default = None, doc = """
-                Equivalent to setting both `source` and `target`  to the given value. Setting this and `source` or `target` (or both!) is an error.
-            """),
-            "extra_arguments": attrs.list(attrs.string(), default = [], doc = """
-                List of additional arguments to pass into the Java compiler. These
-                 arguments follow the ones specified in `.buckconfig`.
-            """),
-            "concat_resources": attrs.bool(default = False, doc = """
-                Use parallel compression and concatenation of intermediary jars to speed up jar time generation.
-            """),
-        } |
-        jvm_common.annotation_processors() |
-        jvm_common.remove_classes_arg() |
-        jvm_common.exported_deps() |
-        jvm_common.provided_deps() |
-        jvm_common.exported_provided_deps() |
-        jvm_common.abi_generation_mode() |
-        jvm_common.source_only_abi_deps() |
-        jvm_common.required_for_source_only_abi() |
-        jvm_common.plugins() |
-        jvm_common.multi_release_jar() |
-        jvm_common.javac() |
-        jvm_common.classic_java_content_based_paths() |
-        {
+            """,
+            ),
+        }
+        | jvm_common.annotation_processors()
+        | jvm_common.remove_classes_arg()
+        | jvm_common.exported_deps()
+        | jvm_common.provided_deps()
+        | jvm_common.exported_provided_deps()
+        | jvm_common.abi_generation_mode()
+        | jvm_common.source_only_abi_deps()
+        | jvm_common.required_for_source_only_abi()
+        | jvm_common.plugins()
+        | jvm_common.multi_release_jar()
+        | jvm_common.javac()
+        | jvm_common.classic_java_content_based_paths()
+        | {
             "class_to_src_map_deps": attrs.list(attrs.dep(), default = []),
             "jar_postprocessor": attrs.option(attrs.exec_dep(), default = None),
             "manifest_file": attrs.option(attrs.source(), default = None),
@@ -344,11 +398,11 @@ java_library = prelude_rule(
             "_exec_os_type": buck.exec_os_type_arg(),
             "_is_building_android_binary": is_building_android_binary_attr(),
             "_java_toolchain": toolchains_common.java(),
-        } |
-        buck.licenses_arg() |
-        buck.labels_arg() |
-        buck.contacts_arg() |
-        validation_common.attrs_validators_arg()
+        }
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
+        | validation_common.attrs_validators_arg()
     ),
 )
 
@@ -370,10 +424,10 @@ java_plugin = prelude_rule(
             "plugin_name": attrs.string(default = ""),
             "supports_abi_generation_from_source": attrs.bool(default = False),
             "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
-        } |
-        buck.licenses_arg() |
-        buck.labels_arg() |
-        buck.contacts_arg()
+        }
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
     ),
 )
 
@@ -387,9 +441,19 @@ java_test = prelude_rule(
     further = None,
     attrs = (
         # @unsorted-dict-items
-        buck.inject_test_env_arg() |
-        {
-            "srcs": attrs.list(attrs.source(), default = [], doc = """
+        buck.inject_test_env_arg()
+        | {
+            "resources": attrs.list(
+                attrs.source(),
+                default = [],
+                doc = """
+                Same as `java_library()`.
+            """,
+            ),
+            "srcs": attrs.list(
+                attrs.source(),
+                default = [],
+                doc = """
                 Like `java_library()`,
                  all of the `.java` files specified by the
                  `srcs` argument will be compiled when this rule is
@@ -400,64 +464,95 @@ java_test = prelude_rule(
                  only test case classes are specified as `srcs`. This is
                  frequently done by specifying `srcs` as
                  `glob(['**/*Test.java'])`.
-            """),
-            "resources": attrs.list(attrs.source(), default = [], doc = """
-                Same as `java_library()`.
-            """),
-        } |
-        buck.test_label_arg() |
-        {
-            "source": attrs.option(attrs.string(), default = None, doc = """
-                Java language level for compiling. Corresponds to the
-                 `-source` argument for `javac`.
-            """),
-            "target": attrs.option(attrs.string(), default = None, doc = """
-                Bytecode target level for compiling. Corresponds to the
-                 `-target` argument for `javac`.
-            """),
-            "deps": attrs.list(attrs.dep(), default = [], doc = """
+            """,
+            ),
+        }
+        | buck.test_label_arg()
+        | {
+            "deps": attrs.list(
+                attrs.dep(),
+                default = [],
+                doc = """
                 Same as `java_library()`.
                  // org.junit.rules.Timeout was not introduced until 4.7.
                  Must include JUnit (version 4.7 or later) as a dependency for JUnit tests.
                  Must include TestNG (version 6.2 or later) and hamcrest as a dependencies for TestNG tests.
-            """),
-            "test_type": attrs.option(attrs.enum(TestType), default = None, doc = """
+            """,
+            ),
+            "source": attrs.option(
+                attrs.string(),
+                default = None,
+                doc = """
+                Java language level for compiling. Corresponds to the
+                 `-source` argument for `javac`.
+            """,
+            ),
+            "target": attrs.option(
+                attrs.string(),
+                default = None,
+                doc = """
+                Bytecode target level for compiling. Corresponds to the
+                 `-target` argument for `javac`.
+            """,
+            ),
+            "test_type": attrs.option(
+                attrs.enum(TestType),
+                default = None,
+                doc = """
                 Specifies which test framework to use.
                  The currently supported options are 'junit' and 'testng'.
-            """),
-        } |
-        buck.run_test_separately_arg(run_test_separately_type = attrs.bool(default = False, doc = """
+            """,
+            ),
+        }
+        | buck.run_test_separately_arg(
+            run_test_separately_type = attrs.bool(
+                default = False,
+                doc = """
             If set to True, the test(s) in this rule are run separately from
              all other tests. This is useful for integration tests which
              access a physical device or other limited resource. If unset,
              the test(s) in this rule run in parallel with all other tests.
-        """)) |
-        re_test_common.test_args() |
-        buck.test_rule_timeout_ms() |
-        {
-            "use_cxx_libraries": attrs.option(attrs.bool(), default = None, doc = """
-                Whether or not to build and link against `cxx_library()` dependencies when testing.
-            """),
-            "cxx_library_allowlist": attrs.list(attrs.dep(), default = [], doc = """
+        """,
+            )
+        )
+        | re_test_common.test_args()
+        | buck.test_rule_timeout_ms()
+        | {
+            "cxx_library_allowlist": attrs.list(
+                attrs.dep(),
+                default = [],
+                doc = """
                  List of cxx_library targets to build, if use_cxx_libraries is true.
                  This can be useful if some dependencies are Android-only and won't build for the test host platform.
-            """),
-            "vm_args": attrs.list(attrs.arg(), default = [], doc = """
+            """,
+            ),
+            "use_cxx_libraries": attrs.option(
+                attrs.bool(),
+                default = None,
+                doc = """
+                Whether or not to build and link against `cxx_library()` dependencies when testing.
+            """,
+            ),
+            "vm_args": attrs.list(
+                attrs.arg(),
+                default = [],
+                doc = """
                 Runtime arguments to the JVM running the tests.
-            """),
-        } |
-        jvm_common.test_env() |
-        jvm_common.abi_generation_mode() |
-        {
+            """,
+            ),
+        }
+        | jvm_common.test_env()
+        | jvm_common.abi_generation_mode()
+        | {
             "deps_query": attrs.option(attrs.query(), default = None),
             "discover_all_test_classes": attrs.bool(default = False),
             "exported_deps": attrs.list(attrs.dep(), default = []),
             "exported_provided_deps": attrs.list(attrs.dep(), default = []),
             "extra_arguments": attrs.list(attrs.string(), default = []),
             "jar_postprocessor": attrs.option(attrs.exec_dep(), default = None),
-            "java_version": attrs.option(attrs.string(), default = None),
             "java": attrs.option(attrs.dep(), default = None),
             "java_agents": attrs.list(attrs.source(), default = []),
+            "java_version": attrs.option(attrs.string(), default = None),
             "manifest_file": attrs.option(attrs.source(), default = None),
             "maven_coords": attrs.option(attrs.string(), default = None),
             "proguard_config": attrs.option(attrs.source(), default = None),
@@ -480,12 +575,17 @@ java_test = prelude_rule(
             "_is_building_android_binary": attrs.default_only(attrs.bool(default = False)),
             "_java_test_toolchain": toolchains_common.java_test(),
             "_java_toolchain": toolchains_common.java(),
-        } |
-        constraint_overrides.attributes |
-        buck.licenses_arg() |
-        buck.contacts_arg() |
-        validation_common.attrs_validators_arg()
-    ) | jvm_common.annotation_processors() | jvm_common.plugins() | jvm_common.javac() | test_common.attributes() | jvm_common.classic_java_content_based_paths(),
+        }
+        | constraint_overrides.attributes
+        | buck.licenses_arg()
+        | buck.contacts_arg()
+        | validation_common.attrs_validators_arg()
+    )
+    | jvm_common.annotation_processors()
+    | jvm_common.plugins()
+    | jvm_common.javac()
+    | test_common.attributes()
+    | jvm_common.classic_java_content_based_paths(),
     cfg = constraint_overrides.transition,
 )
 
@@ -522,14 +622,14 @@ java_test_runner = prelude_rule(
             "source_only_abi_deps": attrs.list(attrs.dep(), default = []),
             "srcs": attrs.list(attrs.source(), default = []),
             "target": attrs.option(attrs.string(), default = None),
-        } |
-        buck.licenses_arg() |
-        buck.labels_arg() |
-        buck.contacts_arg() |
-        jvm_common.abi_generation_mode() |
-        jvm_common.annotation_processors() |
-        jvm_common.plugins() |
-        jvm_common.javac()
+        }
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
+        | jvm_common.abi_generation_mode()
+        | jvm_common.annotation_processors()
+        | jvm_common.plugins()
+        | jvm_common.javac()
     ),
 )
 
@@ -564,23 +664,37 @@ prebuilt_jar = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "binary_jar": attrs.source(doc = """
+            "binary_jar": attrs.source(
+                doc = """
                 Path to the pre-built JAR file.
-            """),
-            "source_jar": attrs.option(attrs.source(), default = None, doc = """
+            """
+            ),
+            "source_jar": attrs.option(
+                attrs.source(),
+                default = None,
+                doc = """
                 Path to a JAR file that contains the `.java` files to create
                  the `.class` in the `binary_jar`. This is frequently
                  provided for debugging purposes.
-            """),
-            "javadoc_url": attrs.option(attrs.string(), default = None, doc = """
+            """,
+            ),
+            "javadoc_url": attrs.option(
+                attrs.string(),
+                default = None,
+                doc = """
                 URL to the Javadoc for the `.class` files in the
                  `binary_jar`.
-            """),
-            "deps": attrs.list(attrs.dep(), default = [], doc = """
+            """,
+            ),
+            "deps": attrs.list(
+                attrs.dep(),
+                default = [],
+                doc = """
                  Rules that must be built before this rule. Because the
                  `binary_jar` is already built, there should be nothing to
                  build, so this should be empty.
-            """),
+            """,
+            ),
             "desugar_deps": attrs.list(attrs.dep(), default = []),
             "generate_abi": attrs.bool(default = True),
             "is_executable": attrs.bool(default = False),
@@ -595,10 +709,10 @@ prebuilt_jar = prelude_rule(
             "_dex_toolchain": toolchains_common.dex(),
             "_exec_os_type": buck.exec_os_type_arg(),
             "_prebuilt_jar_toolchain": toolchains_common.prebuilt_jar(),
-        } |
-        buck.licenses_arg() |
-        buck.labels_arg() |
-        buck.contacts_arg()
+        }
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
     ),
 )
 

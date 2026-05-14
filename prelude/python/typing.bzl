@@ -28,20 +28,19 @@ def get_default_sys_platform() -> str | None:
         return "win32"
     return None
 
-def _create_all_dep_manifests(
-        source_manifests: list[Artifact],
-        dep_manifests: typing.Any) -> typing.Any:
+def _create_all_dep_manifests(source_manifests: list[Artifact], dep_manifests: typing.Any) -> typing.Any:
     return source_manifests + [dep for dep in dep_manifests.traverse() if dep]
 
 def _create_batched_type_check(
-        ctx: AnalysisContext,
-        executable: RunInfo,
-        typeshed_manifest: Artifact,
-        py_version: str | None,
-        source_manifests: list[Artifact],
-        dep_manifests: typing.Any,
-        hidden: typing.Any,
-        is_sharded_fallback: bool) -> Artifact:
+    ctx: AnalysisContext,
+    executable: RunInfo,
+    typeshed_manifest: Artifact,
+    py_version: str | None,
+    source_manifests: list[Artifact],
+    dep_manifests: typing.Any,
+    hidden: typing.Any,
+    is_sharded_fallback: bool,
+) -> Artifact:
     # Create input configs
     input_config = {
         "dependencies": dep_manifests,
@@ -74,27 +73,32 @@ def _create_batched_type_check(
     return output_file
 
 def _create_sharded_type_check(
-        ctx: AnalysisContext,
-        executable: RunInfo,
-        typeshed_manifest: Artifact,
-        py_version: str | None,
-        source_manifests: list[Artifact],
-        source_artifacts: list[typing.Any],
-        dep_manifests: typing.Any,
-        hidden: typing.Any,
-        sharding_enabled: bool | None) -> dict[str, list[DefaultInfo]]:
+    ctx: AnalysisContext,
+    executable: RunInfo,
+    typeshed_manifest: Artifact,
+    py_version: str | None,
+    source_manifests: list[Artifact],
+    source_artifacts: list[typing.Any],
+    dep_manifests: typing.Any,
+    hidden: typing.Any,
+    sharding_enabled: bool | None,
+) -> dict[str, list[DefaultInfo]]:
     if not sharding_enabled:
         return {
-            "shard_default": [DefaultInfo(default_output = _create_batched_type_check(
-                ctx,
-                executable,
-                typeshed_manifest,
-                py_version,
-                source_manifests,
-                dep_manifests,
-                hidden,
-                True,
-            ))],
+            "shard_default": [
+                DefaultInfo(
+                    default_output = _create_batched_type_check(
+                        ctx,
+                        executable,
+                        typeshed_manifest,
+                        py_version,
+                        source_manifests,
+                        dep_manifests,
+                        hidden,
+                        True,
+                    )
+                )
+            ],
         }
 
     commands = {}
@@ -143,10 +147,7 @@ def _create_sharded_type_check(
 
     return commands
 
-def create_type_check_validation(
-        ctx: AnalysisContext,
-        executable: RunInfo,
-        type_check_result: Artifact) -> Artifact:
+def create_type_check_validation(ctx: AnalysisContext, executable: RunInfo, type_check_result: Artifact) -> Artifact:
     """Create a separate action converting type check result to ValidationSpec JSON.
 
     This must be a separate action because ValidationSpec requires the validation
@@ -164,14 +165,15 @@ def create_type_check_validation(
     return validation_output
 
 def create_per_target_type_check(
-        ctx: AnalysisContext,
-        executable: RunInfo,
-        srcs: ManifestInfo | None,
-        deps: list[PythonLibraryInfo],
-        typeshed: ManifestInfo | None,
-        py_version: str | None,
-        typing_enabled: bool,
-        sharding_enabled: bool | None = None) -> DefaultInfo:
+    ctx: AnalysisContext,
+    executable: RunInfo,
+    srcs: ManifestInfo | None,
+    deps: list[PythonLibraryInfo],
+    typeshed: ManifestInfo | None,
+    py_version: str | None,
+    typing_enabled: bool,
+    sharding_enabled: bool | None = None,
+) -> DefaultInfo:
     if not typing_enabled:
         # Use empty dict to signal that no type checking was performed.
         output_file = ctx.actions.write_json("type_check_result.json", {}, has_content_based_path = False)

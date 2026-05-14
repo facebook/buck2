@@ -49,7 +49,9 @@ _MAC_PLATFORMS = [
 ]
 
 # TODO: Drop the platform_rule when we're not longer attempting to support buck1.
-def apple_generated_platforms(name, constraint_values, deps, platform_rule, platform = None, supported_build_modes = APPLE_BUILD_MODES, use_whatsapp_build_modes = False):
+def apple_generated_platforms(
+    name, constraint_values, deps, platform_rule, platform = None, supported_build_modes = APPLE_BUILD_MODES, use_whatsapp_build_modes = False
+):
     # By convention, the cxx.default_platform is typically the same as the platform being defined.
     # This is not the case for all watch platforms, so provide an override.
     platform = platform if platform else name

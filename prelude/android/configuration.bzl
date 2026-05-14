@@ -46,10 +46,7 @@ for min_sdk in get_min_sdk_version_range():
     constraint_value_name = get_min_sdk_version_constraint_value_name(min_sdk)
     _REFS[constraint_value_name] = "prelude//android/constraints:{}".format(constraint_value_name)
 
-def _cpu_split_transition_impl(
-        platform: PlatformInfo,
-        refs: struct,
-        attrs: struct) -> dict[str, PlatformInfo]:
+def _cpu_split_transition_impl(platform: PlatformInfo, refs: struct, attrs: struct) -> dict[str, PlatformInfo]:
     cpu_filters = attrs.cpu_filters or ALL_CPU_FILTERS
     if attrs._is_force_single_cpu:
         cpu_filters = [CPU_FILTER_FOR_PRIMARY_PLATFORM]
@@ -63,11 +60,7 @@ def _cpu_split_transition_impl(
         attrs.min_sdk_version,
     )
 
-def _cpu_split_transition(
-        platform: PlatformInfo,
-        refs: struct,
-        cpu_filters: list[str],
-        min_sdk_version: [int, None]) -> dict[str, PlatformInfo]:
+def _cpu_split_transition(platform: PlatformInfo, refs: struct, cpu_filters: list[str], min_sdk_version: [int, None]) -> dict[str, PlatformInfo]:
     cpu = refs.cpu
     x86 = refs.x86[ConstraintValueInfo]
     x86_64 = refs.x86_64[ConstraintValueInfo]
@@ -109,7 +102,8 @@ def _cpu_split_transition(
     base_constraints = {
         constraint_setting_label: constraint_setting_value
         for (constraint_setting_label, constraint_setting_value) in platform.configuration.constraints.items()
-        if constraint_setting_label != cpu[ConstraintSettingInfo].label and constraint_setting_label != refs.maybe_build_only_native_code[ConstraintSettingInfo].label
+        if constraint_setting_label != cpu[ConstraintSettingInfo].label
+        and constraint_setting_label != refs.maybe_build_only_native_code[ConstraintSettingInfo].label
     }
 
     base_constraints[refs.maybe_building_android_binary[ConstraintSettingInfo].label] = refs.building_android_binary[ConstraintValueInfo]
@@ -138,10 +132,7 @@ def _cpu_split_transition(
 
     return new_configs
 
-def _cpu_transition_impl(
-        platform: PlatformInfo,
-        refs: struct,
-        attrs: struct) -> PlatformInfo:
+def _cpu_transition_impl(platform: PlatformInfo, refs: struct, attrs: struct) -> PlatformInfo:
     return _cpu_split_transition_impl(platform, refs, attrs).values()[0]
 
 cpu_split_transition = transition(

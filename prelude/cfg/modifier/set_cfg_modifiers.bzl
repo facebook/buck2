@@ -9,9 +9,7 @@
 load(":common.bzl", "get_tagged_modifiers", "tagged_modifiers_to_json")
 load(":types.bzl", "Modifier", "ModifierPackageLocation")  # @unused Used in type annotation
 
-def set_cfg_modifiers(
-        cfg_modifiers: list[Modifier] | None = None,
-        extra_cfg_modifiers_per_rule: dict[str, list[Modifier]] | None = None):
+def set_cfg_modifiers(cfg_modifiers: list[Modifier] | None = None, extra_cfg_modifiers_per_rule: dict[str, list[Modifier]] | None = None):
     """
     Sets a configuration modifier for all targets under this PACKAGE file. This can only be called from a PACKAGE file context
     (e.g. a PACKAGE file or a bzl file transitively loaded by a PACKAGE file).

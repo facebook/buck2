@@ -30,47 +30,70 @@ def _deps_arg(is_binary: bool):
 
 def _features_arg():
     return {
-        "features": attrs.list(attrs.string(), default = [], doc = """
+        "features": attrs.list(
+            attrs.string(),
+            default = [],
+            doc = """
     The set of features to be enabled for this rule.
 
-
      These are passed to `rustc` with `--cfg feature="{feature}"`, and can be used in the code with `#[cfg(feature = "{feature}")]`.
-"""),
+""",
+        ),
     }
 
 def _edition_arg():
     return {
-        "edition": attrs.option(attrs.string(), default = None, doc = """
+        "edition": attrs.option(
+            attrs.string(),
+            default = None,
+            doc = """
     Set the language edition to be used for this rule. Can be set to any edition the
      compiler supports (`2018` right now). If unset it uses the compiler's default
      (`2015`).
-"""),
+""",
+        ),
     }
 
 def _rustc_flags_arg():
     return {
-        "rustc_flags": attrs.list(attrs.arg(), default = [], doc = """
+        "rustc_flags": attrs.list(
+            attrs.arg(),
+            default = [],
+            doc = """
     The set of additional compiler flags to pass to `rustc`.
-"""),
+""",
+        ),
     }
 
 def _linker_flags_arg():
     return {
-        "linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = [], doc = """
+        "linker_flags": attrs.list(
+            attrs.arg(anon_target_compatible = True),
+            default = [],
+            doc = """
     The set of additional flags to pass to the linker.
-"""),
+""",
+        ),
     }
 
 def _exported_linker_flags_arg():
     return {
-        "exported_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = [], doc = """
+        "exported_linker_flags": attrs.list(
+            attrs.arg(anon_target_compatible = True),
+            default = [],
+            doc = """
     A set of additional flag to pass before this item on the link line, even if
     this items is compiled to a DSO.
-"""),
-        "exported_post_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = [], doc = """
+""",
+        ),
+        "exported_post_linker_flags": attrs.list(
+            attrs.arg(anon_target_compatible = True),
+            default = [],
+            doc = """
     A set of additional flag to pass after this item on the link line, even if
     this items is compiled to a DSO.
-"""),
+""",
+        ),
     }
 
 def _crate(crate_type):
@@ -80,55 +103,86 @@ def _crate(crate_type):
 
 def _crate_root():
     return {
-        "crate_root": attrs.option(attrs.string(), default = None, doc = """
+        "crate_root": attrs.option(
+            attrs.string(),
+            default = None,
+            doc = """
     Set the name of the top-level source file for the crate, which can be used to override the
      default (see `srcs`).
-"""),
+""",
+        ),
     }
 
 def _default_roots_arg():
     return {
-        "default_roots": attrs.option(attrs.list(attrs.string()), default = None, doc = """
+        "default_roots": attrs.option(
+            attrs.list(attrs.string()),
+            default = None,
+            doc = """
     Set the candidate source names to consider for crate root. Typically used to disambiguate between
      lib.rs or main.rs for rust_test, which may be declare a test suite for either library or binary
      rules. Has no effect if an explicit `crate_root` is provided.
-"""),
+""",
+        ),
     }
 
 def _env_arg():
     return {
-        "env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}, doc = """
+        "env": attrs.dict(
+            key = attrs.string(),
+            value = attrs.arg(),
+            sorted = False,
+            default = {},
+            doc = """
     Set environment variables for this rule's invocations of rustc. The environment variable
      values may include macros which are expanded.
-"""),
+""",
+        ),
     }
 
 def _run_env_arg():
     return {
-        "run_env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}, doc = """
+        "run_env": attrs.dict(
+            key = attrs.string(),
+            value = attrs.arg(),
+            sorted = False,
+            default = {},
+            doc = """
     Set environment variables during test execution. The environment variable values may
      include macros which are expanded.
-"""),
+""",
+        ),
     }
 
 def _build_and_run_env_arg():
     # Same as env_arg(), but with different documentation.
     return {
-        "env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}, doc = """
+        "env": attrs.dict(
+            key = attrs.string(),
+            value = attrs.arg(),
+            sorted = False,
+            default = {},
+            doc = """
     Set environment variables for this rule's invocations of rustc *and* during execution of
      the tests. The environment variable values may include macros which are expanded.
-"""),
+""",
+        ),
     }
 
 def _named_deps_arg(is_binary: bool):
     return {
-        "named_deps": attrs.one_of(attrs.dict(key = attrs.string(), value = rust_target_dep(is_binary), sorted = False), attrs.list(attrs.tuple(attrs.arg(), rust_target_dep(is_binary))), default = {}, doc = """
+        "named_deps": attrs.one_of(
+            attrs.dict(key = attrs.string(), value = rust_target_dep(is_binary), sorted = False),
+            attrs.list(attrs.tuple(attrs.arg(), rust_target_dep(is_binary))),
+            default = {},
+            doc = """
     Add crate dependencies and define a local name by which to use that dependency by. This
      allows a crate to have multiple dependencies with the same crate name. For example:
      `named_deps = {"local_name", ":some_rust_crate" }`.
      The dependencies may also be non-Rust, but the alias is ignored. It has no effect on the
      symbols provided by a C/C++ library.
-"""),
+""",
+        ),
     }
 
 def _rust_toolchain_arg():
@@ -146,10 +200,14 @@ def _cxx_toolchain_arg():
 
 def _workspaces_arg():
     return {
-        "_workspaces": attrs.list(attrs.label(), default = [], doc = """
+        "_workspaces": attrs.list(
+            attrs.label(),
+            default = [],
+            doc = """
     Internal implementation detail of Rust workspaces. This should not be set manually and will be
      replaced in favor of metadata in a future version of buck2.
-"""),
+""",
+        ),
     }
 
 rust_common = struct(

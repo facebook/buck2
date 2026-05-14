@@ -18,12 +18,13 @@ load(
 )
 
 def generate_cython_flags(
-        generate_cpp: bool,
-        cython_binding: bool = False,
-        code_comments: bool = False,
-        legacy_noexcept: bool = True,
-        annotate: [str, None] = None,
-        flags: list[str] = []) -> list[str]:
+    generate_cpp: bool,
+    cython_binding: bool = False,
+    code_comments: bool = False,
+    legacy_noexcept: bool = True,
+    annotate: [str, None] = None,
+    flags: list[str] = [],
+) -> list[str]:
     """
     Build the list of flags to pass to the Cython compiler.
 
@@ -65,10 +66,7 @@ def generate_cython_flags(
 
     return result
 
-def _build_package_init_tree(
-        actions: AnalysisActions,
-        package_path: str,
-        identifier: str) -> dict[str, Artifact]:
+def _build_package_init_tree(actions: AnalysisActions, package_path: str, identifier: str) -> dict[str, Artifact]:
     """
     Create __init__.py markers for all intermediate directories in the package path.
     """
@@ -79,21 +77,22 @@ def _build_package_init_tree(
     init_py = actions.write("__cython_init__/" + identifier + "/__init__.py", "", has_content_based_path = False)
     parts = package_path.split("/")
     for i in range(len(parts)):
-        prefix = "/".join(parts[:i + 1])
+        prefix = "/".join(parts[: i + 1])
         init_files[prefix + "/__init__.py"] = init_py
 
     return init_files
 
 def cython_compile(
-        actions: AnalysisActions,
-        cython_toolchain: CythonToolchainInfo,
-        src: Artifact,
-        package_path: str,
-        include_tree: [Artifact, None],
-        flags: list[str],
-        generate_cpp: bool,
-        identifier: str,
-        exec_os_type = None) -> CythonCompileOutput:
+    actions: AnalysisActions,
+    cython_toolchain: CythonToolchainInfo,
+    src: Artifact,
+    package_path: str,
+    include_tree: [Artifact, None],
+    flags: list[str],
+    generate_cpp: bool,
+    identifier: str,
+    exec_os_type = None,
+) -> CythonCompileOutput:
     """
     Run the Cython compiler on a single .pyx file.
 

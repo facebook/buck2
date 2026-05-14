@@ -54,8 +54,7 @@ def from_named_set(srcs: [dict[str, Artifact | Dependency], list[Artifact | Depe
                 # default output.
                 expect(
                     len(src[DefaultInfo].default_outputs) == 1,
-                    "expected exactly one default output from {} ({})"
-                        .format(src, src[DefaultInfo].default_outputs),
+                    "expected exactly one default output from {} ({})".format(src, src[DefaultInfo].default_outputs),
                 )
                 [artifact] = src[DefaultInfo].default_outputs
                 name = artifact.short_path

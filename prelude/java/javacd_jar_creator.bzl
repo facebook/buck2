@@ -54,33 +54,34 @@ load(
 load("@prelude//utils:expect.bzl", "expect")
 
 def create_jar_artifact_javacd(
-        ctx: AnalysisContext,
-        actions_identifier: [str, None],
-        abi_generation_mode: [AbiGenerationMode, None],
-        java_toolchain: JavaToolchainInfo,
-        label,
-        output: Artifact | None,
-        javac_tool: [typing.Any, None],
-        srcs: list[Artifact],
-        remove_classes: list[str],
-        resources: list[Artifact],
-        resources_root: [str, None],
-        manifest_file: Artifact | None,
-        annotation_processor_properties: AnnotationProcessorProperties,
-        plugin_params: [PluginParams, None],
-        source_level: int,
-        target_level: int,
-        deps: list[Dependency],
-        required_for_source_only_abi: bool,
-        source_only_abi_deps: list[Dependency],
-        extra_arguments: cmd_args,
-        additional_classpath_entries: JavaCompilingDepsTSet | None,
-        additional_compiled_srcs: Artifact | None,
-        custom_jdk_info: CustomJdkInfo | None,
-        is_building_android_binary: bool,
-        is_creating_subtarget: bool = False,
-        debug_port: [int, None] = None,
-        enable_depfiles: [bool, None] = True) -> JavaCompileOutputs:
+    ctx: AnalysisContext,
+    actions_identifier: [str, None],
+    abi_generation_mode: [AbiGenerationMode, None],
+    java_toolchain: JavaToolchainInfo,
+    label,
+    output: Artifact | None,
+    javac_tool: [typing.Any, None],
+    srcs: list[Artifact],
+    remove_classes: list[str],
+    resources: list[Artifact],
+    resources_root: [str, None],
+    manifest_file: Artifact | None,
+    annotation_processor_properties: AnnotationProcessorProperties,
+    plugin_params: [PluginParams, None],
+    source_level: int,
+    target_level: int,
+    deps: list[Dependency],
+    required_for_source_only_abi: bool,
+    source_only_abi_deps: list[Dependency],
+    extra_arguments: cmd_args,
+    additional_classpath_entries: JavaCompilingDepsTSet | None,
+    additional_compiled_srcs: Artifact | None,
+    custom_jdk_info: CustomJdkInfo | None,
+    is_building_android_binary: bool,
+    is_creating_subtarget: bool = False,
+    debug_port: [int, None] = None,
+    enable_depfiles: [bool, None] = True,
+) -> JavaCompileOutputs:
     if javac_tool != None:
         fail("cannot set explicit javac on library when using javacd")
 
@@ -94,9 +95,7 @@ def create_jar_artifact_javacd(
     uses_content_based_paths = java_toolchain.uses_content_based_paths
 
     should_create_class_abi = (
-        not additional_compiled_srcs and
-        not is_creating_subtarget and
-        (abi_generation_mode == AbiGenerationMode("class") or not is_building_android_binary)
+        not additional_compiled_srcs and not is_creating_subtarget and (abi_generation_mode == AbiGenerationMode("class") or not is_building_android_binary)
     )
     if should_create_class_abi:
         class_abi_jar = declare_prefixed_output(actions, actions_identifier, "class-abi.jar", uses_content_based_paths)
@@ -194,7 +193,9 @@ def create_jar_artifact_javacd(
             uses_content_based_paths = uses_content_based_paths,
         )
 
-        abi_jar_snapshot = generate_java_classpath_snapshot(ctx.actions, java_toolchain.cp_snapshot_generator, ClasspathSnapshotGranularity("CLASS_MEMBER_LEVEL"), classpath_abi, actions_identifier)
+        abi_jar_snapshot = generate_java_classpath_snapshot(
+            ctx.actions, java_toolchain.cp_snapshot_generator, ClasspathSnapshotGranularity("CLASS_MEMBER_LEVEL"), classpath_abi, actions_identifier
+        )
         result = make_compile_outputs(
             full_library = final_jar_output.final_jar,
             preprocessed_library = final_jar_output.preprocessed_jar,
@@ -209,7 +210,13 @@ def create_jar_artifact_javacd(
             used_jars_json = used_jars_json,
         )
     else:
-        full_jar_snapshot = generate_java_classpath_snapshot(ctx.actions, java_toolchain.cp_snapshot_generator, ClasspathSnapshotGranularity("CLASS_MEMBER_LEVEL"), final_jar_output.final_jar, actions_identifier)
+        full_jar_snapshot = generate_java_classpath_snapshot(
+            ctx.actions,
+            java_toolchain.cp_snapshot_generator,
+            ClasspathSnapshotGranularity("CLASS_MEMBER_LEVEL"),
+            final_jar_output.final_jar,
+            actions_identifier,
+        )
         result = make_compile_outputs(
             full_library = final_jar_output.final_jar,
             preprocessed_library = final_jar_output.preprocessed_jar,
@@ -221,20 +228,21 @@ def create_jar_artifact_javacd(
     return result
 
 def _command_builder(
-        label: Label,
-        srcs: list[Artifact],
-        remove_classes: list[str],
-        annotation_processor_properties: AnnotationProcessorProperties,
-        plugin_params: [PluginParams, None],
-        manifest_file: Artifact | None,
-        source_level: int,
-        target_level: int,
-        compiling_deps_tset: [JavaCompilingDepsTSet, None],
-        bootclasspath_entries: list[Artifact],
-        system_image: Artifact | None,
-        abi_generation_mode: AbiGenerationMode,
-        resources_map: dict[str, Artifact],
-        extra_arguments: cmd_args):
+    label: Label,
+    srcs: list[Artifact],
+    remove_classes: list[str],
+    annotation_processor_properties: AnnotationProcessorProperties,
+    plugin_params: [PluginParams, None],
+    manifest_file: Artifact | None,
+    source_level: int,
+    target_level: int,
+    compiling_deps_tset: [JavaCompilingDepsTSet, None],
+    bootclasspath_entries: list[Artifact],
+    system_image: Artifact | None,
+    abi_generation_mode: AbiGenerationMode,
+    resources_map: dict[str, Artifact],
+    extra_arguments: cmd_args,
+):
     return partial(
         encode_command,
         label = label,
@@ -257,28 +265,29 @@ def _command_builder(
 
 # buildifier: disable=uninitialized
 def _define_javacd_action(
-        # provided by factory
-        actions: AnalysisActions,
-        java_toolchain: JavaToolchainInfo,
-        should_create_class_abi: bool,
-        class_abi_jar: [Artifact, None],
-        class_abi_output_dir: [Artifact, None],
-        srcs: list[Artifact],
-        compiling_deps_tset: [JavaCompilingDepsTSet, None],
-        track_class_usage: bool,
-        debug_port: [int, None],
-        uses_content_based_paths: bool,
-        # end of factory provided
-        category_prefix: str,
-        actions_identifier: [str, None],
-        encoded_command: struct,
-        qualified_name: str,
-        output_paths: OutputPaths,
-        classpath_jars_tag: ArtifactTag,
-        abi_dir: Artifact | None,
-        target_type: TargetType,
-        is_creating_subtarget: bool = False,
-        source_only_abi_compiling_deps: list[JavaClasspathEntry] = []):
+    # provided by factory
+    actions: AnalysisActions,
+    java_toolchain: JavaToolchainInfo,
+    should_create_class_abi: bool,
+    class_abi_jar: [Artifact, None],
+    class_abi_output_dir: [Artifact, None],
+    srcs: list[Artifact],
+    compiling_deps_tset: [JavaCompilingDepsTSet, None],
+    track_class_usage: bool,
+    debug_port: [int, None],
+    uses_content_based_paths: bool,
+    # end of factory provided
+    category_prefix: str,
+    actions_identifier: [str, None],
+    encoded_command: struct,
+    qualified_name: str,
+    output_paths: OutputPaths,
+    classpath_jars_tag: ArtifactTag,
+    abi_dir: Artifact | None,
+    target_type: TargetType,
+    is_creating_subtarget: bool = False,
+    source_only_abi_compiling_deps: list[JavaClasspathEntry] = [],
+):
     expect(java_toolchain.javacd, "java_toolchain.javacd must be set for javacd protocol")
     compiler = java_toolchain.javacd
     exe, local_only = prepare_cd_exe(
@@ -310,7 +319,12 @@ def _define_javacd_action(
 
     dep_files = {}
     used_jars_json_output = None
-    if not is_creating_subtarget and srcs and (java_toolchain.dep_files == DepFiles("per_jar") or java_toolchain.dep_files == DepFiles("per_class")) and track_class_usage:
+    if (
+        not is_creating_subtarget
+        and srcs
+        and (java_toolchain.dep_files == DepFiles("per_jar") or java_toolchain.dep_files == DepFiles("per_class"))
+        and track_class_usage
+    ):
         abi_to_abi_dir_map = None
         if java_toolchain.dep_files == DepFiles("per_class"):
             if target_type == TargetType("source_only_abi"):
@@ -354,7 +368,9 @@ def _define_javacd_action(
         proto_dep_files_placeholder = declare_prefixed_output(actions, actions_identifier, "jar_command_for_dep_files.proto.json", uses_content_based_paths)
 
         proto_for_args = classpath_jars_tag.tag_artifacts(actions.write_json(proto, java_build_command))
-        proto_with_inputs_for_dep_files = actions.write_json(proto_dep_files_placeholder, java_build_command, with_inputs = True, use_dep_files_placeholder_for_content_based_paths = True)
+        proto_with_inputs_for_dep_files = actions.write_json(
+            proto_dep_files_placeholder, java_build_command, with_inputs = True, use_dep_files_placeholder_for_content_based_paths = True
+        )
         args.add(cmd_args(hidden = proto_with_inputs_for_dep_files))
     else:
         proto_for_args = actions.write_json(proto, java_build_command, with_inputs = True)

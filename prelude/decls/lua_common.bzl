@@ -13,18 +13,27 @@
 
 def _srcs_arg():
     return {
-        "srcs": attrs.named_set(attrs.source(), sorted = True, default = [], doc = """
+        "srcs": attrs.named_set(
+            attrs.source(),
+            sorted = True,
+            default = [],
+            doc = """
     The set of `.lua` files included in this library.
-"""),
+""",
+        ),
     }
 
 def _base_module_arg():
     return {
-        "base_module": attrs.option(attrs.string(), default = None, doc = """
+        "base_module": attrs.option(
+            attrs.string(),
+            default = None,
+            doc = """
     The package for which the given specified sources and resources should reside in their final
      location in the top-level binary. If unset, the project relative directory that houses the
      BUCK file is used.
-"""),
+""",
+        ),
     }
 
 lua_common = struct(

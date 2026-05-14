@@ -31,21 +31,31 @@ def go_stdlib_impl(ctx: AnalysisContext) -> list[Provider]:
 
     pkgdir = ctx.actions.declare_output("pkgdir", dir = True, has_content_based_path = True)
 
-    go_stdlib_value = ctx.actions.dynamic_output_new(_build_stdlib(
-        goroot = go_toolchain.env_go_root,
-        go_list_stdlib_out = go_list_stdlib_out,
-        target_label = ctx.label,
-        go_toolchain = go_toolchain,
-        cgo_build_context = get_cgo_build_context(ctx),
-        pkgdir = pkgdir.as_output(),
-    ))
+    go_stdlib_value = ctx.actions.dynamic_output_new(
+        _build_stdlib(
+            goroot = go_toolchain.env_go_root,
+            go_list_stdlib_out = go_list_stdlib_out,
+            target_label = ctx.label,
+            go_toolchain = go_toolchain,
+            cgo_build_context = get_cgo_build_context(ctx),
+            pkgdir = pkgdir.as_output(),
+        )
+    )
 
     return [
         DefaultInfo(default_output = pkgdir),
         GoStdlib(dynamic_value = go_stdlib_value),
     ]
 
-def _build_stdlib_impl(actions: AnalysisActions, target_label: Label, go_toolchain: GoToolchainInfo, cgo_build_context: None | CGoBuildContext, go_list_stdlib_out: ArtifactValue, goroot: Artifact, pkgdir: OutputArtifact) -> list[Provider]:
+def _build_stdlib_impl(
+    actions: AnalysisActions,
+    target_label: Label,
+    go_toolchain: GoToolchainInfo,
+    cgo_build_context: None | CGoBuildContext,
+    go_list_stdlib_out: ArtifactValue,
+    goroot: Artifact,
+    pkgdir: OutputArtifact,
+) -> list[Provider]:
     # First pass: parse all packages and collect their imports
     parsed_libs = {}  # import_path -> StdGoListOut
     for lib in go_list_stdlib_out.read_json():
@@ -108,8 +118,7 @@ def _build_stdlib_impl(actions: AnalysisActions, target_label: Label, go_toolcha
     # We use pkgdir artifact testing (and currently for mockgen), but not for compilation/linking
     actions.copied_dir(
         pkgdir,
-        {path + ".a": pkg.archive_file for path, pkg in pkgs.items()} |
-        {path + ".x": pkg.export_file for path, pkg in pkgs.items()},
+        {path + ".a": pkg.archive_file for path, pkg in pkgs.items()} | {path + ".x": pkg.export_file for path, pkg in pkgs.items()},
     )
 
     return [
@@ -129,29 +138,32 @@ _build_stdlib = dynamic_actions(
 )
 
 def _declare_stdlib_package_build(
-        actions: AnalysisActions,
-        target_label: Label,
-        go_toolchain: GoToolchainInfo,
-        cgo_build_context: None | CGoBuildContext,
-        go_list: BuildPackageGoList,
-        params: BuildPackageParams) -> GoPkg:
+    actions: AnalysisActions,
+    target_label: Label,
+    go_toolchain: GoToolchainInfo,
+    cgo_build_context: None | CGoBuildContext,
+    go_list: BuildPackageGoList,
+    params: BuildPackageParams,
+) -> GoPkg:
     out_a = actions.declare_output(params.pkg_import_path + "_non-shared.a", has_content_based_path = True)
     out_x = actions.declare_output(params.pkg_import_path + "_non-shared.x", has_content_based_path = True)
 
     out_a_shared = actions.declare_output(params.pkg_import_path + "_shared.a", has_content_based_path = True)
     out_x_shared = actions.declare_output(params.pkg_import_path + "_shared.x", has_content_based_path = True)
 
-    actions.dynamic_output_new(_build_stdlib_package(
-        target_label = target_label,
-        go_toolchain = go_toolchain,
-        cgo_build_context = cgo_build_context,
-        go_list = go_list,
-        params = params,
-        out_a = out_a.as_output(),
-        out_x = out_x.as_output(),
-        out_a_shared = out_a_shared.as_output(),
-        out_x_shared = out_x_shared.as_output(),
-    ))
+    actions.dynamic_output_new(
+        _build_stdlib_package(
+            target_label = target_label,
+            go_toolchain = go_toolchain,
+            cgo_build_context = cgo_build_context,
+            go_list = go_list,
+            params = params,
+            out_a = out_a.as_output(),
+            out_x = out_x.as_output(),
+            out_a_shared = out_a_shared.as_output(),
+            out_x_shared = out_x_shared.as_output(),
+        )
+    )
 
     return GoPkg(
         archive_file = out_a,
@@ -162,16 +174,17 @@ def _declare_stdlib_package_build(
     )
 
 def _build_stdlib_package_impl(
-        actions: AnalysisActions,
-        target_label: Label,
-        go_toolchain: GoToolchainInfo,
-        cgo_build_context: None | CGoBuildContext,
-        go_list: BuildPackageGoList,
-        params: BuildPackageParams,
-        out_a: OutputArtifact,
-        out_x: OutputArtifact,
-        out_a_shared: OutputArtifact,
-        out_x_shared: OutputArtifact) -> list[Provider]:
+    actions: AnalysisActions,
+    target_label: Label,
+    go_toolchain: GoToolchainInfo,
+    cgo_build_context: None | CGoBuildContext,
+    go_list: BuildPackageGoList,
+    params: BuildPackageParams,
+    out_a: OutputArtifact,
+    out_x: OutputArtifact,
+    out_a_shared: OutputArtifact,
+    out_x_shared: OutputArtifact,
+) -> list[Provider]:
     result = build_package(
         actions = actions,
         target_label = target_label,

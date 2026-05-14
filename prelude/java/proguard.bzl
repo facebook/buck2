@@ -24,17 +24,18 @@ ProguardOutput = record(
 )
 
 def _get_proguard_command_line_args(
-        ctx: AnalysisContext,
-        input_jars_to_output_jars: dict[Artifact, Artifact],
-        proguard_configs: list[Artifact],
-        additional_jars: list[Artifact],
-        mapping: Artifact,
-        configuration: Artifact | None,
-        seeds: Artifact | None,
-        usage: Artifact | None,
-        sdk_proguard_config_mode: str | None,
-        sdk_proguard_config: Artifact | None,
-        sdk_optimized_proguard_config: Artifact | None) -> (cmd_args, list[Artifact]):
+    ctx: AnalysisContext,
+    input_jars_to_output_jars: dict[Artifact, Artifact],
+    proguard_configs: list[Artifact],
+    additional_jars: list[Artifact],
+    mapping: Artifact,
+    configuration: Artifact | None,
+    seeds: Artifact | None,
+    usage: Artifact | None,
+    sdk_proguard_config_mode: str | None,
+    sdk_proguard_config: Artifact | None,
+    sdk_optimized_proguard_config: Artifact | None,
+) -> (cmd_args, list[Artifact]):
     cmd = cmd_args()
     hidden = []
     cmd.add("-basedirectory", "<user.dir>")
@@ -54,7 +55,7 @@ def _get_proguard_command_line_args(
 
     for proguard_config in dedupe(proguard_configs):
         cmd.add("-include")
-        cmd.add(cmd_args("\"", proguard_config, "\"", delimiter = ""))
+        cmd.add(cmd_args('"', proguard_config, '"', delimiter = ""))
         hidden.append(proguard_config)
 
     for jar_input, jar_output in input_jars_to_output_jars.items():
@@ -75,14 +76,15 @@ def _get_proguard_command_line_args(
     return cmd, hidden
 
 def run_proguard(
-        ctx: AnalysisContext,
-        java_toolchain: JavaToolchainInfo,
-        proguard_jar: Artifact,
-        command_line_args_file: Artifact,
-        command_line_args: cmd_args,
-        mapping_file: Artifact,
-        usage_file: Artifact,
-        output_jars: list[Artifact]):
+    ctx: AnalysisContext,
+    java_toolchain: JavaToolchainInfo,
+    proguard_jar: Artifact,
+    command_line_args_file: Artifact,
+    command_line_args: cmd_args,
+    mapping_file: Artifact,
+    usage_file: Artifact,
+    output_jars: list[Artifact],
+):
     run_proguard_cmd = cmd_args()
     run_proguard_cmd.add(
         java_toolchain.java[RunInfo],
@@ -119,12 +121,21 @@ def run_proguard(
         sh_cmd = cmd_args([
             "cmd.exe",
             "/c",
-            cmd_args([
-                cmd_args([mapping_file.as_output()], format = "echo. > {}"),
-                cmd_args([usage_file.as_output()], format = "echo. > {}"),
-                cmd_args(run_proguard_cmd, delimiter = " "),
-                cmd_args(ctx.attrs._java_toolchain[JavaToolchainInfo].zip_scrubber, "--paths-to-scrub", output_jars_file, "--create-if-not-present", delimiter = " "),
-            ], delimiter = " && "),
+            cmd_args(
+                [
+                    cmd_args([mapping_file.as_output()], format = "echo. > {}"),
+                    cmd_args([usage_file.as_output()], format = "echo. > {}"),
+                    cmd_args(run_proguard_cmd, delimiter = " "),
+                    cmd_args(
+                        ctx.attrs._java_toolchain[JavaToolchainInfo].zip_scrubber,
+                        "--paths-to-scrub",
+                        output_jars_file,
+                        "--create-if-not-present",
+                        delimiter = " ",
+                    ),
+                ],
+                delimiter = " && ",
+            ),
         ])
 
     ctx.actions.run(sh_cmd, category = "run_proguard")
@@ -132,16 +143,17 @@ def run_proguard(
 # Note that ctx.attrs.skip_proguard means that we should create the proguard command line (since
 # e.g. Redex might want to consume it) but we don't actually run the proguard command.
 def get_proguard_output(
-        ctx: AnalysisContext,
-        input_jars: dict[Artifact, TargetLabel],
-        java_packaging_deps: list[JavaPackagingDep],
-        additional_proguard_configs: list[Artifact],
-        additional_jars: list[Artifact],
-        sdk_proguard_config_mode: str | None,
-        sdk_proguard_config: Artifact | None,
-        sdk_optimized_proguard_config: Artifact | None,
-        proguard_jar: Artifact,
-        skip_proguard: bool = False) -> ProguardOutput:
+    ctx: AnalysisContext,
+    input_jars: dict[Artifact, TargetLabel],
+    java_packaging_deps: list[JavaPackagingDep],
+    additional_proguard_configs: list[Artifact],
+    additional_jars: list[Artifact],
+    sdk_proguard_config_mode: str | None,
+    sdk_proguard_config: Artifact | None,
+    sdk_optimized_proguard_config: Artifact | None,
+    proguard_jar: Artifact,
+    skip_proguard: bool = False,
+) -> ProguardOutput:
     proguard_configs = [packaging_dep.proguard_config for packaging_dep in java_packaging_deps if packaging_dep.proguard_config]
     if ctx.attrs.proguard_config:
         proguard_configs.append(ctx.attrs.proguard_config)
@@ -154,10 +166,13 @@ def get_proguard_output(
         seeds = None
         usage = None
     else:
-        input_jars_to_output_jars = {input_jar: ctx.actions.declare_output(
-            "proguard_output_jars/{}_{}_obfuscated.jar".format(input_jar.short_path, i),
-            has_content_based_path = False,
-        ) for i, input_jar in enumerate(input_jars.keys())}
+        input_jars_to_output_jars = {
+            input_jar: ctx.actions.declare_output(
+                "proguard_output_jars/{}_{}_obfuscated.jar".format(input_jar.short_path, i),
+                has_content_based_path = False,
+            )
+            for i, input_jar in enumerate(input_jars.keys())
+        }
         mapping = ctx.actions.declare_output("proguard/mapping.txt", has_content_based_path = True)
         configuration = ctx.actions.declare_output("proguard/configuration.txt", has_content_based_path = True)
         seeds = ctx.actions.declare_output("proguard/seeds.txt", has_content_based_path = True)

@@ -11,17 +11,18 @@ load("@prelude//utils:materialization_test.bzl", "materialization_test")
 load("@prelude//utils:utils.bzl", "value_or")
 
 def http_file_shared(
-        actions: AnalysisActions,
-        name: str,
-        url: str,
-        vpnless_url: [None, str],
-        is_executable: bool,
-        is_exploded_zip: bool,
-        unzip_tool: [RunInfo, None],
-        sha1: [None, str],
-        sha256: [None, str],
-        size_bytes: [None, int],
-        has_content_based_path: bool) -> list[Provider]:
+    actions: AnalysisActions,
+    name: str,
+    url: str,
+    vpnless_url: [None, str],
+    is_executable: bool,
+    is_exploded_zip: bool,
+    unzip_tool: [RunInfo, None],
+    sha1: [None, str],
+    sha256: [None, str],
+    size_bytes: [None, int],
+    has_content_based_path: bool,
+) -> list[Provider]:
     output = actions.declare_output(name, has_content_based_path = has_content_based_path)
     downloaded_output = actions.declare_output("exploded_zip", has_content_based_path = has_content_based_path) if is_exploded_zip else output
     actions.download_file(

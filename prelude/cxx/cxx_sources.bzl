@@ -37,7 +37,7 @@ def get_srcs_with_flags(ctx: AnalysisContext, additional_srcs: list = []) -> lis
 
     # Go through collected (source, flags) pair and set the index field if there are duplicate source files
     cxx_src_with_flags_records = []
-    for (artifact, flag_sets) in flags_sets_by_src.items():
+    for artifact, flag_sets in flags_sets_by_src.items():
         needs_indices = len(flag_sets) > 1
         for i, flags in enumerate(flag_sets.values()):
             index = i if needs_indices else None

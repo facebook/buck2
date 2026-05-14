@@ -44,7 +44,15 @@ load(":apple_bundle_destination.bzl", "AppleBundleDestination", "bundle_relative
 load(":apple_bundle_part.bzl", "AppleBundlePart", "assemble_bundle", "bundle_output", "get_bundle_dir_name")
 load(":apple_bundle_types.bzl", "AppleBundleInfo")
 load(":apple_bundle_utility.bzl", "get_product_name")
-load(":apple_dsym.bzl", "DSYM_SUBTARGET", "DWARF_AND_DSYM_SUBTARGET", "EXTENDED_DSYM_INFO_SUBTARGET", "get_apple_dsym", "get_apple_dsym_info_json", "get_deps_debuggable_infos")
+load(
+    ":apple_dsym.bzl",
+    "DSYM_SUBTARGET",
+    "DWARF_AND_DSYM_SUBTARGET",
+    "EXTENDED_DSYM_INFO_SUBTARGET",
+    "get_apple_dsym",
+    "get_apple_dsym_info_json",
+    "get_deps_debuggable_infos",
+)
 load(":apple_entitlements.bzl", "entitlements_link_flags")
 load(":apple_rpaths.bzl", "get_rpath_flags_for_tests")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
@@ -63,12 +71,16 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         test_host_app_binary = _get_test_host_app_binary(ctx, test_host_app_bundle)
         ui_test_target_app_bundle = _get_ui_test_target_app_bundle(ctx)
 
-        objc_bridging_header_flags = [
-            # Disable bridging header -> PCH compilation to mitigate an issue in Xcode 13 beta.
-            "-disable-bridging-pch",
-            "-import-objc-header",
-            cmd_args(ctx.attrs.bridging_header),
-        ] if ctx.attrs.bridging_header else []
+        objc_bridging_header_flags = (
+            [
+                # Disable bridging header -> PCH compilation to mitigate an issue in Xcode 13 beta.
+                "-disable-bridging-pch",
+                "-import-objc-header",
+                cmd_args(ctx.attrs.bridging_header),
+            ]
+            if ctx.attrs.bridging_header
+            else []
+        )
 
         shared_library_flags = ["-bundle"]
 
@@ -110,7 +122,9 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
                     shared_libraries = False,
                     template_placeholders = False,
                 ),
-                populate_xcode_attributes_func = lambda local_ctx, **kwargs: _xcode_populate_attributes(ctx = local_ctx, xctest_bundle = xctest_bundle, test_host_app_binary = test_host_app_binary, test_host_app_bundle = test_host_app_bundle, **kwargs),
+                populate_xcode_attributes_func = lambda local_ctx, **kwargs: _xcode_populate_attributes(
+                    ctx = local_ctx, xctest_bundle = xctest_bundle, test_host_app_binary = test_host_app_binary, test_host_app_bundle = test_host_app_bundle, **kwargs
+                ),
                 # We want to statically link the transitive dep graph of the apple_test()
                 # which we can achieve by forcing link group linking with
                 # an empty mapping (i.e., default mapping).
@@ -204,26 +218,38 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         sub_targets["ui-test-target"] = [DefaultInfo(default_output = ui_test_target_app_bundle)] if ui_test_target_app_bundle else [DefaultInfo()]
 
         sub_targets[DWARF_AND_DSYM_SUBTARGET] = [
-            DefaultInfo(default_output = xctest_bundle, other_outputs = [dsym_artifact], sub_targets = {_XCTOOLCHAIN_SUB_TARGET: ctx.attrs._apple_xctoolchain.providers}),
+            DefaultInfo(
+                default_output = xctest_bundle, other_outputs = [dsym_artifact], sub_targets = {_XCTOOLCHAIN_SUB_TARGET: ctx.attrs._apple_xctoolchain.providers}
+            ),
             _get_test_info(ctx, xctest_bundle, test_host_app_bundle, dsym_artifact, ui_test_target_app_bundle),
         ]
 
         sub_targets[_XCTOOLCHAIN_SUB_TARGET] = ctx.attrs._apple_xctoolchain.providers
 
-        return [
-            DefaultInfo(default_output = xctest_bundle, sub_targets = sub_targets),
-            _get_test_info(ctx, xctest_bundle, test_host_app_bundle, ui_test_target_app_bundle = ui_test_target_app_bundle),
-            cxx_library_output.index_store_info,
-            cxx_library_output.xcode_data_info,
-            cxx_library_output.cxx_compilationdb_info,
-        ] + bundle_result.providers + cxx_providers
+        return (
+            [
+                DefaultInfo(default_output = xctest_bundle, sub_targets = sub_targets),
+                _get_test_info(ctx, xctest_bundle, test_host_app_bundle, ui_test_target_app_bundle = ui_test_target_app_bundle),
+                cxx_library_output.index_store_info,
+                cxx_library_output.xcode_data_info,
+                cxx_library_output.cxx_compilationdb_info,
+            ]
+            + bundle_result.providers
+            + cxx_providers
+        )
 
     if uses_explicit_modules(ctx):
         return get_swift_anonymous_targets(ctx, get_apple_test_providers)
     else:
         return get_apple_test_providers([])
 
-def _get_test_info(ctx: AnalysisContext, xctest_bundle: Artifact, test_host_app_bundle: Artifact | None, dsym_artifact: Artifact | None = None, ui_test_target_app_bundle: Artifact | None = None) -> Provider:
+def _get_test_info(
+    ctx: AnalysisContext,
+    xctest_bundle: Artifact,
+    test_host_app_bundle: Artifact | None,
+    dsym_artifact: Artifact | None = None,
+    ui_test_target_app_bundle: Artifact | None = None,
+) -> Provider:
     # When interacting with Tpx, we just pass our various inputs via env vars,
     # since Tpx basically wants structured output for this.
 
@@ -295,7 +321,7 @@ def _get_test_info(ctx: AnalysisContext, xctest_bundle: Artifact, test_host_app_
     )
 
 def _get_test_host_app_bundle(ctx: AnalysisContext) -> Artifact | None:
-    """ Get the bundle for the test host app, if one exists for this test. """
+    """Get the bundle for the test host app, if one exists for this test."""
     if ctx.attrs.test_host_app:
         # Copy the test host app bundle into test's output directory
         original_bundle = ctx.attrs.test_host_app[AppleBundleInfo].bundle
@@ -306,7 +332,7 @@ def _get_test_host_app_bundle(ctx: AnalysisContext) -> Artifact | None:
     return None
 
 def _get_test_host_app_binary(ctx: AnalysisContext, test_host_app_bundle: Artifact | None) -> [cmd_args, None]:
-    """ Reference to the binary with the test host app bundle, if one exists for this test. Captures the bundle as an artifact in the cmd_args. """
+    """Reference to the binary with the test host app bundle, if one exists for this test. Captures the bundle as an artifact in the cmd_args."""
     if ctx.attrs.test_host_app == None:
         return None
 
@@ -318,7 +344,7 @@ def _get_test_host_app_binary(ctx: AnalysisContext, test_host_app_bundle: Artifa
     return cmd_args(parts, delimiter = "/")
 
 def _get_ui_test_target_app_bundle(ctx: AnalysisContext) -> Artifact | None:
-    """ Get the bundle for the ui test target app, if one exists for this test. """
+    """Get the bundle for the ui test target app, if one exists for this test."""
     if ctx.attrs.ui_test_target_app:
         # Copy the ui test target app bundle into test's output directory
         original_bundle = ctx.attrs.ui_test_target_app[AppleBundleInfo].bundle
@@ -337,13 +363,14 @@ def _get_bundle_loader_flags(binary: [cmd_args, None]) -> list[typing.Any]:
     return []
 
 def _xcode_populate_attributes(
-        ctx: AnalysisContext,
-        srcs: list[CxxSrcWithFlags],
-        argsfiles: dict[str, CompileArgsfile],
-        xctest_bundle: Artifact,
-        test_host_app_binary: [cmd_args, None],
-        test_host_app_bundle: Artifact | None,
-        **_kwargs) -> dict[str, typing.Any]:
+    ctx: AnalysisContext,
+    srcs: list[CxxSrcWithFlags],
+    argsfiles: dict[str, CompileArgsfile],
+    xctest_bundle: Artifact,
+    test_host_app_binary: [cmd_args, None],
+    test_host_app_bundle: Artifact | None,
+    **_kwargs,
+) -> dict[str, typing.Any]:
     data = apple_populate_xcode_attributes(ctx = ctx, srcs = srcs, argsfiles = argsfiles, product_name = ctx.attrs.name)
     data[XcodeDataInfoKeys.OUTPUT] = xctest_bundle
 

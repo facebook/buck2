@@ -33,10 +33,8 @@ def _get_re_arg(ctx: AnalysisContext) -> ReArg:
             # If this is a string, look up the re_props on the RE toolchain.
             expect_non_none(ctx.attrs._remote_test_execution_toolchain)
             return ReArg(
-                re_props =
-                    ctx.attrs._remote_test_execution_toolchain[RemoteTestExecutionToolchainInfo].profiles[ctx.attrs.remote_execution],
-                default_run_as_bundle =
-                    ctx.attrs._remote_test_execution_toolchain[RemoteTestExecutionToolchainInfo].default_run_as_bundle,
+                re_props = ctx.attrs._remote_test_execution_toolchain[RemoteTestExecutionToolchainInfo].profiles[ctx.attrs.remote_execution],
+                default_run_as_bundle = ctx.attrs._remote_test_execution_toolchain[RemoteTestExecutionToolchainInfo].default_run_as_bundle,
             )
 
         return ReArg(re_props = ctx.attrs.remote_execution, default_run_as_bundle = False)
@@ -58,7 +56,9 @@ def maybe_add_run_as_bundle_label(ctx: AnalysisContext, labels: list[str]) -> No
     if re_arg.default_run_as_bundle or read_config("tpx", "force_run_as_bundle") == "True":
         labels.extend(["run_as_bundle"])
 
-def get_re_executors_from_props(ctx: AnalysisContext, dynamic_image_override: [dict, None] = None) -> ([CommandExecutorConfig, None], dict[str, CommandExecutorConfig]):
+def get_re_executors_from_props(
+    ctx: AnalysisContext, dynamic_image_override: [dict, None] = None
+) -> ([CommandExecutorConfig, None], dict[str, CommandExecutorConfig]):
     """
     Convert the `remote_execution` properties param into `CommandExecutorConfig` objects to use with test providers.
 

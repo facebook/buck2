@@ -10,11 +10,12 @@ load("@prelude//utils:expect.bzl", "expect")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 
 def check_sub_target(
-        ctx: AnalysisContext,
-        diagnostics: dict[str, Artifact],
-        error_handler: [typing.Callable, None] = None,
-        output_name: str = "diagnostics.txt",
-        extra_sub_targets: dict[str, Artifact] = {}) -> (list[Provider], Artifact):
+    ctx: AnalysisContext,
+    diagnostics: dict[str, Artifact],
+    error_handler: [typing.Callable, None] = None,
+    output_name: str = "diagnostics.txt",
+    extra_sub_targets: dict[str, Artifact] = {},
+) -> (list[Provider], Artifact):
     expect(len(diagnostics) > 0)
 
     if len(diagnostics) == 1:
@@ -34,14 +35,13 @@ def check_sub_target(
             error_handler = error_handler,
         )
 
-    all_sub_targets = {
-        short_path: [DefaultInfo(default_output = diag)]
-        for short_path, diag in diagnostics.items()
-    }
+    all_sub_targets = {short_path: [DefaultInfo(default_output = diag)] for short_path, diag in diagnostics.items()}
     for short_path, diag in extra_sub_targets.items():
         all_sub_targets[short_path] = [DefaultInfo(default_output = diag)]
 
-    return [DefaultInfo(
-        default_output = all_diagnostics,
-        sub_targets = all_sub_targets,
-    )], all_diagnostics
+    return [
+        DefaultInfo(
+            default_output = all_diagnostics,
+            sub_targets = all_sub_targets,
+        )
+    ], all_diagnostics

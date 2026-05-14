@@ -83,7 +83,7 @@ def _generate_iphonesimulator_select_maps(prebuilt_xcframework_args, **kwargs):
         platform_filter = lambda platform: platform["platform"] == "ios" and platform["isSimulator"] and not platform["isCatalyst"],
         default_arch = AppleArch("arm64"),
         default_target_platform = "ovr_config//platform/iphoneos:iphonesimulator-arm64",
-        **kwargs
+        **kwargs,
     )
 
 def _generate_iphone_select_maps(prebuilt_xcframework_args, **kwargs):
@@ -92,7 +92,7 @@ def _generate_iphone_select_maps(prebuilt_xcframework_args, **kwargs):
         platform_filter = lambda platform: platform["platform"] == "ios" and not platform["isSimulator"] and not platform["isCatalyst"],
         default_arch = None,
         default_target_platform = "ovr_config//platform/iphoneos:iphoneos-arm64",
-        **kwargs
+        **kwargs,
     )
 
 def _generate_mac_select_maps(prebuilt_xcframework_args, **kwargs):
@@ -101,7 +101,7 @@ def _generate_mac_select_maps(prebuilt_xcframework_args, **kwargs):
         platform_filter = lambda platform: platform["platform"] == "macos",
         default_arch = None,
         default_target_platform = "ovr_config//platform/macos:arm64-fbsource",
-        **kwargs
+        **kwargs,
     )
 
 def _generate_maccatalyst_select_maps(prebuilt_xcframework_args, **kwargs):
@@ -110,10 +110,20 @@ def _generate_maccatalyst_select_maps(prebuilt_xcframework_args, **kwargs):
         platform_filter = lambda platform: platform["platform"] == "ios" and not platform["isSimulator"] and platform["isCatalyst"],
         default_arch = None,
         default_target_platform = "ovr_config//platform/macos:arm64-catalyst",
-        **kwargs
+        **kwargs,
     )
 
-def prebuilt_apple_xcframework_macro_impl(prebuilt_apple_framework_rule, filegroup_rule, name, xcframework, framework_name, framework_platforms, framework_platforms_to_dsym_filenames = {}, default_target_platform = None, **kwargs):
+def prebuilt_apple_xcframework_macro_impl(
+    prebuilt_apple_framework_rule,
+    filegroup_rule,
+    name,
+    xcframework,
+    framework_name,
+    framework_platforms,
+    framework_platforms_to_dsym_filenames = {},
+    default_target_platform = None,
+    **kwargs,
+):
     compatible_with = kwargs.pop("compatible_with", None)
 
     parsed_platforms = [_parse_platform(platform) for platform in framework_platforms]
@@ -229,7 +239,7 @@ def prebuilt_apple_xcframework_macro_impl(prebuilt_apple_framework_rule, filegro
         dsyms = select(dsym_select_map),
         default_target_platform = default_target_platform,
         compatible_with = compatible_with,
-        **kwargs
+        **kwargs,
     )
 
 def _parse_platform(name):

@@ -57,9 +57,11 @@ def cxx_generic_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
     if len(structured_error) == 0:
         for error_type in CXX_GENERIC_ERROR_TYPES:
             if _match(error_type.matcher, ctx.stderr.lower()):
-                categories.append(ctx.new_sub_error(
-                    category = "cxx_{}".format(error_type.category_suffix),
-                ))
+                categories.append(
+                    ctx.new_sub_error(
+                        category = "cxx_{}".format(error_type.category_suffix),
+                    )
+                )
 
     return structured_error + categories
 
@@ -86,7 +88,6 @@ CXX_GENERIC_ERROR_TYPES = [
         matcher = "cannot be used against local symbol",
         category_suffix = "linker_relocation",
     ),
-
     # compilation errors
     make_error_type(
         matcher = "file not found",
@@ -180,7 +181,6 @@ CXX_GENERIC_ERROR_TYPES = [
         matcher = "Wpadded",
         category_suffix = "padding_error",
     ),
-
     # compiler errors matched by regex
     make_error_type(
         matcher = regex("no member named '.+' in"),

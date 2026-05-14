@@ -26,11 +26,7 @@ def python_needed_coverage_test_impl(ctx: AnalysisContext) -> list[Provider]:
     needed_coverages = parse_python_needed_coverage_specs(ctx.attrs.needed_coverage)
     test_cmd.append("--collect-coverage")
     test_cmd.append("--coverage-include")
-    test_cmd.append(",".join([
-        "*/{}".format(module)
-        for needed_coverage in needed_coverages
-        for module in needed_coverage.modules
-    ]))
+    test_cmd.append(",".join(["*/{}".format(module) for needed_coverage in needed_coverages for module in needed_coverage.modules]))
     for needed_coverage in needed_coverages:
         for module in needed_coverage.modules:
             test_cmd.append("--coverage-verdict={}={}".format(module, needed_coverage.ratio))

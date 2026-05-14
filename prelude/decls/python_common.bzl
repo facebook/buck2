@@ -15,76 +15,108 @@ PythonBuckConfigPackageStyle = ["standalone", "inplace", "outplace"]
 
 def _srcs_arg():
     return {
-        "srcs": attrs.named_set(attrs.source(), sorted = True, default = [], doc = """
+        "srcs": attrs.named_set(
+            attrs.source(),
+            sorted = True,
+            default = [],
+            doc = """
     The set of Python (`.py`) files to include in this library.
-"""),
+""",
+        ),
     }
 
 def _resources_arg():
     return {
-        "resources": attrs.named_set(attrs.source(), sorted = True, default = [], doc = """
+        "resources": attrs.named_set(
+            attrs.source(),
+            sorted = True,
+            default = [],
+            doc = """
     Static files to be packaged along with the Python sources.
      These resources can be accessed at runtime using
      the [importlib.resources](https://docs.python.org/3/library/importlib.resources.html) module
      from the Python standard library.
-"""),
+""",
+        ),
     }
 
 def _base_module_arg():
     return {
-        "base_module": attrs.option(attrs.string(), default = None, doc = """
+        "base_module": attrs.option(
+            attrs.string(),
+            default = None,
+            doc = """
     The package in which the specified source files and resources should reside in their final
      location in the top-level binary. If unset, Buck uses the project-relative directory
      that contains the BUCK file.
-"""),
+""",
+        ),
     }
 
 def _linker_flags_arg():
     return {
-        "linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = [], doc = """
+        "linker_flags": attrs.list(
+            attrs.arg(anon_target_compatible = True),
+            default = [],
+            doc = """
     Additional linker flags that should be applied to any linking which is specific to this rule.
      Note that whether these flags are used is dependent on the native link strategy selected in
      `.buckconfig` and currently applies only to the merged `.buckconfig`;
      the `separate` link strategy pulls in shared libraries that are linked in the
      context of the rules that own them, such as `cxx_library()`.
-"""),
+""",
+        ),
     }
 
 def _package_style_arg():
     return {
-        "package_style": attrs.option(attrs.enum(PythonBuckConfigPackageStyle), default = None, doc = """
+        "package_style": attrs.option(
+            attrs.enum(PythonBuckConfigPackageStyle),
+            default = None,
+            doc = """
     Used to override the global packaging style that is set in `[`.buckconfig`
     ]`.
-"""),
+""",
+        ),
     }
 
 def _preload_deps_arg():
     return {
-        "preload_deps": attrs.list(attrs.dep(), default = [], doc = """
+        "preload_deps": attrs.list(
+            attrs.dep(),
+            default = [],
+            doc = """
     A list of C/C++ library dependencies that need to be loaded before any
      other libraries when the PEX starts up. This requires dynamic loader support,
      such as `LD_PRELOAD`, found on most systems. This list is order-
      sensitive and the preload libraries listed here are passed down to the dynamic
      linker in the same order.
-"""),
+""",
+        ),
     }
 
 def _exclude_deps_from_merged_linking_arg():
     return {
-        "exclude_deps_from_merged_linking": attrs.bool(default = False, doc = """
+        "exclude_deps_from_merged_linking": attrs.bool(
+            default = False,
+            doc = """
     When linking the top-level binary with a `merged` ``.buckconfig``,
      do not merge or re-link any native transitive deps of this library. This is useful if
      this library wraps prebuilt native extensions which cannot be re-linked as part of
      library merging.
-"""),
+""",
+        ),
     }
 
 def _deduplicate_merged_link_roots():
     return {
-        "deduplicate_merged_link_roots": attrs.bool(default = True, doc = """
+        "deduplicate_merged_link_roots": attrs.bool(
+            default = True,
+            doc = """
     When linking multiple top-level binaries with the `merged` ``.buckconfig``,
      coalesce root link rules which are identical across independent merged links.
-"""),
+""",
+        ),
     }
 
 def _version_selections_arg():
@@ -105,17 +137,26 @@ def _executable_deps_arg():
 
 def _deps_arg():
     return {
-        "deps": attrs.list(attrs.dep(), default = [], doc = """
+        "deps": attrs.list(
+            attrs.dep(),
+            default = [],
+            doc = """
             A list of `python_library()` rules that specify Python
                 modules to include in the binary — including all transitive
                 dependencies of these rules.
-        """),
+        """,
+        ),
     }
 
 def _internal_tools_arg():
-    return attrs.default_only(attrs.toolchain_dep(default = "prelude//python/tools:python_internal_tools", doc = """
+    return attrs.default_only(
+        attrs.toolchain_dep(
+            default = "prelude//python/tools:python_internal_tools",
+            doc = """
         Internal implementation details of the Python rules.
-    """))
+    """,
+        )
+    )
 
 python_common = struct(
     srcs_arg = _srcs_arg,

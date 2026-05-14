@@ -85,9 +85,7 @@ def _get_dex_compression(ctx: AnalysisContext) -> str:
 
     return dex_compression
 
-def get_split_dex_merge_config(
-        ctx: AnalysisContext,
-        android_toolchain: AndroidToolchainInfo) -> SplitDexMergeConfig:
+def get_split_dex_merge_config(ctx: AnalysisContext, android_toolchain: AndroidToolchainInfo) -> SplitDexMergeConfig:
     secondary_dex_weight_limit = getattr(ctx.attrs, "secondary_dex_weight_limit", None) or android_toolchain.secondary_dex_weight_limit
     return SplitDexMergeConfig(
         dex_compression = _get_dex_compression(ctx),
@@ -96,10 +94,8 @@ def get_split_dex_merge_config(
     )
 
 def get_single_primary_dex(
-        ctx: AnalysisContext,
-        android_toolchain: AndroidToolchainInfo,
-        java_library_jars: list[Artifact],
-        is_optimized: bool = False) -> DexFilesInfo:
+    ctx: AnalysisContext, android_toolchain: AndroidToolchainInfo, java_library_jars: list[Artifact], is_optimized: bool = False
+) -> DexFilesInfo:
     expect(
         not _is_exopackage_enabled_for_secondary_dex(ctx),
         "It doesn't make sense to enable secondary dex exopackage for single dex builds!",
@@ -135,16 +131,17 @@ def get_single_primary_dex(
     )
 
 def get_multi_dex(
-        ctx: AnalysisContext,
-        android_toolchain: AndroidToolchainInfo,
-        java_library_jars_to_owners: dict[Artifact, TargetLabel],
-        primary_dex_patterns: list[str],
-        proguard_configuration_output_file: Artifact | None = None,
-        proguard_mapping_output_file: Artifact | None = None,
-        is_optimized: bool = False,
-        apk_module_graph_file: Artifact | None = None,
-        enable_bootstrap_dexes = False,
-        multidex_min_api: str | None = None) -> DexFilesInfo:
+    ctx: AnalysisContext,
+    android_toolchain: AndroidToolchainInfo,
+    java_library_jars_to_owners: dict[Artifact, TargetLabel],
+    primary_dex_patterns: list[str],
+    proguard_configuration_output_file: Artifact | None = None,
+    proguard_mapping_output_file: Artifact | None = None,
+    is_optimized: bool = False,
+    apk_module_graph_file: Artifact | None = None,
+    enable_bootstrap_dexes = False,
+    multidex_min_api: str | None = None,
+) -> DexFilesInfo:
     expect(
         not _is_exopackage_enabled_for_secondary_dex(ctx),
         "secondary dex exopackage can only be enabled on pre-dexed builds!",
@@ -156,7 +153,11 @@ def get_multi_dex(
 
     # dynamic actions are not valid with no input, but it's easier to use the same code regardless,
     # so just create an empty input.
-    inputs = [apk_module_graph_file] if apk_module_graph_file else [ctx.actions.write("empty_artifact_for_multi_dex_dynamic_action", [], has_content_based_path = False)]
+    inputs = (
+        [apk_module_graph_file]
+        if apk_module_graph_file
+        else [ctx.actions.write("empty_artifact_for_multi_dex_dynamic_action", [], has_content_based_path = False)]
+    )
     outputs = [primary_dex_file, primary_dex_class_names, root_module_secondary_dex_output_dir, secondary_dex_dir]
     root_module_bootstrap_dex_output_dir = None
     if enable_bootstrap_dexes:
@@ -164,7 +165,9 @@ def get_multi_dex(
         outputs.append(root_module_bootstrap_dex_output_dir)
 
     def do_multi_dex(ctx: AnalysisContext, artifacts, outputs):
-        apk_module_graph_info = get_apk_module_graph_info(ctx, apk_module_graph_file, artifacts) if apk_module_graph_file else get_root_module_only_apk_module_graph_info()
+        apk_module_graph_info = (
+            get_apk_module_graph_info(ctx, apk_module_graph_file, artifacts) if apk_module_graph_file else get_root_module_only_apk_module_graph_info()
+        )
         target_to_module_mapping_function = apk_module_graph_info.target_to_module_mapping_function
         module_to_jars = {}
         for java_library_jar, owner in java_library_jars_to_owners.items():
@@ -178,7 +181,9 @@ def get_multi_dex(
             multi_dex_cmd = cmd_args(android_toolchain.multi_dex_command[RunInfo])
             secondary_dex_compression_cmd = cmd_args(android_toolchain.secondary_dex_compression_command[RunInfo])
 
-            uncompressed_secondary_dex_output_dir = ctx.actions.declare_output("uncompressed_secondary_dex_output_dir_for_module_{}".format(module), dir = True, has_content_based_path = False)
+            uncompressed_secondary_dex_output_dir = ctx.actions.declare_output(
+                "uncompressed_secondary_dex_output_dir_for_module_{}".format(module), dir = True, has_content_based_path = False
+            )
             multi_dex_cmd.add("--secondary-dex-output-dir", uncompressed_secondary_dex_output_dir.as_output())
             secondary_dex_compression_cmd.add("--raw-secondary-dexes-dir", uncompressed_secondary_dex_output_dir)
             if is_root_module(module):
@@ -212,10 +217,17 @@ def get_multi_dex(
                 multi_dex_cmd.add("--primary-dex-class-names", outputs[primary_dex_class_names].as_output())
                 secondary_dex_compression_cmd.add("--secondary-dex-output-dir", outputs[root_module_secondary_dex_output_dir].as_output())
             else:
-                secondary_dex_dir_for_module = ctx.actions.declare_output("secondary_dex_output_dir_for_module_{}".format(module), dir = True, has_content_based_path = False)
+                secondary_dex_dir_for_module = ctx.actions.declare_output(
+                    "secondary_dex_output_dir_for_module_{}".format(module), dir = True, has_content_based_path = False
+                )
                 secondary_dex_subdir = secondary_dex_dir_for_module.project(_get_secondary_dex_subdir(module))
                 secondary_dex_dir_srcs[_get_secondary_dex_subdir(module)] = secondary_dex_subdir
-                secondary_dex_compression_cmd.add("--module-deps", ctx.actions.write("module_deps_for_{}".format(module), apk_module_graph_info.module_to_module_deps_function(module), has_content_based_path = False))
+                secondary_dex_compression_cmd.add(
+                    "--module-deps",
+                    ctx.actions.write(
+                        "module_deps_for_{}".format(module), apk_module_graph_info.module_to_module_deps_function(module), has_content_based_path = False
+                    ),
+                )
                 secondary_dex_compression_cmd.add("--secondary-dex-output-dir", secondary_dex_dir_for_module.as_output())
                 jars_to_dex = jars
                 multi_dex_cmd.add("--classpath-files", all_jars_list)
@@ -273,13 +285,14 @@ def get_multi_dex(
     )
 
 def _get_primary_dex_and_secondary_dex_jars(
-        ctx: AnalysisContext,
-        jars: list[Artifact],
-        java_library_jars_to_owners: dict[Artifact, TargetLabel],
-        primary_dex_patterns_file: Artifact,
-        proguard_configuration_output_file: Artifact | None,
-        proguard_mapping_output_file: Artifact | None,
-        android_toolchain: AndroidToolchainInfo) -> (list[Artifact], list[Artifact]):
+    ctx: AnalysisContext,
+    jars: list[Artifact],
+    java_library_jars_to_owners: dict[Artifact, TargetLabel],
+    primary_dex_patterns_file: Artifact,
+    proguard_configuration_output_file: Artifact | None,
+    proguard_mapping_output_file: Artifact | None,
+    android_toolchain: AndroidToolchainInfo,
+) -> (list[Artifact], list[Artifact]):
     primary_dex_jars = []
     secondary_dex_jars = []
     for jar in jars:
@@ -315,10 +328,7 @@ def _get_primary_dex_and_secondary_dex_jars(
 
     return primary_dex_jars, secondary_dex_jars
 
-def merge_to_single_dex(
-        ctx: AnalysisContext,
-        android_toolchain: AndroidToolchainInfo,
-        pre_dexed_libs: list[DexLibraryInfo]) -> DexFilesInfo:
+def merge_to_single_dex(ctx: AnalysisContext, android_toolchain: AndroidToolchainInfo, pre_dexed_libs: list[DexLibraryInfo]) -> DexFilesInfo:
     expect(
         not _is_exopackage_enabled_for_secondary_dex(ctx),
         "It doesn't make sense to enable secondary dex exopackage for single dex builds!",
@@ -373,11 +383,8 @@ SecondaryDexMetadataConfig = record(
 )
 
 def _get_secondary_dex_jar_metadata_config(
-        actions: AnalysisActions,
-        secondary_dex_path: str,
-        module: str,
-        module_to_canary_class_name_function: typing.Callable,
-        index: int) -> SecondaryDexMetadataConfig:
+    actions: AnalysisActions, secondary_dex_path: str, module: str, module_to_canary_class_name_function: typing.Callable, index: int
+) -> SecondaryDexMetadataConfig:
     secondary_dex_metadata_path = secondary_dex_path + ".meta"
     return SecondaryDexMetadataConfig(
         secondary_dex_compression = "jar",
@@ -388,10 +395,8 @@ def _get_secondary_dex_jar_metadata_config(
     )
 
 def _get_secondary_dex_raw_metadata_config(
-        actions: AnalysisActions,
-        module: str,
-        module_to_canary_class_name_function: typing.Callable,
-        index: int) -> SecondaryDexMetadataConfig:
+    actions: AnalysisActions, module: str, module_to_canary_class_name_function: typing.Callable, index: int
+) -> SecondaryDexMetadataConfig:
     return SecondaryDexMetadataConfig(
         secondary_dex_compression = "raw",
         secondary_dex_metadata_path = None,
@@ -404,12 +409,15 @@ def _get_filter_dex_batch_size() -> int:
     return 100
 
 def _filter_pre_dexed_libs(
-        actions: AnalysisActions,
-        android_toolchain: AndroidToolchainInfo,
-        primary_dex_patterns_file: Artifact,
-        pre_dexed_libs: list[DexLibraryInfo],
-        batch_number: int) -> DexInputsWithClassNamesAndWeightEstimatesFile:
-    weight_estimate_and_filtered_class_names_file = actions.declare_output("class_names_and_weight_estimates_for_batch_{}".format(batch_number), has_content_based_path = False)
+    actions: AnalysisActions,
+    android_toolchain: AndroidToolchainInfo,
+    primary_dex_patterns_file: Artifact,
+    pre_dexed_libs: list[DexLibraryInfo],
+    batch_number: int,
+) -> DexInputsWithClassNamesAndWeightEstimatesFile:
+    weight_estimate_and_filtered_class_names_file = actions.declare_output(
+        "class_names_and_weight_estimates_for_batch_{}".format(batch_number), has_content_based_path = False
+    )
 
     filter_dex_cmd_args = cmd_args([
         "--primary-dex-patterns",
@@ -442,7 +450,9 @@ def _filter_pre_dexed_libs(
         error_handler = android_toolchain.android_error_handler,
     )
 
-    return DexInputsWithClassNamesAndWeightEstimatesFile(libs = pre_dexed_libs, weight_estimate_and_filtered_class_names_file = weight_estimate_and_filtered_class_names_file)
+    return DexInputsWithClassNamesAndWeightEstimatesFile(
+        libs = pre_dexed_libs, weight_estimate_and_filtered_class_names_file = weight_estimate_and_filtered_class_names_file
+    )
 
 _SortedPreDexedInputs = record(
     module = str,
@@ -451,10 +461,8 @@ _SortedPreDexedInputs = record(
 )
 
 def write_metadata_dot_txts_impl(
-        actions: AnalysisActions,
-        metadata_lines: list[str],
-        metadata_line_artifacts: list[ArtifactValue],
-        metadata_dot_txt_output: OutputArtifact):
+    actions: AnalysisActions, metadata_lines: list[str], metadata_line_artifacts: list[ArtifactValue], metadata_dot_txt_output: OutputArtifact
+):
     actions.write(metadata_dot_txt_output, metadata_lines + [a.read_string().strip() for a in metadata_line_artifacts])
     return []
 
@@ -468,25 +476,28 @@ _write_metadata_dot_txts_dynamic_action = dynamic_actions(
 )
 
 def merge_to_split_dex(
-        ctx: AnalysisContext,
-        android_toolchain: AndroidToolchainInfo,
-        pre_dexed_libs: list[DexLibraryInfo],
-        split_dex_merge_config: SplitDexMergeConfig,
-        apk_module_graph_file: Artifact | None = None,
-        enable_bootstrap_dexes: bool = False) -> DexFilesInfo:
+    ctx: AnalysisContext,
+    android_toolchain: AndroidToolchainInfo,
+    pre_dexed_libs: list[DexLibraryInfo],
+    split_dex_merge_config: SplitDexMergeConfig,
+    apk_module_graph_file: Artifact | None = None,
+    enable_bootstrap_dexes: bool = False,
+) -> DexFilesInfo:
     is_exopackage_enabled_for_secondary_dex = _is_exopackage_enabled_for_secondary_dex(ctx)
     if is_exopackage_enabled_for_secondary_dex:
         supported_dex_compression = ["jar", "raw"]
         expect(
             split_dex_merge_config.dex_compression in supported_dex_compression,
-            "Exopackage can only be enabled for secondary dexes when the dex compression is {}, but the dex compression is '{}'".format(supported_dex_compression, split_dex_merge_config.dex_compression),
+            "Exopackage can only be enabled for secondary dexes when the dex compression is {}, but the dex compression is '{}'".format(
+                supported_dex_compression, split_dex_merge_config.dex_compression
+            ),
         )
     primary_dex_patterns_file = ctx.actions.write("primary_dex_patterns_file", split_dex_merge_config.primary_dex_patterns, has_content_based_path = False)
 
     pre_dexed_libs_with_class_names_and_weight_estimates_files = []
 
     batch_size = _get_filter_dex_batch_size()
-    for (batch_number, start_index) in enumerate(range(0, len(pre_dexed_libs), batch_size)):
+    for batch_number, start_index in enumerate(range(0, len(pre_dexed_libs), batch_size)):
         end_index = min(start_index + batch_size, len(pre_dexed_libs))
         pre_dexed_libs_with_class_names_and_weight_estimates_files.append(
             _filter_pre_dexed_libs(
@@ -515,10 +526,7 @@ def merge_to_split_dex(
         # Run the sort_pre_dexed_files tool to produce a dex plan.
         # This replaces _sort_pre_dexed_files() which previously ran inside the lambda,
         # taking ~3-4 seconds in the Starlark interpreter. The Python tool completes in ~50ms.
-        filter_dex_output_files = [
-            input.weight_estimate_and_filtered_class_names_file
-            for input in pre_dexed_libs_with_class_names_and_weight_estimates_files
-        ]
+        filter_dex_output_files = [input.weight_estimate_and_filtered_class_names_file for input in pre_dexed_libs_with_class_names_and_weight_estimates_files]
         dex_plan_file = ctx.actions.declare_output("dex_plan.json", has_content_based_path = False)
         sort_cmd = cmd_args([
             sort_pre_dexed_files_tool[RunInfo],
@@ -547,10 +555,9 @@ def merge_to_split_dex(
         if apk_module_graph_file:
             input_artifacts.append(apk_module_graph_file)
     else:
-        input_artifacts = [
-            input.weight_estimate_and_filtered_class_names_file
-            for input in pre_dexed_libs_with_class_names_and_weight_estimates_files
-        ] + ([apk_module_graph_file] if apk_module_graph_file else [])
+        input_artifacts = [input.weight_estimate_and_filtered_class_names_file for input in pre_dexed_libs_with_class_names_and_weight_estimates_files] + (
+            [apk_module_graph_file] if apk_module_graph_file else []
+        )
     primary_dex_artifact_list = ctx.actions.declare_output("pre_dexed_artifacts_for_primary_dex.txt", has_content_based_path = False)
     primary_dex_output = ctx.actions.declare_output("classes.dex", has_content_based_path = False)
     primary_dex_class_names_list = ctx.actions.declare_output("primary_dex_class_names_list.txt", has_content_based_path = False)
@@ -560,12 +567,21 @@ def merge_to_split_dex(
     root_module_secondary_dexes_metadata = root_module_secondary_dexes_dir.project(paths.join(_get_secondary_dex_subdir(ROOT_MODULE), "metadata.txt"))
     non_root_module_secondary_dexes_dir = ctx.actions.declare_output("non_root_module_secondary_dexes_dir", dir = True, has_content_based_path = False)
 
-    outputs = [primary_dex_output, primary_dex_artifact_list, primary_dex_class_names_list, root_module_bootstrap_dexes_dir, root_module_secondary_dexes_dir, non_root_module_secondary_dexes_dir]
+    outputs = [
+        primary_dex_output,
+        primary_dex_artifact_list,
+        primary_dex_class_names_list,
+        root_module_bootstrap_dexes_dir,
+        root_module_secondary_dexes_dir,
+        non_root_module_secondary_dexes_dir,
+    ]
 
     def merge_pre_dexed_libs(ctx: AnalysisContext, artifacts, outputs):
         # We still need the module graph info for metadata.txt generation (module deps)
         # and for the fallback path.
-        apk_module_graph_info = get_apk_module_graph_info(ctx, apk_module_graph_file, artifacts) if apk_module_graph_file else get_root_module_only_apk_module_graph_info()
+        apk_module_graph_info = (
+            get_apk_module_graph_info(ctx, apk_module_graph_file, artifacts) if apk_module_graph_file else get_root_module_only_apk_module_graph_info()
+        )
         module_to_canary_class_name_function = apk_module_graph_info.module_to_canary_class_name_function
 
         if dex_plan_file:
@@ -584,10 +600,12 @@ def merge_to_split_dex(
                 for group in groups:
                     inputs_for_group = []
                     for lib_id in group["lib_ids"]:
-                        inputs_for_group.append(DexInputWithSpecifiedClasses(
-                            lib = libs_by_id[lib_id],
-                            dex_class_names = [],  # class names come from the plan
-                        ))
+                        inputs_for_group.append(
+                            DexInputWithSpecifiedClasses(
+                                lib = libs_by_id[lib_id],
+                                dex_class_names = [],  # class names come from the plan
+                            )
+                        )
                     resolved.append(inputs_for_group)
                     class_names_list.append(group["class_names"])
                 return resolved, class_names_list
@@ -599,11 +617,13 @@ def merge_to_split_dex(
                 primary_groups, primary_class_names_list = resolve_plan_groups(module_plan["primary_groups"])
                 secondary_groups, secondary_class_names_list = resolve_plan_groups(module_plan["secondary_groups"])
 
-                sorted_pre_dexed_inputs.append(_SortedPreDexedInputs(
-                    module = module,
-                    primary_dex_inputs = primary_groups,
-                    secondary_dex_inputs = secondary_groups,
-                ))
+                sorted_pre_dexed_inputs.append(
+                    _SortedPreDexedInputs(
+                        module = module,
+                        primary_dex_inputs = primary_groups,
+                        secondary_dex_inputs = secondary_groups,
+                    )
+                )
 
                 for i, class_names in enumerate(primary_class_names_list):
                     plan_class_names[("primary", module, i)] = class_names
@@ -631,7 +651,9 @@ def merge_to_split_dex(
 
         for sorted_pre_dexed_input in sorted_pre_dexed_inputs:
             module = sorted_pre_dexed_input.module
-            secondary_dexes_for_symlinking = root_module_secondary_dexes_for_symlinking if is_root_module(module) else non_root_module_secondary_dexes_for_symlinking
+            secondary_dexes_for_symlinking = (
+                root_module_secondary_dexes_for_symlinking if is_root_module(module) else non_root_module_secondary_dexes_for_symlinking
+            )
 
             # Unpack since primary_dex_inputs is a list of lists (which may be a single list for status-quo behaviors)
             primary_dex_inputs = sorted_pre_dexed_input.primary_dex_inputs[0] if sorted_pre_dexed_input.primary_dex_inputs else []
@@ -659,7 +681,7 @@ def merge_to_split_dex(
                 base_apk_dex_files_count += 1
 
                 # If primary dex classes were spread to many based on weight, merge additional dex files here.
-                for (bootstrap_idx, bootstrap_dex_input_list) in enumerate(additional_base_apk_dex_inputs):
+                for bootstrap_idx, bootstrap_dex_input_list in enumerate(additional_base_apk_dex_inputs):
                     this_dex_number = base_apk_dex_files_count + 1
                     if plan_class_names:
                         bootstrap_class_names = plan_class_names[("primary", module, bootstrap_idx + 1)]
@@ -673,7 +695,9 @@ def merge_to_split_dex(
 
                     # Figure out the name of this file and prepare its location for symlinking in final output dir.
                     dex_file_name = "classes{}.dex".format(this_dex_number)
-                    bootstrap_dex_artifact_list = ctx.actions.declare_output("pre_dexed_artifacts_for_bootstrap_dex_{}.txt".format(this_dex_number), has_content_based_path = False)
+                    bootstrap_dex_artifact_list = ctx.actions.declare_output(
+                        "pre_dexed_artifacts_for_bootstrap_dex_{}.txt".format(this_dex_number), has_content_based_path = False
+                    )
                     bootstrap_dex_output = ctx.actions.declare_output(dex_file_name, has_content_based_path = False)
                     root_module_bootstrap_dexes_for_symlinking[dex_file_name] = bootstrap_dex_output
                     bootstrap_dex_artifacts = [bootstrap_dex_input.lib.dex for bootstrap_dex_input in bootstrap_dex_input_list]
@@ -700,10 +724,19 @@ def merge_to_split_dex(
                 if split_dex_merge_config.dex_compression in ["jar", "raw", "raw_subdir"]:
                     if split_dex_merge_config.dex_compression == "jar":
                         secondary_dex_path = _get_secondary_dex_subdir_path(i, module)
-                        secondary_dex_metadata_config = _get_secondary_dex_jar_metadata_config(ctx.actions, secondary_dex_path, module, module_to_canary_class_name_function, i)
-                        secondary_dexes_for_symlinking[secondary_dex_metadata_config.secondary_dex_metadata_path] = secondary_dex_metadata_config.secondary_dex_metadata_file
+                        secondary_dex_metadata_config = _get_secondary_dex_jar_metadata_config(
+                            ctx.actions, secondary_dex_path, module, module_to_canary_class_name_function, i
+                        )
+                        secondary_dexes_for_symlinking[secondary_dex_metadata_config.secondary_dex_metadata_path] = (
+                            secondary_dex_metadata_config.secondary_dex_metadata_file
+                        )
                     else:
-                        secondary_dex_path = _get_raw_secondary_dex_path(i, module, base_apk_dex_files_count, is_exopackage_enabled_for_secondary_dex or split_dex_merge_config.dex_compression == "raw_subdir")
+                        secondary_dex_path = _get_raw_secondary_dex_path(
+                            i,
+                            module,
+                            base_apk_dex_files_count,
+                            is_exopackage_enabled_for_secondary_dex or split_dex_merge_config.dex_compression == "raw_subdir",
+                        )
                         secondary_dex_metadata_config = _get_secondary_dex_raw_metadata_config(ctx.actions, module, module_to_canary_class_name_function, i)
 
                     secondary_dex_output = ctx.actions.declare_output(secondary_dex_path, has_content_based_path = False)
@@ -716,7 +749,9 @@ def merge_to_split_dex(
                     secondary_dex_metadata_config = None
 
                 this_dex_number = i + (base_apk_dex_files_count + 1 if is_root_module(module) else 2)
-                secondary_dex_artifact_list = ctx.actions.declare_output("pre_dexed_artifacts_for_secondary_dex_{}_for_module_{}.txt".format(this_dex_number, module), has_content_based_path = False)
+                secondary_dex_artifact_list = ctx.actions.declare_output(
+                    "pre_dexed_artifacts_for_secondary_dex_{}_for_module_{}.txt".format(this_dex_number, module), has_content_based_path = False
+                )
 
                 if plan_class_names:
                     # Fast path: class names from pre-computed plan, add canary class
@@ -760,7 +795,9 @@ def merge_to_split_dex(
                 secondary_dexes_for_symlinking[metadata_dot_txt_path] = metadata_dot_txt_file
                 metadata_dot_txt_files_by_module[module] = metadata_dot_txt_file
             else:
-                raw_secondary_dexes_dir = ctx.actions.symlinked_dir("raw_secondary_dexes_dir_for_module_{}".format(module), raw_secondary_dexes_for_compressing, has_content_based_path = False)
+                raw_secondary_dexes_dir = ctx.actions.symlinked_dir(
+                    "raw_secondary_dexes_dir_for_module_{}".format(module), raw_secondary_dexes_for_compressing, has_content_based_path = False
+                )
                 secondary_dex_dir_for_module = ctx.actions.declare_output("secondary_dexes_dir_for_{}".format(module), dir = True, has_content_based_path = False)
                 secondary_dex_subdir = secondary_dex_dir_for_module.project(_get_secondary_dex_subdir(module))
 
@@ -772,7 +809,12 @@ def merge_to_split_dex(
                 multi_dex_cmd.add("--module", module)
                 multi_dex_cmd.add("--canary-class-name", module_to_canary_class_name_function(module))
                 if not is_root_module(module):
-                    multi_dex_cmd.add("--module-deps", ctx.actions.write("module_deps_for_{}".format(module), apk_module_graph_info.module_to_module_deps_function(module), has_content_based_path = False))
+                    multi_dex_cmd.add(
+                        "--module-deps",
+                        ctx.actions.write(
+                            "module_deps_for_{}".format(module), apk_module_graph_info.module_to_module_deps_function(module), has_content_based_path = False
+                        ),
+                    )
 
                 ctx.actions.run(
                     multi_dex_cmd,
@@ -836,14 +878,15 @@ def merge_to_split_dex(
     )
 
 def _merge_dexes(
-        actions: AnalysisActions,
-        android_toolchain: AndroidToolchainInfo,
-        output_dex_file: Artifact,
-        pre_dexed_artifacts: list[Artifact],
-        pre_dexed_artifacts_file: Artifact,
-        class_names_to_include: Artifact | None = None,
-        secondary_output_dex_file: Artifact | None = None,
-        secondary_dex_metadata_config: [SecondaryDexMetadataConfig, None] = None):
+    actions: AnalysisActions,
+    android_toolchain: AndroidToolchainInfo,
+    output_dex_file: Artifact,
+    pre_dexed_artifacts: list[Artifact],
+    pre_dexed_artifacts_file: Artifact,
+    class_names_to_include: Artifact | None = None,
+    secondary_output_dex_file: Artifact | None = None,
+    secondary_dex_metadata_config: [SecondaryDexMetadataConfig, None] = None,
+):
     d8_cmd = cmd_args(android_toolchain.d8_command[RunInfo])
     d8_cmd.add(["--output-dex-file", output_dex_file.as_output()])
 
@@ -875,13 +918,14 @@ def _merge_dexes(
     )
 
 def _sort_pre_dexed_files(
-        ctx: AnalysisContext,
-        artifacts,
-        pre_dexed_libs_with_class_names_and_weight_estimates_files: list[DexInputsWithClassNamesAndWeightEstimatesFile],
-        split_dex_merge_config: SplitDexMergeConfig,
-        enable_bootstrap_dexes: bool,
-        get_module_from_target: typing.Callable,
-        module_to_canary_class_name_function: typing.Callable) -> list[_SortedPreDexedInputs]:
+    ctx: AnalysisContext,
+    artifacts,
+    pre_dexed_libs_with_class_names_and_weight_estimates_files: list[DexInputsWithClassNamesAndWeightEstimatesFile],
+    split_dex_merge_config: SplitDexMergeConfig,
+    enable_bootstrap_dexes: bool,
+    get_module_from_target: typing.Callable,
+    module_to_canary_class_name_function: typing.Callable,
+) -> list[_SortedPreDexedInputs]:
     sorted_pre_dexed_inputs_map = {}
 
     # DEX 64K limit enforcement.
@@ -913,21 +957,22 @@ def _sort_pre_dexed_files(
     current_secondary_dex_type_refs_map = {}
 
     def assign_pre_dexed_classes_to_secondary_dex(
-            dest: list[list[DexInputWithSpecifiedClasses]],
-            module: str,
-            lib: DexLibraryInfo,
-            weight_estimate: int,
-            dex_class_names: list[str],
-            current_dex_size_map: dict[str, int],  # module to size
-            current_dex_inputs_map: dict[str, list[DexInputWithSpecifiedClasses]],  # module to dex file that is being built up
-            emit_canaries: bool,
-            dex_weight_limit_bytes: int | None,
-            method_ref_count: int,
-            field_ref_count: int,
-            type_ref_count: int,
-            current_dex_method_refs_map: dict[str, int],
-            current_dex_field_refs_map: dict[str, int],
-            current_dex_type_refs_map: dict[str, int]):
+        dest: list[list[DexInputWithSpecifiedClasses]],
+        module: str,
+        lib: DexLibraryInfo,
+        weight_estimate: int,
+        dex_class_names: list[str],
+        current_dex_size_map: dict[str, int],  # module to size
+        current_dex_inputs_map: dict[str, list[DexInputWithSpecifiedClasses]],  # module to dex file that is being built up
+        emit_canaries: bool,
+        dex_weight_limit_bytes: int | None,
+        method_ref_count: int,
+        field_ref_count: int,
+        type_ref_count: int,
+        current_dex_method_refs_map: dict[str, int],
+        current_dex_field_refs_map: dict[str, int],
+        current_dex_type_refs_map: dict[str, int],
+    ):
         if len(dex_class_names) == 0:
             return
 
@@ -950,9 +995,11 @@ def _sort_pre_dexed_files(
             current_methods = current_dex_method_refs_map.get(module, 0)
             current_fields = current_dex_field_refs_map.get(module, 0)
             current_types = current_dex_type_refs_map.get(module, 0)
-            if (current_methods + method_ref_count > DEX_REF_LIMIT or
-                current_fields + field_ref_count > DEX_REF_LIMIT or
-                current_types + type_ref_count > DEX_REF_LIMIT):
+            if (
+                current_methods + method_ref_count > DEX_REF_LIMIT
+                or current_fields + field_ref_count > DEX_REF_LIMIT
+                or current_types + type_ref_count > DEX_REF_LIMIT
+            ):
                 should_start_new_dex = True
 
         if should_start_new_dex:
@@ -984,21 +1031,22 @@ def _sort_pre_dexed_files(
         )
 
     def organize_pre_dexed_lib(
-            dest: list[list[DexInputWithSpecifiedClasses]],
-            module: str,
-            lib: DexLibraryInfo,
-            weight_estimate: int,
-            dex_class_names: list[str],
-            current_dex_size_map: dict[str, int],
-            current_dex_inputs_map: dict[str, list[DexInputWithSpecifiedClasses]],
-            emit_canaries: bool,
-            dex_weight_limit_bytes: int | None,
-            method_ref_count: int,
-            field_ref_count: int,
-            type_ref_count: int,
-            current_dex_method_refs_map: dict[str, int],
-            current_dex_field_refs_map: dict[str, int],
-            current_dex_type_refs_map: dict[str, int]):
+        dest: list[list[DexInputWithSpecifiedClasses]],
+        module: str,
+        lib: DexLibraryInfo,
+        weight_estimate: int,
+        dex_class_names: list[str],
+        current_dex_size_map: dict[str, int],
+        current_dex_inputs_map: dict[str, list[DexInputWithSpecifiedClasses]],
+        emit_canaries: bool,
+        dex_weight_limit_bytes: int | None,
+        method_ref_count: int,
+        field_ref_count: int,
+        type_ref_count: int,
+        current_dex_method_refs_map: dict[str, int],
+        current_dex_field_refs_map: dict[str, int],
+        current_dex_type_refs_map: dict[str, int],
+    ):
         if len(dex_class_names) == 0:
             return
 
@@ -1063,7 +1111,9 @@ def _sort_pre_dexed_files(
             )
 
     for pre_dexed_libs_with_class_names_and_weight_estimates in pre_dexed_libs_with_class_names_and_weight_estimates_files:
-        class_names_and_weight_estimates_json = artifacts[pre_dexed_libs_with_class_names_and_weight_estimates.weight_estimate_and_filtered_class_names_file].read_json()
+        class_names_and_weight_estimates_json = artifacts[
+            pre_dexed_libs_with_class_names_and_weight_estimates.weight_estimate_and_filtered_class_names_file
+        ].read_json()
         for pre_dexed_lib in pre_dexed_libs_with_class_names_and_weight_estimates.libs:
             module = get_module_from_target(str(pre_dexed_lib.dex.owner.raw_target()))
             pre_dexed_lib_info = class_names_and_weight_estimates_json[pre_dexed_lib.identifier]
@@ -1077,11 +1127,14 @@ def _sort_pre_dexed_files(
             lib_field_refs = int(pre_dexed_lib_info["field_ref_count"])
             lib_type_refs = int(pre_dexed_lib_info["type_ref_count"])
 
-            module_pre_dexed_inputs = sorted_pre_dexed_inputs_map.setdefault(module, _SortedPreDexedInputs(
-                module = module,
-                primary_dex_inputs = [],
-                secondary_dex_inputs = [],
-            ))
+            module_pre_dexed_inputs = sorted_pre_dexed_inputs_map.setdefault(
+                module,
+                _SortedPreDexedInputs(
+                    module = module,
+                    primary_dex_inputs = [],
+                    secondary_dex_inputs = [],
+                ),
+            )
             primary_dex_inputs = module_pre_dexed_inputs.primary_dex_inputs
             secondary_dex_inputs = module_pre_dexed_inputs.secondary_dex_inputs
 
@@ -1176,11 +1229,8 @@ _CANARY_CLASS_PACKAGE_TEMPLATE = "package {}.dex{};\n"
 _CANARY_CLASS_INTERFACE_DEFINITION = "public interface Canary {}"
 
 def _create_canary_class(
-        ctx: AnalysisContext,
-        index: int,
-        module: str,
-        module_to_canary_class_name_function: typing.Callable,
-        dex_toolchain: DexToolchainInfo) -> DexInputWithSpecifiedClasses:
+    ctx: AnalysisContext, index: int, module: str, module_to_canary_class_name_function: typing.Callable, dex_toolchain: DexToolchainInfo
+) -> DexInputWithSpecifiedClasses:
     prefix = module_to_canary_class_name_function(module)
     index_string = str(index)
     if len(index_string) == 1:

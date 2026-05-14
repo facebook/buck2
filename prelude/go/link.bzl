@@ -44,9 +44,11 @@ load(
 load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_env_vars")
 
 # Provider wrapping packages used for linking.
-GoPkgLinkInfo = provider(fields = {
-    "pkgs": provider_field(typing.Any, default = None),  # {str: "artifact"}
-})
+GoPkgLinkInfo = provider(
+    fields = {
+        "pkgs": provider_field(typing.Any, default = None),  # {str: "artifact"}
+    }
+)
 
 GoBuildMode = enum(
     "exe",  # non-pic executable
@@ -73,11 +75,7 @@ def get_inherited_link_pkgs(deps: list[Dependency]) -> dict[str, GoPkg]:
 # on returning an empty thing for link_style != shared, it seems likely its
 # intended to be LibOutputStyle, but it's called in places that are passing what
 # appears to be a LinkStrategy.
-def _process_shared_dependencies(
-        ctx: AnalysisContext,
-        artifact: Artifact,
-        deps: list[Dependency],
-        link_style: LinkStyle) -> ExecutableSharedLibArguments:
+def _process_shared_dependencies(ctx: AnalysisContext, artifact: Artifact, deps: list[Dependency], link_style: LinkStyle) -> ExecutableSharedLibArguments:
     """
     Provides files and linker args needed to for binaries with shared library linkage.
     - the runtime files needed to run binary linked with shared libraries
@@ -100,16 +98,17 @@ def _process_shared_dependencies(
     )
 
 def link(
-        ctx: AnalysisContext,
-        main: GoPkg,
-        cgo_enabled: bool,
-        pkgs: dict[str, GoPkg] = {},
-        deps: list[Dependency] = [],
-        build_mode: GoBuildMode = GoBuildMode("exe"),
-        link_mode: [str, None] = None,
-        link_style: LinkStyle = LinkStyle("static"),
-        linker_flags: list[typing.Any] = [],
-        external_linker_flags: list[typing.Any] = []):
+    ctx: AnalysisContext,
+    main: GoPkg,
+    cgo_enabled: bool,
+    pkgs: dict[str, GoPkg] = {},
+    deps: list[Dependency] = [],
+    build_mode: GoBuildMode = GoBuildMode("exe"),
+    link_mode: [str, None] = None,
+    link_style: LinkStyle = LinkStyle("static"),
+    linker_flags: list[typing.Any] = [],
+    external_linker_flags: list[typing.Any] = [],
+):
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
 
     if not cgo_enabled and (go_toolchain.asan or go_toolchain.race):
@@ -224,7 +223,7 @@ def link(
             [
                 cxx_toolchain.linker_info.linker,
                 cmd_args(ext_link_argfile, format = "@{}"),
-                "%*" if is_win else "\"$@\"",
+                "%*" if is_win else '"$@"',
             ],
             delimiter = " ",
         )
@@ -236,27 +235,32 @@ def link(
             has_content_based_path = True,
         )
         cmd.add("-extld", linker_wrapper, cmd_args(hidden = [cxx_link_cmd, ext_link_args, ext_link_args_output.hidden]))
-        cmd.add("-extldflags", cmd_args(
-            cxx_toolchain.linker_info.linker_flags,
-            go_toolchain.external_linker_flags,
-            delimiter = " ",
-            quote = "shell",
-        ))
+        cmd.add(
+            "-extldflags",
+            cmd_args(
+                cxx_toolchain.linker_info.linker_flags,
+                go_toolchain.external_linker_flags,
+                delimiter = " ",
+                quote = "shell",
+            ),
+        )
 
     cmd.add(linker_flags)
 
     env = get_toolchain_env_vars(go_toolchain)
 
-    ctx.actions.dynamic_output_new(_link(
-        go_stdlib_value = go_stdlib.dynamic_value,
-        env_vars = env,
-        link_args = cmd,
-        main_pkg = main,
-        deps_pkgs = all_pkgs,
-        shared = use_shared_code,
-        identifier = identifier_prefix,
-        out = output.as_output(),
-    ))
+    ctx.actions.dynamic_output_new(
+        _link(
+            go_stdlib_value = go_stdlib.dynamic_value,
+            env_vars = env,
+            link_args = cmd,
+            main_pkg = main,
+            deps_pkgs = all_pkgs,
+            shared = use_shared_code,
+            identifier = identifier_prefix,
+            out = output.as_output(),
+        )
+    )
 
     # stamp only executable targets
     if build_mode in [GoBuildMode("exe"), GoBuildMode("pie")]:
@@ -267,15 +271,16 @@ def link(
     return (final_output, executable_args.runtime_files, executable_args.external_debug_info)
 
 def _link_impl(
-        actions: AnalysisActions,
-        go_stdlib_value: ResolvedDynamicValue,
-        env_vars: dict[str, str | cmd_args | Artifact],
-        link_args: cmd_args,
-        main_pkg: GoPkg,
-        deps_pkgs: dict[str, GoPkg],
-        shared: bool,
-        identifier: str,
-        out: OutputArtifact) -> list[Provider]:
+    actions: AnalysisActions,
+    go_stdlib_value: ResolvedDynamicValue,
+    env_vars: dict[str, str | cmd_args | Artifact],
+    link_args: cmd_args,
+    main_pkg: GoPkg,
+    deps_pkgs: dict[str, GoPkg],
+    shared: bool,
+    identifier: str,
+    out: OutputArtifact,
+) -> list[Provider]:
     go_stdlib_value = go_stdlib_value.providers[GoStdlibDynamicValue]
 
     deps = merge_pkgs([go_stdlib_value.pkgs, deps_pkgs])

@@ -87,10 +87,12 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
     return [
         DefaultInfo(default_output = default_output),
         GoPkgCompileInfo(pkgs = pkgs),
-        GoPkgLinkInfo(pkgs = merge_pkgs([
-            pkgs,
-            get_inherited_link_pkgs(ctx.attrs.deps),
-        ])),
+        GoPkgLinkInfo(
+            pkgs = merge_pkgs([
+                pkgs,
+                get_inherited_link_pkgs(ctx.attrs.deps),
+            ])
+        ),
         GoTestInfo(
             deps = ctx.attrs.deps,
             srcs = ctx.attrs.srcs,

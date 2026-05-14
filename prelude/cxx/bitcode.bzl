@@ -17,10 +17,12 @@ BitcodeBundle = record(
 
 BitcodeTSet = transitive_set()
 
-BitcodeBundleInfo = provider(fields = {
-    "bitcode": provider_field(typing.Any, default = None),
-    "bitcode_bundle": provider_field(typing.Any, default = None),
-})
+BitcodeBundleInfo = provider(
+    fields = {
+        "bitcode": provider_field(typing.Any, default = None),
+        "bitcode_bundle": provider_field(typing.Any, default = None),
+    }
+)
 
 def _bundle_locally(ctx: AnalysisContext, linker_info: LinkerInfo) -> bool:
     archive_locally = linker_info.archive_objects_locally
@@ -53,12 +55,7 @@ def _bundle(ctx: AnalysisContext, name: str, args: cmd_args, prefer_local: bool)
     return bundle_output
 
 # Creates a static library given a list of object files.
-def make_bitcode_bundle(
-        ctx: AnalysisContext,
-        name: str,
-        objects: list[Artifact],
-        ignore_native: bool = False,
-        override: bool = False) -> [BitcodeBundle, None]:
+def make_bitcode_bundle(ctx: AnalysisContext, name: str, objects: list[Artifact], ignore_native: bool = False, override: bool = False) -> [BitcodeBundle, None]:
     if len(objects) == 0:
         fail("no objects to archive")
 
@@ -68,7 +65,7 @@ def make_bitcode_bundle(
 
     linker_info = get_cxx_toolchain_info(ctx).linker_info
 
-    args = cmd_args(format = "\"{}\"")
+    args = cmd_args(format = '"{}"')
     if ignore_native:
         args.add("--ignore-non-bitcode")
 

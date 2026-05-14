@@ -20,12 +20,10 @@ ocaml_binary = prelude_rule(
         A ocaml\\_binary() rule builds both native and bytecode executables from the supplied set of OCaml and C source files
          and dependencies.
 
-
          Note: Buck is currently tested with 4.X OCaml series.
     """,
     examples = """
         For more examples, check out our [integration tests](https://github.com/facebook/buck/tree/dev/test/com/facebook/buck/features/ocaml/testdata/).
-
 
         ```
         ocaml_binary(
@@ -70,19 +68,19 @@ ocaml_binary = prelude_rule(
     further = None,
     attrs = (
         # @unsorted-dict-items
-        ocaml_common.srcs_arg() |
-        ocaml_common.deps_arg() |
-        ocaml_common.compiler_flags_arg() |
-        {
+        ocaml_common.srcs_arg()
+        | ocaml_common.deps_arg()
+        | ocaml_common.compiler_flags_arg()
+        | {
             "bytecode_only": attrs.option(attrs.bool(), default = None),
             "linker_flags": attrs.list(attrs.string(), default = []),
             "ocamldep_flags": attrs.list(attrs.arg(), default = []),
             "platform": attrs.option(attrs.string(), default = None),
             "warnings_flags": attrs.option(attrs.string(), default = None),
-        } |
-        buck.licenses_arg() |
-        buck.labels_arg() |
-        buck.contacts_arg()
+        }
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
     ),
 )
 
@@ -92,12 +90,10 @@ ocaml_library = prelude_rule(
         A ocaml\\_library() rule builds a native and a bytecode libraries from the
          supplied set of OCaml source files and dependencies.
 
-
          Note: Buck is currently tested with 4.X OCaml series.
     """,
     examples = """
         For more examples, check out our [integration tests](https://github.com/facebook/buck/tree/dev/test/com/facebook/buck/features/ocaml/testdata/).
-
 
         ```
         ocaml_library(
@@ -114,19 +110,19 @@ ocaml_library = prelude_rule(
     further = None,
     attrs = (
         # @unsorted-dict-items
-        ocaml_common.srcs_arg() |
-        ocaml_common.deps_arg() |
-        ocaml_common.compiler_flags_arg() |
-        {
+        ocaml_common.srcs_arg()
+        | ocaml_common.deps_arg()
+        | ocaml_common.compiler_flags_arg()
+        | {
             "bytecode_only": attrs.bool(default = False),
             "linker_flags": attrs.list(attrs.arg(), default = []),
             "native_plugin": attrs.bool(default = False),
             "ocamldep_flags": attrs.list(attrs.arg(), default = []),
             "warnings_flags": attrs.option(attrs.string(), default = None),
-        } |
-        buck.licenses_arg() |
-        buck.labels_arg() |
-        buck.contacts_arg()
+        }
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
     ),
 )
 
@@ -153,10 +149,10 @@ prebuilt_ocaml_library = prelude_rule(
             "lib_name": attrs.string(default = ""),
             "native_c_libs": attrs.list(attrs.string(), default = []),
             "native_lib": attrs.option(attrs.string(), default = None),
-        } |
-        buck.licenses_arg() |
-        buck.labels_arg() |
-        buck.contacts_arg()
+        }
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
     ),
 )
 

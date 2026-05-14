@@ -137,15 +137,12 @@ CxxRuleAdditionalParams = record(
 # different and need to be specified. The following record holds the data which
 # is needed to specialize user-facing rule from generic implementation.
 CxxRuleConstructorParams = record(
-    #Required
-
+    # Required
     # Name of the top level rule utilizing the cxx rule.
     rule_type = str,
     # Header layout to use importing headers.
     headers_layout = CxxHeadersLayout,
-
-    #Optional
-
+    # Optional
     # Whether to build an empty shared library. This is utilized for rust_python_extensions
     # so that they can link against the rust shared object.
     build_empty_so = field(bool, False),

@@ -124,7 +124,11 @@ def _cxx_toolchain_override(ctx):
     # linker flags should be changed as well.
     pdb_expected = linker_type == LinkerType("windows") and pdb_expected
     shlib_interfaces = ShlibInterfacesMode(ctx.attrs.shared_library_interface_mode) if ctx.attrs.shared_library_interface_mode else None
-    sanitizer_runtime_files = flatten([runtime_file[DefaultInfo].default_outputs for runtime_file in ctx.attrs.sanitizer_runtime_files]) if ctx.attrs.sanitizer_runtime_files != None else None
+    sanitizer_runtime_files = (
+        flatten([runtime_file[DefaultInfo].default_outputs for runtime_file in ctx.attrs.sanitizer_runtime_files])
+        if ctx.attrs.sanitizer_runtime_files != None
+        else None
+    )
     linker_flags = _pick(ctx.attrs.linker_flags, base_linker_info.linker_flags)
     if ctx.attrs.resource_dir != None:
         resource_dir = ctx.attrs.resource_dir[DefaultInfo].default_outputs[0]
@@ -168,9 +172,15 @@ def _cxx_toolchain_override(ctx):
         sanitizer_runtime_enabled = value_or(ctx.attrs.sanitizer_runtime_enabled, base_linker_info.sanitizer_runtime_enabled),
         sanitizer_runtime_files = value_or(sanitizer_runtime_files, base_linker_info.sanitizer_runtime_files),
         shared_dep_runtime_ld_flags = base_linker_info.shared_dep_runtime_ld_flags,
-        shared_library_name_default_prefix = ctx.attrs.shared_library_name_default_prefix if ctx.attrs.shared_library_name_default_prefix != None else base_linker_info.shared_library_name_default_prefix,
-        shared_library_name_format = ctx.attrs.shared_library_name_format if ctx.attrs.shared_library_name_format != None else base_linker_info.shared_library_name_format,
-        shared_library_versioned_name_format = ctx.attrs.shared_library_versioned_name_format if ctx.attrs.shared_library_versioned_name_format != None else base_linker_info.shared_library_versioned_name_format,
+        shared_library_name_default_prefix = ctx.attrs.shared_library_name_default_prefix
+        if ctx.attrs.shared_library_name_default_prefix != None
+        else base_linker_info.shared_library_name_default_prefix,
+        shared_library_name_format = ctx.attrs.shared_library_name_format
+        if ctx.attrs.shared_library_name_format != None
+        else base_linker_info.shared_library_name_format,
+        shared_library_versioned_name_format = ctx.attrs.shared_library_versioned_name_format
+        if ctx.attrs.shared_library_versioned_name_format != None
+        else base_linker_info.shared_library_versioned_name_format,
         static_dep_runtime_ld_flags = base_linker_info.static_dep_runtime_ld_flags,
         static_pic_dep_runtime_ld_flags = base_linker_info.static_pic_dep_runtime_ld_flags,
         static_library_extension = base_linker_info.static_library_extension,
@@ -300,7 +310,9 @@ cxx_toolchain_override_registration_spec = RuleRegistrationSpec(
         "ranlib": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "resource_dir": attrs.option(attrs.dep(), default = None),
         "sanitizer_runtime_enabled": attrs.bool(default = False),
-        "sanitizer_runtime_files": attrs.option(attrs.set(attrs.dep(), sorted = True, default = []), default = None),  # Use `attrs.dep()` as it's not a tool, always propagate target platform
+        "sanitizer_runtime_files": attrs.option(
+            attrs.set(attrs.dep(), sorted = True, default = []), default = None
+        ),  # Use `attrs.dep()` as it's not a tool, always propagate target platform
         "shared_library_interface_mode": attrs.option(attrs.enum(ShlibInterfacesMode.values()), default = None),
         "shared_library_name_default_prefix": attrs.option(attrs.string(), default = None),
         "shared_library_name_format": attrs.option(attrs.string(), default = None),
@@ -311,6 +323,7 @@ cxx_toolchain_override_registration_spec = RuleRegistrationSpec(
         "strip_debug_flags": attrs.option(attrs.list(attrs.arg()), default = None),
         "strip_non_global_flags": attrs.option(attrs.list(attrs.arg()), default = None),
         "use_archiver_flags": attrs.option(attrs.bool(), default = None),
-    } | cxx_toolchain_allow_cache_upload_args(),
+    }
+    | cxx_toolchain_allow_cache_upload_args(),
     is_toolchain_rule = True,
 )

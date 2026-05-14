@@ -96,27 +96,18 @@ def apple_test_macro_impl(apple_test_rule, apple_resource_bundle_rule, **kwargs)
     # `extension` is used both by `apple_test` and `apple_resource_bundle`, so provide default here
     kwargs["extension"] = kwargs.pop("extension", "xctest")
 
-    apple_test_rule(
-        _resource_bundle = make_resource_bundle_rule(apple_resource_bundle_rule, **kwargs),
-        **kwargs
-    )
+    apple_test_rule(_resource_bundle = make_resource_bundle_rule(apple_resource_bundle_rule, **kwargs), **kwargs)
 
 def apple_xcuitest_macro_impl(apple_xcuitest_rule, **kwargs):
     kwargs.update(apple_bundle_config())
-    apple_xcuitest_rule(
-        **kwargs
-    )
+    apple_xcuitest_rule(**kwargs)
 
 def apple_bundle_macro_impl(apple_bundle_rule, apple_resource_bundle_rule, **kwargs):
     info_plist_substitutions = kwargs.get("info_plist_substitutions")
     kwargs.update(apple_bundle_config())
     codesign_entitlements = selects.apply(info_plist_substitutions, parse_codesign_entitlements)
 
-    apple_bundle_rule(
-        _codesign_entitlements = codesign_entitlements,
-        _resource_bundle = make_resource_bundle_rule(apple_resource_bundle_rule, **kwargs),
-        **kwargs
-    )
+    apple_bundle_rule(_codesign_entitlements = codesign_entitlements, _resource_bundle = make_resource_bundle_rule(apple_resource_bundle_rule, **kwargs), **kwargs)
 
 def apple_library_macro_impl(apple_library_rule = None, **kwargs):
     kwargs.update(apple_macro_layer_set_bool_override_attrs_from_config(_APPLE_LIBRARY_LOCAL_EXECUTION_OVERRIDES))
@@ -166,12 +157,7 @@ def apple_binary_macro_impl(apple_binary_rule = None, apple_universal_executable
 
 def apple_package_macro_impl(apple_package_rule = None, apple_ipa_package_rule = None, **kwargs):
     kwargs.update(apple_package_config())
-    apple_package_rule(
-        _ipa_package = make_apple_ipa_package_target(apple_ipa_package_rule, **kwargs),
-        **kwargs
-    )
+    apple_package_rule(_ipa_package = make_apple_ipa_package_target(apple_ipa_package_rule, **kwargs), **kwargs)
 
 def apple_universal_executable_macro_impl(apple_universal_executable_rule = None, **kwargs):
-    apple_universal_executable_rule(
-        **kwargs
-    )
+    apple_universal_executable_rule(**kwargs)

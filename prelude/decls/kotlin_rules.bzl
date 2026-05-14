@@ -90,54 +90,74 @@ kotlin_library = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "srcs": attrs.list(attrs.source(), default = [], doc = """
+            "srcs": attrs.list(
+                attrs.source(),
+                default = [],
+                doc = """
                 The set of `.kt`, `.java` or `.kts` files to compile for this rule.
                  If any of the files in this list end in `.src.zip`,
                  then the entries in the ZIP file that end in `.java` or `.kt` will be
                  included as ordinary inputs to compilation.
-            """),
-        } |
-        jvm_common.resources_arg() |
-        {
-            "deps": attrs.list(attrs.dep(), default = [], doc = """
-                Rules (usually other `kotlin_library` rules) that are used to
-                 generate the classpath required to compile this `kotlin_library`.
-            """),
-            "extra_kotlinc_arguments": attrs.list(attrs.arg(anon_target_compatible = True), default = [], doc = """
-                List of additional arguments to pass into the Kotlin compiler.
-            """),
-            "friend_paths": attrs.list(attrs.dep(), default = [], doc = """
-                List of source paths to pass into the Kotlin compiler as friend-paths, that is, modules
-                 you can have access to internal methods.
-            """),
-            "annotation_processing_tool": attrs.option(attrs.enum(AnnotationProcessingTool), default = None, doc = """
+            """,
+            ),
+        }
+        | jvm_common.resources_arg()
+        | {
+            "annotation_processing_tool": attrs.option(
+                attrs.enum(AnnotationProcessingTool),
+                default = None,
+                doc = """
                 Specifies the tool to use for annotation processing. Possible values: "kapt" or "javac".
                  "kapt" allows running Java annotation processors against Kotlin sources while backporting
                  it for Java sources too.
                  "javac" works only against Java sources, Kotlin sources won't have access to generated
                  classes at compile time.
-            """),
-        } |
-        jvm_common.annotation_processors() |
-        jvm_common.remove_classes_arg() |
-        jvm_common.exported_deps() |
-        jvm_common.provided_deps() |
-        jvm_common.exported_provided_deps() |
-        jvm_common.k2() |
-        jvm_common.kotlin_compiler_plugins() |
-        jvm_common.incremental() |
-        jvm_common.kotlincd_content_based_paths() |
-        jvm_common.plugins() |
-        jvm_common.javac() |
-        jvm_common.enable_used_classes() |
-        jvm_common.classic_java_content_based_paths() |
-        buck.labels_arg() |
-        jvm_common.abi_generation_mode() |
-        {
+            """,
+            ),
+            "deps": attrs.list(
+                attrs.dep(),
+                default = [],
+                doc = """
+                Rules (usually other `kotlin_library` rules) that are used to
+                 generate the classpath required to compile this `kotlin_library`.
+            """,
+            ),
+            "extra_kotlinc_arguments": attrs.list(
+                attrs.arg(anon_target_compatible = True),
+                default = [],
+                doc = """
+                List of additional arguments to pass into the Kotlin compiler.
+            """,
+            ),
+            "friend_paths": attrs.list(
+                attrs.dep(),
+                default = [],
+                doc = """
+                List of source paths to pass into the Kotlin compiler as friend-paths, that is, modules
+                 you can have access to internal methods.
+            """,
+            ),
+        }
+        | jvm_common.annotation_processors()
+        | jvm_common.remove_classes_arg()
+        | jvm_common.exported_deps()
+        | jvm_common.provided_deps()
+        | jvm_common.exported_provided_deps()
+        | jvm_common.k2()
+        | jvm_common.kotlin_compiler_plugins()
+        | jvm_common.incremental()
+        | jvm_common.kotlincd_content_based_paths()
+        | jvm_common.plugins()
+        | jvm_common.javac()
+        | jvm_common.enable_used_classes()
+        | jvm_common.classic_java_content_based_paths()
+        | buck.labels_arg()
+        | jvm_common.abi_generation_mode()
+        | {
             "extra_arguments": attrs.list(attrs.string(), default = []),
+            "jar_postprocessor": attrs.option(attrs.exec_dep(), default = None),
             "java_version": attrs.option(attrs.string(), default = None),
             "jdk_release": attrs.option(attrs.string(), default = None),
-            "jar_postprocessor": attrs.option(attrs.exec_dep(), default = None),
             "keep_synthetics_in_class_abi": attrs.option(attrs.bool(), default = None),
             "manifest_file": attrs.option(attrs.source(), default = None),
             "maven_coords": attrs.option(attrs.string(), default = None),
@@ -159,11 +179,11 @@ kotlin_library = prelude_rule(
             "_is_building_android_binary": is_building_android_binary_attr(),
             "_java_toolchain": toolchains_common.java(),
             "_kotlin_toolchain": toolchains_common.kotlin(),
-        } |
-        buck.licenses_arg() |
-        buck.contacts_arg() |
-        jvm_common.plugins() |
-        validation_common.attrs_validators_arg()
+        }
+        | buck.licenses_arg()
+        | buck.contacts_arg()
+        | jvm_common.plugins()
+        | validation_common.attrs_validators_arg()
     ),
 )
 
@@ -177,9 +197,19 @@ kotlin_test = prelude_rule(
     further = None,
     attrs = (
         # @unsorted-dict-items
-        buck.inject_test_env_arg() |
-        {
-            "srcs": attrs.list(attrs.source(), default = [], doc = """
+        buck.inject_test_env_arg()
+        | {
+            "resources": attrs.list(
+                attrs.source(),
+                default = [],
+                doc = """
+                Same as `kotlin_library()`.
+            """,
+            ),
+            "srcs": attrs.list(
+                attrs.source(),
+                default = [],
+                doc = """
                 Like ``kotlin_library()``,
                  all of the `.kt` files specified by the
                  `srcs` argument will be compiled when this rule is
@@ -190,49 +220,63 @@ kotlin_test = prelude_rule(
                  only test case classes are specified as `srcs`. This is
                  frequently done by specifying `srcs` as
                  `glob(['**/*Test.kt'])`.
-            """),
-            "resources": attrs.list(attrs.source(), default = [], doc = """
-                Same as `kotlin_library()`.
-            """),
-        } |
-        buck.test_label_arg() |
-        {
-            "deps": attrs.list(attrs.dep(), default = [], doc = """
+            """,
+            ),
+        }
+        | buck.test_label_arg()
+        | {
+            "deps": attrs.list(
+                attrs.dep(),
+                default = [],
+                doc = """
                 Same as `kotlin_library()`.
                  // org.junit.rules.Timeout was not introduced until 4.7.
                  Must include JUnit (version 4.7 or later) as a dependency for JUnit tests.
                  Must include TestNG (version 6.2 or later) and hamcrest as a dependencies for TestNG tests.
-            """),
-            "test_type": attrs.option(attrs.enum(TestType), default = None, doc = """
+            """,
+            ),
+            "test_type": attrs.option(
+                attrs.enum(TestType),
+                default = None,
+                doc = """
                 Specifies which test framework to use.
                  The currently supported options are 'junit' and 'testng'.
-            """),
-        } |
-        buck.run_test_separately_arg(run_test_separately_type = attrs.bool(default = False)) |
-        re_test_common.test_args() |
-        buck.test_rule_timeout_ms() |
-        {
-            "vm_args": attrs.list(attrs.arg(), default = [], doc = """
+            """,
+            ),
+        }
+        | buck.run_test_separately_arg(run_test_separately_type = attrs.bool(default = False))
+        | re_test_common.test_args()
+        | buck.test_rule_timeout_ms()
+        | {
+            "vm_args": attrs.list(
+                attrs.arg(),
+                default = [],
+                doc = """
                 Runtime arguments to the JVM running the tests.
-            """),
-        } |
-        jvm_common.annotation_processors() |
-        jvm_common.enable_used_classes() |
-        jvm_common.incremental() |
-        jvm_common.classic_java_content_based_paths() |
-        jvm_common.kotlincd_content_based_paths() |
-        jvm_common.javac() |
-        jvm_common.k2() |
-        jvm_common.kotlin_compiler_plugins() |
-        jvm_common.plugins() |
-        jvm_common.test_env() |
-        jvm_common.abi_generation_mode() |
-        {
+            """,
+            ),
+        }
+        | jvm_common.annotation_processors()
+        | jvm_common.enable_used_classes()
+        | jvm_common.incremental()
+        | jvm_common.classic_java_content_based_paths()
+        | jvm_common.kotlincd_content_based_paths()
+        | jvm_common.javac()
+        | jvm_common.k2()
+        | jvm_common.kotlin_compiler_plugins()
+        | jvm_common.plugins()
+        | jvm_common.test_env()
+        | jvm_common.abi_generation_mode()
+        | {
             "annotation_processing_tool": attrs.option(attrs.enum(AnnotationProcessingTool), default = None),
-            "cxx_library_allowlist": attrs.list(attrs.dep(), default = [], doc = """
+            "cxx_library_allowlist": attrs.list(
+                attrs.dep(),
+                default = [],
+                doc = """
                 List of cxx_library targets to build, if use_cxx_libraries is true.
                 This can be useful if some dependencies are Android-only and won't build for the test host platform.
-            """),
+            """,
+            ),
             "deps_query": attrs.option(attrs.query(), default = None),
             "discover_all_test_classes": attrs.bool(default = False),
             "exported_deps": attrs.list(attrs.dep(), default = []),
@@ -240,10 +284,10 @@ kotlin_test = prelude_rule(
             "extra_arguments": attrs.list(attrs.string(), default = []),
             "extra_kotlinc_arguments": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
             "friend_paths": attrs.list(attrs.dep(), default = []),
-            "java_version": attrs.option(attrs.string(), default = None),
-            "jdk_release": attrs.option(attrs.string(), default = None),
             "java": attrs.option(attrs.dep(), default = None),
             "java_agents": attrs.list(attrs.source(), default = []),
+            "java_version": attrs.option(attrs.string(), default = None),
+            "jdk_release": attrs.option(attrs.string(), default = None),
             "manifest_file": attrs.option(attrs.source(), default = None),
             "maven_coords": attrs.option(attrs.string(), default = None),
             "no_x_jdk_release": attrs.bool(default = False, doc = _no_x_jdk_release_doc),
@@ -270,10 +314,10 @@ kotlin_test = prelude_rule(
             "_java_test_toolchain": toolchains_common.java_test(),
             "_java_toolchain": toolchains_common.java(),
             "_kotlin_toolchain": toolchains_common.kotlin(),
-        } |
-        buck.licenses_arg() |
-        buck.contacts_arg() |
-        test_common.attributes()
+        }
+        | buck.licenses_arg()
+        | buck.contacts_arg()
+        | test_common.attributes()
     ),
 )
 

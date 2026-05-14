@@ -56,24 +56,27 @@ ResourceGraphNode = record(
 
 ResourceGraphTSet = transitive_set()
 
-ResourceGraphInfo = provider(fields = {
-    "label": provider_field(Label),
-    "nodes": provider_field(ResourceGraphTSet),
-    "should_propagate": provider_field(bool),
-})
+ResourceGraphInfo = provider(
+    fields = {
+        "label": provider_field(Label),
+        "nodes": provider_field(ResourceGraphTSet),
+        "should_propagate": provider_field(bool),
+    }
+)
 
 def create_resource_graph(
-        ctx: AnalysisContext,
-        labels: list[str],
-        deps: list[Dependency],
-        exported_deps: list[Dependency],
-        bundle_binary: [Dependency, None] = None,
-        resource_spec: [AppleResourceSpec, None] = None,
-        asset_catalog_spec: [AppleAssetCatalogSpec, None] = None,
-        core_data_spec: [AppleCoreDataSpec, None] = None,
-        scene_kit_assets_spec: [SceneKitAssetsSpec, None] = None,
-        cxx_resource_spec: [CxxResourceSpec, None] = None,
-        should_propagate: bool = True) -> ResourceGraphInfo:
+    ctx: AnalysisContext,
+    labels: list[str],
+    deps: list[Dependency],
+    exported_deps: list[Dependency],
+    bundle_binary: [Dependency, None] = None,
+    resource_spec: [AppleResourceSpec, None] = None,
+    asset_catalog_spec: [AppleAssetCatalogSpec, None] = None,
+    core_data_spec: [AppleCoreDataSpec, None] = None,
+    scene_kit_assets_spec: [SceneKitAssetsSpec, None] = None,
+    cxx_resource_spec: [CxxResourceSpec, None] = None,
+    should_propagate: bool = True,
+) -> ResourceGraphInfo:
     # Collect deps and exported_deps with resources that should propagate.
     dep_labels, dep_graphs = _filtered_labels_and_graphs(deps)
     exported_dep_labels, exported_dep_graphs = _filtered_labels_and_graphs(exported_deps)
@@ -145,10 +148,8 @@ def get_resource_group_info(ctx: AnalysisContext) -> [ResourceGroupInfo, None]:
     fail("Resource group maps must be provided as a resource_group_map rule dependency.")
 
 def get_filtered_resources(
-        root: Label,
-        resource_graph_node_map_func,
-        resource_group: [str, None],
-        resource_group_mappings: [dict[Label, str], None]) -> AppleResourceSelectionOutput:
+    root: Label, resource_graph_node_map_func, resource_group: [str, None], resource_group_mappings: [dict[Label, str], None]
+) -> AppleResourceSelectionOutput:
     """
     Walks the provided DAG and collects resources matching resource groups definition.
     """
@@ -175,11 +176,15 @@ def get_filtered_resources(
         target_resource_group = resource_group_mappings.get(target)
 
         # Ungrouped targets belong to the unlabeled bundle
-        if ((not target_resource_group and not resource_group) or
+        if (
+            (not target_resource_group and not resource_group)
+            or
             # Does it match special "MATCH_ALL" mapping?
-            target_resource_group == MATCH_ALL_LABEL or
+            target_resource_group == MATCH_ALL_LABEL
+            or
             # Does it match currently evaluated group?
-            target_resource_group == resource_group):
+            target_resource_group == resource_group
+        ):
             node = resource_graph_node_map[target]
             resource_spec = node.resource_spec
             if resource_spec:

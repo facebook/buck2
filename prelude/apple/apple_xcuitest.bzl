@@ -56,14 +56,17 @@ def _get_xctrunner_binary(ctx: AnalysisContext) -> AppleBundlePart:
     platform_path = ctx.attrs._apple_toolchain[AppleToolchainInfo].platform_path
     thin_binary = ctx.actions.declare_output(ctx.attrs.name, has_content_based_path = False)
     xctrunner_path = cmd_args(platform_path, "Developer/Library/Xcode/Agents/XCTRunner.app/XCTRunner", delimiter = "/")
-    ctx.actions.run([
-        lipo,
-        xctrunner_path,
-        "-extract",
-        arch,
-        "-output",
-        thin_binary.as_output(),
-    ], category = "copy_xctrunner")
+    ctx.actions.run(
+        [
+            lipo,
+            xctrunner_path,
+            "-extract",
+            arch,
+            "-output",
+            thin_binary.as_output(),
+        ],
+        category = "copy_xctrunner",
+    )
 
     return AppleBundlePart(
         source = thin_binary,

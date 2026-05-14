@@ -10,17 +10,19 @@ load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
 load(":android_toolchain.bzl", "AndroidToolchainInfo")
 
-_AidlSourceInfo = provider(fields = {
-    "srcs": provider_field(typing.Any, default = None),
-})
+_AidlSourceInfo = provider(
+    fields = {
+        "srcs": provider_field(typing.Any, default = None),
+    }
+)
 
 def gen_aidl_impl(ctx: AnalysisContext) -> list[Provider]:
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
     aidl_cmd = cmd_args(
-        [android_toolchain.aidl] +
-        ["-p", android_toolchain.framework_aidl_file] +
-        ["-I", ctx.attrs.import_path] +
-        [a for path in ctx.attrs.import_paths for a in ["-I", path]],
+        [android_toolchain.aidl]
+        + ["-p", android_toolchain.framework_aidl_file]
+        + ["-I", ctx.attrs.import_path]
+        + [a for path in ctx.attrs.import_paths for a in ["-I", path]],
         # We need the `aidl_srcs` files - otherwise the search on the `import_path` won't find anything.
         hidden = ctx.attrs.aidl_srcs,
     )

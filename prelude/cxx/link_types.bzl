@@ -55,24 +55,25 @@ LinkOptions = record(
 )
 
 def link_options(
-        links: list[LinkArgs],
-        link_execution_preference: LinkExecutionPreference,
-        link_weight: int = 1,
-        link_ordering: [LinkOrdering, None] = None,
-        enable_distributed_thinlto: bool = False,
-        category_suffix: [str, None] = None,
-        identifier: [str, None] = None,
-        strip: bool = False,
-        strip_args_factory = None,
-        import_library: Artifact | None = None,
-        allow_cache_upload: bool = False,
-        cxx_toolchain: [CxxToolchainInfo, None] = None,
-        error_handler: [typing.Callable, None] = None,
-        extra_linker_outputs_factory: typing.Callable | None = None,
-        extra_linker_outputs_flags_factory: typing.Callable | None = None,
-        extra_distributed_thin_lto_opt_outputs_merger: typing.Callable | None = None,
-        produce_shared_library_interface: bool = False,
-        incremental_link: bool = False) -> LinkOptions:
+    links: list[LinkArgs],
+    link_execution_preference: LinkExecutionPreference,
+    link_weight: int = 1,
+    link_ordering: [LinkOrdering, None] = None,
+    enable_distributed_thinlto: bool = False,
+    category_suffix: [str, None] = None,
+    identifier: [str, None] = None,
+    strip: bool = False,
+    strip_args_factory = None,
+    import_library: Artifact | None = None,
+    allow_cache_upload: bool = False,
+    cxx_toolchain: [CxxToolchainInfo, None] = None,
+    error_handler: [typing.Callable, None] = None,
+    extra_linker_outputs_factory: typing.Callable | None = None,
+    extra_linker_outputs_flags_factory: typing.Callable | None = None,
+    extra_distributed_thin_lto_opt_outputs_merger: typing.Callable | None = None,
+    produce_shared_library_interface: bool = False,
+    incremental_link: bool = False,
+) -> LinkOptions:
     """
     A type-checked constructor for LinkOptions because by default record
     constructors aren't typed.
@@ -105,20 +106,21 @@ _NotProvided = record()
 _NOT_PROVIDED = _NotProvided()
 
 def merge_link_options(
-        base: LinkOptions,
-        links: [list[LinkArgs], _NotProvided] = _NOT_PROVIDED,
-        link_execution_preference: [LinkExecutionPreference, _NotProvided] = _NOT_PROVIDED,
-        link_weight: [int, _NotProvided] = _NOT_PROVIDED,
-        link_ordering: [LinkOrdering, None, _NotProvided] = _NOT_PROVIDED,
-        enable_distributed_thinlto: [bool, _NotProvided] = _NOT_PROVIDED,
-        category_suffix: [str, None, _NotProvided] = _NOT_PROVIDED,
-        identifier: [str, None, _NotProvided] = _NOT_PROVIDED,
-        strip: [bool, _NotProvided] = _NOT_PROVIDED,
-        strip_args_factory = _NOT_PROVIDED,
-        import_library: [Artifact, None, _NotProvided] = _NOT_PROVIDED,
-        allow_cache_upload: [bool, _NotProvided] = _NOT_PROVIDED,
-        cxx_toolchain: [CxxToolchainInfo, _NotProvided] = _NOT_PROVIDED,
-        incremental_link: [bool, _NotProvided] = _NOT_PROVIDED) -> LinkOptions:
+    base: LinkOptions,
+    links: [list[LinkArgs], _NotProvided] = _NOT_PROVIDED,
+    link_execution_preference: [LinkExecutionPreference, _NotProvided] = _NOT_PROVIDED,
+    link_weight: [int, _NotProvided] = _NOT_PROVIDED,
+    link_ordering: [LinkOrdering, None, _NotProvided] = _NOT_PROVIDED,
+    enable_distributed_thinlto: [bool, _NotProvided] = _NOT_PROVIDED,
+    category_suffix: [str, None, _NotProvided] = _NOT_PROVIDED,
+    identifier: [str, None, _NotProvided] = _NOT_PROVIDED,
+    strip: [bool, _NotProvided] = _NOT_PROVIDED,
+    strip_args_factory = _NOT_PROVIDED,
+    import_library: [Artifact, None, _NotProvided] = _NOT_PROVIDED,
+    allow_cache_upload: [bool, _NotProvided] = _NOT_PROVIDED,
+    cxx_toolchain: [CxxToolchainInfo, _NotProvided] = _NOT_PROVIDED,
+    incremental_link: [bool, _NotProvided] = _NOT_PROVIDED,
+) -> LinkOptions:
     """
     Also something we would ideally auto-generate as LinkOptions.merge in
     Starlark.

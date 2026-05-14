@@ -97,7 +97,15 @@ load(
 load("@prelude//utils:graph_utils.bzl", "depth_first_traversal", "post_order_traversal")
 load("@prelude//utils:utils.bzl", "filter_and_map_idx")
 load(":makefile.bzl", "parse_makefile")
-load(":ocaml_toolchain_types.bzl", "OCamlLibraryInfo", "OCamlLinkInfo", "OCamlToolchainInfo", "OtherOutputsInfo", "merge_ocaml_link_infos", "merge_other_outputs_info")
+load(
+    ":ocaml_toolchain_types.bzl",
+    "OCamlLibraryInfo",
+    "OCamlLinkInfo",
+    "OCamlToolchainInfo",
+    "OtherOutputsInfo",
+    "merge_ocaml_link_infos",
+    "merge_other_outputs_info",
+)
 
 BuildMode = enum("native", "bytecode", "expand")
 
@@ -157,7 +165,7 @@ def _mk_script(ctx: AnalysisContext, file: str, args: list[typing.Any], env: dic
     lines = ["#!/usr/bin/env bash"]
     for name, val in env.items():
         lines.append(cmd_args(val, format = "export {}={{}}".format(name)))
-    lines.append(cmd_args([cmd_args(args, quote = "shell"), "\"$@\""], delimiter = " "))
+    lines.append(cmd_args([cmd_args(args, quote = "shell"), '"$@"'], delimiter = " "))
     script, _ = ctx.actions.write(
         file,
         lines,
@@ -188,7 +196,7 @@ def _mk_env(ctx: AnalysisContext) -> dict[str, cmd_args]:
         bin = ctx.actions.symlinked_dir("bin", links, has_content_based_path = False)
 
         # An environment in which `bin` is at the head of `$PATH`.
-        return {"PATH": cmd_args(bin, format = "{}:\"$PATH\"")}
+        return {"PATH": cmd_args(bin, format = '{}:"$PATH"')}
     else:
         return {}
 
@@ -232,11 +240,12 @@ def _get_empty_link_infos() -> dict[LibOutputStyle, LinkInfos]:
     return infos
 
 def _get_linkable_graph(
-        ctx: AnalysisContext,
-        preferred_linkage: Linkage,
-        deps: list[Dependency] = [],
-        link_infos: dict[LibOutputStyle, LinkInfos] = {},
-        linker_flags: [LinkerFlags, None] = None) -> LinkableGraph:
+    ctx: AnalysisContext,
+    preferred_linkage: Linkage,
+    deps: list[Dependency] = [],
+    link_infos: dict[LibOutputStyle, LinkInfos] = {},
+    linker_flags: [LinkerFlags, None] = None,
+) -> LinkableGraph:
     if not deps:
         deps = ctx.attrs.deps
     return create_linkable_graph(
@@ -360,7 +369,7 @@ def _depends(ctx: AnalysisContext, srcs: list[Artifact], build_mode: BuildMode) 
     # We are writing the command into a file for later execution. Each flag
     # needs enclosing in quotes (since it's possible that some flags contain
     # might contain whitespace e.g. `foo --as-ppx`).
-    dep_cmdline.add([cmd_args(f, format = "\"{}\"") for f in ctx.attrs.ocamldep_flags])
+    dep_cmdline.add([cmd_args(f, format = '"{}"') for f in ctx.attrs.ocamldep_flags])
 
     # These -I's are for ocamldep.
     dep_cmdline.add(cmd_args([cmd_args(src, parent = 1) for src in srcs], format = "-I {}"))
@@ -580,7 +589,7 @@ def _compile(ctx: AnalysisContext, compiler: cmd_args, build_mode: BuildMode) ->
                 cmd = _compile_cmd(ctx, compiler, build_mode, cc, all_include_paths)
 
                 # `ocaml_object` breaks for `-flto=...` so ensure `-fno-lto` prevails here.
-                cmd.add(src, "-c", "-ccopt", "-fno-lto", "-ccopt", cmd_args(mk_out(stb), format = "-o \"{}\""))
+                cmd.add(src, "-c", "-ccopt", "-fno-lto", "-ccopt", cmd_args(mk_out(stb), format = '-o "{}"'))
                 cmd.add(cmd_args(hidden = headers))  # Any .h files given are dependencies.
                 ctx.actions.run(cmd, category = "ocaml_compile_c", identifier = src.short_path)
 
@@ -658,7 +667,9 @@ def ocaml_library_impl(ctx: AnalysisContext) -> list[Provider]:
     cmd_nat.add(cmd_args(hidden = [cmxs, cmis_nat, objs, cmts_nat, cmtis_nat]))
     ctx.actions.run(cmd_nat, category = "ocaml_archive_native")
 
-    cmxs_order, stbs_byt, _objs, cmis_byt, cmos, _cmxs, cmts_byt, cmtis_byt, _ppmlis, _ppmls = _compile_result_to_tuple(_compile(ctx, ocamlc, BuildMode("bytecode")))
+    cmxs_order, stbs_byt, _objs, cmis_byt, cmos, _cmxs, cmts_byt, cmtis_byt, _ppmlis, _ppmls = _compile_result_to_tuple(
+        _compile(ctx, ocamlc, BuildMode("bytecode"))
+    )
     cmd_byt.add("-a")
 
     cma = ctx.actions.declare_output("lib" + ctx.attrs.name + ".cma", has_content_based_path = False)
@@ -675,27 +686,31 @@ def ocaml_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     infos = _attr_deps_ocaml_link_infos(ctx)
     infos.append(
-        OCamlLinkInfo(info = [OCamlLibraryInfo(
-            name = ctx.attrs.name,
-            target = ctx.label,
-            c_libs = [],
-            stbs_nat = stbs_nat,
-            stbs_byt = stbs_byt,
-            cmas = [cma],
-            cmxas = [cmxa],
-            cmis_nat = cmis_nat,
-            cmis_byt = cmis_byt,
-            cmos = cmos,
-            cmxs = cmxs,
-            cmts_nat = cmts_nat,
-            cmts_byt = cmts_byt,
-            cmtis_nat = cmtis_nat,
-            cmtis_byt = cmtis_byt,
-            include_dirs_nat = [include_paths_nat],
-            include_dirs_byt = [include_paths_byt],
-            native_c_libs = native_c_libs,
-            bytecode_c_libs = [],
-        )]),
+        OCamlLinkInfo(
+            info = [
+                OCamlLibraryInfo(
+                    name = ctx.attrs.name,
+                    target = ctx.label,
+                    c_libs = [],
+                    stbs_nat = stbs_nat,
+                    stbs_byt = stbs_byt,
+                    cmas = [cma],
+                    cmxas = [cmxa],
+                    cmis_nat = cmis_nat,
+                    cmis_byt = cmis_byt,
+                    cmos = cmos,
+                    cmxs = cmxs,
+                    cmts_nat = cmts_nat,
+                    cmts_byt = cmts_byt,
+                    cmtis_nat = cmtis_nat,
+                    cmtis_byt = cmtis_byt,
+                    include_dirs_nat = [include_paths_nat],
+                    include_dirs_byt = [include_paths_byt],
+                    native_c_libs = native_c_libs,
+                    bytecode_c_libs = [],
+                )
+            ]
+        ),
     )
 
     other_outputs = {
@@ -752,15 +767,17 @@ def ocaml_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx,
         ctx.actions,
         cxx_toolchain,
-        [get_link_args_for_strategy(
-            ctx.actions,
-            ctx.label,
-            cxx_toolchain.linker_info,
-            dep_link_infos,
-            LinkStrategy("static_pic"),
-            prefer_stripped = False,
-            transformation_spec_context = None,
-        )],
+        [
+            get_link_args_for_strategy(
+                ctx.actions,
+                ctx.label,
+                cxx_toolchain.linker_info,
+                dep_link_infos,
+                LinkStrategy("static_pic"),
+                prefer_stripped = False,
+                transformation_spec_context = None,
+            )
+        ],
     )
     ld_nat = _mk_ld(ctx, [link_args_output.link_args], "ld_native.sh")
     ld_byt = _mk_ld(ctx, [link_args_output.link_args], "ld_bytecode.sh")
@@ -853,15 +870,17 @@ def ocaml_object_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx,
         ctx.actions,
         cxx_toolchain,
-        [get_link_args_for_strategy(
-            ctx.actions,
-            ctx.label,
-            cxx_toolchain.linker_info,
-            dep_link_infos,
-            LinkStrategy("static_pic"),
-            prefer_stripped = False,
-            transformation_spec_context = None,
-        )],
+        [
+            get_link_args_for_strategy(
+                ctx.actions,
+                ctx.label,
+                cxx_toolchain.linker_info,
+                dep_link_infos,
+                LinkStrategy("static_pic"),
+                prefer_stripped = False,
+                transformation_spec_context = None,
+            )
+        ],
     )
     ld = _mk_ld(ctx, [link_args_output.link_args], "ld.sh")
 
@@ -893,12 +912,14 @@ def ocaml_object_impl(ctx: AnalysisContext) -> list[Provider]:
     link_infos = {}
     linker_flags = [cmd_args(f) for f in ocaml_toolchain.runtime_dep_link_flags]
     for output_style in LibOutputStyle:
-        link_infos[output_style] = LinkInfos(default = LinkInfo(
-            linkables = [
-                ObjectsLinkable(objects = [obj], linker_type = linker_type),
-            ],
-            post_flags = linker_flags,
-        ))
+        link_infos[output_style] = LinkInfos(
+            default = LinkInfo(
+                linkables = [
+                    ObjectsLinkable(objects = [obj], linker_type = linker_type),
+                ],
+                post_flags = linker_flags,
+            )
+        )
 
     obj_link_info = create_merged_link_info(
         ctx,
@@ -961,15 +982,17 @@ def ocaml_shared_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx,
         ctx.actions,
         cxx_toolchain,
-        [get_link_args_for_strategy(
-            ctx.actions,
-            ctx.label,
-            cxx_toolchain.linker_info,
-            dep_link_infos,
-            LinkStrategy("static_pic"),
-            prefer_stripped = False,
-            transformation_spec_context = None,
-        )],
+        [
+            get_link_args_for_strategy(
+                ctx.actions,
+                ctx.label,
+                cxx_toolchain.linker_info,
+                dep_link_infos,
+                LinkStrategy("static_pic"),
+                prefer_stripped = False,
+                transformation_spec_context = None,
+            )
+        ],
     )
 
     # 'ocamlopt.opt' with '-cc' fails to propagate '-shared' (and potentially

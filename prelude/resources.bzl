@@ -10,17 +10,16 @@ load("@prelude//:artifacts.bzl", "ArtifactOutputs")
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
 
 # Resources for transitive deps, shared by C++ and Rust.
-ResourceInfo = provider(fields = {
-    # A map containing all resources from transitive dependencies.  The keys
-    # are rule labels and the values are maps of resource names (the name used
-    # to lookup the resource at runtime) and the actual resource artifact.
-    "resources": provider_field(dict[Label, dict[str, ArtifactOutputs]]),
-})
+ResourceInfo = provider(
+    fields = {
+        # A map containing all resources from transitive dependencies.  The keys
+        # are rule labels and the values are maps of resource names (the name used
+        # to lookup the resource at runtime) and the actual resource artifact.
+        "resources": provider_field(dict[Label, dict[str, ArtifactOutputs]]),
+    }
+)
 
-def create_relocatable_resources_info(
-        ctx: AnalysisContext,
-        name: str,
-        resources: dict[str, ArtifactOutputs]) -> [ArgLike, Artifact]:
+def create_relocatable_resources_info(ctx: AnalysisContext, name: str, resources: dict[str, ArtifactOutputs]) -> [ArgLike, Artifact]:
     """
     Generate a resource DB (a JSON map of resource to its relative path) for the given
     binary in a way that is usable in relocatable contexts (where binaries must be fully
@@ -71,10 +70,7 @@ def create_relocatable_resources_info(
 
     return (packaged_resources_json, resources_dir)
 
-def gather_resources(
-        label: Label,
-        resources: dict[str, ArtifactOutputs] = {},
-        deps: list[Dependency] = []) -> dict[Label, dict[str, ArtifactOutputs]]:
+def gather_resources(label: Label, resources: dict[str, ArtifactOutputs] = {}, deps: list[Dependency] = []) -> dict[Label, dict[str, ArtifactOutputs]]:
     """
     Return the resources for this rule and its transitive deps.
     """
@@ -92,18 +88,11 @@ def gather_resources(
 
     return all_resources
 
-def create_resource_db(
-        ctx: AnalysisContext,
-        name: str,
-        binary: Artifact,
-        resources: dict[str, ArtifactOutputs]) -> Artifact:
+def create_resource_db(ctx: AnalysisContext, name: str, binary: Artifact, resources: dict[str, ArtifactOutputs]) -> Artifact:
     """
     Generate a resource DB for resources for the given binary, relativized to
     the binary's working directory.
     """
 
-    db = {
-        name: cmd_args(resource.default_output, delimiter = "", relative_to = (binary, 1))
-        for (name, resource) in resources.items()
-    }
+    db = {name: cmd_args(resource.default_output, delimiter = "", relative_to = (binary, 1)) for (name, resource) in resources.items()}
     return ctx.actions.write_json(name, db, has_content_based_path = False)

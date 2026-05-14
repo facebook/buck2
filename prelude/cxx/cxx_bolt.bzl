@@ -25,7 +25,14 @@ def cxx_use_bolt(ctx: AnalysisContext) -> bool:
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)
     return cxx_toolchain_info.bolt_enabled and ctx.attrs.bolt_profile != None
 
-def bolt(ctx: AnalysisContext, prebolt_output: Artifact, external_debug_info: ArtifactTSet, identifier: [str, None], generate_dwp: bool, allow_cache_upload: bool = False) -> CxxBoltOutput:
+def bolt(
+    ctx: AnalysisContext,
+    prebolt_output: Artifact,
+    external_debug_info: ArtifactTSet,
+    identifier: [str, None],
+    generate_dwp: bool,
+    allow_cache_upload: bool = False,
+) -> CxxBoltOutput:
     output_name = prebolt_output.short_path.removesuffix("-wrapper")
     postbolt_output = ctx.actions.declare_output(output_name, has_content_based_path = False)
     dwo_output = None

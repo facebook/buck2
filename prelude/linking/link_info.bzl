@@ -198,9 +198,11 @@ LinkOrdering = enum(
     "topological",
 )
 
-CxxSanitizerRuntimeInfo = provider(fields = {
-    "runtime_files": provider_field(list[Artifact]),
-})
+CxxSanitizerRuntimeInfo = provider(
+    fields = {
+        "runtime_files": provider_field(list[Artifact]),
+    }
+)
 
 def set_link_info_link_whole(info: LinkInfo) -> LinkInfo:
     linkables = [set_linkable_link_whole(linkable) for linkable in info.linkables]
@@ -214,7 +216,8 @@ def set_link_info_link_whole(info: LinkInfo) -> LinkInfo:
     )
 
 def set_linkable_link_whole(
-        linkable: [ArchiveLinkable, ObjectsLinkable, SharedLibLinkable, FrameworksLinkable]) -> [ArchiveLinkable, ObjectsLinkable, SharedLibLinkable, FrameworksLinkable]:
+    linkable: [ArchiveLinkable, ObjectsLinkable, SharedLibLinkable, FrameworksLinkable],
+) -> [ArchiveLinkable, ObjectsLinkable, SharedLibLinkable, FrameworksLinkable]:
     if isinstance(linkable, ArchiveLinkable):
         return ArchiveLinkable(
             archive = linkable.archive,
@@ -231,10 +234,7 @@ def set_linkable_link_whole(
     return linkable
 
 # Helper to wrap a LinkInfo with additional pre/post-flags.
-def wrap_link_info(
-        inner: LinkInfo,
-        pre_flags: list[typing.Any] = [],
-        post_flags: list[typing.Any] = []) -> LinkInfo:
+def wrap_link_info(inner: LinkInfo, pre_flags: list[typing.Any] = [], post_flags: list[typing.Any] = []) -> LinkInfo:
     pre_flags = pre_flags + inner.pre_flags
     post_flags = inner.post_flags + post_flags
     return LinkInfo(
@@ -287,8 +287,7 @@ def append_linkable_args(args: cmd_args, linkable: LinkableTypes):
             args.add(get_objects_as_library_args(linkable.linker_type, linkable.objects))
         else:
             args.add(linkable.objects)
-    elif isinstance(linkable, FrameworksLinkable) or \
-         isinstance(linkable, SwiftmoduleLinkable):
+    elif isinstance(linkable, FrameworksLinkable) or isinstance(linkable, SwiftmoduleLinkable):
         # These flags are handled separately so they can be deduped.
         #
         # We've seen in apps with larger dependency graphs that failing
@@ -306,7 +305,9 @@ LinkInfoArgumentFilter = enum(
 def link_info_to_args(value: LinkInfo, argument_type_filter: LinkInfoArgumentFilter = LinkInfoArgumentFilter("all")) -> cmd_args:
     result = cmd_args()
 
-    do_pre_post_flags = argument_type_filter == LinkInfoArgumentFilter("all") or argument_type_filter == LinkInfoArgumentFilter("exclude_object_files_and_lazy_archives")
+    do_pre_post_flags = argument_type_filter == LinkInfoArgumentFilter("all") or argument_type_filter == LinkInfoArgumentFilter(
+        "exclude_object_files_and_lazy_archives"
+    )
     if do_pre_post_flags:
         result.add(value.pre_flags)
 
@@ -314,10 +315,14 @@ def link_info_to_args(value: LinkInfo, argument_type_filter: LinkInfoArgumentFil
         if argument_type_filter == LinkInfoArgumentFilter("all"):
             append_linkable_args(result, linkable)
 
-        elif argument_type_filter == LinkInfoArgumentFilter("object_files_and_lazy_archives_only") and _is_linkable_comprised_of_object_files_or_a_lazy_archive(linkable):
+        elif argument_type_filter == LinkInfoArgumentFilter("object_files_and_lazy_archives_only") and _is_linkable_comprised_of_object_files_or_a_lazy_archive(
+            linkable
+        ):
             append_linkable_args(result, linkable)
 
-        elif argument_type_filter == LinkInfoArgumentFilter("exclude_object_files_and_lazy_archives") and not _is_linkable_comprised_of_object_files_or_a_lazy_archive(linkable):
+        elif argument_type_filter == LinkInfoArgumentFilter(
+            "exclude_object_files_and_lazy_archives"
+        ) and not _is_linkable_comprised_of_object_files_or_a_lazy_archive(linkable):
             append_linkable_args(result, linkable)
 
     if do_pre_post_flags:
@@ -476,16 +481,18 @@ LinkedObject = record(
 # This doesn't contain the information about things needed to package the linked result
 # (i.e. this doesn't contain the information needed to know what shared libs needed at runtime
 # for the final result).
-MergedLinkInfo = provider(fields = {
-    # Apple framework linker args must be deduped to avoid overflow in our argsfiles.
-    #
-    # To save on repeated computation of transitive LinkInfos, we store a dedupped
-    # structure, based on the link-style.
-    "frameworks": provider_field(dict[LinkStrategy, FrameworksLinkable | None]),
-    "swiftmodules": provider_field(dict[LinkStrategy, SwiftmoduleLinkable | None]),
-    "_external_debug_info": provider_field(dict[LinkStrategy, ArtifactTSet]),
-    "_infos": provider_field(dict[LinkStrategy, LinkInfosTSet]),
-})
+MergedLinkInfo = provider(
+    fields = {
+        # Apple framework linker args must be deduped to avoid overflow in our argsfiles.
+        #
+        # To save on repeated computation of transitive LinkInfos, we store a dedupped
+        # structure, based on the link-style.
+        "frameworks": provider_field(dict[LinkStrategy, FrameworksLinkable | None]),
+        "swiftmodules": provider_field(dict[LinkStrategy, SwiftmoduleLinkable | None]),
+        "_external_debug_info": provider_field(dict[LinkStrategy, ArtifactTSet]),
+        "_infos": provider_field(dict[LinkStrategy, LinkInfosTSet]),
+    }
+)
 
 # A map of linkages to all possible output styles it supports.
 _LIB_OUTPUT_STYLES_FOR_LINKAGE = {
@@ -495,17 +502,16 @@ _LIB_OUTPUT_STYLES_FOR_LINKAGE = {
 }
 
 # Helper to wrap a LinkInfos with additional pre/post-flags.
-def wrap_link_infos(
-        inner: LinkInfos,
-        pre_flags: list[typing.Any] = [],
-        post_flags: list[typing.Any] = []) -> LinkInfos:
+def wrap_link_infos(inner: LinkInfos, pre_flags: list[typing.Any] = [], post_flags: list[typing.Any] = []) -> LinkInfos:
     return LinkInfos(
         default = wrap_link_info(
             inner.default,
             pre_flags = pre_flags,
             post_flags = post_flags,
         ),
-        stripped = None if inner.stripped == None else wrap_link_info(
+        stripped = None
+        if inner.stripped == None
+        else wrap_link_info(
             inner.stripped,
             pre_flags = pre_flags,
             post_flags = post_flags,
@@ -513,21 +519,22 @@ def wrap_link_infos(
     )
 
 def create_merged_link_info(
-        # Target context for which to create the link info.
-        ctx: AnalysisContext,
-        pic_behavior: PicBehavior,
-        # The outputs available for this rule, as a map from LibOutputStyle (as
-        # used by dependents) to `LinkInfo`.
-        link_infos: dict[LibOutputStyle, LinkInfos] = {},
-        # How the rule requests to be linked.  This will be used to determine
-        # which actual link style to propagate for each "requested" link style.
-        preferred_linkage: Linkage = Linkage("any"),
-        # Link info to propagate from non-exported deps for static link styles.
-        deps: list[MergedLinkInfo] = [],
-        # Link info to always propagate from exported deps.
-        exported_deps: list[MergedLinkInfo] = [],
-        frameworks_linkable: [FrameworksLinkable, None] = None,
-        swiftmodule_linkable: [SwiftmoduleLinkable, None] = None) -> MergedLinkInfo:
+    # Target context for which to create the link info.
+    ctx: AnalysisContext,
+    pic_behavior: PicBehavior,
+    # The outputs available for this rule, as a map from LibOutputStyle (as
+    # used by dependents) to `LinkInfo`.
+    link_infos: dict[LibOutputStyle, LinkInfos] = {},
+    # How the rule requests to be linked.  This will be used to determine
+    # which actual link style to propagate for each "requested" link style.
+    preferred_linkage: Linkage = Linkage("any"),
+    # Link info to propagate from non-exported deps for static link styles.
+    deps: list[MergedLinkInfo] = [],
+    # Link info to always propagate from exported deps.
+    exported_deps: list[MergedLinkInfo] = [],
+    frameworks_linkable: [FrameworksLinkable, None] = None,
+    swiftmodule_linkable: [SwiftmoduleLinkable, None] = None,
+) -> MergedLinkInfo:
     """
     Create a `MergedLinkInfo` provider.
     """
@@ -599,10 +606,7 @@ def create_merged_link_info(
             external_debug_info[link_strategy] = make_artifact_tset(
                 actions = ctx.actions,
                 label = ctx.label,
-                children = (
-                    [link_info.default.external_debug_info] +
-                    external_debug_info_children
-                ),
+                children = ([link_info.default.external_debug_info] + external_debug_info_children),
             )
 
     return MergedLinkInfo(
@@ -612,9 +616,7 @@ def create_merged_link_info(
         swiftmodules = swiftmodules,
     )
 
-def create_merged_link_info_for_propagation(
-        ctx: AnalysisContext,
-        xs: list[MergedLinkInfo]) -> MergedLinkInfo:
+def create_merged_link_info_for_propagation(ctx: AnalysisContext, xs: list[MergedLinkInfo]) -> MergedLinkInfo:
     """
     Creates a MergedLinkInfo for a node that just propagates up its dependencies' MergedLinkInfo without contributing anything itself.
 
@@ -644,10 +646,7 @@ def create_merged_link_info_for_propagation(
         swiftmodules = swiftmodules,
     )
 
-def get_link_info(
-        infos: LinkInfos,
-        prefer_stripped: bool = False,
-        prefer_optimized: bool = False) -> LinkInfo:
+def get_link_info(infos: LinkInfos, prefer_stripped: bool = False, prefer_optimized: bool = False) -> LinkInfo:
     """
     Helper for getting a `LinkInfo` out of a `LinkInfos`.
     """
@@ -693,10 +692,7 @@ def link_args_metadata_with_flag(args: LinkArgs, link_metadata_flag: str | None 
         cmd.add(cmd_args(unpack_link_args_metadata(args), prepend = link_metadata_flag))
     return cmd
 
-def unpack_link_args(
-        args: LinkArgs,
-        link_ordering: [LinkOrdering, None] = None,
-        link_metadata_flag: str | None = None) -> ArgLike:
+def unpack_link_args(args: LinkArgs, link_ordering: [LinkOrdering, None] = None, link_metadata_flag: str | None = None) -> ArgLike:
     cmd = link_args_metadata_with_flag(args, link_metadata_flag)
     if args.tset != None:
         ordering = link_ordering.value if link_ordering else "preorder"
@@ -815,14 +811,15 @@ def map_to_link_infos(links: list[LinkArgs]) -> list[LinkInfo]:
     return res
 
 def get_link_args_for_strategy(
-        actions: AnalysisActions,
-        label: Label,
-        linker_info: LinkerInfo,
-        deps_merged_link_infos: list[MergedLinkInfo],
-        link_strategy: LinkStrategy,
-        prefer_stripped: bool,
-        transformation_spec_context: TransformationSpecContext | None,
-        additional_link_info: [LinkInfo, None] = None) -> LinkArgs:
+    actions: AnalysisActions,
+    label: Label,
+    linker_info: LinkerInfo,
+    deps_merged_link_infos: list[MergedLinkInfo],
+    link_strategy: LinkStrategy,
+    prefer_stripped: bool,
+    transformation_spec_context: TransformationSpecContext | None,
+    additional_link_info: [LinkInfo, None] = None,
+) -> LinkArgs:
     """
     Derive the `LinkArgs` for a strategy and strip preference from a list of dependency's MergedLinkInfo.
     """
@@ -830,18 +827,15 @@ def get_link_args_for_strategy(
     infos_kwargs = {}
     if additional_link_info:
         infos_kwargs = {"value": LinkInfos(default = additional_link_info, stripped = additional_link_info)}
-    infos = actions.tset(
-        LinkInfosTSet,
-        children = filter(None, [x._infos.get(link_strategy) for x in deps_merged_link_infos]),
-        **infos_kwargs
-    )
+    infos = actions.tset(LinkInfosTSet, children = filter(None, [x._infos.get(link_strategy) for x in deps_merged_link_infos]), **infos_kwargs)
 
     external_debug_info = make_artifact_tset(
         actions = actions,
         label = label,
         children = filter(
             None,
-            [x._external_debug_info.get(link_strategy) for x in deps_merged_link_infos] + ([additional_link_info.external_debug_info] if additional_link_info else []),
+            [x._external_debug_info.get(link_strategy) for x in deps_merged_link_infos]
+            + ([additional_link_info.external_debug_info] if additional_link_info else []),
         ),
     )
 
@@ -873,7 +867,9 @@ def _get_non_transformed_info(link_infos: LinkInfos, prefer_stripped: bool) -> L
         return link_infos.stripped or link_infos.default
     return link_infos.default
 
-def get_link_info_for_transformation(transformation_spec_context: TransformationSpecContext, link_infos: LinkInfos, label: Label | None, prefer_stripped: bool) -> LinkInfo:
+def get_link_info_for_transformation(
+    transformation_spec_context: TransformationSpecContext, link_infos: LinkInfos, label: Label | None, prefer_stripped: bool
+) -> LinkInfo:
     info = None
 
     if label:
@@ -886,10 +882,7 @@ def get_link_info_for_transformation(transformation_spec_context: Transformation
 
     return info or _get_non_transformed_info(link_infos, prefer_stripped)
 
-def get_lib_output_style(
-        requested_link_strategy: LinkStrategy,
-        preferred_linkage: Linkage,
-        pic_behavior: PicBehavior) -> LibOutputStyle:
+def get_lib_output_style(requested_link_strategy: LinkStrategy, preferred_linkage: Linkage, pic_behavior: PicBehavior) -> LibOutputStyle:
     """
     Return what lib output style to use for a library for a requested link style and preferred linkage.
     --------------------------------------------------------------
@@ -1002,20 +995,18 @@ def _merge_framework_linkables(linkables: list[[FrameworksLinkable, None]]) -> F
     )
 
 def merge_swiftmodule_linkables(ctx: AnalysisContext, linkables: list[[SwiftmoduleLinkable, None]]) -> SwiftmoduleLinkable:
-    children = [
-        linkable.swiftmodules
-        for linkable in linkables
-        if linkable != None
-    ]
+    children = [linkable.swiftmodules for linkable in linkables if linkable != None]
 
     if not children:
         return SwiftmoduleLinkableEmpty
 
-    return SwiftmoduleLinkable(swiftmodules = make_artifact_tset(
-        actions = ctx.actions,
-        label = ctx.label,
-        children = children,
-    ))
+    return SwiftmoduleLinkable(
+        swiftmodules = make_artifact_tset(
+            actions = ctx.actions,
+            label = ctx.label,
+            children = children,
+        )
+    )
 
 def wrap_with_no_as_needed_shared_libs_flags(linker_type: LinkerType, link_info: LinkInfo) -> LinkInfo:
     """
@@ -1026,10 +1017,7 @@ def wrap_with_no_as_needed_shared_libs_flags(linker_type: LinkerType, link_info:
     if linker_type == LinkerType("gnu"):
         return wrap_link_info(
             inner = link_info,
-            pre_flags = (
-                ["-Wl,--push-state"] +
-                get_no_as_needed_shared_libs_flags(linker_type)
-            ),
+            pre_flags = (["-Wl,--push-state"] + get_no_as_needed_shared_libs_flags(linker_type)),
             post_flags = ["-Wl,--pop-state"],
         )
 
@@ -1054,9 +1042,11 @@ LinkCommandDebugOutputInfo = provider(
     ],
 )
 
-UnstrippedLinkOutputInfo = provider(fields = {
-    "artifact": Artifact,
-})
+UnstrippedLinkOutputInfo = provider(
+    fields = {
+        "artifact": Artifact,
+    }
+)
 
 def make_link_command_debug_output(linked_object: LinkedObject) -> [LinkCommandDebugOutput, None]:
     if not linked_object.output or not linked_object.linker_command or not linked_object.linker_argsfile:

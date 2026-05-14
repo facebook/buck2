@@ -9,7 +9,13 @@
 load("@prelude//android:android_binary.bzl", "get_build_config_java_libraries")
 load("@prelude//android:android_binary_native_library_rules.bzl", "get_android_binary_native_library_info")
 load("@prelude//android:android_binary_resources_rules.bzl", "get_cxx_resources", "get_manifest")
-load("@prelude//android:android_providers.bzl", "AndroidResourceInfo", "ExportedAndroidResourceInfo", "get_all_android_packageable_targets", "merge_android_packageable_info")
+load(
+    "@prelude//android:android_providers.bzl",
+    "AndroidResourceInfo",
+    "ExportedAndroidResourceInfo",
+    "get_all_android_packageable_targets",
+    "merge_android_packageable_info",
+)
 load("@prelude//android:android_resource.bzl", "get_text_symbols")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:configuration.bzl", "get_deps_by_platform")
@@ -26,7 +32,11 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
 
     excluded_java_packaging_deps = get_all_java_packaging_deps(ctx, ctx.attrs.excluded_java_deps)
     excluded_java_packaging_deps_targets = set([excluded_dep.label.raw_target() for excluded_dep in excluded_java_packaging_deps])
-    java_packaging_deps = [packaging_dep for packaging_dep in get_all_java_packaging_deps(ctx, deps) if packaging_dep.label.raw_target() not in excluded_java_packaging_deps_targets]
+    java_packaging_deps = [
+        packaging_dep
+        for packaging_dep in get_all_java_packaging_deps(ctx, deps)
+        if packaging_dep.label.raw_target() not in excluded_java_packaging_deps_targets
+    ]
     android_packageable_info = merge_android_packageable_info(ctx.label, ctx.actions, deps)
 
     excluded_android_packageable_targets = set(get_all_android_packageable_targets(ctx.attrs.excluded_java_deps))
@@ -36,10 +46,12 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
 
     if ctx.attrs.include_build_config_class:
         build_config_infos = list(android_packageable_info.build_config_infos.traverse()) if android_packageable_info.build_config_infos else []
-        java_packaging_deps.extend(get_all_java_packaging_deps_from_packaging_infos(
-            ctx,
-            get_build_config_java_libraries(ctx, build_config_infos, package_type = "release", exopackage_modes = []),
-        ))
+        java_packaging_deps.extend(
+            get_all_java_packaging_deps_from_packaging_infos(
+                ctx,
+                get_build_config_java_libraries(ctx, build_config_infos, package_type = "release", exopackage_modes = []),
+            )
+        )
 
     enhancement_ctx = create_enhancement_context(ctx)
     android_binary_native_library_info = get_android_binary_native_library_info(
@@ -57,10 +69,13 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
         native_library_merge_code_generator = getattr(ctx.attrs, "native_library_merge_code_generator", None),
         native_library_merge_sequence_blocklist = getattr(ctx.attrs, "native_library_merge_sequence_blocklist", None),
     )
-    java_packaging_deps.extend([create_java_packaging_dep(
-        ctx,
-        library_output,
-    ) for library_output in android_binary_native_library_info.generated_java_code])
+    java_packaging_deps.extend([
+        create_java_packaging_dep(
+            ctx,
+            library_output,
+        )
+        for library_output in android_binary_native_library_info.generated_java_code
+    ])
 
     jars = [dep.jar for dep in java_packaging_deps if dep.jar]
     classes_jar = ctx.actions.declare_output("classes.jar", has_content_based_path = False)
@@ -129,7 +144,9 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
 
             ctx.actions.run(merge_resource_sources_cmd, category = "merge_android_resource_sources")
 
-            r_dot_txt = get_text_symbols(ctx, merged_resource_sources_dir, [dep for dep in deps if AndroidResourceInfo in dep or ExportedAndroidResourceInfo in dep])
+            r_dot_txt = get_text_symbols(
+                ctx, merged_resource_sources_dir, [dep for dep in deps if AndroidResourceInfo in dep or ExportedAndroidResourceInfo in dep]
+            )
             entries.extend([merged_resource_sources_dir, r_dot_txt])
 
         assets_dirs = [resource_infos.assets for resource_infos in resource_infos if resource_infos.assets]
@@ -140,7 +157,9 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
         entries.append(cxx_resources)
 
     native_libs_file = argfile(actions = ctx.actions, name = "native_libs_entries.txt", args = android_binary_native_library_info.native_libs_for_primary_apk)
-    native_libs_assets_file = argfile(actions = ctx.actions, name = "native_libs_assets_entries.txt", args = android_binary_native_library_info.root_module_native_lib_assets)
+    native_libs_assets_file = argfile(
+        actions = ctx.actions, name = "native_libs_assets_entries.txt", args = android_binary_native_library_info.root_module_native_lib_assets
+    )
 
     entries_file = ctx.actions.write("entries.txt", entries, has_content_based_path = False)
 

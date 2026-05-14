@@ -142,9 +142,4 @@ def export_exe(name, exe = None, src = None, **kwargs):
     #         src = "script.sh",
     #     )
     #
-    _export_exe(
-        name = name,
-        exe = exe,
-        src = src if (exe or src) else name,
-        **kwargs
-    )
+    _export_exe(name = name, exe = exe, src = src if (exe or src) else name, **kwargs)

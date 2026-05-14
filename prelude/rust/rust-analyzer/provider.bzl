@@ -44,9 +44,7 @@ RustAnalyzerInfo = provider(
     },
 )
 
-def _compute_rust_deps(
-        ctx: AnalysisContext,
-        dep_ctx: DepCollectionContext) -> list[Dependency]:
+def _compute_rust_deps(ctx: AnalysisContext, dep_ctx: DepCollectionContext) -> list[Dependency]:
     dep_ctx = DepCollectionContext(
         advanced_unstable_linking = False,
         # Include doc deps here for any doctests that may be present in the target.
@@ -63,9 +61,7 @@ def _compute_rust_deps(
 
     return [dep.dep for dep in first_order_deps] + available_proc_macros.values()
 
-def _compute_transitive_target_set(
-        ctx: AnalysisContext,
-        first_order_deps: list[Dependency]) -> set[ConfiguredTargetLabel]:
+def _compute_transitive_target_set(ctx: AnalysisContext, first_order_deps: list[Dependency]) -> set[ConfiguredTargetLabel]:
     transitive_targets = set([ctx.label.configured_target()])
     for dep in first_order_deps:
         target_sets = dep[RustAnalyzerInfo].transitive_target_set
@@ -73,16 +69,12 @@ def _compute_transitive_target_set(
             transitive_targets.add(target_set)
     return transitive_targets
 
-def _compute_env(
-        ctx: AnalysisContext,
-        compile_ctx: CompileContext) -> dict[str, cmd_args]:
+def _compute_env(ctx: AnalysisContext, compile_ctx: CompileContext) -> dict[str, cmd_args]:
     # Disable rustc_action processing, as rust-project will handle windows + any escaping necessary.
     plain_env, path_env = process_env(compile_ctx, ctx.attrs.env, False)
     return plain_env | path_env
 
-def _compute_rustc_flags(
-        ctx: AnalysisContext,
-        compile_ctx: CompileContext) -> cmd_args:
+def _compute_rustc_flags(ctx: AnalysisContext, compile_ctx: CompileContext) -> cmd_args:
     toolchain_info = compile_ctx.toolchain_info
     return cmd_args(
         toolchain_info.rustc_flags,
@@ -90,10 +82,7 @@ def _compute_rustc_flags(
         toolchain_info.extra_rustc_flags,
     )
 
-def rust_analyzer_provider(
-        ctx: AnalysisContext,
-        compile_ctx: CompileContext,
-        default_roots: list[str]) -> RustAnalyzerInfo:
+def rust_analyzer_provider(ctx: AnalysisContext, compile_ctx: CompileContext, default_roots: list[str]) -> RustAnalyzerInfo:
     toolchain_info = compile_ctx.toolchain_info
     rust_deps = _compute_rust_deps(ctx, compile_ctx.dep_ctx)
     return RustAnalyzerInfo(

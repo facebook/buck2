@@ -94,11 +94,14 @@ def genrule_attributes() -> dict[str, Attr]:
         "metadata_path": attrs.option(attrs.string(), default = None),
         "no_outputs_cleanup": attrs.bool(default = False),
         "remote_execution_dependencies": attrs.list(attrs.dict(key = attrs.string(), value = attrs.string()), default = []),
-        "repo_relative_root": attrs.bool(default = False, doc = """
+        "repo_relative_root": attrs.bool(
+            default = False,
+            doc = """
             If true, the genrule will be executed from the project root, instead of in the genrule location in buck-out.
             Helps with long paths issues on windows with deeply nested directories, which will usually have long relative paths as inputs.
             Should eventually default to true.
-        """),
+        """,
+        ),
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
         "_genrule_toolchain": attrs.default_only(attrs.toolchain_dep(default = "toolchains//:genrule", providers = [GenruleToolchainInfo])),
     }
@@ -132,7 +135,9 @@ def _project_output(out: Artifact, path: str) -> Artifact:
     else:
         return out.project(path, hide_prefix = True)
 
-def _generate_error_handler(category: str, stderr_errorformats: list[str] | None, stdout_errorformats: list[str] | None) -> typing.Callable[[ActionErrorCtx], list[ActionSubError]]:
+def _generate_error_handler(
+    category: str, stderr_errorformats: list[str] | None, stdout_errorformats: list[str] | None
+) -> typing.Callable[[ActionErrorCtx], list[ActionSubError]]:
     def handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
         structured_errors = []
         if stderr_errorformats != None:
@@ -154,13 +159,14 @@ def _generate_error_handler(category: str, stderr_errorformats: list[str] | None
     return handler
 
 def process_genrule(
-        ctx: AnalysisContext,
-        out_attr: [str, None],
-        outs_attr: [dict, None],
-        extra_env_vars: dict = {},
-        identifier: [str, None] = None,
-        other_outputs: list[Artifact] = [],
-        genrule_error_handler: [typing.Callable[[ActionErrorCtx], list[ActionSubError]], None] = None) -> list[Provider]:
+    ctx: AnalysisContext,
+    out_attr: [str, None],
+    outs_attr: [dict, None],
+    extra_env_vars: dict = {},
+    identifier: [str, None] = None,
+    other_outputs: list[Artifact] = [],
+    genrule_error_handler: [typing.Callable[[ActionErrorCtx], list[ActionSubError]], None] = None,
+) -> list[Provider]:
     if (out_attr != None) and (outs_attr != None):
         fail("Only one of `out` and `outs` should be set. Got out=`%s`, outs=`%s`" % (repr(out_attr), repr(outs_attr)))
 
@@ -195,20 +201,14 @@ def process_genrule(
     elif outs_attr != None:
         out_env = out_dir_artifact
         out_prepare = out_dir_artifact.as_output()
-        named_outputs = {
-            name: [_project_output(out_dir_artifact, path) for path in outputs]
-            for (name, outputs) in outs_attr.items()
-        }
+        named_outputs = {name: [_project_output(out_dir_artifact, path) for path in outputs] for (name, outputs) in outs_attr.items()}
 
         outs_names = outs_attr.keys()
         if executable_outs != None:
             for executable_out in executable_outs:
                 expect(executable_out in outs_names, "Value in `executable_outs` {} is not in `outs`".format(executable_out))
 
-        default_outputs = [
-            _project_output(out_dir_artifact, path)
-            for path in (ctx.attrs.default_outs or [])
-        ]
+        default_outputs = [_project_output(out_dir_artifact, path) for path in (ctx.attrs.default_outs or [])]
         if len(default_outputs) == 0:
             # We want building to force something to be built, so make sure it contains at least one artifact
             default_outputs = [out_dir_artifact]
@@ -309,7 +309,7 @@ def process_genrule(
                 out_prepare,
                 format = "if not exist {} mkdir {}",
             ),
-            cmd_args("if NOT \"%TEMP%\" == \"\" set \"TMP=%TEMP%\""),
+            cmd_args('if NOT "%TEMP%" == "" set "TMP=%TEMP%"'),
         ]
         script_extension = "bat"
     else:
@@ -333,14 +333,16 @@ def process_genrule(
             hidden.append(zip_scrubber)
 
             # Any outputs that are .zip files need to be "scrubbed" to ensure that they are deterministic.
-            script = [
-                cmd_args("ORIGINAL_DIR_FOR_ZIP_SCRUBBING=$(pwd)"),
-            ] + script + [
-                cmd_args('cd "$ORIGINAL_DIR_FOR_ZIP_SCRUBBING"'),
-            ] + [
-                cmd_args(zip_scrubber, output.as_output(), delimiter = " ", quote = "shell")
-                for output in zip_outputs
-            ]
+            script = (
+                [
+                    cmd_args("ORIGINAL_DIR_FOR_ZIP_SCRUBBING=$(pwd)"),
+                ]
+                + script
+                + [
+                    cmd_args('cd "$ORIGINAL_DIR_FOR_ZIP_SCRUBBING"'),
+                ]
+                + [cmd_args(zip_scrubber, output.as_output(), delimiter = " ", quote = "shell") for output in zip_outputs]
+            )
 
     # Some rules need to run from the build root, but for everything else, `cd`
     # into the sandboxed source dir and relative all paths to that.
@@ -363,21 +365,15 @@ def process_genrule(
         for script_cmd in script:
             script_cmd.relative_to(srcs_artifact)
 
-        script = (
-            [
-                # Rewrite BUCK_SCRATCH_PATH
-                rewrite_scratch_path,
-                # Change to the directory that genrules expect.
-                cmd_args(srcs_dir, format = "cd {}"),
-            ] +
-            script
-        )
+        script = [
+            # Rewrite BUCK_SCRATCH_PATH
+            rewrite_scratch_path,
+            # Change to the directory that genrules expect.
+            cmd_args(srcs_dir, format = "cd {}"),
+        ] + script
 
         # Relative all paths in the env to the sandbox dir.
-        env_vars = {
-            key: cmd_args(value, relative_to = srcs_artifact)
-            for key, value in env_vars.items()
-        }
+        env_vars = {key: cmd_args(value, relative_to = srcs_artifact) for key, value in env_vars.items()}
 
     if is_windows:
         # Should be in the beginning.
@@ -433,21 +429,23 @@ def process_genrule(
         no_outputs_cleanup = ctx.attrs.no_outputs_cleanup,
         always_print_stderr = ctx.attrs.always_print_stderr,
         error_handler = genrule_error_handler,
-        **metadata_args
+        **metadata_args,
     )
 
     sub_targets = {}
-    for (k, v) in named_outputs.items():
+    for k, v in named_outputs.items():
         sub_target_providers = [DefaultInfo(default_outputs = v)]
         if executable_outs != None and k in executable_outs:
             sub_target_providers.append(RunInfo(args = cmd_args(v)))
         sub_targets[k] = sub_target_providers
 
-    providers = [DefaultInfo(
-        default_outputs = default_outputs,
-        sub_targets = sub_targets,
-        other_outputs = other_outputs,
-    )]
+    providers = [
+        DefaultInfo(
+            default_outputs = default_outputs,
+            sub_targets = sub_targets,
+            other_outputs = other_outputs,
+        )
+    ]
 
     # The cxx_genrule also forwards here, and that doesn't have .executable, so use getattr
     if getattr(ctx.attrs, "executable", False):

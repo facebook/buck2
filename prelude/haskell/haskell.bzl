@@ -171,10 +171,7 @@ def _attr_preferred_linkage(ctx: AnalysisContext) -> Linkage:
 
 # --
 
-def _get_haskell_prebuilt_libs(
-        ctx,
-        link_style: LinkStyle,
-        enable_profiling: bool) -> list[Artifact]:
+def _get_haskell_prebuilt_libs(ctx, link_style: LinkStyle, enable_profiling: bool) -> list[Artifact]:
     if link_style == LinkStyle("shared"):
         if enable_profiling:
             # Profiling doesn't support shared libraries
@@ -264,14 +261,8 @@ def haskell_prebuilt_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 lib = lib,
             )
 
-        linkables = [
-            (shared_linkable if link_style == LinkStyle("shared") else archive_linkable)(lib)
-            for lib in libs
-        ]
-        prof_linkables = [
-            (shared_linkable if link_style == LinkStyle("shared") else archive_linkable)(lib)
-            for lib in prof_libs
-        ]
+        linkables = [(shared_linkable if link_style == LinkStyle("shared") else archive_linkable)(lib) for lib in libs]
+        prof_linkables = [(shared_linkable if link_style == LinkStyle("shared") else archive_linkable)(lib) for lib in prof_libs]
 
         hlibinfos[link_style] = hlibinfo
         hlinkinfos[link_style] = ctx.actions.tset(
@@ -375,10 +366,7 @@ def haskell_prebuilt_library_impl(ctx: AnalysisContext) -> list[Provider]:
         linkable_graph,
     ]
 
-def _srcs_to_objfiles(
-        ctx: AnalysisContext,
-        odir: Artifact,
-        osuf: str) -> list[Artifact]:
+def _srcs_to_objfiles(ctx: AnalysisContext, odir: Artifact, osuf: str) -> list[Artifact]:
     objfiles = []
     for src, _ in srcs_to_pairs(ctx.attrs.srcs):
         # Don't link boot sources, as they're only meant to be used for compiling.
@@ -415,14 +403,15 @@ ALWAYS_USE_CACHE=$4
 #    at compile time, so it uses the package specs to find out
 #    which libraries and where.
 def _make_package(
-        ctx: AnalysisContext,
-        link_style: LinkStyle,
-        pkgname: str,
-        libname: str,
-        hlis: list[HaskellLibraryInfo],
-        hi: dict[bool, Artifact],
-        lib: dict[bool, Artifact],
-        enable_profiling: bool) -> Artifact:
+    ctx: AnalysisContext,
+    link_style: LinkStyle,
+    pkgname: str,
+    libname: str,
+    hlis: list[HaskellLibraryInfo],
+    hi: dict[bool, Artifact],
+    lib: dict[bool, Artifact],
+    enable_profiling: bool,
+) -> Artifact:
     artifact_suffix = get_artifact_suffix(link_style, enable_profiling)
 
     # Don't expose boot sources, as they're only meant to be used for compiling.
@@ -435,16 +424,10 @@ def _make_package(
 
     def mk_artifact_dir(dir_prefix: str, profiled: bool) -> str:
         art_suff = get_artifact_suffix(link_style, profiled)
-        return "\"${pkgroot}/" + dir_prefix + "-" + art_suff + "\""
+        return '"${pkgroot}/' + dir_prefix + "-" + art_suff + '"'
 
-    import_dirs = [
-        mk_artifact_dir("hi", profiled)
-        for profiled in hi.keys()
-    ]
-    library_dirs = [
-        mk_artifact_dir("lib", profiled)
-        for profiled in hi.keys()
-    ]
+    import_dirs = [mk_artifact_dir("hi", profiled) for profiled in hi.keys()]
+    library_dirs = [mk_artifact_dir("lib", profiled) for profiled in hi.keys()]
 
     conf = [
         "name: " + pkgname,
@@ -514,9 +497,7 @@ HaskellLibBuildOutput = record(
     libs = list[Artifact],
 )
 
-def _get_haskell_shared_library_name_linker_flags(
-        linker_type: LinkerType,
-        soname: str) -> list[str]:
+def _get_haskell_shared_library_name_linker_flags(linker_type: LinkerType, soname: str) -> list[str]:
     if linker_type == LinkerType("gnu"):
         return ["-Wl,-soname,{}".format(soname)]
     elif linker_type == LinkerType("darwin"):
@@ -528,16 +509,17 @@ def _get_haskell_shared_library_name_linker_flags(
         fail("Unknown linker type '{}'.".format(linker_type))
 
 def _build_haskell_lib(
-        ctx,
-        libname: str,
-        pkgname: str,
-        hlis: list[HaskellLinkInfo],  # haskell link infos from all deps
-        nlis: list[MergedLinkInfo],  # native link infos from all deps
-        link_style: LinkStyle,
-        enable_profiling: bool,
-        # The non-profiling artifacts are also needed to build the package for
-        # profiling, so it should be passed when `enable_profiling` is True.
-        non_profiling_hlib: [HaskellLibBuildOutput, None] = None) -> HaskellLibBuildOutput:
+    ctx,
+    libname: str,
+    pkgname: str,
+    hlis: list[HaskellLinkInfo],  # haskell link infos from all deps
+    nlis: list[MergedLinkInfo],  # native link infos from all deps
+    link_style: LinkStyle,
+    enable_profiling: bool,
+    # The non-profiling artifacts are also needed to build the package for
+    # profiling, so it should be passed when `enable_profiling` is True.
+    non_profiling_hlib: [HaskellLibBuildOutput, None] = None,
+) -> HaskellLibBuildOutput:
     linker_info = ctx.attrs._cxx_toolchain[CxxToolchainInfo].linker_info
 
     # Link the objects into a library
@@ -575,11 +557,11 @@ def _build_haskell_lib(
     if link_style == LinkStyle("shared"):
         lib = ctx.actions.declare_output(lib_short_path, has_content_based_path = False)
         link = cmd_args(
-            [haskell_toolchain.linker] +
-            [haskell_toolchain.linker_flags] +
-            [ctx.attrs.linker_flags] +
-            ["-o", lib.as_output()] +
-            [
+            [haskell_toolchain.linker]
+            + [haskell_toolchain.linker_flags]
+            + [ctx.attrs.linker_flags]
+            + ["-o", lib.as_output()]
+            + [
                 "-package-env=-",
                 get_shared_library_flags(linker_info.type),
                 "-dynamic",
@@ -587,8 +569,8 @@ def _build_haskell_lib(
                     _get_haskell_shared_library_name_linker_flags(linker_info.type, libfile),
                     prepend = "-optl",
                 ),
-            ] +
-            [objfiles],
+            ]
+            + [objfiles],
             hidden = compiled.stubs,
         )
 
@@ -769,9 +751,11 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
                     )
                     indexing_tsets[link_style] = tset
 
-                sub_targets[link_style.value.replace("_", "-")] = [DefaultInfo(
-                    default_outputs = libs,
-                )]
+                sub_targets[link_style.value.replace("_", "-")] = [
+                    DefaultInfo(
+                        default_outputs = libs,
+                    )
+                ]
 
     pic_behavior = ctx.attrs._cxx_toolchain[CxxToolchainInfo].pic_behavior
     link_style = cxx_toolchain_link_style(ctx)
@@ -886,17 +870,19 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
         args = cmd_args()
         linker_info = ctx.attrs._cxx_toolchain[CxxToolchainInfo].linker_info
         args.add(linker_info.linker_flags)
-        args.add(unpack_link_args(
-            get_link_args_for_strategy(
-                ctx.actions,
-                ctx.label,
-                linker_info,
-                [merged_link_info],
-                to_link_strategy(link_style),
-                prefer_stripped = False,
-                transformation_spec_context = None,
-            ),
-        ))
+        args.add(
+            unpack_link_args(
+                get_link_args_for_strategy(
+                    ctx.actions,
+                    ctx.label,
+                    linker_info,
+                    [merged_link_info],
+                    to_link_strategy(link_style),
+                    prefer_stripped = False,
+                    transformation_spec_context = None,
+                ),
+            )
+        )
         templ_vars[name] = args
 
     # TODO(T110378127): To implement `$(ldflags-shared ...)` properly, we'd need
@@ -914,16 +900,12 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
     return providers
 
 # TODO(cjhopman): should this be LibOutputType or LinkStrategy?
-def derive_indexing_tset(
-        actions: AnalysisActions,
-        link_style: LinkStyle,
-        value: Artifact | None,
-        children: list[Dependency]) -> HaskellIndexingTSet:
+def derive_indexing_tset(actions: AnalysisActions, link_style: LinkStyle, value: Artifact | None, children: list[Dependency]) -> HaskellIndexingTSet:
     index_children = []
     for dep in children:
         li = dep.get(HaskellIndexInfo)
         if li:
-            if (link_style in li.info):
+            if link_style in li.info:
                 index_children.append(li.info[link_style])
 
     return actions.tset(
@@ -960,10 +942,7 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
 
     output = ctx.actions.declare_output(ctx.attrs.name, has_content_based_path = False)
     link = cmd_args(
-        [haskell_toolchain.compiler] +
-        ["-o", output.as_output()] +
-        [haskell_toolchain.linker_flags] +
-        [ctx.attrs.linker_flags],
+        [haskell_toolchain.compiler] + ["-o", output.as_output()] + [haskell_toolchain.linker_flags] + [ctx.attrs.linker_flags],
         hidden = compiled.stubs,
     )
 
@@ -1044,12 +1023,7 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         )
 
         roots = set(
-            [
-                d.linkable_graph.nodes.value.label
-                for d in link_deps
-                if d.linkable_graph != None
-            ] +
-            link_group_relevant_roots,
+            [d.linkable_graph.nodes.value.label for d in link_deps if d.linkable_graph != None] + link_group_relevant_roots,
         )
         is_executable_link = True
         pic_behavior = PicBehavior("supported")
@@ -1069,10 +1043,7 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
             link_group_preferred_linkage = link_group_preferred_linkage,
             link_strategy = link_strategy,
             pic_behavior = pic_behavior,
-            link_group_libs = {
-                name: (lib.label, lib.shared_link_infos)
-                for name, lib in link_group_libs.items()
-            },
+            link_group_libs = {name: (lib.label, lib.shared_link_infos) for name, lib in link_group_libs.items()},
             prefer_stripped = False,
             prefer_optimized = False,
         )
@@ -1148,12 +1119,14 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
 
     link_args.add(cmd_args(unpack_link_args(infos), prepend = "-optl"))
 
-    link.add(at_argfile(
-        actions = ctx.actions,
-        name = "args.haskell_link_argsfile",
-        args = link_args,
-        allow_args = True,
-    ))
+    link.add(
+        at_argfile(
+            actions = ctx.actions,
+            name = "args.haskell_link_argsfile",
+            args = link_args,
+            allow_args = True,
+        )
+    )
     ctx.actions.run(link, category = "haskell_link")
 
     if link_style == LinkStyle("shared") or link_group_info != None:

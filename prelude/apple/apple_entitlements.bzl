@@ -55,13 +55,17 @@ def _needs_entitlements_in_binary(ctx: AnalysisContext) -> bool:
     return apple_toolchain_info.sdk_name in _SDK_NAMES_NEED_ENTITLEMENTS_IN_BINARY
 
 def entitlements_link_flags(ctx: AnalysisContext) -> list[typing.Any]:
-    return [
-        "-Xlinker",
-        "-sectcreate",
-        "-Xlinker",
-        "__TEXT",
-        "-Xlinker",
-        "__entitlements",
-        "-Xlinker",
-        ctx.attrs.entitlements_file,
-    ] if (ctx.attrs.entitlements_file and _needs_entitlements_in_binary(ctx)) else []
+    return (
+        [
+            "-Xlinker",
+            "-sectcreate",
+            "-Xlinker",
+            "__TEXT",
+            "-Xlinker",
+            "__entitlements",
+            "-Xlinker",
+            ctx.attrs.entitlements_file,
+        ]
+        if (ctx.attrs.entitlements_file and _needs_entitlements_in_binary(ctx))
+        else []
+    )

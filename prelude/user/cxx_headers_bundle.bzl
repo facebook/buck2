@@ -49,7 +49,9 @@ registration_spec = RuleRegistrationSpec(
         libraries that export them.
     """,
     impl = _impl,
-    attrs = buck.labels_arg() | buck.contacts_arg() | {
+    attrs = buck.labels_arg()
+    | buck.contacts_arg()
+    | {
         "deps": attrs.list(
             attrs.dep(providers = [CPreprocessorInfo]),
             default = [],

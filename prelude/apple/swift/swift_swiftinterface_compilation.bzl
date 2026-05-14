@@ -23,11 +23,16 @@ load(":swift_module_map.bzl", "write_swift_module_map_with_deps")
 load(":swift_sdk_flags.bzl", "get_sdk_flags")
 load(":swift_sdk_pcm_compilation.bzl", "get_swift_sdk_pcm_anon_targets")
 load(":swift_toolchain.bzl", "get_swift_toolchain_info", "get_swift_toolchain_info_dep")
-load(":swift_toolchain_types.bzl", "SdkUncompiledModuleInfo", "SwiftCompiledModuleInfo", "SwiftCompiledModuleTset", "SwiftToolchainInfo", "WrappedSdkCompiledModuleInfo")
+load(
+    ":swift_toolchain_types.bzl",
+    "SdkUncompiledModuleInfo",
+    "SwiftCompiledModuleInfo",
+    "SwiftCompiledModuleTset",
+    "SwiftToolchainInfo",
+    "WrappedSdkCompiledModuleInfo",
+)
 
-def get_swift_interface_anon_targets(
-        ctx: AnalysisContext,
-        uncompiled_sdk_deps: list[Dependency]):
+def get_swift_interface_anon_targets(ctx: AnalysisContext, uncompiled_sdk_deps: list[Dependency]):
     return [
         (
             _swift_interface_compilation,
@@ -43,16 +48,17 @@ def get_swift_interface_anon_targets(
     ]
 
 def compile_swiftinterface_common(
-        ctx,
-        deps,
-        is_framework,
-        uncompiled_module_info_name,
-        partial_cmd,
-        sdk_deps_providers,
-        expanded_swiftinterface_cmd,
-        category,
-        additional_compiled_pcm,
-        additional_compiled_swiftmodules = None):
+    ctx,
+    deps,
+    is_framework,
+    uncompiled_module_info_name,
+    partial_cmd,
+    sdk_deps_providers,
+    expanded_swiftinterface_cmd,
+    category,
+    additional_compiled_pcm,
+    additional_compiled_swiftmodules = None,
+):
     uses_content_based_paths = get_uses_content_based_paths(ctx)
     swift_toolchain = get_swift_toolchain_info(ctx)
     cmd = cmd_args(swift_toolchain.compiler)

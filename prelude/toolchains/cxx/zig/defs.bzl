@@ -142,20 +142,22 @@ ZigReleaseInfo = provider(
     },
 )
 
-def _get_zig_release(
-        version: str,
-        platform: str) -> ZigReleaseInfo:
+def _get_zig_release(version: str, platform: str) -> ZigReleaseInfo:
     if not version in releases:
-        fail("Unknown zig release version '{}'. Available versions: {}".format(
-            version,
-            ", ".join(releases.keys()),
-        ))
+        fail(
+            "Unknown zig release version '{}'. Available versions: {}".format(
+                version,
+                ", ".join(releases.keys()),
+            )
+        )
     zig_version = releases[version]
     if not platform in zig_version:
-        fail("Unsupported platform '{}'. Supported platforms: {}".format(
-            platform,
-            ", ".join(zig_version.keys()),
-        ))
+        fail(
+            "Unsupported platform '{}'. Supported platforms: {}".format(
+                platform,
+                ", ".join(zig_version.keys()),
+            )
+        )
     zig_platform = zig_version[platform]
     return ZigReleaseInfo(
         version = zig_version.get("version", version),
@@ -284,11 +286,7 @@ def _host_os() -> str:
     else:
         fail("Unsupported host os.")
 
-def download_zig_distribution(
-        name: str,
-        version: str,
-        arch: [None, str] = None,
-        os: [None, str] = None):
+def download_zig_distribution(name: str, version: str, arch: [None, str] = None, os: [None, str] = None):
     if arch == None:
         arch = _host_arch()
     if os == None:
@@ -359,25 +357,25 @@ def _cxx_zig_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
             compiler = RunInfo(args = cmd_args(zig_cc)),
             compiler_type = "clang",
             compiler_flags = cmd_args(target, ctx.attrs.c_compiler_flags),
-            #preprocessor = None,
-            #preprocessor_type = None,
+            # preprocessor = None,
+            # preprocessor_type = None,
             preprocessor_flags = cmd_args(ctx.attrs.c_preprocessor_flags),
-            #dep_files_processor = None,
+            # dep_files_processor = None,
         ),
         cxx_compiler_info = CxxCompilerInfo(
             compiler = RunInfo(args = cmd_args(zig_cxx)),
             compiler_type = "clang",
             compiler_flags = cmd_args(target, ctx.attrs.cxx_compiler_flags),
-            #preprocessor = None,
-            #preprocessor_type = None,
+            # preprocessor = None,
+            # preprocessor_type = None,
             preprocessor_flags = cmd_args(ctx.attrs.cxx_preprocessor_flags),
-            #dep_files_processor = None,
+            # dep_files_processor = None,
         ),
         linker_info = LinkerInfo(
             archiver = RunInfo(args = cmd_args(zig_ar)),
             archiver_type = "gnu",
             archiver_supports_argfiles = True,
-            #archive_contents = None,
+            # archive_contents = None,
             archive_objects_locally = False,
             binary_extension = "",
             generate_linker_maps = False,
@@ -385,12 +383,12 @@ def _cxx_zig_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
             link_libraries_locally = False,
             link_style = LinkStyle(ctx.attrs.link_style),
             link_weight = 1,
-            #link_ordering = None,
+            # link_ordering = None,
             linker = RunInfo(args = cmd_args(zig_cxx)),
             linker_flags = cmd_args(target, ctx.attrs.linker_flags),
-            #lto_mode = None,  # TODO support LTO
+            # lto_mode = None,  # TODO support LTO
             object_file_extension = "o",
-            #mk_shlib_intf = None,  # not needed if shlib_interfaces = "disabled"
+            # mk_shlib_intf = None,  # not needed if shlib_interfaces = "disabled"
             shlib_interfaces = ShlibInterfacesMode("disabled"),
             shared_dep_runtime_ld_flags = ctx.attrs.shared_dep_runtime_ld_flags,
             shared_library_name_default_prefix = "lib",
@@ -399,9 +397,9 @@ def _cxx_zig_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
             static_dep_runtime_ld_flags = ctx.attrs.static_dep_runtime_ld_flags,
             static_library_extension = "a",
             static_pic_dep_runtime_ld_flags = ctx.attrs.static_pic_dep_runtime_ld_flags,
-            #requires_archives = None,
-            #requires_objects = None,
-            #supports_distributed_thinlto = None,
+            # requires_archives = None,
+            # requires_objects = None,
+            # supports_distributed_thinlto = None,
             independent_shlib_interface_linker_flags = ctx.attrs.shared_library_interface_flags,
             type = _get_linker_type(dist.os),
             use_archiver_flags = True,
@@ -416,22 +414,22 @@ def _cxx_zig_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
             strip = RunInfo(args = ["strip"]),  # not included in the zig distribution.
         ),
         header_mode = HeaderMode("symlink_tree_only"),  # header map modes require mk_hmap
-        #headers_as_raw_headers_mode = None,
-        #asm_compiler_info = None,
-        #as_compiler_info = None,
-        #hip_compiler_info = None,
-        #cuda_compiler_info = None,
-        #mk_hmap = None,
-        #use_distributed_thinlto = False,
-        #use_dep_files = False,  # requires dep_files_processor
+        # headers_as_raw_headers_mode = None,
+        # asm_compiler_info = None,
+        # as_compiler_info = None,
+        # hip_compiler_info = None,
+        # cuda_compiler_info = None,
+        # mk_hmap = None,
+        # use_distributed_thinlto = False,
+        # use_dep_files = False,  # requires dep_files_processor
         strip_flags_info = StripFlagsInfo(
             strip_debug_flags = ctx.attrs.strip_debug_flags,
             strip_non_global_flags = ctx.attrs.strip_non_global_flags,
             strip_all_flags = ctx.attrs.strip_all_flags,
         ),
-        #dist_lto_tools_info: [DistLtoToolsInfo, None] = None,
-        #split_debug_mode = SplitDebugMode("none"),
-        #bolt_enabled = False,
+        # dist_lto_tools_info: [DistLtoToolsInfo, None] = None,
+        # split_debug_mode = SplitDebugMode("none"),
+        # bolt_enabled = False,
     )
 
 cxx_zig_toolchain = rule(

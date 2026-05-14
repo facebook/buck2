@@ -69,11 +69,11 @@ load("@prelude//python:internal_tools.bzl", "PythonInternalToolsInfo")
 load("@prelude//python:python.bzl", "python_attr_preload_deps")
 load("@prelude//python:toolchain.bzl", "PackageStyle")
 load("@prelude//utils:argfile.bzl", "at_argfile")
-load(":native_python_util.bzl", "CxxExtensionLinkInfo", "CxxExtensionLinkInfoReduced", "merge_cxx_extension_info", "reduce_cxx_extension_info")  # @unused Used as a type
+load(
+    ":native_python_util.bzl", "CxxExtensionLinkInfo", "CxxExtensionLinkInfoReduced", "merge_cxx_extension_info", "reduce_cxx_extension_info"
+)  # @unused Used as a type
 
-def _get_root_link_group_specs(
-        libs: list[LinkableProviders],
-        extensions: dict[str, LinkableProviders]) -> list[LinkGroupLibSpec]:
+def _get_root_link_group_specs(libs: list[LinkableProviders], extensions: dict[str, LinkableProviders]) -> list[LinkGroupLibSpec]:
     """
     Walk the linkable graph finding dlopen-able C++ libs.
     """
@@ -174,11 +174,12 @@ def _get_shared_only_groups(shared_only_libs: list[LinkableProviders]) -> list[G
     return groups
 
 def _get_link_group_info(
-        ctx: AnalysisContext,
-        link_deps: list[LinkableProviders],
-        libs: list[LinkableProviders],
-        extensions: dict[str, LinkableProviders],
-        shared_only_libs: list[LinkableProviders]) -> ([LinkGroupInfo, None], list[LinkGroupLibSpec]):
+    ctx: AnalysisContext,
+    link_deps: list[LinkableProviders],
+    libs: list[LinkableProviders],
+    extensions: dict[str, LinkableProviders],
+    shared_only_libs: list[LinkableProviders],
+) -> ([LinkGroupInfo, None], list[LinkGroupLibSpec]):
     """
     Return the `LinkGroupInfo` and link group lib specs to use for this binary.
     This will handle parsing the various user-specific parameters and automatic
@@ -216,14 +217,14 @@ def _get_link_group_info(
     link_groups = [s.group for s in root_specs] + _get_shared_only_groups(shared_only_libs) + definitions
 
     linkable_graph = LinkableGraph(
-        #label = ctx.label,
+        # label = ctx.label,
         nodes = ctx.actions.tset(
             LinkableGraphTSet,
             children = (
-                [d.linkable_graph.nodes for d in link_deps] +
-                [d.linkable_graph.nodes for d in libs] +
-                [d.linkable_graph.nodes for d in extensions.values()] +
-                [d.linkable_graph.nodes for d in shared_only_libs]
+                [d.linkable_graph.nodes for d in link_deps]
+                + [d.linkable_graph.nodes for d in libs]
+                + [d.linkable_graph.nodes for d in extensions.values()]
+                + [d.linkable_graph.nodes for d in shared_only_libs]
             ),
         ),
     )
@@ -251,13 +252,8 @@ def _cxx_exe_allow_cache_upload(ctx) -> bool:
     return hasattr(ctx.attrs, "exe_allow_cache_upload") and bool(ctx.attrs.exe_allow_cache_upload)
 
 def _compute_cxx_executable_info(
-        ctx,
-        extension_info_reduced,
-        static_extension_info_out,
-        inherited_preprocessor_info,
-        python_toolchain,
-        package_style,
-        allow_cache_upload) -> CxxExecutableOutput:
+    ctx, extension_info_reduced, static_extension_info_out, inherited_preprocessor_info, python_toolchain, package_style, allow_cache_upload
+) -> CxxExecutableOutput:
     cxx_executable_srcs = [
         CxxSrcWithFlags(file = ctx.attrs.cxx_main, flags = []),
         CxxSrcWithFlags(file = ctx.attrs.static_extension_utils, flags = ["-DOSS_PYTHON=1"] if ctx.attrs.use_oss_python else []),
@@ -265,10 +261,7 @@ def _compute_cxx_executable_info(
     ]
 
     # All deps involved in the link.
-    link_deps = (
-        linkables(ctx.attrs.executable_deps + python_attr_preload_deps(ctx)) +
-        extension_info_reduced.linkable_providers
-    )
+    link_deps = linkables(ctx.attrs.executable_deps + python_attr_preload_deps(ctx)) + extension_info_reduced.linkable_providers
 
     link_group_info, auto_link_group_specs = _get_link_group_info(
         ctx,
@@ -335,16 +328,15 @@ def _compute_cxx_executable_info(
         extra_shared_libs = traverse_shared_library_info(
             merge_shared_libraries(
                 actions = ctx.actions,
-                deps =
-                    [d.shared_library_info for d in extension_info_reduced.shared_only_libs],
+                deps = [d.shared_library_info for d in extension_info_reduced.shared_only_libs],
             ),
             transformation_provider = None,
         ),
         extra_link_roots = (
-            extension_info_reduced.unembeddable_extensions.values() +
-            extension_info_reduced.dlopen_deps +
-            extension_info_reduced.shared_only_libs +
-            linkables(ctx.attrs.link_group_deps)
+            extension_info_reduced.unembeddable_extensions.values()
+            + extension_info_reduced.dlopen_deps
+            + extension_info_reduced.shared_only_libs
+            + linkables(ctx.attrs.link_group_deps)
         ),
         exe_allow_cache_upload = bool(allow_cache_upload) or _cxx_exe_allow_cache_upload(ctx),
         compiler_flags = ctx.attrs.compiler_flags,
@@ -360,12 +352,8 @@ def _compute_cxx_executable_info(
     return cxx_executable(ctx, impl_params)
 
 def process_native_linking(
-        ctx,
-        deps,
-        python_toolchain,
-        python_internal_tools: PythonInternalToolsInfo,
-        package_style,
-        allow_cache_upload) -> (
+    ctx, deps, python_toolchain, python_internal_tools: PythonInternalToolsInfo, package_style, allow_cache_upload
+) -> (
     list[(SharedLibrary, str)],
     dict[str, (LinkedObject, Label)],
     list[LinkArgs],
@@ -437,18 +425,20 @@ def process_native_linking(
     shared_libs = [(s, "runtime/lib") for s in executable_info.shared_libs]
 
     extra_artifacts.update(extension_info_reduced.artifacts)
-    shared_libs.append((
-        create_shlib(
-            soname = ctx.attrs.executable_name,
-            label = ctx.label,
-            lib = LinkedObject(
-                output = executable_info.binary,
-                unstripped_output = executable_info.binary,
-                dwp = executable_info.dwp,
+    shared_libs.append(
+        (
+            create_shlib(
+                soname = ctx.attrs.executable_name,
+                label = ctx.label,
+                lib = LinkedObject(
+                    output = executable_info.binary,
+                    unstripped_output = executable_info.binary,
+                    dwp = executable_info.dwp,
+                ),
             ),
-        ),
-        "runtime/bin",
-    ))
+            "runtime/bin",
+        )
+    )
 
     link_args = executable_info.link_args
     extra_artifacts["static_extension_finder.py"] = ctx.attrs.static_extension_finder

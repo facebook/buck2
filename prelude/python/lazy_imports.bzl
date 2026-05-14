@@ -17,11 +17,7 @@ def _get_main_module(ctx: AnalysisContext) -> str | None:
         return ""
     return None
 
-def run_lazy_imports_analyzer(
-        ctx: AnalysisContext,
-        resources,
-        output: Artifact,
-        dbg_source_db_output: Artifact) -> DefaultInfo:
+def run_lazy_imports_analyzer(ctx: AnalysisContext, resources, output: Artifact, dbg_source_db_output: Artifact) -> DefaultInfo:
     """
     Run the lazy imports analyzer (lifeguard) against a Python binary by
     ingesting the existing dbg-db.json.
@@ -46,11 +42,7 @@ def run_lazy_imports_analyzer(
 
     return DefaultInfo(default_output = output)
 
-def run_lazy_imports_library_analyzer(
-        ctx: AnalysisContext,
-        analyzer: RunInfo,
-        output: Artifact,
-        source_db: DefaultInfo) -> DefaultInfo:
+def run_lazy_imports_library_analyzer(ctx: AnalysisContext, analyzer: RunInfo, output: Artifact, source_db: DefaultInfo) -> DefaultInfo:
     """
     Run analyze_library: analyze this library's own srcs and produce
     a cache file. Cross-library resolution is deferred to analyze-binary.
@@ -69,11 +61,7 @@ def run_lazy_imports_library_analyzer(
 
     return DefaultInfo(default_output = output)
 
-def run_lazy_imports_cached_analysis(
-        ctx: AnalysisContext,
-        analyzer: RunInfo,
-        output: Artifact,
-        dep_caches: list[Artifact]) -> DefaultInfo:
+def run_lazy_imports_cached_analysis(ctx: AnalysisContext, analyzer: RunInfo, output: Artifact, dep_caches: list[Artifact]) -> DefaultInfo:
     """
     Run analyze_binary: assemble the final Lifeguard .json from cached
     library outputs. No per-file analysis happens here.

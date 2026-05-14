@@ -29,10 +29,7 @@ def inject_test_run_info(ctx: AnalysisContext, test_info: ExternalRunnerTestInfo
 
     env_file = ctx.actions.write_json(
         "test_env.json",
-        {
-            k: _maybe_relativize_path(test_info, cell_root, cmd_args(v, delimiter = " "))
-            for (k, v) in test_info.env.items()
-        },
+        {k: _maybe_relativize_path(test_info, cell_root, cmd_args(v, delimiter = " ")) for (k, v) in test_info.env.items()},
         with_inputs = True,
         absolute = True,
         has_content_based_path = False,

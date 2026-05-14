@@ -81,11 +81,13 @@ def windows_resource_impl(ctx: AnalysisContext) -> list[Provider]:
 
     link = LinkInfo(
         name = ctx.attrs.name,
-        linkables = [ObjectsLinkable(
-            objects = objects,
-            linker_type = toolchain.linker_info.type,
-            link_whole = True,
-        )],
+        linkables = [
+            ObjectsLinkable(
+                objects = objects,
+                linker_type = toolchain.linker_info.type,
+                link_whole = True,
+            )
+        ],
     )
 
     providers = [

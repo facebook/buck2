@@ -35,11 +35,7 @@ def _get_cache_mode(ctx: AnalysisContext) -> CacheModeInfo:
     else:
         return CacheModeInfo(allow_cache_uploads = False, cache_bust_genrules = False)
 
-def _run_genrule(
-        ctx: AnalysisContext,
-        out_name: str,
-        extra_env_vars: dict,
-        identifier: str) -> Artifact:
+def _run_genrule(ctx: AnalysisContext, out_name: str, extra_env_vars: dict, identifier: str) -> Artifact:
     local_only = genrule_labels_require_local(ctx.attrs.labels)
     prefer_local = genrule_labels_prefer_local(ctx.attrs.labels)
 
@@ -132,7 +128,7 @@ def _run_genrule(
     if is_windows:
         script_extension = "bat"
         script = [
-            cmd_args("if NOT \"%TEMP%\" == \"\" set \"TMP=%TEMP%\""),
+            cmd_args('if NOT "%TEMP%" == "" set "TMP=%TEMP%"'),
             cmd,
         ]
     else:
@@ -167,10 +163,7 @@ def _run_genrule(
             cmd_args(srcs_dir, format = "cd {}"),
         ] + script
 
-        env_vars = {
-            key: cmd_args(value, relative_to = srcs_artifact)
-            for key, value in env_vars.items()
-        }
+        env_vars = {key: cmd_args(value, relative_to = srcs_artifact) for key, value in env_vars.items()}
 
     if is_windows:
         # Odd, why is this a single string. How does it not end up getting quoted and being weird?
@@ -212,16 +205,12 @@ def _run_genrule(
         identifier = identifier,
         no_outputs_cleanup = ctx.attrs.no_outputs_cleanup,
         always_print_stderr = ctx.attrs.always_print_stderr,
-        **metadata_args
+        **metadata_args,
     )
 
     return out_artifact
 
-def _build_js_bundle(
-        ctx: AnalysisContext,
-        bundle_name_out: str,
-        js_bundle_info: JsBundleInfo,
-        named_output: str) -> JsBundleInfo:
+def _build_js_bundle(ctx: AnalysisContext, bundle_name_out: str, js_bundle_info: JsBundleInfo, named_output: str) -> JsBundleInfo:
     env_vars = {
         "DEPENDENCIES": cmd_args(js_bundle_info.dependencies_file),
         "JS_BUNDLE_NAME": cmd_args(js_bundle_info.bundle_name),
@@ -264,10 +253,8 @@ def _build_js_bundle(
     )
 
 def _get_extra_providers(
-        ctx: AnalysisContext,
-        skip_resources: bool,
-        initial_target: [ProviderCollection, Dependency],
-        js_bundle_out: JsBundleInfo) -> list[Provider]:
+    ctx: AnalysisContext, skip_resources: bool, initial_target: [ProviderCollection, Dependency], js_bundle_out: JsBundleInfo
+) -> list[Provider]:
     providers = []
     android_resource_info = initial_target.get(AndroidResourceInfo)
     if android_resource_info:

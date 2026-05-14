@@ -80,11 +80,7 @@ def _sanitize(s: str) -> str:
     return s.replace("/", "_")
 
 # NOTE(agallagher): Does this belong in the native/shared_libraries.bzl?
-def get_shared_library_name(
-        linker_info: LinkerInfo,
-        short_name: str,
-        apply_default_prefix: bool,
-        version: [str, None] = None):
+def get_shared_library_name(linker_info: LinkerInfo, short_name: str, apply_default_prefix: bool, version: [str, None] = None):
     """
     Generate a platform-specific shared library name based for the given rule.
     """
@@ -157,10 +153,7 @@ def get_shared_library_name_linker_flags(linker_type: LinkerType, soname: str, f
     else:
         shared_library_name_linker_flags_format = LINKERS[linker_type].shared_library_name_linker_flags_format
 
-    return [
-        f.format(soname)
-        for f in shared_library_name_linker_flags_format
-    ]
+    return [f.format(soname) for f in shared_library_name_linker_flags_format]
 
 def get_shared_library_flags(linker_type: LinkerType, flag_overrides: [SharedLibraryFlagOverrides, None] = None) -> list[ArgLike]:
     """
@@ -258,19 +251,14 @@ def get_output_flags(linker_type: LinkerType, output: Artifact) -> list[ArgLike]
     else:
         return ["-o", output.as_output()]
 
-def get_import_library(
-        ctx: AnalysisContext,
-        linker_type: LinkerType,
-        output_short_path: str) -> (Artifact | None, list[ArgLike]):
+def get_import_library(ctx: AnalysisContext, linker_type: LinkerType, output_short_path: str) -> (Artifact | None, list[ArgLike]):
     if linker_type == LinkerType("windows"):
         import_library = ctx.actions.declare_output(output_short_path + ".imp.lib", has_content_based_path = False)
         return import_library, [cmd_args(import_library.as_output(), format = "/IMPLIB:{}")]
     else:
         return None, []
 
-def get_deffile_flags(
-        ctx: AnalysisContext,
-        linker_type: LinkerType) -> list[ArgLike]:
+def get_deffile_flags(ctx: AnalysisContext, linker_type: LinkerType) -> list[ArgLike]:
     if linker_type == LinkerType("windows") and ctx.attrs.deffile != None:
         return [
             cmd_args(ctx.attrs.deffile, format = "/DEF:{}"),
@@ -278,8 +266,7 @@ def get_deffile_flags(
     else:
         return []
 
-def get_rpath_origin(
-        linker_type: LinkerType) -> str:
+def get_rpath_origin(linker_type: LinkerType) -> str:
     """
     Return the macro that runtime loaders resolve to the main executable at
     runtime.
@@ -292,9 +279,7 @@ def get_rpath_origin(
 
     fail("Linker type {} not supported".format(linker_type))
 
-def is_pdb_generated(
-        linker_type: LinkerType,
-        linker_flags: list[[str, ResolvedStringWithMacros]]) -> bool:
+def is_pdb_generated(linker_type: LinkerType, linker_flags: list[[str, ResolvedStringWithMacros]]) -> bool:
     if linker_type != LinkerType("windows"):
         return False
     for flag in reversed(linker_flags):
@@ -304,17 +289,12 @@ def is_pdb_generated(
             return not flag.endswith('DEBUG:NONE"')
     return False
 
-def get_pdb_providers(
-        pdb: Artifact,
-        binary: Artifact):
+def get_pdb_providers(pdb: Artifact, binary: Artifact):
     return [DefaultInfo(default_output = pdb, other_outputs = [binary])]
 
 DUMPBIN_SUB_TARGET = "dumpbin"
 
-def get_dumpbin_providers(
-        ctx: AnalysisContext,
-        binary: Artifact,
-        dumpbin_toolchain_path: Artifact) -> list[Provider]:
+def get_dumpbin_providers(ctx: AnalysisContext, binary: Artifact, dumpbin_toolchain_path: Artifact) -> list[Provider]:
     dumpbin_headers_out = ctx.actions.declare_output(binary.short_path + ".dumpbin_headers", has_content_based_path = False)
     ctx.actions.run(
         cmd_args(
@@ -328,16 +308,19 @@ def get_dumpbin_providers(
         category = "dumpbin_headers",
         identifier = binary.short_path,
     )
-    return [DefaultInfo(sub_targets = {
-        "headers": [DefaultInfo(
-            default_output = dumpbin_headers_out,
-        )],
-    })]
+    return [
+        DefaultInfo(
+            sub_targets = {
+                "headers": [
+                    DefaultInfo(
+                        default_output = dumpbin_headers_out,
+                    )
+                ],
+            }
+        )
+    ]
 
-def sandbox_exported_linker_flags(
-        linker_info: LinkerInfo,
-        flags: list[typing.Any],
-        post_flags: list[typing.Any]) -> (list[typing.Any], list[typing.Any]):
+def sandbox_exported_linker_flags(linker_info: LinkerInfo, flags: list[typing.Any], post_flags: list[typing.Any]) -> (list[typing.Any], list[typing.Any]):
     """
     Helper to wrap exported pre/post linker flags with sandboxing flags (e.g.
     `--push-state`/`--pop-state`) only if flags are actually non-empty.

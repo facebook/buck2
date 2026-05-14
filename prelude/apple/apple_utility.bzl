@@ -36,19 +36,17 @@ def get_apple_stripped_attr_value_with_default_fallback(ctx: AnalysisContext) ->
 
     return ctx.attrs.strip_level != "unstripped"
 
-def expand_relative_prefixed_sdk_path(
-        swift_toolchain_info: SwiftToolchainInfo,
-        path_to_expand: str) -> cmd_args:
+def expand_relative_prefixed_sdk_path(swift_toolchain_info: SwiftToolchainInfo, path_to_expand: str) -> cmd_args:
     if not path_to_expand.startswith("$"):
         fail("Expanding path {} that does not start with a variable".format(path_to_expand))
 
     path_expansion_map = swift_toolchain_info.sdk_module_path_prefixes
-    path_variable = path_to_expand[:path_to_expand.find("/")]
+    path_variable = path_to_expand[: path_to_expand.find("/")]
     if path_variable not in path_expansion_map:
         fail("Missing sdk_module_path_prefixes entry for {}".format(path_variable))
 
     path_val = path_expansion_map[path_variable]
-    return cmd_args([path_val, path_to_expand[len(path_variable):]], delimiter = "")
+    return cmd_args([path_val, path_to_expand[len(path_variable) :]], delimiter = "")
 
 def get_disable_pch_validation_flags() -> list[str]:
     """

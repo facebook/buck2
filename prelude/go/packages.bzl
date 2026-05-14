@@ -82,19 +82,13 @@ def pkg_artifacts(pkgs: dict[str, GoPkg], shared: bool) -> dict[str, Artifact]:
     """
     Return a map package name to a `shared` or `static` package artifact.
     """
-    return {
-        name: pkg.archive_file_shared if shared else pkg.archive_file
-        for name, pkg in pkgs.items()
-    }
+    return {name: pkg.archive_file_shared if shared else pkg.archive_file for name, pkg in pkgs.items()}
 
 def export_files(pkgs: dict[str, GoPkg], shared: bool) -> dict[str, Artifact]:
     """
     Return a map package name to a `shared` or `static` package artifact.
     """
-    return {
-        name: pkg.export_file_shared if shared else pkg.export_file
-        for name, pkg in pkgs.items()
-    }
+    return {name: pkg.export_file_shared if shared else pkg.export_file for name, pkg in pkgs.items()}
 
 # Keep in sync with: https://github.com/golang/go/blob/go1.26.0/src/cmd/go/internal/load/pkg.go#L1718C5
 _cgo_syscall_exclude = set([
@@ -104,7 +98,9 @@ _cgo_syscall_exclude = set([
     "runtime/asan",
 ])
 
-def implicit_imports(pkg_name: str, pkg_import_path: str, standard: bool, has_cgo_files: bool, coverage_enabled: bool, coverage_mode: GoCoverageMode | None) -> set[str]:
+def implicit_imports(
+    pkg_name: str, pkg_import_path: str, standard: bool, has_cgo_files: bool, coverage_enabled: bool, coverage_mode: GoCoverageMode | None
+) -> set[str]:
     imports = set([])
     if has_cgo_files:
         if not standard or pkg_import_path != "runtime/cgo":
@@ -123,12 +119,8 @@ def implicit_imports(pkg_name: str, pkg_import_path: str, standard: bool, has_cg
     return imports
 
 def make_compile_importcfg(
-        actions: AnalysisActions,
-        pkg_import_path: str,
-        deps: dict[str, GoPkg],
-        imports: set[str],
-        import_map: dict[str, str] | None,
-        shared: bool) -> Artifact:
+    actions: AnalysisActions, pkg_import_path: str, deps: dict[str, GoPkg], imports: set[str], import_map: dict[str, str] | None, shared: bool
+) -> Artifact:
     required_pkgs = set(imports)  # copy set to avoid modifying it
 
     # remove fake packages, build system should never try to provide them
@@ -171,10 +163,7 @@ def make_compile_importcfg(
 
     return importcfg.with_associated_artifacts(a_files)
 
-def make_link_importcfg(
-        actions: AnalysisActions,
-        deps: dict[str, GoPkg],
-        shared: bool) -> Artifact:
+def make_link_importcfg(actions: AnalysisActions, deps: dict[str, GoPkg], shared: bool) -> Artifact:
     content, a_files = [], []
     for name_, pkg_ in pkg_artifacts(deps, shared).items():
         content.append(cmd_args("packagefile ", name_, "=", pkg_, delimiter = "", hidden = [pkg_]))
@@ -188,13 +177,17 @@ def make_link_importcfg(
 # Return "_cgo_export.h" to expose exported C declarations to non-Go rules
 def cgo_exported_preprocessor(ctx: AnalysisContext, pkg_info: GoPackageInfo) -> CPreprocessor:
     cxx_toolchain_info = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
-    return CPreprocessor(args = CPreprocessorArgs(args = [
-        "-I",
-        prepare_headers(
-            ctx.actions,
-            cxx_toolchain_info,
-            {"{}/{}.h".format(ctx.label.package, ctx.label.name): pkg_info.cgo_gen_dir.project("_cgo_export.h")},
-            "cgo-exported-headers",
-            uses_content_based_paths = True,
-        ).include_path,
-    ]))
+    return CPreprocessor(
+        args = CPreprocessorArgs(
+            args = [
+                "-I",
+                prepare_headers(
+                    ctx.actions,
+                    cxx_toolchain_info,
+                    {"{}/{}.h".format(ctx.label.package, ctx.label.name): pkg_info.cgo_gen_dir.project("_cgo_export.h")},
+                    "cgo-exported-headers",
+                    uses_content_based_paths = True,
+                ).include_path,
+            ]
+        )
+    )

@@ -44,9 +44,8 @@ def include_path_for_relative_module_map_paths(ctx: AnalysisContext) -> list[str
         return []
 
 def _traverse_sdk_modules_graph(
-        swift_sdk_module_name_to_deps: dict[str, Dependency],
-        clang_sdk_module_name_to_deps: dict[str, Dependency],
-        sdk_module_dep: Dependency):
+    swift_sdk_module_name_to_deps: dict[str, Dependency], clang_sdk_module_name_to_deps: dict[str, Dependency], sdk_module_dep: Dependency
+):
     if SdkUncompiledModuleInfo not in sdk_module_dep:
         return
 

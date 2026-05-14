@@ -36,7 +36,16 @@ GoListOut = record(
     error = field(GoListError | None, default = None),
 )
 
-def go_list(actions: AnalysisActions, go_toolchain: GoToolchainInfo, pkg_import_path: str, srcs: list[Artifact], package_root: str, build_tags: list[str], cgo_enabled: bool, with_tests: bool) -> Artifact:
+def go_list(
+    actions: AnalysisActions,
+    go_toolchain: GoToolchainInfo,
+    pkg_import_path: str,
+    srcs: list[Artifact],
+    package_root: str,
+    build_tags: list[str],
+    cgo_enabled: bool,
+    with_tests: bool,
+) -> Artifact:
     env = get_toolchain_env_vars(go_toolchain)
 
     go_list_out = actions.declare_output(paths.basename(pkg_import_path) + "_go_list.json", has_content_based_path = True)
@@ -68,7 +77,19 @@ def go_list(actions: AnalysisActions, go_toolchain: GoToolchainInfo, pkg_import_
 
 def parse_go_list_out(srcs: list[Artifact], package_root: str, go_list_out: ArtifactValue) -> GoListOut:
     go_list = go_list_out.read_json()
-    go_files, cgo_files, h_files, c_files, cxx_files, s_files, syso_files, test_go_files, x_test_go_files, ignored_go_files, ignored_other_files = [], [], [], [], [], [], [], [], [], [], []
+    go_files, cgo_files, h_files, c_files, cxx_files, s_files, syso_files, test_go_files, x_test_go_files, ignored_go_files, ignored_other_files = (
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+    )
 
     for src in srcs:
         # remove package_root prefix from src artifact path to match `go list` output format

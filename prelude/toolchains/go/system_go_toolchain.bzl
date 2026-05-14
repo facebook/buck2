@@ -49,9 +49,13 @@ def _system_go_toolchain_impl(ctx):
     tool_prefix = "pkg/tool/{}_{}".format(go_os, go_arch)
 
     return [
-        DefaultInfo(sub_targets = {"go": [
-            RunInfo(go),
-        ]}),
+        DefaultInfo(
+            sub_targets = {
+                "go": [
+                    RunInfo(go),
+                ]
+            }
+        ),
         GoToolchainInfo(
             assembler = RunInfo(cmd_script(ctx.actions, "asm", cmd_args(go, "tool", "asm"), script_language)),
             cgo = RunInfo(go_root.project(tool_prefix + "/cgo" + suffix)),

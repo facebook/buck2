@@ -15,10 +15,8 @@ load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:utils.bzl", "map_idx")
 
 def _build_dependencies_file(
-        ctx: AnalysisContext,
-        transform_profile: str,
-        flavors: list[str],
-        transitive_js_library_outputs: TransitiveSetArgsProjection) -> Artifact:
+    ctx: AnalysisContext, transform_profile: str, flavors: list[str], transitive_js_library_outputs: TransitiveSetArgsProjection
+) -> Artifact:
     dependencies_file = ctx.actions.declare_output("{}/dependencies_file", transform_profile, has_content_based_path = False)
 
     extra_data_args = cmd_args(
@@ -52,12 +50,13 @@ def _build_dependencies_file(
     return dependencies_file
 
 def _build_js_bundle(
-        ctx: AnalysisContext,
-        bundle_name: str,
-        transform_profile: str,
-        flavors: list[str],
-        transitive_js_library_outputs: TransitiveSetArgsProjection,
-        dependencies_file: Artifact) -> JsBundleInfo:
+    ctx: AnalysisContext,
+    bundle_name: str,
+    transform_profile: str,
+    flavors: list[str],
+    transitive_js_library_outputs: TransitiveSetArgsProjection,
+    dependencies_file: Artifact,
+) -> JsBundleInfo:
     base_dir = transform_profile
     assets_dir = ctx.actions.declare_output("{}/assets_dir".format(base_dir), has_content_based_path = False)
     bundle_dir_output = ctx.actions.declare_output("{}/js".format(base_dir), dir = True, has_content_based_path = False)

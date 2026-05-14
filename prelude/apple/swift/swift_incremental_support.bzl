@@ -61,11 +61,8 @@ def should_build_swift_incrementally(ctx: AnalysisContext) -> bool:
     return SwiftCompilationMode(ctx.attrs.swift_compilation_mode) == SwiftCompilationMode("incremental")
 
 def get_incremental_object_compilation_flags(
-        ctx: AnalysisContext,
-        srcs: list[CxxSrcWithFlags],
-        output_swiftmodule: Artifact,
-        output_swiftdoc: Artifact | None,
-        output_header: Artifact) -> IncrementalCompilationOutput:
+    ctx: AnalysisContext, srcs: list[CxxSrcWithFlags], output_swiftmodule: Artifact, output_swiftdoc: Artifact | None, output_header: Artifact
+) -> IncrementalCompilationOutput:
     output_file_map_data = _get_output_file_map(ctx, srcs)
     return _get_incremental_compilation_flags_and_objects(
         ctx,
@@ -107,12 +104,13 @@ def get_uses_content_based_paths(ctx):
     return toolchain.uses_content_based_paths
 
 def _get_incremental_compilation_flags_and_objects(
-        ctx: AnalysisContext,
-        output_file_map_data: _OutputFileMapData,
-        output_swiftmodule: Artifact,
-        output_swiftdoc: Artifact | None,
-        output_header: Artifact,
-        num_srcs: int) -> IncrementalCompilationOutput:
+    ctx: AnalysisContext,
+    output_file_map_data: _OutputFileMapData,
+    output_swiftmodule: Artifact,
+    output_swiftdoc: Artifact | None,
+    output_header: Artifact,
+    num_srcs: int,
+) -> IncrementalCompilationOutput:
     extra_hidden = [output_swiftdoc.as_output()] if output_swiftdoc else []
     cmd = cmd_args(
         [
@@ -192,9 +190,7 @@ def _get_incremental_compilation_flags_and_objects(
         swiftdoc = output_swiftdoc,
     )
 
-def _get_output_file_map(
-        ctx: AnalysisContext,
-        srcs: list[CxxSrcWithFlags]) -> _OutputFileMapData:
+def _get_output_file_map(ctx: AnalysisContext, srcs: list[CxxSrcWithFlags]) -> _OutputFileMapData:
     uses_content_based_paths = get_uses_content_based_paths(ctx)
     if _get_skip_swift_incremental_outputs(ctx):
         all_outputs = []
@@ -210,7 +206,9 @@ def _get_output_file_map(
             all_outputs.append(output_artifact)
     else:
         # swift-driver doesn't respect extension for root swiftdeps file and it always has to be `.priors`.
-        module_swiftdeps = ctx.actions.declare_output("__swift_incremental__/swiftdeps/module-build-record.priors", has_content_based_path = uses_content_based_paths)
+        module_swiftdeps = ctx.actions.declare_output(
+            "__swift_incremental__/swiftdeps/module-build-record.priors", has_content_based_path = uses_content_based_paths
+        )
         output_file_map = {
             "": {
                 "swift-dependencies": module_swiftdeps,
@@ -227,7 +225,9 @@ def _get_output_file_map(
             output_artifact = ctx.actions.declare_output("__swift_incremental__/objects/" + file_name + ".o", has_content_based_path = uses_content_based_paths)
             artifacts.append(output_artifact)
             all_outputs.append(output_artifact)
-            swiftdeps_artifact = ctx.actions.declare_output("__swift_incremental__/swiftdeps/" + file_name + ".swiftdeps", has_content_based_path = uses_content_based_paths)
+            swiftdeps_artifact = ctx.actions.declare_output(
+                "__swift_incremental__/swiftdeps/" + file_name + ".swiftdeps", has_content_based_path = uses_content_based_paths
+            )
             output_file_map[src.file] = {
                 "object": output_artifact,
                 "swift-dependencies": swiftdeps_artifact,

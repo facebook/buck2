@@ -129,7 +129,7 @@ def flatten_dependencies(deps: list[Dependency]) -> ErlAppDependencies:
 
 # mutates dependencies in place
 def _flatten_dependencies(deps: list[Dependency], dependencies: ErlAppDependencies):
-    """ collect transitive dependencies
+    """collect transitive dependencies
 
     Flatten all transitive dependencies and merge together with the direct
     ones. This is done at every step (with each `erlang_application_impl ` call),
@@ -161,9 +161,7 @@ def _safe_add_dependency(dependencies: ErlAppDependencies, dep: Dependency):
     if ErlangAppInfo in dep:
         name = dep[ErlangAppInfo].name
         if name in dependencies and ErlangAppInfo in dependencies[name] and dep.label != dependencies[name].label:
-            fail(("duplicated application `%s` in dependency tree:\n" +
-                  "    %s\n" +
-                  "    %s") % (name, str(dep.label), str(dependencies[name].label)))
+            fail(("duplicated application `%s` in dependency tree:\n" + "    %s\n" + "    %s") % (name, str(dep.label), str(dependencies[name].label)))
         else:
             dependencies[name] = dep
     elif ErlangTestInfo in dep:

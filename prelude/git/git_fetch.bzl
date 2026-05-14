@@ -57,10 +57,9 @@ def git_fetch_impl(ctx: AnalysisContext) -> list[Provider]:
         allow_cache_upload = ctx.attrs.allow_cache_upload,
     )
 
-    return [DefaultInfo(
-        default_output = work_tree,
-        sub_targets = {
-            path: [DefaultInfo(default_output = work_tree.project(path))]
-            for path in ctx.attrs.sub_targets
-        },
-    )]
+    return [
+        DefaultInfo(
+            default_output = work_tree,
+            sub_targets = {path: [DefaultInfo(default_output = work_tree.project(path))] for path in ctx.attrs.sub_targets},
+        )
+    ]

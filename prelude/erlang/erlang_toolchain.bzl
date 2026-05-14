@@ -53,8 +53,7 @@ def get_toolchain(ctx: AnalysisContext) -> Toolchain:
     return ctx.attrs._toolchain[ErlangToolchainInfo]
 
 def _erlang_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
-    """ rule for erlang toolchain
-    """
+    """rule for erlang toolchain"""
 
     erl_opts = ctx.attrs.erl_opts
     emu_flags = ctx.attrs.emu_flags
@@ -147,7 +146,9 @@ def _erlang_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
         output = ctx.actions.declare_output("erts-{}".format(ctx.attrs.erts_version), dir = True, has_content_based_path = False),
     )
     ctx.actions.run(
-        cmd_args(extract_from_otp, "erts-{}".format("*" if ctx.attrs.erts_version == "dynamic" else ctx.attrs.erts_version), erts_toolchain_info.output.as_output()),
+        cmd_args(
+            extract_from_otp, "erts-{}".format("*" if ctx.attrs.erts_version == "dynamic" else ctx.attrs.erts_version), erts_toolchain_info.output.as_output()
+        ),
         identifier = ctx.attrs.name,
         category = "extract_erts",
         env = env,
@@ -195,12 +196,7 @@ def _gen_parse_transforms(ctx: AnalysisContext, erlc: Tool, env: dict[str, str],
             transforms[module_name] = cmd_args(transform_arg, cmd_args(beam, format = "-pa{}", parent = 1))
     return transforms
 
-def _gen_parse_transform_beam(
-        ctx: AnalysisContext,
-        env: dict[str, str],
-        src: Artifact,
-        extra: list[Artifact],
-        erlc: Tool) -> (Artifact, [Artifact, None]):
+def _gen_parse_transform_beam(ctx: AnalysisContext, env: dict[str, str], src: Artifact, extra: list[Artifact], erlc: Tool) -> (Artifact, [Artifact, None]):
     name = strip_extension(src.basename)
 
     # install resources
@@ -276,17 +272,16 @@ erlang_toolchain = rule(
     is_toolchain_rule = True,
 )
 
-def _gen_util_beams(
-        ctx: AnalysisContext,
-        env: dict[str, str],
-        sources: list[Artifact],
-        erlc: Tool) -> Artifact:
+def _gen_util_beams(ctx: AnalysisContext, env: dict[str, str], sources: list[Artifact], erlc: Tool) -> Artifact:
     beams = []
     for src in sources:
-        output = ctx.actions.declare_output(paths.join(
-            "__build",
-            paths.replace_extension(src.basename, ".beam"),
-        ), has_content_based_path = False)
+        output = ctx.actions.declare_output(
+            paths.join(
+                "__build",
+                paths.replace_extension(src.basename, ".beam"),
+            ),
+            has_content_based_path = False,
+        )
         _compile_toolchain_module(ctx, env, src, output.as_output(), erlc)
         beams.append(output)
 
@@ -298,12 +293,7 @@ def _gen_util_beams(
 
     return beam_dir
 
-def _compile_toolchain_module(
-        ctx: AnalysisContext,
-        env: dict[str, str],
-        src: Artifact,
-        out: OutputArtifact,
-        erlc: Tool):
+def _compile_toolchain_module(ctx: AnalysisContext, env: dict[str, str], src: Artifact, out: OutputArtifact, erlc: Tool):
     # NOTE: since we do NOT define +debug_info, this is hermetic
     ctx.actions.run(
         [erlc, "+deterministic", "-o", cmd_args(out, parent = 1), src],

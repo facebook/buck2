@@ -16,13 +16,17 @@ load(
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 
 # Provider that exposes the compilation database information
-CxxCompilationDbInfo = provider(fields = {
-    "info": provider_field(typing.Any, default = None),  # A map of the file (an `Artifact`) to its corresponding `CxxSrcCompileCommand`
-    "platform": provider_field(typing.Any, default = None),  # platform for this compilation database
-    "toolchain": provider_field(typing.Any, default = None),  # toolchain for this compilation database
-})
+CxxCompilationDbInfo = provider(
+    fields = {
+        "info": provider_field(typing.Any, default = None),  # A map of the file (an `Artifact`) to its corresponding `CxxSrcCompileCommand`
+        "platform": provider_field(typing.Any, default = None),  # platform for this compilation database
+        "toolchain": provider_field(typing.Any, default = None),  # toolchain for this compilation database
+    }
+)
 
-def make_compilation_db_info(src_compile_cmds: list[CxxSrcCompileCommand], toolchainInfo: CxxToolchainInfo, platformInfo: CxxPlatformInfo) -> CxxCompilationDbInfo:
+def make_compilation_db_info(
+    src_compile_cmds: list[CxxSrcCompileCommand], toolchainInfo: CxxToolchainInfo, platformInfo: CxxPlatformInfo
+) -> CxxCompilationDbInfo:
     info = {}
     for src_compile_cmd in src_compile_cmds:
         info.update({src_compile_cmd.src: src_compile_cmd})
@@ -33,12 +37,13 @@ def _comp_database_entry_path(identifier: str, src_path: str) -> str:
     return paths.join(identifier, "__comp_db__", src_path + ".comp_db.json")
 
 def _create_comp_database_impl(
-        actions: AnalysisActions,
-        internal_tools: CxxInternalTools,
-        identifier: str,
-        src_compile_cmds: list[CxxSrcCompileCommand],
-        db: OutputArtifact,
-        entries: dict[str, OutputArtifact]) -> list[Provider]:
+    actions: AnalysisActions,
+    internal_tools: CxxInternalTools,
+    identifier: str,
+    src_compile_cmds: list[CxxSrcCompileCommand],
+    db: OutputArtifact,
+    entries: dict[str, OutputArtifact],
+) -> list[Provider]:
     mk_comp_db = internal_tools.make_comp_db
 
     # Generate the per-source compilation DB entries.
@@ -67,11 +72,13 @@ def _create_comp_database_impl(
     cmd.add("merge")
     cmd.add(cmd_args(db, format = "--output={}"))
 
-    cmd.add(at_argfile(
-        actions = actions,
-        name = identifier + ".cxx_comp_db_argsfile",
-        args = entries_as_input,
-    ))
+    cmd.add(
+        at_argfile(
+            actions = actions,
+            name = identifier + ".cxx_comp_db_argsfile",
+            args = entries_as_input,
+        )
+    )
 
     actions.run(cmd, category = "cxx_compilation_database_merge", identifier = identifier)
 
@@ -88,10 +95,7 @@ _dynamic_compilation_database_rule = dynamic_actions(
     },
 )
 
-def create_compilation_database(
-        ctx: AnalysisContext,
-        src_compile_cmds: list[CxxSrcCompileCommand],
-        identifier: str) -> DefaultInfo:
+def create_compilation_database(ctx: AnalysisContext, src_compile_cmds: list[CxxSrcCompileCommand], identifier: str) -> DefaultInfo:
     actions = ctx.actions
 
     # Generate the per-source compilation DB entries.

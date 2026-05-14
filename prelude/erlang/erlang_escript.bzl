@@ -90,13 +90,8 @@ def erlang_escript_impl(ctx: AnalysisContext) -> list[Provider]:
         RunInfo(escript_cmd),
     ]
 
-def create_escript(
-        ctx: AnalysisContext,
-        spec_file: WriteJsonCliArgs,
-        toolchain: Toolchain,
-        escript_name: str) -> None:
-    """ build the escript with the escript builder tool
-    """
+def create_escript(ctx: AnalysisContext, spec_file: WriteJsonCliArgs, toolchain: Toolchain, escript_name: str) -> None:
+    """build the escript with the escript builder tool"""
 
     erlang_build.utils.run_with_env(
         ctx,

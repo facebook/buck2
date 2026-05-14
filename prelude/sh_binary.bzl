@@ -20,14 +20,15 @@ def _derive_link(artifact):
     return paths.join(artifact.owner.package, artifact.owner.name)
 
 def _generate_script(
-        name: str,
-        main: Artifact,
-        resources: list[Artifact],
-        append_script_extension: bool,
-        actions: AnalysisActions,
-        is_windows: bool,
-        copy_resources: bool,
-        has_content_based_path: bool) -> (Artifact, Artifact):
+    name: str,
+    main: Artifact,
+    resources: list[Artifact],
+    append_script_extension: bool,
+    actions: AnalysisActions,
+    is_windows: bool,
+    copy_resources: bool,
+    has_content_based_path: bool,
+) -> (Artifact, Artifact):
     main_path = main.short_path
     if not append_script_extension:
         main_link = main_path
@@ -71,10 +72,10 @@ def _generate_script(
             # identify what the right format is. For now, this variable lets
             # callees disambiguate (see D28960177 for more context).
             "export BUCK_SH_BINARY_VERSION_UNSTABLE=2",
-            cmd_args("export BUCK_PROJECT_ROOT=\"$__SCRIPT_DIR/", resources_dir, "\"", delimiter = ""),
+            cmd_args('export BUCK_PROJECT_ROOT="$__SCRIPT_DIR/', resources_dir, '"', delimiter = ""),
             # Normalize backslashes to forward slashes for the Windows-host /
             # Linux-target (RE) case where relative_to produces Windows-style separators.
-            "export BUCK_PROJECT_ROOT=\"${BUCK_PROJECT_ROOT//\\\\//}\"",
+            'export BUCK_PROJECT_ROOT="${BUCK_PROJECT_ROOT//\\\\//}"',
             # In buck1, the paths for resources that are outputs of rules have
             # different paths in BUCK_PROJECT_ROOT and
             # BUCK_DEFAULT_RUNTIME_RESOURCES, but we use the same paths. buck1's
@@ -82,8 +83,8 @@ def _generate_script(
             # than something derived from the target and so to use that people
             # would need to hardcode buck-out paths into their scripts. For repo
             # sources, the paths are the same for both.
-            "export BUCK_DEFAULT_RUNTIME_RESOURCES=\"$BUCK_PROJECT_ROOT\"",
-            "exec \"$BUCK_PROJECT_ROOT/{}\" \"$@\"".format(main_link),
+            'export BUCK_DEFAULT_RUNTIME_RESOURCES="$BUCK_PROJECT_ROOT"',
+            'exec "$BUCK_PROJECT_ROOT/{}" "$@"'.format(main_link),
             relative_to = (script, 1),
         )
     else:
@@ -94,7 +95,9 @@ def _generate_script(
             "set __SRC=%~f0",
             # Symbolic links on windows RE systems may not be stable depending on implementation.
             # Don't try to resolve the links when using copies.
-            'for /f "tokens=2 delims=[]" %%a in (\'dir %__SRC% ^|%SYSTEMROOT%\\System32\\find.exe "<SYMLINK>"\') do set "__SRC=%%a"' if not copy_resources else "",
+            'for /f "tokens=2 delims=[]" %%a in (\'dir %__SRC% ^|%SYSTEMROOT%\\System32\\find.exe "<SYMLINK>"\') do set "__SRC=%%a"'
+            if not copy_resources
+            else "",
             # Get parent folder.
             'for %%a in ("%__SRC%") do set "__SCRIPT_DIR=%%~dpa"',
             "set BUCK_SH_BINARY_VERSION_UNSTABLE=2",

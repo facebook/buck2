@@ -42,7 +42,10 @@ def _impl(ctx: AnalysisContext):
 registration_spec = RuleRegistrationSpec(
     name = "write_file",
     impl = _impl,
-    attrs = buck.labels_arg() | buck.contacts_arg() | core_args.has_content_based_path_attr() | {
+    attrs = buck.labels_arg()
+    | buck.contacts_arg()
+    | core_args.has_content_based_path_attr()
+    | {
         # API based on https://github.com/bazelbuild/bazel-skylib/blob/main/docs/write_file_doc.md.
         "content": attrs.list(attrs.string(), default = []),
         "is_executable": attrs.bool(default = False),

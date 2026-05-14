@@ -84,10 +84,7 @@ def dest_prefix(label: Label, base_module: [None, str]) -> str:
 
     return prefix
 
-def qualify_srcs(
-        label: Label,
-        base_module: [None, str],
-        srcs: dict[str, typing.Any]) -> dict[str, typing.Any]:
+def qualify_srcs(label: Label, base_module: [None, str], srcs: dict[str, typing.Any]) -> dict[str, typing.Any]:
     """
     Fully qualify package-relative sources with the rule's base module.
 
@@ -106,32 +103,30 @@ def qualify_srcs(
     # Use `path.normalize` here in case items in `srcs` contains relative paths.
     return {paths.normalize(prefix + dest): src for dest, src in srcs.items()}
 
-def create_python_needed_coverage_info(
-        label: Label,
-        base_module: [None, str],
-        srcs: list[str]) -> PythonNeededCoverageInfo:
+def create_python_needed_coverage_info(label: Label, base_module: [None, str], srcs: list[str]) -> PythonNeededCoverageInfo:
     prefix = dest_prefix(label, base_module)
     return PythonNeededCoverageInfo(
         modules = {src: prefix + src for src in srcs},
     )
 
 def create_python_library_info(
-        actions: AnalysisActions,
-        label: Label,
-        native_deps: NativeDepsInfoTSet,
-        is_native_dep: bool,
-        srcs: [ManifestInfo, None] = None,
-        src_types: [ManifestInfo, None] = None,
-        bytecode: [dict[PycInvalidationMode, ManifestInfo], None] = None,
-        default_resources: [(ManifestInfo, list[ArgLike]), None] = None,
-        standalone_resources: [(ManifestInfo, list[ArgLike]), None] = None,
-        outplace_resources: [(ManifestInfo, list[ArgLike]), None] = None,
-        extensions: [dict[str, LinkedObject], None] = None,
-        deps: list[PythonLibraryInfo] = [],
-        shared_libraries: list[SharedLibraryInfo] = [],
-        extension_shared_libraries: list[SharedLibraryInfo] = [],
-        par_style: str | None = None,
-        package_style: str | None = None):
+    actions: AnalysisActions,
+    label: Label,
+    native_deps: NativeDepsInfoTSet,
+    is_native_dep: bool,
+    srcs: [ManifestInfo, None] = None,
+    src_types: [ManifestInfo, None] = None,
+    bytecode: [dict[PycInvalidationMode, ManifestInfo], None] = None,
+    default_resources: [(ManifestInfo, list[ArgLike]), None] = None,
+    standalone_resources: [(ManifestInfo, list[ArgLike]), None] = None,
+    outplace_resources: [(ManifestInfo, list[ArgLike]), None] = None,
+    extensions: [dict[str, LinkedObject], None] = None,
+    deps: list[PythonLibraryInfo] = [],
+    shared_libraries: list[SharedLibraryInfo] = [],
+    extension_shared_libraries: list[SharedLibraryInfo] = [],
+    par_style: str | None = None,
+    package_style: str | None = None,
+):
     """
     Create a `PythonLibraryInfo` for a set of sources and deps
 
@@ -180,9 +175,7 @@ def create_python_library_info(
         package_style = package_style,
     )
 
-def gather_dep_libraries(
-        raw_deps: list[Dependency],
-        resolve_versioned_deps: bool = True) -> (list[PythonLibraryInfo], list[SharedLibraryInfo]):
+def gather_dep_libraries(raw_deps: list[Dependency], resolve_versioned_deps: bool = True) -> (list[PythonLibraryInfo], list[SharedLibraryInfo]):
     """
     Takes a list of raw dependencies, and partitions them into python_library / shared library providers.
     If resolve_versions is True, it also collects versioned_library dependencies and uses their default version. Otherwise these are skipped, and should be handled elsewhere.
@@ -206,9 +199,7 @@ def gather_dep_libraries(
             pass
     return (deps, shared_libraries)
 
-def _exclude_deps_from_omnibus(
-        ctx: AnalysisContext,
-        srcs: dict[str, Artifact]) -> bool:
+def _exclude_deps_from_omnibus(ctx: AnalysisContext, srcs: dict[str, Artifact]) -> bool:
     # User-specified parameter.
     if ctx.attrs.exclude_deps_from_merged_linking:
         return True
@@ -265,10 +256,7 @@ def py_attr_resources(ctx: AnalysisContext) -> (dict[str, ArtifactOutputs], dict
 
     return default_resources, standalone_resources, outplace_resources
 
-def py_resources(
-        ctx: AnalysisContext,
-        resources: dict[str, ArtifactOutputs],
-        suffix: str = "") -> (ManifestInfo, list[ArgLike]):
+def py_resources(ctx: AnalysisContext, resources: dict[str, ArtifactOutputs], suffix: str = "") -> (ManifestInfo, list[ArgLike]):
     """
     Generate a manifest to wrap this rules resources.
     """
@@ -277,23 +265,28 @@ def py_resources(
     for name, resource in resources.items():
         for o in resource.nondebug_runtime_files:
             # HACK: this is a heuristic to detect shared libs emitted from cpp_binary rules.
-            if (isinstance(o, Artifact) and
+            if isinstance(o, Artifact) and (
                 (
-                    (o.basename == (
+                    o.basename
+                    == (
                         shared_libs_symlink_tree_name(
                             resource.default_output.short_path,
                         )
-                    )) or
-                    (o.basename == (
+                    )
+                )
+                or (
+                    o.basename
+                    == (
                         shared_libs_symlink_tree_name(
                             resource.default_output.short_path + PRE_STAMPED_SUFFIX,
                         )
-                    ))
-                )):
+                    )
+                )
+            ):
                 # Package the binary's shared libs next to the binary
                 # (the path is stored in RPATH relative to the binary).
                 d[paths.join(paths.dirname(name), o.basename)] = o
-            elif (isinstance(o, Artifact) and o.basename.endswith("#link-tree")):
+            elif isinstance(o, Artifact) and o.basename.endswith("#link-tree"):
                 # HACK: heuristic to detect Python runtime directories from python_binary rules.
                 # Package the runtime directory next to the startup script
                 d[paths.join(paths.dirname(name), o.basename)] = o
@@ -395,11 +388,8 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
             root = create_third_party_build_root(
                 ctx = ctx,
                 # TODO(agallagher): use constraints to get py version.
-                manifests = (
-                    [("lib/python", src_manifest)] if src_manifest != None else []
-                ) + (
-                    [("lib/python", default_resource_manifest[0])] if default_resource_manifest != None else []
-                ),
+                manifests = ([("lib/python", src_manifest)] if src_manifest != None else [])
+                + ([("lib/python", default_resource_manifest[0])] if default_resource_manifest != None else []),
             ),
             manifest = ctx.actions.write_json(
                 "third_party_build_manifest.json",
@@ -479,7 +469,8 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
             # the monolithic omnibus library.
             excluded = get_excluded(
                 deps = (
-                    (raw_deps if _exclude_deps_from_omnibus(ctx, qualified_srcs) else []) +
+                    (raw_deps if _exclude_deps_from_omnibus(ctx, qualified_srcs) else [])
+                    +
                     # We also need to exclude deps that can't be re-linked, via
                     # the `LinkableRootInfo` provider (i.e. `prebuilt_cxx_library_group`).
                     [d for d in raw_deps if LinkableRootInfo not in d]
@@ -500,10 +491,14 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
     )
 
     # C++ resources.
-    providers.append(ResourceInfo(resources = gather_resources(
-        label = ctx.label,
-        deps = raw_deps,
-    )))
+    providers.append(
+        ResourceInfo(
+            resources = gather_resources(
+                label = ctx.label,
+                deps = raw_deps,
+            )
+        )
+    )
 
     # Attrs validators (combined with optional pyre type-check validation spec).
     attr_validation_specs = get_attrs_validation_specs(ctx)

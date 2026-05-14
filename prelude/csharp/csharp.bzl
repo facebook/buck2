@@ -27,10 +27,12 @@ def csharp_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     # Set the output target as a .NET library.
     cmd.append("/target:library")
-    cmd.append(cmd_args(
-        library.as_output(),
-        format = "/out:{}",
-    ))
+    cmd.append(
+        cmd_args(
+            library.as_output(),
+            format = "/out:{}",
+        )
+    )
 
     # Don't include any default .NET framework assemblies like "mscorlib" or "System" unless
     # explicitly requested with `/reference:{}`. This flag also stops injection of other

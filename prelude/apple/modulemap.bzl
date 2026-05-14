@@ -22,12 +22,8 @@ load(
 )
 
 def create_modulemap(
-        ctx: AnalysisContext,
-        name: str,
-        module_name: str,
-        headers: list[CHeader],
-        swift_header: Artifact | None = None,
-        is_framework: bool = False) -> CPreprocessor:
+    ctx: AnalysisContext, name: str, module_name: str, headers: list[CHeader], swift_header: Artifact | None = None, is_framework: bool = False
+) -> CPreprocessor:
     # We don't want to name this module.modulemap to avoid implicit importing
     if name == "module" and not is_framework:
         fail("Don't use the name `module` for modulemaps, this will allow for implicit importing.")

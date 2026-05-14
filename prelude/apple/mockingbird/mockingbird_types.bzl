@@ -42,7 +42,9 @@ MockingbirdSourcesInfo = provider(
     },
 )
 
-MockingbirdToolchainInfo = provider(fields = {
-    "bin": cmd_args,
-    "support": Artifact,
-})
+MockingbirdToolchainInfo = provider(
+    fields = {
+        "bin": cmd_args,
+        "support": Artifact,
+    }
+)

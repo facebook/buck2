@@ -26,9 +26,12 @@ git_fetch = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "allow_cache_upload": attrs.bool(doc = """
+            "allow_cache_upload": attrs.bool(
+                doc = """
                 Whether the results of the fetch can be written to the action cache and CAS.
-            """, default = True),
+            """,
+                default = True,
+            ),
             "git": attrs.option(
                 attrs.string(),
                 default = None,
@@ -46,12 +49,16 @@ git_fetch = prelude_rule(
                 Must be one of `sha1` or `sha256`.
                 """,
             ),
-            "repo": attrs.string(doc = """
+            "repo": attrs.string(
+                doc = """
                 Url suitable as a git remote.
-            """),
-            "rev": attrs.string(doc = """
+            """
+            ),
+            "rev": attrs.string(
+                doc = """
                 Commit hash. 40 hex digits for sha1, 64 hex digits for sha256.
-            """),
+            """
+            ),
             "sub_targets": attrs.list(
                 attrs.string(),
                 default = [],
@@ -63,10 +70,10 @@ git_fetch = prelude_rule(
             """,
             ),
             "_git_fetch_tool": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//git/tools:git_fetch")),
-        } |
-        buck.licenses_arg() |
-        buck.labels_arg() |
-        buck.contacts_arg()
+        }
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
     ),
 )
 

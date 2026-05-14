@@ -13,7 +13,10 @@
 
 def _manifest_apk_arg():
     return {
-        "manifest": attrs.option(attrs.source(), default = None, doc = """
+        "manifest": attrs.option(
+            attrs.source(),
+            default = None,
+            doc = """
     Relative path to the Android manifest for the APK. The common
      case is that the manifest will be in the same directory as the
      rule, in which case this will simply be
@@ -22,8 +25,12 @@ def _manifest_apk_arg():
 
      Prefer using `manifest_skeleton`, which performs merging automatically.
      Exactly one of `manifest` and `manifest_skeleton` must be set.
-"""),
-        "manifest_skeleton": attrs.option(attrs.source(), default = None, doc = """
+""",
+        ),
+        "manifest_skeleton": attrs.option(
+            attrs.source(),
+            default = None,
+            doc = """
     Relative path to the skeleton Android manifest for the APK.
      An `android_manifest()` will be created automatically to merge
      all manifests from libraries and resources going into the app.
@@ -32,24 +39,33 @@ def _manifest_apk_arg():
      `'AndroidManifest.xml'`.
 
      Exactly one of `manifest` and `manifest_skeleton` must be set.
-"""),
+""",
+        ),
     }
 
 def _deps_apk_arg():
     return {
-        "deps": attrs.list(attrs.dep(), default = [], doc = """
+        "deps": attrs.list(
+            attrs.dep(),
+            default = [],
+            doc = """
     List of build targets whose corresponding compiled Java code,
      Android resources, and native libraries will be included in the APK.
      From the transitive closure of these dependencies, the outputs of rules of the following type will be included in the APK:
      * `android_library()`* `android_resource()`* `cxx_library()`* `groovy_library()`* `java_library()`* `java_binary()`* `prebuilt_jar()`* `prebuilt_native_library()`
-"""),
+""",
+        ),
     }
 
 def _manifest_arg():
     return {
-        "manifest": attrs.option(attrs.source(), default = None, doc = """
+        "manifest": attrs.option(
+            attrs.source(),
+            default = None,
+            doc = """
     An optional [Android Manifest](http://developer.android.com/guide/topics/manifest/manifest-intro.html) for the to declare any permissions or intents it may need or want to handle. May either be a file or an `android_manifest()` target.
-"""),
+""",
+        ),
     }
 
 android_common = struct(

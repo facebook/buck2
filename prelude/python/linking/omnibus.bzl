@@ -35,11 +35,12 @@ OmnibusMetadataInfo = provider(
 )
 
 def process_omnibus_linking(
-        ctx: AnalysisContext,
-        deps: list[Dependency],
-        extensions: dict[str, (LinkedObject, Label)],
-        python_toolchain: PythonToolchainInfo,
-        extra: dict[str, typing.Any]) -> (
+    ctx: AnalysisContext,
+    deps: list[Dependency],
+    extensions: dict[str, (LinkedObject, Label)],
+    python_toolchain: PythonToolchainInfo,
+    extra: dict[str, typing.Any],
+) -> (
     list[(SharedLibrary, str)],
     dict[str, (LinkedObject, Label)],
 ):
@@ -68,9 +69,7 @@ def process_omnibus_linking(
         extra_ldflags = (
             # TODO(agallagher): Should these "binary" linker flags comes
             # from the Python toolchain instead?
-            get_cxx_toolchain_info(ctx).linker_info.binary_linker_flags +
-            python_toolchain.linker_flags +
-            ctx.attrs.linker_flags
+            get_cxx_toolchain_info(ctx).linker_info.binary_linker_flags + python_toolchain.linker_flags + ctx.attrs.linker_flags
         ),
         prefer_stripped_objects = ctx.attrs.prefer_stripped_native_objects,
         enable_distributed_thinlto = ctx.attrs.enable_distributed_thinlto,
@@ -78,10 +77,7 @@ def process_omnibus_linking(
     )
 
     # Extract re-linked extensions.
-    extensions = {
-        dest: (omnibus_libs.roots[label].shared_library, label)
-        for dest, (_, label) in extensions.items()
-    }
+    extensions = {dest: (omnibus_libs.roots[label].shared_library, label) for dest, (_, label) in extensions.items()}
     shared_libs = [(shlib, "") for shlib in omnibus_libs.libraries]
 
     omnibus_providers = []
@@ -93,7 +89,9 @@ def process_omnibus_linking(
         sub_targets = {}
         sub_targets["dwp"] = [DefaultInfo(default_output = omnibus_linked_obj.dwp if omnibus_linked_obj.dwp else None)]
         if omnibus_link_result.linker_map_data != None:
-            sub_targets["linker-map"] = [DefaultInfo(default_output = omnibus_link_result.linker_map_data.map, other_outputs = [omnibus_link_result.linker_map_data.binary])]
+            sub_targets["linker-map"] = [
+                DefaultInfo(default_output = omnibus_link_result.linker_map_data.map, other_outputs = [omnibus_link_result.linker_map_data.binary])
+            ]
         omnibus_info = DefaultInfo(
             default_output = omnibus_linked_obj.output,
             sub_targets = sub_targets,

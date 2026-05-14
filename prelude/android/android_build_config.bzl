@@ -23,7 +23,9 @@ def android_build_config_impl(ctx: AnalysisContext) -> list[Provider]:
     providers = []
 
     default_build_config_fields = get_build_config_fields(ctx.attrs.values)
-    android_build_config_info = AndroidBuildConfigInfo(package = ctx.attrs.package, build_config_fields = default_build_config_fields, values_file = ctx.attrs.values_file)
+    android_build_config_info = AndroidBuildConfigInfo(
+        package = ctx.attrs.package, build_config_fields = default_build_config_fields, values_file = ctx.attrs.values_file
+    )
     providers.append(android_build_config_info)
     providers.append(merge_android_packageable_info(ctx.label, ctx.actions, deps = [], build_config_info = android_build_config_info))
 
@@ -50,12 +52,8 @@ def android_build_config_impl(ctx: AnalysisContext) -> list[Provider]:
     return providers
 
 def generate_android_build_config(
-        ctx: AnalysisContext,
-        source: str,
-        java_package: str,
-        use_constant_expressions: bool,
-        default_values: list[BuildConfigField],
-        values_file: Artifact | None) -> (JavaLibraryInfo, JavaPackagingInfo, Artifact):
+    ctx: AnalysisContext, source: str, java_package: str, use_constant_expressions: bool, default_values: list[BuildConfigField], values_file: Artifact | None
+) -> (JavaLibraryInfo, JavaPackagingInfo, Artifact):
     build_config_dot_java = _generate_build_config_dot_java(ctx, source, java_package, use_constant_expressions, default_values, values_file)
 
     compiled_build_config_dot_java = _compile_and_package_build_config_dot_java(ctx, java_package, build_config_dot_java)
@@ -63,21 +61,21 @@ def generate_android_build_config(
 
     packaging_deps_kwargs = {"value": create_java_packaging_dep(ctx, library_output.full_library)}
     packaging_deps = ctx.actions.tset(JavaPackagingDepTSet, **packaging_deps_kwargs)
-    return (JavaLibraryInfo(
-        compiling_deps = single_library_compiling_deps(ctx.actions, library_output),
-        library_output = library_output,
-        output_for_classpath_macro = library_output.full_library,
-    ), JavaPackagingInfo(
-        packaging_deps = packaging_deps,
-    ), build_config_dot_java)
+    return (
+        JavaLibraryInfo(
+            compiling_deps = single_library_compiling_deps(ctx.actions, library_output),
+            library_output = library_output,
+            output_for_classpath_macro = library_output.full_library,
+        ),
+        JavaPackagingInfo(
+            packaging_deps = packaging_deps,
+        ),
+        build_config_dot_java,
+    )
 
 def _generate_build_config_dot_java(
-        ctx: AnalysisContext,
-        source: str,
-        java_package: str,
-        use_constant_expressions: bool,
-        default_values: list[BuildConfigField],
-        values_file: Artifact | None) -> Artifact:
+    ctx: AnalysisContext, source: str, java_package: str, use_constant_expressions: bool, default_values: list[BuildConfigField], values_file: Artifact | None
+) -> Artifact:
     generate_build_config_cmd = cmd_args(ctx.attrs._android_toolchain[AndroidToolchainInfo].generate_build_config[RunInfo])
     generate_build_config_cmd.add([
         "--source",
@@ -111,10 +109,7 @@ def _generate_build_config_dot_java(
 
     return build_config_dot_java
 
-def _compile_and_package_build_config_dot_java(
-        ctx: AnalysisContext,
-        java_package: str,
-        build_config_dot_java: Artifact) -> JavaCompileOutputs:
+def _compile_and_package_build_config_dot_java(ctx: AnalysisContext, java_package: str, build_config_dot_java: Artifact) -> JavaCompileOutputs:
     return compile_to_jar(
         ctx,
         actions_identifier = "build_config_{}".format(java_package.replace(".", "_")),

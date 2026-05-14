@@ -114,10 +114,14 @@ def prebuilt_python_library_impl(ctx: AnalysisContext) -> list[Provider]:
     providers.append(DefaultInfo(default_output = ctx.attrs.binary_src, sub_targets = sub_targets))
 
     # C++ resources.
-    providers.append(ResourceInfo(resources = gather_resources(
-        label = ctx.label,
-        deps = ctx.attrs.deps,
-    )))
+    providers.append(
+        ResourceInfo(
+            resources = gather_resources(
+                label = ctx.label,
+                deps = ctx.attrs.deps,
+            )
+        )
+    )
 
     # Allow third-party-build rules to depend on Python rules.
     tp_prefix = prefix_from_label(ctx.label)
@@ -182,10 +186,12 @@ def prebuilt_python_library_impl(ctx: AnalysisContext) -> list[Provider]:
         def write_argsfile(actions, header_dirs, output):
             lines = []
             for header_dir in header_dirs.read_string().splitlines():
-                lines.append(format_system_include_arg(
-                    cmd_args(extracted_src.project(header_dir)),
-                    "clang",
-                ))
+                lines.append(
+                    format_system_include_arg(
+                        cmd_args(extracted_src.project(header_dir)),
+                        "clang",
+                    )
+                )
             actions.write(output, lines)
 
         ctx.actions.dynamic_output(
@@ -206,16 +212,18 @@ def prebuilt_python_library_impl(ctx: AnalysisContext) -> list[Provider]:
             ),
         )
     if pp_args:
-        providers.append(cxx_merge_cpreprocessors(
-            actions = ctx.actions,
-            own = [
-                CPreprocessor(
-                    args = CPreprocessorArgs(
-                        args = pp_args,
+        providers.append(
+            cxx_merge_cpreprocessors(
+                actions = ctx.actions,
+                own = [
+                    CPreprocessor(
+                        args = CPreprocessorArgs(
+                            args = pp_args,
+                        ),
                     ),
-                ),
-            ],
-            xs = cxx_inherited_preprocessor_infos(ctx.attrs.deps),
-        ))
+                ],
+                xs = cxx_inherited_preprocessor_infos(ctx.attrs.deps),
+            )
+        )
 
     return providers

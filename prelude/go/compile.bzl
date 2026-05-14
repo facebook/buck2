@@ -14,9 +14,11 @@ load(
 )
 
 # Provider wrapping packages used for compiling.
-GoPkgCompileInfo = provider(fields = {
-    "pkgs": provider_field(typing.Any, default = None),  # dict[str, GoPkg]
-})
+GoPkgCompileInfo = provider(
+    fields = {
+        "pkgs": provider_field(typing.Any, default = None),  # dict[str, GoPkg]
+    }
+)
 
 # Provider for test targets that test a library. Contains information for
 # compiling the test and library code together as expected by go.
@@ -39,9 +41,11 @@ def infer_package_root(srcs: list[Artifact]) -> str:
         return ""
     dir_set = set([paths.dirname(s.short_path) for s in go_sources])
     if len(dir_set) > 1:
-        fail("Provide `package_root` target attribute. Can't infer it when there are multiple directories containing .go files: {}. Sources: {}".format(
-            dir_set,
-            [s.short_path for s in go_sources],
-        ))
+        fail(
+            "Provide `package_root` target attribute. Can't infer it when there are multiple directories containing .go files: {}. Sources: {}".format(
+                dir_set,
+                [s.short_path for s in go_sources],
+            )
+        )
 
     return list(dir_set)[0]

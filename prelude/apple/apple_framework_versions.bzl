@@ -1131,7 +1131,7 @@ def _parse_version(version: str) -> (int, int, int):
 def validate_sdk_frameworks(frameworks: list[str]) -> None:
     for framework in frameworks:
         if framework.startswith("$SDKROOT/System/Library/Frameworks"):
-            framework_name = framework[len("$SDKROOT/System/Library/Frameworks/"):-len(".framework")]
+            framework_name = framework[len("$SDKROOT/System/Library/Frameworks/") : -len(".framework")]
             if framework_name not in FRAMEWORK_INTRODUCED_VERSIONS:
                 fail("Framework {} is missing version information".format(framework_name))
 
@@ -1149,7 +1149,7 @@ def get_framework_linker_args(ctx: AnalysisContext, framework_names: list[str]) 
     # Simulator and device platforms have the same framework versions
     sdk_name = get_apple_sdk_name(ctx)
     if sdk_name.endswith("simulator"):
-        sdk_name = sdk_name[:-len("simulator")] + "os"
+        sdk_name = sdk_name[: -len("simulator")] + "os"
 
     weak_frameworks = []
     strong_frameworks = []

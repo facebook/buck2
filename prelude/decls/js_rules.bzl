@@ -33,10 +33,10 @@ js_bundle = prelude_rule(
             "extra_json": attrs.option(attrs.arg(), default = None),
             "fallback_transform_profile": attrs.option(attrs.string(), default = None),
             "worker": attrs.dep(),
-        } |
-        buck.licenses_arg() |
-        buck.labels_arg() |
-        buck.contacts_arg()
+        }
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
     ),
 )
 
@@ -67,10 +67,10 @@ js_bundle_genrule = prelude_rule(
             "skip_resources": attrs.bool(default = False),
             "srcs": attrs.named_set(attrs.source(), sorted = False, default = []),
             "weight": attrs.option(attrs.int(), default = None),
-        } |
-        buck.licenses_arg() |
-        buck.labels_arg() |
-        buck.contacts_arg()
+        }
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
     ),
 )
 
@@ -93,10 +93,10 @@ js_library = prelude_rule(
             "extra_json": attrs.option(attrs.arg(), default = None),
             "srcs": attrs.list(attrs.one_of(attrs.source(), attrs.tuple(attrs.source(), attrs.string())), default = []),
             "worker": attrs.dep(),
-        } |
-        buck.licenses_arg() |
-        buck.labels_arg() |
-        buck.contacts_arg()
+        }
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
     ),
 )
 

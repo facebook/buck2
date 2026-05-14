@@ -6,9 +6,11 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-AndroidPlatformInfo = provider(fields = {
-    "name": provider_field(typing.Any, default = None),
-})
+AndroidPlatformInfo = provider(
+    fields = {
+        "name": provider_field(typing.Any, default = None),
+    }
+)
 
 AndroidToolchainInfo = provider(
     fields = {

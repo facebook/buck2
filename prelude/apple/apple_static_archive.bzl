@@ -25,7 +25,7 @@ def apple_static_archive_impl(ctx: AnalysisContext) -> list[Provider]:
     link_args = _get_static_link_args(ctx)
     validation_deps_outputs = get_validation_deps_outputs(ctx)
 
-    #TODO(T193127271): Support thin archives
+    # TODO(T193127271): Support thin archives
     cmd = cmd_args([static_archive_linker, "--libtool", libtool, "--output", output.as_output(), link_args], hidden = validation_deps_outputs or [])
     ctx.actions.run(cmd, category = "static_archive_linker", identifier = output.short_path)
 

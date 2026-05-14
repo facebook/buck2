@@ -13,20 +13,21 @@ load(
 load(":common_types.bzl", "DThinLTOLinkData", "LinkDataType")
 
 def thin_link(
-        ctx: AnalysisContext,
-        final_binary_out: Artifact,
-        sorted_index_link_data: list[DThinLTOLinkData],
-        common_link_flags: cmd_args,
-        linker: RunInfo,
-        lto_planner: RunInfo,
-        post_linker_flags: cmd_args,
-        index_argsfile_out: Artifact,
-        link_plan_out: Artifact,
-        identifier: str | None,
-        premerger_enabled: bool,
-        use_content_based_output_paths: bool,
-        make_cat,
-        make_id):
+    ctx: AnalysisContext,
+    final_binary_out: Artifact,
+    sorted_index_link_data: list[DThinLTOLinkData],
+    common_link_flags: cmd_args,
+    linker: RunInfo,
+    lto_planner: RunInfo,
+    post_linker_flags: cmd_args,
+    index_argsfile_out: Artifact,
+    link_plan_out: Artifact,
+    identifier: str | None,
+    premerger_enabled: bool,
+    use_content_based_output_paths: bool,
+    make_cat,
+    make_id,
+):
     # See comments in dist_lto_planner.py for semantics on the values that are pushed into index_meta.
     index_meta_records = []
 
@@ -97,7 +98,11 @@ def thin_link(
         plan_cmd.add("--enable-premerger")
     plan_cmd.add("--", index_cmd)
 
-    plan_cmd.add(cmd_args(hidden = [
-        index_args,
-    ]))
+    plan_cmd.add(
+        cmd_args(
+            hidden = [
+                index_args,
+            ]
+        )
+    )
     ctx.actions.run(plan_cmd, category = index_cat, identifier = identifier)

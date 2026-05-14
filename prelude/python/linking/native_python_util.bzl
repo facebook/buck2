@@ -85,10 +85,7 @@ def merge_native_deps(ctx, deps: list[Dependency]) -> NativeDepsInfoTSet:
 
 def _cxx_extension_info_python_module_names(info: CxxExtensionLinkInfoMember):
     return cmd_args(
-        [
-            "{}:{}".format(k, v)
-            for k, v in (info.python_module_names or {}).items()
-        ],
+        ["{}:{}".format(k, v) for k, v in (info.python_module_names or {}).items()],
         format = "--extension={}",
     )
 
@@ -108,13 +105,14 @@ def compute_link_strategy(ctx: AnalysisContext) -> NativeLinkStrategy | None:
     )
 
 def merge_cxx_extension_info(
-        actions: AnalysisActions,
-        deps: list[Dependency],
-        linkable_providers: [LinkableProviders, None] = None,
-        artifacts: dict[str, typing.Any] = {},
-        python_module_names: dict[str, str] = {},
-        unembeddable_extensions: dict[str, LinkableProviders] = {},
-        shared_deps: list[Dependency] = []) -> CxxExtensionLinkInfo:
+    actions: AnalysisActions,
+    deps: list[Dependency],
+    linkable_providers: [LinkableProviders, None] = None,
+    artifacts: dict[str, typing.Any] = {},
+    python_module_names: dict[str, str] = {},
+    unembeddable_extensions: dict[str, LinkableProviders] = {},
+    shared_deps: list[Dependency] = [],
+) -> CxxExtensionLinkInfo:
     dlopen_deps = {}
     shared_only_libs = {}
     for dep in shared_deps:
@@ -184,16 +182,17 @@ def reduce_cxx_extension_info(link_info: CxxExtensionLinkInfo) -> CxxExtensionLi
     )
 
 def rewrite_static_symbols(
-        ctx: AnalysisContext,
-        suffix: str,
-        pic_objects: list[Artifact],
-        non_pic_objects: list[Artifact],
-        # NOTE: at the moment, we only compile debuggable PIC objects.
-        debuggable_pic_objects: list[Artifact],
-        libraries: dict[LibOutputStyle, LinkInfos],
-        cxx_toolchain: CxxToolchainInfo,
-        suffix_all: bool = False,
-        suffix_exclude_rtti: bool = False) -> dict[LibOutputStyle, LinkInfos]:
+    ctx: AnalysisContext,
+    suffix: str,
+    pic_objects: list[Artifact],
+    non_pic_objects: list[Artifact],
+    # NOTE: at the moment, we only compile debuggable PIC objects.
+    debuggable_pic_objects: list[Artifact],
+    libraries: dict[LibOutputStyle, LinkInfos],
+    cxx_toolchain: CxxToolchainInfo,
+    suffix_all: bool = False,
+    suffix_exclude_rtti: bool = False,
+) -> dict[LibOutputStyle, LinkInfos]:
     symbols_file = _write_syms_file(
         ctx = ctx,
         name = ctx.label.name + "_rename_syms",
@@ -290,13 +289,14 @@ def rewrite_static_symbols(
     return updated_libraries
 
 def _write_syms_file(
-        ctx: AnalysisContext,
-        name: str,
-        objects: list[Artifact],
-        suffix: str,
-        cxx_toolchain: CxxToolchainInfo,
-        suffix_all: bool = False,
-        suffix_exclude_rtti: bool = False) -> Artifact:
+    ctx: AnalysisContext,
+    name: str,
+    objects: list[Artifact],
+    suffix: str,
+    cxx_toolchain: CxxToolchainInfo,
+    suffix_all: bool = False,
+    suffix_exclude_rtti: bool = False,
+) -> Artifact:
     """
     Take a list of objects and append a suffix to all  defined symbols.
     """
@@ -322,8 +322,8 @@ def _write_syms_file(
     # using awk we format the symbol names 'PyInit_hello' followed by the symbol name with the suffix appended to create the input file for objcopy
     # objcopy uses a list of symbol name followed by updated name e.g. 'PyInit_hello PyInit_hello_package_module'
     script = (
-        "set -euo pipefail; " +  # fail if any command in the script fails
-        '"$NM" --no-sort --defined-only -j {}@"$OBJECTS" | sed "/:$/d;/^$/d"'
+        "set -euo pipefail; "  # fail if any command in the script fails
+        + '"$NM" --no-sort --defined-only -j {}@"$OBJECTS" | sed "/:$/d;/^$/d"'
     ).format("--extern-only " if not suffix_all else "")
 
     if not suffix_all:
@@ -335,16 +335,13 @@ def _write_syms_file(
     # globals. This removes:
     # __asan_*, ___asan_*, __tsan_*, ___tsan_*, __sanitizer_*, ___sanitizer_*,
     # asan.module_ctor, asan.module_dtor, tsan.module_ctor, tsan.module_dtor
-    script += " | grep -v \"\\(\\(^_\\?__\\(\\(a\\|t\\)san\\|\\(sanitizer\\)\\)_\\)\\|\\(^\\(a\\|t\\)san.module_\\(c\\|d\\)tor\\)\\)\""
+    script += ' | grep -v "\\(\\(^_\\?__\\(\\(a\\|t\\)san\\|\\(sanitizer\\)\\)_\\)\\|\\(^\\(a\\|t\\)san.module_\\(c\\|d\\)tor\\)\\)"'
     if suffix_exclude_rtti:
         # We also should not rename _ZTI... RTTI type info symbols as whole
         # program devirtualisation uses them to detect subclasses.
         script += " | grep -v '^_ZTI'"
 
-    script += (
-        ' | awk \'{{print $1" "$1"_{suffix}"}}\' | sort -u > '.format(suffix = suffix) +
-        '"$SYMSFILE";'
-    )
+    script += ' | awk \'{{print $1" "$1"_{suffix}"}}\' | sort -u > '.format(suffix = suffix) + '"$SYMSFILE";'
 
     ctx.actions.run(
         [
@@ -361,11 +358,8 @@ def _write_syms_file(
     return symbols_file
 
 def suffix_symbols(
-        ctx: AnalysisContext,
-        suffix: str,
-        objects: list[Artifact],
-        symbols_file: Artifact,
-        cxx_toolchain: CxxToolchainInfo) -> (ObjectsLinkable, ObjectsLinkable):
+    ctx: AnalysisContext, suffix: str, objects: list[Artifact], symbols_file: Artifact, cxx_toolchain: CxxToolchainInfo
+) -> (ObjectsLinkable, ObjectsLinkable):
     """
     Take a list of objects and append a suffix to all  defined symbols.
     """
@@ -386,8 +380,8 @@ def suffix_symbols(
         }
 
         script = (
-            "set -euo pipefail; " +  # fail if any command in the script fails
-            '"$OBJCOPY" --redefine-syms="$SYMSFILE" "$ORIGINAL" "$OUT"'  # using objcopy we pass in the symbols file to re-write the original symbol name to the now suffixed version
+            "set -euo pipefail; "  # fail if any command in the script fails
+            + '"$OBJCOPY" --redefine-syms="$SYMSFILE" "$ORIGINAL" "$OUT"'  # using objcopy we pass in the symbols file to re-write the original symbol name to the now suffixed version
         )
 
         # Usage: objcopy [option(s)] in-file [out-file]

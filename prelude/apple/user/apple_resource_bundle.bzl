@@ -32,12 +32,16 @@ def apple_resource_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     )
 
     return [
-        DefaultInfo(sub_targets = {
-            "resources": [DefaultInfo(
-                default_output = all_resources_json_file,
-                other_outputs = [all_resources_json_cmd_args],
-            )],
-        }),
+        DefaultInfo(
+            sub_targets = {
+                "resources": [
+                    DefaultInfo(
+                        default_output = all_resources_json_file,
+                        other_outputs = [all_resources_json_cmd_args],
+                    )
+                ],
+            }
+        ),
         AppleBundleResourceInfo(
             resource_output = resource_output,
         ),

@@ -16,33 +16,46 @@ def re_test_args():
     args = re_test_common.test_args()
     return {"remote_execution": args["remote_execution"]}
 
-common_attributes = buck.labels_arg() | buck.contacts_arg() | {
-    "os_env": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string()), default = None, doc = """
+common_attributes = (
+    buck.labels_arg()
+    | buck.contacts_arg()
+    | {
+        "os_env": attrs.option(
+            attrs.dict(key = attrs.string(), value = attrs.string()),
+            default = None,
+            doc = """
                 This attribute allows to set additional values for the operating system environment for invocations to the
                 Erlang toolchain.
-            """),
-}
-
-common_shell_attributes = (
-    {
-        "shell_configs": attrs.set(attrs.dep(), default = read_root_config("erlang", "shell_configs", "").split(), doc = """
-            This attribute allows to set config files for the shell. The dependencies that are typically used
-            here are `export_file` targets.
-        """),
-        "shell_libs": attrs.set(
-            attrs.dep(providers = [ErlangAppInfo]),
-            default = ["prelude//erlang/shell:buck2_shell_utils"],
-            doc = """
-            This attribute allows to define additional dependencies for the shell. By default this is
-            set to `["prelude//erlang/shell:buck2_shell_utils"]` which includes a `user_default` module
-            that loads and compiles modules with buck2 mechanisms.
-        """,
+            """,
         ),
     }
 )
 
+common_shell_attributes = {
+    "shell_configs": attrs.set(
+        attrs.dep(),
+        default = read_root_config("erlang", "shell_configs", "").split(),
+        doc = """
+            This attribute allows to set config files for the shell. The dependencies that are typically used
+            here are `export_file` targets.
+        """,
+    ),
+    "shell_libs": attrs.set(
+        attrs.dep(providers = [ErlangAppInfo]),
+        default = ["prelude//erlang/shell:buck2_shell_utils"],
+        doc = """
+            This attribute allows to define additional dependencies for the shell. By default this is
+            set to `["prelude//erlang/shell:buck2_shell_utils"]` which includes a `user_default` module
+            that loads and compiles modules with buck2 mechanisms.
+        """,
+    ),
+}
+
 common_application_attributes = {
-    "applications": attrs.list(attrs.dep(providers = [ErlangAppInfo]), default = [], doc = """
+    "applications": attrs.list(
+        attrs.dep(providers = [ErlangAppInfo]),
+        default = [],
+        doc = """
         Equivalent to the corresponding `applications` and `included_applications`
         fields you will find in `*.app.src` or `*.app` files and specify the application dependencies. Contrary to the
         fields in the `*.app.src` or `*.app` files, **it is necessary to use target paths to the application** where a
@@ -54,27 +67,42 @@ common_application_attributes = {
         **NOTE**: _If you use the `app_src` field and the references application resource file template specifies
         `applications` or `included_applications` buck2 checks that the target definitions and information in the template are
         equivalent to prevent these definitions from drifting apart during migration._
-    """),
-    "included_applications": attrs.list(attrs.dep(providers = [ErlangAppInfo]), default = [], doc = """
+    """,
+    ),
+    "included_applications": attrs.list(
+        attrs.dep(providers = [ErlangAppInfo]),
+        default = [],
+        doc = """
         Check the documentation for `applications`.
-    """),
-    "version": attrs.string(default = "1.0.0", doc = """
+    """,
+    ),
+    "version": attrs.string(
+        default = "1.0.0",
+        doc = """
         The `version` field specifies the applications version that is materialized as `vsn` field in the generated `*.app`
         file. If you use the the `app_src` field and specify a version in the referenced template in addition to the version
         field, the versions need to be identical.
 
         If no version is specified in either the `app_src` template or the `version` field, a fallback version string of
         `"1.0.0"` is used.
-    """),
+    """,
+    ),
     "_toolchain": attrs.toolchain_dep(default = "toolchains//:erlang-default"),
 } | common_shell_attributes
 
 rules_attributes = {
     "erlang_app": {
-        "app_name": attrs.option(attrs.string(), default = None, doc = """
+        "app_name": attrs.option(
+            attrs.string(),
+            default = None,
+            doc = """
                 This attribute allows the user to overwrite the Erlang application name, which otherwise defaults to the target name.
-            """),
-        "app_src": attrs.option(attrs.source(), default = None, doc = """
+            """,
+        ),
+        "app_src": attrs.option(
+            attrs.source(),
+            default = None,
+            doc = """
                 The `app_src` field allows to optionally reference a `*.app.src` template file. This template file will then be used by
                 buck2 to generate the `*.app` output file in the applications `ebin/` directory. This is useful during the migration from
                 rebar3 to buck2 to avoid duplicated entries, of e.g. the `version`.
@@ -86,12 +114,20 @@ rules_attributes = {
                 **NOTE**: _If you use the `app_src` field and the references application resource file template specifies `applications`
                 or `included_applications` buck2 checks that the target definitions and information in the template are equivalent to
                 prevent these definitions from drifting apart during migration._
-            """),
-        "env": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string()), default = None, doc = """
+            """,
+        ),
+        "env": attrs.option(
+            attrs.dict(key = attrs.string(), value = attrs.string()),
+            default = None,
+            doc = """
                 The `env` field allows to set the application env variables. The key value pairs will materialise in the application's `.app`
                 file and can then be accessed by [`application:get_env/2`](https://www.erlang.org/doc/man/application.html#get_env-2).
-           """),
-        "erl_opts": attrs.option(attrs.list(attrs.string()), default = None, doc = """
+           """,
+        ),
+        "erl_opts": attrs.option(
+            attrs.list(attrs.string()),
+            default = None,
+            doc = """
                 Typically compile options are managed by global config files, however, sometimes it is
                 desirable to overwrite the pre-defined compile options. The `erl_opts` field allows developers to do so for individual
                 applications.
@@ -99,8 +135,12 @@ rules_attributes = {
                 The main use-case are the applications listed in `third-party/`. This option should not be used by other applications
                 without consultation. Please ask in the [WhatsApp Dev Infra Q&A](https://fb.workplace.com/groups/728545201114362)
                 workplace group for support.
-            """),
-        "extra_includes": attrs.list(attrs.dep(providers = [ErlangAppIncludeInfo]), default = [], doc = """
+            """,
+        ),
+        "extra_includes": attrs.list(
+            attrs.dep(providers = [ErlangAppIncludeInfo]),
+            default = [],
+            doc = """
                 In some cases we might have the situation, where an application `app_a` depends through the `applications` and
                 `included_applications` fields on application `app_b` and a source file in `app_b` includes a header file from `app_a`
                 (e.g. `-include_lib("app_a/include/header.hrl`). This technically creates circular dependency from `app_a` to `app_b`
@@ -115,146 +155,259 @@ rules_attributes = {
 
                 **NOTE**: _This mechanism is added to circumvent unclean dependency relationships and the goal for
                 developers should be to reduce usages of this field._ **DO NOT ADD ANY MORE USAGES!!**
-            """),
-        "extra_properties": attrs.option(attrs.dict(key = attrs.string(), value = attrs.one_of(attrs.string(), attrs.list(attrs.string()))), default = None, doc = """
+            """,
+        ),
+        "extra_properties": attrs.option(
+            attrs.dict(key = attrs.string(), value = attrs.one_of(attrs.string(), attrs.list(attrs.string()))),
+            default = None,
+            doc = """
                 The extra_properties field can be used to specify extra key-value pairs which is are not defined in
                 [application_opt()](https://www.erlang.org/doc/man/application.html#load-2). The key-value pair will be stored in the
                 applications `.app` file and can be accessed by `file:consult/1`.
-            """),
-        "include_src": attrs.bool(default = True, doc = """
+            """,
+        ),
+        "include_src": attrs.bool(
+            default = True,
+            doc = """
                 This field controls if the generated application directory contains a src/ directory with the Erlang code or not.
-            """),
-        "includes": attrs.list(attrs.source(), default = [], doc = """
+            """,
+        ),
+        "includes": attrs.list(
+            attrs.source(),
+            default = [],
+            doc = """
                 The public header files accessible via `-include_lib("appname/include/header.hrl")` from other erlang files.
-            """),
-        "mod": attrs.option(attrs.tuple(attrs.string(), attrs.string()), default = None, doc = """
+            """,
+        ),
+        "mod": attrs.option(
+            attrs.tuple(attrs.string(), attrs.string()),
+            default = None,
+            doc = """
                 The `mod` field specifies the equivalent field in the generated `*.app` files. The format is similar, with the
                 difference, that the module name, and the individual start arguments need to be given as the string representation
                 of the corresponding Erlang terms.
-             """),
-        "peek_private_includes": attrs.bool(default = False, doc = """
+             """,
+        ),
+        "peek_private_includes": attrs.bool(
+            default = False,
+            doc = """
                 This attribute allows you to use the private includes of the application's dependencies. This can be useful for
                 test applications, to create shared abstractions for tests. It's not advisable to use this attribute for prodution
                 code. All private includes transitively must be non-ambiguous.
-            """),
-        "resources": attrs.list(attrs.dep(), default = [], doc = """
+            """,
+        ),
+        "resources": attrs.list(
+            attrs.dep(),
+            default = [],
+            doc = """
                 The `resources` field specifies targets whose default output are placed in the applications `priv/` directory. For
                 regular files this field is typically combined with `export_file`, `filegroup`, or similar targets. However, it
                 is general, and any target can be used, e.g. if you want to place a built escript in the `priv/` directory, you can use
                 an `erlang_escript` target.
-            """),
-        "srcs": attrs.list(attrs.source(), default = [], doc = """
+            """,
+        ),
+        "srcs": attrs.list(
+            attrs.source(),
+            default = [],
+            doc = """
                 A list of `*.erl`, `*.hrl`, `*.xrl`, or `*.yrl` source inputs that are typically located
                 in an application's `src/` folder. Header files (i.e. `*.hrl` files) specified in this field are considered application
                 private headers, and can only be accessed by the `*.erl` files of the application itself. `*.xrl` and `*.yrl` files are
                 processed into `*.erl` files before all `*.erl` files are compiled into `*.beam` files.
-            """),
-        "use_global_parse_transforms": attrs.bool(default = True, doc = """
+            """,
+        ),
+        "use_global_parse_transforms": attrs.bool(
+            default = True,
+            doc = """
                 This field indicates if global parse_tranforms should be applied to this application as well. It often makes sense
                 for third-party dependencies to not be subjected to global parse_transforms, similar to OTP applications.
-            """),
-        "xrl_includefile": attrs.option(attrs.source(), default = None, doc = """
+            """,
+        ),
+        "xrl_includefile": attrs.option(
+            attrs.source(),
+            default = None,
+            doc = """
                 Customised prologue file to replace the default. See [`includefile` option](https://www.erlang.org/doc/apps/parsetools/leex.html#file/2) for details.
-        """),
-        "yrl_includefile": attrs.option(attrs.source(), default = None, doc = """
+        """,
+        ),
+        "yrl_includefile": attrs.option(
+            attrs.source(),
+            default = None,
+            doc = """
                 Customised prologue file to replace the default. See [`includefile` option](https://www.erlang.org/doc/apps/parsetools/yecc.html#file/2) for details.
-        """),
-        "_includes_target": attrs.option(attrs.dep(providers = [ErlangAppIncludeInfo]), default = None, doc = """
+        """,
+        ),
+        "_includes_target": attrs.option(
+            attrs.dep(providers = [ErlangAppIncludeInfo]),
+            default = None,
+            doc = """
                 Internal, used by the `erlang_application` macro to link the proper application target and include_only targets.
-            """),
-    } | common_application_attributes,
+            """,
+        ),
+    }
+    | common_application_attributes,
     "erlang_app_includes": {
         "app_name": attrs.string(),
         "includes": attrs.list(attrs.source(), default = []),
         "_toolchain": attrs.toolchain_dep(default = "toolchains//:erlang-default"),
     },
     "erlang_escript": {
-        "configs": attrs.list(attrs.dep(), default = [], doc = """
+        "configs": attrs.list(
+            attrs.dep(),
+            default = [],
+            doc = """
             This attribute allows to set config files for the escript. The dependencies that are typically used
-            here are `export_file` targets."""),
-        "deps": attrs.list(attrs.dep(providers = [ErlangAppInfo]), doc = """
+            here are `export_file` targets.""",
+        ),
+        "deps": attrs.list(
+            attrs.dep(providers = [ErlangAppInfo]),
+            doc = """
                 List of Erlang applications that are bundled in the escript. This includes all transitive dependencies as well.
-            """),
-        "emu_args": attrs.list(attrs.string(), default = [], doc = """
+            """,
+        ),
+        "emu_args": attrs.list(
+            attrs.string(),
+            default = [],
+            doc = """
                 This field specifies the emulator flags that the escript uses on execution. It is often desirable to specify the number
                 of threads and schedulers the escript uses. Please refer to the
                 [OTP documentation](https://www.erlang.org/doc/man/erl.html#emu_flags) for details.
-            """),
-        "include_priv": attrs.bool(default = False, doc = """
+            """,
+        ),
+        "include_priv": attrs.bool(
+            default = False,
+            doc = """
                 Setting this flag, will package the applications `priv` directory in the escript. Similar to files added through the
                 `resources` field, the `priv` folders files can then be accessed by `escript"extract/2`.
-            """),
-        "main_module": attrs.option(attrs.string(), default = None, doc = """
+            """,
+        ),
+        "main_module": attrs.option(
+            attrs.string(),
+            default = None,
+            doc = """
                 Overrides the default main module. Instead of deferring the main module from the scripts filename, the specified module
                 is used. That module needs to export a `main/1` function that is called as entry point.
-            """),
-        "resources": attrs.list(attrs.dep(), default = [], doc = """
+            """,
+        ),
+        "resources": attrs.list(
+            attrs.dep(),
+            default = [],
+            doc = """
                 This adds the targets default output to the escript archive. To access these files, you need to use `escript:extract/2`,
                 which will extract the entire escript in memory. The relevant files can then be accessed through the `archive`
                 section.
 
                 Please refer to the [`escript:extract/2`](https://www.erlang.org/doc/man/escript.html) for more details.
-            """),
-        "script_name": attrs.option(attrs.string(), default = None, doc = """
+            """,
+        ),
+        "script_name": attrs.option(
+            attrs.string(),
+            default = None,
+            doc = """
                 Overrides the filename of the produced escript.
-            """),
+            """,
+        ),
         "_toolchain": attrs.toolchain_dep(default = "toolchains//:erlang-default"),
     },
     "erlang_otp_binaries": {
-        "erl": attrs.arg(doc = """
+        "erl": attrs.arg(
+            doc = """
                 Reference to `erl` binary
-            """),
-        "erlc": attrs.arg(doc = """
+            """
+        ),
+        "erlc": attrs.arg(
+            doc = """
                 Reference to `erlc` binary
-            """),
-        "escript": attrs.arg(doc = """
+            """
+        ),
+        "escript": attrs.arg(
+            doc = """
                 Reference to `escript` binary
-            """),
+            """
+        ),
     },
     "erlang_release": {
-        "applications": attrs.list(attrs.one_of(attrs.dep(providers = [ErlangAppInfo]), attrs.tuple(attrs.dep(providers = [ErlangAppInfo]), attrs.enum(StartTypeValues))), doc = """
+        "applications": attrs.list(
+            attrs.one_of(attrs.dep(providers = [ErlangAppInfo]), attrs.tuple(attrs.dep(providers = [ErlangAppInfo]), attrs.enum(StartTypeValues))),
+            doc = """
                 This field specifies the list of applications that the release should start in the given order, and optionally the start
                 type. Top-level applications without given start type are started with type
                 [`permanent`](https://www.erlang.org/doc/man/application.html#type-restart_type).
-            """),
-        "bootscript_builders": attrs.dict(key = attrs.string(), value = attrs.dep(), default = {}, doc = """
+            """,
+        ),
+        "bootscript_builders": attrs.dict(
+            key = attrs.string(),
+            value = attrs.dep(),
+            default = {},
+            doc = """
                 The mapping listed here maps from boot script name (e.g. "start.boot") to a binary (e.g. "$(location ...)") generating the boot script.
                 The binary receives three input arguments:
                 1. path of to a json file containing the applications, i.e. `["app1", ("app2", "load"), ...]`
                 2. the location of the lib dir containing the `<app>_<version>` folders
                 3. the output location of the boot script
                 4. the output location of the script file
-                """),
-        "generate_default_bootscript": attrs.bool(default = True, doc = """
+                """,
+        ),
+        "generate_default_bootscript": attrs.bool(
+            default = True,
+            doc = """
                 This attribute controls wether the default bootscript should be generated with OTP's systools.
-                """),
-        "include_erts": attrs.bool(default = False, doc = """
+                """,
+        ),
+        "include_erts": attrs.bool(
+            default = False,
+            doc = """
                 This field controls whether OTP applications and the Erlang runtime system should be included as part of the release.
                 Please note, that at the moment the erts folder is just `erts/`.
-            """),
-        "overlays": attrs.dict(key = attrs.string(), value = attrs.list(attrs.dep()), default = {}, doc = """
+            """,
+        ),
+        "overlays": attrs.dict(
+            key = attrs.string(),
+            value = attrs.list(attrs.dep()),
+            default = {},
+            doc = """
                 Overlays can be used to add files to the release. They are specified as mapping from path (from the release
                 root) to list of targets. The targets files are places **flat** at the target location with their basename.
-            """),
-        "release_name": attrs.option(attrs.string(), default = None, doc = """
+            """,
+        ),
+        "release_name": attrs.option(
+            attrs.string(),
+            default = None,
+            doc = """
                 The release name can explicitly be set by this field. This overwrites the default from the target name.
-            """),
-        "version": attrs.string(default = "1.0.0", doc = """
+            """,
+        ),
+        "version": attrs.string(
+            default = "1.0.0",
+            doc = """
                 The `version` field specifies the release version. The release version is used in the release resource file, and
                 is part of the path for the folder containing the boot scripts.
-            """),
+            """,
+        ),
         "_toolchain": attrs.toolchain_dep(default = "toolchains//:erlang-default"),
     },
     "erlang_test": {
-        "common_app_env": attrs.dict(key = attrs.string(), value = attrs.string(), default = {}, doc = """
+        "common_app_env": attrs.dict(
+            key = attrs.string(),
+            value = attrs.string(),
+            default = {},
+            doc = """
                 Application environment variables for the `common` application.
-            """),
-        "config_files": attrs.list(attrs.dep(), default = [], doc = """
+            """,
+        ),
+        "config_files": attrs.list(
+            attrs.dep(),
+            default = [],
+            doc = """
                 Will specify what config files the erlang beam machine running test with should load, for reference look at
                 [OTP documentation](https://www.erlang.org/doc/man/config.html). These ones should consist of default_output of
                 some targets. In general, this field is filled with target coming from then `export_file` rule, as in the example below.
-            """),
-        "deps": attrs.list(attrs.dep(providers = [ErlangAppOrTestInfo]), default = [], doc = """
+            """,
+        ),
+        "deps": attrs.list(
+            attrs.dep(providers = [ErlangAppOrTestInfo]),
+            default = [],
+            doc = """
                 The set of dependencies needed for all suites included in the target
                 to compile and run. They could be either `erlang_app(lication)` or `erlang_test`
                 targets, although the latter is discouraged. If some suites need to access common methods,
@@ -262,50 +415,77 @@ rules_attributes = {
                 If some applications are included as dependencies of this target, their private include will automatically
                 be pulled and made available for the test. That allows tests to access the private header files from the
                 applications under test.
-            """),
-        "env": attrs.dict(key = attrs.string(), value = attrs.string(), default = {}, doc = """
+            """,
+        ),
+        "env": attrs.dict(
+            key = attrs.string(),
+            value = attrs.string(),
+            default = {},
+            doc = """
                 Add the given values to the environment variables with which the test is executed.
-            """),
-        "extra_ct_hooks": attrs.list(attrs.string(), default = [], doc = """
+            """,
+        ),
+        "extra_ct_hooks": attrs.list(
+            attrs.string(),
+            default = [],
+            doc = """
                 List of additional Common Test hooks. The strings are interpreted as Erlang terms.
-            """),
-        "extra_erl_flags": attrs.list(attrs.string(), default = [], doc = """
+            """,
+        ),
+        "extra_erl_flags": attrs.list(
+            attrs.string(),
+            default = [],
+            doc = """
                 List of additional command line arguments given to the erl command invocation. These
                 arguments are added to the front of the argument list.
-            """),
-        "resources": attrs.list(attrs.dep(), default = [], doc = """
+            """,
+        ),
+        "resources": attrs.list(
+            attrs.dep(),
+            default = [],
+            doc = """
                 The `resources` field specifies targets whose default output are placed in the test `data_dir` directory for
                 all the suites present in the macro target. Additionally, if data directory are present in the directory along
                 the suite, this one will be pulled automatically for the relevant suite.
 
                 Any target can be used, e.g. if you want to place a built escript in the `data_dir` directory, you can use
                 an `erlang_escript` target.
-            """),
-        "suite": attrs.source(doc = """
+            """,
+        ),
+        "suite": attrs.source(
+            doc = """
                 The source file for the test suite. If you are using the macro, you should use the `suites` attribute instead.
 
                 The suites attribute specifies which erlang_test targets should be generated. For each suite "path_to_suite/suite_SUITE.erl" an
                 implicit 'erlang_test' target suite_SUITE will be generated.
-            """),
+            """
+        ),
         "_artifact_annotation_mfa": attrs.string(default = "artifact_annotations:default_annotation/1"),
         "_cli_lib": attrs.dep(providers = [ErlangAppInfo], default = "prelude//erlang/common_test/test_cli_lib:test_cli_lib"),
         "_ct_opts": attrs.string(default = read_root_config("erlang", "erlang_test_ct_opts", "")),
-        "_inner_trampolines": attrs.list(attrs.dep(), default = [], doc = """
+        "_inner_trampolines": attrs.list(
+            attrs.dep(),
+            default = [],
+            doc = """
             trampolines that are used for the test node
-        """),
+        """,
+        ),
         "_providers": attrs.string(default = ""),
         "_test_binary_lib": attrs.dep(providers = [ErlangAppInfo], default = "prelude//erlang/common_test/test_binary:test_binary"),
         "_toolchain": attrs.toolchain_dep(default = "toolchains//:erlang-default"),
-        "_trampolines": attrs.list(attrs.dep(), default = [], doc = """
+        "_trampolines": attrs.list(
+            attrs.dep(),
+            default = [],
+            doc = """
             trampolines that are used for the test binary
-        """),
-    } | common_shell_attributes | re_test_args(),
+        """,
+        ),
+    }
+    | common_shell_attributes
+    | re_test_args(),
 }
 
-attributes = {
-    name: dict(rules_attributes[name], **common_attributes)
-    for name in rules_attributes
-}
+attributes = {name: dict(rules_attributes[name], **common_attributes) for name in rules_attributes}
 
 erlang_app = prelude_rule(
     name = "erlang_app",
@@ -541,7 +721,6 @@ erlang_test = prelude_rule(
         default output of this rule is a "test_folder", consisting of the compiled test suite
         and the data directory.
 
-
         For each suite  `<name>_SUITE.erl`, if a data_dir `<name>_SUITE_data` is present along the suite,
         (as per [the data_dir naming scheme for ct](https://www.erlang.org/doc/apps/common_test/write_test_chapter.html#data-and-private-directories)),
         it will automatically adds the corresponding resource target to the generated test target of the suite.
@@ -563,7 +742,6 @@ erlang_test = prelude_rule(
         - `buck2 build //my_app:test_SUITE` to compile the test files together with its dependencies.
         - `buck2 test //my_app:other_test_SUITE` to run the test.
         - `buck2 run //my_app:other_test_SUITE` to open an interactive test shell, where tests can be run iteratively.
-
 
         buck2 test will rely on tpx to run the suite. To get access to tpx commands, add `--` after the
         target. For example:

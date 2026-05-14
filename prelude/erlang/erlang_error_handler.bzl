@@ -75,40 +75,46 @@ def erlang_extract_otp_app_error_handler(ctx: ActionErrorCtx) -> list[ActionSubE
                     root_dir = error_json["root_dir"],
                     available_apps_section = available_apps_section,
                 )
-                structured_errors.append(ctx.new_sub_error(
-                    category = parsed_error.category,
-                    subcategory = "otp_application_not_found",
-                    message = error_json["message"],
-                    remediation = remediation,
-                    file = parsed_error.file,
-                    lnum = parsed_error.lnum,
-                    error_number = parsed_error.error_number,
-                    show_in_stderr = True,
-                ))
+                structured_errors.append(
+                    ctx.new_sub_error(
+                        category = parsed_error.category,
+                        subcategory = "otp_application_not_found",
+                        message = error_json["message"],
+                        remediation = remediation,
+                        file = parsed_error.file,
+                        lnum = parsed_error.lnum,
+                        error_number = parsed_error.error_number,
+                        show_in_stderr = True,
+                    )
+                )
             elif parsed_error.error_number == 2 and parsed_error.message != None:
                 # no_matches_for_wildcard
                 error_json = json.decode(parsed_error.message)
-                structured_errors.append(ctx.new_sub_error(
-                    category = parsed_error.category,
-                    subcategory = "no_matches_for_wildcard",
-                    message = error_json["message"],
-                    file = parsed_error.file,
-                    lnum = parsed_error.lnum,
-                    error_number = parsed_error.error_number,
-                    show_in_stderr = True,
-                ))
+                structured_errors.append(
+                    ctx.new_sub_error(
+                        category = parsed_error.category,
+                        subcategory = "no_matches_for_wildcard",
+                        message = error_json["message"],
+                        file = parsed_error.file,
+                        lnum = parsed_error.lnum,
+                        error_number = parsed_error.error_number,
+                        show_in_stderr = True,
+                    )
+                )
             elif parsed_error.error_number == 3 and parsed_error.message != None:
                 # multiple_matches_for_wildcard
                 error_json = json.decode(parsed_error.message)
-                structured_errors.append(ctx.new_sub_error(
-                    category = parsed_error.category,
-                    subcategory = "multiple_matches_for_wildcard",
-                    message = error_json["message"],
-                    file = parsed_error.file,
-                    lnum = parsed_error.lnum,
-                    error_number = parsed_error.error_number,
-                    show_in_stderr = True,
-                ))
+                structured_errors.append(
+                    ctx.new_sub_error(
+                        category = parsed_error.category,
+                        subcategory = "multiple_matches_for_wildcard",
+                        message = error_json["message"],
+                        file = parsed_error.file,
+                        lnum = parsed_error.lnum,
+                        error_number = parsed_error.error_number,
+                        show_in_stderr = True,
+                    )
+                )
 
     return structured_errors
 

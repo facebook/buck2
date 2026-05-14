@@ -21,13 +21,11 @@ def _system_ocaml_toolchain_impl(_ctx):
         DefaultInfo(),
         OCamlToolchainInfo(
             ocaml_compiler = RunInfo(args = ["ocamlopt.opt"]),
-
             # "Partial linking" (via `ocamlopt.opt -output-obj`) emits calls to
             # `ld -r -o`. If not `None`, this is the `ld` that will be invoked;
             # the default is to use whatever `ld` is in the environment. See
             # [Note: What is `binutils_ld`?] in `providers.bzl`.
             binutils_ld = None,
-
             # `ocamlopt.opt` makes calls to `as`. If this config parameter is
             # `None` those calls will resolve to whatever `as` is in the
             # environment. If not `None` then the provided value will be what's

@@ -48,13 +48,14 @@ ArtifactTSet = record(
 EmptyArtifactTSet = ArtifactTSet()
 
 def make_artifact_tset(
-        actions: AnalysisActions,
-        # Must be non-`None` if artifacts are passed in to `artifacts`.
-        label: Label | None = None,
-        artifacts: list[Artifact] = [],
-        infos: list[ArtifactInfo] = [],
-        children: list[ArtifactTSet] = [],
-        tags: list[ArtifactInfoTag] = []) -> ArtifactTSet:
+    actions: AnalysisActions,
+    # Must be non-`None` if artifacts are passed in to `artifacts`.
+    label: Label | None = None,
+    artifacts: list[Artifact] = [],
+    infos: list[ArtifactInfo] = [],
+    children: list[ArtifactTSet] = [],
+    tags: list[ArtifactInfoTag] = [],
+) -> ArtifactTSet:
     expect(
         label != None or not artifacts,
         "must pass in `label` to associate with artifacts",
@@ -94,9 +95,7 @@ def make_artifact_tset(
         _tset = actions.tset(_ArtifactTSet, **kwargs),
     )
 
-def project_artifacts(
-        actions: AnalysisActions,
-        tsets: ArtifactTSet | list[ArtifactTSet] = []) -> list[TransitiveSetArgsProjection]:
+def project_artifacts(actions: AnalysisActions, tsets: ArtifactTSet | list[ArtifactTSet] = []) -> list[TransitiveSetArgsProjection]:
     """
     Helper to project a list of optional tsets.
     """

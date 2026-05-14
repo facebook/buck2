@@ -85,17 +85,18 @@ HaskellOmnibusData = record(
 )
 
 def _write_final_ghci_script(
-        ctx: AnalysisContext,
-        omnibus_data: HaskellOmnibusData,
-        packages_info: PackagesInfo,
-        packagedb_args: cmd_args,
-        prebuilt_packagedb_args: cmd_args,
-        iserv_script: Artifact,
-        start_ghci_file: Artifact,
-        ghci_bin: Artifact,
-        haskell_toolchain: HaskellToolchainInfo,
-        ghci_script_template: Artifact,
-        enable_profiling: bool) -> Artifact:
+    ctx: AnalysisContext,
+    omnibus_data: HaskellOmnibusData,
+    packages_info: PackagesInfo,
+    packagedb_args: cmd_args,
+    prebuilt_packagedb_args: cmd_args,
+    iserv_script: Artifact,
+    start_ghci_file: Artifact,
+    ghci_bin: Artifact,
+    haskell_toolchain: HaskellToolchainInfo,
+    ghci_script_template: Artifact,
+    enable_profiling: bool,
+) -> Artifact:
     srcs = " ".join(
         [
             paths.normalize(
@@ -169,17 +170,10 @@ def _build_haskell_omnibus_so(ctx: AnalysisContext) -> HaskellOmnibusData:
     )
 
     # Keep only linkable nodes
-    graph_nodes = {
-        n.label: n.linkable
-        for n in linkable_graph_.nodes.traverse()
-        if n.linkable
-    }
+    graph_nodes = {n.label: n.linkable for n in linkable_graph_.nodes.traverse() if n.linkable}
 
     # Map node label to its dependencies' labels
-    dep_graph = {
-        nlabel: get_deps_for_link(n, to_link_strategy(link_style), pic_behavior)
-        for nlabel, n in graph_nodes.items()
-    }
+    dep_graph = {nlabel: get_deps_for_link(n, to_link_strategy(link_style), pic_behavior) for nlabel, n in graph_nodes.items()}
 
     all_direct_deps = []
     for dep in all_deps:
@@ -248,7 +242,7 @@ def _build_haskell_omnibus_so(ctx: AnalysisContext) -> HaskellOmnibusData:
         node = graph_nodes[node_label]
 
         node_target = node_label.raw_target()
-        if (node_target in body_link_infos):
+        if node_target in body_link_infos:
             # Not skipping these leads to duplicate symbol errors
             continue
 
@@ -333,24 +327,25 @@ def _build_haskell_omnibus_so(ctx: AnalysisContext) -> HaskellOmnibusData:
 # Use the script_template_processor.py script to generate a script from a
 # script template.
 def _replace_macros_in_script_template(
-        ctx: AnalysisContext,
-        script_template: Artifact,
-        haskell_toolchain: HaskellToolchainInfo,
-        # Optional artifacts
-        ghci_bin: Artifact | None = None,
-        start_ghci: Artifact | None = None,
-        iserv_script: Artifact | None = None,
-        squashed_so: Artifact | None = None,
-        # Optional cmd_args
-        exposed_package_args: [cmd_args, None] = None,
-        packagedb_args: [cmd_args, None] = None,
-        prebuilt_packagedb_args: [cmd_args, None] = None,
-        compiler_flags: [cmd_args, None] = None,
-        # Optional string args
-        srcs: [str, None] = None,
-        output_name: [str, None] = None,
-        ghci_iserv_path: [Artifact, None] = None,
-        preload_libs: [str, None] = None) -> Artifact:
+    ctx: AnalysisContext,
+    script_template: Artifact,
+    haskell_toolchain: HaskellToolchainInfo,
+    # Optional artifacts
+    ghci_bin: Artifact | None = None,
+    start_ghci: Artifact | None = None,
+    iserv_script: Artifact | None = None,
+    squashed_so: Artifact | None = None,
+    # Optional cmd_args
+    exposed_package_args: [cmd_args, None] = None,
+    packagedb_args: [cmd_args, None] = None,
+    prebuilt_packagedb_args: [cmd_args, None] = None,
+    compiler_flags: [cmd_args, None] = None,
+    # Optional string args
+    srcs: [str, None] = None,
+    output_name: [str, None] = None,
+    ghci_iserv_path: [Artifact, None] = None,
+    preload_libs: [str, None] = None,
+) -> Artifact:
     toolchain_paths = {
         BINUTILS_PATH: haskell_toolchain.ghci_binutils_path,
         GHCI_LIB_PATH: haskell_toolchain.ghci_lib_path.get(DefaultInfo).default_outputs[0],
@@ -376,32 +371,42 @@ def _replace_macros_in_script_template(
         if path:
             replace_cmd.add(cmd_args(path, format = "--{}={{}}".format(name)))
 
-    replace_cmd.add(cmd_args(
-        final_script.as_output(),
-        format = "--output={}",
-    ))
+    replace_cmd.add(
+        cmd_args(
+            final_script.as_output(),
+            format = "--output={}",
+        )
+    )
 
-    replace_cmd.add(cmd_args(
-        ctx.label.name,
-        format = "--target_name={}",
-    ))
+    replace_cmd.add(
+        cmd_args(
+            ctx.label.name,
+            format = "--target_name={}",
+        )
+    )
 
     exposed_package_args = exposed_package_args if exposed_package_args != None else ""
-    replace_cmd.add(cmd_args(
-        cmd_args(exposed_package_args, delimiter = " "),
-        format = "--exposed_packages={}",
-    ))
+    replace_cmd.add(
+        cmd_args(
+            cmd_args(exposed_package_args, delimiter = " "),
+            format = "--exposed_packages={}",
+        )
+    )
 
     if packagedb_args != None:
-        replace_cmd.add(cmd_args(
-            packagedb_args,
-            format = "--package_dbs={}",
-        ))
+        replace_cmd.add(
+            cmd_args(
+                packagedb_args,
+                format = "--package_dbs={}",
+            )
+        )
     if prebuilt_packagedb_args != None:
-        replace_cmd.add(cmd_args(
-            prebuilt_packagedb_args,
-            format = "--prebuilt_package_dbs={}",
-        ))
+        replace_cmd.add(
+            cmd_args(
+                prebuilt_packagedb_args,
+                format = "--prebuilt_package_dbs={}",
+            )
+        )
 
     # Tuple containing orig value (for null check), macro value and flag name
     optional_flags = [
@@ -422,12 +427,14 @@ def _replace_macros_in_script_template(
         (preload_libs, preload_libs, "--preload_libs"),
     ]
 
-    for (orig_val, macro_value, flag) in optional_flags:
+    for orig_val, macro_value, flag in optional_flags:
         if orig_val != None:
-            replace_cmd.add(cmd_args(
-                macro_value,
-                format = flag + "={}",
-            ))
+            replace_cmd.add(
+                cmd_args(
+                    macro_value,
+                    format = flag + "={}",
+                )
+            )
 
     ctx.actions.run(
         replace_cmd,
@@ -440,21 +447,22 @@ def _replace_macros_in_script_template(
     return final_script
 
 def _write_iserv_script(
-        ctx: AnalysisContext,
-        preload_deps_info: GHCiPreloadDepsInfo,
-        haskell_toolchain: HaskellToolchainInfo,
-        enable_profiling: bool) -> Artifact:
+    ctx: AnalysisContext, preload_deps_info: GHCiPreloadDepsInfo, haskell_toolchain: HaskellToolchainInfo, enable_profiling: bool
+) -> Artifact:
     ghci_iserv_template = haskell_toolchain.ghci_iserv_template
 
-    if (not ghci_iserv_template):
+    if not ghci_iserv_template:
         fail("ghci_iserv_template missing in haskell_toolchain")
 
     preload_libs = ":".join(
-        [paths.join(
-            "${DIR}",
-            preload_deps_info.preload_deps_root.short_path,
-            so,
-        ) for so in sorted(preload_deps_info.preload_symlinks)],
+        [
+            paths.join(
+                "${DIR}",
+                preload_deps_info.preload_deps_root.short_path,
+                so,
+            )
+            for so in sorted(preload_deps_info.preload_symlinks)
+        ],
     )
 
     if enable_profiling:
@@ -476,9 +484,7 @@ def _write_iserv_script(
     )
     return iserv_script
 
-def _build_preload_deps_root(
-        ctx: AnalysisContext,
-        haskell_toolchain: HaskellToolchainInfo) -> GHCiPreloadDepsInfo:
+def _build_preload_deps_root(ctx: AnalysisContext, haskell_toolchain: HaskellToolchainInfo) -> GHCiPreloadDepsInfo:
     preload_deps = ctx.attrs.preload_deps
 
     preload_symlinks = {}
@@ -547,9 +553,7 @@ def _symlink_ghci_binary(ctx, haskell_toolchain: HaskellToolchainInfo, ghci_bin:
     src = ghci_bin_dep[DefaultInfo].default_outputs[0]
     ctx.actions.symlink_file(ghci_bin.as_output(), src)
 
-def _first_order_haskell_deps(
-        ctx: AnalysisContext,
-        enable_profiling: bool) -> list[HaskellLibraryInfo]:
+def _first_order_haskell_deps(ctx: AnalysisContext, enable_profiling: bool) -> list[HaskellLibraryInfo]:
     libs = []
     for dep in ctx.attrs.deps:
         if HaskellLibraryProvider in dep:
@@ -561,10 +565,7 @@ def _first_order_haskell_deps(
     return dedupe(flatten(libs))
 
 # Creates the start.ghci script used to load the packages during startup
-def _write_start_ghci(
-        ctx: AnalysisContext,
-        script_file: Artifact,
-        enable_profiling: bool):
+def _write_start_ghci(ctx: AnalysisContext, script_file: Artifact, enable_profiling: bool):
     start_cmd = cmd_args()
 
     # Reason for unsetting `LD_PRELOAD` env var obtained from D6255224:
@@ -574,13 +575,15 @@ def _write_start_ghci(
     # iserv with these libraries under LD_PRELOAD accomplishes this.
     # To ensure the LD_PRELOAD env doesn't make it to subsequently forked
     # processes, the very first action of start.ghci is to unset the variable."
-    start_cmd.add("System.Environment.unsetEnv \"LD_PRELOAD\"")
+    start_cmd.add('System.Environment.unsetEnv "LD_PRELOAD"')
 
     set_cmd = cmd_args(":set", delimiter = " ")
-    first_order_deps = list(map(
-        lambda dep: dep.name + "-" + dep.version,
-        _first_order_haskell_deps(ctx, enable_profiling),
-    ))
+    first_order_deps = list(
+        map(
+            lambda dep: dep.name + "-" + dep.version,
+            _first_order_haskell_deps(ctx, enable_profiling),
+        )
+    )
     deduped_deps = {pkg: 1 for pkg in first_order_deps}.keys()
     package_list = cmd_args(
         deduped_deps,
@@ -618,7 +621,7 @@ def haskell_ghci_impl(ctx: AnalysisContext) -> list[Provider]:
 
     ghci_script_template = haskell_toolchain.ghci_script_template
 
-    if (not ghci_script_template):
+    if not ghci_script_template:
         fail("ghci_script_template missing in haskell_toolchain")
 
     iserv_script = _write_iserv_script(

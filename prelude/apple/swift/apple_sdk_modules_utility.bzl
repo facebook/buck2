@@ -36,10 +36,7 @@ def get_compiled_sdk_swift_deps_tset(ctx: AnalysisContext, deps_providers: list)
     ]
     return ctx.actions.tset(SwiftCompiledModuleTset, children = sdk_deps)
 
-def get_uncompiled_sdk_deps(
-        sdk_modules: list[str],
-        required_modules: list[str],
-        toolchain: SwiftToolchainInfo) -> list[Dependency]:
+def get_uncompiled_sdk_deps(sdk_modules: list[str], required_modules: list[str], toolchain: SwiftToolchainInfo) -> list[Dependency]:
     if not is_sdk_modules_provided(toolchain):
         fail("SDK deps are not set for swift_toolchain")
 
@@ -65,7 +62,11 @@ def get_uncompiled_sdk_deps(
             if all_sdk_modules.contains(underlying_module):
                 # Cross import overlays themselves are always Swift modules, but the underlying module
                 # can be a Swift module or a Clang module
-                sdk_overlays.extend([toolchain.uncompiled_swift_sdk_modules_deps[overlay_name] for overlay_name in overlay_modules if overlay_name in toolchain.uncompiled_swift_sdk_modules_deps])
+                sdk_overlays.extend([
+                    toolchain.uncompiled_swift_sdk_modules_deps[overlay_name]
+                    for overlay_name in overlay_modules
+                    if overlay_name in toolchain.uncompiled_swift_sdk_modules_deps
+                ])
 
     for sdk_module_dep_name in all_sdk_modules.list():
         process_sdk_module_dep(sdk_module_dep_name, toolchain.uncompiled_swift_sdk_modules_deps)

@@ -13,17 +13,17 @@ def _get_constraint_setting(constraint_settings: set[TargetLabel], modifier: Mod
         fail("Conditional modifier cannot be empty. Found empty modifier `{}`".format(modifier))
     if len(constraint_settings) > 1:
         fail(
-            "A single modifier can only modify a single constraint setting.\n" +
-            "Modifier `{}` is found to modify the following constraint settings:\n".format(
+            "A single modifier can only modify a single constraint setting.\n"
+            + "Modifier `{}` is found to modify the following constraint settings:\n".format(
                 modifier,
-            ) + "\n".join([str(k) for k in constraint_settings]),
+            )
+            + "\n".join([str(k) for k in constraint_settings]),
         )
     return list(constraint_settings)[0]
 
 def _get_modifier_info(
-        modifier: Modifier,
-        key_to_provider: dict[str, ConfigurationInfo],
-        value_to_provider: dict[str, ConditionalModifierInfo]) -> ConditionalModifierInfo | None:
+    modifier: Modifier, key_to_provider: dict[str, ConfigurationInfo], value_to_provider: dict[str, ConditionalModifierInfo]
+) -> ConditionalModifierInfo | None:
     """
     Converts a modifier to a provider based on providers for keys and values.
     """

@@ -74,7 +74,9 @@ def get_bundle_min_target_version(ctx: AnalysisContext, binary_or_binaries: [dic
     fail("Could not determine min target sdk version for bundle: {}".format(ctx.label))
 
 def get_bundle_resource_processing_options(ctx: AnalysisContext) -> AppleResourceProcessingOptions:
-    compile_resources_locally = value_or(ctx.attrs._compile_resources_locally_override, ctx.attrs._apple_toolchain[AppleToolchainInfo].compile_resources_locally)
+    compile_resources_locally = value_or(
+        ctx.attrs._compile_resources_locally_override, ctx.attrs._apple_toolchain[AppleToolchainInfo].compile_resources_locally
+    )
     is_watch_bundle = get_is_watch_bundle(ctx)
     return AppleResourceProcessingOptions(
         prefer_local = compile_resources_locally and (not is_watch_bundle),

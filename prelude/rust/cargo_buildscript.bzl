@@ -199,7 +199,9 @@ def _make_cc_shim(ctx: AnalysisContext, name: str, cmd: cmd_args) -> cmd_args:
                     "for %%a in (%*) do (",
                     '    set "wl_args=!wl_args! -Wl,%%~a"',
                     ")",
-                ] if name == "__ld_shim" else [],
+                ]
+                if name == "__ld_shim"
+                else [],
                 "set cc_original_dir=%CD%",
                 'cd /d "%~dp0"',
                 cmd_args(ctx.label.project_root, relative_to = (script, 1), format = "cd {}"),
@@ -294,10 +296,7 @@ def _cargo_buildscript_impl(ctx: AnalysisContext) -> list[Provider]:
     deps_preprocessor_flags = preprocessor.set.project_as_args("args")
     deps_tset = ctx.actions.tset(
         LinkInfosTSet,
-        children = [
-            dep[MergedLinkInfo]._infos[LinkStrategy("static_pic")]
-            for dep in ctx.attrs.cxx_deps
-        ],
+        children = [dep[MergedLinkInfo]._infos[LinkStrategy("static_pic")] for dep in ctx.attrs.cxx_deps],
     )
     deps_link = deps_tset.project_as_args("default")
     sanitizer_flags = ["-fno-sanitize=all"]
@@ -358,13 +357,15 @@ def _cargo_buildscript_impl(ctx: AnalysisContext) -> list[Provider]:
         category = "buildscript",
     )
 
-    return [DefaultInfo(
-        default_output = None,
-        sub_targets = {
-            "out_dir": [DefaultInfo(default_output = out_dir)],
-            "rustc_flags": [DefaultInfo(default_output = rustc_flags)],
-        },
-    )]
+    return [
+        DefaultInfo(
+            default_output = None,
+            sub_targets = {
+                "out_dir": [DefaultInfo(default_output = out_dir)],
+                "rustc_flags": [DefaultInfo(default_output = rustc_flags)],
+            },
+        )
+    ]
 
 _cargo_buildscript_rule = rule(
     impl = _cargo_buildscript_impl,
@@ -397,17 +398,18 @@ _cargo_buildscript_rule = rule(
 )
 
 def buildscript_run(
-        name,
-        buildscript_rule,
-        package_name,
-        version,
-        platform = {},
-        # path to crate's directory in source tree, e.g. "vendor/serde-1.0.100"
-        local_manifest_dir = None,
-        # target or subtarget containing crate, e.g. ":serde.git[serde]"
-        manifest_dir = None,
-        buildscript_compatible_with = None,
-        **kwargs):
+    name,
+    buildscript_rule,
+    package_name,
+    version,
+    platform = {},
+    # path to crate's directory in source tree, e.g. "vendor/serde-1.0.100"
+    local_manifest_dir = None,
+    # target or subtarget containing crate, e.g. ":serde.git[serde]"
+    manifest_dir = None,
+    buildscript_compatible_with = None,
+    **kwargs,
+):
     kwargs = apply_platform_attrs(platform, kwargs)
 
     if manifest_dir == None and local_manifest_dir == None:
@@ -420,10 +422,7 @@ def buildscript_run(
     filegroup_for_manifest_dir = None
     if local_manifest_dir != None:
         prefix_with_trailing_slash = "{}/".format(local_manifest_dir)
-        filegroup_for_manifest_dir = {
-            path.removeprefix(prefix_with_trailing_slash): path
-            for path in glob(["{}/**".format(local_manifest_dir)])
-        }
+        filegroup_for_manifest_dir = {path.removeprefix(prefix_with_trailing_slash): path for path in glob(["{}/**".format(local_manifest_dir)])}
 
     def platform_buildscript_build_name(plat):
         if name.endswith("-build-script-run"):
@@ -457,5 +456,5 @@ def buildscript_run(
         version = version,
         filegroup_for_manifest_dir = filegroup_for_manifest_dir,
         manifest_dir = manifest_dir,
-        **kwargs
+        **kwargs,
     )

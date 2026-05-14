@@ -16,8 +16,17 @@ load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//apple:apple_dsym.bzl", "DSYM_SUBTARGET", "get_apple_dsym")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
 # @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_library_meta_validation.bzl", "apple_library_validate_for_meta_restrictions")
-# @oss-disable[end= ]: load("@prelude//apple/meta_only:linker_outputs.bzl", "extra_distributed_thin_lto_opt_outputs_merger", "get_extra_linker_output_flags", "get_extra_linker_outputs")
-load("@prelude//apple/mockingbird:mockingbird_types.bzl", "MockingbirdLibraryInfo", "MockingbirdLibraryInfoTSet", "MockingbirdLibraryRecord", "MockingbirdSourcesInfo", "MockingbirdTargetType")
+load(
+    "@prelude//apple/meta_only:linker_outputs.bzl", "extra_distributed_thin_lto_opt_outputs_merger", "get_extra_linker_output_flags", "get_extra_linker_outputs"
+# @oss-disable[end= ]: )
+load(
+    "@prelude//apple/mockingbird:mockingbird_types.bzl",
+    "MockingbirdLibraryInfo",
+    "MockingbirdLibraryInfoTSet",
+    "MockingbirdLibraryRecord",
+    "MockingbirdSourcesInfo",
+    "MockingbirdTargetType",
+)
 load(
     "@prelude//apple/swift:swift_compilation.bzl",
     "SwiftLibraryForDistributionOutput",  # @unused Used as a type
@@ -228,7 +237,9 @@ def _declare_index_store(actions: AnalysisActions, src_compile_cmd: CxxSrcCompil
         filename_base = filename_base,
     )
 
-def _compile_index_store(actions: AnalysisActions, target_label: Label, index_store_output: OutputArtifact, filename_base: str, toolchain: CxxToolchainInfo, compile_cmd: cmd_args) -> None:
+def _compile_index_store(
+    actions: AnalysisActions, target_label: Label, index_store_output: OutputArtifact, filename_base: str, toolchain: CxxToolchainInfo, compile_cmd: cmd_args
+) -> None:
     """
     Compile index store inside the dynamic action.
     This is called after outputs are declared, during execution.
@@ -266,14 +277,18 @@ def _compile_index_store(actions: AnalysisActions, target_label: Label, index_st
         local_only = True,
     )
 
-def _make_apple_library_for_distribution_info_provider(ctx: AnalysisContext, swift_library_for_distribution: [None, SwiftLibraryForDistributionOutput]) -> list[AppleLibraryForDistributionInfo]:
-    return [AppleLibraryForDistributionInfo(
-        target_triple = get_unversioned_target_triple(ctx).replace("macosx", "macos"),
-        swiftinterface = swift_library_for_distribution.swiftinterface if swift_library_for_distribution else None,
-        private_swiftinterface = swift_library_for_distribution.private_swiftinterface if swift_library_for_distribution else None,
-        swiftdoc = swift_library_for_distribution.swiftdoc if swift_library_for_distribution else None,
-        module_name = get_module_name(ctx),
-    )]
+def _make_apple_library_for_distribution_info_provider(
+    ctx: AnalysisContext, swift_library_for_distribution: [None, SwiftLibraryForDistributionOutput]
+) -> list[AppleLibraryForDistributionInfo]:
+    return [
+        AppleLibraryForDistributionInfo(
+            target_triple = get_unversioned_target_triple(ctx).replace("macosx", "macos"),
+            swiftinterface = swift_library_for_distribution.swiftinterface if swift_library_for_distribution else None,
+            private_swiftinterface = swift_library_for_distribution.private_swiftinterface if swift_library_for_distribution else None,
+            swiftdoc = swift_library_for_distribution.swiftdoc if swift_library_for_distribution else None,
+            module_name = get_module_name(ctx),
+        )
+    ]
 
 def _make_apple_library_info_provider(ctx: AnalysisContext, swift_header: [None, Artifact]) -> list[AppleLibraryInfo]:
     public_framework_headers = cxx_attr_headers_list(ctx, ctx.attrs.public_framework_headers, get_apple_cxx_headers_layout(ctx))
@@ -287,12 +302,14 @@ def _make_apple_library_info_provider(ctx: AnalysisContext, swift_header: [None,
         children = [apple_library.public_framework_headers for apple_library in apple_library_infos],
     )
 
-    return [AppleLibraryInfo(
-        public_framework_headers = public_framework_header_tset,
-        swift_header = swift_header,
-        target = ctx.label,
-        labels = ctx.attrs.labels,
-    )]
+    return [
+        AppleLibraryInfo(
+            public_framework_headers = public_framework_header_tset,
+            swift_header = swift_header,
+            target = ctx.label,
+            labels = ctx.attrs.labels,
+        )
+    ]
 
 def _make_mockingbird_library_info_provider(ctx: AnalysisContext) -> list[MockingbirdLibraryInfo]:
     _, swift_sources = _filter_swift_srcs(ctx)
@@ -332,12 +349,16 @@ def _make_mockingbird_library_info_provider(ctx: AnalysisContext) -> list[Mockin
 
     mockingbird_tset = ctx.actions.tset(MockingbirdLibraryInfoTSet, value = mockingbird_record, children = children)
 
-    return [MockingbirdLibraryInfo(
-        name = ctx.attrs.name,
-        tset = mockingbird_tset,
-    )]
+    return [
+        MockingbirdLibraryInfo(
+            name = ctx.attrs.name,
+            tset = mockingbird_tset,
+        )
+    ]
 
-def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisContext, params: AppleLibraryAdditionalParams, deps_providers: list = [], is_test_target: bool = False) -> CxxRuleConstructorParams:
+def apple_library_rule_constructor_params_and_swift_providers(
+    ctx: AnalysisContext, params: AppleLibraryAdditionalParams, deps_providers: list = [], is_test_target: bool = False
+) -> CxxRuleConstructorParams:
     mockingbird_gen_sources = []
     if not "dummy_library" in ctx.attrs.labels:
         for dep in cxx_attr_deps(ctx) + cxx_attr_exported_deps(ctx):
@@ -356,13 +377,17 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
     # ObjC code in Swift so must be done before Swift compilation.
     if ctx.attrs.modular or swift_srcs:
         modulemap_name = module_name
-        exported_modulemap_pre = create_modulemap(
-            ctx,
-            name = modulemap_name,
-            module_name = module_name,
-            headers = exported_hdrs,
-            swift_header = None,
-        ) if exported_hdrs else None
+        exported_modulemap_pre = (
+            create_modulemap(
+                ctx,
+                name = modulemap_name,
+                module_name = module_name,
+                headers = exported_hdrs,
+                swift_header = None,
+            )
+            if exported_hdrs
+            else None
+        )
     else:
         exported_modulemap_pre = None
 
@@ -422,7 +447,8 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
             "-fmodules",
             "-fmodule-name=" + get_module_name(ctx),
             "-fmodules-cache-path=" + MODULE_CACHE_PATH,
-        ] + resource_dir_args,
+        ]
+        + resource_dir_args,
     )
 
     contains_swift_sources = bool(swift_srcs)
@@ -453,7 +479,9 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
 
     extra_apple_providers = []
     if not is_test_target:
-        extra_apple_providers = _make_apple_library_info_provider(ctx, swift_objc_header) + _make_apple_library_for_distribution_info_provider(ctx, swift_library_for_distribution_output)
+        extra_apple_providers = _make_apple_library_info_provider(ctx, swift_objc_header) + _make_apple_library_for_distribution_info_provider(
+            ctx, swift_library_for_distribution_output
+        )
 
     # Always provide a valid JSON object, so that tooling can depend on its existance
     modulemap_info_json = {"modulemap": exported_pre.modulemap_artifact} if (exported_pre and exported_pre.modulemap_artifact) else {}
@@ -548,7 +576,9 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         strip_executable = get_apple_stripped_attr_value_with_default_fallback(ctx),
         strip_args_factory = apple_strip_args,
         force_link_group_linking = params.force_link_group_linking,
-        cxx_populate_xcode_attributes_func = lambda local_ctx, **kwargs: _xcode_populate_attributes(ctx = local_ctx, populate_xcode_attributes_func = params.populate_xcode_attributes_func, contains_swift_sources = contains_swift_sources, **kwargs),
+        cxx_populate_xcode_attributes_func = lambda local_ctx, **kwargs: _xcode_populate_attributes(
+            ctx = local_ctx, populate_xcode_attributes_func = params.populate_xcode_attributes_func, contains_swift_sources = contains_swift_sources, **kwargs
+        ),
         generate_sub_targets = params.generate_sub_targets,
         generate_providers = params.generate_providers,
         # Some apple rules rely on `static` libs *not* following dependents.
@@ -574,12 +604,18 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         use_content_based_paths = get_uses_content_based_paths(ctx),
     )
 
-def _get_extra_linker_outputs(ctx: AnalysisContext, extra_linker_output_category: ExtraLinkerOutputCategory = ExtraLinkerOutputCategory("produced-during-local-link")) -> ExtraLinkerOutputs:
+def _get_extra_linker_outputs(
+    ctx: AnalysisContext, extra_linker_output_category: ExtraLinkerOutputCategory = ExtraLinkerOutputCategory("produced-during-local-link")
+) -> ExtraLinkerOutputs:
     _ = ctx  # buildifier: disable=unused-variable
     # @oss-disable[end= ]: return get_extra_linker_outputs(ctx, extra_linker_output_category)
     return ExtraLinkerOutputs() # @oss-enable
 
-def _get_extra_linker_outputs_flags(ctx: AnalysisContext, outputs: dict[str, Artifact], extra_linker_output_category: ExtraLinkerOutputCategory = ExtraLinkerOutputCategory("produced-during-local-link")) -> list[ArgLike]:
+def _get_extra_linker_outputs_flags(
+    ctx: AnalysisContext,
+    outputs: dict[str, Artifact],
+    extra_linker_output_category: ExtraLinkerOutputCategory = ExtraLinkerOutputCategory("produced-during-local-link"),
+) -> list[ArgLike]:
     _ = ctx  # buildifier: disable=unused-variable
     # @oss-disable[end= ]: return get_extra_linker_output_flags(ctx, outputs, extra_linker_output_category)
     return [] # @oss-enable
@@ -599,12 +635,10 @@ def _filter_swift_srcs(ctx: AnalysisContext, additional_srcs: list = []) -> (lis
 
     return cxx_srcs, swift_srcs
 
-def _get_link_style_sub_targets_and_providers(
-        extra_providers: list[Provider]) -> typing.Callable:
+def _get_link_style_sub_targets_and_providers(extra_providers: list[Provider]) -> typing.Callable:
     def get_link_style_sub_targets_impl(
-            output_style: LibOutputStyle,
-            ctx: AnalysisContext,
-            output: [CxxLibraryOutput, None]) -> (dict[str, list[Provider]], list[Provider]):
+        output_style: LibOutputStyle, ctx: AnalysisContext, output: [CxxLibraryOutput, None]
+    ) -> (dict[str, list[Provider]], list[Provider]):
         # We always propagate a resource graph regardless of link style or empty output
         resource_graph = create_resource_graph(
             ctx = ctx,
@@ -650,10 +684,14 @@ def _get_link_style_sub_targets_and_providers(
             DEBUGINFO_SUBTARGET: [DefaultInfo(default_output = debug_info_artifacts_manifest)],
         }
 
-        providers = [
-            AppleDebuggableInfo(dsyms = [dsym_artifact], debug_info_tset = output.external_debug_info),
-            resource_graph,
-        ] + min_version_providers + extra_providers
+        providers = (
+            [
+                AppleDebuggableInfo(dsyms = [dsym_artifact], debug_info_tset = output.external_debug_info),
+                resource_graph,
+            ]
+            + min_version_providers
+            + extra_providers
+        )
 
         if output.linker_map != None:
             subtargets["linker-map"] = [DefaultInfo(default_output = output.linker_map.map, other_outputs = [output.linker_map.binary])]
@@ -664,12 +702,13 @@ def _get_link_style_sub_targets_and_providers(
     return get_link_style_sub_targets_impl
 
 def _xcode_populate_attributes(
-        ctx,
-        srcs: list[CxxSrcWithFlags],
-        argsfiles: dict[str, CompileArgsfile],
-        populate_xcode_attributes_func: typing.Callable,
-        contains_swift_sources: bool,
-        **_kwargs) -> dict[str, typing.Any]:
+    ctx,
+    srcs: list[CxxSrcWithFlags],
+    argsfiles: dict[str, CompileArgsfile],
+    populate_xcode_attributes_func: typing.Callable,
+    contains_swift_sources: bool,
+    **_kwargs,
+) -> dict[str, typing.Any]:
     # Overwrite the product name
     data = populate_xcode_attributes_func(ctx, srcs = srcs, argsfiles = argsfiles, product_name = ctx.attrs.name, contains_swift_sources = contains_swift_sources)
     return data

@@ -47,6 +47,10 @@ def _get_object_from_platform_path(ctx: AnalysisContext, platform_relative_path:
     # We have to copy because:
     # 1) Platform path might be a string (e.g. for Xcode toolchains)
     # 2) It's not possible to project artifact which is not produced by different target (and platform path is a separate target for distributed toolchains).
-    ctx.actions.run(["cp", "-PR", cmd_args(toolchain.platform_path, platform_relative_path, delimiter = "/"), copied_framework.as_output()], category = "extract_framework", identifier = platform_relative_path)
+    ctx.actions.run(
+        ["cp", "-PR", cmd_args(toolchain.platform_path, platform_relative_path, delimiter = "/"), copied_framework.as_output()],
+        category = "extract_framework",
+        identifier = platform_relative_path,
+    )
 
     return AppleBundlePart(source = copied_framework, destination = AppleBundleDestination("frameworks"), codesign_on_copy = True)

@@ -29,7 +29,6 @@ BuildTargetPattern = record(
     name = field([str, None], None),
     matches = field(typing.Callable),
     as_string = field(typing.Callable),
-
     # Exists purely for optimisation purposes.
     # Matching pattern inside a loop for many targets creates huge amount of
     # unnecessary string allocations that we can avoid
@@ -71,17 +70,17 @@ def try_parse_build_target_pattern(pattern: str) -> BuildTargetPatternParseResul
     else:
         kind = _BuildTargetPatternKind("single")
         end_of_path_position = pattern.rfind(_TARGET_SYMBOL)
-        if (end_of_path_position < 0):
+        if end_of_path_position < 0:
             # Pattern does not have a target delimiter and thus a target name
             # Assume target name to be the same as the last component of the package
             end_of_path_position = len(pattern)
             start_of_package = pattern.rfind(_PATH_SYMBOL)
-            name = pattern[start_of_package + len(_PATH_SYMBOL):]
+            name = pattern[start_of_package + len(_PATH_SYMBOL) :]
         elif end_of_path_position < root_position:
             err_msg = "Invalid build target pattern, cell name should not contain `{}`: {}".format(_PATH_SYMBOL, pattern)
             return BuildTargetPatternParseResult(error = err_msg)
         else:
-            name = pattern[end_of_path_position + len(_TARGET_SYMBOL):]
+            name = pattern[end_of_path_position + len(_TARGET_SYMBOL) :]
 
         valid_name = _NAME_REGEX.match(name)
         if not valid_name:
@@ -142,7 +141,9 @@ def try_parse_build_target_pattern(pattern: str) -> BuildTargetPatternParseResul
         else:
             fail("Unknown build target pattern kind.")
 
-    self = BuildTargetPattern(kind = kind, cell = cell, path = path, name = name, matches = matches, as_string = as_string, _path_with_path_symbol = path + _PATH_SYMBOL if path else "")
+    self = BuildTargetPattern(
+        kind = kind, cell = cell, path = path, name = name, matches = matches, as_string = as_string, _path_with_path_symbol = path + _PATH_SYMBOL if path else ""
+    )
 
     return BuildTargetPatternParseResult(build_target_pattern = self)
 

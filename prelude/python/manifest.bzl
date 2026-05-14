@@ -26,19 +26,13 @@ ManifestInfo = record(
     artifacts = field(list[[Artifact, ArgLike]]),
 )
 
-def _write_manifest(
-        ctx: AnalysisContext,
-        name: str,
-        entries: list[(str, Artifact, str)]) -> Artifact:
+def _write_manifest(ctx: AnalysisContext, name: str, entries: list[(str, Artifact, str)]) -> Artifact:
     """
     Serialize the given source manifest entries to a JSON file.
     """
     return ctx.actions.write_json(name + ".manifest", entries, has_content_based_path = False)
 
-def create_manifest_for_entries(
-        ctx: AnalysisContext,
-        name: str,
-        entries: list[(str, Artifact, str)]) -> ManifestInfo:
+def create_manifest_for_entries(ctx: AnalysisContext, name: str, entries: list[(str, Artifact, str)]) -> ManifestInfo:
     """
     Generate a source manifest for the given list of sources.
     """
@@ -47,10 +41,7 @@ def create_manifest_for_entries(
         artifacts = [(a, dest) for dest, a, _ in entries],
     )
 
-def create_manifest_for_source_map(
-        ctx: AnalysisContext,
-        param: str,
-        srcs: dict[str, Artifact]) -> ManifestInfo:
+def create_manifest_for_source_map(ctx: AnalysisContext, param: str, srcs: dict[str, Artifact]) -> ManifestInfo:
     """
     Generate a source manifest for the given map of sources from the given rule.
     """
@@ -61,15 +52,10 @@ def create_manifest_for_source_map(
         [(dest, artifact, origin) for dest, artifact in srcs.items()],
     )
 
-def get_srcs_from_manifest(
-        src_manifest: [ManifestInfo, None]) -> list[Artifact]:
+def get_srcs_from_manifest(src_manifest: [ManifestInfo, None]) -> list[Artifact]:
     return [a for (a, _) in src_manifest.artifacts] if src_manifest else []
 
-def create_manifest_for_shared_libs(
-        actions: AnalysisActions,
-        name: str,
-        shared_libs: list[SharedLibrary],
-        lib_dir: str = "") -> ManifestInfo:
+def create_manifest_for_shared_libs(actions: AnalysisActions, name: str, shared_libs: list[SharedLibrary], lib_dir: str = "") -> ManifestInfo:
     """
     Generate a source manifest for the given list of sources.
     """
@@ -80,20 +66,13 @@ def create_manifest_for_shared_libs(
             shared_libs = shared_libs,
             gen_action = lambda actions, output, shared_libs: actions.write_json(
                 output,
-                [
-                    (paths.join(lib_dir, soname), shlib.lib.output, name)
-                    for soname, shlib in shared_libs.items()
-                ],
+                [(paths.join(lib_dir, soname), shlib.lib.output, name) for soname, shlib in shared_libs.items()],
             ),
         ),
         artifacts = [(shlib.lib.output, "") for shlib in shared_libs],
     )
 
-def create_manifest_for_source_dir(
-        ctx: AnalysisContext,
-        param: str,
-        extracted: Artifact,
-        exclude: [str, None]) -> ManifestInfo:
+def create_manifest_for_source_dir(ctx: AnalysisContext, param: str, extracted: Artifact, exclude: [str, None]) -> ManifestInfo:
     """
     Generate a source manifest for the given directory of sources from the given
     rule.
@@ -111,10 +90,11 @@ def create_manifest_for_source_dir(
     return ManifestInfo(manifest = manifest.without_associated_artifacts(), artifacts = [(extracted, param)])
 
 def create_manifest_for_extensions(
-        ctx: AnalysisContext,
-        extensions: dict[str, (typing.Any, Label)],
-        # Whether to include DWP files.
-        dwp: bool = False) -> ManifestInfo:
+    ctx: AnalysisContext,
+    extensions: dict[str, (typing.Any, Label)],
+    # Whether to include DWP files.
+    dwp: bool = False,
+) -> ManifestInfo:
     entries = []
     for dest, (lib, label) in extensions.items():
         entries.append((dest, lib.output, str(label.raw_target())))

@@ -46,11 +46,7 @@ def _get_virtual_path(ctx: AnalysisContext, src: Artifact, base_path: [str, None
 
     return paths.join(package, src.short_path)
 
-def _build_js_files(
-        ctx: AnalysisContext,
-        transform_profile: str,
-        flavors: list[str],
-        grouped_srcs: list[GroupedSource]) -> list[Artifact]:
+def _build_js_files(ctx: AnalysisContext, transform_profile: str, flavors: list[str], grouped_srcs: list[GroupedSource]) -> list[Artifact]:
     if not grouped_srcs:
         return []
 
@@ -64,10 +60,13 @@ def _build_js_files(
             has_content_based_path = True,
         )
         job_args = {
-            "additionalSources": [{
-                "sourcePath": additional_source,
-                "virtualPath": _get_virtual_path(ctx, additional_source, ctx.attrs.base_path),
-            } for additional_source in grouped_src.additional_sources],
+            "additionalSources": [
+                {
+                    "sourcePath": additional_source,
+                    "virtualPath": _get_virtual_path(ctx, additional_source, ctx.attrs.base_path),
+                }
+                for additional_source in grouped_src.additional_sources
+            ],
             "command": "transform",
             "flavors": flavors,
             "outputFilePath": output_path.as_output(),
@@ -106,7 +105,7 @@ def _build_js_files(
 
     batch_size = 25
     command_count = len(all_output_paths)
-    for (batch_number, start_index) in enumerate(range(0, command_count, batch_size)):
+    for batch_number, start_index in enumerate(range(0, command_count, batch_size)):
         end_index = min(start_index + batch_size, command_count)
         run_worker_commands(
             ctx = ctx,
@@ -119,11 +118,7 @@ def _build_js_files(
 
     return all_output_paths
 
-def _build_library_files(
-        ctx: AnalysisContext,
-        transform_profile: str,
-        flavors: list[str],
-        js_files: list[Artifact]) -> Artifact:
+def _build_library_files(ctx: AnalysisContext, transform_profile: str, flavors: list[str], js_files: list[Artifact]) -> Artifact:
     output_path = ctx.actions.declare_output(
         "library-files-out/{}/library_files".format(transform_profile),
         has_content_based_path = True,
@@ -161,12 +156,7 @@ def _build_library_files(
     )
     return output_path
 
-def _build_js_library(
-        ctx: AnalysisContext,
-        transform_profile: str,
-        library_files: Artifact,
-        flavors: list[str],
-        js_library_deps: list[Artifact]) -> Artifact:
+def _build_js_library(ctx: AnalysisContext, transform_profile: str, library_files: Artifact, flavors: list[str], js_library_deps: list[Artifact]) -> Artifact:
     output_path = ctx.actions.declare_output(
         "library-dependencies-out/{}.jslib".format(transform_profile),
         has_content_based_path = True,
@@ -211,10 +201,12 @@ def js_library_impl(ctx: AnalysisContext) -> list[Provider]:
         built_js_files = _build_js_files(ctx, transform_profile, flavors, grouped_srcs)
         library_files = _build_library_files(ctx, transform_profile, flavors, built_js_files)
 
-        js_library_deps = dedupe(map_idx(
-            JsLibraryInfo,
-            [dep[DefaultInfo].sub_targets[transform_profile] for dep in ctx.attrs.deps],
-        ))
+        js_library_deps = dedupe(
+            map_idx(
+                JsLibraryInfo,
+                [dep[DefaultInfo].sub_targets[transform_profile] for dep in ctx.attrs.deps],
+            )
+        )
         js_library = _build_js_library(
             ctx,
             transform_profile,

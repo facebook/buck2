@@ -27,18 +27,10 @@ _internal_tool_attrs = {
     "transitive_dependency_symlinks_tool": _internal_tool("prelude//rust/tools:transitive_dependency_symlinks"),
 }
 
-RustInternalToolsInfo = provider(fields = {
-    tool: RunInfo
-    for tool in _internal_tool_attrs.keys()
-})
+RustInternalToolsInfo = provider(fields = {tool: RunInfo for tool in _internal_tool_attrs.keys()})
 
 def _impl(ctx: AnalysisContext) -> list[Provider]:
-    info = RustInternalToolsInfo(
-        **{
-            tool: getattr(ctx.attrs, tool)[RunInfo]
-            for tool in _internal_tool_attrs.keys()
-        }
-    )
+    info = RustInternalToolsInfo(**{tool: getattr(ctx.attrs, tool)[RunInfo] for tool in _internal_tool_attrs.keys()})
     return [DefaultInfo(), info]
 
 rust_internal_tools_toolchain = rule(

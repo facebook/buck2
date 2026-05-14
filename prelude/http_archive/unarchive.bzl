@@ -48,11 +48,7 @@ def archive_type(url_or_path: str, typ: str | None) -> str:
 #
 # 1. The cmd_args with the unarchive command
 # 2. A bool indicating whether the prefix still needs to be stripped (in cases where the tool used to uncompress does not support this feature).
-def _unarchive_cmd(
-        ext_type: str,
-        exec_is_windows: bool,
-        archive: Artifact,
-        strip_prefix: [str, None]) -> (cmd_args, bool):
+def _unarchive_cmd(ext_type: str, exec_is_windows: bool, archive: Artifact, strip_prefix: [str, None]) -> (cmd_args, bool):
     if exec_is_windows:
         # So many hacks.
         if ext_type == "tar.zst":
@@ -88,11 +84,15 @@ def _unarchive_cmd(
         # Else hope for the best
 
     if ext_type in _TAR_FLAGS:
-        os_flags = [
-            # buck-out is a symlink with EdenFS, and tar on Windows doesn't like it,
-            # and needs -P flag to allow operations with symlinks
-            "-P",
-        ] if exec_is_windows else []
+        os_flags = (
+            [
+                # buck-out is a symlink with EdenFS, and tar on Windows doesn't like it,
+                # and needs -P flag to allow operations with symlinks
+                "-P",
+            ]
+            if exec_is_windows
+            else []
+        )
         return cmd_args(
             "tar",
             _TAR_FLAGS[ext_type],
@@ -116,16 +116,17 @@ def _tar_strip_prefix_flags(strip_prefix: [str, None]) -> list[str]:
     return []
 
 def unarchive(
-        ctx: AnalysisContext,
-        archive: Artifact,
-        output_name: str,
-        ext_type,
-        excludes,
-        strip_prefix,
-        exec_deps: HttpArchiveExecDeps,
-        prefer_local: bool,
-        sub_targets: list[str] | dict[str, list[str]],
-        has_content_based_path: bool = False):
+    ctx: AnalysisContext,
+    archive: Artifact,
+    output_name: str,
+    ext_type,
+    excludes,
+    strip_prefix,
+    exec_deps: HttpArchiveExecDeps,
+    prefer_local: bool,
+    sub_targets: list[str] | dict[str, list[str]],
+    has_content_based_path: bool = False,
+):
     exec_is_windows = exec_deps.exec_os_type[OsLookup].os == Os("windows")
 
     if exec_is_windows:
@@ -153,10 +154,12 @@ def unarchive(
         contents = ctx.actions.declare_output(output_name + "_contents", has_content_based_path = False)
         tar_script, _ = ctx.actions.write(
             "{}_listing.{}".format(output_name, ext),
-            [cmd_args(
-                archive,
-                format = "tar --list " + " ".join(tar_flags) + " -f {} > " + first_param,
-            )],
+            [
+                cmd_args(
+                    archive,
+                    format = "tar --list " + " ".join(tar_flags) + " -f {} > " + first_param,
+                )
+            ],
             is_executable = True,
             allow_args = True,
             has_content_based_path = False,
@@ -218,15 +221,9 @@ def unarchive(
         ctx.actions.copy_dir(output.as_output(), script_output.project(strip_prefix), has_content_based_path = has_content_based_path)
 
     if type(sub_targets) == type([]):
-        sub_targets = {
-            path: [DefaultInfo(default_output = output.project(path))]
-            for path in sub_targets
-        }
+        sub_targets = {path: [DefaultInfo(default_output = output.project(path))] for path in sub_targets}
     elif type(sub_targets) == type({}):
-        sub_targets = {
-            name: [DefaultInfo(default_outputs = [output.project(path) for path in paths])]
-            for name, paths in sub_targets.items()
-        }
+        sub_targets = {name: [DefaultInfo(default_outputs = [output.project(path) for path in paths])] for name, paths in sub_targets.items()}
     else:
         fail("sub_targets must be a list or dict")
 

@@ -15,16 +15,14 @@ def jar_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
     providers = process_genrule(ctx, output_name, None)
     expect(
         len(providers) == 1,
-        "expected exactly one provider of type DefaultInfo from {} ({})"
-            .format(ctx.label.name, providers),
+        "expected exactly one provider of type DefaultInfo from {} ({})".format(ctx.label.name, providers),
     )
 
     default_info = providers[0]  # DefaultInfo type
     outputs = default_info.default_outputs
     expect(
         len(outputs) == 1,
-        "expected exactly one output from {} ({})"
-            .format(ctx.label.name, outputs),
+        "expected exactly one output from {} ({})".format(ctx.label.name, outputs),
     )
     output_jar = outputs[0]
 

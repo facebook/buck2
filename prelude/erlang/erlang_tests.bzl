@@ -29,15 +29,16 @@ load(
 )
 
 def erlang_tests_macro(
-        erlang_app_rule,
-        erlang_test_rule,
-        suites: list[str],
-        deps: list[str] = [],
-        resources: list[str] = [],
-        srcs: list[str] = [],
-        prefix: str | None = None,
-        generated_app_labels: list[str] = [],
-        **common_attributes) -> None:
+    erlang_app_rule,
+    erlang_test_rule,
+    suites: list[str],
+    deps: list[str] = [],
+    resources: list[str] = [],
+    srcs: list[str] = [],
+    prefix: str | None = None,
+    generated_app_labels: list[str] = [],
+    **common_attributes,
+) -> None:
     """
     Generate multiple erlang_test targets based on the `suites` field.
     Also adds the default 'config' and 'deps' from the buck2 config.
@@ -85,13 +86,7 @@ def erlang_tests_macro(
             suite_name = "{}_{}".format(prefix, suite_name)
 
         # forward resources and deps fields and generate erlang_test target
-        erlang_test_rule(
-            name = suite_name,
-            suite = suite,
-            deps = deps,
-            resources = suite_resource,
-            **common_attributes
-        )
+        erlang_test_rule(name = suite_name, suite = suite, deps = deps, resources = suite_resource, **common_attributes)
 
 def normalize_suite_name(suite_name: str) -> str:
     return suite_name.split(":")[-1]
@@ -116,16 +111,15 @@ def erlang_test_impl(ctx: AnalysisContext) -> Promise:
 
     dep_infos = ctx.actions.anon_targets([dep_info_rule, binary_lib_dep_info_rule])
 
-    return dep_infos.promise.map(lambda dep_infos: _build_erlang_test(
-        ctx,
-        dep_infos[0][ErlangDependencyInfo],
-        dep_infos[1][ErlangDependencyInfo],
-    ))
+    return dep_infos.promise.map(
+        lambda dep_infos: _build_erlang_test(
+            ctx,
+            dep_infos[0][ErlangDependencyInfo],
+            dep_infos[1][ErlangDependencyInfo],
+        )
+    )
 
-def _build_erlang_test(
-        ctx: AnalysisContext,
-        dep_info: ErlangDependencyInfo,
-        binary_lib_dep_info: ErlangDependencyInfo) -> Promise:
+def _build_erlang_test(ctx: AnalysisContext, dep_info: ErlangDependencyInfo, binary_lib_dep_info: ErlangDependencyInfo) -> Promise:
     toolchain = get_toolchain(ctx)
     tools = toolchain.otp_binaries
 
@@ -144,11 +138,7 @@ def _build_erlang_test(
     cmd = cmd_args([trampoline[RunInfo] for trampoline in ctx.attrs._trampolines])
     cmd.add(tools.erl, default_test_args)
 
-    app_folders = [
-        dep[ErlangAppInfo].app_folder
-        for dep in binary_lib_dep_info.dependencies.values()
-        if not dep[ErlangAppInfo].virtual
-    ]
+    app_folders = [dep[ErlangAppInfo].app_folder for dep in binary_lib_dep_info.dependencies.values() if not dep[ErlangAppInfo].virtual]
     cmd.add(cmd_args(app_folders, format = "{}/ebin", prepend = "-pa"))
     cmd.add("--")
 
@@ -224,18 +214,19 @@ def _build_erlang_test(
         output_dir = output_dir,
     )
 
-    return run_info.map(lambda run_info: [
-        default_info,
-        run_info,
-        ErlangAppOrTestInfo(),
-        external_runner_info,
-        test_info,
-    ])
+    return run_info.map(
+        lambda run_info: [
+            default_info,
+            run_info,
+            ErlangAppOrTestInfo(),
+            external_runner_info,
+            test_info,
+        ]
+    )
 
 # Copied from erlang_application.
 def _build_default_info(dep_info: ErlangDependencyInfo, output_dir: Artifact) -> Provider:
-    """ generate default_outputs and DefaultInfo provider
-    """
+    """generate default_outputs and DefaultInfo provider"""
 
     # We depend on the code path of all dependencies to force them to be compiled
     # and emit errors when users compile just this one application
@@ -243,14 +234,15 @@ def _build_default_info(dep_info: ErlangDependencyInfo, output_dir: Artifact) ->
     return DefaultInfo(default_output = output_dir, other_outputs = [dep_info.code_path])
 
 def _write_test_info_file(
-        ctx: AnalysisContext,
-        test_suite: str,
-        dep_info: ErlangDependencyInfo,
-        test_dir: Artifact,
-        config_files: list[Artifact],
-        erl_cmd: [cmd_args, Artifact],
-        raw_target: str,
-        inner_trampolines: list[cmd_args]) -> WriteJsonCliArgs:
+    ctx: AnalysisContext,
+    test_suite: str,
+    dep_info: ErlangDependencyInfo,
+    test_dir: Artifact,
+    config_files: list[Artifact],
+    erl_cmd: [cmd_args, Artifact],
+    raw_target: str,
+    inner_trampolines: list[cmd_args],
+) -> WriteJsonCliArgs:
     tests_info = {
         "artifact_annotation_mfa": ctx.attrs._artifact_annotation_mfa,
         "common_app_env": ctx.attrs.common_app_env,
@@ -270,7 +262,7 @@ def _write_test_info_file(
     return ctx.actions.write_json(test_info_file, tests_info, with_inputs = True)
 
 def _build_resource_dir(ctx: AnalysisContext, resources: list, target_dir: str) -> [Artifact, None]:
-    """ build mapping for suite data directory
+    """build mapping for suite data directory
 
     generating the necessary mapping information for the suite data directory
     the resulting mapping can be used directly to symlink
@@ -292,10 +284,7 @@ def _build_resource_dir(ctx: AnalysisContext, resources: list, target_dir: str) 
         has_content_based_path = False,
     )
 
-def link_output(
-        ctx: AnalysisContext,
-        beam: Artifact,
-        data_dir: [Artifact, None]) -> Artifact:
+def link_output(ctx: AnalysisContext, beam: Artifact, data_dir: [Artifact, None]) -> Artifact:
     """Link the data_dirs and the test_suite beam in a single output folder."""
     link_spec = {
         beam.basename: beam,

@@ -34,10 +34,8 @@ JavaClassToSourceMapInfo = provider(
 )
 
 def create_class_to_source_map_info(
-        ctx: AnalysisContext,
-        mapping: Artifact | None = None,
-        mapping_debuginfo: Artifact | None = None,
-        deps = [Dependency]) -> JavaClassToSourceMapInfo:
+    ctx: AnalysisContext, mapping: Artifact | None = None, mapping_debuginfo: Artifact | None = None, deps = [Dependency]
+) -> JavaClassToSourceMapInfo:
     # Only generate debuginfo if the debug info tool is available.
     java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
     tset_debuginfo = None
@@ -70,12 +68,8 @@ def create_class_to_source_map_info(
     )
 
 def create_class_to_source_map_from_jar(
-        actions: AnalysisActions,
-        name: str,
-        java_toolchain: JavaToolchainInfo,
-        jar: Artifact,
-        srcs: list[Artifact],
-        sources_jar_name: [str, None] = None) -> (Artifact, Artifact | None):
+    actions: AnalysisActions, name: str, java_toolchain: JavaToolchainInfo, jar: Artifact, srcs: list[Artifact], sources_jar_name: [str, None] = None
+) -> (Artifact, Artifact | None):
     output = actions.declare_output(name, has_content_based_path = True)
     cmd = cmd_args(java_toolchain.gen_class_to_source_map[RunInfo])
     if java_toolchain.gen_class_to_source_map_include_sourceless_compiled_packages != None:
@@ -91,11 +85,7 @@ def create_class_to_source_map_from_jar(
     actions.run(cmd, category = "class_to_srcs_map")
     return (output, sources_jar)
 
-def maybe_create_class_to_source_map_debuginfo(
-        actions: AnalysisActions,
-        name: str,
-        java_toolchain: JavaToolchainInfo,
-        srcs: list[Artifact]) -> Artifact | None:
+def maybe_create_class_to_source_map_debuginfo(actions: AnalysisActions, name: str, java_toolchain: JavaToolchainInfo, srcs: list[Artifact]) -> Artifact | None:
     # Only generate debuginfo if the debug info tool is available.
     if java_toolchain.gen_class_to_source_map_debuginfo == None:
         return None
@@ -109,11 +99,8 @@ def maybe_create_class_to_source_map_debuginfo(
     return output
 
 def merge_class_to_source_map_from_jar(
-        actions: AnalysisActions,
-        name: str,
-        java_toolchain: JavaToolchainInfo,
-        relative_to: [CellRoot, None],
-        deps: list[JavaClassToSourceMapInfo]) -> Artifact:
+    actions: AnalysisActions, name: str, java_toolchain: JavaToolchainInfo, relative_to: [CellRoot, None], deps: list[JavaClassToSourceMapInfo]
+) -> Artifact:
     output = actions.declare_output(name, has_content_based_path = True)
 
     tset = actions.tset(
@@ -134,11 +121,7 @@ def merge_class_to_source_map_from_jar(
     actions.run(cmd, category = "merge_class_to_srcs_map")
     return output
 
-def _create_merged_debug_info(
-        actions: AnalysisActions,
-        java_toolchain: JavaToolchainInfo,
-        tset_debuginfo: TransitiveSet,
-        name: str):
+def _create_merged_debug_info(actions: AnalysisActions, java_toolchain: JavaToolchainInfo, tset_debuginfo: TransitiveSet, name: str):
     output = actions.declare_output(name, has_content_based_path = True)
     cmd = cmd_args(java_toolchain.gen_class_to_source_map_debuginfo[RunInfo])
     cmd.add("merge")

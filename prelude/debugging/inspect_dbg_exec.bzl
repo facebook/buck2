@@ -38,11 +38,14 @@ def inspect_dbg_exec(ctx: bxl.Context, actions: AnalysisActions, target: bxl.Con
 
         # read_json can't create a record of type ExecInfo
         # can alternativelly create ExecInfo by enumerating every single primitive nested field in there
-        ctx.bxl_actions().actions.write_json(outputs[result], {
-            "data": exec_info,
-            "target_info": create_target_info(settings.target),
-            "target_name": target_name(settings.target),
-        })
+        ctx.bxl_actions().actions.write_json(
+            outputs[result],
+            {
+                "data": exec_info,
+                "target_info": create_target_info(settings.target),
+                "target_name": target_name(settings.target),
+            },
+        )
 
     actions.dynamic_output(
         dynamic = [fdb_helper_out],

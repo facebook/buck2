@@ -12,12 +12,7 @@ load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:utils.bzl", "value_or")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 
-def _archive_flags(
-        archiver_type: str,
-        linker_type: LinkerType,
-        use_archiver_flags: bool,
-        symbol_table: bool,
-        thin: bool) -> list[str]:
+def _archive_flags(archiver_type: str, linker_type: LinkerType, use_archiver_flags: bool, symbol_table: bool, thin: bool) -> list[str]:
     if not use_archiver_flags:
         return []
 
@@ -55,25 +50,22 @@ def _archive_flags(
 
 # Create a static library from a list of object files.
 def _archive(
-        ctx: AnalysisContext,
-        name: str,
-        args: cmd_args,
-        thin: bool,
-        prefer_local: bool,
-        allow_cache_upload: bool,
-        force_disable_content_based_path: bool = False) -> Artifact:
+    ctx: AnalysisContext, name: str, args: cmd_args, thin: bool, prefer_local: bool, allow_cache_upload: bool, force_disable_content_based_path: bool = False
+) -> Artifact:
     toolchain = get_cxx_toolchain_info(ctx)
     has_content_based_path = (toolchain.linker_info.supports_content_based_paths_for_archiving == True) and not force_disable_content_based_path
     archive_output = ctx.actions.declare_output(name, has_content_based_path = has_content_based_path)
     command = cmd_args(toolchain.linker_info.archiver)
     archiver_type = toolchain.linker_info.archiver_type
-    command.add(_archive_flags(
-        archiver_type,
-        toolchain.linker_info.type,
-        toolchain.linker_info.use_archiver_flags,
-        toolchain.linker_info.archive_symbol_table,
-        thin,
-    ))
+    command.add(
+        _archive_flags(
+            archiver_type,
+            toolchain.linker_info.type,
+            toolchain.linker_info.use_archiver_flags,
+            toolchain.linker_info.archive_symbol_table,
+            thin,
+        )
+    )
     if archiver_type == "windows" or archiver_type == "windows_clang":
         command.add([cmd_args(archive_output.as_output(), format = "/OUT:{}")])
     elif archiver_type == "amdclang":
@@ -86,13 +78,15 @@ def _archive(
         if toolchain.linker_info.use_archiver_flags and toolchain.linker_info.archiver_flags != None:
             shell_quoted_args.add(toolchain.linker_info.archiver_flags)
 
-        command.add(at_argfile(
-            actions = ctx.actions,
-            name = name + ".cxx_archive_argsfile",
-            args = shell_quoted_args,
-            allow_args = True,
-            has_content_based_path = has_content_based_path,
-        ))
+        command.add(
+            at_argfile(
+                actions = ctx.actions,
+                name = name + ".cxx_archive_argsfile",
+                args = shell_quoted_args,
+                allow_args = True,
+                has_content_based_path = has_content_based_path,
+            )
+        )
     else:
         command.add(args)
 
@@ -128,11 +122,8 @@ def _archive_allow_cache_upload(ctx: AnalysisContext) -> bool:
 
 # Creates a static library given a list of object files.
 def make_archive(
-        ctx: AnalysisContext,
-        name: str,
-        objects: list[Artifact],
-        hidden: list[Artifact] = [],
-        force_disable_content_based_path: bool = False) -> Archive:
+    ctx: AnalysisContext, name: str, objects: list[Artifact], hidden: list[Artifact] = [], force_disable_content_based_path: bool = False
+) -> Archive:
     if len(objects) == 0:
         fail("no objects to archive")
 

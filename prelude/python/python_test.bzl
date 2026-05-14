@@ -18,9 +18,7 @@ load(":python.bzl", "PythonLibraryInfo")
 load(":python_binary.bzl", "python_executable")
 load(":python_library.bzl", "py_attr_resources", "qualify_srcs")
 
-def _write_test_modules_list(
-        ctx: AnalysisContext,
-        srcs: dict[str, Artifact]) -> (str, Artifact):
+def _write_test_modules_list(ctx: AnalysisContext, srcs: dict[str, Artifact]) -> (str, Artifact):
     """
     Generate a python source file with a list of all test modules.
     """
@@ -31,7 +29,7 @@ def _write_test_modules_list(
         if ext != ".py":
             fail("test sources must end with .py")
         module = root.replace("/", ".")
-        contents += "    \"{}\",\n".format(module)
+        contents += '    "{}",\n'.format(module)
     contents += "]\n"
     return name, ctx.actions.write(name, contents, has_content_based_path = False)
 

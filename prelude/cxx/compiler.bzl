@@ -60,18 +60,12 @@ def cc_dep_files(actions: AnalysisActions, filename_base: str, _input_file: Arti
 
     return (cmd_args(intermediary_dep_file), cmd_args(["-MD", "-MF", intermediary_dep_file]))
 
-def tree_style_cc_dep_files(
-        _actions: AnalysisActions,
-        _filename_base: str,
-        input_file: Artifact) -> (cmd_args, cmd_args):
+def tree_style_cc_dep_files(_actions: AnalysisActions, _filename_base: str, input_file: Artifact) -> (cmd_args, cmd_args):
     # If we use color diagnostics, then error messages come through in color, which messes up parsing of the
     # -H output in `show_headers_to_dep_file.py`.  So make sure to pass -fno-color-diagnostics.
     return (cmd_args(input_file), cmd_args(["-H", "-fno-color-diagnostics"]))
 
-def windows_cc_dep_files(
-        _actions: AnalysisActions,
-        _filename_base: str,
-        input_file: Artifact) -> (cmd_args, cmd_args):
+def windows_cc_dep_files(_actions: AnalysisActions, _filename_base: str, input_file: Artifact) -> (cmd_args, cmd_args):
     return (cmd_args(input_file), cmd_args(["/showIncludes"]))
 
 def get_headers_dep_files_flags_factory(dep_tracking_mode: DepTrackingMode) -> [typing.Callable, None]:

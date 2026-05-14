@@ -116,9 +116,7 @@ def _get_runtime_dependency_handling(ctx: AnalysisContext, compile_ctx: CompileC
         return RuntimeDependencyHandling("no_symlink")
     return compile_ctx.cxx_toolchain_info.runtime_dependency_handling
 
-def _strategy_params(
-        ctx: AnalysisContext,
-        compile_ctx: CompileContext) -> dict[LinkStrategy, BuildParams]:
+def _strategy_params(ctx: AnalysisContext, compile_ctx: CompileContext) -> dict[LinkStrategy, BuildParams]:
     target_os_type = ctx.attrs._target_os_type[OsLookup]
     linker_type = compile_ctx.cxx_toolchain_info.linker_info.type
 
@@ -136,11 +134,8 @@ def _strategy_params(
     return params
 
 def _rust_binary_common(
-        ctx: AnalysisContext,
-        compile_ctx: CompileContext,
-        default_roots: list[str],
-        extra_flags: list[str],
-        allow_cache_upload: bool) -> (list[Provider], cmd_args):
+    ctx: AnalysisContext, compile_ctx: CompileContext, default_roots: list[str], extra_flags: list[str], allow_cache_upload: bool
+) -> (list[Provider], cmd_args):
     toolchain_info = compile_ctx.toolchain_info
 
     simple_crate = attr_simple_crate_for_filenames(ctx)
@@ -149,11 +144,13 @@ def _rust_binary_common(
     link_strategy = process_link_strategy_for_pic_behavior(link_strategy, compile_ctx.cxx_toolchain_info.pic_behavior)
 
     cxx_deps = cxx_attr_deps(ctx)
-    resources = flatten_dict(gather_resources(
-        label = ctx.label,
-        resources = rust_attr_resources(ctx),
-        deps = cxx_deps,
-    ).values())
+    resources = flatten_dict(
+        gather_resources(
+            label = ctx.label,
+            resources = rust_attr_resources(ctx),
+            deps = cxx_deps,
+        ).values()
+    )
 
     extra_flags = toolchain_info.rustc_binary_flags + (extra_flags or [])
 
@@ -285,12 +282,14 @@ def _rust_binary_common(
     relocatable_resources_json = None
     relocatable_resources_contents = None
     if resources:
-        resources_hidden = [create_resource_db(
-            ctx = ctx,
-            name = name + ".resources.json",
-            binary = final_output,
-            resources = resources,
-        )]
+        resources_hidden = [
+            create_resource_db(
+                ctx = ctx,
+                name = name + ".resources.json",
+                binary = final_output,
+                resources = resources,
+            )
+        ]
         for resource in resources.values():
             resources_hidden.append(resource.default_output)
             resources_hidden.extend(resource.other_outputs)
@@ -312,62 +311,56 @@ def _rust_binary_common(
     # TODO(agallagher) There appears to be pre-existing soname conflicts
     # when building this (when using link groups), which prevents using
     # `with_unique_str_sonames`.
-    str_soname_shlibs = {
-        shlib.soname.ensure_str(): shlib
-        for shlib in shared_libs
-        if shlib.soname.is_str
-    }
-    sub_targets["shared-libraries"] = [DefaultInfo(
-        default_output = ctx.actions.write_json(
-            name + ".shared-libraries.json",
-            {
-                "libraries": [
-                    "{}:{}[shared-libraries][{}]".format(ctx.label.path, ctx.label.name, soname)
-                    for soname in str_soname_shlibs
-                ],
-                "librariesdwp": [
-                    "{}:{}[shared-libraries][{}][dwp]".format(ctx.label.path, ctx.label.name, soname)
-                    for soname, shlib in str_soname_shlibs.items()
-                    if shlib.lib.dwp
-                ],
-                "rpathtree": ["{}:{}[rpath-tree]".format(ctx.label.path, ctx.label.name)] if executable_shlib_args.shared_libs_symlink_tree else [],
+    str_soname_shlibs = {shlib.soname.ensure_str(): shlib for shlib in shared_libs if shlib.soname.is_str}
+    sub_targets["shared-libraries"] = [
+        DefaultInfo(
+            default_output = ctx.actions.write_json(
+                name + ".shared-libraries.json",
+                {
+                    "libraries": ["{}:{}[shared-libraries][{}]".format(ctx.label.path, ctx.label.name, soname) for soname in str_soname_shlibs],
+                    "librariesdwp": [
+                        "{}:{}[shared-libraries][{}][dwp]".format(ctx.label.path, ctx.label.name, soname)
+                        for soname, shlib in str_soname_shlibs.items()
+                        if shlib.lib.dwp
+                    ],
+                    "rpathtree": ["{}:{}[rpath-tree]".format(ctx.label.path, ctx.label.name)] if executable_shlib_args.shared_libs_symlink_tree else [],
+                },
+                has_content_based_path = False,
+            ),
+            sub_targets = {
+                soname: [
+                    DefaultInfo(
+                        default_output = shlib.lib.output,
+                        sub_targets = {"dwp": [DefaultInfo(default_output = shlib.lib.dwp)]} if shlib.lib.dwp else {},
+                    )
+                ]
+                for soname, shlib in str_soname_shlibs.items()
             },
-            has_content_based_path = False,
-        ),
-        sub_targets = {
-            soname: [DefaultInfo(
-                default_output = shlib.lib.output,
-                sub_targets = {"dwp": [DefaultInfo(default_output = shlib.lib.dwp)]} if shlib.lib.dwp else {},
-            )]
-            for soname, shlib in str_soname_shlibs.items()
-        },
-    )]
+        )
+    ]
 
     if isinstance(executable_shlib_args.shared_libs_symlink_tree, Artifact):
-        sub_targets["rpath-tree"] = [DefaultInfo(
-            default_output = executable_shlib_args.shared_libs_symlink_tree,
-            other_outputs = [
-                shlib.lib.output
-                for shlib in shared_libs
-            ] + [
-                shlib.lib.dwp
-                for shlib in shared_libs
-                if shlib.lib.dwp
-            ],
-        )]
+        sub_targets["rpath-tree"] = [
+            DefaultInfo(
+                default_output = executable_shlib_args.shared_libs_symlink_tree,
+                other_outputs = [shlib.lib.output for shlib in shared_libs] + [shlib.lib.dwp for shlib in shared_libs if shlib.lib.dwp],
+            )
+        ]
 
     if rust_cxx_link_group_info:
         sub_targets[LINK_GROUP_MAP_DATABASE_SUB_TARGET] = [get_link_group_map_json(ctx, filtered_targets)]
         readable_mappings = {}
         for node, group in link_group_mappings.items():
             readable_mappings[group] = readable_mappings.get(group, []) + ["{}//{}:{}".format(node.cell, node.package, node.name)]
-        sub_targets[LINK_GROUP_MAPPINGS_SUB_TARGET] = [DefaultInfo(
-            default_output = ctx.actions.write_json(
-                name + LINK_GROUP_MAPPINGS_FILENAME_SUFFIX,
-                readable_mappings,
-                has_content_based_path = False,
-            ),
-        )]
+        sub_targets[LINK_GROUP_MAPPINGS_SUB_TARGET] = [
+            DefaultInfo(
+                default_output = ctx.actions.write_json(
+                    name + LINK_GROUP_MAPPINGS_FILENAME_SUFFIX,
+                    readable_mappings,
+                    has_content_based_path = False,
+                ),
+            )
+        ]
 
     # `infallible_diagnostics` allows us to circumvent compilation failures and
     # treat the resulting rustc action as a success, even if a metadata
@@ -399,13 +392,15 @@ def _rust_binary_common(
             transformation_spec_context = transformation_spec_context,
         )
 
-    providers = [RustcExtraOutputsInfo(
-        metadata = diag_artifacts[False],
-        metadata_incr = diag_artifacts[True],
-        clippy = clippy_artifacts[False],
-        clippy_incr = clippy_artifacts[True],
-        remarks = None,  # Exposed via subtargets, not this provider
-    )]
+    providers = [
+        RustcExtraOutputsInfo(
+            metadata = diag_artifacts[False],
+            metadata_incr = diag_artifacts[True],
+            clippy = clippy_artifacts[False],
+            clippy_incr = clippy_artifacts[True],
+            remarks = None,  # Exposed via subtargets, not this provider
+        )
+    ]
 
     incr_enabled = ctx.attrs.incremental_enabled
     extra_compiled_targets.update(output_as_diag_subtargets(diag_artifacts[incr_enabled], clippy_artifacts[incr_enabled]))
@@ -508,11 +503,8 @@ def _rust_binary_common(
         sub_targets["dwp"] = [
             DefaultInfo(
                 default_output = link.link_output.dwp_output,
-                other_outputs = [
-                    shlib.lib.dwp
-                    for shlib in shared_libs
-                    if shlib.lib.dwp
-                ] + ([executable_shlib_args.dwp_symlink_tree] if executable_shlib_args.dwp_symlink_tree else []),
+                other_outputs = [shlib.lib.dwp for shlib in shared_libs if shlib.lib.dwp]
+                + ([executable_shlib_args.dwp_symlink_tree] if executable_shlib_args.dwp_symlink_tree else []),
             ),
         ]
 
@@ -523,10 +515,7 @@ def _rust_binary_common(
     if dupmbin_toolchain:
         sub_targets[DUMPBIN_SUB_TARGET] = get_dumpbin_providers(ctx, final_output, dupmbin_toolchain)
 
-    sub_targets.update({
-        k: [DefaultInfo(default_output = v)]
-        for (k, v) in extra_compiled_targets.items()
-    })
+    sub_targets.update({k: [DefaultInfo(default_output = v)] for (k, v) in extra_compiled_targets.items()})
 
     providers += [
         DefaultInfo(
@@ -541,11 +530,13 @@ def _rust_binary_common(
             relocatable_resources_json = relocatable_resources_json,
         ),
     ]
-    providers.append(rust_analyzer_provider(
-        ctx = ctx,
-        compile_ctx = compile_ctx,
-        default_roots = default_roots,
-    ))
+    providers.append(
+        rust_analyzer_provider(
+            ctx = ctx,
+            compile_ctx = compile_ctx,
+            default_roots = default_roots,
+        )
+    )
     return (providers, args)
 
 def rust_binary_impl(ctx: AnalysisContext) -> list[Provider]:
@@ -583,17 +574,20 @@ def rust_test_impl(ctx: AnalysisContext) -> list[Provider]:
     # Setup RE executors based on the `remote_execution` param.
     re_executor, executor_overrides = get_re_executors_from_props(ctx)
 
-    return inject_test_run_info(
-        ctx,
-        ExternalRunnerTestInfo(
-            type = "rust",
-            command = [args],
-            env = ctx.attrs.env | ctx.attrs.run_env,
-            labels = ctx.attrs.labels,
-            contacts = ctx.attrs.contacts,
-            default_executor = re_executor,
-            executor_overrides = executor_overrides,
-            run_from_project_root = True,
-            use_project_relative_paths = True,
-        ),
-    ) + providers
+    return (
+        inject_test_run_info(
+            ctx,
+            ExternalRunnerTestInfo(
+                type = "rust",
+                command = [args],
+                env = ctx.attrs.env | ctx.attrs.run_env,
+                labels = ctx.attrs.labels,
+                contacts = ctx.attrs.contacts,
+                default_executor = re_executor,
+                executor_overrides = executor_overrides,
+                run_from_project_root = True,
+                use_project_relative_paths = True,
+            ),
+        )
+        + providers
+    )

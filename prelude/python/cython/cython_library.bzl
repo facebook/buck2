@@ -99,12 +99,7 @@ def _srcs_to_artifacts(srcs) -> list[Artifact]:
         return srcs.values()
     return srcs
 
-def _gather_cython_includes(
-        ctx: AnalysisContext,
-        srcs,
-        headers,
-        includes,
-        deps: list[Dependency]) -> (Artifact, dict[str, Artifact]):
+def _gather_cython_includes(ctx: AnalysisContext, srcs, headers, includes, deps: list[Dependency]) -> (Artifact, dict[str, Artifact]):
     """
     Collect all Cython include files (.pxd, .pxi) from the current rule
     and transitive dependencies, and create a symlinked directory for includes.
@@ -137,7 +132,7 @@ def _gather_cython_includes(
         parts = paths.dirname(path).split("/")
         for i in range(len(parts)):
             if parts[i] and parts[i] != ".":
-                dir_path = "/".join(parts[:i + 1])
+                dir_path = "/".join(parts[: i + 1])
                 if dir_path not in all_dirs:
                     all_dirs[dir_path] = True
 
@@ -157,12 +152,8 @@ def _gather_cython_includes(
     return include_tree, raw_headers
 
 def _compile_cython_sources(
-        ctx: AnalysisContext,
-        cython_toolchain: CythonToolchainInfo,
-        srcs,
-        include_tree: Artifact,
-        flags: list[str],
-        generate_cpp: bool) -> dict:
+    ctx: AnalysisContext, cython_toolchain: CythonToolchainInfo, srcs, include_tree: Artifact, flags: list[str], generate_cpp: bool
+) -> dict:
     """
     Compile all .pyx sources using the Cython compiler.
     Returns a dict of {module_name: CythonCompileOutput}.
@@ -196,12 +187,7 @@ def _compile_cython_sources(
 
     return compiled
 
-def _build_cxx_python_extension(
-        ctx: AnalysisContext,
-        module_name: str,
-        generated_src: Artifact,
-        cpp_compiler_flags: list,
-        cpp_preprocessor_flags: list):
+def _build_cxx_python_extension(ctx: AnalysisContext, module_name: str, generated_src: Artifact, cpp_compiler_flags: list, cpp_preprocessor_flags: list):
     """
     Build a single C++ Python extension from a generated .cpp/.c file.
 
@@ -335,30 +321,40 @@ def cython_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     for module_name, compile_output in compiled_modules.items():
         all_gen_srcs.append(compile_output.cpp_src)
-        gen_src_sub_targets[module_name + ext] = [DefaultInfo(
-            default_output = compile_output.cpp_src,
-        )]
+        gen_src_sub_targets[module_name + ext] = [
+            DefaultInfo(
+                default_output = compile_output.cpp_src,
+            )
+        ]
 
-        gen_header_sub_targets[module_name + "_api.h"] = [DefaultInfo(
-            default_output = compile_output.api_header,
-        )]
-        gen_header_sub_targets[module_name + ".h"] = [DefaultInfo(
-            default_output = compile_output.public_header,
-        )]
+        gen_header_sub_targets[module_name + "_api.h"] = [
+            DefaultInfo(
+                default_output = compile_output.api_header,
+            )
+        ]
+        gen_header_sub_targets[module_name + ".h"] = [
+            DefaultInfo(
+                default_output = compile_output.public_header,
+            )
+        ]
 
         # Collect declaration headers for api modules
         if module_name in ctx.attrs.api:
             all_declaration_headers.append(compile_output.api_header)
             all_declaration_headers.append(compile_output.public_header)
 
-    sub_targets["generated-sources"] = [DefaultInfo(
-        default_outputs = all_gen_srcs,
-        sub_targets = gen_src_sub_targets,
-    )]
-    sub_targets["generated-headers"] = [DefaultInfo(
-        default_outputs = all_declaration_headers,
-        sub_targets = gen_header_sub_targets,
-    )]
+    sub_targets["generated-sources"] = [
+        DefaultInfo(
+            default_outputs = all_gen_srcs,
+            sub_targets = gen_src_sub_targets,
+        )
+    ]
+    sub_targets["generated-headers"] = [
+        DefaultInfo(
+            default_outputs = all_declaration_headers,
+            sub_targets = gen_header_sub_targets,
+        )
+    ]
 
     # Build C++ Python extensions for each compiled module
     base_module = dest_prefix(ctx.label, ctx.attrs.base_module)
@@ -421,21 +417,19 @@ def cython_library_impl(ctx: AnalysisContext) -> list[Provider]:
     providers.append(library_info)
 
     # CxxExtensionInfo for omnibus linking
-    providers.append(merge_cxx_extension_info(
-        actions = ctx.actions,
-        deps = raw_deps + ctx.attrs.cpp_deps,
-    ))
+    providers.append(
+        merge_cxx_extension_info(
+            actions = ctx.actions,
+            deps = raw_deps + ctx.attrs.cpp_deps,
+        )
+    )
 
     # Linkable graph
     linkable_graph = create_linkable_graph(
         ctx,
         node = create_linkable_graph_node(
             ctx,
-            roots = get_roots([
-                dep
-                for dep in raw_deps
-                if PythonLibraryInfo in dep
-            ]),
+            roots = get_roots([dep for dep in raw_deps if PythonLibraryInfo in dep]),
         ),
         deps = raw_deps + ctx.attrs.cpp_deps,
     )
@@ -462,10 +456,7 @@ def cython_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 prefix = tp_prefix,
                 root = create_third_party_build_root(
                     ctx = ctx,
-                    paths = [
-                        (paths.join("lib/python", base_module + ext_name), ext.output)
-                        for ext_name, ext in all_extensions.items()
-                    ],
+                    paths = [(paths.join("lib/python", base_module + ext_name), ext.output) for ext_name, ext in all_extensions.items()],
                 ),
                 manifest = ctx.actions.write_json(
                     "third_party_build_manifest.json",
@@ -500,10 +491,12 @@ def cython_library_impl(ctx: AnalysisContext) -> list[Provider]:
             declaration_hdrs[base_module + module_name + "_api.h"] = compile_output.api_header
             declaration_hdrs[base_module + module_name + ".h"] = compile_output.public_header
 
-    providers.append(CythonLibraryInfo(
-        declaration_headers = declaration_hdrs,
-        include_info = cython_includes_info,
-    ))
+    providers.append(
+        CythonLibraryInfo(
+            declaration_headers = declaration_hdrs,
+            include_info = cython_includes_info,
+        )
+    )
 
     # Source DB sub-targets
     if src_types:
@@ -517,9 +510,11 @@ def cython_library_impl(ctx: AnalysisContext) -> list[Provider]:
     if all_gen_srcs:
         default_output = all_gen_srcs[0]
 
-    providers.append(DefaultInfo(
-        default_output = default_output,
-        sub_targets = sub_targets,
-    ))
+    providers.append(
+        DefaultInfo(
+            default_output = default_output,
+            sub_targets = sub_targets,
+        )
+    )
 
     return providers

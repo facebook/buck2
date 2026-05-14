@@ -41,24 +41,27 @@ _FilteredResourcesOutput = record(
 )
 
 def get_android_binary_resources_info(
-        ctx: AnalysisContext,
-        deps: list[Dependency],
-        android_packageable_info: AndroidPackageableInfo,
-        java_packaging_deps: list[JavaPackagingDep],
-        use_proto_format: bool,
-        referenced_resources_lists: list[Artifact],
-        apk_module_graph_file: Artifact | None = None,
-        manifest_entries: dict = {},
-        resource_infos_to_exclude: set[TargetLabel] = set(),
-        r_dot_java_packages_to_exclude: set[str] = set(),
-        generate_strings_and_ids_separately: [bool, None] = True,
-        aapt2_preferred_density: [str, None] = None) -> AndroidBinaryResourcesInfo:
+    ctx: AnalysisContext,
+    deps: list[Dependency],
+    android_packageable_info: AndroidPackageableInfo,
+    java_packaging_deps: list[JavaPackagingDep],
+    use_proto_format: bool,
+    referenced_resources_lists: list[Artifact],
+    apk_module_graph_file: Artifact | None = None,
+    manifest_entries: dict = {},
+    resource_infos_to_exclude: set[TargetLabel] = set(),
+    r_dot_java_packages_to_exclude: set[str] = set(),
+    generate_strings_and_ids_separately: [bool, None] = True,
+    aapt2_preferred_density: [str, None] = None,
+) -> AndroidBinaryResourcesInfo:
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
 
     # Use reverse topological sort in resource merging to make sure a resource target will overwrite its dependencies.
     unfiltered_resource_infos = reversed([
         resource_info
-        for resource_info in list(android_packageable_info.resource_infos.traverse(ordering = "topological") if android_packageable_info.resource_infos else [])
+        for resource_info in list(
+            android_packageable_info.resource_infos.traverse(ordering = "topological") if android_packageable_info.resource_infos else []
+        )
         if resource_info.raw_target not in resource_infos_to_exclude
     ])
     filtered_resources_output = _maybe_filter_resources(
@@ -119,23 +122,26 @@ def get_android_binary_resources_info(
         exo_resources = ctx.actions.declare_output("exo_resources.apk", has_content_based_path = False)
         exo_resources_hash = ctx.actions.declare_output("exo_resources.apk.hash", has_content_based_path = False)
         ctx.actions.run(
-            cmd_args([
-                android_toolchain.exo_resources_rewriter[RunInfo],
-                "--original-r-dot-txt",
-                aapt2_link_info.r_dot_txt,
-                "--new-r-dot-txt",
-                r_dot_txt.as_output(),
-                "--original-primary-apk-resources",
-                aapt2_link_info.primary_resources_apk,
-                "--new-primary-apk-resources",
-                primary_resources_apk.as_output(),
-                "--exo-resources",
-                exo_resources.as_output(),
-                "--exo-resources-hash",
-                exo_resources_hash.as_output(),
-                "--zipalign-tool",
-                android_toolchain.zipalign[RunInfo],
-            ] + (["--optimized-processing"] if _optimized_resource_processing else [])),
+            cmd_args(
+                [
+                    android_toolchain.exo_resources_rewriter[RunInfo],
+                    "--original-r-dot-txt",
+                    aapt2_link_info.r_dot_txt,
+                    "--new-r-dot-txt",
+                    r_dot_txt.as_output(),
+                    "--original-primary-apk-resources",
+                    aapt2_link_info.primary_resources_apk,
+                    "--new-primary-apk-resources",
+                    primary_resources_apk.as_output(),
+                    "--exo-resources",
+                    exo_resources.as_output(),
+                    "--exo-resources-hash",
+                    exo_resources_hash.as_output(),
+                    "--zipalign-tool",
+                    android_toolchain.zipalign[RunInfo],
+                ]
+                + (["--optimized-processing"] if _optimized_resource_processing else [])
+            ),
             category = "write_exo_resources",
             allow_cache_upload = True,
         )
@@ -206,10 +212,7 @@ def get_android_binary_resources_info(
         unfiltered_resource_infos = unfiltered_resource_infos,
     )
 
-def _maybe_filter_resources(
-        ctx: AnalysisContext,
-        resources: list[AndroidResourceInfo],
-        android_toolchain: AndroidToolchainInfo) -> _FilteredResourcesOutput:
+def _maybe_filter_resources(ctx: AnalysisContext, resources: list[AndroidResourceInfo], android_toolchain: AndroidToolchainInfo) -> _FilteredResourcesOutput:
     resources_filter_strings = getattr(ctx.attrs, "resource_filter", [])
     resources_filter = _get_resources_filter(resources_filter_strings)
     resource_compression_mode = getattr(ctx.attrs, "resource_compression", "disabled")
@@ -220,10 +223,7 @@ def _maybe_filter_resources(
     post_filter_resources_cmd = getattr(ctx.attrs, "post_filter_resources_cmd", None)
 
     needs_resource_filtering = (
-        resources_filter != None or
-        is_store_strings_as_assets or
-        needs_resource_filtering_for_locales or
-        post_filter_resources_cmd != None
+        resources_filter != None or is_store_strings_as_assets or needs_resource_filtering_for_locales or post_filter_resources_cmd != None
     )
 
     if not needs_resource_filtering:
@@ -253,20 +253,29 @@ def _maybe_filter_resources(
 
     filter_resources_cmd = cmd_args(android_toolchain.filter_resources[RunInfo])
     in_res_dirs = res_to_out_res_dir.keys()
-    filter_resources_cmd.add(cmd_args(
-        hidden =
-            in_res_dirs + [out_res.as_output() for out_res in res_to_out_res_dir.values()],
-    ))
+    filter_resources_cmd.add(
+        cmd_args(
+            hidden = in_res_dirs + [out_res.as_output() for out_res in res_to_out_res_dir.values()],
+        )
+    )
     filter_resources_cmd.add([
         "--in-res-dir-to-out-res-dir-map",
-        ctx.actions.write_json("in_res_dir_to_out_res_dir_map", {"res_dir_map": {res: out_res.as_output() for (res, out_res) in res_to_out_res_dir.items()}}, has_content_based_path = False),
+        ctx.actions.write_json(
+            "in_res_dir_to_out_res_dir_map",
+            {"res_dir_map": {res: out_res.as_output() for (res, out_res) in res_to_out_res_dir.items()}},
+            has_content_based_path = False,
+        ),
     ])
 
     if is_voltron_language_pack_enabled:
         filter_resources_cmd.add(cmd_args(hidden = [out_res.as_output() for out_res in voltron_res_to_out_res_dir.values()]))
         filter_resources_cmd.add([
             "--voltron-in-res-dir-to-out-res-dir-map",
-            ctx.actions.write_json("voltron_in_res_dir_to_out_res_dir_map", {"res_dir_map": {voltron_res: out_res.as_output() for (voltron_res, out_res) in voltron_res_to_out_res_dir.items()}}, has_content_based_path = False),
+            ctx.actions.write_json(
+                "voltron_in_res_dir_to_out_res_dir_map",
+                {"res_dir_map": {voltron_res: out_res.as_output() for (voltron_res, out_res) in voltron_res_to_out_res_dir.items()}},
+                has_content_based_path = False,
+            ),
         ])
 
     if resources_filter:
@@ -378,24 +387,28 @@ def _get_resources_filter(resources_filter_strings: list[str]) -> [ResourcesFilt
     return ResourcesFilter(densities = densities, downscale = downscale)
 
 def _maybe_generate_string_source_map(
-        actions: AnalysisActions,
-        should_build_source_string_map: bool,
-        res_dirs: list[Artifact],
-        android_toolchain: AndroidToolchainInfo,
-        is_voltron_string_source_map: bool = False) -> Artifact | None:
+    actions: AnalysisActions,
+    should_build_source_string_map: bool,
+    res_dirs: list[Artifact],
+    android_toolchain: AndroidToolchainInfo,
+    is_voltron_string_source_map: bool = False,
+) -> Artifact | None:
     if not should_build_source_string_map or len(res_dirs) == 0:
         return None
 
     prefix = "voltron_" if is_voltron_string_source_map else ""
     output = actions.declare_output("{}string_source_map".format(prefix), dir = True, has_content_based_path = False)
     res_dirs_file = actions.write("resource_dirs_for_{}string_source_map".format(prefix), res_dirs, has_content_based_path = False)
-    generate_string_source_map_cmd = cmd_args([
-        android_toolchain.copy_string_resources[RunInfo],
-        "--res-dirs",
-        res_dirs_file,
-        "--output",
-        output.as_output(),
-    ], hidden = res_dirs)
+    generate_string_source_map_cmd = cmd_args(
+        [
+            android_toolchain.copy_string_resources[RunInfo],
+            "--res-dirs",
+            res_dirs_file,
+            "--output",
+            output.as_output(),
+        ],
+        hidden = res_dirs,
+    )
 
     if is_voltron_string_source_map:
         generate_string_source_map_cmd.add("--is-voltron")
@@ -405,11 +418,12 @@ def _maybe_generate_string_source_map(
     return output
 
 def _maybe_package_strings_as_assets(
-        ctx: AnalysisContext,
-        string_files_list: Artifact | None,
-        string_files_res_dirs: list[Artifact],
-        r_dot_txt: Artifact,
-        android_toolchain: AndroidToolchainInfo) -> Artifact | None:
+    ctx: AnalysisContext,
+    string_files_list: Artifact | None,
+    string_files_res_dirs: list[Artifact],
+    r_dot_txt: Artifact,
+    android_toolchain: AndroidToolchainInfo,
+) -> Artifact | None:
     resource_compression_mode = getattr(ctx.attrs, "resource_compression", "disabled")
     is_store_strings_as_assets = _is_store_strings_as_assets(resource_compression_mode)
     expect(is_store_strings_as_assets == (string_files_list != None))
@@ -423,19 +437,22 @@ def _maybe_package_strings_as_assets(
 
     locales = getattr(ctx.attrs, "locales", [])
 
-    package_strings_as_assets_cmd = cmd_args([
-        android_toolchain.package_strings_as_assets[RunInfo],
-        "--string-files-list",
-        string_files_list,
-        "--r-dot-txt",
-        r_dot_txt,
-        "--string-assets-dir",
-        string_assets_dir.as_output(),
-        "--string-assets-zip",
-        string_assets_zip.as_output(),
-        "--all-locales-string-assets-zip",
-        all_locales_string_assets_zip.as_output(),
-    ], hidden = string_files_res_dirs)
+    package_strings_as_assets_cmd = cmd_args(
+        [
+            android_toolchain.package_strings_as_assets[RunInfo],
+            "--string-files-list",
+            string_files_list,
+            "--r-dot-txt",
+            r_dot_txt,
+            "--string-assets-dir",
+            string_assets_dir.as_output(),
+            "--string-assets-zip",
+            string_assets_zip.as_output(),
+            "--all-locales-string-assets-zip",
+            all_locales_string_assets_zip.as_output(),
+        ],
+        hidden = string_files_res_dirs,
+    )
 
     if locales:
         package_strings_as_assets_cmd.add("--locales", ",".join(locales))
@@ -445,10 +462,8 @@ def _maybe_package_strings_as_assets(
     return string_assets_zip
 
 def get_manifest(
-        ctx: AnalysisContext,
-        manifests: [ManifestTSet, list[Artifact], None],
-        manifest_entries: dict,
-        should_replace_application_id_placeholders: bool) -> Artifact:
+    ctx: AnalysisContext, manifests: [ManifestTSet, list[Artifact], None], manifest_entries: dict, should_replace_application_id_placeholders: bool
+) -> Artifact:
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
     if ctx.attrs.manifest:
         expect(getattr(ctx.attrs, "manifest_skeleton", None) == None, "Only one of manifest and manifest_skeleton should be declared")
@@ -490,11 +505,8 @@ def get_manifest(
         return android_manifest
 
 def _get_module_manifests(
-        ctx: AnalysisContext,
-        manifest_entries: dict,
-        apk_module_graph_file: Artifact | None,
-        use_proto_format: bool,
-        primary_resources_apk: Artifact) -> list[Artifact]:
+    ctx: AnalysisContext, manifest_entries: dict, apk_module_graph_file: Artifact | None, use_proto_format: bool, primary_resources_apk: Artifact
+) -> list[Artifact]:
     if not apk_module_graph_file:
         return []
 
@@ -561,13 +573,14 @@ def _get_module_manifests(
 # Returns the "primary resources APK" (i.e. the resource that are packaged into the primary APK),
 # and optionally an "exopackaged assets APK" and the hash for that APK.
 def _merge_assets(
-        ctx: AnalysisContext,
-        is_exopackaged_enabled_for_resources: bool,
-        base_apk: Artifact,
-        resource_infos: list[AndroidResourceInfo],
-        cxx_resources: Artifact | None,
-        is_bundle_build: bool,
-        apk_module_graph_file: Artifact | None) -> (Artifact, Artifact | None, Artifact | None, Artifact | None):
+    ctx: AnalysisContext,
+    is_exopackaged_enabled_for_resources: bool,
+    base_apk: Artifact,
+    resource_infos: list[AndroidResourceInfo],
+    cxx_resources: Artifact | None,
+    is_bundle_build: bool,
+    apk_module_graph_file: Artifact | None,
+) -> (Artifact, Artifact | None, Artifact | None, Artifact | None):
     expect(
         not (is_exopackaged_enabled_for_resources and is_bundle_build),
         "Cannot use exopackage-for-resources with AAB builds.",
@@ -582,9 +595,7 @@ def _merge_assets(
 
     merged_assets_output = ctx.actions.declare_output("merged_assets.ap_", has_content_based_path = False)
 
-    def get_common_merge_assets_cmd(
-            ctx: AnalysisContext,
-            output_apk: Artifact) -> (cmd_args, Artifact | None):
+    def get_common_merge_assets_cmd(ctx: AnalysisContext, output_apk: Artifact) -> (cmd_args, Artifact | None):
         merge_assets_cmd = cmd_args(ctx.attrs._android_toolchain[AndroidToolchainInfo].merge_assets[RunInfo])
         merge_assets_cmd.add(["--output-apk", output_apk.as_output()])
 
@@ -667,9 +678,8 @@ def _merge_assets(
             return merged_assets_output, None, None, None
 
 def get_effective_banned_duplicate_resource_types(
-        duplicate_resource_behavior: str,
-        allowed_duplicate_resource_types: list[str],
-        banned_duplicate_resource_types: list[str]) -> list[str]:
+    duplicate_resource_behavior: str, allowed_duplicate_resource_types: list[str], banned_duplicate_resource_types: list[str]
+) -> list[str]:
     if duplicate_resource_behavior == "allow_by_default":
         expect(
             len(allowed_duplicate_resource_types) == 0,

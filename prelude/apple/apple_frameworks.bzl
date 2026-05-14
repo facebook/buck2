@@ -128,7 +128,7 @@ def _expand_sdk_framework_path(ctx: AnalysisContext, framework_path: str) -> cmd
         "$SDKROOT/": apple_toolchain_info.sdk_path,
     }
 
-    for (trailing_path_variable, path_value) in path_expansion_map.items():
+    for trailing_path_variable, path_value in path_expansion_map.items():
         (before, separator, relative_path) = framework_path.partition(trailing_path_variable)
         if separator == trailing_path_variable:
             if len(before) > 0:
@@ -136,7 +136,11 @@ def _expand_sdk_framework_path(ctx: AnalysisContext, framework_path: str) -> cmd
             if relative_path.count("$") > 0:
                 fail("Framework path contains multiple symbolic paths, tried expanding `{}`".format(framework_path))
             if len(relative_path) == 0:
-                fail("Framework symbolic path contains no relative path to expand, tried expanding `{}`, relative path: `{}`, before: `{}`, separator `{}`".format(framework_path, relative_path, before, separator))
+                fail(
+                    "Framework symbolic path contains no relative path to expand, tried expanding `{}`, relative path: `{}`, before: `{}`, separator `{}`".format(
+                        framework_path, relative_path, before, separator
+                    )
+                )
 
             return cmd_args([path_value, relative_path], delimiter = "/")
 
@@ -155,13 +159,14 @@ def _non_sdk_unresolved_framework_directory(framework_path: str) -> [str, None]:
     return paths.dirname(framework_path)
 
 def apple_build_link_args_with_deduped_flags(
-        ctx: AnalysisContext,
-        deps_merged_link_infos: list[MergedLinkInfo],
-        frameworks_linkable: [FrameworksLinkable, None],
-        link_strategy: LinkStrategy,
-        transformation_spec_context: TransformationSpecContext | None,
-        swiftmodule_linkable: [SwiftmoduleLinkable, None] = None,
-        prefer_stripped: bool = False) -> LinkArgs:
+    ctx: AnalysisContext,
+    deps_merged_link_infos: list[MergedLinkInfo],
+    frameworks_linkable: [FrameworksLinkable, None],
+    link_strategy: LinkStrategy,
+    transformation_spec_context: TransformationSpecContext | None,
+    swiftmodule_linkable: [SwiftmoduleLinkable, None] = None,
+    prefer_stripped: bool = False,
+) -> LinkArgs:
     if _has_darwin_linker(ctx):
         frameworks_linkables = [x.frameworks[link_strategy] for x in deps_merged_link_infos] + [frameworks_linkable]
         swiftmodule_linkables = [x.swiftmodules[link_strategy] for x in deps_merged_link_infos] + [swiftmodule_linkable]
@@ -185,10 +190,11 @@ def apple_build_link_args_with_deduped_flags(
     )
 
 def apple_get_link_info_by_deduping_link_infos(
-        ctx: AnalysisContext,
-        infos: list[[LinkInfo, None]],
-        framework_linkable: [FrameworksLinkable, None] = None,
-        swiftmodule_linkable: [SwiftmoduleLinkable, None] = None) -> [LinkInfo, None]:
+    ctx: AnalysisContext,
+    infos: list[[LinkInfo, None]],
+    framework_linkable: [FrameworksLinkable, None] = None,
+    swiftmodule_linkable: [SwiftmoduleLinkable, None] = None,
+) -> [LinkInfo, None]:
     if not _has_darwin_linker(ctx):
         return None
 
@@ -216,15 +222,18 @@ def _extract_framework_linkables(link_infos: [list[LinkInfo], None]) -> list[Fra
     return linkables
 
 def _apple_link_info_from_linkables(
-        ctx: AnalysisContext,
-        framework_linkables: list[[FrameworksLinkable, None]],
-        swiftmodule_linkables: list[[SwiftmoduleLinkable, None]] = []) -> [LinkInfo, None]:
+    ctx: AnalysisContext, framework_linkables: list[[FrameworksLinkable, None]], swiftmodule_linkables: list[[SwiftmoduleLinkable, None]] = []
+) -> [LinkInfo, None]:
     """
     Returns a LinkInfo for the frameworks, swiftmodules, and swiftruntimes or None if there's none of those.
     """
     framework_link_args = _get_apple_frameworks_linker_flags(ctx, framework_linkables)
     sdk_swift_module_link_args = get_swiftmodule_linker_flags(ctx, merge_swiftmodule_linkables(ctx, swiftmodule_linkables))
 
-    return LinkInfo(
-        pre_flags = [framework_link_args, sdk_swift_module_link_args],
-    ) if (framework_link_args or sdk_swift_module_link_args) else None
+    return (
+        LinkInfo(
+            pre_flags = [framework_link_args, sdk_swift_module_link_args],
+        )
+        if (framework_link_args or sdk_swift_module_link_args)
+        else None
+    )

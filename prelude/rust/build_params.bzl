@@ -303,13 +303,14 @@ def _get_reloc_model(rule: RuleType, link_strategy: LinkStrategy, target_os_type
 #     fundamental in cases without native unbundled deps - with native unbundled deps it may be
 #     fixable, but that's not super clear.
 def build_params(
-        rule: RuleType,
-        proc_macro: bool,
-        link_strategy: LinkStrategy | None,
-        lib_output_style: LibOutputStyle | None,
-        lang: LinkageLang,
-        linker_type: LinkerType,
-        target_os_type: OsLookup) -> BuildParams:
+    rule: RuleType,
+    proc_macro: bool,
+    link_strategy: LinkStrategy | None,
+    lib_output_style: LibOutputStyle | None,
+    lang: LinkageLang,
+    linker_type: LinkerType,
+    target_os_type: OsLookup,
+) -> BuildParams:
     if rule == RuleType("binary"):
         expect(link_strategy != None)
         expect(lib_output_style == None)

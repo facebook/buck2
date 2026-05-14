@@ -31,16 +31,20 @@ def apple_provisioning_profile_sources_impl(ctx: AnalysisContext) -> list[Provid
         artifact_group_info = dep.get(ArtifactGroupInfo)
         if artifact_group_info:
             # This handles the case where a filegroup defines the set of profiles
-            sources.append(AppleProvisioningProfileSourceInfo(
-                profiles = artifact_group_info.artifacts,
-            ))
+            sources.append(
+                AppleProvisioningProfileSourceInfo(
+                    profiles = artifact_group_info.artifacts,
+                )
+            )
         else:
             # This handles the case where a genrule produces a directory of profiles
             default_info = dep[DefaultInfo]
             if default_info.default_outputs:
-                sources.append(AppleProvisioningProfileSourceInfo(
-                    directory = default_info.default_outputs[0],
-                ))
+                sources.append(
+                    AppleProvisioningProfileSourceInfo(
+                        directory = default_info.default_outputs[0],
+                    )
+                )
     return [
         DefaultInfo(default_outputs = []),
         AppleProvisioningProfileSourcesInfo(

@@ -121,9 +121,11 @@ RustProcMacroPlugin = plugins.kind()
 # for libraries. It represents a proc macro in the dependency graph, and contains as a field the
 # `target_label` of that proc macro. The actual providers will always be accessed later through
 # `ctx.plugins`
-RustProcMacroMarker = provider(fields = {
-    "label": typing.Any,
-})
+RustProcMacroMarker = provider(
+    fields = {
+        "label": typing.Any,
+    }
+)
 
 # Artifact produced by a Rust compiler invocation.
 #
@@ -304,16 +306,15 @@ RustCxxLinkGroupInfo = record(
 
 # Returns all first-order dependencies.
 def _do_resolve_deps(
-        deps: list[Dependency],
-        named_deps: dict[str, Dependency] | list[(ResolvedStringWithMacros, Dependency)],
-        flagged_deps: list[(Dependency, list[str])] = []) -> list[RustOrNativeDependency]:
+    deps: list[Dependency], named_deps: dict[str, Dependency] | list[(ResolvedStringWithMacros, Dependency)], flagged_deps: list[(Dependency, list[str])] = []
+) -> list[RustOrNativeDependency]:
     named_deps_items = named_deps.items() if is_dict(named_deps) else named_deps
 
     return [
         RustOrNativeDependency(name = name, dep = dep, flags = flags)
-        for name, dep, flags in [(None, dep, []) for dep in deps] +
-                                [(name, dep, []) for name, dep in named_deps_items] +
-                                [(None, dep, flags) for dep, flags in flagged_deps]
+        for name, dep, flags in [(None, dep, []) for dep in deps]
+        + [(name, dep, []) for name, dep in named_deps_items]
+        + [(None, dep, flags) for dep, flags in flagged_deps]
     ]
 
 def gather_explicit_sysroot_deps(dep_ctx: DepCollectionContext) -> list[RustOrNativeDependency]:
@@ -325,55 +326,65 @@ def gather_explicit_sysroot_deps(dep_ctx: DepCollectionContext) -> list[RustOrNa
 
     out = []
     if explicit_sysroot_deps.core:
-        out.append(RustOrNativeDependency(
-            dep = explicit_sysroot_deps.core,
-            name = None,
-            flags = ["noprelude", "nounused"],
-        ))
+        out.append(
+            RustOrNativeDependency(
+                dep = explicit_sysroot_deps.core,
+                name = None,
+                flags = ["noprelude", "nounused"],
+            )
+        )
     if explicit_sysroot_deps.std:
-        out.append(RustOrNativeDependency(
-            dep = explicit_sysroot_deps.std,
-            name = None,
-            # "force" is used here in order to link std internals (like alloc hooks) even if the rest
-            # of std is otherwise unused (e.g. we are building a no_std crate that needs to link with
-            # other std-enabled crates as a standalone dylib).
-            flags = ["noprelude", "nounused", "force"],
-        ))
+        out.append(
+            RustOrNativeDependency(
+                dep = explicit_sysroot_deps.std,
+                name = None,
+                # "force" is used here in order to link std internals (like alloc hooks) even if the rest
+                # of std is otherwise unused (e.g. we are building a no_std crate that needs to link with
+                # other std-enabled crates as a standalone dylib).
+                flags = ["noprelude", "nounused", "force"],
+            )
+        )
     if explicit_sysroot_deps.proc_macro:
-        out.append(RustOrNativeDependency(
-            dep = explicit_sysroot_deps.proc_macro,
-            name = None,
-            flags = ["noprelude", "nounused"],
-        ))
+        out.append(
+            RustOrNativeDependency(
+                dep = explicit_sysroot_deps.proc_macro,
+                name = None,
+                flags = ["noprelude", "nounused"],
+            )
+        )
 
     # When advanced_unstable_linking is on, we only add the dep that matches the
     # panic runtime. Without advanced_unstable_linking, we just let rustc deal
     # with it
     if explicit_sysroot_deps.panic_unwind:
         if not dep_ctx.advanced_unstable_linking or dep_ctx.panic_runtime == PanicRuntime("unwind"):
-            out.append(RustOrNativeDependency(
-                dep = explicit_sysroot_deps.panic_unwind,
-                name = None,
-                flags = ["noprelude", "nounused"],
-            ))
+            out.append(
+                RustOrNativeDependency(
+                    dep = explicit_sysroot_deps.panic_unwind,
+                    name = None,
+                    flags = ["noprelude", "nounused"],
+                )
+            )
     if explicit_sysroot_deps.panic_abort:
         if not dep_ctx.advanced_unstable_linking or dep_ctx.panic_runtime == PanicRuntime("abort"):
-            out.append(RustOrNativeDependency(
-                dep = explicit_sysroot_deps.panic_abort,
+            out.append(
+                RustOrNativeDependency(
+                    dep = explicit_sysroot_deps.panic_abort,
+                    name = None,
+                    flags = ["noprelude", "nounused"],
+                )
+            )
+    for d in explicit_sysroot_deps.others:
+        out.append(
+            RustOrNativeDependency(
+                dep = d,
                 name = None,
                 flags = ["noprelude", "nounused"],
-            ))
-    for d in explicit_sysroot_deps.others:
-        out.append(RustOrNativeDependency(
-            dep = d,
-            name = None,
-            flags = ["noprelude", "nounused"],
-        ))
+            )
+        )
     return out
 
-def resolve_deps(
-        ctx: AnalysisContext,
-        dep_ctx: DepCollectionContext) -> list[RustOrNativeDependency]:
+def resolve_deps(ctx: AnalysisContext, dep_ctx: DepCollectionContext) -> list[RustOrNativeDependency]:
     dependencies = _do_resolve_deps(
         deps = ctx.attrs.deps,
         named_deps = ctx.attrs.named_deps,
@@ -381,16 +392,16 @@ def resolve_deps(
     )
 
     if dep_ctx.include_doc_deps:
-        dependencies.extend(_do_resolve_deps(
-            deps = getattr(ctx.attrs, "doc_deps", []),
-            named_deps = getattr(ctx.attrs, "doc_named_deps", {}),
-        ))
+        dependencies.extend(
+            _do_resolve_deps(
+                deps = getattr(ctx.attrs, "doc_deps", []),
+                named_deps = getattr(ctx.attrs, "doc_named_deps", {}),
+            )
+        )
 
     return dependencies + gather_explicit_sysroot_deps(dep_ctx)
 
-def resolve_rust_deps_inner(
-        ctx: AnalysisContext,
-        all_deps: list[RustOrNativeDependency]) -> list[RustDependency]:
+def resolve_rust_deps_inner(ctx: AnalysisContext, all_deps: list[RustOrNativeDependency]) -> list[RustDependency]:
     rust_deps = []
     available_proc_macros = get_available_proc_macros(ctx)
     for dep in all_deps:
@@ -406,19 +417,19 @@ def resolve_rust_deps_inner(
             if info == None:
                 continue
 
-        rust_deps.append(RustDependency(
-            info = info,
-            label = label,
-            dep = dep.dep,
-            name = dep.name,
-            flags = dep.flags,
-            proc_macro_marker = proc_macro_marker,
-        ))
+        rust_deps.append(
+            RustDependency(
+                info = info,
+                label = label,
+                dep = dep.dep,
+                name = dep.name,
+                flags = dep.flags,
+                proc_macro_marker = proc_macro_marker,
+            )
+        )
     return rust_deps
 
-def resolve_rust_deps(
-        ctx: AnalysisContext,
-        dep_ctx: DepCollectionContext) -> list[RustDependency]:
+def resolve_rust_deps(ctx: AnalysisContext, dep_ctx: DepCollectionContext) -> list[RustDependency]:
     all_deps = resolve_deps(ctx, dep_ctx)
     return resolve_rust_deps_inner(ctx, all_deps)
 
@@ -426,9 +437,7 @@ def get_available_proc_macros(ctx: AnalysisContext) -> dict[TargetLabel, Depende
     return {x.label.raw_target(): x for x in ctx.plugins[RustProcMacroPlugin]}
 
 # Returns native link dependencies.
-def _native_link_dependencies(
-        ctx: AnalysisContext,
-        dep_ctx: DepCollectionContext) -> list[Dependency]:
+def _native_link_dependencies(ctx: AnalysisContext, dep_ctx: DepCollectionContext) -> list[Dependency]:
     """
     Return all first-order native linkable dependencies of all transitive Rust
     libraries.
@@ -438,47 +447,31 @@ def _native_link_dependencies(
     """
     first_order_deps = [dep.dep for dep in resolve_deps(ctx, dep_ctx)]
 
-    return [
-        d
-        for d in first_order_deps
-        if RustLinkInfo not in d and MergedLinkInfo in d
-    ]
+    return [d for d in first_order_deps if RustLinkInfo not in d and MergedLinkInfo in d]
 
 # Returns the rust link infos for non-proc macro deps.
 #
 # This is intended to be used to access the Rust -> Rust link providers
-def _rust_non_proc_macro_link_infos(
-        ctx: AnalysisContext,
-        dep_ctx: DepCollectionContext) -> list[RustLinkInfo]:
+def _rust_non_proc_macro_link_infos(ctx: AnalysisContext, dep_ctx: DepCollectionContext) -> list[RustLinkInfo]:
     return [d.info for d in resolve_rust_deps(ctx, dep_ctx) if d.proc_macro_marker == None]
 
 def inherited_exported_link_deps(ctx: AnalysisContext, dep_ctx: DepCollectionContext) -> RustExportedLinkDeps:
     return ctx.actions.tset(
         RustExportedLinkDeps,
         value = _native_link_dependencies(ctx, dep_ctx),
-        children = [
-            dep.info.exported_link_deps
-            for dep in resolve_rust_deps(ctx, dep_ctx)
-            if dep.proc_macro_marker == None
-        ],
+        children = [dep.info.exported_link_deps for dep in resolve_rust_deps(ctx, dep_ctx) if dep.proc_macro_marker == None],
     )
 
 def inherited_third_party_builds(ctx: AnalysisContext, dep_ctx: DepCollectionContext) -> list[ThirdPartyBuildInfo]:
     infos = []
-    infos.extend([
-        d[ThirdPartyBuildInfo]
-        for d in _native_link_dependencies(ctx, dep_ctx)
-        if ThirdPartyBuildInfo in d
-    ])
+    infos.extend([d[ThirdPartyBuildInfo] for d in _native_link_dependencies(ctx, dep_ctx) if ThirdPartyBuildInfo in d])
     for dep in _rust_non_proc_macro_link_infos(ctx, dep_ctx):
         infos.append(dep.third_party_build_info)
     return infos
 
 def inherited_rust_cxx_link_group_info(
-        ctx: AnalysisContext,
-        dep_ctx: DepCollectionContext,
-        link_strategy: LinkStrategy,
-        transformation_spec_context: TransformationSpecContext | None) -> RustCxxLinkGroupInfo | None:
+    ctx: AnalysisContext, dep_ctx: DepCollectionContext, link_strategy: LinkStrategy, transformation_spec_context: TransformationSpecContext | None
+) -> RustCxxLinkGroupInfo | None:
     # Check minimum requirements
     if not cxx_is_gnu(ctx) or not ctx.attrs.auto_link_groups:
         return None
@@ -564,10 +557,7 @@ def inherited_rust_cxx_link_group_info(
         link_group_preferred_linkage = link_group_preferred_linkage,
         link_strategy = link_strategy,
         pic_behavior = pic_behavior,
-        link_group_libs = {
-            name: (lib.label, lib.shared_link_infos)
-            for name, lib in link_group_libs.items()
-        },
+        link_group_libs = {name: (lib.label, lib.shared_link_infos) for name, lib in link_group_libs.items()},
         prefer_stripped = False,
         prefer_optimized = False,
     )
@@ -592,29 +582,17 @@ def inherited_rust_cxx_link_group_info(
         link_group_preferred_linkage = link_group_preferred_linkage,
     )
 
-def inherited_native_link_deps(
-        ctx: AnalysisContext,
-        dep_ctx: DepCollectionContext) -> RustNativeLinkDeps:
+def inherited_native_link_deps(ctx: AnalysisContext, dep_ctx: DepCollectionContext) -> RustNativeLinkDeps:
     return ctx.actions.tset(
         RustNativeLinkDeps,
-        value = [
-            (dep.label.configured_target(), dep[MergedLinkInfo])
-            for dep in _native_link_dependencies(ctx, dep_ctx)
-        ],
-        children = [
-            info.native_link_deps
-            for info in _rust_non_proc_macro_link_infos(ctx, dep_ctx)
-        ],
+        value = [(dep.label.configured_target(), dep[MergedLinkInfo]) for dep in _native_link_dependencies(ctx, dep_ctx)],
+        children = [info.native_link_deps for info in _rust_non_proc_macro_link_infos(ctx, dep_ctx)],
     )
 
-def inherited_merged_link_infos(
-        ctx: AnalysisContext,
-        dep_ctx: DepCollectionContext) -> list[MergedLinkInfo]:
+def inherited_merged_link_infos(ctx: AnalysisContext, dep_ctx: DepCollectionContext) -> list[MergedLinkInfo]:
     return dfs_dedupe_by_label(inherited_native_link_deps(ctx, dep_ctx))
 
-def inherited_shared_libs(
-        ctx: AnalysisContext,
-        dep_ctx: DepCollectionContext) -> list[SharedLibraryInfo]:
+def inherited_shared_libs(ctx: AnalysisContext, dep_ctx: DepCollectionContext) -> list[SharedLibraryInfo]:
     infos = []
     infos.extend([d[SharedLibraryInfo] for d in _native_link_dependencies(ctx, dep_ctx)])
     infos.extend([d.shared_libs for d in _rust_non_proc_macro_link_infos(ctx, dep_ctx)])
@@ -623,15 +601,8 @@ def inherited_shared_libs(
 def inherited_linkable_graphs(ctx: AnalysisContext, dep_ctx: DepCollectionContext) -> RustLinkableGraphs:
     return ctx.actions.tset(
         RustLinkableGraphs,
-        value = [
-            d[LinkableGraph]
-            for d in _native_link_dependencies(ctx, dep_ctx)
-            if LinkableGraph in d
-        ],
-        children = [
-            info.linkable_graphs
-            for info in _rust_non_proc_macro_link_infos(ctx, dep_ctx)
-        ],
+        value = [d[LinkableGraph] for d in _native_link_dependencies(ctx, dep_ctx) if LinkableGraph in d],
+        children = [info.linkable_graphs for info in _rust_non_proc_macro_link_infos(ctx, dep_ctx)],
     )
 
 def inherited_link_group_lib_infos(ctx: AnalysisContext, dep_ctx: DepCollectionContext) -> list[LinkGroupLibInfo]:
@@ -643,20 +614,11 @@ def inherited_link_group_lib_infos(ctx: AnalysisContext, dep_ctx: DepCollectionC
             deps[d.dep.label] = i
     return deps.values()
 
-def inherited_rust_external_debug_info(
-        ctx: AnalysisContext,
-        dep_ctx: DepCollectionContext,
-        link_strategy: LinkStrategy) -> list[ArtifactTSet]:
+def inherited_rust_external_debug_info(ctx: AnalysisContext, dep_ctx: DepCollectionContext, link_strategy: LinkStrategy) -> list[ArtifactTSet]:
     toolchain_info = ctx.attrs._rust_toolchain[RustToolchainInfo]
-    return filter(None, [
-        strategy_info(toolchain_info, d.info, link_strategy).rust_debug_info
-        for d in resolve_rust_deps(ctx, dep_ctx)
-    ])
+    return filter(None, [strategy_info(toolchain_info, d.info, link_strategy).rust_debug_info for d in resolve_rust_deps(ctx, dep_ctx)])
 
-def inherited_external_debug_info(
-        ctx: AnalysisContext,
-        dep_ctx: DepCollectionContext,
-        dep_link_strategy: LinkStrategy) -> ArtifactTSet:
+def inherited_external_debug_info(ctx: AnalysisContext, dep_ctx: DepCollectionContext, dep_link_strategy: LinkStrategy) -> ArtifactTSet:
     inherited_debug_infos = []
     for d in inherited_merged_link_infos(ctx, dep_ctx):
         native_debug_info = d._external_debug_info.get(dep_link_strategy)
@@ -717,20 +679,23 @@ def dfs_dedupe_by_label(tset: TransitiveSet) -> list[typing.Any]:
             else:
                 label, value = item.label, item
             if label in entries and entries[label] != value:
-                fail("cannot depend on {} in multiple inconsistent ways:\n{}\n{}".format(
-                    label,
-                    entries[label],
-                    value,
-                ))
+                fail(
+                    "cannot depend on {} in multiple inconsistent ways:\n{}\n{}".format(
+                        label,
+                        entries[label],
+                        value,
+                    )
+                )
             entries[label] = value
     return entries.values()
 
 def run_action_shlib_symlink_tree(
-        actions: AnalysisActions,
-        internal_tools_info: RustInternalToolsInfo,
-        shared_library_info: SharedLibraryInfo,
-        shared_libs_symlink_tree_name_arg: str,
-        dwp_symlink_tree_name_arg: str) -> (Artifact, Artifact):
+    actions: AnalysisActions,
+    internal_tools_info: RustInternalToolsInfo,
+    shared_library_info: SharedLibraryInfo,
+    shared_libs_symlink_tree_name_arg: str,
+    dwp_symlink_tree_name_arg: str,
+) -> (Artifact, Artifact):
     """Runs an action that creates 2 shared library symlink trees from a `SharedLibraryInfo` (i.e., a `TransitiveSet`).
 
     Returns:
@@ -758,11 +723,8 @@ def run_action_shlib_symlink_tree(
     return (shared_libs_symlink_tree, dwp_symlink_tree)
 
 def executable_shared_lib_arguments_from_shared_library_info(
-        ctx: AnalysisContext,
-        cxx_toolchain: CxxToolchainInfo,
-        internal_tools_info: RustInternalToolsInfo,
-        output: Artifact,
-        shared_library_info: SharedLibraryInfo) -> ExecutableSharedLibArguments:
+    ctx: AnalysisContext, cxx_toolchain: CxxToolchainInfo, internal_tools_info: RustInternalToolsInfo, output: Artifact, shared_library_info: SharedLibraryInfo
+) -> ExecutableSharedLibArguments:
     """A version of `prelude/cxx/cxx_link_utilit.bzl#executable_shared_lib_arguments`
     that uses the `TransitiveSet` properties of `SharedLibraryInfo` to save memory and
     runtime costs of `TransitiveSet#traversal` calls.
@@ -777,15 +739,16 @@ def executable_shared_lib_arguments_from_shared_library_info(
 
     def create_shared_libs_symlink_tree_windows() -> list[Artifact]:
         shared_libs = traverse_shared_library_info(shared_library_info, transformation_provider = None)
-        return [ctx.actions.symlink_file(
-            shlib.lib.output.basename,
-            shlib.lib.output,
-            has_content_based_path = False,
-        ) for shlib in shared_libs]
+        return [
+            ctx.actions.symlink_file(
+                shlib.lib.output.basename,
+                shlib.lib.output,
+                has_content_based_path = False,
+            )
+            for shlib in shared_libs
+        ]
 
-    def create_shared_libs_symlink_trees(
-            shared_libs_symlink_tree_name_arg: str,
-            dwp_symlink_tree_name_arg: str) -> (Artifact, Artifact) | None:
+    def create_shared_libs_symlink_trees(shared_libs_symlink_tree_name_arg: str, dwp_symlink_tree_name_arg: str) -> (Artifact, Artifact) | None:
         if not shared_library_info.set:
             return None
 

@@ -6,10 +6,12 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-XPluginsManifestInfo = provider(fields = {
-    "function_mapping": provider_field(Artifact),
-    "manifest": provider_field(Artifact),
-})
+XPluginsManifestInfo = provider(
+    fields = {
+        "function_mapping": provider_field(Artifact),
+        "manifest": provider_field(Artifact),
+    }
+)
 
 XPluginsDebugArtifactsEntry = record(
     target = field(Label),
@@ -18,19 +20,25 @@ XPluginsDebugArtifactsEntry = record(
 
 XPluginsDebugArtifactsTSet = transitive_set()
 
-XPluginsDebugArtifactsInfo = provider(fields = {
-    "tset": provider_field(XPluginsDebugArtifactsTSet),
-})
+XPluginsDebugArtifactsInfo = provider(
+    fields = {
+        "tset": provider_field(XPluginsDebugArtifactsTSet),
+    }
+)
 
-XPluginsPluginUsageInfo = provider(fields = {
-    "target": provider_field(Label),
-    "usage_info": provider_field(Artifact),
-})
+XPluginsPluginUsageInfo = provider(
+    fields = {
+        "target": provider_field(Label),
+        "usage_info": provider_field(Artifact),
+    }
+)
 
-XPluginsSocketUsageInfo = provider(fields = {
-    "target": provider_field(Label),
-    "usage_info": provider_field(Artifact),
-})
+XPluginsSocketUsageInfo = provider(
+    fields = {
+        "target": provider_field(Label),
+        "usage_info": provider_field(Artifact),
+    }
+)
 
 def _get_artifacts(values: list[XPluginsPluginUsageInfo | XPluginsSocketUsageInfo]) -> list[Artifact]:
     return [v.usage_info for v in values]
@@ -41,7 +49,9 @@ XPluginsUsageInfoSet = transitive_set(
     },
 )
 
-XPluginsUsageInfo = provider(fields = {
-    "plugin_info_tset": provider_field(XPluginsUsageInfoSet),
-    "socket_info_tset": provider_field(XPluginsUsageInfoSet),
-})
+XPluginsUsageInfo = provider(
+    fields = {
+        "plugin_info_tset": provider_field(XPluginsUsageInfoSet),
+        "socket_info_tset": provider_field(XPluginsUsageInfoSet),
+    }
+)

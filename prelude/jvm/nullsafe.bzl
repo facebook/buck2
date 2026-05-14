@@ -15,8 +15,7 @@ NullsafeInfo = record(
     extra_arguments = field(cmd_args),
 )
 
-def get_nullsafe_info(
-        ctx: AnalysisContext) -> [NullsafeInfo, None]:
+def get_nullsafe_info(ctx: AnalysisContext) -> [NullsafeInfo, None]:
     java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
     extra_arguments = cmd_args(ctx.attrs.extra_arguments)
 
@@ -29,15 +28,19 @@ def get_nullsafe_info(
 
         plugin_args = cmd_args()
         plugin_args.add("nullsafe.reportToJava=false")
-        plugin_args.add(cmd_args(
-            nullsafe_output.as_output(),
-            format = "nullsafe.writeJsonReportToDir={}",
-        ))
+        plugin_args.add(
+            cmd_args(
+                nullsafe_output.as_output(),
+                format = "nullsafe.writeJsonReportToDir={}",
+            )
+        )
         if nullsafe_signatures:
-            plugin_args.add(cmd_args(
-                nullsafe_signatures,
-                format = "nullsafe.signatures={}",
-            ))
+            plugin_args.add(
+                cmd_args(
+                    nullsafe_signatures,
+                    format = "nullsafe.signatures={}",
+                )
+            )
 
         if nullsafe_extra_args:
             plugin_args.add(nullsafe_extra_args)

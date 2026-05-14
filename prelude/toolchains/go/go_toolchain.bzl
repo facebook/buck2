@@ -14,16 +14,20 @@ def _go_toolchain_impl(ctx):
     go_distr = ctx.attrs.go_distr[GoDistrInfo]
     return [
         DefaultInfo(
-            sub_targets = {"go": [
-                RunInfo(cmd_args(
-                    ctx.attrs.go_wrapper[RunInfo],
-                    ["--go", go_distr.bin_go],
-                    ["--goroot", go_distr.go_root],
-                    ["--default-goarch", ctx.attrs.env_go_arch],
-                    ["--default-goos", ctx.attrs.env_go_os],
-                    "--",
-                )),
-            ]},
+            sub_targets = {
+                "go": [
+                    RunInfo(
+                        cmd_args(
+                            ctx.attrs.go_wrapper[RunInfo],
+                            ["--go", go_distr.bin_go],
+                            ["--goroot", go_distr.go_root],
+                            ["--default-goarch", ctx.attrs.env_go_arch],
+                            ["--default-goos", ctx.attrs.env_go_os],
+                            "--",
+                        )
+                    ),
+                ]
+            },
         ),
         GoToolchainInfo(
             assembler = go_distr.tool_asm,

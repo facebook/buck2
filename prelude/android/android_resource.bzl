@@ -10,16 +10,20 @@ load("@prelude//java:java_providers.bzl", "derive_compiling_deps_wrapper", "get_
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//utils:argfile.bzl", "argfile")
 load("@prelude//utils:expect.bzl", "expect")
-load(":android_providers.bzl", "AndroidResourceInfo", "AndroidResourceRDotInfo", "ExportedAndroidResourceInfo", "RESOURCE_PRIORITY_NORMAL", "merge_android_packageable_info")
+load(
+    ":android_providers.bzl",
+    "AndroidResourceInfo",
+    "AndroidResourceRDotInfo",
+    "ExportedAndroidResourceInfo",
+    "RESOURCE_PRIORITY_NORMAL",
+    "merge_android_packageable_info",
+)
 load(":android_toolchain.bzl", "AndroidToolchainInfo")
 load(":r_dot_java.bzl", "get_dummy_r_dot_java")
 
 JAVA_PACKAGE_FILENAME = "java_package.txt"
 
-def _convert_to_artifact_dir(
-        ctx: AnalysisContext,
-        attr: [Dependency, dict, Artifact, None],
-        attr_name: str) -> Artifact | None:
+def _convert_to_artifact_dir(ctx: AnalysisContext, attr: [Dependency, dict, Artifact, None], attr_name: str) -> Artifact | None:
     if isinstance(attr, Dependency):
         expect(len(attr[DefaultInfo].default_outputs) == 1, "Expect one default output from build dep of attr {}!".format(attr_name))
         return attr[DefaultInfo].default_outputs[0]
@@ -95,16 +99,23 @@ def android_resource_impl(ctx: AnalysisContext) -> list[Provider]:
 
     providers.append(DefaultInfo(default_output = default_output, sub_targets = sub_targets))
     compiling_deps = derive_compiling_deps_wrapper(ctx.actions, None, ctx.attrs.deps)
-    providers.append(get_global_code_info(ctx, ctx.attrs.deps, ctx.attrs.deps, None, compiling_deps, [compiling_deps] if compiling_deps else [], ctx.attrs._java_toolchain[JavaToolchainInfo].global_code_config))
+    providers.append(
+        get_global_code_info(
+            ctx,
+            ctx.attrs.deps,
+            ctx.attrs.deps,
+            None,
+            compiling_deps,
+            [compiling_deps] if compiling_deps else [],
+            ctx.attrs._java_toolchain[JavaToolchainInfo].global_code_config,
+        )
+    )
 
     return providers
 
 def aapt2_compile(
-        ctx: AnalysisContext,
-        resources_dir: Artifact,
-        android_toolchain: AndroidToolchainInfo,
-        skip_crunch_pngs: bool = False,
-        identifier: [str, None] = None) -> Artifact:
+    ctx: AnalysisContext, resources_dir: Artifact, android_toolchain: AndroidToolchainInfo, skip_crunch_pngs: bool = False, identifier: [str, None] = None
+) -> Artifact:
     aapt2_command = [cmd_args(android_toolchain.aapt2)]
     aapt2_command.append("compile")
     aapt2_command.append("--legacy")
@@ -142,11 +153,7 @@ def extract_package_from_manifest(ctx: AnalysisContext, manifest: Artifact) -> A
 
     return r_dot_java_package
 
-def get_text_symbols(
-        ctx: AnalysisContext,
-        res: Artifact,
-        deps: list[Dependency],
-        identifier: [str, None] = None):
+def get_text_symbols(ctx: AnalysisContext, res: Artifact, deps: list[Dependency], identifier: [str, None] = None):
     mini_aapt_cmd = cmd_args(ctx.attrs._android_toolchain[AndroidToolchainInfo].mini_aapt[RunInfo])
 
     mini_aapt_cmd.add(["--resource-paths", res])
@@ -173,7 +180,11 @@ def _get_dep_symbols(deps: list[Dependency]) -> list[Artifact]:
     for dep in deps:
         android_resource_info = dep.get(AndroidResourceInfo)
         exported_android_resource_info = dep.get(ExportedAndroidResourceInfo)
-        expect(android_resource_info != None or exported_android_resource_info != None, "Dependencies of `android_resource` rules should be `android_resource`s or `android_library`s ({})", dep)
+        expect(
+            android_resource_info != None or exported_android_resource_info != None,
+            "Dependencies of `android_resource` rules should be `android_resource`s or `android_library`s ({})",
+            dep,
+        )
         if android_resource_info and android_resource_info.text_symbols:
             dep_symbols.append(android_resource_info.text_symbols)
         if exported_android_resource_info:

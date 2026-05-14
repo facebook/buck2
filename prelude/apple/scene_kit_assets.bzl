@@ -32,11 +32,15 @@ def scene_kit_assets_impl(ctx: AnalysisContext) -> list[Provider]:
 
     xcode_data_default_info, xcode_data_info = generate_xcode_data(ctx, "apple_asset_catalog", None, _xcode_populate_attributes)
 
-    return [DefaultInfo(
-        sub_targets = {
-            XCODE_DATA_SUB_TARGET: xcode_data_default_info,
-        },
-    ), graph, xcode_data_info]
+    return [
+        DefaultInfo(
+            sub_targets = {
+                XCODE_DATA_SUB_TARGET: xcode_data_default_info,
+            },
+        ),
+        graph,
+        xcode_data_info,
+    ]
 
 def compile_scene_kit_assets(ctx: AnalysisContext, specs: list[SceneKitAssetsSpec]) -> Artifact | None:
     if len(specs) == 0:
@@ -78,14 +82,17 @@ def compile_scene_kit_assets(ctx: AnalysisContext, specs: list[SceneKitAssetsSpe
 
 def _get_copy_scene_kit_assets_cmd(ctx: AnalysisContext, scene_kit_assets_spec: SceneKitAssetsSpec) -> cmd_args:
     scnassets_folder = scene_kit_assets_spec.path.basename
-    return cmd_args([
-        ctx.attrs._apple_toolchain[AppleToolchainInfo].copy_scene_kit_assets,
-        scene_kit_assets_spec.path,
-        "-o",
-        cmd_args(scnassets_folder, format = "$TMPDIR/{}"),
-        "--target-platform=" + get_apple_sdk_name(ctx),
-        "--target-version=" + get_bundle_min_target_version(ctx, ctx.attrs.binary),
-    ], delimiter = " ")
+    return cmd_args(
+        [
+            ctx.attrs._apple_toolchain[AppleToolchainInfo].copy_scene_kit_assets,
+            scene_kit_assets_spec.path,
+            "-o",
+            cmd_args(scnassets_folder, format = "$TMPDIR/{}"),
+            "--target-platform=" + get_apple_sdk_name(ctx),
+            "--target-version=" + get_bundle_min_target_version(ctx, ctx.attrs.binary),
+        ],
+        delimiter = " ",
+    )
 
 def _xcode_populate_attributes(ctx) -> dict[str, typing.Any]:
     data = {XcodeDataInfoKeys.EXTRA_XCODE_FILES: [ctx.attrs.path]}

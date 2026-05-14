@@ -10,9 +10,11 @@ load("@prelude//cfg/modifier:constraint_modifier_info.bzl", "make_constraint_mod
 load("@prelude//cfg/modifier:types.bzl", "ConditionalModifierInfo")
 load(":util.bzl", "util")
 
-_ExecutionModifierInfo = provider(fields = {
-    "execution_modifier": bool,
-})
+_ExecutionModifierInfo = provider(
+    fields = {
+        "execution_modifier": bool,
+    }
+)
 
 def config_setting_impl(ctx):
     subinfos = [util.constraint_values_to_configuration(ctx.attrs.constraint_values)]
@@ -69,13 +71,13 @@ def constraint_impl(ctx):
             fail("constraint() rule must have at least one value.")
         else:
             fail(
-                "constraint() rule must have at least two values. " +
-                "A single-value constraint has no selectivity: it can't express a choice between alternatives " +
-                "(e.g., 'linux' vs 'macos', 'enabled' vs 'disabled'), which is the whole point of a constraint. " +
-                "If you don't need to select between alternatives, you likely don't need a constraint at all.\n\n" +
-                "Set allow_trivial_constraint = True only if your constraint legitimately has just one value " +
-                "most of the time and may temporarily gain alternatives (e.g., versioned packages " +
-                "that pick up an extra value during an upgrade and drop it once the upgrade lands).",
+                "constraint() rule must have at least two values. "
+                + "A single-value constraint has no selectivity: it can't express a choice between alternatives "
+                + "(e.g., 'linux' vs 'macos', 'enabled' vs 'disabled'), which is the whole point of a constraint. "
+                + "If you don't need to select between alternatives, you likely don't need a constraint at all.\n\n"
+                + "Set allow_trivial_constraint = True only if your constraint legitimately has just one value "
+                + "most of the time and may temporarily gain alternatives (e.g., versioned packages "
+                + "that pick up an extra value during an upgrade and drop it once the upgrade lands).",
             )
 
     # Reserved keywords that cannot be used as values
@@ -160,10 +162,7 @@ def constraint_impl(ctx):
     ]
 
 def platform_impl(ctx):
-    subinfos = (
-        [dep[PlatformInfo].configuration for dep in ctx.attrs.deps] +
-        [util.constraint_values_to_configuration(ctx.attrs.constraint_values)]
-    )
+    subinfos = [dep[PlatformInfo].configuration for dep in ctx.attrs.deps] + [util.constraint_values_to_configuration(ctx.attrs.constraint_values)]
     return [
         DefaultInfo(),
         PlatformInfo(

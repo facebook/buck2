@@ -15,21 +15,22 @@ load(
 load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
 
 def _extract_symbol_names(
-        ctx: AnalysisContext,
-        cxx_toolchain: CxxToolchainInfo,
-        name: str,
-        objects: list[Artifact],
-        category: str,
-        identifier: [str, None] = None,
-        defined_only: bool = False,
-        undefined_only: bool = False,
-        # Do not include undefined-weak symbols.
-        undefined_weak: bool = True,
-        dynamic: bool = False,
-        prefer_local: bool = False,
-        local_only: bool = False,
-        global_only: bool = False,
-        allow_cache_upload: bool = False) -> Artifact:
+    ctx: AnalysisContext,
+    cxx_toolchain: CxxToolchainInfo,
+    name: str,
+    objects: list[Artifact],
+    category: str,
+    identifier: [str, None] = None,
+    defined_only: bool = False,
+    undefined_only: bool = False,
+    # Do not include undefined-weak symbols.
+    undefined_weak: bool = True,
+    dynamic: bool = False,
+    prefer_local: bool = False,
+    local_only: bool = False,
+    global_only: bool = False,
+    allow_cache_upload: bool = False,
+) -> Artifact:
     """
     Generate a file with a sorted list of symbol names extracted from the given
     native objects.
@@ -67,8 +68,7 @@ def _extract_symbol_names(
     is_windows = hasattr(ctx.attrs, "_exec_os_type") and ctx.attrs._exec_os_type[OsLookup].os == Os("windows")
 
     if is_windows:
-        script = (
-            """& {{
+        script = """& {{
                 $result = & $args[0] {} $($args[1..($args.Length-1)] -join " ")
                 $lines = $result -split '`n'
                 $lines = $lines | ForEach-Object {{ ($_ -split ' ')[1] }}
@@ -82,7 +82,6 @@ def _extract_symbol_names(
                     [IO.File]::WriteAllLines('{{}}', $lines)
                 }}
             }}""".format(nm_flags)
-        )
         symbol_extraction_args = [
             "powershell",
             "-Command",
@@ -90,13 +89,16 @@ def _extract_symbol_names(
         ]
     else:
         script = (
-            "set -euo pipefail; " +
-            '"$1" {} "${{@:2}}"'.format(nm_flags) +
-            (" | (grep -v \"\\sw\\s*$\" || true)" if undefined_only and not undefined_weak else "") +
+            "set -euo pipefail; "
+            + '"$1" {} "${{@:2}}"'.format(nm_flags)
+            + (' | (grep -v "\\sw\\s*$" || true)' if undefined_only and not undefined_weak else "")
+            +
             # Grab only the symbol name field.
-            ' | cut -d" " -f2 ' +
+            ' | cut -d" " -f2 '
+            +
             # Strip off ABI Version (@...) when using llvm-nm to keep compat with buck1
-            " | cut -d@ -f1 " +
+            " | cut -d@ -f1 "
+            +
             # Remove ASAN ODR generated symbols: __odr_asan_gen_*. They are
             # handled by a separate asan_dynamic_list.txt list of asan patterns.
             # BUT MORE IMPORTANTLY, symbols like __odr_asan_XXX[abi:cxx11] force
@@ -108,17 +110,19 @@ def _extract_symbol_names(
             # processing patterns and 10s actually linking. We use sed instead
             # of grep -v here to avoid an error exit code when there's no input
             # symbols, which is not an error for us.
-            ' | sed "/__odr_asan_gen_.*/d"' +
+            ' | sed "/__odr_asan_gen_.*/d"'
+            +
             # These symbols are meant to be weak locals in the binary, with
             # definitions found on the platform. When using open source
             # toolchain and declaring these symbols as weak, the symbols
             # get promoted to global weak and thus failed to link due to
             # undefined symbols.
-            ' | sed "/__gmon_start__/d"' +
-            ' | sed "/_ITM_deregisterTMCloneTable/d"' +
-            ' | sed "/_ITM_registerTMCloneTable/d"' +
-            ' | sed "/MallocExtension_Internal_GetNumericProperty/d"' +
-            ' | sed "/_ZTHN3c104impl26raw_local_dispatch_key_setE/d"' +
+            ' | sed "/__gmon_start__/d"'
+            + ' | sed "/_ITM_deregisterTMCloneTable/d"'
+            + ' | sed "/_ITM_registerTMCloneTable/d"'
+            + ' | sed "/MallocExtension_Internal_GetNumericProperty/d"'
+            + ' | sed "/_ZTHN3c104impl26raw_local_dispatch_key_setE/d"'
+            +
             # Sort and dedup symbols.  Use the `C` locale and do it in-memory to
             # make it significantly faster. CAUTION: if ten of these processes
             # run in parallel, they'll have cumulative allocations larger than RAM.
@@ -133,11 +137,11 @@ def _extract_symbol_names(
         ]
 
     ctx.actions.run(
-        symbol_extraction_args +
-        [
+        symbol_extraction_args
+        + [
             nm,
-        ] +
-        objects,
+        ]
+        + objects,
         category = category,
         identifier = identifier,
         prefer_local = prefer_local,
@@ -148,9 +152,11 @@ def _extract_symbol_names(
 
     return output
 
-_SymbolsInfo = provider(fields = {
-    "artifact": provider_field(typing.Any, default = None),  # "artifact"
-})
+_SymbolsInfo = provider(
+    fields = {
+        "artifact": provider_field(typing.Any, default = None),  # "artifact"
+    }
+)
 
 def _anon_extract_symbol_names_impl(ctx):
     output = _extract_symbol_names(
@@ -192,12 +198,7 @@ _anon_extract_symbol_names_impl_rule = anon_rule(
     },
 )
 
-def extract_symbol_names(
-        ctx: AnalysisContext,
-        cxx_toolchain: CxxToolchainInfo,
-        name: str,
-        anonymous: bool = False,
-        **kwargs) -> Artifact:
+def extract_symbol_names(ctx: AnalysisContext, cxx_toolchain: CxxToolchainInfo, name: str, anonymous: bool = False, **kwargs) -> Artifact:
     """
     Generate a file with a sorted list of symbol names extracted from the given
     native objects.
@@ -209,31 +210,23 @@ def extract_symbol_names(
             fail("anon symbol extraction requires that the cxx_toolchain be from the _cxx_toolchain attr")
         artifact = ctx.actions.anon_target(
             _anon_extract_symbol_names_impl_rule,
-            dict(
-                _cxx_toolchain = ctx.attrs._cxx_toolchain,
-                output = name,
-                **kwargs
-            ),
+            dict(_cxx_toolchain = ctx.attrs._cxx_toolchain, output = name, **kwargs),
         ).artifact("symbols")
         artifact = ctx.actions.assert_has_content_based_path(artifact)
 
         return ctx.actions.assert_short_path(artifact, short_path = paths.join("__symbols__", name))
     else:
-        return _extract_symbol_names(
-            ctx = ctx,
-            cxx_toolchain = cxx_toolchain,
-            name = name,
-            **kwargs
-        )
+        return _extract_symbol_names(ctx = ctx, cxx_toolchain = cxx_toolchain, name = name, **kwargs)
 
 def extract_defined_syms(
-        ctx: AnalysisContext,
-        cxx_toolchain: CxxToolchainInfo,
-        output: Artifact,
-        category_prefix: str,
-        prefer_local: bool = False,
-        anonymous: bool = False,
-        allow_cache_upload: bool = False) -> Artifact:
+    ctx: AnalysisContext,
+    cxx_toolchain: CxxToolchainInfo,
+    output: Artifact,
+    category_prefix: str,
+    prefer_local: bool = False,
+    anonymous: bool = False,
+    allow_cache_upload: bool = False,
+) -> Artifact:
     return extract_symbol_names(
         ctx = ctx,
         cxx_toolchain = cxx_toolchain,
@@ -250,15 +243,16 @@ def extract_defined_syms(
     )
 
 def extract_undefined_syms(
-        ctx: AnalysisContext,
-        cxx_toolchain: CxxToolchainInfo,
-        output: Artifact,
-        category_prefix: str,
-        weak: bool = True,
-        prefer_local: bool = False,
-        anonymous: bool = False,
-        allow_cache_upload: bool = False,
-        hash_counter = 0) -> Artifact:
+    ctx: AnalysisContext,
+    cxx_toolchain: CxxToolchainInfo,
+    output: Artifact,
+    category_prefix: str,
+    weak: bool = True,
+    prefer_local: bool = False,
+    anonymous: bool = False,
+    allow_cache_upload: bool = False,
+    hash_counter = 0,
+) -> Artifact:
     name = "extracted_symbol_names/{}-{}.undefined_syms.txt".format(str(hash(output.short_path)), str(hash_counter))
     return extract_symbol_names(
         ctx = ctx,
@@ -277,13 +271,14 @@ def extract_undefined_syms(
     )
 
 def extract_global_syms(
-        ctx: AnalysisContext,
-        cxx_toolchain: CxxToolchainInfo,
-        output: Artifact,
-        category_prefix: str,
-        prefer_local: bool = False,
-        anonymous: bool = False,
-        allow_cache_upload: bool = False) -> Artifact:
+    ctx: AnalysisContext,
+    cxx_toolchain: CxxToolchainInfo,
+    output: Artifact,
+    category_prefix: str,
+    prefer_local: bool = False,
+    anonymous: bool = False,
+    allow_cache_upload: bool = False,
+) -> Artifact:
     return extract_symbol_names(
         ctx = ctx,
         cxx_toolchain = cxx_toolchain,
@@ -299,14 +294,15 @@ def extract_global_syms(
     )
 
 def _create_symbols_file_from_script(
-        actions: AnalysisActions,
-        name: str,
-        script: str,
-        symbol_files: list[Artifact],
-        category: str,
-        prefer_local: bool,
-        weight_percentage: int,
-        identifier: [str, None] = None) -> Artifact:
+    actions: AnalysisActions,
+    name: str,
+    script: str,
+    symbol_files: list[Artifact],
+    category: str,
+    prefer_local: bool,
+    weight_percentage: int,
+    identifier: [str, None] = None,
+) -> Artifact:
     """
     Generate a symbols file from from the given objects and
     link args.
@@ -334,12 +330,8 @@ def _create_symbols_file_from_script(
     return output
 
 def get_undefined_symbols_args(
-        ctx: AnalysisContext,
-        name: str,
-        symbol_files: list[Artifact],
-        category: [str, None] = None,
-        identifier: [str, None] = None,
-        prefer_local: bool = False) -> cmd_args:
+    ctx: AnalysisContext, name: str, symbol_files: list[Artifact], category: [str, None] = None, identifier: [str, None] = None, prefer_local: bool = False
+) -> cmd_args:
     argsfile = create_undefined_symbols_argsfile(
         ctx.actions,
         name,
@@ -351,12 +343,8 @@ def get_undefined_symbols_args(
     return cmd_args(argsfile, format = "@{}")
 
 def create_undefined_symbols_argsfile(
-        actions: AnalysisActions,
-        name: str,
-        symbol_files: list[Artifact],
-        category: [str, None] = None,
-        identifier: [str, None] = None,
-        prefer_local: bool = False) -> Artifact:
+    actions: AnalysisActions, name: str, symbol_files: list[Artifact], category: [str, None] = None, identifier: [str, None] = None, prefer_local: bool = False
+) -> Artifact:
     """
     Combine files with sorted lists of symbols names into an argsfile to pass
     to the linker to mark these symbols as undefined via `-u`.
@@ -377,12 +365,8 @@ LC_ALL=C sort -S 10% -u -m --files0-from="$2.files0.txt" | sed "s/^/-u/" > "$2"
     )
 
 def create_undefined_symbols_linker_script(
-        actions: AnalysisActions,
-        name: str,
-        symbol_files: list[Artifact],
-        category: [str, None] = None,
-        identifier: [str, None] = None,
-        prefer_local: bool = False) -> Artifact:
+    actions: AnalysisActions, name: str, symbol_files: list[Artifact], category: [str, None] = None, identifier: [str, None] = None, prefer_local: bool = False
+) -> Artifact:
     """
     Combine files with sorted lists of symbols names into a linker script
     to mark these symbols as undefined via EXTERN.
@@ -405,12 +389,8 @@ echo ")" >> "$2";
     )
 
 def create_global_symbols_version_script(
-        actions: AnalysisActions,
-        name: str,
-        symbol_files: list[Artifact],
-        identifier: [str, None] = None,
-        category: [str, None] = None,
-        prefer_local: bool = False) -> Artifact:
+    actions: AnalysisActions, name: str, symbol_files: list[Artifact], identifier: [str, None] = None, category: [str, None] = None, prefer_local: bool = False
+) -> Artifact:
     """
     Combine files with sorted lists of symbols names into an argsfile to pass
     to the linker to mark these symbols as undefined (e.g. `-m`).
@@ -435,12 +415,8 @@ echo "};" >> "$2"
     )
 
 def create_dynamic_list_version_script(
-        actions: AnalysisActions,
-        name: str,
-        symbol_files: list[Artifact],
-        identifier: [str, None] = None,
-        category: [str, None] = None,
-        prefer_local: bool = False) -> Artifact:
+    actions: AnalysisActions, name: str, symbol_files: list[Artifact], identifier: [str, None] = None, category: [str, None] = None, prefer_local: bool = False
+) -> Artifact:
     """
     Combine files with sorted lists of symbols names into a dynamic list version
     file that can be passed to the linked (e.g. via `--dynamic-list=<file>`).

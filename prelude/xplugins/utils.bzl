@@ -40,11 +40,8 @@ def get_xplugins_usage_info(actions: AnalysisActions, all_deps: list[Dependency]
         return None
 
 def _filter_plugins_artifacts(
-        actions: AnalysisActions,
-        link_group: str,
-        link_group_info: LinkGroupInfo,
-        out: OutputArtifact,
-        usage_info_tset: XPluginsUsageInfoSet) -> list[Provider]:
+    actions: AnalysisActions, link_group: str, link_group_info: LinkGroupInfo, out: OutputArtifact, usage_info_tset: XPluginsUsageInfoSet
+) -> list[Provider]:
     mappings = link_group_info.mappings
     usage_infos = []
     for usage_info_list in usage_info_tset.traverse():
@@ -118,18 +115,19 @@ def _make_manifest_providers(info):
             default_output = info.argsfile,
             other_outputs = [info.manifests],
             sub_targets = {
-                "unfiltered": [DefaultInfo(
-                    default_output = info.unfiltered_argsfile,
-                    other_outputs = [info.manifests],
-                )],
+                "unfiltered": [
+                    DefaultInfo(
+                        default_output = info.unfiltered_argsfile,
+                        other_outputs = [info.manifests],
+                    )
+                ],
             },
         ),
     ]
 
 def get_xplugins_usage_subtargets(
-        ctx: AnalysisContext,
-        usage_info: XPluginsUsageInfo | None,
-        link_group_info: LinkGroupInfo | None) -> dict[str, list[Provider]]:
+    ctx: AnalysisContext, usage_info: XPluginsUsageInfo | None, link_group_info: LinkGroupInfo | None
+) -> dict[str, list[Provider]]:
     if not usage_info:
         return {}
 

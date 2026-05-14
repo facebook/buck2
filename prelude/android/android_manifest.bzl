@@ -32,12 +32,13 @@ def android_manifest_impl(ctx: AnalysisContext) -> list[Provider]:
     ]
 
 def generate_android_manifest(
-        ctx: AnalysisContext,
-        generate_manifest: RunInfo,
-        manifest_skeleton: Artifact,
-        module_name: str,
-        manifests: [ManifestTSet, list[Artifact], None],
-        placeholder_entries: dict) -> (Artifact, Artifact):
+    ctx: AnalysisContext,
+    generate_manifest: RunInfo,
+    manifest_skeleton: Artifact,
+    module_name: str,
+    manifests: [ManifestTSet, list[Artifact], None],
+    placeholder_entries: dict,
+) -> (Artifact, Artifact):
     generate_manifest_cmd = cmd_args(generate_manifest)
     generate_manifest_cmd.add([
         "--skeleton-manifest",

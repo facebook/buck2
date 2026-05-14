@@ -30,17 +30,20 @@ def _transitions_for_constraint_impl(ctx: AnalysisContext) -> list[Provider]:
     sub_targets = {}
 
     for name, constraint_value in ctx.attrs.constraint[DefaultInfo].sub_targets.items():
-        sub_targets[name] = [TransitionInfo(
-            impl = lambda platform, constraint = constraint_value[ConstraintValueInfo]: PlatformInfo(
-                label = platform.label,
-                configuration = ConfigurationInfo(
-                    constraints = platform.configuration.constraints | {
-                        constraint.setting.label: constraint,
-                    },
-                    values = platform.configuration.values,
+        sub_targets[name] = [
+            TransitionInfo(
+                impl = lambda platform, constraint = constraint_value[ConstraintValueInfo]: PlatformInfo(
+                    label = platform.label,
+                    configuration = ConfigurationInfo(
+                        constraints = platform.configuration.constraints
+                        | {
+                            constraint.setting.label: constraint,
+                        },
+                        values = platform.configuration.values,
+                    ),
                 ),
-            ),
-        )]
+            )
+        ]
 
     return [DefaultInfo(sub_targets = sub_targets)]
 

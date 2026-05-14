@@ -73,9 +73,7 @@ def _build_release(ctx: AnalysisContext, apps: ErlAppDependencies) -> dict[str, 
 
     return all_outputs
 
-def build_lib_dir(
-        ctx: AnalysisContext,
-        all_apps: ErlAppDependencies) -> dict[str, Artifact]:
+def build_lib_dir(ctx: AnalysisContext, all_apps: ErlAppDependencies) -> dict[str, Artifact]:
     """Build lib dir according to OTP specifications.
 
     .. seealso:: `OTP Design Principles Release Structure <https://www.erlang.org/doc/design_principles/release_structure.html>`_
@@ -87,8 +85,7 @@ def build_lib_dir(
     link_spec = {
         (dep[ErlangAppInfo].name + "-" + dep[ErlangAppInfo].version): dep[ErlangAppInfo].app_folder
         for dep in all_apps.values()
-        if ErlangAppInfo in dep and
-           (include_erts or not dep[ErlangAppInfo].virtual)
+        if ErlangAppInfo in dep and (include_erts or not dep[ErlangAppInfo].virtual)
     }
 
     lib_dir = ctx.actions.symlinked_dir(
@@ -98,10 +95,7 @@ def build_lib_dir(
     )
     return {"lib": lib_dir}
 
-def _build_boot_scripts(
-        ctx: AnalysisContext,
-        toolchain: Toolchain,
-        lib_dir: Artifact) -> dict[str, Artifact]:
+def _build_boot_scripts(ctx: AnalysisContext, toolchain: Toolchain, lib_dir: Artifact) -> dict[str, Artifact]:
     link_spec = {}
 
     if ctx.attrs.generate_default_bootscript:
@@ -109,10 +103,7 @@ def _build_boot_scripts(
         link_spec.update(maybe_default_boot_script)
 
     # write applications spec to file
-    data = [
-        _app_info_to_data(app_info)
-        for app_info in ctx.attrs.applications
-    ]
+    data = [_app_info_to_data(app_info) for app_info in ctx.attrs.applications]
     spec_file = ctx.actions.write_json(
         paths.join(erlang_build.utils.BUILD_DIR, "bootscripts", "applications_json"),
         data,
@@ -126,10 +117,7 @@ def _build_boot_scripts(
 
     return link_spec
 
-def _build_default_boot_scripts(
-        ctx: AnalysisContext,
-        toolchain: Toolchain,
-        lib_dir: Artifact) -> dict[str, Artifact]:
+def _build_default_boot_scripts(ctx: AnalysisContext, toolchain: Toolchain, lib_dir: Artifact) -> dict[str, Artifact]:
     """Build Name.rel, start.script, and start.boot in the release folder.
 
     Boot scripts are always generated regardless of include_erts setting.
@@ -143,10 +131,7 @@ def _build_default_boot_scripts(
     root_apps = _dependencies(ctx)
     root_apps_names = [app[ErlangAppInfo].name for app in root_apps]
 
-    root_apps_with_start_type = [
-        (app, start_type_mapping[_app_name(app)])
-        for app in root_apps
-    ]
+    root_apps_with_start_type = [(app, start_type_mapping[_app_name(app)]) for app in root_apps]
     start_dependencies = build_apps_start_dependencies(ctx, root_apps_with_start_type)
 
     root_set = ctx.actions.tset(
@@ -218,10 +203,7 @@ def _build_default_boot_scripts(
             "no_dot_erlang.boot",
         ])
 
-    result = {
-        paths.join("releases", ctx.attrs.version, file): scripts_dir.project(file)
-        for file in boot_files
-    }
+    result = {paths.join("releases", ctx.attrs.version, file): scripts_dir.project(file) for file in boot_files}
 
     # Place OTP's boot files in bin/ so erl can find them at ROOTDIR/bin/.
     # When erl runs from bundled ERTS (erts-VSN/bin/erl), it resolves ROOTDIR
@@ -238,12 +220,8 @@ def _build_default_boot_scripts(
     return result
 
 def _build_custom_boot_scripts(
-        ctx: AnalysisContext,
-        toolchain: Toolchain,
-        spec_file: Artifact,
-        script_name: str,
-        builder: cmd_args,
-        lib_dir: Artifact) -> dict[str, Artifact]:
+    ctx: AnalysisContext, toolchain: Toolchain, spec_file: Artifact, script_name: str, builder: cmd_args, lib_dir: Artifact
+) -> dict[str, Artifact]:
     boot_script = ctx.actions.declare_output(paths.join(erlang_build.utils.BUILD_DIR, "bootscripts", script_name), has_content_based_path = False)
     raw_script_name = paths.replace_extension(script_name, ".script")
     raw_script = ctx.actions.declare_output(paths.join(erlang_build.utils.BUILD_DIR, "bootscripts", raw_script_name), has_content_based_path = False)
@@ -309,9 +287,7 @@ def _build_release_variables(ctx: AnalysisContext, toolchain: Toolchain) -> dict
     )
     return {short_path: release_variables}
 
-def _build_erts(
-        ctx: AnalysisContext,
-        toolchain: Toolchain) -> dict[str, Artifact]:
+def _build_erts(ctx: AnalysisContext, toolchain: Toolchain) -> dict[str, Artifact]:
     if not ctx.attrs.include_erts:
         return {}
 
@@ -329,9 +305,7 @@ def _build_erts(
 
     return {"erts-{}".format(toolchain.erts_toolchain_info.erts_version): erts_dir}
 
-def _build_start_erl_data(
-        ctx: AnalysisContext,
-        toolchain: Toolchain) -> dict[str, Artifact]:
+def _build_start_erl_data(ctx: AnalysisContext, toolchain: Toolchain) -> dict[str, Artifact]:
     """Generate start_erl.data file for releases with bundled ERTS.
 
     This file contains the ERTS version and release version,
@@ -398,7 +372,8 @@ def _validate_include_erts(ctx: AnalysisContext, toolchain: Toolchain) -> None:
 
     # Check if applications list is empty (dynamic mode)
     if not toolchain.erts_toolchain_info.applications:
-        fail("""
+        fail(
+            """
 ERROR: include_erts=True requires explicit OTP application versions in your erlang_toolchain.
 
 Currently, your erlang_toolchain does not have the 'applications' attribute configured,
@@ -429,11 +404,13 @@ set include_erts=False (or remove it, as False is the default).
 
 Documentation: https://buck2.build/docs/prelude/erlang/
 Target: {target}
-""".format(target = str(ctx.label)))
+""".format(target = str(ctx.label))
+        )
 
     # Check if erts_version is still dynamic
     if toolchain.erts_toolchain_info.erts_version == "dynamic":
-        fail("""
+        fail(
+            """
 ERROR: include_erts=True requires an explicit erts_version in your erlang_toolchain.
 
 Current erts_version is 'dynamic' which only works when include_erts=False.
@@ -445,4 +422,5 @@ Please ensure you've configured your erlang_toolchain with:
 See the error message above for how to generate the version configuration.
 
 Target: {target}
-""".format(target = str(ctx.label)))
+""".format(target = str(ctx.label))
+        )

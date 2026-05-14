@@ -128,7 +128,7 @@ def _normalize(path: str) -> str:
         initial_slashes = 1
     else:
         initial_slashes = 0
-    is_relative = (initial_slashes == 0)
+    is_relative = initial_slashes == 0
 
     components = path.split("/")
     new_components = []
@@ -177,11 +177,10 @@ def _relativize(path: str, start: str) -> str:
         start_segments = []
     start_length = len(start_segments)
 
-    if (path.startswith("..") or start.startswith("..")):
+    if path.startswith("..") or start.startswith(".."):
         fail("Cannot relativize paths above the current (unknown) directory")
 
-    if (path.startswith("/") != start.startswith("/") or
-        len(segments) < start_length):
+    if path.startswith("/") != start.startswith("/") or len(segments) < start_length:
         fail("Path '%s' is not beneath '%s'" % (path, start))
 
     for ancestor_segment, segment in zip(start_segments, segments):
@@ -262,7 +261,7 @@ def _strip_suffix(a: str, b: str) -> [str, None]:
             return None
 
     # Return the original path, minus the suffix.
-    return "/".join(pa[:len(pa) - len(pb)])
+    return "/".join(pa[: len(pa) - len(pb)])
 
 def _starts_with(path: str, prefix: str) -> bool:
     """Returns `True` if `prefix` is a prefix path of `path`.

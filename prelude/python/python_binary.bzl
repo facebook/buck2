@@ -81,12 +81,13 @@ load(":versions.bzl", "LibraryName", "LibraryVersion", "gather_versioned_depende
 
 # We do a lot of merging extensions, so don't use O(n) type annotations
 def _merge_extensions(
-        # {str: ("_a", "label")}
-        extensions,
-        # Label
-        incoming_label,
-        # {str: "_a"}
-        incoming_extensions) -> None:
+    # {str: ("_a", "label")}
+    extensions,
+    # Label
+    incoming_label,
+    # {str: "_a"}
+    incoming_extensions,
+) -> None:
     """
     Merges a incoming_extensions into `extensions`. Fails if duplicate dests exist.
     """
@@ -94,11 +95,7 @@ def _merge_extensions(
         existing = extensions.get(extension_name)
         if existing != None and existing[0] != incoming_artifact:
             existing_artifact, existing_label = existing
-            error = (
-                "Duplicate extension: {}! Conflicting mappings:\n" +
-                "{} from {}\n" +
-                "{} from {}"
-            )
+            error = "Duplicate extension: {}! Conflicting mappings:\n" + "{} from {}\n" + "{} from {}"
             fail(
                 error.format(
                     extension_name,
@@ -120,15 +117,16 @@ def _qualify_entry_point(main: EntryPoint, base_module: str) -> EntryPoint:
     return (main[0], fqname)
 
 def python_executable(
-        ctx: AnalysisContext,
-        main: EntryPoint,
-        srcs: dict[str, Artifact],
-        default_resources: dict[str, ArtifactOutputs],
-        standalone_resources: dict[str, ArtifactOutputs] | None,
-        outplace_resources: dict[str, ArtifactOutputs] | None,
-        compile: bool,
-        allow_cache_upload: bool,
-        executable_type: ExecutableType) -> list[Provider] | Promise:
+    ctx: AnalysisContext,
+    main: EntryPoint,
+    srcs: dict[str, Artifact],
+    default_resources: dict[str, ArtifactOutputs],
+    standalone_resources: dict[str, ArtifactOutputs] | None,
+    outplace_resources: dict[str, ArtifactOutputs] | None,
+    compile: bool,
+    allow_cache_upload: bool,
+    executable_type: ExecutableType,
+) -> list[Provider] | Promise:
     # Returns a three tuple: the Python binary, all its potential runtime files,
     # and a provider for its source DB.
     raw_deps = ctx.attrs.deps
@@ -140,10 +138,7 @@ def python_executable(
 
     selected_deps = resolve_versions(
         gather_versioned_dependencies(raw_deps),
-        {
-            LibraryName(value = key): LibraryVersion(value = ver)
-            for key, ver in ctx.attrs.version_selections.items()
-        },
+        {LibraryName(value = key): LibraryVersion(value = ver) for key, ver in ctx.attrs.version_selections.items()},
     )
     raw_deps.extend(selected_deps)
 
@@ -218,15 +213,16 @@ def python_executable(
     )
 
 def _add_executable_subtargets(
-        ctx,
-        exe: PexProviders,
-        dbg_source_db: DefaultInfo,
-        dbg_source_db_output: Artifact | None,
-        library_info: PythonLibraryInfo,
-        main: EntryPoint,
-        source_db_no_deps: DefaultInfo,
-        src_manifest: ManifestInfo | None,
-        python_deps: list[PythonLibraryInfo]) -> (PexProviders, Artifact | None):
+    ctx,
+    exe: PexProviders,
+    dbg_source_db: DefaultInfo,
+    dbg_source_db_output: Artifact | None,
+    library_info: PythonLibraryInfo,
+    main: EntryPoint,
+    source_db_no_deps: DefaultInfo,
+    src_manifest: ManifestInfo | None,
+    python_deps: list[PythonLibraryInfo],
+) -> (PexProviders, Artifact | None):
     python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
     exe = PexProviders(
         default_output = exe.default_output,
@@ -268,22 +264,23 @@ def _add_executable_subtargets(
     return exe, validation_output
 
 def _compute_pex_providers(
-        ctx,
-        src_manifest: ManifestInfo | None,
-        python_deps: list[PythonLibraryInfo],
-        source_db_no_deps: DefaultInfo,
-        main: EntryPoint,
-        compile: bool,
-        library: PythonLibraryInfo,
-        allow_cache_upload: bool,
-        shared_libs: list[(SharedLibrary, str)],
-        extensions: dict[str, (LinkedObject, Label)],
-        link_args: list[LinkArgs],
-        extra: dict[str, typing.Any],
-        link_extra_artifacts: dict[str, typing.Any],
-        executable_type: ExecutableType,
-        linker_map_data = None,
-        gc_sections_data = None) -> list[Provider] | Promise:
+    ctx,
+    src_manifest: ManifestInfo | None,
+    python_deps: list[PythonLibraryInfo],
+    source_db_no_deps: DefaultInfo,
+    main: EntryPoint,
+    compile: bool,
+    library: PythonLibraryInfo,
+    allow_cache_upload: bool,
+    shared_libs: list[(SharedLibrary, str)],
+    extensions: dict[str, (LinkedObject, Label)],
+    link_args: list[LinkArgs],
+    extra: dict[str, typing.Any],
+    link_extra_artifacts: dict[str, typing.Any],
+    executable_type: ExecutableType,
+    linker_map_data = None,
+    gc_sections_data = None,
+) -> list[Provider] | Promise:
     dbg_source_db_output = ctx.actions.declare_output("dbg-db.json", has_content_based_path = True)
     dbg_source_db = create_dbg_source_db(ctx, dbg_source_db_output, src_manifest, python_deps)
 
@@ -308,11 +305,7 @@ def _compute_pex_providers(
         lazy_import_analysis_output = ctx.actions.declare_output("safer_lazy_imports/lazy-import-analysis.json", has_content_based_path = False)
         lifeguard_executable = ctx.attrs.lazy_imports_analyzer[RunInfo]
         if getattr(ctx.attrs, "use_lifeguard_incremental", False):
-            dep_caches = [
-                dep[LazyImportsCacheInfo].cache
-                for dep in ctx.attrs.deps
-                if LazyImportsCacheInfo in dep
-            ]
+            dep_caches = [dep[LazyImportsCacheInfo].cache for dep in ctx.attrs.deps if LazyImportsCacheInfo in dep]
 
             # This first call pulls in the hidden __par__ modules
             binary_lib_cache = ctx.actions.declare_output("safer_lazy_imports/binary-library-cache.bin")
@@ -425,7 +418,9 @@ def _compute_pex_providers(
             ctx,
             extensions,
             dwp = ctx.attrs.package_split_dwarf_dwp,
-        ) if extensions else None,
+        )
+        if extensions
+        else None,
     )
 
     # Convert preloaded deps to a set of their names to be loaded by.
@@ -451,18 +446,24 @@ def _compute_pex_providers(
     pex.sub_targets.update(extra)
 
     if linker_map_data != None:
-        pex.sub_targets["linker-map"] = [DefaultInfo(
-            default_output = linker_map_data.map,
-            other_outputs = [linker_map_data.binary],
-        )]
+        pex.sub_targets["linker-map"] = [
+            DefaultInfo(
+                default_output = linker_map_data.map,
+                other_outputs = [linker_map_data.binary],
+            )
+        ]
 
     if gc_sections_data != None:
-        pex.sub_targets["gc-sections"] = [DefaultInfo(
-            default_output = gc_sections_data.gc_sections,
-            other_outputs = [gc_sections_data.binary],
-        )]
+        pex.sub_targets["gc-sections"] = [
+            DefaultInfo(
+                default_output = gc_sections_data.gc_sections,
+                other_outputs = [gc_sections_data.binary],
+            )
+        ]
 
-    updated_pex, validation_output = _add_executable_subtargets(ctx, pex, dbg_source_db, dbg_source_db_output, library, main, source_db_no_deps, src_manifest, python_deps)
+    updated_pex, validation_output = _add_executable_subtargets(
+        ctx, pex, dbg_source_db, dbg_source_db_output, library, main, source_db_no_deps, src_manifest, python_deps
+    )
 
     providers = compute_providers(ctx, updated_pex, executable_type)
 
@@ -476,16 +477,17 @@ def _compute_pex_providers(
     return providers
 
 def _convert_python_library_to_executable(
-        ctx: AnalysisContext,
-        main: EntryPoint,
-        library: PythonLibraryInfo,
-        deps: list[Dependency],
-        compile: bool,
-        allow_cache_upload: bool,
-        src_manifest: ManifestInfo | None,
-        python_deps: list[PythonLibraryInfo],
-        source_db_no_deps: DefaultInfo,
-        executable_type: ExecutableType) -> list[Provider] | Promise:
+    ctx: AnalysisContext,
+    main: EntryPoint,
+    library: PythonLibraryInfo,
+    deps: list[Dependency],
+    compile: bool,
+    allow_cache_upload: bool,
+    src_manifest: ManifestInfo | None,
+    python_deps: list[PythonLibraryInfo],
+    source_db_no_deps: DefaultInfo,
+    executable_type: ExecutableType,
+) -> list[Provider] | Promise:
     extra = {}
 
     python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
@@ -517,30 +519,31 @@ def _convert_python_library_to_executable(
                 "_python_toolchain": ctx.attrs._python_toolchain,
             }
             implicit_attrs = {
-                a: getattr(ctx.attrs, a)
-                for a in (set(cxx_implicit_attrs.keys()) | set(python_implicit_attrs.keys())) - set(explicit_attrs.keys())
+                a: getattr(ctx.attrs, a) for a in (set(cxx_implicit_attrs.keys()) | set(python_implicit_attrs.keys())) - set(explicit_attrs.keys())
             }
             return ctx.actions.anon_target(
                 process_native_linking_rule,
                 explicit_attrs | implicit_attrs,
-            ).promise.map(lambda providers: _compute_pex_providers(
-                ctx,
-                src_manifest,
-                python_deps,
-                source_db_no_deps,
-                main,
-                compile,
-                library,
-                allow_cache_upload,
-                providers[LinkProviders].shared_libraries,
-                providers[LinkProviders].extensions,
-                providers[LinkProviders].link_args,
-                providers[LinkProviders].extra,
-                providers[LinkProviders].extra_artifacts,
-                executable_type,
-                providers[LinkProviders].linker_map_data,
-                providers[LinkProviders].gc_sections_data,
-            ))
+            ).promise.map(
+                lambda providers: _compute_pex_providers(
+                    ctx,
+                    src_manifest,
+                    python_deps,
+                    source_db_no_deps,
+                    main,
+                    compile,
+                    library,
+                    allow_cache_upload,
+                    providers[LinkProviders].shared_libraries,
+                    providers[LinkProviders].extensions,
+                    providers[LinkProviders].link_args,
+                    providers[LinkProviders].extra,
+                    providers[LinkProviders].extra_artifacts,
+                    executable_type,
+                    providers[LinkProviders].linker_map_data,
+                    providers[LinkProviders].gc_sections_data,
+                )
+            )
         else:
             shared_libs, extensions, link_args, extra, extra_artifacts, linker_map_data, gc_sections_data = process_native_linking(
                 ctx,
@@ -557,16 +560,18 @@ def _convert_python_library_to_executable(
                 # in the PAR in this case.
                 for dep in runtime_bundle.shared_libs:
                     lib = dep.get(DefaultInfo).default_outputs[0]
-                    shared_libs.append((
-                        # There's probably a smarter way to get the shared library object out of the
-                        # dependency, but I'm not sure what that is.
-                        SharedLibrary(
-                            soname = to_soname(lib.basename),
-                            label = dep.label,
-                            lib = LinkedObject(output = lib, unstripped_output = lib),
-                        ),
-                        "",
-                    ))
+                    shared_libs.append(
+                        (
+                            # There's probably a smarter way to get the shared library object out of the
+                            # dependency, but I'm not sure what that is.
+                            SharedLibrary(
+                                soname = to_soname(lib.basename),
+                                label = dep.label,
+                                lib = LinkedObject(output = lib, unstripped_output = lib),
+                            ),
+                            "",
+                        )
+                    )
 
     else:
         linker_map_data = None
@@ -578,10 +583,7 @@ def _convert_python_library_to_executable(
         if link_strategy == NativeLinkStrategy("merged"):
             shared_libs, extensions = process_omnibus_linking(ctx, deps, extensions, python_toolchain, extra)
         else:
-            shared_libs = [
-                (shared_lib, "")
-                for shared_lib in traverse_shared_library_info(library.shared_libraries, transformation_provider = None)
-            ]
+            shared_libs = [(shared_lib, "") for shared_lib in traverse_shared_library_info(library.shared_libraries, transformation_provider = None)]
 
             # darwin and windows expect self-contained dynamically linked
             # python extensions without additional transitive shared libraries

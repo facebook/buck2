@@ -24,7 +24,6 @@ csharp_library = prelude_rule(
     examples = """
         For more examples, check out our [integration tests](https://github.com/facebook/buck/tree/dev/test/com/facebook/buck/rust/testdata/).
 
-
         ```
         csharp_library(
           name = 'simple',
@@ -52,36 +51,60 @@ csharp_library = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "dll_name": attrs.string(default = "", doc = """
+            "dll_name": attrs.string(
+                default = "",
+                doc = """
                 The output name of the dll. This allows you to specify the name of
                  the dll exactly. When this is not set, the dll will be named after
                  the short name of the target.
-            """),
-            "srcs": attrs.list(attrs.source(), default = [], doc = """
+            """,
+            ),
+            "srcs": attrs.list(
+                attrs.source(),
+                default = [],
+                doc = """
                 The collection of source files to compile.
-            """),
-            "resources": attrs.dict(key = attrs.string(), value = attrs.source(), sorted = False, default = {}, doc = """
+            """,
+            ),
+            "resources": attrs.dict(
+                key = attrs.string(),
+                value = attrs.source(),
+                sorted = False,
+                default = {},
+                doc = """
                 Resources that should be embedded within the built DLL. The format
                  is the name of the resource once mapped into the DLL as the key, and
                  the value being the resource that should be merged. This allows
                  non-unique keys to be identified quickly.
-            """),
-            "framework_ver": attrs.enum(FrameworkVersion, doc = """
+            """,
+            ),
+            "framework_ver": attrs.enum(
+                FrameworkVersion,
+                doc = """
                 The version of the .Net framework that this library targets. This is
                  one of 'net35', 'net40', 'net45' and 'net46'.
-            """),
-            "deps": attrs.list(attrs.one_of(attrs.dep(), attrs.string()), default = [], doc = """
+            """,
+            ),
+            "deps": attrs.list(
+                attrs.one_of(attrs.dep(), attrs.string()),
+                default = [],
+                doc = """
                 The set of targets or system-provided assemblies to rely on. Any
                  values that are targets must be either csharp\\_library or `prebuilt_dotnet_library`
                  instances.
-            """),
-            "compiler_flags": attrs.list(attrs.string(), default = [], doc = """
+            """,
+            ),
+            "compiler_flags": attrs.list(
+                attrs.string(),
+                default = [],
+                doc = """
                 The set of additional compiler flags to pass to the compiler.
-            """),
-        } |
-        buck.licenses_arg() |
-        buck.labels_arg() |
-        buck.contacts_arg()
+            """,
+            ),
+        }
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
     ),
 )
 
@@ -115,13 +138,15 @@ prebuilt_dotnet_library = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "assembly": attrs.source(doc = """
+            "assembly": attrs.source(
+                doc = """
                 The path to the DLL that this rule provides.
-            """),
-        } |
-        buck.licenses_arg() |
-        buck.labels_arg() |
-        buck.contacts_arg()
+            """
+            ),
+        }
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
     ),
 )
 

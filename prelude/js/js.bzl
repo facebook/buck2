@@ -69,11 +69,14 @@ extra_attributes = {
             default = _select_platform(),
         ),
     },
-    "js_bundle_genrule": genrule_attributes() | {
-        "has_content_based_path": attrs.bool(default = select({
-            "DEFAULT": False,
-            "config//features/apple:content_based_path_hashing_enabled": True,
-        })),
+    "js_bundle_genrule": genrule_attributes()
+    | {
+        "has_content_based_path": attrs.bool(
+            default = select({
+                "DEFAULT": False,
+                "config//features/apple:content_based_path_hashing_enabled": True,
+            })
+        ),
         "type": attrs.string(
             default = "js_bundle_genrule",
         ),

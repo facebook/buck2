@@ -73,27 +73,32 @@ def haskell_haddock_lib(ctx: AnalysisContext, pkgname: str) -> Provider:
     if args.args_for_file:
         if haskell_toolchain.use_argsfile:
             ghcargs = cmd_args(args.args_for_file, format = "--optghc={}")
-            cmd.add(at_argfile(
-                actions = ctx.actions,
-                name = "args.haskell_haddock_argsfile",
-                args = [ghcargs, args.srcs],
-                allow_args = True,
-            ))
+            cmd.add(
+                at_argfile(
+                    actions = ctx.actions,
+                    name = "args.haskell_haddock_argsfile",
+                    args = [ghcargs, args.srcs],
+                    allow_args = True,
+                )
+            )
         else:
             cmd.add(args.args_for_file)
 
     # Buck2 requires that the output artifacts are always produced, but Haddock only
     # creates them if it needs to, so we need a wrapper script to mkdir the outputs.
     script = ctx.actions.declare_output("haddock-script", has_content_based_path = False)
-    script_args = cmd_args([
-        "mkdir",
-        "-p",
-        args.result.objects.as_output(),
-        args.result.hi.as_output(),
-        args.result.stubs.as_output(),
-        "&&",
-        cmd_args(cmd, quote = "shell"),
-    ], delimiter = " ")
+    script_args = cmd_args(
+        [
+            "mkdir",
+            "-p",
+            args.result.objects.as_output(),
+            args.result.hi.as_output(),
+            args.result.stubs.as_output(),
+            "&&",
+            cmd_args(cmd, quote = "shell"),
+        ],
+        delimiter = " ",
+    )
     ctx.actions.write(
         script,
         cmd_args("#!/bin/sh", script_args),

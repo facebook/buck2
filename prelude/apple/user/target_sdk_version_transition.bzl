@@ -45,10 +45,9 @@ def _target_sdk_version_and_enable_testing_impl(platform: PlatformInfo, refs: st
     platform_info = enable_testing_transition_impl(platform_info, refs)
     return platform_info
 
-_target_sdk_version_transition_refs = {
-    version: "@config//version:constraint-value-target-sdk-version-" + version
-    for version in TARGET_SDK_VERSIONS
-} | {"version": "@config//version:constraint-setting-target-sdk-version"}
+_target_sdk_version_transition_refs = {version: "@config//version:constraint-value-target-sdk-version-" + version for version in TARGET_SDK_VERSIONS} | {
+    "version": "@config//version:constraint-setting-target-sdk-version"
+}
 
 _target_sdk_version_attrs = ["minimum_os_version"]
 

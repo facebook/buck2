@@ -156,7 +156,7 @@ def _merge_dictionaries(dicts):
     return result
 
 extra_implemented_rules = struct(
-    #common rules
+    # common rules
     alias = alias_impl,
     command_alias = command_alias_impl,
     configured_alias = configured_alias_impl,
@@ -172,12 +172,10 @@ extra_implemented_rules = struct(
     toolchain_alias = alias_impl,
     versioned_alias = versioned_alias_impl,
     worker_tool = worker_tool,
-
-    #c#
+    # c#
     csharp_library = csharp_library_impl,
     prebuilt_dotnet_library = prebuilt_dotnet_library_impl,
-
-    #c++
+    # c++
     cxx_binary = cxx_binary_impl,
     cxx_test = cxx_test_impl,
     cxx_toolchain = cxx_toolchain_impl,
@@ -189,59 +187,49 @@ extra_implemented_rules = struct(
     prebuilt_cxx_library_group = prebuilt_cxx_library_group_impl,
     windows_resource = windows_resource_impl,
     transformation_spec = transformation_spec_impl,
-
-    #cython
+    # cython
     cython_library = cython_library_impl,
     cython_static_extension = cython_static_extension_impl,
     cython_toolchain = cython_toolchain_impl,
-
     # C++ / LLVM
     llvm_link_bitcode = llvm_link_bitcode_impl,
-
-    #git
+    # git
     git_fetch = git_fetch_impl,
-
-    #go
+    # go
     go_binary = go_binary_impl,
     go_bootstrap_binary = go_bootstrap_binary_impl,
     go_exported_library = go_exported_library_impl,
     go_library = go_library_impl,
     go_test = go_test_impl,
     go_stdlib = go_stdlib_impl,
-
-    #haskell
+    # haskell
     haskell_library = haskell_library_impl,
     haskell_binary = haskell_binary_impl,
     haskell_ghci = haskell_ghci_impl,
     haskell_haddock = haskell_haddock_impl,
     haskell_ide = haskell_ide_impl,
     haskell_prebuilt_library = haskell_prebuilt_library_impl,
-
-    #lua
+    # lua
     cxx_lua_extension = cxx_lua_extension_impl,
     lua_binary = lua_binary_impl,
     lua_library = lua_library_impl,
-
-    #ocaml
+    # ocaml
     ocaml_binary = ocaml_binary_impl,
     ocaml_object = ocaml_object_impl,
     ocaml_shared = ocaml_shared_impl,
     ocaml_library = ocaml_library_impl,
     prebuilt_ocaml_library = prebuilt_ocaml_library_impl,
-
-    #python
+    # python
     prebuilt_python_library = prebuilt_python_library_impl,
     python_binary = python_binary_impl,
     python_library = python_library_impl,
     python_runtime_bundle = python_runtime_bundle_impl,
     python_test = python_test_impl,
     python_needed_coverage_test = python_needed_coverage_test_impl,
-
-    #python bootstrap
+    # python bootstrap
     python_bootstrap_binary = python_bootstrap_binary_impl,
     python_bootstrap_library = python_bootstrap_library_impl,
-
-    #merged **kwargs
+    # merged **kwargs
     **_merge_dictionaries([
         _android_implemented_rules,
         _apple_implemented_rules,
@@ -253,22 +241,26 @@ extra_implemented_rules = struct(
         _kotlin_implemented_rules,
         _matlab_implemented_rules,
         _zip_file_implemented_rules,
-    ])
+    ]),
 )
 
 def _python_runtime_bundle_attrs():
-    return {
-        "include": attrs.string(doc = "Header files required for linking python extensions"),
-        "install_root": attrs.dep(doc = "The filegroup containing the runtime artifacts, all the paths are relative to this location"),
-        "libpython": attrs.option(
-            attrs.string(doc = "libpyhon.so required at runtime for the python executable and native extensions."),
-            default = None,
-        ),
-        "py_bin": attrs.string(doc = "The runtime executable"),
-        "py_version": attrs.string(doc = "The version of python this represents"),
-        "shared_libs": attrs.list(attrs.dep(), default = [], doc = "Additional shared libraries required by this runtime"),
-        "stdlib": attrs.string(doc = "The python standard library"),
-    } | buck.labels_arg() | buck.contacts_arg()
+    return (
+        {
+            "include": attrs.string(doc = "Header files required for linking python extensions"),
+            "install_root": attrs.dep(doc = "The filegroup containing the runtime artifacts, all the paths are relative to this location"),
+            "libpython": attrs.option(
+                attrs.string(doc = "libpyhon.so required at runtime for the python executable and native extensions."),
+                default = None,
+            ),
+            "py_bin": attrs.string(doc = "The runtime executable"),
+            "py_version": attrs.string(doc = "The version of python this represents"),
+            "shared_libs": attrs.list(attrs.dep(), default = [], doc = "Additional shared libraries required by this runtime"),
+            "stdlib": attrs.string(doc = "The python standard library"),
+        }
+        | buck.labels_arg()
+        | buck.contacts_arg()
+    )
 
 _dotnet_extra_attributes = {
     "csharp_library": {
@@ -314,13 +306,14 @@ control how the dependencies of this library are linked, use `link_style` instea
         "_cxx_hacks": attrs.default_only(attrs.dep(default = "prelude//cxx/tools:cxx_hacks")),
         "_cxx_toolchain": toolchains_common.cxx(),
         "_is_building_android_binary": is_building_android_binary_attr(),
-    } |
-    apple_common.extra_xcode_sources() |
-    third_party_common.create_third_party_build_root_attrs()
+    }
+    | apple_common.extra_xcode_sources()
+    | third_party_common.create_third_party_build_root_attrs()
 )
 
 cxx_extra_attributes = {
-    "cxx_genrule": genrule_attributes() | {
+    "cxx_genrule": genrule_attributes()
+    | {
         "_cxx_toolchain": toolchains_common.cxx(),
         "_exec_os_type": buck.exec_os_type_arg(),
     },
@@ -356,8 +349,8 @@ control how the dependencies of this library are linked, use `link_style` instea
             "versioned_header_dirs": attrs.option(attrs.versioned(attrs.list(attrs.source(allow_directory = True))), default = None),
             "_cxx_toolchain": toolchains_common.cxx(),
             "_target_os_type": buck.target_os_type_arg(),
-        } |
-        third_party_common.create_third_party_build_root_attrs()
+        }
+        | third_party_common.create_third_party_build_root_attrs()
     ),
     "prebuilt_cxx_library_group": {
         "_create_third_party_build_root": attrs.default_only(attrs.exec_dep(default = "prelude//third-party/tools:create_build")),
@@ -461,26 +454,30 @@ _haskell_extra_attributes = {
 }
 
 _python_extra_attributes = {
-    #python bootstrap
+    # python bootstrap
     "python_bootstrap_binary": {
         "copy_deps": attrs.bool(default = True),
         "deps": attrs.list(attrs.dep(providers = [PythonBootstrapSources]), default = []),
         "has_content_based_path": attrs.bool(default = False),
         "main": attrs.source(),
         "_python_bootstrap_toolchain": toolchains_common.python_bootstrap(),
-    } | buck.labels_arg() | buck.contacts_arg(),
+    }
+    | buck.labels_arg()
+    | buck.contacts_arg(),
     "python_bootstrap_library": {
         "deps": attrs.list(attrs.dep(providers = [PythonBootstrapSources]), default = []),
         "has_content_based_path": attrs.bool(default = False),
         "srcs": attrs.list(attrs.source()),
-    } | buck.labels_arg() | buck.contacts_arg(),
+    }
+    | buck.labels_arg()
+    | buck.contacts_arg(),
     "python_needed_coverage_test": dict(
         contacts = attrs.list(attrs.string(), default = []),
         env = attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}),
         labels = attrs.list(attrs.string(), default = []),
         needed_coverage = attrs.list(attrs.tuple(attrs.int(), attrs.dep(), attrs.option(attrs.string())), default = []),
         test = attrs.dep(providers = [ExternalRunnerTestInfo]),
-        **(re_test_common.test_args() | buck.inject_test_env_arg())
+        **(re_test_common.test_args() | buck.inject_test_env_arg()),
     ),
     "python_runtime_bundle": _python_runtime_bundle_attrs(),
 }
@@ -489,16 +486,20 @@ _rust_extra_attributes = {
     "rust_test": {},
 }
 
-_core_extra_attributes = {
-    "export_file": constraint_overrides.attributes,
-    "filegroup": constraint_overrides.attributes,
-    "genrule": genrule_attributes() | constraint_overrides.attributes,
-    "remote_file": {
-        "sha1": attrs.option(attrs.string(), default = None),
-        "sha256": attrs.option(attrs.string(), default = None),
-        "_unzip_tool": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//zip_file/tools:unzip")),
-    },
-} | _zip_file_extra_attributes | _config_extra_attributes
+_core_extra_attributes = (
+    {
+        "export_file": constraint_overrides.attributes,
+        "filegroup": constraint_overrides.attributes,
+        "genrule": genrule_attributes() | constraint_overrides.attributes,
+        "remote_file": {
+            "sha1": attrs.option(attrs.string(), default = None),
+            "sha256": attrs.option(attrs.string(), default = None),
+            "_unzip_tool": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//zip_file/tools:unzip")),
+        },
+    }
+    | _zip_file_extra_attributes
+    | _config_extra_attributes
+)
 
 _shell_extra_attributes = {
     "sh_test": constraint_overrides.attributes,

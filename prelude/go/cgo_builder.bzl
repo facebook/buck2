@@ -47,16 +47,13 @@ CGoBuildContext = record(
     cxx_toolchain_info = field(CxxToolchainInfo),
     target_sdk_version_flags = field(list[str]),
     exec_os_type = field(OsLookup),
-
     # Values from explicit attrs
     header_namespace = field(str),
     headers_layout = field(CxxHeadersLayout),
     cxx_compiler_flags = field(list[typing.Any]),
     cxx_preprocessor_flags = field(list[typing.Any]),
-
     # Deps info
     inherited_preprocessor_infos = field(list[CPreprocessorInfo]),
-
     # Store "_cxx_toolchain" as "Dependency" for use in "anon_target"
     _cxx_toolchain = field(Dependency | None, None),
 )
@@ -86,15 +83,16 @@ _syscall_import_exclude_list = set([
 ])
 
 def _cgo(
-        actions: AnalysisActions,
-        go_toolchain: GoToolchainInfo,
-        cgo_build_context: CGoBuildContext,
-        pkg_import_path: str,
-        standard: bool,
-        srcs: list[Artifact],
-        own_pre: list[CPreprocessor],
-        cgo_c_flags: list[str],
-        cgo_cpp_flags: list[str]) -> (CGoToolOut, Artifact):
+    actions: AnalysisActions,
+    go_toolchain: GoToolchainInfo,
+    cgo_build_context: CGoBuildContext,
+    pkg_import_path: str,
+    standard: bool,
+    srcs: list[Artifact],
+    own_pre: list[CPreprocessor],
+    cgo_c_flags: list[str],
+    cgo_cpp_flags: list[str],
+) -> (CGoToolOut, Artifact):
     """
     Run `cgo` on `.go` sources to generate Go, C, and C-Header sources.
     """
@@ -172,19 +170,20 @@ def _own_pre(actions: AnalysisActions, cgo_build_context: CGoBuildContext, packa
     )
 
 def build_cgo(
-        actions: AnalysisActions,
-        target_label: Label,
-        go_toolchain_info: GoToolchainInfo,
-        cgo_build_context: CGoBuildContext | None,
-        pkg_import_path: str,
-        package_root: str,
-        standard: bool,
-        cgo_files: list[Artifact],
-        h_files: list[Artifact],
-        c_files: list[Artifact],
-        c_flags: list[str],
-        cpp_flags: list[str],
-        anon_targets_allowed: bool = True) -> (list[Artifact], list[Artifact], Artifact):
+    actions: AnalysisActions,
+    target_label: Label,
+    go_toolchain_info: GoToolchainInfo,
+    cgo_build_context: CGoBuildContext | None,
+    pkg_import_path: str,
+    package_root: str,
+    standard: bool,
+    cgo_files: list[Artifact],
+    h_files: list[Artifact],
+    c_files: list[Artifact],
+    c_flags: list[str],
+    cpp_flags: list[str],
+    anon_targets_allowed: bool = True,
+) -> (list[Artifact], list[Artifact], Artifact):
     """
     Arguments:
         anon_targets_allowed: Set to `True` if the execution context allows calls to the `AnalysisActions#anon_target` API.
@@ -206,16 +205,20 @@ def build_cgo(
     c_gen_srcs = [cgo_tool_out.cgo_export_c] + cgo_tool_out.cgo2_c_files
 
     # Wrap the generated CGO C headers in a CPreprocessor object for compiling.
-    cgo_headers_pre = CPreprocessor(args = CPreprocessorArgs(args = [
-        "-I",
-        prepare_headers(
-            actions,
-            cgo_build_context.cxx_toolchain_info,
-            {h.basename: h for h in c_gen_headers},
-            "cgo-private-headers",
-            uses_content_based_paths = True,
-        ).include_path,
-    ]))
+    cgo_headers_pre = CPreprocessor(
+        args = CPreprocessorArgs(
+            args = [
+                "-I",
+                prepare_headers(
+                    actions,
+                    cgo_build_context.cxx_toolchain_info,
+                    {h.basename: h for h in c_gen_headers},
+                    "cgo-private-headers",
+                    uses_content_based_paths = True,
+                ).include_path,
+            ]
+        )
+    )
 
     # Compile C++ sources into object files.
     c_compile_cmds = cxx_compile_srcs(

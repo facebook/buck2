@@ -24,98 +24,203 @@ cython_library = prelude_rule(
         # can access required attributes like supported_platforms_regex, preferred_linkage, etc.
         # This mirrors how cxx_python_extension inherits these attrs.
         # @unsorted-dict-items
-        {k: attrs.default_only(v) for k, v in cxx_rules.cxx_library.attrs.items()} |
-        python_common.base_module_arg() |
-        buck.labels_arg() |
-        buck.contacts_arg() |
-        {
-            "allow_embedding": attrs.option(attrs.bool(), default = None, doc = """
+        {k: attrs.default_only(v) for k, v in cxx_rules.cxx_library.attrs.items()}
+        | python_common.base_module_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
+        | {
+            "allow_embedding": attrs.option(
+                attrs.bool(),
+                default = None,
+                doc = """
                 Whether to allow embedding this extension into the main binary.
-            """),
-            "api": attrs.list(attrs.string(), default = [], doc = """
+            """,
+            ),
+            "api": attrs.list(
+                attrs.string(),
+                default = [],
+                doc = """
                 List of module names that should generate public API headers
                 (_api.h files) for C++ interop.
-            """),
-            "code_comments": attrs.bool(default = False, doc = """
+            """,
+            ),
+            "code_comments": attrs.bool(
+                default = False,
+                doc = """
                 Whether to include source code comments in the generated output.
-            """),
-            "cpp_compiler_flags": attrs.list(attrs.arg(), default = [], doc = """
+            """,
+            ),
+            "cpp_compiler_flags": attrs.list(
+                attrs.arg(),
+                default = [],
+                doc = """
                 Additional flags to pass to the C++ compiler.
-            """),
-            "cpp_deps": attrs.list(attrs.dep(), default = [], doc = """
+            """,
+            ),
+            "cpp_deps": attrs.list(
+                attrs.dep(),
+                default = [],
+                doc = """
                 C++ library dependencies for linking.
-            """),
-            "cpp_external_deps": attrs.list(attrs.string(), default = [], doc = """
+            """,
+            ),
+            "cpp_external_deps": attrs.list(
+                attrs.string(),
+                default = [],
+                doc = """
                 External C++ dependencies specified by name.
-            """),
-            "cpp_preprocessor_flags": attrs.list(attrs.arg(), default = [], doc = """
+            """,
+            ),
+            "cpp_preprocessor_flags": attrs.list(
+                attrs.arg(),
+                default = [],
+                doc = """
                 Additional C++ preprocessor flags.
-            """),
-            "cpp_python_extension_srcs": attrs.list(attrs.source(), default = [], doc = """
+            """,
+            ),
+            "cpp_python_extension_srcs": attrs.list(
+                attrs.source(),
+                default = [],
+                doc = """
                 Additional C++ source files to compile into the Python extensions.
-            """),
-            "cython_annotate": attrs.option(attrs.enum(["off", "basic", "fullc"]), default = None, doc = """
+            """,
+            ),
+            "cython_annotate": attrs.option(
+                attrs.enum(["off", "basic", "fullc"]),
+                default = None,
+                doc = """
                 Level of Cython annotation to generate.
-            """),
-            "cython_binding": attrs.bool(default = False, doc = """
+            """,
+            ),
+            "cython_binding": attrs.bool(
+                default = False,
+                doc = """
                 Whether this is a Cython binding module.
-            """),
-            "cython_compiler": attrs.option(attrs.dep(providers = [RunInfo]), default = None, doc = """
+            """,
+            ),
+            "cython_compiler": attrs.option(
+                attrs.dep(providers = [RunInfo]),
+                default = None,
+                doc = """
                 Override the default Cython compiler.
-            """),
-            "cython_so_package": attrs.option(attrs.string(), default = None, doc = """
+            """,
+            ),
+            "cython_so_package": attrs.option(
+                attrs.string(),
+                default = None,
+                doc = """
                 Override the package path for the generated .so file.
-            """),
-            "deps": attrs.list(attrs.dep(), default = [], doc = """
+            """,
+            ),
+            "deps": attrs.list(
+                attrs.dep(),
+                default = [],
+                doc = """
                 Dependencies of this rule, including other cython_library
                 and python_library targets.
-            """),
-            "flags": attrs.list(attrs.string(), default = [], doc = """
+            """,
+            ),
+            "flags": attrs.list(
+                attrs.string(),
+                default = [],
+                doc = """
                 Additional flags to pass to the Cython compiler.
-            """),
-            "generate_cpp": attrs.bool(default = True, doc = """
+            """,
+            ),
+            "generate_cpp": attrs.bool(
+                default = True,
+                doc = """
                 Whether to generate C++ (.cpp) or C (.c) output from Cython.
-            """),
-            "header_namespace": attrs.option(attrs.string(), default = None, doc = """
+            """,
+            ),
+            "header_namespace": attrs.option(
+                attrs.string(),
+                default = None,
+                doc = """
                 A namespace for the exported headers. If set, headers will be
                 available under this namespace for dependent rules.
-            """),
-            "headers": attrs.named_set(attrs.source(), sorted = True, default = [], doc = """
+            """,
+            ),
+            "headers": attrs.named_set(
+                attrs.source(),
+                sorted = True,
+                default = [],
+                doc = """
                 Cython header files (.pxd) to expose to dependent Cython rules.
-            """),
-            "includes": attrs.named_set(attrs.source(), sorted = True, default = [], doc = """
+            """,
+            ),
+            "includes": attrs.named_set(
+                attrs.source(),
+                sorted = True,
+                default = [],
+                doc = """
                 Additional Cython include files (.pxd, .pxi) for this library.
-            """),
-            "legacy_noexcept": attrs.bool(default = True, doc = """
+            """,
+            ),
+            "legacy_noexcept": attrs.bool(
+                default = True,
+                doc = """
                 Whether to use legacy implicit noexcept behavior.
-            """),
-            "need_static_lib": attrs.bool(default = False, doc = """
+            """,
+            ),
+            "need_static_lib": attrs.bool(
+                default = False,
+                doc = """
                 Whether to also produce a static C++ library.
-            """),
-            "public_declarations": attrs.list(attrs.string(), default = [], doc = """
-                List of public declaration module names.
-            """),
-            "python_deps": attrs.list(attrs.dep(), default = [], doc = """
-                Python-only dependencies.
-            """),
-            "python_external_deps": attrs.list(attrs.string(), default = [], doc = """
-                External Python dependencies specified by name.
-            """),
-            "srcs": attrs.named_set(attrs.source(), sorted = True, default = [], doc = """
-                The Cython source files (.pyx) and header files (.pxd, .pxi)
-                to include in this library.
-            """),
-            "suffix_all": attrs.option(attrs.bool(), default = None, doc = """
-                Whether to suffix all symbols for static linking.
-            """),
-            "types": attrs.list(attrs.source(), default = [], doc = """
-                Type stub files (.pyi) for the generated modules.
-            """),
-            "typing": attrs.bool(default = False, doc = """
-                Whether to enable type checking support.
-            """),
+            """,
+            ),
             # Override inherited cxx_library attrs that need concrete defaults
             "preferred_linkage": attrs.enum(["any", "static", "shared"], default = "any"),
+            "public_declarations": attrs.list(
+                attrs.string(),
+                default = [],
+                doc = """
+                List of public declaration module names.
+            """,
+            ),
+            "python_deps": attrs.list(
+                attrs.dep(),
+                default = [],
+                doc = """
+                Python-only dependencies.
+            """,
+            ),
+            "python_external_deps": attrs.list(
+                attrs.string(),
+                default = [],
+                doc = """
+                External Python dependencies specified by name.
+            """,
+            ),
+            "srcs": attrs.named_set(
+                attrs.source(),
+                sorted = True,
+                default = [],
+                doc = """
+                The Cython source files (.pyx) and header files (.pxd, .pxi)
+                to include in this library.
+            """,
+            ),
+            "suffix_all": attrs.option(
+                attrs.bool(),
+                default = None,
+                doc = """
+                Whether to suffix all symbols for static linking.
+            """,
+            ),
+            "types": attrs.list(
+                attrs.source(),
+                default = [],
+                doc = """
+                Type stub files (.pyi) for the generated modules.
+            """,
+            ),
+            "typing": attrs.bool(
+                default = False,
+                doc = """
+                Whether to enable type checking support.
+            """,
+            ),
             # Private/toolchain attrs
             "_cxx_toolchain": toolchains_common.cxx(),
             "_cython_toolchain": toolchains_common.cython(),
@@ -139,34 +244,62 @@ cython_static_extension = prelude_rule(
         # Inherit all cxx_library attrs as default_only so cxx_library_parameterized
         # can access required attributes like supported_platforms_regex, preferred_linkage, etc.
         # @unsorted-dict-items
-        {k: attrs.default_only(v) for k, v in cxx_rules.cxx_library.attrs.items()} |
-        python_common.base_module_arg() |
-        {
-            "compiler_flags": attrs.list(attrs.arg(), default = [], doc = """
+        {k: attrs.default_only(v) for k, v in cxx_rules.cxx_library.attrs.items()}
+        | python_common.base_module_arg()
+        | {
+            "compiler_flags": attrs.list(
+                attrs.arg(),
+                default = [],
+                doc = """
                 Additional C++ compiler flags.
-            """),
-            "cython_binding": attrs.bool(default = False, doc = """
+            """,
+            ),
+            "cython_binding": attrs.bool(
+                default = False,
+                doc = """
                 Whether this is a Cython binding module.
-            """),
-            "cython_code_comments": attrs.bool(default = False, doc = """
+            """,
+            ),
+            "cython_code_comments": attrs.bool(
+                default = False,
+                doc = """
                 Whether to include source code comments in the generated output.
-            """),
-            "cython_compiler": attrs.option(attrs.dep(providers = [RunInfo]), default = None, doc = """
+            """,
+            ),
+            "cython_compiler": attrs.option(
+                attrs.dep(providers = [RunInfo]),
+                default = None,
+                doc = """
                 Override the default Cython compiler.
-            """),
-            "cython_deps": attrs.list(attrs.dep(), default = [], doc = """
+            """,
+            ),
+            "cython_deps": attrs.list(
+                attrs.dep(),
+                default = [],
+                doc = """
                 Cython-specific dependencies (other cython_library or
                 cython_static_extension targets).
-            """),
-            "cython_fast_fail": attrs.bool(default = True, doc = """
+            """,
+            ),
+            "cython_fast_fail": attrs.bool(
+                default = True,
+                doc = """
                 Whether to enable --fast-fail for Cython compilation.
-            """),
-            "cython_flags": attrs.list(attrs.string(), default = [], doc = """
+            """,
+            ),
+            "cython_flags": attrs.list(
+                attrs.string(),
+                default = [],
+                doc = """
                 Additional flags to pass to the Cython compiler.
-            """),
-            "cython_generate_cpp": attrs.bool(default = True, doc = """
+            """,
+            ),
+            "cython_generate_cpp": attrs.bool(
+                default = True,
+                doc = """
                 Whether to generate C++ (.cpp) or C (.c) output.
-            """),
+            """,
+            ),
             "cython_headers": attrs.one_of(
                 attrs.list(attrs.source()),
                 attrs.dict(attrs.string(), attrs.source()),
@@ -183,46 +316,91 @@ cython_static_extension = prelude_rule(
                     Can be a list of sources or a dict mapping names to sources.
                 """,
             ),
-            "cython_pyx": attrs.source(doc = """
+            "cython_pyx": attrs.source(
+                doc = """
                 The single Cython .pyx source file.
-            """),
-            "cython_pyx_on_disk": attrs.option(attrs.source(), default = None, doc = """
+            """
+            ),
+            "cython_pyx_on_disk": attrs.option(
+                attrs.source(),
+                default = None,
+                doc = """
                 Optional on-disk override for the .pyx source.
-            """),
-            "cython_version": attrs.enum(["2", "3", "3str"], default = "3", doc = """
+            """,
+            ),
+            "cython_version": attrs.enum(
+                ["2", "3", "3str"],
+                default = "3",
+                doc = """
                 The Cython language version to target.
-            """),
-            "deps": attrs.list(attrs.dep(), default = [], doc = """
+            """,
+            ),
+            "deps": attrs.list(
+                attrs.dep(),
+                default = [],
+                doc = """
                 C++ library dependencies.
-            """),
-            "legacy_noexcept": attrs.bool(default = True, doc = """
+            """,
+            ),
+            "legacy_noexcept": attrs.bool(
+                default = True,
+                doc = """
                 Whether to use legacy implicit noexcept behavior.
-            """),
-            "preprocessor_flags": attrs.list(attrs.arg(), default = [], doc = """
-                Additional C++ preprocessor flags.
-            """),
-            "public_deps": attrs.list(attrs.dep(), default = [], doc = """
-                Public C++ dependencies that are re-exported.
-            """),
-            "public_include_directories": attrs.list(attrs.string(), default = [], doc = """
-                Public include directories for C++ consumers.
-            """),
-            "python_deps": attrs.list(attrs.dep(), default = [], doc = """
-                Python dependencies.
-            """),
-            "python_types": attrs.list(attrs.source(), default = [], doc = """
-                Type stub files (.pyi) for the generated extension.
-            """),
-            "raw_headers": attrs.list(attrs.source(), default = [], doc = """
-                Raw C/C++ header files.
-            """),
-            # cxx attrs
-            "srcs": attrs.list(attrs.source(), default = [], doc = """
-                Additional C/C++ source files to compile alongside the
-                Cython-generated source.
-            """),
+            """,
+            ),
             # Override inherited cxx_library attrs that need concrete defaults
             "preferred_linkage": attrs.enum(["any", "static", "shared"], default = "any"),
+            "preprocessor_flags": attrs.list(
+                attrs.arg(),
+                default = [],
+                doc = """
+                Additional C++ preprocessor flags.
+            """,
+            ),
+            "public_deps": attrs.list(
+                attrs.dep(),
+                default = [],
+                doc = """
+                Public C++ dependencies that are re-exported.
+            """,
+            ),
+            "public_include_directories": attrs.list(
+                attrs.string(),
+                default = [],
+                doc = """
+                Public include directories for C++ consumers.
+            """,
+            ),
+            "python_deps": attrs.list(
+                attrs.dep(),
+                default = [],
+                doc = """
+                Python dependencies.
+            """,
+            ),
+            "python_types": attrs.list(
+                attrs.source(),
+                default = [],
+                doc = """
+                Type stub files (.pyi) for the generated extension.
+            """,
+            ),
+            "raw_headers": attrs.list(
+                attrs.source(),
+                default = [],
+                doc = """
+                Raw C/C++ header files.
+            """,
+            ),
+            # cxx attrs
+            "srcs": attrs.list(
+                attrs.source(),
+                default = [],
+                doc = """
+                Additional C/C++ source files to compile alongside the
+                Cython-generated source.
+            """,
+            ),
             # Toolchain attrs
             "_cxx_toolchain": toolchains_common.cxx(),
             "_cython_toolchain": toolchains_common.cython(),
@@ -245,13 +423,20 @@ cython_toolchain_rule = prelude_rule(
     """,
     is_toolchain_rule = True,
     attrs = {
-        "compiler": attrs.dep(providers = [RunInfo], doc = """
+        "compiler": attrs.dep(
+            providers = [RunInfo],
+            doc = """
             The Cython compiler binary target. Use select() + py_version_select()
             to vary the compiler by Python version.
-        """),
-        "default_flags": attrs.list(attrs.string(), default = [], doc = """
+        """,
+        ),
+        "default_flags": attrs.list(
+            attrs.string(),
+            default = [],
+            doc = """
             Default flags to pass to the Cython compiler.
-        """),
+        """,
+        ),
     },
 )
 

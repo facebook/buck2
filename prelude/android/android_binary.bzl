@@ -69,7 +69,9 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
     build_config_libs = get_build_config_java_libraries(ctx, build_config_infos, ctx.attrs.package_type, ctx.attrs.exopackage_modes)
     java_packaging_deps += get_all_java_packaging_deps_from_packaging_infos(ctx, build_config_libs)
 
-    has_proguard_config = ctx.attrs.proguard_config != None or ctx.attrs.android_sdk_proguard_config == "default" or ctx.attrs.android_sdk_proguard_config == "optimized"
+    has_proguard_config = (
+        ctx.attrs.proguard_config != None or ctx.attrs.android_sdk_proguard_config == "default" or ctx.attrs.android_sdk_proguard_config == "optimized"
+    )
     should_pre_dex = not ctx.attrs.disable_pre_dex and not has_proguard_config and not ctx.attrs.preprocess_java_classes_bash
 
     enhancement_ctx = create_enhancement_context(ctx)
@@ -92,12 +94,19 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
         native_library_merge_code_generator = getattr(ctx.attrs, "native_library_merge_code_generator", None),
         native_library_merge_sequence_blocklist = getattr(ctx.attrs, "native_library_merge_sequence_blocklist", None),
     )
-    java_packaging_deps.extend([create_java_packaging_dep(
-        ctx,
-        library_output,
-    ) for library_output in native_library_info.generated_java_code])
+    java_packaging_deps.extend([
+        create_java_packaging_dep(
+            ctx,
+            library_output,
+        )
+        for library_output in native_library_info.generated_java_code
+    ])
 
-    referenced_resources_lists = [java_packaging_dep.dex.referenced_resources for java_packaging_dep in java_packaging_deps if java_packaging_dep.dex] if ctx.attrs.trim_resource_ids and should_pre_dex else []
+    referenced_resources_lists = (
+        [java_packaging_dep.dex.referenced_resources for java_packaging_dep in java_packaging_deps if java_packaging_dep.dex]
+        if ctx.attrs.trim_resource_ids and should_pre_dex
+        else []
+    )
     resources_info = get_android_binary_resources_info(
         ctx,
         deps,
@@ -123,10 +132,7 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
     java_packaging_deps += compiled_r_dot_java_deps
     sub_targets["compiled_r_dot_java"] = [
         DefaultInfo(
-            default_outputs = [
-                compiled_r_dot_java_dep.jar
-                for compiled_r_dot_java_dep in compiled_r_dot_java_deps
-            ],
+            default_outputs = [compiled_r_dot_java_dep.jar for compiled_r_dot_java_dep in compiled_r_dot_java_deps],
         ),
     ]
     for r_dot_java_info in resources_info.r_dot_java_infos:
@@ -136,7 +142,9 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
             ),
         ]
     validation_outputs = []
-    dex_java_packaging_deps = [packaging_dep for packaging_dep in java_packaging_deps if packaging_dep.dex and packaging_dep.dex.dex.owner.raw_target() not in no_dx_target_labels]
+    dex_java_packaging_deps = [
+        packaging_dep for packaging_dep in java_packaging_deps if packaging_dep.dex and packaging_dep.dex.dex.owner.raw_target() not in no_dx_target_labels
+    ]
     if should_pre_dex:
         pre_dexed_libs = [packaging_dep.dex for packaging_dep in dex_java_packaging_deps]
         if ctx.attrs.duplicate_class_checker_enabled:
@@ -172,10 +180,16 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
             if materialized_artifacts_dir:
                 materialized_artifacts.append(materialized_artifacts_dir)
         if has_proguard_config:
-            additional_proguard_configs = [resources_info.proguard_config_file] if not ctx.attrs.ignore_aapt_proguard_config and resources_info.proguard_config_file else []
+            additional_proguard_configs = (
+                [resources_info.proguard_config_file] if not ctx.attrs.ignore_aapt_proguard_config and resources_info.proguard_config_file else []
+            )
 
             no_dx_for_additional_jars = [no_dx for no_dx in ctx.attrs.no_dx if no_dx not in ctx.attrs.exclude_duplicate_targets_do_not_use]
-            additional_jars = android_toolchain.android_bootclasspath + android_toolchain.android_optional_jars + [no_dx[DefaultInfo].default_outputs[0] for no_dx in no_dx_for_additional_jars if len(no_dx[DefaultInfo].default_outputs) == 1]
+            additional_jars = (
+                android_toolchain.android_bootclasspath
+                + android_toolchain.android_optional_jars
+                + [no_dx[DefaultInfo].default_outputs[0] for no_dx in no_dx_for_additional_jars if len(no_dx[DefaultInfo].default_outputs) == 1]
+            )
 
             proguard_output = get_proguard_output(
                 ctx,
@@ -250,10 +264,8 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
     )
 
 def get_build_config_java_libraries(
-        ctx: AnalysisContext,
-        build_config_infos: list[AndroidBuildConfigInfo],
-        package_type: str,
-        exopackage_modes: list[str]) -> list[JavaPackagingInfo]:
+    ctx: AnalysisContext, build_config_infos: list[AndroidBuildConfigInfo], package_type: str, exopackage_modes: list[str]
+) -> list[JavaPackagingInfo]:
     # BuildConfig deps should not be added for instrumented APKs because BuildConfig.class has
     # already been added to the APK under test.
     if package_type == "instrumented":
@@ -267,7 +279,11 @@ def get_build_config_java_libraries(
 
     default_build_config_fields = get_build_config_fields(ctx.attrs.build_config_values)
 
-    android_binary_values_file = ctx.attrs.build_config_values_file[DefaultInfo].default_outputs[0] if isinstance(ctx.attrs.build_config_values_file, Dependency) else ctx.attrs.build_config_values_file
+    android_binary_values_file = (
+        ctx.attrs.build_config_values_file[DefaultInfo].default_outputs[0]
+        if isinstance(ctx.attrs.build_config_values_file, Dependency)
+        else ctx.attrs.build_config_values_file
+    )
 
     java_libraries = []
     java_packages_seen = []
@@ -281,13 +297,15 @@ def get_build_config_java_libraries(
             all_build_config_values[build_config_field.name] = build_config_field
 
         values_file = android_binary_values_file if android_binary_values_file else build_config_info.values_file
-        java_libraries.append(generate_android_build_config(
-            ctx,
-            java_package,
-            java_package,
-            True,  # use_constant_expressions
-            all_build_config_values.values(),
-            values_file,
-        )[1])
+        java_libraries.append(
+            generate_android_build_config(
+                ctx,
+                java_package,
+                java_package,
+                True,  # use_constant_expressions
+                all_build_config_values.values(),
+                values_file,
+            )[1]
+        )
 
     return java_libraries

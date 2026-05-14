@@ -67,7 +67,7 @@ def _is_resources_toolchain_enabled() -> bool:
         # Avoid returning buck2-only targets
         return False
 
-    return (read_root_config("apple", "resources_toolchain_enabled", "true").lower() == "true")
+    return read_root_config("apple", "resources_toolchain_enabled", "true").lower() == "true"
 
 def make_resource_bundle_rule(apple_resource_bundle_rule, **kwargs) -> [None, str]:
     # The `apple_resource_bundle()` target will _always_ be Xcode-based, so resources can always be used
@@ -93,9 +93,6 @@ def make_resource_bundle_rule(apple_resource_bundle_rule, **kwargs) -> [None, st
         resource_bundle_kwargs[field_name] = kwargs.get(field_name)
 
     # TODO(T125269558): Remove usage of apple_resource_bundle() once we have exec groups.
-    apple_resource_bundle_rule(
-        name = resource_bundle_name,
-        **resource_bundle_kwargs
-    )
+    apple_resource_bundle_rule(name = resource_bundle_name, **resource_bundle_kwargs)
 
     return ":{}".format(resource_bundle_name)

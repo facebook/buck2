@@ -10,21 +10,17 @@ load("@prelude//:paths.bzl", "paths")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(":cxx_toolchain_types.bzl", "CxxToolchainInfo")
 
-def _shared_library_interface(
-        ctx: AnalysisContext,
-        output: str,
-        identifier: str,
-        shared_lib: [Artifact, Promise]) -> Artifact:
+def _shared_library_interface(ctx: AnalysisContext, output: str, identifier: str, shared_lib: [Artifact, Promise]) -> Artifact:
     """
     Convert the given shared library into an interface used for linking.
     """
     linker_info = get_cxx_toolchain_info(ctx).linker_info
     if linker_info.mk_shlib_intf == None:
         fail(
-            "Shared library interface generation is enabled (shlib_interfaces != \"disabled\") " +
-            "but the toolchain does not define `shared_library_interface_producer`. " +
-            "Either set `shared_library_interface_producer` in the toolchain or " +
-            "disable shared library interfaces by setting `shlib_interfaces = \"disabled\"`.",
+            'Shared library interface generation is enabled (shlib_interfaces != "disabled") '
+            + "but the toolchain does not define `shared_library_interface_producer`. "
+            + "Either set `shared_library_interface_producer` in the toolchain or "
+            + 'disable shared library interfaces by setting `shlib_interfaces = "disabled"`.',
         )
     args = cmd_args(linker_info.mk_shlib_intf[RunInfo])
     args.add(shared_lib)
@@ -37,9 +33,11 @@ def _shared_library_interface(
     )
     return output
 
-_InterfaceInfo = provider(fields = {
-    "artifact": provider_field(typing.Any, default = None),  # "artifact"
-})
+_InterfaceInfo = provider(
+    fields = {
+        "artifact": provider_field(typing.Any, default = None),  # "artifact"
+    }
+)
 
 def _anon_shared_library_interface_impl(ctx):
     output = _shared_library_interface(
@@ -64,10 +62,7 @@ _anon_shared_library_interface = anon_rule(
     },
 )
 
-def shared_library_interface(
-        ctx: AnalysisContext,
-        shared_lib: Artifact,
-        anonymous: bool = False) -> Artifact:
+def shared_library_interface(ctx: AnalysisContext, shared_lib: Artifact, anonymous: bool = False) -> Artifact:
     output = paths.join("__shlib_intfs__", shared_lib.short_path)
 
     if anonymous:

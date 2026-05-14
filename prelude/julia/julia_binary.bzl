@@ -47,11 +47,14 @@ def build_jll_shlibs_mapping(ctx: AnalysisContext, json_info_file: Artifact):
     )
 
     # build a tree for the c/c++ shlibs
-    shlibs = traverse_shared_library_info(merge_shared_libraries(
-        ctx.actions,
-        None,
-        filter(None, [d.shared_library_info for d in deps]),
-    ), transformation_provider = None)
+    shlibs = traverse_shared_library_info(
+        merge_shared_libraries(
+            ctx.actions,
+            None,
+            filter(None, [d.shared_library_info for d in deps]),
+        ),
+        transformation_provider = None,
+    )
 
     shared_libs_symlink_tree = create_shlib_symlink_tree(
         actions = ctx.actions,
@@ -93,10 +96,7 @@ def build_load_path_symtree(ctx: AnalysisContext):
     src_labels = flatten([t.src_labels for t in traversed])
     srcs = flatten([t.srcs for t in traversed])
 
-    dict_from_tree = {
-        k: p
-        for k, p in zip(src_labels, srcs)
-    }
+    dict_from_tree = {k: p for k, p in zip(src_labels, srcs)}
     symlink_dir = ctx.actions.symlinked_dir("_modules_", dict_from_tree, has_content_based_path = False)
 
     return symlink_dir

@@ -50,11 +50,14 @@ cxx_internal_tools = rule(
 )
 
 def _cxx_hacks_impl(_ctx):
-    return [DefaultInfo(), TemplatePlaceholderInfo(
-        unkeyed_variables = {
-            "cxx-header-tree": "/dev/null/HACK-CXX-HEADER-TREE",
-        },
-    )]
+    return [
+        DefaultInfo(),
+        TemplatePlaceholderInfo(
+            unkeyed_variables = {
+                "cxx-header-tree": "/dev/null/HACK-CXX-HEADER-TREE",
+            },
+        ),
+    ]
 
 cxx_hacks = rule(
     impl = _cxx_hacks_impl,

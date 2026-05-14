@@ -22,10 +22,7 @@ def _configuration_info_union(infos):
     )
 
 def _constraint_values_to_configuration(values):
-    return ConfigurationInfo(constraints = {
-        info[ConstraintValueInfo].setting.label: info[ConstraintValueInfo]
-        for info in values
-    }, values = {})
+    return ConfigurationInfo(constraints = {info[ConstraintValueInfo].setting.label: info[ConstraintValueInfo] for info in values}, values = {})
 
 util = struct(
     configuration_info_union = _configuration_info_union,

@@ -38,31 +38,40 @@ load(
 
 def _serialize_linkable(linkable):
     if isinstance(linkable, ArchiveLinkable):
-        return ("archive", (
+        return (
+            "archive",
             (
-                linkable.archive.artifact,
-                linkable.archive.external_objects,
-                linkable.archive.archive_contents_type.value,
+                (
+                    linkable.archive.artifact,
+                    linkable.archive.external_objects,
+                    linkable.archive.archive_contents_type.value,
+                ),
+                linkable.link_whole,
+                linkable.linker_type.value,
+                linkable.supports_lto,
             ),
-            linkable.link_whole,
-            linkable.linker_type.value,
-            linkable.supports_lto,
-        ))
+        )
 
     if isinstance(linkable, ObjectsLinkable):
-        return ("objects", (
-            linkable.objects,
-            linkable.link_whole,
-            linkable.linker_type.value,
-        ))
+        return (
+            "objects",
+            (
+                linkable.objects,
+                linkable.link_whole,
+                linkable.linker_type.value,
+            ),
+        )
 
     if isinstance(linkable, SharedLibLinkable):
-        return ("shared", (
-            linkable.lib,
-            linkable.link_without_soname,
-        ))
+        return (
+            "shared",
+            (
+                linkable.lib,
+                linkable.link_without_soname,
+            ),
+        )
 
-    fail("cannot serialize linkable \"{}\"".format(str(linkable)))
+    fail('cannot serialize linkable "{}"'.format(str(linkable)))
 
 def _serialize_link_info(info: LinkInfo):
     external_debug_info = []
@@ -92,10 +101,7 @@ def _serialize_link_args(link: LinkArgs):
 def _serialize_links(links: list[LinkArgs]):
     return [_serialize_link_args(link) for link in links]
 
-def serialize_anon_attrs(
-        output: str,
-        result_type: CxxLinkResultType,
-        opts: LinkOptions) -> dict[str, typing.Any]:
+def serialize_anon_attrs(output: str, result_type: CxxLinkResultType, opts: LinkOptions) -> dict[str, typing.Any]:
     return dict(
         links = _serialize_links(opts.links),
         output = output,
@@ -150,18 +156,12 @@ def _deserialize_link_info(actions: AnalysisActions, label: Label, info) -> Link
         linkables = [_deserialize_linkable(linkable) for linkable in linkables],
         external_debug_info = make_artifact_tset(
             actions = actions,
-            infos = [
-                ArtifactInfo(label = label, artifacts = artifacts, tags = [])
-                for _label, artifacts in external_debug_info
-            ],
+            infos = [ArtifactInfo(label = label, artifacts = artifacts, tags = []) for _label, artifacts in external_debug_info],
         ),
         metadata = [DepMetadata(version = v) for v in metadata],
     )
 
-def _deserialize_link_args(
-        actions: AnalysisActions,
-        label: Label,
-        link: (str, typing.Any)) -> LinkArgs:
+def _deserialize_link_args(actions: AnalysisActions, label: Label, link: (str, typing.Any)) -> LinkArgs:
     typ, payload = link
 
     if typ == "flags":
@@ -172,10 +172,7 @@ def _deserialize_link_args(
 
     fail("invalid link args type: {}".format(typ))
 
-def deserialize_anon_attrs(
-        actions: AnalysisActions,
-        label: Label,
-        attrs: struct) -> (str, CxxLinkResultType, LinkOptions):
+def deserialize_anon_attrs(actions: AnalysisActions, label: Label, attrs: struct) -> (str, CxxLinkResultType, LinkOptions):
     opts = link_options(
         links = [_deserialize_link_args(actions, label, link) for link in attrs.links],
         import_library = attrs.import_library,

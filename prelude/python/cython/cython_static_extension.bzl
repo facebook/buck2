@@ -87,11 +87,7 @@ load(
     "CythonToolchainInfo",
 )
 
-def _gather_cython_includes_static(
-        ctx: AnalysisContext,
-        cython_headers,
-        cython_includes,
-        cython_deps: list[Dependency]) -> (Artifact, dict[str, Artifact]):
+def _gather_cython_includes_static(ctx: AnalysisContext, cython_headers, cython_includes, cython_deps: list[Dependency]) -> (Artifact, dict[str, Artifact]):
     """
     Collect Cython include files from the current rule and transitive deps.
     """
@@ -130,7 +126,7 @@ def _gather_cython_includes_static(
         parts = paths.dirname(path).split("/")
         for i in range(len(parts)):
             if parts[i] and parts[i] != ".":
-                dir_path = "/".join(parts[:i + 1])
+                dir_path = "/".join(parts[: i + 1])
                 if dir_path not in all_dirs:
                     all_dirs[dir_path] = True
 
@@ -237,14 +233,18 @@ def cython_static_extension_impl(ctx: AnalysisContext) -> list[Provider]:
         module_name + "_api.h": [DefaultInfo(default_output = compile_output.api_header)],
         module_name + ".h": [DefaultInfo(default_output = compile_output.public_header)],
     }
-    sub_targets["generated-sources"] = [DefaultInfo(
-        default_outputs = [compile_output.cpp_src],
-        sub_targets = gen_src_sub_targets,
-    )]
-    sub_targets["generated-headers"] = [DefaultInfo(
-        default_outputs = [compile_output.api_header, compile_output.public_header],
-        sub_targets = gen_header_sub_targets,
-    )]
+    sub_targets["generated-sources"] = [
+        DefaultInfo(
+            default_outputs = [compile_output.cpp_src],
+            sub_targets = gen_src_sub_targets,
+        )
+    ]
+    sub_targets["generated-headers"] = [
+        DefaultInfo(
+            default_outputs = [compile_output.api_header, compile_output.public_header],
+            sub_targets = gen_header_sub_targets,
+        )
+    ]
 
     # Build the C++ extension with static linkage preference
     if ctx.attrs._target_os_type[OsLookup].os == Os("windows"):
@@ -352,21 +352,19 @@ def cython_static_extension_impl(ctx: AnalysisContext) -> list[Provider]:
     providers.append(library_info)
 
     # CxxExtensionInfo
-    providers.append(merge_cxx_extension_info(
-        actions = ctx.actions,
-        deps = raw_deps,
-    ))
+    providers.append(
+        merge_cxx_extension_info(
+            actions = ctx.actions,
+            deps = raw_deps,
+        )
+    )
 
     # Linkable graph
     linkable_graph = create_linkable_graph(
         ctx,
         node = create_linkable_graph_node(
             ctx,
-            roots = get_roots([
-                dep
-                for dep in raw_deps
-                if PythonLibraryInfo in dep
-            ]),
+            roots = get_roots([dep for dep in raw_deps if PythonLibraryInfo in dep]),
         ),
         deps = raw_deps,
     )
@@ -396,10 +394,12 @@ def cython_static_extension_impl(ctx: AnalysisContext) -> list[Provider]:
         base_module + module_name + "_api.h": compile_output.api_header,
         base_module + module_name + ".h": compile_output.public_header,
     }
-    providers.append(CythonLibraryInfo(
-        declaration_headers = declaration_hdrs,
-        include_info = cython_includes_info,
-    ))
+    providers.append(
+        CythonLibraryInfo(
+            declaration_headers = declaration_hdrs,
+            include_info = cython_includes_info,
+        )
+    )
 
     # Source DB
     if src_types:
@@ -413,9 +413,11 @@ def cython_static_extension_impl(ctx: AnalysisContext) -> list[Provider]:
     default_flavor = shared_output.get(LinkableFlavor("default"), None)
     default_output = default_flavor.default if default_flavor else compile_output.cpp_src
 
-    providers.append(DefaultInfo(
-        default_output = default_output,
-        sub_targets = sub_targets,
-    ))
+    providers.append(
+        DefaultInfo(
+            default_output = default_output,
+            sub_targets = sub_targets,
+        )
+    )
 
     return providers

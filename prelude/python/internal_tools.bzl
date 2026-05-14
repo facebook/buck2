@@ -10,19 +10,21 @@
 # However, `PythonToolchainInfo` is used for things that are intended to actually be customizable
 # on a per-toolchain basis. This is for things that users are not expected to be able to
 # customize.
-PythonInternalToolsInfo = provider(fields = {
-    "default_sitecustomize": Artifact,
-    "fail_with_message": RunInfo,
-    "generate_static_extension_info": Dependency,
-    "make_py_package_inplace": RunInfo,
-    "make_py_package_manifest_module": RunInfo,
-    "make_py_package_modules": RunInfo,
-    "make_source_db": RunInfo,
-    "make_source_db_no_deps": RunInfo,
-    "run_lpar_main": Artifact,
-    # A filegroup that gets added to all python executables
-    "runtime_library": Dependency,
-})
+PythonInternalToolsInfo = provider(
+    fields = {
+        "default_sitecustomize": Artifact,
+        "fail_with_message": RunInfo,
+        "generate_static_extension_info": Dependency,
+        "make_py_package_inplace": RunInfo,
+        "make_py_package_manifest_module": RunInfo,
+        "make_py_package_modules": RunInfo,
+        "make_source_db": RunInfo,
+        "make_source_db_no_deps": RunInfo,
+        "run_lpar_main": Artifact,
+        # A filegroup that gets added to all python executables
+        "runtime_library": Dependency,
+    }
+)
 
 def _impl(ctx: AnalysisContext) -> list[Provider]:
     return [

@@ -31,11 +31,12 @@ load(":packages.bzl", "go_attr_pkg_name")
 load(":toolchain.bzl", "evaluate_cgo_enabled")
 
 def _gen_test_main(
-        ctx: AnalysisContext,
-        pkg_import_path: str,
-        coverage_mode: [GoCoverageMode, None],
-        cover_packages: list[str],  # packages those are included for coverage
-        test_go_files_argsfile: Artifact) -> Artifact:
+    ctx: AnalysisContext,
+    pkg_import_path: str,
+    coverage_mode: [GoCoverageMode, None],
+    cover_packages: list[str],  # packages those are included for coverage
+    test_go_files_argsfile: Artifact,
+) -> Artifact:
     """
     Generate a `main.go` which calls tests from the given sources.
     """

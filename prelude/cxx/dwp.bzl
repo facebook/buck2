@@ -17,15 +17,16 @@ def dwp_available(toolchain: CxxToolchainInfo):
     return dwp != None and split_debug_mode != SplitDebugMode("none")
 
 def run_dwp_action(
-        ctx: AnalysisContext,
-        toolchain: CxxToolchainInfo,
-        obj: Artifact,
-        identifier: [str, None],
-        category_suffix: [str, None],
-        referenced_objects: [ArgLike, list[Artifact]],
-        dwp_output: Artifact,
-        action_execution_properties: ActionExecutionAttributes = ActionExecutionAttributes(),
-        from_exe = True):
+    ctx: AnalysisContext,
+    toolchain: CxxToolchainInfo,
+    obj: Artifact,
+    identifier: [str, None],
+    category_suffix: [str, None],
+    referenced_objects: [ArgLike, list[Artifact]],
+    dwp_output: Artifact,
+    action_execution_properties: ActionExecutionAttributes = ActionExecutionAttributes(),
+    from_exe = True,
+):
     dwp = toolchain.binary_utilities_info.dwp
 
     if from_exe:
@@ -65,24 +66,25 @@ def run_dwp_action(
     )
 
 def dwp(
-        ctx: AnalysisContext,
-        toolchain: CxxToolchainInfo,
-        # Executable/library to extra dwo paths from.
-        obj: Artifact,
-        # An identifier that will uniquely name this link action in the context of a category. Useful for
-        # differentiating multiple link actions in the same rule.
-        identifier: [str, None],
-        # A category suffix that will be added to the category of the link action that is generated.
-        category_suffix: [str, None],
-        # All `.o`/`.dwo` paths referenced in `obj`.
-        # TODO(T110378122): Ideally, referenced objects are a list of artifacts,
-        # but currently we don't track them properly.  So, we just pass in the full
-        # link line and extract all inputs from that, which is a bit of an
-        # overspecification.
-        referenced_objects: [ArgLike, list[Artifact]],
-        name_suffix: str = "",
-        action_execution_properties: ActionExecutionAttributes = ActionExecutionAttributes(),
-        from_exe = True) -> Artifact:
+    ctx: AnalysisContext,
+    toolchain: CxxToolchainInfo,
+    # Executable/library to extra dwo paths from.
+    obj: Artifact,
+    # An identifier that will uniquely name this link action in the context of a category. Useful for
+    # differentiating multiple link actions in the same rule.
+    identifier: [str, None],
+    # A category suffix that will be added to the category of the link action that is generated.
+    category_suffix: [str, None],
+    # All `.o`/`.dwo` paths referenced in `obj`.
+    # TODO(T110378122): Ideally, referenced objects are a list of artifacts,
+    # but currently we don't track them properly.  So, we just pass in the full
+    # link line and extract all inputs from that, which is a bit of an
+    # overspecification.
+    referenced_objects: [ArgLike, list[Artifact]],
+    name_suffix: str = "",
+    action_execution_properties: ActionExecutionAttributes = ActionExecutionAttributes(),
+    from_exe = True,
+) -> Artifact:
     # gdb/lldb expect to find a file named $file.dwp next to $file.
     output = ctx.actions.declare_output(obj.short_path + name_suffix + ".dwp", has_content_based_path = False)
     run_dwp_action(

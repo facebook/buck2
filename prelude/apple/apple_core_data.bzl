@@ -35,11 +35,15 @@ def apple_core_data_impl(ctx: AnalysisContext) -> list[Provider]:
 
     xcode_data_default_info, xcode_data_info = generate_xcode_data(ctx, "core_data_model", None, _xcode_populate_attributes)
 
-    return [DefaultInfo(
-        sub_targets = {
-            XCODE_DATA_SUB_TARGET: xcode_data_default_info,
-        },
-    ), graph, xcode_data_info]
+    return [
+        DefaultInfo(
+            sub_targets = {
+                XCODE_DATA_SUB_TARGET: xcode_data_default_info,
+            },
+        ),
+        graph,
+        xcode_data_info,
+    ]
 
 def compile_apple_core_data(ctx: AnalysisContext, specs: list[AppleCoreDataSpec], product_name: str) -> Artifact | None:
     if len(specs) == 0:
@@ -97,17 +101,21 @@ def _get_tool_command(ctx: AnalysisContext, core_data_spec: AppleCoreDataSpec, p
         sdk_version = get_bundle_min_target_version(ctx, ctx.attrs.binary),
     )
 
-    return cmd_args([
-        tool,
-        "--sdkroot",
-        ctx.attrs._apple_toolchain[AppleToolchainInfo].sdk_path,
-        "--" + get_platform_name_for_sdk(sdk_name) + "-deployment-target",
-        deployment_target,
-        "--module",
-        core_data_spec.module if core_data_spec.module else product_name,
-        cmd_args(core_data_spec.path, format = "./{}"),
-        output,
-    ], delimiter = " ", hidden = core_data_spec.path)
+    return cmd_args(
+        [
+            tool,
+            "--sdkroot",
+            ctx.attrs._apple_toolchain[AppleToolchainInfo].sdk_path,
+            "--" + get_platform_name_for_sdk(sdk_name) + "-deployment-target",
+            deployment_target,
+            "--module",
+            core_data_spec.module if core_data_spec.module else product_name,
+            cmd_args(core_data_spec.path, format = "./{}"),
+            output,
+        ],
+        delimiter = " ",
+        hidden = core_data_spec.path,
+    )
 
 def _xcode_populate_attributes(ctx) -> dict[str, typing.Any]:
     data = {XcodeDataInfoKeys.EXTRA_XCODE_FILES: [ctx.attrs.path]}

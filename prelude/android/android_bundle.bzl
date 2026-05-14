@@ -9,7 +9,15 @@
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//android:android_apk.bzl", "get_install_info")
 load("@prelude//android:android_binary.bzl", "get_binary_info")
-load("@prelude//android:android_providers.bzl", "AndroidAabInfo", "AndroidBinaryNativeLibsInfo", "AndroidBinaryPrimaryPlatformInfo", "AndroidBinaryResourcesInfo", "AndroidDerivedApkInfo", "DexFilesInfo")
+load(
+    "@prelude//android:android_providers.bzl",
+    "AndroidAabInfo",
+    "AndroidBinaryNativeLibsInfo",
+    "AndroidBinaryPrimaryPlatformInfo",
+    "AndroidBinaryResourcesInfo",
+    "AndroidDerivedApkInfo",
+    "DexFilesInfo",
+)
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:bundletool_util.bzl", "derive_universal_apk")
 load("@prelude//android:util.bzl", "package_validators_decorator")
@@ -59,9 +67,11 @@ def android_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
                 output_apk = default_output,
             ),
         )
-        sub_targets["aab"] = [DefaultInfo(
-            default_outputs = [output_bundle],
-        )]
+        sub_targets["aab"] = [
+            DefaultInfo(
+                default_outputs = [output_bundle],
+            )
+        ]
     else:
         default_output = output_bundle
 
@@ -80,21 +90,24 @@ def android_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         TemplatePlaceholderInfo(
             keyed_variables = {
                 "classpath": cmd_args([dep.jar for dep in java_packaging_deps if dep.jar], delimiter = get_path_separator_for_exec_os(ctx)),
-                "classpath_including_targets_with_no_output": cmd_args([dep.output_for_classpath_macro for dep in java_packaging_deps], delimiter = get_path_separator_for_exec_os(ctx)),
+                "classpath_including_targets_with_no_output": cmd_args(
+                    [dep.output_for_classpath_macro for dep in java_packaging_deps], delimiter = get_path_separator_for_exec_os(ctx)
+                ),
             },
         ),
     ] + extra_providers
 
 def build_bundle(
-        output_filename: str,
-        actions: AnalysisActions,
-        android_toolchain: AndroidToolchainInfo,
-        dex_files_info: DexFilesInfo,
-        native_library_info: AndroidBinaryNativeLibsInfo,
-        resources_info: AndroidBinaryResourcesInfo,
-        bundle_config: Artifact | None,
-        validation_deps_outputs: [list[Artifact], None] = None,
-        packaging_options: dict | None = None) -> Artifact:
+    output_filename: str,
+    actions: AnalysisActions,
+    android_toolchain: AndroidToolchainInfo,
+    dex_files_info: DexFilesInfo,
+    native_library_info: AndroidBinaryNativeLibsInfo,
+    resources_info: AndroidBinaryResourcesInfo,
+    bundle_config: Artifact | None,
+    validation_deps_outputs: [list[Artifact], None] = None,
+    packaging_options: dict | None = None,
+) -> Artifact:
     output_bundle = actions.declare_output("{}.aab".format(output_filename), has_content_based_path = False)
 
     bundle_builder_args = cmd_args(
@@ -116,17 +129,23 @@ def build_bundle(
     if android_toolchain.package_meta_inf_version_files:
         bundle_builder_args.add("--package-meta-inf-version-files")
 
-    root_module_asset_directories = native_library_info.root_module_native_lib_assets + dex_files_info.root_module_bootstrap_dex_dirs + dex_files_info.root_module_secondary_dex_dirs
+    root_module_asset_directories = (
+        native_library_info.root_module_native_lib_assets + dex_files_info.root_module_bootstrap_dex_dirs + dex_files_info.root_module_secondary_dex_dirs
+    )
     root_module_asset_directories_file = argfile(actions = actions, name = "root_module_asset_directories.txt", args = root_module_asset_directories)
 
     non_root_module_asset_directories = resources_info.module_manifests + dex_files_info.non_root_module_secondary_dex_dirs
     non_root_module_asset_directories_file = argfile(actions = actions, name = "non_root_module_asset_directories.txt", args = non_root_module_asset_directories)
-    non_root_module_asset_native_lib_directories = argfile(actions = actions, name = "non_root_module_asset_native_lib_directories.txt", args = native_library_info.non_root_module_native_lib_assets)
+    non_root_module_asset_native_lib_directories = argfile(
+        actions = actions, name = "non_root_module_asset_native_lib_directories.txt", args = native_library_info.non_root_module_native_lib_assets
+    )
 
     native_library_directories = argfile(actions = actions, name = "native_library_directories", args = native_library_info.native_libs_for_primary_apk)
     all_zip_files = [resources_info.packaged_string_assets] if resources_info.packaged_string_assets else []
     zip_files = argfile(actions = actions, name = "zip_files", args = all_zip_files)
-    jar_files_that_may_contain_resources = argfile(actions = actions, name = "jar_files_that_may_contain_resources", args = resources_info.jar_files_that_may_contain_resources)
+    jar_files_that_may_contain_resources = argfile(
+        actions = actions, name = "jar_files_that_may_contain_resources", args = resources_info.jar_files_that_may_contain_resources
+    )
 
     if resources_info.module_assets:
         bundle_builder_args.add(["--module-assets-dir", resources_info.module_assets])

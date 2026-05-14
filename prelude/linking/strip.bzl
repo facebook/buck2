@@ -26,9 +26,11 @@ def _strip_debug_info(actions: AnalysisActions, cxx_toolchain: CxxToolchainInfo,
     actions.run(cmd, category = "strip_debug", identifier = out)
     return output
 
-_InterfaceInfo = provider(fields = {
-    "artifact": provider_field(typing.Any, default = None),  # "artifact"
-})
+_InterfaceInfo = provider(
+    fields = {
+        "artifact": provider_field(typing.Any, default = None),  # "artifact"
+    }
+)
 
 def _anon_strip_debug_info_impl(ctx):
     output = _strip_debug_info(
@@ -55,13 +57,14 @@ _anon_strip_debug_info = anon_rule(
 )
 
 def strip_debug_info(
-        actions: AnalysisActions,
-        out: str,
-        obj: Artifact,
-        cxx_toolchain_info: CxxToolchainInfo | None = None,
-        cxx_toolchain: Dependency | None = None,
-        anonymous: bool = False,
-        has_content_based_path: bool = False) -> Artifact:
+    actions: AnalysisActions,
+    out: str,
+    obj: Artifact,
+    cxx_toolchain_info: CxxToolchainInfo | None = None,
+    cxx_toolchain: Dependency | None = None,
+    anonymous: bool = False,
+    has_content_based_path: bool = False,
+) -> Artifact:
     if anonymous:
         strip_debug_info = actions.anon_target(
             _anon_strip_debug_info,
@@ -86,7 +89,15 @@ def strip_debug_info(
             has_content_based_path = has_content_based_path,
         )
 
-def strip_object(ctx: AnalysisContext, cxx_toolchain: CxxToolchainInfo, unstripped: Artifact, strip_flags: cmd_args, category_suffix: [str, None] = None, output_path: [str, None] = None, allow_cache_upload: bool = False) -> Artifact:
+def strip_object(
+    ctx: AnalysisContext,
+    cxx_toolchain: CxxToolchainInfo,
+    unstripped: Artifact,
+    strip_flags: cmd_args,
+    category_suffix: [str, None] = None,
+    output_path: [str, None] = None,
+    allow_cache_upload: bool = False,
+) -> Artifact:
     """
     Strip unneeded information from binaries / shared libs.
     """

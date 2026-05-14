@@ -74,13 +74,7 @@ _remove_rust_providers = rule(
     },
 )
 
-def rust_linkable_symbol(
-        name,
-        content_str = None,
-        content_bytes = None,
-        align_bytes = None,
-        visibility = None,
-        rust_library_macro = None):
+def rust_linkable_symbol(name, content_str = None, content_bytes = None, align_bytes = None, visibility = None, rust_library_macro = None):
     if (content_str == None) == (content_bytes == None):
         fail("rust_linkable_symbol requires exactly one of `content_str =` or `content_bytes =` to be passed")
 
@@ -122,7 +116,7 @@ def rust_linkable_symbol(
         },
         rustc_flags = [
             "--cfg=rust_linkable_symbol_content_{}".format(kind),
-            "--cfg=rust_linkable_symbol_align_bytes=\"{}\"".format(align_bytes or 1),
+            '--cfg=rust_linkable_symbol_align_bytes="{}"'.format(align_bytes or 1),
             "@$(location prelude//rust/tools:linkable_symbol_supports_no_std)",
         ],
         visibility = [],
@@ -154,7 +148,7 @@ def rust_linkable_symbol(
         },
         rustc_flags = [
             "--cfg=rust_linkable_symbol_getter_{}".format(kind),
-            "--cfg=rust_linkable_symbol_align_bytes=\"{}\"".format(align_bytes or 1),
+            '--cfg=rust_linkable_symbol_align_bytes="{}"'.format(align_bytes or 1),
             # Setting `no_std` here is unconditionally fine - a panic handler will
             # be provided by whatever uses this library.
             "--cfg=set_nostd",

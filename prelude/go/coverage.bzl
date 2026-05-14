@@ -15,14 +15,15 @@ GoCoverageMode = enum(
 )
 
 def cover_srcs(
-        actions: AnalysisActions,
-        go_toolchain: GoToolchainInfo,
-        pkg_name: str,
-        pkg_import_path: str,
-        go_files: list[Artifact],
-        cgo_files: list[Artifact],
-        coverage_enabled: bool,
-        coverage_mode: GoCoverageMode | None) -> (list[Artifact], list[Artifact], Artifact | None):
+    actions: AnalysisActions,
+    go_toolchain: GoToolchainInfo,
+    pkg_name: str,
+    pkg_import_path: str,
+    go_files: list[Artifact],
+    cgo_files: list[Artifact],
+    coverage_enabled: bool,
+    coverage_mode: GoCoverageMode | None,
+) -> (list[Artifact], list[Artifact], Artifact | None):
     if not coverage_enabled or coverage_mode == None:
         return go_files, cgo_files, None
 
@@ -51,14 +52,8 @@ def cover_srcs(
     # while keeping the instrumented file a bit more readable.
     var = "GoCover_" + sha256(pkg_import_path)[:16]
     instrum_vars_file = actions.declare_output("with_instrumentation", "instrum_vars.go", has_content_based_path = True)
-    instrum_go_files = [
-        actions.declare_output("with_instrumentation", go_file.short_path, has_content_based_path = True)
-        for go_file in go_files
-    ]
-    instrum_cgo_files = [
-        actions.declare_output("with_instrumentation", cgo_file.short_path, has_content_based_path = True)
-        for cgo_file in cgo_files
-    ]
+    instrum_go_files = [actions.declare_output("with_instrumentation", go_file.short_path, has_content_based_path = True) for go_file in go_files]
+    instrum_cgo_files = [actions.declare_output("with_instrumentation", cgo_file.short_path, has_content_based_path = True) for cgo_file in cgo_files]
     instrum_all_files = [instrum_vars_file] + instrum_go_files + instrum_cgo_files
     outfilelist = actions.write("outfilelist.txt", cmd_args([f.as_output() for f in instrum_all_files], ""), has_content_based_path = True)
 

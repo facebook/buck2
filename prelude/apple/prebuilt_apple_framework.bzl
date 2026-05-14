@@ -83,11 +83,7 @@ load(":apple_utility.bzl", "get_apple_stripped_attr_value_with_default_fallback"
 load(":debug.bzl", "AppleDebuggableInfo")
 
 def _get_compiled_swift_deps_tset(ctx: AnalysisContext, deps_providers: list) -> SwiftCompiledModuleTset:
-    deps = [
-        d[SwiftDependencyInfo].exported_swiftmodules
-        for d in deps_providers
-        if SwiftDependencyInfo in d
-    ]
+    deps = [d[SwiftDependencyInfo].exported_swiftmodules for d in deps_providers if SwiftDependencyInfo in d]
     return ctx.actions.tset(SwiftCompiledModuleTset, children = deps)
 
 def prebuilt_apple_framework_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
@@ -112,11 +108,13 @@ def prebuilt_apple_framework_impl(ctx: AnalysisContext) -> [list[Provider], Prom
 
             # Add framework & pp info from deps.
             inherited_pp_info = cxx_inherited_preprocessor_infos(ctx.attrs.deps)
-            providers.append(cxx_merge_cpreprocessors(
-                ctx.actions,
-                [CPreprocessor(args = CPreprocessorArgs(args = ["-F", framework_dir]))],
-                inherited_pp_info,
-            ))
+            providers.append(
+                cxx_merge_cpreprocessors(
+                    ctx.actions,
+                    [CPreprocessor(args = CPreprocessorArgs(args = ["-F", framework_dir]))],
+                    inherited_pp_info,
+                )
+            )
 
             if cxx_attr_preferred_linkage(ctx) == Linkage("static"):
                 linkable = ArchiveLinkable(
@@ -136,11 +134,13 @@ def prebuilt_apple_framework_impl(ctx: AnalysisContext) -> [list[Provider], Prom
             )
             link_info = LinkInfos(default = link)
 
-            providers.append(create_merged_link_info(
-                ctx,
-                get_cxx_toolchain_info(ctx).pic_behavior,
-                {output_style: link_info for output_style in LibOutputStyle},
-            ))
+            providers.append(
+                create_merged_link_info(
+                    ctx,
+                    get_cxx_toolchain_info(ctx).pic_behavior,
+                    {output_style: link_info for output_style in LibOutputStyle},
+                )
+            )
 
             # Create, augment and provide the linkable graph.
             linkable_graph = create_linkable_graph(
@@ -171,13 +171,15 @@ def prebuilt_apple_framework_impl(ctx: AnalysisContext) -> [list[Provider], Prom
             providers.append(AppleDebuggableInfo(dsyms = ctx.attrs.dsyms, debug_info_tset = ArtifactTSet()))
 
         providers.append(DefaultInfo(default_output = framework_directory_artifact, sub_targets = sub_targets))
-        providers.append(AppleBundleInfo(
-            bundle = framework_directory_artifact,
-            bundle_type = AppleBundleTypeDefault,
-            skip_copying_swift_stdlib = True,
-            contains_watchapp = None,
-            extra_codesign_paths = ctx.attrs.extra_codesign_paths,
-        ))
+        providers.append(
+            AppleBundleInfo(
+                bundle = framework_directory_artifact,
+                bundle_type = AppleBundleTypeDefault,
+                skip_copying_swift_stdlib = True,
+                contains_watchapp = None,
+                extra_codesign_paths = ctx.attrs.extra_codesign_paths,
+            )
+        )
 
         if ctx.attrs.modular:
             pcm_provider = _create_uncompiled_pcm_module_info(ctx, framework_directory_artifact, framework_name)
@@ -230,11 +232,8 @@ def _create_uncompiled_pcm_module_info(ctx: AnalysisContext, framework_directory
     )
 
 def _compile_swiftinterface(
-        ctx: AnalysisContext,
-        framework_name: str,
-        pcm_provider: SwiftPCMUncompiledInfo,
-        deps_providers,
-        framework_directory_artifact: Artifact) -> SwiftDependencyInfo:
+    ctx: AnalysisContext, framework_name: str, pcm_provider: SwiftPCMUncompiledInfo, deps_providers, framework_directory_artifact: Artifact
+) -> SwiftDependencyInfo:
     # To compile the framework's swiftinterface, the PCM module must be precompiled first.
     compiled_underlying_pcm = compile_framework_pcm(
         ctx,
@@ -308,11 +307,13 @@ def _sanitize_framework_for_app_distribution(ctx: AnalysisContext, framework_dir
 
     ctx.actions.run(framework_sanitize_command, category = "sanitize_prebuilt_apple_framework")
     providers = [DefaultInfo(default_output = bundle_for_app_distribution)]
-    providers.append(AppleBundleInfo(
-        bundle = bundle_for_app_distribution,
-        bundle_type = AppleBundleTypeDefault,
-        skip_copying_swift_stdlib = True,
-        contains_watchapp = None,
-        extra_codesign_paths = ctx.attrs.extra_codesign_paths,
-    ))
+    providers.append(
+        AppleBundleInfo(
+            bundle = bundle_for_app_distribution,
+            bundle_type = AppleBundleTypeDefault,
+            skip_copying_swift_stdlib = True,
+            contains_watchapp = None,
+            extra_codesign_paths = ctx.attrs.extra_codesign_paths,
+        )
+    )
     return providers

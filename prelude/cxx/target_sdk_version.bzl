@@ -40,11 +40,13 @@ def get_target_sdk_version(ctx: AnalysisContext) -> [None, str]:
         # The requested target_sdk_version on the toolchain must be >=
         # the version set on the target, which should be the minimum
         # allowed for this version to build.
-        fail("{} has target_sdk_version {}, which is larger than the toolchain target_sdk_version of {}".format(
-            ctx.label,
-            target_sdk_version,
-            toolchain_target_sdk_version,
-        ))
+        fail(
+            "{} has target_sdk_version {}, which is larger than the toolchain target_sdk_version of {}".format(
+                ctx.label,
+                target_sdk_version,
+                toolchain_target_sdk_version,
+            )
+        )
     else:
         return toolchain_target_sdk_version
 

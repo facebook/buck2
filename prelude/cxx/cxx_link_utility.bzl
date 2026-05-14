@@ -101,13 +101,14 @@ def get_extra_darwin_linker_flags(ctx: AnalysisContext) -> cmd_args:
     return cmd_args(apple_extra_darwin_linker_flags(target_triple))
 
 def make_link_args(
-        ctx: AnalysisContext,
-        actions: AnalysisActions,
-        cxx_toolchain_info: CxxToolchainInfo,
-        links: list[LinkArgs],
-        output_short_path: [str, None] = None,
-        link_ordering: [LinkOrdering, None] = None,
-        has_content_based_path: bool = False) -> LinkArgsOutput:
+    ctx: AnalysisContext,
+    actions: AnalysisActions,
+    cxx_toolchain_info: CxxToolchainInfo,
+    links: list[LinkArgs],
+    output_short_path: [str, None] = None,
+    link_ordering: [LinkOrdering, None] = None,
+    has_content_based_path: bool = False,
+) -> LinkArgsOutput:
     """
     Merges LinkArgs. Returns the args, files that must be present for those
     args to work when passed to a linker, and optionally an artifact where DWO
@@ -179,10 +180,7 @@ CxxSanitizerRuntimeArguments = record(
 
 # @executable_path/Frameworks
 
-def cxx_sanitizer_runtime_arguments(
-        ctx: AnalysisContext,
-        cxx_toolchain: CxxToolchainInfo,
-        output: Artifact) -> CxxSanitizerRuntimeArguments:
+def cxx_sanitizer_runtime_arguments(ctx: AnalysisContext, cxx_toolchain: CxxToolchainInfo, output: Artifact) -> CxxSanitizerRuntimeArguments:
     linker_info = cxx_toolchain.linker_info
     target_sanitizer_runtime_enabled = ctx.attrs.sanitizer_runtime_enabled if hasattr(ctx.attrs, "sanitizer_runtime_enabled") else None
     sanitizer_runtime_enabled = target_sanitizer_runtime_enabled if target_sanitizer_runtime_enabled != None else linker_info.sanitizer_runtime_enabled
@@ -215,10 +213,8 @@ def cxx_sanitizer_runtime_arguments(
     return CxxSanitizerRuntimeArguments()
 
 def executable_shared_lib_arguments(
-        ctx: AnalysisContext,
-        cxx_toolchain: CxxToolchainInfo,
-        output: Artifact,
-        shared_libs: list[SharedLibrary]) -> ExecutableSharedLibArguments:
+    ctx: AnalysisContext, cxx_toolchain: CxxToolchainInfo, output: Artifact, shared_libs: list[SharedLibrary]
+) -> ExecutableSharedLibArguments:
     def create_external_debug_info() -> list[TransitiveSetArgsProjection]:
         return project_artifacts(
             actions = ctx.actions,
@@ -226,11 +222,14 @@ def executable_shared_lib_arguments(
         )
 
     def create_shared_libs_symlink_tree_windows() -> list[Artifact]:
-        return [ctx.actions.symlink_file(
-            shlib.lib.output.basename,
-            shlib.lib.output,
-            has_content_based_path = False,
-        ) for shlib in shared_libs]
+        return [
+            ctx.actions.symlink_file(
+                shlib.lib.output.basename,
+                shlib.lib.output,
+                has_content_based_path = False,
+            )
+            for shlib in shared_libs
+        ]
 
     def create_shared_libs_symlink_trees(shared_libs_symlink_tree_name_arg: str, dwp_symlink_tree_name_arg: str) -> (Artifact, Artifact) | None:
         if not shared_libs:
@@ -253,11 +252,12 @@ def executable_shared_lib_arguments(
     )
 
 def executable_shared_lib_arguments_template(
-        cxx_toolchain: CxxToolchainInfo,
-        output: Artifact,
-        create_external_debug_info: typing.Callable[[], list[TransitiveSetArgsProjection]],
-        create_shared_libs_symlink_trees: typing.Callable[[str, str], (Artifact, Artifact) | None],
-        create_shared_libs_symlink_tree_windows: typing.Callable[[], list[Artifact]]) -> ExecutableSharedLibArguments:
+    cxx_toolchain: CxxToolchainInfo,
+    output: Artifact,
+    create_external_debug_info: typing.Callable[[], list[TransitiveSetArgsProjection]],
+    create_shared_libs_symlink_trees: typing.Callable[[str, str], (Artifact, Artifact) | None],
+    create_shared_libs_symlink_tree_windows: typing.Callable[[], list[Artifact]],
+) -> ExecutableSharedLibArguments:
     """A generic/templated version of `executable_shared_lib_arguments` that takes in `Callable`s for constructing
     the shared libs symlink tree and external debug info.
 

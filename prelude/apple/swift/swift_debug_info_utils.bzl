@@ -21,11 +21,15 @@ load(
 
 def extract_and_merge_swift_debug_infos(ctx: AnalysisContext, compiled_pcm_deps_providers, artifacts: list[Artifact] = []) -> ArtifactTSet:
     provide_swift_debug_info = get_swift_toolchain_info(ctx).provide_swift_debug_info
-    swift_debug_tsets = [
-        d[WrappedSdkCompiledModuleInfo].swift_debug_info
-        for d in compiled_pcm_deps_providers
-        if WrappedSdkCompiledModuleInfo in d and d[WrappedSdkCompiledModuleInfo].swift_debug_info != None
-    ] if provide_swift_debug_info else []
+    swift_debug_tsets = (
+        [
+            d[WrappedSdkCompiledModuleInfo].swift_debug_info
+            for d in compiled_pcm_deps_providers
+            if WrappedSdkCompiledModuleInfo in d and d[WrappedSdkCompiledModuleInfo].swift_debug_info != None
+        ]
+        if provide_swift_debug_info
+        else []
+    )
 
     return make_artifact_tset(
         actions = ctx.actions,

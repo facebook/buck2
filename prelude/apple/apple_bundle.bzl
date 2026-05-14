@@ -55,7 +55,17 @@ load(
 )
 load("@prelude//xplugins:debug_artifacts.bzl", "xplugins_get_debug_artifacts_info", "xplugins_get_debug_artifacts_subtargets")
 load(":apple_bundle_destination.bzl", "AppleBundleDestination")
-load(":apple_bundle_part.bzl", "AppleBundleCodesignManifestTreePart", "AppleBundlePart", "AppleBundleSigningContextTreePart", "SwiftStdlibArguments", "assemble_bundle", "bundle_output", "get_apple_bundle_part_relative_destination_path", "get_bundle_dir_name")
+load(
+    ":apple_bundle_part.bzl",
+    "AppleBundleCodesignManifestTreePart",
+    "AppleBundlePart",
+    "AppleBundleSigningContextTreePart",
+    "SwiftStdlibArguments",
+    "assemble_bundle",
+    "bundle_output",
+    "get_apple_bundle_part_relative_destination_path",
+    "get_bundle_dir_name",
+)
 load(":apple_bundle_resources.bzl", "get_apple_bundle_resource_part_list")
 load(
     ":apple_bundle_types.bzl",
@@ -71,7 +81,16 @@ load(
 )
 load(":apple_bundle_utility.bzl", "get_bundle_min_target_version", "get_default_binary_dep", "get_flattened_binary_deps", "get_product_name")
 load(":apple_code_signing_types.bzl", "CodeSignConfiguration", "get_code_signing_configuration_attr_value")
-load(":apple_dsym.bzl", "DSYM_INFO_SUBTARGET", "DSYM_SUBTARGET", "EXTENDED_DSYM_INFO_SUBTARGET", "get_apple_dsym", "get_apple_dsym_ext", "get_apple_dsym_info_json", "get_deps_debuggable_infos")
+load(
+    ":apple_dsym.bzl",
+    "DSYM_INFO_SUBTARGET",
+    "DSYM_SUBTARGET",
+    "EXTENDED_DSYM_INFO_SUBTARGET",
+    "get_apple_dsym",
+    "get_apple_dsym_ext",
+    "get_apple_dsym_info_json",
+    "get_deps_debuggable_infos",
+)
 load(":apple_sdk.bzl", "get_apple_sdk_name")
 load(
     ":apple_sdk_metadata.bzl",
@@ -145,7 +164,13 @@ def _get_binary(ctx: AnalysisContext) -> AppleBundleBinaryOutput:
 def _get_bundle_dsym_name(ctx: AnalysisContext) -> str:
     return paths.replace_extension(get_bundle_dir_name(ctx), ".dSYM")
 
-def _scrub_binary(ctx, binary: Artifact, binary_execution_preference_info: None | LinkExecutionPreferenceInfo, focused_targets_labels: list[Label] = [], identifier: None | str = None) -> Artifact:
+def _scrub_binary(
+    ctx,
+    binary: Artifact,
+    binary_execution_preference_info: None | LinkExecutionPreferenceInfo,
+    focused_targets_labels: list[Label] = [],
+    identifier: None | str = None,
+) -> Artifact:
     # If fast adhoc code signing is enabled, we need to resign the binary as it won't be signed later.
     code_signing_configuration = get_code_signing_configuration_attr_value(ctx)
     if code_signing_configuration == CodeSignConfiguration("fast-adhoc"):
@@ -220,7 +245,9 @@ def _get_scrubbed_binary_dsym(ctx, binary: Artifact, debug_info_tset: ArtifactTS
     )
     return dsym_artifact
 
-def _get_binary_bundle_parts(ctx: AnalysisContext, binary_output: AppleBundleBinaryOutput, aggregated_debug_info: AggregatedAppleDebugInfo) -> _AppleBundleBinaryParts:
+def _get_binary_bundle_parts(
+    ctx: AnalysisContext, binary_output: AppleBundleBinaryOutput, aggregated_debug_info: AggregatedAppleDebugInfo
+) -> _AppleBundleBinaryParts:
     """Returns a tuple of all binary bundle parts and the primary bundle binary."""
     result = []
 
@@ -246,7 +273,9 @@ def _get_dsym_input_binary_arg(ctx: AnalysisContext, binary_output: AppleBundleB
     unstripped_binary = binary_output.unstripped_binary
     if unstripped_binary:
         if ctx.attrs.selective_debugging != None:
-            unstripped_binary = _scrub_binary(ctx, unstripped_binary, get_default_binary_dep(ctx.attrs.binary).get(LinkExecutionPreferenceInfo), identifier = "unstripped")
+            unstripped_binary = _scrub_binary(
+                ctx, unstripped_binary, get_default_binary_dep(ctx.attrs.binary).get(LinkExecutionPreferenceInfo), identifier = "unstripped"
+            )
         renamed_unstripped_binary = ctx.actions.copy_file(get_product_name(ctx), unstripped_binary, has_content_based_path = False)
         return cmd_args(renamed_unstripped_binary)
     else:
@@ -281,7 +310,9 @@ def _get_bundle_binary_dsym_artifacts(ctx: AnalysisContext, binary_output: Apple
     else:
         return binary_output.debuggable_info.dsyms
 
-def _get_all_agg_debug_info(ctx: AnalysisContext, binary_output: AppleBundleBinaryOutput, deps_debuggable_infos: list[AppleDebuggableInfo]) -> AggregatedAppleDebugInfo:
+def _get_all_agg_debug_info(
+    ctx: AnalysisContext, binary_output: AppleBundleBinaryOutput, deps_debuggable_infos: list[AppleDebuggableInfo]
+) -> AggregatedAppleDebugInfo:
     all_debug_infos = deps_debuggable_infos + ([binary_output.debuggable_info] if binary_output.debuggable_info else [])
     return get_aggregated_debug_info(ctx, all_debug_infos)
 
@@ -415,7 +446,10 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         # To ensure we have the correct dSYM path, metadata needs to be created here, as otherwise
         # the map will contain the value of the dSYM for the standalone binary, not for the binary
         # as part of the bundle.
-        binary_selective_metadata = [AppleSelectiveDebuggableMetadata(dsym = binary_dsym, metadata = binary_outputs.debuggable_info.selective_metadata[0].metadata) for binary_dsym in binary_dsym_artifacts]
+        binary_selective_metadata = [
+            AppleSelectiveDebuggableMetadata(dsym = binary_dsym, metadata = binary_outputs.debuggable_info.selective_metadata[0].metadata)
+            for binary_dsym in binary_dsym_artifacts
+        ]
     all_selective_metadata = binary_selective_metadata + deps_selective_metadata
 
     extended_dsym_json_info = get_apple_dsym_info_json(binary_dsym_artifacts, dep_dsym_artifacts, all_selective_metadata)
@@ -431,7 +465,14 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
 
     # Define the xcode data sub target
     plist_bundle_relative_path = get_apple_bundle_part_relative_destination_path(ctx, apple_bundle_part_list_output.info_plist_part)
-    xcode_data_default_info, xcode_data_info = generate_xcode_data(ctx, "apple_bundle", bundle, _xcode_populate_attributes, processed_info_plist = apple_bundle_part_list_output.info_plist_part.source, info_plist_relative_path = plist_bundle_relative_path)
+    xcode_data_default_info, xcode_data_info = generate_xcode_data(
+        ctx,
+        "apple_bundle",
+        bundle,
+        _xcode_populate_attributes,
+        processed_info_plist = apple_bundle_part_list_output.info_plist_part.source,
+        info_plist_relative_path = plist_bundle_relative_path,
+    )
     sub_targets[XCODE_DATA_SUB_TARGET] = xcode_data_default_info
 
     install_data = generate_install_data(ctx, plist_bundle_relative_path)
@@ -474,39 +515,43 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     )
     sub_targets["check"] = [DefaultInfo(default_output = None, other_outputs = transitive_diagnostic_artifacts)]
 
-    providers = [
-        DefaultInfo(default_output = bundle, sub_targets = sub_targets),
-        AppleBundleInfo(
-            bundle = bundle,
-            bundle_type = _infer_apple_bundle_type(ctx),
-            binary_name = get_product_name(ctx),
-            contains_watchapp = lazy.is_any(lambda part: part.destination == AppleBundleDestination("watchapp"), apple_bundle_part_list_output.parts),
-            skip_copying_swift_stdlib = ctx.attrs.skip_copying_swift_stdlib,
-            codesign_manifest_tree = bundle_result.codesign_manifest_tree,
-            signing_context_tree = bundle_result.signing_context_tree,
-            signing_info = bundle_result.signing_info,
-        ),
-        AppleDebuggableInfo(
-            dsyms = dsym_artifacts,
-            debug_info_tset = aggregated_debug_info.debug_info.debug_info_tset,
-            filtered_map = aggregated_debug_info.debug_info.filtered_map,
-            selective_metadata = all_selective_metadata,
-        ),
-        InstallInfo(
-            installer = ctx.attrs._apple_toolchain[AppleToolchainInfo].installer,
-            files = {
-                "app_bundle": bundle,
-                "options": install_data,
-            },
-        ),
-        RunInfo(args = primary_binary_path_arg),
-        linker_map_info,
-        xcode_data_info,
-        extra_output_provider,
-        link_cmd_debug_info,
-        index_store_info,
-        info_plist_info,
-    ] + bundle_result.providers + validation_providers
+    providers = (
+        [
+            DefaultInfo(default_output = bundle, sub_targets = sub_targets),
+            AppleBundleInfo(
+                bundle = bundle,
+                bundle_type = _infer_apple_bundle_type(ctx),
+                binary_name = get_product_name(ctx),
+                contains_watchapp = lazy.is_any(lambda part: part.destination == AppleBundleDestination("watchapp"), apple_bundle_part_list_output.parts),
+                skip_copying_swift_stdlib = ctx.attrs.skip_copying_swift_stdlib,
+                codesign_manifest_tree = bundle_result.codesign_manifest_tree,
+                signing_context_tree = bundle_result.signing_context_tree,
+                signing_info = bundle_result.signing_info,
+            ),
+            AppleDebuggableInfo(
+                dsyms = dsym_artifacts,
+                debug_info_tset = aggregated_debug_info.debug_info.debug_info_tset,
+                filtered_map = aggregated_debug_info.debug_info.filtered_map,
+                selective_metadata = all_selective_metadata,
+            ),
+            InstallInfo(
+                installer = ctx.attrs._apple_toolchain[AppleToolchainInfo].installer,
+                files = {
+                    "app_bundle": bundle,
+                    "options": install_data,
+                },
+            ),
+            RunInfo(args = primary_binary_path_arg),
+            linker_map_info,
+            xcode_data_info,
+            extra_output_provider,
+            link_cmd_debug_info,
+            index_store_info,
+            info_plist_info,
+        ]
+        + bundle_result.providers
+        + validation_providers
+    )
     if xplugins_debug_info:
         providers.append(xplugins_debug_info)
 
@@ -548,10 +593,7 @@ def _get_debug_validators_subtargets_and_providers(ctx, artifacts: ArtifactTSet)
             "debug-artifacts-validators": [
                 DefaultInfo(
                     default_outputs = name_to_debug_validator_artifact.values(),
-                    sub_targets = {
-                        name: [DefaultInfo(default_output = artifact)]
-                        for name, artifact in name_to_debug_validator_artifact.items()
-                    },
+                    sub_targets = {name: [DefaultInfo(default_output = artifact)] for name, artifact in name_to_debug_validator_artifact.items()},
                 ),
             ],
         },
@@ -591,11 +633,13 @@ def _extra_output_provider(ctx: AnalysisContext) -> AppleBundleExtraOutputsInfo:
     for binary_dep in get_flattened_binary_deps(ctx.attrs.binary):
         linker_outputs = ctx.attrs._apple_toolchain[AppleToolchainInfo].extra_linker_outputs
         binary_outputs = {k: v[DefaultInfo].default_outputs for k, v in binary_dep[DefaultInfo].sub_targets.items() if k in linker_outputs}
-        extra_outputs.append(AppleBinaryExtraOutputsInfo(
-            name = get_product_name(ctx),
-            default_output = binary_dep[DefaultInfo].default_outputs[0],
-            extra_outputs = binary_outputs,
-        ))
+        extra_outputs.append(
+            AppleBinaryExtraOutputsInfo(
+                name = get_product_name(ctx),
+                default_output = binary_dep[DefaultInfo].default_outputs[0],
+                extra_outputs = binary_outputs,
+            )
+        )
 
     # Collect the transitive extra bundle outputs from the deps.
     for dep in ctx.attrs.deps:
@@ -612,11 +656,7 @@ def _app_extension_deps(ctx: AnalysisContext) -> list[str]:
             app_extension_deps.append(str(dep.label.raw_target()))
     return app_extension_deps
 
-def generate_install_data(
-        ctx: AnalysisContext,
-        plist_path: str,
-        populate_rule_specific_attributes_func: [typing.Callable, None] = None,
-        **kwargs) -> Artifact:
+def generate_install_data(ctx: AnalysisContext, plist_path: str, populate_rule_specific_attributes_func: [typing.Callable, None] = None, **kwargs) -> Artifact:
     data = {
         "fullyQualifiedName": ctx.label,
         "info_plist": plist_path,

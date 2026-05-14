@@ -13,10 +13,7 @@ load(
 )
 load(":swift_toolchain_types.bzl", "SwiftCompiledModuleTset")
 
-def write_swift_module_map_with_deps(
-        ctx: AnalysisContext,
-        module_name: str,
-        all_deps: SwiftCompiledModuleTset) -> (Artifact, ArgLike):
+def write_swift_module_map_with_deps(ctx: AnalysisContext, module_name: str, all_deps: SwiftCompiledModuleTset) -> (Artifact, ArgLike):
     uses_content_based_paths = get_uses_content_based_paths(ctx)
     artifact = ctx.actions.declare_output(
         module_name + ".swift_module_map.json",

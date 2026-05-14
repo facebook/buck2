@@ -52,12 +52,13 @@ def java_test_impl(ctx: AnalysisContext) -> list[Provider]:
     return inject_test_run_info(ctx, external_runner_test_info) + providers
 
 def build_junit_test(
-        ctx: AnalysisContext,
-        tests_java_library_info: JavaLibraryInfo,
-        tests_java_packaging_info: JavaPackagingInfo,
-        tests_class_to_source_info: [JavaClassToSourceMapInfo, None] = None,
-        extra_cmds: list = [],
-        extra_classpath_entries: list[Artifact] = []) -> ExternalRunnerTestInfo:
+    ctx: AnalysisContext,
+    tests_java_library_info: JavaLibraryInfo,
+    tests_java_packaging_info: JavaPackagingInfo,
+    tests_class_to_source_info: [JavaClassToSourceMapInfo, None] = None,
+    extra_cmds: list = [],
+    extra_classpath_entries: list[Artifact] = [],
+) -> ExternalRunnerTestInfo:
     java_test_toolchain = ctx.attrs._java_test_toolchain[JavaTestToolchainInfo]
     java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
 
@@ -69,12 +70,15 @@ def build_junit_test(
 
     cmd.append(cmd_args(ctx.attrs.java_agents, format = "-javaagent:{}"))
 
-    classpath = [
-        java_test_toolchain.test_runner_library_jar,
-    ] + [
-        get_all_java_packaging_deps_tset(ctx, java_packaging_infos = [tests_java_packaging_info])
-            .project_as_args("full_jar_args", ordering = "bfs"),
-    ] + extra_classpath_entries
+    classpath = (
+        [
+            java_test_toolchain.test_runner_library_jar,
+        ]
+        + [
+            get_all_java_packaging_deps_tset(ctx, java_packaging_infos = [tests_java_packaging_info]).project_as_args("full_jar_args", ordering = "bfs"),
+        ]
+        + extra_classpath_entries
+    )
 
     if ctx.attrs.unbundled_resources_root:
         classpath.append(ctx.attrs.unbundled_resources_root)
@@ -99,29 +103,24 @@ def build_junit_test(
         # to the "FileClassPathRunner" as a system variable. The "FileClassPathRunner" then loads all the jars
         # from that file onto the classpath, and delegates running the test to the junit test runner.
         cmd.extend(["-classpath", cmd_args(java_test_toolchain.test_runner_library_jar)])
-        classpath_args = cmd_args(
-            cmd_args(classpath),
-            **relative_to
-        )
+        classpath_args = cmd_args(cmd_args(classpath), **relative_to)
         classpath_args_file = ctx.actions.write("classpath_args_file", classpath_args, has_content_based_path = False)
-        cmd.append(cmd_args(
-            classpath_args_file,
-            format = "-Dbuck.classpath_file={}",
-            hidden = classpath_args,
-        ))
+        cmd.append(
+            cmd_args(
+                classpath_args_file,
+                format = "-Dbuck.classpath_file={}",
+                hidden = classpath_args,
+            )
+        )
     else:
         # Java 9+ supports argfiles, so just write the classpath to an argsfile. "FileClassPathRunner" will delegate
         # immediately to the junit test runner.
-        classpath_args = cmd_args(
-            "-classpath",
-            cmd_args(classpath, delimiter = get_path_separator_for_exec_os(ctx)),
-            **relative_to
-        )
+        classpath_args = cmd_args("-classpath", cmd_args(classpath, delimiter = get_path_separator_for_exec_os(ctx)), **relative_to)
         cmd.append(at_argfile(actions = ctx.actions, name = "classpath_args_file", args = classpath_args))
 
-    if (ctx.attrs.test_type == "junit5"):
+    if ctx.attrs.test_type == "junit5":
         cmd.extend(java_test_toolchain.junit5_test_runner_main_class_args)
-    elif (ctx.attrs.test_type == "testng"):
+    elif ctx.attrs.test_type == "testng":
         cmd.extend(java_test_toolchain.testng_test_runner_main_class_args)
     else:
         cmd.extend(java_test_toolchain.junit_test_runner_main_class_args)

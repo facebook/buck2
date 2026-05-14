@@ -65,17 +65,18 @@ DEFAULT_SUPPORTED_CXX_PLATFORMS = _SUPPORTED_IOS_PLATFORMS
 INVERSE_REMAPPED_BUILD_MODES = {v: k for k, v in REMAPPED_BUILD_MODES.items()}
 
 def apple_target_platforms(
-        base_name: str,
-        platform_rule,
-        constraint_values = None,  # Constraint values added to all generated platforms
-        visibility = None,
-        deps = None,
-        cxx_platforms_constraint_values = None,  # Must be a map of a supported cxx platform to a list of constraint values
-        build_mode_constraint_values = None,  # Must be a map of a supported build mode to a list of constraint values
-        generate_base_platform = True,  # Whether to generate a base platform
-        use_whatsapp_build_modes = False,
-        supported_cxx_platforms = DEFAULT_SUPPORTED_CXX_PLATFORMS,  # Cxx platforms to generate platforms for
-        supported_build_modes = APPLE_BUILD_MODES) -> None:  # Build modes to generate platforms for
+    base_name: str,
+    platform_rule,
+    constraint_values = None,  # Constraint values added to all generated platforms
+    visibility = None,
+    deps = None,
+    cxx_platforms_constraint_values = None,  # Must be a map of a supported cxx platform to a list of constraint values
+    build_mode_constraint_values = None,  # Must be a map of a supported build mode to a list of constraint values
+    generate_base_platform = True,  # Whether to generate a base platform
+    use_whatsapp_build_modes = False,
+    supported_cxx_platforms = DEFAULT_SUPPORTED_CXX_PLATFORMS,  # Cxx platforms to generate platforms for
+    supported_build_modes = APPLE_BUILD_MODES,
+) -> None:  # Build modes to generate platforms for
     """Define architecture and sdk specific platforms alongside the base platform."""
 
     # HACK: Apps shouldn't be generating platforms for cxx_platforms they don't support. However, to support cases where other apps
@@ -153,11 +154,7 @@ def apple_target_platforms(
             deps = deps + [analysis_platform_dep],
         )
 
-def config_backed_apple_target_platform(
-        target_platform = None,
-        platform = None,
-        build_mode = None,
-        supported_build_modes = None) -> str | None:
+def config_backed_apple_target_platform(target_platform = None, platform = None, build_mode = None, supported_build_modes = None) -> str | None:
     platform = _get_default_platform() if platform == None else platform
 
     build_mode = get_build_mode() if build_mode == None else build_mode
@@ -179,10 +176,8 @@ def get_default_target_platform_for_platform(sdk_arch) -> str | None:
     return None
 
 def set_apple_platforms(
-        platform: str | Select,
-        base_config_backed_target_platform: str | None,
-        kwargs: dict[str, typing.Any],
-        supported_build_modes = None) -> dict[str, typing.Any]:
+    platform: str | Select, base_config_backed_target_platform: str | None, kwargs: dict[str, typing.Any], supported_build_modes = None
+) -> dict[str, typing.Any]:
     def get_supported_platforms() -> list[str] | None:
         if platform in _SUPPORTED_IOS_PLATFORMS:
             return _SUPPORTED_IOS_PLATFORMS
@@ -231,14 +226,7 @@ def _get_default_platform() -> str:
     platform = read("cxx", "default_platform")
     return platform if platform != None else ios_platforms.IPHONESIMULATOR_X86_64
 
-def _define_platform(
-        base_name,
-        platform,
-        build_mode,
-        constraint_values,
-        visibility,
-        deps,
-        platform_rule) -> None:
+def _define_platform(base_name, platform, build_mode, constraint_values, visibility, deps, platform_rule) -> None:
     platform_rule(
         name = _get_generated_name(base_name, platform, build_mode),
         constraint_values = constraint_values,
@@ -274,32 +262,30 @@ def _get_analysis_platform_for_supported_platforms(supported_cxx_platforms) -> s
 
     return _DEFAULT_ANALYSIS_IOS_PLATFORM
 
-def _validate_cxx_platforms_constraint_values(
-        base_name,
-        cxx_platforms_constraint_values,
-        supported_cxx_platforms) -> None:
+def _validate_cxx_platforms_constraint_values(base_name, cxx_platforms_constraint_values, supported_cxx_platforms) -> None:
     if type(cxx_platforms_constraint_values) != type({}):
         fail("cxx_platforms_constraint_values must be a map of platform to constraint values!")
     for platform, platform_values in cxx_platforms_constraint_values.items():
         if platform not in supported_cxx_platforms:
-            fail("\n\nProviding platform constraints for an unsupported platform!\nBase platform: {}\nCXX Platform: {} with values {}\nSupported platforms: {}\n".format(
-                base_name,
-                platform,
-                platform_values,
-                ", ".join(supported_cxx_platforms),
-            ))
+            fail(
+                "\n\nProviding platform constraints for an unsupported platform!\nBase platform: {}\nCXX Platform: {} with values {}\nSupported platforms: {}\n".format(
+                    base_name,
+                    platform,
+                    platform_values,
+                    ", ".join(supported_cxx_platforms),
+                )
+            )
 
-def _validate_build_mode_constraint_values(
-        base_name,
-        build_mode_constraint_values,
-        supported_build_modes) -> None:
+def _validate_build_mode_constraint_values(base_name, build_mode_constraint_values, supported_build_modes) -> None:
     if type(build_mode_constraint_values) != type({}):
         fail("build_mode_constraint_values must be a map of build mode to constraint values!")
     for build_mode, build_mode_values in build_mode_constraint_values.items():
         if build_mode not in supported_build_modes:
-            fail("\n\nProviding build mode constraints for an unsupported build mode!\nBase platform: {}\nBuild mode: {} with values {}\nSupported build modes: {}\n".format(
-                base_name,
-                build_mode,
-                build_mode_values,
-                ", ".join(supported_build_modes),
-            ))
+            fail(
+                "\n\nProviding build mode constraints for an unsupported build mode!\nBase platform: {}\nBuild mode: {} with values {}\nSupported build modes: {}\n".format(
+                    base_name,
+                    build_mode,
+                    build_mode_values,
+                    ", ".join(supported_build_modes),
+                )
+            )

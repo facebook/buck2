@@ -11,7 +11,14 @@ load("@prelude//apple:apple_provisioning_profile_sources.bzl", "AppleProvisionin
 load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftToolchainInfo")
 load("@prelude//utils:utils.bzl", "value_or")
 load(":apple_bundle_destination.bzl", "AppleBundleDestination", "bundle_relative_path_for_destination")
-load(":apple_bundle_types.bzl", "AppleBundleCodesignManifestTree", "AppleBundleManifest", "AppleBundleManifestInfo", "AppleBundleManifestLogFiles", "AppleBundleSigningContextTree")
+load(
+    ":apple_bundle_types.bzl",
+    "AppleBundleCodesignManifestTree",
+    "AppleBundleManifest",
+    "AppleBundleManifestInfo",
+    "AppleBundleManifestLogFiles",
+    "AppleBundleSigningContextTree",
+)
 load(":apple_bundle_utility.bzl", "get_extension_attr", "get_product_name")
 load(":apple_code_signing_types.bzl", "CodeSignConfiguration", "CodeSignType", "get_code_signing_configuration_attr_value")
 load(":apple_entitlements.bzl", "get_entitlements_codesign_args", "should_include_entitlements")
@@ -73,16 +80,17 @@ def bundle_output(ctx: AnalysisContext) -> Artifact:
     return output
 
 def assemble_bundle(
-        ctx: AnalysisContext,
-        bundle: Artifact,
-        parts: list[AppleBundlePart],
-        codesign_manifest_parts: list[AppleBundleCodesignManifestTreePart],
-        signing_context_parts: list[AppleBundleSigningContextTreePart],
-        info_plist_part: [AppleBundlePart, None],
-        swift_stdlib_args: [SwiftStdlibArguments, None],
-        extra_hidden: list[Artifact] = [],
-        skip_adhoc_signing: bool = False,
-        incremental_bundling_override = None) -> AppleBundleConstructionResult:
+    ctx: AnalysisContext,
+    bundle: Artifact,
+    parts: list[AppleBundlePart],
+    codesign_manifest_parts: list[AppleBundleCodesignManifestTreePart],
+    signing_context_parts: list[AppleBundleSigningContextTreePart],
+    info_plist_part: [AppleBundlePart, None],
+    swift_stdlib_args: [SwiftStdlibArguments, None],
+    extra_hidden: list[Artifact] = [],
+    skip_adhoc_signing: bool = False,
+    incremental_bundling_override = None,
+) -> AppleBundleConstructionResult:
     """
     Returns extra subtargets related to bundling.
     """
@@ -137,7 +145,9 @@ def assemble_bundle(
             "--plugins-destination",
             bundle_relative_path_for_destination(AppleBundleDestination("plugins"), sdk_name, ctx.attrs.extension, ctx.attrs.versioned_macos_bundle),
             "--extensionkit-extensions-destination",
-            bundle_relative_path_for_destination(AppleBundleDestination("extensionkit_extensions"), sdk_name, ctx.attrs.extension, ctx.attrs.versioned_macos_bundle),
+            bundle_relative_path_for_destination(
+                AppleBundleDestination("extensionkit_extensions"), sdk_name, ctx.attrs.extension, ctx.attrs.versioned_macos_bundle
+            ),
             "--appclips-destination",
             bundle_relative_path_for_destination(AppleBundleDestination("appclips"), sdk_name, ctx.attrs.extension, ctx.attrs.versioned_macos_bundle),
             "--swift-stdlib-command",
@@ -194,12 +204,16 @@ def assemble_bundle(
             codesign_args += ["--entitlements-removed-values-map", json.encode(ctx.attrs.entitlements_removed_values_map)]
         codesign_bundle_extra_args += _get_extra_codesign_args(ctx)
 
-        info_plist_args = [
-            "--info-plist-source",
-            info_plist_part.source,
-            "--info-plist-destination",
-            get_apple_bundle_part_relative_destination_path(ctx, info_plist_part),
-        ] if info_plist_part else []
+        info_plist_args = (
+            [
+                "--info-plist-source",
+                info_plist_part.source,
+                "--info-plist-destination",
+                get_apple_bundle_part_relative_destination_path(ctx, info_plist_part),
+            ]
+            if info_plist_part
+            else []
+        )
         codesign_args.extend(info_plist_args)
 
         if ctx.attrs.provisioning_profile_filter:
@@ -239,12 +253,17 @@ def assemble_bundle(
             bundle.as_output(),
             "--spec",
             spec_file,
-        ] + codesign_args + codesign_bundle_extra_args + verify_entitlements_args + platform_args + swift_args,
-        hidden =
-            [part.source for part in all_parts] +
-            [part.codesign_entitlements for part in all_parts if part.codesign_entitlements] +
-            # Ensures any genrule deps get built, such targets are used for validation
-            extra_hidden,
+        ]
+        + codesign_args
+        + codesign_bundle_extra_args
+        + verify_entitlements_args
+        + platform_args
+        + swift_args,
+        hidden = [part.source for part in all_parts]
+        + [part.codesign_entitlements for part in all_parts if part.codesign_entitlements]
+        +
+        # Ensures any genrule deps get built, such targets are used for validation
+        extra_hidden,
     )
     run_incremental_args = {}
     incremental_state = ctx.actions.declare_output("incremental_state.json", has_content_based_path = False).as_output()
@@ -334,7 +353,7 @@ def assemble_bundle(
         category = category,
         env = env,
         error_handler = apple_build_error_handler,
-        **run_incremental_args
+        **run_incremental_args,
     )
 
     codesign_manifest_tree = _make_codesign_manifest_tree(ctx, codesign_manifest, codesign_manifest_parts)
@@ -377,7 +396,9 @@ def assemble_bundle(
                 tools.signing_context,
                 "--output",
                 signing_context_output.as_output(),
-            ] + platform_args + codesign_args,
+            ]
+            + platform_args
+            + codesign_args,
         ),
         local_only = force_local_bundling,
         prefer_local = not force_local_bundling,
@@ -419,7 +440,9 @@ def assemble_bundle(
         signing_info = signing_info_output,
     )
 
-def _make_codesign_manifest_tree(ctx: AnalysisContext, codesign_manifest: Artifact, inner_parts: list[AppleBundleCodesignManifestTreePart]) -> AppleBundleCodesignManifestTree:
+def _make_codesign_manifest_tree(
+    ctx: AnalysisContext, codesign_manifest: Artifact, inner_parts: list[AppleBundleCodesignManifestTreePart]
+) -> AppleBundleCodesignManifestTree:
     inner_manifest_trees = {}
 
     for codesign_manifest_tree_part in inner_parts:
@@ -443,7 +466,9 @@ def _get_codesign_manifest_tree_as_json(codesign_manifest_tree: AppleBundleCodes
     json_obj["inner_codesign_manifests"] = inner_manifests
     return json_obj
 
-def _make_signing_context_tree(ctx: AnalysisContext, signing_context: Artifact, inner_parts: list[AppleBundleSigningContextTreePart]) -> AppleBundleSigningContextTree:
+def _make_signing_context_tree(
+    ctx: AnalysisContext, signing_context: Artifact, inner_parts: list[AppleBundleSigningContextTreePart]
+) -> AppleBundleSigningContextTree:
     inner_context_trees = {}
 
     for signing_context_tree_part in inner_parts:
@@ -471,7 +496,9 @@ def get_bundle_dir_name(ctx: AnalysisContext) -> str:
     return paths.replace_extension(get_product_name(ctx), "." + get_extension_attr(ctx))
 
 def get_apple_bundle_part_relative_destination_path(ctx: AnalysisContext, part: AppleBundlePart) -> str:
-    bundle_relative_path = bundle_relative_path_for_destination(part.destination, get_apple_sdk_name(ctx), ctx.attrs.extension, ctx.attrs.versioned_macos_bundle)
+    bundle_relative_path = bundle_relative_path_for_destination(
+        part.destination, get_apple_sdk_name(ctx), ctx.attrs.extension, ctx.attrs.versioned_macos_bundle
+    )
     destination_file_or_directory_name = part.new_name if part.new_name != None else paths.basename(part.source.short_path)
     return paths.join(bundle_relative_path, destination_file_or_directory_name)
 

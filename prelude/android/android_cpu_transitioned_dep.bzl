@@ -25,5 +25,6 @@ android_cpu_transitioned_dep = rule(
         "cpu_filters": attrs.list(attrs.enum(TargetCpuType), default = []),
         "dep": attrs.transition_dep(cfg = cpu_transition),
         "min_sdk_version": attrs.option(attrs.int(), default = None),
-    } | CPU_TRANSITION_ATTRS,
+    }
+    | CPU_TRANSITION_ATTRS,
 )

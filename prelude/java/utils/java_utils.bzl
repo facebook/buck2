@@ -47,7 +47,11 @@ def derive_javac(javac_attribute: [str, Dependency, Artifact]) -> [str, RunInfo,
     if javac_attr_type == type(""):
         return javac_attribute
 
-    fail("Type of attribute javac {} that equals to {} is not supported.\n Supported types are \"dependency\", \"artifact\" and \"string\".".format(javac_attr_type, javac_attribute))
+    fail(
+        'Type of attribute javac {} that equals to {} is not supported.\n Supported types are "dependency", "artifact" and "string".'.format(
+            javac_attr_type, javac_attribute
+        )
+    )
 
 def get_java_version_attributes(ctx: AnalysisContext) -> (int, int):
     java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
@@ -81,7 +85,11 @@ def to_java_version(java_version: str) -> int:
     if java_version.startswith("1."):
         expect(len(java_version) == 3, "Supported java version number format is 1.X, where X is a single digit number, but it was set to {}", java_version)
         java_version_number = int(java_version[2:])
-        expect(java_version_number < 9, "Supported java version number format is 1.X, where X is a single digit number that is less than 9, but it was set to {}", java_version)
+        expect(
+            java_version_number < 9,
+            "Supported java version number format is 1.X, where X is a single digit number that is less than 9, but it was set to {}",
+            java_version,
+        )
         return java_version_number
     else:
         return int(java_version)
@@ -97,11 +105,12 @@ def get_abi_generation_mode(abi_generation_mode):
     }[abi_generation_mode]
 
 def get_default_info(
-        actions: AnalysisActions,
-        java_toolchain: JavaToolchainInfo,
-        outputs: [JavaCompileOutputs, None],
-        packaging_info: JavaPackagingInfo,
-        extra_sub_targets: dict = {}) -> DefaultInfo:
+    actions: AnalysisActions,
+    java_toolchain: JavaToolchainInfo,
+    outputs: [JavaCompileOutputs, None],
+    packaging_info: JavaPackagingInfo,
+    extra_sub_targets: dict = {},
+) -> DefaultInfo:
     sub_targets = get_classpath_subtargets(actions, packaging_info)
     default_info = DefaultInfo(
         sub_targets = extra_sub_targets | sub_targets,
@@ -112,7 +121,7 @@ def get_default_info(
             ("source-abi", outputs.source_abi),
             ("source-only-abi", outputs.source_only_abi),
         ]
-        for (name, artifact) in abis:
+        for name, artifact in abis:
             if artifact != None:
                 sub_targets[name] = [DefaultInfo(default_output = artifact)]
         other_outputs = []
@@ -132,11 +141,12 @@ def declare_prefixed_name(name: str, prefix: [str, None]) -> str:
     return "{}_{}".format(prefix, name)
 
 def get_class_to_source_map_info(
-        ctx: AnalysisContext,
-        outputs: [JavaCompileOutputs, None],
-        deps: list[Dependency],
-        generate_sources_jar: bool = False,
-        class_to_src_map_deps: list[Dependency] = []) -> (JavaClassToSourceMapInfo, Artifact | None, dict):
+    ctx: AnalysisContext,
+    outputs: [JavaCompileOutputs, None],
+    deps: list[Dependency],
+    generate_sources_jar: bool = False,
+    class_to_src_map_deps: list[Dependency] = [],
+) -> (JavaClassToSourceMapInfo, Artifact | None, dict):
     sub_targets = {}
     class_to_srcs = None
     class_to_srcs_debuginfo = None

@@ -14,7 +14,15 @@ load("@prelude//toolchains:dex.bzl", "system_dex_toolchain", "system_noop_dex_to
 load("@prelude//toolchains:erlang.bzl", "system_erlang_toolchain")
 load("@prelude//toolchains:genrule.bzl", "system_genrule_toolchain")
 load("@prelude//toolchains:haskell.bzl", "system_haskell_toolchain")
-load("@prelude//toolchains:java.bzl", "java_test_toolchain", "javacd_toolchain", "system_java_bootstrap_toolchain", "system_java_lib", "system_java_tool", "system_prebuilt_jar_bootstrap_toolchain")
+load(
+    "@prelude//toolchains:java.bzl",
+    "java_test_toolchain",
+    "javacd_toolchain",
+    "system_java_bootstrap_toolchain",
+    "system_java_lib",
+    "system_java_tool",
+    "system_prebuilt_jar_bootstrap_toolchain",
+)
 load("@prelude//toolchains:kotlin.bzl", "kotlincd_toolchain", "system_kotlin_bootstrap_toolchain")
 load("@prelude//toolchains:ocaml.bzl", "system_ocaml_toolchain")
 load("@prelude//toolchains:python.bzl", "remote_python_toolchain", "system_python_wheel_toolchain")

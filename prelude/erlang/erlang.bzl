@@ -33,16 +33,17 @@ implemented_rules = {
 # specification. It also redirects the target from the regular application target
 # to the include-only target for extra_include deps
 def erlang_application(
-        erlang_app_rule,
-        erlang_app_includes_rule,
-        name,
-        app_name = None,
-        applications = [],
-        included_applications = [],
-        extra_includes = [],
-        labels = [],
-        includes = [],
-        **kwargs):
+    erlang_app_rule,
+    erlang_app_includes_rule,
+    name,
+    app_name = None,
+    applications = [],
+    included_applications = [],
+    extra_includes = [],
+    labels = [],
+    includes = [],
+    **kwargs,
+):
     normalized_applications = select_map(applications, lambda apps: map(normalize_application, apps))
     normalized_included_applications = select_map(included_applications, lambda apps: map(normalize_application, apps))
 
@@ -54,7 +55,7 @@ def erlang_application(
             included_applications = normalized_included_applications,
             extra_includes = select_map(extra_includes, lambda deps: map(_extra_include_name, deps)),
             labels = labels,
-            **kwargs
+            **kwargs,
         )
     else:
         return [
@@ -70,14 +71,11 @@ def erlang_application(
                 app_name = app_name,
                 applications = normalized_applications,
                 included_applications = normalized_included_applications,
-                extra_includes = [
-                    _extra_include_name(dep)
-                    for dep in extra_includes
-                ],
+                extra_includes = [_extra_include_name(dep) for dep in extra_includes],
                 includes = includes,
                 _includes_target = ":" + _extra_include_name(name),
                 labels = labels,
-                **kwargs
+                **kwargs,
             ),
         ]
 
@@ -87,15 +85,16 @@ def _extra_include_name(name: str) -> str:
     return "{}_includes_only".format(name)
 
 def erlang_tests(
-        erlang_app_rule,
-        erlang_test_rule,
-        suites: list[str] = [],
-        deps: list[str] = [],
-        resources: list[str] = [],
-        srcs: list[str] = [],
-        config_files: list[str] = [],
-        common_app_env: dict[str, str] = {},
-        **common_attributes):
+    erlang_app_rule,
+    erlang_test_rule,
+    suites: list[str] = [],
+    deps: list[str] = [],
+    resources: list[str] = [],
+    srcs: list[str] = [],
+    config_files: list[str] = [],
+    common_app_env: dict[str, str] = {},
+    **common_attributes,
+):
     """
     Generate multiple erlang_test targets based on the `suites` field.
     """
@@ -108,5 +107,5 @@ def erlang_tests(
         srcs = srcs,
         config_files = config_files,
         common_app_env = common_app_env,
-        **common_attributes
+        **common_attributes,
     )

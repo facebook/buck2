@@ -16,18 +16,16 @@ load(":python.bzl", "PythonLibraryManifestsTSet")
 load(":toolchain.bzl", "PythonToolchainInfo")
 
 # Information about what modules a Python target contains for type checking purpose
-PythonSourceDBInfo = provider(fields = {
-    "manifests": provider_field(typing.Any, default = None),  # PythonLibraryManifestsTSet
-})
+PythonSourceDBInfo = provider(
+    fields = {
+        "manifests": provider_field(typing.Any, default = None),  # PythonLibraryManifestsTSet
+    }
+)
 
 def create_python_source_db_info(manifests: [PythonLibraryManifestsTSet, None]) -> PythonSourceDBInfo:
     return PythonSourceDBInfo(manifests = manifests)
 
-def create_dbg_source_db(
-        ctx: AnalysisContext,
-        output: Artifact,
-        srcs: [ManifestInfo, None],
-        python_deps: list[PythonLibraryInfo]) -> DefaultInfo:
+def create_dbg_source_db(ctx: AnalysisContext, output: Artifact, srcs: [ManifestInfo, None], python_deps: list[PythonLibraryInfo]) -> DefaultInfo:
     artifacts = []
 
     python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
@@ -56,16 +54,12 @@ def create_dbg_source_db(
 
     return DefaultInfo(default_output = output, other_outputs = artifacts)
 
-def create_source_db_no_deps(
-        ctx: AnalysisContext,
-        srcs: [dict[str, Artifact], None]) -> DefaultInfo:
+def create_source_db_no_deps(ctx: AnalysisContext, srcs: [dict[str, Artifact], None]) -> DefaultInfo:
     content = {} if srcs == None else srcs
     output = ctx.actions.write_json("db_no_deps.json", content, has_content_based_path = True)
     return DefaultInfo(default_output = output, other_outputs = content.values())
 
-def create_source_db_no_deps_from_manifest(
-        ctx: AnalysisContext,
-        srcs: ManifestInfo) -> DefaultInfo:
+def create_source_db_no_deps_from_manifest(ctx: AnalysisContext, srcs: ManifestInfo) -> DefaultInfo:
     output = ctx.actions.declare_output("db_no_deps.json", has_content_based_path = True)
     cmd = cmd_args(ctx.attrs._python_internal_tools[PythonInternalToolsInfo].make_source_db_no_deps)
     cmd.add(cmd_args(output.as_output(), format = "--output={}"))

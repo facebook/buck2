@@ -45,9 +45,8 @@ def location_to_string(location: ModifierLocation) -> str:
     fail("Internal error. Unrecognized location type `{}` for location `{}`".format(type(location), location))
 
 def get_tagged_modifiers(
-        cfg_modifiers: list[Modifier],
-        extra_cfg_modifiers_per_rule: dict[str, list[Modifier]],
-        location: ModifierLocation) -> list[TaggedModifiers]:
+    cfg_modifiers: list[Modifier], extra_cfg_modifiers_per_rule: dict[str, list[Modifier]], location: ModifierLocation
+) -> list[TaggedModifiers]:
     for modifier in cfg_modifiers:
         verify_normalized_modifier(modifier)
     for _, modifiers in extra_cfg_modifiers_per_rule.items():
@@ -76,18 +75,16 @@ def get_constraint_setting(constraint_settings: set[TargetLabel], modifier: Modi
         fail("`modifiers.match` cannot be empty. Found empty `modifiers.match` at `{}`".format(location_to_string(location)))
     if len(constraint_settings) > 1:
         fail(
-            "A single modifier can only modify a single constraint setting.\n" +
-            "Modifier `{}` from `{}` is found to modify the following constraint settings:\n".format(
+            "A single modifier can only modify a single constraint setting.\n"
+            + "Modifier `{}` from `{}` is found to modify the following constraint settings:\n".format(
                 modifier,
                 location_to_string(location),
-            ) + "\n".join([str(k) for k in constraint_settings]),
+            )
+            + "\n".join([str(k) for k in constraint_settings]),
         )
     return list(constraint_settings)[0]
 
-def get_modifier_info(
-        refs: dict[str, ProviderCollection],
-        modifier: Modifier,
-        location: ModifierLocation) -> ((TargetLabel, ModifierInfo) | None):
+def get_modifier_info(refs: dict[str, ProviderCollection], modifier: Modifier, location: ModifierLocation) -> (TargetLabel, ModifierInfo) | None:
     # Gets a modifier info from a modifier based on providers from `refs`.
     if modifier == None:
         return None
@@ -107,10 +104,10 @@ def get_modifier_info(
                 if cfg_info.values:
                     soft_error(
                         "starlark_config_setting_non_empty_buckconfig_values_in_conditional_modifier",
-                        "config_setting `{}` defines buckconfig values {} which are NOT supported in conditional modifiers.\n".format(key, cfg_info.values) +
-                        "These buckconfig values are being IGNORED.\n\n" +
-                        "Action required: Remove the `values` parameter from this config_setting {} and use only `constraint_values` instead.\n".format(key) +
-                        "Note: This may become a hard error in the future to prevent silent misconfiguration.",
+                        "config_setting `{}` defines buckconfig values {} which are NOT supported in conditional modifiers.\n".format(key, cfg_info.values)
+                        + "These buckconfig values are being IGNORED.\n\n"
+                        + "Action required: Remove the `values` parameter from this config_setting {} and use only `constraint_values` instead.\n".format(key)
+                        + "Note: This may become a hard error in the future to prevent silent misconfiguration.",
                         quiet = True,
                         stack = False,
                     )
@@ -134,11 +131,15 @@ def get_modifier_info(
             return conditional_modifier_info.key, conditional_modifier_info.inner
         cfg_info = modifier_info[ConfigurationInfo]
         asserts.true(len(cfg_info.constraints) == 1, "Modifier should only be a single constraint value. Found multiple or none in `{}`".format(modifier))
-        fail("Internal error: Modifer (`{}` type `{}`) with single constraint value should have ConditionalModifierInfo provider.".format(modifier_info, type(modifier_info)))
+        fail(
+            "Internal error: Modifer (`{}` type `{}`) with single constraint value should have ConditionalModifierInfo provider.".format(
+                modifier_info, type(modifier_info)
+            )
+        )
     fail("Internal error: Found unexpected modifier `{}` type `{}`".format(modifier, type(modifier)))
 
 def _is_subset(a: ConfigurationInfo, b: ConfigurationInfo) -> bool:
-    for (_constraint_setting, a_constraint_value) in a.constraints.items():
+    for _constraint_setting, a_constraint_value in a.constraints.items():
         setting_info = a_constraint_value.setting
         b_constraint_value = b.get(setting_info)
         if a_constraint_value != b_constraint_value:
@@ -222,8 +223,7 @@ def resolve_alias(modifier: Modifier, aliases: struct) -> list[Modifier]:
         return resolved if isinstance(resolved, list) else [resolved]
     fail("Found invalid modifier alias `{}`. A list of valid modifier aliases is in buck2/cfg/experimental/alias.bzl".format(modifier))
 
-def _get_constraint_setting_deps(
-        modifier_info: ModifierInfo) -> list[TargetLabel]:
+def _get_constraint_setting_deps(modifier_info: ModifierInfo) -> list[TargetLabel]:
     deps = []
     if isinstance(modifier_info, ModifiersMatchInfo):
         for key, sub_modifier in modifier_info.selector:
@@ -234,25 +234,24 @@ def _get_constraint_setting_deps(
             deps += _get_constraint_setting_deps(modifier_info.default)
     return deps
 
-def get_constraint_setting_deps(
-        modifier_info: ModifierInfo) -> list[TargetLabel]:
+def get_constraint_setting_deps(modifier_info: ModifierInfo) -> list[TargetLabel]:
     # Get all constraint settings depended on by a modifier (from keys of `modifier_select`). The modifiers
     # for these constraint settings must be resolved before this modifier can be resolved.
     return dedupe(_get_constraint_setting_deps(modifier_info))
 
 def add_to_constraint_setting_to_modifier_infos(
-        constraint_setting_to_modifier_infos: dict[TargetLabel, list[ModifierInfo]],
-        constraint_setting_label: TargetLabel,
-        modifier_info: ModifierInfo):
+    constraint_setting_to_modifier_infos: dict[TargetLabel, list[ModifierInfo]], constraint_setting_label: TargetLabel, modifier_info: ModifierInfo
+):
     modifier_infos = constraint_setting_to_modifier_infos.get(constraint_setting_label) or []
     modifier_infos.append(modifier_info)
     constraint_setting_to_modifier_infos[constraint_setting_label] = modifier_infos
 
 def get_and_insert_modifier_info(
-        constraint_setting_to_modifier_infos: dict[TargetLabel, list[ModifierInfo]],
-        refs: dict[str, ProviderCollection],
-        modifier: Modifier,
-        location: ModifierLocation) -> (TargetLabel, ModifierInfo):
+    constraint_setting_to_modifier_infos: dict[TargetLabel, list[ModifierInfo]],
+    refs: dict[str, ProviderCollection],
+    modifier: Modifier,
+    location: ModifierLocation,
+) -> (TargetLabel, ModifierInfo):
     constraint_setting_label, modifier_info = get_modifier_info(
         refs = refs,
         modifier = modifier,
@@ -261,9 +260,7 @@ def get_and_insert_modifier_info(
     add_to_constraint_setting_to_modifier_infos(constraint_setting_to_modifier_infos, constraint_setting_label, modifier_info)
     return (constraint_setting_label, modifier_info)
 
-def apply_buckconfig_backed_modifiers(
-        constraint_setting_to_modifier_infos: dict[TargetLabel, list[ModifierInfo]],
-        modifiers: list[ConditionalModifierInfo]):
+def apply_buckconfig_backed_modifiers(constraint_setting_to_modifier_infos: dict[TargetLabel, list[ModifierInfo]], modifiers: list[ConditionalModifierInfo]):
     for conditional_modifier_info in modifiers:
         add_to_constraint_setting_to_modifier_infos(
             constraint_setting_to_modifier_infos = constraint_setting_to_modifier_infos,

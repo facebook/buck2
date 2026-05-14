@@ -15,57 +15,81 @@ load(":common.bzl", "AbiGenerationMode")
 
 def _test_env():
     return {
-        "env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}, doc = """
+        "env": attrs.dict(
+            key = attrs.string(),
+            value = attrs.arg(),
+            sorted = False,
+            default = {},
+            doc = """
     A map of environment names and values to set when running the test.
-"""),
+""",
+        ),
     }
 
 def _resources_arg():
     return {
-        "resources": attrs.list(attrs.source(), default = [], doc = """
+        "resources": attrs.list(
+            attrs.source(),
+            default = [],
+            doc = """
     Static files to include with the compiled `.class` files.
      These files can be loaded
      via [Class.getResource()](http://docs.oracle.com/javase/7/docs/api/java/lang/Class.html#getResource(java.lang.String)).
-
 
     **Note:** If `resources_root` isn't set,
      Buck uses the ``.buckconfig``
      property in `.buckconfig` to
      determine where resources should be placed within the generated JAR
      file.
-"""),
-        "resources_root": attrs.option(attrs.source(), default = None, doc = """
+""",
+        ),
+        "resources_root": attrs.option(
+            attrs.source(),
+            default = None,
+            doc = """
     The path that resources are resolved against. For example, if `resources_root` is `"res"` and
      `resources` contains the file `"res/com/example/foo.txt"`, that file will end up as `"com/example/foo.txt"` in the output JAR. This parameter
      overrides the ``.buckconfig`` property in `.buckconfig`.
-"""),
+""",
+        ),
     }
 
 def _remove_classes_arg():
     return {
-        "remove_classes": attrs.list(attrs.regex(), default = [], doc = """
+        "remove_classes": attrs.list(
+            attrs.regex(),
+            default = [],
+            doc = """
     Specifies a list of `Patterns` that are used to exclude
      `classes` from the `JAR`. The pattern matching is
      based on the name of the class. This can be used to exclude a member
      class or delete a local view of a class that will be replaced during
      a later stage of the build.
-"""),
+""",
+        ),
     }
 
 def _provided_deps():
     return {
-        "provided_deps": attrs.list(attrs.dep(), default = [], doc = """
+        "provided_deps": attrs.list(
+            attrs.dep(),
+            default = [],
+            doc = """
     These represent dependencies that are known to be provided at run
      time, but are required in order for the code to compile. Examples of
      `provided_deps` include the JEE servlet APIs. When this
      rule is included in a , the
      `provided_deps` will not be packaged into the output.
-"""),
+""",
+        ),
     }
 
 def _exported_deps():
     return {
-        "exported_deps": attrs.list(attrs.dep(), default = [], doc = """
+        "exported_deps": attrs.list(
+            attrs.dep(),
+            default = [],
+            doc = """
     Other  rules that depend on this rule will also
      include its `exported_deps` in their classpaths. This is useful
      when the public API of a rule has return types or checked exceptions that are
@@ -74,77 +98,103 @@ def _exported_deps():
      `prebuilt_jar` rules as a single target for callers to depend
      on. Targets in `exported_deps` are implicitly included in the
      `deps` of this rule, so they don't need to be repeated there.
-"""),
+""",
+        ),
     }
 
 def _multi_release_jar():
     return {
-        "min_release_version": attrs.option(attrs.string(), default = None, doc = """
+        "min_release_version": attrs.option(
+            attrs.string(),
+            default = None,
+            doc = """
                 Minimal java version that the library should be compatible with.
                 This ensures that both the language features and the bytecode generated are
                 compatible with the specified Java version, and only APIs available in that version are accessible.
-            """),
-        "multi_release_srcs": attrs.dict(key = attrs.string(), value = attrs.list(attrs.source(), default = []), default = {}, doc = """
+            """,
+        ),
+        "multi_release_srcs": attrs.dict(
+            key = attrs.string(),
+            value = attrs.list(attrs.source(), default = []),
+            default = {},
+            doc = """
                 The set of `.java` files to compile for the mapped java version.
                 Each version will be packed under META-INF/versions/java_version.
-            """),
+            """,
+        ),
     }
 
 def _exported_provided_deps():
     return {
-        "exported_provided_deps": attrs.list(attrs.dep(), default = [], doc = """
+        "exported_provided_deps": attrs.list(
+            attrs.dep(),
+            default = [],
+            doc = """
     This is a combination of `provided_deps` and `exported_deps`. Rules listed
      in this parameter will be added to classpath of rules that depend on this rule, but they will not
      be included in a binary if binary depends on a such target.
-"""),
+""",
+        ),
     }
 
 def _source_only_abi_deps():
     return {
-        "source_only_abi_deps": attrs.list(attrs.dep(), default = [], doc = """
+        "source_only_abi_deps": attrs.list(
+            attrs.dep(),
+            default = [],
+            doc = """
     These are dependencies that must be present during
      `source-only ABI generation`.
      Typically such dependencies are added when some property of the code in this rule prevents source-only ABI
      generation from being correct without these dependencies being present.
-
 
      Having `source_only_abi_deps` prevents Buck from
      completely flattening the build graph, thus reducing the performance win from source-only
      ABI generation. They should be avoided when possible. Often only a small code change is needed to avoid them.
      For more information on such code changes, read about
      `source-only ABI generation`.
-"""),
+""",
+        ),
     }
 
 def _abi_generation_mode():
     return {
-        "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None, doc = """
+        "abi_generation_mode": attrs.option(
+            attrs.enum(AbiGenerationMode),
+            default = None,
+            doc = """
     Overrides `.buckconfig`
     for this rule.
-"""),
+""",
+        ),
     }
 
 def _required_for_source_only_abi():
     return {
-        "required_for_source_only_abi": attrs.bool(default = False, doc = """
+        "required_for_source_only_abi": attrs.bool(
+            default = False,
+            doc = """
     Indicates that this rule must be present on the classpath during
      `source-only ABI generation`
      of any rule that depends on it. Typically this is done when a rule contains annotations,
      enums, constants, or interfaces.
 
-
      Having rules present on the classpath during source-only ABI generation prevents Buck from
      completely flattening the build graph, thus reducing the performance win from source-only
      ABI generation. These rules should be kept small (ideally just containing annotations,
      constants, enums, and interfaces) and with minimal dependencies of their own.
-"""),
+""",
+        ),
     }
 
 def _k2():
     return {
-        "k2": attrs.bool(default = True, doc = """
+        "k2": attrs.bool(
+            default = True,
+            doc = """
     Enables the Kotlin K2 compiler.
-    """),
+    """,
+        ),
     }
 
 def _incremental():
@@ -159,9 +209,12 @@ def _incremental():
 
 def _enable_used_classes():
     return {
-        "enable_used_classes": attrs.bool(default = True, doc = """
+        "enable_used_classes": attrs.bool(
+            default = True,
+            doc = """
     Deprecated: for an experiment only, will be removed
-    """),
+    """,
+        ),
     }
 
 def _plugins():
@@ -194,7 +247,10 @@ def _plugins():
 
 def _kotlin_compiler_plugins():
     return {
-        "kotlin_compiler_plugins": attrs.list(attrs.tuple(attrs.exec_dep(), attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False)), default = [], doc = """
+        "kotlin_compiler_plugins": attrs.list(
+            attrs.tuple(attrs.exec_dep(), attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False)),
+            default = [],
+            doc = """
                 Use this to specify [Kotlin compiler plugins](https://kotlinlang.org/docs/reference/compiler-plugins.html) to use when compiling this library.
                  This takes a map, with each entry specify one plugin. Entry's key is plugin source path,
                  and value is a map of plugin option key value pair. Unlike `extra_kotlinc_arguments`,
@@ -249,7 +305,8 @@ fbcode/buck2/prelude/decls/jvm_common.bzl
                     sha1 = "23d777a5282c1957c7ce35946374fff0adab114c"
                 )
                 ```
-            """),
+            """,
+        ),
     }
 
 def _annotation_processors():
@@ -260,14 +317,16 @@ def _annotation_processors():
     }
 
 def _content_based_path_attr():
-    return attrs.bool(default = select({
-        "DEFAULT": False,
-        # @oss-disable[end= ]: "config//build_mode/constraints:whatsapp": True,
-        # @oss-disable[end= ]: "config//build_mode:arvr_mode[enabled]": True,
-        # @oss-disable[end= ]: "config//os/constraints:android": True,
-        # @oss-disable[end= ]: "config//runtime/constraints:android-host-test": True,
-        # @oss-disable[end= ]: "config//runtime/constraints:android-unit-test": True,
-    }))
+    return attrs.bool(
+        default = select({
+            "DEFAULT": False,
+            # @oss-disable[end= ]: "config//build_mode/constraints:whatsapp": True,
+            # @oss-disable[end= ]: "config//build_mode:arvr_mode[enabled]": True,
+            # @oss-disable[end= ]: "config//os/constraints:android": True,
+            # @oss-disable[end= ]: "config//runtime/constraints:android-host-test": True,
+            # @oss-disable[end= ]: "config//runtime/constraints:android-unit-test": True,
+        })
+    )
 
 def _kotlincd_content_based_paths():
     return {
@@ -281,12 +340,16 @@ def _classic_java_content_based_paths():
 
 def _javac():
     return {
-        "javac": attrs.option(attrs.one_of(attrs.exec_dep(), attrs.source()), default = None, doc = """
+        "javac": attrs.option(
+            attrs.one_of(attrs.exec_dep(), attrs.source()),
+            default = None,
+            doc = """
             Specifies the Java compiler program to use for this rule.
                 The value is a source path or an execution dep (e.g., //foo/bar:bar).
                 Overrides the value in "javac" in the "tools" section
                 of `.buckconfig`.
-            """),
+            """,
+        ),
     }
 
 jvm_common = struct(

@@ -36,7 +36,27 @@ AnnotationProcessingTool = ["kapt", "javac"]
 
 CxxRuntimeType = ["dynamic", "static"]
 
-CxxSourceType = ["c", "cxx", "cxx_thinlink", "objc", "objcxx", "cuda", "hip", "swift", "c_cpp_output", "cxx_cpp_output", "objc_cpp_output", "objcxx_cpp_output", "cuda_cpp_output", "hip_cpp_output", "assembler_with_cpp", "assembler", "asm_with_cpp", "asm", "pcm"]
+CxxSourceType = [
+    "c",
+    "cxx",
+    "cxx_thinlink",
+    "objc",
+    "objcxx",
+    "cuda",
+    "hip",
+    "swift",
+    "c_cpp_output",
+    "cxx_cpp_output",
+    "objc_cpp_output",
+    "objcxx_cpp_output",
+    "cuda_cpp_output",
+    "hip_cpp_output",
+    "assembler_with_cpp",
+    "assembler",
+    "asm_with_cpp",
+    "asm",
+    "pcm",
+]
 
 DefaultDepsMode = ["none", "deps", "exported_deps"]
 
@@ -65,7 +85,10 @@ def _name_arg(name_type):
 
 def _deps_query_arg():
     return {
-        "deps_query": attrs.option(attrs.query(), default = None, doc = """
+        "deps_query": attrs.option(
+            attrs.query(),
+            default = None,
+            doc = """
     Status: **experimental/unstable**.
      The deps query takes a query string that accepts the following query
      functions, and appends the output of the query to the declared deps:
@@ -86,24 +109,33 @@ def _deps_query_arg():
       "attrfilter(annotation_processors, com.foo.Processor, deps('//foo:foo'))"
       "deps('//foo:foo', 1)"
     ```
-"""),
+""",
+        ),
     }
 
 def _provided_deps_query_arg():
     return {
-        "provided_deps_query": attrs.option(attrs.query(), default = None, doc = """
+        "provided_deps_query": attrs.option(
+            attrs.query(),
+            default = None,
+            doc = """
     Status: **experimental/unstable**.
      The provided deps query functions in the same way as the deps query, but the
      results of the query are appended to the declared provided deps.
-"""),
+""",
+        ),
     }
 
 def _labels_arg():
     return {
-        "labels": attrs.list(attrs.string(), default = [], doc = """
+        "labels": attrs.list(
+            attrs.string(),
+            default = [],
+            doc = """
     Set of arbitrary strings which allow you to annotate a [build rule](https://buck2.build/docs/concepts/build_rule/) with tags
     that can be searched for over an entire dependency tree using `buck query()`.
-"""),
+""",
+        ),
     }
 
 def _visibility_arg(visibility_type):
@@ -123,14 +155,18 @@ def _tests_apple_arg(tests_type):
 
 def _test_label_arg():
     return {
-        "labels": attrs.list(attrs.string(), default = [], doc = """
+        "labels": attrs.list(
+            attrs.string(),
+            default = [],
+            doc = """
     A list of labels to be applied to these tests. These labels are
      arbitrary text strings and have no meaning within buck itself. They
      can, however, have meaning for you as a test author
      (e.g., `smoke` or `fast`). A label can be
      used to filter or include a specific test rule
      when executing `buck test`
-"""),
+""",
+        ),
     }
 
 def _run_test_separately_arg(run_test_separately_type):
@@ -140,12 +176,16 @@ def _run_test_separately_arg(run_test_separately_type):
 
 def _test_rule_timeout_ms():
     return {
-        "test_rule_timeout_ms": attrs.option(attrs.int(), default = None, doc = """
+        "test_rule_timeout_ms": attrs.option(
+            attrs.int(),
+            default = None,
+            doc = """
     If set specifies the maximum amount of time (in milliseconds) in which all of the tests in this
      rule should complete. This overrides the default `rule_timeout` if any has been
      specified in `.buckconfig`
     .
-"""),
+""",
+        ),
     }
 
 def _target_os_type_arg() -> Attr:
@@ -179,22 +219,30 @@ def _inject_test_env_arg():
 
 def _licenses_arg():
     return {
-        "licenses": attrs.list(attrs.source(), default = [], doc = """
+        "licenses": attrs.list(
+            attrs.source(),
+            default = [],
+            doc = """
             Set of license files for this library. To get the list of license files for a given build rule and
             all of its dependencies, you can use [buck query](https://buck2.build/docs/users/commands/query/)
-        """),
+        """,
+        ),
     }
 
 def _contacts_arg():
     return {
-        "contacts": attrs.list(attrs.string(), default = [], doc = """
+        "contacts": attrs.list(
+            attrs.string(),
+            default = [],
+            doc = """
             A list of organizational contacts for this rule. These could be individuals who you would contact
             in the event of a failure or other issue with the rule.
 
             ```
             contacts = [ 'Joe Sixpack', 'Erika Mustermann' ]
             ```
-        """),
+        """,
+        ),
     }
 
 buck = struct(

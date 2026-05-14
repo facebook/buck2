@@ -15,14 +15,17 @@ py_bin - the python executable
 py_version - a string denoting the version of python represented by this provider
 stdlib - the path to the python standard library
 """
-PythonRuntimeBundleInfo = provider(fields = {
-    "include": provider_field(Artifact),
-    "libpython": provider_field(Artifact | None),
-    "py_bin": provider_field(Artifact),
-    "py_version": provider_field(str),
-    "shared_libs": provider_field(list[Dependency]),
-    "stdlib": provider_field(Artifact),
-})
+
+PythonRuntimeBundleInfo = provider(
+    fields = {
+        "include": provider_field(Artifact),
+        "libpython": provider_field(Artifact | None),
+        "py_bin": provider_field(Artifact),
+        "py_version": provider_field(str),
+        "shared_libs": provider_field(list[Dependency]),
+        "stdlib": provider_field(Artifact),
+    }
+)
 
 def python_runtime_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     root = ctx.attrs.install_root[DefaultInfo].default_outputs[0]

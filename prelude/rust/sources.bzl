@@ -18,9 +18,11 @@ RustSourcesTSet = transitive_set(
 # Sources of all transitive Rust dependencies. This is required for compilation in order to
 # guarantee consistent crate hashes between local and remote actions.
 # See https://github.com/rust-lang/rust/issues/153898
-RustSources = provider(fields = {
-    "tset": RustSourcesTSet,
-})
+RustSources = provider(
+    fields = {
+        "tset": RustSourcesTSet,
+    }
+)
 
 def srcs_arg():
     return {
@@ -134,7 +136,9 @@ def _rust_filegroup_impl(ctx: AnalysisContext) -> list[Provider]:
 
 rust_filegroup = rule(
     impl = _rust_filegroup_impl,
-    attrs = srcs_arg() | mapped_srcs_arg() | {
+    attrs = srcs_arg()
+    | mapped_srcs_arg()
+    | {
         "use_content_based_paths": attrs.bool(default = True),
     },
 )

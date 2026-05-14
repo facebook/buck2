@@ -53,9 +53,7 @@ DepInfo = record(
     path = field(str),
 )
 
-def _prepare_build_environment(
-        dep_info: ErlangDependencyInfo,
-        includes_target: [ErlangAppIncludeInfo, None] = None) -> BuildEnvironment:
+def _prepare_build_environment(dep_info: ErlangDependencyInfo, includes_target: [ErlangAppIncludeInfo, None] = None) -> BuildEnvironment:
     """Prepare build environment and collect the context from all dependencies."""
     include_dirs = dict(dep_info.include_dirs)
     includes = dict(dep_info.includes)
@@ -100,12 +98,8 @@ def _generated_source_artifacts(ctx: AnalysisContext, toolchain: Toolchain) -> l
 
 # mutates build_environment in place
 def _generate_include_artifacts(
-        ctx: AnalysisContext,
-        toolchain: Toolchain,
-        build_environment: BuildEnvironment,
-        name: str,
-        header_artifacts: list[Artifact],
-        is_private: bool = False):
+    ctx: AnalysisContext, toolchain: Toolchain, build_environment: BuildEnvironment, name: str, header_artifacts: list[Artifact], is_private: bool = False
+):
     if not header_artifacts:
         return
 
@@ -146,12 +140,8 @@ def _generate_include_artifacts(
         build_environment.private_include_dirs[name] = include_dir
 
 def _merged_deps_file(
-        ctx: AnalysisContext,
-        toolchain: Toolchain,
-        name: str,
-        deps_files: PathArtifactMapping,
-        is_private: bool,
-        previous_merged_file: [Artifact, None]) -> [Artifact, None]:
+    ctx: AnalysisContext, toolchain: Toolchain, name: str, deps_files: PathArtifactMapping, is_private: bool, previous_merged_file: [Artifact, None]
+) -> [Artifact, None]:
     """Merge the deps files of the headers into a single deps file."""
 
     if not deps_files:
@@ -178,12 +168,8 @@ def _merged_deps_file(
 
 # mutates build_environment in place
 def _generate_beam_artifacts(
-        ctx: AnalysisContext,
-        toolchain: Toolchain,
-        build_environment: BuildEnvironment,
-        name: str,
-        src_artifacts: list[Artifact],
-        hermetic_src_dir: Artifact):
+    ctx: AnalysisContext, toolchain: Toolchain, build_environment: BuildEnvironment, name: str, src_artifacts: list[Artifact], hermetic_src_dir: Artifact
+):
     if not src_artifacts:
         return
 
@@ -217,10 +203,7 @@ def _generate_beam_artifacts(
     for erl in src_artifacts:
         _build_erl(ctx, toolchain, small_build_environment, deps_files, dep_info_file, hermetic_src_dir, erl, beam_mapping[module_name(erl)])
 
-def _get_deps_files(
-        ctx: AnalysisContext,
-        toolchain: Toolchain,
-        srcs: list[Artifact]):
+def _get_deps_files(ctx: AnalysisContext, toolchain: Toolchain, srcs: list[Artifact]):
     """Mapping from the output path to the deps file artifact for each srcs artifact and dependencies."""
 
     return {src.basename: _get_deps_file(ctx, toolchain, src) for src in srcs}
@@ -237,11 +220,7 @@ def _get_deps_file(ctx: AnalysisContext, toolchain: Toolchain, src: Artifact) ->
     )
     return dependency_json
 
-def _build_xyrl(
-        ctx: AnalysisContext,
-        toolchain: Toolchain,
-        xyrl: Artifact,
-        custom_include_opt: str) -> Artifact:
+def _build_xyrl(ctx: AnalysisContext, toolchain: Toolchain, xyrl: Artifact, custom_include_opt: str) -> Artifact:
     """Generate an erl file out of an xrl or yrl input file."""
     output = ctx.actions.declare_output(_GENERATED_DIR, "{}.erl".format(module_name(xyrl)), has_content_based_path = False)
     erlc = toolchain.otp_binaries.erlc
@@ -261,14 +240,15 @@ def _build_xyrl(
     return output
 
 def _build_erl(
-        ctx: AnalysisContext,
-        toolchain: Toolchain,
-        build_environment: SmallBuildEnvironment,
-        beam_deps_files: PathArtifactMapping,
-        dep_info_file: WriteJsonCliArgs,
-        hermetic_src_dir: Artifact,
-        src: Artifact,
-        output: Artifact) -> None:
+    ctx: AnalysisContext,
+    toolchain: Toolchain,
+    build_environment: SmallBuildEnvironment,
+    beam_deps_files: PathArtifactMapping,
+    dep_info_file: WriteJsonCliArgs,
+    hermetic_src_dir: Artifact,
+    src: Artifact,
+    output: Artifact,
+) -> None:
     """Compile erl files into beams."""
 
     final_dep_file = ctx.actions.declare_output(_DEP_FILES_DIR, "{}.final.dep".format(src.short_path), has_content_based_path = False)
@@ -312,12 +292,8 @@ def _build_erl(
     ctx.actions.dynamic_output(dynamic = [final_dep_file], inputs = [hermetic_src], outputs = [output.as_output()], f = dynamic_lambda)
     return None
 
-def _dependencies_to_args(
-        artifacts,
-        final_dep_file: Artifact,
-        build_environment: SmallBuildEnvironment) -> (cmd_args, dict[str, (bool, [str, Artifact])]):
-    """Add the transitive closure of all per-file Erlang dependencies as specified in the deps files to the `args` with .hidden.
-    """
+def _dependencies_to_args(artifacts, final_dep_file: Artifact, build_environment: SmallBuildEnvironment) -> (cmd_args, dict[str, (bool, [str, Artifact])]):
+    """Add the transitive closure of all per-file Erlang dependencies as specified in the deps files to the `args` with .hidden."""
     includes = set()
     include_libs = set()
     beams = set()
@@ -366,9 +342,7 @@ def _dependencies_to_args(
                         input_mapping[file] = (True, build_environment.includes[app][file])
                         break
 
-        elif (dep["type"] == "behaviour" or
-              dep["type"] == "parse_transform" or
-              dep["type"] == "manual_dependency"):
+        elif dep["type"] == "behaviour" or dep["type"] == "parse_transform" or dep["type"] == "manual_dependency":
             module = strip_extension(file)
 
             # we made sure earlier there are no conflicts, we'll find at most one
@@ -390,10 +364,7 @@ def _dependencies_to_args(
 
     return args, input_mapping
 
-def _get_erl_opts(
-        ctx: AnalysisContext,
-        toolchain: Toolchain,
-        src: Artifact) -> cmd_args:
+def _get_erl_opts(ctx: AnalysisContext, toolchain: Toolchain, src: Artifact) -> cmd_args:
     always = ["+deterministic"]
 
     # use erl_opts defined in taret if present
@@ -414,14 +385,15 @@ def _get_erl_opts(
         for parse_transform in toolchain.parse_transforms:
             if (
                 # add parse_transform if there is no filter set
-                not parse_transform in toolchain.parse_transforms_filters or
+                not parse_transform in toolchain.parse_transforms_filters
+                or
                 # or if module is listed in the filter and add conditionally
                 module_name(src) in toolchain.parse_transforms_filters[parse_transform]
             ):
                 parse_transforms[parse_transform] = toolchain.parse_transforms[parse_transform]
     args.add(parse_transforms.values())
 
-    source = cmd_args(src, format = "{source, \"{}\"}")
+    source = cmd_args(src, format = '{source, "{}"}')
     path_type = "{path_type, relative}"
     preserved_opts = _preserved_opts(opts)
 
@@ -443,32 +415,32 @@ def _preserved_opts(opts: list[str]) -> cmd_args:
     return cmd_args(joined, format = "{options, [{}]}")
 
 def module_name(in_file: Artifact) -> str:
-    """ Returns the basename of the artifact without extension """
+    """Returns the basename of the artifact without extension"""
     end = in_file.basename.rfind(".")
     return in_file.basename[:end]
 
 def _is_hrl(in_file: Artifact) -> bool:
-    """ Returns True if the artifact is a hrl file """
+    """Returns True if the artifact is a hrl file"""
     return _is_ext(in_file, ".hrl")
 
 def _is_erl(in_file: Artifact) -> bool:
-    """ Returns True if the artifact is an erl file """
+    """Returns True if the artifact is an erl file"""
     return _is_ext(in_file, ".erl")
 
 def _is_yrl(in_file: Artifact) -> bool:
-    """ Returns True if the artifact is a yrl file """
+    """Returns True if the artifact is a yrl file"""
     return _is_ext(in_file, ".yrl")
 
 def _is_xrl(in_file: Artifact) -> bool:
-    """ Returns True if the artifact is a xrl file """
+    """Returns True if the artifact is a xrl file"""
     return _is_ext(in_file, ".xrl")
 
 def _is_config(in_file: Artifact) -> bool:
-    """ Returns True if the artifact is a config file """
+    """Returns True if the artifact is a config file"""
     return _is_ext(in_file, ".config")
 
 def _is_ext(in_file: Artifact, extension: str) -> bool:
-    """ Returns True if the artifact has an extension listed in extensions """
+    """Returns True if the artifact has an extension listed in extensions"""
     return in_file.basename.endswith(extension)
 
 def _dep_mapping_name(src: Artifact) -> str:
@@ -478,7 +450,7 @@ def _dep_mapping_name(src: Artifact) -> str:
     )
 
 def _run_with_env(ctx: AnalysisContext, toolchain: Toolchain, args: cmd_args, **kwargs):
-    """ run interfact that injects env"""
+    """run interfact that injects env"""
 
     # use os_env defined in target if present
     if getattr(ctx.attrs, "os_env", None) == None:
@@ -494,10 +466,7 @@ def _run_with_env(ctx: AnalysisContext, toolchain: Toolchain, args: cmd_args, **
     ctx.actions.run(args, **kwargs)
 
 # mutates build_environment in place
-def _peek_private_includes(
-        ctx: AnalysisContext,
-        build_environment: BuildEnvironment,
-        force_peek: bool = False):
+def _peek_private_includes(ctx: AnalysisContext, build_environment: BuildEnvironment, force_peek: bool = False):
     if not (force_peek or ctx.attrs.peek_private_includes):
         return
 

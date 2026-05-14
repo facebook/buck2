@@ -38,32 +38,40 @@ def get_apple_xctoolchain_bundle_id_attr():
     return attrs.toolchain_dep(default = "toolchains//:apple-xctoolchain-bundle-id")
 
 def get_enable_library_evolution():
-    return attrs.bool(default = select({
-        "DEFAULT": False,
-        "config//features/apple:swift_library_evolution_enabled": True,
-    }))
+    return attrs.bool(
+        default = select({
+            "DEFAULT": False,
+            "config//features/apple:swift_library_evolution_enabled": True,
+        })
+    )
 
 def _strict_provisioning_profile_search_default_attr():
-    default_value = (read_root_config("apple", "strict_provisioning_profile_search", "true").lower() == "true")
-    return attrs.bool(default = select({
-        "DEFAULT": default_value,
-        "config//features/apple:strict_provisioning_profile_search_enabled": True,
-    }))
+    default_value = read_root_config("apple", "strict_provisioning_profile_search", "true").lower() == "true"
+    return attrs.bool(
+        default = select({
+            "DEFAULT": default_value,
+            "config//features/apple:strict_provisioning_profile_search_enabled": True,
+        })
+    )
 
 def _fast_adhoc_signing_enabled_default_attr():
-    return attrs.bool(default = select({
-        "DEFAULT": True,
-        "config//features/apple:fast_adhoc_signing_disabled": False,
-        "config//features/apple:fast_adhoc_signing_enabled": True,
-    }))
+    return attrs.bool(
+        default = select({
+            "DEFAULT": True,
+            "config//features/apple:fast_adhoc_signing_disabled": False,
+            "config//features/apple:fast_adhoc_signing_enabled": True,
+        })
+    )
 
 def _skip_adhoc_resigning_scrubbed_frameworks_default_attr():
-    default_value = (read_root_config("apple", "skip_adhoc_resigning_scrubbed_frameworks", "").lower() == "true")
-    return attrs.bool(default = select({
-        "DEFAULT": default_value,
-        "config//features/apple/constraints:skip_adhoc_resigning_scrubbed_frameworks_disabled": False,
-        "config//features/apple/constraints:skip_adhoc_resigning_scrubbed_frameworks_enabled": True,
-    }))
+    default_value = read_root_config("apple", "skip_adhoc_resigning_scrubbed_frameworks", "").lower() == "true"
+    return attrs.bool(
+        default = select({
+            "DEFAULT": default_value,
+            "config//features/apple/constraints:skip_adhoc_resigning_scrubbed_frameworks_disabled": False,
+            "config//features/apple/constraints:skip_adhoc_resigning_scrubbed_frameworks_enabled": True,
+        })
+    )
 
 def _versioned_macos_bundle_default_value():
     return select({
@@ -118,11 +126,13 @@ def _apple_bundle_like_common_attrs():
         # Target-level attribute always takes precedence over buckconfigs.
         "code_signing_configuration": attrs.option(attrs.enum(CodeSignConfiguration.values()), default = None),
         "codesign_type": attrs.option(attrs.enum(CodeSignType.values()), default = None),
-        "entitlements_verification_check_enabled": attrs.bool(default = select({
-            "DEFAULT": read_bool("apple", "entitlements_verification_check_enabled", default = True, root_cell = True),
-            "config//features/apple:entitlements_verification_check_disabled": False,
-            "config//features/apple:entitlements_verification_check_enabled": True,
-        })),
+        "entitlements_verification_check_enabled": attrs.bool(
+            default = select({
+                "DEFAULT": read_bool("apple", "entitlements_verification_check_enabled", default = True, root_cell = True),
+                "config//features/apple:entitlements_verification_check_disabled": False,
+                "config//features/apple:entitlements_verification_check_enabled": True,
+            })
+        ),
         "fast_adhoc_signing_enabled": attrs.option(attrs.bool(), default = None),
         "provisioning_profile_filter": attrs.option(attrs.string(), default = None),
         "skip_adhoc_resigning_scrubbed_frameworks": attrs.option(attrs.bool(), default = None),
@@ -185,20 +195,36 @@ def apple_test_extra_attrs():
         "swift_package_name": attrs.option(attrs.string(), default = None),
         "swift_testing": attrs.bool(default = False),
         "test_device_type": attrs.enum(AppleTestDeviceType.values(), default = "default"),
-        "test_re_capabilities": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False), default = None, doc = """
+        "test_re_capabilities": attrs.option(
+            attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False),
+            default = None,
+            doc = """
             An optional dictionary with the RE capabilities for the test execution.
             Overrides a default selection mechanism.
-        """),
-        "test_re_use_case": attrs.option(attrs.string(), default = None, doc = """
+        """,
+        ),
+        "test_re_use_case": attrs.option(
+            attrs.string(),
+            default = None,
+            doc = """
             An optional name of the RE use case for the test execution.
             Overrides a default selection mechanism.
-        """),
+        """,
+        ),
         "_enable_library_evolution": get_enable_library_evolution(),
-        "_ipad_simulator": attrs.transition_dep(cfg = clear_platform_transition, default = "fbsource//xplat/buck2/platform/apple:ipad_simulator", providers = [LocalResourceInfo]),
-        "_iphone_booted_simulator": attrs.transition_dep(cfg = clear_platform_transition, default = "fbsource//xplat/buck2/platform/apple:iphone_booted_simulator", providers = [LocalResourceInfo]),
-        "_iphone_unbooted_simulator": attrs.transition_dep(cfg = clear_platform_transition, default = "fbsource//xplat/buck2/platform/apple:iphone_unbooted_simulator", providers = [LocalResourceInfo]),
+        "_ipad_simulator": attrs.transition_dep(
+            cfg = clear_platform_transition, default = "fbsource//xplat/buck2/platform/apple:ipad_simulator", providers = [LocalResourceInfo]
+        ),
+        "_iphone_booted_simulator": attrs.transition_dep(
+            cfg = clear_platform_transition, default = "fbsource//xplat/buck2/platform/apple:iphone_booted_simulator", providers = [LocalResourceInfo]
+        ),
+        "_iphone_unbooted_simulator": attrs.transition_dep(
+            cfg = clear_platform_transition, default = "fbsource//xplat/buck2/platform/apple:iphone_unbooted_simulator", providers = [LocalResourceInfo]
+        ),
         "_swift_enable_testing": attrs.default_only(attrs.bool(default = True)),
-        "_watch_simulator": attrs.transition_dep(cfg = clear_platform_transition, default = "fbsource//xplat/buck2/platform/apple:watch_simulator", providers = [LocalResourceInfo]),
+        "_watch_simulator": attrs.transition_dep(
+            cfg = clear_platform_transition, default = "fbsource//xplat/buck2/platform/apple:watch_simulator", providers = [LocalResourceInfo]
+        ),
     } | validation_common.attrs_validators_arg()
     attribs.update(apple_common.apple_toolchain_arg())
     attribs.update(_apple_bundle_like_common_attrs())

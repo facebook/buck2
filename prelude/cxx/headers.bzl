@@ -121,14 +121,16 @@ CxxPrecompiledHeader = record(
     clanguage = field(str),
 )
 
-CPrecompiledHeaderInfo = provider(fields = {
-    "basename": provider_field(typing.Any, default = None),
-    "clanguage": provider_field(str | None, default = None),
-    "compiled": provider_field(bool, default = False),
-    # Actual precompiled header ready to be used during compilation.
-    "header": Artifact,
-    "path": provider_field(typing.Any, default = None),
-})
+CPrecompiledHeaderInfo = provider(
+    fields = {
+        "basename": provider_field(typing.Any, default = None),
+        "clanguage": provider_field(str | None, default = None),
+        "compiled": provider_field(bool, default = False),
+        # Actual precompiled header ready to be used during compilation.
+        "header": Artifact,
+        "path": provider_field(typing.Any, default = None),
+    }
+)
 
 def cxx_attr_header_namespace(ctx: AnalysisContext) -> str:
     return value_or(ctx.attrs.header_namespace, ctx.label.package)
@@ -169,10 +171,7 @@ def _concat_inc_dir_with_raw_header(namespace, inc_dir, header) -> list[str] | N
             return None
     return header_parts
 
-def as_headers(
-        ctx: AnalysisContext,
-        raw_headers: list[Artifact],
-        include_directories: list[str]) -> list[CHeader]:
+def as_headers(ctx: AnalysisContext, raw_headers: list[Artifact], include_directories: list[str]) -> list[CHeader]:
     headers = []
     base_namespace = ctx.label.package
     for header in raw_headers:
@@ -194,10 +193,7 @@ def _get_attr_headers(xs: typing.Any, namespace: str, naming: CxxHeadersNaming) 
     else:
         return [CHeader(artifact = xs[x], name = x, namespace = _get_dict_header_namespace(namespace, naming), named = True) for x in xs]
 
-def as_raw_headers(
-        ctx: AnalysisContext,
-        headers: dict[str, Artifact],
-        mode: HeadersAsRawHeadersMode) -> [list[CellPath], None]:
+def as_raw_headers(ctx: AnalysisContext, headers: dict[str, Artifact], mode: HeadersAsRawHeadersMode) -> [list[CellPath], None]:
     """
     Return the include directories needed to treat the given headers as raw
     headers, depending on the given `HeadersAsRawHeadersMode` mode.
@@ -236,14 +232,15 @@ def _header_mode(cxx_toolchain_info: CxxToolchainInfo, header_mode: HeaderMode |
     return toolchain_header_mode
 
 def prepare_headers(
-        actions: AnalysisActions,
-        cxx_toolchain_info: CxxToolchainInfo,
-        srcs: dict[str, Artifact],
-        name: str,
-        header_mode: [HeaderMode, None] = None,
-        allow_cache_upload: bool = False,
-        uses_content_based_paths: bool = False,
-        header_namespace: [str, None] = None) -> [Headers, None]:
+    actions: AnalysisActions,
+    cxx_toolchain_info: CxxToolchainInfo,
+    srcs: dict[str, Artifact],
+    name: str,
+    header_mode: [HeaderMode, None] = None,
+    allow_cache_upload: bool = False,
+    uses_content_based_paths: bool = False,
+    header_namespace: [str, None] = None,
+) -> [Headers, None]:
     """
     Prepare all the headers we want to use, depending on the header_mode
     set on the target's toolchain.
@@ -261,8 +258,7 @@ def prepare_headers(
     # explicit `-I` anchors breaks module map lookups.  This will be fixed
     # by https://reviews.llvm.org/D103930 so, until it lands, disable header
     # maps when we see a module map.
-    if (header_mode == HeaderMode("symlink_tree_with_header_map") and
-        lazy.is_any(lambda n: paths.basename(n) == "module.modulemap", srcs.keys())):
+    if header_mode == HeaderMode("symlink_tree_with_header_map") and lazy.is_any(lambda n: paths.basename(n) == "module.modulemap", srcs.keys()):
         header_mode = HeaderMode("symlink_tree_only")
 
     output_name = name
@@ -326,10 +322,11 @@ def _normalize_header_srcs(srcs: dict) -> dict:
     return normalized_srcs
 
 def _as_raw_headers(
-        ctx: AnalysisContext,
-        headers: dict[str, Artifact],
-        # Return `None` instead of failing.
-        no_fail: bool = False) -> [list[CellPath], None]:
+    ctx: AnalysisContext,
+    headers: dict[str, Artifact],
+    # Return `None` instead of failing.
+    no_fail: bool = False,
+) -> [list[CellPath], None]:
     """
     Return the include directories needed to treat the given headers as raw
     headers.
@@ -355,12 +352,13 @@ def _as_raw_headers(
     return [ctx.label.path.add(p) for p in inc_dirs]
 
 def _as_raw_header(
-        ctx: AnalysisContext,
-        # The full name used to include the header.
-        name: str,
-        header: Artifact,
-        # Return `None` instead of failing.
-        no_fail: bool = False) -> [str, None]:
+    ctx: AnalysisContext,
+    # The full name used to include the header.
+    name: str,
+    header: Artifact,
+    # Return `None` instead of failing.
+    no_fail: bool = False,
+) -> [str, None]:
     """
     Return path to pass to `include_directories` to treat the given header as
     a raw header.
@@ -371,8 +369,7 @@ def _as_raw_header(
     if not header.is_source:
         if no_fail:
             return None
-        fail("generated headers cannot be used as raw headers ({})"
-            .format(header))
+        fail("generated headers cannot be used as raw headers ({})".format(header))
 
     # To include the header via its name using raw headers and include dirs,
     # it needs to be a suffix of its original path, and we'll strip the include
@@ -383,8 +380,7 @@ def _as_raw_header(
     if base == None:
         if no_fail:
             return None
-        fail("header name must be a path suffix of the header path to be " +
-             "used as a raw header ({} => {})".format(name, header))
+        fail("header name must be a path suffix of the header path to be " + "used as a raw header ({} => {})".format(name, header))
 
     # If the include dir is underneath our package, then just relativize to find
     # out package-relative path.
@@ -393,10 +389,7 @@ def _as_raw_header(
 
     # Otherwise, this include dir needs to reference a parent dir.
     expect(ctx.label.package.startswith(base))
-    num_parents = (
-        len(ctx.label.package.split("/")) -
-        (0 if not base else len(base.split("/")))
-    )
+    num_parents = len(ctx.label.package.split("/")) - (0 if not base else len(base.split("/")))
     return "/".join([".."] * num_parents)
 
 def _get_list_header_name(header: Artifact, naming: CxxHeadersNaming) -> str:
@@ -429,11 +422,13 @@ def _infer_include_prefix(srcs: dict[str, Artifact], header_namespace: [str, Non
     for key, artifact in srcs.items():
         short = artifact.short_path
         if short.endswith(key) and len(short) > len(key):
-            return paths.normalize(short[:len(short) - len(key)])
+            return paths.normalize(short[: len(short) - len(key)])
         break
     return ""
 
-def _get_prefix_map_replacement(cxx_toolchain_info: CxxToolchainInfo, header_dir: Artifact, header_namespace: [str, None] = None, include_prefix: str = "") -> [str, None]:
+def _get_prefix_map_replacement(
+    cxx_toolchain_info: CxxToolchainInfo, header_dir: Artifact, header_namespace: [str, None] = None, include_prefix: str = ""
+) -> [str, None]:
     """Compute the replacement path for prefix-map flags."""
 
     # NOTE(@christylee): Do we need to enable debug-prefix-map for darwin and windows?
@@ -452,7 +447,14 @@ def _get_prefix_map_replacement(cxx_toolchain_info: CxxToolchainInfo, header_dir
         prefix_target = paths.join(prefix_target, include_prefix) if prefix_target else include_prefix
     return prefix_target if prefix_target else cell
 
-def _mk_hmap(actions: AnalysisActions, cxx_toolchain_info: CxxToolchainInfo, name: str, headers: dict[str, (Artifact, str)], allow_cache_upload: bool, uses_content_based_paths: bool = False) -> Artifact:
+def _mk_hmap(
+    actions: AnalysisActions,
+    cxx_toolchain_info: CxxToolchainInfo,
+    name: str,
+    headers: dict[str, (Artifact, str)],
+    allow_cache_upload: bool,
+    uses_content_based_paths: bool = False,
+) -> Artifact:
     output = actions.declare_output(
         name + ".hmap",
         has_content_based_path = uses_content_based_paths,
@@ -470,20 +472,14 @@ def _mk_hmap(actions: AnalysisActions, cxx_toolchain_info: CxxToolchainInfo, nam
     )
 
     cmd = cmd_args(
-        [cxx_toolchain_info.internal_tools.hmap_wrapper] +
-        ["--output", output.as_output()] +
-        ["--mappings-file", hmap_args_file],
+        [cxx_toolchain_info.internal_tools.hmap_wrapper] + ["--output", output.as_output()] + ["--mappings-file", hmap_args_file],
     )
     actions.run(cmd, category = "generate_hmap", identifier = name, allow_cache_upload = allow_cache_upload)
     return output
 
 def add_headers_dep_files(
-        actions: AnalysisActions,
-        cmd: cmd_args,
-        headers_dep_files: HeadersDepFiles,
-        src: Artifact,
-        filename_base: str,
-        action_dep_files: dict[str, ArtifactTag]) -> cmd_args:
+    actions: AnalysisActions, cmd: cmd_args, headers_dep_files: HeadersDepFiles, src: Artifact, filename_base: str, action_dep_files: dict[str, ArtifactTag]
+) -> cmd_args:
     dep_file = actions.declare_output(
         paths.join("__dep_files__", filename_base),
         has_content_based_path = True,

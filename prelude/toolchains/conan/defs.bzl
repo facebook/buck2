@@ -284,17 +284,18 @@ _conan_package_extract = rule(
 )
 
 def conan_component(
-        name: str,
-        defines: list[str],
-        cflags: list[str],
-        cppflags: list[str],
-        include_paths: list[str],
-        libs: list[str],
-        static_libs: dict[str, list[str]],
-        shared_libs: dict[str, list[str]],
-        system_libs: list[str],
-        deps: list[str],
-        package: str):
+    name: str,
+    defines: list[str],
+    cflags: list[str],
+    cppflags: list[str],
+    include_paths: list[str],
+    libs: list[str],
+    static_libs: dict[str, list[str]],
+    shared_libs: dict[str, list[str]],
+    system_libs: list[str],
+    deps: list[str],
+    package: str,
+):
     """Import a Conan package component.
 
     Extracts the relevant files from the Conan package directory and exposes
@@ -361,24 +362,24 @@ def conan_component(
     else:
         # TODO[AH] Implement prebuilt_cxx_library_group.
         fail("Support for package components with multiple libraries is not yet implemented.")
-        #"contacts": attrs.list(attrs.string(), default = []),
-        #"deps": attrs.list(attrs.dep(), default = []),
-        #"exported_deps": attrs.list(attrs.dep(), default = []),
-        #"exported_preprocessor_flags": attrs.list(attrs.string(), default = []),
-        #"import_libs": attrs.dict(key = attrs.string(), value = attrs.source(), sorted = False, default = {}),
-        #"include_dirs": attrs.list(attrs.source(), default = []),
-        #"include_in_android_merge_map_output": attrs.bool(),
-        #"labels": attrs.list(attrs.string(), default = []),
-        #"licenses": attrs.list(attrs.source(), default = []),
-        #"provided_shared_libs": attrs.dict(key = attrs.string(), value = attrs.source(), sorted = False, default = {}),
-        #"shared_libs": attrs.dict(key = attrs.string(), value = attrs.source(), sorted = False, default = {}),
-        #"shared_link": attrs.list(attrs.string(), default = []),
-        #"static_libs": attrs.list(attrs.source(), default = []),
-        #"static_link": attrs.list(attrs.string(), default = []),
-        #"static_pic_libs": attrs.list(attrs.source(), default = []),
-        #"static_pic_link": attrs.list(attrs.string(), default = []),
-        #"supported_platforms_regex": attrs.option(attrs.regex(), default = None),
-        #"within_view": attrs.option(attrs.list(attrs.string())),
+        # "contacts": attrs.list(attrs.string(), default = []),
+        # "deps": attrs.list(attrs.dep(), default = []),
+        # "exported_deps": attrs.list(attrs.dep(), default = []),
+        # "exported_preprocessor_flags": attrs.list(attrs.string(), default = []),
+        # "import_libs": attrs.dict(key = attrs.string(), value = attrs.source(), sorted = False, default = {}),
+        # "include_dirs": attrs.list(attrs.source(), default = []),
+        # "include_in_android_merge_map_output": attrs.bool(),
+        # "labels": attrs.list(attrs.string(), default = []),
+        # "licenses": attrs.list(attrs.source(), default = []),
+        # "provided_shared_libs": attrs.dict(key = attrs.string(), value = attrs.source(), sorted = False, default = {}),
+        # "shared_libs": attrs.dict(key = attrs.string(), value = attrs.source(), sorted = False, default = {}),
+        # "shared_link": attrs.list(attrs.string(), default = []),
+        # "static_libs": attrs.list(attrs.source(), default = []),
+        # "static_link": attrs.list(attrs.string(), default = []),
+        # "static_pic_libs": attrs.list(attrs.source(), default = []),
+        # "static_pic_link": attrs.list(attrs.string(), default = []),
+        # "supported_platforms_regex": attrs.option(attrs.regex(), default = None),
+        # "within_view": attrs.option(attrs.list(attrs.string())),
 
 def _conan_cxx_libraries_impl(ctx: AnalysisContext) -> list[Provider]:
     default_info = DefaultInfo(
@@ -410,12 +411,7 @@ def conan_dep(name: str, components: dict[str, str], **kwargs):
         name = "_bundle_" + name,
         exported_deps = components.values(),
     )
-    _conan_cxx_libraries(
-        name = name,
-        main = ":_bundle_" + name,
-        components = components,
-        **kwargs
-    )
+    _conan_cxx_libraries(name = name, main = ":_bundle_" + name, components = components, **kwargs)
 
 def _conan_generate_impl(ctx: AnalysisContext) -> list[Provider]:
     conan_toolchain = ctx.attrs._conan_toolchain[ConanToolchainInfo]
@@ -431,19 +427,19 @@ def _conan_generate_impl(ctx: AnalysisContext) -> list[Provider]:
     targets_out = ctx.actions.declare_output(ctx.label.name + ".bzl", has_content_based_path = False)
 
     cmd = cmd_args(
-        [conan_generate] +
-        ["--conan", conan_toolchain.conan] +
-        ["--conan-init", conan_init.user_home] +
-        ["--buckler", ctx.attrs._buckler] +
-        ["--install-folder", install_folder.as_output()] +
-        ["--output-folder", output_folder.as_output()] +
-        ["--user-home", user_home.as_output()] +
-        ["--manifests", manifests.as_output()] +
-        ["--install-info", install_info.as_output()] +
-        ["--trace-file", trace_log.as_output()] +
-        ["--conanfile", ctx.attrs.conanfile] +
-        ["--lockfile", ctx.attrs.lockfile] +
-        ["--targets-out", targets_out.as_output()],
+        [conan_generate]
+        + ["--conan", conan_toolchain.conan]
+        + ["--conan-init", conan_init.user_home]
+        + ["--buckler", ctx.attrs._buckler]
+        + ["--install-folder", install_folder.as_output()]
+        + ["--output-folder", output_folder.as_output()]
+        + ["--user-home", user_home.as_output()]
+        + ["--manifests", manifests.as_output()]
+        + ["--install-info", install_info.as_output()]
+        + ["--trace-file", trace_log.as_output()]
+        + ["--conanfile", ctx.attrs.conanfile]
+        + ["--lockfile", ctx.attrs.lockfile]
+        + ["--targets-out", targets_out.as_output()],
         hidden = [
             conan_init.profile.config,  # The profile is inlined in the lockfile.
             conan_init.profile.inputs,
@@ -486,10 +482,7 @@ def _conan_init_impl(ctx: AnalysisContext) -> list[Provider]:
     trace_log = ctx.actions.declare_output("trace.log", has_content_based_path = False)
 
     cmd = cmd_args(
-        [conan_init] +
-        ["--conan", conan_toolchain.conan] +
-        ["--user-home", user_home.as_output()] +
-        ["--trace-file", trace_log.as_output()],
+        [conan_init] + ["--conan", conan_toolchain.conan] + ["--user-home", user_home.as_output()] + ["--trace-file", trace_log.as_output()],
     )
     ctx.actions.run(cmd, category = "conan_init")
 
@@ -498,10 +491,12 @@ def _conan_init_impl(ctx: AnalysisContext) -> list[Provider]:
             user_home = user_home,
             profile = ctx.attrs.profile[ConanProfileInfo],
         ),
-        DefaultInfo(default_outputs = [
-            user_home,
-            trace_log,
-        ]),
+        DefaultInfo(
+            default_outputs = [
+                user_home,
+                trace_log,
+            ]
+        ),
     ]
 
 conan_init = rule(
@@ -528,15 +523,15 @@ def _conan_lock_impl(ctx: AnalysisContext) -> list[Provider]:
     trace_log = ctx.actions.declare_output("trace.log", has_content_based_path = False)
 
     cmd = cmd_args(
-        [conan_lock] +
-        ["--conan", conan_toolchain.conan] +
-        ["--conan-init", conan_init.user_home] +
-        ["--profile", conan_init.profile.config] +
-        ["--user-home", user_home.as_output()] +
-        ["--trace-file", trace_log.as_output()] +
-        ["--conanfile", ctx.attrs.conanfile] +
-        ["--lockfile-out", lockfile_out.as_output()] +
-        (["--lockfile", ctx.attrs.lockfile] if ctx.attrs.lockfile else []),
+        [conan_lock]
+        + ["--conan", conan_toolchain.conan]
+        + ["--conan-init", conan_init.user_home]
+        + ["--profile", conan_init.profile.config]
+        + ["--user-home", user_home.as_output()]
+        + ["--trace-file", trace_log.as_output()]
+        + ["--conanfile", ctx.attrs.conanfile]
+        + ["--lockfile-out", lockfile_out.as_output()]
+        + (["--lockfile", ctx.attrs.lockfile] if ctx.attrs.lockfile else []),
         hidden = conan_init.profile.inputs,
     )
     ctx.actions.run(cmd, category = "conan_lock")
@@ -578,20 +573,20 @@ def _conan_package_impl(ctx: AnalysisContext) -> list[Provider]:
     package_out = ctx.actions.declare_output("package", has_content_based_path = False)
 
     cmd = cmd_args(
-        [conan_package] +
-        ["--conan", conan_toolchain.conan] +
-        ["--conan-init", conan_init.user_home] +
-        ["--lockfile", ctx.attrs.lockfile] +
-        ["--reference", ctx.attrs.reference] +
-        ["--package-id", ctx.attrs.package_id] +
-        ["--install-folder", install_folder.as_output()] +
-        ["--output-folder", output_folder.as_output()] +
-        ["--user-home", user_home.as_output()] +
-        ["--manifests", manifests.as_output()] +
-        ["--install-info", install_info.as_output()] +
-        ["--trace-file", trace_log.as_output()] +
-        ["--cache-out", cache_out.as_output()] +
-        ["--package-out", package_out.as_output()],
+        [conan_package]
+        + ["--conan", conan_toolchain.conan]
+        + ["--conan-init", conan_init.user_home]
+        + ["--lockfile", ctx.attrs.lockfile]
+        + ["--reference", ctx.attrs.reference]
+        + ["--package-id", ctx.attrs.package_id]
+        + ["--install-folder", install_folder.as_output()]
+        + ["--output-folder", output_folder.as_output()]
+        + ["--user-home", user_home.as_output()]
+        + ["--manifests", manifests.as_output()]
+        + ["--install-info", install_info.as_output()]
+        + ["--trace-file", trace_log.as_output()]
+        + ["--cache-out", cache_out.as_output()]
+        + ["--package-out", package_out.as_output()],
         hidden = [
             conan_init.profile.config,  # The profile is inlined in the lockfile.
             conan_init.profile.inputs,
@@ -602,10 +597,7 @@ def _conan_package_impl(ctx: AnalysisContext) -> list[Provider]:
     #   This may become necessary for cross-compilation support.
     deps = ctx.actions.tset(
         ConanPackageCacheTSet,
-        children = [
-            dep[ConanPackageInfo].cache_tset
-            for dep in ctx.attrs.deps + ctx.attrs.build_deps
-        ],
+        children = [dep[ConanPackageInfo].cache_tset for dep in ctx.attrs.deps + ctx.attrs.build_deps],
     )
     cmd.add(deps.project_as_args("dep-flags"))
 
@@ -759,14 +751,14 @@ def _conan_update_impl(ctx: AnalysisContext) -> list[Provider]:
     conan_update = ctx.attrs._conan_update[RunInfo]
 
     cmd = cmd_args(
-        [conan_update] +
-        ["--update-label", str(ctx.label.raw_target())] +
-        ["--lockfile", ctx.attrs.lockfile] +
-        ["--lock-targets", ctx.attrs.lock_generate] +
-        ["--conan-targets", ctx.attrs.conan_generate] +
-        ["--conanfile", ctx.attrs.conanfile] +
-        ["--lockfile-out", ctx.attrs.lockfile_name] +
-        ["--targets-out", ctx.attrs.targets_name],
+        [conan_update]
+        + ["--update-label", str(ctx.label.raw_target())]
+        + ["--lockfile", ctx.attrs.lockfile]
+        + ["--lock-targets", ctx.attrs.lock_generate]
+        + ["--conan-targets", ctx.attrs.conan_generate]
+        + ["--conanfile", ctx.attrs.conanfile]
+        + ["--lockfile-out", ctx.attrs.lockfile_name]
+        + ["--targets-out", ctx.attrs.targets_name],
     )
 
     return [
@@ -794,10 +786,10 @@ def _lock_generate_impl(ctx: AnalysisContext) -> list[Provider]:
     targets_out = ctx.actions.declare_output(ctx.label.name + ".bzl", has_content_based_path = False)
 
     cmd = cmd_args(
-        [lock_generate] +
-        ["--lockfile", ctx.attrs.lockfile] +
-        ["--lockfile-label", str(ctx.attrs.lockfile.owner.raw_target())] +
-        ["--targets-out", targets_out.as_output()],
+        [lock_generate]
+        + ["--lockfile", ctx.attrs.lockfile]
+        + ["--lockfile-label", str(ctx.attrs.lockfile.owner.raw_target())]
+        + ["--targets-out", targets_out.as_output()],
     )
     ctx.actions.run(cmd, category = "conan_generate")
 

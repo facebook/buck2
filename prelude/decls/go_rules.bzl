@@ -12,7 +12,14 @@
 # well-formatted (and then delete this TODO)
 
 load("@prelude//decls:test_common.bzl", "test_common")
-load("@prelude//go/transitions:defs.bzl", "go_binary_transition", "go_exported_library_transition", "go_library_transition", "go_stdlib_transition", "go_test_transition")
+load(
+    "@prelude//go/transitions:defs.bzl",
+    "go_binary_transition",
+    "go_exported_library_transition",
+    "go_library_transition",
+    "go_stdlib_transition",
+    "go_test_transition",
+)
 load(":common.bzl", "buck", "prelude_rule")
 load(":cxx_common.bzl", "cxx_common")
 load(":go_common.bzl", "go_common")
@@ -30,7 +37,6 @@ go_binary = prelude_rule(
     """,
     examples = """
         For more examples, check out our [integration tests](https://github.com/facebook/buck/tree/dev/test/com/facebook/buck/features/go/testdata).
-
 
         ```
         go_binary(
@@ -64,47 +70,59 @@ go_binary = prelude_rule(
     further = None,
     attrs = (
         # @unsorted-dict-items
-        go_common.package_name_arg() |
-        go_common.srcs_arg() |
-        go_common.deps_arg() |
-        go_common.link_style_arg() |
-        go_common.link_mode_arg() |
-        go_common.compiler_flags_arg() |
-        go_common.assembler_flags_arg() |
-        go_common.linker_flags_arg() |
-        go_common.external_linker_flags_arg() |
-        go_common.embed_srcs_arg() |
-        {
-            "build_mode": attrs.option(attrs.enum(BuildMode), doc = """
+        go_common.package_name_arg()
+        | go_common.srcs_arg()
+        | go_common.deps_arg()
+        | go_common.link_style_arg()
+        | go_common.link_mode_arg()
+        | go_common.compiler_flags_arg()
+        | go_common.assembler_flags_arg()
+        | go_common.linker_flags_arg()
+        | go_common.external_linker_flags_arg()
+        | go_common.embed_srcs_arg()
+        | {
+            "build_mode": attrs.option(
+                attrs.enum(BuildMode),
+                doc = """
                 Determines the build mode (equivalent of `-buildmode`). Can be
                  one of the following values: `exe`, `pie`.`
-            """, default = None),
-        } |
-        go_common.package_root_arg() |
-        go_common.cgo_enabled_arg() |
-        go_common.build_tags_arg() |
-        go_common.coverage_enabled_arg() |
-        {
-            "coverage_mode": attrs.option(attrs.enum(GoTestCoverStepMode), default = None, doc = """
+            """,
+                default = None,
+            ),
+        }
+        | go_common.package_root_arg()
+        | go_common.cgo_enabled_arg()
+        | go_common.build_tags_arg()
+        | go_common.coverage_enabled_arg()
+        | {
+            "coverage_mode": attrs.option(
+                attrs.enum(GoTestCoverStepMode),
+                default = None,
+                doc = """
                 Coverage instrumentation mode for the binary. When set, the binary is built with
                 coverage instrumentation. Set GOCOVERDIR to a directory path when running the binary
                 to collect coverage data. Modes: set, count, atomic
-            """),
-        } |
-        cxx_common.headers_arg() |
-        cxx_common.header_namespace_arg() |
-        go_common.cxx_preprocessor_flags_arg() |
-        go_common.cxx_compiler_flags_arg() |
-        {
-            "resources": attrs.list(attrs.source(), default = [], doc = """
+            """,
+            ),
+        }
+        | cxx_common.headers_arg()
+        | cxx_common.header_namespace_arg()
+        | go_common.cxx_preprocessor_flags_arg()
+        | go_common.cxx_compiler_flags_arg()
+        | {
+            "platform": attrs.option(attrs.string(), default = None),
+            "resources": attrs.list(
+                attrs.source(),
+                default = [],
+                doc = """
                 Static files to be symlinked into the working directory of the test. You can access these in your
                  by opening the files as relative paths, e.g. `ioutil.ReadFile("testdata/input")`.
-            """),
-            "platform": attrs.option(attrs.string(), default = None),
-        } |
-        buck.licenses_arg() |
-        buck.labels_arg() |
-        buck.contacts_arg()
+            """,
+            ),
+        }
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
     ),
     cfg = go_binary_transition,
 )
@@ -117,7 +135,6 @@ go_exported_library = prelude_rule(
     """,
     examples = """
         For more examples, check out our [integration tests](https://github.com/facebook/buck/tree/dev/test/com/facebook/buck/features/go/testdata).
-
 
         ```
         go_exported_library(
@@ -157,41 +174,49 @@ go_exported_library = prelude_rule(
     further = None,
     attrs = (
         # @unsorted-dict-items
-        go_common.package_name_arg() |
-        go_common.srcs_arg() |
-        go_common.deps_arg() |
-        {
-            "build_mode": attrs.option(attrs.enum(BuildMode), doc = """
+        go_common.package_name_arg()
+        | go_common.srcs_arg()
+        | go_common.deps_arg()
+        | {
+            "build_mode": attrs.option(
+                attrs.enum(BuildMode),
+                doc = """
                 Determines the build mode (equivalent of `-buildmode`). Can be
                  one of the following values: `c_archive`, `c_shared`.`
-            """, default = None),
-        } |
-        cxx_common.headers_arg() |
-        cxx_common.header_namespace_arg() |
-        go_common.cxx_preprocessor_flags_arg() |
-        go_common.cxx_compiler_flags_arg() |
-        go_common.link_style_arg() |
-        go_common.link_mode_arg() |
-        go_common.compiler_flags_arg() |
-        go_common.assembler_flags_arg() |
-        go_common.linker_flags_arg() |
-        go_common.external_linker_flags_arg() |
-        go_common.package_root_arg() |
-        go_common.cgo_enabled_arg() |
-        go_common.build_tags_arg() |
-        go_common.generate_exported_header() |
-        go_common.coverage_enabled_arg() |
-        go_common.embed_srcs_arg() |
-        {
-            "resources": attrs.list(attrs.source(), default = [], doc = """
+            """,
+                default = None,
+            ),
+        }
+        | cxx_common.headers_arg()
+        | cxx_common.header_namespace_arg()
+        | go_common.cxx_preprocessor_flags_arg()
+        | go_common.cxx_compiler_flags_arg()
+        | go_common.link_style_arg()
+        | go_common.link_mode_arg()
+        | go_common.compiler_flags_arg()
+        | go_common.assembler_flags_arg()
+        | go_common.linker_flags_arg()
+        | go_common.external_linker_flags_arg()
+        | go_common.package_root_arg()
+        | go_common.cgo_enabled_arg()
+        | go_common.build_tags_arg()
+        | go_common.generate_exported_header()
+        | go_common.coverage_enabled_arg()
+        | go_common.embed_srcs_arg()
+        | {
+            "platform": attrs.option(attrs.string(), default = None),
+            "resources": attrs.list(
+                attrs.source(),
+                default = [],
+                doc = """
                 Static files to be symlinked into the working directory of the test. You can access these in your
                  by opening the files as relative paths, e.g. `ioutil.ReadFile("testdata/input")`.
-            """),
-            "platform": attrs.option(attrs.string(), default = None),
-        } |
-        buck.licenses_arg() |
-        buck.labels_arg() |
-        buck.contacts_arg()
+            """,
+            ),
+        }
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
     ),
     cfg = go_exported_library_transition,
 )
@@ -204,7 +229,6 @@ go_library = prelude_rule(
     """,
     examples = """
         For more examples, check out our [integration tests](https://github.com/facebook/buck/tree/dev/test/com/facebook/buck/features/go/testdata).
-
 
         ```
         go_library(
@@ -221,27 +245,26 @@ go_library = prelude_rule(
     further = None,
     attrs = (
         # @unsorted-dict-items
-        go_common.srcs_arg() |
-        go_common.package_name_arg() |
-        go_common.deps_arg() |
-        go_common.compiler_flags_arg() |
-        go_common.assembler_flags_arg() |
-        go_common.embed_srcs_arg() |
-        go_common.package_root_arg() |
-        go_common.override_cgo_enabled_arg() |
-        cxx_common.headers_arg() |
-        cxx_common.header_namespace_arg() |
-        go_common.cxx_preprocessor_flags_arg() |
-        go_common.cxx_compiler_flags_arg() |
-        go_common.external_linker_flags_arg() |
-        go_common.link_style_arg() |
-        go_common.coverage_enabled_arg() |
-        go_common.generate_exported_header() |
-        {
-        } |
-        buck.licenses_arg() |
-        buck.labels_arg() |
-        buck.contacts_arg()
+        go_common.srcs_arg()
+        | go_common.package_name_arg()
+        | go_common.deps_arg()
+        | go_common.compiler_flags_arg()
+        | go_common.assembler_flags_arg()
+        | go_common.embed_srcs_arg()
+        | go_common.package_root_arg()
+        | go_common.override_cgo_enabled_arg()
+        | cxx_common.headers_arg()
+        | cxx_common.header_namespace_arg()
+        | go_common.cxx_preprocessor_flags_arg()
+        | go_common.cxx_compiler_flags_arg()
+        | go_common.external_linker_flags_arg()
+        | go_common.link_style_arg()
+        | go_common.coverage_enabled_arg()
+        | go_common.generate_exported_header()
+        | {}
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
     ),
     cfg = go_library_transition,
 )
@@ -253,14 +276,12 @@ go_test = prelude_rule(
          specified Go source and resource files—and a generated main file. It's
          similar to the `go test` command.
 
-
          If your test requires static files you should specify these in
          the **resources** argument. If you do not specify these
          files, they won't be available when your test runs.
     """,
     examples = """
         For more examples, check out our [integration tests](https://github.com/facebook/buck/tree/dev/test/com/facebook/buck/features/go/testdata).
-
 
         ```
         go_library(
@@ -307,76 +328,107 @@ go_test = prelude_rule(
     further = None,
     attrs = (
         # @unsorted-dict-items
-        buck.inject_test_env_arg() |
-        go_common.srcs_arg() |
-        {
-            "target_under_test": attrs.option(attrs.dep(), default = None, doc = """
-                Specify the target_under_test that this internal test is testing. This will copy the `srcs`,
-                 `package_name` and `deps` from the target specified so you don't have
-                 to duplicate them.
-            """),
-            "package_name": attrs.option(attrs.string(), default = None, doc = """
+        buck.inject_test_env_arg()
+        | go_common.srcs_arg()
+        | {
+            "coverage_mode": attrs.option(
+                attrs.enum(GoTestCoverStepMode),
+                default = None,
+                doc = """
+                Test coverage functionality will be included in the executable. Modes: set, count, atomic
+            """,
+            ),
+            "package_name": attrs.option(
+                attrs.string(),
+                default = None,
+                doc = """
                 Sets the full name of the test package being compiled. This defaults to the path from the buck
                  root with "\\_test" appended. (e.g. given a ./.buckconfig, a rule in ./a/b/BUCK defaults to package "a/b\\_test")
 
                  Note: if you want to test packages internally (i.e. same package name), use the `target_under_test`
                  parameter instead of setting `package_name` to include the tested source files.
-            """),
-            "coverage_mode": attrs.option(attrs.enum(GoTestCoverStepMode), default = None, doc = """
-                Test coverage functionality will be included in the executable. Modes: set, count, atomic
-            """),
-        } |
-        go_common.deps_arg() |
-        go_common.link_style_arg() |
-        go_common.coverage_enabled_arg() |
-        go_common.link_mode_arg() |
-        {
-            "build_mode": attrs.option(attrs.enum(BuildMode), doc = """
+            """,
+            ),
+            "target_under_test": attrs.option(
+                attrs.dep(),
+                default = None,
+                doc = """
+                Specify the target_under_test that this internal test is testing. This will copy the `srcs`,
+                 `package_name` and `deps` from the target specified so you don't have
+                 to duplicate them.
+            """,
+            ),
+        }
+        | go_common.deps_arg()
+        | go_common.link_style_arg()
+        | go_common.coverage_enabled_arg()
+        | go_common.link_mode_arg()
+        | {
+            "build_mode": attrs.option(
+                attrs.enum(BuildMode),
+                doc = """
                 Determines the build mode (equivalent of `-buildmode`). Can be
                  one of the following values: `exe`, `pie`.`
-            """, default = None),
-        } |
-        go_common.compiler_flags_arg() |
-        go_common.assembler_flags_arg() |
-        go_common.linker_flags_arg() |
-        go_common.external_linker_flags_arg() |
-        go_common.embed_srcs_arg() |
-        go_common.package_root_arg() |
-        go_common.cgo_enabled_arg() |
-        go_common.build_tags_arg() |
-        cxx_common.headers_arg() |
-        cxx_common.header_namespace_arg() |
-        go_common.cxx_preprocessor_flags_arg() |
-        go_common.cxx_compiler_flags_arg() |
-        {
-            "resources": attrs.list(attrs.source(), default = [], doc = """
+            """,
+                default = None,
+            ),
+        }
+        | go_common.compiler_flags_arg()
+        | go_common.assembler_flags_arg()
+        | go_common.linker_flags_arg()
+        | go_common.external_linker_flags_arg()
+        | go_common.embed_srcs_arg()
+        | go_common.package_root_arg()
+        | go_common.cgo_enabled_arg()
+        | go_common.build_tags_arg()
+        | cxx_common.headers_arg()
+        | cxx_common.header_namespace_arg()
+        | go_common.cxx_preprocessor_flags_arg()
+        | go_common.cxx_compiler_flags_arg()
+        | {
+            "resources": attrs.list(
+                attrs.source(),
+                default = [],
+                doc = """
                 Static files that are symlinked into the working directory of the
                  test. You can access these files in your test by opening them using
                  relative paths, such as `ioutil.ReadFile("testdata/input")`.
-            """),
-        } |
-        buck.test_label_arg() |
-        buck.test_rule_timeout_ms() |
-        {
-            "env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}, doc = """
+            """,
+            ),
+        }
+        | buck.test_label_arg()
+        | buck.test_rule_timeout_ms()
+        | {
+            "env": attrs.dict(
+                key = attrs.string(),
+                value = attrs.arg(),
+                sorted = False,
+                default = {},
+                doc = """
                 A map of environment variables and values to set when running the test.
-            """),
-        } |
-        buck.run_test_separately_arg(run_test_separately_type = attrs.bool(default = False, doc = """
+            """,
+            ),
+        }
+        | buck.run_test_separately_arg(
+            run_test_separately_type = attrs.bool(
+                default = False,
+                doc = """
             If set to True, the test(s) in this rule are run separately from
              all other tests. This is useful for integration tests which
              access a physical device or other limited resource. If unset,
              the test(s) in this rule run in parallel with all other tests.
-        """)) |
-        {
+        """,
+            )
+        )
+        | {
             "platform": attrs.option(attrs.string(), default = None),
             "runner": attrs.option(attrs.dep(), default = None),
             "specs": attrs.option(attrs.arg(json = True), default = None),
-        } |
-        buck.licenses_arg() |
-        buck.contacts_arg() |
-        re_test_common.test_args() |
-        test_common.attributes()
+        }
+        | buck.licenses_arg()
+        | buck.contacts_arg()
+        | re_test_common.test_args()
+        | test_common.attributes()
     ),
     cfg = go_test_transition,
 )
@@ -390,13 +442,13 @@ go_bootstrap_binary = prelude_rule(
         sources and `build_args`.
     """,
     attrs = (
-        go_common.srcs_arg() |
-        {
+        go_common.srcs_arg()
+        | {
             "build_args": attrs.list(attrs.string(), default = [], doc = """Package name, file names and build flags"""),
             "workdir": attrs.string(default = "", doc = """Change to subdir before running the command"""),
-        } |
-        buck.labels_arg() |
-        buck.contacts_arg()
+        }
+        | buck.labels_arg()
+        | buck.contacts_arg()
     ),
 )
 

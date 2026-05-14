@@ -103,34 +103,48 @@ def go_exported_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     link_infos = {
         LibOutputStyle("archive"): LinkInfos(
-            default = LinkInfo(linkables = [ArchiveLinkable(
-                archive = Archive(artifact = c_archive),
-                linker_type = cxx_toolchain.linker_info.type,
-            )]),
+            default = LinkInfo(
+                linkables = [
+                    ArchiveLinkable(
+                        archive = Archive(artifact = c_archive),
+                        linker_type = cxx_toolchain.linker_info.type,
+                    )
+                ]
+            ),
         ),
         LibOutputStyle("pic_archive"): LinkInfos(
-            default = LinkInfo(linkables = [ArchiveLinkable(
-                archive = Archive(artifact = c_archive),
-                linker_type = cxx_toolchain.linker_info.type,
-            )]),
+            default = LinkInfo(
+                linkables = [
+                    ArchiveLinkable(
+                        archive = Archive(artifact = c_archive),
+                        linker_type = cxx_toolchain.linker_info.type,
+                    )
+                ]
+            ),
         ),
         LibOutputStyle("shared_lib"): LinkInfos(
-            default = LinkInfo(linkables = [SharedLibLinkable(
-                lib = c_shared,
-            )]),
+            default = LinkInfo(
+                linkables = [
+                    SharedLibLinkable(
+                        lib = c_shared,
+                    )
+                ]
+            ),
         ),
     }
 
-    shared_libs = SharedLibraries(libraries = [
-        create_shlib(
-            soname = soname,
-            label = ctx.label,
-            lib = LinkedObject(
-                output = c_shared,
-                unstripped_output = c_shared,
+    shared_libs = SharedLibraries(
+        libraries = [
+            create_shlib(
+                soname = soname,
+                label = ctx.label,
+                lib = LinkedObject(
+                    output = c_shared,
+                    unstripped_output = c_shared,
+                ),
             ),
-        ),
-    ])
+        ]
+    )
 
     own_exported_preprocessors = [cgo_exported_preprocessor(ctx, pkg_info)] if ctx.attrs.generate_exported_header else []
 

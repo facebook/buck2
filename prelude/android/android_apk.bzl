@@ -8,7 +8,16 @@
 
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//android:android_binary.bzl", "get_binary_info")
-load("@prelude//android:android_providers.bzl", "AndroidApkInfo", "AndroidApkUnderTestInfo", "AndroidBinaryNativeLibsInfo", "AndroidBinaryPrimaryPlatformInfo", "AndroidBinaryResourcesInfo", "DexFilesInfo", "ExopackageInfo")
+load(
+    "@prelude//android:android_providers.bzl",
+    "AndroidApkInfo",
+    "AndroidApkUnderTestInfo",
+    "AndroidBinaryNativeLibsInfo",
+    "AndroidBinaryPrimaryPlatformInfo",
+    "AndroidBinaryResourcesInfo",
+    "DexFilesInfo",
+    "ExopackageInfo",
+)
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:util.bzl", "package_validators_decorator")
 load("@prelude//java:class_to_srcs.bzl", "merge_class_to_source_map_from_jar")
@@ -81,11 +90,19 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
     # We can only be sure that an APK has native libs if it has any shared libraries. Prebuilt native libraries dirs can exist but be empty.
     definitely_has_native_libs = bool(native_library_info.shared_libraries)
 
-    install_info = get_install_info(ctx, output_apk = output_apk, manifest = resources_info.manifest, exopackage_info = exopackage_info, definitely_has_native_libs = definitely_has_native_libs)
+    install_info = get_install_info(
+        ctx, output_apk = output_apk, manifest = resources_info.manifest, exopackage_info = exopackage_info, definitely_has_native_libs = definitely_has_native_libs
+    )
 
     classpath = [dep.jar for dep in java_packaging_deps if dep.jar]
-    sub_targets["classpath"] = [DefaultInfo(default_output = ctx.actions.write("classpath.txt", classpath, has_content_based_path = False), other_outputs = classpath)]
-    sub_targets["classpath_targets"] = [DefaultInfo(default_output = ctx.actions.write("classpath_targets.txt", list(set([jar.owner.raw_target() for jar in classpath])), has_content_based_path = False))]
+    sub_targets["classpath"] = [
+        DefaultInfo(default_output = ctx.actions.write("classpath.txt", classpath, has_content_based_path = False), other_outputs = classpath)
+    ]
+    sub_targets["classpath_targets"] = [
+        DefaultInfo(
+            default_output = ctx.actions.write("classpath_targets.txt", list(set([jar.owner.raw_target() for jar in classpath])), has_content_based_path = False)
+        )
+    ]
 
     return [
         AndroidApkInfo(
@@ -107,9 +124,10 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
             platforms = android_binary_info.deps_by_platform.keys(),
             primary_platform = android_binary_info.primary_platform,
             resource_infos = set([info.raw_target for info in resources_info.unfiltered_resource_infos]),
-            r_dot_java_packages = set([info.specified_r_dot_java_package for info in resources_info.unfiltered_resource_infos if info.specified_r_dot_java_package]),
+            r_dot_java_packages = set(
+                [info.specified_r_dot_java_package for info in resources_info.unfiltered_resource_infos if info.specified_r_dot_java_package]
+            ),
             shared_libraries = set(native_library_info.shared_libraries),
-
             # Merge map delegate
             native_library_merge_sequence = ctx.attrs.native_library_merge_sequence,
             native_library_merge_code_generator = ctx.attrs.native_library_merge_code_generator,
@@ -120,28 +138,35 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
             native_library_merge_non_asset_libs = ctx.attrs.native_library_merge_non_asset_libs,
             native_library_merge_sequence_blocklist = ctx.attrs.native_library_merge_sequence_blocklist,
         ),
-        DefaultInfo(default_output = default_output, other_outputs = install_info.files.values() + android_binary_info.materialized_artifacts, sub_targets = sub_targets | class_to_srcs_subtargets),
+        DefaultInfo(
+            default_output = default_output,
+            other_outputs = install_info.files.values() + android_binary_info.materialized_artifacts,
+            sub_targets = sub_targets | class_to_srcs_subtargets,
+        ),
         install_info,
         TemplatePlaceholderInfo(
             keyed_variables = {
                 "classpath": cmd_args(classpath, delimiter = get_path_separator_for_exec_os(ctx)),
-                "classpath_including_targets_with_no_output": cmd_args([dep.output_for_classpath_macro for dep in java_packaging_deps], delimiter = get_path_separator_for_exec_os(ctx)),
+                "classpath_including_targets_with_no_output": cmd_args(
+                    [dep.output_for_classpath_macro for dep in java_packaging_deps], delimiter = get_path_separator_for_exec_os(ctx)
+                ),
             },
         ),
         class_to_srcs,
     ]
 
 def build_apk(
-        output_filename: str,
-        actions: AnalysisActions,
-        keystore: KeystoreInfo,
-        android_toolchain: AndroidToolchainInfo,
-        dex_files_info: DexFilesInfo,
-        native_library_info: AndroidBinaryNativeLibsInfo,
-        resources_info: AndroidBinaryResourcesInfo,
-        compress_resources_dot_arsc: bool = False,
-        validation_deps_outputs: [list[Artifact], None] = None,
-        packaging_options: dict | None = None) -> Artifact:
+    output_filename: str,
+    actions: AnalysisActions,
+    keystore: KeystoreInfo,
+    android_toolchain: AndroidToolchainInfo,
+    dex_files_info: DexFilesInfo,
+    native_library_info: AndroidBinaryNativeLibsInfo,
+    resources_info: AndroidBinaryResourcesInfo,
+    compress_resources_dot_arsc: bool = False,
+    validation_deps_outputs: [list[Artifact], None] = None,
+    packaging_options: dict | None = None,
+) -> Artifact:
     output_apk = actions.declare_output("{}.apk".format(output_filename), has_content_based_path = False)
 
     apk_builder_args = cmd_args(
@@ -166,18 +191,20 @@ def build_apk(
     )
 
     asset_directories = (
-        native_library_info.root_module_native_lib_assets +
-        native_library_info.non_root_module_native_lib_assets +
-        dex_files_info.root_module_bootstrap_dex_dirs +
-        dex_files_info.root_module_secondary_dex_dirs +
-        dex_files_info.non_root_module_secondary_dex_dirs +
-        resources_info.module_manifests
+        native_library_info.root_module_native_lib_assets
+        + native_library_info.non_root_module_native_lib_assets
+        + dex_files_info.root_module_bootstrap_dex_dirs
+        + dex_files_info.root_module_secondary_dex_dirs
+        + dex_files_info.non_root_module_secondary_dex_dirs
+        + resources_info.module_manifests
     )
     asset_directories_file = argfile(actions = actions, name = "asset_directories.txt", args = asset_directories)
     native_library_directories = argfile(actions = actions, name = "native_library_directories", args = native_library_info.native_libs_for_primary_apk)
     all_zip_files = [resources_info.packaged_string_assets] if resources_info.packaged_string_assets else []
     zip_files = argfile(actions = actions, name = "zip_files", args = all_zip_files)
-    jar_files_that_may_contain_resources = argfile(actions = actions, name = "jar_files_that_may_contain_resources", args = resources_info.jar_files_that_may_contain_resources)
+    jar_files_that_may_contain_resources = argfile(
+        actions = actions, name = "jar_files_that_may_contain_resources", args = resources_info.jar_files_that_may_contain_resources
+    )
 
     apk_builder_args.add([
         "--asset-directories-list",
@@ -204,12 +231,13 @@ def build_apk(
     return output_apk
 
 def get_install_info(
-        ctx: AnalysisContext,
-        output_apk: Artifact,
-        manifest: Artifact,
-        exopackage_info: [ExopackageInfo, None],
-        definitely_has_native_libs: bool = True,
-        apex_mode: bool = False) -> InstallInfo:
+    ctx: AnalysisContext,
+    output_apk: Artifact,
+    manifest: Artifact,
+    exopackage_info: [ExopackageInfo, None],
+    definitely_has_native_libs: bool = True,
+    apex_mode: bool = False,
+) -> InstallInfo:
     files = {
         ctx.attrs.name: output_apk,
         "manifest": manifest,

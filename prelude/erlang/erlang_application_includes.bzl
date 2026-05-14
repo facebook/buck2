@@ -11,8 +11,7 @@ load(":erlang_info.bzl", "ErlangAppIncludeInfo")
 load(":erlang_toolchain.bzl", "get_toolchain")
 
 def erlang_application_includes_impl(ctx: AnalysisContext) -> list[Provider]:
-    """ rule for application includes target
-    """
+    """rule for application includes target"""
 
     # prepare include directory for current app
     name = ctx.attrs.app_name

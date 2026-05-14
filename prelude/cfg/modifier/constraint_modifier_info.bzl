@@ -18,9 +18,8 @@ skips it when configuring exec deps.
 load(":types.bzl", "ConditionalModifierInfo", "ModifierInfo", "ModifiersMatchInfo")
 
 def _maybe_wrap_for_exec_platform(
-        constraint_value: ConstraintValueInfo,
-        execution_modifier: bool,
-        exec_platform_marker_configuration_info: ConfigurationInfo | None) -> ModifierInfo:
+    constraint_value: ConstraintValueInfo, execution_modifier: bool, exec_platform_marker_configuration_info: ConfigurationInfo | None
+) -> ModifierInfo:
     """
     When execution_modifier=False, wrap the constraint value in a conditional
     modifier that returns None (skips) when the exec platform marker
@@ -53,10 +52,8 @@ def _maybe_wrap_for_exec_platform(
     )
 
 def make_constraint_modifier_info(
-        constraint_value: ConstraintValueInfo,
-        key: TargetLabel,
-        execution_modifier: bool,
-        exec_platform_marker_configuration_info: ConfigurationInfo | None) -> ConditionalModifierInfo:
+    constraint_value: ConstraintValueInfo, key: TargetLabel, execution_modifier: bool, exec_platform_marker_configuration_info: ConfigurationInfo | None
+) -> ConditionalModifierInfo:
     """
     Creates a ConditionalModifierInfo for a constraint value with proper
     handling of execution platform modifiers.

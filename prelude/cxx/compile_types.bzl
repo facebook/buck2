@@ -20,25 +20,7 @@ AsmExtensions = enum(
 )
 
 # Supported Cxx file extensions
-CxxExtension = enum(
-    ".cpp",
-    ".cc",
-    ".cl",
-    ".cxx",
-    ".c++",
-    ".c",
-    ".m",
-    ".mm",
-    ".cu",
-    ".hip",
-    ".h",
-    ".hpp",
-    ".hh",
-    ".h++",
-    ".hxx",
-    ".bc",
-    *AsmExtensions.values()
-)
+CxxExtension = enum(".cpp", ".cc", ".cl", ".cxx", ".c++", ".c", ".m", ".mm", ".cu", ".hip", ".h", ".hpp", ".hh", ".h++", ".hxx", ".bc", *AsmExtensions.values())
 
 # Header files included in compilation databases
 HeaderExtension = enum(

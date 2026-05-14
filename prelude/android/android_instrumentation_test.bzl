@@ -46,8 +46,9 @@ def android_instrumentation_test_impl(ctx: AnalysisContext):
     extra_classpath = []
     if ctx.attrs.instrumentation_test_listener != None:
         extra_classpath.extend([
-            get_all_java_packaging_deps_tset(ctx, java_packaging_infos = [ctx.attrs.instrumentation_test_listener[JavaPackagingInfo]])
-                .project_as_args("full_jar_args", ordering = "bfs"),
+            get_all_java_packaging_deps_tset(ctx, java_packaging_infos = [ctx.attrs.instrumentation_test_listener[JavaPackagingInfo]]).project_as_args(
+                "full_jar_args", ordering = "bfs"
+            ),
         ])
 
         shared_library_info = merge_shared_libraries(
@@ -247,7 +248,10 @@ def _compute_executor_overrides(ctx: AnalysisContext, instrumentation_test_can_r
 
 def _compute_emulator_abi(labels: list[str]):
     emulator_abi_labels = [label for label in labels if label.startswith(ANDROID_EMULATOR_ABI_LABEL_PREFIX)]
-    expect(len(emulator_abi_labels) <= 1, "multiple '{}' labels were found:[{}], there must be only one!".format(ANDROID_EMULATOR_ABI_LABEL_PREFIX, ", ".join(emulator_abi_labels)))
+    expect(
+        len(emulator_abi_labels) <= 1,
+        "multiple '{}' labels were found:[{}], there must be only one!".format(ANDROID_EMULATOR_ABI_LABEL_PREFIX, ", ".join(emulator_abi_labels)),
+    )
     if len(emulator_abi_labels) == 0:
         return None
     else:  # len(emulator_abi_labels) == 1:
@@ -256,7 +260,10 @@ def _compute_emulator_abi(labels: list[str]):
 # replicating the logic in https://fburl.com/code/1fqowxu4 to match buck1's behavior
 def _compute_emulator_subplatform(labels: list[str]) -> str:
     emulator_subplatform_labels = [label for label in labels if label.startswith("re_emulator_")]
-    expect(len(emulator_subplatform_labels) <= 1, "multiple 're_emulator_' labels were found:[{}], there must be only one!".format(", ".join(emulator_subplatform_labels)))
+    expect(
+        len(emulator_subplatform_labels) <= 1,
+        "multiple 're_emulator_' labels were found:[{}], there must be only one!".format(", ".join(emulator_subplatform_labels)),
+    )
     if len(emulator_subplatform_labels) == 0:
         return DEFAULT_ANDROID_SUBPLATFORM
     else:  # len(emulator_subplatform_labels) == 1:
@@ -264,7 +271,10 @@ def _compute_emulator_subplatform(labels: list[str]) -> str:
 
 def _compute_emulator_platform(labels: list[str]) -> str:
     emulator_platform_labels = [label for label in labels if label.startswith("re_platform_")]
-    expect(len(emulator_platform_labels) <= 1, "multiple 're_platform_' labels were found:[{}], there must be only one!".format(", ".join(emulator_platform_labels)))
+    expect(
+        len(emulator_platform_labels) <= 1,
+        "multiple 're_platform_' labels were found:[{}], there must be only one!".format(", ".join(emulator_platform_labels)),
+    )
     if len(emulator_platform_labels) == 0:
         return DEFAULT_ANDROID_PLATFORM
     else:  # len(emulator_platform_labels) == 1:
@@ -279,8 +289,23 @@ def _compute_re_use_case(labels: list[str]) -> str:
         return re_use_case_labels[0].replace("re_opts_use_case=", "")
 
 def _validate_executor_override_re_config(re_caps: dict[str, str], re_use_case: str):
-    expect(re_use_case in SUPPORTED_USE_CASES, "Unexpected {} use case found, value is expected to be on of the following: {}", re_use_case, ", ".join(SUPPORTED_USE_CASES))
+    expect(
+        re_use_case in SUPPORTED_USE_CASES,
+        "Unexpected {} use case found, value is expected to be on of the following: {}",
+        re_use_case,
+        ", ".join(SUPPORTED_USE_CASES),
+    )
     if "pool" in re_caps:
-        expect(re_caps["pool"] in SUPPORTED_POOLS, "Unexpected {} pool found, value is expected to be on of the following: {}", re_caps["pool"], ", ".join(SUPPORTED_POOLS))
+        expect(
+            re_caps["pool"] in SUPPORTED_POOLS,
+            "Unexpected {} pool found, value is expected to be on of the following: {}",
+            re_caps["pool"],
+            ", ".join(SUPPORTED_POOLS),
+        )
     if "platform" in re_caps:
-        expect(re_caps["platform"] in SUPPORTED_PLATFORMS, "Unexpected {} platform found, value is expected to be on of the following: {}", re_caps["platform"], ", ".join(SUPPORTED_PLATFORMS))
+        expect(
+            re_caps["platform"] in SUPPORTED_PLATFORMS,
+            "Unexpected {} platform found, value is expected to be on of the following: {}",
+            re_caps["platform"],
+            ", ".join(SUPPORTED_PLATFORMS),
+        )

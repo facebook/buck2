@@ -15,7 +15,10 @@ load(":common.bzl", "CxxSourceType", "DefaultDepsMode", "IncludeType", "RawHeade
 
 def _srcs_arg():
     return {
-        "srcs": attrs.list(attrs.one_of(attrs.source(), attrs.tuple(attrs.source(), attrs.list(attrs.arg()))), default = [], doc = """
+        "srcs": attrs.list(
+            attrs.one_of(attrs.source(), attrs.tuple(attrs.source(), attrs.list(attrs.arg()))),
+            default = [],
+            doc = """
     The set of C, C++, Objective-C, Objective-C++, or assembly source files
      to be preprocessed, compiled, and assembled by this
      rule. We determine which stages to run on each input source based on its file extension. See the
@@ -24,46 +27,68 @@ def _srcs_arg():
      a string specifying a source file and a list of compilation flags
      (e.g. `('', ['-Wall', '-Werror'])` ). In the latter case the specified flags will be used in addition to the rule's other
      flags when preprocessing and compiling that file (if applicable).
-"""),
+""",
+        ),
     }
 
 def _deps_arg():
     return {
-        "deps": attrs.list(attrs.dep(), default = [], doc = """
+        "deps": attrs.list(
+            attrs.dep(),
+            default = [],
+            doc = """
     Other rules that list `srcs` from which this rule imports.
-"""),
+""",
+        ),
     }
 
 def _default_deps_arg(default = "deps"):
     return {
-        "default_deps": attrs.enum(DefaultDepsMode, default = default, doc = """
+        "default_deps": attrs.enum(
+            DefaultDepsMode,
+            default = default,
+            doc = """
     Whether to include the default deps from the toolchain, and where to include them (deps, exported_deps, etc).
-"""),
+""",
+        ),
     }
 
 def _supported_platforms_regex_arg():
     return {
-        "supported_platforms_regex": attrs.option(attrs.regex(), default = None, doc = """
+        "supported_platforms_regex": attrs.option(
+            attrs.regex(),
+            default = None,
+            doc = """
     If present, an un-anchored regex (in java.util.regex.Pattern syntax) that matches all platforms
      that this library supports. It will not be built for other platforms.
-"""),
+""",
+        ),
     }
 
 def _headers_arg():
     return {
-        "headers": attrs.named_set(attrs.source(), sorted = True, default = [], doc = """
+        "headers": attrs.named_set(
+            attrs.source(),
+            sorted = True,
+            default = [],
+            doc = """
     The set of header files that are made available for inclusion to the source files in this
      target. These should be specified as either a list
      of header files or a dictionary of header names to header files. The header name can contain
      forward slashes (`/`). The headers can be included with `#include
      "$HEADER_NAMESPACE/$HEADER_NAME"` or `#include <$HEADER_NAMESPACE/$HEADER_NAME>` , where `$HEADER_NAMESPACE` is the value of the target's `header_namespace`  attribute, and `$HEADER_NAME` is the header name if specified, and the filename
      of the header file otherwise. See `header_namespace` for more information.
-"""),
+""",
+        ),
     }
 
 def _exported_headers_arg():
     return {
-        "exported_headers": attrs.named_set(attrs.source(), sorted = True, default = [], doc = """
+        "exported_headers": attrs.named_set(
+            attrs.source(),
+            sorted = True,
+            default = [],
+            doc = """
     The set of header files that are made available for inclusion to the source files in the
      target and all targets that transitively depend on it. These should be specified as either a list
      of header files or a dictionary of header names to header files. The headers can be included
@@ -73,37 +98,55 @@ def _exported_headers_arg():
      header name if specified, and the filename of the header file otherwise. Note that the header name
      can contain forward slashes (`/`). See `header_namespace` for more
      information.
-"""),
+""",
+        ),
     }
 
 def _exported_header_style_arg():
     return {
-        "exported_header_style": attrs.enum(IncludeType, default = "local", doc = """
+        "exported_header_style": attrs.enum(
+            IncludeType,
+            default = "local",
+            doc = """
     How dependents should include exported headers from this rule. Can be either `local`
      (e.g. `-I`) or `system` (e.g. `-isystem`).
-"""),
+""",
+        ),
     }
 
 def _header_namespace_arg():
     return {
-        "header_namespace": attrs.option(attrs.string(), default = None, doc = """
+        "header_namespace": attrs.option(
+            attrs.string(),
+            default = None,
+            doc = """
     A path prefix when including headers of this target. Defaults to the path from the root of the
      repository to the directory where this target is defined. Can
      contain forward slashes (`/`), but cannot start with one. See `headers` for
      more information.
-"""),
+""",
+        ),
     }
 
 def _preprocessor_flags_arg():
     return {
-        "preprocessor_flags": attrs.list(attrs.arg(), default = [], doc = """
+        "preprocessor_flags": attrs.list(
+            attrs.arg(),
+            default = [],
+            doc = """
     Flags to use when preprocessing any of the above sources (which require preprocessing).
-"""),
+""",
+        ),
     }
 
 def _lang_preprocessor_flags_arg():
     return {
-        "lang_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}, doc = """
+        "lang_preprocessor_flags": attrs.dict(
+            key = attrs.enum(CxxSourceType),
+            value = attrs.list(attrs.arg()),
+            sorted = False,
+            default = {},
+            doc = """
     Language-specific preprocessor flags. These should be specified as a map of C-family language short
      names to lists of flags and is used to target flags to sources files for a specific language in the
      C-family (C, C++, assembler, etc.). The keys in the map can be:
@@ -114,15 +157,22 @@ def _lang_preprocessor_flags_arg():
     * `cuda` for Cuda
     * `assembler-with-cpp` for Assembly
     * `asm-with-cpp` for ASM
-"""),
+""",
+        ),
     }
 
 def _exported_lang_preprocessor_flags_arg():
     return {
-        "exported_lang_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}, doc = """
+        "exported_lang_preprocessor_flags": attrs.dict(
+            key = attrs.enum(CxxSourceType),
+            value = attrs.list(attrs.arg()),
+            sorted = False,
+            default = {},
+            doc = """
     Just as `lang_preprocessor_flags`, but these flags also apply to
      rules that transitively depend on this rule.
-"""),
+""",
+        ),
     }
 
 def _exported_preprocessor_flags_arg(exported_preprocessor_flags_type):
@@ -132,14 +182,23 @@ def _exported_preprocessor_flags_arg(exported_preprocessor_flags_type):
 
 def _compiler_flags_arg():
     return {
-        "compiler_flags": attrs.list(attrs.arg(), default = [], doc = """
+        "compiler_flags": attrs.list(
+            attrs.arg(),
+            default = [],
+            doc = """
     Flags to use when compiling any of the above sources (which require compilation).
-"""),
+""",
+        ),
     }
 
 def _lang_compiler_flags_arg():
     return {
-        "lang_compiler_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}, doc = """
+        "lang_compiler_flags": attrs.dict(
+            key = attrs.enum(CxxSourceType),
+            value = attrs.list(attrs.arg()),
+            sorted = False,
+            default = {},
+            doc = """
     Language-specific compiler flags. These should be specified as a map of C-family language short
      names to lists of flags and is used to target flags to sources files for a specific language in the
      C-family (C, C++, assembler, etc.). The keys in the map can be:
@@ -150,78 +209,107 @@ def _lang_compiler_flags_arg():
     * `cuda-cpp-output` for Cuda
     * `assembler` for Assembly
     * `asm` for ASM
-"""),
+""",
+        ),
     }
 
 def _linker_extra_outputs_arg():
     return {
-        "linker_extra_outputs": attrs.list(attrs.string(), default = [], doc = """
+        "linker_extra_outputs": attrs.list(
+            attrs.string(),
+            default = [],
+            doc = """
     Declares extra outputs that the linker emits. These identifiers can be used in
      `$(output ...)` macros in `linker_flags` to interpolate the output path
      into the linker command line. Useful for custom linkers that emit extra output files.
-"""),
+""",
+        ),
     }
 
 def _linker_flags_arg():
     return {
-        "linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = [], doc = """
+        "linker_flags": attrs.list(
+            attrs.arg(anon_target_compatible = True),
+            default = [],
+            doc = """
     Flags to add to the linker command line whenever the output from this
      rule is used in a link operation, such as linked into an executable
      or a shared library.
-"""),
+""",
+        ),
     }
 
 def _local_linker_flags_arg():
     return {
-        "local_linker_flags": attrs.list(attrs.arg(), default = [], doc = """
+        "local_linker_flags": attrs.list(
+            attrs.arg(),
+            default = [],
+            doc = """
     Flags to add to the linker command line whenever the output from this
      rule is used in a link operation *driven by this rule* (e.g. when this
      rule links a shared library, but *not* when the output is linked into a
      shared library by another rule's link group links).
-"""),
+""",
+        ),
     }
 
 # TODO(christylee): remove this arg once link group map migrates to its own rule
 def _local_linker_script_flags_arg():
     return {
-        "local_linker_script_flags": attrs.list(attrs.arg(), default = [], doc = """
+        "local_linker_script_flags": attrs.list(
+            attrs.arg(),
+            default = [],
+            doc = """
     Linker script lags to add to the linker command line whenever the output
      from this rule is used in a link operation *driven by this rule*. Used
      by rules that need to treat linker script flags different from normal
      linker flags.
-"""),
+""",
+        ),
     }
 
 def _exported_linker_flags_arg():
     return {
-        "exported_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = [], doc = """
+        "exported_linker_flags": attrs.list(
+            attrs.arg(anon_target_compatible = True),
+            default = [],
+            doc = """
     Flags to add to the linker command line when the output from this
      rule, or the output from any rule that transitively depends on this
      rule, is used in a link operation.
-"""),
+""",
+        ),
     }
 
 def _exported_post_linker_flags_arg():
     return {
-        "exported_post_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = [], doc = """
+        "exported_post_linker_flags": attrs.list(
+            attrs.arg(anon_target_compatible = True),
+            default = [],
+            doc = """
     Flags to add to the linker command line when the output from this
      rule, or the output from any rule that transitively depends on this
      rule, is used in a link operation—with the additional feature
      that these flags are guaranteed to be placed *after* the compiled
      object (`.o`) files on the linker command line.
-"""),
+""",
+        ),
     }
 
 def _precompiled_header_arg():
     return {
-        "precompiled_header": attrs.option(attrs.source(), default = None, doc = """
+        "precompiled_header": attrs.option(
+            attrs.source(),
+            default = None,
+            doc = """
     Path to a `cxx_precompiled_header` to use when compiling this rule's sources. The precompiled header (PCH) is built on-demand, using
      compiler flags matching those used in this rule's compile jobs. This is to ensure
      compatibility between this rule and the PCH. Also, this rule will inherit additional
      `deps` from the PCH rule, and as a result, additional include paths as well
      (e.g. `-I`, `-isystem`, `-iquote` path lists,
      and framework paths specified with `-F`).
-"""),
+""",
+        ),
     }
 
 def _force_static(force_static_type):
@@ -231,38 +319,54 @@ def _force_static(force_static_type):
 
 def _reexport_all_header_dependencies_arg():
     return {
-        "reexport_all_header_dependencies": attrs.option(attrs.bool(), default = None, doc = """
+        "reexport_all_header_dependencies": attrs.option(
+            attrs.bool(),
+            default = None,
+            doc = """
     Whether to automatically re-export the exported headers of all dependencies.
 
      When this is set to false, only exported headers from
      `exported_deps` are re-exported.
-"""),
+""",
+        ),
     }
 
 def _exported_deps_arg():
     return {
-        "exported_deps": attrs.list(attrs.dep(), default = [], doc = """
+        "exported_deps": attrs.list(
+            attrs.dep(),
+            default = [],
+            doc = """
     Dependencies that will also appear to belong to any rules that depend on this
      one. This has two effects:
      * Exported dependencies will also be included in the link line of
      dependents of this rules, but normal dependencies will not.
     * When `reexport_all_header_dependencies = False`, only exported
      headers of the rules specified here are re-exported.
-"""),
+""",
+        ),
     }
 
 def _supports_merged_linking():
     return {
-        "supports_merged_linking": attrs.option(attrs.bool(), default = None, doc = """
+        "supports_merged_linking": attrs.option(
+            attrs.bool(),
+            default = None,
+            doc = """
     Whether this rule supports building with the merged linking strategy when building for non-native
      binaries (e.g. when using `.buckconfig`
     s `merged` setting).
-"""),
+""",
+        ),
     }
 
 def _raw_headers_arg():
     return {
-        "raw_headers": attrs.set(attrs.source(), sorted = True, default = [], doc = """
+        "raw_headers": attrs.set(
+            attrs.source(),
+            sorted = True,
+            default = [],
+            doc = """
     The set of header files that can be used for inclusion to the source files in the target and all
      targets that transitively depend on it. Buck doesn't add raw headers to the search path of a
      compiler/preprocessor automatically.
@@ -272,74 +376,107 @@ def _raw_headers_arg():
      can also be used to add such raw headers to the search path if inclusion via `-isystem` or
      `-iquote` is needed.
      `raw_headers` cannot be used together with `headers` or `exported_headers` in the same target.
-"""),
+""",
+        ),
     }
 
 def _supports_stripping():
     return {
-        "supports_stripping": attrs.bool(default = True, doc = """
+        "supports_stripping": attrs.bool(
+            default = True,
+            doc = """
     Whether this rule supports stripping outputs via `strip` command for exporting.
-"""),
+""",
+        ),
     }
 
 def _raw_headers_as_headers_mode_arg():
     return {
-        "raw_headers_as_headers_mode": attrs.option(attrs.enum(RawHeadersAsHeadersMode), default = None, doc = """
+        "raw_headers_as_headers_mode": attrs.option(
+            attrs.enum(RawHeadersAsHeadersMode),
+            default = None,
+            doc = """
     Controls whether raw_headers and *include_directories attributes should be automatically
     converted to headers and symlink trees and/or header maps via headers. Only has an effect if
     the cxx_toolchain has explicitly opted into supporting this behavior via a non-default value,
     even if the value is disabled.
-"""),
+""",
+        ),
     }
 
 def _include_directories_arg():
     return {
-        "include_directories": attrs.set(attrs.string(), sorted = True, default = [], doc = """
+        "include_directories": attrs.set(
+            attrs.string(),
+            sorted = True,
+            default = [],
+            doc = """
     A list of include directories (with `raw_headers`) to be added to the compile command for compiling this target
      (via `-I`).
      An include directory is relative to the current package.
-"""),
+""",
+        ),
     }
 
 def _public_include_directories_arg():
     return {
-        "public_include_directories": attrs.set(attrs.string(), sorted = True, default = [], doc = """
+        "public_include_directories": attrs.set(
+            attrs.string(),
+            sorted = True,
+            default = [],
+            doc = """
     A list of include directories (with `raw_headers`) to be added to the compile command for compiling this target
      and every target that depends on it (via `-I`). An include directory is relative to the current package.
-"""),
+""",
+        ),
     }
 
 def _public_system_include_directories_arg():
     return {
-        "public_system_include_directories": attrs.set(attrs.string(), sorted = True, default = [], doc = """
+        "public_system_include_directories": attrs.set(
+            attrs.string(),
+            sorted = True,
+            default = [],
+            doc = """
     A list of include directories (with `raw_headers`) to be added to the compile command for compiling this target
      and every target that depends on it (via `-isystem` if the compiler supports it of via `-I` otherwise).
      An include directory is relative to the current package.
-"""),
+""",
+        ),
     }
 
 def _version_arg():
     return {
-        "version": attrs.option(attrs.string(), default = None, doc = """
+        "version": attrs.option(
+            attrs.string(),
+            default = None,
+            doc = """
     A string denoting a meaningful version of this rule that is optionally passed to the linker as extra
      metadata.
-"""),
+""",
+        ),
     }
 
 def _runtime_dependency_handling_arg():
     return {
-        "runtime_dependency_handling": attrs.option(attrs.enum(RuntimeDependencyHandling), default = None, doc = """
+        "runtime_dependency_handling": attrs.option(
+            attrs.enum(RuntimeDependencyHandling),
+            default = None,
+            doc = """
     Controls how shared library dependencies are handled at runtime. By default the `no_symlink` behaviour
     is used, which opts out of symlink creation. If `symlink` is specified then shared library dependencies with
     `preferred_linkage = "shared"` are automatically detected and included in a symlink tree
     alongside the executable. Set to `symlink_single_level_only` to only include first-level runtime
     dependencies in a symlink tree.
-"""),
+""",
+        ),
     }
 
 def _use_fbcc_rust_wrapper_arg():
     return {
-        "use_fbcc_rust_wrapper": attrs.bool(default = False, doc = "Opt-in for the rust version of the fbcode C++ Compiler wrapper (replacing the existing fbcc.py)"),
+        "use_fbcc_rust_wrapper": attrs.bool(
+            default = False, doc = "Opt-in for the rust version of the fbcode C++ Compiler wrapper (replacing the existing fbcc.py)"
+        ),
     }
 
 def _use_content_based_paths_arg():

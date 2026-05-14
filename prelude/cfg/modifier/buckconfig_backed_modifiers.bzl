@@ -18,27 +18,31 @@ def _platform_deps_to_conditional_modifier_infos(platform_deps: list[Dependency]
     for dep in platform_deps:
         platform_info = dep[PlatformInfo]
         for constraint_setting, constraint_value_info in platform_info.configuration.constraints.items():
-            result.append(ConditionalModifierInfo(
-                inner = constraint_value_info,
-                key = constraint_setting,
-            ))
+            result.append(
+                ConditionalModifierInfo(
+                    inner = constraint_value_info,
+                    key = constraint_setting,
+                )
+            )
     return result
 
 def _impl(ctx: AnalysisContext) -> list[Provider]:
-    pre_platform_modifiers = (
-        _platform_deps_to_conditional_modifier_infos(ctx.attrs.pre_platform_platforms) +
-        _convert_to_conditional_modifier_infos(ctx.attrs.pre_platform_modifiers)
+    pre_platform_modifiers = _platform_deps_to_conditional_modifier_infos(ctx.attrs.pre_platform_platforms) + _convert_to_conditional_modifier_infos(
+        ctx.attrs.pre_platform_modifiers
     )
-    post_platform_modifiers = (
-        _platform_deps_to_conditional_modifier_infos(ctx.attrs.post_platform_platforms) +
-        _convert_to_conditional_modifier_infos(ctx.attrs.post_platform_modifiers)
+    post_platform_modifiers = _platform_deps_to_conditional_modifier_infos(ctx.attrs.post_platform_platforms) + _convert_to_conditional_modifier_infos(
+        ctx.attrs.post_platform_modifiers
     )
-    pre_cli_modifiers = (
-        _platform_deps_to_conditional_modifier_infos(ctx.attrs.pre_cli_platforms) +
-        _convert_to_conditional_modifier_infos(ctx.attrs.pre_cli_modifiers)
+    pre_cli_modifiers = _platform_deps_to_conditional_modifier_infos(ctx.attrs.pre_cli_platforms) + _convert_to_conditional_modifier_infos(
+        ctx.attrs.pre_cli_modifiers
     )
 
-    return [DefaultInfo(), BuckconfigBackedModifierInfo(pre_platform_modifiers = pre_platform_modifiers, post_platform_modifiers = post_platform_modifiers, pre_cli_modifiers = pre_cli_modifiers)]
+    return [
+        DefaultInfo(),
+        BuckconfigBackedModifierInfo(
+            pre_platform_modifiers = pre_platform_modifiers, post_platform_modifiers = post_platform_modifiers, pre_cli_modifiers = pre_cli_modifiers
+        ),
+    ]
 
 _buckconfig_backed_modifiers = rule(
     impl = _impl,
@@ -73,16 +77,14 @@ def _buckconfig_matches(entry: BuckconfigBackedModifier) -> bool:
     else:
         return read_config(entry.section, entry.property) == entry.value
 
-def _convert_to_modifiers(
-        entries: list[BuckconfigBackedModifier]) -> list[str]:
+def _convert_to_modifiers(entries: list[BuckconfigBackedModifier]) -> list[str]:
     modifiers = []
     for entry in entries:
         if _buckconfig_matches(entry):
             modifiers += entry.modifiers
     return modifiers
 
-def _convert_to_platforms(
-        entries: list[BuckconfigBackedModifier]) -> list[str]:
+def _convert_to_platforms(entries: list[BuckconfigBackedModifier]) -> list[str]:
     platforms = []
     for entry in entries:
         if _buckconfig_matches(entry):
@@ -90,10 +92,8 @@ def _convert_to_platforms(
     return platforms
 
 def buckconfig_backed_modifiers(
-        name: str,
-        pre_platform: list[BuckconfigBackedModifier],
-        post_platform: list[BuckconfigBackedModifier],
-        pre_cli: list[BuckconfigBackedModifier]):
+    name: str, pre_platform: list[BuckconfigBackedModifier], post_platform: list[BuckconfigBackedModifier], pre_cli: list[BuckconfigBackedModifier]
+):
     """
     Enable buckconfigs to become modifiers.
     We need this so that we can migrate `read_config`s to selects without having to worry about

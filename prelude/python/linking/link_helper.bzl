@@ -78,15 +78,18 @@ def _process_native_linking_rule_impl(ctx):
         ctx.attrs.package_style,
         ctx.attrs.allow_cache_upload,
     )
-    return [LinkProviders(
-        shared_libraries = shared_libs,
-        link_args = link_args,
-        extensions = extensions,
-        extra = extra,
-        extra_artifacts = extra_artifacts,
-        gc_sections_data = gc_sections_data,
-        linker_map_data = linker_map_data,
-    ), DefaultInfo()]
+    return [
+        LinkProviders(
+            shared_libraries = shared_libs,
+            link_args = link_args,
+            extensions = extensions,
+            extra = extra,
+            extra_artifacts = extra_artifacts,
+            gc_sections_data = gc_sections_data,
+            linker_map_data = linker_map_data,
+        ),
+        DefaultInfo(),
+    ]
 
 process_native_linking_rule = rule(
     impl = _process_native_linking_rule_impl,
@@ -103,5 +106,7 @@ process_native_linking_rule = rule(
         "_cxx_toolchain": attrs.dep(),
         "_python_internal_tools": attrs.dep(),
         "_python_toolchain": attrs.dep(),
-    } | cxx_implicit_attrs | python_implicit_attrs,
+    }
+    | cxx_implicit_attrs
+    | python_implicit_attrs,
 )

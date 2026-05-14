@@ -144,10 +144,7 @@ def _convert_select_to_dict(select_value):
     fail()
 
 def _convert_dict_to_select(value):
-    return value if not is_dict(value) else select({
-        k: _convert_dict_to_select(v)
-        for k, v in value.items()
-    })
+    return value if not is_dict(value) else select({k: _convert_dict_to_select(v) for k, v in value.items()})
 
 def apply_platform_attrs(platform_attrs, universal_attrs, platform_select = None):
     if platform_select == None:
@@ -184,12 +181,12 @@ def apply_platform_attrs_for_buildscript_build(platform_attrs, universal_attrs):
     return apply_platform_attrs(
         platform_attrs,
         universal_attrs,
-        select({
-            "DEFAULT": get_reindeer_platforms(),
-        } | {
-            "prelude//rust/buildscript:buildscript_for_platform[{}]".format(i): plat
-            for i, plat in enumerate(get_reindeer_platform_names())
-        }),
+        select(
+            {
+                "DEFAULT": get_reindeer_platforms(),
+            }
+            | {"prelude//rust/buildscript:buildscript_for_platform[{}]".format(i): plat for i, plat in enumerate(get_reindeer_platform_names())}
+        ),
     )
 
 def _cargo_rust_binary(name, crate = None, platform = {}, **kwargs):
@@ -205,11 +202,7 @@ def _cargo_rust_binary(name, crate = None, platform = {}, **kwargs):
     rustc_flags = kwargs.get("rustc_flags", [])
     kwargs["rustc_flags"] = ["--cap-lints=allow"] + rustc_flags
 
-    native.rust_binary(
-        name = name,
-        crate = crate,
-        **kwargs
-    )
+    native.rust_binary(name = name, crate = crate, **kwargs)
 
 def _cargo_rust_library(name, platform = {}, **kwargs):
     """

@@ -14,9 +14,7 @@ load(
     "XPluginsManifestInfo",
 )
 
-def xplugins_get_debug_artifacts_info(
-        ctx: AnalysisContext,
-        deps: list[Dependency]) -> XPluginsDebugArtifactsInfo | None:
+def xplugins_get_debug_artifacts_info(ctx: AnalysisContext, deps: list[Dependency]) -> XPluginsDebugArtifactsInfo | None:
     children = []
     for dep in deps:
         info = dep.get(XPluginsDebugArtifactsInfo)

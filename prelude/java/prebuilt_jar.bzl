@@ -32,11 +32,13 @@ def prebuilt_jar_impl(ctx: AnalysisContext) -> list[Provider]:
     binary_jar = ctx.attrs.binary_jar
     extension = binary_jar.extension
     if extension not in expected_extensions:
-        fail("Extension of the binary_jar attribute has to be one of '{}' but '{}' has an extension '{}'".format(
-            expected_extensions,
-            binary_jar,
-            extension,
-        ))
+        fail(
+            "Extension of the binary_jar attribute has to be one of '{}' but '{}' has an extension '{}'".format(
+                expected_extensions,
+                binary_jar,
+                extension,
+            )
+        )
 
     output = ctx.actions.declare_output("symlink/{}".format(binary_jar.short_path), has_content_based_path = ctx.attrs.uses_content_based_paths)
     ctx.actions.symlink_file(output, binary_jar)
@@ -65,17 +67,19 @@ def prebuilt_jar_impl(ctx: AnalysisContext) -> list[Provider]:
         abi_jar_snapshot = jar_snapshot,
     )
 
-    java_library_info, java_packaging_info, global_code_info, shared_library_info, cxx_resource_info, linkable_graph, template_placeholder_info, _ = create_java_library_providers(
-        ctx,
-        library_output = library_output_classpath_entry,
-        global_code_config = prebuilt_jar_toolchain.global_code_config,
-        declared_deps = ctx.attrs.deps,
-        exported_deps = ctx.attrs.deps,
-        provided_deps = ctx.attrs.desugar_deps,
-        needs_desugar = True,
-        is_prebuilt_jar = True,
-        gwt_module = gwt_output,
-        sources_jar = ctx.attrs.source_jar,
+    java_library_info, java_packaging_info, global_code_info, shared_library_info, cxx_resource_info, linkable_graph, template_placeholder_info, _ = (
+        create_java_library_providers(
+            ctx,
+            library_output = library_output_classpath_entry,
+            global_code_config = prebuilt_jar_toolchain.global_code_config,
+            declared_deps = ctx.attrs.deps,
+            exported_deps = ctx.attrs.deps,
+            provided_deps = ctx.attrs.desugar_deps,
+            needs_desugar = True,
+            is_prebuilt_jar = True,
+            gwt_module = gwt_output,
+            sources_jar = ctx.attrs.source_jar,
+        )
     )
 
     # TODO(T107163344) this shouldn't be in prebuilt_jar itself, use overlays to remove it.
@@ -101,5 +105,7 @@ def prebuilt_jar_impl(ctx: AnalysisContext) -> list[Provider]:
     ] + (
         [
             RunInfo(args = cmd_args([ctx.attrs._prebuilt_jar_toolchain[PrebuiltJarToolchainInfo].java[RunInfo], "-jar", output])),
-        ] if ctx.attrs.is_executable else []
+        ]
+        if ctx.attrs.is_executable
+        else []
     )

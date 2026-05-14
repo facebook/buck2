@@ -22,17 +22,19 @@ SwiftMacroPlugin = plugins.kind()
 
 SwiftVersion = ("5", "6")
 
-SwiftDependencyInfo = provider(fields = {
-    "debug_info_tset": provider_field(ArtifactTSet),
-    # Includes modules through exported_deps, used for compilation
-    "exported_swiftmodules": provider_field(SwiftCompiledModuleTset),
-    # If this target has exported_headers, used to validate non-modular dep exports
-    "has_exported_headers": provider_field(bool),
-    # Macro deps cannot be mixed with apple_library deps
-    "is_macro": provider_field(bool),
-    # If this target provides a clang module, used to validate non-modular dep exports
-    "is_modular": provider_field(bool),
-})
+SwiftDependencyInfo = provider(
+    fields = {
+        "debug_info_tset": provider_field(ArtifactTSet),
+        # Includes modules through exported_deps, used for compilation
+        "exported_swiftmodules": provider_field(SwiftCompiledModuleTset),
+        # If this target has exported_headers, used to validate non-modular dep exports
+        "has_exported_headers": provider_field(bool),
+        # Macro deps cannot be mixed with apple_library deps
+        "is_macro": provider_field(bool),
+        # If this target provides a clang module, used to validate non-modular dep exports
+        "is_modular": provider_field(bool),
+    }
+)
 
 def _swift_framework_implicit_search_paths_args(args: cmd_args):
     return args
@@ -43,15 +45,15 @@ FrameworkImplicitSearchPathInfoTSet = transitive_set(
     },
 )
 
-FrameworkImplicitSearchPathInfo = provider(fields = {
-    "tset": provider_field(typing.Any, default = None),  # A tset of FrameworkImplicitSearchPathInfoTSet
-})
+FrameworkImplicitSearchPathInfo = provider(
+    fields = {
+        "tset": provider_field(typing.Any, default = None),  # A tset of FrameworkImplicitSearchPathInfoTSet
+    }
+)
 
 def get_implicit_framework_search_path_providers(ctx: AnalysisContext, value: [cmd_args, None], deps: list[Dependency]) -> FrameworkImplicitSearchPathInfoTSet:
     deps_infos = [
-        d[FrameworkImplicitSearchPathInfo].tset
-        for d in deps
-        if FrameworkImplicitSearchPathInfo in d and d[FrameworkImplicitSearchPathInfo].tset != None
+        d[FrameworkImplicitSearchPathInfo].tset for d in deps if FrameworkImplicitSearchPathInfo in d and d[FrameworkImplicitSearchPathInfo].tset != None
     ]
     if value:
         return ctx.actions.tset(FrameworkImplicitSearchPathInfoTSet, value = value, children = deps_infos)

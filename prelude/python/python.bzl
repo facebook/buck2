@@ -32,14 +32,10 @@ PythonLibraryManifests = record(
 )
 
 def _bytecode_artifacts(invalidation_mode: PycInvalidationMode) -> typing.Callable[[PythonLibraryManifests], list[ArgLike]]:
-    return lambda value: [] if value.bytecode == None else (
-        [a for a, _ in value.bytecode[invalidation_mode].artifacts]
-    )
+    return lambda value: [] if value.bytecode == None else ([a for a, _ in value.bytecode[invalidation_mode].artifacts])
 
 def _bytecode_manifests(invalidation_mode: PycInvalidationMode) -> typing.Callable[[PythonLibraryManifests], list[None] | Artifact]:
-    return lambda value: [] if value.bytecode == None else (
-        value.bytecode[invalidation_mode].manifest
-    )
+    return lambda value: [] if value.bytecode == None else (value.bytecode[invalidation_mode].manifest)
 
 def _hidden_resources_for(field_name: str) -> typing.Callable[[PythonLibraryManifests], list[ArgLike]]:
     return lambda value: [] if getattr(value, field_name) == None else getattr(value, field_name)[1]
@@ -98,55 +94,41 @@ args_projections = {
     "source_type_artifacts": _source_type_artifacts,
     "source_type_manifests": _source_type_manifests,
 }
-args_projections.update({
-    "{}hidden_resources".format(prefix): _hidden_resources_for(field_name)
-    for prefix, field_name in _RESOURCE_MODES.values()
-})
-args_projections.update({
-    "{}resource_manifests".format(prefix): _resource_manifests_for(field_name)
-    for prefix, field_name in _RESOURCE_MODES.values()
-})
-args_projections.update({
-    "{}resource_artifacts".format(prefix): _resource_artifacts_for(field_name)
-    for prefix, field_name in _RESOURCE_MODES.values()
-})
-args_projections.update({
-    "{}_artifacts".format(prefix): _bytecode_artifacts(mode)
-    for mode, prefix in _BYTECODE_PROJ_PREFIX.items()
-})
-args_projections.update({
-    "{}_manifests".format(prefix): _bytecode_manifests(mode)
-    for mode, prefix in _BYTECODE_PROJ_PREFIX.items()
-})
+args_projections.update({"{}hidden_resources".format(prefix): _hidden_resources_for(field_name) for prefix, field_name in _RESOURCE_MODES.values()})
+args_projections.update({"{}resource_manifests".format(prefix): _resource_manifests_for(field_name) for prefix, field_name in _RESOURCE_MODES.values()})
+args_projections.update({"{}resource_artifacts".format(prefix): _resource_artifacts_for(field_name) for prefix, field_name in _RESOURCE_MODES.values()})
+args_projections.update({"{}_artifacts".format(prefix): _bytecode_artifacts(mode) for mode, prefix in _BYTECODE_PROJ_PREFIX.items()})
+args_projections.update({"{}_manifests".format(prefix): _bytecode_manifests(mode) for mode, prefix in _BYTECODE_PROJ_PREFIX.items()})
 
 PythonLibraryManifestsTSet = transitive_set(
     args_projections = args_projections,
-    reductions = {
-        "{}has_hidden_resources".format(prefix): _has_hidden_resources_for(field_name)
-        for prefix, field_name in _RESOURCE_MODES.values()
-    },
+    reductions = {"{}has_hidden_resources".format(prefix): _has_hidden_resources_for(field_name) for prefix, field_name in _RESOURCE_MODES.values()},
 )
 
-LazyImportsCacheInfo = provider(fields = {
-    "cache": provider_field(Artifact),
-})
+LazyImportsCacheInfo = provider(
+    fields = {
+        "cache": provider_field(Artifact),
+    }
+)
 
-PythonLibraryInfo = provider(fields = {
-    # Shared libraries coming from cxx_python_extension targets
-    "extension_shared_libraries": provider_field(SharedLibraryInfo),
-    "is_native_dep": provider_field(bool),
-    # See the docs for PythonLibraryManifestsInterface
-    "manifests": provider_field(PythonLibraryManifestsTSet),
-    # Native deps
-    "native_deps": provider_field(NativeDepsInfoTSet),
-    # Package style for python binaries (None for libraries). One of
-    # "inplace", "standalone", "outplace". Mirrors PackageStyle from toolchain.bzl.
-    "package_style": provider_field(str | None, default = None),
-    # PAR style for python binaries (None for libraries)
-    "par_style": provider_field(str | None, default = None),
-    # Shared libraries coming from python_library and others
-    "shared_libraries": provider_field(SharedLibraryInfo),
-})
+PythonLibraryInfo = provider(
+    fields = {
+        # Shared libraries coming from cxx_python_extension targets
+        "extension_shared_libraries": provider_field(SharedLibraryInfo),
+        "is_native_dep": provider_field(bool),
+        # See the docs for PythonLibraryManifestsInterface
+        "manifests": provider_field(PythonLibraryManifestsTSet),
+        # Native deps
+        "native_deps": provider_field(NativeDepsInfoTSet),
+        # Package style for python binaries (None for libraries). One of
+        # "inplace", "standalone", "outplace". Mirrors PackageStyle from toolchain.bzl.
+        "package_style": provider_field(str | None, default = None),
+        # PAR style for python binaries (None for libraries)
+        "par_style": provider_field(str | None, default = None),
+        # Shared libraries coming from python_library and others
+        "shared_libraries": provider_field(SharedLibraryInfo),
+    }
+)
 
 def manifests_to_interface(manifests: PythonLibraryManifestsTSet) -> PythonLibraryManifestsInterface:
     return PythonLibraryManifestsInterface(

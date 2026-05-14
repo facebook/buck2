@@ -155,7 +155,6 @@ AndroidApkUnderTestInfo = provider(
         "resource_infos": provider_field(typing.Any, default = None),  # set(TargetLabel)
         "r_dot_java_packages": provider_field(typing.Any, default = None),  # set(str)
         "shared_libraries": provider_field(typing.Any, default = None),  # set(TargetLabel)
-
         # Merge map delegate
         "native_library_merge_code_generator": provider_field(typing.Any, default = None),
         "native_library_merge_glue": provider_field(typing.Any, default = None),
@@ -279,14 +278,15 @@ AndroidResourceRDotInfo = provider(
 )
 
 def merge_android_packageable_info(
-        label: Label,
-        actions: AnalysisActions,
-        deps: list[Dependency],
-        build_config_info: [AndroidBuildConfigInfo, None] = None,
-        manifest: Artifact | None = None,
-        prebuilt_native_library_dir: [PrebuiltNativeLibraryDir, None] = None,
-        resource_info: [AndroidResourceInfo, None] = None,
-        for_primary_apk: bool = False) -> AndroidPackageableInfo:
+    label: Label,
+    actions: AnalysisActions,
+    deps: list[Dependency],
+    build_config_info: [AndroidBuildConfigInfo, None] = None,
+    manifest: Artifact | None = None,
+    prebuilt_native_library_dir: [PrebuiltNativeLibraryDir, None] = None,
+    resource_info: [AndroidResourceInfo, None] = None,
+    for_primary_apk: bool = False,
+) -> AndroidPackageableInfo:
     android_packageable_deps = filter(None, [x.get(AndroidPackageableInfo) for x in deps])
 
     build_config_infos = _get_transitive_set(
@@ -313,7 +313,9 @@ def merge_android_packageable_info(
         ManifestInfo(
             target_label = label.raw_target(),
             manifest = manifest,
-        ) if manifest else None,
+        )
+        if manifest
+        else None,
         ManifestTSet,
     )
 
@@ -341,10 +343,8 @@ def merge_android_packageable_info(
     )
 
 def _get_transitive_set(
-        actions: AnalysisActions,
-        children: list[TransitiveSet],
-        node: typing.Any,
-        transitive_set_definition: TransitiveSetDefinition) -> [TransitiveSet, None]:
+    actions: AnalysisActions, children: list[TransitiveSet], node: typing.Any, transitive_set_definition: TransitiveSetDefinition
+) -> [TransitiveSet, None]:
     kwargs = {}
     if children:
         kwargs["children"] = children
@@ -353,8 +353,7 @@ def _get_transitive_set(
 
     return actions.tset(transitive_set_definition, **kwargs) if kwargs else None
 
-def merge_exported_android_resource_info(
-        exported_deps: list[Dependency]) -> ExportedAndroidResourceInfo:
+def merge_exported_android_resource_info(exported_deps: list[Dependency]) -> ExportedAndroidResourceInfo:
     exported_android_resource_infos = []
     for exported_dep in exported_deps:
         exported_resource_info = exported_dep.get(ExportedAndroidResourceInfo)

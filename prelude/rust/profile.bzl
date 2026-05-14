@@ -16,10 +16,7 @@ def _make_trace_providers(compile_ctx: CompileContext, a: Artifact) -> list[Prov
         p.append(make_trace_upload(a))
     return p
 
-def _analyze_llvm_lines(
-        ctx: AnalysisContext,
-        compile_ctx: CompileContext,
-        llvm_ir_noopt: Artifact) -> list[Provider] | None:
+def _analyze_llvm_lines(ctx: AnalysisContext, compile_ctx: CompileContext, llvm_ir_noopt: Artifact) -> list[Provider] | None:
     if compile_ctx.toolchain_info.llvm_lines_tool == None:
         return None
     llvm_lines = ctx.actions.declare_output("llvm_lines.txt", has_content_based_path = False)
@@ -36,15 +33,10 @@ def _analyze_llvm_lines(
     )
     return [DefaultInfo(default_output = llvm_lines)]
 
-def _llvm_time_trace(
-        compile_ctx: CompileContext,
-        llvm_time_trace: RustcOutput) -> list[Provider]:
+def _llvm_time_trace(compile_ctx: CompileContext, llvm_time_trace: RustcOutput) -> list[Provider]:
     return _make_trace_providers(compile_ctx, llvm_time_trace.compile_output.profile_output)
 
-def _self_profile(
-        ctx: AnalysisContext,
-        compile_ctx: CompileContext,
-        self_profile: RustcOutput) -> list[Provider]:
+def _self_profile(ctx: AnalysisContext, compile_ctx: CompileContext, self_profile: RustcOutput) -> list[Provider]:
     sub_targets = {}
 
     profdata = ctx.actions.declare_output("self_profile.mm_profdata", has_content_based_path = False)
@@ -78,11 +70,8 @@ def _self_profile(
     return [DefaultInfo(sub_targets = sub_targets)]
 
 def make_profile_providers(
-        ctx: AnalysisContext,
-        compile_ctx: CompileContext,
-        llvm_ir_noopt: Artifact,
-        llvm_time_trace: RustcOutput,
-        self_profile: RustcOutput) -> list[Provider]:
+    ctx: AnalysisContext, compile_ctx: CompileContext, llvm_ir_noopt: Artifact, llvm_time_trace: RustcOutput, self_profile: RustcOutput
+) -> list[Provider]:
     sub_targets = {}
 
     llvm_lines = _analyze_llvm_lines(ctx, compile_ctx, llvm_ir_noopt)

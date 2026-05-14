@@ -54,7 +54,9 @@ def _legacy_equivalent_cxx_tools_info_windows(ctx: AnalysisContext, default_tool
         asm_compiler = default_toolchain.asm_compiler,
         asm_compiler_type = default_toolchain.asm_compiler_type,
         rc_compiler = default_toolchain.rc_compiler if ctx.attrs.rc_compiler == None or ctx.attrs.rc_compiler == "rc.exe" else ctx.attrs.rc_compiler,
-        cvtres_compiler = default_toolchain.cvtres_compiler if ctx.attrs.cvtres_compiler == None or ctx.attrs.cvtres_compiler == "cvtres.exe" else ctx.attrs.cvtres_compiler,
+        cvtres_compiler = default_toolchain.cvtres_compiler
+        if ctx.attrs.cvtres_compiler == None or ctx.attrs.cvtres_compiler == "cvtres.exe"
+        else ctx.attrs.cvtres_compiler,
         archiver = default_toolchain.archiver if ctx.attrs.archiver == None else ctx.attrs.archiver,
         archiver_type = default_toolchain.archiver_type,
         linker = default_toolchain.linker if ctx.attrs.linker == None or ctx.attrs.linker == "link.exe" else ctx.attrs.linker,
@@ -84,7 +86,11 @@ def _system_cxx_toolchain_impl(ctx: AnalysisContext):
     os = ctx.attrs._target_os_type[OsLookup].os.value
     arch_name = ctx.attrs._target_os_type[OsLookup].cpu
     cxx_tools_info = ctx.attrs._cxx_tools_info[CxxToolsInfo]
-    cxx_tools_info = _legacy_equivalent_cxx_tools_info_windows(ctx, cxx_tools_info) if os == "windows" else _legacy_equivalent_cxx_tools_info_non_windows(ctx, cxx_tools_info)
+    cxx_tools_info = (
+        _legacy_equivalent_cxx_tools_info_windows(ctx, cxx_tools_info)
+        if os == "windows"
+        else _legacy_equivalent_cxx_tools_info_non_windows(ctx, cxx_tools_info)
+    )
     target_name = os
     if arch_name:
         target_name += "-" + arch_name
@@ -255,7 +261,10 @@ system_cxx_toolchain = rule(
         "rc_compiler": attrs.option(attrs.string(), default = None),
         "rc_flags": attrs.list(attrs.arg(), default = []),
         "supports_content_based_paths": attrs.bool(default = False),
-        "_cxx_tools_info": attrs.exec_dep(providers = [CxxToolsInfo], default = "prelude//toolchains/msvc:msvc_tools" if host_info().os.is_windows else "prelude//toolchains/cxx/clang:path_clang_tools"),
+        "_cxx_tools_info": attrs.exec_dep(
+            providers = [CxxToolsInfo],
+            default = "prelude//toolchains/msvc:msvc_tools" if host_info().os.is_windows else "prelude//toolchains/cxx/clang:path_clang_tools",
+        ),
         "_target_os_type": buck.target_os_type_arg(),
     },
     is_toolchain_rule = True,
@@ -268,10 +277,13 @@ cxx_tools_info_toolchain = rule(
         "cpp_dep_tracking_mode": attrs.string(default = "makefile"),
         "cvtres_flags": attrs.list(attrs.arg(), default = []),
         "cxx_flags": attrs.list(attrs.arg(), default = []),
-        "cxx_tools_info": attrs.exec_dep(providers = [CxxToolsInfo], default = select({
-            "DEFAULT": "prelude//toolchains/cxx/clang:path_clang_tools",
-            "config//os:windows": "prelude//toolchains/msvc:msvc_tools",
-        })),
+        "cxx_tools_info": attrs.exec_dep(
+            providers = [CxxToolsInfo],
+            default = select({
+                "DEFAULT": "prelude//toolchains/cxx/clang:path_clang_tools",
+                "config//os:windows": "prelude//toolchains/msvc:msvc_tools",
+            }),
+        ),
         "internal_tools": attrs.exec_dep(providers = [CxxInternalTools], default = "prelude//cxx/tools:internal_tools"),
         "link_flags": attrs.list(attrs.arg(), default = []),
         "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),

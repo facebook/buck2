@@ -21,14 +21,19 @@ def _watch_transition_impl(platform: PlatformInfo, refs: struct) -> PlatformInfo
     #  - If the old OS constraint was iOS or watchOS, set the new constraint to be always watchOS.
     #  - If the old SDK constraint was iOS, replace with the equivalent watchOS constraint.
     #  - Return a new platform with the updated constraints.
-    updated_constraints = transition_utils.filtered_platform_constraints(platform, [refs.os[ConstraintSettingInfo].label, refs.sdk[ConstraintSettingInfo].label])
+    updated_constraints = transition_utils.filtered_platform_constraints(
+        platform, [refs.os[ConstraintSettingInfo].label, refs.sdk[ConstraintSettingInfo].label]
+    )
 
     # Update OS constraint
     old_os = transition_utils.get_constraint_value(platform, refs.os[ConstraintSettingInfo])
     watchos = refs.watchos[ConstraintValueInfo]
     ios = refs.ios[ConstraintValueInfo]
     if old_os != None:
-        expect(old_os.label in [watchos.label, ios.label], "If present, OS transitioned non-identically to watchOS should be `iphoneos`, got {}".format(old_os.label))
+        expect(
+            old_os.label in [watchos.label, ios.label],
+            "If present, OS transitioned non-identically to watchOS should be `iphoneos`, got {}".format(old_os.label),
+        )
     updated_constraints[refs.os[ConstraintSettingInfo].label] = watchos
 
     # Update SDK constraint
@@ -60,13 +65,16 @@ def _watch_transition_impl(platform: PlatformInfo, refs: struct) -> PlatformInfo
         configuration = new_cfg,
     )
 
-watch_transition = transition(impl = _watch_transition_impl, refs = {
-    "ios": "config//os/constraints:iphoneos",
-    "ios_device_sdk": "config//os/sdk/apple/constraints:iphoneos",
-    "ios_simulator_sdk": "config//os/sdk/apple/constraints:iphonesimulator",
-    "os": "config//os/constraints:os",
-    "sdk": "config//os/sdk/apple/constraints:_",
-    "watchos": "config//os/constraints:watchos",
-    "watchos_device_sdk": "config//os/sdk/apple/constraints:watchos",
-    "watchos_simulator_sdk": "config//os/sdk/apple/constraints:watchsimulator",
-})
+watch_transition = transition(
+    impl = _watch_transition_impl,
+    refs = {
+        "ios": "config//os/constraints:iphoneos",
+        "ios_device_sdk": "config//os/sdk/apple/constraints:iphoneos",
+        "ios_simulator_sdk": "config//os/sdk/apple/constraints:iphonesimulator",
+        "os": "config//os/constraints:os",
+        "sdk": "config//os/sdk/apple/constraints:_",
+        "watchos": "config//os/constraints:watchos",
+        "watchos_device_sdk": "config//os/sdk/apple/constraints:watchos",
+        "watchos_simulator_sdk": "config//os/sdk/apple/constraints:watchsimulator",
+    },
+)

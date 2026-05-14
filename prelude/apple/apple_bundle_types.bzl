@@ -83,29 +83,39 @@ AppleBundleInfo = provider(
 )
 
 # Provider which helps to propagate minimum deployment version up the target graph.
-AppleMinDeploymentVersionInfo = provider(fields = {
-    "version": provider_field([str, None]),
-})
+AppleMinDeploymentVersionInfo = provider(
+    fields = {
+        "version": provider_field([str, None]),
+    }
+)
 
-AppleBundleResourceInfo = provider(fields = {
-    "resource_output": provider_field(typing.Any, default = None),  # AppleBundleResourcePartListOutput
-})
+AppleBundleResourceInfo = provider(
+    fields = {
+        "resource_output": provider_field(typing.Any, default = None),  # AppleBundleResourcePartListOutput
+    }
+)
 
-AppleBundleLinkerMapInfo = provider(fields = {
-    "linker_maps": provider_field(list[Artifact]),
-})
+AppleBundleLinkerMapInfo = provider(
+    fields = {
+        "linker_maps": provider_field(list[Artifact]),
+    }
+)
 
 # Providers used to merge extra linker outputs as a top level output
 # of an application bundle.
-AppleBinaryExtraOutputsInfo = provider(fields = {
-    "default_output": provider_field(Artifact),
-    "extra_outputs": provider_field(dict[str, list[Artifact]]),
-    "name": provider_field(str),
-})
+AppleBinaryExtraOutputsInfo = provider(
+    fields = {
+        "default_output": provider_field(Artifact),
+        "extra_outputs": provider_field(dict[str, list[Artifact]]),
+        "name": provider_field(str),
+    }
+)
 
-AppleBundleExtraOutputsInfo = provider(fields = {
-    "extra_outputs": provider_field(list[AppleBinaryExtraOutputsInfo]),
-})
+AppleBundleExtraOutputsInfo = provider(
+    fields = {
+        "extra_outputs": provider_field(list[AppleBinaryExtraOutputsInfo]),
+    }
+)
 
 AppleBundleBinaryOutput = record(
     binary = field(Artifact),
@@ -127,6 +137,8 @@ AppleBundleTypeAttributeType = enum(
     "watchapp",
 )
 
-AppleInfoPlistInfo = provider(fields = {
-    "info_plist": provider_field(Artifact),
-})
+AppleInfoPlistInfo = provider(
+    fields = {
+        "info_plist": provider_field(Artifact),
+    }
+)

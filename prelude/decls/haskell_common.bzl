@@ -13,32 +13,49 @@
 
 def _srcs_arg():
     return {
-        "srcs": attrs.named_set(attrs.source(), sorted = True, default = [], doc = """
+        "srcs": attrs.named_set(
+            attrs.source(),
+            sorted = True,
+            default = [],
+            doc = """
     A list of Haskell sources to be built by this rule. The dictionary option is deprecated.
-"""),
+""",
+        ),
     }
 
 def _deps_arg():
     return {
-        "deps": attrs.list(attrs.dep(), default = [], doc = """
+        "deps": attrs.list(
+            attrs.dep(),
+            default = [],
+            doc = """
     Either `haskell_library()` or `prebuilt_haskell_library()` rules
      from which this rules sources import modules or native linkable rules exporting symbols
      this rules sources call into.
-"""),
+""",
+        ),
     }
 
 def _compiler_flags_arg():
     return {
-        "compiler_flags": attrs.list(attrs.string(), default = [], doc = """
+        "compiler_flags": attrs.list(
+            attrs.string(),
+            default = [],
+            doc = """
     Flags to pass to the Haskell compiler when compiling this rule's sources.
-"""),
+""",
+        ),
     }
 
 def _exported_linker_flags_arg():
     return {
-        "exported_linker_flags": attrs.list(attrs.string(), default = [], doc = """
+        "exported_linker_flags": attrs.list(
+            attrs.string(),
+            default = [],
+            doc = """
     Linker flags used by dependent rules when linking with this library.
-"""),
+""",
+        ),
     }
 
 haskell_common = struct(

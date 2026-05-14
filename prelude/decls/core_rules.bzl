@@ -27,12 +27,14 @@ TargetCpuType = ["arm", "armv7", "arm64", "arm64e", "x86", "x86_64", "mips", "ri
 
 def _has_content_based_path_attr():
     return {
-        "has_content_based_path": attrs.bool(default = select({
-            "DEFAULT": False,
-            # @oss-disable[end= ]: "config//os/constraints:android": True,
-            # @oss-disable[end= ]: "config//runtime/constraints:android-host-test": True,
-            # @oss-disable[end= ]: "config//runtime/constraints:android-unit-test": True,
-        })),
+        "has_content_based_path": attrs.bool(
+            default = select({
+                "DEFAULT": False,
+                # @oss-disable[end= ]: "config//os/constraints:android": True,
+                # @oss-disable[end= ]: "config//runtime/constraints:android-host-test": True,
+                # @oss-disable[end= ]: "config//runtime/constraints:android-unit-test": True,
+            })
+        ),
     }
 
 alias = prelude_rule(
@@ -44,10 +46,10 @@ alias = prelude_rule(
         # @unsorted-dict-items
         {
             "actual": attrs.option(attrs.dep(pulls_and_pushes_plugins = plugins.All)),
-        } |
-        buck.licenses_arg() |
-        buck.labels_arg() |
-        buck.contacts_arg()
+        }
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
     ),
 )
 
@@ -58,17 +60,13 @@ command_alias = prelude_rule(
          rules that create binaries and to pre-apply command-line
          arguments and environment variables.
 
-
          Example uses include running a command written in a scripting
          language with a specific interpreter, and transparently wrapping
          sub-commands of a binary.
 
-
          You can reference a `command_alias` target in
          the `cmd` parameter of a `genrule()` by
          using the `exe` macro:
-
-
 
         ```
         $(exe //path/to:target)
@@ -162,60 +160,82 @@ command_alias = prelude_rule(
         {
             # Match `dep` before `source` so that we can support extracting the
             # `RunInfo` provider of it, if one exists.
-            "exe": attrs.option(attrs.one_of(attrs.dep(), attrs.source()), default = None, doc = """
+            "exe": attrs.option(
+                attrs.one_of(attrs.dep(), attrs.source()),
+                default = None,
+                doc = """
                 A `build target` for a rule that outputs
                  an executable, such as an `sh_binary()`,
                  or an executable source file.
-            """),
-            "platform_exe": attrs.dict(key = attrs.enum(PlatformExePlatform), value = attrs.dep(), sorted = False, default = {}, doc = """
+            """,
+            ),
+            "platform_exe": attrs.dict(
+                key = attrs.enum(PlatformExePlatform),
+                value = attrs.dep(),
+                sorted = False,
+                default = {},
+                doc = """
                 A mapping from platforms to `build target`.
                  enables you to override `exe` per host platform.
 
-
                 If present, `exe` will be used as a fallback on host platforms that are not
                  specified in `platform_exe`.
-
 
                 It is possible to omit `exe` when providing `platform_exe`.
                  In that case, the build will fail if the command is invoked on a platform not specified in
                  the mapping.
 
-
                 Valid platforms are all values of the [`Platform` enum](https://dev.buck.build/javadoc/com/facebook/buck/util/environment/Platform.html) :
-
-
 
                 * `FREEBSD`
                 * `LINUX`
                 * `MACOS`
                 * `WINDOWS`
-            """),
-            "args": attrs.list(attrs.arg(), default = [], doc = """
+            """,
+            ),
+            "args": attrs.list(
+                attrs.arg(),
+                default = [],
+                doc = """
                 A string of arguments that is passed to the executable specified by
                  `exe` at startup. These arguments support a subset of
                  Buck's `string parameter macros`
                 . Only the
                  `$(location ...)` and `$(exe ...)` macros are supported currently.
-            """),
-            "env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}, doc = """
+            """,
+            ),
+            "env": attrs.dict(
+                key = attrs.string(),
+                value = attrs.arg(),
+                sorted = False,
+                default = {},
+                doc = """
                 A map of environment variables that will be passed to the executable represented
                  by `exe` on startup. Environment variables support the same macros as arguments.
-            """),
-            "executable_name": attrs.option(attrs.string(), default = None, doc = """
+            """,
+            ),
+            "executable_name": attrs.option(
+                attrs.string(),
+                default = None,
+                doc = """
                 If provided, use this name for the trampoline script (with an extension added if
                  required by the platform).
-            """),
+            """,
+            ),
             "resources": attrs.list(attrs.source(), default = []),
-            "run_using_single_arg": attrs.bool(default = False, doc = """
+            "run_using_single_arg": attrs.bool(
+                default = False,
+                doc = """
                 Ensure that the command alias can be run as a single argument (instead of
                 $(exe) or RunInfo potentially expanding to multiple arguments).
-            """),
+            """,
+            ),
             "_exec_os_type": buck.exec_os_type_arg(),
             "_target_os_type": buck.target_os_type_arg(),
-        } |
-        buck.licenses_arg() |
-        buck.labels_arg() |
-        buck.contacts_arg()
+        }
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
     ),
 )
 
@@ -298,11 +318,14 @@ configuration_alias = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "actual": attrs.dep(pulls_and_pushes_plugins = plugins.All, doc = """
+            "actual": attrs.dep(
+                pulls_and_pushes_plugins = plugins.All,
+                doc = """
                 The target to alias. This should be a target defined by a configuration rule
                 such as `constraint`, `constraint_setting`, `constraint_value`, `config_setting`,
                 or `platform`.
-            """),
+            """,
+            ),
         }
     ),
 )
@@ -317,7 +340,6 @@ configured_alias = prelude_rule(
         {
             # The 'actual' attribute of configured_alias is a configured_label, which is
             # currently unimplemented. Map it to dep so we can simply forward the providers.
-
             # TODO(nga): "actual" attribute exists here only to display it in query,
             #   actual `actual` attribute used in rule implementation is named `configured_actual`.
             #   Logically this should be `attrs.configuration_label`, but `configuration_label`
@@ -326,15 +348,14 @@ configured_alias = prelude_rule(
             "actual": attrs.label(),
             "configured_actual": attrs.option(attrs.configured_dep(), default = None),
             "fallback_actual": attrs.option(attrs.dep(), default = None),
-
             # We use a separate field instead of re-purposing `actual`, as we want
             # to keep output format compatibility with v1.
             # If `configured_actual` is `None`, fallback to this unconfigured dep.
             "platform": attrs.option(attrs.configuration_label(), default = None),
-        } |
-        buck.licenses_arg() |
-        buck.labels_arg() |
-        buck.contacts_arg()
+        }
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
     ),
 )
 
@@ -469,7 +490,6 @@ export_file = prelude_rule(
         The best way to see how the `export_file()` rule works is with some examples. The
          common case is:
 
-
         ```
         export_file(
           name = 'example.html',
@@ -483,11 +503,9 @@ export_file = prelude_rule(
           out = 'example.html',
         )
         ```
-
 
          It is sometimes useful to refer to the file not by its path, but by a more logical name:
 
-
         ```
         export_file(
           name = 'example',
@@ -503,10 +521,8 @@ export_file = prelude_rule(
         )
         ```
 
-
          Finally, there are occasions where you want to export a file more than once but want to copy it to
          a different name for each output:
-
 
         ```
         export_file(
@@ -521,9 +537,7 @@ export_file = prelude_rule(
         )
         ```
 
-
          Using the `export_file()` rule is also simple:
-
 
         ```
         export_file(
@@ -542,28 +556,44 @@ export_file = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "src": attrs.option(attrs.source(allow_directory = True), default = None, doc = """
+            "src": attrs.option(
+                attrs.source(allow_directory = True),
+                default = None,
+                doc = """
                 The path to the file that should be exported.
-            """),
-            "out": attrs.option(attrs.string(), default = None, doc = """
+            """,
+            ),
+            "out": attrs.option(
+                attrs.string(),
+                default = None,
+                doc = """
                 The name which the file will be called if another rule depends on it instead of the name it
                  already has.
-            """),
-            "executable_bit_override": attrs.option(attrs.bool(), default = None, doc = """
+            """,
+            ),
+            "executable_bit_override": attrs.option(
+                attrs.bool(),
+                default = None,
+                doc = """
                 Override the executable bit of the file. If not set, the executable bit is preserved.
-            """),
-            "mode": attrs.option(attrs.enum(ExportFileDescriptionMode), default = None, doc = """
+            """,
+            ),
+            "mode": attrs.option(
+                attrs.enum(ExportFileDescriptionMode),
+                default = None,
+                doc = """
                 How files are referenced internally in buck.
                  If set to 'copy', then a full copy will be made into the new location in buck-out.
                  If set to 'reference', the original file will be used by internal build rules in-place.
                  However, this mode does not work across repositories or if the 'out' property is set.
                  For read-only operations, 'reference' can be more performant.
-            """),
-        } |
-        _has_content_based_path_attr() |
-        buck.licenses_arg() |
-        buck.labels_arg() |
-        buck.contacts_arg()
+            """,
+            ),
+        }
+        | _has_content_based_path_attr()
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
     ),
     cfg = constraint_overrides.transition,
 )
@@ -577,10 +607,10 @@ external_test_runner = prelude_rule(
         # @unsorted-dict-items
         {
             "binary": attrs.dep(),
-        } |
-        buck.licenses_arg() |
-        buck.labels_arg() |
-        buck.contacts_arg()
+        }
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
     ),
 )
 
@@ -588,7 +618,6 @@ filegroup = prelude_rule(
     name = "filegroup",
     docs = """
         This rule provides access to a set of files.
-
 
          Files are accessible to `genrule()`s by using their relative path
          after a `$(location)` string parameter macro.
@@ -599,7 +628,6 @@ filegroup = prelude_rule(
     examples = """
         In this example a target exports `.xml` files from all subdirectories
          in `resources`.
-
 
         ```
         filegroup(
@@ -618,22 +646,35 @@ filegroup = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "srcs": attrs.named_set(attrs.source(allow_directory = True), sorted = False, default = [], doc = """
+            "srcs": attrs.named_set(
+                attrs.source(allow_directory = True),
+                sorted = False,
+                default = [],
+                doc = """
                 The set of files to include in this rule.
-            """),
+            """,
+            ),
             "copy": attrs.bool(default = True),
-            "executable_bit_override": attrs.option(attrs.bool(), default = None, doc = """
+            "executable_bit_override": attrs.option(
+                attrs.bool(),
+                default = None,
+                doc = """
                 Override the executable bit for every file in the filegroup. If not set, the executable bits are preserved.
                 Cannot be used if `copy` is set to false.
-            """),
-            "out": attrs.option(attrs.string(), default = None, doc = """
+            """,
+            ),
+            "out": attrs.option(
+                attrs.string(),
+                default = None,
+                doc = """
                 The name of the output directory. Defaults to the rule's name.
-            """),
-        } |
-        _has_content_based_path_attr() |
-        buck.licenses_arg() |
-        buck.labels_arg() |
-        buck.contacts_arg()
+            """,
+            ),
+        }
+        | _has_content_based_path_attr()
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
     ),
     cfg = constraint_overrides.transition,
 )
@@ -651,7 +692,6 @@ genrule = prelude_rule(
         Note you don't need to prepend execution commands with
          `python`: Buck knows how to execute different
         kinds of binaries using `$(exe)` command.
-
 
         ```
         genrule(
@@ -686,7 +726,6 @@ genrule = prelude_rule(
 
         For named outputs, build with any of the following:
 
-
         ```
           buck build //:generate_manifest_with_named_outputs
         ```
@@ -696,7 +735,6 @@ genrule = prelude_rule(
         ```
 
         Consume in `srcs` with:
-
 
         ```
         export_file(
@@ -722,27 +760,62 @@ genrule = prelude_rule(
     further = None,
     attrs = (
         # @unsorted-dict-items
-        genrule_common.srcs_arg() |
-        genrule_common.cmd_arg() |
-        genrule_common.bash_arg() |
-        genrule_common.cmd_exe_arg() |
-        genrule_common.type_arg() |
-        genrule_common.weight_arg() |
-        {
-            "out": attrs.option(attrs.string(), default = None, doc = """
+        genrule_common.srcs_arg()
+        | genrule_common.cmd_arg()
+        | genrule_common.bash_arg()
+        | genrule_common.cmd_exe_arg()
+        | genrule_common.type_arg()
+        | genrule_common.weight_arg()
+        | {
+            "default_outs": attrs.option(
+                attrs.set(attrs.string(), sorted = False),
+                default = None,
+                doc = """
+                Default output which must be present if the `outs` arg is present. Otherwise does not apply.
+
+                 If a rule with `outs` is consumed without an output label, the default output is returned. The
+                 default output does not need to be present in any of the named outputs defined in `outs`.
+
+                 Note that a maximum of one value may be present in this list. For example:
+
+                ```
+                default_outs = [ "output_one", ]
+                ```
+                is valid, whereas
+
+                ```
+                default_outs = [ "output_one", "output_two", ]
+                ```
+                is not.
+            """,
+            ),
+            "executable_outs": attrs.option(
+                attrs.set(attrs.string(), sorted = False),
+                default = None,
+                doc = """
+                Only valid if the `outs` arg is present. Dictates which of those named outputs are marked as
+                executable.
+            """,
+            ),
+            "out": attrs.option(
+                attrs.string(),
+                default = None,
+                doc = """
                 The name of the output file or directory. The complete path to this
                  argument is provided to the shell command through
                  the `OUT` environment variable. Only one of `out`
                  or `outs` may be present.
-            """),
-            "outs": attrs.option(attrs.dict(key = attrs.string(), value = attrs.set(attrs.string(), sorted = False), sorted = False), default = None, doc = """
+            """,
+            ),
+            "outs": attrs.option(
+                attrs.dict(key = attrs.string(), value = attrs.set(attrs.string(), sorted = False), sorted = False),
+                default = None,
+                doc = """
                 Mapping defining `named outputs`
                   to output paths relative to the rule's output directory. Only one of
                   `out` or `outs` may be present.
 
-
                  Example:
-
 
                 ```
                 genrule(
@@ -762,7 +835,6 @@ genrule = prelude_rule(
 
                  Note that a maximum of one value may be present in the list in this map. For example:
 
-
                 ```
                 outs = {
                   "output1": [
@@ -771,7 +843,6 @@ genrule = prelude_rule(
                 },
                 ```
                 is valid, whereas
-
 
                 ```
                 outs = {
@@ -782,61 +853,48 @@ genrule = prelude_rule(
                 },
                 ```
                 is not.
-            """),
-            "default_outs": attrs.option(attrs.set(attrs.string(), sorted = False), default = None, doc = """
-                Default output which must be present if the `outs` arg is present. Otherwise does not apply.
-
-
-                 If a rule with `outs` is consumed without an output label, the default output is returned. The
-                 default output does not need to be present in any of the named outputs defined in `outs`.
-
-
-                 Note that a maximum of one value may be present in this list. For example:
-
-
-                ```
-                default_outs = [ "output_one", ]
-                ```
-                is valid, whereas
-
-
-                ```
-                default_outs = [ "output_one", "output_two", ]
-                ```
-                is not.
-            """),
-            "executable_outs": attrs.option(attrs.set(attrs.string(), sorted = False), default = None, doc = """
-                Only valid if the `outs` arg is present. Dictates which of those named outputs are marked as
-                executable.
-            """),
-        } |
-        _has_content_based_path_attr() |
-        genrule_common.env_arg() |
-        genrule_common.environment_expansion_separator() |
-        {
-            "enable_sandbox": attrs.option(attrs.bool(), default = None, doc = """
+            """,
+            ),
+        }
+        | _has_content_based_path_attr()
+        | genrule_common.env_arg()
+        | genrule_common.environment_expansion_separator()
+        | {
+            "cacheable": attrs.option(attrs.bool(), default = None),
+            "enable_sandbox": attrs.option(
+                attrs.bool(),
+                default = None,
+                doc = """
                 Whether this target should be executed in a sandbox or not.
-            """),
-            "executable": attrs.option(attrs.bool(), default = None, doc = """
+            """,
+            ),
+            "executable": attrs.option(
+                attrs.bool(),
+                default = None,
+                doc = """
                 Whether the output of the genrule is itself executable. Marking an output as
                  executable makes `buck run` and `$(exe ...)` macro
                  expansion work with this target.
-            """),
-            "remote": attrs.option(attrs.bool(), default = None, doc = """
+            """,
+            ),
+            "remote": attrs.option(
+                attrs.bool(),
+                default = None,
+                doc = """
                 Opts this genrule in to remote execution. Note that it is only safe to
                  execute a genrule remotely if it is completely hermetic and completely
                  and correctly describes its dependencies. Defaults to false. This parameter
                  is unstable. It is subject to removal, default reversal, and other arbitrary
                  changes in the future.
-            """),
-            "cacheable": attrs.option(attrs.bool(), default = None),
+            """,
+            ),
             "_exec_os_type": buck.exec_os_type_arg(),
-        } |
-        genrule_common.error_handler_arg() |
-        genrule_common.allow_offline_output_cache_arg() |
-        buck.licenses_arg() |
-        buck.labels_arg() |
-        buck.contacts_arg()
+        }
+        | genrule_common.error_handler_arg()
+        | genrule_common.allow_offline_output_cache_arg()
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
     ),
     cfg = constraint_overrides.transition,
 )
@@ -852,7 +910,6 @@ http_archive = prelude_rule(
     examples = """
         Using `http_archive()`, third party packages can be downloaded from
          an `https` URL and used in other library types.
-
 
         ```
         http_archive(
@@ -882,17 +939,17 @@ http_archive = prelude_rule(
     further = None,
     attrs = (
         # @unsorted-dict-items
-        remote_common.urls_arg() |
-        remote_common.sha256_arg() |
-        remote_common.unarchive_args() |
-        {
+        remote_common.urls_arg()
+        | remote_common.sha256_arg()
+        | remote_common.unarchive_args()
+        | {
             "sha1": attrs.option(attrs.string(), default = None),
             "size_bytes": attrs.option(attrs.int(), default = None),
-        } |
-        _has_content_based_path_attr() |
-        buck.licenses_arg() |
-        buck.labels_arg() |
-        buck.contacts_arg()
+        }
+        | _has_content_based_path_attr()
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
     ),
 )
 
@@ -908,7 +965,6 @@ http_file = prelude_rule(
     examples = """
         Using `http_file()`, third party packages can be downloaded from
          an `https` URL and used in java libraries.
-
 
         ```
         http_file(
@@ -935,7 +991,6 @@ http_file = prelude_rule(
 
          Tooling can also be fetched with `http_file()` and used by a `genrule()`.
 
-
         ```
         genrule(
           name="my-thrift-lib-cpp2",
@@ -953,7 +1008,6 @@ http_file = prelude_rule(
 
          Here's an example of a `http_file()` using a mvn URI which uses a Maven classifier.
 
-
         ```
         http_file(
           name = 'guava-23-bin',
@@ -967,25 +1021,33 @@ http_file = prelude_rule(
     further = None,
     attrs = (
         # @unsorted-dict-items
-        remote_common.urls_arg() |
-        remote_common.sha256_arg() |
-        {
-            "out": attrs.option(attrs.string(), default = None, doc = """
-                An optional name to call the downloaded artifact. Buck will generate a default name if one is not
-                 provided that uses the `name` of the rule.
-            """),
-            "executable": attrs.option(attrs.bool(), default = None, doc = """
+        remote_common.urls_arg()
+        | remote_common.sha256_arg()
+        | {
+            "executable": attrs.option(
+                attrs.bool(),
+                default = None,
+                doc = """
                 Whether or not the file should be made executable after downloading. If true,
                  this can also be used via `run` and the
                  `$(exe )` `string parameter macros`
-            """),
+            """,
+            ),
+            "out": attrs.option(
+                attrs.string(),
+                default = None,
+                doc = """
+                An optional name to call the downloaded artifact. Buck will generate a default name if one is not
+                 provided that uses the `name` of the rule.
+            """,
+            ),
             "sha1": attrs.option(attrs.string(), default = None),
             "size_bytes": attrs.option(attrs.int(), default = None),
-        } |
-        _has_content_based_path_attr() |
-        buck.licenses_arg() |
-        buck.labels_arg() |
-        buck.contacts_arg()
+        }
+        | _has_content_based_path_attr()
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
     ),
 )
 
@@ -1022,7 +1084,6 @@ remote_file = prelude_rule(
     examples = """
         Here's an example of a `remote_file()` using an `https` URL.
 
-
         ```
         remote_file(
           name = 'android-ndk-r10e-darwin-x86_64',
@@ -1033,7 +1094,6 @@ remote_file = prelude_rule(
 
          Here's an example of a `remote_file()` using a `mvn` URL being referenced
          by a `prebuilt_jar()`.
-
 
         ```
         prebuilt_jar(
@@ -1053,7 +1113,6 @@ remote_file = prelude_rule(
          Here's an example of a `remote_file()` using a `mvn` URI which uses a
          non-default maven repository host.
 
-
         ```
         remote_file(
           name = 'jetty-source',
@@ -1065,7 +1124,6 @@ remote_file = prelude_rule(
 
          Here's an example of a `remote_file()` using a `mvn` URI which uses a
          Maven classifier.
-
 
         ```
         remote_file(
@@ -1080,29 +1138,50 @@ remote_file = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "url": attrs.string(validate = validate_uri, doc = """
+            "url": attrs.string(
+                validate = validate_uri,
+                doc = """
                 You can specify an `http`, `https`, or a `mvn` URL. If you
                  specify a `mvn` URL, it will be decoded as described in the
                  javadocs for MavenUrlDecoder See the example section below.
-            """),
-            "vpnless_url": attrs.option(attrs.string(), default = None, doc = """
+            """,
+            ),
+            "vpnless_url": attrs.option(
+                attrs.string(),
+                default = None,
+                doc = """
                 An optional additional URL from which this resource can be downloaded when
                   off VPN. Meta-internal only.
-            """),
-            "sha1": attrs.string(default = "", doc = """
+            """,
+            ),
+            "sha1": attrs.string(
+                default = "",
+                doc = """
                 The [`SHA-1`](//wikipedia.org/wiki/SHA-1) hash of the downloaded artifact.
                  Buck verifies this is correct and fails the fetch command if it doesn't match in order to
                  guarantee repeatable builds.
-            """),
-            "size_bytes": attrs.option(attrs.int(), default = None, doc = """
+            """,
+            ),
+            "size_bytes": attrs.option(
+                attrs.int(),
+                default = None,
+                doc = """
                 Size in bytes of the downloaded artifact. Buck verifies this is correct and fails the fetch
                  command if it doesn't match (only when a SHA-1 hash is used).
-            """),
-            "out": attrs.option(attrs.string(), default = None, doc = """
+            """,
+            ),
+            "out": attrs.option(
+                attrs.string(),
+                default = None,
+                doc = """
                 An optional name to call the downloaded artifact. Buck will generate a default name if one is not
                  provided that uses the `name` of the rule.
-            """),
-            "type": attrs.option(attrs.enum(RemoteFileType), default = None, doc = """
+            """,
+            ),
+            "type": attrs.option(
+                attrs.enum(RemoteFileType),
+                default = None,
+                doc = """
                 An optional type of the downloaded file.
 
                 `data`
@@ -1114,13 +1193,14 @@ remote_file = prelude_rule(
                 `exploded_zip`
 
                  Zip archive which will be automatically unzipped into an output directory.
-            """),
+            """,
+            ),
             "sha256": attrs.option(attrs.string(), default = None),
-        } |
-        _has_content_based_path_attr() |
-        buck.licenses_arg() |
-        buck.labels_arg() |
-        buck.contacts_arg()
+        }
+        | _has_content_based_path_attr()
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
     ),
 )
 
@@ -1129,14 +1209,12 @@ test_suite = prelude_rule(
     docs = """
         A `test_suite()` is used to create a grouping of tests that should all be run by just testing this rule.
 
-
         This rule can then be given to `buck test`, and all tests that it depends on will be invoked.
          Note that the test\\_suite() target is not tested itself, it just tells buck to run other
          tests. It will not show up in calls to the external runner nor in the normal test output.
     """,
     examples = """
         This test\\_suite() sets up two different sets of tests to run, 'all' tests and 'slow' tests. Note that `all_tests` can depend on `slow_tests`, and all three tests are run.
-
 
         ```
         # instrumentation_tests/BUCK:
@@ -1178,7 +1256,6 @@ test_suite = prelude_rule(
         )
         ```
 
-
         Yields output like this when run:
 
         ```
@@ -1207,10 +1284,10 @@ test_suite = prelude_rule(
             # This diff makes the behaviors match by adding a test_deps attribute to test_suite on buck2 that is used as a deps attribute. In the macro layer, we set test_deps = tests if we are using buck2.
             # For more context: https://fb.prod.workplace.com/groups/603286664133355/posts/682567096205311/?comment_id=682623719532982&reply_comment_id=682650609530293
             "test_deps": attrs.list(attrs.dep(), default = []),
-        } |
-        buck.licenses_arg() |
-        buck.labels_arg() |
-        buck.contacts_arg()
+        }
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
     ),
 )
 
@@ -1238,10 +1315,10 @@ versioned_alias = prelude_rule(
         # @unsorted-dict-items
         {
             "versions": attrs.dict(key = attrs.string(), value = attrs.dep(), sorted = False, default = {}),
-        } |
-        buck.licenses_arg() |
-        buck.labels_arg() |
-        buck.contacts_arg()
+        }
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
     ),
 )
 
@@ -1254,11 +1331,8 @@ worker_tool = prelude_rule(
          Buck then starts the external tool once and reuses it by communicating with it
          over `stdin` and `stdout` using a simple JSON protocol.
 
-
          A `worker_tool` rule can be referenced in the `cmd` parameter of
          a `genrule` by using the macro:
-
-
 
         ```
         $(exe //path/to:target)
@@ -1266,7 +1340,6 @@ worker_tool = prelude_rule(
     """,
     examples = """
         Consider the following `build rules`:
-
 
         ```
         #
@@ -1305,17 +1378,12 @@ worker_tool = prelude_rule(
          When doing a `buck build` on all three of the above `genrules`, Buck
          first creates the worker process by invoking:
 
-
-
         ```
         ./external_tool.sh --arg1 --arg2
         ```
 
-
-
          Buck then communicates with this process using JSON over `stdin`,
          starting with a handshake:
-
 
         ```
         [
@@ -1329,7 +1397,6 @@ worker_tool = prelude_rule(
 
          Buck then waits for the tool to reply on `stdout`:
 
-
         ```
         [
           {
@@ -1341,7 +1408,6 @@ worker_tool = prelude_rule(
         ```
 
          Then, when building the first `genrule`, Buck writes to `stdin`:
-
 
         ```
           ,{
@@ -1358,7 +1424,6 @@ worker_tool = prelude_rule(
          supplied by Buck—in this case, `/tmp/1.out` and `/tmp/1.err`.
          Once the job is done, the tool should reply to Buck on `stdout` with:
 
-
         ```
           ,{
             "id": 1,
@@ -1371,13 +1436,11 @@ worker_tool = prelude_rule(
          same fashion and awaits the response. When the build is all finished,
          Buck closes the JSON by writing to `stdin`:
 
-
         ```
         ]
         ```
 
          which signals the tool that it should exit after replying on `stdout` with:
-
 
         ```
         ]
@@ -1385,25 +1448,18 @@ worker_tool = prelude_rule(
 
          In this example, Buck is guaranteed to invoke
 
-
-
         ```
         ./external_tool.sh --arg1 --arg2
         ```
 
-
-
          only once during the build. The three jobs corresponding to the three genrules are submitted
          synchronously to the single worker process.
-
 
          Note that the `id` values in the messages are not necessarily increasing or sequential,
          but they do have to match between the request message and the response message of a given job as
          well as in the initial handshake.
 
-
          If the tool receives a message type it cannot interpret it should answer with:
-
 
         ```
         {
@@ -1415,7 +1471,6 @@ worker_tool = prelude_rule(
 
          If the tool receives a message type it can interpret, but the other attributes of the
          message are in an inconsistent state, it should answer with:
-
 
         ```
         {
@@ -1429,42 +1484,68 @@ worker_tool = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "exe": attrs.option(attrs.dep(), default = None, doc = """
+            "exe": attrs.option(
+                attrs.dep(),
+                default = None,
+                doc = """
                 A `build target` for a rule that outputs
                  an executable, such as an `sh_binary()`.
                  Buck runs this executable only once per build.
-            """),
-            "args": attrs.one_of(attrs.arg(), attrs.list(attrs.arg()), default = [], doc = """
+            """,
+            ),
+            "args": attrs.one_of(
+                attrs.arg(),
+                attrs.list(attrs.arg()),
+                default = [],
+                doc = """
                 A string of args that is passed to the executable represented by `exe` on
                  initial startup.
-            """),
-            "max_workers": attrs.option(attrs.int(), default = None, doc = """
+            """,
+            ),
+            "max_workers": attrs.option(
+                attrs.int(),
+                default = None,
+                doc = """
                 The maximum number of workers of this type that Buck starts. Use `-1` to allow
                  the creation of as many workers as necessary.
-            """),
-            "max_workers_per_thread_percent": attrs.option(attrs.int(), default = None, doc = """
+            """,
+            ),
+            "max_workers_per_thread_percent": attrs.option(
+                attrs.int(),
+                default = None,
+                doc = """
                 The maximum ratio of workers of this type that Buck starts per
                  thread, specified as a positive integer percentage (1-100). Must be
                  greater than or equal to `1` and less than or equal to `100`.
                  Only one of `max_workers` and `max_workers_per_thread_percent` may be specified.
-            """),
-            "env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}, doc = """
+            """,
+            ),
+            "env": attrs.dict(
+                key = attrs.string(),
+                value = attrs.arg(),
+                sorted = False,
+                default = {},
+                doc = """
                 A map of environment variables that is passed to the executable represented
                  by `exe` on initial startup.
-            """),
-            "persistent": attrs.option(attrs.bool(), default = None, doc = """
+            """,
+            ),
+            "persistent": attrs.option(
+                attrs.bool(),
+                default = None,
+                doc = """
                 If set to true, Buck does not restart the tool unless the tool itself changes. This means the
                  tool persists across multiple Buck commands without being shut down and may see the same
                  rule being built more than once. Be careful not to use this setting with tools that don't expect
                  to process the same input—with different contents—twice!
-            """),
-
+            """,
+            ),
             # FIXME: prelude// should be standalone (not refer to fbsource//)
             "_worker_tool_runner": attrs.default_only(attrs.dep(default = "prelude//js/worker_runner:worker_tool_runner")),
-        } |
-        buck.licenses_arg() |
-        buck.labels_arg() |
-        buck.contacts_arg()
+        }
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
     ),
 )
 
@@ -1476,7 +1557,6 @@ zip_file = prelude_rule(
     """,
     examples = """
         This example will create a simple zip file.
-
 
         ```
         zip_file(
@@ -1508,7 +1588,6 @@ zip_file = prelude_rule(
         and "`amazing-library-1.0-sources.zip`" contained two Java
         source files):
 
-
         ```
         dir/file1.txt
         dir/subdir/file2.txt
@@ -1520,13 +1599,19 @@ zip_file = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "out": attrs.string(default = "", doc = """
+            "out": attrs.string(
+                default = "",
+                doc = """
                 The name of the zip file that should be generated. This allows
                  builds to use a meaningful target name coupled with a meaningful zip
                  file name. The default value takes the rule's `name` and
                  appends `.zip`.
-            """),
-            "srcs": attrs.list(attrs.source(), default = [], doc = """
+            """,
+            ),
+            "srcs": attrs.list(
+                attrs.source(),
+                default = [],
+                doc = """
                 The set of files to include in the zip.
 
                  Each `src` will be added to the zip as follows:
@@ -1535,27 +1620,42 @@ zip_file = prelude_rule(
                  * If the `src` is a file relative to the rule's
                  declaration, it will be included in the zip with its relative file
                  name.
-            """),
-            "zip_srcs": attrs.list(attrs.source(), default = [], doc = """
+            """,
+            ),
+            "zip_srcs": attrs.list(
+                attrs.source(),
+                default = [],
+                doc = """
                 The set of zip files whose content to include in the output zip file.
-
 
                  Note that the order of files in `zip_srcs` matters because the same zip entry can be
                  included from multiple files. See the `on_duplicate_entry` argument to learn how to
                  control the behavior when there are multiple entries with the same name.
 
                  The entries from `zip_srcs` are added before files from `srcs`.
-            """),
-            "entries_to_exclude": attrs.list(attrs.regex(), default = [], doc = """
+            """,
+            ),
+            "entries_to_exclude": attrs.list(
+                attrs.regex(),
+                default = [],
+                doc = """
                 List of regex expressions that describe entries that should not be included in the output zip file.
 
                  The regexes must be defined using `java.util.regex.Pattern` syntax.
-            """),
-            "hardcode_permissions_for_deterministic_output": attrs.option(attrs.bool(), default = None, doc = """
+            """,
+            ),
+            "hardcode_permissions_for_deterministic_output": attrs.option(
+                attrs.bool(),
+                default = None,
+                doc = """
                 If set to true, Buck hardcodes the permissions in order to ensures that all files have the same
                 permissions regardless of the platform on which the zip was generated.
-            """),
-            "on_duplicate_entry": attrs.enum(OnDuplicateEntry, default = "overwrite", doc = """
+            """,
+            ),
+            "on_duplicate_entry": attrs.enum(
+                OnDuplicateEntry,
+                default = "overwrite",
+                doc = """
                 Action performed when Buck detects that zip\\_file input contains multiple entries with the same
                  name.
 
@@ -1564,11 +1664,12 @@ zip_file = prelude_rule(
                  the same name.
                 * `append`: all entries are added to the output file.
                 * `fail`: fail the build when duplicate entries are present.
-            """),
-        } |
-        buck.licenses_arg() |
-        buck.labels_arg() |
-        buck.contacts_arg()
+            """,
+            ),
+        }
+        | buck.licenses_arg()
+        | buck.labels_arg()
+        | buck.contacts_arg()
     ),
 )
 

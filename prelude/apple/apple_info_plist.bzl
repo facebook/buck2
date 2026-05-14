@@ -83,20 +83,33 @@ def _plist_substitutions_as_json_file(ctx: AnalysisContext) -> Artifact | None:
     substitutions_json = ctx.actions.write_json("plist_substitutions.json", info_plist_substitutions, has_content_based_path = False)
     return substitutions_json
 
-def process_plist(ctx: AnalysisContext, input: Artifact, output: OutputArtifact, override_input: Artifact | None = None, additional_keys: Artifact | None = None, override_keys: Artifact | None = None, action_id: [str, None] = None):
+def process_plist(
+    ctx: AnalysisContext,
+    input: Artifact,
+    output: OutputArtifact,
+    override_input: Artifact | None = None,
+    additional_keys: Artifact | None = None,
+    override_keys: Artifact | None = None,
+    action_id: [str, None] = None,
+):
     apple_tools = ctx.attrs._apple_tools[AppleToolsInfo]
     processor = apple_tools.info_plist_processor
     override_input_arguments = ["--override-input", override_input] if override_input != None else []
     additional_keys_arguments = ["--additional-keys", additional_keys] if additional_keys != None else []
     override_keys_arguments = ["--override-keys", override_keys] if override_keys != None else []
-    command = cmd_args([
-        processor,
-        "process",
-        "--input",
-        input,
-        "--output",
-        output,
-    ] + override_input_arguments + additional_keys_arguments + override_keys_arguments)
+    command = cmd_args(
+        [
+            processor,
+            "process",
+            "--input",
+            input,
+            "--output",
+            output,
+        ]
+        + override_input_arguments
+        + additional_keys_arguments
+        + override_keys_arguments
+    )
     ctx.actions.run(command, category = "apple_process_info_plist", identifier = action_id or input.basename, **_get_plist_run_options())
 
 def _additional_keys_as_json_file(ctx: AnalysisContext) -> Artifact:
@@ -203,12 +216,7 @@ def apple_info_plist_impl(ctx: AnalysisContext) -> list[Provider]:
             if operation in MergeOperations.values() or operation in RestrictedMergeOperations.values():
                 command.add(cmd_args(hidden = mutation[1]))
 
-    ctx.actions.run(
-        command,
-        category = "apple_info_plist",
-        identifier = input_plist.basename,
-        **_get_plist_run_options()
-    )
+    ctx.actions.run(command, category = "apple_info_plist", identifier = input_plist.basename, **_get_plist_run_options())
 
     return [
         DefaultInfo(default_output = output_plist),

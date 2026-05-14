@@ -41,15 +41,16 @@ GoSourceInputs = record(
 )
 
 def declare_package_build(
-        ctx: AnalysisContext,
-        pkg_import_path: str,
-        main: bool,
-        sources: GoSourceInputs,
-        cgo_build_context: CGoBuildContext | None,
-        config: GoBuildConfig,
-        pkgs: dict[str, GoPkg] = {},
-        deps: list[Dependency] = [],
-        cgo_gen_dir_name: str = "cgo_gen") -> (GoPkg, GoPackageInfo, Artifact):
+    ctx: AnalysisContext,
+    pkg_import_path: str,
+    main: bool,
+    sources: GoSourceInputs,
+    cgo_build_context: CGoBuildContext | None,
+    config: GoBuildConfig,
+    pkgs: dict[str, GoPkg] = {},
+    deps: list[Dependency] = [],
+    cgo_gen_dir_name: str = "cgo_gen",
+) -> (GoPkg, GoPackageInfo, Artifact):
     actions = ctx.actions
     target_label = ctx.label
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
@@ -84,61 +85,68 @@ def declare_package_build(
         get_inherited_compile_pkgs(deps),
     ])
 
-    actions.dynamic_output_new(_build_package_action(
-        target_label = target_label,
-        pkg_import_path = pkg_import_path,
-        main = main,
-        sources = GoSourceInputs(
-            srcs = srcs,
-            embed_srcs = sources.embed_srcs,
-            package_root = package_root,
+    actions.dynamic_output_new(
+        _build_package_action(
+            target_label = target_label,
+            pkg_import_path = pkg_import_path,
+            main = main,
+            sources = GoSourceInputs(
+                srcs = srcs,
+                embed_srcs = sources.embed_srcs,
+                package_root = package_root,
+            ),
+            cgo_build_context = cgo_build_context,
+            config = config,
+            deps_pkgs = all_pkgs,
+            go_toolchain = go_toolchain,
+            go_stdlib_value = go_stdlib.dynamic_value,
+            go_list_out = go_list_out,
+            cgo_gen_dir = cgo_gen_dir.as_output(),
+            out_a = out_a.as_output(),
+            out_shared_a = out_shared_a.as_output(),
+            out_shared_x = out_shared_x.as_output(),
+            out_x = out_x.as_output(),
+            test_go_files_argsfile = test_go_files_argsfile.as_output(),
+        )
+    )
+    return (
+        GoPkg(
+            archive_file = out_a,
+            archive_file_shared = out_shared_a,
+            export_file = out_x,
+            export_file_shared = out_shared_x,
+            coverage_instrumented = config.coverage_enabled and config.coverage_mode != None,
         ),
-        cgo_build_context = cgo_build_context,
-        config = config,
-        deps_pkgs = all_pkgs,
-        go_toolchain = go_toolchain,
-        go_stdlib_value = go_stdlib.dynamic_value,
-        go_list_out = go_list_out,
-        cgo_gen_dir = cgo_gen_dir.as_output(),
-        out_a = out_a.as_output(),
-        out_shared_a = out_shared_a.as_output(),
-        out_shared_x = out_shared_x.as_output(),
-        out_x = out_x.as_output(),
-        test_go_files_argsfile = test_go_files_argsfile.as_output(),
-    ))
-    return GoPkg(
-        archive_file = out_a,
-        archive_file_shared = out_shared_a,
-        export_file = out_x,
-        export_file_shared = out_shared_x,
-        coverage_instrumented = config.coverage_enabled and config.coverage_mode != None,
-    ), GoPackageInfo(
-        build_out = out_x,
-        cgo_gen_dir = cgo_gen_dir,
-        pkg_import_path = pkg_import_path,
-        package_root = package_root,
-        go_list_out = go_list_out,
-        srcs = srcs,
-    ), test_go_files_argsfile.with_associated_artifacts(srcs)
+        GoPackageInfo(
+            build_out = out_x,
+            cgo_gen_dir = cgo_gen_dir,
+            pkg_import_path = pkg_import_path,
+            package_root = package_root,
+            go_list_out = go_list_out,
+            srcs = srcs,
+        ),
+        test_go_files_argsfile.with_associated_artifacts(srcs),
+    )
 
 def _build_package_action_impl(
-        actions: AnalysisActions,
-        target_label: Label,
-        pkg_import_path: str,
-        main: bool,
-        sources: GoSourceInputs,
-        cgo_build_context: None | CGoBuildContext,
-        config: GoBuildConfig,
-        deps_pkgs: dict[str, GoPkg],
-        go_toolchain: GoToolchainInfo,
-        go_list_out: ArtifactValue,
-        go_stdlib_value: ResolvedDynamicValue,
-        cgo_gen_dir: OutputArtifact,
-        out_a: OutputArtifact,
-        out_shared_a: OutputArtifact,
-        out_shared_x: OutputArtifact,
-        out_x: OutputArtifact,
-        test_go_files_argsfile: OutputArtifact):
+    actions: AnalysisActions,
+    target_label: Label,
+    pkg_import_path: str,
+    main: bool,
+    sources: GoSourceInputs,
+    cgo_build_context: None | CGoBuildContext,
+    config: GoBuildConfig,
+    deps_pkgs: dict[str, GoPkg],
+    go_toolchain: GoToolchainInfo,
+    go_list_out: ArtifactValue,
+    go_stdlib_value: ResolvedDynamicValue,
+    cgo_gen_dir: OutputArtifact,
+    out_a: OutputArtifact,
+    out_shared_a: OutputArtifact,
+    out_shared_x: OutputArtifact,
+    out_x: OutputArtifact,
+    test_go_files_argsfile: OutputArtifact,
+):
     go_list = parse_go_list_out(sources.srcs, sources.package_root, go_list_out)
 
     if go_list.error != None:
@@ -283,12 +291,13 @@ _incomplete_pkgs_allow_list = set([
 ])
 
 def build_package(
-        actions: AnalysisActions,
-        target_label: Label,
-        go_toolchain: GoToolchainInfo,
-        cgo_build_context: CGoBuildContext | None,
-        go_list: BuildPackageGoList,
-        params: BuildPackageParams) -> BuildPackageResult:
+    actions: AnalysisActions,
+    target_label: Label,
+    go_toolchain: GoToolchainInfo,
+    cgo_build_context: CGoBuildContext | None,
+    go_list: BuildPackageGoList,
+    params: BuildPackageParams,
+) -> BuildPackageResult:
     covered_go_files, covered_cgo_files, coveragecfg = cover_srcs(
         actions = actions,
         go_toolchain = go_toolchain,
@@ -387,7 +396,9 @@ def build_package(
             gen_asmhdr = len(s_files) > 0,
         )
 
-        asm_o_files = _asssembly(actions, go_toolchain, params.pkg_import_path, params.main, s_files, go_list.h_files, asmhdr, params.assembler_flags, shared, build_variant_id)
+        asm_o_files = _asssembly(
+            actions, go_toolchain, params.pkg_import_path, params.main, s_files, go_list.h_files, asmhdr, params.assembler_flags, shared, build_variant_id
+        )
 
         return go_x_file, _pack(actions, go_toolchain, params.pkg_import_path, go_a_file, cgo_o_files + asm_o_files + go_list.syso_files, build_variant_id)
 
@@ -420,23 +431,24 @@ _libfuzzer_exclude_list = set([
 ])
 
 def _compile(
-        actions: AnalysisActions,
-        go_toolchain: GoToolchainInfo,
-        pkg_import_path: str,
-        main: bool,
-        go_srcs: list[Artifact],
-        importcfg: Artifact,
-        compiler_flags: list[str],
-        shared: bool,
-        race: bool,
-        asan: bool,
-        build_variant_id: str,
-        complete: bool,
-        standard: bool,
-        coveragecfg: Artifact | None = None,
-        embedcfg: Artifact | None = None,
-        symabis: Artifact | None = None,
-        gen_asmhdr: bool = False) -> (Artifact, Artifact, Artifact | None):
+    actions: AnalysisActions,
+    go_toolchain: GoToolchainInfo,
+    pkg_import_path: str,
+    main: bool,
+    go_srcs: list[Artifact],
+    importcfg: Artifact,
+    compiler_flags: list[str],
+    shared: bool,
+    race: bool,
+    asan: bool,
+    build_variant_id: str,
+    complete: bool,
+    standard: bool,
+    coveragecfg: Artifact | None = None,
+    embedcfg: Artifact | None = None,
+    symabis: Artifact | None = None,
+    gen_asmhdr: bool = False,
+) -> (Artifact, Artifact, Artifact | None):
     env = get_toolchain_env_vars(go_toolchain)
     out_a = actions.declare_output("go_compile_out_{}.a".format(build_variant_id), has_content_based_path = True)
     out_x = actions.declare_output("go_compile_out_{}.x".format(build_variant_id), has_content_based_path = True)
@@ -480,18 +492,21 @@ def _compile(
         ],
     )
 
-    actions.run(compile_cmd, env = env, category = "go_compile", identifier = "{} [{}]".format(pkg_import_path, build_variant_id), error_handler = go_build_error_handler)
+    actions.run(
+        compile_cmd, env = env, category = "go_compile", identifier = "{} [{}]".format(pkg_import_path, build_variant_id), error_handler = go_build_error_handler
+    )
 
     return (out_x, out_a, asmhdr)
 
 def _symabis(
-        actions: AnalysisActions,
-        go_toolchain: GoToolchainInfo,
-        pkg_import_path: str,
-        main: bool,
-        s_files: list[Artifact],
-        h_files: list[Artifact],
-        assembler_flags: list[str]) -> Artifact | None:
+    actions: AnalysisActions,
+    go_toolchain: GoToolchainInfo,
+    pkg_import_path: str,
+    main: bool,
+    s_files: list[Artifact],
+    h_files: list[Artifact],
+    assembler_flags: list[str],
+) -> Artifact | None:
     if len(s_files) == 0:
         return None
 
@@ -523,16 +538,17 @@ def _symabis(
     return symabis
 
 def _asssembly(
-        actions: AnalysisActions,
-        go_toolchain: GoToolchainInfo,
-        pkg_import_path: str,
-        main: bool,
-        s_files: list[Artifact],
-        h_files: list[Artifact],
-        asmhdr: Artifact | None,
-        assembler_flags: list[str],
-        shared: bool,
-        build_variant_id: str) -> list[Artifact]:
+    actions: AnalysisActions,
+    go_toolchain: GoToolchainInfo,
+    pkg_import_path: str,
+    main: bool,
+    s_files: list[Artifact],
+    h_files: list[Artifact],
+    asmhdr: Artifact | None,
+    assembler_flags: list[str],
+    shared: bool,
+    build_variant_id: str,
+) -> list[Artifact]:
     if len(s_files) == 0:
         return []
 
@@ -562,7 +578,9 @@ def _asssembly(
 
     return o_files
 
-def _pack(actions: AnalysisActions, go_toolchain: GoToolchainInfo, pkg_import_path: str, a_file: Artifact, o_files: list[Artifact], build_variant_id: str) -> Artifact:
+def _pack(
+    actions: AnalysisActions, go_toolchain: GoToolchainInfo, pkg_import_path: str, a_file: Artifact, o_files: list[Artifact], build_variant_id: str
+) -> Artifact:
     if len(o_files) == 0:
         # no need to repack .a file, if there are no .o files
         return a_file
@@ -583,7 +601,9 @@ def _pack(actions: AnalysisActions, go_toolchain: GoToolchainInfo, pkg_import_pa
 
     return pkg_file
 
-def _embedcfg(actions: AnalysisActions, go_toolchain: GoToolchainInfo, pkg_import_path: str, package_root: str, embed_srcs: dict[str, Artifact], embed_patterns: list[str]) -> Artifact | None:
+def _embedcfg(
+    actions: AnalysisActions, go_toolchain: GoToolchainInfo, pkg_import_path: str, package_root: str, embed_srcs: dict[str, Artifact], embed_patterns: list[str]
+) -> Artifact | None:
     if len(embed_patterns) == 0:
         return None
 

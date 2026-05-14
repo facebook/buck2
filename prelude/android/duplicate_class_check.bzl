@@ -12,9 +12,7 @@ load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 # This reduces the number of hidden inputs from 40K+ files to NUM_BATCHES files.
 _NUM_BATCHES = 32
 
-def check_for_duplicate_classes_for_pre_dexed_libs(
-        ctx: AnalysisContext,
-        target_name_to_class_name_mapping: dict[str, Artifact]) -> Artifact:
+def check_for_duplicate_classes_for_pre_dexed_libs(ctx: AnalysisContext, target_name_to_class_name_mapping: dict[str, Artifact]) -> Artifact:
     """
     Check for duplicate class names across pre-dexed libraries.
 
@@ -83,10 +81,8 @@ def check_for_duplicate_classes_for_pre_dexed_libs(
     return validation_output
 
 def _consolidate_class_names_batch(
-        ctx: AnalysisContext,
-        android_toolchain: AndroidToolchainInfo,
-        target_name_to_class_name_mapping: dict[str, Artifact],
-        batch_num: int) -> Artifact:
+    ctx: AnalysisContext, android_toolchain: AndroidToolchainInfo, target_name_to_class_name_mapping: dict[str, Artifact], batch_num: int
+) -> Artifact:
     """Consolidate a batch of class name files into a single JSON file."""
     input_mapping_file = ctx.actions.declare_output(
         "consolidate_batch_{}_input.json".format(batch_num),
@@ -114,9 +110,7 @@ def _consolidate_class_names_batch(
     )
     return consolidated_output
 
-def check_for_duplicate_classes_for_non_pre_dexed_jars(
-        ctx: AnalysisContext,
-        jar_to_owning_target_mapping: dict[Artifact, TargetLabel]) -> Artifact:
+def check_for_duplicate_classes_for_non_pre_dexed_jars(ctx: AnalysisContext, jar_to_owning_target_mapping: dict[Artifact, TargetLabel]) -> Artifact:
     validation_output = ctx.actions.declare_output("validation_output.txt", has_content_based_path = False)
     jar_to_owning_target_map_file = ctx.actions.declare_output("jar_to_owning_target_map_file.txt", has_content_based_path = False)
     ctx.actions.write_json(

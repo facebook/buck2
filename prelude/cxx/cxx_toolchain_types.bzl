@@ -93,17 +93,19 @@ LinkerInfo = provider(
     },
 )
 
-BinaryUtilitiesInfo = provider(fields = {
-    "bolt": provider_field(typing.Any, default = None),
-    "bolt_msdk": provider_field(typing.Any, default = None),
-    "custom_tools": provider_field(dict[str, RunInfo], default = {}),
-    "dwp": provider_field(typing.Any, default = None),
-    "nm": provider_field(typing.Any, default = None),
-    "objcopy": provider_field(typing.Any, default = None),
-    "objdump": provider_field(typing.Any, default = None),
-    "ranlib": provider_field(typing.Any, default = None),
-    "strip": provider_field(typing.Any, default = None),
-})
+BinaryUtilitiesInfo = provider(
+    fields = {
+        "bolt": provider_field(typing.Any, default = None),
+        "bolt_msdk": provider_field(typing.Any, default = None),
+        "custom_tools": provider_field(dict[str, RunInfo], default = {}),
+        "dwp": provider_field(typing.Any, default = None),
+        "nm": provider_field(typing.Any, default = None),
+        "objcopy": provider_field(typing.Any, default = None),
+        "objdump": provider_field(typing.Any, default = None),
+        "ranlib": provider_field(typing.Any, default = None),
+        "strip": provider_field(typing.Any, default = None),
+    }
+)
 
 StripFlagsInfo = provider(
     # @unsorted-dict-items
@@ -168,29 +170,33 @@ ObjcCompilerInfo = provider(fields = _compiler_fields)
 ObjcxxCompilerInfo = provider(fields = _compiler_fields)
 RcCompilerInfo = provider(fields = _compiler_fields)
 
-DistLtoToolsInfo = provider(fields = dict(
-    planner = dict[LinkerType, RunInfo],
-    opt = dict[LinkerType, RunInfo],
-    prepare = dict[LinkerType, RunInfo],
-    copy = RunInfo,
-    archive_mapper = RunInfo,
-    compiler_stats_merger = RunInfo,
-))
+DistLtoToolsInfo = provider(
+    fields = dict(
+        planner = dict[LinkerType, RunInfo],
+        opt = dict[LinkerType, RunInfo],
+        prepare = dict[LinkerType, RunInfo],
+        copy = RunInfo,
+        archive_mapper = RunInfo,
+        compiler_stats_merger = RunInfo,
+    )
+)
 
-CxxInternalTools = provider(fields = dict(
-    check_nonempty_output = RunInfo,
-    clang_tidy_wrapper = RunInfo,
-    concatenate_diagnostics = RunInfo,
-    dep_file_processor = RunInfo,
-    dist_lto = DistLtoToolsInfo,
-    filter_argsfile = RunInfo,
-    hmap_wrapper = RunInfo,
-    make_comp_db = RunInfo,
-    remap_cwd = RunInfo,
-    serialized_diagnostics_to_json_wrapper = RunInfo,
-    stderr_to_file = RunInfo,
-    stub_header_unit = RunInfo,
-))
+CxxInternalTools = provider(
+    fields = dict(
+        check_nonempty_output = RunInfo,
+        clang_tidy_wrapper = RunInfo,
+        concatenate_diagnostics = RunInfo,
+        dep_file_processor = RunInfo,
+        dist_lto = DistLtoToolsInfo,
+        filter_argsfile = RunInfo,
+        hmap_wrapper = RunInfo,
+        make_comp_db = RunInfo,
+        remap_cwd = RunInfo,
+        serialized_diagnostics_to_json_wrapper = RunInfo,
+        stderr_to_file = RunInfo,
+        stub_header_unit = RunInfo,
+    )
+)
 
 CxxObjectFormat = enum(
     "native",
@@ -307,51 +313,52 @@ def is_bitcode_format(format: CxxObjectFormat) -> bool:
     return format in [CxxObjectFormat("bitcode"), CxxObjectFormat("embedded-bitcode")]
 
 def cxx_toolchain_infos(
-        platform_name,
-        c_compiler_info,
-        cxx_compiler_info,
-        linker_info,
-        binary_utilities_info,
-        header_mode,
-        internal_tools: CxxInternalTools,
-        headers_as_raw_headers_mode = None,
-        raw_headers_as_headers_mode = None,
-        asm_compiler_info = None,
-        as_compiler_info = None,
-        hip_compiler_info = None,
-        cuda_compiler_info = None,
-        cvtres_compiler_info = None,
-        rc_compiler_info = None,
-        object_format = CxxObjectFormat("native"),
-        use_distributed_thinlto = False,
-        use_dep_files = False,
-        clang_remarks = None,
-        clang_llvm_statistics = False,
-        gcno_files = None,
-        clang_trace = False,
-        cpp_dep_tracking_mode = DepTrackingMode("none"),
-        cuda_dep_tracking_mode = DepTrackingMode("none"),
-        strip_flags_info = None,
-        split_debug_mode = SplitDebugMode("none"),
-        bolt_enabled = False,
-        cell_to_path_prefix_map = {},
-        llvm_cgdata = None,
-        llvm_link = None,
-        platform_deps_aliases = [],
-        pic_behavior = PicBehavior("supported"),
-        dumpbin_toolchain_path = None,
-        minimum_os_version = None,
-        libclang = None,
-        lipo = None,
-        remap_cwd = False,
-        compiler_flavor_flags = {},
-        supported_compile_flavors = ["pic"],
-        objc_compiler_info = None,
-        objcxx_compiler_info = None,
-        cxx_error_handler = None,
-        pass_plugin = None,
-        default_deps = [],
-        runtime_dependency_handling = RuntimeDependencyHandling("no_symlink")):
+    platform_name,
+    c_compiler_info,
+    cxx_compiler_info,
+    linker_info,
+    binary_utilities_info,
+    header_mode,
+    internal_tools: CxxInternalTools,
+    headers_as_raw_headers_mode = None,
+    raw_headers_as_headers_mode = None,
+    asm_compiler_info = None,
+    as_compiler_info = None,
+    hip_compiler_info = None,
+    cuda_compiler_info = None,
+    cvtres_compiler_info = None,
+    rc_compiler_info = None,
+    object_format = CxxObjectFormat("native"),
+    use_distributed_thinlto = False,
+    use_dep_files = False,
+    clang_remarks = None,
+    clang_llvm_statistics = False,
+    gcno_files = None,
+    clang_trace = False,
+    cpp_dep_tracking_mode = DepTrackingMode("none"),
+    cuda_dep_tracking_mode = DepTrackingMode("none"),
+    strip_flags_info = None,
+    split_debug_mode = SplitDebugMode("none"),
+    bolt_enabled = False,
+    cell_to_path_prefix_map = {},
+    llvm_cgdata = None,
+    llvm_link = None,
+    platform_deps_aliases = [],
+    pic_behavior = PicBehavior("supported"),
+    dumpbin_toolchain_path = None,
+    minimum_os_version = None,
+    libclang = None,
+    lipo = None,
+    remap_cwd = False,
+    compiler_flavor_flags = {},
+    supported_compile_flavors = ["pic"],
+    objc_compiler_info = None,
+    objcxx_compiler_info = None,
+    cxx_error_handler = None,
+    pass_plugin = None,
+    default_deps = [],
+    runtime_dependency_handling = RuntimeDependencyHandling("no_symlink"),
+):
     """
     Creates the collection of cxx-toolchain Infos for a cxx toolchain.
 
@@ -365,13 +372,9 @@ def cxx_toolchain_infos(
 
     # Maintain backwards compatibility with ObjC compilation using the C compiler.
     if objc_compiler_info == None:
-        objc_compiler_info = ObjcCompilerInfo(
-            **{k: getattr(c_compiler_info, k, None) for k in _compiler_fields}
-        )
+        objc_compiler_info = ObjcCompilerInfo(**{k: getattr(c_compiler_info, k, None) for k in _compiler_fields})
     if objcxx_compiler_info == None:
-        objcxx_compiler_info = ObjcxxCompilerInfo(
-            **{k: getattr(cxx_compiler_info, k, None) for k in _compiler_fields}
-        )
+        objcxx_compiler_info = ObjcxxCompilerInfo(**{k: getattr(cxx_compiler_info, k, None) for k in _compiler_fields})
 
     toolchain_info = CxxToolchainInfo(
         as_compiler_info = as_compiler_info,

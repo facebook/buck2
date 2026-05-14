@@ -112,10 +112,8 @@ CxxLinkResult = record(
 )
 
 def link_external_debug_info(
-        ctx: AnalysisContext,
-        links: list[LinkArgs],
-        split_debug_output: Artifact | None = None,
-        pdb: Artifact | None = None) -> ArtifactTSet:
+    ctx: AnalysisContext, links: list[LinkArgs], split_debug_output: Artifact | None = None, pdb: Artifact | None = None
+) -> ArtifactTSet:
     external_debug_artifacts = []
 
     # When using LTO+split-dwarf, the link step will generate externally
@@ -142,11 +140,12 @@ def link_external_debug_info(
 
 # Actually perform a link into the supplied output.
 def cxx_link_into(
-        ctx: AnalysisContext,
-        # The destination for the link output.
-        output: Artifact,
-        result_type: CxxLinkResultType,
-        opts: LinkOptions) -> CxxLinkResult:
+    ctx: AnalysisContext,
+    # The destination for the link output.
+    output: Artifact,
+    result_type: CxxLinkResultType,
+    opts: LinkOptions,
+) -> CxxLinkResult:
     cxx_toolchain_info = opts.cxx_toolchain or get_cxx_toolchain_info(ctx)
     linker_info = cxx_toolchain_info.linker_info
     is_incremental_link = opts.incremental_link
@@ -174,7 +173,9 @@ def cxx_link_into(
         gc_sections_output = None
         gc_sections_data = None
 
-    shared_library_interface = ctx.actions.declare_output(output.short_path + ".tbd", has_content_based_path = False) if opts.produce_shared_library_interface else None
+    shared_library_interface = (
+        ctx.actions.declare_output(output.short_path + ".tbd", has_content_based_path = False) if opts.produce_shared_library_interface else None
+    )
 
     if is_incremental_link:
         ilk_filename = paths.replace_extension(output.short_path, ".ilk")
@@ -353,8 +354,9 @@ def cxx_link_into(
     # Pass to the link wrapper the paths to the .dwo/.o files to rewrite, if we are
     # using split debug with content-based paths.
     if (
-        cxx_toolchain_info.split_debug_mode != SplitDebugMode("none") and
-        cxx_toolchain_info.cxx_compiler_info.supports_content_based_paths and
+        cxx_toolchain_info.split_debug_mode != SplitDebugMode("none")
+        and cxx_toolchain_info.cxx_compiler_info.supports_content_based_paths
+        and
         # Darwin does not embed paths in object files themselves, but rather
         # the linker writes those paths based on the location of object files passed
         # to the link.
@@ -387,7 +389,8 @@ def cxx_link_into(
         hidden = [
             link_unit_generation_link_args.link_args,
             link_unit_generation_link_args.hidden,
-        ] + ([ilk_artifact.as_output()] if ilk_artifact else []),
+        ]
+        + ([ilk_artifact.as_output()] if ilk_artifact else []),
     )
 
     category = "cxx_link"
@@ -501,17 +504,21 @@ def cxx_link_into(
         shared_library_interface = shared_library_interface,
     )
 
-_AnonLinkInfo = provider(fields = {
-    "result": provider_field(typing.Any, default = None),  # CxxLinkResult
-})
+_AnonLinkInfo = provider(
+    fields = {
+        "result": provider_field(typing.Any, default = None),  # CxxLinkResult
+    }
+)
 
 # dwp and split_debug_output are optional outputs, but promise artifacts require an actual artifact
 # when being resolved. Let's add some placeholders here so that we always generate an artifact when
 # applying the map functions.
-_AnonLinkInfoPlaceholder = provider(fields = {
-    "dwp": provider_field(typing.Any),
-    "split_debug_output": provider_field(typing.Any),
-})
+_AnonLinkInfoPlaceholder = provider(
+    fields = {
+        "dwp": provider_field(typing.Any),
+        "split_debug_output": provider_field(typing.Any),
+    }
+)
 
 def _anon_link_impl(ctx):
     (output, result_type, opts) = deserialize_anon_attrs(ctx.actions, ctx.label, ctx.attrs)
@@ -549,11 +556,7 @@ def _get_link_artifact(p: ProviderCollection, name: str) -> Artifact:
     else:
         return getattr(p[_AnonLinkInfoPlaceholder], name)
 
-def _anon_cxx_link(
-        ctx: AnalysisContext,
-        output: str,
-        result_type: CxxLinkResultType,
-        opts: LinkOptions) -> CxxLinkResult:
+def _anon_cxx_link(ctx: AnalysisContext, output: str, result_type: CxxLinkResultType, opts: LinkOptions) -> CxxLinkResult:
     if opts.cxx_toolchain:
         fail("anon link requires getting toolchain from ctx.attrs._cxx_toolchain")
     cxx_toolchain = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
@@ -565,7 +568,7 @@ def _anon_cxx_link(
                 output = output,
                 result_type = result_type,
                 opts = opts,
-            )
+            ),
         ),
     )
 
@@ -605,12 +608,7 @@ def _anon_cxx_link(
         shared_library_interface = None,
     )
 
-def _cxx_link(
-        ctx: AnalysisContext,
-        output: str,
-        result_type: CxxLinkResultType,
-        opts: LinkOptions,
-        anonymous: bool = False):
+def _cxx_link(ctx: AnalysisContext, output: str, result_type: CxxLinkResultType, opts: LinkOptions, anonymous: bool = False):
     if anonymous:
         return _anon_cxx_link(
             ctx = ctx,
@@ -626,15 +624,16 @@ def _cxx_link(
     )
 
 def cxx_link_shared_library(
-        ctx: AnalysisContext,
-        # The destination for the link output.
-        output: str,
-        opts: LinkOptions,
-        # Optional soname to link into shared library.
-        name: [str, None] = None,
-        # Overrides the default flags used to specify building shared libraries
-        shared_library_flags: [SharedLibraryFlagOverrides, None] = None,
-        anonymous: bool = False) -> CxxLinkResult:
+    ctx: AnalysisContext,
+    # The destination for the link output.
+    output: str,
+    opts: LinkOptions,
+    # Optional soname to link into shared library.
+    name: [str, None] = None,
+    # Overrides the default flags used to specify building shared libraries
+    shared_library_flags: [SharedLibraryFlagOverrides, None] = None,
+    anonymous: bool = False,
+) -> CxxLinkResult:
     # links: list[LinkArgs] = [],
     # link_execution_preference: LinkExecutionPreference = LinkExecutionPreference("any"),
 
@@ -658,14 +657,15 @@ def cxx_link_shared_library(
     )
 
 def _build_cxx_link_shared_library_options(
-        ctx: AnalysisContext,
-        # The destination for the link output.
-        output: str,
-        opts: LinkOptions,
-        # Optional soname to link into shared library.
-        name: [str, None] = None,
-        # Overrides the default flags used to specify building shared libraries
-        shared_library_flags: [SharedLibraryFlagOverrides, None] = None) -> LinkOptions:
+    ctx: AnalysisContext,
+    # The destination for the link output.
+    output: str,
+    opts: LinkOptions,
+    # Optional soname to link into shared library.
+    name: [str, None] = None,
+    # Overrides the default flags used to specify building shared libraries
+    shared_library_flags: [SharedLibraryFlagOverrides, None] = None,
+) -> LinkOptions:
     cxx_toolchain = opts.cxx_toolchain or get_cxx_toolchain_info(ctx)
     linker_info = cxx_toolchain.linker_info
     linker_type = linker_info.type

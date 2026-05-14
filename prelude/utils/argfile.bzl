@@ -10,16 +10,17 @@
 # Return `cmd_args` which is single string containing `@path/to/argfile`.
 # Returned `cmd_args` contains given files as hidden artifacts.
 def at_argfile(
-        *,
-        # ctx.actions
-        actions,
-        # name of the argument file
-        name: str | Artifact,
-        # the arguments to write to the argument file
-        args,
-        # pass to `ctx.actions.write`
-        allow_args: bool = False,
-        has_content_based_path: bool = False) -> cmd_args:
+    *,
+    # ctx.actions
+    actions,
+    # name of the argument file
+    name: str | Artifact,
+    # the arguments to write to the argument file
+    args,
+    # pass to `ctx.actions.write`
+    allow_args: bool = False,
+    has_content_based_path: bool = False,
+) -> cmd_args:
     if allow_args:
         args_file, _ = actions.write(name, args, allow_args = True, with_inputs = True, has_content_based_path = has_content_based_path)
     else:
@@ -29,16 +30,17 @@ def at_argfile(
 # Write arguments to a file, and return the file path as `cmd_args`
 # with args attached as hidden artifacts.
 def argfile(
-        *,
-        # ctx.actions
-        actions,
-        # name of the argument file
-        name: str | Artifact,
-        # the arguments to write to the argument file
-        args,
-        # pass to `ctx.actions.write`
-        allow_args: bool = False,
-        has_content_based_path: bool = False) -> cmd_args:
+    *,
+    # ctx.actions
+    actions,
+    # name of the argument file
+    name: str | Artifact,
+    # the arguments to write to the argument file
+    args,
+    # pass to `ctx.actions.write`
+    allow_args: bool = False,
+    has_content_based_path: bool = False,
+) -> cmd_args:
     if allow_args:
         args_file, _ = actions.write(name, args, allow_args = True, with_inputs = True, has_content_based_path = has_content_based_path)
     else:

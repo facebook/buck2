@@ -112,10 +112,12 @@ def _compute_metal_std_compiler_arg(ctx: AnalysisContext, min_os_version: str) -
         # Mac Catalyst, i.e., `maccatalyst`, is using iOS args
         is_mac = "macosx" in platform_info.name
         platform_name = "macos" if is_mac else "ios"
-        return ["-std={platform}-metal{version}".format(
-            platform = platform_name,
-            version = version,
-        )]
+        return [
+            "-std={platform}-metal{version}".format(
+                platform = platform_name,
+                version = version,
+            )
+        ]
 
     return ["-std=metal{version}".format(version = version)]
 

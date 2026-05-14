@@ -9,7 +9,7 @@
 load("@prelude//android:android_providers.bzl", "Aapt2LinkInfo", "AndroidResourceInfo", "RESOURCE_PRIORITY_LOW")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 
-BASE_PACKAGE_ID = 0x7f
+BASE_PACKAGE_ID = 0x7F
 
 def normalize_locale(locale: str) -> str:
     if locale == "NONE":
@@ -26,22 +26,23 @@ def normalize_locale(locale: str) -> str:
     fail("Invalid locale format passed: {} {}".format(locale, regex("/^[a-z][a-z]$/").match(locale)))
 
 def get_aapt2_link(
-        ctx: AnalysisContext,
-        android_toolchain: AndroidToolchainInfo,
-        resource_infos: list[AndroidResourceInfo],
-        android_manifest: Artifact,
-        manifest_entries: dict,
-        includes_vector_drawables: bool,
-        no_resource_removal: bool,
-        should_keep_raw_values: bool,
-        package_id_offset: int,
-        resource_stable_ids: Artifact | None,
-        preferred_density: [str, None],
-        filter_locales: bool,
-        locales: list[str],
-        compiled_resource_apks: list[Artifact],
-        additional_aapt2_params: list[str],
-        extra_filtered_resources: list[str]) -> (Aapt2LinkInfo, Aapt2LinkInfo):
+    ctx: AnalysisContext,
+    android_toolchain: AndroidToolchainInfo,
+    resource_infos: list[AndroidResourceInfo],
+    android_manifest: Artifact,
+    manifest_entries: dict,
+    includes_vector_drawables: bool,
+    no_resource_removal: bool,
+    should_keep_raw_values: bool,
+    package_id_offset: int,
+    resource_stable_ids: Artifact | None,
+    preferred_density: [str, None],
+    filter_locales: bool,
+    locales: list[str],
+    compiled_resource_apks: list[Artifact],
+    additional_aapt2_params: list[str],
+    extra_filtered_resources: list[str],
+) -> (Aapt2LinkInfo, Aapt2LinkInfo):
     link_infos = []
     for use_proto_format in [False, True]:
         if use_proto_format:
@@ -117,16 +118,22 @@ def get_aapt2_link(
         normal_priority_aapt2_compile_rules = []
         for resource_info in resource_infos:
             if resource_info.aapt2_compile_output:
-                (low_priority_aapt2_compile_rules if resource_info.res_priority == RESOURCE_PRIORITY_LOW else normal_priority_aapt2_compile_rules).append(resource_info.aapt2_compile_output)
+                (low_priority_aapt2_compile_rules if resource_info.res_priority == RESOURCE_PRIORITY_LOW else normal_priority_aapt2_compile_rules).append(
+                    resource_info.aapt2_compile_output
+                )
         aapt2_compile_rules = low_priority_aapt2_compile_rules + normal_priority_aapt2_compile_rules
 
-        aapt2_compile_rules_args_file = ctx.actions.write("{}/aapt2_compile_rules_args_file".format(identifier), cmd_args(aapt2_compile_rules, delimiter = " "), has_content_based_path = False)
+        aapt2_compile_rules_args_file = ctx.actions.write(
+            "{}/aapt2_compile_rules_args_file".format(identifier), cmd_args(aapt2_compile_rules, delimiter = " "), has_content_based_path = False
+        )
         aapt2_command.add("-R")
-        aapt2_command.add(cmd_args(
-            aapt2_compile_rules_args_file,
-            format = "@{}",
-            hidden = aapt2_compile_rules,
-        ))
+        aapt2_command.add(
+            cmd_args(
+                aapt2_compile_rules_args_file,
+                format = "@{}",
+                hidden = aapt2_compile_rules,
+            )
+        )
 
         aapt2_command.add(additional_aapt2_params)
 
@@ -150,20 +157,19 @@ def get_aapt2_link(
         else:
             primary_resources_apk = resources_apk
 
-        link_infos.append(Aapt2LinkInfo(
-            primary_resources_apk = primary_resources_apk,
-            proguard_config_file = proguard_config,
-            r_dot_txt = r_dot_txt,
-        ))
+        link_infos.append(
+            Aapt2LinkInfo(
+                primary_resources_apk = primary_resources_apk,
+                proguard_config_file = proguard_config,
+                r_dot_txt = r_dot_txt,
+            )
+        )
 
     return link_infos[0], link_infos[1]
 
 def get_module_manifest_in_proto_format(
-        ctx: AnalysisContext,
-        android_toolchain: AndroidToolchainInfo,
-        android_manifest: Artifact,
-        primary_resources_apk: Artifact,
-        module_name: str) -> Artifact:
+    ctx: AnalysisContext, android_toolchain: AndroidToolchainInfo, android_manifest: Artifact, primary_resources_apk: Artifact, module_name: str
+) -> Artifact:
     aapt2_command = cmd_args(android_toolchain.aapt2)
     aapt2_command.add("link")
 
@@ -193,9 +199,11 @@ def aapt_link_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
     errors = []
     lowercase_stderr = ctx.stderr.lower()
     if regex(r"failed to write .* to archive").match(lowercase_stderr):
-        errors.append(ctx.new_sub_error(
-            category = "aapt2_link",
-            message = "Most probably there are too many res files in the apk (over 65535). Try filtering out some resources.",
-            show_in_stderr = True,
-        ))
+        errors.append(
+            ctx.new_sub_error(
+                category = "aapt2_link",
+                message = "Most probably there are too many res files in the apk (over 65535). Try filtering out some resources.",
+                show_in_stderr = True,
+            )
+        )
     return errors

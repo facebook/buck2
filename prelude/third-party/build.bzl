@@ -36,12 +36,13 @@ def is_empty(cxx_headers: list[CPreprocessorInfo]):
     return True
 
 def create_third_party_build_root(
-        ctx: AnalysisContext,
-        out: str = "__third_party_build__",
-        manifests: list[(str, ManifestInfo)] = [],
-        shared_libs: list[SharedLibrary] = [],
-        cxx_headers: list[CPreprocessorInfo] = [],
-        paths: list[(str, Artifact)] = []) -> ArtifactExt:
+    ctx: AnalysisContext,
+    out: str = "__third_party_build__",
+    manifests: list[(str, ManifestInfo)] = [],
+    shared_libs: list[SharedLibrary] = [],
+    cxx_headers: list[CPreprocessorInfo] = [],
+    paths: list[(str, Artifact)] = [],
+) -> ArtifactExt:
     """
     Installs components into a unix-y install dir which can by used by other
     third-party builds.
@@ -85,7 +86,7 @@ def create_third_party_build_root(
                 # if it doesn't already.
                 if sh_ext in soname and not soname.endswith(sh_ext):
                     idx = soname.index(sh_ext)
-                    link_name = soname[:idx + 3]
+                    link_name = soname[: idx + 3]
                     lines.append(cmd_args("--symlink", path_utils.join("lib", link_name), soname))
         return actions.write(output.as_output(), lines)
 
@@ -106,17 +107,18 @@ def create_third_party_build_root(
     return artifact_ext(out)
 
 def create_third_party_build_info(
-        ctx: AnalysisContext,
-        project: str | None = None,
-        prefix: str | None = None,
-        out: str = "__third_party_build__",
-        manifests: list[(str, ManifestInfo)] = [],
-        shared_libs: list[SharedLibrary] = [],
-        cxx_headers: list[CPreprocessorInfo] = [],
-        cxx_header_dirs: list[str] = [],
-        paths: list[(str, Artifact)] = [],
-        children: list[ThirdPartyBuildInfo] = [],
-        deps: list[Dependency] = []) -> ThirdPartyBuildInfo:
+    ctx: AnalysisContext,
+    project: str | None = None,
+    prefix: str | None = None,
+    out: str = "__third_party_build__",
+    manifests: list[(str, ManifestInfo)] = [],
+    shared_libs: list[SharedLibrary] = [],
+    cxx_headers: list[CPreprocessorInfo] = [],
+    cxx_header_dirs: list[str] = [],
+    paths: list[(str, Artifact)] = [],
+    children: list[ThirdPartyBuildInfo] = [],
+    deps: list[Dependency] = [],
+) -> ThirdPartyBuildInfo:
     if prefix == None:
         prefix = prefix_from_label(ctx.label)
 

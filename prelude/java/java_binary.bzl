@@ -30,15 +30,16 @@ def _generate_script(generate_wrapper: bool, native_libs: list[SharedLibrary]) -
     return generate_wrapper and len(native_libs) == 0
 
 def _create_fat_jar(
-        ctx: AnalysisContext,
-        jars: cmd_args,
-        native_libs: list[SharedLibrary] = [],
-        name_prefix: str = "",
-        concat_jars: bool = False,
-        do_not_create_inner_jar: bool = True,
-        generate_wrapper: bool = False,
-        main_class: [str, None] = None,
-        append_jar: [Artifact, None] = None) -> list[Artifact]:
+    ctx: AnalysisContext,
+    jars: cmd_args,
+    native_libs: list[SharedLibrary] = [],
+    name_prefix: str = "",
+    concat_jars: bool = False,
+    do_not_create_inner_jar: bool = True,
+    generate_wrapper: bool = False,
+    main_class: [str, None] = None,
+    append_jar: [Artifact, None] = None,
+) -> list[Artifact]:
     java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
     extension = "sh" if _generate_script(generate_wrapper, native_libs) else "jar"
     output = ctx.actions.declare_output("{}{}.{}".format(name_prefix, ctx.label.name, extension), has_content_based_path = False)
@@ -67,7 +68,11 @@ def _create_fat_jar(
         )
         args += [
             "--native_libs_file",
-            ctx.actions.write("{}native_libs".format(name_prefix), [cmd_args([native_lib.soname.ensure_str(), native_lib.lib.output], delimiter = " ") for native_lib in native_libs], has_content_based_path = False),
+            ctx.actions.write(
+                "{}native_libs".format(name_prefix),
+                [cmd_args([native_lib.soname.ensure_str(), native_lib.lib.output], delimiter = " ") for native_lib in native_libs],
+                has_content_based_path = False,
+            ),
         ]
         if do_not_create_inner_jar:
             args += [
@@ -138,11 +143,7 @@ def _create_fat_jar(
     # Else if `generate_wrapper` is set then the first item in the result list will be script or far jar, and the second one is for @classpath_args file
     return outputs
 
-def _get_run_cmd(
-        attrs: struct,
-        script_mode: bool,
-        main_artifact: Artifact,
-        java_toolchain: JavaToolchainInfo) -> cmd_args:
+def _get_run_cmd(attrs: struct, script_mode: bool, main_artifact: Artifact, java_toolchain: JavaToolchainInfo) -> cmd_args:
     if script_mode:
         return cmd_args(["/usr/bin/env", "bash", main_artifact])
     else:
@@ -192,7 +193,7 @@ def java_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     other_outputs = []
 
     if ctx.attrs.proguard_config:
-        java_base = ([java_toolchain.java_base_jar] if java_toolchain.java_base_jar else [])
+        java_base = [java_toolchain.java_base_jar] if java_toolchain.java_base_jar else []
         library_jars = ctx.attrs.proguard_library_jars + java_base
         proguard_output = get_proguard_output(
             ctx = ctx,
@@ -215,7 +216,7 @@ def java_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         dependency_jars = []
 
         # separate jars in groups
-        for (dep_jar, owner) in packaging_dep_infos.items():
+        for dep_jar, owner in packaging_dep_infos.items():
             # lookup for the base jar that can be used to append all other dependencies
             if base_dep and owner == base_dep.label.raw_target():
                 expect(
@@ -275,11 +276,15 @@ def java_binary_impl(ctx: AnalysisContext) -> list[Provider]:
 
     if need_to_generate_wrapper:
         classpath_file = outputs[1]
-        run_cmd.add(cmd_args(hidden = [
-            java_toolchain.java[RunInfo],
-            classpath_file,
-            packaging_jar_args,
-        ]))
+        run_cmd.add(
+            cmd_args(
+                hidden = [
+                    java_toolchain.java[RunInfo],
+                    classpath_file,
+                    packaging_jar_args,
+                ]
+            )
+        )
         other_outputs = [classpath_file] + [packaging_jar_args] + _get_java_tool_artifacts(java_toolchain)
 
     sub_targets = get_classpath_subtargets(ctx.actions, packaging_info)

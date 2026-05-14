@@ -49,7 +49,9 @@ load(
 load("@prelude//utils:utils.bzl", "flatten", "value_or")
 
 def cxx_toolchain_impl(ctx):
-    c_compiler = _get_maybe_wrapped_msvc(ctx.attrs.c_compiler[RunInfo], ctx.attrs.c_compiler_type or ctx.attrs.compiler_type, ctx.attrs._msvc_hermetic_exec[RunInfo])
+    c_compiler = _get_maybe_wrapped_msvc(
+        ctx.attrs.c_compiler[RunInfo], ctx.attrs.c_compiler_type or ctx.attrs.compiler_type, ctx.attrs._msvc_hermetic_exec[RunInfo]
+    )
 
     lto_mode = LtoMode(ctx.attrs.lto_mode)
     if lto_mode != LtoMode("none"):
@@ -77,7 +79,9 @@ def cxx_toolchain_impl(ctx):
         allow_cache_upload = ctx.attrs.c_compiler_allow_cache_upload,
         supports_content_based_paths = ctx.attrs.supports_content_based_paths,
     )
-    cxx_compiler = _get_maybe_wrapped_msvc(ctx.attrs.cxx_compiler[RunInfo], ctx.attrs.cxx_compiler_type or ctx.attrs.compiler_type, ctx.attrs._msvc_hermetic_exec[RunInfo])
+    cxx_compiler = _get_maybe_wrapped_msvc(
+        ctx.attrs.cxx_compiler[RunInfo], ctx.attrs.cxx_compiler_type or ctx.attrs.compiler_type, ctx.attrs._msvc_hermetic_exec[RunInfo]
+    )
     cxx_info = CxxCompilerInfo(
         compiler = cxx_compiler,
         compiler_type = ctx.attrs.cxx_compiler_type or ctx.attrs.compiler_type,
@@ -97,46 +101,70 @@ def cxx_toolchain_impl(ctx):
         allow_cache_upload = ctx.attrs.cxx_compiler_allow_cache_upload,
         supports_content_based_paths = ctx.attrs.supports_content_based_paths,
     )
-    asm_info = AsmCompilerInfo(
-        compiler = ctx.attrs.asm_compiler[RunInfo],
-        compiler_type = ctx.attrs.asm_compiler_type or ctx.attrs.compiler_type,
-        compiler_flags = cmd_args(ctx.attrs.asm_compiler_flags),
-        preprocessor_flags = cmd_args(ctx.attrs.asm_preprocessor_flags),
-        supports_content_based_paths = ctx.attrs.supports_content_based_paths,
-    ) if ctx.attrs.asm_compiler else None
-    as_info = AsCompilerInfo(
-        compiler = ctx.attrs.assembler[RunInfo],
-        compiler_type = ctx.attrs.assembler_type or ctx.attrs.compiler_type,
-        compiler_flags = cmd_args(ctx.attrs.assembler_flags),
-        preprocessor_flags = cmd_args(ctx.attrs.assembler_preprocessor_flags),
-        supports_content_based_paths = ctx.attrs.supports_content_based_paths,
-    ) if ctx.attrs.assembler else None
-    cuda_info = CudaCompilerInfo(
-        compiler = ctx.attrs.cuda_compiler[RunInfo],
-        compiler_type = ctx.attrs.cuda_compiler_type or ctx.attrs.compiler_type,
-        compiler_flags = cmd_args(ctx.attrs.cuda_compiler_flags),
-        preprocessor_flags = cmd_args(ctx.attrs.cuda_preprocessor_flags),
-        allow_cache_upload = ctx.attrs.cuda_compiler_allow_cache_upload,
-        supports_content_based_paths = ctx.attrs.supports_content_based_paths,
-    ) if ctx.attrs.cuda_compiler else None
-    hip_info = HipCompilerInfo(
-        compiler = ctx.attrs.hip_compiler[RunInfo],
-        compiler_type = ctx.attrs.hip_compiler_type or ctx.attrs.compiler_type,
-        compiler_flags = cmd_args(ctx.attrs.hip_compiler_flags),
-        preprocessor_flags = cmd_args(ctx.attrs.hip_preprocessor_flags),
-    ) if ctx.attrs.hip_compiler else None
-    cvtres_info = CvtresCompilerInfo(
-        compiler = ctx.attrs.cvtres_compiler[RunInfo],
-        compiler_type = ctx.attrs.cvtres_compiler_type or ctx.attrs.compiler_type,
-        compiler_flags = cmd_args(ctx.attrs.cvtres_compiler_flags),
-        preprocessor_flags = cmd_args(ctx.attrs.cvtres_preprocessor_flags),
-    ) if ctx.attrs.cvtres_compiler else None
-    rc_info = RcCompilerInfo(
-        compiler = ctx.attrs.rc_compiler[RunInfo],
-        compiler_type = ctx.attrs.rc_compiler_type or ctx.attrs.compiler_type,
-        compiler_flags = cmd_args(ctx.attrs.rc_compiler_flags),
-        preprocessor_flags = cmd_args(ctx.attrs.rc_preprocessor_flags),
-    ) if ctx.attrs.rc_compiler else None
+    asm_info = (
+        AsmCompilerInfo(
+            compiler = ctx.attrs.asm_compiler[RunInfo],
+            compiler_type = ctx.attrs.asm_compiler_type or ctx.attrs.compiler_type,
+            compiler_flags = cmd_args(ctx.attrs.asm_compiler_flags),
+            preprocessor_flags = cmd_args(ctx.attrs.asm_preprocessor_flags),
+            supports_content_based_paths = ctx.attrs.supports_content_based_paths,
+        )
+        if ctx.attrs.asm_compiler
+        else None
+    )
+    as_info = (
+        AsCompilerInfo(
+            compiler = ctx.attrs.assembler[RunInfo],
+            compiler_type = ctx.attrs.assembler_type or ctx.attrs.compiler_type,
+            compiler_flags = cmd_args(ctx.attrs.assembler_flags),
+            preprocessor_flags = cmd_args(ctx.attrs.assembler_preprocessor_flags),
+            supports_content_based_paths = ctx.attrs.supports_content_based_paths,
+        )
+        if ctx.attrs.assembler
+        else None
+    )
+    cuda_info = (
+        CudaCompilerInfo(
+            compiler = ctx.attrs.cuda_compiler[RunInfo],
+            compiler_type = ctx.attrs.cuda_compiler_type or ctx.attrs.compiler_type,
+            compiler_flags = cmd_args(ctx.attrs.cuda_compiler_flags),
+            preprocessor_flags = cmd_args(ctx.attrs.cuda_preprocessor_flags),
+            allow_cache_upload = ctx.attrs.cuda_compiler_allow_cache_upload,
+            supports_content_based_paths = ctx.attrs.supports_content_based_paths,
+        )
+        if ctx.attrs.cuda_compiler
+        else None
+    )
+    hip_info = (
+        HipCompilerInfo(
+            compiler = ctx.attrs.hip_compiler[RunInfo],
+            compiler_type = ctx.attrs.hip_compiler_type or ctx.attrs.compiler_type,
+            compiler_flags = cmd_args(ctx.attrs.hip_compiler_flags),
+            preprocessor_flags = cmd_args(ctx.attrs.hip_preprocessor_flags),
+        )
+        if ctx.attrs.hip_compiler
+        else None
+    )
+    cvtres_info = (
+        CvtresCompilerInfo(
+            compiler = ctx.attrs.cvtres_compiler[RunInfo],
+            compiler_type = ctx.attrs.cvtres_compiler_type or ctx.attrs.compiler_type,
+            compiler_flags = cmd_args(ctx.attrs.cvtres_compiler_flags),
+            preprocessor_flags = cmd_args(ctx.attrs.cvtres_preprocessor_flags),
+        )
+        if ctx.attrs.cvtres_compiler
+        else None
+    )
+    rc_info = (
+        RcCompilerInfo(
+            compiler = ctx.attrs.rc_compiler[RunInfo],
+            compiler_type = ctx.attrs.rc_compiler_type or ctx.attrs.compiler_type,
+            compiler_flags = cmd_args(ctx.attrs.rc_compiler_flags),
+            preprocessor_flags = cmd_args(ctx.attrs.rc_preprocessor_flags),
+        )
+        if ctx.attrs.rc_compiler
+        else None
+    )
 
     linker_type = LinkerType(ctx.attrs.linker_type)
     linker_info = LinkerInfo(
@@ -337,18 +365,25 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "use_dep_files": attrs.option(attrs.bool(), default = None),
         # TODO(scottcao): Figure out a slightly better way to integrate this. In theory, this is only needed for clang toolchain.
         # If we were using msvc, we should be able to use dumpbin directly.
-        "_dumpbin_toolchain_path": attrs.default_only(attrs.option(dep_type(providers = [DefaultInfo]), default = select({
-            "DEFAULT": None,
-            "ovr_config//os:windows": select({
-                # Unfortunately, it seems like an unresolved select when resolve exec platforms causes the whole resolution
-                # to fail, so I need a DEFAULT here when some target without cpu constraint tries to configure against the
-                # windows exec platform.
-                "DEFAULT": None,
-                # FIXME: prelude// should be standalone (not refer to fbsource//)
-                "ovr_config//cpu:x86_32": "fbsource//third-party/toolchains/visual_studio:cl_x86_and_tools",
-                "ovr_config//cpu:x86_64": "fbsource//third-party/toolchains/visual_studio:cl_x64_and_tools",
-            }),
-        }) if is_full_meta_repo() else None)),
+        "_dumpbin_toolchain_path": attrs.default_only(
+            attrs.option(
+                dep_type(providers = [DefaultInfo]),
+                default = select({
+                    "DEFAULT": None,
+                    "ovr_config//os:windows": select({
+                        # Unfortunately, it seems like an unresolved select when resolve exec platforms causes the whole resolution
+                        # to fail, so I need a DEFAULT here when some target without cpu constraint tries to configure against the
+                        # windows exec platform.
+                        "DEFAULT": None,
+                        # FIXME: prelude// should be standalone (not refer to fbsource//)
+                        "ovr_config//cpu:x86_32": "fbsource//third-party/toolchains/visual_studio:cl_x86_and_tools",
+                        "ovr_config//cpu:x86_64": "fbsource//third-party/toolchains/visual_studio:cl_x64_and_tools",
+                    }),
+                })
+                if is_full_meta_repo()
+                else None,
+            )
+        ),
         "_msvc_hermetic_exec": attrs.default_only(dep_type(providers = [RunInfo], default = "prelude//windows/tools:msvc_hermetic_exec")),
     } | cxx_toolchain_allow_cache_upload_args()
 

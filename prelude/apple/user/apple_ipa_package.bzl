@@ -54,10 +54,7 @@ def make_apple_ipa_package_target(apple_ipa_package_rule, **kwargs) -> [None, st
         ipa_package_kwargs[field_name] = kwargs.get(field_name)
 
     ipa_package_target_name = kwargs["name"] + "__IPA_Package_Private"
-    apple_ipa_package_rule(
-        name = ipa_package_target_name,
-        **ipa_package_kwargs
-    )
+    apple_ipa_package_rule(name = ipa_package_target_name, **ipa_package_kwargs)
 
     return ":{}".format(ipa_package_target_name)
 

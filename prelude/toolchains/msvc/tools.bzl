@@ -87,44 +87,58 @@ def _find_msvc_tools_impl(ctx: AnalysisContext) -> list[Provider]:
     return [
         # Supports `buck2 run prelude//toolchains/msvc:msvc_tools[cl.exe]`
         # and `buck2 build prelude//toolchains/msvc:msvc_tools[cl.exe][json]`
-        DefaultInfo(sub_targets = {
-            "cl.exe": [
-                RunInfo(args = [cl_exe_script]),
-                DefaultInfo(sub_targets = {
-                    "json": [DefaultInfo(default_output = cl_exe_json)],
-                }),
-            ],
-            "cvtres.exe": [
-                RunInfo(args = [cvtres_exe_script]),
-                DefaultInfo(sub_targets = {
-                    "json": [DefaultInfo(default_output = cvtres_exe_json)],
-                }),
-            ],
-            "lib.exe": [
-                RunInfo(args = [lib_exe_script]),
-                DefaultInfo(sub_targets = {
-                    "json": [DefaultInfo(default_output = lib_exe_json)],
-                }),
-            ],
-            "link.exe": [
-                RunInfo(args = [link_exe_script]),
-                DefaultInfo(sub_targets = {
-                    "json": [DefaultInfo(default_output = link_exe_json)],
-                }),
-            ],
-            "ml64.exe": [
-                RunInfo(args = [ml64_exe_script]),
-                DefaultInfo(sub_targets = {
-                    "json": [DefaultInfo(default_output = ml64_exe_json)],
-                }),
-            ],
-            "rc.exe": [
-                RunInfo(args = [rc_exe_script]),
-                DefaultInfo(sub_targets = {
-                    "json": [DefaultInfo(default_output = rc_exe_json)],
-                }),
-            ],
-        }),
+        DefaultInfo(
+            sub_targets = {
+                "cl.exe": [
+                    RunInfo(args = [cl_exe_script]),
+                    DefaultInfo(
+                        sub_targets = {
+                            "json": [DefaultInfo(default_output = cl_exe_json)],
+                        }
+                    ),
+                ],
+                "cvtres.exe": [
+                    RunInfo(args = [cvtres_exe_script]),
+                    DefaultInfo(
+                        sub_targets = {
+                            "json": [DefaultInfo(default_output = cvtres_exe_json)],
+                        }
+                    ),
+                ],
+                "lib.exe": [
+                    RunInfo(args = [lib_exe_script]),
+                    DefaultInfo(
+                        sub_targets = {
+                            "json": [DefaultInfo(default_output = lib_exe_json)],
+                        }
+                    ),
+                ],
+                "link.exe": [
+                    RunInfo(args = [link_exe_script]),
+                    DefaultInfo(
+                        sub_targets = {
+                            "json": [DefaultInfo(default_output = link_exe_json)],
+                        }
+                    ),
+                ],
+                "ml64.exe": [
+                    RunInfo(args = [ml64_exe_script]),
+                    DefaultInfo(
+                        sub_targets = {
+                            "json": [DefaultInfo(default_output = ml64_exe_json)],
+                        }
+                    ),
+                ],
+                "rc.exe": [
+                    RunInfo(args = [rc_exe_script]),
+                    DefaultInfo(
+                        sub_targets = {
+                            "json": [DefaultInfo(default_output = rc_exe_json)],
+                        }
+                    ),
+                ],
+            }
+        ),
         CxxToolsInfo(
             compiler = cl_exe_script,
             compiler_type = "windows",

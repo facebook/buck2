@@ -42,10 +42,7 @@ def _zip_file_impl(ctx: AnalysisContext) -> list[Provider]:
     if srcs:
         # add artifact and is_source flag pair
         srcs_file_cmd = cmd_args(
-            [
-                [src, src.short_path, str(src.is_source)]
-                for src in srcs
-            ],
+            [[src, src.short_path, str(src.is_source)] for src in srcs],
         )
         entries_file = ctx.actions.write("entries", srcs_file_cmd, has_content_based_path = True)
 

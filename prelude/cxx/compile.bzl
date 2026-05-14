@@ -99,12 +99,16 @@ ClangTracesTSet = transitive_set(
     },
 )
 
-ClangTracesInfo = provider(fields = {
-    "clang_traces": provider_field(typing.Any, default = None),  # "ClangTracesTSet"
-})
-PicClangTracesInfo = provider(fields = {
-    "clang_traces": provider_field(typing.Any, default = None),  # "ClangTracesTSet"
-})
+ClangTracesInfo = provider(
+    fields = {
+        "clang_traces": provider_field(typing.Any, default = None),  # "ClangTracesTSet"
+    }
+)
+PicClangTracesInfo = provider(
+    fields = {
+        "clang_traces": provider_field(typing.Any, default = None),  # "ClangTracesTSet"
+    }
+)
 
 def get_source_extension_for_header(header_extension: str, default: CxxExtension) -> CxxExtension:
     """
@@ -181,9 +185,7 @@ def detect_source_extension_for_plain_headers(exts: set[CxxExtension], rule_type
         return CxxExtension(".m")
     return CxxExtension(".c")
 
-def collect_source_extensions(
-        srcs: list[CxxSrcWithFlags],
-        default_for_headers: CxxExtension) -> set[CxxExtension]:
+def collect_source_extensions(srcs: list[CxxSrcWithFlags], default_for_headers: CxxExtension) -> set[CxxExtension]:
     """
     Return unique source extensions from a list of source and header files where
     header extensions are mapped to corresponding source extensions.
@@ -206,14 +208,15 @@ def get_header_language_mode(source_extension: CxxExtension) -> str | None:
     return modes.get(source_extension)
 
 def create_compile_cmds(
-        actions: AnalysisActions,
-        target_label: Label,
-        toolchain: CxxToolchainInfo,
-        impl_params: CxxRuleConstructorParams,
-        own_preprocessors: list[CPreprocessor],
-        inherited_preprocessor_infos: list[CPreprocessorInfo],
-        add_coverage_instrumentation_compiler_flags: bool,
-        compile_pch: CxxPrecompiledHeader | None = None) -> CxxCompileCommandOutput:
+    actions: AnalysisActions,
+    target_label: Label,
+    toolchain: CxxToolchainInfo,
+    impl_params: CxxRuleConstructorParams,
+    own_preprocessors: list[CPreprocessor],
+    inherited_preprocessor_infos: list[CPreprocessorInfo],
+    add_coverage_instrumentation_compiler_flags: bool,
+    compile_pch: CxxPrecompiledHeader | None = None,
+) -> CxxCompileCommandOutput:
     """
     Forms the CxxSrcCompileCommand to use for each source file based on it's extension
     and optional source file flags. Returns CxxCompileCommandOutput containing an array
@@ -347,16 +350,17 @@ def create_compile_cmds(
 COMMON_PREPROCESSOR_OUTPUT_ARGS = cmd_args("-E", "-dD")
 
 def _prepare_cxx_compilation(
-        actions: AnalysisActions,
-        toolchain: CxxToolchainInfo,
-        default_object_format: CxxObjectFormat,
-        src_compile_cmd: CxxSrcCompileCommand,
-        flavors: set[CxxCompileFlavor],
-        provide_syntax_only: bool,
-        use_header_units: UseHeaderUnitsMode,
-        separate_debug_info: bool,
-        cuda_compile_style: CudaCompileStyle | None,
-        compile_pch: CxxPrecompiledHeader | None) -> CxxCompileInput:
+    actions: AnalysisActions,
+    toolchain: CxxToolchainInfo,
+    default_object_format: CxxObjectFormat,
+    src_compile_cmd: CxxSrcCompileCommand,
+    flavors: set[CxxCompileFlavor],
+    provide_syntax_only: bool,
+    use_header_units: UseHeaderUnitsMode,
+    separate_debug_info: bool,
+    cuda_compile_style: CudaCompileStyle | None,
+    compile_pch: CxxPrecompiledHeader | None,
+) -> CxxCompileInput:
     """
     DECLARATION PHASE: Declares all output artifacts for a single source file compilation.
     """
@@ -368,7 +372,11 @@ def _prepare_cxx_compilation(
     filename_base = short_path
     identifier = short_path
 
-    if src_compile_cmd.cxx_compile_cmd.category == "cxx_compile" and use_header_units == UseHeaderUnitsMode("pcm") and src_compile_cmd.cxx_compile_cmd.header_units_argsfile:
+    if (
+        src_compile_cmd.cxx_compile_cmd.category == "cxx_compile"
+        and use_header_units == UseHeaderUnitsMode("pcm")
+        and src_compile_cmd.cxx_compile_cmd.header_units_argsfile
+    ):
         identifier += " (modular)"
 
     for flavor in flavors:
@@ -446,7 +454,9 @@ def _prepare_cxx_compilation(
     # External debug info
     external_debug_info = None
     extension_supports_external_debug_info = src_compile_cmd.src.extension not in (".hip")
-    use_external_debug_info = separate_debug_info and toolchain.split_debug_mode == SplitDebugMode("split") and compiler_type == "clang" and extension_supports_external_debug_info
+    use_external_debug_info = (
+        separate_debug_info and toolchain.split_debug_mode == SplitDebugMode("split") and compiler_type == "clang" and extension_supports_external_debug_info
+    )
     if use_external_debug_info:
         external_debug_info = actions.declare_output(
             folder_name,
@@ -477,9 +487,7 @@ def _prepare_cxx_compilation(
     # need to track object files if the object file is not compiled to bitcode.
     # We should track whether ThinLTO is used on a per-object basis rather than
     # globally on a toolchain level.
-    object_has_external_debug_info = (
-        toolchain.split_debug_mode == SplitDebugMode("single")
-    )
+    object_has_external_debug_info = toolchain.split_debug_mode == SplitDebugMode("single")
 
     flavor_flags = build_flavor_flags(toolchain.compiler_flavor_flags, src_compile_cmd.cxx_compile_cmd.compiler_type)
     clang_trace = _declare_clang_trace_output(toolchain, compiler_type, actions, filename_base, content_based)
@@ -487,12 +495,15 @@ def _prepare_cxx_compilation(
     # Only declare CUDA distributed compile outputs for CUDA source files
     cuda_dist_output = None
     if src_compile_cmd.src.extension == ".cu" and cuda_compile_style == CudaCompileStyle("dist"):
-        cuda_dist_output = declare_cuda_dist_compile_output(actions, CudaCompileInfo(
-            filename = filename_base,
-            identifier = identifier,
-            output_prefix = folder_name,
-            uses_content_based_paths = content_based,
-        ))
+        cuda_dist_output = declare_cuda_dist_compile_output(
+            actions,
+            CudaCompileInfo(
+                filename = filename_base,
+                identifier = identifier,
+                output_prefix = folder_name,
+                uses_content_based_paths = content_based,
+            ),
+        )
 
     # Declare PCH object output for Windows compiler
     pch_object = None
@@ -547,32 +558,33 @@ def _prepare_cxx_compilation(
     )
 
 def _compile_single_cxx(
-        actions: AnalysisActions,
-        label: Label,
-        toolchain: CxxToolchainInfo,
-        bitcode_args: list,
-        flavors: set[CxxCompileFlavor],
-        compile_pch: CxxPrecompiledHeader | None,
-        precompiled_header: Dependency | None,
-        cuda_compile_style: CudaCompileStyle | None,
-        use_header_units: UseHeaderUnitsMode,
-        # CxxCompileInfo fields
-        info: CxxCompileInfo,
-        # Output artifacts
-        object: OutputArtifact,
-        external_debug_info: OutputArtifact | None,
-        clang_remarks: OutputArtifact | None,
-        clang_llvm_statistics: OutputArtifact | None,
-        clang_trace: OutputArtifact | None,
-        gcno_file: OutputArtifact | None,
-        assembly: OutputArtifact | None,
-        diagnostics: OutputArtifact | None,
-        clang_tidy_diagnostics: OutputArtifact | None,
-        preproc: OutputArtifact,
-        index_store: OutputArtifact | None,
-        dist_cuda: (OutputArtifact, OutputArtifact, OutputArtifact) | None,
-        pch_object: OutputArtifact | None,
-        json_error: OutputArtifact | None) -> None:
+    actions: AnalysisActions,
+    label: Label,
+    toolchain: CxxToolchainInfo,
+    bitcode_args: list,
+    flavors: set[CxxCompileFlavor],
+    compile_pch: CxxPrecompiledHeader | None,
+    precompiled_header: Dependency | None,
+    cuda_compile_style: CudaCompileStyle | None,
+    use_header_units: UseHeaderUnitsMode,
+    # CxxCompileInfo fields
+    info: CxxCompileInfo,
+    # Output artifacts
+    object: OutputArtifact,
+    external_debug_info: OutputArtifact | None,
+    clang_remarks: OutputArtifact | None,
+    clang_llvm_statistics: OutputArtifact | None,
+    clang_trace: OutputArtifact | None,
+    gcno_file: OutputArtifact | None,
+    assembly: OutputArtifact | None,
+    diagnostics: OutputArtifact | None,
+    clang_tidy_diagnostics: OutputArtifact | None,
+    preproc: OutputArtifact,
+    index_store: OutputArtifact | None,
+    dist_cuda: (OutputArtifact, OutputArtifact, OutputArtifact) | None,
+    pch_object: OutputArtifact | None,
+    json_error: OutputArtifact | None,
+) -> None:
     """
     EXECUTION PHASE: Creates compilation actions for a single source file.
 
@@ -844,12 +856,13 @@ def _compile_single_cxx(
     )
 
 def _get_base_compile_cmd(
-        bitcode_args: cmd_args | list,
-        src_compile_cmd: CxxSrcCompileCommand,
-        flavors: set[CxxCompileFlavor],
-        flavor_flags: dict[str, list[str]],
-        output_args: list | None = None,
-        use_header_units: UseHeaderUnitsMode = UseHeaderUnitsMode("none")) -> cmd_args:
+    bitcode_args: cmd_args | list,
+    src_compile_cmd: CxxSrcCompileCommand,
+    flavors: set[CxxCompileFlavor],
+    flavor_flags: dict[str, list[str]],
+    output_args: list | None = None,
+    use_header_units: UseHeaderUnitsMode = UseHeaderUnitsMode("none"),
+) -> cmd_args:
     """
     Construct a shared compile command for a single CXX source based on
     `src_compile_command` and other compilation options.
@@ -889,30 +902,31 @@ def build_flavor_flags(flavor_flags: dict[str, list[str]], compiler_type: str) -
     return flavor_flags
 
 def _cxx_dynamic_compile(
-        actions: AnalysisActions,
-        label: Label,
-        toolchain: CxxToolchainInfo,
-        bitcode_args: list[str],
-        flavors: list[CxxCompileFlavor],
-        use_header_units: UseHeaderUnitsMode,
-        precompiled_header: Dependency | None,
-        compile_pch: CxxPrecompiledHeader | None,
-        cuda_compile_style: CudaCompileStyle | None,
-        infos: list[CxxCompileInfo],
-        object: list[OutputArtifact],
-        external_debug_info: list[OutputArtifact | None],
-        clang_remarks: list[OutputArtifact | None],
-        clang_llvm_statistics: list[OutputArtifact | None],
-        clang_trace: list[OutputArtifact | None],
-        gcno_file: list[OutputArtifact | None],
-        assembly: list[OutputArtifact | None],
-        diagnostics: list[OutputArtifact | None],
-        clang_tidy_diagnostics: list[OutputArtifact | None],
-        preproc: list[OutputArtifact],
-        index_store: list[OutputArtifact | None],
-        dist_cuda: list[None | (OutputArtifact, OutputArtifact, OutputArtifact)],
-        pch_object: list[OutputArtifact | None],
-        json_error: list[OutputArtifact | None]) -> list[Provider]:
+    actions: AnalysisActions,
+    label: Label,
+    toolchain: CxxToolchainInfo,
+    bitcode_args: list[str],
+    flavors: list[CxxCompileFlavor],
+    use_header_units: UseHeaderUnitsMode,
+    precompiled_header: Dependency | None,
+    compile_pch: CxxPrecompiledHeader | None,
+    cuda_compile_style: CudaCompileStyle | None,
+    infos: list[CxxCompileInfo],
+    object: list[OutputArtifact],
+    external_debug_info: list[OutputArtifact | None],
+    clang_remarks: list[OutputArtifact | None],
+    clang_llvm_statistics: list[OutputArtifact | None],
+    clang_trace: list[OutputArtifact | None],
+    gcno_file: list[OutputArtifact | None],
+    assembly: list[OutputArtifact | None],
+    diagnostics: list[OutputArtifact | None],
+    clang_tidy_diagnostics: list[OutputArtifact | None],
+    preproc: list[OutputArtifact],
+    index_store: list[OutputArtifact | None],
+    dist_cuda: list[None | (OutputArtifact, OutputArtifact, OutputArtifact)],
+    pch_object: list[OutputArtifact | None],
+    json_error: list[OutputArtifact | None],
+) -> list[Provider]:
     """
     DYNAMIC ACTION CALLBACK: The bridge between declaration and execution phases.
 
@@ -1005,17 +1019,18 @@ _dynamic_compile_rule = dynamic_actions(
 )
 
 def compile_cxx(
-        actions: AnalysisActions,
-        target_label: Label,
-        toolchain: CxxToolchainInfo,
-        src_compile_cmds: list[CxxSrcCompileCommand],
-        flavors: set[CxxCompileFlavor],
-        provide_syntax_only: bool,
-        separate_debug_info: bool,
-        use_header_units: UseHeaderUnitsMode = UseHeaderUnitsMode("none"),
-        precompiled_header: Dependency | None = None,
-        cuda_compile_style: CudaCompileStyle | None = None,
-        compile_pch: CxxPrecompiledHeader | None = None) -> list[CxxCompileOutput]:
+    actions: AnalysisActions,
+    target_label: Label,
+    toolchain: CxxToolchainInfo,
+    src_compile_cmds: list[CxxSrcCompileCommand],
+    flavors: set[CxxCompileFlavor],
+    provide_syntax_only: bool,
+    separate_debug_info: bool,
+    use_header_units: UseHeaderUnitsMode = UseHeaderUnitsMode("none"),
+    precompiled_header: Dependency | None = None,
+    cuda_compile_style: CudaCompileStyle | None = None,
+    compile_pch: CxxPrecompiledHeader | None = None,
+) -> list[CxxCompileOutput]:
     """
     MAIN ENTRY POINT: Compiles a list of C/C++ source files.
 
@@ -1096,50 +1111,55 @@ def compile_cxx(
 
         objects.append(declared)
 
-    actions.dynamic_output_new(_dynamic_compile_rule(
-        assembly = assembly_outputs,
-        bitcode_args = bitcode_args,
-        clang_llvm_statistics = clang_llvm_statistics_outputs,
-        clang_remarks = clang_remarks_outputs,
-        clang_tidy_diagnostics = clang_tidy_diagnostics_outputs,
-        clang_trace = clang_trace_outputs,
-        compile_pch = compile_pch,
-        cuda_compile_style = cuda_compile_style,
-        diagnostics = diagnostics_outputs,
-        dist_cuda = dist_cuda_outputs,
-        external_debug_info = external_debug_info_outputs,
-        flavors = list(flavors),
-        gcno_file = gcno_file_outputs,
-        index_store = index_store_outputs,
-        infos = infos,
-        json_error = json_error_outputs,
-        label = target_label,
-        object = object_outputs,
-        pch_object = pch_object_outputs,
-        precompiled_header = precompiled_header,
-        preproc = preproc_outputs,
-        toolchain = toolchain,
-        use_header_units = use_header_units,
-    ))
+    actions.dynamic_output_new(
+        _dynamic_compile_rule(
+            assembly = assembly_outputs,
+            bitcode_args = bitcode_args,
+            clang_llvm_statistics = clang_llvm_statistics_outputs,
+            clang_remarks = clang_remarks_outputs,
+            clang_tidy_diagnostics = clang_tidy_diagnostics_outputs,
+            clang_trace = clang_trace_outputs,
+            compile_pch = compile_pch,
+            cuda_compile_style = cuda_compile_style,
+            diagnostics = diagnostics_outputs,
+            dist_cuda = dist_cuda_outputs,
+            external_debug_info = external_debug_info_outputs,
+            flavors = list(flavors),
+            gcno_file = gcno_file_outputs,
+            index_store = index_store_outputs,
+            infos = infos,
+            json_error = json_error_outputs,
+            label = target_label,
+            object = object_outputs,
+            pch_object = pch_object_outputs,
+            precompiled_header = precompiled_header,
+            preproc = preproc_outputs,
+            toolchain = toolchain,
+            use_header_units = use_header_units,
+        )
+    )
 
     return objects
 
 def _compiler_supports_header_units(compiler_info: typing.Any):
-    return ("clang" in compiler_info.compiler_type and
-            compiler_info.supports_two_phase_compilation)
+    return "clang" in compiler_info.compiler_type and compiler_info.supports_two_phase_compilation
 
 def _get_module_name(target_label: Label, group_name: str) -> str:
-    return paths.normalize(paths.join(
-        "__header_units__",
-        target_label.package,
-        "{}{}.h".format(target_label.name, group_name),
-    ))
+    return paths.normalize(
+        paths.join(
+            "__header_units__",
+            target_label.package,
+            "{}{}.h".format(target_label.name, group_name),
+        )
+    )
 
 def _get_import_filename(target_label: Label, group_name: str) -> str:
-    return paths.normalize(paths.join(
-        target_label.package,
-        "__import__{}{}.h".format(target_label.name, group_name),
-    ))
+    return paths.normalize(
+        paths.join(
+            target_label.package,
+            "__import__{}{}.h".format(target_label.name, group_name),
+        )
+    )
 
 def _is_standalone_header(header: CHeader) -> bool:
     if header.artifact.extension not in HeaderExtension.values():
@@ -1154,10 +1174,7 @@ def _is_standalone_header(header: CHeader) -> bool:
         return False
     return True
 
-def _convert_raw_header(
-        target_label: Label,
-        raw_header: Artifact,
-        include_dirs: list[CellPath]) -> CHeader:
+def _convert_raw_header(target_label: Label, raw_header: Artifact, include_dirs: list[CellPath]) -> CHeader:
     package_prefix = str(target_label.path)
     ns = paths.dirname(raw_header.short_path)
     for d in include_dirs:
@@ -1175,19 +1192,17 @@ def _convert_raw_header(
     )
 
 def _create_precompile_cmd(
-        actions: AnalysisActions,
-        target_label: Label,
-        compiler_info: typing.Any,
-        preprocessors: list[CPreprocessor],
-        header_group: str | None,
-        group_name: str,
-        extra_preprocessors: list[CPreprocessor],
-        cmd: CxxCompileCommand) -> CxxSrcPrecompileCommand:
+    actions: AnalysisActions,
+    target_label: Label,
+    compiler_info: typing.Any,
+    preprocessors: list[CPreprocessor],
+    header_group: str | None,
+    group_name: str,
+    extra_preprocessors: list[CPreprocessor],
+    cmd: CxxCompileCommand,
+) -> CxxSrcPrecompileCommand:
     include_dirs = flatten([x.include_dirs for x in preprocessors])
-    converted_headers = [
-        _convert_raw_header(target_label, raw_header, include_dirs)
-        for raw_header in flatten([x.raw_headers for x in preprocessors])
-    ]
+    converted_headers = [_convert_raw_header(target_label, raw_header, include_dirs) for raw_header in flatten([x.raw_headers for x in preprocessors])]
     header_group_regex = regex(header_group, fancy = False) if header_group else None
 
     header_paths = [
@@ -1196,7 +1211,7 @@ def _create_precompile_cmd(
         if (_is_standalone_header(header) if header_group_regex == None else header_group_regex.match(header.name))
     ]
 
-    input_header_contents = cmd_args(header_paths, format = "#include \"{}\"")
+    input_header_contents = cmd_args(header_paths, format = '#include "{}"')
 
     module_name = _get_module_name(target_label, group_name)
     import_name = _get_import_filename(target_label, group_name)
@@ -1236,7 +1251,8 @@ module "{}" {{
 
     src_dir = actions.symlinked_dir(
         "header-unit" + group_name,
-        symlinked_files | {
+        symlinked_files
+        | {
             module_name: input_header,
             import_name: import_stub,
             "module.modulemap": modulemap_file,
@@ -1287,12 +1303,13 @@ module "{}" {{
     )
 
 def _precompile_single_cxx(
-        actions: AnalysisActions,
-        target_label: Label,
-        toolchain: CxxToolchainInfo,
-        impl_params: CxxRuleConstructorParams,
-        group_name: str,
-        src_compile_cmd: CxxSrcPrecompileCommand) -> HeaderUnit:
+    actions: AnalysisActions,
+    target_label: Label,
+    toolchain: CxxToolchainInfo,
+    impl_params: CxxRuleConstructorParams,
+    group_name: str,
+    src_compile_cmd: CxxSrcPrecompileCommand,
+) -> HeaderUnit:
     identifier = src_compile_cmd.src.short_path
     cxx_cmd = src_compile_cmd.cxx_compile_cmd
 
@@ -1399,12 +1416,13 @@ def _precompile_single_cxx(
     )
 
 def precompile_cxx(
-        actions: AnalysisActions,
-        target_label: Label,
-        toolchain: CxxToolchainInfo,
-        impl_params: CxxRuleConstructorParams,
-        preprocessors: list[CPreprocessor],
-        header_preprocessor_info: CPreprocessorInfo) -> list[CPreprocessor]:
+    actions: AnalysisActions,
+    target_label: Label,
+    toolchain: CxxToolchainInfo,
+    impl_params: CxxRuleConstructorParams,
+    preprocessors: list[CPreprocessor],
+    header_preprocessor_info: CPreprocessorInfo,
+) -> list[CPreprocessor]:
     """
     Produces header units for the target and returns a list of preprocessors enabling
     them; depending on those preprocessors will allow the corresponding module to load.
@@ -1518,10 +1536,12 @@ def cxx_objects_sub_targets(outs: list[CxxCompileOutput]) -> dict[str, list[Prov
         if obj.dist_cuda:
             sub_targets["nvcc-dag"] = [DefaultInfo(obj.dist_cuda.nvcc_dag)]
             sub_targets["nvcc-env"] = [DefaultInfo(obj.dist_cuda.nvcc_env)]
-        objects_sub_targets[obj.object.short_path] = [DefaultInfo(
-            obj.object,
-            sub_targets = sub_targets,
-        )]
+        objects_sub_targets[obj.object.short_path] = [
+            DefaultInfo(
+                obj.object,
+                sub_targets = sub_targets,
+            )
+        ]
     return objects_sub_targets
 
 def _validate_target_headers(label: Label, preprocessor: list[CPreprocessor]):
@@ -1657,8 +1677,7 @@ _compiler_type_flags_anon_rule = anon_rule(
     artifact_promise_mappings = {
         "argsfile": lambda x: x[DefaultInfo].default_outputs[0],
     },
-    doc = "Creates compiler flags argsfile for a given compiler type. " +
-          "The argsfile is shared between targets, thus reducing resource usage.",
+    doc = "Creates compiler flags argsfile for a given compiler type. " + "The argsfile is shared between targets, thus reducing resource usage.",
 )
 
 def create_cmd_args(is_nasm: bool, is_xcode_argsfile: bool, *args) -> cmd_args:
@@ -1670,8 +1689,8 @@ def create_cmd_args(is_nasm: bool, is_xcode_argsfile: bool, *args) -> cmd_args:
         return cmd_args(quote = "shell", *args)
 
 _PRECOMPILE_OPTION_IGNORE_REGEX_STR = (
-    "^(?:" +
-    "|".join([
+    "^(?:"
+    + "|".join([
         # Debug flags, which only affect debug symbols in the backend.
         "-f(?:no-)?debug-types-section",
         "-g(?:no-)?pubnames",
@@ -1683,8 +1702,8 @@ _PRECOMPILE_OPTION_IGNORE_REGEX_STR = (
         # Profiling flags, used for PGO in the backend.
         "-fdebug-info-for-profiling",
         "-fprofile-sample-use=.*",
-    ]) +
-    ")$"
+    ])
+    + ")$"
 )
 
 _PRECOMPILE_OPTION_IGNORE_REGEX = regex(_PRECOMPILE_OPTION_IGNORE_REGEX_STR)
@@ -1695,10 +1714,7 @@ def _filter_precompile_args(args: list[typing.Any]) -> list[typing.Any]:
 
     return filter(
         None,
-        [
-            _filter_precompile_args(arg) if type(arg) == type([]) else arg if not should_ignore(arg) else None
-            for arg in args
-        ],
+        [_filter_precompile_args(arg) if type(arg) == type([]) else arg if not should_ignore(arg) else None for arg in args],
     )
 
 def _filter_precompile_argsfile_anon_impl(ctx: AnalysisContext):
@@ -1728,17 +1744,18 @@ _filter_precompile_argsfile_anon_rule = anon_rule(
 )
 
 def _mk_argsfiles(
-        actions: AnalysisActions,
-        target_label: Label,
-        impl_params: CxxRuleConstructorParams,
-        compiler_info: typing.Any,
-        preprocessor: CPreprocessorInfo,
-        ext: CxxExtension,
-        headers_tag: ArtifactTag,
-        is_xcode_argsfile: bool,
-        is_precompile: bool = False,
-        filename_prefix: str = "",
-        uses_content_based_paths: bool = False) -> CompileArgsfile:
+    actions: AnalysisActions,
+    target_label: Label,
+    impl_params: CxxRuleConstructorParams,
+    compiler_info: typing.Any,
+    preprocessor: CPreprocessorInfo,
+    ext: CxxExtension,
+    headers_tag: ArtifactTag,
+    is_xcode_argsfile: bool,
+    is_precompile: bool = False,
+    filename_prefix: str = "",
+    uses_content_based_paths: bool = False,
+) -> CompileArgsfile:
     """
     Generate and return an {ext}.argsfile artifact and command args that utilize the argsfile.
     """
@@ -1784,11 +1801,14 @@ def _mk_argsfiles(
                 # AppleToolchain for C++20 modules. Update this if that changes.
                 fail("C++20 modules are not supported for AppleToolchain")
 
-            filtered_info_argsfile = actions.anon_target(_filter_precompile_argsfile_anon_rule, {
-                "allow_cache_upload": impl_params.allow_cache_upload,
-                "src": compiler_info_argsfile,
-                "_cxx_toolchain": impl_params._cxx_toolchain,
-            }).artifact("argsfile")
+            filtered_info_argsfile = actions.anon_target(
+                _filter_precompile_argsfile_anon_rule,
+                {
+                    "allow_cache_upload": impl_params.allow_cache_upload,
+                    "src": compiler_info_argsfile,
+                    "_cxx_toolchain": impl_params._cxx_toolchain,
+                },
+            ).artifact("argsfile")
             compiler_info_argsfile = actions.assert_has_content_based_path(filtered_info_argsfile)
 
         argsfiles.append(compiler_info_argsfile)
@@ -1800,11 +1820,14 @@ def _mk_argsfiles(
         compiler_type_flags = _add_compiler_type_flags(target_label, compiler_info.compiler_type, ext)
 
         if impl_params.anon_targets_allowed:
-            compiler_type_flags_anon_target = actions.anon_target(_compiler_type_flags_anon_rule, {
-                "compiler_type": compiler_info.compiler_type,
-                "is_xcode_argsfile": is_xcode_argsfile,
-                "src_extension": ext.value,
-            })
+            compiler_type_flags_anon_target = actions.anon_target(
+                _compiler_type_flags_anon_rule,
+                {
+                    "compiler_type": compiler_info.compiler_type,
+                    "is_xcode_argsfile": is_xcode_argsfile,
+                    "src_extension": ext.value,
+                },
+            )
             compiler_type_argsfile_artifact = compiler_type_flags_anon_target.artifact("argsfile")
         else:
             compiler_type_argsfile_artifact = mk_argsfile(
@@ -1847,10 +1870,12 @@ def _mk_argsfiles(
             deps_args,
             use_dep_files_placeholder_for_content_based_paths = True,
         )
-        argsfiles.append(cmd_args(
-            headers_tag.tag_artifacts(deps_argsfile_for_compiler),
-            hidden = deps_argsfile_for_buck_action_rerun,
-        ))
+        argsfiles.append(
+            cmd_args(
+                headers_tag.tag_artifacts(deps_argsfile_for_compiler),
+                hidden = deps_argsfile_for_buck_action_rerun,
+            )
+        )
         args_list.extend(deps_args)
 
     make_deps_argsfile()
@@ -1861,10 +1886,8 @@ def _mk_argsfiles(
             impl_params.preprocessor_flags,
             cxx_by_language_ext(impl_params.lang_preprocessor_flags, ext.value),
             get_flags_for_compiler_type(compiler_info.compiler_type),
-
             # compiler
             cxx_by_language_ext(impl_params.lang_compiler_flags, ext.value),
-
             # ctx.attrs.compiler_flags need to come last to preserve buck1 ordering, this prevents compiler
             # flags ordering-dependent build errors
             impl_params.compiler_flags,
@@ -1979,13 +2002,14 @@ def _mk_argsfiles(
     )
 
 def _mk_header_units_argsfile(
-        actions: AnalysisActions,
-        compiler_info: typing.Any,
-        preprocessor: CPreprocessorInfo,
-        ext: CxxExtension,
-        filename_prefix: str = "",
-        has_content_based_path: bool = False,
-        stub: bool = False) -> CompileArgsfile | None:
+    actions: AnalysisActions,
+    compiler_info: typing.Any,
+    preprocessor: CPreprocessorInfo,
+    ext: CxxExtension,
+    filename_prefix: str = "",
+    has_content_based_path: bool = False,
+    stub: bool = False,
+) -> CompileArgsfile | None:
     """
     Generate and return an argsfile artifact containing all header unit options, and
     command args that utilize the argsfile.
@@ -2047,14 +2071,15 @@ def get_compiler_type(ctx: AnalysisContext, ext: CxxExtension) -> typing.Any:
     return compiler_info.compiler_type
 
 def _generate_base_compile_command(
-        actions: AnalysisActions,
-        target_label: Label,
-        toolchain: CxxToolchainInfo,
-        impl_params: CxxRuleConstructorParams,
-        pre: CPreprocessorInfo,
-        headers_tag: ArtifactTag,
-        ext: CxxExtension,
-        filename_prefix: str = "") -> CxxCompileCommand:
+    actions: AnalysisActions,
+    target_label: Label,
+    toolchain: CxxToolchainInfo,
+    impl_params: CxxRuleConstructorParams,
+    pre: CPreprocessorInfo,
+    headers_tag: ArtifactTag,
+    ext: CxxExtension,
+    filename_prefix: str = "",
+) -> CxxCompileCommand:
     """
     Generate a common part of a compile command that is shared by all sources
     with a given extension.
@@ -2129,10 +2154,7 @@ def _generate_base_compile_command(
         allow_content_based_paths = allow_content_based_paths,
     )
 
-def _get_use_pch_args(
-        src_compile_cmd: CxxSrcCompileCommand,
-        compile_with_pch: CPrecompiledHeaderInfo,
-        precompiled_header: CPrecompiledHeaderInfo) -> cmd_args:
+def _get_use_pch_args(src_compile_cmd: CxxSrcCompileCommand, compile_with_pch: CPrecompiledHeaderInfo, precompiled_header: CPrecompiledHeaderInfo) -> cmd_args:
     if precompiled_header.clanguage != src_compile_cmd.src.extension:
         return cmd_args()
 
@@ -2144,18 +2166,17 @@ def _get_use_pch_args(
     elif src_compile_cmd.cxx_compile_cmd.compiler_type in ["clang"]:
         pch_args.add("-Xclang", "-include-pch", "-Xclang", compile_with_pch.header)
     else:
-        fail("Warning: Unsupported compiler type for precompiled header usage: {}".format(
-            src_compile_cmd.cxx_compile_cmd.compiler_type,
-        ))
+        fail(
+            "Warning: Unsupported compiler type for precompiled header usage: {}".format(
+                src_compile_cmd.cxx_compile_cmd.compiler_type,
+            )
+        )
 
     return pch_args
 
 def _declare_clang_trace_output(
-        toolchain: CxxToolchainInfo,
-        compiler_type: str,
-        actions: AnalysisActions,
-        filename_base: str,
-        content_based: bool) -> Artifact | None:
+    toolchain: CxxToolchainInfo, compiler_type: str, actions: AnalysisActions, filename_base: str, content_based: bool
+) -> Artifact | None:
     """
     Declares an output artifact for clang trace JSON file.
     """
@@ -2166,12 +2187,7 @@ def _declare_clang_trace_output(
         )
     return None
 
-def _declare_assembly(
-        actions: AnalysisActions,
-        compiler_type: str,
-        object_format: CxxObjectFormat,
-        filename_base: str,
-        content_based: bool) -> Artifact | None:
+def _declare_assembly(actions: AnalysisActions, compiler_type: str, object_format: CxxObjectFormat, filename_base: str, content_based: bool) -> Artifact | None:
     """
     Declares an output artifact for assembly or LLVM IR output file.
     Returns None for compilers that don't support the -S flag.

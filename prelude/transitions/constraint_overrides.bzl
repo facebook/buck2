@@ -15,7 +15,7 @@ load("@prelude//cfg/modifier:name.bzl", "cfg_name")
 #
 #       Because of this, the list of possible target platforms and constraint values is encoded
 #       here in the form of config settings with lists of comma-separated elements. Specifically,
-#       the configuration transition relies on the following config settings:
+#       the configuration transition relies on the following config settings:
 #
 #           * buck2.platforms
 #           * buck2.constraints
@@ -71,9 +71,7 @@ def _check(target: str) -> str:
     package, name = path.split(":")
     return "{cell}//{package}:{name}".format(cell = cell, package = package, name = name)
 
-def _resolve(
-        refs: struct,
-        attrs: struct) -> dict[str, PlatformInfo | list[ConstraintValueInfo] | None]:
+def _resolve(refs: struct, attrs: struct) -> dict[str, PlatformInfo | list[ConstraintValueInfo] | None]:
     """
     Validates and prepares arguments for business logic in constraint_overrides.apply, which
     implements the transition function.
@@ -95,43 +93,39 @@ def _resolve(
     """
     args = {}
 
-    # Resolve target platform override.
+    # Resolve target platform override.
     override = None
     if hasattr(attrs, "platform_override") and attrs.platform_override != None:
         override = _check(attrs.platform_override)
     args["platform"] = None
     if override:
         if not hasattr(refs, override):
-            fail("Target platform override not supported: {override}".format(
-                override = override,
-            ))
+            fail(
+                "Target platform override not supported: {override}".format(
+                    override = override,
+                )
+            )
         ref = getattr(refs, override)
         args["platform"] = ref[PlatformInfo]
 
-    # Resolve constraint value overrides.
+    # Resolve constraint value overrides.
     overrides = []
     if hasattr(attrs, "constraint_overrides") and attrs.constraint_overrides != None:
-        overrides = [
-            _check(override)
-            for override in attrs.constraint_overrides
-            if override != None
-        ]
+        overrides = [_check(override) for override in attrs.constraint_overrides if override != None]
     args["constraints"] = []
     for override in overrides:
         if not hasattr(refs, override):
-            fail("Constraint value override not supported: {override}".format(
-                override = override,
-            ))
+            fail(
+                "Constraint value override not supported: {override}".format(
+                    override = override,
+                )
+            )
         ref = getattr(refs, override)
         args["constraints"].append(ref[ConstraintValueInfo])
 
     return args
 
-def _apply(
-        old_platform: PlatformInfo,
-        *,
-        platform: PlatformInfo | None = None,
-        constraints: list[ConstraintValueInfo] = []) -> PlatformInfo:
+def _apply(old_platform: PlatformInfo, *, platform: PlatformInfo | None = None, constraints: list[ConstraintValueInfo] = []) -> PlatformInfo:
     """
     Applies the business logic to implement the constraint_overrides configuration transition.
 
@@ -162,25 +156,15 @@ def _apply(
         Outgoing target platform.
     """
 
-    # Store passthrough constraint values.
-    old_constraints = {
-        str(setting): constraint
-        for setting, constraint in old_platform.configuration.constraints.items()
-    }
-    old_constraints = [
-        old_constraints[setting]
-        for setting in _passthrough_constraints()
-        if setting in old_constraints
-    ]
+    # Store passthrough constraint values.
+    old_constraints = {str(setting): constraint for setting, constraint in old_platform.configuration.constraints.items()}
+    old_constraints = [old_constraints[setting] for setting in _passthrough_constraints() if setting in old_constraints]
 
-    # Switch target platform.
+    # Switch target platform.
     platform = platform or old_platform
 
-    # Add passthrough constraint values and apply constraint value overrides.
-    new_constraints = {
-        label: constraint
-        for label, constraint in platform.configuration.constraints.items()
-    }
+    # Add passthrough constraint values and apply constraint value overrides.
+    new_constraints = {label: constraint for label, constraint in platform.configuration.constraints.items()}
     for constraint in old_constraints:
         new_constraints[constraint.setting.label] = constraint
     for constraint in constraints:

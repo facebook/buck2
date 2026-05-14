@@ -8,18 +8,13 @@
 
 load("@prelude//java:dex_toolchain.bzl", "DexToolchainInfo")
 
-def system_noop_dex_toolchain(
-        name,
-        visibility = None):
+def system_noop_dex_toolchain(name, visibility = None):
     _dex_toolchain_rule(
         name = name,
         visibility = visibility,
     )
 
-def system_dex_toolchain(
-        name,
-        android_sdk_tools_target,
-        visibility = None):
+def system_dex_toolchain(name, android_sdk_tools_target, visibility = None):
     _dex_toolchain_rule(
         name = name,
         android_jar = "{}[android.jar]".format(android_sdk_tools_target),

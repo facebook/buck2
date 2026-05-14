@@ -40,10 +40,12 @@ def command_alias_impl(ctx: AnalysisContext):
     #
     # FIXME(JakobDegen): It's easy to end up depending on either one of these behaviors. Life would
     # probably be easier if we just always went the `output.cmd` route
-    if output.maybe_directly_runnable == None or \
-       ctx.attrs.run_using_single_arg or \
-       ctx.attrs.executable_name != None or \
-       (len(ctx.attrs.platform_exe) > 0 and target_os.script == ScriptLanguage("sh")):
+    if (
+        output.maybe_directly_runnable == None
+        or ctx.attrs.run_using_single_arg
+        or ctx.attrs.executable_name != None
+        or (len(ctx.attrs.platform_exe) > 0 and target_os.script == ScriptLanguage("sh"))
+    ):
         run_info = RunInfo(args = output.cmd)
     else:
         run_info = RunInfo(args = output.maybe_directly_runnable)
@@ -88,19 +90,20 @@ CommandAliasOutput = record(
 )
 
 def command_alias(
-        *,
-        actions: AnalysisActions,
-        # The path at which to write the output to, without an extension - that will be added
-        path: str | None,
-        # The target where this script should be able to run (this may actually be your exec platform)
-        target_os: OsLookup,
-        # Either the `RunInfo` to use, or in the case of a fat platform, the choice of `RunInfo`
-        # depending on `uname`
-        base: RunInfo | dict[str, RunInfo],
-        args: cmd_args,
-        env: dict[str, ArgLike],
-        labels: list[str],
-        has_content_based_path: bool = False) -> CommandAliasOutput:
+    *,
+    actions: AnalysisActions,
+    # The path at which to write the output to, without an extension - that will be added
+    path: str | None,
+    # The target where this script should be able to run (this may actually be your exec platform)
+    target_os: OsLookup,
+    # Either the `RunInfo` to use, or in the case of a fat platform, the choice of `RunInfo`
+    # depending on `uname`
+    base: RunInfo | dict[str, RunInfo],
+    args: cmd_args,
+    env: dict[str, ArgLike],
+    labels: list[str],
+    has_content_based_path: bool = False,
+) -> CommandAliasOutput:
     if path == "":
         fail("Path cannot be empty string")
 
@@ -138,12 +141,8 @@ def command_alias(
     )
 
 def _command_alias_write_trampoline_unix(
-        actions: AnalysisActions,
-        path: str,
-        base: RunInfo | dict[str, RunInfo],
-        args: cmd_args,
-        env: dict[str, ArgLike],
-        has_content_based_path: bool) -> (Artifact, cmd_args):
+    actions: AnalysisActions, path: str, base: RunInfo | dict[str, RunInfo], args: cmd_args, env: dict[str, ArgLike], has_content_based_path: bool
+) -> (Artifact, cmd_args):
     trampoline_args = cmd_args()
     trampoline_args.add("#!/usr/bin/env bash")
     trampoline_args.add("set -euo pipefail")
@@ -192,7 +191,7 @@ done
 """,
     )
 
-    for (k, v) in env.items():
+    for k, v in env.items():
         # TODO(akozhevnikov): maybe check environment variable is not conflicting with pre-existing one
         trampoline_args.add(cmd_args("export ", k, "=", cmd_args(v, quote = "shell"), delimiter = ""))
         trampoline_args.add(cmd_args("export ", k, '="${', k, '//BUCK_COMMAND_ALIAS_ABSOLUTE_PREFIX/$BASE}"', delimiter = ""))
@@ -216,13 +215,8 @@ done
     return trampoline, trampoline_args
 
 def _command_alias_write_trampoline_windows(
-        actions: AnalysisActions,
-        path: str,
-        base: RunInfo,
-        args: cmd_args,
-        env: dict[str, ArgLike],
-        labels: list[str],
-        has_content_based_path: bool) -> (Artifact, cmd_args):
+    actions: AnalysisActions, path: str, base: RunInfo, args: cmd_args, env: dict[str, ArgLike], labels: list[str], has_content_based_path: bool
+) -> (Artifact, cmd_args):
     trampoline_args = cmd_args()
     trampoline_args.add("@echo off")
 
@@ -237,7 +231,7 @@ def _command_alias_write_trampoline_windows(
     trampoline_args.add("set BUCK_COMMAND_ALIAS_ABSOLUTE=%~dp0")
 
     # Handle envs
-    for (k, v) in env.items():
+    for k, v in env.items():
         # TODO(akozhevnikov): maybe check environment variable is not conflicting with pre-existing one
         trampoline_args.add(cmd_args(["set ", k, "=", v], delimiter = ""))
 

@@ -21,8 +21,23 @@ load(
 )
 load(":apple_bundle_destination.bzl", "AppleBundleDestination")
 load(":apple_bundle_part.bzl", "AppleBundleCodesignManifestTreePart", "AppleBundlePart", "AppleBundleSigningContextTreePart")
-load(":apple_bundle_types.bzl", "AppleBundleInfo", "AppleBundleTypeAppClip", "AppleBundleTypeDefault", "AppleBundleTypeExtensionKitExtension", "AppleBundleTypeWatchApp")
-load(":apple_bundle_utility.bzl", "get_bundle_resource_processing_options", "get_default_binary_dep", "get_extension_attr", "get_flattened_binary_deps", "get_is_watch_bundle", "get_product_name")
+load(
+    ":apple_bundle_types.bzl",
+    "AppleBundleInfo",
+    "AppleBundleTypeAppClip",
+    "AppleBundleTypeDefault",
+    "AppleBundleTypeExtensionKitExtension",
+    "AppleBundleTypeWatchApp",
+)
+load(
+    ":apple_bundle_utility.bzl",
+    "get_bundle_resource_processing_options",
+    "get_default_binary_dep",
+    "get_extension_attr",
+    "get_flattened_binary_deps",
+    "get_is_watch_bundle",
+    "get_product_name",
+)
 load(":apple_core_data.bzl", "compile_apple_core_data")
 load(":apple_info_plist.bzl", "process_info_plist", "process_plist")
 load(":apple_library.bzl", "AppleLibraryForDistributionInfo")
@@ -71,10 +86,7 @@ def get_apple_bundle_resource_part_list(ctx: AnalysisContext) -> AppleBundleReso
     if cxx_resources:
         cxx_res_dir = ctx.actions.copied_dir(
             "CxxResources",
-            {
-                name: resource.default_output
-                for name, resource in cxx_resources.items()
-            },
+            {name: resource.default_output for name, resource in cxx_resources.items()},
             has_content_based_path = False,
         )
         selection.resource_specs.append(
@@ -204,7 +216,8 @@ def _copy_swift_library_evolution_support(ctx: AnalysisContext) -> list[AppleBun
             })
             if not getattr(ctx.attrs, "skip_private_swiftinterface", False):
                 swiftmodule_files.update({
-                    apple_library_for_distribution_info.target_triple + ".private.swiftinterface": apple_library_for_distribution_info.private_swiftinterface,
+                    apple_library_for_distribution_info.target_triple
+                    + ".private.swiftinterface": apple_library_for_distribution_info.private_swiftinterface,
                 })
         if apple_library_for_distribution_info.swiftdoc != None:
             swiftmodule_files.update({
@@ -273,12 +286,14 @@ def _create_framework_module_map(ctx: AnalysisContext) -> Artifact:
     headers = _public_headers(ctx)
     cheaders = []
     for header in headers:
-        cheaders.append(CHeader(
-            artifact = header,
-            name = header.basename,
-            namespace = "",
-            named = False,
-        ))
+        cheaders.append(
+            CHeader(
+                artifact = header,
+                name = header.basename,
+                namespace = "",
+                named = False,
+            )
+        )
 
     module_name = apple_library_for_distribution_info.module_name
     preprocessor_info = create_modulemap(
@@ -307,22 +322,27 @@ def _copy_resources(ctx: AnalysisContext, specs: list[AppleResourceSpec]) -> lis
 
     for spec in specs:
         bundle_destination = apple_bundle_destination_from_resource_destination(spec.destination)
-        result += [_process_apple_resource_file_if_needed(
-            ctx = ctx,
-            file = single_artifact(x).default_output,
-            destination = bundle_destination,
-            destination_relative_path = None,
-            codesign_on_copy = spec.codesign_files_on_copy,
-            codesign_entitlements = spec.codesign_entitlements,
-            codesign_flags_override = spec.codesign_flags_override,
-        ) for x in spec.files]
+        result += [
+            _process_apple_resource_file_if_needed(
+                ctx = ctx,
+                file = single_artifact(x).default_output,
+                destination = bundle_destination,
+                destination_relative_path = None,
+                codesign_on_copy = spec.codesign_files_on_copy,
+                codesign_entitlements = spec.codesign_entitlements,
+                codesign_flags_override = spec.codesign_flags_override,
+            )
+            for x in spec.files
+        ]
         result += _bundle_parts_for_dirs(spec.dirs, bundle_destination, False)
         result += _bundle_parts_for_dirs(spec.content_dirs, bundle_destination, True)
         result += _bundle_parts_for_variant_files(ctx, spec)
 
     return result
 
-def _copy_first_level_bundles(ctx: AnalysisContext) -> (list[AppleBundlePart], list[AppleBundleCodesignManifestTreePart], list[AppleBundleSigningContextTreePart]):
+def _copy_first_level_bundles(
+    ctx: AnalysisContext,
+) -> (list[AppleBundlePart], list[AppleBundleCodesignManifestTreePart], list[AppleBundleSigningContextTreePart]):
     first_level_bundle_infos = filter(None, [dep.get(AppleBundleInfo) for dep in ctx.attrs.deps])
 
     bundle_parts = []
@@ -333,15 +353,19 @@ def _copy_first_level_bundles(ctx: AnalysisContext) -> (list[AppleBundlePart], l
         if first_level_part != None:
             bundle_parts.append(first_level_part)
             if bundle_info.codesign_manifest_tree:
-                codesign_manifest_parts.append(AppleBundleCodesignManifestTreePart(
-                    bundle_part = first_level_part,
-                    codesign_manifest_tree = bundle_info.codesign_manifest_tree,
-                ))
+                codesign_manifest_parts.append(
+                    AppleBundleCodesignManifestTreePart(
+                        bundle_part = first_level_part,
+                        codesign_manifest_tree = bundle_info.codesign_manifest_tree,
+                    )
+                )
             if bundle_info.signing_context_tree:
-                signing_context_parts.append(AppleBundleSigningContextTreePart(
-                    bundle_part = first_level_part,
-                    signing_context_tree = bundle_info.signing_context_tree,
-                ))
+                signing_context_parts.append(
+                    AppleBundleSigningContextTreePart(
+                        bundle_part = first_level_part,
+                        signing_context_tree = bundle_info.signing_context_tree,
+                    )
+                )
 
     return bundle_parts, codesign_manifest_parts, signing_context_parts
 
@@ -399,11 +423,14 @@ def _copied_bundle_spec(bundle_info: AppleBundleInfo) -> [None, AppleBundlePart]
     )
 
 def _bundle_parts_for_dirs(generated_dirs: list[Artifact], destination: AppleBundleDestination, copy_contents_only: bool) -> list[AppleBundlePart]:
-    return [AppleBundlePart(
-        source = generated_dir,
-        destination = destination,
-        new_name = "" if copy_contents_only else None,
-    ) for generated_dir in generated_dirs]
+    return [
+        AppleBundlePart(
+            source = generated_dir,
+            destination = destination,
+            new_name = "" if copy_contents_only else None,
+        )
+        for generated_dir in generated_dirs
+    ]
 
 def _bundle_parts_for_variant_files(ctx: AnalysisContext, spec: AppleResourceSpec) -> list[AppleBundlePart]:
     result = []
@@ -436,13 +463,14 @@ def _bundle_parts_for_variant_files(ctx: AnalysisContext, spec: AppleResourceSpe
     return result
 
 def _run_ibtool(
-        ctx: AnalysisContext,
-        raw_file: Artifact,
-        output: OutputArtifact,
-        action_flags: list[str],
-        target_device: [None, str],
-        action_identifier: str,
-        output_is_dir: bool) -> None:
+    ctx: AnalysisContext,
+    raw_file: Artifact,
+    output: OutputArtifact,
+    action_flags: list[str],
+    target_device: [None, str],
+    action_identifier: str,
+    output_is_dir: bool,
+) -> None:
     # TODO(T110378103): detect and add minimum deployment target automatically
     # TODO(T110378113): add support for ibtool modules (turned on by `ibtool_module_flag` field of `apple_bundle` rule)
 
@@ -502,11 +530,8 @@ def _ibtool_identifier(action: str, raw_file: Artifact) -> str:
     return "ibtool_" + action + " " + "/".join(identifier_parts)
 
 def _compile_ui_resource(
-        ctx: AnalysisContext,
-        raw_file: Artifact,
-        output: OutputArtifact,
-        target_device: [None, str] = None,
-        output_is_dir: bool = False) -> None:
+    ctx: AnalysisContext, raw_file: Artifact, output: OutputArtifact, target_device: [None, str] = None, output_is_dir: bool = False
+) -> None:
     _run_ibtool(
         ctx = ctx,
         raw_file = raw_file,
@@ -517,12 +542,7 @@ def _compile_ui_resource(
         output_is_dir = output_is_dir,
     )
 
-def _link_ui_resource(
-        ctx: AnalysisContext,
-        raw_file: Artifact,
-        output: OutputArtifact,
-        target_device: [None, str] = None,
-        output_is_dir: bool = False) -> None:
+def _link_ui_resource(ctx: AnalysisContext, raw_file: Artifact, output: OutputArtifact, target_device: [None, str] = None, output_is_dir: bool = False) -> None:
     _run_ibtool(
         ctx = ctx,
         raw_file = raw_file,
@@ -534,13 +554,14 @@ def _link_ui_resource(
     )
 
 def _process_apple_resource_file_if_needed(
-        ctx: AnalysisContext,
-        file: Artifact,
-        destination: AppleBundleDestination,
-        destination_relative_path: [str, None],
-        codesign_on_copy: bool = False,
-        codesign_entitlements: Artifact | None = None,
-        codesign_flags_override: list[str] | None = None) -> AppleBundlePart:
+    ctx: AnalysisContext,
+    file: Artifact,
+    destination: AppleBundleDestination,
+    destination_relative_path: [str, None],
+    codesign_on_copy: bool = False,
+    codesign_entitlements: Artifact | None = None,
+    codesign_flags_override: list[str] | None = None,
+) -> AppleBundlePart:
     output_dir = "_ProcessedResources"
     basename = paths.basename(file.short_path)
     output_is_contents_dir = False
@@ -555,11 +576,15 @@ def _process_apple_resource_file_if_needed(
     elif basename.endswith(".storyboard"):
         if destination_relative_path:
             destination_relative_path = paths.replace_extension(destination_relative_path, ".storyboardc")
-        compiled = ctx.actions.declare_output(paths.join(output_dir, paths.replace_extension(file.short_path, ".storyboardc")), dir = True, has_content_based_path = False)
+        compiled = ctx.actions.declare_output(
+            paths.join(output_dir, paths.replace_extension(file.short_path, ".storyboardc")), dir = True, has_content_based_path = False
+        )
         if get_is_watch_bundle(ctx):
             output_is_contents_dir = True
             _compile_ui_resource(ctx = ctx, raw_file = file, output = compiled.as_output(), target_device = "watch")
-            processed = ctx.actions.declare_output(paths.join(output_dir, paths.replace_extension(file.short_path, "_linked_storyboard")), dir = True, has_content_based_path = False)
+            processed = ctx.actions.declare_output(
+                paths.join(output_dir, paths.replace_extension(file.short_path, "_linked_storyboard")), dir = True, has_content_based_path = False
+            )
             _link_ui_resource(ctx = ctx, raw_file = compiled, output = processed.as_output(), target_device = "watch", output_is_dir = True)
         else:
             processed = compiled
@@ -575,7 +600,14 @@ def _process_apple_resource_file_if_needed(
     # When name is empty string only content of the directory will be copied, as opposed to the directory itself.
     # When name is `None`, directory or file will be copied as it is, without renaming.
     new_name = destination_relative_path if destination_relative_path else ("" if output_is_contents_dir else None)
-    return AppleBundlePart(source = processed, destination = destination, new_name = new_name, codesign_on_copy = codesign_on_copy, codesign_entitlements = codesign_entitlements, codesign_flags_override = codesign_flags_override)
+    return AppleBundlePart(
+        source = processed,
+        destination = destination,
+        new_name = new_name,
+        codesign_on_copy = codesign_on_copy,
+        codesign_entitlements = codesign_entitlements,
+        codesign_flags_override = codesign_flags_override,
+    )
 
 # Returns a path relative to the _parent_ of the lproj dir.
 # For example, given a variant file with a short path of`XX/YY.lproj/ZZ`

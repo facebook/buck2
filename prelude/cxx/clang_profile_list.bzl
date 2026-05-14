@@ -6,9 +6,11 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-ClangProfileListInfo = provider(fields = {
-    "profile_list": provider_field(Artifact),
-})
+ClangProfileListInfo = provider(
+    fields = {
+        "profile_list": provider_field(Artifact),
+    }
+)
 
 def get_coverage_profile_list_artifact(dep: [Dependency, None]) -> [Artifact, None]:
     """Extract the profile list artifact from a clang_profile_list dependency."""

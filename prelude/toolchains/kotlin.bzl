@@ -9,10 +9,7 @@
 load("@prelude//java:java_toolchain.bzl", "DepFiles")
 load("@prelude//kotlin:kotlin_toolchain.bzl", "KotlinToolchainInfo", "KotlincProtocol")
 
-def kotlincd_toolchain(
-        name,
-        java_binary_for_kotlincd = None,
-        visibility = None):
+def kotlincd_toolchain(name, java_binary_for_kotlincd = None, visibility = None):
     _kotlin_toolchain_rule(
         java_binary_for_kotlincd = java_binary_for_kotlincd,
         name = name,
@@ -41,9 +38,7 @@ def kotlincd_toolchain(
         visibility = visibility,
     )
 
-def system_kotlin_bootstrap_toolchain(
-        name,
-        visibility = None):
+def system_kotlin_bootstrap_toolchain(name, visibility = None):
     _kotlin_toolchain_rule(
         name = name,
         annotation_processing_jar = "prelude//toolchains/android/third-party:kotlin-annotation-processing-embeddable",
