@@ -12,6 +12,7 @@
 import asyncio
 import json
 import os
+import signal
 from pathlib import Path
 from typing import Any, Optional
 
@@ -239,6 +240,24 @@ async def test_lsp_exits_when_daemon_disappears(buck: Buck) -> None:
         await buck.kill()
 
         exited = await _wait_for_exit(lsp.process, timeout=10)
+        assert exited
+        assert lsp.process.returncode is not None
+    finally:
+        await _kill_if_alive(lsp.process)
+
+
+@buck_test(skip_for_os=["windows"])
+async def test_lsp_exits_when_daemon_is_killed(buck: Buck) -> None:
+    await buck.server()
+    status = await buck.status()
+    pid = json.loads(status.stdout)["process_info"]["pid"]
+
+    lsp = await buck.lsp()
+    try:
+        await lsp.init_connection()
+        os.kill(pid, signal.SIGKILL)
+
+        exited = await _wait_for_exit(lsp.process, timeout=8)
         assert exited
         assert lsp.process.returncode is not None
     finally:
