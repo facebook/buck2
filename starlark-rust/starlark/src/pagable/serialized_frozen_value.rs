@@ -26,45 +26,33 @@ use crate::pagable::heap_ref_id::HeapRefId;
 use crate::pagable::static_value::StaticValueId;
 use crate::values::layout::heap::arena::ArenaOffset;
 
-/// Wire representation of a `FrozenValue`.
-///
-/// Each variant describes a different kind of `FrozenValue` encoding.
+/// Wire representation of a `FrozenValue`. Heap pointers always carry
+/// an explicit `heap_id` so the encoding doesn't depend on which heap
+/// is currently being (de)serialized.
 #[derive(Debug)]
 pub(super) enum SerializedFrozenValue {
-    /// Pointer to a value in the current heap.
-    SameHeapPtr { offset: ArenaOffset, is_str: bool },
-    /// Pointer to a value in a different (referenced) heap.
-    CrossHeapPtr {
+    HeapPtr {
         heap_id: HeapRefId,
         offset: ArenaOffset,
         is_str: bool,
     },
-    /// Inline integer (not a heap pointer).
     InlineInt(i32),
-    /// A statically-allocated value (not on any heap).
     Static(StaticValueId),
 }
 
-/// Tag bytes for the wire format.
-const TAG_SAME_HEAP_PTR: u8 = 0;
+const TAG_HEAP_PTR: u8 = 0;
 const TAG_INLINE_INT: u8 = 1;
-const TAG_CROSS_HEAP_PTR: u8 = 2;
-const TAG_STATIC: u8 = 3;
+const TAG_STATIC: u8 = 2;
 
 impl PagableSerialize for SerializedFrozenValue {
     fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
         match self {
-            SerializedFrozenValue::SameHeapPtr { offset, is_str } => {
-                TAG_SAME_HEAP_PTR.pagable_serialize(serializer)?;
-                offset.pagable_serialize(serializer)?;
-                is_str.pagable_serialize(serializer)?;
-            }
-            SerializedFrozenValue::CrossHeapPtr {
+            SerializedFrozenValue::HeapPtr {
                 heap_id,
                 offset,
                 is_str,
             } => {
-                TAG_CROSS_HEAP_PTR.pagable_serialize(serializer)?;
+                TAG_HEAP_PTR.pagable_serialize(serializer)?;
                 heap_id.pagable_serialize(serializer)?;
                 offset.pagable_serialize(serializer)?;
                 is_str.pagable_serialize(serializer)?;
@@ -88,16 +76,11 @@ impl<'de> PagableDeserialize<'de> for SerializedFrozenValue {
     ) -> pagable::Result<Self> {
         let tag = u8::pagable_deserialize(deserializer)?;
         match tag {
-            TAG_SAME_HEAP_PTR => {
-                let offset = ArenaOffset::pagable_deserialize(deserializer)?;
-                let is_str = bool::pagable_deserialize(deserializer)?;
-                Ok(SerializedFrozenValue::SameHeapPtr { offset, is_str })
-            }
-            TAG_CROSS_HEAP_PTR => {
+            TAG_HEAP_PTR => {
                 let heap_id = HeapRefId::pagable_deserialize(deserializer)?;
                 let offset = ArenaOffset::pagable_deserialize(deserializer)?;
                 let is_str = bool::pagable_deserialize(deserializer)?;
-                Ok(SerializedFrozenValue::CrossHeapPtr {
+                Ok(SerializedFrozenValue::HeapPtr {
                     heap_id,
                     offset,
                     is_str,

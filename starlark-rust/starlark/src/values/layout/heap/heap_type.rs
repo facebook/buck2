@@ -486,8 +486,7 @@ impl FrozenFrozenHeap {
         state.ensure_offset_maps_registered_inner(heap_id, &self.refs, || {
             self.arena.build_ptr_to_offset_map()
         });
-        // Create local StarlarkSerializerImpl with shared state.
-        let mut ctx = StarlarkSerializerImpl::new(serializer, state, heap_id);
+        let mut ctx = StarlarkSerializerImpl::new(serializer, state);
 
         // Serialize value data, recording start cursor per value.
         let mut entry_cursors: Vec<(u32, u32)> = Vec::with_capacity(table_entry_count);
@@ -538,7 +537,6 @@ impl FrozenFrozenHeap {
         let mut ctx = StarlarkDeserializerImpl::new(
             deserializer.as_dyn(),
             state.dupe(),
-            heap_id,
             Arc::new(Mutex::new(deser_state)),
         );
 

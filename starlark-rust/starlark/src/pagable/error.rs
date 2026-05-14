@@ -44,14 +44,10 @@ pub enum PagableError {
         actual_bytes: u32,
     },
 
-    /// Heap bases not registered for current heap.
-    #[error("Heap bases not registered for current heap")]
-    HeapBasesNotRegistered,
-
-    /// Heap bases not registered for a referenced (cross-heap) heap.
-    #[error("Heap bases not registered for referenced heap {heap_id:?}")]
-    CrossHeapBasesNotRegistered {
-        /// The HeapRefId of the referenced heap whose bases were not found.
+    /// Heap bases not registered for the heap a `FrozenValue` resolves to.
+    #[error("Heap bases not registered for heap {heap_id:?}")]
+    HeapBasesNotRegistered {
+        /// The HeapRefId whose bases were not found.
         heap_id: crate::pagable::heap_ref_id::HeapRefId,
     },
 

@@ -125,8 +125,8 @@ impl DeserializeRecipe {
     }
 }
 
-/// Tracks deserialization state for all values in a heap.
-/// Acts as a work queue — each value can be "claimed" for deserialization exactly once.
+/// Per-value init state for a heap. Each value can be claimed for
+/// deserialization exactly once.
 pub(crate) struct HeapDeserializationState {
     /// All values in this heap.
     slots: Vec<ValueDeserSlot>,
@@ -243,29 +243,27 @@ impl StarlarkDeserState {
 
 /// Concrete implementation of StarlarkDeserializeContext.
 ///
-/// Wraps a `PagableDeserializer` and a shared `StarlarkDeserState` to provide
-/// FrozenValue deserialization with same-heap and cross-heap reference resolution.
+/// Wraps a `PagableDeserializer` and a shared `StarlarkDeserState` to
+/// resolve `FrozenValue` references during deserialization.
 pub struct StarlarkDeserializerImpl<'a, 'de> {
     pagable: &'a mut dyn PagableDeserializer<'de>,
-    /// Shared state for cross-heap base lookups.
+    /// Shared state for heap-base lookups across all heaps.
     state: Arc<StarlarkDeserState>,
-    /// The HeapRefId of the heap currently being deserialized.
-    current_heap_id: HeapRefId,
-    /// Current heap value tracking for ensure_initialized.
-    /// Stored as `Arc<Mutex<...>>` so nested deserializers entering via
-    /// [`StarlarkDeserializerImpl::recover_from_pagable`] can share the same work queue and
-    /// forward references resolve correctly across the nesting context.
+    /// Current heap's per-value init tracking, used by
+    /// `ensure_initialized` to resolve same-heap pointers that target
+    /// values not yet deserialized. Shared via `Arc<Mutex<...>>` so
+    /// nested deserializers entering via
+    /// [`StarlarkDeserializerImpl::recover_from_pagable`] see the
+    /// same state.
     current_heap_deser_state: Arc<Mutex<HeapDeserializationState>>,
 }
 
-/// Bundle of "currently-deserializing heap" data stored in the deserialize
-/// session context so it survives trips through pure `PagableDeserializer`
-/// layers. Pairs `heap_id` with the heap's `HeapDeserializationState` so
-/// nested deserializers (e.g. via [`StarlarkDeserializerImpl::recover_from_pagable`]) see
-/// the same forward-reference work queue as the outer flow.
+/// "Currently-deserializing heap" handle stashed in the deserialize
+/// session context so nested deserializers entering via
+/// [`StarlarkDeserializerImpl::recover_from_pagable`] share the same
+/// per-heap init state.
 #[derive(Clone, Dupe)]
 pub(crate) struct CurrentHeapDeserState {
-    pub(crate) heap_id: HeapRefId,
     pub(crate) deser_state: Arc<Mutex<HeapDeserializationState>>,
 }
 
@@ -286,29 +284,22 @@ impl<'a, 'de> StarlarkDeserializerImpl<'a, 'de> {
                 )
             })?;
         let state = Self::get_or_create_state(deserializer);
-        Ok(Self::new(
-            deserializer,
-            state,
-            current.heap_id,
-            current.deser_state,
-        ))
+        Ok(Self::new(deserializer, state, current.deser_state))
     }
 
-    /// Create a new deserializer with shared state and current heap id.
+    /// Create a new deserializer with shared state and the current
+    /// heap's per-value init tracking.
     pub(crate) fn new(
         pagable: &'a mut dyn PagableDeserializer<'de>,
         state: Arc<StarlarkDeserState>,
-        current_heap_id: HeapRefId,
         current_heap_deser_state: Arc<Mutex<HeapDeserializationState>>,
     ) -> Self {
         pagable.session_context().set(CurrentHeapDeserState {
-            heap_id: current_heap_id,
             deser_state: current_heap_deser_state.dupe(),
         });
         Self {
             pagable,
             state,
-            current_heap_id,
             current_heap_deser_state,
         }
     }
@@ -322,9 +313,9 @@ impl<'a, 'de> StarlarkDeserializerImpl<'a, 'de> {
             .get_or_insert_with(|| Arc::new(StarlarkDeserState::new()))
     }
 
-    /// Read the currently-deserializing heap context (id + work queue) from
-    /// the session context. Returns `None` if no outer heap deserialization
-    /// has set it up.
+    /// Read the currently-deserializing heap context from the session
+    /// context. Returns `None` if no outer heap deserialization has
+    /// set it up.
     pub(crate) fn current_heap_deser_state_from_context(
         deserializer: &mut dyn PagableDeserializer<'_>,
     ) -> Option<CurrentHeapDeserState> {
@@ -350,21 +341,7 @@ impl<'de> StarlarkDeserializeContext<'de> for StarlarkDeserializerImpl<'_, 'de> 
     fn deserialize_frozen_value(&mut self) -> crate::Result<FrozenValue> {
         let serialized = SerializedFrozenValue::pagable_deserialize(self.pagable)?;
         match serialized {
-            SerializedFrozenValue::SameHeapPtr { offset, is_str } => {
-                let heap_id = self.current_heap_id;
-                let bases = self
-                    .state
-                    .heap_bases
-                    .get(&heap_id)
-                    .ok_or(PagableError::HeapBasesNotRegistered)?;
-                let ptr = bases.resolve(&offset);
-                let header = unsafe { &*(ptr as *const AValueHeader) };
-                let fv = FrozenValue::new_ptr(header, is_str);
-                drop(bases);
-                self.ensure_initialized(fv)?;
-                Ok(fv)
-            }
-            SerializedFrozenValue::CrossHeapPtr {
+            SerializedFrozenValue::HeapPtr {
                 heap_id,
                 offset,
                 is_str,
@@ -373,10 +350,13 @@ impl<'de> StarlarkDeserializeContext<'de> for StarlarkDeserializerImpl<'_, 'de> 
                     .state
                     .heap_bases
                     .get(&heap_id)
-                    .ok_or(PagableError::CrossHeapBasesNotRegistered { heap_id })?;
+                    .ok_or(PagableError::HeapBasesNotRegistered { heap_id })?;
                 let ptr = bases.resolve(&offset);
                 let header = unsafe { &*(ptr as *const AValueHeader) };
-                Ok(FrozenValue::new_ptr(header, is_str))
+                let fv = FrozenValue::new_ptr(header, is_str);
+                drop(bases);
+                self.ensure_initialized(fv)?;
+                Ok(fv)
             }
             SerializedFrozenValue::InlineInt(v) => {
                 let inline = InlineInt::try_from(v)
@@ -395,6 +375,9 @@ impl<'de> StarlarkDeserializeContext<'de> for StarlarkDeserializerImpl<'_, 'de> 
     fn ensure_initialized(&mut self, fv: FrozenValue) -> crate::Result<()> {
         let idx = match self.current_heap_deser_state().find_by_frozen_value(fv) {
             Some(idx) => idx,
+            // `fv` is not in the heap currently being deserialized —
+            // it points into another (already-deserialized) heap, so
+            // there's nothing to initialize.
             None => return Ok(()),
         };
 

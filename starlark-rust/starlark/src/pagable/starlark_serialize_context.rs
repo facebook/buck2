@@ -23,7 +23,6 @@ use std::sync::Arc;
 use dashmap::DashMap;
 use pagable::PagableSerialize;
 use pagable::PagableSerializer;
-use starlark_syntax::internal_error;
 
 use crate::pagable::heap_ref_id::HeapRefId;
 use crate::pagable::serialized_frozen_value::SerializedFrozenValue;
@@ -96,56 +95,28 @@ impl StarlarkSerState {
 
 /// Concrete implementation of StarlarkSerializeContext.
 ///
-/// Wraps a `PagableSerializer` and a shared `StarlarkSerState` to provide
-/// FrozenValue serialization with same-heap and cross-heap reference resolution.
+/// Wraps a `PagableSerializer` and a shared `StarlarkSerState` to
+/// resolve `FrozenValue` references during serialization.
 pub struct StarlarkSerializerImpl<'a> {
     pagable: &'a mut dyn PagableSerializer,
-    /// Shared state for cross-heap offset map lookups.
+    /// Shared state for heap offset map lookups across all heaps.
     state: Arc<StarlarkSerState>,
-    /// The HeapRefId of the heap currently being serialized.
-    current_heap_id: HeapRefId,
 }
-
-/// Wrapper type for storing the current heap id in the session context so it
-/// survives trips through pure `PagableSerializer` layers (e.g. when
-/// `#[starlark_pagable(pagable)]` routes a field through `PagableSerialize`
-/// and the concrete impl needs to re-enter the starlark context).
-#[derive(Clone, Copy)]
-pub(crate) struct CurrentHeapId(pub HeapRefId);
 
 impl<'a> StarlarkSerializerImpl<'a> {
     /// Recover a `StarlarkSerializerImpl` after a hop through a pagable-only
-    /// boundary (typically `serialize_arc`). Reads the current heap id that
-    /// was stashed in the session before the hop, so the inner serialize
-    /// body can resolve `FrozenValue` references against the same heap as
-    /// the outer call.
-    ///
-    /// Errors if no outer heap serialization is in progress.
+    /// boundary (typically `serialize_arc`).
     pub fn recover_from_pagable(serializer: &'a mut dyn PagableSerializer) -> crate::Result<Self> {
-        let heap_id = Self::current_heap_id_from_context(serializer).ok_or_else(|| {
-            internal_error!(
-                "recover_from_pagable called outside of starlark heap serialization: \
-                 no current heap id in session context"
-            )
-        })?;
         let state = Self::get_or_create_state(serializer);
-        Ok(Self::new(serializer, state, heap_id))
+        Ok(Self::new(serializer, state))
     }
 
-    /// Create a new serializer with shared state and current heap id.
+    /// Create a new serializer with shared state.
     pub(crate) fn new(
         pagable: &'a mut dyn PagableSerializer,
         state: Arc<StarlarkSerState>,
-        current_heap_id: HeapRefId,
     ) -> Self {
-        pagable
-            .session_context()
-            .set(CurrentHeapId(current_heap_id));
-        Self {
-            pagable,
-            state,
-            current_heap_id,
-        }
+        Self { pagable, state }
     }
 
     /// Get or create the shared `StarlarkSerState` from the serializer's `SessionContext`.
@@ -155,17 +126,6 @@ impl<'a> StarlarkSerializerImpl<'a> {
         serializer
             .session_context()
             .get_or_insert_with(|| Arc::new(StarlarkSerState::new()))
-    }
-
-    /// Read the currently-serializing heap id from the session context.
-    /// Returns `None` if no outer heap serialization has set it up.
-    pub(crate) fn current_heap_id_from_context(
-        serializer: &mut dyn PagableSerializer,
-    ) -> Option<HeapRefId> {
-        serializer
-            .session_context()
-            .get::<CurrentHeapId>()
-            .map(|h| h.0)
     }
 }
 
@@ -186,51 +146,29 @@ impl StarlarkSerializeContext for StarlarkSerializerImpl<'_> {
 
                 let is_str = fv.ptr_value().tags() == PointerTags::StrFrozen;
                 let raw_ptr = fv.ptr_value().ptr_value_untagged();
-                let heap_id = self.current_heap_id;
 
-                // Try current heap first (same-heap reference).
-                // Extract into a local so the DashMap Ref (shard lock) is
-                // dropped before we call pagable_serialize.
-                let same_heap_offset = self
+                // Scan all registered heaps for the pointer. Extract
+                // (heap_id, offset) into a local so the DashMap shard
+                // lock is released before pagable_serialize.
+                let (heap_id, arena_offset) = self
                     .state
                     .heap_offset_maps
-                    .get(&heap_id)
-                    .and_then(|m| m.get(&raw_ptr).copied());
-                if let Some(arena_offset) = same_heap_offset {
-                    let serialized = SerializedFrozenValue::SameHeapPtr {
-                        offset: arena_offset,
-                        is_str,
-                    };
-                    serialized.pagable_serialize(self.pagable)?;
-                    return Ok(());
-                }
+                    .iter()
+                    .find_map(|entry| entry.value().get(&raw_ptr).map(|&off| (*entry.key(), off)))
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "FrozenValue pointer {:#x} not found in any heap's offset map",
+                            raw_ptr
+                        )
+                    });
 
-                // Search all other heaps (cross-heap reference).
-                // Shard locks from the iterator are released when find_map
-                // returns, before we enter the if-let body.
-                let cross_heap = self.state.heap_offset_maps.iter().find_map(|entry| {
-                    if *entry.key() == heap_id {
-                        return None;
-                    }
-                    entry
-                        .value()
-                        .get(&raw_ptr)
-                        .map(|&offset| (*entry.key(), offset))
-                });
-                if let Some((other_heap_id, arena_offset)) = cross_heap {
-                    let serialized = SerializedFrozenValue::CrossHeapPtr {
-                        heap_id: other_heap_id,
-                        offset: arena_offset,
-                        is_str,
-                    };
-                    serialized.pagable_serialize(self.pagable)?;
-                    return Ok(());
-                }
-
-                panic!(
-                    "FrozenValue pointer {:#x} not found in any heap's offset map",
-                    raw_ptr
-                );
+                let serialized = SerializedFrozenValue::HeapPtr {
+                    heap_id,
+                    offset: arena_offset,
+                    is_str,
+                };
+                serialized.pagable_serialize(self.pagable)?;
+                return Ok(());
             }
             PointerTags::Int => {
                 let int_val = fv.unpack_inline_int().expect("Int tag implies inline int");

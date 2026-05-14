@@ -31,7 +31,6 @@ use pagable::PagableSerialize;
 use pagable::PagableSerializer;
 
 use crate::cast::transmute;
-use crate::pagable::heap_ref_id::HeapRefId;
 use crate::pagable::starlark_deserialize::StarlarkDeserializeContext;
 use crate::pagable::starlark_deserialize_context::HeapDeserializationState;
 use crate::pagable::starlark_deserialize_context::StarlarkDeserializerImpl;
@@ -215,32 +214,18 @@ impl OwnedFrozenValue {
 
 impl PagableSerialize for OwnedFrozenValue {
     fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
-        // Get the heap_id from the owner's name and serialize it explicitly.
-        // We serialize heap_id separately because after deserialization the
-        // FrozenFrozenHeap's name is set to None (FrozenHeapName hasn't
-        // implemented pagable serialization yet), so we can't get the name on
-        // the deser side.
-        // TODO(nero): remove serializing heap_id after implementing pagable for FrozenHeapName.
-        let heap_name = self
-            .owner
-            .name()
-            .expect("OwnedFrozenValue owner heap must have a name in pagable serialization");
-        let heap_id = HeapRefId::from_heap_name(heap_name);
-        heap_id.pagable_serialize(serializer)?;
-
         // Serialize the owner heap ref (via pagable arc mechanism).
         self.owner.pagable_serialize(serializer)?;
 
         // Ensure offset maps are registered for the owner heap and its
-        // transitive dependencies. This is needed because serialize_arc(for Arc<FrozenFrozenHeap>)
-        // can defer actual heap serialization, so the offset maps may not
-        // exist yet when we need to serialize the FrozenValue.
+        // transitive dependencies. `serialize_arc` for
+        // `Arc<FrozenFrozenHeap>` can defer the actual heap
+        // serialization, so the offset maps may not exist yet when we
+        // need to serialize the FrozenValue.
         let state = StarlarkSerializerImpl::get_or_create_state(serializer);
         state.ensure_offset_maps_registered(&self.owner);
 
-        // Serialize the FrozenValue using a StarlarkSerializerImpl with the
-        // owner heap as the current heap.
-        let mut ctx = StarlarkSerializerImpl::new(serializer, state, heap_id);
+        let mut ctx = StarlarkSerializerImpl::new(serializer, state);
         ctx.serialize_frozen_value(self.value)
             .map_err(|e| e.into_anyhow())?;
 
@@ -252,9 +237,6 @@ impl<'de> PagableDeserialize<'de> for OwnedFrozenValue {
     fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> pagable::Result<Self> {
-        // Read the heap_id that was serialized explicitly.
-        let heap_id = HeapRefId::pagable_deserialize(deserializer)?;
-
         // Deserialize the owner heap ref.
         let owner = FrozenHeapRef::pagable_deserialize(deserializer)?;
 
@@ -265,7 +247,6 @@ impl<'de> PagableDeserialize<'de> for OwnedFrozenValue {
         let mut ctx = StarlarkDeserializerImpl::new(
             deserializer.as_dyn(),
             state,
-            heap_id,
             Arc::new(Mutex::new(HeapDeserializationState::empty())),
         );
 
