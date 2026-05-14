@@ -9,7 +9,6 @@
  */
 
 use std::sync::Arc;
-use std::sync::OnceLock;
 
 use buck2_analysis::analysis::env::RuleAnalysisAttrResolutionContext;
 use buck2_analysis::attrs::resolve::attr_type::arg::ConfiguredStringWithMacrosExt;
@@ -165,10 +164,8 @@ impl AnonTargetAttrResolution for AnonTargetAttr {
                     })?;
                 }
 
-                let fulfilled = OnceLock::new();
-                fulfilled.set(artifact.dupe()).unwrap();
-
-                let fulfilled_promise_inner = PromiseArtifact::new(Arc::new(fulfilled), promise_id);
+                let fulfilled_promise_inner =
+                    PromiseArtifact::new(Arc::new(artifact.dupe().into()), promise_id);
 
                 let fulfilled_promise_artifact = StarlarkPromiseArtifact::new(
                     None,
@@ -176,7 +173,6 @@ impl AnonTargetAttrResolution for AnonTargetAttr {
                     promise_artifact_attr.short_path.clone(),
                     promise_artifact_attr.has_content_based_path,
                 );
-
                 // To resolve the promise artifact attr, we end up creating a new `StarlarkPromiseArtifact` with the `OnceLock` set
                 // with the artifact that was found from the upstream analysis.
                 Ok(ctx.heap().alloc(fulfilled_promise_artifact))
