@@ -51,14 +51,9 @@ impl DiceStorage {
     /// Convenience constructor: open (or create) a sled-backed `DiceStorage`
     /// rooted at the given filesystem path.
     pub fn open(path: &Path) -> anyhow::Result<Self> {
-        let db = sled::open(path)?;
-        Ok(Self::new(Arc::new(SledBackedPagableStorage::new(db))))
-    }
-
-    /// Convenience constructor: build a sled-backed `DiceStorage` from an
-    /// existing sled `Db`.
-    pub fn from_sled_db(db: sled::Db) -> Self {
-        Self::new(Arc::new(SledBackedPagableStorage::new(db)))
+        Ok(Self::new(Arc::new(SledBackedPagableStorage::try_new(
+            path,
+        )?)))
     }
 
     /// Serialize `value` into the backing store via `key_dyn`'s `ValueSerialize`.

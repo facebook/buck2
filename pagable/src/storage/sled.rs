@@ -32,7 +32,7 @@ use crate::traits::SessionContext;
 /// - Serialized data storage indexed by content-addressable `DataKey`
 /// - Arc caching to avoid redundant deserialization
 /// - Background serialization queue via mpsc channel
-///                                                                                                               
+///
 /// This is primarily useful for testing the pagable framework.
 pub struct SledBackedPagableStorage {
     sender: mpsc::Sender<Box<dyn ArcEraseDyn>>,
@@ -49,9 +49,13 @@ struct SledPendingPageOut {
 }
 
 impl SledBackedPagableStorage {
-    pub fn new(db: sled::Db) -> Self {
+    pub fn try_new(path: &std::path::Path) -> anyhow::Result<Self> {
+        let db = sled::Config::new()
+            .cache_capacity(1024 * 1024 * 2) // 2mb
+            .path(path)
+            .open()?;
         let (sender, receiver) = mpsc::channel();
-        Self {
+        Ok(Self {
             sender,
             db,
             arcs: DashMap::new(),
@@ -60,7 +64,7 @@ impl SledBackedPagableStorage {
                 pending: Vec::new(),
             }),
             session_context: SessionContext::new(),
-        }
+        })
     }
 
     /// Returns the number of arcs queued for paging but not yet serialized.
