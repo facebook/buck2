@@ -91,7 +91,7 @@ impl DiceStorage {
                     arcs,
                     cache,
                     session_context,
-                )))
+                )?))
             }
         }
     }

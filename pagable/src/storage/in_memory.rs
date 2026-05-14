@@ -293,9 +293,9 @@ impl PagableStorage for InMemoryPagableStorageHandle {
         &self.session_context
     }
 
-    fn store_data(&self, data: PagableData) -> DataKey {
+    fn store_data(&self, data: PagableData) -> anyhow::Result<DataKey> {
         let key = data.compute_key();
         self.cache.insert_data(key, std::sync::Arc::new(data));
-        key
+        Ok(key)
     }
 }

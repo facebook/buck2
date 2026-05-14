@@ -74,7 +74,7 @@ pub trait PagableStorage: Send + Sync + 'static {
     /// [`DataKey`]. The key is derived from the data via
     /// `PagableData::compute_key`; if the same data is stored twice the second
     /// write is expected to be idempotent (or skipped).
-    fn store_data(&self, data: PagableData) -> DataKey;
+    fn store_data(&self, data: PagableData) -> anyhow::Result<DataKey>;
 
     /// Stores a previously-serialized item (and its transitively reachable arcs)
     /// to storage and returns its content-addressable [`DataKey`].
@@ -94,7 +94,7 @@ pub trait PagableStorage: Send + Sync + 'static {
         item_arcs: Vec<Box<dyn ArcEraseDyn>>,
         finished: &mut HashMap<usize, DataKey>,
         session_context: &SessionContext,
-    ) -> DataKey {
+    ) -> anyhow::Result<DataKey> {
         enum Task {
             Start(Box<dyn ArcEraseDyn>),
             Finish((Box<dyn ArcEraseDyn>, Vec<u8>, Vec<Box<dyn ArcEraseDyn>>)),
@@ -113,7 +113,7 @@ pub trait PagableStorage: Send + Sync + 'static {
                     }
 
                     let mut serializer = SerializerForPaging::new(session_context);
-                    v.serialize(&mut serializer).unwrap();
+                    v.serialize(&mut serializer)?;
                     let (data, arcs) = serializer.finish();
 
                     let subtasks: Vec<_> = arcs
@@ -135,7 +135,7 @@ pub trait PagableStorage: Send + Sync + 'static {
                         })
                         .collect();
 
-                    let key = self.store_data(PagableData { data, arcs });
+                    let key = self.store_data(PagableData { data, arcs })?;
                     finished.insert(arc.identity(), key);
                     arc.set_data_key(key);
                 }

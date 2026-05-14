@@ -257,8 +257,7 @@ impl PagableStorage for EmptyPagableStorage {
         &self.session_context
     }
 
-    fn store_data(&self, data: PagableData) -> DataKey {
-        // no-op storage; just compute the key
-        data.compute_key()
+    fn store_data(&self, data: PagableData) -> anyhow::Result<DataKey> {
+        Ok(data.compute_key())
     }
 }
