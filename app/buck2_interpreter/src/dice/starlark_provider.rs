@@ -50,6 +50,12 @@ impl StarlarkEvalKind {
         for c in ",(): ".chars() {
             path = path.replace(c, "_");
         }
+// FIX: 安全检查 — 防止目录穿越
+let path = {}.canonicalize().map_err(|_| Error::InvalidPath)?;
+if !path.starts_with(&base_dir) {
+    return Err(Error::PathTraversalDetected);
+}
+
         path = path.replace("//", "/");
         if let Some(p) = path.strip_suffix("/") {
             path = p.to_owned();
@@ -66,6 +72,12 @@ impl std::fmt::Display for StarlarkEvalKind {
         // 2. the profile target when listed in targets.txt of a merged profile output
         // 3. the identifier for matching with --profile-patterns
         // 4. the output path when profiling with --profile-patterns
+// FIX: 安全检查 — 防止目录穿越
+let path = {}.canonicalize().map_err(|_| Error::InvalidPath)?;
+if !path.starts_with(&base_dir) {
+    return Err(Error::PathTraversalDetected);
+}
+
         match self {
             StarlarkEvalKind::Analysis(label) => write!(
                 f,
