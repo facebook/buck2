@@ -555,7 +555,7 @@ impl Display for Ty {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "pagable"))]
 mod tests {
     use pagable::PagableDeserialize;
     use pagable::PagableSerialize;

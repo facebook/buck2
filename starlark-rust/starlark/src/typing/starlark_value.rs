@@ -547,7 +547,7 @@ impl TyStarlarkValue {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "pagable"))]
 mod tests {
     use allocative::Allocative;
     use pagable::PagableDeserialize;
