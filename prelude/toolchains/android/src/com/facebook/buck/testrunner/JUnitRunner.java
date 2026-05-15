@@ -13,6 +13,7 @@ package com.facebook.buck.testrunner;
 import com.facebook.buck.test.result.type.ResultType;
 import com.facebook.buck.test.selectors.TestDescription;
 import com.facebook.buck.test.selectors.TestSelector;
+import com.facebook.buck.testresultsoutput.TestResultsOutputEvent;
 import com.facebook.buck.testresultsoutput.TestResultsOutputSender;
 import com.facebook.buck.testrunner.JavaUtilLoggingHelper.LogHandlers;
 import java.io.BufferedWriter;
@@ -94,6 +95,20 @@ public final class JUnitRunner extends BaseRunner {
     Optional<TestResultsOutputSender> testResultsOutputSender =
         TestResultsOutputSender.fromDefaultEnvName();
 
+    // Per-test coverage: collect per-test-method JaCoCo coverage if enabled
+    PerTestJUnitCoverageRunListener perTestCoverageListener = null;
+    String perTestCoverageDir = System.getenv("PER_TEST_COVERAGE_DIR");
+    if (perTestCoverageDir != null) {
+      try {
+        perTestCoverageListener = new PerTestJUnitCoverageRunListener(new File(perTestCoverageDir));
+      } catch (Exception e) {
+        // JaCoCo agent not available — report as infra failure via TPX
+        reportInfraFailure(
+            testResultsOutputSender,
+            "Per-test coverage requested but JaCoCo agent is not available: " + e.getMessage());
+      }
+    }
+
     // Shared watchdog executor for timeout enforcement (per-test and target-level)
     ScheduledExecutorService watchdogExecutor = Executors.newScheduledThreadPool(1);
 
@@ -138,6 +153,11 @@ public final class JUnitRunner extends BaseRunner {
         } else {
           jUnitCore.addListener(new TestListener(results, stdOutLogLevel, stdErrLogLevel));
         }
+
+        if (perTestCoverageListener != null) {
+          jUnitCore.addListener(perTestCoverageListener);
+        }
+
         jUnitCore.run(request);
 
         // Report filtered-out tests (e.g., @Ignore) to TPX output so they're not retried
@@ -169,9 +189,31 @@ public final class JUnitRunner extends BaseRunner {
               });
     }
 
+    if (perTestCoverageListener != null) {
+      perTestCoverageListener.close();
+      if (perTestCoverageListener.getCoverageError() != null) {
+        reportInfraFailure(
+            testResultsOutputSender,
+            "Per-test coverage collection failed: "
+                + perTestCoverageListener.getCoverageError().getMessage());
+      }
+    }
+
     // All test classes completed normally — mark as completed so shutdown hook is a no-op
     if (tpxTimeoutBufferManager != null) {
       tpxTimeoutBufferManager.markCompleted();
+    }
+  }
+
+  private static void reportInfraFailure(Optional<TestResultsOutputSender> sender, String message) {
+    if (sender.isPresent()) {
+      sender
+          .get()
+          .sendRunFailure(
+              TestResultsOutputEvent.RunFailureStatus.INFRA_FAILURE,
+              System.currentTimeMillis(),
+              message,
+              null);
     }
   }
 
