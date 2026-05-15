@@ -975,7 +975,7 @@ impl<T: LspContext> Backend<T> {
                     })
                     .collect();
                 load_args.push((symbol, symbol));
-                load_args.sort_by(|(_, a), (_, b)| a.cmp(b));
+                load_args.sort_by_key(|(_, a)| *a);
 
                 TextEdit::new(
                     load_span.into(),
