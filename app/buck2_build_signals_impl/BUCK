@@ -29,12 +29,12 @@ rust_library(
         "//buck2/app/buck2_data:buck2_data",
         "//buck2/app/buck2_error:buck2_error",
         "//buck2/app/buck2_events:buck2_events",
+        "//buck2/app/buck2_hash:buck2_hash",
         "//buck2/app/buck2_interpreter_for_build:buck2_interpreter_for_build",
         "//buck2/app/buck2_node:buck2_node",
         "//buck2/app/buck2_util:buck2_util",
         "//buck2/dice/dice:dice",
         "//buck2/gazebo/dupe:dupe",
         "//buck2/gazebo/gazebo:gazebo",
-        "//buck2/shed/buck2_hash:buck2_hash",
     ],
 )
