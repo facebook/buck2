@@ -13,6 +13,7 @@ use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter::extra::xcode::XcodeVersionInfo;
 use derivative::Derivative;
+use pagable::Pagable;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::singleton_heap_name;
@@ -157,7 +158,7 @@ pub(crate) fn register_host_info(builder: &mut GlobalsBuilder) {
     }
 }
 
-#[derive(Derivative, Clone, Debug, Allocative)]
+#[derive(Derivative, Clone, Debug, Allocative, Pagable)]
 #[derivative(PartialEq)]
 pub struct HostInfo {
     // These first three fields are for equality only, otherwise not used

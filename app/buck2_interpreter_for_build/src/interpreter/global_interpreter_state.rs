@@ -69,7 +69,7 @@ impl GlobalInterpreterState {
         let global_env = base_globals()
             .with(|g| {
                 if let Some(additional_globals) = interpreter_configuror.additional_globals() {
-                    (additional_globals.0)(g);
+                    additional_globals.0.apply(g);
                 }
             })
             .build_named(GlobalFrozenHeapName {

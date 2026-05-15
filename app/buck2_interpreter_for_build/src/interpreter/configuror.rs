@@ -25,7 +25,9 @@ use buck2_interpreter::paths::module::StarlarkModulePath;
 use buck2_interpreter::prelude_path::PreludePath;
 use buck2_node::super_package::SuperPackage;
 use dupe::Dupe;
-use pagable::PagablePanic;
+use pagable::Pagable;
+use pagable::PagableTagged;
+use pagable::pagable_typetag;
 use starlark::environment::GlobalsBuilder;
 
 use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
@@ -34,10 +36,13 @@ use crate::interpreter::functions::host_info::HostInfo;
 use crate::interpreter::module_internals::ModuleInternals;
 use crate::interpreter::module_internals::PackageImplicits;
 
-#[derive(Clone, Dupe, Allocative)]
-pub struct AdditionalGlobalsFn(
-    #[allocative(skip)] pub Arc<dyn Fn(&mut GlobalsBuilder) + Sync + Send>,
-);
+#[pagable_typetag]
+pub trait AdditionalGlobalsFnDyn: PagableTagged + Send + Sync + 'static {
+    fn apply(&self, globals: &mut GlobalsBuilder);
+}
+
+#[derive(Clone, Dupe, Allocative, Pagable)]
+pub struct AdditionalGlobalsFn(#[allocative(skip)] pub Arc<dyn AdditionalGlobalsFnDyn>);
 
 impl Debug for AdditionalGlobalsFn {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -57,7 +62,7 @@ impl PartialEq for AdditionalGlobalsFn {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Allocative, PagablePanic)]
+#[derive(Clone, Debug, PartialEq, Allocative, Pagable)]
 pub struct BuildInterpreterConfiguror {
     /// Path to prelude import (typically `prelude//:prelude.bzl`).
     ///
@@ -70,6 +75,7 @@ pub struct BuildInterpreterConfiguror {
     host_info: HostInfo,
     record_target_call_stack: bool,
     skip_targets_with_duplicate_names: bool,
+    #[pagable(discard = "Default::default()")]
     global_target_interner: Arc<ConcurrentTargetLabelInterner>,
     /// For test.
     additional_globals: Option<AdditionalGlobalsFn>,
