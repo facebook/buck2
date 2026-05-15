@@ -490,8 +490,10 @@ pub struct Buck2OssReConfiguration {
     pub use_fbcode_metadata: bool,
     /// The max size for a GRPC message to be decoded.
     pub max_decoding_message_size: Option<usize>,
-    /// The max cumulative blob size for `Read` and `BatchReadBlobs` methods.
+    /// The max cumulative blob size for batch CAS methods.
     pub max_total_batch_size: Option<usize>,
+    /// Minimum blob size for remote cache compression.
+    pub remote_cache_compression_threshold: Option<usize>,
     /// Maximum number of concurrent upload requests for each action.
     pub max_concurrent_uploads_per_action: Option<usize>,
     /// Maximum number of digests to ask about in a single
@@ -629,6 +631,10 @@ impl Buck2OssReConfiguration {
                 section: BUCK2_RE_CLIENT_CFG_SECTION,
                 property: "max_total_batch_size",
             })?,
+            remote_cache_compression_threshold: legacy_config.parse(BuckconfigKeyRef {
+                section: BUCK2_RE_CLIENT_CFG_SECTION,
+                property: "remote_cache_compression_threshold",
+            })?,
             max_concurrent_uploads_per_action: legacy_config.parse(BuckconfigKeyRef {
                 section: BUCK2_RE_CLIENT_CFG_SECTION,
                 property: "max_concurrent_uploads_per_action",
@@ -708,3 +714,25 @@ impl Buck2OssReConfiguration {
 pub use fbcode::RemoteExecutionStaticMetadata;
 #[cfg(not(fbcode_build))]
 pub use not_fbcode::RemoteExecutionStaticMetadata;
+
+#[cfg(test)]
+mod tests {
+    use buck2_common::legacy_configs::configs::testing::parse;
+
+    use super::*;
+
+    #[test]
+    fn oss_config_parses_remote_cache_compression_threshold() -> buck2_error::Result<()> {
+        let legacy_config = parse(
+            &[(
+                "config",
+                "[buck2_re_client]\nremote_cache_compression_threshold = 100\n",
+            )],
+            "config",
+        )?;
+        let config = Buck2OssReConfiguration::from_legacy_config(&legacy_config, Vec::new())?;
+
+        assert_eq!(config.remote_cache_compression_threshold, Some(100));
+        Ok(())
+    }
+}
