@@ -131,6 +131,7 @@ use crate::response::*;
 use crate::stats::CountingConnector;
 
 const DEFAULT_MAX_TOTAL_BATCH_SIZE: usize = 4 * 1000 * 1000;
+const DEFAULT_REMOTE_CACHE_COMPRESSION_THRESHOLD: usize = 100;
 const DEFAULT_RETRIES: usize = 5;
 const GRPC_RETRY_INITIAL_DELAY_MILLIS: u64 = 100;
 const DEFAULT_RETRY_MAX_DELAY_MILLIS: u64 = 5000;
@@ -1062,6 +1063,8 @@ pub struct RECapabilities {
     max_cas_blob_size_bytes: Option<i64>,
     /// Compressors supported by the "compressed-blobs" bytestream resources.
     supported_compressors: Vec<Compressor>,
+    /// Compressors supported for BatchUpdateBlobs inlined data.
+    supported_batch_update_compressors: Vec<Compressor>,
     /// Digest functions supported by the remote cache/execution capabilities.
     supported_digest_functions: Vec<digest_function::Value>,
     /// Digest functions supported by the remote cache capabilities.
@@ -1094,6 +1097,8 @@ pub struct RERuntimeOpts {
     find_missing_blobs_batch_size: usize,
     /// Whether to chunk large remote-cache blobs using FastCDC 2020 and SpliceBlob.
     remote_cache_chunking: bool,
+    /// Minimum blob size for remote cache compression.
+    remote_cache_compression_threshold: usize,
     /// Number of retries to apply for transient gRPC errors.
     retries: usize,
     /// Maximum delay between retry attempts.
@@ -1154,6 +1159,14 @@ impl Compressor {
         }
     }
 
+    fn as_grpc(&self) -> i32 {
+        match self {
+            Self::Zstd => compressor::Value::Zstd as i32,
+            Self::Deflate => compressor::Value::Deflate as i32,
+            Self::Brotli => compressor::Value::Brotli as i32,
+        }
+    }
+
     /// The compressor name used in compressed-blob resource paths
     fn name(&self) -> &'static str {
         match self {
@@ -1161,6 +1174,18 @@ impl Compressor {
             Self::Deflate => "deflate",
             Self::Brotli => "brotli",
         }
+    }
+}
+
+fn select_preferred_compressor(compressors: &[Compressor]) -> Option<Compressor> {
+    if compressors.contains(&Compressor::Zstd) {
+        Some(Compressor::Zstd)
+    } else if compressors.contains(&Compressor::Brotli) {
+        Some(Compressor::Brotli)
+    } else if compressors.contains(&Compressor::Deflate) {
+        Some(Compressor::Deflate)
+    } else {
+        None
     }
 }
 
@@ -1174,6 +1199,51 @@ fn compressor_names(compressors: &[Compressor]) -> String {
         .map(Compressor::name)
         .collect::<Vec<_>>()
         .join(",")
+}
+
+fn compression_for_blob(
+    compressor: Option<Compressor>,
+    size_in_bytes: i64,
+    threshold: usize,
+) -> Option<Compressor> {
+    let size = usize::try_from(size_in_bytes).ok()?;
+    if size == 0 || size < threshold {
+        None
+    } else {
+        compressor
+    }
+}
+
+async fn compress_data(data: Vec<u8>, compressor: Compressor) -> anyhow::Result<Vec<u8>> {
+    async fn read_all(mut reader: impl AsyncRead + Unpin) -> anyhow::Result<Vec<u8>> {
+        let mut data = Vec::new();
+        reader.read_to_end(&mut data).await?;
+        Ok(data)
+    }
+
+    match compressor {
+        Compressor::Zstd => read_all(ZstdEncoder::new(Cursor::new(data))).await,
+        Compressor::Deflate => read_all(DeflateEncoder::new(Cursor::new(data))).await,
+        Compressor::Brotli => read_all(BrotliEncoder::new(Cursor::new(data))).await,
+    }
+}
+
+async fn decompress_data(data: Vec<u8>, compressor: Compressor) -> anyhow::Result<Vec<u8>> {
+    async fn read_all(mut reader: impl AsyncRead + Unpin) -> anyhow::Result<Vec<u8>> {
+        let mut data = Vec::new();
+        reader.read_to_end(&mut data).await?;
+        Ok(data)
+    }
+
+    match compressor {
+        Compressor::Zstd => {
+            let mut decoder = ZstdDecoder::new(Cursor::new(data));
+            decoder.multiple_members(true);
+            read_all(decoder).await
+        }
+        Compressor::Deflate => read_all(DeflateDecoder::new(Cursor::new(data))).await,
+        Compressor::Brotli => read_all(BrotliDecoder::new(Cursor::new(data))).await,
+    }
 }
 
 fn digest_function_from_grpc(val: i32) -> Option<digest_function::Value> {
@@ -2081,6 +2151,7 @@ impl REClientBuilder {
                 max_total_batch_size: DEFAULT_MAX_TOTAL_BATCH_SIZE,
                 max_cas_blob_size_bytes: None,
                 supported_compressors: Vec::new(),
+                supported_batch_update_compressors: Vec::new(),
                 supported_digest_functions: Vec::new(),
                 cache_digest_functions: Vec::new(),
                 execution_digest_functions: Vec::new(),
@@ -2126,25 +2197,13 @@ impl REClientBuilder {
             ));
         }
 
-        // Choose a ByteStream compressor
-        let bystream_compressor = if capabilities
-            .supported_compressors
-            .contains(&Compressor::Zstd)
-        {
-            Some(Compressor::Zstd)
-        } else if capabilities
-            .supported_compressors
-            .contains(&Compressor::Brotli)
-        {
-            Some(Compressor::Brotli)
-        } else if capabilities
-            .supported_compressors
-            .contains(&Compressor::Deflate)
-        {
-            Some(Compressor::Deflate)
-        } else {
-            None
-        };
+        // Choose compressors for ByteStream and inlined batch uploads.
+        let bystream_compressor = select_preferred_compressor(&capabilities.supported_compressors);
+        let batch_update_compressor =
+            select_preferred_compressor(&capabilities.supported_batch_update_compressors);
+        let remote_cache_compression_threshold = opts
+            .remote_cache_compression_threshold
+            .unwrap_or(DEFAULT_REMOTE_CACHE_COMPRESSION_THRESHOLD);
 
         tracing::info!(
             max_total_batch_size = capabilities.max_total_batch_size,
@@ -2158,6 +2217,13 @@ impl REClientBuilder {
             selected_bystream_compressor = %bystream_compressor
                 .map(|compressor| compressor.name())
                 .unwrap_or("<none>"),
+            supported_batch_update_compressors = %compressor_names(
+                &capabilities.supported_batch_update_compressors
+            ),
+            selected_batch_update_compressor = %batch_update_compressor
+                .map(|compressor| compressor.name())
+                .unwrap_or("<none>"),
+            remote_cache_compression_threshold,
             action_cache_update_enabled = ?capabilities.action_cache_update_enabled,
             execution_enabled = ?capabilities.execution_enabled,
             blob_split_supported = capabilities.blob_split_supported,
@@ -2225,6 +2291,7 @@ impl REClientBuilder {
                 cas_ttl_secs: opts.cas_ttl_secs.unwrap_or(3 * 60 * 60),
                 find_missing_blobs_batch_size: opts.find_missing_blobs_batch_size.unwrap_or(100),
                 remote_cache_chunking: opts.remote_cache_chunking,
+                remote_cache_compression_threshold,
                 retries,
                 retry_max_delay_ms,
                 grpc_request_timeout,
@@ -2236,6 +2303,7 @@ impl REClientBuilder {
             capabilities,
             instance_name,
             bystream_compressor,
+            batch_update_compressor,
             local_chunk_cache,
         ))
     }
@@ -2272,6 +2340,16 @@ impl REClientBuilder {
         let supported_compressors = if let Some(cache_cap) = &resp.cache_capabilities {
             cache_cap
                 .supported_compressors
+                .iter()
+                .copied()
+                .filter_map(Compressor::from_grpc)
+                .collect()
+        } else {
+            Vec::new()
+        };
+        let supported_batch_update_compressors = if let Some(cache_cap) = &resp.cache_capabilities {
+            cache_cap
+                .supported_batch_update_compressors
                 .iter()
                 .copied()
                 .filter_map(Compressor::from_grpc)
@@ -2341,6 +2419,7 @@ impl REClientBuilder {
                 if size > 0 { Some(size) } else { None }
             }),
             supported_compressors,
+            supported_batch_update_compressors,
             supported_digest_functions,
             cache_digest_functions,
             execution_digest_functions,
@@ -2683,6 +2762,7 @@ pub struct REClient {
     // buck2 calls find_missing for same blobs
     find_missing_cache: Mutex<FindMissingCache>,
     bystream_compressor: Option<Compressor>,
+    batch_update_compressor: Option<Compressor>,
     local_chunk_cache: Option<LocalChunkCache>,
     query_write_status_supported: AtomicBool,
 }
@@ -2733,7 +2813,7 @@ impl BatchUploadReqAggregator {
 
         self.curr_request_size += size_in_bytes;
 
-        if self.curr_request_size >= self.max_msg_size {
+        if self.curr_request_size > self.max_msg_size {
             self.requests.push(std::mem::take(&mut self.curr_req));
             self.curr_request_size = size_in_bytes;
         }
@@ -2877,6 +2957,7 @@ impl REClient {
         capabilities: RECapabilities,
         instance_name: InstanceName,
         bystream_compressor: Option<Compressor>,
+        batch_update_compressor: Option<Compressor>,
         local_chunk_cache: Option<LocalChunkCache>,
     ) -> Self {
         let cas_ttl_secs = runtime_opts.cas_ttl_secs;
@@ -2891,6 +2972,7 @@ impl REClient {
                 last_check: Instant::now(),
             }),
             bystream_compressor,
+            batch_update_compressor,
             local_chunk_cache,
             query_write_status_supported: AtomicBool::new(true),
         }
@@ -3425,7 +3507,9 @@ impl REClient {
             &self.instance_name,
             request,
             self.bystream_compressor,
+            self.batch_update_compressor,
             self.capabilities.max_total_batch_size,
+            self.runtime_opts.remote_cache_compression_threshold,
             self.runtime_opts.max_concurrent_uploads_per_action,
             self.runtime_opts.request_digest_function_config,
             |re_request| {
@@ -3995,6 +4079,7 @@ impl REClient {
             request,
             self.bystream_compressor,
             self.capabilities.max_total_batch_size,
+            self.runtime_opts.remote_cache_compression_threshold,
             self.runtime_opts.download_hash_digest_function,
             self.runtime_opts.request_digest_function_config,
             self.runtime_opts.retries,
@@ -5123,6 +5208,7 @@ async fn download_impl<Byt, BytRet, Cas, RetryFut>(
     request: DownloadRequest,
     bystream_compressor: Option<Compressor>,
     max_total_batch_size: usize,
+    remote_cache_compression_threshold: usize,
     download_hash_digest_function: Option<digest_function::Value>,
     request_digest_function_config: DigestFunctionConfig,
     retries: usize,
@@ -5184,9 +5270,14 @@ where
     }
 
     let bystream_reader = |digest: TDigest, read_offset: i64| async move {
+        let compressor = compression_for_blob(
+            bystream_compressor,
+            digest.size_in_bytes,
+            remote_cache_compression_threshold,
+        );
         let resource_name = resource_name(
             instance_name,
-            bystream_compressor,
+            compressor,
             &digest,
             request_digest_function_config,
         );
@@ -5202,7 +5293,8 @@ where
             let blob_reader = StreamReader::new(
                 p.map(|r| r.map(|rr| Cursor::new(rr.data)).map_err(io::Error::other)),
             );
-            let reader: Pin<Box<dyn AsyncRead + Unpin + Send>> = match bystream_compressor {
+            // Wrap the blob reader in a compression reader
+            let reader: Pin<Box<dyn AsyncRead + Unpin + Send>> = match compressor {
                 None => Pin::new(Box::new(blob_reader)),
                 Some(Compressor::Zstd) => {
                     let mut decoder = ZstdDecoder::new(blob_reader);
@@ -5229,9 +5321,25 @@ where
     let inlined_digests = request.inlined_digests.unwrap_or_default();
     let file_digests = request.file_digests.unwrap_or_default();
 
+    let new_read_blob_req = |digests: &mut Vec<Digest>, batch_compressor: Option<Compressor>| {
+        let digest_function = request_digest_function_config.for_common_digest_function(digests);
+        let mut acceptable_compressors = vec![compressor::Value::Identity as i32];
+        if let Some(compressor) = batch_compressor {
+            acceptable_compressors.push(compressor.as_grpc());
+        }
+        BatchReadBlobsRequest {
+            instance_name: instance_name.as_str().to_owned(),
+            digests: std::mem::take(digests),
+            acceptable_compressors,
+            digest_function: digest_function_to_grpc(digest_function),
+            ..Default::default()
+        }
+    };
+
     let mut curr_size = 0;
     let mut requests = vec![];
     let mut curr_digests = vec![];
+    let mut curr_batch_compressor = None;
     for digest in file_digests
         .iter()
         .map(|req| &req.named_digest.digest)
@@ -5239,39 +5347,30 @@ where
         .map(tdigest_to)
         .filter(|d| d.size_bytes > 0)
     {
-        if digest.size_bytes as usize >= max_total_batch_size {
+        if digest.size_bytes as usize > max_total_batch_size {
             // digest is too big to download in a BatchReadBlobsRequest
             // need to use the bytstream api
             continue;
         }
-        curr_size += digest.size_bytes;
-        if curr_size >= max_total_batch_size as i64 {
-            let digest_function =
-                request_digest_function_config.for_common_digest_function(&curr_digests);
-            let read_blob_req = BatchReadBlobsRequest {
-                instance_name: instance_name.as_str().to_owned(),
-                digests: std::mem::take(&mut curr_digests),
-                acceptable_compressors: vec![compressor::Value::Identity as i32],
-                digest_function: digest_function_to_grpc(digest_function),
-                ..Default::default()
-            };
-            requests.push(read_blob_req);
+        let digest_compressor = compression_for_blob(
+            bystream_compressor,
+            digest.size_bytes,
+            remote_cache_compression_threshold,
+        );
+        let would_exceed = curr_size + digest.size_bytes > max_total_batch_size as i64;
+        if !curr_digests.is_empty() && (would_exceed || digest_compressor != curr_batch_compressor)
+        {
+            requests.push(new_read_blob_req(&mut curr_digests, curr_batch_compressor));
             curr_size = digest.size_bytes;
+        } else {
+            curr_size += digest.size_bytes;
         }
         curr_digests.push(digest.clone());
+        curr_batch_compressor = digest_compressor;
     }
 
     if !curr_digests.is_empty() {
-        let digest_function =
-            request_digest_function_config.for_common_digest_function(&curr_digests);
-        let read_blob_req = BatchReadBlobsRequest {
-            instance_name: instance_name.as_str().to_owned(),
-            digests: std::mem::take(&mut curr_digests),
-            acceptable_compressors: vec![compressor::Value::Identity as i32],
-            digest_function: digest_function_to_grpc(digest_function),
-            ..Default::default()
-        };
-        requests.push(read_blob_req);
+        requests.push(new_read_blob_req(&mut curr_digests, curr_batch_compressor));
     }
 
     let mut batched_blobs_response = HashMap::new();
@@ -5284,7 +5383,20 @@ where
         for r in resp.responses.into_iter() {
             let digest = tdigest_from(r.digest.context("Response digest not found.")?);
             check_status(r.status.unwrap_or_default())?;
-            batched_blobs_response.insert(digest, r.data);
+            let data = match Compressor::from_grpc(r.compressor) {
+                Some(compressor) => decompress_data(r.data, compressor)
+                    .await
+                    .with_context(|| format!("Failed to decompress batch blob `{digest}`"))?,
+                None if r.compressor == compressor::Value::Identity as i32 => r.data,
+                None => {
+                    return Err(anyhow::anyhow!(
+                        "Unsupported BatchReadBlobs response compressor `{}` for `{}`",
+                        r.compressor,
+                        digest
+                    ));
+                }
+            };
+            batched_blobs_response.insert(digest, data);
         }
     }
 
@@ -5318,9 +5430,14 @@ where
 
     let mut inlined_blobs = vec![];
     for digest in inlined_digests {
-        let data = if digest.size_in_bytes as usize >= max_total_batch_size {
+        let data = if digest.size_in_bytes as usize > max_total_batch_size {
             let mut accum = vec![];
-            let restart_from_zero = bystream_compressor.is_some();
+            let restart_from_zero = compression_for_blob(
+                bystream_compressor,
+                digest.size_in_bytes,
+                remote_cache_compression_threshold,
+            )
+            .is_some();
             let mut retry_attempt = 0usize;
             let mut next_delay = Duration::from_millis(GRPC_RETRY_INITIAL_DELAY_MILLIS);
             loop {
@@ -5420,13 +5537,18 @@ where
             // If the data is small enough to be transferred in a batch
             // blob update, write it all at once to the file. Otherwise, it'll
             // be streamed in chunks as the remote responds.
-            if req.named_digest.digest.size_in_bytes < max_total_batch_size as i64 {
+            if req.named_digest.digest.size_in_bytes <= max_total_batch_size as i64 {
                 let data = get(&req.named_digest.digest)?;
                 file.write_all(&data)
                     .await
                     .with_context(|| format!("Error writing: {}", req.named_digest.digest))?;
             } else {
-                let restart_from_zero = bystream_compressor.is_some();
+                let restart_from_zero = compression_for_blob(
+                    bystream_compressor,
+                    req.named_digest.digest.size_in_bytes,
+                    remote_cache_compression_threshold,
+                )
+                .is_some();
                 let mut hash_validators = BlobHashValidators::new(
                     &req.named_digest.digest.hash,
                     download_hash_digest_function_for_hash(&req.named_digest.digest.hash),
@@ -5549,11 +5671,44 @@ where
     })
 }
 
+async fn send_batch_update_blobs<Cas>(
+    mut request: BatchUpdateBlobsRequest,
+    request_digest_function_config: DigestFunctionConfig,
+    cas_f: impl Fn(BatchUpdateBlobsRequest) -> Cas + Sync + Send + Copy,
+) -> anyhow::Result<Vec<String>>
+where
+    Cas: Future<Output = anyhow::Result<BatchUpdateBlobsResponse>> + Send,
+{
+    if request.requests.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let blob_hashes = request
+        .requests
+        .iter()
+        .map(|x| x.digest.as_ref().unwrap().hash.clone())
+        .collect::<Vec<String>>();
+    let requested_digests = request
+        .requests
+        .iter()
+        .map(|x| x.digest.as_ref().unwrap().clone())
+        .collect::<Vec<_>>();
+    let digest_function =
+        request_digest_function_config.for_common_digest_function(&requested_digests);
+    request.digest_function = digest_function_to_grpc(digest_function);
+
+    let response = cas_f(request).await?;
+    validate_batch_update_blobs_response(&requested_digests, &response)?;
+    Ok(blob_hashes)
+}
+
 async fn upload_impl<Byt, Cas>(
     instance_name: &InstanceName,
     request: UploadRequest,
     bystream_compressor: Option<Compressor>,
+    batch_update_compressor: Option<Compressor>,
     max_total_batch_size: usize,
+    remote_cache_compression_threshold: usize,
     max_concurrent_uploads: Option<usize>,
     request_digest_function_config: DigestFunctionConfig,
     cas_f: impl Fn(BatchUpdateBlobsRequest) -> Cas + Sync + Send + Copy,
@@ -5623,8 +5778,9 @@ where
     // Adapt the given bystream_fut to take in an AsyncBufRead
     let bystream_fut = |resource_name: String,
                         reader: Box<dyn AsyncBufRead + Unpin + Send>,
-                        expected_digest: Option<TDigest>| async move {
-        let mut reader: Pin<Box<dyn AsyncRead + Unpin + Send>> = match bystream_compressor {
+                        expected_digest: Option<TDigest>,
+                        blob_compressor: Option<Compressor>| async move {
+        let mut reader: Pin<Box<dyn AsyncRead + Unpin + Send>> = match blob_compressor {
             None => Pin::new(Box::new(reader)),
             Some(Compressor::Zstd) => Pin::new(Box::new(ZstdEncoder::new(reader))),
             Some(Compressor::Deflate) => Pin::new(Box::new(DeflateEncoder::new(reader))),
@@ -5632,7 +5788,7 @@ where
         };
         let mut hash_validators = expected_digest
             .as_ref()
-            .filter(|digest| bystream_compressor.is_none() && should_validate_upload_hash(digest))
+            .filter(|digest| blob_compressor.is_none() && should_validate_upload_hash(digest))
             .map(|digest| {
                 BlobHashValidators::new(
                     &digest.hash,
@@ -5663,7 +5819,7 @@ where
             });
             current_offset += n_read as i64;
         }
-        if bystream_compressor.is_none() {
+        if blob_compressor.is_none() {
             if let Some(expected_digest) = &expected_digest {
                 validate_downloaded_blob_size(expected_digest, current_offset as usize)?;
                 if let Some(hash_validators) = hash_validators {
@@ -5695,17 +5851,22 @@ where
         let hash = blob.digest.hash.clone();
         let size = blob.digest.size_in_bytes;
 
-        if size < max_total_batch_size as i64 {
+        if size <= max_total_batch_size as i64 {
             batched_blob_updates.push(BatchUploadRequest::Blob(blob));
             continue;
         }
 
-        let data = prost::bytes::Bytes::from(blob.blob);
+        let data = blob.blob;
+        let blob_compressor = compression_for_blob(
+            bystream_compressor,
+            size,
+            remote_cache_compression_threshold,
+        );
         let client_uuid = uuid::Uuid::new_v4().to_string();
         let resource_name = resource_name(
             instance_name,
             &client_uuid,
-            bystream_compressor,
+            blob_compressor,
             &blob.digest,
             request_digest_function_config,
         );
@@ -5714,6 +5875,7 @@ where
                 resource_name,
                 Box::new(Cursor::new(data)),
                 Some(blob.digest),
+                blob_compressor,
             )
             .await?;
 
@@ -5727,15 +5889,20 @@ where
         let hash = file.digest.hash.clone();
         let size = file.digest.size_in_bytes;
         let name = file.name.clone();
-        if size < max_total_batch_size as i64 {
+        if size <= max_total_batch_size as i64 {
             batched_blob_updates.push(BatchUploadRequest::File(file));
             continue;
         }
+        let blob_compressor = compression_for_blob(
+            bystream_compressor,
+            size,
+            remote_cache_compression_threshold,
+        );
         let client_uuid = uuid::Uuid::new_v4().to_string();
         let resource_name = resource_name(
             instance_name,
             &client_uuid,
-            bystream_compressor,
+            blob_compressor,
             &file.digest,
             request_digest_function_config,
         );
@@ -5750,6 +5917,7 @@ where
                 resource_name,
                 Box::new(BufReader::new(file)),
                 Some(expected_digest),
+                blob_compressor,
             )
             .await?;
             Ok(vec![hash])
@@ -5762,24 +5930,29 @@ where
     let batched_blob_updates = batched_blob_updates.done();
     for batch in batched_blob_updates {
         let fut = async move {
+            let new_request = || BatchUpdateBlobsRequest {
+                instance_name: instance_name.as_str().to_owned(),
+                requests: vec![],
+                ..Default::default()
+            };
             let mut re_request = BatchUpdateBlobsRequest {
                 instance_name: instance_name.as_str().to_owned(),
                 requests: vec![],
                 ..Default::default()
             };
+            let mut request_size = 0usize;
+            let mut blob_hashes = Vec::new();
             for blob in batch {
-                match blob {
+                let (digest, data) = match blob {
                     BatchUploadRequest::Blob(blob) => {
+                        let digest = blob.digest;
+                        let data = blob.blob;
                         validate_upload_blob(
-                            &blob.digest,
-                            &blob.blob,
-                            request_digest_function_config.for_hash(&blob.digest.hash),
+                            &digest,
+                            &data,
+                            request_digest_function_config.for_hash(&digest.hash),
                         )?;
-                        re_request.requests.push(Request {
-                            digest: Some(tdigest_to(&blob.digest)),
-                            data: blob.blob.clone(),
-                            compressor: compressor::Value::Identity as i32,
-                        });
+                        (digest, data)
                     }
                     BatchUploadRequest::File(file) => {
                         // These should be small files, so no need to use a buffered reader.
@@ -5793,31 +5966,44 @@ where
                             &data,
                             request_digest_function_config.for_hash(&file.digest.hash),
                         )?;
-
-                        re_request.requests.push(Request {
-                            digest: Some(tdigest_to(&file.digest)),
-                            data,
-                            compressor: compressor::Value::Identity as i32,
-                        });
+                        (file.digest, data)
                     }
+                };
+                let blob_compressor = compression_for_blob(
+                    batch_update_compressor,
+                    digest.size_in_bytes,
+                    remote_cache_compression_threshold,
+                );
+                let data = if let Some(compressor) = blob_compressor {
+                    compress_data(data, compressor).await.with_context(|| {
+                        format!("Failed to compress BatchUpdateBlobs request for `{digest}`")
+                    })?
+                } else {
+                    data
+                };
+                let additional_size = data.len();
+                if !re_request.requests.is_empty()
+                    && request_size + additional_size > max_total_batch_size
+                {
+                    blob_hashes.extend(
+                        send_batch_update_blobs(re_request, request_digest_function_config, cas_f)
+                            .await?,
+                    );
+                    re_request = new_request();
+                    request_size = 0;
                 }
+                re_request.requests.push(Request {
+                    digest: Some(tdigest_to(&digest)),
+                    data,
+                    compressor: blob_compressor
+                        .map(|compressor| compressor.as_grpc())
+                        .unwrap_or(compressor::Value::Identity as i32),
+                });
+                request_size += additional_size;
             }
-            let blob_hashes = re_request
-                .requests
-                .iter()
-                .map(|x| x.digest.as_ref().unwrap().hash.clone())
-                .collect::<Vec<String>>();
-            let requested_digests = re_request
-                .requests
-                .iter()
-                .map(|x| x.digest.as_ref().unwrap().clone())
-                .collect::<Vec<_>>();
-            let digest_function =
-                request_digest_function_config.for_common_digest_function(&requested_digests);
-            re_request.digest_function = digest_function_to_grpc(digest_function);
-
-            let response = cas_f(re_request).await?;
-            validate_batch_update_blobs_response(&requested_digests, &response)?;
+            blob_hashes.extend(
+                send_batch_update_blobs(re_request, request_digest_function_config, cas_f).await?,
+            );
             Ok(blob_hashes)
         };
         upload_futures.push(Box::pin(fut));
@@ -5993,6 +6179,7 @@ mod tests {
             request,
             bystream_compressor,
             max_total_batch_size,
+            DEFAULT_REMOTE_CACHE_COMPRESSION_THRESHOLD,
             download_hash_digest_function,
             request_digest_function_config,
             0,
@@ -6001,6 +6188,35 @@ mod tests {
             cas_f,
             bystream_fut,
             || async {},
+        )
+        .await
+    }
+
+    async fn upload_impl<Byt, Cas>(
+        instance_name: &InstanceName,
+        request: UploadRequest,
+        bystream_compressor: Option<Compressor>,
+        max_total_batch_size: usize,
+        max_concurrent_uploads: Option<usize>,
+        request_digest_function_config: DigestFunctionConfig,
+        cas_f: impl Fn(BatchUpdateBlobsRequest) -> Cas + Sync + Send + Copy,
+        bystream_fut: impl Fn(Vec<WriteRequest>) -> Byt + Sync + Send + Copy,
+    ) -> anyhow::Result<UploadResponse>
+    where
+        Cas: Future<Output = anyhow::Result<BatchUpdateBlobsResponse>> + Send,
+        Byt: Future<Output = anyhow::Result<WriteResponse>> + Send,
+    {
+        super::upload_impl(
+            instance_name,
+            request,
+            bystream_compressor,
+            None,
+            max_total_batch_size,
+            DEFAULT_REMOTE_CACHE_COMPRESSION_THRESHOLD,
+            max_concurrent_uploads,
+            request_digest_function_config,
+            cas_f,
+            bystream_fut,
         )
         .await
     }
@@ -6188,6 +6404,7 @@ mod tests {
             max_total_batch_size: DEFAULT_MAX_TOTAL_BATCH_SIZE,
             max_cas_blob_size_bytes: None,
             supported_compressors: Vec::new(),
+            supported_batch_update_compressors: Vec::new(),
             supported_digest_functions: Vec::new(),
             cache_digest_functions,
             execution_digest_functions,
@@ -6349,6 +6566,7 @@ mod tests {
             cas_ttl_secs: 0,
             find_missing_blobs_batch_size: 100,
             remote_cache_chunking: false,
+            remote_cache_compression_threshold: DEFAULT_REMOTE_CACHE_COMPRESSION_THRESHOLD,
             retries: 0,
             retry_max_delay_ms: 0,
             grpc_request_timeout: Duration::from_secs(DEFAULT_GRPC_REQUEST_TIMEOUT_SECS),
@@ -7750,6 +7968,95 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_download_batch_compressed() -> anyhow::Result<()> {
+        let blob = vec![1u8; DEFAULT_REMOTE_CACHE_COMPRESSION_THRESHOLD + 1];
+        let digest = &digest_for_test_data(&blob);
+        let compressed_blob = compress_data(blob.clone(), Compressor::Zstd).await?;
+
+        let req = DownloadRequest {
+            inlined_digests: Some(vec![digest.clone()]),
+            ..Default::default()
+        };
+
+        let res = test_download_impl(
+            &InstanceName(None),
+            req,
+            Some(Compressor::Zstd),
+            100000,
+            None,
+            DigestFunctionConfig::default(),
+            |req| {
+                let digest = digest.clone();
+                let compressed_blob = compressed_blob.clone();
+                async move {
+                    assert_eq!(
+                        req.acceptable_compressors,
+                        vec![
+                            compressor::Value::Identity as i32,
+                            compressor::Value::Zstd as i32,
+                        ]
+                    );
+                    Ok(BatchReadBlobsResponse {
+                        responses: vec![batch_read_blobs_response::Response {
+                            digest: Some(tdigest_to(&digest)),
+                            data: compressed_blob,
+                            compressor: compressor::Value::Zstd as i32,
+                            ..Default::default()
+                        }],
+                    })
+                }
+            },
+            |_digest| async move { anyhow::Ok(Box::pin(futures::stream::iter(vec![]))) },
+        )
+        .await?;
+
+        assert_eq!(res.inlined_blobs.unwrap()[0].blob, blob);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_download_batch_compression_respects_threshold() -> anyhow::Result<()> {
+        let blob = vec![1u8; DEFAULT_REMOTE_CACHE_COMPRESSION_THRESHOLD - 1];
+        let digest = &digest_for_test_data(&blob);
+
+        let req = DownloadRequest {
+            inlined_digests: Some(vec![digest.clone()]),
+            ..Default::default()
+        };
+
+        test_download_impl(
+            &InstanceName(None),
+            req,
+            Some(Compressor::Zstd),
+            100000,
+            None,
+            DigestFunctionConfig::default(),
+            |req| {
+                let digest = digest.clone();
+                let blob = blob.clone();
+                async move {
+                    assert_eq!(
+                        req.acceptable_compressors,
+                        vec![compressor::Value::Identity as i32]
+                    );
+                    Ok(BatchReadBlobsResponse {
+                        responses: vec![batch_read_blobs_response::Response {
+                            digest: Some(tdigest_to(&digest)),
+                            data: blob,
+                            compressor: compressor::Value::Identity as i32,
+                            ..Default::default()
+                        }],
+                    })
+                }
+            },
+            |_digest| async move { anyhow::Ok(Box::pin(futures::stream::iter(vec![]))) },
+        )
+        .await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn test_download_multiple_batches() -> anyhow::Result<()> {
         let blob_data = vec![0, 1, 2];
         let digest1 = &digest_for_test_data(&blob_data);
@@ -7904,6 +8211,7 @@ mod tests {
             req,
             None,
             10,
+            DEFAULT_REMOTE_CACHE_COMPRESSION_THRESHOLD,
             None,
             DigestFunctionConfig::default(),
             1,
@@ -8349,6 +8657,97 @@ mod tests {
                     assert_eq!(req.requests[1].digest, Some(tdigest_to(&digest2)));
                     assert_eq!(req.requests[1].data, b"bbb");
                     Ok(res)
+                }
+            },
+            |_req| async { panic!("A Bytestream upload should not be triggered") },
+        )
+        .await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_upload_batch_compressed() -> anyhow::Result<()> {
+        let blob = vec![1u8; DEFAULT_REMOTE_CACHE_COMPRESSION_THRESHOLD + 1];
+        let digest = digest_for_test_data(&blob);
+
+        super::upload_impl(
+            &InstanceName(None),
+            UploadRequest {
+                inlined_blobs_with_digest: Some(vec![InlinedBlobWithDigest {
+                    blob: blob.clone(),
+                    digest: digest.clone(),
+                    ..Default::default()
+                }]),
+                ..Default::default()
+            },
+            None,
+            Some(Compressor::Zstd),
+            100000,
+            DEFAULT_REMOTE_CACHE_COMPRESSION_THRESHOLD,
+            None,
+            DigestFunctionConfig::default(),
+            |req| {
+                let digest = digest.clone();
+                let blob = blob.clone();
+                async move {
+                    assert_eq!(req.requests.len(), 1);
+                    assert_eq!(req.requests[0].compressor, compressor::Value::Zstd as i32);
+                    let decompressed =
+                        decompress_data(req.requests[0].data.clone(), Compressor::Zstd).await?;
+                    assert_eq!(decompressed, blob);
+                    Ok(BatchUpdateBlobsResponse {
+                        responses: vec![batch_update_blobs_response::Response {
+                            digest: Some(tdigest_to(&digest)),
+                            status: Some(Status::default()),
+                        }],
+                    })
+                }
+            },
+            |_req| async { panic!("A Bytestream upload should not be triggered") },
+        )
+        .await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_upload_batch_compression_respects_threshold() -> anyhow::Result<()> {
+        let blob = vec![1u8; DEFAULT_REMOTE_CACHE_COMPRESSION_THRESHOLD - 1];
+        let digest = digest_for_test_data(&blob);
+
+        super::upload_impl(
+            &InstanceName(None),
+            UploadRequest {
+                inlined_blobs_with_digest: Some(vec![InlinedBlobWithDigest {
+                    blob: blob.clone(),
+                    digest: digest.clone(),
+                    ..Default::default()
+                }]),
+                ..Default::default()
+            },
+            None,
+            Some(Compressor::Zstd),
+            100000,
+            DEFAULT_REMOTE_CACHE_COMPRESSION_THRESHOLD,
+            None,
+            DigestFunctionConfig::default(),
+            |req| {
+                let digest = digest.clone();
+                let blob = blob.clone();
+                async move {
+                    assert_eq!(req.requests.len(), 1);
+                    assert_eq!(
+                        req.requests[0].compressor,
+                        compressor::Value::Identity as i32
+                    );
+                    assert_eq!(req.requests[0].data, blob);
+                    Ok(BatchUpdateBlobsResponse {
+                        responses: vec![batch_update_blobs_response::Response {
+                            digest: Some(tdigest_to(&digest)),
+                            status: Some(Status::default()),
+                        }],
+                    })
                 }
             },
             |_req| async { panic!("A Bytestream upload should not be triggered") },
@@ -8857,11 +9256,13 @@ mod tests {
             ..Default::default()
         };
 
-        upload_impl(
+        super::upload_impl(
             &InstanceName(Some("instance".to_owned())),
             req,
             Some(Compressor::Zstd),
+            None,
             1,
+            0,
             None,
             DigestFunctionConfig::default(),
             |_req| async move {
@@ -8989,7 +9390,9 @@ async fn test_upload_compressed() -> anyhow::Result<()> {
         &InstanceName(Some("instance".to_owned())),
         req,
         Some(Compressor::Zstd),
+        None,
         1,
+        DEFAULT_REMOTE_CACHE_COMPRESSION_THRESHOLD,
         None,
         DigestFunctionConfig::default(),
         |_req| async move {
@@ -9036,6 +9439,7 @@ async fn test_download_compressed() -> anyhow::Result<()> {
         },
         Some(Compressor::Zstd),
         10,
+        DEFAULT_REMOTE_CACHE_COMPRESSION_THRESHOLD,
         None,
         DigestFunctionConfig::default(),
         0,
