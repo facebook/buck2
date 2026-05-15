@@ -21,6 +21,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use dashmap::DashMap;
+use dashmap::DashSet;
 use pagable::PagableSerialize;
 use pagable::PagableSerializer;
 
@@ -38,15 +39,36 @@ use crate::values::layout::pointer::PointerTags;
 /// independently-serialized heaps (via pagable arcs) can all register
 /// their offset maps and resolve cross-heap references.
 pub(crate) struct StarlarkSerState {
-    /// Maps from raw header pointer address to ArenaOffset, keyed by HeapRefId.
-    heap_offset_maps: DashMap<HeapRefId, HashMap<usize, ArenaOffset>>,
+    /// Direct lookup from raw header pointer to its `(heap_id, offset)`.
+    ptr_to_location: DashMap<usize, (HeapRefId, ArenaOffset)>,
+    /// Heaps whose offset maps have already been folded into
+    /// `ptr_to_location`. Used to avoid double-registration.
+    registered_heaps: DashSet<HeapRefId>,
 }
 
 impl StarlarkSerState {
     pub(crate) fn new() -> Self {
         Self {
-            heap_offset_maps: DashMap::new(),
+            ptr_to_location: DashMap::new(),
+            registered_heaps: DashSet::new(),
         }
+    }
+
+    /// Fold a heap's offset map into the flat `ptr_to_location` lookup.
+    /// Idempotent: concurrent callers may both populate the same entries,
+    /// but `ptr_to_location.insert` overwrites identically.
+    fn register_heap(&self, heap_id: HeapRefId, offset_map: HashMap<usize, ArenaOffset>) {
+        for (ptr, offset) in offset_map {
+            self.ptr_to_location.insert(ptr, (heap_id, offset));
+        }
+        // Mark registered AFTER inserts so any observer of
+        // `has_heap(heap_id) == true` is guaranteed to see all entries.
+        self.registered_heaps.insert(heap_id);
+    }
+
+    /// Check if a heap's offset map has already been registered.
+    fn has_heap(&self, heap_id: HeapRefId) -> bool {
+        self.registered_heaps.contains(&heap_id)
     }
 
     /// Recursively ensure that offset maps are registered for a heap
@@ -58,11 +80,7 @@ impl StarlarkSerState {
         refs: &[FrozenHeapRef],
         build_map: impl FnOnce() -> HashMap<usize, ArenaOffset>,
     ) {
-        // Fast path: skip dep walk if already registered. Under contention
-        // two threads may both pass this check and redundantly walk deps,
-        // but `entry().or_insert_with()` below is atomic and ensures
-        // `build_map` runs at most once per heap_id.
-        if self.heap_offset_maps.contains_key(&heap_id) {
+        if self.has_heap(heap_id) {
             return;
         }
 
@@ -70,9 +88,7 @@ impl StarlarkSerState {
             self.ensure_offset_maps_registered(dep);
         }
 
-        self.heap_offset_maps
-            .entry(heap_id)
-            .or_insert_with(build_map);
+        self.register_heap(heap_id, build_map());
     }
 
     /// Recursively ensure that offset maps are registered for a heap and
@@ -147,14 +163,13 @@ impl StarlarkSerializeContext for StarlarkSerializerImpl<'_> {
                 let is_str = fv.ptr_value().tags() == PointerTags::StrFrozen;
                 let raw_ptr = fv.ptr_value().ptr_value_untagged();
 
-                // Scan all registered heaps for the pointer. Extract
-                // (heap_id, offset) into a local so the DashMap shard
-                // lock is released before pagable_serialize.
+                // Copy the (heap_id, offset) out of the DashMap so the
+                // shard guard is dropped before `pagable_serialize`.
                 let (heap_id, arena_offset) = self
                     .state
-                    .heap_offset_maps
-                    .iter()
-                    .find_map(|entry| entry.value().get(&raw_ptr).map(|&off| (*entry.key(), off)))
+                    .ptr_to_location
+                    .get(&raw_ptr)
+                    .map(|loc| *loc)
                     .unwrap_or_else(|| {
                         panic!(
                             "FrozenValue pointer {:#x} not found in any heap's offset map",
