@@ -84,6 +84,12 @@ constraint_value(
 )
 
 constraint_value(
+    name = "uefi",
+    constraint_setting = ":os",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
     name = "none",
     constraint_setting = ":os",
     visibility = ["PUBLIC"],
