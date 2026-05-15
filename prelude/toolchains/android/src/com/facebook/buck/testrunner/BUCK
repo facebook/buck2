@@ -66,6 +66,7 @@ buck_kotlin_library(
         "JulLogFormatter.java",
         "JupiterMain.java",
         "JupiterRunner.java",
+        "PerTestJUnitCoverageRunListener.kt",
         "RobolectricTimeoutEnforcingRunListener.kt",
         "SameThreadFailOnTimeout.java",
         "SkipTestCondition.java",
@@ -80,10 +81,12 @@ buck_kotlin_library(
     source = "11", # @oss-enable
     target = "11", # @oss-enable
     tests = [
+        "prelude//toolchains/android/test/com/facebook/buck/testrunner:per_test_coverage_listener_test",
         "prelude//toolchains/android/test/com/facebook/buck/testrunner:testrunner",
         "prelude//toolchains/android/test/com/facebook/buck/testrunner:tpx_timeout_buffer_manager_test",
     ],
     visibility = [
+        "prelude//toolchains/android/test/com/facebook/buck/testrunner:per_test_coverage_listener_test",
         "prelude//toolchains/android/test/com/facebook/buck/testrunner:testrunner",
         "prelude//toolchains/android/test/com/facebook/buck/testrunner:tpx_timeout_buffer_manager_test",
     ],
