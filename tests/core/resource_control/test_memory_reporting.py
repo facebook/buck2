@@ -96,7 +96,7 @@ async def test_memory_reporting_in_test(buck: Buck) -> None:
         "data",
         "SpanEnd",
         "data",
-        "TestEnd",
+        "TestRun",
     )
     assert len(events) == 1
     details = events[0]["command_report"]["details"]
