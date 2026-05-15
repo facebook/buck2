@@ -12,6 +12,7 @@ mod arc;
 mod collections;
 mod regex;
 mod serde;
+mod static_interner;
 mod std;
 mod tuples;
 
