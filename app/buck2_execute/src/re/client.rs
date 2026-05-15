@@ -1974,29 +1974,37 @@ impl RemoteExecutionClientImpl {
             ));
         }
 
-        let futs = chunks(files, self.download_chunk_size).map(|chunk| async move {
-            let _permit = self
-                .download_files_semapore
-                .acquire_many(
-                    chunk
-                        .len()
-                        .try_into()
-                        .buck_error_context("chunk is too large")?,
-                )
-                .await
-                .buck_error_context("Failed to acquire download_files_semapore")?;
+        let futs = chunks(files, self.download_chunk_size).map(|chunk| {
+            async move {
+                let _permit = self
+                    .download_files_semapore
+                    .acquire_many(
+                        chunk
+                            .len()
+                            .try_into()
+                            .buck_error_context("chunk is too large")?,
+                    )
+                    .await
+                    .buck_error_context("Failed to acquire download_files_semapore")?;
 
-            let download = self.client().get_cas_client().download(
-                metadata,
-                DownloadRequest {
-                    file_digests: Some(chunk),
-                    ..Default::default()
-                },
-            );
-            let response =
-                with_error_handler("materialize_files", self.get_session_id(), download.await)?;
+                let download = self.client().get_cas_client().download(
+                    metadata,
+                    DownloadRequest {
+                        file_digests: Some(chunk),
+                        ..Default::default()
+                    },
+                );
+                let response = with_error_handler(
+                    "materialize_files",
+                    self.get_session_id(),
+                    // boxed() to segment the future
+                    download.boxed().await,
+                )?;
 
-            buck2_error::Ok(response.local_cache_stats)
+                buck2_error::Ok(response.local_cache_stats)
+            }
+            // boxed() to segment the future
+            .boxed()
         });
 
         let stat = buck2_util::future::try_join_all(futs).await?.iter().fold(

@@ -3464,6 +3464,62 @@ impl REClient {
         Ok(chunk_blobs)
     }
 
+    async fn download_fast_cdc_chunk(
+        &self,
+        metadata: RemoteExecutionMetadata,
+        digest: &TDigest,
+    ) -> anyhow::Result<Vec<u8>> {
+        if let Some(cache) = &self.local_chunk_cache {
+            if let Some(blob) = cache
+                .read(
+                    digest,
+                    self.runtime_opts
+                        .download_hash_digest_function_for_hash(&digest.hash),
+                )
+                .await?
+            {
+                return Ok(blob);
+            }
+        }
+
+        let response = self
+            .download_direct(
+                metadata,
+                DownloadRequest {
+                    inlined_digests: Some(vec![digest.clone()]),
+                    ..Default::default()
+                },
+            )
+            .await?;
+        let mut remote_chunk_blobs = response.inlined_blobs.unwrap_or_default();
+        anyhow::ensure!(
+            remote_chunk_blobs.len() == 1,
+            "Chunked download received {} chunks, expected 1",
+            remote_chunk_blobs.len()
+        );
+
+        let chunk_blob = remote_chunk_blobs
+            .pop()
+            .context("Missing downloaded chunk")?;
+        anyhow::ensure!(
+            chunk_blob.digest == *digest,
+            "Chunked download received digest `{}`, expected `{digest}`",
+            chunk_blob.digest
+        );
+        if let Some(cache) = &self.local_chunk_cache {
+            cache
+                .write(
+                    digest,
+                    &chunk_blob.blob,
+                    self.runtime_opts
+                        .download_hash_digest_function_for_hash(&digest.hash),
+                )
+                .await;
+        }
+
+        Ok(chunk_blob.blob)
+    }
+
     async fn download_fast_cdc_file(
         &self,
         metadata: RemoteExecutionMetadata,
@@ -3481,9 +3537,6 @@ impl REClient {
             )
             .await?;
         let chunk_digests = split.chunk_digests;
-        let chunk_blobs = self
-            .download_fast_cdc_chunks(metadata, &chunk_digests)
-            .await?;
 
         let mut opts = OpenOptions::new();
         opts.read(true).write(true).create_new(true);
@@ -3508,9 +3561,9 @@ impl REClient {
         let mut copied_bytes = 0usize;
 
         for chunk_digest in chunk_digests {
-            let chunk_blob = chunk_blobs
-                .get(&chunk_digest)
-                .with_context(|| format!("Chunked download missing chunk `{chunk_digest}`"))?;
+            let chunk_blob = self
+                .download_fast_cdc_chunk(metadata.clone(), &chunk_digest)
+                .await?;
             copied_bytes = copied_bytes
                 .checked_add(chunk_blob.len())
                 .with_context(|| {
@@ -3521,7 +3574,7 @@ impl REClient {
                 })?;
             hash_validators.update(&chunk_blob);
             output
-                .write_all(&chunk_blob)
+                .write_all(chunk_blob.as_slice())
                 .await
                 .with_context(|| format!("Error writing chunk of: {}", file.named_digest.digest))?;
         }
