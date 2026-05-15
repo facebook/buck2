@@ -1088,6 +1088,7 @@ android_library = prelude_rule(
                 jvm_common.classic_java_content_based_paths() |
                 {
                     "android_optional_jars": attrs.option(attrs.list(attrs.dep()), default = None),
+                    "capabilities_registrations": attrs.option(attrs.list(attrs.any()), default = None),
                     "friend_paths": attrs.list(attrs.dep(), default = []),
                     "jar_postprocessor": attrs.option(attrs.exec_dep(), default = None),
                     "java_version": attrs.option(attrs.string(), default = None),
