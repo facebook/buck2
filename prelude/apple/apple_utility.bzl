@@ -25,15 +25,6 @@ def get_apple_architecture(ctx: AnalysisContext) -> str:
     return ctx.attrs._apple_toolchain[AppleToolchainInfo].architecture
 
 def get_apple_stripped_attr_value_with_default_fallback(ctx: AnalysisContext) -> bool:
-    stripped = ctx.attrs.stripped
-    if stripped != None:
-        # `stripped` present on a target takes priority
-        return stripped
-
-    # Fallback to the default stripped override which is driven by buckconfig
-    if ctx.attrs._stripped_default:
-        return True
-
     return ctx.attrs.strip_level != "unstripped"
 
 def expand_relative_prefixed_sdk_path(swift_toolchain_info: SwiftToolchainInfo, path_to_expand: str) -> cmd_args:

@@ -342,7 +342,6 @@ apple_binary = prelude_rule(
         | native_common.soname()
         | apple_common.static_library_basename_arg()
         | apple_common.strip_level_arg()
-        | apple_common.stripped_default_arg()
         | apple_common.swift_module_skip_function_bodies_arg()
         | apple_common.swift_package_name_arg()
         | apple_common.thin_lto_arg()
@@ -382,7 +381,6 @@ apple_binary = prelude_rule(
             "raw_headers": attrs.set(attrs.source(), sorted = True, default = []),
             "reexport_all_header_dependencies": attrs.option(attrs.bool(), default = None),
             "sanitizer_runtime_enabled": attrs.option(attrs.bool(), default = None),
-            "stripped": attrs.option(attrs.bool(), default = None),
             "supports_merged_linking": attrs.option(attrs.bool(), default = None),
             "swift_compilation_mode": attrs.enum(SwiftCompilationMode.values(), default = "wmo"),
             "swift_compiler_flags": attrs.list(attrs.arg(), default = []),
@@ -662,7 +660,6 @@ apple_library = prelude_rule(
         | native_common.soname()
         | apple_common.static_library_basename_arg()
         | apple_common.strip_level_arg()
-        | apple_common.stripped_default_arg()
         | apple_common.swift_module_skip_function_bodies_arg()
         | apple_common.swift_package_name_arg()
         | apple_common.thin_lto_arg()
@@ -701,7 +698,6 @@ apple_library = prelude_rule(
             "public_framework_headers": attrs.named_set(attrs.source(), sorted = True, default = []),
             # Mach-O file type for binary when the target is built as a shared library.
             "shared_library_macho_file_type": attrs.enum(AppleSharedLibraryMachOFileType.values(), default = "dylib"),
-            "stripped": attrs.option(attrs.bool(), default = None),
             "supports_header_symlink_subtarget": attrs.bool(default = False),
             "supports_merged_linking": attrs.option(attrs.bool(), default = None),
             "supports_shlib_interfaces": attrs.bool(default = True),
@@ -1279,7 +1275,6 @@ prebuilt_apple_framework = prelude_rule(
         | apple_common.libraries_arg()
         | apple_common.sdk_modules_arg()
         | apple_common.strip_level_arg()
-        | apple_common.stripped_default_arg()
         | {
             "binary": attrs.option(
                 attrs.string(),
@@ -1316,7 +1311,6 @@ prebuilt_apple_framework = prelude_rule(
                  an Apple bundle.
             """,
             ),
-            "stripped": attrs.option(attrs.bool(), default = None),
         }
         | apple_common.apple_tools_arg()
         | apple_common.apple_toolchain_arg()

@@ -397,9 +397,6 @@ def _strip_level_arg():
         )
     }
 
-def _stripped_default_arg():
-    return {"_stripped_default": attrs.bool(default = False)}
-
 def _swift_module_skip_function_bodies_arg():
     return {"swift_module_skip_function_bodies": attrs.bool(default = True)}
 
@@ -517,7 +514,6 @@ apple_common = struct(
     sdk_modules_arg = _sdk_modules_arg,
     static_library_basename_arg = _static_library_basename_arg,
     strip_level_arg = _strip_level_arg,
-    stripped_default_arg = _stripped_default_arg,
     swift_module_skip_function_bodies_arg = _swift_module_skip_function_bodies_arg,
     swift_package_name_arg = _swift_package_name_arg,
     skip_private_swiftinterface_arg = _skip_private_swiftinterface_arg,

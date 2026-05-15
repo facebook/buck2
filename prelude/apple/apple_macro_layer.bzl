@@ -41,12 +41,6 @@ APPLE_LINK_LIBRARIES_REMOTELY_OVERRIDE = AppleBuckConfigAttributeOverride(
     skip_if_false = True,
 )
 
-APPLE_STRIPPED_DEFAULT = AppleBuckConfigAttributeOverride(
-    name = "_stripped_default",
-    key = "stripped_default",
-    skip_if_false = True,
-)
-
 _APPLE_LIBRARY_LOCAL_EXECUTION_OVERRIDES = [
     APPLE_LINK_LIBRARIES_LOCALLY_OVERRIDE,
     APPLE_LINK_LIBRARIES_REMOTELY_OVERRIDE,
@@ -111,7 +105,6 @@ def apple_bundle_macro_impl(apple_bundle_rule, apple_resource_bundle_rule, **kwa
 
 def apple_library_macro_impl(apple_library_rule = None, **kwargs):
     kwargs.update(apple_macro_layer_set_bool_override_attrs_from_config(_APPLE_LIBRARY_LOCAL_EXECUTION_OVERRIDES))
-    kwargs.update(apple_macro_layer_set_bool_override_attrs_from_config([APPLE_STRIPPED_DEFAULT]))
     apple_library_rule(**kwargs)
 
 def apple_metal_library_macro_impl(apple_metal_library_rule = None, **kwargs):
@@ -131,12 +124,10 @@ def apple_library_for_distribution_macro_impl(apple_library_for_distribution_rul
     apple_library_macro_impl(apple_library_rule = apple_library_for_distribution_rule, **kwargs)
 
 def prebuilt_apple_framework_macro_impl(prebuilt_apple_framework_rule = None, **kwargs):
-    kwargs.update(apple_macro_layer_set_bool_override_attrs_from_config([APPLE_STRIPPED_DEFAULT]))
     prebuilt_apple_framework_rule(**kwargs)
 
 def apple_binary_macro_impl(apple_binary_rule = None, apple_universal_executable = None, **kwargs):
     kwargs.update(apple_macro_layer_set_bool_override_attrs_from_config(_APPLE_BINARY_EXECUTION_OVERRIDES))
-    kwargs.update(apple_macro_layer_set_bool_override_attrs_from_config([APPLE_STRIPPED_DEFAULT]))
 
     original_binary_name = kwargs.pop("name")
 

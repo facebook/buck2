@@ -11,9 +11,7 @@ load("@prelude//utils:expect.bzl", "expect")
 
 def apple_strip_args(ctx: AnalysisContext) -> cmd_args:
     strip_flags_info = get_cxx_toolchain_info(ctx).strip_flags_info
-    if ctx.attrs.stripped or ctx.attrs._stripped_default:
-        flags = strip_flags_info.strip_non_global_flags
-    elif ctx.attrs.strip_level == "non_global":
+    if ctx.attrs.strip_level == "non_global":
         flags = strip_flags_info.strip_non_global_flags
     elif ctx.attrs.strip_level == "all":
         flags = strip_flags_info.strip_all_flags

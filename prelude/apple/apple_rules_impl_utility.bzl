@@ -190,7 +190,6 @@ def apple_test_extra_attrs():
         "sanitizer_runtime_enabled": attrs.option(attrs.bool(), default = None),
         # Tests default to unstripped so they can be debugged.
         "strip_level": attrs.default_only(attrs.string(default = "unstripped")),
-        "stripped": attrs.bool(default = False),
         "swift_compilation_mode": attrs.enum(SwiftCompilationMode.values(), default = "wmo"),
         "swift_package_name": attrs.option(attrs.string(), default = None),
         "swift_testing": attrs.bool(default = False),
