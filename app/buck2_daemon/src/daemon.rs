@@ -26,9 +26,9 @@ use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::memory;
 use buck2_core::buck2_env;
 use buck2_core::logging::LogConfigurationReloadHandle;
+use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
-#[cfg(windows)]
 use buck2_error::buck2_error;
 use buck2_error::conversion::clap::buck_error_clap_parser;
 use buck2_events::daemon_id::DaemonId;
@@ -565,6 +565,18 @@ impl DaemonCommand {
                         e
                     );
                     let _ignored = buck2_client_ctx::eprintln!("{}", msg);
+
+                    let _ignored = soft_error!(
+                        "daemon_project_root_unavailable",
+                        buck2_error!(
+                            ErrorTag::MissingProjectRoot,
+                            "Project root `{}` is no longer accessible: {:#}",
+                            project_root.display(),
+                            e
+                        ),
+                        quiet: true,
+                        task: false,
+                    );
 
                     let _ignored = hard_shutdown_sender.unbounded_send(msg);
                 }
