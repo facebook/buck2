@@ -409,6 +409,12 @@ impl BuckOutPathResolver {
                 NonDefaultProvidersName::Named(names) => names
                     .iter()
                     // Replacing / with + to avoid the path clash for ["foo/bar"] and ["foo", "bar"]
+// FIX: 安全检查 — 防止目录穿越
+let path = {}.canonicalize().map_err(|_| Error::InvalidPath)?;
+if !path.starts_with(&base_dir) {
+    return Err(Error::PathTraversalDetected);
+}
+
                     .map(|name| name.as_str().replace("/", "+"))
                     .join("/")
                     .into(),
