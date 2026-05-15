@@ -14,6 +14,7 @@
 //! but with changes for performance and flexibility.
 
 use std::cmp::Ordering;
+use std::collections::hash_map::DefaultHasher;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
@@ -26,7 +27,6 @@ use std::ptr;
 
 use allocative::Allocative;
 use allocative::Visitor;
-use buck2_hash::BuckDefaultHasher;
 use dupe::Dupe;
 pub use equivalent::Equivalent;
 use lock_free_hashtable::sharded::ShardedLockFreeRawTable;
@@ -40,7 +40,7 @@ use pagable::arc_erase::StdArcEraseType;
 use pagable::arc_erase::deserialize_arc;
 use strong_hash::StrongHash;
 
-pub struct Interner<T: 'static, H = BuckDefaultHasher> {
+pub struct Interner<T: 'static, H = DefaultHasher> {
     table: ShardedLockFreeRawTable<Box<InternedData<T>>, 64>,
     _marker: PhantomData<H>,
 }
@@ -389,11 +389,11 @@ impl<T: 'static, H: 'static> Iterator for Iter<T, H> {
 
 /// Define a static interner and implement Internable to associate it with an interned type.
 ///
-/// Without additional arguments, `interner!(STRING_INTERNER, BuckDefaultHasher, InternString)`
-/// creates a `static STRING_INTERNER: Interner<InternString, BuckDefaultHasher>` and implements Internable for InternString.
+/// Without additional arguments, `interner!(STRING_INTERNER, DefaultHasher, InternString)`
+/// creates a `static STRING_INTERNER: Interner<InternString, DefaultHasher>` and implements Internable for InternString.
 ///
 /// Additional arguments are used to implement convenience traits when the interned type wraps an existing type.
-/// `interner!(STRING_INTERNER, BuckDefaultHasher, InternString, String, str, StrRef)`
+/// `interner!(STRING_INTERNER, DefaultHasher, InternString, String, str, StrRef)`
 /// also implements
 ///     ``Equivalent<InternString>`` for `String`
 ///     ``From<String>``for `InternString`
@@ -461,8 +461,7 @@ macro_rules! interner {
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeSet;
-
-    use buck2_hash::BuckDefaultHasher;
+    use std::collections::hash_map::DefaultHasher;
 
     use crate::Intern;
     use crate::InternDisposition;
@@ -471,7 +470,7 @@ mod tests {
     pub struct StringValue(String);
     interner!(
         STRING_INTERNER,
-        BuckDefaultHasher,
+        DefaultHasher,
         StringValue,
         String,
         str,
@@ -515,7 +514,7 @@ mod tests {
     pub struct TestDispositionValue(String);
     interner!(
         TEST_DISPOSITION_INTERNER,
-        BuckDefaultHasher,
+        DefaultHasher,
         TestDispositionValue,
         String
     );
@@ -534,7 +533,7 @@ mod tests {
     pub struct TestGetValue(String);
     interner!(
         TEST_GET_INTERNER,
-        BuckDefaultHasher,
+        DefaultHasher,
         TestGetValue,
         String,
         str,
@@ -556,7 +555,7 @@ mod tests {
     pub struct TestIterValue(&'static str);
     interner!(
         TEST_ITER_INTERNER,
-        BuckDefaultHasher,
+        DefaultHasher,
         TestIterValue,
         &'static str
     );
@@ -587,7 +586,7 @@ mod tests {
     pub struct TestPointerValue(&'static str);
     interner!(
         TEST_POINTER_INTERNER,
-        BuckDefaultHasher,
+        DefaultHasher,
         TestPointerValue,
         &'static str
     );
