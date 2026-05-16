@@ -4,7 +4,7 @@ edition = "2024"
 license = { workspace = true }
 name = "static_interner"
 repository = { workspace = true }
-version = "0.1.0"
+version = "0.1.2"
 
 [dependencies]
 allocative = { workspace = true, optional = true }
