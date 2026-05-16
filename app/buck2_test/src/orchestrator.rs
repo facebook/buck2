@@ -2583,4 +2583,18 @@ mod tests {
         assert_eq!(result.len(), MAX_SUFFIX_LEN);
         assert!(result.ends_with("(truncated)"));
     }
+
+    #[test]
+    #[should_panic(expected = "is_char_boundary")]
+    fn test_create_action_key_suffix_truncation_multibyte_utf8() {
+        // 3-byte char (中 = 0xE4 0xB8 0xAD); byte 1013 lands mid-character.
+        let long_testcase = "中".repeat(MAX_SUFFIX_LEN);
+        let stage = TestStage::Testing {
+            suite: "test_suite".to_owned(),
+            testcases: vec![long_testcase],
+            variant: None,
+            repeat_count: None,
+        };
+        create_action_key_suffix(&stage);
+    }
 }
