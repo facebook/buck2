@@ -9,7 +9,7 @@
 # @oss-disable[end= ]: load("@prelude//apple/meta_only:meta_only_rules.bzl", "meta_only_apple_rule_attributes", "meta_only_apple_rule_implementations")
 
 # @oss-disable[end= ]: implemented_rules = {} | meta_only_apple_rule_implementations()
-} # @oss-enable
+implemented_rules = {} # @oss-enable
 
 # @oss-disable[end= ]: extra_attributes = {} | meta_only_apple_rule_attributes()
-} # @oss-enable
+extra_attributes = {} # @oss-enable
