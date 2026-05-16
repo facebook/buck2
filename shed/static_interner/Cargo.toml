@@ -7,8 +7,14 @@ repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]
-allocative = { workspace = true }
-dupe = { workspace = true }
+allocative = { workspace = true, optional = true }
+dupe = { workspace = true, optional = true }
 equivalent = { workspace = true }
 lock_free_hashtable = { workspace = true }
-strong_hash = { workspace = true }
+strong_hash = { workspace = true, optional = true }
+
+[features]
+allocative = ["dep:allocative"]
+default = []
+dupe = ["dep:dupe"]
+strong_hash = ["dep:strong_hash"]

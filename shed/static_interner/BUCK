@@ -6,6 +6,14 @@ rust_library(
     name = "static_interner",
     srcs = glob(["src/**/*.rs"]),
     crate_root = "src/lib.rs",
+    # buck2 uses every integration impl (`Allocative`, `Dupe`, `StrongHash`) on
+    # `Intern<T>`, so enable all features. OSS users on crates.io opt in via
+    # cargo features as needed; default is no impls.
+    features = [
+        "allocative",
+        "dupe",
+        "strong_hash",
+    ],
     deps = [
         "fbsource//third-party/rust:equivalent",
         "//buck2/allocative/allocative:allocative",
