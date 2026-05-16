@@ -119,7 +119,6 @@ use dupe::Copy_;
 use dupe::Dupe;
 use dupe::Dupe_;
 use either::Either;
-use gazebo::variants::VariantName;
 use parking_lot::Mutex;
 use strong_hash::StrongHash;
 
@@ -706,7 +705,7 @@ impl<T> PagableArcInnerData<T> {
     }
 }
 
-#[derive(Debug, gazebo::variants::VariantName)]
+#[derive(Debug)]
 enum PagableArcInnerState<T> {
     Pinned(std::sync::Arc<T>),
     Unpinned(std::sync::Arc<T>),
