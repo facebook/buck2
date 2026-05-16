@@ -118,7 +118,7 @@ impl<'v> AValue<'v> for AValueArray {
     }
 }
 
-/// `AValue` impl for [`AnyArray<T>`]: stored on the frozen heap with a
+/// `AValue` impl for `AnyArray<T>`: stored on the frozen heap with a
 /// trailing slice of `T` (see `alloc_any_array_value`).
 pub struct AValueAnyArray<T>(PhantomData<T>);
 

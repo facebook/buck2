@@ -317,7 +317,7 @@ fn expand_atfile(path: &Path) -> Result<Vec<String>, anyhow::Error> {
     let contents = fs::read_to_string(path)?;
     let flags = contents
         .lines()
-        .filter_map(|flag| flag.strip_prefix("--cfg=").map(str::to_string));
+        .filter_map(|flag| flag.strip_prefix("--cfg=").map(str::to_owned));
     Ok(flags.collect::<Vec<String>>())
 }
 

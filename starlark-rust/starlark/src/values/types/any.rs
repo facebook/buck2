@@ -148,9 +148,11 @@ impl<T: StarlarkAnyRegistered> crate::pagable::StarlarkDeserialize for StarlarkA
 /// # Safety
 ///
 /// Implementors must also register the heap vtable entry for
-/// `StarlarkAny<Self>` via [`register_simple_vtable_entry!`]. Use the
-/// [`register_starlark_any!`] macro instead of implementing this trait
-/// manually — it handles both the trait impl and the vtable registration.
+/// `StarlarkAny<Self>` via
+/// [`register_simple_vtable_entry!`](macro@crate::register_simple_vtable_entry).
+/// Use the [`register_starlark_any!`](macro@crate::register_starlark_any) macro
+/// instead of implementing this trait manually — it handles both the trait
+/// impl and the vtable registration.
 pub unsafe trait StarlarkAnyRegistered:
     Debug + Send + Sync + 'static + crate::pagable::StarlarkPagable
 {
@@ -178,7 +180,7 @@ impl<'v, T: StarlarkAnyRegistered> StarlarkValue<'v> for StarlarkAny<T> {
 /// 1. Implements [`StarlarkAnyRegistered`] for `T`, providing the typing
 ///    vtable entry for `StarlarkAny<T>`.
 /// 2. Registers the heap vtable entry for `StarlarkAny<T>` via
-///    [`register_simple_vtable_entry!`].
+///    [`register_simple_vtable_entry!`](macro@crate::register_simple_vtable_entry).
 #[macro_export]
 macro_rules! register_starlark_any {
     ($t:ty) => {

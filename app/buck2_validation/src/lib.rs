@@ -9,7 +9,6 @@
  */
 
 #![feature(error_generic_member_access)]
-#![feature(assert_matches)]
 
 use std::sync::Once;
 

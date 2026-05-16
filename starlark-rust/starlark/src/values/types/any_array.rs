@@ -106,6 +106,7 @@ const _: () = assert!(mem::needs_drop::<AnyArray<String>>());
 /// Same orphan-rule workaround as `StarlarkAnyRegistered`.
 pub(crate) trait AnyArrayRegistered: Debug + 'static {
     /// Typing vtable entry for `AnyArray<Self>`.
+    #[allow(dead_code)] // Only read by the `pagable`-gated `HasTyVTable` impl below.
     const TY_VTABLE_STATIC: pagable::StaticValue<
         crate::typing::starlark_value::TyStarlarkValueVTable,
     >;

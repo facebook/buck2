@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-#![feature(assert_matches)]
-
 pub mod cancellation;
 mod details;
 pub mod drop;

@@ -153,7 +153,7 @@ unsafe impl<T: TypeCompiledStaticRegistered> StaticValueRegistered
 {
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "pagable"))]
 impl<T> TypeCompiledImplAsStarlarkValue<T> {
     pub(crate) fn new_for_test(
         type_compiled_impl: T,

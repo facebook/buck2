@@ -1631,6 +1631,7 @@ fn post_process_test_executor(s: &str) -> buck2_error::Result<PathBuf> {
 /// Generates `--tags` TPX args from agent context entries.
 /// Tags exceeding 80 chars are silently dropped to avoid TPX failures
 /// (testinfra MAXIMUM_TAG_LENGTH = 80).
+#[cfg(any(fbcode_build, test))]
 fn ai_agent_tpx_args(agent_context: &[buck2_data::AgentContextEntry]) -> Vec<String> {
     use buck2_data::AgentContextEntry;
 

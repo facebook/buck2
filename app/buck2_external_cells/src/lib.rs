@@ -8,6 +8,9 @@
  * above-listed licenses.
  */
 
+// Internal stable rustc still treats `assert_matches` as unstable; OSS nightly has stabilized it
+// and denies the now-redundant feature gate.
+#![allow(stable_features)]
 #![feature(assert_matches)]
 #![feature(error_generic_member_access)]
 #![feature(once_cell_try)]

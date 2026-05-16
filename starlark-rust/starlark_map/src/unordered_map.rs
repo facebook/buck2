@@ -243,7 +243,7 @@ impl<K, V> UnorderedMap<K, V> {
         K: Ord,
     {
         let mut entries = Vec::from_iter(self.entries_unordered());
-        entries.sort_by(|(k1, _), (k2, _)| k1.cmp(k2));
+        entries.sort_by_key(|(k1, _)| *k1);
         entries
     }
 

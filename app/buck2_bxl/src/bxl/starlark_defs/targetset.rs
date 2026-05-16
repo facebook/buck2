@@ -12,8 +12,13 @@ use std::convert::Infallible;
 use std::ops::Deref;
 
 use allocative::Allocative;
+// Used only by `register_ty_starlark_value!` invocations below, which expand to nothing
+// when the starlark `pagable` feature is off (e.g. in OSS cargo builds).
+#[allow(unused_imports)]
 use buck2_build_api::actions::query::ActionQueryNode;
+#[allow(unused_imports)]
 use buck2_node::nodes::configured::ConfiguredTargetNode;
+#[allow(unused_imports)]
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
