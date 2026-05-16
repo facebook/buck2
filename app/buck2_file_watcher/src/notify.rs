@@ -127,7 +127,26 @@ impl NotifyFileData {
     fn sync(self) -> (buck2_data::FileWatcherStats, Option<FileChangeTracker>) {
         // The changes that go into the DICE transaction
         let mut changed = FileChangeTracker::new();
-        let mut stats = FileWatcherStats::new(Default::default(), self.events.len());
+        // If we missed events, sync2() will drop the entire DICE graph. Surface that to
+        // telemetry/UI by reusing the fresh-instance fields the watchman path uses for
+        // the equivalent wipe.
+        let base = if self.missed_events {
+            buck2_data::FileWatcherStats {
+                fresh_instance: true,
+                fresh_instance_data: Some(buck2_data::FreshInstance {
+                    new_mergebase: false,
+                    cleared_dice: true,
+                    cleared_dep_files: false,
+                }),
+                incomplete_events_reason: Some(
+                    "notify dropped events (kernel queue overflow)".to_owned(),
+                ),
+                ..Default::default()
+            }
+        } else {
+            Default::default()
+        };
+        let mut stats = FileWatcherStats::new(base, self.events.len());
         stats.add_ignored(self.ignored);
 
         for (cell_path, event_kind) in self.events {
