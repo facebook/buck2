@@ -51,7 +51,6 @@ use futures::channel::mpsc;
 use futures::channel::mpsc::UnboundedSender;
 use futures::pin_mut;
 use futures::select;
-use tokio::runtime::Builder;
 
 use crate::daemon_lower_priority::daemon_lower_priority;
 use crate::schedule_termination::maybe_schedule_termination;
@@ -525,63 +524,59 @@ impl DaemonCommand {
         project_root: PathBuf,
         hard_shutdown_sender: UnboundedSender<String>,
     ) {
-        let this_rt = Builder::new_current_thread().enable_all().build().unwrap();
+        let checker_interval_seconds = buck2_env!(
+            "BUCK2_TESTING_CHECKER_INTERVAL_SECONDS",
+            type = u64,
+            applicability = testing
+        )
+        .ok()
+        .flatten()
+        .unwrap_or(checker_interval_seconds);
 
-        this_rt.block_on(async move {
-            let checker_interval_seconds = buck2_env!(
-                "BUCK2_TESTING_CHECKER_INTERVAL_SECONDS",
-                type = u64,
-                applicability = testing
-            )
-            .ok()
-            .flatten()
-            .unwrap_or(checker_interval_seconds);
-
-            loop {
-                tokio::time::sleep(Duration::from_secs(checker_interval_seconds)).await;
-                match verify_current_daemon(&daemon_dir) {
-                    Ok(()) => {}
-                    Err(e) => {
-                        // This bit of code cannot relay errors, ignoring that we can't log
-                        // a warning is reasonable.
-                        let _ignored = buck2_client_ctx::eprintln!(
-                            "daemon verification failed, forcing shutdown: {:#}",
-                            e
-                        );
-
-                        // If this is already shutting down, we don't need to do it again.
-                        let _ignored = hard_shutdown_sender
-                            .unbounded_send("Daemon verification failed".to_owned());
-                    }
-                };
-
-                // Check if the project root has gone stale. This is increasingly
-                // important as people use more temporary checkouts.
-                let dir_check = tokio::fs::metadata(&project_root).await;
-                if let Err(e) = dir_check {
-                    let msg = format!(
-                        "Project root {} is no longer accessible: {:#}",
-                        project_root.display(),
+        loop {
+            std::thread::sleep(Duration::from_secs(checker_interval_seconds));
+            match verify_current_daemon(&daemon_dir) {
+                Ok(()) => {}
+                Err(e) => {
+                    // This bit of code cannot relay errors, ignoring that we can't log
+                    // a warning is reasonable.
+                    let _ignored = buck2_client_ctx::eprintln!(
+                        "daemon verification failed, forcing shutdown: {:#}",
                         e
                     );
-                    let _ignored = buck2_client_ctx::eprintln!("{}", msg);
 
-                    let _ignored = soft_error!(
-                        "daemon_project_root_unavailable",
-                        buck2_error!(
-                            ErrorTag::MissingProjectRoot,
-                            "Project root `{}` is no longer accessible: {:#}",
-                            project_root.display(),
-                            e
-                        ),
-                        quiet: true,
-                        task: false,
-                    );
-
-                    let _ignored = hard_shutdown_sender.unbounded_send(msg);
+                    // If this is already shutting down, we don't need to do it again.
+                    let _ignored = hard_shutdown_sender
+                        .unbounded_send("Daemon verification failed".to_owned());
                 }
+            };
+
+            // Check if the project root has gone stale. This is increasingly
+            // important as people use more temporary checkouts.
+            let dir_check = std::fs::metadata(&project_root);
+            if let Err(e) = dir_check {
+                let msg = format!(
+                    "Project root {} is no longer accessible: {:#}",
+                    project_root.display(),
+                    e
+                );
+                let _ignored = buck2_client_ctx::eprintln!("{}", msg);
+
+                let _ignored = soft_error!(
+                    "daemon_project_root_unavailable",
+                    buck2_error!(
+                        ErrorTag::MissingProjectRoot,
+                        "Project root `{}` is no longer accessible: {:#}",
+                        project_root.display(),
+                        e
+                    ),
+                    quiet: true,
+                    task: false,
+                );
+
+                let _ignored = hard_shutdown_sender.unbounded_send(msg);
             }
-        })
+        }
     }
 
     pub fn exec(
