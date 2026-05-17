@@ -74,6 +74,8 @@ impl ErrorRoot {
         self.id
     }
 
+    /// FIXME(cormacrelf,JakobDegen): Can't be right? Nobody ever reads the root error tag?
+    #[allow(unused)]
     pub(crate) fn error_tag(&self) -> ErrorTag {
         self.error_tag
     }

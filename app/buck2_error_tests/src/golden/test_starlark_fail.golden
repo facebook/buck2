@@ -1,0 +1,14 @@
+# @generated
+# To regenerate, append -- --env BUCK2_RUST_REGENERATE_GOLDEN_TESTS=1 and re-run the test
+
+error: fail: root error
+ --> helper.bzl:3:5
+  |
+3 |     fail("root error")
+  |     ^^^^^^^^^^^^^^^^^^
+  |
+Traceback (most recent call last):
+  * assert.bzl:3, in <module>
+      will_fail()
+  * helper.bzl:3, in will_fail
+      fail("root error")

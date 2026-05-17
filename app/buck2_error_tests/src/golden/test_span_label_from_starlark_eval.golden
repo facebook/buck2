@@ -1,0 +1,18 @@
+# @generated
+# To regenerate, append -- --env BUCK2_RUST_REGENERATE_GOLDEN_TESTS=1 and re-run the test
+
+error: error during native call
+ --> helper.bzl:3:5
+  |
+3 |     native_failure()
+  |     ^^^^^^^^^^^^^^^^
+  |
+Traceback (most recent call last):
+  * assert.bzl:3, in <module>
+      call_native()
+  * helper.bzl:3, in call_native
+      native_failure()
+
+
+Caused by:
+    native error root cause

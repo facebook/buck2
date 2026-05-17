@@ -112,10 +112,11 @@ impl ParseData {
         for x in ast.loads() {
             let path = resolver
                 .resolve_load(x.module_id, Some(&x.span))
-                .with_buck_error_context(|| {
-                    format!(
-                        "Error loading `load` of `{}` from `{}`",
-                        x.module_id, x.span
+                .with_starlark_context(|| {
+                    (
+                        format!("Error loading `load` of `{}`", x.module_id),
+                        Some(x.span.clone()),
+                        true,
                     )
                 })?;
             loads.push((Some(x.span), path));

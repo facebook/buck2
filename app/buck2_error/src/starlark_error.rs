@@ -14,10 +14,8 @@ use std::fmt;
 
 use ref_cast::RefCast;
 
-use crate::__for_macro::ContextValue;
 use crate::any::from_any_with_tag_and_source_location;
 use crate::context_value::StarlarkContext;
-use crate::error::ErrorKind;
 use crate::source_location::SourceLocation;
 
 impl From<crate::Error> for starlark_syntax::Error {
@@ -56,80 +54,40 @@ pub fn from_starlark_with_options(
 
 // If the top context is a string context, then it should be popped off as otherwise
 // the error will be duplicated since the top level error is used to build the stacktrace.
-fn error_with_starlark_context(
-    e: &crate::Error,
-    starlark_context: StarlarkContext,
-) -> crate::Error {
-    let mut context_stack: Vec<ContextValue> = Vec::new();
-    let mut buck2_error = e.clone();
-
-    loop {
-        match buck2_error.0.as_ref() {
-            ErrorKind::Root(root) => {
-                let source_location = root.source_location().clone();
-                let action_error = root.action_error().cloned();
-
-                // We want to keep the metadata but want to change the error message
-                let mut err = crate::Error::new(
-                    format!("{starlark_context}"),
-                    root.error_tag(),
-                    source_location,
-                    action_error,
-                );
-
-                for context in context_stack.into_iter().rev() {
-                    err = err.context(context);
-                }
-
-                return err;
-            }
-            ErrorKind::WithContext(context_value, inner) => {
-                match context_value {
-                    ContextValue::Dyn(_) | ContextValue::Typed(_) => {
-                        let mut inner_err = inner.clone();
-                        for context in context_stack.into_iter().rev() {
-                            inner_err = inner_err.context(context);
-                        }
-
-                        return inner_err
-                            .clone()
-                            .context_for_starlark_backtrace(starlark_context);
-                    }
-                    ContextValue::StarlarkError(_) => {
-                        return buck2_error.context_for_starlark_backtrace(starlark_context);
-                    }
-                    ContextValue::Tags(_) | ContextValue::StringTag(_) => {
-                        context_stack.push(context_value.clone())
-                    }
-                }
-
-                buck2_error = inner.clone();
-            }
-            _ => return buck2_error,
-        }
+fn error_with_starlark_context(e: crate::Error, starlark_context: StarlarkContext) -> crate::Error {
+    if starlark_context.span.is_none() && starlark_context.call_stack.is_empty() {
+        return e;
     }
+
+    e.context_for_starlark_backtrace(starlark_context)
 }
 
+#[track_caller]
 fn from_starlark_impl(
     e: starlark_syntax::Error,
     error_handling: NativeErrorHandling,
     skip_stacktrace: bool,
 ) -> crate::Error {
-    if let starlark_syntax::ErrorKind::Native(err) = e.kind() {
-        if let Some(wrapper) = err.downcast_ref::<StarlarkErrorWrapper>() {
-            if !e.has_diagnostic() {
-                return wrapper.0.clone();
-            }
-
-            let starlark_context = StarlarkContext {
-                call_stack: format!("{}", e.call_stack()),
-                error_msg: format!("{}", e.without_diagnostic()),
-                span: e.span().cloned(),
-            };
-
-            return error_with_starlark_context(&wrapper.0, starlark_context);
-        }
+    let starlark_context = if e.has_diagnostic() && !skip_stacktrace {
+        Some(StarlarkContext {
+            call_stack: e.call_stack().clone(),
+            span: e.span().cloned(),
+            show_span_in_buck_output: true,
+        })
+    } else {
+        None
     };
+
+    if let starlark_syntax::ErrorKind::Native(err) = e.kind()
+        && let Some(inner) = err
+            .downcast_ref::<StarlarkErrorWrapper>()
+            .map(|StarlarkErrorWrapper(e)| e.clone())
+    {
+        return match starlark_context {
+            Some(sc) => error_with_starlark_context(inner, sc),
+            None => inner,
+        };
+    }
 
     let tag = match e.kind() {
         starlark_syntax::ErrorKind::Fail(_) => crate::ErrorTag::StarlarkFail,
@@ -158,15 +116,12 @@ fn from_starlark_impl(
         starlark_syntax::ErrorKind::Native(_) => "StarlarkError::Native",
         _ => "StarlarkError",
     };
-    let source_location =
-        SourceLocation::new(std::file!(), std::line!()).with_type_name(variant_name);
-    let description = if skip_stacktrace {
-        format!("{}", e.without_diagnostic())
-    } else {
-        format!("{e}")
-    };
+    let caller_location = std::panic::Location::caller();
+    let source_location = SourceLocation::new(caller_location.file(), caller_location.line())
+        .with_type_name(variant_name);
+    let description = format!("{}", e.without_diagnostic());
 
-    match e.into_kind() {
+    let crate_error = match e.into_kind() {
         starlark_syntax::ErrorKind::Fail(e)
         | starlark_syntax::ErrorKind::StackOverflow(e)
         | starlark_syntax::ErrorKind::Internal(e)
@@ -175,12 +130,18 @@ fn from_starlark_impl(
         | starlark_syntax::ErrorKind::Scope(e)
         | starlark_syntax::ErrorKind::Parser(e)
         | starlark_syntax::ErrorKind::Other(e)
+        | starlark_syntax::ErrorKind::Freeze(e)
         | starlark_syntax::ErrorKind::Native(e) => {
             let error = BuckStarlarkError(e, description);
 
             from_any_with_tag_and_source_location(&error, source_location, tag)
         }
         _ => crate::Error::new(description, tag, source_location, None),
+    };
+
+    match starlark_context {
+        Some(sc) => error_with_starlark_context(crate_error, sc),
+        None => crate_error,
     }
 }
 
@@ -225,6 +186,8 @@ mod tests {
     use std::sync::Arc;
 
     use allocative::Allocative;
+    use starlark_syntax::call_stack::CallStack;
+    use starlark_syntax::frame::Frame;
 
     use crate as buck2_error;
     use crate::buck2_error;
@@ -246,6 +209,15 @@ mod tests {
         }
     }
 
+    fn example_call_stack() -> CallStack {
+        CallStack {
+            frames: vec![Frame {
+                name: "frame".to_owned(),
+                location: None,
+            }],
+        }
+    }
+
     #[test]
     fn test_roundtrip_starlark() {
         // Tests buck2_error->starlark->buck2_error
@@ -255,14 +227,14 @@ mod tests {
     }
 
     #[test]
-    fn test_pop_dyn_error_from_context() {
-        let context_error = "Some error message that's getting popped";
+    fn test_error_with_starlark_context_preserves_tags() {
+        let context_error = "Some error message";
         let context_key = "Some context key";
         let error_tag = crate::ErrorTag::IoWindowsSharingViolation;
         let starlark_context = StarlarkContext {
-            call_stack: "Some call stack".to_owned(),
-            error_msg: "Some error message".to_owned(),
+            call_stack: example_call_stack(),
             span: None,
+            show_span_in_buck_output: true,
         };
 
         let e = crate::Error::from(FullMetadataError);
@@ -270,56 +242,66 @@ mod tests {
         let e = e.tag([error_tag]);
         let e = e.string_tag(context_key);
 
-        let context_popped = error_with_starlark_context(&e, starlark_context);
+        let context_popped = error_with_starlark_context(e, starlark_context);
 
-        assert!(!context_popped.to_string().contains(context_error));
+        let debug_out = format!("{context_popped:?}");
+        assert_eq!(debug_out.matches(context_error).count(), 1);
         assert!(context_popped.tags().contains(&error_tag));
         assert!(context_popped.category_key().ends_with(context_key));
+        assert!(context_popped.find_starlark_context().is_some());
     }
 
     #[test]
     fn test_pop_base_error_from_context() {
         let base_error = "Some base error";
-        let starlark_error = "Starlark error message";
-        let starlark_call_stack = "Some call stack";
+        let starlark_error = "This should be ignored";
+        let starlark_call_stack = example_call_stack();
         let starlark_context = StarlarkContext {
-            call_stack: starlark_call_stack.to_owned(),
-            error_msg: starlark_error.to_owned(),
+            call_stack: starlark_call_stack.clone(),
             span: None,
+            show_span_in_buck_output: true,
         };
 
-        let e = buck2_error!(crate::ErrorTag::StarlarkError, "{}", base_error);
+        let e = buck2_error!(crate::ErrorTag::StarlarkError, "{}", base_error)
+            .context(starlark_error.to_owned());
 
-        let base_replaced = error_with_starlark_context(&e, starlark_context);
+        let injected = error_with_starlark_context(e, starlark_context);
 
-        assert!(!base_replaced.to_string().contains(base_error));
-        assert!(base_replaced.to_string().contains(starlark_call_stack));
-        assert!(base_replaced.to_string().contains(starlark_error));
+        let debug_out = format!("{injected:?}");
+        eprintln!("{debug_out}");
+        assert_eq!(debug_out.matches(base_error).count(), 1);
+        assert!(injected.tags().contains(&crate::ErrorTag::StarlarkError));
+        assert!(injected.find_starlark_context().is_some());
     }
 
     #[test]
-    fn test_conversion_with_typed_context() {
+    fn test_typed_context_preserved_through_starlark() {
         let base_error = "Some base error";
+        let span_label = "error during evaluation";
         let e = buck2_error!(crate::ErrorTag::StarlarkError, "{}", base_error);
-        let e = e.compute_context(
-            |_: Arc<FullMetadataError>| FullMetadataError,
-            || FullMetadataError,
-        );
+        let e = e
+            .compute_context(
+                |_: Arc<FullMetadataError>| FullMetadataError,
+                || FullMetadataError,
+            )
+            .context(span_label.to_owned());
 
-        let starlark_call_stack = "Some call stack";
-        let starlark_error_msg = "Starlark error message";
+        let starlark_call_stack = example_call_stack();
         let starlark_context = StarlarkContext {
-            call_stack: starlark_call_stack.to_owned(),
-            error_msg: starlark_error_msg.to_owned(),
+            call_stack: starlark_call_stack.clone(),
             span: None,
+            show_span_in_buck_output: true,
         };
 
-        let starlark_err = error_with_starlark_context(&e, starlark_context);
-        let starlark_err_string = format!("{starlark_err:#}");
+        let injected = error_with_starlark_context(e, starlark_context);
+        let debug_out = format!("{injected:?}");
+        eprintln!("{debug_out}");
 
-        assert!(starlark_err_string.contains(starlark_call_stack));
-        assert!(starlark_err_string.contains(starlark_error_msg));
+        assert!(debug_out.contains(&starlark_call_stack.to_string()));
+        // span_label is absorbed into the span display as the label
+        assert_eq!(debug_out.matches(span_label).count(), 1);
+        assert!(injected.find_starlark_context().is_some());
         // Root error shouldn't be lost
-        assert!(starlark_err_string.contains(base_error));
+        assert_eq!(debug_out.matches(base_error).count(), 1);
     }
 }
