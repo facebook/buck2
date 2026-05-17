@@ -2288,7 +2288,9 @@ fn create_action_key_suffix(stage: &TestStage) -> String {
     };
     if action_key_suffix.len() > MAX_SUFFIX_LEN {
         let truncated = "(truncated)";
-        action_key_suffix.truncate(MAX_SUFFIX_LEN - truncated.len());
+        let max_len = MAX_SUFFIX_LEN - truncated.len();
+        let truncate_at = action_key_suffix.floor_char_boundary(max_len);
+        action_key_suffix.truncate(truncate_at);
         action_key_suffix += truncated;
     }
     action_key_suffix
@@ -2585,7 +2587,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "is_char_boundary")]
     fn test_create_action_key_suffix_truncation_multibyte_utf8() {
         // 3-byte char (中 = 0xE4 0xB8 0xAD); byte 1013 lands mid-character.
         let long_testcase = "中".repeat(MAX_SUFFIX_LEN);
@@ -2595,6 +2596,8 @@ mod tests {
             variant: None,
             repeat_count: None,
         };
-        create_action_key_suffix(&stage);
+        let result = create_action_key_suffix(&stage);
+        assert!(result.len() <= MAX_SUFFIX_LEN);
+        assert!(result.ends_with("(truncated)"));
     }
 }
