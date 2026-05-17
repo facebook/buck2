@@ -63,34 +63,41 @@ impl DetailedAggregatedMetricsEventHandler {
         )
     }
 
-    pub fn action_executed(&self, ev: ActionExecutionMetrics) {
+    pub fn action_executed(&self, ev: ActionExecutionMetrics) -> buck2_error::Result<()> {
         self.0
             .sender
             .send(DetailedAggregatedMetricsEvent::ActionExecuted(ev))
-            .expect(
-                "DetailedAggregagatedMetrics event handler should never exit while sender lives",
-            );
+            .map_err(|_| {
+                internal_error!("DetailedAggregatedMetrics event handler exited while sender lives")
+            })?;
+        Ok(())
     }
 
-    pub fn analysis_started(&self, key: &DeferredHolderKey) {
+    pub fn analysis_started(&self, key: &DeferredHolderKey) -> buck2_error::Result<()> {
         self.0
             .sender
             .send(DetailedAggregatedMetricsEvent::AnalysisStarted(key.dupe()))
-            .expect(
-                "DetailedAggregagatedMetrics event handler should never exit while sender lives",
-            );
+            .map_err(|_| {
+                internal_error!("DetailedAggregatedMetrics event handler exited while sender lives")
+            })?;
+        Ok(())
     }
 
-    pub fn analysis_complete(&self, key: &DeferredHolderKey, result: &DeferredHolder) {
+    pub fn analysis_complete(
+        &self,
+        key: &DeferredHolderKey,
+        result: &DeferredHolder,
+    ) -> buck2_error::Result<()> {
         self.0
             .sender
             .send(DetailedAggregatedMetricsEvent::AnalysisComplete(
                 key.dupe(),
                 result.dupe(),
             ))
-            .expect(
-                "DetailedAggregagatedMetrics event handler should never exit while sender lives",
-            );
+            .map_err(|_| {
+                internal_error!("DetailedAggregatedMetrics event handler exited while sender lives")
+            })?;
+        Ok(())
     }
 
     pub(crate) async fn compute_metrics(

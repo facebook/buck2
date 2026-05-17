@@ -57,14 +57,14 @@ impl HasDetailedAggregatedMetrics for DiceComputations<'_> {
     fn action_executed(&self, ev: ActionExecutionMetrics) -> buck2_error::Result<()> {
         get_per_build_events_holder(self)?.action_executed(&ev.key);
         if let Some(v) = get_detailed_aggregated_metrics_event_handler(self)? {
-            v.action_executed(ev);
+            v.action_executed(ev)?;
         }
         Ok(())
     }
 
     fn analysis_started(&self, key: &DeferredHolderKey) -> buck2_error::Result<()> {
         if let Some(v) = get_detailed_aggregated_metrics_event_handler(self)? {
-            v.analysis_started(key);
+            v.analysis_started(key)?;
         }
         Ok(())
     }
@@ -75,7 +75,7 @@ impl HasDetailedAggregatedMetrics for DiceComputations<'_> {
         result: &DeferredHolder,
     ) -> buck2_error::Result<()> {
         if let Some(v) = get_detailed_aggregated_metrics_event_handler(self)? {
-            v.analysis_complete(key, result);
+            v.analysis_complete(key, result)?;
         }
         Ok(())
     }
