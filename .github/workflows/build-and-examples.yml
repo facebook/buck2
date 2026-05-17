@@ -1,6 +1,10 @@
 name: Build and Examples
 on:
   workflow_dispatch: # allows manual triggering
+
+permissions:
+  contents: read
+
 jobs:
   macos-build-examples:
     runs-on: macos-latest
