@@ -213,8 +213,8 @@ impl DocsCache {
     ) -> buck2_error::Result<LspUrl> {
         let relative_path = cell_resolver.resolve_path(location.path().as_ref())?;
         let abs_path = fs.resolve(&relative_path);
-        Url::from_file_path(abs_path)
-            .unwrap()
+        Url::from_file_path(&abs_path)
+            .map_err(|()| internal_error!("Failed to convert path to file URL: {}", abs_path))?
             .try_into()
             .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Lsp))
     }
@@ -535,7 +535,10 @@ impl<'a> BuckLspContext<'a> {
                                 let relative_path =
                                     artifact_fs.resolve_source(source_path.as_ref())?;
                                 let path = self.fs.resolve(&relative_path);
-                                match Url::from_file_path(path).unwrap().try_into() {
+                                let url = Url::from_file_path(&path).map_err(|()| {
+                                    internal_error!("Failed to convert path to file URL: {}", path)
+                                })?;
+                                match url.try_into() {
                                     Ok(url) => {
                                         let string_literal = StringLiteralResult {
                                             url,
@@ -604,8 +607,13 @@ impl LspContext for BuckLspContext<'_> {
                                     .await?
                                     .resolve_path(loaded_import_path.borrow().path().as_ref())?;
                                 let abs_path = self.fs.resolve(&relative_path);
-                                Url::from_file_path(abs_path)
-                                    .unwrap()
+                                Url::from_file_path(&abs_path)
+                                    .map_err(|()| {
+                                        internal_error!(
+                                            "Failed to convert path to file URL: {}",
+                                            abs_path
+                                        )
+                                    })?
                                     .try_into()
                                     .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Lsp))
                             })
