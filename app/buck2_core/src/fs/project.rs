@@ -19,14 +19,14 @@ use std::sync::Arc;
 use buck2_error::BuckErrorContext;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
-use buck2_fs::paths::RelativePath;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_fs::paths::relative_path::RelativePath;
+use buck2_fs::paths::relative_path::RelativePathBuf;
 use dupe::Dupe;
 use pagable::Pagable;
 use ref_cast::RefCast;
-use relative_path::RelativePathBuf;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(input)]

@@ -32,7 +32,7 @@
 //! use buck2_fs::paths::abs_norm_path::AbsNormPath;
 //! use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 //! use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
-//! use relative_path::RelativePath;
+//! use buck2_fs::paths::relative_path::RelativePath;
 //!
 //! let root = if cfg!(not(windows)) {
 //!     AbsNormPathBuf::from("/usr/local/fbsource/".into())?
@@ -82,13 +82,13 @@ use buck2_fs::paths::fmt::quoted_display;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathIter;
+use buck2_fs::paths::relative_path::RelativePath;
+use buck2_fs::paths::relative_path::RelativePathBuf;
 use buck2_util::arc_str::StringInside;
 use derivative::Derivative;
 use gazebo::prelude::IterOwned;
 use pagable::Pagable;
 use ref_cast::RefCast;
-use relative_path::RelativePath;
-use relative_path::RelativePathBuf;
 use serde::Deserialize;
 use serde::Serialize;
 

@@ -28,8 +28,6 @@ use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 #[cfg(unix)]
 use buck2_error::internal_error;
-use relative_path::RelativePath;
-use relative_path::RelativePathBuf;
 
 use crate::cwd::assert_cwd_is_not_set;
 pub use crate::error::IoError;
@@ -40,6 +38,8 @@ use crate::io_counters::IoCounterKey;
 use crate::paths::abs_norm_path::AbsNormPath;
 use crate::paths::abs_norm_path::AbsNormPathBuf;
 use crate::paths::abs_path::AbsPath;
+use crate::paths::relative_path::RelativePath;
+use crate::paths::relative_path::RelativePathBuf;
 
 fn is_retryable(err: &io::Error) -> bool {
     cfg!(target_os = "macos")
@@ -917,7 +917,6 @@ mod tests {
     use assert_matches::assert_matches;
     use buck2_error::ErrorTag;
     use buck2_hash::StdBuckHashMap;
-    use relative_path::RelativePath;
 
     use crate::error::IoResultExt;
     use crate::fs_util::IoError;
@@ -927,6 +926,7 @@ mod tests {
     use crate::paths::abs_norm_path::AbsNormPath;
     use crate::paths::abs_path::AbsPath;
     use crate::paths::forward_rel_path::ForwardRelativePath;
+    use crate::paths::relative_path::RelativePath;
 
     #[test]
     fn if_exists_read_dir() -> buck2_error::Result<()> {

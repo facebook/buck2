@@ -23,7 +23,6 @@ pin-project = { workspace = true }
 rand = { workspace = true }
 ref-cast = { workspace = true }
 regex = { workspace = true }
-relative-path = { workspace = true }
 sequence_trie = { workspace = true }
 serde = { workspace = true }
 smallvec = { workspace = true }

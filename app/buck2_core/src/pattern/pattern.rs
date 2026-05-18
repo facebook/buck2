@@ -16,11 +16,11 @@ use allocative::Allocative;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_fs::paths::relative_path::RelativePath;
 use dupe::Dupe;
 use once_cell::sync::Lazy;
 use pagable::Pagable;
 use regex::Regex;
-use relative_path::RelativePath;
 use serde::Serialize;
 
 use crate::cells::CellAliasResolver;

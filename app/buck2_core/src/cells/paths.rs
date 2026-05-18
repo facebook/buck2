@@ -19,12 +19,13 @@ use std::ops::Deref;
 use std::path::PathBuf;
 
 use allocative::Allocative;
-use buck2_fs::paths::RelativePathBuf;
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::fmt::quoted_display;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathIter;
+use buck2_fs::paths::relative_path::RelativePath;
+use buck2_fs::paths::relative_path::RelativePathBuf;
 use derivative::Derivative;
 use derive_more::Display;
 use gazebo::transmute;
@@ -34,7 +35,6 @@ use pagable::PagableDeserialize;
 use pagable::PagableDeserializer;
 use pagable::PagableSerialize;
 use ref_cast::RefCast;
-use relative_path::RelativePath;
 use serde::Serialize;
 use strong_hash::StrongHash;
 

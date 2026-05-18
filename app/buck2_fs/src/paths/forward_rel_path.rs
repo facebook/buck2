@@ -26,8 +26,6 @@ use pagable::PagableDeserializer;
 use pagable::PagableSerialize;
 use ref_cast::RefCastCustom;
 use ref_cast::ref_cast_custom;
-use relative_path::RelativePath;
-use relative_path::RelativePathBuf;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
@@ -37,6 +35,10 @@ use strong_hash::StrongHash;
 use crate::fs_util;
 use crate::paths::file_name::FileName;
 use crate::paths::path_util::path_remove_prefix;
+use crate::paths::relative_path::FromPathError;
+use crate::paths::relative_path::FromPathErrorKind;
+use crate::paths::relative_path::RelativePath;
+use crate::paths::relative_path::RelativePathBuf;
 
 /// A forward pointing, fully normalized relative path and owned pathbuf.
 /// This means that there is no '.' or '..' in this path, and does not begin
@@ -1213,9 +1215,11 @@ impl TryFrom<PathBuf> for ForwardRelativePathBuf {
     fn try_from(p: PathBuf) -> buck2_error::Result<ForwardRelativePathBuf> {
         // RelativePathBuf::from_path actually creates a copy.
         // avoid the copy by constructing RelativePathBuf from the underlying String
-        ForwardRelativePathBuf::try_from(p.into_os_string().into_string().map_err(|_| {
-            relative_path::FromPathError::from(relative_path::FromPathErrorKind::NonUtf8)
-        })?)
+        ForwardRelativePathBuf::try_from(
+            p.into_os_string()
+                .into_string()
+                .map_err(|_| FromPathError::from(FromPathErrorKind::NonUtf8))?,
+        )
     }
 }
 

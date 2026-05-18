@@ -21,7 +21,6 @@ use allocative::Allocative;
 use derive_more::Display;
 use pagable::Pagable;
 use ref_cast::RefCast;
-use relative_path::RelativePath;
 use serde::Deserialize;
 use serde::Serialize;
 use serde::de::Error;
@@ -30,6 +29,8 @@ use crate::paths::abs_path::AbsPath;
 use crate::paths::abs_path::AbsPathBuf;
 use crate::paths::forward_rel_path::ForwardRelativePath;
 use crate::paths::forward_rel_path::ForwardRelativePathNormalizer;
+use crate::paths::relative_path::Component;
+use crate::paths::relative_path::RelativePath;
 
 /// An absolute path. This path is not platform agnostic.
 ///
@@ -406,9 +407,9 @@ impl AbsNormPath {
             .0
             .components()
             .chain(path.as_ref().components().map(|c| match c {
-                relative_path::Component::Normal(s) => std::path::Component::Normal(OsStr::new(s)),
-                relative_path::Component::CurDir => std::path::Component::CurDir,
-                relative_path::Component::ParentDir => std::path::Component::ParentDir,
+                Component::Normal(s) => std::path::Component::Normal(OsStr::new(s)),
+                Component::CurDir => std::path::Component::CurDir,
+                Component::ParentDir => std::path::Component::ParentDir,
             }))
         {
             match c {

@@ -10,10 +10,10 @@
 
 use allocative::Allocative;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_fs::paths::relative_path::Component;
+use buck2_fs::paths::relative_path::RelativePath;
+use buck2_fs::paths::relative_path::RelativePathBuf;
 use pagable::Pagable;
-use relative_path::Component;
-use relative_path::RelativePath;
-use relative_path::RelativePathBuf;
 
 use crate::cells::cell_path::CellPath;
 use crate::cells::paths::CellRelativePathBuf;
@@ -135,7 +135,7 @@ impl CellPathWithAllowedRelativeDir {
 #[cfg(test)]
 mod tests {
     use buck2_fs::paths::file_name::FileName;
-    use relative_path::RelativePath;
+    use buck2_fs::paths::relative_path::RelativePath;
 
     use crate::cells::cell_path::CellPath;
     use crate::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedRelativeDir;
