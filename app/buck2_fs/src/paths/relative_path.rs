@@ -25,8 +25,6 @@
 //! - `From<String>`/`From<&str>` impls
 //! - [`Self::file_name`] returns `Option<&str>`
 //! - There is no `unchecked_new_box`/`as_path` parallel to the forward type.
-//! - `push` accepts a leading `/` and silently strips it (different from the forward type, which
-//!   would reject).
 //! - `.` is silently stripped in some places
 //! - No good story for converting towards `ForwardRelativePath`
 //! - The Windows-`\` translation in [`RelativePathBuf::from_system_path`] piggybacks on
@@ -395,27 +393,20 @@ impl RelativePathBuf {
         Ok(buf)
     }
 
-    /// Extends `self` with `path`. A leading separator on `path` is dropped;
-    /// a separator is added between `self` and `path` when needed.
+    /// Extends `self` with `path`. A separator is added between `self` and
+    /// `path` when both sides are non-empty and one isn't already there.
     ///
     /// ```
-    /// use buck2_fs::paths::RelativePath;
     /// use buck2_fs::paths::RelativePathBuf;
     ///
     /// let mut p = RelativePathBuf::empty();
     /// p.push("foo");
     /// p.push("bar");
     /// assert_eq!("foo/bar", p.as_str());
-    ///
-    /// let mut p = RelativePathBuf::from("foo");
-    /// p.push(RelativePath::new("/bar"));
-    /// assert_eq!("foo/bar", p.as_str());
     /// ```
     pub fn push<P: AsRef<RelativePath>>(&mut self, path: P) {
         let other = path.as_ref().as_str();
-        let other = other.strip_prefix(SEP).unwrap_or(other);
-
-        if !self.0.is_empty() && !self.0.ends_with(SEP) {
+        if !self.0.is_empty() && !self.0.ends_with(SEP) && !other.starts_with(SEP) {
             self.0.push(SEP);
         }
         self.0.push_str(other);
@@ -850,11 +841,6 @@ mod tests {
         let mut p = RelativePathBuf::empty();
         p.push("foo");
         p.push("bar");
-        assert_eq!("foo/bar", p.as_str());
-
-        let mut p = RelativePathBuf::from("foo");
-        // Leading `/` on the pushed path is dropped, not treated as absolute.
-        p.push(RelativePath::new("/bar"));
         assert_eq!("foo/bar", p.as_str());
 
         let mut p = RelativePathBuf::from("foo/bar/baz");
