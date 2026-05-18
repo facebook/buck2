@@ -157,3 +157,31 @@ prelude.python_bootstrap_binary(
     main = "gather_libpython_symbols.py",
     visibility = ["PUBLIC"],
 )
+
+prelude.python_bootstrap_binary(
+    name = "make_py_package_standalone.py",
+    main = "make_py_package_standalone.py",
+    visibility = ["PUBLIC"],
+)
+
+prelude.export_file(
+    name = "pex_bootstrap_zip.py.in",
+    src = "pex_bootstrap_zip.py.in",
+)
+
+prelude.export_file(
+    name = "pex_bootstrap_extract.py.in",
+    src = "pex_bootstrap_extract.py.in",
+)
+
+prelude.command_alias(
+    name = "make_py_package_standalone",
+    args = [
+        "--zip-template",
+        "$(location :pex_bootstrap_zip.py.in)",
+        "--extract-template",
+        "$(location :pex_bootstrap_extract.py.in)",
+    ],
+    exe = ":make_py_package_standalone.py",
+    visibility = ["PUBLIC"],
+)
