@@ -402,7 +402,7 @@ impl CasDownloader<'_> {
 
         for x in output_spec.output_symlinks() {
             let entry = DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(Arc::new(
-                Symlink::new(RelativePathBuf::from_path(Path::new(&x.target))?),
+                Symlink::new(RelativePathBuf::from_system_path(Path::new(&x.target))?),
             )));
             input_dir.insert(re_forward_path(x.name.as_str())?, entry)?;
         }

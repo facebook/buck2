@@ -308,10 +308,10 @@ impl ExactPathMetadata {
                             format!("Invalid symlink at `{}`: `{}`", curr.path, dest.display())
                         })?;
 
-                    // FIXME(JakobDegen): Remove the `unwrap` after we fork `relative_path`
+                    // FIXME(JakobDegen): Remove the `unwrap`.
                     ExactPathSymlinkMetadata::InternalSymlink(
                         link_path,
-                        RelativePathBuf::from_path(dest).unwrap(),
+                        RelativePathBuf::from_system_path(dest).unwrap(),
                     )
                 };
 

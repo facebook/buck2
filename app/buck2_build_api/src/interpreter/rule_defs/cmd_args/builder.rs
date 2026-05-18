@@ -134,7 +134,7 @@ impl CommandLineContext for AbsCommandLineContext<'_> {
         let executor_fs = self.0.fs();
         let mut path = executor_fs.fs().fs().root().to_path_buf();
         path.extend(self.0.next_macro_file_path()?.iter());
-        RelativePathBuf::from_path(path).map_err(|e| {
+        RelativePathBuf::from_system_path(path).map_err(|e| {
             buck2_error::buck2_error!(buck2_error::ErrorTag::Tier0, "{}", e.to_string())
         })
     }

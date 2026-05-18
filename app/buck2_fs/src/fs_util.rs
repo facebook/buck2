@@ -11,7 +11,6 @@
 /// Buck2 having full control over how FS IO works is beneficial for implementing
 /// IO counters and retry policies that are optimized for Buck2 and the EdenFS
 /// virtualized file system.
-use std::borrow::Cow;
 use std::env;
 use std::fs;
 use std::fs::File;
@@ -38,8 +37,6 @@ use crate::io_counters::IoCounterKey;
 use crate::paths::abs_norm_path::AbsNormPath;
 use crate::paths::abs_norm_path::AbsNormPathBuf;
 use crate::paths::abs_path::AbsPath;
-use crate::paths::relative_path::RelativePath;
-use crate::paths::relative_path::RelativePathBuf;
 
 fn is_retryable(err: &io::Error) -> bool {
     cfg!(target_os = "macos")
@@ -113,6 +110,7 @@ fn symlink_impl(original: &Path, link: &AbsPath) -> Result<(), IoError> {
 /// Create symlink on Windows.
 #[cfg(windows)]
 fn symlink_impl(original: &Path, link: &AbsPath) -> Result<(), IoError> {
+    use std::borrow::Cow;
     use std::io::ErrorKind;
 
     use buck2_error::ErrorTag;
@@ -759,19 +757,6 @@ pub fn open_file_if_exists<P: AsRef<AbsPath>>(
     }))
 }
 
-// Create a relative path in a cross-patform way, we need this since RelativePath fails when
-// converting backslashes which means windows paths end up failing. RelativePathBuf doesn't have
-// this problem and we can easily coerce it into a RelativePath.
-// TODO(T143971518) Avoid RelativePath usage in buck2
-pub fn relative_path_from_system(path: &Path) -> buck2_error::Result<Cow<'_, RelativePath>> {
-    let res = if cfg!(windows) {
-        Cow::Owned(RelativePathBuf::from_path(path)?)
-    } else {
-        Cow::Borrowed(RelativePath::from_path(path)?)
-    };
-    Ok(res)
-}
-
 /// Wrapper for fs_util functions that convert to buck2_error::Result without categorization.
 /// Should only be used in tests.
 pub mod uncategorized {
@@ -787,7 +772,6 @@ pub mod uncategorized {
     pub use super::read_dir_if_exists;
     pub use super::read_if_exists;
     pub use super::read_to_string_if_exists;
-    pub use super::relative_path_from_system;
     pub use super::simplified;
     pub use super::symlink_metadata_if_exists;
     pub use super::try_exists;
@@ -926,7 +910,6 @@ mod tests {
     use crate::paths::abs_norm_path::AbsNormPath;
     use crate::paths::abs_path::AbsPath;
     use crate::paths::forward_rel_path::ForwardRelativePath;
-    use crate::paths::relative_path::RelativePath;
 
     #[test]
     fn if_exists_read_dir() -> buck2_error::Result<()> {
@@ -1414,26 +1397,6 @@ mod tests {
         );
         assert_eq!(fs_util::read_if_exists(f2)?, None);
 
-        Ok(())
-    }
-
-    #[cfg(windows)]
-    #[test]
-    fn test_windows_relative_path() -> buck2_error::Result<()> {
-        assert_eq!(
-            fs_util::relative_path_from_system(Path::new("foo\\bar"))?,
-            RelativePath::new("foo/bar")
-        );
-        Ok(())
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn test_relative_path() -> buck2_error::Result<()> {
-        assert_eq!(
-            fs_util::relative_path_from_system(Path::new("foo/bar"))?,
-            RelativePath::new("foo/bar")
-        );
         Ok(())
     }
 

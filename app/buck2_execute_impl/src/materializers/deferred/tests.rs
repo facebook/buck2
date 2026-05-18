@@ -614,7 +614,7 @@ mod state_machine {
             // Construct a tree with a symlink and its target, materialize both at once
             let symlink_path = make_path("foo/bar_symlink");
             let target_path = make_path("foo/bar_target");
-            let target_from_symlink = RelativePathBuf::from_path(Path::new("bar_target"))?;
+            let target_from_symlink = RelativePathBuf::from_system_path(Path::new("bar_target"))?;
 
             let mut materialization_config = StdBuckHashMap::default();
             // Materialize the symlink target slowly so that we actually hit the logic point where we
@@ -680,7 +680,7 @@ mod state_machine {
             // materialize deps if the main artifact has already been materialized.
             let symlink_path = make_path("foo/bar_symlink");
             let target_path = make_path("foo/bar_target");
-            let target_from_symlink = RelativePathBuf::from_path(Path::new("bar_target"))?;
+            let target_from_symlink = RelativePathBuf::from_system_path(Path::new("bar_target"))?;
 
             let mut materialization_config = StdBuckHashMap::default();
             // Materialize the symlink target slowly so that we actually hit the logic point where we
@@ -943,7 +943,8 @@ mod state_machine {
             // Construct a tree with a symlink and its target, materialize both at once
             let symlink_path = make_path("foo/bar_symlink");
             let target_path = make_path("foo/bar_target");
-            let target_from_symlink = RelativePathBuf::from_path(Path::new("bar_target"))?;
+            let target_from_symlink =
+                RelativePathBuf::from_system_path(Path::new("bar_target"))?;
 
             let (mut dm, mut channel) = make_processor(Default::default());
             let digest_config = dm.io.digest_config();

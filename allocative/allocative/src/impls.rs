@@ -25,7 +25,6 @@ mod num_bigint;
 mod once_cell;
 mod parking_lot;
 mod prost_types;
-mod relative_path;
 mod serde_json;
 mod slab;
 mod smallvec;

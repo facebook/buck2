@@ -19,7 +19,6 @@ rust_library(
         "fbsource//third-party/rust:dunce",
         "fbsource//third-party/rust:memchr",
         "fbsource//third-party/rust:ref-cast",
-        "fbsource//third-party/rust:relative-path",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:smallvec",
         "fbsource//third-party/rust:tokio",

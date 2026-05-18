@@ -11,7 +11,6 @@ derive_more = { workspace = true }
 dunce = { workspace = true }
 memchr = { workspace = true }
 ref-cast = { workspace = true }
-relative-path = { workspace = true }
 serde = { workspace = true }
 smallvec = { workspace = true }
 tokio = { workspace = true }

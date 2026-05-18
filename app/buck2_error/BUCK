@@ -24,7 +24,6 @@ rust_library(
         "fbsource//third-party/rust:prost-types",
         "fbsource//third-party/rust:ref-cast",
         "fbsource//third-party/rust:regex",
-        "fbsource//third-party/rust:relative-path",
         "fbsource//third-party/rust:rusqlite",
         "fbsource//third-party/rust:rustls-native-certs",
         "fbsource//third-party/rust:rustls-pki-types",

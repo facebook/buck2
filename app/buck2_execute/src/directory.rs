@@ -263,7 +263,7 @@ pub fn new_symlink<T: AsRef<Path>>(target: T) -> buck2_error::Result<ActionDirec
         )))
     } else {
         Ok(ActionDirectoryMember::Symlink(Arc::new(Symlink::new(
-            RelativePathBuf::from_path(target).unwrap(),
+            RelativePathBuf::from_system_path(target).unwrap(),
         ))))
     }
 }

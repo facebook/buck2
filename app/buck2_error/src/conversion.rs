@@ -21,7 +21,6 @@ pub mod other;
 pub mod pem;
 pub mod prost;
 pub mod regex;
-pub mod relative_path;
 pub mod report;
 pub mod rusqlite;
 pub mod serde;

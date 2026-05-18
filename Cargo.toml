@@ -285,7 +285,6 @@ rand_distr = "0.6"
 rand_xoshiro = "0.8"
 ref-cast = "1.0.18"
 regex = "1.12.2"
-relative-path = { version = "1.7.0", features = ["serde"] }
 rusqlite = { version = "0.37.0", features = ["bundled"] }
 rustc-hash = { version = "2.1.1" }
 rustls = { package = "rustls", version = "0.23.37", features = ["aws-lc-rs", "ring"], default-features = false }
@@ -355,7 +354,7 @@ fbinit.version = "0.2"
 sorted_vector_map.git = "https://github.com/facebookexperimental/rust-shed" # @oss-enable
 sorted_vector_map.version = "0.2"
 
-allocative.features = ["anyhow", "bumpalo", "dashmap", "either", "futures", "hashbrown", "indexmap", "num-bigint", "once_cell", "parking_lot", "prost-types", "relative-path", "serde_json", "slab", "smallvec", "compact_str", "sorted_vector_map", "tokio", "triomphe"]
+allocative.features = ["anyhow", "bumpalo", "dashmap", "either", "futures", "hashbrown", "indexmap", "num-bigint", "once_cell", "parking_lot", "prost-types", "serde_json", "slab", "smallvec", "compact_str", "sorted_vector_map", "tokio", "triomphe"]
 allocative.path = "allocative/allocative"
 allocative.version = "0.3.1"
 buck2_hash = { path = "app/buck2_hash" }

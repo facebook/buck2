@@ -46,6 +46,8 @@ pub macro impl_cmp($lhs:ty, $rhs:ty, $ty:ty) {
 
 use crate::paths::forward_rel_path::ForwardRelativePath;
 use crate::paths::forward_rel_path::ForwardRelativePathBuf;
+use crate::paths::relative_path::RelativePath;
+use crate::paths::relative_path::RelativePathBuf;
 
 impl_cmp!(
     ForwardRelativePathBuf,
@@ -57,3 +59,6 @@ impl_cmp!(
     &'_ ForwardRelativePath,
     ForwardRelativePath
 );
+
+impl_cmp!(RelativePathBuf, RelativePath, RelativePath);
+impl_cmp!(RelativePathBuf, &'_ RelativePath, RelativePath);

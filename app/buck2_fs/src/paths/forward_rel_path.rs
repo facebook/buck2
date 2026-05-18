@@ -32,11 +32,8 @@ use serde::Serialize;
 use smallvec::SmallVec;
 use strong_hash::StrongHash;
 
-use crate::fs_util;
 use crate::paths::file_name::FileName;
 use crate::paths::path_util::path_remove_prefix;
-use crate::paths::relative_path::FromPathError;
-use crate::paths::relative_path::FromPathErrorKind;
 use crate::paths::relative_path::RelativePath;
 use crate::paths::relative_path::RelativePathBuf;
 
@@ -667,7 +664,7 @@ impl ForwardRelativePath {
         &self,
         path: &Path,
     ) -> buck2_error::Result<ForwardRelativePathBuf> {
-        let path = fs_util::relative_path_from_system(path)?;
+        let path = RelativePathBuf::from_system_path(path)?;
         self.join_normalized(path)
     }
 
@@ -1213,13 +1210,11 @@ impl TryFrom<PathBuf> for ForwardRelativePathBuf {
     /// # buck2_error::Ok(())
     /// ```
     fn try_from(p: PathBuf) -> buck2_error::Result<ForwardRelativePathBuf> {
-        // RelativePathBuf::from_path actually creates a copy.
-        // avoid the copy by constructing RelativePathBuf from the underlying String
-        ForwardRelativePathBuf::try_from(
-            p.into_os_string()
-                .into_string()
-                .map_err(|_| FromPathError::from(FromPathErrorKind::NonUtf8))?,
-        )
+        // `RelativePathBuf::from_system_path` would allocate a copy. Avoid it by going through
+        // `OsString::into_string` and letting the string verifier reject any backslashes.
+        ForwardRelativePathBuf::try_from(p.into_os_string().into_string().map_err(|os| {
+            ForwardRelativePathError::PathNotUtf8(os.to_string_lossy().into_owned())
+        })?)
     }
 }
 

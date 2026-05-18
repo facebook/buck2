@@ -286,9 +286,8 @@ impl ProjectRoot {
         let project_relative = self.strip_project_root(path)?;
         // TODO(nga): this does not treat `..` correctly.
         //   See the test below for an example.
-        // This must use `RelativePathBuf`, not `RelativePath`,
-        // because `RelativePathBuf` handles backslashes on Windows, and `RelativePath` does not.
-        ProjectRelativePath::empty().join_normalized(RelativePathBuf::from_path(project_relative)?)
+        ProjectRelativePath::empty()
+            .join_normalized(RelativePathBuf::from_system_path(project_relative)?)
     }
 
     /// Relativize an absolute path which may be not normalized or not canonicalize.
@@ -521,7 +520,7 @@ impl ProjectRoot {
         let mut target = fs_util::read_link(src).categorize_internal()?;
         if target.is_relative() {
             // Grab the absolute path, then re-relativize the path to the destination
-            let relative_target = fs_util::relative_path_from_system(target.as_path())?;
+            let relative_target = RelativePathBuf::from_system_path(target.as_path())?;
             let absolute_target = relative_target.normalize().to_path(
                 src.parent()
                     .expect("a path with a parent in symlink target"),

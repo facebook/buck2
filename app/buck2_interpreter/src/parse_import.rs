@@ -106,8 +106,7 @@ pub fn parse_import_with_config(
                         current_dir_with_allowed_relative,
                     } = opts.relative_import_option
                     {
-                        current_dir_with_allowed_relative
-                            .join_normalized(RelativePath::from_path(import)?)
+                        current_dir_with_allowed_relative.join_normalized(RelativePath::new(import))
                     } else {
                         Err(ImportParseError::ProhibitedRelativeImport(import.to_owned()).into())
                     }
