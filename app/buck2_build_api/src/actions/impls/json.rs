@@ -49,6 +49,7 @@ use crate::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
+use crate::interpreter::rule_defs::cmd_args::CommandLineFormatter;
 use crate::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::FrozenStarlarkCmdArgs;
 use crate::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
@@ -248,11 +249,12 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
                         let mut items = Vec::<String>::new();
 
                         with_command_line_context(fs, self.absolute, |ctx| {
-                            err(x.as_command_line_arg().add_to_command_line(
+                            let mut fmt = CommandLineFormatter::new(
                                 &mut items,
                                 ctx,
                                 self.artifact_path_mapping,
-                            ))
+                            );
+                            err(x.as_command_line_arg().add_to_command_line(&mut fmt))
                         })?;
 
                         // We change the type, based on the value - singleton = String, otherwise list.

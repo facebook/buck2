@@ -42,6 +42,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineContext;
+use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineFormatter;
 use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::space_separated::SpaceSeparatedCommandLineBuilder;
@@ -1712,11 +1713,9 @@ impl BuckTestOrchestrator<'_> {
         let mut cmd: Vec<String> = vec![];
         let mut cmd_line_context = DefaultCommandLineContext::new(executor_fs);
         let setup_command_line = provider.setup_command_line();
-        setup_command_line.add_to_command_line(
-            &mut cmd,
-            &mut cmd_line_context,
-            &artifact_path_mapping,
-        )?;
+        let mut fmt =
+            CommandLineFormatter::new(&mut cmd, &mut cmd_line_context, &artifact_path_mapping);
+        setup_command_line.add_to_command_line(&mut fmt)?;
 
         let inputs = inputs
             .into_iter()
@@ -1969,20 +1968,22 @@ impl<'a> Execute2RequestExpander<'a> {
 
             match content {
                 ArgValueContent::ExternalRunnerSpecValue(ExternalRunnerSpecValue::Verbatim(v)) => {
-                    v.as_str()
-                        .add_to_command_line(&mut cli, ctx, &artifact_path_mapping)?;
+                    let mut fmt = CommandLineFormatter::new(&mut cli, ctx, &artifact_path_mapping);
+                    v.as_str().add_to_command_line(&mut fmt)?;
                 }
                 ArgValueContent::ExternalRunnerSpecValue(ExternalRunnerSpecValue::ArgHandle(h)) => {
                     let arg = cli_args_for_interpolation
                         .get(h.0)
                         .ok_or_else(|| internal_error!("Invalid ArgHandle: {h:?}"))?;
-                    arg.add_to_command_line(&mut cli, ctx, &artifact_path_mapping)?;
+                    let mut fmt = CommandLineFormatter::new(&mut cli, ctx, &artifact_path_mapping);
+                    arg.add_to_command_line(&mut fmt)?;
                 }
                 ArgValueContent::ExternalRunnerSpecValue(ExternalRunnerSpecValue::EnvHandle(h)) => {
                     let arg = env_for_interpolation
                         .get(h.0.as_str())
                         .ok_or_else(|| internal_error!("Invalid EnvHandle: {h:?}"))?;
-                    arg.add_to_command_line(&mut cli, ctx, &artifact_path_mapping)?;
+                    let mut fmt = CommandLineFormatter::new(&mut cli, ctx, &artifact_path_mapping);
+                    arg.add_to_command_line(&mut fmt)?;
                 }
                 ArgValueContent::DeclaredOutput(output) => {
                     let test_path =
@@ -2022,22 +2023,26 @@ impl<'a> Execute2RequestExpander<'a> {
             Some(worker) => {
                 let mut worker_rendered = Vec::<String>::new();
                 let worker_exe = worker.exe_command_line();
-                worker_exe.add_to_command_line(
+                let mut fmt = CommandLineFormatter::new(
                     &mut worker_rendered,
                     &mut ctx,
                     &artifact_path_mapping,
-                )?;
+                );
+                worker_exe.add_to_command_line(&mut fmt)?;
                 let worker_env: buck2_error::Result<SortedVectorMap<_, _>> = worker
                     .env()
                     .into_iter()
                     .map(|(k, v)| {
                         let mut env = String::new();
                         let mut ctx = DefaultCommandLineContext::new(fs);
-                        v.add_to_command_line(
-                            &mut SpaceSeparatedCommandLineBuilder::wrap_string(&mut env),
+                        let mut cli_builder =
+                            SpaceSeparatedCommandLineBuilder::wrap_string(&mut env);
+                        let mut fmt = CommandLineFormatter::new(
+                            &mut cli_builder,
                             &mut ctx,
                             &artifact_path_mapping,
-                        )?;
+                        );
+                        v.add_to_command_line(&mut fmt)?;
                         Ok((k.to_owned(), env))
                     })
                     .collect();

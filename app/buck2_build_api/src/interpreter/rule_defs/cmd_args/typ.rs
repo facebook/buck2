@@ -72,6 +72,7 @@ use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkO
 use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command_line_arg_like_impl;
+use crate::interpreter::rule_defs::cmd_args::format::CommandLineFormatter;
 use crate::interpreter::rule_defs::cmd_args::options::CommandLineOptions;
 use crate::interpreter::rule_defs::cmd_args::options::CommandLineOptionsRef;
 use crate::interpreter::rule_defs::cmd_args::options::CommandLineOptionsTrait;
@@ -81,7 +82,6 @@ use crate::interpreter::rule_defs::cmd_args::options::RelativeOrigin;
 use crate::interpreter::rule_defs::cmd_args::regex::CmdArgsRegex;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineArtifactVisitor;
-use crate::interpreter::rule_defs::cmd_args::traits::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::traits::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::traits::WriteToFileMacroVisitor;
@@ -218,38 +218,20 @@ impl<'v, F: Fields<'v>> CommandLineArgLike<'v> for FieldsRef<'v, F> {
         command_line_arg_like_impl!(StarlarkCmdArgs::starlark_type_repr());
     }
 
-    fn add_to_command_line(
-        &self,
-        cli: &mut dyn CommandLineBuilder,
-        context: &mut dyn CommandLineContext,
-        artifact_path_mapping: &dyn ArtifactPathMapper,
-    ) -> buck2_error::Result<()> {
+    fn add_to_command_line(&self, fmt: &mut CommandLineFormatter) -> buck2_error::Result<()> {
         match self.0.options() {
             None => {
                 for item in self.0.items() {
-                    item.as_command_line_arg().add_to_command_line(
-                        cli,
-                        context,
-                        artifact_path_mapping,
-                    )?;
+                    item.as_command_line_arg().add_to_command_line(fmt)?;
                 }
                 Ok(())
             }
-            Some(options) => options.to_command_line_options().wrap_builder(
-                cli,
-                context,
-                |cli, context| {
-                    for item in self.0.items() {
-                        item.as_command_line_arg().add_to_command_line(
-                            cli,
-                            context,
-                            artifact_path_mapping,
-                        )?;
-                    }
-                    Ok(())
-                },
-                artifact_path_mapping,
-            ),
+            Some(options) => options.to_command_line_options().wrap_builder(fmt, |fmt| {
+                for item in self.0.items() {
+                    item.as_command_line_arg().add_to_command_line(fmt)?;
+                }
+                Ok(())
+            }),
         }
     }
 
@@ -599,17 +581,8 @@ impl<'v> CommandLineArgLike<'v> for StarlarkCmdArgs<'v> {
         command_line_arg_like_impl!(StarlarkCmdArgs::starlark_type_repr());
     }
 
-    fn add_to_command_line(
-        &self,
-        cli: &mut dyn CommandLineBuilder,
-        context: &mut dyn CommandLineContext,
-        artifact_path_mapping: &dyn ArtifactPathMapper,
-    ) -> buck2_error::Result<()> {
-        FieldsRef(self.0.borrow(), PhantomData).add_to_command_line(
-            cli,
-            context,
-            artifact_path_mapping,
-        )
+    fn add_to_command_line(&self, fmt: &mut CommandLineFormatter) -> buck2_error::Result<()> {
+        FieldsRef(self.0.borrow(), PhantomData).add_to_command_line(fmt)
     }
 
     fn visit_artifacts(
@@ -638,13 +611,8 @@ impl<'v> CommandLineArgLike<'v> for FrozenStarlarkCmdArgs {
         command_line_arg_like_impl!(FrozenStarlarkCmdArgs::starlark_type_repr());
     }
 
-    fn add_to_command_line(
-        &self,
-        cli: &mut dyn CommandLineBuilder,
-        context: &mut dyn CommandLineContext,
-        artifact_path_mapping: &dyn ArtifactPathMapper,
-    ) -> buck2_error::Result<()> {
-        FieldsRef(self, PhantomData).add_to_command_line(cli, context, artifact_path_mapping)
+    fn add_to_command_line(&self, fmt: &mut CommandLineFormatter) -> buck2_error::Result<()> {
+        FieldsRef(self, PhantomData).add_to_command_line(fmt)
     }
 
     fn visit_artifacts(

@@ -29,6 +29,7 @@ use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use buck2_build_api::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
+use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineFormatter;
 use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_signals::env::WaitingData;
@@ -188,10 +189,11 @@ impl WriteAction {
             &mut ctx as _
         };
 
+        let mut fmt = CommandLineFormatter::new(&mut cli, ctx, artifact_path_mapping);
         ValueAsCommandLineLike::unpack_value_err(self.contents.value())
             .unwrap()
             .0
-            .add_to_command_line(&mut cli, ctx, artifact_path_mapping)?;
+            .add_to_command_line(&mut fmt)?;
 
         Ok(cli.join("\n"))
     }

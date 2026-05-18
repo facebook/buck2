@@ -156,6 +156,7 @@ mod tests {
     use buck2_hash::BuckHashMap;
 
     use super::*;
+    use crate::interpreter::rule_defs::cmd_args::format::CommandLineFormatter;
     use crate::interpreter::rule_defs::cmd_args::traits::CommandLineArgLike;
 
     #[test]
@@ -176,7 +177,11 @@ mod tests {
         let mut cli = Vec::<String>::new();
         let mut ctx = DefaultCommandLineContext::new(&executor_fs);
 
-        "foo".add_to_command_line(&mut cli, &mut ctx, &BuckHashMap::default())?;
+        "foo".add_to_command_line(&mut CommandLineFormatter::new(
+            &mut cli,
+            &mut ctx,
+            &BuckHashMap::default(),
+        ))?;
 
         assert_eq!(&["foo".to_owned()], cli.as_slice());
         Ok(())

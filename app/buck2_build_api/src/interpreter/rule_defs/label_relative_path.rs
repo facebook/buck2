@@ -13,8 +13,7 @@ use starlark::values::type_repr::StarlarkTypeRepr;
 
 use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
-use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
-use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
+use crate::interpreter::rule_defs::cmd_args::CommandLineFormatter;
 use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command_line_arg_like_impl;
 
 impl<'v> CommandLineArgLike<'v> for StarlarkCellPath {
@@ -22,13 +21,9 @@ impl<'v> CommandLineArgLike<'v> for StarlarkCellPath {
         command_line_arg_like_impl!(StarlarkCellPath::starlark_type_repr());
     }
 
-    fn add_to_command_line(
-        &self,
-        cli: &mut dyn CommandLineBuilder,
-        ctx: &mut dyn CommandLineContext,
-        _artifact_path_mapping: &dyn ArtifactPathMapper,
-    ) -> buck2_error::Result<()> {
-        cli.push_location(ctx.resolve_cell_path(self.0.as_ref())?);
+    fn add_to_command_line(&self, fmt: &mut CommandLineFormatter) -> buck2_error::Result<()> {
+        fmt.cli
+            .push_location(fmt.context.resolve_cell_path(self.0.as_ref())?);
         Ok(())
     }
 

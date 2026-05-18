@@ -29,6 +29,7 @@ use buck2_build_api::context::HasBuildContextData;
 use buck2_build_api::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::ArtifactPathMapperImpl;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
+use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineFormatter;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::install_info::FrozenInstallInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
@@ -931,11 +932,9 @@ async fn build_launch_installer(
         let executor_fs = ExecutorFs::new(&artifact_fs, path_separator);
         let mut run_args = Vec::<String>::new();
         let mut ctx = AbsCommandLineContext::new(&executor_fs);
-        installer_run_info.add_to_command_line(
-            &mut run_args,
-            &mut ctx,
-            &ArtifactPathMapperImpl::from(&ensured_inputs),
-        )?;
+        let artifact_path_mapper = ArtifactPathMapperImpl::from(&ensured_inputs);
+        let mut fmt = CommandLineFormatter::new(&mut run_args, &mut ctx, &artifact_path_mapper);
+        installer_run_info.add_to_command_line(&mut fmt)?;
 
         let stderr = if installer_log_console {
             Stdio::inherit()

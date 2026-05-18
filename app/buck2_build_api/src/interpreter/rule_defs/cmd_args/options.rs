@@ -61,6 +61,7 @@ use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkInp
 use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
 use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
+use crate::interpreter::rule_defs::cmd_args::CommandLineFormatter;
 use crate::interpreter::rule_defs::cmd_args::CommandLineLocation;
 use crate::interpreter::rule_defs::cmd_args::regex::CmdArgsRegex;
 use crate::interpreter::rule_defs::cmd_args::regex::FrozenCmdArgsRegex;
@@ -603,15 +604,10 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
         }
     }
 
-    pub(crate) fn wrap_builder<'a, R>(
+    pub(crate) fn wrap_builder<R>(
         &self,
-        builder: &'a mut dyn CommandLineBuilder,
-        ctx: &'a mut dyn CommandLineContext,
-        f: impl for<'b> FnOnce(
-            &'b mut dyn CommandLineBuilder,
-            &'b mut dyn CommandLineContext,
-        ) -> buck2_error::Result<R>,
-        artifact_path_mapping: &dyn ArtifactPathMapper,
+        fmt: &mut CommandLineFormatter,
+        f: impl for<'b> FnOnce(&'b mut CommandLineFormatter) -> buck2_error::Result<R>,
     ) -> buck2_error::Result<R> {
         struct ExtrasBuilder<'a, 'v> {
             builder: &'a mut dyn CommandLineBuilder,
@@ -758,12 +754,12 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
         }
 
         if !self.changes_builder() {
-            f(builder, ctx)
+            f(fmt)
         } else {
-            let relative_to = self.relative_to_path(ctx, artifact_path_mapping)?;
+            let relative_to = self.relative_to_path(fmt.context, fmt.artifact_path_mapping)?;
 
             let mut extras_builder = ExtrasBuilder {
-                builder,
+                builder: fmt.cli,
                 opts: self,
                 concatenation_context: if self.delimiter.is_some() {
                     Some((String::new(), true))
@@ -773,12 +769,18 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
             };
 
             let mut extras_ctx = ExtrasContext {
-                ctx,
+                ctx: fmt.context,
                 opts: self,
                 relative_to,
             };
 
-            let res = f(&mut extras_builder, &mut extras_ctx)?;
+            let mut inner_fmt = CommandLineFormatter::new(
+                &mut extras_builder,
+                &mut extras_ctx,
+                fmt.artifact_path_mapping,
+            );
+            let res = f(&mut inner_fmt)?;
+            // Recover extras_builder from inner_fmt to call finalize_args
             extras_builder.finalize_args();
             Ok(res)
         }

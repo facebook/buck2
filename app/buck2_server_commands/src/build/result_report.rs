@@ -21,6 +21,7 @@ use buck2_build_api::build::ProviderArtifacts;
 use buck2_build_api::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
+use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineFormatter;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
 use buck2_certs::validate::CertState;
 use buck2_certs::validate::check_cert_state;
@@ -228,11 +229,12 @@ impl<'a> ResultReporter<'a> {
                 let mut ctx = AbsCommandLineContext::new(&executor_fs);
                 let error_counting_artifact_path_mapper =
                     ErrorCountingArtifactPathMapperImpl::new(artifact_path_mapping);
-                runinfo.add_to_command_line(
+                let mut fmt = CommandLineFormatter::new(
                     &mut cli,
                     &mut ctx,
                     &error_counting_artifact_path_mapper,
-                )?;
+                );
+                runinfo.add_to_command_line(&mut fmt)?;
                 if error_counting_artifact_path_mapper
                     .content_based_paths_with_no_hash
                     .get()

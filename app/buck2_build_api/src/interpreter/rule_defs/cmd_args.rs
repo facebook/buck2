@@ -10,6 +10,7 @@
 
 mod builder;
 pub mod command_line_arg_like_type;
+mod format;
 mod options;
 pub(crate) mod regex;
 pub(crate) mod shlex_quote;
@@ -20,5 +21,6 @@ pub mod value;
 pub mod value_as;
 
 pub use builder::*;
+pub use format::*;
 pub use traits::*;
 pub use typ::*;

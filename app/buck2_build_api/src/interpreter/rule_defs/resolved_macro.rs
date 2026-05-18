@@ -43,6 +43,7 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
+use crate::interpreter::rule_defs::cmd_args::CommandLineFormatter;
 use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command_line_arg_like_impl;
 use crate::interpreter::rule_defs::cmd_args::space_separated::SpaceSeparatedCommandLineBuilder;
@@ -136,9 +137,11 @@ impl<'v> ResolvedMacro<'v> {
             }
             Self::ArgLike(command_line_like) => {
                 let mut cli_builder = SpaceSeparatedCommandLineBuilder::wrap(builder);
+                let mut fmt =
+                    CommandLineFormatter::new(&mut cli_builder, ctx, artifact_path_mapping);
                 command_line_like
                     .as_command_line_arg()
-                    .add_to_command_line(&mut cli_builder, ctx, artifact_path_mapping)?;
+                    .add_to_command_line(&mut fmt)?;
             }
             Self::Query(value) => value.add_to_arg(builder, ctx, artifact_path_mapping)?,
         };
@@ -245,12 +248,7 @@ impl<'v> CommandLineArgLike<'v> for ResolvedStringWithMacros {
         command_line_arg_like_impl!(ResolvedStringWithMacros::starlark_type_repr());
     }
 
-    fn add_to_command_line(
-        &self,
-        cmdline_builder: &mut dyn CommandLineBuilder,
-        ctx: &mut dyn CommandLineContext,
-        artifact_path_mapping: &dyn ArtifactPathMapper,
-    ) -> buck2_error::Result<()> {
+    fn add_to_command_line(&self, fmt: &mut CommandLineFormatter) -> buck2_error::Result<()> {
         struct Builder {
             arg: String,
         }
@@ -279,16 +277,16 @@ impl<'v> CommandLineArgLike<'v> for ResolvedStringWithMacros {
                 ResolvedStringWithMacrosPart::Macro(write_to_file, val) => {
                     if *write_to_file {
                         builder.arg.push('@');
-                        builder.push_path(ctx)?;
+                        builder.push_path(fmt.context)?;
                     } else {
-                        val.add_to_arg(&mut builder, ctx, artifact_path_mapping)?;
+                        val.add_to_arg(&mut builder, fmt.context, fmt.artifact_path_mapping)?;
                     }
                 }
             }
         }
 
         let Builder { arg } = builder;
-        cmdline_builder.push_arg(Cow::Owned(arg));
+        fmt.cli.push_arg(Cow::Owned(arg));
         Ok(())
     }
 

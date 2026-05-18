@@ -56,8 +56,7 @@ use crate::interpreter::rule_defs::artifact::starlark_declared_artifact::Starlar
 use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
-use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
-use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
+use crate::interpreter::rule_defs::cmd_args::CommandLineFormatter;
 use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command_line_arg_like_impl;
 
@@ -300,12 +299,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike<'v> for StarlarkOutputArtifactGen<
         command_line_arg_like_impl!(FrozenStarlarkOutputArtifact::starlark_type_repr());
     }
 
-    fn add_to_command_line(
-        &self,
-        cli: &mut dyn CommandLineBuilder,
-        ctx: &mut dyn CommandLineContext,
-        _artifact_path_mapping: &dyn ArtifactPathMapper,
-    ) -> buck2_error::Result<()> {
+    fn add_to_command_line(&self, fmt: &mut CommandLineFormatter) -> buck2_error::Result<()> {
         match self.unpack() {
             Either::Left(_) => Err(buck2_error::internal_error!(
                 "Cannot add an unfrozen output artifact to a command line. \
@@ -315,7 +309,8 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike<'v> for StarlarkOutputArtifactGen<
             Either::Right(v) => {
                 // We do not need to use the ArtifactPathMapper here as output artifacts are always
                 // resolved to a known path since their content hash is not yet available.
-                cli.push_location(ctx.resolve_output_artifact(&v.artifact)?);
+                fmt.cli
+                    .push_location(fmt.context.resolve_output_artifact(&v.artifact)?);
                 Ok(())
             }
         }
