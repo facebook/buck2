@@ -68,10 +68,10 @@ public class KotlinCDLoggingContextFactory {
   }
 
   private static StepParam create(KotlincStep kotlincStep) {
+    // KSP2 step is emitted by its own factory
+    // TODO asoshin: move all other steps to use KSP2 pattern for logging
     if (kotlincStep instanceof KosabiStubgenStep) {
       return StepParam.KOSABI_STUBGEN;
-    } else if (kotlincStep instanceof Ksp1Step) {
-      return StepParam.KSP1;
     } else if (kotlincStep instanceof KaptStep) {
       return StepParam.KAPT;
     } else {
