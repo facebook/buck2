@@ -106,3 +106,7 @@ buck2 build @fbcode//mode/opt fbcode//buck2:buck2 --out /tmp/buck2_dest
 ```
 
 Further information at [debugging.md](./debugging.md)
+
+# Perf work
+
+For details on profiling and benchmarking, see [perf/basics.md](./perf/basics.md).
