@@ -3343,6 +3343,9 @@ enum NetworkKind {
 enum NetworkAccess {
   NETWORK_ACCESS_ALL = 0;
   NETWORK_ACCESS_NONE = 1;
+  NETWORK_ACCESS_LOOPBACK = 2;
+  NETWORK_ACCESS_STRICT = 3;
+  NETWORK_ACCESS_PRIVATE = 4;
 }
 
 // Logged as an instant event when cgroup-based cleanup kills orphan processes

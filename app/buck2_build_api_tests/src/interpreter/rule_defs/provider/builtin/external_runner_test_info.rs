@@ -40,6 +40,9 @@ fn test_construction() -> buck2_error::Result<()> {
             ExternalRunnerTestInfo(type = "foo", local_resources = {"bar": None}, required_local_resources = [RequiredTestLocalResource("bar", listing=False)])
             ExternalRunnerTestInfo(type = "foo", network_access = "none")
             ExternalRunnerTestInfo(type = "foo", network_access = "all")
+            ExternalRunnerTestInfo(type = "foo", network_access = "loopback")
+            ExternalRunnerTestInfo(type = "foo", network_access = "strict")
+            ExternalRunnerTestInfo(type = "foo", network_access = "private")
         "#
     );
     let mut tester = tester();

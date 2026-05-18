@@ -16,6 +16,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use allocative::Allocative;
+use buck2_data::NetworkAccess as BuckNetworkAccess;
 use buck2_hash::BuckHasher;
 use derive_more::Display;
 use dupe::Dupe;
@@ -438,6 +439,60 @@ pub enum CacheUploadBehavior {
     Disabled,
 }
 
+pub const NETWORK_ACCESS_VALUES: &[&str] = &["all", "none", "loopback", "strict", "private"];
+
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Dupe, Hash, Pagable, Allocative)]
+pub enum ExecutorNetworkAccess {
+    All,
+    None,
+    Loopback,
+    Strict,
+    Private,
+}
+
+impl From<ExecutorNetworkAccess> for BuckNetworkAccess {
+    fn from(value: ExecutorNetworkAccess) -> Self {
+        match value {
+            ExecutorNetworkAccess::All => BuckNetworkAccess::All,
+            ExecutorNetworkAccess::None => BuckNetworkAccess::None,
+            ExecutorNetworkAccess::Loopback => BuckNetworkAccess::Loopback,
+            ExecutorNetworkAccess::Strict => BuckNetworkAccess::Strict,
+            ExecutorNetworkAccess::Private => BuckNetworkAccess::Private,
+        }
+    }
+}
+
+impl From<BuckNetworkAccess> for ExecutorNetworkAccess {
+    fn from(value: BuckNetworkAccess) -> Self {
+        match value {
+            BuckNetworkAccess::All => ExecutorNetworkAccess::All,
+            BuckNetworkAccess::None => ExecutorNetworkAccess::None,
+            BuckNetworkAccess::Loopback => ExecutorNetworkAccess::Loopback,
+            BuckNetworkAccess::Strict => ExecutorNetworkAccess::Strict,
+            BuckNetworkAccess::Private => ExecutorNetworkAccess::Private,
+        }
+    }
+}
+
+pub fn parse_network_access(s: &str) -> buck2_error::Result<BuckNetworkAccess> {
+    match s {
+        "all" => Ok(BuckNetworkAccess::All),
+        "none" => Ok(BuckNetworkAccess::None),
+        "loopback" => Ok(BuckNetworkAccess::Loopback),
+        "strict" => Ok(BuckNetworkAccess::Strict),
+        "private" => Ok(BuckNetworkAccess::Private),
+        _ => Err(buck2_error::buck2_error!(
+            buck2_error::ErrorTag::Input,
+            "Invalid network_access value `{}`, expected one of [{}]",
+            s,
+            NETWORK_ACCESS_VALUES
+                .iter()
+                .map(|v| format!("`{v}`"))
+                .join(", ")
+        )),
+    }
+}
+
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Dupe, Hash, Pagable, Allocative)]
 pub struct CommandGenerationOptions {
     pub path_separator: PathSeparatorKind,
@@ -539,5 +594,33 @@ mod tests {
             Some(&"H100".to_owned())
         );
         assert_eq!(worker.capabilities.get("rack"), Some(&"rack_01".to_owned()));
+    }
+
+    #[test]
+    fn test_network_access_parse() {
+        assert_eq!(
+            parse_network_access("all").expect("all should parse"),
+            BuckNetworkAccess::All
+        );
+        assert_eq!(
+            parse_network_access("none").expect("none should parse"),
+            BuckNetworkAccess::None
+        );
+        assert_eq!(
+            parse_network_access("loopback").expect("loopback should parse"),
+            BuckNetworkAccess::Loopback
+        );
+        assert_eq!(
+            parse_network_access("strict").expect("strict should parse"),
+            BuckNetworkAccess::Strict
+        );
+        assert_eq!(
+            parse_network_access("private").expect("private should parse"),
+            BuckNetworkAccess::Private
+        );
+        assert!(
+            parse_network_access("default").is_err(),
+            "Omitted network_access should use the default executor behavior"
+        );
     }
 }

@@ -13,6 +13,7 @@ use std::iter::once;
 
 use allocative::Allocative;
 use buck2_build_api_derive::internal_provider;
+use buck2_core::execution_types::executor_config::parse_network_access;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
@@ -478,18 +479,6 @@ where
     I: IntoIterator<Item = buck2_error::Result<T>>,
 {
     it.into_iter().map(|e| e.unwrap())
-}
-
-fn parse_network_access(s: &str) -> buck2_error::Result<NetworkAccess> {
-    match s {
-        "all" => Ok(NetworkAccess::All),
-        "none" => Ok(NetworkAccess::None),
-        _ => Err(buck2_error!(
-            buck2_error::ErrorTag::Input,
-            "Invalid network_access value `{}`, expected `all` or `none`",
-            s
-        )),
-    }
 }
 
 fn validate_external_runner_test_info<'v, V>(
