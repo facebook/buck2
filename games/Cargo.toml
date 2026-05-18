@@ -1,6 +1,6 @@
 [package]
 description = "Some tui games"
-edition = "2021"
+edition = "2024"
 name = "games"
 version = "0.1.0"
 

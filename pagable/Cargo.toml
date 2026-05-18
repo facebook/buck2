@@ -1,6 +1,6 @@
 [package]
 description = "Serialization framework with content-addressed `Arc` deduplication and runtime polymorphism via typetag"
-edition = "2021"
+edition = "2024"
 license = { workspace = true }
 name = "pagable"
 repository = { workspace = true }

@@ -1,7 +1,7 @@
 [package]
 authors = ["Meta"]
 description = "Implementation of derive(Pagable) for pagable crate"
-edition = "2021"
+edition = "2024"
 license = { workspace = true }
 name = "pagable_derive"
 version = "0.3.3"
