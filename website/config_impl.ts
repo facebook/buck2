@@ -22,6 +22,7 @@ const darkCodeTheme = themes.dracula;
 const presetOptions: ClassicPresetOptions = ({
   docs: {
     path: '../docs',
+    exclude: ['developers/**'],
     sidebarPath: require.resolve('./sidebars_generated.ts'),
     async sidebarItemsGenerator({ defaultSidebarItemsGenerator, ...args }) {
       const items = await defaultSidebarItemsGenerator({

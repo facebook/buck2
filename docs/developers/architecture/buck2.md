@@ -1,10 +1,3 @@
----
-id: buck2
-title: Architectural Model
----
-
-import useBaseUrl from '@docusaurus/useBaseUrl';
-
 ## High-level Overview
 
 Buck2 is a build system whose core is written in Rust. Starlark, which is a

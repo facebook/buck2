@@ -137,6 +137,6 @@ your project.
 
 <h3>For people developing Buck2</h3>
 
-- [See here](developers/basics.md) to get started.
+- See `docs/developers/basics.md` in the source tree to get started.
 
 </FbInternalOnly>

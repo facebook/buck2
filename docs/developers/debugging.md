@@ -1,8 +1,3 @@
----
-id: debugging
-title: Debugging Buck2
----
-
 This page contains generic debugging advice for developers of Buck2; this advice is descriptive
 (based on what people usually do today) not prescriptive (you're welcome to come up with your own
 ideas).

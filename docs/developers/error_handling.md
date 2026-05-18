@@ -1,8 +1,3 @@
----
-id: error_handling
-title: Error Handling
----
-
 # Error Handling
 
 Buck2 uses `buck2_error` replacing both `anyhow` and `thiserror`.

@@ -1,8 +1,3 @@
----
-id: buck1_vs_buck2
-title: Buck1 vs Buck2
----
-
 ## At a glance
 
 The following table provides an at-a-glance comparison of Buck1 and Buck2.
