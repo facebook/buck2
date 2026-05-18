@@ -10,8 +10,11 @@ load("@prelude//:paths.bzl", "paths")
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
 load("@prelude//apple:apple_utility.bzl", "get_module_name")
-load(
-    "@prelude//apple/meta_only:linker_outputs.bzl", "extra_distributed_thin_lto_opt_outputs_merger", "get_extra_linker_output_flags", "get_extra_linker_outputs"
+# @oss-disable[end= ]: load(
+    # @oss-disable[end= ]: "@prelude//apple/meta_only:linker_outputs.bzl",
+    # @oss-disable[end= ]: "extra_distributed_thin_lto_opt_outputs_merger",
+    # @oss-disable[end= ]: "get_extra_linker_output_flags",
+    # @oss-disable[end= ]: "get_extra_linker_outputs",
 # @oss-disable[end= ]: )
 load(
     "@prelude//apple/swift:swift_compilation.bzl",

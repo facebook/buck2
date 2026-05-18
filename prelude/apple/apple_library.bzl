@@ -16,8 +16,11 @@ load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//apple:apple_dsym.bzl", "DSYM_SUBTARGET", "get_apple_dsym")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
 # @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_library_meta_validation.bzl", "apple_library_validate_for_meta_restrictions")
-load(
-    "@prelude//apple/meta_only:linker_outputs.bzl", "extra_distributed_thin_lto_opt_outputs_merger", "get_extra_linker_output_flags", "get_extra_linker_outputs"
+# @oss-disable[end= ]: load(
+    # @oss-disable[end= ]: "@prelude//apple/meta_only:linker_outputs.bzl",
+    # @oss-disable[end= ]: "extra_distributed_thin_lto_opt_outputs_merger",
+    # @oss-disable[end= ]: "get_extra_linker_output_flags",
+    # @oss-disable[end= ]: "get_extra_linker_outputs",
 # @oss-disable[end= ]: )
 load(
     "@prelude//apple/mockingbird:mockingbird_types.bzl",

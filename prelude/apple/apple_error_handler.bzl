@@ -6,14 +6,14 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load(
-    "@prelude//apple/meta_only:apple_extra_error_categories.bzl",
-    "APPLE_CXX_FLAG_MESSAGES",
-    "APPLE_CXX_MESSAGE_CATEGORIES",
-    "APPLE_CXX_STDERR_CATEGORIES",
-    "APPLE_META_STDERR_ERROR_CATEGORIES",
-    "SWIFT_CATEGORY_REMEDIATION",
-    "SWIFT_STDERR_CATEGORIES",
+# @oss-disable[end= ]: load(
+    # @oss-disable[end= ]: "@prelude//apple/meta_only:apple_extra_error_categories.bzl",
+    # @oss-disable[end= ]: "APPLE_CXX_FLAG_MESSAGES",
+    # @oss-disable[end= ]: "APPLE_CXX_MESSAGE_CATEGORIES",
+    # @oss-disable[end= ]: "APPLE_CXX_STDERR_CATEGORIES",
+    # @oss-disable[end= ]: "APPLE_META_STDERR_ERROR_CATEGORIES",
+    # @oss-disable[end= ]: "SWIFT_CATEGORY_REMEDIATION",
+    # @oss-disable[end= ]: "SWIFT_STDERR_CATEGORIES",
 # @oss-disable[end= ]: )
 load("@prelude//apple/swift:swift_toolchain.bzl", "get_swift_toolchain_info")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
