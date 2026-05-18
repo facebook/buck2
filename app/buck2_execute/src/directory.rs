@@ -1231,8 +1231,11 @@ mod tests {
     }
 
     #[test]
-    //Test that a symlink created with a windows path doesn't get interpreted as an invalid sylink
-    //TODO(lmvasquezg) Update symlinks to store a normalized, OS-independent path
+    // Test that a `Symlink` (relative-target) created with a Windows path doesn't get
+    // interpreted as an invalid symlink. The `ExternalSymlink` (absolute-target) case
+    // is covered separately by `external_symlink_serializer_*` above and by
+    // `normalize_target_for_re_*` in `buck2_common::external_symlink`, which together
+    // ensure both arms store POSIX-style targets when uploaded to CAS.
     fn test_unnormalized_symlinks() -> buck2_error::Result<()> {
         if !cfg!(windows) {
             return Ok(());
@@ -1254,6 +1257,82 @@ mod tests {
 
         extract_artifact_value(&builder, &path("d1/f1"), digest_config)?
             .ok_or_else(|| internal_error!("Not value!"))?;
+        Ok(())
+    }
+
+    /// Pins the contract that `ReDirectorySerializer::create_re_directory`
+    /// is a passthrough for `ExternalSymlink::target_str()`: whatever string
+    /// is stored on the symlink ends up verbatim in `RE::SymlinkNode.target`
+    /// on the wire. This is the load-bearing assumption behind fixing the
+    /// Windows→Linux RE backslash bug at the `ExternalSymlink` constructor
+    /// rather than at the serializer — if this test ever fails, the fix
+    /// site must be re-evaluated.
+    #[test]
+    fn external_symlink_serializer_preserves_target_str_verbatim() -> buck2_error::Result<()> {
+        let digest_config = DigestConfig::testing_default();
+
+        let mut builder = ActionDirectoryBuilder::empty();
+        let sym = Arc::new(ExternalSymlink::new(
+            PathBuf::from("/mnt/gvfs/openssl/lib"),
+            ForwardRelativePathBuf::default(),
+        )?);
+        insert_entry(
+            &mut builder,
+            path("openssl"),
+            DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(sym.dupe())),
+        )?;
+
+        let dir = builder.fingerprint(digest_config.as_directory_serializer());
+        let re_dir = ReDirectorySerializer::create_re_directory(dir.as_ref().entries(), None);
+
+        assert_eq!(re_dir.symlinks.len(), 1, "Expected exactly one symlink");
+        assert_eq!(re_dir.symlinks[0].name, "openssl");
+        assert_eq!(
+            re_dir.symlinks[0].target,
+            sym.target_str(),
+            "Serializer must round-trip target_str verbatim",
+        );
+        assert_eq!(re_dir.symlinks[0].target, "/mnt/gvfs/openssl/lib");
+        Ok(())
+    }
+
+    /// Defense-in-depth round-trip: an `ExternalSymlink` constructed with a
+    /// backslash-bearing target on a non-Windows host (the `cfg!(windows)`
+    /// gate is false, so the constructor's normalizer is a no-op) must
+    /// produce the SAME backslashed string in `RE::SymlinkNode.target`.
+    /// Together with the constructor's unit tests this proves the bug
+    /// surfaces *only* at the constructor site — nothing downstream
+    /// reintroduces or hides the problem. On Windows the constructor would
+    /// have normalized away the backslashes before reaching the serializer.
+    #[cfg(not(windows))]
+    #[test]
+    fn external_symlink_serializer_does_not_hide_backslashes_on_non_windows()
+    -> buck2_error::Result<()> {
+        let digest_config = DigestConfig::testing_default();
+
+        let mut builder = ActionDirectoryBuilder::empty();
+        let sym = Arc::new(ExternalSymlink::new(
+            PathBuf::from(r"\mnt\gvfs\openssl\lib"),
+            ForwardRelativePathBuf::default(),
+        )?);
+        // Sanity-check the precondition: on non-Windows the constructor is
+        // a no-op so the stored target retains its backslashes.
+        assert_eq!(sym.target_str(), r"\mnt\gvfs\openssl\lib");
+
+        insert_entry(
+            &mut builder,
+            path("openssl"),
+            DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(sym.dupe())),
+        )?;
+
+        let dir = builder.fingerprint(digest_config.as_directory_serializer());
+        let re_dir = ReDirectorySerializer::create_re_directory(dir.as_ref().entries(), None);
+
+        assert_eq!(re_dir.symlinks.len(), 1);
+        assert_eq!(
+            re_dir.symlinks[0].target, r"\mnt\gvfs\openssl\lib",
+            "Serializer is a passthrough; the only fix site is the constructor",
+        );
         Ok(())
     }
 
