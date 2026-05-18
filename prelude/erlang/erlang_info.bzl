@@ -156,6 +156,8 @@ ErlangToolchainInfo = provider(
         # utility scripts
         # building .app file
         "app_src_script": provider_field(Tool),
+        # building .appup file
+        "appup_src_script": provider_field(Tool),
         # building escripts
         "escript_builder": provider_field(Tool),
         # analyzing .(h|e)rl dependencies

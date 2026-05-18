@@ -119,9 +119,18 @@ rules_attributes = {
         "app_src_vsn": attrs.string(
             default = "git",
             doc = """
-                The version placeholder used in the `app_src` template. When the template's `vsn` field matches this placeholder
-                (either as an atom or as a string), buck2 substitutes the value from the `version` field. Defaults to `"git"`,
-                matching rebar3's convention.
+                The version placeholder used in the `app_src` and `appup_src` templates. When the `vsn` field of `app_src` (or the
+                version element of `appup_src`) matches this placeholder, either as an atom or as a string, buck2 substitutes the
+                value from the `version` field. Defaults to `"git"`, matching rebar3's convention.
+            """,
+        ),
+        "appup_src": attrs.option(
+            attrs.source(),
+            default = None,
+            doc = """
+                The `appup_src` field allows to optionally reference a `*.appup.src` template file used to generate the application's
+                `*.appup` file in the `ebin/` directory. The template's first element is the application version, which buck2 substitutes
+                using the same placeholder convention as `app_src_vsn`.
             """,
         ),
         "docs": attrs.list(

@@ -26,6 +26,7 @@ filegroup(
 toolchain_utilities(
     name = "toolchain_utilities",
     app_src_script = "app_src_builder.erl",
+    appup_src_script = "appup_src_builder.erl",
     boot_script_builder = "boot_script_builder.erl",
     core_parse_transforms = [":transform_project_root"],
     dependency_analyzer = "dependency_analyzer.erl",

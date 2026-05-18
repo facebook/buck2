@@ -51,6 +51,7 @@ StartSpec = record(
 BuiltApplication = record(
     build_environment = field(BuildEnvironment),
     app_file = field(Artifact),
+    appup_file = field(Artifact | None),
     src_dir = field(Artifact),
     priv_dir = field(Artifact),
 )
@@ -183,12 +184,16 @@ def _build_erlang_application(ctx: AnalysisContext, name: str, toolchain: Toolch
         src_artifacts,
     )
 
+    # create <appname>.appup file
+    appup_file = _generate_appup_file(ctx, toolchain, name)
+
     # priv
     priv_dir = _generate_priv_dir(ctx)
 
     return BuiltApplication(
         build_environment = build_environment,
         app_file = app_file,
+        appup_file = appup_file,
         src_dir = src_dir,
         priv_dir = priv_dir,
     )
@@ -282,12 +287,46 @@ def _app_info_content(ctx: AnalysisContext, name: str, srcs: list[Artifact]) -> 
     ctx.actions.write_json(app_info.as_output(), data)
     return app_info
 
+def _generate_appup_file(ctx: AnalysisContext, toolchain: Toolchain, name: str) -> Artifact | None:
+    if not ctx.attrs.appup_src:
+        return None
+    if not ctx.attrs.version:
+        fail("appup_src requires `version` to be set on the target: %s" % (ctx.label,))
+
+    appup_file_name = name + ".appup"
+    output = ctx.actions.declare_output(erlang_build.utils.BUILD_DIR, appup_file_name, has_content_based_path = False)
+    appup_info_file = _appup_info_content(ctx, name)
+
+    erlang_build.utils.run_with_env(
+        ctx,
+        toolchain,
+        cmd_args(toolchain.appup_src_script, appup_info_file, output.as_output()),
+        category = "appup_resource",
+        identifier = name,
+    )
+
+    return output
+
+def _appup_info_content(ctx: AnalysisContext, name: str) -> Artifact:
+    appup_info = ctx.actions.declare_output(erlang_build.utils.BUILD_DIR, "appup_info.json", has_content_based_path = False)
+    data = {
+        "app_src_vsn": ctx.attrs.app_src_vsn,
+        "name": name,
+        "template": ctx.attrs.appup_src,
+        "version": ctx.attrs.version,
+    }
+    appup_info = appup_info.with_associated_artifacts([ctx.attrs.appup_src])
+    ctx.actions.write_json(appup_info.as_output(), data)
+    return appup_info
+
 def link_output(ctx: AnalysisContext, link_path: str, built: BuiltApplication) -> Artifact:
     """Link application output folder in working dir root folder."""
     name = app_name(ctx)
 
     build_environment = built.build_environment
     ebin = build_environment.beams.get(name, {}).values() + [built.app_file]
+    if built.appup_file:
+        ebin = ebin + [built.appup_file]
     ebin = {paths.join("ebin", ebin_file.basename): ebin_file for ebin_file in ebin}
 
     link_spec = {}
@@ -323,6 +362,8 @@ def _link_src_dir(ctx: AnalysisContext, *, extra_srcs: list[Artifact]) -> Artifa
     srcs = {src_file.basename: src_file for src_file in ctx.attrs.srcs}
     if ctx.attrs.app_src:
         srcs[ctx.attrs.app_src.basename] = ctx.attrs.app_src
+    if ctx.attrs.appup_src:
+        srcs[ctx.attrs.appup_src.basename] = ctx.attrs.appup_src
 
     for extra_srcs in extra_srcs:
         srcs[extra_srcs.basename] = extra_srcs

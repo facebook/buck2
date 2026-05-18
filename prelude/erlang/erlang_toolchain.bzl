@@ -36,6 +36,7 @@ ToolchainUtillInfo = provider(
     # @unsorted-dict-items
     fields = {
         "app_src_script": provider_field(Artifact),
+        "appup_src_script": provider_field(Artifact),
         "boot_script_builder": provider_field(Artifact),
         "core_parse_transforms": provider_field(list[Dependency]),
         "dependency_analyzer": provider_field(Artifact),
@@ -104,6 +105,7 @@ def _erlang_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
     utility_modules = _gen_util_beams(ctx, env, utils.utility_modules, otp_binaries.erlc)
 
     app_src_script = _gen_toolchain_script(ctx, env, utils.app_src_script, otp_binaries, utility_modules)
+    appup_src_script = _gen_toolchain_script(ctx, env, utils.appup_src_script, otp_binaries, utility_modules)
     boot_script_builder = _gen_toolchain_script(ctx, env, utils.boot_script_builder, otp_binaries, utility_modules)
     dependency_analyzer = _gen_toolchain_script(ctx, env, utils.dependency_analyzer, otp_binaries, utility_modules)
     dependency_finalizer = _gen_toolchain_script(ctx, env, utils.dependency_finalizer, otp_binaries, utility_modules)
@@ -159,6 +161,7 @@ def _erlang_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
         ErlangToolchainInfo(
             name = ctx.attrs.name,
             app_src_script = app_src_script,
+            appup_src_script = appup_src_script,
             boot_script_builder = boot_script_builder,
             dependency_analyzer = dependency_analyzer,
             dependency_finalizer = dependency_finalizer,
@@ -333,6 +336,7 @@ def _toolchain_utils(ctx: AnalysisContext) -> list[Provider]:
         DefaultInfo(),
         ToolchainUtillInfo(
             app_src_script = ctx.attrs.app_src_script,
+            appup_src_script = ctx.attrs.appup_src_script,
             boot_script_builder = ctx.attrs.boot_script_builder,
             core_parse_transforms = ctx.attrs.core_parse_transforms,
             dependency_analyzer = ctx.attrs.dependency_analyzer,
@@ -350,6 +354,7 @@ toolchain_utilities = rule(
     impl = _toolchain_utils,
     attrs = {
         "app_src_script": attrs.source(),
+        "appup_src_script": attrs.source(),
         "boot_script_builder": attrs.source(),
         "core_parse_transforms": attrs.list(attrs.dep()),
         "dependency_analyzer": attrs.source(),
