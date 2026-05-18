@@ -23,11 +23,11 @@ use buck2_build_api::actions::execute::action_executor::ActionOutputs;
 use buck2_build_api::actions::execute::error::ExecuteError;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
+use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineLocation;
 use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
-use buck2_build_api::interpreter::rule_defs::cmd_args::arg_builder::ArgBuilder;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedMacro;
 use buck2_build_signals::env::WaitingData;
@@ -342,13 +342,12 @@ impl CommandLineContext for MacroContext<'_> {
     }
 }
 
-// TODO(torozco): Just remove this, and ArgBuilder
 struct MacroOutput {
     result: String,
 }
 
-impl ArgBuilder for MacroOutput {
-    fn push_str(&mut self, s: &str) {
-        self.result.push_str(s)
+impl CommandLineBuilder for MacroOutput {
+    fn push_arg(&mut self, s: Cow<'_, str>) {
+        self.result.push_str(&s)
     }
 }

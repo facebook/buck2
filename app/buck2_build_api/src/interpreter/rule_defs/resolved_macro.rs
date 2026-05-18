@@ -44,7 +44,6 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
-use crate::interpreter::rule_defs::cmd_args::arg_builder::ArgBuilder;
 use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command_line_arg_like_impl;
 use crate::interpreter::rule_defs::cmd_args::space_separated::SpaceSeparatedCommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
@@ -89,7 +88,7 @@ impl<'v> Display for ResolvedMacro<'v> {
 }
 
 pub fn add_output_to_arg(
-    builder: &mut dyn ArgBuilder,
+    builder: &mut dyn CommandLineBuilder,
     ctx: &mut dyn CommandLineContext,
     artifact: &StarlarkArtifact,
     artifact_path_mapping: &dyn ArtifactPathMapper,
@@ -97,19 +96,19 @@ pub fn add_output_to_arg(
     let path = ctx
         .resolve_artifact(&artifact.get_bound_artifact()?, artifact_path_mapping)?
         .into_string();
-    builder.push_str(&path);
+    builder.push_arg(Cow::Owned(path));
     Ok(())
 }
 
 fn add_outputs_to_arg(
-    builder: &mut dyn ArgBuilder,
+    builder: &mut dyn CommandLineBuilder,
     ctx: &mut dyn CommandLineContext,
     outputs_list: &[StarlarkArtifact],
     artifact_path_mapping: &dyn ArtifactPathMapper,
 ) -> buck2_error::Result<()> {
     for (i, value) in outputs_list.iter().enumerate() {
         if i != 0 {
-            builder.push_str(" ");
+            builder.push_arg(Cow::Borrowed(" "));
         }
         add_output_to_arg(builder, ctx, value, artifact_path_mapping)?;
     }
@@ -119,7 +118,7 @@ fn add_outputs_to_arg(
 impl<'v> ResolvedMacro<'v> {
     pub fn add_to_arg(
         &self,
-        builder: &mut dyn ArgBuilder,
+        builder: &mut dyn CommandLineBuilder,
         ctx: &mut dyn CommandLineContext,
         artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
@@ -128,7 +127,7 @@ impl<'v> ResolvedMacro<'v> {
                 let s = ctx
                     .resolve_artifact(artifact, artifact_path_mapping)?
                     .into_string();
-                builder.push_str(&s);
+                builder.push_arg(Cow::Owned(s));
             }
             Self::Location(info) => {
                 let outputs = &info.default_outputs();
@@ -259,15 +258,14 @@ impl<'v> CommandLineArgLike<'v> for ResolvedStringWithMacros {
         impl Builder {
             fn push_path(&mut self, ctx: &mut dyn CommandLineContext) -> buck2_error::Result<()> {
                 let next_path = ctx.next_macro_file_path()?;
-                self.push_str(next_path.as_str());
+                self.arg.push_str(next_path.as_str());
                 Ok(())
             }
         }
 
-        impl ArgBuilder for Builder {
-            /// Add the string representation to the list of command line arguments.
-            fn push_str(&mut self, s: &str) {
-                self.arg.push_str(s)
+        impl CommandLineBuilder for Builder {
+            fn push_arg(&mut self, s: Cow<'_, str>) {
+                self.arg.push_str(&s)
             }
         }
 
@@ -280,7 +278,7 @@ impl<'v> CommandLineArgLike<'v> for ResolvedStringWithMacros {
                 }
                 ResolvedStringWithMacrosPart::Macro(write_to_file, val) => {
                     if *write_to_file {
-                        builder.push_str("@");
+                        builder.arg.push('@');
                         builder.push_path(ctx)?;
                     } else {
                         val.add_to_arg(&mut builder, ctx, artifact_path_mapping)?;

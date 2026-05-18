@@ -14,17 +14,16 @@ use ref_cast::RefCastCustom;
 use ref_cast::ref_cast_custom;
 
 use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
-use crate::interpreter::rule_defs::cmd_args::arg_builder::ArgBuilder;
 
 pub struct SpaceSeparatedCommandLineBuilder<'v> {
-    builder: &'v mut dyn ArgBuilder,
+    builder: &'v mut dyn CommandLineBuilder,
     first: bool,
 }
 
 impl<'v> SpaceSeparatedCommandLineBuilder<'v> {
     // This can be used to construct a CommandLineBuilder that will append the command line
     // as a space-separated string to the arg.
-    pub fn wrap(builder: &'v mut dyn ArgBuilder) -> Self {
+    pub fn wrap(builder: &'v mut dyn CommandLineBuilder) -> Self {
         Self {
             builder,
             first: true,
@@ -32,7 +31,7 @@ impl<'v> SpaceSeparatedCommandLineBuilder<'v> {
     }
 
     pub fn wrap_string(string: &'v mut String) -> Self {
-        let builder = StringAsArgBuilder::new(string);
+        let builder = StringAsCommandLineBuilder::new(string);
         Self::wrap(builder as _)
     }
 }
@@ -42,24 +41,24 @@ impl CommandLineBuilder for SpaceSeparatedCommandLineBuilder<'_> {
         if self.first {
             self.first = false;
         } else {
-            self.builder.push_str(" ");
+            self.builder.push_arg(Cow::Borrowed(" "));
         }
-        self.builder.push_str(&s);
+        self.builder.push_arg(s);
     }
 }
 
 #[derive(RefCastCustom)]
 #[repr(transparent)]
-struct StringAsArgBuilder(String);
+struct StringAsCommandLineBuilder(String);
 
-impl StringAsArgBuilder {
+impl StringAsCommandLineBuilder {
     #[ref_cast_custom]
     pub(crate) fn new(string: &mut String) -> &mut Self;
 }
 
-impl ArgBuilder for StringAsArgBuilder {
-    fn push_str(&mut self, v: &str) {
-        self.0.push_str(v);
+impl CommandLineBuilder for StringAsCommandLineBuilder {
+    fn push_arg(&mut self, s: Cow<'_, str>) {
+        self.0.push_str(&s);
     }
 }
 
