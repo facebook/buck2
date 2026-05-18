@@ -9,7 +9,10 @@
  */
 
 use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
+use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
+use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCommandLineInputs;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
+use buck2_build_api::interpreter::rule_defs::register_rule_defs;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuckOutPathResolver;
@@ -18,11 +21,17 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_hash::BuckHashMap;
+use buck2_interpreter::types::regex::register_buck_regex;
+use buck2_interpreter_for_build::interpreter::testing::Tester;
 use buck2_interpreter_for_build::interpreter::testing::cells;
+use buck2_interpreter_for_build::label::testing::label_creator;
 use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
+use starlark::values::list_or_tuple::UnpackListOrTuple;
+
+use crate::interpreter::rule_defs::artifact::testing::artifactory;
 
 fn artifact_fs() -> ArtifactFs {
     let cell_info = cells(None).unwrap();
@@ -70,4 +79,32 @@ pub(crate) fn command_line_stringifier(builder: &mut GlobalsBuilder) {
         assert_eq!(1, cli.len());
         Ok(cli.first().unwrap().clone())
     }
+}
+
+#[starlark_module]
+pub(crate) fn inputs_helper(builder: &mut GlobalsBuilder) {
+    fn make_inputs<'v>(
+        values: UnpackListOrTuple<Value<'v>>,
+    ) -> starlark::Result<StarlarkCommandLineInputs> {
+        let mut visitor = SimpleCommandLineArtifactVisitor::new();
+        for v in values {
+            let cli = ValueAsCommandLineLike::unpack_value_err(v)?.0;
+            cli.visit_artifacts(&mut visitor)?;
+        }
+
+        Ok(StarlarkCommandLineInputs {
+            inputs: visitor.inputs,
+        })
+    }
+}
+
+pub(crate) fn tester() -> buck2_error::Result<Tester> {
+    let mut tester = Tester::new()?;
+    tester.additional_globals(command_line_stringifier);
+    tester.additional_globals(inputs_helper);
+    tester.additional_globals(artifactory);
+    tester.additional_globals(label_creator);
+    tester.additional_globals(register_rule_defs);
+    tester.additional_globals(register_buck_regex);
+    Ok(tester)
 }

@@ -8,5 +8,8 @@
  * above-listed licenses.
  */
 
+mod inputs_outputs;
+mod old;
+mod options;
 pub(crate) mod testing;
 mod tests;
