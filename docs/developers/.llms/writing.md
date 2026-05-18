@@ -1,6 +1,5 @@
 ---
 oncalls: ['build_infra']
-apply_to_regex: '.*'
 ---
 
 General guidelines for writing code comments, API documentation including doc comments, internal

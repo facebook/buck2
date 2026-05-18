@@ -1,6 +1,5 @@
 ---
 oncalls: ['build_infra']
-apply_to_regex: '.*'
 ---
 
 Buck2 cares about the quality and maintainability of its codebase. Contributors - humans and AI -
