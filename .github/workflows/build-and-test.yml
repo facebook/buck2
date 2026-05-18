@@ -3,6 +3,10 @@ on:
   push:
   pull_request:
   workflow_dispatch: # allows manual triggering
+
+permissions:
+  contents: read
+
 jobs:
   linux-build-and-test:
     runs-on: 4-core-ubuntu
