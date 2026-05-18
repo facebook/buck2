@@ -8,6 +8,12 @@
  * above-listed licenses.
  */
 
+use std::borrow::Cow;
+
+use buck2_artifact::artifact::artifact_type::Artifact;
+use buck2_core::cells::cell_path::CellPathRef;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+
 use crate::interpreter::rule_defs::cmd_args::traits::ArtifactPathMapper;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineContext;
@@ -29,5 +35,39 @@ impl<'a> CommandLineFormatter<'a> {
             context,
             artifact_path_mapping,
         }
+    }
+
+    pub fn push_str(&mut self, s: &str) {
+        self.cli.push_arg(Cow::Borrowed(s));
+    }
+
+    pub fn push_string(&mut self, s: String) {
+        self.cli.push_arg(Cow::Owned(s));
+    }
+
+    pub fn push_artifact(&mut self, artifact: &Artifact) -> buck2_error::Result<()> {
+        let location = self
+            .context
+            .resolve_artifact(artifact, self.artifact_path_mapping)?;
+        self.cli.push_location(location);
+        Ok(())
+    }
+
+    pub fn push_output_artifact(&mut self, artifact: &Artifact) -> buck2_error::Result<()> {
+        let location = self.context.resolve_output_artifact(artifact)?;
+        self.cli.push_location(location);
+        Ok(())
+    }
+
+    pub fn push_cell_path(&mut self, path: CellPathRef) -> buck2_error::Result<()> {
+        let location = self.context.resolve_cell_path(path)?;
+        self.cli.push_location(location);
+        Ok(())
+    }
+
+    pub fn push_project_path(&mut self, path: ProjectRelativePathBuf) -> buck2_error::Result<()> {
+        let location = self.context.resolve_project_path(path)?;
+        self.cli.push_location(location);
+        Ok(())
     }
 }

@@ -286,7 +286,7 @@ impl<'v> CommandLineArgLike<'v> for ResolvedStringWithMacros {
         }
 
         let Builder { arg } = builder;
-        fmt.cli.push_arg(Cow::Owned(arg));
+        fmt.push_string(arg);
         Ok(())
     }
 

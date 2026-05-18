@@ -201,7 +201,7 @@ impl<'v> CommandLineArgLike<'v> for &str {
     }
 
     fn add_to_command_line(&self, fmt: &mut CommandLineFormatter) -> buck2_error::Result<()> {
-        fmt.cli.push_arg(Cow::Borrowed(*self));
+        fmt.push_str(self);
         Ok(())
     }
 
@@ -224,7 +224,7 @@ impl<'v> CommandLineArgLike<'v> for StarlarkStr {
     }
 
     fn add_to_command_line(&self, fmt: &mut CommandLineFormatter) -> buck2_error::Result<()> {
-        fmt.cli.push_arg(Cow::Borrowed(self.as_str()));
+        fmt.push_str(self.as_str());
         Ok(())
     }
 
@@ -247,7 +247,7 @@ impl<'v> CommandLineArgLike<'v> for StarlarkTargetLabel {
     }
 
     fn add_to_command_line(&self, fmt: &mut CommandLineFormatter) -> buck2_error::Result<()> {
-        fmt.cli.push_arg(Cow::Owned(self.to_string()));
+        fmt.push_string(self.to_string());
         Ok(())
     }
 
@@ -270,7 +270,7 @@ impl<'v> CommandLineArgLike<'v> for StarlarkConfiguredProvidersLabel {
     }
 
     fn add_to_command_line(&self, fmt: &mut CommandLineFormatter) -> buck2_error::Result<()> {
-        fmt.cli.push_arg(Cow::Owned(self.to_string()));
+        fmt.push_string(self.to_string());
         Ok(())
     }
 
@@ -293,8 +293,7 @@ impl<'v> CommandLineArgLike<'v> for CellRoot {
     }
 
     fn add_to_command_line(&self, fmt: &mut CommandLineFormatter) -> buck2_error::Result<()> {
-        fmt.cli
-            .push_location(fmt.context.resolve_cell_path(self.cell_path())?);
+        fmt.push_cell_path(self.cell_path())?;
         Ok(())
     }
 
@@ -317,10 +316,7 @@ impl<'v> CommandLineArgLike<'v> for StarlarkProjectRoot {
     }
 
     fn add_to_command_line(&self, fmt: &mut CommandLineFormatter) -> buck2_error::Result<()> {
-        fmt.cli.push_location(
-            fmt.context
-                .resolve_project_path(ProjectRelativePath::empty().to_owned())?,
-        );
+        fmt.push_project_path(ProjectRelativePath::empty().to_owned())?;
         Ok(())
     }
 

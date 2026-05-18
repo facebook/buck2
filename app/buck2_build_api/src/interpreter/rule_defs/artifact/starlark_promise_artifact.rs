@@ -271,8 +271,7 @@ impl<'v> CommandLineArgLike<'v> for StarlarkPromiseArtifact {
     fn add_to_command_line(&self, fmt: &mut CommandLineFormatter) -> buck2_error::Result<()> {
         match self.artifact.get() {
             Some(v) => {
-                fmt.cli
-                    .push_location(fmt.context.resolve_artifact(v, fmt.artifact_path_mapping)?);
+                fmt.push_artifact(v)?;
                 Ok(())
             }
             None => Err(PromiseArtifactError::UnresolvedAddedToCommandLine(self.clone()).into()),

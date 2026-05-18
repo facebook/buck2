@@ -252,10 +252,7 @@ impl<'v> CommandLineArgLike<'v> for StarlarkArtifact {
     }
 
     fn add_to_command_line(&self, fmt: &mut CommandLineFormatter) -> buck2_error::Result<()> {
-        fmt.cli.push_location(
-            fmt.context
-                .resolve_artifact(&self.artifact, fmt.artifact_path_mapping)?,
-        );
+        fmt.push_artifact(&self.artifact)?;
         Ok(())
     }
 

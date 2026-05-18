@@ -309,8 +309,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike<'v> for StarlarkOutputArtifactGen<
             Either::Right(v) => {
                 // We do not need to use the ArtifactPathMapper here as output artifacts are always
                 // resolved to a known path since their content hash is not yet available.
-                fmt.cli
-                    .push_location(fmt.context.resolve_output_artifact(&v.artifact)?);
+                fmt.push_output_artifact(&v.artifact)?;
                 Ok(())
             }
         }
