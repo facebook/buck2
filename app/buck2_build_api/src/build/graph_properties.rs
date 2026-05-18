@@ -76,6 +76,7 @@ pub struct GraphPropertiesOptions {
     pub configured_graph_sketch: bool,
     pub total_configured_graph_sketch: bool,
     pub retained_analysis_memory_sketch: bool,
+    pub peak_analysis_memory_sketch: bool,
     pub action_graph_sketch: bool,
 }
 
@@ -86,6 +87,7 @@ impl fmt::Display for GraphPropertiesOptions {
             configured_graph_sketch,
             total_configured_graph_sketch,
             retained_analysis_memory_sketch,
+            peak_analysis_memory_sketch,
             action_graph_sketch,
         } = *self;
 
@@ -111,6 +113,11 @@ impl fmt::Display for GraphPropertiesOptions {
             write!(f, "retained_analysis_memory_sketch")?;
         }
 
+        if peak_analysis_memory_sketch {
+            comma(f)?;
+            write!(f, "peak_analysis_memory_sketch")?;
+        }
+
         if action_graph_sketch {
             comma(f)?;
             write!(f, "action_graph_sketch")?;
@@ -127,6 +134,7 @@ impl GraphPropertiesOptions {
             configured_graph_sketch,
             total_configured_graph_sketch,
             retained_analysis_memory_sketch,
+            peak_analysis_memory_sketch,
             action_graph_sketch,
         } = self;
 
@@ -134,6 +142,7 @@ impl GraphPropertiesOptions {
             && !configured_graph_sketch
             && !total_configured_graph_sketch
             && !retained_analysis_memory_sketch
+            && !peak_analysis_memory_sketch
             && !action_graph_sketch
     }
 
@@ -153,6 +162,8 @@ pub struct ConfiguredGraphPropertiesValues {
 pub struct GraphPropertiesValues {
     pub configured: ConfiguredGraphPropertiesValues,
     pub retained_analysis_memory_sketch:
+        Option<MergeableGraphSketch<StarlarkEvalKind, MemoryUsageSketch>>,
+    pub peak_analysis_memory_sketch:
         Option<MergeableGraphSketch<StarlarkEvalKind, MemoryUsageSketch>>,
 }
 
@@ -215,8 +226,9 @@ pub async fn get_graph_properties(
     label: &ConfiguredTargetLabel,
     configured_graph_sketch: bool,
     retained_analysis_memory_sketch: bool,
+    peak_analysis_memory_sketch: bool,
 ) -> ResultMaybeCompatible<GraphPropertiesValues> {
-    let (conf, analysis) = ctx
+    let (conf, sketches) = ctx
         .compute2(
             |ctx| {
                 async {
@@ -230,25 +242,29 @@ pub async fn get_graph_properties(
             },
             |ctx| {
                 async {
-                    if retained_analysis_memory_sketch {
-                        let sketch = ctx
-                            .compute(&AnalysisGraphPropertiesKey {
+                    let (retained, analysis_peak) =
+                        if retained_analysis_memory_sketch || peak_analysis_memory_sketch {
+                            ctx.compute(&AnalysisGraphPropertiesKey {
                                 label: label.dupe(),
+                                compute_retained: retained_analysis_memory_sketch,
+                                compute_peak: peak_analysis_memory_sketch,
                             })
                             .await??
-                            .to_result_maybe_compatible()?;
-                        ResultMaybeCompatible::Compatible(Some(sketch))
-                    } else {
-                        ResultMaybeCompatible::Compatible(None)
-                    }
+                            .to_result_maybe_compatible()?
+                        } else {
+                            (None, None)
+                        };
+                    ResultMaybeCompatible::Compatible((retained, analysis_peak))
                 }
                 .boxed()
             },
         )
         .await;
+    let (retained, analysis_peak) = sketches?;
     ResultMaybeCompatible::Compatible(GraphPropertiesValues {
         configured: conf?,
-        retained_analysis_memory_sketch: analysis?,
+        retained_analysis_memory_sketch: retained,
+        peak_analysis_memory_sketch: analysis_peak,
     })
 }
 

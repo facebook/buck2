@@ -758,6 +758,7 @@ async fn build_configured_label_inner<'a>(
             opts.graph_properties
                 .should_compute_configured_graph_sketch(),
             opts.graph_properties.retained_analysis_memory_sketch,
+            opts.graph_properties.peak_analysis_memory_sketch,
         )
         .await
         .ok();

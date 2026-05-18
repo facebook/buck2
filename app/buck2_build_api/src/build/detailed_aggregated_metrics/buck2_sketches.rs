@@ -117,6 +117,11 @@ fn compute_configured_graph_sketch_impl<'a>(
     visited.len()
 }
 
+type AnalysisHeapSketches = (
+    Option<MergeableGraphSketch<StarlarkEvalKind, MemoryUsageSketch>>,
+    Option<MergeableGraphSketch<StarlarkEvalKind, MemoryUsageSketch>>,
+);
+
 #[derive(
     Clone,
     Dupe,
@@ -128,17 +133,22 @@ fn compute_configured_graph_sketch_impl<'a>(
     Allocative,
     Pagable
 )]
-#[display("AnalysisGraphPropertiesKey({})", label)]
+#[display(
+    "AnalysisGraphPropertiesKey({}, retained={}, peak={})",
+    label,
+    compute_retained,
+    compute_peak
+)]
 #[pagable_typetag(DiceKeyDyn)]
 pub(crate) struct AnalysisGraphPropertiesKey {
     pub label: ConfiguredTargetLabel,
+    pub compute_retained: bool,
+    pub compute_peak: bool,
 }
 
 #[async_trait]
 impl Key for AnalysisGraphPropertiesKey {
-    type Value = buck2_error::Result<
-        MaybeCompatible<MergeableGraphSketch<StarlarkEvalKind, MemoryUsageSketch>>,
-    >;
+    type Value = buck2_error::Result<MaybeCompatible<AnalysisHeapSketches>>;
 
     async fn compute(
         &self,
@@ -152,6 +162,8 @@ impl Key for AnalysisGraphPropertiesKey {
                     .analysis_values()
                     .analysis_storage()?
                     .owner(),
+                self.compute_retained,
+                self.compute_peak,
             ))
         })
     }
@@ -168,11 +180,20 @@ impl Key for AnalysisGraphPropertiesKey {
     }
 }
 
-/// Private implementation that accepts any Sketcher for testing.
-fn gather_heap_graph_sketch_impl(
+/// Computes a sketch of the memory transitively referenced by the given starlark heap.
+///
+/// Using the heap graph instead of the configured graph directly is advantageous primarily because
+/// analysis results don't otherwise directly encode the structure of the analysis graph. "Guessing"
+/// at what the graph is, while probably possible in practice, is a bit brittle. It would also mean
+/// that we wouldn't know about anon targets, which would be a bit of a shame.
+fn gather_heap_graph_sketch(
     root: &FrozenHeapRef,
-    sketcher: &mut impl Sketcher<StarlarkEvalKind>,
-) {
+    compute_retained: bool,
+    compute_peak: bool,
+) -> AnalysisHeapSketches {
+    let mut retained_sketcher = compute_retained.then(|| DEFAULT_SKETCH_VERSION.create_sketcher());
+    let mut peak_sketcher = compute_peak.then(|| DEFAULT_SKETCH_VERSION.create_sketcher());
+
     let mut visited = BuckHashSet::default();
     visited.insert(root);
     let mut queue = vec![root];
@@ -183,25 +204,23 @@ fn gather_heap_graph_sketch_impl(
         };
         if let FrozenHeapName::User(user_name) = name {
             if let Some(eval_kind) = user_name.as_any().downcast_ref::<StarlarkEvalKind>() {
-                sketcher.sketch_weighted(eval_kind, item.allocated_bytes() as u64);
+                if let Some(s) = &mut retained_sketcher {
+                    s.sketch_weighted(eval_kind, item.allocated_bytes() as u64);
+                }
+                if let Some(s) = &mut peak_sketcher {
+                    if let Some(peak) = item.peak_allocated_bytes() {
+                        s.sketch_weighted(eval_kind, peak as u64);
+                    }
+                }
             }
         }
         queue.extend(item.refs().filter(|f| visited.insert(*f)));
     }
-}
 
-/// Computes a sketch of the memory transitively referenced by the given starlark heap.
-///
-/// Using the heap graph instead of the configured graph directly is advantageous primarily because
-/// analysis results don't otherwise directly encode the structure of the analysis graph. "Guessing"
-/// at what the graph is, while probably possible in practice, is a bit brittle. It would also mean
-/// that we wouldn't know about anon targets, which would be a bit of a shame.
-fn gather_heap_graph_sketch(
-    root: &FrozenHeapRef,
-) -> MergeableGraphSketch<StarlarkEvalKind, MemoryUsageSketch> {
-    let mut sketcher = DEFAULT_SKETCH_VERSION.create_sketcher();
-    gather_heap_graph_sketch_impl(root, &mut sketcher);
-    sketcher.into_mergeable_graph_sketch()
+    (
+        retained_sketcher.map(|s| s.into_mergeable_graph_sketch()),
+        peak_sketcher.map(|s| s.into_mergeable_graph_sketch()),
+    )
 }
 
 #[cfg(test)]
