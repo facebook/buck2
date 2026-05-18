@@ -5,7 +5,7 @@ oncall("android_devxx")
 
 source_listing()
 
-KOTLIN_VERSION = read_config("kotlin", "kotlin_version_for_upgrade_only_do_not_use", "2.1.0")
+KOTLIN_VERSION = read_config("kotlin", "kotlin_version_for_upgrade_only_do_not_use", "2.2.0")
 
 buck_kotlin_library(
     name = "k2-jvm-abi-gen-lib",
