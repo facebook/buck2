@@ -22,6 +22,7 @@ use std::marker;
 use std::ptr;
 
 use starlark_syntax::eval_exception::EvalException;
+use starlark_syntax::internal_error;
 
 use crate::coerce::coerce;
 use crate::collections::Hashed;
@@ -300,13 +301,23 @@ impl InstrNoFlowImpl for InstrUnpackImpl {
         }
         let mut i = 0;
         for item in v.iterate(eval.heap())? {
-            // Use unconditional assertion here because we cannot trust
-            // user defined `length` and `with_iterator` consistently.
-            assert!(i < target.len());
+            if i >= target.len() {
+                return Err(internal_error!(
+                    "iterate() produced more items than length() reported (expected {}, got at least {})",
+                    target.len(),
+                    i + 1
+                ));
+            }
             frame.set_bc_slot(target[i], item);
             i += 1;
         }
-        assert!(i == target.len());
+        if i != target.len() {
+            return Err(internal_error!(
+                "iterate() produced fewer items than length() reported (expected {}, got {})",
+                target.len(),
+                i
+            ));
+        }
         Ok(())
     }
 }
