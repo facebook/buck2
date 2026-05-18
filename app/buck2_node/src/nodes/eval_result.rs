@@ -259,6 +259,8 @@ pub struct EvaluationResult {
     targets: TargetsMap,
     #[pagable(discard = "None")]
     pub starlark_profile: Option<Arc<dyn StarlarkProfileDataAndStatsDyn>>,
+    /// Peak allocated bytes on the starlark heap during BUCK file evaluation.
+    pub starlark_peak_allocated_bytes: u64,
 }
 
 impl EvaluationResult {
@@ -275,6 +277,7 @@ impl EvaluationResult {
             targets,
             // This is populated later when `Evaluator` is finalized.
             starlark_profile: None,
+            starlark_peak_allocated_bytes: 0,
         }
     }
 

@@ -67,6 +67,7 @@ impl<T: Pagable + Allocative + Dupe + Send + Sync + 'static> ValueSerialize
 }
 
 use crate::build::detailed_aggregated_metrics::buck2_sketches::AnalysisGraphPropertiesKey;
+use crate::build::detailed_aggregated_metrics::buck2_sketches::LoadGraphPropertiesKey;
 use crate::build::detailed_aggregated_metrics::buck2_sketches::compute_configured_graph_sketch;
 use crate::build::sketch_impl::MergeableGraphSketch;
 
@@ -77,6 +78,7 @@ pub struct GraphPropertiesOptions {
     pub total_configured_graph_sketch: bool,
     pub retained_analysis_memory_sketch: bool,
     pub peak_analysis_memory_sketch: bool,
+    pub peak_load_memory_sketch: bool,
     pub action_graph_sketch: bool,
 }
 
@@ -88,6 +90,7 @@ impl fmt::Display for GraphPropertiesOptions {
             total_configured_graph_sketch,
             retained_analysis_memory_sketch,
             peak_analysis_memory_sketch,
+            peak_load_memory_sketch,
             action_graph_sketch,
         } = *self;
 
@@ -118,6 +121,11 @@ impl fmt::Display for GraphPropertiesOptions {
             write!(f, "peak_analysis_memory_sketch")?;
         }
 
+        if peak_load_memory_sketch {
+            comma(f)?;
+            write!(f, "peak_load_memory_sketch")?;
+        }
+
         if action_graph_sketch {
             comma(f)?;
             write!(f, "action_graph_sketch")?;
@@ -135,6 +143,7 @@ impl GraphPropertiesOptions {
             total_configured_graph_sketch,
             retained_analysis_memory_sketch,
             peak_analysis_memory_sketch,
+            peak_load_memory_sketch,
             action_graph_sketch,
         } = self;
 
@@ -143,6 +152,7 @@ impl GraphPropertiesOptions {
             && !total_configured_graph_sketch
             && !retained_analysis_memory_sketch
             && !peak_analysis_memory_sketch
+            && !peak_load_memory_sketch
             && !action_graph_sketch
     }
 
@@ -165,6 +175,7 @@ pub struct GraphPropertiesValues {
         Option<MergeableGraphSketch<StarlarkEvalKind, MemoryUsageSketch>>,
     pub peak_analysis_memory_sketch:
         Option<MergeableGraphSketch<StarlarkEvalKind, MemoryUsageSketch>>,
+    pub peak_load_memory_sketch: Option<MergeableGraphSketch<StarlarkEvalKind, MemoryUsageSketch>>,
 }
 
 #[derive(
@@ -227,9 +238,10 @@ pub async fn get_graph_properties(
     configured_graph_sketch: bool,
     retained_analysis_memory_sketch: bool,
     peak_analysis_memory_sketch: bool,
+    peak_load_memory_sketch: bool,
 ) -> ResultMaybeCompatible<GraphPropertiesValues> {
-    let (conf, sketches) = ctx
-        .compute2(
+    let (configured_graph, analysis_sketches, load_sketch) = ctx
+        .compute3(
             |ctx| {
                 async {
                     ctx.compute(&ConfiguredGraphPropertiesKey {
@@ -258,13 +270,30 @@ pub async fn get_graph_properties(
                 }
                 .boxed()
             },
+            |ctx| {
+                async {
+                    if peak_load_memory_sketch {
+                        let sketch = ctx
+                            .compute(&LoadGraphPropertiesKey {
+                                label: label.dupe(),
+                            })
+                            .await??
+                            .to_result_maybe_compatible()?;
+                        ResultMaybeCompatible::Compatible(Some(sketch))
+                    } else {
+                        ResultMaybeCompatible::Compatible(None)
+                    }
+                }
+                .boxed()
+            },
         )
         .await;
-    let (retained, analysis_peak) = sketches?;
+    let (retained, analysis_peak) = analysis_sketches?;
     ResultMaybeCompatible::Compatible(GraphPropertiesValues {
-        configured: conf?,
+        configured: configured_graph?,
         retained_analysis_memory_sketch: retained,
         peak_analysis_memory_sketch: analysis_peak,
+        peak_load_memory_sketch: load_sketch?,
     })
 }
 

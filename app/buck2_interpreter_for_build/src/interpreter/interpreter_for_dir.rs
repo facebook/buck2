@@ -735,12 +735,15 @@ impl InterpreterForDir {
             } else {
                 let (token, profile_data) = finished_eval.finish()?;
 
+                let mut result = EvaluationResult::from(internals);
+                result.starlark_peak_allocated_bytes = starlark_peak_allocated_bytes;
+
                 Ok((
                     token,
                     (
                         profile_data,
                         EvaluationResultWithStats {
-                            result: EvaluationResult::from(internals),
+                            result,
                             starlark_peak_allocated_bytes,
                             cpu_instruction_count: eval_result.cpu_instruction_count,
                             starlark_tick_count: eval_result.starlark_tick_count,

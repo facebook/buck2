@@ -13,10 +13,14 @@ use async_trait::async_trait;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::deferred::key::DeferredHolderKey;
+use buck2_core::package::PackageLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_hash::BuckHashSet;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
+use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
+use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
+use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_sketches::ActionGraphSketch;
 use buck2_sketches::DependencyGraphSketch;
 use buck2_sketches::MemoryUsageSketch;
@@ -27,6 +31,7 @@ use dice::Key;
 use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
 use dupe::Dupe;
+use futures::FutureExt;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use starlark::values::FrozenHeapName;
@@ -166,6 +171,125 @@ impl Key for AnalysisGraphPropertiesKey {
                 self.compute_peak,
             ))
         })
+    }
+
+    fn equality(a: &Self::Value, b: &Self::Value) -> bool {
+        match (a, b) {
+            (Ok(a), Ok(b)) => a == b,
+            _ => false,
+        }
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        OkPagableValueSerialize::<Self::Value>::new()
+    }
+}
+
+#[derive(
+    Clone,
+    Dupe,
+    derive_more::Display,
+    Debug,
+    Eq,
+    Hash,
+    PartialEq,
+    Allocative,
+    Pagable
+)]
+#[display("LoadGraphPropertiesKey({})", label)]
+#[pagable_typetag(DiceKeyDyn)]
+pub(crate) struct LoadGraphPropertiesKey {
+    pub label: ConfiguredTargetLabel,
+}
+
+fn collect_transitive_packages(root: &ConfiguredTargetNode) -> BuckHashSet<PackageLabel> {
+    let mut packages = BuckHashSet::default();
+    let mut visited = BuckHashSet::default();
+    visited.insert(root);
+    let mut queue = vec![root];
+    while let Some(node) = queue.pop() {
+        packages.insert(node.label().pkg());
+        for dep in node.deps() {
+            if visited.insert(dep) {
+                queue.push(dep);
+            }
+        }
+    }
+    packages
+}
+
+#[async_trait]
+impl Key for LoadGraphPropertiesKey {
+    type Value = buck2_error::Result<
+        MaybeCompatible<MergeableGraphSketch<StarlarkEvalKind, MemoryUsageSketch>>,
+    >;
+
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellation: &CancellationContext,
+    ) -> Self::Value {
+        let configured_node = ctx
+            .get_configured_target_node(&self.label)
+            .await
+            .require_compatible()?;
+
+        let packages = collect_transitive_packages(&configured_node);
+        let mut sketcher = DEFAULT_SKETCH_VERSION.create_sketcher();
+
+        let pkg_results = ctx
+            .try_compute_join(packages.iter(), |ctx, pkg| {
+                async move {
+                    ctx.get_interpreter_results(pkg.dupe())
+                        .await
+                        .map(|r| (pkg.dupe(), r))
+                }
+                .boxed()
+            })
+            .await?;
+
+        let mut imports = BuckHashSet::default();
+        for (pkg, eval_result) in &pkg_results {
+            let peak_bytes = eval_result.starlark_peak_allocated_bytes;
+            if peak_bytes > 0 {
+                sketcher.sketch_weighted(&StarlarkEvalKind::LoadBuildFile(pkg.dupe()), peak_bytes);
+            }
+
+            imports.extend(eval_result.imports());
+        }
+
+        let loaded_modules = ctx
+            .try_compute_join(imports.iter(), |ctx, import| {
+                async move {
+                    ctx.get_loaded_module_from_import_path(import)
+                        .await
+                        .map(|m| m.env().frozen_heap().dupe())
+                }
+                .boxed()
+            })
+            .await?;
+
+        let mut visited: BuckHashSet<&FrozenHeapRef> = BuckHashSet::default();
+        let mut queue: Vec<&FrozenHeapRef> = Vec::new();
+        for heap in &loaded_modules {
+            if visited.insert(heap) {
+                queue.push(heap);
+            }
+        }
+        while let Some(item) = queue.pop() {
+            if let Some(FrozenHeapName::User(user_name)) = item.name() {
+                if let Some(eval_kind) = user_name.as_any().downcast_ref::<StarlarkEvalKind>() {
+                    if let Some(peak_bytes) = item.peak_allocated_bytes() {
+                        sketcher.sketch_weighted(eval_kind, peak_bytes as u64);
+                    }
+                }
+            }
+            queue.extend(item.refs().filter(|f| visited.insert(f)));
+        }
+
+        Ok(MaybeCompatible::Compatible(
+            sketcher.into_mergeable_graph_sketch(),
+        ))
     }
 
     fn equality(a: &Self::Value, b: &Self::Value) -> bool {

@@ -159,6 +159,9 @@ pub(crate) struct ConfiguredBuildReportEntry {
     /// A sketch of peak memory usage during analysis for this target
     #[serde(skip_serializing_if = "Option::is_none")]
     peak_analysis_memory_sketch: Option<String>,
+    /// A sketch of peak memory usage during BUCK file loading across transitive packages
+    #[serde(skip_serializing_if = "Option::is_none")]
+    peak_load_memory_sketch: Option<String>,
     /// A sketch of the action graph for this target
     #[serde(skip_serializing_if = "Option::is_none")]
     action_graph_sketch: Option<String>,
@@ -823,6 +826,14 @@ impl<'a> BuildReportCollector<'a> {
                 {
                     configured_report.peak_analysis_memory_sketch =
                         Some(peak_analysis_memory_sketch.serialize());
+                }
+
+                if let Some(peak_load_memory_sketch) =
+                    graph_properties.peak_load_memory_sketch.as_ref()
+                    && self.graph_properties_opts.peak_load_memory_sketch
+                {
+                    configured_report.peak_load_memory_sketch =
+                        Some(peak_load_memory_sketch.serialize());
                 }
             }
 
