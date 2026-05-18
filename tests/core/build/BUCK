@@ -7,13 +7,13 @@ buck2_core_tests(
         "test_critical_path": {
             "use_compiled_buck2_client_and_tpx": True,
         },
-        "test_paranoid": {
-            "data": "//buck2/tests/targets:isolated_targets",
-        },
-        "test_retained_analysis_memory_sketch": {
+        "test_memory_sketches": {
             "env": {
                 "SKETCH_SIZE_BIN": "$(location fbcode//buck2/shed/setsketch:sketch_size)",
             },
+        },
+        "test_paranoid": {
+            "data": "//buck2/tests/targets:isolated_targets",
         },
         "test_uncategorized": {
             "env": {

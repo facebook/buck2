@@ -1,4 +1,5 @@
-load(":rules.bzl", "memory_retaining_rule")
+load(":rules.bzl", "memory_retaining_rule", "peak_only_rule")
+load(":rules_for_load_test.bzl", "simple_load_rule")
 load(":rules_with_anon.bzl", "rule_with_anon")
 load(":rules_with_globals.bzl", "rule_with_globals")
 
@@ -32,4 +33,16 @@ rule_with_anon(
     name = "target_with_anon",
     anon_memory_size = 500000,
     memory_size = 100000,
+)
+
+# Allocate some temp and retained memory
+peak_only_rule(
+    name = "target_peak_only",
+    temp_memory_size = 4000000,
+    retained_memory_size = 1000000,
+)
+
+# Target whose .bzl file allocates ~1M at load time
+simple_load_rule(
+    name = "target_with_load_memory",
 )

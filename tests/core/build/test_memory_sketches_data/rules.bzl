@@ -39,3 +39,33 @@ memory_retaining_rule = rule(
         "memory_size": attrs.int(),
     },
 )
+
+def _peak_only_rule_impl(ctx):
+    """
+    A rule that allocates some amount of temporary memory during evaluation,
+    and some amount of retained memory.
+
+    The temporary memory should get dropped at freeze time, letting us test
+    the peak vs retained memory in the sketch are as expected.
+    """
+
+    # Temporary allocation — not stored in any provider, dropped at freeze
+    _temp = list(range(ctx.attrs.temp_memory_size // 8))
+
+    # Small retained allocation stored in a provider
+    retained = list(range(ctx.attrs.retained_memory_size // 8))
+
+    out = ctx.actions.write("out.txt", "")
+
+    return [
+        DefaultInfo(default_output = out),
+        MemoryInfo(data = retained),
+    ]
+
+peak_only_rule = rule(
+    impl = _peak_only_rule_impl,
+    attrs = {
+        "retained_memory_size": attrs.int(),
+        "temp_memory_size": attrs.int(),
+    },
+)
