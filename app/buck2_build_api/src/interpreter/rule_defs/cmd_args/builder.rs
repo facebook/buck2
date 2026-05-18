@@ -190,12 +190,12 @@ mod tests {
         let unix_path_sep = PathSeparatorKind::Unix;
         let windows_path_sep = PathSeparatorKind::Windows;
         assert_eq!(
-            CommandLineLocation::from_relative_path(RelativePathBuf::new(), unix_path_sep)
+            CommandLineLocation::from_relative_path(RelativePathBuf::empty(), unix_path_sep)
                 .into_string(),
             "."
         );
         assert_eq!(
-            CommandLineLocation::from_relative_path(RelativePathBuf::new(), windows_path_sep)
+            CommandLineLocation::from_relative_path(RelativePathBuf::empty(), windows_path_sep)
                 .into_string(),
             "."
         );

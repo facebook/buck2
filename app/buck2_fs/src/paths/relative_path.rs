@@ -24,8 +24,7 @@
 //! - `RelativePath::new(&str)` signature is nonsense
 //! - `From<String>`/`From<&str>` impls
 //! - [`Self::file_name`] returns `Option<&str>`
-//! - There is no `unchecked_new`/`unchecked_new_box`/`empty`/`as_path` parallel to the forward
-//!   type.
+//! - There is no `unchecked_new_box`/`as_path` parallel to the forward type.
 //! - `push` accepts a leading `/` and silently strips it (different from the forward type, which
 //!   would reject).
 //! - `.` is silently stripped in some places
@@ -114,6 +113,12 @@ impl RelativePath {
     #[inline]
     pub fn new<S: ?Sized + AsRef<str>>(s: &S) -> &RelativePath {
         RelativePath::ref_cast(s.as_ref())
+    }
+
+    /// The empty relative path.
+    #[inline]
+    pub const fn empty() -> &'static RelativePath {
+        RelativePath::ref_cast("")
     }
 
     #[inline]
@@ -230,7 +235,7 @@ impl RelativePath {
     /// );
     /// ```
     pub fn join_normalized<P: AsRef<RelativePath>>(&self, path: P) -> RelativePathBuf {
-        let mut buf = RelativePathBuf::new();
+        let mut buf = RelativePathBuf::empty();
         relative_traversal(&mut buf, self.components());
         relative_traversal(&mut buf, path.as_ref().components());
         buf
@@ -291,7 +296,7 @@ impl RelativePath {
         // After `relative_traversal`, any leading `..` in `from` is a positional
         // marker we can't name our way back to.
         if lead_from == Some(Component::ParentDir) {
-            return RelativePathBuf::new();
+            return RelativePathBuf::empty();
         }
 
         let head = lead_from.into_iter().chain(it_from);
@@ -331,7 +336,7 @@ impl RelativePath {
 impl RelativePathBuf {
     /// Creates a new, empty `RelativePathBuf`.
     #[inline]
-    pub fn new() -> RelativePathBuf {
+    pub fn empty() -> RelativePathBuf {
         RelativePathBuf(String::new())
     }
 
@@ -371,7 +376,7 @@ impl RelativePathBuf {
         use std::path::Component::RootDir;
 
         let path = path.as_ref();
-        let mut buf = RelativePathBuf::new();
+        let mut buf = RelativePathBuf::empty();
         for c in path.components() {
             match c {
                 Prefix(_) | RootDir => {
@@ -397,7 +402,7 @@ impl RelativePathBuf {
     /// use buck2_fs::paths::RelativePath;
     /// use buck2_fs::paths::RelativePathBuf;
     ///
-    /// let mut p = RelativePathBuf::new();
+    /// let mut p = RelativePathBuf::empty();
     /// p.push("foo");
     /// p.push("bar");
     /// assert_eq!("foo/bar", p.as_str());
@@ -842,7 +847,7 @@ mod tests {
 
     #[test]
     fn push_and_pop() {
-        let mut p = RelativePathBuf::new();
+        let mut p = RelativePathBuf::empty();
         p.push("foo");
         p.push("bar");
         assert_eq!("foo/bar", p.as_str());

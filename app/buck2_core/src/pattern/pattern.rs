@@ -814,7 +814,7 @@ fn lex_provider_pattern(
                 .into()
             } else if pattern == "..." {
                 PatternData::Recursive {
-                    package: RelativePath::new(""),
+                    package: RelativePath::empty(),
                     modifiers,
                 }
                 .into()
