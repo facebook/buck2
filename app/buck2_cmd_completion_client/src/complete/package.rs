@@ -101,7 +101,7 @@ impl<'a> PackageCompleter<'a> {
                     .roots
                     .project_root
                     .root()
-                    .join_normalized(cell.path().as_project_relative_path())?;
+                    .join(cell.path().as_project_relative_path());
                 if canonical_cell_root == given_path {
                     // "cell1//" -> "cell1//:"
                     self.results

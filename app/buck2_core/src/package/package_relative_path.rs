@@ -495,12 +495,6 @@ impl PackageRelativePathBuf {
         self.0.push(path)
     }
 
-    /// Pushes a `RelativePath` to the existing buffer, normalizing it
-    #[inline]
-    pub fn push_normalized<P: AsRef<RelativePath>>(&mut self, path: P) -> buck2_error::Result<()> {
-        self.0.push_normalized(path)
-    }
-
     #[inline]
     pub fn into_box(self) -> Box<PackageRelativePath> {
         let s: Box<str> = self.0.into_string().into_boxed_str();

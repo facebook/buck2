@@ -84,7 +84,14 @@ fn cell_path_methods(builder: &mut MethodsBuilder) {
     /// [normalized](https://docs.rs/relative-path/1.9.3/relative_path/struct.RelativePath.html#method.normalize),
     /// e.g. `puppy/../doggy` will become `doggy`.
     fn add(this: &StarlarkCellPath, arg: &str) -> starlark::Result<StarlarkCellPath> {
-        Ok(StarlarkCellPath((this).0.join_normalized(arg)?))
+        // FIXME(JakobDegen): `join_normalized` is always wrong
+        let p = this
+            .0
+            .path()
+            .as_forward_relative_path()
+            .join_normalized(arg)?;
+        let p = CellPath::new(this.0.cell(), p.into());
+        Ok(StarlarkCellPath(p))
     }
 }
 

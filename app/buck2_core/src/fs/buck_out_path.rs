@@ -204,13 +204,13 @@ impl BuckOutScratchPath {
         let path = match identifier {
             Some(v) => {
                 if let Some(v) = is_sensible(v) {
-                    path.join_normalized(v)?
+                    path.join(v)
                 } else {
                     // FIXME: Should this be a crypto hasher?
                     let mut hasher = BuckDefaultHasher::new();
                     v.hash(&mut hasher);
                     let output_hash = format!("{}{:016x}", MAKE_SENSIBLE_PREFIX, hasher.finish());
-                    path.join_normalized(ForwardRelativePath::new(&output_hash)?)?
+                    path.join(ForwardRelativePath::new(&output_hash)?)
                 }
             }
             _ => path.to_buf(),

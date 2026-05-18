@@ -236,8 +236,7 @@ mod tests {
                 dirs::home_dir().expect("Expected a HOME directory to be available")
             )
             .expect("Expected an absolute HOME directory")
-            .join_normalized(ForwardRelativePath::unchecked_new(expected_path))
-            .unwrap()
+            .join(ForwardRelativePath::unchecked_new(expected_path))
             .as_os_str()
         );
 

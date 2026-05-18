@@ -333,38 +333,6 @@ impl CellRelativePath {
         self.0.extension()
     }
 
-    /// Build an owned `CellRelativePathBuf`, joined with the given path and
-    /// normalized.
-    ///
-    /// ```
-    /// use std::convert::TryFrom;
-    ///
-    /// use buck2_core::cells::paths::CellRelativePath;
-    /// use buck2_core::cells::paths::CellRelativePathBuf;
-    ///
-    /// assert_eq!(
-    ///     CellRelativePath::from_path("foo/bar")?.join_normalized("../baz.txt")?,
-    ///     CellRelativePathBuf::unchecked_new("foo/baz.txt".into()),
-    /// );
-    ///
-    /// assert_eq!(
-    ///     CellRelativePath::from_path("foo")?
-    ///         .join_normalized("../../baz.txt")
-    ///         .is_err(),
-    ///     true
-    /// );
-    ///
-    /// # buck2_error::Ok(())
-    /// ```
-    pub fn join_normalized<P: AsRef<RelativePath>>(
-        &self,
-        path: P,
-    ) -> buck2_error::Result<CellRelativePathBuf> {
-        let inner = self.0.join_normalized(path)?;
-        // TODO need verify?
-        Ok(CellRelativePathBuf(inner))
-    }
-
     /// Iterator over the components of this path
     ///
     /// ```
