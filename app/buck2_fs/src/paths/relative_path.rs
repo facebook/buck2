@@ -30,7 +30,6 @@
 //!   would reject).
 //! - `.` is silently stripped in some places
 //! - No good story for converting towards `ForwardRelativePath`
-//! - `PartialEq<str>`/`PartialEq<&str>`
 //! - The Windows-`\` translation in [`RelativePathBuf::from_system_path`] piggybacks on
 //!   [`std::path::Path::components`]. That works for the simple shape but would lose information
 //!   for paths that contain literal backslashes on Unix (where `\` is a normal character).
@@ -671,62 +670,6 @@ impl From<RelativePathBuf> for String {
     #[inline]
     fn from(p: RelativePathBuf) -> String {
         p.0
-    }
-}
-
-impl PartialEq<str> for RelativePath {
-    #[inline]
-    fn eq(&self, other: &str) -> bool {
-        &self.0 == other
-    }
-}
-
-impl PartialEq<RelativePath> for str {
-    #[inline]
-    fn eq(&self, other: &RelativePath) -> bool {
-        self == &other.0
-    }
-}
-
-impl PartialEq<&str> for RelativePath {
-    #[inline]
-    fn eq(&self, other: &&str) -> bool {
-        &self.0 == *other
-    }
-}
-
-impl PartialEq<RelativePath> for &str {
-    #[inline]
-    fn eq(&self, other: &RelativePath) -> bool {
-        *self == &other.0
-    }
-}
-
-impl PartialEq<str> for RelativePathBuf {
-    #[inline]
-    fn eq(&self, other: &str) -> bool {
-        self.0 == other
-    }
-}
-
-impl PartialEq<RelativePathBuf> for str {
-    #[inline]
-    fn eq(&self, other: &RelativePathBuf) -> bool {
-        self == other.0
-    }
-}
-
-impl PartialEq<&str> for RelativePathBuf {
-    #[inline]
-    fn eq(&self, other: &&str) -> bool {
-        self.0 == *other
-    }
-}
-
-impl PartialEq<RelativePathBuf> for &str {
-    #[inline]
-    fn eq(&self, other: &RelativePathBuf) -> bool {
-        *self == other.0
     }
 }
 
