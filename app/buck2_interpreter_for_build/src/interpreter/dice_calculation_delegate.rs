@@ -25,6 +25,7 @@ use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::package::PackageLabel;
+use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use buck2_events::dispatch::span;
@@ -561,7 +562,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
     ) -> buck2_error::Result<SuperPackage> {
         for package_file_name in PackageFilePath::package_file_names() {
             if package_listing
-                .get_file(package_file_name.as_ref())
+                .get_file(PackageRelativePath::new(package_file_name)?)
                 .is_some()
             {
                 return self.eval_package_file(package).await;

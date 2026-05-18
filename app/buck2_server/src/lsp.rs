@@ -530,7 +530,8 @@ impl<'a> BuckLspContext<'a> {
                             .and_then(|listing| {
                                 // In the case of external cells, we need to actually materialize
                                 // this thing on disk, so treat it like a source artifact
-                                let buildfile: &PackageRelativePath = listing.buildfile().as_ref();
+                                let buildfile: &PackageRelativePath =
+                                    PackageRelativePath::new(listing.buildfile())?;
                                 let source_path = SourcePath::new(package.dupe(), buildfile.into());
                                 let relative_path =
                                     artifact_fs.resolve_source(source_path.as_ref())?;

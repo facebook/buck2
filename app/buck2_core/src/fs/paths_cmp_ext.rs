@@ -9,27 +9,11 @@
  */
 
 use buck2_fs::paths::cmp_impls::impl_cmp;
-use buck2_fs::paths::file_name::FileName;
 
-use crate::cells::paths::CellRelativePath;
 use crate::fs::project_rel_path::ProjectRelativePath;
 use crate::fs::project_rel_path::ProjectRelativePathBuf;
 use crate::package::package_relative_path::PackageRelativePath;
 use crate::package::package_relative_path::PackageRelativePathBuf;
-
-impl AsRef<PackageRelativePath> for FileName {
-    #[inline]
-    fn as_ref(&self) -> &PackageRelativePath {
-        PackageRelativePath::unchecked_new(self.as_str())
-    }
-}
-
-impl AsRef<CellRelativePath> for FileName {
-    #[inline]
-    fn as_ref(&self) -> &CellRelativePath {
-        CellRelativePath::unchecked_new(self.as_str())
-    }
-}
 
 impl_cmp!(
     PackageRelativePathBuf,
