@@ -116,6 +116,15 @@ rules_attributes = {
                 prevent these definitions from drifting apart during migration._
             """,
         ),
+        "docs": attrs.list(
+            attrs.source(),
+            default = [],
+            doc = """
+                Documentation files referenced by `-moduledoc {file, "..."}` or `-doc {file, "..."}` annotations
+                in source files. These files are made available to `erlc` at compile time, preserving their path
+                relative to the application root.
+            """,
+        ),
         "env": attrs.option(
             attrs.dict(key = attrs.string(), value = attrs.string()),
             default = None,

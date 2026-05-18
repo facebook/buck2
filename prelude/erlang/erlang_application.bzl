@@ -162,6 +162,9 @@ def _build_erlang_application(ctx: AnalysisContext, name: str, toolchain: Toolch
         build_environment,
     )
 
+    # doc files
+    _build_doc_artifacts(ctx, build_environment)
+
     # beams
     erlang_build.build_steps.generate_beam_artifacts(
         ctx,
@@ -295,6 +298,24 @@ def link_output(ctx: AnalysisContext, link_path: str, built: BuiltApplication) -
         link_spec["include"] = build_environment.include_dirs[name]
 
     return ctx.actions.symlinked_dir(link_path, link_spec, has_content_based_path = False)
+
+# mutates build_environment in place
+def _build_doc_artifacts(ctx: AnalysisContext, build_environment: BuildEnvironment):
+    """Build doc file artifacts at __build/<rel_path> so erlc can resolve file-based -moduledoc/-doc annotations."""
+    doc_files = ctx.attrs.docs
+    if not doc_files:
+        return
+
+    pkg_prefix = ctx.label.package
+    if pkg_prefix:
+        pkg_prefix = pkg_prefix + "/"
+    for doc in doc_files:
+        rel_path = doc.short_path
+        if pkg_prefix and rel_path.startswith(pkg_prefix):
+            rel_path = rel_path[len(pkg_prefix) :]
+        out = ctx.actions.declare_output(paths.join(erlang_build.utils.BUILD_DIR, rel_path), has_content_based_path = False)
+        ctx.actions.symlink_file(out.as_output(), doc)
+        build_environment.docs[rel_path] = out
 
 def _link_src_dir(ctx: AnalysisContext, *, extra_srcs: list[Artifact]) -> Artifact:
     """Link all sources in a src folder"""

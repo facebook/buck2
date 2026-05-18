@@ -74,6 +74,18 @@
     {tree, attribute, _, {attribute, {tree, atom, _, build_dependencies}, [{tree, list, _, {list, Modules, none}}]}}
 ).
 
+%% -moduledoc({file, "path"}).
+-define(MATCH_MODULEDOC_FILE(Path),
+    {tree, attribute, _,
+        {attribute, {tree, atom, _, moduledoc}, [{tree, tuple, _, [{tree, atom, _, file}, {tree, string, _, Path}]}]}}
+).
+
+%% -doc({file, "path"}).
+-define(MATCH_DOC_FILE(Path),
+    {tree, attribute, _,
+        {attribute, {tree, atom, _, doc}, [{tree, tuple, _, [{tree, atom, _, file}, {tree, string, _, Path}]}]}}
+).
+
 %% entry point
 -spec main([string()]) -> ok.
 main([InFile]) ->
@@ -136,6 +148,12 @@ process_forms([?MATCH_MANUAL_DEPENDENCIES(Modules) | Rest], Acc) ->
      || {tree, atom, _, Module} <- Modules
     ],
     process_forms(Rest, Dependencies ++ Acc);
+process_forms([?MATCH_MODULEDOC_FILE(Path) | Rest], Acc) ->
+    Dependency = #{file => list_to_binary(Path), type => doc_file},
+    process_forms(Rest, [Dependency | Acc]);
+process_forms([?MATCH_DOC_FILE(Path) | Rest], Acc) ->
+    Dependency = #{file => list_to_binary(Path), type => doc_file},
+    process_forms(Rest, [Dependency | Acc]);
 process_forms([_ | Rest], Acc) ->
     process_forms(Rest, Acc).
 

@@ -38,6 +38,7 @@ BuildEnvironment = record(
     hidden_private_include_dirs = field(PathArtifactMapping, {}),
     beams = field(EbinMapping, {}),
     header_deps_files = field(DepsMapping, {}),
+    docs = field(dict[str, Artifact], {}),
 )
 
 SmallBuildEnvironment = record(
@@ -46,6 +47,7 @@ SmallBuildEnvironment = record(
     private_includes = field(IncludesMapping, {}),
     private_include_dirs = field(PathArtifactMapping, {}),
     beams = field(EbinMapping, {}),
+    docs = field(dict[str, Artifact], {}),
 )
 
 DepInfo = record(
@@ -83,6 +85,7 @@ def _prepare_build_environment(dep_info: ErlangDependencyInfo, includes_target: 
         hidden_private_include_dirs = dep_info.private_include_dirs,
         header_deps_files = header_deps_files,
         beams = beams,
+        docs = {},
     )
 
 def _generated_source_artifacts(ctx: AnalysisContext, toolchain: Toolchain) -> list[Artifact]:
@@ -198,6 +201,7 @@ def _generate_beam_artifacts(
         private_includes = build_environment.private_includes,
         private_include_dirs = build_environment.private_include_dirs,
         beams = build_environment.beams,
+        docs = build_environment.docs,
     )
 
     for erl in src_artifacts:
@@ -289,7 +293,8 @@ def _build_erl(
             always_print_stderr = True,
         )
 
-    ctx.actions.dynamic_output(dynamic = [final_dep_file], inputs = [hermetic_src], outputs = [output.as_output()], f = dynamic_lambda)
+    dynamic_inputs = [hermetic_src] + build_environment.docs.values()
+    ctx.actions.dynamic_output(dynamic = [final_dep_file], inputs = dynamic_inputs, outputs = [output.as_output()], f = dynamic_lambda)
     return None
 
 def _dependencies_to_args(artifacts, final_dep_file: Artifact, build_environment: SmallBuildEnvironment) -> (cmd_args, dict[str, (bool, [str, Artifact])]):
@@ -298,6 +303,7 @@ def _dependencies_to_args(artifacts, final_dep_file: Artifact, build_environment
     include_libs = set()
     beams = set()
     precise_includes = []
+    doc_inputs = []
 
     input_mapping = {}
     deps = artifacts[final_dep_file].read_json()
@@ -352,6 +358,12 @@ def _dependencies_to_args(artifacts, final_dep_file: Artifact, build_environment
                     beams.add(beam)
                     break
 
+        elif dep["type"] == "doc_file":
+            # resolve the annotation path (relative to src/) to a package-relative path
+            resolved = paths.normalize(paths.join("src", file))
+            if resolved in build_environment.docs:
+                doc_inputs.append(build_environment.docs[resolved])
+
         else:
             fail("unrecognized dependency type %s", (dep["type"]))
 
@@ -359,7 +371,7 @@ def _dependencies_to_args(artifacts, final_dep_file: Artifact, build_environment
         cmd_args(list(includes), format = "-I{}", ignore_artifacts = True),
         cmd_args(list(include_libs), format = "-I{}", parent = 2, ignore_artifacts = True),
         cmd_args(list(beams), format = "-pa{}", parent = 1),
-        hidden = precise_includes,
+        hidden = precise_includes + doc_inputs,
     )
 
     return args, input_mapping
