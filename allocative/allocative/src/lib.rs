@@ -57,7 +57,6 @@ mod global_root;
 pub(crate) mod golden;
 mod impls;
 mod key;
-mod rc_str;
 mod size_of;
 mod test_derive;
 mod visitor;
