@@ -99,3 +99,6 @@ buck2 kill
 - [benchmarking.md](benchmarking.md) — making measurements meaningful
 - [memory_regression_hunting.md](memory_regression_hunting.md) — comparing two binaries
 - [scripts/](scripts/) — runnable tooling that wraps the recipes above
+- `stackstoscuba.fb.md` - for uploading a profile to Scuba so that a human can look at it
+  (Meta-only)
+- `ci.fb.md` - for profiling in CI jobs (Meta-only, mostly human-only)
