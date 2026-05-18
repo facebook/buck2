@@ -25,6 +25,7 @@ use std::mem;
 use std::ptr;
 
 use allocative::Allocative;
+use allocative::Visitor;
 use dupe::Dupe;
 
 use crate::any::AnyLifetime;
@@ -151,6 +152,7 @@ pub struct AValueVTable {
     erased_serde_serialize: unsafe fn(StarlarkValueRawPtr) -> *const dyn erased_serde::Serialize,
     allocative: unsafe fn(StarlarkValueRawPtr) -> *const dyn Allocative,
     total_memory_for_profile: unsafe fn(StarlarkValueRawPtr) -> usize,
+    visit_extra_allocative: for<'a, 'b> unsafe fn(StarlarkValueRawPtr, &'a mut Visitor<'b>),
 }
 
 struct GetTypeId<'v, T: StarlarkValue<'v>>(PhantomData<&'v T>);
@@ -222,6 +224,7 @@ impl AValueVTable {
             erased_serde_serialize: |_| panic!("{}", PANIC_MSG),
             allocative: |_| panic!("{}", PANIC_MSG),
             total_memory_for_profile: |_| panic!("{}", PANIC_MSG),
+            visit_extra_allocative: |_, _| panic!("{}", PANIC_MSG),
             starlark_value: StarlarkValueVTable::UNINITIALIZED_SENTINEL,
         }
     }
@@ -265,6 +268,7 @@ impl AValueVTable {
             total_memory_for_profile: |this| unsafe {
                 (*this.value_ptr::<BlackHole>()).0.bytes() as usize
             },
+            visit_extra_allocative: |_, _| {},
             starlark_value: StarlarkValueVTable::BLACK_HOLE,
         }
     }
@@ -334,6 +338,10 @@ impl AValueVTable {
                 let p = &*this.value_ptr::<T::StarlarkValue>();
                 T::total_memory_for_profile(p)
             },
+            visit_extra_allocative: |this, visitor| unsafe {
+                let p = &*this.value_ptr::<T::StarlarkValue>();
+                T::visit_extra_allocative(p, visitor)
+            },
             starlark_value: StarlarkValueVTableGet::<'v, T::StarlarkValue>::VTABLE,
         }
     }
@@ -400,6 +408,10 @@ impl<'v> AValueDyn<'v> {
 
     pub(crate) fn total_memory_for_profile(self) -> usize {
         unsafe { (self.vtable.total_memory_for_profile)(self.value) }
+    }
+
+    pub(crate) fn visit_extra_allocative<'a, 'b: 'a>(self, visitor: &'a mut Visitor<'b>) {
+        unsafe { (self.vtable.visit_extra_allocative)(self.value, visitor) }
     }
 
     #[inline]

@@ -660,7 +660,9 @@ impl<A: ArenaAllocator> Allocative for Arena<A> {
                 // We visit both drop and non-drop bumps, because although
                 // non-drop `Bump` cannot contain malloc pointers, it can still provide
                 // useful information about headers/payload/padding.
-                x.unpack().as_allocative().visit(&mut object_visitor);
+                let value = x.unpack();
+                value.as_allocative().visit(&mut object_visitor);
+                value.visit_extra_allocative(&mut object_visitor);
                 object_visitor.exit();
             });
             allocated_visitor.exit();

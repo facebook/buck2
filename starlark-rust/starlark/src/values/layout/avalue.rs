@@ -21,6 +21,7 @@ use std::marker::PhantomData;
 use std::mem;
 
 use allocative::Allocative;
+use allocative::Visitor;
 use derive_more::Display;
 
 use crate as starlark;
@@ -120,6 +121,16 @@ pub(crate) trait AValue<'v>: Sized + 'v {
     fn total_memory_for_profile(value: &Self::StarlarkValue) -> usize {
         Self::alloc_size_for_extra_len(Self::extra_len(value)).bytes() as usize
             + allocative::size_of_unique_allocated_data(value)
+    }
+
+    /// Report inline extra payload that lives in the arena after the value.
+    ///
+    /// This is not visible to the value's normal `Allocative` implementation because it is not
+    /// represented as a Rust field on the payload.
+    fn visit_extra_allocative<'a, 'b: 'a>(
+        _value: &Self::StarlarkValue,
+        _visitor: &'a mut Visitor<'b>,
+    ) {
     }
 
     unsafe fn heap_freeze<'fv>(

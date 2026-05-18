@@ -16,9 +16,12 @@
  */
 
 use std::marker::PhantomData;
+use std::mem;
 use std::mem::MaybeUninit;
 use std::ptr;
 
+use allocative::Key;
+use allocative::Visitor;
 use pagable::PagableDeserialize;
 use pagable::PagableSerialize;
 
@@ -73,6 +76,17 @@ impl<'v> AValue<'v> for AValueArray {
 
     fn offset_of_extra() -> usize {
         Array::offset_of_content()
+    }
+
+    fn visit_extra_allocative<'a, 'b: 'a>(
+        value: &Self::StarlarkValue,
+        visitor: &'a mut Visitor<'b>,
+    ) {
+        visitor.visit_simple(Key::new("content"), mem::size_of::<Value>() * value.len());
+        visitor.visit_simple(
+            Key::new("unused_capacity"),
+            mem::size_of::<Value>() * (value.capacity() - value.len()),
+        );
     }
 
     unsafe fn heap_freeze(
@@ -132,6 +146,13 @@ impl<'v, T: AnyArrayRegistered + StarlarkPagable> AValue<'v> for AValueAnyArray<
 
     fn offset_of_extra() -> usize {
         AnyArray::<T>::offset_of_content()
+    }
+
+    fn visit_extra_allocative<'a, 'b: 'a>(
+        value: &Self::StarlarkValue,
+        visitor: &'a mut Visitor<'b>,
+    ) {
+        visitor.visit_simple(Key::new("content"), mem::size_of::<T>() * value.len);
     }
 
     unsafe fn heap_freeze(

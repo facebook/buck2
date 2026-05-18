@@ -15,10 +15,13 @@
  * limitations under the License.
  */
 
+use std::mem;
 use std::mem::MaybeUninit;
 use std::ptr;
 use std::ptr::copy_nonoverlapping;
 
+use allocative::Key;
+use allocative::Visitor;
 use pagable::PagableDeserialize;
 use pagable::PagableSerialize;
 use starlark_map::Hashed;
@@ -70,6 +73,18 @@ impl<'v> AValue<'v> for StarlarkStrAValue {
     }
 
     const IS_STR: bool = true;
+
+    fn visit_extra_allocative<'a, 'b: 'a>(
+        value: &Self::StarlarkValue,
+        visitor: &'a mut Visitor<'b>,
+    ) {
+        let content_size = value.as_str().len();
+        visitor.visit_simple(Key::new("content"), content_size);
+
+        let allocated_size =
+            StarlarkStr::payload_len_for_len(value.len()) * mem::size_of::<usize>();
+        visitor.visit_simple(Key::new("padding"), allocated_size - content_size);
+    }
 
     unsafe fn heap_freeze(
         me: *mut AValueRepr<Self::StarlarkValue>,

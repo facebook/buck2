@@ -20,6 +20,8 @@ use std::mem;
 use std::mem::MaybeUninit;
 use std::ptr;
 
+use allocative::Key;
+use allocative::Visitor;
 use pagable::PagableDeserialize;
 use pagable::PagableSerialize;
 
@@ -126,6 +128,16 @@ impl<'v> AValue<'v> for AValueFrozenList {
 
     fn offset_of_extra() -> usize {
         ListGen::<FrozenListData>::offset_of_content()
+    }
+
+    fn visit_extra_allocative<'a, 'b: 'a>(
+        value: &Self::StarlarkValue,
+        visitor: &'a mut Visitor<'b>,
+    ) {
+        visitor.visit_simple(
+            Key::new("content"),
+            mem::size_of::<FrozenValue>() * value.0.len(),
+        );
     }
 
     unsafe fn heap_freeze(
