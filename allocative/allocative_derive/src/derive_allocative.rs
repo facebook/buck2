@@ -54,12 +54,12 @@ fn impl_generics(
     generics: &Generics,
     attrs: &AllocativeAttrs,
 ) -> syn::Result<proc_macro2::TokenStream> {
-    if let Some((bound, bound_span)) = &attrs.bound {
-        if !bound.is_empty() {
-            let bound = bound.parse::<proc_macro2::TokenStream>()?;
-            let sp = *bound_span;
-            return Ok(quote_spanned! {sp => < #bound > });
-        }
+    if let Some((bound, bound_span)) = &attrs.bound
+        && !bound.is_empty()
+    {
+        let bound = bound.parse::<proc_macro2::TokenStream>()?;
+        let sp = *bound_span;
+        return Ok(quote_spanned! {sp => < #bound > });
     }
 
     let mut impl_generics = Vec::new();
