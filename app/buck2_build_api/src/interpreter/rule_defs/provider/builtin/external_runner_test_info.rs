@@ -548,22 +548,21 @@ where
 fn external_runner_test_info_creator(globals: &mut GlobalsBuilder) {
     #[starlark(as_type = FrozenExternalRunnerTestInfo)]
     fn ExternalRunnerTestInfo<'v>(
-        r#type: Value<'v>,
         // TODO(nga): these need types.
-        // TODO(nga): parameters should be either named or positional, not both.
-        #[starlark(default = NoneType)] command: Value<'v>,
-        #[starlark(default = NoneType)] env: Value<'v>,
-        #[starlark(default = NoneType)] labels: Value<'v>,
-        #[starlark(default = NoneType)] contacts: Value<'v>,
-        #[starlark(default = NoneType)] use_project_relative_paths: Value<'v>,
-        #[starlark(default = NoneType)] run_from_project_root: Value<'v>,
-        #[starlark(default = NoneType)] default_executor: Value<'v>,
-        #[starlark(default = NoneType)] executor_overrides: Value<'v>,
-        #[starlark(default = NoneType)] local_resources: Value<'v>,
-        #[starlark(default = NoneType)] required_local_resources: Value<'v>,
-        #[starlark(default = NoneType)] worker: Value<'v>,
-        #[starlark(default = NoneType)] supports_test_execution_caching: Value<'v>,
-        #[starlark(default = NoneType)] network_access: Value<'v>,
+        #[starlark(require = named)] r#type: Value<'v>,
+        #[starlark(require = named, default = NoneType)] command: Value<'v>,
+        #[starlark(require = named, default = NoneType)] env: Value<'v>,
+        #[starlark(require = named, default = NoneType)] labels: Value<'v>,
+        #[starlark(require = named, default = NoneType)] contacts: Value<'v>,
+        #[starlark(require = named, default = NoneType)] use_project_relative_paths: Value<'v>,
+        #[starlark(require = named, default = NoneType)] run_from_project_root: Value<'v>,
+        #[starlark(require = named, default = NoneType)] default_executor: Value<'v>,
+        #[starlark(require = named, default = NoneType)] executor_overrides: Value<'v>,
+        #[starlark(require = named, default = NoneType)] local_resources: Value<'v>,
+        #[starlark(require = named, default = NoneType)] required_local_resources: Value<'v>,
+        #[starlark(require = named, default = NoneType)] worker: Value<'v>,
+        #[starlark(require = named, default = NoneType)] supports_test_execution_caching: Value<'v>,
+        #[starlark(require = named, default = NoneType)] network_access: Value<'v>,
     ) -> starlark::Result<ExternalRunnerTestInfo<'v>> {
         let res = ExternalRunnerTestInfo {
             test_type: ValueOfUnchecked::new(r#type),
