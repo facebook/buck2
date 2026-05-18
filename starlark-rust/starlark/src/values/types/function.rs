@@ -144,7 +144,7 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> crate::Result<Value<'v>> {
-        self.function.invoke(eval, args).map_err(Into::into)
+        self.function.invoke(eval, args)
     }
 
     fn get_attr(&self, attribute: &str, heap: Heap<'v>) -> Option<Value<'v>> {

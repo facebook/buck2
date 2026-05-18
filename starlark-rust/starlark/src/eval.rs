@@ -182,11 +182,9 @@ impl<'v, 'a, 'e> Evaluator<'v, 'a, 'e> {
         )?;
         // eval_module pushes an "empty" call stack frame. other places expect that first frame to be ignorable, and
         // so we push an empty frame too (otherwise things would ignore this function's own frame).
-        let res = self
-            .with_call_stack(Value::new_none(), None, |this| {
-                function.invoke(&params, this)
-            })
-            .map_err(Into::into);
+        let res = self.with_call_stack(Value::new_none(), None, |this| {
+            function.invoke(&params, this)
+        });
 
         self.run_infrequent_instr_checks()?;
 

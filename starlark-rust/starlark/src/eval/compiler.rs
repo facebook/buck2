@@ -65,7 +65,7 @@ pub(crate) fn expr_throw<'v, T>(
 ) -> Result<T, EvalException> {
     match r {
         Ok(v) => Ok(v),
-        Err(e) => Err(add_span_to_expr_error(e.into(), span, eval)),
+        Err(e) => Err(add_span_to_expr_error(e, span, eval)),
     }
 }
 

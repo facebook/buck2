@@ -1150,7 +1150,7 @@ impl InstrNoFlowImpl for InstrCheckTypeImpl {
             let name = const_frozen_string!("assignment");
             eval.typecheck_profile.add(name, start.elapsed());
         }
-        res.map_err(Into::into)
+        res
     }
 }
 
@@ -1373,7 +1373,7 @@ impl BcInstr for InstrReturnCheckType {
     ) -> InstrControl<'v, 'b> {
         let v = frame.get_bc_slot(slot);
         if let Err(e) = eval.check_return_type(v) {
-            return InstrControl::Err(e.into());
+            return InstrControl::Err(e);
         }
         InstrControl::Return(v)
     }

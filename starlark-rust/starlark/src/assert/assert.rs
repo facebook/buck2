@@ -310,7 +310,7 @@ impl<'a> Assert<'a> {
             GcStrategy::Always => eval.before_stmt_fn(&gc_always),
         }
         eval.set_loader(&loader);
-        eval.eval_module(ast, &self.globals).map_err(Into::into)
+        eval.eval_module(ast, &self.globals)
     }
 
     fn execute_fail<'v>(

@@ -278,7 +278,6 @@ where
                     values: values.into_boxed_slice(),
                 }))
             })
-            .map_err(Into::into)
     }
 
     fn get_methods() -> Option<&'static Methods>

@@ -141,9 +141,9 @@ impl Display for PathSegment {
 impl PathSegment {
     fn get<'v>(&self, v: &Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         match self {
-            PathSegment::Index(i) => v.at(heap.alloc(*i), heap).map_err(Into::into),
+            PathSegment::Index(i) => v.at(heap.alloc(*i), heap),
             PathSegment::Attr(key) => v.get_attr_error(key.as_str(), heap),
-            PathSegment::Key(i) => v.at(heap.alloc(i.to_owned()), heap).map_err(Into::into),
+            PathSegment::Key(i) => v.at(heap.alloc(i.to_owned()), heap),
         }
     }
 }

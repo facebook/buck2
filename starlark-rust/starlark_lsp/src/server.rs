@@ -201,10 +201,9 @@ impl TryFrom<Url> for LspUrl {
     fn try_from(url: Url) -> Result<Self, Self::Error> {
         match url.scheme() {
             "file" => {
-                let file_path = PathBuf::from(
-                    url.to_file_path()
-                        .map_err(|_| LspUrlError::InvalidFileUrl(url.clone()))?,
-                );
+                let file_path = url
+                    .to_file_path()
+                    .map_err(|_| LspUrlError::InvalidFileUrl(url.clone()))?;
                 if file_path.is_absolute() {
                     Ok(Self::File(file_path))
                 } else {
