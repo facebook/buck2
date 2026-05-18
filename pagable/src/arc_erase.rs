@@ -431,9 +431,16 @@ impl<W: 'static, A: ArcErase<Weak = W>> ArcEraseType for StdArcEraseType<A> {
 /// This is a zero-sized type that carries the Arc type information and
 /// implements `ArcEraseType` for any `ArcErase` implementor.
 pub struct StdArcEraseType<T: 'static>(std::marker::PhantomData<T>);
+
+impl<T: 'static> Default for StdArcEraseType<T> {
+    fn default() -> Self {
+        Self(std::marker::PhantomData)
+    }
+}
+
 impl<T: 'static> StdArcEraseType<T> {
     pub fn new() -> Self {
-        Self(std::marker::PhantomData)
+        Self::default()
     }
 }
 

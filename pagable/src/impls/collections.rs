@@ -265,7 +265,7 @@ impl<'de, T: PagableDeserialize<'de>, const N: usize> PagableDeserialize<'de>
     }
 }
 
-impl<'a, T: PagableSerialize> PagableSerialize for &'a [T] {
+impl<T: PagableSerialize> PagableSerialize for &[T] {
     fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
         for v in *self {
             v.pagable_serialize(serializer)?;

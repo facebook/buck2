@@ -84,13 +84,13 @@ impl postcard::ser_flavors::Flavor for PagableVecFlavor {
 /// Since postcard's `Deserializer` keeps the flavor in a private field,
 /// we use `Rc<Cell<usize>>` to share the position between the `PagableSlice`
 /// (inside the Deserializer) and the owning `Deserializer` (outside).
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct SharedPosition(Rc<Cell<usize>>);
 
 impl SharedPosition {
     /// Create a new shared position starting at 0.
     pub fn new() -> Self {
-        Self(Rc::new(Cell::new(0)))
+        Self::default()
     }
 
     /// Get the current position.
