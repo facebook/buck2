@@ -328,17 +328,15 @@ impl<'v> BazelContext<'v> {
         eval.enable_terminal_breakpoint_console();
         Self::err(
             file,
-            eval.eval_module(ast, &self.globals)
-                .map(|v| {
-                    if self.print_non_none && !v.is_none() {
-                        println!("{v}");
-                    }
-                    EvalResult {
-                        messages: iter::empty(),
-                        ast: None,
-                    }
-                })
-                .map_err(Into::into),
+            eval.eval_module(ast, &self.globals).map(|v| {
+                if self.print_non_none && !v.is_none() {
+                    println!("{v}");
+                }
+                EvalResult {
+                    messages: iter::empty(),
+                    ast: None,
+                }
+            }),
         )
     }
 
@@ -373,8 +371,7 @@ impl<'v> BazelContext<'v> {
         Self::err(
             filename,
             AstModule::parse(filename, content, &self.dialect)
-                .map(|module| self.go(filename, module))
-                .map_err(Into::into),
+                .map(|module| self.go(filename, module)),
         )
     }
 
