@@ -280,6 +280,7 @@ impl LocalExecutor {
         env: &[(&str, StrOrOsStr<'_>)],
         cgroup: Option<CgroupPathBuf>,
         freeze_rx: impl ActionFreezeEventReceiver,
+        network_access: Option<NetworkAccess>,
     ) -> Result<
         (
             TimeSpan,
@@ -372,7 +373,7 @@ impl LocalExecutor {
                         request.disable_miniperf(),
                         cgroup,
                         freeze_rx,
-                        request.network_access(),
+                        network_access,
                     )
                     .await
                 };
@@ -402,6 +403,7 @@ impl LocalExecutor {
         args: &[String],
         worker: Option<&WorkerHandle>,
         env: &[(&str, StrOrOsStr<'_>)],
+        network_access: Option<NetworkAccess>,
     ) -> Result<
         (
             TimeSpan,
@@ -490,6 +492,7 @@ impl LocalExecutor {
                     env,
                     cgroup_session.as_ref().map(|s| s.path.clone()),
                     freeze_rx,
+                    network_access,
                 )
                 .await;
 
@@ -530,6 +533,7 @@ impl LocalExecutor {
         cancellations: &CancellationContext,
         digest_config: DigestConfig,
         local_resource_holders: &[LocalResourceHolder],
+        network_access: Option<NetworkAccess>,
     ) -> CommandExecutionResult {
         let args = &request.all_args_vec();
         if args.is_empty() {
@@ -697,6 +701,7 @@ impl LocalExecutor {
                 args,
                 worker.as_deref(),
                 &env,
+                network_access,
             )
             .await
         {
@@ -1292,6 +1297,7 @@ impl PreparedCommandExecutor for LocalExecutor {
                     cancellations,
                     *digest_config,
                     &local_resource_holders,
+                    prepared_action.network_access,
                 )
             })
             .await

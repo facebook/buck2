@@ -934,6 +934,7 @@ mod tests {
                     path_separator: PathSeparatorKind::Unix,
                     output_paths_behavior: Default::default(),
                     use_bazel_protocol_remote_persistent_workers: false,
+                    network_access: None,
                 },
                 Default::default(),
             ),

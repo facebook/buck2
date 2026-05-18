@@ -375,6 +375,7 @@ impl PreparedCommandExecutor for ReExecutor {
                     remote_execution_dependencies,
                     re_gang_workers,
                     worker_tool_init_action,
+                    network_access: _,
                 },
             digest_config,
         } = command;

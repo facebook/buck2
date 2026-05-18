@@ -14,6 +14,7 @@ use std::time::Duration;
 
 use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_core::execution_types::executor_config::CommandGenerationOptions;
+use buck2_core::execution_types::executor_config::ExecutorNetworkAccess;
 use buck2_core::execution_types::executor_config::OutputPathsBehavior;
 use buck2_core::execution_types::executor_config::ReGangWorker;
 use buck2_core::execution_types::executor_config::RemoteExecutorCafFbpkg;
@@ -22,6 +23,7 @@ use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_data::NetworkAccess;
 use buck2_directory::directory::fingerprinted_directory::FingerprintedDirectory;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
@@ -231,6 +233,10 @@ impl CommandExecutor {
             } else {
                 request.all_args_vec()
             };
+            let network_access = request
+                .network_access()
+                .map(ExecutorNetworkAccess::from)
+                .or(self.0.options.network_access);
             let action = re_create_action(
                 request.args().to_vec(),
                 all_args,
@@ -243,6 +249,7 @@ impl CommandExecutor {
                 false,
                 digest_config,
                 self.0.options.output_paths_behavior,
+                network_access,
                 request.unique_input_inodes(),
                 request.remote_execution_dependencies(),
                 request.re_gang_workers(),
@@ -274,6 +281,7 @@ fn re_create_action(
     do_not_cache: bool,
     digest_config: DigestConfig,
     output_paths_behavior: OutputPathsBehavior,
+    network_access: Option<ExecutorNetworkAccess>,
     unique_input_inodes: bool,
     remote_execution_dependencies: &Vec<RemoteExecutorDependency>,
     re_gang_workers: &Vec<ReGangWorker>,
@@ -302,7 +310,7 @@ fn re_create_action(
         };
         let input_digest = worker.input_paths.input_directory().fingerprint();
 
-        let action = RE::Action {
+        let mut action = RE::Action {
             input_root_digest: Some(input_digest.to_grpc()),
             command_digest: Some(action_and_blobs.add_command(&command).to_grpc()),
             timeout: timeout
@@ -312,6 +320,8 @@ fn re_create_action(
             do_not_cache,
             ..Default::default()
         };
+        #[cfg(fbcode_build)]
+        set_action_network_access(&mut action, network_access);
         let action_and_blobs = action_and_blobs.build(&action);
         (Some(action_and_blobs), args)
     } else {
@@ -444,6 +454,9 @@ fn re_create_action(
     }
 
     #[cfg(fbcode_build)]
+    set_action_network_access(&mut action, network_access);
+
+    #[cfg(fbcode_build)]
     {
         action.respect_exec_bit = true;
     }
@@ -458,6 +471,7 @@ fn re_create_action(
         let _unused = &mut action;
         let _unused = re_outputs_required;
         let _unused = allow_unsandboxed_action_cache_uploads;
+        let _unused = network_access;
     }
 
     let action_and_blobs = action_and_blobs.build(&action);
@@ -471,5 +485,25 @@ fn re_create_action(
         remote_execution_dependencies: remote_execution_dependencies.to_owned(),
         re_gang_workers: re_gang_workers.to_owned(),
         worker_tool_init_action,
+        network_access: network_access.map(NetworkAccess::from),
     })
+}
+
+#[cfg(fbcode_build)]
+fn set_action_network_access(
+    action: &mut RE::Action,
+    network_access: Option<ExecutorNetworkAccess>,
+) {
+    let Some(network_access) = network_access else {
+        return;
+    };
+
+    action.network_isolation = match network_access {
+        ExecutorNetworkAccess::All => RE::NetworkIsolationType::None,
+        ExecutorNetworkAccess::None | ExecutorNetworkAccess::Strict => {
+            RE::NetworkIsolationType::NetworkStrict
+        }
+        ExecutorNetworkAccess::Loopback => RE::NetworkIsolationType::Loopback,
+        ExecutorNetworkAccess::Private => RE::NetworkIsolationType::Private,
+    } as i32;
 }

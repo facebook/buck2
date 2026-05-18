@@ -16,6 +16,7 @@ use buck2_core::execution_types::executor_config::CacheUploadBehavior;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::execution_types::executor_config::CommandGenerationOptions;
 use buck2_core::execution_types::executor_config::Executor;
+use buck2_core::execution_types::executor_config::ExecutorNetworkAccess;
 use buck2_core::execution_types::executor_config::HybridExecutionLevel;
 use buck2_core::execution_types::executor_config::ImagePackageIdentifier;
 use buck2_core::execution_types::executor_config::LocalExecutorOptions;
@@ -33,6 +34,7 @@ use buck2_core::execution_types::executor_config::RemoteExecutorCustomImage;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::execution_types::executor_config::RemoteExecutorOptions;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
+use buck2_core::execution_types::executor_config::parse_network_access;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use derive_more::Display;
@@ -123,6 +125,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
     /// * `max_cache_upload_mebibytes`: Maximum size to upload in cache uploads
     /// * `experimental_low_pass_filter`: Whether to use the experimental low pass filter
     /// * `remote_output_paths`: How to express output paths to RE
+    /// * `network_access`: Network access policy for commands using this executor. Supports `all`, `none`, `loopback`, `strict`, and `private`.
     /// * `remote_execution_resource_units`: The resources (eg. GPUs) to use for remote execution
     /// * `remote_execution_dependencies`: Dependencies for remote execution for this platform
     /// * `remote_execution_gang_workers`: Gang workers for gang scheduling in remote execution (enumerated gang spec)
@@ -164,6 +167,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
         >,
         #[starlark(default = false, require = named)] experimental_low_pass_filter: bool,
         #[starlark(default = NoneOr::None, require = named)] remote_output_paths: NoneOr<&str>,
+        #[starlark(default = NoneOr::None, require = named)] network_access: NoneOr<&str>,
         #[starlark(default = NoneOr::None, require = named)]
         remote_execution_resource_units: NoneOr<i64>,
         #[starlark(default=UnpackList::default(), require = named)]
@@ -382,6 +386,13 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                 .buck_error_context("Invalid remote_output_paths")?
                 .unwrap_or_default();
 
+            let network_access = network_access
+                .into_option()
+                .map(parse_network_access)
+                .transpose()
+                .buck_error_context("Invalid network_access")?
+                .map(ExecutorNetworkAccess::from);
+
             CommandExecutorConfig {
                 executor,
                 options: CommandGenerationOptions {
@@ -392,6 +403,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                     },
                     output_paths_behavior,
                     use_bazel_protocol_remote_persistent_workers,
+                    network_access,
                 },
             }
         };

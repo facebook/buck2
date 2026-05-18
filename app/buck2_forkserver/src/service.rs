@@ -219,7 +219,10 @@ impl UnixForkserverService {
         Self::configure_environment(&mut cmd, &validated_cmd.env)?;
 
         #[cfg(target_os = "linux")]
-        if validated_cmd.network_access == Some(buck2_data::NetworkAccess::None) {
+        if validated_cmd
+            .network_access
+            .is_some_and(is_restricted_network_access)
+        {
             #[cfg(fbcode_build)]
             {
                 cmd.env("INSIDE_NETWORK_ISOLATION", "1");
@@ -294,6 +297,17 @@ impl UnixForkserverService {
 
         let stream = encode_event_stream(stream);
         Ok(Box::pin(stream) as _)
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn is_restricted_network_access(network_access: buck2_data::NetworkAccess) -> bool {
+    match network_access {
+        buck2_data::NetworkAccess::All => false,
+        buck2_data::NetworkAccess::None
+        | buck2_data::NetworkAccess::Loopback
+        | buck2_data::NetworkAccess::Strict
+        | buck2_data::NetworkAccess::Private => true,
     }
 }
 

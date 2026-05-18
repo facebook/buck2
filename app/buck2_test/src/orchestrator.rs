@@ -1349,6 +1349,7 @@ impl BuckTestOrchestrator<'_> {
                 path_separator: PathSeparatorKind::system_default(),
                 output_paths_behavior: Default::default(),
                 use_bazel_protocol_remote_persistent_workers: false,
+                network_access: None,
             },
         };
         let CommandExecutorResponse {
