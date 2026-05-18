@@ -694,7 +694,7 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
             /// do it here
             fn finalize_args(mut self) -> Self {
                 if let Some((concatted_items, _)) = self.concatenation_context.take() {
-                    self.builder.push_arg(concatted_items);
+                    self.builder.push_arg(Cow::Owned(concatted_items));
                 }
                 self
             }
@@ -714,7 +714,7 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
                 if let Some((concatted_items, _)) = self.concatenation_context.as_mut() {
                     concatted_items.push_str(&arg)
                 } else {
-                    self.builder.push_arg(arg)
+                    self.builder.push_arg(Cow::Owned(arg))
                 }
             }
 
@@ -746,14 +746,14 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
         }
 
         impl<'a, 'v> CommandLineBuilder for ExtrasBuilder<'a, 'v> {
-            fn push_arg(&mut self, s: String) {
+            fn push_arg(&mut self, s: Cow<'_, str>) {
                 // We apply options impacting formatting in the order:
                 //   format, quote, (prepend + delimiter)
                 self.add_delimiter();
                 if let Some(i) = self.opts.prepend {
                     self.add_arg(i.as_str().to_owned());
                 }
-                self.add_arg(self.format(s))
+                self.add_arg(self.format(s.into_owned()))
             }
         }
 

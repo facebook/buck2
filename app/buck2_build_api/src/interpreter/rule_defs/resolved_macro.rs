@@ -10,6 +10,7 @@
 
 //! Provides the starlark values representing resolved attrs.arg() attributes.
 
+use std::borrow::Cow;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -289,7 +290,7 @@ impl<'v> CommandLineArgLike<'v> for ResolvedStringWithMacros {
         }
 
         let Builder { arg } = builder;
-        cmdline_builder.push_arg(arg);
+        cmdline_builder.push_arg(Cow::Owned(arg));
         Ok(())
     }
 

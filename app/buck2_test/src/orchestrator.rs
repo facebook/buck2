@@ -2122,9 +2122,9 @@ struct CommandLineBuilderFormatWrapper<'a> {
 }
 
 impl CommandLineBuilder for CommandLineBuilderFormatWrapper<'_> {
-    fn push_arg(&mut self, s: String) {
+    fn push_arg(&mut self, s: Cow<'_, str>) {
         let s = if let Some(format) = &self.format {
-            format.replace("{}", &s)
+            Cow::Owned(format.replace("{}", &s))
         } else {
             s
         };

@@ -8,6 +8,8 @@
  * above-listed licenses.
  */
 
+use std::borrow::Cow;
+
 use ref_cast::RefCastCustom;
 use ref_cast::ref_cast_custom;
 
@@ -36,7 +38,7 @@ impl<'v> SpaceSeparatedCommandLineBuilder<'v> {
 }
 
 impl CommandLineBuilder for SpaceSeparatedCommandLineBuilder<'_> {
-    fn push_arg(&mut self, s: String) {
+    fn push_arg(&mut self, s: Cow<'_, str>) {
         if self.first {
             self.first = false;
         } else {
@@ -63,6 +65,8 @@ impl ArgBuilder for StringAsArgBuilder {
 
 #[cfg(test)]
 mod tests {
+    use std::borrow::Cow;
+
     use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
     use crate::interpreter::rule_defs::cmd_args::space_separated::SpaceSeparatedCommandLineBuilder;
 
@@ -74,24 +78,24 @@ mod tests {
 
         {
             let mut builder = SpaceSeparatedCommandLineBuilder::wrap_string(&mut s);
-            builder.push_arg("hello".to_owned());
+            builder.push_arg(Cow::Borrowed("hello"));
         }
         assert_eq!("hello", &s);
 
         s = String::new();
         {
             let mut builder = SpaceSeparatedCommandLineBuilder::wrap_string(&mut s);
-            builder.push_arg("hello".to_owned());
-            builder.push_arg("world!".to_owned());
+            builder.push_arg(Cow::Borrowed("hello"));
+            builder.push_arg(Cow::Borrowed("world!"));
         }
         assert_eq!("hello world!", &s);
 
         {
             let mut builder = SpaceSeparatedCommandLineBuilder::wrap_string(&mut s);
-            builder.push_arg("hello".to_owned());
-            builder.push_arg("again!".to_owned());
-            builder.push_arg("and".to_owned());
-            builder.push_arg("again!".to_owned());
+            builder.push_arg(Cow::Borrowed("hello"));
+            builder.push_arg(Cow::Borrowed("again!"));
+            builder.push_arg(Cow::Borrowed("and"));
+            builder.push_arg(Cow::Borrowed("again!"));
         }
         assert_eq!("hello world!hello again! and again!", &s);
 

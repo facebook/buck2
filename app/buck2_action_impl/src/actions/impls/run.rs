@@ -594,7 +594,7 @@ impl RunAction {
                     )?;
                     v.visit_artifacts(&mut local_worker_visitor)?;
 
-                    command_line_digest_for_dep_files.push_arg(k.to_owned());
+                    command_line_digest_for_dep_files.push_arg(Cow::Borrowed(k));
                     v.add_to_command_line(
                         &mut command_line_digest_for_dep_files,
                         &mut ctx,
@@ -693,7 +693,7 @@ impl RunAction {
                     )?;
                     v.visit_artifacts(&mut remote_worker_init_visitor)?;
 
-                    command_line_digest_for_dep_files.push_arg(k.to_owned());
+                    command_line_digest_for_dep_files.push_arg(Cow::Borrowed(k));
                     v.add_to_command_line(
                         &mut command_line_digest_for_dep_files,
                         &mut ctx,
@@ -761,7 +761,7 @@ impl RunAction {
                 )?;
                 v.visit_artifacts(artifact_visitor)?;
 
-                command_line_digest_for_dep_files.push_arg(k.to_owned());
+                command_line_digest_for_dep_files.push_arg(Cow::Borrowed(k));
                 v.add_to_command_line(
                     &mut command_line_digest_for_dep_files,
                     &mut ctx,
@@ -772,7 +772,7 @@ impl RunAction {
             })
             .collect();
 
-        command_line_digest_for_dep_files.push_arg(env_len.to_string());
+        command_line_digest_for_dep_files.push_arg(Cow::Owned(env_len.to_string()));
         command_line_digest_for_dep_files.push_count();
 
         Ok((

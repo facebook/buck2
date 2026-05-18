@@ -210,7 +210,7 @@ impl<'v> CommandLineArgLike<'v> for &str {
         _context: &mut dyn CommandLineContext,
         _artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
-        cli.push_arg((*self).to_owned());
+        cli.push_arg(Cow::Borrowed(*self));
         Ok(())
     }
 
@@ -238,7 +238,7 @@ impl<'v> CommandLineArgLike<'v> for StarlarkStr {
         _context: &mut dyn CommandLineContext,
         _artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
-        cli.push_arg(self.as_str().to_owned());
+        cli.push_arg(Cow::Borrowed(self.as_str()));
         Ok(())
     }
 
@@ -266,7 +266,7 @@ impl<'v> CommandLineArgLike<'v> for StarlarkTargetLabel {
         _context: &mut dyn CommandLineContext,
         _artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
-        cli.push_arg(self.to_string());
+        cli.push_arg(Cow::Owned(self.to_string()));
         Ok(())
     }
 
@@ -294,7 +294,7 @@ impl<'v> CommandLineArgLike<'v> for StarlarkConfiguredProvidersLabel {
         _context: &mut dyn CommandLineContext,
         _artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
-        cli.push_arg(self.to_string());
+        cli.push_arg(Cow::Owned(self.to_string()));
         Ok(())
     }
 
@@ -497,15 +497,15 @@ pub trait CommandLineContext {
 /// are exposed to allow access to a buffer and control end-of-element.
 pub trait CommandLineBuilder {
     /// Add a standalone element to this command line builder. This element
-    fn push_arg(&mut self, s: String);
+    fn push_arg(&mut self, s: Cow<'_, str>);
 
     fn push_location(&mut self, location: CommandLineLocation<'_>) {
-        self.push_arg(location.into_string());
+        self.push_arg(Cow::Owned(location.into_string()));
     }
 }
 
 impl CommandLineBuilder for Vec<String> {
-    fn push_arg(&mut self, s: String) {
-        self.push(s)
+    fn push_arg(&mut self, s: Cow<'_, str>) {
+        self.push(s.into_owned())
     }
 }
