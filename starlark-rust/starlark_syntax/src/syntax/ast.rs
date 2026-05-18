@@ -509,8 +509,8 @@ fn fmt_string_literal(f: &mut Formatter<'_>, s: &str) -> fmt::Result {
 impl Display for AstLiteral {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            AstLiteral::Int(i) => write!(f, "{}", &i.node),
-            AstLiteral::Float(n) => write!(f, "{}", &n.node),
+            AstLiteral::Int(i) => write!(f, "{}", i.node),
+            AstLiteral::Float(n) => write!(f, "{}", n.node),
             AstLiteral::String(s) => fmt_string_literal(f, &s.node),
             AstLiteral::Ellipsis => f.write_str("..."),
         }

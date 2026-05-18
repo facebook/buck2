@@ -879,7 +879,7 @@ impl<T: LspContext> Backend<T> {
                 .into_iter()
                 .filter(|symbol| !symbols.contains_key(&symbol.name))
             {
-                seen.insert(format!("{load_path}:{}", &symbol.name));
+                seen.insert(format!("{load_path}:{}", symbol.name));
 
                 let text_edits = Some(vec![format_text_edit(&load_path, &symbol.name)]);
                 let mut completion_item: CompletionItem = symbol.into();
@@ -916,10 +916,10 @@ impl<T: LspContext> Backend<T> {
                 continue;
             };
 
-            if seen.insert(format!("{}:{}", &load_path, symbol.name)) {
+            if seen.insert(format!("{}:{}", load_path, symbol.name)) {
                 result.push(CompletionItem {
                     label: symbol.name.to_owned(),
-                    detail: Some(format!("Load from {}", &load_path)),
+                    detail: Some(format!("Load from {}", load_path)),
                     kind: Some(CompletionItemKind::CONSTANT),
                     additional_text_edits: Some(vec![format_text_edit(&load_path, symbol.name)]),
                     ..Default::default()

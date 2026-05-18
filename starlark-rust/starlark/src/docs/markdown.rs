@@ -72,7 +72,7 @@ fn render_property(name: &str, property: &DocProperty, render_config: &RenderCon
     let prototype = render_code_block(
         &format!(
             "{name}: {}",
-            &property.typ.display_with(&render_config.type_config)
+            property.typ.display_with(&render_config.type_config)
         ),
         &render_config.type_config,
     );

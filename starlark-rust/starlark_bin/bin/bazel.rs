@@ -812,7 +812,7 @@ impl<'v> LspContext for BazelContext<'v> {
                 .into_iter()
                 .map(|name| {
                     let name_with_at = format!("@{name}");
-                    let insert_text = format!("{}//", &name_with_at);
+                    let insert_text = format!("{}//", name_with_at);
 
                     StringCompletionResult {
                         value: name_with_at,

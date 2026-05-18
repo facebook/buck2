@@ -953,7 +953,7 @@ impl Display for Token {
             Token::RawDoubleQuote => write!(f, "starting \""),
             Token::RawFStringDoubleQuote => write!(f, "starting f'"),
             Token::RawFStringSingleQuote => write!(f, "starting f\""),
-            Token::FString(s) => write!(f, "f-string {:?}", &s.content),
+            Token::FString(s) => write!(f, "f-string {:?}", s.content),
             Token::Comment(c) => write!(f, "comment '{c}'"),
             Token::Tabs => Ok(()),
         }

@@ -78,7 +78,7 @@ impl<'v, V: ValueLike<'v>> Display for EnumValueGen<V> {
         match ty_enum_data {
             Some(ty_enum_data) => {
                 {
-                    write!(f, "{}", &ty_enum_data.name)?;
+                    write!(f, "{}", ty_enum_data.name)?;
                     write!(f, "(")?;
                     Display::fmt(&self.value, f)?;
                     write!(f, ")")?
