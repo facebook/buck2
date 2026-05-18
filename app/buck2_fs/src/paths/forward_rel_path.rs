@@ -96,14 +96,14 @@ impl StringInside for ForwardRelativePath {
 impl AsRef<RelativePath> for ForwardRelativePath {
     #[inline]
     fn as_ref(&self) -> &RelativePath {
-        RelativePath::new(&self.0)
+        RelativePath::unchecked_new(&self.0)
     }
 }
 
 impl AsRef<RelativePath> for ForwardRelativePathBuf {
     #[inline]
     fn as_ref(&self) -> &RelativePath {
-        RelativePath::new(&self.0)
+        RelativePath::unchecked_new(&self.0)
     }
 }
 
@@ -736,7 +736,7 @@ impl ForwardRelativePath {
     /// Return a RelativePath representation of this ForwardRelativePath.
     #[inline]
     pub fn as_relative_path(&self) -> &RelativePath {
-        RelativePath::new(&self.0)
+        RelativePath::unchecked_new(&self.0)
     }
 }
 
@@ -881,41 +881,44 @@ impl ForwardRelativePathBuf {
     /// use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
     ///
     /// let mut path = ForwardRelativePathBuf::unchecked_new("foo".to_owned());
-    /// path.push_normalized(RelativePath::new("bar"))?;
+    /// path.push_normalized(RelativePath::unchecked_new("bar"))?;
     ///
     /// assert_eq!(
     ///     ForwardRelativePathBuf::unchecked_new("foo/bar".to_owned()),
     ///     path
     /// );
     ///
-    /// path.push_normalized(RelativePath::new("more/file.rs"))?;
+    /// path.push_normalized(RelativePath::unchecked_new("more/file.rs"))?;
     /// assert_eq!(
     ///     ForwardRelativePathBuf::unchecked_new("foo/bar/more/file.rs".to_owned()),
     ///     path
     /// );
     ///
-    /// path.push_normalized(RelativePath::new("../other.rs"))?;
+    /// path.push_normalized(RelativePath::unchecked_new("../other.rs"))?;
     /// assert_eq!(
     ///     ForwardRelativePathBuf::unchecked_new("foo/bar/more/other.rs".to_owned()),
     ///     path
     /// );
     ///
-    /// path.push_normalized(RelativePath::new(".."))?;
+    /// path.push_normalized(RelativePath::unchecked_new(".."))?;
     /// assert_eq!(
     ///     ForwardRelativePathBuf::unchecked_new("foo/bar/more".to_owned()),
     ///     path
     /// );
     ///
-    /// path.push_normalized(RelativePath::new("../.."))?;
+    /// path.push_normalized(RelativePath::unchecked_new("../.."))?;
     /// assert_eq!(
     ///     ForwardRelativePathBuf::unchecked_new("foo".to_owned()),
     ///     path
     /// );
     ///
-    /// path.push_normalized(RelativePath::new(".."))?;
+    /// path.push_normalized(RelativePath::unchecked_new(".."))?;
     /// assert_eq!(ForwardRelativePathBuf::unchecked_new("".to_owned()), path);
     ///
-    /// assert!(path.push_normalized(RelativePath::new("..")).is_err());
+    /// assert!(
+    ///     path.push_normalized(RelativePath::unchecked_new(".."))
+    ///         .is_err()
+    /// );
     ///
     /// # buck2_error::Ok(())
     /// ```
@@ -1141,11 +1144,15 @@ impl<'a> TryFrom<&'a RelativePath> for &'a ForwardRelativePath {
     /// use buck2_fs::paths::RelativePath;
     /// use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
     ///
-    /// assert!(<&ForwardRelativePath>::try_from(RelativePath::new("foo/bar")).is_ok());
-    /// assert!(<&ForwardRelativePath>::try_from(RelativePath::new("")).is_ok());
-    /// assert!(<&ForwardRelativePath>::try_from(RelativePath::new("./bar")).is_err());
-    /// assert!(<&ForwardRelativePath>::try_from(RelativePath::new("normalize/./bar")).is_err());
-    /// assert!(<&ForwardRelativePath>::try_from(RelativePath::new("normalize/../bar")).is_err());
+    /// assert!(<&ForwardRelativePath>::try_from(RelativePath::unchecked_new("foo/bar")).is_ok());
+    /// assert!(<&ForwardRelativePath>::try_from(RelativePath::unchecked_new("")).is_ok());
+    /// assert!(<&ForwardRelativePath>::try_from(RelativePath::unchecked_new("./bar")).is_err());
+    /// assert!(
+    ///     <&ForwardRelativePath>::try_from(RelativePath::unchecked_new("normalize/./bar")).is_err()
+    /// );
+    /// assert!(
+    ///     <&ForwardRelativePath>::try_from(RelativePath::unchecked_new("normalize/../bar")).is_err()
+    /// );
     ///
     /// # buck2_error::Ok(())
     /// ```

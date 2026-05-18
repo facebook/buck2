@@ -70,12 +70,13 @@ impl CellPathWithAllowedRelativeDir {
         };
 
         let mut resolved_path = RelativePathBuf::from(self.current_dir.path().to_string());
-        let mut num_allowed_parents = RelativePath::new(&self.current_dir.path().to_string())
-            .components()
-            .count()
-            - RelativePath::new(&allowed_relative_dir.path().to_string())
+        let mut num_allowed_parents =
+            RelativePath::unchecked_new(&self.current_dir.path().to_string())
                 .components()
-                .count();
+                .count()
+                - RelativePath::unchecked_new(&allowed_relative_dir.path().to_string())
+                    .components()
+                    .count();
         let mut components = path.components();
         while let Some(c) = components.next() {
             match c {
@@ -158,7 +159,8 @@ mod tests {
         };
         assert_eq!(
             path("cell1", "package", "sibling.bzl"),
-            cell_path_with_allowed_relative_dir.join_normalized(RelativePath::new(import))?
+            cell_path_with_allowed_relative_dir
+                .join_normalized(RelativePath::unchecked_new(import))?
         );
         Ok(())
     }
@@ -172,7 +174,8 @@ mod tests {
         };
         assert_eq!(
             path("cell1", "root", "foo.bzl"),
-            cell_path_with_allowed_relative_dir.join_normalized(RelativePath::new(import))?
+            cell_path_with_allowed_relative_dir
+                .join_normalized(RelativePath::unchecked_new(import))?
         );
         Ok(())
     }
@@ -186,7 +189,8 @@ mod tests {
         };
         assert_eq!(
             path("cell1", "package/foo/bar", "zoo.bzl"),
-            cell_path_with_allowed_relative_dir.join_normalized(RelativePath::new(import))?
+            cell_path_with_allowed_relative_dir
+                .join_normalized(RelativePath::unchecked_new(import))?
         );
         Ok(())
     }
@@ -202,7 +206,7 @@ mod tests {
             format!(
                 "{:#}",
                 cell_path_with_allowed_relative_dir
-                    .join_normalized(RelativePath::new(import))
+                    .join_normalized(RelativePath::unchecked_new(import))
                     .unwrap_err()
             ),
             RelativeImportParseError::InvalidRelativeImport(import.to_owned()).to_string()
@@ -221,7 +225,7 @@ mod tests {
             format!(
                 "{:#}",
                 cell_path_with_allowed_relative_dir
-                    .join_normalized(RelativePath::new(import))
+                    .join_normalized(RelativePath::unchecked_new(import))
                     .unwrap_err()
             ),
             RelativeImportParseError::NonLeadingParentDirRelativeImport(import.to_owned())

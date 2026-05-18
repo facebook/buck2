@@ -808,7 +808,7 @@ fn lex_provider_pattern(
         None => {
             if let Some(package) = strip_suffix_ascii(pattern, AsciiStr::new("/...")) {
                 PatternData::Recursive {
-                    package: RelativePath::new(package),
+                    package: RelativePath::unchecked_new(package),
                     modifiers,
                 }
                 .into()
@@ -984,7 +984,7 @@ fn normalize_package(
     // Strip or reject trailing `/`, such as in `foo/:bar`.
     if let Some(stripped) = strip_suffix_ascii(package, AsciiChar::new('/')) {
         if strip_package_trailing_slash {
-            return Ok(RelativePath::new(stripped));
+            return Ok(RelativePath::unchecked_new(stripped));
         } else {
             return Err(buck2_error::Error::from(
                 TargetPatternParseError::PackageTrailingSlash,
@@ -992,7 +992,7 @@ fn normalize_package(
         }
     }
 
-    Ok(RelativePath::new(package))
+    Ok(RelativePath::unchecked_new(package))
 }
 
 #[derive(Clone, Dupe)]

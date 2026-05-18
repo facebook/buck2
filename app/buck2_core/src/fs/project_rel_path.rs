@@ -54,7 +54,7 @@
 //! );
 //! assert_eq!(some_path.to_buf(), fs.resolve(project_rel.as_ref()));
 //!
-//! let rel_path = RelativePath::new("../src");
+//! let rel_path = RelativePath::unchecked_new("../src");
 //! let project_rel_2 = project_rel.join_normalized(rel_path)?;
 //! assert_eq!(
 //!     ProjectRelativePathBuf::try_from("buck/src".to_owned())?,
@@ -602,10 +602,14 @@ impl<'a> TryFrom<&'a RelativePath> for &'a ProjectRelativePath {
     /// use buck2_core::fs::project_rel_path::ProjectRelativePath;
     /// use buck2_fs::paths::RelativePath;
     ///
-    /// assert!(<&ProjectRelativePath>::try_from(RelativePath::new("foo/bar")).is_ok());
-    /// assert!(<&ProjectRelativePath>::try_from(RelativePath::new("")).is_ok());
-    /// assert!(<&ProjectRelativePath>::try_from(RelativePath::new("normalize/./bar")).is_err());
-    /// assert!(<&ProjectRelativePath>::try_from(RelativePath::new("normalize/../bar")).is_err());
+    /// assert!(<&ProjectRelativePath>::try_from(RelativePath::unchecked_new("foo/bar")).is_ok());
+    /// assert!(<&ProjectRelativePath>::try_from(RelativePath::unchecked_new("")).is_ok());
+    /// assert!(
+    ///     <&ProjectRelativePath>::try_from(RelativePath::unchecked_new("normalize/./bar")).is_err()
+    /// );
+    /// assert!(
+    ///     <&ProjectRelativePath>::try_from(RelativePath::unchecked_new("normalize/../bar")).is_err()
+    /// );
     /// ```
     fn try_from(s: &'a RelativePath) -> buck2_error::Result<&'a ProjectRelativePath> {
         Ok(ProjectRelativePath::ref_cast(ForwardRelativePath::new(

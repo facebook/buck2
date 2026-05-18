@@ -114,7 +114,7 @@ impl AsRef<str> for FileName {
 impl AsRef<RelativePath> for FileName {
     #[inline]
     fn as_ref(&self) -> &RelativePath {
-        RelativePath::new(&self.0)
+        RelativePath::unchecked_new(&self.0)
     }
 }
 
@@ -352,7 +352,7 @@ impl AsRef<str> for FileNameBuf {
 impl AsRef<RelativePath> for FileNameBuf {
     #[inline]
     fn as_ref(&self) -> &RelativePath {
-        RelativePath::new(self.0.as_str())
+        RelativePath::unchecked_new(self.0.as_str())
     }
 }
 

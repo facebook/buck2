@@ -479,10 +479,12 @@ impl<'a> TryFrom<&'a RelativePath> for &'a CellRelativePath {
     /// use buck2_core::cells::paths::CellRelativePath;
     /// use buck2_fs::paths::RelativePath;
     ///
-    /// assert!(<&CellRelativePath>::try_from(RelativePath::new("foo/bar")).is_ok());
-    /// assert!(<&CellRelativePath>::try_from(RelativePath::new("")).is_ok());
-    /// assert!(<&CellRelativePath>::try_from(RelativePath::new("normalize/./bar")).is_err());
-    /// assert!(<&CellRelativePath>::try_from(RelativePath::new("normalize/../bar")).is_err());
+    /// assert!(<&CellRelativePath>::try_from(RelativePath::unchecked_new("foo/bar")).is_ok());
+    /// assert!(<&CellRelativePath>::try_from(RelativePath::unchecked_new("")).is_ok());
+    /// assert!(<&CellRelativePath>::try_from(RelativePath::unchecked_new("normalize/./bar")).is_err());
+    /// assert!(
+    ///     <&CellRelativePath>::try_from(RelativePath::unchecked_new("normalize/../bar")).is_err()
+    /// );
     /// ```
     fn try_from(s: &'a RelativePath) -> buck2_error::Result<&'a CellRelativePath> {
         Ok(CellRelativePath::ref_cast(ForwardRelativePath::new(

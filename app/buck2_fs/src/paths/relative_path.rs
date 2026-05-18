@@ -21,7 +21,6 @@
 //! FIXME(JakobDegen): this type was lifted directly from the external `relative-path` crate as a
 //! starting point and has not been polished:
 //!
-//! - `RelativePath::new(&str)` signature is nonsense
 //! - `From<String>`/`From<&str>` impls
 //! - [`Self::file_name`] returns `Option<&str>`
 //! - There is no `unchecked_new_box`/`as_path` parallel to the forward type.
@@ -100,17 +99,9 @@ impl RelativePath {
 
     /// Wraps a string slice as a `RelativePath`. Infallible — any string is a
     /// valid relative path (see the [module docs](self)).
-    ///
-    /// ```
-    /// use buck2_fs::paths::RelativePath;
-    ///
-    /// assert_eq!("foo/bar", RelativePath::new("foo/bar").as_str());
-    /// assert_eq!("", RelativePath::new("").as_str());
-    /// assert_eq!("../baz", RelativePath::new("../baz").as_str());
-    /// ```
     #[inline]
-    pub fn new<S: ?Sized + AsRef<str>>(s: &S) -> &RelativePath {
-        RelativePath::ref_cast(s.as_ref())
+    pub fn unchecked_new(s: &str) -> &RelativePath {
+        RelativePath::ref_cast(s)
     }
 
     /// The empty relative path.
@@ -137,7 +128,7 @@ impl RelativePath {
     /// use buck2_fs::paths::RelativePath;
     /// use buck2_fs::paths::relative_path::Component;
     ///
-    /// let path = RelativePath::new("foo/../bar/./baz");
+    /// let path = RelativePath::unchecked_new("foo/../bar/./baz");
     /// let components: Vec<_> = path.components().collect();
     /// assert_eq!(
     ///     vec![
@@ -198,7 +189,7 @@ impl RelativePath {
     ///
     /// assert_eq!(
     ///     "foo/bar/baz",
-    ///     RelativePath::new("foo/bar").join("baz").as_str()
+    ///     RelativePath::unchecked_new("foo/bar").join("baz").as_str()
     /// );
     /// ```
     pub fn join<P: AsRef<RelativePath>>(&self, path: P) -> RelativePathBuf {
@@ -221,14 +212,14 @@ impl RelativePath {
     ///
     /// assert_eq!(
     ///     "foo/baz.txt",
-    ///     RelativePath::new("foo/bar")
-    ///         .join_normalized("../baz.txt")
+    ///     RelativePath::unchecked_new("foo/bar")
+    ///         .join_normalized(RelativePath::unchecked_new("../baz.txt"))
     ///         .as_str()
     /// );
     /// assert_eq!(
     ///     "../foo/baz.txt",
-    ///     RelativePath::new("../foo/bar")
-    ///         .join_normalized("../baz.txt")
+    ///     RelativePath::unchecked_new("../foo/bar")
+    ///         .join_normalized(RelativePath::unchecked_new("../baz.txt"))
     ///         .as_str()
     /// );
     /// ```
@@ -248,11 +239,11 @@ impl RelativePath {
     ///
     /// assert_eq!(
     ///     "../foo/baz.txt",
-    ///     RelativePath::new("../foo/./bar/../baz.txt")
+    ///     RelativePath::unchecked_new("../foo/./bar/../baz.txt")
     ///         .normalize()
     ///         .as_str()
     /// );
-    /// assert_eq!("", RelativePath::new(".").normalize().as_str());
+    /// assert_eq!("", RelativePath::unchecked_new(".").normalize().as_str());
     /// ```
     pub fn normalize(&self) -> RelativePathBuf {
         let mut buf = RelativePathBuf::with_capacity(self.0.len());
@@ -269,8 +260,8 @@ impl RelativePath {
     ///
     /// assert_eq!(
     ///     "../../e/f",
-    ///     RelativePath::new("a/b/c/d")
-    ///         .relative(RelativePath::new("a/b/e/f"))
+    ///     RelativePath::unchecked_new("a/b/c/d")
+    ///         .relative(RelativePath::unchecked_new("a/b/e/f"))
     ///         .as_str()
     /// );
     /// ```
@@ -302,7 +293,7 @@ impl RelativePath {
 
         let mut buf = RelativePathBuf::with_capacity(usize::max(from.0.len(), to.0.len()));
         for c in head.map(|_| Component::ParentDir).chain(tail) {
-            buf.push(RelativePath::new(c.as_str()));
+            buf.push(RelativePath::unchecked_new(c.as_str()));
         }
         buf
     }
@@ -316,7 +307,7 @@ impl RelativePath {
     ///
     /// use buck2_fs::paths::RelativePath;
     ///
-    /// let path = RelativePath::new("foo/bar").to_path("");
+    /// let path = RelativePath::unchecked_new("foo/bar").to_path("");
     /// assert_eq!(Path::new("foo/bar"), path);
     /// ```
     pub fn to_path<P: AsRef<Path>>(&self, base: P) -> PathBuf {
@@ -381,12 +372,12 @@ impl RelativePathBuf {
                     return Err(FromSystemPathError::NonRelative(path.display().to_string()));
                 }
                 CurDir => continue,
-                ParentDir => buf.push(RelativePath::new(PARENT_STR)),
+                ParentDir => buf.push(RelativePath::unchecked_new(PARENT_STR)),
                 Normal(s) => {
                     let s = s
                         .to_str()
                         .ok_or_else(|| FromSystemPathError::NonUtf8(path.display().to_string()))?;
-                    buf.push(RelativePath::new(s));
+                    buf.push(RelativePath::unchecked_new(s));
                 }
             }
         }
@@ -448,14 +439,14 @@ fn relative_traversal<'a, C: IntoIterator<Item = Component<'a>>>(
             Component::CurDir => (),
             Component::ParentDir => match buf.components().next_back() {
                 Some(Component::ParentDir) | None => {
-                    buf.push(RelativePath::new(PARENT_STR));
+                    buf.push(RelativePath::unchecked_new(PARENT_STR));
                 }
                 _ => {
                     buf.pop();
                 }
             },
             Component::Normal(name) => {
-                buf.push(RelativePath::new(name));
+                buf.push(RelativePath::unchecked_new(name));
             }
         }
     }
@@ -518,13 +509,13 @@ impl<'a> Components<'a> {
     /// ```
     /// use buck2_fs::paths::RelativePath;
     ///
-    /// let mut it = RelativePath::new("foo/bar/baz").components();
+    /// let mut it = RelativePath::unchecked_new("foo/bar/baz").components();
     /// it.next();
     /// assert_eq!("bar/baz", it.as_relative_path().as_str());
     /// ```
     #[inline]
     pub fn as_relative_path(&self) -> &'a RelativePath {
-        RelativePath::new(self.source)
+        RelativePath::unchecked_new(self.source)
     }
 }
 
@@ -602,7 +593,7 @@ impl Deref for RelativePathBuf {
 
     #[inline]
     fn deref(&self) -> &RelativePath {
-        RelativePath::new(&self.0)
+        RelativePath::unchecked_new(&self.0)
     }
 }
 
@@ -623,14 +614,14 @@ impl AsRef<RelativePath> for RelativePathBuf {
 impl AsRef<RelativePath> for str {
     #[inline]
     fn as_ref(&self) -> &RelativePath {
-        RelativePath::new(self)
+        RelativePath::unchecked_new(self)
     }
 }
 
 impl AsRef<RelativePath> for String {
     #[inline]
     fn as_ref(&self) -> &RelativePath {
-        RelativePath::new(self)
+        RelativePath::unchecked_new(self)
     }
 }
 
@@ -689,16 +680,6 @@ impl Clone for Box<RelativePath> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn new_is_infallible() {
-        assert_eq!("", RelativePath::new("").as_str());
-        assert_eq!("foo/bar", RelativePath::new("foo/bar").as_str());
-        assert_eq!("./foo", RelativePath::new("./foo").as_str());
-        assert_eq!("../foo", RelativePath::new("../foo").as_str());
-        assert_eq!("a\\b", RelativePath::new("a\\b").as_str());
-        assert_eq!("/leading", RelativePath::new("/leading").as_str());
-    }
 
     #[test]
     fn from_system_path_unix() {
@@ -773,7 +754,7 @@ mod tests {
 
     #[test]
     fn components_iter() {
-        let p = RelativePath::new("a/../b/./c");
+        let p = RelativePath::unchecked_new("a/../b/./c");
         let got: Vec<_> = p.components().collect();
         assert_eq!(
             vec![
@@ -787,17 +768,17 @@ mod tests {
         );
 
         // Empty components (`//`) and trailing slashes are skipped.
-        let p = RelativePath::new("a//b/");
+        let p = RelativePath::unchecked_new("a//b/");
         let got: Vec<_> = p.components().collect();
         assert_eq!(vec![Component::Normal("a"), Component::Normal("b")], got);
 
         // Empty path yields no components.
-        assert_eq!(0, RelativePath::new("").components().count());
+        assert_eq!(0, RelativePath::unchecked_new("").components().count());
     }
 
     #[test]
     fn components_as_relative_path() {
-        let mut it = RelativePath::new("foo/bar/baz").components();
+        let mut it = RelativePath::unchecked_new("foo/bar/baz").components();
         assert_eq!("foo/bar/baz", it.as_relative_path().as_str());
         it.next();
         assert_eq!("bar/baz", it.as_relative_path().as_str());
@@ -811,26 +792,34 @@ mod tests {
     fn join_and_normalize() {
         assert_eq!(
             "foo/baz.txt",
-            RelativePath::new("foo/bar")
+            RelativePath::unchecked_new("foo/bar")
                 .join_normalized("../baz.txt")
                 .as_str()
         );
         assert_eq!(
             "../../baz.txt",
-            RelativePath::new("..")
+            RelativePath::unchecked_new("..")
                 .join_normalized("../baz.txt")
                 .as_str()
         );
-        assert_eq!("", RelativePath::new("foo").join_normalized("..").as_str());
+        assert_eq!(
+            "",
+            RelativePath::unchecked_new("foo")
+                .join_normalized("..")
+                .as_str()
+        );
     }
 
     #[test]
     fn normalize() {
-        assert_eq!("", RelativePath::new(".").normalize().as_str());
-        assert_eq!("", RelativePath::new("foo/..").normalize().as_str());
+        assert_eq!("", RelativePath::unchecked_new(".").normalize().as_str());
+        assert_eq!(
+            "",
+            RelativePath::unchecked_new("foo/..").normalize().as_str()
+        );
         assert_eq!(
             "../foo/baz.txt",
-            RelativePath::new("../foo/./bar/../baz.txt")
+            RelativePath::unchecked_new("../foo/./bar/../baz.txt")
                 .normalize()
                 .as_str()
         );
@@ -856,7 +845,7 @@ mod tests {
     #[test]
     fn cross_type_eq() {
         let buf = RelativePathBuf::from("foo/bar");
-        let path = RelativePath::new("foo/bar");
+        let path = RelativePath::unchecked_new("foo/bar");
         assert_eq!(buf, *path);
         assert_eq!(*path, buf);
     }
@@ -877,7 +866,7 @@ mod tests {
 
     #[test]
     fn to_path_with_empty_base() {
-        let p = RelativePath::new("foo/bar").to_path("");
+        let p = RelativePath::unchecked_new("foo/bar").to_path("");
         assert_eq!(Path::new("foo/bar"), p);
     }
 }

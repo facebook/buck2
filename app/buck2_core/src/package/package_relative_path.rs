@@ -558,10 +558,14 @@ impl<'a> TryFrom<&'a RelativePath> for &'a PackageRelativePath {
     /// use buck2_core::package::package_relative_path::PackageRelativePath;
     /// use buck2_fs::paths::RelativePath;
     ///
-    /// assert!(<&PackageRelativePath>::try_from(RelativePath::new("foo/bar")).is_ok());
-    /// assert!(<&PackageRelativePath>::try_from(RelativePath::new("")).is_ok());
-    /// assert!(<&PackageRelativePath>::try_from(RelativePath::new("normalize/./bar")).is_err());
-    /// assert!(<&PackageRelativePath>::try_from(RelativePath::new("normalize/../bar")).is_err());
+    /// assert!(<&PackageRelativePath>::try_from(RelativePath::unchecked_new("foo/bar")).is_ok());
+    /// assert!(<&PackageRelativePath>::try_from(RelativePath::unchecked_new("")).is_ok());
+    /// assert!(
+    ///     <&PackageRelativePath>::try_from(RelativePath::unchecked_new("normalize/./bar")).is_err()
+    /// );
+    /// assert!(
+    ///     <&PackageRelativePath>::try_from(RelativePath::unchecked_new("normalize/../bar")).is_err()
+    /// );
     /// ```
     #[inline]
     fn try_from(s: &'a RelativePath) -> buck2_error::Result<&'a PackageRelativePath> {

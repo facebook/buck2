@@ -311,7 +311,7 @@ fn create_symlink(
                 .ok_or_else(|| internal_error!("can't convert path to str"))?
                 .replace('\\', "/");
             let target_abspath =
-                canonical_path.join_normalized(RelativePath::new(&normalized_target))?;
+                canonical_path.join_normalized(RelativePath::unchecked_new(&normalized_target))?;
             // Recalculate symlink target if it points from symlinked buck-out to the files inside project root.
             if target_abspath.starts_with(project_root) {
                 symlink_target = diff_paths(target_abspath, directory_path)

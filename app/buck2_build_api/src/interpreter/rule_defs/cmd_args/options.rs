@@ -657,7 +657,7 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
                 }
                 x = parent_ref.to_owned();
                 if opts.absolute_prefix.is_some() || opts.absolute_suffix.is_some() {
-                    x = RelativePath::new(&format!(
+                    x = RelativePath::unchecked_new(&format!(
                         "{}{}{}",
                         opts.absolute_prefix.unwrap_or_default().as_str(),
                         x,

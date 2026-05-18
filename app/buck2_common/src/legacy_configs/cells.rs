@@ -358,7 +358,7 @@ impl BuckConfigBasedCells {
             for (alias, alias_path) in repositories.iter() {
                 let alias_path = CellRootPathBuf::new(
                     root_path.as_project_relative_path()
-                        .join_normalized(RelativePath::new(alias_path.as_str()))
+                        .join_normalized(RelativePath::unchecked_new(alias_path.as_str()))
                         .with_buck_error_context(|| {
                             format!(
                                 "expected alias path to be a relative path, but found `{}` for `{}`",

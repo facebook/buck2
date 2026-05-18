@@ -384,7 +384,7 @@ impl<'p> LegacyConfigFileParser<'p> {
                     let include_file = if let Ok(absolute) = AbsNormPath::new(include) {
                         ConfigPath::Global(absolute.to_owned().into_abs_path_buf())
                     } else {
-                        let relative = RelativePath::new(include);
+                        let relative = RelativePath::unchecked_new(include);
                         match config_path.join_to_parent_normalized(relative) {
                             Ok(d) => d,
                             Err(_) => {
