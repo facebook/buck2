@@ -442,7 +442,7 @@ mod tests {
         assert_matches!(
             read_path_metadata(AbsPath::new(t.path())?, ForwardRelativePath::new("x")?, FileDigestConfig::source(CasDigestConfig::testing_default())),
             Ok(Some(RawPathMetadata::Symlink{at:_, to: RawSymlink::Relative(r, r_rel)})) => {
-                assert_eq!(r, "y/z");
+                assert_eq!(r.as_str(), "y/z");
                 assert_eq!(r_rel.target(), "y/z");
             }
         );
@@ -461,7 +461,7 @@ mod tests {
         assert_matches!(
             read_path_metadata(AbsPath::new(t)?, ForwardRelativePath::new("x/xx/xxx")?, FileDigestConfig::source(CasDigestConfig::testing_default())),
             Ok(Some(RawPathMetadata::Symlink{at:_, to: RawSymlink::Relative(r, r_rel)})) => {
-                assert_eq!(r, "x/y");
+                assert_eq!(r.as_str(), "x/y");
                 assert_eq!(r_rel.target(), "../y");
             }
         );
@@ -478,7 +478,7 @@ mod tests {
         assert_matches!(
             read_path_metadata(AbsPath::new(t.path())?, ForwardRelativePath::new("x/z/zz")?, FileDigestConfig::source(CasDigestConfig::testing_default())),
             Ok(Some(RawPathMetadata::Symlink{at:_, to: RawSymlink::Relative(r, r_rel)})) => {
-                assert_eq!(r, "y/z/zz");
+                assert_eq!(r.as_str(), "y/z/zz");
                 assert_eq!(r_rel.target(), "y/z/zz");
             }
         );

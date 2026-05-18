@@ -880,18 +880,18 @@ mod tests {
         let hidden = Artifact::new(artifact, ThinArcS::from(ForwardRelativePath::empty()), 1);
 
         full.get_path()
-            .with_full_path(|p| assert_eq!(p, "foo/bar.cpp"));
+            .with_full_path(|p| assert_eq!(p.as_str(), "foo/bar.cpp"));
 
         full.get_path()
-            .with_short_path(|p| assert_eq!(p, "foo/bar.cpp"));
+            .with_short_path(|p| assert_eq!(p.as_str(), "foo/bar.cpp"));
 
         hidden
             .get_path()
-            .with_full_path(|p| assert_eq!(p, "foo/bar.cpp"));
+            .with_full_path(|p| assert_eq!(p.as_str(), "foo/bar.cpp"));
 
         hidden
             .get_path()
-            .with_short_path(|p| assert_eq!(p, "bar.cpp"));
+            .with_short_path(|p| assert_eq!(p.as_str(), "bar.cpp"));
 
         Ok(())
     }

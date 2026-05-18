@@ -190,8 +190,6 @@ impl GlobSpec {
 
 #[cfg(test)]
 mod tests {
-    use buck2_core::package::package_relative_path::PackageRelativePathBuf;
-
     use super::*;
 
     #[test]
@@ -255,7 +253,10 @@ mod tests {
             "excluded/some.java",
         ]);
 
-        let matches: Vec<_> = spec.resolve_glob(&package_listing).collect();
+        let matches: Vec<_> = spec
+            .resolve_glob(&package_listing)
+            .map(|p| p.as_str())
+            .collect();
 
         assert_eq!(
             vec![
@@ -272,11 +273,11 @@ mod tests {
 
     #[test]
     fn test_resolve_glob_dot() {
-        fn glob(pattern: &str, listing: &PackageFileListing) -> Vec<PackageRelativePathBuf> {
+        fn glob(pattern: &str, listing: &PackageFileListing) -> Vec<String> {
             GlobSpec::new(&[pattern], &[""; 0])
                 .unwrap()
                 .resolve_glob(listing)
-                .map(PackageRelativePath::to_owned)
+                .map(|p| p.as_str().to_owned())
                 .collect()
         }
 

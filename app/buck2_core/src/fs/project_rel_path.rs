@@ -763,14 +763,6 @@ mod tests {
         let path2 = ProjectRelativePath::new("foo")?;
         let path3 = ProjectRelativePath::new("bar")?;
 
-        let str2 = "foo";
-        let str3 = "bar";
-        let str_abs = "/ble";
-
-        let string2 = "foo".to_owned();
-        let string3 = "bar".to_owned();
-        let string_abs = "/ble".to_owned();
-
         assert_eq!(path1_buf, path2_buf);
         assert_ne!(path1_buf, path3_buf);
 
@@ -779,22 +771,6 @@ mod tests {
 
         assert_eq!(path1_buf, path2);
         assert_ne!(path1, path3_buf);
-
-        assert_eq!(path1_buf, str2);
-        assert_ne!(path1_buf, str3);
-        assert_ne!(path1_buf, str_abs);
-
-        assert_eq!(path1, str2);
-        assert_ne!(path1, str3);
-        assert_ne!(path1, str_abs);
-
-        assert_eq!(path1_buf, string2);
-        assert_ne!(path1_buf, string3);
-        assert_ne!(path1_buf, string_abs);
-
-        assert_eq!(path1, string2);
-        assert_ne!(path1, string3);
-        assert_ne!(path1, string_abs);
 
         Ok(())
     }
