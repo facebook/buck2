@@ -310,6 +310,7 @@ fn re_create_action(
         };
         let input_digest = worker.input_paths.input_directory().fingerprint();
 
+        #[allow(unused_mut)]
         let mut action = RE::Action {
             input_root_digest: Some(input_digest.to_grpc()),
             command_digest: Some(action_and_blobs.add_command(&command).to_grpc()),
