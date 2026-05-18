@@ -72,7 +72,7 @@ use crate::interpreter::rule_defs::resolved_macro::ResolvedStringWithMacros;
 #[repr(C)]
 pub struct ExternalRunnerTestInfoGen<V: ValueLifetimeless> {
     /// A Starlark value representing the type of this test.
-    test_type: ValueOfUncheckedGeneric<V, String>,
+    r#type: ValueOfUncheckedGeneric<V, String>,
 
     /// A Starlark value representing the command for this test. The external test runner is what
     /// gives meaning to this command.
@@ -129,8 +129,8 @@ pub struct ExternalRunnerTestInfoGen<V: ValueLifetimeless> {
 
 // NOTE: All the methods here unwrap because we validate at freeze time.
 impl FrozenExternalRunnerTestInfo {
-    pub fn test_type(&self) -> &str {
-        self.test_type.to_value().get().unpack_str().unwrap()
+    pub fn r#type(&self) -> &str {
+        self.r#type.to_value().get().unpack_str().unwrap()
     }
 
     pub fn command<'v>(&self) -> impl Iterator<Item = TestCommandMember<'v>> {
@@ -558,7 +558,7 @@ where
     {
         parse_network_access(v)?;
     }
-    info.test_type
+    info.r#type
         .get()
         .to_value()
         .unpack_str()
@@ -588,7 +588,7 @@ fn external_runner_test_info_creator(globals: &mut GlobalsBuilder) {
         #[starlark(default = NoneType)] network_access: Value<'v>,
     ) -> starlark::Result<ExternalRunnerTestInfo<'v>> {
         let res = ExternalRunnerTestInfo {
-            test_type: ValueOfUnchecked::new(r#type),
+            r#type: ValueOfUnchecked::new(r#type),
             command: ValueOfUnchecked::new(command),
             env: ValueOfUnchecked::new(env),
             labels: ValueOfUnchecked::new(labels),
