@@ -162,7 +162,7 @@ impl MethodsBuilder {
     pub fn build(self) -> Methods {
         let heap = self
             .heap
-            .into_ref_impl(self.heap_name.map(FrozenHeapName::Method));
+            .into_ref_impl(self.heap_name.map(FrozenHeapName::Method), None);
         Methods {
             heap,
             members: self.members,

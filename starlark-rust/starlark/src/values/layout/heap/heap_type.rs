@@ -346,6 +346,7 @@ struct FrozenFrozenHeap {
     // TODO(nero): remove Option here, make it required.
     #[allocative(skip)] // We don't really expect it to be big
     name: Option<FrozenHeapName>,
+    peak_allocated_bytes: Option<usize>,
 }
 
 // Safe because we never mutate the Arena other than with &mut
@@ -680,6 +681,7 @@ impl FrozenFrozenHeap {
             arena,
             refs: refs.into_boxed_slice(),
             name: None,
+            peak_allocated_bytes: None,
         })
     }
 }
@@ -792,6 +794,11 @@ impl FrozenHeapRef {
         self.0.as_ref().map_or(0, |a| a.arena.allocated_bytes())
     }
 
+    /// Peak number of bytes allocated on the live heap that produced this frozen heap.
+    pub fn peak_allocated_bytes(&self) -> Option<usize> {
+        self.0.as_ref().and_then(|a| a.peak_allocated_bytes)
+    }
+
     /// Number of bytes allocated by the heap but not filled.
     /// Note that these bytes will _never_ be filled as no further allocations can
     /// be made on this heap (it has been sealed).
@@ -872,7 +879,7 @@ impl FrozenHeap {
     /// The `name` identifies this heap and should be unique across heaps.
     /// See [`FrozenHeapRef::name`] for more details.
     pub fn into_ref_named(self, name: FrozenHeapName) -> FrozenHeapRef {
-        self.into_ref_impl(Some(name))
+        self.into_ref_impl(Some(name), None)
     }
 
     /// After all values have been allocated, convert the [`FrozenHeap`] into a
@@ -883,10 +890,14 @@ impl FrozenHeap {
     /// that all heaps are named. Use [`into_ref_named`](Self::into_ref_named) instead.
     #[cfg(not(feature = "pagable"))]
     pub fn into_ref(self) -> FrozenHeapRef {
-        self.into_ref_impl(None)
+        self.into_ref_impl(None, None)
     }
 
-    pub(crate) fn into_ref_impl(self, name: Option<FrozenHeapName>) -> FrozenHeapRef {
+    pub(crate) fn into_ref_impl(
+        self,
+        name: Option<FrozenHeapName>,
+        peak_allocated_bytes: Option<usize>,
+    ) -> FrozenHeapRef {
         let FrozenHeap {
             mut arena, refs, ..
         } = self;
@@ -899,6 +910,7 @@ impl FrozenHeap {
                 arena,
                 refs: refs.into_iter().collect(),
                 name,
+                peak_allocated_bytes,
             })))
         }
     }

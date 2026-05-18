@@ -276,7 +276,9 @@ impl GlobalsBuilder {
             .map(|x| self.heap.alloc_str_intern(x.as_str()))
             .collect();
         variable_names.sort();
-        let heap = self.heap.into_ref_impl(name.map(FrozenHeapName::Global));
+        let heap = self
+            .heap
+            .into_ref_impl(name.map(FrozenHeapName::Global), None);
         Globals(Arc::new(GlobalsData {
             heap,
             variables: self.variables,

@@ -495,7 +495,7 @@ impl<'v> Module<'v> {
         }
 
         Ok(FrozenModule {
-            heap: frozen_heap.into_ref_impl(name),
+            heap: frozen_heap.into_ref_impl(name, Some(heap.peak_allocated_bytes())),
             module: frozen_module_ref,
             extra_value,
             #[cfg(not(target_arch = "wasm32"))]
