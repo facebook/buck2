@@ -97,7 +97,7 @@ do_parse_app_info_file(AppInfoFile) ->
                         app_src_vsn => maps:get(<<"app_src_vsn">>, Terms),
                         template => Template,
                         applications =>
-                            normalize_application([binary_to_atom(App) || App <- Applications]),
+                            normalize_application(Name, [binary_to_atom(App) || App <- Applications]),
                         included_applications =>
                             [binary_to_atom(App) || App <- IncludedApplications],
                         mod => Mod,
@@ -259,13 +259,21 @@ verify_app_props(AppName, Version, AppSrcVsn, Applications, IncludedApplications
 verify_applications(AppName, AppDetail) ->
     case proplists:get_value(applications, AppDetail) of
         AppList when is_list(AppList) ->
-            FinalApps = normalize_application(AppList),
+            FinalApps = normalize_application(AppName, AppList),
             lists:keystore(applications, 1, AppDetail, {applications, FinalApps});
         undefined ->
             AppDetail;
         BadApplicationsValue ->
             applications_type_error(AppName, BadApplicationsValue)
     end.
+
+-spec normalize_application(binary(), [atom()]) -> [atom()].
+normalize_application(<<"kernel">>, AppList) ->
+    AppList;
+normalize_application(<<"stdlib">>, AppList) ->
+    AppList;
+normalize_application(_AppName, AppList) ->
+    normalize_application(AppList).
 
 -spec normalize_application(Applications) -> [atom()] when Applications :: [atom()].
 normalize_application(Applications) ->
