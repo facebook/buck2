@@ -61,7 +61,7 @@ This project features:
   [fuzz testing](https://github.com/google/oss-fuzz/tree/master/projects/starlark-rust).
 - [DAP](https://microsoft.github.io/debug-adapter-protocol/) support.
 
-This project also has three non-goals:
+This project also has two non-goals:
 
 - We do _not_ aim for API stability between releases, preferring to iterate
   quickly and refine the API as much as possible. But we do
