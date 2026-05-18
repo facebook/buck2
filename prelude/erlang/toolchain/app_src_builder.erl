@@ -23,6 +23,7 @@ app_info.json format:
      <<"sources">>                := [<path to .erl source file>],
      <<"applications">>           := [<entry to applications field>],
      <<"included_applications">>  := I[<entry to included_applications field>],
+     <<"app_src_vsn">>            := <placeholder string used in the .app.src vsn field>,
      <<"template">>               => <path to an .app.src file>,
      <<"version">>                => <version string>,
      <<"env">>                    => [application env variable],
@@ -38,6 +39,7 @@ app_info.json format:
     name := binary(),
     sources := [filename()],
     vsn := binary() | undefined,
+    app_src_vsn := binary(),
     template := application_resource(),
     applications := [atom()],
     included_applications := [atom()],
@@ -92,6 +94,7 @@ do_parse_app_info_file(AppInfoFile) ->
                         name => Name,
                         sources => Sources,
                         vsn => maps:get(<<"version">>, Terms, undefined),
+                        app_src_vsn => maps:get(<<"app_src_vsn">>, Terms),
                         template => Template,
                         applications =>
                             normalize_application([binary_to_atom(App) || App <- Applications]),
@@ -178,6 +181,7 @@ normalize_metadata_value(AppName, Key, Values) when is_list(Values) ->
 check_and_normalize_template(#{
     name := AppName,
     vsn := TargetVersion,
+    app_src_vsn := AppSrcVsn,
     template := Terms,
     applications := Applications,
     included_applications := IncludedApplications,
@@ -205,7 +209,7 @@ check_and_normalize_template(#{
                 )
         end,
     VerifiedProps = verify_app_props(
-        AppName, TargetVersion, Applications, IncludedApplications, Props
+        AppName, TargetVersion, AppSrcVsn, Applications, IncludedApplications, Props
     ),
     Props0 = add_optional_fields(VerifiedProps, [{mod, Mod}, {env, Env}]),
     Props1 = add_metadata(Props0, Metadata),
@@ -235,18 +239,19 @@ add_optional_fields(Props, [{K, V0} | Fields]) ->
 add_optional_fields(Props, [Field | Fields]) ->
     add_optional_fields([Field | Props], Fields).
 
--spec verify_app_props(AppName, Version, Applications, IncludedApplications, Props) ->
+-spec verify_app_props(AppName, Version, AppSrcVsn, Applications, IncludedApplications, Props) ->
     proplists:proplist()
 when
     AppName :: binary(),
     Version :: binary() | undefined,
+    AppSrcVsn :: binary(),
     Applications :: [atom()],
     IncludedApplications :: [atom()],
     Props :: proplists:proplist().
-verify_app_props(AppName, Version, Applications, IncludedApplications, Props0) ->
+verify_app_props(AppName, Version, AppSrcVsn, Applications, IncludedApplications, Props0) ->
     Props1 = verify_applications(AppName, Props0),
     %% ensure defaults
-    ensure_fields(AppName, Version, Applications, IncludedApplications, Props1).
+    ensure_fields(AppName, Version, AppSrcVsn, Applications, IncludedApplications, Props1).
 
 -spec verify_applications(AppName, Props) -> proplists:proplist() when
     AppName :: binary(),
@@ -280,15 +285,16 @@ normalize_application(Applications) ->
         end,
     NormalizedApplications.
 
--spec ensure_fields(AppName, Version, Applications, IncludedApplications, Props) ->
+-spec ensure_fields(AppName, Version, AppSrcVsn, Applications, IncludedApplications, Props) ->
     proplists:proplist()
 when
     AppName :: binary(),
     Version :: binary() | undefined,
+    AppSrcVsn :: binary(),
     Applications :: [atom()],
     IncludedApplications :: [atom()],
     Props :: proplists:proplist().
-ensure_fields(AppName, Version, Applications, IncludedApplications, Props) ->
+ensure_fields(AppName, Version, AppSrcVsn, Applications, IncludedApplications, Props) ->
     %% default means to add the value if not existing
     %% match meand to overwrite if not existing and check otherwise for
     Defaults = [
@@ -311,11 +317,14 @@ ensure_fields(AppName, Version, Applications, IncludedApplications, Props) ->
                         [Default | Acc];
                     {Key, Value} ->
                         Acc;
-                    %% When 'git' is specified as the version in the .app.src file, it means that
-                    %% the version will be calculated dynamically based on the VCS version.
+                    %% When the configured placeholder is specified as the version in the .app.src file,
+                    %% it means that the version will be calculated dynamically based on the VCS version.
                     %% We consider the version from the Buck target to be authoritative.
-                    {vsn, Vsn} when Vsn =:= git orelse Vsn =:= "git" ->
-                        [Default | lists:keydelete(vsn, 1, Acc)];
+                    {vsn, Vsn} ->
+                        case is_app_src_vsn(Vsn, AppSrcVsn) of
+                            true -> [Default | lists:keydelete(vsn, 1, Acc)];
+                            false -> value_match_error(AppName, {vsn, Vsn}, Default)
+                        end;
                     Wrong ->
                         value_match_error(AppName, Wrong, Default)
                 end
@@ -323,6 +332,16 @@ ensure_fields(AppName, Version, Applications, IncludedApplications, Props) ->
         Props,
         Defaults
     ).
+
+-spec is_app_src_vsn(Vsn, AppSrcVsn) -> boolean() when
+    Vsn :: term(),
+    AppSrcVsn :: binary().
+is_app_src_vsn(Vsn, AppSrcVsn) when is_atom(Vsn) ->
+    atom_to_binary(Vsn) =:= AppSrcVsn;
+is_app_src_vsn(Vsn, AppSrcVsn) when is_list(Vsn) ->
+    Vsn =:= binary_to_list(AppSrcVsn);
+is_app_src_vsn(_, _) ->
+    false.
 
 -spec render_app_file(AppName, Terms, Output, Srcs) -> ok when
     AppName :: binary(),

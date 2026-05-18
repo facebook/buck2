@@ -116,6 +116,14 @@ rules_attributes = {
                 prevent these definitions from drifting apart during migration._
             """,
         ),
+        "app_src_vsn": attrs.string(
+            default = "git",
+            doc = """
+                The version placeholder used in the `app_src` template. When the template's `vsn` field matches this placeholder
+                (either as an atom or as a string), buck2 substitutes the value from the `version` field. Defaults to `"git"`,
+                matching rebar3's convention.
+            """,
+        ),
         "docs": attrs.list(
             attrs.source(),
             default = [],

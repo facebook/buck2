@@ -261,6 +261,7 @@ def _app_info_content(ctx: AnalysisContext, name: str, srcs: list[Artifact]) -> 
     app_info = ctx.actions.declare_output(erlang_build.utils.BUILD_DIR, "app_info.json", has_content_based_path = False)
 
     data = {
+        "app_src_vsn": ctx.attrs.app_src_vsn,
         "applications": [app[ErlangAppInfo].name for app in ctx.attrs.applications],
         "included_applications": [app[ErlangAppInfo].name for app in ctx.attrs.included_applications],
         "name": name,
