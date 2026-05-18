@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::borrow::Cow;
 use std::fmt;
 use std::fmt::Display;
 
@@ -26,10 +25,8 @@ use static_assertions::assert_eq_size;
 
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkInputArtifactLike;
-use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
-use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
-use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
+use crate::interpreter::rule_defs::cmd_args::CommandLineFormatter;
 use crate::interpreter::rule_defs::resolved_macro::add_output_to_arg;
 
 #[derive(Debug, PartialEq, Allocative, StarlarkPagable)]
@@ -127,22 +124,17 @@ impl Display for ResolvedQueryMacro {
 }
 
 impl ResolvedQueryMacro {
-    pub fn add_to_arg(
-        &self,
-        builder: &mut dyn CommandLineBuilder,
-        ctx: &mut dyn CommandLineContext,
-        artifact_path_mapping: &dyn ArtifactPathMapper,
-    ) -> buck2_error::Result<()> {
+    pub fn add_to_arg(&self, fmt: &mut CommandLineFormatter) -> buck2_error::Result<()> {
         match self {
             Self::Outputs(list) => {
                 let mut first = true;
                 for target_outputs in list.iter() {
                     for output in target_outputs.iter() {
                         if !first {
-                            builder.push_arg(Cow::Borrowed(" "));
+                            fmt.push_str(" ");
                         }
                         first = false;
-                        add_output_to_arg(builder, ctx, output, artifact_path_mapping)?;
+                        add_output_to_arg(fmt, output)?;
                     }
                 }
             }
@@ -152,12 +144,12 @@ impl ResolvedQueryMacro {
                 for (target, target_outputs) in list.iter() {
                     for output in target_outputs.iter() {
                         if !first {
-                            builder.push_arg(Cow::Borrowed(sep));
+                            fmt.push_str(sep);
                         }
                         first = false;
-                        builder.push_arg(Cow::Owned(target.unconfigured().to_string()));
-                        builder.push_arg(Cow::Borrowed(sep));
-                        add_output_to_arg(builder, ctx, output, artifact_path_mapping)?;
+                        fmt.push_string(target.unconfigured().to_string());
+                        fmt.push_str(sep);
+                        add_output_to_arg(fmt, output)?;
                     }
                 }
             }
@@ -165,9 +157,9 @@ impl ResolvedQueryMacro {
                 // This is defined to add the plain (unconfigured) labels.
                 for (i, target) in list.iter().enumerate() {
                     if i != 0 {
-                        builder.push_arg(Cow::Borrowed(" "));
+                        fmt.push_str(" ");
                     }
-                    builder.push_arg(Cow::Owned(target.unconfigured().to_string()));
+                    fmt.push_string(target.unconfigured().to_string());
                 }
             }
         }

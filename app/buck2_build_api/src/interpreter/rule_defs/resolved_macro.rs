@@ -89,61 +89,49 @@ impl<'v> Display for ResolvedMacro<'v> {
 }
 
 pub fn add_output_to_arg(
-    builder: &mut dyn CommandLineBuilder,
-    ctx: &mut dyn CommandLineContext,
+    fmt: &mut CommandLineFormatter,
     artifact: &StarlarkArtifact,
-    artifact_path_mapping: &dyn ArtifactPathMapper,
 ) -> buck2_error::Result<()> {
-    let path = ctx
-        .resolve_artifact(&artifact.get_bound_artifact()?, artifact_path_mapping)?
-        .into_string();
-    builder.push_arg(Cow::Owned(path));
+    fmt.push_artifact(&artifact.get_bound_artifact()?)?;
     Ok(())
 }
 
 fn add_outputs_to_arg(
-    builder: &mut dyn CommandLineBuilder,
-    ctx: &mut dyn CommandLineContext,
+    fmt: &mut CommandLineFormatter,
     outputs_list: &[StarlarkArtifact],
-    artifact_path_mapping: &dyn ArtifactPathMapper,
 ) -> buck2_error::Result<()> {
     for (i, value) in outputs_list.iter().enumerate() {
         if i != 0 {
-            builder.push_arg(Cow::Borrowed(" "));
+            fmt.push_str(" ");
         }
-        add_output_to_arg(builder, ctx, value, artifact_path_mapping)?;
+        add_output_to_arg(fmt, value)?;
     }
     Ok(())
 }
 
 impl<'v> ResolvedMacro<'v> {
-    pub fn add_to_arg(
-        &self,
-        builder: &mut dyn CommandLineBuilder,
-        ctx: &mut dyn CommandLineContext,
-        artifact_path_mapping: &dyn ArtifactPathMapper,
-    ) -> buck2_error::Result<()> {
+    pub fn add_to_arg(&self, fmt: &mut CommandLineFormatter) -> buck2_error::Result<()> {
         match self {
             Self::Source(artifact) => {
-                let s = ctx
-                    .resolve_artifact(artifact, artifact_path_mapping)?
-                    .into_string();
-                builder.push_arg(Cow::Owned(s));
+                fmt.push_artifact(artifact)?;
             }
             Self::Location(info) => {
                 let outputs = &info.default_outputs();
 
-                add_outputs_to_arg(builder, ctx, outputs, artifact_path_mapping)?;
+                add_outputs_to_arg(fmt, outputs)?;
             }
             Self::ArgLike(command_line_like) => {
-                let mut cli_builder = SpaceSeparatedCommandLineBuilder::wrap(builder);
-                let mut fmt =
-                    CommandLineFormatter::new(&mut cli_builder, ctx, artifact_path_mapping);
+                let mut cli_builder = SpaceSeparatedCommandLineBuilder::wrap(fmt.cli);
+                let mut inner_fmt = CommandLineFormatter::new(
+                    &mut cli_builder,
+                    fmt.context,
+                    fmt.artifact_path_mapping,
+                );
                 command_line_like
                     .as_command_line_arg()
-                    .add_to_command_line(&mut fmt)?;
+                    .add_to_command_line(&mut inner_fmt)?;
             }
-            Self::Query(value) => value.add_to_arg(builder, ctx, artifact_path_mapping)?,
+            Self::Query(value) => value.add_to_arg(fmt)?,
         };
 
         Ok(())
@@ -279,7 +267,11 @@ impl<'v> CommandLineArgLike<'v> for ResolvedStringWithMacros {
                         builder.arg.push('@');
                         builder.push_path(fmt.context)?;
                     } else {
-                        val.add_to_arg(&mut builder, fmt.context, fmt.artifact_path_mapping)?;
+                        val.add_to_arg(&mut CommandLineFormatter::new(
+                            &mut builder,
+                            fmt.context,
+                            fmt.artifact_path_mapping,
+                        ))?;
                     }
                 }
             }
