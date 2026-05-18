@@ -98,13 +98,12 @@ impl<T> IntoIterator for SortedVec<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::sorted_vec::SortedVec;
-
     /// Test `new_unchecked` panics in debug mode when the elements are not sorted.
     #[cfg(debug_assertions)]
     #[test]
     #[should_panic]
     fn test_new_unchecked() {
+        use crate::sorted_vec::SortedVec;
         SortedVec::new_unchecked(vec![1, 3, 2]);
     }
 }
