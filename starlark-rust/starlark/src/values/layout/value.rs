@@ -691,6 +691,21 @@ impl<'v> Value<'v> {
         }
     }
 
+    /// Returns the name of a callable value, if known.
+    ///
+    /// Works for user-defined functions (`def`/`lambda`) and native functions.
+    pub fn function_name(self) -> Option<&'v str> {
+        if let Some(def) = self.downcast_ref::<Def>() {
+            Some(def.def_info.name.as_str())
+        } else if let Some(def) = self.downcast_ref::<FrozenDef>() {
+            Some(def.def_info.name.as_str())
+        } else if let Some(native) = self.downcast_ref::<NativeFunction>() {
+            Some(&native.name)
+        } else {
+            None
+        }
+    }
+
     /// Invoke self with given arguments.
     pub(crate) fn invoke(
         self,
@@ -1577,6 +1592,33 @@ mod tests {
             e.to_string().contains("Value is not callable: NoneType"),
             "{e}"
         );
+    }
+
+    #[test]
+    fn test_function_name_def() {
+        let module = assert::pass_module("def my_func(x, y): return x + y");
+        let f = module.get("my_func").unwrap();
+        assert_eq!(Some("my_func"), f.value().function_name());
+    }
+
+    #[test]
+    fn test_function_name_lambda() {
+        let module = assert::pass_module("f = lambda x: x");
+        let f = module.get("f").unwrap();
+        assert_eq!(Some("lambda"), f.value().function_name());
+    }
+
+    #[test]
+    fn test_function_name_native() {
+        let g = Globals::standard();
+        let f = g.get("bool").unwrap();
+        assert_eq!(Some("bool"), f.function_name());
+    }
+
+    #[test]
+    fn test_function_name_non_callable() {
+        assert_eq!(None, Value::new_none().function_name());
+        assert_eq!(None, Value::testing_new_int(5).function_name());
     }
 
     #[test]
