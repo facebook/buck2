@@ -62,7 +62,6 @@ pub struct ActionGraphSketchResult {
 }
 
 pub struct ArtifactPathSketchResult {
-    #[allow(dead_code)] // read in follow-up commit
     pub(crate) per_target_sketches: Vec<(ConfiguredProvidersLabel, ArtifactPathSketches)>,
 }
 

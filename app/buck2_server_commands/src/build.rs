@@ -355,7 +355,7 @@ async fn build(
         log_sketch_cardinalities: want_log_sketch_cardinalities,
     };
 
-    let _providers_to_skip_in_artifact_path_sketch: HashSet<BuildProviderType> = ctx
+    let providers_to_skip_in_artifact_path_sketch: HashSet<BuildProviderType> = ctx
         .parse_legacy_config_list_property::<SkipProvider>(
             cell_resolver.root_cell(),
             BuckconfigKeyRef {
@@ -424,8 +424,12 @@ async fn build(
         .unwrap_or_default();
 
     // We need to take per-build events if we want either detailed metrics or action graph sketch
-    let need_events = want_detailed_metrics || graph_properties.action_graph_sketch;
-    let events = if need_events {
+    // or artifact path sketch
+    let need_events = want_detailed_metrics
+        || graph_properties.action_graph_sketch
+        || graph_properties.artifact_count_sketch
+        || graph_properties.artifact_size_sketch;
+    let mut events = if need_events {
         Some(ctx.take_per_build_events()?)
     } else {
         None
@@ -444,14 +448,28 @@ async fn build(
 
     let artifact_path_sketch_result =
         if graph_properties.artifact_count_sketch || graph_properties.artifact_size_sketch {
-            // TODO: Wire actual sketch computation
-            None
+            let events = events.as_ref().ok_or_else(|| {
+                internal_error!("events should be Some when artifact path sketch is needed")
+            })?;
+            let artifact_fs = ctx.get_artifact_fs().await?;
+            Some(
+                ctx.compute_artifact_path_sketch(
+                    events,
+                    artifact_fs,
+                    providers_to_skip_in_artifact_path_sketch,
+                    graph_properties.artifact_count_sketch,
+                    graph_properties.artifact_size_sketch,
+                )
+                .await?,
+            )
         } else {
             None
         };
 
     let detailed_metrics = if want_detailed_metrics {
-        let events = events.expect("events should be Some when detailed metrics is needed");
+        let events = events.take().ok_or_else(|| {
+            internal_error!("events should be Some when detailed metrics is needed")
+        })?;
         let mut metrics = ctx.compute_detailed_metrics(events).await?;
         for target_metric in &mut metrics.top_level_target_metrics {
             if let Some(Some(result)) = build_result.configured.get(&target_metric.target) {

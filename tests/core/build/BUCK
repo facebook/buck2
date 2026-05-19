@@ -4,6 +4,10 @@ oncall("build_infra")
 
 buck2_core_tests(
     target_extra_attrs = {
+        "test_artifact_path_sketch": {
+            # TODO(scottcao): Extend these to mac/windows
+            "compatible_with": ["ovr_config//os:linux"],
+        },
         "test_critical_path": {
             "use_compiled_buck2_client_and_tpx": True,
         },

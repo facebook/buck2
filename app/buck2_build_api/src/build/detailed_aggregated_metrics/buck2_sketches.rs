@@ -19,8 +19,14 @@ use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+use buck2_directory::directory::directory::Directory;
+use buck2_directory::directory::directory_iterator::DirectoryIterator;
+use buck2_directory::directory::directory_iterator::DirectoryIteratorPathStack;
+use buck2_directory::directory::entry::DirectoryEntry;
+use buck2_directory::directory::walk::unordered_entry_walk;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact_value::ArtifactValue;
+use buck2_execute::directory::ActionDirectoryMember;
 use buck2_hash::BuckHashSet;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::load_module::InterpreterCalculation;
@@ -138,14 +144,12 @@ type AnalysisHeapSketches = (
 );
 
 /// Holds optional size and count sketches for artifact paths.
-#[allow(dead_code)] // fields used in follow-up commit
 pub(crate) struct ArtifactPathSketches {
     pub(crate) size: Option<MergeableGraphSketch<ProjectRelativePathBuf, ArtifactSizeSketch>>,
     pub(crate) count: Option<MergeableGraphSketch<ProjectRelativePathBuf, ArtifactCountSketch>>,
 }
 
 impl ArtifactPathSketches {
-    #[allow(dead_code)] // used in follow-up commit
     pub(crate) fn empty() -> Self {
         Self {
             size: None,
@@ -160,7 +164,6 @@ impl ArtifactPathSketches {
 /// or weight 1 (for count sketch). Callers should walk artifact directory entries
 /// at file granularity (e.g. via `unordered_entry_walk`) so that projected
 /// artifacts and directory contents are sketched uniformly.
-#[allow(dead_code)] // used in follow-up commit
 pub(crate) fn compute_artifact_path_sketches(
     artifacts: impl Iterator<Item = (ProjectRelativePathBuf, u64)>,
     sketch_size: bool,
@@ -194,6 +197,56 @@ pub(crate) fn compute_artifact_path_sketches(
     }
 }
 
+/// Computes artifact path sketches for one top-level target's outputs.
+pub(crate) async fn compute_artifact_path_sketches_for_target(
+    ctx: &mut DiceComputations<'_>,
+    outputs: &[(ArtifactGroup, BuildProviderType)],
+    artifact_fs: &ArtifactFs,
+    providers_to_skip: &HashSet<BuildProviderType>,
+    sketch_size: bool,
+    sketch_count: bool,
+) -> buck2_error::Result<ArtifactPathSketches> {
+    let values =
+        collect_immediate_artifact_values(ctx, outputs, artifact_fs, providers_to_skip).await?;
+
+    let mut weighted_paths: Vec<(ProjectRelativePathBuf, u64)> = Vec::new();
+    for (artifact_path, value) in &values {
+        let mut walk = unordered_entry_walk(value.entry().as_ref().map_dir(Directory::as_ref));
+        while let Some((rel_path, entry)) = walk.next() {
+            if let DirectoryEntry::Leaf(leaf) = entry {
+                weighted_paths.push((artifact_path.join(rel_path.get()), leaf_size(leaf)));
+            }
+        }
+
+        if let Some(deps) = value.deps() {
+            let deps_entry = DirectoryEntry::Dir(deps.dupe());
+            let mut walk = unordered_entry_walk(deps_entry.as_ref().map_dir(Directory::as_ref));
+            while let Some((rel_path, entry)) = walk.next() {
+                if let DirectoryEntry::Leaf(leaf) = entry {
+                    weighted_paths.push((
+                        ProjectRelativePathBuf::from(rel_path.get()),
+                        leaf_size(leaf),
+                    ));
+                }
+            }
+        }
+    }
+
+    Ok(compute_artifact_path_sketches(
+        weighted_paths.into_iter(),
+        sketch_size,
+        sketch_count,
+    ))
+}
+
+fn leaf_size(leaf: &ActionDirectoryMember) -> u64 {
+    match leaf {
+        ActionDirectoryMember::File(f) => f.digest.size(),
+        ActionDirectoryMember::Symlink(s) => s.target().as_str().len() as u64,
+        ActionDirectoryMember::ExternalSymlink(s) => s.target().as_os_str().len() as u64,
+    }
+}
+
 /// Resolves the immediate output artifacts of final providers via DICE.
 ///
 /// Filters `outputs` by `providers_to_skip`, then resolves each remaining
@@ -204,7 +257,6 @@ pub(crate) fn compute_artifact_path_sketches(
 /// `entry()` and `deps()` to obtain per-file paths and sizes; symlink chains
 /// are pre-merged into `deps` at action-construction time, so transitive
 /// symlink targets are surfaced for free.
-#[allow(dead_code)] // used in follow-up commit
 pub(crate) async fn collect_immediate_artifact_values(
     ctx: &mut DiceComputations<'_>,
     outputs: &[(ArtifactGroup, BuildProviderType)],
