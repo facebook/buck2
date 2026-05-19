@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -17,6 +18,7 @@ use buck2_build_api::build;
 use buck2_build_api::build::AsyncBuildTargetResultBuilder;
 use buck2_build_api::build::BuildEvent;
 use buck2_build_api::build::BuildEventConsumer;
+use buck2_build_api::build::BuildProviderType;
 use buck2_build_api::build::BuildTargetResult;
 use buck2_build_api::build::ConfiguredBuildEventVariant;
 use buck2_build_api::build::HasCreateUnhashedSymlinkLock;
@@ -352,6 +354,20 @@ async fn build(
         artifact_size_sketch: want_artifact_size_sketch,
         log_sketch_cardinalities: want_log_sketch_cardinalities,
     };
+
+    let _providers_to_skip_in_artifact_path_sketch: HashSet<BuildProviderType> = ctx
+        .parse_legacy_config_list_property::<SkipProvider>(
+            cell_resolver.root_cell(),
+            BuckconfigKeyRef {
+                section: "buck2",
+                property: "providers_to_skip_in_artifact_path_sketch",
+            },
+        )
+        .await?
+        .unwrap_or_default()
+        .into_iter()
+        .map(|s| s.into_build_provider_type())
+        .collect();
 
     let (streaming_build_result_tx, streaming_build_result_rx) =
         tokio::sync::mpsc::unbounded_channel();
@@ -1000,4 +1016,40 @@ async fn build_target(
         timeout_observer,
     )
     .await;
+}
+
+/// Provider types that can be skipped in artifact path sketch computation.
+/// Parsed from `buck2.providers_to_skip_in_artifact_path_sketch` buckconfig.
+enum SkipProvider {
+    Build,
+    Run,
+    Test,
+}
+
+impl SkipProvider {
+    fn into_build_provider_type(self) -> BuildProviderType {
+        match self {
+            SkipProvider::Build => BuildProviderType::Default,
+            SkipProvider::Run => BuildProviderType::Run,
+            SkipProvider::Test => BuildProviderType::Test,
+        }
+    }
+}
+
+#[derive(Debug, buck2_error::Error)]
+#[error("Invalid skip provider: `{0}`. Valid values are: [`build`, `run`, `test`]")]
+#[buck2(input)]
+struct SkipProviderParseError(String);
+
+impl std::str::FromStr for SkipProvider {
+    type Err = SkipProviderParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.trim() {
+            "build" => Ok(SkipProvider::Build),
+            "run" => Ok(SkipProvider::Run),
+            "test" => Ok(SkipProvider::Test),
+            other => Err(SkipProviderParseError(other.to_owned())),
+        }
+    }
 }

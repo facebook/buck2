@@ -74,7 +74,7 @@ pub mod outputs;
 pub(crate) mod sketch_impl;
 
 /// The types of provider to build on the configured providers label
-#[derive(Debug, Clone, Dupe, Copy, Allocative, PartialEq, Pagable)]
+#[derive(Debug, Clone, Dupe, Copy, Allocative, PartialEq, Eq, Hash, Pagable)]
 pub enum BuildProviderType {
     Default,
     DefaultOther,
