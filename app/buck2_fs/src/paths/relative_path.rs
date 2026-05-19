@@ -22,7 +22,7 @@
 //! starting point and has not been polished:
 //!
 //! - `From<String>`/`From<&str>` impls
-//! - [`Self::file_name`] returns `Option<&str>`
+//! - [`RelativePath::file_name`] returns `Option<&str>`
 //! - There is no `unchecked_new_box`/`as_path` parallel to the forward type.
 //! - `.` is silently stripped in some places
 //! - No good story for converting towards `ForwardRelativePath`

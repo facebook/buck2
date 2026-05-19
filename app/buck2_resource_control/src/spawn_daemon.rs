@@ -86,7 +86,7 @@ async fn get_daemon_spawner(init: &ResourceControlInit) -> buck2_error::Result<D
 
 /// Generates the command to spawn a daemon process, wrapped as appropriate for the resource control setup.
 ///
-/// `process_title` is the desired argv[0] for the daemon (e.g. `buck2d[fbsource]`).
+/// `process_title` is the desired argv\[0\] for the daemon (e.g. `buck2d[fbsource]`).
 /// For systemd spawns, this is forwarded via `exec -a` since `Command::arg0()`
 /// only affects the outer `systemd-run` process.
 ///
