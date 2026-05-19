@@ -248,6 +248,10 @@ impl<'v> StarlarkValue<'v> for StarlarkStr {
         string_repr(self, buffer)
     }
 
+    fn collect_str(&self, buffer: &mut String) {
+        buffer.push_str(self.as_str())
+    }
+
     fn to_bool(&self) -> bool {
         !self.is_empty()
     }

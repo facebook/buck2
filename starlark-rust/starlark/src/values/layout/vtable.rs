@@ -628,6 +628,11 @@ impl<'v> AValueDyn<'v> {
     }
 
     #[inline]
+    pub(crate) fn collect_str(self, collector: &mut String) {
+        (self.vtable.starlark_value.collect_str)(self.value, collector)
+    }
+
+    #[inline]
     pub(crate) fn downcast_ref<T: StarlarkValue<'v>>(self) -> Option<&'v T> {
         if self.vtable.static_type_of_value.get() == T::static_type_id() {
             // SAFETY: just checked whether we are pointing to the correct type.

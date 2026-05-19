@@ -842,12 +842,11 @@ impl<'v> Value<'v> {
     }
 
     /// Implement the `str()` function - converts a string value to itself,
-    /// otherwise uses `repr()`.
+    /// otherwise calls `collect_str()` (which handles bytes, etc.).
     pub fn to_str(self) -> String {
-        match self.unpack_str() {
-            None => self.to_repr(),
-            Some(s) => s.to_owned(),
-        }
+        let mut s = String::new();
+        self.collect_str(&mut s);
+        s
     }
 
     /// Implement the `repr()` function.
@@ -1313,11 +1312,7 @@ pub trait ValueLike<'v>:
 
     /// `str(x)`.
     fn collect_str(self, collector: &mut String) {
-        if let Some(s) = self.to_value().unpack_str() {
-            collector.push_str(s);
-        } else {
-            self.collect_repr(collector);
-        }
+        self.collect_repr(collector);
     }
 
     /// `x == other`.
@@ -1397,6 +1392,22 @@ impl<'v> ValueLike<'v> for Value<'v> {
         }
     }
 
+    fn collect_str(self, collector: &mut String) {
+        // Fast path: strings don't need cycle detection or vtable dispatch.
+        if let Some(s) = self.unpack_starlark_str() {
+            collector.push_str(s.as_str());
+            return;
+        }
+        match repr_stack_push(self) {
+            Ok(_guard) => {
+                self.get_ref().collect_str(collector);
+            }
+            Err(..) => {
+                self.get_ref().collect_repr_cycle(collector);
+            }
+        }
+    }
+
     fn write_hash(self, hasher: &mut StarlarkHasher) -> crate::Result<()> {
         self.get_ref().write_hash(hasher)
     }
@@ -1437,6 +1448,11 @@ impl<'v> ValueLike<'v> for FrozenValue {
     #[inline]
     fn collect_repr(self, collector: &mut String) {
         self.to_value().collect_repr(collector)
+    }
+
+    #[inline]
+    fn collect_str(self, collector: &mut String) {
+        self.to_value().collect_str(collector)
     }
 
     #[inline]

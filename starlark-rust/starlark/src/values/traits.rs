@@ -368,6 +368,13 @@ pub trait StarlarkValue<'v>:
         write!(collector, "<{}...>", Self::TYPE).unwrap()
     }
 
+    /// Return a string representation of self, as returned by the `str()` function.
+    /// Defaults to `collect_repr`. Override to provide a different string representation
+    /// for `str()` vs `repr()` (e.g. bytes decodes as UTF-8 for `str()`).
+    fn collect_str(&self, collector: &mut String) {
+        self.collect_repr(collector)
+    }
+
     /// String used when printing call stack. `repr(self)` by default.
     fn name_for_call_stack(&self, me: Value<'v>) -> String {
         me.to_repr()
