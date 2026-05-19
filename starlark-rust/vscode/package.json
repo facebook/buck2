@@ -20,7 +20,8 @@
         "vscode": "^1.82.0"
     },
     "activationEvents": [
-        "onLanguage:starlark"
+        "onLanguage:starlark",
+        "onCommand:starlark.restartLanguageServer"
     ],
     "main": "./client/out/extension",
     "contributes": {
@@ -96,6 +97,12 @@
                         "program": "${file}"
                     }
                 ]
+            }
+        ],
+        "commands": [
+            {
+                "command": "starlark.restartLanguageServer",
+                "title": "Starlark: Restart starlark language server"
             }
         ],
         "configuration": {
