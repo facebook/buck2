@@ -211,13 +211,13 @@ def translate_target(target: str, ctx = DEFAULT_REWRITE_CTX) -> str:
     if exact != None:
         return ctx.cells.shim + "//" + exact
 
-    for match_root_dir, replace_root_dir in getattr(rules, "dirs", []):
-        if _path_rooted_in_dir(path, match_root_dir):
-            return ctx.cells.shim + "//" + _swap_root_dir_for_path(path, match_root_dir, replace_root_dir)
-
     for match_root_dir, fn in getattr(rules, "dynamic", []):
         if _path_rooted_in_dir(path, match_root_dir):
             return ctx.cells.shim + "//" + fn(path)
+
+    for match_root_dir, replace_root_dir in getattr(rules, "dirs", []):
+        if _path_rooted_in_dir(path, match_root_dir):
+            return ctx.cells.shim + "//" + _swap_root_dir_for_path(path, match_root_dir, replace_root_dir)
 
     return target
 
