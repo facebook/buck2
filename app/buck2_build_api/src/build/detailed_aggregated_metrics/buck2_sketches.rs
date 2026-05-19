@@ -8,14 +8,19 @@
  * above-listed licenses.
  */
 
+use std::collections::HashSet;
+
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::deferred::key::DeferredHolderKey;
+use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
+use buck2_execute::artifact_value::ArtifactValue;
 use buck2_hash::BuckHashSet;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::load_module::InterpreterCalculation;
@@ -42,6 +47,8 @@ use starlark::values::FrozenHeapRef;
 
 use crate::analysis::calculation::RuleAnalysisCalculation;
 use crate::artifact_groups::ArtifactGroup;
+use crate::artifact_groups::calculation::ArtifactGroupCalculation;
+use crate::build::BuildProviderType;
 use crate::build::graph_properties::ConfiguredGraphPropertiesValues;
 use crate::build::sketch_impl::DEFAULT_SKETCH_VERSION;
 use crate::build::sketch_impl::MergeableGraphSketch;
@@ -185,6 +192,54 @@ pub(crate) fn compute_artifact_path_sketches(
         size: size_sketcher.map(|s| s.into_mergeable_graph_sketch()),
         count: count_sketcher.map(|s| s.into_mergeable_graph_sketch()),
     }
+}
+
+/// Resolves the immediate output artifacts of final providers via DICE.
+///
+/// Filters `outputs` by `providers_to_skip`, then resolves each remaining
+/// `ArtifactGroup` via `ensure_artifact_group()`. Returns `(path, value)`
+/// pairs where `path` is the project-relative on-disk path of the resolved
+/// artifact (content-hashed for content-based artifacts, configuration-hashed
+/// otherwise) and `value` is its `ArtifactValue`. Callers walk the value's
+/// `entry()` and `deps()` to obtain per-file paths and sizes; symlink chains
+/// are pre-merged into `deps` at action-construction time, so transitive
+/// symlink targets are surfaced for free.
+#[allow(dead_code)] // used in follow-up commit
+pub(crate) async fn collect_immediate_artifact_values(
+    ctx: &mut DiceComputations<'_>,
+    outputs: &[(ArtifactGroup, BuildProviderType)],
+    artifact_fs: &ArtifactFs,
+    providers_to_skip: &HashSet<BuildProviderType>,
+) -> buck2_error::Result<Vec<(ProjectRelativePathBuf, ArtifactValue)>> {
+    let filtered: Vec<&ArtifactGroup> = outputs
+        .iter()
+        .filter(|(_, pt)| !providers_to_skip.contains(pt))
+        .map(|(artifact, _)| artifact)
+        .collect();
+
+    let all_values = ctx
+        .try_compute_join(filtered.iter(), |ctx, artifact_group| {
+            async move { ctx.ensure_artifact_group(artifact_group).await }.boxed()
+        })
+        .await?;
+
+    all_values
+        .iter()
+        .flat_map(|values| values.iter())
+        .map(|(artifact, value)| {
+            artifact
+                .resolve_path(
+                    artifact_fs,
+                    if artifact.path_resolution_requires_artifact_value() {
+                        Some(value.content_based_path_hash())
+                    } else {
+                        None
+                    }
+                    .as_ref(),
+                )
+                .map(|path| (path, value.dupe()))
+        })
+        .collect()
 }
 
 #[derive(
