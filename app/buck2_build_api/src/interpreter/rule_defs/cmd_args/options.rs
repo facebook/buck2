@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::borrow::Cow;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Formatter;
@@ -16,15 +15,8 @@ use std::fmt::Formatter;
 use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::content_hash::ContentBasedPathHash;
-use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_error::BuckErrorContext;
-use buck2_execute::artifact::fs::ExecutorFs;
-use buck2_fs::paths::RelativePath;
-use buck2_fs::paths::RelativePathBuf;
 use buck2_interpreter::types::cell_root::CellRoot;
 use buck2_interpreter::types::project_root::StarlarkProjectRoot;
-use buck2_interpreter::types::regex::StarlarkBuckRegex;
 use buck2_util::thin_box::ThinBoxSlice;
 use derive_more::Display;
 use display_container::fmt_container;
@@ -33,7 +25,6 @@ use either::Either;
 use gazebo::prelude::*;
 use pagable::PagableDeserialize;
 use pagable::PagableSerialize;
-use regex::Regex;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::pagable::StarlarkDeserialize;
@@ -60,13 +51,8 @@ use static_assertions::assert_eq_size;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkInputArtifactLike;
 use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
 use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
-use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
-use crate::interpreter::rule_defs::cmd_args::CommandLineFormatter;
-use crate::interpreter::rule_defs::cmd_args::CommandLineLocation;
 use crate::interpreter::rule_defs::cmd_args::regex::CmdArgsRegex;
 use crate::interpreter::rule_defs::cmd_args::regex::FrozenCmdArgsRegex;
-use crate::interpreter::rule_defs::cmd_args::shlex_quote::shlex_quote;
-use crate::interpreter::rule_defs::cmd_args::traits::CommandLineContext;
 
 /// Supported ways of quoting arguments.
 #[derive(
@@ -99,8 +85,6 @@ impl Display for QuoteStyle {
 enum CommandLineArgError {
     #[error("Unknown quoting style `{0}`")]
     UnknownQuotingStyle(String),
-    #[error("too many .parent() calls")]
-    TooManyParentCalls,
 }
 
 impl QuoteStyle {
@@ -544,49 +528,8 @@ impl ArtifactPathMapper for RelativeOriginArtifactPathMapper<'_> {
     }
 }
 
-impl<'v> RelativeOrigin<'v> {
-    pub(crate) fn resolve<C>(
-        &self,
-        ctx: &C,
-        artifact_path_mapping: &dyn ArtifactPathMapper,
-    ) -> buck2_error::Result<RelativePathBuf>
-    where
-        C: CommandLineContext + ?Sized,
-    {
-        let loc = match self {
-            Self::OutputArtifact(artifact) => {
-                let value = match artifact.unpack() {
-                    Either::Right(value) => value,
-                    // FIXME(JakobDegen): This is not the only place where we do it, but it's
-                    // nonetheless an extremely non-local assertion
-                    Either::Left(_) => {
-                        return Err(buck2_error::internal_error!(
-                            "Non-frozen output artifacts can't be added to CLIs"
-                        ));
-                    }
-                };
-                ctx.resolve_output_artifact(&value.inner().artifact)?
-            }
-            Self::Artifact(artifact) => {
-                // Shame we require the artifact to be bound here, we really just needs its
-                // path even if it is unbound.
-                let artifact = artifact.get_bound_artifact()?;
-                let artifact_path_mapping =
-                    RelativeOriginArtifactPathMapper::new(artifact_path_mapping);
-                ctx.resolve_artifact(&artifact, &artifact_path_mapping)?
-            }
-            Self::CellRoot(cell_root) => ctx.resolve_cell_path(cell_root.cell_path())?,
-            Self::ProjectRoot(_) => {
-                ctx.resolve_project_path(ProjectRelativePath::empty().to_owned())?
-            }
-        };
-
-        Ok(loc.into_relative())
-    }
-}
-
 impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
-    fn changes_builder(&self) -> bool {
+    pub(crate) fn changes_builder(&self) -> bool {
         match self {
             Self {
                 relative_to: None,
@@ -602,217 +545,6 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
             } if replacements.is_empty() => false,
             _ => true,
         }
-    }
-
-    pub(crate) fn wrap_builder<R>(
-        &self,
-        fmt: &mut CommandLineFormatter<'v, '_>,
-        f: impl for<'b> FnOnce(&'b mut CommandLineFormatter<'v, '_>) -> buck2_error::Result<R>,
-    ) -> buck2_error::Result<R> {
-        struct ExtrasBuilder<'a, 'v> {
-            builder: &'a mut dyn CommandLineBuilder,
-            opts: &'a CommandLineOptionsRef<'v, 'a>,
-            // Auxiliary field to store concatenation result (when arguments are concatenated) and
-            // a flag stating that the result is not yet started to be computated (i.e. the first
-            // argument to be concatenated is not yet processed).
-            concatenation_context: Option<(String, bool)>,
-        }
-
-        struct ExtrasContext<'a, 'v> {
-            ctx: &'a mut dyn CommandLineContext,
-            opts: &'a CommandLineOptionsRef<'v, 'a>,
-            relative_to: Option<RelativePathBuf>,
-        }
-
-        impl<'a, 'v> CommandLineContext for ExtrasContext<'a, 'v> {
-            fn resolve_project_path(
-                &self,
-                path: ProjectRelativePathBuf,
-            ) -> buck2_error::Result<CommandLineLocation<'_>> {
-                let Self {
-                    ctx,
-                    relative_to,
-                    opts,
-                } = self;
-
-                let resolved = ctx.resolve_project_path(path)?;
-
-                if opts.parent == 0
-                    && opts.absolute_prefix.is_none()
-                    && opts.absolute_suffix.is_none()
-                    && relative_to.is_none()
-                {
-                    return Ok(resolved);
-                }
-
-                let mut x = resolved.into_relative();
-                if let Some(relative_to) = relative_to {
-                    x = relative_to.relative(x);
-                }
-                let mut parent_ref = x.as_relative_path();
-                for _ in 0..opts.parent {
-                    parent_ref = parent_ref
-                        .parent()
-                        .ok_or(CommandLineArgError::TooManyParentCalls)?;
-                }
-                x = parent_ref.to_owned();
-                if opts.absolute_prefix.is_some() || opts.absolute_suffix.is_some() {
-                    x = RelativePath::unchecked_new(&format!(
-                        "{}{}{}",
-                        opts.absolute_prefix.unwrap_or_default().as_str(),
-                        x,
-                        opts.absolute_suffix.unwrap_or_default().as_str(),
-                    ))
-                    .to_owned();
-                }
-                Ok(CommandLineLocation::from_relative_path(
-                    x,
-                    self.fs().path_separator(),
-                ))
-            }
-
-            fn fs(&self) -> &ExecutorFs<'_> {
-                self.ctx.fs()
-            }
-
-            fn next_macro_file_path(&mut self) -> buck2_error::Result<RelativePathBuf> {
-                let macro_path = self.ctx.next_macro_file_path()?;
-                if let Some(relative_to_path) = &self.relative_to {
-                    Ok(relative_to_path.relative(macro_path))
-                } else {
-                    Ok(macro_path)
-                }
-            }
-        }
-
-        impl<'a, 'v> ExtrasBuilder<'a, 'v> {
-            /// If any items need to be concatted/formatted and added to the original CLI,
-            /// do it here
-            fn finalize_args(mut self) -> Self {
-                if let Some((concatted_items, _)) = self.concatenation_context.take() {
-                    self.builder.push_arg(Cow::Owned(concatted_items));
-                }
-                self
-            }
-
-            fn add_delimiter(&mut self) {
-                if let Some((concatted_items, initital_state)) = self.concatenation_context.as_mut()
-                {
-                    if *initital_state {
-                        *initital_state = false;
-                    } else {
-                        concatted_items.push_str(self.opts.delimiter.unwrap_or_default().as_str());
-                    }
-                }
-            }
-
-            fn add_arg(&mut self, arg: String) {
-                if let Some((concatted_items, _)) = self.concatenation_context.as_mut() {
-                    concatted_items.push_str(&arg)
-                } else {
-                    self.builder.push_arg(Cow::Owned(arg))
-                }
-            }
-
-            fn format(&self, mut arg: String) -> String {
-                for (pattern, replacement) in self.opts.replacements.iter() {
-                    let re;
-                    let re = match &pattern {
-                        CmdArgsRegex::Str(pattern) => {
-                            // We checked that regex is valid in replace_regex(), so unwrap is safe.
-                            re = StarlarkBuckRegex::Regular(Regex::new(pattern.as_str()).unwrap());
-                            &re
-                        }
-                        CmdArgsRegex::Regex(regex) => regex,
-                    };
-                    match re.replace_all(&arg, replacement.as_str()) {
-                        Cow::Borrowed(new) if new == arg => {}
-                        cow => arg = cow.into_owned(),
-                    }
-                }
-                if let Some(format) = &self.opts.format {
-                    arg = format.as_str().replace("{}", &arg);
-                }
-                if let Some(QuoteStyle::Shell) = &self.opts.quote {
-                    let quoted = shlex_quote(&arg);
-                    arg = quoted.into_owned();
-                }
-                arg
-            }
-        }
-
-        impl<'a, 'v> CommandLineBuilder for ExtrasBuilder<'a, 'v> {
-            fn push_arg(&mut self, s: Cow<'_, str>) {
-                // We apply options impacting formatting in the order:
-                //   format, quote, (prepend + delimiter)
-                self.add_delimiter();
-                if let Some(i) = self.opts.prepend {
-                    self.add_arg(i.as_str().to_owned());
-                }
-                self.add_arg(self.format(s.into_owned()))
-            }
-        }
-
-        if !self.changes_builder() {
-            f(fmt)
-        } else {
-            let relative_to = self.relative_to_path(fmt.context, fmt.artifact_path_mapping)?;
-
-            let mut extras_builder = ExtrasBuilder {
-                builder: fmt.cli,
-                opts: self,
-                concatenation_context: if self.delimiter.is_some() {
-                    Some((String::new(), true))
-                } else {
-                    None
-                },
-            };
-
-            let mut extras_ctx = ExtrasContext {
-                ctx: fmt.context,
-                opts: self,
-                relative_to,
-            };
-
-            let mut inner_fmt = CommandLineFormatter::new(
-                &mut extras_builder,
-                &mut extras_ctx,
-                fmt.artifact_path_mapping,
-            );
-            let res = f(&mut inner_fmt)?;
-            // Recover extras_builder from inner_fmt to call finalize_args
-            extras_builder.finalize_args();
-            Ok(res)
-        }
-    }
-
-    pub(crate) fn relative_to_path<C>(
-        &self,
-        ctx: &C,
-        artifact_path_mapping: &dyn ArtifactPathMapper,
-    ) -> buck2_error::Result<Option<RelativePathBuf>>
-    where
-        C: CommandLineContext + ?Sized,
-    {
-        let (value, parent) = match self.relative_to {
-            Some(vp) => vp,
-            None => return Ok(None),
-        };
-
-        let origin = value
-            .unpack()
-            .internal_error("Must be a valid RelativeOrigin as this was checked in the setter")?;
-        let mut relative_path = origin
-            .resolve(ctx, artifact_path_mapping)
-            .internal_error("origin::resolve")?;
-        for _ in 0..parent {
-            if !relative_path.pop() {
-                return Err(CommandLineArgError::TooManyParentCalls)
-                    .buck_error_context(format!("Error accessing {parent}-th parent of {origin}"));
-            }
-        }
-
-        Ok(Some(relative_path))
     }
 
     pub(crate) fn iter_fields_display(

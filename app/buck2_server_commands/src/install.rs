@@ -26,7 +26,6 @@ use buck2_build_api::actions::calculation::get_target_rule_type_name;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::context::HasBuildContextData;
-use buck2_build_api::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::ArtifactPathMapperImpl;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineFormatter;
@@ -931,9 +930,14 @@ async fn build_launch_installer(
         };
         let executor_fs = ExecutorFs::new(&artifact_fs, path_separator);
         let mut run_args = Vec::<String>::new();
-        let mut ctx = AbsCommandLineContext::new(&executor_fs);
         let artifact_path_mapper = ArtifactPathMapperImpl::from(&ensured_inputs);
-        let mut fmt = CommandLineFormatter::new(&mut run_args, &mut ctx, &artifact_path_mapper);
+        let mut fmt = CommandLineFormatter::new_with_options(
+            &mut run_args,
+            &artifact_path_mapper,
+            &executor_fs,
+            true,
+            None,
+        );
         installer_run_info.add_to_command_line(&mut fmt)?;
 
         let stderr = if installer_log_console {

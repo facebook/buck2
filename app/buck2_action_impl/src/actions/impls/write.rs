@@ -26,17 +26,16 @@ use buck2_build_api::actions::execute::action_executor::ActionOutputs;
 use buck2_build_api::actions::execute::error::ExecuteError;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
-use buck2_build_api::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineFormatter;
-use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_signals::env::WaitingData;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_core::category::CategoryRef;
 use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_error::internal_error;
+use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::WriteRequest;
@@ -167,29 +166,25 @@ impl WriteAction {
     ) -> buck2_error::Result<String> {
         let mut cli = Vec::<String>::new();
 
-        let macro_files = self.inner.macro_files.as_ref().map(|macro_files| {
-            macro_files
-                .iter()
-                .map(|a| (a, artifact_path_mapping.get(a)))
-                .collect()
-        });
+        let macro_files = self
+            .inner
+            .macro_files
+            .as_ref()
+            .map(|macro_files| {
+                macro_files
+                    .iter()
+                    .map(|a| a.resolve_path(fs.fs(), artifact_path_mapping.get(a)))
+                    .collect::<buck2_error::Result<Vec<_>>>()
+            })
+            .transpose()?;
 
-        let mut ctx = if let Some(ref macro_files) = macro_files {
-            DefaultCommandLineContext::new_with_write_to_file_macros_support(fs, macro_files)
-        } else {
-            DefaultCommandLineContext::new(fs)
-        };
-
-        let mut abs;
-
-        let ctx = if self.inner.absolute {
-            abs = AbsCommandLineContext::wrap(ctx);
-            &mut abs as _
-        } else {
-            &mut ctx as _
-        };
-
-        let mut fmt = CommandLineFormatter::new(&mut cli, ctx, artifact_path_mapping);
+        let mut fmt = CommandLineFormatter::new_with_options(
+            &mut cli,
+            artifact_path_mapping,
+            fs,
+            self.inner.absolute,
+            macro_files,
+        );
         ValueAsCommandLineLike::unpack_value_err(self.contents.value())
             .unwrap()
             .0

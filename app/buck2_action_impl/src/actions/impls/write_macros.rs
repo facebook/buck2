@@ -23,11 +23,8 @@ use buck2_build_api::actions::execute::action_executor::ActionOutputs;
 use buck2_build_api::actions::execute::error::ExecuteError;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
-use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineBuilder;
-use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineFormatter;
-use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineLocation;
-use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
+use buck2_build_api::interpreter::rule_defs::cmd_args::SingletonCommandLineBuilder;
 use buck2_build_api::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedMacro;
@@ -40,7 +37,6 @@ use buck2_error::internal_error;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::WriteRequest;
-use buck2_fs::paths::RelativePathBuf;
 use buck2_hash::BuckIndexSet;
 use dupe::Dupe;
 use pagable::Pagable;
@@ -260,7 +256,7 @@ impl Action for WriteMacrosToFileAction {
 struct MacroToFileWriter<'a> {
     fs: &'a ExecutorFs<'a>,
     outputs: &'a mut Vec<String>,
-    relative_to_path: Option<RelativePathBuf>,
+    relative_to_path: Option<ProjectRelativePathBuf>,
 }
 
 impl<'a> MacroToFileWriter<'a> {
@@ -280,79 +276,30 @@ impl WriteToFileMacroVisitor for MacroToFileWriter<'_> {
         artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
         let content = {
-            let mut builder = MacroOutput {
-                result: String::new(),
-            };
-            let mut ctx = MacroContext::new(self.fs, &self.relative_to_path);
-            resolved_macro.add_to_arg(&mut CommandLineFormatter::new(
-                &mut builder,
-                &mut ctx,
-                artifact_path_mapping,
-            ))?;
-            builder.result
+            let mut writer = SingletonCommandLineBuilder::new();
+            let mut fmt = CommandLineFormatter::new(&mut writer, artifact_path_mapping, self.fs);
+            fmt.push_scope_delimiter("");
+            if let Some(p) = self.relative_to_path.as_ref() {
+                fmt.push_scope_relative_to(p.clone());
+            }
+            resolved_macro.add_to_arg(&mut fmt)?;
+            if self.relative_to_path.is_some() {
+                fmt.pop_scope();
+            }
+            fmt.pop_scope();
+            writer.finalize()?
         };
 
         self.outputs.push(content);
         Ok(())
     }
 
-    fn set_current_relative_to_path(
-        &mut self,
-        generate: &dyn Fn(&dyn CommandLineContext) -> buck2_error::Result<Option<RelativePathBuf>>,
-    ) -> buck2_error::Result<()> {
-        self.relative_to_path = generate(&DefaultCommandLineContext::new(self.fs))?;
-        Ok(())
-    }
-}
-
-struct MacroContext<'a> {
-    fs: &'a ExecutorFs<'a>,
-    maybe_relative_to_path: &'a Option<RelativePathBuf>,
-}
-
-impl<'a> MacroContext<'a> {
-    fn new(fs: &'a ExecutorFs, maybe_relative_to_path: &'a Option<RelativePathBuf>) -> Self {
-        Self {
-            fs,
-            maybe_relative_to_path,
-        }
+    fn set_current_relative_to_path(&mut self, p: ProjectRelativePathBuf) {
+        // FIXME(JakobDegen): Completely broken, doesn't respect the cmd_args nesting structure.
+        self.relative_to_path = Some(p);
     }
 
-    fn relativize_path(&self, path: ProjectRelativePathBuf) -> RelativePathBuf {
-        if let Some(relative_to_path) = self.maybe_relative_to_path {
-            relative_to_path.relative(path)
-        } else {
-            path.into()
-        }
-    }
-}
-
-impl CommandLineContext for MacroContext<'_> {
-    fn resolve_project_path(
-        &self,
-        path: ProjectRelativePathBuf,
-    ) -> buck2_error::Result<CommandLineLocation<'_>> {
-        Ok(CommandLineLocation::from_relative_path(
-            self.relativize_path(path),
-            self.fs.path_separator(),
-        ))
-    }
-
-    fn fs(&self) -> &ExecutorFs<'_> {
-        self.fs
-    }
-
-    fn next_macro_file_path(&mut self) -> buck2_error::Result<RelativePathBuf> {
-        unreachable!("write-to-file macros could not be nested")
-    }
-}
-
-struct MacroOutput {
-    result: String,
-}
-
-impl CommandLineBuilder for MacroOutput {
-    fn push_arg(&mut self, s: Cow<'_, str>) {
-        self.result.push_str(&s)
+    fn fs(&self) -> Option<&ExecutorFs<'_>> {
+        Some(self.fs)
     }
 }

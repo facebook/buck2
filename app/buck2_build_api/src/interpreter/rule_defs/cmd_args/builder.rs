@@ -8,18 +8,52 @@
  * above-listed licenses.
  */
 
+use std::borrow::Cow;
 use std::fmt::Debug;
 
-use buck2_artifact::artifact::artifact_type::Artifact;
-use buck2_core::content_hash::ContentBasedPathHash;
-use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
-use buck2_execute::artifact::fs::ExecutorFs;
-use buck2_fs::paths::RelativePathBuf;
-use buck2_hash::BuckIndexSet;
+use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 
-use crate::interpreter::rule_defs::cmd_args::traits::CommandLineContext;
-use crate::interpreter::rule_defs::cmd_args::traits::CommandLineLocation;
+/// A command line is normally a list of strings; this type is to be used when you expect just one.
+///
+/// This should normally be used with a `CommandLineFormatter` on which you expect to immediately
+/// call `push_scope_delimiter`.
+pub enum SingletonCommandLineBuilder {
+    None,
+    Finished(String),
+    Error(buck2_error::Error),
+}
+
+impl SingletonCommandLineBuilder {
+    pub fn new() -> Self {
+        Self::None
+    }
+
+    pub fn finalize(self) -> buck2_error::Result<String> {
+        match self {
+            Self::None => Err(buck2_error::internal_error!(
+                "SingletonCommandLineBuilder not written",
+            )),
+            Self::Finished(s) => Ok(s),
+            Self::Error(e) => Err(e),
+        }
+    }
+}
+
+impl CommandLineBuilder for SingletonCommandLineBuilder {
+    fn push_arg(&mut self, s: Cow<'_, str>) {
+        match self {
+            Self::None => {
+                *self = Self::Finished(s.into_owned());
+            }
+            Self::Finished(_) => {
+                *self = Self::Error(buck2_error::internal_error!(
+                    "SingletonCommandLineBuilder written more than once"
+                ));
+            }
+            Self::Error(_) => {}
+        }
+    }
+}
 
 #[derive(buck2_error::Error, Debug)]
 #[buck2(tag = Input)]
@@ -34,156 +68,18 @@ pub enum CommandLineBuilderErrors {
     InconsistentNumberOfMacroArtifacts,
 }
 
-/// Builds up arguments needed to construct a command line
-pub struct DefaultCommandLineContext<'v> {
-    fs: &'v ExecutorFs<'v>,
-    // First element is list of artifacts, each corresponding to a file with macro contents. Ordering is very important.
-    // Second element is a current position in that list.
-    maybe_macros_state: Option<(
-        &'v BuckIndexSet<(&'v Artifact, Option<&'v ContentBasedPathHash>)>,
-        usize,
-    )>,
-}
-
-impl<'v> DefaultCommandLineContext<'v> {
-    /// Create a new builder
-    ///
-    /// `fs`: The `ExecutorFs` that things like `Artifact` can use to generate strings
-    pub fn new(fs: &'v ExecutorFs) -> Self {
-        Self {
-            fs,
-            maybe_macros_state: None,
-        }
-    }
-
-    pub fn new_with_write_to_file_macros_support(
-        fs: &'v ExecutorFs,
-        macro_files: &'v BuckIndexSet<(&'v Artifact, Option<&'v ContentBasedPathHash>)>,
-    ) -> Self {
-        Self {
-            fs,
-            maybe_macros_state: Some((macro_files, 0)),
-        }
-    }
-
-    /// The `ArtifactFilesystem` to resolve `Artifact`s
-    pub fn fs(&self) -> &ExecutorFs<'_> {
-        self.fs
-    }
-}
-
-impl CommandLineContext for DefaultCommandLineContext<'_> {
-    fn resolve_project_path(
-        &self,
-        path: ProjectRelativePathBuf,
-    ) -> buck2_error::Result<CommandLineLocation<'_>> {
-        Ok(CommandLineLocation::from_relative_path(
-            path.into(),
-            self.fs.path_separator(),
-        ))
-    }
-
-    fn fs(&self) -> &ExecutorFs<'_> {
-        self.fs
-    }
-
-    fn next_macro_file_path(&mut self) -> buck2_error::Result<RelativePathBuf> {
-        if let Some((files, pos)) = self.maybe_macros_state {
-            if pos >= files.len() {
-                return Err(CommandLineBuilderErrors::InconsistentNumberOfMacroArtifacts.into());
-            }
-            self.maybe_macros_state = Some((files, pos + 1));
-            Ok(self
-                .resolve_project_path(files[pos].0.resolve_path(self.fs.fs(), files[pos].1)?)?
-                .into_relative())
-        } else {
-            Err(CommandLineBuilderErrors::WriteToFileMacroNotSupported.into())
-        }
-    }
-}
-
-pub struct AbsCommandLineContext<'v>(DefaultCommandLineContext<'v>);
-
-impl<'v> AbsCommandLineContext<'v> {
-    pub fn new(executor_fs: &'v ExecutorFs) -> Self {
-        Self::wrap(DefaultCommandLineContext::<'v>::new(executor_fs))
-    }
-
-    pub fn wrap(default: DefaultCommandLineContext<'v>) -> Self {
-        Self(default)
-    }
-}
-
-impl CommandLineContext for AbsCommandLineContext<'_> {
-    fn resolve_project_path(
-        &self,
-        path: ProjectRelativePathBuf,
-    ) -> buck2_error::Result<CommandLineLocation<'_>> {
-        Ok(CommandLineLocation::from_root(
-            self.0.fs().fs().fs(),
-            path,
-            self.fs().path_separator(),
-        ))
-    }
-
-    fn fs(&self) -> &ExecutorFs<'_> {
-        self.0.fs()
-    }
-
-    fn next_macro_file_path(&mut self) -> buck2_error::Result<RelativePathBuf> {
-        Err(buck2_error::buck2_error!(
-            buck2_error::ErrorTag::Tier0,
-            "Unsupported"
-        ))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
 
-    use buck2_core::cells::CellResolver;
-    use buck2_core::cells::cell_root_path::CellRootPathBuf;
-    use buck2_core::cells::name::CellName;
     use buck2_core::execution_types::executor_config::PathSeparatorKind;
-    use buck2_core::fs::artifact_path_resolver::ArtifactFs;
-    use buck2_core::fs::buck_out_path::BuckOutPathResolver;
     use buck2_core::fs::project::ProjectRoot;
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
+    use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+    use buck2_fs::paths::RelativePathBuf;
     use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
-    use buck2_hash::BuckHashMap;
 
-    use super::*;
-    use crate::interpreter::rule_defs::cmd_args::format::CommandLineFormatter;
-    use crate::interpreter::rule_defs::cmd_args::traits::CommandLineArgLike;
-
-    #[test]
-    fn adds_args_and_builds() -> buck2_error::Result<()> {
-        let project_fs =
-            ProjectRoot::new(AbsNormPathBuf::try_from(std::env::current_dir().unwrap()).unwrap())
-                .unwrap();
-        let fs = ArtifactFs::new(
-            CellResolver::testing_with_name_and_path(
-                CellName::testing_new("cell"),
-                CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell_path".into())),
-            ),
-            BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new("buck_out".into())),
-            project_fs,
-        );
-        let executor_fs = ExecutorFs::new(&fs, PathSeparatorKind::Unix);
-
-        let mut cli = Vec::<String>::new();
-        let mut ctx = DefaultCommandLineContext::new(&executor_fs);
-
-        "foo".add_to_command_line(&mut CommandLineFormatter::new(
-            &mut cli,
-            &mut ctx,
-            &BuckHashMap::default(),
-        ))?;
-
-        assert_eq!(&["foo".to_owned()], cli.as_slice());
-        Ok(())
-    }
+    use crate::interpreter::rule_defs::cmd_args::CommandLineLocation;
 
     #[test]
     fn test_command_line_location() {

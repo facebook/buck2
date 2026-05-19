@@ -10,7 +10,6 @@
 
 //! Provides the starlark values representing resolved attrs.arg() attributes.
 
-use std::borrow::Cow;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -41,12 +40,9 @@ use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkInp
 use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
-use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
-use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::CommandLineFormatter;
 use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command_line_arg_like_impl;
-use crate::interpreter::rule_defs::cmd_args::space_separated::SpaceSeparatedCommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
 use crate::interpreter::rule_defs::provider::builtin::default_info::FrozenDefaultInfo;
 use crate::interpreter::rule_defs::resolve_query_macro::ResolvedQueryMacro;
@@ -121,15 +117,11 @@ impl<'v> ResolvedMacro<'v> {
                 add_outputs_to_arg(fmt, outputs)?;
             }
             Self::ArgLike(command_line_like) => {
-                let mut cli_builder = SpaceSeparatedCommandLineBuilder::wrap(fmt.cli);
-                let mut inner_fmt = CommandLineFormatter::new(
-                    &mut cli_builder,
-                    fmt.context,
-                    fmt.artifact_path_mapping,
-                );
+                fmt.push_scope_delimiter(" ");
                 command_line_like
                     .as_command_line_arg()
-                    .add_to_command_line(&mut inner_fmt)?;
+                    .add_to_command_line(fmt)?;
+                fmt.pop_scope();
             }
             Self::Query(value) => value.add_to_arg(fmt)?,
         };
@@ -240,48 +232,23 @@ impl<'v> CommandLineArgLike<'v> for ResolvedStringWithMacros {
         &self,
         fmt: &mut CommandLineFormatter<'v, '_>,
     ) -> buck2_error::Result<()> {
-        struct Builder {
-            arg: String,
-        }
-
-        impl Builder {
-            fn push_path(&mut self, ctx: &mut dyn CommandLineContext) -> buck2_error::Result<()> {
-                let next_path = ctx.next_macro_file_path()?;
-                self.arg.push_str(next_path.as_str());
-                Ok(())
-            }
-        }
-
-        impl CommandLineBuilder for Builder {
-            fn push_arg(&mut self, s: Cow<'_, str>) {
-                self.arg.push_str(&s)
-            }
-        }
-
-        let mut builder = Builder { arg: String::new() };
-
+        fmt.push_scope_delimiter("");
         for part in &*self.parts {
             match part {
                 ResolvedStringWithMacrosPart::String(s) => {
-                    builder.arg.push_str(s);
+                    fmt.push_str(s);
                 }
                 ResolvedStringWithMacrosPart::Macro(write_to_file, val) => {
                     if *write_to_file {
-                        builder.arg.push('@');
-                        builder.push_path(fmt.context)?;
+                        fmt.push_str("@");
+                        fmt.push_next_write_to_file_macro_path()?;
                     } else {
-                        val.add_to_arg(&mut CommandLineFormatter::new(
-                            &mut builder,
-                            fmt.context,
-                            fmt.artifact_path_mapping,
-                        ))?;
+                        val.add_to_arg(fmt)?;
                     }
                 }
             }
         }
-
-        let Builder { arg } = builder;
-        fmt.push_string(arg);
+        fmt.pop_scope();
         Ok(())
     }
 

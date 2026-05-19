@@ -14,14 +14,11 @@ use std::fmt::Debug;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::DeclaredArtifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
-use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_error::BuckErrorContext;
-use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_fs::paths::RelativePath;
 use buck2_fs::paths::RelativePathBuf;
@@ -116,11 +113,9 @@ pub trait WriteToFileMacroVisitor {
         artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()>;
 
-    /// Generator produces a 'RelativePathBuf' relative to the directory which owning command will run in.
-    fn set_current_relative_to_path(
-        &mut self,
-        generate: &dyn Fn(&dyn CommandLineContext) -> buck2_error::Result<Option<RelativePathBuf>>,
-    ) -> buck2_error::Result<()>;
+    fn set_current_relative_to_path(&mut self, p: ProjectRelativePathBuf);
+
+    fn fs(&self) -> Option<&ExecutorFs<'_>>;
 }
 
 /// Used to provide a mapping from artifacts to the content-based hash that should be used when
@@ -465,59 +460,12 @@ impl<'a> CommandLineLocation<'a> {
     }
 }
 
-pub trait CommandLineContext {
-    fn resolve_project_path(
-        &self,
-        path: ProjectRelativePathBuf,
-    ) -> buck2_error::Result<CommandLineLocation<'_>>;
-
-    fn fs(&self) -> &ExecutorFs<'_>;
-
-    /// Resolves the 'Artifact's to a 'CommandLineLocation' relative to the directory this command will run in.
-    fn resolve_artifact(
-        &self,
-        artifact: &Artifact,
-        artifact_path_mapping: &dyn ArtifactPathMapper,
-    ) -> buck2_error::Result<CommandLineLocation<'_>> {
-        self.resolve_project_path(
-            artifact.resolve_path(self.fs().fs(), artifact_path_mapping.get(artifact))?,
-        )
-        .with_buck_error_context(|| format!("Error resolving artifact: {artifact}"))
-    }
-
-    /// Resolves the OutputArtifact to a 'CommandLineLocation' relative to the directory this command will run in.
-    /// For content-based paths, this will resolve to a "constant" path, i.e. one that is known in advance and is
-    /// not actually dependent upon the artifact's content.
-    fn resolve_output_artifact(
-        &self,
-        artifact: &Artifact,
-    ) -> buck2_error::Result<CommandLineLocation<'_>> {
-        self.resolve_project_path(artifact.get_path().resolve(
-            self.fs().fs(),
-            Some(&ContentBasedPathHash::for_output_artifact()),
-        )?)
-        .with_buck_error_context(|| format!("Error resolving output artifact: {artifact}"))
-    }
-
-    fn resolve_cell_path(&self, path: CellPathRef) -> buck2_error::Result<CommandLineLocation<'_>> {
-        self.resolve_project_path(self.fs().fs().resolve_cell_path(path)?)
-            .with_buck_error_context(|| format!("Error resolving cell path: {path}"))
-    }
-
-    /// Result is 'RelativePathBuf' relative to the directory this command will run in. The path points to the file containing expanded macro.
-    fn next_macro_file_path(&mut self) -> buck2_error::Result<RelativePathBuf>;
-}
-
 /// CommandLineBuilder accumulates elements into some form of list (which might be an actual Vec, a
 /// space-separated list, etc.). An API is provided to add individual elements. Lower-level APIs
 /// are exposed to allow access to a buffer and control end-of-element.
 pub trait CommandLineBuilder {
     /// Add a standalone element to this command line builder. This element
     fn push_arg(&mut self, s: Cow<'_, str>);
-
-    fn push_location(&mut self, location: CommandLineLocation<'_>) {
-        self.push_arg(Cow::Owned(location.into_string()));
-    }
 }
 
 impl CommandLineBuilder for Vec<String> {

@@ -87,7 +87,7 @@ fn check_cmd_args(path: &str, layers: &[&[CmdArgsOpt]], expected: &[&str]) {
     let expected_strs: Vec<String> = expected.iter().map(|s| starlark_quote(s)).collect();
     writeln!(
         code,
-        "    assert_eq(get_args(x), [{}])",
+        "    assert_eq([{}], get_args(x))",
         expected_strs.join(", ")
     )
     .unwrap();
@@ -200,7 +200,7 @@ fn test_opts_parent_after_prefix() {
 #[test]
 fn test_opts_parent_error_too_many() {
     use CmdArgsOpt::*;
-    check_cmd_args_error("foo/qux.h", &[&[Parent(3)]], "too many .parent() calls");
+    check_cmd_args_error("foo/qux.h", &[&[Parent(3)]], "does not have 3 parent");
 }
 
 // ===================================================================
@@ -252,7 +252,7 @@ fn test_opts_prefix_in_prefix() {
     check_cmd_args(
         "a/b.h",
         &[&[AbsolutePrefix("B/")], &[AbsolutePrefix("A/")]],
-        &["B/A/a/b.h"],
+        &["B/a/b.h"],
     );
 }
 
@@ -262,7 +262,7 @@ fn test_opts_suffix_in_suffix() {
     check_cmd_args(
         "a/b.h",
         &[&[AbsoluteSuffix("!")], &[AbsoluteSuffix("?")]],
-        &["a/b.h?!"],
+        &["a/b.h!"],
     );
 }
 
@@ -275,7 +275,7 @@ fn test_opts_prefix_suffix_in_prefix_suffix() {
             &[AbsolutePrefix("B/"), AbsoluteSuffix("!")],
             &[AbsolutePrefix("A/"), AbsoluteSuffix("?")],
         ],
-        &["B/A/a/b.h?!"],
+        &["B/a/b.h!"],
     );
 }
 
@@ -314,27 +314,20 @@ fn test_opts_parent_in_relative_to() {
 #[test]
 fn test_opts_relative_to_in_parent() {
     use CmdArgsOpt::*;
-    // FIXME(JakobDegen): Bug? Outer `parent` applies to *both* the artifact
-    // path and the `relative_to` origin before the relative path is computed,
-    // which changes the result vs the reverse nesting order
-    // (`test_opts_parent_in_relative_to` produces `["b/c"]`).
     check_cmd_args(
         "a/b/c/d.h",
         &[&[RelativeTo("a/ref.txt", 1)], &[Parent(1)]],
-        &["a/b/c"],
+        &["b/c"],
     );
 }
 
 #[test]
 fn test_opts_relative_to_in_prefix() {
     use CmdArgsOpt::*;
-    // FIXME(JakobDegen): Bug? The prefix is silently swallowed because it is
-    // applied to both the artifact and the relative_to origin, then canceled
-    // out by the relative path computation.
     check_cmd_args(
         "a/b/c.h",
         &[&[RelativeTo("a/ref.txt", 1)], &[AbsolutePrefix("P/")]],
-        &["b/c.h"],
+        &["P/b/c.h"],
     );
 }
 

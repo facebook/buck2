@@ -19,15 +19,15 @@ use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use buck2_build_api::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
-use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
 use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCommandLineValueUnpack;
 use buck2_build_api::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value::CommandLineArg;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedMacro;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::request::OutputType;
-use buck2_fs::paths::relative_path::RelativePathBuf;
 use buck2_hash::BuckHashMap;
 use buck2_hash::buck_indexset;
 use dupe::Dupe;
@@ -238,14 +238,10 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
                     Ok(())
                 }
 
-                fn set_current_relative_to_path(
-                    &mut self,
-                    _gen: &dyn Fn(
-                        &dyn CommandLineContext,
-                    )
-                        -> buck2_error::Result<Option<RelativePathBuf>>,
-                ) -> buck2_error::Result<()> {
-                    Ok(())
+                fn set_current_relative_to_path(&mut self, _p: ProjectRelativePathBuf) {}
+
+                fn fs(&self) -> Option<&ExecutorFs<'_>> {
+                    None
                 }
             }
 

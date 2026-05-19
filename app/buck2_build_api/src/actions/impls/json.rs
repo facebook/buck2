@@ -43,13 +43,10 @@ use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkInp
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsInputArtifactLike;
 use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
 use crate::interpreter::rule_defs::artifact_tagging::StarlarkTaggedValue;
-use crate::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
-use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::CommandLineFormatter;
 use crate::interpreter::rule_defs::cmd_args::CommandLineLocation;
-use crate::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::FrozenStarlarkCmdArgs;
 use crate::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
 use crate::interpreter::rule_defs::cmd_args::value::CommandLineArg;
@@ -101,22 +98,6 @@ fn err<R, E: serde::ser::Error>(res: buck2_error::Result<R>) -> Result<R, E> {
         Ok(v) => Ok(v),
         Err(e) => Err(serde::ser::Error::custom(format!("{e:#}"))),
     }
-}
-
-fn with_command_line_context<F, T>(fs: &ExecutorFs<'_>, absolute: bool, f: F) -> T
-where
-    F: FnOnce(&mut dyn CommandLineContext) -> T,
-{
-    let mut ctx = DefaultCommandLineContext::new(fs);
-    let mut abs;
-    let ctx = if absolute {
-        abs = AbsCommandLineContext::wrap(ctx);
-        &mut abs as _
-    } else {
-        &mut ctx as _
-    };
-
-    f(ctx)
 }
 
 /// Grab the value as an artifact, if you can.
@@ -239,18 +220,17 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
                         }
                     }
                     Some(fs) => {
-                        // WriteJsonCommandLineArgGen assumes that any args/write-to-file macros are
-                        // rejected here and needs to be updated if that changes.
                         let mut items = Vec::<String>::new();
-
-                        with_command_line_context(fs, self.absolute, |ctx| {
-                            let mut fmt = CommandLineFormatter::new(
-                                &mut items,
-                                ctx,
-                                self.artifact_path_mapping,
-                            );
-                            err(x.as_command_line_arg().add_to_command_line(&mut fmt))
-                        })?;
+                        let mut fmt = CommandLineFormatter::new_with_options(
+                            &mut items,
+                            self.artifact_path_mapping,
+                            fs,
+                            self.absolute,
+                            // WriteJsonCommandLineArgGen assumes that any args/write-to-file macros are
+                            // rejected here and needs to be updated if that changes.
+                            None,
+                        );
+                        err(x.as_command_line_arg().add_to_command_line(&mut fmt))?;
 
                         // We change the type, based on the value - singleton = String, otherwise list.
                         // That's a little annoying (type based on value), but otherwise there would be

@@ -14,7 +14,6 @@ mod format;
 mod options;
 pub(crate) mod regex;
 pub(crate) mod shlex_quote;
-pub mod space_separated;
 mod traits;
 mod typ;
 pub mod value;

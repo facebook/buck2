@@ -22,7 +22,6 @@ use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_error::internal_error;
-use buck2_fs::paths::RelativePathBuf;
 use buck2_hash::BuckIndexSet;
 use display_container::display_pair;
 use display_container::fmt_container;
@@ -72,6 +71,7 @@ use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkO
 use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command_line_arg_like_impl;
+use crate::interpreter::rule_defs::cmd_args::compute_relative_to_path;
 use crate::interpreter::rule_defs::cmd_args::format::CommandLineFormatter;
 use crate::interpreter::rule_defs::cmd_args::options::CommandLineOptions;
 use crate::interpreter::rule_defs::cmd_args::options::CommandLineOptionsRef;
@@ -82,7 +82,6 @@ use crate::interpreter::rule_defs::cmd_args::options::RelativeOrigin;
 use crate::interpreter::rule_defs::cmd_args::regex::CmdArgsRegex;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineArtifactVisitor;
-use crate::interpreter::rule_defs::cmd_args::traits::CommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::traits::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::traits::WriteToFileMacroVisitor;
 use crate::interpreter::rule_defs::cmd_args::value::CommandLineArg;
@@ -195,22 +194,6 @@ impl<'v, F: Fields<'v>> FieldsRef<'v, F> {
             false
         }
     }
-
-    fn relative_to_path<C>(
-        &self,
-        ctx: &C,
-        artifact_path_mapping: &dyn ArtifactPathMapper,
-    ) -> buck2_error::Result<Option<RelativePathBuf>>
-    where
-        C: CommandLineContext + ?Sized,
-    {
-        match &self.0.options() {
-            None => Ok(None),
-            Some(options) => options
-                .to_command_line_options()
-                .relative_to_path(ctx, artifact_path_mapping),
-        }
-    }
 }
 
 impl<'v, F: Fields<'v>> CommandLineArgLike<'v> for FieldsRef<'v, F> {
@@ -229,12 +212,19 @@ impl<'v, F: Fields<'v>> CommandLineArgLike<'v> for FieldsRef<'v, F> {
                 }
                 Ok(())
             }
-            Some(options) => options.to_command_line_options().wrap_builder(fmt, |fmt| {
+            Some(options) => {
+                let options = options.to_command_line_options();
+                if options.changes_builder() {
+                    fmt.push_scope(&options)?;
+                }
                 for item in self.0.items() {
                     item.as_command_line_arg().add_to_command_line(fmt)?;
                 }
+                if options.changes_builder() {
+                    fmt.pop_scope();
+                }
                 Ok(())
-            }),
+            }
         }
     }
 
@@ -336,9 +326,18 @@ impl<'v, F: Fields<'v>> CommandLineArgLike<'v> for FieldsRef<'v, F> {
         visitor: &mut dyn WriteToFileMacroVisitor,
         artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
-        visitor.set_current_relative_to_path(&|ctx| {
-            self.relative_to_path(ctx, artifact_path_mapping)
-        })?;
+        if let Some(options) = &self.0.options() {
+            if let Some((p, parents)) = options.to_command_line_options().relative_to {
+                if let Some(fs) = visitor.fs() {
+                    visitor.set_current_relative_to_path(compute_relative_to_path(
+                        p,
+                        parents,
+                        fs,
+                        artifact_path_mapping,
+                    )?);
+                }
+            }
+        }
 
         for item in self.0.items() {
             item.as_command_line_arg()
