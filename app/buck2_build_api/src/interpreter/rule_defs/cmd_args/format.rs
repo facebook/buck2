@@ -14,18 +14,20 @@ use std::sync::Arc;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::content_hash::ContentBasedPathHash;
+use buck2_core::execution_types::executor_config::PathSeparatorKind;
+use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::fs::ExecutorFs;
+use buck2_fs::paths::RelativePath;
 use buck2_interpreter::types::regex::StarlarkBuckRegex;
 use dupe::Dupe;
 use either::Either;
 use regex::Regex;
 use starlark::values::ValueOfUnchecked;
 
-use crate::interpreter::rule_defs::cmd_args::CommandLineLocation;
 use crate::interpreter::rule_defs::cmd_args::options::CommandLineOptionsRef;
 use crate::interpreter::rule_defs::cmd_args::options::OptionsReplacementsRef;
 use crate::interpreter::rule_defs::cmd_args::options::QuoteStyle;
@@ -378,13 +380,13 @@ impl<'v, 'a> CommandLineFormatter<'v, 'a> {
                 .as_forward_relative_path()
                 .as_relative_path()
                 .relative(path.as_forward_relative_path().as_relative_path());
-            CommandLineLocation::format(&p, &self.fs).into_owned()
+            path_format(&p, self.fs.path_separator()).into_owned()
         } else if self.absolute {
             // Note that for obvious reasons we ignore `absolute` in the case where there's a
             // `relative_to` provided
-            CommandLineLocation::format_absolute(&path, &self.fs).into_owned()
+            path_format_absolute(&path, self.fs.path_separator(), self.fs.fs().fs()).into_owned()
         } else {
-            CommandLineLocation::format(path.as_ref(), &self.fs).into_owned()
+            path_format(path.as_ref(), self.fs.path_separator()).into_owned()
         };
 
         if let Some(absolute_prefix) = absolute_prefix {
@@ -454,5 +456,79 @@ impl<'v, 'a> CommandLineFormatter<'v, 'a> {
             }
         }
         sink.push_arg(Cow::Owned(cur));
+    }
+}
+
+/// Returns the path rendered in a way that is appropriate for use in command lines.
+pub fn path_format<'p>(path: &'p RelativePath, sep: PathSeparatorKind) -> Cow<'p, str> {
+    let parts = path.components().count();
+    if parts == 0 {
+        // In command lines, the empty path is the current directory, so use that instead
+        // so we don't have to deal with empty strings being implicit current directory.
+        Cow::Borrowed(".")
+    } else if parts == 1 {
+        // If the path isn't empty, but doesn't have any path separators, add `./` This
+        // ensures that if we have an executable relative to the repo root, we can
+        // execute it (since `execvp`'s behavior is dependent on the presence of a `/`
+        // in the path).
+        let mut res = String::with_capacity(path.as_str().len() + 2);
+        res.push('.');
+        res.push(match sep {
+            PathSeparatorKind::Unix => '/',
+            PathSeparatorKind::Windows => '\\',
+        });
+        res.push_str(path.as_str());
+        Cow::Owned(res)
+    } else {
+        match sep {
+            PathSeparatorKind::Unix => Cow::Borrowed(path.as_str()),
+            PathSeparatorKind::Windows => Cow::Owned(path.as_str().replace('/', "\\")),
+        }
+    }
+}
+
+pub(crate) fn path_format_absolute<'p>(
+    path: &'p ProjectRelativePath,
+    sep: PathSeparatorKind,
+    root: &ProjectRoot,
+) -> Cow<'p, str> {
+    let mut p = root.root().to_path_buf();
+    p.extend(path.iter());
+    // FIXME(JakobDegen): Seriously?
+    let s = p.to_string_lossy();
+    // FIXME(JakobDegen): This is pretty confused. `PathBuf` and our absolute path types
+    // use the host's path separators. Fix, and also write a test, and also fix the path
+    // types to make these sorts of bugs not possible
+    if sep == PathSeparatorKind::Windows {
+        Cow::Owned(s.as_ref().replace('/', "\\"))
+    } else {
+        Cow::Owned(s.into_owned())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use buck2_core::execution_types::executor_config::PathSeparatorKind;
+    use buck2_fs::paths::RelativePath;
+
+    use super::*;
+
+    #[test]
+    fn test_path_format() {
+        let unix = PathSeparatorKind::Unix;
+        let windows = PathSeparatorKind::Windows;
+
+        assert_eq!(path_format(RelativePath::empty(), unix), ".");
+        assert_eq!(path_format(RelativePath::empty(), windows), ".");
+        assert_eq!(path_format(RelativePath::unchecked_new("a"), unix), "./a");
+        assert_eq!(
+            path_format(RelativePath::unchecked_new("a"), windows),
+            ".\\a"
+        );
+        assert_eq!(path_format(RelativePath::unchecked_new("a/b"), unix), "a/b");
+        assert_eq!(
+            path_format(RelativePath::unchecked_new("a/b"), windows),
+            "a\\b"
+        );
     }
 }

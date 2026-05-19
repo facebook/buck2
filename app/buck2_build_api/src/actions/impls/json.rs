@@ -46,9 +46,10 @@ use crate::interpreter::rule_defs::artifact_tagging::StarlarkTaggedValue;
 use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineFormatter;
-use crate::interpreter::rule_defs::cmd_args::CommandLineLocation;
 use crate::interpreter::rule_defs::cmd_args::FrozenStarlarkCmdArgs;
 use crate::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
+use crate::interpreter::rule_defs::cmd_args::path_format;
+use crate::interpreter::rule_defs::cmd_args::path_format_absolute;
 use crate::interpreter::rule_defs::cmd_args::value::CommandLineArg;
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::provider::ValueAsProviderLike;
@@ -200,9 +201,9 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
                             }
                         };
                         let p = if self.absolute {
-                            CommandLineLocation::format_absolute(&p, fs)
+                            path_format_absolute(&p, fs.path_separator(), fs.fs().fs())
                         } else {
-                            CommandLineLocation::format(p.as_ref(), fs)
+                            path_format(p.as_ref(), fs.path_separator())
                         };
                         serializer.serialize_str(p.as_ref())
                     }

@@ -42,12 +42,12 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineFormatter;
-use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineLocation;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineSink;
 use buck2_build_api::interpreter::rule_defs::cmd_args::FrozenStarlarkCmdArgs;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SingletonCommandLineSink;
 use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
+use buck2_build_api::interpreter::rule_defs::cmd_args::path_format;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::FrozenWorkerInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
@@ -976,7 +976,7 @@ impl RunAction {
 
             extra_env.push((
                 metadata_param.env_var.to_owned(),
-                CommandLineLocation::format(project_rel_path.as_ref(), fs).into_owned(),
+                path_format(project_rel_path.as_ref(), fs.path_separator()).into_owned(),
             ));
         }
         Ok(())
@@ -999,7 +999,7 @@ impl RunAction {
 
         extra_env.push((
             "BUCK_SCRATCH_PATH".to_owned(),
-            CommandLineLocation::format(scratch_path.as_ref(), fs).into_owned(),
+            path_format(scratch_path.as_ref(), fs.path_separator()).into_owned(),
         ));
         inputs.push(CommandExecutionInput::ScratchPath(scratch));
 
