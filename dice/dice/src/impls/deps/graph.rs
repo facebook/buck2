@@ -135,14 +135,6 @@ impl SeriesParallelDeps {
         }
     }
 
-    pub(crate) fn dep_count(&self) -> usize {
-        match self {
-            SeriesParallelDeps::None => 0,
-            SeriesParallelDeps::One(_) => 1,
-            SeriesParallelDeps::Many(many) => many.deps.len(),
-        }
-    }
-
     pub(crate) fn is_empty(&self) -> bool {
         match self {
             SeriesParallelDeps::None => true,

@@ -200,7 +200,7 @@ fn emit_totals(dice: &Dice) -> anyhow::Result<()> {
     let row = json_value::json!({
         "type": "metrics",
         "dice_nodes": m.key_count,
-        "dice_edges": m.edge_count,
+        "dice_edges": (|| -> String { unimplemented!("TODO(ctolliday): need new implementation of this") })(),
     });
     let stdout = std::io::stdout();
     let mut out = stdout.lock();
