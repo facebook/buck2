@@ -50,8 +50,8 @@ impl FileWritingProfileEventListener {
 }
 
 impl FileWritingProfileEventListener {
-    /// Writes the all_keys.list file and returns an error if any occurred while writing the profile files.
-    pub fn finalize(&self) -> buck2_error::Result<()> {
+    /// Writes the all_keys.list file and returns the path to the merged SVG if one was generated.
+    pub fn finalize(&self) -> buck2_error::Result<Option<AbsPathBuf>> {
         let lock = self.state.lock().unwrap();
         fs_util::create_dir_all(&self.base_path)?;
         let merged_profile =
@@ -62,12 +62,19 @@ impl FileWritingProfileEventListener {
             merged_profile.targets.iter().join("\n"),
         )
         .categorize_internal()?;
-        write_profile_data(&merged_profile, self.base_path.join("merged"))?;
+        let merged_prefix = self.base_path.join("merged");
+        write_profile_data(&merged_profile, merged_prefix.clone())?;
 
         if let Some(e) = lock.errors.first() {
             return Err(e.dupe());
         }
-        Ok(())
+
+        let merged_svg = merged_prefix.with_added_extension("svg");
+        if merged_svg.exists() {
+            Ok(Some(merged_svg))
+        } else {
+            Ok(None)
+        }
     }
 
     fn handle_profile_collected(
