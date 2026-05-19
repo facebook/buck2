@@ -251,7 +251,10 @@ impl<'v> CommandLineArgLike<'v> for StarlarkArtifact {
         command_line_arg_like_impl!(StarlarkArtifact::starlark_type_repr());
     }
 
-    fn add_to_command_line(&self, fmt: &mut CommandLineFormatter) -> buck2_error::Result<()> {
+    fn add_to_command_line(
+        &self,
+        fmt: &mut CommandLineFormatter<'v, '_>,
+    ) -> buck2_error::Result<()> {
         fmt.push_artifact(&self.artifact)?;
         Ok(())
     }

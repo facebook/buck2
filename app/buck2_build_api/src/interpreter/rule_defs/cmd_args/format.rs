@@ -9,6 +9,7 @@
  */
 
 use std::borrow::Cow;
+use std::marker::PhantomData;
 
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::cells::cell_path::CellPathRef;
@@ -18,13 +19,14 @@ use crate::interpreter::rule_defs::cmd_args::traits::ArtifactPathMapper;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineContext;
 
-pub struct CommandLineFormatter<'a> {
+pub struct CommandLineFormatter<'v, 'a> {
     pub(crate) cli: &'a mut dyn CommandLineBuilder,
     pub(crate) context: &'a mut dyn CommandLineContext,
     pub(crate) artifact_path_mapping: &'a dyn ArtifactPathMapper,
+    phantom: PhantomData<fn(&'v ()) -> &'v ()>,
 }
 
-impl<'a> CommandLineFormatter<'a> {
+impl<'v, 'a> CommandLineFormatter<'v, 'a> {
     pub fn new(
         cli: &'a mut dyn CommandLineBuilder,
         context: &'a mut dyn CommandLineContext,
@@ -34,6 +36,7 @@ impl<'a> CommandLineFormatter<'a> {
             cli,
             context,
             artifact_path_mapping,
+            phantom: PhantomData,
         }
     }
 

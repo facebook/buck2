@@ -115,7 +115,10 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike<'v> for RunInfoGen<V> {
         command_line_arg_like_impl!(RunInfo::starlark_type_repr());
     }
 
-    fn add_to_command_line(&self, fmt: &mut CommandLineFormatter) -> buck2_error::Result<()> {
+    fn add_to_command_line(
+        &self,
+        fmt: &mut CommandLineFormatter<'v, '_>,
+    ) -> buck2_error::Result<()> {
         ValueAsCommandLineLike::unpack_value_err(self.args.get().to_value())
             .expect("a command line from construction")
             .0

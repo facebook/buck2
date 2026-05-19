@@ -606,8 +606,8 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
 
     pub(crate) fn wrap_builder<R>(
         &self,
-        fmt: &mut CommandLineFormatter,
-        f: impl for<'b> FnOnce(&'b mut CommandLineFormatter) -> buck2_error::Result<R>,
+        fmt: &mut CommandLineFormatter<'v, '_>,
+        f: impl for<'b> FnOnce(&'b mut CommandLineFormatter<'v, '_>) -> buck2_error::Result<R>,
     ) -> buck2_error::Result<R> {
         struct ExtrasBuilder<'a, 'v> {
             builder: &'a mut dyn CommandLineBuilder,

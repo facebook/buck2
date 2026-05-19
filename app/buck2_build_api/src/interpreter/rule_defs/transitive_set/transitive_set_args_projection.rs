@@ -126,7 +126,7 @@ impl<'v, V: ValueLike<'v>> TransitiveSetArgsProjectionGen<V> {
 
             fn add_to_command_line(
                 &self,
-                fmt: &mut CommandLineFormatter,
+                fmt: &mut CommandLineFormatter<'v, '_>,
             ) -> buck2_error::Result<()> {
                 match self {
                     Impl::Item(v) => v.add_to_command_line(fmt),
@@ -231,7 +231,10 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike<'v> for TransitiveSetArgsProjectio
         command_line_arg_like_impl!(TransitiveSetArgsProjection::starlark_type_repr());
     }
 
-    fn add_to_command_line(&self, fmt: &mut CommandLineFormatter) -> buck2_error::Result<()> {
+    fn add_to_command_line(
+        &self,
+        fmt: &mut CommandLineFormatter<'v, '_>,
+    ) -> buck2_error::Result<()> {
         let set = TransitiveSet::from_value(self.transitive_set.get().to_value())
             .ok_or_else(|| internal_error!("Invalid transitive_set"))?;
 

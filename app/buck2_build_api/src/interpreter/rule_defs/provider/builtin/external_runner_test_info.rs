@@ -255,7 +255,10 @@ pub enum TestCommandMember<'v> {
 }
 
 impl<'v> TestCommandMember<'v> {
-    pub fn add_to_command_line(&self, fmt: &mut CommandLineFormatter) -> buck2_error::Result<()> {
+    pub fn add_to_command_line(
+        &self,
+        fmt: &mut CommandLineFormatter<'v, '_>,
+    ) -> buck2_error::Result<()> {
         match self {
             Self::Literal(literal) => literal.add_to_command_line(fmt),
             Self::Arglike(arglike) => arglike.add_to_command_line(fmt),

@@ -344,7 +344,10 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike<'v> for StarlarkWriteJsonCommandLi
         command_line_arg_like_impl!(StarlarkWriteJsonCommandLineArg::starlark_type_repr());
     }
 
-    fn add_to_command_line(&self, fmt: &mut CommandLineFormatter) -> buck2_error::Result<()> {
+    fn add_to_command_line(
+        &self,
+        fmt: &mut CommandLineFormatter<'v, '_>,
+    ) -> buck2_error::Result<()> {
         ValueAsCommandLineLike::unpack_value_err(self.artifact.to_value())?
             .0
             .add_to_command_line(fmt)

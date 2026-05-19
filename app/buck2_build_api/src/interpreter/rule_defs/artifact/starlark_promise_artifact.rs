@@ -268,7 +268,10 @@ impl<'v> CommandLineArgLike<'v> for StarlarkPromiseArtifact {
         command_line_arg_like_impl!(StarlarkPromiseArtifact::starlark_type_repr());
     }
 
-    fn add_to_command_line(&self, fmt: &mut CommandLineFormatter) -> buck2_error::Result<()> {
+    fn add_to_command_line(
+        &self,
+        fmt: &mut CommandLineFormatter<'v, '_>,
+    ) -> buck2_error::Result<()> {
         match self.artifact.get() {
             Some(v) => {
                 fmt.push_artifact(v)?;

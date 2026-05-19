@@ -299,7 +299,10 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike<'v> for StarlarkOutputArtifactGen<
         command_line_arg_like_impl!(FrozenStarlarkOutputArtifact::starlark_type_repr());
     }
 
-    fn add_to_command_line(&self, fmt: &mut CommandLineFormatter) -> buck2_error::Result<()> {
+    fn add_to_command_line(
+        &self,
+        fmt: &mut CommandLineFormatter<'v, '_>,
+    ) -> buck2_error::Result<()> {
         match self.unpack() {
             Either::Left(_) => Err(buck2_error::internal_error!(
                 "Cannot add an unfrozen output artifact to a command line. \
