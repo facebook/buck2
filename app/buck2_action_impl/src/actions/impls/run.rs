@@ -42,8 +42,8 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineBuilder;
-use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineFormatter;
+use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineLocation;
 use buck2_build_api::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::FrozenStarlarkCmdArgs;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
@@ -66,6 +66,7 @@ use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuckOutPathKind;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_error::internal_error;
@@ -849,15 +850,13 @@ impl RunAction {
             artifact_inputs[..].map(|&i| CommandExecutionInput::Artifact(Box::new(i.dupe())));
 
         let mut extra_env = Vec::new();
-        let cli_ctx = DefaultCommandLineContext::new(&executor_fs);
-        self.prepare_action_metadata(ctx, &cli_ctx, fs, visitor, &mut inputs, &mut extra_env)
+        self.prepare_action_metadata(ctx, &executor_fs, visitor, &mut inputs, &mut extra_env)
             .await?;
 
         let mut shared_content_based_paths = Vec::new();
         self.prepare_scratch_path(
             ctx,
-            &cli_ctx,
-            fs,
+            &executor_fs,
             &mut inputs,
             &mut shared_content_based_paths,
             &mut extra_env,
@@ -865,12 +864,10 @@ impl RunAction {
 
         for output in self.outputs.iter() {
             if output.get_path().is_content_based_path() {
-                let full_path = cli_ctx
-                    .resolve_project_path(fs.buck_out_path_resolver().resolve_gen(
-                        output.get_path(),
-                        Some(&ContentBasedPathHash::for_output_artifact()),
-                    )?)?
-                    .into_string();
+                let full_path = fs.buck_out_path_resolver().resolve_gen(
+                    output.get_path(),
+                    Some(&ContentBasedPathHash::for_output_artifact()),
+                )?;
                 shared_content_based_paths.push(full_path);
             }
         }
@@ -878,7 +875,10 @@ impl RunAction {
         // TODO(ianc) Only do this if we're actually going to run the action?
         let host_sharing_requirements = if !shared_content_based_paths.is_empty() {
             HostSharingRequirements::OnePerTokens(
-                shared_content_based_paths.into(),
+                shared_content_based_paths
+                    .into_iter()
+                    .map(|p| p.to_string())
+                    .collect(),
                 self.inner.weight,
             )
         } else {
@@ -919,8 +919,7 @@ impl RunAction {
     async fn prepare_action_metadata(
         &self,
         ctx: &dyn ActionExecutionCtx,
-        cli_ctx: &DefaultCommandLineContext<'_>,
-        fs: &ArtifactFs,
+        fs: &ExecutorFs<'_>,
         visitor: &mut RunActionVisitor<'_>,
         inputs: &mut Vec<CommandExecutionInput>,
         extra_env: &mut Vec<(String, String)>,
@@ -941,15 +940,16 @@ impl RunAction {
                 .iter()
                 .map(|group| ctx.artifact_values(group))
                 .collect();
-            let (data, digest) = metadata_content(fs, &artifact_inputs, ctx.digest_config())?;
+            let (data, digest) = metadata_content(fs.fs(), &artifact_inputs, ctx.digest_config())?;
             let content_hash = ContentBasedPathHash::new(digest.raw_digest().as_bytes())?;
             let project_rel_path = fs
+                .fs()
                 .buck_out_path_resolver()
                 .resolve_gen(&path, Some(&content_hash))?;
 
             let configuration_path = ctx
                 .materializer()
-                .maybe_eager_configuration_path(fs, &path)?;
+                .maybe_eager_configuration_path(fs.fs(), &path)?;
 
             ctx.materializer()
                 .declare_write(Box::new(|| {
@@ -969,10 +969,10 @@ impl RunAction {
                 content_hash,
             }));
 
-            let env = cli_ctx
-                .resolve_project_path(project_rel_path)?
-                .into_string();
-            extra_env.push((metadata_param.env_var.to_owned(), env));
+            extra_env.push((
+                metadata_param.env_var.to_owned(),
+                CommandLineLocation::format(project_rel_path.as_ref(), fs).into_owned(),
+            ));
         }
         Ok(())
     }
@@ -980,22 +980,22 @@ impl RunAction {
     fn prepare_scratch_path(
         &self,
         ctx: &dyn ActionExecutionCtx,
-        cli_ctx: &DefaultCommandLineContext,
-        fs: &ArtifactFs,
+        fs: &ExecutorFs,
         inputs: &mut Vec<CommandExecutionInput>,
-        shared_content_based_paths: &mut Vec<String>,
+        shared_content_based_paths: &mut Vec<ProjectRelativePathBuf>,
         extra_env: &mut Vec<(String, String)>,
     ) -> buck2_error::Result<()> {
         let scratch = ctx.target().scratch_path();
-        let scratch_path = cli_ctx
-            .resolve_project_path(fs.buck_out_path_resolver().resolve_scratch(&scratch)?)?
-            .into_string();
+        let scratch_path = fs.fs().buck_out_path_resolver().resolve_scratch(&scratch)?;
 
         if scratch.uses_content_hash() {
-            shared_content_based_paths.push(scratch_path.to_owned());
+            shared_content_based_paths.push(scratch_path.clone());
         }
 
-        extra_env.push(("BUCK_SCRATCH_PATH".to_owned(), scratch_path));
+        extra_env.push((
+            "BUCK_SCRATCH_PATH".to_owned(),
+            CommandLineLocation::format(scratch_path.as_ref(), fs).into_owned(),
+        ));
         inputs.push(CommandExecutionInput::ScratchPath(scratch));
 
         Ok(())

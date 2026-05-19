@@ -23,6 +23,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::fs::ExecutorFs;
+use buck2_fs::paths::RelativePath;
 use buck2_fs::paths::RelativePathBuf;
 use buck2_hash::BuckHashMap;
 use buck2_hash::BuckIndexSet;
@@ -356,40 +357,11 @@ impl CommandLineLocation<'_> {
             path_separator,
         } = self;
 
-        let mut root_buf;
-        let res = match root {
-            Some(root) => {
-                root_buf = root.root().to_path_buf();
-                root_buf.extend(path.iter());
-                root_buf.to_string_lossy()
-            }
-            None => {
-                let path = path.as_str();
-
-                if path.contains('/') {
-                    Cow::Borrowed(path)
-                } else if path.is_empty() {
-                    // In command lines, the empty path is the current directory, so use that instead
-                    // so we don't have to deal with empty strings being implicit current directory.
-                    Cow::Borrowed(".")
-                } else {
-                    // If the path isn't empty, but doesn't have any path separators, add `./` This
-                    // ensures that if we have an executable relative to the repo root, we can
-                    // execute it (since `execvp`'s behavior is dependent on the presence of a `/`
-                    // in the path).
-                    let mut res = String::with_capacity(path.len() + 2);
-                    res.push_str("./");
-                    res.push_str(path);
-                    Cow::Owned(res)
-                }
-            }
-        };
-
-        if path_separator == PathSeparatorKind::Windows {
-            res.replace('/', "\\")
-        } else {
-            res.into_owned()
+        match root {
+            Some(root) => Self::format_absolute_inner(&path, path_separator, root),
+            None => Self::format_inner(&path, path_separator),
         }
+        .into_owned()
     }
 }
 
@@ -411,6 +383,63 @@ impl<'a> CommandLineLocation<'a> {
             root: None,
             path,
             path_separator,
+        }
+    }
+
+    /// Returns the path rendered in a way that is appropriate for use in command lines.
+    pub fn format<'p>(path: &'p RelativePath, fs: &ExecutorFs) -> Cow<'p, str> {
+        Self::format_inner(path, fs.path_separator())
+    }
+
+    fn format_inner<'p>(path: &'p RelativePath, sep: PathSeparatorKind) -> Cow<'p, str> {
+        let parts = path.components().count();
+        if parts == 0 {
+            // In command lines, the empty path is the current directory, so use that instead
+            // so we don't have to deal with empty strings being implicit current directory.
+            Cow::Borrowed(".")
+        } else if parts == 1 {
+            // If the path isn't empty, but doesn't have any path separators, add `./` This
+            // ensures that if we have an executable relative to the repo root, we can
+            // execute it (since `execvp`'s behavior is dependent on the presence of a `/`
+            // in the path).
+            let mut res = String::with_capacity(path.as_str().len() + 2);
+            res.push('.');
+            res.push(match sep {
+                PathSeparatorKind::Unix => '/',
+                PathSeparatorKind::Windows => '\\',
+            });
+            res.push_str(path.as_str());
+            Cow::Owned(res)
+        } else {
+            match sep {
+                PathSeparatorKind::Unix => Cow::Borrowed(path.as_str()),
+                PathSeparatorKind::Windows => Cow::Owned(path.as_str().replace('/', "\\")),
+            }
+        }
+    }
+
+    /// Similar to `format` but produces an absolute path
+    pub fn format_absolute<'p>(path: &'p ProjectRelativePath, fs: &ExecutorFs) -> Cow<'p, str> {
+        Self::format_absolute_inner(path.as_ref(), fs.path_separator(), fs.fs().fs())
+    }
+
+    fn format_absolute_inner<'p>(
+        // FIXME(JakobDegen): This is completely wrong if it's not a `ProjectRelativePath`
+        path: &'p RelativePath,
+        sep: PathSeparatorKind,
+        root: &ProjectRoot,
+    ) -> Cow<'p, str> {
+        let mut p = root.root().to_path_buf();
+        p.extend(path.iter());
+        // FIXME(JakobDegen): Seriously?
+        let s = p.to_string_lossy();
+        // FIXME(JakobDegen): This is pretty confused. `PathBuf` and our absolute path types
+        // use the host's path separators. Fix, and also write a test, and also fix the path
+        // types to make these sorts of bugs not possible
+        if sep == PathSeparatorKind::Windows {
+            Cow::Owned(s.as_ref().replace('/', "\\"))
+        } else {
+            Cow::Owned(s.into_owned())
         }
     }
 }

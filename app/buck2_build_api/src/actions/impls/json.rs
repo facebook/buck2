@@ -12,7 +12,6 @@ use std::io::Write;
 use std::io::sink;
 use std::sync::Arc;
 
-use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_error::BuckErrorContext;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
@@ -21,7 +20,6 @@ use buck2_hash::BuckHashMap;
 use buck2_interpreter::types::cell_path::StarlarkCellPath;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
-use dupe::Dupe;
 use either::Either;
 use serde::Serialize;
 use serde::Serializer;
@@ -50,6 +48,7 @@ use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::CommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::CommandLineFormatter;
+use crate::interpreter::rule_defs::cmd_args::CommandLineLocation;
 use crate::interpreter::rule_defs::cmd_args::DefaultCommandLineContext;
 use crate::interpreter::rule_defs::cmd_args::FrozenStarlarkCmdArgs;
 use crate::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
@@ -130,18 +129,6 @@ pub enum JsonArtifact<'v> {
     StarlarkOutputArtifact(ValueTypedComplex<'v, StarlarkOutputArtifact<'v>>),
 }
 
-impl<'v> JsonArtifact<'v> {
-    fn artifact(&self) -> buck2_error::Result<Artifact> {
-        match self {
-            JsonArtifact::ValueAsInputArtifactLike(x) => Ok(x.0.get_bound_artifact()?.dupe()),
-            JsonArtifact::StarlarkOutputArtifact(x) => match x.unpack() {
-                Either::Left(x) => Ok((*x.inner()).get_bound_artifact()?.dupe()),
-                Either::Right(x) => Ok(x.inner().artifact()),
-            },
-        }
-    }
-}
-
 /// Partially unpack the value into JSON writable with `ctx.actions.write_json`.
 /// This does not help typechecker much (because it only validates top-level types),
 /// but it provides better documentation.
@@ -214,21 +201,29 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
                         serializer.serialize_str("")
                     }
                     Some(fs) => {
-                        let artifact = err(x.artifact())?;
-                        let path = match x {
-                            JsonArtifact::ValueAsInputArtifactLike(_) => {
-                                let content_hash = self.artifact_path_mapping.get(&artifact);
-                                err(artifact.resolve_path(fs.fs(), content_hash))?
+                        let p = match x {
+                            JsonArtifact::ValueAsInputArtifactLike(x) => {
+                                let art = err(x.0.get_bound_artifact())?;
+                                err(art.resolve_path(fs.fs(), self.artifact_path_mapping.get(&art)))?
                             }
-                            JsonArtifact::StarlarkOutputArtifact(_) => {
-                                let content_hash = ContentBasedPathHash::for_output_artifact();
-                                err(artifact.resolve_path(fs.fs(), Some(&content_hash)))?
+                            JsonArtifact::StarlarkOutputArtifact(x) => {
+                                let art = match x.unpack() {
+                                    Either::Left(x) => err((*x.inner()).get_bound_artifact())?,
+                                    Either::Right(x) => x.inner().artifact(),
+                                };
+
+                                err(art.resolve_path(
+                                    fs.fs(),
+                                    Some(&ContentBasedPathHash::for_output_artifact()),
+                                ))?
                             }
                         };
-                        let path = with_command_line_context(fs, self.absolute, |ctx| {
-                            err(ctx.resolve_project_path(path)).map(|loc| loc.into_string())
-                        })?;
-                        serializer.serialize_str(&path)
+                        let p = if self.absolute {
+                            CommandLineLocation::format_absolute(&p, fs)
+                        } else {
+                            CommandLineLocation::format(p.as_ref(), fs)
+                        };
+                        serializer.serialize_str(p.as_ref())
                     }
                 }
             }

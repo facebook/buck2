@@ -1990,7 +1990,8 @@ impl<'a> Execute2RequestExpander<'a> {
                     let test_path =
                         BuckOutTestPath::new(output_root.to_owned(), output.name.clone());
                     let path = fs.fs().buck_out_path_resolver().resolve_test(&test_path);
-                    cli.push_location(ctx.resolve_project_path(path)?);
+                    let mut fmt = CommandLineFormatter::new(&mut cli, ctx, &artifact_path_mapping);
+                    fmt.push_project_path(path)?;
                     declared_outputs.insert(test_path, OutputCreationBehavior::Parent);
                 }
             };
