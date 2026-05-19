@@ -67,6 +67,17 @@ installer(
     installer = ":extra_args_validator_bin_target",
 )
 
+prebuilt_binary(
+    name = "early_exit_installer_bin_target",
+    exe = "early_exit_installer_bin",
+)
+
+installer(
+    name = "installer_early_exit",
+    files = {"artifact_a": "artifact_a.txt"},
+    installer = ":early_exit_installer_bin_target",
+)
+
 fail_build(
     name = "bad_installer_bin",
 )

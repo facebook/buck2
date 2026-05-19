@@ -94,7 +94,7 @@ use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use buck2_server_ctx::template::run_server_command;
 use buck2_util::future::try_join_all;
-use buck2_util::process::background_command;
+use buck2_util::process::async_background_command;
 use chrono::DateTime;
 use chrono::Utc;
 use dice::DiceComputations;
@@ -462,6 +462,7 @@ impl<'a> ConnectedInstaller<'a> {
         artifact_fs: ArtifactFs,
         install_request_data: &'a InstallRequestData<'a>,
         installer_run_args: &[String],
+        installer_child: &mut tokio::process::Child,
     ) -> buck2_error::Result<Self> {
         let initial_delay = Duration::from_millis(100);
         let max_delay = Duration::from_millis(500);
@@ -476,16 +477,34 @@ impl<'a> ConnectedInstaller<'a> {
             buck2_data::ConnectToInstallerStart {
                 tcp_port: tcp_port.into(),
             },
-            async move {
-                let channel = retrying(initial_delay, max_delay, timeout, || async {
+            async {
+                let connect_fut = retrying(initial_delay, max_delay, timeout, || async {
                     get_channel_tcp(Ipv4Addr::LOCALHOST, tcp_port).await
-                })
-                .await
-                .buck_error_context("Failed to connect to the installer using TCP")?;
+                });
 
-                Ok(InstallerClient::new(channel)
-                    .max_encoding_message_size(usize::MAX)
-                    .max_decoding_message_size(usize::MAX))
+                tokio::select! {
+                    result = connect_fut => {
+                        let channel = result
+                            .buck_error_context("Failed to connect to the installer using TCP")?;
+                        Ok(InstallerClient::new(channel)
+                            .max_encoding_message_size(usize::MAX)
+                            .max_decoding_message_size(usize::MAX))
+                    }
+                    exit_status = installer_child.wait() => {
+                        match exit_status {
+                            Ok(status) => Err(buck2_error::buck2_error!(
+                                buck2_error::ErrorTag::Environment,
+                                "Installer process exited with status {} before establishing a connection",
+                                status
+                            )),
+                            Err(e) => Err(buck2_error::buck2_error!(
+                                buck2_error::ErrorTag::Environment,
+                                "Failed to wait on installer process: {}",
+                                e
+                            )),
+                        }
+                    }
+                }
             },
             buck2_data::ConnectToInstallerEnd {},
         )
@@ -788,7 +807,7 @@ async fn handle_install_request(
 
                     installer_run_args.extend(initial_installer_run_args.to_vec());
 
-                    build_launch_installer(
+                    let mut installer_child = build_launch_installer(
                         ctx,
                         &install_request_data.installer_label,
                         &installer_run_args,
@@ -803,6 +822,7 @@ async fn handle_install_request(
                         artifact_fs,
                         install_request_data,
                         initial_installer_run_args,
+                        &mut installer_child,
                     )
                     .await?;
 
@@ -887,7 +907,7 @@ async fn build_launch_installer(
     installer_run_args: &[String],
     installer_log_console: bool,
     stderr_log_path: &str,
-) -> buck2_error::Result<()> {
+) -> buck2_error::Result<tokio::process::Child> {
     let frozen_providers = ctx
         .get_providers(providers_label)
         .await?
@@ -950,7 +970,7 @@ async fn build_launch_installer(
         };
 
         let build_id: &str = &get_dispatcher().trace_id().to_string();
-        background_command(&run_args[0])
+        let child = async_background_command(&run_args[0])
             .args(&run_args[1..])
             .args(installer_run_args)
             .env("BUCK2_UUID", build_id)
@@ -958,7 +978,7 @@ async fn build_launch_installer(
             .spawn()
             .buck_error_context("Failed to spawn installer")?;
 
-        Ok(())
+        Ok(child)
     } else {
         Err(InstallError::NoRunInfoProvider(providers_label.target().name().to_owned()).into())
     }

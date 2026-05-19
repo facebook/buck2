@@ -33,6 +33,10 @@ def _setup_sandbox(buck: Buck) -> None:
     shutil.copy2(extra_args_validator_bin, buck.cwd / "extra_args_validator_bin")
     os.chmod(buck.cwd / "extra_args_validator_bin", 0o755)
 
+    early_exit_installer_bin = os.environ["EARLY_EXIT_INSTALLER_BIN"]
+    shutil.copy2(early_exit_installer_bin, buck.cwd / "early_exit_installer_bin")
+    os.chmod(buck.cwd / "early_exit_installer_bin", 0o755)
+
     # Create etc_hosts as a symlink to /etc/hosts (tests symlink resolution by rsync -aL)
     os.symlink("/etc/hosts", buck.cwd / "etc_hosts")
 
@@ -250,3 +254,14 @@ async def test_fail_to_build_installer(buck: Buck) -> None:
     record = res.invocation_record()
     errors = record["errors"]
     assert len(errors) == 1
+
+
+@buck_test()
+async def test_installer_early_exit(buck: Buck) -> None:
+    _setup_sandbox(buck)
+    await expect_failure(
+        buck.install(
+            "root//:installer_early_exit",
+        ),
+        stderr_regex=r"Installer process exited with status",
+    )
