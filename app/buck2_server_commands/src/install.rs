@@ -28,7 +28,7 @@ use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::context::HasBuildContextData;
 use buck2_build_api::interpreter::rule_defs::cmd_args::ArtifactPathMapperImpl;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
-use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineFormatter;
+use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::install_info::FrozenInstallInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
@@ -931,7 +931,7 @@ async fn build_launch_installer(
         let executor_fs = ExecutorFs::new(&artifact_fs, path_separator);
         let mut run_args = Vec::<String>::new();
         let artifact_path_mapper = ArtifactPathMapperImpl::from(&ensured_inputs);
-        let mut fmt = CommandLineFormatter::new_with_options(
+        let mut fmt = CommandLineBuilder::new_with_options(
             &mut run_args,
             &artifact_path_mapper,
             &executor_fs,

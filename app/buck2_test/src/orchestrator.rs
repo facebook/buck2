@@ -39,7 +39,7 @@ use buck2_build_api::context::HasBuildContextData;
 use buck2_build_api::interpreter::rule_defs::cmd_args::ArtifactPathMapperImpl;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
-use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineFormatter;
+use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SingletonCommandLineSink;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::FrozenExternalRunnerTestInfo;
@@ -1710,7 +1710,7 @@ impl BuckTestOrchestrator<'_> {
         let mut cmd: Vec<String> = vec![];
         provider
             .setup_command_line()
-            .add_to_command_line(&mut CommandLineFormatter::new(
+            .add_to_command_line(&mut CommandLineBuilder::new(
                 &mut cmd,
                 &artifact_path_mapping,
                 executor_fs,
@@ -1923,7 +1923,7 @@ impl<'a> Execute2RequestExpander<'a> {
     }
 
     fn expand_arg_value<'v>(
-        fmt: &mut CommandLineFormatter<'v, '_>,
+        fmt: &mut CommandLineBuilder<'v, '_>,
         declared_outputs: &mut BuckIndexMap<BuckOutTestPath, OutputCreationBehavior>,
         value: &'v ArgValue,
         cli_args_for_interpolation: &[&dyn CommandLineArgLike<'v>],
@@ -1999,7 +1999,7 @@ impl<'a> Execute2RequestExpander<'a> {
         let artifact_path_mapping = ArtifactPathMapperImpl::from(ensured_inputs);
 
         let mut expanded_cmd = Vec::<String>::new();
-        let mut cmd_fmt = CommandLineFormatter::new_with_options(
+        let mut cmd_fmt = CommandLineBuilder::new_with_options(
             &mut expanded_cmd,
             &artifact_path_mapping,
             self.fs,
@@ -2023,7 +2023,7 @@ impl<'a> Execute2RequestExpander<'a> {
             .into_iter()
             .map(|(k, v)| {
                 let mut curr_env = SingletonCommandLineSink::new();
-                let mut fmt = CommandLineFormatter::new_with_options(
+                let mut fmt = CommandLineBuilder::new_with_options(
                     &mut curr_env,
                     &artifact_path_mapping,
                     self.fs,
@@ -2049,11 +2049,8 @@ impl<'a> Execute2RequestExpander<'a> {
             Some(worker) => {
                 let mut worker_rendered = Vec::<String>::new();
                 let worker_exe = worker.exe_command_line();
-                let mut fmt = CommandLineFormatter::new(
-                    &mut worker_rendered,
-                    &artifact_path_mapping,
-                    self.fs,
-                );
+                let mut fmt =
+                    CommandLineBuilder::new(&mut worker_rendered, &artifact_path_mapping, self.fs);
                 worker_exe.add_to_command_line(&mut fmt)?;
                 let worker_env: buck2_error::Result<SortedVectorMap<_, _>> = worker
                     .env()
@@ -2061,7 +2058,7 @@ impl<'a> Execute2RequestExpander<'a> {
                     .map(|(k, v)| {
                         let mut env = SingletonCommandLineSink::new();
                         let mut fmt =
-                            CommandLineFormatter::new(&mut env, &artifact_path_mapping, self.fs);
+                            CommandLineBuilder::new(&mut env, &artifact_path_mapping, self.fs);
                         fmt.push_scope_delimiter(" ");
                         v.add_to_command_line(&mut fmt)?;
                         fmt.pop_scope();

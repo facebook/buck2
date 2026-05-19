@@ -40,7 +40,7 @@ use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkInp
 use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
-use crate::interpreter::rule_defs::cmd_args::CommandLineFormatter;
+use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command_line_arg_like_impl;
 use crate::interpreter::rule_defs::cmd_args::value::FrozenCommandLineArg;
@@ -85,7 +85,7 @@ impl<'v> Display for ResolvedMacro<'v> {
 }
 
 pub fn add_output_to_arg(
-    fmt: &mut CommandLineFormatter,
+    fmt: &mut CommandLineBuilder,
     artifact: &StarlarkArtifact,
 ) -> buck2_error::Result<()> {
     fmt.push_artifact(&artifact.get_bound_artifact()?)?;
@@ -93,7 +93,7 @@ pub fn add_output_to_arg(
 }
 
 fn add_outputs_to_arg(
-    fmt: &mut CommandLineFormatter,
+    fmt: &mut CommandLineBuilder,
     outputs_list: &[StarlarkArtifact],
 ) -> buck2_error::Result<()> {
     for (i, value) in outputs_list.iter().enumerate() {
@@ -106,7 +106,7 @@ fn add_outputs_to_arg(
 }
 
 impl<'v> ResolvedMacro<'v> {
-    pub fn add_to_arg(&self, fmt: &mut CommandLineFormatter) -> buck2_error::Result<()> {
+    pub fn add_to_arg(&self, fmt: &mut CommandLineBuilder) -> buck2_error::Result<()> {
         match self {
             Self::Source(artifact) => {
                 fmt.push_artifact(artifact)?;
@@ -228,10 +228,7 @@ impl<'v> CommandLineArgLike<'v> for ResolvedStringWithMacros {
         command_line_arg_like_impl!(ResolvedStringWithMacros::starlark_type_repr());
     }
 
-    fn add_to_command_line(
-        &self,
-        fmt: &mut CommandLineFormatter<'v, '_>,
-    ) -> buck2_error::Result<()> {
+    fn add_to_command_line(&self, fmt: &mut CommandLineBuilder<'v, '_>) -> buck2_error::Result<()> {
         fmt.push_scope_delimiter("");
         for part in &*self.parts {
             match part {

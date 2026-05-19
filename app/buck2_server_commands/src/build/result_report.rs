@@ -20,7 +20,7 @@ use buck2_build_api::build::ConfiguredBuildTargetResult;
 use buck2_build_api::build::ProviderArtifacts;
 use buck2_build_api::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
-use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineFormatter;
+use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
 use buck2_certs::validate::CertState;
 use buck2_certs::validate::check_cert_state;
@@ -227,7 +227,7 @@ impl<'a> ResultReporter<'a> {
                 let mut cli = Vec::<String>::new();
                 let error_counting_artifact_path_mapper =
                     ErrorCountingArtifactPathMapperImpl::new(artifact_path_mapping);
-                let mut fmt = CommandLineFormatter::new_with_options(
+                let mut fmt = CommandLineBuilder::new_with_options(
                     &mut cli,
                     &error_counting_artifact_path_mapper,
                     &executor_fs,

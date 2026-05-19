@@ -22,7 +22,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::Starla
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsInputArtifactLike;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::unpack_artifact::UnpackNonPromiseInputArtifact;
-use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineFormatter;
+use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use buck2_core::category::CategoryRef;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::configuration::data::ConfigurationData;
@@ -178,7 +178,7 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
         let executor_fs = ExecutorFs::new(&fs, PathSeparatorKind::Unix);
         let mut cli = Vec::<String>::new();
         let artifact_path_mapping = BuckHashMap::default();
-        let mut fmt = CommandLineFormatter::new(&mut cli, &artifact_path_mapping, &executor_fs);
+        let mut fmt = CommandLineBuilder::new(&mut cli, &artifact_path_mapping, &executor_fs);
         artifact
             .0
             .as_command_line_like()

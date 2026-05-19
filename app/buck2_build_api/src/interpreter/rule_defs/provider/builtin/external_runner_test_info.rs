@@ -46,7 +46,7 @@ use starlark::values::tuple::TupleRef;
 use crate as buck2_build_api;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
-use crate::interpreter::rule_defs::cmd_args::CommandLineFormatter;
+use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::interpreter::rule_defs::command_executor_config::StarlarkCommandExecutorConfig;
 use crate::interpreter::rule_defs::provider::builtin::worker_info::FrozenWorkerInfo;
@@ -257,7 +257,7 @@ pub enum TestCommandMember<'v> {
 impl<'v> TestCommandMember<'v> {
     pub fn add_to_command_line(
         &self,
-        fmt: &mut CommandLineFormatter<'v, '_>,
+        fmt: &mut CommandLineBuilder<'v, '_>,
     ) -> buck2_error::Result<()> {
         match self {
             Self::Literal(literal) => literal.add_to_command_line(fmt),

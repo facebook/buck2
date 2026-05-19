@@ -31,7 +31,7 @@ use buck2_build_api::command_line_arg_like_impl;
 use buck2_build_api::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
-use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineFormatter;
+use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use buck2_build_api::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_signals::env::WaitingData;
@@ -344,10 +344,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike<'v> for StarlarkWriteJsonCommandLi
         command_line_arg_like_impl!(StarlarkWriteJsonCommandLineArg::starlark_type_repr());
     }
 
-    fn add_to_command_line(
-        &self,
-        fmt: &mut CommandLineFormatter<'v, '_>,
-    ) -> buck2_error::Result<()> {
+    fn add_to_command_line(&self, fmt: &mut CommandLineBuilder<'v, '_>) -> buck2_error::Result<()> {
         ValueAsCommandLineLike::unpack_value_err(self.artifact.to_value())?
             .0
             .add_to_command_line(fmt)
@@ -366,7 +363,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike<'v> for StarlarkWriteJsonCommandLi
     }
 
     fn contains_arg_attr(&self) -> bool {
-        // In the write_json implementation, the CommandLineFormatter we use don't support args.
+        // In the write_json implementation, the CommandLineBuilder we use don't support args.
         false
     }
 
@@ -375,7 +372,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike<'v> for StarlarkWriteJsonCommandLi
         _visitor: &mut dyn WriteToFileMacroVisitor,
         _artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
-        // In the write_json implementation, the CommandLineFormatter we use don't support args.
+        // In the write_json implementation, the CommandLineBuilder we use don't support args.
         Ok(())
     }
 }

@@ -10,7 +10,7 @@
 
 use std::borrow::Cow;
 
-/// CommandLineSink is the destination into which `CommandLineFormatter` writes the fully prepared
+/// CommandLineSink is the destination into which `CommandLineBuilder` writes the fully prepared
 /// command line.
 ///
 /// This is almost always just `Vec<String>`.
@@ -26,7 +26,7 @@ impl CommandLineSink for Vec<String> {
 
 /// A command line is normally a list of strings; this type is to be used when you expect just one.
 ///
-/// This should normally be used with a `CommandLineFormatter` on which you expect to immediately
+/// This should normally be used with a `CommandLineBuilder` on which you expect to immediately
 /// call `push_scope_delimiter`.
 pub enum SingletonCommandLineSink {
     None,

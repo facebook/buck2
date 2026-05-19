@@ -70,9 +70,9 @@ use crate::interpreter::rule_defs::artifact::starlark_declared_artifact::Starlar
 use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
 use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
+use crate::interpreter::rule_defs::cmd_args::builder::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command_line_arg_like_impl;
 use crate::interpreter::rule_defs::cmd_args::compute_relative_to_path;
-use crate::interpreter::rule_defs::cmd_args::format::CommandLineFormatter;
 use crate::interpreter::rule_defs::cmd_args::options::CommandLineOptions;
 use crate::interpreter::rule_defs::cmd_args::options::CommandLineOptionsRef;
 use crate::interpreter::rule_defs::cmd_args::options::CommandLineOptionsTrait;
@@ -201,10 +201,7 @@ impl<'v, F: Fields<'v>> CommandLineArgLike<'v> for FieldsRef<'v, F> {
         command_line_arg_like_impl!(StarlarkCmdArgs::starlark_type_repr());
     }
 
-    fn add_to_command_line(
-        &self,
-        fmt: &mut CommandLineFormatter<'v, '_>,
-    ) -> buck2_error::Result<()> {
+    fn add_to_command_line(&self, fmt: &mut CommandLineBuilder<'v, '_>) -> buck2_error::Result<()> {
         match self.0.options() {
             None => {
                 for item in self.0.items() {
@@ -583,10 +580,7 @@ impl<'v> CommandLineArgLike<'v> for StarlarkCmdArgs<'v> {
         command_line_arg_like_impl!(StarlarkCmdArgs::starlark_type_repr());
     }
 
-    fn add_to_command_line(
-        &self,
-        fmt: &mut CommandLineFormatter<'v, '_>,
-    ) -> buck2_error::Result<()> {
+    fn add_to_command_line(&self, fmt: &mut CommandLineBuilder<'v, '_>) -> buck2_error::Result<()> {
         FieldsRef(self.0.borrow(), PhantomData).add_to_command_line(fmt)
     }
 
@@ -616,10 +610,7 @@ impl<'v> CommandLineArgLike<'v> for FrozenStarlarkCmdArgs {
         command_line_arg_like_impl!(FrozenStarlarkCmdArgs::starlark_type_repr());
     }
 
-    fn add_to_command_line(
-        &self,
-        fmt: &mut CommandLineFormatter<'v, '_>,
-    ) -> buck2_error::Result<()> {
+    fn add_to_command_line(&self, fmt: &mut CommandLineBuilder<'v, '_>) -> buck2_error::Result<()> {
         FieldsRef(self, PhantomData).add_to_command_line(fmt)
     }
 

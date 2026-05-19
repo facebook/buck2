@@ -41,7 +41,7 @@ use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use buck2_build_api::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
-use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineFormatter;
+use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineSink;
 use buck2_build_api::interpreter::rule_defs::cmd_args::FrozenStarlarkCmdArgs;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
@@ -555,7 +555,7 @@ impl RunAction {
         let mut exe_rendered = Vec::<String>::new();
         values
             .exe
-            .add_to_command_line(&mut CommandLineFormatter::new(
+            .add_to_command_line(&mut CommandLineBuilder::new(
                 &mut exe_rendered,
                 &artifact_path_mapping,
                 fs,
@@ -565,7 +565,7 @@ impl RunAction {
         let artifact_path_mapping_for_dep_files = DepFilesPlaceholderArtifactPathMapper {};
         values
             .exe
-            .add_to_command_line(&mut CommandLineFormatter::new(
+            .add_to_command_line(&mut CommandLineBuilder::new(
                 &mut command_line_digest_for_dep_files,
                 &artifact_path_mapping_for_dep_files,
                 fs,
@@ -577,14 +577,14 @@ impl RunAction {
             let mut worker_rendered = Vec::<String>::new();
             worker
                 .exe
-                .add_to_command_line(&mut CommandLineFormatter::new(
+                .add_to_command_line(&mut CommandLineBuilder::new(
                     &mut worker_rendered,
                     &artifact_path_mapping,
                     fs,
                 ))?;
             worker
                 .exe
-                .add_to_command_line(&mut CommandLineFormatter::new(
+                .add_to_command_line(&mut CommandLineBuilder::new(
                     &mut command_line_digest_for_dep_files,
                     &artifact_path_mapping_for_dep_files,
                     fs,
@@ -598,14 +598,13 @@ impl RunAction {
                     v.visit_artifacts(&mut local_worker_visitor)?;
 
                     let mut env = SingletonCommandLineSink::new();
-                    let mut env_fmt =
-                        CommandLineFormatter::new(&mut env, &artifact_path_mapping, fs);
+                    let mut env_fmt = CommandLineBuilder::new(&mut env, &artifact_path_mapping, fs);
                     env_fmt.push_scope_delimiter(" ");
                     v.add_to_command_line(&mut env_fmt)?;
                     env_fmt.pop_scope();
 
                     command_line_digest_for_dep_files.push_arg(Cow::Borrowed(k));
-                    v.add_to_command_line(&mut CommandLineFormatter::new(
+                    v.add_to_command_line(&mut CommandLineBuilder::new(
                         &mut command_line_digest_for_dep_files,
                         &artifact_path_mapping_for_dep_files,
                         fs,
@@ -678,14 +677,14 @@ impl RunAction {
             let mut remote_worker_init_rendered = Vec::<String>::new();
             remote_worker
                 .exe
-                .add_to_command_line(&mut CommandLineFormatter::new(
+                .add_to_command_line(&mut CommandLineBuilder::new(
                     &mut remote_worker_init_rendered,
                     &artifact_path_mapping,
                     fs,
                 ))?;
             remote_worker
                 .exe
-                .add_to_command_line(&mut CommandLineFormatter::new(
+                .add_to_command_line(&mut CommandLineBuilder::new(
                     &mut command_line_digest_for_dep_files,
                     &artifact_path_mapping_for_dep_files,
                     fs,
@@ -701,14 +700,13 @@ impl RunAction {
                     v.visit_artifacts(&mut remote_worker_init_visitor)?;
 
                     let mut env = SingletonCommandLineSink::new();
-                    let mut env_fmt =
-                        CommandLineFormatter::new(&mut env, &artifact_path_mapping, fs);
+                    let mut env_fmt = CommandLineBuilder::new(&mut env, &artifact_path_mapping, fs);
                     env_fmt.push_scope_delimiter(" ");
                     v.add_to_command_line(&mut env_fmt)?;
                     env_fmt.pop_scope();
 
                     command_line_digest_for_dep_files.push_arg(Cow::Borrowed(k));
-                    v.add_to_command_line(&mut CommandLineFormatter::new(
+                    v.add_to_command_line(&mut CommandLineBuilder::new(
                         &mut command_line_digest_for_dep_files,
                         &artifact_path_mapping_for_dep_files,
                         fs,
@@ -750,14 +748,14 @@ impl RunAction {
         let mut args_rendered = Vec::<String>::new();
         values
             .args
-            .add_to_command_line(&mut CommandLineFormatter::new(
+            .add_to_command_line(&mut CommandLineBuilder::new(
                 &mut args_rendered,
                 &artifact_path_mapping,
                 fs,
             ))?;
         values
             .args
-            .add_to_command_line(&mut CommandLineFormatter::new(
+            .add_to_command_line(&mut CommandLineBuilder::new(
                 &mut command_line_digest_for_dep_files,
                 &artifact_path_mapping_for_dep_files,
                 fs,
@@ -773,13 +771,13 @@ impl RunAction {
                 v.visit_artifacts(artifact_visitor)?;
 
                 let mut env = SingletonCommandLineSink::new();
-                let mut env_fmt = CommandLineFormatter::new(&mut env, &artifact_path_mapping, fs);
+                let mut env_fmt = CommandLineBuilder::new(&mut env, &artifact_path_mapping, fs);
                 env_fmt.push_scope_delimiter(" ");
                 v.add_to_command_line(&mut env_fmt)?;
                 env_fmt.pop_scope();
 
                 command_line_digest_for_dep_files.push_arg(Cow::Borrowed(k));
-                v.add_to_command_line(&mut CommandLineFormatter::new(
+                v.add_to_command_line(&mut CommandLineBuilder::new(
                     &mut command_line_digest_for_dep_files,
                     &artifact_path_mapping_for_dep_files,
                     fs,
@@ -1447,7 +1445,7 @@ impl Action for RunAction {
     ) -> BuckIndexMap<String, String> {
         let mut cli_rendered = Vec::<String>::new();
         let values = Self::unpack(&self.starlark_values).unwrap();
-        let mut fmt = CommandLineFormatter::new(&mut cli_rendered, artifact_path_mapping, fs);
+        let mut fmt = CommandLineBuilder::new(&mut cli_rendered, artifact_path_mapping, fs);
         values.exe.add_to_command_line(&mut fmt).unwrap();
         values.args.add_to_command_line(&mut fmt).unwrap();
         let cmd = format!("[{}]", cli_rendered.iter().join(", "));

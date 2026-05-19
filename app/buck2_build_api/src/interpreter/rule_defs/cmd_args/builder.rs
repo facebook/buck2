@@ -161,7 +161,7 @@ struct StringOptions<'v> {
     replacements: Vec<(FormatRegex<'v>, &'v str)>,
 }
 
-pub struct CommandLineFormatter<'v, 'a> {
+pub struct CommandLineBuilder<'v, 'a> {
     sink: &'a mut dyn CommandLineSink,
     artifact_path_mapping: &'a dyn ArtifactPathMapper,
     fs: &'a ExecutorFs<'a>,
@@ -179,7 +179,7 @@ pub struct CommandLineFormatter<'v, 'a> {
     write_to_file_macro_paths: Option<Vec<ProjectRelativePathBuf>>,
 }
 
-impl<'v, 'a> CommandLineFormatter<'v, 'a> {
+impl<'v, 'a> CommandLineBuilder<'v, 'a> {
     pub fn new(
         sink: &'a mut dyn CommandLineSink,
         artifact_path_mapping: &'a dyn ArtifactPathMapper,

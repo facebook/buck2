@@ -8,8 +8,8 @@
  * above-listed licenses.
  */
 
+mod builder;
 pub mod command_line_arg_like_type;
-mod format;
 mod options;
 pub(crate) mod regex;
 pub(crate) mod shlex_quote;
@@ -19,7 +19,7 @@ mod typ;
 pub mod value;
 pub mod value_as;
 
-pub use format::*;
+pub use builder::*;
 pub use sink::*;
 pub use traits::*;
 pub use typ::*;

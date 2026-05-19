@@ -8,7 +8,7 @@
  * above-listed licenses.
  */
 
-use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineFormatter;
+use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCommandLineInputs;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
@@ -50,7 +50,7 @@ fn get_command_line(value: Value) -> buck2_error::Result<Vec<String>> {
     let executor_fs = ExecutorFs::new(&fs, PathSeparatorKind::Unix);
     let mut cli = Vec::<String>::new();
     let artifact_path_mapping = BuckHashMap::default();
-    let mut fmt = CommandLineFormatter::new(&mut cli, &artifact_path_mapping, &executor_fs);
+    let mut fmt = CommandLineBuilder::new(&mut cli, &artifact_path_mapping, &executor_fs);
 
     match ValueAsCommandLineLike::unpack_value(value)? {
         Some(v) => v.0.add_to_command_line(&mut fmt),
@@ -72,7 +72,7 @@ pub(crate) fn command_line_stringifier(builder: &mut GlobalsBuilder) {
         let executor_fs = ExecutorFs::new(&fs, PathSeparatorKind::Unix);
         let mut cli = Vec::<String>::new();
         let artifact_path_mapping = BuckHashMap::default();
-        let mut fmt = CommandLineFormatter::new(&mut cli, &artifact_path_mapping, &executor_fs);
+        let mut fmt = CommandLineBuilder::new(&mut cli, &artifact_path_mapping, &executor_fs);
         ValueAsCommandLineLike::unpack_value_err(value)?
             .0
             .add_to_command_line(&mut fmt)?;

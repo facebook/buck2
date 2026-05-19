@@ -45,7 +45,7 @@ use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkO
 use crate::interpreter::rule_defs::artifact_tagging::StarlarkTaggedValue;
 use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
-use crate::interpreter::rule_defs::cmd_args::CommandLineFormatter;
+use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use crate::interpreter::rule_defs::cmd_args::FrozenStarlarkCmdArgs;
 use crate::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
 use crate::interpreter::rule_defs::cmd_args::path_format;
@@ -222,7 +222,7 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
                     }
                     Some(fs) => {
                         let mut items = Vec::<String>::new();
-                        let mut fmt = CommandLineFormatter::new_with_options(
+                        let mut fmt = CommandLineBuilder::new_with_options(
                             &mut items,
                             self.artifact_path_mapping,
                             fs,
