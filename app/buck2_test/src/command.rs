@@ -541,6 +541,7 @@ async fn test(
             &test_outcome.build_target_result.other_errors,
             None,
             None,
+            None,
         )?
     } else {
         None

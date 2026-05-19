@@ -144,6 +144,31 @@ ConfiguredBuildReportEntry {
     # Enabled by setting `-c buck2.log_peak_analysis_memory_sketch=true`
     peak_analysis_memory_sketch: Optional[str],
 
+    # Set sketch of distinct artifact paths stored in a hex string.
+    #
+    # Computing the cardinality of this sketch returns an (approximate) count
+    # of distinct artifact file paths.
+    #
+    # Enabled by setting `-c buck2.log_artifact_count_sketch=true`.
+    artifact_count_sketch: Optional[str],
+
+    # Set sketch of artifact path sizes stored in a hex string. Each path is
+    # weighted by its file size in bytes; computing the cardinality returns an
+    # (approximate) total artifact size in bytes.
+    #
+    # Enabled by setting `-c buck2.log_artifact_size_sketch=true`.
+    artifact_size_sketch: Optional[str],
+
+    # Estimated cardinality of `artifact_count_sketch`. Populated only when
+    # `-c buck2.log_sketch_cardinalities=true` is set; the corresponding sketch
+    # field is left intact in both cases.
+    artifact_count_sketch_cardinality: Optional[float],
+
+    # Estimated cardinality of `artifact_size_sketch`. Populated only when
+    # `-c buck2.log_sketch_cardinalities=true` is set; the corresponding sketch
+    # field is left intact in both cases.
+    artifact_size_sketch_cardinality: Optional[float],
+
     # Build metrics for this target. Represents the aggregated metrics for
     # top-level targets. Omitted from the JSON when None.
     build_metrics: Optional[TargetBuildMetrics],

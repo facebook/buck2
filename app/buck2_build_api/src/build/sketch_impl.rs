@@ -133,6 +133,13 @@ impl<T: StrongHash, S: TypedSketch> MergeableGraphSketch<T, S> {
         self.sketch.inner().get_registers().iter().all(|&v| v == 0)
     }
 
+    /// Returns the estimated cardinality of the sketched set.
+    /// For unweighted sketches, this is the approximate number of distinct items.
+    /// For weighted sketches, this is the approximate sum of weights.
+    pub(crate) fn estimated_cardinality(&self) -> f64 {
+        self.sketch.inner().cardinality()
+    }
+
     pub fn serialize(&self) -> String {
         self.sketch.to_base64_versioned()
     }

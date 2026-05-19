@@ -27,6 +27,7 @@ use buck2_build_api::build::build_report::stream_build_report;
 use buck2_build_api::build::build_report::write_build_report;
 use buck2_build_api::build::detailed_aggregated_metrics::dice::HasDetailedAggregatedMetrics;
 use buck2_build_api::build::detailed_aggregated_metrics::types::ActionGraphSketchResult;
+use buck2_build_api::build::detailed_aggregated_metrics::types::ArtifactPathSketchResult;
 use buck2_build_api::build::detailed_aggregated_metrics::types::DetailedAggregatedMetrics;
 use buck2_build_api::build::graph_properties::GraphPropertiesOptions;
 use buck2_build_api::materialize::MaterializationAndUploadContext;
@@ -306,6 +307,39 @@ async fn build(
         .await?
         .unwrap_or_default();
 
+    let want_artifact_count_sketch: bool = ctx
+        .parse_legacy_config_property(
+            cell_resolver.root_cell(),
+            BuckconfigKeyRef {
+                section: "buck2",
+                property: "log_artifact_count_sketch",
+            },
+        )
+        .await?
+        .unwrap_or_default();
+
+    let want_artifact_size_sketch: bool = ctx
+        .parse_legacy_config_property(
+            cell_resolver.root_cell(),
+            BuckconfigKeyRef {
+                section: "buck2",
+                property: "log_artifact_size_sketch",
+            },
+        )
+        .await?
+        .unwrap_or_default();
+
+    let want_log_sketch_cardinalities: bool = ctx
+        .parse_legacy_config_property(
+            cell_resolver.root_cell(),
+            BuckconfigKeyRef {
+                section: "buck2",
+                property: "log_sketch_cardinalities",
+            },
+        )
+        .await?
+        .unwrap_or_default();
+
     let graph_properties = GraphPropertiesOptions {
         configured_graph_size: want_configured_graph_size,
         configured_graph_sketch: want_configured_graph_sketch,
@@ -314,6 +348,9 @@ async fn build(
         peak_analysis_memory_sketch: want_peak_analysis_memory_sketch,
         peak_load_memory_sketch: want_peak_load_memory_sketch,
         action_graph_sketch: want_action_graph_sketch,
+        artifact_count_sketch: want_artifact_count_sketch,
+        artifact_size_sketch: want_artifact_size_sketch,
+        log_sketch_cardinalities: want_log_sketch_cardinalities,
     };
 
     let (streaming_build_result_tx, streaming_build_result_rx) =
@@ -389,6 +426,14 @@ async fn build(
         None
     };
 
+    let artifact_path_sketch_result =
+        if graph_properties.artifact_count_sketch || graph_properties.artifact_size_sketch {
+            // TODO: Wire actual sketch computation
+            None
+        } else {
+            None
+        };
+
     let detailed_metrics = if want_detailed_metrics {
         let events = events.expect("events should be Some when detailed metrics is needed");
         let mut metrics = ctx.compute_detailed_metrics(events).await?;
@@ -417,6 +462,7 @@ async fn build(
         build_result,
         detailed_metrics,
         action_graph_sketch_result,
+        artifact_path_sketch_result,
         graph_properties,
     )
     .await
@@ -452,6 +498,7 @@ async fn process_streaming_build_result(
         &build_result.other_errors,
         detailed_metrics,
         action_graph_sketch_result,
+        None, // no artifact_path_sketch_result for streaming build reports
     )?;
 
     Ok(())
@@ -543,6 +590,7 @@ async fn process_build_result(
     build_result: BuildTargetResult,
     detailed_metrics: Option<DetailedAggregatedMetrics>,
     action_graph_sketch_result: Option<ActionGraphSketchResult>,
+    artifact_path_sketch_result: Option<ArtifactPathSketchResult>,
     graph_properties_opts: GraphPropertiesOptions,
 ) -> buck2_error::Result<buck2_cli_proto::BuildResponse> {
     let fs = server_ctx.project_root();
@@ -580,6 +628,7 @@ async fn process_build_result(
             &build_result.other_errors,
             detailed_metrics,
             action_graph_sketch_result,
+            artifact_path_sketch_result,
         )?
     } else {
         None

@@ -80,6 +80,12 @@ pub struct GraphPropertiesOptions {
     pub peak_analysis_memory_sketch: bool,
     pub peak_load_memory_sketch: bool,
     pub action_graph_sketch: bool,
+    pub artifact_count_sketch: bool,
+    pub artifact_size_sketch: bool,
+    /// When true, every sketch field emitted in the build report is accompanied
+    /// by a sibling `<field>_cardinality` field carrying the sketch's
+    /// `estimated_cardinality()`. The serialized sketch is left intact.
+    pub log_sketch_cardinalities: bool,
 }
 
 impl fmt::Display for GraphPropertiesOptions {
@@ -92,6 +98,9 @@ impl fmt::Display for GraphPropertiesOptions {
             peak_analysis_memory_sketch,
             peak_load_memory_sketch,
             action_graph_sketch,
+            artifact_count_sketch,
+            artifact_size_sketch,
+            log_sketch_cardinalities,
         } = *self;
 
         let mut comma = commas();
@@ -131,6 +140,21 @@ impl fmt::Display for GraphPropertiesOptions {
             write!(f, "action_graph_sketch")?;
         }
 
+        if artifact_count_sketch {
+            comma(f)?;
+            write!(f, "artifact_count_sketch")?;
+        }
+
+        if artifact_size_sketch {
+            comma(f)?;
+            write!(f, "artifact_size_sketch")?;
+        }
+
+        if log_sketch_cardinalities {
+            comma(f)?;
+            write!(f, "log_sketch_cardinalities")?;
+        }
+
         Ok(())
     }
 }
@@ -145,6 +169,10 @@ impl GraphPropertiesOptions {
             peak_analysis_memory_sketch,
             peak_load_memory_sketch,
             action_graph_sketch,
+            artifact_count_sketch,
+            artifact_size_sketch,
+            // Presentation-only flag: doesn't request any sketch on its own.
+            log_sketch_cardinalities: _,
         } = self;
 
         !configured_graph_size
@@ -154,6 +182,8 @@ impl GraphPropertiesOptions {
             && !peak_analysis_memory_sketch
             && !peak_load_memory_sketch
             && !action_graph_sketch
+            && !artifact_count_sketch
+            && !artifact_size_sketch
     }
 
     pub(crate) fn should_compute_configured_graph_sketch(self) -> bool {

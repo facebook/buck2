@@ -486,6 +486,7 @@ impl BxlServerCommand {
                 &ensured_artifact_errors,
                 None,
                 None,
+                None,
             )?
         } else {
             None
