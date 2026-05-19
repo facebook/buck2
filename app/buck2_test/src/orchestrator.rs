@@ -41,7 +41,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineFormatter;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
-use buck2_build_api::interpreter::rule_defs::cmd_args::SingletonCommandLineBuilder;
+use buck2_build_api::interpreter::rule_defs::cmd_args::SingletonCommandLineSink;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::FrozenExternalRunnerTestInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::TestCommandMember;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::local_resource_info::FrozenLocalResourceInfo;
@@ -2022,7 +2022,7 @@ impl<'a> Execute2RequestExpander<'a> {
             .as_ref()
             .into_iter()
             .map(|(k, v)| {
-                let mut curr_env = SingletonCommandLineBuilder::new();
+                let mut curr_env = SingletonCommandLineSink::new();
                 let mut fmt = CommandLineFormatter::new_with_options(
                     &mut curr_env,
                     &artifact_path_mapping,
@@ -2059,7 +2059,7 @@ impl<'a> Execute2RequestExpander<'a> {
                     .env()
                     .into_iter()
                     .map(|(k, v)| {
-                        let mut env = SingletonCommandLineBuilder::new();
+                        let mut env = SingletonCommandLineSink::new();
                         let mut fmt =
                             CommandLineFormatter::new(&mut env, &artifact_path_mapping, self.fs);
                         fmt.push_scope_delimiter(" ");

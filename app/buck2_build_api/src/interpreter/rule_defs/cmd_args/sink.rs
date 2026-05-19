@@ -9,21 +9,32 @@
  */
 
 use std::borrow::Cow;
-use std::fmt::Debug;
 
-use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
+/// CommandLineSink is the destination into which `CommandLineFormatter` writes the fully prepared
+/// command line.
+///
+/// This is almost always just `Vec<String>`.
+pub trait CommandLineSink {
+    fn push_arg(&mut self, s: Cow<'_, str>);
+}
+
+impl CommandLineSink for Vec<String> {
+    fn push_arg(&mut self, s: Cow<'_, str>) {
+        self.push(s.into_owned())
+    }
+}
 
 /// A command line is normally a list of strings; this type is to be used when you expect just one.
 ///
 /// This should normally be used with a `CommandLineFormatter` on which you expect to immediately
 /// call `push_scope_delimiter`.
-pub enum SingletonCommandLineBuilder {
+pub enum SingletonCommandLineSink {
     None,
     Finished(String),
     Error(buck2_error::Error),
 }
 
-impl SingletonCommandLineBuilder {
+impl SingletonCommandLineSink {
     pub fn new() -> Self {
         Self::None
     }
@@ -31,7 +42,7 @@ impl SingletonCommandLineBuilder {
     pub fn finalize(self) -> buck2_error::Result<String> {
         match self {
             Self::None => Err(buck2_error::internal_error!(
-                "SingletonCommandLineBuilder not written",
+                "SingletonCommandLineSink not written",
             )),
             Self::Finished(s) => Ok(s),
             Self::Error(e) => Err(e),
@@ -39,7 +50,7 @@ impl SingletonCommandLineBuilder {
     }
 }
 
-impl CommandLineBuilder for SingletonCommandLineBuilder {
+impl CommandLineSink for SingletonCommandLineSink {
     fn push_arg(&mut self, s: Cow<'_, str>) {
         match self {
             Self::None => {
@@ -47,25 +58,12 @@ impl CommandLineBuilder for SingletonCommandLineBuilder {
             }
             Self::Finished(_) => {
                 *self = Self::Error(buck2_error::internal_error!(
-                    "SingletonCommandLineBuilder written more than once"
+                    "SingletonCommandLineSink written more than once"
                 ));
             }
             Self::Error(_) => {}
         }
     }
-}
-
-#[derive(buck2_error::Error, Debug)]
-#[buck2(tag = Input)]
-pub enum CommandLineBuilderErrors {
-    #[error(
-        "write-to-file macro is only supported as a part of command line argument which is written to a file"
-    )]
-    WriteToFileMacroNotSupported,
-    #[error(
-        "Number of write-to-file macro artifacts during analysis time should be consistent with when the command line is formed."
-    )]
-    InconsistentNumberOfMacroArtifacts,
 }
 
 #[cfg(test)]

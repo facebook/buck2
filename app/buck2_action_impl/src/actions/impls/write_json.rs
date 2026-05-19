@@ -366,7 +366,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike<'v> for StarlarkWriteJsonCommandLi
     }
 
     fn contains_arg_attr(&self) -> bool {
-        // In the write_json implementation, the commandlinebuilders we use don't support args.
+        // In the write_json implementation, the CommandLineFormatter we use don't support args.
         false
     }
 
@@ -375,7 +375,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike<'v> for StarlarkWriteJsonCommandLi
         _visitor: &mut dyn WriteToFileMacroVisitor,
         _artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
-        // In the write_json implementation, the commandlinebuilders we use don't support args.
+        // In the write_json implementation, the CommandLineFormatter we use don't support args.
         Ok(())
     }
 }

@@ -41,12 +41,12 @@ use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use buck2_build_api::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
-use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineFormatter;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineLocation;
+use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineSink;
 use buck2_build_api::interpreter::rule_defs::cmd_args::FrozenStarlarkCmdArgs;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
-use buck2_build_api::interpreter::rule_defs::cmd_args::SingletonCommandLineBuilder;
+use buck2_build_api::interpreter::rule_defs::cmd_args::SingletonCommandLineSink;
 use buck2_build_api::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::FrozenWorkerInfo;
@@ -597,7 +597,7 @@ impl RunAction {
                 .map(|(k, v)| {
                     v.visit_artifacts(&mut local_worker_visitor)?;
 
-                    let mut env = SingletonCommandLineBuilder::new();
+                    let mut env = SingletonCommandLineSink::new();
                     let mut env_fmt =
                         CommandLineFormatter::new(&mut env, &artifact_path_mapping, fs);
                     env_fmt.push_scope_delimiter(" ");
@@ -700,7 +700,7 @@ impl RunAction {
                 .map(|(k, v)| {
                     v.visit_artifacts(&mut remote_worker_init_visitor)?;
 
-                    let mut env = SingletonCommandLineBuilder::new();
+                    let mut env = SingletonCommandLineSink::new();
                     let mut env_fmt =
                         CommandLineFormatter::new(&mut env, &artifact_path_mapping, fs);
                     env_fmt.push_scope_delimiter(" ");
@@ -772,7 +772,7 @@ impl RunAction {
             .map(|(k, v)| {
                 v.visit_artifacts(artifact_visitor)?;
 
-                let mut env = SingletonCommandLineBuilder::new();
+                let mut env = SingletonCommandLineSink::new();
                 let mut env_fmt = CommandLineFormatter::new(&mut env, &artifact_path_mapping, fs);
                 env_fmt.push_scope_delimiter(" ");
                 v.add_to_command_line(&mut env_fmt)?;

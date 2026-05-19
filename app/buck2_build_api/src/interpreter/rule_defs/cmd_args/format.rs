@@ -33,8 +33,8 @@ use crate::interpreter::rule_defs::cmd_args::options::RelativeOrigin;
 use crate::interpreter::rule_defs::cmd_args::options::RelativeOriginArtifactPathMapper;
 use crate::interpreter::rule_defs::cmd_args::regex::CmdArgsRegex;
 use crate::interpreter::rule_defs::cmd_args::shlex_quote::shlex_quote;
+use crate::interpreter::rule_defs::cmd_args::sink::CommandLineSink;
 use crate::interpreter::rule_defs::cmd_args::traits::ArtifactPathMapper;
-use crate::interpreter::rule_defs::cmd_args::traits::CommandLineBuilder;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]
@@ -160,7 +160,7 @@ struct StringOptions<'v> {
 }
 
 pub struct CommandLineFormatter<'v, 'a> {
-    sink: &'a mut dyn CommandLineBuilder,
+    sink: &'a mut dyn CommandLineSink,
     artifact_path_mapping: &'a dyn ArtifactPathMapper,
     fs: &'a ExecutorFs<'a>,
     absolute: bool,
@@ -179,7 +179,7 @@ pub struct CommandLineFormatter<'v, 'a> {
 
 impl<'v, 'a> CommandLineFormatter<'v, 'a> {
     pub fn new(
-        sink: &'a mut dyn CommandLineBuilder,
+        sink: &'a mut dyn CommandLineSink,
         artifact_path_mapping: &'a dyn ArtifactPathMapper,
         fs: &'a ExecutorFs<'a>,
     ) -> Self {
@@ -187,7 +187,7 @@ impl<'v, 'a> CommandLineFormatter<'v, 'a> {
     }
 
     pub fn new_with_options(
-        sink: &'a mut dyn CommandLineBuilder,
+        sink: &'a mut dyn CommandLineSink,
         artifact_path_mapping: &'a dyn ArtifactPathMapper,
         fs: &'a ExecutorFs<'a>,
         absolute: bool,
@@ -404,7 +404,7 @@ impl<'v, 'a> CommandLineFormatter<'v, 'a> {
 
     fn write_str_inner(
         v: String,
-        sink: &mut dyn CommandLineBuilder,
+        sink: &mut dyn CommandLineSink,
         string_options: &mut [StringOptions<'v>],
     ) {
         let mut cur = v;

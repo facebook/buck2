@@ -13,7 +13,7 @@ use std::borrow::Cow;
 use allocative::Allocative;
 use sorted_vector_map::SortedVectorMap;
 
-use crate::interpreter::rule_defs::cmd_args::CommandLineBuilder;
+use crate::interpreter::rule_defs::cmd_args::CommandLineSink;
 
 /// A command line's expansion, suitable to actually run it.
 pub struct ExpandedCommandLine {
@@ -65,7 +65,7 @@ impl ExpandedCommandLineFingerprinter {
     }
 }
 
-impl CommandLineBuilder for ExpandedCommandLineFingerprinter {
+impl CommandLineSink for ExpandedCommandLineFingerprinter {
     fn push_arg(&mut self, s: Cow<'_, str>) {
         self.count += 1;
 

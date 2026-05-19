@@ -161,9 +161,7 @@ impl ArtifactPathMapper for ArtifactPathMapperImpl<'_> {
     }
 }
 
-/// Implemented by anything that can show up in a command line. This method adds any args and env vars that are needed
-///
-/// Certain operations on `CommandLineBuilder` can fail, so propagate those upward
+/// Implemented by anything that can show up in a command line
 pub trait CommandLineArgLike<'v> {
     /// Call `command_line_arg_like_impl!` to register the type with the interpreter typechecker.
     fn register_me(&self);
@@ -457,19 +455,5 @@ impl<'a> CommandLineLocation<'a> {
         } else {
             Cow::Owned(s.into_owned())
         }
-    }
-}
-
-/// CommandLineBuilder accumulates elements into some form of list (which might be an actual Vec, a
-/// space-separated list, etc.). An API is provided to add individual elements. Lower-level APIs
-/// are exposed to allow access to a buffer and control end-of-element.
-pub trait CommandLineBuilder {
-    /// Add a standalone element to this command line builder. This element
-    fn push_arg(&mut self, s: Cow<'_, str>);
-}
-
-impl CommandLineBuilder for Vec<String> {
-    fn push_arg(&mut self, s: Cow<'_, str>) {
-        self.push(s.into_owned())
     }
 }

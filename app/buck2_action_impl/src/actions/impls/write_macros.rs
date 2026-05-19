@@ -24,7 +24,7 @@ use buck2_build_api::actions::execute::error::ExecuteError;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineFormatter;
-use buck2_build_api::interpreter::rule_defs::cmd_args::SingletonCommandLineBuilder;
+use buck2_build_api::interpreter::rule_defs::cmd_args::SingletonCommandLineSink;
 use buck2_build_api::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedMacro;
@@ -276,7 +276,7 @@ impl WriteToFileMacroVisitor for MacroToFileWriter<'_> {
         artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
         let content = {
-            let mut writer = SingletonCommandLineBuilder::new();
+            let mut writer = SingletonCommandLineSink::new();
             let mut fmt = CommandLineFormatter::new(&mut writer, artifact_path_mapping, self.fs);
             fmt.push_scope_delimiter("");
             if let Some(p) = self.relative_to_path.as_ref() {
