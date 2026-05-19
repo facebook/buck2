@@ -429,6 +429,205 @@ impl<'a> Lexer<'a> {
         )
     }
 
+    /// Like `escape`, but appends bytes to `res: &mut Vec<u8>`.
+    /// Non-ASCII chars are encoded as UTF-8. `\uXXXX` / `\UHHHHHHHH` also encode as UTF-8 bytes.
+    fn escape_bytes(it: &mut CursorChars, res: &mut Vec<u8>) -> Result<(), ()> {
+        match it.next() {
+            Some('n') => res.push(b'\n'),
+            Some('r') => res.push(b'\r'),
+            Some('t') => res.push(b'\t'),
+            Some('a') => res.push(b'\x07'),
+            Some('b') => res.push(b'\x08'),
+            Some('f') => res.push(b'\x0C'),
+            Some('v') => res.push(b'\x0B'),
+            Some('\n') => {}
+            Some('\r') => {
+                if it.next() != Some('\n') {
+                    return Err(());
+                }
+            }
+            Some('x') => {
+                let c = Self::escape_char(it, 2, 2, 16)?;
+                // \xHH: store the low byte directly (Latin-1 / bytes-literal semantics).
+                res.push(c as u32 as u8);
+            }
+            Some('u') => {
+                let c = Self::escape_char(it, 4, 4, 16)?;
+                let mut buf = [0u8; 4];
+                res.extend_from_slice(c.encode_utf8(&mut buf).as_bytes());
+            }
+            Some('U') => {
+                let c = Self::escape_char(it, 8, 8, 16)?;
+                let mut buf = [0u8; 4];
+                res.extend_from_slice(c.encode_utf8(&mut buf).as_bytes());
+            }
+            Some(c) => match c {
+                '0'..='7' => {
+                    it.unnext(c);
+                    let c = Self::escape_char(it, 1, 3, 8)?;
+                    if c as u32 > 255 {
+                        return Err(());
+                    }
+                    res.push(c as u32 as u8);
+                }
+                '"' | '\'' | '\\' => res.push(c as u8),
+                _ => {
+                    res.push(b'\\');
+                    let mut buf = [0u8; 4];
+                    res.extend_from_slice(c.encode_utf8(&mut buf).as_bytes());
+                }
+            },
+            None => return Err(()),
+        }
+        Ok(())
+    }
+
+    /// Parse a bytes literal. Return the bytes content and the offset where it starts.
+    fn bytes_string(
+        &mut self,
+        triple: bool,
+        raw: bool,
+        mut stop: impl FnMut(char) -> bool,
+    ) -> LexemeT<(Vec<u8>, usize)> {
+        let string_start = self.lexer.span().start;
+        let mut string_end = self.lexer.span().end;
+
+        let mut it = CursorBytes::new(self.lexer.remainder());
+        let it2;
+
+        if triple {
+            it.next();
+            it.next();
+        }
+        let contents_start = it.pos();
+
+        // Fast path: accumulate bytes as-is until we hit something special
+        let mut res: Vec<u8>;
+        loop {
+            match it.next_char() {
+                None => {
+                    return self.err_span(
+                        LexemeError::UnfinishedStringLiteral,
+                        string_start,
+                        string_end + it.pos(),
+                    );
+                }
+                Some(c) => {
+                    if stop(c) {
+                        let contents_end = it.pos() - if triple { 3 } else { 1 };
+                        let contents =
+                            &self.lexer.remainder().as_bytes()[contents_start..contents_end];
+                        self.lexer.bump(it.pos());
+                        return Ok((
+                            string_start,
+                            (contents.to_vec(), contents_start),
+                            string_end + it.pos(),
+                        ));
+                    } else if c == '\\' || c == '\r' || (c == '\n' && !triple) {
+                        res = Vec::with_capacity(it.pos() + 10);
+                        res.extend_from_slice(
+                            &self.lexer.remainder().as_bytes()[contents_start..it.pos() - 1],
+                        );
+                        it2 = CursorChars::new_offset(self.lexer.remainder(), it.pos() - 1);
+                        break;
+                    }
+                }
+            }
+        }
+
+        let mut it = it2;
+        while let Some(c) = it.next() {
+            if stop(c) {
+                self.lexer.bump(it.pos());
+                if triple {
+                    // Remove the two extra quote chars already pushed
+                    let len = res.len();
+                    res.truncate(len.saturating_sub(2));
+                }
+                return Ok((string_start, (res, contents_start), string_end + it.pos()));
+            }
+            match c {
+                '\n' if !triple => {
+                    string_end -= 1;
+                    break;
+                }
+                '\r' => {}
+                '\\' => {
+                    if raw {
+                        match it.next() {
+                            Some(c) => {
+                                if c != '\'' && c != '"' {
+                                    res.push(b'\\');
+                                }
+                                let mut buf = [0u8; 4];
+                                res.extend_from_slice(c.encode_utf8(&mut buf).as_bytes());
+                            }
+                            _ => break,
+                        }
+                    } else {
+                        let pos = it.pos();
+                        if Self::escape_bytes(&mut it, &mut res).is_err() {
+                            let bad = self.lexer.remainder()[pos..it.pos()].to_owned();
+                            return self.err_span(
+                                if bad.is_empty() {
+                                    LexemeError::EmptyEscapeSequence
+                                } else {
+                                    LexemeError::InvalidEscapeSequence(bad)
+                                },
+                                string_end + pos - 1,
+                                string_end + it.pos(),
+                            );
+                        }
+                    }
+                }
+                c => {
+                    let mut buf = [0u8; 4];
+                    res.extend_from_slice(c.encode_utf8(&mut buf).as_bytes());
+                }
+            }
+        }
+
+        self.err_span(
+            LexemeError::UnfinishedStringLiteral,
+            string_start,
+            string_end + it.pos(),
+        )
+    }
+
+    fn parse_double_quoted_bytes_string(&mut self, raw: bool) -> Option<LexemeT<(Vec<u8>, usize)>> {
+        if self.lexer.remainder().starts_with("\"\"") {
+            let mut qs = 0;
+            Some(self.bytes_string(true, raw, |c| {
+                if c == '\"' {
+                    qs += 1;
+                    qs == 3
+                } else {
+                    qs = 0;
+                    false
+                }
+            }))
+        } else {
+            Some(self.bytes_string(false, raw, |c| c == '\"'))
+        }
+    }
+
+    fn parse_single_quoted_bytes_string(&mut self, raw: bool) -> Option<LexemeT<(Vec<u8>, usize)>> {
+        if self.lexer.remainder().starts_with("''") {
+            let mut qs = 0;
+            Some(self.bytes_string(true, raw, |c| {
+                if c == '\'' {
+                    qs += 1;
+                    qs == 3
+                } else {
+                    qs = 0;
+                    false
+                }
+            }))
+        } else {
+            Some(self.bytes_string(false, raw, |c| c == '\''))
+        }
+    }
+
     fn int(&self, s: &str, radix: u32) -> Lexeme {
         let span = self.lexer.span();
         match TokenInt::from_str_radix(s, radix) {
@@ -545,6 +744,23 @@ impl<'a> Lexer<'a> {
                                 }
                                 Token::FString(_) => {
                                     unreachable!("The lexer does not produce FString")
+                                }
+                                Token::RawByteDoubleQuote => {
+                                    // span len: b" = 2, br" = 3, rb" = 3
+                                    let raw = self.lexer.span().len() >= 3;
+                                    self.parse_double_quoted_bytes_string(raw).map(|lex| {
+                                        map_lexeme_t(lex, |(b, _offset)| Token::Bytes(b))
+                                    })
+                                }
+                                Token::RawByteSingleQuote => {
+                                    // span len: b' = 2, br' = 3, rb' = 3
+                                    let raw = self.lexer.span().len() >= 3;
+                                    self.parse_single_quoted_bytes_string(raw).map(|lex| {
+                                        map_lexeme_t(lex, |(b, _offset)| Token::Bytes(b))
+                                    })
+                                }
+                                Token::Bytes(_) => {
+                                    unreachable!("The lexer does not produce Bytes directly")
                                 }
                                 Token::OpeningCurly
                                 | Token::OpeningRound
@@ -668,6 +884,19 @@ pub enum Token {
     #[token("f\"")]
     #[token("fr\"")]
     RawFStringDoubleQuote,
+
+    /// The start of a single-quoted bytes literal.
+    #[token("b'")]
+    #[token("br'")]
+    #[token("rb'")]
+    RawByteSingleQuote,
+    /// The start of a double-quoted bytes literal.
+    #[token("b\"")]
+    #[token("br\"")]
+    #[token("rb\"")]
+    RawByteDoubleQuote,
+
+    Bytes(Vec<u8>), // A bytes literal
 
     #[regex(
         "as|\
@@ -954,6 +1183,9 @@ impl Display for Token {
             Token::RawFStringDoubleQuote => write!(f, "starting f'"),
             Token::RawFStringSingleQuote => write!(f, "starting f\""),
             Token::FString(s) => write!(f, "f-string {:?}", s.content),
+            Token::RawByteDoubleQuote => write!(f, "starting b\""),
+            Token::RawByteSingleQuote => write!(f, "starting b'"),
+            Token::Bytes(b) => write!(f, "bytes literal ({} bytes)", b.len()),
             Token::Comment(c) => write!(f, "comment '{c}'"),
             Token::Tabs => Ok(()),
         }
@@ -978,6 +1210,9 @@ pub fn lex_exactly_one_identifier(s: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    use crate::codemap::CodeMap;
+    use crate::dialect::Dialect;
+    use crate::lexer::Lexer;
     use crate::lexer::lex_exactly_one_identifier;
 
     #[test]
@@ -987,5 +1222,17 @@ mod tests {
         assert_eq!(lex_exactly_one_identifier("foo bar"), None);
         assert_eq!(lex_exactly_one_identifier("not"), None);
         assert_eq!(lex_exactly_one_identifier("123"), None);
+    }
+
+    #[test]
+    fn test_bytes_literal_octal_overflow_is_error() {
+        // \400 = 256 in octal, which exceeds 255 and should be a lex error.
+        let result: Vec<_> =
+            Lexer::new(r#"b"\400""#, &Dialect::Standard, CodeMap::default()).collect();
+        assert!(
+            result.iter().any(|r| r.is_err()),
+            "expected a lex error for b\"\\400\" but got: {:?}",
+            result
+        );
     }
 }

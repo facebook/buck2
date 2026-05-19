@@ -51,6 +51,7 @@ use crate::typing::oracle::traits::TypingBinOp;
 use crate::typing::oracle::traits::TypingUnOp;
 use crate::typing::ty::Approximation;
 use crate::typing::ty::Ty;
+use crate::values::types::bytes::value::StarlarkBytes;
 
 pub(crate) struct TypingContext<'a> {
     pub(crate) oracle: TypingOracleCtx<'a>,
@@ -437,6 +438,7 @@ impl TypingContext<'_> {
                 AstLiteral::Int(_) => Ok(Ty::int()),
                 AstLiteral::Float(_) => Ok(Ty::float()),
                 AstLiteral::String(_) => Ok(Ty::string()),
+                AstLiteral::Bytes(_) => Ok(Ty::starlark_value::<StarlarkBytes>()),
                 AstLiteral::Ellipsis => Ok(Ty::any()),
             },
             ExprP::Not(x) => {

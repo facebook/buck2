@@ -90,6 +90,7 @@ pub use crate::values::types::any;
 pub use crate::values::types::any_complex;
 pub use crate::values::types::array;
 pub use crate::values::types::bool;
+pub use crate::values::types::bytes;
 pub use crate::values::types::dict;
 pub use crate::values::types::enumeration;
 pub use crate::values::types::float;

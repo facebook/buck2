@@ -78,6 +78,7 @@ use crate::values::function::FrozenBoundMethod;
 use crate::values::list::ListRef;
 use crate::values::range::Range;
 use crate::values::string::interpolation::parse_percent_s_one;
+use crate::values::types::bytes::value::StarlarkBytes;
 use crate::values::types::dict::Dict;
 use crate::values::types::ellipsis::Ellipsis;
 use crate::values::types::float::StarlarkFloat;
@@ -1052,6 +1053,7 @@ impl AstLiteralCompile for AstLiteral {
             AstLiteral::Int(i) => heap.alloc(StarlarkInt::from(i.node.clone())),
             AstLiteral::Float(f) => heap.alloc(f.node),
             AstLiteral::String(x) => heap.alloc(x.node.as_str()),
+            AstLiteral::Bytes(b) => heap.alloc(StarlarkBytes::new(&b.node)),
             AstLiteral::Ellipsis => heap.alloc(Ellipsis),
         }
     }

@@ -50,6 +50,10 @@ string: AstString = <l:@L> <e:"STRING"> <r:@R>
     => e.ast(l, r);
 
 #[inline]
+bytes: AstBytes = <l:@L> <e:"BYTES"> <r:@R>
+    => e.ast(l, r);
+
+#[inline]
 fstring: AstFString = <l:@L> <e:"FSTRING"> <r:@R>
     => grammar_util::fstring(e, l, r, state);
 
@@ -284,6 +288,8 @@ Operand: AstExpr = {
         => Expr::Literal(AstLiteral::Float(f)).ast(l, r),
     <l:@L> <s:string> <r:@R>
         => Expr::Literal(AstLiteral::String(s)).ast(l, r),
+    <l:@L> <b:bytes> <r:@R>
+        => Expr::Literal(AstLiteral::Bytes(b)).ast(l, r),
     <l:@L> "..." <r:@R>
         => Expr::Literal(AstLiteral::Ellipsis).ast(l, r),
     <l:@L> "[" <e:COMMA<Test>> "]" <r:@R>
@@ -515,5 +521,6 @@ extern {
       "FLOAT" => lexer::Token::Float(<f64>),
       "STRING" => lexer::Token::String(<String>),
       "FSTRING" => lexer::Token::FString(<lexer::TokenFString>),
+      "BYTES" => lexer::Token::Bytes(<Vec<u8>>),
     }
 }
