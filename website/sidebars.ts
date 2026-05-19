@@ -77,6 +77,7 @@ export const sidebars: SidebarsConfig = {
       items: [
         'concepts/key_concepts',
         'concepts/concept_map',
+        'concepts/architecture',
         'concepts/build_rule',
         'concepts/build_file',
         'concepts/build_target',

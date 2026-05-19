@@ -1,3 +1,10 @@
+---
+id: architecture
+title: Architectural Model
+---
+
+import useBaseUrl from '@docusaurus/useBaseUrl';
+
 ## High-level Overview
 
 Buck2 is a build system whose core is written in Rust. Starlark, which is a
@@ -180,4 +187,4 @@ construct a command for TPX to execute the actual test.
 ### Phase E: Execute tests
 
 For more detail on testing, review
-[Test Execution](/docs/rule_authors/test_execution).
+[Test Execution](../rule_authors/test_execution.md).
