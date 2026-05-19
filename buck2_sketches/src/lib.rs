@@ -14,6 +14,8 @@
 mod typed;
 
 pub use typed::ActionGraphSketch;
+pub use typed::ArtifactCountSketch;
+pub use typed::ArtifactSizeSketch;
 pub use typed::DependencyGraphSketch;
 pub use typed::MemoryUsageSketch;
 pub use typed::TypedSketch;

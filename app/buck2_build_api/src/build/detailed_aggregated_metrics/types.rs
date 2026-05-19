@@ -22,6 +22,7 @@ use dupe::Dupe;
 
 use crate::artifact_groups::ArtifactGroup;
 use crate::build::BuildProviderType;
+use crate::build::detailed_aggregated_metrics::buck2_sketches::ArtifactPathSketches;
 use crate::build::sketch_impl::MergeableGraphSketch;
 
 #[derive(Clone)]
@@ -58,6 +59,11 @@ pub struct ActionGraphSketchResult {
         ConfiguredProvidersLabel,
         Option<MergeableGraphSketch<ActionKey, ActionGraphSketch>>,
     )>,
+}
+
+pub struct ArtifactPathSketchResult {
+    #[allow(dead_code)] // read in follow-up commit
+    pub(crate) per_target_sketches: Vec<(ConfiguredProvidersLabel, ArtifactPathSketches)>,
 }
 
 pub struct DetailedAggregatedMetrics {

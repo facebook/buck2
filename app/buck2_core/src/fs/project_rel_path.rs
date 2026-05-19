@@ -91,6 +91,7 @@ use pagable::Pagable;
 use ref_cast::RefCast;
 use serde::Deserialize;
 use serde::Serialize;
+use strong_hash::StrongHash;
 
 /// A un-owned forward pointing, fully normalized path that is relative to the
 /// project root.
@@ -102,7 +103,8 @@ use serde::Serialize;
     Eq,
     PartialOrd,
     Ord,
-    RefCast
+    RefCast,
+    StrongHash
 )]
 #[derivative(Debug)]
 #[repr(transparent)]
@@ -124,7 +126,8 @@ pub struct ProjectRelativePath(
     Serialize,
     Deserialize,
     Pagable,
-    Allocative
+    Allocative,
+    StrongHash
 )]
 #[derivative(Debug)]
 pub struct ProjectRelativePathBuf(

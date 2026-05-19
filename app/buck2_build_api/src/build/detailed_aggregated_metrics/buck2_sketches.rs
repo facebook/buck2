@@ -13,6 +13,7 @@ use async_trait::async_trait;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::deferred::key::DeferredHolderKey;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_hash::BuckHashSet;
@@ -22,6 +23,8 @@ use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_sketches::ActionGraphSketch;
+use buck2_sketches::ArtifactCountSketch;
+use buck2_sketches::ArtifactSizeSketch;
 use buck2_sketches::DependencyGraphSketch;
 use buck2_sketches::MemoryUsageSketch;
 use dice::CancellationContext;
@@ -126,6 +129,63 @@ type AnalysisHeapSketches = (
     Option<MergeableGraphSketch<StarlarkEvalKind, MemoryUsageSketch>>,
     Option<MergeableGraphSketch<StarlarkEvalKind, MemoryUsageSketch>>,
 );
+
+/// Holds optional size and count sketches for artifact paths.
+#[allow(dead_code)] // fields used in follow-up commit
+pub(crate) struct ArtifactPathSketches {
+    pub(crate) size: Option<MergeableGraphSketch<ProjectRelativePathBuf, ArtifactSizeSketch>>,
+    pub(crate) count: Option<MergeableGraphSketch<ProjectRelativePathBuf, ArtifactCountSketch>>,
+}
+
+impl ArtifactPathSketches {
+    #[allow(dead_code)] // used in follow-up commit
+    pub(crate) fn empty() -> Self {
+        Self {
+            size: None,
+            count: None,
+        }
+    }
+}
+
+/// Computes artifact path sketches from an iterator of (path, size) pairs.
+///
+/// For each file, sketches the path string weighted by its size (for size sketch)
+/// or weight 1 (for count sketch). Callers should walk artifact directory entries
+/// at file granularity (e.g. via `unordered_entry_walk`) so that projected
+/// artifacts and directory contents are sketched uniformly.
+#[allow(dead_code)] // used in follow-up commit
+pub(crate) fn compute_artifact_path_sketches(
+    artifacts: impl Iterator<Item = (ProjectRelativePathBuf, u64)>,
+    sketch_size: bool,
+    sketch_count: bool,
+) -> ArtifactPathSketches {
+    let mut size_sketcher = if sketch_size {
+        Some(DEFAULT_SKETCH_VERSION.create_sketcher::<ProjectRelativePathBuf, ArtifactSizeSketch>())
+    } else {
+        None
+    };
+    let mut count_sketcher = if sketch_count {
+        Some(
+            DEFAULT_SKETCH_VERSION.create_sketcher::<ProjectRelativePathBuf, ArtifactCountSketch>(),
+        )
+    } else {
+        None
+    };
+
+    for (path, size) in artifacts {
+        if let Some(ref mut s) = size_sketcher {
+            s.sketch_weighted(&path, size);
+        }
+        if let Some(ref mut c) = count_sketcher {
+            c.sketch(&path);
+        }
+    }
+
+    ArtifactPathSketches {
+        size: size_sketcher.map(|s| s.into_mergeable_graph_sketch()),
+        count: count_sketcher.map(|s| s.into_mergeable_graph_sketch()),
+    }
+}
 
 #[derive(
     Clone,

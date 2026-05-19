@@ -205,6 +205,14 @@ impl UnweightedDomain for ActionGraph {}
 pub struct MemoryUsage;
 impl WeightedDomain for MemoryUsage {}
 
+/// Domain marker for artifact size sketches (weighted by file size in bytes).
+pub struct ArtifactSize;
+impl WeightedDomain for ArtifactSize {}
+
+/// Domain marker for artifact count sketches (unweighted, counting distinct paths).
+pub struct ArtifactCount;
+impl UnweightedDomain for ArtifactCount {}
+
 // ---------------------------------------------------------------------------
 // Public type aliases
 // ---------------------------------------------------------------------------
@@ -220,6 +228,14 @@ pub type ActionGraphSketch = Sketch<ActionGraph>;
 /// A sketch representing the retained analysis memory of a target.
 /// Cardinality estimates the number of bytes of retained analysis memory.
 pub type MemoryUsageSketch = Sketch<MemoryUsage>;
+
+/// A sketch representing artifact sizes for a build target.
+/// Cardinality estimates the total size in bytes of all artifacts.
+pub type ArtifactSizeSketch = Sketch<ArtifactSize>;
+
+/// A sketch representing artifact counts for a build target.
+/// Cardinality estimates the number of distinct artifact paths.
+pub type ArtifactCountSketch = Sketch<ArtifactCount>;
 
 // ---------------------------------------------------------------------------
 // Domain-specific accessors
