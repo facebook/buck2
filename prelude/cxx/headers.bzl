@@ -276,7 +276,7 @@ def prepare_headers(
     )
     prefix_map_flag = "-ffile-prefix-map"
     if header_mode == HeaderMode("symlink_tree_only"):
-        include_prefix = _infer_include_prefix(srcs, header_namespace)
+        include_prefix = _infer_include_prefix(srcs, header_namespace, package = symlink_dir.owner.package)
         replacement = _get_prefix_map_replacement(cxx_toolchain_info, symlink_dir, header_namespace, include_prefix)
         file_prefix_args = None
         if replacement != None:
@@ -289,7 +289,7 @@ def prepare_headers(
     if header_mode == HeaderMode("symlink_tree_with_header_map"):
         headers = {h: (symlink_dir, "{}/" + h) for h in srcs}
         hmap = _mk_hmap(actions, cxx_toolchain_info, output_name, headers, allow_cache_upload, uses_content_based_paths)
-        include_prefix = _infer_include_prefix(srcs, header_namespace)
+        include_prefix = _infer_include_prefix(srcs, header_namespace, package = symlink_dir.owner.package)
         replacement = _get_prefix_map_replacement(cxx_toolchain_info, symlink_dir, header_namespace, include_prefix)
         file_prefix_args = None
         coverage_prefix_args = None
@@ -408,26 +408,38 @@ def _get_dict_header_namespace(namespace: str, naming: CxxHeadersNaming) -> str:
     else:
         fail("Unsupported header naming: {}".format(naming))
 
-def _infer_include_prefix(srcs: dict[str, Artifact], header_namespace: [str, None]) -> str:
+def _infer_include_prefix(srcs: dict[str, Artifact], header_namespace: [str, None], package: [str, None] = None) -> [str, None]:
     """
-    Detect a common path prefix between actual source paths and symlink tree
-    keys. When header_namespace is "" (e.g. third-party targets), the symlink
-    tree key may differ from the artifact's real path by a prefix like "include/".
-    Returns that missing prefix so it can be included in prefix maps.
+    Detect the path prefix that, when prepended to a symlink tree key,
+    produces the correct repo-relative source path. When header_namespace
+    is "" (e.g. third-party targets), the symlink tree key may differ from
+    the artifact's real path by a prefix like "include/" or a cell directory
+    like "xplat/".
+    Returns the prefix string when a match is found (may be "" if the key
+    already matches the full cell-relative path), or None when no match could
+    be determined (caller should fall back to the package path).
     Only checks the first entry; headers under different include directories
     will get an approximate path (missing their specific include prefix).
     """
     if header_namespace != "":
-        return ""
+        return None
     for key, artifact in srcs.items():
         short = artifact.short_path
-        if short.endswith(key) and len(short) > len(key):
-            return paths.normalize(short[: len(short) - len(key)])
+        if short.endswith(key):
+            if len(short) > len(key):
+                return paths.normalize(short[: len(short) - len(key)])
+            return ""
+        if package:
+            full_path = paths.join(package, short)
+            if full_path.endswith(key):
+                if len(full_path) > len(key):
+                    return paths.normalize(full_path[: len(full_path) - len(key)])
+                return ""
         break
-    return ""
+    return None
 
 def _get_prefix_map_replacement(
-    cxx_toolchain_info: CxxToolchainInfo, header_dir: Artifact, header_namespace: [str, None] = None, include_prefix: str = ""
+    cxx_toolchain_info: CxxToolchainInfo, header_dir: Artifact, header_namespace: [str, None] = None, include_prefix: [str, None] = None
 ) -> [str, None]:
     """Compute the replacement path for prefix-map flags."""
 
@@ -440,11 +452,17 @@ def _get_prefix_map_replacement(
     cell_prefix = cxx_toolchain_info.cell_to_path_prefix_map.get(cell, "")
     prefix_target = cell_prefix
     if header_namespace == "":
-        package = header_dir.owner.package
-        if package:
-            prefix_target = paths.join(prefix_target, package) if prefix_target else package
-    if include_prefix:
-        prefix_target = paths.join(prefix_target, include_prefix) if prefix_target else include_prefix
+        if include_prefix != None:
+            # include_prefix captures the path from cell root to above the
+            # symlink tree key structure. Use it directly instead of the
+            # package path to avoid duplication when keys already encode
+            # the package path (e.g. via subdir_glob prefix).
+            if include_prefix:
+                prefix_target = paths.join(prefix_target, include_prefix) if prefix_target else include_prefix
+        else:
+            package = header_dir.owner.package
+            if package:
+                prefix_target = paths.join(prefix_target, package) if prefix_target else package
     return prefix_target if prefix_target else cell
 
 def _mk_hmap(
