@@ -260,7 +260,7 @@ impl PagableStorage for SledBackedPagableStorage {
     }
 
     #[cfg(not(any(feature = "tokio", test)))]
-    async fn fetch_data(&self, key: &DataKey) -> anyhow::Result<Arc<PagableData>> {
+    async fn fetch_data(&self, _key: &DataKey) -> anyhow::Result<Arc<PagableData>> {
         Err(anyhow::anyhow!("sled backend requires tokio feature"))
     }
 
