@@ -640,7 +640,7 @@ where
                     .file_name()
                     .ok_or(TargetPatternParseError::PackageIsEmpty)?;
 
-                let target_name = TargetName::new(target)?;
+                let target_name = TargetName::new(target.as_str())?;
 
                 Ok(PatternData::TargetInPackage {
                     package,

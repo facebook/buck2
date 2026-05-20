@@ -407,7 +407,7 @@ impl AbsNormPath {
             .0
             .components()
             .chain(path.as_ref().components().map(|c| match c {
-                Component::Normal(s) => std::path::Component::Normal(OsStr::new(s)),
+                Component::Normal(s) => std::path::Component::Normal(OsStr::new(s.as_str())),
                 Component::CurDir => std::path::Component::CurDir,
                 Component::ParentDir => std::path::Component::ParentDir,
             }))

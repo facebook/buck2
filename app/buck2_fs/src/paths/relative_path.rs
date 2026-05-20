@@ -46,6 +46,8 @@ use serde::Deserializer;
 use serde::Serialize;
 use strong_hash::StrongHash;
 
+use crate::paths::file_name::FileName;
+
 const SEP: char = '/';
 const CURRENT_STR: &str = ".";
 const PARENT_STR: &str = "..";
@@ -132,27 +134,7 @@ impl RelativePath {
         self.0.is_empty()
     }
 
-    /// Iterator over the components of this path. `.` and `..` are surfaced as
-    /// [`Component::CurDir`] / [`Component::ParentDir`]; empty components
-    /// (consecutive `/`s) are skipped.
-    ///
-    /// ```
-    /// use buck2_fs::paths::RelativePath;
-    /// use buck2_fs::paths::relative_path::Component;
-    ///
-    /// let path = RelativePath::unchecked_new("foo/../bar/./baz");
-    /// let components: Vec<_> = path.components().collect();
-    /// assert_eq!(
-    ///     vec![
-    ///         Component::Normal("foo"),
-    ///         Component::ParentDir,
-    ///         Component::Normal("bar"),
-    ///         Component::CurDir,
-    ///         Component::Normal("baz"),
-    ///     ],
-    ///     components,
-    /// );
-    /// ```
+    /// Iterator over the components of this path.
     #[inline]
     pub fn components(&self) -> Components<'_> {
         Components { source: &self.0 }
@@ -171,7 +153,7 @@ impl RelativePath {
     /// Returns the final component of the path, if it is a normal name.
     /// Trailing `.` components are skipped; if the final non-`.` component is
     /// `..`, returns `None`.
-    pub fn file_name(&self) -> Option<&str> {
+    pub fn file_name(&self) -> Option<&FileName> {
         let mut it = self.components();
         while let Some(c) = it.next_back() {
             return match c {
@@ -483,7 +465,7 @@ fn relative_traversal<'a, C: IntoIterator<Item = Component<'a>>>(
                 }
             },
             Component::Normal(name) => {
-                buf.push(RelativePath::unchecked_new(name));
+                buf.push(name);
             }
         }
     }
@@ -497,7 +479,7 @@ pub enum Component<'a> {
     /// The parent directory: `..`.
     ParentDir,
     /// A normal path component.
-    Normal(&'a str),
+    Normal(&'a FileName),
 }
 
 impl<'a> Component<'a> {
@@ -507,7 +489,7 @@ impl<'a> Component<'a> {
         match self {
             Component::CurDir => CURRENT_STR,
             Component::ParentDir => PARENT_STR,
-            Component::Normal(s) => s,
+            Component::Normal(s) => s.as_str(),
         }
     }
 }
@@ -573,7 +555,7 @@ impl<'a> Iterator for Components<'a> {
             "" => None,
             CURRENT_STR => Some(Component::CurDir),
             PARENT_STR => Some(Component::ParentDir),
-            slice => Some(Component::Normal(slice)),
+            slice => Some(Component::Normal(FileName::unchecked_new(slice))),
         }
     }
 }
@@ -593,7 +575,7 @@ impl<'a> DoubleEndedIterator for Components<'a> {
             "" => None,
             CURRENT_STR => Some(Component::CurDir),
             PARENT_STR => Some(Component::ParentDir),
-            slice => Some(Component::Normal(slice)),
+            slice => Some(Component::Normal(FileName::unchecked_new(slice))),
         }
     }
 }
@@ -882,11 +864,11 @@ mod tests {
         let got: Vec<_> = p.components().collect();
         assert_eq!(
             vec![
-                Component::Normal("a"),
+                Component::Normal(FileName::unchecked_new("a")),
                 Component::ParentDir,
-                Component::Normal("b"),
+                Component::Normal(FileName::unchecked_new("b")),
                 Component::CurDir,
-                Component::Normal("c"),
+                Component::Normal(FileName::unchecked_new("c")),
             ],
             got,
         );
@@ -894,7 +876,13 @@ mod tests {
         // Empty components (`//`) and trailing slashes are skipped.
         let p = RelativePath::unchecked_new("a//b/");
         let got: Vec<_> = p.components().collect();
-        assert_eq!(vec![Component::Normal("a"), Component::Normal("b")], got);
+        assert_eq!(
+            vec![
+                Component::Normal(FileName::unchecked_new("a")),
+                Component::Normal(FileName::unchecked_new("b"))
+            ],
+            got
+        );
 
         // Empty path yields no components.
         assert_eq!(0, RelativePath::unchecked_new("").components().count());
