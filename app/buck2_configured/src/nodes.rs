@@ -76,7 +76,6 @@ use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::nodes::unconfigured::TargetNodeRef;
 use buck2_node::rule::RuleIncomingTransition;
-use buck2_node::visibility::VisibilityError;
 use buck2_util::arc_str::ArcStr;
 use derive_more::Display;
 use dice::Demand;
@@ -372,11 +371,9 @@ async fn check_plugin_deps(
                 return Err(PluginDepError::PluginDepIsToolchainRule(dep_label.dupe()).into());
             }
             if !dep_node.is_visible_to(target_label.unconfigured())? {
-                return Err(VisibilityError::NotVisibleTo(
-                    dep_label.dupe(),
-                    target_label.unconfigured().dupe(),
-                )
-                .into());
+                return Err(dep_node
+                    .not_visible_to_error(target_label.unconfigured().dupe())
+                    .into());
             }
         }
     }
@@ -432,11 +429,8 @@ impl ErrorsAndIncompatibilities {
                     }
                     Ok(false) => {
                         self.errs.push(
-                            VisibilityError::NotVisibleTo(
-                                dep.label().unconfigured().dupe(),
-                                target_label.unconfigured().dupe(),
-                            )
-                            .into(),
+                            dep.not_visible_to_error(target_label.unconfigured().dupe())
+                                .into(),
                         );
                     }
                     Err(e) => {

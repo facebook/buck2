@@ -17,7 +17,6 @@ use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::load_patterns::load_patterns;
 use buck2_node::nodes::lookup::TargetNodeLookup;
 use buck2_node::nodes::unconfigured::TargetNode;
-use buck2_node::visibility::VisibilityError;
 use buck2_query::query::environment::QueryTargetDepsSuccessors;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_query::query::traversal::async_depth_first_postorder_traversal;
@@ -69,10 +68,7 @@ async fn verify_visibility(
             match new_targets.get(dep) {
                 Some(val) => {
                     if !val.is_visible_to(target.label())? {
-                        visibility_errors.push(VisibilityError::NotVisibleTo(
-                            dep.dupe(),
-                            target.label().dupe(),
-                        ));
+                        visibility_errors.push(val.not_visible_to_error(target.label().dupe()));
                     }
                 }
                 None => {

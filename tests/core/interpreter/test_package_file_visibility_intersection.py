@@ -28,9 +28,10 @@ async def test_optin_clips_public_target_for_outside_consumer(
     buck: Buck,
 ) -> None:
     # PUBLIC silently clipped (not rejected); outside consumer fails.
+    # Locks the diagnostic: error mentions visibility attr, cap, and the function name.
     result = await expect_failure(
         buck.ctargets("root//outside_consumer:c"),
-        stderr_regex=r"is not visible to",
+        stderr_regex=r"is not visible to.*visibility = .*Capped to.*enforce_visibility_intersection",
     )
     golden(
         output=sanitize_stderr(result.stderr),
@@ -46,7 +47,7 @@ async def test_optin_cap_blocks_target_visibility_leaking_outside_cap(
     # Differs from `enforce_strict_visibility` which would allow this leak.
     result = await expect_failure(
         buck.ctargets("root//leak_destination/consumer:c"),
-        stderr_regex=r"is not visible to",
+        stderr_regex=r"is not visible to.*Capped to.*enforce_visibility_intersection",
     )
     golden(
         output=sanitize_stderr(result.stderr),

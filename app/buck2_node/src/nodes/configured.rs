@@ -146,6 +146,13 @@ impl TargetNodeOrForward {
         }
     }
 
+    fn not_visible_to_error(&self, consumer: TargetLabel) -> crate::visibility::VisibilityError {
+        match self {
+            TargetNodeOrForward::TargetNode(node) => node.not_visible_to_error(consumer),
+            TargetNodeOrForward::Forward(_, forward) => forward.not_visible_to_error(consumer),
+        }
+    }
+
     fn oncall(&self) -> Option<&str> {
         match self {
             TargetNodeOrForward::TargetNode(node) => node.oncall(),
@@ -453,6 +460,13 @@ impl ConfiguredTargetNode {
 
     pub fn is_visible_to(&self, target: &TargetLabel) -> buck2_error::Result<bool> {
         self.0.target_node.is_visible_to(target)
+    }
+
+    pub fn not_visible_to_error(
+        &self,
+        consumer: TargetLabel,
+    ) -> crate::visibility::VisibilityError {
+        self.0.target_node.not_visible_to_error(consumer)
     }
 
     #[inline]

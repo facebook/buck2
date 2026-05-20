@@ -58,6 +58,7 @@ use crate::nodes::attributes::TYPE;
 use crate::package::Package;
 use crate::rule::Rule;
 use crate::rule_type::RuleType;
+use crate::visibility::VisibilityError;
 use crate::visibility::VisibilityPatternList;
 use crate::visibility::VisibilitySpecification;
 
@@ -292,6 +293,19 @@ impl TargetNode {
             return Ok(false);
         }
         Ok(self.0.package.visibility_cap.matches_target(target))
+    }
+
+    pub fn not_visible_to_error(&self, consumer: TargetLabel) -> VisibilityError {
+        let cap = self.0.package.visibility_cap.dupe();
+        if matches!(cap, VisibilityPatternList::Public) {
+            VisibilityError::NotVisibleTo(self.label().dupe(), consumer)
+        } else {
+            let visibility = self
+                .visibility()
+                .map(|v| v.dupe())
+                .unwrap_or(VisibilitySpecification::DEFAULT);
+            VisibilityError::NotVisibleToWithCap(self.label().dupe(), consumer, visibility, cap)
+        }
     }
 
     /// Returns an iterator of all attributes.

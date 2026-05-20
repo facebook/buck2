@@ -31,6 +31,17 @@ pub enum VisibilityError {
     )]
     #[buck2(input, tag = Visibility)]
     NotVisibleTo(TargetLabel, TargetLabel),
+
+    #[error(
+        "`{0}` is not visible to `{1}` (visibility = {2}). Capped to {3} by `enforce_visibility_intersection()` in an ancestor PACKAGE."
+    )]
+    #[buck2(input, tag = Visibility)]
+    NotVisibleToWithCap(
+        TargetLabel,
+        TargetLabel,
+        VisibilitySpecification,
+        VisibilityPatternList,
+    ),
 }
 
 #[derive(
