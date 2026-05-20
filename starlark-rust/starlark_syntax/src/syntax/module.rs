@@ -25,6 +25,7 @@ use dupe::Dupe;
 
 use crate::codemap::CodeMap;
 use crate::codemap::FileSpan;
+use crate::codemap::Pos;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::lexer::Lexer;
@@ -99,6 +100,9 @@ pub struct AstModule {
     /// Lint issues suppressed in this module using inline comments of shape
     /// # starlark-lint-disable <ISSUE_NAME>, <ISSUE_NAME>, ...
     lint_suppressions: LintSuppressions,
+    /// Spans of all comments found in the source, in source order.
+    /// Each span includes the leading `#`.
+    comment_spans: Vec<Span>,
 }
 
 /// This trait is not exported as public API of starlark.
@@ -137,6 +141,7 @@ impl AstModule {
         dialect: &Dialect,
         typecheck: bool,
         lint_suppressions: LintSuppressions,
+        comment_spans: Vec<Span>,
     ) -> crate::Result<AstModule> {
         let mut errors = Vec::new();
         validate_module(
@@ -157,6 +162,7 @@ impl AstModule {
             dialect: dialect.clone(),
             typecheck,
             lint_suppressions,
+            comment_spans,
         })
     }
 
@@ -206,13 +212,14 @@ impl AstModule {
         let mut lint_suppressions_builder = LintSuppressionsBuilder::new();
         // Keep track of block of comments, used for accumulating lint suppressions
         let mut in_comment_block = false;
+        let mut comment_spans = Vec::new();
         let mut errors = Vec::new();
         let eof_pos = codemap.source().len();
 
         let filtered = lexer.filter(|token| match token {
-            // Filter out comment tokens and accumulate lint suppressions
             Ok((start, Token::Comment(comment), end)) => {
                 lint_suppressions_builder.parse_comment(&codemap, comment, *start, *end);
+                comment_spans.push(Span::new(Pos::new(*start as u32), Pos::new(*end as u32)));
                 in_comment_block = true;
                 false
             }
@@ -248,6 +255,7 @@ impl AstModule {
                     dialect,
                     typecheck,
                     lint_suppressions_builder.build(),
+                    comment_spans,
                 )?)
             }
             Err(e) => Err(e.into_crate_error(&codemap)),
@@ -368,6 +376,13 @@ impl AstModule {
         self.lint_suppressions
             .is_suppressed(issue_short_name, issue_span)
     }
+
+    /// Returns the spans of all comments in source order. Each span includes
+    /// the leading `#`. Use [`file_span`](AstModule::file_span) to obtain a
+    /// [`FileSpan`], then [`FileSpan::source_span`] to get the source text.
+    pub fn comments(&self) -> &[Span] {
+        &self.comment_spans
+    }
 }
 
 #[cfg(test)]
@@ -386,5 +401,57 @@ mod tests {
 
         assert_eq!(&get("foo"), "1:1-4");
         assert_eq!(&get("foo\ndef x():\n   pass"), "1:1-4 2:1-3:8 3:4-8");
+    }
+
+    #[test]
+    fn test_comments_empty() {
+        let module = grammar_tests::parse_ast("x = 1");
+        assert!(module.comments().is_empty());
+    }
+
+    #[test]
+    fn test_comments_single() {
+        let module = grammar_tests::parse_ast("# hello\nx = 1");
+        let comments = module.comments();
+        assert_eq!(comments.len(), 1);
+        assert_eq!(module.file_span(comments[0]).source_span(), "# hello");
+    }
+
+    #[test]
+    fn test_comments_multiple() {
+        let module = grammar_tests::parse_ast("# first\nx = 1\n# second");
+        let comments = module.comments();
+        assert_eq!(comments.len(), 2);
+        assert_eq!(module.file_span(comments[0]).source_span(), "# first");
+        assert_eq!(module.file_span(comments[1]).source_span(), "# second");
+    }
+
+    #[test]
+    fn test_comments_inline() {
+        let module = grammar_tests::parse_ast("x = 1 # inline");
+        let comments = module.comments();
+        assert_eq!(comments.len(), 1);
+        assert_eq!(module.file_span(comments[0]).source_span(), "# inline");
+    }
+
+    #[test]
+    fn test_comments_span() {
+        let module = grammar_tests::parse_ast("# hi\nx = 1");
+        let comments = module.comments();
+        assert_eq!(comments.len(), 1);
+        let resolved = module.file_span(comments[0]).resolve_span();
+        assert_eq!(resolved.to_string(), "1:1-5");
+    }
+
+    #[test]
+    fn test_comments_source_order() {
+        let module = grammar_tests::parse_ast("# a\n# b\nx = 1\n# c");
+        let file_spans: Vec<_> = module
+            .comments()
+            .iter()
+            .map(|s| module.file_span(*s))
+            .collect();
+        let texts: Vec<&str> = file_spans.iter().map(|fs| fs.source_span()).collect();
+        assert_eq!(texts, vec!["# a", "# b", "# c"]);
     }
 }
