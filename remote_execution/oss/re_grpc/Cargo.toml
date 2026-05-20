@@ -10,6 +10,7 @@ version = "0.1.0"
 anyhow = { workspace = true }
 async-compression = { workspace = true }
 dupe = { workspace = true }
+dashmap = { workspace = true }
 futures = { workspace = true }
 gazebo = { workspace = true }
 http = { workspace = true }
