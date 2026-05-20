@@ -48,5 +48,5 @@ information.
 ## More information
 
 Official documentation on modifiers is sparse at the moment, so you might be
-interested in reading [the original RFC](../rfcs/cfg-modifiers/modifiers.pdf)
+interested in reading [the original RFC](../rfcs/implemented/modifiers.md)
 for more details.
