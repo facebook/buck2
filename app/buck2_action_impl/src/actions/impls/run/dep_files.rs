@@ -72,6 +72,7 @@ use buck2_file_watcher::dep_files::FLUSH_DEP_FILES;
 use buck2_file_watcher::dep_files::FLUSH_NON_LOCAL_DEP_FILES;
 use buck2_fs::fs_util;
 use buck2_fs::paths::file_name::FileName;
+use buck2_fs::paths::file_name::FileNameBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathNormalizer;
@@ -1706,13 +1707,11 @@ fn is_hash(s: &str) -> bool {
     true
 }
 
-fn rename_hash_dirs(name: &str) -> Option<String> {
-    if is_hash(name) {
-        Some(
-            ContentBasedPathHash::DepFilesPlaceholder
-                .as_str()
-                .to_owned(),
-        )
+fn rename_hash_dirs(name: &FileName) -> Option<FileNameBuf> {
+    if is_hash(name.as_str()) {
+        Some(FileNameBuf::unchecked_new(
+            ContentBasedPathHash::DepFilesPlaceholder.as_str(),
+        ))
     } else {
         None
     }

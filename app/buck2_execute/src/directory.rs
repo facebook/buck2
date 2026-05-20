@@ -124,7 +124,7 @@ pub struct ReDirectorySerializer {
 impl ReDirectorySerializer {
     fn create_re_directory<'a, D, I>(
         entries: I,
-        directory_renamer: Option<&dyn Fn(&str) -> Option<String>>,
+        directory_renamer: Option<&dyn Fn(&FileName) -> Option<FileNameBuf>>,
     ) -> RE::Directory
     where
         I: IntoIterator<Item = (&'a FileName, DirectoryEntry<D, &'a ActionDirectoryMember>)>,
@@ -137,12 +137,11 @@ impl ReDirectorySerializer {
         for (name, entry) in entries {
             match entry {
                 DirectoryEntry::Dir(d) => {
-                    let name = match directory_renamer {
-                        Some(renamer) => renamer(name.as_str()).unwrap_or(name.as_str().into()),
-                        None => name.as_str().into(),
-                    };
+                    let name = directory_renamer
+                        .and_then(|f| f(name))
+                        .unwrap_or_else(|| name.to_owned());
                     directories.push(RE::DirectoryNode {
-                        name,
+                        name: name.as_str().to_owned(),
                         digest: Some(d.as_fingerprinted_dyn().fingerprint().to_grpc()),
                     });
                 }
@@ -160,14 +159,15 @@ impl ReDirectorySerializer {
                 #[allow(clippy::needless_update)]
                 DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(s)) => {
                     let target = if let Some(renamer) = directory_renamer {
-                        let mut target = None;
-                        for segment in s.target().iter() {
-                            if let Some(renamed_segment) = renamer(segment) {
-                                let current = target.as_deref().unwrap_or(s.target().as_str());
-                                target = Some(current.replace(segment, &renamed_segment));
+                        let mut target = RelativePathBuf::with_capacity(s.target().as_str().len());
+                        for comp in s.target().components() {
+                            if let Some(renamed) = comp.as_normal().and_then(renamer) {
+                                target.push(&renamed);
+                            } else {
+                                target.push(comp.as_relative_path());
                             }
                         }
-                        target.unwrap_or(s.to_string())
+                        target.as_str().to_owned()
                     } else {
                         s.to_string()
                     };
@@ -225,7 +225,7 @@ impl ReDirectorySerializer {
 
     pub fn rename_and_serialize_entries<'a, D, I>(
         entries: I,
-        directory_renamer: &dyn Fn(&str) -> Option<String>,
+        directory_renamer: &dyn Fn(&FileName) -> Option<FileNameBuf>,
     ) -> Vec<u8>
     where
         I: IntoIterator<Item = (&'a FileName, DirectoryEntry<D, &'a ActionDirectoryMember>)>,
@@ -1346,9 +1346,9 @@ mod tests {
             I: IntoIterator<Item = (&'a FileName, DirectoryEntry<D, &'a ActionDirectoryMember>)>,
             D: ActionFingerprintedDirectoryRef<'a>,
         {
-            fn rename(file_name: &str) -> Option<String> {
-                if file_name == "a" || file_name == "b" {
-                    Some("replaced".into())
+            fn rename(file_name: &FileName) -> Option<FileNameBuf> {
+                if file_name.as_str() == "a" || file_name.as_str() == "b" {
+                    Some(FileNameBuf::unchecked_new("replaced"))
                 } else {
                     None
                 }

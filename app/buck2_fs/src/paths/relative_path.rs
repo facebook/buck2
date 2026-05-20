@@ -322,7 +322,7 @@ impl RelativePathBuf {
     }
 
     #[inline]
-    fn with_capacity(cap: usize) -> RelativePathBuf {
+    pub fn with_capacity(cap: usize) -> RelativePathBuf {
         RelativePathBuf(String::with_capacity(cap))
     }
 
@@ -471,11 +471,7 @@ impl<'a> Component<'a> {
     /// Extracts the underlying string slice.
     #[inline]
     pub fn as_str(self) -> &'a str {
-        match self {
-            Component::CurDir => CURRENT_STR,
-            Component::ParentDir => PARENT_STR,
-            Component::Normal(s) => s.as_str(),
-        }
+        self.as_relative_path().as_str()
     }
 
     #[inline]
@@ -484,6 +480,15 @@ impl<'a> Component<'a> {
             Component::CurDir => None,
             Component::ParentDir => None,
             Component::Normal(s) => Some(s),
+        }
+    }
+
+    #[inline]
+    pub fn as_relative_path(self) -> &'a RelativePath {
+        match self {
+            Component::CurDir => RelativePath::unchecked_new(CURRENT_STR),
+            Component::ParentDir => RelativePath::unchecked_new(PARENT_STR),
+            Component::Normal(s) => RelativePath::unchecked_new(s.as_str()),
         }
     }
 }
