@@ -13,7 +13,7 @@ keywords = ["starlark", "skylark", "bazel", "language", "interpreter"]
 license = "Apache-2.0"
 name = "starlark"
 repository = "https://github.com/facebook/starlark-rust"
-version = "0.13.0"
+version = "0.14.0"
 
 [features]
 default = []
@@ -45,9 +45,9 @@ regex = "1.5.4"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["arbitrary_precision"] }
 sled = "0.34"
-starlark_derive = { version = "0.13.0", path = "../starlark_derive" }
-starlark_map = { version = "0.13.0", path = "../starlark_map", features = ["pagable_dep"] }
-starlark_syntax = { version = "0.13.0", path = "../starlark_syntax" }
+starlark_derive = { version = "0.14.0", path = "../starlark_derive" }
+starlark_map = { version = "0.14.0", path = "../starlark_map", features = ["pagable_dep"] }
+starlark_syntax = { version = "0.14.0", path = "../starlark_syntax" }
 static_assertions = "1.1.0"
 strsim = "0.10.0"
 textwrap = "0.11"

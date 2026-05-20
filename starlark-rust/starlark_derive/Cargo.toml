@@ -6,7 +6,7 @@ edition = "2024"
 license = "Apache-2.0"
 name = "starlark_derive"
 repository = "https://github.com/facebook/starlark-rust"
-version = "0.13.0"
+version = "0.14.0"
 
 [lib]
 proc-macro = true
