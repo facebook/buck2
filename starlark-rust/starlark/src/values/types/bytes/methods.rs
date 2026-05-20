@@ -24,9 +24,29 @@ use crate::values::ValueOfUnchecked;
 use crate::values::types::bytes::value::StarlarkBytes;
 use crate::values::typing::StarlarkIter;
 
+/// An immutable sequence of bytes.
+///
+/// Bytes values are created with `b"..."` literals or the `bytes()` constructor.
+/// They support indexing (`b[i]` returns an `int` in 0–255), slicing
+/// (`b[i:j]` returns a `bytes`), membership (`x in b`), concatenation (`+`),
+/// repetition (`*`), and `len()`.
+///
+/// ```
+/// # starlark::assert::all_true(r#"
+/// len(b"abc") == 3
+/// b"abc"[0] == 97
+/// b"abc"[1:] == b"bc"
+/// 97 in b"abc"
+/// b"ab" + b"cd" == b"abcd"
+/// b"ab" * 2 == b"abab"
+/// # "#);
+/// ```
 #[starlark_module]
 pub(crate) fn bytes_methods(builder: &mut MethodsBuilder) {
-    /// Returns an iterable over the individual bytes as 1-byte bytes objects.
+    /// [bytes.elems](
+    /// https://github.com/bazelbuild/starlark/blob/master/spec.md#bytes·elems
+    /// ): returns an iterable of the bytes in the byte string, each as a
+    /// length 1 value of type `bytes`.
     ///
     /// ```
     /// # starlark::assert::all_true(r#"
