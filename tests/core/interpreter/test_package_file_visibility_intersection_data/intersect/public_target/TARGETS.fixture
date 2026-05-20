@@ -1,0 +1,7 @@
+# `visibility=["PUBLIC"]` is *not* rejected -- the cap silently clips it
+# to `root//intersect/...`. A consumer inside the cap can depend; a
+# consumer outside cannot.
+stub(
+    name = "t",
+    visibility = ["PUBLIC"],
+)

@@ -19,6 +19,7 @@ use crate::metadata::key::MetadataKeyRef;
 use crate::metadata::super_package_values::SuperPackageValues;
 use crate::modifiers::MODIFIER_METADATA_KEY;
 use crate::modifiers::PackageCfgModifiersValue;
+use crate::visibility::VisibilityPatternList;
 use crate::visibility::VisibilitySpecification;
 use crate::visibility::WithinViewSpecification;
 
@@ -27,6 +28,8 @@ pub(crate) struct SuperPackageData {
     package_values: Arc<dyn SuperPackageValues>,
     visibility: VisibilitySpecification,
     within_view: WithinViewSpecification,
+    /// Cap propagated from `enforce_visibility_intersection()`. `Public` = no cap.
+    visibility_cap: VisibilityPatternList,
     /// Set only for the repo root package.
     cfg_constructor: Option<Arc<dyn CfgConstructorImpl>>,
     // we have package cfg modifiers in package_values as a starlark value
@@ -41,6 +44,7 @@ impl SuperPackageData {
         package_values: Arc<dyn SuperPackageValues>,
         visibility: VisibilitySpecification,
         within_view: WithinViewSpecification,
+        visibility_cap: VisibilityPatternList,
         cfg_constructor: Option<Arc<dyn CfgConstructorImpl>>,
         test_config_unification_rollout: bool,
     ) -> buck2_error::Result<SuperPackageData> {
@@ -53,6 +57,7 @@ impl SuperPackageData {
             package_values,
             visibility,
             within_view,
+            visibility_cap,
             cfg_constructor,
             cfg_modifiers,
             test_config_unification_rollout,
@@ -70,6 +75,7 @@ impl SuperPackage {
         package_values: Arc<dyn SuperPackageValues>,
         visibility: VisibilitySpecification,
         within_view: WithinViewSpecification,
+        visibility_cap: VisibilityPatternList,
         cfg_constructor: Option<Arc<dyn CfgConstructorImpl>>,
         test_config_unification_rollout: bool,
     ) -> buck2_error::Result<SuperPackage> {
@@ -77,6 +83,7 @@ impl SuperPackage {
             package_values,
             visibility,
             within_view,
+            visibility_cap,
             cfg_constructor,
             test_config_unification_rollout,
         )?)))
@@ -87,6 +94,7 @@ impl SuperPackage {
             Arc::new(T::default()),
             VisibilitySpecification::default(),
             WithinViewSpecification::default(),
+            VisibilityPatternList::Public,
             None,
             false,
         )
@@ -102,6 +110,11 @@ impl SuperPackage {
 
     pub fn within_view(&self) -> &WithinViewSpecification {
         &self.0.within_view
+    }
+
+    /// Cap propagated from `enforce_visibility_intersection()`. `Public` = no cap.
+    pub fn visibility_cap(&self) -> &VisibilityPatternList {
+        &self.0.visibility_cap
     }
 
     pub fn cfg_constructor(&self) -> Option<&Arc<dyn CfgConstructorImpl>> {
@@ -122,6 +135,7 @@ impl PartialEq for SuperPackage {
             package_values: this_values,
             visibility: this_visibility,
             within_view: this_within_view,
+            visibility_cap: this_visibility_cap,
             cfg_constructor: this_cfg_constructor,
             cfg_modifiers: _, // cfg_modifiers are already contained in package_values
             test_config_unification_rollout: this_test_config_unification_rollout,
@@ -130,11 +144,13 @@ impl PartialEq for SuperPackage {
             package_values: other_values,
             visibility: other_visibility,
             within_view: other_within_view,
+            visibility_cap: other_visibility_cap,
             cfg_constructor: other_cfg_constructor,
             cfg_modifiers: _, // cfg_modifiers are already contained in package_values
             test_config_unification_rollout: other_test_config_unification_rollout,
         } = &*other.0;
         (this_visibility, this_within_view) == (other_visibility, other_within_view)
+            && this_visibility_cap == other_visibility_cap
             && {
                 // If either package values are not empty, we cannot compare them
                 // because we cannot reliably compare arbitrary Starlark values.

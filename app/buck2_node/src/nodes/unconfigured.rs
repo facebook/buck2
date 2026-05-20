@@ -58,6 +58,7 @@ use crate::nodes::attributes::TYPE;
 use crate::package::Package;
 use crate::rule::Rule;
 use crate::rule_type::RuleType;
+use crate::visibility::VisibilityPatternList;
 use crate::visibility::VisibilitySpecification;
 
 /// Describes a target including its name, type, and the values that the user provided.
@@ -166,6 +167,13 @@ impl TargetNodeData {
 
     pub fn test_config_unification_rollout(&self) -> bool {
         self.test_config_unification_rollout
+    }
+
+    /// Cap inherited from `enforce_visibility_intersection()`. `Public` = no cap.
+    /// Stored on `Package` (per build file), so all targets in the same TARGETS
+    /// file share the same cap allocation.
+    pub fn visibility_cap(&self) -> &VisibilityPatternList {
+        &self.package.visibility_cap
     }
 }
 
@@ -280,7 +288,10 @@ impl TargetNode {
         if self.label().pkg() == target.pkg() {
             return Ok(true);
         }
-        Ok(self.visibility()?.0.matches_target(target))
+        if !self.visibility()?.0.matches_target(target) {
+            return Ok(false);
+        }
+        Ok(self.0.package.visibility_cap.matches_target(target))
     }
 
     /// Returns an iterator of all attributes.
@@ -709,6 +720,7 @@ pub mod testing {
                 Arc::new(Package {
                     buildfile_path,
                     oncall: None,
+                    visibility_cap: VisibilityPatternList::Public,
                 }),
                 label,
                 attributes,

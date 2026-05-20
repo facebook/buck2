@@ -204,6 +204,7 @@ impl ModuleInternals {
                             package: Arc::new(Package {
                                 buildfile_path: self.buildfile_path.dupe(),
                                 oncall,
+                                visibility_cap: self.super_package.visibility_cap().dupe(),
                             }),
                             recorder: TargetsRecorder::new(),
                         });

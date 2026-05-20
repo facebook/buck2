@@ -14,6 +14,7 @@ use std::sync::Arc;
 use buck2_interpreter::paths::package::PackageFilePath;
 use buck2_node::cfg_constructor::CfgConstructorImpl;
 use buck2_node::super_package::SuperPackage;
+use buck2_node::visibility::VisibilityPatternList;
 use buck2_node::visibility::VisibilitySpecification;
 use buck2_node::visibility::WithinViewSpecification;
 use dupe::Dupe;
@@ -30,6 +31,10 @@ pub(crate) struct PackageFileVisibilityFields {
     pub(crate) visibility: VisibilitySpecification,
     pub(crate) within_view: WithinViewSpecification,
     pub(crate) inherit: bool,
+    /// `true` iff the user passed a non-`None` `visibility=` list. Omitted
+    /// or `visibility=None` are both `false` and contribute nothing to the
+    /// cap (unlike `visibility=[]`, which is a non-None empty list).
+    pub(crate) visibility_was_set: bool,
 }
 
 #[derive(Debug)]
@@ -40,6 +45,8 @@ pub struct PackageFileEvalCtx {
     pub(crate) parent: SuperPackage,
     pub(crate) visibility: RefCell<Option<PackageFileVisibilityFields>>,
     pub(crate) test_config_unification_rollout: RefCell<Option<bool>>,
+    /// `true` iff this PACKAGE called `enforce_visibility_intersection()`.
+    pub(crate) enforces_visibility_intersection: RefCell<bool>,
 }
 
 impl PackageFileEvalCtx {
@@ -86,7 +93,16 @@ impl PackageFileEvalCtx {
         let merged_package_values =
             SuperPackageValuesImpl::merge(self.parent.package_values(), package_values)?;
 
-        let (visibility, within_view) = match self.visibility.into_inner() {
+        let visibility_fields = self.visibility.into_inner();
+
+        // Captured before `inherit=True` is applied. `None` when omitted —
+        // omitted must NOT contribute an empty list to the cap.
+        let explicit_visibility: Option<VisibilityPatternList> = visibility_fields
+            .as_ref()
+            .filter(|f| f.visibility_was_set)
+            .map(|f| f.visibility.0.dupe());
+
+        let (visibility, within_view) = match visibility_fields {
             Some(package_visibility) => {
                 if package_visibility.inherit {
                     (
@@ -119,10 +135,21 @@ impl PackageFileEvalCtx {
                 None => self.parent.test_config_unification_rollout(),
             };
 
+        // Extend the inherited cap with this PACKAGE's contribution
+        // (no-op if it didn't opt in or didn't pass `package(visibility=...)`).
+        let visibility_cap = match (
+            self.enforces_visibility_intersection.into_inner(),
+            explicit_visibility,
+        ) {
+            (true, Some(raw)) => self.parent.visibility_cap().intersect_with(&raw),
+            _ => self.parent.visibility_cap().dupe(),
+        };
+
         SuperPackage::new(
             merged_package_values,
             visibility,
             within_view,
+            visibility_cap,
             cfg_constructor,
             test_config_unification_rollout,
         )

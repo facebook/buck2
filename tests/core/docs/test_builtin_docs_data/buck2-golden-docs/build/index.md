@@ -8,6 +8,7 @@
 ## anon\_rule
 ## dedupe
 ## dynamic\_actions
+## enforce\_visibility\_intersection
 ## get\_base\_path
 ## get\_cell\_name
 ## get\_parent\_modifiers

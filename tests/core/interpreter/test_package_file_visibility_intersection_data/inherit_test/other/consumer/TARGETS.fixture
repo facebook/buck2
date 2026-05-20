@@ -1,0 +1,14 @@
+# Consumer in `root//inherit_test/...` but OUTSIDE the child's
+# explicit cap term `root//inherit_test/restricted_child/inside/...`.
+# The visibility check passes (the target's default visibility is
+# `inherit_test/...` via `inherit=True`), but the cap (the AND of
+# explicit lists) requires the consumer to also be in
+# `restricted_child/inside/...` -- so the cap blocks.
+#
+# This is the test that fails WITHOUT the fix (cap = parent ∩ (parent ∪ B)
+# = parent, which still allows this consumer) and passes WITH the fix
+# (cap = parent ∩ B, which rejects this consumer).
+stub(
+    name = "c",
+    deps = ["root//inherit_test/restricted_child/target:t"],
+)

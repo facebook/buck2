@@ -627,6 +627,7 @@ impl InterpreterForDir {
                 parent,
                 visibility: RefCell::new(None),
                 test_config_unification_rollout: RefCell::new(None),
+                enforces_visibility_intersection: RefCell::new(false),
             });
 
             let (finished_eval, eval_result) = self.eval(

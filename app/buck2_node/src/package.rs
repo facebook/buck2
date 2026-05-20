@@ -15,6 +15,7 @@ use buck2_core::build_file_path::BuildFilePath;
 use pagable::Pagable;
 
 use crate::oncall::Oncall;
+use crate::visibility::VisibilityPatternList;
 
 /// Package-specific data for `TargetNode`.
 ///
@@ -26,4 +27,7 @@ pub struct Package {
     pub buildfile_path: Arc<BuildFilePath>,
     /// The oncall attribute, if set
     pub oncall: Option<Oncall>,
+    /// Cap inherited from `enforce_visibility_intersection()`. `Public` = no cap.
+    /// Stored once per build file; ANDed with `visibility` at `is_visible_to` time.
+    pub visibility_cap: VisibilityPatternList,
 }
