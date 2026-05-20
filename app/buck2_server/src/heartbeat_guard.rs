@@ -30,7 +30,7 @@ fn check_slow_snapshot(elapsed: Duration, consecutive_slow: &mut u32) {
     // Consecutive slow snapshots means the queue isn't clearing and the command could hang.
     if elapsed > Duration::from_secs(1) {
         *consecutive_slow += 1;
-        if *consecutive_slow % 10 == 0 {
+        if (*consecutive_slow).is_multiple_of(10) {
             soft_error!(
                 "slow_snapshot",
                 buck2_error::buck2_error!(
