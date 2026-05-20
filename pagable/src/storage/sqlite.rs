@@ -146,10 +146,16 @@ impl PagableStorage for SqliteBackedPagableStorage {
         Self::fetch_data_from_db(&self.conn, key).map(Either::Right)
     }
 
+    #[cfg(any(feature = "tokio", test))]
     async fn fetch_data(&self, key: &DataKey) -> anyhow::Result<Arc<PagableData>> {
         let conn = self.conn.clone();
         let key = *key;
         tokio::task::spawn_blocking(move || Self::fetch_data_from_db(&conn, &key)).await?
+    }
+
+    #[cfg(not(any(feature = "tokio", test)))]
+    async fn fetch_data(&self, _key: &DataKey) -> anyhow::Result<Arc<PagableData>> {
+        Err(anyhow::anyhow!("sqlite backend requires tokio feature"))
     }
 
     fn on_arc_deserialized(
