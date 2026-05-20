@@ -11,4 +11,4 @@ version = "0.9.0"
 
 [dependencies]
 either = { workspace = true }
-indenter = { workspace = true }
+indenter = "0.3.3"

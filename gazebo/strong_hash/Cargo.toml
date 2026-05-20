@@ -9,5 +9,10 @@ version = "0.1.0"
 [dependencies]
 num-bigint = { version = "0.4.3", optional = true }
 ref-cast = { workspace = true }
-strong_hash_derive = { workspace = true }
+strong_hash_derive = { path = "../strong_hash_derive", version = "0.1.0" }
 triomphe = { version = "0.1.8", optional = true }
+
+[features]
+default = []
+num-bigint = ["dep:num-bigint"]
+triomphe = ["dep:triomphe"]
