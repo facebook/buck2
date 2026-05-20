@@ -1,0 +1,12 @@
+# @generated
+# To regenerate, append -- --env BUCK2_RUST_REGENERATE_GOLDEN_TESTS=1 and re-run the test
+
+wrapper
+
+Caused by:
+    error: test_recover_starlark_span
+     --> test.bzl:2:5
+      |
+    2 | def and(): pass
+      |     ^^^
+      |

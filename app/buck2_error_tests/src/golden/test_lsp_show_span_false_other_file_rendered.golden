@@ -1,0 +1,13 @@
+# @generated
+# To regenerate, append -- --env BUCK2_RUST_REGENERATE_GOLDEN_TESTS=1 and re-run the test
+
+eval.bzl:1:5-16: context from eval file
+
+Caused by:
+    0: error: context from other file
+        --> other.bzl:1:5
+         |
+       1 | def SHOULD_be_visible(): pass
+         |     ^^^^^^^^^^^^^^^^^
+         |
+    1: root cause

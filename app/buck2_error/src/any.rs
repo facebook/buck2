@@ -28,6 +28,7 @@ where
     from_any_with_tag_and_source_location(anyhow.as_ref(), source_location, tag)
 }
 
+/// Walk a StdError (e.g. anyhow::Error) down to its source, and rebuild it as a [struct@crate::Error].
 pub(crate) fn from_any_with_tag_and_source_location(
     value: &'_ (dyn StdError + 'static),
     source_location: SourceLocation,

@@ -1,0 +1,20 @@
+# @generated
+# To regenerate, append -- --env BUCK2_RUST_REGENERATE_GOLDEN_TESTS=1 and re-run the test
+
+error: between evals
+ --> inner.bzl:3:5
+  |
+3 |     fail("root error")
+  |     ^^^^^^^^^^^^^^^^^^
+  |
+Traceback (most recent call last):
+  * assert.bzl:1, in <module>
+      re_eval_failure()
+  * assert.bzl:3, in re_eval_failure
+      will_fail()
+  * inner.bzl:3, in will_fail
+      fail("root error")
+
+
+Caused by:
+    fail: root error

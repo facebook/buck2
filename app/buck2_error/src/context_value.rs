@@ -12,6 +12,7 @@ use std::fmt;
 use std::sync::Arc;
 
 use smallvec::SmallVec;
+use starlark_syntax::call_stack::CallStack;
 use starlark_syntax::codemap::FileSpan;
 use starlark_syntax::span_display::span_display;
 
@@ -71,7 +72,7 @@ impl std::fmt::Debug for ContextValue {
             Self::Tags(tags) => write!(f, "{tags:?}"),
             Self::Typed(v) => write!(f, "{}", v.display().unwrap_or_default()),
             Self::StringTag(v) => f.write_str(&v.tag),
-            Self::StarlarkError(v) => write!(f, "{v}"),
+            Self::StarlarkError(v) => write!(f, "{}", v.display_with_message("")),
         }
     }
 }
@@ -102,39 +103,53 @@ impl<T: TypedContext> From<T> for ContextValue {
 
 #[derive(Clone, allocative::Allocative, Debug, PartialEq, Eq, Hash)]
 pub struct StarlarkContext {
-    // TODO(minglunli): We could take in the CallStack type and do some magic to make it look nicer
-    // but I think just concatenating the string form and it's accurate and look good enough
-    pub call_stack: String,
-    pub error_msg: String,
+    pub call_stack: CallStack,
     pub span: Option<FileSpan>,
+    /// If true, we render the span / call stack in buck output.
+    /// Otherwise, data is only for LSP to fish out.
+    pub show_span_in_buck_output: bool,
 }
 
 impl StarlarkContext {
-    pub fn concat(&self, other: Option<Self>) -> Self {
-        if let Some(ctx) = other {
-            let trimmed = ctx
-                .call_stack
-                .trim_start_matches(starlark_syntax::call_stack::CALL_STACK_TRACEBACK_PREFIX);
-            let call_stack = format!("{}{}", self.call_stack, trimmed);
+    /// Concatenate call stacks.
+    ///
+    /// Pass the inner context as the argument, i.e. the one closer to the root cause.
+    pub fn concat(mut self, inner: Option<Self>) -> Self {
+        if let Some(mut inner) = inner {
+            self.call_stack.frames.append(&mut inner.call_stack.frames);
+
             Self {
-                call_stack,
-                error_msg: ctx.error_msg.clone(),
-                span: ctx.span.clone(),
+                call_stack: self.call_stack,
+                span: inner.span,
+                show_span_in_buck_output: true,
             }
         } else {
-            self.clone()
+            self
         }
     }
-}
 
-impl std::fmt::Display for StarlarkContext {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let span = span_display(
-            self.span.as_ref().map(|s| s.as_ref()),
-            self.error_msg.as_str(),
-            false,
-        );
-        write!(f, "{}\n{}", span, self.call_stack)
+    pub fn display_with_message(&self, message: &str) -> String {
+        let span = span_display(self.span.as_ref().map(|s| s.as_ref()), message, false);
+        if self.call_stack.is_empty() {
+            format!("{}", span)
+        } else {
+            let call_stack = self.call_stack.to_string();
+            format!("{}\n{}", span, call_stack)
+        }
+    }
+
+    pub fn find_span_in_file(&self, filename: &str) -> Option<FileSpan> {
+        self.span
+            .as_ref()
+            .filter(|x| x.filename() == filename)
+            .or_else(|| {
+                self.call_stack
+                    .frames
+                    .iter()
+                    .filter_map(|f| f.location.as_ref())
+                    .find(|span| span.filename() == filename)
+            })
+            .cloned()
     }
 }
 
