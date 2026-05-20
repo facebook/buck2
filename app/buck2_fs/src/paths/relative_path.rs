@@ -150,21 +150,6 @@ impl RelativePath {
         }
     }
 
-    /// Returns the final component of the path, if it is a normal name.
-    /// Trailing `.` components are skipped; if the final non-`.` component is
-    /// `..`, returns `None`.
-    pub fn file_name(&self) -> Option<&FileName> {
-        let mut it = self.components();
-        while let Some(c) = it.next_back() {
-            return match c {
-                Component::CurDir => continue,
-                Component::Normal(name) => Some(name),
-                Component::ParentDir => None,
-            };
-        }
-        None
-    }
-
     /// Returns the parent path, or `None` for the empty path.
     pub fn parent(&self) -> Option<&RelativePath> {
         if self.0.is_empty() {
@@ -490,6 +475,15 @@ impl<'a> Component<'a> {
             Component::CurDir => CURRENT_STR,
             Component::ParentDir => PARENT_STR,
             Component::Normal(s) => s.as_str(),
+        }
+    }
+
+    #[inline]
+    pub fn as_normal(self) -> Option<&'a FileName> {
+        match self {
+            Component::CurDir => None,
+            Component::ParentDir => None,
+            Component::Normal(s) => Some(s),
         }
     }
 }

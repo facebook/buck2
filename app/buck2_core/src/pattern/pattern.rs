@@ -16,6 +16,7 @@ use allocative::Allocative;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_fs::paths::relative_path::Component;
 use buck2_fs::paths::relative_path::RelativePath;
 use dupe::Dupe;
 use once_cell::sync::Lazy;
@@ -637,7 +638,9 @@ where
                 let package = normalize_package(pattern, strip_package_trailing_slash)?;
 
                 let target = package
-                    .file_name()
+                    .components()
+                    .next_back()
+                    .and_then(Component::as_normal)
                     .ok_or(TargetPatternParseError::PackageIsEmpty)?;
 
                 let target_name = TargetName::new(target.as_str())?;
