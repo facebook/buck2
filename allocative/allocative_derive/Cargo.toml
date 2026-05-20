@@ -6,7 +6,7 @@ edition = "2024"
 license = { workspace = true }
 name = "allocative_derive"
 repository = "https://github.com/facebookexperimental/allocative"
-version = "0.3.3"
+version = "0.3.5"
 
 [lib]
 proc-macro = true
