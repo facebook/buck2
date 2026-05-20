@@ -427,11 +427,17 @@ impl RelativePathBuf {
     /// assert_eq!("foo/bar", p.as_str());
     /// ```
     pub fn push<P: AsRef<RelativePath>>(&mut self, path: P) {
-        let other = path.as_ref().as_str();
-        if !self.0.is_empty() && !self.0.ends_with(SEP) && !other.starts_with(SEP) {
-            self.0.push(SEP);
+        let path = path.as_ref();
+        if path.is_empty() {
+            return;
         }
-        self.0.push_str(other);
+        if self.0.is_empty() {
+            self.0.push_str(path.as_str());
+        } else {
+            self.0.reserve(path.as_str().len() + 1);
+            self.0.push(SEP);
+            self.0.push_str(path.as_str());
+        }
     }
 
     /// Truncates `self` to its parent. Returns `false` if there was no parent
