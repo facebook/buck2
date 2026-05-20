@@ -16,6 +16,7 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::source_artifact::SourceArtifact;
 use buck2_core::package::PackageLabel;
 use buck2_core::package::source_path::SourcePath;
+use buck2_error::internal_error;
 use buck2_error::starlark_error::from_starlark_with_options;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
@@ -171,6 +172,11 @@ impl CoercedAttrExt for CoercedAttr {
                 VisibilityPatternList::Public => heap.alloc(AllocList(["PUBLIC"])),
                 VisibilityPatternList::List(specs) => {
                     heap.alloc(AllocList(specs.iter().map(|s| s.to_string())))
+                }
+                VisibilityPatternList::Intersection(_) => {
+                    return Err(internal_error!(
+                        "Intersection visibility cannot be serialized as attribute"
+                    ));
                 }
             },
             CoercedAttr::ExplicitConfiguredDep(d) => heap.alloc(

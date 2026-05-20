@@ -92,10 +92,10 @@ impl PackageFileEvalCtx {
                     (
                         self.parent
                             .visibility()
-                            .extend_with(&package_visibility.visibility),
+                            .extend_with(&package_visibility.visibility)?,
                         self.parent
                             .within_view()
-                            .extend_with(&package_visibility.within_view),
+                            .extend_with(&package_visibility.within_view)?,
                     )
                 } else {
                     (

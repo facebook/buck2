@@ -32,6 +32,9 @@ fn indented_within_view(spec: &WithinViewSpecification) -> String {
             }
             s
         }
+        VisibilityPatternList::Intersection(_) => {
+            unreachable!("WithinViewSpecification cannot contain Intersection")
+        }
     }
 }
 

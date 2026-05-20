@@ -16,6 +16,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::Starla
 use buck2_core::package::PackageLabel;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::source_path::SourcePath;
+use buck2_error::internal_error;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::opaque_metadata::OpaqueMetadata;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
@@ -215,6 +216,11 @@ fn configured_attr_to_value<'v>(
             VisibilityPatternList::Public => heap.alloc(AllocList(["PUBLIC"])),
             VisibilityPatternList::List(specs) => {
                 heap.alloc(AllocList(specs.iter().map(|s| s.to_string())))
+            }
+            VisibilityPatternList::Intersection(_) => {
+                return Err(internal_error!(
+                    "Intersection visibility cannot be serialized as attribute"
+                ));
             }
         },
         ConfiguredAttr::ExplicitConfiguredDep(d) => heap.alloc(

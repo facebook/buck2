@@ -16,6 +16,7 @@ use allocative::Allocative;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_error::internal_error;
 use buck2_util::arc_str::ThinArcSlice;
 use dupe::Dupe;
 use gazebo::prelude::SliceExt;
@@ -60,6 +61,8 @@ struct VisibilityPatternQuoted<'a>(&'a VisibilityPattern);
 pub enum VisibilityPatternList {
     Public,
     List(ThinArcSlice<VisibilityPattern>),
+    /// All sub-lists must match.
+    Intersection(ThinArcSlice<VisibilityPatternList>),
 }
 
 impl VisibilityPatternList {
@@ -67,6 +70,9 @@ impl VisibilityPatternList {
         match self {
             VisibilityPatternList::Public => false,
             VisibilityPatternList::List(patterns) => patterns.is_empty(),
+            VisibilityPatternList::Intersection(sub_lists) => {
+                sub_lists.iter().any(|s| s.is_empty())
+            }
         }
     }
 
@@ -78,18 +84,53 @@ impl VisibilityPatternList {
             VisibilityPatternList::List(patterns) => {
                 patterns.map(|p| serde_json::Value::String(p.to_string()))
             }
+            VisibilityPatternList::Intersection(_) => {
+                unreachable!("Intersection not supported in JSON serialization")
+            }
         };
         serde_json::Value::Array(list)
     }
 
-    fn extend_with(&self, other: &VisibilityPatternList) -> VisibilityPatternList {
+    fn extend_with(
+        &self,
+        other: &VisibilityPatternList,
+    ) -> buck2_error::Result<VisibilityPatternList> {
         match (self, other) {
+            (VisibilityPatternList::Intersection(_), _)
+            | (_, VisibilityPatternList::Intersection(_)) => Err(internal_error!(
+                "`extend_with` does not support Intersection"
+            )),
             (VisibilityPatternList::Public, _) | (_, VisibilityPatternList::Public) => {
-                VisibilityPatternList::Public
+                Ok(VisibilityPatternList::Public)
             }
-            (VisibilityPatternList::List(this), VisibilityPatternList::List(other)) => {
-                VisibilityPatternList::List(this.iter().chain(other).cloned().collect())
+            (VisibilityPatternList::List(this), VisibilityPatternList::List(other)) => Ok(
+                VisibilityPatternList::List(this.iter().chain(other).cloned().collect()),
+            ),
+        }
+    }
+
+    pub fn intersect_with(&self, other: &VisibilityPatternList) -> VisibilityPatternList {
+        match (self, other) {
+            (VisibilityPatternList::Public, x) | (x, VisibilityPatternList::Public) => x.dupe(),
+            _ => Self::intersect_many(vec![self.dupe(), other.dupe()]),
+        }
+    }
+
+    fn intersect_many(constraints: Vec<VisibilityPatternList>) -> VisibilityPatternList {
+        let mut flat: Vec<VisibilityPatternList> = Vec::with_capacity(constraints.len());
+        for c in constraints {
+            match c {
+                VisibilityPatternList::Public => {}
+                VisibilityPatternList::List(_) => flat.push(c),
+                VisibilityPatternList::Intersection(sub_lists) => {
+                    flat.extend(sub_lists.iter().map(Dupe::dupe));
+                }
             }
+        }
+        match flat.len() {
+            0 => VisibilityPatternList::Public,
+            1 => flat.pop().unwrap(),
+            _ => VisibilityPatternList::Intersection(flat.into_iter().collect()),
         }
     }
 
@@ -117,6 +158,9 @@ impl VisibilityPatternList {
                 }
                 false
             }
+            VisibilityPatternList::Intersection(sub_lists) => {
+                sub_lists.iter().all(|s| s.matches_target(target))
+            }
         }
     }
 }
@@ -131,6 +175,17 @@ impl Display for VisibilityPatternList {
                 "]",
                 patterns.iter().map(VisibilityPatternQuoted),
             ),
+            VisibilityPatternList::Intersection(sub_lists) => {
+                let mut first = true;
+                for s in sub_lists.iter() {
+                    if !first {
+                        write!(f, " AND ")?;
+                    }
+                    first = false;
+                    Display::fmt(s, f)?;
+                }
+                Ok(())
+            }
         }
     }
 }
@@ -150,6 +205,9 @@ impl AnyMatches for VisibilityPatternList {
                 }
                 Ok(false)
             }
+            VisibilityPatternList::Intersection(_) => Err(internal_error!(
+                "Intersection not supported in `any_matches`"
+            )),
         }
     }
 }
@@ -182,8 +240,11 @@ impl VisibilitySpecification {
         self.0.to_json()
     }
 
-    pub fn extend_with(&self, other: &VisibilitySpecification) -> VisibilitySpecification {
-        VisibilitySpecification(self.0.extend_with(&other.0))
+    pub fn extend_with(
+        &self,
+        other: &VisibilitySpecification,
+    ) -> buck2_error::Result<VisibilitySpecification> {
+        Ok(VisibilitySpecification(self.0.extend_with(&other.0)?))
     }
 
     pub fn testing_parse(patterns: &[&str]) -> VisibilitySpecification {
@@ -201,8 +262,11 @@ impl WithinViewSpecification {
     pub const PUBLIC: WithinViewSpecification =
         WithinViewSpecification(VisibilityPatternList::Public);
 
-    pub fn extend_with(&self, other: &WithinViewSpecification) -> WithinViewSpecification {
-        WithinViewSpecification(self.0.extend_with(&other.0))
+    pub fn extend_with(
+        &self,
+        other: &WithinViewSpecification,
+    ) -> buck2_error::Result<WithinViewSpecification> {
+        Ok(WithinViewSpecification(self.0.extend_with(&other.0)?))
     }
 
     pub fn to_json(&self) -> serde_json::Value {
@@ -280,5 +344,72 @@ impl VisibilityWithinViewBuilder {
         } else {
             WithinViewSpecification(list)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use buck2_core::pattern::pattern::ParsedPattern;
+    use buck2_core::target::label::label::TargetLabel;
+
+    use super::*;
+
+    fn label(s: &str) -> TargetLabel {
+        ParsedPattern::testing_parse(s)
+            .as_target_label(s)
+            .expect("test label parses")
+    }
+
+    #[test]
+    fn intersect_with_public_is_identity() {
+        let list = VisibilityPatternList::testing_parse(&["root//foo:"]);
+        assert_eq!(VisibilityPatternList::Public.intersect_with(&list), list);
+        assert_eq!(list.intersect_with(&VisibilityPatternList::Public), list);
+    }
+
+    #[test]
+    fn intersect_with_lists_requires_both_to_match() {
+        let a = VisibilityPatternList::testing_parse(&["root//foo:"]);
+        let b = VisibilityPatternList::testing_parse(&["root//bar:"]);
+        let a_and_b = a.intersect_with(&b);
+
+        assert!(matches!(a_and_b, VisibilityPatternList::Intersection(_)));
+        assert!(!a_and_b.matches_target(&label("root//foo:foo")));
+        assert!(!a_and_b.matches_target(&label("root//bar:bar")));
+
+        let overlap = VisibilityPatternList::testing_parse(&["root//foo:", "root//bar:"]);
+        assert!(
+            overlap
+                .intersect_with(&a)
+                .matches_target(&label("root//foo:foo"))
+        );
+        assert!(
+            !overlap
+                .intersect_with(&a)
+                .matches_target(&label("root//bar:bar"))
+        );
+    }
+
+    #[test]
+    fn intersect_many_matches_all_constraints() {
+        let a = VisibilityPatternList::testing_parse(&["root//baz:", "root//foo:"]);
+        let b = VisibilityPatternList::testing_parse(&["root//baz:", "root//bar:"]);
+        let c = VisibilityPatternList::testing_parse(&["root//baz:"]);
+        let intersection = a.intersect_with(&b).intersect_with(&c);
+
+        assert!(intersection.matches_target(&label("root//baz:baz")));
+        assert!(!intersection.matches_target(&label("root//foo:foo")));
+        assert!(!intersection.matches_target(&label("root//bar:bar")));
+    }
+
+    #[test]
+    fn extend_with_intersection_returns_internal_error() {
+        let a = VisibilityPatternList::testing_parse(&["root//foo:"]);
+        let b = VisibilityPatternList::testing_parse(&["root//bar:"]);
+        let intersection = a.intersect_with(&b);
+        let public = VisibilityPatternList::Public;
+
+        assert!(public.extend_with(&intersection).is_err());
+        assert!(intersection.extend_with(&public).is_err());
     }
 }
