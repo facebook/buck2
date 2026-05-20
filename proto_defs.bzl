@@ -7,7 +7,7 @@
 # above-listed licenses.
 
 load("@fbcode//buck2:buck_rust_binary.bzl", "buck_rust_binary")
-load("@fbcode_macros//build_defs:native_rules.bzl", "alias", "buck_genrule")
+load("@fbcode_macros//build_defs:native_rules.bzl", "buck_genrule")
 load("@fbsource//tools/build_defs:rust_library.bzl", "rust_library")
 
 def rust_protobuf_library(
@@ -40,18 +40,9 @@ def rust_protobuf_library(
         None,
     )
 
-    # Set up an alias to the default version of prost to avoid breaking callers
-    alias(
-        name = name,
-        actual = ":" + name + "_prost",
-    )
-
 def _rust_protobuf_library(name, srcs, build_script, buck2_protoc_dev, prost_version, protos, deps, test_deps, doctests, build_env, proto_srcs, crate_name):
-    versioned_prost_target = {
-        "0.14": "prost",
-    }[prost_version]
-    build_name = name + "-build-" + versioned_prost_target
-    proto_name = name + "-proto-" + versioned_prost_target
+    build_name = name + "-build"
+    proto_name = name + "-proto"
 
     buck_rust_binary(
         name = build_name,
@@ -87,7 +78,7 @@ def _rust_protobuf_library(name, srcs, build_script, buck2_protoc_dev, prost_ver
     ] + (deps or [])
 
     rust_library(
-        name = name + "_" + versioned_prost_target,
+        name = name,
         crate = crate_name or name,
         srcs = srcs,
         doctests = doctests,
