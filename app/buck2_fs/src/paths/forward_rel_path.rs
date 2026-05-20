@@ -36,6 +36,7 @@ use crate::paths::file_name::FileName;
 use crate::paths::path_util::path_remove_prefix;
 use crate::paths::relative_path::RelativePath;
 use crate::paths::relative_path::RelativePathBuf;
+use crate::paths::relative_path::verify_relative_path;
 
 /// A forward pointing, fully normalized relative path and owned pathbuf.
 /// This means that there is no '.' or '..' in this path, and does not begin
@@ -1048,8 +1049,6 @@ impl<P: AsRef<ForwardRelativePath>> Extend<P> for ForwardRelativePathBuf {
 enum ForwardRelativePathError {
     #[error("expected a relative path but got an absolute path instead: `{0}`")]
     PathNotRelative(String),
-    #[error("expected a normalized path but got an un-normalized path instead: `{0}`")]
-    PathNotNormalized(String),
     #[error("Path is not UTF-8: `{0}`")]
     PathNotUtf8(String),
     #[error("relativizing path `{0}` results would result in a non-forward relative path")]
@@ -1091,8 +1090,7 @@ impl<'a> TryFrom<&'a str> for &'a ForwardRelativePath {
     /// ```
     #[inline]
     fn try_from(s: &'a str) -> buck2_error::Result<&'a ForwardRelativePath> {
-        ForwardRelativePathVerifier::verify_str(s)?;
-        Ok(ForwardRelativePath::unchecked_new(s))
+        ForwardRelativePath::new(s)
     }
 }
 
@@ -1128,7 +1126,7 @@ impl<'a> TryFrom<&'a Path> for &'a ForwardRelativePath {
             .as_os_str()
             .to_str()
             .ok_or_else(|| ForwardRelativePathError::PathNotUtf8(s.display().to_string()))?;
-        ForwardRelativePathVerifier::verify_str(s)?;
+        verify_relative_path(s, true)?;
         Ok(ForwardRelativePath::unchecked_new(s))
     }
 }
@@ -1158,8 +1156,7 @@ impl<'a> TryFrom<&'a RelativePath> for &'a ForwardRelativePath {
     /// ```
     #[inline]
     fn try_from(p: &'a RelativePath) -> buck2_error::Result<&'a ForwardRelativePath> {
-        ForwardRelativePathVerifier::verify_str(p.as_str())?;
-        Ok(ForwardRelativePath::unchecked_new(p.as_str()))
+        ForwardRelativePath::new(p.as_str())
     }
 }
 
@@ -1190,8 +1187,7 @@ impl TryFrom<String> for ForwardRelativePathBuf {
     /// ```
     #[inline]
     fn try_from(s: String) -> buck2_error::Result<ForwardRelativePathBuf> {
-        ForwardRelativePathVerifier::verify_str(&s)?;
-        Ok(ForwardRelativePathBuf(s))
+        ForwardRelativePathBuf::new(s)
     }
 }
 
@@ -1313,60 +1309,6 @@ impl ForwardRelativePathNormalizer {
             )?))
         } else {
             Ok(Cow::Borrowed(ForwardRelativePath::new(path_str)?))
-        }
-    }
-}
-
-/// Verifier for ForwardRelativePath to ensure the path is fully relative, and
-/// normalized
-struct ForwardRelativePathVerifier {}
-
-impl ForwardRelativePathVerifier {
-    fn verify_str(rel_path: &str) -> buck2_error::Result<()> {
-        #[cold]
-        #[inline(never)]
-        fn err(rel_path: &str) -> buck2_error::Error {
-            ForwardRelativePathError::PathNotNormalized(rel_path.to_owned()).into()
-        }
-
-        let bytes = rel_path.as_bytes();
-        if bytes.is_empty() {
-            return Ok(());
-        }
-        if bytes[0] == b'/' {
-            return Err(ForwardRelativePathError::PathNotRelative(rel_path.to_owned()).into());
-        }
-
-        if memchr::memchr(b'\\', bytes).is_some() {
-            return Err(err(rel_path));
-        }
-
-        let mut i = 0;
-        loop {
-            assert!(i <= bytes.len());
-            let mut j = i;
-            while j != bytes.len() {
-                if bytes[j] == b'/' {
-                    break;
-                }
-                j += 1;
-            }
-            if i == j {
-                // Double slashes or trailing slash.
-                return Err(err(rel_path));
-            }
-            if j == i + 1 && bytes[i] == b'.' {
-                // Current directory.
-                return Err(err(rel_path));
-            }
-            if j == i + 2 && bytes[i] == b'.' && bytes[i + 1] == b'.' {
-                // Parent directory.
-                return Err(err(rel_path));
-            }
-            if j == bytes.len() {
-                return Ok(());
-            }
-            i = j + 1;
         }
     }
 }
@@ -1545,7 +1487,7 @@ mod tests {
         let err = serde_json::from_str::<ForwardRelativePathBuf>(r#""a//b""#)
             .unwrap_err()
             .to_string();
-        assert!(err.contains("expected a normalized path"), "{}", err);
+        assert!(err.contains("contains an empty path component"), "{}", err);
     }
 
     #[test]

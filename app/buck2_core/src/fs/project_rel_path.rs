@@ -800,7 +800,7 @@ mod tests {
         let err = serde_json::from_str::<ProjectRelativePathBuf>(r#""a//b""#)
             .unwrap_err()
             .to_string();
-        assert!(err.contains("expected a normalized path"), "{}", err);
+        assert!(err.contains("contains an empty path component"), "{}", err);
     }
 
     #[test]
