@@ -5,8 +5,8 @@
 # ```
 
 error: Parse error: unexpected identifier 'baz' here, expected one of "\n", "!=", "%", "%=", "&", "&=", "(", ")", "*", "*=", "+", "+=", ",", "-", "-=", ".", "/", "//", "//=", "/=", ":", ";", "<", "<<", "<<=", "<=", "=", "==", ">", ">=", ">>", ">>=", "FSTRING_BANG", "FSTRING_EXPR_END", "[", "]", "^", "^=", "and", "else", "for", "if", "in", "not", "or", "|", "|=" or "}"
- --> assert.bzl:1:15
+ --> assert.bzl:2:7
   |
-1 | f'foo \n {bar baz}'
-  |               ^^^
+2 |  {bar baz}'''
+  |       ^^^
   |

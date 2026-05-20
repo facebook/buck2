@@ -33,6 +33,7 @@ use crate::codemap::Pos;
 use crate::codemap::Span;
 use crate::codemap::Spanned;
 use crate::eval_exception::EvalException;
+use crate::lexer;
 use crate::lexer::Token;
 use crate::syntax::ast::*;
 use crate::syntax::grammar_util;
@@ -43,7 +44,7 @@ type Lexeme = Result<(usize, Token, usize), EvalException>;
 /// Pop the current token after the caller has already verified (via peek/match)
 /// that it is the named variant. Returns `(start, payload, end)`. In debug
 /// builds, the inner `unreachable!` arm acts as an assertion of the invariant.
-/// Use at payload-carrying sites (Identifier, Int, Float, FString) that would
+/// Use at payload-carrying sites (Identifier, Int, Float, FStringStart) that would
 /// otherwise hand-roll `take_current().expect(...)` plus a destructuring
 /// `match` with an `unreachable!` arm.
 macro_rules! take_payload {
@@ -110,7 +111,7 @@ impl<'a, I: Iterator<Item = Lexeme>> ParserRd<'a, I> {
     }
 
     /// Advance and return the consumed token. Use only at sites that need to
-    /// extract data from the token (Identifier, Int, Float, String, FString).
+    /// extract data from the token (Identifier, Int, Float, String, FStringStart).
     #[inline]
     fn take_current(&mut self) -> Option<(usize, Token, usize)> {
         let old = self.current.take();
@@ -651,7 +652,7 @@ impl<'a, I: Iterator<Item = Lexeme>> ParserRd<'a, I> {
                     | Token::Int(_)
                     | Token::Float(_)
                     | Token::String(_)
-                    | Token::FString(_)
+                    | Token::FStringStart(_)
                     | Token::OpeningRound
                     | Token::OpeningSquare
                     | Token::OpeningCurly
@@ -971,9 +972,53 @@ impl<'a, I: Iterator<Item = Lexeme>> ParserRd<'a, I> {
                 let r = self.last_end;
                 Ok(Expr::Literal(AstLiteral::String(s)).ast(l, r))
             }
-            Some(Token::FString(_)) => {
-                let (l, fs, r) = take_payload!(self, Token::FString);
-                let fstring = grammar_util::fstring(fs, l, r, &mut self.state);
+            Some(Token::FStringStart(_)) => {
+                let (l, _, _) = take_payload!(self, Token::FStringStart);
+                let mut parts = Vec::new();
+                while !matches!(self.peek(), Some(Token::FStringEnd) | None) {
+                    match self.peek() {
+                        Some(Token::FStringText(_)) => {
+                            let (tl, s, tr) = take_payload!(self, Token::FStringText);
+                            parts.push(grammar_util::FStringElement::Text(s.ast(tl, tr)));
+                        }
+                        Some(Token::FStringExprStart) => {
+                            self.advance();
+                            let expr = self.parse_test()?;
+                            let conv = match self.peek() {
+                                Some(Token::FStringBang) => {
+                                    let bl = self.pos();
+                                    self.advance();
+                                    if !matches!(self.peek(), Some(Token::Identifier(_))) {
+                                        return Err(grammar_util::fstring_conv_error(
+                                            bl,
+                                            self.pos(),
+                                            &self.state,
+                                        ));
+                                    }
+                                    let (_, id, r) = take_payload!(self, Token::Identifier);
+                                    match id.as_str() {
+                                        "s" => lexer::FStringConv::Str,
+                                        "r" => lexer::FStringConv::Repr,
+                                        _ => {
+                                            return Err(grammar_util::fstring_conv_error(
+                                                bl,
+                                                r,
+                                                &self.state,
+                                            ));
+                                        }
+                                    }
+                                }
+                                _ => lexer::FStringConv::None,
+                            };
+                            self.expect(&Token::FStringExprEnd)?;
+                            parts.push(grammar_util::FStringElement::Expr(expr, conv));
+                        }
+                        _ => break,
+                    }
+                }
+                self.expect(&Token::FStringEnd)?;
+                let r = self.last_end;
+                let fstring = grammar_util::fstring_from_parts(parts, l, r, &mut self.state);
                 Ok(Expr::FString(fstring).ast(l, r))
             }
             Some(Token::Ellipsis) => {

@@ -53,9 +53,31 @@ string: AstString = <l:@L> <e:"STRING"> <r:@R>
 bytes: AstBytes = <l:@L> <e:"BYTES"> <r:@R>
     => e.ast(l, r);
 
-#[inline]
-fstring: AstFString = <l:@L> <e:"FSTRING"> <r:@R>
-    => grammar_util::fstring(e, l, r, state);
+// F-string conversion specifier: !s or !r
+FStringConv: lexer::FStringConv = {
+    => lexer::FStringConv::None,
+    <l:@L> "FSTRING_BANG" <id:"IDENTIFIER"> <r:@R> =>? {
+        match id.as_str() {
+            "s" => Ok(lexer::FStringConv::Str),
+            "r" => Ok(lexer::FStringConv::Repr),
+            _ => Err(lalrpop_util::ParseError::User {
+                error: grammar_util::fstring_conv_error(l, r, state),
+            }),
+        }
+    },
+};
+
+// An f-string part is either text or an expression with optional conversion
+FStringTextOrExpr: grammar_util::FStringElement = {
+    <l:@L> <s:"FSTRING_TEXT"> <r:@R>
+        => grammar_util::FStringElement::Text(s.ast(l, r)),
+    <l:@L> "FSTRING_EXPR_START" <e:Test> <conv:FStringConv> "FSTRING_EXPR_END" <r:@R>
+        => grammar_util::FStringElement::Expr(e, conv),
+};
+
+// An f-string is: start, parts*, end
+fstring: AstFString = <l:@L> "FSTRING_START" <parts:FStringTextOrExpr*> "FSTRING_END" <r:@R>
+    => grammar_util::fstring_from_parts(parts, l, r, state);
 
 #[inline]
 identifier: AstString = <l:@L> <e:"IDENTIFIER"> <r:@R>
@@ -520,7 +542,14 @@ extern {
       "INTEGER" => lexer::Token::Int(<lexer::TokenInt>),
       "FLOAT" => lexer::Token::Float(<f64>),
       "STRING" => lexer::Token::String(<String>),
-      "FSTRING" => lexer::Token::FString(<lexer::TokenFString>),
       "BYTES" => lexer::Token::Bytes(<Vec<u8>>),
+
+      // F-string tokens with proper expression support
+      "FSTRING_START" => lexer::Token::FStringStart(<lexer::FStringQuote>),
+      "FSTRING_TEXT" => lexer::Token::FStringText(<String>),
+      "FSTRING_EXPR_START" => lexer::Token::FStringExprStart,
+      "FSTRING_BANG" => lexer::Token::FStringBang,
+      "FSTRING_EXPR_END" => lexer::Token::FStringExprEnd,
+      "FSTRING_END" => lexer::Token::FStringEnd,
     }
 }
