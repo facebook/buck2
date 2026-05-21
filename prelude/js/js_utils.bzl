@@ -53,6 +53,8 @@ ASSET_EXTENSIONS = [
     # Archives (virtual files)
     "zip",
     "lottie",
+    # 3D models
+    "glb",
 ]
 
 # Matches the default value for resolver.platforms in metro-config
