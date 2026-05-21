@@ -46,6 +46,7 @@ macro_rules! use_serde {
     };
 }
 
+use_serde!(char);
 use_serde!(u8);
 use_serde!(u16);
 use_serde!(u32);

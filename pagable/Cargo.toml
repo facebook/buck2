@@ -16,6 +16,7 @@ dashmap = { workspace = true }
 dupe = { workspace = true }
 either = { workspace = true }
 erased-serde = { workspace = true }
+fancy-regex = { workspace = true }
 indexmap = { workspace = true }
 inventory = { workspace = true }
 num-bigint = { workspace = true }
