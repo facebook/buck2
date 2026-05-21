@@ -140,6 +140,7 @@ def _python_test_attrs():
     test_attrs["_test_main"] = attrs.source(default = "prelude//python/tools:__test_main__.py")
     test_attrs["implicit_test_library"] = attrs.option(attrs.dep(providers = [PythonLibraryInfo]), default = None)
     test_attrs["safer_lazy_imports"] = attrs.bool(default = False)  # TODO(T240038931) When enabling lazy imports by default, remove this line
+    test_attrs["supports_test_execution_caching"] = attrs.bool(default = False)
     test_attrs.update(re_test_common.test_args())
     return test_attrs
 

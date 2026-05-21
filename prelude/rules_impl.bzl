@@ -476,6 +476,7 @@ _python_extra_attributes = {
         env = attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}),
         labels = attrs.list(attrs.string(), default = []),
         needed_coverage = attrs.list(attrs.tuple(attrs.int(), attrs.dep(), attrs.option(attrs.string())), default = []),
+        supports_test_execution_caching = attrs.bool(default = False),
         test = attrs.dep(providers = [ExternalRunnerTestInfo]),
         **(re_test_common.test_args() | buck.inject_test_env_arg()),
     ),
