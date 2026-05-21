@@ -102,6 +102,12 @@ impl<T: StarlarkDeserialize> StarlarkDeserialize for Vec<T> {
     }
 }
 
+impl<T: StarlarkSerialize + ?Sized> StarlarkSerialize for &T {
+    fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
+        (**self).starlark_serialize(ctx)
+    }
+}
+
 impl<T: StarlarkSerialize> StarlarkSerialize for Box<T> {
     fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
         (**self).starlark_serialize(ctx)

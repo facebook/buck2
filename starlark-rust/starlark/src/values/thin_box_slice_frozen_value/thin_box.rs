@@ -37,6 +37,11 @@ use std::slice;
 
 use allocative::Allocative;
 
+use crate::pagable::StarlarkDeserialize;
+use crate::pagable::StarlarkDeserializeContext;
+use crate::pagable::StarlarkSerialize;
+use crate::pagable::StarlarkSerializeContext;
+
 #[repr(C)]
 struct ThinBoxSliceLayout<T> {
     len: usize,
@@ -77,6 +82,28 @@ pub(super) struct AllocatedThinBoxSlice<T: 'static> {
 
 unsafe impl<T: Sync> Sync for AllocatedThinBoxSlice<T> {}
 unsafe impl<T: Send> Send for AllocatedThinBoxSlice<T> {}
+
+impl<T: StarlarkSerialize> StarlarkSerialize for AllocatedThinBoxSlice<T> {
+    fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
+        let data: &[T] = self;
+        data.len().starlark_serialize(ctx)?;
+        for item in data {
+            item.starlark_serialize(ctx)?;
+        }
+        Ok(())
+    }
+}
+
+impl<T: StarlarkDeserialize> StarlarkDeserialize for AllocatedThinBoxSlice<T> {
+    fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
+        let len = usize::starlark_deserialize(ctx)?;
+        let mut data = Vec::<T>::with_capacity(len);
+        for _ in 0..len {
+            data.push(T::starlark_deserialize(ctx)?);
+        }
+        Ok(Self::from_iter(data))
+    }
+}
 
 impl<T: 'static> AllocatedThinBoxSlice<T> {
     #[inline]
