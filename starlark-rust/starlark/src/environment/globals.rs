@@ -16,11 +16,16 @@
  */
 
 use std::sync::Arc;
+use std::sync::Mutex;
 
 use allocative::Allocative;
 use dupe::Dupe;
 use itertools::Itertools;
 use once_cell::sync::OnceCell;
+use pagable::PagableDeserialize;
+use pagable::PagableDeserializer;
+use pagable::PagableSerialize;
+use pagable::PagableSerializer;
 
 use crate as starlark;
 use crate::__derive_refs::components::NativeCallableComponents;
@@ -32,6 +37,11 @@ use crate::docs::DocString;
 use crate::docs::DocStringKind;
 use crate::docs::DocType;
 use crate::eval::ParametersSpec;
+use crate::pagable::StarlarkDeserialize;
+use crate::pagable::StarlarkDeserializerImpl;
+use crate::pagable::StarlarkSerialize;
+use crate::pagable::StarlarkSerializerImpl;
+use crate::pagable::starlark_deserialize_context::HeapDeserializationState;
 use crate::register_starlark_any;
 use crate::stdlib;
 pub use crate::stdlib::LibraryExtension;
@@ -52,7 +62,7 @@ use crate::values::types::function::NativeFunction;
 
 /// The global values available during execution.
 #[derive(Clone, Dupe, Debug, Allocative)]
-#[derive(pagable::PagablePanic, starlark_derive::StarlarkPagableViaPagable)]
+#[derive(pagable::Pagable, starlark_derive::StarlarkPagableViaPagable)]
 pub struct Globals(Arc<GlobalsData>);
 
 type GlobalValue = MaybeDocHiddenValue<'static, FrozenValue>;
@@ -63,6 +73,67 @@ struct GlobalsData {
     variables: SymbolMap<GlobalValue>,
     variable_names: Vec<FrozenStringValue>,
     docstring: Option<String>,
+}
+
+impl PagableSerialize for GlobalsData {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
+        // Serialize the heap (via pagable arc — actual heap data may be deferred).
+        self.heap.pagable_serialize(serializer)?;
+
+        // Force-register offset maps for the heap and its transitive deps. The
+        // pagable arc may not run heap serialization yet, but we need the
+        // offset maps now so the upcoming starlark serializer can resolve
+        // FrozenValue pointers. Same trick as `OwnedFrozenValue` and
+        // `FrozenModule`.
+        let state = StarlarkSerializerImpl::get_or_create_state(serializer);
+        state.ensure_offset_maps_registered(&self.heap);
+        let mut ctx = StarlarkSerializerImpl::new(serializer, state);
+
+        self.variables
+            .starlark_serialize(&mut ctx)
+            .map_err(|e: crate::Error| e.into_anyhow())?;
+        self.variable_names
+            .starlark_serialize(&mut ctx)
+            .map_err(|e: crate::Error| e.into_anyhow())?;
+        drop(ctx);
+
+        self.docstring.pagable_serialize(serializer)?;
+
+        Ok(())
+    }
+}
+
+impl<'de> PagableDeserialize<'de> for GlobalsData {
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> pagable::Result<Self> {
+        let heap = FrozenHeapRef::pagable_deserialize(deserializer)?;
+
+        // Empty `HeapDeserializationState` — the owner heap is fully
+        // deserialized at this point, so `ensure_initialized` is a no-op for
+        // any pointer we resolve into it.
+        let state = StarlarkDeserializerImpl::get_or_create_state(deserializer.as_dyn());
+        let mut ctx = StarlarkDeserializerImpl::new(
+            deserializer.as_dyn(),
+            state,
+            Arc::new(Mutex::new(HeapDeserializationState::empty())),
+        );
+
+        let variables = <SymbolMap<GlobalValue>>::starlark_deserialize(&mut ctx)
+            .map_err(|e: crate::Error| e.into_anyhow())?;
+        let variable_names = <Vec<FrozenStringValue>>::starlark_deserialize(&mut ctx)
+            .map_err(|e: crate::Error| e.into_anyhow())?;
+        drop(ctx);
+
+        let docstring = <Option<String>>::pagable_deserialize(deserializer)?;
+
+        Ok(Self {
+            heap,
+            variables,
+            variable_names,
+            docstring,
+        })
+    }
 }
 
 /// Heap name for a [`Globals`] object, used for heap graph tracking.
