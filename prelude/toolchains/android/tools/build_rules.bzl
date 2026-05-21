@@ -15,6 +15,12 @@ load("@prelude//toolchains/android/tools/build_rules:fb_native.bzl", "fb_native"
 load("@prelude//toolchains/android/tools/build_rules:utils.bzl", "add_os_labels")
 load("@prelude//utils:selects.bzl", "selects")
 
+SIGNED_JAR_BLOCKLIST = [
+    "META-INF/.*\\.DSA",
+    "META-INF/.*\\.SF",
+    "META-INF/.*\\.RSA",
+]
+
 OPEN_JDK_COMPILER_ARGS = [
     "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
     "--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
