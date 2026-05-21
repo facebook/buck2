@@ -8,8 +8,12 @@
 
 # pyre-strict
 
+import os
 import shutil
+import stat
 import subprocess
+import sys
+import typing
 from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
@@ -142,5 +146,14 @@ async def test_no_refetch_on_restart(buck: Buck) -> None:
     await buck.build("libfoo//:t")
     await buck.kill()
 
-    shutil.rmtree(_repo(cwd=buck.cwd))
+    def _remove_readonly(
+        func: typing.Callable[..., object], path: str, _exc: object
+    ) -> None:
+        os.chmod(path, stat.S_IWRITE)
+        func(path)
+
+    shutil.rmtree(
+        _repo(cwd=buck.cwd),
+        onexc=_remove_readonly if sys.platform == "win32" else None,
+    )
     await buck.build("libfoo//:t")
