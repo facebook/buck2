@@ -22,12 +22,18 @@
 
 use std::cell::Cell;
 use std::cell::RefCell;
+use std::sync::Arc;
+use std::sync::Mutex;
 use std::time::Duration;
 use std::time::Instant;
 
 use allocative::Allocative;
 use dupe::Dupe;
 use itertools::Itertools;
+use pagable::PagableDeserialize;
+use pagable::PagableDeserializer;
+use pagable::PagableSerialize;
+use pagable::PagableSerializer;
 use starlark_derive::StarlarkPagable;
 use starlark_syntax::syntax::ast::Visibility;
 
@@ -46,6 +52,11 @@ use crate::environment::slots::MutableSlots;
 use crate::errors::did_you_mean::did_you_mean;
 use crate::eval::ProfileData;
 use crate::eval::runtime::profile::heap::RetainedHeapProfileMode;
+use crate::pagable::StarlarkDeserialize;
+use crate::pagable::StarlarkDeserializerImpl;
+use crate::pagable::StarlarkSerialize;
+use crate::pagable::StarlarkSerializerImpl;
+use crate::pagable::starlark_deserialize_context::HeapDeserializationState;
 use crate::register_starlark_any;
 use crate::singleton_heap_name;
 use crate::values::Freeze;
@@ -94,6 +105,66 @@ pub struct FrozenModule {
     /// * freezing and optimizations during freezing
     /// * does not include parsing time
     pub(crate) eval_duration: Duration,
+}
+
+impl PagableSerialize for FrozenModule {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
+        // Serialize the heap (via pagable arc — actual heap data may be deferred).
+        self.heap.pagable_serialize(serializer)?;
+
+        // Force-register offset maps for the heap and its transitive deps. The
+        // pagable arc may not run heap serialization yet, but we need the
+        // offset maps now so the upcoming starlark serializer can resolve
+        // FrozenValue pointers. Same trick as `OwnedFrozenValue`.
+        let state = StarlarkSerializerImpl::get_or_create_state(serializer);
+        state.ensure_offset_maps_registered(&self.heap);
+        let mut ctx = StarlarkSerializerImpl::new(serializer, state);
+
+        self.module
+            .starlark_serialize(&mut ctx)
+            .map_err(|e: crate::Error| e.into_anyhow())?;
+        self.extra_value
+            .starlark_serialize(&mut ctx)
+            .map_err(|e: crate::Error| e.into_anyhow())?;
+        drop(ctx);
+
+        self.eval_duration.pagable_serialize(serializer)?;
+
+        Ok(())
+    }
+}
+
+impl<'de> PagableDeserialize<'de> for FrozenModule {
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> pagable::Result<Self> {
+        let heap = FrozenHeapRef::pagable_deserialize(deserializer)?;
+
+        // Empty `HeapDeserializationState` — the owner heap is fully
+        // deserialized at this point, so `ensure_initialized` is a no-op for
+        // any pointer we resolve into it.
+        let state = StarlarkDeserializerImpl::get_or_create_state(deserializer.as_dyn());
+        let mut ctx = StarlarkDeserializerImpl::new(
+            deserializer.as_dyn(),
+            state,
+            Arc::new(Mutex::new(HeapDeserializationState::empty())),
+        );
+
+        let module = <FrozenAnyValue<FrozenModuleData>>::starlark_deserialize(&mut ctx)
+            .map_err(|e: crate::Error| e.into_anyhow())?;
+        let extra_value = <Option<FrozenValue>>::starlark_deserialize(&mut ctx)
+            .map_err(|e: crate::Error| e.into_anyhow())?;
+        drop(ctx);
+
+        let eval_duration = Duration::pagable_deserialize(deserializer)?;
+
+        Ok(Self {
+            heap,
+            module,
+            extra_value,
+            eval_duration,
+        })
+    }
 }
 
 #[derive(Debug, Allocative, StarlarkPagable)]
