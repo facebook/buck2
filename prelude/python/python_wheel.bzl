@@ -221,7 +221,15 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
         if manifests.srcs != None:
             srcs.append(manifests.srcs)
         if manifests.default_resources != None:
-            expect(not manifests.default_resources[1])
+            # default_resources is a tuple of (manifest, hidden_runtime_files).
+            # The manifest ([0]) contains the actual resource files that should
+            # be packaged. Hidden runtime files ([1]) are auxiliary artifacts
+            # that resources depend on at execution time (e.g., symlink trees
+            # for shared libs); they are not directly packageable in a wheel.
+            # Previously this asserted [1] was empty, which broke MTIA wheel
+            # builds whose deps include native libraries with such auxiliary
+            # artifacts. Skipping [1] is safe because the wheel build path
+            # bundles shared libs via a separate mechanism.
             srcs.append(manifests.default_resources[0])
         if manifests.extensions != None:
             ((extension, _),) = manifests.extensions.items()
