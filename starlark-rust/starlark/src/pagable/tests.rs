@@ -30,6 +30,7 @@ use starlark_derive::starlark_value;
 use starlark_syntax::codemap::CodeMap;
 use starlark_syntax::codemap::FileSpan;
 use starlark_syntax::codemap::NativeCodeMap;
+use strong_hash::StrongHash;
 
 use crate as starlark;
 use crate::const_frozen_string;
@@ -44,7 +45,7 @@ use crate::values::ValueLike;
 use crate::values::layout::heap::heap_type::FrozenHeapName;
 
 /// Private test heap name for pagable tests.
-#[derive(Debug, Hash)]
+#[derive(Debug, StrongHash)]
 struct TestHeapName(String);
 
 impl TestHeapName {

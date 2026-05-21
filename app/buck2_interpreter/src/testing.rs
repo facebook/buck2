@@ -9,10 +9,11 @@
  */
 
 use starlark::values::FrozenHeapName;
+use strong_hash::StrongHash;
 
 /// Testing sentinel for buck2 test code.
 /// Used as `FrozenHeapName::User(Box::new(Buck2TestHeapName))`.
-#[derive(Debug, Hash)]
+#[derive(Debug, StrongHash)]
 pub struct Buck2TestHeapName;
 
 impl Buck2TestHeapName {

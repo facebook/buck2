@@ -45,6 +45,7 @@ use pagable::PagableDeserializer;
 use pagable::PagableSerialize;
 use pagable::PagableSerializer;
 use starlark_map::small_set::SmallSet;
+use strong_hash::StrongHash;
 
 use crate::cast;
 use crate::cast::transmute;
@@ -242,17 +243,19 @@ pub struct FrozenHeap {
 
 /// Object-safe trait for user-defined heap names that supports hashing and downcasting.
 ///
-/// Automatically implemented for any type that is `Hash + Any + Send + Sync + Debug`.
+/// Automatically implemented for any type that is `StrongHash + Any + Send + Sync + Debug`.
+/// `StrongHash` is required (rather than `Hash`) because heap identities are
+/// derived from this and must be deterministic across processes.
 pub trait UserHeapName: Any + Send + Sync + Debug + 'static {
-    /// Hash this value through a trait object.
-    fn dyn_hash(&self, state: &mut dyn Hasher);
+    /// Strong-hash this value through a trait object.
+    fn dyn_strong_hash(&self, state: &mut dyn Hasher);
     /// Downcast support.
     fn as_any(&self) -> &dyn Any;
 }
 
-impl<T: Hash + Any + Send + Sync + Debug + 'static> UserHeapName for T {
-    fn dyn_hash(&self, mut state: &mut dyn Hasher) {
-        self.hash(&mut state);
+impl<T: StrongHash + Any + Send + Sync + Debug + 'static> UserHeapName for T {
+    fn dyn_strong_hash(&self, mut state: &mut dyn Hasher) {
+        self.strong_hash(&mut state);
     }
     fn as_any(&self) -> &dyn Any {
         self
@@ -272,21 +275,24 @@ pub enum FrozenHeapName {
     User(Box<dyn UserHeapName>),
 }
 
-impl Hash for FrozenHeapName {
-    fn hash<H: Hasher>(&self, state: &mut H) {
+impl StrongHash for FrozenHeapName {
+    fn strong_hash<H: Hasher>(&self, state: &mut H) {
+        // Inner Method/Global/Singleton variants implement `Hash` (deterministic
+        // here because we control the `Hasher`); the User variant goes through
+        // the `StrongHash` trait object.
         std::mem::discriminant(self).hash(state);
         match self {
             FrozenHeapName::Method(m) => m.hash(state),
             FrozenHeapName::Global(g) => g.hash(state),
             FrozenHeapName::Singleton(s) => s.hash(state),
-            FrozenHeapName::User(b) => b.dyn_hash(state),
+            FrozenHeapName::User(b) => b.dyn_strong_hash(state),
         }
     }
 }
 
 /// Testing sentinel for starlark crate's own tests.
 /// Used as `FrozenHeapName::User(Box::new(StarlarkTestHeapName))`.
-#[derive(Debug, Hash)]
+#[derive(Debug, StrongHash)]
 pub(crate) struct StarlarkTestHeapName;
 
 impl StarlarkTestHeapName {

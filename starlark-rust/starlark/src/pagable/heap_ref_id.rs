@@ -36,22 +36,19 @@
 //!     1 = Ref  [HeapRefId: u64]
 //! ```
 
-use std::hash::DefaultHasher;
-use std::hash::Hash;
 use std::hash::Hasher;
 
 use dupe::Dupe;
 use pagable::PagableDeserialize;
 use pagable::PagableSerialize;
+use strong_hash::StrongHash;
 
 use crate::values::FrozenHeapName;
 
-/// Stable identifier for a `FrozenHeapRef`, derived from the hash of its
-/// `FrozenHeapName`. Unlike an auto-incremented counter, this is stable
-/// across processes (same heap name → same ID).
-///
-/// Since we haven't implemented pagable for `FrozenHeapName` yet, we just
-/// use the hash of the heap name for now.
+/// Stable identifier for a `FrozenHeapRef`, derived from a strong hash of its
+/// `FrozenHeapName`. The hash is computed with blake3 via [`StrongHash`] so
+/// the same heap name produces the same ID across processes (unlike
+/// `DefaultHasher`, which uses a per-process random seed).
 #[derive(
     Debug,
     Clone,
@@ -67,8 +64,34 @@ pub struct HeapRefId(u64);
 
 impl HeapRefId {
     pub(crate) fn from_heap_name(name: &FrozenHeapName) -> Self {
-        let mut hasher = DefaultHasher::new();
-        name.hash(&mut hasher);
+        let mut hasher = Blake3StrongHasher::new();
+        name.strong_hash(&mut hasher);
         Self(hasher.finish())
+    }
+}
+
+/// `std::hash::Hasher` adapter over `blake3::Hasher`. Used to drive
+/// [`StrongHash`] implementations into a deterministic blake3 digest.
+#[derive(Default)]
+pub(crate) struct Blake3StrongHasher(blake3::Hasher);
+
+impl Blake3StrongHasher {
+    pub(crate) fn new() -> Self {
+        Self::default()
+    }
+}
+
+// Only `write` and `finish` are forwarded; the `write_*` helpers fall back to
+// the default impls. blake3 ingests bytes uniformly, so the defaults are fine.
+impl Hasher for Blake3StrongHasher {
+    fn write(&mut self, bytes: &[u8]) {
+        self.0.update(bytes);
+    }
+
+    fn finish(&self) -> u64 {
+        let bytes = self.0.finalize().as_bytes()[..8]
+            .try_into()
+            .expect("blake3 digest is at least 8 bytes");
+        u64::from_be_bytes(bytes)
     }
 }
