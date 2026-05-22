@@ -34,6 +34,7 @@ pub struct SqliteBackedPagableStorage {
     conn: Arc<Mutex<Connection>>,
     arcs: DashMap<(TypeId, DataKey), Box<dyn ArcEraseDyn>>, // TODO: this should store weak pointers
     session_context: SessionContext,
+    write_buffer: Mutex<Vec<(DataKey, Vec<u8>)>>,
 }
 
 impl SqliteBackedPagableStorage {
@@ -64,7 +65,32 @@ impl SqliteBackedPagableStorage {
             conn: Arc::new(Mutex::new(conn)),
             arcs: DashMap::new(),
             session_context: SessionContext::new(),
+            write_buffer: Mutex::new(Vec::new()),
         })
+    }
+
+    const WRITE_BUFFER_CAPACITY: usize = 4096;
+
+    fn flush_buffer(&self) -> anyhow::Result<()> {
+        let items: Vec<_> = {
+            let mut buf = self.write_buffer.lock().expect("lock poisoned");
+            if buf.is_empty() {
+                return Ok(());
+            }
+            std::mem::take(&mut *buf)
+        };
+        let mut conn = self.conn.lock().expect("lock poisoned");
+        let tx = conn.transaction()?;
+        {
+            let mut stmt = tx.prepare_cached(
+                "INSERT OR IGNORE INTO pagable_data (key, value) VALUES (?1, ?2)",
+            )?;
+            for (key, bytes) in &items {
+                stmt.execute(rusqlite::params![bytemuck::bytes_of(key), bytes])?;
+            }
+        }
+        tx.commit()?;
+        Ok(())
     }
 
     fn fetch_data_from_db(
@@ -184,12 +210,18 @@ impl PagableStorage for SqliteBackedPagableStorage {
     fn store_data(&self, data: PagableData) -> anyhow::Result<DataKey> {
         let key = data.compute_key();
         let bytes = Self::encode_pagable_data(&data);
-        let db_key = bytemuck::bytes_of(&key);
-        let conn = self.conn.lock().expect("lock poisoned");
-        conn.execute(
-            "INSERT OR IGNORE INTO pagable_data (key, value) VALUES (?1, ?2)",
-            rusqlite::params![db_key, bytes],
-        )?;
+        let should_flush = {
+            let mut buf = self.write_buffer.lock().expect("lock poisoned");
+            buf.push((key, bytes));
+            buf.len() >= Self::WRITE_BUFFER_CAPACITY
+        };
+        if should_flush {
+            self.flush_buffer()?;
+        }
         Ok(key)
+    }
+
+    fn flush(&self) -> anyhow::Result<()> {
+        self.flush_buffer()
     }
 }

@@ -74,7 +74,19 @@ pub trait PagableStorage: Send + Sync + 'static {
     /// [`DataKey`]. The key is derived from the data via
     /// `PagableData::compute_key`; if the same data is stored twice the second
     /// write is expected to be idempotent (or skipped).
+    ///
+    /// Implementations may buffer writes internally and defer the actual I/O
+    /// until [`flush`](Self::flush) is called.
     fn store_data(&self, data: PagableData) -> anyhow::Result<DataKey>;
+
+    /// Commit any buffered writes to persistent storage.
+    ///
+    /// Callers should invoke this after a batch of `store_data` calls to
+    /// ensure all data is durably written. The default implementation is a
+    /// no-op (for backends that write immediately in `store_data`).
+    fn flush(&self) -> anyhow::Result<()> {
+        Ok(())
+    }
 
     /// Stores a previously-serialized item (and its transitively reachable arcs)
     /// to storage and returns its content-addressable [`DataKey`].

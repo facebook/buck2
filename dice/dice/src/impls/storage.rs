@@ -101,6 +101,7 @@ impl DiceStorage {
                 }
             }
         }
+        self.storage.flush()?;
         if !pending_evictions.is_empty() {
             state_handle.evict_keys(pending_evictions);
         }
