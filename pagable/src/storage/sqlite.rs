@@ -12,6 +12,9 @@ use std::any::TypeId;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
+use std::sync::mpsc;
 
 use dashmap::DashMap;
 use dashmap::mapref::entry::Entry;
@@ -34,7 +37,9 @@ pub struct SqliteBackedPagableStorage {
     conn: Arc<Mutex<Connection>>,
     arcs: DashMap<(TypeId, DataKey), Box<dyn ArcEraseDyn>>, // TODO: this should store weak pointers
     session_context: SessionContext,
-    write_buffer: Mutex<Vec<(DataKey, Vec<u8>)>>,
+    write_tx: mpsc::Sender<(DataKey, Vec<u8>)>,
+    write_rx: Mutex<mpsc::Receiver<(DataKey, Vec<u8>)>>,
+    write_count: AtomicUsize,
 }
 
 impl SqliteBackedPagableStorage {
@@ -61,24 +66,27 @@ impl SqliteBackedPagableStorage {
                 value BLOB NOT NULL
             ) WITHOUT ROWID;",
         )?;
+        let (write_tx, write_rx) = mpsc::channel();
         Ok(Self {
             conn: Arc::new(Mutex::new(conn)),
             arcs: DashMap::new(),
             session_context: SessionContext::new(),
-            write_buffer: Mutex::new(Vec::new()),
+            write_tx,
+            write_rx: Mutex::new(write_rx),
+            write_count: AtomicUsize::new(0),
         })
     }
 
-    const WRITE_BUFFER_CAPACITY: usize = 4096;
+    const WRITE_BUFFER_CAPACITY: usize = 32768;
 
     fn flush_buffer(&self) -> anyhow::Result<()> {
-        let items: Vec<_> = {
-            let mut buf = self.write_buffer.lock().expect("lock poisoned");
-            if buf.is_empty() {
-                return Ok(());
-            }
-            std::mem::take(&mut *buf)
-        };
+        let rx = self.write_rx.lock().expect("lock poisoned");
+        let items: Vec<_> = rx.try_iter().collect();
+        drop(rx);
+        self.write_count.store(0, Ordering::Relaxed);
+        if items.is_empty() {
+            return Ok(());
+        }
         let mut conn = self.conn.lock().expect("lock poisoned");
         let tx = conn.transaction()?;
         {
@@ -210,12 +218,10 @@ impl PagableStorage for SqliteBackedPagableStorage {
     fn store_data(&self, data: PagableData) -> anyhow::Result<DataKey> {
         let key = data.compute_key();
         let bytes = Self::encode_pagable_data(&data);
-        let should_flush = {
-            let mut buf = self.write_buffer.lock().expect("lock poisoned");
-            buf.push((key, bytes));
-            buf.len() >= Self::WRITE_BUFFER_CAPACITY
-        };
-        if should_flush {
+        self.write_tx
+            .send((key, bytes))
+            .map_err(|_| anyhow::anyhow!("write channel closed"))?;
+        if self.write_count.fetch_add(1, Ordering::Relaxed) + 1 >= Self::WRITE_BUFFER_CAPACITY {
             self.flush_buffer()?;
         }
         Ok(key)
