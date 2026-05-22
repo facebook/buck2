@@ -580,10 +580,13 @@ fn check_infra_error_patterns(
         .and_then(|c| c.details.as_ref())
         .map_or("", |d| d.cmd_stderr.as_str());
 
-    const INFRA_PATTERNS: &[(&str, ErrorTag)] = &[(
-        "transport endpoint is not connected",
-        ErrorTag::IoNotConnected,
-    )];
+    const INFRA_PATTERNS: &[(&str, ErrorTag)] = &[
+        (
+            "transport endpoint is not connected",
+            ErrorTag::IoNotConnected,
+        ),
+        ("out of memory", ErrorTag::ActionOom),
+    ];
 
     let stderr_lower = stderr.to_lowercase();
     INFRA_PATTERNS
