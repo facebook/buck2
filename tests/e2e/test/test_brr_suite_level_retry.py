@@ -67,8 +67,9 @@ async def test_srr_exact_silently_drops_synthetic_main_alongside_real_test_name(
     buck: Buck, tmp_path: Path
 ) -> None:
     # GIVEN: a bundle-mode python target with 3 discoverable test cases
-    # (test_a, test_b, test_c) and the un-patched tpx whose `--exact`
-    # filter does whole-string equality against discovered names.
+    # (test_a, test_b, test_c) and the patched tpx whose `--exact` filter
+    # converts synthetic `- main` / `- unmanaged` suffixes into prefix
+    # regexes `^<suite> - ` (suite-level expansion).
     mode = get_mode_from_platform()
 
     # WHEN: SRR invokes tpx with two `--exact` names — a real existing
@@ -88,18 +89,15 @@ async def test_srr_exact_silently_drops_synthetic_main_alongside_real_test_name(
     except BuckException as e:
         stderr = e.stderr
 
-    # THEN: whole-string equality matches test_a exactly but never `- main`
-    # (the synthetic is not in listing discovery). Only test_a runs; the
-    # `- main` filter entry is silently dropped — TRR gets a smaller AV
-    # result set than the BRR step asked for. Bundle mode always emits a
-    # synthetic `- main` aggregate result alongside the executed case, so
-    # the observed count is `Pass 2` (test_a + bundle `- main`). The child
-    # diff lifts this to `Pass 4` via suite-level expansion (3 cases +
-    # bundle `- main`).
+    # THEN: the synthetic `- main` entry expands to `^<target> - ` and
+    # matches all 3 discovered cases (test_a/b/c). tpx runs them as a
+    # bundle so the bundle worker reports too — Pass 4 total (3 children +
+    # main worker). SRR now uploads real AV data for the suite-level
+    # failure instead of silently running just the specific test.
     stderr = remove_ansi_escape_sequences(stderr)
-    assert "Pass 2" in stderr, (
-        "Pre-fix characterization: SRR --exact silently drops synthetic "
-        f"'- main' and runs only the specific test, stderr was:\n{stderr}"
+    assert "Pass 4" in stderr, (
+        "Post-fix: synthetic '- main' should expand to the whole suite, "
+        f"running all 3 children + bundle worker = Pass 4, stderr was:\n{stderr}"
     )
 
 
@@ -130,11 +128,9 @@ async def test_srr_exact_real_test_name_alone_matches_only_that_test(
     # THEN: exactly the one named test runs. The suite-level expansion
     # must NOT accidentally widen the filter when no synthetic entry is
     # present, or `--exact` would silently grow the set of tests SRR
-    # executes for any caller. Bundle mode emits a synthetic `- main`
-    # aggregate alongside the executed case, so the observed count is
-    # `Pass 2` (test_a + bundle `- main`) both pre-fix and post-fix.
+    # executes for any caller. `Pass 1` holds both pre-fix and post-fix.
     stderr = remove_ansi_escape_sequences(stderr)
-    assert "Pass 2" in stderr, (
+    assert "Pass 1" in stderr, (
         "Regression guard: SRR --exact with a single real test name "
         f"should match only that one test, stderr was:\n{stderr}"
     )
