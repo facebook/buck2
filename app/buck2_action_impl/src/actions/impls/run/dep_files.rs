@@ -1193,22 +1193,8 @@ impl PartitionedInputs<Vec<ArtifactGroup>> {
             builder.finalize()
         }
 
-        fn untagged_reduce(
-            ctx: &dyn ActionExecutionCtx,
-            inputs: &[ArtifactGroup],
-        ) -> buck2_error::Result<ActionDirectoryBuilder> {
-            let mut builder = LazyActionDirectoryBuilder::empty();
-
-            for input in inputs {
-                let input = ctx.artifact_values(input);
-                input.add_to_directory(&mut builder, ctx.fs())?;
-            }
-
-            builder.finalize()
-        }
-
         Ok(PartitionedInputs {
-            untagged: untagged_reduce(ctx, &self.untagged)?,
+            untagged: reduce(ctx, &self.untagged)?,
             tagged: self
                 .tagged
                 .iter()
