@@ -314,7 +314,7 @@ tar = "0.4.44"
 tempfile = "3.22"
 termimad = "0.34.1"
 termios = "0.3"
-termwiz = "0.23"
+termwiz = { git = "https://github.com/wezterm/wezterm.git", rev = "05343b387085842b434d267f91b6b0ec157e4331", default-features = false }
 test-case = "3.3.1"
 textwrap = { version = "0.16.0", features = ["terminal_size"] }
 thiserror = "2.0.18"
