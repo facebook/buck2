@@ -12,6 +12,7 @@ use std::any::TypeId;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::MutexGuard;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc;
@@ -34,7 +35,7 @@ use crate::traits::SessionContext;
 /// - Serialized data storage indexed by content-addressable `DataKey`
 /// - Arc caching to avoid redundant deserialization
 pub struct SqliteBackedPagableStorage {
-    conn: Arc<Mutex<Connection>>,
+    conns: ConnectionPool,
     arcs: DashMap<(TypeId, DataKey), Box<dyn ArcEraseDyn>>, // TODO: this should store weak pointers
     session_context: SessionContext,
     write_tx: mpsc::Sender<(DataKey, Vec<u8>)>,
@@ -42,33 +43,81 @@ pub struct SqliteBackedPagableStorage {
     write_count: AtomicUsize,
 }
 
+struct ConnectionPool {
+    readwrite: Mutex<Connection>,
+    readers: Vec<Mutex<Connection>>,
+    next_reader: AtomicUsize,
+}
+
+impl ConnectionPool {
+    fn open(path: &Path) -> anyhow::Result<Self> {
+        let writer = Connection::open(path)?;
+        Self::init_pragmas(&writer)?;
+
+        let num_readers = std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(4)
+            .min(8);
+        let mut readers = Vec::with_capacity(num_readers);
+        for _ in 0..num_readers {
+            let reader = Connection::open_with_flags(
+                path,
+                rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY
+                    | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+            )?;
+            Self::init_pragmas(&reader)?;
+            readers.push(Mutex::new(reader));
+        }
+
+        Ok(Self {
+            readwrite: Mutex::new(writer),
+            readers,
+            next_reader: AtomicUsize::new(0),
+        })
+    }
+
+    fn init_pragmas(conn: &Connection) -> anyhow::Result<()> {
+        conn.execute_batch(
+            "PRAGMA synchronous=OFF;
+            PRAGMA journal_mode=OFF;
+            PRAGMA page_size=8192;",
+        )?;
+        Ok(())
+    }
+
+    fn get_readwrite(&self) -> MutexGuard<'_, Connection> {
+        self.readwrite.lock().expect("lock poisoned")
+    }
+
+    /// Round-robin with try_lock to skip connections held by other threads.
+    /// Falls back to the writer connection if all readers are busy.
+    /// Blocks on a reader if all readers + writer are busy.
+    fn get_reader(&self) -> MutexGuard<'_, Connection> {
+        let start = self.next_reader.fetch_add(1, Ordering::Relaxed);
+        let len = self.readers.len();
+        for i in 0..len {
+            if let Ok(guard) = self.readers[(start + i) % len].try_lock() {
+                return guard;
+            }
+        }
+        self.readers[start % len].lock().expect("lock poisoned")
+    }
+}
+
 impl SqliteBackedPagableStorage {
     /// Creates a new SQLite-backed storage in the given directory.
     pub fn try_new(path: &Path) -> anyhow::Result<Self> {
         std::fs::create_dir_all(path)?;
-        let conn = Connection::open(path.join("pagable.db"))?;
-        Self::from_connection(conn)
-    }
-
-    /// Creates a new in-memory SQLite-backed storage (useful for testing).
-    pub fn try_new_in_memory() -> anyhow::Result<Self> {
-        let conn = Connection::open_in_memory()?;
-        Self::from_connection(conn)
-    }
-
-    fn from_connection(conn: Connection) -> anyhow::Result<Self> {
-        conn.execute_batch(
-            "PRAGMA synchronous=OFF;
-            PRAGMA journal_mode=OFF;
-            PRAGMA page_size=8192;
-            CREATE TABLE IF NOT EXISTS pagable_data (
+        let conns = ConnectionPool::open(&path.join("pagable.db"))?;
+        conns.get_readwrite().execute_batch(
+            "CREATE TABLE IF NOT EXISTS pagable_data (
                 key BLOB PRIMARY KEY,
                 value BLOB NOT NULL
             ) WITHOUT ROWID;",
         )?;
         let (write_tx, write_rx) = mpsc::channel();
         Ok(Self {
-            conn: Arc::new(Mutex::new(conn)),
+            conns,
             arcs: DashMap::new(),
             session_context: SessionContext::new(),
             write_tx,
@@ -87,7 +136,8 @@ impl SqliteBackedPagableStorage {
         if items.is_empty() {
             return Ok(());
         }
-        let mut conn = self.conn.lock().expect("lock poisoned");
+
+        let mut conn = self.conns.get_readwrite();
         let tx = conn.transaction()?;
         {
             let mut stmt = tx.prepare_cached(
@@ -101,12 +151,9 @@ impl SqliteBackedPagableStorage {
         Ok(())
     }
 
-    fn fetch_data_from_db(
-        conn: &Mutex<Connection>,
-        key: &DataKey,
-    ) -> anyhow::Result<Arc<PagableData>> {
+    fn fetch_data_read(&self, key: &DataKey) -> anyhow::Result<Arc<PagableData>> {
+        let conn = self.conns.get_reader();
         let bytes: Vec<u8> = {
-            let conn = conn.lock().expect("lock poisoned");
             let mut stmt = conn
                 .prepare_cached("SELECT value FROM pagable_data WHERE key = ?1")
                 .map_err(|e| anyhow::anyhow!("prepare failed: {}", e))?;
@@ -177,14 +224,12 @@ impl PagableStorage for SqliteBackedPagableStorage {
         if let Some(v) = self.arcs.get(&(*type_id, *key)) {
             return Ok(Either::Left(v.clone_dyn()));
         }
-        Self::fetch_data_from_db(&self.conn, key).map(Either::Right)
+        self.fetch_data_read(key).map(Either::Right)
     }
 
     #[cfg(any(feature = "tokio", test))]
     async fn fetch_data(&self, key: &DataKey) -> anyhow::Result<Arc<PagableData>> {
-        let conn = self.conn.clone();
-        let key = *key;
-        tokio::task::spawn_blocking(move || Self::fetch_data_from_db(&conn, &key)).await?
+        self.fetch_data_read(key)
     }
 
     #[cfg(not(any(feature = "tokio", test)))]
