@@ -42,6 +42,103 @@ def read_brr_report(path: Path) -> dict[str, object]:
 
 PYTHON_TEST_TARGET: str = "fbcode//buck2/tests/targets/rules/python/test:test"
 
+# Bundle-mode target with 3 test cases (test_a, test_b, test_c). Used for
+# the SRR `--exact` tests below because the SRR path needs to demonstrate
+# both single-test selection and suite-level expansion against a target
+# with multiple discoverable tests.
+PYTHON_MULTI_TESTS_TARGET: str = (
+    "fbcode//buck2/tests/targets/rules/python/test:multi_tests"
+)
+
+
+# Full match-name for `multi_tests.TestCase.test_a` in the format tpx's
+# `--exact` filter compares against: `<suite> - <display_name>`, where
+# `<display_name>` is `<method> (<full.module.path.Class>)` per the legacy
+# python unittest listing parser (tpx-buck/src/listing/python.rs).
+TEST_A_MATCH_NAME: str = (
+    f"{PYTHON_MULTI_TESTS_TARGET} - test_a "
+    "(buck2.tests.targets.rules.python.test.multi_tests.TestCase)"
+)
+MAIN_MATCH_NAME: str = f"{PYTHON_MULTI_TESTS_TARGET} - main"
+
+
+@buck_test(inplace=True, skip_for_os=["darwin", "windows"])
+async def test_srr_exact_silently_drops_synthetic_main_alongside_real_test_name(
+    buck: Buck, tmp_path: Path
+) -> None:
+    # GIVEN: a bundle-mode python target with 3 discoverable test cases
+    # (test_a, test_b, test_c) and the un-patched tpx whose `--exact`
+    # filter does whole-string equality against discovered names.
+    mode = get_mode_from_platform()
+
+    # WHEN: SRR invokes tpx with two `--exact` names — a real existing
+    # test case plus the synthetic suite-level `- main`. This is the SRR
+    # shape produced when TARGET had both a specific test failure and a
+    # suite-level fatal.
+    try:
+        result = await buck.test(
+            PYTHON_MULTI_TESTS_TARGET,
+            mode,
+            "--",
+            "--exact",
+            TEST_A_MATCH_NAME,
+            MAIN_MATCH_NAME,
+        )
+        stderr = result.stderr
+    except BuckException as e:
+        stderr = e.stderr
+
+    # THEN: whole-string equality matches test_a exactly but never `- main`
+    # (the synthetic is not in listing discovery). Only test_a runs; the
+    # `- main` filter entry is silently dropped — TRR gets a smaller AV
+    # result set than the BRR step asked for. Bundle mode always emits a
+    # synthetic `- main` aggregate result alongside the executed case, so
+    # the observed count is `Pass 2` (test_a + bundle `- main`). The child
+    # diff lifts this to `Pass 4` via suite-level expansion (3 cases +
+    # bundle `- main`).
+    stderr = remove_ansi_escape_sequences(stderr)
+    assert "Pass 2" in stderr, (
+        "Pre-fix characterization: SRR --exact silently drops synthetic "
+        f"'- main' and runs only the specific test, stderr was:\n{stderr}"
+    )
+
+
+@buck_test(inplace=True, skip_for_os=["darwin", "windows"])
+async def test_srr_exact_real_test_name_alone_matches_only_that_test(
+    buck: Buck, tmp_path: Path
+) -> None:
+    # GIVEN: a bundle-mode python target with 3 discoverable test cases
+    # (test_a, test_b, test_c) and any tpx version — this test's
+    # assertion holds in both pre-fix and post-fix states (regression
+    # guard ensuring the fix only widens for synthetic suite-level names).
+    mode = get_mode_from_platform()
+
+    # WHEN: SRR invokes tpx with `--exact` on a single real existing test
+    # case name. No synthetic `- main`/`- unmanaged` suffix is present.
+    try:
+        result = await buck.test(
+            PYTHON_MULTI_TESTS_TARGET,
+            mode,
+            "--",
+            "--exact",
+            TEST_A_MATCH_NAME,
+        )
+        stderr = result.stderr
+    except BuckException as e:
+        stderr = e.stderr
+
+    # THEN: exactly the one named test runs. The suite-level expansion
+    # must NOT accidentally widen the filter when no synthetic entry is
+    # present, or `--exact` would silently grow the set of tests SRR
+    # executes for any caller. Bundle mode emits a synthetic `- main`
+    # aggregate alongside the executed case, so the observed count is
+    # `Pass 2` (test_a + bundle `- main`) both pre-fix and post-fix.
+    stderr = remove_ansi_escape_sequences(stderr)
+    assert "Pass 2" in stderr, (
+        "Regression guard: SRR --exact with a single real test name "
+        f"should match only that one test, stderr was:\n{stderr}"
+    )
+
 
 @buck_test(inplace=True, skip_for_os=["darwin", "windows"])
 async def test_brr_suite_level_main_runs_all_tests(buck: Buck, tmp_path: Path) -> None:
