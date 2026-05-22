@@ -209,6 +209,8 @@ def _maybe_scrub_binary(ctx, binary_dep: Dependency) -> AppleBundleBinaryOutput:
             infos = filtered_debug_info.infos,
         )
 
+        # For debug symbols we take the unstripped unscrubbed binary
+        debug_binaries = [unstripped_binary] if unstripped_binary else [binary]
         binary = _scrub_binary(ctx, binary, binary_dep.get(LinkExecutionPreferenceInfo), filtered_debug_info.swift_modules_labels)
         dsym_artifact = _get_scrubbed_binary_dsym(ctx, binary, debug_info_tset)
 
@@ -218,6 +220,7 @@ def _maybe_scrub_binary(ctx, binary_dep: Dependency) -> AppleBundleBinaryOutput:
 
         debuggable_info = AppleDebuggableInfo(
             dsyms = [dsym_artifact],
+            binaries = debug_binaries,
             debug_info_tset = filtered_external_debug_info,
             filtered_map = filtered_map,
             selective_metadata = [
@@ -458,6 +461,10 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         DefaultInfo(default_output = extended_dsym_info, other_outputs = extended_dsym_json_info.outputs),
     ]
 
+    # debug binaries used for symbolication without dSYMs
+    unstripped_binary_artifact = binary_outputs.unstripped_binary if binary_outputs.unstripped_binary else binary_outputs.binary
+    binary_debug_artifacts = [unstripped_binary_artifact] + flatten([info.binaries for info in deps_debuggable_infos])
+
     sub_targets[_PLIST] = [DefaultInfo(default_output = apple_bundle_part_list_output.info_plist_part.source)]
     info_plist_info = AppleInfoPlistInfo(info_plist = apple_bundle_part_list_output.info_plist_part.source)
 
@@ -530,6 +537,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
             ),
             AppleDebuggableInfo(
                 dsyms = dsym_artifacts,
+                binaries = binary_debug_artifacts,
                 debug_info_tset = aggregated_debug_info.debug_info.debug_info_tset,
                 filtered_map = aggregated_debug_info.debug_info.filtered_map,
                 selective_metadata = all_selective_metadata,

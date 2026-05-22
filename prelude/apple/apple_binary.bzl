@@ -78,7 +78,6 @@ load(
     "LinkableGraph",
 )
 load("@prelude//utils:arglike.bzl", "ArgLike")
-load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:utils.bzl", "filter_and_map_idx", "map_val")
 load(":apple_bundle_types.bzl", "AppleBundleLinkerMapInfo", "AppleMinDeploymentVersionInfo")
 load(":apple_bundle_utility.bzl", "get_bundle_infos_from_graph", "merge_bundle_linker_maps_info")
@@ -205,11 +204,6 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
 
         if stripped:
             unstripped_binary = cxx_output.unstripped_binary
-            if False:
-                # TODO(nga): `unstripped_binary` is never `None`.
-                unstripped_binary = None
-            expect(unstripped_binary != None, "Expect to save unstripped_binary when stripped is enabled")
-            unstripped_binary = cxx_output.unstripped_binary
         else:
             unstripped_binary = cxx_output.binary
         cxx_output.sub_targets["unstripped"] = [DefaultInfo(default_output = unstripped_binary)]
@@ -281,7 +275,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
                 DefaultInfo(default_output = cxx_output.binary, sub_targets = cxx_output.sub_targets),
                 RunInfo(args = cmd_args(cxx_output.binary, hidden = cxx_output.runtime_files)),
                 AppleEntitlementsInfo(entitlements_file = ctx.attrs.entitlements_file),
-                AppleDebuggableInfo(dsyms = [dsym_artifact], debug_info_tset = cxx_output.external_debug_info),
+                AppleDebuggableInfo(dsyms = [dsym_artifact], binaries = [unstripped_binary], debug_info_tset = cxx_output.external_debug_info),
                 cxx_output.xcode_data,
                 cxx_output.compilation_db,
                 merge_bundle_linker_maps_info(bundle_infos),

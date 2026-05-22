@@ -83,6 +83,7 @@ def apple_universal_executable_impl(ctx: AnalysisContext) -> list[Provider]:
             merged_providers += [
                 AppleDebuggableInfo(
                     dsyms = dsyms,
+                    binaries = binary_outputs.debuggable_info.binaries,
                     debug_info_tset = binary_outputs.debuggable_info.debug_info_tset,
                 ),
             ]

@@ -704,7 +704,7 @@ def _get_link_style_sub_targets_and_providers(extra_providers: list[Provider]) -
 
         providers = (
             [
-                AppleDebuggableInfo(dsyms = [dsym_artifact], debug_info_tset = output.external_debug_info),
+                AppleDebuggableInfo(dsyms = [dsym_artifact], binaries = [dsym_executable], debug_info_tset = output.external_debug_info),
                 resource_graph,
             ]
             + min_version_providers

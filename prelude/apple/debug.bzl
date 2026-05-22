@@ -30,13 +30,13 @@ AppleSelectiveDebuggableMetadata = record(
 
 # Represents Apple debug info from both executables and bundles.
 AppleDebuggableInfo = provider(
-    # @unsorted-dict-items
     fields = {
-        "dsyms": provider_field(list[Artifact]),
+        "binaries": provider_field(list[Artifact], default = []),
         # Tset containing ArtifactInfos with either
         # a. the owning library target to artifacts, or
         # b. the owning bundle target to filtered artifacts
         "debug_info_tset": provider_field(ArtifactTSet),
+        "dsyms": provider_field(list[Artifact]),
         # In the case of b above, contains the map of library target to artifacts, else None
         "filtered_map": provider_field([dict[Label, list[Artifact]], None], default = None),
         "selective_metadata": provider_field(list[AppleSelectiveDebuggableMetadata], default = []),

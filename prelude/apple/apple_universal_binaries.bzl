@@ -91,6 +91,7 @@ def create_universal_binary(
         unstripped_binary = unstripped_binary_output,
         debuggable_info = AppleDebuggableInfo(
             dsyms = [dsym_output] if dsym_output != None else [],
+            binaries = [unstripped_binary_output] if unstripped_binary_output else [binary_output],
             debug_info_tset = make_artifact_tset(
                 actions = ctx.actions,
                 label = ctx.label,
