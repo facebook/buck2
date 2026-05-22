@@ -68,6 +68,7 @@ def apple_package_impl(ctx: AnalysisContext) -> list[Provider]:
             dsyms = ctx.attrs.bundle[AppleDebuggableInfo].dsyms,
             info_plist = ctx.attrs.bundle[AppleInfoPlistInfo].info_plist,
             linker_maps = ctx.attrs.bundle[AppleBundleLinkerMapInfo].linker_maps,
+            unstripped_binaries = ctx.attrs.bundle[AppleDebuggableInfo].binaries,
         ),
     ]
 

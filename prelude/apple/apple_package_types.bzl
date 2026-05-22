@@ -17,5 +17,6 @@ ApplePackageInfo = provider(
         "linker_maps": provider_field(list[Artifact]),
         "name": provider_field(str),
         "package": provider_field(Artifact),
+        "unstripped_binaries": provider_field(list[Artifact]),
     },
 )
