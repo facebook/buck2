@@ -150,11 +150,10 @@ impl Dice {
         tasks.iter().all(|task| task.is_terminated())
     }
 
-    /// Page out every hydrated `OccupiedGraphNode` value to the configured `DiceStorage`.
+    /// Page out every paged-in `OccupiedGraphNode` value to the configured `DiceStorage`.
     ///
     /// **Caller must ensure DICE is idle** before calling this — typically by awaiting
-    /// `wait_for_idle()` first. Page-out runs on the dice core thread and blocks all
-    /// other state operations until it finishes.
+    /// `wait_for_idle()` first.
     ///
     /// No-op if `DiceStorage` was not configured on the builder.
     pub async fn page_out(self: &Arc<Self>) -> anyhow::Result<()> {
@@ -163,7 +162,12 @@ impl Dice {
                 "Dice::page_out called while DICE is not idle; call `wait_for_idle()` first"
             ));
         }
-        self.state_handle.page_out(self.dupe()).await
+        let Some(storage) = self.pagable_storage.as_ref() else {
+            return Ok(());
+        };
+        self.state_handle.evict_cached_values().await;
+        let keys = self.state_handle.keys_to_page_out().await;
+        storage.page_out(keys, &self.key_index, &self.state_handle)
     }
 
     /// Page in (rehydrate) all paged-out `OccupiedGraphNode` values from the

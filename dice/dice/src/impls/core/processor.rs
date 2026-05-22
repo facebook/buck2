@@ -136,8 +136,15 @@ impl StateProcessor {
             StateRequest::PagedOutKeys { resp } => {
                 drop(resp.send(Ok(self.state.paged_out_keys())));
             }
-            StateRequest::PageOut { dice, resp } => {
-                drop(resp.send(self.state.page_out(&dice)));
+            StateRequest::EvictCachedValues { resp } => {
+                self.state.evict_cached_values();
+                let _ = resp.send(());
+            }
+            StateRequest::KeysToPageOut { resp } => {
+                drop(resp.send(self.state.keys_to_page_out()));
+            }
+            StateRequest::EvictKeys { keys } => {
+                self.state.evict_keys(keys);
             }
             StateRequest::Rehydrate { key, value } => {
                 self.state.rehydrate(key, value);

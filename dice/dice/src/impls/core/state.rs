@@ -37,7 +37,6 @@ use crate::impls::core::versions::VersionEpoch;
 use crate::impls::core::versions::introspection::VersionIntrospectable;
 use crate::impls::ctx::SharedLiveTransactionCtx;
 use crate::impls::deps::graph::SeriesParallelDeps;
-use crate::impls::dice::Dice;
 use crate::impls::key::DiceKey;
 use crate::impls::task::dice::TerminationObserver;
 use crate::impls::transaction::ActiveTransactionGuard;
@@ -251,14 +250,25 @@ impl CoreStateHandle {
         self.call(StateRequest::PagedOutKeys { resp }, recv)
     }
 
-    /// Page out all hydrated `OccupiedGraphNode` values to `dice.pagable_storage`.
-    /// Caller must ensure DICE is idle.
-    pub(crate) fn page_out(
-        &self,
-        dice: std::sync::Arc<Dice>,
-    ) -> impl Future<Output = anyhow::Result<()>> + use<> {
+    /// Drop in-memory values for nodes that already have an on-disk copy.
+    pub(crate) fn evict_cached_values(&self) -> impl Future<Output = ()> + use<> {
         let (resp, recv) = oneshot::channel();
-        self.call(StateRequest::PageOut { dice, resp }, recv)
+        self.call(StateRequest::EvictCachedValues { resp }, recv)
+    }
+
+    /// Returns nodes that need serialization before they can be paged out.
+    pub(crate) fn keys_to_page_out(
+        &self,
+    ) -> impl Future<Output = Vec<(DiceKey, DiceValidValue)>> + use<> {
+        let (resp, recv) = oneshot::channel();
+        self.call(StateRequest::KeysToPageOut { resp }, recv)
+    }
+
+    /// Evict in-memory values for the given nodes, marking them as paged out.
+    /// Fire-and-forget; any subsequent state requests are guaranteed to see
+    /// the evicted state because state requests are processed FIFO.
+    pub(crate) fn evict_keys(&self, keys: Vec<(DiceKey, DataKey)>) {
+        self.request(StateRequest::EvictKeys { keys })
     }
 
     /// Replace the paged-out value at `key` with its hydrated form. Fire-and-forget;
@@ -379,12 +389,14 @@ pub(super) enum StateRequest {
     PagedOutKeys {
         resp: Sender<anyhow::Result<Vec<(DiceKey, DataKey)>>>,
     },
-    /// Page out hydrated `OccupiedGraphNode` values via `dice.pagable_storage`.
-    PageOut {
-        #[derivative(Debug = "ignore")]
-        dice: std::sync::Arc<Dice>,
-        resp: Sender<anyhow::Result<()>>,
+    /// Drop in-memory values for nodes that already have an on-disk copy.
+    EvictCachedValues { resp: Sender<()> },
+    /// Collect nodes that need serialization before they can be paged out.
+    KeysToPageOut {
+        resp: Sender<Vec<(DiceKey, DiceValidValue)>>,
     },
+    /// Mark nodes as paged out, dropping their in-memory values.
+    EvictKeys { keys: Vec<(DiceKey, DataKey)> },
     /// Replace the paged-out value at `key` with its hydrated form.
     Rehydrate {
         key: DiceKey,

@@ -12,6 +12,7 @@ use std::thread;
 
 use dice_error::result::CancellableResult;
 use dice_error::result::CancellationReason;
+use dupe::Dupe;
 use gazebo::prelude::SliceExt;
 use pagable::DataKey;
 
@@ -31,7 +32,6 @@ use crate::impls::core::versions::VersionEpoch;
 use crate::impls::core::versions::VersionTracker;
 use crate::impls::core::versions::introspection::VersionIntrospectable;
 use crate::impls::deps::graph::SeriesParallelDeps;
-use crate::impls::dice::Dice;
 use crate::impls::key::DiceKey;
 use crate::impls::task::dice::DiceTask;
 use crate::impls::task::dice::TerminationObserver;
@@ -157,37 +157,49 @@ impl CoreState {
             .expect("failed to spawn thread");
     }
 
-    /// Pages out every hydrated `OccupiedGraphNode` value to `dice.pagable_storage`.
-    /// No-op if no storage is configured. Caller must ensure DICE is idle.
-    pub(super) fn page_out(&mut self, dice: &Dice) -> anyhow::Result<()> {
-        let Some(storage) = dice.pagable_storage.as_ref() else {
-            return Ok(());
-        };
-        // Share a single cache across all nodes so arcs reachable from more than
-        // one value (e.g. interned types) only get serialized once per batch.
-        let mut cache = crate::impls::storage::DiceStorage::new_page_out_cache();
-        for (key, node) in &mut self.graph.nodes {
+    /// Drop in-memory values for nodes that already have an on-disk copy.
+    /// These nodes have both a `DataKey` and a resident value; after this call
+    /// only the `DataKey` remains.
+    pub(super) fn evict_cached_values(&mut self) {
+        for node in self.graph.nodes.values_mut() {
             let VersionedGraphNode::Occupied(occ) = node else {
                 continue;
             };
-            // If the node already has a data_key, the on-disk copy is still valid
-            // (recompute clears data_key). Drop the in-memory value without
-            // re-serializing.
-            if let Some(existing_data_key) = occ.val().data_key() {
+            if let Some(data_key) = occ.val().data_key() {
                 if occ.val().as_hydrated().is_some() {
-                    occ.set_paged_out(existing_data_key);
+                    occ.set_paged_out(data_key);
                 }
+            }
+        }
+    }
+
+    /// Evict in-memory values for the given nodes, marking them as paged out
+    /// with their `DataKey`s. Skips nodes that are missing, vacant, or injected.
+    pub(super) fn evict_keys(&mut self, keys: Vec<(DiceKey, DataKey)>) {
+        for (key, data_key) in keys {
+            if let Some(VersionedGraphNode::Occupied(occ)) = self.graph.nodes.get_mut(&key) {
+                occ.set_paged_out(data_key);
+            }
+        }
+    }
+
+    /// Returns nodes whose value is resident in memory but has no on-disk
+    /// copy yet. These need serialization before they can be paged out.
+    pub(super) fn keys_to_page_out(&self) -> Vec<(DiceKey, DiceValidValue)> {
+        let mut keys = Vec::new();
+        for (key, node) in &self.graph.nodes {
+            let VersionedGraphNode::Occupied(occ) = node else {
+                continue;
+            };
+            if occ.val().data_key().is_some() {
                 continue;
             }
             let Some(value) = occ.val().as_hydrated() else {
                 continue;
             };
-            let key_dyn = dice.key_index.get(*key);
-            if let Some(data_key) = storage.page_out(key_dyn, value, &mut cache)? {
-                occ.set_paged_out(data_key);
-            }
+            keys.push((*key, value.dupe()));
         }
-        Ok(())
+        keys
     }
 
     /// Returns the list of `(DiceKey, DataKey)` pairs for every paged-out
