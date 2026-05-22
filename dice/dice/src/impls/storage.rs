@@ -17,11 +17,11 @@
 //!
 //! See `Dice::page_out` for the user-facing entry point.
 
-use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use dashmap::DashMap;
 use dupe::Dupe;
 use pagable::DataKey;
 use pagable::context::PagableDeserializerImpl;
@@ -30,7 +30,6 @@ use pagable::storage::sled::SledBackedPagableStorage;
 use pagable::storage::sqlite::SqliteBackedPagableStorage;
 use pagable::storage::support::SerializerForPaging;
 use pagable::storage::traits::PagableStorage;
-use pagable::traits::SessionContext;
 
 use crate::impls::core::state::CoreStateHandle;
 use crate::impls::key::DiceKey;
@@ -77,22 +76,66 @@ impl DiceStorage {
     /// `keys` comes from `CoreState::paged_in_keys()`. For entries with an
     /// existing `DataKey` (on-disk copy still valid), no serialization is needed.
     /// For entries without, the value is serialized via the key's `ValueSerialize`.
-    pub(crate) fn page_out(
+    pub(crate) async fn page_out(
         &self,
         keys: Vec<(DiceKey, DiceValidValue)>,
         key_index: &DiceKeyIndex,
         state_handle: &CoreStateHandle,
     ) -> anyhow::Result<()> {
+        if keys.is_empty() {
+            return Ok(());
+        }
+        // Process this many keys in parallel at a time, limit peak RSS
+        const CHUNK_SIZE: usize = 32768;
+        let finished: Arc<DashMap<usize, DataKey>> = Arc::new(DashMap::new());
+        let num_workers = std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(1);
+
+        let mut remaining = keys;
+        while !remaining.is_empty() {
+            let split_at = remaining.len().min(CHUNK_SIZE);
+            let mut chunk = remaining.split_off(split_at);
+            std::mem::swap(&mut chunk, &mut remaining);
+
+            let worker_size = chunk.len().div_ceil(num_workers);
+            let mut chunk_iter = chunk.into_iter();
+            let mut handles = Vec::with_capacity(num_workers);
+
+            for _ in 0..num_workers {
+                let items: Vec<_> = (&mut chunk_iter)
+                    .take(worker_size)
+                    .map(|(k, v)| (k, key_index.get(k).dupe(), v))
+                    .collect();
+                if items.is_empty() {
+                    break;
+                }
+                let storage = self.dupe();
+                let finished = finished.clone();
+                let state_handle = state_handle.dupe();
+                handles.push(tokio::spawn(async move {
+                    storage.page_out_chunk(items, &finished, &state_handle)
+                }));
+            }
+
+            for handle in handles {
+                handle.await??;
+            }
+        }
+        Ok(())
+    }
+
+    fn page_out_chunk(
+        &self,
+        items: Vec<(DiceKey, DiceKeyErased, DiceValidValue)>,
+        finished: &DashMap<usize, DataKey>,
+        state_handle: &CoreStateHandle,
+    ) -> anyhow::Result<()> {
         const EVICT_BATCH_SIZE: usize = 1000;
-        let session_context = self.storage.session_context();
-        let mut cache = HashMap::new();
         let mut pending_evictions = Vec::with_capacity(EVICT_BATCH_SIZE);
-        for (dice_key, value) in &keys {
-            let key_dyn = key_index.get(*dice_key);
-            if let Some(data_key) =
-                self.page_out_value(key_dyn, value, &mut cache, session_context)?
-            {
-                pending_evictions.push((*dice_key, data_key));
+        for (dice_key, key_dyn, value) in items {
+            if let Some(data_key) = self.page_out_value(&key_dyn, value, finished)? {
+                pending_evictions.push((dice_key, data_key));
                 if pending_evictions.len() >= EVICT_BATCH_SIZE {
                     state_handle.evict_keys(std::mem::replace(
                         &mut pending_evictions,
@@ -111,10 +154,10 @@ impl DiceStorage {
     fn page_out_value(
         &self,
         key_dyn: &DiceKeyErased,
-        value: &DiceValidValue,
-        cache: &mut HashMap<usize, DataKey>,
-        session_context: &SessionContext,
+        value: DiceValidValue,
+        finished: &DashMap<usize, DataKey>,
     ) -> anyhow::Result<Option<DataKey>> {
+        let session_context = self.storage.session_context();
         let mut serializer = SerializerForPaging::new(session_context);
         let serialize_result = match key_dyn {
             DiceKeyErased::Key(k) => k.pagable_serialize_value(value.as_dyn(), &mut serializer),
@@ -130,7 +173,7 @@ impl DiceStorage {
                 Ok(Some(self.storage.page_out_item(
                     data,
                     arcs,
-                    cache,
+                    finished,
                     session_context,
                 )?))
             }

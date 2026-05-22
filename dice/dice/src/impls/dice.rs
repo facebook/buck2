@@ -167,7 +167,9 @@ impl Dice {
         };
         self.state_handle.evict_cached_values().await;
         let keys = self.state_handle.keys_to_page_out().await;
-        storage.page_out(keys, &self.key_index, &self.state_handle)
+        storage
+            .page_out(keys, &self.key_index, &self.state_handle)
+            .await
     }
 
     /// Page in (rehydrate) all paged-out `OccupiedGraphNode` values from the

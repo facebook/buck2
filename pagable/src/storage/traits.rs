@@ -9,8 +9,8 @@
  */
 
 use std::any::TypeId;
-use std::collections::HashMap;
 
+use dashmap::DashMap;
 use either::Either;
 
 use crate::arc_erase::ArcEraseDyn;
@@ -104,7 +104,7 @@ pub trait PagableStorage: Send + Sync + 'static {
         &self,
         item_data: Vec<u8>,
         item_arcs: Vec<Box<dyn ArcEraseDyn>>,
-        finished: &mut HashMap<usize, DataKey>,
+        finished: &DashMap<usize, DataKey>,
         session_context: &SessionContext,
     ) -> anyhow::Result<DataKey> {
         enum Task {
