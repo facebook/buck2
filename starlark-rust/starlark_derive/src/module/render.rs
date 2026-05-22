@@ -129,13 +129,12 @@ fn render_impl(x: StarModule) -> syn::Result<syn::ItemFn> {
             }
         },
     };
-    let turbofish = generics.turbofish();
     let fn_name = &input.sig.ident;
     input.block = syn::parse_quote! {
         {
             #inner_fn
             static RES: starlark::environment::#statics = starlark::environment::#statics::new();
-            RES.populate(concat!(module_path!(), "::", stringify!(#fn_name)), build #turbofish, globals_builder);
+            RES.populate(concat!(module_path!(), "::", stringify!(#fn_name)), build, globals_builder);
         }
     };
     Ok(input)
