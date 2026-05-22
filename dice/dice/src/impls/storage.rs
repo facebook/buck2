@@ -180,6 +180,47 @@ impl DiceStorage {
         }
     }
 
+    /// Rehydrate all paged-out values in parallel, sending rehydrate messages
+    /// back to the core state thread.
+    pub(crate) async fn page_in(
+        &self,
+        keys: Vec<(DiceKey, DataKey)>,
+        key_index: &DiceKeyIndex,
+        state_handle: &CoreStateHandle,
+    ) -> anyhow::Result<()> {
+        if keys.is_empty() {
+            return Ok(());
+        }
+        let num_workers = std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(1);
+        let worker_size = keys.len().div_ceil(num_workers);
+
+        let handles: Vec<_> = keys
+            .chunks(worker_size)
+            .map(|worker_chunk| {
+                let storage = self.dupe();
+                let state_handle = state_handle.dupe();
+                let items: Vec<_> = worker_chunk
+                    .iter()
+                    .map(|(k, dk)| (*k, key_index.get(*k).dupe(), *dk))
+                    .collect();
+                tokio::spawn(async move {
+                    for (dice_key, key_dyn, data_key) in &items {
+                        let value = storage.hydrate(key_dyn, *data_key).await?;
+                        state_handle.rehydrate(*dice_key, value);
+                    }
+                    Ok::<_, anyhow::Error>(())
+                })
+            })
+            .collect();
+
+        for handle in handles {
+            handle.await??;
+        }
+        Ok(())
+    }
+
     /// Deserialize the value at `data_key` back into a `DiceValidValue` via `key_dyn`'s
     /// `ValueSerialize`.
     pub(crate) async fn hydrate(

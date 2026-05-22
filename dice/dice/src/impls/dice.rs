@@ -186,11 +186,9 @@ impl Dice {
             return Err(anyhow::anyhow!("No storage available for page-in"));
         };
         let keys = self.state_handle.paged_out_keys().await?;
-        for (dice_key, data_key) in keys {
-            let key_dyn = self.key_index.get(dice_key);
-            let value = storage.hydrate(key_dyn, data_key).await?;
-            self.state_handle.rehydrate(dice_key, value);
-        }
+        storage
+            .page_in(keys, &self.key_index, &self.state_handle)
+            .await?;
         Ok(())
     }
 }
