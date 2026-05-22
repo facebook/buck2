@@ -38,6 +38,10 @@ def get_test_frameworks_bundle_parts(ctx: AnalysisContext, swift_support_needed:
         if xcode_version >= 2600:
             paths.append(_get_object_from_platform_path(ctx, "Developer/Library/Frameworks/_Testing_Foundation.framework"))
 
+        # Xcode 26.4 makes Testing.framework load lib_TestingInterop.dylib at runtime.
+        if xcode_version >= 2640:
+            paths.append(_get_object_from_platform_path(ctx, "Developer/usr/lib/lib_TestingInterop.dylib"))
+
     return paths
 
 def _get_object_from_platform_path(ctx: AnalysisContext, platform_relative_path: str) -> AppleBundlePart:
