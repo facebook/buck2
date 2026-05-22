@@ -13,6 +13,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use dupe::Dupe;
+use pagable::Pagable;
 use starlark::values::OwnedFrozenValueTyped;
 use starlark_map::small_set::SmallSet;
 
@@ -21,10 +22,10 @@ use crate::interpreter::rule_defs::provider::builtin::validation_info::FrozenVal
 /// Efficiently encoded collection of `ValidationInfo` providers for a given target node
 /// and all of its recursive dependencies. Forms an optimized/sparse graph tracking
 /// only those providers.
-#[derive(Debug, Allocative, Dupe, Clone)]
+#[derive(Debug, Allocative, Dupe, Clone, Pagable)]
 pub struct TransitiveValidations(pub Arc<TransitiveValidationsData>);
 
-#[derive(Debug, Allocative)]
+#[derive(Debug, Allocative, Pagable)]
 pub struct TransitiveValidationsData {
     /// `ValidationInfo` provider if the current node contains it
     pub info: Option<OwnedFrozenValueTyped<FrozenValidationInfo>>,

@@ -27,7 +27,6 @@ use dice::ValueSerialize;
 use dupe::Dupe;
 use futures::FutureExt;
 use pagable::Pagable;
-use pagable::PagablePanic;
 use pagable::PagableSerialize;
 use pagable::pagable_typetag;
 
@@ -191,7 +190,7 @@ impl GraphPropertiesOptions {
     }
 }
 
-#[derive(Clone, Dupe, Debug, Eq, PartialEq, Allocative, PagablePanic)]
+#[derive(Clone, Dupe, Debug, Eq, PartialEq, Allocative, Pagable)]
 pub struct ConfiguredGraphPropertiesValues {
     pub configured_graph_size: u64,
     pub configured_graph_sketch:

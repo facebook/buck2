@@ -38,6 +38,7 @@ use buck2_hash::BuckIndexSet;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
 use gazebo::prelude::SliceExt;
+use pagable::Pagable;
 use starlark::codemap::FileSpan;
 use starlark::collections::SmallMap;
 use starlark::collections::SmallSet;
@@ -306,7 +307,7 @@ impl<'v> ActionsRegistry<'v> {
     }
 }
 
-#[derive(Debug, Allocative)]
+#[derive(Debug, Allocative, Pagable)]
 pub struct RecordedActions {
     /// Vec of actions indexed by ActionKey::id.
     ///

@@ -16,7 +16,7 @@ use std::sync::atomic::Ordering;
 use allocative::Allocative;
 use dupe::Dupe;
 use either::Either;
-use pagable::PagablePanic;
+use pagable::Pagable;
 use starlark::any::ProvidesStaticType;
 use starlark::collections::StarlarkHasher;
 use starlark::environment::GlobalsBuilder;
@@ -54,7 +54,7 @@ use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
     ProvidesStaticType,
     NoSerialize,
     Allocative,
-    PagablePanic,
+    Pagable,     // Need a way to avoid collisions if shared between processes
     StarlarkPagable
 )]
 pub struct ArtifactTag {

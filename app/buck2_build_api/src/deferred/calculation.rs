@@ -23,6 +23,7 @@ use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
 use dupe::Dupe;
 use futures::Future;
+use pagable::Pagable;
 use starlark::values::OwnedFrozenValueTyped;
 
 use crate::actions::RegisteredAction;
@@ -122,7 +123,7 @@ impl DeferredHolder {
     }
 }
 
-#[derive(Debug, Allocative, Clone, Dupe)]
+#[derive(Debug, Allocative, Clone, Dupe, Pagable)]
 pub enum ActionLookup {
     Action(Arc<RegisteredAction>),
     Deferred(ActionKey),
