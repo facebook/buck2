@@ -24,6 +24,7 @@ use quote::ToTokens;
 use quote::format_ident;
 use quote::quote;
 
+use crate::module::parse::ModuleKind;
 use crate::module::render::fun::render_fun;
 use crate::module::simple_param::SimpleParam;
 use crate::module::typ::SpecialParam;
@@ -57,11 +58,11 @@ pub(crate) fn render(x: StarModule) -> syn::Result<TokenStream> {
         })
         .collect();
 
-    let func = render_impl(x)?;
+    let body = render_impl(x)?;
 
     Ok(quote! {
         #( #type_declarations )*
-        #func
+        #body
     })
 }
 
@@ -90,7 +91,7 @@ fn render_starlark_type_declaration(entry: &StarTypeEntry, register_type: bool) 
     }
 }
 
-fn render_impl(x: StarModule) -> syn::Result<syn::ItemFn> {
+fn render_impl(x: StarModule) -> syn::Result<TokenStream> {
     let StarModule {
         mut input,
         docstring,
@@ -99,7 +100,6 @@ fn render_impl(x: StarModule) -> syn::Result<syn::ItemFn> {
         generics,
         starlark_types,
     } = x;
-    let statics = format_ident!("{}", module_kind.statics_type_name());
     let stmts: Vec<_> = stmts
         .into_iter()
         .map(|s| render_stmt(s, &generics))
@@ -130,14 +130,37 @@ fn render_impl(x: StarModule) -> syn::Result<syn::ItemFn> {
         },
     };
     let fn_name = &input.sig.ident;
-    input.block = syn::parse_quote! {
-        {
-            #inner_fn
-            static RES: starlark::environment::#statics = starlark::environment::#statics::new();
-            RES.populate(concat!(module_path!(), "::", stringify!(#fn_name)), build, globals_builder);
+    match module_kind {
+        ModuleKind::Globals => {
+            let statics_name = format_ident!("{}_STATICS", fn_name.to_string().to_uppercase());
+            input.block = syn::parse_quote! {
+                {
+                    #statics_name.populate(globals_builder);
+                }
+            };
+            Ok(quote! {
+                starlark::globals_static!(#statics_name = {
+                    #inner_fn
+                    build
+                });
+
+                #input
+            })
         }
-    };
-    Ok(input)
+        ModuleKind::Methods => {
+            // Old form: `MethodsStatic` API hasn't been migrated yet.
+            let statics = format_ident!("{}", module_kind.statics_type_name());
+            let turbofish = generics.turbofish();
+            input.block = syn::parse_quote! {
+                {
+                    #inner_fn
+                    static RES: starlark::environment::#statics = starlark::environment::#statics::new();
+                    RES.populate(concat!(module_path!(), "::", stringify!(#fn_name)), build #turbofish, globals_builder);
+                }
+            };
+            Ok(quote! { #input })
+        }
+    }
 }
 
 fn render_stmt(x: StarStmt, generics: &StarGenerics) -> syn::Result<syn::Stmt> {

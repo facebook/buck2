@@ -430,35 +430,41 @@ impl GlobalsBuilder {
     }
 }
 
-/// Used to create globals.
-pub struct GlobalsStatic(OnceCell<Globals>);
+/// Lazy, named cache for a [`Globals`] value. Created via the
+/// [`globals_static!`](crate::globals_static) macro; the globals are built on
+/// first access via the supplied initializer.
+pub struct GlobalsStatic {
+    cell: OnceCell<Globals>,
+    name: &'static str,
+    init: fn(&mut GlobalsBuilder),
+}
 
 impl GlobalsStatic {
-    /// Create a new [`GlobalsStatic`].
-    pub const fn new() -> Self {
-        Self(OnceCell::new())
+    /// Create a new [`GlobalsStatic`]. Prefer the
+    /// [`globals_static!`](crate::globals_static) macro, which fills in `name`
+    /// from the call site.
+    pub const fn new(name: &'static str, init: fn(&mut GlobalsBuilder)) -> GlobalsStatic {
+        GlobalsStatic {
+            cell: OnceCell::new(),
+            name,
+            init,
+        }
     }
 
-    fn globals(
-        &'static self,
-        name: &'static str,
-        x: impl FnOnce(&mut GlobalsBuilder),
-    ) -> &'static Globals {
-        self.0.get_or_init(|| {
+    /// Get (or build, on first call) the [`Globals`] value.
+    pub fn globals(&'static self) -> &'static Globals {
+        self.cell.get_or_init(|| {
             GlobalsBuilder::new()
-                .with(x)
-                .build_named(GlobalFrozenHeapName { name })
+                .with(self.init)
+                .build_named(GlobalFrozenHeapName { name: self.name })
         })
     }
 
-    /// Get a function out of the object. Requires that the function passed only set a single
-    /// value. If populated via a `#[starlark_module]`, that means a single function in it.
-    pub fn function(
-        &'static self,
-        name: &'static str,
-        x: impl FnOnce(&mut GlobalsBuilder),
-    ) -> FrozenValue {
-        let globals = self.globals(name, x);
+    /// Get a function out of the object. Requires that the initializer set
+    /// exactly one value. If populated via a `#[starlark_module]`, that means
+    /// a single function in it.
+    pub fn function(&'static self) -> FrozenValue {
+        let globals = self.globals();
         assert!(
             globals.0.variables.len() == 1,
             "GlobalsBuilder.function must have exactly 1 member, you had {}",
@@ -471,23 +477,35 @@ impl GlobalsStatic {
         globals.0.variables.values().next().unwrap().value
     }
 
-    /// Move all the globals in this [`GlobalsBuilder`] into a new one. All variables will
-    /// only be allocated once (ensuring things like function comparison works properly).
-    ///
-    /// `name` is a unique identifier for the inner cache heap (typically
-    /// `concat!(module_path!(), "::", stringify!(fn_name))` from the macro expansion site).
-    pub fn populate(
-        &'static self,
-        name: &'static str,
-        x: impl FnOnce(&mut GlobalsBuilder),
-        out: &mut GlobalsBuilder,
-    ) {
-        let globals = self.globals(name, x);
+    /// Copy all the globals into another builder. The values stay owned by
+    /// the static's heap; `out`'s heap takes a reference so the dependency is
+    /// recorded for downstream consumers (e.g. pagable serialization).
+    pub fn populate(&'static self, out: &mut GlobalsBuilder) {
+        let globals = self.globals();
         for (name, value) in globals.0.variables.iter() {
             out.set_inner(name.as_str(), value.value, value.doc_hidden)
         }
         out.docstring = globals.0.docstring.clone();
     }
+}
+
+/// Define a `static` of type [`GlobalsStatic`] backed by an init function.
+/// The heap is named `<module_path>::<NAME>`.
+///
+/// ```ignore
+/// fn build(b: &mut GlobalsBuilder) { ... }
+///
+/// starlark::globals_static!(MY_GLOBALS = build);
+/// ```
+#[macro_export]
+macro_rules! globals_static {
+    ($vis:vis $name:ident = $init:expr) => {
+        $vis static $name: $crate::__derive_refs::GlobalsStatic =
+            $crate::__derive_refs::GlobalsStatic::new(
+                concat!(module_path!(), "::", stringify!($name)),
+                $init,
+            );
+    };
 }
 
 pub(crate) fn common_documentation<'a, T: IntoIterator<Item = (&'a str, FrozenValue)>>(

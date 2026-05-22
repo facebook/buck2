@@ -39,6 +39,8 @@ pub mod param_spec;
 pub mod parse_args;
 pub mod sig;
 
+// Re-export for the globals_static! macro.
+pub use crate::environment::GlobalsStatic;
 // Re-export for const_frozen_string!, static_starlark_value!, and
 // declare_starlark_value_as_type! macro registry.
 pub use crate::pagable::StaticValueEntry;

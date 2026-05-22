@@ -510,10 +510,15 @@ impl ProviderCodegen {
         let typechecker_ty_function = self.typechecker_ty_function()?;
         let create_func = &self.args.creator_func;
         let callable_name_snake_str = callable_name.to_string().to_case(Case::Snake);
+        let callable_globals_static_name =
+            format_ident!("{}_GLOBALS_STATIC", callable_name_snake_str.to_uppercase());
 
         Ok(vec![
             syn::parse_quote_spanned! {self.span=>
                 starlark::starlark_simple_value!(#callable_name);
+            },
+            syn::parse_quote_spanned! {self.span=>
+                starlark::globals_static!(#callable_globals_static_name = #create_func);
             },
             syn::parse_quote_spanned! {self.span=>
                 #[starlark::values::starlark_value(type = #callable_name_snake_str, skip_pagable)]
@@ -525,10 +530,8 @@ impl ProviderCodegen {
                         args: &starlark::eval::Arguments<'v, '_>,
                         eval: &mut starlark::eval::Evaluator<'v, '_, '_>,
                     ) -> starlark::Result<starlark::values::Value<'v>> {
-                        static RES: starlark::environment::GlobalsStatic =
-                            starlark::environment::GlobalsStatic::new();
                         starlark::values::ValueLike::invoke(
-                            RES.function(concat!(module_path!(), "::", stringify!(#create_func)), #create_func), args, eval)
+                            #callable_globals_static_name.function(), args, eval)
                     }
 
                     fn provide(&'v self, demand: &mut starlark::values::Demand<'_, 'v>) {
