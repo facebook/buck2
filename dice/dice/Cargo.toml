@@ -26,7 +26,7 @@ futures = "0.3"
 gazebo = { workspace = true }
 indoc = { workspace = true }
 itertools = "0.14.0"
-lock_free_hashtable = { workspace = true }
+lock_free_hashtable = { workspace = true, features = ["allocative"] }
 lock_free_vec = { workspace = true }
 pagable = { workspace = true, optional = true }
 parking_lot = { version = "0.12.1", features = ["send_guard"] }

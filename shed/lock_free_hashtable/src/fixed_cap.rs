@@ -9,12 +9,15 @@
  */
 
 use std::mem;
+#[cfg(feature = "allocative")]
 use std::mem::ManuallyDrop;
 use std::slice;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
+#[cfg(feature = "allocative")]
 use allocative::Allocative;
+#[cfg(feature = "allocative")]
 use allocative::Visitor;
 use atomic::Atomic;
 
@@ -53,6 +56,7 @@ impl<T: AtomicValue> Iterator for IterPtrs<'_, T> {
     }
 }
 
+#[cfg(feature = "allocative")]
 impl<T: AtomicValue + Allocative> FixedCapTable<T> {
     pub(crate) fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>, current: bool) {
         let mut visitor = visitor.enter_self_sized::<Self>();

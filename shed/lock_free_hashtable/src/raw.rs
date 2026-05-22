@@ -18,8 +18,11 @@ use std::ptr;
 use std::sync::atomic::AtomicPtr;
 use std::sync::atomic::Ordering;
 
+#[cfg(feature = "allocative")]
 use allocative::Allocative;
+#[cfg(feature = "allocative")]
 use allocative::Key;
+#[cfg(feature = "allocative")]
 use allocative::Visitor;
 use parking_lot::RwLock;
 
@@ -40,6 +43,7 @@ struct CurrentTable<T: AtomicValue> {
     table: FixedCapTable<T>,
 }
 
+#[cfg(feature = "allocative")]
 impl<T: AtomicValue + Allocative> CurrentTable<T> {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>, current: bool) {
         let mut visitor = visitor.enter_self_sized::<Self>();
@@ -283,6 +287,7 @@ impl<T: AtomicValue> IntoIterator for LockFreeRawTable<T> {
     }
 }
 
+#[cfg(feature = "allocative")]
 impl<T: AtomicValue + Allocative> Allocative for LockFreeRawTable<T> {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
         let mut visitor = visitor.enter_self_sized::<Self>();
@@ -397,6 +402,7 @@ mod tests {
         assert!(collect.is_empty());
     }
 
+    #[cfg(feature = "allocative")]
     #[test]
     fn test_allocative() {
         let table = LockFreeRawTable::<Box<u16>>::new();
