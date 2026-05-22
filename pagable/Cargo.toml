@@ -21,7 +21,7 @@ indexmap = { workspace = true }
 inventory = { workspace = true }
 num-bigint = { workspace = true }
 once_cell = { workspace = true }
-pagable_derive = { version = "0.3.3", path = "../pagable_derive" }
+pagable_derive = { version = "=0.3.3", path = "../pagable_derive" }
 parking_lot = { workspace = true }
 postcard = { workspace = true }
 regex = { workspace = true }
