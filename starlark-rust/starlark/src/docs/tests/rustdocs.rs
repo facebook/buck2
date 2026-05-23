@@ -75,8 +75,8 @@ impl<'v> StarlarkValue<'v> for OutputTypeRepr {}
 
 #[starlark_module]
 #[starlark_types(InputTypeRepr as Input, OutputTypeRepr as Output)]
-#[allow(unused_variables)] // Since this is for a test
 fn globals(builder: &mut GlobalsBuilder) {
+    #[allow(unused_variables)]
     fn simple(
         arg_int: i32,
         arg_bool: bool,
@@ -86,6 +86,7 @@ fn globals(builder: &mut GlobalsBuilder) {
         unimplemented!()
     }
 
+    #[allow(unused_variables)]
     fn default_arg<'v>(
         arg1: Option<Value<'v>>,
         #[starlark(default = NoneType)] arg2: Value<'v>,
@@ -94,6 +95,7 @@ fn globals(builder: &mut GlobalsBuilder) {
         unimplemented!()
     }
 
+    #[allow(unused_variables)]
     fn args_kwargs<'v>(
         #[starlark(args)] args: UnpackTuple<Value<'v>>,
         #[starlark(kwargs)] kwargs: Value<'v>,
@@ -101,6 +103,7 @@ fn globals(builder: &mut GlobalsBuilder) {
         unimplemented!()
     }
 
+    #[allow(unused_variables)]
     fn custom_types<'v>(
         arg1: StringValue<'v>,
         arg2: ValueOfUnchecked<'v, InputTypeRepr>,
@@ -109,10 +112,12 @@ fn globals(builder: &mut GlobalsBuilder) {
         unimplemented!()
     }
 
+    #[allow(unused_variables)]
     fn pos_named(arg1: i32, #[starlark(require = named)] arg2: i32) -> anyhow::Result<i32> {
         unimplemented!()
     }
 
+    #[allow(unused_variables)]
     fn with_arguments(args: &Arguments) -> anyhow::Result<i32> {
         unimplemented!()
     }

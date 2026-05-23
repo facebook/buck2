@@ -500,6 +500,7 @@ impl GlobalsStatic {
 #[macro_export]
 macro_rules! globals_static {
     ($vis:vis $name:ident = $init:expr) => {
+        #[allow(dead_code)]
         $vis static $name: $crate::__derive_refs::GlobalsStatic =
             $crate::__derive_refs::GlobalsStatic::new(
                 concat!(module_path!(), "::", stringify!($name)),
@@ -530,23 +531,13 @@ register_starlark_any!(Globals);
 
 #[cfg(test)]
 mod tests {
-    use starlark_derive::starlark_module;
-
     use super::*;
-    use crate as starlark;
 
     #[test]
     fn test_send_sync()
     where
         Globals: Send + Sync,
     {
-    }
-
-    #[starlark_module]
-    fn register_foo(builder: &mut GlobalsBuilder) {
-        fn foo() -> anyhow::Result<i32> {
-            Ok(1)
-        }
     }
 
     #[test]
