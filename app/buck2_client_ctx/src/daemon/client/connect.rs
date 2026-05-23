@@ -409,23 +409,11 @@ impl<'a> BuckdLifecycle<'a> {
             &daemon_id,
         );
 
-        let process_title = {
-            let mut title = std::ffi::OsString::new();
-            title.push("buck2d");
-            if let Some(dir) = project_dir.root().file_name() {
-                title.push("[");
-                title.push(dir);
-                title.push("]");
-            }
-            title
-        };
-
         let (cmd, resource_control_args) = create_daemon_spawn_command(
             &daemon_startup_config.resource_control,
             daemon_exe,
             unit_name,
             project_dir.root(),
-            &process_title,
         )
         .await?;
         let mut cmd: tokio::process::Command = cmd.into();
@@ -447,13 +435,20 @@ impl<'a> BuckdLifecycle<'a> {
             cmd.env(key, val);
         }
 
-        // Set argv[0] for the spawned process. For non-systemd spawns this
-        // directly sets the daemon's process title. For systemd spawns the
-        // title is forwarded via `exec -a` inside the wrapper (see
-        // systemd_run_command), so this arg0 only affects the transient
-        // systemd-run process itself (harmless).
+        // For Unix, set a daemon process title
         #[cfg(unix)]
-        cmd.arg0(&process_title);
+        {
+            use std::ffi::OsString;
+
+            let mut title = OsString::new();
+            title.push("buck2d");
+            if let Some(dir) = project_dir.root().file_name() {
+                title.push("[");
+                title.push(dir);
+                title.push("]");
+            }
+            cmd.arg0(title);
+        }
 
         let mut child = cmd.spawn()?;
         let mut stdout_taken = child

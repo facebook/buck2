@@ -86,17 +86,12 @@ async fn get_daemon_spawner(init: &ResourceControlInit) -> buck2_error::Result<D
 
 /// Generates the command to spawn a daemon process, wrapped as appropriate for the resource control setup.
 ///
-/// `process_title` is the desired argv\[0\] for the daemon (e.g. `buck2d[fbsource]`).
-/// For systemd spawns, this is forwarded via `exec -a` since `Command::arg0()`
-/// only affects the outer `systemd-run` process.
-///
 /// Returns the command, followed by a list of additional flags to pass to `buck2 daemon`.
 pub async fn create_daemon_spawn_command(
     config: &ResourceControlConfig,
     program: impl AsRef<OsStr>,
     unit_name: String,
     working_directory: &AbsNormPath,
-    process_title: &OsStr,
 ) -> buck2_error::Result<(std::process::Command, Vec<String>)> {
     let daemon_spawner = {
         if config.status == ResourceControlStatus::Off
@@ -132,7 +127,7 @@ pub async fn create_daemon_spawn_command(
     match daemon_spawner {
         DaemonSpawner::None => Ok((process::background_command(program), Vec::new())),
         DaemonSpawner::Systemd => Ok((
-            systemd_run_command(program, &unit_name, working_directory, process_title),
+            systemd_run_command(program, &unit_name, working_directory),
             vec!["--has-cgroup".to_owned()],
         )),
         #[cfg(unix)]
@@ -159,7 +154,6 @@ fn systemd_run_command(
     program: impl AsRef<OsStr>,
     unit_name: &str,
     working_directory: &AbsNormPath,
-    process_title: &OsStr,
 ) -> std::process::Command {
     let mut cmd = process::background_command("systemd-run");
     cmd.arg("--user");
@@ -170,14 +164,6 @@ fn systemd_run_command(
     cmd.arg("--slice=buck2");
     cmd.arg(format!("--working-directory={working_directory}"));
     cmd.arg(format!("--unit={unit_name}"));
-    // Wrap the program in `bash -c 'exec -a <title> ...'` so the daemon
-    // gets the desired argv[0]. Without this, `systemd-run` would set
-    // argv[0] to the executable path regardless of `Command::arg0()`.
-    // $0 = process_title, $@ = program + any args the caller appends later.
-    cmd.arg("bash");
-    cmd.arg("-c");
-    cmd.arg(r#"exec -a "$0" "$@""#);
-    cmd.arg(process_title);
     cmd.arg(program);
     cmd
 }
@@ -339,8 +325,8 @@ mod tests {
             },
             "sleep",
             "myunitname".to_owned(),
+            // Working dir, doesn't matter
             AbsNormPath::new("/").unwrap(),
-            OsStr::new("test"),
         )
         .await
         .unwrap();
