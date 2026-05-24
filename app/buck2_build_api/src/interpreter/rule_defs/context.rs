@@ -33,7 +33,6 @@ use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::typing::Ty;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
@@ -177,14 +176,17 @@ impl<'v> AnalysisActions<'v> {
     }
 }
 
+starlark::methods_static!(
+    ANALYSIS_ACTIONS_METHODS = |builder| {
+        (ANALYSIS_ACTIONS_METHODS_ACTIONS.get().unwrap())(builder);
+        (ANALYSIS_ACTIONS_METHODS_ANON_TARGET.get().unwrap())(builder);
+    }
+);
+
 #[starlark_value(type = "AnalysisActions", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for AnalysisActions<'v> {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(|builder| {
-            (ANALYSIS_ACTIONS_METHODS_ACTIONS.get().unwrap())(builder);
-            (ANALYSIS_ACTIONS_METHODS_ANON_TARGET.get().unwrap())(builder);
-        })
+        Some(ANALYSIS_ACTIONS_METHODS.methods())
     }
 }
 
@@ -293,11 +295,12 @@ impl<'v> AnalysisContext<'v> {
     }
 }
 
+starlark::methods_static!(ANALYSIS_CONTEXT_METHODS = analysis_context_methods);
+
 #[starlark_value(type = "AnalysisContext")]
 impl<'v> StarlarkValue<'v> for AnalysisContext<'v> {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(analysis_context_methods)
+        Some(ANALYSIS_CONTEXT_METHODS.methods())
     }
 }
 

@@ -16,7 +16,6 @@ use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::starlark_complex_values;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
@@ -64,11 +63,12 @@ impl StarlarkError {
 
 starlark_simple_value!(StarlarkError);
 
+starlark::methods_static!(BXL_ERROR_METHODS = error_methods);
+
 #[starlark_value(type = "bxl.Error")]
 impl<'v> StarlarkValue<'v> for StarlarkError {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(error_methods)
+        Some(BXL_ERROR_METHODS.methods())
     }
 }
 
@@ -126,10 +126,11 @@ where
     where
         Self: Sized,
     {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(result_methods)
+        Some(BXL_RESULT_METHODS.methods())
     }
 }
+
+starlark::methods_static!(BXL_RESULT_METHODS = result_methods);
 
 #[starlark_module]
 fn result_methods(builder: &mut MethodsBuilder) {

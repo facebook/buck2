@@ -38,7 +38,6 @@ use crate::any::ProvidesStaticType;
 use crate::coerce::coerce;
 use crate::environment::Methods;
 use crate::environment::MethodsBuilder;
-use crate::environment::MethodsStatic;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::eval::ParametersSpec;
@@ -217,6 +216,8 @@ where
     }
 }
 
+starlark::methods_static!(RECORD_TYPE_METHODS = record_type_methods);
+
 #[starlark_value(type = FUNCTION_TYPE, skip_pagable)]
 impl<'v, V: ValueLike<'v> + RecordCell + 'v> StarlarkValue<'v> for RecordTypeGen<V>
 where
@@ -284,8 +285,7 @@ where
     where
         Self: Sized,
     {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(record_type_methods)
+        Some(RECORD_TYPE_METHODS.methods())
     }
 
     fn eval_type(&self) -> Option<Ty> {

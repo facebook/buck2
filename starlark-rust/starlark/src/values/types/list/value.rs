@@ -38,7 +38,6 @@ use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::coerce::coerce;
 use crate::environment::Methods;
-use crate::environment::MethodsStatic;
 use crate::hint::likely;
 use crate::hint::unlikely;
 use crate::private::Private;
@@ -423,6 +422,8 @@ pub(crate) fn display_list(xs: &[Value], f: &mut fmt::Formatter<'_>) -> fmt::Res
     fmt_container(f, "[", "]", xs.iter())
 }
 
+starlark::methods_static!(LIST_METHODS = crate::values::types::list::methods::list_methods);
+
 #[starlark_value(type = ListData::TYPE)]
 impl<'v, T: ListLike<'v> + 'v> StarlarkValue<'v> for ListGen<T>
 where
@@ -438,8 +439,7 @@ where
     }
 
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(crate::values::types::list::methods::list_methods)
+        Some(LIST_METHODS.methods())
     }
 
     fn collect_repr(&self, s: &mut String) {

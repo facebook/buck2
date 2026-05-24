@@ -35,7 +35,6 @@ use crate::docs::DocStringKind;
 use crate::docs::DocType;
 use crate::environment::Methods;
 use crate::environment::MethodsBuilder;
-use crate::environment::MethodsStatic;
 use crate::starlark_complex_value;
 use crate::starlark_simple_value;
 use crate::values::StarlarkValue;
@@ -63,14 +62,15 @@ struct TestExample {}
 
 starlark_simple_value!(TestExample);
 
+starlark::methods_static!(TEST_EXAMPLE_METHODS = object_docs_1);
+
 #[starlark_value(type = "TestExample", skip_pagable)]
 impl<'v> StarlarkValue<'v> for TestExample {
     fn get_methods() -> Option<&'static Methods>
     where
         Self: Sized,
     {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(object_docs_1)
+        Some(TEST_EXAMPLE_METHODS.methods())
     }
 }
 
@@ -102,6 +102,8 @@ where
 
 starlark_complex_value!(ComplexTestExample);
 
+starlark::methods_static!(COMPLEX_TEST_EXAMPLE_METHODS = object_docs_1);
+
 #[starlark_value(type = "ComplexTestExample", skip_pagable)]
 impl<'v, T: ValueLike<'v> + ProvidesStaticType<'v>> StarlarkValue<'v> for ComplexTestExampleGen<T>
 where
@@ -111,8 +113,7 @@ where
     where
         Self: Sized,
     {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(object_docs_1)
+        Some(COMPLEX_TEST_EXAMPLE_METHODS.methods())
     }
 }
 

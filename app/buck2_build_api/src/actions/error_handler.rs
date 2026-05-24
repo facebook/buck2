@@ -18,7 +18,6 @@ use derive_more::Display;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::typing::Ty;
 use starlark::values::AllocValue;
@@ -91,11 +90,12 @@ impl<'v> AllocValue<'v> for StarlarkActionErrorContext<'v> {
     }
 }
 
+starlark::methods_static!(ACTION_ERROR_CONTEXT_METHODS = action_error_context_methods);
+
 #[starlark_value(type = "ActionErrorCtx", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for StarlarkActionErrorContext<'v> {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(action_error_context_methods)
+        Some(ACTION_ERROR_CONTEXT_METHODS.methods())
     }
 }
 
@@ -400,11 +400,12 @@ impl<'v> AllocValue<'v> for StarlarkActionSubError {
     }
 }
 
+starlark::methods_static!(ACTION_SUB_ERROR_METHODS = action_sub_error_methods);
+
 #[starlark_value(type = "ActionSubError", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for StarlarkActionSubError {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(action_sub_error_methods)
+        Some(ACTION_SUB_ERROR_METHODS.methods())
     }
 
     fn set_attr(&self, attribute: &str, new_value: Value<'v>) -> starlark::Result<()> {

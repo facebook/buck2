@@ -29,7 +29,6 @@ use crate as starlark;
 use crate::environment::GlobalsBuilder;
 use crate::environment::Methods;
 use crate::environment::MethodsBuilder;
-use crate::environment::MethodsStatic;
 use crate::eval::Evaluator;
 use crate::values::AllocValue;
 use crate::values::Heap;
@@ -60,11 +59,12 @@ struct StackFrame {
     location: Option<FileSpan>,
 }
 
+starlark::methods_static!(STACK_FRAME_METHODS = stack_frame_methods);
+
 #[starlark_value(type = "StackFrame", StarlarkTypeRepr, UnpackValue, skip_pagable)]
 impl<'v> StarlarkValue<'v> for StackFrame {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(stack_frame_methods)
+        Some(STACK_FRAME_METHODS.methods())
     }
 }
 

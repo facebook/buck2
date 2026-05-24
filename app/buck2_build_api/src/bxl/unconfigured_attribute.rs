@@ -39,7 +39,6 @@ use starlark::__derive_refs::serde::Serializer;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::Heap;
@@ -91,12 +90,13 @@ impl Serialize for StarlarkCoercedAttr {
     }
 }
 
+starlark::methods_static!(COERCED_ATTR_METHODS = coerced_attr_methods);
+
 /// Coerced attr from an unconfigured target node.
 #[starlark_value(type = "CoercedAttr", skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkCoercedAttr {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(coerced_attr_methods)
+        Some(COERCED_ATTR_METHODS.methods())
     }
 }
 

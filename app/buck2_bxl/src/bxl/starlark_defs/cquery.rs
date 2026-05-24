@@ -25,7 +25,6 @@ use gazebo::prelude::*;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::values::AllocValue;
@@ -68,11 +67,12 @@ pub(crate) struct StarlarkCQueryCtx<'v> {
     global_cfg_options_override: GlobalCfgOptions,
 }
 
+starlark::methods_static!(CQUERY_METHODS = cquery_methods);
+
 #[starlark_value(type = "bxl.CqueryContext", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for StarlarkCQueryCtx<'v> {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(cquery_methods)
+        Some(CQUERY_METHODS.methods())
     }
 }
 

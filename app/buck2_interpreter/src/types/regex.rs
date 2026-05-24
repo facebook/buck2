@@ -18,7 +18,6 @@ use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::pagable::StarlarkDeserialize;
 use starlark::pagable::StarlarkDeserializeContext;
 use starlark::pagable::StarlarkSerialize;
@@ -92,11 +91,12 @@ impl StarlarkBuckRegex {
     }
 }
 
+starlark::methods_static!(REGEX_METHODS = regex_methods);
+
 #[starlark_value(type = "BuckRegex", skip_pagable)] // "regex" is used for "experimental_regex" in starlark-rust.
 impl<'v> StarlarkValue<'v> for StarlarkBuckRegex {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(regex_methods)
+        Some(REGEX_METHODS.methods())
     }
 
     fn typechecker_ty(&self) -> Option<Ty> {

@@ -38,7 +38,6 @@ use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::environment::Methods;
 use crate::environment::MethodsBuilder;
-use crate::environment::MethodsStatic;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::pagable::starlark_deserialize::StarlarkDeserialize;
@@ -267,6 +266,8 @@ where
     }
 }
 
+starlark::methods_static!(ENUM_TYPE_METHODS = enum_type_methods);
+
 #[starlark_value(type = FUNCTION_TYPE, skip_pagable)]
 impl<'v, V> StarlarkValue<'v> for EnumTypeGen<V>
 where
@@ -337,8 +338,7 @@ where
     unsafe fn iter_stop(&self) {}
 
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(enum_type_methods)
+        Some(ENUM_TYPE_METHODS.methods())
     }
 
     fn eval_type(&self) -> Option<Ty> {

@@ -42,7 +42,6 @@ use pagable::Pagable;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::values::AllocValue;
 use starlark::values::FrozenHeap;
@@ -269,11 +268,12 @@ async fn alloc_deps<'v>(
     Ok(heap.alloc_typed_unchecked(AllocDict(deps)).cast())
 }
 
+starlark::methods_static!(BXL_ACTIONS_METHODS = bxl_actions_methods);
+
 #[starlark_value(type = "bxl.Actions", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for BxlActions<'v> {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(bxl_actions_methods)
+        Some(BXL_ACTIONS_METHODS.methods())
     }
 }
 

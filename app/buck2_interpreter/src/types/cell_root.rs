@@ -18,7 +18,6 @@ use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::NoSerialize;
@@ -52,11 +51,12 @@ impl CellRoot {
 
 starlark_simple_value!(CellRoot);
 
+starlark::methods_static!(CELL_ROOT_METHODS = cell_root_methods);
+
 #[starlark_value(type = "CellRoot", skip_pagable)]
 impl<'v> StarlarkValue<'v> for CellRoot {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(cell_root_methods)
+        Some(CELL_ROOT_METHODS.methods())
     }
 }
 

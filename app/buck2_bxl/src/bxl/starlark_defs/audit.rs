@@ -23,7 +23,6 @@ use futures::FutureExt;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::values::AllocValue;
@@ -64,11 +63,12 @@ pub(crate) struct StarlarkAuditCtx<'v> {
     cell_resolver: CellResolver,
 }
 
+starlark::methods_static!(AUDIT_METHODS = audit_methods);
+
 #[starlark_value(type = "bxl.AuditContext", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for StarlarkAuditCtx<'v> {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(audit_methods)
+        Some(AUDIT_METHODS.methods())
     }
 }
 

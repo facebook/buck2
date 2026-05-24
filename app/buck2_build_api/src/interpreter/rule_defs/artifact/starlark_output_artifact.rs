@@ -26,7 +26,6 @@ use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::values::AllocFrozenValue;
 use starlark::values::AllocValue;
 use starlark::values::Demand;
@@ -218,17 +217,20 @@ impl<'v, V: ValueLike<'v>> StarlarkArtifactLike<'v> for StarlarkOutputArtifactGe
     }
 }
 
+starlark::methods_static!(
+    OUTPUT_ARTIFACT_METHODS = |b| {
+        any_artifact_methods(b);
+        output_artifact_methods(b);
+    }
+);
+
 #[starlark_value(type = "OutputArtifact", skip_pagable)]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkOutputArtifactGen<V>
 where
     Self: ProvidesStaticType<'v> + Display + CommandLineArgLike<'v>,
 {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(|b| {
-            any_artifact_methods(b);
-            output_artifact_methods(b);
-        })
+        Some(OUTPUT_ARTIFACT_METHODS.methods())
     }
 
     fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {

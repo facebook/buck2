@@ -49,7 +49,6 @@ use starlark::any::ProvidesStaticType;
 use starlark::collections::SmallSet;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::values::AllocValue;
@@ -559,11 +558,12 @@ impl StarlarkOutputStream {
     }
 }
 
+starlark::methods_static!(OUTPUT_STREAM_METHODS = output_stream_methods);
+
 #[starlark_value(type = "bxl.OutputStream", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for StarlarkOutputStream {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(output_stream_methods)
+        Some(OUTPUT_STREAM_METHODS.methods())
     }
 }
 

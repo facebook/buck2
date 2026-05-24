@@ -15,7 +15,6 @@ use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::values::Demand;
 use starlark::values::Freeze;
@@ -64,14 +63,15 @@ impl<V: ValueLifetimeless> StarlarkTaggedCommandLineGen<V> {
 
 starlark_complex_value!(pub StarlarkTaggedCommandLine);
 
+starlark::methods_static!(TAGGED_COMMAND_LINE_METHODS = tagged_command_line_methods);
+
 #[starlark_value(type = "TaggedCommandLine", skip_pagable)]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkTaggedCommandLineGen<V>
 where
     Self: ProvidesStaticType<'v>,
 {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(tagged_command_line_methods)
+        Some(TAGGED_COMMAND_LINE_METHODS.methods())
     }
 
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {

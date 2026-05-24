@@ -24,7 +24,6 @@ use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_complex_value;
 use starlark::starlark_module;
@@ -328,10 +327,11 @@ where
 
     // used to provide the type documentation here
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(selector_methods)
+        Some(SELECTOR_METHODS.methods())
     }
 }
+
+starlark::methods_static!(SELECTOR_METHODS = selector_methods);
 
 #[starlark_module]
 #[starlark_types(StarlarkSelector<'_> as Select)]

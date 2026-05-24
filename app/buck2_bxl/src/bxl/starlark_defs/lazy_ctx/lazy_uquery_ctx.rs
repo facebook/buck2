@@ -14,7 +14,6 @@ use derive_more::Display;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::NoSerialize;
@@ -51,11 +50,12 @@ impl StarlarkLazyUqueryCtx {
 
 starlark_simple_value!(StarlarkLazyUqueryCtx);
 
+starlark::methods_static!(LAZY_UQUERY_METHODS = lazy_uquery_methods);
+
 #[starlark_value(type = "bxl.LazyUqueryContext")]
 impl<'v> StarlarkValue<'v> for StarlarkLazyUqueryCtx {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(lazy_uquery_methods)
+        Some(LAZY_UQUERY_METHODS.methods())
     }
 }
 

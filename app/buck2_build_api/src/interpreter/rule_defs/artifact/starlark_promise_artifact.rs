@@ -26,7 +26,6 @@ use starlark::codemap::FileSpan;
 use starlark::collections::StarlarkHasher;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
-use starlark::environment::MethodsStatic;
 use starlark::values::Demand;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkPagable;
@@ -299,13 +298,14 @@ impl<'v> CommandLineArgLike<'v> for StarlarkPromiseArtifact {
     }
 }
 
+starlark::methods_static!(STARLARK_PROMISE_ARTIFACT_METHODS = artifact_methods);
+
 #[starlark_value(type = "PromiseArtifact", skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkPromiseArtifact {
     type Canonical = StarlarkArtifact;
 
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(artifact_methods)
+        Some(STARLARK_PROMISE_ARTIFACT_METHODS.methods())
     }
 
     fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {

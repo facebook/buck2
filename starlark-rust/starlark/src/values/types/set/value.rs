@@ -35,7 +35,6 @@ use crate as starlark;
 use crate::coerce::Coerce;
 use crate::coerce::coerce;
 use crate::environment::Methods;
-use crate::environment::MethodsStatic;
 use crate::typing::Ty;
 use crate::util::refcell::unleak_borrow;
 use crate::values::AllocValue;
@@ -233,6 +232,8 @@ impl<'v> SetLike<'v> for FrozenSetData {
 // Register vtable for FrozenSet (special type not handled by #[starlark_value] macro, because V is not ValueLike).
 register_avalue_simple_frozen!(FrozenSet);
 
+starlark::methods_static!(SET_METHODS = methods::set_methods);
+
 #[starlark_value(type = "set", skip_pagable)]
 impl<'v, T: SetLike<'v> + 'v> StarlarkValue<'v> for SetGen<T>
 where
@@ -260,8 +261,7 @@ where
     }
 
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(methods::set_methods)
+        Some(SET_METHODS.methods())
     }
 
     unsafe fn iterate(&self, me: Value<'v>, _heap: Heap<'v>) -> crate::Result<Value<'v>> {

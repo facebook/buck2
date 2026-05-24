@@ -17,7 +17,6 @@ use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::values::Freeze;
 use starlark::values::FreezeError;
 use starlark::values::Heap;
@@ -164,14 +163,15 @@ where
     Ok(())
 }
 
+starlark::methods_static!(VALIDATION_SPEC_METHODS = validation_spec_methods);
+
 #[starlark_value(type = "ValidationSpec", skip_pagable)]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkValidationSpecGen<V>
 where
     Self: ProvidesStaticType<'v>,
 {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(validation_spec_methods)
+        Some(VALIDATION_SPEC_METHODS.methods())
     }
 }
 

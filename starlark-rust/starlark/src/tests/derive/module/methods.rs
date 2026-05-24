@@ -26,7 +26,6 @@ use crate::any::ProvidesStaticType;
 use crate::assert::Assert;
 use crate::environment::Methods;
 use crate::environment::MethodsBuilder;
-use crate::environment::MethodsStatic;
 use crate::values::AllocFrozenValue;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
@@ -55,11 +54,12 @@ fn methods(builder: &mut MethodsBuilder) {
     }
 }
 
+starlark::methods_static!(APPLAUD_METHODS = methods);
+
 #[starlark_value(type = "applaud", skip_pagable)]
 impl<'v> StarlarkValue<'v> for Applaud {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(methods)
+        Some(APPLAUD_METHODS.methods())
     }
 }
 

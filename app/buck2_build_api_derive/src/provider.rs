@@ -372,6 +372,10 @@ impl ProviderCodegen {
         } else {
             self.provider_methods_func_name()?
         };
+        let methods_static_name = format_ident!(
+            "{}_PROVIDER_STATICS",
+            provider_methods_func_name.to_string().to_uppercase()
+        );
         let field_names = self.field_names()?;
         let starlark_value_attr: syn::Attribute = if self.args.skip_pagable {
             syn::parse_quote_spanned! { self.span=>
@@ -387,6 +391,9 @@ impl ProviderCodegen {
                 starlark::starlark_complex_value!(#vis #name);
             },
             syn::parse_quote_spanned! { self.span=>
+                starlark::methods_static!(#methods_static_name = #provider_methods_func_name);
+            },
+            syn::parse_quote_spanned! { self.span=>
                 #starlark_value_attr
                 impl<'v, V: starlark::values::ValueLike<'v>> starlark::values::StarlarkValue<'v>
                     for #gen_name<V>
@@ -394,12 +401,7 @@ impl ProviderCodegen {
                     Self: starlark::any::ProvidesStaticType<'v>,
                 {
                     fn get_methods() -> Option<&'static starlark::environment::Methods> {
-                        static RES: starlark::environment::MethodsStatic =
-                            starlark::environment::MethodsStatic::new();
-
-                        RES.methods_for_type::<Self::Canonical>(|x| {
-                            #provider_methods_func_name(x);
-                        })
+                        Some(#methods_static_name.methods())
                     }
 
                     fn provide(&'v self, demand: &mut starlark::values::Demand<'_, 'v>) {

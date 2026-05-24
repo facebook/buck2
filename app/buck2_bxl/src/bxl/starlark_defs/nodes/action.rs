@@ -27,7 +27,6 @@ use serde::Serialize;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::Heap;
@@ -51,11 +50,12 @@ pub(crate) struct StarlarkAction(pub(crate) Arc<RegisteredAction>);
 
 starlark_simple_value!(StarlarkAction);
 
+starlark::methods_static!(BXL_ACTION_METHODS = action_methods);
+
 #[starlark_value(type = "bxl.Action")]
 impl<'v> StarlarkValue<'v> for StarlarkAction {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(action_methods)
+        Some(BXL_ACTION_METHODS.methods())
     }
 }
 
@@ -112,11 +112,12 @@ pub(crate) struct StarlarkActionQueryNode(pub(crate) ActionQueryNode);
 
 starlark_simple_value!(StarlarkActionQueryNode);
 
+starlark::methods_static!(ACTION_QUERY_NODE_VALUE_METHODS = action_query_node_value_methods);
+
 #[starlark_value(type = "bxl.ActionQueryNode")]
 impl<'v> StarlarkValue<'v> for StarlarkActionQueryNode {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(action_query_node_value_methods)
+        Some(ACTION_QUERY_NODE_VALUE_METHODS.methods())
     }
 }
 
@@ -184,12 +185,13 @@ pub(crate) struct StarlarkActionAttr(pub(crate) OwnedActionAttr);
 
 starlark_simple_value!(StarlarkActionAttr);
 
+starlark::methods_static!(ACTION_ATTR_METHODS = action_attr_methods);
+
 /// Action attr from an action query node.
 #[starlark_value(type = "bxl.ActionAttr")]
 impl<'v> StarlarkValue<'v> for StarlarkActionAttr {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(action_attr_methods)
+        Some(ACTION_ATTR_METHODS.methods())
     }
 }
 

@@ -27,7 +27,6 @@ use starlark::any::ProvidesStaticType;
 use starlark::codemap::FileSpan;
 use starlark::collections::StarlarkHasher;
 use starlark::environment::Methods;
-use starlark::environment::MethodsStatic;
 use starlark::values::AllocValue;
 use starlark::values::Demand;
 use starlark::values::Freeze;
@@ -320,13 +319,14 @@ impl<'v> AllocValue<'v> for StarlarkDeclaredArtifact<'v> {
     }
 }
 
+starlark::methods_static!(STARLARK_DECLARED_ARTIFACT_METHODS = artifact_methods);
+
 #[starlark_value(type = "Artifact", StarlarkTypeRepr, UnpackValue, skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkDeclaredArtifact<'v> {
     type Canonical = StarlarkArtifact;
 
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(artifact_methods)
+        Some(STARLARK_DECLARED_ARTIFACT_METHODS.methods())
     }
 
     fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {

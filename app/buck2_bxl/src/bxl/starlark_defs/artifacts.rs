@@ -39,7 +39,6 @@ use starlark::collections::SmallSet;
 use starlark::collections::StarlarkHasher;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
@@ -134,14 +133,15 @@ impl<'v> EnsuredArtifactGroup<'v> {
     }
 }
 
+starlark::methods_static!(ARTIFACT_GROUP_METHODS = artifact_group_methods);
+
 #[starlark_value(type = "bxl.EnsuredArtifactGroup", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for EnsuredArtifactGroup<'v>
 where
     Self: ProvidesStaticType<'v>,
 {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(artifact_group_methods)
+        Some(ARTIFACT_GROUP_METHODS.methods())
     }
 
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> starlark::Result<()> {
@@ -284,14 +284,15 @@ impl Serialize for EnsuredArtifactGroupInner {
     }
 }
 
+starlark::methods_static!(ENSURED_ARTIFACT_METHODS = ensured_artifact_methods);
+
 #[starlark_value(type = "bxl.EnsuredArtifact", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for EnsuredArtifact
 where
     Self: ProvidesStaticType<'v>,
 {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(ensured_artifact_methods)
+        Some(ENSURED_ARTIFACT_METHODS.methods())
     }
 
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> starlark::Result<()> {

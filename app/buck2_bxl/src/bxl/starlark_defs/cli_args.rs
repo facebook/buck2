@@ -53,7 +53,6 @@ use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::Heap;
@@ -97,12 +96,13 @@ starlark_simple_value!(CliArgs);
 #[starlark_module]
 fn starlark_attribute_methods(builder: &mut MethodsBuilder) {}
 
+starlark::methods_static!(BXL_CLI_ARGS_METHODS = starlark_attribute_methods);
+
 #[starlark_value(type = "bxl.CliArgs")]
 impl<'v> StarlarkValue<'v> for CliArgs {
     // Used to add type documentation to the generated documentation
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(starlark_attribute_methods)
+        Some(BXL_CLI_ARGS_METHODS.methods())
     }
 }
 

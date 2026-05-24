@@ -21,7 +21,6 @@ use starlark::collections::StarlarkHasher;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::StarlarkPagable;
@@ -63,11 +62,12 @@ impl StarlarkPackagePath {
     }
 }
 
+starlark::methods_static!(PACKAGE_PATH_METHODS = package_path_methods);
+
 #[starlark_value(type = "PackagePath", skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkPackagePath {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(package_path_methods)
+        Some(PACKAGE_PATH_METHODS.methods())
     }
 
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> starlark::Result<()> {

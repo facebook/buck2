@@ -15,7 +15,6 @@ use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::values::Freeze;
 use starlark::values::NoSerialize;
@@ -71,14 +70,15 @@ impl<'v> StarlarkTaggedValue<'v> {
 
 starlark_complex_value!(pub StarlarkTaggedValue);
 
+starlark::methods_static!(TAGGED_VALUE_METHODS = tagged_value_methods);
+
 #[starlark_value(type = "TaggedValue", skip_pagable)]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkTaggedValueGen<V>
 where
     Self: ProvidesStaticType<'v>,
 {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(tagged_value_methods)
+        Some(TAGGED_VALUE_METHODS.methods())
     }
 }
 

@@ -21,7 +21,6 @@ use starlark::collections::StarlarkHasher;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::StarlarkPagable;
@@ -52,11 +51,12 @@ impl Serialize for StarlarkCellPath {
     }
 }
 
+starlark::methods_static!(CELL_PATH_METHODS = cell_path_methods);
+
 #[starlark_value(type = "CellPath", skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkCellPath {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(cell_path_methods)
+        Some(CELL_PATH_METHODS.methods())
     }
 
     fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {

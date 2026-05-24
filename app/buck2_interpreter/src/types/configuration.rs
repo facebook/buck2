@@ -14,7 +14,6 @@ use derive_more::Display;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::NoSerialize;
@@ -35,11 +34,12 @@ pub struct StarlarkConfiguration(#[starlark_pagable(pagable)] pub ConfigurationD
 
 starlark_simple_value!(StarlarkConfiguration);
 
+starlark::methods_static!(CONFIGURATION_METHODS = configuration_methods);
+
 #[starlark_value(type = "Configuration", skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkConfiguration {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(configuration_methods)
+        Some(CONFIGURATION_METHODS.methods())
     }
 }
 

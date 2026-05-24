@@ -27,7 +27,6 @@ use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::typing::HasTyVTable;
 use starlark::typing::Ty;
@@ -120,6 +119,8 @@ where
     }
 }
 
+starlark::methods_static!(STARLARK_TARGET_SET_METHODS = starlark_target_set_methods);
+
 #[starlark_value(type = "target_set")]
 impl<'v, Node: NodeLike> StarlarkValue<'v> for StarlarkTargetSet<Node>
 where
@@ -128,8 +129,7 @@ where
     type Canonical = Self;
 
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(starlark_target_set_methods)
+        Some(STARLARK_TARGET_SET_METHODS.methods())
     }
 
     fn iterate_collect(&self, heap: Heap<'v>) -> starlark::Result<Vec<Value<'v>>> {

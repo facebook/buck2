@@ -46,7 +46,6 @@ use dice::DiceComputations;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
-use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
@@ -491,11 +490,12 @@ impl<'v> ErrorPrinter for BxlContext<'v> {
     }
 }
 
+starlark::methods_static!(BXL_CONTEXT_METHODS = methods::bxl_context_methods);
+
 #[starlark_value(type = "bxl.Context", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for BxlContext<'v> {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(methods::bxl_context_methods)
+        Some(BXL_CONTEXT_METHODS.methods())
     }
 }
 

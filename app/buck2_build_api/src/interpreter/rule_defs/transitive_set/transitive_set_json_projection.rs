@@ -22,7 +22,6 @@ use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::values::Freeze;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -128,14 +127,17 @@ impl<'v, V: ValueLike<'v>> TransitiveSetJsonProjectionGen<V> {
 
 starlark_complex_value!(pub TransitiveSetJsonProjection);
 
+starlark::methods_static!(
+    TRANSITIVE_SET_JSON_PROJECTION_METHODS = transitive_set_json_projection_methods
+);
+
 #[starlark_value(type = "TransitiveSetJsonProjection", skip_pagable)]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for TransitiveSetJsonProjectionGen<V>
 where
     Self: ProvidesStaticType<'v>,
 {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(transitive_set_json_projection_methods)
+        Some(TRANSITIVE_SET_JSON_PROJECTION_METHODS.methods())
     }
 }
 

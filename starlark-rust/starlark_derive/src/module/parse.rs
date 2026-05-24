@@ -51,10 +51,10 @@ pub(crate) enum ModuleKind {
 }
 
 impl ModuleKind {
-    pub(crate) fn statics_type_name(self) -> &'static str {
+    pub(crate) fn statics_macro_name(self) -> &'static str {
         match self {
-            ModuleKind::Globals => "GlobalsStatic",
-            ModuleKind::Methods => "MethodsStatic",
+            ModuleKind::Globals => "globals_static",
+            ModuleKind::Methods => "methods_static",
         }
     }
 }

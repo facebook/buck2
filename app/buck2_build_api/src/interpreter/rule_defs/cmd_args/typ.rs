@@ -36,7 +36,6 @@ use starlark::coerce::coerce;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::eval::Arguments;
 use starlark::static_starlark_value;
 use starlark::typing::Ty;
@@ -528,11 +527,13 @@ impl<'v> StarlarkCmdArgs<'v> {
     }
 }
 
+starlark::methods_static!(CMD_ARGS_METHODS = cmd_args_methods);
+starlark::methods_static!(FROZEN_CMD_ARGS_METHODS = cmd_args_methods);
+
 #[starlark_value(type = "cmd_args", skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkCmdArgs<'v> {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(cmd_args_methods)
+        Some(CMD_ARGS_METHODS.methods())
     }
 
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
@@ -560,8 +561,7 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkCmdArgs {
     fn get_methods() -> Option<&'static Methods> {
         // We return the same methods for frozen command lines, even though some of them fail,
         // so the methods remain consistent during freezing
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(cmd_args_methods)
+        Some(FROZEN_CMD_ARGS_METHODS.methods())
     }
 
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
@@ -1085,11 +1085,12 @@ impl Display for StarlarkCommandLineInputs {
     }
 }
 
+starlark::methods_static!(COMMAND_LINE_INPUTS_METHODS = command_line_inputs_methods);
+
 #[starlark_value(type = "CommandLineInputs", skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkCommandLineInputs {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(command_line_inputs_methods)
+        Some(COMMAND_LINE_INPUTS_METHODS.methods())
     }
 
     fn length(&self) -> starlark::Result<i32> {

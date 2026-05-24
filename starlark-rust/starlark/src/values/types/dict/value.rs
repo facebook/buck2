@@ -43,7 +43,6 @@ use crate::coerce::coerce;
 use crate::collections::Hashed;
 use crate::collections::SmallMap;
 use crate::environment::Methods;
-use crate::environment::MethodsStatic;
 use crate::hint::unlikely;
 use crate::static_starlark_value;
 use crate::typing::Ty;
@@ -410,6 +409,8 @@ impl<'v> DictLike<'v> for FrozenDictData {
 // Register vtable for FrozenDict (special type not handled by #[starlark_value] macro, because V is not ValueLike).
 register_avalue_simple_frozen!(FrozenDict);
 
+starlark::methods_static!(DICT_METHODS = crate::values::types::dict::methods::dict_methods);
+
 #[starlark_value(type = Dict::TYPE, skip_pagable)]
 impl<'v, T: DictLike<'v> + 'v> StarlarkValue<'v> for DictGen<T>
 where
@@ -418,8 +419,7 @@ where
     type Canonical = FrozenDict;
 
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(crate::values::types::dict::methods::dict_methods)
+        Some(DICT_METHODS.methods())
     }
 
     fn collect_repr(&self, r: &mut String) {

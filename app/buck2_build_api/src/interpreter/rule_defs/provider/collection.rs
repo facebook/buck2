@@ -37,7 +37,6 @@ use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::pagable::StarlarkDeserialize;
 use starlark::pagable::StarlarkDeserializeContext;
 use starlark::pagable::StarlarkSerialize;
@@ -444,10 +443,11 @@ where
     where
         Self: Sized,
     {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(provider_collection_methods)
+        Some(PROVIDER_COLLECTION_METHODS.methods())
     }
 }
+
+starlark::methods_static!(PROVIDER_COLLECTION_METHODS = provider_collection_methods);
 
 unsafe impl<'v> Trace<'v> for ProviderCollection<'v> {
     fn trace(&mut self, tracer: &Tracer<'v>) {

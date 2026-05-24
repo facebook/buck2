@@ -16,7 +16,6 @@ use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
 use starlark::values::Heap;
@@ -49,11 +48,12 @@ pub struct StarlarkDigestConfig {
     pub digest_config: DigestConfig,
 }
 
+starlark::methods_static!(DIGEST_CONFIG_METHODS = digest_config_methods);
+
 #[starlark_value(type = "DigestConfig", StarlarkTypeRepr, UnpackValue, skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkDigestConfig {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(digest_config_methods)
+        Some(DIGEST_CONFIG_METHODS.methods())
     }
 }
 

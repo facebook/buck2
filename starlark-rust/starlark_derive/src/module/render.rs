@@ -24,7 +24,6 @@ use quote::ToTokens;
 use quote::format_ident;
 use quote::quote;
 
-use crate::module::parse::ModuleKind;
 use crate::module::render::fun::render_fun;
 use crate::module::simple_param::SimpleParam;
 use crate::module::typ::SpecialParam;
@@ -100,6 +99,7 @@ fn render_impl(x: StarModule) -> syn::Result<TokenStream> {
         generics,
         starlark_types,
     } = x;
+    let statics_macro = format_ident!("{}", module_kind.statics_macro_name());
     let stmts: Vec<_> = stmts
         .into_iter()
         .map(|s| render_stmt(s, &generics))
@@ -130,37 +130,21 @@ fn render_impl(x: StarModule) -> syn::Result<TokenStream> {
         },
     };
     let fn_name = &input.sig.ident;
-    match module_kind {
-        ModuleKind::Globals => {
-            let statics_name = format_ident!("{}_STATICS", fn_name.to_string().to_uppercase());
-            input.block = syn::parse_quote! {
-                {
-                    #statics_name.populate(globals_builder);
-                }
-            };
-            Ok(quote! {
-                starlark::globals_static!(#statics_name = {
-                    #inner_fn
-                    build
-                });
+    let statics_name = format_ident!("{}_STATICS", fn_name.to_string().to_uppercase());
+    input.block = syn::parse_quote! {
+        {
+            #statics_name.populate(globals_builder);
+        }
+    };
 
-                #input
-            })
-        }
-        ModuleKind::Methods => {
-            // Old form: `MethodsStatic` API hasn't been migrated yet.
-            let statics = format_ident!("{}", module_kind.statics_type_name());
-            let turbofish = generics.turbofish();
-            input.block = syn::parse_quote! {
-                {
-                    #inner_fn
-                    static RES: starlark::environment::#statics = starlark::environment::#statics::new();
-                    RES.populate(concat!(module_path!(), "::", stringify!(#fn_name)), build #turbofish, globals_builder);
-                }
-            };
-            Ok(quote! { #input })
-        }
-    }
+    Ok(quote! {
+        starlark::#statics_macro!(#statics_name = {
+            #inner_fn
+            build
+        });
+
+        #input
+    })
 }
 
 fn render_stmt(x: StarStmt, generics: &StarGenerics) -> syn::Result<syn::Stmt> {

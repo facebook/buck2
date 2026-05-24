@@ -30,7 +30,6 @@ use starlark_map::StarlarkHasher;
 
 use crate as starlark;
 use crate::environment::Methods;
-use crate::environment::MethodsStatic;
 use crate::starlark_simple_value;
 use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
@@ -198,15 +197,12 @@ impl Serialize for StarlarkBytes {
     }
 }
 
-pub(crate) fn bytes_methods() -> Option<&'static Methods> {
-    static RES: MethodsStatic = MethodsStatic::new();
-    RES.methods_for_type::<StarlarkBytes>(crate::values::types::bytes::methods::bytes_methods)
-}
+starlark::methods_static!(BYTES_METHODS = crate::values::types::bytes::methods::bytes_methods);
 
 #[starlark_value(type = BYTES_TYPE)]
 impl<'v> StarlarkValue<'v> for StarlarkBytes {
     fn get_methods() -> Option<&'static Methods> {
-        bytes_methods()
+        Some(BYTES_METHODS.methods())
     }
 
     /// repr(b"...") — byte literal syntax.

@@ -65,7 +65,6 @@ use starlark::any::ProvidesStaticType;
 use starlark::collections::SmallMap;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
@@ -281,11 +280,14 @@ pub(crate) struct StarlarkConfiguredTargetNode(pub(crate) ConfiguredTargetNode);
 
 starlark_simple_value!(StarlarkConfiguredTargetNode);
 
+starlark::methods_static!(
+    CONFIGURED_TARGET_NODE_VALUE_METHODS = configured_target_node_value_methods
+);
+
 #[starlark_value(type = "bxl.ConfiguredTargetNode")]
 impl<'v> StarlarkValue<'v> for StarlarkConfiguredTargetNode {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(configured_target_node_value_methods)
+        Some(CONFIGURED_TARGET_NODE_VALUE_METHODS.methods())
     }
 }
 
@@ -810,11 +812,12 @@ impl Serialize for StarlarkConfiguredAttr {
 
 starlark_simple_value!(StarlarkConfiguredAttr);
 
+starlark::methods_static!(CONFIGURED_ATTR_METHODS = configured_attr_methods);
+
 #[starlark_value(type = "bxl.ConfiguredAttr")]
 impl<'v> StarlarkValue<'v> for StarlarkConfiguredAttr {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(configured_attr_methods)
+        Some(CONFIGURED_ATTR_METHODS.methods())
     }
 }
 
@@ -904,11 +907,12 @@ pub(crate) struct StarlarkLazyAttrs<'v> {
     configured_target_node: &'v StarlarkConfiguredTargetNode,
 }
 
+starlark::methods_static!(LAZY_ATTRS_METHODS = lazy_attrs_methods);
+
 #[starlark_value(type = "bxl.LazyAttrs", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for StarlarkLazyAttrs<'v> {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(lazy_attrs_methods)
+        Some(LAZY_ATTRS_METHODS.methods())
     }
 }
 
@@ -994,11 +998,12 @@ pub(crate) struct StarlarkLazyResolvedAttrs<'v> {
     resolution_ctx_data: RefCell<LazyAttrResolutionCache>,
 }
 
+starlark::methods_static!(LAZY_RESOLVED_ATTRS_METHODS = lazy_resolved_attrs_methods);
+
 #[starlark_value(type = "bxl.LazyResolvedAttrs", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for StarlarkLazyResolvedAttrs<'v> {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(lazy_resolved_attrs_methods)
+        Some(LAZY_RESOLVED_ATTRS_METHODS.methods())
     }
 }
 

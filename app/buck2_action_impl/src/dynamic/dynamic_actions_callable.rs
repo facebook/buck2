@@ -21,7 +21,6 @@ use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::eval::Arguments;
 use starlark::eval::Evaluator;
 use starlark::eval::ParametersSpec;
@@ -138,6 +137,8 @@ pub struct FrozenStarlarkDynamicActionsCallable {
     signature: ParametersSpec<FrozenValue>,
 }
 
+starlark::methods_static!(DYNAMIC_ACTION_CALLABLE_METHODS = dynamic_action_callable_methods);
+
 #[starlark_value(type = "DynamicActionCallable", skip_pagable)]
 impl<'v> StarlarkValue<'v> for DynamicActionsCallable<'v> {
     type Canonical = FrozenStarlarkDynamicActionsCallable;
@@ -167,8 +168,7 @@ impl<'v> StarlarkValue<'v> for DynamicActionsCallable<'v> {
 
     // used for docs of `DynamicActionCallable`
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(dynamic_action_callable_methods)
+        Some(DYNAMIC_ACTION_CALLABLE_METHODS.methods())
     }
 }
 

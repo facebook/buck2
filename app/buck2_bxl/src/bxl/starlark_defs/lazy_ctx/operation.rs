@@ -40,7 +40,6 @@ use starlark::any::ProvidesStaticType;
 use starlark::collections::SmallMap;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
@@ -335,11 +334,12 @@ impl StarlarkLazy {
     }
 }
 
+starlark::methods_static!(LAZY_OPERATION_METHODS = lazy_operation_methods);
+
 #[starlark_value(type = "bxl.Lazy")]
 impl<'v> StarlarkValue<'v> for StarlarkLazy {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(lazy_operation_methods)
+        Some(LAZY_OPERATION_METHODS.methods())
     }
 }
 

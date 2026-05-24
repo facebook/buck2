@@ -33,7 +33,6 @@ use crate::docs::DocParam;
 use crate::environment::GlobalsBuilder;
 use crate::environment::Methods;
 use crate::environment::MethodsBuilder;
-use crate::environment::MethodsStatic;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::eval::runtime::params::display::PARAM_FMT_OPTIONAL;
@@ -172,11 +171,12 @@ def with_arguments(*args, **kwargs) -> int: pass
 #[display("obj")]
 struct Obj;
 
+starlark::methods_static!(OBJ_METHODS = object);
+
 #[starlark_value(type = "obj", skip_pagable)]
 impl<'v> StarlarkValue<'v> for Obj {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(object)
+        Some(OBJ_METHODS.methods())
     }
 }
 

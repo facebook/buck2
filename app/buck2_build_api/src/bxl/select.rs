@@ -29,7 +29,6 @@ use starlark::const_frozen_string;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::FrozenStringValue;
@@ -130,11 +129,12 @@ impl StarlarkSelectDict {
 
 starlark_simple_value!(StarlarkSelectDict);
 
+starlark::methods_static!(SELECT_DICT_METHODS = select_dict_methods);
+
 #[starlark_value(type = "bxl.SelectDict", skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkSelectDict {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(select_dict_methods)
+        Some(SELECT_DICT_METHODS.methods())
     }
 }
 
@@ -282,11 +282,12 @@ impl Display for StarlarkSelectConcat {
 
 starlark_simple_value!(StarlarkSelectConcat);
 
+starlark::methods_static!(SELECT_CONCAT_METHODS = select_concat_methods);
+
 #[starlark_value(type = "bxl.SelectConcat", skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkSelectConcat {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(select_concat_methods)
+        Some(SELECT_CONCAT_METHODS.methods())
     }
 
     fn length(&self) -> starlark::Result<i32> {

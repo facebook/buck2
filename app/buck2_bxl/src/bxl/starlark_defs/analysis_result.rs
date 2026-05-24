@@ -19,7 +19,6 @@ use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
@@ -64,11 +63,12 @@ impl StarlarkAnalysisResult {
 
 starlark_simple_value!(StarlarkAnalysisResult);
 
+starlark::methods_static!(STARLARK_ANALYSIS_RESULT_METHODS = starlark_analysis_result_methods);
+
 #[starlark_value(type = "bxl.AnalysisResult")]
 impl<'v> StarlarkValue<'v> for StarlarkAnalysisResult {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(starlark_analysis_result_methods)
+        Some(STARLARK_ANALYSIS_RESULT_METHODS.methods())
     }
 }
 

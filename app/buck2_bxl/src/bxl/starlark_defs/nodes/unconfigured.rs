@@ -22,7 +22,6 @@ use starlark::any::ProvidesStaticType;
 use starlark::collections::SmallMap;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::Heap;
@@ -47,11 +46,12 @@ pub(crate) struct StarlarkTargetNode(pub(crate) TargetNode);
 
 starlark_simple_value!(StarlarkTargetNode);
 
+starlark::methods_static!(TARGET_NODE_VALUE_METHODS = target_node_value_methods);
+
 #[starlark_value(type = "bxl.UnconfiguredTargetNode")]
 impl<'v> StarlarkValue<'v> for StarlarkTargetNode {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(target_node_value_methods)
+        Some(TARGET_NODE_VALUE_METHODS.methods())
     }
 }
 

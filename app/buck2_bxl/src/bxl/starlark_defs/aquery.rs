@@ -28,7 +28,6 @@ use gazebo::prelude::OptionExt;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::values::AllocValue;
@@ -75,11 +74,12 @@ pub(crate) struct StarlarkAQueryCtx<'v> {
     global_cfg_options_override: GlobalCfgOptions,
 }
 
+starlark::methods_static!(AQUERY_METHODS = aquery_methods);
+
 #[starlark_value(type = "bxl.AqueryContext", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for StarlarkAQueryCtx<'v> {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(aquery_methods)
+        Some(AQUERY_METHODS.methods())
     }
 }
 

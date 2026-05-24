@@ -26,7 +26,6 @@ use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkPagable;
@@ -61,11 +60,12 @@ impl StarlarkArtifactValue {
     }
 }
 
+starlark::methods_static!(ARTIFACT_VALUE_METHODS = artifact_value_methods);
+
 #[starlark_value(type = "ArtifactValue", skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkArtifactValue {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(artifact_value_methods)
+        Some(ARTIFACT_VALUE_METHODS.methods())
     }
 }
 

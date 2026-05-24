@@ -23,7 +23,6 @@ use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::values::Demand;
 use starlark::values::Freeze;
 use starlark::values::Heap;
@@ -211,14 +210,17 @@ impl<'v, V: ValueLike<'v>> TransitiveSetArgsProjectionGen<V> {
 
 starlark_complex_value!(pub TransitiveSetArgsProjection);
 
+starlark::methods_static!(
+    TRANSITIVE_SET_ARGS_PROJECTION_METHODS = transitive_set_args_projection_methods
+);
+
 #[starlark_value(type = "TransitiveSetArgsProjection", skip_pagable)]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for TransitiveSetArgsProjectionGen<V>
 where
     Self: ProvidesStaticType<'v>,
 {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(transitive_set_args_projection_methods)
+        Some(TRANSITIVE_SET_ARGS_PROJECTION_METHODS.methods())
     }
 
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {

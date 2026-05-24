@@ -23,7 +23,6 @@ use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::values::Demand;
 use starlark::values::FrozenValueTyped;
 use starlark::values::NoSerialize;
@@ -289,11 +288,14 @@ impl<'v> CommandLineArgLike<'v> for ResolvedStringWithMacros {
     }
 }
 
+starlark::methods_static!(
+    RESOLVED_STRING_WITH_MACROS_METHODS = resolved_string_with_macros_methods
+);
+
 #[starlark_value(type = "ResolvedStringWithMacros", skip_pagable)]
 impl<'v> StarlarkValue<'v> for ResolvedStringWithMacros {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(resolved_string_with_macros_methods)
+        Some(RESOLVED_STRING_WITH_MACROS_METHODS.methods())
     }
 
     fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {

@@ -14,7 +14,6 @@ use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::values::AllocValue;
 use starlark::values::FrozenValueTyped;
@@ -39,14 +38,15 @@ pub struct StarlarkResolvedDynamicValue {
     pub(crate) value: FrozenValueTyped<'static, FrozenProviderCollection>,
 }
 
+starlark::methods_static!(RESOLVED_DYNAMIC_VALUE_METHODS = resolved_dynamic_value_methods);
+
 #[starlark_value(type = "ResolvedDynamicValue", skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkResolvedDynamicValue
 where
     Self: ProvidesStaticType<'v>,
 {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(resolved_dynamic_value_methods)
+        Some(RESOLVED_DYNAMIC_VALUE_METHODS.methods())
     }
 }
 

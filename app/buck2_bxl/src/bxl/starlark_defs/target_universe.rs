@@ -20,7 +20,6 @@ use futures::FutureExt;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::values::AllocValue;
@@ -59,11 +58,12 @@ pub(crate) struct StarlarkTargetUniverse<'v> {
     ctx: ValueTyped<'v, BxlContext<'v>>,
 }
 
+starlark::methods_static!(TARGET_UNIVERSE_METHODS = target_universe_methods);
+
 #[starlark_value(type = "bxl.TargetUniverse", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for StarlarkTargetUniverse<'v> {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(target_universe_methods)
+        Some(TARGET_UNIVERSE_METHODS.methods())
     }
 }
 

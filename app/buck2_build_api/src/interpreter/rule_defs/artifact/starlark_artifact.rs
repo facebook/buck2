@@ -24,7 +24,6 @@ use serde::Serializer;
 use starlark::any::ProvidesStaticType;
 use starlark::collections::StarlarkHasher;
 use starlark::environment::Methods;
-use starlark::environment::MethodsStatic;
 use starlark::values::Demand;
 use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
@@ -280,11 +279,12 @@ impl<'v> CommandLineArgLike<'v> for StarlarkArtifact {
     }
 }
 
+starlark::methods_static!(STARLARK_ARTIFACT_METHODS = artifact_methods);
+
 #[starlark_value(type = "Artifact", skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkArtifact {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(artifact_methods)
+        Some(STARLARK_ARTIFACT_METHODS.methods())
     }
 
     fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {

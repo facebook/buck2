@@ -39,7 +39,6 @@ use crate::environment::Globals;
 use crate::environment::GlobalsBuilder;
 use crate::environment::Methods;
 use crate::environment::MethodsBuilder;
-use crate::environment::MethodsStatic;
 use crate::values::StarlarkValue;
 use crate::values::Value;
 use crate::values::list::UnpackList;
@@ -227,11 +226,12 @@ struct Obj;
 
 starlark_simple_value!(Obj);
 
+starlark::methods_static!(OBJ_METHODS = object);
+
 #[starlark_value(type = "obj", skip_pagable)]
 impl<'v> StarlarkValue<'v> for Obj {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(object)
+        Some(OBJ_METHODS.methods())
     }
 }
 

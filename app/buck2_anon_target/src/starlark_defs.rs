@@ -29,7 +29,6 @@ use starlark::codemap::FileSpan;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::values::AllocValue;
@@ -104,11 +103,12 @@ impl Display for StarlarkAnonTarget<'_> {
     }
 }
 
+starlark::methods_static!(ANON_TARGET_METHODS = anon_target_methods);
+
 #[starlark_value(type = "AnonTarget", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for StarlarkAnonTarget<'v> {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(anon_target_methods)
+        Some(ANON_TARGET_METHODS.methods())
     }
 }
 
@@ -199,11 +199,12 @@ impl Display for StarlarkAnonTargets<'_> {
     }
 }
 
+starlark::methods_static!(ANON_TARGETS_METHODS = anon_targets_methods);
+
 #[starlark_value(type = "AnonTargets", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for StarlarkAnonTargets<'v> {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(anon_targets_methods)
+        Some(ANON_TARGETS_METHODS.methods())
     }
 }
 

@@ -17,7 +17,6 @@ use operation::StarlarkLazy;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
@@ -81,11 +80,12 @@ impl<'v> StarlarkLazyCtx<'v> {
     }
 }
 
+starlark::methods_static!(LAZY_CTX_METHODS = lazy_ctx_methods);
+
 #[starlark_value(type = "bxl.LazyContext", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for StarlarkLazyCtx<'v> {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(lazy_ctx_methods)
+        Some(LAZY_CTX_METHODS.methods())
     }
 }
 

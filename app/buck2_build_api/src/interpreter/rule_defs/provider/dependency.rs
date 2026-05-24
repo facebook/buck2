@@ -24,7 +24,6 @@ use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::typing::Ty;
 use starlark::values::Freeze;
 use starlark::values::FrozenValue;
@@ -128,6 +127,8 @@ impl<'v> Dependency<'v> {
     }
 }
 
+starlark::methods_static!(DEPENDENCY_METHODS = dependency_methods);
+
 #[starlark_value(type = "Dependency", skip_pagable)]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for DependencyGen<V>
 where
@@ -138,8 +139,7 @@ where
     }
 
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(dependency_methods)
+        Some(DEPENDENCY_METHODS.methods())
     }
 
     fn at(&self, index: Value<'v>, heap: Heap<'v>) -> starlark::Result<Value<'v>> {

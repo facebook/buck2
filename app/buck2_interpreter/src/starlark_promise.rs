@@ -21,7 +21,6 @@ use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::typing::Ty;
@@ -302,11 +301,12 @@ impl<'v> UnpackValue<'v> for &'v StarlarkPromise<'v> {
     }
 }
 
+starlark::methods_static!(PROMISE_METHODS = promise_methods);
+
 #[starlark_value(type = "Promise", skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkPromise<'v> {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(promise_methods)
+        Some(PROMISE_METHODS.methods())
     }
 }
 

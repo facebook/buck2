@@ -19,7 +19,6 @@ use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::NoSerialize;
@@ -50,12 +49,13 @@ starlark_simple_value!(StarlarkAttribute);
 #[starlark_module]
 fn starlark_attribute_methods(builder: &mut MethodsBuilder) {}
 
+starlark::methods_static!(STARLARK_ATTRIBUTE_METHODS = starlark_attribute_methods);
+
 #[starlark_value(type = "Attr", skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkAttribute {
     // Used to add type documentation to the generated documentation
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(starlark_attribute_methods)
+        Some(STARLARK_ATTRIBUTE_METHODS.methods())
     }
 }
 

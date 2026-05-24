@@ -40,7 +40,6 @@ use crate::any::ProvidesStaticType;
 use crate::coerce::Coerce;
 use crate::environment::Methods;
 use crate::environment::MethodsBuilder;
-use crate::environment::MethodsStatic;
 use crate::pagable::static_value::TypeCompiledStaticRegistered;
 use crate::pagable::static_value::static_type_compiled;
 use crate::private::Private;
@@ -208,6 +207,8 @@ impl TypeMatcher for DummyTypeMatcher {
 // `Canonical` points here.
 crate::register_ty_starlark_value!(TypeCompiledImplAsStarlarkValue<DummyTypeMatcher>);
 
+starlark::methods_static!(TYPE_COMPILED_METHODS = type_compiled_methods);
+
 #[starlark_value(type = "type", skip_pagable)]
 impl<'v, T: 'static> StarlarkValue<'v> for TypeCompiledImplAsStarlarkValue<T>
 where
@@ -246,8 +247,7 @@ where
     where
         Self: Sized,
     {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(type_compiled_methods)
+        Some(TYPE_COMPILED_METHODS.methods())
     }
 }
 

@@ -14,7 +14,6 @@ use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::values::NoSerialize;
 use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
@@ -46,11 +45,14 @@ pub struct StarlarkRequiredTestLocalResource {
 
 starlark_simple_value!(StarlarkRequiredTestLocalResource);
 
+starlark::methods_static!(
+    REQUIRED_TEST_LOCAL_RESOURCE_METHODS = required_test_local_resource_methods
+);
+
 #[starlark_value(type = "RequiredTestLocalResource", skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkRequiredTestLocalResource {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(required_test_local_resource_methods)
+        Some(REQUIRED_TEST_LOCAL_RESOURCE_METHODS.methods())
     }
 }
 

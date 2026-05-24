@@ -25,7 +25,6 @@ use gazebo::prelude::VecExt;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::Heap;
@@ -166,10 +165,11 @@ impl<'v> StarlarkValue<'v> for StarlarkFileSet {
     }
 
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(register_file_set)
+        Some(FILE_SET_METHODS.methods())
     }
 }
+
+starlark::methods_static!(FILE_SET_METHODS = register_file_set);
 
 /// A set of `file_node`s. Supports the operations such as set addition/subtraction, length,
 /// iteration, equality and indexing.
@@ -196,11 +196,12 @@ pub(crate) struct StarlarkFileNode(#[starlark_pagable(pagable)] pub(crate) CellP
 
 starlark_simple_value!(StarlarkFileNode);
 
+starlark::methods_static!(FILE_NODE_METHODS = file_node_methods);
+
 #[starlark_value(type = "bxl.FileNode", skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkFileNode {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(file_node_methods)
+        Some(FILE_NODE_METHODS.methods())
     }
 }
 

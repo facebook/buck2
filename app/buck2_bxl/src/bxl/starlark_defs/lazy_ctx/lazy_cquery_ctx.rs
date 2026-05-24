@@ -16,7 +16,6 @@ use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::NoSerialize;
@@ -56,11 +55,12 @@ impl StarlarkLazyCqueryCtx {
 
 starlark_simple_value!(StarlarkLazyCqueryCtx);
 
+starlark::methods_static!(LAZY_CQUERY_METHODS = lazy_cquery_methods);
+
 #[starlark_value(type = "bxl.LazyCqueryContext")]
 impl<'v> StarlarkValue<'v> for StarlarkLazyCqueryCtx {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(lazy_cquery_methods)
+        Some(LAZY_CQUERY_METHODS.methods())
     }
 }
 

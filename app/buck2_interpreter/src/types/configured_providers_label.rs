@@ -25,7 +25,6 @@ use starlark::collections::StarlarkHasher;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::Freeze;
@@ -91,14 +90,15 @@ impl StarlarkConfiguredProvidersLabel {
     }
 }
 
+starlark::methods_static!(CONFIGURED_PROVIDERS_LABEL_METHODS = configured_label_methods);
+
 #[starlark_value(type = "Label", skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkConfiguredProvidersLabel
 where
     Self: ProvidesStaticType<'v>,
 {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(configured_label_methods)
+        Some(CONFIGURED_PROVIDERS_LABEL_METHODS.methods())
     }
 
     fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {
@@ -243,14 +243,15 @@ impl StarlarkProvidersLabel {
     }
 }
 
+starlark::methods_static!(PROVIDERS_LABEL_METHODS = label_methods);
+
 #[starlark_value(type = "ProvidersLabel", skip_pagable)]
 impl<'v> StarlarkValue<'v> for StarlarkProvidersLabel
 where
     Self: ProvidesStaticType<'v>,
 {
     fn get_methods() -> Option<&'static Methods> {
-        static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods_for_type::<Self::Canonical>(label_methods)
+        Some(PROVIDERS_LABEL_METHODS.methods())
     }
 
     fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {
