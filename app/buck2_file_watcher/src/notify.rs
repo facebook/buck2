@@ -8,9 +8,13 @@
  * above-listed licenses.
  */
 
+use std::collections::HashMap;
+use std::collections::HashSet;
 use std::mem;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::time::SystemTime;
 
 use allocative::Allocative;
 use async_trait::async_trait;
@@ -33,6 +37,7 @@ use notify::EventKind;
 use notify::RecommendedWatcher;
 use notify::Watcher;
 use notify::event::CreateKind;
+use notify::event::DataChange;
 use notify::event::MetadataKind;
 use notify::event::ModifyKind;
 use notify::event::RemoveKind;
@@ -265,13 +270,32 @@ impl NotifyFileData {
     }
 }
 
+/// Last-known state for a non-ignored top-level entry under the project root,
+/// used by [`rescan_root`] to detect modifications to root-level files
+/// (e.g. `BUCK`, `.buckconfig`) and to discover new top-level subdirectories
+/// that need a recursive watch added.
+#[derive(Debug, Clone, PartialEq)]
+enum RootEntryState {
+    File {
+        size: u64,
+        mtime: Option<SystemTime>,
+    },
+    Dir,
+}
+
 #[derive(Allocative)]
 pub struct NotifyFileWatcher {
     #[allocative(skip)]
-    #[expect(unused)]
-    // FIXME(JakobDegen): Clarify if this just needs to be kept alive or can be removed?
-    watcher: RecommendedWatcher,
+    watcher: Mutex<RecommendedWatcher>,
     data: Arc<Mutex<buck2_error::Result<NotifyFileData>>>,
+    root: ProjectRoot,
+    cells: CellResolver,
+    ignore_specs: StdBuckHashMap<CellName, IgnoreSet>,
+    /// Last-known state of non-ignored top-level entries. `Some` when the
+    /// per-subdirectory watching strategy is active; `None` when the project
+    /// root is watched recursively.
+    #[allocative(skip)]
+    root_state: Option<Mutex<HashMap<PathBuf, RootEntryState>>>,
 }
 
 impl NotifyFileWatcher {
@@ -301,48 +325,67 @@ impl NotifyFileWatcher {
         })
         .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::NotifyWatcher))?;
 
-        if watch_included_root_dirs_only {
-            // Watch each non-ignored top-level subdirectory recursively
-            // instead of the project root, so ignored top-level directories
-            // (e.g. buck-out) are never seen by the watcher backend.
-            for entry in std::fs::read_dir(root.root().as_path())
-                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Environment))?
-            {
-                let entry =
-                    entry.map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Environment))?;
-                let file_type = entry
-                    .file_type()
-                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Environment))?;
-                if !file_type.is_dir() {
-                    continue;
-                }
-                let path = entry.path();
-                let cell_path = cells.get_cell_path(&root.relativize(AbsNormPath::new(&path)?)?);
-                if ignore_specs
-                    .get(&cell_path.cell())
-                    .is_some_and(|i| i.is_match(cell_path.path()))
-                {
-                    continue;
-                }
+        let root_state = if watch_included_root_dirs_only {
+            // Seed root state and register a recursive watch for each
+            // non-ignored top-level subdirectory. The project root itself
+            // is not watched; root-level files are picked up by `rescan_root`
+            // on each sync. DICE is cold at startup so we discard the
+            // synthesized events from the initial scan.
+            let mut state = HashMap::new();
+            let (_, new_watches) = rescan_root(&mut state, root, &cells, &ignore_specs)?;
+            for path in new_watches {
                 watcher
                     .watch(&path, notify::RecursiveMode::Recursive)
                     .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::NotifyWatcher))?;
             }
+            Some(Mutex::new(state))
         } else {
             watcher
                 .watch(root.root().as_path(), notify::RecursiveMode::Recursive)
                 .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::NotifyWatcher))?;
-        }
+            None
+        };
 
-        Ok(Self { watcher, data })
+        Ok(Self {
+            watcher: Mutex::new(watcher),
+            data,
+            root: root.dupe(),
+            cells,
+            ignore_specs,
+            root_state,
+        })
     }
 
     fn sync2(
         &self,
         mut dice: DiceTransactionUpdater,
     ) -> buck2_error::Result<(buck2_data::FileWatcherStats, DiceTransactionUpdater)> {
+        let synth_events = if let Some(state_mu) = &self.root_state {
+            let (events, new_watches) = {
+                let mut state = state_mu.lock().unwrap();
+                rescan_root(&mut state, &self.root, &self.cells, &self.ignore_specs)?
+            };
+            if !new_watches.is_empty() {
+                let mut watcher = self.watcher.lock().unwrap();
+                for path in new_watches {
+                    debug!("FileWatcher: Watching new root subdirectory: {:?}", path);
+                    watcher
+                        .watch(&path, notify::RecursiveMode::Recursive)
+                        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::NotifyWatcher))?;
+                }
+            }
+            events
+        } else {
+            Vec::new()
+        };
+
         let old = {
             let mut guard = self.data.lock().unwrap();
+            if let Ok(data) = &mut *guard {
+                for ev in synth_events {
+                    data.events.insert(ev);
+                }
+            }
             mem::replace(&mut *guard, Ok(NotifyFileData::new()))
         };
         let (stats, changes) = old?.sync();
@@ -354,6 +397,93 @@ impl NotifyFileWatcher {
         }
         Ok((stats, dice))
     }
+}
+
+/// Re-enumerate top-level entries under the project root and update `state`
+/// in place. Returns synthetic events for any deltas vs. the previous state
+/// and paths of newly-discovered directories that need a recursive watch
+/// registered by the caller. Ignored entries are not tracked.
+fn rescan_root(
+    state: &mut HashMap<PathBuf, RootEntryState>,
+    root: &ProjectRoot,
+    cells: &CellResolver,
+    ignore_specs: &StdBuckHashMap<CellName, IgnoreSet>,
+) -> buck2_error::Result<(Vec<(CellPath, EventKind)>, Vec<PathBuf>)> {
+    let mut events = Vec::new();
+    let mut new_watches = Vec::new();
+    let mut seen = HashSet::new();
+
+    for entry in std::fs::read_dir(root.root().as_path())
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Environment))?
+    {
+        let entry = entry.map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Environment))?;
+        let file_type = entry
+            .file_type()
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Environment))?;
+        if file_type.is_symlink() {
+            continue;
+        }
+        let path = entry.path();
+        let cell_path = cells.get_cell_path(&root.relativize(AbsNormPath::new(&path)?)?);
+        if ignore_specs
+            .get(&cell_path.cell())
+            .is_some_and(|i| i.is_match(cell_path.path()))
+        {
+            continue;
+        }
+        seen.insert(path.clone());
+
+        if file_type.is_dir() {
+            if !state.contains_key(&path) {
+                new_watches.push(path.clone());
+                events.push((cell_path, EventKind::Create(CreateKind::Folder)));
+            }
+            state.insert(path, RootEntryState::Dir);
+        } else if file_type.is_file() {
+            let metadata = entry
+                .metadata()
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Environment))?;
+            let new_state = RootEntryState::File {
+                size: metadata.len(),
+                mtime: metadata.modified().ok(),
+            };
+            match state.get(&path) {
+                Some(prev) if *prev == new_state => {}
+                Some(_) => {
+                    debug!("FileWatcher: Root file modified: {:?}", path);
+                    events.push((
+                        cell_path,
+                        EventKind::Modify(ModifyKind::Data(DataChange::Any)),
+                    ));
+                }
+                None => {
+                    events.push((cell_path, EventKind::Create(CreateKind::File)));
+                }
+            }
+            state.insert(path, new_state);
+        }
+    }
+
+    state.retain(|path, entry| {
+        if seen.contains(path) {
+            return true;
+        }
+        let cell_path = match AbsNormPath::new(path)
+            .and_then(|abs| root.relativize(abs))
+            .map(|rel| cells.get_cell_path(&rel))
+        {
+            Ok(p) => p,
+            Err(_) => return false,
+        };
+        let kind = match entry {
+            RootEntryState::File { .. } => EventKind::Remove(RemoveKind::File),
+            RootEntryState::Dir => EventKind::Remove(RemoveKind::Folder),
+        };
+        events.push((cell_path, kind));
+        false
+    });
+
+    Ok((events, new_watches))
 }
 
 #[async_trait]
