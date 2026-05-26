@@ -20,6 +20,7 @@ use std::hash::Hasher;
 
 use dupe::Dupe;
 use fxhash::FxHasher64;
+#[cfg(feature = "pagable_dep")]
 use pagable::Pagable;
 
 use crate::hash_value::StarlarkHashValue;
@@ -93,7 +94,8 @@ impl Hasher for StarlarkHasher {
 }
 
 /// [`BuildHasher`] implementation which produces [`StarlarkHasher`].
-#[derive(Default, Debug, Clone, Copy, Dupe, Pagable)]
+#[derive(Default, Debug, Clone, Copy, Dupe)]
+#[cfg_attr(feature = "pagable_dep", derive(Pagable))]
 pub struct StarlarkHasherBuilder;
 
 impl BuildHasher for StarlarkHasherBuilder {
