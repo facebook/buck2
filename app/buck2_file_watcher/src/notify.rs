@@ -279,22 +279,61 @@ impl NotifyFileWatcher {
         root: &ProjectRoot,
         cells: CellResolver,
         ignore_specs: StdBuckHashMap<CellName, IgnoreSet>,
+        watch_included_root_dirs_only: bool,
     ) -> buck2_error::Result<Self> {
         let data = Arc::new(Mutex::new(Ok(NotifyFileData::new())));
         let data2 = data.dupe();
         let root2 = root.dupe();
+        let cells_for_callback = cells.dupe();
+        let ignore_specs_for_callback = ignore_specs.clone();
         let mut watcher = notify::recommended_watcher(move |event| {
             let mut guard = data2.lock().unwrap();
             if let Ok(state) = &mut *guard {
-                if let Err(e) = state.process(event, &root2, &cells, &ignore_specs) {
+                if let Err(e) = state.process(
+                    event,
+                    &root2,
+                    &cells_for_callback,
+                    &ignore_specs_for_callback,
+                ) {
                     *guard = Err(e);
                 }
             }
         })
         .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::NotifyWatcher))?;
-        watcher
-            .watch(root.root().as_path(), notify::RecursiveMode::Recursive)
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::NotifyWatcher))?;
+
+        if watch_included_root_dirs_only {
+            // Watch each non-ignored top-level subdirectory recursively
+            // instead of the project root, so ignored top-level directories
+            // (e.g. buck-out) are never seen by the watcher backend.
+            for entry in std::fs::read_dir(root.root().as_path())
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Environment))?
+            {
+                let entry =
+                    entry.map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Environment))?;
+                let file_type = entry
+                    .file_type()
+                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Environment))?;
+                if !file_type.is_dir() {
+                    continue;
+                }
+                let path = entry.path();
+                let cell_path = cells.get_cell_path(&root.relativize(AbsNormPath::new(&path)?)?);
+                if ignore_specs
+                    .get(&cell_path.cell())
+                    .is_some_and(|i| i.is_match(cell_path.path()))
+                {
+                    continue;
+                }
+                watcher
+                    .watch(&path, notify::RecursiveMode::Recursive)
+                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::NotifyWatcher))?;
+            }
+        } else {
+            watcher
+                .watch(root.root().as_path(), notify::RecursiveMode::Recursive)
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::NotifyWatcher))?;
+        }
+
         Ok(Self { watcher, data })
     }
 
