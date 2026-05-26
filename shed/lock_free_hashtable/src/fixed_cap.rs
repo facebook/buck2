@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+#[cfg(feature = "allocative")]
 use std::mem;
 #[cfg(feature = "allocative")]
 use std::mem::ManuallyDrop;
