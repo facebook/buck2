@@ -510,3 +510,154 @@ impl FileWatcher for NotifyFileWatcher {
         .await
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use buck2_core::cells::cell_root_path::CellRootPathBuf;
+    use buck2_fs::fs_util::uncategorized as fs_util;
+    use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+    use notify::event::ModifyKind;
+
+    use super::*;
+
+    fn make_root() -> buck2_error::Result<(tempfile::TempDir, ProjectRoot, CellResolver)> {
+        let tempdir = tempfile::tempdir()?;
+        let root_path = fs_util::canonicalize(AbsNormPathBuf::new(tempdir.path().to_owned())?)?;
+        let proj_root = ProjectRoot::new(root_path)?;
+        let cells = CellResolver::testing_with_name_and_path(
+            CellName::testing_new("root"),
+            CellRootPathBuf::testing_new(""),
+        );
+        Ok((tempdir, proj_root, cells))
+    }
+
+    fn ignore_root_buck_out() -> buck2_error::Result<StdBuckHashMap<CellName, IgnoreSet>> {
+        // `from_ignore_spec` with `root_cell=true` always seeds `buck-out`.
+        let mut specs = StdBuckHashMap::default();
+        specs.insert(
+            CellName::testing_new("root"),
+            IgnoreSet::from_ignore_spec("", true)?,
+        );
+        Ok(specs)
+    }
+
+    #[test]
+    fn skips_ignored_dirs_at_startup() -> buck2_error::Result<()> {
+        let (_td, root, cells) = make_root()?;
+        let root_path = root.root().as_path();
+        std::fs::create_dir(root_path.join("buck-out"))?;
+        std::fs::create_dir(root_path.join("src"))?;
+
+        let mut state = HashMap::new();
+        let (_, new_watches) = rescan_root(&mut state, &root, &cells, &ignore_root_buck_out()?)?;
+
+        assert_eq!(new_watches, vec![root_path.join("src")]);
+        Ok(())
+    }
+
+    #[test]
+    fn detects_new_top_level_dir() -> buck2_error::Result<()> {
+        let (_td, root, cells) = make_root()?;
+        let root_path = root.root().as_path();
+        let ignores = ignore_root_buck_out()?;
+        let mut state = HashMap::new();
+        rescan_root(&mut state, &root, &cells, &ignores)?; // seed
+
+        std::fs::create_dir(root_path.join("newdir"))?;
+        let (events, new_watches) = rescan_root(&mut state, &root, &cells, &ignores)?;
+
+        assert_eq!(new_watches, vec![root_path.join("newdir")]);
+        assert_eq!(events.len(), 1);
+        assert!(matches!(
+            events[0].1,
+            EventKind::Create(CreateKind::Folder)
+        ));
+        Ok(())
+    }
+
+    #[test]
+    fn ignored_dir_appearing_mid_session_is_invisible() -> buck2_error::Result<()> {
+        let (_td, root, cells) = make_root()?;
+        let root_path = root.root().as_path();
+        let ignores = ignore_root_buck_out()?;
+        let mut state = HashMap::new();
+        rescan_root(&mut state, &root, &cells, &ignores)?; // seed
+
+        std::fs::create_dir(root_path.join("buck-out"))?;
+        let (events, new_watches) = rescan_root(&mut state, &root, &cells, &ignores)?;
+
+        assert!(new_watches.is_empty());
+        assert!(events.is_empty());
+        assert!(state.is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn detects_modified_root_file() -> buck2_error::Result<()> {
+        let (_td, root, cells) = make_root()?;
+        let buck_path = root.root().as_path().join("BUCK");
+        std::fs::write(&buck_path, b"original")?;
+        let ignores = ignore_root_buck_out()?;
+        let mut state = HashMap::new();
+        rescan_root(&mut state, &root, &cells, &ignores)?; // seed
+
+        // Sleep past one-second mtime resolution that some filesystems use.
+        std::thread::sleep(std::time::Duration::from_millis(1100));
+        std::fs::write(&buck_path, b"changed contents that are longer")?;
+        let (events, _) = rescan_root(&mut state, &root, &cells, &ignores)?;
+
+        assert_eq!(events.len(), 1);
+        assert!(matches!(events[0].1, EventKind::Modify(ModifyKind::Data(_))));
+        Ok(())
+    }
+
+    #[test]
+    fn detects_removed_root_file() -> buck2_error::Result<()> {
+        let (_td, root, cells) = make_root()?;
+        let buck_path = root.root().as_path().join("BUCK");
+        std::fs::write(&buck_path, b"hello")?;
+        let ignores = ignore_root_buck_out()?;
+        let mut state = HashMap::new();
+        rescan_root(&mut state, &root, &cells, &ignores)?; // seed
+
+        std::fs::remove_file(&buck_path)?;
+        let (events, _) = rescan_root(&mut state, &root, &cells, &ignores)?;
+
+        assert_eq!(events.len(), 1);
+        assert!(matches!(events[0].1, EventKind::Remove(RemoveKind::File)));
+        Ok(())
+    }
+
+    #[test]
+    fn detects_removed_top_level_dir() -> buck2_error::Result<()> {
+        let (_td, root, cells) = make_root()?;
+        let root_path = root.root().as_path();
+        std::fs::create_dir(root_path.join("src"))?;
+        let ignores = ignore_root_buck_out()?;
+        let mut state = HashMap::new();
+        rescan_root(&mut state, &root, &cells, &ignores)?; // seed
+
+        std::fs::remove_dir(root_path.join("src"))?;
+        let (events, _) = rescan_root(&mut state, &root, &cells, &ignores)?;
+
+        assert_eq!(events.len(), 1);
+        assert!(matches!(events[0].1, EventKind::Remove(RemoveKind::Folder)));
+        Ok(())
+    }
+
+    #[test]
+    fn no_op_when_unchanged() -> buck2_error::Result<()> {
+        let (_td, root, cells) = make_root()?;
+        let root_path = root.root().as_path();
+        std::fs::write(root_path.join("BUCK"), b"hi")?;
+        std::fs::create_dir(root_path.join("src"))?;
+        let ignores = ignore_root_buck_out()?;
+        let mut state = HashMap::new();
+        rescan_root(&mut state, &root, &cells, &ignores)?; // seed
+
+        let (events, new_watches) = rescan_root(&mut state, &root, &cells, &ignores)?;
+        assert!(events.is_empty());
+        assert!(new_watches.is_empty());
+        Ok(())
+    }
+}
