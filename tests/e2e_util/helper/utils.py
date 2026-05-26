@@ -13,6 +13,7 @@ import re
 import string
 import sys
 import typing
+from configparser import ConfigParser
 from pathlib import Path
 
 import psutil
@@ -119,6 +120,35 @@ def replace_hash(s: str) -> str:
 
 def replace_digest(s: str) -> str:
     return re.sub(r"\b[0-9a-f]{40}:[0-9]{1,3}\b", "<DIGEST>", s)
+
+
+async def get_buck2_re_use_case(buck: Buck) -> str:
+    key = "buck2_re_client.override_use_case"
+    config = (
+        await buck.audit_config("--reuse-current-config", "--style=json", key)
+    ).get_json()
+    use_case = config.get(key)
+    if use_case is not None:
+        return use_case
+
+    # The test harness's extra external config is part of normal Buck config
+    # parsing, but `override_use_case` is filtered out of DICE-backed config
+    # reads, so `audit config --reuse-current-config` may not report it. We need
+    # to manually check the test config here.
+    extra_config_path = buck.get_env_var("BUCK2_TEST_EXTRA_EXTERNAL_CONFIG")
+    if extra_config_path is not None:
+        use_case = _get_buck2_re_use_case_from_config_file(Path(extra_config_path))
+        if use_case is not None:
+            return use_case
+
+    return "buck2-default"
+
+
+def _get_buck2_re_use_case_from_config_file(path: Path) -> typing.Optional[str]:
+    parser = ConfigParser(strict=False)
+    if not parser.read(path):
+        return None
+    return parser.get("buck2_re_client", "override_use_case", fallback=None)
 
 
 def read_invocation_record(record: Path) -> InvocationRecord:

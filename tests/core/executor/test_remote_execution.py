@@ -64,7 +64,7 @@ async def test_re_use_case_override_with_arg(buck: Buck) -> None:
         "--no-remote-cache",
     )
     use_cases = await filter_re_use_case(buck)
-    assert all(use_case == "buck2-default" for use_case in use_cases)
+    assert all(use_case == "buck2-testing" for use_case in use_cases)
     # Change the target input
     with open(buck.cwd / "input.txt", "w") as f:
         f.write(random_string())
@@ -92,7 +92,7 @@ async def test_re_use_case_override_with_config(buck: Buck) -> None:
     use_cases = await filter_re_use_case(buck)
     # While only 4 are needed, we _can_ end up with multiple Queue stages, inflating the number.
     assert len(use_cases) >= 4
-    assert all(use_case == "buck2-default" for use_case in use_cases)
+    assert all(use_case == "buck2-testing" for use_case in use_cases)
     # Change the target input
     with open(buck.cwd / "input.txt", "w") as f:
         f.write(random_string())
@@ -121,7 +121,7 @@ async def test_re_use_case_override_with_external_config(buck: Buck) -> None:
     )
     use_cases = await filter_re_use_case(buck)
     assert len(use_cases) == 4
-    assert all(use_case == "buck2-default" for use_case in use_cases)
+    assert all(use_case == "buck2-testing" for use_case in use_cases)
     # Change the target input
     with open(buck.cwd / "input.txt", "w") as f:
         f.write(random_string())

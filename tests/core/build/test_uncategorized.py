@@ -22,7 +22,11 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.api.buck_result import BuckException
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
-from buck2.tests.e2e_util.helper.utils import json_get, read_what_ran
+from buck2.tests.e2e_util.helper.utils import (
+    get_buck2_re_use_case,
+    json_get,
+    read_what_ran,
+)
 
 
 @buck_test(data_dir="anon_exec_deps")
@@ -144,8 +148,17 @@ async def test_upload_all_actions(buck: Buck) -> None:
 
     # Now, download the action. This will succeed only if we uploaded it.
     digest = what_ran[0]["reproducer"]["details"]["digest"]
+    use_case = await get_buck2_re_use_case(buck)
     subprocess.check_call(
-        ["dotslash", os.environ["RECLI"], "cas", "download-action", digest]
+        [
+            "dotslash",
+            os.environ["RECLI"],
+            "--use-case",
+            use_case,
+            "cas",
+            "download-action",
+            digest,
+        ]
     )
 
 

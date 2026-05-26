@@ -14,7 +14,12 @@ import subprocess
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
-from buck2.tests.e2e_util.helper.utils import json_get, random_string, read_what_ran
+from buck2.tests.e2e_util.helper.utils import (
+    get_buck2_re_use_case,
+    json_get,
+    random_string,
+    read_what_ran,
+)
 
 
 @buck_test()
@@ -91,8 +96,17 @@ async def test_remote_action(buck: Buck) -> None:
     what_ran = await read_what_ran(buck)
     assert len(what_ran) == 1
     digest = what_ran[0]["reproducer"]["details"]["digest"]
+    use_case = await get_buck2_re_use_case(buck)
     action_definition = subprocess.check_output(
-        ["dotslash", os.environ["RECLI"], "cas", "download-action", digest],
+        [
+            "dotslash",
+            os.environ["RECLI"],
+            "--use-case",
+            use_case,
+            "cas",
+            "download-action",
+            digest,
+        ],
         text=True,
     )
     # Though RE action has "a" first and then "z"

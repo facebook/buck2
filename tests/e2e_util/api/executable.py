@@ -47,6 +47,9 @@ class Executable:
     def set_env(self, key: str, value: str) -> None:
         self._env[key] = value
 
+    def get_env_var(self, key: str) -> Optional[str]:
+        return self._env.get(key)
+
     def set_windows_cmd_option(self, key: WindowsCmdOption, value: bool) -> None:
         self._windows_cmd_options[key] = value
 

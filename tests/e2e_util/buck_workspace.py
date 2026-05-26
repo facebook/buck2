@@ -129,6 +129,10 @@ async def buck_fixture(  # noqa C901 : "too complex"
     # Create a temporary file to store all lines of extra buck config values.
     extra_config_lines = []
 
+    # Override all RE use cases to use buck2-testing, which has an isolated
+    # CAS namespace (cas_store_version offset by TEST_OFFSET=200).
+    extra_config_lines.append("[buck2_re_client]\noverride_use_case = buck2-testing\n")
+
     project_dir = base_dir / "project"
 
     # Temp dir needed for EdenFS, will only be created if necessary
