@@ -47,6 +47,22 @@ mod inner {
         value: i32,
     }
 
+    trait HasItem {
+        type Item;
+    }
+
+    struct StringItem;
+
+    impl HasItem for StringItem {
+        type Item = String;
+    }
+
+    #[derive(crate::Pagable)]
+    #[pagable(bound = "T::Item: crate::Pagable")]
+    struct WithAssociatedBound<T: HasItem> {
+        item: T::Item,
+    }
+
     #[cfg(test)]
     mod tests {
         use std::collections::HashMap;
@@ -122,6 +138,20 @@ mod inner {
             let restored = WithStaticStr::pagable_deserialize(&mut deserializer)?;
 
             assert_eq!(original, restored);
+            Ok(())
+        }
+
+        #[test]
+        fn test_associated_type_bound() -> crate::Result<()> {
+            let t1 = WithAssociatedBound::<StringItem> {
+                item: "associated".to_owned(),
+            };
+            let mut serializer = TestingSerializer::new();
+            t1.pagable_serialize(&mut serializer)?;
+            let bytes = serializer.finish();
+            let mut deserializer = TestingDeserializer::new(&bytes);
+            let t2 = WithAssociatedBound::<StringItem>::pagable_deserialize(&mut deserializer)?;
+            assert_eq!(t2.item, "associated");
             Ok(())
         }
 

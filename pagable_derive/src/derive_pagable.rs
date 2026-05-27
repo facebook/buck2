@@ -24,7 +24,9 @@ use syn::LitStr;
 use syn::Token;
 use syn::Type;
 use syn::Variant;
+use syn::WherePredicate;
 use syn::parse::ParseStream;
+use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 
 pub(crate) fn derive_pagable(
@@ -230,13 +232,6 @@ fn impl_generics(
     generics: &Generics,
     attrs: &PagableAttrs,
 ) -> syn::Result<(proc_macro2::TokenStream, proc_macro2::TokenStream)> {
-    if let Some(bound) = &attrs.bound {
-        if !bound.is_empty() {
-            let bound = bound.parse::<proc_macro2::TokenStream>()?;
-            return Ok((quote! { < #bound > }, quote! { <'de, #bound > }));
-        }
-    }
-
     let mut impl_generics = Vec::new();
     for p in &generics.params {
         impl_generics.push(match p {
@@ -265,6 +260,21 @@ fn impl_generics(
     }
 }
 
+fn where_clause(generics: &Generics, attrs: &PagableAttrs) -> proc_macro2::TokenStream {
+    let own = generics
+        .where_clause
+        .as_ref()
+        .map(|where_clause| where_clause.predicates.iter().cloned().collect::<Vec<_>>())
+        .unwrap_or_default();
+    let extra = attrs.bound.iter().flatten();
+    let extra_is_empty = attrs.bound.as_ref().is_none_or(Vec::is_empty);
+    if own.is_empty() && extra_is_empty {
+        return quote! {};
+    }
+    let predicates = own.iter().chain(extra);
+    quote! {  where #(#predicates,)* }
+}
+
 fn derive_pagable_impl(
     input: proc_macro2::TokenStream,
     generate_serialize: bool,
@@ -273,10 +283,11 @@ fn derive_pagable_impl(
     let input: DeriveInput = syn::parse2(input)?;
     let name = &input.ident;
     let name_str = name.to_string();
-    let (_impl_generics, type_generics, where_clause) = input.generics.split_for_impl();
+    let (_impl_generics, type_generics, _where_clause) = input.generics.split_for_impl();
 
     let attrs = extract_attrs(&input.attrs)?;
     let (ser_impl_generics, de_impl_generics) = impl_generics(&input.generics, &attrs)?;
+    let where_clause = where_clause(&input.generics, &attrs);
 
     if attrs.skip {
         return Err(syn::Error::new(
@@ -310,7 +321,7 @@ fn derive_pagable_impl(
         quote! {
             #[allow(clippy::redundant_closure_call, unused, clippy::todo)]
             impl #de_impl_generics pagable::PagableDeserialize<'de> for #name #type_generics #where_clause {
-                fn pagable_deserialize<De: pagable::PagableDeserializer<'de> + ?Sized>(deserializer: &mut De) -> pagable::Result<Self> {
+                fn pagable_deserialize<__D: pagable::PagableDeserializer<'de> + ?Sized>(deserializer: &mut __D) -> pagable::Result<Self> {
                     let res : pagable::Result<Self> = (|| {Ok(#body)})();
                     pagable::__internal::anyhow::Context::with_context(res, || format!("deserializing type {}", #name_str))
                 }
@@ -441,7 +452,7 @@ struct PagableAttrs {
     span: Option<Span>,
     skip: bool,
     flatten_serde: bool,
-    bound: Option<String>,
+    bound: Option<Vec<WherePredicate>>,
     discard: Option<String>,
 }
 
@@ -492,7 +503,15 @@ fn extract_attrs(attrs: &[Attribute]) -> syn::Result<PagableAttrs> {
                     if opts.bound.is_some() {
                         return Err(input.error("`bound` was set twice"));
                     }
-                    opts.bound = Some(bound.value());
+                    let predicates = bound
+                        .parse_with(Punctuated::<WherePredicate, Token![,]>::parse_terminated)
+                        .map_err(|err| {
+                            syn::Error::new(
+                                bound.span(),
+                                format!("failed to parse `bound = \"...\"` as a comma-separated list of `where` predicates: {err}"),
+                            )
+                        })?;
+                    opts.bound = Some(predicates.into_iter().collect());
                 }
 
                 if input.is_empty() {

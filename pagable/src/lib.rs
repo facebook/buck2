@@ -70,6 +70,7 @@ pub mod __internal {
     pub use inventory;
     pub use once_cell;
     pub use serde;
+    pub use static_assertions;
 }
 
 // @patternlint-disable-next-line buck2-no-use-anyhow
