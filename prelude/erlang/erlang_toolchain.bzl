@@ -221,6 +221,8 @@ default_toolchain_script_args_pre = cmd_args(
     "+A0",
     "+S1:1",
     "+sbtu",
+    "+SDio",
+    "1",
     "+MMscs",
     "8",
     "+MMsco",
@@ -229,6 +231,8 @@ default_toolchain_script_args_pre = cmd_args(
     "minimal",
     "-noinput",
     "-noshell",
+    "-boot",
+    "no_dot_erlang",
     "-eval",
 )
 default_toolchain_script_args_post = cmd_args("-s", "erlang", "halt", "--")
