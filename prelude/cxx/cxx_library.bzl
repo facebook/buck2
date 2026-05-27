@@ -77,6 +77,7 @@ load(
     "LinkOrdering",
     "LinkStrategy",
     "LinkableFlavor",  # @unused Used as a type
+    "LinkedObject",
     "ObjectsLinkable",
     "SharedLibLinkable",
     "SwiftmoduleLinkable",  # @unused Used as a type
@@ -194,12 +195,14 @@ load(
 )
 load(":diagnostics.bzl", "check_sub_target")
 load(":gcno.bzl", "GcnoFilesInfo")
+load(":hip_debug_extract.bzl", "PRE_EXTRACT_SUFFIX", "hip_debug_extract_available")
 load(":index_store.bzl", "IndexStoreInfo", "create_index_store_subtargets_and_provider")
 load(
     ":link.bzl",
     "CxxLinkResult",  # @unused Used as a type
     "CxxLinkerMapData",
     "cxx_link_shared_library",
+    "link_args_have_hip_device_debug",
 )
 load(
     ":link_groups.bzl",
@@ -271,6 +274,7 @@ CxxLibraryOutput = record(
     # May be None when Split DWARF is disabled, for static/static-pic libraries,
     # for some types of synthetic link objects or for pre-built shared libraries.
     dwp = field(Artifact | None, None),
+    hip_arch_debug_files = field(dict[str, list[Artifact]], {}),
     # A shared shared library may have an associated PDB file with
     # its corresponding Windows debug info.
     pdb = field(Artifact | None, None),
@@ -1143,6 +1147,8 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                         ),
                         children = impl_params.additional.static_external_debug_info,
                     ),
+                    has_hip_device_debug = compiled_srcs.pic.has_hip_device_debug,
+                    hip_arch_debug_files = compiled_srcs.pic.hip_arch_debug_files,
                     metadata = cxx_attr_dep_metadata(ctx),
                 ),
                 stripped = LinkInfo(
@@ -1155,6 +1161,8 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                             link_whole = True,
                         )
                     ],
+                    has_hip_device_debug = compiled_srcs.pic.has_hip_device_debug,
+                    hip_arch_debug_files = compiled_srcs.pic.hip_arch_debug_files,
                     metadata = cxx_attr_dep_metadata(ctx),
                 ),
             ),
@@ -1766,6 +1774,26 @@ def _form_library_outputs(
             has_hip_device_debug = compile_output.has_hip_device_debug,
         )
         shlib = result.link_result.linked_object
+
+        hip_debug = compile_output.hip_arch_debug_files
+        if hip_debug:
+            shlib = LinkedObject(
+                output = shlib.output,
+                bitcode_bundle = shlib.bitcode_bundle,
+                unstripped_output = shlib.unstripped_output,
+                prebolt_output = shlib.prebolt_output,
+                link_args = shlib.link_args,
+                dwp = shlib.dwp,
+                hip_arch_debug_files = hip_debug,
+                external_debug_info = shlib.external_debug_info,
+                linker_argsfile = shlib.linker_argsfile,
+                linker_command = shlib.linker_command,
+                index_argsfile = shlib.index_argsfile,
+                import_library = shlib.import_library,
+                pdb = shlib.pdb,
+                split_debug_output = shlib.split_debug_output,
+            )
+
         extra_outputs = result.link_result.extra_outputs
 
         link_cmd_debug_output_file = None
@@ -1782,6 +1810,7 @@ def _form_library_outputs(
             object_files = compile_output.objects,
             external_debug_info = shlib.external_debug_info,
             dwp = shlib.dwp,
+            hip_arch_debug_files = hip_debug,
             linker_map = result.link_result.linker_map_data,
             sub_targets = extra_outputs
             | {
@@ -2344,9 +2373,12 @@ def _shared_library(
             # deps that get statically linked in.
             effective_shlib_interfaces_mode = ShlibInterfacesMode("disabled")
 
+    needs_extract = hip_debug_extract_available(cxx_toolchain) and (has_hip_device_debug or link_args_have_hip_device_debug(links))
+    link_output = flavored_output(soname) + PRE_EXTRACT_SUFFIX if needs_extract else flavored_output(soname)
+
     link_result = cxx_link_shared_library(
         ctx = ctx,
-        output = flavored_output(soname),
+        output = link_output,
         opts = link_options(
             enable_distributed_thinlto = getattr(ctx.attrs, "enable_distributed_thinlto", False),
             links = links,

@@ -90,10 +90,13 @@ load(
     "NO_MATCH_LABEL",
     "should_discard_group",
 )
+load(":hip_debug_extract.bzl", "PRE_EXTRACT_SUFFIX", "hip_debug_extract_available")
 load(
     ":link.bzl",
     "CxxLinkerMapData",  # @unused Used as a type
+    "collect_hip_debug_from_links",
     "cxx_link_shared_library",
+    "link_args_have_hip_device_debug",
 )
 load(
     ":link_types.bzl",
@@ -927,13 +930,17 @@ def _create_link_group(
     else:
         link_execution_preference = LinkExecutionPreference("any")
 
+    link_args = [LinkArgs(infos = inputs)]
+    needs_extract = hip_debug_extract_available(get_cxx_toolchain_info(ctx)) and link_args_have_hip_device_debug(link_args)
+    output_name = spec.name + PRE_EXTRACT_SUFFIX if needs_extract else spec.name
+
     # link the rule
     link_result = cxx_link_shared_library(
         ctx = ctx,
-        output = paths.join("__link_groups__", spec.name),
+        output = paths.join("__link_groups__", output_name),
         name = spec.name if spec.is_shared_lib else None,
         opts = link_options(
-            links = [LinkArgs(infos = inputs)],
+            links = link_args,
             category_suffix = params.category_suffix,
             identifier = spec.name,
             # TODO: anonymous targets cannot be used with dynamic output yet
@@ -944,8 +951,28 @@ def _create_link_group(
         ),
         anonymous = params.anonymous,
     )
+    linked_obj = link_result.linked_object
+    hip_debug = collect_hip_debug_from_links(link_args)
+    if hip_debug:
+        linked_obj = LinkedObject(
+            output = linked_obj.output,
+            bitcode_bundle = linked_obj.bitcode_bundle,
+            unstripped_output = linked_obj.unstripped_output,
+            prebolt_output = linked_obj.prebolt_output,
+            link_args = linked_obj.link_args,
+            dwp = linked_obj.dwp,
+            hip_arch_debug_files = hip_debug,
+            external_debug_info = linked_obj.external_debug_info,
+            linker_argsfile = linked_obj.linker_argsfile,
+            linker_command = linked_obj.linker_command,
+            index_argsfile = linked_obj.index_argsfile,
+            import_library = linked_obj.import_library,
+            pdb = linked_obj.pdb,
+            split_debug_output = linked_obj.split_debug_output,
+        )
+
     return _CreatedLinkGroup(
-        linked_object = link_result.linked_object,
+        linked_object = linked_obj,
         labels_to_links = filtered_labels_to_links,
         linker_map_data = link_result.linker_map_data,
     )

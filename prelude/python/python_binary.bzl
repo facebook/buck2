@@ -357,6 +357,13 @@ def _compute_pex_providers(
     extra_manifests = create_manifest_for_source_map(ctx, "extra_manifests", extra_artifacts)
     package_style = get_package_style(ctx)
 
+    # Collect HIP sidecars from shared libs before stripping (strip replaces LinkedObjects).
+    hip_all_debug_files = {}
+    for shlib, _libdir in shared_libs:
+        for arch, files in shlib.lib.hip_arch_debug_files.items():
+            hip_all_debug_files.setdefault(arch, [])
+            hip_all_debug_files[arch].extend(files)
+
     # Strip native libraries and extensions and update the .gnu_debuglink references if we are extracting
     # debug symbols from the par
     debuginfo_files = []
@@ -381,6 +388,7 @@ def _compute_pex_providers(
                 debuginfos[name] = (stripped, debuginfo)
             else:
                 stripped, debuginfo = existing
+
             shlib = SharedLibrary(
                 soname = shlib.soname,
                 label = shlib.label,
@@ -425,6 +433,13 @@ def _compute_pex_providers(
         else None,
     )
 
+    # Add GPU sidecars to debuginfo regardless of strip_libpar setting.
+    for arch, debug_artifacts in hip_all_debug_files.items():
+        for debug_artifact in debug_artifacts:
+            debuginfo_files.append(
+                (debug_artifact.basename, debug_artifact),
+            )
+
     # Convert preloaded deps to a set of their names to be loaded by.
     preload_labels = set([_linkable_graph(d).label for d in python_attr_preload_deps(ctx) if _linkable_graph(d)])
 
@@ -461,6 +476,20 @@ def _compute_pex_providers(
                 default_output = gc_sections_data.gc_sections,
                 other_outputs = [gc_sections_data.binary],
             )
+        ]
+
+    if hip_all_debug_files:
+        all_files = [f for files in hip_all_debug_files.values() for f in files]
+        hip_debug_manifest = ctx.actions.write(
+            "__hip_debug_manifest_par__.txt",
+            cmd_args(all_files, delimiter = "\n"),
+        )
+        pex.sub_targets["hip_debug"] = [
+            DefaultInfo(
+                default_output = hip_debug_manifest,
+                other_outputs = all_files,
+                sub_targets = {arch: [DefaultInfo(default_outputs = files)] for arch, files in hip_all_debug_files.items()},
+            ),
         ]
 
     updated_pex, validation_output = _add_executable_subtargets(

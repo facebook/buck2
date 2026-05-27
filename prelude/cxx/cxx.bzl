@@ -212,6 +212,14 @@ def _get_shared_link_style_sub_targets_and_providers(
     providers = []
     if output.dwp != None:
         sub_targets["dwp"] = [DefaultInfo(default_output = output.dwp)]
+    if output.hip_arch_debug_files:
+        all_files = [f for files in output.hip_arch_debug_files.values() for f in files]
+        sub_targets["hip_debug"] = [
+            DefaultInfo(
+                default_outputs = all_files,
+                sub_targets = {arch: [DefaultInfo(default_outputs = files)] for arch, files in output.hip_arch_debug_files.items()},
+            ),
+        ]
     if output.pdb != None:
         sub_targets[PDB_SUB_TARGET] = get_pdb_providers(pdb = output.pdb, binary = output.default)
     cxx_toolchain = get_cxx_toolchain_info(ctx)
@@ -598,6 +606,14 @@ def _create_prebuilt_library_outputs(
                         sub_targets[DUMPBIN_SUB_TARGET] = get_dumpbin_providers(ctx, shared_lib.output, dumpbin_toolchain_path)
                     if shared_lib.dwp != None:
                         sub_targets["dwp"] = [DefaultInfo(default_output = shared_lib.dwp)]
+                    if shared_lib.hip_arch_debug_files:
+                        all_files = [f for files in shared_lib.hip_arch_debug_files.values() for f in files]
+                        sub_targets["hip_debug"] = [
+                            DefaultInfo(
+                                default_outputs = all_files,
+                                sub_targets = {arch: [DefaultInfo(default_outputs = files)] for arch, files in shared_lib.hip_arch_debug_files.items()},
+                            ),
+                        ]
 
         # TODO(cjhopman): is it okay that we sometimes don't have a linkable?
         outputs[output_style] = out
