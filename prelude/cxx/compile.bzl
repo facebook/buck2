@@ -31,6 +31,7 @@ load(
     "declare_cuda_dist_compile_output",
 )
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
+load("@prelude//cxx:hip_debug_extract.bzl", "hip_debug_extract_available", "hip_debug_extract_compile_object")
 load(
     "@prelude//ide_integrations/xcode:argsfiles.bzl",
     "XCODE_ARG_SUBSTITUTIONS",
@@ -523,6 +524,8 @@ def _prepare_cxx_compilation(
             has_content_based_path = content_based,
         )
 
+    hip_device_debug = src_compile_cmd.src.extension == ".hip" and toolchain.hip_device_debug_extract
+
     declared_artifacts = CxxCompileOutput(
         object = object,
         object_format = object_format,
@@ -540,6 +543,7 @@ def _prepare_cxx_compilation(
         dist_cuda = cuda_dist_output,
         pch_object = pch_object,
         json_error = json_error,
+        hip_device_debug = hip_device_debug,
     )
 
     info = CxxCompileInfo(
@@ -1138,6 +1142,46 @@ def compile_cxx(
             use_header_units = use_header_units,
         )
     )
+
+    # Strip per-arch device DWARF from each .hip TU's `.o` into
+    # sidecars. Replaces `.object` with the stripped artifact; downstream
+    # linker concatenates the stripped bundles into the final
+    # `.hip_fatbin`.
+    if hip_debug_extract_available(toolchain):
+        processed = []
+        for i, out in enumerate(objects):
+            if out.hip_device_debug:
+                hip_outs = hip_debug_extract_compile_object(
+                    actions = actions,
+                    toolchain = toolchain,
+                    obj = out.object,
+                    identifier = infos[i].identifier,
+                )
+                processed.append(
+                    CxxCompileOutput(
+                        object = hip_outs.patched_output,
+                        object_format = out.object_format,
+                        object_has_external_debug_info = out.object_has_external_debug_info,
+                        external_debug_info = out.external_debug_info,
+                        clang_remarks = out.clang_remarks,
+                        clang_llvm_statistics = out.clang_llvm_statistics,
+                        clang_trace = out.clang_trace,
+                        gcno_file = out.gcno_file,
+                        index_store = out.index_store,
+                        assembly = out.assembly,
+                        diagnostics = out.diagnostics,
+                        clang_tidy_diagnostics = out.clang_tidy_diagnostics,
+                        preproc = out.preproc,
+                        dist_cuda = out.dist_cuda,
+                        pch_object = out.pch_object,
+                        json_error = out.json_error,
+                        hip_device_debug = out.hip_device_debug,
+                        hip_arch_debug_files = hip_outs.arch_debug_files,
+                    )
+                )
+            else:
+                processed.append(out)
+        return processed
 
     return objects
 

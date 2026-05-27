@@ -184,6 +184,10 @@ CxxCompileOutput = record(
     dist_cuda = field(CudaDistributedCompileOutput | None, None),
     pch_object = field(Artifact | None, None),
     json_error = field(Artifact | None, None),
+    # True for HIP TUs under the device-debug-extract modifier.
+    hip_device_debug = field(bool, False),
+    # Per-arch sidecar .debug files from hip_debug_extract_compile_object.
+    hip_arch_debug_files = field(dict[str, Artifact], {}),
 )
 
 CxxCompileFlavor = enum(

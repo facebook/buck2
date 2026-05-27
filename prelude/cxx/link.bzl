@@ -72,6 +72,7 @@ load(
 )
 load(":debug.bzl", "SplitDebugMode")
 load(":dwp.bzl", "dwp", "dwp_available")
+load(":hip_debug_extract.bzl", "PRE_EXTRACT_SUFFIX", "hip_debug_extract_available")
 load(":link_types.bzl", "CxxLinkResultType", "LinkOptions", "merge_link_options")
 load(
     ":linker.bzl",
@@ -474,6 +475,16 @@ def cxx_link_into(
             referenced_objects = [dwp_inputs],
             action_execution_properties = action_execution_properties,
         )
+
+    # Per-TU device-debug stripping runs at compile time (compile.bzl).
+    # Rename the linker's -pre_extract output back to the canonical name.
+    if hip_debug_extract_available(cxx_toolchain_info) and output.short_path.endswith(PRE_EXTRACT_SUFFIX):
+        renamed = ctx.actions.declare_output(
+            output.short_path.removesuffix(PRE_EXTRACT_SUFFIX),
+            has_content_based_path = False,
+        )
+        ctx.actions.copy_file(renamed.as_output(), output)
+        output = renamed
 
     if is_result_executable:
         output = stamp_build_info(ctx, output)

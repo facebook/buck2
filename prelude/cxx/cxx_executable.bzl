@@ -38,6 +38,11 @@ load(
     "RuntimeDependencyHandling",
 )
 load(
+    "@prelude//cxx:hip_debug_extract.bzl",
+    "PRE_EXTRACT_SUFFIX",
+    "hip_debug_extract_available",
+)
+load(
     "@prelude//cxx:link_groups_types.bzl",
     "LinkGroupsDebugLinkInfo",
     "LinkGroupsDebugLinkableItem",
@@ -915,6 +920,29 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
             ),
         ]
 
+    # Collect per-TU per-arch sidecars from compile outputs into a
+    # merged dict keyed by arch. Multiple TUs append to the same arch.
+    hip_all_debug_files = {}
+    for out in cxx_outs:
+        for arch, debug_file in out.hip_arch_debug_files.items():
+            hip_all_debug_files.setdefault(arch, [])
+            hip_all_debug_files[arch].append(debug_file)
+
+    if hip_all_debug_files:
+        per_arch_debug_subs = {arch: [DefaultInfo(default_outputs = files)] for arch, files in hip_all_debug_files.items()}
+        all_files = [f for files in hip_all_debug_files.values() for f in files]
+        hip_debug_manifest = ctx.actions.write(
+            "__hip_debug_manifest__.txt",
+            cmd_args(all_files, delimiter = "\n"),
+        )
+        sub_targets["hip_debug"] = [
+            DefaultInfo(
+                default_output = hip_debug_manifest,
+                other_outputs = all_files,
+                sub_targets = per_arch_debug_subs,
+            ),
+        ]
+
     if binary.pdb:
         # A `pdb` sub-target which generates the `.pdb` file for this binary.
         sub_targets[PDB_SUB_TARGET] = get_pdb_providers(pdb = binary.pdb, binary = binary.output)
@@ -1137,6 +1165,9 @@ def get_cxx_executable_product_name(ctx: AnalysisContext) -> str:
     if cxx_stamp_build_info(ctx):
         # build_info_stamping is executed after BOLT, make sure the prestamp flag is the innermost prefix
         name += PRE_STAMPED_SUFFIX
+    if hip_debug_extract_available(get_cxx_toolchain_info(ctx)):
+        # Pre-suffix so hip_debug_extract can strip back to canonical name.
+        name += PRE_EXTRACT_SUFFIX
     if cxx_use_bolt(ctx):
         name += "-wrapper"
     return name

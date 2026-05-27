@@ -452,6 +452,10 @@ LinkedObject = record(
     # its corresponding DWARF debug info.
     # May be None when Split DWARF is disabled or for some types of synthetic link objects.
     dwp = field(Artifact | None, None),
+    # Per-gfx-arch sidecar `.debug` files keyed by arch label.
+    # Not set by cxx_link_into(); populated by callers (cxx_library,
+    # link_groups) from compile outputs after linking.
+    hip_arch_debug_files = field(dict[str, list[Artifact]], {}),
     # Additional dirs or paths that contain debug info referenced by the linked
     # object (e.g. split dwarf files or PDB file).
     external_debug_info = field(ArtifactTSet, ArtifactTSet()),
