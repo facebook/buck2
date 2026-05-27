@@ -51,6 +51,7 @@ pub mod vtable_register;
 pub use vtable_register::VtableRegistered;
 
 pub(crate) mod static_value;
+pub use static_value::StaticHeapEntry;
 pub use static_value::StaticValueEntry;
 pub use static_value::StaticValueRegistered;
 #[allow(unused_imports)]

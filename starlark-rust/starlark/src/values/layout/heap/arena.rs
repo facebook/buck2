@@ -428,7 +428,7 @@ impl<A: ArenaAllocator> Arena<A> {
 
     // Iterate over the values in the heap in the order they
     // were added.
-    fn for_each_ordered<'a>(&'a mut self, mut f: impl FnMut(ArenaVisitEvent<'a>)) {
+    fn for_each_ordered<'a>(&'a self, mut f: impl FnMut(ArenaVisitEvent<'a>)) {
         for bump in [&self.drop, &self.non_drop] {
             f(ArenaVisitEvent::EnterBump);
             Self::for_each_bump_ordered(bump, |x| f(ArenaVisitEvent::Value(x)));
@@ -521,7 +521,7 @@ impl<A: ArenaAllocator> Arena<A> {
     }
 
     pub(crate) unsafe fn visit_arena<'v>(
-        &'v mut self,
+        &'v self,
         heap_kind: HeapKind,
         forward_heap_kind: HeapKind,
         visitor: &mut impl ArenaVisitor<'v>,
@@ -757,7 +757,7 @@ mod tests {
     #[test]
     // Make sure that even if there are some blackholes when we drop, we can still walk to heap
     fn drop_with_blackhole() {
-        let mut arena = Arena::default();
+        let arena = Arena::default();
         arena.alloc(mk_str("test"));
         // reserve but do not fill!
         reserve_str(&arena, &mk_str(""));

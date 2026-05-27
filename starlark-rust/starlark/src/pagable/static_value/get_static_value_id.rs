@@ -27,6 +27,7 @@ use itertools::Itertools;
 use pagable::Pagable;
 
 use super::registry::StaticValueEntry;
+use crate::pagable::static_value::registry::StaticHeapEntry;
 use crate::pagable::static_value::static_string::get_static_strings;
 use crate::values::FrozenValue;
 use crate::values::layout::vtable::StarlarkValueRawPtr;
@@ -82,13 +83,21 @@ fn frozen_to_raw(fv: FrozenValue) -> StarlarkValueRawPtr {
 }
 
 fn get_all_static_values() -> impl Iterator<Item = FrozenValue> {
-    get_static_strings().chain(get_static_values())
+    get_static_strings()
+        .chain(get_static_values())
+        .chain(get_static_heap_values())
 }
 
 fn get_static_values() -> impl Iterator<Item = FrozenValue> {
     inventory::iter::<StaticValueEntry>()
         .sorted_by_key(|v| (&v.file, &v.line))
         .map(|e| (e.get_value)())
+}
+
+fn get_static_heap_values() -> impl Iterator<Item = FrozenValue> {
+    inventory::iter::<StaticHeapEntry>()
+        .sorted_by_key(|v| (&v.file, &v.line))
+        .flat_map(|e| (e.get_heap)().iter_values())
 }
 
 /// Look up a `FrozenValue` by its `StaticValueId`.

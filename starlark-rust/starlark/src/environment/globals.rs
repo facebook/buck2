@@ -223,7 +223,8 @@ impl Globals {
         self.0.variables.iter().map(|(n, v)| (n.as_str(), v.value))
     }
 
-    pub(crate) fn heap(&self) -> &FrozenHeapRef {
+    /// The heap that owns the values in this globals.
+    pub fn heap(&self) -> &FrozenHeapRef {
         &self.0.heap
     }
 
@@ -507,6 +508,14 @@ macro_rules! globals_static {
                 concat!(module_path!(), "::", stringify!($name)),
                 $init,
             );
+
+        $crate::__derive_refs::inventory::submit! {
+            $crate::__derive_refs::StaticHeapEntry {
+                file: file!(),
+                line: line!(),
+                get_heap: || $name.globals().heap(),
+            }
+        }
     };
 }
 

@@ -77,6 +77,23 @@ impl<'v> StarlarkValue<'v> for SimpleData {
     type Canonical = Self;
 }
 
+/// Round-trip an OFV through the testing serializer. Returns the restored OFV.
+fn round_trip_owned(
+    heap_ref: FrozenHeapRef,
+    root_fv: FrozenValue,
+) -> crate::Result<OwnedFrozenValue> {
+    // SAFETY: `heap_ref` owns the arena hosting `root_fv`.
+    let owned = unsafe { OwnedFrozenValue::new(heap_ref, root_fv) };
+    let mut ser = pagable::testing::TestingSerializer::new();
+    owned
+        .pagable_serialize(&mut ser)
+        .map_err(crate::Error::new_other)?;
+    let bytes = ser.finish();
+
+    let mut de = pagable::testing::TestingDeserializer::new(&bytes);
+    OwnedFrozenValue::pagable_deserialize(&mut de).map_err(crate::Error::new_other)
+}
+
 fn round_trip_heap_ref(heap_ref: &FrozenHeapRef) -> crate::Result<FrozenHeapRef> {
     let mut ser = pagable::testing::TestingSerializer::new();
     heap_ref
@@ -1469,6 +1486,81 @@ fn test_static_frozen_value_round_trip() -> crate::Result<()> {
         "Static string should point to the same static address"
     );
 
+    Ok(())
+}
+
+starlark::globals_static!(
+    PAGABLE_TEST_STATIC_GLOBALS = |globals| {
+        globals.set(
+            "global_value",
+            SimpleData {
+                flag: true,
+                count: 17,
+            },
+        );
+    }
+);
+
+starlark::methods_static!(
+    PAGABLE_TEST_STATIC_METHODS = |methods| {
+        methods.set_attribute(
+            "method_value",
+            SimpleData {
+                flag: false,
+                count: 23,
+            },
+            None,
+        );
+    }
+);
+
+fn assert_static_value_round_trip(
+    static_fv: FrozenValue,
+    label: usize,
+) -> crate::Result<FrozenValue> {
+    let heap = FrozenHeap::new();
+    let root = heap.alloc_simple(RefData {
+        label,
+        target: static_fv,
+    });
+    let heap_ref = heap.into_ref_named(TestHeapName::heap_name("test_static_heap_value"));
+
+    let restored = round_trip_owned(heap_ref, root)?;
+    let ref_data: &RefData = restored.value().downcast_ref().unwrap();
+    assert_eq!(ref_data.label, label);
+    assert_eq!(
+        ref_data.target.ptr_value().ptr_value_untagged(),
+        static_fv.ptr_value().ptr_value_untagged(),
+    );
+    Ok(ref_data.target)
+}
+
+#[test]
+fn test_globals_static_heap_value_round_trip() -> crate::Result<()> {
+    let static_fv = PAGABLE_TEST_STATIC_GLOBALS
+        .globals()
+        .get_frozen("global_value")
+        .expect("static global should exist");
+
+    let restored = assert_static_value_round_trip(static_fv, 8)?;
+    let restored_data = restored
+        .to_value()
+        .downcast_ref::<SimpleData>()
+        .expect("static global should still point to SimpleData");
+    assert_eq!(restored_data.flag, true);
+    assert_eq!(restored_data.count, 17);
+    Ok(())
+}
+
+#[test]
+fn test_methods_static_heap_value_round_trip() -> crate::Result<()> {
+    let static_fv = PAGABLE_TEST_STATIC_METHODS
+        .methods()
+        .members()
+        .find_map(|(name, value)| (name == "method_value").then_some(value))
+        .expect("static method attribute should exist");
+
+    assert_static_value_round_trip(static_fv, 9)?;
     Ok(())
 }
 

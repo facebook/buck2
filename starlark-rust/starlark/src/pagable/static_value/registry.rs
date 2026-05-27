@@ -25,6 +25,7 @@
 //! We use the inventory crate to collect all registered static values at
 //! compile time and build lookup tables at runtime.
 
+use crate::values::FrozenHeapRef;
 use crate::values::FrozenValue;
 
 /// Unified registry entry for a static frozen value.
@@ -60,3 +61,22 @@ impl StaticValueEntry {
 }
 
 inventory::collect!(StaticValueEntry);
+
+/// Registry entry for a static globals or methods heap.
+///
+/// The `globals_static!` and `methods_static!` macros register their backing
+/// heaps here, so all values allocated in those heaps are treated as static
+/// values during pagable serialization.
+pub struct StaticHeapEntry {
+    /// Source file where this static heap was registered (from `file!()`).
+    pub file: &'static str,
+    /// Source line where this static heap was registered (from `line!()`).
+    pub line: u32,
+    /// Function to get the static heap.
+    ///
+    /// We use a function pointer instead of storing the heap directly so the
+    /// `inventory::submit!` payload can remain const-compatible.
+    pub get_heap: fn() -> &'static FrozenHeapRef,
+}
+
+inventory::collect!(StaticHeapEntry);

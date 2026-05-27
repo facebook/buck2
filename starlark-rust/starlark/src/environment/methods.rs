@@ -95,6 +95,11 @@ impl Methods {
         }
     }
 
+    /// The heap that owns the values in these methods.
+    pub fn heap(&self) -> &FrozenHeapRef {
+        &self.heap
+    }
+
     #[inline]
     pub(crate) fn get_hashed(&self, name: Hashed<&str>) -> Option<&UnboundValue> {
         self.members.get_hashed_str(name)
@@ -336,6 +341,14 @@ macro_rules! methods_static {
                 concat!(module_path!(), "::", stringify!($name)),
                 $init,
             );
+
+        $crate::__derive_refs::inventory::submit! {
+            $crate::__derive_refs::StaticHeapEntry {
+                file: file!(),
+                line: line!(),
+                get_heap: || $name.methods().heap(),
+            }
+        }
     };
 }
 

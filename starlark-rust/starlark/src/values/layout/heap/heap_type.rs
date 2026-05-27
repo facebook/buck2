@@ -858,6 +858,38 @@ impl FrozenHeapRef {
         }
     }
 
+    pub(crate) fn iter_values(&self) -> impl Iterator<Item = FrozenValue> {
+        struct FrozenValueCollector(Vec<FrozenValue>);
+        let mut items = FrozenValueCollector(Vec::new());
+        if let Some(heap) = &self.0 {
+            impl<'v> ArenaVisitor<'v> for FrozenValueCollector {
+                fn enter_bump(&mut self) {}
+
+                fn regular_value(&mut self, value: &'v super::repr::AValueOrForward) {
+                    self.0.push(
+                        unsafe {
+                            value
+                                .unpack_header()
+                                .expect("static heap should not contain forwards")
+                                .unpack_value(HeapKind::Frozen)
+                        }
+                        .unpack_frozen()
+                        .expect("value from frozen heap should be frozen"),
+                    );
+                }
+
+                fn call_enter(&mut self, _function: Value<'v>, _time: ProfilerInstant) {}
+
+                fn call_exit(&mut self, _time: ProfilerInstant) {}
+            }
+            unsafe {
+                heap.arena
+                    .visit_arena(HeapKind::Frozen, HeapKind::Frozen, &mut items)
+            };
+        }
+        items.0.into_iter()
+    }
+
     /// Build a map from raw header pointer address to `ArenaOffset`
     /// for all values in this heap's arena.
     pub(crate) fn build_ptr_to_offset_map(&self) -> HashMap<usize, ArenaOffset> {
