@@ -44,6 +44,14 @@ struct StarlarkValueAttrs {
     /// Skip auto-generating `StarlarkSerialize` impl.
     /// Use this when providing a custom implementation.
     skip_pagable: bool,
+    /// Skip pagable vtable registration entirely. For types whose frozen canonical
+    /// form handles serialization (e.g. unfrozen types with `type Canonical = FrozenFoo`).
+    skip_vtable: bool,
+    /// Register only the typing-side vtable (`TyStarlarkValueVTable`); skip the
+    /// pagable `AValue` vtable that would require `T: StarlarkPagable + Sync`.
+    ///
+    /// Use this for types that have no frozen counterpart.
+    ty_vtable_no_freeze: bool,
 }
 
 impl syn::parse::Parse for StarlarkValueAttrs {
@@ -56,6 +64,8 @@ impl syn::parse::Parse for StarlarkValueAttrs {
             unpack_value: false,
             starlark_type_repr: false,
             skip_pagable: false,
+            skip_vtable: false,
+            ty_vtable_no_freeze: false,
         };
 
         loop {
@@ -74,10 +84,14 @@ impl syn::parse::Parse for StarlarkValueAttrs {
                 attrs.starlark_type_repr = true;
             } else if name == "skip_pagable" {
                 attrs.skip_pagable = true;
+            } else if name == "skip_vtable" {
+                attrs.skip_vtable = true;
+            } else if name == "ty_vtable_no_freeze" {
+                attrs.ty_vtable_no_freeze = true;
             } else {
                 return Err(syn::Error::new_spanned(
                     name,
-                    "unknown attribute, allowed attributes are `UnpackValue`, `StarlarkTypeRepr`, `skip_pagable`",
+                    "unknown attribute, allowed attributes are `UnpackValue`, `StarlarkTypeRepr`, `skip_pagable`, `skip_vtable`, `ty_vtable_no_freeze`",
                 ));
             }
         }
@@ -641,6 +655,28 @@ impl ImplStarlarkValue {
                     elided_ty = #unfrozen_ty_elided,
                     impl_ty = #unfrozen_ty_with_lifetime
                 );
+            }));
+        }
+
+        if self.attrs.skip_vtable {
+            return Ok(None);
+        }
+
+        if self.attrs.ty_vtable_no_freeze {
+            let self_ty = &self.input.self_ty;
+            let elided_self_ty = {
+                let mut ty = (**self_ty).clone();
+                struct ElideLifetimes;
+                impl syn::visit_mut::VisitMut for ElideLifetimes {
+                    fn visit_lifetime_mut(&mut self, lt: &mut syn::Lifetime) {
+                        *lt = syn::parse_quote! { '_ };
+                    }
+                }
+                syn::visit_mut::VisitMut::visit_type_mut(&mut ElideLifetimes, &mut ty);
+                ty
+            };
+            return Ok(Some(quote! {
+                starlark::register_ty_starlark_value!(#elided_self_ty);
             }));
         }
 
