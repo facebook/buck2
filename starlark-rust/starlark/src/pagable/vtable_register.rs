@@ -29,23 +29,43 @@
 /// Manual implementations may break deserialization.
 pub unsafe trait VtableRegistered {}
 
-/// Register a frozen value type for deserialization. But without impl VtableRegistered.
+/// `inventory::submit!` the given entry when starlark is built with the
+/// `pagable` feature; expand to nothing otherwise.
+///
+/// The cfg must gate the macro **definition**, not the body: callers are
+/// `#[macro_export]` macros that expand in consumer crates, where the
+/// `pagable` feature flag does not exist and an in-body cfg would always be
+/// false.
+#[cfg(feature = "pagable")]
 #[doc(hidden)]
+#[macro_export]
+macro_rules! __pagable_inventory_submit {
+    ($($entry:tt)*) => {
+        const _: () = {
+            $crate::__derive_refs::inventory::submit! { $($entry)* }
+        };
+    };
+}
+
+#[cfg(not(feature = "pagable"))]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __pagable_inventory_submit {
+    ($($entry:tt)*) => {};
+}
+
+/// Register a frozen value type for deserialization. But without impl VtableRegistered.
 #[macro_export]
 macro_rules! register_simple_vtable_entry {
     ($type:ty) => {
-        #[allow(unexpected_cfgs)]
-        const _: () = {
-            #[cfg(feature = "pagable")]
-            $crate::__derive_refs::inventory::submit! {
-                $crate::__derive_refs::VTableRegistryEntry {
-                    deser_type_id: $crate::__derive_refs::DeserTypeId::of::<$type>(),
-                    vtable: $crate::__derive_refs::AValueVTable::new::<
-                        $crate::__derive_refs::AValueSimple<$type>
-                    >(),
-                }
+        $crate::__pagable_inventory_submit! {
+            $crate::__derive_refs::VTableRegistryEntry {
+                deser_type_id: $crate::__derive_refs::DeserTypeId::of::<$type>(),
+                vtable: $crate::__derive_refs::AValueVTable::new::<
+                    $crate::__derive_refs::AValueSimple<$type>
+                >(),
             }
-        };
+        }
     };
 }
 
@@ -83,16 +103,12 @@ macro_rules! register_avalue_simple_frozen {
 /// that use custom AValue implementations instead of `AValueSimple<T>`.
 macro_rules! register_special_avalue_frozen {
     ($starlark_value:ty, $avalue:ty) => {
-        #[allow(unexpected_cfgs)]
-        const _: () = {
-            #[cfg(feature = "pagable")]
-            inventory::submit! {
-                $crate::pagable::vtable_registry::VTableRegistryEntry {
-                    deser_type_id: $crate::__derive_refs::DeserTypeId::of::<$starlark_value>(),
-                    vtable: $crate::values::layout::vtable::AValueVTable::new::<$avalue>(),
-                }
+        $crate::__pagable_inventory_submit! {
+            $crate::pagable::vtable_registry::VTableRegistryEntry {
+                deser_type_id: $crate::__derive_refs::DeserTypeId::of::<$starlark_value>(),
+                vtable: $crate::values::layout::vtable::AValueVTable::new::<$avalue>(),
             }
-        };
+        }
     };
 }
 
