@@ -271,7 +271,9 @@ CxxToolchainInfo = provider(
         "header_mode": provider_field(typing.Any, default = None),
         "headers_as_raw_headers_mode": provider_field(typing.Any, default = None),
         "hip_compiler_info": provider_field(typing.Any, default = None),
-        # See prelude/cxx/hip_debug_extract.bzl.
+        # See prelude/cxx/hip_debug_extract.bzl. `hip_debug_extract` is the
+        # wrapper RunInfo (None on unsupported ROCm).
+        "hip_debug_extract": provider_field([RunInfo, None], default = None),
         "hip_device_debug_extract": provider_field(bool, default = False),
         "hip_gpu_archs": provider_field(list[str], default = []),
         "internal_tools": provider_field(CxxInternalTools),
@@ -328,6 +330,7 @@ def cxx_toolchain_infos(
     asm_compiler_info = None,
     as_compiler_info = None,
     hip_compiler_info = None,
+    hip_debug_extract = None,
     hip_device_debug_extract = False,
     hip_gpu_archs = [],
     cuda_compiler_info = None,
@@ -401,6 +404,7 @@ def cxx_toolchain_infos(
         header_mode = header_mode,
         headers_as_raw_headers_mode = headers_as_raw_headers_mode,
         hip_compiler_info = hip_compiler_info,
+        hip_debug_extract = hip_debug_extract,
         hip_device_debug_extract = hip_device_debug_extract,
         hip_gpu_archs = hip_gpu_archs,
         internal_tools = internal_tools,
