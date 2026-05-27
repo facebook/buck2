@@ -6,18 +6,16 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//utils:graph_utils.bzl", "post_order_traversal")
 load(
     ":common.bzl",
     "apply_buckconfig_backed_modifiers",
     "get_and_insert_modifier_info",
-    "get_constraint_setting_deps",
     "json_to_tagged_modifiers",
     "modifier_to_refs",
     "resolve_alias",
-    "resolve_modifier",
+    "resolve_configuration",
 )
-load(":name.bzl", "cfg_name")
+
 load(
     ":types.bzl",
     "BuckconfigBackedModifierInfo",
@@ -199,36 +197,4 @@ def cfg_constructor_post_constraint_analysis(*, refs: dict[str, ProviderCollecti
             if cli_modifier_validation:
                 cli_modifier_validation(constraint_setting_label, modifier)
 
-    # Modifiers are resolved in topological ordering of modifier selects. For example, if the CPU modifier
-    # is a modifier_select on OS constraint, then the OS modifier must be resolved before the CPU modifier.
-    # To determine this order, we first construct a dep graph of constraint settings based on the modifier
-    # selects. Then we perform a post order traversal of the said graph.
-    modifier_dep_graph = {
-        constraint_setting: [dep for modifier_info in modifier_infos for dep in get_constraint_setting_deps(modifier_info)]
-        for constraint_setting, modifier_infos in constraint_setting_to_modifier_infos.items()
-    }
-
-    # For topo-sort, we need to fill in empty edges for nodes that have no deps
-    for deps in modifier_dep_graph.values():
-        for dep in deps:
-            if dep not in modifier_dep_graph:
-                modifier_dep_graph[dep] = []
-
-    constraint_setting_order = post_order_traversal(modifier_dep_graph)
-
-    cfg = ConfigurationInfo(
-        constraints = {},
-        values = {},
-    )
-
-    for constraint_setting in constraint_setting_order:
-        for modifier_info in constraint_setting_to_modifier_infos.get(constraint_setting) or ():
-            constraint_value = resolve_modifier(cfg, modifier_info)
-            if constraint_value:
-                cfg.constraints[constraint_setting] = constraint_value
-
-    name = cfg_name(cfg)
-    return PlatformInfo(
-        label = name,
-        configuration = cfg,
-    )
+    return resolve_configuration(constraint_setting_to_modifier_infos)

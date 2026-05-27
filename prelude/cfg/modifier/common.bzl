@@ -7,7 +7,9 @@
 # above-listed licenses.
 
 load("@prelude//:asserts.bzl", "asserts")
+load("@prelude//utils:graph_utils.bzl", "post_order_traversal")
 load(":asserts.bzl", "verify_normalized_modifier")
+load(":name.bzl", "cfg_name")
 load(
     ":types.bzl",
     "ConditionalModifierInfo",
@@ -162,6 +164,41 @@ def resolve_modifier(cfg: ConfigurationInfo, modifier: ModifierInfo) -> Constrai
     if isinstance(modifier, ConstraintValueInfo):
         return modifier
     fail("Internal error: Found unexpected modifier `{}` type `{}`".format(modifier, type(modifier)))
+
+def resolve_configuration(constraint_setting_to_modifier_infos: dict[TargetLabel, list[ModifierInfo]]) -> PlatformInfo:
+    # Modifiers are resolved in topological ordering of modifier selects. For example, if the CPU modifier
+    # is a modifier_select on OS constraint, then the OS modifier must be resolved before the CPU modifier.
+    # To determine this order, we first construct a dep graph of constraint settings based on the modifier
+    # selects. Then we perform a post order traversal of the said graph.
+    modifier_dep_graph = {
+        constraint_setting: [dep for modifier_info in modifier_infos for dep in get_constraint_setting_deps(modifier_info)]
+        for constraint_setting, modifier_infos in constraint_setting_to_modifier_infos.items()
+    }
+
+    # For topo-sort, we need to fill in empty edges for nodes that have no deps
+    for deps in modifier_dep_graph.values():
+        for dep in deps:
+            if dep not in modifier_dep_graph:
+                modifier_dep_graph[dep] = []
+
+    constraint_setting_order = post_order_traversal(modifier_dep_graph)
+
+    cfg = ConfigurationInfo(
+        constraints = {},
+        values = {},
+    )
+
+    for constraint_setting in constraint_setting_order:
+        for modifier_info in constraint_setting_to_modifier_infos.get(constraint_setting) or ():
+            constraint_value = resolve_modifier(cfg, modifier_info)
+            if constraint_value:
+                cfg.constraints[constraint_setting] = constraint_value
+
+    name = cfg_name(cfg)
+    return PlatformInfo(
+        label = name,
+        configuration = cfg,
+    )
 
 def modifier_to_refs(modifier: Modifier, location: ModifierLocation) -> list[str]:
     # Obtain a list of targets to analyze from a modifier.
