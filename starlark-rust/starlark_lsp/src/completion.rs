@@ -45,7 +45,7 @@ use crate::exported::SymbolKind as ExportedSymbolKind;
 use crate::server::Backend;
 use crate::server::LspContext;
 use crate::server::LspOpError;
-use crate::server::LspUrl;
+use crate::server::LspUri;
 use crate::symbols::SymbolKind;
 use crate::symbols::find_symbols_at_location;
 
@@ -74,7 +74,7 @@ pub struct StringCompletionResult {
 impl<T: LspContext> Backend<T> {
     pub(crate) fn default_completion_options(
         &self,
-        document_uri: &LspUrl,
+        document_uri: &LspUri,
         document: &LspModule,
         line: u32,
         character: u32,
@@ -170,14 +170,14 @@ impl<T: LspContext> Backend<T> {
         load_path: &str,
         current_span: ResolvedSpan,
         previously_loaded: &[String],
-        document_uri: &LspUrl,
+        document_uri: &LspUri,
         workspace_root: Option<&Path>,
     ) -> Vec<CompletionItem> {
         self.context
             .resolve_load(load_path, document_uri, workspace_root)
             // FIXME(JakobDegen): Why are we throwing away errors?
             .map_err(|_| ())
-            .and_then(|url| self.get_ast_or_load_from_disk(&url).map_err(|_| ()))
+            .and_then(|uri| self.get_ast_or_load_from_disk(&uri).map_err(|_| ()))
             .into_iter()
             .flatten()
             .flat_map(|ast| {
@@ -200,7 +200,7 @@ impl<T: LspContext> Backend<T> {
         &self,
         function_name_span: &ResolvedSpan,
         document: &LspModule,
-        document_uri: &LspUrl,
+        document_uri: &LspUri,
         previously_used_named_parameters: &[String],
         workspace_root: Option<&Path>,
     ) -> impl Iterator<Item = CompletionItem> + use<T> {
@@ -238,7 +238,7 @@ impl<T: LspContext> Backend<T> {
         &self,
         identifier_definition: &IdentifierDefinition,
         document: &LspModule,
-        document_uri: &LspUrl,
+        document_uri: &LspUri,
         previously_used_named_parameters: &[String],
         workspace_root: Option<&Path>,
     ) -> Result<Option<Vec<CompletionItem>>, LspOpError> {
@@ -332,7 +332,7 @@ impl<T: LspContext> Backend<T> {
 
     pub(crate) fn string_completion_options(
         &self,
-        document_uri: &LspUrl,
+        document_uri: &LspUri,
         kind: StringCompletionType,
         current_value: &str,
         current_span: ResolvedSpan,

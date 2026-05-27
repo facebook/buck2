@@ -240,7 +240,7 @@ log = "0.4.27"
 logos = "0.15"
 lru = "0.16.3"
 lsp-server = "0.7.9"
-lsp-types = "0.94.1"
+lsp-types = "0.97.0"
 maplit = "1.0.2"
 mappable-rc = { version = "0.1.1", features = ["std"] }
 memchr = "2.8.0"
@@ -331,6 +331,7 @@ tonic-prost = { version = "0.14.5" }
 tonic-prost-build = { version = "0.14.5" }
 tower = { version = "0.5.3", features = ["util"] }
 tower-layer = "0.3.1"
+tower-lsp-server = "0.21.1"
 tower-service = "0.3.3"
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.20", features = ["env-filter", "json"] }

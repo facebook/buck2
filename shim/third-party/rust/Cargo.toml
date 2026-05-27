@@ -133,7 +133,7 @@ log = { version = "0.4.29", features = ["kv_unstable"] }
 logos = "0.15"
 lru = "0.16.3"
 lsp-server = "0.7.9"
-lsp-types = "0.94.1"
+lsp-types = "0.97.0"
 maplit = "1.0"
 md-5 = "0.10"
 memchr = "2.8.0"
@@ -234,6 +234,7 @@ tonic-prost = "0.14.5"
 tonic-prost-build = "0.14.5"
 tower = { version = "0.5.3", features = ["util"] }
 tower-layer = "0.3.3"
+tower-lsp-server = "0.21.1"
 tower-service = "0.3.3"
 tracing = { version = "0.1.41", features = ["attributes", "valuable"] }
 tracing-core = { version = "0.1.33", features = ["valuable"] }

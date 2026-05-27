@@ -22,9 +22,10 @@ use std::io;
 use std::iter;
 use std::path::Path;
 use std::path::PathBuf;
+use std::str::FromStr as _;
 
 use itertools::Either;
-use lsp_types::Url;
+use lsp_types::Uri;
 use starlark::StarlarkResultExt;
 use starlark::analysis::AstModuleLint;
 use starlark::docs::DocModule;
@@ -40,8 +41,9 @@ use starlark::values::FrozenHeapName;
 use starlark_lsp::error::eval_message_to_lsp_diagnostic;
 use starlark_lsp::server::LspContext;
 use starlark_lsp::server::LspEvalResult;
-use starlark_lsp::server::LspUrl;
+use starlark_lsp::server::LspUri;
 use starlark_lsp::server::StringLiteralResult;
+use tower_lsp_server::UriExt as _;
 
 use crate::suppression::GlobLintSuppression;
 
@@ -53,12 +55,12 @@ pub(crate) enum ContextMode {
 
 #[derive(Debug, thiserror::Error)]
 enum ContextError {
-    /// The provided Url was not absolute and it needs to be.
-    #[error("Path for URL `{}` was not absolute", .0)]
-    NotAbsolute(LspUrl),
+    /// The provided URI was not absolute and it needs to be.
+    #[error("Path for URI `{}` was not absolute", .0)]
+    NotAbsolute(LspUri),
     /// The scheme provided was not correct or supported.
-    #[error("Url `{}` was expected to be of type `{}`", .1, .0)]
-    WrongScheme(String, LspUrl),
+    #[error("URI `{}` was expected to be of type `{}`", .1, .0)]
+    WrongScheme(String, LspUri),
 }
 
 #[derive(Debug)]
@@ -69,8 +71,8 @@ pub(crate) struct Context<'v> {
     pub(crate) module: Option<Module<'v>>,
     pub(crate) dialect: Dialect,
     pub(crate) globals: Globals,
-    pub(crate) builtin_docs: HashMap<LspUrl, String>,
-    pub(crate) builtin_symbols: HashMap<String, LspUrl>,
+    pub(crate) builtin_docs: HashMap<LspUri, String>,
+    pub(crate) builtin_symbols: HashMap<String, LspUri>,
     pub(crate) suppression_rules: Vec<GlobLintSuppression>,
 }
 
@@ -97,8 +99,8 @@ enum ResolveLoadError {
     #[error("Relative path `{}` provided, but current_file_path could not be determined", .0.display())]
     MissingCurrentFilePath(PathBuf),
     /// The scheme provided was not correct or supported.
-    #[error("Url `{}` was expected to be of type `{}`", .1, .0)]
-    WrongScheme(String, LspUrl),
+    #[error("URI `{}` was expected to be of type `{}`", .1, .0)]
+    WrongScheme(String, LspUri),
 }
 
 impl<'v> Context<'v> {
@@ -111,11 +113,11 @@ impl<'v> Context<'v> {
         globals: Globals,
         suppression_rules: Vec<GlobLintSuppression>,
     ) -> anyhow::Result<Self> {
-        let mut builtin_docs: HashMap<LspUrl, String> = HashMap::new();
-        let mut builtin_symbols: HashMap<String, LspUrl> = HashMap::new();
+        let mut builtin_docs: HashMap<LspUri, String> = HashMap::new();
+        let mut builtin_symbols: HashMap<String, LspUri> = HashMap::new();
         for (name, item) in globals.documentation().members {
-            let uri = Url::parse(&format!("starlark:/{name}.bzl"))?;
-            let uri = LspUrl::try_from(uri)?;
+            let uri = Uri::from_str(&format!("starlark:/{name}.bzl"))?;
+            let uri = LspUri::try_from(uri)?;
             builtin_docs.insert(uri.clone(), item.render_as_code(&name));
             builtin_symbols.insert(name, uri);
         }
@@ -307,9 +309,9 @@ impl<'v> Context<'v> {
 }
 
 impl<'v> LspContext for Context<'v> {
-    fn parse_file_with_contents(&self, uri: &LspUrl, content: String) -> LspEvalResult {
+    fn parse_file_with_contents(&self, uri: &LspUri, content: String) -> LspEvalResult {
         match uri {
-            LspUrl::File(uri) => {
+            LspUri::File(uri) => {
                 let EvalResult { messages, ast } =
                     self.file_with_contents(&uri.to_string_lossy(), content);
                 LspEvalResult {
@@ -324,12 +326,12 @@ impl<'v> LspContext for Context<'v> {
     fn resolve_load(
         &self,
         path: &str,
-        current_file: &LspUrl,
+        current_file: &LspUri,
         _workspace_root: Option<&Path>,
-    ) -> Result<LspUrl, String> {
+    ) -> Result<LspUri, String> {
         let path = PathBuf::from(path);
         match current_file {
-            LspUrl::File(current_file_path) => {
+            LspUri::File(current_file_path) => {
                 let current_file_dir = current_file_path.parent();
                 let absolute_path = match (current_file_dir, path.is_absolute()) {
                     (_, true) => Ok(path),
@@ -338,7 +340,7 @@ impl<'v> LspContext for Context<'v> {
                         Err(ResolveLoadError::MissingCurrentFilePath(path).to_string())
                     }
                 }?;
-                LspUrl::try_from(Url::from_file_path(absolute_path).unwrap())
+                LspUri::try_from(Uri::from_file_path(absolute_path).unwrap())
                     .map_err(|e| e.to_string())
             }
             _ => Err(
@@ -351,21 +353,21 @@ impl<'v> LspContext for Context<'v> {
     fn resolve_string_literal(
         &self,
         literal: &str,
-        current_file: &LspUrl,
+        current_file: &LspUri,
         workspace_root: Option<&Path>,
     ) -> Result<Option<StringLiteralResult>, String> {
         self.resolve_load(literal, current_file, workspace_root)
-            .map(|url| {
+            .map(|uri| {
                 Some(StringLiteralResult {
-                    url,
+                    uri,
                     location_finder: None,
                 })
             })
     }
 
-    fn get_load_contents(&self, uri: &LspUrl) -> Result<Option<String>, String> {
+    fn get_load_contents(&self, uri: &LspUri) -> Result<Option<String>, String> {
         match uri {
-            LspUrl::File(path) => match path.is_absolute() {
+            LspUri::File(path) => match path.is_absolute() {
                 true => match fs::read_to_string(path) {
                     Ok(contents) => Ok(Some(contents)),
                     Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
@@ -373,29 +375,29 @@ impl<'v> LspContext for Context<'v> {
                 },
                 false => Err(ContextError::NotAbsolute(uri.clone()).to_string()),
             },
-            LspUrl::Starlark(_) => Ok(self.builtin_docs.get(uri).cloned()),
+            LspUri::Starlark(_) => Ok(self.builtin_docs.get(uri).cloned()),
             _ => Err(ContextError::WrongScheme("file://".to_owned(), uri.clone()).to_string()),
         }
     }
 
-    fn get_url_for_global_symbol(
+    fn get_uri_for_global_symbol(
         &self,
-        _current_file: &LspUrl,
+        _current_file: &LspUri,
         symbol: &str,
-    ) -> Result<Option<LspUrl>, String> {
+    ) -> Result<Option<LspUri>, String> {
         Ok(self.builtin_symbols.get(symbol).cloned())
     }
 
     fn render_as_load(
         &self,
-        _target: &LspUrl,
-        _current_file: &LspUrl,
+        _target: &LspUri,
+        _current_file: &LspUri,
         _workspace_root: Option<&Path>,
     ) -> Result<String, String> {
         Err("Not yet implemented, render_as_load".to_owned())
     }
 
-    fn get_environment(&self, _uri: &LspUrl) -> DocModule {
+    fn get_environment(&self, _uri: &LspUri) -> DocModule {
         DocModule::default()
     }
 }

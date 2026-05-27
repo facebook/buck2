@@ -27,10 +27,11 @@ debugserver-types = "0.5.0"
 either = "1.8"
 globset = "0.4.13"
 itertools = "0.14.0"
-lsp-types = "0.94.1"
+lsp-types = "0.97.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "2.0.18"
+tower-lsp-server = "0.21.1"
 walkdir = "2.3"
 
 [[bin]]

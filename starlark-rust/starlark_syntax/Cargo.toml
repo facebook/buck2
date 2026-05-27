@@ -23,7 +23,7 @@ derivative = { workspace = true }
 derive_more = { workspace = true }
 lalrpop-util = "0.19.7"
 logos = "0.15"
-lsp-types = "0.94.1"
+lsp-types = "0.97.0"
 memchr = { workspace = true }
 num-bigint = { workspace = true }
 num-traits = "0.2"

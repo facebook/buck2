@@ -35,6 +35,7 @@ tar = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
 tonic = { workspace = true }
+tower-lsp-server = { workspace = true }
 tracing = { workspace = true }
 
 allocative = { workspace = true }
