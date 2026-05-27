@@ -139,6 +139,36 @@ def link_external_debug_info(
         children = external_debug_infos,
     )
 
+def link_args_have_hip_device_debug(links: list[LinkArgs]) -> bool:
+    for link in links:
+        if link.infos != None:
+            for info in link.infos:
+                if info.has_hip_device_debug:
+                    return True
+        if link.tset != None:
+            for infos in link.tset.infos.traverse():
+                if infos.default.has_hip_device_debug:
+                    return True
+                if infos.stripped != None and infos.stripped.has_hip_device_debug:
+                    return True
+    return False
+
+def collect_hip_debug_from_links(links: list[LinkArgs]) -> dict[str, list[Artifact]]:
+    result = {}
+    for link in links:
+        if link.infos != None:
+            for info in link.infos:
+                for arch, files in info.hip_arch_debug_files.items():
+                    result.setdefault(arch, [])
+                    result[arch].extend(files)
+        if link.tset != None:
+            for infos in link.tset.infos.traverse():
+                for info in [infos.default] + ([infos.stripped] if infos.stripped != None else []):
+                    for arch, files in info.hip_arch_debug_files.items():
+                        result.setdefault(arch, [])
+                        result[arch].extend(files)
+    return result
+
 # Actually perform a link into the supplied output.
 def cxx_link_into(
     ctx: AnalysisContext,

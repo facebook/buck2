@@ -187,6 +187,8 @@ LinkInfo = record(
     # Metadata attached to this LinkInfo. This metadata is propagated up the graph to
     # root nodes (like binaries).
     metadata = field(list[DepMetadata], []),
+    has_hip_device_debug = field(bool, False),
+    hip_arch_debug_files = field(dict[str, list[Artifact]], {}),
 )
 
 # The ordering to use when traversing linker libs transitive sets.
@@ -213,6 +215,8 @@ def set_link_info_link_whole(info: LinkInfo) -> LinkInfo:
         linkables = linkables,
         external_debug_info = info.external_debug_info,
         metadata = info.metadata,
+        has_hip_device_debug = info.has_hip_device_debug,
+        hip_arch_debug_files = info.hip_arch_debug_files,
     )
 
 def set_linkable_link_whole(
@@ -244,6 +248,8 @@ def wrap_link_info(inner: LinkInfo, pre_flags: list[typing.Any] = [], post_flags
         linkables = inner.linkables,
         external_debug_info = inner.external_debug_info,
         metadata = inner.metadata,
+        has_hip_device_debug = inner.has_hip_device_debug,
+        hip_arch_debug_files = inner.hip_arch_debug_files,
     )
 
 def _is_linkable_comprised_of_object_files_or_a_lazy_archive(linkable: LinkableTypes) -> bool:

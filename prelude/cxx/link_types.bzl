@@ -52,6 +52,7 @@ LinkOptions = record(
     extra_distributed_thin_lto_opt_outputs_merger = field(typing.Callable | None, None),
     produce_shared_library_interface = field(bool, False),
     incremental_link = field(bool, False),
+    has_hip_device_debug = field(bool, False),
 )
 
 def link_options(
@@ -73,6 +74,7 @@ def link_options(
     extra_distributed_thin_lto_opt_outputs_merger: typing.Callable | None = None,
     produce_shared_library_interface: bool = False,
     incremental_link: bool = False,
+    has_hip_device_debug: bool = False,
 ) -> LinkOptions:
     """
     A type-checked constructor for LinkOptions because by default record
@@ -98,6 +100,7 @@ def link_options(
         extra_distributed_thin_lto_opt_outputs_merger = extra_distributed_thin_lto_opt_outputs_merger,
         produce_shared_library_interface = produce_shared_library_interface,
         incremental_link = incremental_link,
+        has_hip_device_debug = has_hip_device_debug,
     )
 
 # A marker instance to differentiate explicitly-passed None and a field that
@@ -146,4 +149,5 @@ def merge_link_options(
         extra_distributed_thin_lto_opt_outputs_merger = base.extra_distributed_thin_lto_opt_outputs_merger,
         produce_shared_library_interface = base.produce_shared_library_interface,
         incremental_link = base.incremental_link if incremental_link == _NOT_PROVIDED else incremental_link,
+        has_hip_device_debug = base.has_hip_device_debug,
     )

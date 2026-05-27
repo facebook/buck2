@@ -107,6 +107,7 @@ load(
     "@prelude//utils:build_graph_pattern.bzl",
     "new_build_graph_info",
 )
+load("@prelude//utils:lazy.bzl", "lazy")
 load(
     "@prelude//utils:utils.bzl",
     "flatten",
@@ -170,7 +171,9 @@ load(
     ":link.bzl",
     "CxxGcSectionsData",
     "CxxLinkerMapData",
+    "collect_hip_debug_from_links",
     "cxx_link_into",
+    "link_args_have_hip_device_debug",
 )
 load(
     ":link_groups.bzl",
@@ -742,6 +745,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
     else:
         incremental_link = incremental_linking_mode == IncrementalLinkingMode("enabled")
 
+    has_hip_device_debug = lazy.is_any(lambda out: out.hip_device_debug, cxx_outs) or link_args_have_hip_device_debug(links)
     link_result = _link_into_executable(
         ctx,
         # If shlib lib tree generation is enabled, pass in the shared libs (which
@@ -764,6 +768,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
             extra_linker_outputs_flags_factory = impl_params.extra_linker_outputs_flags_factory,
             extra_distributed_thin_lto_opt_outputs_merger = impl_params.extra_distributed_thin_lto_opt_outputs_merger,
             incremental_link = incremental_link,
+            has_hip_device_debug = has_hip_device_debug,
         ),
     )
     binary = link_result.exe
@@ -780,7 +785,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         populate_rule_specific_attributes_func = impl_params.cxx_populate_xcode_attributes_func,
         srcs = impl_params.srcs + impl_params.additional.srcs,
         argsfiles = compile_cmd_output.argsfiles.xcode,
-        product_name = get_cxx_executable_product_name(ctx),
+        product_name = get_cxx_executable_product_name(ctx, has_hip_device_debug),
     )
     sub_targets[XCODE_DATA_SUB_TARGET] = xcode_data_default_info
 
@@ -920,13 +925,15 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
             ),
         ]
 
-    # Collect per-TU per-arch sidecars from compile outputs into a
-    # merged dict keyed by arch. Multiple TUs append to the same arch.
+    # Own TU sidecars + transitive deps' sidecars.
     hip_all_debug_files = {}
     for out in cxx_outs:
         for arch, debug_file in out.hip_arch_debug_files.items():
             hip_all_debug_files.setdefault(arch, [])
             hip_all_debug_files[arch].append(debug_file)
+    for arch, files in collect_hip_debug_from_links(links).items():
+        hip_all_debug_files.setdefault(arch, [])
+        hip_all_debug_files[arch].extend(files)
 
     if hip_all_debug_files:
         per_arch_debug_subs = {arch: [DefaultInfo(default_outputs = files)] for arch, files in hip_all_debug_files.items()}
@@ -1128,7 +1135,8 @@ def _link_into_executable(
         output_name = executable_name
     else:
         output_name = "{}{}".format(
-            executable_name if executable_name else get_cxx_executable_product_name(ctx), "." + binary_extension if binary_extension else ""
+            executable_name if executable_name else get_cxx_executable_product_name(ctx, opts.has_hip_device_debug),
+            "." + binary_extension if binary_extension else "",
         )
     output = ctx.actions.declare_output(output_name, has_content_based_path = False)
     executable_args = executable_shared_lib_arguments(
@@ -1160,12 +1168,12 @@ def _link_into_executable(
         extra_outputs = link_result.extra_outputs if link_result.extra_outputs else {},
     )
 
-def get_cxx_executable_product_name(ctx: AnalysisContext) -> str:
+def get_cxx_executable_product_name(ctx: AnalysisContext, has_hip_device_debug: bool = False) -> str:
     name = ctx.label.name
     if cxx_stamp_build_info(ctx):
         # build_info_stamping is executed after BOLT, make sure the prestamp flag is the innermost prefix
         name += PRE_STAMPED_SUFFIX
-    if hip_debug_extract_available(get_cxx_toolchain_info(ctx)):
+    if has_hip_device_debug and hip_debug_extract_available(get_cxx_toolchain_info(ctx)):
         # Pre-suffix so hip_debug_extract can strip back to canonical name.
         name += PRE_EXTRACT_SUFFIX
     if cxx_use_bolt(ctx):

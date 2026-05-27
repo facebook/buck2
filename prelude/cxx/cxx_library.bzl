@@ -335,6 +335,8 @@ _CxxLibraryCompileOutput = record(
     diagnostics = field(dict[str, Artifact]),
     # diagnostics produced by clang-tidy
     clang_tidy_diagnostics = field(dict[str, Artifact]),
+    has_hip_device_debug = field(bool, False),
+    hip_arch_debug_files = field(dict[str, list[Artifact]], {}),
 )
 
 # The output of compiling all the source files in the library, containing
@@ -1442,6 +1444,14 @@ def get_default_cxx_library_product_name(ctx, impl_params) -> str:
     else:
         return _base_static_library_name(ctx, optimized = False, debuggable = False, stripped = False)
 
+def _collect_hip_arch_debug_files(outs: list[CxxCompileOutput]) -> dict[str, list[Artifact]]:
+    result = {}
+    for out in outs:
+        for arch, f in out.hip_arch_debug_files.items():
+            result.setdefault(arch, [])
+            result[arch].append(f)
+    return result
+
 def _get_library_compile_output(
     actions: AnalysisActions,
     cxx_toolchain_info: CxxToolchainInfo,
@@ -1452,7 +1462,7 @@ def _get_library_compile_output(
     has_content_based_path: bool,
 ) -> _CxxLibraryCompileOutput:
     objects = [out.object for out in outs]
-    stripped_objects = _strip_objects(actions, cxx_toolchain_info, objects, supports_stripping, has_content_based_path)
+    stripped_objects = _strip_objects(actions, cxx_toolchain_info, outs, supports_stripping, has_content_based_path)
 
     pch_object_output = [out.pch_object for out in outs if out.pch_object]
 
@@ -1486,6 +1496,8 @@ def _get_library_compile_output(
         gcno_files = [out.gcno_file for out in outs if out.gcno_file != None],
         external_debug_info = [out.external_debug_info for out in outs if out.external_debug_info != None],
         objects_have_external_debug_info = lazy.is_any(lambda out: out.object_has_external_debug_info, outs),
+        has_hip_device_debug = lazy.is_any(lambda out: out.hip_device_debug, outs),
+        hip_arch_debug_files = _collect_hip_arch_debug_files(outs),
         objects_sub_targets = objects_sub_targets,
         index_stores = index_stores,
         diagnostics = diagnostics,
@@ -1721,6 +1733,8 @@ def _form_library_outputs(
             stripped = stripped,
             extra_linkables = extra_static_linkables,
             bitcode_objects = compile_output.bitcode_objects,
+            has_hip_device_debug = compile_output.has_hip_device_debug,
+            hip_arch_debug_files = compile_output.hip_arch_debug_files,
         )
 
     def build_shared_library(
@@ -1749,6 +1763,7 @@ def _form_library_outputs(
             link_ordering = map_val(LinkOrdering, ctx.attrs.link_ordering),
             link_execution_preference = link_execution_preference,
             flavor = flavor,
+            has_hip_device_debug = compile_output.has_hip_device_debug,
         )
         shlib = result.link_result.linked_object
         extra_outputs = result.link_result.extra_outputs
@@ -1867,6 +1882,8 @@ def _form_library_outputs(
                     debuggable = False,
                     extra_linkables = extra_static_linkables,
                     bitcode_objects = lib_compile_output.bitcode_objects,
+                    has_hip_device_debug = lib_compile_output.has_hip_device_debug,
+                    hip_arch_debug_files = lib_compile_output.hip_arch_debug_files,
                 )
                 if default_output:
                     outputs_for_style[LinkableFlavor("default")] = default_output
@@ -1959,7 +1976,7 @@ def _form_library_outputs(
     )
 
 def _strip_objects(
-    actions: AnalysisActions, cxx_toolchain_info: CxxToolchainInfo, objects: list[Artifact], supports_stripping: bool, has_content_based_path: bool
+    actions: AnalysisActions, cxx_toolchain_info: CxxToolchainInfo, outs: list[CxxCompileOutput], supports_stripping: bool, has_content_based_path: bool
 ) -> list[Artifact]:
     """
     Return new objects with debug info stripped.
@@ -1968,24 +1985,30 @@ def _strip_objects(
     # Stripping is not supported on Windows
     linker_type = cxx_toolchain_info.linker_info.type
     if linker_type == LinkerType("windows"):
-        return objects
+        return [out.object for out in outs]
 
     # Disable stripping if no `strip` binary was provided by the toolchain.
     if cxx_toolchain_info.binary_utilities_info == None or cxx_toolchain_info.binary_utilities_info.strip == None:
-        return objects
+        return [out.object for out in outs]
 
     # Disable stripping if library opted out from it
     if not supports_stripping:
-        return objects
+        return [out.object for out in outs]
 
-    outs = []
+    stripped_objects = []
 
-    for obj in objects:
+    for out in outs:
+        obj = out.object
+        if out.hip_device_debug:
+            # hip_debug_extract already rewrote the embedded GPU code objects;
+            # a second strip invalidates ELF extended section indexes.
+            stripped_objects.append(obj)
+            continue
         base, ext = paths.split_extension(obj.short_path)
         expect(ext == ".o")
-        outs.append(strip_debug_info(actions, base + ".stripped.o", obj, cxx_toolchain_info, has_content_based_path = has_content_based_path))
+        stripped_objects.append(strip_debug_info(actions, base + ".stripped.o", obj, cxx_toolchain_info, has_content_based_path = has_content_based_path))
 
-    return outs
+    return stripped_objects
 
 def _get_shared_library_links(
     ctx: AnalysisContext,
@@ -2120,6 +2143,8 @@ def _static_library(
     objects_have_external_debug_info: bool = False,
     external_debug_info: ArtifactTSet = ArtifactTSet(),
     bitcode_objects: [list[Artifact], None] = None,
+    has_hip_device_debug: bool = False,
+    hip_arch_debug_files: dict[str, list[Artifact]] = {},
 ) -> (CxxLibraryOutput, LinkInfo):
     if optimized and debuggable:
         fail("Pls pick optimized OR debuggable")
@@ -2223,6 +2248,8 @@ def _static_library(
             # when they are deducing linker args.
             linkables = [linkable] + extra_linkables,
             external_debug_info = all_external_debug_info,
+            has_hip_device_debug = has_hip_device_debug,
+            hip_arch_debug_files = hip_arch_debug_files,
             metadata = cxx_attr_dep_metadata(ctx),
         ),
     )
@@ -2249,6 +2276,7 @@ def _shared_library(
     link_execution_preference: LinkExecutionPreference,
     link_ordering: [LinkOrdering, None],
     flavor: LinkableFlavor,
+    has_hip_device_debug: bool = False,
 ) -> _CxxSharedLibraryResult:
     """
     Generate a shared library and the associated native link info used by
@@ -2332,6 +2360,7 @@ def _shared_library(
             extra_linker_outputs_flags_factory = impl_params.extra_linker_outputs_flags_factory,
             extra_distributed_thin_lto_opt_outputs_merger = impl_params.extra_distributed_thin_lto_opt_outputs_merger,
             produce_shared_library_interface = effective_shlib_interfaces_mode == ShlibInterfacesMode("stub_from_linker_invocation"),
+            has_hip_device_debug = has_hip_device_debug,
         ),
         name = soname if impl_params.use_soname else None,
         shared_library_flags = impl_params.shared_library_flags,
@@ -2399,6 +2428,7 @@ def _shared_library(
                     lib = exported_shlib,
                 )
             ],
+            has_hip_device_debug = has_hip_device_debug,
             metadata = cxx_attr_dep_metadata(ctx),
         ),
     )
