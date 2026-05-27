@@ -43,7 +43,6 @@ use crate::values::types::unbound::UnboundValue;
 #[derive(Clone, Debug)]
 pub struct Methods {
     /// This field holds the objects referenced in `members`.
-    #[allow(dead_code)]
     heap: FrozenHeapRef,
     members: SymbolMap<UnboundValue>,
     docstring: Option<String>,
@@ -308,6 +307,7 @@ impl MethodsStatic {
         for (name, value) in methods.members.iter() {
             out.members.insert(name.as_str(), value.clone());
         }
+        out.heap.add_reference(&methods.heap);
         out.docstring = methods.docstring.clone();
     }
 }

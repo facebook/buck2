@@ -482,6 +482,7 @@ impl GlobalsStatic {
     /// recorded for downstream consumers (e.g. pagable serialization).
     pub fn populate(&'static self, out: &mut GlobalsBuilder) {
         let globals = self.globals();
+        out.heap.add_reference(globals.heap());
         for (name, value) in globals.0.variables.iter() {
             out.set_inner(name.as_str(), value.value, value.doc_hidden)
         }

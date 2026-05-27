@@ -106,6 +106,8 @@ impl<'v, 'a, 'e> Evaluator<'v, 'a, 'e> {
             &dialect,
         )?;
 
+        self.frozen_heap().add_reference(globals.heap());
+
         let scope_names = scope_data.get_scope(ScopeId::module());
         let local_names = self.frozen_heap().alloc_any_array_value(&scope_names.used);
 
