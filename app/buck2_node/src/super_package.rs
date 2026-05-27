@@ -12,7 +12,6 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use dupe::Dupe;
-use pagable::Pagable;
 
 use crate::cfg_constructor::CfgConstructorImpl;
 use crate::metadata::key::MetadataKeyRef;
@@ -23,7 +22,7 @@ use crate::visibility::VisibilityPatternList;
 use crate::visibility::VisibilitySpecification;
 use crate::visibility::WithinViewSpecification;
 
-#[derive(Debug, Allocative, Pagable)]
+#[derive(Debug, Allocative, pagable::Pagable)]
 pub(crate) struct SuperPackageData {
     package_values: Arc<dyn SuperPackageValues>,
     visibility: VisibilitySpecification,
@@ -67,7 +66,7 @@ impl SuperPackageData {
 
 /// Contents of a `PACKAGE` file merged with contents of containing `PACKAGE` files.
 /// This object exists even for non-existent `PACKAGE` files.
-#[derive(Debug, Allocative, Clone, Dupe, Pagable)]
+#[derive(Debug, Allocative, Clone, Dupe, pagable::Pagable)]
 pub struct SuperPackage(Arc<SuperPackageData>);
 
 impl SuperPackage {

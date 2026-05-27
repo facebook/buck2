@@ -22,7 +22,6 @@ use dice::ValueSerialize;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use pagable::Pagable;
-use pagable::PagablePanic;
 use pagable::pagable_typetag;
 use starlark::environment::GlobalFrozenHeapName;
 use starlark::environment::Globals;
@@ -34,7 +33,7 @@ use crate::interpreter::globals::base_globals;
 
 /// Information shared across interpreters. Contains no cell-specific
 /// information.
-#[derive(Allocative)]
+#[derive(Allocative, pagable::Pagable)]
 pub struct GlobalInterpreterState {
     pub cell_resolver: CellResolver,
 
@@ -107,7 +106,7 @@ impl HasGlobalInterpreterState for DiceComputations<'_> {
     async fn get_global_interpreter_state(
         &mut self,
     ) -> buck2_error::Result<Arc<GlobalInterpreterState>> {
-        #[derive(Clone, Dupe, Allocative, PagablePanic)]
+        #[derive(Clone, Dupe, Allocative, Pagable)]
         struct GisValue(Arc<GlobalInterpreterState>);
 
         #[derive(

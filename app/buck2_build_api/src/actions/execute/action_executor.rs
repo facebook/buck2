@@ -77,7 +77,6 @@ use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use either::Either;
 use itertools::Itertools;
-use pagable::PagablePanic;
 use remote_execution::TActionResult2;
 
 use crate::actions::ActionExecutionCtx;
@@ -95,7 +94,7 @@ use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
 
 /// This is the result of the action as exposed to other things in the dice computation.
-#[derive(Clone, Dupe, Debug, PartialEq, Eq, Allocative, PagablePanic)]
+#[derive(Clone, Dupe, Debug, PartialEq, Eq, Allocative, pagable::Pagable)]
 pub struct ActionOutputs(Arc<ActionOutputsData>);
 
 impl OutputSize for ActionOutputs {
@@ -114,7 +113,7 @@ impl OutputSize for ActionOutputs {
     }
 }
 
-#[derive(Derivative, Debug, Allocative)]
+#[derive(Derivative, Debug, Allocative, pagable::Pagable)]
 #[derivative(PartialEq, Eq)]
 struct ActionOutputsData {
     outputs: BuckIndexMap<BuildArtifactPath, ArtifactValue>,

@@ -47,6 +47,7 @@ pagable = { workspace = true }
 remote_execution = { workspace = true }
 sorted_vector_map = { workspace = true }
 starlark_map = { workspace = true }
+static_interner = { workspace = true }
 strong_hash = { workspace = true }
 
 buck2_action_metadata_proto = { workspace = true }

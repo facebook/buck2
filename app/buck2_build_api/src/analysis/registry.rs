@@ -670,7 +670,7 @@ impl AnalysisValueFetcher {
 }
 
 /// The analysis values stored in DeferredHolder.
-#[derive(Debug, Allocative)]
+#[derive(Debug, Allocative, pagable::Pagable)]
 pub struct RecordedAnalysisValues {
     self_key: DeferredHolderKey,
     analysis_storage: Option<OwnedFrozenValueTyped<StarlarkAnyComplex<FrozenAnalysisValueStorage>>>,

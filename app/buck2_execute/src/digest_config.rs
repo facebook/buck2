@@ -19,8 +19,8 @@ use derivative::Derivative;
 use dice::DiceData;
 use dice::DiceDataBuilder;
 use dupe::Dupe;
-use once_cell::sync::Lazy;
 use ref_cast::RefCast;
+use static_interner::Intern;
 
 use crate::directory::ActionDirectoryBuilder;
 use crate::directory::ActionSharedDirectory;
@@ -37,31 +37,28 @@ use crate::directory::ReDirectorySerializer;
     Hash,
     Eq,
     PartialEq,
-    // TODO(nero): support pagable.
-    pagable::PagablePanic
+    pagable::Pagable
 )]
 pub struct DigestConfig {
-    inner: &'static DigestConfigInner,
+    inner: Intern<DigestConfigInner>,
 }
 
 impl DigestConfig {
     pub fn testing_default() -> Self {
-        static COMPAT: Lazy<DigestConfigInner> =
-            Lazy::new(|| DigestConfigInner::new(CasDigestConfig::testing_default()));
-
-        Self { inner: &COMPAT }
+        Self {
+            inner: DIGEST_CONFIG_INTERNER
+                .intern(DigestConfigInner::new(CasDigestConfig::testing_default())),
+        }
     }
 
-    /// We just Box::leak this since we create one per daemon and as a result just use
-    /// CasDigestConfig as a pointer.
+    /// Values are interned so identical configs share a single allocation.
     pub fn leak_new(
         algorithms: Vec<DigestAlgorithm>,
         preferred_source_algorithm: Option<DigestAlgorithm>,
     ) -> Result<Self, CasDigestConfigError> {
-        let inner = Box::leak(Box::new(DigestConfigInner::new(CasDigestConfig::leak_new(
-            algorithms,
-            preferred_source_algorithm,
-        )?)));
+        let inner = DIGEST_CONFIG_INTERNER.intern(DigestConfigInner::new(
+            CasDigestConfig::leak_new(algorithms, preferred_source_algorithm)?,
+        ));
         Ok(Self { inner })
     }
 
@@ -88,7 +85,13 @@ impl fmt::Display for DigestConfig {
     }
 }
 
-#[derive(Debug, Allocative, Derivative, Eq)]
+static_interner::interner!(
+    DIGEST_CONFIG_INTERNER,
+    buck2_hash::BuckDefaultHasher,
+    DigestConfigInner
+);
+
+#[derive(Debug, Allocative, Derivative, Eq, pagable::Pagable)]
 #[derivative(Hash, PartialEq)]
 struct DigestConfigInner {
     cas_digest_config: CasDigestConfig,

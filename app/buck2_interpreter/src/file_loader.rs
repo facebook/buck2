@@ -17,7 +17,6 @@ use buck2_error::conversion::from_any_with_tag;
 use derivative::Derivative;
 use dupe::Dupe;
 use either::Either;
-use pagable::PagablePanic;
 use starlark::codemap::FileSpan;
 use starlark::environment::FrozenModule;
 use starlark::eval::FileLoader;
@@ -35,7 +34,7 @@ enum FileLoaderError {
     NativeMustBeStruct,
 }
 
-#[derive(Default, Clone, Allocative, Debug)]
+#[derive(Default, Clone, Allocative, Debug, pagable::Pagable)]
 pub struct LoadedModules {
     pub map: OrderedMap<OwnedStarlarkModulePath, LoadedModule>,
 }
@@ -71,10 +70,10 @@ impl ModuleDeps {
     }
 }
 
-#[derive(Clone, Dupe, Allocative, Debug, PagablePanic)]
+#[derive(Clone, Dupe, Allocative, Debug, pagable::Pagable)]
 pub struct LoadedModule(Arc<LoadedModuleData>);
 
-#[derive(Derivative, Allocative)]
+#[derive(Derivative, Allocative, pagable::Pagable)]
 #[derivative(Debug)]
 struct LoadedModuleData {
     path: OwnedStarlarkModulePath,

@@ -45,7 +45,6 @@ where
     pub(super) fingerprint: H,
 
     #[derivative(Debug = "ignore")]
-    #[pagable(discard = "PhantomData")]
     pub(super) _hash: PhantomData<H>,
 }
 

@@ -19,7 +19,7 @@ use buck2_core::deferred::base_deferred_key::BaseDeferredKeyBxl;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
 use dupe::Dupe;
-use pagable::PagablePanic;
+use pagable::Pagable;
 
 use crate::bxl::result::BxlResult;
 
@@ -32,7 +32,7 @@ pub trait BxlCalculationDyn: Debug + Send + Sync + 'static {
     ) -> buck2_error::Result<BxlComputeResult>;
 }
 
-#[derive(Allocative, Clone, Dupe, PagablePanic)]
+#[derive(Allocative, Clone, Dupe, Pagable)]
 pub struct BxlComputeResult(pub Arc<BxlResult>);
 
 /// Dependency injection for BXL.

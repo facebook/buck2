@@ -15,7 +15,6 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_hash::StdBuckHashMap;
 use buck2_interpreter::starlark_profiler::data::StarlarkProfileDataAndStats;
-use pagable::PagablePanic;
 
 use crate::analysis::registry::RecordedAnalysisValues;
 use crate::artifact_groups::promise::PromiseArtifactId;
@@ -35,12 +34,13 @@ use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectio
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValueRef;
 use crate::validation::transitive_validations::TransitiveValidations;
 
-#[derive(Debug, Clone, Dupe, Allocative, PagablePanic)]
+#[derive(Debug, Clone, Dupe, Allocative, pagable::Pagable)]
 pub struct AnalysisResult {
     analysis_values: Arc<RecordedAnalysisValues>,
     /// Profiling data after running analysis, for this analysis only, without dependencies.
     /// `None` when profiling is disabled.
     /// For forward node, this value is shared with underlying analysis (including this field).
+    #[pagable(discard = "None")]
     pub profile_data: Option<Arc<StarlarkProfileDataAndStats>>,
     promise_artifact_map: Arc<StdBuckHashMap<PromiseArtifactId, Artifact>>,
     pub num_declared_actions: u64,
