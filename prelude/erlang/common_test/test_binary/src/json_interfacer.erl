@@ -85,9 +85,9 @@ format_case(
     } = _CaseResult
 ) ->
     #{
-        inits => lists:map(fun format_method_result/1, Inits),
+        inits => [format_method_result(Elem) || Elem <:- Inits],
         main => format_method_result(Main),
-        ends => lists:map(fun format_method_result/1, Ends)
+        ends => [format_method_result(Elem) || Elem <:- Ends]
     }.
 
 -spec format_method_result(cth_tpx_test_tree:collected_method_result()) -> formatted_result().
