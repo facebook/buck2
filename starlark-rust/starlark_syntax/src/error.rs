@@ -133,6 +133,16 @@ impl Error {
         self.0.set_call_stack(call_stack);
     }
 
+    /// Wrap this error with additional context (anyhow-style).
+    /// Preserves the existing `Diagnostic` (span and call stack).
+    pub fn with_context(self, context: String) -> Self {
+        let (kind, diagnostic) = self.0.into_parts();
+        Self(WithDiagnostic::new_from_parts(
+            kind.with_context(context),
+            diagnostic,
+        ))
+    }
+
     /// Print an error to the stderr stream. If the error has diagnostic information it will use
     /// color-codes when printing.
     ///
@@ -227,6 +237,23 @@ impl ErrorKind {
             Self::Internal(_) => None,
             Self::Native(e) => e.source(),
             Self::Other(e) => e.source(),
+        }
+    }
+
+    /// Add an `anyhow`-style context layer to the underlying error, preserving
+    /// the variant.
+    pub fn with_context(self, context: String) -> Self {
+        match self {
+            Self::Fail(e) => Self::Fail(e.context(context)),
+            Self::StackOverflow(e) => Self::StackOverflow(e.context(context)),
+            Self::Value(e) => Self::Value(e.context(context)),
+            Self::Function(e) => Self::Function(e.context(context)),
+            Self::Scope(e) => Self::Scope(e.context(context)),
+            Self::Freeze(e) => Self::Freeze(e.context(context)),
+            Self::Parser(e) => Self::Parser(e.context(context)),
+            Self::Internal(e) => Self::Internal(e.context(context)),
+            Self::Native(e) => Self::Native(e.context(context)),
+            Self::Other(e) => Self::Other(e.context(context)),
         }
     }
 

@@ -33,6 +33,18 @@ pub trait StarlarkDeserialize: Sized {
     fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self>;
 }
 
+/// Deserialize a single field of `T`, attaching the field name to any error
+/// returned. Used by `#[derive(StarlarkPagable)]` to give blameable error
+/// messages — `"deserializing field foo"` is much more useful than the raw
+/// inner error alone.
+pub fn starlark_deserialize_field<T: StarlarkDeserialize>(
+    ctx: &mut dyn StarlarkDeserializeContext<'_>,
+    field: &'static str,
+) -> crate::Result<T> {
+    T::starlark_deserialize(ctx)
+        .map_err(|e| e.with_context(format!("deserializing field {}", field)))
+}
+
 /// Context for deserialization - wraps PagableDeserializer.
 ///
 /// This trait provides the interface that StarlarkDeserialize implementations
