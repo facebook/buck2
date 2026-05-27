@@ -72,7 +72,7 @@ use crate::values::traits::StarlarkValueVTableGet;
 pub(crate) struct StarlarkValueRawPtr {
     /// Points to the end of `AValueHeader`.
     /// May not be equal to to the start of `StarlarkValue` due to alignment.
-    ptr: *const (),
+    pub(crate) ptr: *const (),
 }
 
 impl StarlarkValueRawPtr {
@@ -368,7 +368,7 @@ impl AValueVTable {
 #[derive(Copy, Clone, Dupe)]
 #[repr(C)]
 pub(crate) struct AValueDyn<'v> {
-    value: StarlarkValueRawPtr,
+    pub(crate) value: StarlarkValueRawPtr,
     vtable: &'static AValueVTable,
     _marker: PhantomData<&'v ()>,
 }

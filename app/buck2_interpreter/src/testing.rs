@@ -13,7 +13,8 @@ use strong_hash::StrongHash;
 
 /// Testing sentinel for buck2 test code.
 /// Used as `FrozenHeapName::User(Box::new(Buck2TestHeapName))`.
-#[derive(Debug, StrongHash)]
+#[derive(Clone, derive_more::Display, Debug, Hash, StrongHash)]
+#[display("Buck2TestHeapName")]
 pub struct Buck2TestHeapName;
 
 impl Buck2TestHeapName {

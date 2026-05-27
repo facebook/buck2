@@ -45,7 +45,8 @@ use crate::values::ValueLike;
 use crate::values::layout::heap::heap_type::FrozenHeapName;
 
 /// Private test heap name for pagable tests.
-#[derive(Debug, StrongHash)]
+#[derive(Clone, derive_more::Display, Debug, Hash, StrongHash)]
+#[display("TestHeapName({})", _0)]
 struct TestHeapName(String);
 
 impl TestHeapName {

@@ -246,24 +246,37 @@ pub struct FrozenHeap {
 /// Automatically implemented for any type that is `StrongHash + Any + Send + Sync + Debug`.
 /// `StrongHash` is required (rather than `Hash`) because heap identities are
 /// derived from this and must be deterministic across processes.
-pub trait UserHeapName: Any + Send + Sync + Debug + 'static {
+pub trait UserHeapName: std::fmt::Display + Any + Send + Sync + Debug + 'static {
     /// Strong-hash this value through a trait object.
     fn dyn_strong_hash(&self, state: &mut dyn Hasher);
     /// Downcast support.
     fn as_any(&self) -> &dyn Any;
+
+    fn clone_name(&self) -> Box<dyn UserHeapName>;
 }
 
-impl<T: StrongHash + Any + Send + Sync + Debug + 'static> UserHeapName for T {
+impl<T: std::fmt::Display + Clone + StrongHash + Any + Send + Sync + Debug + 'static> UserHeapName
+    for T
+{
     fn dyn_strong_hash(&self, mut state: &mut dyn Hasher) {
         self.strong_hash(&mut state);
     }
     fn as_any(&self) -> &dyn Any {
         self
     }
+    fn clone_name(&self) -> Box<dyn UserHeapName> {
+        Box::new(self.clone())
+    }
+}
+
+impl Clone for Box<dyn UserHeapName> {
+    fn clone(&self) -> Box<dyn UserHeapName> {
+        UserHeapName::clone_name(self.as_ref())
+    }
 }
 
 /// Name/identifier for a frozen heap, used for heap graph tracking and metrics.
-#[derive(Debug)]
+#[derive(Clone, derive_more::Display, Debug)]
 pub enum FrozenHeapName {
     /// For starlark Methods heaps.
     Method(MethodFrozenHeapName),
@@ -292,7 +305,8 @@ impl StrongHash for FrozenHeapName {
 
 /// Testing sentinel for starlark crate's own tests.
 /// Used as `FrozenHeapName::User(Box::new(StarlarkTestHeapName))`.
-#[derive(Debug, StrongHash)]
+#[derive(Debug, StrongHash, Hash, Clone, derive_more::Display)]
+#[display("StarlarkTestHeapName")]
 pub(crate) struct StarlarkTestHeapName;
 
 impl StarlarkTestHeapName {

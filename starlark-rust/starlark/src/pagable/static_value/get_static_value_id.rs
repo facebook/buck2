@@ -21,54 +21,31 @@
 //! is a static value and retrieving its identifier.
 
 use std::collections::HashMap;
-use std::hash::Hasher;
 use std::sync::LazyLock;
 
+use itertools::Itertools;
 use pagable::Pagable;
 
 use super::registry::StaticValueEntry;
-use super::static_string::STATIC_STRING_MAPS;
+use crate::pagable::static_value::static_string::get_static_strings;
 use crate::values::FrozenValue;
+use crate::values::layout::vtable::StarlarkValueRawPtr;
 
 /// A unique identifier for a statically-allocated Starlark value.
 ///
-/// This is a hash-based ID computed from deterministic keys
-/// (e.g., synthetic keys for short strings, or `(file, line)` for
-/// inventory-registered values).
+/// This is a dense index assigned at registry-build time: each statically
+/// allocated value (static strings and inventory-registered entries) gets
+/// the next available index in `id_to_value`, so IDs form a contiguous
+/// `0..N` range and round-trip through the `Vec`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Pagable)]
 pub(crate) struct StaticValueId(u64);
 
 impl StaticValueId {
-    /// Create a `StaticValueId` from a raw u64 hash.
+    /// Create a `StaticValueId` from a raw index.
     #[inline]
-    pub(crate) fn new(hash: u64) -> Self {
-        Self(hash)
+    pub(crate) fn new(id: u64) -> Self {
+        Self(id)
     }
-}
-
-/// Compute a deterministic `StaticValueId` for a single ASCII char string.
-///
-/// `byte` is the ASCII byte value (0x00..0x7F).
-pub(crate) fn hash_short_string(byte: u8) -> StaticValueId {
-    let mut hasher = starlark_map::StarlarkHasher::new();
-    hasher.write(b"__short_string__");
-    hasher.write_u8(byte);
-    StaticValueId::new(hasher.finish())
-}
-
-/// Compute a deterministic `StaticValueId` for the empty string.
-pub(crate) fn hash_empty_string() -> StaticValueId {
-    let mut hasher = starlark_map::StarlarkHasher::new();
-    hasher.write(b"__empty_string__");
-    StaticValueId::new(hasher.finish())
-}
-
-/// Compute a deterministic `StaticValueId` from a (file, line) pair.
-pub(crate) fn hash_file_line(file: &str, line: u32) -> StaticValueId {
-    let mut hasher = starlark_map::StarlarkHasher::new();
-    hasher.write(file.as_bytes());
-    hasher.write_u32(line);
-    StaticValueId::new(hasher.finish())
 }
 
 /// Bidirectional lookup maps for static values.
@@ -79,20 +56,19 @@ pub(crate) fn hash_file_line(file: &str, line: u32) -> StaticValueId {
 /// - `id_to_value`: `StaticValueId` → `FrozenValue` (for deserialization)
 struct StaticValueMaps {
     addr_to_id: HashMap<usize, StaticValueId>,
-    id_to_value: HashMap<StaticValueId, FrozenValue>,
+    id_to_value: Vec<FrozenValue>,
 }
 
 static STATIC_VALUE_MAPS: LazyLock<StaticValueMaps> = LazyLock::new(|| {
-    let string_maps = &*STATIC_STRING_MAPS;
-    let mut addr_to_id = string_maps.addr_to_id.clone();
-    let mut id_to_value = string_maps.id_to_value.clone();
+    let mut addr_to_id = HashMap::new();
+    let mut id_to_value = Vec::new();
 
-    for e in inventory::iter::<StaticValueEntry>() {
-        let fv = (e.get_value)();
-        let id = hash_file_line(e.file, e.line);
-        let addr = fv.ptr_value().ptr_value_untagged();
-        addr_to_id.insert(addr, id);
-        id_to_value.insert(id, fv);
+    for (id, fv) in get_all_static_values().enumerate() {
+        addr_to_id.insert(
+            frozen_to_raw(fv).ptr as usize,
+            StaticValueId::new(id as u64),
+        );
+        id_to_value.push(fv);
     }
 
     StaticValueMaps {
@@ -101,11 +77,25 @@ static STATIC_VALUE_MAPS: LazyLock<StaticValueMaps> = LazyLock::new(|| {
     }
 });
 
+fn frozen_to_raw(fv: FrozenValue) -> StarlarkValueRawPtr {
+    fv.to_value().get_ref().value
+}
+
+fn get_all_static_values() -> impl Iterator<Item = FrozenValue> {
+    get_static_strings().chain(get_static_values())
+}
+
+fn get_static_values() -> impl Iterator<Item = FrozenValue> {
+    inventory::iter::<StaticValueEntry>()
+        .sorted_by_key(|v| (&v.file, &v.line))
+        .map(|e| (e.get_value)())
+}
+
 /// Look up a `FrozenValue` by its `StaticValueId`.
 ///
 /// Used during deserialization to resolve static value references.
 pub(crate) fn get_frozen_value_by_static_id(id: StaticValueId) -> Option<FrozenValue> {
-    STATIC_VALUE_MAPS.id_to_value.get(&id).copied()
+    STATIC_VALUE_MAPS.id_to_value.get(id.0 as usize).copied()
 }
 
 /// Check if a FrozenValue points to a static value.
@@ -118,7 +108,7 @@ pub(crate) fn get_static_value_id(fv: FrozenValue) -> Option<StaticValueId> {
         return None;
     }
 
-    let addr = fv.ptr_value().ptr_value_untagged();
+    let addr = frozen_to_raw(fv).ptr as usize;
     STATIC_VALUE_MAPS.addr_to_id.get(&addr).copied()
 }
 

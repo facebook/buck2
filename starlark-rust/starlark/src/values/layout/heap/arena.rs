@@ -500,7 +500,7 @@ impl<A: ArenaAllocator> Arena<A> {
             let mut cumulative_offset: u32 = 0;
             Arena::<A>::for_each_bump_ordered(bump, |value| {
                 if let Some(header) = value.unpack_header() {
-                    let ptr_addr = header as *const AValueHeader as usize;
+                    let ptr_addr = header.payload_ptr().ptr as usize;
                     map.insert(
                         ptr_addr,
                         ArenaOffset {

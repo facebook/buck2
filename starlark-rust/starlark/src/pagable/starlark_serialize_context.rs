@@ -161,7 +161,8 @@ impl StarlarkSerializeContext for StarlarkSerializerImpl<'_> {
                 }
 
                 let is_str = fv.ptr_value().tags() == PointerTags::StrFrozen;
-                let raw_ptr = fv.ptr_value().ptr_value_untagged();
+                // Payload pointer, must match the key used in `Arena::build_ptr_to_offset_map`.
+                let raw_ptr = fv.to_value().get_ref().value.ptr as usize;
 
                 // Copy the (heap_id, offset) out of the DashMap so the
                 // shard guard is dropped before `pagable_serialize`.
