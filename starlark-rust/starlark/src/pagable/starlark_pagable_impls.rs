@@ -53,7 +53,6 @@ use crate::pagable::starlark_serialize::StarlarkSerializeContext;
 use crate::pagable::starlark_serialize_context::StarlarkSerializerImpl;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
-use crate::values::ThinBoxSliceFrozenValue;
 use crate::values::ValueLike;
 
 /// Implement `StarlarkSerialize` and `StarlarkDeserialize` for a type
@@ -353,27 +352,6 @@ impl<T: StarlarkDeserialize> StarlarkDeserialize for Box<[T]> {
     }
 }
 
-impl<'v> StarlarkSerialize for ThinBoxSliceFrozenValue<'v> {
-    fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
-        self.len().pagable_serialize(ctx.pagable())?;
-        for value in self.iter() {
-            value.starlark_serialize(ctx)?;
-        }
-        Ok(())
-    }
-}
-
-impl<'v> StarlarkDeserialize for ThinBoxSliceFrozenValue<'v> {
-    fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
-        let len = usize::pagable_deserialize(ctx.pagable())?;
-        let mut values = Vec::with_capacity(len);
-        for _ in 0..len {
-            values.push(FrozenValue::starlark_deserialize(ctx)?);
-        }
-        Ok(Self::from_iter(values))
-    }
-}
-
 // ============================================================================
 // PhantomData (zero-size, no-op ser/de)
 // ============================================================================
@@ -619,5 +597,36 @@ impl<A: StarlarkDeserialize, B: StarlarkDeserialize> StarlarkDeserialize for eit
                 tag
             ))),
         }
+    }
+}
+
+impl<T: StarlarkSerialize> StarlarkSerialize for std::cell::OnceCell<T> {
+    fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
+        let inner: Option<&T> = self.get();
+        inner.starlark_serialize(ctx)
+    }
+}
+
+impl<T: StarlarkDeserialize> StarlarkDeserialize for std::cell::OnceCell<T> {
+    fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
+        let val = <Option<T>>::starlark_deserialize(ctx)?;
+        match val {
+            None => Ok(std::cell::OnceCell::new()),
+            Some(val) => Ok(val.into()),
+        }
+    }
+}
+
+impl<T: StarlarkSerialize> StarlarkSerialize for std::cell::RefCell<T> {
+    fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
+        let inner = self.borrow();
+        inner.starlark_serialize(ctx)
+    }
+}
+
+impl<T: StarlarkDeserialize> StarlarkDeserialize for std::cell::RefCell<T> {
+    fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
+        let val = T::starlark_deserialize(ctx)?;
+        Ok(val.into())
     }
 }

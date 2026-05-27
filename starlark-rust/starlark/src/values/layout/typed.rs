@@ -77,7 +77,6 @@ pub struct ValueTyped<'v, T: StarlarkValue<'v>>(Value<'v>, marker::PhantomData<T
 /// [`FrozenValue`] wrapper which asserts contained value is of type `<T>`.
 #[derive(Copy_, Clone_, Dupe_, ProvidesStaticType, Allocative)]
 #[allocative(skip)] // Heap owns the value.
-#[derive(pagable::PagablePanic)]
 #[repr(transparent)]
 pub struct FrozenValueTyped<'v, T: StarlarkValue<'v>>(FrozenValue, marker::PhantomData<&'v T>);
 
@@ -476,12 +475,9 @@ impl<'v, T: StarlarkValue<'v>> crate::pagable::StarlarkDeserialize for FrozenVal
         ctx: &mut dyn crate::pagable::starlark_deserialize::StarlarkDeserializeContext<'_>,
     ) -> crate::Result<Self> {
         let fv = FrozenValue::starlark_deserialize(ctx)?;
-        FrozenValueTyped::new(fv).ok_or_else(|| {
-            crate::Error::new_other(anyhow::anyhow!(
-                "FrozenValueTyped: deserialized value is not of expected type `{}`",
-                T::TYPE,
-            ))
-        })
+        // SAFETY: pagable deserializes this field through the same Rust type
+        // that serialized it.
+        Ok(unsafe { FrozenValueTyped::new_unchecked(fv) })
     }
 }
 

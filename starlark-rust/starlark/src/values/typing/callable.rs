@@ -215,7 +215,6 @@ impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> AllocValue<'v>
 /// Marker for a callable value.
 #[derive(Allocative)]
 #[allocative(bound = "")]
-#[derive(pagable::PagablePanic)]
 #[derive(StarlarkPagable)]
 pub struct FrozenStarlarkCallable<
     P: StarlarkCallableParamSpec = StarlarkCallableParamAny,

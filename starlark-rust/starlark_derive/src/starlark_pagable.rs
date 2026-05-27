@@ -656,6 +656,10 @@ fn gen_serialize_enum(
         ));
     }
 
+    if data.variants.is_empty() {
+        return Ok(quote! {});
+    }
+
     let mut arms = Vec::new();
     for (idx, variant) in data.variants.iter().enumerate() {
         let tag = idx as u8;
@@ -762,6 +766,10 @@ fn gen_deserialize_enum(
     enum_name: &Ident,
     data: &syn::DataEnum,
 ) -> syn::Result<proc_macro2::TokenStream> {
+    if data.variants.is_empty() {
+        return Ok(quote! { Ok(Self) });
+    }
+
     let mut arms = Vec::new();
     for (idx, variant) in data.variants.iter().enumerate() {
         let tag = idx as u8;
