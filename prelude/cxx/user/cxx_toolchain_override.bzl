@@ -236,6 +236,8 @@ def _cxx_toolchain_override(ctx):
         # the rest are used without overrides
         cuda_compiler_info = base_toolchain.cuda_compiler_info,
         hip_compiler_info = base_toolchain.hip_compiler_info,
+        hip_device_debug_extract = base_toolchain.hip_device_debug_extract,
+        hip_gpu_archs = base_toolchain.hip_gpu_archs,
         header_mode = HeaderMode(ctx.attrs.header_mode) if ctx.attrs.header_mode != None else base_toolchain.header_mode,
         headers_as_raw_headers_mode = base_toolchain.headers_as_raw_headers_mode,
         use_dep_files = base_toolchain.use_dep_files,
