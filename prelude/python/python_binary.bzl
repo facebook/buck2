@@ -64,7 +64,7 @@ load(
     "create_manifest_for_extensions",
     "create_manifest_for_source_map",
 )
-load(":python.bzl", "LazyImportsCacheInfo", "LazyImportsCacheTSet", "PythonLibraryInfo", "manifests_to_interface")
+load(":python.bzl", "PythonLibraryInfo", "manifests_to_interface")
 load(
     ":python_library.bzl",
     "create_python_library_info",
@@ -305,10 +305,8 @@ def _compute_pex_providers(
         lazy_import_analysis_output = ctx.actions.declare_output("safer_lazy_imports/lazy-import-analysis.json", has_content_based_path = False)
         lifeguard_executable = ctx.attrs.lazy_imports_analyzer[RunInfo]
         if getattr(ctx.attrs, "use_lifeguard_incremental", False) and python_toolchain.lazy_imports_analyzer != None:
-            dep_cache_tsets = [dep[LazyImportsCacheInfo].transitive_caches for dep in ctx.attrs.deps if LazyImportsCacheInfo in dep]
-            if dep_cache_tsets:
-                merged_tset = ctx.actions.tset(LazyImportsCacheTSet, children = dep_cache_tsets)
-                dep_caches = list(merged_tset.traverse())
+            if library.lazy_imports_caches != None:
+                dep_caches = list(library.lazy_imports_caches.traverse())
             else:
                 dep_caches = []
             # This first call pulls in the hidden __par__ modules

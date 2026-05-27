@@ -59,15 +59,7 @@ load(
     "create_manifest_for_source_map",
 )
 load(":needed_coverage.bzl", "PythonNeededCoverageInfo")
-load(
-    ":python.bzl",
-    "LazyImportsCacheInfo",
-    "LazyImportsCacheTSet",
-    "NativeDepsInfoTSet",
-    "PythonLibraryInfo",
-    "PythonLibraryManifests",
-    "PythonLibraryManifestsTSet",
-)
+load(":python.bzl", "LazyImportsCacheTSet", "NativeDepsInfoTSet", "PythonLibraryInfo", "PythonLibraryManifests", "PythonLibraryManifestsTSet")
 load(":source_db.bzl", "create_python_source_db_info", "create_source_db_no_deps")
 load(":toolchain.bzl", "PythonToolchainInfo")
 load(":typing.bzl", "create_per_target_type_check", "create_type_check_validation")
@@ -134,6 +126,7 @@ def create_python_library_info(
     extension_shared_libraries: list[SharedLibraryInfo] = [],
     par_style: str | None = None,
     package_style: str | None = None,
+    lazy_imports_cache: [Artifact, None] = None,
 ):
     """
     Create a `PythonLibraryInfo` for a set of sources and deps
@@ -173,11 +166,20 @@ def create_python_library_info(
         deps = extension_shared_libraries + [dep.extension_shared_libraries for dep in deps],
     )
 
+    dep_cache_children = [dep.lazy_imports_caches for dep in deps if dep.lazy_imports_caches != None]
+    if lazy_imports_cache != None:
+        lazy_imports_caches = actions.tset(LazyImportsCacheTSet, value = lazy_imports_cache, children = dep_cache_children)
+    elif dep_cache_children:
+        lazy_imports_caches = actions.tset(LazyImportsCacheTSet, children = dep_cache_children)
+    else:
+        lazy_imports_caches = None
+
     return PythonLibraryInfo(
         manifests = actions.tset(PythonLibraryManifestsTSet, value = manifests, children = [dep.manifests for dep in deps]),
         shared_libraries = new_shared_libraries,
         extension_shared_libraries = new_extension_shared_libraries,
         is_native_dep = is_native_dep,
+        lazy_imports_caches = lazy_imports_caches,
         native_deps = native_deps,
         par_style = par_style,
         package_style = package_style,
@@ -360,6 +362,11 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     native_deps = merge_native_deps(ctx, raw_deps)
 
+    lazy_imports_analyzer = python_toolchain.lazy_imports_analyzer
+    lazy_imports_cache_output = None
+    if lazy_imports_analyzer != None and getattr(ctx.attrs, "use_lifeguard_incremental", False):
+        lazy_imports_cache_output = ctx.actions.declare_output("safer_lazy_imports/library-cache.bin")
+
     library_info = create_python_library_info(
         ctx.actions,
         ctx.label,
@@ -373,6 +380,7 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
         shared_libraries = shared_libraries,
         native_deps = native_deps,
         is_native_dep = False,
+        lazy_imports_cache = lazy_imports_cache_output,
     )
     providers.append(library_info)
 
@@ -430,20 +438,15 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
     source_db_no_deps = create_source_db_no_deps(ctx, src_types)
     sub_targets["source-db-no-deps"] = [source_db_no_deps, create_python_source_db_info(library_info.manifests)]
 
-    # Lazy imports library cache.
-    lazy_imports_analyzer = getattr(ctx.attrs, "lazy_imports_analyzer", None)
-    if lazy_imports_analyzer != None and getattr(ctx.attrs, "use_lifeguard_incremental", False):
-        cache_output = ctx.actions.declare_output("safer_lazy_imports/library-cache.bin")
+    # Lazy imports library cache (action scheduling — output was declared above).
+    if lazy_imports_cache_output != None:
         run_lazy_imports_library_analyzer(
             ctx,
-            lazy_imports_analyzer[RunInfo],
-            cache_output,
+            lazy_imports_analyzer,
+            lazy_imports_cache_output,
             source_db_no_deps,
         )
-        dep_cache_tsets = [dep[LazyImportsCacheInfo].transitive_caches for dep in raw_deps if LazyImportsCacheInfo in dep]
-        caches_tset = ctx.actions.tset(LazyImportsCacheTSet, value = cache_output, children = dep_cache_tsets)
-        providers.append(LazyImportsCacheInfo(cache = cache_output, transitive_caches = caches_tset))
-        sub_targets["lazy-import-cache"] = [DefaultInfo(default_output = cache_output)]
+        sub_targets["lazy-import-cache"] = [DefaultInfo(default_output = lazy_imports_cache_output)]
 
     # Type check
     type_checker = python_toolchain.type_checker

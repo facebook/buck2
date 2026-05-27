@@ -6,6 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//utils:argfile.bzl", "argfile")
 load(":toolchain.bzl", "PythonToolchainInfo")
 
 def _get_main_module(ctx: AnalysisContext) -> str | None:
@@ -74,10 +75,8 @@ def run_lazy_imports_cached_analysis(ctx: AnalysisContext, analyzer: RunInfo, ou
     cache_args = cmd_args()
     for cache in dep_caches:
         cache_args.add(cache)
-    cache_manifest, _ = ctx.actions.write("safer_lazy_imports/cache-manifest.txt", cache_args, allow_args = True, with_inputs = True)
     cmd.add("--cache-manifest")
-    cmd.add(cache_manifest)
-    cmd.add(cmd_args(hidden = cache_args))
+    cmd.add(argfile(actions = ctx.actions, name = "safer_lazy_imports/cache-manifest.txt", args = cache_args, allow_args = True))
 
     main_module = _get_main_module(ctx)
     if main_module != None:

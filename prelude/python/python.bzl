@@ -107,18 +107,13 @@ PythonLibraryManifestsTSet = transitive_set(
 
 LazyImportsCacheTSet = transitive_set()
 
-LazyImportsCacheInfo = provider(
-    fields = {
-        "cache": provider_field(Artifact),
-        "transitive_caches": provider_field(LazyImportsCacheTSet),
-    }
-)
-
 PythonLibraryInfo = provider(
     fields = {
         # Shared libraries coming from cxx_python_extension targets
         "extension_shared_libraries": provider_field(SharedLibraryInfo),
         "is_native_dep": provider_field(bool),
+        # Transitive lazy imports caches for incremental analysis
+        "lazy_imports_caches": provider_field(LazyImportsCacheTSet | None, default = None),
         # See the docs for PythonLibraryManifestsInterface
         "manifests": provider_field(PythonLibraryManifestsTSet),
         # Native deps
