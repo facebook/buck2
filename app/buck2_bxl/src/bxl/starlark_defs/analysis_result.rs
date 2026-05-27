@@ -29,7 +29,14 @@ use starlark::values::Value;
 use starlark::values::ValueTyped;
 use starlark::values::starlark_value;
 
-#[derive(ProvidesStaticType, Debug, NoSerialize, Allocative)]
+#[derive(
+    ProvidesStaticType,
+    Debug,
+    NoSerialize,
+    Allocative,
+    pagable::Pagable,
+    starlark::StarlarkPagableViaPagable
+)]
 pub(crate) struct StarlarkAnalysisResult {
     // Invariant: The subtarget specified on the label is present in the analysis result.
     analysis: AnalysisResult,

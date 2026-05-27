@@ -21,6 +21,7 @@ use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 
+use crate as starlark;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::eval::runtime::frame_span::FrameSpan;
@@ -34,7 +35,7 @@ use crate::values::function::NativeAttribute;
 use crate::values::function::NativeMethod;
 
 /// A value or an unbound method or unbound attribute.
-#[derive(Clone)]
+#[derive(Clone, crate::StarlarkPagable)]
 pub(crate) enum UnboundValue {
     /// A method with `this` unbound.
     Method(FrozenValueTyped<'static, NativeMethod>),

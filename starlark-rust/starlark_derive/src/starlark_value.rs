@@ -63,7 +63,7 @@ impl syn::parse::Parse for StarlarkValueAttrs {
             typ,
             unpack_value: false,
             starlark_type_repr: false,
-            skip_pagable: false,
+            skip_pagable: true,
             skip_vtable: false,
             ty_vtable_no_freeze: false,
         };

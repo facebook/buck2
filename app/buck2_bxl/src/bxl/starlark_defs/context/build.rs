@@ -60,7 +60,8 @@ use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
     Display,
     ProvidesStaticType,
     NoSerialize,
-    Allocative
+    Allocative,
+    starlark::StarlarkPagable
 )]
 #[repr(C)]
 pub(crate) struct StarlarkProvidersArtifactIterableGen<V: ValueLifetimeless>(pub(crate) V);
@@ -122,7 +123,8 @@ where
     Display,
     ProvidesStaticType,
     NoSerialize,
-    Allocative
+    Allocative,
+    starlark::StarlarkPagablePanic // okay("bxl")
 )]
 #[repr(C)]
 pub(crate) struct StarlarkFailedArtifactIterableGen<V: ValueLifetimeless>(pub(crate) V);

@@ -50,7 +50,14 @@ pub const BYTES_TYPE: &str = "bytes";
 /// An immutable sequence of bytes (integers in range 0–255).
 ///
 /// Values of this type are created via `b"..."` literals or the `bytes()` constructor.
-#[derive(Clone, Debug, ProvidesStaticType, Allocative)]
+#[derive(
+    Clone,
+    Debug,
+    ProvidesStaticType,
+    Allocative,
+    pagable::Pagable,
+    crate::StarlarkPagableViaPagable
+)]
 pub struct StarlarkBytes {
     content: Box<[u8]>,
 }

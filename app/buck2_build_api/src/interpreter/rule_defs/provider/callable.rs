@@ -333,11 +333,20 @@ impl<'v> StarlarkValue<'v> for UserProviderField {}
 /// This object must be assigned to a variable at the top level of the module before it may be invoked
 ///
 /// Field values default to `None`
-#[derive(Debug, ProvidesStaticType, Trace, NoSerialize, Allocative)]
+#[derive(
+    Debug,
+    ProvidesStaticType,
+    Trace,
+    NoSerialize,
+    Allocative,
+    starlark::StarlarkPagable
+)]
 pub struct UserProviderCallable {
     /// The path where this `ProviderCallable` is created and assigned
+    #[starlark_pagable(pagable)]
     path: CellPath,
     /// The docstring for this provider
+    #[starlark_pagable(pagable)]
     docs: Option<DocString>,
     /// The names of the fields used in `callable`
     fields: IndexMap<String, UserProviderField, StarlarkHasherSmallPromoteBuilder>,
@@ -451,7 +460,7 @@ impl TypeMatcher for UserProviderMatcher {
     }
 }
 
-#[starlark_value(type = "ProviderCallable", skip_pagable)]
+#[starlark_value(type = "ProviderCallable", skip_vtable)]
 impl<'v> StarlarkValue<'v> for UserProviderCallable {
     type Canonical = FrozenUserProviderCallable;
 

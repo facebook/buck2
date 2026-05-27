@@ -48,7 +48,8 @@ enum BxlResultError {
     // TODO(nero): implement Serialize for StarlarkError
     NoSerialize,
     Allocative,
-    Trace
+    Trace,
+    starlark::StarlarkPagablePanic // badbadbad!!! todo!("bxl")
 )]
 #[display("bxl.Error({})", StarlarkStr::repr(&format!("{err:?}")))]
 pub(crate) struct StarlarkError {
@@ -89,7 +90,8 @@ fn error_methods(builder: &mut MethodsBuilder) {
     Trace,
     Freeze,
     ProvidesStaticType,
-    Allocative
+    Allocative,
+    starlark::StarlarkPagablePanic // badbadbad!!! todo!("bxl")
 )]
 #[repr(C)]
 pub(crate) enum StarlarkResultGen<T> {

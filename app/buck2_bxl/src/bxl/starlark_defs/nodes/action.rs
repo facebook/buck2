@@ -43,7 +43,14 @@ use starlark::values::structs::AllocStruct;
 
 use crate::bxl::starlark_defs::analysis_result::StarlarkAnalysisResult;
 
-#[derive(Debug, Display, ProvidesStaticType, Allocative)]
+#[derive(
+    Debug,
+    Display,
+    ProvidesStaticType,
+    Allocative,
+    pagable::Pagable,
+    starlark::StarlarkPagableViaPagable
+)]
 #[derive(NoSerialize)]
 #[display("{}", self.0)]
 pub(crate) struct StarlarkAction(pub(crate) Arc<RegisteredAction>);
@@ -105,7 +112,13 @@ fn action_methods(builder: &mut MethodsBuilder) {
     }
 }
 
-#[derive(Debug, Display, ProvidesStaticType, Allocative)]
+#[derive(
+    Debug,
+    Display,
+    ProvidesStaticType,
+    Allocative,
+    starlark::StarlarkPagablePanic // okay("bxl")
+)]
 #[derive(NoSerialize)]
 #[display("{}", self.0.key())]
 pub(crate) struct StarlarkActionQueryNode(pub(crate) ActionQueryNode);
@@ -178,7 +191,15 @@ fn action_query_node_value_methods(builder: &mut MethodsBuilder) {
     }
 }
 
-#[derive(Debug, ProvidesStaticType, Allocative, derive_more::Display, Serialize)]
+#[derive(
+    Debug,
+    ProvidesStaticType,
+    Allocative,
+    derive_more::Display,
+    Serialize,
+    pagable::Pagable,
+    starlark::StarlarkPagableViaPagable
+)]
 #[repr(transparent)]
 #[serde(transparent)]
 pub(crate) struct StarlarkActionAttr(pub(crate) OwnedActionAttr);

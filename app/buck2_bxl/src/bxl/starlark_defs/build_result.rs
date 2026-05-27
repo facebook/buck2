@@ -34,7 +34,8 @@ use crate::bxl::starlark_defs::context::build::StarlarkProvidersArtifactIterable
     derive_more::Display,
     ProvidesStaticType,
     NoSerialize,
-    Allocative
+    Allocative,
+    starlark::StarlarkPagablePanic // okay("bxl")
 )]
 pub(crate) struct StarlarkBxlBuildResult(pub(crate) BxlBuildResult);
 

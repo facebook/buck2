@@ -156,6 +156,7 @@ impl ProjectionBitSet {
 #[repr(C)]
 pub struct TransitiveSetGen<V: ValueLifetimeless> {
     /// A Deferred key that maps back to this set. This is used to compute its inputs.
+    #[starlark_pagable(pagable)]
     pub key: TransitiveSetKey,
 
     /// The TransitiveSetCallable that this set uses.

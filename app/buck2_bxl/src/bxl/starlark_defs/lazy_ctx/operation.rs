@@ -260,7 +260,8 @@ impl LazyOperation {
     NoSerialize,
     Allocative,
     Clone,
-    Dupe
+    Dupe,
+    starlark::StarlarkPagablePanic // okay("bxl")
 )]
 #[derivative(Debug)]
 #[display("{:?}", self)]

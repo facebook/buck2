@@ -32,7 +32,7 @@ use buck2_core::target::label::label::TargetLabel;
 use buck2_error::conversion::clap::buck_error_clap_parser;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_hash::StdBuckHashSet;
+use buck2_hash::BuckIndexSet;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
@@ -75,7 +75,16 @@ use starlark_map::small_map::SmallMap;
 use crate::bxl::eval::CliResolutionCtx;
 
 /// Defines the cli args for the bxl function
-#[derive(Clone, Debug, Display, ProvidesStaticType, NoSerialize, Allocative)]
+#[derive(
+    Clone,
+    Debug,
+    Display,
+    ProvidesStaticType,
+    NoSerialize,
+    Allocative,
+    pagable::Pagable,
+    starlark::StarlarkPagableViaPagable
+)]
 #[display("{:?}", self)]
 pub(crate) struct CliArgs {
     /// The default value. If None, the value is not optional and must be provided by the user
@@ -312,13 +321,13 @@ impl CliArgValue {
     }
 }
 
-#[derive(Debug, VariantName, Clone, Dupe, Allocative)]
+#[derive(Debug, VariantName, Clone, Dupe, Allocative, pagable::Pagable)]
 pub(crate) enum CliArgType {
     Bool,
     Int,
     Float,
     String,
-    Enumeration(Arc<StdBuckHashSet<String>>),
+    Enumeration(Arc<BuckIndexSet<String>>),
     List(Arc<CliArgType>),
     Option(Arc<CliArgType>),
     TargetLabel,
@@ -402,7 +411,7 @@ impl CliArgType {
         CliArgType::SubTargetExpr
     }
 
-    fn enumeration(vs: StdBuckHashSet<String>) -> Self {
+    fn enumeration(vs: BuckIndexSet<String>) -> Self {
         CliArgType::Enumeration(Arc::new(vs))
     }
 
@@ -1297,7 +1306,7 @@ mod tests {
     use buck2_core::provider::label::testing::ProvidersLabelTestExt;
     use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
     use buck2_core::target::label::label::TargetLabel;
-    use buck2_hash::StdBuckHashSet;
+    use buck2_hash::BuckIndexSet;
     use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
     use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
     use buck2_interpreter::types::target_label::StarlarkTargetLabel;
@@ -1380,7 +1389,7 @@ mod tests {
             );
 
             assert_eq!(
-                CliArgType::enumeration(StdBuckHashSet::from_iter([
+                CliArgType::enumeration(BuckIndexSet::from_iter([
                     "a".to_owned(),
                     "b".to_owned(),
                     "c".to_owned()

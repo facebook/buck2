@@ -187,6 +187,7 @@ impl<'v> UnpackValue<'v> for &'v dyn StarlarkArtifactLike<'v> {
 ///
 /// This is useful because unlike `ValueAsArtifactLike`, it does not carry a lifetime. See <D?> for
 /// some more discussion of why this was necessary.
+#[derive(starlark::StarlarkPagable)]
 pub struct ValueIsInputArtifactAnnotation;
 
 impl StarlarkTypeRepr for ValueIsInputArtifactAnnotation {

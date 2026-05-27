@@ -37,7 +37,9 @@ use crate::bxl::starlark_defs::uquery::UnpackUnconfiguredQueryArgs;
     Trace,
     NoSerialize,
     Allocative,
-    Debug
+    Debug,
+    pagable::Pagable,
+    starlark::StarlarkPagableViaPagable
 )]
 #[display("bxl.LazyCqueryContext")]
 #[allocative(skip)]

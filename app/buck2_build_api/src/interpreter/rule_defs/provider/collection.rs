@@ -526,9 +526,10 @@ impl FrozenProviderCollection {
 }
 
 /// Thin wrapper around `FrozenValue` that can only be constructed if that value is a `FrozenProviderCollection`
-#[derive(Debug, Clone, Dupe, Allocative)]
+#[derive(Debug, Clone, Dupe, Allocative, starlark::StarlarkPagable)]
 pub struct FrozenProviderCollectionValue {
     #[allocative(skip)] // TODO(nga): do not skip.
+    #[starlark_pagable(pagable)]
     pub value: OwnedFrozenValueTyped<FrozenProviderCollection>,
 }
 

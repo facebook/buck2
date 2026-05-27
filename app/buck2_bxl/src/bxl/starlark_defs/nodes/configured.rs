@@ -273,7 +273,16 @@ fn attr_with_stripped_cfg(attr: &ConfiguredAttr) -> buck2_error::Result<CoercedA
     })
 }
 
-#[derive(Debug, Display, ProvidesStaticType, Allocative, Clone, Dupe)]
+#[derive(
+    Debug,
+    Display,
+    ProvidesStaticType,
+    Allocative,
+    Clone,
+    Dupe,
+    pagable::Pagable,
+    starlark::StarlarkPagableViaPagable
+)]
 #[derive(NoSerialize)] // TODO probably should be serializable the same as how queries serialize
 #[display("configured_target_node(name = {}, ...)", self.0.label())]
 pub(crate) struct StarlarkConfiguredTargetNode(pub(crate) ConfiguredTargetNode);
@@ -779,7 +788,14 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     }
 }
 
-#[derive(Debug, Clone, ProvidesStaticType, Allocative, Pagable)]
+#[derive(
+    Debug,
+    Clone,
+    ProvidesStaticType,
+    Allocative,
+    Pagable,
+    starlark::StarlarkPagableViaPagable
+)]
 #[repr(C)]
 pub(crate) struct StarlarkConfiguredAttr(ConfiguredAttr, PackageLabel);
 

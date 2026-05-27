@@ -93,6 +93,7 @@ use crate::values::function::FUNCTION_TYPE;
 /// use starlark::values::FrozenValue;
 /// use starlark::values::NoSerialize;
 /// use starlark::values::ProvidesStaticType;
+/// use starlark::values::StarlarkPagable;
 /// use starlark::values::StarlarkValue;
 /// use starlark::values::Trace;
 /// use starlark::values::Tracer;
@@ -107,13 +108,14 @@ use crate::values::function::FUNCTION_TYPE;
 ///     Display,
 ///     ProvidesStaticType,
 ///     NoSerialize,
+///     StarlarkPagable,
 ///     Allocative
 /// )]
 /// #[repr(C)]
 /// struct OneGen<V>(V);
 /// starlark_complex_value!(One);
 ///
-/// #[starlark_value(type = "one")]
+/// #[starlark_value(type = "one", skip_pagable)]
 /// impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for OneGen<V>
 /// where
 ///     Self: ProvidesStaticType<'v>,
@@ -218,14 +220,22 @@ where
 /// use derive_more::Display;
 /// use starlark::values::NoSerialize;
 /// use starlark::values::ProvidesStaticType;
+/// use starlark::values::StarlarkPagable;
 /// use starlark::values::StarlarkValue;
 /// use starlark_derive::starlark_value;
 ///
-/// #[derive(Debug, Display, ProvidesStaticType, NoSerialize, Allocative)]
+/// #[derive(
+///     Debug,
+///     Display,
+///     ProvidesStaticType,
+///     NoSerialize,
+///     StarlarkPagable,
+///     Allocative
+/// )]
 /// #[display("Foo")]
 /// struct Foo;
 /// # starlark_simple_value!(Foo);
-/// #[starlark_value(type = "foo")]
+/// #[starlark_value(type = "foo", skip_pagable)]
 /// impl<'v> StarlarkValue<'v> for Foo {}
 /// ```
 ///

@@ -59,7 +59,13 @@ starlark::register_simple_vtable_entry!(
     StarlarkTargetSet<buck2_build_api::actions::query::ActionQueryNode>
 );
 
-#[derive(Debug, Display, Clone)]
+#[derive(
+    Debug,
+    Display,
+    Clone,
+    starlark::StarlarkPagableViaPagable,
+    pagable::PagablePanic // okay("bxl")
+)]
 #[derive(NoSerialize, Allocative)] // TODO maybe this should be
 /// The StarlarkValue implementation for TargetSet to expose it to starlark.
 pub(crate) struct StarlarkTargetSet<Node: QueryTarget>(pub(crate) TargetSet<Node>);

@@ -341,6 +341,7 @@
 //! use starlark::values::Heap;
 //! use starlark::values::NoSerialize;
 //! use starlark::values::ProvidesStaticType;
+//! use starlark::values::StarlarkPagable;
 //! use starlark::values::StarlarkValue;
 //! use starlark::values::Value;
 //! use starlark::values::ValueError;
@@ -348,7 +349,15 @@
 //! use starlark_derive::starlark_value;
 //!
 //! // Define complex numbers
-//! #[derive(Debug, PartialEq, Eq, ProvidesStaticType, NoSerialize, Allocative)]
+//! #[derive(
+//!     Debug,
+//!     PartialEq,
+//!     Eq,
+//!     ProvidesStaticType,
+//!     NoSerialize,
+//!     StarlarkPagable,
+//!     Allocative
+//! )]
 //! struct Complex {
 //!     real: i32,
 //!     imaginary: i32,
@@ -361,7 +370,7 @@
 //!     }
 //! }
 //!
-//! #[starlark_value(type = "complex")]
+//! #[starlark_value(type = "complex", skip_pagable)]
 //! impl<'v> StarlarkValue<'v> for Complex {
 //!     // How we add them
 //!     fn add(&self, rhs: Value<'v>, heap: Heap<'v>) -> Option<starlark::Result<Value<'v>>> {

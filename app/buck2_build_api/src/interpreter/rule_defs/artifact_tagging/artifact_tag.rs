@@ -53,7 +53,7 @@ use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
     ProvidesStaticType,
     NoSerialize,
     Allocative,
-    Pagable,     // Need a way to avoid collisions if shared between processes
+    Pagable, // Need a way to avoid collisions if shared between processes.
     StarlarkPagable
 )]
 pub struct ArtifactTag {

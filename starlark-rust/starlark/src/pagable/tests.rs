@@ -34,6 +34,8 @@ use strong_hash::StrongHash;
 
 use crate as starlark;
 use crate::const_frozen_string;
+use crate::environment::GlobalFrozenHeapName;
+use crate::environment::GlobalsBuilder;
 use crate::starlark_simple_value;
 use crate::values::FrozenHeap;
 use crate::values::FrozenHeapRef;
@@ -42,7 +44,9 @@ use crate::values::OwnedFrozenValue;
 use crate::values::OwnedFrozenValueTyped;
 use crate::values::StarlarkValue;
 use crate::values::ValueLike;
+use crate::values::dict::globals::register_dict;
 use crate::values::layout::heap::heap_type::FrozenHeapName;
+use crate::values::list::globals::register_list;
 
 /// Private test heap name for pagable tests.
 #[derive(Clone, derive_more::Display, Debug, Hash, StrongHash)]
@@ -1566,7 +1570,14 @@ fn test_methods_static_heap_value_round_trip() -> crate::Result<()> {
 
 /// Phantom type used only as the `T` of `StarlarkValueAsType<T>` in the
 /// round-trip test below. Never allocated on a heap.
-#[derive(Debug, Display, Allocative, ProvidesStaticType, NoSerialize)]
+#[derive(
+    Debug,
+    Display,
+    Allocative,
+    ProvidesStaticType,
+    NoSerialize,
+    StarlarkPagable
+)]
 #[display("AsTypeRoundTripTestType")]
 struct AsTypeRoundTripTestType;
 
@@ -2449,4 +2460,37 @@ fn test_deserialize_field_error_includes_field_name() {
         "error should mention the field name, got: {}",
         err_msg,
     );
+}
+
+#[starlark_derive::starlark_module]
+fn register_foo(builder: &mut GlobalsBuilder) {
+    fn foo() -> anyhow::Result<i32> {
+        Ok(1)
+    }
+}
+
+starlark::globals_static!(
+    STATIC_GLOBALS = |static_globals| {
+        static_globals.set("x", FrozenValue::new_none());
+    }
+);
+
+#[test]
+fn test_globals_roundtrip() {
+    use pagable::PagableSerialize;
+    let mut globals = GlobalsBuilder::new();
+    STATIC_GLOBALS.populate(&mut globals);
+
+    register_list(&mut globals);
+    globals.namespace_no_docs("ns_hidden", |_| {});
+    globals.namespace("ns", |globals| {
+        globals.namespace_no_docs("nested_ns_hidden", |_| {});
+        globals.set("x", FrozenValue::new_none());
+        register_dict(globals);
+    });
+
+    let globals = globals.build_named(GlobalFrozenHeapName { name: "testing" });
+
+    let mut serializer = pagable::testing::TestingSerializer::new();
+    globals.pagable_serialize(&mut serializer).unwrap();
 }

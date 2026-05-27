@@ -221,7 +221,14 @@ pub(crate) fn file_node_methods(methods: &mut MethodsBuilder) {
     }
 }
 
-#[derive(Debug, ProvidesStaticType, Clone, Allocative)]
+#[derive(
+    Debug,
+    ProvidesStaticType,
+    Clone,
+    Allocative,
+    pagable::Pagable,
+    starlark::StarlarkPagableViaPagable
+)]
 #[derive(NoSerialize)]
 pub(crate) struct StarlarkReadDirSet {
     /// Cell path to the directory/files.

@@ -400,6 +400,8 @@ impl ProviderCodegen {
                 where
                     Self: starlark::any::ProvidesStaticType<'v>,
                 {
+                    type Canonical = #gen_name<starlark::values::FrozenValue>;
+
                     fn get_methods() -> Option<&'static starlark::environment::Methods> {
                         Some(#methods_static_name.methods())
                     }
@@ -499,9 +501,9 @@ impl ProviderCodegen {
         // from the starlark `Globals` registry (registered via `register_provider`).
         // The pagable of values on Globals is hanlded by Globals pagable support.
         Ok(syn::parse_quote_spanned! { self.span=>
-            #[derive(Debug, Clone, dupe::Dupe, starlark::any::ProvidesStaticType, starlark::values::NoSerialize, allocative::Allocative, starlark::values::StarlarkPagablePanic)]
+            #[derive(Debug, Clone, dupe::Dupe, starlark::any::ProvidesStaticType, starlark::values::NoSerialize, allocative::Allocative, starlark::values::StarlarkPagable)]
             #vis struct #callable_name {
-                id: &'static std::sync::Arc<buck2_core::provider::id::ProviderId>,
+
             }
         })
     }
@@ -557,7 +559,7 @@ impl ProviderCodegen {
         Ok(syn::parse_quote_spanned! { self.span=>
             impl buck2_interpreter::types::provider::callable::ProviderCallableLike for #callable_name {
                 fn id(&self) -> buck2_error::Result<&std::sync::Arc<buck2_core::provider::id::ProviderId>> {
-                    Ok(self.id)
+                    Ok(Self::provider_id_t().id())
                 }
             }
         })
@@ -596,7 +598,6 @@ impl ProviderCodegen {
 
                 #vis fn new() -> Self {
                     Self {
-                        id: Self::provider_id(),
                     }
                 }
             }

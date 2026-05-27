@@ -84,7 +84,7 @@ pub enum BuildProviderType {
 
 /// An output or error paired with the wall-clock elapsed time from build start
 /// at which it was produced.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, pagable::Pagable)]
 pub struct Timed<T> {
     pub inner: T,
     pub elapsed: Duration,
@@ -97,12 +97,16 @@ impl<T: Allocative> Allocative for Timed<T> {
     }
 }
 
-#[derive(Clone, Debug, Allocative)]
+#[derive(Clone, Debug, Allocative, starlark::StarlarkPagable)]
 pub struct ConfiguredBuildTargetResultGen<T> {
+    #[starlark_pagable(skip = "Vec::new()")] // todo!() deserialize correctly
     pub outputs: Vec<Timed<T>>,
     pub provider_collection: Option<FrozenProviderCollectionValue>,
+    #[starlark_pagable(pagable)]
     pub target_rule_type_name: Option<String>,
+    #[starlark_pagable(skip = "None")] // todo!() deserialize correctly
     pub graph_properties: Option<buck2_error::Result<MaybeCompatible<GraphPropertiesValues>>>,
+    #[starlark_pagable(skip = "Vec::new()")] // todo!() deserialize errors
     pub errors: Vec<Timed<buck2_error::Error>>,
 }
 

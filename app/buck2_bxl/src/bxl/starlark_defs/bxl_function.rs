@@ -194,7 +194,8 @@ impl<'v> Freeze for BxlFunction<'v> {
     }
 }
 
-#[derive(Debug, Display, ProvidesStaticType, NoSerialize, Allocative)]
+#[derive(Debug, Display, ProvidesStaticType, NoSerialize, Allocative,   starlark::StarlarkPagablePanic // okay("bxl")
+)]
 #[display("{}()", bxl_id.name)]
 pub(crate) struct FrozenBxlFunction {
     implementation: FrozenValue,

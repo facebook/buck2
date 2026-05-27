@@ -58,7 +58,14 @@ pub(crate) struct EnsuredArtifact {
     pub(crate) abs: bool,
 }
 
-#[derive(Clone, Debug, Trace, ProvidesStaticType, Allocative)]
+#[derive(
+    Clone,
+    Debug,
+    Trace,
+    ProvidesStaticType,
+    Allocative,
+    starlark::StarlarkPagablePanic
+)]
 #[repr(C)]
 pub(crate) struct EnsuredArtifactGroupInner {
     pub(crate) ags: Vec<ArtifactGroup>,
@@ -98,7 +105,15 @@ pub(crate) async fn visit_artifact_path_without_associated_deduped(
     Ok(())
 }
 
-#[derive(Clone, Dupe, Debug, Trace, ProvidesStaticType, Allocative)]
+#[derive(
+    Clone,
+    Dupe,
+    Debug,
+    Trace,
+    ProvidesStaticType,
+    Allocative,
+    starlark::StarlarkPagablePanic
+)]
 #[repr(C)]
 pub(crate) struct EnsuredArtifactGroup<'v> {
     // Have `EnsuredArtifactGroup` be a wrapper around `EnsuredArtifactGroupInner` as a Starlark `Value`
@@ -135,7 +150,12 @@ impl<'v> EnsuredArtifactGroup<'v> {
 
 starlark::methods_static!(ARTIFACT_GROUP_METHODS = artifact_group_methods);
 
-#[starlark_value(type = "bxl.EnsuredArtifactGroup", StarlarkTypeRepr, UnpackValue)]
+#[starlark_value(
+    type = "bxl.EnsuredArtifactGroup",
+    StarlarkTypeRepr,
+    UnpackValue,
+    ty_vtable_no_freeze
+)]
 impl<'v> StarlarkValue<'v> for EnsuredArtifactGroup<'v>
 where
     Self: ProvidesStaticType<'v>,
@@ -151,7 +171,12 @@ where
     }
 }
 
-#[starlark_value(type = "bxl.EnsuredArtifactGroupInner", StarlarkTypeRepr, UnpackValue)]
+#[starlark_value(
+    type = "bxl.EnsuredArtifactGroupInner",
+    StarlarkTypeRepr,
+    UnpackValue,
+    ty_vtable_no_freeze
+)]
 impl<'v> StarlarkValue<'v> for EnsuredArtifactGroupInner
 where
     Self: ProvidesStaticType<'v>,
@@ -286,7 +311,12 @@ impl Serialize for EnsuredArtifactGroupInner {
 
 starlark::methods_static!(ENSURED_ARTIFACT_METHODS = ensured_artifact_methods);
 
-#[starlark_value(type = "bxl.EnsuredArtifact", StarlarkTypeRepr, UnpackValue)]
+#[starlark_value(
+    type = "bxl.EnsuredArtifact",
+    StarlarkTypeRepr,
+    UnpackValue,
+    ty_vtable_no_freeze
+)]
 impl<'v> StarlarkValue<'v> for EnsuredArtifact
 where
     Self: ProvidesStaticType<'v>,

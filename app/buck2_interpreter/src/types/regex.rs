@@ -18,10 +18,6 @@ use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
-use starlark::pagable::StarlarkDeserialize;
-use starlark::pagable::StarlarkDeserializeContext;
-use starlark::pagable::StarlarkSerialize;
-use starlark::pagable::StarlarkSerializeContext;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::typing::Ty;
@@ -30,42 +26,26 @@ use starlark::values::StarlarkValue;
 use starlark::values::starlark_value;
 
 /// Wrapper for `regex::Regex`.
-#[derive(ProvidesStaticType, Debug, NoSerialize, Allocative)]
+#[derive(
+    ProvidesStaticType,
+    Debug,
+    NoSerialize,
+    Allocative,
+    starlark::StarlarkPagable
+)]
 pub enum StarlarkBuckRegex {
     // TODO(nga): do not skip.
     //   And this is important because regex can have a lot of cache.
-    Regular(#[allocative(skip)] regex::Regex),
-    Fancy(#[allocative(skip)] fancy_regex::Regex),
-}
-
-impl StarlarkSerialize for StarlarkBuckRegex {
-    fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> starlark::Result<()> {
-        let (is_fancy, pattern) = match self {
-            StarlarkBuckRegex::Regular(r) => (false, r.as_str()),
-            StarlarkBuckRegex::Fancy(r) => (true, r.as_str()),
-        };
-        is_fancy.starlark_serialize(ctx)?;
-        pattern.to_owned().starlark_serialize(ctx)?;
-        Ok(())
-    }
-}
-
-impl StarlarkDeserialize for StarlarkBuckRegex {
-    fn starlark_deserialize(
-        ctx: &mut dyn StarlarkDeserializeContext<'_>,
-    ) -> starlark::Result<Self> {
-        let is_fancy = bool::starlark_deserialize(ctx)?;
-        let pattern = String::starlark_deserialize(ctx)?;
-        if is_fancy {
-            Ok(StarlarkBuckRegex::Fancy(
-                fancy_regex::Regex::new(&pattern).map_err(starlark::Error::new_other)?,
-            ))
-        } else {
-            Ok(StarlarkBuckRegex::Regular(
-                regex::Regex::new(&pattern).map_err(starlark::Error::new_other)?,
-            ))
-        }
-    }
+    Regular(
+        #[allocative(skip)]
+        #[starlark_pagable(pagable)]
+        regex::Regex,
+    ),
+    Fancy(
+        #[allocative(skip)]
+        #[starlark_pagable(pagable)]
+        fancy_regex::Regex,
+    ),
 }
 
 impl StarlarkBuckRegex {

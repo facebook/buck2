@@ -138,15 +138,23 @@ macro_rules! starlark_complex_values {
 /// use starlark::values::Heap;
 /// use starlark::values::NoSerialize;
 /// use starlark::values::ProvidesStaticType;
+/// use starlark::values::StarlarkPagable;
 /// use starlark::values::StarlarkValue;
 /// use starlark::values::Value;
 /// use starlark_derive::starlark_value;
 ///
-/// #[derive(Debug, Display, ProvidesStaticType, NoSerialize, Allocative)]
+/// #[derive(
+///     Debug,
+///     Display,
+///     ProvidesStaticType,
+///     NoSerialize,
+///     StarlarkPagable,
+///     Allocative
+/// )]
 /// struct MyObject(String);
 /// starlark_simple_value!(MyObject);
 ///
-/// #[starlark_value(type = "my_object")]
+/// #[starlark_value(type = "my_object", skip_pagable)]
 /// impl<'v> StarlarkValue<'v> for MyObject {
 ///     // We can choose to implement whichever methods we want.
 ///     // All other operations will result in runtime errors.

@@ -37,7 +37,8 @@ use crate::bxl::starlark_defs::uquery::UnpackUnconfiguredQueryArgs;
     Trace,
     NoSerialize,
     Allocative,
-    Debug
+    Debug,
+    starlark::StarlarkPagable
 )]
 #[display("bxl.LazyUqueryContext")]
 pub(crate) struct StarlarkLazyUqueryCtx {}

@@ -39,7 +39,16 @@ use starlark::values::structs::AllocStruct;
 use super::node_attrs::NodeAttributeGetter;
 use crate::bxl::starlark_defs::file_set::StarlarkFileNode;
 
-#[derive(Debug, Display, ProvidesStaticType, Allocative, Clone, Dupe)]
+#[derive(
+    Debug,
+    Display,
+    ProvidesStaticType,
+    Allocative,
+    Clone,
+    Dupe,
+    pagable::Pagable,
+    starlark::StarlarkPagableViaPagable
+)]
 #[derive(NoSerialize)] // TODO probably should be serializable the same as how queries serialize
 #[display("{:?}", self)]
 pub(crate) struct StarlarkTargetNode(pub(crate) TargetNode);

@@ -46,6 +46,7 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 #[display("TaggedValue({}, tagged {})", inner, tag)]
 pub struct StarlarkTaggedValueGen<V: ValueLifetimeless> {
     inner: V,
+    #[starlark_pagable(pagable)]
     tag: ArtifactTag,
     inputs_only: bool,
 }

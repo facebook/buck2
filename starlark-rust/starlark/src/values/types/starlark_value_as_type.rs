@@ -116,6 +116,7 @@ impl Display for StarlarkValueAsTypeStarlarkValue {
 /// use starlark::any::ProvidesStaticType;
 /// use starlark::environment::GlobalsBuilder;
 /// use starlark::values::NoSerialize;
+/// use starlark::values::StarlarkPagable;
 /// use starlark::values::StarlarkValue;
 /// use starlark::values::starlark_value;
 /// use starlark::values::starlark_value_as_type::StarlarkValueAsType;
@@ -126,11 +127,12 @@ impl Display for StarlarkValueAsTypeStarlarkValue {
 ///     derive_more::Display,
 ///     Allocative,
 ///     ProvidesStaticType,
-///     NoSerialize
+///     NoSerialize,
+///     StarlarkPagable
 /// )]
 /// struct StarlarkTemperature;
 ///
-/// #[starlark_value(type = "temperature")]
+/// #[starlark_value(type = "temperature", skip_pagable)]
 /// impl<'v> StarlarkValue<'v> for StarlarkTemperature {}
 ///
 /// // Use with #[starlark_module]:
@@ -312,7 +314,7 @@ mod tests {
         ProvidesStaticType,
         StarlarkPagable
     )]
-    struct StarlarkCompilerArgs(String);
+    struct StarlarkCompilerArgs(#[starlark_pagable(pagable)] String);
 
     #[starlark_value(type = "compiler_args", skip_pagable)]
     impl<'v> StarlarkValue<'v> for StarlarkCompilerArgs {}

@@ -402,7 +402,12 @@ impl<'v> AllocValue<'v> for StarlarkActionSubError {
 
 starlark::methods_static!(ACTION_SUB_ERROR_METHODS = action_sub_error_methods);
 
-#[starlark_value(type = "ActionSubError", StarlarkTypeRepr, UnpackValue)]
+#[starlark_value(
+    type = "ActionSubError",
+    StarlarkTypeRepr,
+    UnpackValue,
+    ty_vtable_no_freeze
+)]
 impl<'v> StarlarkValue<'v> for StarlarkActionSubError {
     fn get_methods() -> Option<&'static Methods> {
         Some(ACTION_SUB_ERROR_METHODS.methods())

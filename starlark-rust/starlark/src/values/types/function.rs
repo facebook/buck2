@@ -67,7 +67,7 @@ enum FunctionError {
 /// Return value of `type(any function)`.
 pub const FUNCTION_TYPE: &str = "function";
 
-#[derive(Debug, Allocative, Clone, Copy, Dupe)]
+#[derive(Debug, Allocative, Clone, Copy, Dupe, pagable::Pagable)]
 #[doc(hidden)]
 pub enum SpecialBuiltinFunction {
     List,
@@ -85,10 +85,11 @@ pub type NativeFuncFn = for<'v> fn(
 ) -> crate::Result<Value<'v>>;
 
 /// Storage for a `NativeFuncFn` and the parameters spec needed to call it
-#[derive(Debug, ProvidesStaticType, Allocative)]
+#[derive(Debug, ProvidesStaticType, Allocative, crate::StarlarkPagable)]
 pub(crate) struct NativeFunc(
     #[allocative(skip)] // Not general enough
-    pub(crate)  NativeFuncFn,
+    #[starlark_pagable(skip = "{ |_a, _b, _c| { unimplemented!() } }")]
+    pub(crate) NativeFuncFn,
     pub(crate) ParametersSpec<FrozenValue>,
 );
 
@@ -106,7 +107,14 @@ impl NativeFunc {
 /// Starlark representation of native (Rust) functions.
 ///
 /// Almost always created with [`#[starlark_module]`](macro@crate::starlark_module).
-#[derive(Derivative, ProvidesStaticType, Display, NoSerialize, Allocative)]
+#[derive(
+    Derivative,
+    ProvidesStaticType,
+    Display,
+    NoSerialize,
+    Allocative,
+    crate::StarlarkPagable
+)]
 #[derivative(Debug)]
 #[display("{}", name)]
 pub(crate) struct NativeFunction {
@@ -114,12 +122,16 @@ pub(crate) struct NativeFunction {
     pub(crate) function: NativeFunc,
     pub(crate) name: String,
     /// `.type` attribute and a type when this function is used in type expression.
+    #[starlark_pagable(pagable)]
     pub(crate) as_type: Option<Ty>,
+    #[starlark_pagable(pagable)]
     pub(crate) ty: Ty,
     /// Safe to evaluate speculatively.
     pub(crate) speculative_exec_safe: bool,
     #[derivative(Debug = "ignore")]
+    #[starlark_pagable(pagable)]
     pub(crate) docs: DocItem,
+    #[starlark_pagable(pagable)]
     pub(crate) special_builtin_function: Option<SpecialBuiltinFunction>,
 }
 
@@ -237,10 +249,11 @@ pub type NativeMethFn = for<'v> fn(
 ) -> crate::Result<Value<'v>>;
 
 /// Storage for a `NativeMethFn` and the parameters spec needed to call it
-#[derive(Debug, ProvidesStaticType, Allocative)]
+#[derive(Debug, ProvidesStaticType, Allocative, crate::StarlarkPagable)]
 pub(crate) struct NativeMeth(
     #[allocative(skip)] // Not general enough
-    pub(crate)  NativeMethFn,
+    #[starlark_pagable(skip = "{ |_a, _b, _c, _d| { unimplemented!() } }")]
+    pub(crate) NativeMethFn,
     pub(crate) ParametersSpec<FrozenValue>,
 );
 
@@ -256,17 +269,26 @@ impl NativeMeth {
     }
 }
 
-#[derive(Derivative, Display, NoSerialize, ProvidesStaticType, Allocative)]
+#[derive(
+    Derivative,
+    Display,
+    NoSerialize,
+    ProvidesStaticType,
+    Allocative,
+    crate::StarlarkPagable
+)]
 #[derivative(Debug)]
 #[display("{}", name)]
 pub(crate) struct NativeMethod {
     #[derivative(Debug = "ignore")]
     pub(crate) function: NativeMeth,
     pub(crate) name: String,
+    #[starlark_pagable(pagable)]
     pub(crate) ty: Ty,
     /// Safe to evaluate speculatively.
     pub(crate) speculative_exec_safe: bool,
     #[derivative(Debug = "ignore")]
+    #[starlark_pagable(pagable)]
     pub(crate) docs: DocItem,
 }
 
@@ -285,13 +307,21 @@ impl<'v> StarlarkValue<'v> for NativeMethod {
 
 /// Used by the `#[starlark(attribute)]` tag of [`#[starlark_module]`](macro@starlark_module)
 /// to define a function that pretends to be an attribute.
-#[derive(Derivative, Display, NoSerialize, ProvidesStaticType, Allocative)]
+#[derive(
+    Derivative,
+    Display,
+    NoSerialize,
+    ProvidesStaticType,
+    Allocative,
+    crate::StarlarkPagable
+)]
 #[display("Attribute")]
 #[derivative(Debug)]
 pub(crate) struct NativeAttribute {
     /// Safe to evaluate speculatively.
     pub(crate) speculative_exec_safe: bool,
     pub(crate) docstring: Option<String>,
+    #[starlark_pagable(pagable)]
     pub(crate) typ: Ty,
     /// Essentially a `&dyn Fn(Value, Heap) -> Result<Value>`, but expanded out by hand, and
     /// with the `Self` hardcoded to always be `Option<FrozenValue>`
@@ -300,6 +330,7 @@ pub(crate) struct NativeAttribute {
     /// would introduce an additional branch when calling the attribute
     pub(crate) data: Option<FrozenValue>,
     #[allocative(skip)] // "Not general enough"
+    #[starlark_pagable(skip = "{ |_a, _b, _c| { unimplemented!() } }")]
     pub(crate) callable:
         for<'v> fn(Option<FrozenValue>, Value<'v>, Heap<'v>) -> crate::Result<Value<'v>>,
 }
@@ -335,7 +366,8 @@ impl<'v> StarlarkValue<'v> for NativeAttribute {
     Freeze,
     NoSerialize,
     ProvidesStaticType,
-    Allocative
+    Allocative,
+    crate::StarlarkPagable
 )]
 #[repr(C)]
 #[display("{}", method)]

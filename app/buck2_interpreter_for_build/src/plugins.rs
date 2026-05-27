@@ -42,7 +42,13 @@ use starlark::values::type_repr::StarlarkTypeRepr;
 
 use crate::interpreter::build_context::BuildContext;
 
-#[derive(Debug, derive_more::Display, Allocative, Pagable)]
+#[derive(
+    Debug,
+    derive_more::Display,
+    Allocative,
+    Pagable,
+    starlark::StarlarkPagableViaPagable
+)]
 enum InnerStarlarkPluginKind {
     #[display("<plugin_kind <unbound>>")]
     Unbound(CellPath),
@@ -59,13 +65,16 @@ enum InnerStarlarkPluginKind {
     ProvidesStaticType,
     NoSerialize,
     Trace,
-    Allocative
+    Allocative,
+    starlark::StarlarkPagable
 )]
 #[display("{}", RefCell::borrow(_0))]
 pub struct StarlarkPluginKind(RefCell<InnerStarlarkPluginKind>);
 
-#[starlark_value(type = "PluginKind", skip_pagable)]
+#[starlark_value(type = "PluginKind", skip_vtable)]
 impl<'v> StarlarkValue<'v> for StarlarkPluginKind {
+    type Canonical = FrozenStarlarkPluginKind;
+
     fn export_as(
         &self,
         variable_name: &str,
@@ -121,7 +130,7 @@ starlark_simple_value!(FrozenStarlarkPluginKind);
 
 #[starlark_value(type = "PluginKind", skip_pagable)]
 impl<'v> StarlarkValue<'v> for FrozenStarlarkPluginKind {
-    type Canonical = StarlarkPluginKind;
+    type Canonical = FrozenStarlarkPluginKind;
 }
 
 impl Freeze for StarlarkPluginKind {

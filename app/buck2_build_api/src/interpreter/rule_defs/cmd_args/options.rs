@@ -23,6 +23,7 @@ use display_container::fmt_container;
 use dupe::Dupe;
 use either::Either;
 use gazebo::prelude::*;
+use pagable::Pagable;
 use pagable::PagableDeserialize;
 use pagable::PagableSerialize;
 use serde::Serialize;
@@ -64,6 +65,7 @@ use crate::interpreter::rule_defs::cmd_args::regex::FrozenCmdArgsRegex;
     Freeze,
     Serialize,
     Allocative,
+    Pagable,
     StarlarkPagable
 )]
 pub enum QuoteStyle {
@@ -270,7 +272,7 @@ enum FrozenCommandLineOption {
     Delimiter(FrozenStringValue),
     Format(FrozenStringValue),
     Prepend(FrozenStringValue),
-    Quote(QuoteStyle),
+    Quote(#[starlark_pagable(pagable)] QuoteStyle),
     // `ThinBoxSlice` lives in `buck2_util` (cannot depend on `starlark`),
     // so the per-element starlark bridging lives here at the use site.
     #[allow(clippy::box_collection)]

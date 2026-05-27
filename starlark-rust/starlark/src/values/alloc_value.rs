@@ -42,8 +42,9 @@ use crate::values::type_repr::StarlarkTypeRepr;
 /// # use allocative::Allocative;
 /// # use starlark::any::ProvidesStaticType;
 /// # use starlark::values::{AllocValue, Heap, NoSerialize, starlark_value, StarlarkValue, Value};
+/// # use starlark_derive::StarlarkPagable;
 ///
-/// #[derive(Debug, derive_more::Display, Allocative, NoSerialize, ProvidesStaticType)]
+/// #[derive(Debug, derive_more::Display, Allocative, NoSerialize, ProvidesStaticType, StarlarkPagable)]
 /// struct MySimpleValue;
 ///
 /// #[starlark_value(type = "MySimpleValue", UnpackValue, StarlarkTypeRepr)]
