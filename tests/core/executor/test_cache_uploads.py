@@ -25,6 +25,12 @@ async def _assert_upload_attempted(buck: Buck, count: int) -> None:
     uploads = []
     excluded_uploads = []
 
+    # CI lacks reliable write access to CAS, so count any upload that was
+    # *attempted* — both genuine successes and infra-level rejections that
+    # prove the action reached the cache-upload stage. PERMISSION_DENIED is
+    # the missing-write-ACL case. INVALID_ARGUMENT is only tolerated when the
+    # message identifies the specific "Outputs TTL -1 is too low" rejection
+    # (raised when supporting CAS objects haven't been uploaded).
     for line in log:
         e = json_get(
             line,
@@ -36,8 +42,15 @@ async def _assert_upload_attempted(buck: Buck, count: int) -> None:
         )
         if e is None:
             continue
-        if e["success"] or e["re_error_code"] == "PERMISSION_DENIED":
-            # Tolerate permission denied errors because we don't have a choice on CI :(
+        tolerated = (
+            e["success"]
+            or e["re_error_code"] == "PERMISSION_DENIED"
+            or (
+                e["re_error_code"] == "INVALID_ARGUMENT"
+                and "Outputs TTL -1 is too low" in e.get("error", "")
+            )
+        )
+        if tolerated:
             uploads.append(e)
         else:
             excluded_uploads.append(e)
