@@ -2282,3 +2282,78 @@ fn test_type_compiled_impl_with_is_any_of_round_trip() -> crate::Result<()> {
 
     Ok(())
 }
+
+// ============================================================================
+// `starlark_deserialize_field` error context
+// ============================================================================
+
+#[derive(Debug, Allocative)]
+struct AlwaysFailDeserialize;
+
+impl crate::pagable::StarlarkSerialize for AlwaysFailDeserialize {
+    fn starlark_serialize(
+        &self,
+        _ctx: &mut dyn crate::pagable::StarlarkSerializeContext,
+    ) -> crate::Result<()> {
+        Ok(())
+    }
+}
+
+impl crate::pagable::StarlarkDeserialize for AlwaysFailDeserialize {
+    fn starlark_deserialize(
+        _ctx: &mut dyn crate::pagable::starlark_deserialize::StarlarkDeserializeContext<'_>,
+    ) -> crate::Result<Self> {
+        Err(crate::Error::new_other(anyhow::anyhow!(
+            "intentional test failure"
+        )))
+    }
+}
+
+#[derive(
+    Debug,
+    Display,
+    Allocative,
+    ProvidesStaticType,
+    NoSerialize,
+    StarlarkPagable
+)]
+#[display("FieldErrorTestData")]
+struct FieldErrorTestData {
+    good_field: bool,
+    bad_field: AlwaysFailDeserialize,
+}
+
+starlark_simple_value!(FieldErrorTestData);
+
+#[starlark_value(type = "FieldErrorTestData", skip_pagable)]
+impl<'v> StarlarkValue<'v> for FieldErrorTestData {
+    type Canonical = Self;
+}
+
+#[test]
+fn test_deserialize_field_error_includes_field_name() {
+    let heap = FrozenHeap::new();
+    heap.alloc_simple(FieldErrorTestData {
+        good_field: true,
+        bad_field: AlwaysFailDeserialize,
+    });
+    let heap_ref = heap.into_ref_named(TestHeapName::heap_name("test_field_error"));
+
+    let mut ser = pagable::testing::TestingSerializer::new();
+    heap_ref
+        .pagable_serialize(&mut ser)
+        .map_err(crate::Error::new_other)
+        .unwrap();
+    let bytes = ser.finish();
+
+    let mut de = pagable::testing::TestingDeserializer::new(&bytes);
+    let result = FrozenHeapRef::pagable_deserialize(&mut de);
+
+    let err = result.unwrap_err();
+    let err_msg = format!("{:#}", err);
+    assert!(
+        err_msg.contains("deserializing field bad_field"),
+        "error should mention the field name, got: {}",
+        err_msg,
+    );
+}

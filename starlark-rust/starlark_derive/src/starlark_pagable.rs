@@ -569,10 +569,11 @@ fn gen_deserialize_struct(name: &Ident, fields: &Fields) -> syn::Result<proc_mac
     match fields {
         Fields::Named(named) => {
             let mut field_inits = Vec::new();
-            for field in &named.named {
+            for (i, field) in named.named.iter().enumerate() {
                 let attrs = extract_field_attrs(&field.attrs)?;
                 let ident = field.ident.as_ref().unwrap();
                 let ty = &field.ty;
+                let field_name_str = field_ident(i, field).to_string();
 
                 let value = if attrs.skip {
                     gen_skip_value(&attrs, ty, field.span())?
@@ -592,7 +593,7 @@ fn gen_deserialize_struct(name: &Ident, fields: &Fields) -> syn::Result<proc_mac
                     }
                 } else {
                     quote_spanned! { field.span()=>
-                        starlark::pagable::StarlarkDeserialize::starlark_deserialize(ctx)?
+                        starlark::pagable::starlark_deserialize_field::<#ty>(ctx, #field_name_str)?
                     }
                 };
                 field_inits.push(quote! { #ident: #value });
@@ -603,9 +604,10 @@ fn gen_deserialize_struct(name: &Ident, fields: &Fields) -> syn::Result<proc_mac
         }
         Fields::Unnamed(unnamed) => {
             let mut field_values = Vec::new();
-            for field in &unnamed.unnamed {
+            for (i, field) in unnamed.unnamed.iter().enumerate() {
                 let attrs = extract_field_attrs(&field.attrs)?;
                 let ty = &field.ty;
+                let field_name_str = field_ident(i, field).to_string();
 
                 let value = if attrs.skip {
                     gen_skip_value(&attrs, ty, field.span())?
@@ -625,7 +627,7 @@ fn gen_deserialize_struct(name: &Ident, fields: &Fields) -> syn::Result<proc_mac
                     }
                 } else {
                     quote_spanned! { field.span()=>
-                        starlark::pagable::StarlarkDeserialize::starlark_deserialize(ctx)?
+                        starlark::pagable::starlark_deserialize_field::<#ty>(ctx, #field_name_str)?
                     }
                 };
                 field_values.push(value);
@@ -773,9 +775,10 @@ fn gen_deserialize_enum(
             }
             Fields::Unnamed(unnamed) => {
                 let mut values = Vec::new();
-                for field in &unnamed.unnamed {
+                for (i, field) in unnamed.unnamed.iter().enumerate() {
                     let attrs = extract_field_attrs(&field.attrs)?;
                     let ty = &field.ty;
+                    let field_name_str = field_ident(i, field).to_string();
                     let v = if attrs.skip {
                         gen_skip_value(&attrs, ty, field.span())?
                     } else if let Some(fn_path) = &attrs.deserialize_with {
@@ -794,7 +797,7 @@ fn gen_deserialize_enum(
                         }
                     } else {
                         quote_spanned! { field.span()=>
-                            starlark::pagable::StarlarkDeserialize::starlark_deserialize(ctx)?
+                            starlark::pagable::starlark_deserialize_field::<#ty>(ctx, #field_name_str)?
                         }
                     };
                     values.push(v);
@@ -805,10 +808,11 @@ fn gen_deserialize_enum(
             }
             Fields::Named(named) => {
                 let mut inits = Vec::new();
-                for field in &named.named {
+                for (i, field) in named.named.iter().enumerate() {
                     let attrs = extract_field_attrs(&field.attrs)?;
                     let ident = field.ident.as_ref().unwrap();
                     let ty = &field.ty;
+                    let field_name_str = field_ident(i, field).to_string();
                     let v = if attrs.skip {
                         gen_skip_value(&attrs, ty, field.span())?
                     } else if let Some(fn_path) = &attrs.deserialize_with {
@@ -827,7 +831,7 @@ fn gen_deserialize_enum(
                         }
                     } else {
                         quote_spanned! { field.span()=>
-                            starlark::pagable::StarlarkDeserialize::starlark_deserialize(ctx)?
+                            starlark::pagable::starlark_deserialize_field::<#ty>(ctx, #field_name_str)?
                         }
                     };
                     inits.push(quote! { #ident: #v });
