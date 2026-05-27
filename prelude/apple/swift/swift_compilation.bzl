@@ -81,8 +81,10 @@ load(
     "get_incremental_object_compilation_flags",
     "get_incremental_remote_outputs_enabled",
     "get_incremental_split_actions",
+    "get_incremental_swiftmodule_compilation_flags",
     "get_uses_content_based_paths",
     "should_build_swift_incrementally",
+    "should_build_swiftmodule_incrementally",
 )
 load(":swift_module_map.bzl", "write_swift_module_map_with_deps")
 load(":swift_output_file_map.bzl", "add_dependencies_output", "get_modularization_dependency_graph_output_map")
@@ -641,18 +643,17 @@ def _compile_swiftmodule(
     inputs_tag: ArtifactTag,
     category: str,
 ) -> CompileArgsfiles:
+    # The incremental swiftmodule action is opt-in and only supported when
+    # we are not emitting library evolution outputs (which require WMO).
+    build_swiftmodule_incrementally = should_build_swiftmodule_incrementally(ctx) and swift_framework_output == None
+
     argfile_cmd = cmd_args(shared_flags)
-    argfile_cmd.add([
-        "-disable-cmo",
-        "-wmo",
-    ])
+    argfile_cmd.add("-disable-cmo")
 
-    if ctx.attrs.swift_module_skip_function_bodies:
-        argfile_cmd.add([
-            "-Xfrontend",
-            "-experimental-skip-non-inlinable-function-bodies-without-types",
-        ])
-
+    # Shared between WMO and incremental swiftmodule actions: emit the
+    # `.swiftmodule` + generated ObjC header, set up the include path for
+    # relative module map paths, and (when requested) skip non-inlinable
+    # function bodies for faster swiftmodule emission.
     cmd = cmd_args(
         "-emit-objc-header",
         "-emit-objc-header-path",
@@ -662,29 +663,58 @@ def _compile_swiftmodule(
         output_swiftmodule.as_output(),
     )
     cmd.add(include_path_for_relative_module_map_paths(ctx))
-
-    if swift_framework_output:
+    if ctx.attrs.swift_module_skip_function_bodies:
         argfile_cmd.add([
-            "-enable-library-evolution",
-        ])
-        cmd.add([
-            "-emit-module-interface",
-            "-emit-module-interface-path",
-            swift_framework_output.swiftinterface.as_output(),
-            "-emit-private-module-interface-path",
-            swift_framework_output.private_swiftinterface.as_output(),
-            # Module verification fails here as the clang modules
-            # are not loaded correctly.
-            "-no-verify-emitted-module-interface",
+            "-Xfrontend",
+            "-experimental-skip-non-inlinable-function-bodies-without-types",
         ])
 
-        # There is no driver flag to specify the swiftdoc output path
-        # TODO: use an output file map for this.
-        cmd.add(cmd_args(hidden = swift_framework_output.swiftdoc.as_output()))
+    output_file_map = {}
+    incremental_artifacts = None
+    skip_incremental_outputs = False
+
+    if build_swiftmodule_incrementally:
+        incremental_compilation_output = get_incremental_swiftmodule_compilation_flags(ctx, srcs)
+        cmd.add(incremental_compilation_output.incremental_flags_cmd)
+        output_file_map = incremental_compilation_output.output_file_map
+        skip_incremental_outputs = incremental_compilation_output.skip_incremental_outputs
+        incremental_artifacts = IncrementalCompilationInput(
+            depfiles = incremental_compilation_output.depfiles,
+            swiftdeps = incremental_compilation_output.swiftdeps,
+            swiftdoc = None,
+        )
+    else:
+        argfile_cmd.add([
+            "-wmo",
+        ])
+
+        if swift_framework_output:
+            argfile_cmd.add([
+                "-enable-library-evolution",
+            ])
+            cmd.add([
+                "-emit-module-interface",
+                "-emit-module-interface-path",
+                swift_framework_output.swiftinterface.as_output(),
+                "-emit-private-module-interface-path",
+                swift_framework_output.private_swiftinterface.as_output(),
+                # Module verification fails here as the clang modules
+                # are not loaded correctly.
+                "-no-verify-emitted-module-interface",
+            ])
+
+            # There is no driver flag to specify the swiftdoc output path
+            # TODO: use an output file map for this.
+            cmd.add(cmd_args(hidden = swift_framework_output.swiftdoc.as_output()))
 
     dep_files = {}
-    output_file_map = {}
-    if toolchain.use_depsfiles:
+    # With -skip-incremental-output the output_file_map is an output, so we
+    # cannot support depsfiles. With incremental file hashing the dep_file
+    # is also unnecessary.
+    emit_depsfiles = (
+        toolchain.use_depsfiles and not skip_incremental_outputs and not (build_swiftmodule_incrementally and get_incremental_file_hashing_enabled(ctx))
+    )
+    if emit_depsfiles:
         add_dependencies_output(ctx, output_file_map, cmd, "swiftmodule", inputs_tag)
         dep_files["swiftmodule"] = inputs_tag
 
@@ -700,8 +730,10 @@ def _compile_swiftmodule(
         dep_files = dep_files,
         output_file_map = output_file_map,
         artifact_tag = inputs_tag,
-        # The swiftmodule action always uses WMO, so incremental mode shouldn't be allowed.
-        incremental_build_allowed = False,
+        incremental_build_allowed = build_swiftmodule_incrementally,
+        skip_incremental_outputs = skip_incremental_outputs,
+        objects = [],
+        incremental_artifacts = incremental_artifacts,
     )
     return ret
 
