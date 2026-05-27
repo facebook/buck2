@@ -19,6 +19,16 @@ use buck2_wrapper_common::BUCK2_WRAPPER_ENV_VAR;
 
 use crate::daemon_id::DaemonId;
 
+/// Collects metadata from the current binary and environment, merged with any extras, suitable for telemetry purposes.
+pub fn collect_with_extras(
+    daemon: &DaemonId,
+    extras: &StdBuckHashMap<String, String>,
+) -> StdBuckHashMap<String, String> {
+    let mut map = collect(daemon);
+    map.extend(extras.iter().map(|(k, v)| (k.clone(), v.clone())));
+    map
+}
+
 /// Collects metadata from the current binary and environment and writes it as map, suitable for telemetry purposes.
 pub fn collect(daemon: &DaemonId) -> StdBuckHashMap<String, String> {
     facebook_only();

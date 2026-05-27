@@ -1174,7 +1174,10 @@ impl ServerCommandContextTrait for ServerCommandContext<'_> {
         // Facebook only: metadata collection for Scribe writes
         facebook_only();
 
-        let mut metadata = metadata::collect(&self.base_context.daemon.daemon_id);
+        let mut metadata = metadata::collect_with_extras(
+            &self.base_context.daemon.daemon_id,
+            &self.base_context.daemon.buckconfig_metadata,
+        );
 
         metadata.insert(
             "io_provider".to_owned(),
