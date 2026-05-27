@@ -70,9 +70,14 @@ def run_lazy_imports_cached_analysis(ctx: AnalysisContext, analyzer: RunInfo, ou
     cmd = cmd_args(analyzer)
     cmd.add("analyze-binary")
     cmd.add(output.as_output())  # <OUTPUT_PATH>
+
+    cache_args = cmd_args()
     for cache in dep_caches:
-        cmd.add("--cache")
-        cmd.add(cache)
+        cache_args.add(cache)
+    cache_manifest, _ = ctx.actions.write("safer_lazy_imports/cache-manifest.txt", cache_args, allow_args = True, with_inputs = True)
+    cmd.add("--cache-manifest")
+    cmd.add(cache_manifest)
+    cmd.add(cmd_args(hidden = cache_args))
 
     main_module = _get_main_module(ctx)
     if main_module != None:

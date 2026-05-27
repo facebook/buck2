@@ -59,7 +59,15 @@ load(
     "create_manifest_for_source_map",
 )
 load(":needed_coverage.bzl", "PythonNeededCoverageInfo")
-load(":python.bzl", "LazyImportsCacheInfo", "NativeDepsInfoTSet", "PythonLibraryInfo", "PythonLibraryManifests", "PythonLibraryManifestsTSet")
+load(
+    ":python.bzl",
+    "LazyImportsCacheInfo",
+    "LazyImportsCacheTSet",
+    "NativeDepsInfoTSet",
+    "PythonLibraryInfo",
+    "PythonLibraryManifests",
+    "PythonLibraryManifestsTSet",
+)
 load(":source_db.bzl", "create_python_source_db_info", "create_source_db_no_deps")
 load(":toolchain.bzl", "PythonToolchainInfo")
 load(":typing.bzl", "create_per_target_type_check", "create_type_check_validation")
@@ -432,7 +440,9 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
             cache_output,
             source_db_no_deps,
         )
-        providers.append(LazyImportsCacheInfo(cache = cache_output))
+        dep_cache_tsets = [dep[LazyImportsCacheInfo].transitive_caches for dep in raw_deps if LazyImportsCacheInfo in dep]
+        caches_tset = ctx.actions.tset(LazyImportsCacheTSet, value = cache_output, children = dep_cache_tsets)
+        providers.append(LazyImportsCacheInfo(cache = cache_output, transitive_caches = caches_tset))
         sub_targets["lazy-import-cache"] = [DefaultInfo(default_output = cache_output)]
 
     # Type check

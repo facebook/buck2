@@ -105,9 +105,12 @@ PythonLibraryManifestsTSet = transitive_set(
     reductions = {"{}has_hidden_resources".format(prefix): _has_hidden_resources_for(field_name) for prefix, field_name in _RESOURCE_MODES.values()},
 )
 
+LazyImportsCacheTSet = transitive_set()
+
 LazyImportsCacheInfo = provider(
     fields = {
         "cache": provider_field(Artifact),
+        "transitive_caches": provider_field(LazyImportsCacheTSet),
     }
 )
 
