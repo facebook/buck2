@@ -33,6 +33,7 @@ use dice::DiceTransactionUpdater;
 use dupe::Dupe;
 use notify::EventKind;
 use notify::RecommendedWatcher;
+use notify::WatchFilter;
 use notify::Watcher;
 use notify::event::CreateKind;
 use notify::event::MetadataKind;
@@ -95,8 +96,8 @@ impl NotifyFileData {
         for path in &event.paths {
             // We ignore the buck-out prefix, as those are uninteresting events caused by us.
             // We also ignore other buck-out directories, as if you have two isolation dirs running at once, they are not interesting.
-            // We do this in the notify-watcher, rather than a generic layer, as watchman users should configure
-            // to ignore buck-out, to reduce the number of events, rather than hiding them later.
+            // The watch filter already prunes buck-out at watch registration time, but backends
+            // that cannot watch selectively may still let events slip through in rare cases.
             //
             // Checked on the raw path so this dominant event class is discarded
             // cheaply, whatever bytes the path contains.
@@ -331,11 +332,44 @@ impl NotifyFileData {
     }
 }
 
+/// A filter that prunes buck-out and ignored directories at watch-registration
+/// time: inotify never installs watches beneath them, so they generate no
+/// events at all. Backends that cannot watch selectively (FSEvents, Windows)
+/// suppress the events on delivery instead, before they reach our callback.
+///
+/// This prunes any directory whose own path matches an ignore pattern, so a
+/// file-shaped glob (e.g. `*.tmp`) matching a directory name prunes that
+/// whole subtree.
+fn ignore_watch_filter(
+    root: &ProjectRoot,
+    cells: &CellResolver,
+    ignore_specs: &StdBuckHashMap<CellName, IgnoreSet>,
+) -> WatchFilter {
+    let root = root.dupe();
+    let cells = cells.dupe();
+    let ignore_specs = ignore_specs.clone();
+    WatchFilter::with_filter(move |path| {
+        // Prune paths we cannot represent (e.g. non-UTF-8): buck cannot read
+        // them anyway, so their events would be unusable.
+        let Ok(rel) = AbsNormPath::new(path).and_then(|abs| root.relativize(abs)) else {
+            return false;
+        };
+        if rel.starts_with(InvocationPaths::buck_out_dir_prefix()) {
+            return false;
+        }
+        let cell_path = cells.get_cell_path(&rel);
+        !ignore_specs
+            .get(&cell_path.cell())
+            .is_some_and(|i| i.is_match(cell_path.path()))
+    })
+}
+
 #[derive(Allocative)]
 pub struct NotifyFileWatcher {
-    #[allocative(skip)]
+    /// Never used directly, but must be kept alive: dropping the watcher
+    /// removes all its watches.
     #[expect(unused)]
-    // FIXME(JakobDegen): Clarify if this just needs to be kept alive or can be removed?
+    #[allocative(skip)]
     watcher: RecommendedWatcher,
     data: Arc<Mutex<buck2_error::Result<NotifyFileData>>>,
 }
@@ -349,6 +383,7 @@ impl NotifyFileWatcher {
         let data = Arc::new(Mutex::new(Ok(NotifyFileData::new())));
         let data2 = data.dupe();
         let root2 = root.dupe();
+        let watch_filter = ignore_watch_filter(root, &cells, &ignore_specs);
         let mut watcher = notify::recommended_watcher(move |event| {
             let mut guard = data2.lock().unwrap();
             if let Ok(state) = &mut *guard {
@@ -359,7 +394,11 @@ impl NotifyFileWatcher {
         })
         .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::NotifyWatcher))?;
         watcher
-            .watch(root.root().as_path(), notify::RecursiveMode::Recursive)
+            .watch_filtered(
+                root.root().as_path(),
+                notify::RecursiveMode::Recursive,
+                watch_filter,
+            )
             .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::NotifyWatcher))?;
         Ok(Self { watcher, data })
     }
@@ -492,6 +531,37 @@ mod tests {
         assert_eq!(0, data.events.len());
         assert_eq!(1, data.ignored);
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_watch_filter_prunes_buck_out_and_ignored() -> buck2_error::Result<()> {
+        use std::ffi::OsStr;
+        use std::os::unix::ffi::OsStrExt;
+
+        let fs = ProjectRootTemp::new()?;
+        let root_path = fs.path().root().as_path();
+        let cells = CellResolver::testing_with_name_and_path(
+            CellName::testing_new("root"),
+            CellRootPathBuf::testing_new(""),
+        );
+        let mut specs = StdBuckHashMap::default();
+        specs.insert(
+            CellName::testing_new("root"),
+            IgnoreSet::from_ignore_spec("**/node_modules", true)?,
+        );
+        let filter = ignore_watch_filter(fs.path(), &cells, &specs);
+
+        assert!(filter.should_watch(root_path));
+        assert!(filter.should_watch(&root_path.join("src")));
+        assert!(!filter.should_watch(&root_path.join("buck-out")));
+        assert!(!filter.should_watch(&root_path.join("buck-out/v2/gen")));
+        assert!(!filter.should_watch(&root_path.join("src/node_modules")));
+        assert!(filter.should_watch(&root_path.join("src/node_modules_not")));
+
+        // Unrepresentable names are pruned too: buck cannot read them.
+        assert!(!filter.should_watch(&root_path.join(r"back\slash")));
+        assert!(!filter.should_watch(&root_path.join(OsStr::from_bytes(b"foo\xff"))));
         Ok(())
     }
 }
