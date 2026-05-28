@@ -12,6 +12,7 @@ use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::name::CellName;
 use buck2_core::pattern::pattern::ParsedPattern;
+use buck2_interpreter::paths::package::PackageFilePath;
 use buck2_node::visibility::VisibilityPattern;
 use buck2_node::visibility::VisibilitySpecification;
 use buck2_node::visibility::VisibilityWithinViewBuilder;
@@ -35,6 +36,8 @@ enum PackageFileError {
         "`enforce_visibility_intersection()` function can be used at most once per `PACKAGE` file"
     )]
     EnforceVisibilityIntersectionAtMostOnce,
+    #[error("`enforce_visibility_intersection()` can only be called from a `PACKAGE` file")]
+    EnforceVisibilityIntersectionMustBeDirect,
 }
 
 fn parse_visibility(
@@ -149,11 +152,25 @@ pub(crate) fn register_package_function(globals: &mut GlobalsBuilder) {
     /// rather than rejected. Calling this without a non-`None`
     /// `package(visibility=...)` (omitted or `visibility=None`) adds
     /// nothing to the cap — the parent's cap propagates unchanged.
+    ///
+    /// Can only be called from a `PACKAGE` file.
     fn enforce_visibility_intersection(eval: &mut Evaluator) -> starlark::Result<NoneType> {
         let build_context = BuildContext::from_context(eval)?;
         let package_file_eval_ctx = build_context
             .additional
             .require_package_file("enforce_visibility_intersection")?;
+
+        let direct_package_call = eval.call_stack_top_location().is_some_and(|loc| {
+            let filename = std::path::Path::new(loc.filename());
+            PackageFilePath::package_file_names().any(|pkg| filename.ends_with(pkg))
+        });
+        if !direct_package_call {
+            return Err(buck2_error::Error::from(
+                PackageFileError::EnforceVisibilityIntersectionMustBeDirect,
+            )
+            .into());
+        }
+
         let mut enforces = package_file_eval_ctx
             .enforces_visibility_intersection
             .borrow_mut();

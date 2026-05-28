@@ -102,3 +102,15 @@ async def test_optin_preserves_parent_within_view(buck: Buck) -> None:
         output=sanitize_stderr(result.stderr),
         rel_path="golden/test_optin_preserves_parent_within_view.golden.txt",
     )
+
+
+@buck_test()
+async def test_call_from_bzl_is_rejected(buck: Buck) -> None:
+    result = await expect_failure(
+        buck.ctargets("root//indirect_call/leaf:t"),
+        stderr_regex=r"`enforce_visibility_intersection\(\)` can only be called from a `PACKAGE` file",
+    )
+    golden(
+        output=sanitize_stderr(result.stderr),
+        rel_path="golden/test_call_from_bzl_is_rejected.golden.txt",
+    )
