@@ -26,10 +26,10 @@ use dupe::Dupe;
 use pagable::DataKey;
 use pagable::context::PagableDeserializerImpl;
 use pagable::storage::handle::PagableStorageHandle;
-use pagable::storage::sled::SledBackedPagableStorage;
-use pagable::storage::sqlite::SqliteBackedPagableStorage;
 use pagable::storage::support::SerializerForPaging;
 use pagable::storage::traits::PagableStorage;
+use pagable_storage::storage::sled::SledBackedPagableStorage;
+use pagable_storage::storage::sqlite::SqliteBackedPagableStorage;
 
 use crate::impls::core::state::CoreStateHandle;
 use crate::impls::key::DiceKey;

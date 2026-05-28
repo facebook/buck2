@@ -1,0 +1,26 @@
+load("@fbsource//tools/build_defs:rust_library.bzl", "rust_library")
+
+oncall("build_infra")
+
+rust_library(
+    name = "pagable_storage",
+    srcs = glob(
+        ["src/**/*.rs"],
+    ),
+    crate_root = "src/lib.rs",
+    features = select({
+        "DEFAULT": ["tokio"],
+        # @oss-disable[end= ]: "ovr_config//runtime/constraints:wasm": [],
+    }),
+    deps = [
+        "fbsource//third-party/rust:anyhow",
+        "fbsource//third-party/rust:async-trait",
+        "fbsource//third-party/rust:bytemuck",
+        "fbsource//third-party/rust:dashmap",
+        "fbsource//third-party/rust:either",
+        "fbsource//third-party/rust:rusqlite",
+        "fbsource//third-party/rust:sled",
+        "fbsource//third-party/rust:tokio",
+        "//buck2/pagable:pagable",
+    ],
+)

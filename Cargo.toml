@@ -115,6 +115,7 @@ members = [
     "integrations/rust-project",
     "pagable",
     "pagable_derive",
+    "pagable_storage",
     "remote_execution/oss/re_grpc",
     "remote_execution/oss/re_grpc_proto",
     "starlark-rust/starlark",
@@ -372,6 +373,7 @@ host_sharing = { path = "host_sharing" }
 lock_free_hashtable = { version = "0.1.4", path = "shed/lock_free_hashtable" }
 lock_free_vec = { path = "shed/lock_free_vec" }
 pagable = { version = "0.3.3", path = "pagable", features = ["tokio"] }
+pagable_storage = { version = "0.3.3", path = "pagable_storage", features = ["tokio"] }
 provider = { path = "shed/provider" }
 remote_execution = { path = "remote_execution/oss/re_grpc" }
 setsketch = { path = "shed/setsketch" }

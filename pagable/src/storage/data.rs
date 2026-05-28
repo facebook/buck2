@@ -116,7 +116,7 @@ impl PagableData {
     /// Computes the content-addressable key for this pagable data.
     ///
     /// The key is computed from the serialized data and nested arc keys.
-    pub(crate) fn compute_key(&self) -> DataKey {
+    pub fn compute_key(&self) -> DataKey {
         DataKey::compute(
             self.arcs.len(),
             &self.data,

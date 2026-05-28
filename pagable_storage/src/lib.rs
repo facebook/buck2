@@ -8,8 +8,7 @@
  * above-listed licenses.
  */
 
-pub mod data;
-pub mod handle;
-pub mod in_memory;
-pub mod support;
-pub mod traits;
+pub mod storage {
+    pub mod sled;
+    pub mod sqlite;
+}

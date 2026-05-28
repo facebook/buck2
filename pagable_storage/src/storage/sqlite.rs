@@ -20,13 +20,12 @@ use std::sync::mpsc;
 use dashmap::DashMap;
 use dashmap::mapref::entry::Entry;
 use either::Either;
+use pagable::arc_erase::ArcEraseDyn;
+use pagable::storage::data::DataKey;
+use pagable::storage::data::PagableData;
+use pagable::storage::traits::PagableStorage;
+use pagable::traits::SessionContext;
 use rusqlite::Connection;
-
-use crate::arc_erase::ArcEraseDyn;
-use crate::storage::data::DataKey;
-use crate::storage::data::PagableData;
-use crate::storage::traits::PagableStorage;
-use crate::traits::SessionContext;
 
 /// SQLite-backed storage backend for pagable data.
 ///

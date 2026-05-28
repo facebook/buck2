@@ -1,0 +1,22 @@
+[package]
+description = "Sled and SQLite storage backends for the pagable serialization framework"
+edition = "2024"
+license = { workspace = true }
+name = "pagable_storage"
+repository = { workspace = true }
+version = "0.3.3"
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+bytemuck = { workspace = true }
+dashmap = { workspace = true }
+either = { workspace = true }
+pagable = { version = "=0.3.3", path = "../pagable" }
+rusqlite = { version = "0.37.0", features = ["bundled"] }
+sled = { workspace = true }
+tokio = { workspace = true, optional = true }
+
+[features]
+default = []
+tokio = ["dep:tokio"]
