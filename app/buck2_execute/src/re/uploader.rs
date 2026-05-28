@@ -312,9 +312,9 @@ impl Uploader {
                     }
                     Err(
                         ref err @ ArtifactNotMaterializedReason::RequiresCasDownload {
+                            ref path,
                             ref entry,
                             ref info,
-                            ..
                         },
                     ) => {
                         if let DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) =
@@ -361,6 +361,19 @@ impl Uploader {
                                     quiet: true
                                 )?;
 
+                                // Materialize the file locally from CAS and add it to
+                                // the upload list. Silently skipping this file (the old
+                                // behavior) leaves the downstream action with incomplete
+                                // inputs, causing confusing failures. Materializing
+                                // bypasses FindMissingCache and talks directly to CAS;
+                                // if the blob truly is gone, we fail here with a clear
+                                // error rather than later with a mysterious one.
+                                paths_to_materialize.push(path.clone());
+                                upload_files.push(NamedDigest {
+                                    name: fs.resolve(path).as_maybe_relativized_str()?.to_owned(),
+                                    digest,
+                                    ..Default::default()
+                                });
                                 continue;
                             }
                         }
