@@ -331,7 +331,7 @@ tonic-prost = { version = "0.14.5" }
 tonic-prost-build = { version = "0.14.5" }
 tower = { version = "0.5.3", features = ["util"] }
 tower-layer = "0.3.1"
-tower-lsp-server = "0.21.1"
+tower-lsp-server = "0.22.1"
 tower-service = "0.3.3"
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.20", features = ["env-filter", "json"] }

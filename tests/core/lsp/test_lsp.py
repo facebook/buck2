@@ -40,7 +40,7 @@ def _assert_uris(actual: str, expected: str) -> None:
         # Windows file paths are case-insensitive, and the LSP returns the drive identifier in upper-case.
         # Windows also allows paths to use forward and backward slashes interchangeably.
         # Normalize the paths only on Windows to avoid flakiness.
-        assert actual.lower().replace("\\", "/") == expected.lower()
+        assert actual.replace("\\", "/").replace("%3A", ":").lower() == expected.lower()
     else:
         assert actual == expected
 
