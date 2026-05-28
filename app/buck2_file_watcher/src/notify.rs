@@ -332,7 +332,8 @@ impl NotifyFileWatcher {
             // on each sync. DICE is cold at startup so we discard the
             // synthesized events from the initial scan.
             let mut state = HashMap::new();
-            let (_, new_watches) = rescan_root(&mut state, root, &cells, &ignore_specs)?;
+            let RescanResult { new_watches, .. } =
+                rescan_root(&mut state, root, &cells, &ignore_specs)?;
             for path in new_watches {
                 watcher
                     .watch(&path, notify::RecursiveMode::Recursive)
@@ -361,17 +362,31 @@ impl NotifyFileWatcher {
         mut dice: DiceTransactionUpdater,
     ) -> buck2_error::Result<(buck2_data::FileWatcherStats, DiceTransactionUpdater)> {
         let synth_events = if let Some(state_mu) = &self.root_state {
-            let (events, new_watches) = {
+            let RescanResult {
+                events,
+                new_watches,
+                removed_watches,
+            } = {
                 let mut state = state_mu.lock().unwrap();
                 rescan_root(&mut state, &self.root, &self.cells, &self.ignore_specs)?
             };
-            if !new_watches.is_empty() {
+            if !new_watches.is_empty() || !removed_watches.is_empty() {
                 let mut watcher = self.watcher.lock().unwrap();
                 for path in new_watches {
                     debug!("FileWatcher: Watching new root subdirectory: {:?}", path);
                     watcher
                         .watch(&path, notify::RecursiveMode::Recursive)
                         .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::NotifyWatcher))?;
+                }
+                for path in removed_watches {
+                    debug!("FileWatcher: Unwatching removed root subdirectory: {:?}", path);
+                    // `WatchNotFound` is the expected case on Linux, where
+                    // inotify auto-removes the watch in response to
+                    // IN_IGNORED before we get here.
+                    match watcher.unwatch(&path) {
+                        Ok(()) | Err(notify::Error { kind: notify::ErrorKind::WatchNotFound, .. }) => {}
+                        Err(e) => return Err(from_any_with_tag(e, buck2_error::ErrorTag::NotifyWatcher)),
+                    }
                 }
             }
             events
@@ -399,18 +414,29 @@ impl NotifyFileWatcher {
     }
 }
 
+/// Outcome of a `rescan_root` pass.
+struct RescanResult {
+    /// Synthetic events for deltas vs. the previous state.
+    events: Vec<(CellPath, EventKind)>,
+    /// Newly-discovered directories that need a recursive watch registered
+    /// by the caller.
+    new_watches: Vec<PathBuf>,
+    /// Directories that vanished and should have their recursive watch
+    /// unregistered by the caller.
+    removed_watches: Vec<PathBuf>,
+}
+
 /// Re-enumerate top-level entries under the project root and update `state`
-/// in place. Returns synthetic events for any deltas vs. the previous state
-/// and paths of newly-discovered directories that need a recursive watch
-/// registered by the caller. Ignored entries are not tracked.
+/// in place. Ignored entries are not tracked. See [`RescanResult`].
 fn rescan_root(
     state: &mut HashMap<PathBuf, RootEntryState>,
     root: &ProjectRoot,
     cells: &CellResolver,
     ignore_specs: &StdBuckHashMap<CellName, IgnoreSet>,
-) -> buck2_error::Result<(Vec<(CellPath, EventKind)>, Vec<PathBuf>)> {
+) -> buck2_error::Result<RescanResult> {
     let mut events = Vec::new();
     let mut new_watches = Vec::new();
+    let mut removed_watches = Vec::new();
     let mut seen = HashSet::new();
 
     for entry in std::fs::read_dir(root.root().as_path())
@@ -477,13 +503,20 @@ fn rescan_root(
         };
         let kind = match entry {
             RootEntryState::File { .. } => EventKind::Remove(RemoveKind::File),
-            RootEntryState::Dir => EventKind::Remove(RemoveKind::Folder),
+            RootEntryState::Dir => {
+                removed_watches.push(path.clone());
+                EventKind::Remove(RemoveKind::Folder)
+            }
         };
         events.push((cell_path, kind));
         false
     });
 
-    Ok((events, new_watches))
+    Ok(RescanResult {
+        events,
+        new_watches,
+        removed_watches,
+    })
 }
 
 #[async_trait]
@@ -549,7 +582,8 @@ mod tests {
         std::fs::create_dir(root_path.join("src"))?;
 
         let mut state = HashMap::new();
-        let (_, new_watches) = rescan_root(&mut state, &root, &cells, &ignore_root_buck_out()?)?;
+        let RescanResult { new_watches, .. } =
+            rescan_root(&mut state, &root, &cells, &ignore_root_buck_out()?)?;
 
         assert_eq!(new_watches, vec![root_path.join("src")]);
         Ok(())
@@ -564,7 +598,9 @@ mod tests {
         rescan_root(&mut state, &root, &cells, &ignores)?; // seed
 
         std::fs::create_dir(root_path.join("newdir"))?;
-        let (events, new_watches) = rescan_root(&mut state, &root, &cells, &ignores)?;
+        let RescanResult {
+            events, new_watches, ..
+        } = rescan_root(&mut state, &root, &cells, &ignores)?;
 
         assert_eq!(new_watches, vec![root_path.join("newdir")]);
         assert_eq!(events.len(), 1);
@@ -584,7 +620,9 @@ mod tests {
         rescan_root(&mut state, &root, &cells, &ignores)?; // seed
 
         std::fs::create_dir(root_path.join("buck-out"))?;
-        let (events, new_watches) = rescan_root(&mut state, &root, &cells, &ignores)?;
+        let RescanResult {
+            events, new_watches, ..
+        } = rescan_root(&mut state, &root, &cells, &ignores)?;
 
         assert!(new_watches.is_empty());
         assert!(events.is_empty());
@@ -604,7 +642,7 @@ mod tests {
         // Sleep past one-second mtime resolution that some filesystems use.
         std::thread::sleep(std::time::Duration::from_millis(1100));
         std::fs::write(&buck_path, b"changed contents that are longer")?;
-        let (events, _) = rescan_root(&mut state, &root, &cells, &ignores)?;
+        let RescanResult { events, .. } = rescan_root(&mut state, &root, &cells, &ignores)?;
 
         assert_eq!(events.len(), 1);
         assert!(matches!(events[0].1, EventKind::Modify(ModifyKind::Data(_))));
@@ -621,10 +659,16 @@ mod tests {
         rescan_root(&mut state, &root, &cells, &ignores)?; // seed
 
         std::fs::remove_file(&buck_path)?;
-        let (events, _) = rescan_root(&mut state, &root, &cells, &ignores)?;
+        let RescanResult {
+            events,
+            removed_watches,
+            ..
+        } = rescan_root(&mut state, &root, &cells, &ignores)?;
 
         assert_eq!(events.len(), 1);
         assert!(matches!(events[0].1, EventKind::Remove(RemoveKind::File)));
+        // File removals don't produce a watch unregistration.
+        assert!(removed_watches.is_empty());
         Ok(())
     }
 
@@ -638,10 +682,15 @@ mod tests {
         rescan_root(&mut state, &root, &cells, &ignores)?; // seed
 
         std::fs::remove_dir(root_path.join("src"))?;
-        let (events, _) = rescan_root(&mut state, &root, &cells, &ignores)?;
+        let RescanResult {
+            events,
+            removed_watches,
+            ..
+        } = rescan_root(&mut state, &root, &cells, &ignores)?;
 
         assert_eq!(events.len(), 1);
         assert!(matches!(events[0].1, EventKind::Remove(RemoveKind::Folder)));
+        assert_eq!(removed_watches, vec![root_path.join("src")]);
         Ok(())
     }
 
@@ -655,9 +704,14 @@ mod tests {
         let mut state = HashMap::new();
         rescan_root(&mut state, &root, &cells, &ignores)?; // seed
 
-        let (events, new_watches) = rescan_root(&mut state, &root, &cells, &ignores)?;
+        let RescanResult {
+            events,
+            new_watches,
+            removed_watches,
+        } = rescan_root(&mut state, &root, &cells, &ignores)?;
         assert!(events.is_empty());
         assert!(new_watches.is_empty());
+        assert!(removed_watches.is_empty());
         Ok(())
     }
 }
