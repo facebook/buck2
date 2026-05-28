@@ -21,6 +21,8 @@ use std::time::SystemTime;
 use allocative::Allocative;
 use buck2_core::cells::name::CellName;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
+use buck2_error::ErrorTag;
+use buck2_error::buck2_error;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_hash::StdBuckHashMap;
@@ -145,6 +147,54 @@ pub enum TestStatus {
     RERUN,
     LISTING_SUCCESS,
     LISTING_FAILED,
+}
+
+impl TestStatus {
+    pub fn parse(s: &str) -> buck2_error::Result<TestStatus> {
+        match s {
+            "PASS" => Ok(TestStatus::PASS),
+            "FAIL" => Ok(TestStatus::FAIL),
+            "SKIP" => Ok(TestStatus::SKIP),
+            "OMIT" | "OMITTED" => Ok(TestStatus::OMITTED),
+            "FATAL" => Ok(TestStatus::FATAL),
+            "TIMEOUT" => Ok(TestStatus::TIMEOUT),
+            "INFRA_FAILURE" => Ok(TestStatus::INFRA_FAILURE),
+            "SUITE_FAILURE" | "EXECUTION_FAILURE" => Ok(TestStatus::FATAL),
+            "UNKNOWN" => Ok(TestStatus::UNKNOWN),
+            "RERUN" => Ok(TestStatus::RERUN),
+            "LISTING_SUCCESS" => Ok(TestStatus::LISTING_SUCCESS),
+            "LISTING_FAILED" => Ok(TestStatus::LISTING_FAILED),
+            _ => Err(buck2_error!(
+                ErrorTag::Input,
+                "Unknown test status: `{}`",
+                s
+            )),
+        }
+    }
+}
+
+/// Entry from a parsed test listing (returned by parse_test_listing callback).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TestListingEntry {
+    /// Human-readable display name for the test.
+    pub name: String,
+    /// Filter string passed back to the test binary to select this test.
+    pub filter: String,
+}
+
+/// Entry from a parsed test result (returned by parse_test_result callback).
+#[derive(Debug, Clone, PartialEq)]
+pub struct TestResultEntry {
+    /// Name of the individual test case.
+    pub name: String,
+    /// Status of the test (maps to TestStatus).
+    pub status: TestStatus,
+    /// Optional failure/error message.
+    pub message: Option<String>,
+    /// Optional detailed output (stdout/stderr excerpts).
+    pub details: Option<String>,
+    /// Optional duration of the test run.
+    pub duration: Option<Duration>,
 }
 
 /// The set of information about a test rule that is passed to the test executor
@@ -466,5 +516,53 @@ pub mod testing {
         fn testing_new(id: u64) -> Self {
             Self(id)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_status_happy_paths() {
+        assert_eq!(TestStatus::parse("PASS").unwrap(), TestStatus::PASS);
+        assert_eq!(TestStatus::parse("FAIL").unwrap(), TestStatus::FAIL);
+        assert_eq!(TestStatus::parse("SKIP").unwrap(), TestStatus::SKIP);
+        assert_eq!(TestStatus::parse("OMITTED").unwrap(), TestStatus::OMITTED);
+        assert_eq!(TestStatus::parse("FATAL").unwrap(), TestStatus::FATAL);
+        assert_eq!(TestStatus::parse("TIMEOUT").unwrap(), TestStatus::TIMEOUT);
+        assert_eq!(
+            TestStatus::parse("INFRA_FAILURE").unwrap(),
+            TestStatus::INFRA_FAILURE
+        );
+        assert_eq!(TestStatus::parse("UNKNOWN").unwrap(), TestStatus::UNKNOWN);
+        assert_eq!(TestStatus::parse("RERUN").unwrap(), TestStatus::RERUN);
+        assert_eq!(
+            TestStatus::parse("LISTING_SUCCESS").unwrap(),
+            TestStatus::LISTING_SUCCESS
+        );
+        assert_eq!(
+            TestStatus::parse("LISTING_FAILED").unwrap(),
+            TestStatus::LISTING_FAILED
+        );
+    }
+
+    #[test]
+    fn test_parse_status_aliases() {
+        assert_eq!(TestStatus::parse("OMIT").unwrap(), TestStatus::OMITTED);
+        assert_eq!(
+            TestStatus::parse("SUITE_FAILURE").unwrap(),
+            TestStatus::FATAL
+        );
+        assert_eq!(
+            TestStatus::parse("EXECUTION_FAILURE").unwrap(),
+            TestStatus::FATAL
+        );
+    }
+
+    #[test]
+    fn test_parse_status_unknown_value() {
+        let err = TestStatus::parse("NOT_A_STATUS").unwrap_err();
+        assert!(err.to_string().contains("Unknown test status"), "{}", err);
     }
 }
