@@ -434,7 +434,7 @@ def _compute_pex_providers(
     )
 
     # Add GPU sidecars to debuginfo regardless of strip_libpar setting.
-    for arch, debug_artifacts in hip_all_debug_files.items():
+    for debug_artifacts in hip_all_debug_files.values():
         for debug_artifact in debug_artifacts:
             debuginfo_files.append(
                 (debug_artifact.basename, debug_artifact),
