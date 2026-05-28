@@ -127,7 +127,7 @@ pub struct ProviderCollectionGen<V: ValueLifetimeless> {
 }
 
 /// Newtype wrapper around `Arc<ProviderId>` used as the key type of
-/// [`ProviderCollectionGen::providers`]. Wraps because `Arc<ProviderId>` is
+/// `ProviderCollectionGen::providers`. Wraps because `Arc<ProviderId>` is
 /// pagable-only (`buck2_core` cannot depend on `starlark`), so the
 /// `SmallMap<K, V>: StarlarkSerialize/Deserialize` blanket can't apply
 /// directly to the inner type. The newtype gets `StarlarkPagable` via
