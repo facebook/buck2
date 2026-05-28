@@ -173,6 +173,22 @@ impl<M: MemoryMonitoring, K: CgroupKind> Cgroup<M, K> {
         .await
     }
 
+    /// Set the cpuset.cpus value for this cgroup, restricting which CPU cores
+    /// processes in this cgroup can run on.
+    ///
+    /// `value` is a comma/range list of CPU IDs (e.g., `"0-3"` or `"0,1,2,3"`).
+    /// An empty string clears the value and the leaf inherits from its parent.
+    pub async fn set_cpuset_cpus(&self, value: &str) -> buck2_error::Result<()> {
+        CgroupFile::open(
+            self.dir.dupe(),
+            FileNameBuf::unchecked_new("cpuset.cpus"),
+            CgroupFileMode::ReadWrite,
+        )
+        .await?
+        .write(value.to_owned())
+        .await
+    }
+
     /// Setting this means that various OOM killer implementations will always kill the entire
     /// cgroup and all its children together, instead of just subgroups.
     ///
