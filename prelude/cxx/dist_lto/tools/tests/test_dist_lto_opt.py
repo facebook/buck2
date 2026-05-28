@@ -147,7 +147,7 @@ class TestDistLtoOpt(unittest.TestCase):
             "-fwhole-program-vtables",
             "-Wl,--no-discard-section=.nv_fatbin",
             "-Wl,--no-discard-section=.nvFatBinSegment",
-            "fbcode/tools/build/move_gpu_sections_implicit_linker_script.txt",
+            "fbcode/tools/build/lib/move_gpu_sections_implicit_linker_script.txt",
             "-fuse-ld=lld",
             "--build-info=full",
             "--build-info-build-mode=opt-hhvm-lto",
