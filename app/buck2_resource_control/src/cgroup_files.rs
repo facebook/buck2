@@ -74,10 +74,12 @@ impl CgroupFile {
         data: impl AsRef<[u8]> + Send + Sync + 'static,
     ) -> buck2_error::Result<()> {
         let file = self.0.dupe();
-        Ok(
-            tokio::task::spawn_blocking(move || Self::sync_write_impl(&file, data.as_ref()))
-                .await??,
-        )
+        let name = self.1.clone();
+        tokio::task::spawn_blocking(move || {
+            Self::sync_write_impl(&file, data.as_ref()).map_err(buck2_error::Error::from)
+        })
+        .await?
+        .with_buck_error_context(|| format!("Writing cgroup file {}", name))
     }
 
     /// Write the given buffer to the file

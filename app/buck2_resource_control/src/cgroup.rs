@@ -41,6 +41,10 @@ enum CgroupError {
     Io { msg: String, io_err: std::io::Error },
 }
 
+fn is_process_gone_error(error: &std::io::Error) -> bool {
+    error.raw_os_error() == Some(nix::libc::ESRCH)
+}
+
 /// Resource constraints inherited from ancestor cgroups in the hierarchy.
 ///
 /// For the various resource constraints that can be imposed on a cgroup, this struct represents the
@@ -365,6 +369,72 @@ impl Cgroup<NoMemoryMonitoring, CgroupKindUndecided> {
             path: self.path,
             memory: self.memory,
         })
+    }
+
+    /// Move all processes in this cgroup (other than the current process) to a child cgroup.
+    ///
+    /// This is needed before enabling subtree control, because cgroupv2 enforces a
+    /// no-internal-process constraint: a cgroup cannot have both processes in cgroup.procs
+    /// AND controllers enabled in cgroup.subtree_control.
+    ///
+    /// Processes may end up in this cgroup if they were spawned before prep_current_process()
+    /// moved the daemon to a child cgroup
+    pub(crate) async fn drain_to_child(
+        &self,
+        child: &CgroupMinimal,
+    ) -> buck2_error::Result<Vec<OrphanProcessInfo>> {
+        let procs = CgroupFile::open(
+            self.dir.dupe(),
+            FileNameBuf::unchecked_new("cgroup.procs"),
+            CgroupFileMode::ReadOnly,
+        )
+        .await?;
+        let procs_content = procs.read_to_string().await?;
+        let my_pid = std::process::id();
+        let pids: Vec<u32> = procs_content
+            .lines()
+            .filter(|l| !l.is_empty())
+            .filter_map(|l| l.parse().ok())
+            .filter(|pid| *pid != my_pid)
+            .collect();
+
+        if pids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let child_procs = CgroupFile::open(
+            child.dir.dupe(),
+            FileNameBuf::unchecked_new("cgroup.procs"),
+            CgroupFileMode::ReadWrite,
+        )
+        .await?;
+
+        let orphans = tokio::task::spawn_blocking(move || {
+            let mut orphans = Vec::new();
+            for pid in pids {
+                match child_procs.sync_write(pid.to_string().as_bytes()) {
+                    Ok(()) => {
+                        let comm = fs_util::read_to_string(
+                            AbsPath::new(&format!("/proc/{}/comm", pid)).unwrap(),
+                        )
+                        .map(|s| s.trim().to_owned())
+                        .unwrap_or_default();
+                        orphans.push(OrphanProcessInfo { pid, comm });
+                    }
+                    // Ignore the expected race where a process exits after we read cgroup.procs but
+                    // before we move it.
+                    Err(e) if is_process_gone_error(&e) => {}
+                    Err(e) => {
+                        return Err(buck2_error::Error::from(e)
+                            .context(format!("Writing cgroup file cgroup.procs for pid {pid}")));
+                    }
+                }
+            }
+            buck2_error::Ok(orphans)
+        })
+        .await??;
+
+        Ok(orphans)
     }
 
     /// Enable subtree controllers on this cgroup as specified and convert to an internal cgroup
@@ -845,10 +915,24 @@ mod tests {
     use buck2_util::process::background_command;
     use dupe::Dupe;
 
+    use super::is_process_gone_error;
     use crate::cgroup::Cgroup;
     use crate::cgroup::MemoryPressureHandle;
     use crate::cgroup_files::CgroupFile;
     use crate::cgroup_files::CgroupFileMode;
+
+    #[test]
+    fn test_is_process_gone_error() {
+        assert!(is_process_gone_error(&std::io::Error::from_raw_os_error(
+            nix::libc::ESRCH,
+        )));
+        assert!(!is_process_gone_error(&std::io::Error::from_raw_os_error(
+            nix::libc::EBUSY,
+        )));
+        assert!(!is_process_gone_error(&std::io::Error::from_raw_os_error(
+            nix::libc::EPERM,
+        )));
+    }
 
     #[tokio::test]
     async fn self_test_harness() {
@@ -1024,6 +1108,58 @@ mod tests {
         if check_memory_pressure {
             assert!(memory_pressure > 20.0, "{:?}", memory_pressure);
         }
+        child.kill().unwrap();
+        child.wait().unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_drain_to_child() {
+        let Some(cgroup) = Cgroup::create_minimal_for_test().await else {
+            return;
+        };
+        let controllers = cgroup.read_enabled_controllers().await.unwrap();
+        let parent = cgroup
+            .enable_subtree_control_and_into_internal(controllers)
+            .await
+            .unwrap();
+
+        let source = parent
+            .make_child(FileNameBuf::unchecked_new("source"))
+            .await
+            .unwrap();
+        let dest = parent
+            .make_child(FileNameBuf::unchecked_new("dest"))
+            .await
+            .unwrap();
+
+        // Empty cgroup should drain nothing
+        let orphans = source.drain_to_child(&dest).await.unwrap();
+        assert!(orphans.is_empty());
+
+        // Spawn a process into source via the filesystem
+        let mut cmd = background_command("sleep");
+        cmd.arg("300");
+        let mut child = cmd.spawn().unwrap();
+        let child_pid = child.id();
+        let source_procs_path = source.path().as_abs_path().join("cgroup.procs");
+        std::fs::write(&source_procs_path, child_pid.to_string()).unwrap();
+
+        assert_eq!(source.read_pid_count().await.unwrap(), 1);
+        assert_eq!(dest.read_pid_count().await.unwrap(), 0);
+
+        // Drain should move the process to dest
+        let orphans = source.drain_to_child(&dest).await.unwrap();
+        assert_eq!(orphans.len(), 1);
+        assert_eq!(orphans[0].pid, child_pid);
+        assert_eq!(orphans[0].comm, "sleep");
+
+        assert_eq!(source.read_pid_count().await.unwrap(), 0);
+        assert_eq!(dest.read_pid_count().await.unwrap(), 1);
+
+        // Draining again should be a no-op
+        let orphans = source.drain_to_child(&dest).await.unwrap();
+        assert!(orphans.is_empty());
+
         child.kill().unwrap();
         child.wait().unwrap();
     }
