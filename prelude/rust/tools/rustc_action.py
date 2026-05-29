@@ -29,6 +29,11 @@ import tempfile
 from pathlib import Path
 from typing import Any, IO, NamedTuple, Optional
 
+
+# Sentinel used to mark OUT_DIR-relative paths emitted by buildscripts.
+# We later replace this sentinel with the actual content-addressed path, once that is known.
+OUT_DIR_SENTINEL: str = "${__BUILDSCRIPT_OUT_DIR__}"
+
 DEBUG = False
 
 INHERITED_ENV = [
@@ -340,8 +345,13 @@ async def main() -> int:  # noqa: C901
     separator = args.rustc.index("--rustc-action-separator")
     rustc_cmd, rustc_args_orig = args.rustc[:separator], args.rustc[separator + 1 :]
 
+    out_dir = env.get("OUT_DIR")
+
     rustc_args = []
     for arg in rustc_args_orig:
+        # Resolve OUT_DIR_SENTINEL to the consumer's canonical OUT_DIR.
+        if out_dir is not None and OUT_DIR_SENTINEL in arg:
+            arg = arg.replace(OUT_DIR_SENTINEL, out_dir)
         # Build.bzl uses the following expression to generate remap flags:
         #   cmd_args("--remap-path-prefix=", ... "=", ctx.label.path, path_sep, delimiter = "")
         # The ctx.label.path (which is of type StarlarkCellPath) has the
@@ -362,7 +372,7 @@ async def main() -> int:  # noqa: C901
         # build scripts relies on `--env-set` as the implementation of "cargo:rustc-env".
         # Tracking issue: https://github.com/rust-lang/rust/issues/118372
         if arg.startswith("--env-set="):
-            flag, key, value = arg.split("=", 3)
+            flag, key, value = arg.split("=", 2)
             env[key] = value
             continue
 

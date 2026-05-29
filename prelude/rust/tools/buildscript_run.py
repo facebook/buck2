@@ -22,6 +22,10 @@ from typing import Any, IO, NamedTuple, Optional
 IS_WINDOWS: bool = os.name == "nt"
 TOOL_CWD: str = os.path.join(os.getcwd(), "")
 
+# Sentinel used to mark OUT_DIR-relative paths emitted by buildscripts.
+# We later replace this sentinel with the actual content-addressed path, once that is known.
+OUT_DIR_SENTINEL: str = "${__BUILDSCRIPT_OUT_DIR__}"
+
 
 def eprint(*args: Any, **kwargs: Any) -> None:
     print(*args, end="\n", file=sys.stderr, flush=True, **kwargs)
@@ -249,6 +253,16 @@ def main() -> None:  # noqa: C901
     cargo_rustc_link_search_pattern = re.compile(
         "^cargo::?rustc-link-search=([a-z]+=)?(.+)"
     )
+    out_dir_abs = env["OUT_DIR"]
+
+    # Rewrite a path inside OUT_DIR to OUT_DIR_SENTINEL; None if it is elsewhere.
+    def reanchor_out_dir(path: str) -> Optional[str]:
+        if path == out_dir_abs:
+            return OUT_DIR_SENTINEL
+        if path.startswith(out_dir_abs + os.sep):
+            return OUT_DIR_SENTINEL + path[len(out_dir_abs) :]
+        return None
+
     flags = ""
     for line in script_output.split("\n"):
         cargo_rustc_cfg_match = cargo_rustc_cfg_pattern.match(line)
@@ -260,7 +274,10 @@ def main() -> None:  # noqa: C901
         if cargo_rustc_env_match:
             key = cargo_rustc_env_match.group(1)
             value = cargo_rustc_env_match.group(2)
-            if value.startswith(TOOL_CWD):
+            reanchored = reanchor_out_dir(value)
+            if reanchored is not None:
+                flags += f"--env-set={key}={reanchored}\n"
+            elif value.startswith(TOOL_CWD):
                 relative_path = value[len(TOOL_CWD) :]
                 flags += f"--env-set={key}=$(abspath {relative_path})\n"
             else:
@@ -275,7 +292,10 @@ def main() -> None:  # noqa: C901
         if args.rustc_link_search and cargo_rustc_link_search_match:
             kind = cargo_rustc_link_search_match.group(1) or ""
             path = cargo_rustc_link_search_match.group(2)
-            if path.startswith(TOOL_CWD):
+            reanchored = reanchor_out_dir(path)
+            if reanchored is not None:
+                flags += f"-L{kind}{reanchored}\n"
+            elif path.startswith(TOOL_CWD):
                 relative_path = path[len(TOOL_CWD) :]
                 flags += f"-L{kind}$(abspath {relative_path})\n"
             else:
