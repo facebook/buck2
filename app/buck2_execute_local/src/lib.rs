@@ -540,15 +540,14 @@ mod tests {
     async fn test_gather_does_not_wait_for_children() -> buck2_error::Result<()> {
         // If we wait for sleep, this will time out.
         let mut cmd = if cfg!(windows) {
-            background_command("powershell")
+            // Use cmd.exe rather than PowerShell — PowerShell's Start-Job is
+            // heavyweight and can exceed the timeout on slow CI machines.
+            background_command("cmd")
         } else {
             background_command("sh")
         };
         if cfg!(windows) {
-            cmd.args([
-                "-c",
-                "Start-Job -ScriptBlock {sleep 10} | Out-Null; echo hello",
-            ]);
+            cmd.args(["/c", "start /b timeout 10 >nul & echo hello"]);
         } else {
             cmd.args(["-c", "(sleep 10 &) && echo hello"]);
         }
