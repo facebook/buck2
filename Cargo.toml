@@ -353,7 +353,7 @@ zstd = "0.13.3"
 fbinit.version = "0.2"
 # @oss-disable: sorted_vector_map.path = "../common/rust/shed/sorted_vector_map"
 sorted_vector_map.git = "https://github.com/facebookexperimental/rust-shed" # @oss-enable
-sorted_vector_map.version = "0.2"
+sorted_vector_map.version = "0.2.1"
 
 allocative.features = ["anyhow", "bumpalo", "dashmap", "either", "futures", "hashbrown", "indexmap", "num-bigint", "once_cell", "parking_lot", "prost-types", "serde_json", "slab", "smallvec", "compact_str", "sorted_vector_map", "tokio", "triomphe"]
 allocative.path = "allocative/allocative"
@@ -365,7 +365,7 @@ dice_error = { path = "dice/dice_error" }
 dice_futures = { path = "dice/dice_futures" }
 display_container = { path = "gazebo/display_container" }
 dupe.path = "gazebo/dupe"
-dupe.version = "0.9.0"
+dupe.version = "0.9.1"
 gazebo.features = ["str_pattern_extensions"]
 gazebo.path = "gazebo/gazebo"
 gazebo.version = "0.8.1"
