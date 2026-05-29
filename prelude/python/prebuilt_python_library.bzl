@@ -37,6 +37,7 @@ load(
 load("@prelude//third-party:providers.bzl", "ThirdPartyBuild", "third_party_build_info")
 load("@prelude//unix:providers.bzl", "UnixEnv", "create_unix_env_info")
 load(":compile.bzl", "compile_manifests")
+load(":lazy_imports.bzl", "run_lazy_imports_library_analyzer")
 load(":manifest.bzl", "ManifestInfo", "create_manifest_for_source_dir")
 load(":python.bzl", "NativeDepsInfo", "NativeDepsInfoTSet")
 load(
@@ -45,6 +46,7 @@ load(
     "gather_dep_libraries",
 )
 load(":source_db.bzl", "create_python_source_db_info", "create_source_db_no_deps_from_manifest")
+load(":toolchain.bzl", "PythonToolchainInfo")
 
 def prebuilt_python_library_impl(ctx: AnalysisContext) -> list[Provider]:
     providers = []
@@ -76,6 +78,12 @@ def prebuilt_python_library_impl(ctx: AnalysisContext) -> list[Provider]:
     deps, shared_deps = gather_dep_libraries(ctx.attrs.deps)
     src_manifest = create_manifest_for_source_dir(ctx, "binary_src", extracted_src, exclude = "\\.pyc$")
     bytecode = compile_manifests(ctx, [src_manifest])
+
+    python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
+    lazy_imports_cache_output = None
+    if python_toolchain.lazy_imports_analyzer != None and getattr(ctx.attrs, "use_lifeguard_incremental", False):
+        lazy_imports_cache_output = ctx.actions.declare_output("safer_lazy_imports/library-cache.bin")
+
     library_info = create_python_library_info(
         ctx.actions,
         ctx.label,
@@ -90,6 +98,7 @@ def prebuilt_python_library_impl(ctx: AnalysisContext) -> list[Provider]:
             children = [],
         ),
         is_native_dep = False,
+        lazy_imports_cache = lazy_imports_cache_output,
     )
     providers.append(library_info)
 
@@ -110,7 +119,17 @@ def prebuilt_python_library_impl(ctx: AnalysisContext) -> list[Provider]:
     )
     providers.append(linkable_graph)
 
-    sub_targets = {"source-db-no-deps": [create_source_db_no_deps_from_manifest(ctx, src_manifest), create_python_source_db_info(library_info.manifests)]}
+    source_db_no_deps = create_source_db_no_deps_from_manifest(ctx, src_manifest)
+    sub_targets = {"source-db-no-deps": [source_db_no_deps, create_python_source_db_info(library_info.manifests)]}
+
+    if lazy_imports_cache_output != None:
+        run_lazy_imports_library_analyzer(
+            ctx,
+            python_toolchain.lazy_imports_analyzer,
+            lazy_imports_cache_output,
+            source_db_no_deps,
+        )
+        sub_targets["lazy-import-cache"] = [DefaultInfo(default_output = lazy_imports_cache_output)]
     providers.append(DefaultInfo(default_output = ctx.attrs.binary_src, sub_targets = sub_targets))
 
     # C++ resources.

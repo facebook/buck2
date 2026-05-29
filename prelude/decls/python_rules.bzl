@@ -392,6 +392,7 @@ prebuilt_python_library = prelude_rule(
                     native extension is imported.
                 """,
             ),
+            "use_lifeguard_incremental": attrs.bool(default = False),
             "_create_manifest_for_source_dir": _create_manifest_for_source_dir(),
             "_extract": attrs.default_only(attrs.exec_dep(default = "prelude//python/tools:extract")),
             "_python_internal_tools": python_common.internal_tools_arg(),

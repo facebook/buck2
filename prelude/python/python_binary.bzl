@@ -301,32 +301,33 @@ def _compute_pex_providers(
     # Prefer the cache-based path (analyze_binary from per-library caches) when
     # incremental mode is on. Fall back to the monolithic path
     # (analyze against dbg-db.json) for backward compatibility.
-    if getattr(ctx.attrs, "lazy_imports_analyzer", None):
+    if getattr(ctx.attrs, "use_lifeguard_incremental", False) and python_toolchain.lazy_imports_analyzer != None:
         lazy_import_analysis_output = ctx.actions.declare_output("safer_lazy_imports/lazy-import-analysis.json", has_content_based_path = False)
-        lifeguard_executable = ctx.attrs.lazy_imports_analyzer[RunInfo]
-        if getattr(ctx.attrs, "use_lifeguard_incremental", False) and python_toolchain.lazy_imports_analyzer != None:
-            if library.lazy_imports_caches != None:
-                dep_caches = list(library.lazy_imports_caches.traverse())
-            else:
-                dep_caches = []
-            # This first call pulls in the hidden __par__ modules
-            binary_lib_cache = ctx.actions.declare_output("safer_lazy_imports/binary-library-cache.bin")
-            run_lazy_imports_library_analyzer(
-                ctx,
-                lifeguard_executable,
-                binary_lib_cache,
-                source_db_no_deps,
-            )
-
-            # This call builds the Lifeguard output file
-            run_lazy_imports_cached_analysis(
-                ctx,
-                lifeguard_executable,
-                lazy_import_analysis_output,
-                dep_caches + [binary_lib_cache],
-            )
+        if library.lazy_imports_caches != None:
+            dep_caches = list(library.lazy_imports_caches.traverse())
         else:
-            run_lazy_imports_analyzer(ctx, dbg_source_db.other_outputs, lazy_import_analysis_output, dbg_source_db_output)
+            dep_caches = []
+
+        binary_lib_cache = ctx.actions.declare_output("safer_lazy_imports/binary-library-cache.bin")
+        # This first call pulls in the hidden __par__ modules
+        run_lazy_imports_library_analyzer(
+            ctx,
+            python_toolchain.lazy_imports_analyzer,
+            binary_lib_cache,
+            source_db_no_deps,
+        )
+
+        # This call builds the Lifeguard output file
+        run_lazy_imports_cached_analysis(
+            ctx,
+            python_toolchain.lazy_imports_analyzer,
+            lazy_import_analysis_output,
+            dep_caches + [binary_lib_cache],
+        )
+        extra_artifacts["safer_lazy_imports/lazy-import-analysis.json"] = lazy_import_analysis_output
+    elif getattr(ctx.attrs, "lazy_imports_analyzer", None):
+        lazy_import_analysis_output = ctx.actions.declare_output("safer_lazy_imports/lazy-import-analysis.json", has_content_based_path = False)
+        run_lazy_imports_analyzer(ctx, dbg_source_db.other_outputs, lazy_import_analysis_output, dbg_source_db_output)
         extra_artifacts["safer_lazy_imports/lazy-import-analysis.json"] = lazy_import_analysis_output
 
     extra_artifacts["sitecustomize.py"] = python_internal_tools.default_sitecustomize
