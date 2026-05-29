@@ -129,10 +129,26 @@ impl dyn FileWatcher {
                 WatchmanFileWatcher::new(project_root.root(), root_config, cells, ignore_specs)
                     .buck_error_context("Creating watchman file watcher")?,
             )),
-            "notify" => Ok(Arc::new(
-                NotifyFileWatcher::new(project_root, cells, ignore_specs)
+            "notify" => {
+                let watch_included_root_dirs_only = root_config
+                    .parse::<bool>(BuckconfigKeyRef {
+                        section: "project",
+                        property: "watch-included-root-dirs-only",
+                    })
+                    .buck_error_context(
+                        "Failed to parse project.watch-included-root-dirs-only config",
+                    )?
+                    .unwrap_or(false);
+                Ok(Arc::new(
+                    NotifyFileWatcher::new(
+                        project_root,
+                        cells,
+                        ignore_specs,
+                        watch_included_root_dirs_only,
+                    )
                     .buck_error_context("Creating notify file watcher")?,
-            )),
+                ))
+            }
             "fs_hash_crawler" => Ok(Arc::new(
                 FsHashCrawler::new(project_root, cells, ignore_specs)
                     .buck_error_context("Creating fs_crawler file watcher")?,
