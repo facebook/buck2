@@ -54,6 +54,22 @@ impl<'v> Clone for SetRef<'v> {
     }
 }
 
+impl<'v> SetRef<'v> {
+    /// Downcast the value to a set.
+    pub fn from_value(x: Value<'v>) -> Option<SetRef<'v>> {
+        if x.unpack_frozen().is_some() {
+            x.downcast_ref::<SetGen<FrozenSetData>>().map(|x| SetRef {
+                aref: Either::Right(coerce(&x.0)),
+            })
+        } else {
+            let ptr = x.downcast_ref::<SetGen<RefCell<SetData<'v>>>>()?;
+            Some(SetRef {
+                aref: Either::Left(ptr.0.borrow()),
+            })
+        }
+    }
+}
+
 impl<'v> Dupe for SetRef<'v> {}
 
 /// Mutably borrowed `Set`.

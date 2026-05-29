@@ -26,6 +26,7 @@ use crate::values::Value;
 use crate::values::ValueOf;
 use crate::values::dict::UnpackDictEntries;
 use crate::values::list::UnpackList;
+use crate::values::set::UnpackSetEntries;
 
 // TODO(nmj): Figure out default values here. ValueOf<i32> = 5 should work.
 #[starlark_module]
@@ -115,6 +116,10 @@ fn validate_module(builder: &mut GlobalsBuilder) {
             },
         }
     }
+    fn with_set<'v>(v: ValueOf<'v, UnpackSetEntries<i32>>) -> anyhow::Result<(Value<'v>, String)> {
+        let repr = v.typed.entries.iter().join(", ");
+        Ok((v.value, repr))
+    }
 }
 
 // The standard error these raise on incorrect types
@@ -174,4 +179,14 @@ fn test_either_of() {
     a.eq("'s'", "with_either('s')");
     a.fail("with_either(noop(None))", BAD);
     a.fail("with_either(noop({}))", BAD);
+}
+
+#[test]
+fn test_set_of() {
+    let mut a = Assert::new();
+    a.globals_add(validate_module);
+    a.eq("(set([2]), '2')", "with_set(set([2]))");
+    a.eq("(set([2, 3]), '2, 3')", "with_set(set([2,3]))");
+    a.fail("with_set(noop(None))", BAD);
+    a.fail("with_set(noop({}))", BAD);
 }
