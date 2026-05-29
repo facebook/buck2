@@ -130,7 +130,7 @@ use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectio
 /// # both the stripped binary and the debug symbols are built.
 /// $ buck build //subdir:foo[stripped]
 /// ```
-#[internal_provider(default_info_creator, skip_pagable)]
+#[internal_provider(default_info_creator)]
 #[derive(
     Clone,
     Debug,

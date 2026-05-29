@@ -38,7 +38,7 @@ use crate::interpreter::rule_defs::provider::builtin::worker_info::FrozenWorkerI
 use crate::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
 
 /// Provider that signals that a rule can run using a worker
-#[internal_provider(worker_run_info_creator, skip_pagable)]
+#[internal_provider(worker_run_info_creator)]
 #[derive(
     Clone,
     Debug,

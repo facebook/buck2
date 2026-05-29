@@ -40,7 +40,7 @@ use crate::interpreter::rule_defs::provider::builtin::constraint_setting_info::F
 
 /// Provider that signals that a target can be used as a constraint key. This is the only provider
 /// returned by a `constraint_value()` target.
-#[internal_provider(constraint_value_info_creator, skip_pagable)]
+#[internal_provider(constraint_value_info_creator)]
 #[derive(
     Clone,
     Debug,

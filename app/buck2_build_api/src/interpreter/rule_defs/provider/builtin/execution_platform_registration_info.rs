@@ -51,7 +51,7 @@ enum ExecutionPlatformRegistrationTypeError {
 }
 
 /// Provider that gives the list of all execution platforms available for this build.
-#[internal_provider(info_creator, skip_pagable)]
+#[internal_provider(info_creator)]
 #[derive(
     Clone,
     Debug,

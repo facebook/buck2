@@ -84,7 +84,7 @@ enum TemplatePlaceholderInfoError {
 ///  - unkeyed_variables: A mapping of names to arg-like values. These are used for "unkeyed placeholder" expansion.
 ///  - keyed_variables: A mapping of names to arg-like values or dictionary of string to
 ///        arg-like values. These are used for "keyed placeholder" expansion.
-#[internal_provider(template_placeholder_info_creator, skip_pagable)]
+#[internal_provider(template_placeholder_info_creator)]
 #[derive(
     Clone,
     Debug,

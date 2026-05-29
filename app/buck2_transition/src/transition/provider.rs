@@ -62,7 +62,7 @@ impl StarlarkCallableParamSpec for TransitionImplParams {
     }
 }
 
-#[internal_provider(transition_info_creator, skip_pagable)]
+#[internal_provider(transition_info_creator)]
 #[derive(
     Clone,
     Debug,

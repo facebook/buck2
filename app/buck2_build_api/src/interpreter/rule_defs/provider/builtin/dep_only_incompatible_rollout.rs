@@ -26,7 +26,7 @@ use crate as buck2_build_api;
 
 /// A provider that is used to signal the targets that we want to soft error on
 /// within the `DepOnlyIncompatibleInfo` provider.
-#[internal_provider(dep_only_incompatible_custom_soft_error_creator, skip_pagable)]
+#[internal_provider(dep_only_incompatible_custom_soft_error_creator)]
 #[derive(
     Clone,
     Debug,

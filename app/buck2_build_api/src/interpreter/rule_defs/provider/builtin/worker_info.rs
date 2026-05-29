@@ -49,7 +49,7 @@ use crate::interpreter::rule_defs::cmd_args::StarlarkCmdArgs;
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 
 /// Provider that signals that a rule is a worker tool
-#[internal_provider(worker_info_creator, skip_pagable)]
+#[internal_provider(worker_info_creator)]
 #[derive(
     Clone,
     Debug,

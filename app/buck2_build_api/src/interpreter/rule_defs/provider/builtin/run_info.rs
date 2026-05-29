@@ -76,7 +76,7 @@ use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 ///         ),
 ///     ]
 /// ```
-#[internal_provider(run_info_creator, skip_pagable)]
+#[internal_provider(run_info_creator)]
 #[derive(
     Clone,
     Debug,

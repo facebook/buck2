@@ -47,7 +47,7 @@ enum ExecutionPlatformProviderErrors {
 }
 
 /// Provider that signals that a target represents an execution platform.
-#[internal_provider(info_creator, skip_pagable)]
+#[internal_provider(info_creator)]
 #[derive(
     Clone,
     Debug,

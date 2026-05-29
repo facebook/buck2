@@ -56,7 +56,6 @@ use crate::interpreter::rule_defs::provider::builtin::constraint_value_info::Fro
 #[internal_provider(
     configuration_info_creator,
     methods = configuration_info_methods,
-    skip_pagable
 )]
 #[derive(
     Debug,

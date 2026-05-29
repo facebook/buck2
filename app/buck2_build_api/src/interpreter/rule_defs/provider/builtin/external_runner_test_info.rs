@@ -56,7 +56,7 @@ use crate::interpreter::rule_defs::resolved_macro::ResolvedStringWithMacros;
 
 /// Provider that signals that a rule can be tested using an external runner. This is the
 /// Buck1-compatible API for tests.
-#[internal_provider(external_runner_test_info_creator, skip_pagable)]
+#[internal_provider(external_runner_test_info_creator)]
 #[derive(
     Clone,
     Debug,

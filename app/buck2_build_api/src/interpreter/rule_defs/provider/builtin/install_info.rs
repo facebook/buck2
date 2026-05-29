@@ -49,7 +49,7 @@ enum InstallInfoProviderErrors {
     AssociatedArtifacts { key: String, artifact: String },
 }
 
-#[internal_provider(install_info_creator, skip_pagable)]
+#[internal_provider(install_info_creator)]
 #[derive(
     Clone,
     Coerce,

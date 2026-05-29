@@ -20,9 +20,6 @@ use syn::TypeParamBound;
 pub(crate) struct InternalProviderArgs {
     creator_func: syn::Ident,
     methods_func: Option<syn::Ident>,
-    /// Forwards `skip_pagable` to the generated `#[starlark_value]`. Use when the
-    /// provider supplies its own `StarlarkPagable` impl.
-    skip_pagable: bool,
 }
 
 impl syn::parse::Parse for InternalProviderArgs {
@@ -30,7 +27,6 @@ impl syn::parse::Parse for InternalProviderArgs {
         let creator_func = syn::Ident::parse(input)?;
 
         let mut methods_func = None;
-        let mut skip_pagable = false;
 
         while input.peek(syn::Token![,]) {
             input.parse::<syn::Token![,]>()?;
@@ -41,20 +37,14 @@ impl syn::parse::Parse for InternalProviderArgs {
             if key == "methods" {
                 input.parse::<syn::Token![=]>()?;
                 methods_func = Some(syn::Ident::parse(input)?);
-            } else if key == "skip_pagable" {
-                skip_pagable = true;
             } else {
-                return Err(syn::Error::new_spanned(
-                    key,
-                    "expected `methods` or `skip_pagable`",
-                ));
+                return Err(syn::Error::new_spanned(key, "expected `methods`"));
             }
         }
 
         Ok(InternalProviderArgs {
             creator_func,
             methods_func,
-            skip_pagable,
         })
     }
 }
@@ -377,14 +367,8 @@ impl ProviderCodegen {
             provider_methods_func_name.to_string().to_uppercase()
         );
         let field_names = self.field_names()?;
-        let starlark_value_attr: syn::Attribute = if self.args.skip_pagable {
-            syn::parse_quote_spanned! { self.span=>
-                #[starlark::values::starlark_value(type = #name_str, skip_pagable)]
-            }
-        } else {
-            syn::parse_quote_spanned! { self.span=>
-                #[starlark::values::starlark_value(type = #name_str)]
-            }
+        let starlark_value_attr: syn::Attribute = syn::parse_quote_spanned! { self.span=>
+            #[starlark::values::starlark_value(type = #name_str)]
         };
         Ok(vec![
             syn::parse_quote_spanned! { self.span=>
@@ -525,7 +509,7 @@ impl ProviderCodegen {
                 starlark::globals_static!(#callable_globals_static_name = #create_func);
             },
             syn::parse_quote_spanned! {self.span=>
-                #[starlark::values::starlark_value(type = #callable_name_snake_str, skip_pagable)]
+                #[starlark::values::starlark_value(type = #callable_name_snake_str)]
                 impl<'v> starlark::values::StarlarkValue<'v> for #callable_name
                 {
                     fn invoke(

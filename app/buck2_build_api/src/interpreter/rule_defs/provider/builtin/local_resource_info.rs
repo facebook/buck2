@@ -44,7 +44,7 @@ use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use crate::starlark::values::UnpackValue;
 use crate::starlark::values::ValueLike;
 
-#[internal_provider(local_resource_info_creator, skip_pagable)]
+#[internal_provider(local_resource_info_creator)]
 #[derive(
     Clone,
     Debug,

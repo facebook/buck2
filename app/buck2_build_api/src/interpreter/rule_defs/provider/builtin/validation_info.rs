@@ -80,7 +80,7 @@ enum ValidationInfoError {
 ///
 /// See the [Validations guide](https://buck2.build/docs/rule_authors/validation/)
 /// for the end-to-end story.
-#[internal_provider(validation_info_creator, skip_pagable)]
+#[internal_provider(validation_info_creator)]
 #[derive(
     Clone,
     Debug,

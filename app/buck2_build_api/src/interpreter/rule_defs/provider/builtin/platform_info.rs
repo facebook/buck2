@@ -31,7 +31,7 @@ use crate as buck2_build_api;
 use crate::interpreter::rule_defs::provider::builtin::configuration_info::ConfigurationInfo;
 use crate::interpreter::rule_defs::provider::builtin::configuration_info::FrozenConfigurationInfo;
 
-#[internal_provider(platform_info_creator, skip_pagable)]
+#[internal_provider(platform_info_creator)]
 #[derive(
     Clone,
     Debug,
