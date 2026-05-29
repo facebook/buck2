@@ -4,9 +4,9 @@
 # STARLARK_RUST_REGENERATE_GOLDEN_TESTS=1 cargo test -p starlark --lib
 # ```
 
-error: Parse error: unexpected f-string expression end '}' here, expected one of "IDENTIFIER"
- --> assert.bzl:1:6
+error: invalid f-string conversion specifier, expected 's' or 'r'
+ --> assert.bzl:1:5
   |
 1 | f'{x!}'
-  |      ^
+  |     ^
   |
