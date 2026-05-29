@@ -439,12 +439,17 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
     sub_targets["source-db-no-deps"] = [source_db_no_deps, create_python_source_db_info(library_info.manifests)]
 
     # Lazy imports library cache (action scheduling — output was declared above).
+    # Use qualified_srcs (.py files) not src_types (.pyi stubs override .py),
+    # because the lifeguard analyzer needs the actual Python source, not type stubs.
     if lazy_imports_cache_output != None:
+        lazy_srcs = qualified_srcs or {}
+        lazy_db_output = ctx.actions.write_json("safer_lazy_imports/db_no_deps.json", lazy_srcs, has_content_based_path = True)
+        lazy_imports_source_db = DefaultInfo(default_output = lazy_db_output, other_outputs = lazy_srcs.values())
         run_lazy_imports_library_analyzer(
             ctx,
             lazy_imports_analyzer,
             lazy_imports_cache_output,
-            source_db_no_deps,
+            lazy_imports_source_db,
         )
         sub_targets["lazy-import-cache"] = [DefaultInfo(default_output = lazy_imports_cache_output)]
 
