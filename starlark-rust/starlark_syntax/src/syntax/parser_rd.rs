@@ -972,6 +972,10 @@ impl<'a, I: Iterator<Item = Lexeme>> ParserRd<'a, I> {
                 let r = self.last_end;
                 Ok(Expr::Literal(AstLiteral::String(s)).ast(l, r))
             }
+            Some(Token::Bytes(_)) => {
+                let (l, b, r) = take_payload!(self, Token::Bytes);
+                Ok(Expr::Literal(AstLiteral::Bytes(b.ast(l, r))).ast(l, r))
+            }
             Some(Token::FStringStart(_)) => {
                 let (l, _, _) = take_payload!(self, Token::FStringStart);
                 let mut parts = Vec::new();

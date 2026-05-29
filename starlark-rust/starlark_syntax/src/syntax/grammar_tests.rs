@@ -349,6 +349,17 @@ fn test_tuples() {
     assert_eq!(parse("a = ()"), "a = ()\n");
 }
 
+// `b"..."` must parse as a bytes literal expression. Driven by both parsers
+// via the shared helpers, so RD and LALRPOP must agree on the AST.
+#[test]
+fn test_bytes_literal() {
+    assert_eq!(parse(r#"x = b"hello""#), "x = b\"hello\"\n");
+    assert_eq!(parse(r#"x = b'world'"#), "x = b\"world\"\n");
+    assert_eq!(parse(r#"x = b"""triple""""#), "x = b\"triple\"\n");
+    assert_eq!(parse(r#"x = rb"\n""#), "x = b\"\\\\n\"\n");
+    assert_eq!(parse(r#"print(b"hi")"#), "print(b\"hi\")\n");
+}
+
 #[test]
 fn test_return() {
     assert_eq!(parse("def fn(): return 1"), "def fn():\n  return 1\n");
