@@ -79,7 +79,7 @@ buck_kotlin_test(
     srcs = ["PerTestJUnitCoverageRunListenerTest.kt"],
     deps = [
         "prelude//toolchains/android/src/com/facebook/buck/testrunner:junit",
-        "prelude//toolchains/android/third-party:jackson-core",
+        "prelude//toolchains/android/src/com/facebook/buck/testrunner:per_test_coverage_base",
         "prelude//toolchains/android/third-party:junit",
     ],
 )

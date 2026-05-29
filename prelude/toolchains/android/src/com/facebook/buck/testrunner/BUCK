@@ -59,8 +59,11 @@ fb_native.kotlin_library(
     # Uses fb_native.kotlin_library (not buck_kotlin_library) with kotlin-stdlib in provided_deps:
     # both consumers (prelude :junit, fbandroid :instrumentation) already package kotlin-stdlib at
     # different Buck target paths, and shipping ours too breaks Android APK D8 dexing with
-    # duplicate types. The source also hand-rolls JSON instead of using jackson-core for the same
+    # duplicate types. Keep the bootstrap Kotlin toolchain in sync with buck_kotlin_library so tests
+    # that override the Java compiler mode don't analyze this target with mismatched Kotlin/Java
+    # compiler modes. The source also hand-rolls JSON instead of using jackson-core for the same
     # reason.
+    _kotlin_toolchain = "toolchains//:kotlin_bootstrap",
     provided_deps = [
         "prelude//toolchains/android/third-party:kotlin-stdlib",
     ],
@@ -125,6 +128,7 @@ buck_kotlin_library(
     # test, as not to interfere with the results of the test.
     deps = [
         ":base",
+        ":per_test_coverage_base",
         ":timeout",
         # This is loaded by reflection. Joy.
         "prelude//toolchains/android/src/com/facebook/buck/jvm/java/runner:runner",
