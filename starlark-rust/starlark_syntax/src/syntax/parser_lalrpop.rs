@@ -66,7 +66,7 @@ fn lalrpop_error_to_parse_error(
             ),
             span: Span::new(Pos::new(x as u32), Pos::new(y as u32)),
         },
-        lu::ParseError::UnrecognizedEOF { .. } => ParseError::Error {
+        lu::ParseError::UnrecognizedEof { .. } => ParseError::Error {
             message: "Parse error: unexpected end of file".to_owned(),
             span: Span::new(Pos::new(eof_pos as u32), Pos::new(eof_pos as u32)),
         },
@@ -118,7 +118,7 @@ mod tests {
             "test.bzl:1:3",
         );
         assert_parse_error(
-            lu::ParseError::UnrecognizedEOF {
+            lu::ParseError::UnrecognizedEof {
                 location: 1,
                 expected: vec![],
             },

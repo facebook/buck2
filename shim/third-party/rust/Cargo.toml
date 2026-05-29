@@ -123,8 +123,8 @@ ipnetwork = "0.20.0"
 is_proc_translated = "0.1.1"
 itertools = "0.14.0"
 jemallocator = { version = "0.6.1", package = "tikv-jemallocator" }
-lalrpop = { version = "0.19.12", features = ["pico-args"], artifact = "bin:lalrpop", lib = true }
-lalrpop-util = "0.19.12"
+lalrpop = { version = "0.23.1", features = ["pico-args"], artifact = "bin:lalrpop", lib = true }
+lalrpop-util = "0.23.1"
 libc = "0.2.183"
 libfuzzer-sys = "0.4.12"
 linked-hash-map = { version = "0.5", features = ["serde_impl"] }

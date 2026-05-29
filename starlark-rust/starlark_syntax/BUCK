@@ -9,7 +9,8 @@ buck_genrule(
     srcs = ["src/syntax/grammar.lalrpop"],
     out = ".",
     # We can't use $SRCS, because in Buck1 that is absolute, and lalrpop --out-dir only works with relative sources
-    cmd = "$(exe fbsource//third-party/rust:lalrpop-lalrpop) src/syntax/grammar.lalrpop --out-dir $OUT",
+    cmd = "mkdir -p $OUT/src/syntax && $(exe fbsource//third-party/rust:lalrpop-lalrpop) src/syntax/grammar.lalrpop --out-dir $OUT/src/syntax",
+    cmd_exe = "mkdir %OUT%\\src\\syntax && $(exe fbsource//third-party/rust:lalrpop-lalrpop) src/syntax/grammar.lalrpop --out-dir %OUT%\\src\\syntax",
 )
 
 buck_filegroup(

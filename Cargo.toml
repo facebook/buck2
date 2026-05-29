@@ -232,8 +232,8 @@ inventory = "0.3.21"
 ipnetwork = "0.20.0"
 is_proc_translated = "0.1.1"
 itertools = "0.14.0"
-lalrpop = { version = "0.19.12", artifact = "bin" }
-lalrpop-util = "0.19.12"
+lalrpop = { version = "0.23.1", artifact = "bin" }
+lalrpop-util = "0.23.1"
 libc = "0.2.158"
 linked-hash-map = { version = "0.5", features = ["serde_impl"] }
 linkme = { version = "0.3.32", features = ["used_linker"] }
