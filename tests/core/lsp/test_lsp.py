@@ -366,7 +366,7 @@ async def test_returns_file_contents_for_starlark_types(buck: Buck) -> None:
         assert res["contents"] is None
 
         with pytest.raises(LSPResponseError):
-            await lsp.file_contents(f"file:{lsp.cwd / '.buckconfig'}")
+            await lsp.file_contents((lsp.cwd / ".buckconfig").as_uri())
 
 
 @buck_test()
