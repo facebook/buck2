@@ -43,7 +43,7 @@ atomic = "0.5.3"
 backtrace = "0.3.76"
 base64 = "0.22.1"
 bincode = { version = "2", features = ["serde"] }
-bitflags = "2.9"
+bitflags = "2.11.1"
 blake3 = { version = "=1.8.2", features = ["mmap", "rayon", "traits-preview"] } # Check overlay before updating
 bstr = { version = "1.10.0", features = ["serde", "std", "unicode"] }
 buck-resources = "1"
