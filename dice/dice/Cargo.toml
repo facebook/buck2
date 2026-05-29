@@ -28,6 +28,7 @@ indoc = { workspace = true }
 itertools = "0.14.0"
 lock_free_hashtable = { workspace = true, features = ["allocative"] }
 lock_free_vec = { workspace = true }
+once_cell = "1.21"
 pagable = { workspace = true, optional = true }
 pagable_storage = { workspace = true }
 parking_lot = { version = "0.12.1", features = ["send_guard"] }

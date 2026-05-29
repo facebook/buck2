@@ -27,7 +27,9 @@ use pagable::DataKey;
 use pagable::context::PagableDeserializerImpl;
 use pagable::storage::handle::PagableStorageHandle;
 use pagable::storage::support::SerializerForPaging;
+use pagable::storage::traits::ArcSerSlot;
 use pagable::storage::traits::PagableStorage;
+use pagable::storage::traits::PageOutError;
 use pagable_storage::storage::sled::SledBackedPagableStorage;
 use pagable_storage::storage::sqlite::SqliteBackedPagableStorage;
 
@@ -87,7 +89,7 @@ impl DiceStorage {
         }
         // Process this many keys in parallel at a time, limit peak RSS
         const CHUNK_SIZE: usize = 32768;
-        let finished: Arc<DashMap<usize, DataKey>> = Arc::new(DashMap::new());
+        let finished: Arc<DashMap<usize, Arc<ArcSerSlot>>> = Arc::new(DashMap::new());
         let num_workers = std::thread::available_parallelism()
             .map(|n| n.get())
             .unwrap_or(1);
@@ -128,7 +130,7 @@ impl DiceStorage {
     fn page_out_chunk(
         &self,
         items: Vec<(DiceKey, DiceKeyErased, DiceValidValue)>,
-        finished: &DashMap<usize, DataKey>,
+        finished: &DashMap<usize, Arc<ArcSerSlot>>,
         state_handle: &CoreStateHandle,
     ) -> anyhow::Result<()> {
         const EVICT_BATCH_SIZE: usize = 1000;
@@ -155,7 +157,7 @@ impl DiceStorage {
         &self,
         key_dyn: &DiceKeyErased,
         value: DiceValidValue,
-        finished: &DashMap<usize, DataKey>,
+        finished: &DashMap<usize, Arc<ArcSerSlot>>,
     ) -> anyhow::Result<Option<DataKey>> {
         let session_context = self.storage.session_context();
         let mut serializer = SerializerForPaging::new(session_context);
@@ -170,12 +172,14 @@ impl DiceStorage {
             Some(Err(e)) => Err(e),
             Some(Ok(())) => {
                 let (data, arcs) = serializer.finish();
-                Ok(Some(self.storage.page_out_item(
-                    data,
-                    arcs,
-                    finished,
-                    session_context,
-                )?))
+                match self
+                    .storage
+                    .page_out_item(data, arcs, finished, session_context)
+                {
+                    Ok(key) => Ok(Some(key)),
+                    Err(PageOutError::Failed(e)) => Err(e),
+                    Err(PageOutError::AlreadyFailed) => Ok(None),
+                }
             }
         }
     }
