@@ -222,6 +222,7 @@ export const sidebars: SidebarsConfig = {
         'rule_authors/custom_macros',
         'rule_authors/dynamic_dependencies',
         'rule_authors/anon_targets',
+        'rule_authors/content_based_paths',
         'rule_authors/test_execution',
         'rule_authors/optimization',
         isInternal() ? 'rule_authors/rule_writing_tips' : null,
