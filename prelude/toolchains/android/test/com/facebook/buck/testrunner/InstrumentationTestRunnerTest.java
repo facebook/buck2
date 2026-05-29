@@ -387,6 +387,60 @@ public class InstrumentationTestRunnerTest {
   }
 
   @Test
+  public void perTestCoveragePullsArtifactsToWrapperDir() throws Throwable {
+    ArrayList<String> capturedShellCommands = new ArrayList<>();
+    Path hostCoverageDir = tmp.newFolder("wrapper_per_test_coverage").getPath();
+    String deviceCoverageDir =
+        "/sdcard/Android/data/com.example/files/Download/test_result/per_test_coverage/";
+
+    Map<String, String> env = new HashMap<>();
+    env.put(InstrumentationTestRunner.PER_TEST_COVERAGE_ENABLED_ENV, "true");
+    env.put(InstrumentationTestRunner.PER_TEST_COVERAGE_DIR_ENV, hostCoverageDir.toString());
+
+    Map<Path, byte[]> filesOnDevice = new HashMap<>();
+    filesOnDevice.put(
+        Paths.get(deviceCoverageDir, "manifest.jsonl"), "{\"test\":\"example\"}\n".getBytes());
+
+    InstrumentationTestRunner runner =
+        createInstrumentationTestRunnerWithDeviceForSdk(
+            "30", capturedShellCommands, filesOnDevice, env, new HashMap<>());
+    runner.run();
+
+    String instrumentCommand = findInstrumentationCommand(capturedShellCommands);
+    Assert.assertTrue(
+        instrumentCommand.contains(
+            "-e " + InstrumentationTestRunner.PER_TEST_COVERAGE_DIR_ARG + " " + deviceCoverageDir));
+    Assert.assertTrue(Files.exists(hostCoverageDir.resolve("manifest.jsonl")));
+  }
+
+  @Test
+  public void perTestCoverageFallsBackToTestArtifactsDir() throws Throwable {
+    ArrayList<String> capturedShellCommands = new ArrayList<>();
+    Path artifactsDir = tmp.newFolder("test_artifacts").getPath();
+    String deviceCoverageDir =
+        "/sdcard/Android/data/com.example/files/Download/test_result/per_test_coverage/";
+
+    Map<String, String> env = new HashMap<>();
+    env.put(InstrumentationTestRunner.PER_TEST_COVERAGE_ENABLED_ENV, "true");
+    env.put("TEST_RESULT_ARTIFACTS_DIR", artifactsDir.toString());
+
+    Map<Path, byte[]> filesOnDevice = new HashMap<>();
+    filesOnDevice.put(
+        Paths.get(deviceCoverageDir, "manifest.jsonl"), "{\"test\":\"example\"}\n".getBytes());
+
+    InstrumentationTestRunner runner =
+        createInstrumentationTestRunnerWithDeviceForSdk(
+            "30", capturedShellCommands, filesOnDevice, env, new HashMap<>());
+    runner.run();
+
+    String instrumentCommand = findInstrumentationCommand(capturedShellCommands);
+    Assert.assertTrue(
+        instrumentCommand.contains(
+            "-e " + InstrumentationTestRunner.PER_TEST_COVERAGE_DIR_ARG + " " + deviceCoverageDir));
+    Assert.assertTrue(Files.exists(artifactsDir.resolve("per_test_coverage/manifest.jsonl")));
+  }
+
+  @Test
   public void pullDirPullsContentsDirectlyToDestination() throws Throwable {
     // Set up a device directory structure with files
     Map<Path, byte[]> filesOnDevice = new HashMap<>();
@@ -1286,6 +1340,17 @@ public class InstrumentationTestRunnerTest {
         capturedCommands, filesOnDevice, env, shellCommandMockResponses, extraArgs);
   }
 
+  private static String findInstrumentationCommand(List<String> capturedShellCommands) {
+    for (String command : capturedShellCommands) {
+      if (command.startsWith("am instrument")) {
+        return command;
+      }
+    }
+
+    Assert.fail("Expected to find 'am instrument' command");
+    return "";
+  }
+
   private InstrumentationTestRunner createInstrumentationTestRunnerWithDevice(
       List<String> capturedShellCommands,
       Map<Path, byte[]> filesOnDevice,
@@ -1293,7 +1358,18 @@ public class InstrumentationTestRunnerTest {
       Map<String, String> shellCommandMockResponses,
       String... extraArgs)
       throws Throwable {
+    return createInstrumentationTestRunnerWithDeviceForSdk(
+        "28", capturedShellCommands, filesOnDevice, env, shellCommandMockResponses, extraArgs);
+  }
 
+  private InstrumentationTestRunner createInstrumentationTestRunnerWithDeviceForSdk(
+      String sdkVersion,
+      List<String> capturedShellCommands,
+      Map<Path, byte[]> filesOnDevice,
+      Map<String, String> env,
+      Map<String, String> shellCommandMockResponses,
+      String... extraArgs)
+      throws Throwable {
     // Create a TestAndroidDevice as the primary device abstraction
     final AndroidDevice testAndroidDevice =
         new TestAndroidDevice() {
@@ -1305,7 +1381,7 @@ public class InstrumentationTestRunnerTest {
           @Override
           public String getProperty(String property) throws Exception {
             if ("ro.build.version.sdk".equals(property)) {
-              return "28"; // Android 9
+              return sdkVersion;
             }
             return null;
           }

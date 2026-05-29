@@ -19,6 +19,7 @@ import com.android.ddmlib.testrunner.TestIdentifier;
 import com.facebook.buck.android.exopackage.AdbUtils;
 import com.facebook.buck.android.exopackage.AndroidDevice;
 import com.facebook.buck.android.exopackage.AndroidDeviceImpl;
+import com.facebook.buck.testresultsoutput.TestResultsOutputEvent.RunFailureStatus;
 import com.facebook.buck.testresultsoutput.TestResultsOutputSender;
 import com.facebook.buck.testrunner.reportlayer.LogExtractorReportLayer;
 import com.facebook.buck.testrunner.reportlayer.PerfettoReportLayer;
@@ -31,7 +32,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -86,6 +87,17 @@ public class InstrumentationTestRunner extends DeviceRunner {
 
   private static final long ADB_CONNECT_TIMEOUT_MS = 30000;
   private static final long ADB_CONNECT_TIME_STEP_MS = ADB_CONNECT_TIMEOUT_MS / 10;
+
+  /** Env var gate for per-test JaCoCo coverage. */
+  static final String PER_TEST_COVERAGE_ENABLED_ENV = "PER_TEST_COVERAGE_ENABLED";
+
+  /** Host env var set by the coverage wrapper to the pull destination for per-test artifacts. */
+  static final String PER_TEST_COVERAGE_DIR_ENV = "PER_TEST_COVERAGE_DIR";
+
+  /** Instrumentation arg read by the on-device per-test coverage listener. */
+  static final String PER_TEST_COVERAGE_DIR_ARG = "PER_TEST_COVERAGE_DIR";
+
+  private static final String PER_TEST_COVERAGE_SUBDIR = "per_test_coverage";
 
   /** Env var to enable per-test timeout enforcement. */
   static final String PER_TEST_TIMEOUT_ENABLED_ENV = "ANDROID_PER_TEST_TIMEOUT_ENABLED";
@@ -858,6 +870,8 @@ public class InstrumentationTestRunner extends DeviceRunner {
       }
     }
 
+    String hostPerTestCoverageDir = setUpPerTestCoveragePull();
+
     if (this.clearPackageData) {
       executeAdbShellCommand("pm clear " + this.packageName);
       executeAdbShellCommand("pm clear " + this.targetPackageName);
@@ -1056,6 +1070,8 @@ public class InstrumentationTestRunner extends DeviceRunner {
         pullDir(resolvedPath, entry.getValue());
       }
 
+      maybeEmitPerTestCoverageInfraFailure(hostPerTestCoverageDir, testResultsOutputSender);
+
     } finally {
       this.collectAdbLogs();
 
@@ -1084,6 +1100,68 @@ public class InstrumentationTestRunner extends DeviceRunner {
 
   public Process exec(String command) throws IOException {
     return Runtime.getRuntime().exec(command);
+  }
+
+  @Nullable
+  private String setUpPerTestCoveragePull() {
+    if (!"true".equals(getenv(PER_TEST_COVERAGE_ENABLED_ENV))) {
+      return null;
+    }
+
+    String appScopedStoragePerTestCoveragePath =
+        getAppScopedStoragePath(
+            packageName, targetPackageName, isSelfInstrumenting, PER_TEST_COVERAGE_SUBDIR);
+    String hostPerTestCoverageDir = getHostPerTestCoverageDir();
+    if (appScopedStoragePerTestCoveragePath != null && hostPerTestCoverageDir != null) {
+      extraDirsToPull.put(appScopedStoragePerTestCoveragePath, hostPerTestCoverageDir);
+      extraInstrumentationArguments.put(
+          PER_TEST_COVERAGE_DIR_ARG, appScopedStoragePerTestCoveragePath);
+    }
+    return hostPerTestCoverageDir;
+  }
+
+  @Nullable
+  private String getHostPerTestCoverageDir() {
+    String hostPerTestCoverageDir = getenv(PER_TEST_COVERAGE_DIR_ENV);
+    if (hostPerTestCoverageDir != null && !hostPerTestCoverageDir.isEmpty()) {
+      return hostPerTestCoverageDir;
+    }
+
+    String testArtifactsPath = getenv(TEST_RESULT_ARTIFACTS_ENV);
+    if (testArtifactsPath == null || testArtifactsPath.isEmpty()) {
+      return null;
+    }
+    return Paths.get(testArtifactsPath, PER_TEST_COVERAGE_SUBDIR).toString();
+  }
+
+  // Pairs with PerTestAndroidJacocoRunListener#recordCoverageError, which writes
+  // "coverage_error.txt" inside the per-test coverage output dir on the first agent-side failure.
+  // Without this signal a silently-broken agent looks identical to a successful run with zero
+  // probes (empty manifest.jsonl) — surfacing it as INFRA_FAILURE makes the next regression
+  // visible in test results instead of waiting for someone to notice missing per-test artifacts.
+  private static void maybeEmitPerTestCoverageInfraFailure(
+      String hostPerTestCoverageDir, Optional<TestResultsOutputSender> sender) {
+    if (hostPerTestCoverageDir == null || !sender.isPresent()) {
+      return;
+    }
+    Path sentinel = Paths.get(hostPerTestCoverageDir, "coverage_error.txt");
+    if (!Files.exists(sentinel)) {
+      return;
+    }
+    try {
+      String contents = new String(Files.readAllBytes(sentinel), StandardCharsets.UTF_8);
+      int newline = contents.indexOf('\n');
+      String firstLine = (newline >= 0) ? contents.substring(0, newline) : contents;
+      sender
+          .get()
+          .sendRunFailure(
+              RunFailureStatus.INFRA_FAILURE,
+              System.currentTimeMillis(),
+              "Per-test coverage collection failed: " + firstLine,
+              contents);
+    } catch (IOException e) {
+      System.err.printf("Failed to read per-test coverage error sentinel: %s\n", e);
+    }
   }
 
   @Nullable
@@ -1189,7 +1267,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
     }
     Path annotationsPath =
         Paths.get(testArtifactsAnnotationsPath, String.format("%s.annotation", name));
-    Files.write(annotationsPath, annotationTemplate.getBytes(Charset.forName("UTF-8")));
+    Files.write(annotationsPath, annotationTemplate.getBytes(StandardCharsets.UTF_8));
 
     // create the artifact file
     return Paths.get(testArtifactsPath, name);
