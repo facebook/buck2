@@ -125,36 +125,23 @@ impl<'de, 's> PagableDeserializer<'de> for PagableDeserializerImpl<'de, 's> {
             &mut dyn PagableDeserializer<'a>,
         ) -> crate::Result<Box<dyn ArcEraseDyn>>,
     ) -> crate::Result<Box<dyn ArcEraseDyn>> {
-        // Read the DataKey from the arcs list
         let key = self
             .arcs
             .get(self.arc_index)
             .ok_or_else(|| anyhow::anyhow!("No more arc keys available during deserialization"))?;
         self.arc_index += 1;
 
-        // Request the arc from storage
-        match self
-            .storage
-            .backing_storage()
-            .fetch_arc_or_data_blocking(&type_id, key)?
-        {
-            either::Either::Left(arc) => {
-                // We got a cached arc - return it
-                Ok(arc)
-            }
-            either::Either::Right(data) => {
-                // We got serialized data - deserialize it
-                let mut deserializer =
-                    PagableDeserializerImpl::new(&data.data, &data.arcs, self.storage);
-                let arc = deserialize_fn(&mut deserializer)?;
+        let storage = self.storage.backing_storage();
+        let cell = storage.arc_cache().get_or_create_cell(type_id, *key);
 
-                // Record the deserialized arc in storage for future lookups
-                self.storage
-                    .backing_storage()
-                    .on_arc_deserialized(type_id, *key, arc.clone_dyn());
-                Ok(arc)
-            }
-        }
+        // First thread to reach here deserializes; others block.
+        let arc = cell.get_or_try_init(|| -> crate::Result<Box<dyn ArcEraseDyn>> {
+            let data = storage.fetch_data_blocking(key)?;
+            let mut deserializer =
+                PagableDeserializerImpl::new(&data.data, &data.arcs, self.storage);
+            deserialize_fn(&mut deserializer)
+        })?;
+        Ok(arc.clone_dyn())
     }
 
     fn position(&self) -> PagableCursor {

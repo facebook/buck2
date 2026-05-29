@@ -12,8 +12,8 @@ use std::any::TypeId;
 use std::sync::Arc;
 
 use dashmap::DashMap;
-use dashmap::mapref::entry::Entry;
 use either::Either;
+use once_cell::sync::OnceCell;
 
 use crate::arc_erase::ArcEraseDyn;
 use crate::storage::data::DataKey;
@@ -21,10 +21,11 @@ use crate::storage::data::PagableData;
 use crate::storage::support::SerializerForPaging;
 use crate::traits::SessionContext;
 
-/// Cache of deserialized arcs, keyed by `(TypeId, DataKey)`.
+/// Thread-safe cache of deserialized arcs, keyed by `(TypeId, DataKey)`.
+/// `OnceCell` per entry ensures each arc is deserialized at most once.
 // TODO: this should store weak pointers
 pub struct DeserializedArcCache {
-    map: DashMap<(TypeId, DataKey), Box<dyn ArcEraseDyn>>,
+    map: DashMap<(TypeId, DataKey), Arc<OnceCell<Box<dyn ArcEraseDyn>>>>,
 }
 
 impl DeserializedArcCache {
@@ -35,7 +36,22 @@ impl DeserializedArcCache {
     }
 
     pub fn get(&self, type_id: &TypeId, key: &DataKey) -> Option<Box<dyn ArcEraseDyn>> {
-        self.map.get(&(*type_id, *key)).map(|v| v.clone_dyn())
+        self.map
+            .get(&(*type_id, *key))
+            .and_then(|cell| cell.get().map(|v| v.clone_dyn()))
+    }
+
+    /// Returns the `OnceCell` for this key, creating it if needed.
+    /// Use `cell.get_or_try_init(|| ...)` to deserialize at most once.
+    pub fn get_or_create_cell(
+        &self,
+        type_id: TypeId,
+        key: DataKey,
+    ) -> Arc<OnceCell<Box<dyn ArcEraseDyn>>> {
+        self.map
+            .entry((type_id, key))
+            .or_insert_with(|| Arc::new(OnceCell::new()))
+            .clone()
     }
 
     pub fn clear(&self) {
@@ -48,12 +64,10 @@ impl DeserializedArcCache {
         key: DataKey,
         arc: Box<dyn ArcEraseDyn>,
     ) -> Option<Box<dyn ArcEraseDyn>> {
-        match self.map.entry((typeid, key)) {
-            Entry::Occupied(occupied_entry) => Some(occupied_entry.get().clone_dyn()),
-            Entry::Vacant(vacant_entry) => {
-                vacant_entry.insert(arc);
-                None
-            }
+        let cell = self.get_or_create_cell(typeid, key);
+        match cell.set(arc) {
+            Ok(()) => None,
+            Err(_already_set) => cell.get().map(|v| v.clone_dyn()),
         }
     }
 }
@@ -220,3 +234,134 @@ pub trait PagableStorage: Send + Sync + 'static {
 }
 
 static_assertions::assert_obj_safe!(PagableStorage);
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+    use std::sync::atomic::AtomicUsize;
+    use std::sync::atomic::Ordering;
+
+    use dupe::Dupe;
+
+    use super::*;
+    use crate::PagableSerialize;
+    use crate::context::PagableDeserializerImpl;
+    use crate::storage::handle::PagableStorageHandle;
+    use crate::storage::in_memory::InMemoryPagableStorage;
+    use crate::storage::support::SerializerForPaging;
+
+    /// Wraps an `Arc<dyn PagableStorage>` and counts `fetch_data_blocking` calls.
+    struct CountingStorage {
+        inner: Arc<dyn PagableStorage>,
+        fetch_count: AtomicUsize,
+    }
+
+    impl CountingStorage {
+        fn new(inner: Arc<dyn PagableStorage>) -> Self {
+            Self {
+                inner,
+                fetch_count: AtomicUsize::new(0),
+            }
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl PagableStorage for CountingStorage {
+        fn arc_cache(&self) -> &DeserializedArcCache {
+            self.inner.arc_cache()
+        }
+
+        fn fetch_data_blocking(&self, key: &DataKey) -> anyhow::Result<Arc<PagableData>> {
+            self.fetch_count.fetch_add(1, Ordering::SeqCst);
+            self.inner.fetch_data_blocking(key)
+        }
+
+        async fn fetch_data(&self, key: &DataKey) -> anyhow::Result<Arc<PagableData>> {
+            self.inner.fetch_data(key).await
+        }
+
+        fn schedule_for_paging(&self, arc: Box<dyn ArcEraseDyn>) {
+            self.inner.schedule_for_paging(arc)
+        }
+
+        fn session_context(&self) -> &SessionContext {
+            self.inner.session_context()
+        }
+
+        fn store_data(&self, data: PagableData) -> anyhow::Result<DataKey> {
+            self.inner.store_data(data)
+        }
+
+        fn flush(&self) -> anyhow::Result<()> {
+            self.inner.flush()
+        }
+    }
+
+    /// Parallel deserialization of values sharing the same `Arc` must not
+    /// fetch the arc's data more than once from storage.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn deserialize_arc_does_not_duplicate() -> anyhow::Result<()> {
+        let mem = InMemoryPagableStorage::new();
+        let storage = Arc::new(CountingStorage::new(mem.handle()));
+
+        // Serialize 100 items that each contain the same shared Arc<Vec<u8>>.
+        let shared_arc: Arc<Vec<u8>> = Arc::new(vec![0xAB; 1000]);
+        let finished: DashMap<usize, DataKey> = DashMap::new();
+        let num_items = 100;
+        let mut item_keys = Vec::new();
+        for i in 0..num_items {
+            let session = storage.session_context();
+            let mut serializer = SerializerForPaging::new(session);
+            (i as u8).pagable_serialize(&mut serializer)?;
+            shared_arc.pagable_serialize(&mut serializer)?;
+            let (data, arcs) = serializer.finish();
+            let key = storage.page_out_item(data, arcs, &finished, session)?;
+            item_keys.push(key);
+        }
+        storage.flush()?;
+
+        // Reset counter after serialization.
+        storage.fetch_count.store(0, Ordering::SeqCst);
+
+        // Deserialize all items in parallel. Each item's deserializer will
+        // call deserialize_arc for the shared Arc, which calls
+        // fetch_data_blocking inside get_or_try_init. Without dedup, the
+        // shared arc's data is fetched num_items times.
+        let handle = PagableStorageHandle::new(storage.dupe() as Arc<dyn PagableStorage>);
+        let handles: Vec<_> = item_keys
+            .into_iter()
+            .map(|key| {
+                let storage = storage.dupe();
+                let handle = handle.dupe();
+                tokio::spawn(async move {
+                    let data = storage.fetch_data_blocking(&key)?;
+                    let mut deser = PagableDeserializerImpl::new(&data.data, &data.arcs, &handle);
+                    let _: u8 = crate::PagableDeserialize::pagable_deserialize(&mut deser)?;
+                    let _: Arc<Vec<u8>> =
+                        crate::PagableDeserialize::pagable_deserialize(&mut deser)?;
+                    Ok::<_, anyhow::Error>(())
+                })
+            })
+            .collect();
+
+        for h in handles {
+            h.await??;
+        }
+
+        // num_items fetches for the top-level items, plus fetches for the
+        // shared arc. With dedup the arc should be fetched once (total =
+        // num_items + 1). Without dedup it's fetched up to num_items times
+        // (total = num_items + num_items).
+        let total = storage.fetch_count.load(Ordering::SeqCst);
+        assert!(
+            total <= num_items + 1,
+            "expected at most {} fetch_data_blocking calls, got {} \
+             (shared arc fetched {} extra times)",
+            num_items + 1,
+            total,
+            total - num_items - 1,
+        );
+
+        Ok(())
+    }
+}
