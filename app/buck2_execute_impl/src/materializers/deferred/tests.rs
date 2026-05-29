@@ -1235,7 +1235,7 @@ mod state_machine {
                 artifact_ttl: std::time::Duration::from_secs(0),
                 start_offset: std::time::Duration::from_secs(0),
                 decreased_ttl_hours_disk_threshold: None,
-                decreased_ttl_hours: None,
+                decreased_ttl_hours: std::time::Duration::from_secs(0),
                 dry_run: true,
             };
             let io = Arc::new(StubIoHandler::new(project_root.dupe()));

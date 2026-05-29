@@ -637,7 +637,7 @@ pub struct CleanStaleConfig {
     pub clean_period: std::time::Duration,
     pub artifact_ttl: std::time::Duration,
     pub dry_run: bool,
-    pub decreased_ttl_hours: Option<std::time::Duration>,
+    pub decreased_ttl_hours: std::time::Duration,
     pub decreased_ttl_hours_disk_threshold: Option<f64>,
 }
 
@@ -673,10 +673,12 @@ impl CleanStaleConfig {
                 property: "clean_stale_dry_run",
             })?
             .unwrap_or(false);
-        let decreased_ttl_hours: Option<f64> = root_config.parse(BuckconfigKeyRef {
-            section: "buck2",
-            property: "clean_stale_low_disk_artifact_ttl_hours",
-        })?;
+        let decreased_ttl_hours: f64 = root_config
+            .parse(BuckconfigKeyRef {
+                section: "buck2",
+                property: "clean_stale_low_disk_artifact_ttl_hours",
+            })?
+            .unwrap_or(48.0);
         let decreased_ttl_hours_disk_threshold = root_config.parse(BuckconfigKeyRef {
             section: "buck2",
             property: "clean_stale_low_disk_threshold",
@@ -694,8 +696,9 @@ impl CleanStaleConfig {
                 start_offset: std::time::Duration::from_secs_f64(
                     secs_in_hour * clean_stale_start_offset_hours,
                 ),
-                decreased_ttl_hours: decreased_ttl_hours
-                    .map(|hours| std::time::Duration::from_secs_f64(secs_in_hour * hours)),
+                decreased_ttl_hours: std::time::Duration::from_secs_f64(
+                    secs_in_hour * decreased_ttl_hours,
+                ),
                 decreased_ttl_hours_disk_threshold,
                 dry_run: clean_stale_dry_run,
             })

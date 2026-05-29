@@ -99,6 +99,10 @@ clean_stale_start_offset_hours = 12
   clean events.
 - `clean_stale_artifact_ttl_hours` determines how long artifacts should be kept
   in buck-out before cleaning them.
+- `clean_stale_low_disk_threshold` (percent of total disk free, e.g. `10.0`)
+  enables a shorter TTL when free disk drops at or below it. The shorter TTL
+  defaults to 48 hours and can be overridden via
+  `clean_stale_low_disk_artifact_ttl_hours`.
 
 If clean stale is running in the background at the same time that a build begins
 to materialize artifacts, the clean will be interrupted and not run again until

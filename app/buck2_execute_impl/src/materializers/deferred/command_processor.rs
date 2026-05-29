@@ -426,13 +426,11 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
 
     fn get_artifact_ttl(
         decreased_ttl_hours_disk_threshold: Option<f64>,
-        decreased_ttl_hours: Option<std::time::Duration>,
+        decreased_ttl_hours: std::time::Duration,
         default_ttl: std::time::Duration,
     ) -> std::time::Duration {
-        let (threshold, lower_ttl) = match (decreased_ttl_hours_disk_threshold, decreased_ttl_hours)
-        {
-            (Some(t), Some(l)) => (t, l),
-            _ => return default_ttl,
+        let Some(threshold) = decreased_ttl_hours_disk_threshold else {
+            return default_ttl;
         };
 
         let root_path_str = "/";
@@ -445,7 +443,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             }
         };
         if (disk_stats.free_space as f64 / disk_stats.total_space as f64 * 100.0) <= threshold {
-            lower_ttl
+            decreased_ttl_hours
         } else {
             default_ttl
         }
