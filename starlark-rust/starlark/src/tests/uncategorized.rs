@@ -325,7 +325,7 @@ fn test_radd() {
         }
     }
 
-    #[starlark_value(type = "select", skip_pagable)]
+    #[starlark_value(type = "select")]
     impl<'v> StarlarkValue<'v> for Select {
         fn radd(&self, lhs: Value<'v>, heap: Heap<'v>) -> Option<crate::Result<Value<'v>>> {
             let lhs: Select = Select::unpack_value(lhs).unwrap().unwrap();
@@ -789,7 +789,7 @@ fn test_label_assign() {
     #[display("FrozenWrapper")]
     struct FrozenWrapper;
 
-    #[starlark_value(type = "wrapper", skip_pagable)]
+    #[starlark_value(type = "wrapper")]
     impl<'v> StarlarkValue<'v> for FrozenWrapper {
         type Canonical = Wrapper<'v>;
     }

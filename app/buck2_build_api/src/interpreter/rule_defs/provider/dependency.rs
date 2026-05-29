@@ -129,7 +129,7 @@ impl<'v> Dependency<'v> {
 
 starlark::methods_static!(DEPENDENCY_METHODS = dependency_methods);
 
-#[starlark_value(type = "Dependency", skip_pagable)]
+#[starlark_value(type = "Dependency")]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for DependencyGen<V>
 where
     Self: ProvidesStaticType<'v>,

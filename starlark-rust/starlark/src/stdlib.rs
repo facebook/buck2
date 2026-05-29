@@ -210,7 +210,7 @@ mod tests {
 
         starlark::methods_static!(BOOL2_METHODS = methods);
 
-        #[starlark_value(type = "bool2", skip_pagable)]
+        #[starlark_value(type = "bool2")]
         impl<'v> StarlarkValue<'v> for Bool2 {
             fn get_methods() -> Option<&'static Methods> {
                 Some(BOOL2_METHODS.methods())

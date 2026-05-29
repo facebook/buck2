@@ -76,7 +76,7 @@ struct SimpleData {
 
 starlark_simple_value!(SimpleData);
 
-#[starlark_value(type = "SimpleData", skip_pagable)]
+#[starlark_value(type = "SimpleData")]
 impl<'v> StarlarkValue<'v> for SimpleData {
     type Canonical = Self;
 }
@@ -128,7 +128,7 @@ struct HeapData {
 
 starlark_simple_value!(HeapData);
 
-#[starlark_value(type = "HeapData", skip_pagable)]
+#[starlark_value(type = "HeapData")]
 impl<'v> StarlarkValue<'v> for HeapData {
     type Canonical = Self;
 }
@@ -201,7 +201,7 @@ struct RefData {
 
 starlark_simple_value!(RefData);
 
-#[starlark_value(type = "RefData", skip_pagable)]
+#[starlark_value(type = "RefData")]
 impl<'v> StarlarkValue<'v> for RefData {
     type Canonical = Self;
 }
@@ -270,7 +270,7 @@ struct DropRefData {
 
 starlark_simple_value!(DropRefData);
 
-#[starlark_value(type = "DropRefData", skip_pagable)]
+#[starlark_value(type = "DropRefData")]
 impl<'v> StarlarkValue<'v> for DropRefData {
     type Canonical = Self;
 }
@@ -759,7 +759,7 @@ struct SmallMapData {
 
 starlark_simple_value!(SmallMapData);
 
-#[starlark_value(type = "SmallMapData", skip_pagable)]
+#[starlark_value(type = "SmallMapData")]
 impl<'v> StarlarkValue<'v> for SmallMapData {
     type Canonical = Self;
 }
@@ -780,7 +780,7 @@ struct SmallMapFvData {
 
 starlark_simple_value!(SmallMapFvData);
 
-#[starlark_value(type = "SmallMapFvData", skip_pagable)]
+#[starlark_value(type = "SmallMapFvData")]
 impl<'v> StarlarkValue<'v> for SmallMapFvData {
     type Canonical = Self;
 }
@@ -1109,7 +1109,7 @@ struct TestStackFrame {
 
 starlark_simple_value!(TestStackFrame);
 
-#[starlark_value(type = "TestStackFrame", skip_pagable)]
+#[starlark_value(type = "TestStackFrame")]
 impl<'v> StarlarkValue<'v> for TestStackFrame {
     type Canonical = Self;
 }
@@ -1707,7 +1707,7 @@ struct OuterArcValue {
 
 starlark_simple_value!(OuterArcValue);
 
-#[starlark_value(type = "OuterArcValue", skip_pagable)]
+#[starlark_value(type = "OuterArcValue")]
 impl<'v> StarlarkValue<'v> for OuterArcValue {
     type Canonical = Self;
 }
@@ -1810,7 +1810,7 @@ struct ArcBlanketOuter {
 
 starlark_simple_value!(ArcBlanketOuter);
 
-#[starlark_value(type = "ArcBlanketOuter", skip_pagable)]
+#[starlark_value(type = "ArcBlanketOuter")]
 impl<'v> StarlarkValue<'v> for ArcBlanketOuter {
     type Canonical = Self;
 }
@@ -2036,7 +2036,7 @@ impl std::fmt::Debug for AtomicHost {
 
 starlark_simple_value!(AtomicHost);
 
-#[starlark_value(type = "AtomicHost", skip_pagable)]
+#[starlark_value(type = "AtomicHost")]
 impl<'v> StarlarkValue<'v> for AtomicHost {
     type Canonical = Self;
 }
@@ -2194,7 +2194,7 @@ struct TypetagOuter {
 
 starlark_simple_value!(TypetagOuter);
 
-#[starlark_value(type = "TypetagOuter", skip_pagable)]
+#[starlark_value(type = "TypetagOuter")]
 impl<'v> StarlarkValue<'v> for TypetagOuter {
     type Canonical = Self;
 }
@@ -2429,7 +2429,7 @@ struct FieldErrorTestData {
 
 starlark_simple_value!(FieldErrorTestData);
 
-#[starlark_value(type = "FieldErrorTestData", skip_pagable)]
+#[starlark_value(type = "FieldErrorTestData")]
 impl<'v> StarlarkValue<'v> for FieldErrorTestData {
     type Canonical = Self;
 }

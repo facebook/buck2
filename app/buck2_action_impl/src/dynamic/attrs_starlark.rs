@@ -41,7 +41,7 @@ pub struct StarlarkDynamicAttrType {
     pub(crate) ty: DynamicAttrType,
 }
 
-#[starlark_value(type = "DynamicAttrType", StarlarkTypeRepr, UnpackValue, skip_pagable)]
+#[starlark_value(type = "DynamicAttrType", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for StarlarkDynamicAttrType {}
 
 impl<'v> AllocValue<'v> for StarlarkDynamicAttrType {

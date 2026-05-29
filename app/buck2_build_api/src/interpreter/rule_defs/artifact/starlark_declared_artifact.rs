@@ -321,7 +321,7 @@ impl<'v> AllocValue<'v> for StarlarkDeclaredArtifact<'v> {
 
 starlark::methods_static!(STARLARK_DECLARED_ARTIFACT_METHODS = artifact_methods);
 
-#[starlark_value(type = "Artifact", StarlarkTypeRepr, UnpackValue, skip_pagable)]
+#[starlark_value(type = "Artifact", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for StarlarkDeclaredArtifact<'v> {
     type Canonical = StarlarkArtifact;
 

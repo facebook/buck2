@@ -163,7 +163,7 @@ mod tests {
 
     starlark_simple_value!(TestSimpleType);
 
-    #[starlark_value(type = "TestSimpleType", skip_pagable)]
+    #[starlark_value(type = "TestSimpleType")]
     impl<'v> StarlarkValue<'v> for TestSimpleType {}
 
     /// A simple complex type to verify vtable registration works for complex values.
@@ -187,7 +187,7 @@ mod tests {
 
     starlark_complex_value!(TestComplex);
 
-    #[starlark_value(type = "TestComplex", skip_pagable)]
+    #[starlark_value(type = "TestComplex")]
     impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for TestComplexGen<V> where Self: ProvidesStaticType<'v>
     {}
 

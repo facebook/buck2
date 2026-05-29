@@ -99,7 +99,7 @@ impl<'v, V: ValueLike<'v>> Display for NamespaceGen<'v, V> {
     }
 }
 
-#[starlark_value(type = "namespace", skip_pagable)]
+#[starlark_value(type = "namespace")]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for NamespaceGen<'v, V>
 where
     Self: ProvidesStaticType<'v>,

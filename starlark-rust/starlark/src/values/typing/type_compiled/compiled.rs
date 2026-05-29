@@ -209,7 +209,7 @@ crate::register_ty_starlark_value!(TypeCompiledImplAsStarlarkValue<DummyTypeMatc
 
 starlark::methods_static!(TYPE_COMPILED_METHODS = type_compiled_methods);
 
-#[starlark_value(type = "type", skip_pagable)]
+#[starlark_value(type = "type")]
 impl<'v, T: 'static> StarlarkValue<'v> for TypeCompiledImplAsStarlarkValue<T>
 where
     T: TypeMatcher,

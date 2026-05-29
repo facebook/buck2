@@ -196,7 +196,7 @@ impl crate::pagable::StarlarkDeserialize for StarlarkBigInt {
     }
 }
 
-#[starlark_value(type = "int", skip_pagable)]
+#[starlark_value(type = "int")]
 impl<'v> StarlarkValue<'v> for StarlarkBigInt {
     fn to_bool(&self) -> bool {
         // `StarlarkBigInt` is non-zero.

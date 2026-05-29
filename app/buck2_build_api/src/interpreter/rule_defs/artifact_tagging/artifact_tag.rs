@@ -83,7 +83,7 @@ starlark_simple_value!(ArtifactTag);
 
 starlark::methods_static!(ARTIFACT_TAG_METHODS = artifact_tag_methods);
 
-#[starlark_value(type = "ArtifactTag", skip_pagable)]
+#[starlark_value(type = "ArtifactTag")]
 impl<'v> StarlarkValue<'v> for ArtifactTag {
     fn get_methods() -> Option<&'static Methods> {
         Some(ARTIFACT_TAG_METHODS.methods())

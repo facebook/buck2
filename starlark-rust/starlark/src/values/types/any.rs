@@ -169,7 +169,7 @@ where
         <T as StarlarkAnyRegistered>::TY_VTABLE_STATIC;
 }
 
-#[starlark_value(type = "any", skip_pagable)]
+#[starlark_value(type = "any")]
 impl<'v, T: StarlarkAnyRegistered> StarlarkValue<'v> for StarlarkAny<T> {
     type Canonical = Self;
 }

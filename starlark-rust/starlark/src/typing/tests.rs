@@ -80,7 +80,7 @@ struct TypeCheck {
 #[display("MyType")]
 struct MyCustomType;
 
-#[starlark_value(type = "my_custom_type", skip_pagable)]
+#[starlark_value(type = "my_custom_type")]
 impl<'v> StarlarkValue<'v> for MyCustomType {}
 
 impl<'v> AllocValue<'v> for MyCustomType {

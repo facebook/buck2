@@ -40,7 +40,7 @@ use crate::values::starlark_value;
 #[display("{}", Self::TYPE)]
 pub(crate) struct TypingAny;
 
-#[starlark_value(type = "typing.Any", skip_pagable)]
+#[starlark_value(type = "typing.Any")]
 impl<'v> StarlarkValue<'v> for TypingAny {
     fn eval_type(&self) -> Option<Ty> {
         Some(Ty::any())

@@ -53,7 +53,7 @@ impl Serialize for StarlarkCellPath {
 
 starlark::methods_static!(CELL_PATH_METHODS = cell_path_methods);
 
-#[starlark_value(type = "CellPath", skip_pagable)]
+#[starlark_value(type = "CellPath")]
 impl<'v> StarlarkValue<'v> for StarlarkCellPath {
     fn get_methods() -> Option<&'static Methods> {
         Some(CELL_PATH_METHODS.methods())

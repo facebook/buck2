@@ -41,7 +41,7 @@ pub(crate) struct Ellipsis;
 
 static_starlark_value!(pub(crate) VALUE_ELLIPSIS: Ellipsis = Ellipsis);
 
-#[starlark_value(type = "ellipsis", skip_pagable)]
+#[starlark_value(type = "ellipsis")]
 impl<'v> StarlarkValue<'v> for Ellipsis {}
 
 impl Ellipsis {

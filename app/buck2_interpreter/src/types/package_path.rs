@@ -64,7 +64,7 @@ impl StarlarkPackagePath {
 
 starlark::methods_static!(PACKAGE_PATH_METHODS = package_path_methods);
 
-#[starlark_value(type = "PackagePath", skip_pagable)]
+#[starlark_value(type = "PackagePath")]
 impl<'v> StarlarkValue<'v> for StarlarkPackagePath {
     fn get_methods() -> Option<&'static Methods> {
         Some(PACKAGE_PATH_METHODS.methods())

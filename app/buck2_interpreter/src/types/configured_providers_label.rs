@@ -92,7 +92,7 @@ impl StarlarkConfiguredProvidersLabel {
 
 starlark::methods_static!(CONFIGURED_PROVIDERS_LABEL_METHODS = configured_label_methods);
 
-#[starlark_value(type = "Label", skip_pagable)]
+#[starlark_value(type = "Label")]
 impl<'v> StarlarkValue<'v> for StarlarkConfiguredProvidersLabel
 where
     Self: ProvidesStaticType<'v>,
@@ -245,7 +245,7 @@ impl StarlarkProvidersLabel {
 
 starlark::methods_static!(PROVIDERS_LABEL_METHODS = label_methods);
 
-#[starlark_value(type = "ProvidersLabel", skip_pagable)]
+#[starlark_value(type = "ProvidersLabel")]
 impl<'v> StarlarkValue<'v> for StarlarkProvidersLabel
 where
     Self: ProvidesStaticType<'v>,

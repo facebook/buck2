@@ -324,7 +324,7 @@ impl UserProviderField {
     }
 }
 
-#[starlark_value(type = "ProviderField", skip_pagable)]
+#[starlark_value(type = "ProviderField")]
 impl<'v> StarlarkValue<'v> for UserProviderField {}
 
 /// The result of calling `provider()`. This is a callable that accepts the fields
@@ -598,7 +598,7 @@ impl ProviderCallableLike for FrozenUserProviderCallable {
     }
 }
 
-#[starlark_value(type = "ProviderCallable", skip_pagable)]
+#[starlark_value(type = "ProviderCallable")]
 impl<'v> StarlarkValue<'v> for FrozenUserProviderCallable {
     type Canonical = Self;
 

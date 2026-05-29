@@ -89,7 +89,7 @@ struct FrozenStarlarkCfgConstructor {
 #[starlark_value(type = "StarlarkCfgConstructor")]
 impl<'v> StarlarkValue<'v> for StarlarkCfgConstructor<'v> {}
 
-#[starlark_value(type = "StarlarkCfgConstructor", skip_pagable)]
+#[starlark_value(type = "StarlarkCfgConstructor")]
 impl<'v> StarlarkValue<'v> for FrozenStarlarkCfgConstructor {
     type Canonical = StarlarkCfgConstructor<'v>;
 }

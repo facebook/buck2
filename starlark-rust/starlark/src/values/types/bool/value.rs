@@ -66,7 +66,7 @@ pub(crate) static VALUE_FALSE_TRUE: [&AllocStaticSimple<StarlarkBool>; 2] =
     [&VALUE_FALSE, &VALUE_TRUE];
 
 /// Define the bool type
-#[starlark_value(type = BOOL_TYPE, skip_pagable)]
+#[starlark_value(type = BOOL_TYPE)]
 impl<'v> StarlarkValue<'v> for StarlarkBool {
     fn is_special(_: Private) -> bool
     where

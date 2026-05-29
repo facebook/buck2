@@ -139,7 +139,7 @@ pub struct FrozenStarlarkDynamicActionsCallable {
 
 starlark::methods_static!(DYNAMIC_ACTION_CALLABLE_METHODS = dynamic_action_callable_methods);
 
-#[starlark_value(type = "DynamicActionCallable", skip_pagable)]
+#[starlark_value(type = "DynamicActionCallable")]
 impl<'v> StarlarkValue<'v> for DynamicActionsCallable<'v> {
     type Canonical = FrozenStarlarkDynamicActionsCallable;
 
@@ -172,7 +172,7 @@ impl<'v> StarlarkValue<'v> for DynamicActionsCallable<'v> {
     }
 }
 
-#[starlark_value(type = "DynamicActionCallable", skip_pagable)]
+#[starlark_value(type = "DynamicActionCallable")]
 impl<'v> StarlarkValue<'v> for FrozenStarlarkDynamicActionsCallable {
     type Canonical = Self;
 

@@ -87,7 +87,7 @@ impl<'v, V: ValueLike<'v>> FieldGen<V> {
     }
 }
 
-#[starlark_value(type = "field", skip_pagable)]
+#[starlark_value(type = "field")]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for FieldGen<V>
 where
     Self: ProvidesStaticType<'v>,

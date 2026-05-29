@@ -68,7 +68,7 @@ use crate::values::typing::callable::param::StarlarkCallableParamSpec;
 #[display("{}", Self::TYPE)]
 pub(crate) struct TypingCallable;
 
-#[starlark_value(type = "typing.Callable", skip_pagable)]
+#[starlark_value(type = "typing.Callable")]
 impl<'v> StarlarkValue<'v> for TypingCallable {
     fn eval_type(&self) -> Option<Ty> {
         Some(StarlarkCallable::<StarlarkCallableParamAny, FrozenValue>::starlark_type_repr())
@@ -117,7 +117,7 @@ pub(crate) struct TypingCallableAt2 {
     callable: TyCallable,
 }
 
-#[starlark_value(type = "typing.Callable", skip_pagable)]
+#[starlark_value(type = "typing.Callable")]
 impl<'v> StarlarkValue<'v> for TypingCallableAt2 {
     fn eval_type(&self) -> Option<Ty> {
         Some(Ty::basic(TyBasic::Callable(self.callable.dupe())))

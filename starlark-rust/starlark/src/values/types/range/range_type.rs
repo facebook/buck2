@@ -112,7 +112,7 @@ impl Range {
     }
 }
 
-#[starlark_value(type = Range::TYPE, skip_pagable)]
+#[starlark_value(type = Range::TYPE)]
 impl<'v> StarlarkValue<'v> for Range {
     fn to_bool(&self) -> bool {
         (self.start < self.stop && self.step.get() > 0)

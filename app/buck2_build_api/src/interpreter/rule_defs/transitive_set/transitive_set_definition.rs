@@ -239,7 +239,7 @@ impl<'v> AllocValue<'v> for TransitiveSetDefinition<'v> {
     }
 }
 
-#[starlark_value(type = "TransitiveSetDefinition", skip_pagable)]
+#[starlark_value(type = "TransitiveSetDefinition")]
 impl<'v> StarlarkValue<'v> for TransitiveSetDefinition<'v> {
     type Canonical = FrozenTransitiveSetDefinition;
 
@@ -339,7 +339,7 @@ impl Serialize for FrozenTransitiveSetDefinition {
     }
 }
 
-#[starlark_value(type = "TransitiveSetDefinition", skip_pagable)]
+#[starlark_value(type = "TransitiveSetDefinition")]
 impl<'v> StarlarkValue<'v> for FrozenTransitiveSetDefinition {
     type Canonical = Self;
 

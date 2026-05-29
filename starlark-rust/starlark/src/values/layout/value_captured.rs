@@ -57,10 +57,10 @@ pub(crate) struct ValueCaptured<'v>(Cell<Option<Value<'v>>>);
 #[repr(transparent)]
 pub(crate) struct FrozenValueCaptured(Option<FrozenValue>);
 
-#[starlark_value(type = "value_captured", skip_pagable)]
+#[starlark_value(type = "value_captured")]
 impl<'v> StarlarkValue<'v> for ValueCaptured<'v> {}
 
-#[starlark_value(type = "value_captured", skip_pagable)]
+#[starlark_value(type = "value_captured")]
 impl<'v> StarlarkValue<'v> for FrozenValueCaptured {
     type Canonical = ValueCaptured<'v>;
 }

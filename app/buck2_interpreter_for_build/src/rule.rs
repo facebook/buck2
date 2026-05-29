@@ -360,7 +360,7 @@ impl<'v> StarlarkRuleCallable<'v> {
     }
 }
 
-#[starlark_value(type = "Rule", skip_pagable)]
+#[starlark_value(type = "Rule")]
 impl<'v> StarlarkValue<'v> for StarlarkRuleCallable<'v> {
     fn export_as(
         &self,
@@ -538,7 +538,7 @@ impl FrozenStarlarkRuleCallable {
     }
 }
 
-#[starlark_value(type = "Rule", skip_pagable)]
+#[starlark_value(type = "Rule")]
 impl<'v> StarlarkValue<'v> for FrozenStarlarkRuleCallable {
     type Canonical = StarlarkRuleCallable<'v>;
 

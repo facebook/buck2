@@ -337,7 +337,7 @@ mod tests {
     #[display("plant")]
     enum AbstractPlant {}
 
-    #[starlark_value(type = "plant", skip_pagable)]
+    #[starlark_value(type = "plant")]
     impl<'v> StarlarkValue<'v> for AbstractPlant {
         fn get_type_starlark_repr() -> Ty {
             Ty::starlark_value::<Self>()
@@ -367,7 +367,7 @@ mod tests {
         }
     }
 
-    #[starlark_value(type = "fruit_callable", skip_pagable)]
+    #[starlark_value(type = "fruit_callable")]
     impl<'v> StarlarkValue<'v> for FruitCallable {
         fn get_type_starlark_repr() -> Ty {
             Ty::starlark_value::<Self>()
@@ -409,7 +409,7 @@ mod tests {
         }
     }
 
-    #[starlark_value(type = "fruit", skip_pagable)]
+    #[starlark_value(type = "fruit")]
     impl<'v> StarlarkValue<'v> for Fruit {
         fn get_type_starlark_repr() -> Ty {
             Ty::starlark_value::<Fruit>()

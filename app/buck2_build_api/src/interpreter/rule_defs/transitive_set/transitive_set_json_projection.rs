@@ -131,7 +131,7 @@ starlark::methods_static!(
     TRANSITIVE_SET_JSON_PROJECTION_METHODS = transitive_set_json_projection_methods
 );
 
-#[starlark_value(type = "TransitiveSetJsonProjection", skip_pagable)]
+#[starlark_value(type = "TransitiveSetJsonProjection")]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for TransitiveSetJsonProjectionGen<V>
 where
     Self: ProvidesStaticType<'v>,

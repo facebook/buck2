@@ -66,10 +66,10 @@ struct InputTypeRepr;
 #[display("output")]
 struct OutputTypeRepr;
 
-#[starlark_value(type = "input", skip_pagable)]
+#[starlark_value(type = "input")]
 impl<'v> StarlarkValue<'v> for InputTypeRepr {}
 
-#[starlark_value(type = "output", skip_pagable)]
+#[starlark_value(type = "output")]
 impl<'v> StarlarkValue<'v> for OutputTypeRepr {}
 
 #[starlark_module]
@@ -173,7 +173,7 @@ struct Obj;
 
 starlark::methods_static!(OBJ_METHODS = object);
 
-#[starlark_value(type = "obj", skip_pagable)]
+#[starlark_value(type = "obj")]
 impl<'v> StarlarkValue<'v> for Obj {
     fn get_methods() -> Option<&'static Methods> {
         Some(OBJ_METHODS.methods())

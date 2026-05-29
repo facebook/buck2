@@ -56,7 +56,7 @@ impl<T: StarlarkTypeRepr> StarlarkTypeRepr for StarlarkIter<T> {
 #[display("{}", Self::TYPE)]
 pub(crate) struct TypingIterable;
 
-#[starlark_value(type = "typing.Iterable", skip_pagable)]
+#[starlark_value(type = "typing.Iterable")]
 impl<'v> StarlarkValue<'v> for TypingIterable {
     fn eval_type(&self) -> Option<Ty> {
         Some(Ty::iter(Ty::any()))

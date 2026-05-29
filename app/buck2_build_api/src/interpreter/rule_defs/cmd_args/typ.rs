@@ -530,7 +530,7 @@ impl<'v> StarlarkCmdArgs<'v> {
 starlark::methods_static!(CMD_ARGS_METHODS = cmd_args_methods);
 starlark::methods_static!(FROZEN_CMD_ARGS_METHODS = cmd_args_methods);
 
-#[starlark_value(type = "cmd_args", skip_pagable)]
+#[starlark_value(type = "cmd_args")]
 impl<'v> StarlarkValue<'v> for StarlarkCmdArgs<'v> {
     fn get_methods() -> Option<&'static Methods> {
         Some(CMD_ARGS_METHODS.methods())
@@ -554,7 +554,7 @@ impl<'v> StarlarkValue<'v> for StarlarkCmdArgs<'v> {
     }
 }
 
-#[starlark_value(type = "cmd_args", skip_pagable)]
+#[starlark_value(type = "cmd_args")]
 impl<'v> StarlarkValue<'v> for FrozenStarlarkCmdArgs {
     type Canonical = StarlarkCmdArgs<'v>;
 
@@ -1087,7 +1087,7 @@ impl Display for StarlarkCommandLineInputs {
 
 starlark::methods_static!(COMMAND_LINE_INPUTS_METHODS = command_line_inputs_methods);
 
-#[starlark_value(type = "CommandLineInputs", skip_pagable)]
+#[starlark_value(type = "CommandLineInputs")]
 impl<'v> StarlarkValue<'v> for StarlarkCommandLineInputs {
     fn get_methods() -> Option<&'static Methods> {
         Some(COMMAND_LINE_INPUTS_METHODS.methods())

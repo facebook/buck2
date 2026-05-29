@@ -114,7 +114,7 @@ struct Magic;
 
 starlark_simple_value!(Magic);
 
-#[starlark_value(type = "magic", skip_pagable)]
+#[starlark_value(type = "magic")]
 impl<'v> StarlarkValue<'v> for Magic {}
 
 /// These are where the module docs go
@@ -228,7 +228,7 @@ starlark_simple_value!(Obj);
 
 starlark::methods_static!(OBJ_METHODS = object);
 
-#[starlark_value(type = "obj", skip_pagable)]
+#[starlark_value(type = "obj")]
 impl<'v> StarlarkValue<'v> for Obj {
     fn get_methods() -> Option<&'static Methods> {
         Some(OBJ_METHODS.methods())

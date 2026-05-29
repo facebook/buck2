@@ -418,7 +418,7 @@ starlark_complex_value!(pub TransitiveSet);
 
 starlark::methods_static!(TRANSITIVE_SET_METHODS = transitive_set_methods);
 
-#[starlark_value(type = "TransitiveSet", skip_pagable)]
+#[starlark_value(type = "TransitiveSet")]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for TransitiveSetGen<V>
 where
     Self: ProvidesStaticType<'v> + TransitiveSetLike<'v>,

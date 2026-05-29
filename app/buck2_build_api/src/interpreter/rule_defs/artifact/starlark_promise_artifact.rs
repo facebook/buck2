@@ -300,7 +300,7 @@ impl<'v> CommandLineArgLike<'v> for StarlarkPromiseArtifact {
 
 starlark::methods_static!(STARLARK_PROMISE_ARTIFACT_METHODS = artifact_methods);
 
-#[starlark_value(type = "PromiseArtifact", skip_pagable)]
+#[starlark_value(type = "PromiseArtifact")]
 impl<'v> StarlarkValue<'v> for StarlarkPromiseArtifact {
     type Canonical = StarlarkArtifact;
 

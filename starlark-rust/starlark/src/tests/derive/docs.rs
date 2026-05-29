@@ -64,7 +64,7 @@ starlark_simple_value!(TestExample);
 
 starlark::methods_static!(TEST_EXAMPLE_METHODS = object_docs_1);
 
-#[starlark_value(type = "TestExample", skip_pagable)]
+#[starlark_value(type = "TestExample")]
 impl<'v> StarlarkValue<'v> for TestExample {
     fn get_methods() -> Option<&'static Methods>
     where
@@ -104,7 +104,7 @@ starlark_complex_value!(ComplexTestExample);
 
 starlark::methods_static!(COMPLEX_TEST_EXAMPLE_METHODS = object_docs_1);
 
-#[starlark_value(type = "ComplexTestExample", skip_pagable)]
+#[starlark_value(type = "ComplexTestExample")]
 impl<'v, T: ValueLike<'v> + ProvidesStaticType<'v>> StarlarkValue<'v> for ComplexTestExampleGen<T>
 where
     Self: ProvidesStaticType<'v>,

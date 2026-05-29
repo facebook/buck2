@@ -303,7 +303,7 @@ impl<'v> UnpackValue<'v> for &'v StarlarkPromise<'v> {
 
 starlark::methods_static!(PROMISE_METHODS = promise_methods);
 
-#[starlark_value(type = "Promise", skip_pagable)]
+#[starlark_value(type = "Promise")]
 impl<'v> StarlarkValue<'v> for StarlarkPromise<'v> {
     fn get_methods() -> Option<&'static Methods> {
         Some(PROMISE_METHODS.methods())
@@ -365,7 +365,7 @@ mod tests {
     #[display("{:?}", self)]
     struct Promises<'v>(RefCell<Vec<(String, ValueTyped<'v, StarlarkPromise<'v>>)>>);
 
-    #[starlark_value(type = "Promises", skip_pagable)]
+    #[starlark_value(type = "Promises")]
     impl<'v> StarlarkValue<'v> for Promises<'v> {}
 
     #[starlark_module]

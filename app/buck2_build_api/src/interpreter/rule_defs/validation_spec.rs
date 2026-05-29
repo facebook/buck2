@@ -165,7 +165,7 @@ where
 
 starlark::methods_static!(VALIDATION_SPEC_METHODS = validation_spec_methods);
 
-#[starlark_value(type = "ValidationSpec", skip_pagable)]
+#[starlark_value(type = "ValidationSpec")]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkValidationSpecGen<V>
 where
     Self: ProvidesStaticType<'v>,

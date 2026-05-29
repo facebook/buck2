@@ -36,7 +36,7 @@ use starlark::values::starlark_value;
 )]
 pub struct StarlarkProjectRoot;
 
-#[starlark_value(type = "ProjectRoot", StarlarkTypeRepr, UnpackValue, skip_pagable)]
+#[starlark_value(type = "ProjectRoot", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for StarlarkProjectRoot {}
 
 static_starlark_value!(STARLARK_PROJECT_ROOT: StarlarkProjectRoot = StarlarkProjectRoot);

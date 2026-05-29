@@ -121,7 +121,7 @@ pub(crate) struct StarlarkFileSet(
 
 starlark_simple_value!(StarlarkFileSet);
 
-#[starlark_value(type = "bxl.FileSet", skip_pagable)]
+#[starlark_value(type = "bxl.FileSet")]
 impl<'v> StarlarkValue<'v> for StarlarkFileSet {
     fn iterate_collect(&self, heap: Heap<'v>) -> starlark::Result<Vec<Value<'v>>> {
         Ok(self
@@ -198,7 +198,7 @@ starlark_simple_value!(StarlarkFileNode);
 
 starlark::methods_static!(FILE_NODE_METHODS = file_node_methods);
 
-#[starlark_value(type = "bxl.FileNode", skip_pagable)]
+#[starlark_value(type = "bxl.FileNode")]
 impl<'v> StarlarkValue<'v> for StarlarkFileNode {
     fn get_methods() -> Option<&'static Methods> {
         Some(FILE_NODE_METHODS.methods())

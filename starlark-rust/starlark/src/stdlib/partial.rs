@@ -194,7 +194,7 @@ impl StarlarkDeserialize for PartialGen<FrozenValue, FrozenStringValue> {
     }
 }
 
-#[starlark_value(type = FUNCTION_TYPE, skip_pagable)]
+#[starlark_value(type = FUNCTION_TYPE)]
 impl<'v, V: ValueLike<'v>, S: StringValueLike<'v>> StarlarkValue<'v> for PartialGen<V, S>
 where
     Self: ProvidesStaticType<'v>,

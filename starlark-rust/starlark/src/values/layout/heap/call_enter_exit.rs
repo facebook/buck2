@@ -68,7 +68,7 @@ pub(crate) struct CallEnter<'v, D: MaybeDrop + 'static> {
     pub(crate) maybe_drop: D,
 }
 
-#[starlark_value(type = "call_enter", skip_pagable)]
+#[starlark_value(type = "call_enter")]
 impl<'v, D: MaybeDrop + Trace<'v> + 'v> StarlarkValue<'v> for CallEnter<'v, D>
 where
     Self: HasTyVTable,
@@ -95,7 +95,7 @@ pub(crate) struct CallExit<D: MaybeDrop + 'static> {
     pub(crate) maybe_drop: D,
 }
 
-#[starlark_value(type = "call_exit", skip_pagable)]
+#[starlark_value(type = "call_exit")]
 impl<'v, D: MaybeDrop> StarlarkValue<'v> for CallExit<D>
 where
     Self: HasTyVTable,

@@ -370,7 +370,7 @@
 //!     }
 //! }
 //!
-//! #[starlark_value(type = "complex", skip_pagable)]
+//! #[starlark_value(type = "complex")]
 //! impl<'v> StarlarkValue<'v> for Complex {
 //!     // How we add them
 //!     fn add(&self, rhs: Value<'v>, heap: Heap<'v>) -> Option<starlark::Result<Value<'v>>> {

@@ -59,7 +59,7 @@ use crate::values::type_repr::StarlarkTypeRepr;
 #[display("{}", Self::TYPE)]
 pub(crate) struct TypingNever;
 
-#[starlark_value(type = "typing.Never", skip_pagable)]
+#[starlark_value(type = "typing.Never")]
 impl<'v> StarlarkValue<'v> for TypingNever {
     fn eval_type(&self) -> Option<Ty> {
         Some(Ty::never())

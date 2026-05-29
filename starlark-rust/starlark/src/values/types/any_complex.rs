@@ -115,7 +115,7 @@ where
         <T as StarlarkAnyComplexHasTyVTable>::TY_VTABLE_STATIC;
 }
 
-#[starlark_value(type = "any_complex", skip_pagable)]
+#[starlark_value(type = "any_complex")]
 impl<'v, T> StarlarkValue<'v> for StarlarkAnyComplex<T>
 where
     T: Allocative + ProvidesStaticType<'v> + 'v + StarlarkAnyComplexHasTyVTable,

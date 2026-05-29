@@ -388,7 +388,7 @@ mod tests {
             }
         );
 
-        #[starlark_value(type = "magic", skip_pagable)]
+        #[starlark_value(type = "magic")]
         impl<'v> StarlarkValue<'v> for Magic {
             fn get_methods() -> Option<&'static Methods> {
                 Some(RES.methods())

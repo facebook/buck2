@@ -39,7 +39,7 @@ use crate::values::StarlarkValue;
 #[display("type")]
 pub enum AbstractType {}
 
-#[starlark_value(type = "type", skip_pagable)]
+#[starlark_value(type = "type")]
 impl<'v> StarlarkValue<'v> for AbstractType {
     fn get_type_starlark_repr() -> Ty {
         Ty::basic(TyBasic::Type)

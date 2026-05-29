@@ -109,7 +109,7 @@ mod tests {
 
     starlark_simple_value!(MyValue);
 
-    #[starlark_value(type = "MyValue", skip_pagable)]
+    #[starlark_value(type = "MyValue")]
     impl<'v> StarlarkValue<'v> for MyValue {
         fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
             demand.provide_value::<&dyn SomeTrait>(self);

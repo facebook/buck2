@@ -56,7 +56,7 @@ fn methods(builder: &mut MethodsBuilder) {
 
 starlark::methods_static!(APPLAUD_METHODS = methods);
 
-#[starlark_value(type = "applaud", skip_pagable)]
+#[starlark_value(type = "applaud")]
 impl<'v> StarlarkValue<'v> for Applaud {
     fn get_methods() -> Option<&'static Methods> {
         Some(APPLAUD_METHODS.methods())

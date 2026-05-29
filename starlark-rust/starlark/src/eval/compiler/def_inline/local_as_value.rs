@@ -54,7 +54,7 @@ pub(crate) struct LocalAsValue {
     pub(crate) local: LocalSlotId,
 }
 
-#[starlark_value(type = "LocalAsValue", skip_pagable)]
+#[starlark_value(type = "LocalAsValue")]
 impl<'v> StarlarkValue<'v> for LocalAsValue {}
 
 starlark_simple_value!(LocalAsValue);

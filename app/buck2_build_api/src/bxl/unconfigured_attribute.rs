@@ -93,7 +93,7 @@ impl Serialize for StarlarkCoercedAttr {
 starlark::methods_static!(COERCED_ATTR_METHODS = coerced_attr_methods);
 
 /// Coerced attr from an unconfigured target node.
-#[starlark_value(type = "CoercedAttr", skip_pagable)]
+#[starlark_value(type = "CoercedAttr")]
 impl<'v> StarlarkValue<'v> for StarlarkCoercedAttr {
     fn get_methods() -> Option<&'static Methods> {
         Some(COERCED_ATTR_METHODS.methods())

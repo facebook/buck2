@@ -224,7 +224,7 @@ starlark::methods_static!(
     }
 );
 
-#[starlark_value(type = "OutputArtifact", skip_pagable)]
+#[starlark_value(type = "OutputArtifact")]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkOutputArtifactGen<V>
 where
     Self: ProvidesStaticType<'v> + Display + CommandLineArgLike<'v>,

@@ -40,7 +40,7 @@ pub struct StarlarkResolvedDynamicValue {
 
 starlark::methods_static!(RESOLVED_DYNAMIC_VALUE_METHODS = resolved_dynamic_value_methods);
 
-#[starlark_value(type = "ResolvedDynamicValue", skip_pagable)]
+#[starlark_value(type = "ResolvedDynamicValue")]
 impl<'v> StarlarkValue<'v> for StarlarkResolvedDynamicValue
 where
     Self: ProvidesStaticType<'v>,

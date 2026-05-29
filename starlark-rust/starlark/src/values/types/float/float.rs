@@ -260,7 +260,7 @@ impl Display for StarlarkFloat {
     }
 }
 
-#[starlark_value(type = StarlarkFloat::TYPE, skip_pagable)]
+#[starlark_value(type = StarlarkFloat::TYPE)]
 impl<'v> StarlarkValue<'v> for StarlarkFloat {
     fn equals(&self, other: Value) -> crate::Result<bool> {
         Ok(Some(NumRef::Float(StarlarkFloat(self.0))) == other.unpack_num())

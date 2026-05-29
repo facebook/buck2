@@ -73,7 +73,7 @@ starlark_complex_value!(pub StarlarkTaggedValue);
 
 starlark::methods_static!(TAGGED_VALUE_METHODS = tagged_value_methods);
 
-#[starlark_value(type = "TaggedValue", skip_pagable)]
+#[starlark_value(type = "TaggedValue")]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkTaggedValueGen<V>
 where
     Self: ProvidesStaticType<'v>,

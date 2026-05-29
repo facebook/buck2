@@ -234,7 +234,7 @@ register_avalue_simple_frozen!(FrozenSet);
 
 starlark::methods_static!(SET_METHODS = methods::set_methods);
 
-#[starlark_value(type = "set", skip_pagable)]
+#[starlark_value(type = "set")]
 impl<'v, T: SetLike<'v> + 'v> StarlarkValue<'v> for SetGen<T>
 where
     Self: ProvidesStaticType<'v>,

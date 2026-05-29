@@ -109,7 +109,7 @@ impl<A: UnpackValueErrorInfallible, B: UnpackValueErrorInfallible> UnpackValueEr
 /// )]
 /// struct MySimpleValue;
 ///
-/// #[starlark_value(type = "MySimpleValue", UnpackValue, StarlarkTypeRepr, skip_pagable)]
+/// #[starlark_value(type = "MySimpleValue", UnpackValue, StarlarkTypeRepr)]
 /// impl<'v> StarlarkValue<'v> for MySimpleValue {}
 /// ```
 ///

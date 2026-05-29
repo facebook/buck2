@@ -49,7 +49,7 @@ use crate::values::ValueLike;
 #[display("TestComplexValue<{}>", _0)]
 pub(crate) struct TestComplexValue<V: ValueLifetimeless>(pub(crate) V);
 
-#[starlark_value(type = "TestComplexValue", skip_pagable)]
+#[starlark_value(type = "TestComplexValue")]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for TestComplexValue<V> where
     Self: ProvidesStaticType<'v>
 {

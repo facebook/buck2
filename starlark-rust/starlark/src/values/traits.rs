@@ -115,7 +115,7 @@ use crate::values::function::FUNCTION_TYPE;
 /// struct OneGen<V>(V);
 /// starlark_complex_value!(One);
 ///
-/// #[starlark_value(type = "one", skip_pagable)]
+/// #[starlark_value(type = "one")]
 /// impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for OneGen<V>
 /// where
 ///     Self: ProvidesStaticType<'v>,
@@ -235,7 +235,7 @@ where
 /// #[display("Foo")]
 /// struct Foo;
 /// # starlark_simple_value!(Foo);
-/// #[starlark_value(type = "foo", skip_pagable)]
+/// #[starlark_value(type = "foo")]
 /// impl<'v> StarlarkValue<'v> for Foo {}
 /// ```
 ///

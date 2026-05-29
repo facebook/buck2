@@ -37,7 +37,7 @@ use starlark::values::starlark_value;
 #[display("{:?}", self)]
 pub struct OpaqueMetadata;
 
-#[starlark_value(type = "OpaqueMetadata", skip_pagable)]
+#[starlark_value(type = "OpaqueMetadata")]
 impl<'v> StarlarkValue<'v> for OpaqueMetadata {}
 
 static_starlark_value!(OPAQUE_METADATA: OpaqueMetadata = OpaqueMetadata);

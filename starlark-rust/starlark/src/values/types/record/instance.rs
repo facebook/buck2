@@ -113,7 +113,7 @@ impl<'v, V: ValueLike<'v>> RecordGen<V> {
     }
 }
 
-#[starlark_value(type = Record::TYPE, skip_pagable)]
+#[starlark_value(type = Record::TYPE)]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for RecordGen<V>
 where
     Self: ProvidesStaticType<'v>,

@@ -65,7 +65,7 @@ starlark_complex_value!(pub StarlarkTaggedCommandLine);
 
 starlark::methods_static!(TAGGED_COMMAND_LINE_METHODS = tagged_command_line_methods);
 
-#[starlark_value(type = "TaggedCommandLine", skip_pagable)]
+#[starlark_value(type = "TaggedCommandLine")]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkTaggedCommandLineGen<V>
 where
     Self: ProvidesStaticType<'v>,

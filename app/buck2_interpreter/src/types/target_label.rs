@@ -82,7 +82,7 @@ impl StarlarkTargetLabel {
 
 starlark::methods_static!(TARGET_LABEL_METHODS = label_methods);
 
-#[starlark_value(type = "TargetLabel", skip_pagable)]
+#[starlark_value(type = "TargetLabel")]
 impl<'v> StarlarkValue<'v> for StarlarkTargetLabel {
     fn get_methods() -> Option<&'static Methods> {
         Some(TARGET_LABEL_METHODS.methods())
@@ -203,7 +203,7 @@ impl StarlarkConfiguredTargetLabel {
 
 starlark::methods_static!(CONFIGURED_TARGET_LABEL_METHODS = configured_label_methods);
 
-#[starlark_value(type = "ConfiguredTargetLabel", skip_pagable)]
+#[starlark_value(type = "ConfiguredTargetLabel")]
 impl<'v> StarlarkValue<'v> for StarlarkConfiguredTargetLabel {
     fn get_methods() -> Option<&'static Methods> {
         Some(CONFIGURED_TARGET_LABEL_METHODS.methods())

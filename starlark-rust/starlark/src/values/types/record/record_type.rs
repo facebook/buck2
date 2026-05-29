@@ -218,7 +218,7 @@ where
 
 starlark::methods_static!(RECORD_TYPE_METHODS = record_type_methods);
 
-#[starlark_value(type = FUNCTION_TYPE, skip_pagable)]
+#[starlark_value(type = FUNCTION_TYPE)]
 impl<'v, V: ValueLike<'v> + RecordCell + 'v> StarlarkValue<'v> for RecordTypeGen<V>
 where
     Self: ProvidesStaticType<'v>,

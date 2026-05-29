@@ -62,7 +62,7 @@ impl StarlarkArtifactValue {
 
 starlark::methods_static!(ARTIFACT_VALUE_METHODS = artifact_value_methods);
 
-#[starlark_value(type = "ArtifactValue", skip_pagable)]
+#[starlark_value(type = "ArtifactValue")]
 impl<'v> StarlarkValue<'v> for StarlarkArtifactValue {
     fn get_methods() -> Option<&'static Methods> {
         Some(ARTIFACT_VALUE_METHODS.methods())

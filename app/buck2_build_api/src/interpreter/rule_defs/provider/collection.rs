@@ -427,7 +427,7 @@ fn provider_collection_methods(builder: &mut MethodsBuilder) {
     }
 }
 
-#[starlark_value(type = "ProviderCollection", skip_pagable)]
+#[starlark_value(type = "ProviderCollection")]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for ProviderCollectionGen<V>
 where
     Self: ProvidesStaticType<'v>,

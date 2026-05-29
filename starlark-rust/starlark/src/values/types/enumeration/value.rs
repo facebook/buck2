@@ -111,7 +111,7 @@ impl<'v, V: ValueLike<'v>> EnumValueGen<V> {
 
 starlark::methods_static!(ENUM_VALUE_METHODS = enum_value_methods);
 
-#[starlark_value(type = EnumValue::TYPE, skip_pagable)]
+#[starlark_value(type = EnumValue::TYPE)]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for EnumValueGen<V>
 where
     Self: ProvidesStaticType<'v>,

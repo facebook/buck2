@@ -52,7 +52,7 @@ fn test_derive_attrs() {
     }
     starlark_simple_value!(Example);
 
-    #[starlark_value(type = "example", skip_pagable)]
+    #[starlark_value(type = "example")]
     impl<'v> StarlarkValue<'v> for Example {
         starlark_attrs!();
     }
@@ -73,7 +73,7 @@ fn test_derive_attrs() {
     }
     starlark_simple_value!(Nested);
 
-    #[starlark_value(type = "nested", skip_pagable)]
+    #[starlark_value(type = "nested")]
     impl<'v> StarlarkValue<'v> for Nested {
         starlark_attrs!();
     }

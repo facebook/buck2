@@ -107,7 +107,7 @@ enum AnalysisPluginsError {
     PluginKindNotUsed(PluginKind),
 }
 
-#[starlark_value(type = "AnalysisPlugins", skip_pagable)]
+#[starlark_value(type = "AnalysisPlugins")]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for AnalysisPluginsGen<V>
 where
     Self: ProvidesStaticType<'v>,

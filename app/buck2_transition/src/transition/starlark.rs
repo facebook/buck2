@@ -149,7 +149,7 @@ fn deserialize_refs(
     Ok(map)
 }
 
-#[starlark_value(type = "Transition", skip_pagable)]
+#[starlark_value(type = "Transition")]
 impl<'v> StarlarkValue<'v> for Transition<'v> {
     fn export_as(
         &self,
@@ -172,7 +172,7 @@ impl<'v> StarlarkValue<'v> for Transition<'v> {
     }
 }
 
-#[starlark_value(type = "Transition", skip_pagable)]
+#[starlark_value(type = "Transition")]
 impl<'v> StarlarkValue<'v> for FrozenTransition {
     type Canonical = Transition<'v>;
 

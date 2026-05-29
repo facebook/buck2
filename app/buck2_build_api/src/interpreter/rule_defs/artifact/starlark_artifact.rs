@@ -281,7 +281,7 @@ impl<'v> CommandLineArgLike<'v> for StarlarkArtifact {
 
 starlark::methods_static!(STARLARK_ARTIFACT_METHODS = artifact_methods);
 
-#[starlark_value(type = "Artifact", skip_pagable)]
+#[starlark_value(type = "Artifact")]
 impl<'v> StarlarkValue<'v> for StarlarkArtifact {
     fn get_methods() -> Option<&'static Methods> {
         Some(STARLARK_ARTIFACT_METHODS.methods())

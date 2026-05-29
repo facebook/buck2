@@ -154,7 +154,7 @@ macro_rules! starlark_complex_values {
 /// struct MyObject(String);
 /// starlark_simple_value!(MyObject);
 ///
-/// #[starlark_value(type = "my_object", skip_pagable)]
+/// #[starlark_value(type = "my_object")]
 /// impl<'v> StarlarkValue<'v> for MyObject {
 ///     // We can choose to implement whichever methods we want.
 ///     // All other operations will result in runtime errors.

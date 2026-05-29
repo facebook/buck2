@@ -49,7 +49,7 @@ starlark::methods_static!(
     REQUIRED_TEST_LOCAL_RESOURCE_METHODS = required_test_local_resource_methods
 );
 
-#[starlark_value(type = "RequiredTestLocalResource", skip_pagable)]
+#[starlark_value(type = "RequiredTestLocalResource")]
 impl<'v> StarlarkValue<'v> for StarlarkRequiredTestLocalResource {
     fn get_methods() -> Option<&'static Methods> {
         Some(REQUIRED_TEST_LOCAL_RESOURCE_METHODS.methods())

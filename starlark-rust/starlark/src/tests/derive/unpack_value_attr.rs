@@ -50,10 +50,5 @@ struct ValueWithoutParam(String);
 #[starlark_value(type = "ValueWithLifetimeParam", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for ValueWithLifetimeParam<'v> {}
 
-#[starlark_value(
-    type = "ValueWithoutParam",
-    StarlarkTypeRepr,
-    UnpackValue,
-    skip_pagable
-)]
+#[starlark_value(type = "ValueWithoutParam", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for ValueWithoutParam {}

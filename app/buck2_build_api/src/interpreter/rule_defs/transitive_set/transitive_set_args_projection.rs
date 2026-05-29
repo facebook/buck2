@@ -214,7 +214,7 @@ starlark::methods_static!(
     TRANSITIVE_SET_ARGS_PROJECTION_METHODS = transitive_set_args_projection_methods
 );
 
-#[starlark_value(type = "TransitiveSetArgsProjection", skip_pagable)]
+#[starlark_value(type = "TransitiveSetArgsProjection")]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for TransitiveSetArgsProjectionGen<V>
 where
     Self: ProvidesStaticType<'v>,

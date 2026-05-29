@@ -143,7 +143,7 @@ mod tests {
         // SAFETY: For testing purposes only.
         unsafe impl StaticValueRegistered for MySimpleValue {}
 
-        #[starlark_value(type = "MySimpleValue", skip_pagable)]
+        #[starlark_value(type = "MySimpleValue")]
         impl<'v> StarlarkValue<'v> for MySimpleValue {}
 
         static VALUE: AllocStaticSimple<MySimpleValue> =

@@ -76,7 +76,7 @@ pub(crate) fn iterate_codepoints<'v>(
     }))
 }
 
-#[starlark_value(type = "iterator", skip_pagable)]
+#[starlark_value(type = "iterator")]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StringIterableGen<'v, V>
 where
     Self: ProvidesStaticType<'v>,

@@ -53,7 +53,7 @@ starlark_simple_value!(CellRoot);
 
 starlark::methods_static!(CELL_ROOT_METHODS = cell_root_methods);
 
-#[starlark_value(type = "CellRoot", skip_pagable)]
+#[starlark_value(type = "CellRoot")]
 impl<'v> StarlarkValue<'v> for CellRoot {
     fn get_methods() -> Option<&'static Methods> {
         Some(CELL_ROOT_METHODS.methods())

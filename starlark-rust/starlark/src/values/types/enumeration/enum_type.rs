@@ -268,7 +268,7 @@ where
 
 starlark::methods_static!(ENUM_TYPE_METHODS = enum_type_methods);
 
-#[starlark_value(type = FUNCTION_TYPE, skip_pagable)]
+#[starlark_value(type = FUNCTION_TYPE)]
 impl<'v, V> StarlarkValue<'v> for EnumTypeGen<V>
 where
     Self: ProvidesStaticType<'v>,

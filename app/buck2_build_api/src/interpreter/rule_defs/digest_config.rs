@@ -50,7 +50,7 @@ pub struct StarlarkDigestConfig {
 
 starlark::methods_static!(DIGEST_CONFIG_METHODS = digest_config_methods);
 
-#[starlark_value(type = "DigestConfig", StarlarkTypeRepr, UnpackValue, skip_pagable)]
+#[starlark_value(type = "DigestConfig", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for StarlarkDigestConfig {
     fn get_methods() -> Option<&'static Methods> {
         Some(DIGEST_CONFIG_METHODS.methods())

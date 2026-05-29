@@ -49,7 +49,7 @@ impl<'v> StarlarkSelectIncompatible<'v> {
 
 starlark_complex_value!(pub StarlarkSelectIncompatible);
 
-#[starlark_value(type = "SelectIncompatible", skip_pagable)]
+#[starlark_value(type = "SelectIncompatible")]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkSelectIncompatibleGen<V> where
     Self: ProvidesStaticType<'v>
 {

@@ -303,7 +303,7 @@ impl<'v> Display for Array<'v> {
     }
 }
 
-#[starlark_value(type = "array", skip_pagable)]
+#[starlark_value(type = "array")]
 impl<'v> StarlarkValue<'v> for Array<'v> {
     fn is_special(_: Private) -> bool
     where

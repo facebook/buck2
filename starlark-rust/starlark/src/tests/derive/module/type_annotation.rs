@@ -38,7 +38,7 @@ use crate::values::StarlarkValue;
 #[display("foo")]
 struct Foo;
 
-#[starlark_value(type = "Foo", skip_pagable)]
+#[starlark_value(type = "Foo")]
 impl<'v> StarlarkValue<'v> for Foo {}
 
 #[starlark_module]

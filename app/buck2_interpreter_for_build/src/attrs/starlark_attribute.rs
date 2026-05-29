@@ -51,7 +51,7 @@ fn starlark_attribute_methods(builder: &mut MethodsBuilder) {}
 
 starlark::methods_static!(STARLARK_ATTRIBUTE_METHODS = starlark_attribute_methods);
 
-#[starlark_value(type = "Attr", skip_pagable)]
+#[starlark_value(type = "Attr")]
 impl<'v> StarlarkValue<'v> for StarlarkAttribute {
     // Used to add type documentation to the generated documentation
     fn get_methods() -> Option<&'static Methods> {

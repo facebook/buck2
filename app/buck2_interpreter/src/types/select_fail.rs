@@ -49,7 +49,7 @@ impl<'v> StarlarkSelectFail<'v> {
 
 starlark_complex_value!(pub StarlarkSelectFail);
 
-#[starlark_value(type = "SelectFail", skip_pagable)]
+#[starlark_value(type = "SelectFail")]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkSelectFailGen<V> where
     Self: ProvidesStaticType<'v>
 {

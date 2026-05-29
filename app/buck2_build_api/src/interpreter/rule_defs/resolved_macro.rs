@@ -292,7 +292,7 @@ starlark::methods_static!(
     RESOLVED_STRING_WITH_MACROS_METHODS = resolved_string_with_macros_methods
 );
 
-#[starlark_value(type = "ResolvedStringWithMacros", skip_pagable)]
+#[starlark_value(type = "ResolvedStringWithMacros")]
 impl<'v> StarlarkValue<'v> for ResolvedStringWithMacros {
     fn get_methods() -> Option<&'static Methods> {
         Some(RESOLVED_STRING_WITH_MACROS_METHODS.methods())

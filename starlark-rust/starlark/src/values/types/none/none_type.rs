@@ -61,7 +61,7 @@ impl NoneType {
 }
 
 /// Define the NoneType type
-#[starlark_value(type = NoneType::TYPE, skip_pagable)]
+#[starlark_value(type = NoneType::TYPE)]
 impl<'v> StarlarkValue<'v> for NoneType {
     fn is_special(_: Private) -> bool
     where

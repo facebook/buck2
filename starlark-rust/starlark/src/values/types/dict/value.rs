@@ -411,7 +411,7 @@ register_avalue_simple_frozen!(FrozenDict);
 
 starlark::methods_static!(DICT_METHODS = crate::values::types::dict::methods::dict_methods);
 
-#[starlark_value(type = Dict::TYPE, skip_pagable)]
+#[starlark_value(type = Dict::TYPE)]
 impl<'v, T: DictLike<'v> + 'v> StarlarkValue<'v> for DictGen<T>
 where
     Self: ProvidesStaticType<'v>,

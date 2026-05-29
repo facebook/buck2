@@ -128,7 +128,7 @@ impl<'v> AllocValue<'v> for StarlarkPluginKind {
 pub struct FrozenStarlarkPluginKind(#[starlark_pagable(pagable)] PluginKind);
 starlark_simple_value!(FrozenStarlarkPluginKind);
 
-#[starlark_value(type = "PluginKind", skip_pagable)]
+#[starlark_value(type = "PluginKind")]
 impl<'v> StarlarkValue<'v> for FrozenStarlarkPluginKind {
     type Canonical = FrozenStarlarkPluginKind;
 }
@@ -197,7 +197,7 @@ impl<'v> UnpackValue<'v> for PluginKindArg {
 pub struct AllPlugins;
 starlark_simple_value!(AllPlugins);
 
-#[starlark_value(type = "AllPlugins", skip_pagable)]
+#[starlark_value(type = "AllPlugins")]
 impl<'v> StarlarkValue<'v> for AllPlugins {}
 
 /// This is a global namespace, to allow the creation and management

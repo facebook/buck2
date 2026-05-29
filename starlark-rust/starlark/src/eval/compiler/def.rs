@@ -671,7 +671,7 @@ impl<'v> DefLike<'v> for DefGen<FrozenValue> {
     const FROZEN: bool = true;
 }
 
-#[starlark_value(type = FUNCTION_TYPE, skip_pagable)]
+#[starlark_value(type = FUNCTION_TYPE)]
 impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for DefGen<V>
 where
     Self: ProvidesStaticType<'v> + DefLike<'v>,

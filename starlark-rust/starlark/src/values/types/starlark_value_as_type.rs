@@ -80,7 +80,7 @@ struct StarlarkValueAsTypeStarlarkValue(fn() -> Ty, fn() -> DocItem);
 // which creates a static value that is properly registered for pagable serialization.
 unsafe impl StaticValueRegistered for StarlarkValueAsTypeStarlarkValue {}
 
-#[starlark_value(type = "type", skip_pagable)]
+#[starlark_value(type = "type")]
 impl<'v> StarlarkValue<'v> for StarlarkValueAsTypeStarlarkValue {
     type Canonical = AbstractType;
 
@@ -132,7 +132,7 @@ impl Display for StarlarkValueAsTypeStarlarkValue {
 /// )]
 /// struct StarlarkTemperature;
 ///
-/// #[starlark_value(type = "temperature", skip_pagable)]
+/// #[starlark_value(type = "temperature")]
 /// impl<'v> StarlarkValue<'v> for StarlarkTemperature {}
 ///
 /// // Use with #[starlark_module]:
@@ -316,7 +316,7 @@ mod tests {
     )]
     struct StarlarkCompilerArgs(#[starlark_pagable(pagable)] String);
 
-    #[starlark_value(type = "compiler_args", skip_pagable)]
+    #[starlark_value(type = "compiler_args")]
     impl<'v> StarlarkValue<'v> for StarlarkCompilerArgs {}
 
     impl<'v> AllocValue<'v> for StarlarkCompilerArgs {

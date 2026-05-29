@@ -36,7 +36,7 @@ starlark_simple_value!(StarlarkConfiguration);
 
 starlark::methods_static!(CONFIGURATION_METHODS = configuration_methods);
 
-#[starlark_value(type = "Configuration", skip_pagable)]
+#[starlark_value(type = "Configuration")]
 impl<'v> StarlarkValue<'v> for StarlarkConfiguration {
     fn get_methods() -> Option<&'static Methods> {
         Some(CONFIGURATION_METHODS.methods())
