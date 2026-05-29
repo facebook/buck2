@@ -52,7 +52,7 @@ load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:utils.bzl", "from_named_set")
 load(":compile.bzl", "PycInvalidationMode", "compile_manifests")
-load(":lazy_imports.bzl", "run_lazy_imports_library_analyzer")
+load(":lazy_imports.bzl", "get_lazy_imports_analyzer", "run_lazy_imports_library_analyzer")
 load(
     ":manifest.bzl",
     "ManifestInfo",  # @unused Used as a type
@@ -362,7 +362,7 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
     native_deps = merge_native_deps(ctx, raw_deps)
 
-    lazy_imports_analyzer = python_toolchain.lazy_imports_analyzer
+    lazy_imports_analyzer = get_lazy_imports_analyzer(ctx)
     lazy_imports_cache_output = None
     if lazy_imports_analyzer != None and getattr(ctx.attrs, "use_lifeguard_incremental", False):
         lazy_imports_cache_output = ctx.actions.declare_output("safer_lazy_imports/library-cache.bin")

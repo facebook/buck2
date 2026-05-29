@@ -382,6 +382,7 @@ prebuilt_python_library = prelude_rule(
         | {
             "cxx_header_dirs": attrs.option(attrs.list(attrs.string()), default = None),
             "infer_cxx_header_dirs": attrs.bool(default = False),
+            "lazy_imports_analyzer": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
             "strip_soabi_tags": attrs.bool(
                 default = False,
                 doc = """

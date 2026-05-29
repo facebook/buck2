@@ -9,6 +9,15 @@
 load("@prelude//utils:argfile.bzl", "argfile")
 load(":toolchain.bzl", "PythonToolchainInfo")
 
+def get_lazy_imports_analyzer(ctx: AnalysisContext) -> RunInfo | None:
+    """Resolve the lifeguard analyzer binary, checking the target attr first
+    then falling back to the toolchain."""
+    attr_analyzer = getattr(ctx.attrs, "lazy_imports_analyzer", None)
+    if attr_analyzer != None:
+        return attr_analyzer[RunInfo]
+    python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
+    return python_toolchain.lazy_imports_analyzer
+
 def _get_main_module(ctx: AnalysisContext) -> str | None:
     main_module = getattr(ctx.attrs, "main_module", None)
     if main_module != None:

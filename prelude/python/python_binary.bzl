@@ -56,7 +56,7 @@ load(
     "EntryPointKind",
 )
 load(":internal_tools.bzl", "PythonInternalToolsInfo")
-load(":lazy_imports.bzl", "run_lazy_imports_analyzer", "run_lazy_imports_cached_analysis", "run_lazy_imports_library_analyzer")
+load(":lazy_imports.bzl", "get_lazy_imports_analyzer", "run_lazy_imports_analyzer", "run_lazy_imports_cached_analysis", "run_lazy_imports_library_analyzer")
 load(":make_py_package.bzl", "PexModules", "PexProviders", "make_py_package")
 load(
     ":manifest.bzl",
@@ -301,7 +301,8 @@ def _compute_pex_providers(
     # Prefer the cache-based path (analyze_binary from per-library caches) when
     # incremental mode is on. Fall back to the monolithic path
     # (analyze against dbg-db.json) for backward compatibility.
-    if getattr(ctx.attrs, "use_lifeguard_incremental", False) and python_toolchain.lazy_imports_analyzer != None:
+    lazy_imports_analyzer = get_lazy_imports_analyzer(ctx)
+    if getattr(ctx.attrs, "use_lifeguard_incremental", False) and lazy_imports_analyzer != None:
         lazy_import_analysis_output = ctx.actions.declare_output("safer_lazy_imports/lazy-import-analysis.json", has_content_based_path = False)
         if library.lazy_imports_caches != None:
             dep_caches = list(library.lazy_imports_caches.traverse())
@@ -312,7 +313,7 @@ def _compute_pex_providers(
         # This first call pulls in the hidden __par__ modules
         run_lazy_imports_library_analyzer(
             ctx,
-            python_toolchain.lazy_imports_analyzer,
+            lazy_imports_analyzer,
             binary_lib_cache,
             source_db_no_deps,
         )
@@ -320,7 +321,7 @@ def _compute_pex_providers(
         # This call builds the Lifeguard output file
         run_lazy_imports_cached_analysis(
             ctx,
-            python_toolchain.lazy_imports_analyzer,
+            lazy_imports_analyzer,
             lazy_import_analysis_output,
             dep_caches + [binary_lib_cache],
         )
