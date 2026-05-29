@@ -9,8 +9,10 @@
  */
 
 use std::any::TypeId;
+use std::sync::Arc;
 
 use dashmap::DashMap;
+use dashmap::mapref::entry::Entry;
 use either::Either;
 
 use crate::arc_erase::ArcEraseDyn;
@@ -18,6 +20,43 @@ use crate::storage::data::DataKey;
 use crate::storage::data::PagableData;
 use crate::storage::support::SerializerForPaging;
 use crate::traits::SessionContext;
+
+/// Cache of deserialized arcs, keyed by `(TypeId, DataKey)`.
+// TODO: this should store weak pointers
+pub struct DeserializedArcCache {
+    map: DashMap<(TypeId, DataKey), Box<dyn ArcEraseDyn>>,
+}
+
+impl DeserializedArcCache {
+    pub fn new() -> Self {
+        Self {
+            map: DashMap::new(),
+        }
+    }
+
+    pub fn get(&self, type_id: &TypeId, key: &DataKey) -> Option<Box<dyn ArcEraseDyn>> {
+        self.map.get(&(*type_id, *key)).map(|v| v.clone_dyn())
+    }
+
+    pub fn clear(&self) {
+        self.map.clear();
+    }
+
+    pub fn on_arc_deserialized(
+        &self,
+        typeid: TypeId,
+        key: DataKey,
+        arc: Box<dyn ArcEraseDyn>,
+    ) -> Option<Box<dyn ArcEraseDyn>> {
+        match self.map.entry((typeid, key)) {
+            Entry::Occupied(occupied_entry) => Some(occupied_entry.get().clone_dyn()),
+            Entry::Vacant(vacant_entry) => {
+                vacant_entry.insert(arc);
+                None
+            }
+        }
+    }
+}
 
 /// Trait for storage backends that can persist and retrieve paged-out data.
 ///
@@ -37,29 +76,39 @@ use crate::traits::SessionContext;
 /// - [`schedule_for_paging`](Self::schedule_for_paging): Schedule an arc for eviction to storage
 #[async_trait::async_trait]
 pub trait PagableStorage: Send + Sync + 'static {
+    /// Returns the deserialized arcs cache for this storage backend.
+    fn arc_cache(&self) -> &DeserializedArcCache;
+
     /// Attempts to fetch either a cached deserialized arc or raw data synchronously.
-    ///
-    /// This is the fast path for retrieving data - storage implementations can return
-    /// a cached deserialized arc if available, or fall back to returning raw data.
     fn fetch_arc_or_data_blocking(
         &self,
         type_id: &TypeId,
         key: &DataKey,
-    ) -> anyhow::Result<Either<Box<dyn ArcEraseDyn>, std::sync::Arc<PagableData>>>;
+    ) -> anyhow::Result<Either<Box<dyn ArcEraseDyn>, Arc<PagableData>>> {
+        if let Some(arc) = self.arc_cache().get(type_id, key) {
+            return Ok(Either::Left(arc));
+        }
+        self.fetch_data_blocking(key).map(Either::Right)
+    }
+
+    /// Fetches raw serialized data synchronously.
+    fn fetch_data_blocking(&self, key: &DataKey) -> anyhow::Result<Arc<PagableData>>;
 
     /// Fetches raw serialized data asynchronously.
-    async fn fetch_data(&self, key: &DataKey) -> anyhow::Result<std::sync::Arc<PagableData>>;
+    async fn fetch_data(&self, key: &DataKey) -> anyhow::Result<Arc<PagableData>>;
 
     /// Hook called when an arc is deserialized from data.
     ///
-    /// Storage implementations can use this to cache the deserialized arc for future
-    /// requests. Returns the arc to use (either the passed one or a cached version).
+    /// Returns a cached arc if one already exists for this `(typeid, key)`,
+    /// otherwise caches the provided arc and returns `None`.
     fn on_arc_deserialized(
         &self,
         typeid: TypeId,
         key: DataKey,
         arc: Box<dyn ArcEraseDyn>,
-    ) -> Option<Box<dyn ArcEraseDyn>>;
+    ) -> Option<Box<dyn ArcEraseDyn>> {
+        self.arc_cache().on_arc_deserialized(typeid, key, arc)
+    }
 
     /// Schedules a type-erased arc for background paging to storage.
     ///

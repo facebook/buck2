@@ -10,17 +10,18 @@
 
 use std::any::TypeId;
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 
 use dashmap::DashMap;
 use dupe::Dupe;
-use either::Either;
 
 use crate::arc_erase::ArcEraseDyn;
 use crate::storage::data::DataKey;
 use crate::storage::data::PagableData;
 use crate::storage::support::SerializerForPaging;
+use crate::storage::traits::DeserializedArcCache;
 use crate::storage::traits::PagableStorage;
 use crate::traits::SessionContext;
 
@@ -36,7 +37,7 @@ use crate::traits::SessionContext;
 /// where you want paging behavior without actual disk I/O.
 pub struct InMemoryPagableStorage {
     pending: InMemoryPagableStoragePendingPageOut,
-    handle: std::sync::Arc<InMemoryPagableStorageHandle>,
+    handle: Arc<InMemoryPagableStorageHandle>,
     session_context: SessionContext,
 }
 
@@ -47,8 +48,8 @@ struct InMemoryPagableStoragePendingPageOut {
 }
 
 struct InMemoryPagableStorageCache {
-    data: DashMap<DataKey, std::sync::Arc<PagableData>>,
-    arcs: DashMap<(TypeId, DataKey), Box<dyn ArcEraseDyn>>, // TODO(cjhopman): This should hold weak pointers.
+    data: DashMap<DataKey, Arc<PagableData>>,
+    arcs: DeserializedArcCache,
     is_dropped: AtomicBool,
 }
 
@@ -56,7 +57,7 @@ impl InMemoryPagableStorageCache {
     fn new() -> Self {
         Self {
             data: DashMap::new(),
-            arcs: DashMap::new(),
+            arcs: DeserializedArcCache::new(),
             is_dropped: AtomicBool::new(false),
         }
     }
@@ -67,40 +68,15 @@ impl InMemoryPagableStorageCache {
         self.arcs.clear();
     }
 
-    fn insert_data(&self, key: DataKey, data: std::sync::Arc<PagableData>) {
+    fn insert_data(&self, key: DataKey, data: Arc<PagableData>) {
         self.data.insert(key, data);
         if self.is_dropped.load(Ordering::Acquire) {
             self.data.clear();
         }
     }
 
-    fn get_data(&self, key: &DataKey) -> Option<std::sync::Arc<PagableData>> {
+    fn get_data(&self, key: &DataKey) -> Option<Arc<PagableData>> {
         self.data.get(key).map(|v| v.dupe())
-    }
-
-    fn get_arc(&self, type_id: TypeId, key: DataKey) -> Option<Box<dyn ArcEraseDyn>> {
-        self.arcs.get(&(type_id, key)).map(|v| v.clone_dyn())
-    }
-
-    fn on_arc_deserialized(
-        &self,
-        typeid: TypeId,
-        key: DataKey,
-        arc: Box<dyn ArcEraseDyn>,
-    ) -> Option<Box<dyn ArcEraseDyn>> {
-        if self.is_dropped.load(Ordering::Acquire) {
-            Some(arc)
-        } else {
-            match self.arcs.entry((typeid, key)) {
-                dashmap::mapref::entry::Entry::Occupied(occupied_entry) => {
-                    Some(occupied_entry.get().clone_dyn())
-                }
-                dashmap::mapref::entry::Entry::Vacant(vacant_entry) => {
-                    vacant_entry.insert(arc);
-                    None
-                }
-            }
-        }
     }
 }
 
@@ -123,7 +99,7 @@ impl InMemoryPagableStorage {
         let (sender, receiver) = std::sync::mpsc::channel();
 
         Self {
-            handle: std::sync::Arc::new(InMemoryPagableStorageHandle {
+            handle: Arc::new(InMemoryPagableStorageHandle {
                 sender,
                 cache: InMemoryPagableStorageCache::new(),
                 session_context: SessionContext::new(),
@@ -136,7 +112,7 @@ impl InMemoryPagableStorage {
         }
     }
 
-    pub fn handle(&self) -> std::sync::Arc<dyn PagableStorage> {
+    pub fn handle(&self) -> Arc<dyn PagableStorage> {
         self.handle.dupe()
     }
 
@@ -222,9 +198,7 @@ impl InMemoryPagableStorage {
 
                             let data = PagableData { data, arcs };
                             let key = data.compute_key();
-                            self.handle
-                                .cache
-                                .insert_data(key, std::sync::Arc::new(data));
+                            self.handle.cache.insert_data(key, Arc::new(data));
                             finished.insert(arc.identity(), key);
 
                             arc.set_data_key(key);
@@ -252,22 +226,17 @@ impl Default for InMemoryPagableStorage {
 
 #[async_trait::async_trait]
 impl PagableStorage for InMemoryPagableStorageHandle {
-    fn fetch_arc_or_data_blocking(
-        &self,
-        type_id: &TypeId,
-        key: &DataKey,
-    ) -> anyhow::Result<Either<Box<dyn ArcEraseDyn>, std::sync::Arc<PagableData>>> {
-        if let Some(v) = self.cache.get_arc(*type_id, *key) {
-            return Ok(Either::Left(v));
-        }
-        Ok(Either::Right(
-            self.cache
-                .get_data(key)
-                .ok_or_else(|| anyhow::anyhow!("no data for {:?}", key))?,
-        ))
+    fn arc_cache(&self) -> &DeserializedArcCache {
+        &self.cache.arcs
     }
 
-    async fn fetch_data(&self, key: &DataKey) -> anyhow::Result<std::sync::Arc<PagableData>> {
+    fn fetch_data_blocking(&self, key: &DataKey) -> anyhow::Result<Arc<PagableData>> {
+        self.cache
+            .get_data(key)
+            .ok_or_else(|| anyhow::anyhow!("no data for {:?}", key))
+    }
+
+    async fn fetch_data(&self, key: &DataKey) -> anyhow::Result<Arc<PagableData>> {
         self.cache
             .get_data(key)
             .ok_or_else(|| anyhow::anyhow!("no data for key {:?}", key))
@@ -279,7 +248,11 @@ impl PagableStorage for InMemoryPagableStorageHandle {
         key: DataKey,
         arc: Box<dyn ArcEraseDyn>,
     ) -> Option<Box<dyn ArcEraseDyn>> {
-        self.cache.on_arc_deserialized(typeid, key, arc)
+        if self.cache.is_dropped.load(Ordering::Acquire) {
+            Some(arc)
+        } else {
+            self.cache.arcs.on_arc_deserialized(typeid, key, arc)
+        }
     }
 
     fn schedule_for_paging(&self, arc: Box<dyn ArcEraseDyn>) {
@@ -295,7 +268,7 @@ impl PagableStorage for InMemoryPagableStorageHandle {
 
     fn store_data(&self, data: PagableData) -> anyhow::Result<DataKey> {
         let key = data.compute_key();
-        self.cache.insert_data(key, std::sync::Arc::new(data));
+        self.cache.insert_data(key, Arc::new(data));
         Ok(key)
     }
 }

@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::any::TypeId;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -17,12 +16,10 @@ use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc;
 
-use dashmap::DashMap;
-use dashmap::mapref::entry::Entry;
-use either::Either;
 use pagable::arc_erase::ArcEraseDyn;
 use pagable::storage::data::DataKey;
 use pagable::storage::data::PagableData;
+use pagable::storage::traits::DeserializedArcCache;
 use pagable::storage::traits::PagableStorage;
 use pagable::traits::SessionContext;
 use rusqlite::Connection;
@@ -35,7 +32,7 @@ use rusqlite::Connection;
 /// - Arc caching to avoid redundant deserialization
 pub struct SqliteBackedPagableStorage {
     conns: ConnectionPool,
-    arcs: DashMap<(TypeId, DataKey), Box<dyn ArcEraseDyn>>, // TODO: this should store weak pointers
+    arcs: DeserializedArcCache,
     session_context: SessionContext,
     write_tx: mpsc::Sender<(DataKey, Vec<u8>)>,
     write_rx: Mutex<mpsc::Receiver<(DataKey, Vec<u8>)>>,
@@ -117,7 +114,7 @@ impl SqliteBackedPagableStorage {
         let (write_tx, write_rx) = mpsc::channel();
         Ok(Self {
             conns,
-            arcs: DashMap::new(),
+            arcs: DeserializedArcCache::new(),
             session_context: SessionContext::new(),
             write_tx,
             write_rx: Mutex::new(write_rx),
@@ -215,15 +212,12 @@ impl SqliteBackedPagableStorage {
 
 #[async_trait::async_trait]
 impl PagableStorage for SqliteBackedPagableStorage {
-    fn fetch_arc_or_data_blocking(
-        &self,
-        type_id: &TypeId,
-        key: &DataKey,
-    ) -> anyhow::Result<Either<Box<dyn ArcEraseDyn>, Arc<PagableData>>> {
-        if let Some(v) = self.arcs.get(&(*type_id, *key)) {
-            return Ok(Either::Left(v.clone_dyn()));
-        }
-        self.fetch_data_read(key).map(Either::Right)
+    fn arc_cache(&self) -> &DeserializedArcCache {
+        &self.arcs
+    }
+
+    fn fetch_data_blocking(&self, key: &DataKey) -> anyhow::Result<Arc<PagableData>> {
+        self.fetch_data_read(key)
     }
 
     #[cfg(any(feature = "tokio", test))]
@@ -234,21 +228,6 @@ impl PagableStorage for SqliteBackedPagableStorage {
     #[cfg(not(any(feature = "tokio", test)))]
     async fn fetch_data(&self, _key: &DataKey) -> anyhow::Result<Arc<PagableData>> {
         Err(anyhow::anyhow!("sqlite backend requires tokio feature"))
-    }
-
-    fn on_arc_deserialized(
-        &self,
-        typeid: TypeId,
-        key: DataKey,
-        arc: Box<dyn ArcEraseDyn>,
-    ) -> Option<Box<dyn ArcEraseDyn>> {
-        match self.arcs.entry((typeid, key)) {
-            Entry::Occupied(occupied_entry) => Some(occupied_entry.get().clone_dyn()),
-            Entry::Vacant(vacant_entry) => {
-                vacant_entry.insert(arc);
-                None
-            }
-        }
     }
 
     fn schedule_for_paging(&self, _arc: Box<dyn ArcEraseDyn>) {

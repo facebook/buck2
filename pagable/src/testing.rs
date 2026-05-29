@@ -35,6 +35,7 @@
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::sync::Arc;
 
 use postcard::ser_flavors::Flavor as _;
 use serde::Deserialize;
@@ -47,6 +48,7 @@ use crate::flavors::SharedPosition;
 use crate::storage::data::DataKey;
 use crate::storage::data::PagableData;
 use crate::storage::handle::PagableStorageHandle;
+use crate::storage::traits::DeserializedArcCache;
 use crate::storage::traits::PagableStorage;
 use crate::traits::PagableCursor;
 use crate::traits::PagableDeserializer;
@@ -211,12 +213,14 @@ impl<'de> PagableDeserializer<'de> for TestingDeserializer<'de> {
 }
 
 pub(crate) struct EmptyPagableStorage {
+    arc_cache: DeserializedArcCache,
     session_context: SessionContext,
 }
 
 impl EmptyPagableStorage {
     pub(crate) fn new() -> Self {
         Self {
+            arc_cache: DeserializedArcCache::new(),
             session_context: SessionContext::new(),
         }
     }
@@ -224,29 +228,20 @@ impl EmptyPagableStorage {
 
 #[async_trait::async_trait]
 impl PagableStorage for EmptyPagableStorage {
-    fn fetch_arc_or_data_blocking(
-        &self,
-        _type_id: &std::any::TypeId,
-        _key: &DataKey,
-    ) -> anyhow::Result<either::Either<Box<dyn ArcEraseDyn>, std::sync::Arc<PagableData>>> {
+    fn arc_cache(&self) -> &DeserializedArcCache {
+        &self.arc_cache
+    }
+
+    fn fetch_data_blocking(&self, _key: &DataKey) -> anyhow::Result<Arc<PagableData>> {
         Err(anyhow::anyhow!(
             "No storage available for testing deserializer"
         ))
     }
 
-    async fn fetch_data(&self, _key: &DataKey) -> anyhow::Result<std::sync::Arc<PagableData>> {
+    async fn fetch_data(&self, _key: &DataKey) -> anyhow::Result<Arc<PagableData>> {
         Err(anyhow::anyhow!(
             "No storage available for testing deserializer"
         ))
-    }
-
-    fn on_arc_deserialized(
-        &self,
-        _typeid: std::any::TypeId,
-        _key: DataKey,
-        _arc: Box<dyn ArcEraseDyn>,
-    ) -> Option<Box<dyn ArcEraseDyn>> {
-        None
     }
 
     fn schedule_for_paging(&self, _arc: Box<dyn ArcEraseDyn>) {
