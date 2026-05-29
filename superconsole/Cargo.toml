@@ -18,7 +18,7 @@ futures = "0.3"
 itertools = "0.14.0"
 pin-project = "1.0"
 take_mut = "0.2"
-termwiz = { workspace = true }
+termwiz = { git = "https://github.com/wezterm/wezterm.git", rev = "05343b387085842b434d267f91b6b0ec157e4331", default-features = false }
 thiserror = "2.0.18"
 tokio = { version = "1.5", features = ["io-util", "rt", "sync"] }
 tokio-stream = "0.1"
