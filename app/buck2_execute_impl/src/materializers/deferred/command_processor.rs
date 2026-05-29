@@ -86,6 +86,8 @@ use crate::materializers::deferred::artifact_tree::artifact_metadata_matches_ent
 use crate::materializers::deferred::clean_stale::CleanResult;
 use crate::materializers::deferred::clean_stale::CleanStaleArtifactsCommand;
 use crate::materializers::deferred::clean_stale::CleanStaleConfig;
+use crate::materializers::deferred::clean_stale::LowDiskCleanConfig;
+use crate::materializers::deferred::clean_stale::LowDiskCleanMode;
 use crate::materializers::deferred::eager_materialization::EagerMaterializations;
 use crate::materializers::deferred::eager_materialization::EagerPathLease;
 use crate::materializers::deferred::extension::ExtensionCommand;
@@ -425,11 +427,10 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
     }
 
     fn get_artifact_ttl(
-        decreased_ttl_hours_disk_threshold: Option<f64>,
-        decreased_ttl_hours: std::time::Duration,
+        low_disk: Option<&LowDiskCleanConfig>,
         default_ttl: std::time::Duration,
     ) -> std::time::Duration {
-        let Some(threshold) = decreased_ttl_hours_disk_threshold else {
+        let Some(cfg) = low_disk else {
             return default_ttl;
         };
 
@@ -442,10 +443,12 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 return default_ttl;
             }
         };
-        if (disk_stats.free_space as f64 / disk_stats.total_space as f64 * 100.0) <= threshold {
-            decreased_ttl_hours
-        } else {
-            default_ttl
+        let free_pct = disk_stats.free_space as f64 / disk_stats.total_space as f64 * 100.0;
+        if free_pct > cfg.threshold_percent {
+            return default_ttl;
+        }
+        match cfg.mode {
+            LowDiskCleanMode::Fixed(d) => d,
         }
     }
 
@@ -587,11 +590,8 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     if let Some(config) = clean_stale_config.as_ref() {
                         let dispatcher = self.daemon_dispatcher.dupe();
 
-                        let artifact_ttl = Self::get_artifact_ttl(
-                            config.decreased_ttl_hours_disk_threshold,
-                            config.decreased_ttl_hours,
-                            config.artifact_ttl,
-                        );
+                        let artifact_ttl =
+                            Self::get_artifact_ttl(config.low_disk.as_ref(), config.artifact_ttl);
 
                         let daemon_id = dispatcher.daemon_id().dupe();
                         let cmd = CleanStaleArtifactsCommand {

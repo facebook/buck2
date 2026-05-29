@@ -637,8 +637,22 @@ pub struct CleanStaleConfig {
     pub clean_period: std::time::Duration,
     pub artifact_ttl: std::time::Duration,
     pub dry_run: bool,
-    pub decreased_ttl_hours: std::time::Duration,
-    pub decreased_ttl_hours_disk_threshold: Option<f64>,
+    pub low_disk: Option<LowDiskCleanConfig>,
+}
+
+/// Configures how the scheduled clean reacts to low free disk space.
+#[derive(Debug, Clone)]
+pub struct LowDiskCleanConfig {
+    /// Free disk space (as a percentage of total) at or below which the
+    /// `mode` engages.
+    pub threshold_percent: f64,
+    pub mode: LowDiskCleanMode,
+}
+
+#[derive(Debug, Clone)]
+pub enum LowDiskCleanMode {
+    /// Use this smaller TTL when free disk % is at/below the threshold.
+    Fixed(std::time::Duration),
 }
 
 impl CleanStaleConfig {
@@ -673,18 +687,24 @@ impl CleanStaleConfig {
                 property: "clean_stale_dry_run",
             })?
             .unwrap_or(false);
-        let decreased_ttl_hours: f64 = root_config
+        let low_disk_ttl_hours: f64 = root_config
             .parse(BuckconfigKeyRef {
                 section: "buck2",
                 property: "clean_stale_low_disk_artifact_ttl_hours",
             })?
             .unwrap_or(48.0);
-        let decreased_ttl_hours_disk_threshold = root_config.parse(BuckconfigKeyRef {
+        let low_disk_threshold_percent: Option<f64> = root_config.parse(BuckconfigKeyRef {
             section: "buck2",
             property: "clean_stale_low_disk_threshold",
         })?;
 
         let secs_in_hour = 60.0 * 60.0;
+        let low_disk = low_disk_threshold_percent.map(|threshold_percent| LowDiskCleanConfig {
+            threshold_percent,
+            mode: LowDiskCleanMode::Fixed(std::time::Duration::from_secs_f64(
+                secs_in_hour * low_disk_ttl_hours,
+            )),
+        });
         let clean_stale_config = if clean_stale_enabled {
             Some(Self {
                 clean_period: std::time::Duration::from_secs_f64(
@@ -696,10 +716,7 @@ impl CleanStaleConfig {
                 start_offset: std::time::Duration::from_secs_f64(
                     secs_in_hour * clean_stale_start_offset_hours,
                 ),
-                decreased_ttl_hours: std::time::Duration::from_secs_f64(
-                    secs_in_hour * decreased_ttl_hours,
-                ),
-                decreased_ttl_hours_disk_threshold,
+                low_disk,
                 dry_run: clean_stale_dry_run,
             })
         } else {
