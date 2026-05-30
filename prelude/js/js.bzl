@@ -35,7 +35,7 @@ def _is_release():
         "DEFAULT": select({
             "DEFAULT": select({
                 "DEFAULT": False,
-                "ovr_config//build_mode:optimization[opt]": True,
+                "config//build_mode:optimization[opt]": True,
             }),
             "config//build_mode/constraints:release": True,
         }),
