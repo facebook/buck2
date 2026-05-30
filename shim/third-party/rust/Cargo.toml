@@ -171,7 +171,7 @@ protoc-bin-vendored = "3.0.0"
 psutil = "3.3.0"
 ptyprocess = "0.4.1"
 quick-xml = { version = "0.37", features = ["overlapped-lists", "serialize"] }
-quickcheck = "1.0"
+quickcheck = "1.1"
 quote = "1.0.45"
 rand = "0.10"
 rand_chacha = "0.10"
