@@ -35,7 +35,7 @@ def _is_release():
         "DEFAULT": select({
             "DEFAULT": select({
                 "DEFAULT": False,
-                "fbsource//tools/build_defs/android/config:build_mode_opt": True,
+                "ovr_config//build_mode:optimization[opt]": True,
             }),
             "config//build_mode/constraints:release": True,
         }),
