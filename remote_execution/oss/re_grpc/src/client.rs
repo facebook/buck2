@@ -36,7 +36,6 @@ use futures::stream::BoxStream;
 use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
 use gazebo::prelude::*;
-use hyper_util::client::legacy::connect::HttpConnector;
 use lru::LruCache;
 use once_cell::sync::Lazy;
 use prost::Message;
@@ -90,17 +89,17 @@ use tonic::metadata;
 use tonic::metadata::MetadataKey;
 use tonic::metadata::MetadataValue;
 use tonic::service::Interceptor;
-use tonic::transport::Certificate;
 use tonic::transport::Channel;
-use tonic::transport::Identity;
-use tonic::transport::Uri;
-use tonic::transport::channel::ClientTlsConfig;
 
 use crate::error::*;
 use crate::metadata::*;
+use crate::pool::ChannelConfig;
+use crate::pool::ChannelPool;
+use crate::pool::PoolConfig;
+use crate::pool::PooledChannel;
+use crate::pool::create_channel;
 use crate::request::*;
 use crate::response::*;
-use crate::stats::CountingConnector;
 
 const DEFAULT_MAX_TOTAL_BATCH_SIZE: usize = 4 * 1000 * 1000;
 
@@ -155,78 +154,6 @@ fn ttimestamp_from(ts: Option<::prost_types::Timestamp>) -> TTimestamp {
         },
         None => TTimestamp::unix_epoch(),
     }
-}
-
-async fn create_tls_config(opts: &Buck2OssReConfiguration) -> anyhow::Result<ClientTlsConfig> {
-    let config = ClientTlsConfig::new().with_enabled_roots();
-
-    let config = match opts.tls_ca_certs.as_ref() {
-        Some(tls_ca_certs) => {
-            let tls_ca_certs =
-                substitute_env_vars(tls_ca_certs).context("Invalid `tls_ca_certs`")?;
-            let data = tokio::fs::read(&tls_ca_certs)
-                .await
-                .with_context(|| format!("Error reading `{tls_ca_certs}`"))?;
-            config.ca_certificate(Certificate::from_pem(data))
-        }
-        None => {
-            // We set the `tls-webpki-roots` feature so we'll get that default.
-            config
-        }
-    };
-
-    let config = match opts.tls_client_cert.as_ref() {
-        Some(tls_client_cert) => {
-            let tls_client_cert =
-                substitute_env_vars(tls_client_cert).context("Invalid `tls_client_cert`")?;
-            let data = tokio::fs::read(&tls_client_cert)
-                .await
-                .with_context(|| format!("Error reading `{tls_client_cert}`"))?;
-            config.identity(Identity::from_pem(&data, &data))
-        }
-        None => config,
-    };
-
-    Ok(config)
-}
-
-fn prepare_uri(uri: Uri, tls: bool) -> anyhow::Result<Uri> {
-    // Now do some awkward things with the protocol. Why do we do all this? The reason is
-    // because we'd like our configuration to not be super confusing. We don't want to e.g.
-    // allow setting the address to `https://foobar` without enabling TLS (or enabling tls
-    // and using `http://foobar`), so we restrict ourselves to schemes that are actually
-    // remotely valid in GRPC (which is more restrictive than what Tonic allows).
-
-    // This is the GRPC spec for naming: https://github.com/grpc/grpc/blob/master/doc/naming.md
-    // Many people (including Bazel), use grpc://, so we tolerate it.
-
-    match uri.scheme_str() {
-        Some("grpc") | Some("dns") | Some("ipv4") | Some("ipv6") | None => {}
-        Some(scheme) => {
-            return Err(anyhow::anyhow!(
-                "Invalid URI scheme: `{}` for `{}` (you should omit it)",
-                scheme,
-                uri,
-            ));
-        }
-    };
-
-    // And now, let's put back a proper scheme for Tonic to be happy with. First, because
-    // Tonic will blow up if we don't. Second, so we get port inference.
-    let mut parts = uri.into_parts();
-    parts.scheme = Some(if tls {
-        http::uri::Scheme::HTTPS
-    } else {
-        http::uri::Scheme::HTTP
-    });
-
-    // Is this API actually designed to be unusable? If you've got a scheme, you must
-    // have a path_and_query. I'm sure there's a good reason, so we abide:
-    if parts.path_and_query.is_none() {
-        parts.path_and_query = Some(http::uri::PathAndQuery::from_static(""));
-    }
-
-    Ok(Uri::from_parts(parts)?)
 }
 
 /// Contains information queried from the the Remote Execution Capabilities service.
@@ -300,66 +227,21 @@ pub struct REClientBuilder;
 
 impl REClientBuilder {
     pub async fn build_and_connect(opts: &Buck2OssReConfiguration) -> anyhow::Result<REClient> {
-        // We just always create this just in case, so that we implicitly validate it if set.
-        let tls_config = create_tls_config(opts)
+        // Create channel config once (reads TLS files)
+        let channel_config = ChannelConfig::new(opts)
             .await
-            .context("Invalid TLS config")?;
+            .context("Failed to create channel config")?;
 
-        let tls_config = &tls_config;
-
-        let create_channel = |address: Option<String>| async move {
-            let address = address.as_ref().context("No address")?;
-            let address = substitute_env_vars(address).context("Invalid address")?;
-            let uri = address.parse().context("Invalid address")?;
-            let uri = prepare_uri(uri, opts.tls).context("Invalid URI")?;
-
-            let mut endpoint = Channel::builder(uri);
-            if opts.tls {
-                endpoint = endpoint.tls_config(tls_config.clone())?;
-            }
-
-            // Configure gRPC keepalive settings
-            if let Some(keepalive_time_secs) = opts.grpc_keepalive_time_secs {
-                endpoint =
-                    endpoint.http2_keep_alive_interval(Duration::from_secs(keepalive_time_secs));
-            }
-            if let Some(keepalive_timeout_secs) = opts.grpc_keepalive_timeout_secs {
-                endpoint = endpoint.keep_alive_timeout(Duration::from_secs(keepalive_timeout_secs));
-            }
-            if let Some(keepalive_while_idle) = opts.grpc_keepalive_while_idle {
-                endpoint = endpoint.keep_alive_while_idle(keepalive_while_idle);
-            }
-
-            // Since we are creating the HttpConnector ourselves, any TCP
-            // settings (tcp_nodelay, tcp_keepalive, connect_timeout), need to
-            // be set here instead of on the endpoint
-            let mut http = HttpConnector::new();
-            http.enforce_http(false);
-            let connector = CountingConnector::new(http);
-
-            anyhow::Ok(
-                endpoint
-                    .connect_with_connector(connector)
-                    .await
-                    .with_context(|| format!("Error connecting to `{address}`"))?,
-            )
-        };
-
-        let (cas, execution, action_cache, bytestream, capabilities) = futures::future::join5(
-            create_channel(opts.cas_address.clone()),
-            create_channel(opts.engine_address.clone()),
-            create_channel(opts.action_cache_address.clone()),
-            create_channel(opts.cas_address.clone()),
-            create_channel(opts.engine_address.clone()),
-        )
-        .await;
+        // Create a single channel for fetching capabilities. Other channels are created
+        // on-demand through the connection pool.
+        let engine_address = opts.engine_address.as_ref().context("No engine address")?;
+        let capabilities_channel = create_channel(&channel_config, engine_address)
+            .context("Error creating Capabilities channel")?;
 
         let interceptor = InjectHeadersInterceptor::new(&opts.http_headers)?;
 
-        let mut capabilities_client = CapabilitiesClient::with_interceptor(
-            capabilities.context("Error creating Capabilities client")?,
-            interceptor.dupe(),
-        );
+        let mut capabilities_client =
+            CapabilitiesClient::with_interceptor(capabilities_channel, interceptor.dupe());
 
         if let Some(max_decoding_message_size) = opts.max_decoding_message_size {
             capabilities_client =
@@ -412,26 +294,22 @@ impl REClientBuilder {
             None
         };
 
-        let grpc_clients = GRPCClients {
-            cas_client: ContentAddressableStorageClient::with_interceptor(
-                cas.context("Error creating CAS client")?,
-                interceptor.dupe(),
-            )
-            .max_decoding_message_size(max_decoding_msg_size),
-            execution_client: ExecutionClient::with_interceptor(
-                execution.context("Error creating Execution client")?,
-                interceptor.dupe(),
-            ),
-            action_cache_client: ActionCacheClient::with_interceptor(
-                action_cache.context("Error creating ActionCache client")?,
-                interceptor.dupe(),
-            ),
-            bytestream_client: ByteStreamClient::with_interceptor(
-                bytestream.context("Error creating Bytestream client")?,
-                interceptor.dupe(),
-            )
-            .max_decoding_message_size(max_decoding_msg_size),
+        // Extract addresses
+        let cas_address = opts.cas_address.clone().context("No CAS address")?;
+        let action_cache_address = opts
+            .action_cache_address
+            .clone()
+            .context("No action cache address")?;
+
+        // Create connection pool
+        let min_connections = opts.min_connections.unwrap_or(1).max(1);
+        let max_connections = opts.max_connections.unwrap_or(100).max(min_connections);
+        let pool_config = PoolConfig {
+            min_connections,
+            max_connections,
+            max_concurrency_per_connection: opts.max_concurrency_per_connection.unwrap_or(100),
         };
+        let pool = ChannelPool::new(pool_config, channel_config);
 
         Ok(REClient::new(
             RERuntimeOpts {
@@ -441,15 +319,20 @@ impl REClientBuilder {
                 // on the TTL of the remote blob.
                 cas_ttl_secs: opts.cas_ttl_secs.unwrap_or(3 * 60 * 60),
             },
-            grpc_clients,
             capabilities,
             instance_name,
             bystream_compressor,
+            pool,
+            max_decoding_msg_size,
+            interceptor,
+            cas_address,
+            engine_address.clone(),
+            action_cache_address,
         ))
     }
 
     async fn fetch_rbe_capabilities(
-        client: &mut CapabilitiesClient<GrpcService>,
+        client: &mut CapabilitiesClient<InterceptedService<Channel, InjectHeadersInterceptor>>,
         instance_name: &InstanceName,
         max_total_batch_size: Option<usize>,
     ) -> anyhow::Result<RECapabilities> {
@@ -543,14 +426,7 @@ impl Interceptor for InjectHeadersInterceptor {
     }
 }
 
-type GrpcService = InterceptedService<Channel, InjectHeadersInterceptor>;
-
-pub struct GRPCClients {
-    cas_client: ContentAddressableStorageClient<GrpcService>,
-    execution_client: ExecutionClient<GrpcService>,
-    action_cache_client: ActionCacheClient<GrpcService>,
-    bytestream_client: ByteStreamClient<GrpcService>,
-}
+type GrpcService = InterceptedService<PooledChannel, InjectHeadersInterceptor>;
 
 #[derive(Debug, Copy, Clone)]
 enum DigestRemoteState {
@@ -587,12 +463,17 @@ impl FindMissingCache {
 
 pub struct REClient {
     runtime_opts: RERuntimeOpts,
-    grpc_clients: GRPCClients,
+    pool: ChannelPool,
     capabilities: RECapabilities,
     instance_name: InstanceName,
     // buck2 calls find_missing for same blobs
     find_missing_cache: Mutex<FindMissingCache>,
     bystream_compressor: Option<Compressor>,
+    max_decoding_msg_size: usize,
+    interceptor: InjectHeadersInterceptor,
+    cas_address: String,
+    engine_address: String,
+    action_cache_address: String,
 }
 
 impl Drop for REClient {
@@ -656,17 +537,98 @@ impl BatchUploadReqAggregator {
     }
 }
 
+/// Returns true if an error is a transient connection/transport error worth
+/// retrying. Walks the error chain checking for:
+///   - `tonic::Status` with codes the gRPC retry policy treats as transient
+///     (Unavailable, ResourceExhausted, Aborted)
+///   - `io::Error` of a kind that indicates a transport-level disruption
+///     (BrokenPipe, ConnectionReset/Aborted, UnexpectedEof, TimedOut)
+///
+/// `tonic::transport::Error` is not matched directly — its transient subset
+/// surfaces as an `io::Error` somewhere in the chain, which we catch above.
+/// Non-transient transport errors (TLS handshake, invalid URI) do not have
+/// an `io::Error` source, so they correctly do not retry.
+fn is_retryable(err: &anyhow::Error) -> bool {
+    for cause in err.chain() {
+        if let Some(status) = cause.downcast_ref::<tonic::Status>() {
+            match status.code() {
+                tonic::Code::Unavailable
+                | tonic::Code::ResourceExhausted
+                | tonic::Code::Aborted => return true,
+                _ => {}
+            }
+        }
+        if let Some(io_err) = cause.downcast_ref::<std::io::Error>() {
+            match io_err.kind() {
+                std::io::ErrorKind::BrokenPipe
+                | std::io::ErrorKind::ConnectionReset
+                | std::io::ErrorKind::ConnectionAborted
+                | std::io::ErrorKind::UnexpectedEof
+                | std::io::ErrorKind::TimedOut => return true,
+                _ => {}
+            }
+        }
+    }
+    false
+}
+
+/// Retry a fallible async operation on transient connection errors.
+///
+/// On retryable failure, the closure is called again from scratch — acquiring
+/// a fresh connection from the pool, rebuilding the request, etc. Up to 5
+/// attempts with exponential backoff (100ms, 200ms, 400ms, 800ms — capped at
+/// 5s) plus 0–50ms of jitter to avoid synchronized retry storms across
+/// concurrent in-flight requests.
+async fn retry<F, Fut, T>(f: F) -> anyhow::Result<T>
+where
+    F: Fn() -> Fut,
+    Fut: Future<Output = anyhow::Result<T>>,
+{
+    use rand::RngExt;
+
+    const MAX_ATTEMPTS: u32 = 5;
+    const INITIAL_DELAY: Duration = Duration::from_millis(100);
+    const MAX_DELAY: Duration = Duration::from_secs(5);
+
+    let mut delay = INITIAL_DELAY;
+    for attempt in 1..=MAX_ATTEMPTS {
+        match f().await {
+            Ok(v) => return Ok(v),
+            Err(e) if is_retryable(&e) && attempt < MAX_ATTEMPTS => {
+                let jitter = Duration::from_millis(rand::rng().random_range(0..50));
+                let sleep_for = delay + jitter;
+                tracing::warn!(
+                    "Transient error (attempt {}/{}), retrying in {:?}: {:#}",
+                    attempt,
+                    MAX_ATTEMPTS,
+                    sleep_for,
+                    e
+                );
+                tokio::time::sleep(sleep_for).await;
+                delay = (delay * 2).min(MAX_DELAY);
+            }
+            Err(e) => return Err(e),
+        }
+    }
+    unreachable!()
+}
+
 impl REClient {
     fn new(
         runtime_opts: RERuntimeOpts,
-        grpc_clients: GRPCClients,
         capabilities: RECapabilities,
         instance_name: InstanceName,
         bystream_compressor: Option<Compressor>,
+        pool: ChannelPool,
+        max_decoding_msg_size: usize,
+        interceptor: InjectHeadersInterceptor,
+        cas_address: String,
+        engine_address: String,
+        action_cache_address: String,
     ) -> Self {
         REClient {
             runtime_opts,
-            grpc_clients,
+            pool,
             capabilities,
             instance_name,
             find_missing_cache: Mutex::new(FindMissingCache {
@@ -675,6 +637,11 @@ impl REClient {
                 last_check: Instant::now(),
             }),
             bystream_compressor,
+            max_decoding_msg_size,
+            interceptor,
+            cas_address,
+            engine_address,
+            action_cache_address,
         }
     }
 
@@ -683,24 +650,27 @@ impl REClient {
         metadata: RemoteExecutionMetadata,
         request: ActionResultRequest,
     ) -> anyhow::Result<ActionResultResponse> {
-        let mut client = self.grpc_clients.action_cache_client.clone();
+        retry(|| async {
+            let res = self
+                .action_cache_client()
+                .await?
+                .get_action_result(with_re_metadata(
+                    GetActionResultRequest {
+                        instance_name: self.instance_name.as_str().to_owned(),
+                        action_digest: Some(tdigest_to(request.digest.clone())),
+                        ..Default::default()
+                    },
+                    metadata.clone(),
+                    self.runtime_opts.use_fbcode_metadata,
+                ))
+                .await?;
 
-        let res = client
-            .get_action_result(with_re_metadata(
-                GetActionResultRequest {
-                    instance_name: self.instance_name.as_str().to_owned(),
-                    action_digest: Some(tdigest_to(request.digest)),
-                    ..Default::default()
-                },
-                metadata,
-                self.runtime_opts.use_fbcode_metadata,
-            ))
-            .await?;
-
-        Ok(ActionResultResponse {
-            action_result: convert_action_result(res.into_inner())?,
-            ttl: 0,
+            Ok(ActionResultResponse {
+                action_result: convert_action_result(res.into_inner())?,
+                ttl: 0,
+            })
         })
+        .await
     }
 
     pub async fn write_action_result(
@@ -708,26 +678,31 @@ impl REClient {
         metadata: RemoteExecutionMetadata,
         request: WriteActionResultRequest,
     ) -> anyhow::Result<WriteActionResultResponse> {
-        let mut client = self.grpc_clients.action_cache_client.clone();
+        let action_result = convert_t_action_result2(request.action_result)?;
 
-        let res = client
-            .update_action_result(with_re_metadata(
-                UpdateActionResultRequest {
-                    instance_name: self.instance_name.as_str().to_owned(),
-                    action_digest: Some(tdigest_to(request.action_digest)),
-                    action_result: Some(convert_t_action_result2(request.action_result)?),
-                    results_cache_policy: None,
-                    ..Default::default()
-                },
-                metadata,
-                self.runtime_opts.use_fbcode_metadata,
-            ))
-            .await?;
+        retry(|| async {
+            let res = self
+                .action_cache_client()
+                .await?
+                .update_action_result(with_re_metadata(
+                    UpdateActionResultRequest {
+                        instance_name: self.instance_name.as_str().to_owned(),
+                        action_digest: Some(tdigest_to(request.action_digest.clone())),
+                        action_result: Some(action_result.clone()),
+                        results_cache_policy: None,
+                        ..Default::default()
+                    },
+                    metadata.clone(),
+                    self.runtime_opts.use_fbcode_metadata,
+                ))
+                .await?;
 
-        Ok(WriteActionResultResponse {
-            actual_action_result: convert_action_result(res.into_inner())?,
-            ttl_seconds: 0,
+            Ok(WriteActionResultResponse {
+                actual_action_result: convert_action_result(res.into_inner())?,
+                ttl_seconds: 0,
+            })
         })
+        .await
     }
 
     pub async fn execute_with_progress(
@@ -738,32 +713,33 @@ impl REClient {
         // TODO(aloiscochard): Map those properly in the request
         // use crate::proto::build::bazel::remote::execution::v2::ExecutionPolicy;
 
-        let mut client = self.grpc_clients.execution_client.clone();
-
         let action_digest = tdigest_to(execute_request.action_digest.clone());
+        let priority = execute_request
+            .execution_policy
+            .map(|ep| ep.priority)
+            .unwrap_or_default();
 
-        let request = GExecuteRequest {
-            instance_name: self.instance_name.as_str().to_owned(),
-            skip_cache_lookup: execute_request.skip_cache_lookup,
-            execution_policy: Some(ExecutionPolicy {
-                priority: execute_request
-                    .execution_policy
-                    .map(|ep| ep.priority)
-                    .unwrap_or_default(),
-            }),
-            results_cache_policy: Some(ResultsCachePolicy { priority: 0 }),
-            action_digest: Some(action_digest.clone()),
-            ..Default::default()
-        };
-
-        let stream = client
-            .execute(with_re_metadata(
-                request,
-                metadata,
-                self.runtime_opts.use_fbcode_metadata,
-            ))
-            .await?
-            .into_inner();
+        let stream = retry(|| async {
+            let stream = self
+                .execution_client()
+                .await?
+                .execute(with_re_metadata(
+                    GExecuteRequest {
+                        instance_name: self.instance_name.as_str().to_owned(),
+                        skip_cache_lookup: execute_request.skip_cache_lookup,
+                        execution_policy: Some(ExecutionPolicy { priority }),
+                        results_cache_policy: Some(ResultsCachePolicy { priority: 0 }),
+                        action_digest: Some(action_digest.clone()),
+                        ..Default::default()
+                    },
+                    metadata.clone(),
+                    self.runtime_opts.use_fbcode_metadata,
+                ))
+                .await?
+                .into_inner();
+            anyhow::Ok(stream)
+        })
+        .await?;
 
         let stream = futures::stream::try_unfold(stream, move |mut stream| async {
             let msg = match stream.try_next().await.context("RE channel error")? {
@@ -870,31 +846,35 @@ impl REClient {
             self.bystream_compressor,
             self.capabilities.max_total_batch_size,
             self.runtime_opts.max_concurrent_uploads_per_action,
-            |re_request| async {
+            |re_request| {
                 let metadata = metadata.clone();
-                let mut cas_client = self.grpc_clients.cas_client.clone();
-                let resp = cas_client
-                    .batch_update_blobs(with_re_metadata(
-                        re_request,
-                        metadata,
-                        self.runtime_opts.use_fbcode_metadata,
-                    ))
-                    .await?;
-                Ok(resp.into_inner())
+                async move {
+                    let resp = self
+                        .cas_client()
+                        .await?
+                        .batch_update_blobs(with_re_metadata(
+                            re_request,
+                            metadata,
+                            self.runtime_opts.use_fbcode_metadata,
+                        ))
+                        .await?;
+                    Ok(resp.into_inner())
+                }
             },
-            |segments| async {
+            |segments| {
                 let metadata = metadata.clone();
-                let mut bytestream_client = self.grpc_clients.bytestream_client.clone();
-                let requests = futures::stream::iter(segments);
-                let resp = bytestream_client
-                    .write(with_re_metadata(
-                        requests,
-                        metadata,
-                        self.runtime_opts.use_fbcode_metadata,
-                    ))
-                    .await?;
-
-                Ok(resp.into_inner())
+                async move {
+                    let resp = self
+                        .bytestream_client()
+                        .await?
+                        .write(with_re_metadata(
+                            futures::stream::iter(segments),
+                            metadata,
+                            self.runtime_opts.use_fbcode_metadata,
+                        ))
+                        .await?;
+                    Ok(resp.into_inner())
+                }
             },
         )
         .await
@@ -935,23 +915,27 @@ impl REClient {
             request,
             self.bystream_compressor,
             self.capabilities.max_total_batch_size,
-            |re_request| async {
+            |re_request| {
                 let metadata = metadata.clone();
-                let mut client = self.grpc_clients.cas_client.clone();
-                Ok(client
-                    .batch_read_blobs(with_re_metadata(
-                        re_request,
-                        metadata,
-                        self.runtime_opts.use_fbcode_metadata,
-                    ))
-                    .await?
-                    .into_inner())
+                async move {
+                    let resp = self
+                        .cas_client()
+                        .await?
+                        .batch_read_blobs(with_re_metadata(
+                            re_request,
+                            metadata,
+                            self.runtime_opts.use_fbcode_metadata,
+                        ))
+                        .await?;
+                    Ok(resp.into_inner())
+                }
             },
             |read_request| {
                 let metadata = metadata.clone();
                 async move {
-                    let mut client = self.grpc_clients.bytestream_client.clone();
-                    let response = client
+                    let response = self
+                        .bytestream_client()
+                        .await?
                         .read(with_re_metadata(
                             read_request,
                             metadata,
@@ -971,7 +955,6 @@ impl REClient {
         metadata: RemoteExecutionMetadata,
         request: GetDigestsTtlRequest,
     ) -> anyhow::Result<GetDigestsTtlResponse> {
-        let mut cas_client = self.grpc_clients.cas_client.clone();
         let mut remote_results: HashMap<TDigest, DigestRemoteState> = HashMap::new();
         let mut digests_to_check: Vec<TDigest> = Vec::new();
 
@@ -997,19 +980,25 @@ impl REClient {
             // Send a request and notify others of the result
             if !digests_to_check.is_empty() {
                 tracing::debug!(num_digests = digests_to_check.len(), "FindMissingBlobs");
-                let missing_blobs = cas_client
-                    .find_missing_blobs(with_re_metadata(
-                        FindMissingBlobsRequest {
-                            instance_name: self.instance_name.as_str().to_owned(),
-                            blob_digests: digests_to_check.map(|b| tdigest_to(b.clone())),
-                            ..Default::default()
-                        },
-                        metadata.clone(),
-                        self.runtime_opts.use_fbcode_metadata,
-                    ))
-                    .await
-                    .context("Failed to request what blobs are not present on remote")?;
-                let resp: FindMissingBlobsResponse = missing_blobs.into_inner();
+                let blob_digests: Vec<_> = digests_to_check.map(|b| tdigest_to(b.clone()));
+                let resp: FindMissingBlobsResponse = retry(|| async {
+                    let resp = self
+                        .cas_client()
+                        .await?
+                        .find_missing_blobs(with_re_metadata(
+                            FindMissingBlobsRequest {
+                                instance_name: self.instance_name.as_str().to_owned(),
+                                blob_digests: blob_digests.clone(),
+                                ..Default::default()
+                            },
+                            metadata.clone(),
+                            self.runtime_opts.use_fbcode_metadata,
+                        ))
+                        .await
+                        .context("Failed to request what blobs are not present on remote")?;
+                    Ok(resp.into_inner())
+                })
+                .await?;
 
                 // Update the results and the cache
                 let mut find_missing_cache = self.find_missing_cache.lock().unwrap();
@@ -1064,6 +1053,41 @@ impl REClient {
 
     pub fn get_action_cache_client(&self) -> &Self {
         self
+    }
+
+    async fn cas_client(&self) -> anyhow::Result<ContentAddressableStorageClient<GrpcService>> {
+        let channel = self.pool.get(&self.cas_address).await?;
+        Ok(
+            ContentAddressableStorageClient::new(InterceptedService::new(
+                channel,
+                self.interceptor.dupe(),
+            ))
+            .max_decoding_message_size(self.max_decoding_msg_size),
+        )
+    }
+
+    async fn bytestream_client(&self) -> anyhow::Result<ByteStreamClient<GrpcService>> {
+        let channel = self.pool.get(&self.cas_address).await?;
+        Ok(
+            ByteStreamClient::new(InterceptedService::new(channel, self.interceptor.dupe()))
+                .max_decoding_message_size(self.max_decoding_msg_size),
+        )
+    }
+
+    async fn execution_client(&self) -> anyhow::Result<ExecutionClient<GrpcService>> {
+        let channel = self.pool.get(&self.engine_address).await?;
+        Ok(ExecutionClient::new(InterceptedService::new(
+            channel,
+            self.interceptor.dupe(),
+        )))
+    }
+
+    async fn action_cache_client(&self) -> anyhow::Result<ActionCacheClient<GrpcService>> {
+        let channel = self.pool.get(&self.action_cache_address).await?;
+        Ok(ActionCacheClient::new(InterceptedService::new(
+            channel,
+            self.interceptor.dupe(),
+        )))
     }
 
     pub fn get_metrics_client(&self) -> &Self {
@@ -1309,7 +1333,6 @@ where
             let blob_reader = StreamReader::new(
                 p.map(|r| r.map(|rr| Cursor::new(rr.data)).map_err(io::Error::other)),
             );
-            // Wrap the blob reader in a compression reader
             let reader: Pin<Box<dyn AsyncRead + Unpin + Send>> = match bystream_compressor {
                 None => Pin::new(Box::new(blob_reader)),
                 Some(Compressor::Zstd) => {
@@ -1378,9 +1401,12 @@ where
 
     let mut batched_blobs_response = HashMap::new();
     for read_blob_req in requests {
-        let resp = cas_f(read_blob_req)
-            .await
-            .context("Failed to make BatchReadBlobs request")?;
+        let resp = retry(|| async {
+            cas_f(read_blob_req.clone())
+                .await
+                .context("Failed to make BatchReadBlobs request")
+        })
+        .await?;
         for r in resp.responses.into_iter() {
             let digest = tdigest_from(r.digest.context("Response digest not found.")?);
             check_status(r.status.unwrap_or_default())?;
@@ -1402,10 +1428,13 @@ where
     let mut inlined_blobs = vec![];
     for digest in inlined_digests {
         let data = if digest.size_in_bytes as usize >= max_total_batch_size {
-            let mut accum = vec![];
-            let mut reader = bystream_fut(digest.clone()).await?;
-            tokio::io::copy(&mut reader, &mut accum).await?;
-            accum
+            retry(|| async {
+                let mut accum = vec![];
+                let mut reader = bystream_fut(digest.clone()).await?;
+                tokio::io::copy(&mut reader, &mut accum).await?;
+                Ok(accum)
+            })
+            .await?
         } else {
             get(&digest)?
         };
@@ -1418,7 +1447,7 @@ where
 
     let writes = file_digests.iter().map(|req| async {
         let mut opts = OpenOptions::new();
-        opts.read(true).write(true).create_new(true);
+        opts.read(true).write(true).create(true).truncate(true);
         #[cfg(unix)]
         {
             if req.is_executable {
@@ -1428,7 +1457,7 @@ where
             }
         }
 
-        let fut = async {
+        retry(|| async {
             let mut file = opts
                 .open(&req.named_digest.name)
                 .await
@@ -1452,8 +1481,9 @@ where
             }
             file.flush().await.context("Error flushing")?;
             anyhow::Ok(())
-        };
-        fut.await.with_context(|| {
+        })
+        .await
+        .with_context(|| {
             format!(
                 "Error downloading digest `{}` to `{}`",
                 req.named_digest.digest, req.named_digest.name,
@@ -1570,7 +1600,7 @@ where
             continue;
         }
 
-        let data = blob.blob;
+        let data = prost::bytes::Bytes::from(blob.blob);
         let client_uuid = uuid::Uuid::new_v4().to_string();
         let resource_name = resource_name(
             instance_name,
@@ -1579,9 +1609,11 @@ where
             &blob.digest,
         );
         let fut = async move {
-            bystream_fut(resource_name, Box::new(Cursor::new(data))).await?;
-
-            Ok(vec![hash])
+            retry(|| async {
+                bystream_fut(resource_name.clone(), Box::new(Cursor::new(data.clone()))).await?;
+                Ok(vec![hash.clone()])
+            })
+            .await
         };
         upload_futures.push(Box::pin(fut));
     }
@@ -1604,12 +1636,15 @@ where
         );
 
         let fut = async move {
-            let file = tokio::fs::File::open(&name)
-                .await
-                .with_context(|| format!("Opening `{name}` for reading failed"))?;
+            retry(|| async {
+                let file = tokio::fs::File::open(&name)
+                    .await
+                    .with_context(|| format!("Opening `{name}` for reading failed"))?;
 
-            bystream_fut(resource_name, Box::new(BufReader::new(file))).await?;
-            Ok(vec![hash])
+                bystream_fut(resource_name.clone(), Box::new(BufReader::new(file))).await?;
+                Ok(vec![hash.clone()])
+            })
+            .await
         };
         upload_futures.push(Box::pin(fut));
     }
@@ -1655,7 +1690,7 @@ where
                 .map(|x| x.digest.as_ref().unwrap().hash.clone())
                 .collect::<Vec<String>>();
 
-            let response = cas_f(re_request).await?;
+            let response = retry(|| async { cas_f(re_request.clone()).await }).await?;
             let failures: Vec<String> = response
                 .responses
                 .iter()
