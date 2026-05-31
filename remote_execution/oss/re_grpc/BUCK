@@ -24,7 +24,6 @@ rust_library(
         "fbsource//third-party/rust:lru",
         "fbsource//third-party/rust:prost",
         "fbsource//third-party/rust:prost-types",
-        "fbsource//third-party/rust:rand",
         "fbsource//third-party/rust:regex",
         "fbsource//third-party/rust:sha1",
         "fbsource//third-party/rust:sha2",
