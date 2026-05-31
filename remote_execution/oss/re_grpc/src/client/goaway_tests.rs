@@ -227,7 +227,7 @@ fn upload_request(blob: Vec<u8>) -> UploadRequest {
     UploadRequest {
         inlined_blobs_with_digest: Some(vec![InlinedBlobWithDigest {
             digest: TDigest {
-                hash: "aa".to_owned(),
+                hash: hex::encode(Sha256::digest(&blob)),
                 size_in_bytes: blob.len() as i64,
                 ..Default::default()
             },
@@ -257,6 +257,7 @@ async fn upload(
         DEFAULT_REMOTE_CACHE_COMPRESSION_THRESHOLD,
         None,
         DigestFunctionConfig::default(),
+        &ActiveTransferRegistry::new(),
         |re_request| async move {
             retry_grpc_request(DEFAULT_RETRIES, retry_max_delay, || {
                 let re_request = re_request.clone();
