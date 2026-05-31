@@ -26,4 +26,7 @@ All constraints used in these aliases must also be available in OSS.
 # 3. It's unlikely a user has to ever define an alias twice in both the `alias` buckconfig
 # and in modifier aliases because a modifier alias is a constraint value/config setting
 # and those don't typically get built on CLI.
-OSS_ALIASES = struct()
+OSS_ALIASES = struct(
+    dev = ["ovr_config//build_mode:dev", "ovr_config//build_mode/default_opt_cxx:enabled"],
+    opt = ["ovr_config//build_mode:opt", "ovr_config//build_mode/default_opt_cxx:enabled"],
+)

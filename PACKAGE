@@ -1,0 +1,18 @@
+load("@prelude//cfg/modifier:alias.bzl", "OSS_ALIASES")
+load("@prelude//cfg/modifier:cfg_constructor.bzl", "cfg_constructor_post_constraint_analysis", "cfg_constructor_pre_constraint_analysis")
+load("@prelude//cfg/modifier:common.bzl", "MODIFIER_METADATA_KEY")
+load("@prelude//cfg/modifier/set_cfg_modifiers.bzl", "set_cfg_modifiers")
+
+set_cfg_modifiers(["ovr_config//build_mode:dev"])
+
+# https://buck2.build/docs/users/how_tos/modifiers_setup/
+#
+# This is required for -m MODIFIER to do anything. Otherwise you need
+# to use configuration transitions.
+native.set_cfg_constructor(
+    aliases = OSS_ALIASES,
+    extra_data = struct(),
+    key = MODIFIER_METADATA_KEY,
+    stage0 = cfg_constructor_pre_constraint_analysis,
+    stage1 = cfg_constructor_post_constraint_analysis,
+)
