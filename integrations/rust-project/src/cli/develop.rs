@@ -39,6 +39,7 @@ pub(crate) struct Develop {
     pub(crate) check_cycles: bool,
     pub(crate) invoked_by_ra: bool,
     pub(crate) include_all_buildfiles: bool,
+    pub(crate) rustc_target: Option<String>,
 }
 
 pub(crate) struct OutputCfg {
@@ -71,6 +72,7 @@ impl Develop {
             buck2_command,
             include_all_buildfiles,
             max_extra_targets,
+            rustc_target,
             ..
         } = command
         {
@@ -97,6 +99,7 @@ impl Develop {
                 check_cycles,
                 invoked_by_ra: false,
                 include_all_buildfiles,
+                rustc_target,
             };
             let max_extra_targets = max_extra_targets.unwrap_or(DEFAULT_EXTRA_TARGETS);
             let out = OutputCfg {
@@ -121,6 +124,7 @@ impl Develop {
             buck2_command,
             max_extra_targets,
             mode,
+            rustc_target,
             ..
         } = command
         {
@@ -148,6 +152,7 @@ impl Develop {
                 check_cycles: false,
                 invoked_by_ra: true,
                 include_all_buildfiles: false,
+                rustc_target,
             };
             let max_extra_targets = max_extra_targets.unwrap_or(DEFAULT_EXTRA_TARGETS);
             let out = OutputCfg {
@@ -280,6 +285,7 @@ impl Develop {
             buck,
             check_cycles,
             include_all_buildfiles,
+            rustc_target,
             ..
         } = self;
 
@@ -314,6 +320,7 @@ impl Develop {
             *check_cycles,
             *include_all_buildfiles,
             extra_cfgs,
+            rustc_target.as_ref(),
         )
     }
 
@@ -351,6 +358,7 @@ pub(crate) fn develop_with_sysroot(
     check_cycles: bool,
     include_all_buildfiles: bool,
     extra_cfgs: &[String],
+    rustc_target: Option<&String>,
 ) -> Result<ProjectJson, anyhow::Error> {
     info!(kind = "progress", "building generated code");
     let expanded_and_resolved = buck.expand_and_resolve(&targets, exclude_workspaces)?;
@@ -368,6 +376,7 @@ pub(crate) fn develop_with_sysroot(
         include_all_buildfiles,
         extra_cfgs,
         buck,
+        rustc_target,
     )?;
 
     Ok(rust_project)
