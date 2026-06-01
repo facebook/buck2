@@ -47,6 +47,11 @@ pub struct OrphanProcessInfo {
 pub mod buck_cgroup_tree {
     use buck2_common::init::ResourceControlConfig;
 
+    /// Return the current cgroup path for logging, if supported on this platform.
+    pub fn read_current_cgroup() -> Option<String> {
+        None
+    }
+
     pub struct PreppedBuckCgroups;
 
     impl PreppedBuckCgroups {

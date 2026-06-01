@@ -20,12 +20,15 @@ use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_util::process;
 use buck2_util::process::async_background_command;
 
+use crate::buck_cgroup_tree::read_current_cgroup;
 #[cfg(unix)]
 use crate::cgroup::Cgroup;
 #[cfg(unix)]
 use crate::cgroup::CgroupKindInternal;
 #[cfg(unix)]
 use crate::cgroup::NoMemoryMonitoring;
+
+const DAEMON_ORIGINATING_CGROUP_FLAG: &str = "--daemon-originating-cgroup";
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Environment)]
@@ -128,7 +131,7 @@ pub async fn create_daemon_spawn_command(
         DaemonSpawner::None => Ok((process::background_command(program), Vec::new())),
         DaemonSpawner::Systemd => Ok((
             systemd_run_command(program, &unit_name, working_directory),
-            vec!["--has-cgroup".to_owned()],
+            daemon_resource_control_args(),
         )),
         #[cfg(unix)]
         DaemonSpawner::Cgroup(parent) => {
@@ -145,9 +148,20 @@ pub async fn create_daemon_spawn_command(
             let mut cmd = process::background_command(program);
             child.setup_command(&mut cmd);
 
-            Ok((cmd, vec!["--has-cgroup".to_owned()]))
+            Ok((cmd, daemon_resource_control_args()))
         }
     }
+}
+
+fn daemon_resource_control_args() -> Vec<String> {
+    let mut args = vec!["--has-cgroup".to_owned()];
+
+    if let Some(originating_cgroup) = read_current_cgroup() {
+        args.push(DAEMON_ORIGINATING_CGROUP_FLAG.to_owned());
+        args.push(originating_cgroup);
+    }
+
+    args
 }
 
 fn systemd_run_command(

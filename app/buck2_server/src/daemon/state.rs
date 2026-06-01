@@ -205,6 +205,10 @@ pub struct DaemonStateData {
     /// A unique identifier for this instance of the daemon
     pub daemon_id: DaemonId,
 
+    /// Cgroup path of the process that launched this daemon before Buck moved the daemon into its
+    /// managed cgroup.
+    pub daemon_originating_cgroup: Option<String>,
+
     /// Semaphores for running actions locally. These need to be shared across commands.
     #[allocative(skip)]
     pub named_semaphores_for_run_actions: Arc<NamedSemaphores>,
@@ -738,6 +742,7 @@ impl DaemonState {
                 previous_command_data: LockedPreviousCommandData::new(),
                 incremental_db_state,
                 daemon_id: daemon_id.dupe(),
+                daemon_originating_cgroup: init_ctx.daemon_originating_cgroup,
                 named_semaphores_for_run_actions: Arc::new(NamedSemaphores::new()),
             }))
         };

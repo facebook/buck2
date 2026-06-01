@@ -1186,6 +1186,13 @@ impl ServerCommandContextTrait for ServerCommandContext<'_> {
             self.base_context.daemon.materializer.name().to_owned(),
         );
 
+        if let Some(originating_cgroup) = &self.base_context.daemon.daemon_originating_cgroup {
+            metadata.insert(
+                "daemon_originating_cgroup".to_owned(),
+                originating_cgroup.clone(),
+            );
+        }
+
         if let Some(oncall) = &self.oncall {
             metadata.insert("oncall".to_owned(), oncall.clone());
         }

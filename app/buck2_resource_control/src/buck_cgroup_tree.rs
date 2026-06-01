@@ -57,6 +57,18 @@ fn parse_procfs_cgroup_output(out: &str) -> buck2_error::Result<CgroupPathBuf> {
     Ok(CgroupPathBuf::new_in_cgroup_fs(AbsNormPath::new(cgroup)?))
 }
 
+/// Read this process's cgroup v2 path from `/proc/self/cgroup` for best-effort logging.
+///
+/// Returns `None` if procfs cannot be read or if the process is not in exactly one cgroup v2
+/// hierarchy. This intentionally uses synchronous I/O because it reads a small local procfs file
+/// during daemon startup/logging, where a best-effort value is sufficient.
+pub fn read_current_cgroup() -> Option<String> {
+    let procfs_out = std::fs::read_to_string("/proc/self/cgroup").ok()?;
+    parse_procfs_cgroup_output(&procfs_out)
+        .ok()
+        .map(|p| p.to_string())
+}
+
 /// Read the cgroup path of the buck2 daemon process based on its pid from the client side
 pub fn read_cgroup_path_of_buck2_daemon(daemon_pid: i64) -> buck2_error::Result<Option<String>> {
     let path = format!("/proc/{}/cgroup", daemon_pid);
