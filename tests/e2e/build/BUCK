@@ -1,4 +1,5 @@
 load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
+load("@fbsource//tools/build_defs:testpilot_defs.bzl", "tpx_labels")
 
 oncall("build_infra")
 
@@ -30,7 +31,7 @@ buck2_e2e_test(
 buck2_e2e_test(
     name = "test_worker",
     srcs = ["test_worker.py"],
-    labels = ["long_running"],
+    labels = [tpx_labels.long_running],
     deps = [
         "//buck2/tests/e2e_util:utils",
     ],
@@ -39,7 +40,7 @@ buck2_e2e_test(
 buck2_e2e_test(
     name = "test_remote_worker",
     srcs = ["test_remote_worker.py"],
-    labels = ["long_running"],
+    labels = [tpx_labels.long_running],
     skip_for_os = [
         "darwin",
         "windows",
