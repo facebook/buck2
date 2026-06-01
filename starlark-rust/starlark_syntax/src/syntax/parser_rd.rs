@@ -192,12 +192,12 @@ impl<'a, I: Iterator<Item = Lexeme>> ParserRd<'a, I> {
                 format!("Parse error: unexpected end of file, expected {}", what),
             ),
         };
-        EvalException::new_anyhow(anyhow::anyhow!(msg), span, self.state.codemap)
+        EvalException::parser_error(msg, span, self.state.codemap)
     }
 
     fn error_at(&self, start: usize, end: usize, msg: String) -> EvalException {
-        EvalException::new_anyhow(
-            anyhow::anyhow!(msg),
+        EvalException::parser_error(
+            msg,
             Span::new(Pos::new(start as u32), Pos::new(end as u32)),
             self.state.codemap,
         )
