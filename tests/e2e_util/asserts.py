@@ -47,6 +47,7 @@ def _indent(text: str) -> str:
 async def expect_failure(
     process: Awaitable[BuckResult],
     *,
+    # pyrefly: ignore [bad-function-definition]
     exception: Type[E] = BuckException,
     exit_code: Union[ExitCode, ExitCodeV2, None] = None,
     stdout_regex: Optional[str] = None,

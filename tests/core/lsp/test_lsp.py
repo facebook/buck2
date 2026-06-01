@@ -290,6 +290,7 @@ async def test_goto_definition(buck: Buck) -> None:
     async with await buck.lsp() as lsp:
         await lsp.init_connection()
         diags = await lsp.open_file(src_targets_path)
+        # pyrefly: ignore [unsupported-operation]
         assert len(diags["diagnostics"]) == 0
 
         res = await lsp.goto_definition(
@@ -298,7 +299,11 @@ async def test_goto_definition(buck: Buck) -> None:
             src_targets.start_col("load_click"),
         )
         _assert_goto_result(
-            res, src_targets.spans["load"], buck.cwd / dest_bzl_path, None
+            # pyrefly: ignore [bad-argument-type]
+            res,
+            src_targets.spans["load"],
+            buck.cwd / dest_bzl_path,
+            None,
         )
 
         res = await lsp.goto_definition(
@@ -307,6 +312,7 @@ async def test_goto_definition(buck: Buck) -> None:
             src_targets.start_col("dummy_click"),
         )
         _assert_goto_result(
+            # pyrefly: ignore [bad-argument-type]
             res,
             src_targets.spans["dummy"],
             buck.cwd / dest_bzl_path,
@@ -318,6 +324,7 @@ async def test_goto_definition(buck: Buck) -> None:
             src_targets.start_line("missing_click"),
             src_targets.start_col("missing_click"),
         )
+        # pyrefly: ignore [bad-argument-type]
         assert len(res) == 0
 
         res = await lsp.goto_definition(
@@ -326,7 +333,11 @@ async def test_goto_definition(buck: Buck) -> None:
             src_targets.start_col("missing_foo_click"),
         )
         _assert_goto_result(
-            res, src_targets.spans["missing_foo"], buck.cwd / dest_targets_path, None
+            # pyrefly: ignore [bad-argument-type]
+            res,
+            src_targets.spans["missing_foo"],
+            buck.cwd / dest_targets_path,
+            None,
         )
 
         res = await lsp.goto_definition(
@@ -335,6 +346,7 @@ async def test_goto_definition(buck: Buck) -> None:
             src_targets.start_col("rule_click"),
         )
         _assert_goto_result(
+            # pyrefly: ignore [bad-argument-type]
             res,
             src_targets.spans["rule"],
             buck.cwd / dest_bzl_path,
@@ -347,6 +359,7 @@ async def test_goto_definition(buck: Buck) -> None:
             src_targets.start_col("baz_click"),
         )
         _assert_goto_result(
+            # pyrefly: ignore [bad-argument-type]
             res,
             src_targets.spans["baz"],
             buck.cwd / dest_targets_path,
@@ -360,9 +373,11 @@ async def test_returns_file_contents_for_starlark_types(buck: Buck) -> None:
         await lsp.init_connection()
 
         res = await lsp.file_contents("starlark:/native/DefaultInfo.bzl")
+        # pyrefly: ignore [unsupported-operation]
         assert res["contents"] is not None
 
         res = await lsp.file_contents("starlark:/native/NonExistent.bzl")
+        # pyrefly: ignore [unsupported-operation]
         assert res["contents"] is None
 
         with pytest.raises(LSPResponseError):
@@ -377,6 +392,7 @@ async def test_goto_definition_for_globals(buck: Buck) -> None:
     async with await buck.lsp() as lsp:
         await lsp.init_connection()
         diags = await lsp.open_file(globals_bzl_path)
+        # pyrefly: ignore [unsupported-operation]
         assert len(diags["diagnostics"]) == 0
 
         res = await lsp.goto_definition(
@@ -385,12 +401,18 @@ async def test_goto_definition_for_globals(buck: Buck) -> None:
             globals_bzl.start_col("func2_click"),
         )
 
+        # pyrefly: ignore [bad-argument-type]
         assert len(res) == 1
+        # pyrefly: ignore [unsupported-operation]
         _assert_range(res[0]["originSelectionRange"], globals_bzl.spans["func2"])
+        # pyrefly: ignore [unsupported-operation]
         assert res[0]["targetRange"]["start"]["line"] != 0
+        # pyrefly: ignore [unsupported-operation]
         assert res[0]["targetSelectionRange"]["start"]["line"] != 0
         _assert_uris(
-            res[0]["targetUri"], (buck.cwd / "prelude" / "prelude.bzl").as_uri()
+            # pyrefly: ignore [unsupported-operation]
+            res[0]["targetUri"],
+            (buck.cwd / "prelude" / "prelude.bzl").as_uri(),
         )
 
         res = await lsp.goto_definition(
@@ -399,8 +421,11 @@ async def test_goto_definition_for_globals(buck: Buck) -> None:
             globals_bzl.start_col("info_click"),
         )
 
+        # pyrefly: ignore [bad-argument-type]
         assert len(res) == 1
+        # pyrefly: ignore [unsupported-operation]
         _assert_range(res[0]["originSelectionRange"], globals_bzl.spans["info"])
+        # pyrefly: ignore [unsupported-operation]
         _assert_uris(res[0]["targetUri"], "starlark:/native/DefaultInfo.bzl")
 
         res = await lsp.goto_definition(
@@ -408,6 +433,7 @@ async def test_goto_definition_for_globals(buck: Buck) -> None:
             globals_bzl.start_line("invalid_click"),
             globals_bzl.start_col("invalid_click"),
         )
+        # pyrefly: ignore [bad-argument-type]
         assert len(res) == 0
 
 
@@ -420,6 +446,7 @@ async def test_supports_bxl_files(buck: Buck) -> None:
     async with await buck.lsp() as lsp:
         await lsp.init_connection()
         diags = await lsp.open_file(src_bxl_path)
+        # pyrefly: ignore [unsupported-operation]
         assert len(diags["diagnostics"]) == 0
 
         res = await lsp.goto_definition(
@@ -428,6 +455,7 @@ async def test_supports_bxl_files(buck: Buck) -> None:
             src_bxl.start_col("foo_click"),
         )
         _assert_goto_result(
+            # pyrefly: ignore [bad-argument-type]
             res,
             src_bxl.spans["foo"],
             buck.cwd / src_bxl_path,
@@ -440,5 +468,9 @@ async def test_supports_bxl_files(buck: Buck) -> None:
             src_bxl.start_col("f_click"),
         )
         _assert_goto_result(
-            res, src_bxl.spans["f"], buck.cwd / src_bxl_path, src_bxl.spans["dest_f"]
+            # pyrefly: ignore [bad-argument-type]
+            res,
+            src_bxl.spans["f"],
+            buck.cwd / src_bxl_path,
+            src_bxl.spans["dest_f"],
         )
