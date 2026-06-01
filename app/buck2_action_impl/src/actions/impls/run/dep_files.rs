@@ -558,21 +558,18 @@ impl DepFileBundle {
         // Everything in the common digest structure is included in the remote dep file key,
         // so they should be the same but it's good to double check.
         let common = &self.common_digests;
-        if common.commandline_cli_digest.as_bytes().to_vec() != found.commandline_cli_digest {
+        if common.commandline_cli_digest.as_bytes() != found.commandline_cli_digest.as_slice() {
             tracing::debug!("Remote dep files miss: command cli digests are different");
             return Ok(false);
         }
-        if common.output_paths_digest.raw_digest().as_bytes().to_vec() != found.output_paths_digest
+        if common.output_paths_digest.raw_digest().as_bytes()
+            != found.output_paths_digest.as_slice()
         {
             tracing::debug!("Remote dep files miss: output paths digest are different");
             return Ok(false);
         }
-        if common
-            .untagged_inputs_digest
-            .raw_digest()
-            .as_bytes()
-            .to_vec()
-            != found.untagged_inputs_digest
+        if common.untagged_inputs_digest.raw_digest().as_bytes()
+            != found.untagged_inputs_digest.as_slice()
         {
             tracing::debug!("Remote dep files miss: untagged inputs digest are different");
             return Ok(false);
@@ -640,7 +637,7 @@ impl DepFileBundle {
             .iter()
             .zip(found.dep_file_inputs.iter())
             .filter(|((_, f1), found)| {
-                f1.fingerprint().raw_digest().as_bytes().to_vec() != found.filtered_fingerprint
+                f1.fingerprint().raw_digest().as_bytes() != found.filtered_fingerprint.as_slice()
             })
             .count();
 
