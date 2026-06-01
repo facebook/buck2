@@ -204,6 +204,16 @@ impl ReGang {
     }
 }
 
+#[cfg(not(test))]
+fn revision() -> Option<String> {
+    crate::execution_types::revision::REVISION.clone()
+}
+
+#[cfg(test)]
+fn revision() -> Option<String> {
+    crate::execution_types::mock_revision::MOCK_REVISION.with(|r| r.borrow().clone())
+}
+
 impl RemoteExecutorDependency {
     pub fn parse(dep_map: SmallMap<&str, &str>) -> buck2_error::Result<RemoteExecutorDependency> {
         fn username() -> Option<String> {
@@ -229,11 +239,18 @@ impl RemoteExecutorDependency {
 
         let id = if *interpolate == "true" {
             let username: Option<String> = username();
+            let mut interpolated_id = id.to_string();
             if let Some(username) = username {
-                id.replace("$(username)", &username)
+                interpolated_id = interpolated_id.replace("$(username)", &username);
             } else {
-                id.replace("$(username)", "")
+                interpolated_id = interpolated_id.replace("$(username)", "");
             }
+            if interpolated_id.contains("$(revision)") {
+                let revision = revision().unwrap_or_default();
+                interpolated_id = interpolated_id.replace("$(revision)", &revision);
+            }
+
+            interpolated_id
         } else {
             id.to_string()
         };
@@ -579,6 +596,7 @@ impl MetaInternalExtraParams {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::execution_types::mock_revision::with_test_revision;
 
     #[test]
     fn test_re_gang_worker_parse_success() {
@@ -596,6 +614,71 @@ mod tests {
             Some(&"H100".to_owned())
         );
         assert_eq!(worker.capabilities.get("rack"), Some(&"rack_01".to_owned()));
+    }
+
+    #[test]
+    fn test_dependency_parse_with_revision_interpolation_clean() {
+        with_test_revision(
+            Some("abc123def456abc123def456abc123def456abcd".to_owned()),
+            || {
+                let mut dep_map = SmallMap::new();
+                dep_map.insert("smc_tier", "my.tier");
+                dep_map.insert("id", "Sandbox:host:$(revision)");
+                dep_map.insert("enable_interpolation", "true");
+
+                let dep = RemoteExecutorDependency::parse(dep_map).unwrap();
+                assert_eq!(
+                    dep.id,
+                    "Sandbox:host:abc123def456abc123def456abc123def456abcd"
+                );
+            },
+        );
+    }
+
+    #[test]
+    fn test_dependency_parse_with_revision_interpolation_dirty() {
+        with_test_revision(
+            Some("abc123def456abc123def456abc123def456abcd+".to_owned()),
+            || {
+                let mut dep_map = SmallMap::new();
+                dep_map.insert("smc_tier", "my.tier");
+                dep_map.insert("id", "Sandbox:host:$(revision)");
+                dep_map.insert("enable_interpolation", "true");
+
+                let dep = RemoteExecutorDependency::parse(dep_map).unwrap();
+                assert_eq!(
+                    dep.id,
+                    "Sandbox:host:abc123def456abc123def456abc123def456abcd+"
+                );
+            },
+        );
+    }
+
+    #[test]
+    fn test_dependency_parse_with_revision_interpolation_missing() {
+        with_test_revision(None, || {
+            let mut dep_map = SmallMap::new();
+            dep_map.insert("smc_tier", "my.tier");
+            dep_map.insert("id", "Sandbox:host:$(revision)");
+            dep_map.insert("enable_interpolation", "true");
+
+            let dep = RemoteExecutorDependency::parse(dep_map).unwrap();
+            assert_eq!(dep.id, "Sandbox:host:");
+        });
+    }
+
+    #[test]
+    fn test_dependency_parse_without_revision_placeholder() {
+        let mut dep_map = SmallMap::new();
+        dep_map.insert("smc_tier", "my.tier");
+        dep_map.insert("id", "Limit:foo");
+        dep_map.insert("enable_interpolation", "true");
+
+        let dep = RemoteExecutorDependency::parse(dep_map).unwrap();
+        assert_eq!(
+            dep.id, "Limit:foo",
+            "id without placeholders should be unchanged"
+        );
     }
 
     #[test]
