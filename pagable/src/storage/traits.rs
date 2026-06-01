@@ -428,8 +428,8 @@ mod tests {
                 tokio::spawn(async move {
                     let data = storage.fetch_data_blocking(&key)?;
                     let mut deser = PagableDeserializerImpl::new(&data.data, &data.arcs, &handle);
-                    let _: u8 = crate::PagableDeserialize::pagable_deserialize(&mut deser)?;
-                    let _: Arc<Vec<u8>> =
+                    let _value: u8 = crate::PagableDeserialize::pagable_deserialize(&mut deser)?;
+                    let _values: Arc<Vec<u8>> =
                         crate::PagableDeserialize::pagable_deserialize(&mut deser)?;
                     Ok::<_, anyhow::Error>(())
                 })
