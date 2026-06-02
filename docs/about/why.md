@@ -143,7 +143,5 @@ There are also some things that aren't quite yet finished:
 
 - There are not yet mechanisms to build in release mode (that should be achieved
   by modifying the toolchain).
-- Windows/Mac builds are still in progress; open-source code is mostly tested on
-  Linux.
 
 If none of that puts you off, [give Buck2 a go](../getting_started/index.md)!
