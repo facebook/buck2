@@ -373,8 +373,8 @@ gazebo.version = "0.8.1"
 host_sharing = { path = "host_sharing" }
 lock_free_hashtable = { version = "0.1.4", path = "shed/lock_free_hashtable" }
 lock_free_vec = { path = "shed/lock_free_vec" }
-pagable = { version = "0.3.3", path = "pagable", features = ["tokio"] }
-pagable_storage = { version = "0.3.3", path = "pagable_storage", features = ["tokio"] }
+pagable = { version = "0.4.0", path = "pagable", features = ["tokio"] }
+pagable_storage = { version = "0.4.0", path = "pagable_storage", features = ["tokio"] }
 provider = { path = "shed/provider" }
 remote_execution = { path = "remote_execution/oss/re_grpc" }
 setsketch = { path = "shed/setsketch" }

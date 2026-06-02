@@ -4,7 +4,7 @@ edition = "2024"
 license = { workspace = true }
 name = "pagable_storage"
 repository = { workspace = true }
-version = "0.3.3"
+version = "0.4.0"
 
 [dependencies]
 anyhow = { workspace = true }
@@ -12,7 +12,7 @@ async-trait = { workspace = true }
 bytemuck = { workspace = true }
 dashmap = { workspace = true }
 either = { workspace = true }
-pagable = { version = "=0.3.3", path = "../pagable" }
+pagable = { version = "=0.4.0", path = "../pagable" }
 rusqlite = { version = "0.37.0", features = ["bundled"] }
 sled = { workspace = true }
 tokio = { workspace = true, optional = true }
