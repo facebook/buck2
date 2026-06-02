@@ -22,7 +22,6 @@
 //! to know which vtable to use for a given type, and this registry provides
 //! that mapping.
 
-use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
@@ -38,6 +37,12 @@ use crate::values::layout::vtable::AValueVTable;
 /// `std::any::type_name`. It uniquely identifies a concrete Rust type for
 /// deserialization purposes, unlike `StarlarkValue::TYPE` which can be shared
 /// (e.g., "function" for EnumType and NativeFunction).
+///
+/// In the serialized form a `DeserTypeId` is encoded not as its (long) type-name
+/// string but as a compact `u32` index into the vtable registry. The index is
+/// assigned by sorting all registered type names, so it depends only on the set
+/// of registered types and is therefore stable across runs of the same binary.
+/// See [`VtableRegistry`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct DeserTypeId(pub &'static str);
 
@@ -46,7 +51,14 @@ impl pagable::PagableSerialize for DeserTypeId {
         &self,
         serializer: &mut dyn pagable::PagableSerializer,
     ) -> pagable::Result<()> {
-        self.0.pagable_serialize(serializer)
+        let index = VTABLE_REGISTRY
+            .type_to_id
+            .get(self)
+            .copied()
+            .ok_or_else(|| {
+                anyhow::anyhow!("Type `{}` was not registered for serialization", self.0)
+            })?;
+        index.pagable_serialize(serializer)
     }
 }
 
@@ -54,12 +66,16 @@ impl<'de> pagable::PagableDeserialize<'de> for DeserTypeId {
     fn pagable_deserialize<D: pagable::PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> pagable::Result<Self> {
-        let name = String::pagable_deserialize(deserializer)?;
+        let index = u32::pagable_deserialize(deserializer)?;
         VTABLE_REGISTRY
-            .get_key_value(name.as_str())
-            .map(|(k, _)| *k)
+            .id_to_type
+            .get(index as usize)
+            .copied()
             .ok_or_else(|| {
-                anyhow::anyhow!("Type `{}` was not registered for deserialization", name)
+                anyhow::anyhow!(
+                    "Type index `{index}` is out of range ({} types registered for deserialization)",
+                    VTABLE_REGISTRY.id_to_type.len()
+                )
             })
     }
 }
@@ -84,12 +100,6 @@ impl Display for DeserTypeId {
     }
 }
 
-impl Borrow<str> for DeserTypeId {
-    fn borrow(&self) -> &str {
-        self.0
-    }
-}
-
 /// Registry entry for vtable lookup during deserialization.
 /// Collected at compile time via the `inventory` crate.
 pub struct VTableRegistryEntry {
@@ -102,30 +112,69 @@ pub struct VTableRegistryEntry {
 
 inventory::collect!(VTableRegistryEntry);
 
-/// Lookup table mapping deser_type_id to vtable, built lazily from inventory.
-static VTABLE_REGISTRY: LazyLock<HashMap<DeserTypeId, &'static AValueVTable>> =
-    LazyLock::new(|| {
+/// Bidirectional registry of all `inventory`-collected vtable entries, built
+/// once on first use.
+///
+/// Each type gets a dense index, assigned by sorting type names so it depends
+/// only on the *set* of registered types (not inventory order) and is stable
+/// across runs of the same binary. This is what lets the serialized form refer
+/// to a type by index instead of by its full name.
+struct VtableRegistry {
+    /// Type id → vtable. Backs [`lookup_vtable`].
+    by_type: HashMap<DeserTypeId, &'static AValueVTable>,
+    /// Index → type id. Backs deserialization (`u32` index → `DeserTypeId`).
+    id_to_type: Vec<DeserTypeId>,
+    /// Type id → index. Backs serialization (`DeserTypeId` → `u32` index).
+    type_to_id: HashMap<DeserTypeId, u32>,
+}
+
+/// Lookup tables for vtable resolution, built lazily from inventory.
+static VTABLE_REGISTRY: LazyLock<VtableRegistry> = LazyLock::new(|| {
+    // Deduplicate by type id first so a type submitted more than once still
+    // gets a single index (matching the previous `HashMap`-based registry).
+    let by_type: HashMap<DeserTypeId, &'static AValueVTable> =
         inventory::iter::<VTableRegistryEntry>()
             .map(|e| (e.deser_type_id, e.vtable))
-            .collect()
-    });
+            .collect();
+
+    // Sort by type name so each type's index depends only on the set of
+    // registered types, making it stable across runs of the same binary.
+    let mut id_to_type: Vec<DeserTypeId> = by_type.keys().copied().collect();
+    id_to_type.sort_unstable_by_key(|id| id.0);
+
+    let type_to_id = id_to_type
+        .iter()
+        .enumerate()
+        .map(|(index, id)| (*id, index as u32))
+        .collect();
+
+    VtableRegistry {
+        by_type,
+        id_to_type,
+        type_to_id,
+    }
+});
 
 /// Look up a vtable by its deserialization type id.
 /// Returns an error if the type is not registered.
 #[allow(dead_code)]
 pub fn lookup_vtable(deser_type_id: DeserTypeId) -> crate::Result<&'static AValueVTable> {
-    VTABLE_REGISTRY.get(&deser_type_id).copied().ok_or_else(|| {
-        PagableError::TypeNotRegistered {
-            type_id: deser_type_id,
-        }
-        .into()
-    })
+    VTABLE_REGISTRY
+        .by_type
+        .get(&deser_type_id)
+        .copied()
+        .ok_or_else(|| {
+            PagableError::TypeNotRegistered {
+                type_id: deser_type_id,
+            }
+            .into()
+        })
 }
 
 /// Get a list of all registered type IDs (for debugging/testing).
 #[cfg(test)]
 pub(crate) fn registered_type_ids() -> Vec<DeserTypeId> {
-    VTABLE_REGISTRY.keys().copied().collect()
+    VTABLE_REGISTRY.by_type.keys().copied().collect()
 }
 
 #[cfg(test)]
@@ -190,6 +239,70 @@ mod tests {
     #[starlark_value(type = "TestComplex")]
     impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for TestComplexGen<V> where Self: ProvidesStaticType<'v>
     {}
+
+    #[test]
+    fn test_type_id_index_round_trips_through_registry() {
+        // Every registered type maps to an index that maps back to the same type.
+        for id in registered_type_ids() {
+            let index = VTABLE_REGISTRY.type_to_id.get(&id).copied().unwrap();
+            assert_eq!(VTABLE_REGISTRY.id_to_type[index as usize], id);
+        }
+    }
+
+    #[test]
+    fn test_type_id_indices_are_dense_and_unique() {
+        // Indices form a contiguous 0..N range with no gaps or duplicates,
+        // so they round-trip through the `id_to_type` Vec.
+        let n = VTABLE_REGISTRY.id_to_type.len();
+        assert_eq!(VTABLE_REGISTRY.type_to_id.len(), n);
+        let mut indices: Vec<u32> = VTABLE_REGISTRY.type_to_id.values().copied().collect();
+        indices.sort_unstable();
+        assert_eq!(indices, (0..n as u32).collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn test_type_id_indices_are_sorted_by_name() {
+        // Indices are assigned in sorted type-name order; this is what makes
+        // them stable across runs of the same binary.
+        let names: Vec<&str> = VTABLE_REGISTRY.id_to_type.iter().map(|id| id.0).collect();
+        let mut sorted = names.clone();
+        sorted.sort_unstable();
+        assert_eq!(
+            names, sorted,
+            "ids must be assigned in sorted type-name order"
+        );
+    }
+
+    #[test]
+    fn test_deser_type_id_serializes_as_compact_index() -> crate::Result<()> {
+        use pagable::PagableDeserialize;
+        use pagable::PagableSerialize;
+
+        use crate::values::types::string::str_type::StarlarkStr;
+
+        let id = DeserTypeId::of::<StarlarkStr>();
+
+        let mut ser = pagable::testing::TestingSerializer::new();
+        id.pagable_serialize(&mut ser)
+            .map_err(crate::Error::new_other)?;
+        let bytes = ser.finish();
+
+        // The encoded form is a small varint index, not the full type-name
+        // string — that is the whole point of the index encoding.
+        assert!(
+            bytes.len() < id.0.len(),
+            "expected index encoding ({} bytes) to be smaller than type name `{}` ({} bytes)",
+            bytes.len(),
+            id.0,
+            id.0.len(),
+        );
+
+        let mut de = pagable::testing::TestingDeserializer::new(&bytes);
+        let restored =
+            DeserTypeId::pagable_deserialize(&mut de).map_err(crate::Error::new_other)?;
+        assert_eq!(restored, id);
+        Ok(())
+    }
 
     #[test]
     fn test_simple_type_is_registered() {

@@ -425,7 +425,7 @@ impl FrozenFrozenHeap {
     /// // Metadata — postcard encoded, variable size.
     /// for each value:
     ///   [arena_offset: ArenaOffset]
-    ///   [deser_type_id: DeserTypeId]
+    ///   [deser_type_id: u32]    // sorted index into the vtable registry
     ///   [alloc_size: u32]
     /// // base_pos starts here — offsets are relative to this point.
     /// // Value data — postcard encoded, sequential.
