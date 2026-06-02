@@ -382,7 +382,7 @@ impl<'a> BuckTestOrchestrator<'a> {
                 execution_kind: execution_kind.map(|k| k.to_proto(false)),
             },
             max_memory_used_bytes: timing.execution_stats.and_then(|s| s.memory_peak),
-            command_execution: Some(command_execution),
+            command_execution,
         })
     }
 
@@ -986,7 +986,7 @@ struct ExecuteData {
     pub timing: CommandExecutionMetadata,
     pub execution_kind: Option<CommandExecutionKind>,
     pub outputs: Vec<(BuckOutTestPath, ArtifactValue)>,
-    pub command_execution: buck2_data::CommandExecution,
+    pub command_execution: Option<buck2_data::CommandExecution>,
 }
 
 impl BuckTestOrchestrator<'_> {
@@ -1167,10 +1167,12 @@ impl BuckTestOrchestrator<'_> {
                     .await
             }
         };
-        let command_execution = command_exec_result
-            .report
-            .to_command_execution_proto(false, false, false)
-            .await;
+        let command_execution = Some(
+            command_exec_result
+                .report
+                .to_command_execution_proto(false, false, false)
+                .await,
+        );
 
         let CommandExecutionResult {
             outputs,

@@ -14,6 +14,24 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
 @buck_test(inplace=True)
+async def test_re_resource_exhausted_reported_as_infra_failure(buck: Buck) -> None:
+    result = await buck.test(
+        "--remote-only",
+        "--no-remote-cache",
+        "fbcode//buck2/tests/targets/rules/sh_test:test_remote_explicit",
+        "--",
+        "--experiment",
+        "classify_re_error_as_infra",
+        env={
+            "BUCK2_TEST_FAIL_RE_RESOURCE_EXHAUSTED": "true",
+        },
+    )
+    assert "FATAL" not in result.stderr
+    assert "Infra Failure 1" in result.stderr
+    assert "resource exhausted" in result.stderr.lower()
+
+
+@buck_test(inplace=True)
 async def test_cancel_test_if_re_queue_longer_than_threshold(buck: Buck) -> None:
     args = [
         "-c",

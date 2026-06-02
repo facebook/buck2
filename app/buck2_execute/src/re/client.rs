@@ -1501,6 +1501,17 @@ impl RemoteExecutionClientImpl {
             return Err(test_re_error("Injected error", TCode::FAILED_PRECONDITION));
         }
 
+        if buck2_env!(
+            "BUCK2_TEST_FAIL_RE_RESOURCE_EXHAUSTED",
+            bool,
+            applicability = testing
+        )? {
+            return Err(test_re_error(
+                "Injected RE resource exhausted error",
+                TCode::RESOURCE_EXHAUSTED,
+            ));
+        }
+
         let induced_cache_miss = if let Some(m) = &*INDUCED_CACHE_MISSES {
             m.get(&action_digest.to_string())
                 .filter(|v| !v.load(std::sync::atomic::Ordering::Relaxed))
