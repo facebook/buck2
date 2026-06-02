@@ -49,14 +49,7 @@ static PyObject* _handle_single_phase_initialization(
     modules = PyImport_GetModuleDict();
   }
 
-  // TODO private api usage
-#if PY_VERSION_HEX >= 0x030D0000
-  PyThreadState* tstate = PyThreadState_GET();
-  int result = _Ci_PyImport_FinishSinglePhaseExtension(
-      (int*)tstate, mod, def, name, modules);
-#else
   int result = _PyImport_FixupExtensionObject(mod, name, name, modules);
-#endif
   Py_DECREF(path);
   Py_DECREF(name);
   if (result < 0) {
@@ -104,15 +97,21 @@ static PyObject* _create_module(PyObject* self, PyObject* spec) {
 #if PY_VERSION_HEX >= 0x030F0000
   throw std::runtime_error(
       "Native python does not support Python 3.15 and later.");
-#elif PY_VERSION_HEX >= 0x030E0000
+#elif PY_VERSION_HEX >= 0x030E0000 && defined(META_PYTHON)
   mod = _Ci_PyImport_CreateBuiltinFromSpecAndInitfunc(spec, initfunc);
+#elif PY_VERSION_HEX >= 0x030E0000
+  mod = PyImport_CreateModuleFromInitfunc(spec, initfunc);
 #elif PY_VERSION_HEX >= 0x030D0000
-  // Python 3.13 has a new C-API for calling module init functions
-  mod = _Ci_PyImport_CallInitFuncWithContext(namestr.c_str(), initfunc);
-#elif PY_VERSION_HEX >= 0x030C0000 && !defined(OSS_PYTHON)
+  // There is no supported Meta/Cinder Python 3.13 build, and stock Python 3.13
+  // has no _Py_PackageContext.
+  mod = initfunc();
+#elif PY_VERSION_HEX >= 0x030C0000 && defined(META_PYTHON_STATIC_EXTENSION_APIS)
   // Use our custom Python 3.12 C-API to call the statically linked module init
   // function
   mod = _Ci_PyImport_CallInitFuncWithContext(namestr.c_str(), initfunc);
+#elif PY_VERSION_HEX >= 0x030C0000
+  // Stock CPython 3.12+ (no _Py_PackageContext)
+  mod = initfunc();
 #elif PY_VERSION_HEX >= 0x030A0000
   // In Python 3.10 we need to handle package context swapping
   // ourselves

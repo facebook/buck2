@@ -256,7 +256,10 @@ def _compute_cxx_executable_info(
 ) -> CxxExecutableOutput:
     cxx_executable_srcs = [
         CxxSrcWithFlags(file = ctx.attrs.cxx_main, flags = []),
-        CxxSrcWithFlags(file = ctx.attrs.static_extension_utils, flags = ["-DOSS_PYTHON=1"] if ctx.attrs.use_oss_python else []),
+        CxxSrcWithFlags(
+            file = ctx.attrs.static_extension_utils,
+            flags = ["-DOSS_PYTHON=1"] if ctx.attrs.use_oss_python else ["-DMETA_PYTHON_STATIC_EXTENSION_APIS=1"],
+        ),
         CxxSrcWithFlags(file = static_extension_info_out, flags = []),
     ]
 
