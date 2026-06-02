@@ -8,7 +8,7 @@ edition = "2024"
 license = "Apache-2.0"
 name = "starlark_map"
 repository = "https://github.com/facebook/starlark-rust"
-version = "0.14.0"
+version = "0.14.1"
 
 [features]
 default = []

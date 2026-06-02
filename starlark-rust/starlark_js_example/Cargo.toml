@@ -6,7 +6,7 @@ publish = false
 version = "0.0.0"
 
 [dependencies]
-starlark = { path = "../starlark", version = "0.14.0" }
+starlark = { path = "../starlark", version = "0.14.1" }
 
 [lib]
 crate-type = ["cdylib", "rlib"]
