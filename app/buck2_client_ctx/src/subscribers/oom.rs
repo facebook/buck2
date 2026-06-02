@@ -105,9 +105,12 @@ pub(crate) async fn check_daemon_oom_killed(
 
     let stdout_str = String::from_utf8_lossy(&output.stdout);
     let reversed_lines: Vec<&str> = stdout_str.lines().rev().collect();
-    if let Some(last_line) = reversed_lines.first() {
-        tracing::debug!("dmesg last entry: {}", last_line);
-    }
+    tracing::debug!(
+        "OOM detection: dmesg --since {:?} returned {} lines, last: {:?}",
+        since_str,
+        reversed_lines.len(),
+        reversed_lines.first(),
+    );
     let matcher = Buck2CgroupMatcher::new(cgroup_path_of_buck2_daemon);
     for line in &reversed_lines {
         if matcher.dmesg_line_matches_oom_kill(line) {
