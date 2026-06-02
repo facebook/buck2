@@ -467,6 +467,7 @@ pub struct ExecutionResult2 {
     /// We don't try to convert this field, mostly because it shares with buck2.data, and that
     /// seems to have very little value. We just validate it's sent.
     pub execution_details: ExecutionDetails,
+    pub command_execution: Option<buck2_data::CommandExecution>,
 }
 
 pub enum CancellationReason {

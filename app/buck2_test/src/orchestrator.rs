@@ -292,6 +292,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             timing,
             execution_kind,
             outputs,
+            command_execution,
         } = prepare_and_execute(
             self.dice.dupe().deref_mut(),
             self.cancellations,
@@ -381,6 +382,7 @@ impl<'a> BuckTestOrchestrator<'a> {
                 execution_kind: execution_kind.map(|k| k.to_proto(false)),
             },
             max_memory_used_bytes: timing.execution_stats.and_then(|s| s.memory_peak),
+            command_execution: Some(command_execution),
         })
     }
 
@@ -984,6 +986,7 @@ struct ExecuteData {
     pub timing: CommandExecutionMetadata,
     pub execution_kind: Option<CommandExecutionKind>,
     pub outputs: Vec<(BuckOutTestPath, ArtifactValue)>,
+    pub command_execution: buck2_data::CommandExecution,
 }
 
 impl BuckTestOrchestrator<'_> {
@@ -1164,6 +1167,10 @@ impl BuckTestOrchestrator<'_> {
                     .await
             }
         };
+        let command_execution = command_exec_result
+            .report
+            .to_command_execution_proto(false, false, false)
+            .await;
 
         let CommandExecutionResult {
             outputs,
@@ -1204,6 +1211,7 @@ impl BuckTestOrchestrator<'_> {
                 timing,
                 execution_kind: Some(execution_kind),
                 outputs,
+                command_execution,
             },
             CommandExecutionStatus::Failure { execution_kind }
             | CommandExecutionStatus::WorkerFailure { execution_kind } => ExecuteData {
@@ -1215,6 +1223,7 @@ impl BuckTestOrchestrator<'_> {
                 timing,
                 execution_kind: Some(execution_kind),
                 outputs,
+                command_execution,
             },
             CommandExecutionStatus::TimedOut {
                 duration,
@@ -1226,6 +1235,7 @@ impl BuckTestOrchestrator<'_> {
                 timing,
                 execution_kind: Some(execution_kind),
                 outputs,
+                command_execution,
             },
             CommandExecutionStatus::Error {
                 error,
@@ -1240,6 +1250,7 @@ impl BuckTestOrchestrator<'_> {
                 timing,
                 execution_kind,
                 outputs,
+                command_execution,
             },
             CommandExecutionStatus::Cancelled {
                 execution_kind: _,

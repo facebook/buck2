@@ -921,6 +921,7 @@ impl TryInto<buck2_test_proto::ExecutionResult2> for ExecutionResult2 {
             execution_time: Some(self.execution_time.try_into()?),
             execution_details: Some(self.execution_details),
             max_memory_used_bytes: self.max_memory_used_bytes,
+            command_execution: self.command_execution,
         })
     }
 }
@@ -938,6 +939,7 @@ impl TryFrom<buck2_test_proto::ExecutionResult2> for ExecutionResult2 {
             execution_time,
             execution_details,
             max_memory_used_bytes,
+            command_execution,
         } = s;
         let status = status
             .ok_or_else(|| internal_error!("Missing `status`"))?
@@ -994,6 +996,7 @@ impl TryFrom<buck2_test_proto::ExecutionResult2> for ExecutionResult2 {
             execution_time,
             max_memory_used_bytes,
             execution_details,
+            command_execution,
         })
     }
 }
@@ -1343,6 +1346,7 @@ mod tests {
             execution_time: Duration::from_secs(456),
             execution_details: Default::default(),
             max_memory_used_bytes: None,
+            command_execution: None,
         };
         assert_roundtrips::<buck2_test_proto::ExecutionResult2, ExecutionResult2>(&result);
     }
