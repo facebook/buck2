@@ -197,6 +197,7 @@ async fn main() -> anyhow::Result<()> {
 
 fn emit_totals(dice: &Dice) -> anyhow::Result<()> {
     let m = dice.metrics();
+    #[allow(clippy::redundant_closure_call)]
     let row = json_value::json!({
         "type": "metrics",
         "dice_nodes": m.key_count,
