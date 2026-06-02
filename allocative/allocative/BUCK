@@ -20,6 +20,7 @@ rust_library(
     features = [
         "anyhow",
         "bumpalo",
+        "chrono",
         "dashmap",
         "either",
         "futures",
@@ -53,6 +54,7 @@ rust_library(
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:bumpalo",
+        "fbsource//third-party/rust:chrono",
         "fbsource//third-party/rust:compact_str",
         "fbsource//third-party/rust:ctor",
         "fbsource//third-party/rust:dashmap",
