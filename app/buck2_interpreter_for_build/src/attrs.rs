@@ -24,6 +24,7 @@ use crate::attrs::coerce::error::CoercionError;
 pub(crate) mod attrs_global;
 pub mod coerce;
 pub(crate) mod starlark_attribute;
+pub(crate) mod visibility_record;
 pub use starlark_attribute::StarlarkAttribute;
 
 #[derive(Debug, buck2_error::Error)]

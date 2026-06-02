@@ -73,7 +73,7 @@ pub(crate) fn check_within_view(
         fn check_dep_within_view(&self, dep: &TargetLabel) -> buck2_error::Result<()> {
             if self.pkg == dep.pkg()
                 || self.default_deps.contains(dep)
-                || self.within_view.0.matches_target(dep)
+                || self.within_view.0.matches_target(dep)?
             {
                 Ok(())
             } else {

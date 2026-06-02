@@ -27,6 +27,7 @@ use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::display::AttrDisplayWithContext;
 use buck2_node::attrs::fmt_context::AttrFmtContext;
 use buck2_node::attrs::serialize::AttrSerializeWithContext;
+use buck2_node::visibility::VisibilityPattern;
 use buck2_node::visibility::VisibilityPatternList;
 use buck2_node::visibility::VisibilitySpecification;
 use buck2_node::visibility::WithinViewSpecification;
@@ -171,7 +172,10 @@ impl CoercedAttrExt for CoercedAttr {
             | CoercedAttr::WithinView(WithinViewSpecification(specs)) => match specs {
                 VisibilityPatternList::Public => heap.alloc(AllocList(["PUBLIC"])),
                 VisibilityPatternList::List(specs) => {
-                    heap.alloc(AllocList(specs.iter().map(|s| s.to_string())))
+                    heap.alloc(AllocList(specs.iter().map(|s| match s {
+                        VisibilityPattern::Parsed(p) => heap.alloc(p.to_string()),
+                        VisibilityPattern::TargetNameGlob(r) => r.alloc_starlark_value(heap),
+                    })))
                 }
                 VisibilityPatternList::Intersection(_) => {
                     return Err(internal_error!(

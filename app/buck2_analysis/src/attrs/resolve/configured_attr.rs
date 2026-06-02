@@ -27,6 +27,7 @@ use buck2_node::attrs::attr_type::source::SourceAttrType;
 use buck2_node::attrs::attr_type::split_transition_dep::SplitTransitionDepAttrType;
 use buck2_node::attrs::attr_type::transition_dep::TransitionDepAttrType;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
+use buck2_node::visibility::VisibilityPattern;
 use buck2_node::visibility::VisibilityPatternList;
 use buck2_node::visibility::VisibilitySpecification;
 use buck2_node::visibility::WithinViewSpecification;
@@ -215,7 +216,10 @@ fn configured_attr_to_value<'v>(
         | ConfiguredAttr::WithinView(WithinViewSpecification(specs)) => match specs {
             VisibilityPatternList::Public => heap.alloc(AllocList(["PUBLIC"])),
             VisibilityPatternList::List(specs) => {
-                heap.alloc(AllocList(specs.iter().map(|s| s.to_string())))
+                heap.alloc(AllocList(specs.iter().map(|s| match s {
+                    VisibilityPattern::Parsed(p) => heap.alloc(p.to_string()),
+                    VisibilityPattern::TargetNameGlob(record) => record.alloc_starlark_value(heap),
+                })))
             }
             VisibilityPatternList::Intersection(_) => {
                 return Err(internal_error!(

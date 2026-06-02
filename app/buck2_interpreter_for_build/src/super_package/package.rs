@@ -13,10 +13,12 @@ use buck2_core::cells::CellResolver;
 use buck2_core::cells::name::CellName;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_interpreter::paths::package::PackageFilePath;
+use buck2_node::visibility::StarlarkTargetNameGlob;
 use buck2_node::visibility::VisibilityPattern;
 use buck2_node::visibility::VisibilitySpecification;
 use buck2_node::visibility::VisibilityWithinViewBuilder;
 use buck2_node::visibility::WithinViewSpecification;
+use either::Either;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
@@ -40,46 +42,70 @@ enum PackageFileError {
     EnforceVisibilityIntersectionMustBeDirect,
 }
 
-fn parse_visibility(
-    patterns: &[String],
+fn add_visibility_pattern<'v>(
+    builder: &mut VisibilityWithinViewBuilder,
+    value: Either<&'v str, &'v StarlarkTargetNameGlob>,
+    cell_name: CellName,
+    cell_resolver: &CellResolver,
+    cell_alias_resolver: &CellAliasResolver,
+) -> buck2_error::Result<()> {
+    match value {
+        Either::Left(s) => {
+            if s == VisibilityPattern::PUBLIC {
+                builder.add_public();
+            } else {
+                builder.add(VisibilityPattern::Parsed(ParsedPattern::parse_precise(
+                    s,
+                    cell_name,
+                    cell_resolver,
+                    cell_alias_resolver,
+                )?));
+            }
+        }
+        Either::Right(target_name_glob) => {
+            let record = target_name_glob.coerce(|s| {
+                ParsedPattern::parse_precise(s, cell_name, cell_resolver, cell_alias_resolver)
+            })?;
+            builder.add(VisibilityPattern::TargetNameGlob(record));
+        }
+    }
+    Ok(())
+}
+
+fn parse_visibility<'v>(
+    patterns: &[Either<&'v str, &'v StarlarkTargetNameGlob>],
     cell_name: CellName,
     cell_resolver: &CellResolver,
     cell_alias_resolver: &CellAliasResolver,
 ) -> buck2_error::Result<VisibilitySpecification> {
     let mut builder = VisibilityWithinViewBuilder::with_capacity(patterns.len());
-    for pattern in patterns {
-        if pattern == VisibilityPattern::PUBLIC {
-            builder.add_public();
-        } else {
-            builder.add(VisibilityPattern(ParsedPattern::parse_precise(
-                pattern,
-                cell_name,
-                cell_resolver,
-                cell_alias_resolver,
-            )?));
-        }
+    for &pattern in patterns {
+        add_visibility_pattern(
+            &mut builder,
+            pattern,
+            cell_name,
+            cell_resolver,
+            cell_alias_resolver,
+        )?;
     }
     Ok(builder.build_visibility())
 }
 
-fn parse_within_view(
-    patterns: &[String],
+fn parse_within_view<'v>(
+    patterns: &[Either<&'v str, &'v StarlarkTargetNameGlob>],
     cell_name: CellName,
     cell_resolver: &CellResolver,
     cell_alias_resolver: &CellAliasResolver,
 ) -> buck2_error::Result<WithinViewSpecification> {
     let mut builder = VisibilityWithinViewBuilder::with_capacity(patterns.len());
-    for pattern in patterns {
-        if pattern == VisibilityPattern::PUBLIC {
-            builder.add_public();
-        } else {
-            builder.add(VisibilityPattern(ParsedPattern::parse_precise(
-                pattern,
-                cell_name,
-                cell_resolver,
-                cell_alias_resolver,
-            )?));
-        }
+    for &pattern in patterns {
+        add_visibility_pattern(
+            &mut builder,
+            pattern,
+            cell_name,
+            cell_resolver,
+            cell_alias_resolver,
+        )?;
     }
     Ok(builder.build_within_view())
 }
@@ -102,13 +128,13 @@ pub(crate) fn register_package_function(globals: &mut GlobalsBuilder) {
         Ok(NoneType)
     }
 
-    fn package(
+    fn package<'v>(
         #[starlark(require=named, default=false)] inherit: bool,
         #[starlark(require=named, default=NoneOr::None)] visibility: NoneOr<
-            UnpackListOrTuple<String>,
+            UnpackListOrTuple<Either<&'v str, &'v StarlarkTargetNameGlob>>,
         >,
         #[starlark(require=named, default=UnpackListOrTuple::default())]
-        within_view: UnpackListOrTuple<String>,
+        within_view: UnpackListOrTuple<Either<&'v str, &'v StarlarkTargetNameGlob>>,
         eval: &mut Evaluator,
     ) -> starlark::Result<NoneType> {
         let build_context = BuildContext::from_context(eval)?;

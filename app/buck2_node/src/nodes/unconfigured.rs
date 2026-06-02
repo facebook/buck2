@@ -289,10 +289,10 @@ impl TargetNode {
         if self.label().pkg() == target.pkg() {
             return Ok(true);
         }
-        if !self.visibility()?.0.matches_target(target) {
+        if !self.visibility()?.0.matches_target(target)? {
             return Ok(false);
         }
-        Ok(self.0.package.visibility_cap.matches_target(target))
+        self.0.package.visibility_cap.matches_target(target)
     }
 
     pub fn not_visible_to_error(&self, consumer: TargetLabel) -> VisibilityError {

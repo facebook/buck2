@@ -14,9 +14,20 @@ use pagable::Pagable;
 use crate::cells::cell_path::CellPath;
 use crate::package::PackageLabel;
 
-#[derive(Clone, Debug, Eq, PartialEq, Allocative, Pagable)]
+#[derive(
+    Clone,
+    Debug,
+    Eq,
+    Hash,
+    PartialEq,
+    Allocative,
+    Pagable,
+    derive_more::Display
+)]
 pub enum PackagePattern {
+    #[display("{}:", _0)]
     Package(PackageLabel),
+    #[display("{}{}...", _0, if _0.path().is_empty() { "" } else { "/" })]
     Recursive(CellPath),
 }
 
