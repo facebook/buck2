@@ -1963,6 +1963,10 @@ def _mk_argsfiles(
             # The precompile_args field overrides these.
             return
 
+        if _get_category(ext) == "asm_compile":
+            # Assemblers (NASM, MASM, gas) don't understand -ffile-prefix-map.
+            return
+
         # Put file_prefix_args in argsfile, make sure they do not appear when evaluating $(cxxppflags)
         # to avoid "argument too long" errors
         file_prefix_args = headers_tag.tag_artifacts(preprocessor.set.project_as_args("file_prefix_args"))
