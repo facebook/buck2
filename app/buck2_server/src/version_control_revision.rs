@@ -26,6 +26,7 @@ pub(crate) fn spawn_version_control_collector(
     dispatch: EventDispatcher,
     repo_root: AbsNormPathBuf,
 ) -> AbortOnDropHandle {
+    buck2_core::execution_types::revision::clear_revision();
     let handle = tokio::spawn(async move {
         let mut tasks = FuturesUnordered::<BoxFuture<VersionControlRevision>>::new();
 

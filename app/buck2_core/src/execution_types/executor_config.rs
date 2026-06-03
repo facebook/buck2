@@ -206,7 +206,7 @@ impl ReGang {
 
 #[cfg(not(test))]
 fn revision() -> Option<String> {
-    crate::execution_types::revision::REVISION.clone()
+    crate::execution_types::revision::REVISION.get()
 }
 
 #[cfg(test)]

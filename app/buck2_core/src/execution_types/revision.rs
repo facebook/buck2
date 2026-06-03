@@ -9,9 +9,11 @@
  */
 
 use std::process::Stdio;
+use std::sync::RwLock;
 
 use buck2_util::process::background_command;
-use once_cell::sync::Lazy;
+
+static CACHED_REVISION: RwLock<Option<String>> = RwLock::new(None);
 
 enum RepoVcs {
     Hg,
@@ -43,9 +45,40 @@ fn get_vcs_revision(vcs: RepoVcs) -> Option<String> {
     Some(std::str::from_utf8(&output.stdout).ok()?.trim().to_owned())
 }
 
-pub(super) static REVISION: Lazy<Option<String>> = Lazy::new(|| {
+fn compute_revision() -> Option<String> {
     if let Some(id) = get_vcs_revision(RepoVcs::Hg) {
         return Some(id);
     }
     get_vcs_revision(RepoVcs::Git)
-});
+}
+
+pub fn clear_revision() {
+    *CACHED_REVISION.write().unwrap_or_else(|e| e.into_inner()) = None;
+}
+
+fn refresh_revision() -> Option<String> {
+    let mut guard = CACHED_REVISION.write().unwrap_or_else(|e| e.into_inner());
+    // Recheck inside the lock to avoid queueing up multiple refreshes.
+    if let Some(revision) = guard.as_ref() {
+        return Some(revision.clone());
+    }
+    *guard = compute_revision();
+    guard.clone()
+}
+
+pub(super) struct Revision;
+
+impl Revision {
+    pub fn get(&self) -> Option<String> {
+        let cached = CACHED_REVISION
+            .read()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone();
+        match cached {
+            Some(revision) => Some(revision),
+            None => refresh_revision(),
+        }
+    }
+}
+
+pub(super) static REVISION: Revision = Revision;
