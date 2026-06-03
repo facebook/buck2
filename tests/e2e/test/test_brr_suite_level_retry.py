@@ -63,7 +63,7 @@ MAIN_MATCH_NAME: str = f"{PYTHON_MULTI_TESTS_TARGET} - main"
 
 
 @buck_test(inplace=True, skip_for_os=["darwin", "windows"])
-async def test_srr_exact_silently_drops_synthetic_main_alongside_real_test_name(
+async def test_srr_exact_with_main_expands_to_full_suite(
     buck: Buck, tmp_path: Path
 ) -> None:
     # GIVEN: a bundle-mode python target with 3 discoverable test cases
@@ -96,15 +96,13 @@ async def test_srr_exact_silently_drops_synthetic_main_alongside_real_test_name(
     # failure instead of silently running just the specific test.
     stderr = remove_ansi_escape_sequences(stderr)
     assert "Pass 4" in stderr, (
-        "Post-fix: synthetic '- main' should expand to the whole suite, "
+        "Synthetic '- main' should expand to the whole suite, "
         f"running all 3 children + bundle worker = Pass 4, stderr was:\n{stderr}"
     )
 
 
 @buck_test(inplace=True, skip_for_os=["darwin", "windows"])
-async def test_srr_exact_real_test_name_alone_matches_only_that_test(
-    buck: Buck, tmp_path: Path
-) -> None:
+async def test_srr_exact_single_test_stays_narrow(buck: Buck, tmp_path: Path) -> None:
     # GIVEN: a bundle-mode python target with 3 discoverable test cases
     # (test_a, test_b, test_c) and any tpx version — this test's
     # assertion holds in both pre-fix and post-fix states (regression
@@ -128,9 +126,11 @@ async def test_srr_exact_real_test_name_alone_matches_only_that_test(
     # THEN: exactly the one named test runs. The suite-level expansion
     # must NOT accidentally widen the filter when no synthetic entry is
     # present, or `--exact` would silently grow the set of tests SRR
-    # executes for any caller. `Pass 1` holds both pre-fix and post-fix.
+    # executes for any caller. Bundle mode emits a synthetic `- main`
+    # aggregate alongside the executed case, so the observed count is
+    # `Pass 2` (test_a + bundle `- main`) both pre-fix and post-fix.
     stderr = remove_ansi_escape_sequences(stderr)
-    assert "Pass 1" in stderr, (
+    assert "Pass 2" in stderr, (
         "Regression guard: SRR --exact with a single real test name "
         f"should match only that one test, stderr was:\n{stderr}"
     )
