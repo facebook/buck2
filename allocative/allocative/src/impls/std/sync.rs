@@ -16,17 +16,6 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::RwLock;
 use std::sync::Weak;
-use std::sync::atomic::AtomicBool;
-use std::sync::atomic::AtomicI8;
-use std::sync::atomic::AtomicI16;
-use std::sync::atomic::AtomicI32;
-use std::sync::atomic::AtomicI64;
-use std::sync::atomic::AtomicIsize;
-use std::sync::atomic::AtomicU8;
-use std::sync::atomic::AtomicU16;
-use std::sync::atomic::AtomicU32;
-use std::sync::atomic::AtomicU64;
-use std::sync::atomic::AtomicUsize;
 
 use crate::allocative_trait::Allocative;
 use crate::impls::common::PTR_NAME;
@@ -140,67 +129,78 @@ impl<T: Allocative> Allocative for rc::Weak<T> {
     }
 }
 
-impl Allocative for AtomicU8 {
+#[cfg(target_has_atomic = "8")]
+impl Allocative for std::sync::atomic::AtomicU8 {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
         visitor.enter_self_sized::<Self>().exit();
     }
 }
 
-impl Allocative for AtomicU16 {
+#[cfg(target_has_atomic = "16")]
+impl Allocative for std::sync::atomic::AtomicU16 {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
         visitor.enter_self_sized::<Self>().exit();
     }
 }
 
-impl Allocative for AtomicU32 {
+#[cfg(target_has_atomic = "32")]
+impl Allocative for std::sync::atomic::AtomicU32 {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
         visitor.enter_self_sized::<Self>().exit();
     }
 }
 
-impl Allocative for AtomicU64 {
+#[cfg(target_has_atomic = "64")]
+impl Allocative for std::sync::atomic::AtomicU64 {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
         visitor.enter_self_sized::<Self>().exit();
     }
 }
 
-impl Allocative for AtomicUsize {
+#[cfg(target_has_atomic = "ptr")]
+impl Allocative for std::sync::atomic::AtomicUsize {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
         visitor.enter_self_sized::<Self>().exit();
     }
 }
 
-impl Allocative for AtomicI8 {
+#[cfg(target_has_atomic = "8")]
+impl Allocative for std::sync::atomic::AtomicI8 {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
         visitor.enter_self_sized::<Self>().exit();
     }
 }
 
-impl Allocative for AtomicI16 {
+#[cfg(target_has_atomic = "16")]
+impl Allocative for std::sync::atomic::AtomicI16 {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
         visitor.enter_self_sized::<Self>().exit();
     }
 }
 
-impl Allocative for AtomicI32 {
+#[cfg(target_has_atomic = "32")]
+impl Allocative for std::sync::atomic::AtomicI32 {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
         visitor.enter_self_sized::<Self>().exit();
     }
 }
 
-impl Allocative for AtomicI64 {
+#[cfg(target_has_atomic = "64")]
+impl Allocative for std::sync::atomic::AtomicI64 {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
         visitor.enter_self_sized::<Self>().exit();
     }
 }
 
-impl Allocative for AtomicBool {
+#[cfg(target_has_atomic = "8")]
+impl Allocative for std::sync::atomic::AtomicBool {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
         visitor.enter_self_sized::<Self>().exit();
     }
 }
 
-impl Allocative for AtomicIsize {
+#[cfg(target_has_atomic = "ptr")]
+impl Allocative for std::sync::atomic::AtomicIsize {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
         visitor.enter_self_sized::<Self>().exit();
     }
