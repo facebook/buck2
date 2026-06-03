@@ -54,7 +54,11 @@ def _add_labels(**kwargs):
     return kwargs
 
 def _set_buck2_java_toolchain(**kwargs):
-    kwargs["_java_toolchain"] = "toolchains//:java_bootstrap"
+    # Default to the bootstrap toolchain, but let callers opt into a different one (e.g. a
+    # non-bootstrap toolchain when the binary packages native code, which the bootstrap fat-jar
+    # tooling does not support).
+    if "_java_toolchain" not in kwargs:
+        kwargs["_java_toolchain"] = "toolchains//:java_bootstrap"
     return kwargs
 
 def _set_buck2_kotlin_toolchain(**kwargs):
