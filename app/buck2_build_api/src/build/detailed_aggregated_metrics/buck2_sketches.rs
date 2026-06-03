@@ -182,18 +182,30 @@ pub(crate) fn compute_artifact_path_sketches(
         None
     };
 
-    for (path, size) in artifacts {
-        if let Some(ref mut s) = size_sketcher {
-            s.sketch_weighted(&path, size);
-        }
-        if let Some(ref mut c) = count_sketcher {
-            c.sketch(&path);
-        }
-    }
+    compute_artifact_path_sketches_impl(artifacts, size_sketcher.as_mut(), count_sketcher.as_mut());
 
     ArtifactPathSketches {
         size: size_sketcher.map(|s| s.into_mergeable_graph_sketch()),
         count: count_sketcher.map(|s| s.into_mergeable_graph_sketch()),
+    }
+}
+
+/// Private implementation that accepts any Sketchers for testing.
+fn compute_artifact_path_sketches_impl<S, C>(
+    artifacts: impl Iterator<Item = (ProjectRelativePathBuf, u64)>,
+    mut size_sketcher: Option<&mut S>,
+    mut count_sketcher: Option<&mut C>,
+) where
+    S: Sketcher<ProjectRelativePathBuf>,
+    C: Sketcher<ProjectRelativePathBuf>,
+{
+    for (path, size) in artifacts {
+        if let Some(s) = size_sketcher.as_deref_mut() {
+            s.sketch_weighted(&path, size);
+        }
+        if let Some(c) = count_sketcher.as_deref_mut() {
+            c.sketch(&path);
+        }
     }
 }
 
@@ -532,6 +544,7 @@ mod tests {
     use buck2_core::execution_types::executor_config::CommandExecutorConfig;
     use buck2_core::fs::buck_out_path::BuckOutPathKind;
     use buck2_core::fs::buck_out_path::BuildArtifactPath;
+    use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
     use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_hash::BuckHashMap;
@@ -552,17 +565,22 @@ mod tests {
     use crate::analysis::AnalysisResult;
     use crate::analysis::registry::RecordedAnalysisValues;
     use crate::artifact_groups::ArtifactGroup;
+    use crate::build::detailed_aggregated_metrics::buck2_sketches::compute_artifact_path_sketches_impl;
     use crate::build::sketch_impl::Sketcher;
     use crate::deferred::calculation::DeferredHolder;
 
     /// A mock sketcher that records all sketch calls for verification in tests.
     struct MockSketcher<T: Clone> {
         items: Vec<T>,
+        weighted_items: Vec<(T, u64)>,
     }
 
     impl<T: Clone> MockSketcher<T> {
         fn new() -> Self {
-            Self { items: Vec::new() }
+            Self {
+                items: Vec::new(),
+                weighted_items: Vec::new(),
+            }
         }
     }
 
@@ -571,8 +589,8 @@ mod tests {
             self.items.push(t.clone());
         }
 
-        fn sketch_weighted(&mut self, _t: &T, _weight: u64) {
-            unimplemented!("sketch_weighted not used in these tests")
+        fn sketch_weighted(&mut self, t: &T, weight: u64) {
+            self.weighted_items.push((t.clone(), weight));
         }
     }
 
@@ -769,5 +787,43 @@ mod tests {
         assert!(sketched.contains(&action_key1));
         assert!(sketched.contains(&action_key2));
         assert!(sketched.contains(&action_key3));
+    }
+
+    #[test]
+    fn test_artifact_path_sketches_does_not_dedup_paths() {
+        // Pins current behavior: the sketcher receives the same path multiple
+        // times when the input contains duplicates. This corresponds to the
+        // per-target / cross-target duplicate-traversal perf bug in
+        // `compute_artifact_path_sketches_for_target`.
+        let p_shared = ProjectRelativePathBuf::unchecked_new("buck-out/shared.txt".to_owned());
+        let p_other = ProjectRelativePathBuf::unchecked_new("buck-out/other.txt".to_owned());
+
+        let input = vec![
+            (p_shared.clone(), 10),
+            (p_other.clone(), 20),
+            (p_shared.clone(), 30),
+        ];
+
+        let mut size_mock: MockSketcher<ProjectRelativePathBuf> = MockSketcher::new();
+        let mut count_mock: MockSketcher<ProjectRelativePathBuf> = MockSketcher::new();
+
+        compute_artifact_path_sketches_impl(
+            input.into_iter(),
+            Some(&mut size_mock),
+            Some(&mut count_mock),
+        );
+
+        assert_eq!(
+            count_mock.items,
+            vec![p_shared.clone(), p_other.clone(), p_shared.clone()],
+        );
+        assert_eq!(
+            size_mock.weighted_items,
+            vec![
+                (p_shared.clone(), 10),
+                (p_other.clone(), 20),
+                (p_shared.clone(), 30),
+            ],
+        );
     }
 }
