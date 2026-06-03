@@ -252,15 +252,19 @@ impl<'a> BuckTestOrchestrator<'a> {
         Ok(())
     }
 
-    /// Exempt static listing: its enumeration tool (gtest-list-tests, coral,
-    /// ...) is a DotSlash stub that can't resolve under network isolation.
-    /// Dynamic listing runs the test binary itself, so keep that isolated.
+    /// Exempt static listing from network isolation: its enumeration tool
+    /// (gtest-list-tests, coral, ...) is a DotSlash stub that can't resolve under
+    /// network isolation. Force `All` so the exemption overrides any
+    /// executor-level network policy. Dynamic listing runs the test binary
+    /// itself, so keep that isolated.
     fn requested_network_access(
         stage: &TestStage,
         test_info: &FrozenExternalRunnerTestInfo,
     ) -> Option<NetworkAccess> {
         match stage {
-            TestStage::Listing { .. } if test_info.labels().any(|l| l == "static-listing") => None,
+            TestStage::Listing { .. } if test_info.labels().any(|l| l == "static-listing") => {
+                Some(NetworkAccess::All)
+            }
             _ => test_info.network_access(),
         }
     }
