@@ -29,6 +29,16 @@ public class ReplaceApplicationIdPlaceholdersExecutableMainTest {
     return ReplaceApplicationIdPlaceholdersExecutableMain.runMain(args);
   }
 
+  /**
+   * Resolves the {@code java} launcher of the currently running JVM. {@code
+   * ProcessHandle.current().info().command()} is unreliable under the test runner (it can point at
+   * a wrapper script rather than a usable java binary), so derive it from {@code java.home}
+   * instead.
+   */
+  private static String javaExecutable() {
+    return Path.of(System.getProperty("java.home"), "bin", "java").toString();
+  }
+
   @Test
   public void shouldReplaceApplicationIdPlaceholderInManifest() throws Exception {
     String manifestContent =
@@ -227,7 +237,7 @@ public class ReplaceApplicationIdPlaceholdersExecutableMainTest {
 
     ProcessBuilder pb =
         new ProcessBuilder(
-            ProcessHandle.current().info().command().orElse("java"),
+            javaExecutable(),
             "-cp",
             System.getProperty("java.class.path"),
             "com.facebook.buck.android.manifest.ReplaceApplicationIdPlaceholdersExecutableMain",
@@ -246,7 +256,7 @@ public class ReplaceApplicationIdPlaceholdersExecutableMainTest {
   public void mainShouldExitWithOneOnMissingArgs() throws Exception {
     ProcessBuilder pb =
         new ProcessBuilder(
-            ProcessHandle.current().info().command().orElse("java"),
+            javaExecutable(),
             "-cp",
             System.getProperty("java.class.path"),
             "com.facebook.buck.android.manifest.ReplaceApplicationIdPlaceholdersExecutableMain");
