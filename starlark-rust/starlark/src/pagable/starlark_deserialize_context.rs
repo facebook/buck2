@@ -35,31 +35,11 @@ use crate::pagable::serialized_frozen_value::SerializedFrozenValue;
 use crate::pagable::starlark_deserialize::StarlarkDeserializeContext;
 use crate::pagable::static_value::get_frozen_value_by_static_id;
 use crate::values::FrozenValue;
-use crate::values::layout::heap::arena::ArenaOffset;
-use crate::values::layout::heap::arena::BumpKind;
 use crate::values::layout::heap::repr::AValueHeader;
-use crate::values::types::int::inline_int::InlineInt;
-
-/// Bump base addresses for a deserialized heap.
-struct HeapBumpBases {
-    drop_base: usize,
-    non_drop_base: usize,
-}
-
-impl HeapBumpBases {
-    /// Resolve an `ArenaOffset` to a raw pointer address.
-    fn resolve(&self, offset: &ArenaOffset) -> usize {
-        let base = match offset.bump {
-            BumpKind::Drop => self.drop_base,
-            BumpKind::NonDrop => self.non_drop_base,
-        };
-        base + offset.offset as usize
-    }
-}
-
 use crate::values::layout::pointer::PointerTags;
 use crate::values::layout::vtable::AValueVTable;
 use crate::values::layout::vtable::StarlarkValueRawPtr;
+use crate::values::types::int::inline_int::InlineInt;
 
 /// A slot in the arena waiting to be deserialized.
 /// Contains all info needed to locate and deserialize a single value.
@@ -211,33 +191,24 @@ impl HeapDeserializationState {
 /// Shared deserialization state across all heaps deserialized in a session.
 /// Stored in `SessionContext` as `Arc<StarlarkDeserState>` so that
 /// independently-deserialized heaps (via pagable arcs) can all register
-/// their base addresses and resolve cross-heap references.
+/// their per-value addresses and resolve cross-heap references.
 pub(crate) struct StarlarkDeserState {
-    /// Bump bases for each deserialized heap, keyed by HeapRefId.
-    heap_bases: DashMap<HeapRefId, HeapBumpBases>,
+    /// Per-heap `value_index → header pointer address` table.
+    /// Indexed by `value_index` in serialization order (drop bump first,
+    /// then non-drop).
+    heap_value_addrs: DashMap<HeapRefId, Vec<usize>>,
 }
 
 impl StarlarkDeserState {
     pub(crate) fn new() -> Self {
         Self {
-            heap_bases: DashMap::new(),
+            heap_value_addrs: DashMap::new(),
         }
     }
 
-    /// Register a heap's base addresses.
-    pub(crate) fn register_bases(
-        &self,
-        heap_id: HeapRefId,
-        drop_base: usize,
-        non_drop_base: usize,
-    ) {
-        self.heap_bases.insert(
-            heap_id,
-            HeapBumpBases {
-                drop_base,
-                non_drop_base,
-            },
-        );
+    /// Register a heap's per-value header address table.
+    pub(crate) fn register_heap(&self, heap_id: HeapRefId, value_addrs: Vec<usize>) {
+        self.heap_value_addrs.insert(heap_id, value_addrs);
     }
 }
 
@@ -343,18 +314,26 @@ impl<'de> StarlarkDeserializeContext<'de> for StarlarkDeserializerImpl<'_, 'de> 
         match serialized {
             SerializedFrozenValue::HeapPtr {
                 heap_id,
-                offset,
+                value_index,
                 is_str,
             } => {
-                let bases = self
-                    .state
-                    .heap_bases
-                    .get(&heap_id)
-                    .ok_or(PagableError::HeapBasesNotRegistered { heap_id })?;
-                let ptr = bases.resolve(&offset);
+                let ptr = {
+                    let addrs = self
+                        .state
+                        .heap_value_addrs
+                        .get(&heap_id)
+                        .ok_or(PagableError::HeapBasesNotRegistered { heap_id })?;
+                    *addrs.get(value_index as usize).ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "value_index {} out of range for heap {:?} (size {})",
+                            value_index,
+                            heap_id,
+                            addrs.len(),
+                        )
+                    })?
+                };
                 let header = unsafe { &*(ptr as *const AValueHeader) };
                 let fv = FrozenValue::new_ptr(header, is_str);
-                drop(bases);
                 self.ensure_initialized(fv)?;
                 Ok(fv)
             }

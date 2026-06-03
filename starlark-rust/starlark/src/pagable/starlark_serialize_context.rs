@@ -30,18 +30,19 @@ use crate::pagable::serialized_frozen_value::SerializedFrozenValue;
 use crate::pagable::starlark_serialize::StarlarkSerializeContext;
 use crate::pagable::static_value::get_static_value_id;
 use crate::values::FrozenValue;
-use crate::values::layout::heap::arena::ArenaOffset;
 use crate::values::layout::heap::heap_type::FrozenHeapRef;
 use crate::values::layout::pointer::PointerTags;
 
 /// Shared serialization state across all heaps serialized in a session.
 /// Stored in `SessionContext` as `Arc<StarlarkSerState>` so that
 /// independently-serialized heaps (via pagable arcs) can all register
-/// their offset maps and resolve cross-heap references.
+/// their value-index maps and resolve cross-heap references.
 pub(crate) struct StarlarkSerState {
-    /// Direct lookup from raw header pointer to its `(heap_id, offset)`.
-    ptr_to_location: DashMap<usize, (HeapRefId, ArenaOffset)>,
-    /// Heaps whose offset maps have already been folded into
+    /// Direct lookup from raw header pointer to its `(heap_id, value_index)`.
+    /// `value_index` is the value's position in the heap's serialization
+    /// order (drop bump first, then non-drop bump).
+    ptr_to_location: DashMap<usize, (HeapRefId, u32)>,
+    /// Heaps whose value-index maps have already been folded into
     /// `ptr_to_location`. Used to avoid double-registration.
     registered_heaps: DashSet<HeapRefId>,
 }
@@ -54,12 +55,12 @@ impl StarlarkSerState {
         }
     }
 
-    /// Fold a heap's offset map into the flat `ptr_to_location` lookup.
+    /// Fold a heap's value-index map into the flat `ptr_to_location` lookup.
     /// Idempotent: concurrent callers may both populate the same entries,
     /// but `ptr_to_location.insert` overwrites identically.
-    fn register_heap(&self, heap_id: HeapRefId, offset_map: HashMap<usize, ArenaOffset>) {
-        for (ptr, offset) in offset_map {
-            self.ptr_to_location.insert(ptr, (heap_id, offset));
+    fn register_heap(&self, heap_id: HeapRefId, value_index_map: HashMap<usize, u32>) {
+        for (ptr, value_index) in value_index_map {
+            self.ptr_to_location.insert(ptr, (heap_id, value_index));
         }
         // Mark registered AFTER inserts so any observer of
         // `has_heap(heap_id) == true` is guaranteed to see all entries.
@@ -71,14 +72,14 @@ impl StarlarkSerState {
         self.registered_heaps.contains(&heap_id)
     }
 
-    /// Recursively ensure that offset maps are registered for a heap
-    /// (identified by `heap_id`, with given `refs` and offset map builder)
-    /// and all of its transitive dependencies.
+    /// Recursively ensure that value-index maps are registered for a heap
+    /// (identified by `heap_id`, with given `refs` and value-index map
+    /// builder) and all of its transitive dependencies.
     pub(crate) fn ensure_offset_maps_registered_inner(
         &self,
         heap_id: HeapRefId,
         refs: &[FrozenHeapRef],
-        build_map: impl FnOnce() -> HashMap<usize, ArenaOffset>,
+        build_map: impl FnOnce() -> HashMap<usize, u32>,
     ) {
         if self.has_heap(heap_id) {
             return;
@@ -91,20 +92,20 @@ impl StarlarkSerState {
         self.register_heap(heap_id, build_map());
     }
 
-    /// Recursively ensure that offset maps are registered for a heap and
-    /// all of its transitive dependencies.
+    /// Recursively ensure that value-index maps are registered for a heap
+    /// and all of its transitive dependencies.
     ///
     /// This is needed when serializing `FrozenValue` pointers outside the
     /// heap serialization flow (e.g. in `OwnedFrozenValue`), where the
     /// pagable arc mechanism defers heap serialization but we need the
-    /// offset maps immediately to resolve pointers.
+    /// value-index maps immediately to resolve pointers.
     pub(crate) fn ensure_offset_maps_registered(&self, heap_ref: &FrozenHeapRef) {
         let Some(name) = heap_ref.name() else {
             return;
         };
         let heap_id = HeapRefId::from_heap_name(name);
         self.ensure_offset_maps_registered_inner(heap_id, heap_ref.refs_slice(), || {
-            heap_ref.build_ptr_to_offset_map()
+            heap_ref.build_ptr_to_value_index_map()
         });
     }
 }
@@ -166,21 +167,21 @@ impl StarlarkSerializeContext for StarlarkSerializerImpl<'_> {
 
                 // Copy the (heap_id, offset) out of the DashMap so the
                 // shard guard is dropped before `pagable_serialize`.
-                let (heap_id, arena_offset) = self
+                let (heap_id, value_index) = self
                     .state
                     .ptr_to_location
                     .get(&raw_ptr)
                     .map(|loc| *loc)
                     .unwrap_or_else(|| {
                         panic!(
-                            "FrozenValue pointer {:#x} not found in any heap's offset map",
+                            "FrozenValue pointer {:#x} not found in any heap's value-index map",
                             raw_ptr
                         )
                     });
 
                 let serialized = SerializedFrozenValue::HeapPtr {
                     heap_id,
-                    offset: arena_offset,
+                    value_index,
                     is_str,
                 };
                 serialized.pagable_serialize(self.pagable)?;

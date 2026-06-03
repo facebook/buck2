@@ -119,16 +119,9 @@ pub(crate) struct ArenaOffset {
 pub(crate) struct ArenaRawCursor {
     cursor: *mut u8,
     direction: ChunkAllocationDirection,
-    /// Base address of the allocated block (lowest address).
-    base: usize,
 }
 
 impl ArenaRawCursor {
-    /// Get the base address (lowest address) of the allocated block.
-    pub(crate) fn base(&self) -> usize {
-        self.base
-    }
-
     /// Get pointer to the next value slot and advance cursor by `alloc_size`.
     /// Returns a pointer to the `AValueHeader` position for this value.
     pub(crate) unsafe fn next(&mut self, alloc_size: u32) -> *mut AValueHeader {
@@ -465,7 +458,6 @@ impl<A: ArenaAllocator> Arena<A> {
         }
         let size = ValueAllocSize::new(AlignedSize::new_bytes(total_bytes as usize));
         let block = bump.alloc(size);
-        let base = block.as_ptr() as usize;
         let cursor = match A::CHUNK_ALLOCATION_DIRECTION {
             ChunkAllocationDirection::Up => block.as_ptr(),
             ChunkAllocationDirection::Down => unsafe { block.as_ptr().add(total_bytes as usize) },
@@ -473,7 +465,6 @@ impl<A: ArenaAllocator> Arena<A> {
         Some(ArenaRawCursor {
             cursor,
             direction: A::CHUNK_ALLOCATION_DIRECTION,
-            base,
         })
     }
 
@@ -487,35 +478,28 @@ impl<A: ArenaAllocator> Arena<A> {
         headers
     }
 
-    /// Build a map from raw header pointer address to `ArenaOffset`
-    /// for all values in both bump regions.
-    pub(crate) fn build_ptr_to_offset_map(&self) -> HashMap<usize, ArenaOffset> {
+    /// Build a map from raw header pointer address to `value_index`.
+    /// Indices follow serialization order: drop bump first, then non-drop.
+    pub(crate) fn build_ptr_to_value_index_map(&self) -> HashMap<usize, u32> {
         let mut map = HashMap::new();
+        let mut next_index: u32 = 0;
 
         fn build_for_bump<A: ArenaAllocator>(
             bump: &A,
-            bump_kind: BumpKind,
-            map: &mut HashMap<usize, ArenaOffset>,
+            map: &mut HashMap<usize, u32>,
+            next_index: &mut u32,
         ) {
-            let mut cumulative_offset: u32 = 0;
             Arena::<A>::for_each_bump_ordered(bump, |value| {
                 if let Some(header) = value.unpack_header() {
                     let ptr_addr = header.payload_ptr().ptr as usize;
-                    map.insert(
-                        ptr_addr,
-                        ArenaOffset {
-                            bump: bump_kind,
-                            offset: cumulative_offset,
-                        },
-                    );
+                    map.insert(ptr_addr, *next_index);
+                    *next_index += 1;
                 }
-                let size = value.alloc_size();
-                cumulative_offset += size.bytes();
             });
         }
 
-        build_for_bump(&self.drop, BumpKind::Drop, &mut map);
-        build_for_bump(&self.non_drop, BumpKind::NonDrop, &mut map);
+        build_for_bump(&self.drop, &mut map, &mut next_index);
+        build_for_bump(&self.non_drop, &mut map, &mut next_index);
 
         map
     }

@@ -24,16 +24,19 @@ use pagable::PagableSerializer;
 
 use crate::pagable::heap_ref_id::HeapRefId;
 use crate::pagable::static_value::StaticValueId;
-use crate::values::layout::heap::arena::ArenaOffset;
 
 /// Wire representation of a `FrozenValue`. Heap pointers always carry
 /// an explicit `heap_id` so the encoding doesn't depend on which heap
 /// is currently being (de)serialized.
+///
+/// `value_index` is the value's position in the heap's serialization order
+/// (drop bump first, then non-drop bump). Resolved via the heap's per-value
+/// address table registered in `StarlarkDeserState.heap_value_addrs`.
 #[derive(Debug)]
 pub(super) enum SerializedFrozenValue {
     HeapPtr {
         heap_id: HeapRefId,
-        offset: ArenaOffset,
+        value_index: u32,
         is_str: bool,
     },
     InlineInt(i32),
@@ -49,12 +52,12 @@ impl PagableSerialize for SerializedFrozenValue {
         match self {
             SerializedFrozenValue::HeapPtr {
                 heap_id,
-                offset,
+                value_index,
                 is_str,
             } => {
                 TAG_HEAP_PTR.pagable_serialize(serializer)?;
                 heap_id.pagable_serialize(serializer)?;
-                offset.pagable_serialize(serializer)?;
+                value_index.pagable_serialize(serializer)?;
                 is_str.pagable_serialize(serializer)?;
             }
             SerializedFrozenValue::InlineInt(v) => {
@@ -78,11 +81,11 @@ impl<'de> PagableDeserialize<'de> for SerializedFrozenValue {
         match tag {
             TAG_HEAP_PTR => {
                 let heap_id = HeapRefId::pagable_deserialize(deserializer)?;
-                let offset = ArenaOffset::pagable_deserialize(deserializer)?;
+                let value_index = u32::pagable_deserialize(deserializer)?;
                 let is_str = bool::pagable_deserialize(deserializer)?;
                 Ok(SerializedFrozenValue::HeapPtr {
                     heap_id,
-                    offset,
+                    value_index,
                     is_str,
                 })
             }

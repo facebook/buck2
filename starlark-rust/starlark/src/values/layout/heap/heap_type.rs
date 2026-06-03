@@ -374,26 +374,20 @@ unsafe impl Sync for FrozenFrozenHeap {}
 unsafe impl Send for FrozenFrozenHeap {}
 
 /// Intermediate state after reading heap metadata and allocating arena bumps,
-/// but before deserializing values. Exposes base addresses so the deserializer
-/// context can set them before phase 2.
+/// but before deserializing values. Carries the per-value header addresses
+/// so the deserializer context can register them for cross-heap resolution.
 pub(crate) struct PartiallyDeserializedHeap {
     arena: Arena<ChunkAllocator>,
-    drop_base: usize,
-    non_drop_base: usize,
     refs: Vec<FrozenHeapRef>,
     /// Value tracking info (headers already written, ready for deserialization).
     deser_state: HeapDeserializationState,
+    /// `value_index → header pointer address` table built during phase 1.
+    /// Indexed by `value_index` in serialization order (drop bump first, then
+    /// non-drop).
+    value_addrs: Vec<usize>,
 }
 
 impl PartiallyDeserializedHeap {
-    pub(crate) fn drop_base(&self) -> usize {
-        self.drop_base
-    }
-
-    pub(crate) fn non_drop_base(&self) -> usize {
-        self.non_drop_base
-    }
-
     /// Take the deserialization state and raw heap components.
     /// The caller constructs `FrozenFrozenHeap` after phase 2 completes.
     pub(crate) fn take_deser_state_and_finish(
@@ -415,16 +409,19 @@ impl FrozenFrozenHeap {
     ///     [pagable serialized arc]
     /// [drop_total_bytes: u32]
     /// [non_drop_total_bytes: u32]
-    /// [total_value_count: u32]
+    /// [drop_value_count: u32]    // number of values in the drop bump
+    /// [total_value_count: u32]   // drop_value_count + non_drop_value_count
     /// // Offset table — fixed-size, 8 raw LE bytes per entry.
     /// // (value_count + 1) entries: one per value + one sentinel end entry.
     /// // Written as placeholder, then patched via write_at after value data.
+    /// // Entries are indexed by `value_index` (drop bump first, then non-drop).
     /// for i in 0..=value_count:
     ///   [stream_offset: u32 LE]    // relative to base_pos
     ///   [arc_offset: u32 LE]       // relative to base arc_index
     /// // Metadata — postcard encoded, variable size.
+    /// // Indexed by `value_index`. Bump kind for value_index `i` is
+    /// // `Drop` if `i < drop_value_count`, otherwise `NonDrop`.
     /// for each value:
-    ///   [arena_offset: ArenaOffset]
     ///   [deser_type_id: u32]    // sorted index into the vtable registry
     ///   [alloc_size: u32]
     /// // base_pos starts here — offsets are relative to this point.
@@ -462,11 +459,16 @@ impl FrozenFrozenHeap {
         bump_total_bytes(&non_drop_headers).pagable_serialize(serializer)?;
 
         // Collect all values: drop bump first, then non-drop bump.
-        let total_count = drop_headers.len() + non_drop_headers.len();
+        let drop_value_count = drop_headers.len();
+        let total_count = drop_value_count + non_drop_headers.len();
+        // Write drop-bump count so the deserializer can split value_index
+        // ranges between drop and non-drop bumps without per-value metadata.
+        (drop_value_count as u32).pagable_serialize(serializer)?;
         (total_count as u32).pagable_serialize(serializer)?;
 
         // Write offset table placeholder: (value_count + 1) entries × 8 bytes each.
         // The extra entry is the end sentinel (total stream bytes + total arcs).
+        // Entries are indexed by `value_index` (drop first, then non-drop).
         let table_pos = serializer.position();
         let table_entry_count = total_count + 1;
         let table_byte_size = table_entry_count * 8;
@@ -474,28 +476,22 @@ impl FrozenFrozenHeap {
             0u8.pagable_serialize(serializer)?;
         }
 
+        // Values in serialization order: drop bump first, then non-drop bump.
+        // This ordering defines `value_index` consistently between ser and
+        // deser. Bump kind for value_index `i` is implicit:
+        // [0, drop_value_count) → Drop, [drop_value_count, total_count) → NonDrop.
+        let all_headers_in_order: Vec<&&AValueHeader> =
+            drop_headers.iter().chain(non_drop_headers.iter()).collect();
+
         // Write metadata for each value (postcard encoded).
-        let all_bumps: [(BumpKind, &[&AValueHeader]); 2] = [
-            (BumpKind::Drop, &drop_headers),
-            (BumpKind::NonDrop, &non_drop_headers),
-        ];
-        for (bump_kind, headers) in &all_bumps {
-            let mut bump_offset: u32 = 0;
-            for header in *headers {
-                let avalue = header.unpack();
-                let alloc_size = avalue.memory_size().bytes();
-                ArenaOffset {
-                    bump: *bump_kind,
-                    offset: bump_offset,
-                }
+        for header in &all_headers_in_order {
+            let avalue = header.unpack();
+            let alloc_size = avalue.memory_size().bytes();
+            avalue
+                .vtable()
+                .deser_type_id
                 .pagable_serialize(serializer)?;
-                avalue
-                    .vtable()
-                    .deser_type_id
-                    .pagable_serialize(serializer)?;
-                alloc_size.pagable_serialize(serializer)?;
-                bump_offset += alloc_size;
-            }
+            alloc_size.pagable_serialize(serializer)?;
         }
 
         // Record base_pos — all offsets are relative to here.
@@ -505,21 +501,19 @@ impl FrozenFrozenHeap {
         // values (which may contain cross-heap FrozenValue pointers).
         let state = StarlarkSerializerImpl::get_or_create_state(serializer);
         state.ensure_offset_maps_registered_inner(heap_id, &self.refs, || {
-            self.arena.build_ptr_to_offset_map()
+            self.arena.build_ptr_to_value_index_map()
         });
         let mut ctx = StarlarkSerializerImpl::new(serializer, state);
 
         // Serialize value data, recording start cursor per value.
         let mut entry_cursors: Vec<(u32, u32)> = Vec::with_capacity(table_entry_count);
-        for (_bump_kind, headers) in &all_bumps {
-            for header in *headers {
-                let start = ctx.pagable().position();
-                entry_cursors.push((
-                    (start.byte_pos - base_pos.byte_pos) as u32,
-                    (start.arc_index - base_pos.arc_index) as u32,
-                ));
-                header.unpack().starlark_serialize(&mut ctx)?;
-            }
+        for header in &all_headers_in_order {
+            let start = ctx.pagable().position();
+            entry_cursors.push((
+                (start.byte_pos - base_pos.byte_pos) as u32,
+                (start.arc_index - base_pos.arc_index) as u32,
+            ));
+            header.unpack().starlark_serialize(&mut ctx)?;
         }
         // End sentinel: position after all value data.
         let end = ctx.pagable().position();
@@ -547,9 +541,8 @@ impl FrozenFrozenHeap {
     ) -> crate::Result<Self> {
         let heap_id = HeapRefId::pagable_deserialize(deserializer)?;
 
-        let partial = Self::deserialize_phase1(deserializer)?;
-        let drop_base = partial.drop_base();
-        let non_drop_base = partial.non_drop_base();
+        let mut partial = Self::deserialize_phase1(deserializer)?;
+        let value_addrs = std::mem::take(&mut partial.value_addrs);
 
         let (deser_state, arena, refs) = partial.take_deser_state_and_finish();
 
@@ -561,8 +554,8 @@ impl FrozenFrozenHeap {
             Arc::new(Mutex::new(deser_state)),
         );
 
-        // Register bases in shared state.
-        state.register_bases(heap_id, drop_base, non_drop_base);
+        // Register per-value header addresses in shared state.
+        state.register_heap(heap_id, value_addrs);
 
         let heap = Self::deserialize_phase2(arena, refs, &mut ctx)?;
 
@@ -583,7 +576,9 @@ impl FrozenFrozenHeap {
         let drop_total_bytes = u32::pagable_deserialize(deserializer)?;
         let non_drop_total_bytes = u32::pagable_deserialize(deserializer)?;
 
-        // Read total value count.
+        // Read drop-bump value count and total value count. Bump kind for
+        // a value at `value_index = i` is `Drop` iff `i < drop_value_count`.
+        let drop_value_count = u32::pagable_deserialize(deserializer)? as usize;
         let total_count = u32::pagable_deserialize(deserializer)? as usize;
         // Read offset table: (value_count + 1) entries × 8 raw bytes each.
         // Last entry is the end sentinel.
@@ -599,13 +594,30 @@ impl FrozenFrozenHeap {
             offset_table.push((stream_offset, arc_offset));
         }
 
-        // Read metadata for each value.
+        // Read per-value metadata; derive ArenaOffset by accumulating
+        // alloc_size per bump (drop bump for i < drop_value_count, else non-drop).
         let mut value_meta = Vec::with_capacity(total_count);
-        for _ in 0..total_count {
-            let arena_offset = ArenaOffset::pagable_deserialize(deserializer)?;
+        let mut drop_bump_offset: u32 = 0;
+        let mut non_drop_bump_offset: u32 = 0;
+        for i in 0..total_count {
             let deser_type_id = DeserTypeId::pagable_deserialize(deserializer)?;
             let vtable = lookup_vtable(deser_type_id)?;
             let alloc_size = u32::pagable_deserialize(deserializer)?;
+            let arena_offset = if i < drop_value_count {
+                let off = ArenaOffset {
+                    bump: BumpKind::Drop,
+                    offset: drop_bump_offset,
+                };
+                drop_bump_offset += alloc_size;
+                off
+            } else {
+                let off = ArenaOffset {
+                    bump: BumpKind::NonDrop,
+                    offset: non_drop_bump_offset,
+                };
+                non_drop_bump_offset += alloc_size;
+                off
+            };
             value_meta.push((arena_offset, vtable, alloc_size));
         }
         // Record base_pos — all stream_offsets are relative to here.
@@ -614,14 +626,15 @@ impl FrozenFrozenHeap {
         let arena = Arena::default();
 
         let mut drop_cursor = arena.alloc_raw_drop_cursor(drop_total_bytes);
-        let drop_base = drop_cursor.as_ref().map_or(0, |c| c.base());
-
         let mut non_drop_cursor = arena.alloc_raw_non_drop_cursor(non_drop_total_bytes);
-        let non_drop_base = non_drop_cursor.as_ref().map_or(0, |c| c.base());
 
         // Write AValueHeaders to arena and build value info.
         let mut ptr_to_index = HashMap::new();
         let mut slots = Vec::with_capacity(total_count);
+        // Per-value header addresses indexed by value_index. Used to register
+        // this heap's address table in the shared `StarlarkDeserState` for
+        // frozen value resolution.
+        let mut value_addrs: Vec<usize> = Vec::with_capacity(total_count);
         // Use only the first total_count entries (skip the end sentinel).
         for (i, ((arena_offset, vtable, alloc_size), &(stream_offset, arc_offset))) in value_meta
             .iter()
@@ -646,6 +659,7 @@ impl FrozenFrozenHeap {
                 let raw_ptr = StarlarkValueRawPtr::new_header(&*header_ptr);
                 let header_addr = header_ptr as *const _ as usize;
                 ptr_to_index.insert(header_addr, i);
+                value_addrs.push(header_addr);
                 slots.push(ValueDeserSlot::new(
                     stream_offset,
                     arc_offset,
@@ -666,10 +680,9 @@ impl FrozenFrozenHeap {
 
         Ok(PartiallyDeserializedHeap {
             arena,
-            drop_base,
-            non_drop_base,
             refs,
             deser_state,
+            value_addrs,
         })
     }
 
@@ -890,11 +903,12 @@ impl FrozenHeapRef {
         items.0.into_iter()
     }
 
-    /// Build a map from raw header pointer address to `ArenaOffset`
-    /// for all values in this heap's arena.
-    pub(crate) fn build_ptr_to_offset_map(&self) -> HashMap<usize, ArenaOffset> {
+    /// Build a map from raw header pointer address to `value_index` for all
+    /// values in this heap's arena. Indices are assigned in serialization
+    /// order: drop bump first, then non-drop bump.
+    pub(crate) fn build_ptr_to_value_index_map(&self) -> HashMap<usize, u32> {
         match &self.0 {
-            Some(inner) => inner.arena.build_ptr_to_offset_map(),
+            Some(inner) => inner.arena.build_ptr_to_value_index_map(),
             None => HashMap::new(),
         }
     }
