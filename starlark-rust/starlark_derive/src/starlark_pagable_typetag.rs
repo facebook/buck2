@@ -21,10 +21,9 @@
 //! On `impl Trait for Foo`: emits the recovery bridge and asserts the marker.
 
 use proc_macro2::Span;
-use quote::quote_spanned;
+use quote::quote;
 use syn::ItemImpl;
 use syn::ItemTrait;
-use syn::spanned::Spanned;
 
 /// Entry point — dispatches on whether `item` is a trait def or an impl block.
 pub fn starlark_pagable_typetag_impl(
@@ -47,8 +46,7 @@ pub fn starlark_pagable_typetag_impl(
 
 fn expand_trait(trait_item: ItemTrait) -> proc_macro2::TokenStream {
     let trait_name = &trait_item.ident;
-    let span = trait_item.span();
-    quote_spanned! { span =>
+    quote! {
         #[pagable::pagable_typetag]
         #trait_item
 
@@ -76,9 +74,8 @@ fn expand_impl(impl_item: ItemImpl) -> proc_macro::TokenStream {
         }
     };
     let self_ty = (*impl_item.self_ty).clone();
-    let span = impl_item.span();
 
-    quote_spanned! { span =>
+    quote! {
         #[pagable::pagable_typetag]
         #impl_item
 

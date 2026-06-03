@@ -15,13 +15,12 @@
 
 use proc_macro2::Span;
 use proc_macro2::TokenStream;
-use quote::quote_spanned;
+use quote::quote;
 use syn::Ident;
 use syn::ItemImpl;
 use syn::ItemStruct;
 use syn::ItemTrait;
 use syn::Path;
-use syn::spanned::Spanned;
 
 /// Generate code for a trait definition with `#[pagable_typetag]`.
 ///
@@ -37,7 +36,7 @@ pub fn typetag_trait(item: ItemTrait) -> syn::Result<TokenStream> {
         &format!("__PagableRegistration_{}", trait_name),
         Span::call_site(),
     );
-    Ok(quote_spanned! { item.span() =>
+    Ok(quote! {
         #item
 
         // Per-trait wrapper around TypetagRegistration to satisfy inventory orphan rules.
@@ -109,9 +108,8 @@ fn typetag_struct(
     self_ty: &syn::Type,
     trait_path: &syn::Path,
     type_tag: &str,
-    span: Span,
 ) -> TokenStream {
-    quote_spanned! { span =>
+    quote! {
         #item
 
         // Implement PagableTagged for the concrete type
@@ -177,9 +175,8 @@ pub fn pagable_typetag_impl(
             let struct_name = &struct_item.ident;
             let type_tag = struct_name.to_string();
             let self_ty: syn::Type = syn::parse_quote!(#struct_name);
-            let span = struct_item.span();
-            let item_tokens = quote_spanned! { span => #struct_item };
-            return typetag_struct(item_tokens, &self_ty, &trait_path, &type_tag, span).into();
+            let item_tokens = quote! { #struct_item };
+            return typetag_struct(item_tokens, &self_ty, &trait_path, &type_tag).into();
         } else {
             return syn::Error::new(
                 Span::call_site(),
@@ -229,9 +226,8 @@ pub fn pagable_typetag_impl(
             .to_compile_error()
             .into();
         };
-        let span = impl_item.span();
-        let item_tokens = quote_spanned! { span => #impl_item };
-        typetag_struct(item_tokens, &self_ty, &trait_path, &type_tag, span).into()
+        let item_tokens = quote! { #impl_item };
+        typetag_struct(item_tokens, &self_ty, &trait_path, &type_tag).into()
     } else {
         syn::Error::new(
             Span::call_site(),
