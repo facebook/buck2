@@ -44,7 +44,7 @@ impl<K: Allocative, V: Allocative, S> Allocative for HashMap<K, V, S> {
             let mut visitor = visitor.enter_unique(DATA_NAME, mem::size_of::<*const ()>());
             visitor.visit_field_with(
                 CAPACITY_NAME,
-                hashbrown_util::raw_table_alloc_size_for_len::<(K, V)>(self.capacity()),
+                hashbrown_util::raw_table_alloc_size_for_capacity::<(K, V)>(self.capacity()),
                 |visitor| {
                     visitor.visit_map_entries(self);
                     visitor.visit_simple(
@@ -65,7 +65,7 @@ impl<K: Allocative, S> Allocative for HashSet<K, S> {
             let mut visitor = visitor.enter_unique(DATA_NAME, mem::size_of::<*const ()>());
             visitor.visit_field_with(
                 CAPACITY_NAME,
-                hashbrown_util::raw_table_alloc_size_for_len::<K>(self.capacity()),
+                hashbrown_util::raw_table_alloc_size_for_capacity::<K>(self.capacity()),
                 |visitor| {
                     visitor.visit_set_entries(self);
                     visitor.visit_simple(
@@ -80,7 +80,7 @@ impl<K: Allocative, S> Allocative for HashSet<K, S> {
 }
 
 fn hashbrown_unused_capacity_size<T>(capacity: usize, len: usize) -> usize {
-    hashbrown_util::raw_table_alloc_size_for_len::<T>(capacity)
+    hashbrown_util::raw_table_alloc_size_for_capacity::<T>(capacity)
         .saturating_sub(len * mem::size_of::<T>())
 }
 

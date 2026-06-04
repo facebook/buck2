@@ -17,7 +17,7 @@ use indexmap::IndexSet;
 
 use crate::allocative_trait::Allocative;
 use crate::impls::common::UNUSED_CAPACITY_NAME;
-use crate::impls::hashbrown_util::raw_table_alloc_size_for_len;
+use crate::impls::hashbrown_util::raw_table_alloc_size_for_capacity;
 use crate::key::Key;
 use crate::visitor::Visitor;
 
@@ -27,7 +27,10 @@ fn add_raw_table_for_len<T>(visitor: &mut Visitor, len: usize) {
         // We don't depend on `RawTable`, so we don't know the size of `RawTable`.
         let size_of_raw_table = mem::size_of::<usize>();
         let mut visitor = visitor.enter_unique(Key::new("raw_table"), size_of_raw_table);
-        visitor.visit_simple(Key::new("alloc"), raw_table_alloc_size_for_len::<T>(len));
+        visitor.visit_simple(
+            Key::new("alloc"),
+            raw_table_alloc_size_for_capacity::<T>(len),
+        );
         visitor.exit();
     }
 }
