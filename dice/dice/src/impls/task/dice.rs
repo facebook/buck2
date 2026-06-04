@@ -199,9 +199,8 @@ impl DiceTaskInternal {
     /// This encapsulates the entire sync projection protocol:
     /// 1. Check if the task already has a completed value
     /// 2. Check if a sync projection value already exists
-    /// 3. Wait for any in-progress value write to complete
-    /// 4. Compute the sync value under write lock
-    /// 5. Spawn a background task to complete the async part
+    /// 3. Compute the sync value under write lock
+    /// 4. Spawn a background task to complete the async part
     pub(super) fn sync_get_or_complete(
         this: &Arc<Self>,
         f: impl FnOnce() -> DiceSyncResult,
@@ -217,17 +216,6 @@ impl DiceTaskInternal {
             value
         } {
             return Ok(sync_res);
-        }
-
-        // Wait for any in-progress set_value/report_terminated to complete (spins on Sync state),
-        // and check if the task finished in the meantime.
-        match this.state.check_if_finished() {
-            TaskState::Continue => {}
-            TaskState::Finished => {
-                return this
-                    .read_value()
-                    .expect("task finished must mean result is ready");
-            }
         }
 
         let result = {

@@ -32,8 +32,6 @@ pub(super) struct AtomicDiceTaskState(AtomicU8);
 enum TransitionOp {
     /// CAS to this new state, return TaskState::Continue on success.
     TransitionTo(DiceTaskState),
-    /// No state change needed, return TaskState::Continue.
-    Continue,
     /// Spin-wait and retry (the state is expected to change).
     SpinWait,
     /// The task is already finished, return TaskState::Finished.
@@ -65,9 +63,6 @@ impl AtomicDiceTaskState {
                         Err(_) => continue,
                     }
                 }
-                TransitionOp::Continue => {
-                    return TaskState::Continue;
-                }
                 TransitionOp::SpinWait => {
                     std::hint::spin_loop();
                 }
@@ -83,17 +78,6 @@ impl AtomicDiceTaskState {
     pub(super) fn sync(&self) -> TaskState {
         self.transition(|s| match s {
             DiceTaskState::InProgress => TransitionOp::TransitionTo(DiceTaskState::Sync),
-            DiceTaskState::Sync => TransitionOp::SpinWait,
-            DiceTaskState::Ready | DiceTaskState::Terminated => TransitionOp::Finished,
-        })
-    }
-
-    /// Check if the task is already finished. Spins if a writer currently holds
-    /// the sync spinlock (Sync state), then re-checks.
-    /// Returns `Continue` if still `InProgress`, `Finished` if `Ready` or `Terminated`.
-    pub(super) fn check_if_finished(&self) -> TaskState {
-        self.transition(|s| match s {
-            DiceTaskState::InProgress => TransitionOp::Continue,
             DiceTaskState::Sync => TransitionOp::SpinWait,
             DiceTaskState::Ready | DiceTaskState::Terminated => TransitionOp::Finished,
         })
