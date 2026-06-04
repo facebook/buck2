@@ -95,15 +95,17 @@ pub async fn create_daemon_spawn_command(
     program: impl AsRef<OsStr>,
     unit_name: String,
     working_directory: &AbsNormPath,
+    nested_invocation_daemon_uuid: Option<&str>,
 ) -> buck2_error::Result<(std::process::Command, Vec<String>)> {
     let daemon_spawner = {
+        let test_enable_nested_daemon_cgroup = buck2_core::buck2_env!(
+            "BUCK2_TEST_ENABLE_NESTED_DAEMON_CGROUP",
+            type = bool,
+            applicability = testing,
+        )?
+        .unwrap_or(false);
         if config.status == ResourceControlStatus::Off
-            || buck2_core::buck2_env!(
-                "BUCK2_TEST_DISABLE_DAEMON_CGROUP",
-                type = bool,
-                applicability = testing,
-            )?
-            .unwrap_or(false)
+            || (nested_invocation_daemon_uuid.is_some() && !test_enable_nested_daemon_cgroup)
         {
             DaemonSpawner::None
         } else {
@@ -341,6 +343,7 @@ mod tests {
             "myunitname".to_owned(),
             // Working dir, doesn't matter
             AbsNormPath::new("/").unwrap(),
+            None,
         )
         .await
         .unwrap();

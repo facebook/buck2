@@ -414,6 +414,7 @@ impl<'a> BuckdLifecycle<'a> {
             daemon_exe,
             unit_name,
             project_dir.root(),
+            self.constraints.nested_invocation_daemon_uuid.as_deref(),
         )
         .await?;
         let mut cmd: tokio::process::Command = cmd.into();
