@@ -212,7 +212,19 @@ impl Uploader {
                 }
             } else {
                 tracing::debug!(digest=%digest, ttl=digest_ttl, "Not uploading");
-                let ttl = Duration::seconds(digest_ttl);
+                let Some(ttl) = Duration::try_seconds(digest_ttl) else {
+                    let _ignored = soft_error!(
+                        "re_digest_ttl_out_of_bounds",
+                        buck2_error::buck2_error!(
+                            buck2_error::ErrorTag::ReInvalidGetCasResponse,
+                            "RE returned digest TTL outside the supported duration range; skipping digest expiration update. Digest: `{}`, TTL seconds: `{}`",
+                            digest,
+                            digest_ttl
+                        ),
+                        quiet: true
+                    );
+                    continue;
+                };
                 digest.update_expires(now + ttl);
             }
         }
