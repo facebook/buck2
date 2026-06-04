@@ -50,18 +50,6 @@ impl<'a> DiceTaskHandle<'a> {
         }
     }
 
-    pub(crate) fn report_initial_lookup(&self) -> TaskState {
-        self.internal.report_initial_lookup()
-    }
-
-    pub(crate) fn checking_deps(&self) -> TaskState {
-        self.internal.report_checking_deps()
-    }
-
-    pub(crate) fn computing(&self) -> TaskState {
-        self.internal.report_computing()
-    }
-
     pub(crate) fn cancellation_ctx(&self) -> &'a CancellationContext {
         self.cancellations
     }

@@ -194,24 +194,12 @@ impl DiceTaskInternal {
         self.key
     }
 
-    pub(super) fn report_initial_lookup(&self) -> TaskState {
-        self.state.report_initial_lookup()
-    }
-
-    pub(super) fn report_checking_deps(&self) -> TaskState {
-        self.state.report_checking_deps()
-    }
-
-    pub(super) fn report_computing(&self) -> TaskState {
-        self.state.report_computing()
-    }
-
     /// Synchronously get the value of this task, or compute it via a sync projection.
     ///
     /// This encapsulates the entire sync projection protocol:
     /// 1. Check if the task already has a completed value
     /// 2. Check if a sync projection value already exists
-    /// 3. Transition the state to projecting
+    /// 3. Wait for any in-progress value write to complete
     /// 4. Compute the sync value under write lock
     /// 5. Spawn a background task to complete the async part
     pub(super) fn sync_get_or_complete(
@@ -231,7 +219,9 @@ impl DiceTaskInternal {
             return Ok(sync_res);
         }
 
-        match this.state.report_project() {
+        // Wait for any in-progress set_value/report_terminated to complete (spins on Sync state),
+        // and check if the task finished in the meantime.
+        match this.state.check_if_finished() {
             TaskState::Continue => {}
             TaskState::Finished => {
                 return this
