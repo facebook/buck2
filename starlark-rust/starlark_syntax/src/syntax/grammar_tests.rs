@@ -22,65 +22,13 @@ use crate::slice_vec_ext::SliceExt;
 use crate::syntax::AstModule;
 use crate::syntax::Dialect;
 use crate::syntax::DialectTypes;
-use crate::syntax::ParserKind;
 use crate::syntax::ast::Expr;
 use crate::syntax::ast::Stmt;
 
-fn parse_with_kind(program: &str, dialect: &Dialect, kind: ParserKind) -> crate::Result<AstModule> {
-    AstModule::parse_with("assert.bzl", program.to_owned(), dialect, kind)
-}
-
-fn assert_both_parse_same_with_dialect(program: &str, dialect: &Dialect) -> AstModule {
-    let lalrpop = parse_with_kind(program, dialect, ParserKind::Lalrpop);
-    let rd = parse_with_kind(program, dialect, ParserKind::Rd);
-    match (lalrpop, rd) {
-        (Ok(lalrpop), Ok(rd)) => {
-            assert_eq!(
-                lalrpop.statement.to_string(),
-                rd.statement.to_string(),
-                "AST mismatch between LALRPOP and RD for:\n{program}",
-            );
-            lalrpop
-        }
-        (Ok(_), Err(err)) => {
-            panic!("RD parser rejected a program accepted by LALRPOP:\n{program}\nRD error: {err}")
-        }
-        (Err(err), Ok(ast)) => {
-            let rd_ast = ast.statement.to_string();
-            panic!(
-                "LALRPOP rejected a program accepted by RD:\n{program}\nRD AST: {rd_ast}\nLALRPOP error: {err}"
-            );
-        }
-        (Err(lalrpop_err), Err(rd_err)) => panic!(
-            "Expected parse success, but both parsers failed for:\n{program}\nLALRPOP error: {lalrpop_err}\nRD error: {rd_err}"
-        ),
-    }
-}
-
-fn assert_both_fail_with_dialect(program: &str, dialect: &Dialect) {
-    let lalrpop = parse_with_kind(program, dialect, ParserKind::Lalrpop);
-    let rd = parse_with_kind(program, dialect, ParserKind::Rd);
-    match (lalrpop, rd) {
-        (Err(_), Err(_)) => {}
-        (Ok(ast), Err(err)) => {
-            let lalrpop_ast = ast.statement.to_string();
-            panic!(
-                "LALRPOP accepted a program rejected by RD:\n{program}\nLALRPOP AST: {lalrpop_ast}\nRD error: {err}"
-            );
-        }
-        (Err(err), Ok(ast)) => {
-            let rd_ast = ast.statement.to_string();
-            panic!(
-                "RD accepted a program rejected by LALRPOP:\n{program}\nRD AST: {rd_ast}\nLALRPOP error: {err}"
-            );
-        }
-        (Ok(lalrpop_ast), Ok(rd_ast)) => {
-            let lalrpop_ast = lalrpop_ast.statement.to_string();
-            let rd_ast = rd_ast.statement.to_string();
-            panic!(
-                "Expected parse failure, but both parsers accepted:\n{program}\nLALRPOP AST: {lalrpop_ast}\nRD AST: {rd_ast}"
-            );
-        }
+fn assert_parse_fails(program: &str, dialect: &Dialect) {
+    if let Ok(ast) = AstModule::parse("assert.bzl", program.to_owned(), dialect) {
+        let ast_str = ast.statement.to_string();
+        panic!("Expected parse failure, but parser accepted:\n{program}\nAST: {ast_str}");
     }
 }
 
@@ -92,16 +40,18 @@ fn parse_fails_with_dialect(name: &str, dialect: &Dialect, programs: &[&str]) {
             writeln!(out).unwrap();
         }
 
-        assert_both_fail_with_dialect(program, dialect);
-
         let program = program.trim();
+        let err = match AstModule::parse(name, program.to_owned(), dialect) {
+            Ok(ast) => {
+                let ast_str = ast.statement.to_string();
+                panic!("Expected parse failure for:\n{program}\nGot AST: {ast_str}");
+            }
+            Err(e) => e,
+        };
 
         writeln!(out, "Program:").unwrap();
         writeln!(out, "{program}").unwrap();
         writeln!(out).unwrap();
-
-        let err =
-            AstModule::parse_with(name, program.to_owned(), dialect, ParserKind::Rd).unwrap_err();
         writeln!(out, "Error:").unwrap();
         writeln!(out, "{err}").unwrap();
     }
@@ -121,12 +71,8 @@ fn parse_fails(name: &str, programs: &[&str]) {
     parse_fails_with_dialect(name, &Dialect::AllOptionsInternal, programs);
 }
 
-fn parse_err_with_kind(program: &str, kind: ParserKind) -> crate::Error {
-    parse_with_kind(program, &Dialect::AllOptionsInternal, kind).unwrap_err()
-}
-
 fn assert_parse_fails_program(program: &str) {
-    assert_both_fail_with_dialect(program, &Dialect::AllOptionsInternal);
+    assert_parse_fails(program, &Dialect::AllOptionsInternal);
 }
 
 fn assert_parse_fails_programs(programs: &[&str]) {
@@ -135,29 +81,34 @@ fn assert_parse_fails_programs(programs: &[&str]) {
     }
 }
 
+fn parse_err(program: &str) -> crate::Error {
+    AstModule::parse(
+        "assert.bzl",
+        program.to_owned(),
+        &Dialect::AllOptionsInternal,
+    )
+    .unwrap_err()
+}
+
 fn assert_parse_error_span_source(program: &str, expected_source: &str) {
-    for kind in [ParserKind::Lalrpop, ParserKind::Rd] {
-        let err = parse_err_with_kind(program, kind);
-        let span = err.span().unwrap_or_else(|| {
-            panic!("Expected parse error with span for:\n{program}\nError: {err}")
-        });
-        assert_eq!(
-            span.source_span(),
-            expected_source,
-            "Expected {kind:?} parse error to point at `{expected_source}` for:\n{program}\nError: {err}",
-        );
-    }
+    let err = parse_err(program);
+    let span = err
+        .span()
+        .unwrap_or_else(|| panic!("Expected parse error with span for:\n{program}\nError: {err}"));
+    assert_eq!(
+        span.source_span(),
+        expected_source,
+        "Expected parse error to point at `{expected_source}` for:\n{program}\nError: {err}",
+    );
 }
 
 fn assert_parse_error_contains(program: &str, expected: &str) {
-    for kind in [ParserKind::Lalrpop, ParserKind::Rd] {
-        let err = parse_err_with_kind(program, kind);
-        let err_text = err.to_string();
-        assert!(
-            err_text.contains(expected),
-            "Expected {kind:?} parse error containing `{expected}` for:\n{program}\nActual error:\n{err_text}",
-        );
-    }
+    let err = parse_err(program);
+    let err_text = err.to_string();
+    assert!(
+        err_text.contains(expected),
+        "Expected parse error containing `{expected}` for:\n{program}\nActual error:\n{err_text}",
+    );
 }
 
 fn assert_assignment_rhs_is_slice(
@@ -644,20 +595,13 @@ fn test_error_chained_comparison() {
     );
 }
 
-/// Specific to the recursive-descent parser: `not` only appears at infix
-/// position as part of `not in`. Captures the focused error message
-/// (LALRPOP would print a generic "expected one of ..." token list here).
+/// `not` only appears at infix position as part of `not in`; the bare
+/// sequence `a not b` should be rejected with a focused error message.
 #[test]
 fn test_error_rd_not_without_in() {
     let name = "error_rd_not_without_in";
     let program = "_ = a not b";
-    let err = AstModule::parse_with(
-        name,
-        program.to_owned(),
-        &Dialect::AllOptionsInternal,
-        ParserKind::Rd,
-    )
-    .unwrap_err();
+    let err = AstModule::parse(name, program.to_owned(), &Dialect::AllOptionsInternal).unwrap_err();
     let out = format!("Program:\n{program}\n\nError:\n{err}\n");
     golden_test_template(&format!("src/syntax/grammar_tests/{name}.golden"), &out);
 }
@@ -864,5 +808,6 @@ fn parse_with_dialect(program: &str, dialect: &Dialect) -> String {
 }
 
 fn parse_ast_with_dialect(program: &str, dialect: &Dialect) -> AstModule {
-    assert_both_parse_same_with_dialect(program, dialect)
+    AstModule::parse("assert.bzl", program.to_owned(), dialect)
+        .unwrap_or_else(|err| panic!("Expected parse success for:\n{program}\nError: {err}"))
 }

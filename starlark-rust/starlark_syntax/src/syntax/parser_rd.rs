@@ -39,7 +39,7 @@ use crate::syntax::ast::*;
 use crate::syntax::grammar_util;
 use crate::syntax::state::ParserState;
 
-type Lexeme = Result<(usize, Token, usize), EvalException>;
+pub(crate) type Lexeme = Result<(usize, Token, usize), EvalException>;
 
 /// Pop the current token after the caller has already verified (via peek/match)
 /// that it is the named variant. Returns `(start, payload, end)`. In debug
@@ -727,9 +727,7 @@ impl<'a, I: Iterator<Item = Lexeme>> ParserRd<'a, I> {
 
     /// Binding powers for binary operators, encoding the [Starlark operator
     /// precedence table][starlark-prec] (lowest precedence = lowest binding
-    /// power). The same precedence ladder is encoded in the LALRPOP grammar as
-    /// per-precedence non-terminals (`OrTest`, `AndTest`, `NotTest`, `CompTest`,
-    /// `BitOrExpr`, etc. in `grammar.lalrpop`).
+    /// power).
     ///
     /// Returns `(op, left_bp, right_bp)`. For left-associative operators
     /// `left_bp < right_bp`; for non-associative comparisons `left_bp == right_bp`
@@ -1469,31 +1467,20 @@ impl<'a, I: Iterator<Item = Lexeme>> ParserRd<'a, I> {
     }
 }
 
-/// Recursive descent + Pratt parser, exposed via the [`Parser`](super::parser::Parser) trait
-/// so the dispatch in [`AstModule::parse_with`](crate::syntax::AstModule::parse_with) can pick
-/// it at runtime alongside [`LalrpopParser`](super::parser_lalrpop::LalrpopParser).
-pub(crate) struct RdParser;
-
-impl super::parser::Parser for RdParser {
-    fn parse_module<I: Iterator<Item = super::parser::Lexeme>>(
-        state: &mut ParserState<'_>,
-        tokens: I,
-        _eof_pos: usize,
-    ) -> Result<AstStmt, super::parse_error::ParseError> {
-        // The internal `ParserRd<'a, I>` struct in this module owns its
-        // `ParserState`. The trait gives us `&mut ParserState`, so we
-        // construct a temporary owned `ParserState` by reborrowing the
-        // unique &mut Vec<EvalException> from the caller's state. The
-        // temporary lives only for this call; on return, the borrow is
-        // released and the caller regains exclusive access.
-        let temp_state = ParserState {
-            dialect: state.dialect,
-            codemap: state.codemap,
-            errors: &mut *state.errors,
-        };
-        let parser = ParserRd::new(tokens, temp_state);
-        parser
-            .parse_module()
-            .map_err(super::parse_error::ParseError::EvalException)
-    }
+/// Recursive descent + Pratt parse entry point.
+///
+/// The internal `ParserRd<'a, I>` struct in this module owns its `ParserState`,
+/// so we construct a temporary owned `ParserState` by reborrowing the caller's
+/// `&mut Vec<EvalException>`. The temporary lives only for this call; on
+/// return, the borrow is released and the caller regains exclusive access.
+pub(crate) fn parse_module<I: Iterator<Item = Lexeme>>(
+    state: &mut ParserState<'_>,
+    tokens: I,
+) -> Result<AstStmt, EvalException> {
+    let temp_state = ParserState {
+        dialect: state.dialect,
+        codemap: state.codemap,
+        errors: &mut *state.errors,
+    };
+    ParserRd::new(tokens, temp_state).parse_module()
 }

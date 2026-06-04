@@ -13,15 +13,11 @@ name = "starlark_syntax"
 repository = "https://github.com/facebook/starlark-rust"
 version = "0.14.1"
 
-[build-dependencies]
-lalrpop = "0.23.1"
-
 [dependencies]
 annotate-snippets = { version = "0.9.0", features = [] }
 anyhow = { workspace = true }
 derivative = { workspace = true }
 derive_more = { workspace = true }
-lalrpop-util = "0.23.1"
 logos = "0.15"
 lsp-types = "0.97.0"
 memchr = { workspace = true }

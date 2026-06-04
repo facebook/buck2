@@ -30,17 +30,14 @@ use crate::syntax::ast::AssignOp;
 use crate::syntax::ast::AssignP;
 use crate::syntax::ast::AssignTarget;
 use crate::syntax::ast::AssignTargetP;
-use crate::syntax::ast::AstAssignIdent;
 use crate::syntax::ast::AstAssignTarget;
 use crate::syntax::ast::AstExpr;
 use crate::syntax::ast::AstFString;
 use crate::syntax::ast::AstStmt;
 use crate::syntax::ast::AstString;
 use crate::syntax::ast::AstTypeExpr;
-use crate::syntax::ast::Comma;
 use crate::syntax::ast::Expr;
 use crate::syntax::ast::FStringP;
-use crate::syntax::ast::LoadArgP;
 use crate::syntax::ast::LoadP;
 use crate::syntax::ast::Stmt;
 use crate::syntax::ast::StmtP;
@@ -163,37 +160,6 @@ pub(crate) fn check_load_0(module: AstString, parser_state: &mut ParserState) ->
     Stmt::Load(LoadP {
         module,
         args: Vec::new(),
-        payload: (),
-    })
-}
-
-pub(crate) fn check_load(
-    module: AstString,
-    args: Vec<((AstAssignIdent, AstString), Spanned<Comma>)>,
-    last: Option<(AstAssignIdent, AstString)>,
-    parser_state: &mut ParserState,
-) -> Stmt {
-    if args.is_empty() && last.is_none() {
-        return check_load_0(module, parser_state);
-    }
-
-    let args = args
-        .into_iter()
-        .map(|((local, their), comma)| LoadArgP {
-            local,
-            their,
-            comma: Some(comma),
-        })
-        .chain(last.map(|(local, their)| LoadArgP {
-            local,
-            their,
-            comma: None,
-        }))
-        .collect();
-
-    Stmt::Load(LoadP {
-        module,
-        args,
         payload: (),
     })
 }
