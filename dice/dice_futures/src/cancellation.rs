@@ -264,6 +264,10 @@ impl DropcancelHandle {
         }
     }
 
+    pub fn cancel(&self) {
+        self.view.cancel();
+    }
+
     pub fn into_cancellable(mut self) -> CancellationHandle {
         let view = unsafe { ManuallyDrop::take(&mut self.view) };
         std::mem::forget(self);
