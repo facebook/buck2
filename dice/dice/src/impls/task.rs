@@ -13,6 +13,7 @@ pub(crate) mod dice;
 pub(crate) mod handle;
 pub(crate) mod promise;
 mod state;
+#[cfg(test)]
 pub(crate) use dice::spawn_dice_task;
 pub(crate) use dice::sync_dice_task;
 pub(crate) use state::DiceTaskState;

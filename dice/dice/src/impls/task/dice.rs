@@ -75,6 +75,12 @@ pub(crate) struct DiceTaskSpawner {
     inner: CancellableFutureSpawner,
 }
 
+impl PreparedDiceTask {
+    pub(crate) fn task(&self) -> &DiceTask {
+        &self.task
+    }
+}
+
 struct DiceTaskInternal {
     #[allow(dead_code)] // used by debug! logging when enabled
     key: DiceKey,
@@ -435,6 +441,7 @@ impl DiceTaskInternal {
 unsafe impl Send for DiceTaskInternal {}
 unsafe impl Sync for DiceTaskInternal {}
 
+#[cfg(test)]
 pub(crate) fn spawn_dice_task<S>(
     key: DiceKey,
     spawner: &dyn dice_futures::spawner::Spawner<S>,

@@ -44,10 +44,11 @@ use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
 use crate::impls::task::PreviouslyCancelledTask;
 use crate::impls::task::dice::DiceTask;
+use crate::impls::task::dice::PreparedDiceTask;
+use crate::impls::task::dice::spawn_prepared_task;
 use crate::impls::task::handle::DiceTaskHandle;
 use crate::impls::task::promise::DicePromise;
 use crate::impls::task::promise::DiceSyncResult;
-use crate::impls::task::spawn_dice_task;
 use crate::impls::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceComputedValue;
@@ -86,6 +87,7 @@ pub(crate) struct DiceTaskWorker {
 impl DiceTaskWorker {
     pub(crate) fn spawn(
         k: DiceKey,
+        prepared_task: PreparedDiceTask,
         version_epoch: VersionEpoch,
         eval: AsyncEvaluator,
         cycles: UserCycleDetectorData,
@@ -105,7 +107,7 @@ impl DiceTaskWorker {
             version_epoch,
         };
 
-        spawn_dice_task(k, &*spawner, &spawner_ctx, move |handle| {
+        spawn_prepared_task(prepared_task, &*spawner, &spawner_ctx, move |handle| {
             // NOTE: important to run prevent cancellation eagerly in the sync scope to prevent
             // cancellations so that we don't cancel the current task before we finish waiting
             // for the previously cancelled task

@@ -59,6 +59,7 @@ use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
 use crate::impls::opaque::OpaqueValue;
 use crate::impls::task::PreviouslyCancelledTask;
+use crate::impls::task::dice::DiceTask;
 use crate::impls::task::promise::DicePromise;
 use crate::impls::task::sync_dice_task;
 use crate::impls::transaction::ActiveTransactionGuard;
@@ -844,8 +845,10 @@ impl SharedLiveTransactionCtx {
                         );
 
                         take_mut::take(occupied.get_mut(), |previous| {
+                            let prepared_task = DiceTask::prepare(key);
                             DiceTaskWorker::spawn(
                                 key,
+                                prepared_task,
                                 self.version_epoch,
                                 eval,
                                 cycles,
@@ -866,8 +869,17 @@ impl SharedLiveTransactionCtx {
                 let events =
                     DiceEventDispatcher::new(eval.user_data.tracker.dupe(), eval.dice.dupe());
 
-                let task =
-                    DiceTaskWorker::spawn(key, self.version_epoch, eval, cycles, events, None);
+                let prepared_task = DiceTask::prepare(key);
+                let task = prepared_task.task().dupe();
+                DiceTaskWorker::spawn(
+                    key,
+                    prepared_task,
+                    self.version_epoch,
+                    eval,
+                    cycles,
+                    events,
+                    None,
+                );
 
                 // While we wouldn't have canceled the task, it could've already finished with a canceled result.
                 let result = task.depended_on_by(parent_key);
