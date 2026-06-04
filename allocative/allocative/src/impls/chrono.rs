@@ -11,6 +11,7 @@
 #![cfg(feature = "chrono")]
 
 use chrono::DateTime;
+use chrono::TimeDelta;
 use chrono::TimeZone;
 
 use crate::allocative_trait::Allocative;
@@ -22,9 +23,16 @@ impl<Tz: TimeZone> Allocative for DateTime<Tz> {
     }
 }
 
+impl Allocative for TimeDelta {
+    fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
+        visitor.enter_self_sized::<Self>().exit();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use chrono::DateTime;
+    use chrono::TimeDelta;
     use chrono::Utc;
 
     use crate::golden::golden_test;
@@ -32,5 +40,10 @@ mod tests {
     #[test]
     fn test_datetime() {
         golden_test!(&DateTime::<Utc>::UNIX_EPOCH);
+    }
+
+    #[test]
+    fn test_timedelta() {
+        golden_test!(&TimeDelta::zero());
     }
 }
