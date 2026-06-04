@@ -105,9 +105,9 @@ static PyObject* _create_module(PyObject* self, PyObject* spec) {
   // There is no supported Meta/Cinder Python 3.13 build, and stock Python 3.13
   // has no _Py_PackageContext.
   mod = initfunc();
-#elif PY_VERSION_HEX >= 0x030C0000 && defined(META_PYTHON_STATIC_EXTENSION_APIS)
-  // Use our custom Python 3.12 C-API to call the statically linked module init
-  // function
+#elif PY_VERSION_HEX >= 0x030C0000 && defined(META_PYTHON)
+  // Meta Python 3.12 exposes a custom C-API to call statically linked module
+  // init functions with package context.
   mod = _Ci_PyImport_CallInitFuncWithContext(namestr.c_str(), initfunc);
 #elif PY_VERSION_HEX >= 0x030C0000
   // Stock CPython 3.12+ (no _Py_PackageContext)
