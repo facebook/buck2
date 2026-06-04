@@ -1206,7 +1206,7 @@ def _hidden_resources_error_message(current_target: Label, hidden_resources: lis
             msg += "  {}\n".format(resource)
     return msg
 
-def _get_shared_library_dep_metadata(ctx: AnalysisContext, shared_libraries: list[(SharedLibrary, str)], link_args: list[LinkArgs]) -> list[DepMetadata]:
+def get_shared_library_dep_metadata(ctx: AnalysisContext, shared_libraries: list[(SharedLibrary, str)], link_args: list[LinkArgs]) -> list[DepMetadata]:
     """
     Dedupes the linker metadata for each shared library into a single string.
 
@@ -1243,6 +1243,9 @@ def _get_shared_library_dep_metadata(ctx: AnalysisContext, shared_libraries: lis
 
     return dedupe_dep_metadata(metadatas)
 
+def get_truncated_shared_library_versions(metadatas: list[DepMetadata]) -> list[str]:
+    return [metadata.version for metadata in truncate_dep_metadata(metadatas)]
+
 def _add_dep_metadata_to_manifest_module(
     ctx: AnalysisContext, shared_libraries: list[(SharedLibrary, str)], link_args: list[LinkArgs], python_toolchain: PythonToolchainInfo
 ) -> dict[str, typing.Any] | None:
@@ -1270,8 +1273,8 @@ def _add_dep_metadata_to_manifest_module(
                 else:
                     fail("Cannot merge manifest_module_entries entry {}: {} and {}".format(k, manifest_module_entries[k], v))
 
-    metadatas = _get_shared_library_dep_metadata(ctx, shared_libraries, link_args)
-    manifest_module_entries["library_versions"] = [metadata.version for metadata in truncate_dep_metadata(metadatas)]
+    metadatas = get_shared_library_dep_metadata(ctx, shared_libraries, link_args)
+    manifest_module_entries["library_versions"] = get_truncated_shared_library_versions(metadatas)
 
     return manifest_module_entries
 

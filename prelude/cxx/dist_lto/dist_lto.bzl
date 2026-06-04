@@ -852,7 +852,7 @@ def cxx_gnu_dist_link(
         strip_args = opts.strip_args_factory(ctx) if opts.strip_args_factory else cmd_args()
         final_output = strip_object(ctx, cxx_toolchain, final_output, strip_args, category_suffix, allow_cache_upload = enable_late_build_info_stamping)
 
-    final_output = stamp_build_info(ctx, final_output) if executable_link else final_output
+    final_output = stamp_build_info(ctx, final_output, links = opts.links) if executable_link else final_output
 
     return LinkedObject(
         output = final_output,

@@ -517,7 +517,7 @@ def cxx_link_into(
         output = renamed
 
     if is_result_executable:
-        output = stamp_build_info(ctx, output)
+        output = stamp_build_info(ctx, output, links = opts.links)
 
     linked_object = LinkedObject(
         output = output,
