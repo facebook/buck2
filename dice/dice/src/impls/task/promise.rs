@@ -22,17 +22,13 @@ use futures::future::BoxFuture;
 use futures::task::AtomicWaker;
 
 use crate::arc::Arc;
-use crate::impls::task::dice::DiceTaskInternal;
+use crate::impls::task::dice::DiceTask;
 use crate::impls::task::dice::SlabId;
 use crate::impls::value::DiceComputedValue;
 
-/// A string reference to a 'DiceTask' that is pollable as a future.
+/// A strong reference to a 'DiceTask' that is pollable as a future.
 /// This is only awoken when the result is ready, as none of the pollers are responsible for
-/// running the task to completion
-///
-/// Memory size:
-/// DicePromise <-> Shared: DicePromise is 2 triomphe::Arc and a usize, whereas Shared is a usize
-/// and 1 std::Arc, so we hold one extra Arc.
+/// running the task to completion.
 pub(crate) struct DicePromise(pub(super) DicePromiseInternal);
 
 pub(super) enum DicePromiseInternal {
@@ -41,7 +37,7 @@ pub(super) enum DicePromiseInternal {
     },
     Pending {
         slab: SlabId,
-        task_internal: Arc<DiceTaskInternal>,
+        task: DiceTask,
         waker: Arc<AtomicWaker>,
     },
     Done,
@@ -72,22 +68,14 @@ impl DicePromise {
         Self(DicePromiseInternal::Ready { result })
     }
 
-    pub(super) fn pending(
-        slab: SlabId,
-        internal: Arc<DiceTaskInternal>,
-        waker: Arc<AtomicWaker>,
-    ) -> Self {
-        Self(DicePromiseInternal::Pending {
-            slab,
-            task_internal: internal,
-            waker,
-        })
+    pub(super) fn pending(slab: SlabId, task: DiceTask, waker: Arc<AtomicWaker>) -> Self {
+        Self(DicePromiseInternal::Pending { slab, task, waker })
     }
 
     pub(crate) fn is_pending(&self) -> bool {
         match &self.0 {
             DicePromiseInternal::Ready { .. } => false,
-            DicePromiseInternal::Pending { task_internal, .. } => task_internal.is_pending(),
+            DicePromiseInternal::Pending { task, .. } => task.is_pending(),
             DicePromiseInternal::Done => false,
         }
     }
@@ -100,9 +88,7 @@ impl DicePromise {
     ) -> CancellableResult<DiceComputedValue> {
         match &self.0 {
             DicePromiseInternal::Ready { result } => Ok(result.dupe()),
-            DicePromiseInternal::Pending { task_internal, .. } => {
-                DiceTaskInternal::sync_get_or_complete(task_internal, f)
-            }
+            DicePromiseInternal::Pending { task, .. } => task.sync_get_or_complete(f),
             DicePromiseInternal::Done => panic!("poll after ready"),
         }
     }
@@ -113,11 +99,7 @@ impl Drop for DicePromise {
         match &self.0 {
             DicePromiseInternal::Ready { .. } => {}
             DicePromiseInternal::Done => {}
-            DicePromiseInternal::Pending {
-                slab,
-                task_internal,
-                ..
-            } => task_internal.drop_waiter(slab),
+            DicePromiseInternal::Pending { slab, task, .. } => task.drop_waiter(slab),
         }
     }
 }
@@ -133,13 +115,9 @@ impl Future for DicePromise {
                     _ => unreachable!(),
                 }
             }
-            DicePromiseInternal::Pending {
-                task_internal,
-                waker,
-                ..
-            } => {
+            DicePromiseInternal::Pending { task, waker, .. } => {
                 waker.register(cx.waker());
-                if let Some(res) = task_internal.read_value() {
+                if let Some(res) = task.read_value() {
                     Poll::Ready(res)
                 } else {
                     Poll::Pending

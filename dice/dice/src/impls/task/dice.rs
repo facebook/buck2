@@ -63,7 +63,7 @@ impl DiceTask {
     }
 }
 
-pub(crate) struct DiceTaskInternal {
+pub(super) struct DiceTaskInternal {
     #[allow(dead_code)] // used by debug! logging when enabled
     key: DiceKey,
     /// The internal progress state of the task
@@ -129,7 +129,7 @@ impl DiceTask {
                     Err(cancellation_reason)
                 }
                 super::critical::DependedOnByResult::Pending(slab_id, waker) => {
-                    Ok(DicePromise::pending(slab_id, self.internal.dupe(), waker))
+                    Ok(DicePromise::pending(slab_id, self.dupe(), waker))
                 }
                 super::critical::DependedOnByResult::Finished => self
                     .internal
@@ -181,7 +181,7 @@ impl DiceTask {
     pub(crate) fn await_termination(&self) -> TerminationObserver {
         match self.internal.critical.await_termination() {
             Some((slab_id, waker)) => TerminationObserver::Pending {
-                waiter: DicePromise::pending(slab_id, self.internal.dupe(), waker),
+                waiter: DicePromise::pending(slab_id, self.dupe(), waker),
             },
             None => {
                 let _finished_or_fully_cancelled = self
@@ -192,6 +192,32 @@ impl DiceTask {
                 TerminationObserver::Done
             }
         }
+    }
+
+    pub(crate) fn introspect_state(&self) -> super::state::DiceTaskState {
+        self.internal.state.introspect_state()
+    }
+
+    pub(super) fn read_value(&self) -> Option<CancellableResult<DiceComputedValue>> {
+        self.internal.read_value()
+    }
+
+    pub(super) fn drop_waiter(&self, slab: &SlabId) {
+        self.internal.drop_waiter(slab);
+    }
+
+    /// Synchronously get the value of this task, or compute it via a sync projection.
+    ///
+    /// This encapsulates the entire sync projection protocol:
+    /// 1. Check if the task already has a completed value
+    /// 2. Check if a sync projection value already exists
+    /// 3. Compute the sync value under write lock
+    /// 4. Spawn a background task to complete the async part
+    pub(crate) fn sync_get_or_complete(
+        &self,
+        f: impl FnOnce() -> DiceSyncResult,
+    ) -> CancellableResult<DiceComputedValue> {
+        DiceTaskInternal::sync_get_or_complete(&self.internal, f)
     }
 }
 
@@ -205,14 +231,27 @@ impl DiceTaskInternal {
         self.key
     }
 
-    /// Synchronously get the value of this task, or compute it via a sync projection.
-    ///
-    /// This encapsulates the entire sync projection protocol:
-    /// 1. Check if the task already has a completed value
-    /// 2. Check if a sync projection value already exists
-    /// 3. Compute the sync value under write lock
-    /// 4. Spawn a background task to complete the async part
-    pub(super) fn sync_get_or_complete(
+    fn read_value(&self) -> Option<CancellableResult<DiceComputedValue>> {
+        if self.state.is_ready(Ordering::Acquire) || self.state.is_terminated(Ordering::Acquire) {
+            Some(
+                unsafe {
+                    // SAFETY: main thread only writes this before setting state to `READY`
+                    &*self.maybe_value.get()
+                }
+                .as_ref()
+                .duped()
+                .expect("result should be present"),
+            )
+        } else {
+            None
+        }
+    }
+
+    fn drop_waiter(&self, slab: &SlabId) {
+        self.critical.drop_waiter(slab);
+    }
+
+    fn sync_get_or_complete(
         this: &Arc<Self>,
         f: impl FnOnce() -> DiceSyncResult,
     ) -> CancellableResult<DiceComputedValue> {
@@ -275,10 +314,6 @@ impl DiceTaskInternal {
         Ok(result.sync_result)
     }
 
-    pub(super) fn drop_waiter(&self, slab: &SlabId) {
-        self.critical.drop_waiter(slab);
-    }
-
     pub(super) fn set_cancellation_handle(
         &self,
         handle: dice_futures::cancellation::CancellationHandle,
@@ -286,7 +321,7 @@ impl DiceTaskInternal {
         self.critical.set_cancellation_handle(handle);
     }
 
-    pub(crate) fn new(key: DiceKey, cancellation: CancellationState) -> Arc<Self> {
+    pub(super) fn new(key: DiceKey, cancellation: CancellationState) -> Arc<Self> {
         Arc::new(Self {
             key,
             state: AtomicDiceTaskState::default(),
@@ -296,23 +331,7 @@ impl DiceTaskInternal {
         })
     }
 
-    pub(crate) fn read_value(&self) -> Option<CancellableResult<DiceComputedValue>> {
-        if self.state.is_ready(Ordering::Acquire) || self.state.is_terminated(Ordering::Acquire) {
-            Some(
-                unsafe {
-                    // SAFETY: main thread only writes this before setting state to `READY`
-                    &*self.maybe_value.get()
-                }
-                .as_ref()
-                .duped()
-                .expect("result should be present"),
-            )
-        } else {
-            None
-        }
-    }
-
-    pub(crate) fn set_value(
+    pub(super) fn set_value(
         &self,
         value: DiceComputedValue,
     ) -> CancellableResult<DiceComputedValue> {
@@ -344,7 +363,7 @@ impl DiceTaskInternal {
 
     /// report the task as terminated. This should only be called once. No effect if called affect
     /// task is already ready
-    pub(crate) fn report_terminated(&self, reason: CancellationReason) {
+    pub(super) fn report_terminated(&self, reason: CancellationReason) {
         match self.state.sync() {
             TaskState::Continue => {}
             TaskState::Finished => {
@@ -368,7 +387,7 @@ impl DiceTaskInternal {
     }
 
     /// true if this task is not yet complete and not yet canceled.
-    pub(crate) fn is_pending(&self) -> bool {
+    fn is_pending(&self) -> bool {
         !(self.state.is_ready(Ordering::Acquire) || self.state.is_terminated(Ordering::Acquire))
     }
 }
@@ -377,9 +396,3 @@ impl DiceTaskInternal {
 // Each unsafe block around its access has comments explaining the invariants.
 unsafe impl Send for DiceTaskInternal {}
 unsafe impl Sync for DiceTaskInternal {}
-
-impl DiceTask {
-    pub(crate) fn introspect_state(&self) -> super::state::DiceTaskState {
-        self.internal.state.introspect_state()
-    }
-}
