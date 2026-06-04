@@ -776,7 +776,7 @@ async fn join_all_existing_futs(
     Ok(())
 }
 
-#[derive(Derivative)]
+#[derive(Allocative, Derivative)]
 #[derivative(Debug)]
 pub struct WriteFile {
     #[derivative(Debug = "ignore")]

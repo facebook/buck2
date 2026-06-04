@@ -117,6 +117,7 @@ use crate::daemon::crash::crash;
 use crate::daemon::multi_event_stream::MultiEventStream;
 use crate::daemon::server_allocative::spawn_allocative;
 use crate::daemon::state::DaemonState;
+use crate::daemon::state::DaemonStateData;
 use crate::file_status::file_status_command;
 use crate::lsp::run_lsp_server_command;
 use crate::new_generic::new_generic_command;
@@ -239,6 +240,12 @@ pub(crate) struct BuckdServerData {
 /// module taking just a ServerCommandContext.
 #[derive(Allocative)]
 pub struct BuckdServer(Arc<BuckdServerData>);
+
+impl BuckdServerData {
+    pub(crate) fn daemon_state_data(&self) -> Arc<DaemonStateData> {
+        self.daemon_state.data()
+    }
+}
 
 impl BuckdServer {
     #[tracing::instrument(name = "daemon_listener", skip_all)]

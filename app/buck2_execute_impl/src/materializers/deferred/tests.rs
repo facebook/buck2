@@ -542,6 +542,33 @@ mod state_machine {
     }
 
     #[tokio::test]
+    async fn test_allocative_profiles_artifact_tree() -> buck2_error::Result<()> {
+        ignore_stack_overflow_checks_for_future(async {
+            let io = Arc::new(StubIoHandler::new(temp_root()));
+            let path = make_path("foo/bar");
+            let artifact = ArtifactValue::file(io.digest_config().empty_file());
+            let (dm, _handle, _daemon_dispatcher_events) = make_materializer(io, None).await;
+
+            dm.declare_existing(vec![DeclareArtifactPayload {
+                path,
+                artifact,
+                configuration_path: None,
+            }])
+            .await?;
+
+            let source = dm.allocative().await?.flamegraph().write();
+            assert!(
+                source.contains("artifact_tree"),
+                "flamegraph source should contain artifact_tree: {source}"
+            );
+
+            dm.abort();
+            Ok(())
+        })
+        .await
+    }
+
+    #[tokio::test]
     async fn test_declare_reuse() -> buck2_error::Result<()> {
         ignore_stack_overflow_checks_for_future(async {
             let (mut dm, _) = make_processor(Default::default());

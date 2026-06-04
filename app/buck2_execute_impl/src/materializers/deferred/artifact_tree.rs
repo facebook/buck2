@@ -10,6 +10,9 @@
 
 use std::sync::Arc;
 
+use allocative::Allocative;
+use allocative::Visitor;
+use allocative::ident_key;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
 use buck2_directory::directory::directory_ref::DirectoryRef;
@@ -60,9 +63,12 @@ pub(crate) type ArtifactTree = FileTree<Box<ArtifactMaterializationData>>;
 
 /// The Version of a processing future associated with an artifact. We use this to know if we can
 /// clear the processing field when a callback is received, or if more work is expected.
-#[derive(Eq, PartialEq, Copy, Clone, Dupe, Debug, Ord, PartialOrd, Display)]
+#[derive(
+    Eq, PartialEq, Copy, Clone, Dupe, Debug, Ord, PartialOrd, Display, Allocative
+)]
 pub struct Version(pub u64);
 
+#[derive(Allocative)]
 pub struct ArtifactMaterializationData {
     /// Taken from `deps` of `ArtifactValue`. Used to materialize deps of the artifact.
     pub(crate) deps: Option<ActionSharedDirectory>,
@@ -81,11 +87,14 @@ pub struct ArtifactMaterializationData {
 /// The version is an internal counter that is shared between the current processing_fut and
 /// this data. When multiple operations are queued on a ArtifactMaterializationData, this
 /// allows us to identify which one is current.
+#[derive(Allocative)]
 pub(crate) enum Processing {
     Done(Version),
     Active {
+        #[allocative(skip)]
         future: ProcessingFuture,
         version: Version,
+        #[allocative(skip)]
         priority_control: DynamicPriorityHandle,
     },
 }
@@ -141,6 +150,7 @@ pub(crate) fn artifact_metadata_size(metadata: &ArtifactMetadata) -> u64 {
     }
 }
 
+#[derive(Allocative)]
 pub enum ArtifactMaterializationStage {
     /// The artifact was declared, but the materialization hasn't started yet.
     /// If it did start but end with an error, it returns to this stage.
@@ -196,6 +206,34 @@ pub enum ArtifactMaterializationMethod {
 
     #[cfg(test)]
     Test,
+}
+
+impl Allocative for ArtifactMaterializationMethod {
+    fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
+        let mut visitor = visitor.enter_self_sized::<Self>();
+        match self {
+            Self::LocalCopy(srcs, copied) => {
+                let mut visitor = visitor.enter(ident_key!(LocalCopy), 0);
+                visitor.visit_field(ident_key!(srcs), &srcs.allocative_dfs());
+                visitor.visit_field(ident_key!(copied), copied);
+                visitor.exit();
+            }
+            Self::Write(write_file) => {
+                visitor.visit_field(ident_key!(Write), write_file);
+            }
+            Self::CasDownload { info } => {
+                visitor.visit_field(ident_key!(CasDownload), info);
+            }
+            Self::HttpDownload { info } => {
+                visitor.visit_field(ident_key!(HttpDownload), info);
+            }
+            #[cfg(test)]
+            Self::Test => {
+                visitor.visit_simple(allocative::Key::new("Test"), 0);
+            }
+        }
+        visitor.exit();
+    }
 }
 
 pub(crate) trait MaterializationMethodToProto {

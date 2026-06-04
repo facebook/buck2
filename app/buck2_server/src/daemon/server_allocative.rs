@@ -12,6 +12,8 @@ use std::sync::Arc;
 
 use allocative::FlameGraph;
 use allocative::FlameGraphBuilder;
+use allocative::FlameGraphOutput;
+use allocative::Key;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_fs::error::IoResultExt;
@@ -76,11 +78,51 @@ fn wrap_flamegraph_with_system_stats(fg: &FlameGraph) -> FlameGraph {
     fg.into_flamegraph()
 }
 
+fn add_deferred_materializer_profile(
+    mut flamegraph: FlameGraph,
+    deferred_materializer: &FlameGraph,
+) -> FlameGraph {
+    flamegraph.add_child(
+        Key::new("deferred_materializer"),
+        deferred_materializer.clone(),
+    );
+    flamegraph
+}
+
+fn combined_warnings(
+    allocative: &FlameGraphOutput,
+    deferred_materializer: Option<&FlameGraphOutput>,
+) -> String {
+    match deferred_materializer {
+        Some(deferred_materializer) => {
+            let mut warnings = allocative.warnings();
+            let deferred_materializer_warnings = deferred_materializer.warnings();
+            if !deferred_materializer_warnings.is_empty() {
+                if !warnings.is_empty() {
+                    warnings.push('\n');
+                }
+                warnings.push_str(&deferred_materializer_warnings);
+            }
+            warnings
+        }
+        None => allocative.warnings(),
+    }
+}
+
 pub(crate) async fn spawn_allocative(
     buckd_server_data: Arc<BuckdServerData>,
     path: AbsPathBuf,
     dispatcher: EventDispatcher,
 ) -> buck2_error::Result<()> {
+    let materializer = buckd_server_data.daemon_state_data().materializer.clone();
+    let deferred_materializer_profile = match materializer.as_deferred_materializer_extension() {
+        Some(deferred_materializer) => {
+            dispatcher.console_message("Visiting deferred materializer...".to_owned());
+            Some(deferred_materializer.allocative().await?)
+        }
+        None => None,
+    };
+
     tokio::task::spawn_blocking(move || {
         let mut graph = FlameGraphBuilder::default();
         dispatcher.console_message(
@@ -92,10 +134,18 @@ pub(crate) async fn spawn_allocative(
         dispatcher.console_message("Visiting buckd...".to_owned());
         graph.visit_root(&buckd_server_data);
         let fg = graph.finish();
+        let flamegraph = match deferred_materializer_profile.as_ref() {
+            Some(deferred_materializer) => add_deferred_materializer_profile(
+                fg.flamegraph().clone(),
+                deferred_materializer.flamegraph(),
+            ),
+            None => fg.flamegraph().clone(),
+        };
+        let warnings = combined_warnings(&fg, deferred_materializer_profile.as_ref());
         // input path from --output-path
         fs_util::create_dir_if_not_exists(&path).categorize_input()?;
         dispatcher.console_message(format!("Writing allocative to `{}`...", path.display()));
-        let final_fg = wrap_flamegraph_with_system_stats(fg.flamegraph());
+        let final_fg = wrap_flamegraph_with_system_stats(&flamegraph);
         fs_util::write(path.join("flamegraph.src"), final_fg.write()).categorize_internal()?;
         let mut fg_svg = Vec::new();
         let mut options = inferno::flamegraph::Options::default();
@@ -106,11 +156,31 @@ pub(crate) async fn spawn_allocative(
         fs_util::write(path.join("flame.src"), final_fg.write().as_bytes())
             .categorize_internal()?;
         fs_util::write(path.join("flame.svg"), &fg_svg).categorize_internal()?;
-        fs_util::write(path.join("flame_warnings.txt"), fg.warnings()).categorize_internal()?;
+        fs_util::write(path.join("flame_warnings.txt"), warnings).categorize_internal()?;
 
         dispatcher.console_message(format!("Allocative profile written to {}", path.display()));
 
         buck2_error::Ok(())
     })
     .await?
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn adds_deferred_materializer_profile() {
+        let base = FlameGraph::default();
+        let mut deferred_materializer = FlameGraph::default();
+        deferred_materializer.add_self(5);
+
+        let merged = add_deferred_materializer_profile(base, &deferred_materializer);
+
+        assert!(
+            merged.write().contains("deferred_materializer 5"),
+            "merged flamegraph: {}",
+            merged.write()
+        );
+    }
 }

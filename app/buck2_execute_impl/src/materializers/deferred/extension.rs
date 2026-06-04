@@ -15,6 +15,10 @@ use std::fmt::Write;
 use std::sync::Arc;
 use std::time::Instant;
 
+use allocative::Allocative;
+use allocative::FlameGraphBuilder;
+use allocative::Visitor;
+use allocative::ident_key;
 use async_trait::async_trait;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
@@ -48,6 +52,7 @@ use crate::materializers::deferred::DeferredMaterializerCommandProcessor;
 use crate::materializers::deferred::MaterializerCommand;
 use crate::materializers::deferred::Processing;
 use crate::materializers::deferred::ProcessingFuture;
+use crate::materializers::deferred::artifact_tree::ArtifactTree;
 use crate::materializers::deferred::artifact_tree::artifact_metadata_size;
 use crate::materializers::deferred::clean_stale::CleanStaleArtifactsCommand;
 use crate::materializers::deferred::clean_stale::CleanStaleArtifactsExtensionCommand;
@@ -57,6 +62,21 @@ use crate::materializers::deferred::subscriptions::MaterializerSubscriptionOpera
 
 pub(super) trait ExtensionCommand<T>: Debug + Sync + Send + 'static {
     fn execute(self: Box<Self>, processor: &mut DeferredMaterializerCommandProcessor<T>);
+}
+
+struct AllocativeProfileRoot<'a> {
+    artifact_tree: &'a ArtifactTree,
+}
+
+impl Allocative for AllocativeProfileRoot<'_> {
+    fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
+        let mut visitor = visitor.enter_self_sized::<Self>();
+        visitor.visit_field(
+            ident_key!(artifact_tree),
+            &self.artifact_tree.allocative_dfs(),
+        );
+        visitor.exit();
+    }
 }
 
 #[derive(Debug)]
@@ -195,6 +215,23 @@ impl<T> ExtensionCommand<T> for ListSubscriptions {
                 Err(..) => break, // No use sending more if the client disconnected.
             }
         }
+    }
+}
+
+#[derive(Derivative)]
+#[derivative(Debug)]
+struct AllocativeProfile {
+    #[derivative(Debug = "ignore")]
+    sender: Sender<allocative::FlameGraphOutput>,
+}
+
+impl<T> ExtensionCommand<T> for AllocativeProfile {
+    fn execute(self: Box<Self>, processor: &mut DeferredMaterializerCommandProcessor<T>) {
+        let mut graph = FlameGraphBuilder::default();
+        graph.visit_root(&AllocativeProfileRoot {
+            artifact_tree: &processor.tree,
+        });
+        let _ignored = self.sender.send(graph.finish());
     }
 }
 
@@ -371,6 +408,17 @@ impl<T: IoHandler> DeferredMaterializerExtensions for DeferredMaterializerAccess
                 Box::new(ListSubscriptions { sender }) as _,
             ))?;
         Ok(UnboundedReceiverStream::new(receiver).boxed())
+    }
+
+    async fn allocative(&self) -> buck2_error::Result<allocative::FlameGraphOutput> {
+        let (sender, receiver) = oneshot::channel();
+        self.command_sender
+            .send(MaterializerCommand::Extension(
+                Box::new(AllocativeProfile { sender }) as _,
+            ))?;
+        receiver
+            .await
+            .buck_error_context("No response from materializer")
     }
 
     fn fsck(

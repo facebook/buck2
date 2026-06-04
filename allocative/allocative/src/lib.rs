@@ -67,6 +67,7 @@ pub use allocative_derive::root;
 pub use crate::allocative_trait::Allocative;
 pub use crate::flamegraph::FlameGraph;
 pub use crate::flamegraph::FlameGraphBuilder;
+pub use crate::flamegraph::FlameGraphOutput;
 pub use crate::global_root::register_root;
 pub use crate::key::Key;
 pub use crate::size_of::size_of_unique;

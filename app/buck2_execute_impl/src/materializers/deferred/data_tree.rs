@@ -26,7 +26,11 @@ use std::collections::hash_map::IntoIter;
 use std::collections::hash_map::Iter;
 use std::hash::Hash;
 use std::marker::PhantomData;
+use std::mem;
 
+use allocative::Allocative;
+use allocative::Key;
+use allocative::Visitor;
 use buck2_error::buck2_error;
 use buck2_hash::StdBuckHashMap;
 
@@ -40,6 +44,56 @@ pub enum DataTree<K, V> {
     /// Stores data of type `V` with key of type `Iterator<Item = K>`.
     Tree(StdBuckHashMap<K, DataTree<K, V>>),
     Data(V),
+}
+
+/// Visits a whole `DataTree` without making the flamegraph stack follow the
+/// tree's path depth.
+pub(crate) struct DataTreeAllocativeDfs<'a, K, V> {
+    tree: &'a DataTree<K, V>,
+}
+
+impl<K: Allocative, V: Allocative> Allocative for DataTree<K, V> {
+    fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
+        let mut visitor = visitor.enter_self_sized::<Self>();
+        match self {
+            Self::Tree(children) => {
+                visitor.visit_field_with(Key::new("Tree"), mem::size_of_val(children), |visitor| {
+                    visitor.visit_field_with(
+                        Key::new("data"),
+                        mem::size_of::<*const ()>(),
+                        |visitor| {
+                            for key in children.keys() {
+                                visitor.visit_field(Key::new("key"), key);
+                            }
+                        },
+                    );
+                });
+            }
+            Self::Data(data) => visitor.visit_field(Key::new("Data"), data),
+        }
+        visitor.exit();
+    }
+}
+
+impl<K: Allocative, V: Allocative> Allocative for DataTreeAllocativeDfs<'_, K, V> {
+    fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
+        let mut visitor = visitor.enter_self_sized::<Self>();
+        let mut visitor = visitor.enter(Key::new("nodes"), 0);
+        let mut stack = vec![self.tree];
+        while let Some(tree) = stack.pop() {
+            tree.visit(&mut visitor);
+            if let DataTree::Tree(children) = tree {
+                stack.extend(children.values());
+            }
+        }
+        visitor.exit();
+    }
+}
+
+impl<K, V> DataTree<K, V> {
+    pub(crate) fn allocative_dfs(&self) -> DataTreeAllocativeDfs<'_, K, V> {
+        DataTreeAllocativeDfs { tree: self }
+    }
 }
 
 impl<K: 'static + Eq + Hash + Clone, V: 'static> DataTree<K, V> {
@@ -357,6 +411,29 @@ mod tests {
             .collect::<BTreeMap<_, _>>();
 
         assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_allocative_dfs_does_not_recurse_in_node_stack() {
+        let mut tree = DataTree::<i32, String>::new();
+        tree.insert(vec![1, 2, 3, 4, 5].into_iter(), "12345".to_owned());
+
+        let mut graph = allocative::FlameGraphBuilder::default();
+        graph.visit_root(&tree.allocative_dfs());
+        let source = graph.finish().flamegraph().write();
+
+        assert!(
+            source.contains(";nodes;"),
+            "flamegraph source should contain flattened nodes: {source}"
+        );
+
+        for line in source.lines() {
+            let data_tree_count = line.matches("::DataTree<").count();
+            assert!(
+                data_tree_count <= 1,
+                "DataTree nodes should be visited as siblings instead of recursive stacks: {line}"
+            );
+        }
     }
 
     #[test]
