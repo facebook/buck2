@@ -27,6 +27,19 @@ use crate::impls::task::handle::TaskState;
 #[derive(Default, Allocative)]
 pub(super) struct AtomicDiceTaskState(AtomicU8);
 
+/// What the transition closure wants to do for a given state.
+enum TransitionOp {
+    /// CAS to this new state, return TaskState::Continue on success.
+    TransitionTo(DiceTaskState),
+    /// No state change needed, return TaskState::Continue.
+    #[expect(dead_code)]
+    Continue,
+    /// Spin-wait and retry (the state is expected to change).
+    SpinWait,
+    /// The task is already finished, return TaskState::Finished.
+    Finished,
+}
+
 impl AtomicDiceTaskState {
     pub(super) fn is_ready(&self, ordering: Ordering) -> bool {
         match DiceTaskState::from_u8_state(self.0.load(ordering)) {
@@ -42,31 +55,30 @@ impl AtomicDiceTaskState {
         }
     }
 
-    fn transition(
-        &self,
-        maybe_transition: impl Fn(DiceTaskState) -> Option<DiceTaskState>,
-    ) -> TaskState {
+    fn transition(&self, decide: impl Fn(DiceTaskState) -> TransitionOp) -> TaskState {
         loop {
-            match self
-                .0
-                .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |old| {
-                    let unpacked = DiceTaskState::from_u8_state(old);
-                    maybe_transition(unpacked).map(DiceTaskState::into_u8_state)
-                }) {
-                Ok(_) => {
+            let old = self.0.load(Ordering::SeqCst);
+            let state = DiceTaskState::from_u8_state(old);
+            match decide(state) {
+                TransitionOp::TransitionTo(new_state) => {
+                    match self.0.compare_exchange(
+                        old,
+                        new_state.into_u8_state(),
+                        Ordering::SeqCst,
+                        Ordering::SeqCst,
+                    ) {
+                        Ok(_) => return TaskState::Continue,
+                        Err(_) => continue,
+                    }
+                }
+                TransitionOp::Continue => {
                     return TaskState::Continue;
                 }
-                Err(old) => {
-                    let unpacked = DiceTaskState::from_u8_state(old);
-                    if unpacked == DiceTaskState::Sync {
-                        std::hint::spin_loop();
-                    } else if unpacked == DiceTaskState::Ready
-                        || unpacked == DiceTaskState::Terminated
-                    {
-                        return TaskState::Finished;
-                    } else {
-                        unreachable!("handled above")
-                    }
+                TransitionOp::SpinWait => {
+                    std::hint::spin_loop();
+                }
+                TransitionOp::Finished => {
+                    return TaskState::Finished;
                 }
             }
         }
@@ -171,12 +183,14 @@ impl DiceTaskState {
         }
     }
 
-    fn transition(self, target: TargetState) -> Option<Self> {
+    fn transition(self, target: TargetState) -> TransitionOp {
         match self {
             DiceTaskState::AwaitingPrevious(proj) => match target {
                 target @ (TargetState::InitialLookup
                 | TargetState::Sync
-                | TargetState::Terminated) => Some(target.into_dice_task_state_with_proj(proj)),
+                | TargetState::Terminated) => {
+                    TransitionOp::TransitionTo(target.into_dice_task_state_with_proj(proj))
+                }
                 target => {
                     panic!(
                         "invalid state transition `{:?}` -> `{:?}`",
@@ -193,11 +207,11 @@ impl DiceTaskState {
                         target
                     )
                 }
-                target => Some(target.into_dice_task_state_with_proj(proj)),
+                target => TransitionOp::TransitionTo(target.into_dice_task_state_with_proj(proj)),
             },
             DiceTaskState::CheckingDeps(proj) => match target {
                 target @ (TargetState::Computing | TargetState::Sync | TargetState::Terminated) => {
-                    Some(target.into_dice_task_state_with_proj(proj))
+                    TransitionOp::TransitionTo(target.into_dice_task_state_with_proj(proj))
                 }
                 target => {
                     panic!(
@@ -209,7 +223,7 @@ impl DiceTaskState {
             },
             DiceTaskState::Computing(proj) => match target {
                 target @ (TargetState::Sync | TargetState::Terminated) => {
-                    Some(target.into_dice_task_state_with_proj(proj))
+                    TransitionOp::TransitionTo(target.into_dice_task_state_with_proj(proj))
                 }
                 target => {
                     panic!(
@@ -220,29 +234,32 @@ impl DiceTaskState {
                 }
             },
             DiceTaskState::Sync => match target {
-                target @ TargetState::Ready => Some(target.into_dice_task_state()),
-                target @ TargetState::Terminated => Some(target.into_dice_task_state()),
-                _ => None,
+                target @ (TargetState::Ready | TargetState::Terminated) => {
+                    TransitionOp::TransitionTo(target.into_dice_task_state())
+                }
+                _ => TransitionOp::SpinWait,
             },
-            DiceTaskState::Ready => None,
-            DiceTaskState::Terminated => None,
+            DiceTaskState::Ready => TransitionOp::Finished,
+            DiceTaskState::Terminated => TransitionOp::Finished,
         }
     }
 
-    fn project(self) -> Option<Self> {
+    fn project(self) -> TransitionOp {
         match self {
-            DiceTaskState::AwaitingPrevious(_) => {
-                Some(DiceTaskState::AwaitingPrevious(IsProjecting::Projecting))
-            }
+            DiceTaskState::AwaitingPrevious(_) => TransitionOp::TransitionTo(
+                DiceTaskState::AwaitingPrevious(IsProjecting::Projecting),
+            ),
             DiceTaskState::InitialLookup(_) => {
-                Some(DiceTaskState::InitialLookup(IsProjecting::Projecting))
+                TransitionOp::TransitionTo(DiceTaskState::InitialLookup(IsProjecting::Projecting))
             }
             DiceTaskState::CheckingDeps(_) => {
-                Some(DiceTaskState::CheckingDeps(IsProjecting::Projecting))
+                TransitionOp::TransitionTo(DiceTaskState::CheckingDeps(IsProjecting::Projecting))
             }
-            DiceTaskState::Computing(_) => Some(DiceTaskState::Computing(IsProjecting::Projecting)),
-            DiceTaskState::Sync => None,
-            DiceTaskState::Ready => None,
+            DiceTaskState::Computing(_) => {
+                TransitionOp::TransitionTo(DiceTaskState::Computing(IsProjecting::Projecting))
+            }
+            DiceTaskState::Sync => TransitionOp::SpinWait,
+            DiceTaskState::Ready => TransitionOp::Finished,
             DiceTaskState::Terminated => {
                 panic!(
                     "invalid projection when state is `{:?}`",
