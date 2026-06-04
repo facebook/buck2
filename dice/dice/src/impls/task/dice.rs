@@ -58,12 +58,12 @@ pub(crate) struct DiceTask {
 }
 
 impl DiceTask {
-    pub(super) fn new(internal: Arc<DiceTaskInternal>) -> Self {
+    fn new(internal: Arc<DiceTaskInternal>) -> Self {
         Self { internal }
     }
 }
 
-pub(super) struct DiceTaskInternal {
+struct DiceTaskInternal {
     #[allow(dead_code)] // used by debug! logging when enabled
     key: DiceKey,
     /// The internal progress state of the task
@@ -340,7 +340,7 @@ impl DiceTaskInternal {
         self.critical.set_cancellation_handle(handle);
     }
 
-    pub(super) fn new(key: DiceKey, cancellation: CancellationState) -> Arc<Self> {
+    fn new(key: DiceKey, cancellation: CancellationState) -> Arc<Self> {
         Arc::new(Self {
             key,
             state: AtomicDiceTaskState::default(),
@@ -412,3 +412,44 @@ impl DiceTaskInternal {
 // Each unsafe block around its access has comments explaining the invariants.
 unsafe impl Send for DiceTaskInternal {}
 unsafe impl Sync for DiceTaskInternal {}
+
+pub(crate) fn spawn_dice_task<S>(
+    key: DiceKey,
+    spawner: &dyn dice_futures::spawner::Spawner<S>,
+    ctx: &S,
+    f: impl for<'a, 'b> FnOnce(
+        &'a mut super::handle::DiceTaskHandle<'b>,
+    ) -> futures::future::BoxFuture<'a, Box<dyn std::any::Any + Send>>
+    + Send,
+) -> DiceTask {
+    use dice_futures::owning_future::OwningFuture;
+    use dice_futures::spawn::spawn_dropcancel;
+
+    let task = DiceTask::new(DiceTaskInternal::new(key, CancellationState::Pending));
+
+    let (_fut, cancellation_handle) = spawn_dropcancel(
+        {
+            let task = task.dupe();
+            |cancellations| {
+                let handle = super::handle::DiceTaskHandle::new(task, cancellations);
+                OwningFuture::new(handle, f).boxed()
+            }
+        },
+        spawner,
+        ctx,
+    )
+    .detach();
+
+    task.set_cancellation_handle(cancellation_handle);
+
+    task
+}
+
+/// Unsafe as this creates a Task that must be completed explicitly otherwise polling will never
+/// complete.
+pub(crate) unsafe fn sync_dice_task(key: DiceKey) -> DiceTask {
+    DiceTask::new(DiceTaskInternal::new(
+        key,
+        CancellationState::NotCancellable,
+    ))
+}

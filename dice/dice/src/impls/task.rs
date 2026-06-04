@@ -8,72 +8,24 @@
  * above-listed licenses.
  */
 
-use std::any::Any;
-
-use dice_futures::owning_future::OwningFuture;
-use dice_futures::spawn::spawn_dropcancel;
-use dice_futures::spawner::Spawner;
-use dupe::Dupe;
-use futures::FutureExt;
-use futures::future::BoxFuture;
-
-use crate::impls::key::DiceKey;
-use crate::impls::task::critical::CancellationState;
-use crate::impls::task::dice::DiceTask;
-use crate::impls::task::dice::DiceTaskInternal;
-use crate::impls::task::handle::DiceTaskHandle;
-
 pub(crate) mod critical;
 pub(crate) mod dice;
 pub(crate) mod handle;
 pub(crate) mod promise;
 mod state;
+pub(crate) use dice::spawn_dice_task;
+pub(crate) use dice::sync_dice_task;
 pub(crate) use state::DiceTaskState;
 
 #[cfg(test)]
 mod tests;
 
-pub(crate) fn spawn_dice_task<S>(
-    key: DiceKey,
-    spawner: &dyn Spawner<S>,
-    ctx: &S,
-    f: impl for<'a, 'b> FnOnce(&'a mut DiceTaskHandle<'b>) -> BoxFuture<'a, Box<dyn Any + Send>> + Send,
-) -> DiceTask {
-    let task = DiceTask::new(DiceTaskInternal::new(key, CancellationState::Pending));
-
-    let (_fut, cancellation_handle) = spawn_dropcancel(
-        {
-            let task = task.dupe();
-            |cancellations| {
-                let handle = DiceTaskHandle::new(task, cancellations);
-                OwningFuture::new(handle, f).boxed()
-            }
-        },
-        spawner,
-        ctx,
-    )
-    .detach();
-
-    task.set_cancellation_handle(cancellation_handle);
-
-    task
-}
-
-/// Unsafe as this creates a Task that must be completed explicitly otherwise polling will never
-/// complete.
-pub(crate) unsafe fn sync_dice_task(key: DiceKey) -> DiceTask {
-    DiceTask::new(DiceTaskInternal::new(
-        key,
-        CancellationState::NotCancellable,
-    ))
-}
-
 pub(crate) struct PreviouslyCancelledTask {
-    previous: DiceTask,
+    previous: dice::DiceTask,
 }
 
 impl PreviouslyCancelledTask {
-    pub(crate) fn new(previous: DiceTask) -> Self {
+    pub(crate) fn new(previous: dice::DiceTask) -> Self {
         Self { previous }
     }
 
