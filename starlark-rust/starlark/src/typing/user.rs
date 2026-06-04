@@ -201,7 +201,7 @@ impl PartialOrd for TyUser {
 
 impl Ord for TyUser {
     fn cmp(&self, other: &Self) -> Ordering {
-        (&self.name, &self.fields, self.id).cmp(&(&other.name, &self.fields, other.id))
+        (&self.name, &self.fields, self.id).cmp(&(&other.name, &other.fields, other.id))
     }
 }
 
