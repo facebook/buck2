@@ -31,6 +31,7 @@ use std::mem;
 use allocative::Allocative;
 use allocative::Key;
 use allocative::Visitor;
+use allocative::hashbrown_util::bucket_count_for_capacity;
 use buck2_error::buck2_error;
 use buck2_hash::StdBuckHashMap;
 
@@ -58,15 +59,7 @@ impl<K: Allocative, V: Allocative> Allocative for DataTree<K, V> {
         match self {
             Self::Tree(children) => {
                 visitor.visit_field_with(Key::new("Tree"), mem::size_of_val(children), |visitor| {
-                    visitor.visit_field_with(
-                        Key::new("data"),
-                        mem::size_of::<*const ()>(),
-                        |visitor| {
-                            for key in children.keys() {
-                                visitor.visit_field(Key::new("key"), key);
-                            }
-                        },
-                    );
+                    visit_hash_map_keys_and_skipped_values(visitor, children);
                 });
             }
             Self::Data(data) => visitor.visit_field(Key::new("Data"), data),
@@ -75,10 +68,51 @@ impl<K: Allocative, V: Allocative> Allocative for DataTree<K, V> {
     }
 }
 
+/// Account for hashmap overhead while skipping values.
+///
+/// The values (`DataTree` children) are not visited here — they are walked
+/// separately by `DataTreeAllocativeDfs`. This means the standard `HashMap`
+/// `Allocative` impl can't be used because it visits both keys and values.
+///
+/// Instead we report:
+///   - each key individually (via `visit_field`)
+///   - the key-portion of occupied slots (`occupied_key_slot_bytes`)
+///   - empty bucket slots (`unused_bucket_bytes`)
+///   - one control byte per bucket (`control_bytes`)
+///
+/// The total (`occupied_key_slot_bytes + unused_bucket_bytes + control_bytes`)
+/// equals `raw_table_alloc_size_for_capacity::<(K, V)>() - len * size_of::<V>()`
+/// — the full hashmap allocation minus the value slots that the DFS accounts for.
+fn visit_hash_map_keys_and_skipped_values<K: Allocative, V: Allocative>(
+    visitor: &mut Visitor<'_>,
+    map: &StdBuckHashMap<K, DataTree<K, V>>,
+) {
+    let bucket_count = bucket_count_for_capacity(map.capacity());
+    let occupied_key_slot_bytes = map.len()
+        * mem::size_of::<(K, DataTree<K, V>)>().saturating_sub(mem::size_of::<DataTree<K, V>>());
+    let unused_bucket_bytes =
+        bucket_count.saturating_sub(map.len()) * mem::size_of::<(K, DataTree<K, V>)>();
+    let control_bytes = bucket_count;
+
+    let mut visitor = visitor.enter_unique(Key::new("data"), mem::size_of::<*const ()>());
+    visitor.visit_field_with(
+        Key::new("capacity"),
+        occupied_key_slot_bytes + unused_bucket_bytes + control_bytes,
+        |visitor| {
+            for key in map.keys() {
+                visitor.visit_field(Key::new("key"), key);
+            }
+            visitor.visit_simple(Key::new("unused_capacity"), unused_bucket_bytes);
+            visitor.visit_simple(Key::new("control_bytes"), control_bytes);
+        },
+    );
+    visitor.exit();
+}
+
 impl<K: Allocative, V: Allocative> Allocative for DataTreeAllocativeDfs<'_, K, V> {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
         let mut visitor = visitor.enter_self_sized::<Self>();
-        let mut visitor = visitor.enter(Key::new("nodes"), 0);
+        let mut visitor = visitor.enter_unique(Key::new("nodes"), 0);
         let mut stack = vec![self.tree];
         while let Some(tree) = stack.pop() {
             tree.visit(&mut visitor);
@@ -420,8 +454,10 @@ mod tests {
 
         let mut graph = allocative::FlameGraphBuilder::default();
         graph.visit_root(&tree.allocative_dfs());
-        let source = graph.finish().flamegraph().write();
+        let output = graph.finish();
+        let source = output.flamegraph().write();
 
+        assert_eq!("", output.warnings());
         assert!(
             source.contains(";nodes;"),
             "flamegraph source should contain flattened nodes: {source}"

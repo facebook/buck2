@@ -19,7 +19,7 @@ mod dashmap;
 mod either;
 mod futures;
 pub(crate) mod hashbrown;
-pub(crate) mod hashbrown_util;
+pub mod hashbrown_util;
 mod indexmap;
 mod lock_api;
 mod num_bigint;
