@@ -1963,8 +1963,9 @@ def _mk_argsfiles(
             # The precompile_args field overrides these.
             return
 
-        if _get_category(ext) == "asm_compile":
-            # Assemblers (NASM, MASM, gas) don't understand -ffile-prefix-map.
+        if compiler_info.compiler_type in ("nasm", "windows_ml64"):
+            # NASM/MASM don't understand -ffile-prefix-map. .s/.sx/.S go through the gcc/clang
+            # driver (as_compiler_info) and do accept these flags.
             return
 
         # Put file_prefix_args in argsfile, make sure they do not appear when evaluating $(cxxppflags)
