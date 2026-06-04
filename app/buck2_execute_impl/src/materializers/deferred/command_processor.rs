@@ -479,14 +479,11 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
     fn cancel_eager_materialization_if_low(&mut self, path: &ProjectRelativePath) {
         if let Some((_artifact_path, data)) =
             Self::find_artifact_containing_path(&mut self.tree, path)
-            && let Processing::Active {
-                future: ProcessingFuture::Materializing(_),
-                priority_control,
-                ..
-            } = &data.processing
-            && matches!(priority_control.priority(), Priority::Low)
+            && let Some(active) = data.processing.active_ref()
+            && matches!(&active.future, ProcessingFuture::Materializing(_))
+            && matches!(active.priority_control.priority(), Priority::Low)
         {
-            priority_control.cancel();
+            active.priority_control.cancel();
         }
     }
 
@@ -1036,11 +1033,11 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 entry: value.entry().dupe(),
                 method,
             },
-            processing: Processing::Active {
+            processing: Processing::active(
                 future,
                 version,
-                priority_control: DynamicPriorityHandle::new(Priority::High),
-            },
+                DynamicPriorityHandle::new(Priority::High),
+            ),
         });
         self.tree.insert(path.iter().map(|f| f.to_owned()), data);
     }
@@ -1233,23 +1230,18 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             Some(x) => x,
         };
 
-        let cleaning_fut = match &data.processing {
-            Processing::Active {
-                future: ProcessingFuture::Cleaning(f),
-                ..
-            } => Some(f.clone()),
-            Processing::Active {
-                future: ProcessingFuture::Materializing(f),
-                priority_control,
-                ..
-            } => {
-                if priority != priority_control.priority() {
-                    priority_control.update(priority);
+        let cleaning_fut = match data.processing.active_ref() {
+            Some(active) => match &active.future {
+                ProcessingFuture::Cleaning(f) => Some(f.clone()),
+                ProcessingFuture::Materializing(f) => {
+                    if priority != active.priority_control.priority() {
+                        active.priority_control.update(priority);
+                    }
+                    tracing::debug!("join existing future");
+                    return Ok(Some(f.clone()));
                 }
-                tracing::debug!("join existing future");
-                return Ok(Some(f.clone()));
-            }
-            Processing::Done(..) => None,
+            },
+            None => None,
         };
 
         let deps = data.deps.dupe();
@@ -1371,11 +1363,11 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             .shared();
 
         let data = self.tree.prefix_get_mut(&mut path.iter()).unwrap();
-        data.processing = Processing::Active {
-            future: ProcessingFuture::Materializing(task.clone()),
+        data.processing = Processing::active(
+            ProcessingFuture::Materializing(task.clone()),
             version,
-            priority_control: priority_control.dupe(),
-        };
+            priority_control.dupe(),
+        );
 
         Ok(Some(task))
     }
@@ -1511,11 +1503,11 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                                 self.cancellations,
                                 &EventDispatcher::error_on_event(),
                             ));
-                            info.processing = Processing::Active {
+                            info.processing = Processing::active(
                                 future,
                                 version,
-                                priority_control: DynamicPriorityHandle::new(Priority::High),
-                            };
+                                DynamicPriorityHandle::new(Priority::High),
+                            );
                         }
                     }
                 } else {

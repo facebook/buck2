@@ -1491,12 +1491,11 @@ mod state_machine {
             .tree
             .prefix_get_mut(&mut path_iter)
             .unwrap_or_else(|| panic!("artifact {} should be in tree", path));
-        match &data.processing {
-            Processing::Active {
-                priority_control, ..
-            } => priority_control.clone(),
-            _ => panic!("Expected Active processing for {}", path),
-        }
+        data.processing
+            .active_ref()
+            .unwrap_or_else(|| panic!("Expected Active processing for {}", path))
+            .priority_control
+            .clone()
     }
 
     /// Helper to extract the materializing future without upgrading priority.
@@ -1509,12 +1508,14 @@ mod state_machine {
             .tree
             .prefix_get_mut(&mut path_iter)
             .unwrap_or_else(|| panic!("artifact {} should be in tree", path));
-        match &data.processing {
-            Processing::Active {
-                future: ProcessingFuture::Materializing(f),
-                ..
-            } => f.clone(),
-            _ => panic!("Expected Active/Materializing for {}", path),
+        match &data
+            .processing
+            .active_ref()
+            .unwrap_or_else(|| panic!("Expected Active/Materializing for {}", path))
+            .future
+        {
+            ProcessingFuture::Materializing(f) => f.clone(),
+            ProcessingFuture::Cleaning(_) => panic!("Expected Active/Materializing for {}", path),
         }
     }
 

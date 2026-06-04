@@ -30,7 +30,6 @@ use std::sync::atomic::Ordering;
 use allocative::Allocative;
 use artifact_tree::ArtifactMaterializationMethod;
 use artifact_tree::ArtifactMaterializationStage;
-use artifact_tree::Processing;
 use artifact_tree::ProcessingFuture;
 use async_trait::async_trait;
 use buck2_common::file_ops::metadata::FileMetadata;

@@ -382,10 +382,8 @@ fn create_clean_fut<T: IoHandler>(
         tree.invalidate_paths_and_collect_futures(paths_to_invalidate, Some(sqlite_db))?;
     let mut existing_materialization_futs = vec![];
     for data in tree.iter_without_paths() {
-        if let super::Processing::Active {
-            future: super::ProcessingFuture::Materializing(future),
-            ..
-        } = &data.processing
+        if let Some(active) = data.processing.active_ref()
+            && let super::ProcessingFuture::Materializing(future) = &active.future
         {
             existing_materialization_futs.push(future.clone());
         }

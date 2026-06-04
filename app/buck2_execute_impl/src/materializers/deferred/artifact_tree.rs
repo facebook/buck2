@@ -90,27 +90,49 @@ pub struct ArtifactMaterializationData {
 #[derive(Allocative)]
 pub(crate) enum Processing {
     Done(Version),
-    Active {
-        #[allocative(skip)]
-        future: ProcessingFuture,
-        version: Version,
-        #[allocative(skip)]
-        priority_control: DynamicPriorityHandle,
-    },
+    Active(Box<ActiveProcessing>),
+}
+
+#[derive(Allocative)]
+pub(crate) struct ActiveProcessing {
+    #[allocative(skip)]
+    pub(crate) future: ProcessingFuture,
+    pub(crate) version: Version,
+    #[allocative(skip)]
+    pub(crate) priority_control: DynamicPriorityHandle,
 }
 
 impl Processing {
+    pub(crate) fn active(
+        future: ProcessingFuture,
+        version: Version,
+        priority_control: DynamicPriorityHandle,
+    ) -> Self {
+        Self::Active(Box::new(ActiveProcessing {
+            future,
+            version,
+            priority_control,
+        }))
+    }
+
+    pub(crate) fn active_ref(&self) -> Option<&ActiveProcessing> {
+        match self {
+            Self::Done(..) => None,
+            Self::Active(active) => Some(active),
+        }
+    }
+
     pub(crate) fn current_version(&self) -> Version {
         match self {
             Self::Done(version) => *version,
-            Self::Active { version, .. } => *version,
+            Self::Active(active) => active.version,
         }
     }
 
     fn into_future(self) -> Option<ProcessingFuture> {
         match self {
             Self::Done(..) => None,
-            Self::Active { future, .. } => Some(future),
+            Self::Active(active) => Some(active.future),
         }
     }
 }
@@ -446,5 +468,18 @@ impl ArtifactTree {
         }
 
         Ok(futs)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::mem;
+
+    use super::ActiveProcessing;
+    use super::Processing;
+
+    #[test]
+    fn processing_done_layout_does_not_include_active_state() {
+        assert!(mem::size_of::<Processing>() < mem::size_of::<ActiveProcessing>());
     }
 }

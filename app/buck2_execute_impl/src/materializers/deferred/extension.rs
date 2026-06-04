@@ -50,7 +50,6 @@ use crate::materializers::deferred::ArtifactMaterializationStage;
 use crate::materializers::deferred::DeferredMaterializerAccessor;
 use crate::materializers::deferred::DeferredMaterializerCommandProcessor;
 use crate::materializers::deferred::MaterializerCommand;
-use crate::materializers::deferred::Processing;
 use crate::materializers::deferred::ProcessingFuture;
 use crate::materializers::deferred::artifact_tree::ArtifactTree;
 use crate::materializers::deferred::artifact_tree::artifact_metadata_size;
@@ -167,16 +166,12 @@ impl<T: IoHandler> ExtensionCommand<T> for Iterate {
                 }
             };
 
-            let processing = match &data.processing {
-                Processing::Done(..) => PathProcessing::Done,
-                Processing::Active {
-                    future: ProcessingFuture::Materializing(..),
-                    ..
-                } => PathProcessing::Materializing,
-                Processing::Active {
-                    future: ProcessingFuture::Cleaning(..),
-                    ..
-                } => PathProcessing::Cleaning,
+            let processing = match data.processing.active_ref() {
+                None => PathProcessing::Done,
+                Some(active) => match &active.future {
+                    ProcessingFuture::Materializing(..) => PathProcessing::Materializing,
+                    ProcessingFuture::Cleaning(..) => PathProcessing::Cleaning,
+                },
             };
 
             let path_data = PathData { stage, processing };
