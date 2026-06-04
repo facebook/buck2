@@ -90,7 +90,8 @@ impl Allocative for DiceTaskInternal {
     }
 }
 
-/// Future when resolves when task is finished or cancelled and terminated.
+/// Future that resolves when a task is finished or fully cancelled and terminated.
+/// Dropping a `TerminationObserver` does NOT cancel the task — observers are passive.
 pub(crate) enum TerminationObserver {
     Done,
     Pending { waiter: DicePromise },
@@ -167,6 +168,16 @@ impl DiceTask {
         self.internal.state.is_terminated(Ordering::SeqCst)
     }
 
+    /// Returns a future that resolves when this task finishes or is fully cancelled
+    /// and terminated. Dropping the returned `TerminationObserver` does NOT cancel the
+    /// task — observers are passive watchers.
+    ///
+    /// Used for:
+    /// - Tests: observing when a cancelled task has fully terminated.
+    /// - Task restart: a restarted task awaits termination of its previous computation
+    ///   before proceeding.
+    /// - `wait_for_idle`: DICE collects pending tasks from core state and awaits their
+    ///   termination observers to ensure all in-flight work has settled.
     pub(crate) fn await_termination(&self) -> TerminationObserver {
         match self.internal.critical.await_termination() {
             Some((slab_id, waker)) => TerminationObserver::Pending {

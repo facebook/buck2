@@ -719,3 +719,46 @@ async fn task_that_already_cancelled_returns_cancelled() {
         Err(_) => {}
     }
 }
+
+#[tokio::test]
+async fn dropping_termination_observer_does_not_cancel_task() {
+    let barrier = Arc::new(Barrier::new(2));
+
+    let task = spawn_dice_task(DiceKey { index: 888 }, &TokioSpawner, &(), {
+        let barrier = barrier.dupe();
+        |handle| {
+            async move {
+                let _handle = handle;
+                barrier.wait().await;
+                futures::future::pending().await
+            }
+            .boxed()
+        }
+    });
+
+    barrier.wait().await;
+
+    // Register a dependant so the task stays alive
+    let promise = task
+        .depended_on_by(ParentKey::Some(DiceKey { index: 0 }))
+        .unwrap();
+
+    assert!(task.is_pending());
+
+    // Create and drop a termination observer — this should NOT cancel the task
+    let observer = task.await_termination();
+    drop(observer);
+
+    // Task should still be pending and not cancelled
+    assert!(task.is_pending());
+    assert!(!task.is_terminated());
+
+    // Should still be able to register new dependants
+    let promise2 = task
+        .depended_on_by(ParentKey::Some(DiceKey { index: 1 }))
+        .unwrap();
+    assert!(task.is_pending());
+
+    drop(promise);
+    drop(promise2);
+}

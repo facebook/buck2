@@ -136,11 +136,11 @@ impl DiceTaskInternalCritical {
             },
             SlabId::TerminationObserver(id) => match critical.termination_observers {
                 None => {}
-                Some(ref mut deps) => {
-                    deps.remove(*id);
-                    if deps.is_empty() {
-                        critical.cancel(CancellationReason::AllObserversDropped);
-                    }
+                Some(ref mut observers) => {
+                    observers.remove(*id);
+                    // Unlike dependants, dropping all termination observers does NOT cancel
+                    // the task. Termination observers are passive watchers that don't affect
+                    // the task's lifecycle.
                 }
             },
         }

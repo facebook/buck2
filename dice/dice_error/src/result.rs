@@ -26,7 +26,6 @@ pub enum CancellationReason {
     WorkerFinished,
     Cached,
     AllDependentsDropped,
-    AllObserversDropped,
     TransactionCancelled,
     TransactionDropped,
     /// Used by test code that manually cancels things.
