@@ -23,6 +23,21 @@ use crate::file_ops::metadata::RawDirEntry;
 use crate::file_ops::metadata::RawPathMetadata;
 use crate::ignores::file_ignores::FileIgnoreReason;
 
+pub enum ReadDirOutcome {
+    Entries(Vec<RawDirEntry>),
+    /// ACL-restricted path on an Eden repo -- treat as empty directory.
+    EdenPermissionDenied,
+}
+
+impl ReadDirOutcome {
+    pub fn into_entries(self) -> Vec<RawDirEntry> {
+        match self {
+            Self::Entries(entries) => entries,
+            Self::EdenPermissionDenied => vec![],
+        }
+    }
+}
+
 #[derive(Debug, Allocative, buck2_error::Error)]
 #[buck2(tag = Input)]
 pub enum ReadDirError {
@@ -62,7 +77,7 @@ pub trait IoProvider: Allocative + Send + Sync {
     async fn read_dir_impl(
         &self,
         path: ProjectRelativePathBuf,
-    ) -> buck2_error::Result<Vec<RawDirEntry>>;
+    ) -> buck2_error::Result<ReadDirOutcome>;
 
     async fn read_path_metadata_if_exists_impl(
         &self,
@@ -81,6 +96,8 @@ pub trait IoProvider: Allocative + Send + Sync {
     fn project_root(&self) -> &ProjectRoot;
 
     fn as_any(&self) -> &dyn std::any::Any;
+
+    fn is_eden_repo(&self) -> bool;
 }
 
 impl dyn IoProvider + '_ {
@@ -96,7 +113,7 @@ impl dyn IoProvider + '_ {
     pub async fn read_dir(
         &self,
         path: ProjectRelativePathBuf,
-    ) -> buck2_error::Result<Vec<RawDirEntry>> {
+    ) -> buck2_error::Result<ReadDirOutcome> {
         self.read_dir_impl(path).await.tag(ErrorTag::IoSource)
     }
 

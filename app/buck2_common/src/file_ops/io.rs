@@ -86,7 +86,8 @@ impl FileOpsDelegate for IoFileOpsDelegate {
             .get_io_provider()
             .read_dir(project_path.clone())
             .await
-            .with_buck_error_context(|| format!("Error listing dir `{path}`"))?;
+            .with_buck_error_context(|| format!("Error listing dir `{path}`"))?
+            .into_entries();
 
         // Make sure entries are deterministic, since read_dir isn't.
         entries.sort_by(|a, b| a.file_name.cmp(&b.file_name));

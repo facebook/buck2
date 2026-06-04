@@ -948,6 +948,7 @@ mod tests {
             Arc::new(FsIoProvider::new(
                 project_fs,
                 CasDigestConfig::testing_default(),
+                false,
             )),
             HttpClientBuilder::https_with_system_roots()
                 .await

@@ -15,6 +15,7 @@ use std::path::Path;
 use async_recursion::async_recursion;
 use async_trait::async_trait;
 use buck2_common::dice::cells::HasCellResolver;
+use buck2_common::dice::data::HasIoProvider;
 use buck2_common::file_ops::dice::DiceFileComputations;
 use buck2_common::file_ops::metadata::RawPathMetadata;
 use buck2_common::file_ops::metadata::RawSymlink;
@@ -125,7 +126,11 @@ impl ServerCommandTemplate for FileStatusServerCommand {
         let project_root = server_ctx.project_root();
         let digest_config = ctx.global_data().get_digest_config();
 
-        let io = &FsIoProvider::new(project_root.dupe(), digest_config.cas_digest_config());
+        let io = &FsIoProvider::new(
+            project_root.dupe(),
+            digest_config.cas_digest_config(),
+            ctx.global_data().get_io_provider().is_eden_repo(),
+        );
         let stdout = stdout.as_writer();
 
         let mut result = FileStatusResult {
@@ -244,7 +249,7 @@ async fn check_file_status(
             result.report("file metadata", path, fs_file, dice_file)?;
         }
         (RawPathMetadata::Directory, RawPathMetadata::Directory) => {
-            let fs_read_dir = io.read_dir(path.to_owned()).await?;
+            let fs_read_dir = io.read_dir(path.to_owned()).await?.into_entries();
             let dice_read_dir = DiceFileComputations::read_dir(ctx, cell_path.as_ref()).await?;
 
             // No point checking file types here, we'll do that when we inspect them.

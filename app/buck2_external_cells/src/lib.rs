@@ -75,7 +75,7 @@ impl buck2_common::external_cells::ExternalCellsImpl for ConcreteExternalCellsIm
         match io.read_path_metadata_if_exists(dest_path.clone()).await? {
             None => (),
             Some(RawPathMetadata::Directory) => {
-                let data = io.read_dir(dest_path.clone()).await?;
+                let data = io.read_dir(dest_path.clone()).await?.into_entries();
                 if !data.is_empty() {
                     return Err(ExternalCellsError::ExpandDataAlreadyPresent(dest_path).into());
                 }

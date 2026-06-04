@@ -43,18 +43,21 @@ use crate::file_ops::metadata::RawSymlink;
 use crate::file_ops::metadata::Symlink;
 use crate::file_ops::metadata::TrackedFileDigest;
 use crate::io::IoProvider;
+use crate::io::ReadDirOutcome;
 
 #[derive(Clone, Dupe, Allocative, Pagable)]
 pub struct FsIoProvider {
     fs: ProjectRoot,
     cas_digest_config: CasDigestConfig,
+    is_eden: bool,
 }
 
 impl FsIoProvider {
-    pub fn new(fs: ProjectRoot, cas_digest_config: CasDigestConfig) -> Self {
+    pub fn new(fs: ProjectRoot, cas_digest_config: CasDigestConfig, is_eden: bool) -> Self {
         Self {
             fs,
             cas_digest_config,
+            is_eden,
         }
     }
 
@@ -124,7 +127,7 @@ impl IoProvider for FsIoProvider {
     async fn read_dir_impl(
         &self,
         path: ProjectRelativePathBuf,
-    ) -> buck2_error::Result<Vec<RawDirEntry>> {
+    ) -> buck2_error::Result<ReadDirOutcome> {
         // Don't want to totally saturate the executor with these so that some other work can progress.
         // For normal fs (or warm eden), something smaller would probably be fine, for eden couple hundred is probably
         // good (current plan in that impl is to allow multiple batches of 128 dirs at a time).
@@ -132,9 +135,20 @@ impl IoProvider for FsIoProvider {
         let _permit = SEMAPHORE.acquire().await.unwrap();
 
         let path = self.fs.resolve(&path);
+        let is_eden = self.is_eden;
 
         tokio::task::spawn_blocking(move || {
-            let dir_entries = fs_util::read_dir(path).categorize_input()?;
+            let dir_entries = match fs_util::read_dir(&path) {
+                Ok(entries) => entries,
+                Err(e) if is_eden && e.io_error_kind() == Some(std::io::ErrorKind::PermissionDenied) => {
+                    tracing::debug!(
+                        "read_dir({}): permission denied on Eden repo, treating as restricted directory",
+                        path.display()
+                    );
+                    return Ok(ReadDirOutcome::EdenPermissionDenied);
+                }
+                Err(e) => return Err(e.categorize_input()),
+            };
 
             let mut entries = Vec::new();
 
@@ -150,7 +164,7 @@ impl IoProvider for FsIoProvider {
                 });
             }
 
-            buck2_error::Ok(entries)
+            buck2_error::Ok(ReadDirOutcome::Entries(entries))
         })
         .await?
         .buck_error_context("Error listing directory")
@@ -163,7 +177,6 @@ impl IoProvider for FsIoProvider {
         let fs = self.fs.dupe();
         let path = path.into_forward_relative_path_buf();
         let file_digest_config = FileDigestConfig::source(self.cas_digest_config);
-
         tokio::task::spawn_blocking(move || {
             let meta = read_path_metadata(fs.root(), &path, file_digest_config)?.map(
                 |raw_meta_or_redirection| raw_meta_or_redirection.map(ProjectRelativePathBuf::from),
@@ -192,6 +205,10 @@ impl IoProvider for FsIoProvider {
 
     fn as_any(&self) -> &dyn std::any::Any {
         self
+    }
+
+    fn is_eden_repo(&self) -> bool {
+        self.is_eden
     }
 }
 

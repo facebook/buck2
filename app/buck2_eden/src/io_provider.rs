@@ -21,6 +21,7 @@ use buck2_common::file_ops::metadata::RawDirEntry;
 use buck2_common::file_ops::metadata::RawPathMetadata;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_common::io::IoProvider;
+use buck2_common::io::ReadDirOutcome;
 use buck2_common::io::fs::FsIoProvider;
 use buck2_common::io::fs::ReadUncheckedOptions;
 use buck2_core;
@@ -117,7 +118,7 @@ impl EdenIoProvider {
 
         Ok(Some(Self {
             manager,
-            fs: FsIoProvider::new(fs.dupe(), cas_digest_config),
+            fs: FsIoProvider::new(fs.dupe(), cas_digest_config, true),
             digest,
             use_eden_thrift_read,
         }))
@@ -291,7 +292,7 @@ impl EdenIoProvider {
                     Some(libc::ENOENT) => return Err(EdenError::from(err).into()),
                     Some(libc::EINVAL) | Some(libc::ENOTDIR) => {
                         // Fallback to regular file I/O if we get EINVAL or ENOTDIR because that means it's a symlink
-                        return self.fs.read_dir_impl(path).await;
+                        return Ok(self.fs.read_dir_impl(path).await?.into_entries());
                     }
                     _ => return Err(EdenError::from(err).into()),
                 }
@@ -313,8 +314,26 @@ impl EdenIoProvider {
                 let file_name = CompactString::from_utf8(file_name)
                     .buck_error_context("Filename is not UTF-8")?;
 
-                let source_control_type = attrs
-                    .into_result()?
+                let attr_data = match attrs.into_result() {
+                    Ok(data) => data,
+                    Err(EdenError::PosixError { code, .. }) if code == libc::EACCES => {
+                        // EACCES on per-entry attributes means this is a tented directory --
+                        // tenting is tree-level only in EdenFS, so if a file were tented its
+                        // parent dir would have been restricted instead.
+                        tracing::debug!(
+                            "readdir({}): permission denied on entry `{}`, treating as restricted directory",
+                            path,
+                            file_name
+                        );
+                        return Ok(RawDirEntry {
+                            file_name,
+                            file_type: FileType::Directory,
+                        });
+                    }
+                    Err(e) => return Err(e.into()),
+                };
+
+                let source_control_type = attr_data
                     .sourceControlType
                     .ok_or_else(|| internal_error!("Missing sourceControlType"))?
                     .into_result()?;
@@ -461,8 +480,11 @@ impl IoProvider for EdenIoProvider {
     async fn read_dir_impl(
         &self,
         path: ProjectRelativePathBuf,
-    ) -> buck2_error::Result<Vec<RawDirEntry>> {
-        self.read_dir_impl(path).await.tag(ErrorTag::IoEden)
+    ) -> buck2_error::Result<ReadDirOutcome> {
+        match self.read_dir_impl(path).await {
+            Ok(entries) => Ok(ReadDirOutcome::Entries(entries)),
+            Err(e) => Err(e.tag([ErrorTag::IoEden])),
+        }
     }
 
     async fn settle(&self) -> buck2_error::Result<()> {
@@ -502,6 +524,10 @@ impl IoProvider for EdenIoProvider {
 
     fn as_any(&self) -> &dyn std::any::Any {
         self
+    }
+
+    fn is_eden_repo(&self) -> bool {
+        true
     }
 }
 

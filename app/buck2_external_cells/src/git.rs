@@ -315,7 +315,8 @@ impl FileOpsDelegate for GitFileOpsDelegate {
         let mut entries = (&self.io as &dyn IoProvider)
             .read_dir(project_path)
             .await
-            .with_buck_error_context(|| format!("Error listing dir `{path}`"))?;
+            .with_buck_error_context(|| format!("Error listing dir `{path}`"))?
+            .into_entries();
 
         // Make sure entries are deterministic, since read_dir isn't.
         entries.sort_by(|a, b| a.file_name.cmp(&b.file_name));
@@ -391,6 +392,7 @@ pub(crate) async fn get_file_ops_delegate(
                 io: FsIoProvider::new(
                     artifact_fs.fs().dupe(),
                     ctx.global_data().get_digest_config().cas_digest_config(),
+                    false,
                 ),
             };
             download_and_materialize(ctx, &ops.get_base_path(), &self.1, cancellations).await?;
