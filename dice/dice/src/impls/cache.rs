@@ -168,12 +168,10 @@ impl SharedCache {
 pub(crate) mod introspection {
     use crate::impls::cache::SharedCache;
     use crate::impls::key::DiceKey;
-    use crate::legacy::dice_futures::dice_task::DiceTaskStateForDebugging;
+    use crate::impls::task::DiceTaskState;
 
     impl SharedCache {
-        pub(crate) fn iter_tasks(
-            &self,
-        ) -> impl Iterator<Item = (DiceKey, DiceTaskStateForDebugging)> {
+        pub(crate) fn iter_tasks(&self) -> impl Iterator<Item = (DiceKey, DiceTaskState)> {
             self.data
                 .storage
                 .iter()

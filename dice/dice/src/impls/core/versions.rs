@@ -189,13 +189,11 @@ pub(crate) mod introspection {
     use crate::HashMap;
     use crate::impls::core::versions::VersionTracker;
     use crate::impls::key::DiceKey;
+    use crate::impls::task::DiceTaskState;
     use crate::introspection::graph::AnyKey;
     use crate::introspection::graph::VersionNumber;
-    use crate::legacy::dice_futures::dice_task::DiceTaskStateForDebugging;
 
-    pub(crate) struct VersionIntrospectable(
-        Vec<(usize, HashMap<DiceKey, DiceTaskStateForDebugging>)>,
-    );
+    pub(crate) struct VersionIntrospectable(Vec<(usize, HashMap<DiceKey, DiceTaskState>)>);
 
     impl VersionIntrospectable {
         #[allow(dead_code)]
@@ -206,7 +204,7 @@ pub(crate) mod introspection {
         pub(crate) fn keys_currently_running(
             &self,
             key_map: &HashMap<DiceKey, AnyKey>,
-        ) -> Vec<(AnyKey, VersionNumber, DiceTaskStateForDebugging)> {
+        ) -> Vec<(AnyKey, VersionNumber, DiceTaskState)> {
             self.0
                 .iter()
                 .flat_map(|(v, cache)| {

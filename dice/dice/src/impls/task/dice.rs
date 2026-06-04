@@ -367,13 +367,8 @@ impl DiceTaskInternal {
 unsafe impl Send for DiceTaskInternal {}
 unsafe impl Sync for DiceTaskInternal {}
 
-pub(crate) mod introspection {
-    use crate::impls::task::dice::DiceTask;
-    use crate::legacy::dice_futures::dice_task::DiceTaskStateForDebugging;
-
-    impl DiceTask {
-        pub(crate) fn introspect_state(&self) -> DiceTaskStateForDebugging {
-            self.internal.state.introspect_state()
-        }
+impl DiceTask {
+    pub(crate) fn introspect_state(&self) -> super::state::DiceTaskState {
+        self.internal.state.introspect_state()
     }
 }

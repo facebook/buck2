@@ -27,7 +27,6 @@ use crate::introspection::graph::KeyID;
 use crate::introspection::graph::SerializedGraphNode;
 use crate::introspection::graph::SerializedGraphNodeForKey;
 use crate::introspection::graph::VersionNumber;
-use crate::legacy::dice_futures::dice_task::DiceTaskStateForDebugging;
 
 pub struct VersionedGraphIntrospectable {
     pub nodes: HashMap<DiceKey, SerializedGraphNode>,

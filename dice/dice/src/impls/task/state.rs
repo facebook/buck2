@@ -106,27 +106,14 @@ impl AtomicDiceTaskState {
     }
 }
 
-pub(crate) mod introspection {
-    use std::sync::atomic::Ordering;
-
-    use crate::impls::task::state::AtomicDiceTaskState;
-    use crate::impls::task::state::DiceTaskState;
-    use crate::legacy::dice_futures::dice_task::DiceTaskStateForDebugging;
-
-    impl AtomicDiceTaskState {
-        pub(crate) fn introspect_state(&self) -> DiceTaskStateForDebugging {
-            match DiceTaskState::from_u8(self.0.load(Ordering::Acquire)) {
-                DiceTaskState::InProgress => DiceTaskStateForDebugging::AsyncInProgress,
-                DiceTaskState::Sync => DiceTaskStateForDebugging::SyncInProgress,
-                DiceTaskState::Ready => DiceTaskStateForDebugging::AsyncReady,
-                DiceTaskState::Terminated => DiceTaskStateForDebugging::AsyncDropped,
-            }
-        }
+impl AtomicDiceTaskState {
+    pub(crate) fn introspect_state(&self) -> DiceTaskState {
+        DiceTaskState::from_u8(self.0.load(Ordering::Acquire))
     }
 }
 
-#[derive(Debug, Default, PartialEq, Eq)]
-enum DiceTaskState {
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum DiceTaskState {
     /// Task is in progress (not yet completed)
     #[default]
     InProgress,

@@ -202,7 +202,6 @@ mod ctx;
 pub(crate) mod future;
 mod impls;
 pub mod introspection;
-mod legacy;
 pub(crate) mod metrics;
 pub(crate) mod owned;
 pub(crate) mod stats;

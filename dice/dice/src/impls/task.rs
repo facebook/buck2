@@ -28,6 +28,7 @@ pub(crate) mod dice;
 pub(crate) mod handle;
 pub(crate) mod promise;
 mod state;
+pub(crate) use state::DiceTaskState;
 
 #[cfg(test)]
 mod tests;
