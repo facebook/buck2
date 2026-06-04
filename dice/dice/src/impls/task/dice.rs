@@ -198,12 +198,34 @@ impl DiceTask {
         self.internal.state.introspect_state()
     }
 
+    pub(super) fn key(&self) -> DiceKey {
+        self.internal.key()
+    }
+
     pub(super) fn read_value(&self) -> Option<CancellableResult<DiceComputedValue>> {
         self.internal.read_value()
     }
 
     pub(super) fn drop_waiter(&self, slab: &SlabId) {
         self.internal.drop_waiter(slab);
+    }
+
+    pub(super) fn set_value(
+        &self,
+        value: DiceComputedValue,
+    ) -> CancellableResult<DiceComputedValue> {
+        self.internal.set_value(value)
+    }
+
+    pub(super) fn report_terminated(&self, reason: CancellationReason) {
+        self.internal.report_terminated(reason);
+    }
+
+    pub(super) fn set_cancellation_handle(
+        &self,
+        handle: dice_futures::cancellation::CancellationHandle,
+    ) {
+        self.internal.set_cancellation_handle(handle);
     }
 
     /// Synchronously get the value of this task, or compute it via a sync projection.
@@ -227,7 +249,7 @@ pub(crate) enum SlabId {
 }
 
 impl DiceTaskInternal {
-    pub(super) fn key(&self) -> DiceKey {
+    fn key(&self) -> DiceKey {
         self.key
     }
 
@@ -314,10 +336,7 @@ impl DiceTaskInternal {
         Ok(result.sync_result)
     }
 
-    pub(super) fn set_cancellation_handle(
-        &self,
-        handle: dice_futures::cancellation::CancellationHandle,
-    ) {
+    fn set_cancellation_handle(&self, handle: dice_futures::cancellation::CancellationHandle) {
         self.critical.set_cancellation_handle(handle);
     }
 
@@ -331,10 +350,7 @@ impl DiceTaskInternal {
         })
     }
 
-    pub(super) fn set_value(
-        &self,
-        value: DiceComputedValue,
-    ) -> CancellableResult<DiceComputedValue> {
+    fn set_value(&self, value: DiceComputedValue) -> CancellableResult<DiceComputedValue> {
         match self.state.sync() {
             TaskState::Continue => {}
             TaskState::Finished => {
@@ -361,9 +377,9 @@ impl DiceTaskInternal {
         Ok(value)
     }
 
-    /// report the task as terminated. This should only be called once. No effect if called affect
+    /// report the task as terminated. This should only be called once. No effect if called after
     /// task is already ready
-    pub(super) fn report_terminated(&self, reason: CancellationReason) {
+    fn report_terminated(&self, reason: CancellationReason) {
         match self.state.sync() {
             TaskState::Continue => {}
             TaskState::Finished => {

@@ -39,13 +39,13 @@ pub(crate) fn spawn_dice_task<S>(
     ctx: &S,
     f: impl for<'a, 'b> FnOnce(&'a mut DiceTaskHandle<'b>) -> BoxFuture<'a, Box<dyn Any + Send>> + Send,
 ) -> DiceTask {
-    let internal = DiceTaskInternal::new(key, CancellationState::Pending);
+    let task = DiceTask::new(DiceTaskInternal::new(key, CancellationState::Pending));
 
     let (_fut, cancellation_handle) = spawn_dropcancel(
         {
-            let internal = internal.dupe();
+            let task = task.dupe();
             |cancellations| {
-                let handle = DiceTaskHandle::new(internal, cancellations);
+                let handle = DiceTaskHandle::new(task, cancellations);
                 OwningFuture::new(handle, f).boxed()
             }
         },
@@ -54,9 +54,9 @@ pub(crate) fn spawn_dice_task<S>(
     )
     .detach();
 
-    internal.set_cancellation_handle(cancellation_handle);
+    task.set_cancellation_handle(cancellation_handle);
 
-    DiceTask::new(internal)
+    task
 }
 
 /// Unsafe as this creates a Task that must be completed explicitly otherwise polling will never
