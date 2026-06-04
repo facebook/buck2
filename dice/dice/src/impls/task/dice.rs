@@ -20,6 +20,9 @@ use allocative::Allocative;
 use allocative::Visitor;
 use dice_error::result::CancellableResult;
 use dice_error::result::CancellationReason;
+use dice_futures::spawn::CancellableFutureSpawner;
+use dice_futures::spawn::prepare_detached_cancellation;
+use dice_futures::spawner::Spawner;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
 use futures::FutureExt;
@@ -61,6 +64,15 @@ impl DiceTask {
     fn new(internal: Arc<DiceTaskInternal>) -> Self {
         Self { internal }
     }
+}
+
+pub(crate) struct PreparedDiceTask {
+    task: DiceTask,
+    task_spawner: DiceTaskSpawner,
+}
+
+pub(crate) struct DiceTaskSpawner {
+    inner: CancellableFutureSpawner,
 }
 
 struct DiceTaskInternal {
@@ -118,6 +130,19 @@ impl Future for TerminationObserver {
 }
 
 impl DiceTask {
+    pub(crate) fn prepare(key: DiceKey) -> PreparedDiceTask {
+        let (future_spawner, cancellation_handle) = prepare_detached_cancellation();
+        let task = DiceTask::new(DiceTaskInternal::new(key, CancellationState::Pending));
+        task.set_cancellation_handle(cancellation_handle);
+
+        PreparedDiceTask {
+            task,
+            task_spawner: DiceTaskSpawner {
+                inner: future_spawner,
+            },
+        }
+    }
+
     /// `k` depends on this task, returning a `DicePromise` that will complete when this task
     /// completes
     pub(crate) fn depended_on_by(&self, k: ParentKey) -> CancellableResult<DicePromise> {
@@ -221,10 +246,7 @@ impl DiceTask {
         self.internal.report_terminated(reason);
     }
 
-    pub(super) fn set_cancellation_handle(
-        &self,
-        handle: dice_futures::cancellation::CancellationHandle,
-    ) {
+    fn set_cancellation_handle(&self, handle: dice_futures::cancellation::CancellationHandle) {
         self.internal.set_cancellation_handle(handle);
     }
 
@@ -422,12 +444,23 @@ pub(crate) fn spawn_dice_task<S>(
     ) -> futures::future::BoxFuture<'a, Box<dyn std::any::Any + Send>>
     + Send,
 ) -> DiceTask {
+    spawn_prepared_task(DiceTask::prepare(key), spawner, ctx, f)
+}
+
+pub(crate) fn spawn_prepared_task<S>(
+    prepared_task: PreparedDiceTask,
+    spawner: &dyn Spawner<S>,
+    ctx: &S,
+    f: impl for<'a, 'b> FnOnce(
+        &'a mut super::handle::DiceTaskHandle<'b>,
+    ) -> futures::future::BoxFuture<'a, Box<dyn std::any::Any + Send>>
+    + Send,
+) -> DiceTask {
     use dice_futures::owning_future::OwningFuture;
-    use dice_futures::spawn::spawn_dropcancel;
 
-    let task = DiceTask::new(DiceTaskInternal::new(key, CancellationState::Pending));
+    let PreparedDiceTask { task, task_spawner } = prepared_task;
 
-    let (_fut, cancellation_handle) = spawn_dropcancel(
+    task_spawner.inner.spawn(
         {
             let task = task.dupe();
             |cancellations| {
@@ -437,10 +470,7 @@ pub(crate) fn spawn_dice_task<S>(
         },
         spawner,
         ctx,
-    )
-    .detach();
-
-    task.set_cancellation_handle(cancellation_handle);
+    );
 
     task
 }
