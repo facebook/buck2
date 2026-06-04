@@ -633,26 +633,6 @@ impl DiceUpdater for DiceCommandUpdater<'_, '_> {
         let profiler_instrumentation_override =
             &self.cmd_ctx.starlark_profiling_manager.configuration;
 
-        // Read `buck2.starlark_parser` from the root cell's buckconfig.
-        // Defaults to LALRPOP. Recognized values: `lalrpop`, `recursive_descent`, `rd`.
-        // Parsed explicitly so we can map the parser-kind error into a
-        // buck2_error without adding a `From` impl that would couple buck2_error
-        // to starlark_syntax.
-        let parser_kind = match cells_and_configs.root_config.get(BuckconfigKeyRef {
-            section: "buck2",
-            property: "starlark_parser",
-        }) {
-            Some(s) => s.parse::<starlark::syntax::ParserKind>().map_err(|e| {
-                buck2_error::buck2_error!(
-                    buck2_error::ErrorTag::Input,
-                    "buck2.starlark_parser: {}",
-                    e
-                )
-            })?,
-            None => starlark::syntax::ParserKind::default(),
-        };
-        let use_rd_parser = matches!(parser_kind, starlark::syntax::ParserKind::Rd);
-
         setup_interpreter(
             &mut ctx,
             cell_resolver,
@@ -661,7 +641,6 @@ impl DiceUpdater for DiceCommandUpdater<'_, '_> {
             profiler_instrumentation_override.clone(),
             self.cmd_ctx.disable_starlark_types,
             self.cmd_ctx.unstable_typecheck,
-            use_rd_parser,
         )?;
 
         early_timings.start_span(FILE_WATCHER_WAIT.to_owned());

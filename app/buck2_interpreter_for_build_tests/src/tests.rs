@@ -77,7 +77,7 @@ pub(crate) async fn calculation(fs: &ProjectRootTemp) -> DiceTransaction {
         .unwrap();
     ctx.set_starlark_profiler_configuration(StarlarkProfilerConfiguration::default())
         .unwrap();
-    ctx.set_starlark_types(false, false, false).unwrap();
+    ctx.set_starlark_types(false, false).unwrap();
     ctx.commit().await
 }
 
