@@ -128,7 +128,8 @@ impl PagableSerialize for FrozenModule {
             .map_err(|e: crate::Error| e.into_anyhow())?;
         drop(ctx);
 
-        self.eval_duration.pagable_serialize(serializer)?;
+        // `eval_duration` is runtime telemetry, not content. Skipping it keeps the
+        // page-out `DataKey` stable across runs; restored as `ZERO` on page-in.
 
         Ok(())
     }
@@ -156,7 +157,8 @@ impl<'de> PagableDeserialize<'de> for FrozenModule {
             .map_err(|e: crate::Error| e.into_anyhow())?;
         drop(ctx);
 
-        let eval_duration = Duration::pagable_deserialize(deserializer)?;
+        // Not serialized (see `pagable_serialize`); restore the default.
+        let eval_duration = Duration::ZERO;
 
         Ok(Self {
             heap,
