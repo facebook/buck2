@@ -9,7 +9,6 @@
  */
 
 use allocative::Allocative;
-use buck2_util::arc_str::ArcSlice;
 use pagable::Pagable;
 
 use crate::attrs::attr_type::list::ListLiteral;
@@ -25,6 +24,6 @@ impl AnyAttrType {
     }
 
     pub fn empty_list() -> CoercedAttr {
-        CoercedAttr::List(ListLiteral(ArcSlice::new([])))
+        CoercedAttr::List(ListLiteral::default())
     }
 }

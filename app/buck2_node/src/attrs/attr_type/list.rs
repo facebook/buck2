@@ -43,11 +43,15 @@ impl ListAttrType {
     }
 }
 
-#[derive(
-    Debug, Clone, Eq, PartialEq, Hash, Allocative, Default, Pagable, StrongHash
-)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Allocative, Pagable, StrongHash)]
 #[pagable(bound = "C: Eq + Pagable")]
 pub struct ListLiteral<C: Eq>(pub ArcSlice<C>);
+
+impl<C: Eq> Default for ListLiteral<C> {
+    fn default() -> Self {
+        Self(ArcSlice::new([]))
+    }
+}
 
 impl<C: Eq> Deref for ListLiteral<C> {
     type Target = ArcSlice<C>;
