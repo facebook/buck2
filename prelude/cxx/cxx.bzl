@@ -1087,6 +1087,7 @@ def cxx_test_impl(ctx: AnalysisContext) -> list[Provider]:
                 # the cell root (e.g. fbcode root).
                 run_from_project_root = ("buck2_run_from_project_root" in (ctx.attrs.labels or []) or re_executor != None),
                 use_project_relative_paths = re_executor != None,
+                network_access = getattr(ctx.attrs, "network_access", None),
                 supports_test_execution_caching = ctx.attrs.supports_test_execution_caching,
             ),
         )
