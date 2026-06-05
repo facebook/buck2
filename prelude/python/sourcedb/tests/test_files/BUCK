@@ -9,6 +9,8 @@ python_library(
     name = "main",
     srcs = ["main.py"],
     deps = [
+        "prelude//python/sourcedb/tests/test_files/triton_collision:a_b_lib",
+        "prelude//python/sourcedb/tests/test_files/triton_collision/a:b_lib",
         ":lib",
         ":my_extension_lib",
         ":triton_test_lib",
@@ -98,7 +100,7 @@ fbcode_python_library(
     name = "triton_test_py",
     srcs = ["triton_kernel.py"],
     # Real triton_kernel rules generate a *_py python_library with cpp_deps.
-    # The source DB should skip it to avoid materializing expensive AOT output.
+    # The source DB should stub it to avoid materializing expensive AOT output.
     cpp_deps = [":triton_test"],
 )
 

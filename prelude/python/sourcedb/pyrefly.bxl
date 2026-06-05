@@ -28,6 +28,8 @@ _MODULE_SUFFIXES = set([
     "so",
 ])
 
+_CATCH_ALL_STUB_CONTENT = "from typing import Any\n\ndef __getattr__(name: str) -> Any: ...\n"
+
 def _get_suffix(path: str) -> str | None:
     """Extract the file suffix without leading dot (e.g. 'py') from a path, or None if no suffix."""
     last_sep = path.rfind("/")
@@ -232,7 +234,57 @@ def _is_triton_kernel_py_library(
             return True
     return False
 
+def _get_python_library_base_module(
+        attrs: bxl.LazyAttrs,
+        target: bxl.ConfiguredTargetNode) -> str:
+    base_module = attrs.get("base_module")
+    if base_module != None and base_module.value() != None:
+        return base_module.value()
+    return target.label.package
+
+def _add_python_library_module_names(
+        modules: dict[str, None],
+        to_add: list | dict,
+        to_remove: dict[str, None],
+        base_module: str) -> None:
+    if type(to_add) == type([]):
+        for v in to_add:
+            short_path = getattr(v, "short_path", None)
+            if getattr(v, "is_source", False) or (type(v) != "Label" and short_path):
+                modules[_clean_module(base_module, short_path)] = None
+            elif type(v) == "Label" and "=" in str(v.raw_target()):
+                split_target = str(v.raw_target()).split("=")
+                if len(split_target) != 2:
+                    fail("Unexpected special type stub target: {}".format(v.raw_target()))
+                to_remove[str(v.raw_target())] = None
+                to_remove[str(split_target[0])] = None
+                modules[_clean_module("", split_target[1])] = None
+    elif type(to_add) == type({}):
+        for k in to_add:
+            modules[_clean_module(base_module, k)] = None
+
+def _catch_all_stub_output_path(
+        target: bxl.ConfiguredTargetNode,
+        module: str) -> str:
+    stable_id = sha256(str(target.label.raw_target()))[:16]
+    module_path = module.replace(".", "/") if len(module) != 0 else "__init__"
+    return "catch_all_sourcedb_stubs/" + stable_id + "/" + module_path + ".pyi"
+
+def _declare_catch_all_stub_source(
+        actions,
+        target: bxl.ConfiguredTargetNode,
+        srcs: dict[str, list[str | bxl.EnsuredArtifact]],
+        module: str,
+        catch_all_stubs_to_insert: list) -> None:
+    stub = actions.write(
+        _catch_all_stub_output_path(target, module),
+        _CATCH_ALL_STUB_CONTENT,
+        has_content_based_path = False,
+    )
+    catch_all_stubs_to_insert.append((srcs, module, stub))
+
 def _handle_python_library(
+        actions,
         entry: dict,
         attrs: bxl.LazyAttrs,
         fs: bxl.Filesystem,
@@ -241,19 +293,28 @@ def _handle_python_library(
         to_remove: dict[str, None],
         to_build: list,
         to_insert: list,
+        catch_all_stubs_to_insert: list,
         extra_filetypes: dict[str, None]) -> None:
-    # Skip triton_kernel _py libraries to avoid triggering expensive AOT compiles
-    if _is_triton_kernel_py_library(target, attrs):
-        to_remove[str(target.label.raw_target())] = None
-        return
-
-    base_module = attrs.get("base_module")
-    if base_module != None and base_module.value() != None:
-        base_module = base_module.value()
-    else:
-        base_module = target.label.package
+    base_module = _get_python_library_base_module(attrs, target)
 
     srcs = _set_entry_common_fields(entry, attrs, fs, target, known_targets)
+
+    # Triton kernel *_py libraries expose generated AOT outputs as Python
+    # sources. Building them here is expensive, so model their modules with a
+    # cheap generated stub instead of materializing the real sources.
+    if _is_triton_kernel_py_library(target, attrs):
+        modules = {}
+        type_stubs = attrs.get("type_stubs")
+        type_stubs = {} if type_stubs == None else type_stubs.value()
+        _add_python_library_module_names(modules, type_stubs, to_remove, base_module)
+
+        attr_srcs = attrs.get("srcs")
+        attr_srcs = {} if attr_srcs == None else attr_srcs.value()
+        _add_python_library_module_names(modules, attr_srcs, to_remove, base_module)
+
+        for module in sorted(modules.keys()):
+            _declare_catch_all_stub_source(actions, target, srcs, module, catch_all_stubs_to_insert)
+        return
 
     # add type stubs first, so that they're preferred by Pyrefly
     type_stubs = attrs.get("type_stubs")
@@ -316,6 +377,22 @@ def _build_generated_files(
         relative_to = ensured_label[0].rel_path()
         entry["relative_to"] = relative_to
 
+def _ensure_catch_all_stubs(
+        ctx: bxl.Context,
+        catch_all_stubs_to_insert: list,
+        extra_filetypes: dict[str, None]) -> None:
+    if not catch_all_stubs_to_insert:
+        return
+
+    stubs = []
+    for item in catch_all_stubs_to_insert:
+        stubs.append(item[2])
+    ensured_stubs = ctx.output.ensure_multiple(stubs)
+    for i in range(len(ensured_stubs)):
+        ensured_stub = ensured_stubs[i]
+        srcs, module, _ = catch_all_stubs_to_insert[i]
+        _append_or_default_if_module(srcs, module, ensured_stub.rel_path(), extra_filetypes)
+
 def _get_and_materialize_sources(
         to_add: list | dict,
         to_remove: dict[str, None],
@@ -369,10 +446,12 @@ def _get_and_materialize_sources(
 
 def _main(ctx: bxl.Context) -> None:
     fs = ctx.fs
+    actions = ctx.bxl_actions().actions
     extra_filetypes = {}  # Set of non-Python file types discovered (dict used as mutable set)
     to_remove = {}  # Set of targets to remove at the end
     to_build = []  # List of targets I need to build
     to_insert = []  # Triples of (target srcs ref, module name, artifact) to insert after building
+    catch_all_stubs_to_insert = []  # Triples of (target srcs ref, module name, stub artifact) to insert after ensuring
     genrule_to_insert = []  # Doubles of (target, entry) to insert after building
     entries = {}  # dict[target, {"deps": list[target], "srcs": dict[qualified_path, list[files]]}]
     json = {"db": entries, "root": ctx.root()}
@@ -410,11 +489,12 @@ def _main(ctx: bxl.Context) -> None:
         elif "genrule" in x.rule_type:
             _handle_genrule(entry, attrs, fs, x, known_targets, to_remove, to_build, to_insert, genrule_to_insert, extra_filetypes)
         elif "python_library" in x.rule_type:
-            _handle_python_library(entry, attrs, fs, x, known_targets, to_remove, to_build, to_insert, extra_filetypes)
+            _handle_python_library(actions, entry, attrs, fs, x, known_targets, to_remove, to_build, to_insert, catch_all_stubs_to_insert, extra_filetypes)
         else:
             fail("Unknown rule type `{}` for target `{}`".format(x.rule_type, x.label.raw_target()))
 
     _build_generated_files(ctx, to_build, to_insert, genrule_to_insert, extra_filetypes)
+    _ensure_catch_all_stubs(ctx, catch_all_stubs_to_insert, extra_filetypes)
 
     # remove any targets we decided we shouldn't output
     for remove in to_remove:
