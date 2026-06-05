@@ -266,14 +266,16 @@ impl<'v> TestCommandMember<'v> {
     }
 }
 
-fn iter_value<'v>(value: Value<'v>) -> buck2_error::Result<impl Iterator<Item = Value<'v>> + 'v> {
+pub(super) fn iter_value<'v>(
+    value: Value<'v>,
+) -> buck2_error::Result<impl Iterator<Item = Value<'v>> + 'v> {
     match Either::<&ListRef, &TupleRef>::unpack_value_err(value)? {
         Either::Left(list) => Ok(list.iter()),
         Either::Right(tuple) => Ok(tuple.iter()),
     }
 }
 
-fn iter_test_command<'v>(
+pub(super) fn iter_test_command<'v>(
     command: Value<'v>,
 ) -> impl Iterator<Item = buck2_error::Result<TestCommandMember<'v>>> {
     if command.is_none() {
@@ -306,7 +308,7 @@ fn iter_test_command<'v>(
     }))
 }
 
-fn iter_test_env<'v>(
+pub(super) fn iter_test_env<'v>(
     env: Value<'v>,
 ) -> impl Iterator<Item = buck2_error::Result<(&'v str, &'v dyn CommandLineArgLike<'v>)>> {
     if env.is_none() {
@@ -339,7 +341,7 @@ fn iter_test_env<'v>(
     }))
 }
 
-fn iter_opt_str_list<'v>(
+pub(super) fn iter_opt_str_list<'v>(
     list: Value<'v>,
     name: &'static str,
 ) -> impl Iterator<Item = buck2_error::Result<&'v str>> {
@@ -365,7 +367,7 @@ fn iter_opt_str_list<'v>(
     }))
 }
 
-fn iter_executor_overrides<'v>(
+pub(super) fn iter_executor_overrides<'v>(
     executor_overrides: Value<'v>,
 ) -> impl Iterator<Item = buck2_error::Result<(&'v str, &'v StarlarkCommandExecutorConfig)>> {
     if executor_overrides.is_none() {
@@ -398,7 +400,7 @@ fn iter_executor_overrides<'v>(
     }))
 }
 
-fn iter_local_resources<'v>(
+pub(super) fn iter_local_resources<'v>(
     local_resources: Value<'v>,
 ) -> impl Iterator<Item = buck2_error::Result<(&'v str, Option<&'v ConfiguredProvidersLabel>)>> {
     if local_resources.is_none() {
@@ -443,7 +445,7 @@ fn iter_local_resources<'v>(
     }))
 }
 
-fn unpack_opt_executor<'v>(
+pub(super) fn unpack_opt_executor<'v>(
     executor: Value<'v>,
 ) -> buck2_error::Result<Option<&'v StarlarkCommandExecutorConfig>> {
     if executor.is_none() {
@@ -456,7 +458,9 @@ fn unpack_opt_executor<'v>(
     Ok(Some(executor))
 }
 
-fn unpack_opt_worker<'v>(worker: Value<'v>) -> buck2_error::Result<Option<&'v WorkerInfo<'v>>> {
+pub(super) fn unpack_opt_worker<'v>(
+    worker: Value<'v>,
+) -> buck2_error::Result<Option<&'v WorkerInfo<'v>>> {
     if worker.is_none() {
         return Ok(None);
     }
@@ -467,7 +471,7 @@ fn unpack_opt_worker<'v>(worker: Value<'v>) -> buck2_error::Result<Option<&'v Wo
     Ok(Some(worker))
 }
 
-fn check_all<I, T>(it: I) -> buck2_error::Result<()>
+pub(super) fn check_all<I, T>(it: I) -> buck2_error::Result<()>
 where
     I: IntoIterator<Item = buck2_error::Result<T>>,
 {
@@ -477,7 +481,7 @@ where
     Ok(())
 }
 
-fn unwrap_all<I, T>(it: I) -> impl Iterator<Item = T>
+pub(super) fn unwrap_all<I, T>(it: I) -> impl Iterator<Item = T>
 where
     I: IntoIterator<Item = buck2_error::Result<T>>,
 {
