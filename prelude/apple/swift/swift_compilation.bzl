@@ -178,13 +178,6 @@ SwiftDebugInfo = record(
     shared = list[ArtifactTSet],
 )
 
-_IS_USER_BUILD = True # @oss-enable
-# @oss-disable: # To determine whether we're running on CI or not, we expect user.sandcastle_alias to be set.
-# @oss-disable[end= ]: _IS_USER_BUILD = read_root_config("user", "sandcastle_alias", None) == None
-
-# Whether we're running on a Mac, so that we may decide to execute locally vs running on Mac RE.
-_IS_MAC_HOST = host_info().os.is_macos
-
 _REQUIRED_SDK_MODULES = ["Swift", "SwiftOnoneSupport", "Darwin", "_Concurrency", "_StringProcessing"]
 
 _REQUIRED_SDK_CXX_MODULES = _REQUIRED_SDK_MODULES + ["std"]
@@ -1072,15 +1065,6 @@ def _get_action_properties(
             allow_cache_upload = False
             local_only = True
             prefer_local = False
-        else:
-            # Swift incremental compilation output is only portable when incremental file hashing is
-            # enabled (else timestamps invalidate swiftdeps).
-            # Even with incremental file hashing, prefer_local is currently empirically faster and can
-            # leverage incremental outputs from remote hosts locally.
-            if _IS_USER_BUILD or _IS_MAC_HOST:
-                # For CI builds, we'll run on RE so that we can cache output, but user builds output can run
-                # faster locally. Similarly prefer local when compiling on a Mac as its faster than Mac RE.
-                prefer_local = True
 
     if not cacheable:
         allow_cache_upload = False
