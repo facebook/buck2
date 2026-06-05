@@ -71,7 +71,7 @@ def _strip_includes_only(inc):
     str_inc = str(inc)
     suffix = "_includes_only"
     if str_inc.endswith(suffix):
-        str_inc = str_inc[:-len(suffix)]
+        str_inc = str_inc[: -len(suffix)]
     return str_inc
 
 def _build_alias_map(ctx, targets):
@@ -283,7 +283,9 @@ elp_config = bxl_main(
     impl = _elp_config,
     cli_args = {
         "build_generated_code": cli_args.option(cli_args.bool(), default = False, doc = "Enable builds for generated sources"),
-        "deps_targets": cli_args.option(cli_args.list(cli_args.string()), doc = "Target to include deps from, if specified. See corresponding field in .elp.toml"),
+        "deps_targets": cli_args.option(
+            cli_args.list(cli_args.string()), doc = "Target to include deps from, if specified. See corresponding field in .elp.toml"
+        ),
         "included_targets": cli_args.list(cli_args.string(), doc = "Targets to include in the query. See corresponding field in .elp.toml"),
     },
 )

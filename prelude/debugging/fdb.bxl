@@ -98,10 +98,19 @@ def inspect_target_impl(ctx: bxl.Context):
     # correct configuration.
     node = node.unwrap_forward()
 
-    ctx.output.print(ctx.output.ensure(inspect(ctx, actions, node, ScriptSettings(
-        target = node,
-        args = ctx.cli_args.args if ctx.cli_args.args else [],
-    ))).abs_path())
+    ctx.output.print(
+        ctx.output.ensure(
+            inspect(
+                ctx,
+                actions,
+                node,
+                ScriptSettings(
+                    target = node,
+                    args = ctx.cli_args.args if ctx.cli_args.args else [],
+                ),
+            )
+        ).abs_path()
+    )
 
 inspect_target = bxl_main(
     impl = inspect_target_impl,

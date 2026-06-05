@@ -25,9 +25,7 @@ ExpandedAndResolved = record(
     resolved_deps = dict[TargetLabel, TargetInfo],
 )
 
-def materialize(
-        ctx: bxl.Context,
-        target: bxl.ConfiguredTargetNode) -> Artifact:
+def materialize(ctx: bxl.Context, target: bxl.ConfiguredTargetNode) -> Artifact:
     analysis = ctx.analysis(target)
     sources = analysis.providers()[DefaultInfo].sub_targets["sources"][DefaultInfo].default_outputs[0]
     return sources
@@ -36,11 +34,7 @@ def _get_nullable_attr(attrs, key: str) -> typing.Any:
     nullable = getattr(attrs, key, None)
     return nullable.value() if nullable != None else None
 
-def _process_target_config(
-        ctx: bxl.Context,
-        target: bxl.ConfiguredTargetNode,
-        analysis: bxl.AnalysisResult,
-        in_workspace: bool) -> TargetInfo:
+def _process_target_config(ctx: bxl.Context, target: bxl.ConfiguredTargetNode, analysis: bxl.AnalysisResult, in_workspace: bool) -> TargetInfo:
     target = target.unwrap_forward()
 
     providers = analysis.providers()
@@ -109,8 +103,7 @@ def _process_target_config(
     }
 
 def _select_assume_default(value):
-    """Unwrap select() values, assuming the DEFAULT value is always used.
-    """
+    """Unwrap select() values, assuming the DEFAULT value is always used."""
     if isinstance(value, bxl.SelectConcat):
         items = []
         for raw_item in value.select_iter():
@@ -204,10 +197,7 @@ def gather_unconfigured_deps(ctx: bxl.Context, targets: list[TargetLabel]) -> di
 
     return out
 
-def gather_deps(
-        ctx: bxl.Context,
-        target_analysis: dict[Label, bxl.AnalysisResult],
-        workspaces: list[TargetLabel]) -> dict[TargetLabel, TargetInfo]:
+def gather_deps(ctx: bxl.Context, target_analysis: dict[Label, bxl.AnalysisResult], workspaces: list[TargetLabel]) -> dict[TargetLabel, TargetInfo]:
     targets = set()
     for _target, analysis in target_analysis.items():
         info = analysis.providers().get(RustAnalyzerInfo)
@@ -215,7 +205,7 @@ def gather_deps(
             for target_set in info.transitive_target_set:
                 targets.add(target_set)
 
-    #TODO(romanp) support set as target_universe arg
+    # TODO(romanp) support set as target_universe arg
     outputs = ctx.target_universe(list(targets)).target_set()
     out = {}
 
@@ -245,9 +235,7 @@ def gather_deps(
 
     return out
 
-def expand_proc_macros(
-        ctx: bxl.Context,
-        target_analysis: dict[Label, bxl.AnalysisResult]) -> dict[TargetLabel, MacroOutput]:
+def expand_proc_macros(ctx: bxl.Context, target_analysis: dict[Label, bxl.AnalysisResult]) -> dict[TargetLabel, MacroOutput]:
     macros = set()
     for _target, analysis in target_analysis.items():
         info = analysis.providers().get(RustAnalyzerInfo)
@@ -266,10 +254,7 @@ def expand_proc_macros(
     return out
 
 # Returns a list of all the expanded targets including any workspaces, followed by just the workspaces
-def expand_targets(
-        ctx: bxl.Context,
-        targets: list[TargetLabel],
-        exclude_workspaces: bool) -> (dict[Label, bxl.AnalysisResult], list[TargetLabel]):
+def expand_targets(ctx: bxl.Context, targets: list[TargetLabel], exclude_workspaces: bool) -> (dict[Label, bxl.AnalysisResult], list[TargetLabel]):
     target_universe = ctx.target_universe(targets).target_set()
     kind_target_list = ctx.cquery().kind("^(rust_binary|rust_library|rust_test|alias|_?transitioned)$", target_universe)
 

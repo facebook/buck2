@@ -131,7 +131,9 @@ def _main(bxl_ctx):
         deps_with_vcxproj[dep.label.raw_target()] = True
     log_debug("Number of targets to generate vcxproj for: {}", len(deps_with_vcxproj), bxl_ctx = bxl_ctx)
     if not deps_with_vcxproj:
-        fail("No targets selected for generation. Please check provided targets list and/or --recursive_target_types, --target_include_pattern, --target_exclude_pattern.")
+        fail(
+            "No targets selected for generation. Please check provided targets list and/or --recursive_target_types, --target_include_pattern, --target_exclude_pattern."
+        )
 
     basic_vs_settings_list = []
     attrs_artifact_dict = {}  # target label => attrs artifact
@@ -187,17 +189,15 @@ def _main(bxl_ctx):
     # cli_args: bxl_ctx.cli_args, this is not available inside the lambda function so we have to pass them in as param
     # buck_root: bxl_ctx.buck_root(), same as above
     def gen_vcxproj_files(
-            ctx,
-            artifacts,
-            outputs,
-            # additional arguments that needs binding.
-            cli_args = bxl_ctx.cli_args,
-            buck_root = bxl_ctx.root()):
+        ctx,
+        artifacts,
+        outputs,
+        # additional arguments that needs binding.
+        cli_args = bxl_ctx.cli_args,
+        buck_root = bxl_ctx.root(),
+    ):
         # Read in the attrs json file contents. target label => attrs.
-        attrs_content_dict = {
-            dep.label: artifacts[attrs_artifact_dict[dep.label]].read_json()
-            for dep in deps
-        }
+        attrs_content_dict = {dep.label: artifacts[attrs_artifact_dict[dep.label]].read_json() for dep in deps}
 
         for dep, _ in toolchain_deps:
             content = artifacts[attrs_artifact_dict[dep.label]].read_json()
@@ -236,7 +236,7 @@ def _main(bxl_ctx):
 
     # Find out indices of final targets and vs_settings pair to pass on to generate sln file.
     deps_with_vcxproj_indices = {}
-    for (idx, dep) in enumerate(deps):
+    for idx, dep in enumerate(deps):
         if dep.label.raw_target() in deps_with_vcxproj:
             deps_with_vcxproj_indices[idx] = True
     if explicit_targets:

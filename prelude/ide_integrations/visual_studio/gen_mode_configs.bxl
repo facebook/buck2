@@ -88,9 +88,13 @@ def _produce_proj_artifact_with_async_cxx_toolchain(bxl_ctx, actions, fbsource: 
     else:
         platform = compiler_type
 
-    cxxflags_artifact, cxxflags_macro_artifacts = actions.write("cxxflags", cxx_toolchain.cxx_compiler_info.compiler_flags, allow_args = True, has_content_based_path = False)
+    cxxflags_artifact, cxxflags_macro_artifacts = actions.write(
+        "cxxflags", cxx_toolchain.cxx_compiler_info.compiler_flags, allow_args = True, has_content_based_path = False
+    )
 
-    cxxppflags_artifact, cxxppflags_macro_artifacts = actions.write("cxxppflags", cxx_toolchain.cxx_compiler_info.preprocessor_flags, allow_args = True, has_content_based_path = False)
+    cxxppflags_artifact, cxxppflags_macro_artifacts = actions.write(
+        "cxxppflags", cxx_toolchain.cxx_compiler_info.preprocessor_flags, allow_args = True, has_content_based_path = False
+    )
 
     ldflags_artifact, ldflags_macro_artifacts = actions.write("ldflags", cxx_toolchain.linker_info.linker_flags, allow_args = True, has_content_based_path = False)
 
@@ -111,7 +115,9 @@ def _produce_proj_artifact_with_async_cxx_toolchain(bxl_ctx, actions, fbsource: 
         # the actions are grabbed again because the outer ones cannot be frozen
         actions = ctx.bxl_actions().actions
         hidden_artifacts = cxxflags_macro_artifacts + cxxppflags_macro_artifacts + ldflags_macro_artifacts
-        _produce_proj_artifact(ctx, actions, fbsource, cxx_toolchain_flags, outputs[output_artifact], root = root, platform = platform, hidden_artifacts = hidden_artifacts)
+        _produce_proj_artifact(
+            ctx, actions, fbsource, cxx_toolchain_flags, outputs[output_artifact], root = root, platform = platform, hidden_artifacts = hidden_artifacts
+        )
 
     dyn_artifacts = [
         cxxflags_artifact,
@@ -135,7 +141,16 @@ def _main(bxl_ctx):
 
     bxl_ctx.output.print(bxl_ctx.output.ensure(output_artifact).abs_path())
 
-def _produce_proj_artifact(bxl_ctx, actions, fbsource: bool, cxx_toolchain_flags: _CxxToolchainFlags, output_artifact: Artifact, root: str, platform: str, hidden_artifacts: None | list[Artifact] = None):
+def _produce_proj_artifact(
+    bxl_ctx,
+    actions,
+    fbsource: bool,
+    cxx_toolchain_flags: _CxxToolchainFlags,
+    output_artifact: Artifact,
+    root: str,
+    platform: str,
+    hidden_artifacts: None | list[Artifact] = None,
+):
     """Produce the <Project> file output artifact"""
     compiler_settings = _get_compiler_settings(cxx_toolchain_flags)
     linker_settings = _get_linker_settings(cxx_toolchain_flags, root)
@@ -154,7 +169,7 @@ def _produce_proj_artifact(bxl_ctx, actions, fbsource: bool, cxx_toolchain_flags
 
     toolchains_props = ""
     if fbsource and platform != CLANG:
-        toolchains_props = "        <Import Project=\"$(RepoRoot)\\third-party\\toolchains\\visual_studio\\toolchain.props\"/>"
+        toolchains_props = '        <Import Project="$(RepoRoot)\\third-party\\toolchains\\visual_studio\\toolchain.props"/>'
 
     absolutize_path_exe = _get_path(ABSOLUTIZE_PATH_EXE, bxl_ctx)
     vs_buck_build_props_path = _get_path(VS_BUCK_BUILD_PROPS, bxl_ctx)

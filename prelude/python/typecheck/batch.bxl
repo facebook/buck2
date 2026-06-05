@@ -12,10 +12,7 @@ load("@prelude//utils:utils.bzl", "flatten")
 def _check_targets_batched(ctx: bxl.Context, checked_targets: list[Label]) -> typing.Any:
     build_result = ctx.build(checked_targets)
     output = ctx.output.ensure_multiple(build_result)
-    return {
-        label.raw_target(): [artifact.rel_path() for artifact in artifacts]
-        for label, artifacts in output.items()
-    }
+    return {label.raw_target(): [artifact.rel_path() for artifact in artifacts] for label, artifacts in output.items()}
 
 def _is_python_target(rule_type: str) -> bool:
     for kind in BUCK_PYTHON_RULE_KINDS:
@@ -34,9 +31,7 @@ def _should_type_check_configured(configured_target: bxl.ConfiguredTargetNode, a
         # NOTE(grievejia): This is NOT the same as checking `srcs` on the unconfigured target, as
         # empty `srcs` on unconfigured target does not necessarily imply empty `srcs` on configured
         # target (due to, e.g. `select()`).
-        srcs != None and
-        len(srcs) > 0 and
-        "typecheck" in analysis_result.providers()[DefaultInfo].sub_targets
+        srcs != None and len(srcs) > 0 and "typecheck" in analysis_result.providers()[DefaultInfo].sub_targets
     )
 
 def _filter_unconfigured_targets(targets: bxl.UnconfiguredTargetSet) -> list[bxl.UnconfiguredTargetNode]:

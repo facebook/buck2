@@ -35,23 +35,18 @@ def _get_suffix(path: str) -> str | None:
     last_sep = path.rfind("/")
     dot = path.rfind(".")
     if dot > last_sep and dot + 1 < len(path):
-        return path[dot + 1:]
+        return path[dot + 1 :]
     return None
 
-def _append_to_or_set_list(
-        mapping: dict[str, list[str | bxl.EnsuredArtifact]],
-        key: str,
-        value: str | bxl.EnsuredArtifact) -> None:
+def _append_to_or_set_list(mapping: dict[str, list[str | bxl.EnsuredArtifact]], key: str, value: str | bxl.EnsuredArtifact) -> None:
     if key in mapping:
         mapping[key].append(value)
     else:
         mapping[key] = [value]
 
 def _append_or_default_if_module(
-        srcs: dict[str, list[str | bxl.EnsuredArtifact]],
-        module: str,
-        path: str | bxl.EnsuredArtifact,
-        extra_filetypes: dict[str, None]) -> None:
+    srcs: dict[str, list[str | bxl.EnsuredArtifact]], module: str, path: str | bxl.EnsuredArtifact, extra_filetypes: dict[str, None]
+) -> None:
     if isinstance(path, bxl.EnsuredArtifact):
         # we can't filter ensured artifacts, since there's no way to inspect the path
         _append_to_or_set_list(srcs, module, path)
@@ -91,11 +86,8 @@ def _clean_module(base_module: str, module: str) -> str:
 # Set common fields for a target entry.
 # NOTE: This function doesn't populate `srcs`. Instead return an empty `srcs` dict for downstream logic to populate.
 def _set_entry_common_fields(
-        entry: dict,
-        attrs: bxl.LazyAttrs,
-        fs: bxl.Filesystem,
-        target: bxl.ConfiguredTargetNode,
-        known_targets: dict[TargetLabel, bxl.ConfiguredTargetNode]) -> dict[str, list[str | bxl.EnsuredArtifact]]:
+    entry: dict, attrs: bxl.LazyAttrs, fs: bxl.Filesystem, target: bxl.ConfiguredTargetNode, known_targets: dict[TargetLabel, bxl.ConfiguredTargetNode]
+) -> dict[str, list[str | bxl.EnsuredArtifact]]:
     srcs = {}
     deps = []
     entry["srcs"] = srcs
@@ -120,10 +112,7 @@ def _set_entry_common_fields(
 
     return srcs
 
-def _handle_alias(
-        entry: dict,
-        attrs: bxl.LazyAttrs,
-        target: bxl.ConfiguredTargetNode) -> None:
+def _handle_alias(entry: dict, attrs: bxl.LazyAttrs, target: bxl.ConfiguredTargetNode) -> None:
     actual = attrs.get("actual")
     if actual != None and actual.value() != None:
         entry["alias"] = actual.value().raw_target()
@@ -131,24 +120,22 @@ def _handle_alias(
         fail("Alias has no actual target".format(target.label))
 
 def _handle_python_extension(
-        entry: dict,
-        attrs: bxl.LazyAttrs,
-        fs: bxl.Filesystem,
-        target: bxl.ConfiguredTargetNode,
-        known_targets: dict[TargetLabel, bxl.ConfiguredTargetNode]) -> None:
+    entry: dict, attrs: bxl.LazyAttrs, fs: bxl.Filesystem, target: bxl.ConfiguredTargetNode, known_targets: dict[TargetLabel, bxl.ConfiguredTargetNode]
+) -> None:
     _set_entry_common_fields(entry, attrs, fs, target, known_targets)
 
 def _handle_genrule(
-        entry: dict,
-        attrs: bxl.LazyAttrs,
-        fs: bxl.Filesystem,
-        target: bxl.ConfiguredTargetNode,
-        known_targets: dict[TargetLabel, bxl.ConfiguredTargetNode],
-        to_remove: dict[str, None],
-        to_build: list,
-        to_insert: list,
-        genrule_to_insert: list,
-        extra_filetypes: dict[str, None]) -> None:
+    entry: dict,
+    attrs: bxl.LazyAttrs,
+    fs: bxl.Filesystem,
+    target: bxl.ConfiguredTargetNode,
+    known_targets: dict[TargetLabel, bxl.ConfiguredTargetNode],
+    to_remove: dict[str, None],
+    to_build: list,
+    to_insert: list,
+    genrule_to_insert: list,
+    extra_filetypes: dict[str, None],
+) -> None:
     labels = attrs.get("labels")
     if "custom_rule_internal" in labels.value():
         # skip internal targets, since they will be materialized as part
@@ -195,7 +182,7 @@ def _handle_genrule(
     else:
         # we need to handle building the full genrule
         genrule_to_insert.append((target, entry))
-        for (module_path, src_paths) in items.items():
+        for module_path, src_paths in items.items():
             if len(src_paths) < 1:
                 fail("Target src has no output path: {}".format(target.label))
             suffix = _get_suffix(module_path)
@@ -204,9 +191,7 @@ def _handle_genrule(
                     extra_filetypes[suffix] = None
                 _append_or_default_if_module(srcs, _clean_module("", module_path), src_paths[0], extra_filetypes)
 
-def _is_triton_kernel_py_library(
-        target: bxl.ConfiguredTargetNode,
-        attrs: bxl.LazyAttrs) -> bool:
+def _is_triton_kernel_py_library(target: bxl.ConfiguredTargetNode, attrs: bxl.LazyAttrs) -> bool:
     """Detect if a target is a triton_kernel _py library.
 
     These libraries have generated sources from the Triton AOT compiler,
@@ -234,19 +219,13 @@ def _is_triton_kernel_py_library(
             return True
     return False
 
-def _get_python_library_base_module(
-        attrs: bxl.LazyAttrs,
-        target: bxl.ConfiguredTargetNode) -> str:
+def _get_python_library_base_module(attrs: bxl.LazyAttrs, target: bxl.ConfiguredTargetNode) -> str:
     base_module = attrs.get("base_module")
     if base_module != None and base_module.value() != None:
         return base_module.value()
     return target.label.package
 
-def _add_python_library_module_names(
-        modules: dict[str, None],
-        to_add: list | dict,
-        to_remove: dict[str, None],
-        base_module: str) -> None:
+def _add_python_library_module_names(modules: dict[str, None], to_add: list | dict, to_remove: dict[str, None], base_module: str) -> None:
     if type(to_add) == type([]):
         for v in to_add:
             short_path = getattr(v, "short_path", None)
@@ -263,19 +242,14 @@ def _add_python_library_module_names(
         for k in to_add:
             modules[_clean_module(base_module, k)] = None
 
-def _catch_all_stub_output_path(
-        target: bxl.ConfiguredTargetNode,
-        module: str) -> str:
+def _catch_all_stub_output_path(target: bxl.ConfiguredTargetNode, module: str) -> str:
     stable_id = sha256(str(target.label.raw_target()))[:16]
     module_path = module.replace(".", "/") if len(module) != 0 else "__init__"
     return "catch_all_sourcedb_stubs/" + stable_id + "/" + module_path + ".pyi"
 
 def _declare_catch_all_stub_source(
-        actions,
-        target: bxl.ConfiguredTargetNode,
-        srcs: dict[str, list[str | bxl.EnsuredArtifact]],
-        module: str,
-        catch_all_stubs_to_insert: list) -> None:
+    actions, target: bxl.ConfiguredTargetNode, srcs: dict[str, list[str | bxl.EnsuredArtifact]], module: str, catch_all_stubs_to_insert: list
+) -> None:
     stub = actions.write(
         _catch_all_stub_output_path(target, module),
         _CATCH_ALL_STUB_CONTENT,
@@ -284,17 +258,18 @@ def _declare_catch_all_stub_source(
     catch_all_stubs_to_insert.append((srcs, module, stub))
 
 def _handle_python_library(
-        actions,
-        entry: dict,
-        attrs: bxl.LazyAttrs,
-        fs: bxl.Filesystem,
-        target: bxl.ConfiguredTargetNode,
-        known_targets: dict[TargetLabel, bxl.ConfiguredTargetNode],
-        to_remove: dict[str, None],
-        to_build: list,
-        to_insert: list,
-        catch_all_stubs_to_insert: list,
-        extra_filetypes: dict[str, None]) -> None:
+    actions,
+    entry: dict,
+    attrs: bxl.LazyAttrs,
+    fs: bxl.Filesystem,
+    target: bxl.ConfiguredTargetNode,
+    known_targets: dict[TargetLabel, bxl.ConfiguredTargetNode],
+    to_remove: dict[str, None],
+    to_build: list,
+    to_insert: list,
+    catch_all_stubs_to_insert: list,
+    extra_filetypes: dict[str, None],
+) -> None:
     base_module = _get_python_library_base_module(attrs, target)
 
     srcs = _set_entry_common_fields(entry, attrs, fs, target, known_targets)
@@ -344,12 +319,7 @@ def _handle_python_library(
         extra_filetypes,
     )
 
-def _build_generated_files(
-        ctx: bxl.Context,
-        to_build: list,
-        to_insert: list,
-        genrule_to_insert: list,
-        extra_filetypes: dict[str, None]) -> None:
+def _build_generated_files(ctx: bxl.Context, to_build: list, to_insert: list, genrule_to_insert: list, extra_filetypes: dict[str, None]) -> None:
     if not to_build:
         return
 
@@ -377,10 +347,7 @@ def _build_generated_files(
         relative_to = ensured_label[0].rel_path()
         entry["relative_to"] = relative_to
 
-def _ensure_catch_all_stubs(
-        ctx: bxl.Context,
-        catch_all_stubs_to_insert: list,
-        extra_filetypes: dict[str, None]) -> None:
+def _ensure_catch_all_stubs(ctx: bxl.Context, catch_all_stubs_to_insert: list, extra_filetypes: dict[str, None]) -> None:
     if not catch_all_stubs_to_insert:
         return
 
@@ -394,14 +361,15 @@ def _ensure_catch_all_stubs(
         _append_or_default_if_module(srcs, module, ensured_stub.rel_path(), extra_filetypes)
 
 def _get_and_materialize_sources(
-        to_add: list | dict,
-        to_remove: dict[str, None],
-        base_module: str,
-        srcs: dict[str, list[str | bxl.EnsuredArtifact]],
-        to_build: list,
-        to_insert: list,
-        fs: bxl.Filesystem,
-        extra_filetypes: dict[str, None]):
+    to_add: list | dict,
+    to_remove: dict[str, None],
+    base_module: str,
+    srcs: dict[str, list[str | bxl.EnsuredArtifact]],
+    to_build: list,
+    to_insert: list,
+    fs: bxl.Filesystem,
+    extra_filetypes: dict[str, None],
+):
     if type(to_add) == type([]):
         for v in to_add:
             if getattr(v, "is_source", False):
@@ -460,12 +428,14 @@ def _main(ctx: bxl.Context) -> None:
     known_targets = {
         x.label.raw_target(): x
         for x in _list_targets(ctx)
-        if x.rule_type not in (
+        if x.rule_type
+        not in (
             "forward",
             "prelude//rules.bzl:command_alias",
             "prelude//rules.bzl:export_file",
             "prelude//rules.bzl:filegroup",
-        ) and x.label.name != "restricted_bin"
+        )
+        and x.label.name != "restricted_bin"
     }
 
     for raw_target, x in known_targets.items():

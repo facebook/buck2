@@ -101,10 +101,14 @@ def _find_project_and_solve(ctx, target, project_universe = []):
 
 def _find_target_in_universe(ctx, target, project_universe):
     for p in project_universe:
-        cfg_p = ctx.lazy.configured_target_node(
-            p,
-            modifiers = configuration_modifiers,
-        ).catch().resolve()
+        cfg_p = (
+            ctx.lazy.configured_target_node(
+                p,
+                modifiers = configuration_modifiers,
+            )
+            .catch()
+            .resolve()
+        )
         if not (cfg_p.is_ok()) or cfg_p.unwrap() == None:
             continue
         cfg_p = cfg_p.unwrap()
@@ -140,7 +144,7 @@ def _solution_for_haskell_ide(ctx, target):
             dep.label.raw_target(),
             modifiers = configuration_modifiers,
         )
-        if (t.rule_type == _HASKELL_LIB or t.rule_type == _HASKELL_BIN):
+        if t.rule_type == _HASKELL_LIB or t.rule_type == _HASKELL_BIN:
             deps[dep.label] = t
     for lib in deps.values():
         results.append(_solution_for_target(ctx, lib, deps))
@@ -321,14 +325,20 @@ _common_flags = {
 
 ide_for_target = bxl_main(
     impl = _impl_target,
-    cli_args = dict(_common_flags.items() + {
-        "target": cli_args.target_label(),
-    }.items()),
+    cli_args = dict(
+        _common_flags.items()
+        + {
+            "target": cli_args.target_label(),
+        }.items()
+    ),
 )
 
 ide_for_file = bxl_main(
     impl = _impl_file,
-    cli_args = dict(_common_flags.items() + {
-        "file": cli_args.string("File to load in IDE"),
-    }.items()),
+    cli_args = dict(
+        _common_flags.items()
+        + {
+            "file": cli_args.string("File to load in IDE"),
+        }.items()
+    ),
 )

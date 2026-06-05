@@ -25,8 +25,7 @@ def _artifact_path_test_impl(ctx):
 
 artifact_path_test = bxl_main(
     impl = _artifact_path_test_impl,
-    cli_args = {
-    },
+    cli_args = {},
 )
 
 def _cmd_args_artifact_path_test(ctx):

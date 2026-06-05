@@ -7,10 +7,7 @@
 # above-listed licenses.
 
 def _get_results(lazy: bxl.LazyContext, modifiers, targets, take: list[str] | None) -> dict[Label, list[ValidationSpec]]:
-    results = lazy.join_all([
-        lazy.configured_target_node(target, modifiers = modifiers).catch()
-        for target in targets
-    ]).resolve()
+    results = lazy.join_all([lazy.configured_target_node(target, modifiers = modifiers).catch() for target in targets]).resolve()
 
     analysis_promises = []
     for result in results:
@@ -42,9 +39,7 @@ def _get_results(lazy: bxl.LazyContext, modifiers, targets, take: list[str] | No
 
 def _impl(ctx: bxl.Context):
     if ctx.cli_args.transitive:
-        targets = (
-            ctx.target_universe(ctx.cli_args.targets).universe_target_set()
-        )
+        targets = ctx.target_universe(ctx.cli_args.targets).universe_target_set()
     else:
         targets = ctx.cli_args.targets
 
@@ -57,10 +52,7 @@ def _impl(ctx: bxl.Context):
 
     info = {}
     for target, specs in target_to_specs.items():
-        ensured = {
-            spec.name: ctx.output.ensure(spec.validation_result)
-            for spec in specs
-        }
+        ensured = {spec.name: ctx.output.ensure(spec.validation_result) for spec in specs}
         if ensured or not ctx.cli_args.trim:
             info[target] = ensured
 
@@ -109,9 +101,7 @@ _find_and_dump_failures = bxl.dynamic_actions(
 
 def _dump_failures_impl(ctx: bxl.Context):
     if ctx.cli_args.transitive:
-        targets = (
-            ctx.target_universe(ctx.cli_args.targets).universe_target_set()
-        )
+        targets = ctx.target_universe(ctx.cli_args.targets).universe_target_set()
     else:
         targets = ctx.cli_args.targets
 
@@ -151,7 +141,8 @@ dump_failures = bxl_main(
 
 main = bxl_main(
     impl = _impl,
-    cli_args = BASE_ARGS | {
+    cli_args = BASE_ARGS
+    | {
         "trim": cli_args.bool(
             default = True,
             doc = "By default, targets with no validations will be stripped from the output.",

@@ -54,9 +54,7 @@ def get_unified_value(attrs, common_key: str, take_values = False) -> list:
     if attrs.get(common_key):
         common_flags = attrs.get(common_key)
         if isinstance(common_flags, dict):
-            common_flags = (
-                common_flags.values() if take_values else common_flags
-            )
+            common_flags = common_flags.values() if take_values else common_flags
         all_flags.extend(common_flags)
     return all_flags
 
@@ -106,10 +104,12 @@ def _get_headers(attrs) -> list:
 
 def _get_exported_headers(attrs) -> dict:
     # TODO: support get dict without taking keys or values in get_unified_value.
-    return dict(zip(
-        get_unified_value(attrs, "exported_headers", take_values = False),
-        get_unified_value(attrs, "exported_headers", take_values = True),
-    ))
+    return dict(
+        zip(
+            get_unified_value(attrs, "exported_headers", take_values = False),
+            get_unified_value(attrs, "exported_headers", take_values = True),
+        )
+    )
 
 def _get_raw_headers(attrs) -> list:
     return attrs.get("raw_headers") or []
@@ -191,7 +191,7 @@ def _get_args(attrs) -> list:
 def _get_env(attrs) -> dict:
     env_raw = attrs.get("env") or {}
     env = {}
-    for (key, value) in env_raw.items():
+    for key, value in env_raw.items():
         # Environmental variables such as PATH have to use absolute path as PWD of Visual Studio can be arbitrary.
         env[key] = cmd_args(value, absolute_prefix = "$(RepoRoot)\\")
     return env
@@ -200,7 +200,7 @@ def _get_exe(attrs):
     exe = None
     platform_exe = attrs.get("platform_exe")
     if platform_exe:
-        for (p, e) in platform_exe.items():
+        for p, e in platform_exe.items():
             if _platform_regex_match(p):
                 exe = e
                 break

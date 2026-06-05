@@ -25,8 +25,7 @@ def _is_python_target(rule_type: str) -> bool:
 def _is_binary_or_test(rule_type: str) -> bool:
     return rule_type.endswith("python_binary") or rule_type.endswith("python_test")
 
-def _get_manifests_from_analysis(
-        analysis_result: bxl.AnalysisResult) -> [PythonLibraryManifestsTSet, None]:
+def _get_manifests_from_analysis(analysis_result: bxl.AnalysisResult) -> [PythonLibraryManifestsTSet, None]:
     sub_targets = analysis_result.providers()[DefaultInfo].sub_targets
     sdb = sub_targets.get("source-db-no-deps")
     if sdb == None:

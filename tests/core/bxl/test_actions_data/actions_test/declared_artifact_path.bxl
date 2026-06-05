@@ -15,6 +15,5 @@ def _declared_artifact_path_test_impl(ctx):
 
 declared_artifact_path_test = bxl_main(
     impl = _declared_artifact_path_test_impl,
-    cli_args = {
-    },
+    cli_args = {},
 )

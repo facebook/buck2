@@ -57,6 +57,5 @@ def _test_action_error_handler_types(ctx):
 
 test_action_error_handler_types = bxl_main(
     impl = _test_action_error_handler_types,
-    cli_args = {
-    },
+    cli_args = {},
 )

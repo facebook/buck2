@@ -13,7 +13,7 @@ _MAX_DEPTH = 2147483647
 def _assert_dependencies_test(ctx: bxl.Context, expected_deps: list[TargetLabel], target: TargetLabel):
     """Checks the dependencies of a given rule looking for expected dependencies.
 
-       Test passes if each of expected_deps is a dependency of the target.
+    Test passes if each of expected_deps is a dependency of the target.
     """
 
     cquery = ctx.cquery()

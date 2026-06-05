@@ -37,10 +37,7 @@ def gen_linker_settings(linker_settings: dict):
     concat_linker_settings = _format_linker_settings(linker_settings)
     return h(
         "Link",
-        [
-            h(key, value, indent_level = 3)
-            for key, value in concat_linker_settings.items()
-        ],
+        [h(key, value, indent_level = 3) for key, value in concat_linker_settings.items()],
         {
             "Label": "LinkerSettings",
         },

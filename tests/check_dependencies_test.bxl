@@ -17,14 +17,15 @@ def _fail_with_message(msg: str, targets: bxl.ConfiguredTargetSet) -> None:
     fail(msg + "\n" + targets_str)
 
 def _impl_check_dependencies_test(
-        ctx: bxl.Context,
-        verification_mode: str,
-        allowlist_patterns: list[str] | None,
-        blocklist_patterns: list[str] | None,
-        target: TargetLabel,
-        target_deps: bool,
-        deps_filter_pattern: str | None = None,
-        deps_exclude_pattern: str | None = None):
+    ctx: bxl.Context,
+    verification_mode: str,
+    allowlist_patterns: list[str] | None,
+    blocklist_patterns: list[str] | None,
+    target: TargetLabel,
+    target_deps: bool,
+    deps_filter_pattern: str | None = None,
+    deps_exclude_pattern: str | None = None,
+):
     """Test the dependencies of a given rule.
 
     The behavior is determined by the verification_mode string value:
@@ -59,11 +60,7 @@ def _impl_check_dependencies_test(
     elif target_deps:
         cquery_kwargs["filter"] = "target_deps()"
 
-    transitive_deps = cquery.deps(
-        ctx.target_universe(target, modifiers = ctx.modifiers).target_set(),
-        _MAX_DEPTH,
-        **cquery_kwargs
-    )
+    transitive_deps = cquery.deps(ctx.target_universe(target, modifiers = ctx.modifiers).target_set(), _MAX_DEPTH, **cquery_kwargs)
 
     allowlist_regex = rule_list_regex(allowlist_patterns)
     blocklist_regex = rule_list_regex(blocklist_patterns)

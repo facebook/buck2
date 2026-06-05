@@ -45,10 +45,13 @@ target_universe_keep_going_target_set_input = bxl_main(
 )
 
 def _target_universe_keep_going_mixed_list(ctx):
-    result = ctx.target_universe([
-        "//bad_targets:declared_dep",
-        "//bad_targets:has_a_missing_dep",
-    ], keep_going = True).target_set()
+    result = ctx.target_universe(
+        [
+            "//bad_targets:declared_dep",
+            "//bad_targets:has_a_missing_dep",
+        ],
+        keep_going = True,
+    ).target_set()
     _assert_targets(ctx, result, ["//bad_targets:declared_dep"])
 
 target_universe_keep_going_mixed_list = bxl_main(
@@ -57,11 +60,14 @@ target_universe_keep_going_mixed_list = bxl_main(
 )
 
 def _target_universe_keep_going_all_fail(ctx):
-    result = ctx.target_universe([
-        "//bad_targets:has_a_missing_dep",
-        "//bad_targets:has_a_dep_with_package_listing_err",
-        "//bad_targets:has_a_dep_from_nonexistent_buildfile",
-    ], keep_going = True).target_set()
+    result = ctx.target_universe(
+        [
+            "//bad_targets:has_a_missing_dep",
+            "//bad_targets:has_a_dep_with_package_listing_err",
+            "//bad_targets:has_a_dep_from_nonexistent_buildfile",
+        ],
+        keep_going = True,
+    ).target_set()
     _assert_targets(ctx, result, [])
 
 target_universe_keep_going_all_fail = bxl_main(
@@ -89,10 +95,13 @@ target_universe_keep_going_incompatible_string_pattern = bxl_main(
 )
 
 def _target_universe_keep_going_incompatible_list(ctx):
-    result = ctx.target_universe([
-        "//incompatible_targets:compatible_target",
-        "//incompatible_targets:incompatible_target",
-    ], keep_going = True).target_set()
+    result = ctx.target_universe(
+        [
+            "//incompatible_targets:compatible_target",
+            "//incompatible_targets:incompatible_target",
+        ],
+        keep_going = True,
+    ).target_set()
     _assert_targets(ctx, result, ["//incompatible_targets:compatible_target"])
 
 target_universe_keep_going_incompatible_list = bxl_main(

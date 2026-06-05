@@ -12,19 +12,21 @@ load("utils.bxl", "get_vs_configuration", "h")
 def gen_user_macros(target: bxl.ConfiguredTargetNode, vs_settings: dict, _cli_args, buck_root):
     user_macros = []
 
-    user_macros.append(h(
-        "PropertyGroup",
-        [
-            h("RepoRoot", buck_root, indent_level = 2),
-            h("ovrsource_root", buck_root, indent_level = 2),  # Keep for backward compatibility
-        ],
-        {
-            "Label": "UserMacros",
-        },
-        indent_level = 1,
-    ))
+    user_macros.append(
+        h(
+            "PropertyGroup",
+            [
+                h("RepoRoot", buck_root, indent_level = 2),
+                h("ovrsource_root", buck_root, indent_level = 2),  # Keep for backward compatibility
+            ],
+            {
+                "Label": "UserMacros",
+            },
+            indent_level = 1,
+        )
+    )
 
-    for (mode_file, settings) in vs_settings[BY_MODES].items():
+    for mode_file, settings in vs_settings[BY_MODES].items():
         buck_targets_list = [target.label.raw_target()] + settings[ADDITIONAL_TARGETS]
         user_macros.append(
             h(
@@ -37,10 +39,7 @@ def gen_user_macros(target: bxl.ConfiguredTargetNode, vs_settings: dict, _cli_ar
                     h(DEBUG_CMD, settings[DEBUG_CMD], indent_level = 2),
                     h(DEBUG_ARGS, " ".join(settings[DEBUG_ARGS]), indent_level = 2),
                     h(DEBUG_PWD, settings[DEBUG_PWD], indent_level = 2),
-                    h(DEBUG_ENV, [
-                        "{}={}".format(k, v)
-                        for (k, v) in settings[DEBUG_ENV].items()
-                    ], indent_level = 2),
+                    h(DEBUG_ENV, ["{}={}".format(k, v) for (k, v) in settings[DEBUG_ENV].items()], indent_level = 2),
                 ],
                 {
                     "Condition": "'$(Configuration)'=='{}'".format(get_vs_configuration(mode_file)),

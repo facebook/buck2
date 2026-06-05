@@ -12,7 +12,7 @@ load("@prelude//go:packages.bzl", "GoPackageInfo")
 load(
     "@prelude//go:toolchain.bzl",
     "GoToolchainInfo",
-    "GoVersion",  #@unused used as a type
+    "GoVersion",  # @unused used as a type
 )
 load("@prelude//utils:utils.bzl", "flatten")
 
@@ -166,14 +166,21 @@ def _driver(ctx):
 
         go_version = _go_version(ctx)
 
-        ctx.bxl_actions().actions.write_json(outputs[dynamic_out], {
-            "GoVersion": go_version.minor if go_version else 0,
-            "Packages": packages,
-            "Roots": [str(t.label) for t in go_root_targets],
-        }, pretty = True, absolute = True)
+        ctx.bxl_actions().actions.write_json(
+            outputs[dynamic_out],
+            {
+                "GoVersion": go_version.minor if go_version else 0,
+                "Packages": packages,
+                "Roots": [str(t.label) for t in go_root_targets],
+            },
+            pretty = True,
+            absolute = True,
+        )
 
     actions.dynamic_output(
-        dynamic = [td.go_package_info.go_list_out for td in targets_data.values() if td.go_package_info and build_results[td.go_package_info.go_list_out].is_ok()],
+        dynamic = [
+            td.go_package_info.go_list_out for td in targets_data.values() if td.go_package_info and build_results[td.go_package_info.go_list_out].is_ok()
+        ],
         inputs = [],
         outputs = [dynamic_out.as_output()],
         f = produce_result_json,
@@ -181,7 +188,9 @@ def _driver(ctx):
 
     ctx.output.print(ctx.output.ensure(dynamic_out).abs_path())
 
-def _make_protocol_package(load_mode: LoadMode, go_list_out: GoListOut, td: TargetData, import_table: dict[str, str], build_results: dict[Artifact, bxl.Result]) -> dict[str, typing.Any]:
+def _make_protocol_package(
+    load_mode: LoadMode, go_list_out: GoListOut, td: TargetData, import_table: dict[str, str], build_results: dict[Artifact, bxl.Result]
+) -> dict[str, typing.Any]:
     errors = set()
     package = {"ID": _target_id(td.target)}
     if load_mode.need_name:
@@ -218,7 +227,9 @@ def _make_protocol_package(load_mode: LoadMode, go_list_out: GoListOut, td: Targ
 
     return package
 
-def _compiled_go_files(load_mode: LoadMode, go_list_out: GoListOut, td: TargetData, build_results: dict[Artifact, bxl.Result]) -> (list[Artifact], set[PackageError]):
+def _compiled_go_files(
+    load_mode: LoadMode, go_list_out: GoListOut, td: TargetData, build_results: dict[Artifact, bxl.Result]
+) -> (list[Artifact], set[PackageError]):
     compiled_go_files = [] + go_list_out.go_files + go_list_out.test_go_files + go_list_out.x_test_go_files
     if len(go_list_out.cgo_files) > 0:
         cgo_gen_dir_result = build_results[td.go_package_info.cgo_gen_dir]
@@ -311,7 +322,9 @@ def _go_version(ctx: bxl.Context) -> GoVersion | None:
 # the NeedName, NeedFiles, and NeedCompiledGoFiles bits.
 def _parse_load_mode(ctx: bxl.Context) -> LoadMode:
     args = ctx.cli_args
-    is_default_load_mode = any([args.need_name, args.need_files, args.need_compiled_go_files, args.need_imports, args.need_deps, args.need_export_file]) == False
+    is_default_load_mode = (
+        any([args.need_name, args.need_files, args.need_compiled_go_files, args.need_imports, args.need_deps, args.need_export_file]) == False
+    )
     if is_default_load_mode:
         return LoadMode(need_name = True, need_files = True, need_compiled_go_files = True)
 
@@ -333,10 +346,8 @@ driver = bxl_main(
         # Note: relative paths have similar syntax to buck targets, e.q. fbcode//foo/bar.go
         "files": cli_args.option(cli_args.list(cli_args.string())),
         "target_exprs": cli_args.option(cli_args.list(cli_args.target_expr())),
-
         # packages.DriverRequest values
         "need_tests": cli_args.bool(),
-
         # packages.LoadMode values
         "need_name": cli_args.bool(),
         "need_files": cli_args.bool(),

@@ -36,10 +36,7 @@ def _check_targets_impl(ctx: bxl.Context) -> list[bxl.EnsuredArtifact]:
 
     art_output = ctx.output.ensure_multiple(artifacts)
 
-    return [
-        artifact.abs_path()
-        for artifact in art_output
-    ]
+    return [artifact.abs_path() for artifact in art_output]
 
 def _run(ctx: bxl.Context) -> None:
     diagnostic_paths = _check_targets_impl(ctx)

@@ -24,12 +24,13 @@ load(":util.bxl", "ALIASES", "TestRefs", "get_test_refs")
 # TODO(scottcao): Make this test runnable as isolated test.
 
 def _run_cfg_constructor(
-        legacy_platform: PlatformInfo | None,
-        package_modifiers: list[TaggedModifiers],
-        target_modifiers: list[Modifier],
-        cli_modifiers: list[str],
-        rule_name: str,
-        test_refs: TestRefs) -> PlatformInfo:
+    legacy_platform: PlatformInfo | None,
+    package_modifiers: list[TaggedModifiers],
+    target_modifiers: list[Modifier],
+    cli_modifiers: list[str],
+    rule_name: str,
+    test_refs: TestRefs,
+) -> PlatformInfo:
     refs, params = cfg_constructor_pre_constraint_analysis(
         package_modifiers = [tagged_modifiers_to_json(tagged_modifiers) for tagged_modifiers in package_modifiers],
         legacy_platform = legacy_platform,
@@ -43,8 +44,7 @@ def _run_cfg_constructor(
     refs = {ref: test_refs.get(ref) for ref in refs}
     return cfg_constructor_post_constraint_analysis(refs = refs, params = params)
 
-def test_cfg_constructor_returns_legacy_platform_with_no_modifiers(
-        test_refs: TestRefs):
+def test_cfg_constructor_returns_legacy_platform_with_no_modifiers(test_refs: TestRefs):
     linux_cfg = test_refs.get("ovr_config//os/constraints:linux")[ConfigurationInfo]
     legacy_platform = PlatformInfo(label = "platform", configuration = linux_cfg)
     platform = _run_cfg_constructor(
@@ -58,8 +58,7 @@ def test_cfg_constructor_returns_legacy_platform_with_no_modifiers(
     asserts.equals(legacy_platform.label, platform.label)
     asserts.equals(legacy_platform.configuration, platform.configuration)
 
-def test_cfg_constructor_with_cli_modifiers(
-        test_refs: TestRefs):
+def test_cfg_constructor_with_cli_modifiers(test_refs: TestRefs):
     constraints = ["ovr_config//os/constraints:linux", "ovr_config//cpu/constraints:x86_64"]
     platform = _run_cfg_constructor(
         legacy_platform = None,
@@ -86,8 +85,7 @@ def test_cfg_constructor_with_cli_modifiers(
     asserts.equals("cfg:linux-x86_64", platform.label)
     asserts.equals(expected_cfg, platform.configuration)
 
-def test_cfg_constructor_with_legacy_platform_and_cli_modifiers(
-        test_refs: TestRefs):
+def test_cfg_constructor_with_legacy_platform_and_cli_modifiers(test_refs: TestRefs):
     legacy_platform = PlatformInfo(
         label = "platform",
         configuration = test_refs.make_cfg(["ovr_config//os/constraints:linux", "ovr_config//cpu/constraints:x86_64"]),
@@ -109,8 +107,7 @@ def test_cfg_constructor_with_legacy_platform_and_cli_modifiers(
     asserts.equals("cfg:macos-x86_64", platform.label)
     asserts.equals(expected_cfg, platform.configuration)
 
-def test_cfg_constructor_with_package_modifiers(
-        test_refs: TestRefs):
+def test_cfg_constructor_with_package_modifiers(test_refs: TestRefs):
     platform = _run_cfg_constructor(
         legacy_platform = None,
         package_modifiers = [
@@ -131,8 +128,7 @@ def test_cfg_constructor_with_package_modifiers(
     asserts.equals(expected_cfg, platform.configuration)
     asserts.equals("cfg:linux-arm64", platform.label)
 
-def test_cfg_constructor_with_all_modifiers(
-        test_refs: TestRefs):
+def test_cfg_constructor_with_all_modifiers(test_refs: TestRefs):
     platform = _run_cfg_constructor(
         legacy_platform = None,
         package_modifiers = [
@@ -156,13 +152,15 @@ def test_cfg_constructor_with_all_modifiers(
     asserts.equals(expected_cfg, platform.configuration)
     asserts.equals("cfg:macos-arm64", platform.label)
 
-def test_cfg_constructor_with_modifiers_match(
-        test_refs: TestRefs):
+def test_cfg_constructor_with_modifiers_match(test_refs: TestRefs):
     package_modifiers = [
         TaggedModifiers(
-            modifiers = [modifiers.match({
-                "ovr_config//os/constraints:macos": "ovr_config//cpu/constraints:arm64",
-            }), "ovr_config//os/constraints:linux"],
+            modifiers = [
+                modifiers.match({
+                    "ovr_config//os/constraints:macos": "ovr_config//cpu/constraints:arm64",
+                }),
+                "ovr_config//os/constraints:linux",
+            ],
             location = ModifierPackageLocation(package_path = "fbcode//PACKAGE"),
             rule_name = None,
         ),
@@ -196,8 +194,7 @@ def test_cfg_constructor_with_modifiers_match(
     asserts.equals(expected_cfg, platform.configuration)
     asserts.equals("cfg:linux-x86_64", platform.label)
 
-def test_cfg_constructor_with_modifiers_match_on_legacy_platform(
-        test_refs: TestRefs):
+def test_cfg_constructor_with_modifiers_match_on_legacy_platform(test_refs: TestRefs):
     legacy_platform = PlatformInfo(
         label = "platform",
         configuration = test_refs.make_cfg(["ovr_config//os/constraints:linux"]),
@@ -232,8 +229,7 @@ def test_cfg_constructor_with_modifiers_match_on_legacy_platform(
     asserts.equals(expected_cfg, platform.configuration)
     asserts.equals("cfg:macos", platform.label)
 
-def test_cfg_constructor_with_modifiers_match_ordering(
-        test_refs: TestRefs):
+def test_cfg_constructor_with_modifiers_match_ordering(test_refs: TestRefs):
     target_modifiers = [
         modifiers.match({
             "ovr_config//cpu/constraints:arm64": "ovr_config//build_mode:sanitizer_type[no-san]",
@@ -282,8 +278,7 @@ def test_cfg_constructor_with_modifiers_match_ordering(
     asserts.equals(expected_cfg, platform.configuration)
     asserts.equals("cfg:macos-arm64-no-san", platform.label)
 
-def test_cfg_constructor_with_single_constraint_config_setting_modifier(
-        test_refs: TestRefs):
+def test_cfg_constructor_with_single_constraint_config_setting_modifier(test_refs: TestRefs):
     platform = _run_cfg_constructor(
         legacy_platform = None,
         package_modifiers = [
@@ -302,8 +297,7 @@ def test_cfg_constructor_with_single_constraint_config_setting_modifier(
     asserts.equals(expected_cfg, platform.configuration)
     asserts.equals("cfg:linux-x86_64", platform.label)
 
-def test_cfg_constructor_with_tagged_modifiers_per_rule1(
-        test_refs: TestRefs):
+def test_cfg_constructor_with_tagged_modifiers_per_rule1(test_refs: TestRefs):
     platform = _run_cfg_constructor(
         legacy_platform = None,
         package_modifiers = [
@@ -328,8 +322,7 @@ def test_cfg_constructor_with_tagged_modifiers_per_rule1(
     )
     asserts.equals(expected_cfg, platform.configuration)
 
-def test_cfg_constructor_with_tagged_modifiers_per_rule2(
-        test_refs: TestRefs):
+def test_cfg_constructor_with_tagged_modifiers_per_rule2(test_refs: TestRefs):
     platform = _run_cfg_constructor(
         legacy_platform = None,
         package_modifiers = [

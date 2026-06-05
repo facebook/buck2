@@ -10,7 +10,22 @@ load("constants.bxl", "ADDITIONAL_TARGETS", "BY_MODES", "DEBUG_ARGS", "DEBUG_CMD
 load("get_attrs.bxl", "get_attrs", "get_cxx_toolchain", "get_unified_value")
 load("get_compiler_settings.bxl", "get_compiler_settings", "get_exported_compiler_settings")
 load("get_linker_settings.bxl", "get_exported_linker_settings", "get_linker_settings")
-load("utils.bxl", "dedupe_by_value", "dirname", "flatten_lists", "gen_guid", "get_output_path", "get_project_file_path", "get_vs_configuration", "infer_settings_by_modes", "log_debug", "log_warn", "merge", "suffix", "translate_content_based_path")
+load(
+    "utils.bxl",
+    "dedupe_by_value",
+    "dirname",
+    "flatten_lists",
+    "gen_guid",
+    "get_output_path",
+    "get_project_file_path",
+    "get_vs_configuration",
+    "infer_settings_by_modes",
+    "log_debug",
+    "log_warn",
+    "merge",
+    "suffix",
+    "translate_content_based_path",
+)
 
 def _get_application_type_and_platform(mode_file):
     if "android" in mode_file:
@@ -59,10 +74,7 @@ def _get_debug_settings(target: bxl.ConfiguredTargetNode, attrs: dict, attrs_laz
         DEBUG_CMD: get_output_path(target, bxl_ctx),
         DEBUG_ARGS: flatten_lists(attrs["args"]),
         DEBUG_PWD: "",
-        DEBUG_ENV: {
-            key: ";".join(value_list)
-            for (key, value_list) in attrs["env"].items()
-        },
+        DEBUG_ENV: {key: ";".join(value_list) for (key, value_list) in attrs["env"].items()},
         # When dependency is referenced in [exe] subtarget form, PDB is not automatically materialized and debugging will not be able to load symbols nor stop at breakpoints.
         # See T197712426 and D56372580. Add additional full buck targets to force buck to build/materialize PDBs to make debugging work.
         ADDITIONAL_TARGETS: [],
