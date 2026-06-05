@@ -143,7 +143,7 @@ impl fmt::Display for DaemonShutdown {
         write!(f, "{}, caller:", self.reason)?;
 
         for caller in self.callers.iter() {
-            let max_len = 70;
+            let max_len = 200;
 
             let short_caller = if caller.len() > max_len {
                 Cow::Owned(
