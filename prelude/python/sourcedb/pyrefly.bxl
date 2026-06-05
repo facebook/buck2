@@ -202,6 +202,36 @@ def _handle_genrule(
                     extra_filetypes[suffix] = None
                 _append_or_default_if_module(srcs, _clean_module("", module_path), src_paths[0], extra_filetypes)
 
+def _is_triton_kernel_py_library(
+        target: bxl.ConfiguredTargetNode,
+        attrs: bxl.LazyAttrs) -> bool:
+    """Detect if a target is a triton_kernel _py library.
+
+    These libraries have generated sources from the Triton AOT compiler,
+    which is expensive to build. We skip them to avoid triggering
+    the AOT compile during Pyrefly's sourcedb generation.
+    """
+
+    # Check if target name ends with _py (triton_kernel convention)
+    if not target.label.name.endswith("_py"):
+        return False
+
+    label_str = str(target.label.raw_target())
+    if "triton" not in label_str.lower():
+        return False
+
+    # triton_kernel emits a `{name}_py` python_library whose cpp_dep is the
+    # generated `{name}` library. In configured attrs, that cpp_dep is exposed
+    # through normal deps rather than a separate `cpp_deps` attr.
+    deps = attrs.get("deps")
+    if deps == None or deps.value() == None:
+        return False
+    base_label = label_str.removesuffix("_py")
+    for dep in deps.value():
+        if str(dep.raw_target()) == base_label:
+            return True
+    return False
+
 def _handle_python_library(
         entry: dict,
         attrs: bxl.LazyAttrs,
@@ -212,6 +242,11 @@ def _handle_python_library(
         to_build: list,
         to_insert: list,
         extra_filetypes: dict[str, None]) -> None:
+    # Skip triton_kernel _py libraries to avoid triggering expensive AOT compiles
+    if _is_triton_kernel_py_library(target, attrs):
+        to_remove[str(target.label.raw_target())] = None
+        return
+
     base_module = attrs.get("base_module")
     if base_module != None and base_module.value() != None:
         base_module = base_module.value()
@@ -384,6 +419,9 @@ def _main(ctx: bxl.Context) -> None:
     # remove any targets we decided we shouldn't output
     for remove in to_remove:
         entries.pop(remove)
+    for entry in entries.values():
+        if "deps" in entry:
+            entry["deps"] = [dep for dep in entry["deps"] if dep not in to_remove]
 
     json["extra_filetypes"] = sorted(extra_filetypes.keys())
     ctx.output.print_json(json)
