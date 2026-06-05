@@ -1,3 +1,4 @@
+load("@fbcode_macros//build_defs:python_library.bzl", fbcode_python_library = "python_library")
 load("@prelude//utils:source_listing.bzl", "source_listing")
 
 oncall("pyre")
@@ -10,6 +11,7 @@ python_library(
     deps = [
         ":lib",
         ":my_extension_lib",
+        ":triton_test_lib",
     ],
 )
 
@@ -78,8 +80,30 @@ cxx_python_extension(
     deps = [":my_extension_stub"],
 )
 
+cxx_python_extension(
+    name = "triton_test",
+    srcs = ["my_extension.cpp"],
+    base_module = "triton_test",
+)
+
 python_library(
     name = "my_extension_lib",
     srcs = ["my_extension.py"],
     deps = [":my_extension"],
+)
+
+# Test targets for Triton source DB filtering.
+
+fbcode_python_library(
+    name = "triton_test_py",
+    srcs = ["triton_kernel.py"],
+    # Real triton_kernel rules generate a *_py python_library with cpp_deps.
+    # The source DB should skip it to avoid materializing expensive AOT output.
+    cpp_deps = [":triton_test"],
+)
+
+python_library(
+    name = "triton_test_lib",
+    srcs = [],
+    deps = [":triton_test_py"],
 )

@@ -62,7 +62,8 @@
       "buildfile_path": "prelude/python/sourcedb/tests/test_files/BUCK",
       "deps": [
         "prelude//python/sourcedb/tests/test_files:lib",
-        "prelude//python/sourcedb/tests/test_files:my_extension_lib"
+        "prelude//python/sourcedb/tests/test_files:my_extension_lib",
+        "prelude//python/sourcedb/tests/test_files:triton_test_lib"
       ],
       "python_platform": "linux",
       "python_version": "3.12",
@@ -127,6 +128,22 @@
           "prelude/python/sourcedb/tests/test_files/subdir/util.pyi"
         ]
       }
+    },
+    "prelude//python/sourcedb/tests/test_files:triton_test": {
+      "buildfile_path": "prelude/python/sourcedb/tests/test_files/BUCK",
+      "deps": [],
+      "python_platform": "linux",
+      "python_version": "3.12",
+      "relative_to": null,
+      "srcs": {}
+    },
+    "prelude//python/sourcedb/tests/test_files:triton_test_lib": {
+      "buildfile_path": "prelude/python/sourcedb/tests/test_files/BUCK",
+      "deps": [],
+      "python_platform": "linux",
+      "python_version": "3.12",
+      "relative_to": null,
+      "srcs": {}
     }
   },
   "extra_filetypes": [
