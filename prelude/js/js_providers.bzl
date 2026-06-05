@@ -28,6 +28,9 @@ JsBundleInfo = provider(
         "source_map": provider_field(typing.Any, default = None),  # "artifact",
         # Directory containing the resources (or assets) used by the bundled JavaScript source code.
         "res": provider_field(typing.Any, default = None),  # ["artifact", None]
+        # Directory of raw asset files produced by js_library targets that use
+        # `_asset_dest_path_resolver = "generic"`. Only used on Android platforms.
+        "generic_assets": provider_field(typing.Any, default = None),  # ["artifact", None]
         # Directory containing various metadata that can be used by dependent rules but are not
         # meant to be shipped with the application.
         "misc": provider_field(typing.Any, default = None),  # "artifact"

@@ -14,6 +14,7 @@ load("@prelude//android:android_providers.bzl", "AndroidResourceInfo", "merge_an
 load("@prelude//js:js_providers.bzl", "JsBundleInfo")
 load("@prelude//js:js_utils.bzl", "TRANSFORM_PROFILES", "get_apple_resource_providers_for_js_bundle", "get_bundle_name")
 load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
+load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:utils.bzl", "value_or")
 
 _GENRULE_OUT_DIR = "out"
@@ -248,6 +249,7 @@ def _build_js_bundle(ctx: AnalysisContext, bundle_name_out: str, js_bundle_info:
         built_js = built_js,
         source_map = source_map_out,
         res = js_bundle_info.res,
+        generic_assets = js_bundle_info.generic_assets,
         misc = misc_out,
         dependencies_file = dependencies_out,
     )
@@ -258,11 +260,15 @@ def _get_extra_providers(
     providers = []
     android_resource_info = initial_target.get(AndroidResourceInfo)
     if android_resource_info:
+        expect(js_bundle_out.generic_assets != None, "generic_assets must be set for Android js_bundle")
+        assets = [js_bundle_out.built_js]
+        if not skip_resources:
+            assets.append(js_bundle_out.generic_assets)
         new_android_resource_info = AndroidResourceInfo(
             raw_target = ctx.label.raw_target(),
             aapt2_compile_output = None if skip_resources else android_resource_info.aapt2_compile_output,
             allow_strings_as_assets_resource_filtering = True,
-            assets = [js_bundle_out.built_js],
+            assets = assets,
             manifest_file = None,
             r_dot_java_package = None if skip_resources else android_resource_info.r_dot_java_package,
             res = None if skip_resources else android_resource_info.res,
