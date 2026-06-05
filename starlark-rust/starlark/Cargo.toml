@@ -50,7 +50,7 @@ starlark_map = { version = "0.14.2", path = "../starlark_map", features = ["paga
 starlark_syntax = { version = "0.14.2", path = "../starlark_syntax" }
 static_assertions = "1.1.0"
 strong_hash = { workspace = true }
-strsim = "0.10.0"
+strsim = "0.11.1"
 textwrap = "0.11"
 thiserror = "2.0.18"
 
