@@ -48,6 +48,7 @@ def apple_bundle_config() -> dict[str, typing.Any]:
         "_fast_provisioning_profile_parsing_enabled": _read_bool("fast_provisioning_profile_parsing_enabled", False),
         "_incremental_bundling_enabled": _read_bool("incremental_bundling_enabled", True),
         "_info_plist_identify_build_system_default": _read_bool("info_plist_identify_build_system", True),
+        "_no_check_certificates": _read_bool("no_check_certificates", False),
         "_profile_bundling_enabled": _read_bool("profile_bundling_enabled", False),
         "_skip_adhoc_resigning_scrubbed_frameworks_override": _read_bool("skip_adhoc_resigning_scrubbed_frameworks_override"),
         "_use_entitlements_when_adhoc_code_signing": _read_bool("use_entitlements_when_adhoc_code_signing"),

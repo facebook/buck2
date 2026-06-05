@@ -228,6 +228,9 @@ def assemble_bundle(
 
         if ctx.attrs._fast_provisioning_profile_parsing_enabled:
             codesign_args.append("--fast-provisioning-profile-parsing")
+
+        if ctx.attrs._no_check_certificates:
+            codesign_args.append("--no-check-certificates")
     elif codesign_type.value == "skip":
         pass
     else:

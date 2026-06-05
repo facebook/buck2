@@ -156,6 +156,7 @@ def _apple_bundle_like_common_attrs():
         "_fast_adhoc_signing_enabled_default": _fast_adhoc_signing_enabled_default_attr(),
         "_fast_provisioning_profile_parsing_enabled": attrs.bool(default = False),
         "_incremental_bundling_enabled": attrs.bool(default = False),
+        "_no_check_certificates": attrs.bool(default = False),
         "_profile_bundling_enabled": attrs.bool(default = False),
         "_provisioning_profile_sources": attrs.dep(default = "fbsource//xplat/buck2/platform/apple:provisioning_profile_sources"),
         "_resource_bundle": attrs.option(attrs.dep(providers = [AppleBundleResourceInfo]), default = None),

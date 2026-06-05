@@ -140,6 +140,12 @@ def add_args_for_signing_context(parser: argparse.ArgumentParser):
         action="store_true",
         help="Verify that the entitlements match the provisioning profile.",
     )
+    parser.add_argument(
+        "--no-check-certificates",
+        action="store_true",
+        required=False,
+        help="Skip the check on code signing identities when selecting provisioning profile.",
+    )
 
 
 def signing_context_and_selected_identity_from_args(
@@ -193,6 +199,7 @@ def signing_context_and_selected_identity_from_args(
                     strict_provisioning_profile_search=args.strict_provisioning_profile_search,
                     provisioning_profile_filter=args.provisioning_profile_filter,
                     should_verify_entitlements=args.verify_entitlements,
+                    no_check_certificates=args.no_check_certificates,
                 )
             else:
                 profile_selection_context = None
@@ -218,6 +225,7 @@ def signing_context_and_selected_identity_from_args(
                 strict_provisioning_profile_search=args.strict_provisioning_profile_search,
                 provisioning_profile_filter=args.provisioning_profile_filter,
                 should_verify_entitlements=args.verify_entitlements,
+                no_check_certificates=args.no_check_certificates,
             )
             selected_identity_argument = (
                 signing_context.selected_profile_info.identity.fingerprint
