@@ -16,6 +16,11 @@ ReArg = record(
     default_run_as_bundle = field(bool | None, default = None),
 )
 
+def _network_access_kwargs(network_access: str | None) -> dict[str, str]:
+    if network_access == None:
+        return {}
+    return {"network_access": network_access}
+
 def _get_re_arg(ctx: AnalysisContext) -> ReArg:
     force_local = read_config("fbcode", "disable_re_tests", default = False)
     if force_local or not hasattr(ctx.attrs, "remote_execution"):
@@ -72,13 +77,17 @@ def get_re_executors_from_props(
     """
 
     re_arg = _get_re_arg(ctx)
+    network_access = getattr(ctx.attrs, "network_access", None)
 
     if re_arg.disabled:
-        executor = CommandExecutorConfig(local_enabled = True, remote_enabled = False)
+        executor = CommandExecutorConfig(local_enabled = True, remote_enabled = False, **_network_access_kwargs(network_access))
         return executor, {}
 
     re_props = re_arg.re_props
     if re_props == None:
+        if network_access != None:
+            executor = CommandExecutorConfig(local_enabled = True, remote_cache_enabled = False, remote_enabled = False, **_network_access_kwargs(network_access))
+            return executor, {}
         return None, {}
 
     re_props_copy = dict(re_props)
@@ -116,6 +125,7 @@ def get_re_executors_from_props(
         remote_execution_resource_units = re_resource_units,
         remote_execution_dynamic_image = re_dynamic_image,
         meta_internal_extra_params = meta_internal_extra_params,
+        **_network_access_kwargs(network_access),
     )
 
     listing_executor = default_executor
@@ -129,5 +139,6 @@ def get_re_executors_from_props(
             remote_execution_resource_units = re_listing_resource_units,
             remote_execution_dynamic_image = re_dynamic_image,
             meta_internal_extra_params = meta_internal_extra_params,
+            **_network_access_kwargs(network_access),
         )
     return default_executor, {"listing": listing_executor}

@@ -55,7 +55,6 @@ def compute_test_providers(ctx: AnalysisContext, exe: PexProviders) -> list[Prov
             # the cell root (e.g. fbcode root).
             run_from_project_root = re_executor != None,
             use_project_relative_paths = re_executor != None,
-            network_access = getattr(ctx.attrs, "network_access", None),
             supports_test_execution_caching = ctx.attrs.supports_test_execution_caching,
         ),
     ) + [make_default_info(exe)]
