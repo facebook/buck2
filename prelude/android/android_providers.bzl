@@ -221,7 +221,7 @@ AndroidResourceInfo = provider(
         #  if False, then the "res" are not affected by the strings-as-assets resource filter
         "allow_strings_as_assets_resource_filtering": provider_field(typing.Any, default = None),  # bool
         # assets defined by this rule. May be empty
-        "assets": provider_field(Artifact | None, default = None),
+        "assets": provider_field(list[Artifact], default = []),
         # manifest file used by the resources, if resources are present
         "manifest_file": provider_field(Artifact | None, default = None),
         # the package specified by the android_resource rule itself

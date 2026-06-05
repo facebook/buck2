@@ -262,7 +262,7 @@ def _get_extra_providers(
             raw_target = ctx.label.raw_target(),
             aapt2_compile_output = None if skip_resources else android_resource_info.aapt2_compile_output,
             allow_strings_as_assets_resource_filtering = True,
-            assets = js_bundle_out.built_js,
+            assets = [js_bundle_out.built_js],
             manifest_file = None,
             r_dot_java_package = None if skip_resources else android_resource_info.r_dot_java_package,
             res = None if skip_resources else android_resource_info.res,

@@ -638,7 +638,7 @@ def _merge_assets(
                 module_to_assets_dirs.setdefault(ROOT_MODULE, []).extend([cxx_resources])
             for asset_resource_info in asset_resource_infos:
                 module_name = apk_module_graph_info.target_to_module_mapping_function(str(asset_resource_info.raw_target))
-                module_to_assets_dirs.setdefault(module_name, []).append(asset_resource_info.assets)
+                module_to_assets_dirs.setdefault(module_name, []).extend(asset_resource_info.assets)
 
             merge_assets_cmd, _ = get_common_merge_assets_cmd(ctx, outputs[merged_assets_output])
 
@@ -663,7 +663,7 @@ def _merge_assets(
     else:
         merge_assets_cmd, merged_assets_output_hash = get_common_merge_assets_cmd(ctx, merged_assets_output)
 
-        assets_dirs = [resource_info.assets for resource_info in asset_resource_infos]
+        assets_dirs = flatten([resource_info.assets for resource_info in asset_resource_infos])
         if cxx_resources:
             assets_dirs.extend([cxx_resources])
         assets_dirs_file = ctx.actions.write_json("assets_dirs.json", {ROOT_MODULE: assets_dirs}, has_content_based_path = False)

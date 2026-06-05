@@ -24,6 +24,7 @@ load("@prelude//android:util.bzl", "create_enhancement_context")
 load("@prelude//java:java_providers.bzl", "create_java_packaging_dep", "get_all_java_packaging_deps", "get_all_java_packaging_deps_from_packaging_infos")
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//utils:argfile.bzl", "argfile")
+load("@prelude//utils:utils.bzl", "flatten")
 
 def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
     deps_by_platform = get_deps_by_platform(ctx)
@@ -149,7 +150,7 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
             )
             entries.extend([merged_resource_sources_dir, r_dot_txt])
 
-        assets_dirs = [resource_infos.assets for resource_infos in resource_infos if resource_infos.assets]
+        assets_dirs = flatten([resource_infos.assets for resource_infos in resource_infos])
         entries.extend(assets_dirs)
 
     cxx_resources = get_cxx_resources(ctx, deps, dir_name = "assets")

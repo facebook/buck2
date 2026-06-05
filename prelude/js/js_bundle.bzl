@@ -133,7 +133,7 @@ def _get_android_resource_info(ctx: AnalysisContext, js_bundle_info: JsBundleInf
         raw_target = ctx.label.raw_target(),
         aapt2_compile_output = aapt2_compile_output,
         allow_strings_as_assets_resource_filtering = True,
-        assets = js_bundle_info.built_js,
+        assets = [js_bundle_info.built_js],
         manifest_file = None,
         r_dot_java_package = r_dot_java_package,
         res = js_bundle_info.res,
