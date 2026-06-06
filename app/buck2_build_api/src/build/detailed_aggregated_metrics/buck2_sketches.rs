@@ -26,7 +26,9 @@ use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_directory::directory::walk::unordered_entry_walk;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact_value::ArtifactValue;
+use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::ActionDirectoryMember;
+use buck2_execute::directory::insert_artifact;
 use buck2_hash::BuckHashSet;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::load_module::InterpreterCalculation;
@@ -200,12 +202,19 @@ where
     S: Sketcher<ProjectRelativePathBuf>,
     C: Sketcher<ProjectRelativePathBuf>,
 {
-    for (path, size) in collect_artifact_paths(values)? {
-        if let Some(s) = size_sketcher.as_deref_mut() {
-            s.sketch_weighted(&path, size);
-        }
-        if let Some(c) = count_sketcher.as_deref_mut() {
-            c.sketch(&path);
+    let builder = merge_artifact_values(values)?;
+    let entry: DirectoryEntry<&ActionDirectoryBuilder, &ActionDirectoryMember> =
+        DirectoryEntry::Dir(&builder);
+    let mut walk = unordered_entry_walk(entry.map_dir(Directory::as_ref));
+    while let Some((rel_path, entry)) = walk.next() {
+        if let DirectoryEntry::Leaf(leaf) = entry {
+            let path = ProjectRelativePathBuf::from(rel_path.get());
+            if let Some(s) = size_sketcher.as_deref_mut() {
+                s.sketch_weighted(&path, leaf_size(leaf));
+            }
+            if let Some(c) = count_sketcher.as_deref_mut() {
+                c.sketch(&path);
+            }
         }
     }
     Ok(())
@@ -226,34 +235,17 @@ pub(crate) async fn compute_artifact_path_sketches_for_target(
     compute_artifact_path_sketches(values, sketch_size, sketch_count)
 }
 
-/// Walks each artifact value's `entry()` and `deps()` and collects every leaf as
-/// a `(project-relative path, size)` pair.
-fn collect_artifact_paths(
+/// Merges every artifact value of a top-level target into one directory, so a
+/// path shared across the target's artifacts is sketched only once when the
+/// caller walks the result.
+fn merge_artifact_values(
     values: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
-) -> buck2_error::Result<Vec<(ProjectRelativePathBuf, u64)>> {
-    let mut weighted_paths: Vec<(ProjectRelativePathBuf, u64)> = Vec::new();
-    for (artifact_path, value) in &values {
-        let mut walk = unordered_entry_walk(value.entry().as_ref().map_dir(Directory::as_ref));
-        while let Some((rel_path, entry)) = walk.next() {
-            if let DirectoryEntry::Leaf(leaf) = entry {
-                weighted_paths.push((artifact_path.join(rel_path.get()), leaf_size(leaf)));
-            }
-        }
-
-        if let Some(deps) = value.deps() {
-            let deps_entry = DirectoryEntry::Dir(deps.dupe());
-            let mut walk = unordered_entry_walk(deps_entry.as_ref().map_dir(Directory::as_ref));
-            while let Some((rel_path, entry)) = walk.next() {
-                if let DirectoryEntry::Leaf(leaf) = entry {
-                    weighted_paths.push((
-                        ProjectRelativePathBuf::from(rel_path.get()),
-                        leaf_size(leaf),
-                    ));
-                }
-            }
-        }
+) -> buck2_error::Result<ActionDirectoryBuilder> {
+    let mut builder = ActionDirectoryBuilder::empty();
+    for (artifact_path, value) in values {
+        insert_artifact(&mut builder, artifact_path, &value)?;
     }
-    Ok(weighted_paths)
+    Ok(builder)
 }
 
 fn leaf_size(leaf: &ActionDirectoryMember) -> u64 {
@@ -803,11 +795,10 @@ mod tests {
     }
 
     #[test]
-    fn test_artifact_path_sketches_does_not_dedup_paths() -> buck2_error::Result<()> {
-        // Pins the current per-target duplicate-traversal perf bug: two top-level
-        // artifacts share a `deps()` subtree containing `p_shared`, and each value
-        // is walked independently, so `p_shared` reaches the sketcher once per
-        // value instead of once overall.
+    fn test_artifact_path_sketches_dedups_paths() -> buck2_error::Result<()> {
+        // Two top-level artifacts share a `deps()` subtree containing `p_shared`;
+        // merging them into a single directory means each project-relative leaf
+        // reaches the sketcher exactly once.
         let p_shared = ProjectRelativePathBuf::unchecked_new("buck-out/shared.txt".to_owned());
         let p_other = ProjectRelativePathBuf::unchecked_new("buck-out/other.txt".to_owned());
         let p_first = ProjectRelativePathBuf::unchecked_new("buck-out/first.txt".to_owned());
@@ -842,7 +833,14 @@ mod tests {
 
         compute_artifact_path_sketches_impl(input, Some(&mut size_mock), Some(&mut count_mock))?;
 
-        // Bug: `p_shared` is walked once per value, so it shows up twice.
+        // Walk order isn't stable, so compare as maps.
+        let expected_counts: BuckHashMap<_, _> = [p_first, p_other, p_shared]
+            .into_iter()
+            .map(|p| (p, 1usize))
+            .collect();
+        let expected_sizes: BuckHashMap<_, _> =
+            expected_counts.keys().map(|p| (p.clone(), 0u64)).collect();
+
         let count_seen: BuckHashMap<_, usize> =
             count_mock
                 .items
@@ -851,10 +849,10 @@ mod tests {
                     *m.entry(p.clone()).or_default() += 1;
                     m
                 });
-        assert_eq!(count_mock.items.len(), 4);
-        assert_eq!(count_seen.get(&p_shared), Some(&2));
-        assert_eq!(count_seen.get(&p_first), Some(&1));
-        assert_eq!(count_seen.get(&p_other), Some(&1));
+        let size_seen: BuckHashMap<_, _> = size_mock.weighted_items.into_iter().collect();
+
+        assert_eq!(count_seen, expected_counts);
+        assert_eq!(size_seen, expected_sizes);
 
         Ok(())
     }
