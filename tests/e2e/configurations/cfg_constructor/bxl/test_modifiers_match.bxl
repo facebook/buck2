@@ -89,10 +89,10 @@ def test_modifiers_match_resolve_first_matching_key(test_refs: TestRefs):
         "ovr_config//os/constraints:linux": "ovr_config//build_mode:sanitizer_type[asan]",
     })
 
-    # buildifier: disable=unsorted-dict-items
+    # buildifier: disable=@unsorted-dict-items
     x86_64_linux_match = test_refs.get_modifier_info({
-        "ovr_config//cpu/constraints:x86_64": "ovr_config//build_mode:sanitizer_type[tsan]",
         "ovr_config//os/constraints:linux": "ovr_config//build_mode:sanitizer_type[asan]",
+        "ovr_config//cpu/constraints:x86_64": "ovr_config//build_mode:sanitizer_type[tsan]",
     })
     asan_constraint = test_refs.get("ovr_config//build_mode:sanitizer_type[asan]")[ConstraintValueInfo]
     tsan_constraint = test_refs.get("ovr_config//build_mode:sanitizer_type[tsan]")[ConstraintValueInfo]
