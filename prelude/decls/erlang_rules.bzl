@@ -673,6 +673,7 @@ erlang_otp_binaries = prelude_rule(
     """,
     further = None,
     attrs = attributes["erlang_otp_binaries"],
+    is_toolchain_rule = True,
 )
 
 erlang_release = prelude_rule(

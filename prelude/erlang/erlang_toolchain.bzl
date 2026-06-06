@@ -271,10 +271,10 @@ erlang_toolchain = rule(
         ),
         # ERTS version and OTP application metadata
         "erts_version": attrs.string(default = "unknown"),
-        "otp_binaries": attrs.dep(),
+        "otp_binaries": attrs.toolchain_dep(),
         "parse_transforms": attrs.list(attrs.dep()),
         "parse_transforms_filters": attrs.dict(key = attrs.string(), value = attrs.list(attrs.string())),
-        "toolchain_utilities": attrs.dep(default = "@prelude//erlang/toolchain:toolchain_utilities"),
+        "toolchain_utilities": attrs.toolchain_dep(default = "@prelude//erlang/toolchain:toolchain_utilities"),
     },
     is_toolchain_rule = True,
 )
@@ -370,4 +370,5 @@ toolchain_utilities = rule(
         "release_variables_builder": attrs.source(),
         "utility_modules": attrs.list(attrs.source()),
     },
+    is_toolchain_rule = True,
 )
