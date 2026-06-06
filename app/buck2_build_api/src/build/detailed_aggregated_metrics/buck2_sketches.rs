@@ -158,17 +158,17 @@ impl ArtifactPathSketches {
     }
 }
 
-/// Computes artifact path sketches from an iterator of (path, size) pairs.
+/// Computes artifact path sketches for a target's resolved artifact values.
 ///
-/// For each file, sketches the path string weighted by its size (for size sketch)
-/// or weight 1 (for count sketch). Callers should walk artifact directory entries
-/// at file granularity (e.g. via `unordered_entry_walk`) so that projected
-/// artifacts and directory contents are sketched uniformly.
+/// Each file in every value's `entry()` and `deps()` is sketched at file
+/// granularity, weighted by its size (for the size sketch) or weight 1 (for the
+/// count sketch), so projected artifacts and directory contents are sketched
+/// uniformly.
 pub(crate) fn compute_artifact_path_sketches(
-    artifacts: impl Iterator<Item = (ProjectRelativePathBuf, u64)>,
+    values: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
     sketch_size: bool,
     sketch_count: bool,
-) -> ArtifactPathSketches {
+) -> buck2_error::Result<ArtifactPathSketches> {
     let mut size_sketcher = if sketch_size {
         Some(DEFAULT_SKETCH_VERSION.create_sketcher::<ProjectRelativePathBuf, ArtifactSizeSketch>())
     } else {
@@ -182,24 +182,25 @@ pub(crate) fn compute_artifact_path_sketches(
         None
     };
 
-    compute_artifact_path_sketches_impl(artifacts, size_sketcher.as_mut(), count_sketcher.as_mut());
+    compute_artifact_path_sketches_impl(values, size_sketcher.as_mut(), count_sketcher.as_mut())?;
 
-    ArtifactPathSketches {
+    Ok(ArtifactPathSketches {
         size: size_sketcher.map(|s| s.into_mergeable_graph_sketch()),
         count: count_sketcher.map(|s| s.into_mergeable_graph_sketch()),
-    }
+    })
 }
 
 /// Private implementation that accepts any Sketchers for testing.
 fn compute_artifact_path_sketches_impl<S, C>(
-    artifacts: impl Iterator<Item = (ProjectRelativePathBuf, u64)>,
+    values: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
     mut size_sketcher: Option<&mut S>,
     mut count_sketcher: Option<&mut C>,
-) where
+) -> buck2_error::Result<()>
+where
     S: Sketcher<ProjectRelativePathBuf>,
     C: Sketcher<ProjectRelativePathBuf>,
 {
-    for (path, size) in artifacts {
+    for (path, size) in collect_artifact_paths(values)? {
         if let Some(s) = size_sketcher.as_deref_mut() {
             s.sketch_weighted(&path, size);
         }
@@ -207,6 +208,7 @@ fn compute_artifact_path_sketches_impl<S, C>(
             c.sketch(&path);
         }
     }
+    Ok(())
 }
 
 /// Computes artifact path sketches for one top-level target's outputs.
@@ -221,6 +223,14 @@ pub(crate) async fn compute_artifact_path_sketches_for_target(
     let values =
         collect_immediate_artifact_values(ctx, outputs, artifact_fs, providers_to_skip).await?;
 
+    compute_artifact_path_sketches(values, sketch_size, sketch_count)
+}
+
+/// Walks each artifact value's `entry()` and `deps()` and collects every leaf as
+/// a `(project-relative path, size)` pair.
+fn collect_artifact_paths(
+    values: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
+) -> buck2_error::Result<Vec<(ProjectRelativePathBuf, u64)>> {
     let mut weighted_paths: Vec<(ProjectRelativePathBuf, u64)> = Vec::new();
     for (artifact_path, value) in &values {
         let mut walk = unordered_entry_walk(value.entry().as_ref().map_dir(Directory::as_ref));
@@ -243,12 +253,7 @@ pub(crate) async fn compute_artifact_path_sketches_for_target(
             }
         }
     }
-
-    Ok(compute_artifact_path_sketches(
-        weighted_paths.into_iter(),
-        sketch_size,
-        sketch_count,
-    ))
+    Ok(weighted_paths)
 }
 
 fn leaf_size(leaf: &ActionDirectoryMember) -> u64 {
@@ -537,6 +542,7 @@ mod tests {
     use buck2_artifact::actions::key::ActionIndex;
     use buck2_artifact::actions::key::ActionKey;
     use buck2_artifact::artifact::build_artifact::BuildArtifact;
+    use buck2_common::file_ops::metadata::FileMetadata;
     use buck2_core::category::Category;
     use buck2_core::category::CategoryRef;
     use buck2_core::configuration::data::ConfigurationData;
@@ -546,6 +552,13 @@ mod tests {
     use buck2_core::fs::buck_out_path::BuildArtifactPath;
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+    use buck2_execute::artifact_value::ArtifactValue;
+    use buck2_execute::digest_config::DigestConfig;
+    use buck2_execute::directory::ActionDirectoryBuilder;
+    use buck2_execute::directory::ActionDirectoryEntry;
+    use buck2_execute::directory::ActionDirectoryMember;
+    use buck2_execute::directory::INTERNER;
+    use buck2_execute::directory::insert_file;
     use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_hash::BuckHashMap;
     use buck2_hash::BuckHashSet;
@@ -790,40 +803,59 @@ mod tests {
     }
 
     #[test]
-    fn test_artifact_path_sketches_does_not_dedup_paths() {
-        // Pins current behavior: the sketcher receives the same path multiple
-        // times when the input contains duplicates. This corresponds to the
-        // per-target / cross-target duplicate-traversal perf bug in
-        // `compute_artifact_path_sketches_for_target`.
+    fn test_artifact_path_sketches_does_not_dedup_paths() -> buck2_error::Result<()> {
+        // Pins the current per-target duplicate-traversal perf bug: two top-level
+        // artifacts share a `deps()` subtree containing `p_shared`, and each value
+        // is walked independently, so `p_shared` reaches the sketcher once per
+        // value instead of once overall.
         let p_shared = ProjectRelativePathBuf::unchecked_new("buck-out/shared.txt".to_owned());
         let p_other = ProjectRelativePathBuf::unchecked_new("buck-out/other.txt".to_owned());
+        let p_first = ProjectRelativePathBuf::unchecked_new("buck-out/first.txt".to_owned());
+
+        let digest_config = DigestConfig::testing_default();
+        let cas = digest_config.cas_digest_config();
+
+        let mut deps_builder = ActionDirectoryBuilder::empty();
+        insert_file(
+            &mut deps_builder,
+            p_shared.clone(),
+            FileMetadata::empty(cas),
+        )?;
+        let shared_deps = deps_builder
+            .fingerprint(digest_config.as_directory_serializer())
+            .shared(&*INTERNER);
+
+        let make_value = || {
+            ArtifactValue::new(
+                ActionDirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata::empty(cas))),
+                Some(shared_deps.dupe()),
+            )
+        };
 
         let input = vec![
-            (p_shared.clone(), 10),
-            (p_other.clone(), 20),
-            (p_shared.clone(), 30),
+            (p_first.clone(), make_value()),
+            (p_other.clone(), make_value()),
         ];
 
         let mut size_mock: MockSketcher<ProjectRelativePathBuf> = MockSketcher::new();
         let mut count_mock: MockSketcher<ProjectRelativePathBuf> = MockSketcher::new();
 
-        compute_artifact_path_sketches_impl(
-            input.into_iter(),
-            Some(&mut size_mock),
-            Some(&mut count_mock),
-        );
+        compute_artifact_path_sketches_impl(input, Some(&mut size_mock), Some(&mut count_mock))?;
 
-        assert_eq!(
-            count_mock.items,
-            vec![p_shared.clone(), p_other.clone(), p_shared.clone()],
-        );
-        assert_eq!(
-            size_mock.weighted_items,
-            vec![
-                (p_shared.clone(), 10),
-                (p_other.clone(), 20),
-                (p_shared.clone(), 30),
-            ],
-        );
+        // Bug: `p_shared` is walked once per value, so it shows up twice.
+        let count_seen: BuckHashMap<_, usize> =
+            count_mock
+                .items
+                .iter()
+                .fold(BuckHashMap::default(), |mut m, p| {
+                    *m.entry(p.clone()).or_default() += 1;
+                    m
+                });
+        assert_eq!(count_mock.items.len(), 4);
+        assert_eq!(count_seen.get(&p_shared), Some(&2));
+        assert_eq!(count_seen.get(&p_first), Some(&1));
+        assert_eq!(count_seen.get(&p_other), Some(&1));
+
+        Ok(())
     }
 }
