@@ -69,9 +69,9 @@ rust_library(
         "fbsource//third-party/rust:serde_json",
         "fbsource//third-party/rust:slab",
         "fbsource//third-party/rust:smallvec",
+        "fbsource//third-party/rust:sorted_vector_map",
         "fbsource//third-party/rust:triomphe",
         "//buck2/allocative/allocative_derive:allocative_derive",
-        "//common/rust/shed/sorted_vector_map:sorted_vector_map",
     ] + select({
         "DEFAULT": ["fbsource//third-party/rust:tokio"],
         # @oss-disable[end= ]: "ovr_config//runtime/constraints:wasm": [],

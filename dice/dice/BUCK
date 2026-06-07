@@ -30,6 +30,7 @@ rust_library(
         "fbsource//third-party/rust:scopeguard",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:slab",
+        "fbsource//third-party/rust:sorted_vector_map",
         "fbsource//third-party/rust:static_assertions",
         "fbsource//third-party/rust:take_mut",
         "fbsource//third-party/rust:thiserror",
@@ -48,6 +49,5 @@ rust_library(
         "//buck2/pagable_storage:pagable_storage",
         "//buck2/shed/lock_free_hashtable:lock_free_hashtable",
         "//buck2/shed/lock_free_vec:lock_free_vec",
-        "//common/rust/shed/sorted_vector_map:sorted_vector_map",
     ],
 )

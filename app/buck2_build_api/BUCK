@@ -30,6 +30,7 @@ rust_library(
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_json",
         "fbsource//third-party/rust:smallvec",
+        "fbsource//third-party/rust:sorted_vector_map",
         "fbsource//third-party/rust:static_assertions",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tracing",
@@ -70,6 +71,5 @@ rust_library(
         "//buck2/shed/setsketch:setsketch",
         "//buck2/starlark-rust/starlark:starlark",
         "//buck2/starlark-rust/starlark_map:starlark_map",
-        "//common/rust/shed/sorted_vector_map:sorted_vector_map",
     ],
 )

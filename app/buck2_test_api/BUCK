@@ -16,6 +16,7 @@ rust_library(
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:futures",
         "fbsource//third-party/rust:prost-types",
+        "fbsource//third-party/rust:sorted_vector_map",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tonic",
         "fbsource//third-party/rust:tower-layer",
@@ -37,6 +38,5 @@ rust_library(
         "//buck2/gazebo/gazebo:gazebo",
         "//buck2/host_sharing:host_sharing",
         "//buck2/pagable:pagable",
-        "//common/rust/shed/sorted_vector_map:sorted_vector_map",
     ],
 )

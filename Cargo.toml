@@ -302,6 +302,7 @@ siphasher = "0.3.11"
 slab = "0.4.12"
 slog = "2.8.2"
 smallvec = { version = "1.15", features = ["const_generics", "const_new", "serde", "specialization", "union", "write"] }
+sorted_vector_map = "0.2.1"
 static_assertions = "1.1.0"
 strsim = "0.11.1"
 strum = { version = "0.27.1", features = ["derive", "strum_macros"] }
@@ -350,9 +351,6 @@ zstd = "0.13.3"
 
 # @oss-disable: fbinit.path = "../common/rust/shed/fbinit"
 fbinit.version = "0.2"
-# @oss-disable: sorted_vector_map.path = "../common/rust/shed/sorted_vector_map"
-sorted_vector_map.git = "https://github.com/facebookexperimental/rust-shed" # @oss-enable
-sorted_vector_map.version = "0.2.1"
 
 allocative.features = ["anyhow", "bumpalo", "chrono", "dashmap", "either", "futures", "hashbrown", "indexmap", "num-bigint", "once_cell", "parking_lot", "prost-types", "serde_json", "slab", "smallvec", "compact_str", "sorted_vector_map", "tokio", "triomphe"]
 allocative.path = "allocative/allocative"
