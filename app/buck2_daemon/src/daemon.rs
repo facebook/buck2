@@ -16,6 +16,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use allocative::Allocative;
+#[cfg(all(fbcode_build, target_os = "linux"))]
+use bpfjailer_client_rs::SOCK_PATHS as BPFJAILER_SOCK_PATHS;
 use buck2_cli_proto::DaemonProcessInfo;
 use buck2_client_ctx::daemon_constraints::gen_daemon_constraints;
 use buck2_client_ctx::version::BuckVersion;
@@ -54,6 +56,11 @@ use futures::select;
 
 use crate::daemon_lower_priority::daemon_lower_priority;
 use crate::schedule_termination::maybe_schedule_termination;
+
+#[cfg(all(fbcode_build, target_os = "linux"))]
+const BPFJAILER_CONNECT_TO_SOCKET_RETRY_MS: i32 = 3000;
+#[cfg(all(fbcode_build, target_os = "linux"))]
+const BPFJAILER_RESPONSE_FROM_SOCKET_TIMEOUT_MS: i32 = 60000;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Tier0)]
@@ -281,6 +288,7 @@ impl DaemonCommand {
             let (listener, endpoint) = init_listener()?;
 
             Self::daemonize(stdout, stderr)?;
+            Self::exit_bpfjailer();
 
             fs_util::write(&pid_path, format!("{}", process::id())).categorize_internal()?;
 
@@ -664,6 +672,44 @@ impl DaemonCommand {
             "Cannot daemonize on Windows"
         ))
     }
+
+    #[cfg(all(fbcode_build, target_os = "linux"))]
+    fn exit_bpfjailer() {
+        // Attempts to request that the BPFJailer remove this process (pid=0)
+        // from all jail Role IDs (uuid=""). If the process was not in any jail
+        // to begin with, this is a no-op.
+        //
+        // Note that there IS a `buck` Role ID that is assigned to us based on
+        // our cgroup name, and it's this role that allows the exit_jail request
+        // here to succeed.
+        let Some(sock_path) = BPFJAILER_SOCK_PATHS
+            .iter()
+            .find(|sock_path| std::path::Path::new(sock_path).exists())
+        else {
+            return;
+        };
+
+        match bpfjailer_handler_polyglot::exit_jail(
+            sock_path.to_string(),
+            "".to_owned(),
+            0,
+            -1,
+            BPFJAILER_CONNECT_TO_SOCKET_RETRY_MS,
+            BPFJAILER_RESPONSE_FROM_SOCKET_TIMEOUT_MS,
+        ) {
+            Ok(()) => tracing::info!("Exited BPFJailer jail"),
+            Err(e) => {
+                let _ignored = soft_error!(
+                    "failed_to_exit_bpfjailer",
+                    buck2_error::internal_error!("Failed to exit BPFJailer jail: {}", e)
+                );
+                tracing::warn!("Failed to exit BPFJailer jail: {}", e)
+            }
+        }
+    }
+
+    #[cfg(not(all(fbcode_build, target_os = "linux")))]
+    fn exit_bpfjailer() {}
 }
 
 #[cfg(test)]

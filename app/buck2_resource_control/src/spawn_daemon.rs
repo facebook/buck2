@@ -177,6 +177,9 @@ fn systemd_run_command(
     cmd.arg("--quiet");
     cmd.arg("--collect");
     cmd.arg("--property=Delegate=yes");
+    // N.B. the slice name here is used by BPFJailer to assign the `buck` Role
+    // ID to the daemon process, which is what gives the daemon permission to
+    // exit the jail.
     cmd.arg("--slice=buck2");
     cmd.arg(format!("--working-directory={working_directory}"));
     cmd.arg(format!("--unit={unit_name}"));

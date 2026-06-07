@@ -37,6 +37,8 @@ rust_library(
         "DEFAULT": [],
         "ovr_config//os:linux": [
             "fbsource//third-party/rust:nix",
+            # @oss-disable[end= ]: "//bpfjailer/client:bpfjailer_client_rs",
+            # @oss-disable[end= ]: "//bpfjailer/client:bpfjailer_handler_polyglot-rs_bindings",
         ],
         "ovr_config//os:macos": [
             "fbsource//third-party/rust:nix",
