@@ -78,11 +78,8 @@ Here are two content-based path renderings:
 1. `buck-out/v2/art/cell/__target__/output_artifacts/libfoo.o` (**placeholder**)
 1. `buck-out/v2/art/cell/__target__/97752af0dd8a8d17/libfoo.o` (**real content-based path**)
 
-In a given `actions.run()`, all inputs have a **real** content-based path, and
-all outputs have **placeholder** paths. You won't see the same artifact
-rendered both ways in a given action; an output artifact
-(`out.as_output()`) must use a placeholder because we cannot know the
-file's hash until we run the action.
+In a given `actions.run()`, all inputs have a **real** content-based
+path, and all outputs have **placeholder** paths.
 
 When all paths are content-based or placeholders, the same action will
 be deduplicated across configurations, because there is no reference to
