@@ -29,6 +29,10 @@ For example:
   you are targeting Linux or Windows, ARM or x86_64, ASAN or no. These
   build actions might depend on just one dimension of the configuration,
   e.g. debug/release.
+- If configuration were used to e.g. select different
+  top-level dependencies like an allocator, such that almost every
+  action in the build graph is (theoretically) unaffected until the final link.
+- In general any action that doesn't select() on a given configuration.
 
 Historically, Buck2 included the hash of the configuration in the
 output path of every output [artifact](../concepts/glossary.md#artifact), so
@@ -40,11 +44,25 @@ buck-out/v2/gen/<configuration-hash>/<cell>/__<target>__/<output>
 ```
 
 The output paths of an action are part of the command line and therefore
-part of the hash of an action, which is the cache key. This means that
+part of the hash of an action, which is the cache key. This meant that
 even if a target's actions *do not* do anything special
 depending on the configuration, like `-O2`, Buck2 would
 still execute (and cache) those actions separately — once per
 configuration.
+
+Ultimately this limited the utility of configurations, because as soon
+as you added one, you would multiply the whole build graph and the cache
+size would balloon. The alternative is
+[.buckconfig](../concepts/buckconfig.md) which cannot be
+[transitioned](../concepts/transitions.md) and therefore can only take
+one value per build.
+
+**Content-based paths allow different configurations to share parts of
+the build graph.** If you have a single build that includes Java and a
+bundled C++ library, and you have a configuration setting related to
+Java, then content-based paths allow you to share the entire C++ build
+graph while toggling different Java settings, simply because the C++
+rules do not select() on Java settings. That is the purpose.
 
 ## Content-based paths and action keys
 
@@ -57,8 +75,8 @@ the digest.
 
 Here are two content-based path renderings:
 
-1. `buck-out/v2/art/cell/output_artifacts/__target__/libfoo.o` (**placeholder**)
-2. `buck-out/v2/art/cell/97752af0dd8a8d17/__target__/libfoo.o` (**real content-based path**)
+1. `buck-out/v2/art/cell/__target__/output_artifacts/libfoo.o` (**placeholder**)
+1. `buck-out/v2/art/cell/__target__/97752af0dd8a8d17/libfoo.o` (**real content-based path**)
 
 In a given `actions.run()`, all inputs have a **real** content-based path, and
 all outputs have **placeholder** paths. You won't see the same artifact
@@ -78,7 +96,7 @@ path when we materialize it or pass it to other actions. In some cases
 this may be optimised if we know the file contents or digest in advance,
 e.g. `actions.write()` or `actions.download_file()`.
 
-## How content-based paths work with caches
+## How content-based paths work with remote execution
 
 A remote executor does not need to know anything about the path scheme, it
 simply writes output artifacts to their placeholder paths as instructed. This
@@ -113,8 +131,8 @@ gcc -c foo.c -o libfoo.o
 gcc libfoo.o main.o -o exe
 ```
 
-First we will focus on the first action, compiling `libfoo.o`. The 
-diagram shows Buck2 calculating an Action that represents compiling 
+First we will focus on the first action, compiling `libfoo.o`. The
+diagram shows Buck2 calculating an Action that represents compiling
 `libfoo.o`,
 looking it up in the Action Cache, and alternatively:
 
@@ -135,7 +153,7 @@ sequenceDiagram
     participant CAS as Content Addressed Storage
     participant RE as Remote Executor
     Note right of B: Inputs resolved with REAL content hash<br/>(already known from upstream artifacts)<br/>Output resolved with placeholder<br/>"output_artifacts"
-    Note right of B: Action<br/>gcc foo.c -o buck-out/v2/art/cell/output_artifacts/__target__/libfoo.o
+    Note right of B: Action<br/>gcc foo.c -o buck-out/v2/art/cell/__target__/output_artifacts/libfoo.o
     alt
         rect rgb(247 230 234)
         Note left of AC: Cache MISS
@@ -144,14 +162,14 @@ sequenceDiagram
         B->>RE: Execute action
         Note left of RE: Executor writes libfoo.o to path<br/>containing "output_artifacts"
         RE-->>CAS: Store(D -> <libfoo.o contents>)
-        RE-->>AC: Action Result<br/>{name:"buck-out/v2/art/cell/output_artifacts/__target__/libfoo.o", digest: D}
-        RE-->>B: ExecuteResponse: Action Result<br/>{name:"buck-out/v2/art/cell/output_artifacts/__target__/libfoo.o", digest: D}
+        RE-->>AC: Action Result<br/>{name:"buck-out/v2/art/cell/__target__/output_artifacts/libfoo.o", digest: D}
+        RE-->>B: ExecuteResponse: Action Result<br/>{name:"buck-out/v2/art/cell/__target__/output_artifacts/libfoo.o", digest: D}
         end
     else
         rect rgb(230 247 239)
         Note left of AC: Cache HIT
         B->>AC: Lookup(Action)
-        AC-->>B: Action Result<br/>{name:"buck-out/v2/art/cell/output_artifacts/__target__/libfoo.o", digest: D}
+        AC-->>B: Action Result<br/>{name:"buck-out/v2/art/cell/__target__/output_artifacts/libfoo.o", digest: D}
         end
     end
     rect rgb(241 235 255)
@@ -159,12 +177,12 @@ sequenceDiagram
     B->>CAS: Get(D)
     CAS-->>B: <libfoo.o contents>
     Note right of B: real_hash = hex(first 8 bytes of digest D) = 97752af0dd8a8d17
-    Note right of B: Materialize libfoo.o at resolved path:<br/>buck-out/v2/art/97752af0dd8a8d17/__target__/libfoo.o
+    Note right of B: Materialize libfoo.o at resolved path:<br/>buck-out/v2/art/cell/__target__/97752af0dd8a8d17/libfoo.o
     end
 ```
 
-Now we'll think about the second action, `gcc libfoo.o main.o -o exe`. 
-This depends on the first action. Before `libfoo.o` is compiled, the 
+Now we'll think about the second action, `gcc libfoo.o main.o -o exe`.
+This depends on the first action. Before `libfoo.o` is compiled, the
 second action's action key is incomplete, and we cannot query the
 action cache for it:
 
@@ -193,7 +211,7 @@ flowchart LR
     classDef action fill:#fff0d7,stroke:#e69e22;
     classDef artifact fill:#d5eafc;
     classDef unresolved fill:#eeeeee,stroke:#aaaaaa,color:#444;
-    A[gcc -c foo.c -o output_artifacts/libfoo.o] --> 
+    A[gcc -c foo.c -o output_artifacts/libfoo.o] -->
     L{{<b>97752af0/libfoo.o</b>}}
     C[...] --> M
     L --> B[gcc <b>97752af0/libfoo.o</b> 0d0932f1/main.o -o exe]
@@ -205,14 +223,14 @@ flowchart LR
     style C fill:transparent,stroke:transparent
 ```
 
-And finally querying or executing this action gives you the output 
+And finally querying or executing this action gives you the output
 artifact `exe`:
 
 ```mermaid
 flowchart LR
     classDef action fill:#fff0d7,stroke:#e69e22;
     classDef artifact fill:#d5eafc;
-    A[gcc -c foo.c -o output_artifacts/libfoo.o] --> 
+    A[gcc -c foo.c -o output_artifacts/libfoo.o] -->
     L{{<b>97752af0/libfoo.o</b>}}
     C[...] --> M
     L --> B[gcc <b>97752af0/libfoo.o</b> 0d0932f1/main.o -o exe]
@@ -223,40 +241,162 @@ flowchart LR
     style C fill:transparent,stroke:transparent
 ```
 
+## When do content-based paths not work?
+
+Content-based paths are a subtle behaviour change from
+configuration-based paths, and have a specific failure mode for a class
+of actions. This is when an output file is written that refers by path
+to a file/directory that has been written by the same action.
+
+For example, this action won't work quite right:
+
+```python
+SCRIPT = """
+import sys
+import json
+from pathlib import Path
+output = Path(sys.argv[1])
+output.mkdir(parents=True, exist_ok=True)
+with open(output / "manifest.json", "w+") as f:
+    # path relative into buck-out (a placeholder path right now)
+    json.dump({ "somefile": str(output / "somefile.tar.gz") }, f)
+"""
+
+def _impl(ctx):
+    output = ctx.actions.declare_output("output", dir = True, has_content_based_path = True)
+    ctx.actions.run(
+        cmd_args("python3", "-c", SCRIPT, output.as_output()),
+        category = "category",
+    )
+    return [DefaultInfo(output)]
+
+myrule = rule(impl=_impl, attrs = {})
+
+## BUCK
+
+load(":defs.bzl", "myrule")
+myrule(name="myrule")
+```
+
+In this situation, you will get placeholder paths written to the
+manifest. Then, after the action executes, the output artifact will be
+renamed to its final path, and the placeholder path will be wrong and
+won't be present when downstream actions read the manifest and try to
+read the paths written in it.
+
+```sh
+# repo ; cat $(buck2 build myrule:myrule --show-simple-output)/manifest.json
+{"somefile": "buck-out/v2/art/gh_facebook_buck2/myrule/__myrule__/output_artifacts/output/somefile.tar.gz"}
+# repo ; file buck-out/v2/art/gh_facebook_buck2/myrule/__myrule__/output_artifacts/output/somefile.tar.gz
+... (No such file or directory)
+```
+
+To fix it you have some options:
+
+1. Move manifest generation to a separate downstream action that only
+   sees resolved content-based paths, if it doesn't need to be generated
+   simultaneously
+2. Use relative paths within an output directory artifact and adjust
+   later actions to resolve relatively
+3. Add a build action to convert paths in the artifact
+   immediately after writing it (see snippet below)
+4. Write output paths with an easy-to-grep sentinel value instead of
+   a placeholder path, translate paths found in the manifest in some
+   subsequent action. More precise than wholesale sed/replace.
+
+A real-life example is
+[#1331](https://github.com/facebook/buck2/pull/1331), where a build
+script emitted compiler flags that referred to files in an `OUT_DIR`
+that was being written by the same build script. The solution was the
+fourth option above.
+
+<details>
+<summary>Code snippet to replace paths in an artifact generically</summary>
+
+A fairly generic solution is to perform text replacement of
+`output.as_output()` -> `output` using the following trick, with `sed`
+or any other text processor:
+
+```python
+def _resolve_content_based_path(
+    actions: AnalysisActions,
+    artifact: Artifact,
+    infile: Artifact,
+    outfile: OutputArtifact):
+    actions.run(
+        cmd_args(
+            "sh", "-c", # assuming you have sh and sed available
+            cmd_args(
+                "sed ",
+                cmd_args(
+                    "s",
+                    cmd_args(artifact.as_output(), ignore_artifacts=True),
+                    artifact,
+                    "g",
+                    delimiter=":",
+                ),
+                " < ", infile,
+                " > ", outfile,
+                delimiter=""
+            ),
+        ),
+        category = "rewrite_paths",
+    )
+
+# ...
+manifest = output.project("manifest.json")
+manifest2 = ctx.actions.declare_output("manifest.json", has_content_based_path = True)
+_resolve_content_based_path(ctx.actions, output, manifest, manifest2.as_output())
+```
+
+</details>
+
 ## Enabling content-based paths
 
-### On individual actions
+For the reasons above regarding breakage, you may not be able to enable
+content-based paths all at once. So there are many ways to enable it at
+different granularities.
 
-Pass `has_content_based_path = True` when declaring outputs:
+### On individual output artifacts
+
+Whether content-based paths are used is determined when the artifact is
+declared. To declare a content-based artifact, pass
+`has_content_based_path = True` when declaring:
 
 ```python
 # A single output.
 out = ctx.actions.declare_output("out.txt", has_content_based_path = True)
-
-# All common action types support it.
-ctx.actions.write("header.h", "int x = 1;", has_content_based_path = True)
-ctx.actions.run(
-    cmd_args,
-    category = "compile",
-    outputs = [out.as_output()],
-    has_content_based_path = True,
-)
-ctx.actions.copy_file(out, src, has_content_based_path = True)
-ctx.actions.download_file(out, url, sha256 = "...", has_content_based_path = True)
 ```
+
+All action types that return an artifact support it. This only has an
+effect when passing a string filename to get an implicitly declared
+artifact:
+
+```python
+out = ctx.actions.write("header.h", "int x = 1;", has_content_based_path = True)
+out = ctx.actions.copy_file("out", src, has_content_based_path = True)
+out = ctx.actions.download_file("out", url, sha256 = "...", has_content_based_path = True)
+```
+
+`actions.run` does not take this flag. Instead, configure when creating
+a given output artifact.
 
 ### Setting a project-wide default
 
-You can configure `declare_output` to default to content-based paths project-wide
-in your [`.buckconfig`](buckconfig.md):
+You can configure `declare_output` to default to content-based paths
+project-wide in your [`.buckconfig`](../concepts/buckconfig.md), and a
+separate default for all other implicitly declared artifacts
+(`copy_file`, `symlink_file`, `copy_dir`, `symlinked_dir`, `copied_dir`,
+`write`, `write_json`, `download_file`, called as above):
 
 ```ini
 [buck2]
   declare_output_has_content_based_path_default = true
+  action_has_content_based_path_default = true
 ```
 
-The default is `false`. Individual actions can still override this by passing
-`has_content_based_path` explicitly.
+The default is `false`. Individual artifacts can still override this by
+passing `has_content_based_path` explicitly.
 
 ### In prelude rules
 
@@ -296,7 +436,6 @@ ctx.actions.run(
     cmd_args(...),
     category = "compile",
     outputs = [out.as_output()],
-    has_content_based_path = True,
     expect_eligible_for_dedupe = True,
 )
 ```
