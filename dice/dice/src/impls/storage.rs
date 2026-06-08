@@ -26,6 +26,7 @@ use dupe::Dupe;
 use pagable::DataKey;
 use pagable::context::PagableDeserializerImpl;
 use pagable::storage::handle::PagableStorageHandle;
+use pagable::storage::noop::NoopPagableStorage;
 use pagable::storage::support::SerializerForPaging;
 use pagable::storage::traits::ArcSerSlot;
 use pagable::storage::traits::PagableStorage;
@@ -58,6 +59,7 @@ impl DiceStorage {
     ///
     /// The backend is selected by `PAGABLE_STORAGE_BACKEND`:
     /// - `"sled"` → sled embedded DB
+    /// - `"noop"` → serializes but discards data (no I/O)
     /// - anything else (including unset) → SQLite (default)
     pub fn open(path: &Path) -> anyhow::Result<Self> {
         let backend = std::env::var("PAGABLE_STORAGE_BACKEND").unwrap_or_default();
@@ -65,6 +67,8 @@ impl DiceStorage {
             Ok(Self::new(Arc::new(SledBackedPagableStorage::try_new(
                 path,
             )?)))
+        } else if backend == "noop" {
+            Ok(Self::new(Arc::new(NoopPagableStorage::new())))
         } else {
             Ok(Self::new(Arc::new(SqliteBackedPagableStorage::try_new(
                 path,

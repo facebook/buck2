@@ -11,5 +11,6 @@
 pub mod data;
 pub mod handle;
 pub mod in_memory;
+pub mod noop;
 pub mod support;
 pub mod traits;
