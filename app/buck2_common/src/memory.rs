@@ -79,6 +79,17 @@ mod imp {
     pub fn has_jemalloc_stats() -> bool {
         memory::is_using_jemalloc()
     }
+
+    /// Force jemalloc to return dirty and muzzy pages to the OS immediately.
+    pub fn purge_jemalloc() -> buck2_error::Result<()> {
+        if !memory::is_using_jemalloc() {
+            return Ok(());
+        }
+        // 4096=MALLCTL_ARENAS_ALL — see folly::getJEMallocMallctlArenasAll().
+        memory::mallctl_call("arena.4096.purge")
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Mallctl))?;
+        Ok(())
+    }
 }
 
 #[cfg(not(fbcode_build))]
@@ -106,9 +117,14 @@ mod imp {
     pub fn has_jemalloc_stats() -> bool {
         false
     }
+
+    pub fn purge_jemalloc() -> buck2_error::Result<()> {
+        Ok(())
+    }
 }
 
 pub use imp::allocator_stats;
 pub use imp::enable_background_threads;
 pub use imp::has_jemalloc_stats;
+pub use imp::purge_jemalloc;
 pub use imp::write_heap_to_file;

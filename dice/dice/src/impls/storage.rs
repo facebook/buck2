@@ -126,6 +126,9 @@ impl DiceStorage {
                 handle.await??;
             }
         }
+
+        self.storage.flush()?;
+        self.storage.release_memory();
         Ok(())
     }
 

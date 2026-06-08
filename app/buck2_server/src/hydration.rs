@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_cli_proto::HydrationSubcommand;
+use buck2_common::memory;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -68,6 +69,10 @@ impl ServerCommandTemplate for HydrationServerCommand {
                         buck2_error::ErrorTag::Environment,
                     )
                 })?;
+                // waiting for metrics clears the dice state queue, ensures evictions
+                // have processed before purging
+                let _ = self.dice.metrics();
+                memory::purge_jemalloc()?;
             }
             HydrationSubcommand::PageIn => {
                 self.dice.page_in().await.map_err(|e| {

@@ -170,6 +170,17 @@ impl SqliteBackedPagableStorage {
         bytes
     }
 
+    pub fn shrink_memory(&self) {
+        if let Ok(conn) = self.conns.readwrite.lock() {
+            let _ = conn.execute_batch("PRAGMA shrink_memory;");
+        }
+        for reader in &self.conns.readers {
+            if let Ok(conn) = reader.lock() {
+                let _ = conn.execute_batch("PRAGMA shrink_memory;");
+            }
+        }
+    }
+
     fn decode_pagable_data(bytes: &[u8], key: &DataKey) -> anyhow::Result<Arc<PagableData>> {
         if bytes.len() < 16 {
             return Err(anyhow::anyhow!(
@@ -252,5 +263,9 @@ impl PagableStorage for SqliteBackedPagableStorage {
 
     fn flush(&self) -> anyhow::Result<()> {
         self.flush_buffer()
+    }
+
+    fn release_memory(&self) {
+        self.shrink_memory();
     }
 }

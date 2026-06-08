@@ -154,6 +154,9 @@ pub trait PagableStorage: Send + Sync + 'static {
         Ok(())
     }
 
+    /// Release memory held by the storage backend (e.g. SQLite page cache).
+    fn release_memory(&self) {}
+
     /// Stores a previously-serialized item (and its transitively reachable arcs)
     /// to storage and returns its content-addressable [`DataKey`].
     ///
