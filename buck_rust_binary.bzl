@@ -9,7 +9,6 @@
 load("@fbsource//tools/build_defs:rust_binary.bzl", "rust_binary")
 
 def buck_rust_binary(**kwargs):
-    kwargs.setdefault("edition", "2021")
     kwargs.setdefault("link_style", "static")
 
     # Link group is currently used automatically for rust in dev mode. Unfortunately, it builds
