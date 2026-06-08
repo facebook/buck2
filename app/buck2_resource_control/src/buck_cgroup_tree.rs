@@ -9,6 +9,8 @@
  */
 
 use buck2_common::init::ResourceControlConfig;
+use buck2_core::soft_error;
+use buck2_error::buck2_error;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
@@ -178,6 +180,9 @@ pub struct BuckCgroupTree {
     ///
     /// This does not reflect any of our own configuration
     effective_resource_constraints: EffectiveResourceConstraints,
+    /// Whether the `cpuset` controller is available in the parent cgroup. Used to gate
+    /// per-action cpuset features so they no-op on hosts that don't have it.
+    cpuset_available: bool,
 }
 
 impl BuckCgroupTree {
@@ -193,6 +198,19 @@ impl BuckCgroupTree {
         // before prep_current_process() moved the daemon. cgroupv2 requires that a
         // cgroup has no processes directly in it before enabling subtree controllers.
         let _orphans = prepped.allprocs.drain_to_child(&prepped.daemon).await?;
+
+        let cpuset_available = enabled_controllers.contains("cpuset");
+        if !cpuset_available {
+            soft_error!(
+                "daemon_cpuset_unavailable",
+                buck2_error!(
+                    buck2_error::ErrorTag::Environment,
+                    "cpuset controller is not available in the daemon's parent cgroup"
+                ),
+                quiet: true
+            )
+            .ok();
+        }
 
         let allprocs = prepped
             .allprocs
@@ -250,6 +268,7 @@ impl BuckCgroupTree {
             forkserver,
             daemon,
             effective_resource_constraints,
+            cpuset_available,
         })
     }
 
@@ -272,6 +291,10 @@ impl BuckCgroupTree {
 
     pub(crate) fn effective_resource_constraints(&self) -> &EffectiveResourceConstraints {
         &self.effective_resource_constraints
+    }
+
+    pub fn cpuset_available(&self) -> bool {
+        self.cpuset_available
     }
 }
 
