@@ -24,6 +24,9 @@ use starlark_derive::StarlarkPagable;
 use starlark_derive::starlark_value;
 
 use crate as starlark;
+use crate::docs::DocItem;
+use crate::docs::DocString;
+use crate::docs::DocType;
 use crate::static_starlark_value;
 use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
@@ -58,6 +61,25 @@ pub(crate) struct TypingIterable;
 
 #[starlark_value(type = "typing.Iterable")]
 impl<'v> StarlarkValue<'v> for TypingIterable {
+    fn documentation(&self) -> DocItem {
+        DocItem::Type(DocType {
+            docs: DocString::from_docstring(
+                crate::docs::DocStringKind::Rust,
+                "\
+Represents a type that can be [iterated][1].
+
+`Iterable` takes one type argument, which may indicate the type of values yielded by the `Iterable`
+instance. Specifying the type to be iterated over is not currently supported.
+
+See also [`typing.Iterable` in the Python documentation][2].
+
+[1]: https://github.com/bazelbuild/starlark/blob/master/spec.md#iteration
+[2]: https://docs.python.org/3/library/typing.html#typing.Iterable",
+            ),
+            ..DocType::from_starlark_value::<Self>()
+        })
+    }
+
     fn eval_type(&self) -> Option<Ty> {
         Some(Ty::iter(Ty::any()))
     }
