@@ -51,8 +51,10 @@ use crate::values::typing::type_compiled::compiled::TypeCompiled;
     StarlarkPagable
 )]
 pub struct FieldGen<V: ValueLifetimeless> {
-    pub(crate) typ: TypeCompiled<V>,
-    pub(crate) default: Option<V>,
+    /// The expected type of the field.
+    pub typ: TypeCompiled<V>,
+    /// The default value (if provided).
+    pub default: Option<V>,
 }
 
 impl<'v, V: ValueLike<'v>> Display for FieldGen<V> {
@@ -73,10 +75,11 @@ unsafe impl<From: Coerce<To> + ValueLifetimeless, To: ValueLifetimeless> Coerce<
 {
 }
 
-starlark_complex_value!(pub(crate) Field);
+starlark_complex_value!(pub Field);
 
 impl<V: ValueLifetimeless> FieldGen<V> {
-    pub(crate) fn new(typ: TypeCompiled<V>, default: Option<V>) -> Self {
+    /// Creates a new `FieldGen`.
+    pub fn new(typ: TypeCompiled<V>, default: Option<V>) -> Self {
         Self { typ, default }
     }
 }

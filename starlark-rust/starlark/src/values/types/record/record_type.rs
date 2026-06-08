@@ -161,7 +161,8 @@ pub(crate) fn record_fields<'v>(
 }
 
 impl<'v> RecordType<'v> {
-    pub(crate) fn new(fields: SmallMap<String, FieldGen<Value<'v>>>) -> Self {
+    /// Creates a new `RecordType`.
+    pub fn new(fields: SmallMap<String, FieldGen<Value<'v>>>) -> Self {
         Self {
             id: TypeInstanceId::r#gen(),
             fields,
