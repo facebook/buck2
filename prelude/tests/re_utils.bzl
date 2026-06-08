@@ -16,19 +16,6 @@ ReArg = record(
     default_run_as_bundle = field(bool | None, default = None),
 )
 
-# Result of `get_re_executors_from_props`.
-#
-# `run_from_project_root` reports whether the returned executor is remote-execution
-# eligible and therefore the test must run from the project root with project-relative
-# paths. Keeping this separate from "is there an executor at all?" lets a caller hand
-# back a local-only executor (e.g. one that only carries execution policy) without
-# forcing the test out of in-place/cell-root execution.
-RemoteTestExecutorConfig = record(
-    default_executor = field([CommandExecutorConfig, None], default = None),
-    executor_overrides = field(dict[str, CommandExecutorConfig], default = {}),
-    run_from_project_root = field(bool, default = False),
-)
-
 def _get_re_arg(ctx: AnalysisContext) -> ReArg:
     force_local = read_config("fbcode", "disable_re_tests", default = False)
     if force_local or not hasattr(ctx.attrs, "remote_execution"):
@@ -69,7 +56,9 @@ def maybe_add_run_as_bundle_label(ctx: AnalysisContext, labels: list[str]) -> No
     if re_arg.default_run_as_bundle or read_config("tpx", "force_run_as_bundle") == "True":
         labels.extend(["run_as_bundle"])
 
-def get_re_executors_from_props(ctx: AnalysisContext, dynamic_image_override: [dict, None] = None) -> RemoteTestExecutorConfig:
+def get_re_executors_from_props(
+    ctx: AnalysisContext, dynamic_image_override: [dict, None] = None
+) -> ([CommandExecutorConfig, None], dict[str, CommandExecutorConfig]):
     """
     Convert the `remote_execution` properties param into `CommandExecutorConfig` objects to use with test providers.
 
@@ -79,20 +68,18 @@ def get_re_executors_from_props(ctx: AnalysisContext, dynamic_image_override: [d
             from `remote_execution` props. Use this to inject a resolved snapshotted fbpkg
             image (with pinned uuid) at analysis time.
 
-    Returns a `RemoteTestExecutorConfig`.
+    Returns (default_executor, executor_overrides).
     """
 
     re_arg = _get_re_arg(ctx)
 
     if re_arg.disabled:
         executor = CommandExecutorConfig(local_enabled = True, remote_enabled = False)
-        # A `remote_execution = "disabled"` target has always produced an executor
-        # and therefore run from the project root; preserve that behavior.
-        return RemoteTestExecutorConfig(default_executor = executor, run_from_project_root = True)
+        return executor, {}
 
     re_props = re_arg.re_props
     if re_props == None:
-        return RemoteTestExecutorConfig()
+        return None, {}
 
     re_props_copy = dict(re_props)
     capabilities = re_props_copy.pop("capabilities")
@@ -143,8 +130,4 @@ def get_re_executors_from_props(ctx: AnalysisContext, dynamic_image_override: [d
             remote_execution_dynamic_image = re_dynamic_image,
             meta_internal_extra_params = meta_internal_extra_params,
         )
-    return RemoteTestExecutorConfig(
-        default_executor = default_executor,
-        executor_overrides = {"listing": listing_executor},
-        run_from_project_root = True,
-    )
+    return default_executor, {"listing": listing_executor}

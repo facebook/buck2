@@ -572,7 +572,7 @@ def rust_test_impl(ctx: AnalysisContext) -> list[Provider]:
     )
 
     # Setup RE executors based on the `remote_execution` param.
-    re_executors = get_re_executors_from_props(ctx)
+    re_executor, executor_overrides = get_re_executors_from_props(ctx)
 
     return (
         inject_test_run_info(
@@ -583,8 +583,8 @@ def rust_test_impl(ctx: AnalysisContext) -> list[Provider]:
                 env = ctx.attrs.env | ctx.attrs.run_env,
                 labels = ctx.attrs.labels,
                 contacts = ctx.attrs.contacts,
-                default_executor = re_executors.default_executor,
-                executor_overrides = re_executors.executor_overrides,
+                default_executor = re_executor,
+                executor_overrides = executor_overrides,
                 run_from_project_root = True,
                 use_project_relative_paths = True,
             ),
