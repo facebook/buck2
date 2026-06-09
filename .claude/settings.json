@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "command -v arc >/dev/null 2>&1 && arc f"
+            "command": "command -v arc >/dev/null 2>&1 && arc f || true"
           }
         ]
       }
