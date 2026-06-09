@@ -45,7 +45,6 @@ public class FilteringPredicate {
       ImmutableBiMap<Path, Path> inResDirToOutResDirMap,
       boolean filterByDensity,
       Set<ResourceFilters.Density> targetDensities,
-      boolean canDownscale,
       ImmutableSet<String> locales,
       ImmutableSet<String> packagedLocales,
       boolean enableStringWhitelisting,
@@ -62,8 +61,7 @@ public class FilteringPredicate {
 
       Set<Path> drawables =
           DrawableFinder.findDrawables(projectRoot, rootResourceDirs, ignoreFilter);
-      pathPredicates.add(
-          ResourceFilters.createImageDensityFilter(drawables, targetDensities, canDownscale));
+      pathPredicates.add(ResourceFilters.createImageDensityFilter(drawables, targetDensities));
     }
 
     boolean localeFilterEnabled = !locales.isEmpty();

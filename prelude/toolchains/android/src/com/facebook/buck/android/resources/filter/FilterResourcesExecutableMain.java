@@ -140,8 +140,6 @@ public class FilterResourcesExecutableMain {
             inResDirToOutResDirMap,
             !targetDensitiesSet.isEmpty(),
             targetDensitiesSet,
-            // TODO(T122759074) Do we need to support canDownscale or not?
-            /* canDownscale */ false,
             locales,
             packagedLocales,
             enableStringsAsAssetsFiltering,

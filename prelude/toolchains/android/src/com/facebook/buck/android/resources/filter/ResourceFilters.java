@@ -157,14 +157,11 @@ public class ResourceFilters {
    *
    * @param candidates list of paths to image files
    * @param targetDensities densities we want to keep
-   * @param canDownscale do we have access to an image scaler
    * @return set of files to remove
    */
   @VisibleForTesting
   static ImmutableSet<Path> filterByDensity(
-      Collection<Path> candidates,
-      Set<ResourceFilters.Density> targetDensities,
-      boolean canDownscale) {
+      Collection<Path> candidates, Set<ResourceFilters.Density> targetDensities) {
     ImmutableSet.Builder<Path> removals = ImmutableSet.builder();
 
     Table<String, Density, Path> imageValues = HashBasedTable.create();
@@ -209,17 +206,11 @@ public class ResourceFilters {
       Density largestTarget = Density.ORDERING.max(targets);
       if (!available.contains(largestTarget)) {
         Density fallback = null;
-        // Downscaling nine-patch drawables would require extra logic, not doing that yet.
-        if (canDownscale && !options.values().iterator().next().toString().endsWith(".9.png")) {
-          // Highest possible quality, because we'll downscale it.
-          fallback = Density.ORDERING.max(available);
-        } else {
-          // We want to minimize size, so we'll go for the smallest available density that's
-          // still larger than the missing one and, missing that, for the largest available.
-          for (Density candidate : Density.ORDERING.reverse().sortedCopy(available)) {
-            if (fallback == null || Density.ORDERING.compare(candidate, largestTarget) > 0) {
-              fallback = candidate;
-            }
+        // We want to minimize size, so we'll go for the smallest available density that's
+        // still larger than the missing one and, missing that, for the largest available.
+        for (Density candidate : Density.ORDERING.reverse().sortedCopy(available)) {
+          if (fallback == null || Density.ORDERING.compare(candidate, largestTarget) > 0) {
+            fallback = candidate;
           }
         }
         toKeep.add(fallback);
@@ -241,14 +232,11 @@ public class ResourceFilters {
    *
    * @param candidates list of available drawables
    * @param targetDensities set of e.g. {@code "mdpi"}, {@code "ldpi"} etc.
-   * @param canDownscale if no exact match is available, retain the highest quality
    * @return a predicate as above
    */
   public static Predicate<Path> createImageDensityFilter(
-      Collection<Path> candidates,
-      Set<ResourceFilters.Density> targetDensities,
-      boolean canDownscale) {
-    Set<Path> pathsToRemove = filterByDensity(candidates, targetDensities, canDownscale);
+      Collection<Path> candidates, Set<ResourceFilters.Density> targetDensities) {
+    Set<Path> pathsToRemove = filterByDensity(candidates, targetDensities);
     return path -> !pathsToRemove.contains(path);
   }
 
