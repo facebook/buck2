@@ -6,6 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//:resources.bzl", "gather_resources")
 load("@prelude//cxx:cxx.bzl", "create_shared_lib_link_group_specs")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load("@prelude//cxx:cxx_executable.bzl", "CxxExecutableOutput", "cxx_executable")
@@ -443,6 +444,29 @@ def process_native_linking(
 
     link_args = executable_info.link_args
     extra_artifacts["static_extension_finder.py"] = ctx.attrs.static_extension_finder
+
+    # The native executable runs from `runtime/bin/<binary>` inside the packaged
+    # PAR (e.g. the xar mount). build::ExternalResourceManager reads
+    # `<exe>.resources.json` next to it, but transitive C++ resources are bundled
+    # at the PAR root under `__cxx_resources__/`. Emit a manifest next to the
+    # inner binary mapping each resource to its `__cxx_resources__/` location so
+    # getResourcePath resolves at runtime in a packaged (xar/standalone) context.
+    # (The inplace case is covered separately by forwarding runtime_files.)
+    cxx_resource_names = []
+    for label_resources in gather_resources(ctx.label, deps = deps).values():
+        cxx_resource_names.extend(label_resources.keys())
+    if cxx_resource_names:
+        runtime_bin_resources_json = ctx.actions.write_json(
+            "runtime_bin_resources.json",
+            {name: "../../__cxx_resources__/" + name for name in cxx_resource_names},
+            has_content_based_path = False,
+        )
+        # Name the manifest after the in-PAR binary, which is placed at
+        # `runtime/bin/<executable_name>` (the shlib soname) — executable_name
+        # carries the runtime flavor suffix (e.g. `#native-main#...`), so this
+        # matches what getCurrentExecutablePath() resolves to at runtime.
+        extra_artifacts["runtime/bin/" + ctx.attrs.executable_name + ".resources.json"] = runtime_bin_resources_json
+
     return (
         shared_libs,
         extensions,
