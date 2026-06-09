@@ -122,7 +122,7 @@ extract_dependencies([{'-', _}, {atom, _, Name} | Rest]) when
                 {ok, Path} ->
                     case filename:split(Path) of
                         [App, <<"include">>, Include] -> [#{type => include_lib, app => App, file => Include}];
-                        _ -> []
+                        _ -> error(malformed_header_include_lib)
                     end;
                 error ->
                     []
