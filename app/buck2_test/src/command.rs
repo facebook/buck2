@@ -228,15 +228,15 @@ impl TestStatuses {
 #[error("This test run exceeded the deadline that was provided")]
 struct DeadlineExpired;
 
-#[derive(Debug)]
-enum InternalRunnerConfig {
+#[derive(Debug, Clone)]
+pub(crate) enum InternalRunnerConfig {
     All,
     None,
     Frameworks(HashSet<String>),
 }
 
 impl InternalRunnerConfig {
-    fn parse(value: Option<&str>) -> Self {
+    pub(crate) fn parse(value: Option<&str>) -> Self {
         match value {
             None | Some("true") => Self::All,
             Some("false") => Self::None,
@@ -255,7 +255,7 @@ impl InternalRunnerConfig {
         }
     }
 
-    fn should_use(&self, framework_type: &str) -> bool {
+    pub(crate) fn should_use(&self, framework_type: &str) -> bool {
         match self {
             Self::All => true,
             Self::None => false,
@@ -719,6 +719,7 @@ async fn test_targets(
                     liveliness_observer.dupe(),
                     test_status_sender,
                     CancellationContext::never_cancelled(), // sending the orchestrator directly to be spawned by make_server, which never calls it.
+                    internal_runner_config.clone(),
                 )
                 .await
                 .buck_error_context("Failed to create a BuckTestOrchestrator")?;
@@ -1477,6 +1478,7 @@ async fn test_target<'a, 'e>(
                         driver_state.liveliness_observer.dupe(),
                         driver_state.internal_test_status_sender.clone(),
                         CancellationContext::never_cancelled(),
+                        driver_state.internal_runner_config.clone(),
                     )
                     .await
                     .buck_error_context("Failed to create internal BuckTestOrchestrator")?;

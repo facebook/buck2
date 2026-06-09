@@ -8,8 +8,9 @@
  * above-listed licenses.
  */
 
+use std::collections::HashMap;
+
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
-use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::FrozenExternalRunnerTestInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::local_resource_info::FrozenLocalResourceInfo;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::soft_error;
@@ -39,30 +40,20 @@ impl From<&TestStage> for TestStageSimple {
 
 pub(crate) async fn required_providers<'v>(
     dice: &mut DiceComputations<'_>,
-    test_info: &'v FrozenExternalRunnerTestInfo,
+    available_resources: HashMap<&'v str, Option<&'v ConfiguredProvidersLabel>>,
+    rule_required_resource_names: Vec<&'v str>,
     required_local_resources: &'v RequiredLocalResources,
-    stage: &TestStageSimple,
 ) -> buck2_error::Result<
     Vec<(
         &'v ConfiguredTargetLabel,
         OwnedFrozenValueTyped<FrozenLocalResourceInfo>,
     )>,
 > {
-    let available_resources = test_info.local_resources();
-
     let targets = required_local_resources
         .resources
         .iter()
         .map(|resource_type| &resource_type.name as &'v str)
-        .chain(
-            test_info
-                .required_local_resources()
-                .filter_map(|r| match stage {
-                    TestStageSimple::Listing if r.listing => Some(&r.name as &str),
-                    TestStageSimple::Testing if r.execution => Some(&r.name as &str),
-                    _ => None,
-                }),
-        )
+        .chain(rule_required_resource_names)
         .unique()
         .map(|type_name| {
             available_resources.get(type_name).copied().ok_or_else(|| {
