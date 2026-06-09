@@ -32,9 +32,6 @@ use starlark_derive::StarlarkPagable;
 use starlark_derive::starlark_value;
 
 use crate as starlark;
-use crate::docs::DocItem;
-use crate::docs::DocString;
-use crate::docs::DocType;
 use crate::private::Private;
 use crate::static_starlark_value;
 use crate::typing::ParamSpec;
@@ -73,34 +70,6 @@ pub(crate) struct TypingCallable;
 
 #[starlark_value(type = "typing.Callable")]
 impl<'v> StarlarkValue<'v> for TypingCallable {
-    fn documentation(&self) -> DocItem {
-        DocItem::Type(DocType {
-            docs: DocString::from_docstring(
-                crate::docs::DocStringKind::Rust,
-                "\
-Type annotation for callable objects (e.g. functions).
-
-This is a generic type whose parameters indicate the argument types and return type of the object.
-
-# Examples
-
-```starlark
-def f(i: int, s: str) -> bool:
-...
-
-# would be matched by:
-
-typing.Callable[[int, str], bool]
-```
-
-See also [`typing.Callable` in the Python documentation][1].
-
-[1]: https://docs.python.org/3/library/typing.html#typing.Callable",
-            ),
-            ..DocType::from_starlark_value::<Self>()
-        })
-    }
-
     fn eval_type(&self) -> Option<Ty> {
         Some(StarlarkCallable::<StarlarkCallableParamAny, FrozenValue>::starlark_type_repr())
     }

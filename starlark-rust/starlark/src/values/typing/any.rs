@@ -21,9 +21,6 @@ use starlark_derive::ProvidesStaticType;
 use starlark_derive::StarlarkPagable;
 
 use crate as starlark;
-use crate::docs::DocItem;
-use crate::docs::DocString;
-use crate::docs::DocType;
 use crate::static_starlark_value;
 use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
@@ -45,22 +42,6 @@ pub(crate) struct TypingAny;
 
 #[starlark_value(type = "typing.Any")]
 impl<'v> StarlarkValue<'v> for TypingAny {
-    fn documentation(&self) -> DocItem {
-        DocItem::Type(DocType {
-            docs: DocString::from_docstring(
-                crate::docs::DocStringKind::Rust,
-                "\
-This type matches any type.
-
-Any value can be assigned to a name or parameter of this type.
-See also [`typing.Any` in the Python documentation][1].
-
-[1]: https://docs.python.org/3/library/typing.html#typing.Any",
-            ),
-            ..DocType::from_starlark_value::<Self>()
-        })
-    }
-
     fn eval_type(&self) -> Option<Ty> {
         Some(Ty::any())
     }

@@ -38,9 +38,6 @@ use starlark_derive::ProvidesStaticType;
 use starlark_derive::StarlarkPagable;
 
 use crate as starlark;
-use crate::docs::DocItem;
-use crate::docs::DocString;
-use crate::docs::DocType;
 use crate::static_starlark_value;
 use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
@@ -64,26 +61,6 @@ pub(crate) struct TypingNever;
 
 #[starlark_value(type = "typing.Never")]
 impl<'v> StarlarkValue<'v> for TypingNever {
-    fn documentation(&self) -> DocItem {
-        DocItem::Type(DocType {
-            docs: DocString::from_docstring(
-                crate::docs::DocStringKind::Rust,
-                "\
-This type can never be constructed.
-
-Equivalent to [Python's `typing.Never`][1], it is Starlark's representation
-of the [bottom type][2]. A function returning `typing.Never` will never
-return. A function taking an argument of `typing.Never` can never be called.
-
-See also [`typing.Never` in the Python documentation][1].
-
-[1]: https://docs.python.org/3/library/typing.html#typing.Never
-[2]: https://en.wikipedia.org/wiki/Bottom_type",
-            ),
-            ..DocType::from_starlark_value::<Self>()
-        })
-    }
-
     fn eval_type(&self) -> Option<Ty> {
         Some(Ty::never())
     }
