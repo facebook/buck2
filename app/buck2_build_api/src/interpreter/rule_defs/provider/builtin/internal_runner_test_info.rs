@@ -92,6 +92,12 @@ pub struct InternalRunnerTestInfoGen<V: ValueLifetimeless> {
     /// gives meaning to this command.
     command: ValueOfUncheckedGeneric<V, Vec<Either<String, FrozenValue>>>,
 
+    /// A Starlark value representing the command used for test discovery (listing).
+    /// This is the command that runs the test binary with framework-specific listing
+    /// flags (e.g., `["binary", "--gtest_list_tests"]` for GTest). The internal runner
+    /// uses this for the listing step, while `command` is used for execution.
+    listing_command: ValueOfUncheckedGeneric<V, Vec<Either<String, FrozenValue>>>,
+
     /// A Starlark value representing the environment for this test.
     /// This is of type `dict[str, ArgLike]`.
     env: ValueOfUncheckedGeneric<V, DictType<String, FrozenValue>>,
@@ -175,6 +181,10 @@ impl FrozenInternalRunnerTestInfo {
 
     pub fn command<'v>(&self) -> impl Iterator<Item = TestCommandMember<'v>> {
         unwrap_all(iter_test_command(self.command.get().to_value()))
+    }
+
+    pub fn listing_command<'v>(&self) -> impl Iterator<Item = TestCommandMember<'v>> {
+        unwrap_all(iter_test_command(self.listing_command.get().to_value()))
     }
 
     pub fn env<'v>(&self) -> impl Iterator<Item = (&'v str, &'v dyn CommandLineArgLike<'v>)> {
@@ -336,6 +346,15 @@ impl FrozenInternalRunnerTestInfo {
             }
         }
 
+        for member in self.listing_command() {
+            match member {
+                TestCommandMember::Literal(..) => {}
+                TestCommandMember::Arglike(arglike) => {
+                    arglike.visit_artifacts(visitor)?;
+                }
+            }
+        }
+
         for (_, arglike) in self.env() {
             arglike.visit_artifacts(visitor)?;
         }
@@ -477,6 +496,23 @@ where
     V: ValueLike<'v>,
 {
     check_all(iter_test_command(info.command.get().to_value()))?;
+    check_all(iter_test_command(info.listing_command.get().to_value()))?;
+    // listing_command must be non-empty — it's the command used for test discovery.
+    let listing_cmd_val = info.listing_command.get().to_value();
+    if listing_cmd_val.is_none() {
+        return Err(buck2_error!(
+            buck2_error::ErrorTag::Input,
+            "`listing_command` is required for InternalRunnerTestInfo"
+        ));
+    }
+    if let Some(list) = ListRef::from_value(listing_cmd_val) {
+        if list.is_empty() {
+            return Err(buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "`listing_command` must be non-empty"
+            ));
+        }
+    }
     check_all(iter_test_env(info.env.get().to_value()))?;
     check_all(iter_opt_str_list(info.labels.get().to_value(), "labels"))?;
     check_all(iter_opt_str_list(
@@ -551,6 +587,7 @@ fn internal_runner_test_info_creator(globals: &mut GlobalsBuilder) {
         r#type: Value<'v>,
         parse_test_listing: Value<'v>,
         parse_test_result: Value<'v>,
+        listing_command: Value<'v>,
         #[starlark(default = NoneType)] command: Value<'v>,
         #[starlark(default = NoneType)] env: Value<'v>,
         #[starlark(default = NoneType)] labels: Value<'v>,
@@ -566,6 +603,7 @@ fn internal_runner_test_info_creator(globals: &mut GlobalsBuilder) {
         let res = InternalRunnerTestInfo {
             test_type: ValueOfUnchecked::new(r#type),
             command: ValueOfUnchecked::new(command),
+            listing_command: ValueOfUnchecked::new(listing_command),
             env: ValueOfUnchecked::new(env),
             labels: ValueOfUnchecked::new(labels),
             contacts: ValueOfUnchecked::new(contacts),

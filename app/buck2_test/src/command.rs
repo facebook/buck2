@@ -1487,6 +1487,15 @@ async fn test_target<'a, 'e>(
                 .await?;
 
             let provider = internal_provider.as_ref();
+            let listing_spec = build_external_runner_spec(
+                provider.listing_command(),
+                provider.env().map(|(k, _)| k),
+                provider.test_type(),
+                provider.labels(),
+                provider.contacts(),
+                handle.clone(),
+                working_dir_cell,
+            );
             let spec = build_external_runner_spec(
                 provider.command(),
                 provider.env().map(|(k, _)| k),
@@ -1499,6 +1508,7 @@ async fn test_target<'a, 'e>(
             crate::internal_runner::run_internal_test(
                 orchestrator.as_ref(),
                 spec,
+                listing_spec,
                 internal_provider.as_ref(),
                 internal_test_timeout,
             )

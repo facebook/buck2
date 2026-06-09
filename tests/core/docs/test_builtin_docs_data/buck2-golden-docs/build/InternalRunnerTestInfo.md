@@ -7,6 +7,7 @@
 ## InternalRunnerTestInfo.env
 ## InternalRunnerTestInfo.executor\_overrides
 ## InternalRunnerTestInfo.labels
+## InternalRunnerTestInfo.listing\_command
 ## InternalRunnerTestInfo.local\_resources
 ## InternalRunnerTestInfo.parse\_test\_listing
 ## InternalRunnerTestInfo.parse\_test\_result

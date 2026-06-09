@@ -44,6 +44,7 @@ use host_sharing::HostSharingRequirements;
 pub async fn run_internal_test(
     orchestrator: &dyn TestOrchestrator,
     spec: ExternalRunnerSpec,
+    listing_spec: ExternalRunnerSpec,
     provider: &FrozenInternalRunnerTestInfo,
     timeout: Duration,
 ) -> buck2_error::Result<()> {
@@ -59,10 +60,8 @@ pub async fn run_internal_test(
             .collect(),
     };
 
-    // Step 1: Execute listing.
-    // TODO: This uses the execution command for listing. The next commit adds
-    // a dedicated `listing_command` field with framework-specific flags.
-    let listing_command = build_command_from_spec(&spec);
+    // Step 1: Execute listing using the dedicated listing command
+    let listing_command = build_command_from_spec(&listing_spec);
     let listing_stage = TestStage::Listing {
         suite: suite.clone(),
         cacheable: true,
@@ -73,7 +72,7 @@ pub async fn run_internal_test(
             listing_stage,
             target_handle,
             listing_command,
-            build_env_from_spec(&spec),
+            build_env_from_spec(&listing_spec),
             timeout,
             HostSharingRequirements::default(),
             Vec::new(),

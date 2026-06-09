@@ -58,6 +58,7 @@ mod tests {
                 type = "custom",
                 parse_test_listing = lambda stdout: [],
                 parse_test_result = lambda stdout, stderr, exit_code: [],
+                listing_command = ["binary", "--list"],
             )
         "#
         ))?;
@@ -74,6 +75,7 @@ mod tests {
                 type = "custom",
                 parse_test_listing = lambda stdout: [],
                 parse_test_result = lambda stdout, stderr, exit_code: [],
+                listing_command = ["my_test_binary", "--list"],
                 command = ["my_test_binary"],
                 env = {"FOO": "bar"},
                 labels = ["slow", "integration"],
@@ -96,6 +98,7 @@ mod tests {
                 type = "custom",
                 parse_test_listing = lambda stdout: [],
                 parse_test_result = lambda stdout, stderr, exit_code: [],
+                listing_command = ["binary", "--list"],
                 command = ["binary", cmd_args()],
                 env = {"KEY": cmd_args()},
             )
@@ -114,6 +117,7 @@ mod tests {
                 type = "custom",
                 parse_test_listing = lambda stdout: [],
                 parse_test_result = lambda stdout, stderr, exit_code: [],
+                listing_command = ["binary", "--list"],
                 local_resources = {"gpu": None},
                 required_local_resources = [RequiredTestLocalResource("gpu", listing=False)],
             )
@@ -136,6 +140,7 @@ mod tests {
                 InternalRunnerTestInfo(
                     parse_test_listing = lambda stdout: [],
                     parse_test_result = lambda stdout, stderr, exit_code: [],
+                    listing_command = ["binary", "--list"],
                 )
             "#
             ),
@@ -154,6 +159,7 @@ mod tests {
                 InternalRunnerTestInfo(
                     type = "custom",
                     parse_test_result = lambda stdout, stderr, exit_code: [],
+                    listing_command = ["binary", "--list"],
                 )
             "#
             ),
@@ -172,11 +178,72 @@ mod tests {
                 InternalRunnerTestInfo(
                     type = "custom",
                     parse_test_listing = lambda stdout: [],
+                    listing_command = ["binary", "--list"],
                 )
             "#
             ),
             "Missing required parameter",
         );
+        Ok(())
+    }
+
+    // ---------------------------------------------------------------------------
+    // Validation: listing_command
+    // ---------------------------------------------------------------------------
+
+    #[test]
+    fn test_missing_listing_command() -> buck2_error::Result<()> {
+        let mut tester = tester();
+        tester.run_starlark_bzl_test_expecting_error(
+            indoc!(
+                r#"
+            def test():
+                InternalRunnerTestInfo(
+                    type = "custom",
+                    parse_test_listing = lambda stdout: [],
+                    parse_test_result = lambda stdout, stderr, exit_code: [],
+                )
+            "#
+            ),
+            "Missing required parameter",
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_listing_command_empty_validation() -> buck2_error::Result<()> {
+        let mut tester = tester();
+        tester.run_starlark_bzl_test_expecting_error(
+            indoc!(
+                r#"
+            def test():
+                InternalRunnerTestInfo(
+                    type = "custom",
+                    parse_test_listing = lambda stdout: [],
+                    parse_test_result = lambda stdout, stderr, exit_code: [],
+                    listing_command = [],
+                )
+            "#
+            ),
+            "`listing_command` must be non-empty",
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_listing_command_with_cmd_args() -> buck2_error::Result<()> {
+        let mut tester = tester();
+        tester.run_starlark_bzl_test(indoc!(
+            r#"
+        def test():
+            InternalRunnerTestInfo(
+                type = "custom",
+                parse_test_listing = lambda stdout: [],
+                parse_test_result = lambda stdout, stderr, exit_code: [],
+                listing_command = ["binary", cmd_args(), "--list"],
+            )
+        "#
+        ))?;
         Ok(())
     }
 
@@ -195,6 +262,7 @@ mod tests {
                     type = 123,
                     parse_test_listing = lambda stdout: [],
                     parse_test_result = lambda stdout, stderr, exit_code: [],
+                    listing_command = ["binary", "--list"],
                 )
             "#
             ),
@@ -214,6 +282,7 @@ mod tests {
                     type = "custom",
                     parse_test_listing = "not_a_function",
                     parse_test_result = lambda stdout, stderr, exit_code: [],
+                    listing_command = ["binary", "--list"],
                 )
             "#
             ),
@@ -233,6 +302,7 @@ mod tests {
                     type = "custom",
                     parse_test_listing = lambda stdout: [],
                     parse_test_result = "not_a_function",
+                    listing_command = ["binary", "--list"],
                 )
             "#
             ),
@@ -256,6 +326,7 @@ mod tests {
                     type = "custom",
                     parse_test_listing = lambda stdout: [],
                     parse_test_result = lambda stdout, stderr, exit_code: [],
+                    listing_command = ["binary", "--list"],
                     command = "not_a_list",
                 )
             "#
@@ -271,6 +342,7 @@ mod tests {
                     type = "custom",
                     parse_test_listing = lambda stdout: [],
                     parse_test_result = lambda stdout, stderr, exit_code: [],
+                    listing_command = ["binary", "--list"],
                     command = [123],
                 )
             "#
@@ -291,6 +363,7 @@ mod tests {
                     type = "custom",
                     parse_test_listing = lambda stdout: [],
                     parse_test_result = lambda stdout, stderr, exit_code: [],
+                    listing_command = ["binary", "--list"],
                     env = "not_a_dict",
                 )
             "#
@@ -306,6 +379,7 @@ mod tests {
                     type = "custom",
                     parse_test_listing = lambda stdout: [],
                     parse_test_result = lambda stdout, stderr, exit_code: [],
+                    listing_command = ["binary", "--list"],
                     env = {"key": 123},
                 )
             "#
@@ -326,6 +400,7 @@ mod tests {
                     type = "custom",
                     parse_test_listing = lambda stdout: [],
                     parse_test_result = lambda stdout, stderr, exit_code: [],
+                    listing_command = ["binary", "--list"],
                     labels = "not_a_list",
                 )
             "#
@@ -341,6 +416,7 @@ mod tests {
                     type = "custom",
                     parse_test_listing = lambda stdout: [],
                     parse_test_result = lambda stdout, stderr, exit_code: [],
+                    listing_command = ["binary", "--list"],
                     labels = [123],
                 )
             "#
@@ -361,6 +437,7 @@ mod tests {
                     type = "custom",
                     parse_test_listing = lambda stdout: [],
                     parse_test_result = lambda stdout, stderr, exit_code: [],
+                    listing_command = ["binary", "--list"],
                     contacts = "not_a_list",
                 )
             "#
@@ -376,6 +453,7 @@ mod tests {
                     type = "custom",
                     parse_test_listing = lambda stdout: [],
                     parse_test_result = lambda stdout, stderr, exit_code: [],
+                    listing_command = ["binary", "--list"],
                     contacts = [123],
                 )
             "#
@@ -396,6 +474,7 @@ mod tests {
                     type = "custom",
                     parse_test_listing = lambda stdout: [],
                     parse_test_result = lambda stdout, stderr, exit_code: [],
+                    listing_command = ["binary", "--list"],
                     use_project_relative_paths = "yes",
                 )
             "#
@@ -411,6 +490,7 @@ mod tests {
                     type = "custom",
                     parse_test_listing = lambda stdout: [],
                     parse_test_result = lambda stdout, stderr, exit_code: [],
+                    listing_command = ["binary", "--list"],
                     run_from_project_root = "yes",
                 )
             "#
@@ -431,6 +511,7 @@ mod tests {
                     type = "custom",
                     parse_test_listing = lambda stdout: [],
                     parse_test_result = lambda stdout, stderr, exit_code: [],
+                    listing_command = ["binary", "--list"],
                     executor_overrides = {"foo": "not_an_executor"},
                 )
             "#
@@ -451,6 +532,7 @@ mod tests {
                     type = "custom",
                     parse_test_listing = lambda stdout: [],
                     parse_test_result = lambda stdout, stderr, exit_code: [],
+                    listing_command = ["binary", "--list"],
                     default_executor = "not_an_executor",
                 )
             "#
@@ -471,6 +553,7 @@ mod tests {
                     type = "custom",
                     parse_test_listing = lambda stdout: [],
                     parse_test_result = lambda stdout, stderr, exit_code: [],
+                    listing_command = ["binary", "--list"],
                     required_local_resources = ["not_a_resource"],
                 )
             "#
@@ -486,6 +569,7 @@ mod tests {
                     type = "custom",
                     parse_test_listing = lambda stdout: [],
                     parse_test_result = lambda stdout, stderr, exit_code: [],
+                    listing_command = ["binary", "--list"],
                     required_local_resources = [RequiredTestLocalResource("gpu")],
                 )
             "#
@@ -512,6 +596,7 @@ mod tests {
                     type = "custom",
                     parse_test_listing = lambda stdout: [],
                     parse_test_result = lambda stdout, stderr, exit_code: [],
+                    listing_command = ["binary", "--list"],
                     contacts = contacts,
                 )
                 contacts.append(123)
@@ -538,6 +623,7 @@ mod tests {
                     type = "custom",
                     parse_test_listing = lambda stdout: [],
                     parse_test_result = lambda stdout, stderr, exit_code: [],
+                    listing_command = ["binary", "--list"],
                     labels = labels,
                 )
                 labels.append(123)
@@ -575,6 +661,7 @@ mod tests {
                 type = "custom",
                 parse_test_listing = my_listing_parser,
                 parse_test_result = my_result_parser,
+                listing_command = ["binary", "--list"],
             )
             # Verify the provider can be constructed with a real function
             assert_true(isinstance(info, InternalRunnerTestInfo))
@@ -604,6 +691,7 @@ mod tests {
                 type = "python",
                 parse_test_listing = my_listing_parser,
                 parse_test_result = noop_result,
+                listing_command = ["binary", "--list"],
             )
             assert_true(isinstance(info, InternalRunnerTestInfo))
         "#
@@ -643,6 +731,7 @@ mod tests {
                 type = "custom",
                 parse_test_listing = noop_listing,
                 parse_test_result = my_result_parser,
+                listing_command = ["binary", "--list"],
             )
             assert_true(isinstance(info, InternalRunnerTestInfo))
         "#
@@ -681,6 +770,7 @@ mod tests {
                 type = "custom",
                 parse_test_listing = noop_listing,
                 parse_test_result = my_result_parser,
+                listing_command = ["binary", "--list"],
             )
             assert_true(isinstance(info, InternalRunnerTestInfo))
         "#
@@ -710,6 +800,7 @@ mod tests {
                 type = "custom",
                 parse_test_listing = noop_listing,
                 parse_test_result = my_result_parser,
+                listing_command = ["binary", "--list"],
             )
             assert_true(isinstance(info, InternalRunnerTestInfo))
         "#
@@ -754,6 +845,7 @@ mod tests {
                 type = "json_runner",
                 parse_test_listing = parse_json_listing,
                 parse_test_result = parse_json_result,
+                listing_command = ["binary", "--list"],
             )
             assert_true(isinstance(info, InternalRunnerTestInfo))
         "#
@@ -789,6 +881,7 @@ mod tests {
                 type = "line_runner",
                 parse_test_listing = parse_line_listing,
                 parse_test_result = parse_exit_code_result,
+                listing_command = ["run_tests", "--list"],
                 command = ["run_tests"],
             )
             assert_true(isinstance(info, InternalRunnerTestInfo))
@@ -811,6 +904,7 @@ mod tests {
                 type = "custom",
                 parse_test_listing = lambda stdout: [],
                 parse_test_result = lambda stdout, stderr, exit_code: [],
+                listing_command = ["binary", "--list"],
             )
             assert_true(isinstance(info, InternalRunnerTestInfo))
             assert_true(isinstance(info, Provider))
@@ -850,6 +944,7 @@ mod tests {
                 type = "custom",
                 parse_test_listing = noop_listing,
                 parse_test_result = my_result_parser,
+                listing_command = ["binary", "--list"],
             )
             assert_true(isinstance(info, InternalRunnerTestInfo))
         "#
@@ -876,6 +971,7 @@ mod tests {
             type = "custom",
             parse_test_listing = my_listing,
             parse_test_result = lambda stdout, stderr, exit_code: [],
+            listing_command = ["binary", "--list"],
         )
         "#
         ))?;
@@ -899,6 +995,7 @@ mod tests {
             type = "custom",
             parse_test_listing = lambda stdout: [],
             parse_test_result = lambda stdout, stderr, exit_code: [],
+            listing_command = ["binary", "--list"],
         )
         "#
         ))?;
@@ -922,6 +1019,7 @@ mod tests {
             type = "custom",
             parse_test_listing = my_listing,
             parse_test_result = lambda stdout, stderr, exit_code: [],
+            listing_command = ["binary", "--list"],
         )
         "#
         ))?;
@@ -941,6 +1039,7 @@ mod tests {
             type = "custom",
             parse_test_listing = lambda stdout: [{"name": "test"}],
             parse_test_result = lambda stdout, stderr, exit_code: [],
+            listing_command = ["binary", "--list"],
         )
         "#
         ))?;
@@ -968,6 +1067,7 @@ mod tests {
             type = "custom",
             parse_test_listing = lambda stdout: [],
             parse_test_result = my_result,
+            listing_command = ["binary", "--list"],
         )
         "#
         ))?;
@@ -1001,6 +1101,7 @@ mod tests {
             type = "custom",
             parse_test_listing = lambda stdout: [],
             parse_test_result = my_result,
+            listing_command = ["binary", "--list"],
         )
         "#
         ))?;
@@ -1029,6 +1130,7 @@ mod tests {
             type = "custom",
             parse_test_listing = lambda stdout: [],
             parse_test_result = my_result,
+            listing_command = ["binary", "--list"],
         )
         "#
         ))?;
@@ -1049,6 +1151,7 @@ mod tests {
             type = "custom",
             parse_test_listing = lambda stdout: [],
             parse_test_result = my_result,
+            listing_command = ["binary", "--list"],
         )
         "#
         ))?;
@@ -1072,6 +1175,7 @@ mod tests {
             type = "custom",
             parse_test_listing = lambda stdout: [],
             parse_test_result = my_result,
+            listing_command = ["binary", "--list"],
         )
         "#
         ))?;
@@ -1095,6 +1199,7 @@ mod tests {
             type = "custom",
             parse_test_listing = lambda stdout: [],
             parse_test_result = my_result,
+            listing_command = ["binary", "--list"],
         )
         "#
         ))?;
@@ -1106,4 +1211,46 @@ mod tests {
         assert!(err.to_string().contains("missing required key"), "{}", err);
         Ok(())
     }
+}
+
+// ---------------------------------------------------------------------------
+// Rust-side: listing_command accessor
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_listing_command_accessor() -> buck2_error::Result<()> {
+    use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::TestCommandMember;
+
+    let info = freeze_provider(indoc!(
+        r#"
+        exported_info = InternalRunnerTestInfo(
+            type = "gtest",
+            parse_test_listing = lambda stdout: [],
+            parse_test_result = lambda stdout, stderr, exit_code: [],
+            listing_command = ["my_binary", "--gtest_list_tests"],
+            command = ["my_binary"],
+        )
+        "#
+    ))?;
+
+    let listing_cmd: Vec<String> = info
+        .as_ref()
+        .listing_command()
+        .map(|m| match m {
+            TestCommandMember::Literal(s) => s.to_owned(),
+            _ => "<arg>".to_owned(),
+        })
+        .collect();
+    assert_eq!(listing_cmd, vec!["my_binary", "--gtest_list_tests"]);
+
+    let exec_cmd: Vec<String> = info
+        .as_ref()
+        .command()
+        .map(|m| match m {
+            TestCommandMember::Literal(s) => s.to_owned(),
+            _ => "<arg>".to_owned(),
+        })
+        .collect();
+    assert_eq!(exec_cmd, vec!["my_binary"]);
+    Ok(())
 }
