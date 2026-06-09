@@ -61,7 +61,7 @@ def rewrite_dep_file(src_path, dst_path):
         # current position to the end is the last dependency (assuming there is
         # anything).
         if next_pos < 0:
-            push_slice(body[pos:-1])
+            push_slice(body[pos:].rstrip("\n"))
             break
 
         # Check if this was escaped by looking at the previous character. If it
