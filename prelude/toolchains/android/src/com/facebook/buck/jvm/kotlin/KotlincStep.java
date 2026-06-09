@@ -80,7 +80,7 @@ public class KotlincStep implements IsolatedStep {
   private final LanguageVersion languageVersion;
   private final boolean shouldKosabiJvmAbiGenUseK2;
 
-  private static final String COMPOSE_PLUGIN_PATH_FRAGMENT = "compose/compiler";
+  private static final String COMPOSE_PLUGIN_PATH_FRAGMENT = "compose-compiler-plugin";
 
   KotlincStep(
       BuildTargetValue invokingRule,

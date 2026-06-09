@@ -54,6 +54,8 @@ class K2JvmAbiCommandLineProcessor : CommandLineProcessor {
             false,
         )
 
+    const val COMPOSE_PLUGIN_PATH_FRAGMENT: String = "compose-compiler-plugin"
+
     val ENABLE_COMPOSE_ABI_EMULATION_OPTION: CliOption =
         CliOption(
             "enableComposeAbiEmulation",
