@@ -280,6 +280,7 @@ def _compute_pex_providers(
     executable_type: ExecutableType,
     linker_map_data = None,
     gc_sections_data = None,
+    native_runtime_files = [],
 ) -> list[Provider] | Promise:
     dbg_source_db_output = ctx.actions.declare_output("dbg-db.json", has_content_based_path = True)
     dbg_source_db = create_dbg_source_db(ctx, dbg_source_db_output, src_manifest, python_deps)
@@ -464,6 +465,16 @@ def _compute_pex_providers(
 
     pex.sub_targets.update(extra)
 
+    # Native PARs build their executable via cxx_executable, which already emits
+    # `<binary>.resources.json` and adds it (plus the referenced C++ resources)
+    # to its runtime_files. process_native_linking otherwise drops these, so the
+    # manifest is declared next to the binary but never materialized, and the C++
+    # build::ExternalResourceManager FATALs at startup with
+    # "Cannot find resource: ...". Re-attach them as PAR runtime files so they
+    # land next to the executable.
+    if native_runtime_files:
+        pex.other_outputs.extend(native_runtime_files)
+
     if linker_map_data != None:
         pex.sub_targets["linker-map"] = [
             DefaultInfo(
@@ -530,6 +541,7 @@ def _convert_python_library_to_executable(
     extra_artifacts = {}
     link_args = []
     link_strategy = compute_link_strategy(ctx)
+    native_runtime_files = []
 
     if link_strategy == NativeLinkStrategy("native"):
         use_anon_target = getattr(ctx.attrs, "use_anon_target_for_analysis", False)
@@ -575,10 +587,11 @@ def _convert_python_library_to_executable(
                     executable_type,
                     providers[LinkProviders].linker_map_data,
                     providers[LinkProviders].gc_sections_data,
+                    native_runtime_files = providers[LinkProviders].runtime_files,
                 )
             )
         else:
-            shared_libs, extensions, link_args, extra, extra_artifacts, linker_map_data, gc_sections_data = process_native_linking(
+            shared_libs, extensions, link_args, extra, extra_artifacts, linker_map_data, gc_sections_data, native_runtime_files = process_native_linking(
                 ctx,
                 deps,
                 python_toolchain,
@@ -642,6 +655,7 @@ def _convert_python_library_to_executable(
         executable_type,
         linker_map_data = linker_map_data if link_strategy == NativeLinkStrategy("native") else None,
         gc_sections_data = gc_sections_data if link_strategy == NativeLinkStrategy("native") else None,
+        native_runtime_files = native_runtime_files,
     )
 
 def python_binary_impl(ctx: AnalysisContext) -> list[Provider] | Promise:

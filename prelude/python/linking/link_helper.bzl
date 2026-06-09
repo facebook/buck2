@@ -23,6 +23,7 @@ LinkProviders = provider(
         "gc_sections_data": provider_field(typing.Any, default = None),
         "link_args": provider_field(typing.Any, default = None),
         "linker_map_data": provider_field(typing.Any, default = None),
+        "runtime_files": provider_field(typing.Any, default = None),
         "shared_libraries": provider_field(typing.Any, default = None),
     },
 )
@@ -70,7 +71,7 @@ def _process_native_linking_rule_impl(ctx):
     python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
     python_internal_tools = ctx.attrs._python_internal_tools[PythonInternalToolsInfo]
     raw_deps = ctx.attrs.deps
-    shared_libs, extensions, link_args, extra, extra_artifacts, linker_map_data, gc_sections_data = process_native_linking(
+    shared_libs, extensions, link_args, extra, extra_artifacts, linker_map_data, gc_sections_data, runtime_files = process_native_linking(
         ctx,
         raw_deps,
         python_toolchain,
@@ -87,6 +88,7 @@ def _process_native_linking_rule_impl(ctx):
             extra_artifacts = extra_artifacts,
             gc_sections_data = gc_sections_data,
             linker_map_data = linker_map_data,
+            runtime_files = runtime_files,
         ),
         DefaultInfo(),
     ]

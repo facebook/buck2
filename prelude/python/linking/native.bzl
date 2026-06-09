@@ -361,6 +361,7 @@ def process_native_linking(
     dict[str, typing.Any],
     [CxxLinkerMapData, None],
     [CxxGcSectionsData, None],
+    list[typing.Any],
 ):
     extra = {}
     extra_artifacts = {}
@@ -442,4 +443,13 @@ def process_native_linking(
 
     link_args = executable_info.link_args
     extra_artifacts["static_extension_finder.py"] = ctx.attrs.static_extension_finder
-    return shared_libs, extensions, link_args, extra, extra_artifacts, executable_info.linker_map_data, executable_info.gc_sections_data
+    return (
+        shared_libs,
+        extensions,
+        link_args,
+        extra,
+        extra_artifacts,
+        executable_info.linker_map_data,
+        executable_info.gc_sections_data,
+        executable_info.runtime_files,
+    )
