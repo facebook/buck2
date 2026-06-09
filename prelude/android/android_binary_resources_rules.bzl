@@ -372,19 +372,13 @@ def _maybe_filter_resources(ctx: AnalysisContext, resources: list[AndroidResourc
 
 ResourcesFilter = record(
     densities = list[str],
-    downscale = bool,
 )
 
 def _get_resources_filter(resources_filter_strings: list[str]) -> [ResourcesFilter, None]:
     if not resources_filter_strings:
         return None
 
-    densities = [resources_filter_string for resources_filter_string in resources_filter_strings if resources_filter_string != "downscale"]
-    if not densities:
-        return None
-
-    downscale = len(densities) < len(resources_filter_strings)
-    return ResourcesFilter(densities = densities, downscale = downscale)
+    return ResourcesFilter(densities = resources_filter_strings)
 
 def _maybe_generate_string_source_map(
     actions: AnalysisActions,
