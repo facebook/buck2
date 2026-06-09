@@ -70,7 +70,7 @@ write_to_file(FileName, TestInfo) ->
         raw_target = RawTarget,
         trampolines = Trampolines
     } = TestInfo,
-    ErlTermToStr = fun(Term) -> unicode_characters_to_binary(lists:flatten(io_lib:format("~tp", [Term]))) end,
+    ErlTermToStr = fun(Term) -> unicode_characters_to_binary(io_lib:format("~tp", [Term])) end,
     Json = #{
         <<"dependencies">> => [try_make_path_relative(Dep) || Dep <- Dependencies],
         <<"test_suite">> => filename:basename(SuiteBeamPath, ".beam"),
