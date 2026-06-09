@@ -1234,11 +1234,21 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             Some(active) => match &active.future {
                 ProcessingFuture::Cleaning(f) => Some(f.clone()),
                 ProcessingFuture::Materializing(f) => {
-                    if priority != active.priority_control.priority() {
-                        active.priority_control.update(priority);
+                    // If the in-flight materialization was cancelled by an eager-guard release,
+                    // joining it would surface MaterializationCancelled. Fall through and start
+                    // a fresh materialization at the requested priority instead.
+                    if active.priority_control.cancel_token().is_cancelled() {
+                        tracing::debug!("existing future cancelled, starting fresh");
+                        None
+                    } else {
+                        if priority == Priority::High
+                            && active.priority_control.priority() == Priority::Low
+                        {
+                            active.priority_control.update(priority);
+                        }
+                        tracing::debug!("join existing future");
+                        return Ok(Some(f.clone()));
                     }
-                    tracing::debug!("join existing future");
-                    return Ok(Some(f.clone()));
                 }
             },
             None => None,

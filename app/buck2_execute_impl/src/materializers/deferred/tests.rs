@@ -1715,4 +1715,55 @@ mod state_machine {
         })
         .await
     }
+
+    #[tokio::test]
+    async fn test_join_cancelled_future_starts_fresh() {
+        ignore_stack_overflow_checks_for_future(async {
+            let path = make_path("buck-out/v2/eager/cancel-on-join");
+            let (mut dm, _) = make_processor(Default::default());
+
+            let sender = dm.command_sender.dupe();
+            let _leases = dm
+                .eager_materializations
+                .register(vec![path.clone()], &sender);
+            eager_declare(&mut dm, &path, None);
+            assert_eq!(dm.io.take_log(), &[(Op::Clean, path.clone())]);
+
+            let priority_control = get_priority_control(&mut dm, &path);
+            assert_eq!(priority_control.priority(), Priority::Low);
+            priority_control.cancel();
+
+            let version_before = dm
+                .tree
+                .prefix_get_mut(&mut path.iter())
+                .unwrap()
+                .processing
+                .current_version();
+
+            let fut = dm
+                .materialize_artifact_with_priority(&path, EventDispatcher::null(), Priority::High)
+                .expect("Expected a materializing future");
+
+            let new_priority_control = get_priority_control(&mut dm, &path);
+            let version_after = dm
+                .tree
+                .prefix_get_mut(&mut path.iter())
+                .unwrap()
+                .processing
+                .current_version();
+            assert!(version_after > version_before);
+            assert!(!new_priority_control.cancel_token().is_cancelled());
+            assert_eq!(new_priority_control.priority(), Priority::High);
+
+            fut.await.expect("Fresh materialization should succeed");
+            assert!(
+                dm.io
+                    .take_log()
+                    .iter()
+                    .any(|(op, p)| *op == Op::Materialize && *p == path),
+                "Fresh materialize IO should have been dispatched"
+            );
+        })
+        .await
+    }
 }
