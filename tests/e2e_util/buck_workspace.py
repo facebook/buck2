@@ -91,10 +91,9 @@ async def buck_fixture(  # noqa C901 : "too complex"
     env["BUCK2_IGNORE_VERSION_EXTRACTION_FAILURE"] = "true"
     env["SUPERCONSOLE_TESTING_WIDTH"] = "100"
     env["SUPERCONSOLE_TESTING_HEIGHT"] = "100"
-    # Tests are nested buck2 invocations, which by default skip cgroup setup.
-    # Tests that exercise cgroup behavior need to override that.
-    if not marker.disable_daemon_cgroup:
-        env["BUCK2_TEST_ENABLE_NESTED_DAEMON_CGROUP"] = "true"
+    # Don't try to assign to a new cgroup during tests.
+    if marker.disable_daemon_cgroup:
+        env["BUCK2_TEST_DISABLE_DAEMON_CGROUP"] = "true"
 
     assert "BUCK2_RUNTIME_THREADS" in env, (
         "BUCK2_RUNTIME_THREADS should be set by the test macros"
