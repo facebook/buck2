@@ -86,15 +86,17 @@ def apple_target_platforms(
     config_based_platform = read("cxx", "default_platform")
     if config_based_platform != None and config_based_platform not in supported_cxx_platforms:
         supported_cxx_platforms = list(supported_cxx_platforms)
-        if config_based_platform in _SUPPORTED_MACOS_PLATFORMS:
-            for p in _SUPPORTED_MACOS_PLATFORMS:
-                if p not in supported_cxx_platforms:
-                    supported_cxx_platforms.append(p)
-
-        if config_based_platform in _SUPPORTED_MAC_CATALYST_PLATFORMS:
-            for p in _SUPPORTED_MAC_CATALYST_PLATFORMS:
-                if p not in supported_cxx_platforms:
-                    supported_cxx_platforms.append(p)
+        for platform_family in [
+            _SUPPORTED_MACOS_PLATFORMS,
+            _SUPPORTED_MAC_CATALYST_PLATFORMS,
+            _SUPPORTED_IOS_PLATFORMS,
+            _SUPPORTED_WATCHOS_PLATFORMS,
+            _SUPPORTED_APPLETV_PLATFORMS,
+        ]:
+            if config_based_platform in platform_family:
+                for p in platform_family:
+                    if p not in supported_cxx_platforms:
+                        supported_cxx_platforms.append(p)
 
     # Form defaults
     constraint_values = constraint_values or []
