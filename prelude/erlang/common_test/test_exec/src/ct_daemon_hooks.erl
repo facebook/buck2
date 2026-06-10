@@ -471,7 +471,7 @@ wrapped_id(Mod, Opts) ->
     end,
     call_if_exists(Mod, id, [Opts], make_ref()).
 
--spec wrapped_init(hook(), opts(), integer()) -> {integer(), hook_state()}.
+-spec wrapped_init(hook(), opts(), integer() | undefined) -> {integer(), hook_state()}.
 wrapped_init({Mod, Id}, Opts, ConfiguredPriority) ->
     {InitPriority, InitState} =
         case Mod:init(Id, Opts) of
