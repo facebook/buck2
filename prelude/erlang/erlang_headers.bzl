@@ -6,26 +6,13 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//:paths.bzl", "paths")
-load(":erlang_build.bzl", "erlang_build")
 load(":erlang_toolchain.bzl", "get_toolchain")
 
 def _erlang_headers(ctx: AnalysisContext) -> list[Provider]:
-    toolchain = get_toolchain(ctx)
-
-    output = ctx.actions.declare_output("include", has_content_based_path = False)
-    wildcard = paths.join("erts-*", "include")
-    erlang_build.utils.run_with_env(
-        ctx,
-        toolchain,
-        cmd_args(toolchain.extract_from_otp, wildcard, output.as_output()),
-        identifier = ctx.attrs.name,
-        category = "extract_otp_header",
-    )
-
+    headers = get_toolchain(ctx).erts_toolchain_info.headers
     return [
         DefaultInfo(
-            default_outputs = [output],
+            default_outputs = [headers],
         ),
     ]
 

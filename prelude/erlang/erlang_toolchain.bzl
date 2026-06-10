@@ -140,17 +140,25 @@ def _erlang_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
         env = env,
     )
 
+    erts_dir = "erts-{}".format("*" if ctx.attrs.erts_version == "dynamic" else ctx.attrs.erts_version)
+    erts_headers = ctx.actions.declare_output("erts_headers", dir = True, has_content_based_path = False)
+    ctx.actions.run(
+        cmd_args(extract_from_otp, paths.join(erts_dir, "include"), erts_headers.as_output()),
+        identifier = ctx.attrs.name + "_headers",
+        category = "extract_erts_headers",
+        env = env,
+    )
+
     erts_toolchain_info = ErtsToolchainInfo(
         applications = erts_toolchain_application_info_list,
         erts_version = ctx.attrs.erts_version,
+        headers = erts_headers,
         otp_start_boot = otp_start_boot,
         otp_no_dot_erlang_boot = otp_no_dot_erlang_boot,
         output = ctx.actions.declare_output("erts-{}".format(ctx.attrs.erts_version), dir = True, has_content_based_path = False),
     )
     ctx.actions.run(
-        cmd_args(
-            extract_from_otp, "erts-{}".format("*" if ctx.attrs.erts_version == "dynamic" else ctx.attrs.erts_version), erts_toolchain_info.output.as_output()
-        ),
+        cmd_args(extract_from_otp, erts_dir, erts_toolchain_info.output.as_output()),
         identifier = ctx.attrs.name,
         category = "extract_erts",
         env = env,
