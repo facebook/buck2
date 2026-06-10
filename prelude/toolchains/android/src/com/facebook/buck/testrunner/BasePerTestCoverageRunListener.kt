@@ -16,6 +16,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.FileWriter
 import java.io.PrintWriter
+import java.security.MessageDigest
 import org.junit.runner.Description
 import org.junit.runner.Result
 import org.junit.runner.notification.RunListener
@@ -104,7 +105,7 @@ abstract class BasePerTestCoverageRunListener(
       val execData = agent.dumpAndReset() ?: return
       if (execData.isEmpty()) return
 
-      val fileName = sanitizeFileName(baseFileName) + ".exec"
+      val fileName = boundedFileName(baseFileName, ".exec")
       val execFile = File(outputDir, fileName)
       FileOutputStream(execFile).use { fos -> fos.write(execData) }
 
@@ -134,7 +135,34 @@ abstract class BasePerTestCoverageRunListener(
   companion object {
     private val INVALID_FILENAME_CHARS = Regex("[/\\\\:*?\"<>| ]")
 
+    /** Max bytes in a single path component on the filesystems we run on (Linux `NAME_MAX`). */
+    private const val NAME_MAX_BYTES = 255
+
     fun sanitizeFileName(name: String): String = name.replace(INVALID_FILENAME_CHARS, "_")
+
+    /**
+     * Sanitized `<name><suffix>` filename bounded to [NAME_MAX_BYTES]. Per-test names (descriptive
+     * method name + FQCN) routinely exceed the filesystem's per-component limit; without bounding,
+     * the `.exec` write fails with `ENAMETOOLONG`, which the runner surfaces as an INFRA_FAILURE
+     * for the whole bundle. Over-budget names fall back to a hash of the full name — short and
+     * collision-free across tests. The chosen name is recorded in `manifest.jsonl`, so the daemon
+     * reads whatever this returns — no cross-process agreement on the exact string is required.
+     */
+    fun boundedFileName(name: String, suffix: String): String {
+      val sanitized = sanitizeFileName(name)
+      val base =
+          if (utf8Len(sanitized) + utf8Len(suffix) <= NAME_MAX_BYTES) sanitized else hashHex(name)
+      return base + suffix
+    }
+
+    private fun utf8Len(s: String): Int = s.toByteArray(Charsets.UTF_8).size
+
+    /** First 64 bits of SHA-256 as 16 hex chars; keeps over-long names collision-free. */
+    private fun hashHex(s: String): String =
+        MessageDigest.getInstance("SHA-256")
+            .digest(s.toByteArray(Charsets.UTF_8))
+            .take(8)
+            .joinToString("") { "%02x".format(it.toInt() and 0xff) }
 
     private fun escapeJsonString(s: String): String {
       val sb = StringBuilder(s.length + 2)

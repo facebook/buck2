@@ -105,6 +105,61 @@ class BasePerTestCoverageRunListenerTest {
   }
 
   @Test
+  fun `bounds over-long exec filename within NAME_MAX`() {
+    // Regression: long per-test names (descriptive method name + FQCN) overflowed the filesystem's
+    // 255-byte per-component limit, so the .exec write failed with ENAMETOOLONG and surfaced as an
+    // INFRA_FAILURE for the whole bundle.
+    val outputDir = tempDir.newFolder("coverage")
+    val listener = TestableListener(outputDir, FakeCoverageAgent(byteArrayOf(1, 2, 3)))
+
+    val longName =
+        "handleClick_calls_the_action_when_the_thing_is_in_the_right_state " +
+            "(com.facebook.${"verylongpackagesegment.".repeat(8)}SomeVeryLongImplementationTest)"
+    listener.dumpForTest(longName, longName)
+    listener.close()
+
+    assertNull("Over-long names must not error the bundle", listener.coverageError)
+
+    val (testName, execName) =
+        parseManifestLine(File(outputDir, "manifest.jsonl").readLines().single())
+    assertTrue(
+        "exec filename must fit NAME_MAX, got ${execName.toByteArray().size} bytes",
+        execName.toByteArray().size <= 255,
+    )
+    assertTrue("exec file recorded in manifest must exist", File(outputDir, execName).exists())
+    assertEquals("full test_name is preserved in the manifest", longName, testName)
+  }
+
+  @Test
+  fun `over-long names sharing a prefix map to distinct exec files`() {
+    val outputDir = tempDir.newFolder("coverage")
+    val listener = TestableListener(outputDir, FakeCoverageAgent(byteArrayOf(1)))
+
+    val prefix = "x".repeat(400)
+    listener.dumpForTest("$prefix-alpha", "$prefix-alpha")
+    listener.dumpForTest("$prefix-beta", "$prefix-beta")
+    listener.close()
+
+    val execNames =
+        File(outputDir, "manifest.jsonl").readLines().map { parseManifestLine(it).second }
+    assertEquals("Both dumps recorded", 2, execNames.size)
+    assertEquals("Distinct exec files for distinct tests", 2, execNames.toSet().size)
+  }
+
+  /** Parses a manifest JSONL line into (test_name, exec_file), in the order the producer writes. */
+  private fun parseManifestLine(line: String): Pair<String, String> {
+    JsonFactory().createParser(line).use { parser ->
+      parser.nextToken() // START_OBJECT
+      parser.nextToken() // FIELD_NAME test_name
+      parser.nextToken()
+      val testName = parser.text
+      parser.nextToken() // FIELD_NAME exec_file
+      parser.nextToken()
+      return testName to parser.text
+    }
+  }
+
+  @Test
   fun `resets agent before each test`() {
     val outputDir = tempDir.newFolder("coverage")
     val agent = FakeCoverageAgent(byteArrayOf(1))
