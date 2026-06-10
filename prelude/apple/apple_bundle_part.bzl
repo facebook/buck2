@@ -120,6 +120,8 @@ def assemble_bundle(
     elif code_signing_configuration == CodeSignConfiguration("fast-adhoc"):
         if _get_fast_adhoc_signing_enabled(ctx):
             codesign_configuration_args = ["--codesign-configuration", "fast-adhoc"]
+            if getattr(ctx.attrs, "_fast_adhoc_signing_probe_enabled", False):
+                codesign_configuration_args = codesign_configuration_args + ["--fast-adhoc-signing-probe-enabled"]
         else:
             codesign_configuration_args = []
     elif code_signing_configuration == CodeSignConfiguration("none"):

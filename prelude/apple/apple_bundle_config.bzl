@@ -45,6 +45,7 @@ def apple_bundle_config() -> dict[str, typing.Any]:
         "_codesign_type": read_root_config("apple", "codesign_type_override", None),
         "_compile_resources_locally_override": _read_bool("compile_resources_locally_override"),
         "_embed_provisioning_profile_when_adhoc_code_signing": _read_bool("embed_provisioning_profile_when_adhoc_code_signing"),
+        "_fast_adhoc_signing_probe_enabled": _read_bool("fast_adhoc_signing_probe_enabled", False),
         "_fast_provisioning_profile_parsing_enabled": _read_bool("fast_provisioning_profile_parsing_enabled", False),
         "_incremental_bundling_enabled": _read_bool("incremental_bundling_enabled", True),
         "_info_plist_identify_build_system_default": _read_bool("info_plist_identify_build_system", True),

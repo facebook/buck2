@@ -389,6 +389,7 @@ def codesign_bundle(
     codesign_on_copy_paths: List[CodesignedPath],
     codesign_tool: Optional[Path] = None,
     codesign_configuration: Optional[CodesignConfiguration] = None,
+    fast_adhoc_signing_probe_enabled: bool = False,
     codesign_manifest_path: Optional[Path] = None,
     entitlements_suffixed_key_map: Optional[Dict[str, str]] = None,
     entitlements_removed_keys: Optional[List[str]] = None,
@@ -461,7 +462,7 @@ def codesign_bundle(
         else:
             fast_adhoc_signing_enabled = (
                 codesign_configuration is CodesignConfiguration.fastAdhoc
-                and is_fast_adhoc_codesign_allowed()
+                and is_fast_adhoc_codesign_allowed(fast_adhoc_signing_probe_enabled)
             )
             codesign_execution_bypass_enabled = (
                 codesign_configuration is CodesignConfiguration.executionBypass
@@ -917,7 +918,10 @@ def _filter_out_fast_adhoc_paths(
         p
         for p in paths
         if not should_skip_adhoc_signing_path(
-            p.path, identity_fingerprint, p.entitlements, platform
+            p.path,
+            identity_fingerprint,
+            p.entitlements,
+            platform,
         )
     ]
 

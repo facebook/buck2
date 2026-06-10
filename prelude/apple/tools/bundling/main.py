@@ -108,6 +108,11 @@ def _args_parser() -> argparse.ArgumentParser:
         """,
     )
     parser.add_argument(
+        "--fast-adhoc-signing-probe-enabled",
+        action="store_true",
+        help="Allow fast-adhoc signing to consult the bundled signature probe tool when it is available.",
+    )
+    parser.add_argument(
         "--incremental-state",
         metavar="<IncrementalState.json>",
         type=Path,
@@ -416,6 +421,7 @@ def _main() -> None:
             codesign_on_copy_paths=codesign_on_copy_paths,
             codesign_tool=args.codesign_tool,
             codesign_configuration=args.codesign_configuration,
+            fast_adhoc_signing_probe_enabled=args.fast_adhoc_signing_probe_enabled,
             codesign_manifest_path=args.codesign_manifest,
             entitlements_suffixed_key_map=args.entitlements_suffixed_key_map,
             entitlements_removed_keys=args.entitlements_removed_keys,

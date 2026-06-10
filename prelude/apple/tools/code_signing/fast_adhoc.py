@@ -15,6 +15,9 @@ import sys
 from pathlib import Path
 from typing import List, Optional, Tuple, Union
 
+# @oss-disable[end= ]: from ..meta_only.codesign_rust.check_adhoc_signature import (
+    # @oss-disable[end= ]: read_signature_info,
+# @oss-disable[end= ]: )
 from .apple_platform import ApplePlatform
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
@@ -57,20 +60,18 @@ def _logged_subprocess_run(
     return result
 
 
-def is_fast_adhoc_codesign_allowed() -> bool:
-    if sys.platform != "darwin":
-        # This is a macOS-only optimisation
-        _LOGGER.info(
-            f"Running on non-macOS ({sys.platform}), fast adhoc signing not allowed"
-        )
-        return False
-    if not os.path.exists("/var/db/xcode_select_link"):
-        _LOGGER.info(
-            "Developer tools do not exist, cannot use `otool`, fast adhoc signing not allowed"
-        )
-        return False
-
-    return True
+def is_fast_adhoc_codesign_allowed(probe_enabled: bool) -> bool:
+    if sys.platform == "darwin":
+        if not os.path.exists("/var/db/xcode_select_link"):
+            _LOGGER.info(
+                "Developer tools do not exist, cannot use `otool`, fast adhoc signing not allowed"
+            )
+            return False
+        return True
+    # @oss-disable[end= ]: if probe_enabled:
+        # @oss-disable[end= ]: return True
+    _LOGGER.info(f"Running on {sys.platform}, fast adhoc signing not allowed")
+    return False
 
 
 def _read_signature_info_macos(
@@ -130,6 +131,9 @@ def _read_signature_info(
     """
     if sys.platform == "darwin":
         return _read_signature_info_macos(path, platform, check_entitlements)
+    # @oss-disable[end= ]: elif sys.platform == "linux":
+        # @oss-disable[end= ]: binary = _find_executable_for_signed_path(path, platform)
+        # @oss-disable[end= ]: return read_signature_info(binary, check_entitlements)
     return None
 
 

@@ -51,6 +51,7 @@ python_library(
         "prelude//apple/tools:plistlib_utils",
         "prelude//apple/tools/info_plist_processor:process",
         # @oss-disable[end= ]: "prelude//apple/tools/meta_only:codesign_diagnostics_text_lib",
+        # @oss-disable[end= ]: "prelude//apple/tools/meta_only/codesign_rust:check_adhoc_signature_lib",
         # @oss-disable[end= ]: "prelude//apple/tools/meta_only/entitlements_mismatch:check_entitlements_lib",
         ":apple_platform_lib",
     ],

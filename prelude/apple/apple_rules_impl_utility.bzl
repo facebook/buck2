@@ -154,6 +154,7 @@ def _apple_bundle_like_common_attrs():
         "_codesign_type": attrs.option(attrs.enum(CodeSignType.values()), default = None),
         "_compile_resources_locally_override": attrs.option(attrs.bool(), default = None),
         "_fast_adhoc_signing_enabled_default": _fast_adhoc_signing_enabled_default_attr(),
+        "_fast_adhoc_signing_probe_enabled": attrs.bool(default = False),
         "_fast_provisioning_profile_parsing_enabled": attrs.bool(default = False),
         "_incremental_bundling_enabled": attrs.bool(default = False),
         "_no_check_certificates": attrs.bool(default = False),
