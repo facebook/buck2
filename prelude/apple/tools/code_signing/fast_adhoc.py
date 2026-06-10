@@ -13,7 +13,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import List, Optional, Tuple, Union
 
 from .apple_platform import ApplePlatform
 
@@ -73,6 +73,66 @@ def is_fast_adhoc_codesign_allowed() -> bool:
     return True
 
 
+def _read_signature_info_macos(
+    path: Path,
+    platform: ApplePlatform,
+    check_entitlements: bool,
+) -> Optional[Tuple[bool, bool]]:
+    """Reads adhoc/entitlements info via `/usr/bin/codesign` and `/usr/bin/otool`.
+
+    The entitlements probe runs only when `check_entitlements=True` and the path
+    is adhoc-signed; a non-adhoc path is never skipped, so its entitlements are
+    never inspected and we return early to avoid a wasted `otool` subprocess.
+    """
+    codesign_args: List[Union[str, Path]] = ["codesign", "-d", "-v", path]
+    codesign_result = _logged_subprocess_run(
+        "codesign", "check pre-existing signature", codesign_args
+    )
+
+    # Anything that's _already_ adhoc signed can be skipped.
+    # On ARM64 systems, the linker will already codesign using adhoc,
+    # so performing the signing twice is unnecessary.
+    is_adhoc = "Signature=adhoc" in codesign_result.stderr
+
+    if not is_adhoc:
+        return (False, False)
+
+    has_entitlements_section = False
+    if check_entitlements:
+        # Adhoc entitlements do not require postprocessing, so we just need to check existence
+        binary_path = _find_executable_for_signed_path(path, platform)
+        otool_arg: List[Union[str, Path]] = [
+            "/usr/bin/otool",
+            "-s",
+            "__TEXT",
+            "__entitlements",
+            binary_path,
+        ]
+        otool_result = _logged_subprocess_run(
+            "otool", "check entitlements presence in binary", otool_arg
+        )
+        has_entitlements_section = (
+            "Contents of (__TEXT,__entitlements) section" in otool_result.stdout
+        )
+
+    return (is_adhoc, has_entitlements_section)
+
+
+def _read_signature_info(
+    path: Path,
+    platform: ApplePlatform,
+    check_entitlements: bool,
+) -> Optional[Tuple[bool, bool]]:
+    """Platform-dispatching read of signature info.
+
+    Returns None on unsupported platforms; should_skip_adhoc_signing_path
+    treats None as "could not verify, do not skip".
+    """
+    if sys.platform == "darwin":
+        return _read_signature_info_macos(path, platform, check_entitlements)
+    return None
+
+
 def should_skip_adhoc_signing_path(
     path: Path,
     identity_fingerprint: str,
@@ -94,15 +154,19 @@ def should_skip_adhoc_signing_path(
         # sanitizer dylibs have been signed within a different context).
         return False
 
-    codesign_args = ["codesign", "-d", "-v", path]
-    codesign_result = _logged_subprocess_run(
-        "codesign", "check pre-existing signature", codesign_args
+    info = _read_signature_info(
+        path, platform, check_entitlements=entitlements_path is not None
     )
 
-    # Anything that's _already_ adhoc signed can be skipped.
-    # On ARM64 systems, the linker will already codesign using adhoc,
-    # so performing the signing twice is unnecessary.
-    #
+    if info is None:
+        _LOGGER.info("  Could not read signature info, not skipping adhoc signing")
+        return False
+
+    is_adhoc, has_entitlements_section = info
+    if not is_adhoc:
+        _LOGGER.info("  Path is not adhoc signed, not skipping adhoc signing")
+        return False
+
     # The entitlements file can be ignored under adhoc signing because:
     #
     # - Frameworks/dylibs do not need entitlements (they operate under the entitlements of their loading binary)
@@ -110,27 +174,12 @@ def should_skip_adhoc_signing_path(
     #
     # Note that certain features require non-adhoc signing (e.g., app groups) while other features like keychain
     # and "Sign in with Apple" just need the entitlements present in the binary (which it will per the above).
-    is_adhoc_signed = "Signature=adhoc" in codesign_result.stderr
-    if not is_adhoc_signed:
-        _LOGGER.info("  Path is not adhoc signed, not skipping adhoc signing")
-        return False
-
-    if entitlements_path:
-        # Adhoc entitlements do not require postprocessing, so we just need to check existence
+    if entitlements_path and not has_entitlements_section:
         binary_path = _find_executable_for_signed_path(path, platform)
-        otool_arg = ["/usr/bin/otool", "-s", "__TEXT", "__entitlements", binary_path]
-        otool_result = _logged_subprocess_run(
-            "otool", "check entitlements presence in binary", otool_arg
+        _LOGGER.info(
+            f"  Binary path `{binary_path}` does not contain entitlements, not skipping adhoc signing"
         )
-
-        contains_entitlements = (
-            "Contents of (__TEXT,__entitlements) section" in otool_result.stdout
-        )
-        if not contains_entitlements:
-            _LOGGER.info(
-                f"  Binary path `{binary_path}` does not contain entitlements, not skipping adhoc signing"
-            )
-            return False
+        return False
 
     _LOGGER.info(f"  All checks passed for `{path}`, skipping adhoc signing")
     return True
