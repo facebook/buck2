@@ -346,11 +346,19 @@ fn stats_for_paths(paths: &Vec<FoundPath>) -> buck2_data::CleanStaleStats {
                 stats.untracked_artifact_count += 1;
                 stats.untracked_bytes += *size;
             }
-            FoundPath::Stale(_, size) => {
+            FoundPath::Tracked {
+                size,
+                state: TrackedState::Stale,
+                ..
+            } => {
                 stats.stale_artifact_count += 1;
                 stats.stale_bytes += *size;
             }
-            FoundPath::Retained(size) => {
+            FoundPath::Tracked {
+                size,
+                state: TrackedState::Retained,
+                ..
+            } => {
                 stats.retained_artifact_count += 1;
                 stats.retained_bytes += *size;
             }
@@ -373,7 +381,11 @@ fn create_clean_fut<T: IoHandler>(
     let paths_to_invalidate: Vec<ProjectRelativePathBuf> = found_paths
         .iter()
         .filter_map(|x| match x {
-            FoundPath::Stale(p, ..) => Some(p.clone()),
+            FoundPath::Tracked {
+                path,
+                state: TrackedState::Stale,
+                ..
+            } => Some(path.clone()),
             _ => None,
         })
         .collect();
@@ -407,7 +419,11 @@ fn create_clean_fut<T: IoHandler>(
                 .into_iter()
                 .filter_map(|x| match x {
                     FoundPath::Untracked(p, _, size) => Some((p, size)),
-                    FoundPath::Stale(p, size) => Some((p, size)),
+                    FoundPath::Tracked {
+                        path,
+                        size,
+                        state: TrackedState::Stale,
+                    } => Some((path, size)),
                     _ => None,
                 })
                 .map(|(path, size)| {
@@ -495,11 +511,21 @@ struct StaleFinder<'a, T: IoHandler> {
 
 #[derive(Clone)]
 enum FoundPath {
-    /// These will be deleted on disk.
+    /// Will be deleted on disk.
     Untracked(ProjectRelativePathBuf, FileType, u64),
-    /// These will be invalidated in the materiaizer.
-    Stale(ProjectRelativePathBuf, u64),
-    Retained(u64),
+    /// Tracked by the materializer. `state` decides what (if anything) we do with it.
+    Tracked {
+        path: ProjectRelativePathBuf,
+        size: u64,
+        state: TrackedState,
+    },
+}
+
+#[derive(Clone, Copy)]
+enum TrackedState {
+    /// Will be invalidated in the materializer.
+    Stale,
+    Retained,
 }
 
 impl<T: IoHandler> StaleFinder<'_, T> {
@@ -581,16 +607,22 @@ impl<T: IoHandler> StaleFinder<'_, T> {
                 }) if *last_access_time < self.keep_since_time => {
                     // This is something we can invalidate.
                     tracing::trace!(path = %path, file_type = ?file_type, "marking as stale");
-                    self.found_paths
-                        .push(FoundPath::Stale(path, artifact_metadata_size(metadata)));
+                    self.found_paths.push(FoundPath::Tracked {
+                        path,
+                        size: artifact_metadata_size(metadata),
+                        state: TrackedState::Stale,
+                    });
                 }
                 ArtifactTree::Data(box ArtifactMaterializationData {
                     stage: ArtifactMaterializationStage::Materialized { metadata, .. },
                     ..
                 }) => {
                     tracing::trace!(path = %path, file_type = ?file_type, "marking as retained");
-                    self.found_paths
-                        .push(FoundPath::Retained(artifact_metadata_size(metadata)));
+                    self.found_paths.push(FoundPath::Tracked {
+                        path,
+                        size: artifact_metadata_size(metadata),
+                        state: TrackedState::Retained,
+                    });
                 }
                 _ => {
                     // What we have on disk does not match what we have in the materializer (which is
@@ -619,10 +651,18 @@ fn find_stale_tracked_only(
             let path = ProjectRelativePathBuf::from(f_path);
             if *last_access_time < keep_since_time && !active {
                 tracing::trace!(path = %path, "stale artifact");
-                found_paths.push(FoundPath::Stale(path, 0));
+                found_paths.push(FoundPath::Tracked {
+                    path,
+                    size: 0,
+                    state: TrackedState::Stale,
+                });
             } else {
                 tracing::trace!(path = %path, "retaining artifact");
-                found_paths.push(FoundPath::Retained(0));
+                found_paths.push(FoundPath::Tracked {
+                    path,
+                    size: 0,
+                    state: TrackedState::Retained,
+                });
             }
         }
     }
