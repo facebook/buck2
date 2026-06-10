@@ -112,8 +112,43 @@ def _erlang_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
     release_variables_builder = _gen_toolchain_script(ctx, env, utils.release_variables_builder, otp_binaries, utility_modules)
     extract_from_otp = _gen_toolchain_script(ctx, env, utils.extract_from_otp, otp_binaries, utility_modules)
 
-    # extract erts for late usage
+    if ctx.attrs.erts_toolchain_info != None:
+        if ctx.attrs.erts_version != "unknown" or ctx.attrs.applications:
+            fail(
+                "erlang_toolchain: erts_toolchain_info is mutually exclusive with erts_version and applications; the supplied dep already carries that metadata"
+            )
+        erts_toolchain_info = ctx.attrs.erts_toolchain_info[ErtsToolchainInfo]
+    else:
+        erts_toolchain_info = _extract_erts_toolchain_info(ctx, env, extract_from_otp)
 
+    return [
+        DefaultInfo(),
+        ErlangToolchainInfo(
+            name = ctx.attrs.name,
+            app_src_script = app_src_script,
+            appup_src_script = appup_src_script,
+            boot_script_builder = boot_script_builder,
+            dependency_analyzer = dependency_analyzer,
+            dependency_finalizer = dependency_finalizer,
+            dependency_merger = dependency_merger,
+            erl_opts = erl_opts,
+            env = ctx.attrs.env,
+            emu_flags = emu_flags,
+            escript_trampoline = utils.escript_trampoline,
+            escript_builder = escript_builder,
+            otp_binaries = otp_binaries,
+            release_variables_builder = release_variables_builder,
+            extract_from_otp = extract_from_otp,
+            core_parse_transforms = core_parse_transforms,
+            parse_transforms = parse_transforms,
+            parse_transforms_filters = ctx.attrs.parse_transforms_filters,
+            utility_modules = utility_modules,
+            erts_toolchain_info = erts_toolchain_info,
+            error_handler = erlang_action_error_handler,
+        ),
+    ]
+
+def _extract_erts_toolchain_info(ctx: AnalysisContext, env: dict[str, str], extract_from_otp: Tool) -> ErtsToolchainInfo:
     erts_toolchain_application_info_list = [
         ErtsToolchainApplicationInfo(
             name = application["name"],
@@ -122,7 +157,6 @@ def _erlang_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
         for application in ctx.attrs.applications
     ]
 
-    # extract OTP boot files for include_erts releases (bin/start.boot, bin/no_dot_erlang.boot)
     otp_start_boot = ctx.actions.declare_output("otp_start_boot", has_content_based_path = False)
     ctx.actions.run(
         cmd_args(extract_from_otp, "bin/start.boot", otp_start_boot.as_output()),
@@ -161,33 +195,7 @@ def _erlang_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
         category = "extract_erts",
         env = env,
     )
-
-    return [
-        DefaultInfo(),
-        ErlangToolchainInfo(
-            name = ctx.attrs.name,
-            app_src_script = app_src_script,
-            appup_src_script = appup_src_script,
-            boot_script_builder = boot_script_builder,
-            dependency_analyzer = dependency_analyzer,
-            dependency_finalizer = dependency_finalizer,
-            dependency_merger = dependency_merger,
-            erl_opts = erl_opts,
-            env = ctx.attrs.env,
-            emu_flags = emu_flags,
-            escript_trampoline = utils.escript_trampoline,
-            escript_builder = escript_builder,
-            otp_binaries = otp_binaries,
-            release_variables_builder = release_variables_builder,
-            extract_from_otp = extract_from_otp,
-            core_parse_transforms = core_parse_transforms,
-            parse_transforms = parse_transforms,
-            parse_transforms_filters = ctx.attrs.parse_transforms_filters,
-            utility_modules = utility_modules,
-            erts_toolchain_info = erts_toolchain_info,
-            error_handler = erlang_action_error_handler,
-        ),
-    ]
+    return erts_toolchain_info
 
 def _gen_parse_transforms(ctx: AnalysisContext, erlc: Tool, env: dict[str, str], parse_transforms: list[Dependency]) -> dict[str, cmd_args]:
     transforms = {}
@@ -275,6 +283,7 @@ erlang_toolchain = rule(
             attrs.string(),
             default = [],
         ),
+        "erts_toolchain_info": attrs.option(attrs.dep(providers = [ErtsToolchainInfo]), default = None),
         # ERTS version and OTP application metadata
         "erts_version": attrs.string(default = "unknown"),
         "otp_binaries": attrs.toolchain_dep(),
