@@ -1060,7 +1060,7 @@ def cxx_test_impl(ctx: AnalysisContext) -> list[Provider]:
     command = [cmd_args(output.binary, hidden = output.runtime_files)] + ctx.attrs.args
 
     # Setup RE executors based on the `remote_execution` param.
-    re_executor, executor_overrides = get_re_executors_from_props(ctx)
+    re_executors = get_re_executors_from_props(ctx)
 
     providers = [
         DefaultInfo(
@@ -1081,12 +1081,12 @@ def cxx_test_impl(ctx: AnalysisContext) -> list[Provider]:
                 env = ctx.attrs.env,
                 labels = ctx.attrs.labels,
                 contacts = ctx.attrs.contacts,
-                default_executor = re_executor,
-                executor_overrides = executor_overrides,
+                default_executor = re_executors.default_executor,
+                executor_overrides = re_executors.executor_overrides,
                 # We implicitly make this test via the project root, instead of
                 # the cell root (e.g. fbcode root).
-                run_from_project_root = ("buck2_run_from_project_root" in (ctx.attrs.labels or []) or re_executor != None),
-                use_project_relative_paths = re_executor != None,
+                run_from_project_root = ("buck2_run_from_project_root" in (ctx.attrs.labels or []) or re_executors.run_from_project_root),
+                use_project_relative_paths = re_executors.use_project_relative_paths,
                 network_access = getattr(ctx.attrs, "network_access", None),
                 supports_test_execution_caching = ctx.attrs.supports_test_execution_caching,
             ),

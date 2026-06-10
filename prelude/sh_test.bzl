@@ -47,11 +47,12 @@ def sh_test_impl(ctx: AnalysisContext) -> list[Provider]:
     command = [args] + ctx.attrs.args
 
     # Setup a RE executor based on the `remote_execution` param.
-    re_executor, executor_overrides = get_re_executors_from_props(ctx)
+    re_executors = get_re_executors_from_props(ctx)
 
     # We implicitly make the target run from the project root if remote
     # execution options were specified
-    run_from_project_root = "buck2_run_from_project_root" in (ctx.attrs.labels or []) or re_executor != None
+    run_from_project_root = "buck2_run_from_project_root" in (ctx.attrs.labels or []) or re_executors.run_from_project_root
+    use_project_relative_paths = "buck2_run_from_project_root" in (ctx.attrs.labels or []) or re_executors.use_project_relative_paths
 
     # TODO support default info and runinfo properly by writing a sh script that invokes the command properly
 
@@ -63,10 +64,10 @@ def sh_test_impl(ctx: AnalysisContext) -> list[Provider]:
             env = ctx.attrs.env,
             labels = ctx.attrs.labels,
             contacts = ctx.attrs.contacts,
-            default_executor = re_executor,
-            executor_overrides = executor_overrides,
+            default_executor = re_executors.default_executor,
+            executor_overrides = re_executors.executor_overrides,
             run_from_project_root = run_from_project_root,
-            use_project_relative_paths = run_from_project_root,
+            use_project_relative_paths = use_project_relative_paths,
         ),
     ) + [
         DefaultInfo(),

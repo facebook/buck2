@@ -163,7 +163,7 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
     run_cmd = cmd_args(bin, hidden = [runtime_files, external_debug_info] + copied_resources)
 
     # Setup RE executors based on the `remote_execution` param.
-    re_executor, executor_overrides = get_re_executors_from_props(ctx)
+    re_executors = get_re_executors_from_props(ctx)
 
     return inject_test_run_info(
         ctx,
@@ -173,11 +173,11 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
             env = ctx.attrs.env,
             labels = ctx.attrs.labels,
             contacts = ctx.attrs.contacts,
-            default_executor = re_executor,
-            executor_overrides = executor_overrides,
+            default_executor = re_executors.default_executor,
+            executor_overrides = re_executors.executor_overrides,
             # FIXME: Consider setting to true
-            run_from_project_root = re_executor != None,
-            use_project_relative_paths = re_executor != None,
+            run_from_project_root = re_executors.run_from_project_root,
+            use_project_relative_paths = re_executors.use_project_relative_paths,
         ),
     ) + [
         DefaultInfo(
