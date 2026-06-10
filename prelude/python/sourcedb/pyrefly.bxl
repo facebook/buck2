@@ -269,6 +269,7 @@ def _handle_python_library(
     to_insert: list,
     catch_all_stubs_to_insert: list,
     extra_filetypes: dict[str, None],
+    genrules_reexported: dict[str, None] | None = None,
 ) -> None:
     base_module = _get_python_library_base_module(attrs, target)
 
@@ -317,6 +318,7 @@ def _handle_python_library(
         to_insert,
         fs,
         extra_filetypes,
+        genrules_reexported,
     )
 
 def _build_generated_files(ctx: bxl.Context, to_build: list, to_insert: list, genrule_to_insert: list, extra_filetypes: dict[str, None]) -> None:
@@ -369,6 +371,7 @@ def _get_and_materialize_sources(
     to_insert: list,
     fs: bxl.Filesystem,
     extra_filetypes: dict[str, None],
+    genrules_reexported: dict[str, None] | None = None,
 ):
     if type(to_add) == type([]):
         for v in to_add:
@@ -409,6 +412,8 @@ def _get_and_materialize_sources(
                     extra_filetypes,
                 )
             else:
+                if genrules_reexported != None and type(v) == "Label":
+                    genrules_reexported[str(v.raw_target())] = None
                 to_build.append(v)
                 to_insert.append((srcs, _clean_module(base_module, k), v))
 
@@ -438,6 +443,11 @@ def _main(ctx: bxl.Context) -> None:
         and x.label.name != "restricted_bin"
     }
 
+    # Tracks genrule targets whose outputs are re-exported by a python_library
+    # via its srcs attribute (not just deps). Populated during _handle_python_library
+    # → _get_and_materialize_sources when a Label-type src references a genrule.
+    genrules_reexported = {}
+
     for raw_target, x in known_targets.items():
         if str(raw_target) in to_remove:
             continue
@@ -459,12 +469,27 @@ def _main(ctx: bxl.Context) -> None:
         elif "genrule" in x.rule_type:
             _handle_genrule(entry, attrs, fs, x, known_targets, to_remove, to_build, to_insert, genrule_to_insert, extra_filetypes)
         elif "python_library" in x.rule_type:
-            _handle_python_library(actions, entry, attrs, fs, x, known_targets, to_remove, to_build, to_insert, catch_all_stubs_to_insert, extra_filetypes)
+            _handle_python_library(
+                actions, entry, attrs, fs, x, known_targets, to_remove, to_build, to_insert, catch_all_stubs_to_insert, extra_filetypes, genrules_reexported
+            )
         else:
             fail("Unknown rule type `{}` for target `{}`".format(x.rule_type, x.label.raw_target()))
 
     _build_generated_files(ctx, to_build, to_insert, genrule_to_insert, extra_filetypes)
     _ensure_catch_all_stubs(ctx, catch_all_stubs_to_insert, extra_filetypes)
+
+    # Clear srcs on multi-output genrule targets whose files are re-exported
+    # by a python_library under namespaced module names. Genrules have no
+    # base_module, so _clean_module("", ...) produces bare names like
+    # "unittest" that shadow stdlib modules. We only clear genrules that were
+    # detected as re-exported during _get_and_materialize_sources (via Label
+    # raw_target matching), keeping genrules that are only in deps untouched.
+    for target, _entry in genrule_to_insert:
+        target_name = str(target.label.raw_target())
+        if target_name in genrules_reexported:
+            entry = entries.get(target_name)
+            if entry != None:
+                entry["srcs"] = {}
 
     # remove any targets we decided we shouldn't output
     for remove in to_remove:

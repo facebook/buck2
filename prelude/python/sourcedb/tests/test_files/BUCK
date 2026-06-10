@@ -13,8 +13,36 @@ python_library(
         "prelude//python/sourcedb/tests/test_files/triton_collision/a:b_lib",
         ":lib",
         ":my_extension_lib",
+        ":reexported_genrule_lib",
         ":triton_test_lib",
     ],
+)
+
+# Test that multi-output genrule srcs are cleared when a parent python_library
+# re-exports the files under namespaced module names. The genrule produces
+# bare names (e.g. "utils") that would shadow stdlib modules; the parent
+# provides proper names (e.g. "python.sourcedb.tests.test_files.utils").
+genrule(
+    name = "reexported_genrule",
+    srcs = ["gen.sh"],
+    outs = {
+        "helpers.py": [
+            "helpers.py",
+        ],
+        "utils.py": [
+            "utils.py",
+        ],
+    },
+    cmd = "touch ${OUT}/utils.py && touch ${OUT}/helpers.py",
+)
+
+python_library(
+    name = "reexported_genrule_lib",
+    srcs = {
+        "helpers.py": ":reexported_genrule[helpers.py]",
+        "utils.py": ":reexported_genrule[utils.py]",
+    },
+    deps = [":reexported_genrule"],
 )
 
 python_library(
