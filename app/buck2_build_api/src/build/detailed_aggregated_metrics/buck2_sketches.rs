@@ -24,11 +24,9 @@ use buck2_directory::directory::directory_iterator::DirectoryIterator;
 use buck2_directory::directory::directory_iterator::DirectoryIteratorPathStack;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_directory::directory::walk::unordered_entry_walk;
-use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
-use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::ActionDirectoryMember;
-use buck2_execute::directory::insert_artifact;
+use buck2_execute::directory::LazyActionDirectoryBuilder;
 use buck2_hash::BuckHashSet;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::load_module::InterpreterCalculation;
@@ -55,6 +53,7 @@ use starlark::values::FrozenHeapRef;
 
 use crate::analysis::calculation::RuleAnalysisCalculation;
 use crate::artifact_groups::ArtifactGroup;
+use crate::artifact_groups::ArtifactGroupValues;
 use crate::artifact_groups::calculation::ArtifactGroupCalculation;
 use crate::build::BuildProviderType;
 use crate::build::graph_properties::ConfiguredGraphPropertiesValues;
@@ -160,31 +159,33 @@ impl ArtifactPathSketches {
     }
 }
 
-/// Computes artifact path sketches for a target's resolved artifact values.
+/// Computes artifact path sketches for one top-level target's resolved outputs.
 ///
 /// Each file in every value's `entry()` and `deps()` is sketched at file
 /// granularity, weighted by its size (for the size sketch) or weight 1 (for the
 /// count sketch), so projected artifacts and directory contents are sketched
-/// uniformly.
+/// uniformly. The values are merged into a single directory first, so a path
+/// shared across the target's artifacts is sketched only once.
 pub(crate) fn compute_artifact_path_sketches(
-    values: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
+    values: Vec<ArtifactGroupValues>,
+    artifact_fs: &ArtifactFs,
     sketch_size: bool,
     sketch_count: bool,
 ) -> buck2_error::Result<ArtifactPathSketches> {
-    let mut size_sketcher = if sketch_size {
-        Some(DEFAULT_SKETCH_VERSION.create_sketcher::<ProjectRelativePathBuf, ArtifactSizeSketch>())
-    } else {
-        None
-    };
-    let mut count_sketcher = if sketch_count {
-        Some(
-            DEFAULT_SKETCH_VERSION.create_sketcher::<ProjectRelativePathBuf, ArtifactCountSketch>(),
-        )
-    } else {
-        None
-    };
+    let mut builder = LazyActionDirectoryBuilder::empty();
+    for value in &values {
+        value.add_to_directory(&mut builder, artifact_fs)?;
+    }
+    let builder = builder.finalize()?;
 
-    compute_artifact_path_sketches_impl(values, size_sketcher.as_mut(), count_sketcher.as_mut())?;
+    let mut size_sketcher = sketch_size.then(|| {
+        DEFAULT_SKETCH_VERSION.create_sketcher::<ProjectRelativePathBuf, ArtifactSizeSketch>()
+    });
+    let mut count_sketcher = sketch_count.then(|| {
+        DEFAULT_SKETCH_VERSION.create_sketcher::<ProjectRelativePathBuf, ArtifactCountSketch>()
+    });
+
+    compute_artifact_path_sketches_impl(&builder, size_sketcher.as_mut(), count_sketcher.as_mut());
 
     Ok(ArtifactPathSketches {
         size: size_sketcher.map(|s| s.into_mergeable_graph_sketch()),
@@ -192,19 +193,18 @@ pub(crate) fn compute_artifact_path_sketches(
     })
 }
 
-/// Private implementation that accepts any Sketchers for testing.
+/// Sketches every leaf of a merged artifact directory. Accepts any Sketchers for
+/// testing.
 fn compute_artifact_path_sketches_impl<S, C>(
-    values: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
+    builder: &ActionDirectoryBuilder,
     mut size_sketcher: Option<&mut S>,
     mut count_sketcher: Option<&mut C>,
-) -> buck2_error::Result<()>
-where
+) where
     S: Sketcher<ProjectRelativePathBuf>,
     C: Sketcher<ProjectRelativePathBuf>,
 {
-    let builder = merge_artifact_values(values)?;
     let entry: DirectoryEntry<&ActionDirectoryBuilder, &ActionDirectoryMember> =
-        DirectoryEntry::Dir(&builder);
+        DirectoryEntry::Dir(builder);
     let mut walk = unordered_entry_walk(entry.map_dir(Directory::as_ref));
     while let Some((rel_path, entry)) = walk.next() {
         if let DirectoryEntry::Leaf(leaf) = entry {
@@ -217,7 +217,6 @@ where
             }
         }
     }
-    Ok(())
 }
 
 /// Computes artifact path sketches for one top-level target's outputs.
@@ -229,23 +228,23 @@ pub(crate) async fn compute_artifact_path_sketches_for_target(
     sketch_size: bool,
     sketch_count: bool,
 ) -> buck2_error::Result<ArtifactPathSketches> {
-    let values =
-        collect_immediate_artifact_values(ctx, outputs, artifact_fs, providers_to_skip).await?;
+    let filtered: Vec<&ArtifactGroup> = outputs
+        .iter()
+        .filter(|(_, pt)| !providers_to_skip.contains(pt))
+        .map(|(artifact, _)| artifact)
+        .collect();
 
-    compute_artifact_path_sketches(values, sketch_size, sketch_count)
-}
+    let values: Vec<ArtifactGroupValues> = ctx
+        .try_compute_join(filtered.iter(), |ctx, artifact_group| {
+            async move { ctx.ensure_artifact_group(artifact_group).await }.boxed()
+        })
+        .await?;
 
-/// Merges every artifact value of a top-level target into one directory, so a
-/// path shared across the target's artifacts is sketched only once when the
-/// caller walks the result.
-fn merge_artifact_values(
-    values: Vec<(ProjectRelativePathBuf, ArtifactValue)>,
-) -> buck2_error::Result<ActionDirectoryBuilder> {
-    let mut builder = ActionDirectoryBuilder::empty();
-    for (artifact_path, value) in values {
-        insert_artifact(&mut builder, artifact_path, &value)?;
-    }
-    Ok(builder)
+    let artifact_fs = artifact_fs.clone();
+    tokio::task::spawn_blocking(move || {
+        compute_artifact_path_sketches(values, &artifact_fs, sketch_size, sketch_count)
+    })
+    .await?
 }
 
 fn leaf_size(leaf: &ActionDirectoryMember) -> u64 {
@@ -254,53 +253,6 @@ fn leaf_size(leaf: &ActionDirectoryMember) -> u64 {
         ActionDirectoryMember::Symlink(s) => s.target().as_str().len() as u64,
         ActionDirectoryMember::ExternalSymlink(s) => s.target().as_os_str().len() as u64,
     }
-}
-
-/// Resolves the immediate output artifacts of final providers via DICE.
-///
-/// Filters `outputs` by `providers_to_skip`, then resolves each remaining
-/// `ArtifactGroup` via `ensure_artifact_group()`. Returns `(path, value)`
-/// pairs where `path` is the project-relative on-disk path of the resolved
-/// artifact (content-hashed for content-based artifacts, configuration-hashed
-/// otherwise) and `value` is its `ArtifactValue`. Callers walk the value's
-/// `entry()` and `deps()` to obtain per-file paths and sizes; symlink chains
-/// are pre-merged into `deps` at action-construction time, so transitive
-/// symlink targets are surfaced for free.
-pub(crate) async fn collect_immediate_artifact_values(
-    ctx: &mut DiceComputations<'_>,
-    outputs: &[(ArtifactGroup, BuildProviderType)],
-    artifact_fs: &ArtifactFs,
-    providers_to_skip: &HashSet<BuildProviderType>,
-) -> buck2_error::Result<Vec<(ProjectRelativePathBuf, ArtifactValue)>> {
-    let filtered: Vec<&ArtifactGroup> = outputs
-        .iter()
-        .filter(|(_, pt)| !providers_to_skip.contains(pt))
-        .map(|(artifact, _)| artifact)
-        .collect();
-
-    let all_values = ctx
-        .try_compute_join(filtered.iter(), |ctx, artifact_group| {
-            async move { ctx.ensure_artifact_group(artifact_group).await }.boxed()
-        })
-        .await?;
-
-    all_values
-        .iter()
-        .flat_map(|values| values.iter())
-        .map(|(artifact, value)| {
-            artifact
-                .resolve_path(
-                    artifact_fs,
-                    if artifact.path_resolution_requires_artifact_value() {
-                        Some(value.content_based_path_hash())
-                    } else {
-                        None
-                    }
-                    .as_ref(),
-                )
-                .map(|path| (path, value.dupe()))
-        })
-        .collect()
 }
 
 #[derive(
@@ -550,6 +502,7 @@ mod tests {
     use buck2_execute::directory::ActionDirectoryEntry;
     use buck2_execute::directory::ActionDirectoryMember;
     use buck2_execute::directory::INTERNER;
+    use buck2_execute::directory::insert_artifact;
     use buck2_execute::directory::insert_file;
     use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_hash::BuckHashMap;
@@ -828,10 +781,15 @@ mod tests {
             (p_other.clone(), make_value()),
         ];
 
+        let mut builder = ActionDirectoryBuilder::empty();
+        for (path, value) in input {
+            insert_artifact(&mut builder, path, &value)?;
+        }
+
         let mut size_mock: MockSketcher<ProjectRelativePathBuf> = MockSketcher::new();
         let mut count_mock: MockSketcher<ProjectRelativePathBuf> = MockSketcher::new();
 
-        compute_artifact_path_sketches_impl(input, Some(&mut size_mock), Some(&mut count_mock))?;
+        compute_artifact_path_sketches_impl(&builder, Some(&mut size_mock), Some(&mut count_mock));
 
         // Walk order isn't stable, so compare as maps.
         let expected_counts: BuckHashMap<_, _> = [p_first, p_other, p_shared]
