@@ -13,6 +13,7 @@ use std::process::Command;
 use std::process::ExitStatus;
 use std::process::Stdio;
 use std::sync::Arc;
+use std::sync::LazyLock;
 use std::sync::Mutex;
 use std::sync::OnceLock;
 
@@ -87,12 +88,48 @@ impl IoRequest for GitFetchIoRequest {
         let path = project_fs.resolve(&self.path);
         fs_util::create_dir_all(path.clone())?;
 
+        /// Remove some `GIT_` environment variables exposed by `git`.
+        ///
+        /// From `prek`. MIT-licensed, Copyright (c) 2024 j178.
+        ///
+        /// See: <https://github.com/j178/prek/blob/7780f1149565ff430b86be1f688dce7f680c6760/crates/prek/src/git.rs#L49-L77>
+        static GIT_ENV_TO_REMOVE: LazyLock<Vec<String>> = LazyLock::new(|| {
+            let keep = &[
+                "GIT_EXEC_PATH",
+                "GIT_SSH",
+                "GIT_SSH_COMMAND",
+                "GIT_SSL_CAINFO",
+                "GIT_SSL_NO_VERIFY",
+                "GIT_CONFIG_COUNT",
+                "GIT_CONFIG_PARAMETERS",
+                "GIT_HTTP_PROXY_AUTHMETHOD",
+                "GIT_ALLOW_PROTOCOL",
+                "GIT_ASKPASS",
+            ];
+
+            std::env::vars()
+                .map(|(key, _value)| key)
+                .filter(|key| {
+                    key.starts_with("GIT_")
+                        && !key.starts_with("GIT_CONFIG_KEY_")
+                        && !key.starts_with("GIT_CONFIG_VALUE_")
+                        && !keep.contains(&key.as_str())
+                })
+                .collect()
+        });
+
         // FIXME(JakobDegen): Ideally we'd use libgit2 directly here instead of shelling out, but
         // unfortunately the third party situation for that library in fbsource isn't great, so
         // let's do this for now
         fn run_git(cwd: &AbsNormPath, f: impl FnOnce(&mut Command)) -> buck2_error::Result<()> {
             let mut cmd = background_command("git");
             f(&mut cmd);
+            // If the user has Git environment variables set, they can cause this Git command to
+            // operate on the wrong repo.
+            for name in &*GIT_ENV_TO_REMOVE {
+                cmd.env_remove(name);
+            }
+
             let output = cmd
                 .current_dir(cwd)
                 .stderr(Stdio::piped())
