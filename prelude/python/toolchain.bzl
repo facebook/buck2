@@ -49,6 +49,9 @@ PythonToolchainInfo = provider(
     fields = {
         "build_standalone_binaries_locally": provider_field(bool | None, default = None),
         "compile": provider_field(ArgLike | None, default = None),
+        # Whether to precompile .pyc bytecode for this version. Disabled for
+        # versions whose pyc magic number isn't yet frozen + fully deployed.
+        "pyc_compilation_enabled": provider_field(bool, default = True),
         # The interpreter to use to compile bytecode.
         "host_interpreter": provider_field(ArgLike | None, default = None),
         "interpreter": provider_field(ArgLike | None, default = None),
