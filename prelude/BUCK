@@ -46,7 +46,9 @@ prelude.filegroup(
     srcs = {
         "": ":files",
         "android/constraints/BUCK": ":copy_android_constraint",
+        # explicitly include files that fall off the glob due to package boundary violations
         "cfg/exec_platform/marker/BUCK": "//cfg/exec_platform/marker:buck_file",
+        # @oss-disable[end= ]: "python/meta_only/config.bzl": "//python/meta_only:config.bzl",
         "rust/tools/attrs.bzl": "//rust/tools:attrs.bzl",
     },
     visibility = ["PUBLIC"],
