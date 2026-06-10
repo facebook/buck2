@@ -71,11 +71,9 @@ def _erlang_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
     erlc = cmd_args(binaries_info.erlc, hidden = binaries_info.erl)
     escript = cmd_args(binaries_info.escript, hidden = binaries_info.erl)
     otp_binaries = Tools(
-        name = ctx.attrs.name,
         erl = erl,
         erlc = erlc,
         escript = escript,
-        _tools_binaries = binaries_info,
     )
 
     env = ctx.attrs.env

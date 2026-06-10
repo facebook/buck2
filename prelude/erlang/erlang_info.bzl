@@ -112,11 +112,9 @@ ErlangOTPBinariesInfo = provider(
 )
 
 Tools = record(
-    name = field(str),
     erl = field(Tool),
     erlc = field(Tool),
     escript = field(Tool),
-    _tools_binaries = field(ErlangOTPBinariesInfo),
 )
 
 ErtsToolchainApplicationInfo = provider(
