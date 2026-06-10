@@ -30,6 +30,7 @@ use buck2_execute::materialize::materializer::DeferredMaterializerIterItem;
 use buck2_execute::materialize::materializer::DeferredMaterializerSubscription;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
+use buck2_fs::paths::abs_path::AbsPath;
 use chrono::DateTime;
 use chrono::Duration;
 use chrono::TimeZone;
@@ -470,6 +471,8 @@ impl<T: IoHandler> DeferredMaterializerExtensions for DeferredMaterializerAccess
                         dry_run,
                         tracked_only,
                         dispatcher,
+                        adaptive_low_disk: None,
+                        root_abs_path: AbsPath::new("/").ok().map(|p| Arc::new(p.to_owned())),
                     },
                     sender,
                 },

@@ -35,6 +35,7 @@ use buck2_execute::materialize::utils::dynamic_priority_handle::DynamicPriorityH
 use buck2_execute::materialize::utils::priority_semaphore::Priority;
 use buck2_fs::fs_util::disk_space_stats;
 use buck2_fs::paths::abs_path::AbsPath;
+use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_hash::StdBuckHashSet;
 use buck2_util::threads::check_stack_overflow;
 use buck2_wrapper_common::invocation_id::TraceId;
@@ -83,6 +84,7 @@ use crate::materializers::deferred::artifact_tree::Processing;
 use crate::materializers::deferred::artifact_tree::ProcessingFuture;
 use crate::materializers::deferred::artifact_tree::Version;
 use crate::materializers::deferred::artifact_tree::artifact_metadata_matches_entry;
+use crate::materializers::deferred::clean_stale::AdaptiveLowDiskParams;
 use crate::materializers::deferred::clean_stale::CleanResult;
 use crate::materializers::deferred::clean_stale::CleanStaleArtifactsCommand;
 use crate::materializers::deferred::clean_stale::CleanStaleConfig;
@@ -126,6 +128,9 @@ pub(super) struct DeferredMaterializerCommandProcessor<T: 'static> {
     daemon_dispatcher: EventDispatcher,
     disable_eager_write_dispatch: bool,
     pub(super) eager_materializations: EagerMaterializations<T>,
+    /// Filesystem root used for `disk_space_stats` lookups during the
+    /// scheduled clean-stale loop.
+    pub(super) root_abs_path: Option<Arc<AbsPathBuf>>,
 }
 
 /// Message taken by the `DeferredMaterializer`'s command loop.
@@ -396,6 +401,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         let ttl_refresh_instance = None;
         let version_tracker = VersionTracker::new();
         let eager_materializations = EagerMaterializations::new();
+        let root_abs_path = AbsPath::new("/").ok().map(|p| Arc::new(p.to_owned()));
         Self {
             io,
             sqlite_db,
@@ -414,6 +420,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             daemon_dispatcher,
             disable_eager_write_dispatch,
             eager_materializations,
+            root_abs_path,
         }
     }
 
@@ -426,29 +433,39 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         rt.spawn(with_dispatcher_async(dispatcher, f))
     }
 
-    fn get_artifact_ttl(
+    fn resolve_clean_stale_params(
+        &self,
         low_disk: Option<&LowDiskCleanConfig>,
         default_ttl: std::time::Duration,
-    ) -> std::time::Duration {
+    ) -> (std::time::Duration, Option<AdaptiveLowDiskParams>) {
         let Some(cfg) = low_disk else {
-            return default_ttl;
+            return (default_ttl, None);
         };
 
-        let root_path_str = "/";
-
-        let disk_stats = match AbsPath::new(root_path_str).and_then(disk_space_stats) {
+        let Some(root_abs_path) = self.root_abs_path.as_ref() else {
+            return (default_ttl, None);
+        };
+        let disk_stats = match disk_space_stats(&**root_abs_path) {
             Ok(stats) => stats,
             Err(e) => {
                 let _unused = soft_error!("disk_space_stats", e);
-                return default_ttl;
+                return (default_ttl, None);
             }
         };
         let free_pct = disk_stats.free_space as f64 / disk_stats.total_space as f64 * 100.0;
         if free_pct > cfg.threshold_percent {
-            return default_ttl;
+            return (default_ttl, None);
         }
         match cfg.mode {
-            LowDiskCleanMode::Fixed(d) => d,
+            LowDiskCleanMode::Fixed(d) => (d, None),
+            LowDiskCleanMode::Adaptive { min_ttl } => (
+                default_ttl,
+                Some(AdaptiveLowDiskParams {
+                    threshold_percent: cfg.threshold_percent,
+                    min_access_time: chrono::Utc::now()
+                        - chrono::Duration::from_std(min_ttl).unwrap_or(chrono::Duration::zero()),
+                }),
+            ),
         }
     }
 
@@ -587,8 +604,10 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     if let Some(config) = clean_stale_config.as_ref() {
                         let dispatcher = self.daemon_dispatcher.dupe();
 
-                        let artifact_ttl =
-                            Self::get_artifact_ttl(config.low_disk.as_ref(), config.artifact_ttl);
+                        let (artifact_ttl, adaptive_low_disk) = self.resolve_clean_stale_params(
+                            config.low_disk.as_ref(),
+                            config.artifact_ttl,
+                        );
 
                         let daemon_id = dispatcher.daemon_id().dupe();
                         let cmd = CleanStaleArtifactsCommand {
@@ -596,6 +615,8 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                             dry_run: config.dry_run,
                             tracked_only: false,
                             dispatcher,
+                            adaptive_low_disk,
+                            root_abs_path: self.root_abs_path.dupe(),
                         };
                         stream.clean_stale_fut =
                             Some(cmd.create_clean_fut(&mut self, None, daemon_id));

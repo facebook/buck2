@@ -260,3 +260,94 @@ clean_stale_low_disk_artifact_ttl_hours = 0.0
     time.sleep(3)
     # Original output should be cleaned.
     assert not output.exists()
+
+
+@buck_test(skip_for_os=["windows"])
+async def test_clean_stale_scheduled_adaptive_high_disk_usage(buck: Buck) -> None:
+    # Threshold of 100.0 guarantees free disk % is always "below" it, so the
+    # adaptive loop must promote retained, non-active artifacts to stale even
+    # though the regular ttl (8h) would have kept them.
+    config_file = buck.cwd / ".buckconfig.local"
+    with open(config_file, "w") as f:
+        f.write(
+            """
+[buck2]
+clean_stale_enabled = true
+clean_stale_artifact_ttl_hours = 8
+clean_stale_start_offset_hours = 0
+# 0.0001h = 360ms
+clean_stale_period_hours = 0.0001
+clean_stale_low_disk_threshold = 100.0
+clean_stale_low_disk_artifact_ttl_hours = adaptive
+clean_stale_low_disk_adaptive_min_ttl_hours = 0
+        """
+        )
+
+    result = await buck.build("root//:copy")
+    output = result.get_build_report().output_for_target("root//:copy")
+    assert output.exists()
+    await buck.kill()
+    await buck.build("//declared:declared")
+    time.sleep(3)
+    assert not output.exists()
+
+
+@buck_test(skip_for_os=["windows"])
+async def test_clean_stale_scheduled_adaptive_threshold_not_tripped(buck: Buck) -> None:
+    # Threshold of 0.0 guarantees free disk % is always above it, so the
+    # adaptive loop must never engage and the retained artifact survives.
+    config_file = buck.cwd / ".buckconfig.local"
+    with open(config_file, "w") as f:
+        f.write(
+            """
+[buck2]
+clean_stale_enabled = true
+clean_stale_artifact_ttl_hours = 8
+clean_stale_start_offset_hours = 0
+# 0.0001h = 360ms
+clean_stale_period_hours = 0.0001
+clean_stale_low_disk_threshold = 0.0
+clean_stale_low_disk_artifact_ttl_hours = adaptive
+clean_stale_low_disk_adaptive_min_ttl_hours = 0
+        """
+        )
+
+    result = await buck.build("root//:copy")
+    output = result.get_build_report().output_for_target("root//:copy")
+    assert output.exists()
+    await buck.kill()
+    await buck.build("//declared:declared")
+    time.sleep(3)
+    assert output.exists()
+
+
+@buck_test(skip_for_os=["windows"])
+async def test_clean_stale_scheduled_adaptive_min_ttl_protects_recent(
+    buck: Buck,
+) -> None:
+    # Threshold of 100.0 always trips adaptive promotion, but the freshly
+    # built artifact is well within the 24h adaptive min-TTL floor — it must
+    # survive even though disk pressure persists.
+    config_file = buck.cwd / ".buckconfig.local"
+    with open(config_file, "w") as f:
+        f.write(
+            """
+[buck2]
+clean_stale_enabled = true
+clean_stale_artifact_ttl_hours = 8
+clean_stale_start_offset_hours = 0
+# 0.0001h = 360ms
+clean_stale_period_hours = 0.0001
+clean_stale_low_disk_threshold = 100.0
+clean_stale_low_disk_artifact_ttl_hours = adaptive
+clean_stale_low_disk_adaptive_min_ttl_hours = 24
+        """
+        )
+
+    result = await buck.build("root//:copy")
+    output = result.get_build_report().output_for_target("root//:copy")
+    assert output.exists()
+    await buck.kill()
+    await buck.build("//declared:declared")
+    time.sleep(3)
+    assert output.exists()
