@@ -43,16 +43,16 @@ atomic = "0.5.3"
 backtrace = "0.3.76"
 base64 = "0.22.1"
 bincode = { version = "2", features = ["serde"] }
-bitflags = "2.11.1"
+bitflags = "2.13.0"
 blake3 = { version = "=1.8.2", features = ["mmap", "rayon", "traits-preview"] } # Check overlay before updating
 bstr = { version = "1.10.0", features = ["serde", "std", "unicode"] }
 buck-resources = "1"
-bumpalo = { version = "3.20.2", features = ["allocator_api", "collections"] }
+bumpalo = { version = "3.20.3", features = ["allocator_api", "collections"] }
 byteorder = "1.5"
 bytemuck = { version = "1.25", features = ["const_zeroed", "derive", "min_const_generics", "must_cast", "nightly_portable_simd", "nightly_stdsimd"] }
 bytes = "1.11.1"
 bytesize = "2.3.1"
-chrono = { version = "0.4.44", features = ["serde"] }
+chrono = { version = "0.4.45", features = ["serde"] }
 clap = { version = "4.6.0", features = ["derive", "env", "string", "unicode", "wrap_help"] }
 clap_complete = "4.6.0"
 common-path = "1.0.0"
@@ -97,12 +97,12 @@ globset = { version = "0.4.13", features = ["serde1"] }
 hashbrown = "0.17"
 hex = "0.4.3"
 hostname = "0.4.2"
-http = "1.4.0"
+http = "1.4.1"
 http-body-util = "0.1.0"
 httparse = "1.7.1"
 httptest = "0.16.4"
 humantime = "2.1"
-hyper = { version = "1.9.0", features = ["client", "http1", "http2"] }
+hyper = { version = "1.10.1", features = ["client", "http1", "http2"] }
 hyper-0-14 = { package = "hyper", version = "0.14.32", features = ["client", "http1", "http2", "stream"] }
 hyper-http-proxy = "1.0"
 hyperlocal = { version = "0.9", features = ["client"] }
@@ -136,7 +136,7 @@ lsp-server = "0.7.9"
 lsp-types = "0.97.0"
 maplit = "1.0"
 md-5 = "0.10"
-memchr = "2.8.0"
+memchr = "2.8.1"
 memmap2 = "0.9.10"
 memoffset = "0.9.1"
 mimalloc = { version = "0.1.48", default-features = false }
@@ -242,7 +242,7 @@ tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 triomphe = "0.1.11"
 twox-hash = "1.6.1"
 typed-arena = "2"
-unicode-segmentation = "1.13.2"
+unicode-segmentation = "1.13.3"
 uuid = { version = "1.23.0", features = ["serde", "rng-getrandom", "v4", "v5", "v6", "v7", "v8"] }
 vt100 = "0.16.2"
 walkdir = "2.3"
