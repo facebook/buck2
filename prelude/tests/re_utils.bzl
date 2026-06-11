@@ -30,6 +30,11 @@ RemoteTestExecutorConfig = record(
     use_project_relative_paths = field(bool, default = False),
 )
 
+def _network_access_kwargs(network_access: str | None) -> dict[str, str]:
+    if network_access == None:
+        return {}
+    return {"network_access": network_access}
+
 def _get_re_arg(ctx: AnalysisContext) -> ReArg:
     force_local = read_config("fbcode", "disable_re_tests", default = False)
     if force_local or not hasattr(ctx.attrs, "remote_execution"):
@@ -74,6 +79,13 @@ def get_re_executors_from_props(ctx: AnalysisContext, dynamic_image_override: [d
     """
     Convert the `remote_execution` properties param into `CommandExecutorConfig` objects to use with test providers.
 
+    The target's `network_access` policy (if any) is attached to the returned
+    `CommandExecutorConfig`(s) so it is enforced for both local and remote test
+    execution. When a target has no RE profile but does request a `network_access`
+    policy, a local-only executor is synthesized solely to carry that policy; it is
+    reported with `run_from_project_root = False` so the test keeps running in-place
+    rather than being switched to project-root/RE-style execution.
+
     Args:
         ctx: The analysis context.
         dynamic_image_override: If provided, overrides the `remote_execution_dynamic_image`
@@ -84,15 +96,27 @@ def get_re_executors_from_props(ctx: AnalysisContext, dynamic_image_override: [d
     """
 
     re_arg = _get_re_arg(ctx)
+    network_access = getattr(ctx.attrs, "network_access", None)
 
     if re_arg.disabled:
-        executor = CommandExecutorConfig(local_enabled = True, remote_enabled = False)
+        executor = CommandExecutorConfig(local_enabled = True, remote_enabled = False, **_network_access_kwargs(network_access))
         # A `remote_execution = "disabled"` target has always produced an executor
         # and therefore run from the project root; preserve that behavior.
         return RemoteTestExecutorConfig(default_executor = executor, run_from_project_root = True, use_project_relative_paths = True)
 
     re_props = re_arg.re_props
     if re_props == None:
+        if network_access != None:
+            # No RE profile, but the target requests a network policy. Synthesize a
+            # local-only executor purely to carry it. Crucially this executor is NOT
+            # marked as needing the project root, so the test still runs in-place
+            # (from the cell root) just as it would with no executor at all.
+            #
+            # `remote_cache_enabled = False` keeps this a plain `Executor::Local`
+            # (parity: the unset default is True in fbcode but False in OSS), and
+            # nothing is uploaded from here anyway (`allow_cache_uploads` is False).
+            executor = CommandExecutorConfig(local_enabled = True, remote_enabled = False, remote_cache_enabled = False, **_network_access_kwargs(network_access))
+            return RemoteTestExecutorConfig(default_executor = executor)
         return RemoteTestExecutorConfig()
 
     re_props_copy = dict(re_props)
@@ -130,6 +154,7 @@ def get_re_executors_from_props(ctx: AnalysisContext, dynamic_image_override: [d
         remote_execution_resource_units = re_resource_units,
         remote_execution_dynamic_image = re_dynamic_image,
         meta_internal_extra_params = meta_internal_extra_params,
+        **_network_access_kwargs(network_access),
     )
 
     listing_executor = default_executor
@@ -143,6 +168,7 @@ def get_re_executors_from_props(ctx: AnalysisContext, dynamic_image_override: [d
             remote_execution_resource_units = re_listing_resource_units,
             remote_execution_dynamic_image = re_dynamic_image,
             meta_internal_extra_params = meta_internal_extra_params,
+            **_network_access_kwargs(network_access),
         )
     return RemoteTestExecutorConfig(
         default_executor = default_executor,
