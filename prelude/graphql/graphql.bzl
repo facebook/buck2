@@ -19,6 +19,7 @@ load(
 
 GraphQLiOSInfo = record(
     header_path_prefix = str | None,
+    force_export_fragment_headers = bool,
 )
 
 GraphQLAndroidInfo = record(
