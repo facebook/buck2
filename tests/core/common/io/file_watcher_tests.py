@@ -28,7 +28,10 @@ async def setup_file_watcher_test(buck: Buck) -> None:
     subprocess.run(["sl", "commit", "--addremove", "-m", "temp"], cwd=buck.cwd)
     subprocess.run(["sl", "bookmark", "main"], cwd=buck.cwd, check=True)
 
-    assert subprocess.check_output(["sl", "status"], cwd=buck.cwd) == b""
+    sl_status = subprocess.check_output(["sl", "status"], cwd=buck.cwd)
+    assert sl_status == b"", (
+        f"Expected clean working directory, but `sl status` returned:\n{sl_status.decode(errors='replace')}"
+    )
     assert (await get_files(buck)) == ["files/abc", "files/d/empty"]
 
 
