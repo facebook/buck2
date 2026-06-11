@@ -929,6 +929,14 @@ message CleanStaleRequest {
   int64 keep_since_time = 2;
   bool dry_run = 3;
   bool tracked_only = 4;
+  // When set, after the keep_since_time scan, promote retained, non-active
+  // artifacts (oldest-access first) to stale until projected free disk %
+  // rises above this threshold. Presence enables adaptive promotion.
+  optional double adaptive_low_disk_threshold = 5;
+  // Adaptive min-TTL floor in seconds. Retained artifacts younger than this
+  // are protected even under disk pressure. Ignored unless
+  // adaptive_low_disk_threshold is set.
+  optional int64 adaptive_min_ttl_seconds = 6;
 }
 
 message CleanStaleResponse {

@@ -67,9 +67,7 @@ pub struct CleanStaleArtifactsCommand {
     pub dispatcher: EventDispatcher,
     /// When set, after the normal stale scan also promote the oldest
     /// non-active retained artifacts to stale until projected free disk %
-    /// rises above the threshold. Only set by the scheduled clean loop in
-    /// `Adaptive` low-disk mode; user-initiated `buck2 clean --stale` is
-    /// always `None`.
+    /// rises above the threshold.
     pub adaptive_low_disk: Option<AdaptiveLowDiskParams>,
     /// Root path for `disk_space_stats` during the adaptive promotion pass.
     /// Constructed once by the caller and shared via `Arc::dupe`. `None` when no

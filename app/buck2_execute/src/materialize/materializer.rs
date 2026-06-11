@@ -768,9 +768,7 @@ pub trait DeferredMaterializerExtensions: Send + Sync {
 
     async fn clean_stale_artifacts(
         &self,
-        keep_since_time: DateTime<Utc>,
-        dry_run: bool,
-        tracked_only: bool,
+        args: CleanStaleArtifactsArgs,
     ) -> buck2_error::Result<buck2_cli_proto::CleanStaleResponse>;
 
     async fn test_iter(&self, count: usize) -> buck2_error::Result<String>;
@@ -780,4 +778,13 @@ pub trait DeferredMaterializerExtensions: Send + Sync {
     async fn create_subscription(
         &self,
     ) -> buck2_error::Result<Box<dyn DeferredMaterializerSubscription>>;
+}
+
+#[derive(Debug, Clone)]
+pub struct CleanStaleArtifactsArgs {
+    pub keep_since_time: DateTime<Utc>,
+    pub dry_run: bool,
+    pub tracked_only: bool,
+    pub adaptive_low_disk_threshold: Option<f64>,
+    pub adaptive_min_ttl: Option<std::time::Duration>,
 }

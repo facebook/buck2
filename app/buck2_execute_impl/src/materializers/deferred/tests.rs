@@ -16,6 +16,7 @@ use buck2_error::internal_error;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::insert_file;
+use buck2_execute::materialize::materializer::CleanStaleArtifactsArgs;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::DeferredMaterializerSubscription;
 use buck2_execute::materialize::utils::dynamic_priority_handle::DynamicPriorityHandle;
@@ -1133,7 +1134,13 @@ mod state_machine {
             let (dm, _, _) = make_materializer(io, None).await;
 
             let res = dm
-                .clean_stale_artifacts(DateTime::<Utc>::MAX_UTC, false, false)
+                .clean_stale_artifacts(CleanStaleArtifactsArgs {
+                    keep_since_time: DateTime::<Utc>::MAX_UTC,
+                    dry_run: false,
+                    tracked_only: false,
+                    adaptive_low_disk_threshold: None,
+                    adaptive_min_ttl: None,
+                })
                 .await?;
 
             let &buck2_data::CleanStaleStats {
@@ -1180,7 +1187,13 @@ mod state_machine {
             // Interrupt while scanning buck-out
             let dm = Arc::new(dm);
             let dm_dup = dm.dupe();
-            let fut = dm_dup.clean_stale_artifacts(DateTime::<Utc>::MAX_UTC, false, false);
+            let fut = dm_dup.clean_stale_artifacts(CleanStaleArtifactsArgs {
+                keep_since_time: DateTime::<Utc>::MAX_UTC,
+                dry_run: false,
+                tracked_only: false,
+                adaptive_low_disk_threshold: None,
+                adaptive_min_ttl: None,
+            });
             thread::spawn(move || {
                 // Wait until a read_dir request is about to execute
                 read_dir_barriers.0.wait();
@@ -1217,7 +1230,13 @@ mod state_machine {
             // Interrupt while deleting files
             let dm = Arc::new(dm);
             let dm_dup = dm.dupe();
-            let fut = dm_dup.clean_stale_artifacts(DateTime::<Utc>::MAX_UTC, false, false);
+            let fut = dm_dup.clean_stale_artifacts(CleanStaleArtifactsArgs {
+                keep_since_time: DateTime::<Utc>::MAX_UTC,
+                dry_run: false,
+                tracked_only: false,
+                adaptive_low_disk_threshold: None,
+                adaptive_min_ttl: None,
+            });
             thread::spawn(move || {
                 // Wait until a single clean request is about to execute
                 clean_barriers.0.wait();

@@ -351,3 +351,43 @@ clean_stale_low_disk_adaptive_min_ttl_hours = 24
     await buck.build("//declared:declared")
     time.sleep(3)
     assert output.exists()
+
+
+@buck_test(skip_for_os=["windows"])
+async def test_clean_stale_cli_adaptive_promotes_retained(buck: Buck) -> None:
+    # `--stale=10000d` alone would not clean a freshly-built artifact, but
+    # `--adaptive-low-disk-threshold=100.0` always trips the adaptive branch
+    # (free disk % is always <= 100%) and `--adaptive-min-ttl=0s` protects
+    # nothing, so the retained, non-active artifact must be promoted to stale
+    # and removed.
+    result = await buck.build("root//:copy")
+    output = result.get_build_report().output_for_target("root//:copy")
+    assert output.exists()
+    await buck.kill()
+    # New daemon — original artifact is retained but no longer active.
+    await buck.build("//declared:declared")
+    res = await buck.clean(
+        "--stale=10000d",
+        "--adaptive-low-disk-threshold=100.0",
+        "--adaptive-min-ttl=0s",
+    )
+    assert "Adaptive low-disk promotion enabled at 100%" in res.stderr
+    assert not output.exists()
+
+
+@buck_test(skip_for_os=["windows"])
+async def test_clean_stale_cli_adaptive_min_ttl_protects_recent(buck: Buck) -> None:
+    # Adaptive is tripped (threshold=100%), but `--adaptive-min-ttl=24h`
+    # protects every retained artifact accessed within the last 24h, so the
+    # freshly-built output survives.
+    result = await buck.build("root//:copy")
+    output = result.get_build_report().output_for_target("root//:copy")
+    assert output.exists()
+    await buck.kill()
+    await buck.build("//declared:declared")
+    await buck.clean(
+        "--stale=10000d",
+        "--adaptive-low-disk-threshold=100.0",
+        "--adaptive-min-ttl=24h",
+    )
+    assert output.exists()

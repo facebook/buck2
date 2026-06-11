@@ -24,6 +24,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::dispatch::get_dispatcher;
+use buck2_execute::materialize::materializer::CleanStaleArtifactsArgs;
 use buck2_execute::materialize::materializer::DeferredMaterializerEntry;
 use buck2_execute::materialize::materializer::DeferredMaterializerExtensions;
 use buck2_execute::materialize::materializer::DeferredMaterializerIterItem;
@@ -457,21 +458,30 @@ impl<T: IoHandler> DeferredMaterializerExtensions for DeferredMaterializerAccess
 
     async fn clean_stale_artifacts(
         &self,
-        keep_since_time: DateTime<Utc>,
-        dry_run: bool,
-        tracked_only: bool,
+        args: CleanStaleArtifactsArgs,
     ) -> buck2_error::Result<buck2_cli_proto::CleanStaleResponse> {
         let dispatcher = get_dispatcher();
+        let adaptive_low_disk = args.adaptive_low_disk_threshold.map(|threshold_percent| {
+            // Default min-TTL matches the buckconfig default of 12h.
+            let min_ttl = args
+                .adaptive_min_ttl
+                .unwrap_or_else(|| std::time::Duration::from_secs(12 * 60 * 60));
+            let min_ttl_chrono = Duration::from_std(min_ttl).unwrap_or_else(|_| Duration::zero());
+            crate::materializers::deferred::clean_stale::AdaptiveLowDiskParams {
+                threshold_percent,
+                min_access_time: Utc::now() - min_ttl_chrono,
+            }
+        });
         let (sender, recv) = oneshot::channel();
         self.command_sender
             .send(MaterializerCommand::Extension(Box::new(
                 CleanStaleArtifactsExtensionCommand {
                     cmd: CleanStaleArtifactsCommand {
-                        keep_since_time,
-                        dry_run,
-                        tracked_only,
+                        keep_since_time: args.keep_since_time,
+                        dry_run: args.dry_run,
+                        tracked_only: args.tracked_only,
                         dispatcher,
-                        adaptive_low_disk: None,
+                        adaptive_low_disk,
                         root_abs_path: AbsPath::new("/").ok().map(|p| Arc::new(p.to_owned())),
                     },
                     sender,

@@ -42,6 +42,10 @@ pub struct CleanStaleCommand {
     pub keep_since_arg: KeepSinceArg,
     pub dry_run: bool,
     pub tracked_only: bool,
+    /// Free-disk % threshold for adaptive low-disk promotion. None disables it.
+    pub adaptive_low_disk_threshold: Option<f64>,
+    /// Adaptive min-TTL floor. None means use the daemon-side default (12h).
+    pub adaptive_min_ttl: Option<std::time::Duration>,
 }
 
 /// Specifies the maximum age of artifacts to keep
@@ -134,6 +138,18 @@ impl StreamingCommand for CleanStaleCommand {
                 .ok_or_else(|| internal_error!("Invalid timestamp"))?,
         };
 
+        if let Some(threshold) = self.adaptive_low_disk_threshold {
+            let min_ttl_msg = match self.adaptive_min_ttl {
+                Some(d) => humantime::format_duration(d).to_string(),
+                None => "daemon default".to_owned(),
+            };
+            buck2_client_ctx::eprintln!(
+                "Adaptive low-disk promotion enabled at {}% (min TTL: {})",
+                threshold,
+                min_ttl_msg,
+            )?;
+        }
+
         let context = ctx.client_context(matches, &self)?;
         let response: CleanStaleResponse = buckd
             .with_flushing()
@@ -143,6 +159,8 @@ impl StreamingCommand for CleanStaleCommand {
                     keep_since_time: keep_since_time.timestamp(),
                     dry_run: self.dry_run,
                     tracked_only: self.tracked_only,
+                    adaptive_low_disk_threshold: self.adaptive_low_disk_threshold,
+                    adaptive_min_ttl_seconds: self.adaptive_min_ttl.map(|d| d.as_secs() as i64),
                 },
                 events_ctx,
                 ctx.console_interaction_stream(&self.common_opts.console_opts),

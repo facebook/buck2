@@ -21,6 +21,18 @@ Options:
           actions - State getting deleted (e.g., new buckversion that changes the on-disk state
           format) - Writing to `buck-out` without being expected by Buck
 
+      --adaptive-low-disk-threshold <PERCENT>
+          Enable adaptive low-disk promotion: after the regular stale scan, promote retained,
+          non-active artifacts (oldest-access first) to stale until projected free disk % rises
+          above this threshold (0.0 - 100.0)
+
+      --adaptive-min-ttl <DURATION>
+          Minimum TTL floor for adaptive low-disk promotion: retained artifacts accessed within this
+          duration of now are never promoted, even under disk pressure. Ignored unless
+          `--adaptive-low-disk-threshold` is set
+
+          [default: 12h]
+
       --background
           Run the clean operation in the background
 

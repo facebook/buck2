@@ -11,6 +11,7 @@
 use async_trait::async_trait;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
+use buck2_execute::materialize::materializer::CleanStaleArtifactsArgs;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -66,8 +67,18 @@ impl ServerCommandTemplate for CleanStaleServerCommand {
                     .single()
                     .ok_or_else(|| internal_error!("Invalid timestamp"))?;
 
+                let adaptive_min_ttl = self
+                    .req
+                    .adaptive_min_ttl_seconds
+                    .map(|s| std::time::Duration::from_secs(s.max(0) as u64));
                 extension
-                    .clean_stale_artifacts(keep_since_time, self.req.dry_run, self.req.tracked_only)
+                    .clean_stale_artifacts(CleanStaleArtifactsArgs {
+                        keep_since_time,
+                        dry_run: self.req.dry_run,
+                        tracked_only: self.req.tracked_only,
+                        adaptive_low_disk_threshold: self.req.adaptive_low_disk_threshold,
+                        adaptive_min_ttl,
+                    })
                     .await
                     .buck_error_context("Failed to clean stale artifacts.")
             })
