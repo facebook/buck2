@@ -410,30 +410,38 @@ def _get_dict_header_namespace(namespace: str, naming: CxxHeadersNaming) -> str:
 
 def _infer_include_prefix(srcs: dict[str, Artifact], header_namespace: [str, None], package: [str, None] = None) -> [str, None]:
     """
-    Detect the path prefix that, when prepended to a symlink tree key,
-    produces the correct repo-relative source path. When header_namespace
-    is "" (e.g. third-party targets), the symlink tree key may differ from
-    the artifact's real path by a prefix like "include/" or a cell directory
-    like "xplat/".
-    Returns the prefix string when a match is found (may be "" if the key
-    already matches the full cell-relative path), or None when no match could
-    be determined (caller should fall back to the package path).
-    Only checks the first entry; headers under different include directories
-    will get an approximate path (missing their specific include prefix).
+    Compute the cell-relative path prefix that, when prepended to a symlink
+    tree key, reconstructs the correct source path within the cell.
+    Returns a cell-relative prefix string, or None when no match could be
+    determined (caller should fall back to the package path).
     """
+    return _infer_include_prefix_from_paths(
+        {k: v.short_path for k, v in srcs.items()},
+        header_namespace,
+        package,
+    )
+
+def _infer_include_prefix_from_paths(srcs_paths: dict[str, str], header_namespace: [str, None], package: [str, None] = None) -> [str, None]:
     if header_namespace != "":
         return None
-    for key, artifact in srcs.items():
-        short = artifact.short_path
+    for key, short in srcs_paths.items():
         if short.endswith(key):
             if len(short) > len(key):
-                return paths.normalize(short[: len(short) - len(key)])
-            return ""
+                prefix = paths.normalize(short[: len(short) - len(key)])
+                return paths.join(package, prefix) if package else prefix
+            # Exact match (short == key) is uninformative — this entry
+            # sits directly in the package dir. Skip it and check more
+            # entries, since others may reveal a subdirectory prefix
+            # (e.g. "include/") that applies to the majority of headers.
+            continue
         if package:
             full_path = paths.join(package, short)
             if full_path.endswith(key):
                 if len(full_path) > len(key):
                     return paths.normalize(full_path[: len(full_path) - len(key)])
+                # full_path == key means the key already encodes the
+                # package-relative path (e.g. via subdir_glob prefix).
+                # Return "" so the caller uses just the cell prefix.
                 return ""
         break
     return None
@@ -522,3 +530,7 @@ def add_headers_dep_files(
 
     action_dep_files["headers"] = headers_dep_files.tag
     return cmd
+
+headers_for_tests = struct(
+    infer_include_prefix = _infer_include_prefix_from_paths,
+)

@@ -1,4 +1,5 @@
 load(":graph_utils_tests.bzl", "test_find_cycle")
+load(":headers_tests.bzl", "test_infer_include_prefix")
 load(":link_info_tests.bzl", "test_get_lib_output_style")
 
 oncall("build_infra")
@@ -6,3 +7,5 @@ oncall("build_infra")
 test_get_lib_output_style()
 
 test_find_cycle()
+
+test_infer_include_prefix()
