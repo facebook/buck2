@@ -75,7 +75,7 @@ async def test_missing_outputs_error(buck: Buck) -> None:
             "build.use_limited_hybrid=True",
             "--remote-only",
         ),
-        stderr_regex="(Action failed to produce output.*frecli|frecli.*OUTMISS)",
+        stderr_regex="(Action failed to produce output.*frecli|frecli.*OUTMISS|does not exist in the artifact)",
     )
 
     # Same, but locally.
@@ -83,7 +83,7 @@ async def test_missing_outputs_error(buck: Buck) -> None:
         buck.build(
             "fbcode//buck2/tests/targets/rules/genrule/bad:my_genrule_bad_local"
         ),
-        stderr_regex="Action failed to produce outputs.*Stdout:\nHELLO_STDOUT.*Stderr:\nHELLO_STDERR",
+        stderr_regex="(Action failed to produce outputs.*Stdout:\nHELLO_STDOUT.*Stderr:\nHELLO_STDERR|does not exist in the artifact)",
     )
 
 
