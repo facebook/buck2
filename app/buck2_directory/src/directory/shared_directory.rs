@@ -9,6 +9,7 @@
  */
 
 use std::sync::Arc;
+use std::sync::Weak;
 
 use allocative::Allocative;
 use buck2_core::directory_digest::DirectoryDigest;
@@ -17,10 +18,17 @@ use buck2_fs::paths::file_name::FileNameBuf;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Clone_;
+use dupe::Dupe;
 use dupe::Dupe_;
 use pagable::Pagable;
 use pagable::PagableDeserialize;
 use pagable::PagableSerialize;
+use pagable::arc_erase::ArcErase;
+use pagable::arc_erase::ArcEraseDyn;
+use pagable::arc_erase::ArcEraseType;
+use pagable::arc_erase::StdArcEraseType;
+use pagable::arc_erase::WeakErase;
+use pagable::arc_erase::deserialize_arc;
 
 use crate::directory::builder::DirectoryBuilder;
 use crate::directory::dashmap_directory_interner::DashMapDirectoryInterner;
@@ -71,6 +79,29 @@ where
     pub(super) inner: Arc<SharedDirectoryInner<L, H>>,
 }
 
+/// Weak reference to a [`SharedDirectory`].
+pub struct SharedDirectoryWeak<L, H>
+where
+    H: DirectoryDigest,
+{
+    inner: Weak<SharedDirectoryInner<L, H>>,
+}
+
+impl<L, H: Pagable + DirectoryDigest> WeakErase for SharedDirectoryWeak<L, H>
+where
+    L: Pagable + SharedDirectoryInternable<H>,
+{
+    fn is_expired(&self) -> bool {
+        self.inner.strong_count() == 0
+    }
+
+    fn upgrade_weak(&self) -> Option<Box<dyn ArcEraseDyn>> {
+        self.inner
+            .upgrade()
+            .map(|inner| Box::new(SharedDirectory { inner }) as _)
+    }
+}
+
 impl<L, H: Pagable + DirectoryDigest> PagableSerialize for SharedDirectory<L, H>
 where
     L: Pagable + SharedDirectoryInternable<H>,
@@ -79,7 +110,7 @@ where
         &self,
         serializer: &mut dyn pagable::PagableSerializer,
     ) -> pagable::Result<()> {
-        self.inner.data.pagable_serialize(serializer)
+        serializer.serialize_arc(self)
     }
 }
 
@@ -90,8 +121,47 @@ where
     fn pagable_deserialize<D: pagable::PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> pagable::Result<Self> {
-        let inner = SharedDirectoryData::pagable_deserialize(deserializer)?;
-        Ok(L::interner().intern(inner))
+        deserialize_arc::<Self, _>(deserializer)
+    }
+}
+
+impl<L, H: Pagable + DirectoryDigest> ArcErase for SharedDirectory<L, H>
+where
+    L: Pagable + SharedDirectoryInternable<H>,
+{
+    type Weak = SharedDirectoryWeak<L, H>;
+
+    fn dupe_strong(&self) -> Self {
+        self.dupe()
+    }
+
+    fn erase_type() -> impl ArcEraseType {
+        StdArcEraseType::<Self>::new()
+    }
+
+    fn identity(&self) -> usize {
+        Arc::as_ptr(&self.inner) as usize
+    }
+
+    fn downgrade(&self) -> Option<Self::Weak> {
+        Some(SharedDirectoryWeak {
+            inner: Arc::downgrade(&self.inner),
+        })
+    }
+
+    fn upgrade_weak(weak: &Self::Weak) -> Option<Self> {
+        weak.inner.upgrade().map(|inner| SharedDirectory { inner })
+    }
+
+    fn serialize_inner(&self, ser: &mut dyn pagable::PagableSerializer) -> pagable::Result<()> {
+        self.inner.data.pagable_serialize(ser)
+    }
+
+    fn deserialize_inner<'de, D: pagable::PagableDeserializer<'de> + ?Sized>(
+        deser: &mut D,
+    ) -> pagable::Result<Self> {
+        let data = SharedDirectoryData::pagable_deserialize(deser)?;
+        Ok(L::interner().intern(data))
     }
 }
 
@@ -248,3 +318,82 @@ where
 }
 
 impl_fingerprinted_directory!(SharedDirectory);
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Mutex;
+
+    use dupe::Dupe;
+    use pagable::PagableDeserialize;
+    use pagable::PagableSerialize;
+    use pagable::arc_erase::ArcErase;
+    use pagable::arc_erase::WeakErase;
+    use pagable::testing::TestingDeserializer;
+    use pagable::testing::TestingSerializer;
+
+    use crate::directory::entry::DirectoryEntry;
+    use crate::directory::shared_directory::SharedDirectory;
+    use crate::directory::shared_directory::SharedDirectoryInternable;
+    use crate::directory::test::NopEntry;
+    use crate::directory::test::TestDigest;
+    use crate::directory::test::TestDirectoryBuilder;
+    use crate::directory::test::TestHasher;
+    use crate::directory::test::path;
+
+    // These tests share the static NopEntry interner, so run them serially.
+    static PAGABLE_SHARED_DIRECTORY_TEST_MUTEX: Mutex<()> = Mutex::new(());
+
+    #[test]
+    fn pagable_preserves_shared_directory_identity() -> pagable::Result<()> {
+        let _guard = PAGABLE_SHARED_DIRECTORY_TEST_MUTEX
+            .lock()
+            .expect("pagable shared directory test mutex should not be poisoned");
+
+        let mut builder = TestDirectoryBuilder::empty();
+        builder
+            .insert(path("a/b"), DirectoryEntry::Leaf(NopEntry))
+            .expect("test path should insert");
+        let interner = <NopEntry as SharedDirectoryInternable<TestDigest>>::interner();
+        let dir = builder.fingerprint(&TestHasher).shared(&interner);
+
+        let pair = (dir.dupe(), dir.dupe());
+        let mut serializer = TestingSerializer::new();
+        pair.pagable_serialize(&mut serializer)?;
+        let bytes = serializer.finish();
+
+        let mut deserializer = TestingDeserializer::new(&bytes);
+        let restored: (
+            SharedDirectory<NopEntry, TestDigest>,
+            SharedDirectory<NopEntry, TestDigest>,
+        ) = PagableDeserialize::pagable_deserialize(&mut deserializer)?;
+
+        assert!(restored.0.ptr_eq(&restored.1));
+        Ok(())
+    }
+
+    #[test]
+    fn pagable_shared_directory_weak_upgrades_while_alive() -> buck2_error::Result<()> {
+        let _guard = PAGABLE_SHARED_DIRECTORY_TEST_MUTEX
+            .lock()
+            .expect("pagable shared directory test mutex should not be poisoned");
+
+        let mut builder = TestDirectoryBuilder::empty();
+        builder.insert(path("a/b"), DirectoryEntry::Leaf(NopEntry))?;
+        let interner = <NopEntry as SharedDirectoryInternable<TestDigest>>::interner();
+        let dir = builder.fingerprint(&TestHasher).shared(&interner);
+
+        let weak = ArcErase::downgrade(&dir).expect("shared directory should support downgrade");
+        let upgraded = <SharedDirectory<NopEntry, TestDigest> as ArcErase>::upgrade_weak(&weak)
+            .expect("live shared directory should upgrade");
+
+        assert!(dir.ptr_eq(&upgraded));
+        assert!(!WeakErase::is_expired(&weak));
+
+        drop(dir);
+        drop(upgraded);
+
+        assert!(WeakErase::is_expired(&weak));
+        assert!(<SharedDirectory<NopEntry, TestDigest> as ArcErase>::upgrade_weak(&weak).is_none());
+        Ok(())
+    }
+}
