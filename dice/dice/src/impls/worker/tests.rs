@@ -1384,11 +1384,21 @@ async fn _run_cancellation_caching_test(
     match cancel_type {
         CancelType::Sync | CancelType::ASync => {
             let limit = (FIRST_COMPUTE_MS as f64) * 0.05 + (CANCELLATION_WAIT_MS as f64) * 1.05;
-            assert!(elapsed_ms < limit as u64);
+            assert!(
+                elapsed_ms < limit as u64,
+                "cancelled key recompute took too long: elapsed_ms={elapsed_ms} but expected < {limit_u64} \
+                 (limit={limit:.1}, cancel_type={cancel_type:?}, FIRST_COMPUTE_MS={FIRST_COMPUTE_MS}, CANCELLATION_WAIT_MS={CANCELLATION_WAIT_MS})",
+                limit_u64 = limit as u64,
+            );
         }
         CancelType::NotCancelled => {
             let limit = (std::cmp::min(FIRST_COMPUTE_MS, CANCELLATION_WAIT_MS) as f64) * 0.95;
-            assert!(elapsed_ms > limit as u64);
+            assert!(
+                elapsed_ms > limit as u64,
+                "uncancelled key compute finished too fast: elapsed_ms={elapsed_ms} but expected > {limit_u64} \
+                 (limit={limit:.1}, cancel_type={cancel_type:?}, FIRST_COMPUTE_MS={FIRST_COMPUTE_MS}, CANCELLATION_WAIT_MS={CANCELLATION_WAIT_MS})",
+                limit_u64 = limit as u64,
+            );
         }
     };
     let ran_compute = shared.lock().await.ran_compute;
