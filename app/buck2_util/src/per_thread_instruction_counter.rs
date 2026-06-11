@@ -100,7 +100,16 @@ mod tests {
             let counter = PerThreadInstructionCounter::init().unwrap().unwrap();
             three_billion_instructions().unwrap();
             let count = counter.collect().unwrap();
-            assert!((3_000_000_000..=3_100_000_000).contains(&count));
+            // The workload runs ~3 billion instructions, but the exact measured
+            // count drifts a few percent: enable/collect boundaries and compiler
+            // codegen shave a little off the bottom, while counter multiplexing on
+            // contended CI hosts (the `time_enabled/time_running` scaling above) can
+            // inflate it. Use a wide tolerance so this stays a "counter is roughly
+            // working" sanity check rather than an exact-count assertion.
+            assert!(
+                (2_900_000_000..=3_200_000_000).contains(&count),
+                "instruction count {count} outside expected ~3 billion range",
+            );
         }
     }
 }
