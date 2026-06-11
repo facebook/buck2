@@ -62,7 +62,11 @@ def _logged_subprocess_run(
 
 def is_fast_adhoc_codesign_allowed(probe_enabled: bool) -> bool:
     if sys.platform == "darwin":
-        if not os.path.exists("/var/db/xcode_select_link"):
+        # Xcode's active-developer-dir symlink is /var/db/xcode_select_link on
+        # older macOS and /var/select/developer_dir on Sonoma+/Xcode 15+.
+        if not os.path.exists("/var/db/xcode_select_link") and not os.path.exists(
+            "/var/select/developer_dir"
+        ):
             _LOGGER.info(
                 "Developer tools do not exist, cannot use `otool`, fast adhoc signing not allowed"
             )
