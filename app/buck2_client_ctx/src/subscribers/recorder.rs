@@ -514,11 +514,6 @@ impl InvocationRecorder {
         }
     }
 
-    #[cfg(target_os = "linux")]
-    pub(crate) fn start_time(&self) -> SystemTime {
-        self.start_time
-    }
-
     pub fn update_for_client_ctx(
         &mut self,
         ctx: &ClientCommandContext<'_>,

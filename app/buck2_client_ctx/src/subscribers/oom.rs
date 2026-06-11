@@ -28,9 +28,14 @@ static OOMD_KILL_RE: Lazy<Regex> =
 static SYSTEMD_OOMD_KILL_RE: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"Killed (\S+) due to memory pressure for ").unwrap());
 
+/// How far before the daemon-disconnect time the `dmesg --since` window starts.
+///
+/// OOM detection runs `dmesg --since <daemon disconnect time - DMESG_SINCE_BUFFER>`.
+const DMESG_SINCE_BUFFER: Duration = Duration::from_secs(5 * 60);
+
 pub(crate) async fn check_daemon_oom_killed(
     cgroup_path_of_buck2_daemon: &str,
-    since: SystemTime,
+    daemon_disconnect_time: SystemTime,
 ) -> buck2_error::Result<bool> {
     let cgroup_path_of_buck2_daemon =
         match cgroup_path_of_buck2_daemon.strip_prefix("/sys/fs/cgroup/") {
@@ -52,6 +57,9 @@ pub(crate) async fn check_daemon_oom_killed(
     // Check kernel OOM killer messages in dmesg.
     // The kernel writes these synchronously when OOM killing, so they are
     // immediately available
+    let since = daemon_disconnect_time
+        .checked_sub(DMESG_SINCE_BUFFER)
+        .unwrap_or(SystemTime::UNIX_EPOCH);
     let since_str = format_timestamp_for_dmesg(since);
     let child = match buck2_util::process::async_background_command("dmesg")
         .args(["--since", &since_str])

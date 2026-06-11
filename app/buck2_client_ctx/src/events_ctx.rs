@@ -496,16 +496,11 @@ impl EventsCtx {
     pub(crate) async fn is_daemon_oom_killed(&self) -> buck2_error::Result<bool> {
         #[cfg(target_os = "linux")]
         {
-            let start_time = match self.recorder.as_ref() {
-                Some(r) => r.start_time(),
-                None => return Ok(false),
+            let Some(path) = self.cgroup_path_of_buck2_daemon.as_deref() else {
+                return Ok(false);
             };
-            match self.cgroup_path_of_buck2_daemon.as_deref() {
-                Some(path) => {
-                    crate::subscribers::oom::check_daemon_oom_killed(path, start_time).await
-                }
-                None => Ok(false),
-            }
+            let daemon_disconnect_time = SystemTime::now();
+            crate::subscribers::oom::check_daemon_oom_killed(path, daemon_disconnect_time).await
         }
         #[cfg(not(target_os = "linux"))]
         {
