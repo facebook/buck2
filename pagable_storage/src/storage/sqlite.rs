@@ -172,11 +172,11 @@ impl SqliteBackedPagableStorage {
 
     pub fn shrink_memory(&self) {
         if let Ok(conn) = self.conns.readwrite.lock() {
-            let _ = conn.execute_batch("PRAGMA shrink_memory;");
+            let _unused = conn.execute_batch("PRAGMA shrink_memory;");
         }
         for reader in &self.conns.readers {
             if let Ok(conn) = reader.lock() {
-                let _ = conn.execute_batch("PRAGMA shrink_memory;");
+                let _unused = conn.execute_batch("PRAGMA shrink_memory;");
             }
         }
     }
