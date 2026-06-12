@@ -461,9 +461,19 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         DefaultInfo(default_output = extended_dsym_info, other_outputs = extended_dsym_json_info.outputs),
     ]
 
-    # debug binaries used for symbolication without dSYMs
+    binary_name = get_product_name(ctx)
+
+    # Debug binaries used for symbolication without dSYMs.
+    # Create a symlink such that the basename of the exposed debug artifact
+    # matches the name the binary has within the bundle (`binary_name`) instead
+    # of the basename of the linker output. That's needed since GSYM upload
+    # has to know the filename under which the binary ends up in the bundle.
     unstripped_binary_artifact = binary_outputs.unstripped_binary if binary_outputs.unstripped_binary else binary_outputs.binary
-    binary_debug_artifacts = [unstripped_binary_artifact] + flatten([info.binaries for info in deps_debuggable_infos])
+    renamed_unstripped_binary = ctx.actions.symlink_file(
+        ctx.actions.declare_output("__unstripped_binaries__", binary_name),
+        unstripped_binary_artifact,
+    )
+    binary_debug_artifacts = [renamed_unstripped_binary] + flatten([info.binaries for info in deps_debuggable_infos])
 
     sub_targets[_PLIST] = [DefaultInfo(default_output = apple_bundle_part_list_output.info_plist_part.source)]
     info_plist_info = AppleInfoPlistInfo(info_plist = apple_bundle_part_list_output.info_plist_part.source)
@@ -528,7 +538,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
             AppleBundleInfo(
                 bundle = bundle,
                 bundle_type = _infer_apple_bundle_type(ctx),
-                binary_name = get_product_name(ctx),
+                binary_name = binary_name,
                 contains_watchapp = lazy.is_any(lambda part: part.destination == AppleBundleDestination("watchapp"), apple_bundle_part_list_output.parts),
                 skip_copying_swift_stdlib = ctx.attrs.skip_copying_swift_stdlib,
                 codesign_manifest_tree = bundle_result.codesign_manifest_tree,
