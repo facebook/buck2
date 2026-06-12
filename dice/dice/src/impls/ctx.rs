@@ -45,8 +45,9 @@ use crate::api::projection::ProjectionKey;
 use crate::api::user_data::UserComputationData;
 use crate::ctx::DiceComputationsImpl;
 use crate::ctx::LinearRecomputeDiceComputationsImpl;
-use crate::impls::cache::DiceTaskRef;
 use crate::impls::cache::SharedCache;
+use crate::impls::cache::SharedCacheInsert;
+use crate::impls::cache::SharedCacheLookup;
 use crate::impls::core::state::CoreStateHandle;
 use crate::impls::core::versions::VersionEpoch;
 use crate::impls::deps::RecordedDeps;
@@ -59,6 +60,7 @@ use crate::impls::key::CowDiceKeyHashed;
 use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
 use crate::impls::opaque::OpaqueValue;
+use crate::impls::task::PreviouslyCancelledTask;
 use crate::impls::task::dice::DiceTask;
 use crate::impls::task::dice::PreparedDiceTask;
 use crate::impls::task::promise::DicePromise;
@@ -806,6 +808,13 @@ pub(crate) struct SharedLiveTransactionCtx {
     cache: SharedCache,
 }
 
+enum LookupResult {
+    Finished(DiceComputedValue),
+    Pending(DicePromise),
+    NeedsRestart(PreparedDiceTask, Option<PreviouslyCancelledTask>),
+    TransactionCancelled,
+}
+
 #[allow(clippy::manual_async_fn, unused)]
 impl SharedLiveTransactionCtx {
     pub(crate) fn new(v: VersionNumber, version_epoch: VersionEpoch, cache: SharedCache) -> Self {
@@ -813,6 +822,40 @@ impl SharedLiveTransactionCtx {
             version: v,
             version_epoch,
             cache,
+        }
+    }
+
+    fn lookup_entry(&self, key: DiceKey, parent_key: ParentKey) -> LookupResult {
+        let task = match self.cache.get(key) {
+            SharedCacheLookup::Finished(result) => {
+                return LookupResult::Finished(result);
+            }
+            SharedCacheLookup::Occupied(task) => task,
+            SharedCacheLookup::Vacant => {
+                let prepared_task = DiceTask::prepare(key);
+                match self.cache.insert(key, prepared_task.task().dupe()) {
+                    SharedCacheInsert::Occupied(dice_task) => dice_task,
+                    SharedCacheInsert::Inserted => {
+                        return LookupResult::NeedsRestart(prepared_task, None);
+                    }
+                    SharedCacheInsert::TransactionCancelled => {
+                        return LookupResult::TransactionCancelled;
+                    }
+                }
+            }
+        };
+
+        match task.depended_on_by(parent_key) {
+            DiceTaskDependedOnByResult::Finished(dice_computed_value) => {
+                LookupResult::Finished(dice_computed_value)
+            }
+            DiceTaskDependedOnByResult::Pending(dice_promise) => {
+                LookupResult::Pending(dice_promise)
+            }
+            DiceTaskDependedOnByResult::NeedsRestart(
+                prepared_dice_task,
+                previously_cancelled_task,
+            ) => LookupResult::NeedsRestart(prepared_dice_task, Some(previously_cancelled_task)),
         }
     }
 
@@ -827,69 +870,34 @@ impl SharedLiveTransactionCtx {
         eval: &AsyncEvaluator,
         cycles: UserCycleDetectorData,
     ) -> impl Future<Output = CancellableResult<DiceComputedValue>> + use<> {
-        let res: CancellableResult<DicePromise> = match self.cache.get(key) {
-            DiceTaskRef::Computed(result) => Ok(DicePromise::ready(result)),
-            DiceTaskRef::Occupied(occupied) => match occupied.get().depended_on_by(parent_key) {
-                DiceTaskDependedOnByResult::Finished(value) => Ok(DicePromise::ready(value)),
-                DiceTaskDependedOnByResult::Pending(promise) => {
-                    debug!(msg = "shared state is waiting on existing task", k = ?key, v = ?self.version, v_epoch = ?self.version_epoch);
-                    Ok(promise)
-                }
-                DiceTaskDependedOnByResult::NeedsRestart(
-                    prepared_task,
-                    previously_cancelled_task,
-                ) => {
-                    debug!(msg = "shared state has a cancelled task, spawning new one", k = ?key, v = ?self.version, v_epoch = ?self.version_epoch);
-
-                    let eval = eval.dupe();
-                    let events =
-                        DiceEventDispatcher::new(eval.user_data.tracker.dupe(), eval.dice.dupe());
-
-                    Ok(DiceTaskWorker::spawn(
-                        key,
-                        prepared_task,
-                        self.version_epoch,
-                        eval,
-                        cycles,
-                        events,
-                        Some(previously_cancelled_task),
-                    ))
-                }
-            },
-            DiceTaskRef::Vacant(vacant) => {
-                debug!(msg = "shared state is empty, spawning new task", k = ?key, v = ?self.version, v_epoch = ?self.version_epoch);
-
+        match self.lookup_entry(key, parent_key) {
+            LookupResult::Finished(dice_computed_value) => {
+                DicePromise::ready(dice_computed_value).left_future()
+            }
+            LookupResult::Pending(dice_promise) => dice_promise.left_future(),
+            LookupResult::NeedsRestart(prepared_dice_task, previously_cancelled_task) => {
                 let eval = eval.dupe();
                 let events =
                     DiceEventDispatcher::new(eval.user_data.tracker.dupe(), eval.dice.dupe());
 
-                let prepared_task = DiceTask::prepare(key);
-                let task = prepared_task.task().dupe();
-                let promise = DiceTaskWorker::spawn(
+                DiceTaskWorker::spawn(
                     key,
-                    prepared_task,
+                    prepared_dice_task,
                     self.version_epoch,
                     eval,
                     cycles,
                     events,
-                    None,
-                );
-
-                vacant.insert(task);
-                Ok(promise)
+                    previously_cancelled_task,
+                )
+                .left_future()
             }
-            DiceTaskRef::TransactionCancelled => Err(CancellationReason::TransactionCancelled),
-        };
-
-        match res {
-            Ok(v) => v.left_future(),
-            Err(reason) => {
+            LookupResult::TransactionCancelled => {
                 let v = self.version;
                 let v_epoch = self.version_epoch;
                 async move {
                     debug!(msg = "computing shared state is cancelled", k = ?key, v = ?v, v_epoch = ?v_epoch);
                     tokio::task::yield_now().await;
-                    Err(reason)
+                    Err(CancellationReason::TransactionCancelled)
                 }
                     .right_future()
             }
@@ -905,39 +913,28 @@ impl SharedLiveTransactionCtx {
         eval: SyncEvaluator,
         events: DiceEventDispatcher,
     ) -> CancellableResult<DiceComputedValue> {
-        let result = match self.cache.get(key) {
-            DiceTaskRef::Computed(value) => return Ok(value),
-            DiceTaskRef::Occupied(occupied) => match occupied.get().depended_on_by(parent_key) {
-                DiceTaskDependedOnByResult::Finished(value) => return Ok(value),
-                DiceTaskDependedOnByResult::Pending(promise) => promise,
-                DiceTaskDependedOnByResult::NeedsRestart(
-                    PreparedDiceTask {
-                        completion_handle: _unused,
-                        dependent_future,
-                        task_spawner: _unused2,
-                    },
-                    _previously_cancelled_task,
-                ) => DicePromise::pending(dependent_future),
-            },
-            DiceTaskRef::Vacant(vacant) => {
+        let promise = match self.lookup_entry(key, parent_key) {
+            LookupResult::Finished(dice_computed_value) => {
+                return Ok(dice_computed_value);
+            }
+            LookupResult::Pending(dice_promise) => dice_promise,
+            LookupResult::NeedsRestart(prepared_dice_task, previously_cancelled_task) => {
                 let PreparedDiceTask {
                     completion_handle: _unused,
                     dependent_future,
                     task_spawner: _unused2,
-                } = DiceTask::prepare(key);
-                let task = dependent_future.task().dupe();
-                let promise = DicePromise::pending(dependent_future);
-                vacant.insert(task);
-                promise
+                } = prepared_dice_task;
+
+                DicePromise::pending(dependent_future)
             }
-            DiceTaskRef::TransactionCancelled => {
+            LookupResult::TransactionCancelled => {
                 return Err(CancellationReason::TransactionCancelled);
             }
         };
 
         project_for_key(
             state,
-            result,
+            promise,
             key,
             self.version,
             self.version_epoch,

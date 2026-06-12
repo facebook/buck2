@@ -261,14 +261,3 @@ use crate::transaction_update::DiceTransactionUpdaterImpl;
 pub mod testing {
     pub use crate::api::dice::testing::DiceBuilder;
 }
-
-#[cfg(test)]
-pub(crate) mod testing_helpers {
-    use crate::api::key::Key;
-    use crate::impls::key::DiceKey;
-    use crate::impls::task::dice::DiceTask;
-
-    pub(crate) async fn make_completed_task<K: Key>(key: DiceKey, val: K::Value) -> DiceTask {
-        crate::impls::task::dice::testing_helpers::make_completed_task::<K>(key, val)
-    }
-}

@@ -12,6 +12,7 @@ use std::ops::Deref;
 use std::ptr;
 
 use allocative::Allocative;
+use arc_swap::RefCnt;
 use dupe::Dupe;
 use lock_free_hashtable::atomic_value::AtomicValue;
 
@@ -47,8 +48,61 @@ impl<T> Clone for Arc<T> {
 
 impl<T> Dupe for Arc<T> {}
 
+unsafe impl<T> RefCnt for Arc<T> {
+    type Base = T;
+
+    #[inline]
+    fn into_ptr(me: Self) -> *mut Self::Base {
+        <triomphe::Arc<T> as RefCnt>::into_ptr(me.0)
+    }
+
+    #[inline]
+    fn as_ptr(me: &Self) -> *mut Self::Base {
+        <triomphe::Arc<T> as RefCnt>::as_ptr(&me.0)
+    }
+
+    #[inline]
+    unsafe fn from_ptr(ptr: *const Self::Base) -> Self {
+        Self(unsafe { <triomphe::Arc<T> as RefCnt>::from_ptr(ptr) })
+    }
+}
+
 impl<T> Deref for Arc<T> {
     type Target = triomphe::Arc<T>;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+pub(crate) struct ArcBorrow<'a, T>(triomphe::ArcBorrow<'a, T>);
+
+impl<'a, T> ArcBorrow<'a, T> {
+    #[inline]
+    pub(crate) fn clone_arc(self) -> Arc<T> {
+        Arc(self.0.clone_arc())
+    }
+
+    #[inline]
+    pub(crate) unsafe fn from_ptr(raw: *const T) -> Self {
+        ArcBorrow(unsafe { triomphe::ArcBorrow::from_ptr(raw) })
+    }
+}
+
+impl<T> Clone for ArcBorrow<'_, T> {
+    #[inline]
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<T> Dupe for ArcBorrow<'_, T> {}
+
+impl<T> Copy for ArcBorrow<'_, T> {}
+
+impl<'a, T> Deref for ArcBorrow<'a, T> {
+    type Target = T;
 
     #[inline]
     fn deref(&self) -> &Self::Target {
@@ -59,7 +113,7 @@ impl<T> Deref for Arc<T> {
 impl<T> AtomicValue for Arc<T> {
     type Raw = *const T;
     type Ref<'a>
-        = &'a T
+        = ArcBorrow<'a, T>
     where
         Self: 'a;
 
@@ -85,6 +139,6 @@ impl<T> AtomicValue for Arc<T> {
 
     #[inline]
     unsafe fn deref<'a>(raw: Self::Raw) -> Self::Ref<'a> {
-        unsafe { &*raw }
+        unsafe { ArcBorrow::from_ptr(raw) }
     }
 }
