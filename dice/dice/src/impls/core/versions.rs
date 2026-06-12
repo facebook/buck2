@@ -189,7 +189,7 @@ pub(crate) mod introspection {
     use crate::HashMap;
     use crate::impls::core::versions::VersionTracker;
     use crate::impls::key::DiceKey;
-    use crate::impls::task::DiceTaskState;
+    use crate::introspection::DiceTaskState;
     use crate::introspection::graph::AnyKey;
     use crate::introspection::graph::VersionNumber;
 

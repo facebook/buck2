@@ -31,6 +31,7 @@ use itertools::Either;
 use parking_lot::Mutex;
 use typed_arena::Arena;
 
+use super::task::dice::DiceTaskDependedOnByResult;
 use crate::DiceTransactionUpdater;
 use crate::LinearRecomputeDiceComputations;
 use crate::UserCycleDetectorGuard;
@@ -58,10 +59,9 @@ use crate::impls::key::CowDiceKeyHashed;
 use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
 use crate::impls::opaque::OpaqueValue;
-use crate::impls::task::PreviouslyCancelledTask;
 use crate::impls::task::dice::DiceTask;
+use crate::impls::task::dice::PreparedDiceTask;
 use crate::impls::task::promise::DicePromise;
-use crate::impls::task::sync_dice_task;
 use crate::impls::transaction::ActiveTransactionGuard;
 use crate::impls::transaction::TransactionUpdater;
 use crate::impls::user_cycle::KeyComputingUserCycleDetectorData;
@@ -829,39 +829,33 @@ impl SharedLiveTransactionCtx {
     ) -> impl Future<Output = CancellableResult<DiceComputedValue>> + use<> {
         let res: CancellableResult<DicePromise> = match self.cache.get(key) {
             DiceTaskRef::Computed(result) => Ok(DicePromise::ready(result)),
-            DiceTaskRef::Occupied(mut occupied) => {
-                match occupied.get().depended_on_by(parent_key) {
-                    Ok(promise) => {
-                        debug!(msg = "shared state is waiting on existing task", k = ?key, v = ?self.version, v_epoch = ?self.version_epoch);
-                        Ok(promise)
-                    }
-                    Err(_reason) => {
-                        debug!(msg = "shared state has a cancelled task, spawning new one", k = ?key, v = ?self.version, v_epoch = ?self.version_epoch);
-
-                        let eval = eval.dupe();
-                        let events = DiceEventDispatcher::new(
-                            eval.user_data.tracker.dupe(),
-                            eval.dice.dupe(),
-                        );
-
-                        take_mut::take(occupied.get_mut(), |previous| {
-                            let prepared_task = DiceTask::prepare(key);
-                            DiceTaskWorker::spawn(
-                                key,
-                                prepared_task,
-                                self.version_epoch,
-                                eval,
-                                cycles,
-                                events,
-                                Some(PreviouslyCancelledTask::new(previous)),
-                            )
-                        });
-
-                        // While we wouldn't have canceled the task, it could've already finished with a canceled result.
-                        occupied.get().depended_on_by(parent_key)
-                    }
+            DiceTaskRef::Occupied(occupied) => match occupied.get().depended_on_by(parent_key) {
+                DiceTaskDependedOnByResult::Finished(value) => Ok(DicePromise::ready(value)),
+                DiceTaskDependedOnByResult::Pending(promise) => {
+                    debug!(msg = "shared state is waiting on existing task", k = ?key, v = ?self.version, v_epoch = ?self.version_epoch);
+                    Ok(promise)
                 }
-            }
+                DiceTaskDependedOnByResult::NeedsRestart(
+                    prepared_task,
+                    previously_cancelled_task,
+                ) => {
+                    debug!(msg = "shared state has a cancelled task, spawning new one", k = ?key, v = ?self.version, v_epoch = ?self.version_epoch);
+
+                    let eval = eval.dupe();
+                    let events =
+                        DiceEventDispatcher::new(eval.user_data.tracker.dupe(), eval.dice.dupe());
+
+                    Ok(DiceTaskWorker::spawn(
+                        key,
+                        prepared_task,
+                        self.version_epoch,
+                        eval,
+                        cycles,
+                        events,
+                        Some(previously_cancelled_task),
+                    ))
+                }
+            },
             DiceTaskRef::Vacant(vacant) => {
                 debug!(msg = "shared state is empty, spawning new task", k = ?key, v = ?self.version, v_epoch = ?self.version_epoch);
 
@@ -871,7 +865,7 @@ impl SharedLiveTransactionCtx {
 
                 let prepared_task = DiceTask::prepare(key);
                 let task = prepared_task.task().dupe();
-                DiceTaskWorker::spawn(
+                let promise = DiceTaskWorker::spawn(
                     key,
                     prepared_task,
                     self.version_epoch,
@@ -881,12 +875,8 @@ impl SharedLiveTransactionCtx {
                     None,
                 );
 
-                // While we wouldn't have canceled the task, it could've already finished with a canceled result.
-                let result = task.depended_on_by(parent_key);
-                if result.is_ok() {
-                    vacant.insert(task);
-                }
-                result
+                vacant.insert(task);
+                Ok(promise)
             }
             DiceTaskRef::TransactionCancelled => Err(CancellationReason::TransactionCancelled),
         };
@@ -916,39 +906,32 @@ impl SharedLiveTransactionCtx {
         events: DiceEventDispatcher,
     ) -> CancellableResult<DiceComputedValue> {
         let result = match self.cache.get(key) {
-            DiceTaskRef::Computed(value) => DicePromise::ready(value),
-            DiceTaskRef::Occupied(mut occupied) => {
-                match occupied.get().depended_on_by(parent_key) {
-                    Ok(promise) => promise,
-                    Err(_reason) => {
-                        let task = unsafe {
-                            // SAFETY: task completed below by `IncrementalEngine::project_for_key`
-                            sync_dice_task(key)
-                        };
-
-                        *occupied.get_mut() = task;
-
-                        occupied.get().depended_on_by(parent_key)?
-                    }
-                }
-            }
+            DiceTaskRef::Computed(value) => return Ok(value),
+            DiceTaskRef::Occupied(occupied) => match occupied.get().depended_on_by(parent_key) {
+                DiceTaskDependedOnByResult::Finished(value) => return Ok(value),
+                DiceTaskDependedOnByResult::Pending(promise) => promise,
+                DiceTaskDependedOnByResult::NeedsRestart(
+                    PreparedDiceTask {
+                        completion_handle: _unused,
+                        dependent_future,
+                        task_spawner: _unused2,
+                    },
+                    _previously_cancelled_task,
+                ) => DicePromise::pending(dependent_future),
+            },
             DiceTaskRef::Vacant(vacant) => {
-                let task = unsafe {
-                    // SAFETY: task completed below by `IncrementalEngine::project_for_key`
-                    sync_dice_task(key)
-                };
-
-                vacant.insert(task).value().depended_on_by(parent_key)?
+                let PreparedDiceTask {
+                    completion_handle: _unused,
+                    dependent_future,
+                    task_spawner: _unused2,
+                } = DiceTask::prepare(key);
+                let task = dependent_future.task().dupe();
+                let promise = DicePromise::pending(dependent_future);
+                vacant.insert(task);
+                promise
             }
             DiceTaskRef::TransactionCancelled => {
-                // for projection keys, these are cheap and synchronous computes that should never
-                // be cancelled
-                let task = unsafe {
-                    // SAFETY: task completed below by `IncrementalEngine::project_for_key`
-                    sync_dice_task(key)
-                };
-
-                task.depended_on_by(parent_key)?
+                return Err(CancellationReason::TransactionCancelled);
             }
         };
 

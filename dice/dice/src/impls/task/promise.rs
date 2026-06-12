@@ -19,26 +19,25 @@ use std::task::Poll;
 use dice_error::result::CancellableResult;
 use dupe::Dupe;
 use futures::future::BoxFuture;
-use futures::task::AtomicWaker;
+use pin_project::pin_project;
 
-use crate::arc::Arc;
-use crate::impls::task::dice::DiceTask;
-use crate::impls::task::dice::SlabId;
+use crate::impls::task::dice::DiceTaskDependentFuture;
 use crate::impls::value::DiceComputedValue;
 
 /// A strong reference to a 'DiceTask' that is pollable as a future.
 /// This is only awoken when the result is ready, as none of the pollers are responsible for
 /// running the task to completion.
-pub(crate) struct DicePromise(pub(super) DicePromiseInternal);
+#[pin_project]
+pub(crate) struct DicePromise(#[pin] pub(super) DicePromiseInternal);
 
+#[pin_project(project = DicePromiseInternalProj)]
 pub(super) enum DicePromiseInternal {
     Ready {
         result: DiceComputedValue,
     },
     Pending {
-        slab: SlabId,
-        task: DiceTask,
-        waker: Arc<AtomicWaker>,
+        #[pin]
+        future: DiceTaskDependentFuture,
     },
     Done,
 }
@@ -68,16 +67,8 @@ impl DicePromise {
         Self(DicePromiseInternal::Ready { result })
     }
 
-    pub(super) fn pending(slab: SlabId, task: DiceTask, waker: Arc<AtomicWaker>) -> Self {
-        Self(DicePromiseInternal::Pending { slab, task, waker })
-    }
-
-    pub(crate) fn is_pending(&self) -> bool {
-        match &self.0 {
-            DicePromiseInternal::Ready { .. } => false,
-            DicePromiseInternal::Pending { task, .. } => task.is_pending(),
-            DicePromiseInternal::Done => false,
-        }
+    pub(crate) fn pending(future: DiceTaskDependentFuture) -> Self {
+        Self(DicePromiseInternal::Pending { future })
     }
 
     /// Get the value if already complete, or complete it. Note that `f` may run even if the result
@@ -86,20 +77,12 @@ impl DicePromise {
         self,
         f: impl FnOnce() -> DiceSyncResult,
     ) -> CancellableResult<DiceComputedValue> {
-        match &self.0 {
-            DicePromiseInternal::Ready { result } => Ok(result.dupe()),
-            DicePromiseInternal::Pending { task, .. } => task.sync_get_or_complete(f),
+        match self.0 {
+            DicePromiseInternal::Ready { result } => Ok(result),
+            DicePromiseInternal::Pending { future, .. } => {
+                future.task().dupe().sync_get_or_complete(future, f)
+            }
             DicePromiseInternal::Done => panic!("poll after ready"),
-        }
-    }
-}
-
-impl Drop for DicePromise {
-    fn drop(&mut self) {
-        match &self.0 {
-            DicePromiseInternal::Ready { .. } => {}
-            DicePromiseInternal::Done => {}
-            DicePromiseInternal::Pending { slab, task, .. } => task.drop_waiter(slab),
         }
     }
 }
@@ -115,22 +98,17 @@ impl Future for DicePromise {
                     _ => unreachable!(),
                 }
             }
-            DicePromiseInternal::Pending { task, waker, .. } => {
-                waker.register(cx.waker());
-                if let Some(res) = task.read_value() {
-                    Poll::Ready(res)
-                } else {
-                    Poll::Pending
-                }
-            }
             DicePromiseInternal::Done => panic!("poll after ready"),
+            _ => match self.as_mut().project().0.project() {
+                DicePromiseInternalProj::Pending { future } => match future.poll(cx) {
+                    Poll::Ready(Err(e)) => Poll::Ready(Err(e)),
+                    v => v,
+                },
+                _ => unreachable!(),
+            },
         };
 
         if matches!(res, Poll::Ready(..)) {
-            // make sure to set the state to done if we are ready, so that when this task gets
-            // dropped later, we do not check the `wakers` mutex
-            // The wakers list will have been cleared anyways by the original future that completed
-            // the task.
             self.0 = DicePromiseInternal::Done;
         }
 
