@@ -38,8 +38,13 @@ def _impl_network_isolated(_ctx):
         DefaultInfo(),
         ExternalRunnerTestInfo(
             command = ["python3", "-c", _LOCALHOST_CONNECT],
+            default_executor = CommandExecutorConfig(
+                local_enabled = True,
+                remote_enabled = False,
+                remote_cache_enabled = False,
+                network_access = "none",
+            ),
             type = "custom",
-            network_access = "none",
         ),
     ]
 
