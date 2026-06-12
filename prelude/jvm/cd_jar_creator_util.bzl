@@ -167,7 +167,7 @@ def get_compiling_deps_tset(
 
     return compiling_deps_tset
 
-def _get_source_only_abi_compiling_deps(compiling_deps_tset: [JavaCompilingDepsTSet, None], source_only_abi_deps: list[Dependency]) -> list[JavaClasspathEntry]:
+def get_source_only_abi_compiling_deps(compiling_deps_tset: [JavaCompilingDepsTSet, None], source_only_abi_deps: list[Dependency]) -> list[JavaClasspathEntry]:
     source_only_abi_compiling_deps = []
     if compiling_deps_tset:
         source_only_abi_deps_filter = {}
@@ -631,7 +631,7 @@ def generate_abi_jars(
             source_only_abi_output_paths = define_output_paths(actions, source_only_abi_identifier, label, uses_content_based_paths)
             source_only_abi_classpath_jars_tag = actions.artifact_tag()
             source_only_abi_dir = declare_prefixed_output(actions, source_only_abi_identifier, "dir", uses_content_based_paths, dir = True)
-            source_only_abi_compiling_deps = _get_source_only_abi_compiling_deps(compiling_deps_tset, source_only_abi_deps)
+            source_only_abi_compiling_deps = get_source_only_abi_compiling_deps(compiling_deps_tset, source_only_abi_deps)
 
             if kotlin_extra_params_builder:
                 source_only_abi_kotlin_classes = declare_prefixed_output(

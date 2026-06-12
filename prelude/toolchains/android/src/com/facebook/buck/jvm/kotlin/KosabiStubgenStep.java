@@ -83,6 +83,7 @@ public class KosabiStubgenStep extends KotlincStep {
         kosabiJvmAbiGenEarlyTerminationMessagePrefix,
         kosabiShouldEnableMixedCompilation,
         sourceOnlyAbiClasspath,
+        ImmutableList.of(),
         verifySourceOnlyAbiConstraints,
         postKotlinCompilationFailureSteps,
         depTrackerPath,

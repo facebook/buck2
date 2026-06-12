@@ -249,6 +249,13 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
               moduleName,
               kotlinCDAnalytics);
 
+      // Build the reduced SO-ABI classpath for the applicability plugin.
+      // During library builds, the regular sourceOnlyAbiClasspath contains the
+      // full dep set. The applicability plugin needs the reduced set to detect
+      // types that won't be available during source-only-abi generation.
+      ImmutableList<AbsPath> applicabilityClasspath =
+          extraParams.getSourceOnlyAbiApplicabilityClasspathPaths();
+
       KotlinCStepsBuilder.prepareKotlinCompilation(
           buckOut,
           buildCellRootPath,
@@ -269,6 +276,7 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
           kosabiPluginOptions,
           kspInvocationStatus,
           sourceOnlyAbiClasspathBuilder.build(),
+          applicabilityClasspath,
           postKotlinCompilationFailureSteps,
           classpathSnapshots,
           kotlinCDAnalytics);

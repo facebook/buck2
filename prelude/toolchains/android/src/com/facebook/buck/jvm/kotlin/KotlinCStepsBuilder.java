@@ -51,6 +51,7 @@ public class KotlinCStepsBuilder {
       KosabiPluginOptions kosabiPluginOptions,
       KspStepsBuilder.KSPInvocationStatus kspInvocationStatus,
       ImmutableList<AbsPath> sourceOnlyAbiClasspath,
+      ImmutableList<AbsPath> applicabilityClasspath,
       ImmutableList.Builder<IsolatedStep> postKotlinCompilationFailureSteps,
       ImmutableList<AbsPath> classpathSnapshots,
       KotlinCDAnalytics kotlinCDAnalytics) {
@@ -86,6 +87,7 @@ public class KotlinCStepsBuilder {
             invokingRule.isSourceOnlyAbi()
                 && kspInvocationStatus == KspStepsBuilder.KSPInvocationStatus.KSP2_INVOKED,
             sourceOnlyAbiClasspath,
+            applicabilityClasspath,
             extraParams.getShouldVerifySourceOnlyAbiConstraints(),
             postKotlinCompilationFailureSteps.build(),
             extraParams.getDepTrackerPlugin(),

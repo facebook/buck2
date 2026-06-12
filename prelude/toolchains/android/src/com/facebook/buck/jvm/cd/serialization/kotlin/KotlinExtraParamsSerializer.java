@@ -89,6 +89,9 @@ public class KotlinExtraParamsSerializer {
         kotlinExtraParams.getLanguageVersion(),
         kotlinExtraParams.getShouldKosabiJvmAbiGenUseK2(),
         AbsPathSerializer.deserialize(kotlinExtraParams.getKotlinClassesDir()),
-        Optional.of(kotlinExtraParams.getJavaBinary()).filter(s -> !s.isEmpty()));
+        Optional.of(kotlinExtraParams.getJavaBinary()).filter(s -> !s.isEmpty()),
+        kotlinExtraParams.getSourceOnlyAbiApplicabilityClasspathPathsList().stream()
+            .map(AbsPathSerializer::deserialize)
+            .collect(ImmutableList.toImmutableList()));
   }
 }

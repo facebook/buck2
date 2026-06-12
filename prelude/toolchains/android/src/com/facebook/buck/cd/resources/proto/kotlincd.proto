@@ -60,6 +60,13 @@ message KotlinExtraParams {
   string kotlinClassesDir = 28;
   reserved 29; // was skipClasspathRemovalRebuild, removed after KT-85740 fix
   string javaBinary = 30;
+  // Classpath entries available during source-only-abi compilation (only deps
+  // with required_for_source_only_abi=True or in source_only_abi_deps).
+  // Used by the applicability plugin to check whether types will be available
+  // when generating ABI stubs. During library builds, the regular
+  // compileTimeClasspathPaths contains the full dep set, but applicability
+  // checks need the reduced SO-ABI classpath to detect missing deps.
+  repeated string sourceOnlyAbiApplicabilityClasspathPaths = 31;
 }
 
 message PluginParams {

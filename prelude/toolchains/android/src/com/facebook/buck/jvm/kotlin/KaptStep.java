@@ -60,6 +60,7 @@ public class KaptStep extends KotlincStep {
         null,
         true,
         ImmutableList.of(),
+        ImmutableList.of(),
         false,
         ImmutableList.of(),
         Optional.empty(),

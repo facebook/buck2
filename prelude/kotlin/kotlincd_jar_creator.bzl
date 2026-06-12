@@ -41,6 +41,7 @@ load(
     "encode_command",
     "generate_abi_jars",
     "get_compiling_deps_tset",
+    "get_source_only_abi_compiling_deps",
     "prepare_cd_exe",
     "prepare_final_jar",
     "setup_dep_files",
@@ -133,6 +134,15 @@ def create_jar_artifact_kotlincd(
 
     compiling_deps_tset = get_compiling_deps_tset(actions, deps, additional_classpath_entries)
 
+    # Compute the reduced SO-ABI classpath for applicability checking during
+    # library builds. The applicability plugin needs to know which deps will be
+    # available during source-only-abi generation (only deps with
+    # required_for_source_only_abi=True or in source_only_abi_deps).
+    source_only_abi_applicability_classpath = []
+    if actual_abi_generation_mode == AbiGenerationMode("source_only"):
+        so_abi_deps = get_source_only_abi_compiling_deps(compiling_deps_tset, source_only_abi_deps)
+        source_only_abi_applicability_classpath = [dep.abi for dep in so_abi_deps]
+
     track_class_usage = enable_used_classes and enable_depfiles and kotlin_toolchain.track_class_usage_plugin != None
 
     if track_files_which_skipped_compilation:
@@ -203,6 +213,7 @@ def create_jar_artifact_kotlincd(
         incremental_state_dir = incremental_state_dir,
         language_version = language_version,
         kotlin_classes = kotlin_classes,
+        source_only_abi_applicability_classpath = source_only_abi_applicability_classpath,
     )
 
     library_command_builder = command_builder(
@@ -261,6 +272,7 @@ def create_jar_artifact_kotlincd(
             should_ksp2_run_incrementally = False,
             incremental_state_dir = None,
             language_version = language_version,
+            source_only_abi_applicability_classpath = [],
         )
 
         # kotlincd does not support source abi
@@ -341,6 +353,7 @@ def _encode_kotlin_extra_params(
     incremental_state_dir: Artifact | None,
     language_version: str,
     kotlin_classes: Artifact,
+    source_only_abi_applicability_classpath: list[Artifact] = [],
 ):
     kosabiPluginOptionsMap = {}
     is_source_only_abi = actual_abi_generation_mode == AbiGenerationMode("source_only")
@@ -381,6 +394,7 @@ def _encode_kotlin_extra_params(
         shouldKosabiJvmAbiGenUseK2 = True,
         kotlinClassesDir = kotlin_classes.as_output(),
         javaBinary = cmd_args(kotlin_toolchain.java_binary_for_kotlincd[RunInfo], delimiter = " ") if kotlin_toolchain.java_binary_for_kotlincd else "",
+        sourceOnlyAbiApplicabilityClasspathPaths = source_only_abi_applicability_classpath,
     )
 
 def _command_builder(

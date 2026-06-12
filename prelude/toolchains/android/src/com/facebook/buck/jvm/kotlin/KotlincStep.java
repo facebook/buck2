@@ -72,6 +72,7 @@ public class KotlincStep implements IsolatedStep {
   private final @Nullable String kosabiEarlyTerminationMessagePrefix;
   private final boolean kosabiShouldEnableMixedCompilation;
   private final ImmutableList<AbsPath> sourceOnlyAbiClasspath;
+  private final ImmutableList<AbsPath> applicabilityClasspath;
   private final boolean verifySourceOnlyAbiConstraints;
   private ImmutableList<IsolatedStep> postKotlinCompilationFailureSteps;
   private final Optional<AbsPath> depTrackerPath;
@@ -100,6 +101,7 @@ public class KotlincStep implements IsolatedStep {
       @Nullable String kosabiEarlyTerminationMessagePrefix,
       boolean kosabiShouldEnableMixedCompilation,
       ImmutableList<AbsPath> sourceOnlyAbiClasspath,
+      ImmutableList<AbsPath> applicabilityClasspath,
       boolean verifySourceOnlyAbiConstraints,
       ImmutableList<IsolatedStep> postKotlinCompilationFailureSteps,
       Optional<AbsPath> depTrackerPath,
@@ -124,6 +126,7 @@ public class KotlincStep implements IsolatedStep {
     this.kosabiEarlyTerminationMessagePrefix = kosabiEarlyTerminationMessagePrefix;
     this.kosabiShouldEnableMixedCompilation = kosabiShouldEnableMixedCompilation;
     this.sourceOnlyAbiClasspath = sourceOnlyAbiClasspath;
+    this.applicabilityClasspath = applicabilityClasspath;
     this.verifySourceOnlyAbiConstraints = verifySourceOnlyAbiConstraints;
     this.postKotlinCompilationFailureSteps = postKotlinCompilationFailureSteps;
     this.depTrackerPath = depTrackerPath;
@@ -284,13 +287,17 @@ public class KotlincStep implements IsolatedStep {
             resolvedKosabiPluginOptionPath.get(KosabiConfig.PROPERTY_KOSABI_APPLICABILITY_PLUGIN);
         builder.add(X_PLUGIN_ARG + applicabilityPlugin);
 
-        // Pass source-only-abi classpath to the applicability plugin so
-        // ImplicitConstantValueChecker can suppress false positives for constants
-        // from deps that will be available during source-only ABI generation.
-        if (!sourceOnlyAbiClasspath.isEmpty()) {
+        // Pass the reduced source-only-abi classpath to the applicability plugin
+        // so checkers can detect types that won't be available during SO-ABI
+        // generation. applicabilityClasspath contains only deps with
+        // required_for_source_only_abi=True or in source_only_abi_deps — an
+        // empty list is valid (no deps on SO-ABI classpath, checker flags all
+        // external type refs). Never fall back to sourceOnlyAbiClasspath here
+        // as it contains the full library classpath during library builds.
+        if (!applicabilityClasspath.isEmpty()) {
           String classpathValue =
               Joiner.on(File.pathSeparator)
-                  .join(transform(sourceOnlyAbiClasspath, path -> path.getPath().toString()));
+                  .join(transform(applicabilityClasspath, path -> path.getPath().toString()));
           builder.add(PLUGIN);
           builder.add(
               "plugin:"
