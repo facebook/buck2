@@ -22,10 +22,6 @@ load(
     "merge_shared_libraries",
 )
 load("@prelude//utils:expect.bzl", "expect")
-load(
-    "@prelude//utils:utils.bzl",
-    "flatten",
-)
 
 # JAVA PROVIDER DOCS
 #
@@ -505,19 +501,24 @@ def get_java_packaging_info(ctx: AnalysisContext, raw_deps: list[Dependency], ja
     packaging_deps = get_all_java_packaging_deps_tset(ctx, java_packaging_infos, java_packaging_dep)
     return JavaPackagingInfo(packaging_deps = packaging_deps)
 
-def _create_java_compiling_deps_tset_for_global_code(
-    actions: AnalysisActions, global_code_libraries: list[JavaCompilingDepsTSetWrapper], name: str, global_code_infos: list[JavaGlobalCodeInfo]
-) -> [JavaCompilingDepsTSetWrapper, None]:
-    global_code_jars_children = filter(None, [info.global_code_map.get(name, None) for info in global_code_infos])
-    if global_code_libraries:
-        global_code_jars_children.extend(global_code_libraries)
+def _group_global_code_children_by_name(global_code_infos: list[JavaGlobalCodeInfo]) -> dict[str, list[JavaCompilingDepsTSetWrapper]]:
+    # Collect the per-framework children from all global_code_infos in a single pass over the infos.
+    # Callers build a tset for many frameworks, so grouping once here avoids re-scanning every info
+    # for every framework, which would be O(frameworks * deps).
+    children_by_name = {}
+    for info in global_code_infos:
+        for name, child in info.global_code_map.items():
+            children_by_name.setdefault(name, []).append(child)
 
-    if not global_code_jars_children:
+    return children_by_name
+
+def _create_global_code_tset(actions: AnalysisActions, children: list[JavaCompilingDepsTSetWrapper]) -> [JavaCompilingDepsTSetWrapper, None]:
+    if not children:
         return None
-    elif len(global_code_jars_children) == 1:
-        return global_code_jars_children[0]
+    elif len(children) == 1:
+        return children[0]
     else:
-        return actions.tset(JavaCompilingDepsTSetWrapper, children = global_code_jars_children)
+        return actions.tset(JavaCompilingDepsTSetWrapper, children = children)
 
 # This function identifies and collects necessary dependencies that meet criteria defined in `GLOBAL_CODE_CONFIG` for global code generation across frameworks.
 # It maps framework names to their corresponding Java compiling dependency sets.
@@ -544,6 +545,7 @@ def get_global_code_info(
     global_code_config: dict,
 ) -> JavaGlobalCodeInfo:
     global_code_infos = filter(None, [x.get(JavaGlobalCodeInfo) for x in packaging_deps])
+    children_by_name = _group_global_code_children_by_name(global_code_infos)
 
     declared_deps_raw_targets = [declared_dep.label.raw_target() for declared_dep in declared_deps]
 
@@ -582,7 +584,11 @@ def get_global_code_info(
         else:
             global_code_library_compiling_deps = []
 
-        global_code_tset = _create_java_compiling_deps_tset_for_global_code(ctx.actions, global_code_library_compiling_deps, name, global_code_infos)
+        children = list(children_by_name.get(name, []))
+        if global_code_library_compiling_deps:
+            children.extend(global_code_library_compiling_deps)
+
+        global_code_tset = _create_global_code_tset(ctx.actions, children)
         if global_code_tset:
             global_code_map[name] = global_code_tset
 
@@ -591,10 +597,10 @@ def get_global_code_info(
 def propagate_global_code_info(ctx: AnalysisContext, packaging_deps: list[Dependency]) -> JavaGlobalCodeInfo:
     global_code_map = {}
     global_code_infos = filter(None, [x.get(JavaGlobalCodeInfo) for x in packaging_deps])
-    keys = set(flatten([info.global_code_map.keys() for info in global_code_infos]))
+    children_by_name = _group_global_code_children_by_name(global_code_infos)
 
-    for key in keys:
-        global_code_tset = _create_java_compiling_deps_tset_for_global_code(ctx.actions, [], key, global_code_infos)
+    for key, children in children_by_name.items():
+        global_code_tset = _create_global_code_tset(ctx.actions, children)
         if global_code_tset:
             global_code_map[key] = global_code_tset
 
