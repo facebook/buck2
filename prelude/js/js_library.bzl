@@ -39,11 +39,17 @@ def _get_grouped_srcs(ctx: AnalysisContext) -> list[GroupedSource]:
 
     return grouped_srcs.values()
 
-def _get_virtual_path(ctx: AnalysisContext, src: Artifact, base_path: [str, None]) -> str:
+def _get_base_package(ctx: AnalysisContext) -> str:
+    # The base package is identical for every source in the target, so callers resolve it once and
+    # pass it into _get_virtual_path rather than re-deriving it on every call.
     package = ctx.label.package
+    base_path = ctx.attrs.base_path
     if base_path and base_path not in ["", "."]:
         package = paths.join(package, base_path)
 
+    return package
+
+def _get_virtual_path(package: str, src: Artifact) -> str:
     return paths.join(package, src.short_path)
 
 # A source's transform job args, minus the fields that depend on the transform profile
@@ -78,20 +84,22 @@ def _precompute_transform_job_args(ctx: AnalysisContext, flavors: list[str], gro
             babel_plugin_configs.append(config)
         extra_job_args["extraBabelPlugins"] = babel_plugin_configs
 
+    base_package = _get_base_package(ctx)
+
     precomputed_js_files = []
     for grouped_src in grouped_srcs:
         job_args = {
             "additionalSources": [
                 {
                     "sourcePath": additional_source,
-                    "virtualPath": _get_virtual_path(ctx, additional_source, ctx.attrs.base_path),
+                    "virtualPath": _get_virtual_path(base_package, additional_source),
                 }
                 for additional_source in grouped_src.additional_sources
             ],
             "command": "transform",
             "flavors": flavors,
             "release": ctx.attrs._is_release,
-            "sourceJsFileName": _get_virtual_path(ctx, grouped_src.main_source, ctx.attrs.base_path),
+            "sourceJsFileName": _get_virtual_path(base_package, grouped_src.main_source),
             "sourceJsFilePath": grouped_src.main_source,
         }
         job_args.update(extra_job_args)
