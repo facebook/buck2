@@ -167,7 +167,7 @@ fn prepare_uri(uri: Uri, tls: bool) -> anyhow::Result<Uri> {
     // Is this API actually designed to be unusable? If you've got a scheme, you must
     // have a path_and_query. I'm sure there's a good reason, so we abide:
     if parts.path_and_query.is_none() {
-        parts.path_and_query = Some(http::uri::PathAndQuery::from_static(""));
+        parts.path_and_query = Some(http::uri::PathAndQuery::from_static("/"));
     }
 
     Ok(Uri::from_parts(parts)?)
@@ -467,5 +467,24 @@ impl ChannelPool {
         };
 
         Ok(host_pool.get().await)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use tonic::transport::Uri;
+
+    use super::prepare_uri;
+
+    #[test]
+    fn prepare_uri_adds_root_path_when_missing() {
+        let uri = Uri::builder()
+            .authority("example.com:1234")
+            .build()
+            .unwrap();
+
+        let uri = prepare_uri(uri, false).unwrap();
+
+        assert_eq!(uri.to_string(), "http://example.com:1234/");
     }
 }
