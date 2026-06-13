@@ -1134,7 +1134,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
     return Paths.get(testArtifactsPath, PER_TEST_COVERAGE_SUBDIR).toString();
   }
 
-  // Pairs with PerTestAndroidJacocoRunListener#recordCoverageError, which writes
+  // Pairs with PerTestAndroidCoverageRunListener#onFirstCoverageError, which writes
   // "coverage_error.txt" inside the per-test coverage output dir on the first agent-side failure.
   // Without this signal a silently-broken agent looks identical to a successful run with zero
   // probes (empty manifest.jsonl) — surfacing it as INFRA_FAILURE makes the next regression
