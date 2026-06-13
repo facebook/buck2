@@ -5,6 +5,19 @@ oncall("build_infra")
 rust_library(
     name = "buck2_protoc_dev",
     srcs = glob(["src/**/*.rs"]),
+    # Used only under `#[cfg(not(buck2_build))]` (i.e. cargo builds) to locate
+    # the protoc binary at runtime. BUCK sets `--cfg=buck2_build` and gets the
+    # paths via env vars instead, so these aren't real buck deps.
+    autocargo = {
+        "cargo_toml_config": {
+            "extra_buck_dependencies": {
+                "dependencies": [
+                    "fbsource//third-party/rust:dunce",
+                    "fbsource//third-party/rust:protoc-bin-vendored",
+                ],
+            },
+        },
+    },
     deps = [
         "fbsource//third-party/rust:tonic-prost-build",
     ],

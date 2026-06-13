@@ -9,12 +9,12 @@ version = "0.4.1"
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-bytemuck = { workspace = true }
+bytemuck = { version = "1.25" }
 dashmap = { workspace = true }
 either = { workspace = true }
 pagable = { version = "=0.4.1", path = "../pagable" }
 rusqlite = { version = "0.37.0", features = ["bundled"] }
-sled = { workspace = true }
+sled = { version = "0.34" }
 tokio = { workspace = true, optional = true }
 
 [features]

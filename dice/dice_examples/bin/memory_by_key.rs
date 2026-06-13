@@ -40,7 +40,7 @@
 //!
 //! 4. **Final unified report** linearly fits the three phases to extract
 //!    per-edge cost, fixed cost for the One and Many variants, and the
-//!    Box<SPDepsMany> overhead, then prints the per-tx breakdown.
+//!    `Box<SPDepsMany>` overhead, then prints the per-tx breakdown.
 //!
 //! Methodology choices and their reasons:
 //! - Single-threaded tokio runtime: removes per-worker scratch noise.
@@ -174,7 +174,7 @@ enum Shape {
     Chain,
     /// Dense DAG: node i depends on nodes (i+1)..(i+1+dense_width).
     /// Each node has ≈ dense_width deps + dense_width rdeps; uses
-    /// `SeriesParallelDeps::Many` variant (Box<SPDepsMany> overhead).
+    /// `SeriesParallelDeps::Many` variant (`Box<SPDepsMany>` overhead).
     Dense { dense_width: u32 },
 }
 

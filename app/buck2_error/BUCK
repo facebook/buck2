@@ -7,6 +7,24 @@ rust_library(
     srcs = glob(
         ["src/**/*.rs"],
     ),
+    autocargo = {
+        "cargo_toml_config": {
+            "dependencies_override": {
+                "dependencies": {
+                    "watchman_client": {
+                        "path": None,
+                        "version": "0.9.0",
+                    },
+                },
+            },
+            "extra_buck_dependencies": {
+                "dependencies": [
+                    (None, "//eden/fs/service:thrift-rust-clients"),
+                    (None, "//thrift/lib/rust:fbthrift"),
+                ],
+            },
+        },
+    },
     named_deps = {
         # @oss-disable[end= ]: "edenfs_clients": "//eden/fs/service:thrift-rust-clients",
     },

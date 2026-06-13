@@ -5,6 +5,18 @@ oncall("build_infra")
 rust_library(
     name = "buck2_build_api",
     srcs = glob(["src/**/*.rs"]),
+    # `//buck2/remote_execution:remote_execution` is an alias selecting between
+    # the internal and OSS impls; autocargo doesn't follow aliases, so point at
+    # the OSS rust_library directly for cargo's sake.
+    autocargo = {
+        "cargo_toml_config": {
+            "extra_buck_dependencies": {
+                "dependencies": [
+                    "fbcode//buck2/remote_execution/oss/re_grpc:remote_execution",
+                ],
+            },
+        },
+    },
     test_deps = [
         "//buck2/app/buck2_certs:buck2_certs",
         "//buck2/app/buck2_wrapper_common:buck2_wrapper_common",

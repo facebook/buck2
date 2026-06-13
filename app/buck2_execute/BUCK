@@ -7,6 +7,26 @@ rust_library(
     srcs = glob(
         ["src/**/*.rs"],
     ),
+    # `//buck2/remote_execution:remote_execution` is an alias selecting between
+    # the internal and OSS impls; autocargo doesn't follow aliases, so point at
+    # the OSS rust_library directly for cargo's sake.
+    autocargo = {
+        "cargo_toml_config": {
+            "dependencies_override": {
+                "dependencies": {
+                    "fbinit": {
+                        "path": None,
+                        "version": "0.2",
+                    },
+                },
+            },
+            "extra_buck_dependencies": {
+                "dependencies": [
+                    "fbcode//buck2/remote_execution/oss/re_grpc:remote_execution",
+                ],
+            },
+        },
+    },
     test_deps = [
         "fbsource//third-party/rust:assert_matches",
         "fbsource//third-party/rust:prost-types",
