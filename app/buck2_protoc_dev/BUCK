@@ -5,9 +5,6 @@ oncall("build_infra")
 rust_library(
     name = "buck2_protoc_dev",
     srcs = glob(["src/**/*.rs"]),
-    rustc_flags = [
-        "--cfg=buck2_build",
-    ],
     deps = [
         "fbsource//third-party/rust:tonic-prost-build",
     ],
