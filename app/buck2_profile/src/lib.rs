@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-#![feature(error_generic_member_access)]
-
 use std::sync::Arc;
 
 use buck2_cli_proto::HasClientContext;

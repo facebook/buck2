@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-#![feature(error_generic_member_access)]
-#![feature(box_patterns)]
 #![feature(iter_order_by)]
 #![feature(try_blocks)]
 #![feature(slice_iter_mut_as_mut_slice)]

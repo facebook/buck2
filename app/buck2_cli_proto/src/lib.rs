@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-#![feature(error_generic_member_access)]
 #![feature(min_specialization)]
 #![allow(clippy::large_enum_variant)]
 

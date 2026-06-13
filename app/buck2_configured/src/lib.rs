@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-#![feature(error_generic_member_access)]
-
 pub mod configuration;
 pub mod cycle;
 pub mod execution;

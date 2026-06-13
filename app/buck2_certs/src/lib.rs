@@ -8,7 +8,5 @@
  * above-listed licenses.
  */
 
-#![feature(error_generic_member_access)]
-
 pub mod certs;
 pub mod validate;

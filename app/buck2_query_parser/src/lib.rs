@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-#![feature(error_generic_member_access)]
-
 //! Parsing query expressions.
 //!
 //! The parser doesn't do any validation on the function names or function arguments, that is handled

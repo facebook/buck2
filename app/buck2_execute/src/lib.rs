@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-#![feature(error_generic_member_access)]
-#![feature(never_type)]
 #![feature(trait_alias)]
 #![feature(try_blocks)]
 #![feature(try_trait_v2)]

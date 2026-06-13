@@ -9,7 +9,6 @@
  */
 
 #![feature(error_generic_member_access)]
-#![feature(trait_alias)]
 
 pub mod any;
 pub mod classify;

@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-#![feature(error_generic_member_access)]
 #![feature(box_patterns)]
 #![allow(clippy::len_without_is_empty)]
 

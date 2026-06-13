@@ -8,12 +8,8 @@
  * above-listed licenses.
  */
 
-#![feature(error_generic_member_access)]
-
 //! Implementation of several server commands.
 
-#![feature(box_patterns)]
-#![feature(try_blocks)]
 #![feature(used_with_arg)]
 
 pub(crate) mod build;

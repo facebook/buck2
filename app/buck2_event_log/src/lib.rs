@@ -9,7 +9,6 @@
  */
 
 #![feature(used_with_arg)]
-#![feature(error_generic_member_access)]
 
 use std::io;
 use std::process;

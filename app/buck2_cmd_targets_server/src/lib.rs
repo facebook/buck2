@@ -8,12 +8,7 @@
  * above-listed licenses.
  */
 
-#![feature(box_patterns)]
-#![feature(error_generic_member_access)]
-#![feature(iter_order_by)]
-#![feature(never_type)]
 #![feature(try_blocks)]
-#![feature(used_with_arg)]
 
 use async_trait::async_trait;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;

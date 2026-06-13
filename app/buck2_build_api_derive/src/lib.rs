@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-#![feature(error_generic_member_access)]
-
 #[allow(unused_extern_crates)] // proc_macro is very special
 extern crate proc_macro;
 

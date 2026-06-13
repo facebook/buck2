@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-#![feature(error_generic_member_access)]
-
 use std::any::Any;
 use std::collections::HashMap;
 use std::fmt;

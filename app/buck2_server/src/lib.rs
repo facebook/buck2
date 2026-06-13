@@ -8,9 +8,7 @@
  * above-listed licenses.
  */
 
-#![feature(error_generic_member_access)]
 #![feature(try_blocks)]
-#![feature(once_cell_try)]
 #![feature(used_with_arg)]
 
 pub mod active_commands;

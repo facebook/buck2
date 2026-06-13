@@ -9,7 +9,6 @@
  */
 
 #![feature(decl_macro)]
-#![feature(error_generic_member_access)]
 #![feature(linkage)]
 #![feature(once_cell_try)]
 #![feature(used_with_arg)]

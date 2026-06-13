@@ -8,10 +8,6 @@
  * above-listed licenses.
  */
 
-#![feature(error_generic_member_access)]
-#![feature(try_blocks)]
-#![feature(try_trait_v2)]
-#![feature(exit_status_error)]
 #![feature(used_with_arg)]
 
 pub mod commands;

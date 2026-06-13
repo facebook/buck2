@@ -8,16 +8,10 @@
  * above-listed licenses.
  */
 
-#![feature(error_generic_member_access)]
-
 //! Common core components of buck2
 
-#![feature(io_error_more)]
 #![feature(map_try_insert)]
-#![feature(never_type)]
-#![feature(try_trait_v2)]
 #![feature(used_with_arg)]
-#![feature(try_blocks)]
 
 pub mod argv;
 pub mod buckd_connection;
