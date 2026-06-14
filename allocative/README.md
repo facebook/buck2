@@ -1,9 +1,5 @@
 # Allocative: memory profiler for Rust
 
-> [!IMPORTANT]
-> June 2026: This repository is being retired and maintenance of this library is moving to
-> https://github.com/facebook/buck2. We continue to welcome issues or PRs there.
-
 This crate implements a lightweight memory profiler which allows object
 traversal and memory size introspection.
 
@@ -45,8 +41,8 @@ when it is enabled but not used.
 ## Source code
 
 Note there are several copies of this project on GitHub due to how Meta monorepo
-is synchronized to GitHub. The main copy is
-[facebookexperimental/allocative](https://github.com/facebookexperimental/allocative).
+is synchronized to GitHub. The main copy is in
+[facebook/buck2](https://github.com/facebook/buck2).
 
 ## License
 

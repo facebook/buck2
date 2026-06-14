@@ -1,14 +1,5 @@
 # Gazebo - a library of Rust utilities
 
-[![GitHub link](https://img.shields.io/badge/GitHub-facebookincubator%2Fgazebo-blue.svg)](https://github.com/facebookincubator/gazebo)
-[![crates.io version](https://img.shields.io/crates/v/gazebo.svg)](https://crates.io/crates/gazebo)
-[![docs.rs availability](https://img.shields.io/docsrs/gazebo?label=docs.rs)](https://docs.rs/gazebo/)
-[![Build status](https://img.shields.io/github/workflow/status/facebookincubator/gazebo/ci.svg)](https://github.com/facebookincubator/gazebo/actions)
-
-> [!IMPORTANT]
-> June 2026: This repository is being retired and maintenance of these crates is moving to
-> https://github.com/facebook/buck2. We continue to welcome issues or PRs there.
-
 This library contains a collection of well-tested utilities. Most modules stand
 alone, but taking a few representative examples:
 
@@ -57,25 +48,6 @@ the following blog posts:
 - [Rust Nibbles - Gazebo: Comparisons](https://developers.facebook.com/blog/post/2021/07/27/rust-nibbles-gazebo-comparisons/)
 - [Rust Nibbles - Gazebo: Casts and Transmute](https://developers.facebook.com/blog/post/2021/08/03/rust-nibbles-gazebo-casts-transmute/)
 - [Rust Nibbles - Gazebo: The rest of the tent](https://developers.facebook.com/blog/post/2021/08/10/rust-nibbles-gazebo-rest-of-tent/)
-
-## Making a release
-
-1. Check the
-   [GitHub Actions](https://github.com/facebookincubator/gazebo/actions) are
-   green.
-2. Update `CHANGELOG.md` with the changes since the last release.
-   [This link](https://github.com/facebookincubator/gazebo/compare/v0.1.0...main)
-   can help (update to compare against the last release).
-3. Update the version numbers of the two `Cargo.toml` files. Bump them by 0.0.1
-   if there are no incompatible changes, or 0.1.0 if there are. Bump the
-   dependency in `gazebo` to point at the latest `gazebo_derive` version.
-4. Copy the files `CHANGELOG.md`, the two `LICENSE-` files and `README.md` into
-   each `gazebo` and `gazebo_derive` subdirectory.
-5. Run `cargo publish --allow-dirty --dry-run`, then without the `--dry-run`,
-   first in `gazebo_derive` and then `gazebo` directories.
-6. Create a
-   [GitHub release](https://github.com/facebookincubator/gazebo/releases/new)
-   with `v0.X.Y`, using the `gazebo` version as the name.
 
 ## License
 
