@@ -80,7 +80,7 @@ impl QueryAttrTypeExt for QueryAttrType {
                     query
                         .as_str()
                         .substr_range(l)
-                        .map(|range| ((range.start, range.len()), p))
+                        .map(|range| ((range.start, range.end - range.start), p))
                         .ok_or_else(|| internal_error!("Not found in query"))
                 })
                 .try_collect()?,
