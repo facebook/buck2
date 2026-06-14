@@ -10,8 +10,6 @@
 
 //! Implements Buck's handling of target patterns and parsing of build files.
 
-#![feature(never_type)]
-
 pub mod allow_relative_paths;
 pub mod build_context;
 pub mod coerce;
