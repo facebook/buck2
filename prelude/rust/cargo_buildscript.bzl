@@ -268,7 +268,11 @@ def _cargo_buildscript_impl(ctx: AnalysisContext) -> list[Provider]:
 
     # \037 == \x1f == the magic delimiter specified in the environment variable
     # reference above.
-    env["CARGO_ENCODED_RUSTFLAGS"] = cmd_args(rust_toolchain_info.rustc_flags, delimiter = "\037")
+    env["CARGO_ENCODED_RUSTFLAGS"] = cmd_args(
+        rust_toolchain_info.rustc_flags,
+        "-Cunsafe-allow-abi-mismatch=sanitizer",
+        delimiter = "\037",
+    )
 
     host_triple = targets.exec_triple(ctx)
     if host_triple:
