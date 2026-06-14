@@ -10,6 +10,30 @@ prelude = native
 rust_library(
     name = "buck2",
     srcs = glob(["src/**/*.rs"]),
+    # Cargo-only deps used in `bin/buck2.rs` under `#[cfg(not(buck_build))]`.
+    # On linux/macos cargo uses jemalloc as the global allocator; buck builds
+    # rely on fbcode.default_allocator instead.
+    autocargo = {
+        "cargo_toml_config": {
+            "dependencies_override": {
+                "dependencies": {
+                    "fbinit": {
+                        "path": None,
+                        "version": "0.2",
+                    },
+                },
+            },
+            "extra_buck_dependencies": {
+                "target": {
+                    '\'cfg(any(target_os = "linux", target_os = "macos"))\'': {
+                        "dependencies": [
+                            "fbsource//third-party/rust:jemallocator",
+                        ],
+                    },
+                },
+            },
+        },
+    },
     rustc_flags = select({
         ":buck2_client_only_build": ["--cfg=client_only"],
         "DEFAULT": [],

@@ -11,11 +11,11 @@ allocative = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 blake3 = { workspace = true }
-bytemuck = { workspace = true }
+bytemuck = { version = "1.25", features = ["const_zeroed", "derive", "min_const_generics", "must_cast"] }
 dashmap = { workspace = true }
 dupe = { workspace = true }
 either = { workspace = true }
-erased-serde = { workspace = true }
+erased-serde = "0.4.9"
 fancy-regex = { workspace = true }
 indexmap = { workspace = true }
 inventory = { workspace = true }
@@ -23,7 +23,7 @@ num-bigint = { workspace = true }
 once_cell = { workspace = true }
 pagable_derive = { version = "=0.4.1", path = "../pagable_derive" }
 parking_lot = { workspace = true }
-postcard = { workspace = true }
+postcard = { version = "1.0.8", features = ["use-crc", "use-std"] }
 regex = { workspace = true }
 sequence_trie = { workspace = true }
 serde = { workspace = true }

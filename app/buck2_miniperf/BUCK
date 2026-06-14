@@ -37,6 +37,7 @@ rust_library(
     srcs = glob(
         ["test/**/*.rs"],
     ),
+    autocargo = {"ignore_rule": True},
     test_deps = select({
         # Ideally we'd use compatible_with, but TD does not understand that.
         "DEFAULT": [],

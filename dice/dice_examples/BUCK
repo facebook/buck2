@@ -85,6 +85,8 @@ rust_binary(
         "bin/benchmarks/benchmark_utils.rs",
         "bin/benchmarks/hydration_bench.rs",
     ],
+    # Depends on internal `json_value`; not part of the OSS workspace.
+    autocargo = {"ignore_rule": True},
     compatible_with = ["ovr_config//os:linux"],
     unittests = False,
     deps = [
@@ -112,6 +114,8 @@ rust_binary(
         "bin/benchmarks/bench_runner.rs",
         "bin/benchmarks/table.rs",
     ],
+    # Depends on internal `json_value`; not part of the OSS workspace.
+    autocargo = {"ignore_rule": True},
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:clap",

@@ -8,11 +8,11 @@ version = "0.1.4"
 
 [dependencies]
 allocative = { version = "0.3.6", path = "../../allocative/allocative", default-features = false, optional = true }
-atomic = { workspace = true }
+atomic = "0.5.3"
 parking_lot = "0.12.1"
 
 [dev-dependencies]
-num_cpus = { workspace = true }
+num_cpus = "1.16"
 
 [features]
 allocative = ["dep:allocative"]

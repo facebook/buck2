@@ -47,6 +47,10 @@ def _rust_protobuf_library(name, srcs, build_script, buck2_protoc_dev, prost_ver
     buck_rust_binary(
         name = build_name,
         srcs = [build_script],
+        # Don't emit a `[[bin]]` in the generated Cargo.toml. Cargo
+        # auto-detects `build.rs` as a build script; `buck2_protoc_dev` is
+        # wired in as a build-dependency on the rust_library below.
+        autocargo = {"ignore_rule": True},
         crate_root = build_script,
         deps = [
             "fbcode//buck2/app/buck2_protoc_dev:" + buck2_protoc_dev,
@@ -81,6 +85,15 @@ def _rust_protobuf_library(name, srcs, build_script, buck2_protoc_dev, prost_ver
         name = name,
         crate = crate_name or name,
         srcs = srcs,
+        autocargo = {
+            "cargo_toml_config": {
+                "extra_buck_dependencies": {
+                    "build-dependencies": [
+                        "fbcode//buck2/app/buck2_protoc_dev:" + buck2_protoc_dev,
+                    ],
+                },
+            },
+        },
         doctests = doctests,
         env = {
             # This is where prost looks for generated .rs files

@@ -5,6 +5,23 @@ oncall("build_infra")
 rust_library(
     name = "buck2_client_ctx",
     srcs = glob(["src/**/*.rs"]),
+    autocargo = {
+        "cargo_toml_config": {
+            "dependencies_override": {
+                "dependencies": {
+                    "fbinit": {
+                        "path": None,
+                        "version": "0.2",
+                    },
+                },
+            },
+            "extra_buck_dependencies": {
+                "dependencies": [
+                    (None, "//common/rust/shed/detect_eden:detect_eden"),
+                ],
+            },
+        },
+    },
     test_deps = [
         "fbsource//third-party/rust:assert_matches",
         "fbsource//third-party/rust:indoc",
