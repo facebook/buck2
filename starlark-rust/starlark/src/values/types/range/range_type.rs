@@ -129,16 +129,18 @@ impl<'v> StarlarkValue<'v> for Range {
             return Ok(0);
         }
 
-        // Convert range and step to `u64`
+        // Compute the distance and step magnitude in `i64`. The endpoints span up to
+        // the full `i32` range, so a `wrapping_sub` in `i32` would wrap and then
+        // sign-extend to a bogus `u64`.
         let (dist, step) = if self.step.get() >= 0 {
             (
-                self.stop.wrapping_sub(self.start) as u64,
+                (self.stop as i64 - self.start as i64) as u64,
                 self.step.get() as u64,
             )
         } else {
             (
-                self.start.wrapping_sub(self.stop) as u64,
-                self.step.get().wrapping_neg() as u64,
+                (self.start as i64 - self.stop as i64) as u64,
+                (self.step.get() as i64).unsigned_abs(),
             )
         };
         let i = ((dist - 1) / step + 1) as i32;
@@ -243,13 +245,13 @@ impl<'v> StarlarkValue<'v> for Range {
             if other < self.start || other >= self.stop {
                 return Ok(false);
             }
-            Ok((other.wrapping_sub(self.start) as u64).is_multiple_of(self.step.get() as u64))
+            Ok(((other as i64 - self.start as i64) as u64).is_multiple_of(self.step.get() as u64))
         } else {
             if other > self.start || other <= self.stop {
                 return Ok(false);
             }
-            Ok((self.start.wrapping_sub(other) as u64)
-                .is_multiple_of(self.step.get().wrapping_neg() as u64))
+            Ok(((self.start as i64 - other as i64) as u64)
+                .is_multiple_of((self.step.get() as i64).unsigned_abs()))
         }
     }
 
@@ -372,5 +374,24 @@ mod tests {
             &InlineInt::MAX.to_string(),
             &format!("len(range({}, -1))", InlineInt::MIN),
         );
+    }
+
+    #[test]
+    fn test_length_spanning_full_i32_range() {
+        // `stop - start` exceeds `i32::MAX` here, so the distance must be computed in
+        // a wider type. The resulting length still fits in `i32`.
+        assert_eq!(Some(4294968), range(i32::MIN, i32::MAX, 1000).length().ok());
+        assert_eq!(Some(613566757), range(i32::MIN, i32::MAX, 7).length().ok());
+        assert_eq!(
+            Some(4294968),
+            range(i32::MAX, i32::MIN, -1000).length().ok()
+        );
+    }
+
+    #[test]
+    fn test_in_spanning_full_i32_range() {
+        // `5 == -2147483648 + 7 * 306783379`, so it is a member.
+        assert::is_true("5 in range(-2147483648, 2147483647, 7)");
+        assert::is_true("6 not in range(-2147483648, 2147483647, 7)");
     }
 }
