@@ -6,7 +6,7 @@ documentation = "https://docs.rs/dupe"
 edition = "2024"
 license = { workspace = true }
 name = "dupe_derive"
-repository = "https://github.com/facebookincubator/gazebo"
+repository = "https://github.com/facebook/buck2"
 version = "0.9.1"
 
 [lib]

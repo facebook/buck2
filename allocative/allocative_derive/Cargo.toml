@@ -5,7 +5,7 @@ documentation = "https://docs.rs/allocative"
 edition = "2024"
 license = { workspace = true }
 name = "allocative_derive"
-repository = "https://github.com/facebookexperimental/allocative"
+repository = "https://github.com/facebook/buck2"
 version = "0.3.6"
 
 [lib]

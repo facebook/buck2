@@ -5,6 +5,10 @@
 [![docs.rs availability](https://img.shields.io/docsrs/gazebo?label=docs.rs)](https://docs.rs/gazebo/)
 [![Build status](https://img.shields.io/github/workflow/status/facebookincubator/gazebo/ci.svg)](https://github.com/facebookincubator/gazebo/actions)
 
+> [!IMPORTANT]
+> June 2026: This repository is being retired and maintenance of these crates is moving to
+> https://github.com/facebook/buck2. We continue to welcome issues or PRs there.
+
 This library contains a collection of well-tested utilities. Most modules stand
 alone, but taking a few representative examples:
 

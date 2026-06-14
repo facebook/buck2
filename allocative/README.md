@@ -1,5 +1,9 @@
 # Allocative: memory profiler for Rust
 
+> [!IMPORTANT]
+> June 2026: This repository is being retired and maintenance of this library is moving to
+> https://github.com/facebook/buck2. We continue to welcome issues or PRs there.
+
 This crate implements a lightweight memory profiler which allows object
 traversal and memory size introspection.
 
