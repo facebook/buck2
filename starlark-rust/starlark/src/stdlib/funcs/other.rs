@@ -166,7 +166,7 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
             .get()
             .iterate(heap)?
             .enumerate()
-            .map(move |(k, v)| (k as i32 + start, v));
+            .map(move |(k, v)| (k as i64 + start as i64, v));
         Ok(AllocList(v))
     }
 
@@ -411,6 +411,14 @@ mod tests {
         assert::eq("1.23", "abs(-1.23)");
         assert::eq("2.3", "abs(2.3)");
         assert::is_true("isinstance(abs(1), int)");
+    }
+
+    #[test]
+    fn test_enumerate_start_overflow() {
+        assert::eq(
+            "enumerate(['a', 'b'], 2147483647)",
+            "[(2147483647, 'a'), (2147483648, 'b')]",
+        );
     }
 
     #[test]
