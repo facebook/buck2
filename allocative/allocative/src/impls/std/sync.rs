@@ -19,14 +19,14 @@ use std::sync::Weak;
 
 use crate::allocative_trait::Allocative;
 use crate::impls::common::PTR_NAME;
-use crate::key::Key;
+use crate::key;
 use crate::visitor::Visitor;
 
 impl<T: Allocative> Allocative for RwLock<T> {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
         let mut visitor = visitor.enter_self_sized::<Self>();
         if let Ok(data) = self.try_read() {
-            visitor.visit_field(Key::new("data"), &*data);
+            visitor.visit_field(key!("data"), &*data);
         }
         visitor.exit();
     }
@@ -67,8 +67,7 @@ impl<T: Allocative + ?Sized> Allocative for Arc<T> {
             if let Some(mut visitor) = visitor {
                 {
                     let val: &T = self;
-                    let mut visitor =
-                        visitor.enter(Key::new("ArcInner"), RcBox::layout(val).size());
+                    let mut visitor = visitor.enter(key!("ArcInner"), RcBox::layout(val).size());
                     val.visit(&mut visitor);
                     visitor.exit();
                 }
@@ -106,7 +105,7 @@ impl<T: Allocative> Allocative for Rc<T> {
             if let Some(mut visitor) = visitor {
                 {
                     let val: &T = self;
-                    let mut visitor = visitor.enter(Key::new("RcInner"), RcBox::layout(val).size());
+                    let mut visitor = visitor.enter(key!("RcInner"), RcBox::layout(val).size());
                     val.visit(&mut visitor);
                     visitor.exit();
                 }
@@ -210,7 +209,7 @@ impl<T: Allocative> Allocative for Mutex<T> {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
         let mut visitor = visitor.enter_self_sized::<Self>();
         if let Ok(data) = self.try_lock() {
-            visitor.visit_field(Key::new("data"), &*data);
+            visitor.visit_field(key!("data"), &*data);
         }
         visitor.exit();
     }

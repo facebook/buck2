@@ -80,17 +80,12 @@ pub mod __macro_refs {
     pub use ctor;
 }
 
-/// Create a `const` of type `Key` with the provided `ident` as the value and
-/// return that value. This allows the keys to be placed conveniently inline
-/// without any performance hit because unlike calling `Key::new` this is
-/// guaranteed to be evaluated at compile time.
-///
-/// The main use case is manual implementations of [`Allocative`], like so:
+/// Create a `const` [`Key`], guaranteed to be evaluated at compile time.
 ///
 /// ```
 /// use allocative::Allocative;
 /// use allocative::Visitor;
-/// use allocative::ident_key;
+/// use allocative::key;
 ///
 /// struct MyStruct {
 ///     foo: usize,
@@ -100,21 +95,30 @@ pub mod __macro_refs {
 /// impl Allocative for MyStruct {
 ///     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
 ///         let mut visitor = visitor.enter_self(self);
-///         visitor.visit_field(ident_key!(foo), &self.foo);
-///         visitor.visit_field(ident_key!(bar), &self.bar);
+///         visitor.visit_field(key!("foo"), &self.foo);
+///         visitor.visit_field(key!("bar"), &self.bar);
 ///         visitor.exit();
 ///     }
 /// }
 /// ```
 #[macro_export]
+macro_rules! key {
+    ($s:expr) => {
+        const { $crate::Key::new($s) }
+    };
+}
+
+/// Create a `const` [`Key`] from an identifier. This is a convenience wrapper
+/// around [`key!`] that stringifies the identifier.
+#[macro_export]
 macro_rules! ident_key {
-    ($name:ident) => {{
-        const KEY: $crate::Key = $crate::Key::new(stringify!($name));
-        KEY
-    }};
+    ($name:ident) => {
+        $crate::key!(stringify!($name))
+    };
 }
 
 #[test]
-fn ident_key() {
-    assert_eq!(ident_key!(foo), Key::new("foo"));
+fn test_key() {
+    assert_eq!(key!("foo"), Key::new("foo"));
+    assert_eq!(ident_key!(foo), key!("foo"));
 }

@@ -115,6 +115,7 @@ use crate::Visitor;
 /// use allocative::Allocative;
 /// use allocative::Key;
 /// use allocative::Visitor;
+/// use allocative::key;
 /// // use third_party_lib::Unsupported;
 /// # struct Unsupported<T>(T);
 /// # impl<T> Unsupported<T> {
@@ -128,10 +129,9 @@ use crate::Visitor;
 /// }
 ///
 /// fn visit_unsupported<'a, 'b>(u: &Unsupported<usize>, visitor: &'a mut Visitor<'b>) {
-///     const ELEM_KEY: Key = Key::new("elements");
 ///     let mut visitor = visitor.enter_self(u);
 ///     for element in u.iter_elems() {
-///         visitor.visit_field(ELEM_KEY, element);
+///         visitor.visit_field(key!("elements"), element);
 ///     }
 ///     visitor.exit()
 /// }
