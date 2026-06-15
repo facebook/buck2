@@ -12,7 +12,6 @@ rust_library(
     deps = [
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:serde",
-        "fbsource//third-party/rust:shlex",
         "fbsource//third-party/rust:sysinfo",
         "fbsource//third-party/rust:uuid",
         "//buck2/allocative/allocative:allocative",

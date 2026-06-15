@@ -14,7 +14,6 @@ buck2_hash.workspace = true
 derive_more.workspace = true
 dupe.workspace = true
 serde.workspace = true
-shlex.workspace = true
 sysinfo.workspace = true
 uuid.workspace = true
 

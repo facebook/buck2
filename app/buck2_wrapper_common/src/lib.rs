@@ -21,8 +21,10 @@ use std::time::Instant;
 
 use buck2_hash::StdBuckHashSet;
 use is_buck2::WhoIsAsking;
+use sysinfo::ProcessRefreshKind;
 use sysinfo::ProcessesToUpdate;
 use sysinfo::System;
+use sysinfo::UpdateKind;
 
 use crate::is_buck2::is_buck2_exe;
 use crate::pid::Pid;
@@ -46,7 +48,27 @@ pub const DOT_BUCKCONFIG_D: &str = ".buckconfig.d";
 struct ProcessInfo {
     pid: Pid,
     name: String,
-    cmd: Vec<String>,
+    isolation_dir: Option<String>,
+}
+
+/// Extract the isolation dir from a buck2 process's command line.
+///
+/// buck2 daemons and clients are launched with the global `--isolation-dir <name>`
+/// flag (see `buck2_client_ctx::daemon::client::connect`), accepting both the
+/// `--isolation-dir <name>` and `--isolation-dir=<name>` forms. Returns `None` when
+/// the flag is absent (e.g. the isolation dir was supplied via the
+/// `BUCK_ISOLATION_DIR` env var, which does not appear in argv).
+fn parse_isolation_dir(cmd: &[String]) -> Option<String> {
+    let mut args = cmd.iter();
+    while let Some(arg) = args.next() {
+        if let Some(value) = arg.strip_prefix("--isolation-dir=") {
+            return Some(value.to_owned());
+        }
+        if arg == "--isolation-dir" {
+            return args.next().cloned();
+        }
+    }
+    None
 }
 
 /// Get the list of all PIDs on Linux
@@ -88,7 +110,13 @@ fn get_all_tgids_linux() -> Option<StdBuckHashSet<sysinfo::Pid>> {
 /// Find all buck2 processes in the system.
 fn find_buck2_processes(who_is_asking: WhoIsAsking) -> Vec<ProcessInfo> {
     let mut system = System::new();
-    system.refresh_processes(ProcessesToUpdate::All, true);
+    system.refresh_processes_specifics(
+        ProcessesToUpdate::All,
+        true,
+        ProcessRefreshKind::nothing()
+            .with_exe(UpdateKind::Always)
+            .with_cmd(UpdateKind::Always),
+    );
 
     let mut current_parents = StdBuckHashSet::default();
     let mut parent = Some(sysinfo::Pid::from_u32(std::process::id()));
@@ -118,14 +146,16 @@ fn find_buck2_processes(who_is_asking: WhoIsAsking) -> Vec<ProcessInfo> {
             let Ok(pid) = Pid::from_u32(pid.as_u32()) else {
                 continue;
             };
+            let cmd: Vec<String> = process
+                .cmd()
+                .iter()
+                .map(|s| s.to_string_lossy().into_owned())
+                .collect();
+            let isolation_dir = parse_isolation_dir(&cmd);
             buck2_processes.push(ProcessInfo {
                 pid,
                 name: process.name().to_string_lossy().into_owned(),
-                cmd: process
-                    .cmd()
-                    .iter()
-                    .map(|s| s.to_string_lossy().into_owned())
-                    .collect(),
+                isolation_dir,
             });
         }
     }
@@ -151,9 +181,14 @@ pub fn killall(who_is_asking: WhoIsAsking, write: impl Fn(String)) -> bool {
 
     impl<F: Fn(String)> Printer<F> {
         fn fmt_status(&mut self, process: &ProcessInfo, status: &str) -> String {
-            let cmd = shlex::try_join(process.cmd.iter().map(|s| s.as_str()))
-                .expect("Null byte unexpected");
-            format!("{} {} ({}). {}", status, process.name, process.pid, cmd,)
+            let isolation_dir = match &process.isolation_dir {
+                Some(dir) => format!(" ({dir})"),
+                None => String::new(),
+            };
+            format!(
+                "{} {} ({}){}",
+                status, process.name, process.pid, isolation_dir
+            )
         }
 
         fn failed_to_kill(&mut self, process: &ProcessInfo, error: buck2_error::Error) {
