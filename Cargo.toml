@@ -457,7 +457,7 @@ tower-lsp-server = "0.22.1"
 tower-service = "0.3.3"
 tracing = { version = "0.1.41", features = ["attributes", "valuable"] }
 tracing-subscriber = { version = "0.3.23", features = ["chrono", "env-filter", "json", "local-time", "parking_lot", "registry"] }
-triomphe = "0.1.11"
+triomphe = { version = "0.1.11", features = ["arc-swap"] }
 twox-hash = "1.6.1"
 typed-arena = "2"
 uuid = { version = "1.23.3", features = ["rng-getrandom", "serde", "v4", "v5", "v6", "v7", "v8"] }
