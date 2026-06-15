@@ -162,13 +162,14 @@ impl TargetInfo {
     }
 
     pub(crate) fn display_name(&self) -> String {
-        if self
-            .name
-            .chars()
-            .all(|c| c.is_ascii_digit() || c == '.' || c == '_')
-        {
-            // For targets of the form foo:1.2.3 or foo:_1.2.3, the buck
-            // name (1.2.3 or _1.2.3 respectively) isn't useful as a display name.
+        let starts_with_version = self.name.starts_with(|c: char| c.is_ascii_digit())
+            || self
+                .name
+                .strip_prefix('_')
+                .is_some_and(|rest| rest.starts_with(|c: char| c.is_ascii_digit()));
+        if starts_with_version {
+            // For targets of the form foo:1.2.3, foo:_1.2.3, or
+            // foo:0.3.0-pre.0, the buck name isn't useful as a display name.
             self.crate_name()
         } else {
             self.name
@@ -408,6 +409,33 @@ mod tests {
             rustc_flags: vec![],
         };
         assert_eq!(info.display_name(), "foo");
+    }
+
+    #[test]
+    fn test_display_name_prerelease_version() {
+        let info = TargetInfo {
+            name: "0.3.0-pre.0".to_owned(),
+            label: "//third-party/rust/kem:0.3.0-pre.0".to_owned(),
+            labels: vec![],
+            kind: Kind::Library,
+            edition: None,
+            srcs: vec![],
+            mapped_srcs: FxHashMap::default(),
+            crate_name: Some("kem".to_owned()),
+            crate_dynamic: None,
+            crate_root: PathBuf::default(),
+            deps: vec![],
+            test_deps: vec![],
+            named_deps: FxHashMap::default(),
+            proc_macro: None,
+            features: vec![],
+            env: FxHashMap::default(),
+            source_folder: PathBuf::from("/tmp"),
+            project_relative_buildfile: PathBuf::from("third-party/BUCK"),
+            in_workspace: false,
+            rustc_flags: vec![],
+        };
+        assert_eq!(info.display_name(), "kem");
     }
 
     #[test]
