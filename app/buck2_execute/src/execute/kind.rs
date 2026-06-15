@@ -91,20 +91,19 @@ impl CommandExecutionKind {
         }
     }
 
-    /// Returns the RE platform name (the "platform" property) if executed remotely.
-    pub fn re_platform_name(&self) -> Option<&str> {
+    /// Returns the RE platform identifier if executed remotely.
+    ///
+    /// Format: `"platform"`, or `"platform.subplatform"` when a non-empty
+    /// `subplatform` property is also set. Returns `None` if the action did
+    /// not run remotely or no `platform` property is set.
+    pub fn re_platform_name(&self) -> Option<String> {
         let details = match self {
             Self::Remote { details, .. }
             | Self::ActionCache { details }
             | Self::RemoteDepFileCache { details } => details,
             _ => return None,
         };
-        details
-            .platform
-            .properties
-            .iter()
-            .find(|p| p.name == "platform")
-            .map(|p| p.value.as_str())
+        re_platform_name_from_properties(&details.platform.properties)
     }
 
     pub fn to_proto(&self, omit_details: bool) -> buck2_data::CommandExecutionKind {
@@ -259,5 +258,89 @@ impl RemoteCommandExecutionDetails {
             platform: Some(self.platform.clone()),
             persistent_worker: self.persistent_worker,
         })
+    }
+}
+
+fn re_platform_name_from_properties(
+    properties: &[buck2_data::re_platform::Property],
+) -> Option<String> {
+    let mut platform: Option<&str> = None;
+    let mut subplatform: Option<&str> = None;
+    for p in properties {
+        match p.name.as_str() {
+            "platform" => platform = Some(p.value.as_str()),
+            "subplatform" => subplatform = Some(p.value.as_str()),
+            _ => {}
+        }
+    }
+    platform.map(|p| match subplatform {
+        Some(s) if !s.is_empty() => format!("{p}.{s}"),
+        _ => p.to_owned(),
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use buck2_data::re_platform::Property;
+
+    use super::*;
+
+    fn prop(name: &str, value: &str) -> Property {
+        Property {
+            name: name.to_owned(),
+            value: value.to_owned(),
+        }
+    }
+
+    #[test]
+    fn platform_only() {
+        let props = vec![prop("platform", "linux-remote-execution")];
+        assert_eq!(
+            re_platform_name_from_properties(&props),
+            Some("linux-remote-execution".to_owned()),
+        );
+    }
+
+    #[test]
+    fn platform_and_subplatform_joined_with_dot() {
+        let props = vec![
+            prop("platform", "gpu-remote-execution"),
+            prop("subplatform", "H100"),
+        ];
+        assert_eq!(
+            re_platform_name_from_properties(&props),
+            Some("gpu-remote-execution.H100".to_owned()),
+        );
+    }
+
+    #[test]
+    fn empty_subplatform_omits_suffix() {
+        let props = vec![
+            prop("platform", "linux-remote-execution"),
+            prop("subplatform", ""),
+        ];
+        assert_eq!(
+            re_platform_name_from_properties(&props),
+            Some("linux-remote-execution".to_owned()),
+        );
+    }
+
+    #[test]
+    fn missing_platform_returns_none() {
+        let props = vec![prop("subplatform", "H100")];
+        assert_eq!(re_platform_name_from_properties(&props), None);
+    }
+
+    #[test]
+    fn ignores_unrelated_properties() {
+        let props = vec![
+            prop("container-image", "docker://foo"),
+            prop("platform", "mac"),
+            prop("OSFamily", "Darwin"),
+        ];
+        assert_eq!(
+            re_platform_name_from_properties(&props),
+            Some("mac".to_owned()),
+        );
     }
 }

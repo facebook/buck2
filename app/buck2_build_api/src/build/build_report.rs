@@ -200,7 +200,9 @@ pub(crate) struct TargetBuildMetrics {
     pub remote_max_memory_peak_bytes: u64,
     /// Max value for peak memory usage across all local actions.
     pub local_max_memory_peak_bytes: u64,
-    /// Distinct RE platform names used by actions for this target.
+    /// Distinct RE platform identifiers used by actions for this target. Each
+    /// value is the worker's `platform` property, optionally suffixed with
+    /// `.subplatform` (e.g. `gpu-remote-execution.H100`) when set.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub re_platform_names: Vec<String>,
     /// Wall-clock time in milliseconds from the start of the build at which

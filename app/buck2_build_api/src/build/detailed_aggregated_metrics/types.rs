@@ -32,7 +32,9 @@ pub struct ActionExecutionMetrics {
     pub execution_kind: buck2_data::ActionExecutionKind,
     pub output_size_bytes: u64,
     pub memory_peak: Option<u64>,
-    /// RE platform name if this action ran remotely (e.g. "linux-remote-execution").
+    /// RE platform identifier if this action ran remotely. Format is the
+    /// worker's `platform` property, optionally suffixed with `.subplatform`
+    /// (e.g. `"linux-remote-execution"` or `"gpu-remote-execution.H100"`).
     pub re_platform_name: Option<String>,
 }
 
@@ -127,7 +129,8 @@ pub struct TopLevelTargetAggregatedData {
     pub amortized_metrics: AggregatedBuildMetrics,
     pub remote_max_memory_peak_bytes: u64,
     pub local_max_memory_peak_bytes: u64,
-    /// Distinct RE platform names used by actions for this target.
+    /// Distinct RE platform identifiers used by actions for this target. See
+    /// `ActionExecutionMetrics::re_platform_name` for the value format.
     pub re_platform_names: Vec<String>,
     /// Wall-clock time in milliseconds from the start of the build at which
     /// this top-level target succeeded, failed, or timed out.

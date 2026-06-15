@@ -206,9 +206,10 @@ TargetBuildMetrics {
     # Max value for peak memory usage across all local actions.
     local_max_memory_peak_bytes: Optional[u64]
 
-    # The distinct set of RE platform names used by actions for this target
-    # (e.g. "linux-remote-execution", "gpu-remote-execution").
-    # Omitted when empty (no remote actions).
+    # The distinct set of RE platform identifiers used by actions for this
+    # target. Each value is the worker's `platform` property, optionally
+    # suffixed with `.subplatform` (e.g. "linux-remote-execution",
+    # "gpu-remote-execution.H100"). Omitted when empty (no remote actions).
     re_platform_names: Optional[List[str]]
 
     # Wall-clock time in milliseconds from the start of the build at which

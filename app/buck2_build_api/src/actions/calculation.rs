@@ -491,8 +491,7 @@ async fn build_action_inner(
     let re_platform_name = command_reports
         .last()
         .and_then(|r| r.status.execution_kind())
-        .and_then(|k| k.re_platform_name())
-        .map(|s| s.to_owned());
+        .and_then(|k| k.re_platform_name());
 
     (
         ActionExecutionData {

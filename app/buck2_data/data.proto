@@ -709,7 +709,9 @@ message TopLevelTargetMetrics {
   optional uint64 local_max_memory_peak_bytes = 7;
   // Name of the rule type for this top-level target.
   string target_rule_type_name = 8;
-  // Distinct RE platform names used by actions for this target.
+  // Distinct RE platform identifiers used by actions for this target. Each
+  // value is the worker's `platform` property, optionally suffixed with
+  // `.subplatform` (e.g. `gpu-remote-execution.H100`) when set.
   repeated string re_platform_names = 9;
   // Wall-clock time in milliseconds from the start of the build at which this
   // top-level target succeeded, failed, or timed out.
