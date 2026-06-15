@@ -129,6 +129,9 @@ use host_sharing::HostSharingStrategy;
 use tracing::warn;
 
 use crate::active_commands::ActiveCommandDropGuard;
+use crate::agent_context_validation::AgentContextSchema;
+use crate::agent_context_validation::validate_agent_context;
+use crate::agent_host_guard::check_agent_host_guard;
 use crate::daemon::common::CommandExecutorFactory;
 use crate::daemon::common::get_default_executor_config;
 use crate::daemon::state::DaemonStateData;
@@ -596,15 +599,18 @@ impl DiceUpdater for DiceCommandUpdater<'_, '_> {
 
         // Validate agent context against buckconfig schema if entries were provided.
         if !self.cmd_ctx.agent_context.is_empty() {
-            let schema = crate::agent_context_validation::AgentContextSchema::from_config(
-                &cells_and_configs.root_config,
-            );
-            crate::agent_context_validation::validate_agent_context(
+            let schema = AgentContextSchema::from_config(&cells_and_configs.root_config);
+            validate_agent_context(
                 &schema,
                 self.cmd_ctx.client_id_from_client_metadata.as_deref(),
                 &self.cmd_ctx.agent_context,
             )?;
         }
+
+        check_agent_host_guard(
+            &cells_and_configs.root_config,
+            &self.cmd_ctx.base_context.daemon,
+        )?;
 
         let cell_resolver = cells_and_configs.cell_resolver;
 

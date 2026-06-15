@@ -13,6 +13,7 @@
 
 pub mod active_commands;
 mod agent_context_validation;
+mod agent_host_guard;
 mod clean_stale;
 mod cpu_usage_collector;
 mod ctx;
