@@ -344,12 +344,6 @@ def _get_swiftmodule_output_file_map(ctx: AnalysisContext, srcs: list[CxxSrcWith
             depfiles = [],
         )
 
-    # The emit-module-separately job is a single driver task and does NOT
-    # produce per-source `.swiftdeps`. We only declare the module-level
-    # incremental state file (`.priors`) so that the driver can detect a
-    # no-op on subsequent runs. Declaring per-source `.swiftdeps` here makes
-    # the action fail with MissingOutputs.
-    _ = srcs  # @unused — sources affect declared inputs, not outputs here.
     module_swiftdeps = ctx.actions.declare_output(
         "__swift_module_incremental__/swiftdeps/module-build-record.priors", has_content_based_path = uses_content_based_paths
     )
@@ -358,10 +352,24 @@ def _get_swiftmodule_output_file_map(ctx: AnalysisContext, srcs: list[CxxSrcWith
             "swift-dependencies": module_swiftdeps,
         },
     }
+
+    # For incremental swiftmodule generation, we need to capture the set of
+    # incremental output files they produce.
+    per_source_dir = ctx.actions.declare_output(
+        "__swift_module_incremental__/per_source_incremental", dir = True, has_content_based_path = uses_content_based_paths
+    )
+    for src in srcs:
+        file_name = src.file.basename
+        output_file_map[src.file] = {
+            "diagnostics": cmd_args(per_source_dir, format = "{}/" + file_name + ".dia", delimiter = ""),
+            "swift-dependencies": cmd_args(per_source_dir, format = "{}/" + file_name + ".swiftdeps", delimiter = ""),
+            "swiftmodule": cmd_args(per_source_dir, format = "{}/" + file_name + ".swiftmodule", delimiter = ""),
+        }
+
     return _OutputFileMapData(
         artifacts = [],
-        outputs = [module_swiftdeps],
+        outputs = [module_swiftdeps, per_source_dir],
         output_file_map = output_file_map,
-        swiftdeps = [module_swiftdeps],
+        swiftdeps = [module_swiftdeps, per_source_dir],
         depfiles = [],
     )
