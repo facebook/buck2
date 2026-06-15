@@ -80,8 +80,9 @@ Buck2 uses `buck2_error` replacing both `anyhow` and `thiserror`. The must-knows
 - `.expect()`, `.unwrap()`, etc. are ok for file-local invariant violations/"this should never
   happen" cases. If not file-local, prefer `internal_error!()`, `.internal_error("...")?` or
   `.with_internal_error(|| ...)` if possible.
-- Inspecting or creating errors in non-error codepaths is strongly discouraged. Represent states
-  that are not errors using types that are not errors.
+- Inspecting or creating `buck2_error::Error`s in non-error codepaths is strongly discouraged.
+  Represent states that are not errors using types that are not errors or at least dedicated,
+  semantically clear error types.
 
 For more details including about defining errors, tagging, conversion, and context see [Error
 Handling](./error_handling.md).
@@ -92,7 +93,11 @@ Code is generally the same internally and externally, exceptions will be locally
 
 ## Rust Dependencies
 
-When modifying dependencies, change both BUCK and Cargo.toml.
+When modifying dependencies internally at Meta, change BUCK files. Almost all of our Cargo.toml
+files are maintained by autocargo, run `arc autocargo -p buck2` to update them.
+
+Autocargo is not available outside Meta. Hand-edit Cargo files if needed, we will deal with it on
+import.
 
 At Meta, common third party Rust libraries are generally just available.
 
