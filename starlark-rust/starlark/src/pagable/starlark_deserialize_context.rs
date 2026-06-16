@@ -447,15 +447,39 @@ impl<'a, 'de> StarlarkDeserializerImpl<'a, 'de> {
             return Ok(FrozenValue::new_ptr(header, is_str));
         }
 
-        // Slow path: try to claim.
+        // Slow path: try to claim. The current `self.pagable` (PagableDeserializer)
+        // may be reading a different stream (e.g. the body of an `Arc<T>` deser-fn),
+        // so we can't seek it. Open a fresh deserializer from the target heap's
+        // stashed recipe instead.
         match target_state.try_claim(value_index as usize) {
             ClaimResult::Claimed(target) => {
-                let saved_pos = self.pagable.position();
-                // SAFETY: abs_pos points to the start of this value's serialized data
-                // (from the offset table). saved_pos is restored after deserialization.
-                unsafe { self.pagable.seek(target.abs_pos) };
-                let result = (target.vtable.starlark_deserialize)(target.raw_ptr, self);
-                unsafe { self.pagable.seek(saved_pos) };
+                // Clone the target heap's recipe from `HeapRecipeMap`. `recipe.open()`
+                // produces a fresh deserializer so concurrent ensure_initialized
+                // calls on the same heap have independent cursors.
+                let recipe: Arc<dyn pagable::PagableDeserializerRecipe> = {
+                    let map = self
+                        .pagable
+                        .session_context()
+                        .get::<Arc<HeapRecipeMap>>()
+                        .ok_or_else(|| anyhow::anyhow!("HeapRecipeMap not in session context"))?;
+                    map.0
+                        .get(&heap_id)
+                        .ok_or_else(|| anyhow::anyhow!("no recipe stashed for heap {:?}", heap_id))?
+                        .dupe()
+                };
+
+                let result = {
+                    let storage = self.pagable.storage();
+                    let mut de = recipe.open(&storage);
+                    // SAFETY: `target.abs_pos` was computed from the target heap's
+                    // offset table during phase 1; it is a valid position in the
+                    // recipe's bytes for this heap.
+                    unsafe { de.seek(target.abs_pos) };
+                    let nested_de: &mut dyn PagableDeserializer<'_> = &mut *de;
+                    let mut nested_ctx =
+                        StarlarkDeserializerImpl::new(nested_de, self.state.dupe());
+                    (target.vtable.starlark_deserialize)(target.raw_ptr, &mut nested_ctx)
+                };
 
                 if let Err(e) = result {
                     target_state.abort_claim(value_index as usize);

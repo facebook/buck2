@@ -2657,13 +2657,11 @@ fn test_cross_heap_frozen_value_round_trip_via_storage() -> crate::Result<()> {
 
 /// Storage-path counterpart to `test_with_starlark_context_arc_dedup_round_trip`.
 /// `OuterArcValue` owns `Arc<InnerArcData>` whose inner holds a `FrozenValue`.
-/// Expected to panic at `ensure`: `PagableDeserializerImpl` reads the inner
-/// `Arc` body through its own sub-deserializer, so `seek(target.abs_pos)`
-/// lands in the inner-arc stream instead of the owning heap's. Fix: have
-/// `ensure` seek a deserializer reconstructed from the heap's recipe in
-/// `HeapRecipeMap`, not the current one.
+/// `PagableDeserializerImpl` reads the inner `Arc` body through its own
+/// sub-deserializer, so a naive `seek(target.abs_pos)` would land in the
+/// wrong stream; `ensure` instead seeks a deserializer reconstructed from
+/// the owning heap's recipe in `HeapRecipeMap`.
 #[test]
-#[should_panic]
 fn test_with_starlark_context_arc_dedup_round_trip_via_storage() {
     let heap = FrozenHeap::new();
     let target_fv = heap.alloc_simple(SimpleData {
