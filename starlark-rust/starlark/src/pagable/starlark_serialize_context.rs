@@ -17,10 +17,11 @@
 
 //! Implementation of StarlarkSerializeContext.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::sync::Arc;
+use std::sync::RwLock;
 
-use dashmap::DashMap;
+use allocative::Allocative;
 use dashmap::DashSet;
 use pagable::PagableSerialize;
 use pagable::PagableSerializer;
@@ -30,37 +31,60 @@ use crate::pagable::serialized_frozen_value::SerializedFrozenValue;
 use crate::pagable::starlark_serialize::StarlarkSerializeContext;
 use crate::pagable::static_value::get_static_value_id;
 use crate::values::FrozenValue;
+use crate::values::layout::heap::arena::ChunkInfo;
 use crate::values::layout::heap::heap_type::FrozenHeapRef;
 use crate::values::layout::pointer::PointerTags;
 
-/// Shared serialization state across all heaps serialized in a session.
-/// Stored in `SessionContext` as `Arc<StarlarkSerState>` so that
-/// independently-serialized heaps (via pagable arcs) can all register
-/// their value-index maps and resolve cross-heap references.
+/// Per-chunk entry in [`StarlarkSerState::chunks`]. The chunk's base
+/// address is the BTreeMap key. The wire's `value_index` for a header at
+/// within-chunk index `k` is `values_before + k`.
+#[derive(Allocative)]
+pub(crate) struct ChunkEntry {
+    /// Chunk size in bytes.
+    size: u32,
+    /// Heap that owns this chunk.
+    heap_id: HeapRefId,
+    /// Cumulative count of values in earlier chunks of this heap, in
+    /// serialization order (drop bump first, then non-drop).
+    values_before: u32,
+    /// Sorted within-chunk byte offsets of each value payload pointer.
+    /// `binary_search`able for O(log V_c) within-chunk lookup.
+    payload_offsets: Box<[u32]>,
+}
+
+/// Shared serialization state across all heaps in a session, stored in
+/// `SessionContext` as `Arc<StarlarkSerState>`.
+#[derive(Allocative)]
 pub(crate) struct StarlarkSerState {
-    /// Direct lookup from raw header pointer to its `(heap_id, value_index)`.
-    /// `value_index` is the value's position in the heap's serialization
-    /// order (drop bump first, then non-drop bump).
-    ptr_to_location: DashMap<usize, (HeapRefId, u32)>,
-    /// Heaps whose value-index maps have already been folded into
-    /// `ptr_to_location`. Used to avoid double-registration.
+    /// Per-chunk index keyed by chunk base address.
+    chunks: RwLock<BTreeMap<usize, ChunkEntry>>,
+    /// Heaps whose chunk entries have already been folded into `chunks`.
+    /// Used to skip duplicate registrations on transitive ref walks.
     registered_heaps: DashSet<HeapRefId>,
 }
 
 impl StarlarkSerState {
     pub(crate) fn new() -> Self {
         Self {
-            ptr_to_location: DashMap::new(),
+            chunks: RwLock::new(BTreeMap::new()),
             registered_heaps: DashSet::new(),
         }
     }
 
-    /// Fold a heap's value-index map into the flat `ptr_to_location` lookup.
-    /// Idempotent: concurrent callers may both populate the same entries,
-    /// but `ptr_to_location.insert` overwrites identically.
-    fn register_heap(&self, heap_id: HeapRefId, value_index_map: HashMap<usize, u32>) {
-        for (ptr, value_index) in value_index_map {
-            self.ptr_to_location.insert(ptr, (heap_id, value_index));
+    fn register_heap(&self, heap_id: HeapRefId, entries: Vec<ChunkInfo>) {
+        {
+            let mut chunks = self.chunks.write().expect("chunks lock poisoned");
+            for info in entries {
+                chunks.insert(
+                    info.base,
+                    ChunkEntry {
+                        size: info.size,
+                        heap_id,
+                        values_before: info.values_before,
+                        payload_offsets: info.payload_offsets.into_boxed_slice(),
+                    },
+                );
+            }
         }
         // Mark registered AFTER inserts so any observer of
         // `has_heap(heap_id) == true` is guaranteed to see all entries.
@@ -72,41 +96,60 @@ impl StarlarkSerState {
         self.registered_heaps.contains(&heap_id)
     }
 
-    /// Recursively ensure that value-index maps are registered for a heap
-    /// (identified by `heap_id`, with given `refs` and value-index map
-    /// builder) and all of its transitive dependencies.
-    pub(crate) fn ensure_offset_maps_registered_inner(
+    /// Recursively ensure that chunk indices are registered for a heap
+    /// (identified by `heap_id`, with given `refs`) and all of its transitive dependencies.
+    pub(crate) fn ensure_chunk_index_registered_inner(
         &self,
         heap_id: HeapRefId,
         refs: &[FrozenHeapRef],
-        build_map: impl FnOnce() -> HashMap<usize, u32>,
+        build_chunks: impl FnOnce() -> Vec<ChunkInfo>,
     ) {
         if self.has_heap(heap_id) {
             return;
         }
 
         for dep in refs {
-            self.ensure_offset_maps_registered(dep);
+            self.ensure_chunk_index_registered(dep);
         }
 
-        self.register_heap(heap_id, build_map());
+        self.register_heap(heap_id, build_chunks());
     }
 
-    /// Recursively ensure that value-index maps are registered for a heap
+    /// Recursively ensure that chunk indices are registered for a heap
     /// and all of its transitive dependencies.
     ///
     /// This is needed when serializing `FrozenValue` pointers outside the
     /// heap serialization flow (e.g. in `OwnedFrozenValue`), where the
     /// pagable arc mechanism defers heap serialization but we need the
     /// value-index maps immediately to resolve pointers.
-    pub(crate) fn ensure_offset_maps_registered(&self, heap_ref: &FrozenHeapRef) {
+    pub(crate) fn ensure_chunk_index_registered(&self, heap_ref: &FrozenHeapRef) {
         let Some(name) = heap_ref.name() else {
             return;
         };
         let heap_id = HeapRefId::from_heap_name(name);
-        self.ensure_offset_maps_registered_inner(heap_id, heap_ref.refs_slice(), || {
-            heap_ref.build_ptr_to_value_index_map()
+        self.ensure_chunk_index_registered_inner(heap_id, heap_ref.refs_slice(), || {
+            heap_ref.build_chunk_index()
         });
+    }
+
+    /// Resolve a raw payload pointer to its `(heap_id, value_index)` by
+    /// looking up the containing chunk in `chunks` and `binary_search`ing
+    /// the chunk's sorted `payload_offsets` for the within-chunk index.
+    pub(crate) fn lookup_ptr(&self, raw_ptr: usize) -> Option<(HeapRefId, u32)> {
+        let chunks = self.chunks.read().expect("chunks lock poisoned");
+        let (&base, entry) = chunks.range(..=raw_ptr).next_back()?;
+        if raw_ptr >= base + entry.size as usize {
+            return None;
+        }
+        let within_chunk_offset = (raw_ptr - base) as u32;
+        // `FrozenFrozenHeap` uses `Arena<ChunkAllocator>` (`Up` direction):
+        // sorted-ascending offsets match allocation order, so the
+        // binary_search index is the within-chunk alloc index `k`.
+        let k = entry
+            .payload_offsets
+            .binary_search(&within_chunk_offset)
+            .ok()? as u32;
+        Some((entry.heap_id, entry.values_before + k))
     }
 }
 
@@ -116,7 +159,7 @@ impl StarlarkSerState {
 /// resolve `FrozenValue` references during serialization.
 pub struct StarlarkSerializerImpl<'a> {
     pagable: &'a mut dyn PagableSerializer,
-    /// Shared state for heap offset map lookups across all heaps.
+    /// Shared state for heap chunk-index lookups across all heaps.
     state: Arc<StarlarkSerState>,
 }
 
@@ -165,19 +208,12 @@ impl StarlarkSerializeContext for StarlarkSerializerImpl<'_> {
                 // Payload pointer, must match the key used in `Arena::build_ptr_to_offset_map`.
                 let raw_ptr = fv.to_value().get_ref().value.ptr as usize;
 
-                // Copy the (heap_id, offset) out of the DashMap so the
-                // shard guard is dropped before `pagable_serialize`.
-                let (heap_id, value_index) = self
-                    .state
-                    .ptr_to_location
-                    .get(&raw_ptr)
-                    .map(|loc| *loc)
-                    .unwrap_or_else(|| {
-                        panic!(
-                            "FrozenValue pointer {:#x} not found in any heap's value-index map",
-                            raw_ptr
-                        )
-                    });
+                let (heap_id, value_index) = self.state.lookup_ptr(raw_ptr).unwrap_or_else(|| {
+                    panic!(
+                        "FrozenValue pointer {:#x} not found in any registered heap's chunk index",
+                        raw_ptr
+                    )
+                });
 
                 let serialized = SerializedFrozenValue::HeapPtr {
                     heap_id,

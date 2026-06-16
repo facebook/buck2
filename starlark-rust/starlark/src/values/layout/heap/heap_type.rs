@@ -20,7 +20,6 @@ use std::cell::Cell;
 use std::cell::RefCell;
 use std::cell::RefMut;
 use std::cmp;
-use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Formatter;
@@ -84,6 +83,7 @@ use crate::values::layout::heap::arena::Arena;
 use crate::values::layout::heap::arena::ArenaOffset;
 use crate::values::layout::heap::arena::ArenaVisitor;
 use crate::values::layout::heap::arena::BumpKind;
+use crate::values::layout::heap::arena::ChunkInfo;
 use crate::values::layout::heap::arena::Reservation;
 use crate::values::layout::heap::call_enter_exit::CallEnter;
 use crate::values::layout::heap::call_enter_exit::CallExit;
@@ -490,12 +490,11 @@ impl FrozenFrozenHeap {
 
         // Record base_pos — all offsets are relative to here.
         let base_pos = serializer.position();
-        // Get or create shared state. Ensure this heap and all its transitive
-        // dependencies have offset maps registered before we serialize arena
-        // values (which may contain cross-heap FrozenValue pointers).
+        // Register chunk indices for this heap + transitive deps before
+        // serializing values (which may reference values cross-heap).
         let state = StarlarkSerializerImpl::get_or_create_state(serializer);
-        state.ensure_offset_maps_registered_inner(heap_id, &self.refs, || {
-            self.arena.build_ptr_to_value_index_map()
+        state.ensure_chunk_index_registered_inner(heap_id, &self.refs, || {
+            self.arena.build_chunk_index()
         });
         let mut ctx = StarlarkSerializerImpl::new(serializer, state);
 
@@ -891,13 +890,11 @@ impl FrozenHeapRef {
         items.0.into_iter()
     }
 
-    /// Build a map from raw header pointer address to `value_index` for all
-    /// values in this heap's arena. Indices are assigned in serialization
-    /// order: drop bump first, then non-drop bump.
-    pub(crate) fn build_ptr_to_value_index_map(&self) -> HashMap<usize, u32> {
+    /// See [`Arena::build_chunk_index`].
+    pub(crate) fn build_chunk_index(&self) -> Vec<ChunkInfo> {
         match &self.0 {
-            Some(inner) => inner.arena.build_ptr_to_value_index_map(),
-            None => HashMap::new(),
+            Some(inner) => inner.arena.build_chunk_index(),
+            None => Vec::new(),
         }
     }
 

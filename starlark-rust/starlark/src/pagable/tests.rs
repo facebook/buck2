@@ -567,6 +567,134 @@ fn test_heap_ref_dedup_round_trip() -> crate::Result<()> {
     Ok(())
 }
 
+/// Three heaps with chunks interleaved by address; cross-heap
+/// `FrozenValue`s in heap B target known interior values in A and C.
+/// Asserts `state.lookup_ptr` returns the right `(heap_id, value_index)`
+/// for every registered header, regardless of cross-heap address mixing.
+#[test]
+fn test_ser_state_lookup_resolves_cross_heap_ptrs() -> crate::Result<()> {
+    use crate::pagable::heap_ref_id::HeapRefId;
+    use crate::pagable::starlark_serialize_context::StarlarkSerState;
+
+    // Enough values to push each heap into multiple chunks (geometric
+    // chunk sizes 512, 1024, ... → ~500 SimpleData spans 3-5 chunks).
+    const VALUES_PER_HEAP: usize = 500;
+
+    // Build a leaf heap of `SimpleData`; returns the 7th allocation
+    // as a known cross-heap target (deep enough to land past chunk 0).
+    fn build_leaf_heap(name: &str) -> (FrozenHeapRef, HeapRefId, Vec<usize>, FrozenValue) {
+        let heap = FrozenHeap::new();
+        let mut allocated = Vec::with_capacity(VALUES_PER_HEAP);
+        for v in 0..VALUES_PER_HEAP {
+            allocated.push(heap.alloc_simple(SimpleData {
+                flag: (v & 1) == 0,
+                count: v,
+            }));
+        }
+        let target = allocated[7];
+        let heap_ref = heap.into_ref_named(TestHeapName::heap_name(name));
+        let heap_id = HeapRefId::from_heap_name(heap_ref.name().unwrap());
+        let ptrs_in_serialization_order: Vec<usize> = heap_ref
+            .collect_undrop_headers_ordered()
+            .iter()
+            .map(|hp| hp.payload_ptr().ptr as usize)
+            .collect();
+        (heap_ref, heap_id, ptrs_in_serialization_order, target)
+    }
+
+    let (heap_a_ref, heap_a_id, heap_a_ptrs, target_in_a) = build_leaf_heap("ser_state_lookup_A");
+    let (heap_c_ref, heap_c_id, heap_c_ptrs, target_in_c) = build_leaf_heap("ser_state_lookup_C");
+
+    let heap_b = FrozenHeap::new();
+    heap_b.add_reference(&heap_a_ref);
+    heap_b.add_reference(&heap_c_ref);
+    heap_b.alloc_simple(RefData {
+        label: 0,
+        target: target_in_a,
+    });
+    heap_b.alloc_simple(RefData {
+        label: 1,
+        target: target_in_c,
+    });
+    for v in 0..VALUES_PER_HEAP {
+        heap_b.alloc_simple(SimpleData {
+            flag: (v & 1) == 0,
+            count: v,
+        });
+    }
+    let heap_b_ref = heap_b.into_ref_named(TestHeapName::heap_name("ser_state_lookup_B"));
+    let heap_b_id = HeapRefId::from_heap_name(heap_b_ref.name().unwrap());
+    // RefData + SimpleData are both non-drop, so heap B has only a
+    // non-drop bump.
+    let heap_b_ptrs: Vec<usize> = heap_b_ref
+        .collect_undrop_headers_ordered()
+        .iter()
+        .map(|hp| hp.payload_ptr().ptr as usize)
+        .collect();
+
+    let b_undrop_headers = heap_b_ref.collect_undrop_headers_ordered();
+    assert!(b_undrop_headers.len() >= 2);
+    let b_ref_to_a: &RefData = b_undrop_headers[0].unpack().downcast_ref().unwrap();
+    let b_ref_to_c: &RefData = b_undrop_headers[1].unpack().downcast_ref().unwrap();
+    assert_eq!(b_ref_to_a.label, 0);
+    assert_eq!(b_ref_to_c.label, 1);
+    let ptr_in_a = b_ref_to_a.target.to_value().get_ref().value.ptr as usize;
+    let ptr_in_c = b_ref_to_c.target.to_value().get_ref().value.ptr as usize;
+
+    // Guard against a regression where each heap fits in one chunk —
+    // the chunk-spanning lookup arithmetic would never get exercised.
+    let a_chunks = heap_a_ref.build_chunk_index().len();
+    let b_chunks = heap_b_ref.build_chunk_index().len();
+    let c_chunks = heap_c_ref.build_chunk_index().len();
+    eprintln!(
+        "chunks per heap: A={a_chunks} B={b_chunks} C={c_chunks} \
+         (values_per_heap={VALUES_PER_HEAP})"
+    );
+    assert!(a_chunks >= 2, "heap A should span >= 2 chunks");
+    assert!(b_chunks >= 2, "heap B should span >= 2 chunks");
+    assert!(c_chunks >= 2, "heap C should span >= 2 chunks");
+
+    let state = StarlarkSerState::new();
+    state.ensure_chunk_index_registered(&heap_a_ref);
+    state.ensure_chunk_index_registered(&heap_b_ref);
+    state.ensure_chunk_index_registered(&heap_c_ref);
+
+    for (heap_id, ptrs) in [
+        (heap_a_id, &heap_a_ptrs),
+        (heap_b_id, &heap_b_ptrs),
+        (heap_c_id, &heap_c_ptrs),
+    ] {
+        for (expected_index, &raw_ptr) in ptrs.iter().enumerate() {
+            let (got_heap, got_index) = state.lookup_ptr(raw_ptr).unwrap_or_else(|| {
+                panic!("ptr {raw_ptr:#x} unexpectedly missing from chunk index")
+            });
+            assert_eq!(got_heap, heap_id, "ptr {raw_ptr:#x} routed to wrong heap");
+            assert_eq!(
+                got_index, expected_index as u32,
+                "ptr {raw_ptr:#x}: got value_index {got_index}, expected {expected_index}",
+            );
+        }
+    }
+
+    // Cross-heap pointers in B's RefData must resolve into A / C, not B.
+    let (got_heap, got_index_in_a) = state.lookup_ptr(ptr_in_a).expect("target in A");
+    assert_eq!(got_heap, heap_a_id);
+    assert_eq!(got_index_in_a, 7);
+
+    let (got_heap, got_index_in_c) = state.lookup_ptr(ptr_in_c).expect("target in C");
+    assert_eq!(got_heap, heap_c_id);
+    assert_eq!(got_index_in_c, 7);
+
+    // B's two RefData headers occupy value_index 0/1 (non-drop bump is
+    // the whole of B's serialization order — RefData has no Drop).
+    let b_ref_a_ptr = b_undrop_headers[0].payload_ptr().ptr as usize;
+    let b_ref_c_ptr = b_undrop_headers[1].payload_ptr().ptr as usize;
+    assert_eq!(state.lookup_ptr(b_ref_a_ptr), Some((heap_b_id, 0)));
+    assert_eq!(state.lookup_ptr(b_ref_c_ptr), Some((heap_b_id, 1)));
+
+    Ok(())
+}
+
 #[test]
 fn test_frozen_value_typed_round_trip() -> crate::Result<()> {
     use crate::values::FrozenValueTyped;

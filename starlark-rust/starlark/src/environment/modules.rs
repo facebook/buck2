@@ -109,12 +109,12 @@ impl PagableSerialize for FrozenModule {
         // Serialize the heap (via pagable arc — actual heap data may be deferred).
         self.heap.pagable_serialize(serializer)?;
 
-        // Force-register offset maps for the heap and its transitive deps. The
+        // Force-register chunk indices for the heap and its transitive deps. The
         // pagable arc may not run heap serialization yet, but we need the
-        // offset maps now so the upcoming starlark serializer can resolve
+        // chunk indices now so the upcoming starlark serializer can resolve
         // FrozenValue pointers. Same trick as `OwnedFrozenValue`.
         let state = StarlarkSerializerImpl::get_or_create_state(serializer);
-        state.ensure_offset_maps_registered(&self.heap);
+        state.ensure_chunk_index_registered(&self.heap);
         let mut ctx = StarlarkSerializerImpl::new(serializer, state);
 
         self.module

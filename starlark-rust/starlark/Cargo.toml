@@ -54,7 +54,7 @@ strsim = "0.11.1"
 textwrap = "0.11"
 thiserror = "2.0.18"
 
-allocative = { workspace = true, features = ["bumpalo", "num-bigint"] }
+allocative = { workspace = true, features = ["bumpalo", "dashmap", "num-bigint"] }
 cmp_any = { workspace = true }
 pagable = { workspace = true }
 

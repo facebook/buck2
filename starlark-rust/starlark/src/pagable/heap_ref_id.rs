@@ -38,6 +38,7 @@
 
 use std::hash::Hasher;
 
+use allocative::Allocative;
 use dupe::Dupe;
 use pagable::PagableDeserialize;
 use pagable::PagableSerialize;
@@ -57,6 +58,7 @@ use crate::values::FrozenHeapName;
     PartialEq,
     Eq,
     Hash,
+    Allocative,
     PagableSerialize,
     PagableDeserialize
 )]
