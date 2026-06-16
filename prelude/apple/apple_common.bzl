@@ -400,6 +400,14 @@ def _strip_level_arg():
 def _swift_module_skip_function_bodies_arg():
     return {"swift_module_skip_function_bodies": attrs.bool(default = True)}
 
+def _disable_generated_umbrella_header_arg():
+    # When True, the Swift compilation will not auto-generate an umbrella
+    # header for mixed ObjC/Swift modules. Modules that opt in must provide
+    # their own umbrella header (or an empty one) named after the module so
+    # that `#import <ModuleName/ModuleName.h>` emitted in the -Swift.h header
+    # still resolves.
+    return {"disable_generated_umbrella_header": attrs.bool(default = False)}
+
 def _swift_package_name_arg():
     return {"swift_package_name": attrs.option(attrs.string(), default = None)}
 
@@ -515,6 +523,7 @@ apple_common = struct(
     static_library_basename_arg = _static_library_basename_arg,
     strip_level_arg = _strip_level_arg,
     swift_module_skip_function_bodies_arg = _swift_module_skip_function_bodies_arg,
+    disable_generated_umbrella_header_arg = _disable_generated_umbrella_header_arg,
     swift_package_name_arg = _swift_package_name_arg,
     skip_private_swiftinterface_arg = _skip_private_swiftinterface_arg,
     thin_lto_arg = _thin_lto_arg,
