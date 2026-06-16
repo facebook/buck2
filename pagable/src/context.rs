@@ -9,10 +9,14 @@
  */
 
 use std::any::TypeId;
+use std::sync::Arc;
 
+use dupe::Dupe;
 use postcard::ser_flavors::Flavor;
 
 use crate::PagableDeserializer;
+use crate::PagableDeserializerRecipe;
+use crate::PagableDeserializerRecipeImpl;
 use crate::PagableSerializer;
 use crate::arc_erase::ArcEraseDyn;
 use crate::storage::data::DataKey;
@@ -123,6 +127,7 @@ impl<'de, 's> PagableDeserializer<'de> for PagableDeserializerImpl<'de, 's> {
         type_id: TypeId,
         deserialize_fn: for<'a> fn(
             &mut dyn PagableDeserializer<'a>,
+            Arc<dyn PagableDeserializerRecipe>,
         ) -> crate::Result<Box<dyn ArcEraseDyn>>,
     ) -> crate::Result<Box<dyn ArcEraseDyn>> {
         let key = self
@@ -139,7 +144,10 @@ impl<'de, 's> PagableDeserializer<'de> for PagableDeserializerImpl<'de, 's> {
             let data = storage.fetch_data_blocking(key)?;
             let mut deserializer =
                 PagableDeserializerImpl::new(&data.data, &data.arcs, self.storage);
-            deserialize_fn(&mut deserializer)
+            // Build a recipe for deferred deserialization.
+            let recipe: Arc<dyn PagableDeserializerRecipe> =
+                Arc::new(PagableDeserializerRecipeImpl::new(data.dupe()));
+            deserialize_fn(&mut deserializer, recipe)
         })?;
         Ok(arc.clone_dyn())
     }

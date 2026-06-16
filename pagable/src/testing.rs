@@ -37,10 +37,12 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
 
+use dupe::Dupe;
 use postcard::ser_flavors::Flavor as _;
 use serde::Deserialize;
 use serde::Serialize;
 
+use crate::PagableDeserializerRecipe;
 use crate::arc_erase::ArcEraseDyn;
 use crate::flavors::PagableSlice;
 use crate::flavors::PagableVecFlavor;
@@ -134,6 +136,8 @@ impl PagableSerializer for TestingSerializer {
 /// stream, with arc identity preserved (duplicate arcs point to the same
 /// allocation). Type IDs are checked during unstashing to catch type mismatches.
 pub struct TestingDeserializer<'de> {
+    /// Owned copy of the input. Recipes clone this `Arc` instead of copying.
+    bytes_arc: Arc<[u8]>,
     pos: SharedPosition,
     serde: postcard::Deserializer<'de, PagableSlice<'de>>,
     seen_arcs: HashMap<usize, Box<dyn ArcEraseDyn>>,
@@ -151,11 +155,25 @@ impl<'de> TestingDeserializer<'de> {
     pub fn new(bytes: &'de [u8]) -> Self {
         let pos = SharedPosition::new();
         Self {
+            bytes_arc: Arc::from(bytes.to_vec().into_boxed_slice()),
             pos: pos.clone(),
             serde: postcard::Deserializer::from_flavor(PagableSlice::new(bytes, pos)),
             seen_arcs: HashMap::new(),
             arc_index: 0,
-            storage: PagableStorageHandle::new(std::sync::Arc::new(EmptyPagableStorage::new())),
+            storage: PagableStorageHandle::new(Arc::new(EmptyPagableStorage::new())),
+        }
+    }
+
+    /// Construct a deserializer sharing an existing `Arc<[u8]>` and storage.
+    pub fn from_bytes_arc(bytes: &'de Arc<[u8]>, storage: PagableStorageHandle) -> Self {
+        let pos = SharedPosition::new();
+        Self {
+            bytes_arc: bytes.dupe(),
+            pos: pos.clone(),
+            serde: postcard::Deserializer::from_flavor(PagableSlice::new(bytes, pos)),
+            seen_arcs: HashMap::new(),
+            arc_index: 0,
+            storage,
         }
     }
 }
@@ -182,6 +200,7 @@ impl<'de> PagableDeserializer<'de> for TestingDeserializer<'de> {
         _type_id: std::any::TypeId,
         deserialize_fn: for<'a> fn(
             &mut dyn PagableDeserializer<'a>,
+            Arc<dyn PagableDeserializerRecipe>,
         ) -> crate::Result<Box<dyn ArcEraseDyn>>,
     ) -> crate::Result<Box<dyn ArcEraseDyn>> {
         // Read identity first
@@ -193,7 +212,10 @@ impl<'de> PagableDeserializer<'de> for TestingDeserializer<'de> {
             Ok(arc_dyn.clone_dyn())
         } else {
             // First time - deserialize, store in map, return
-            let arc = deserialize_fn(self)?;
+            let recipe: Arc<dyn PagableDeserializerRecipe> = Arc::new(TestingRecipe {
+                bytes: self.bytes_arc.dupe(),
+            });
+            let arc = deserialize_fn(self, recipe)?;
             self.seen_arcs.insert(identity, arc.clone_dyn());
             Ok(arc)
         }
@@ -223,6 +245,22 @@ impl EmptyPagableStorage {
             arc_cache: DeserializedArcCache::new(),
             session_context: SessionContext::new(),
         }
+    }
+}
+
+pub(crate) struct TestingRecipe {
+    bytes: Arc<[u8]>,
+}
+
+impl PagableDeserializerRecipe for TestingRecipe {
+    fn open<'a>(
+        &'a self,
+        storage: &'a PagableStorageHandle,
+    ) -> Box<dyn PagableDeserializer<'a> + 'a> {
+        Box::new(TestingDeserializer::from_bytes_arc(
+            &self.bytes,
+            storage.dupe(),
+        ))
     }
 }
 

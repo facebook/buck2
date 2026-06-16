@@ -27,6 +27,7 @@ use dupe::Dupe;
 use crate::PagableBoxDeserialize;
 use crate::PagableDeserialize;
 use crate::PagableDeserializer;
+use crate::PagableDeserializerRecipe;
 use crate::PagableSerialize;
 use crate::PagableSerializer;
 use crate::storage::data::DataKey;
@@ -81,6 +82,7 @@ pub fn deserialize_arc<'de, T: ArcErase, D: PagableDeserializer<'de> + ?Sized>(
 ) -> anyhow::Result<T> {
     fn deserialize_fn<A: ArcErase>(
         d: &mut dyn PagableDeserializer<'_>,
+        _recipe: Arc<dyn PagableDeserializerRecipe>,
     ) -> crate::Result<Box<dyn ArcEraseDyn>> {
         let arc = A::deserialize_inner(d)?;
         Ok(Box::new(arc))

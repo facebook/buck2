@@ -33,6 +33,7 @@ pub use typetag::PagableTagged;
 
 pub mod arc_erase;
 pub mod context;
+pub mod deser_recipe;
 pub mod flavors;
 mod impls;
 mod pagable_arc;
@@ -42,6 +43,8 @@ pub mod testing;
 pub mod traits;
 pub mod typetag;
 
+pub use deser_recipe::PagableDeserializerRecipe;
+pub use deser_recipe::PagableDeserializerRecipeImpl;
 pub use impls::StaticStr;
 pub use impls::static_value;
 pub use impls::static_value::StaticBytes;

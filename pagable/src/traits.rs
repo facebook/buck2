@@ -19,9 +19,11 @@
 
 use std::any::Any;
 use std::any::TypeId;
+use std::sync::Arc;
 
 use dashmap::DashMap;
 
+use crate::PagableDeserializerRecipe;
 use crate::arc_erase::ArcEraseDyn;
 use crate::storage::handle::PagableStorageHandle;
 
@@ -250,8 +252,10 @@ pub trait PagableDeserializer<'de> {
     /// If the same Arc was serialized multiple times via `serialize_arc`, this method
     /// should return clones that point to the same allocation (preserving identity).
     ///
-    /// Takes a function pointer that performs the actual deserialization. The function
-    /// receives a type-erased deserializer and returns a type-erased Arc.
+    /// Takes a function pointer that performs the actual deserialization. The
+    /// function receives both a type-erased deserializer  and an
+    /// `Arc<dyn PagableDeserializerRecipe>`. Callbacks that want to defer further reads
+    /// (e.g. partial-deser) can retain or stash the recipe `Arc` for later reopening.
     ///
     /// The `type_id` parameter provides the TypeId of the Arc being deserialized,
     /// which is needed for storage cache lookups.
@@ -260,6 +264,7 @@ pub trait PagableDeserializer<'de> {
         type_id: std::any::TypeId,
         deserialize_fn: for<'a> fn(
             &mut dyn PagableDeserializer<'a>,
+            Arc<dyn PagableDeserializerRecipe>,
         ) -> crate::Result<Box<dyn ArcEraseDyn>>,
     ) -> crate::Result<Box<dyn ArcEraseDyn>>;
 
@@ -291,6 +296,7 @@ impl<'de, D: PagableDeserializer<'de> + ?Sized> PagableDeserializer<'de> for &mu
         type_id: TypeId,
         deserialize_fn: for<'a> fn(
             &mut dyn PagableDeserializer<'a>,
+            Arc<dyn PagableDeserializerRecipe>,
         ) -> crate::Result<Box<dyn ArcEraseDyn>>,
     ) -> crate::Result<Box<dyn ArcEraseDyn>> {
         <D as PagableDeserializer<'de>>::deserialize_arc(self, type_id, deserialize_fn)
