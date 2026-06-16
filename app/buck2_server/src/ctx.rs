@@ -610,6 +610,7 @@ impl DiceUpdater for DiceCommandUpdater<'_, '_> {
         check_agent_host_guard(
             &cells_and_configs.root_config,
             &self.cmd_ctx.base_context.daemon,
+            &self.cmd_ctx.base_context.project_root,
         )?;
 
         let cell_resolver = cells_and_configs.cell_resolver;

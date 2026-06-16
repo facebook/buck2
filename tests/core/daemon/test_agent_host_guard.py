@@ -9,15 +9,31 @@
 # pyre-strict
 
 
+import re
+
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.helper.golden import golden, sanitize_stderr
 
 # Cgroup of an agent-originated daemon; `BUCK2_TEST_DAEMON_ORIGINATING_CGROUP`
 # overrides the real cgroup, which is unavailable since tests disable the cgroup spawner.
 _AGENT_CGROUP = "/user.slice/3pai_sandbox.slice/buck2.scope"
 _NON_AGENT_CGROUP = "/user.slice/user-1000.slice/buck2.scope"
-_FAIL_MESSAGE = "Builds are blocked on this host for coding agents"
+
+
+def _write_buckconfig_local(buck: Buck, contents: str) -> None:
+    with open(buck.cwd / ".buckconfig.local", "w") as f:
+        f.write(contents)
+
+
+def _sanitize_denial(stderr: str, project_root: str) -> str:
+    # Replace the project root path before `sanitize_stderr`, which would
+    # otherwise rewrite the hash inside the path and break a literal match.
+    s = stderr.replace(project_root, "<PROJECT_ROOT>")
+    # The hostname is host-specific; normalize it so the golden is portable.
+    s = re.sub(r"host `[^`]+`", "host `<HOSTNAME>`", s)
+    return sanitize_stderr(s)
 
 
 @buck_test()
@@ -31,27 +47,61 @@ async def test_agent_host_guard_disabled(buck: Buck) -> None:
 
 @buck_test()
 async def test_agent_host_guard_denied(buck: Buck) -> None:
-    await expect_failure(
+    _write_buckconfig_local(
+        buck,
+        "[buck2]\nagent_hostname_fail_glob=*\n",
+    )
+    result = await expect_failure(
         buck.build(
             ":pass",
-            "-c",
-            "buck2.agent_hostname_fail_glob=*",
-            "-c",
-            f"buck2.agent_hostname_fail_message={_FAIL_MESSAGE}",
             env={"BUCK2_TEST_DAEMON_ORIGINATING_CGROUP": _AGENT_CGROUP},
         ),
-        stderr_regex=_FAIL_MESSAGE,
+    )
+    golden(
+        output=_sanitize_denial(result.stderr, str(buck.cwd)),
+        rel_path="golden/denied.golden.stderr",
+    )
+
+
+@buck_test()
+async def test_agent_host_guard_denied_with_context(buck: Buck) -> None:
+    _write_buckconfig_local(
+        buck,
+        "[buck2]\nagent_hostname_fail_glob=*\nagent_hostname_fail_context=See S123456\n",
+    )
+    result = await expect_failure(
+        buck.build(
+            ":pass",
+            env={"BUCK2_TEST_DAEMON_ORIGINATING_CGROUP": _AGENT_CGROUP},
+        ),
+    )
+    golden(
+        output=_sanitize_denial(result.stderr, str(buck.cwd)),
+        rel_path="golden/denied_with_context.golden.stderr",
     )
 
 
 @buck_test()
 async def test_agent_host_guard_non_agent_cgroup(buck: Buck) -> None:
     # Hostname matches but the daemon is not agent-originated -> build succeeds.
+    _write_buckconfig_local(
+        buck,
+        "[buck2]\nagent_hostname_fail_glob=*\n",
+    )
     await buck.build(
         ":pass",
-        "-c",
-        "buck2.agent_hostname_fail_glob=*",
-        "-c",
-        f"buck2.agent_hostname_fail_message={_FAIL_MESSAGE}",
         env={"BUCK2_TEST_DAEMON_ORIGINATING_CGROUP": _NON_AGENT_CGROUP},
+    )
+
+
+@buck_test()
+async def test_agent_host_guard_hostname_no_match(buck: Buck) -> None:
+    # Agent cgroup but the hostname glob does not match -> build succeeds.
+    _write_buckconfig_local(
+        buck,
+        "[buck2]\nagent_hostname_fail_glob=definitely-not-this-host-*\n",
+    )
+    await buck.build(
+        ":pass",
+        env={"BUCK2_TEST_DAEMON_ORIGINATING_CGROUP": _AGENT_CGROUP},
     )

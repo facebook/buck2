@@ -11,7 +11,9 @@
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_core::buck2_env;
+use buck2_core::fs::project::ProjectRoot;
 use buck2_events::metadata::hostname;
+use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use globset::Glob;
 use globset::GlobSet;
 use globset::GlobSetBuilder;
@@ -26,33 +28,24 @@ const CGROUP_AGENT_MARKER: &str = "3pai";
 /// ```ini
 /// [buck2]
 /// agent_hostname_fail_glob = bad-host-*.example.com,other-*
-/// agent_hostname_fail_message = This host is temporarily blocked for agent builds, see S123456.
+/// agent_hostname_fail_context = See S123456.
 /// ```
 const FAIL_GLOB_KEY: BuckconfigKeyRef = BuckconfigKeyRef {
     section: "buck2",
     property: "agent_hostname_fail_glob",
 };
-/// Shown to the user when a build is rejected. Required whenever
-/// `agent_hostname_fail_glob` is set.
-const FAIL_MESSAGE_KEY: BuckconfigKeyRef = BuckconfigKeyRef {
+/// Optional extra context appended to the rejection message, e.g. a SEV link.
+/// Unset/empty just omits it.
+const FAIL_CONTEXT_KEY: BuckconfigKeyRef = BuckconfigKeyRef {
     section: "buck2",
-    property: "agent_hostname_fail_message",
+    property: "agent_hostname_fail_context",
 };
 
 #[derive(Debug, buck2_error::Error)]
 enum AgentHostGuardError {
-    #[error("{message} (rejected on host `{hostname}`, originating cgroup `{cgroup}`)")]
+    #[error("{0}")]
     #[buck2(tag = Environment)]
-    Denied {
-        message: String,
-        hostname: String,
-        cgroup: String,
-    },
-    #[error(
-        "`buck2.agent_hostname_fail_glob` is set but `buck2.agent_hostname_fail_message` is empty; set a message so rejected builds explain why"
-    )]
-    #[buck2(tag = Input)]
-    MissingMessage,
+    Denied(String),
     #[error("Invalid hostname glob `{glob}`: {error}")]
     #[buck2(tag = Input)]
     InvalidGlob { glob: String, error: String },
@@ -61,10 +54,36 @@ enum AgentHostGuardError {
     InvalidGlobSet { error: String },
 }
 
+/// Build the user-facing rejection message. The optional `context` (e.g. a SEV
+/// link) is appended after a blank line when present.
+fn denial_message(hostname: &str, project_root: &AbsNormPath, context: Option<&str>) -> String {
+    let mut message = format!(
+        "Running buck2 with buck2 daemon spawned from a coding agent's sandbox on certain hosts can make builds extremely slow. This daemon is in that situation on host `{hostname}`, so its builds are blocked for now. We are working on a long-term fix to remove buck2 daemon from sandbox.
+
+To mitigate in the meantime, a person, not a coding agent, needs to run the following. Please open a terminal on this host, go to:
+
+    {project_root}
+
+and run:
+
+    buck2 kill && buck2 server
+
+This restarts the buck2 daemon outside the sandbox, after which all buck2 builds (including ones triggered by a coding agent) will work again."
+    );
+
+    if let Some(context) = context {
+        message.push_str("\n\n");
+        message.push_str(context);
+    }
+
+    message
+}
+
 /// Reject the build if it originates from a 3pai cgroup and runs on a denylisted host.
 pub(crate) fn check_agent_host_guard(
     config: &LegacyBuckConfig,
     daemon: &DaemonStateData,
+    project_root: &ProjectRoot,
 ) -> buck2_error::Result<()> {
     let glob = config.get(FAIL_GLOB_KEY).unwrap_or("").trim();
     if glob.is_empty() {
@@ -72,10 +91,10 @@ pub(crate) fn check_agent_host_guard(
         return Ok(());
     }
 
-    let message = config.get(FAIL_MESSAGE_KEY).unwrap_or("").trim();
-    if message.is_empty() {
-        return Err(AgentHostGuardError::MissingMessage.into());
-    }
+    let context = config
+        .get(FAIL_CONTEXT_KEY)
+        .map(str::trim)
+        .filter(|c| !c.is_empty());
 
     // The cgroup spawner is disabled in integration tests, so `daemon_originating_cgroup`
     // is always `None` there. This test-only override lets tests exercise the gate.
@@ -85,10 +104,10 @@ pub(crate) fn check_agent_host_guard(
     )?;
     let cgroup = cgroup_override.or(daemon.daemon_originating_cgroup.as_deref());
 
-    let Some(cgroup) = cgroup.filter(|c| c.contains(CGROUP_AGENT_MARKER)) else {
+    if cgroup.filter(|c| c.contains(CGROUP_AGENT_MARKER)).is_none() {
         // Not an agent-originated daemon.
         return Ok(());
-    };
+    }
 
     let Some(hostname) = hostname() else {
         // Can't determine the hostname; don't block.
@@ -96,11 +115,11 @@ pub(crate) fn check_agent_host_guard(
     };
 
     if build_hostname_globset(glob)?.is_match(&hostname) {
-        return Err(AgentHostGuardError::Denied {
-            message: message.to_owned(),
-            hostname,
-            cgroup: cgroup.to_owned(),
-        }
+        return Err(AgentHostGuardError::Denied(denial_message(
+            &hostname,
+            project_root.root(),
+            context,
+        ))
         .into());
     }
 
