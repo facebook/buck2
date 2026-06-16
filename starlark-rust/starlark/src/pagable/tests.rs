@@ -3029,3 +3029,531 @@ fn test_multi_ofv_shared_heap_incremental_partial_deser() -> crate::Result<()> {
 
     Ok(())
 }
+
+/// Cross-thread cycle test: two values on the same heap reference each other.
+/// Two threads simultaneously deserialize one value each. Without cross-thread
+/// cycle detection, this deadlocks (thread A waits for B's value, B waits for A's).
+/// With cycle detection, the wait-for graph detects the cycle and returns a
+/// sentinel pointer to break it.
+#[test]
+fn test_cross_thread_cycle_does_not_deadlock() {
+    use std::sync::Barrier;
+    use std::time::Duration;
+
+    use pagable::PagableDeserialize;
+    use pagable::context::PagableDeserializerImpl;
+    use pagable::storage::handle::PagableStorageHandle;
+    use pagable::storage::in_memory::InMemoryPagableStorage;
+    use pagable::storage::support::SerializerForPaging;
+
+    use crate::environment::FrozenModule;
+    use crate::environment::Module;
+    use crate::eval::Evaluator;
+    use crate::syntax::AstModule;
+    use crate::syntax::Dialect;
+
+    let code = r#"
+a = []
+b = []
+a.append(b)
+b.append(a)
+"#;
+
+    let ast = AstModule::parse("cross_thread.star", code.to_owned(), &Dialect::Extended).unwrap();
+    let globals = GlobalsBuilder::new().build_named(GlobalFrozenHeapName {
+        name: "cross_thread",
+    });
+    let frozen_module = Module::with_temp_heap(|module| {
+        {
+            let mut eval = Evaluator::new(&module);
+            eval.eval_module(ast, &globals).unwrap();
+        }
+        module.freeze_named(TestHeapName::heap_name("cross_thread_cycle"))
+    })
+    .unwrap();
+
+    let ofv_a = frozen_module.get("a").unwrap();
+    let ofv_b = frozen_module.get("b").unwrap();
+
+    let backing = InMemoryPagableStorage::new();
+    let storage = backing.handle();
+    let session_ctx = storage.session_context();
+
+    // Serialize both OwnedFrozenValues.
+    let ser_one = |ofv: &OwnedFrozenValue| -> crate::Result<pagable::DataKey> {
+        let mut ser = SerializerForPaging::new(session_ctx);
+        ofv.pagable_serialize(&mut ser)
+            .map_err(crate::Error::new_other)?;
+        let (data, arcs) = ser.finish();
+        let mut finished = dashmap::DashMap::new();
+        storage
+            .page_out_item(data, arcs, &mut finished, session_ctx)
+            .map_err(crate::Error::new_other)
+    };
+    let key_a = ser_one(&ofv_a).unwrap();
+    let key_b = ser_one(&ofv_b).unwrap();
+
+    let handle = Arc::new(PagableStorageHandle::new(storage.clone()));
+    let barrier = Arc::new(Barrier::new(2));
+
+    let deser_one = |key: pagable::DataKey,
+                     handle: Arc<PagableStorageHandle>,
+                     barrier: Arc<Barrier>,
+                     storage: Arc<dyn pagable::storage::traits::PagableStorage>|
+     -> std::thread::JoinHandle<crate::Result<()>> {
+        std::thread::spawn(move || {
+            let top_data = storage
+                .fetch_data_blocking(&key)
+                .map_err(crate::Error::new_other)?;
+
+            // Synchronize so both threads enter deserialization at the same time.
+            barrier.wait();
+
+            let mut de = PagableDeserializerImpl::new(&top_data.data, &top_data.arcs, &handle);
+            let _restored =
+                OwnedFrozenValue::pagable_deserialize(&mut de).map_err(crate::Error::new_other)?;
+            Ok(())
+        })
+    };
+
+    let h_a = deser_one(key_a, handle.clone(), barrier.clone(), storage.clone());
+    let h_b = deser_one(key_b, handle.clone(), barrier.clone(), storage.clone());
+
+    // Use recv_timeout to detect deadlock.
+    let (tx, rx) = std::sync::mpsc::channel();
+    let tx2 = tx.clone();
+    std::thread::spawn(move || {
+        let r_a = h_a.join().expect("thread A panicked");
+        tx.send(r_a).ok();
+    });
+    std::thread::spawn(move || {
+        let r_b = h_b.join().expect("thread B panicked");
+        tx2.send(r_b).ok();
+    });
+
+    rx.recv_timeout(Duration::from_secs(10))
+        .expect("cross-thread cycle test deadlocked")
+        .unwrap_or_else(|e| panic!("deser thread failed: {:#}", e));
+}
+
+// ---- Ser/deser micro-benchmarks ----
+
+struct BenchResult {
+    label: &'static str,
+    count: usize,
+    ser_us: u128,
+    deser_us: u128,
+    bytes: usize,
+}
+
+impl BenchResult {
+    fn print(&self) {
+        eprintln!(
+            "  {:<30} n={:<6} ser={:>8}µs ({:>6}µs/v)  deser={:>8}µs ({:>6}µs/v)  bytes={:>8} ({:>4}B/v)",
+            self.label,
+            self.count,
+            self.ser_us,
+            self.ser_us / self.count as u128,
+            self.deser_us,
+            self.deser_us / self.count as u128,
+            self.bytes,
+            self.bytes / self.count,
+        );
+    }
+}
+
+fn bench_owned_frozen_value_round_trip(
+    label: &'static str,
+    heap_ref: FrozenHeapRef,
+    root: FrozenValue,
+    count: usize,
+) -> crate::Result<BenchResult> {
+    use std::any::TypeId;
+    use std::time::Instant;
+
+    use pagable::PagableDeserialize;
+    use pagable::context::PagableDeserializerImpl;
+    use pagable::storage::handle::PagableStorageHandle;
+    use pagable::storage::in_memory::InMemoryPagableStorage;
+    use pagable::storage::support::SerializerForPaging;
+
+    let owned = unsafe { OwnedFrozenValue::new(heap_ref, root) };
+
+    let backing = InMemoryPagableStorage::new();
+    let storage = backing.handle();
+    let handle = PagableStorageHandle::new(storage.clone());
+    let session_ctx = storage.session_context();
+
+    let ser_start = Instant::now();
+    let mut ser = SerializerForPaging::new(session_ctx);
+    owned
+        .pagable_serialize(&mut ser)
+        .map_err(crate::Error::new_other)?;
+    let (data, arcs) = ser.finish();
+    let ser_us = ser_start.elapsed().as_micros();
+    let bytes = data.len();
+
+    let top_key = {
+        let mut finished = dashmap::DashMap::new();
+        storage
+            .page_out_item(data, arcs, &mut finished, session_ctx)
+            .map_err(crate::Error::new_other)?
+    };
+
+    let top_data = storage
+        .fetch_arc_or_data_blocking(&TypeId::of::<()>(), &top_key)
+        .map_err(crate::Error::new_other)?
+        .right()
+        .expect("should be data");
+
+    let deser_start = Instant::now();
+    let mut de = PagableDeserializerImpl::new(&top_data.data, &top_data.arcs, &handle);
+    let _restored =
+        OwnedFrozenValue::pagable_deserialize(&mut de).map_err(crate::Error::new_other)?;
+    let deser_us = deser_start.elapsed().as_micros();
+
+    Ok(BenchResult {
+        label,
+        count,
+        ser_us,
+        deser_us,
+        bytes,
+    })
+}
+
+#[test]
+fn bench_pagable_ser_deser_by_value_type() -> crate::Result<()> {
+    eprintln!();
+    eprintln!("=== Pagable ser/deser micro-benchmark ===");
+
+    // SimpleData: primitive fields
+    {
+        let n = 5000;
+        let heap = FrozenHeap::new();
+        let mut root = FrozenValue::new_none();
+        for i in 0..n {
+            root = heap.alloc_simple(SimpleData {
+                flag: i % 2 == 0,
+                count: i,
+            });
+        }
+        let heap_ref = heap.into_ref_named(TestHeapName::heap_name("bench_simple"));
+        bench_owned_frozen_value_round_trip("SimpleData(bool,usize)", heap_ref, root, n)?.print();
+    }
+
+    // HeapData: Vec, String, Box
+    {
+        let n = 5000;
+        let heap = FrozenHeap::new();
+        let mut root = FrozenValue::new_none();
+        for i in 0..n {
+            root = heap.alloc_simple(HeapData {
+                items: vec![i as u32; 10],
+                label: format!("label_{i}"),
+                boxed: Box::new(i as i64 * 100),
+            });
+        }
+        let heap_ref = heap.into_ref_named(TestHeapName::heap_name("bench_heap_data"));
+        bench_owned_frozen_value_round_trip("HeapData(Vec,String,Box)", heap_ref, root, n)?.print();
+    }
+
+    // FrozenStr: strings of various sizes
+    for &str_len in &[10, 100, 1000] {
+        let n = 2000;
+        let heap = FrozenHeap::new();
+        let s: String = "x".repeat(str_len);
+        let mut root = FrozenValue::new_none();
+        for _ in 0..n {
+            root = heap.alloc_str(&s).to_frozen_value();
+        }
+        let heap_ref =
+            heap.into_ref_named(TestHeapName::heap_name(&format!("bench_str_{str_len}")));
+        let label = match str_len {
+            10 => "FrozenStr(len=10)",
+            100 => "FrozenStr(len=100)",
+            1000 => "FrozenStr(len=1000)",
+            _ => unreachable!(),
+        };
+        bench_owned_frozen_value_round_trip(label, heap_ref, root, n)?.print();
+    }
+
+    // Module eval: expressions producing ints and strings
+    {
+        use crate::environment::FrozenModule;
+        use crate::environment::Module;
+        use crate::eval::Evaluator;
+        use crate::syntax::AstModule;
+        use crate::syntax::Dialect;
+
+        let mut lines = Vec::new();
+        let n = 500;
+        for i in 0..n {
+            lines.push(format!("v{i} = {i} + 1"));
+        }
+        let code = lines.join("\n");
+
+        let ast = AstModule::parse("bench_module.star", code, &Dialect::Extended)?;
+        let globals =
+            GlobalsBuilder::new().build_named(GlobalFrozenHeapName { name: "bench_eval" });
+        let frozen_module = Module::with_temp_heap(|module| {
+            {
+                let mut eval = Evaluator::new(&module);
+                eval.eval_module(ast, &globals).unwrap();
+            }
+            module.freeze_named(TestHeapName::heap_name("bench_module_eval"))
+        })?;
+
+        use std::any::TypeId;
+        use std::time::Instant;
+
+        use pagable::PagableDeserialize;
+        use pagable::context::PagableDeserializerImpl;
+        use pagable::storage::handle::PagableStorageHandle;
+        use pagable::storage::in_memory::InMemoryPagableStorage;
+        use pagable::storage::support::SerializerForPaging;
+
+        let backing = InMemoryPagableStorage::new();
+        let storage = backing.handle();
+        let handle = PagableStorageHandle::new(storage.clone());
+        let session_ctx = storage.session_context();
+
+        let ser_start = Instant::now();
+        let mut ser = SerializerForPaging::new(session_ctx);
+        frozen_module
+            .pagable_serialize(&mut ser)
+            .map_err(crate::Error::new_other)?;
+        let (data, arcs) = ser.finish();
+        let ser_us = ser_start.elapsed().as_micros();
+        let bytes = data.len();
+
+        let top_key = {
+            let mut finished = dashmap::DashMap::new();
+            storage
+                .page_out_item(data, arcs, &mut finished, session_ctx)
+                .map_err(crate::Error::new_other)?
+        };
+
+        let top_data = storage
+            .fetch_arc_or_data_blocking(&TypeId::of::<()>(), &top_key)
+            .map_err(crate::Error::new_other)?
+            .right()
+            .expect("should be data");
+
+        let deser_start = Instant::now();
+        let mut de = PagableDeserializerImpl::new(&top_data.data, &top_data.arcs, &handle);
+        let restored =
+            FrozenModule::pagable_deserialize(&mut de).map_err(crate::Error::new_other)?;
+        let deser_us = deser_start.elapsed().as_micros();
+
+        // Access one value to confirm correctness
+        let v0 = restored.get("v0")?.value().unpack_i32().unwrap();
+        assert_eq!(v0, 1);
+
+        BenchResult {
+            label: "Module(500 int assigns)",
+            count: n,
+            ser_us,
+            deser_us,
+            bytes,
+        }
+        .print();
+    }
+
+    eprintln!("=== done ===");
+    eprintln!();
+
+    Ok(())
+}
+
+// ============================================================================
+// Regression: concurrent page-in must not hash a not-yet-deserialized value.
+//
+// A `SmallMapFvData` is keyed by a `GateKey` whose deserialization blocks on a
+// global gate. Thread A claims the key and blocks mid-deserialization; thread B
+// then deserializes the map, which must hash that key. Before the fix, B got the
+// not-yet-materialized (sentinel) pointer and hashing it panicked with
+// "accessing a frozen value that has not been deserialized yet". With the fix B
+// blocks until the key is materialized, then hashes the real value.
+//
+// The gate makes the cross-thread collision deterministic: B is only started
+// once A has signalled it is blocked inside the key's deser, so the key is
+// guaranteed in-progress when B reaches it.
+// ============================================================================
+
+/// Channels used by [`GateField`] to block a key's deserialization until the
+/// test releases it.
+struct GateChannels {
+    /// Sent from inside the key's deser once this thread has claimed the key and
+    /// is about to block.
+    started: std::sync::mpsc::Sender<()>,
+    /// The key's deser blocks on this until the test releases it.
+    release: std::sync::mpsc::Receiver<()>,
+}
+
+static GATE: std::sync::Mutex<Option<GateChannels>> = std::sync::Mutex::new(None);
+
+/// A unit field whose deserialization blocks on [`GATE`] (one-shot). Embedding it
+/// in `GateKey` keeps that key's slot in-progress while another thread races to
+/// hash it.
+#[derive(Debug, Allocative)]
+struct GateField;
+
+impl crate::pagable::StarlarkSerialize for GateField {
+    fn starlark_serialize(
+        &self,
+        _ctx: &mut dyn crate::pagable::StarlarkSerializeContext,
+    ) -> crate::Result<()> {
+        Ok(())
+    }
+}
+
+impl crate::pagable::StarlarkDeserialize for GateField {
+    fn starlark_deserialize(
+        _ctx: &mut dyn crate::pagable::StarlarkDeserializeContext<'_>,
+    ) -> crate::Result<Self> {
+        // One-shot: only the first deserialization (the claimer) blocks.
+        if let Some(ch) = GATE.lock().unwrap().take() {
+            ch.started.send(()).ok();
+            ch.release.recv().ok();
+        }
+        Ok(GateField)
+    }
+}
+
+/// Hashable key whose deserialization blocks (via [`GateField`]).
+#[derive(
+    Debug,
+    Display,
+    Allocative,
+    ProvidesStaticType,
+    NoSerialize,
+    StarlarkPagable
+)]
+#[display("GateKey({})", self.id)]
+struct GateKey {
+    gate: GateField,
+    id: u32,
+}
+
+starlark_simple_value!(GateKey);
+
+#[starlark_value(type = "GateKey")]
+impl<'v> StarlarkValue<'v> for GateKey {
+    type Canonical = Self;
+
+    fn write_hash(&self, hasher: &mut crate::collections::StarlarkHasher) -> crate::Result<()> {
+        use std::hash::Hasher;
+        hasher.write_u32(self.id);
+        Ok(())
+    }
+
+    fn equals(&self, other: crate::values::Value<'v>) -> crate::Result<bool> {
+        Ok(other
+            .downcast_ref::<GateKey>()
+            .is_some_and(|o| o.id == self.id))
+    }
+}
+
+/// Cross-thread regression. Thread A claims a `GateKey` and blocks inside its
+/// deserialization (via the gate), so the key's slot stays in-progress. Thread B
+/// then deserializes a `SmallMapFvData` keyed by it, which must hash that key.
+/// Pre-fix B took the not-yet-materialized (sentinel) key and panicked hashing
+/// it; with the fix B waits for the slot, then hashes the real value. The
+/// `started`/`release` channels make the collision deterministic: B starts only
+/// after A is confirmed blocked, and A is released only after B has reached the
+/// key.
+#[test]
+fn test_concurrent_page_in_does_not_hash_sentinel_key() {
+    use std::sync::mpsc;
+    use std::time::Duration;
+
+    use dupe::Dupe;
+    use pagable::context::PagableDeserializerImpl;
+    use pagable::storage::handle::PagableStorageHandle;
+    use pagable::storage::in_memory::InMemoryPagableStorage;
+    use pagable::storage::support::SerializerForPaging;
+    use starlark_map::small_map::SmallMap;
+
+    // Heap: a gated key, a value, and a map keyed by the gated key.
+    let heap = FrozenHeap::new();
+    let key_fv = heap.alloc_simple(GateKey {
+        gate: GateField,
+        id: 7,
+    });
+    let val_fv = heap.alloc_simple(SimpleData {
+        flag: true,
+        count: 42,
+    });
+    let mut entries = SmallMap::new();
+    entries.insert_hashed(key_fv.get_hashed().unwrap(), val_fv);
+    let map_fv = heap.alloc_simple(SmallMapFvData { entries });
+    let heap_ref = heap.into_ref_named(TestHeapName::heap_name("gated_key"));
+
+    // Two roots from the same heap: the key alone, and the map.
+    // SAFETY: `heap_ref` owns the arena hosting both values.
+    let ofv_key = unsafe { OwnedFrozenValue::new(heap_ref.dupe(), key_fv) };
+    let ofv_map = unsafe { OwnedFrozenValue::new(heap_ref.dupe(), map_fv) };
+
+    // Serialize each root through the production storage path.
+    let backing = InMemoryPagableStorage::new();
+    let storage = backing.handle();
+    let session_ctx = storage.session_context();
+    let ser_one = |ofv: &OwnedFrozenValue| -> pagable::DataKey {
+        let mut ser = SerializerForPaging::new(session_ctx);
+        ofv.pagable_serialize(&mut ser).unwrap();
+        let (data, arcs) = ser.finish();
+        let mut finished = dashmap::DashMap::new();
+        storage
+            .page_out_item(data, arcs, &mut finished, session_ctx)
+            .unwrap()
+    };
+    let key_data = ser_one(&ofv_key);
+    let map_data = ser_one(&ofv_map);
+
+    // Install the gate so the key's deserialization blocks.
+    let (started_tx, started_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel();
+    *GATE.lock().unwrap() = Some(GateChannels {
+        started: started_tx,
+        release: release_rx,
+    });
+
+    let handle = Arc::new(PagableStorageHandle::new(storage.clone()));
+
+    let deser_one = |key: pagable::DataKey,
+                     handle: Arc<PagableStorageHandle>,
+                     storage: Arc<dyn pagable::storage::traits::PagableStorage>|
+     -> std::thread::JoinHandle<crate::Result<()>> {
+        std::thread::spawn(move || {
+            let top = storage
+                .fetch_data_blocking(&key)
+                .map_err(crate::Error::new_other)?;
+            let mut de = PagableDeserializerImpl::new(&top.data, &top.arcs, &handle);
+            OwnedFrozenValue::pagable_deserialize(&mut de).map_err(crate::Error::new_other)?;
+            Ok(())
+        })
+    };
+
+    // Thread A: deserialize the key. It claims the key and blocks inside GateField.
+    let h_a = deser_one(key_data, handle.clone(), storage.clone());
+    // Wait until A is blocked inside the key's deser (key is now in-progress).
+    started_rx.recv().expect("key deser never started");
+
+    // Thread B: deserialize the map, which must hash the (in-progress) key.
+    let h_b = deser_one(map_data, handle.clone(), storage.clone());
+
+    // Give B time to reach the key — pre-fix it hashes the sentinel and panics
+    // here; post-fix it blocks on the slot — then release A so the key
+    // materializes (waking a post-fix waiter).
+    std::thread::sleep(Duration::from_millis(500));
+    release_tx.send(()).ok();
+
+    h_a.join().expect("thread A panicked").unwrap();
+    match h_b.join() {
+        Ok(r) => r.unwrap_or_else(|e| panic!("map deser failed: {e:#}")),
+        // Pre-fix: B panicked hashing the sentinel key — re-raise so the test fails.
+        Err(panic) => std::panic::resume_unwind(panic),
+    }
+
+    *GATE.lock().unwrap() = None;
+}

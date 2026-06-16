@@ -17,12 +17,17 @@
 
 //! Implementation of StarlarkDeserializeContext.
 
+use std::collections::HashMap;
 use std::num::NonZeroU32;
 use std::ptr::NonNull;
 use std::sync::Arc;
+use std::sync::Condvar;
 use std::sync::Mutex;
+use std::sync::MutexGuard;
+use std::sync::OnceLock;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
+use std::thread::ThreadId;
 
 use dashmap::DashMap;
 use dupe::Dupe;
@@ -152,10 +157,25 @@ fn observed_result(v: u64) -> ClaimResult {
     }
 }
 
+struct InitWaiters {
+    lock: Mutex<()>,
+    cv: OnceLock<Condvar>,
+}
+
+impl InitWaiters {
+    fn new() -> Self {
+        Self {
+            lock: Mutex::new(()),
+            cv: OnceLock::new(),
+        }
+    }
+}
+
 pub(crate) enum ClaimResult {
     Claimed(DeserializeRecipe),
     Done,
-    /// Re-entrant back-reference; header pointer is valid, vtable still sentinel.
+    /// Slot is mid-deserialization. Carries its pre-allocated header, whose
+    /// vtable is still the sentinel (value not materialized yet).
     InProgress(*mut AValueHeader),
     Failed,
 }
@@ -171,6 +191,8 @@ pub(crate) struct HeapDeserializationState {
     end_pos: PagableCursor,
     /// Per-slot init state. See module-level encoding doc above.
     init_states: Vec<AtomicU64>,
+    /// Coordinates waiters that lost a per-slot initialization race.
+    init_waiters: InitWaiters,
     /// Locked pointer into the owning `FrozenFrozenHeap`'s arena. The mutex
     /// serializes concurrent `alloc_raw_one` calls during partial deseralization.
     arena: Mutex<NonNull<Arena<ChunkAllocator>>>,
@@ -202,6 +224,7 @@ impl HeapDeserializationState {
             init_states,
             // SAFETY: caller's contract — `arena` is a valid pointer.
             arena: Mutex::new(unsafe { NonNull::new_unchecked(arena as *mut _) }),
+            init_waiters: InitWaiters::new(),
         }
     }
 
@@ -287,6 +310,34 @@ impl HeapDeserializationState {
         })
     }
 
+    /// Block on the slot's condvar until it is published done or failed.
+    fn wait_for_init(&self, state: &AtomicU64) -> ClaimResult {
+        let cv = self.init_waiters.cv.get_or_init(Condvar::new);
+        let mut guard = self
+            .init_waiters
+            .lock
+            .lock()
+            .expect("init waiter lock poisoned");
+
+        loop {
+            let v = state.load(Ordering::Acquire);
+            if is_done(v) {
+                return ClaimResult::Done;
+            }
+            if is_failed(v) {
+                return ClaimResult::Failed;
+            }
+
+            guard = cv.wait(guard).expect("init waiter lock poisoned");
+        }
+    }
+
+    /// Block until slot `index` is done or failed.
+    pub(crate) fn wait_for_slot(&self, index: usize) -> ClaimResult {
+        let state = &self.init_states[index];
+        self.wait_for_init(state)
+    }
+
     /// Publish slot `index` as done with `header_ptr`. Call after `write_vtable_to_header`.
     /// Waiters in `try_claim` then return.
     pub(crate) fn finalize_claim(&self, index: usize, header_ptr: *mut AValueHeader) {
@@ -306,7 +357,15 @@ impl HeapDeserializationState {
     }
 
     fn publish_claim_state(&self, index: usize, state_value: u64) {
+        let _guard = self
+            .init_waiters
+            .lock
+            .lock()
+            .expect("init waiter lock poisoned");
         self.init_states[index].store(state_value, Ordering::Release);
+        if let Some(cv) = self.init_waiters.cv.get() {
+            cv.notify_all();
+        }
     }
 
     /// Absolute cursor position past all value data (from the offset table end sentinel).
@@ -336,12 +395,120 @@ pub(crate) struct StarlarkDeserState {
     /// metadata) and `init_states` (per-slot atomic that doubles as the
     /// header-pointer lookup table once finalized).
     heap_deser_states: DashMap<HeapRefId, Arc<HeapDeserializationState>>,
+    /// Cross-thread wait-for graph for cyclic-deser deadlock detection.
+    wait_graph: Arc<WaitForGraph>,
+}
+
+/// Cross-thread "wait-for" graph for detecting cyclic-deserialization deadlocks.
+///
+/// Keyed by [`ThreadId`], which identifies one in-flight deserialization only
+/// because the deserialize path is synchronous and blocks by parking the OS
+/// thread (`wait_for_slot`).
+///
+/// ATTENTION: if deserialization ever becomes async, one thread could drive two
+/// at once and corrupt these keys — key by a per-deserialization token instead.
+#[derive(Default)]
+struct WaitForGraph {
+    inner: Mutex<WaitForGraphInner>,
+}
+
+#[derive(Default)]
+struct WaitForGraphInner {
+    /// Maps `(heap_id, value_index)` → the thread currently deserializing it.
+    claimers: HashMap<(HeapRefId, u32), ThreadId>,
+    /// Maps thread → the `(heap_id, value_index)` it is blocked waiting on.
+    waiters: HashMap<ThreadId, (HeapRefId, u32)>,
+}
+
+impl WaitForGraph {
+    fn lock(&self) -> MutexGuard<'_, WaitForGraphInner> {
+        self.inner.lock().expect("wait-for graph lock poisoned")
+    }
+
+    /// Record that `thread` has claimed `value` for deserialization. The
+    /// returned guard removes the `claimers` edge on drop, so every exit path
+    /// from a claimed deserialization unwinds it exactly once.
+    fn claim(self: &Arc<Self>, value: (HeapRefId, u32), thread: ThreadId) -> ClaimGuard {
+        self.lock().claimers.insert(value, thread);
+        ClaimGuard {
+            graph: self.dupe(),
+            value,
+        }
+    }
+
+    /// Record that `thread` is about to wait on `value` and, atomically with that
+    /// insert, report whether waiting would deadlock (a wait-for cycle). Hold the
+    /// returned guard for the whole wait so other threads' cycle checks see it.
+    fn begin_wait_and_check_cycle(
+        self: &Arc<Self>,
+        thread: ThreadId,
+        value: (HeapRefId, u32),
+    ) -> (WaitGuard, bool) {
+        let mut inner = self.lock();
+        inner.waiters.insert(thread, value);
+        let cycle = inner.has_cycle(thread, value);
+        drop(inner);
+        (
+            WaitGuard {
+                graph: self.dupe(),
+                thread,
+            },
+            cycle,
+        )
+    }
+}
+
+impl WaitForGraphInner {
+    /// True if blocking on `start_value` would deadlock: the wait-for chain
+    /// leads back to `my_thread` (covers same-thread re-entry too).
+    fn has_cycle(&self, my_thread: ThreadId, start_value: (HeapRefId, u32)) -> bool {
+        let mut current = start_value;
+        for _ in 0..self.claimers.len() {
+            let Some(&claimer) = self.claimers.get(&current) else {
+                return false;
+            };
+            if claimer == my_thread {
+                return true;
+            }
+            let Some(&waiting_for) = self.waiters.get(&claimer) else {
+                return false;
+            };
+            current = waiting_for;
+        }
+        false
+    }
+}
+
+/// Clears a claim's `claimers` edge on drop, so every exit path from a claimed
+/// deserialization unwinds it exactly once.
+struct ClaimGuard {
+    graph: Arc<WaitForGraph>,
+    value: (HeapRefId, u32),
+}
+
+impl Drop for ClaimGuard {
+    fn drop(&mut self) {
+        self.graph.lock().claimers.remove(&self.value);
+    }
+}
+
+/// Clears this thread's `waiters` edge on drop.
+struct WaitGuard {
+    graph: Arc<WaitForGraph>,
+    thread: ThreadId,
+}
+
+impl Drop for WaitGuard {
+    fn drop(&mut self) {
+        self.graph.lock().waiters.remove(&self.thread);
+    }
 }
 
 impl StarlarkDeserState {
     pub(crate) fn new() -> Self {
         Self {
             heap_deser_states: DashMap::new(),
+            wait_graph: Arc::new(WaitForGraph::default()),
         }
     }
 
@@ -454,12 +621,19 @@ impl<'a, 'de> StarlarkDeserializerImpl<'a, 'de> {
             return Ok(FrozenValue::new_ptr(header, is_str));
         }
 
+        // Identifies this value for the cycle bookkeeping in the match below.
+        let in_progress_key = (heap_id, value_index);
+        let my_thread = std::thread::current().id();
+
         // Slow path: try to claim. The current `self.pagable` (PagableDeserializer)
         // may be reading a different stream (e.g. the body of an `Arc<T>` deser-fn),
         // so we can't seek it. Open a fresh deserializer from the target heap's
         // stashed recipe instead.
         match target_state.try_claim(value_index as usize) {
             ClaimResult::Claimed(target) => {
+                // Guard clears the `claimers` edge on every exit below.
+                let _claim = self.state.wait_graph.claim(in_progress_key, my_thread);
+
                 // Clone the target heap's recipe from `HeapRecipeMap`. `recipe.open()`
                 // produces a fresh deserializer so concurrent ensure_initialized
                 // calls on the same heap have independent cursors.
@@ -492,14 +666,41 @@ impl<'a, 'de> StarlarkDeserializerImpl<'a, 'de> {
                     target_state.abort_claim(value_index as usize);
                     return Err(e);
                 }
-
                 // Replace the sentinel vtable with the real one before publishing done.
                 unsafe { target.write_vtable_to_header() };
                 target_state.finalize_claim(value_index as usize, target.header_ptr);
             }
-            ClaimResult::InProgress(header_ptr) => {
-                let header = unsafe { &*header_ptr };
-                return Ok(FrozenValue::new_ptr(header, is_str));
+            ClaimResult::InProgress(ptr) => {
+                // Slot is mid-deserialization (re-entrant or another thread).
+                // `_wait` must outlive the block below so other threads' cycle
+                // checks observe this wait.
+                let (_wait, cycle) = self
+                    .state
+                    .wait_graph
+                    .begin_wait_and_check_cycle(my_thread, in_progress_key);
+                if cycle {
+                    // Break the cycle by handing back the in-progress header.
+                    // Safe only because if the claimer fails, the whole deser
+                    // unit fails too — so this dangling sentinel is never read.
+                    //
+                    // SAFETY: allocated by the claimer in the heap's arena, kept
+                    // alive by the `Arc<FrozenFrozenHeap>` in the deser state.
+                    let header = unsafe { &*ptr };
+                    return Ok(FrozenValue::new_ptr(header, is_str));
+                }
+                // No cycle — safe to block until the claimer finishes.
+                match target_state.wait_for_slot(value_index as usize) {
+                    ClaimResult::Done => {}
+                    ClaimResult::Failed => {
+                        return Err(anyhow::anyhow!(
+                            "partial deserialization failed for heap {:?} value_index {}",
+                            heap_id,
+                            value_index,
+                        )
+                        .into());
+                    }
+                    _ => unreachable!(),
+                }
             }
             ClaimResult::Done => {}
             ClaimResult::Failed => {
