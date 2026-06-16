@@ -107,56 +107,101 @@ impl DeserializeRecipe {
     }
 }
 
-/// `init_states` encoding (one `AtomicU64` per value), in four states:
+/// Decoded form of an [`AtomicSlotState`].
+enum SlotState {
+    NotStarted,
+    /// Claimed and mid-deserialization; carries the pre-allocated header (its
+    /// vtable is still the sentinel).
+    InProgress(*mut AValueHeader),
+    Failed,
+    Done(*mut AValueHeader),
+}
+
+impl SlotState {
+    /// Header pointer if the slot is finalized, else `None`.
+    fn done_ptr(self) -> Option<*mut AValueHeader> {
+        match self {
+            SlotState::Done(ptr) => Some(ptr),
+            _ => None,
+        }
+    }
+
+    /// [`ClaimResult`] for a slot observed by a non-winning caller, or `None` if
+    /// it is not started yet (the caller should attempt to claim it).
+    fn observed_claim_result(self) -> Option<ClaimResult> {
+        match self {
+            SlotState::NotStarted => None,
+            SlotState::InProgress(ptr) => Some(ClaimResult::InProgress(ptr)),
+            SlotState::Failed => Some(ClaimResult::Failed),
+            SlotState::Done(_) => Some(ClaimResult::Done),
+        }
+    }
+}
+
+/// Per-slot init state and the single owner of the [`SlotState`] encoding, which
+/// packs all four states into one `u64`:
 /// 1. `0` (`INIT_NOT_STARTED`) — not started.
-/// 2. in progress — bit 0 (`IN_PROGRESS_FLAG`) set; the header pointer is stored
-///    in the remaining bits.
+/// 2. in progress — bit 0 (`IN_PROGRESS_FLAG`) set; the header pointer is in the
+///    remaining bits.
 /// 3. done — any other non-zero value (both low bits clear); the value *is* the
 ///    header pointer.
 /// 4. `0b10` (`INIT_FAILED_FLAG`) — failed.
 ///
 /// The low bits are free for the flags because `AValueHeader` is ≥ 8-byte
-/// aligned.
-const INIT_NOT_STARTED: u64 = 0;
-const IN_PROGRESS_FLAG: u64 = 0b1;
-const INIT_FAILED_FLAG: u64 = 0b10;
-const INIT_STATE_MASK: u64 = IN_PROGRESS_FLAG | INIT_FAILED_FLAG;
+/// aligned (checked below).
+#[repr(transparent)]
+struct AtomicSlotState(AtomicU64);
 
 const _: () = {
-    assert!(AValueHeader::ALIGN > INIT_STATE_MASK as usize);
+    assert!(AValueHeader::ALIGN > AtomicSlotState::INIT_STATE_MASK as usize);
 };
 
-#[inline]
-fn is_done(v: u64) -> bool {
-    v != INIT_NOT_STARTED && (v & INIT_STATE_MASK) == 0
-}
+impl AtomicSlotState {
+    const INIT_NOT_STARTED: u64 = 0;
+    const IN_PROGRESS_FLAG: u64 = 0b1;
+    const INIT_FAILED_FLAG: u64 = 0b10;
+    const INIT_STATE_MASK: u64 = Self::IN_PROGRESS_FLAG | Self::INIT_FAILED_FLAG;
 
-#[inline]
-fn is_in_progress(v: u64) -> bool {
-    v != INIT_NOT_STARTED && (v & IN_PROGRESS_FLAG) != 0 && !is_failed(v)
-}
+    fn not_started() -> Self {
+        AtomicSlotState(AtomicU64::new(Self::INIT_NOT_STARTED))
+    }
 
-#[inline]
-fn is_failed(v: u64) -> bool {
-    v == INIT_FAILED_FLAG
-}
+    fn load(&self, order: Ordering) -> SlotState {
+        let v = self.0.load(order);
+        if v == Self::INIT_NOT_STARTED {
+            SlotState::NotStarted
+        } else if v == Self::INIT_FAILED_FLAG {
+            SlotState::Failed
+        } else if v & Self::IN_PROGRESS_FLAG != 0 {
+            SlotState::InProgress((v & !Self::INIT_STATE_MASK) as *mut AValueHeader)
+        } else {
+            SlotState::Done(v as *mut AValueHeader)
+        }
+    }
 
-#[inline]
-fn in_progress_header_ptr(v: u64) -> *mut AValueHeader {
-    debug_assert!(is_in_progress(v));
-    (v & !INIT_STATE_MASK) as *mut AValueHeader
-}
+    /// Publish the claim: store the pre-allocated `header` with the in-progress
+    /// flag set. The caller holds the arena lock, so this is the not-started ->
+    /// in-progress transition.
+    fn publish_in_progress(&self, header: *mut AValueHeader) {
+        self.0
+            .store((header as u64) | Self::IN_PROGRESS_FLAG, Ordering::Release);
+    }
 
-/// Map an observed init-state value to a [`ClaimResult`] for the non-claiming
-/// paths. `v` must not be `INIT_NOT_STARTED`.
-fn observed_result(v: u64) -> ClaimResult {
-    if is_done(v) {
-        ClaimResult::Done
-    } else if is_failed(v) {
-        ClaimResult::Failed
-    } else {
-        debug_assert!(is_in_progress(v));
-        ClaimResult::InProgress(in_progress_header_ptr(v))
+    /// Promote in-progress -> done by clearing the state flags, keeping the
+    /// header the claim already published. Takes no pointer: the only valid value
+    /// is the one stored at claim time.
+    fn finalize(&self) {
+        let prev = self.0.fetch_and(!Self::INIT_STATE_MASK, Ordering::AcqRel);
+        debug_assert!(
+            prev & Self::IN_PROGRESS_FLAG != 0,
+            "finalize on a slot that was not in progress: {:#x}",
+            prev,
+        );
+    }
+
+    /// Publish the claim as failed.
+    fn fail(&self) {
+        self.0.store(Self::INIT_FAILED_FLAG, Ordering::Release);
     }
 }
 
@@ -190,8 +235,8 @@ pub(crate) struct HeapMetadata {
     slots: Vec<ValueDeserSlot>,
     /// Absolute cursor position of value data start (base for relative offsets).
     base_pos: PagableCursor,
-    /// Per-slot init state. See module-level encoding doc above.
-    init_states: Vec<AtomicU64>,
+    /// Per-slot init state. See [`AtomicSlotState`].
+    init_states: Vec<AtomicSlotState>,
     /// Coordinates waiters that lost a per-slot initialization race.
     init_waiters: InitWaiters,
 }
@@ -286,8 +331,8 @@ impl HeapDeserializationState {
         }
         // base_pos is the cursor right after per-value metadata — i.e. now.
         let base_pos = de.position();
-        let init_states: Vec<AtomicU64> = (0..total_count)
-            .map(|_| AtomicU64::new(INIT_NOT_STARTED))
+        let init_states: Vec<AtomicSlotState> = (0..total_count)
+            .map(|_| AtomicSlotState::not_started())
             .collect();
         Ok(HeapMetadata {
             slots,
@@ -310,12 +355,7 @@ impl HeapDeserializationState {
     #[inline]
     pub(crate) fn loaded_header_ptr(&self, index: usize) -> Option<*mut AValueHeader> {
         let m = self.metadata.get()?;
-        let v = m.init_states[index].load(Ordering::Acquire);
-        if is_done(v) {
-            Some(v as *mut AValueHeader)
-        } else {
-            None
-        }
+        m.init_states[index].load(Ordering::Acquire).done_ptr()
     }
 
     /// Try to claim a slot for deserialization.
@@ -323,12 +363,12 @@ impl HeapDeserializationState {
     /// Claims are serialized by the arena lock: the winner allocates the header
     /// and publishes its pointer into the slot's atomic *before* releasing the
     /// lock, so a claimed slot always carries its pointer and no reader ever has
-    /// to wait for it to appear. This is why [`observed_result`] never blocks.
+    /// to wait for it to appear. This is why observing a started slot never blocks.
     ///
     /// On win, returns `Claimed(recipe)` with a freshly-allocated `header_ptr`
     /// pointing to a sentinel-vtable header in the arena. The caller must run
     /// `recipe.vtable.starlark_deserialize`, call
-    /// `recipe.write_vtable_to_header()`, then `finalize_claim(index, header_ptr)`.
+    /// `recipe.write_vtable_to_header()`, then `finalize_claim(index)`.
     /// On loss, returns the slot's terminal state or its in-progress deserialization pointer.
     pub(crate) fn try_claim(
         &self,
@@ -340,9 +380,8 @@ impl HeapDeserializationState {
 
         // Fast path: a started slot (done, failed, or in-progress) is fully
         // decodable without taking the lock.
-        let v = state.load(Ordering::Acquire);
-        if v != INIT_NOT_STARTED {
-            return Ok(observed_result(v));
+        if let Some(result) = state.load(Ordering::Acquire).observed_claim_result() {
+            return Ok(result);
         }
 
         // The arena lock serializes claims: its holder performs the not-started
@@ -352,9 +391,8 @@ impl HeapDeserializationState {
 
         // Re-check under the lock; the slot may have been claimed since the load
         // above.
-        let v = state.load(Ordering::Acquire);
-        if v != INIT_NOT_STARTED {
-            return Ok(observed_result(v));
+        if let Some(result) = state.load(Ordering::Acquire).observed_claim_result() {
+            return Ok(result);
         }
 
         let slot = &m.slots[index];
@@ -373,9 +411,7 @@ impl HeapDeserializationState {
                 AValueHeader(AValueVTable::uninitialized_sentinel()),
             );
         }
-        // Publish the pointer and the in-progress flag in a single store, still
-        // under the lock, so no claimer observes an in-progress slot without it.
-        state.store((header_ptr as u64) | IN_PROGRESS_FLAG, Ordering::Release);
+        state.publish_in_progress(header_ptr);
         drop(arena);
 
         let raw_ptr = unsafe { StarlarkValueRawPtr::new_header(&*header_ptr) };
@@ -391,7 +427,7 @@ impl HeapDeserializationState {
     }
 
     /// Block on the slot's condvar until it is published done or failed.
-    fn wait_for_init(&self, m: &HeapMetadata, state: &AtomicU64) -> ClaimResult {
+    fn wait_for_init(&self, m: &HeapMetadata, state: &AtomicSlotState) -> ClaimResult {
         let cv = m.init_waiters.cv.get_or_init(Condvar::new);
         let mut guard = m
             .init_waiters
@@ -400,12 +436,11 @@ impl HeapDeserializationState {
             .expect("init waiter lock poisoned");
 
         loop {
-            let v = state.load(Ordering::Acquire);
-            if is_done(v) {
-                return ClaimResult::Done;
-            }
-            if is_failed(v) {
-                return ClaimResult::Failed;
+            match state.load(Ordering::Acquire) {
+                SlotState::Done(_) => return ClaimResult::Done,
+                SlotState::Failed => return ClaimResult::Failed,
+                // Not started or still in progress — keep waiting.
+                SlotState::NotStarted | SlotState::InProgress(_) => {}
             }
 
             guard = cv.wait(guard).expect("init waiter lock poisoned");
@@ -423,35 +458,32 @@ impl HeapDeserializationState {
         Ok(self.wait_for_init(m, state))
     }
 
-    /// Publish slot `index` as done with `header_ptr`. Call after `write_vtable_to_header`.
-    /// Waiters in `try_claim` then return.
-    pub(crate) fn finalize_claim(&self, index: usize, header_ptr: *mut AValueHeader) {
-        let ptr = header_ptr as u64;
-        debug_assert!(
-            ptr != INIT_NOT_STARTED && (ptr & INIT_STATE_MASK) == 0,
-            "header_ptr {:#x} must be non-zero and low-state-bits-zero (AValueHeader alignment)",
-            ptr,
-        );
-        self.publish_claim_state(index, ptr);
+    /// Publish slot `index` as done; waiters in `wait_for_slot` then return. Call
+    /// after `write_vtable_to_header`. No header argument — see `finalize`.
+    pub(crate) fn finalize_claim(&self, index: usize) {
+        self.publish_and_notify(index, AtomicSlotState::finalize);
     }
 
     /// Publish slot `index` as failed. Call if the winning deserializer errors
     /// before `finalize_claim`.
     pub(crate) fn abort_claim(&self, index: usize) {
-        self.publish_claim_state(index, INIT_FAILED_FLAG);
+        self.publish_and_notify(index, AtomicSlotState::fail);
     }
 
-    fn publish_claim_state(&self, index: usize, state_value: u64) {
+    /// Apply a terminal transition to slot `index` under the init-waiter lock,
+    /// then wake any waiters. Doing the store and the notify under one lock pairs
+    /// with `wait_for_init` to avoid lost wakeups.
+    fn publish_and_notify(&self, index: usize, transition: impl FnOnce(&AtomicSlotState)) {
         let m = self
             .metadata
             .get()
-            .expect("publish_claim_state called before metadata parse");
+            .expect("publish_and_notify called before metadata parse");
         let _guard = m
             .init_waiters
             .lock
             .lock()
             .expect("init waiter lock poisoned");
-        m.init_states[index].store(state_value, Ordering::Release);
+        transition(&m.init_states[index]);
         if let Some(cv) = m.init_waiters.cv.get() {
             cv.notify_all();
         }
@@ -731,7 +763,7 @@ impl<'a, 'de> StarlarkDeserializerImpl<'a, 'de> {
                 }
                 // Replace the sentinel vtable with the real one before publishing done.
                 unsafe { target.write_vtable_to_header() };
-                target_state.finalize_claim(value_index as usize, target.header_ptr);
+                target_state.finalize_claim(value_index as usize);
             }
             ClaimResult::InProgress(ptr) => {
                 // Slot is mid-deserialization (re-entrant or another thread).
