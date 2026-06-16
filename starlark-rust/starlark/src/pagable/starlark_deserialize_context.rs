@@ -29,6 +29,7 @@ use dupe::Dupe;
 use pagable::PagableCursor;
 use pagable::PagableDeserialize;
 use pagable::PagableDeserializer;
+use pagable::PagableDeserializerRecipe;
 
 use crate::pagable::error::PagableError;
 use crate::pagable::heap_ref_id::HeapRefId;
@@ -313,6 +314,11 @@ impl HeapDeserializationState {
         self.end_pos
     }
 }
+
+/// Session-scoped `HeapRefId` → recipe map. `FrozenHeapRef`'s deserialize
+/// callback stashes one entry per heap.
+#[derive(Default)]
+pub struct HeapRecipeMap(pub DashMap<HeapRefId, Arc<dyn PagableDeserializerRecipe>>);
 
 /// Shared deserialization state across all heaps deserialized in a session.
 /// Stored in `SessionContext` as `Arc<StarlarkDeserState>` so that
