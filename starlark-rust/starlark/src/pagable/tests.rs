@@ -2398,7 +2398,7 @@ fn test_cross_heap_frozen_value_round_trip_via_storage() -> crate::Result<()> {
 /// `PagableDeserializerImpl` reads the inner `Arc` body through its own
 /// sub-deserializer, so a naive `seek(target.abs_pos)` would land in the
 /// wrong stream; `ensure` instead seeks a deserializer reconstructed from
-/// the owning heap's recipe in `HeapRecipeMap`.
+/// the owning heap's recipe (stored on its `HeapDeserializationState`).
 #[test]
 fn test_with_starlark_context_arc_dedup_round_trip_via_storage() {
     let heap = FrozenHeap::new();

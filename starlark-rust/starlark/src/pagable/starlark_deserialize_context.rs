@@ -35,9 +35,12 @@ use pagable::PagableCursor;
 use pagable::PagableDeserialize;
 use pagable::PagableDeserializer;
 use pagable::PagableDeserializerRecipe;
+use pagable::storage::handle::PagableStorageHandle;
 
+use crate::pagable::DeserTypeId;
 use crate::pagable::error::PagableError;
 use crate::pagable::heap_ref_id::HeapRefId;
+use crate::pagable::lookup_vtable;
 use crate::pagable::serialized_frozen_value::SerializedFrozenValue;
 use crate::pagable::starlark_deserialize::StarlarkDeserializeContext;
 use crate::pagable::static_value::get_frozen_value_by_static_id;
@@ -180,9 +183,9 @@ pub(crate) enum ClaimResult {
     Failed,
 }
 
-/// Per-value init state for a heap, plus a locked pointer to the arena
-/// values are allocated into.
-pub(crate) struct HeapDeserializationState {
+/// Metadata + init state — lazily parsed from the recipe on first
+/// `try_claim`.
+pub(crate) struct HeapMetadata {
     /// All values in this heap.
     slots: Vec<ValueDeserSlot>,
     /// Absolute cursor position of value data start (base for relative offsets).
@@ -191,9 +194,21 @@ pub(crate) struct HeapDeserializationState {
     init_states: Vec<AtomicU64>,
     /// Coordinates waiters that lost a per-slot initialization race.
     init_waiters: InitWaiters,
+}
+
+/// Locked pointer to the owning `FrozenFrozenHeap`'s arena plus the
+/// information needed to lazily parse this heap's slot metadata from its
+/// recipe. The metadata is materialized only on first `try_claim`.
+pub(crate) struct HeapDeserializationState {
+    /// Cursor within the recipe's data where the lazy metadata region starts
+    metadata_start: PagableCursor,
+    /// Reopen this heap's data to lazily parse metadata.
+    recipe: Arc<dyn PagableDeserializerRecipe>,
     /// Locked pointer into the owning `FrozenFrozenHeap`'s arena. The mutex
     /// serializes concurrent `alloc_raw_one` calls during partial deseralization.
     arena: Mutex<NonNull<Arena<ChunkAllocator>>>,
+    /// Lazy: parsed on first `try_claim` / `value_count` call.
+    metadata: OnceLock<HeapMetadata>,
 }
 
 // SAFETY: `arena` points into a heap-allocated `FrozenFrozenHeap` kept alive
@@ -207,32 +222,95 @@ impl HeapDeserializationState {
     /// `FrozenFrozenHeap` will be kept alive for at least
     /// as long as this `HeapDeserializationState`.
     pub(crate) unsafe fn new(
-        slots: Vec<ValueDeserSlot>,
-        base_pos: PagableCursor,
+        metadata_start: PagableCursor,
+        recipe: Arc<dyn PagableDeserializerRecipe>,
         arena: *const Arena<ChunkAllocator>,
     ) -> Self {
-        let init_states = (0..slots.len())
-            .map(|_| AtomicU64::new(INIT_NOT_STARTED))
-            .collect();
         Self {
-            slots,
-            base_pos,
-            init_states,
+            metadata_start,
+            recipe,
             // SAFETY: caller's contract — `arena` is a valid pointer.
             arena: Mutex::new(unsafe { NonNull::new_unchecked(arena as *mut _) }),
-            init_waiters: InitWaiters::new(),
+            metadata: OnceLock::new(),
         }
     }
 
     /// Number of values in this heap.
-    pub(crate) fn value_count(&self) -> usize {
-        self.slots.len()
+    pub(crate) fn value_count(&self, storage: &PagableStorageHandle) -> crate::Result<usize> {
+        Ok(self.metadata(storage)?.slots.len())
+    }
+
+    /// Parse the metadata region from the recipe: `total_count`,
+    /// `drop_value_count`, offset table, per-value metadata. Called
+    /// once on first `metadata()`; subsequent calls hit `OnceLock`.
+    fn parse_metadata(&self, storage: &PagableStorageHandle) -> crate::Result<HeapMetadata> {
+        let mut de = self.recipe.open(storage);
+        // SAFETY: `metadata_start` was captured during `deserialize_skeleton`
+        // from this recipe's data; it is a valid position in the recipe.
+        unsafe { de.seek(self.metadata_start) };
+
+        let total_count = u32::pagable_deserialize(&mut *de)? as usize;
+        let drop_value_count = u32::pagable_deserialize(&mut *de)? as usize;
+        let table_entry_count = total_count + 1;
+        let mut offset_table = Vec::with_capacity(table_entry_count);
+        for _ in 0..table_entry_count {
+            let mut buf = [0u8; 8];
+            for b in &mut buf {
+                *b = u8::pagable_deserialize(&mut *de)?;
+            }
+            let stream_offset = u32::from_le_bytes([buf[0], buf[1], buf[2], buf[3]]);
+            let arc_offset = u32::from_le_bytes([buf[4], buf[5], buf[6], buf[7]]);
+            offset_table.push((stream_offset, arc_offset));
+        }
+
+        let mut slots: Vec<ValueDeserSlot> = Vec::with_capacity(total_count);
+        for (i, &(stream_offset, arc_offset)) in offset_table.iter().take(total_count).enumerate() {
+            let deser_type_id = DeserTypeId::pagable_deserialize(&mut *de)?;
+            let vtable = lookup_vtable(deser_type_id)?;
+            // A zero alloc_size is never valid (every value occupies at least its
+            // header), so a zero here means a corrupt page-out stream.
+            let alloc_size = NonZeroU32::new(u32::pagable_deserialize(&mut *de)?)
+                .ok_or(PagableError::ZeroAllocSize { index: i })?;
+            let bump_kind = if i < drop_value_count {
+                BumpKind::Drop
+            } else {
+                BumpKind::NonDrop
+            };
+            slots.push(ValueDeserSlot::new(
+                stream_offset,
+                arc_offset,
+                vtable,
+                bump_kind,
+                alloc_size,
+            ));
+        }
+        // base_pos is the cursor right after per-value metadata — i.e. now.
+        let base_pos = de.position();
+        let init_states: Vec<AtomicU64> = (0..total_count)
+            .map(|_| AtomicU64::new(INIT_NOT_STARTED))
+            .collect();
+        Ok(HeapMetadata {
+            slots,
+            base_pos,
+            init_states,
+            init_waiters: InitWaiters::new(),
+        })
+    }
+
+    /// Get parsed metadata, parsing on first call. Subsequent calls hit `OnceLock`.
+    fn metadata(&self, storage: &PagableStorageHandle) -> crate::Result<&HeapMetadata> {
+        if let Some(m) = self.metadata.get() {
+            return Ok(m);
+        }
+        let parsed = self.parse_metadata(storage)?;
+        Ok(self.metadata.get_or_init(|| parsed))
     }
 
     /// Return the header pointer for slot `index` if it's been finalized.
     #[inline]
     pub(crate) fn loaded_header_ptr(&self, index: usize) -> Option<*mut AValueHeader> {
-        let v = self.init_states[index].load(Ordering::Acquire);
+        let m = self.metadata.get()?;
+        let v = m.init_states[index].load(Ordering::Acquire);
         if is_done(v) {
             Some(v as *mut AValueHeader)
         } else {
@@ -252,13 +330,19 @@ impl HeapDeserializationState {
     /// `recipe.vtable.starlark_deserialize`, call
     /// `recipe.write_vtable_to_header()`, then `finalize_claim(index, header_ptr)`.
     /// On loss, returns the slot's terminal state or its in-progress deserialization pointer.
-    pub(crate) fn try_claim(&self, index: usize) -> ClaimResult {
-        let state = &self.init_states[index];
+    pub(crate) fn try_claim(
+        &self,
+        index: usize,
+        storage: &PagableStorageHandle,
+    ) -> crate::Result<ClaimResult> {
+        let m = self.metadata(storage)?;
+        let state = &m.init_states[index];
 
-        // Fast path: a started slot (done, failed, or in-progress)
+        // Fast path: a started slot (done, failed, or in-progress) is fully
+        // decodable without taking the lock.
         let v = state.load(Ordering::Acquire);
         if v != INIT_NOT_STARTED {
-            return observed_result(v);
+            return Ok(observed_result(v));
         }
 
         // The arena lock serializes claims: its holder performs the not-started
@@ -270,10 +354,10 @@ impl HeapDeserializationState {
         // above.
         let v = state.load(Ordering::Acquire);
         if v != INIT_NOT_STARTED {
-            return observed_result(v);
+            return Ok(observed_result(v));
         }
 
-        let slot = &self.slots[index];
+        let slot = &m.slots[index];
         // SAFETY: pointer valid for the state's lifetime; we hold the lock so
         // concurrent allocation is excluded.
         let header_ptr = unsafe {
@@ -295,21 +379,21 @@ impl HeapDeserializationState {
         drop(arena);
 
         let raw_ptr = unsafe { StarlarkValueRawPtr::new_header(&*header_ptr) };
-        ClaimResult::Claimed(DeserializeRecipe {
+        Ok(ClaimResult::Claimed(DeserializeRecipe {
             abs_pos: PagableCursor {
-                byte_pos: self.base_pos.byte_pos + slot.stream_offset as usize,
-                arc_index: self.base_pos.arc_index + slot.arc_offset as usize,
+                byte_pos: m.base_pos.byte_pos + slot.stream_offset as usize,
+                arc_index: m.base_pos.arc_index + slot.arc_offset as usize,
             },
             vtable: slot.vtable,
             raw_ptr,
             header_ptr,
-        })
+        }))
     }
 
     /// Block on the slot's condvar until it is published done or failed.
-    fn wait_for_init(&self, state: &AtomicU64) -> ClaimResult {
-        let cv = self.init_waiters.cv.get_or_init(Condvar::new);
-        let mut guard = self
+    fn wait_for_init(&self, m: &HeapMetadata, state: &AtomicU64) -> ClaimResult {
+        let cv = m.init_waiters.cv.get_or_init(Condvar::new);
+        let mut guard = m
             .init_waiters
             .lock
             .lock()
@@ -329,9 +413,14 @@ impl HeapDeserializationState {
     }
 
     /// Block until slot `index` is done or failed.
-    pub(crate) fn wait_for_slot(&self, index: usize) -> ClaimResult {
-        let state = &self.init_states[index];
-        self.wait_for_init(state)
+    pub(crate) fn wait_for_slot(
+        &self,
+        index: usize,
+        storage: &PagableStorageHandle,
+    ) -> crate::Result<ClaimResult> {
+        let m = self.metadata(storage)?;
+        let state = &m.init_states[index];
+        Ok(self.wait_for_init(m, state))
     }
 
     /// Publish slot `index` as done with `header_ptr`. Call after `write_vtable_to_header`.
@@ -353,22 +442,21 @@ impl HeapDeserializationState {
     }
 
     fn publish_claim_state(&self, index: usize, state_value: u64) {
-        let _guard = self
+        let m = self
+            .metadata
+            .get()
+            .expect("publish_claim_state called before metadata parse");
+        let _guard = m
             .init_waiters
             .lock
             .lock()
             .expect("init waiter lock poisoned");
-        self.init_states[index].store(state_value, Ordering::Release);
-        if let Some(cv) = self.init_waiters.cv.get() {
+        m.init_states[index].store(state_value, Ordering::Release);
+        if let Some(cv) = m.init_waiters.cv.get() {
             cv.notify_all();
         }
     }
 }
-
-/// Session-scoped `HeapRefId` → recipe map. `FrozenHeapRef`'s deserialize
-/// callback stashes one entry per heap.
-#[derive(Default)]
-pub struct HeapRecipeMap(pub DashMap<HeapRefId, Arc<dyn PagableDeserializerRecipe>>);
 
 /// Shared deserialization state across all heaps deserialized in a session.
 /// Stored in `SessionContext` as `Arc<StarlarkDeserState>` so that
@@ -589,12 +677,15 @@ impl<'a, 'de> StarlarkDeserializerImpl<'a, 'de> {
             .get_heap(&heap_id)
             .ok_or(PagableError::HeapBasesNotRegistered { heap_id })?;
 
-        if value_index as usize >= target_state.value_count() {
+        let storage = self.pagable.storage();
+
+        let value_count = target_state.value_count(&storage)?;
+        if value_index as usize >= value_count {
             return Err(anyhow::anyhow!(
                 "value_index {} out of range for heap {:?} (size {})",
                 value_index,
                 heap_id,
-                target_state.value_count(),
+                value_count,
             )
             .into());
         }
@@ -612,29 +703,17 @@ impl<'a, 'de> StarlarkDeserializerImpl<'a, 'de> {
         // Slow path: try to claim. The current `self.pagable` (PagableDeserializer)
         // may be reading a different stream (e.g. the body of an `Arc<T>` deser-fn),
         // so we can't seek it. Open a fresh deserializer from the target heap's
-        // stashed recipe instead.
-        match target_state.try_claim(value_index as usize) {
+        // own recipe instead.
+        match target_state.try_claim(value_index as usize, &storage)? {
             ClaimResult::Claimed(target) => {
                 // Guard clears the `claimers` edge on every exit below.
                 let _claim = self.state.wait_graph.claim(in_progress_key, my_thread);
 
-                // Clone the target heap's recipe from `HeapRecipeMap`. `recipe.open()`
-                // produces a fresh deserializer so concurrent ensure_initialized
+                // `recipe.open()` produces a fresh deserializer so concurrent `ensure_initialized`
                 // calls on the same heap have independent cursors.
-                let recipe: Arc<dyn pagable::PagableDeserializerRecipe> = {
-                    let map = self
-                        .pagable
-                        .session_context()
-                        .get::<Arc<HeapRecipeMap>>()
-                        .ok_or_else(|| anyhow::anyhow!("HeapRecipeMap not in session context"))?;
-                    map.0
-                        .get(&heap_id)
-                        .ok_or_else(|| anyhow::anyhow!("no recipe stashed for heap {:?}", heap_id))?
-                        .dupe()
-                };
+                let recipe = target_state.recipe.dupe();
 
                 let result = {
-                    let storage = self.pagable.storage();
                     let mut de = recipe.open(&storage);
                     // SAFETY: `target.abs_pos` was computed from the target heap's
                     // offset table during `deserialize_metadata`; it is a valid
@@ -673,7 +752,7 @@ impl<'a, 'de> StarlarkDeserializerImpl<'a, 'de> {
                     return Ok(FrozenValue::new_ptr(header, is_str));
                 }
                 // No cycle — safe to block until the claimer finishes.
-                match target_state.wait_for_slot(value_index as usize) {
+                match target_state.wait_for_slot(value_index as usize, &storage)? {
                     ClaimResult::Done => {}
                     ClaimResult::Failed => {
                         return Err(anyhow::anyhow!(
