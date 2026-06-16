@@ -89,4 +89,6 @@ pub mod __private {
 }
 
 #[cfg(all(test, feature = "pagable"))]
+mod state_benchmark;
+#[cfg(all(test, feature = "pagable"))]
 mod tests;
