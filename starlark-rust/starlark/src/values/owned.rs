@@ -18,8 +18,6 @@
 use std::fmt;
 use std::fmt::Display;
 use std::ops::Deref;
-use std::sync::Arc;
-use std::sync::Mutex;
 
 use allocative::Allocative;
 use dupe::Clone_;
@@ -32,7 +30,6 @@ use pagable::PagableSerializer;
 
 use crate::cast::transmute;
 use crate::pagable::starlark_deserialize::StarlarkDeserializeContext;
-use crate::pagable::starlark_deserialize_context::HeapDeserializationState;
 use crate::pagable::starlark_deserialize_context::StarlarkDeserializerImpl;
 use crate::pagable::starlark_serialize::StarlarkSerializeContext;
 use crate::pagable::starlark_serialize_context::StarlarkSerializerImpl;
@@ -240,15 +237,11 @@ impl<'de> PagableDeserialize<'de> for OwnedFrozenValue {
         // Deserialize the owner heap ref.
         let owner = FrozenHeapRef::pagable_deserialize(deserializer)?;
 
-        // Get or create shared deserialization state.
-        // Use empty HeapDeserializationState since the owner heap is already
-        // fully deserialized — ensure_initialized will be a no-op.
+        // Get or create the shared deserialization state. The owner heap is
+        // already fully deserialized and registered, so cross-heap pointer
+        // resolution in `deserialize_frozen_value` will find it.
         let state = StarlarkDeserializerImpl::get_or_create_state(deserializer.as_dyn());
-        let mut ctx = StarlarkDeserializerImpl::new(
-            deserializer.as_dyn(),
-            state,
-            Arc::new(Mutex::new(HeapDeserializationState::empty())),
-        );
+        let mut ctx = StarlarkDeserializerImpl::new(deserializer.as_dyn(), state);
 
         // Deserialize the FrozenValue.
         let value = ctx

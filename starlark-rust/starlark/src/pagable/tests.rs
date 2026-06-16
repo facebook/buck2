@@ -110,6 +110,84 @@ fn round_trip_heap_ref(heap_ref: &FrozenHeapRef) -> crate::Result<FrozenHeapRef>
     Ok(restored)
 }
 
+#[test]
+fn test_module_eval_round_trip() -> crate::Result<()> {
+    use std::any::TypeId;
+
+    use pagable::PagableDeserialize;
+    use pagable::context::PagableDeserializerImpl;
+    use pagable::storage::handle::PagableStorageHandle;
+    use pagable::storage::in_memory::InMemoryPagableStorage;
+    use pagable::storage::support::SerializerForPaging;
+    use pagable::storage::traits::PageOutError;
+
+    use crate::environment::FrozenModule;
+    use crate::environment::Module;
+    use crate::eval::Evaluator;
+    use crate::syntax::AstModule;
+    use crate::syntax::Dialect;
+
+    let code = r#"
+x = 1 + 2
+y = "hello" + " world"
+a = [1]
+a.append(a)
+"#;
+
+    let ast = AstModule::parse("test_module.star", code.to_owned(), &Dialect::Extended)?;
+    let globals = GlobalsBuilder::new().build_named(GlobalFrozenHeapName { name: "test_eval" });
+    let frozen_module = Module::with_temp_heap(|module| {
+        {
+            let mut eval = Evaluator::new(&module);
+            eval.eval_module(ast, &globals).unwrap();
+        }
+        module.freeze_named(TestHeapName::heap_name("test_module_eval"))
+    })?;
+
+    let backing = InMemoryPagableStorage::new();
+    let storage = backing.handle();
+    let handle = PagableStorageHandle::new(storage.clone());
+    let session_ctx = storage.session_context();
+
+    let mut ser = SerializerForPaging::new(session_ctx);
+    frozen_module
+        .pagable_serialize(&mut ser)
+        .map_err(crate::Error::new_other)?;
+    let (data, arcs) = ser.finish();
+
+    let top_key = {
+        let mut finished = dashmap::DashMap::new();
+        storage
+            .page_out_item(data, arcs, &mut finished, session_ctx)
+            .map_err(|e| match e {
+                PageOutError::Failed(e) => crate::Error::new_other(e),
+                PageOutError::AlreadyFailed => {
+                    crate::Error::new_other(anyhow::anyhow!("page out reported AlreadyFailed"))
+                }
+            })?
+    };
+
+    let top_data = storage
+        .fetch_arc_or_data_blocking(&TypeId::of::<()>(), &top_key)
+        .map_err(crate::Error::new_other)?
+        .right()
+        .expect("top-level key should return data, not a cached arc");
+
+    let mut de = PagableDeserializerImpl::new(&top_data.data, &top_data.arcs, &handle);
+    let restored = FrozenModule::pagable_deserialize(&mut de).map_err(crate::Error::new_other)?;
+
+    let x = restored.get("x")?.value().unpack_i32().unwrap();
+    assert_eq!(x, 3);
+
+    let y = restored.get("y")?;
+    assert_eq!(y.value().unpack_str().unwrap(), "hello world");
+
+    let a = restored.get("a")?;
+    assert_eq!(a.value().length().unwrap(), 2);
+
+    Ok(())
+}
+
 /// A test type with rust heap-allocated fields (Vec, Box, String).
 #[derive(
     Debug,

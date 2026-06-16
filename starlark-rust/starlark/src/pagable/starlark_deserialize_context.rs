@@ -17,17 +17,15 @@
 
 //! Implementation of StarlarkDeserializeContext.
 
-use std::collections::HashMap;
 use std::sync::Arc;
-use std::sync::Mutex;
-use std::sync::MutexGuard;
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
 
 use dashmap::DashMap;
 use dupe::Dupe;
 use pagable::PagableCursor;
 use pagable::PagableDeserialize;
 use pagable::PagableDeserializer;
-use starlark_syntax::internal_error;
 
 use crate::pagable::error::PagableError;
 use crate::pagable::heap_ref_id::HeapRefId;
@@ -36,13 +34,13 @@ use crate::pagable::starlark_deserialize::StarlarkDeserializeContext;
 use crate::pagable::static_value::get_frozen_value_by_static_id;
 use crate::values::FrozenValue;
 use crate::values::layout::heap::repr::AValueHeader;
-use crate::values::layout::pointer::PointerTags;
 use crate::values::layout::vtable::AValueVTable;
 use crate::values::layout::vtable::StarlarkValueRawPtr;
 use crate::values::types::int::inline_int::InlineInt;
 
 /// A slot in the arena waiting to be deserialized.
 /// Contains all info needed to locate and deserialize a single value.
+/// Immutable after phase 1
 pub(crate) struct ValueDeserSlot {
     /// Byte offset of this value's data relative to base_pos.
     stream_offset: u32,
@@ -54,15 +52,14 @@ pub(crate) struct ValueDeserSlot {
     raw_ptr: StarlarkValueRawPtr,
     /// Pointer to the AValueHeader in the arena (for vtable patching).
     header_ptr: *mut AValueHeader,
-    /// Whether this value has been deserialized.
-    initialized: bool,
 }
 
-// SAFETY: `ValueDeserSlot` holds raw pointers into a heap arena that is
-// owned, alive, and accessed only via the surrounding `Mutex<HeapDeserializationState>`.
-// The wrapping mutex serializes all access; the pointers themselves are
-// stable for the heap's deserialization lifetime.
+// SAFETY: `ValueDeserSlot` is immutable after construction and holds raw
+// pointers into a heap arena that is owned and alive for the heap's
+// deserialization lifetime. The init state is tracked separately via
+// per-slot atomics in `HeapDeserializationState`.
 unsafe impl Send for ValueDeserSlot {}
+unsafe impl Sync for ValueDeserSlot {}
 
 impl ValueDeserSlot {
     pub(crate) fn new(
@@ -78,7 +75,6 @@ impl ValueDeserSlot {
             header_ptr,
             vtable,
             raw_ptr,
-            initialized: false,
         }
     }
 }
@@ -105,43 +101,64 @@ impl DeserializeRecipe {
     }
 }
 
-/// Per-value init state for a heap. Each value can be claimed for
-/// deserialization exactly once.
+/// `init_states` encoding: `0` = not started, `1` = in progress,
+/// `2` = failed, non-zero with low state bits clear = done (value is the
+/// header pointer). The low bits are free because `AValueHeader` is ≥ 8-byte
+/// aligned.
+const INIT_NOT_STARTED: u64 = 0;
+const IN_PROGRESS_FLAG: u64 = 0b1;
+const INIT_FAILED_FLAG: u64 = 0b10;
+const INIT_STATE_MASK: u64 = IN_PROGRESS_FLAG | INIT_FAILED_FLAG;
+
+const _: () = {
+    assert!(AValueHeader::ALIGN > INIT_STATE_MASK as usize);
+};
+
+#[inline]
+fn is_done(v: u64) -> bool {
+    v != INIT_NOT_STARTED && (v & INIT_STATE_MASK) == 0
+}
+
+#[inline]
+fn is_failed(v: u64) -> bool {
+    v == INIT_FAILED_FLAG
+}
+
+pub(crate) enum ClaimResult {
+    Claimed(DeserializeRecipe),
+    Done,
+    /// Re-entrant back-reference; header pointer is valid, vtable still sentinel.
+    InProgress(*mut AValueHeader),
+    Failed,
+}
+
+/// Per-value init state for a heap. All fields except `init_states` are
+/// immutable after construction; held behind `Arc` (no mutex).
 pub(crate) struct HeapDeserializationState {
     /// All values in this heap.
     slots: Vec<ValueDeserSlot>,
-    /// Map from header pointer address to slot index.
-    ptr_to_index: HashMap<usize, usize>,
     /// Absolute cursor position of value data start (base for relative offsets).
     base_pos: PagableCursor,
     /// Absolute cursor position past all value data (from the offset table end sentinel).
     end_pos: PagableCursor,
+    /// Per-slot init state. See module-level encoding doc above.
+    init_states: Vec<AtomicU64>,
 }
 
 impl HeapDeserializationState {
     pub(crate) fn new(
         slots: Vec<ValueDeserSlot>,
-        ptr_to_index: HashMap<usize, usize>,
         base_pos: PagableCursor,
         end_pos: PagableCursor,
     ) -> Self {
+        let init_states = (0..slots.len())
+            .map(|_| AtomicU64::new(INIT_NOT_STARTED))
+            .collect();
         Self {
             slots,
-            ptr_to_index,
             base_pos,
             end_pos,
-        }
-    }
-
-    /// Create an empty state (no values to track).
-    /// Used when deserializing outside a heap context (e.g. `OwnedFrozenValue`),
-    /// where the target heap is already fully deserialized.
-    pub(crate) fn empty() -> Self {
-        Self {
-            slots: Vec::new(),
-            ptr_to_index: HashMap::new(),
-            base_pos: PagableCursor::default(),
-            end_pos: PagableCursor::default(),
+            init_states,
         }
     }
 
@@ -150,36 +167,81 @@ impl HeapDeserializationState {
         self.slots.len()
     }
 
-    /// Look up a value index by a FrozenValue that points into this heap.
-    /// Returns None for inline ints, unfrozen pointers, or pointers not in this heap.
-    pub(crate) fn find_by_frozen_value(&self, fv: FrozenValue) -> Option<usize> {
-        match fv.ptr_value().tags() {
-            PointerTags::OtherFrozen | PointerTags::StrFrozen => {
-                let ptr_addr = fv.ptr_value().ptr_value_untagged();
-                self.ptr_to_index.get(&ptr_addr).copied()
-            }
-            _ => None,
+    /// Return the header pointer for slot `index` if it's been finalized.
+    #[inline]
+    pub(crate) fn loaded_header_ptr(&self, index: usize) -> Option<*mut AValueHeader> {
+        let v = self.init_states[index].load(Ordering::Acquire);
+        if is_done(v) {
+            Some(v as *mut AValueHeader)
+        } else {
+            None
         }
     }
 
-    /// Try to claim a value for deserialization.
-    /// If not yet initialized, marks it and returns the info needed to deserialize.
-    /// If already initialized, returns None.
-    pub(crate) fn try_claim(&mut self, index: usize) -> Option<DeserializeRecipe> {
-        let slot = &mut self.slots[index];
-        if slot.initialized {
-            return None;
+    /// Try to claim a slot for deserialization. Uses a lock-free CAS on the
+    /// per-slot atomic for the uncontended path.
+    ///
+    /// On win, returns `Claimed(recipe)`; caller must run
+    /// `recipe.vtable.starlark_deserialize`, call `recipe.write_vtable_to_header()`,
+    /// then call `finalize_claim(index)`. On loss, waits until the winner
+    /// publishes done or failed.
+    pub(crate) fn try_claim(&self, index: usize) -> ClaimResult {
+        let state = &self.init_states[index];
+
+        match state.load(Ordering::Acquire) {
+            v if is_done(v) => return ClaimResult::Done,
+            v if is_failed(v) => return ClaimResult::Failed,
+            IN_PROGRESS_FLAG => {
+                return ClaimResult::InProgress(self.slots[index].header_ptr);
+            }
+            _ => {}
         }
-        slot.initialized = true;
-        Some(DeserializeRecipe {
-            abs_pos: PagableCursor {
-                byte_pos: self.base_pos.byte_pos + slot.stream_offset as usize,
-                arc_index: self.base_pos.arc_index + slot.arc_offset as usize,
-            },
-            vtable: slot.vtable,
-            raw_ptr: slot.raw_ptr,
-            header_ptr: slot.header_ptr,
-        })
+
+        // Attempt to claim.
+        match state.compare_exchange(
+            INIT_NOT_STARTED,
+            IN_PROGRESS_FLAG,
+            Ordering::AcqRel,
+            Ordering::Acquire,
+        ) {
+            Ok(_) => {
+                let slot = &self.slots[index];
+                ClaimResult::Claimed(DeserializeRecipe {
+                    abs_pos: PagableCursor {
+                        byte_pos: self.base_pos.byte_pos + slot.stream_offset as usize,
+                        arc_index: self.base_pos.arc_index + slot.arc_offset as usize,
+                    },
+                    vtable: slot.vtable,
+                    raw_ptr: slot.raw_ptr,
+                    header_ptr: slot.header_ptr,
+                })
+            }
+            Err(v) if is_done(v) => ClaimResult::Done,
+            Err(v) if is_failed(v) => ClaimResult::Failed,
+            Err(_) => ClaimResult::InProgress(self.slots[index].header_ptr),
+        }
+    }
+
+    /// Publish slot `index` as done. Call after `write_vtable_to_header`.
+    /// Stores the header pointer; waiters in `try_claim` then return.
+    pub(crate) fn finalize_claim(&self, index: usize) {
+        let ptr = self.slots[index].header_ptr as u64;
+        debug_assert!(
+            ptr != INIT_NOT_STARTED && (ptr & INIT_STATE_MASK) == 0,
+            "header_ptr {:#x} must be non-zero and low-state-bits-zero (AValueHeader alignment)",
+            ptr,
+        );
+        self.publish_claim_state(index, ptr);
+    }
+
+    /// Publish slot `index` as failed. Call if the winning deserializer errors
+    /// before `finalize_claim`.
+    pub(crate) fn abort_claim(&self, index: usize) {
+        self.publish_claim_state(index, INIT_FAILED_FLAG);
+    }
+
+    fn publish_claim_state(&self, index: usize, state_value: u64) {
+        self.init_states[index].store(state_value, Ordering::Release);
     }
 
     /// Absolute cursor position past all value data (from the offset table end sentinel).
@@ -193,22 +255,26 @@ impl HeapDeserializationState {
 /// independently-deserialized heaps (via pagable arcs) can all register
 /// their per-value addresses and resolve cross-heap references.
 pub(crate) struct StarlarkDeserState {
-    /// Per-heap `value_index → header pointer address` table.
-    /// Indexed by `value_index` in serialization order (drop bump first,
-    /// then non-drop).
-    heap_value_addrs: DashMap<HeapRefId, Vec<usize>>,
+    /// Per-heap `HeapDeserializationState`. Holds the slot array (immutable
+    /// metadata) and `init_states` (per-slot atomic that doubles as the
+    /// header-pointer lookup table once finalized).
+    heap_deser_states: DashMap<HeapRefId, Arc<HeapDeserializationState>>,
 }
 
 impl StarlarkDeserState {
     pub(crate) fn new() -> Self {
         Self {
-            heap_value_addrs: DashMap::new(),
+            heap_deser_states: DashMap::new(),
         }
     }
 
-    /// Register a heap's per-value header address table.
-    pub(crate) fn register_heap(&self, heap_id: HeapRefId, value_addrs: Vec<usize>) {
-        self.heap_value_addrs.insert(heap_id, value_addrs);
+    /// Register a heap's deserialization state.
+    pub(crate) fn register_heap(&self, heap_id: HeapRefId, state: Arc<HeapDeserializationState>) {
+        self.heap_deser_states.insert(heap_id, state);
+    }
+
+    pub(crate) fn get_heap(&self, heap_id: &HeapRefId) -> Option<Arc<HeapDeserializationState>> {
+        self.heap_deser_states.get(heap_id).map(|r| r.dupe())
     }
 }
 
@@ -218,61 +284,28 @@ impl StarlarkDeserState {
 /// resolve `FrozenValue` references during deserialization.
 pub struct StarlarkDeserializerImpl<'a, 'de> {
     pagable: &'a mut dyn PagableDeserializer<'de>,
-    /// Shared state for heap-base lookups across all heaps.
+    /// Shared registry of per-heap deserialization state. Cross-heap pointer
+    /// resolution looks up the target heap by `heap_id` here.
     state: Arc<StarlarkDeserState>,
-    /// Current heap's per-value init tracking, used by
-    /// `ensure_initialized` to resolve same-heap pointers that target
-    /// values not yet deserialized. Shared via `Arc<Mutex<...>>` so
-    /// nested deserializers entering via
-    /// [`StarlarkDeserializerImpl::recover_from_pagable`] see the
-    /// same state.
-    current_heap_deser_state: Arc<Mutex<HeapDeserializationState>>,
-}
-
-/// "Currently-deserializing heap" handle stashed in the deserialize
-/// session context so nested deserializers entering via
-/// [`StarlarkDeserializerImpl::recover_from_pagable`] share the same
-/// per-heap init state.
-#[derive(Clone, Dupe)]
-pub(crate) struct CurrentHeapDeserState {
-    pub(crate) deser_state: Arc<Mutex<HeapDeserializationState>>,
 }
 
 impl<'a, 'de> StarlarkDeserializerImpl<'a, 'de> {
     /// Recover a `StarlarkDeserializerImpl` after a hop through a pagable-only
-    /// boundary (typically `serialize_arc` / `deserialize_arc`). Reads the
-    /// heap context that was stashed in the session before the hop.
-    ///
-    /// Errors if no outer heap deserialization is in progress.
+    /// boundary (typically `serialize_arc` / `deserialize_arc`). All heap
+    /// state is reachable via the shared `StarlarkDeserState` registry.
     pub fn recover_from_pagable(
         deserializer: &'a mut dyn PagableDeserializer<'de>,
     ) -> crate::Result<Self> {
-        let current =
-            Self::current_heap_deser_state_from_context(deserializer).ok_or_else(|| {
-                internal_error!(
-                    "recover_from_pagable called outside of starlark heap deserialization: \
-                     no current heap deser state in session context"
-                )
-            })?;
         let state = Self::get_or_create_state(deserializer);
-        Ok(Self::new(deserializer, state, current.deser_state))
+        Ok(Self::new(deserializer, state))
     }
 
-    /// Create a new deserializer with shared state and the current
-    /// heap's per-value init tracking.
+    /// Create a new deserializer with shared state.
     pub(crate) fn new(
         pagable: &'a mut dyn PagableDeserializer<'de>,
         state: Arc<StarlarkDeserState>,
-        current_heap_deser_state: Arc<Mutex<HeapDeserializationState>>,
     ) -> Self {
-        pagable.session_context().set(CurrentHeapDeserState {
-            deser_state: current_heap_deser_state.dupe(),
-        });
-        Self {
-            pagable,
-            state,
-            current_heap_deser_state,
-        }
+        Self { pagable, state }
     }
 
     /// Get or create the shared `StarlarkDeserState` from the deserializer's `SessionContext`.
@@ -282,25 +315,6 @@ impl<'a, 'de> StarlarkDeserializerImpl<'a, 'de> {
         deserializer
             .session_context()
             .get_or_insert_with(|| Arc::new(StarlarkDeserState::new()))
-    }
-
-    /// Read the currently-deserializing heap context from the session
-    /// context. Returns `None` if no outer heap deserialization has
-    /// set it up.
-    pub(crate) fn current_heap_deser_state_from_context(
-        deserializer: &mut dyn PagableDeserializer<'_>,
-    ) -> Option<CurrentHeapDeserState> {
-        deserializer
-            .session_context()
-            .get::<CurrentHeapDeserState>()
-    }
-
-    /// Lock and return the current heap's deserialization state. The guard
-    /// allows both read and mutation (slot claiming).
-    pub(crate) fn current_heap_deser_state(&self) -> MutexGuard<'_, HeapDeserializationState> {
-        self.current_heap_deser_state
-            .lock()
-            .expect("current heap deser state lock poisoned")
     }
 }
 
@@ -316,27 +330,7 @@ impl<'de> StarlarkDeserializeContext<'de> for StarlarkDeserializerImpl<'_, 'de> 
                 heap_id,
                 value_index,
                 is_str,
-            } => {
-                let ptr = {
-                    let addrs = self
-                        .state
-                        .heap_value_addrs
-                        .get(&heap_id)
-                        .ok_or(PagableError::HeapBasesNotRegistered { heap_id })?;
-                    *addrs.get(value_index as usize).ok_or_else(|| {
-                        anyhow::anyhow!(
-                            "value_index {} out of range for heap {:?} (size {})",
-                            value_index,
-                            heap_id,
-                            addrs.len(),
-                        )
-                    })?
-                };
-                let header = unsafe { &*(ptr as *const AValueHeader) };
-                let fv = FrozenValue::new_ptr(header, is_str);
-                self.ensure_initialized(fv)?;
-                Ok(fv)
-            }
+            } => self.ensure_initialized(heap_id, value_index, is_str),
             SerializedFrozenValue::InlineInt(v) => {
                 let inline = InlineInt::try_from(v)
                     .map_err(|_| anyhow::anyhow!("Integer {} does not fit in InlineInt", v))?;
@@ -350,33 +344,77 @@ impl<'de> StarlarkDeserializeContext<'de> for StarlarkDeserializerImpl<'_, 'de> 
             }
         }
     }
+}
 
-    fn ensure_initialized(&mut self, fv: FrozenValue) -> crate::Result<()> {
-        let idx = match self.current_heap_deser_state().find_by_frozen_value(fv) {
-            Some(idx) => idx,
-            // `fv` is not in the heap currently being deserialized —
-            // it points into another (already-deserialized) heap, so
-            // there's nothing to initialize.
-            None => return Ok(()),
-        };
+impl<'a, 'de> StarlarkDeserializerImpl<'a, 'de> {
+    /// Resolve a serialized HeapPtr into a `FrozenValue`. Deserialize the
+    /// target slot if needed; reads the header pointer from the slot's
+    /// atomic.
+    fn ensure_initialized(
+        &mut self,
+        heap_id: HeapRefId,
+        value_index: u32,
+        is_str: bool,
+    ) -> crate::Result<FrozenValue> {
+        let target_state = self
+            .state
+            .get_heap(&heap_id)
+            .ok_or(PagableError::HeapBasesNotRegistered { heap_id })?;
 
-        let target = match self.current_heap_deser_state().try_claim(idx) {
-            Some(target) => target,
-            None => return Ok(()), // Already initialized.
-        };
+        if value_index as usize >= target_state.value_count() {
+            return Err(anyhow::anyhow!(
+                "value_index {} out of range for heap {:?} (size {})",
+                value_index,
+                heap_id,
+                target_state.value_count(),
+            )
+            .into());
+        }
 
-        let saved_pos = self.pagable.position();
-        // SAFETY: abs_pos points to the start of this value's serialized data
-        // (from the offset table). saved_pos is restored after deserialization.
-        unsafe { self.pagable.seek(target.abs_pos) };
-        (target.vtable.starlark_deserialize)(target.raw_ptr, self)?;
-        // Replace the sentinel vtable with the real one now that
-        // deserialization is complete. The sentinel must stay in place
-        // until this point so that any access to the value before it
-        // is fully deserialized will panic.
-        unsafe { target.write_vtable_to_header() };
-        unsafe { self.pagable.seek(saved_pos) };
+        // Fast path: slot is already done.
+        if let Some(ptr) = target_state.loaded_header_ptr(value_index as usize) {
+            let header = unsafe { &*ptr };
+            return Ok(FrozenValue::new_ptr(header, is_str));
+        }
 
-        Ok(())
+        // Slow path: try to claim.
+        match target_state.try_claim(value_index as usize) {
+            ClaimResult::Claimed(target) => {
+                let saved_pos = self.pagable.position();
+                // SAFETY: abs_pos points to the start of this value's serialized data
+                // (from the offset table). saved_pos is restored after deserialization.
+                unsafe { self.pagable.seek(target.abs_pos) };
+                let result = (target.vtable.starlark_deserialize)(target.raw_ptr, self);
+                unsafe { self.pagable.seek(saved_pos) };
+
+                if let Err(e) = result {
+                    target_state.abort_claim(value_index as usize);
+                    return Err(e);
+                }
+
+                // Replace the sentinel vtable with the real one before publishing done.
+                unsafe { target.write_vtable_to_header() };
+                target_state.finalize_claim(value_index as usize);
+            }
+            ClaimResult::InProgress(header_ptr) => {
+                let header = unsafe { &*header_ptr };
+                return Ok(FrozenValue::new_ptr(header, is_str));
+            }
+            ClaimResult::Done => {}
+            ClaimResult::Failed => {
+                return Err(anyhow::anyhow!(
+                    "partial deserialization failed for heap {:?} value_index {}",
+                    heap_id,
+                    value_index,
+                )
+                .into());
+            }
+        }
+
+        let ptr = target_state
+            .loaded_header_ptr(value_index as usize)
+            .expect("slot must be done after ensure_initialized");
+        let header = unsafe { &*ptr };
+        Ok(FrozenValue::new_ptr(header, is_str))
     }
 }

@@ -16,7 +16,6 @@
  */
 
 use std::sync::Arc;
-use std::sync::Mutex;
 
 use allocative::Allocative;
 use dupe::Dupe;
@@ -41,7 +40,6 @@ use crate::pagable::StarlarkDeserialize;
 use crate::pagable::StarlarkDeserializerImpl;
 use crate::pagable::StarlarkSerialize;
 use crate::pagable::StarlarkSerializerImpl;
-use crate::pagable::starlark_deserialize_context::HeapDeserializationState;
 use crate::register_starlark_any;
 use crate::stdlib;
 pub use crate::stdlib::LibraryExtension;
@@ -109,15 +107,10 @@ impl<'de> PagableDeserialize<'de> for GlobalsData {
     ) -> pagable::Result<Self> {
         let heap = FrozenHeapRef::pagable_deserialize(deserializer)?;
 
-        // Empty `HeapDeserializationState` — the owner heap is fully
-        // deserialized at this point, so `ensure_initialized` is a no-op for
-        // any pointer we resolve into it.
+        // The preceding heap deserialization registers its heap state in the
+        // session, so Starlark fields can resolve `FrozenValue` pointers.
         let state = StarlarkDeserializerImpl::get_or_create_state(deserializer.as_dyn());
-        let mut ctx = StarlarkDeserializerImpl::new(
-            deserializer.as_dyn(),
-            state,
-            Arc::new(Mutex::new(HeapDeserializationState::empty())),
-        );
+        let mut ctx = StarlarkDeserializerImpl::new(deserializer.as_dyn(), state);
 
         let variables = <SymbolMap<GlobalValue>>::starlark_deserialize(&mut ctx)
             .map_err(|e: crate::Error| e.into_anyhow())?;

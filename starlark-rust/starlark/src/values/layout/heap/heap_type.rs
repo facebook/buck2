@@ -32,7 +32,6 @@ use std::mem::MaybeUninit;
 use std::ops::Deref;
 use std::ptr;
 use std::sync::Arc;
-use std::sync::Mutex;
 
 use allocative::Allocative;
 use bumpalo::Bump;
@@ -57,6 +56,7 @@ use crate::pagable::DeserTypeId;
 use crate::pagable::heap_ref_id::HeapRefId;
 use crate::pagable::lookup_vtable;
 use crate::pagable::starlark_deserialize::StarlarkDeserializeContext;
+use crate::pagable::starlark_deserialize_context::ClaimResult;
 use crate::pagable::starlark_deserialize_context::HeapDeserializationState;
 use crate::pagable::starlark_deserialize_context::StarlarkDeserializerImpl;
 use crate::pagable::starlark_deserialize_context::ValueDeserSlot;
@@ -374,17 +374,12 @@ unsafe impl Sync for FrozenFrozenHeap {}
 unsafe impl Send for FrozenFrozenHeap {}
 
 /// Intermediate state after reading heap metadata and allocating arena bumps,
-/// but before deserializing values. Carries the per-value header addresses
-/// so the deserializer context can register them for cross-heap resolution.
+/// but before deserializing values.
 pub(crate) struct PartiallyDeserializedHeap {
     arena: Arena<ChunkAllocator>,
     refs: Vec<FrozenHeapRef>,
     /// Value tracking info (headers already written, ready for deserialization).
     deser_state: HeapDeserializationState,
-    /// `value_index → header pointer address` table built during phase 1.
-    /// Indexed by `value_index` in serialization order (drop bump first, then
-    /// non-drop).
-    value_addrs: Vec<usize>,
 }
 
 impl PartiallyDeserializedHeap {
@@ -541,23 +536,19 @@ impl FrozenFrozenHeap {
     ) -> crate::Result<Self> {
         let heap_id = HeapRefId::pagable_deserialize(deserializer)?;
 
-        let mut partial = Self::deserialize_phase1(deserializer)?;
-        let value_addrs = std::mem::take(&mut partial.value_addrs);
+        let partial = Self::deserialize_phase1(deserializer)?;
 
         let (deser_state, arena, refs) = partial.take_deser_state_and_finish();
+        let deser_state = Arc::new(deser_state);
 
-        // Get or create shared state.
+        // Get or create shared state and register this heap so cross-heap
+        // pointer resolution can find it.
         let state = StarlarkDeserializerImpl::get_or_create_state(deserializer.as_dyn());
-        let mut ctx = StarlarkDeserializerImpl::new(
-            deserializer.as_dyn(),
-            state.dupe(),
-            Arc::new(Mutex::new(deser_state)),
-        );
+        state.register_heap(heap_id, deser_state.dupe());
 
-        // Register per-value header addresses in shared state.
-        state.register_heap(heap_id, value_addrs);
+        let mut ctx = StarlarkDeserializerImpl::new(deserializer.as_dyn(), state);
 
-        let heap = Self::deserialize_phase2(arena, refs, &mut ctx)?;
+        let heap = Self::deserialize_phase2(arena, refs, &deser_state, &mut ctx)?;
 
         Ok(heap)
     }
@@ -629,17 +620,10 @@ impl FrozenFrozenHeap {
         let mut non_drop_cursor = arena.alloc_raw_non_drop_cursor(non_drop_total_bytes);
 
         // Write AValueHeaders to arena and build value info.
-        let mut ptr_to_index = HashMap::new();
         let mut slots = Vec::with_capacity(total_count);
-        // Per-value header addresses indexed by value_index. Used to register
-        // this heap's address table in the shared `StarlarkDeserState` for
-        // frozen value resolution.
-        let mut value_addrs: Vec<usize> = Vec::with_capacity(total_count);
         // Use only the first total_count entries (skip the end sentinel).
-        for (i, ((arena_offset, vtable, alloc_size), &(stream_offset, arc_offset))) in value_meta
-            .iter()
-            .zip(offset_table[..total_count].iter())
-            .enumerate()
+        for ((arena_offset, vtable, alloc_size), &(stream_offset, arc_offset)) in
+            value_meta.iter().zip(offset_table[..total_count].iter())
         {
             let cursor = match arena_offset.bump {
                 BumpKind::Drop => drop_cursor.as_mut(),
@@ -657,9 +641,6 @@ impl FrozenFrozenHeap {
                     AValueHeader(AValueVTable::uninitialized_sentinel()),
                 );
                 let raw_ptr = StarlarkValueRawPtr::new_header(&*header_ptr);
-                let header_addr = header_ptr as *const _ as usize;
-                ptr_to_index.insert(header_addr, i);
-                value_addrs.push(header_addr);
                 slots.push(ValueDeserSlot::new(
                     stream_offset,
                     arc_offset,
@@ -676,37 +657,52 @@ impl FrozenFrozenHeap {
             byte_pos: base_pos.byte_pos + end_stream_offset as usize,
             arc_index: base_pos.arc_index + end_arc_offset as usize,
         };
-        let deser_state = HeapDeserializationState::new(slots, ptr_to_index, base_pos, end_pos);
+        let deser_state = HeapDeserializationState::new(slots, base_pos, end_pos);
 
         Ok(PartiallyDeserializedHeap {
             arena,
             refs,
             deser_state,
-            value_addrs,
         })
     }
 
     fn deserialize_phase2(
         arena: Arena<ChunkAllocator>,
         refs: Vec<FrozenHeapRef>,
+        current_heap_deser_state: &Arc<HeapDeserializationState>,
         ctx: &mut StarlarkDeserializerImpl<'_, '_>,
     ) -> crate::Result<FrozenFrozenHeap> {
-        let count = ctx.current_heap_deser_state().value_count();
+        let count = current_heap_deser_state.value_count();
         for i in 0..count {
-            let target = ctx.current_heap_deser_state().try_claim(i);
-            if let Some(target) = target {
-                // SAFETY: abs_pos is computed from the offset table written during
-                // serialization — it points to the start of this value's data.
-                unsafe { ctx.pagable().seek(target.abs_pos) };
-                (target.vtable.starlark_deserialize)(target.raw_ptr, ctx)?;
-                // Replace the sentinel vtable with the real one now that
-                // deserialization is complete. The sentinel must stay in place
-                // until this point so that any access to the value before it
-                // is fully deserialized will panic.
-                unsafe { target.write_vtable_to_header() };
+            match current_heap_deser_state.try_claim(i) {
+                ClaimResult::Claimed(target) => {
+                    // SAFETY: abs_pos is computed from the offset table written during
+                    // serialization — it points to the start of this value's data.
+                    unsafe { ctx.pagable().seek(target.abs_pos) };
+                    if let Err(e) = (target.vtable.starlark_deserialize)(target.raw_ptr, ctx) {
+                        current_heap_deser_state.abort_claim(i);
+                        return Err(e);
+                    }
+                    // Replace the sentinel vtable with the real one now that
+                    // deserialization is complete. The sentinel must stay in place
+                    // until this point so that any access to the value before it
+                    // is fully deserialized will panic.
+                    unsafe { target.write_vtable_to_header() };
+                    // Publish done in the per-slot atomic so spinning waiters
+                    // observe completion.
+                    current_heap_deser_state.finalize_claim(i);
+                }
+                ClaimResult::Done | ClaimResult::InProgress(_) => {}
+                ClaimResult::Failed => {
+                    return Err(anyhow::anyhow!(
+                        "partial deserialization failed for value_index {}",
+                        i,
+                    )
+                    .into());
+                }
             }
         }
-        let end = ctx.current_heap_deser_state().end_position();
+        let end = current_heap_deser_state.end_position();
         // SAFETY: end_position is past the last value's data in this heap.
         unsafe { ctx.pagable().seek(end) };
 
