@@ -38,11 +38,6 @@ fn test_construction() -> buck2_error::Result<()> {
             ExternalRunnerTestInfo(type = "foo", use_project_relative_paths = True)
             ExternalRunnerTestInfo(type = "foo", run_from_project_root = True)
             ExternalRunnerTestInfo(type = "foo", local_resources = {"bar": None}, required_local_resources = [RequiredTestLocalResource("bar", listing=False)])
-            ExternalRunnerTestInfo(type = "foo", network_access = "none")
-            ExternalRunnerTestInfo(type = "foo", network_access = "all")
-            ExternalRunnerTestInfo(type = "foo", network_access = "loopback")
-            ExternalRunnerTestInfo(type = "foo", network_access = "strict")
-            ExternalRunnerTestInfo(type = "foo", network_access = "private")
         "#
     );
     let mut tester = tester();
@@ -211,26 +206,6 @@ fn test_validation() -> buck2_error::Result<()> {
         "#
         ),
         "`required_local_resources` contains `bar` which is not present in `local_resources`",
-    );
-
-    tester.run_starlark_bzl_test_expecting_error(
-        indoc!(
-            r#"
-        def test():
-            ExternalRunnerTestInfo(type = "foo", network_access = "invalid")
-        "#
-        ),
-        "Invalid network_access value",
-    );
-
-    tester.run_starlark_bzl_test_expecting_error(
-        indoc!(
-            r#"
-        def test():
-            ExternalRunnerTestInfo(type = "foo", network_access = 123)
-        "#
-        ),
-        "`network_access`",
     );
 
     Ok(())

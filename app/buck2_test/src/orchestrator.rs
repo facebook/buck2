@@ -205,13 +205,6 @@ impl OwnedTestInfo {
         }
     }
 
-    fn network_access(&self) -> Option<NetworkAccess> {
-        match self {
-            Self::External(info) => info.network_access(),
-            Self::Internal(_) => None,
-        }
-    }
-
     fn cli_args_for_stage<'v>(&self, stage: &TestStage) -> Vec<&'v dyn CommandLineArgLike<'v>> {
         let filter = |c: TestCommandMember<'v>| -> Option<&'v dyn CommandLineArgLike<'v>> {
             match c {
@@ -392,11 +385,14 @@ impl<'a> BuckTestOrchestrator<'a> {
         Ok(())
     }
 
-    /// Exempt static listing from network isolation: its enumeration tool
-    /// (gtest-list-tests, coral, ...) is a DotSlash stub that can't resolve under
-    /// network isolation. Force `All` so the exemption overrides any
-    /// executor-level network policy. Dynamic listing runs the test binary
-    /// itself, so keep that isolated.
+    /// Network access is configured on the executor (`CommandExecutorConfig`) and
+    /// applied by the command executor, which falls back to the executor policy
+    /// when the request does not set one. Execution and dynamic listing therefore
+    /// return `None` here and inherit that policy.
+    ///
+    /// Static listing is the exception: its enumeration tool (gtest-list-tests,
+    /// coral, ...) is a DotSlash stub that can't resolve under network isolation,
+    /// so force `All` to override any executor-level policy.
     fn requested_network_access(
         stage: &TestStage,
         test_info: &OwnedTestInfo,
@@ -405,7 +401,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             TestStage::Listing { .. } if test_info.has_static_listing_label() => {
                 Some(NetworkAccess::All)
             }
-            _ => test_info.network_access(),
+            _ => None,
         }
     }
 

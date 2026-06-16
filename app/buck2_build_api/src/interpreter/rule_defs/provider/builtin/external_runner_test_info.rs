@@ -13,12 +13,10 @@ use std::iter::once;
 
 use allocative::Allocative;
 use buck2_build_api_derive::internal_provider;
-use buck2_core::execution_types::executor_config::parse_network_access;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_error::internal_error;
-use buck2_execute::execute::request::NetworkAccess;
 use buck2_hash::BuckIndexMap;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use either::Either;
@@ -121,9 +119,6 @@ pub struct ExternalRunnerTestInfoGen<V: ValueLifetimeless> {
 
     /// Whether test execution results can be read from the remote action cache.
     supports_test_execution_caching: ValueOfUncheckedGeneric<V, bool>,
-
-    /// Network access policy for the test.
-    network_access: ValueOfUncheckedGeneric<V, String>,
 }
 
 // NOTE: All the methods here unwrap because we validate at freeze time.
@@ -215,15 +210,6 @@ impl FrozenExternalRunnerTestInfo {
             .unwrap()
             .into_option()
             .unwrap_or(false)
-    }
-
-    pub fn network_access(&self) -> Option<NetworkAccess> {
-        let s = NoneOr::<&str>::unpack_value(self.network_access.get().to_value())
-            .unwrap()
-            .unwrap()
-            .into_option()?;
-        // Validated in validate_external_runner_test_info.
-        Some(parse_network_access(s).unwrap())
     }
 
     pub fn visit_artifacts(
@@ -537,12 +523,6 @@ where
         .ok_or_else(|| {
             internal_error!("`supports_test_execution_caching` must be a bool if provided")
         })?;
-    if let Some(v) = NoneOr::<&str>::unpack_value(info.network_access.get().to_value())?
-        .ok_or_else(|| internal_error!("`network_access` must be a str if provided"))?
-        .into_option()
-    {
-        parse_network_access(v)?;
-    }
     info.test_type
         .get()
         .to_value()
@@ -569,7 +549,6 @@ fn external_runner_test_info_creator(globals: &mut GlobalsBuilder) {
         #[starlark(require = named, default = NoneType)] required_local_resources: Value<'v>,
         #[starlark(require = named, default = NoneType)] worker: Value<'v>,
         #[starlark(require = named, default = NoneType)] supports_test_execution_caching: Value<'v>,
-        #[starlark(require = named, default = NoneType)] network_access: Value<'v>,
     ) -> starlark::Result<ExternalRunnerTestInfo<'v>> {
         let res = ExternalRunnerTestInfo {
             test_type: ValueOfUnchecked::new(r#type),
@@ -585,7 +564,6 @@ fn external_runner_test_info_creator(globals: &mut GlobalsBuilder) {
             required_local_resources: ValueOfUnchecked::new(required_local_resources),
             worker: ValueOfUnchecked::new(worker),
             supports_test_execution_caching: ValueOfUnchecked::new(supports_test_execution_caching),
-            network_access: ValueOfUnchecked::new(network_access),
         };
         validate_external_runner_test_info(&res)?;
         Ok(res)
