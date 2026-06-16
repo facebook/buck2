@@ -50,7 +50,7 @@ use crate::values::layout::vtable::AValueVTable;
 use crate::values::layout::vtable::StarlarkValueRawPtr;
 use crate::values::types::int::inline_int::InlineInt;
 
-/// Per-slot metadata for partial-deser. Immutable after phase 1.
+/// Per-slot metadata for partial-deser. Immutable after `deserialize_metadata`.
 pub(crate) struct ValueDeserSlot {
     /// Byte offset of this value's data relative to base_pos.
     stream_offset: u32,
@@ -187,8 +187,6 @@ pub(crate) struct HeapDeserializationState {
     slots: Vec<ValueDeserSlot>,
     /// Absolute cursor position of value data start (base for relative offsets).
     base_pos: PagableCursor,
-    /// Absolute cursor position past all value data (from the offset table end sentinel).
-    end_pos: PagableCursor,
     /// Per-slot init state. See module-level encoding doc above.
     init_states: Vec<AtomicU64>,
     /// Coordinates waiters that lost a per-slot initialization race.
@@ -211,7 +209,6 @@ impl HeapDeserializationState {
     pub(crate) unsafe fn new(
         slots: Vec<ValueDeserSlot>,
         base_pos: PagableCursor,
-        end_pos: PagableCursor,
         arena: *const Arena<ChunkAllocator>,
     ) -> Self {
         let init_states = (0..slots.len())
@@ -220,7 +217,6 @@ impl HeapDeserializationState {
         Self {
             slots,
             base_pos,
-            end_pos,
             init_states,
             // SAFETY: caller's contract — `arena` is a valid pointer.
             arena: Mutex::new(unsafe { NonNull::new_unchecked(arena as *mut _) }),
@@ -367,24 +363,12 @@ impl HeapDeserializationState {
             cv.notify_all();
         }
     }
-
-    /// Absolute cursor position past all value data (from the offset table end sentinel).
-    pub(crate) fn end_position(&self) -> PagableCursor {
-        self.end_pos
-    }
 }
 
 /// Session-scoped `HeapRefId` → recipe map. `FrozenHeapRef`'s deserialize
 /// callback stashes one entry per heap.
 #[derive(Default)]
 pub struct HeapRecipeMap(pub DashMap<HeapRefId, Arc<dyn PagableDeserializerRecipe>>);
-
-/// Marker in `SessionContext` opting out of the default partial
-/// (on-demand) deserialization: when present, `FrozenFrozenHeap::deserialize_body`
-/// runs eager phase-2 and materializes every value up front. Used by tests
-/// that walk the arena directly (`collect_*_headers_ordered`).
-#[derive(Clone)]
-pub struct FullDeserMode;
 
 /// Shared deserialization state across all heaps deserialized in a session.
 /// Stored in `SessionContext` as `Arc<StarlarkDeserState>` so that
@@ -653,8 +637,8 @@ impl<'a, 'de> StarlarkDeserializerImpl<'a, 'de> {
                     let storage = self.pagable.storage();
                     let mut de = recipe.open(&storage);
                     // SAFETY: `target.abs_pos` was computed from the target heap's
-                    // offset table during phase 1; it is a valid position in the
-                    // recipe's bytes for this heap.
+                    // offset table during `deserialize_metadata`; it is a valid
+                    // position in the recipe's bytes for this heap.
                     unsafe { de.seek(target.abs_pos) };
                     let nested_de: &mut dyn PagableDeserializer<'_> = &mut *de;
                     let mut nested_ctx =

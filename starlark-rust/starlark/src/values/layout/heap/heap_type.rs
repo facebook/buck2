@@ -57,8 +57,6 @@ use crate::pagable::DeserTypeId;
 use crate::pagable::error::PagableError;
 use crate::pagable::heap_ref_id::HeapRefId;
 use crate::pagable::lookup_vtable;
-use crate::pagable::starlark_deserialize::StarlarkDeserializeContext;
-use crate::pagable::starlark_deserialize_context::ClaimResult;
 use crate::pagable::starlark_deserialize_context::HeapDeserializationState;
 use crate::pagable::starlark_deserialize_context::StarlarkDeserializerImpl;
 use crate::pagable::starlark_deserialize_context::ValueDeserSlot;
@@ -532,35 +530,28 @@ impl FrozenFrozenHeap {
         Ok(())
     }
 
-    /// Read just the `HeapRefId` prefix; pair with [`deserialize_body`](Self::deserialize_body).
+    /// Read just the `HeapRefId` prefix; pair with [`deserialize_skeleton`](Self::deserialize_skeleton).
     pub fn deserialize_heap_id<'de, D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> crate::Result<HeapRefId> {
         Ok(HeapRefId::pagable_deserialize(deserializer)?)
     }
 
-    /// Deserialize the heap body given an already-read `heap_id`.
-    ///
-    /// By default skips phase 2 — values are materialized on demand by
+    /// Read the heap metadata given an already-read `heap_id` and return an
+    /// `Arc<Self>` with an empty arena. Values are materialized on demand by
     /// [`StarlarkDeserializerImpl::ensure_initialized`] via the recipe
-    /// stashed in `HeapRecipeMap`. If
-    /// [`FullDeserMode`](crate::pagable::starlark_deserialize_context::FullDeserMode)
-    /// is present in the session context runs phase 2 eagerly and materializes every value up front.
+    /// stashed in `HeapRecipeMap`.
     ///
     /// Returns `Arc<Self>` directly: `HeapDeserializationState` holds a raw
     /// pointer into `arena`, so the address must be stable.
-    /// If use `Box<Self>`, `Arc::from(Box<T>)` later would reallocate and dangle the pointer.
-    pub fn deserialize_body<'de, D: PagableDeserializer<'de> + ?Sized>(
+    /// `Arc::from(Box<T>)` would reallocate and dangle the pointer.
+    pub fn deserialize_skeleton<'de, D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
         heap_id: HeapRefId,
     ) -> crate::Result<Arc<Self>> {
-        let partial = Self::deserialize_phase1(deserializer)?;
+        let partial = Self::deserialize_metadata(deserializer)?;
         let (refs, slots, base_pos, end_pos) = partial.into_parts();
 
-        // Allocate directly into `Arc` so `arena`'s address is stable for the
-        // life of the heap. `HeapDeserializationState` holds a raw pointer
-        // into this arena; converting `Box` → `Arc` later would reallocate
-        // and dangle the pointer.
         let heap = Arc::new(FrozenFrozenHeap {
             arena: Arena::default(),
             refs: refs.into_boxed_slice(),
@@ -570,34 +561,21 @@ impl FrozenFrozenHeap {
         let arena_ptr: *const Arena<ChunkAllocator> = &heap.arena;
 
         // SAFETY: `arena_ptr` points into `*heap`. The returned `Arc` keeps
-        // that allocation alive for at least as long as the deserialize
-        // session.
+        // that allocation alive for at least as long as the deserialize session.
         let deser_state =
-            Arc::new(unsafe { HeapDeserializationState::new(slots, base_pos, end_pos, arena_ptr) });
+            Arc::new(unsafe { HeapDeserializationState::new(slots, base_pos, arena_ptr) });
 
-        // Get or create shared state and register this heap so cross-heap
-        // pointer resolution can find it.
         let state = StarlarkDeserializerImpl::get_or_create_state(deserializer.as_dyn());
-        state.register_heap(heap_id, deser_state.dupe());
+        state.register_heap(heap_id, deser_state);
 
-        let full_mode = deserializer
-            .session_context()
-            .get::<crate::pagable::starlark_deserialize_context::FullDeserMode>()
-            .is_some();
-
-        if full_mode {
-            let mut ctx = StarlarkDeserializerImpl::new(deserializer.as_dyn(), state);
-            Self::deserialize_phase2(&deser_state, &mut ctx)?;
-        } else {
-            // SAFETY: `end_pos` is the offset-table end sentinel; values would be
-            // deseralized lazily by `ensure_initialized` via `HeapRecipeMap`.
-            unsafe { deserializer.seek(end_pos) };
-        }
+        // SAFETY: `end_pos` is the offset-table end sentinel; values would be
+        // deseralized lazily by `ensure_initialized` via `HeapRecipeMap`.
+        unsafe { deserializer.seek(end_pos) };
 
         Ok(heap)
     }
 
-    fn deserialize_phase1<'de, D: PagableDeserializer<'de> + ?Sized>(
+    fn deserialize_metadata<'de, D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> crate::Result<PartiallyDeserializedHeap> {
         // Deserialize refs first (before arena values) so referenced heaps'
@@ -661,8 +639,8 @@ impl FrozenFrozenHeap {
         // Record base_pos — all stream_offsets are relative to here.
         let base_pos = deserializer.position();
 
-        // Phase 1 builds per-slot metadata only. Arena allocation is deferred
-        // to `try_claim` (called from phase 2 or ensure deseralization).
+        // Per-slot metadata only — arena allocation is deferred to `try_claim`
+        // (called from `ensure_initialized` on demand).
         let slots: Vec<ValueDeserSlot> = value_meta
             .iter()
             .zip(offset_table[..total_count].iter())
@@ -692,47 +670,6 @@ impl FrozenFrozenHeap {
             base_pos,
             end_pos,
         })
-    }
-
-    fn deserialize_phase2(
-        current_heap_deser_state: &Arc<HeapDeserializationState>,
-        ctx: &mut StarlarkDeserializerImpl<'_, '_>,
-    ) -> crate::Result<()> {
-        let count = current_heap_deser_state.value_count();
-        for i in 0..count {
-            match current_heap_deser_state.try_claim(i) {
-                ClaimResult::Claimed(target) => {
-                    // SAFETY: abs_pos is computed from the offset table written during
-                    // serialization — it points to the start of this value's data.
-                    unsafe { ctx.pagable().seek(target.abs_pos) };
-                    if let Err(e) = (target.vtable.starlark_deserialize)(target.raw_ptr, ctx) {
-                        current_heap_deser_state.abort_claim(i);
-                        return Err(e);
-                    }
-                    // Replace the sentinel vtable with the real one now that
-                    // deserialization is complete. The sentinel must stay in place
-                    // until this point so that any access to the value before it
-                    // is fully deserialized will panic.
-                    unsafe { target.write_vtable_to_header() };
-                    // Publish done in the per-slot atomic so spinning waiters
-                    // observe completion.
-                    current_heap_deser_state.finalize_claim(i, target.header_ptr);
-                }
-                ClaimResult::Done | ClaimResult::InProgress(_) => {}
-                ClaimResult::Failed => {
-                    return Err(anyhow::anyhow!(
-                        "partial deserialization failed for value_index {}",
-                        i,
-                    )
-                    .into());
-                }
-            }
-        }
-        let end = current_heap_deser_state.end_position();
-        // SAFETY: end_position is past the last value's data in this heap.
-        unsafe { ctx.pagable().seek(end) };
-
-        Ok(())
     }
 }
 
@@ -805,15 +742,15 @@ fn deserialize_heap_arc_with_recipe(
 ) -> pagable::Result<Box<dyn pagable::arc_erase::ArcEraseDyn>> {
     let heap_id = FrozenFrozenHeap::deserialize_heap_id(de).map_err(|e| e.into_anyhow())?;
 
-    // Stash before `deserialize_body` so phase 2's SameHeapPtr resolution can
-    // find this heap's recipe. `HeapRecipeMap` uses interior mutability so
+    // Stash before `deserialize_skeleton` so `ensure_initialized` can find
+    // this heap's recipe. `HeapRecipeMap` uses interior mutability so
     // concurrent inserts don't need an outer lock.
     let recipe_map = de.session_context().get_or_insert_with(|| {
         Arc::new(crate::pagable::starlark_deserialize_context::HeapRecipeMap::default())
     });
     recipe_map.0.insert(heap_id, recipe);
 
-    let arc = FrozenFrozenHeap::deserialize_body(de, heap_id).map_err(|e| e.into_anyhow())?;
+    let arc = FrozenFrozenHeap::deserialize_skeleton(de, heap_id).map_err(|e| e.into_anyhow())?;
 
     Ok(Box::new(arc))
 }
