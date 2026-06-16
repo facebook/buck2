@@ -268,10 +268,13 @@ fn resolve_and_store(
         .map_err(PageOutError::Failed)
 }
 
+#[derive(Debug, thiserror::Error)]
 pub enum PageOutError {
     /// Item being paged out hit an error (serialization or storage).
+    #[error("page-out failed: {0}")]
     Failed(anyhow::Error),
     /// Arc failed to serialize on another worker, error already propagated.
+    #[error("page-out already failed on another worker")]
     AlreadyFailed,
 }
 

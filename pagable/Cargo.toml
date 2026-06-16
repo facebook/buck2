@@ -34,6 +34,7 @@ static_assertions = { workspace = true }
 static_interner = { workspace = true }
 strong_hash = { workspace = true }
 take_mut = { workspace = true }
+thiserror = { workspace = true }
 tokio = { workspace = true, optional = true }
 triomphe = { workspace = true }
 

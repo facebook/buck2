@@ -2572,3 +2572,137 @@ fn test_globals_roundtrip() {
     let mut serializer = pagable::testing::TestingSerializer::new();
     globals.pagable_serialize(&mut serializer).unwrap();
 }
+
+/// Round-trip an `OwnedFrozenValue` through `SerializerForPaging` +
+/// `InMemoryPagableStorage` + `PagableDeserializerImpl` (the real concrete
+/// impls used in production, not the testing ones).
+fn round_trip_owned_frozen_value_pagable_ser_de_impl(
+    owned: &OwnedFrozenValue,
+) -> crate::Result<OwnedFrozenValue> {
+    use std::any::TypeId;
+
+    use pagable::PagableDeserialize;
+    use pagable::context::PagableDeserializerImpl;
+    use pagable::storage::handle::PagableStorageHandle;
+    use pagable::storage::in_memory::InMemoryPagableStorage;
+    use pagable::storage::support::SerializerForPaging;
+
+    let backing = InMemoryPagableStorage::new();
+    let storage = backing.handle();
+    let handle = PagableStorageHandle::new(storage.clone());
+    let session_ctx = storage.session_context();
+
+    let mut ser = SerializerForPaging::new(session_ctx);
+    owned
+        .pagable_serialize(&mut ser)
+        .map_err(crate::Error::new_other)?;
+    let (data, arcs) = ser.finish();
+
+    let top_key = {
+        let mut finished = dashmap::DashMap::new();
+        storage
+            .page_out_item(data, arcs, &mut finished, session_ctx)
+            .map_err(crate::Error::new_other)?
+    };
+
+    // The top blob is stored via `store_data` (data cache, not arc cache), so
+    // a sentinel `TypeId` always misses the arc cache and returns raw data.
+    let top_data = storage
+        .fetch_arc_or_data_blocking(&TypeId::of::<()>(), &top_key)
+        .map_err(crate::Error::new_other)?
+        .right()
+        .expect("top-level key should return data, not a cached arc");
+
+    let mut de = PagableDeserializerImpl::new(&top_data.data, &top_data.arcs, &handle);
+    OwnedFrozenValue::pagable_deserialize(&mut de).map_err(crate::Error::new_other)
+}
+
+/// Same scenario as `test_cross_heap_frozen_value_round_trip` but routed
+/// through `SerializerForPaging` + `InMemoryPagableStorage` +
+/// `PagableDeserializerImpl`.
+#[test]
+fn test_cross_heap_frozen_value_round_trip_via_storage() -> crate::Result<()> {
+    let dep_heap = FrozenHeap::new();
+    let dep_fv = dep_heap.alloc_simple(SimpleData {
+        flag: true,
+        count: 77,
+    });
+    let dep_heap_ref = dep_heap.into_ref_named(TestHeapName::heap_name("dep_storage"));
+
+    let main_heap = FrozenHeap::new();
+    main_heap.add_reference(&dep_heap_ref);
+    let ref_fv = main_heap.alloc_simple(RefData {
+        label: 99,
+        target: dep_fv,
+    });
+    let main_heap_ref = main_heap.into_ref_named(TestHeapName::heap_name("main_storage"));
+
+    // SAFETY: `main_heap_ref` keeps the arena hosting `ref_fv` alive.
+    let owned = unsafe { OwnedFrozenValue::new(main_heap_ref, ref_fv) };
+    let restored = round_trip_owned_frozen_value_pagable_ser_de_impl(&owned)?;
+
+    let undrop_headers = restored.owner().collect_undrop_headers_ordered();
+    assert_eq!(undrop_headers.len(), 1);
+    let ref_data: &RefData = undrop_headers[0].unpack().downcast_ref().unwrap();
+    assert_eq!(ref_data.label, 99);
+    let resolved: &SimpleData = ref_data
+        .target
+        .to_value()
+        .downcast_ref::<SimpleData>()
+        .expect("FrozenValue should resolve to SimpleData in dep heap");
+    assert_eq!(resolved.flag, true);
+    assert_eq!(resolved.count, 77);
+    Ok(())
+}
+
+/// Storage-path counterpart to `test_with_starlark_context_arc_dedup_round_trip`.
+/// `OuterArcValue` owns `Arc<InnerArcData>` whose inner holds a `FrozenValue`.
+/// Expected to panic at `ensure`: `PagableDeserializerImpl` reads the inner
+/// `Arc` body through its own sub-deserializer, so `seek(target.abs_pos)`
+/// lands in the inner-arc stream instead of the owning heap's. Fix: have
+/// `ensure` seek a deserializer reconstructed from the heap's recipe in
+/// `HeapRecipeMap`, not the current one.
+#[test]
+#[should_panic]
+fn test_with_starlark_context_arc_dedup_round_trip_via_storage() {
+    let heap = FrozenHeap::new();
+    let target_fv = heap.alloc_simple(SimpleData {
+        flag: true,
+        count: 314,
+    });
+
+    let shared = Arc::new(InnerArcData {
+        target: target_fv,
+        label: 99,
+    });
+
+    let outer_a_fv = heap.alloc_simple(OuterArcValue {
+        inner: shared.clone(),
+        outer_label: 1,
+        items: vec![10, 20, 30],
+    });
+    heap.alloc_simple(OuterArcValue {
+        inner: shared,
+        outer_label: 2,
+        items: vec![40, 50],
+    });
+
+    let heap_ref = heap.into_ref_named(TestHeapName::heap_name(
+        "test_with_starlark_context_arc_storage",
+    ));
+
+    // SAFETY: `heap_ref` keeps the arena hosting `outer_a_fv` alive.
+    let owned = unsafe { OwnedFrozenValue::new(heap_ref, outer_a_fv) };
+    let restored =
+        round_trip_owned_frozen_value_pagable_ser_de_impl(&owned).expect("round-trip via storage");
+
+    let drop_headers = restored.owner().collect_drop_headers_ordered();
+    assert_eq!(drop_headers.len(), 2);
+    let outer_a: &OuterArcValue = drop_headers[0].unpack().downcast_ref().unwrap();
+    let outer_b: &OuterArcValue = drop_headers[1].unpack().downcast_ref().unwrap();
+    assert_eq!(outer_a.outer_label, 1);
+    assert_eq!(outer_b.outer_label, 2);
+    assert_eq!(outer_a.inner.label, 99);
+    assert_eq!(outer_b.inner.label, 99);
+    assert!(Arc::ptr_eq(&outer_a.inner, &outer_b.inner));
+}
