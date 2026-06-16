@@ -40,7 +40,7 @@ type Package struct {
 	Module     *Module
 }
 
-func QueryGoList(workDir, rootModuleName string, extraArgs ...string) (chan *Package, chan error) {
+func QueryGoList(workDir, rootModuleName, goOS, goArch string, extraArgs ...string) (chan *Package, chan error) {
 	pkgChan := make(chan *Package, 1000) // 1000 is a guess, but should be enough
 	errChan := make(chan error, 1)
 	go func() {
@@ -52,8 +52,13 @@ func QueryGoList(workDir, rootModuleName string, extraArgs ...string) (chan *Pac
 			[]string{"all"},
 		)
 		cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
-		// need for consistent behaviour on any host machine
-		cmd.Env = append(os.Environ(), "CGO_ENABLED=1")
+		// Set GOOS/GOARCH so `go list` applies each target platform's build constraints:
+		// filename suffixes (e.g. `*_darwin.go`) and `//go:build` expressions (e.g.
+		// `!linux`). Passing the platform only via `-tags` is insufficient -- the host's
+		// own GOOS/GOARCH tags stay set, so negative and file-suffix constraints are
+		// mis-evaluated and platform-specific deps get silently dropped. CGO_ENABLED is
+		// forced on for consistent behaviour across host machines.
+		cmd.Env = append(os.Environ(), "CGO_ENABLED=1", "GOOS="+goOS, "GOARCH="+goArch)
 
 		stdout, err := cmd.StdoutPipe()
 		if err != nil {
@@ -154,8 +159,12 @@ func CollectPackages(cfg *Config, thirdPartyDir, rootModuleName string) (*Collec
 			semaphore <- struct{}{}
 			defer func() { <-semaphore }()
 
-			tags := slices.Concat([]string{p.GoOS, p.GoArch}, cfg.DefaultTags)
-			pkgChan, errChan := QueryGoList(thirdPartyDir, rootModuleName, fmt.Sprintf("-tags=%s", strings.Join(tags, ",")))
+			// GOOS/GOARCH are passed via the environment (see QueryGoList), not as
+			// build tags, so `go list` evaluates each platform's constraints correctly.
+			pkgChan, errChan := QueryGoList(
+				thirdPartyDir, rootModuleName, p.GoOS, p.GoArch,
+				fmt.Sprintf("-tags=%s", strings.Join(cfg.DefaultTags, ",")),
+			)
 			pkgCount := 0
 			for pkg := range pkgChan {
 				pkgCount++
