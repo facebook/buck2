@@ -22,6 +22,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use derive_more::Display;
 use pagable::PagableDeserialize;
+use pagable::PagableDeserializer;
 use pagable::PagableSerialize;
 use starlark_derive::NoSerialize;
 use starlark_derive::ProvidesStaticType;
@@ -106,6 +107,11 @@ fn round_trip_heap_ref(heap_ref: &FrozenHeapRef) -> crate::Result<FrozenHeapRef>
     let bytes = ser.finish();
 
     let mut de = pagable::testing::TestingDeserializer::new(&bytes);
+    // Some tests in this file inspect the arena directly (e.g. via
+    // `collect_*_headers_ordered`), so opt into eager phase-2 instead of
+    // the default partial mode.
+    de.session_context()
+        .set(crate::pagable::starlark_deserialize_context::FullDeserMode);
     let restored = FrozenHeapRef::pagable_deserialize(&mut de).map_err(crate::Error::new_other)?;
     Ok(restored)
 }
@@ -2515,21 +2521,13 @@ impl<'v> StarlarkValue<'v> for FieldErrorTestData {
 #[test]
 fn test_deserialize_field_error_includes_field_name() {
     let heap = FrozenHeap::new();
-    heap.alloc_simple(FieldErrorTestData {
+    let root = heap.alloc_simple(FieldErrorTestData {
         good_field: true,
         bad_field: AlwaysFailDeserialize,
     });
     let heap_ref = heap.into_ref_named(TestHeapName::heap_name("test_field_error"));
 
-    let mut ser = pagable::testing::TestingSerializer::new();
-    heap_ref
-        .pagable_serialize(&mut ser)
-        .map_err(crate::Error::new_other)
-        .unwrap();
-    let bytes = ser.finish();
-
-    let mut de = pagable::testing::TestingDeserializer::new(&bytes);
-    let result = FrozenHeapRef::pagable_deserialize(&mut de);
+    let result = round_trip_owned(heap_ref, root);
 
     let err = result.unwrap_err();
     let err_msg = format!("{:#}", err);
@@ -2694,13 +2692,340 @@ fn test_with_starlark_context_arc_dedup_round_trip_via_storage() {
     let restored =
         round_trip_owned_frozen_value_pagable_ser_de_impl(&owned).expect("round-trip via storage");
 
+    // Partial deser: only the root `OuterArcValue` (and its transitive deps)
+    // is materialized. The second `OuterArcValue`, which is unreachable from
+    // the root, is never allocated.
     let drop_headers = restored.owner().collect_drop_headers_ordered();
-    assert_eq!(drop_headers.len(), 2);
+    assert_eq!(drop_headers.len(), 1);
     let outer_a: &OuterArcValue = drop_headers[0].unpack().downcast_ref().unwrap();
-    let outer_b: &OuterArcValue = drop_headers[1].unpack().downcast_ref().unwrap();
     assert_eq!(outer_a.outer_label, 1);
-    assert_eq!(outer_b.outer_label, 2);
     assert_eq!(outer_a.inner.label, 99);
-    assert_eq!(outer_b.inner.label, 99);
-    assert!(Arc::ptr_eq(&outer_a.inner, &outer_b.inner));
+    let resolved: &SimpleData = outer_a
+        .inner
+        .target
+        .to_value()
+        .downcast_ref::<SimpleData>()
+        .expect("FrozenValue inside Arc<InnerArcData> should resolve");
+    assert_eq!(resolved.count, 314);
+}
+
+/// Partial deserialization proper: allocate multiple values, only one is the
+/// root. After the round-trip via the storage path, only the reachable values
+/// are materialized in the arena.
+#[test]
+fn test_partial_deser_skips_unreachable_values() -> crate::Result<()> {
+    let heap = FrozenHeap::new();
+    let reachable_fv = heap.alloc_simple(SimpleData {
+        flag: true,
+        count: 1,
+    });
+    // These two are allocated but unreachable from the root.
+    heap.alloc_simple(SimpleData {
+        flag: false,
+        count: 99,
+    });
+    heap.alloc_simple(SimpleData {
+        flag: true,
+        count: 100,
+    });
+    let heap_ref = heap.into_ref_named(TestHeapName::heap_name("partial_skip"));
+
+    // SAFETY: `heap_ref` keeps the arena alive.
+    let owned = unsafe { OwnedFrozenValue::new(heap_ref, reachable_fv) };
+    let restored = round_trip_owned_frozen_value_pagable_ser_de_impl(&owned)?;
+
+    let undrop = restored.owner().collect_undrop_headers_ordered();
+    // Only the reachable SimpleData is materialized; the other two are skipped.
+    assert_eq!(undrop.len(), 1);
+    let data: &SimpleData = undrop[0].unpack().downcast_ref().unwrap();
+    assert_eq!(data.flag, true);
+    assert_eq!(data.count, 1);
+    Ok(())
+}
+
+/// Partial deser materializes values in demand-walk order, which may differ
+/// from the original allocation order. Source order is [SimpleData(target),
+/// RefData(root)] — A is allocated first, then B which references A. The
+/// root (B) materializes first via `ensure_initialized`, then B's `target`
+/// resolution materializes A. The restored arena ends up [B, A], not [A, B].
+#[test]
+fn test_partial_deser_materializes_in_demand_order() -> crate::Result<()> {
+    let heap = FrozenHeap::new();
+    let target_fv = heap.alloc_simple(SimpleData {
+        flag: true,
+        count: 42,
+    });
+    let root_fv = heap.alloc_simple(RefData {
+        label: 7,
+        target: target_fv,
+    });
+    let heap_ref = heap.into_ref_named(TestHeapName::heap_name("demand_order"));
+
+    // SAFETY: `heap_ref` keeps the arena alive.
+    let owned = unsafe { OwnedFrozenValue::new(heap_ref, root_fv) };
+    let restored = round_trip_owned_frozen_value_pagable_ser_de_impl(&owned)?;
+
+    let undrop = restored.owner().collect_undrop_headers_ordered();
+    assert_eq!(undrop.len(), 2);
+    // Demand-walk order: root B (RefData) was materialized first, then its
+    // target A (SimpleData). Original allocation order was the reverse.
+    let first: &RefData = undrop[0]
+        .unpack()
+        .downcast_ref::<RefData>()
+        .expect("first header should be RefData (materialized first as the root)");
+    let second: &SimpleData = undrop[1]
+        .unpack()
+        .downcast_ref::<SimpleData>()
+        .expect("second header should be SimpleData (materialized via root's target)");
+    assert_eq!(first.label, 7);
+    assert_eq!(second.count, 42);
+
+    // The root's `target` FrozenValue resolves to the SimpleData allocation.
+    assert_eq!(
+        first.target.ptr_value().ptr_value_untagged(),
+        undrop[1] as *const _ as usize,
+    );
+    Ok(())
+}
+
+/// Serialize an OFV into the given shared storage, returning the top
+/// `DataKey`. Companion to `deser_owned_frozen_value_from_storage`.
+fn ser_owned_frozen_value_into_storage(
+    backing: &pagable::storage::in_memory::InMemoryPagableStorage,
+    owned: &OwnedFrozenValue,
+) -> crate::Result<pagable::DataKey> {
+    use pagable::storage::support::SerializerForPaging;
+
+    let storage = backing.handle();
+    let session_ctx = storage.session_context();
+
+    let mut ser = SerializerForPaging::new(session_ctx);
+    owned
+        .pagable_serialize(&mut ser)
+        .map_err(crate::Error::new_other)?;
+    let (data, arcs) = ser.finish();
+    let mut finished = dashmap::DashMap::new();
+    let key = storage
+        .page_out_item(data, arcs, &mut finished, session_ctx)
+        .map_err(crate::Error::new_other)?;
+    Ok(key)
+}
+
+/// Deserialize an OFV from the given shared storage by its top `DataKey`.
+fn deser_owned_frozen_value_from_storage(
+    backing: &pagable::storage::in_memory::InMemoryPagableStorage,
+    handle: &pagable::storage::handle::PagableStorageHandle,
+    top_key: &pagable::DataKey,
+) -> crate::Result<OwnedFrozenValue> {
+    use std::any::TypeId;
+
+    use pagable::PagableDeserialize;
+    use pagable::context::PagableDeserializerImpl;
+
+    let top_data = backing
+        .handle()
+        .fetch_arc_or_data_blocking(&TypeId::of::<()>(), top_key)
+        .map_err(crate::Error::new_other)?
+        .right()
+        .expect("top-level key should return data, not a cached arc");
+    let mut de = PagableDeserializerImpl::new(&top_data.data, &top_data.arcs, handle);
+    OwnedFrozenValue::pagable_deserialize(&mut de).map_err(crate::Error::new_other)
+}
+
+/// Multi-heap, multi-`OwnedFrozenValue` partial-deser, with incremental
+/// state checks between deserialization steps:
+///
+/// Setup
+///   dep_heap: SimpleData_d1 (count=1), SimpleData_d2 (count=2)
+///   heap_a refs dep_heap; values: RefData_a → d1
+///   heap_b refs dep_heap; values: RefData_b → d2
+///   OFV1 = RefData_a
+///   OFV2 = RefData_b
+///   OFV3 = SimpleData_d1 directly (subset of what OFV1 already materializes)
+///
+/// Step 1 — deser OFV1
+///   Expected materialization: heap_a has [RefData_a]; dep_heap has [d1].
+///   d2 is allocated on the wire but not reachable from OFV1 → not materialized.
+///
+/// Step 2 — deser OFV2 (same shared storage / session)
+///   Expected materialization: heap_b has [RefData_b]; dep_heap now has [d1, d2].
+///   d1 was already materialized in step 1 → its allocation is reused (fast
+///   path), no second copy. heap_b is added via the storage's arc cache (or
+///   freshly fetched, depending on order).
+///
+/// Step 3 — deser OFV3 (subset: just SimpleData_d1, no extra work)
+///   Expected materialization: nothing new. d1 is already materialized in
+///   dep_heap; OFV3 just produces an `OwnedFrozenValue` pointing at the
+///   already-allocated slot.
+#[test]
+fn test_multi_ofv_shared_heap_incremental_partial_deser() -> crate::Result<()> {
+    use pagable::storage::handle::PagableStorageHandle;
+    use pagable::storage::in_memory::InMemoryPagableStorage;
+
+    // ---- 1. Build the source heaps. ----
+    let dep_heap = FrozenHeap::new();
+    let d1_fv = dep_heap.alloc_simple(SimpleData {
+        flag: true,
+        count: 1,
+    });
+    let d2_fv = dep_heap.alloc_simple(SimpleData {
+        flag: false,
+        count: 2,
+    });
+    let dep_heap_ref = dep_heap.into_ref_named(TestHeapName::heap_name("incr_dep"));
+
+    let heap_a = FrozenHeap::new();
+    heap_a.add_reference(&dep_heap_ref);
+    let a_fv = heap_a.alloc_simple(RefData {
+        label: 11,
+        target: d1_fv,
+    });
+    let heap_a_ref = heap_a.into_ref_named(TestHeapName::heap_name("incr_a"));
+
+    let heap_b = FrozenHeap::new();
+    heap_b.add_reference(&dep_heap_ref);
+    let b_fv = heap_b.alloc_simple(RefData {
+        label: 22,
+        target: d2_fv,
+    });
+    let heap_b_ref = heap_b.into_ref_named(TestHeapName::heap_name("incr_b"));
+
+    // SAFETY: each heap_ref keeps its arena alive.
+    let ofv1 = unsafe { OwnedFrozenValue::new(heap_a_ref, a_fv) };
+    let ofv2 = unsafe { OwnedFrozenValue::new(heap_b_ref.clone(), b_fv) };
+    let ofv3 = unsafe { OwnedFrozenValue::new(dep_heap_ref.clone(), d1_fv) };
+
+    // ---- 2. Serialize all three into a SHARED storage. ----
+    let backing = InMemoryPagableStorage::new();
+    let handle = PagableStorageHandle::new(backing.handle());
+    let key1 = ser_owned_frozen_value_into_storage(&backing, &ofv1)?;
+    let key2 = ser_owned_frozen_value_into_storage(&backing, &ofv2)?;
+    let key3 = ser_owned_frozen_value_into_storage(&backing, &ofv3)?;
+
+    // Drop the original OFVs so the only path to the values is through deser.
+    drop(ofv1);
+    drop(ofv2);
+    drop(ofv3);
+    drop(dep_heap_ref);
+    drop(heap_b_ref);
+
+    // ---- 3. Step 1: deser OFV1, then inspect the heap state. ----
+    let restored_ofv1 = deser_owned_frozen_value_from_storage(&backing, &handle, &key1)?;
+    let a_data: &RefData = restored_ofv1
+        .value()
+        .downcast_ref::<RefData>()
+        .expect("ofv1 root is RefData");
+    assert_eq!(a_data.label, 11);
+
+    // heap_a has exactly one materialized value (the root).
+    let a_undrop = restored_ofv1.owner().collect_undrop_headers_ordered();
+    assert_eq!(
+        a_undrop.len(),
+        1,
+        "step1: heap_a should hold only RefData_a"
+    );
+
+    // dep_heap (reachable via heap_a.refs) has exactly one materialized
+    // value: d1 (the target of the root). d2 is unreached.
+    let dep_after_1 = {
+        let refs: Vec<_> = restored_ofv1.owner().refs().collect();
+        assert_eq!(refs.len(), 1, "step1: heap_a refs only dep_heap");
+        refs[0].clone()
+    };
+    let dep_undrop_after_1 = dep_after_1.collect_undrop_headers_ordered();
+    assert_eq!(
+        dep_undrop_after_1.len(),
+        1,
+        "step1: dep_heap should hold only d1"
+    );
+    let d1_after_1: &SimpleData = dep_undrop_after_1[0].unpack().downcast_ref().unwrap();
+    assert_eq!(d1_after_1.count, 1);
+
+    let d1_ptr_after_1 = dep_undrop_after_1[0] as *const _ as usize;
+
+    // ---- 4. Step 2: deser OFV2 from the SAME storage. ----
+    let restored_ofv2 = deser_owned_frozen_value_from_storage(&backing, &handle, &key2)?;
+    let b_data: &RefData = restored_ofv2
+        .value()
+        .downcast_ref::<RefData>()
+        .expect("ofv2 root is RefData");
+    assert_eq!(b_data.label, 22);
+
+    // heap_b has only its root.
+    let b_undrop = restored_ofv2.owner().collect_undrop_headers_ordered();
+    assert_eq!(
+        b_undrop.len(),
+        1,
+        "step2: heap_b should hold only RefData_b"
+    );
+
+    // The dep_heap arc returned to OFV2 is the SAME allocation as OFV1's
+    // (the storage's arc cache deduplicates `Arc<FrozenFrozenHeap>` by
+    // `DataKey`; `FrozenHeapRef::eq` is `Arc::ptr_eq`).
+    let dep_after_2 = {
+        let refs: Vec<_> = restored_ofv2.owner().refs().collect();
+        assert_eq!(refs.len(), 1);
+        refs[0].clone()
+    };
+    assert_eq!(
+        dep_after_1, dep_after_2,
+        "step2: dep_heap must be the same Arc allocation as in step1"
+    );
+
+    // Now dep_heap holds [d1, d2] — d2 was just materialized by OFV2.
+    let dep_undrop_after_2 = dep_after_2.collect_undrop_headers_ordered();
+    assert_eq!(
+        dep_undrop_after_2.len(),
+        2,
+        "step2: dep_heap should now hold d1 (from step1) and d2 (new from step2)"
+    );
+    // d1 must be at the SAME address as before (fast-path reuse, no re-alloc).
+    let d1_ptr_after_2 = dep_undrop_after_2[0] as *const _ as usize;
+    assert_eq!(
+        d1_ptr_after_1, d1_ptr_after_2,
+        "step2: d1 must remain at the same allocation (fast path hit, no re-materialize)"
+    );
+
+    // OFV1's target FrozenValue still resolves to the same d1 address.
+    assert_eq!(
+        a_data.target.ptr_value().ptr_value_untagged(),
+        d1_ptr_after_1
+    );
+    // OFV2's target resolves to d2 (the newly-materialized slot).
+    let b_target: &SimpleData = b_data
+        .target
+        .to_value()
+        .downcast_ref::<SimpleData>()
+        .expect("b.target is SimpleData");
+    assert_eq!(b_target.count, 2);
+
+    // ---- 5. Step 3: deser OFV3 — strict subset of OFV1's materialization. ----
+    let restored_ofv3 = deser_owned_frozen_value_from_storage(&backing, &handle, &key3)?;
+    // OFV3's value points directly at d1 in dep_heap.
+    let d3_target: &SimpleData = restored_ofv3
+        .value()
+        .downcast_ref::<SimpleData>()
+        .expect("ofv3 root is SimpleData");
+    assert_eq!(d3_target.count, 1);
+
+    // OFV3 owns the dep_heap arc directly; arc-cache dedup means it's the
+    // same Arc allocation.
+    let dep_after_3 = restored_ofv3.owner().clone();
+    assert_eq!(
+        dep_after_1, dep_after_3,
+        "step3: dep_heap must remain the same Arc allocation"
+    );
+    let dep_undrop_after_3 = dep_after_3.collect_undrop_headers_ordered();
+    assert_eq!(
+        dep_undrop_after_3.len(),
+        2,
+        "step3: no new materializations — still just [d1, d2]"
+    );
+    // OFV3's resolved address matches d1.
+    assert_eq!(
+        restored_ofv3.value().ptr_value().ptr_value_untagged(),
+        d1_ptr_after_1
+    );
+
+    Ok(())
 }

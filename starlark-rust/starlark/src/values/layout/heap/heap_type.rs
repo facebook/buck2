@@ -540,6 +540,16 @@ impl FrozenFrozenHeap {
     }
 
     /// Deserialize the heap body given an already-read `heap_id`.
+    ///
+    /// By default skips phase 2 — values are materialized on demand by
+    /// [`StarlarkDeserializerImpl::ensure_initialized`] via the recipe
+    /// stashed in `HeapRecipeMap`. If
+    /// [`FullDeserMode`](crate::pagable::starlark_deserialize_context::FullDeserMode)
+    /// is present in the session context runs phase 2 eagerly and materializes every value up front.
+    ///
+    /// Returns `Arc<Self>` directly: `HeapDeserializationState` holds a raw
+    /// pointer into `arena`, so the address must be stable.
+    /// If use `Box<Self>`, `Arc::from(Box<T>)` later would reallocate and dangle the pointer.
     pub fn deserialize_body<'de, D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
         heap_id: HeapRefId,
@@ -570,9 +580,19 @@ impl FrozenFrozenHeap {
         let state = StarlarkDeserializerImpl::get_or_create_state(deserializer.as_dyn());
         state.register_heap(heap_id, deser_state.dupe());
 
-        let mut ctx = StarlarkDeserializerImpl::new(deserializer.as_dyn(), state);
+        let full_mode = deserializer
+            .session_context()
+            .get::<crate::pagable::starlark_deserialize_context::FullDeserMode>()
+            .is_some();
 
-        Self::deserialize_phase2(&deser_state, &mut ctx)?;
+        if full_mode {
+            let mut ctx = StarlarkDeserializerImpl::new(deserializer.as_dyn(), state);
+            Self::deserialize_phase2(&deser_state, &mut ctx)?;
+        } else {
+            // SAFETY: `end_pos` is the offset-table end sentinel; values would be
+            // deseralized lazily by `ensure_initialized` via `HeapRecipeMap`.
+            unsafe { deserializer.seek(end_pos) };
+        }
 
         Ok(heap)
     }

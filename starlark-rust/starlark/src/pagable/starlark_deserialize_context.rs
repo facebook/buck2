@@ -320,6 +320,13 @@ impl HeapDeserializationState {
 #[derive(Default)]
 pub struct HeapRecipeMap(pub DashMap<HeapRefId, Arc<dyn PagableDeserializerRecipe>>);
 
+/// Marker in `SessionContext` opting out of the default partial
+/// (on-demand) deserialization: when present, `FrozenFrozenHeap::deserialize_body`
+/// runs eager phase-2 and materializes every value up front. Used by tests
+/// that walk the arena directly (`collect_*_headers_ordered`).
+#[derive(Clone)]
+pub struct FullDeserMode;
+
 /// Shared deserialization state across all heaps deserialized in a session.
 /// Stored in `SessionContext` as `Arc<StarlarkDeserState>` so that
 /// independently-deserialized heaps (via pagable arcs) can all register
