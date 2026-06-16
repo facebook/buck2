@@ -17,7 +17,10 @@
 
 //! Implementation of StarlarkDeserializeContext.
 
+use std::num::NonZeroU32;
+use std::ptr::NonNull;
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 
@@ -33,14 +36,15 @@ use crate::pagable::serialized_frozen_value::SerializedFrozenValue;
 use crate::pagable::starlark_deserialize::StarlarkDeserializeContext;
 use crate::pagable::static_value::get_frozen_value_by_static_id;
 use crate::values::FrozenValue;
+use crate::values::layout::heap::allocator::alloc::allocator::ChunkAllocator;
+use crate::values::layout::heap::arena::Arena;
+use crate::values::layout::heap::arena::BumpKind;
 use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::vtable::AValueVTable;
 use crate::values::layout::vtable::StarlarkValueRawPtr;
 use crate::values::types::int::inline_int::InlineInt;
 
-/// A slot in the arena waiting to be deserialized.
-/// Contains all info needed to locate and deserialize a single value.
-/// Immutable after phase 1
+/// Per-slot metadata for partial-deser. Immutable after phase 1.
 pub(crate) struct ValueDeserSlot {
     /// Byte offset of this value's data relative to base_pos.
     stream_offset: u32,
@@ -48,33 +52,26 @@ pub(crate) struct ValueDeserSlot {
     arc_offset: u32,
     /// This value's vtable, used for deserialization dispatch.
     vtable: &'static AValueVTable,
-    /// Raw pointer to the pre-allocated header in the arena.
-    raw_ptr: StarlarkValueRawPtr,
-    /// Pointer to the AValueHeader in the arena (for vtable patching).
-    header_ptr: *mut AValueHeader,
+    /// Which bump (drop or non-drop) this value lives in.
+    bump_kind: BumpKind,
+    /// Size in bytes to allocate for this value's header + payload.
+    alloc_size: NonZeroU32,
 }
-
-// SAFETY: `ValueDeserSlot` is immutable after construction and holds raw
-// pointers into a heap arena that is owned and alive for the heap's
-// deserialization lifetime. The init state is tracked separately via
-// per-slot atomics in `HeapDeserializationState`.
-unsafe impl Send for ValueDeserSlot {}
-unsafe impl Sync for ValueDeserSlot {}
 
 impl ValueDeserSlot {
     pub(crate) fn new(
         stream_offset: u32,
         arc_offset: u32,
         vtable: &'static AValueVTable,
-        raw_ptr: StarlarkValueRawPtr,
-        header_ptr: *mut AValueHeader,
+        bump_kind: BumpKind,
+        alloc_size: NonZeroU32,
     ) -> Self {
         Self {
             stream_offset,
             arc_offset,
-            header_ptr,
             vtable,
-            raw_ptr,
+            bump_kind,
+            alloc_size,
         }
     }
 }
@@ -101,9 +98,15 @@ impl DeserializeRecipe {
     }
 }
 
-/// `init_states` encoding: `0` = not started, `1` = in progress,
-/// `2` = failed, non-zero with low state bits clear = done (value is the
-/// header pointer). The low bits are free because `AValueHeader` is ≥ 8-byte
+/// `init_states` encoding (one `AtomicU64` per value), in four states:
+/// 1. `0` (`INIT_NOT_STARTED`) — not started.
+/// 2. in progress — bit 0 (`IN_PROGRESS_FLAG`) set; the header pointer is stored
+///    in the remaining bits.
+/// 3. done — any other non-zero value (both low bits clear); the value *is* the
+///    header pointer.
+/// 4. `0b10` (`INIT_FAILED_FLAG`) — failed.
+///
+/// The low bits are free for the flags because `AValueHeader` is ≥ 8-byte
 /// aligned.
 const INIT_NOT_STARTED: u64 = 0;
 const IN_PROGRESS_FLAG: u64 = 0b1;
@@ -120,8 +123,32 @@ fn is_done(v: u64) -> bool {
 }
 
 #[inline]
+fn is_in_progress(v: u64) -> bool {
+    v != INIT_NOT_STARTED && (v & IN_PROGRESS_FLAG) != 0 && !is_failed(v)
+}
+
+#[inline]
 fn is_failed(v: u64) -> bool {
     v == INIT_FAILED_FLAG
+}
+
+#[inline]
+fn in_progress_header_ptr(v: u64) -> *mut AValueHeader {
+    debug_assert!(is_in_progress(v));
+    (v & !INIT_STATE_MASK) as *mut AValueHeader
+}
+
+/// Map an observed init-state value to a [`ClaimResult`] for the non-claiming
+/// paths. `v` must not be `INIT_NOT_STARTED`.
+fn observed_result(v: u64) -> ClaimResult {
+    if is_done(v) {
+        ClaimResult::Done
+    } else if is_failed(v) {
+        ClaimResult::Failed
+    } else {
+        debug_assert!(is_in_progress(v));
+        ClaimResult::InProgress(in_progress_header_ptr(v))
+    }
 }
 
 pub(crate) enum ClaimResult {
@@ -132,8 +159,8 @@ pub(crate) enum ClaimResult {
     Failed,
 }
 
-/// Per-value init state for a heap. All fields except `init_states` are
-/// immutable after construction; held behind `Arc` (no mutex).
+/// Per-value init state for a heap, plus a locked pointer to the arena
+/// values are allocated into.
 pub(crate) struct HeapDeserializationState {
     /// All values in this heap.
     slots: Vec<ValueDeserSlot>,
@@ -143,13 +170,26 @@ pub(crate) struct HeapDeserializationState {
     end_pos: PagableCursor,
     /// Per-slot init state. See module-level encoding doc above.
     init_states: Vec<AtomicU64>,
+    /// Locked pointer into the owning `FrozenFrozenHeap`'s arena. The mutex
+    /// serializes concurrent `alloc_raw_one` calls during partial deseralization.
+    arena: Mutex<NonNull<Arena<ChunkAllocator>>>,
 }
 
+// SAFETY: `arena` points into a heap-allocated `FrozenFrozenHeap` kept alive
+// for the state's lifetime; concurrent allocations are serialized by the Mutex.
+unsafe impl Sync for HeapDeserializationState {}
+unsafe impl Send for HeapDeserializationState {}
+
 impl HeapDeserializationState {
-    pub(crate) fn new(
+    /// # Safety
+    /// `arena` must point to a `FrozenFrozenHeap.arena` whose containing
+    /// `FrozenFrozenHeap` will be kept alive for at least
+    /// as long as this `HeapDeserializationState`.
+    pub(crate) unsafe fn new(
         slots: Vec<ValueDeserSlot>,
         base_pos: PagableCursor,
         end_pos: PagableCursor,
+        arena: *const Arena<ChunkAllocator>,
     ) -> Self {
         let init_states = (0..slots.len())
             .map(|_| AtomicU64::new(INIT_NOT_STARTED))
@@ -159,6 +199,8 @@ impl HeapDeserializationState {
             base_pos,
             end_pos,
             init_states,
+            // SAFETY: caller's contract — `arena` is a valid pointer.
+            arena: Mutex::new(unsafe { NonNull::new_unchecked(arena as *mut _) }),
         }
     }
 
@@ -178,54 +220,76 @@ impl HeapDeserializationState {
         }
     }
 
-    /// Try to claim a slot for deserialization. Uses a lock-free CAS on the
-    /// per-slot atomic for the uncontended path.
+    /// Try to claim a slot for deserialization.
     ///
-    /// On win, returns `Claimed(recipe)`; caller must run
-    /// `recipe.vtable.starlark_deserialize`, call `recipe.write_vtable_to_header()`,
-    /// then call `finalize_claim(index)`. On loss, waits until the winner
-    /// publishes done or failed.
+    /// Claims are serialized by the arena lock: the winner allocates the header
+    /// and publishes its pointer into the slot's atomic *before* releasing the
+    /// lock, so a claimed slot always carries its pointer and no reader ever has
+    /// to wait for it to appear. This is why [`observed_result`] never blocks.
+    ///
+    /// On win, returns `Claimed(recipe)` with a freshly-allocated `header_ptr`
+    /// pointing to a sentinel-vtable header in the arena. The caller must run
+    /// `recipe.vtable.starlark_deserialize`, call
+    /// `recipe.write_vtable_to_header()`, then `finalize_claim(index, header_ptr)`.
+    /// On loss, returns the slot's terminal state or its in-progress deserialization pointer.
     pub(crate) fn try_claim(&self, index: usize) -> ClaimResult {
         let state = &self.init_states[index];
 
-        match state.load(Ordering::Acquire) {
-            v if is_done(v) => return ClaimResult::Done,
-            v if is_failed(v) => return ClaimResult::Failed,
-            IN_PROGRESS_FLAG => {
-                return ClaimResult::InProgress(self.slots[index].header_ptr);
-            }
-            _ => {}
+        // Fast path: a started slot (done, failed, or in-progress)
+        let v = state.load(Ordering::Acquire);
+        if v != INIT_NOT_STARTED {
+            return observed_result(v);
         }
 
-        // Attempt to claim.
-        match state.compare_exchange(
-            INIT_NOT_STARTED,
-            IN_PROGRESS_FLAG,
-            Ordering::AcqRel,
-            Ordering::Acquire,
-        ) {
-            Ok(_) => {
-                let slot = &self.slots[index];
-                ClaimResult::Claimed(DeserializeRecipe {
-                    abs_pos: PagableCursor {
-                        byte_pos: self.base_pos.byte_pos + slot.stream_offset as usize,
-                        arc_index: self.base_pos.arc_index + slot.arc_offset as usize,
-                    },
-                    vtable: slot.vtable,
-                    raw_ptr: slot.raw_ptr,
-                    header_ptr: slot.header_ptr,
-                })
-            }
-            Err(v) if is_done(v) => ClaimResult::Done,
-            Err(v) if is_failed(v) => ClaimResult::Failed,
-            Err(_) => ClaimResult::InProgress(self.slots[index].header_ptr),
+        // The arena lock serializes claims: its holder performs the not-started
+        // -> in-progress transition and publishes the header pointer before
+        // releasing, so an in-progress slot is never visible without its pointer.
+        let arena = self.arena.lock().expect("arena lock poisoned");
+
+        // Re-check under the lock; the slot may have been claimed since the load
+        // above.
+        let v = state.load(Ordering::Acquire);
+        if v != INIT_NOT_STARTED {
+            return observed_result(v);
         }
+
+        let slot = &self.slots[index];
+        // SAFETY: pointer valid for the state's lifetime; we hold the lock so
+        // concurrent allocation is excluded.
+        let header_ptr = unsafe {
+            arena
+                .as_ref()
+                .alloc_raw_one(slot.bump_kind, slot.alloc_size)
+        };
+        // SAFETY: sentinel vtable so any access before `starlark_deserialize`
+        // would panic.
+        unsafe {
+            std::ptr::write(
+                header_ptr,
+                AValueHeader(AValueVTable::uninitialized_sentinel()),
+            );
+        }
+        // Publish the pointer and the in-progress flag in a single store, still
+        // under the lock, so no claimer observes an in-progress slot without it.
+        state.store((header_ptr as u64) | IN_PROGRESS_FLAG, Ordering::Release);
+        drop(arena);
+
+        let raw_ptr = unsafe { StarlarkValueRawPtr::new_header(&*header_ptr) };
+        ClaimResult::Claimed(DeserializeRecipe {
+            abs_pos: PagableCursor {
+                byte_pos: self.base_pos.byte_pos + slot.stream_offset as usize,
+                arc_index: self.base_pos.arc_index + slot.arc_offset as usize,
+            },
+            vtable: slot.vtable,
+            raw_ptr,
+            header_ptr,
+        })
     }
 
-    /// Publish slot `index` as done. Call after `write_vtable_to_header`.
-    /// Stores the header pointer; waiters in `try_claim` then return.
-    pub(crate) fn finalize_claim(&self, index: usize) {
-        let ptr = self.slots[index].header_ptr as u64;
+    /// Publish slot `index` as done with `header_ptr`. Call after `write_vtable_to_header`.
+    /// Waiters in `try_claim` then return.
+    pub(crate) fn finalize_claim(&self, index: usize, header_ptr: *mut AValueHeader) {
+        let ptr = header_ptr as u64;
         debug_assert!(
             ptr != INIT_NOT_STARTED && (ptr & INIT_STATE_MASK) == 0,
             "header_ptr {:#x} must be non-zero and low-state-bits-zero (AValueHeader alignment)",
@@ -394,7 +458,7 @@ impl<'a, 'de> StarlarkDeserializerImpl<'a, 'de> {
 
                 // Replace the sentinel vtable with the real one before publishing done.
                 unsafe { target.write_vtable_to_header() };
-                target_state.finalize_claim(value_index as usize);
+                target_state.finalize_claim(value_index as usize, target.header_ptr);
             }
             ClaimResult::InProgress(header_ptr) => {
                 let header = unsafe { &*header_ptr };

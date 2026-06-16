@@ -29,6 +29,7 @@
 use std::collections::HashMap;
 use std::mem;
 use std::mem::MaybeUninit;
+use std::num::NonZeroU32;
 use std::ptr;
 use std::slice;
 
@@ -440,32 +441,35 @@ impl<A: ArenaAllocator> Arena<A> {
         Self::collect_bump_headers_ordered(&self.non_drop)
     }
 
-    /// Allocate a raw block in the `drop` bump and return a cursor for filling values.
-    /// Returns `None` if `total_bytes` is 0.
-    pub(crate) fn alloc_raw_drop_cursor(&self, total_bytes: u32) -> Option<ArenaRawCursor> {
-        Self::alloc_raw_cursor(&self.drop, total_bytes)
+    /// Allocate space for a single value of `alloc_size` bytes in the given
+    /// bump and return a pointer to its `AValueHeader`. Used by partial-deser
+    /// to allocate values one at a time.
+    pub(crate) fn alloc_raw_one(
+        &self,
+        bump_kind: BumpKind,
+        alloc_size: NonZeroU32,
+    ) -> *mut AValueHeader {
+        let bump = match bump_kind {
+            BumpKind::Drop => &self.drop,
+            BumpKind::NonDrop => &self.non_drop,
+        };
+        let mut cursor = Self::alloc_raw_cursor(bump, alloc_size);
+        // SAFETY: cursor has exactly alloc_size bytes available.
+        unsafe { cursor.next(alloc_size.get()) }
     }
 
-    /// Allocate a raw block in the `non_drop` bump and return a cursor for filling values.
-    /// Returns `None` if `total_bytes` is 0.
-    pub(crate) fn alloc_raw_non_drop_cursor(&self, total_bytes: u32) -> Option<ArenaRawCursor> {
-        Self::alloc_raw_cursor(&self.non_drop, total_bytes)
-    }
-
-    fn alloc_raw_cursor(bump: &A, total_bytes: u32) -> Option<ArenaRawCursor> {
-        if total_bytes == 0 {
-            return None;
-        }
+    fn alloc_raw_cursor(bump: &A, total_bytes: NonZeroU32) -> ArenaRawCursor {
+        let total_bytes = total_bytes.get();
         let size = ValueAllocSize::new(AlignedSize::new_bytes(total_bytes as usize));
         let block = bump.alloc(size);
         let cursor = match A::CHUNK_ALLOCATION_DIRECTION {
             ChunkAllocationDirection::Up => block.as_ptr(),
             ChunkAllocationDirection::Down => unsafe { block.as_ptr().add(total_bytes as usize) },
         };
-        Some(ArenaRawCursor {
+        ArenaRawCursor {
             cursor,
             direction: A::CHUNK_ALLOCATION_DIRECTION,
-        })
+        }
     }
 
     fn collect_bump_headers_ordered(bump: &A) -> Vec<&AValueHeader> {

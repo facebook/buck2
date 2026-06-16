@@ -44,6 +44,14 @@ pub enum PagableError {
         actual_bytes: u32,
     },
 
+    /// A value declared a zero `alloc_size`. Every arena value occupies at least
+    /// its header, so this is never valid and indicates a corrupt page-out stream.
+    #[error("Corrupted data: value {index} declared a zero alloc_size")]
+    ZeroAllocSize {
+        /// Index of the value in the heap.
+        index: usize,
+    },
+
     /// Heap bases not registered for the heap a `FrozenValue` resolves to.
     #[error("Heap bases not registered for heap {heap_id:?}")]
     HeapBasesNotRegistered {
