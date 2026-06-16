@@ -2321,6 +2321,107 @@ fn test_with_starlark_context_arc_dedup_round_trip_via_storage() {
     assert_eq!(resolved.count, 314);
 }
 
+/// In D104180037 we unified `SameHeapPtr` and `CrossHeapPtr` into a single
+/// `HeapPtr { heap_id, .. }`. Under partial deser, a shared `Arc<T>` body
+/// encoded under `HA`'s context can be decoded under `HB`'s — without an
+/// explicit `heap_id` the embedded `FrozenValue` would misroute.
+///
+/// `HA` owns the target; `HB` refs `HA` and shares the `Arc<InnerArcData>`.
+/// Serializing `OFV(HB)` encodes the Arc body under `HA` (walked first as
+/// `HB`'s ref); deser of `HB` then checks the `FrozenValue` still lands in
+/// `HA`.
+#[test]
+fn test_cross_heap_arc_dedup_explicit_heap_id_round_trip() -> crate::Result<()> {
+    use pagable::storage::handle::PagableStorageHandle;
+    use pagable::storage::in_memory::InMemoryPagableStorage;
+
+    // HA: SimpleData target + OuterArcValue_A holding Arc<InnerArcData>.
+    let heap_a = FrozenHeap::new();
+    let target_fv = heap_a.alloc_simple(SimpleData {
+        flag: true,
+        count: 271,
+    });
+    let shared = Arc::new(InnerArcData {
+        target: target_fv,
+        label: 42,
+    });
+    heap_a.alloc_simple(OuterArcValue {
+        inner: shared.clone(),
+        outer_label: 1,
+        items: vec![10, 20, 30],
+    });
+    let heap_a_ref = heap_a.into_ref_named(TestHeapName::heap_name(
+        "test_cross_heap_arc_dedup_explicit_heap_id_HA",
+    ));
+
+    // HB: refs HA, holds OuterArcValue_B with a clone of the same Arc.
+    let heap_b = FrozenHeap::new();
+    heap_b.add_reference(&heap_a_ref);
+    let outer_b_fv = heap_b.alloc_simple(OuterArcValue {
+        inner: shared,
+        outer_label: 2,
+        items: vec![40, 50],
+    });
+    let heap_b_ref = heap_b.into_ref_named(TestHeapName::heap_name(
+        "test_cross_heap_arc_dedup_explicit_heap_id_HB",
+    ));
+
+    // SAFETY: heap_b_ref keeps the arena hosting outer_b_fv alive.
+    let ofv_b = unsafe { OwnedFrozenValue::new(heap_b_ref, outer_b_fv) };
+
+    // Serializing OFV(HB, …) walks HB.refs first inside `page_out_item`, so HA
+    // — and the InnerArcData Arc body reachable through HA — is encoded under
+    // HA's serialize context before HB's body is written.
+    let backing = InMemoryPagableStorage::new();
+    let handle = PagableStorageHandle::new(backing.handle());
+    let key_b = ser_owned_frozen_value_into_storage(&backing, &ofv_b)?;
+
+    drop(ofv_b);
+    drop(heap_a_ref);
+
+    // Deserialize HB. The Arc body bytes — produced under HA's serialize
+    // context — are decoded inside HB's deserialize. The explicit `heap_id`
+    // must still route the embedded FrozenValue into HA's arena.
+    let restored_b = deser_owned_frozen_value_from_storage(&backing, &handle, &key_b)?;
+    let outer_b: &OuterArcValue = restored_b
+        .value()
+        .downcast_ref::<OuterArcValue>()
+        .expect("restored_b root is OuterArcValue");
+    assert_eq!(outer_b.outer_label, 2);
+    assert_eq!(outer_b.items, vec![40, 50]);
+    assert_eq!(outer_b.inner.label, 42);
+
+    // HB's owner refs HA. Partial deser will have materialized HA's
+    // SimpleData on demand when the InnerArcData was decoded; OuterArcValue_A
+    // is unreachable from HB's root and intentionally stays unmaterialized.
+    let hb_refs: Vec<_> = restored_b.owner().refs().collect();
+    assert_eq!(hb_refs.len(), 1, "HB should retain its ref to HA");
+    let restored_ha = hb_refs[0].clone();
+    let ha_undrop = restored_ha.collect_undrop_headers_ordered();
+    assert_eq!(
+        ha_undrop.len(),
+        1,
+        "HA's SimpleData should be materialized on demand via the Arc body's FrozenValue",
+    );
+    let target_data: &SimpleData = ha_undrop[0].unpack().downcast_ref().unwrap();
+    assert_eq!(target_data.flag, true);
+    assert_eq!(target_data.count, 271);
+
+    // The core post-fix invariant: even though the Arc body was encoded under
+    // HA and decoded under HB, the embedded FrozenValue resolves into HA's
+    // arena — because the wire carries an explicit `heap_id: HA` instead of
+    // a context-dependent SameHeapPtr.
+    let target_addr = ha_undrop[0] as *const _ as usize;
+    assert_eq!(
+        outer_b.inner.target.ptr_value().ptr_value_untagged(),
+        target_addr,
+        "FrozenValue cached inside the shared Arc must resolve into HA \
+         even though HB is the decoder",
+    );
+
+    Ok(())
+}
+
 /// Partial deserialization proper: allocate multiple values, only one is the
 /// root. After the round-trip via the storage path, only the reachable values
 /// are materialized in the arena.
@@ -2658,7 +2759,6 @@ fn test_cross_thread_cycle_does_not_deadlock() {
     use pagable::storage::in_memory::InMemoryPagableStorage;
     use pagable::storage::support::SerializerForPaging;
 
-    use crate::environment::FrozenModule;
     use crate::environment::Module;
     use crate::eval::Evaluator;
     use crate::syntax::AstModule;
