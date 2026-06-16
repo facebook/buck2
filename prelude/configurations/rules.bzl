@@ -80,21 +80,27 @@ def constraint_impl(ctx):
                 + "that pick up an extra value during an upgrade and drop it once the upgrade lands).",
             )
 
-    # Reserved keywords that cannot be used as values
-    # - 'default': Reserved for aliasing to the actual default value (e.g., :os[default] -> :os[none])
-    # - 'DEFAULT': Reserved to avoid confusion with :os[default]
-    reserved_keywords = ["default", "DEFAULT"]
+    default = ctx.attrs.default
 
+    # Value-name reservations:
+    # - 'DEFAULT' is always reserved, to avoid visual confusion with the special `[default]` subtarget.
+    # - 'default' is allowed only when it is itself the default value, in which case it coincides with the
+    #   `[default]` subtarget added below. Otherwise `[default]` would be ambiguous, so it is rejected.
     seen = set()
     for v in values:
-        if v in reserved_keywords:
-            fail("'{}' is a reserved keyword and cannot be used as a constraint value. Use a different name to avoid confusion.".format(v))
+        if v == "DEFAULT":
+            fail("'DEFAULT' is a reserved keyword and cannot be used as a constraint value. Use a different name to avoid confusion.")
+        if v == "default" and default != "default":
+            fail(
+                "'default' can be used as a constraint value only when it is also the default value "
+                + "(i.e. default = \"default\"); otherwise ':{}[default]' is ambiguous between the value ".format(ctx.label.name)
+                + "named 'default' and the default value '{}'.".format(default),
+            )
         if v in seen:
             fail("Duplicate value '{}' in constraint()".format(v))
         seen.add(v)
 
-    # Validate default if provided
-    default = ctx.attrs.default
+    # Validate default is one of the declared values.
     if default not in seen:
         fail("default value '{}' must be one of the declared values: {}".format(default, values))
 
@@ -145,7 +151,8 @@ def constraint_impl(ctx):
     sub_targets["default"] = sub_targets[default]
 
     # Validate and register user-defined aliases.
-    # Each alias becomes an additional subtarget pointing to an existing value's providers,
+    # Each alias becomes an additional subtarget pointing to an existing value's providers.
+    reserved_keywords = ["default", "DEFAULT"]
     aliases = ctx.attrs.aliases
     for alias_name, alias_value in aliases.items():
         if alias_name in reserved_keywords:

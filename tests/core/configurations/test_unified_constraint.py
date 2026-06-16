@@ -36,15 +36,17 @@ async def test_unified_constraint_default_not_appear_in_value_fail(buck: Buck) -
     )
 
 
-# Test reserved keyword 'default' (lowercase) - using distinct test names because
-# test discovery treats 'default' and 'DEFAULT' as the same name (case-insensitive)
+# 'default' as a value is allowed only when it is also the default value (see the `compiler`
+# constraint in the root fixture). Here it is a value but NOT the default, so it must fail as ambiguous.
+# Distinct test names are used because test discovery treats 'default' and 'DEFAULT' as the same name
+# (case-insensitive).
 @buck_test()
 async def test_unified_constraint_reserved_keyword_default_lowercase_fail(
     buck: Buck,
 ) -> None:
     await expect_failure(
         buck.audit("subtargets", "//reserved_keyword_default_lowercase:"),
-        stderr_regex=".*'default' is a reserved keyword and cannot be used as a constraint value.*",
+        stderr_regex=".*'default' can be used as a constraint value only when it is also the default value.*",
     )
 
 

@@ -41,6 +41,23 @@ def _main(ctx: bxl.Context):
     _assert_eq(os_macos[ConstraintValueInfo], os_apple[ConstraintValueInfo])
     _assert_eq(os_macos[ConfigurationInfo], os_apple[ConfigurationInfo])
 
+    # A value named "default" is allowed when it is also the constraint's default value.
+    profile_analysis = ctx.analysis(ctx.configured_targets("root//:profile"))
+    profile_default_info = profile_analysis.providers()[DefaultInfo]
+    _assert_eq(
+        set(profile_default_info.sub_targets.keys()),
+        set(["default", "fast", "small"]),
+    )
+    # The "default" value is a real, distinct constraint value -- not silently aliased to another value.
+    _assert_not_eq(
+        profile_default_info.sub_targets["default"][ConstraintValueInfo],
+        profile_default_info.sub_targets["fast"][ConstraintValueInfo],
+    )
+    _assert_not_eq(
+        profile_default_info.sub_targets["default"][ConstraintValueInfo],
+        profile_default_info.sub_targets["small"][ConstraintValueInfo],
+    )
+
     cnode = ctx.configured_targets("//:foo_target")
     os = cnode.get_attr("os")
     _assert_eq(os, "linux")

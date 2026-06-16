@@ -53,6 +53,18 @@ constraint(
     default = "dev",
 )
 
+# A value named "default" is allowed when it is also the constraint's default value.
+# ':profile[default]' is unambiguous here because the value and the default are the same.
+constraint(
+    name = "profile",
+    values = [
+        "default",
+        "fast",
+        "small",
+    ],
+    default = "default",
+)
+
 unified_foo(
     name = "foo_target",
     os = select({

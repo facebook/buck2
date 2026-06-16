@@ -9,12 +9,12 @@
 [<TIMESTAMP>]   Caused by:
 [<TIMESTAMP>]       Traceback (most recent call last):
 [<TIMESTAMP>]         File <builtin>, in <module>
-[<TIMESTAMP>]         * prelude/configurations/rules.bzl:156, in constraint_impl
+[<TIMESTAMP>]         * prelude/configurations/rules.bzl:163, in constraint_impl
 [<TIMESTAMP>]             fail("alias '{}' targets value '{}' which is not declared in values: {}".form...
 [<TIMESTAMP>]       error: fail: alias 'stable' targets value 'v3' which is not declared in values: ["v1", "v2"]
-[<TIMESTAMP>]          --> prelude/configurations/rules.bzl:156:13
+[<TIMESTAMP>]          --> prelude/configurations/rules.bzl:163:13
 [<TIMESTAMP>]           |
-[<TIMESTAMP>]       156 |             fail("alias '{}' targets value '{}' which is not declared in values: {}".format(alias_name, alias_value, values))
+[<TIMESTAMP>]       163 |             fail("alias '{}' targets value '{}' which is not declared in values: {}".format(alias_name, alias_value, values))
 [<TIMESTAMP>]           |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 [<TIMESTAMP>]           |
 [<TIMESTAMP>]       

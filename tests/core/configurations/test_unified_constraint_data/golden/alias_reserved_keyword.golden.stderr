@@ -9,12 +9,12 @@
 [<TIMESTAMP>]   Caused by:
 [<TIMESTAMP>]       Traceback (most recent call last):
 [<TIMESTAMP>]         File <builtin>, in <module>
-[<TIMESTAMP>]         * prelude/configurations/rules.bzl:152, in constraint_impl
+[<TIMESTAMP>]         * prelude/configurations/rules.bzl:159, in constraint_impl
 [<TIMESTAMP>]             fail("alias '{}' is a reserved keyword and cannot be used as a constraint ali...
 [<TIMESTAMP>]       error: fail: alias 'default' is a reserved keyword and cannot be used as a constraint alias.
-[<TIMESTAMP>]          --> prelude/configurations/rules.bzl:152:13
+[<TIMESTAMP>]          --> prelude/configurations/rules.bzl:159:13
 [<TIMESTAMP>]           |
-[<TIMESTAMP>]       152 |             fail("alias '{}' is a reserved keyword and cannot be used as a constraint alias.".format(alias_name))
+[<TIMESTAMP>]       159 |             fail("alias '{}' is a reserved keyword and cannot be used as a constraint alias.".format(alias_name))
 [<TIMESTAMP>]           |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 [<TIMESTAMP>]           |
 [<TIMESTAMP>]       
