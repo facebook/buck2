@@ -12,7 +12,7 @@ To mitigate in the meantime, a person, not a coding agent, needs to run the foll
 
 and run:
 
-    buck2 kill && buck2 server
+    buck2 --isolation-dir custom_iso kill && buck2 --isolation-dir custom_iso server
 
 This restarts the buck2 daemon outside the sandbox, after which all buck2 builds (including ones triggered by a coding agent) will work again.
 BUILD FAILED

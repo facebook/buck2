@@ -23,6 +23,11 @@ use crate::daemon::state::DaemonStateData;
 /// Substring that marks an originating cgroup as a coding-agent cgroup.
 const CGROUP_AGENT_MARKER: &str = "3pai";
 
+/// Default buck2 isolation dir. Must match the `--isolation-dir` clap
+/// `default_value` in `app/buck2/src/lib.rs`; the default-isolation golden test
+/// (`denied.golden.stderr`) catches drift.
+const DEFAULT_ISOLATION_DIR: &str = "v2";
+
 /// Comma-separated hostname globs matched against the local hostname.
 /// Unset/empty disables the feature. Example:
 /// ```ini
@@ -56,7 +61,22 @@ enum AgentHostGuardError {
 
 /// Build the user-facing rejection message. The optional `context` (e.g. a SEV
 /// link) is appended after a blank line when present.
-fn denial_message(hostname: &str, project_root: &AbsNormPath, context: Option<&str>) -> String {
+fn denial_message(
+    hostname: &str,
+    project_root: &AbsNormPath,
+    isolation: &str,
+    context: Option<&str>,
+) -> String {
+    // The default isolation dir needs no flag, but a non-default one must be named
+    // explicitly or the suggested command targets the wrong daemon and never unblocks.
+    let run_command = if isolation == DEFAULT_ISOLATION_DIR {
+        "buck2 kill && buck2 server".to_owned()
+    } else {
+        format!(
+            "buck2 --isolation-dir {isolation} kill && buck2 --isolation-dir {isolation} server"
+        )
+    };
+
     let mut message = format!(
         "Running buck2 with buck2 daemon spawned from a coding agent's sandbox on certain hosts can make builds extremely slow. This daemon is in that situation on host `{hostname}`, so its builds are blocked for now. We are working on a long-term fix to remove buck2 daemon from sandbox.
 
@@ -66,7 +86,7 @@ To mitigate in the meantime, a person, not a coding agent, needs to run the foll
 
 and run:
 
-    buck2 kill && buck2 server
+    {run_command}
 
 This restarts the buck2 daemon outside the sandbox, after which all buck2 builds (including ones triggered by a coding agent) will work again."
     );
@@ -84,6 +104,7 @@ pub(crate) fn check_agent_host_guard(
     config: &LegacyBuckConfig,
     daemon: &DaemonStateData,
     project_root: &ProjectRoot,
+    isolation: &str,
 ) -> buck2_error::Result<()> {
     let glob = config.get(FAIL_GLOB_KEY).unwrap_or("").trim();
     if glob.is_empty() {
@@ -118,6 +139,7 @@ pub(crate) fn check_agent_host_guard(
         return Err(AgentHostGuardError::Denied(denial_message(
             &hostname,
             project_root.root(),
+            isolation,
             context,
         ))
         .into());

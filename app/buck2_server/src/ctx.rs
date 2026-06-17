@@ -611,6 +611,7 @@ impl DiceUpdater for DiceCommandUpdater<'_, '_> {
             &cells_and_configs.root_config,
             &self.cmd_ctx.base_context.daemon,
             &self.cmd_ctx.base_context.project_root,
+            self.cmd_ctx.isolation_prefix.as_str(),
         )?;
 
         let cell_resolver = cells_and_configs.cell_resolver;
