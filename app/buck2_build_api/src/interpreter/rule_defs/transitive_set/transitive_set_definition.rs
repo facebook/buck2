@@ -53,10 +53,12 @@ use starlark::values::typing::FrozenStarlarkCallable;
 use starlark::values::typing::StarlarkCallableChecked;
 use starlark::values::typing::TypeInstanceId;
 use starlark::values::typing::TypeMatcherFactory;
+use strong_hash::StrongHash;
 
 use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 use crate::interpreter::rule_defs::transitive_set::TransitiveSetError;
 use crate::interpreter::rule_defs::transitive_set::transitive_set::TransitiveSetMatcher;
+use crate::interpreter::rule_defs::type_id_domain::Buck2TypeIdDomain;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]
@@ -107,7 +109,7 @@ pub struct TransitiveSetProjectionSpec<V: ValueLifetimeless> {
 }
 
 /// A unique identity for a given [`TransitiveSetDefinition`].
-#[derive(Debug, Clone, Display, Allocative, Hash, Pagable)]
+#[derive(Debug, Clone, Display, Allocative, Hash, StrongHash, Pagable)]
 #[display("{}", name)]
 struct TransitiveSetId {
     module_id: ImportPath,
@@ -254,7 +256,8 @@ impl<'v> StarlarkValue<'v> for TransitiveSetDefinition<'v> {
                 module_id: self.module_id.clone(),
                 name: variable_name.to_owned(),
             });
-            let set_type_instance_id = TypeInstanceId::r#gen();
+            let set_type_instance_id =
+                TypeInstanceId::from_identity(Buck2TypeIdDomain::TransitiveSet, &*id);
             let set_ty = Ty::custom(TyUser::new(
                 variable_name.to_owned(),
                 TyStarlarkValue::new::<TransitiveSet>(),

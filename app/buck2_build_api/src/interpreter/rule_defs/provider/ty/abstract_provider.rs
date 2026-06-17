@@ -31,6 +31,7 @@ use starlark::values::typing::TypeMatcherFactory;
 
 use crate::interpreter::rule_defs::provider::ValueAsProviderLike;
 use crate::interpreter::rule_defs::provider::user::UserProvider;
+use crate::interpreter::rule_defs::type_id_domain::Buck2TypeIdDomain;
 
 #[derive(Allocative, Clone, Debug, Pagable)]
 #[pagable_typetag(TypeMatcherDyn)]
@@ -48,7 +49,7 @@ fn mk_ty_provider() -> buck2_error::Result<Ty> {
         UserProvider::TYPE.to_owned(),
         // Builtin providers behave like `UserProvider`.
         TyStarlarkValue::new::<UserProvider>(),
-        TypeInstanceId::r#gen(),
+        TypeInstanceId::from_identity(Buck2TypeIdDomain::ProviderSingleton, &UserProvider::TYPE),
         TyUserParams {
             matcher: Some(TypeMatcherFactory::new(ProviderMatcher)),
             fields: TyUserFields::unknown(),

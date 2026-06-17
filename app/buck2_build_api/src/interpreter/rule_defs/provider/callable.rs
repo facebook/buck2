@@ -85,6 +85,7 @@ use crate::interpreter::rule_defs::provider::ty::provider::ty_provider;
 use crate::interpreter::rule_defs::provider::ty::provider_callable::ty_provider_callable;
 use crate::interpreter::rule_defs::provider::user::UserProvider;
 use crate::interpreter::rule_defs::provider::user::user_provider_creator;
+use crate::interpreter::rule_defs::type_id_domain::Buck2TypeIdDomain;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]
@@ -475,7 +476,8 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
                 path: Some(self.path.clone()),
                 name: variable_name.to_owned(),
             });
-            let ty_provider_type_instance_id = TypeInstanceId::r#gen();
+            let ty_provider_type_instance_id =
+                TypeInstanceId::from_identity(Buck2TypeIdDomain::UserProvider, &*provider_id);
             let ty_provider = ty_provider(
                 &provider_id.name,
                 ty_provider_type_instance_id,

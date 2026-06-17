@@ -68,6 +68,7 @@ use crate::values::record::Record;
 use crate::values::record::field::FieldGen;
 use crate::values::record::matcher::RecordTypeMatcher;
 use crate::values::record::ty_record_type::TyRecordData;
+use crate::values::types::type_instance_id::StarlarkTypeIdDomain;
 use crate::values::types::type_instance_id::TypeInstanceId;
 use crate::values::typing::type_compiled::type_matcher_factory::TypeMatcherFactory;
 
@@ -162,9 +163,9 @@ pub(crate) fn record_fields<'v>(
 
 impl<'v> RecordType<'v> {
     /// Creates a new `RecordType`.
-    pub fn new(fields: SmallMap<String, FieldGen<Value<'v>>>) -> Self {
+    pub fn new(fields: SmallMap<String, FieldGen<Value<'v>>>, id: TypeInstanceId) -> Self {
         Self {
-            id: TypeInstanceId::r#gen(),
+            id,
             fields,
             ty_record_data: OnceCell::new(),
         }
@@ -326,7 +327,7 @@ where
             let ty_record_type = Ty::custom(TyUser::new(
                 format!("record[{variable_name}]"),
                 TyStarlarkValue::new::<RecordType>(),
-                TypeInstanceId::r#gen(),
+                TypeInstanceId::from_identity(StarlarkTypeIdDomain::RecordTypeOfType, &self.id),
                 TyUserParams {
                     callable: Some(TyCallable::new(
                         ParamSpec::new_named_only(self.fields.iter().map(|(name, field)| {

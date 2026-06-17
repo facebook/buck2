@@ -70,6 +70,7 @@ use crate::values::enumeration::ty_enum_type::TyEnumData;
 use crate::values::function::FUNCTION_TYPE;
 use crate::values::index::convert_index;
 use crate::values::list::AllocList;
+use crate::values::types::type_instance_id::StarlarkTypeIdDomain;
 use crate::values::types::type_instance_id::TypeInstanceId;
 use crate::values::typing::type_compiled::type_matcher_factory::TypeMatcherFactory;
 
@@ -205,10 +206,10 @@ impl<'v> EnumType<'v> {
     pub(crate) fn new(
         elements: Vec<StringValue<'v>>,
         heap: Heap<'v>,
+        id: TypeInstanceId,
     ) -> crate::Result<ValueTyped<'v, EnumType<'v>>> {
         // We are constructing the enum and all elements in one go.
         // They both point at each other, which adds to the complexity.
-        let id = TypeInstanceId::r#gen();
         let typ = heap.alloc_typed(EnumType {
             id,
             ty_enum_data: OnceCell::new(),
@@ -381,7 +382,7 @@ where
             let ty_enum_type = Ty::custom(TyUser::new(
                 format!("enum[{variable_name}]"),
                 TyStarlarkValue::new::<EnumType>(),
-                TypeInstanceId::r#gen(),
+                TypeInstanceId::from_identity(StarlarkTypeIdDomain::EnumTypeOfType, &self.id),
                 TyUserParams {
                     fields: TyUserFields {
                         known: fields_map,

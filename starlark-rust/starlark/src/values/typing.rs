@@ -27,6 +27,8 @@ pub(crate) mod ty;
 pub(crate) mod type_compiled;
 pub(crate) mod type_type;
 
+pub use crate::values::types::type_instance_id::StarlarkTypeIdDomain;
+pub use crate::values::types::type_instance_id::TypeIdDomain;
 pub use crate::values::types::type_instance_id::TypeInstanceId;
 pub use crate::values::typing::callable::FrozenStarlarkCallable;
 pub use crate::values::typing::callable::StarlarkCallable;

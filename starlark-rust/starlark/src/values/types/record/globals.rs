@@ -27,6 +27,8 @@ use crate::eval::Evaluator;
 use crate::values::Value;
 use crate::values::record::field::Field;
 use crate::values::record::record_type::RecordType;
+use crate::values::types::type_instance_id::StarlarkTypeIdDomain;
+use crate::values::types::type_instance_id::TypeInstanceId;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
 
 #[starlark_module]
@@ -71,7 +73,9 @@ pub(crate) fn register_record(builder: &mut GlobalsBuilder) {
             };
             mp.insert_hashed(k, field);
         }
-        Ok(RecordType::new(mp))
+        let id = TypeInstanceId::from_def_site(StarlarkTypeIdDomain::Record, eval)
+            .map_err(|e| e.into_anyhow())?;
+        Ok(RecordType::new(mp, id))
     }
 
     /// Creates a field record. Used as an argument to the `record` function.

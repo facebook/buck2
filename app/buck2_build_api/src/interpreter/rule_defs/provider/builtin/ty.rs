@@ -24,6 +24,7 @@ use starlark_map::sorted_map::SortedMap;
 use crate::interpreter::rule_defs::provider::ProviderLike;
 use crate::interpreter::rule_defs::provider::ty::provider::ty_provider;
 use crate::interpreter::rule_defs::provider::ty::provider_callable::ty_provider_callable;
+use crate::interpreter::rule_defs::type_id_domain::Buck2TypeIdDomain;
 
 /// Types associated with builtin providers.
 pub struct BuiltinProviderTy<
@@ -66,7 +67,10 @@ impl<'v, P: StarlarkValue<'v> + ProviderLike<'v>, C: StarlarkValue<'v> + Provide
             .get_or_init(|| {
                 ty_provider(
                     P::TYPE,
-                    TypeInstanceId::r#gen(),
+                    TypeInstanceId::from_identity(
+                        Buck2TypeIdDomain::BuiltinProvider,
+                        &(P::TYPE, "instance"),
+                    ),
                     TyStarlarkValue::new::<P>(),
                     None,
                     SortedMap::new(),
