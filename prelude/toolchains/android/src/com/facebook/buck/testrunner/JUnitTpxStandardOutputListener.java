@@ -238,6 +238,18 @@ public class JUnitTpxStandardOutputListener extends RunListener {
         testLogState.getStderrRecorder().complete();
       }
 
+      // Get the captured output (direct prints followed by JUL framework logs under a
+      // "====DEBUG LOGS====" / "====ERROR LOGS====" header). Computed once and shared between the
+      // per-test artifact files and the inline per-test result below.
+      String stdout =
+          testLogState.getStdoutRecorder() != null
+              ? testLogState.getStdoutRecorder().toString(true, "====DEBUG LOGS====\n")
+              : null;
+      String stderr =
+          testLogState.getStderrRecorder() != null
+              ? testLogState.getStderrRecorder().toString(true, "====ERROR LOGS====\n")
+              : null;
+
       // Write per-test artifacts if directories are available
       String artifactsDir = System.getenv("TEST_RESULT_ARTIFACTS_DIR");
       String annotationsDir = System.getenv("TEST_RESULT_ARTIFACT_ANNOTATIONS_DIR");
@@ -245,7 +257,14 @@ public class JUnitTpxStandardOutputListener extends RunListener {
       if (artifactsDir != null && annotationsDir != null) {
         // Use the same test name format as TPX: "methodName (className)"
         String testCaseName = getFullTestName(description);
-        writePerTestArtifacts(testLogState, artifactsDir, annotationsDir, testCaseName);
+        writePerTestArtifacts(stdout, stderr, artifactsDir, annotationsDir, testCaseName);
+      }
+
+      // Surface this test's own stdout/stderr inline in the per-test result so it is visible in
+      // the terminal (e.g. next to the failure stack trace).
+      String inlineOutput = buildInlineOutput(stdout, stderr);
+      if (inlineOutput != null) {
+        listener.appendTestOutput(testName, inlineOutput);
       }
 
       // Clean up logging handlers
@@ -255,35 +274,27 @@ public class JUnitTpxStandardOutputListener extends RunListener {
       testLogStates.remove(testName);
     }
 
-    // Notify listener that test finished (stdout/stderr only go to artifact files, not Test Output)
     listener.testFinished(testName);
   }
 
   /**
-   * Writes per-test stdout/stderr artifacts and their annotation files.
+   * Writes per-test stdout/stderr artifacts and their annotation files. Each captured stream
+   * contains the direct prints (System.out/System.err) followed by java.util.logging (JUL) messages
+   * under a "====DEBUG LOGS====" / "====ERROR LOGS====" header, helping developers distinguish test
+   * output from framework logs.
    *
-   * @param state the test log state containing captured output
+   * @param stdout the captured stdout, or null if there was none
+   * @param stderr the captured stderr, or null if there was none
    * @param artifactsDir directory where artifact files should be written
    * @param annotationsDir directory where annotation files should be written
    * @param testCaseName the test case name in format "methodName (className)"
    */
   private void writePerTestArtifacts(
-      TestLogState state, String artifactsDir, String annotationsDir, String testCaseName) {
-    // Get captured output from the recorders. Each recorder captures two streams:
-    // 1. Direct prints (System.out/System.err) - e.g., System.out.println() in test code
-    // 2. java.util.logging (JUL) messages - structured logs from libraries/frameworks
-    // The header ("====DEBUG LOGS====" or "====ERROR LOGS====") separates these two streams
-    // in the artifact file, helping developers distinguish test output from framework logs.
-    String stdout = null;
-    String stderr = null;
-
-    if (state.getStdoutRecorder() != null) {
-      stdout = state.getStdoutRecorder().toString(true, "====DEBUG LOGS====\n");
-    }
-    if (state.getStderrRecorder() != null) {
-      stderr = state.getStderrRecorder().toString(true, "====ERROR LOGS====\n");
-    }
-
+      String stdout,
+      String stderr,
+      String artifactsDir,
+      String annotationsDir,
+      String testCaseName) {
     // Sanitize test name for use in filenames to avoid collisions between tests.
     // JUnit artifacts are written to a shared directory and TPX collects them at the end,
     // so we need unique filenames to preserve each test's output.
@@ -302,6 +313,29 @@ public class JUnitTpxStandardOutputListener extends RunListener {
       String filename = "Test Stderr " + safeTestName;
       writeArtifactWithAnnotation(artifactsDir, annotationsDir, filename, stderr, testCaseName);
     }
+  }
+
+  /**
+   * Builds a string combining this test's captured stdout and stderr (each including the direct
+   * prints and the JUL framework logs) for inline display in the per-test result, under "====TEST
+   * STDOUT====" / "====TEST STDERR====" headers.
+   *
+   * @param stdout the captured stdout, or null if there was none
+   * @param stderr the captured stderr, or null if there was none
+   * @return the combined output, or null if the test produced no output
+   */
+  private static String buildInlineOutput(String stdout, String stderr) {
+    StringBuilder sb = new StringBuilder();
+    if (stdout != null) {
+      sb.append("====TEST STDOUT====\n").append(stdout);
+    }
+    if (stderr != null) {
+      if (sb.length() > 0) {
+        sb.append('\n');
+      }
+      sb.append("====TEST STDERR====\n").append(stderr);
+    }
+    return sb.length() == 0 ? null : sb.toString();
   }
 
   /**

@@ -159,6 +159,33 @@ public class TpxStandardOutputTestListener {
   }
 
   /**
+   * Appends captured stdout/stderr to the test's result message so it is surfaced inline alongside
+   * the failure trace (e.g. in the terminal when running {@code buck test}). The output is
+   * attributed to this specific test, so it does not duplicate across tests the way raw
+   * process-level output did. No-op if the test is unknown or the output is empty.
+   *
+   * <p>Must be called before {@link #testFinished(String)} so the appended output is included in
+   * the finish event.
+   *
+   * @param identifier identifies the test
+   * @param output the captured output to append to the test's message
+   */
+  public void appendTestOutput(String identifier, String output) {
+    if (output == null || output.isEmpty()) {
+      return;
+    }
+    TestIdentifierStatus status = testIdentifierStatuses.get(identifier);
+    if (status == null) {
+      return;
+    }
+    if (status.trace == null || status.trace.isEmpty()) {
+      status.trace = output;
+    } else {
+      status.trace = status.trace + "\n\n" + output;
+    }
+  }
+
+  /**
    * Reports the execution end of an individual test case.
    *
    * <p>If {@link #testFailed} was not invoked, this test passed. Also returns any key/value metrics

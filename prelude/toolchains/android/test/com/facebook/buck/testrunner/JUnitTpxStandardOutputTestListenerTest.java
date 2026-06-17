@@ -91,6 +91,87 @@ public class JUnitTpxStandardOutputTestListenerTest {
   }
 
   @Test
+  public void testStdoutStderrSurfacedInlineOnPassingTest() throws IOException {
+    // A test's own System.out/System.err prints should be surfaced inline in the per-test result
+    // so they are visible in the terminal, not only in artifact files.
+    try (FileOutputStream fileOutputStream = new FileOutputStream(tempFile)) {
+      JUnitTpxStandardOutputListener listener = createListener(fileOutputStream);
+
+      Description description = Description.createTestDescription("TestClass", "testOne");
+      listener.testStarted(description);
+      // testStarted redirects System.out/System.err into the per-test recorders.
+      System.out.println("hello from stdout");
+      System.err.println("hello from stderr");
+      listener.testFinished(description);
+    }
+
+    try (BufferedReader reader = new BufferedReader(new FileReader(tempFile))) {
+      reader.readLine(); // start event
+
+      String endLine = reader.readLine();
+      Assert.assertTrue(endLine.contains("finish"));
+      Assert.assertTrue(endLine.contains("====TEST STDOUT===="));
+      Assert.assertTrue(endLine.contains("hello from stdout"));
+      Assert.assertTrue(endLine.contains("====TEST STDERR===="));
+      Assert.assertTrue(endLine.contains("hello from stderr"));
+
+      Assert.assertNull(reader.readLine());
+    }
+  }
+
+  @Test
+  public void testFailedTestIncludesStdoutStderrAfterTrace() throws IOException {
+    // On failure, both the stack trace and the test's own stdout/stderr should appear in the
+    // per-test message so a developer can see their debug prints next to the failure.
+    String testFailureMessage = "failed test trace example";
+    try (FileOutputStream fileOutputStream = new FileOutputStream(tempFile)) {
+      JUnitTpxStandardOutputListener listener = createListener(fileOutputStream);
+
+      Description description = Description.createTestDescription("TestClass", "testOne");
+      listener.testStarted(description);
+      System.err.println("debug print before failure");
+      Failure testFailure = new Failure(description, new Throwable(testFailureMessage));
+      listener.testFailure(testFailure);
+      listener.testFinished(description);
+    }
+
+    try (BufferedReader reader = new BufferedReader(new FileReader(tempFile))) {
+      reader.readLine(); // start event
+
+      String endLine = reader.readLine();
+      Assert.assertTrue(endLine.contains("finish"));
+      Assert.assertTrue(endLine.contains(testFailureMessage));
+      Assert.assertTrue(endLine.contains("====TEST STDERR===="));
+      Assert.assertTrue(endLine.contains("debug print before failure"));
+
+      Assert.assertNull(reader.readLine());
+    }
+  }
+
+  @Test
+  public void testNoInlineOutputWhenTestSilent() throws IOException {
+    // A test that prints nothing should not get any output headers added to its result.
+    try (FileOutputStream fileOutputStream = new FileOutputStream(tempFile)) {
+      JUnitTpxStandardOutputListener listener = createListener(fileOutputStream);
+
+      Description description = Description.createTestDescription("TestClass", "testOne");
+      listener.testStarted(description);
+      listener.testFinished(description);
+    }
+
+    try (BufferedReader reader = new BufferedReader(new FileReader(tempFile))) {
+      reader.readLine(); // start event
+
+      String endLine = reader.readLine();
+      Assert.assertTrue(endLine.contains("finish"));
+      Assert.assertFalse(endLine.contains("====TEST STDOUT===="));
+      Assert.assertFalse(endLine.contains("====TEST STDERR===="));
+
+      Assert.assertNull(reader.readLine());
+    }
+  }
+
+  @Test
   public void testFailedAssumptionTest() throws IOException {
     String testFailureMessage = "failed test trace example";
     try (FileOutputStream fileOutputStream = new FileOutputStream(tempFile)) {
