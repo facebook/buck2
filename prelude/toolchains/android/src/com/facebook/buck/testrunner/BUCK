@@ -215,8 +215,7 @@ buck_java_library(
     # @oss-disable[end= ]: target = "8",
     source = "11", # @oss-enable
     target = "11", # @oss-enable
-    visibility = [
-    ],
+    visibility = [],
     deps = [
         "prelude//toolchains/android/src/com/facebook/buck/test/result/type:type",
         "prelude//toolchains/android/src/com/facebook/buck/test/selectors:selectors",

@@ -11,7 +11,8 @@ constraint(
     values = map(
         str,
         range(1000),
-    ) + ["none"],
+    )
+    + ["none"],
     visibility = ["PUBLIC"],
 )
 

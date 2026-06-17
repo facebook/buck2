@@ -13,8 +13,7 @@ buck_java_library(
     source = "11", # @oss-enable
     target = "11", # @oss-enable
     visibility = ["PUBLIC"],
-    deps = [
-    ],
+    deps = [],
 )
 
 buck_java_library(

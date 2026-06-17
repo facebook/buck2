@@ -20,6 +20,5 @@ buck_kotlin_library(
     deps = [
         "prelude//toolchains/android/src/com/facebook/buck/util:process_executor",
     ],
-    exported_deps = [
-    ],
+    exported_deps = [],
 )

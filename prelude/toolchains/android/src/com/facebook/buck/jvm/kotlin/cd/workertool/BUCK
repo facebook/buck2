@@ -17,7 +17,9 @@ buck_java_library(
     runtime_deps = select({
         "DEFAULT": [
             "prelude//toolchains/android/meta_only/src/com/facebook/buck/jvm/kotlin/cd/logger/scribe:scribe",
-        ] if is_full_meta_repo() else [
+        ]
+        if is_full_meta_repo()
+        else [
             "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/cd/analytics/logger/noop:noop",
         ],
         "config//os/constraints:windows": [

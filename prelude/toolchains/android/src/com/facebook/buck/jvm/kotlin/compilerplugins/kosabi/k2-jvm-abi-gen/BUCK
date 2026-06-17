@@ -12,7 +12,8 @@ buck_kotlin_library(
     srcs = glob(
         ["**/*.kt"],
         exclude = ["src/main/kotlin/compilercompat/2.*/*.kt"],
-    ) + glob(["src/main/kotlin/compilercompat/" + KOTLIN_VERSION + "/*.kt"]),
+    )
+    + glob(["src/main/kotlin/compilercompat/" + KOTLIN_VERSION + "/*.kt"]),
     labels = ["codegen_rule"],
     provided_deps = [
         "prelude//toolchains/android/third-party:kotlin-compiler-embeddable",

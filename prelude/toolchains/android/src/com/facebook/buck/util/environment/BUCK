@@ -22,8 +22,7 @@ buck_java_library(
         "PUBLIC",
     ],
     # This library is deep in the dependency tree, keep its dependency list small.
-    deps = [
-    ],
+    deps = [],
 )
 
 buck_java_library(

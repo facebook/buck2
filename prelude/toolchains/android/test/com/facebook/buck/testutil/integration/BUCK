@@ -55,6 +55,5 @@ buck_java_library(
         "prelude//toolchains/android/third-party:xz",
         "prelude//toolchains/android/third-party:zstd-jni",
     ],
-    exported_deps = [
-    ],
+    exported_deps = [],
 )

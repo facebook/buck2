@@ -126,7 +126,8 @@ prelude.sh_binary(
     main = "tests/main.sh",
     resources = [
         "wheel.py",
-    ] + glob(["tests/**/*.py"]),
+    ]
+    + glob(["tests/**/*.py"]),
 )
 
 prelude.export_file(

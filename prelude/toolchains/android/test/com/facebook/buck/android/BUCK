@@ -59,8 +59,7 @@ buck_java_library(
         "prelude//toolchains/android/third-party:tools-sdk-common",
         "prelude//toolchains/android/third-party:xz",
     ],
-    exported_deps = [
-    ],
+    exported_deps = [],
 )
 
 buck_java_test(

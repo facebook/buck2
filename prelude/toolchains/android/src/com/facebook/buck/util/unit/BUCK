@@ -15,6 +15,5 @@ buck_java_library(
     deps = [
         "prelude//toolchains/android/third-party:guava",
     ],
-    exported_deps = [
-    ],
+    exported_deps = [],
 )

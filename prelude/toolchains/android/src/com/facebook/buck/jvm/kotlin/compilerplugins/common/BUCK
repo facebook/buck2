@@ -18,6 +18,5 @@ buck_kotlin_library(
     visibility = [
         "PUBLIC",
     ],
-    deps = [
-    ],
+    deps = [],
 )

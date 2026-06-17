@@ -18,10 +18,8 @@ buck_kotlin_library(
         "prelude//toolchains/android/test/com/facebook/buck/android/apkmodule:apkmodule",
     ],
     visibility = ["PUBLIC"],
-    deps = [
-    ],
-    exported_deps = [
-    ],
+    deps = [],
+    exported_deps = [],
 )
 
 buck_java_library(

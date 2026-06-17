@@ -1,4 +1,10 @@
-load("@fbsource//tools/build_defs:check_dependencies_test.bzl", "assert_dependencies_test", "audit_dependents_test", "check_dependencies_test", "check_mutually_exclusive_dependencies_test")
+load(
+    "@fbsource//tools/build_defs:check_dependencies_test.bzl",
+    "assert_dependencies_test",
+    "audit_dependents_test",
+    "check_dependencies_test",
+    "check_mutually_exclusive_dependencies_test",
+)
 
 ### This file contains some "e2e tests" for the BXL check_dependencies_test infra.
 

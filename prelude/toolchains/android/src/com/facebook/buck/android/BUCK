@@ -53,8 +53,7 @@ buck_kotlin_library(
         ":manifest_utils",
         ":utils_api",
     ],
-    exported_deps = [
-    ],
+    exported_deps = [],
 )
 
 MANIFEST_UTILS_SRCS = [

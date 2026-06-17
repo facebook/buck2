@@ -54,8 +54,7 @@ buck_java_library(
         "prelude//toolchains/android/third-party:okio",
         "prelude//toolchains/android/third-party:tools-sdk-common",
     ],
-    exported_deps = [
-    ],
+    exported_deps = [],
 )
 
 buck_java_test(

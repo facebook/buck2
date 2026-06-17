@@ -4,10 +4,12 @@ load(":native.bzl", prelude = "native")
 
 oncall("build_infra")
 
-source_listing(exclude = [
-    # Exclude PACKAGE file using modifiers since those are not enabled everywhere yet.
-    "PACKAGE",
-])
+source_listing(
+    exclude = [
+        # Exclude PACKAGE file using modifiers since those are not enabled everywhere yet.
+        "PACKAGE",
+    ]
+)
 
 # Done to avoid triggering a lint rule that replaces glob with an fbcode macro
 globby = glob

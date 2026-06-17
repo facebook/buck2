@@ -4,24 +4,30 @@ load(":test_platform_rule.bzl", "test_platform")
 
 oncall("build_infra")
 
-[bxl_test(
-    src = src,
-) for src in glob(
-    ["test_*.bxl"],
-    exclude = [
-        "test_sanitizer_buckconfig_backed_modifiers.bxl",
-        "test_platform_buckconfig_backed_modifiers.bxl",
-    ],
-)]
+[
+    bxl_test(
+        src = src,
+    )
+    for src in glob(
+        ["test_*.bxl"],
+        exclude = [
+            "test_sanitizer_buckconfig_backed_modifiers.bxl",
+            "test_platform_buckconfig_backed_modifiers.bxl",
+        ],
+    )
+]
 
-[bxl_test(
-    name = "{}_test".format(sanitizer),
-    src = "test_sanitizer_buckconfig_backed_modifiers.bxl",
-    buck_args = [
-        "--config",
-        "fbcode.sanitizer={}".format(sanitizer),
-    ],
-) for sanitizer in ("address", "address-undefined", "thread", "hwaddress")]
+[
+    bxl_test(
+        name = "{}_test".format(sanitizer),
+        src = "test_sanitizer_buckconfig_backed_modifiers.bxl",
+        buck_args = [
+            "--config",
+            "fbcode.sanitizer={}".format(sanitizer),
+        ],
+    )
+    for sanitizer in ("address", "address-undefined", "thread", "hwaddress")
+]
 
 # Test infrastructure for buckconfig-backed platform modifiers
 test_platform(
