@@ -101,7 +101,7 @@ run(Args) when is_list(Args) ->
                 ok = preload_application_atoms(),
                 [Suite | _] = [Suite || {suite, Suite} <- CtExecutorArgs],
 
-                {ok, RawTarget} = application:get_env(common, raw_target),
+                {ok, RawTarget} = common_util:get_env(raw_target),
 
                 ProviderInitState = #init_provider_state{output_dir = OutputDir, suite = Suite, raw_target = RawTarget},
                 Providers0 = [
@@ -196,10 +196,10 @@ load_common_app() ->
 -spec init_common_app_env_var(binary(), binary()) -> ok.
 init_common_app_env_var(Key, Value) ->
     KeyAtom = binary_to_atom(Key, utf8),
-    case application:get_env(common, KeyAtom) of
+    case common_util:get_env(KeyAtom) of
         undefined ->
             ValueTerm = buck_ct_parser:parse_str(Value),
-            application:set_env(common, KeyAtom, ValueTerm);
+            common_util:set_env(KeyAtom, ValueTerm);
         _ ->
             ok
     end.

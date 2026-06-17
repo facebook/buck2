@@ -12,7 +12,10 @@
     unicode_characters_to_list/1,
     unicode_characters_to_binary/1,
 
-    filename_all_to_filename/1
+    filename_all_to_filename/1,
+
+    get_env/1,
+    set_env/2
 ]).
 -compile(warn_missing_spec_all).
 
@@ -33,3 +36,14 @@ filename_all_to_filename(Filename) when is_binary(Filename) ->
     unicode_characters_to_list(Filename);
 filename_all_to_filename(Filename) ->
     Filename.
+
+%% Accessors for the `common` application's environment. Kept here so that
+%% callers in other apps (e.g. `ct_executor` in the `test_exec` app) do not read
+%% the `common` app's env directly across an app boundary (W0011).
+-spec get_env(atom()) -> undefined | {ok, dynamic()}.
+get_env(Key) ->
+    application:get_env(common, Key).
+
+-spec set_env(atom(), term()) -> ok.
+set_env(Key, Value) ->
+    application:set_env(common, Key, Value).
