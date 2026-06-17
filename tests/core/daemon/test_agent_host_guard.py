@@ -49,7 +49,7 @@ async def test_agent_host_guard_disabled(buck: Buck) -> None:
 async def test_agent_host_guard_denied(buck: Buck) -> None:
     _write_buckconfig_local(
         buck,
-        "[buck2]\nagent_hostname_fail_glob=*\n",
+        "[buck2]\nagent_hostname_fail_v2_glob=*\n",
     )
     result = await expect_failure(
         buck.build(
@@ -67,7 +67,7 @@ async def test_agent_host_guard_denied(buck: Buck) -> None:
 async def test_agent_host_guard_denied_with_context(buck: Buck) -> None:
     _write_buckconfig_local(
         buck,
-        "[buck2]\nagent_hostname_fail_glob=*\nagent_hostname_fail_context=See S123456\n",
+        "[buck2]\nagent_hostname_fail_v2_glob=*\nagent_hostname_fail_v2_context=See S123456\n",
     )
     result = await expect_failure(
         buck.build(
@@ -86,7 +86,7 @@ async def test_agent_host_guard_non_agent_cgroup(buck: Buck) -> None:
     # Hostname matches but the daemon is not agent-originated -> build succeeds.
     _write_buckconfig_local(
         buck,
-        "[buck2]\nagent_hostname_fail_glob=*\n",
+        "[buck2]\nagent_hostname_fail_v2_glob=*\n",
     )
     await buck.build(
         ":pass",
@@ -99,7 +99,7 @@ async def test_agent_host_guard_hostname_no_match(buck: Buck) -> None:
     # Agent cgroup but the hostname glob does not match -> build succeeds.
     _write_buckconfig_local(
         buck,
-        "[buck2]\nagent_hostname_fail_glob=definitely-not-this-host-*\n",
+        "[buck2]\nagent_hostname_fail_v2_glob=definitely-not-this-host-*\n",
     )
     await buck.build(
         ":pass",
