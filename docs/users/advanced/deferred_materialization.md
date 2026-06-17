@@ -100,9 +100,15 @@ clean_stale_start_offset_hours = 12
 - `clean_stale_artifact_ttl_hours` determines how long artifacts should be kept
   in buck-out before cleaning them.
 - `clean_stale_low_disk_threshold` (percent of total disk free, e.g. `10.0`)
-  enables a shorter TTL when free disk drops at or below it. The shorter TTL
-  defaults to 48 hours and can be overridden via
-  `clean_stale_low_disk_artifact_ttl_hours`.
+  enables more aggressive cleaning when free disk drops at or below it. The
+  low-disk behavior below never engages unless this is set.
+- `clean_stale_low_disk_artifact_ttl_hours` (default 48) sets a shorter fixed
+  TTL to use while free disk is at or below the threshold.
+- `clean_stale_low_disk_adaptive_enabled` (default false) replaces the fixed
+  shorter TTL with adaptive cleaning: buck2 keeps promoting the oldest retained
+  artifacts to stale until projected free disk rises back above the threshold,
+  while protecting any artifact younger than
+  `clean_stale_low_disk_adaptive_min_ttl_hours` (default 12).
 
 If clean stale is running in the background at the same time that a build begins
 to materialize artifacts, the clean will be interrupted and not run again until

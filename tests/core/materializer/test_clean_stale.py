@@ -278,7 +278,7 @@ clean_stale_start_offset_hours = 0
 # 0.0001h = 360ms
 clean_stale_period_hours = 0.0001
 clean_stale_low_disk_threshold = 100.0
-clean_stale_low_disk_artifact_ttl_hours = adaptive
+clean_stale_low_disk_adaptive_enabled = true
 clean_stale_low_disk_adaptive_min_ttl_hours = 0
         """
         )
@@ -307,7 +307,7 @@ clean_stale_start_offset_hours = 0
 # 0.0001h = 360ms
 clean_stale_period_hours = 0.0001
 clean_stale_low_disk_threshold = 0.0
-clean_stale_low_disk_artifact_ttl_hours = adaptive
+clean_stale_low_disk_adaptive_enabled = true
 clean_stale_low_disk_adaptive_min_ttl_hours = 0
         """
         )
@@ -339,7 +339,7 @@ clean_stale_start_offset_hours = 0
 # 0.0001h = 360ms
 clean_stale_period_hours = 0.0001
 clean_stale_low_disk_threshold = 100.0
-clean_stale_low_disk_artifact_ttl_hours = adaptive
+clean_stale_low_disk_adaptive_enabled = true
 clean_stale_low_disk_adaptive_min_ttl_hours = 24
         """
         )

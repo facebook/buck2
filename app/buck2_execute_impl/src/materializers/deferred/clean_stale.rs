@@ -789,16 +789,6 @@ fn apply_adaptive_low_disk(
     }
 }
 
-#[derive(Debug, buck2_error::Error)]
-#[error(
-    "buck2.clean_stale_low_disk_artifact_ttl_hours: expected a number or `adaptive`, got `{raw}` ({source})"
-)]
-#[buck2(tag = Input)]
-struct LowDiskArtifactTtlHoursParseError {
-    raw: String,
-    source: std::num::ParseFloatError,
-}
-
 pub struct CleanStaleConfig {
     // Time before running first clean, after daemon start
     pub start_offset: Duration,
@@ -861,10 +851,12 @@ impl CleanStaleConfig {
                 property: "clean_stale_dry_run",
             })?
             .unwrap_or(false);
-        let low_disk_mode_raw = root_config.get(BuckconfigKeyRef {
-            section: "buck2",
-            property: "clean_stale_low_disk_artifact_ttl_hours",
-        });
+        let adaptive_enabled = root_config
+            .parse(BuckconfigKeyRef {
+                section: "buck2",
+                property: "clean_stale_low_disk_adaptive_enabled",
+            })?
+            .unwrap_or(false);
         let adaptive_min_ttl_hours: f64 = root_config
             .parse(BuckconfigKeyRef {
                 section: "buck2",
@@ -872,18 +864,17 @@ impl CleanStaleConfig {
             })?
             .unwrap_or(12.0);
         let adaptive_min_ttl = Duration::from_hours(1).mul_f64(adaptive_min_ttl_hours);
-        let low_disk_mode = match low_disk_mode_raw {
-            None => LowDiskCleanMode::Fixed(Duration::from_hours(48)),
-            Some(s) if s.eq_ignore_ascii_case("adaptive") => LowDiskCleanMode::Adaptive {
+        let low_disk_artifact_ttl_hours: Option<f64> = root_config.parse(BuckconfigKeyRef {
+            section: "buck2",
+            property: "clean_stale_low_disk_artifact_ttl_hours",
+        })?;
+        let low_disk_mode = if adaptive_enabled {
+            LowDiskCleanMode::Adaptive {
                 min_ttl: adaptive_min_ttl,
-            },
-            Some(s) => {
-                let hours: f64 = s.parse().map_err(|e| LowDiskArtifactTtlHoursParseError {
-                    raw: s.to_owned(),
-                    source: e,
-                })?;
-                LowDiskCleanMode::Fixed(Duration::from_hours(1).mul_f64(hours))
             }
+        } else {
+            let hours = low_disk_artifact_ttl_hours.unwrap_or(48.0);
+            LowDiskCleanMode::Fixed(Duration::from_hours(1).mul_f64(hours))
         };
         let low_disk_threshold_percent: Option<f64> = root_config.parse(BuckconfigKeyRef {
             section: "buck2",
