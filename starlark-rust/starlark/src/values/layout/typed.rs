@@ -250,6 +250,15 @@ impl<'v, T: StarlarkValue<'v>> FrozenValueTyped<'v, T> {
         FrozenValueTyped(value, marker::PhantomData)
     }
 
+    /// Construct a typed wrapper around a value that may not be initialized yet.
+    ///
+    /// Unlike [`new_unchecked`](Self::new_unchecked), this omits even the
+    /// `debug_assert` type-check. This is useful in pagable deserialization.
+    #[inline]
+    pub(crate) unsafe fn new_allow_uninitialized(value: FrozenValue) -> FrozenValueTyped<'v, T> {
+        FrozenValueTyped(value, marker::PhantomData)
+    }
+
     /// Downcast.
     #[inline]
     pub fn new(value: FrozenValue) -> Option<FrozenValueTyped<'v, T>> {
@@ -477,7 +486,7 @@ impl<'v, T: StarlarkValue<'v>> crate::pagable::StarlarkDeserialize for FrozenVal
         let fv = FrozenValue::starlark_deserialize(ctx)?;
         // SAFETY: pagable deserializes this field through the same Rust type
         // that serialized it.
-        Ok(unsafe { FrozenValueTyped::new_unchecked(fv) })
+        Ok(unsafe { FrozenValueTyped::new_allow_uninitialized(fv) })
     }
 }
 

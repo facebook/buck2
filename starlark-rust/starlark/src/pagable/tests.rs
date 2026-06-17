@@ -156,9 +156,9 @@ a.append(a)
     let (data, arcs) = ser.finish();
 
     let top_key = {
-        let mut finished = dashmap::DashMap::new();
+        let finished = dashmap::DashMap::new();
         storage
-            .page_out_item(data, arcs, &mut finished, session_ctx)
+            .page_out_item(data, arcs, &finished, session_ctx)
             .map_err(|e| match e {
                 PageOutError::Failed(e) => crate::Error::new_other(e),
                 PageOutError::AlreadyFailed => {
@@ -2339,9 +2339,9 @@ fn round_trip_owned_frozen_value_pagable_ser_de_impl(
     let (data, arcs) = ser.finish();
 
     let top_key = {
-        let mut finished = dashmap::DashMap::new();
+        let finished = dashmap::DashMap::new();
         storage
-            .page_out_item(data, arcs, &mut finished, session_ctx)
+            .page_out_item(data, arcs, &finished, session_ctx)
             .map_err(crate::Error::new_other)?
     };
 
@@ -2645,9 +2645,9 @@ fn ser_owned_frozen_value_into_storage(
         .pagable_serialize(&mut ser)
         .map_err(crate::Error::new_other)?;
     let (data, arcs) = ser.finish();
-    let mut finished = dashmap::DashMap::new();
+    let finished = dashmap::DashMap::new();
     let key = storage
-        .page_out_item(data, arcs, &mut finished, session_ctx)
+        .page_out_item(data, arcs, &finished, session_ctx)
         .map_err(crate::Error::new_other)?;
     Ok(key)
 }
@@ -2925,9 +2925,9 @@ b.append(a)
         ofv.pagable_serialize(&mut ser)
             .map_err(crate::Error::new_other)?;
         let (data, arcs) = ser.finish();
-        let mut finished = dashmap::DashMap::new();
+        let finished = dashmap::DashMap::new();
         storage
-            .page_out_item(data, arcs, &mut finished, session_ctx)
+            .page_out_item(data, arcs, &finished, session_ctx)
             .map_err(crate::Error::new_other)
     };
     let key_a = ser_one(&ofv_a).unwrap();
@@ -3034,9 +3034,9 @@ fn bench_owned_frozen_value_round_trip(
     let bytes = data.len();
 
     let top_key = {
-        let mut finished = dashmap::DashMap::new();
+        let finished = dashmap::DashMap::new();
         storage
-            .page_out_item(data, arcs, &mut finished, session_ctx)
+            .page_out_item(data, arcs, &finished, session_ctx)
             .map_err(crate::Error::new_other)?
     };
 
@@ -3167,9 +3167,9 @@ fn bench_pagable_ser_deser_by_value_type() -> crate::Result<()> {
         let bytes = data.len();
 
         let top_key = {
-            let mut finished = dashmap::DashMap::new();
+            let finished = dashmap::DashMap::new();
             storage
-                .page_out_item(data, arcs, &mut finished, session_ctx)
+                .page_out_item(data, arcs, &finished, session_ctx)
                 .map_err(crate::Error::new_other)?
         };
 
@@ -3342,9 +3342,9 @@ fn test_concurrent_page_in_does_not_hash_sentinel_key() {
         let mut ser = SerializerForPaging::new(session_ctx);
         ofv.pagable_serialize(&mut ser).unwrap();
         let (data, arcs) = ser.finish();
-        let mut finished = dashmap::DashMap::new();
+        let finished = dashmap::DashMap::new();
         storage
-            .page_out_item(data, arcs, &mut finished, session_ctx)
+            .page_out_item(data, arcs, &finished, session_ctx)
             .unwrap()
     };
     let key_data = ser_one(&ofv_key);
@@ -3396,4 +3396,257 @@ fn test_concurrent_page_in_does_not_hash_sentinel_key() {
     }
 
     *GATE.lock().unwrap() = None;
+}
+
+// `BcInstrs` (compiled bytecode) is only reachable inside a `FrozenDef` inside a
+// `FrozenModule`, so these tests round-trip a module of functions through the
+// production pagable path and run the deserialized bytecode.
+
+/// Page a `FrozenModule` out and back in through the production pagable path.
+fn page_out_in_module(
+    frozen_module: &crate::environment::FrozenModule,
+) -> crate::Result<crate::environment::FrozenModule> {
+    use std::any::TypeId;
+
+    use pagable::PagableDeserialize;
+    use pagable::context::PagableDeserializerImpl;
+    use pagable::storage::handle::PagableStorageHandle;
+    use pagable::storage::in_memory::InMemoryPagableStorage;
+    use pagable::storage::support::SerializerForPaging;
+
+    use crate::environment::FrozenModule;
+
+    let backing = InMemoryPagableStorage::new();
+    let storage = backing.handle();
+    let handle = PagableStorageHandle::new(storage.clone());
+    let session_ctx = storage.session_context();
+
+    let mut ser = SerializerForPaging::new(session_ctx);
+    frozen_module
+        .pagable_serialize(&mut ser)
+        .map_err(crate::Error::new_other)?;
+    let (data, arcs) = ser.finish();
+
+    let top_key = {
+        let finished = dashmap::DashMap::new();
+        storage
+            .page_out_item(data, arcs, &finished, session_ctx)
+            .map_err(crate::Error::new_other)?
+    };
+
+    let top_data = storage
+        .fetch_arc_or_data_blocking(&TypeId::of::<()>(), &top_key)
+        .map_err(crate::Error::new_other)?
+        .right()
+        .expect("top-level key should return data, not a cached arc");
+
+    let mut de = PagableDeserializerImpl::new(&top_data.data, &top_data.arcs, &handle);
+    FrozenModule::pagable_deserialize(&mut de).map_err(crate::Error::new_other)
+}
+
+/// Serialize a `FrozenModule`, returning the top-level data buffer.
+fn serialize_module_top_bytes(
+    frozen_module: &crate::environment::FrozenModule,
+) -> crate::Result<Vec<u8>> {
+    use pagable::storage::in_memory::InMemoryPagableStorage;
+    use pagable::storage::support::SerializerForPaging;
+
+    let backing = InMemoryPagableStorage::new();
+    let storage = backing.handle();
+    let session_ctx = storage.session_context();
+
+    let mut ser = SerializerForPaging::new(session_ctx);
+    frozen_module
+        .pagable_serialize(&mut ser)
+        .map_err(crate::Error::new_other)?;
+    let (data, _arcs) = ser.finish();
+    Ok(data)
+}
+
+/// Round-trips a module of functions and runs the *deserialized* bytecode.
+/// Each function targets a different bytecode-arg shape (see inline notes).
+#[test]
+fn test_bcinstrs_def_round_trip_via_module() -> crate::Result<()> {
+    use crate::environment::Module;
+    use crate::eval::Evaluator;
+    use crate::syntax::AstModule;
+    use crate::syntax::Dialect;
+
+    let code = r#"
+def add(a, b):
+    return a + b
+
+def call_named():
+    return add(a = 2, b = 40)
+
+def call_star():
+    xs = [3, 4]
+    return add(*xs)
+
+def use_list_method():
+    xs = [1]
+    xs.append(2)
+    xs.append(3)
+    return xs
+
+def use_native():
+    return len([10, 20, 30, 40])
+
+def use_loop(n):
+    total = 0
+    for i in range(n):
+        total = total + i
+    return total
+
+def use_comprehension():
+    return [i * i for i in range(4)]
+
+def use_string_method():
+    return "abc".upper()
+
+def many_locals():
+    a = 1
+    b = 2
+    c = 3
+    d = 4
+    e = 5
+    f = 6
+    return a + b + c + d + e + f
+"#;
+
+    let ast = AstModule::parse("test_bcinstrs.star", code.to_owned(), &Dialect::Extended)?;
+    let globals = GlobalsBuilder::standard().build_named(GlobalFrozenHeapName {
+        name: "test_bcinstrs",
+    });
+    let frozen_module = Module::with_temp_heap(|module| {
+        {
+            let mut eval = Evaluator::new(&module);
+            eval.eval_module(ast, &globals).unwrap();
+        }
+        module.freeze_named(TestHeapName::heap_name("test_bcinstrs_def_round_trip"))
+    })?;
+
+    let restored = page_out_in_module(&frozen_module)?;
+
+    // Each restored function carries its own captured globals, so the call
+    // module needs none.
+    Module::with_temp_heap(|call_module| -> crate::Result<()> {
+        let mut eval = Evaluator::new(&call_module);
+
+        // SAFETY: `owned_frozen_value` roots `restored`'s heap into the call
+        // module's frozen heap (alive for this closure), so the `FrozenValue`
+        // stays valid for the `eval_function` calls below.
+        let get_fn = |name: &str| -> crate::Result<FrozenValue> {
+            Ok(unsafe {
+                restored
+                    .get(name)?
+                    .owned_frozen_value(call_module.frozen_heap())
+            })
+        };
+
+        let two = eval.heap().alloc(2);
+        let three = eval.heap().alloc(3);
+        assert_eq!(
+            eval.eval_function(get_fn("add")?.to_value(), &[two, three], &[])?
+                .unpack_i32(),
+            Some(5),
+            "add(2, 3)"
+        );
+
+        // for-loop / LoopDepth; 0+1+2+3+4 == 10.
+        let five = eval.heap().alloc(5);
+        assert_eq!(
+            eval.eval_function(get_fn("use_loop")?.to_value(), &[five], &[])?
+                .unpack_i32(),
+            Some(10),
+            "use_loop(5)"
+        );
+
+        // KnownMethod (str method).
+        assert_eq!(
+            eval.eval_function(get_fn("use_string_method")?.to_value(), &[], &[])?
+                .unpack_str(),
+            Some("ABC"),
+            "use_string_method()"
+        );
+
+        // Remaining zero-arg fns, compared via Display.
+        for (name, expected) in [
+            ("call_named", "42"),             // BcCallArgsFull: named args
+            ("call_star", "7"),               // BcCallArgsFull: *args
+            ("use_list_method", "[1, 2, 3]"), // KnownMethod: list.append
+            ("use_native", "4"),              // BcNativeFunction: len
+            ("use_comprehension", "[0, 1, 4, 9]"),
+            ("many_locals", "21"), // non-empty InstrEnd local_names
+        ] {
+            let got = eval.eval_function(get_fn(name)?.to_value(), &[], &[])?;
+            assert_eq!(got.to_string(), expected, "calling restored `{name}`");
+        }
+
+        Ok(())
+    })?;
+
+    Ok(())
+}
+
+/// Serialization must be byte-deterministic for cross-run dedup. Compile the
+/// same source twice into independent modules (different heaps/seeds) and assert
+/// the byte streams match.
+///
+/// Compile-twice rather than serialize/deserialize/serialize: re-serializing a
+/// paged-in module hits an unrelated chunk-index gap, orthogonal to `BcInstrs`.
+#[test]
+fn test_bcinstrs_module_serialization_deterministic() -> crate::Result<()> {
+    use crate::environment::FrozenModule;
+    use crate::environment::Module;
+    use crate::eval::Evaluator;
+    use crate::syntax::AstModule;
+    use crate::syntax::Dialect;
+
+    let code = r#"
+def add(a, b):
+    return a + b
+
+def use_loop(n):
+    total = 0
+    for i in range(n):
+        total = total + i
+    return total
+
+def use_comprehension():
+    return [i * i for i in range(4)]
+"#;
+
+    // Shared globals so native-fn refs (`range`) get the same `HeapRefId` in
+    // both compilations.
+    let globals = GlobalsBuilder::standard().build_named(GlobalFrozenHeapName {
+        name: "test_bcinstrs_det_globals",
+    });
+
+    // Same heap name both times so self-references encode to the same `HeapRefId`.
+    let compile = || -> crate::Result<FrozenModule> {
+        let ast = AstModule::parse(
+            "test_bcinstrs_det.star",
+            code.to_owned(),
+            &Dialect::Extended,
+        )?;
+        Ok(Module::with_temp_heap(|module| {
+            {
+                let mut eval = Evaluator::new(&module);
+                eval.eval_module(ast, &globals).unwrap();
+            }
+            module.freeze_named(TestHeapName::heap_name("test_bcinstrs_det"))
+        })?)
+    };
+
+    let bytes_a = serialize_module_top_bytes(&compile()?)?;
+    let bytes_b = serialize_module_top_bytes(&compile()?)?;
+
+    assert_eq!(
+        bytes_a, bytes_b,
+        "compiling + serializing the same source twice must be byte-identical \
+         (non-determinism breaks cross-run dedup)"
+    );
+
+    Ok(())
 }
