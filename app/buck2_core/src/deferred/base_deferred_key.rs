@@ -104,6 +104,38 @@ impl PartialEq for BaseDeferredKey {
 
 impl Eq for BaseDeferredKey {}
 
+impl PartialOrd for BaseDeferredKey {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+// `Ord` is only needed so page-out can serialize `HashMap`s keyed by
+// `BaseDeferredKey` in a deterministic (process-stable) order.
+impl Ord for BaseDeferredKey {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        fn rank(k: &BaseDeferredKey) -> u8 {
+            match k {
+                BaseDeferredKey::TargetLabel(_) => 0,
+                BaseDeferredKey::AnonTarget(_) => 1,
+                BaseDeferredKey::BxlLabel(_) => 2,
+            }
+        }
+        match (self, other) {
+            (BaseDeferredKey::TargetLabel(a), BaseDeferredKey::TargetLabel(b)) => a.cmp(b),
+            // `dyn BaseDeferredKeyDyn` is not `Ord`; order by its content `strong_hash`
+            // (a blake3 hash over all identity fields, stable across processes).
+            (BaseDeferredKey::AnonTarget(a), BaseDeferredKey::AnonTarget(b)) => {
+                a.strong_hash().cmp(&b.strong_hash())
+            }
+            (BaseDeferredKey::BxlLabel(a), BaseDeferredKey::BxlLabel(b)) => {
+                a.0.strong_hash().cmp(&b.0.strong_hash())
+            }
+            _ => rank(self).cmp(&rank(other)),
+        }
+    }
+}
+
 impl Hash for BaseDeferredKey {
     fn hash<H: Hasher>(&self, state: &mut H) {
         match self {

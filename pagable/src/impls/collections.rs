@@ -47,12 +47,16 @@ impl<'de, K: Ord + PagableDeserialize<'de>, V: PagableDeserialize<'de>> PagableD
     }
 }
 
-impl<K: PagableSerialize, V: PagableSerialize> PagableSerialize
+impl<K: PagableSerialize + Ord, V: PagableSerialize> PagableSerialize
     for std::collections::HashMap<K, V>
 {
     fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
+        // Serialize in sorted key order: for deterministic pagable serialization
+
+        let mut entries: Vec<(&K, &V)> = self.iter().collect();
+        entries.sort_by_key(|(a, _)| *a);
         usize::serialize(&self.len(), serializer.serde())?;
-        for (k, v) in self {
+        for (k, v) in entries {
             k.pagable_serialize(serializer)?;
             v.pagable_serialize(serializer)?;
         }
@@ -76,12 +80,15 @@ impl<'de, K: std::hash::Hash + Eq + PagableDeserialize<'de>, V: PagableDeseriali
     }
 }
 
-impl<K: sequence_trie::TrieKey + PagableSerialize, V: PagableSerialize> PagableSerialize
+impl<K: sequence_trie::TrieKey + PagableSerialize + Ord, V: PagableSerialize> PagableSerialize
     for sequence_trie::SequenceTrie<K, V>
 {
     fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
-        usize::serialize(&self.iter().count(), serializer.serde())?;
-        for (k, v) in self.iter() {
+        // Serialize in sorted path order to keep the serialization stable.
+        let mut entries: Vec<(Vec<&K>, &V)> = self.iter().collect();
+        entries.sort_by(|(a, _), (b, _)| a.cmp(b));
+        usize::serialize(&entries.len(), serializer.serde())?;
+        for (k, v) in entries {
             <Vec<&K>>::pagable_serialize(&k, serializer)?;
             v.pagable_serialize(serializer)?;
         }

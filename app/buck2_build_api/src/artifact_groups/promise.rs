@@ -125,6 +125,8 @@ impl<'de> PagableDeserialize<'de> for PromiseArtifactLock {
     Hash,
     Eq,
     PartialEq,
+    PartialOrd,
+    Ord,
     strong_hash::StrongHash,
     Pagable
 )]
