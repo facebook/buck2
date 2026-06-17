@@ -246,6 +246,22 @@ async def test_lsp_exits_when_daemon_disappears(buck: Buck) -> None:
         await _kill_if_alive(lsp.process)
 
 
+@buck_test()
+@env("BUCK2_TESTING_INACTIVITY_TIMEOUT", "true")
+async def test_lsp_requests_keep_daemon_alive(buck: Buck) -> None:
+    async with await buck.lsp() as lsp:
+        await lsp.init_connection()
+        daemon_info = await buck.get_daemon_dir() / "buckd.info"
+        pid = json.loads(daemon_info.read_text())["pid"]
+
+        for _ in range(6):
+            await asyncio.sleep(0.2)
+            await lsp.open_file(Path("clean_lint.bzl"))
+
+        assert json.loads(daemon_info.read_text())["pid"] == pid
+        assert lsp.process.returncode is None
+
+
 @buck_test(skip_for_os=["windows"])
 async def test_lsp_exits_when_daemon_is_killed(buck: Buck) -> None:
     await buck.server()

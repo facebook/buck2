@@ -10,12 +10,23 @@
 
 
 import asyncio
+import json
 import os
 
 import pytest
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.api.buck_result import BuckException
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, env
+
+
+# Length-prefixed protobuf frame for:
+# `SubscriptionRequest { subscribe_to_active_commands: SubscribeToActiveCommands {} }`.
+# This test intentionally uses the raw frame to verify stdin requests keep the
+# daemon alive without going through the CLI's `--active-commands` helper. The
+# wire shape is stable enough for this test: the subscription API is part of
+# Buck2's client/daemon protocol, and the existing field number for
+# `subscribe_to_active_commands` must remain backward-compatible.
+SUBSCRIBE_TO_ACTIVE_COMMANDS_REQUEST = b"\x02\x22\x00"
 
 
 @buck_test()
@@ -73,6 +84,27 @@ async def test_disconnect_eof(buck: Buck) -> None:
         subscribe.stdin.close()
         msg = await subscribe.read_message()
         assert "EOF" in msg["response"]["Goodbye"]["reason"]
+
+
+@buck_test()
+@env("BUCK2_TESTING_INACTIVITY_TIMEOUT", "true")
+async def test_requests_keep_daemon_alive(buck: Buck) -> None:
+    async with await buck.subscribe() as subscribe:
+        subscribe.stdin.write(SUBSCRIBE_TO_ACTIVE_COMMANDS_REQUEST)
+        await subscribe.stdin.drain()
+        await subscribe.read_message()
+
+        pid = json.loads((await buck.status()).stdout)["process_info"]["pid"]
+
+        for _ in range(3):
+            await asyncio.sleep(0.6)
+            subscribe.stdin.write(SUBSCRIBE_TO_ACTIVE_COMMANDS_REQUEST)
+            await subscribe.stdin.drain()
+            await subscribe.read_message()
+
+        status = json.loads((await buck.status()).stdout)
+        assert status["process_info"]["pid"] == pid
+        assert subscribe._process.returncode is None
 
 
 @buck_test()

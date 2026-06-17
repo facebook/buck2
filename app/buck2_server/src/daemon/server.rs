@@ -411,10 +411,11 @@ impl BuckdServer {
         }?;
 
         let init_request = Request::new(init_request);
+        let activity_sender = self.0.command_channel.clone();
         self.run_streaming(
             init_request,
             opts,
-            |ctx, partial_result_dispatcher, init_req| {
+            move |ctx, partial_result_dispatcher, init_req| {
                 // TODO: Use the PartialResultDispatcher instead of writing events.
                 func(
                     ctx,
@@ -422,7 +423,7 @@ impl BuckdServer {
                     init_req
                         .client_context()
                         .expect("already checked for a valid context"),
-                    StreamingRequestHandler::new(req),
+                    StreamingRequestHandler::new(req, activity_sender.clone()),
                 )
             },
         )
