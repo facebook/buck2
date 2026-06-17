@@ -82,6 +82,27 @@ async def test_agent_host_guard_denied_with_context(buck: Buck) -> None:
 
 
 @buck_test()
+async def test_agent_host_guard_denied_custom_isolation_dir(buck: Buck) -> None:
+    # The remediation command must target the daemon's isolation dir. Run under a
+    # non-default isolation dir and check the rejection message accounts for it.
+    buck.set_isolation_prefix("custom_iso")
+    _write_buckconfig_local(
+        buck,
+        "[buck2]\nagent_hostname_fail_v2_glob=*\n",
+    )
+    result = await expect_failure(
+        buck.build(
+            ":pass",
+            env={"BUCK2_TEST_DAEMON_ORIGINATING_CGROUP": _AGENT_CGROUP},
+        ),
+    )
+    golden(
+        output=_sanitize_denial(result.stderr, str(buck.cwd)),
+        rel_path="golden/denied_custom_isolation_dir.golden.stderr",
+    )
+
+
+@buck_test()
 async def test_agent_host_guard_non_agent_cgroup(buck: Buck) -> None:
     # Hostname matches but the daemon is not agent-originated -> build succeeds.
     _write_buckconfig_local(
