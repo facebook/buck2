@@ -175,8 +175,7 @@ impl EdenFsFileWatcher {
             .with_eden(|eden| eden.changesSinceV2(&changes_since_v2_params))
             .await
             .buck_error_context("Failed to query EdenFS for changes since last position.")?;
-        let mut position = self.position.write().await;
-        *position = result.toPosition;
+        let new_position = result.toPosition;
 
         let mut file_change_tracker = FileChangeTracker::new();
         let base_stats = self.base_file_watcher_stats().await?;
@@ -213,7 +212,12 @@ impl EdenFsFileWatcher {
                 .buck_error_context("Failed to handle large or unknown change.")?;
         }
 
+        // The journal position isn't updated until we have successfully written the changes to DICE.
+        // Writing it before that's the case risks DICE's state not matching the filesystem's if we
+        // return early due to an error above. This way, at worst we re-invalidate DICE keys, but we
+        // still ensure that it remains in sync with the repository state.
         file_change_tracker.write_to_dice(&mut dice)?;
+        *self.position.write().await = new_position;
         Ok((stats.finish(), dice))
     }
 
