@@ -20,6 +20,7 @@ import pytest
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
+from buck2.tests.e2e_util.helper.utils import daemon_is_alive
 
 
 @buck_test()
@@ -33,20 +34,24 @@ async def test_inactivity_timeout(buck: Buck) -> None:
     #######################################################
 
     # this will start the daemon
-    await buck.targets("//:rule")
+    status = await buck.server("--status")
+    pid = json.loads(status.stdout)["process_info"]["pid"]
+    daemon_dir = await buck.get_daemon_dir()
 
     time.sleep(1)  # 1 sec timeout
 
     # check it's dead
     for _ in range(20):
         time.sleep(1)
-        result = await buck.status()
-        if result.stderr.splitlines()[-1] == "no buckd running":
-            stderr = await buck.daemon_stderr()
+        if not daemon_is_alive(pid):
+            result = await buck.status()
+            assert "no buckd running" == result.stderr.splitlines()[-1]
+
+            stderr = (daemon_dir / "buckd.stderr").read_text()
             assert "inactivity timeout elapsed" in stderr
             return
 
-    raise AssertionError("Server did not die in 20 seconds")
+    raise AssertionError(f"Server with pid {pid} did not die in 20 seconds")
 
 
 @buck_test()
