@@ -80,6 +80,26 @@ impl_starlark_via_pagable!(
     bool, u8, u16, u32, u64, usize, i8, i16, i32, i64, f32, f64, String,
 );
 
+impl_starlark_via_pagable!(starlark_map::StarlarkHashValue);
+
+// `Hashed<K>` writes hash + key on the wire and reconstructs via the
+// stored hash on deserialize (avoids requiring `K: Hash`).
+impl<K: StarlarkSerialize> StarlarkSerialize for Hashed<K> {
+    fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
+        self.hash().starlark_serialize(ctx)?;
+        self.key().starlark_serialize(ctx)?;
+        Ok(())
+    }
+}
+
+impl<K: StarlarkDeserialize> StarlarkDeserialize for Hashed<K> {
+    fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
+        let hash = starlark_map::StarlarkHashValue::starlark_deserialize(ctx)?;
+        let key = K::starlark_deserialize(ctx)?;
+        Ok(Hashed::new_unchecked(hash, key))
+    }
+}
+
 impl<T: StarlarkSerialize> StarlarkSerialize for Vec<T> {
     fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
         self.len().pagable_serialize(ctx.pagable())?;
@@ -142,73 +162,6 @@ impl<T: StarlarkDeserialize> StarlarkDeserialize for Option<T> {
         } else {
             Ok(None)
         }
-    }
-}
-
-// ============================================================================
-// Tuples (A, B) — composes with `Vec<T>: StarlarkSerialize` to give
-// `Vec<(A, B)>: StarlarkSerialize` for free.
-// ============================================================================
-
-impl<A: StarlarkSerialize, B: StarlarkSerialize> StarlarkSerialize for (A, B) {
-    fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
-        self.0.starlark_serialize(ctx)?;
-        self.1.starlark_serialize(ctx)?;
-        Ok(())
-    }
-}
-
-impl<A: StarlarkDeserialize, B: StarlarkDeserialize> StarlarkDeserialize for (A, B) {
-    fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
-        let a = A::starlark_deserialize(ctx)?;
-        let b = B::starlark_deserialize(ctx)?;
-        Ok((a, b))
-    }
-}
-
-impl<A: StarlarkSerialize, B: StarlarkSerialize, C: StarlarkSerialize> StarlarkSerialize
-    for (A, B, C)
-{
-    fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
-        self.0.starlark_serialize(ctx)?;
-        self.1.starlark_serialize(ctx)?;
-        self.2.starlark_serialize(ctx)?;
-        Ok(())
-    }
-}
-
-impl<A: StarlarkDeserialize, B: StarlarkDeserialize, C: StarlarkDeserialize> StarlarkDeserialize
-    for (A, B, C)
-{
-    fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
-        let a = A::starlark_deserialize(ctx)?;
-        let b = B::starlark_deserialize(ctx)?;
-        let c = C::starlark_deserialize(ctx)?;
-        Ok((a, b, c))
-    }
-}
-
-impl<A: StarlarkSerialize, B: StarlarkSerialize, C: StarlarkSerialize, D: StarlarkSerialize>
-    StarlarkSerialize for (A, B, C, D)
-{
-    fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
-        self.0.starlark_serialize(ctx)?;
-        self.1.starlark_serialize(ctx)?;
-        self.2.starlark_serialize(ctx)?;
-        self.3.starlark_serialize(ctx)?;
-        Ok(())
-    }
-}
-
-impl<A: StarlarkDeserialize, B: StarlarkDeserialize, C: StarlarkDeserialize, D: StarlarkDeserialize>
-    StarlarkDeserialize for (A, B, C, D)
-{
-    fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
-        let a = A::starlark_deserialize(ctx)?;
-        let b = B::starlark_deserialize(ctx)?;
-        let c = C::starlark_deserialize(ctx)?;
-        let d = D::starlark_deserialize(ctx)?;
-        Ok((a, b, c, d))
     }
 }
 
@@ -324,6 +277,72 @@ impl SmallMapKeyDeserialize for FrozenStringValue {
     ) -> crate::Result<Hashed<Self>> {
         let fsv = FrozenStringValue::starlark_deserialize(ctx)?;
         Ok(fsv.get_hashed())
+    }
+}
+
+// ============================================================================
+// Unit / tuples / fixed-size arrays
+// ============================================================================
+
+impl StarlarkSerialize for () {
+    fn starlark_serialize(&self, _ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
+        Ok(())
+    }
+}
+
+impl StarlarkDeserialize for () {
+    fn starlark_deserialize(_ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
+        Ok(())
+    }
+}
+
+macro_rules! impl_starlark_for_tuple {
+    ($($name:ident: $idx:tt),+) => {
+        impl<$($name: StarlarkSerialize),+> StarlarkSerialize for ($($name,)+) {
+            fn starlark_serialize(
+                &self,
+                ctx: &mut dyn StarlarkSerializeContext,
+            ) -> crate::Result<()> {
+                $(self.$idx.starlark_serialize(ctx)?;)+
+                Ok(())
+            }
+        }
+        impl<$($name: StarlarkDeserialize),+> StarlarkDeserialize for ($($name,)+) {
+            fn starlark_deserialize(
+                ctx: &mut dyn StarlarkDeserializeContext<'_>,
+            ) -> crate::Result<Self> {
+                Ok(($($name::starlark_deserialize(ctx)?,)+))
+            }
+        }
+    };
+}
+
+impl_starlark_for_tuple!(T1: 0);
+impl_starlark_for_tuple!(T1: 0, T2: 1);
+impl_starlark_for_tuple!(T1: 0, T2: 1, T3: 2);
+impl_starlark_for_tuple!(T1: 0, T2: 1, T3: 2, T4: 3);
+impl_starlark_for_tuple!(T1: 0, T2: 1, T3: 2, T4: 3, T5: 4);
+impl_starlark_for_tuple!(T1: 0, T2: 1, T3: 2, T4: 3, T5: 4, T6: 5);
+impl_starlark_for_tuple!(T1: 0, T2: 1, T3: 2, T4: 3, T5: 4, T6: 5, T7: 6);
+impl_starlark_for_tuple!(T1: 0, T2: 1, T3: 2, T4: 3, T5: 4, T6: 5, T7: 6, T8: 7);
+
+impl<T: StarlarkSerialize, const N: usize> StarlarkSerialize for [T; N] {
+    fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
+        for elem in self.iter() {
+            elem.starlark_serialize(ctx)?;
+        }
+        Ok(())
+    }
+}
+
+impl<T: StarlarkDeserialize, const N: usize> StarlarkDeserialize for [T; N] {
+    fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
+        let mut tmp: Vec<T> = Vec::with_capacity(N);
+        for _ in 0..N {
+            tmp.push(T::starlark_deserialize(ctx)?);
+        }
+        // SAFETY: pushed exactly N elements above.
+        Ok(tmp.try_into().unwrap_or_else(|_| unreachable!()))
     }
 }
 

@@ -26,6 +26,10 @@ use starlark_derive::starlark_internal_bc;
 
 use crate::eval::bc::instr::BcInstr;
 use crate::eval::bc::instr_impl::*;
+use crate::pagable::StarlarkDeserialize;
+use crate::pagable::StarlarkDeserializeContext;
+use crate::pagable::StarlarkSerialize;
+use crate::pagable::StarlarkSerializeContext;
 
 /// Bytecode instruction opcode.
 #[starlark_internal_bc]
@@ -127,6 +131,25 @@ pub(crate) trait BcOpcodeHandler<R> {
 /// Callback for the `dispatch_all` function.
 pub(crate) trait BcOpcodeAllHandler {
     fn handle<I: BcInstr>(&mut self, opcode: BcOpcode);
+}
+
+// Manual `StarlarkSerialize`/`StarlarkDeserialize` over `u32`. The derive
+// would emit a `u8` discriminant — too narrow for the (>256) opcode count.
+impl StarlarkSerialize for BcOpcode {
+    fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
+        use pagable::PagableSerialize;
+        (*self as u32).pagable_serialize(ctx.pagable())?;
+        Ok(())
+    }
+}
+
+impl StarlarkDeserialize for BcOpcode {
+    fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
+        use pagable::PagableDeserialize;
+        let n = u32::pagable_deserialize(ctx.pagable())?;
+        BcOpcode::by_number(n)
+            .ok_or_else(|| crate::Error::new_other(anyhow::anyhow!("invalid BcOpcode number: {n}")))
+    }
 }
 
 impl BcOpcode {

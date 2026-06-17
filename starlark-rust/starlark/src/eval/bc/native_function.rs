@@ -20,6 +20,10 @@ use dupe::Dupe;
 
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
+use crate::pagable::StarlarkDeserialize;
+use crate::pagable::StarlarkDeserializeContext;
+use crate::pagable::StarlarkSerialize;
+use crate::pagable::StarlarkSerializeContext;
 use crate::values::FrozenValueTyped;
 use crate::values::Value;
 use crate::values::function::NativeFunc;
@@ -31,6 +35,21 @@ pub(crate) struct BcNativeFunction {
     fun: FrozenValueTyped<'static, NativeFunction>,
     /// Copy function here from `fun` to avoid extra dereference when calling.
     imp: &'static NativeFunc,
+}
+
+// Only the frozen value is on the wire; `imp` is recomputed from `fun` on
+// deserialize via `BcNativeFunction::new`.
+impl StarlarkSerialize for BcNativeFunction {
+    fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
+        self.fun.starlark_serialize(ctx)
+    }
+}
+
+impl StarlarkDeserialize for BcNativeFunction {
+    fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
+        let fun = FrozenValueTyped::<'static, NativeFunction>::starlark_deserialize(ctx)?;
+        Ok(BcNativeFunction::new(fun))
+    }
 }
 
 impl BcNativeFunction {

@@ -21,9 +21,11 @@ use std::cmp::Ordering;
 use std::marker;
 use std::ptr;
 
+use starlark_derive::StarlarkPagable;
 use starlark_syntax::eval_exception::EvalException;
 use starlark_syntax::internal_error;
 
+use crate as starlark;
 use crate::coerce::coerce;
 use crate::collections::Hashed;
 use crate::collections::SmallMap;
@@ -1393,7 +1395,7 @@ impl BcInstr for InstrReturnCheckType {
 pub(crate) struct InstrDefImpl;
 pub(crate) type InstrDef = InstrNoFlow<InstrDefImpl>;
 
-#[derive(Debug)]
+#[derive(Debug, StarlarkPagable)]
 pub(crate) struct InstrDefData {
     pub(crate) function_name: String,
     pub(crate) params: ParametersCompiled<u32>,

@@ -22,10 +22,12 @@ use std::marker::PhantomData;
 use dupe::Clone_;
 use dupe::Dupe_;
 use either::Either;
+use starlark_derive::StarlarkPagable;
 use starlark_map::small_set::SmallSet;
 use starlark_syntax::value_error;
 use thiserror::Error;
 
+use crate as starlark;
 use crate::cast::transmute;
 use crate::coerce::Coerce;
 use crate::coerce::coerce;
@@ -35,6 +37,8 @@ use crate::collections::StarlarkHashValue;
 use crate::collections::symbol::symbol::Symbol;
 use crate::eval::ParametersSpec;
 use crate::hint::unlikely;
+use crate::pagable::StarlarkDeserialize;
+use crate::pagable::StarlarkSerialize;
 use crate::values::Heap;
 use crate::values::StringValue;
 use crate::values::Value;
@@ -72,7 +76,9 @@ impl From<FunctionError> for crate::Error {
 }
 
 /// An object accompanying argument name for faster argument resolution.
-pub(crate) trait ArgSymbol: Debug + Coerce<Self> + 'static {
+pub(crate) trait ArgSymbol:
+    Debug + Coerce<Self> + 'static + StarlarkSerialize + StarlarkDeserialize
+{
     fn get_index_from_param_spec<'v, V: ValueLike<'v>>(
         &self,
         ps: &ParametersSpec<V>,
@@ -95,7 +101,7 @@ impl ArgSymbol for Symbol {
 }
 
 /// `Symbol` resolved to function parameter index.
-#[derive(Debug)]
+#[derive(Debug, StarlarkPagable)]
 pub(crate) struct ResolvedArgName {
     /// Hash of the argument name.
     pub(crate) hash: StarlarkHashValue,

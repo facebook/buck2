@@ -25,7 +25,9 @@ use std::ops::Sub;
 
 use derive_more::Display;
 use dupe::Dupe;
+use starlark_derive::StarlarkPagable;
 
+use crate as starlark;
 use crate::eval::bc::if_debug::IfDebug;
 use crate::eval::bc::instr::BcInstr;
 use crate::eval::bc::opcode::BcOpcode;
@@ -35,7 +37,18 @@ use crate::eval::bc::repr::BcInstrRepr;
 
 /// Address relative to bytecode start.
 #[derive(
-    Eq, PartialEq, Copy, Clone, Dupe, Debug, PartialOrd, Ord, Display, Hash, Default
+    Eq,
+    PartialEq,
+    Copy,
+    Clone,
+    Dupe,
+    Debug,
+    PartialOrd,
+    Ord,
+    Display,
+    Hash,
+    Default,
+    StarlarkPagable
 )]
 #[display("@{}", _0)]
 pub(crate) struct BcAddr(pub(crate) u32);
@@ -231,7 +244,18 @@ impl<'b> BcPtrAddr<'b> {
 }
 
 /// Difference between addresses.
-#[derive(Eq, PartialEq, Copy, Clone, Dupe, Debug, PartialOrd, Ord, Display)]
+#[derive(
+    Eq,
+    PartialEq,
+    Copy,
+    Clone,
+    Dupe,
+    Debug,
+    PartialOrd,
+    Ord,
+    Display,
+    StarlarkPagable
+)]
 pub(crate) struct BcAddrOffset(pub(crate) u32);
 
 impl BcAddrOffset {
@@ -251,5 +275,16 @@ impl BcAddrOffset {
 }
 
 /// Negative difference between addresses.
-#[derive(Eq, PartialEq, Copy, Clone, Dupe, Debug, PartialOrd, Ord, Display)]
+#[derive(
+    Eq,
+    PartialEq,
+    Copy,
+    Clone,
+    Dupe,
+    Debug,
+    PartialOrd,
+    Ord,
+    Display,
+    StarlarkPagable
+)]
 pub(crate) struct BcAddrOffsetNeg(pub(crate) u32);

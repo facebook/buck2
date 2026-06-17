@@ -22,8 +22,10 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 use std::marker::PhantomData;
 
+use starlark_derive::StarlarkPagable;
 use starlark_syntax::slice_vec_ext::VecExt;
 
+use crate as starlark;
 use crate::coerce::coerce;
 use crate::collections::symbol::symbol::Symbol;
 use crate::eval::bc::frame::BcFramePtr;
@@ -54,7 +56,8 @@ pub(crate) trait BcCallArgsForDef: BcInstrArg {
 }
 
 /// Full call arguments: positional, named, star and star-star. All taken from the stack.
-#[derive(Debug)]
+#[derive(Debug, StarlarkPagable)]
+#[starlark_pagable(bound = "S: ArgSymbol + starlark::pagable::StarlarkPagable")]
 pub(crate) struct BcCallArgsFull<S: ArgSymbol> {
     pub(crate) pos_named: BcSlotInRange,
     pub(crate) names: Box<[(S, FrozenStringValue)]>,
@@ -63,7 +66,7 @@ pub(crate) struct BcCallArgsFull<S: ArgSymbol> {
 }
 
 /// Positional-only call arguments, from stack.
-#[derive(Debug)]
+#[derive(Debug, StarlarkPagable)]
 pub(crate) struct BcCallArgsPos {
     /// Range of positional arguments.
     pub(crate) pos: BcSlotInRange,

@@ -16,14 +16,16 @@
  */
 
 use dupe::Dupe;
+use starlark_derive::StarlarkPagable;
 
+use crate as starlark;
 use crate::values::FrozenValue;
 use crate::values::Value;
 use crate::values::layout::vtable::AValueDyn;
 use crate::values::stack_guard;
 
 /// `FrozenValue` which is not `i32` or `str`.
-#[derive(Copy, Clone, Dupe, Debug, derive_more::Display)]
+#[derive(Copy, Clone, Dupe, Debug, derive_more::Display, StarlarkPagable)]
 pub(crate) struct FrozenValueNotSpecial(FrozenValue);
 
 impl FrozenValueNotSpecial {

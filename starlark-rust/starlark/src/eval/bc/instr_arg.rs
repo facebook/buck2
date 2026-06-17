@@ -50,6 +50,8 @@ use crate::eval::runtime::arguments::ArgSymbol;
 use crate::eval::runtime::frame_span::FrameSpan;
 use crate::eval::runtime::slots::LocalCapturedSlotId;
 use crate::eval::runtime::slots::LocalSlotId;
+use crate::pagable::StarlarkDeserialize;
+use crate::pagable::StarlarkSerialize;
 use crate::values::FrozenValue;
 use crate::values::FrozenValueTyped;
 use crate::values::StarlarkValue;
@@ -75,7 +77,7 @@ impl Display for TruncateValueRepr {
 }
 
 /// Instruction fixed argument.
-pub(crate) trait BcInstrArg: 'static {
+pub(crate) trait BcInstrArg: 'static + StarlarkSerialize + StarlarkDeserialize {
     /// Append space then append the argument, or append nothing if the argument is empty.
     fn fmt_append(
         param: &Self,

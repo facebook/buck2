@@ -46,6 +46,10 @@ use crate::eval::bc::repr::BcInstrRepr;
 use crate::eval::bc::slow_arg::BcInstrEndArg;
 use crate::eval::bc::slow_arg::BcInstrSlowArg;
 use crate::eval::bc::writer::BcStatementLocations;
+use crate::pagable::StarlarkDeserialize;
+use crate::pagable::StarlarkDeserializeContext;
+use crate::pagable::StarlarkSerialize;
+use crate::pagable::StarlarkSerializeContext;
 use crate::static_starlark_value;
 use crate::values::FrozenStringValue;
 use crate::values::types::any_array::AnyArray;
@@ -141,18 +145,128 @@ impl BcInstrsEmpty {
     }
 }
 
-#[derive(StarlarkPagable)]
 pub(crate) struct BcInstrs {
-    // We use `usize` here to guarantee the buffer is properly aligned
-    // to store `BcInstrLayout`.
-    //
-    // `Left`: owned compiled buffer. `Right`: empty marker, resolved lazily
-    // via [`empty_instrs()`] to a single shared `InstrEnd`.
-    //
-    // TODO(nero): pagable ser/de of `Box<[u64]>` is NOT correct for
-    // cross-process round-trip T269226805
+    // `Left`: owned compiled buffer (`u64` for 8-byte alignment of
+    // `BcInstrRepr`). `Right`: empty marker, resolved lazily.
     instrs: Either<Box<[u64]>, BcInstrsEmpty>,
     pub(crate) stmt_locs: BcStatementLocations,
+}
+
+// Manual `StarlarkSerialize` / `StarlarkDeserialize` for `BcInstrs`.
+//
+// The `Box<[u64]>` here is a packed buffer of `BcInstrRepr<I>` with embedded
+// `FrozenValue`s — raw `u64` ser/de is unsound across processes. We walk via
+// `self.iter()` and route each `I::Arg` through its own `StarlarkSerialize`.
+//
+// Wire format: u8 tag (0=empty, 1=compiled). Tag=1 is followed by a stream
+// of `(u32 opcode, I::Arg)` terminated by `BcOpcode::End`. Then `stmt_locs`.
+
+impl StarlarkSerialize for BcInstrs {
+    fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
+        use pagable::PagableSerialize;
+        match &self.instrs {
+            Either::Right(empty) => {
+                0u8.pagable_serialize(ctx.pagable())?;
+                <BcInstrsEmpty as StarlarkSerialize>::starlark_serialize(empty, ctx)?;
+            }
+            Either::Left(_) => {
+                1u8.pagable_serialize(ctx.pagable())?;
+                for (ptr, _ip) in self.iter() {
+                    let opcode = ptr.get_opcode();
+                    (opcode as u32).pagable_serialize(ctx.pagable())?;
+                    let mut handler = SerializeArgHandler {
+                        ctx,
+                        ptr,
+                        result: Ok(()),
+                    };
+                    opcode.dispatch(&mut handler);
+                    handler.result?;
+                }
+            }
+        }
+        self.stmt_locs.starlark_serialize(ctx)?;
+        Ok(())
+    }
+}
+
+impl StarlarkDeserialize for BcInstrs {
+    fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
+        use pagable::PagableDeserialize;
+        let tag = u8::pagable_deserialize(ctx.pagable())?;
+        let instrs = match tag {
+            0 => Either::Right(<BcInstrsEmpty as StarlarkDeserialize>::starlark_deserialize(ctx)?),
+            1 => {
+                let mut writer = BcInstrsWriter::new();
+                loop {
+                    let opcode_n = u32::pagable_deserialize(ctx.pagable())?;
+                    let opcode = BcOpcode::by_number(opcode_n).ok_or_else(|| {
+                        crate::Error::new_other(anyhow::anyhow!(
+                            "invalid BcOpcode number on deserialize: {opcode_n}"
+                        ))
+                    })?;
+                    let mut handler = DeserializeArgHandler {
+                        ctx,
+                        writer: &mut writer,
+                        result: Ok(()),
+                    };
+                    opcode.dispatch(&mut handler);
+                    handler.result?;
+                    if opcode == BcOpcode::End {
+                        break;
+                    }
+                }
+                // Take the buffer without `finish()` (which appends another
+                // `InstrEnd`); the deserialized one is already in place.
+                let mut writer = writer;
+                let buf = mem::take(&mut writer.instrs);
+                mem::forget(writer);
+                Either::Left(buf.into_boxed_slice())
+            }
+            _ => {
+                return Err(crate::Error::new_other(anyhow::anyhow!(
+                    "invalid BcInstrs tag: {tag}"
+                )));
+            }
+        };
+        let stmt_locs = BcStatementLocations::starlark_deserialize(ctx)?;
+        Ok(BcInstrs { instrs, stmt_locs })
+    }
+}
+
+struct SerializeArgHandler<'a, 'b> {
+    ctx: &'a mut dyn StarlarkSerializeContext,
+    ptr: BcPtrAddr<'b>,
+    result: crate::Result<()>,
+}
+
+impl<'a, 'b> BcOpcodeHandler<()> for &mut SerializeArgHandler<'a, 'b> {
+    #[inline(always)]
+    fn handle<I: BcInstr>(self) {
+        // Dispatched on the opcode at `ptr`, so the record is `BcInstrRepr<I>`.
+        let repr = self
+            .ptr
+            .get_instr_checked::<I>()
+            .expect("opcode/instr type mismatch");
+        self.result = <I::Arg as StarlarkSerialize>::starlark_serialize(&repr.arg, self.ctx);
+    }
+}
+
+struct DeserializeArgHandler<'a, 'de, 'w> {
+    ctx: &'a mut dyn StarlarkDeserializeContext<'de>,
+    writer: &'w mut BcInstrsWriter,
+    result: crate::Result<()>,
+}
+
+impl<'a, 'de, 'w> BcOpcodeHandler<()> for &mut DeserializeArgHandler<'a, 'de, 'w> {
+    #[inline(always)]
+    fn handle<I: BcInstr>(self) {
+        match <I::Arg as StarlarkDeserialize>::starlark_deserialize(self.ctx) {
+            Ok(arg) => {
+                self.writer.write::<I>(arg);
+            }
+            Err(e) => self.result = Err(e),
+        }
+    }
 }
 
 /// Raw instructions writer.

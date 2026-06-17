@@ -22,6 +22,10 @@ use once_cell::sync::Lazy;
 use crate::environment::Methods;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
+use crate::pagable::StarlarkDeserialize;
+use crate::pagable::StarlarkDeserializeContext;
+use crate::pagable::StarlarkSerialize;
+use crate::pagable::StarlarkSerializeContext;
 use crate::values::FrozenValueTyped;
 use crate::values::StarlarkValue;
 use crate::values::Value;
@@ -41,6 +45,26 @@ pub(crate) struct KnownMethod {
     method: FrozenValueTyped<'static, NativeMethod>,
     /// Copied here from `method` to faster invocation (one fewer deref).
     imp: &'static NativeMeth,
+}
+
+// `type_methods` and `imp` are `'static` pointers tied to the in-process
+// known-methods table. Round-trip the method name only and re-resolve via
+// `get_known_method` on deserialize.
+impl StarlarkSerialize for KnownMethod {
+    fn starlark_serialize(&self, ctx: &mut dyn StarlarkSerializeContext) -> crate::Result<()> {
+        self.method.as_ref().name.starlark_serialize(ctx)
+    }
+}
+
+impl StarlarkDeserialize for KnownMethod {
+    fn starlark_deserialize(ctx: &mut dyn StarlarkDeserializeContext<'_>) -> crate::Result<Self> {
+        let name = String::starlark_deserialize(ctx)?;
+        get_known_method(&name).ok_or_else(|| {
+            crate::Error::new_other(anyhow::anyhow!(
+                "KnownMethod `{name}` not in known-methods table on deserialize"
+            ))
+        })
+    }
 }
 
 impl KnownMethod {

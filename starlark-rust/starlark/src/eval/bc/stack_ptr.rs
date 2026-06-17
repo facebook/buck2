@@ -20,6 +20,8 @@
 use std::ops::Add;
 
 use dupe::Dupe;
+use starlark_derive::StarlarkPagable;
+use starlark_derive::StarlarkPagableViaPagable;
 
 use crate as starlark;
 use crate::register_starlark_any;
@@ -38,7 +40,8 @@ use crate::register_starlark_any;
     Eq,
     Hash,
     derive_more::Display,
-    pagable::Pagable
+    pagable::Pagable,
+    StarlarkPagableViaPagable
 )]
 #[display("&{}", _0)]
 pub(crate) struct BcSlot(pub(crate) u32);
@@ -110,7 +113,16 @@ impl BcSlotRange {
 /// Slot containing a value.
 ///
 /// The slot may be a local variable, so this slot cannot be used to store a temporary value.
-#[derive(Debug, Copy, Clone, Dupe, derive_more::Display, PartialEq, Eq)]
+#[derive(
+    Debug,
+    Copy,
+    Clone,
+    Dupe,
+    derive_more::Display,
+    PartialEq,
+    Eq,
+    StarlarkPagable
+)]
 pub(crate) struct BcSlotIn(BcSlot);
 
 impl Add<u32> for BcSlotIn {
@@ -132,7 +144,7 @@ impl BcSlotIn {
     }
 }
 
-#[derive(Copy, Clone, Dupe, Debug, derive_more::Display)]
+#[derive(Copy, Clone, Dupe, Debug, derive_more::Display, StarlarkPagable)]
 #[display("{}..{}", start, end)]
 pub(crate) struct BcSlotInRange {
     pub(crate) start: BcSlotIn,
@@ -179,7 +191,7 @@ impl BcSlotInRange {
     }
 }
 
-#[derive(Copy, Clone, Dupe, Debug)]
+#[derive(Copy, Clone, Dupe, Debug, StarlarkPagable)]
 pub(crate) struct BcSlotInRangeFrom(pub(crate) BcSlotIn);
 
 impl BcSlotInRangeFrom {
@@ -202,7 +214,7 @@ impl BcSlotInRangeFrom {
     Dupe,
     derive_more::Display,
     pagable::Pagable,
-    starlark_derive::StarlarkPagableViaPagable
+    StarlarkPagableViaPagable
 )]
 pub(crate) struct BcSlotOut(BcSlot);
 

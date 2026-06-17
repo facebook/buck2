@@ -17,6 +17,9 @@
 
 use dupe::Dupe;
 use pagable::Pagable;
+use starlark_derive::StarlarkPagableViaPagable;
+
+use crate as starlark;
 
 /// Depth of the loop. For example,
 ///
@@ -37,6 +40,7 @@ use pagable::Pagable;
     PartialEq,
     Ord,
     PartialOrd,
-    Pagable
+    Pagable,
+    StarlarkPagableViaPagable
 )]
 pub(crate) struct LoopDepth(pub(crate) u32);
