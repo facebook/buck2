@@ -376,6 +376,7 @@ _go_extra_attributes = {
         "resources": attrs.list(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), default = []),
         "_build_info": BUILD_INFO_ATTR,
         "_build_tags": build_tags_attr,
+        "_cgo_enabled": cgo_enabled_attr,
         "_coverage_mode": coverage_mode_attr,
         "_cxx_toolchain": toolchains_common.cxx(),
         "_exec_os_type": buck.exec_os_type_arg(),
@@ -389,6 +390,7 @@ _go_extra_attributes = {
     "go_exported_library": {
         "_build_info": BUILD_INFO_ATTR,
         "_build_tags": build_tags_attr,
+        "_cgo_enabled": cgo_enabled_attr,
         "_cxx_toolchain": toolchains_common.cxx(),
         "_exec_os_type": buck.exec_os_type_arg(),
         "_go_stdlib": attrs.default_only(attrs.dep(default = "prelude//go/tools:stdlib")),
@@ -415,6 +417,7 @@ _go_extra_attributes = {
         "resources": attrs.list(attrs.source(allow_directory = True), default = []),
         "_build_info": BUILD_INFO_ATTR,
         "_build_tags": build_tags_attr,
+        "_cgo_enabled": cgo_enabled_attr,
         "_coverage_mode": coverage_mode_attr,
         "_cxx_toolchain": toolchains_common.cxx(),
         "_exec_os_type": buck.exec_os_type_arg(),

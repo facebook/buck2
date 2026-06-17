@@ -160,14 +160,12 @@ go_stdlib_transition = transition(
 )
 
 cgo_enabled_attr = attrs.default_only(
-    attrs.option(
-        attrs.bool(),
+    attrs.bool(
         default = select({
-            "prelude//go/constraints:cgo_enabled[auto]": None,
             "prelude//go/constraints:cgo_enabled[false]": False,
             "prelude//go/constraints:cgo_enabled[true]": True,
-        }),
-    )
+        })
+    ),
 )
 
 coverage_mode_attr = attrs.default_only(

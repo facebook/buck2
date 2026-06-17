@@ -58,9 +58,8 @@ load(":packages.bzl", "cgo_exported_preprocessor", "go_attr_pkg_name")
 load(":toolchain.bzl", "evaluate_cgo_enabled")
 
 def go_exported_library_impl(ctx: AnalysisContext) -> list[Provider]:
-    cxx_toolchain_available = CxxToolchainInfo in ctx.attrs._cxx_toolchain
     pkg_import_path = go_attr_pkg_name(ctx)
-    cgo_enabled = evaluate_cgo_enabled(cxx_toolchain_available, ctx.attrs.cgo_enabled)
+    cgo_enabled = evaluate_cgo_enabled(ctx.attrs._cgo_enabled)
     cgo_build_context = get_cgo_build_context(ctx)
 
     lib, pkg_info, _ = declare_package_build(

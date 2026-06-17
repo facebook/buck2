@@ -6,9 +6,8 @@ source_listing()
 
 constraint(
     name = "cgo_enabled",
-    default = "auto",
+    default = "true",
     values = [
-        "auto",
         "true",
         "false",
     ],

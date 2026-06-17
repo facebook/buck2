@@ -7,7 +7,7 @@
 # above-listed licenses.
 
 load("@prelude//:paths.bzl", "paths")
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
+
 load(
     "@prelude//cxx:preprocessor.bzl",
     "cxx_inherited_preprocessor_infos",
@@ -50,7 +50,6 @@ load(":packages.bzl", "cgo_exported_preprocessor", "go_attr_pkg_name", "merge_pk
 load(":toolchain.bzl", "GoToolchainInfo", "evaluate_cgo_enabled", "get_toolchain_env_vars")
 
 def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
-    cxx_toolchain_available = CxxToolchainInfo in ctx.attrs._cxx_toolchain
     pkg_import_path = go_attr_pkg_name(ctx)
 
     coverage_mode = GoCoverageMode(ctx.attrs._coverage_mode) if ctx.attrs._coverage_mode else None
@@ -72,7 +71,7 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
             build_tags = ctx.attrs._build_tags,
             coverage_enabled = ctx.attrs.coverage_enabled,
             coverage_mode = coverage_mode,
-            cgo_enabled = evaluate_cgo_enabled(cxx_toolchain_available, ctx.attrs._cgo_enabled, ctx.attrs.override_cgo_enabled),
+            cgo_enabled = evaluate_cgo_enabled(ctx.attrs._cgo_enabled, ctx.attrs.override_cgo_enabled),
         ),
         deps = ctx.attrs.deps,
     )

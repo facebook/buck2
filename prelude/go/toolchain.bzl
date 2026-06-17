@@ -69,18 +69,11 @@ def get_toolchain_env_vars(toolchain: GoToolchainInfo) -> dict[str, str | cmd_ar
 
     return env
 
-# Sets default value of cgo_enabled attribute based on availability of CxxToolchain
-def evaluate_cgo_enabled(cxx_toolchain_available: bool, cgo_enabled: [bool, None], override_cgo_enabled: [bool, None] = None) -> bool:
-    if not cxx_toolchain_available and (cgo_enabled or override_cgo_enabled):
-        fail("CGo can't be enabled because CxxToolchain is not available for current configuration")
-
+def evaluate_cgo_enabled(cgo_enabled: bool, override_cgo_enabled: bool | None = None) -> bool:
     if override_cgo_enabled != None:
         return override_cgo_enabled
 
-    if cgo_enabled != None:
-        return cgo_enabled
-
-    return cxx_toolchain_available
+    return cgo_enabled
 
 # Parse Go version from string, accepted format:
 # - "1.20"

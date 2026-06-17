@@ -6,7 +6,6 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
     "@prelude//linking:link_info.bzl",
     "LinkStyle",
@@ -61,9 +60,8 @@ def is_subpackage_of(other_pkg_import_path: str, pkg_import_path: str) -> bool:
     return pkg_import_path == other_pkg_import_path or other_pkg_import_path.startswith(pkg_import_path + "/")
 
 def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
-    cxx_toolchain_available = CxxToolchainInfo in ctx.attrs._cxx_toolchain
     pkg_import_path = go_attr_pkg_name(ctx)
-    cgo_enabled = evaluate_cgo_enabled(cxx_toolchain_available, ctx.attrs.cgo_enabled)
+    cgo_enabled = evaluate_cgo_enabled(ctx.attrs._cgo_enabled)
 
     deps = ctx.attrs.deps
     srcs = ctx.attrs.srcs

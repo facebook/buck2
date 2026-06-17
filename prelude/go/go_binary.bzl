@@ -7,7 +7,7 @@
 # above-listed licenses.
 
 load("@prelude//:artifacts.bzl", "single_artifact")
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
+
 load("@prelude//dist:dist_info.bzl", "DistInfo")
 load(
     "@prelude//linking:link_info.bzl",
@@ -28,9 +28,8 @@ load(":packages.bzl", "go_attr_pkg_name")
 load(":toolchain.bzl", "evaluate_cgo_enabled")
 
 def go_binary_impl(ctx: AnalysisContext) -> list[Provider]:
-    cxx_toolchain_available = CxxToolchainInfo in ctx.attrs._cxx_toolchain
     pkg_import_path = go_attr_pkg_name(ctx)
-    cgo_enabled = evaluate_cgo_enabled(cxx_toolchain_available, ctx.attrs.cgo_enabled)
+    cgo_enabled = evaluate_cgo_enabled(ctx.attrs._cgo_enabled)
     coverage_mode = GoCoverageMode(ctx.attrs._coverage_mode) if ctx.attrs._coverage_mode else None
     cgo_build_context = get_cgo_build_context(ctx)
 

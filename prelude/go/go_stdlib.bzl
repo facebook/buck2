@@ -7,7 +7,7 @@
 # above-listed licenses.
 
 load("@prelude//cxx:cxx_context.bzl", "get_opt_cxx_toolchain_info")
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
+
 load("@prelude//cxx:headers.bzl", "CxxHeadersLayout", "CxxHeadersNaming")
 load("@prelude//cxx:target_sdk_version.bzl", "get_target_sdk_version_flags")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
@@ -24,8 +24,7 @@ load(":toolchain.bzl", "GoToolchainInfo", "evaluate_cgo_enabled")
 def go_stdlib_impl(ctx: AnalysisContext) -> list[Provider]:
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
 
-    cxx_toolchain_available = CxxToolchainInfo in ctx.attrs._cxx_toolchain
-    cgo_enabled = evaluate_cgo_enabled(cxx_toolchain_available, cxx_toolchain_available, ctx.attrs._cgo_enabled)
+    cgo_enabled = evaluate_cgo_enabled(ctx.attrs._cgo_enabled)
 
     go_list_stdlib_out = go_list_stdlib(ctx.actions, go_toolchain, cgo_enabled)
 
