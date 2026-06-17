@@ -10,6 +10,7 @@ load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//android:android_binary.bzl", "get_binary_info")
 load(
     "@prelude//android:android_providers.bzl",
+    "AndroidApkExopackageInfo",
     "AndroidApkInfo",
     "AndroidApkUnderTestInfo",
     "AndroidBinaryNativeLibsInfo",
@@ -104,7 +105,7 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
         )
     ]
 
-    return [
+    providers = [
         AndroidApkInfo(
             apk = output_apk,
             manifest = resources_info.manifest,
@@ -154,6 +155,14 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
         ),
         class_to_srcs,
     ]
+
+    # Expose the exopackage secondary-dex dir so android_instrumentation_test can push it to the device.
+    if exopackage_info != None and exopackage_info.secondary_dex_info != None:
+        providers.append(
+            AndroidApkExopackageInfo(secondary_dex_directory = exopackage_info.secondary_dex_info.directory),
+        )
+
+    return providers
 
 def build_apk(
     output_filename: str,

@@ -6,7 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//android:android_providers.bzl", "AndroidApkInfo", "AndroidInstrumentationApkInfo")
+load("@prelude//android:android_providers.bzl", "AndroidApkExopackageInfo", "AndroidApkInfo", "AndroidInstrumentationApkInfo")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//java:class_to_srcs.bzl", "JavaClassToSourceMapInfo")
 load("@prelude//java:java_providers.bzl", "JavaPackagingInfo", "get_all_java_packaging_deps_tset")
@@ -144,6 +144,16 @@ def android_instrumentation_test_impl(ctx: AnalysisContext):
             apk_info.apk,
         ],
     )
+
+    # Exopackage secondary dexes live out-of-band, not in base.apk. Pass the build's secondary-dex
+    # dir so the runner pushes them to /data/local/tmp/exopackage/<pkg>/secondary-dex before
+    # Application init; otherwise classes in those dexes (e.g. com.facebook.R$style) hit NoClassDefFoundError on RE.
+    apk_exopackage_info = ctx.attrs.apk.get(AndroidApkExopackageInfo)
+    if apk_exopackage_info != None:
+        cmd.extend([
+            "--exopackage-secondary-dex-local-dir",
+            apk_exopackage_info.secondary_dex_directory,
+        ])
 
     listing_info = ctx.attrs._android_toolchain[TestListingInfo]
 

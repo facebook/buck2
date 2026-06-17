@@ -118,12 +118,16 @@ public class InstrumentationTestRunner extends DeviceRunner {
       "/storage/emulated/0/Android/media/%s/test_result/%s/";
   private static final String PRE_TEST_SETUP_SCRIPT = "PRE_TEST_SETUP_SCRIPT";
   private static final String APEXES_TO_INSTALL = "APEXES_TO_INSTALL";
+  // On-device root where exopackage artifacts live, keyed by package name; matches the on-device
+  // ExopackageDexLoader convention.
+  private static final String EXOPACKAGE_INSTALL_ROOT = "/data/local/tmp/exopackage";
 
   private final String packageName;
   private final String targetPackageName;
   private final String testRunner;
   private final File outputDirectory;
   private final String exopackageLocalPath;
+  @Nullable private final String exopackageSecondaryDexLocalPath;
   private final boolean attemptUninstallApkUnderTest;
   private final boolean attemptUninstallInstrumentationApk;
   private final Map<String, String> extraInstrumentationArguments;
@@ -210,6 +214,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
       String apkUnderTestPath,
       String exopackageLocalPath,
       String apkUnderTestExopackageLocalPath,
+      String exopackageSecondaryDexLocalPath,
       boolean attemptUninstallApkUnderTest,
       boolean attemptUninstallInstrumentationApk,
       boolean debug,
@@ -234,6 +239,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
     this.apkUnderTestPath = apkUnderTestPath;
     this.exopackageLocalPath = exopackageLocalPath;
     this.apkUnderTestExopackageLocalPath = apkUnderTestExopackageLocalPath;
+    this.exopackageSecondaryDexLocalPath = exopackageSecondaryDexLocalPath;
     this.attemptUninstallApkUnderTest = attemptUninstallApkUnderTest;
     this.attemptUninstallInstrumentationApk = attemptUninstallInstrumentationApk;
     this.codeCoverageOutputFile = codeCoverageOutputFile;
@@ -265,6 +271,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
     String codeCoverageOutputFile = null;
     String exopackageLocalPath = null;
     String apkUnderTestExopackageLocalPath = null;
+    String exopackageSecondaryDexLocalPath = null;
     String extraInstrumentationTestListener = null;
     boolean attemptUninstallApkUnderTest = false;
     boolean attemptUninstallInstrumentationApk = false;
@@ -321,6 +328,9 @@ public class InstrumentationTestRunner extends DeviceRunner {
             break;
           case "--apk-under-test-exopackage-local-dir":
             apkUnderTestExopackageLocalPath = args[++i];
+            break;
+          case "--exopackage-secondary-dex-local-dir":
+            exopackageSecondaryDexLocalPath = args[++i];
             break;
           case "--attempt-uninstall":
             attemptUninstallApkUnderTest = true;
@@ -512,6 +522,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
             argsParser.apkUnderTestPath,
             argsParser.exopackageLocalPath,
             argsParser.apkUnderTestExopackageLocalPath,
+            argsParser.exopackageSecondaryDexLocalPath,
             argsParser.attemptUninstallApkUnderTest,
             argsParser.attemptUninstallInstrumentationApk,
             argsParser.debug,
@@ -775,6 +786,10 @@ public class InstrumentationTestRunner extends DeviceRunner {
     if (this.apkUnderTestExopackageLocalPath != null) {
       Path localBase = Paths.get(apkUnderTestExopackageLocalPath);
       syncExopackageDir(localBase);
+    }
+
+    if (this.exopackageSecondaryDexLocalPath != null) {
+      pushExopackageSecondaryDex(Paths.get(this.exopackageSecondaryDexLocalPath), this.packageName);
     }
 
     String appScopedStorageDeviceArtifactsPath =
@@ -1364,6 +1379,12 @@ public class InstrumentationTestRunner extends DeviceRunner {
     Path remoteBase = Paths.get(metadataContents.trim());
     // TODO: speed this up by checking for already installed items
     // TODO: speed this up by only installing ABI-compatible shared-objects
+    pushTree(localBase, remoteBase, pusher);
+  }
+
+  /** Pushes every file under {@code localBase} to {@code remoteBase}, preserving relative paths. */
+  protected static void pushTree(Path localBase, Path remoteBase, FilePusher pusher)
+      throws Exception {
     try (Stream<Path> paths = Files.walk(localBase, FileVisitOption.FOLLOW_LINKS)) {
       Iterable<Path> localFiles = () -> paths.filter(p -> !Files.isDirectory(p)).iterator();
       for (Path p : localFiles) {
@@ -1373,6 +1394,18 @@ public class InstrumentationTestRunner extends DeviceRunner {
         pusher.pushFile(p.toString(), fullRemotePath.toString().replace('\\', '/'));
       }
     }
+  }
+
+  /**
+   * Push exopackage secondary-dex artifacts to
+   * /data/local/tmp/exopackage/&lt;packageName&gt;/secondary-dex so the on-device
+   * ExopackageDexLoader installs them before the test runner's Application init. Unlike {@link
+   * #syncExopackageDir}, the remote base is derived from the package name, so the buck rule can
+   * pass the build's secondary-dex dir directly without a remote-base metadata file.
+   */
+  protected void pushExopackageSecondaryDex(Path localDir, String packageName) throws Exception {
+    Path remoteBase = Paths.get(EXOPACKAGE_INSTALL_ROOT + "/" + packageName + "/secondary-dex");
+    pushTree(localDir, remoteBase, this::pushFile);
   }
 
   private String getAppScopedStoragePath(

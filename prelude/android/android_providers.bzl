@@ -120,6 +120,14 @@ AndroidApkInfo = provider(
     },
 )
 
+# Exopackage secondary-dex dir (metadata.txt + secondary-N.dex.jar) so android_instrumentation_test
+# can push it to the device. Only set when the apk is built with exopackage secondary_dex mode.
+AndroidApkExopackageInfo = provider(
+    fields = {
+        "secondary_dex_directory": provider_field(Artifact),
+    },
+)
+
 AndroidAabInfo = provider(
     fields = {
         "aab": provider_field(Artifact),
