@@ -10,6 +10,12 @@ To stop all instances, use `buck2 killall`.
 Usage: buck2 server [OPTIONS]
 
 Options:
+      --status
+          Print buckd status as JSON after ensuring the server is running.
+
+      --snapshot
+          Whether to include a state snapshot in the JSON status output.
+
   -h, --help
           Print help (see a summary with '-h')
 

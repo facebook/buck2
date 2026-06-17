@@ -134,7 +134,7 @@ fn duration_to_string(duration: Duration) -> String {
     format_duration(duration).to_string()
 }
 
-fn process_status(status: StatusResponse) -> buck2_error::Result<serde_json::Value> {
+pub(crate) fn process_status(status: StatusResponse) -> buck2_error::Result<serde_json::Value> {
     let timestamp = match status.start_time {
         None => "unknown".to_owned(),
         Some(timestamp) => timestamp_to_string(timestamp.seconds as u64, timestamp.nanos as u32)?,
