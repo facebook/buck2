@@ -519,7 +519,7 @@ def compile_swift(
             exported_headers,
             uses_content_based_paths,
         )
-        if exported_headers and not getattr(ctx.attrs, "disable_generated_umbrella_header", False)
+        if exported_headers and not getattr(ctx.attrs, "disable_generated_umbrella_header", True)
         else None
     )
 

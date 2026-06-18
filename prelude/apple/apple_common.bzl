@@ -406,7 +406,7 @@ def _disable_generated_umbrella_header_arg():
     # their own umbrella header (or an empty one) named after the module so
     # that `#import <ModuleName/ModuleName.h>` emitted in the -Swift.h header
     # still resolves.
-    return {"disable_generated_umbrella_header": attrs.bool(default = False)}
+    return {"disable_generated_umbrella_header": attrs.bool(default = True)}
 
 def _swift_package_name_arg():
     return {"swift_package_name": attrs.option(attrs.string(), default = None)}
