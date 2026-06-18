@@ -350,7 +350,7 @@ internment = { version = "0.8.6", features = ["arc", "serde"] }
 inventory = "0.3.24"
 ipnetwork = "0.20.0"
 is_proc_translated = "0.1.1"
-itertools = "0.14.0"
+itertools = "0.15.0"
 libc = "0.2.186"
 linked-hash-map = { version = "0.5", features = ["serde_impl"] }
 linkme = { version = "0.3.36", features = ["used_linker"] }
