@@ -61,8 +61,9 @@ use crate::directory::ActionImmutableDirectory;
 use crate::directory::ReDirectorySerializer;
 use crate::execute::blobs::ActionBlobs;
 use crate::materialize::materializer::ArtifactNotMaterializedReason;
-use crate::materialize::materializer::CasDownloadInfo;
 use crate::materialize::materializer::Materializer;
+use crate::materialize::materializer::ReLostInput;
+use crate::materialize::materializer::ReLostInputs;
 use crate::re::action_identity::ReActionIdentity;
 use crate::re::client::RemoteExecutionClient;
 use crate::re::error::with_error_handler;
@@ -120,9 +121,23 @@ impl Uploader {
             }
         };
 
+        let mut injectable_input_digests = input_digests.clone();
+        {
+            for entry in input_dir.unordered_walk().without_paths() {
+                let digest = match entry {
+                    DirectoryEntry::Dir(d) => d.as_fingerprinted_dyn().fingerprint(),
+                    DirectoryEntry::Leaf(ActionDirectoryMember::File(f)) => &f.digest,
+                    DirectoryEntry::Leaf(..) => continue,
+                };
+                injectable_input_digests.insert(digest);
+            }
+
+            injectable_input_digests.insert(input_dir.fingerprint());
+        };
+
         let mut upload_blobs = Vec::new();
         let mut missing_digests = StdBuckHashSet::default();
-        add_injected_missing_digests(&input_digests, &mut missing_digests)?;
+        add_injected_missing_digests(&injectable_input_digests, &mut missing_digests)?;
 
         let digests_and_ttls_iterator = if deduplicate_get_digests_ttl_calls {
             let (fut, reqs, new) = {
@@ -264,6 +279,7 @@ impl Uploader {
 
         // Track what files should be materialized before we upload.
         let mut paths_to_materialize = Vec::new();
+        let mut lost_inputs = Vec::new();
 
         if !missing_digests.is_empty() {
             let mut upload_file_paths = Vec::new();
@@ -324,8 +340,8 @@ impl Uploader {
                     }
                     Err(
                         ref err @ ArtifactNotMaterializedReason::RequiresCasDownload {
+                            ref path,
                             ref entry,
-                            ref info,
                             ..
                         },
                     ) => {
@@ -337,30 +353,10 @@ impl Uploader {
                             // won't be here. On the flip side, if a digest has been in the CAS for
                             // a very long time, it might have expired.
                             if file.digest.to_re() == digest {
-                                if should_error_for_missing_digest(info) {
-                                    soft_error!(
-                                        "cas_missing_fatal",
-                                        buck2_error::buck2_error!(
-                                            buck2_error::ErrorTag::Input,
-                                            "{} missing (origin: {})",
-                                            file.digest,
-                                            info.origin.as_display_for_not_found(),
-                                        ),
-                                        daemon_in_memory_state_is_corrupted: true,
-                                        action_cache_is_corrupted: info.origin.guaranteed_by_action_cache()
-                                    )?;
-
-                                    return Err(buck2_error::buck2_error!(
-                                        buck2_error::ErrorTag::ReCasArtifactExpired,
-                                        "Your build requires an artifact that has expired in the RE CAS \
-                                        and Buck does not have it. This likely happened because your Buck daemon \
-                                        has been online for a long time. This error is currently unrecoverable. \
-                                        To proceed, you should restart Buck using `buck2 killall`. \
-                                        Debug information: {:#}",
-                                        err
-                                    ));
-                                }
-
+                                let lost_input = ReLostInput {
+                                    path: path.clone(),
+                                    digest: file.digest.data().clone(),
+                                };
                                 soft_error!(
                                     "cas_missing",
                                     buck2_error::buck2_error!(
@@ -371,8 +367,10 @@ impl Uploader {
                                         err
                                     ),
                                     quiet: true
-                                )?;
+                                )
+                                .map_err(|e| e.context(lost_input.clone()))?;
 
+                                lost_inputs.push(lost_input);
                                 continue;
                             }
                         }
@@ -396,6 +394,10 @@ impl Uploader {
                     }
                 };
             }
+        }
+
+        if !lost_inputs.is_empty() {
+            return Err(error_for_lost_cas_inputs(lost_inputs));
         }
 
         if !paths_to_materialize.is_empty() {
@@ -475,23 +477,6 @@ impl Uploader {
     }
 }
 
-fn should_error_for_missing_digest(info: &CasDownloadInfo) -> bool {
-    // RE sometimes reports things that exist as missing. We don't fully understand why at this
-    // time and this is being investigated, but we know that RE normally ensures that anything it
-    // returns to us will last for another 6 hours at least. So, we silence all errors when the
-    // download info is less than 5 hours, because we know those are most likely bogus. This
-    // basically means that after 5 hours we might tell the user to restart even though they don't
-    // need to. However, the alternative is confused users who see errors after a couple days (we
-    // had 3 reports of this in a week), so for now we do accept some false positives (when RE
-    // tells us a digest doesn't exist even though it does) in order to provide better UX when we
-    // hit a true positive.
-    if let Some(age) = info.action_age() {
-        age >= Duration::seconds(3600 * 5)
-    } else {
-        true
-    }
-}
-
 fn directory_to_blob<'a, D>(d: D) -> InlinedBlobWithDigest
 where
     D: ActionFingerprintedDirectoryRef<'a>,
@@ -501,6 +486,28 @@ where
         blob: ReDirectorySerializer::serialize_entries(d.entries()),
         ..Default::default()
     }
+}
+
+fn error_for_lost_cas_inputs(lost_inputs: Vec<ReLostInput>) -> buck2_error::Error {
+    let mut error = match lost_inputs.as_slice() {
+        [lost_input] => buck2_error::buck2_error!(
+            buck2_error::ErrorTag::ReNotFound,
+            "Action execution requires artifact `{}` but it is missing from remote CAS",
+            lost_input.digest,
+        ),
+        lost_inputs => buck2_error::buck2_error!(
+            buck2_error::ErrorTag::ReNotFound,
+            "Action execution requires {} artifacts that are missing from remote CAS",
+            lost_inputs.len(),
+        ),
+    }
+    .context(ReLostInputs::new(lost_inputs.clone()));
+
+    for lost_input in lost_inputs {
+        error = error.context(lost_input);
+    }
+
+    error
 }
 
 fn error_for_missing_file(
@@ -524,7 +531,7 @@ fn add_injected_missing_digests<'a>(
     missing_digests: &mut StdBuckHashSet<&'a TrackedFileDigest>,
 ) -> buck2_error::Result<()> {
     fn convert_digests(val: &str) -> buck2_error::Result<Vec<FileDigest>> {
-        val.split(' ')
+        val.split_whitespace()
             .map(|digest| {
                 let digest = TDigest::from_str(digest)
                     .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::InvalidDigest))
@@ -534,6 +541,26 @@ fn add_injected_missing_digests<'a>(
                 buck2_error::Ok(digest)
             })
             .collect()
+    }
+
+    fn add_digests_once<'a>(
+        input_digests: &StdBuckHashSet<&'a TrackedFileDigest>,
+        missing_digests: &mut StdBuckHashSet<&'a TrackedFileDigest>,
+        digests: Vec<FileDigest>,
+    ) {
+        static INJECTED_ONCE: LazyLock<Mutex<StdBuckHashSet<FileDigest>>> =
+            LazyLock::new(|| Mutex::new(StdBuckHashSet::default()));
+
+        for d in digests {
+            let matched = input_digests.get(&d);
+            if let Some(i) = matched {
+                let mut injected_once = INJECTED_ONCE.lock().expect("Poisoned lock");
+                if !injected_once.contains(&d) {
+                    injected_once.insert(d.clone());
+                    missing_digests.insert(i);
+                }
+            }
+        }
     }
 
     let ingested_digests = buck2_env!(
@@ -548,6 +575,30 @@ fn add_injected_missing_digests<'a>(
                 missing_digests.insert(i);
             }
         }
+    }
+
+    let injected_digests_file = buck2_env!(
+        "BUCK2_TEST_INJECTED_MISSING_DIGESTS_ONCE_FILE",
+        applicability = testing
+    )?;
+    if let Some(path) = injected_digests_file {
+        let injected_digests = std::fs::read_to_string(&path)
+            .with_buck_error_context(|| format!("Failed to read {path}"))?;
+        add_digests_once(
+            input_digests,
+            missing_digests,
+            convert_digests(&injected_digests)?,
+        );
+    }
+
+    let ingested_digests_once = buck2_env!(
+        "BUCK2_TEST_INJECTED_MISSING_DIGESTS_ONCE",
+        type=Vec<FileDigest>,
+        converter=convert_digests,
+        applicability=testing
+    )?;
+    if let Some(digests) = ingested_digests_once {
+        add_digests_once(input_digests, missing_digests, digests.to_vec());
     }
 
     Ok(())

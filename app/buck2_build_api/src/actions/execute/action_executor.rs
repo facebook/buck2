@@ -393,6 +393,7 @@ struct BuckActionExecutionContext<'a> {
     outputs: &'a [BuildArtifact],
     command_reports: &'a mut Vec<CommandExecutionReport>,
     cancellations: &'a CancellationContext,
+    skip_action_cache: bool,
 }
 
 #[async_trait]
@@ -497,6 +498,10 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         request: &CommandExecutionRequest,
         prepared_action: &PreparedAction,
     ) -> ControlFlow<CommandExecutionResult, CommandExecutionManager> {
+        if self.skip_action_cache {
+            return ControlFlow::Continue(manager);
+        }
+
         let action = self.target();
         self.executor
             .command_executor
@@ -507,6 +512,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
                     request,
                     prepared_action,
                     digest_config: self.digest_config(),
+                    force_skip_cache_read: false,
                 },
                 self.cancellations,
             )
@@ -519,6 +525,10 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         request: &CommandExecutionRequest,
         prepared_action: &PreparedAction,
     ) -> ControlFlow<CommandExecutionResult, CommandExecutionManager> {
+        if self.skip_action_cache {
+            return ControlFlow::Continue(manager);
+        }
+
         let action = self.target();
         self.executor
             .command_executor
@@ -529,6 +539,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
                     request,
                     prepared_action,
                     digest_config: self.digest_config(),
+                    force_skip_cache_read: false,
                 },
                 self.cancellations,
             )
@@ -623,10 +634,15 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
                     request,
                     prepared_action,
                     digest_config: self.digest_config(),
+                    force_skip_cache_read: self.skip_action_cache,
                 },
                 self.cancellations,
             )
             .await
+    }
+
+    fn should_bypass_action_cache(&self) -> bool {
+        self.skip_action_cache
     }
 
     async fn cache_upload(
@@ -713,6 +729,7 @@ impl BuckActionExecutor {
         inputs: BuckIndexMap<ArtifactGroup, ArtifactGroupValues>,
         action: &RegisteredAction,
         cancellations: &CancellationContext,
+        skip_action_cache: bool,
     ) -> (
         Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError>,
         Vec<CommandExecutionReport>,
@@ -729,6 +746,7 @@ impl BuckActionExecutor {
                 outputs: outputs.as_ref(),
                 command_reports: &mut command_reports,
                 cancellations,
+                skip_action_cache,
             };
 
             let (result, metadata) = action.execute(&mut ctx, waiting_data).await?;
@@ -1101,6 +1119,7 @@ mod tests {
                 Default::default(),
                 &action,
                 CancellationContext::testing(),
+                false,
             ),
         )
         .await

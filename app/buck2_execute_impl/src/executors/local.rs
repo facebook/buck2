@@ -71,6 +71,7 @@ use buck2_execute::materialize::materializer::CopiedArtifact;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::Materializer;
+use buck2_execute::materialize::materializer::ReLostInputs;
 use buck2_execute_local::CommandResult;
 use buck2_execute_local::DefaultKillProcess;
 use buck2_execute_local::GatherOutputStatus;
@@ -1250,6 +1251,7 @@ impl PreparedCommandExecutor for LocalExecutor {
             target: _,
             prepared_action,
             digest_config,
+            force_skip_cache_read: _,
         } = command;
 
         manager.start_waiting_category(WaitingCategory::LocalQueued);
@@ -1433,15 +1435,22 @@ pub async fn materialize_inputs(
             Ok(()) => {}
             Err(MaterializationError::NotFound { source }) => {
                 let corrupted = source.info.origin.guaranteed_by_action_cache();
+                let lost_inputs = ReLostInputs::from_cas_not_found(&source);
 
-                return Err(tag_error!(
+                let error = tag_error!(
                     "cas_missing_fatal",
                     MaterializationError::NotFound { source }.into(),
                     quiet: true,
                     task: false,
                     daemon_in_memory_state_is_corrupted: true,
                     action_cache_is_corrupted: corrupted
-                ));
+                );
+
+                return Err(if lost_inputs.is_empty() {
+                    error
+                } else {
+                    error.context(lost_inputs)
+                });
             }
             Err(e) => {
                 return Err(e.into());

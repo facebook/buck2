@@ -44,7 +44,10 @@ BUCK2_TEST_EXTRA_EXTERNAL_CONFIG               String
 BUCK2_TEST_FAIL_BUCKD_AUTH                     bool                       false
 BUCK2_TEST_FAIL_CONNECT                        bool                       false
 BUCK2_TEST_FAIL_RE_DOWNLOADS                   bool                       false
+BUCK2_TEST_FAIL_RE_DOWNLOAD_DIGESTS_ONCE       Vec<TDigest>
+BUCK2_TEST_FAIL_RE_DOWNLOAD_DIGESTS_ONCE_FILE  String
 BUCK2_TEST_FAIL_RE_EXECUTE                     bool                       false
+BUCK2_TEST_FAIL_RE_EXECUTE_MISSING_INPUTS_ONCE bool                       false
 BUCK2_TEST_FAIL_RE_RESOURCE_EXHAUSTED          bool                       false
 BUCK2_TEST_FAIL_STREAMING                      bool                       false
 BUCK2_TEST_FAKE_SYSTEM_TOTAL_MEMORY            u64
@@ -53,6 +56,8 @@ BUCK2_TEST_FORCE_DECLARE_MISMATCH              bool                       false
 BUCK2_TEST_INIT_DAEMON_ERROR                   bool                       false
 BUCK2_TEST_INIT_DATA_SLEEP_SECS                u64
 BUCK2_TEST_INJECTED_MISSING_DIGESTS            Vec<FileDigest>
+BUCK2_TEST_INJECTED_MISSING_DIGESTS_ONCE       Vec<FileDigest>
+BUCK2_TEST_INJECTED_MISSING_DIGESTS_ONCE_FILE  String
 BUCK2_TEST_MANIFOLD_CHUNK_BYTES                u64
 BUCK2_TEST_MANIFOLD_TTL_S                      u64
 BUCK2_TEST_ONLY_REMOTE_DEP_FILE_CACHE          bool                       false

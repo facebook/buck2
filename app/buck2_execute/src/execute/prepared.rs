@@ -48,6 +48,7 @@ pub struct PreparedCommand<'a, 'b> {
     pub target: &'b dyn CommandExecutionTarget,
     pub prepared_action: &'a PreparedAction,
     pub digest_config: DigestConfig,
+    pub force_skip_cache_read: bool,
 }
 
 #[async_trait]
