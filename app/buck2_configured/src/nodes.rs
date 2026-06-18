@@ -81,8 +81,8 @@ use derive_more::Display;
 use dice::Demand;
 use dice::DiceComputations;
 use dice::Key;
-use dice::NoValueSerialize;
 use dice::OkPagableValueSerialize;
+use dice::PagableValueSerialize;
 use dice::ValueSerialize;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
@@ -1226,7 +1226,7 @@ impl Key for ConfiguredTargetNodeKey {
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
-        NoValueSerialize::<Self::Value>::new()
+        PagableValueSerialize::<Self::Value>::new()
     }
 }
 
