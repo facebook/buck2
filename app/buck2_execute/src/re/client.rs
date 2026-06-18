@@ -834,12 +834,6 @@ impl RemoteExecutionClientImpl {
                         .attempt_timeout_ms = attempt_timeout;
                 }
 
-                if let Some(retries_count) = static_metadata.rich_client_retries_count {
-                    embedded_cas_daemon_config
-                        .rich_client_config
-                        .number_of_retries = retries_count;
-                }
-
                 embedded_cas_daemon_config.force_enable_deduplicate_find_missing =
                     static_metadata.force_enable_deduplicate_find_missing;
 
