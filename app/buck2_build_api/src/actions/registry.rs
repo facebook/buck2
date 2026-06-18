@@ -51,6 +51,7 @@ use crate::actions::RegisteredAction;
 use crate::actions::UnregisteredAction;
 use crate::analysis::registry::AnalysisValueFetcher;
 use crate::deferred::calculation::ActionLookup;
+use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 
 /// The actions registry for a particular analysis of a rule, dynamic actions, anon target, BXL.
 #[derive(Allocative, Trace)]
@@ -64,6 +65,8 @@ pub struct ActionsRegistry<'v> {
     pending: Vec<ActionToBeRegistered>,
     pub execution_platform: ExecutionPlatformResolution,
     claimed_output_paths: DirectoryBuilder<Option<FileSpan>, NoDigest>,
+    /// Per-analysis counter feeding deterministic `ArtifactTag` identities.
+    artifact_tag_count: u64,
 }
 
 impl<'v> ActionsRegistry<'v> {
@@ -75,7 +78,17 @@ impl<'v> ActionsRegistry<'v> {
             pending: Default::default(),
             execution_platform,
             claimed_output_paths: DirectoryBuilder::empty(),
+            artifact_tag_count: 0,
         }
+    }
+
+    /// Mint an `ArtifactTag` with a content-deterministic identity (this
+    /// analysis's `owner` plus a per-analysis sequence number), so it serializes
+    /// identically across daemon processes. See [`ArtifactTag::from_identity`].
+    pub fn next_artifact_tag(&mut self) -> ArtifactTag {
+        let index = self.artifact_tag_count;
+        self.artifact_tag_count += 1;
+        ArtifactTag::from_identity(&self.owner, index)
     }
 
     pub fn declare_dynamic_output(

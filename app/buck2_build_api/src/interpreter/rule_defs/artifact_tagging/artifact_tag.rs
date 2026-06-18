@@ -10,10 +10,13 @@
 
 use std::fmt;
 use std::hash::Hash;
+use std::hash::Hasher;
 use std::sync::atomic::AtomicI64;
 use std::sync::atomic::Ordering;
 
 use allocative::Allocative;
+use buck2_core::deferred::key::DeferredHolderKey;
+use buck2_util::strong_hasher::Blake3StrongHasher;
 use dupe::Dupe;
 use either::Either;
 use pagable::Pagable;
@@ -31,6 +34,7 @@ use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
 use starlark::values::starlark_value;
+use strong_hash::StrongHash;
 
 use crate::interpreter::rule_defs::artifact_tagging::StarlarkTaggedCommandLine;
 use crate::interpreter::rule_defs::artifact_tagging::StarlarkTaggedValue;
@@ -53,15 +57,20 @@ use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
     ProvidesStaticType,
     NoSerialize,
     Allocative,
-    Pagable, // Need a way to avoid collisions if shared between processes.
+    Pagable,
     StarlarkPagable
 )]
 pub struct ArtifactTag {
+    /// Opaque value used only to compare tags for equality. It is serialized
+    /// inline, so content-addressed page-out dedup requires it to be byte-stable
+    /// across daemon restarts — hence production tags are content-derived (see
+    /// [`ArtifactTag::from_identity`]).
     identity: u64,
 }
 
 impl ArtifactTag {
-    pub fn new() -> Self {
+    /// For tests only; production code must use [`ArtifactTag::from_identity`].
+    pub fn testing_new() -> Self {
         static LAST: AtomicI64 = AtomicI64::new(0);
         let identity = LAST.fetch_add(1, Ordering::Relaxed).wrapping_add(1);
         let Ok(identity) = identity.try_into() else {
@@ -69,6 +78,17 @@ impl ArtifactTag {
             panic!("i64 overflow (should never happen)");
         };
         ArtifactTag { identity }
+    }
+
+    /// A tag whose identity is content-derived from the analysis `owner` and a
+    /// per-analysis sequence `index`.
+    pub fn from_identity(owner: &DeferredHolderKey, index: u64) -> Self {
+        let mut hasher = Blake3StrongHasher::new();
+        owner.strong_hash(&mut hasher);
+        index.strong_hash(&mut hasher);
+        ArtifactTag {
+            identity: hasher.finish(),
+        }
     }
 }
 
@@ -165,3 +185,35 @@ fn artifact_tag_methods(_: &mut MethodsBuilder) {
 #[starlark_module]
 #[starlark_types(ArtifactTag as ArtifactTag)]
 pub(crate) fn register_artifact_tag(globals: &mut GlobalsBuilder) {}
+
+#[cfg(test)]
+mod tests {
+    use buck2_core::deferred::key::DeferredHolderKey;
+
+    use super::ArtifactTag;
+
+    #[test]
+    fn test_from_identity_is_deterministic_and_distinct() {
+        let owner = DeferredHolderKey::testing_new("cell//pkg:target");
+        let other = DeferredHolderKey::testing_new("cell//pkg:other");
+
+        // Same (owner, index) must always yield the same identity — this is what
+        // content-addressed page-out dedup relies on across daemon processes.
+        assert_eq!(
+            ArtifactTag::from_identity(&owner, 0),
+            ArtifactTag::from_identity(&owner, 0),
+        );
+
+        // Distinct indices within one analysis produce distinct tags.
+        assert_ne!(
+            ArtifactTag::from_identity(&owner, 0),
+            ArtifactTag::from_identity(&owner, 1),
+        );
+
+        // Distinct owners produce distinct tags even at the same index.
+        assert_ne!(
+            ArtifactTag::from_identity(&owner, 0),
+            ArtifactTag::from_identity(&other, 0),
+        );
+    }
+}

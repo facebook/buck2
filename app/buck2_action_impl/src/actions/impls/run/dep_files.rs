@@ -1741,10 +1741,10 @@ mod tests {
 
     #[test]
     fn test_dep_files_visitor_output_collection() {
-        let tag1 = ArtifactTag::new();
-        let tag2 = ArtifactTag::new();
-        let tag3 = ArtifactTag::new();
-        let tag4 = ArtifactTag::new();
+        let tag1 = ArtifactTag::testing_new();
+        let tag2 = ArtifactTag::testing_new();
+        let tag3 = ArtifactTag::testing_new();
+        let tag4 = ArtifactTag::testing_new();
 
         let target =
             ConfiguredTargetLabel::testing_parse("cell//pkg:foo", ConfigurationData::testing_new());
@@ -1829,9 +1829,9 @@ mod tests {
             output: artifact2,
         };
 
-        let tag1 = ArtifactTag::new();
+        let tag1 = ArtifactTag::testing_new();
 
-        let tag2 = ArtifactTag::new();
+        let tag2 = ArtifactTag::testing_new();
 
         let decl1 = DeclaredDepFiles {
             tagged: OrderedMap::from_iter([(tag1.dupe(), depfile1.dupe())]),

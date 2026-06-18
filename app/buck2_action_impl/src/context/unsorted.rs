@@ -195,8 +195,7 @@ pub(crate) fn analysis_actions_methods_unsorted(builder: &mut MethodsBuilder) {
     /// - [`ArtifactTag.tag_inputs()`](../ArtifactTag#artifacttagtag_inputs): Tag only inputs
     /// - [`ctx.actions.run()`](../AnalysisActions#analysisactionsrun): The `dep_files` parameter documentation
     fn artifact_tag<'v>(this: &AnalysisActions<'v>) -> starlark::Result<ArtifactTag> {
-        let _ = this;
-        Ok(ArtifactTag::new())
+        Ok(this.state()?.actions.next_artifact_tag())
     }
 
     /// Obtain this daemon's digest configuration. This allows rules to discover what digests the
