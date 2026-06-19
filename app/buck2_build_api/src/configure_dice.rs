@@ -24,8 +24,8 @@ use dice::Dice;
 use dice::DiceStorage;
 
 use crate::actions::execute::dice_data::SetInvalidationTrackingConfig;
-use crate::build::detailed_aggregated_metrics::dice::SetDetailedAggregatedMetricsEventHandler;
-use crate::build::detailed_aggregated_metrics::events::start_detailed_aggregated_metrics_state_tracker;
+use crate::build::detailed_aggregated_metrics::dice::SetDetailedAggregatedMetricsHandle;
+use crate::build::detailed_aggregated_metrics::events::DetailedAggregatedMetricsHandle;
 
 /// Utility to configure the dice globals.
 /// One place to not forget to initialize something in all places.
@@ -64,9 +64,7 @@ pub async fn configure_dice_for_buck(
     };
     dice.set_invalidation_tracking_config(invalidation_tracking_enabled);
 
-    dice.set_detailed_aggregated_metrics_event_handler(Some(
-        start_detailed_aggregated_metrics_state_tracker(),
-    ));
+    dice.set_detailed_aggregated_metrics_handle(DetailedAggregatedMetricsHandle::start());
 
     // Opt-in pagable storage. When `BUCK2_DICE_DB_PATH` is set, configures a
     // `DiceStorage` backend, configured by `PAGABLE_STORAGE_BACKEND` so `Dice::page_out()`

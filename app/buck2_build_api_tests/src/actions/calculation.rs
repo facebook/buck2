@@ -37,8 +37,9 @@ use buck2_build_api::analysis::AnalysisResult;
 use buck2_build_api::analysis::registry::RecordedAnalysisValues;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
-use buck2_build_api::build::detailed_aggregated_metrics::dice::SetDetailedAggregatedMetricsEventHandler;
 use buck2_build_api::build::detailed_aggregated_metrics::dice::SetDetailedAggregatedMetricsEventsHolder;
+use buck2_build_api::build::detailed_aggregated_metrics::dice::SetDetailedAggregatedMetricsHandle;
+use buck2_build_api::build::detailed_aggregated_metrics::events::DetailedAggregatedMetricsHandle;
 use buck2_build_api::context::SetBuildContextData;
 use buck2_build_api::keep_going::HasKeepGoing;
 use buck2_build_api::spawner::BuckSpawner;
@@ -198,7 +199,7 @@ async fn make_default_dice_state(
         data.set_testing_io_provider(temp_fs);
         data.set_digest_config(DigestConfig::testing_default());
         data.set_invalidation_tracking_config(true);
-        data.set_detailed_aggregated_metrics_event_handler(None);
+        data.set_detailed_aggregated_metrics_handle(DetailedAggregatedMetricsHandle::disabled());
     });
 
     for mock in mocks.into_iter() {

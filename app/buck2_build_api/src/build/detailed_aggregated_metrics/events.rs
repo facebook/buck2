@@ -10,6 +10,7 @@
 
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::OnceLock;
 
 use buck2_artifact::actions::key::ActionKey;
 use buck2_core::deferred::key::DeferredHolderKey;
@@ -44,13 +45,12 @@ struct DetailedAggregatedMetricsEventHandlerInner {
     sender: UnboundedSender<DetailedAggregatedMetricsEvent>,
 }
 
+/// Handle to the running tracker task: a thin wrapper over the channel used to
+/// send it events.
 #[derive(Clone, Dupe)]
-pub struct DetailedAggregatedMetricsEventHandler(Arc<DetailedAggregatedMetricsEventHandlerInner>);
-
-pub(crate) fn start_detailed_aggregated_metrics_state_tracker()
--> DetailedAggregatedMetricsEventHandler {
-    DetailedAggregatedMetricsStateTracker::start()
-}
+pub(crate) struct DetailedAggregatedMetricsEventHandler(
+    Arc<DetailedAggregatedMetricsEventHandlerInner>,
+);
 
 impl DetailedAggregatedMetricsEventHandler {
     pub(crate) fn new() -> (Self, UnboundedReceiver<DetailedAggregatedMetricsEvent>) {
@@ -63,24 +63,82 @@ impl DetailedAggregatedMetricsEventHandler {
         )
     }
 
-    pub fn action_executed(&self, ev: ActionExecutionMetrics) -> buck2_error::Result<()> {
-        self.0
-            .sender
-            .send(DetailedAggregatedMetricsEvent::ActionExecuted(ev))
-            .map_err(|_| {
-                internal_error!("DetailedAggregatedMetrics event handler exited while sender lives")
-            })?;
+    fn send(&self, event: DetailedAggregatedMetricsEvent) -> buck2_error::Result<()> {
+        self.0.sender.send(event).map_err(|_| {
+            internal_error!("DetailedAggregatedMetrics event handler exited while sender lives")
+        })?;
         Ok(())
     }
 
+    async fn compute_metrics(
+        &self,
+        events: PerBuildEvents,
+    ) -> buck2_error::Result<DetailedAggregatedMetrics> {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        self.send(DetailedAggregatedMetricsEvent::ComputeMetrics(events, tx))?;
+        rx.await?
+    }
+
+    async fn compute_action_graph_sketch(
+        &self,
+        top_level_targets: Vec<TopLevelTargetSpec>,
+    ) -> buck2_error::Result<ActionGraphSketchResult> {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        self.send(DetailedAggregatedMetricsEvent::ComputeActionGraphSketch(
+            top_level_targets,
+            tx,
+        ))?;
+        rx.await?
+    }
+}
+
+/// Daemon-global handle stored in DICE global data (so must be `Send + Sync`); the
+/// single entry point for recording analyses/actions and computing metrics.
+///
+/// The tracker task lives in a `OnceLock` so it can be started after the handle
+/// is constructed. Today it is always started at construction via [`Self::start`],
+/// so collection is on for the daemon's whole lifetime; the `OnceLock` leaves room
+/// to start it on demand later. Tests that don't collect metrics use
+/// [`Self::disabled`], which leaves the lock empty.
+#[derive(Default)]
+pub struct DetailedAggregatedMetricsHandle {
+    tracker: OnceLock<DetailedAggregatedMetricsEventHandler>,
+}
+
+impl DetailedAggregatedMetricsHandle {
+    /// Create a handle with a running tracker task.
+    pub fn start() -> Self {
+        let this = Self::default();
+        this.enable();
+        this
+    }
+
+    /// Create a handle with no tracker, for tests that don't collect metrics.
+    pub fn disabled() -> Self {
+        Self::default()
+    }
+
+    /// Start the tracker task if it isn't already running.
+    fn enable(&self) {
+        let _ = self
+            .tracker
+            .get_or_init(DetailedAggregatedMetricsStateTracker::start);
+    }
+
+    pub fn action_executed(&self, ev: ActionExecutionMetrics) -> buck2_error::Result<()> {
+        match self.tracker.get() {
+            Some(tracker) => tracker.send(DetailedAggregatedMetricsEvent::ActionExecuted(ev)),
+            None => Ok(()),
+        }
+    }
+
     pub fn analysis_started(&self, key: &DeferredHolderKey) -> buck2_error::Result<()> {
-        self.0
-            .sender
-            .send(DetailedAggregatedMetricsEvent::AnalysisStarted(key.dupe()))
-            .map_err(|_| {
-                internal_error!("DetailedAggregatedMetrics event handler exited while sender lives")
-            })?;
-        Ok(())
+        match self.tracker.get() {
+            Some(tracker) => {
+                tracker.send(DetailedAggregatedMetricsEvent::AnalysisStarted(key.dupe()))
+            }
+            None => Ok(()),
+        }
     }
 
     pub fn analysis_complete(
@@ -88,43 +146,37 @@ impl DetailedAggregatedMetricsEventHandler {
         key: &DeferredHolderKey,
         result: &DeferredHolder,
     ) -> buck2_error::Result<()> {
-        self.0
-            .sender
-            .send(DetailedAggregatedMetricsEvent::AnalysisComplete(
+        match self.tracker.get() {
+            Some(tracker) => tracker.send(DetailedAggregatedMetricsEvent::AnalysisComplete(
                 key.dupe(),
                 result.dupe(),
-            ))
-            .map_err(|_| {
-                internal_error!("DetailedAggregatedMetrics event handler exited while sender lives")
-            })?;
-        Ok(())
+            )),
+            None => Ok(()),
+        }
     }
 
-    pub(crate) async fn compute_metrics(
+    pub async fn compute_metrics(
         &self,
         events: PerBuildEvents,
     ) -> buck2_error::Result<DetailedAggregatedMetrics> {
-        let (tx, rx) = tokio::sync::oneshot::channel();
-        self.0
-            .sender
-            .send(DetailedAggregatedMetricsEvent::ComputeMetrics(events, tx))
-            .map_err(|_| internal_error!("detailed metrics state tracker is gone"))?;
-        rx.await?
+        match self.tracker.get() {
+            Some(tracker) => tracker.compute_metrics(events).await,
+            None => Err(internal_error!(
+                "should have had a detailed aggregated metrics event holder"
+            )),
+        }
     }
 
-    pub(crate) async fn compute_action_graph_sketch(
+    pub async fn compute_action_graph_sketch(
         &self,
         top_level_targets: Vec<TopLevelTargetSpec>,
     ) -> buck2_error::Result<ActionGraphSketchResult> {
-        let (tx, rx) = tokio::sync::oneshot::channel();
-        self.0
-            .sender
-            .send(DetailedAggregatedMetricsEvent::ComputeActionGraphSketch(
-                top_level_targets,
-                tx,
-            ))
-            .map_err(|_| internal_error!("detailed metrics state tracker is gone"))?;
-        rx.await?
+        match self.tracker.get() {
+            Some(tracker) => tracker.compute_action_graph_sketch(top_level_targets).await,
+            None => Ok(ActionGraphSketchResult {
+                per_target_sketches: Vec::new(),
+            }),
+        }
     }
 }
 

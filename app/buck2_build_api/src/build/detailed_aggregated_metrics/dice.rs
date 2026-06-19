@@ -26,7 +26,7 @@ use futures::FutureExt;
 use crate::build::BuildProviderType;
 use crate::build::detailed_aggregated_metrics::buck2_sketches::ArtifactPathSketches;
 use crate::build::detailed_aggregated_metrics::buck2_sketches::compute_artifact_path_sketches_for_target;
-use crate::build::detailed_aggregated_metrics::events::DetailedAggregatedMetricsEventHandler;
+use crate::build::detailed_aggregated_metrics::events::DetailedAggregatedMetricsHandle;
 use crate::build::detailed_aggregated_metrics::events::DetailedAggregatedMetricsPerBuildEventsHolder;
 use crate::build::detailed_aggregated_metrics::types::ActionExecutionMetrics;
 use crate::build::detailed_aggregated_metrics::types::ActionGraphSketchResult;
@@ -72,17 +72,11 @@ impl HasDetailedAggregatedMetrics for DiceComputations<'_> {
 
     fn action_executed(&self, ev: ActionExecutionMetrics) -> buck2_error::Result<()> {
         get_per_build_events_holder(self)?.action_executed(&ev.key);
-        if let Some(v) = get_detailed_aggregated_metrics_event_handler(self)? {
-            v.action_executed(ev)?;
-        }
-        Ok(())
+        get_detailed_aggregated_metrics_handle(self)?.action_executed(ev)
     }
 
     fn analysis_started(&self, key: &DeferredHolderKey) -> buck2_error::Result<()> {
-        if let Some(v) = get_detailed_aggregated_metrics_event_handler(self)? {
-            v.analysis_started(key)?;
-        }
-        Ok(())
+        get_detailed_aggregated_metrics_handle(self)?.analysis_started(key)
     }
 
     fn analysis_complete(
@@ -90,10 +84,7 @@ impl HasDetailedAggregatedMetrics for DiceComputations<'_> {
         key: &DeferredHolderKey,
         result: &DeferredHolder,
     ) -> buck2_error::Result<()> {
-        if let Some(v) = get_detailed_aggregated_metrics_event_handler(self)? {
-            v.analysis_complete(key, result)?;
-        }
-        Ok(())
+        get_detailed_aggregated_metrics_handle(self)?.analysis_complete(key, result)
     }
 
     fn take_per_build_events(&self) -> buck2_error::Result<PerBuildEvents> {
@@ -107,11 +98,7 @@ impl HasDetailedAggregatedMetrics for DiceComputations<'_> {
         span_async_simple(
             ComputeDetailedAggregatedMetricsStart {},
             async move {
-                get_detailed_aggregated_metrics_event_handler(self)?
-                    .as_ref()
-                    .ok_or_else(|| {
-                        internal_error!("should have had a detailed aggreged metrics event holder")
-                    })?
+                get_detailed_aggregated_metrics_handle(self)?
                     .compute_metrics(events)
                     .await
             },
@@ -124,16 +111,9 @@ impl HasDetailedAggregatedMetrics for DiceComputations<'_> {
         &self,
         events: &PerBuildEvents,
     ) -> buck2_error::Result<ActionGraphSketchResult> {
-        let handler = get_detailed_aggregated_metrics_event_handler(self)?;
-        match handler.as_ref() {
-            Some(h) => {
-                h.compute_action_graph_sketch(events.top_level_targets.clone())
-                    .await
-            }
-            None => Ok(ActionGraphSketchResult {
-                per_target_sketches: Vec::new(),
-            }),
-        }
+        get_detailed_aggregated_metrics_handle(self)?
+            .compute_action_graph_sketch(events.top_level_targets.clone())
+            .await
     }
 
     async fn compute_artifact_path_sketch(
@@ -185,30 +165,23 @@ impl HasDetailedAggregatedMetrics for DiceComputations<'_> {
     }
 }
 
-/// This is set on the global data (rather than per-transaction data) because it tracks the state across builds.
-pub trait SetDetailedAggregatedMetricsEventHandler {
-    /// We set an Option<> here (rather than have None be implicit by not calling it) to require that a value is set. We use the None case for
-    /// tests just so we don't need to startup the tracking there.
-    fn set_detailed_aggregated_metrics_event_handler(
-        &mut self,
-        sender: Option<DetailedAggregatedMetricsEventHandler>,
-    );
+/// Set on the global data (rather than per-transaction data) because the tracker
+/// is a daemon-global handle whose state persists across builds.
+pub trait SetDetailedAggregatedMetricsHandle {
+    fn set_detailed_aggregated_metrics_handle(&mut self, handle: DetailedAggregatedMetricsHandle);
 }
 
-impl SetDetailedAggregatedMetricsEventHandler for DiceDataBuilder {
-    fn set_detailed_aggregated_metrics_event_handler(
-        &mut self,
-        sender: Option<DetailedAggregatedMetricsEventHandler>,
-    ) {
-        self.set(sender);
+impl SetDetailedAggregatedMetricsHandle for DiceDataBuilder {
+    fn set_detailed_aggregated_metrics_handle(&mut self, handle: DetailedAggregatedMetricsHandle) {
+        self.set(handle);
     }
 }
 
-fn get_detailed_aggregated_metrics_event_handler<'a>(
+fn get_detailed_aggregated_metrics_handle<'a>(
     ctx: &'a DiceComputations<'_>,
-) -> buck2_error::Result<&'a Option<DetailedAggregatedMetricsEventHandler>> {
+) -> buck2_error::Result<&'a DetailedAggregatedMetricsHandle> {
     ctx.global_data()
-        .get::<Option<DetailedAggregatedMetricsEventHandler>>()
+        .get::<DetailedAggregatedMetricsHandle>()
         .map_err(|e| internal_error!("global data invalid: {}", e))
 }
 
