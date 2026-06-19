@@ -171,6 +171,13 @@ def _args_parser() -> argparse.ArgumentParser:
         help="Required if swift support was requested. Bundle relative destination path to plugins directory.",
     )
     parser.add_argument(
+        "--resources-destination",
+        metavar="<Resources>",
+        type=Path,
+        required=False,
+        help="Required if swift support was requested. Bundle relative destination path to resources directory.",
+    )
+    parser.add_argument(
         "--appclips-destination",
         metavar="<AppClips>",
         type=Path,

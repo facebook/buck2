@@ -251,6 +251,11 @@ def assemble_bundle(
 
     verify_entitlements_args = ["--verify-entitlements"] if ctx.attrs.entitlements_verification_check_enabled else []
 
+    extra_context_args = [
+        "--resources-destination",
+        bundle_relative_path_for_destination(AppleBundleDestination("resources"), sdk_name, ctx.attrs.extension, ctx.attrs.versioned_macos_bundle),
+    ]
+
     command = cmd_args(
         [
             tool,
@@ -263,7 +268,8 @@ def assemble_bundle(
         + codesign_bundle_extra_args
         + verify_entitlements_args
         + platform_args
-        + swift_args,
+        + swift_args
+        + extra_context_args,
         hidden = [part.source for part in all_parts]
         + [part.codesign_entitlements for part in all_parts if part.codesign_entitlements]
         +
