@@ -13,6 +13,7 @@ use std::fmt;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::configuration::compatibility::ResultMaybeCompatible;
+use buck2_core::configuration::compatibility::ResultMaybeCompatibleValueSerialize;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -27,43 +28,7 @@ use dice::ValueSerialize;
 use dupe::Dupe;
 use futures::FutureExt;
 use pagable::Pagable;
-use pagable::PagableSerialize;
 use pagable::pagable_typetag;
-
-// TODO: this should live next to `ResultMaybeCompatible` in `buck2_core`, but that
-// would require a dependency from `buck2_core` to `dice`.
-// We should consider moving ValueSerialize (or a similar trait) to pagable, not dice, to avoid this.
-struct ResultMaybeCompatibleValueSerialize<T>(std::marker::PhantomData<T>);
-
-impl<T> ResultMaybeCompatibleValueSerialize<T> {
-    fn new() -> Self {
-        Self(std::marker::PhantomData)
-    }
-}
-
-impl<T: Pagable + Allocative + Dupe + Send + Sync + 'static> ValueSerialize
-    for ResultMaybeCompatibleValueSerialize<T>
-{
-    type Value = ResultMaybeCompatible<T>;
-
-    fn pagable_serialize_value(
-        &self,
-        v: &Self::Value,
-        ser: &mut dyn pagable::PagableSerializer,
-    ) -> Option<pagable::Result<()>> {
-        match v {
-            ResultMaybeCompatible::Err(_) => None,
-            v => Some(v.pagable_serialize(ser)),
-        }
-    }
-
-    fn pagable_deserialize_value<'de, D: pagable::PagableDeserializer<'de> + ?Sized>(
-        &self,
-        deser: &mut D,
-    ) -> pagable::Result<Self::Value> {
-        pagable::PagableDeserialize::pagable_deserialize(deser)
-    }
-}
 
 use crate::build::detailed_aggregated_metrics::buck2_sketches::AnalysisGraphPropertiesKey;
 use crate::build::detailed_aggregated_metrics::buck2_sketches::LoadGraphPropertiesKey;

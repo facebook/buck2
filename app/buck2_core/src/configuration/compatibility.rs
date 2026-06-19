@@ -27,6 +27,7 @@ use pagable::PagableDeserialize;
 use pagable::PagableDeserializer;
 use pagable::PagableSerialize;
 use pagable::PagableSerializer;
+use pagable::ValueSerialize;
 use serde::Deserialize;
 use serde::Serialize;
 use strong_hash::StrongHash;
@@ -168,6 +169,40 @@ impl<'de, T: PagableDeserialize<'de>> PagableDeserialize<'de> for ResultMaybeCom
                 discriminant
             )),
         }
+    }
+}
+
+/// [`ValueSerialize`] for [`ResultMaybeCompatible`]: pages out the
+/// `Compatible`/`Incompatible` variants and keeps `Err` values in memory.
+pub struct ResultMaybeCompatibleValueSerialize<T>(std::marker::PhantomData<T>);
+
+impl<T> ResultMaybeCompatibleValueSerialize<T> {
+    pub fn new() -> Self {
+        Self(std::marker::PhantomData)
+    }
+}
+
+impl<T: Pagable + Allocative + Dupe + Send + Sync + 'static> ValueSerialize
+    for ResultMaybeCompatibleValueSerialize<T>
+{
+    type Value = ResultMaybeCompatible<T>;
+
+    fn pagable_serialize_value(
+        &self,
+        v: &Self::Value,
+        ser: &mut dyn PagableSerializer,
+    ) -> Option<pagable::Result<()>> {
+        match v {
+            ResultMaybeCompatible::Err(_) => None,
+            v => Some(v.pagable_serialize(ser)),
+        }
+    }
+
+    fn pagable_deserialize_value<'de, D: PagableDeserializer<'de> + ?Sized>(
+        &self,
+        deser: &mut D,
+    ) -> pagable::Result<Self::Value> {
+        PagableDeserialize::pagable_deserialize(deser)
     }
 }
 
