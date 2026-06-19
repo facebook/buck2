@@ -31,6 +31,7 @@ use buck2_core::configuration::compatibility::IncompatiblePlatformReason;
 use buck2_core::configuration::compatibility::IncompatiblePlatformReasonCause;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::configuration::compatibility::ResultMaybeCompatible;
+use buck2_core::configuration::compatibility::ResultMaybeCompatibleValueSerialize;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::configuration::pair::ConfigurationWithExec;
@@ -82,7 +83,6 @@ use dice::Demand;
 use dice::DiceComputations;
 use dice::Key;
 use dice::OkPagableValueSerialize;
-use dice::PagableValueSerialize;
 use dice::ValueSerialize;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
@@ -1226,7 +1226,7 @@ impl Key for ConfiguredTargetNodeKey {
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
-        PagableValueSerialize::<Self::Value>::new()
+        ResultMaybeCompatibleValueSerialize::<ConfiguredTargetNode>::new()
     }
 }
 
