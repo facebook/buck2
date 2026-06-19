@@ -202,7 +202,7 @@ impl Component for TimedListHeader {
         dimensions: Dimensions,
         _mode: DrawMode,
     ) -> buck2_error::Result<Lines> {
-        Ok(Lines(vec![Line::unstyled(&"-".repeat(dimensions.width))?]))
+        Ok(Lines(vec![Line::unstyled(&"─".repeat(dimensions.width))?]))
     }
 }
 
