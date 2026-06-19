@@ -329,7 +329,7 @@ hashbrown = "0.17.1"
 hex = { version = "0.4.3", features = ["alloc"] }
 host_sharing = { path = "host_sharing" }
 hostname = "0.4.2"
-http = "=1.4.0"
+http = "1.4.1"
 http-body = "1.0.1"
 http-body-util = "0.1.0"
 httparse = "1.7.1"
