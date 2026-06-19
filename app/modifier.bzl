@@ -54,7 +54,7 @@ def buck2_modifiers():
             "ovr_config//build_mode/default_opt_cxx:enabled": modifiers.conditional({
                 "DEFAULT": None,
                 "ovr_config//os:linux": modifiers.conditional({
-                    "DEFAULT": "ovr_config//build_mode/constraints:split-dwarf-single",
+                    "DEFAULT": "ovr_config//build_mode/constraints:debug_style[split-dwarf-single]",
                     "ovr_config//build_mode:dev": None,
                 }),
             }),
