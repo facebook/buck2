@@ -454,6 +454,13 @@ pub struct Buck2OssReConfiguration {
     pub max_total_batch_size: Option<usize>,
     /// Maximum number of concurrent upload requests for each action.
     pub max_concurrent_uploads_per_action: Option<usize>,
+    /// Maximum number of digests to ask about in a single
+    /// `FindMissingBlobs` (a.k.a. `GetDigestsTtl`) RPC. Larger values
+    /// reduce per-call wall-clock latency by issuing fewer round-trips,
+    /// at the cost of bigger requests and more concurrent server load
+    /// when many actions issue independent calls. Recommended to raise
+    /// only in combination with `[buck2] deduplicate_get_digests_ttl_calls`.
+    pub find_missing_blobs_batch_size: Option<usize>,
     /// Time that digests are assumed to live in CAS after being touched.
     pub cas_ttl_secs: Option<i64>,
     /// Interval in seconds for HTTP/2 ping frames to detect stale connections.
@@ -570,6 +577,10 @@ impl Buck2OssReConfiguration {
             max_concurrent_uploads_per_action: legacy_config.parse(BuckconfigKeyRef {
                 section: BUCK2_RE_CLIENT_CFG_SECTION,
                 property: "max_concurrent_uploads_per_action",
+            })?,
+            find_missing_blobs_batch_size: legacy_config.parse(BuckconfigKeyRef {
+                section: BUCK2_RE_CLIENT_CFG_SECTION,
+                property: "find_missing_blobs_batch_size",
             })?,
             cas_ttl_secs: legacy_config.parse(BuckconfigKeyRef {
                 section: BUCK2_RE_CLIENT_CFG_SECTION,

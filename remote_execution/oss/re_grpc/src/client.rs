@@ -173,6 +173,8 @@ pub struct RERuntimeOpts {
     max_concurrent_uploads_per_action: Option<usize>,
     /// Time that digests are assumed to live in CAS after being touched.
     cas_ttl_secs: i64,
+    /// Maximum number of digests per `FindMissingBlobs` RPC.
+    find_missing_blobs_batch_size: usize,
 }
 
 struct InstanceName(Option<String>);
@@ -318,6 +320,7 @@ impl REClientBuilder {
                 // NOTE: This is an arbitrary number because RBE does not return information
                 // on the TTL of the remote blob.
                 cas_ttl_secs: opts.cas_ttl_secs.unwrap_or(3 * 60 * 60),
+                find_missing_blobs_batch_size: opts.find_missing_blobs_batch_size.unwrap_or(100),
             },
             capabilities,
             instance_name,
@@ -958,6 +961,7 @@ impl REClient {
         let mut remote_results: HashMap<TDigest, DigestRemoteState> = HashMap::new();
         let mut digests_to_check: Vec<TDigest> = Vec::new();
 
+        let batch_size = self.runtime_opts.find_missing_blobs_batch_size;
         let mut digest_iter = request.digests.iter();
         while digest_iter.len() > 0 {
             // Sort our blobs based on what action we need to take
@@ -971,7 +975,7 @@ impl REClient {
                         // We can check this blob
                         digests_to_check.push(digest.clone());
                     }
-                    if digests_to_check.len() >= 100 {
+                    if digests_to_check.len() >= batch_size {
                         break;
                     }
                 }
