@@ -48,7 +48,7 @@ def _clang_profile_list_impl(ctx: AnalysisContext) -> list[Provider]:
         lines.append("default:allow")
     lines.append("")
 
-    profile_list = ctx.actions.write("profile_list.txt", "\n".join(lines), has_content_based_path = False)
+    profile_list = ctx.actions.write("profile_list.txt", "\n".join(lines), has_content_based_path = True)
 
     return [
         DefaultInfo(default_output = profile_list),
