@@ -897,6 +897,28 @@ impl CleanStaleConfig {
         };
         Ok(clean_stale_config)
     }
+
+    /// Invocation tags describing whether adaptive low-disk clean-stale is
+    /// active and, if so, its parameters.
+    pub fn adaptive_telemetry_tags(config: Option<&CleanStaleConfig>) -> Vec<String> {
+        match config.and_then(|c| c.low_disk.as_ref()) {
+            Some(LowDiskCleanConfig {
+                threshold_percent,
+                mode: LowDiskCleanMode::Adaptive { min_ttl },
+            }) => vec![
+                "adaptive-clean-stale:true".to_owned(),
+                format!(
+                    "adaptive-clean-stale-threshold-percent:{}",
+                    threshold_percent
+                ),
+                format!(
+                    "adaptive-clean-stale-min-ttl-hours:{}",
+                    min_ttl.as_secs_f64() / 3600.0
+                ),
+            ],
+            _ => vec!["adaptive-clean-stale:false".to_owned()],
+        }
+    }
 }
 
 #[cfg(test)]

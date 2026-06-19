@@ -83,6 +83,7 @@ use buck2_execute::re::manager::ReConnectionObserver;
 use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
 use buck2_execute_impl::executors::worker::WorkerPool;
 use buck2_execute_impl::low_pass_filter::LowPassFilter;
+use buck2_execute_impl::materializers::deferred::clean_stale::CleanStaleConfig;
 use buck2_file_watcher::mergebase::SetMergebase;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
@@ -932,11 +933,15 @@ impl DiceCommandUpdater<'_, '_> {
         initialize_read_dir_cache(&mut data);
         data.spawner = self.cmd_ctx.base_context.daemon.spawner.dupe();
 
-        let tags = vec![
+        let clean_stale_config = CleanStaleConfig::from_buck_config(root_config)?;
+        let mut tags = vec![
             format!("lazy-cycle-detector:{}", has_cycle_detector),
             format!("miniperf:{}", enable_miniperf),
             format!("log-configured-graph-size:{}", log_configured_graph_size),
         ];
+        tags.extend(CleanStaleConfig::adaptive_telemetry_tags(
+            clean_stale_config.as_ref(),
+        ));
         self.cmd_ctx
             .events()
             .instant_event(buck2_data::TagEvent { tags });
