@@ -1707,7 +1707,7 @@ def _compiler_type_flags_anon_impl(ctx: AnalysisContext):
     is_nasm = ctx.attrs.compiler_type == "nasm"
     args = _add_compiler_type_flags(ctx.label, ctx.attrs.compiler_type, CxxExtension(ctx.attrs.src_extension))
     content = create_cmd_args(is_nasm, ctx.attrs.is_xcode_argsfile, *args)
-    argsfile_artifact, _ = ctx.actions.write("compiler_type_args", content, allow_args = True, has_content_based_path = False)
+    argsfile_artifact, _ = ctx.actions.write("compiler_type_args", content, allow_args = True, has_content_based_path = True)
 
     return [DefaultInfo(default_outputs = [argsfile_artifact])]
 
@@ -1872,7 +1872,7 @@ def _mk_argsfiles(
                     "src_extension": ext.value,
                 },
             )
-            compiler_type_argsfile_artifact = compiler_type_flags_anon_target.artifact("argsfile")
+            compiler_type_argsfile_artifact = actions.assert_has_content_based_path(compiler_type_flags_anon_target.artifact("argsfile"))
         else:
             compiler_type_argsfile_artifact = mk_argsfile(
                 filename_prefix + "compiler_type_args",
