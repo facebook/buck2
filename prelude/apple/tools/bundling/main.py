@@ -209,6 +209,11 @@ def _args_parser() -> argparse.ArgumentParser:
         help="Create symlinks for versioned macOS bundle",
     )
     parser.add_argument(
+        "--include-build-info-file",
+        action="store_true",
+        help="Include the build info file in the assembled bundle.",
+    )
+    parser.add_argument(
         "--bundle-telemetry-logger",
         metavar="<path/to/logger>",
         type=Path,

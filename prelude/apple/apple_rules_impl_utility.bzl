@@ -80,6 +80,17 @@ def _versioned_macos_bundle_default_value():
         "config//features/apple/constraints:versioned_macos_bundle_true": True,
     })
 
+def _include_build_info_file_default_value():
+    return select({
+        "DEFAULT": select({
+            "DEFAULT": read_root_config("apple", "include_build_info_file", "false").lower() == "true",
+            # Unless explicitly requested, production builds (aka App Store/Developer ID) do not include internal build info file
+            "config//build_mode/apple/constraints:build_mode[production]": False,
+        }),
+        "config//features/apple/constraints:include_build_info_file[disabled]": False,
+        "config//features/apple/constraints:include_build_info_file[enabled]": True,
+    })
+
 APPLE_ARCHIVE_OBJECTS_LOCALLY_OVERRIDE_ATTR_NAME = "_archive_objects_locally_override"
 APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_CONFIG_OVERRIDE_ATTR_NAME = "_use_entitlements_when_adhoc_code_signing"
 APPLE_USE_ENTITLEMENTS_WHEN_ADHOC_CODE_SIGNING_ATTR_NAME = "use_entitlements_when_adhoc_code_signing"
@@ -139,6 +150,8 @@ def _apple_bundle_like_common_attrs():
             })
         ),
         "fast_adhoc_signing_enabled": attrs.option(attrs.bool(), default = None),
+        "include_build_info_file": attrs.bool(default = _include_build_info_file_default_value()),
+        "include_build_info_file_in_bundles_with_extensions": attrs.list(attrs.string(), default = ["app"]),
         "provisioning_profile_filter": attrs.option(attrs.string(), default = None),
         "skip_adhoc_resigning_scrubbed_frameworks": attrs.option(attrs.bool(), default = None),
         "strict_provisioning_profile_search": attrs.option(attrs.bool(), default = None),
