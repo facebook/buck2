@@ -360,7 +360,7 @@ lru = { version = "0.16.4", default-features = false }
 lsp-server = "0.7.9"
 lsp-types = "0.97"
 maplit = "1.0"
-memchr = "2.8.1"
+memchr = "2.8.2"
 memmap2 = "0.9.10"
 mimalloc = { version = "0.1.52", default-features = false }
 multimap = "0.8.3"
