@@ -23,6 +23,7 @@ use buck2_build_api::actions::execute::dice_data::set_fallback_executor_config;
 use buck2_build_api::actions::impls::run_action_knobs::HasRunActionKnobs;
 use buck2_build_api::actions::impls::run_action_knobs::RunActionKnobs;
 use buck2_build_api::build::HasCreateUnhashedSymlinkLock;
+use buck2_build_api::build::detailed_aggregated_metrics::dice::HasDetailedAggregatedMetrics;
 use buck2_build_api::build::detailed_aggregated_metrics::dice::SetDetailedAggregatedMetricsEventsHolder;
 use buck2_build_api::build_signals::BuildSignalsInstaller;
 use buck2_build_api::build_signals::SetBuildSignals;
@@ -613,6 +614,8 @@ impl DiceUpdater for DiceCommandUpdater<'_, '_> {
             &self.cmd_ctx.base_context.project_root,
             self.cmd_ctx.isolation_prefix.as_str(),
         )?;
+
+        existing_state.maybe_enable_detailed_aggregated_metrics(&cells_and_configs.root_config)?;
 
         let cell_resolver = cells_and_configs.cell_resolver;
 

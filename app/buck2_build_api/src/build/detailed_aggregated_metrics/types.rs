@@ -56,6 +56,7 @@ pub struct PerBuildEvents {
     pub top_level_targets: Vec<TopLevelTargetSpec>,
 }
 
+#[derive(Default)]
 pub struct ActionGraphSketchResult {
     pub per_target_sketches: Vec<(
         ConfiguredProvidersLabel,
@@ -67,6 +68,7 @@ pub struct ArtifactPathSketchResult {
     pub(crate) per_target_sketches: Vec<(ConfiguredProvidersLabel, ArtifactPathSketches)>,
 }
 
+#[derive(Default)]
 pub struct DetailedAggregatedMetrics {
     pub top_level_target_metrics: Vec<TopLevelTargetAggregatedData>,
     pub all_targets_build_metrics: AllTargetsAggregatedData,

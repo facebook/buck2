@@ -64,7 +64,8 @@ pub async fn configure_dice_for_buck(
     };
     dice.set_invalidation_tracking_config(invalidation_tracking_enabled);
 
-    dice.set_detailed_aggregated_metrics_handle(DetailedAggregatedMetricsHandle::start());
+    // Empty handle; a command enables the tracker lazily if it needs one.
+    dice.set_detailed_aggregated_metrics_handle(DetailedAggregatedMetricsHandle::new());
 
     // Opt-in pagable storage. When `BUCK2_DICE_DB_PATH` is set, configures a
     // `DiceStorage` backend, configured by `PAGABLE_STORAGE_BACKEND` so `Dice::page_out()`

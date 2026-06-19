@@ -147,9 +147,7 @@ async fn test_analysis_calculation() -> buck2_error::Result<()> {
         .set_data(|data| {
             data.set_testing_io_provider(&fs);
             data.set_digest_config(DigestConfig::testing_default());
-            data.set_detailed_aggregated_metrics_handle(
-                    DetailedAggregatedMetricsHandle::disabled(),
-                );
+            data.set_detailed_aggregated_metrics_handle(DetailedAggregatedMetricsHandle::new());
         })
         .build({
             let mut data = UserComputationData::new();

@@ -11,6 +11,8 @@
 use std::collections::HashSet;
 use std::future::Future;
 
+use buck2_common::legacy_configs::configs::LegacyBuckConfig;
+use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_data::ComputeDetailedAggregatedMetricsEnd;
@@ -46,6 +48,12 @@ pub trait HasDetailedAggregatedMetrics {
     ) -> buck2_error::Result<()>;
     fn top_level_target(&self, spec: TopLevelTargetSpec) -> buck2_error::Result<()>;
     fn take_per_build_events(&self) -> buck2_error::Result<PerBuildEvents>;
+    /// Enable the tracker if `config` requests a consumer of it. Call at command
+    /// start; latches on for the daemon's lifetime.
+    fn maybe_enable_detailed_aggregated_metrics(
+        &self,
+        config: &LegacyBuckConfig,
+    ) -> buck2_error::Result<()>;
     fn compute_detailed_metrics(
         &self,
         events: PerBuildEvents,
@@ -89,6 +97,16 @@ impl HasDetailedAggregatedMetrics for DiceComputations<'_> {
 
     fn take_per_build_events(&self) -> buck2_error::Result<PerBuildEvents> {
         get_per_build_events_holder(self)?.take_events()
+    }
+
+    fn maybe_enable_detailed_aggregated_metrics(
+        &self,
+        config: &LegacyBuckConfig,
+    ) -> buck2_error::Result<()> {
+        if detailed_aggregated_metrics_requested(config)? {
+            get_detailed_aggregated_metrics_handle(self)?.enable();
+        }
+        Ok(())
     }
 
     async fn compute_detailed_metrics(
@@ -183,6 +201,23 @@ fn get_detailed_aggregated_metrics_handle<'a>(
     ctx.global_data()
         .get::<DetailedAggregatedMetricsHandle>()
         .map_err(|e| internal_error!("global data invalid: {}", e))
+}
+
+/// Whether `config` requests a tracker consumer. (Artifact-path sketches compute
+/// from DICE directly and don't read the tracker.)
+fn detailed_aggregated_metrics_requested(config: &LegacyBuckConfig) -> buck2_error::Result<bool> {
+    for property in ["detailed_aggregated_metrics", "log_action_graph_sketch"] {
+        if config
+            .parse::<bool>(BuckconfigKeyRef {
+                section: "buck2",
+                property,
+            })?
+            .unwrap_or(false)
+        {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 fn get_per_build_events_holder<'a>(

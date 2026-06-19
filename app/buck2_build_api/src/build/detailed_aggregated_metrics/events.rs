@@ -11,9 +11,13 @@
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::OnceLock;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
 
 use buck2_artifact::actions::key::ActionKey;
 use buck2_core::deferred::key::DeferredHolderKey;
+use buck2_error::ErrorTag;
+use buck2_error::buck2_error;
 use buck2_error::internal_error;
 use dupe::Dupe;
 use tokio::sync::mpsc::UnboundedReceiver;
@@ -95,31 +99,43 @@ impl DetailedAggregatedMetricsEventHandler {
 /// Daemon-global handle stored in DICE global data (so must be `Send + Sync`); the
 /// single entry point for recording analyses/actions and computing metrics.
 ///
-/// The tracker task lives in a `OnceLock` so it can be started after the handle
-/// is constructed. Today it is always started at construction via [`Self::start`],
-/// so collection is on for the daemon's whole lifetime; the `OnceLock` leaves room
-/// to start it on demand later. Tests that don't collect metrics use
-/// [`Self::disabled`], which leaves the lock empty.
+/// The tracker is spawned lazily by the first [`Self::enable`], so daemons that
+/// never collect metrics retain nothing. Once enabled it stays enabled for the
+/// daemon's lifetime.
 #[derive(Default)]
 pub struct DetailedAggregatedMetricsHandle {
     tracker: OnceLock<DetailedAggregatedMetricsEventHandler>,
+    /// Set when an analysis is observed before the tracker is enabled. Those
+    /// analyses may later be reused from the DICE cache without recomputing, so
+    /// the tracker's view would be permanently incomplete; the compute methods
+    /// then return empty results.
+    analysis_nodes_not_recorded: AtomicBool,
 }
 
 impl DetailedAggregatedMetricsHandle {
-    /// Create a handle with a running tracker task.
-    pub fn start() -> Self {
-        let this = Self::default();
-        this.enable();
-        this
-    }
-
-    /// Create a handle with no tracker, for tests that don't collect metrics.
-    pub fn disabled() -> Self {
+    pub fn new() -> Self {
         Self::default()
     }
 
-    /// Start the tracker task if it isn't already running.
-    fn enable(&self) {
+    /// Spawn the tracker if not already running (idempotent). Reports a soft
+    /// error if analyses already ran while disabled, since metrics will be
+    /// incomplete; enabling on the daemon's first command (or first build command)
+    /// avoids this.
+    pub fn enable(&self) {
+        if self.tracker.get().is_some() {
+            return;
+        }
+        if self.analysis_nodes_not_recorded.load(Ordering::Relaxed) {
+            let _ignored = buck2_core::soft_error!(
+                "detailed_aggregated_metrics_enabled_after_analysis",
+                buck2_error!(
+                    ErrorTag::Tier0,
+                    "Detailed aggregated metrics / action graph sketch were enabled after analyses \
+                     already ran on this daemon; collected metrics may be incomplete for analyses \
+                     reused from earlier commands. Enable the config on the daemon's first command."
+                )
+            );
+        }
         let _ = self
             .tracker
             .get_or_init(DetailedAggregatedMetricsStateTracker::start);
@@ -137,7 +153,11 @@ impl DetailedAggregatedMetricsHandle {
             Some(tracker) => {
                 tracker.send(DetailedAggregatedMetricsEvent::AnalysisStarted(key.dupe()))
             }
-            None => Ok(()),
+            None => {
+                self.analysis_nodes_not_recorded
+                    .store(true, Ordering::Relaxed);
+                Ok(())
+            }
         }
     }
 
@@ -159,6 +179,10 @@ impl DetailedAggregatedMetricsHandle {
         &self,
         events: PerBuildEvents,
     ) -> buck2_error::Result<DetailedAggregatedMetrics> {
+        // Incomplete tracker view: report empty rather than partial metrics.
+        if self.analysis_nodes_not_recorded.load(Ordering::Relaxed) {
+            return Ok(DetailedAggregatedMetrics::default());
+        }
         match self.tracker.get() {
             Some(tracker) => tracker.compute_metrics(events).await,
             None => Err(internal_error!(
@@ -171,11 +195,13 @@ impl DetailedAggregatedMetricsHandle {
         &self,
         top_level_targets: Vec<TopLevelTargetSpec>,
     ) -> buck2_error::Result<ActionGraphSketchResult> {
+        // Incomplete tracker view: report empty rather than partial sketch.
+        if self.analysis_nodes_not_recorded.load(Ordering::Relaxed) {
+            return Ok(ActionGraphSketchResult::default());
+        }
         match self.tracker.get() {
             Some(tracker) => tracker.compute_action_graph_sketch(top_level_targets).await,
-            None => Ok(ActionGraphSketchResult {
-                per_target_sketches: Vec::new(),
-            }),
+            None => Ok(ActionGraphSketchResult::default()),
         }
     }
 }

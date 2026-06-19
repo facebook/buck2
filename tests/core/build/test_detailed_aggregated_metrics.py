@@ -165,3 +165,19 @@ async def test_amortization(buck: Buck) -> None:
         pytest.approx(12.0),
         pytest.approx(7.5),
     ]
+
+
+@buck_test(allow_soft_errors=True)
+async def test_enabled_after_analysis_soft_errors(buck: Buck) -> None:
+    # First command runs analysis with collection off; enabling it on a later
+    # command can't produce complete metrics, so we expect a soft error and empty
+    # metrics rather than partial ones.
+    await buck.build("//:foo4")
+    await buck.build("//:foo4", "-c", "buck2.detailed_aggregated_metrics=true")
+    log = (await buck.log("show")).stdout
+    assert "detailed_aggregated_metrics_enabled_after_analysis" in log
+    message = await get_detailed_metrics(buck)
+    assert message is not None
+    all_targets_metrics, per_target_metrics = parse_metrics(message)
+    assert per_target_metrics == {}
+    assert all_targets_metrics.get("action_graph_size") is None

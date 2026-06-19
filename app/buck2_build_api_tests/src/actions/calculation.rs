@@ -199,7 +199,7 @@ async fn make_default_dice_state(
         data.set_testing_io_provider(temp_fs);
         data.set_digest_config(DigestConfig::testing_default());
         data.set_invalidation_tracking_config(true);
-        data.set_detailed_aggregated_metrics_handle(DetailedAggregatedMetricsHandle::disabled());
+        data.set_detailed_aggregated_metrics_handle(DetailedAggregatedMetricsHandle::new());
     });
 
     for mock in mocks.into_iter() {
