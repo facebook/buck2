@@ -414,7 +414,7 @@ shlex = "1.3"
 siphasher = "1.0.3"
 slab = "0.4.12"
 slog = { version = "2.8.2", features = ["max_level_trace", "nested-values"] }
-smallvec = { version = "1.15", features = ["impl_bincode", "serde", "specialization", "union", "write"] }
+smallvec = { version = "1.15.2", features = ["impl_bincode", "serde", "specialization", "union", "write"] }
 sorted_vector_map = "0.2.1"
 starlark = { path = "starlark-rust/starlark" }
 starlark_lsp = { path = "starlark-rust/starlark_lsp" }
