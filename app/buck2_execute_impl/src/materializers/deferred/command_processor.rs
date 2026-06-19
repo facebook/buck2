@@ -47,7 +47,6 @@ use dupe::OptionDupedExt;
 use futures::Future;
 use futures::future;
 use futures::future::BoxFuture;
-use futures::future::Either;
 use futures::future::FutureExt;
 use futures::future::TryFutureExt;
 use futures::stream::BoxStream;
@@ -336,6 +335,26 @@ enum Op<T: 'static> {
     RefreshTtls,
     Tick,
     CleanStaleRequest,
+}
+
+/// What the disk-materialization path should actually materialize for an artifact.
+enum EntryDetails {
+    /// Materialize a declared entry to disk via its method.
+    Entry {
+        entry: ActionDirectoryEntry<ActionSharedDirectory>,
+        method: Arc<ArtifactMaterializationMethod>,
+    },
+    /// Nothing to materialize for the entry itself (e.g. only its deps need materializing).
+    DepsOnly,
+}
+
+impl EntryDetails {
+    fn kind(&self) -> &'static str {
+        match self {
+            EntryDetails::Entry { .. } => "entry",
+            EntryDetails::DepsOnly => "deps_only",
+        }
+    }
 }
 
 impl<T: 'static> Stream for CommandStream<T> {
@@ -1277,14 +1296,15 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
 
         let deps = data.deps.dupe();
         let check_deps = deps.is_some();
-        let entry_and_method = match &mut data.stage {
-            ArtifactMaterializationStage::Declared { entry, method } => {
-                Some((entry.dupe(), method.dupe()))
-            }
+        let entry_details = match &mut data.stage {
+            ArtifactMaterializationStage::Declared { entry, method } => EntryDetails::Entry {
+                entry: entry.dupe(),
+                method: method.dupe(),
+            },
             ArtifactMaterializationStage::Materialized {
                 last_access_time, ..
             } => match check_deps {
-                true => None,
+                true => EntryDetails::DepsOnly,
                 false => {
                     if let Some(ref mut buffer) = self.access_times_buffer.as_mut() {
                         // TODO (torozco): Why is it legal for something to be Materialized + Cleaning?
@@ -1315,16 +1335,21 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
 
         let version = self.version_tracker.next();
 
+        let method = match &entry_details {
+            EntryDetails::Entry { method, .. } => Some(method.as_ref()),
+            EntryDetails::DepsOnly => None,
+        };
+
+        // `method` is grepped for by tests/core/trace_io/test_trace_io.py (it asserts on the
+        // Debug method name, e.g. `LocalCopy`). Keep logging it so refactors don't break those tests.
         tracing::debug!(
-            has_entry_and_method = entry_and_method.is_some(),
-            method = ?entry_and_method.as_ref().map(|(_, m)| m),
+            entry_details = entry_details.kind(),
+            method = ?method,
             has_deps = deps.is_some(),
             version = %version,
             cleaning = cleaning_fut.is_some(),
             "materialize artifact"
         );
-
-        let method = entry_and_method.as_ref().map(|(_, m)| m.as_ref());
         // Those are special because if the artifact copies from other artifacts, we must materialize them first
         let materialize_copy_source_tasks =
             self.materialize_copy_source_tasks(&stack, &event_dispatcher, path, method, priority);
@@ -1341,25 +1366,28 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
 
         let spawn_dispatcher = event_dispatcher.dupe();
         let priority_control = DynamicPriorityHandle::new(priority);
-        let materialize_entry = if let Some((entry, method)) = entry_and_method {
-            let io = self.io.dupe();
-            let path_buf = path.to_buf();
-            let priority_control = priority_control.dupe();
-            let cancellations = CancellationContext::never_cancelled(); // spawned
-            Either::Left(async move {
-                io.materialize_entry(
-                    path_buf,
-                    method,
-                    entry,
-                    priority_control,
-                    event_dispatcher,
-                    cancellations,
-                )
-                .await
-            })
-        } else {
-            Either::Right(future::ready(Ok(())))
-        };
+        let materialize_entry: BoxFuture<'static, Result<(), MaterializeEntryError>> =
+            match entry_details {
+                EntryDetails::Entry { entry, method } => {
+                    let io = self.io.dupe();
+                    let path_buf = path.to_buf();
+                    let priority_control = priority_control.dupe();
+                    let cancellations = CancellationContext::never_cancelled(); // spawned
+                    async move {
+                        io.materialize_entry(
+                            path_buf,
+                            method,
+                            entry,
+                            priority_control,
+                            event_dispatcher,
+                            cancellations,
+                        )
+                        .await
+                    }
+                    .boxed()
+                }
+                EntryDetails::DepsOnly => future::ready(Ok(())).boxed(),
+            };
 
         // Create a task to await deps and materialize ourselves
         let path_buf = path.to_buf();
