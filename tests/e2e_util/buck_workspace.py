@@ -354,6 +354,10 @@ def _setup_eden(
     with open(temp_repo / ".eden-redirections", "w") as f:
         f.write(f'[redirections]\n"buck-out" = "{redirection_type}"\n')
 
+    # Make sure the repo's `sl status` is clean. Eden auto-creates the redirections
+    with open(temp_repo / ".gitignore", "w") as f:
+        f.write("/buck-out\n")
+
     subprocess.check_call(
         ["hg", "commit", "--addremove", "-m", "init"],
         stdout=sys.stdout,
