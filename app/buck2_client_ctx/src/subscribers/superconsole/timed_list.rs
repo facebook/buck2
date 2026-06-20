@@ -87,6 +87,14 @@ impl TimedListBody<'_> {
             write!(aux, " + {remaining_children}").expect("Write to String is not fallible");
         }
 
+        // Escalate the row color on time in the current stage, and only while
+        // actively executing -- total elapsed is mostly queueing under contention.
+        let style_age = if display::is_active_execution_stage(&child_info.event) {
+            child_info_elapsed
+        } else {
+            Duration::ZERO
+        };
+
         TimedRow::new(
             0,
             root_event.label,
@@ -94,7 +102,7 @@ impl TimedListBody<'_> {
             root_event.category,
             Some(aux),
             fmt_duration::fmt_duration(info_elapsed),
-            info_elapsed,
+            style_age,
             self.cutoffs,
         )
     }
@@ -367,7 +375,7 @@ mod tests {
         let expected = [
 
             "────────────────────────────────────────",
-            "test<span fg=dark_grey> · </span><span fg=dark_yellow>speak of the devil</span>           <span fg=dark_grey>3.0s</span>",
+            "test<span fg=dark_grey> · </span>speak of the devil           <span fg=dark_grey>3.0s</span>",
             "foo<span fg=dark_grey> · </span>speak of the devil            <span fg=dark_grey>1.0s</span>",
         ].iter().map(|l| format!("{l}\n")).join("");
 
@@ -501,7 +509,7 @@ mod tests {
 
             let expected = [
                 "────────────────────────────────────────────────────────────",
-                "pkg:target<span fg=dark_grey> [</span><span fg=dark_red>category identifier</span><span fg=dark_grey>]</span>                       <span fg=dark_grey>10.0s</span>",
+                "pkg:target<span fg=dark_grey> [</span>category identifier<span fg=dark_grey>]</span>                       <span fg=dark_grey>10.0s</span>",
             ].iter().map(|l| format!("{l}\n")).join("");
 
             pretty_assertions::assert_eq!(output.fmt_for_test().to_string(), expected);
@@ -520,7 +528,7 @@ mod tests {
 
             let expected = [
                 "────────────────────────────────────────────────────────────",
-                "pkg:target<span fg=dark_grey> [</span><span fg=dark_red>category identifier</span><span fg=dark_grey>]</span>                       <span fg=dark_grey>10.0s</span>",
+                "pkg:target<span fg=dark_grey> [</span>category identifier<span fg=dark_grey>]</span>                       <span fg=dark_grey>10.0s</span>",
             ]
             .iter()
             .map(|l| format!("{l}\n"))
@@ -592,7 +600,7 @@ mod tests {
         )?;
         let expected = [
             "────────────────────────────────────────────────────────────────────────────────",
-            "pkg:target<span fg=dark_grey> [</span>category identifier<span fg=dark_grey>]</span> <span fg=dark_red>prepare         5.0s</span>                      <span fg=dark_grey>10.0s</span>",
+            "pkg:target<span fg=dark_grey> [</span>category identifier<span fg=dark_grey>]</span> <span fg=dark_grey>prepare         5.0s</span>                      <span fg=dark_grey>10.0s</span>",
         ]
         .iter()
         .map(|l| format!("{l}\n"))
@@ -644,8 +652,11 @@ mod tests {
         )?;
         let expected = [
             "────────────────────────────────────────────────────────────────────────────────",
-            "pkg:target<span fg=dark_grey> [</span>category identifier<span fg=dark_grey>]</span> <span fg=dark_red>prepare         5.0s + 1</span>                  <span fg=dark_grey>10.0s</span>",
-        ].iter().map(|l| format!("{l}\n")).join("");
+            "pkg:target<span fg=dark_grey> [</span>category identifier<span fg=dark_grey>]</span> <span fg=dark_grey>prepare         5.0s + 1</span>                  <span fg=dark_grey>10.0s</span>",
+        ]
+        .iter()
+        .map(|l| format!("{l}\n"))
+        .join("");
 
         pretty_assertions::assert_eq!(output.fmt_for_test().to_string(), expected);
 

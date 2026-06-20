@@ -168,6 +168,13 @@ impl TimedRow {
         )?;
         let elapsed = timekeeper.duration_since(span.start);
         let time = fmt_duration::fmt_duration(elapsed);
+        // Escalate the row color on time in the current stage, and only while
+        // actively executing -- total elapsed is mostly queueing under contention.
+        let style_age = if display::is_active_execution_stage(&span.event) {
+            elapsed
+        } else {
+            Duration::ZERO
+        };
         Self::new(
             padding,
             event.label,
@@ -175,7 +182,7 @@ impl TimedRow {
             event.category,
             None,
             time,
-            elapsed,
+            style_age,
             cutoffs,
         )
     }

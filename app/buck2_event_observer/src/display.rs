@@ -705,6 +705,61 @@ pub fn display_executor_stage(
     Some(label)
 }
 
+/// Whether `event` is an executor stage that is actively running the action,
+/// rather than queueing, fetching from cache/RE, or materializing inputs.
+///
+/// Gates the slow-action coloring so the warning reflects slow work, not time
+/// spent waiting for a local slot or for inputs under contention.
+pub fn is_active_execution_stage(event: &BuckEvent) -> bool {
+    let buck2_data::buck_event::Data::SpanStart(start) = event.data() else {
+        return false;
+    };
+    let Some(Data::ExecutorStage(info)) = start.data.as_ref() else {
+        return false;
+    };
+    let Some(stage) = info.stage.as_ref() else {
+        return false;
+    };
+
+    use buck2_data::executor_stage_start::Stage;
+    match stage {
+        Stage::Local(local) => {
+            use buck2_data::local_stage::Stage as Local;
+            match local.stage.as_ref() {
+                Some(Local::Execute(..)) | Some(Local::WorkerExecute(..)) => true,
+                Some(Local::Queued(..))
+                | Some(Local::MaterializeInputs(..))
+                | Some(Local::PrepareOutputs(..))
+                | Some(Local::AcquireLocalResource(..))
+                | Some(Local::WorkerInit(..))
+                | Some(Local::WorkerQueued(..))
+                | Some(Local::WorkerWait(..))
+                | None => false,
+            }
+        }
+        Stage::Re(re) => {
+            use buck2_data::re_stage::Stage as Re;
+            match re.stage.as_ref() {
+                Some(Re::Execute(..)) => true,
+                Some(Re::Download(..))
+                | Some(Re::Queue(..))
+                | Some(Re::QueueOverQuota(..))
+                | Some(Re::QueueAcquiringDependencies(..))
+                | Some(Re::QueueNoWorkerAvailable(..))
+                | Some(Re::QueueCancelled(..))
+                | Some(Re::WorkerDownload(..))
+                | Some(Re::WorkerUpload(..))
+                | Some(Re::Unknown(..))
+                | Some(Re::MaterializeFailedInputs(..))
+                | Some(Re::BeforeActionExecution(..))
+                | Some(Re::AfterActionExecution(..))
+                | None => false,
+            }
+        }
+        Stage::Prepare(..) | Stage::CacheQuery(..) | Stage::CacheHit(..) => false,
+    }
+}
+
 #[derive(buck2_error::Error, Debug)]
 #[buck2(tag = Input)]
 enum ParseEventError {
