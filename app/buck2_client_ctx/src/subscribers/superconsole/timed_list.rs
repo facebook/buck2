@@ -501,7 +501,7 @@ mod tests {
 
             let expected = [
                 "────────────────────────────────────────────────────────────",
-                "pkg:target<span fg=dark_grey> · </span><span fg=dark_red>action (category identifier)</span>              <span fg=dark_grey>10.0s</span>",
+                "pkg:target<span fg=dark_grey> [</span><span fg=dark_red>category identifier</span><span fg=dark_grey>]</span>                       <span fg=dark_grey>10.0s</span>",
             ].iter().map(|l| format!("{l}\n")).join("");
 
             pretty_assertions::assert_eq!(output.fmt_for_test().to_string(), expected);
@@ -520,7 +520,7 @@ mod tests {
 
             let expected = [
                 "────────────────────────────────────────────────────────────",
-                "pkg:target<span fg=dark_grey> · </span><span fg=dark_red>action (category identifier)</span>              <span fg=dark_grey>10.0s</span>",
+                "pkg:target<span fg=dark_grey> [</span><span fg=dark_red>category identifier</span><span fg=dark_grey>]</span>                       <span fg=dark_grey>10.0s</span>",
             ]
             .iter()
             .map(|l| format!("{l}\n"))
@@ -592,8 +592,11 @@ mod tests {
         )?;
         let expected = [
             "────────────────────────────────────────────────────────────────────────────────",
-            "pkg:target<span fg=dark_grey> · </span>action (category identifier) <span fg=dark_red>prepare         5.0s</span>             <span fg=dark_grey>10.0s</span>",
-        ].iter().map(|l| format!("{l}\n")).join("");
+            "pkg:target<span fg=dark_grey> [</span>category identifier<span fg=dark_grey>]</span> <span fg=dark_red>prepare         5.0s</span>                      <span fg=dark_grey>10.0s</span>",
+        ]
+        .iter()
+        .map(|l| format!("{l}\n"))
+        .join("");
 
         pretty_assertions::assert_eq!(output.fmt_for_test().to_string(), expected);
 
@@ -641,7 +644,7 @@ mod tests {
         )?;
         let expected = [
             "────────────────────────────────────────────────────────────────────────────────",
-            "pkg:target<span fg=dark_grey> · </span>action (category identifier) <span fg=dark_red>prepare         5.0s + 1</span>         <span fg=dark_grey>10.0s</span>",
+            "pkg:target<span fg=dark_grey> [</span>category identifier<span fg=dark_grey>]</span> <span fg=dark_red>prepare         5.0s + 1</span>                  <span fg=dark_grey>10.0s</span>",
         ].iter().map(|l| format!("{l}\n")).join("");
 
         pretty_assertions::assert_eq!(output.fmt_for_test().to_string(), expected);

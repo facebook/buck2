@@ -189,11 +189,61 @@ pub fn display_action_key(
     }
 }
 
-pub fn display_action_name_opt(name: Option<&ActionName>) -> String {
-    match name {
-        Some(name) if name.identifier.is_empty() => name.category.clone(),
-        Some(name) => format!("{} {}", name.category, name.identifier),
-        _ => "unknown".to_owned(),
+fn action_key_leaf_name(action_key: &ActionKey) -> buck2_error::Result<&str> {
+    let ActionKey {
+        owner: Some(owner), ..
+    } = action_key
+    else {
+        return Err(ParseEventError::MissingActionOwner.into());
+    };
+
+    match owner {
+        action_key::Owner::TargetLabel(ConfiguredTargetLabel {
+            label: Some(TargetLabel { package: _, name }),
+            configuration: _,
+            execution_configuration: _,
+        })
+        | action_key::Owner::TestTargetLabel(ConfiguredTargetLabel {
+            label: Some(TargetLabel { package: _, name }),
+            configuration: _,
+            execution_configuration: _,
+        })
+        | action_key::Owner::LocalResourceSetup(ConfiguredTargetLabel {
+            label: Some(TargetLabel { package: _, name }),
+            configuration: _,
+            execution_configuration: _,
+        }) => Ok(name.as_str()),
+        action_key::Owner::TargetLabel(ConfiguredTargetLabel {
+            label: None,
+            configuration: _,
+            execution_configuration: _,
+        })
+        | action_key::Owner::TestTargetLabel(ConfiguredTargetLabel {
+            label: None,
+            configuration: _,
+            execution_configuration: _,
+        })
+        | action_key::Owner::LocalResourceSetup(ConfiguredTargetLabel {
+            label: None,
+            configuration: _,
+            execution_configuration: _,
+        }) => Err(ParseEventError::InvalidConfiguredTargetLabel.into()),
+        action_key::Owner::BxlKey(BxlFunctionKey {
+            label: Some(BxlFunctionLabel { bxl_path: _, name }),
+        }) => Ok(name.as_str()),
+        action_key::Owner::BxlKey(BxlFunctionKey { label: None }) => {
+            Err(ParseEventError::MissingBxlFunctionLabel.into())
+        }
+        action_key::Owner::AnonTarget(AnonTarget {
+            name: Some(TargetLabel { package: _, name }),
+            execution_configuration: _,
+            hash: _,
+        }) => Ok(name.as_str()),
+        action_key::Owner::AnonTarget(AnonTarget {
+            name: None,
+            execution_configuration: _,
+            hash: _,
+        }) => Err(ParseEventError::InvalidAnonTarget.into()),
     }
 }
 
@@ -283,12 +333,21 @@ pub fn display_event(
         let res: buck2_error::Result<_> = match data {
             Data::ActionExecution(action) => match &action.key {
                 Some(key) => {
-                    let string = display_action_key(key, opts)?;
-                    let action_descriptor = display_action_name_opt(action.name.as_ref());
-                    Ok(EventDisplay::labeled(
-                        string,
-                        format!("action ({action_descriptor})"),
-                    ))
+                    let target = display_action_key(key, opts)?;
+                    let event = match action.name.as_ref() {
+                        Some(name) => {
+                            let detail = if name.identifier.is_empty()
+                                || name.identifier.as_str() == action_key_leaf_name(key)?
+                            {
+                                name.category.clone()
+                            } else {
+                                format!("{} {}", name.category, name.identifier)
+                            };
+                            EventDisplay::labeled_action(target, detail, name.category.clone())
+                        }
+                        None => EventDisplay::labeled(target, "unknown"),
+                    };
+                    Ok(event)
                 }
                 None => Err(ParseEventError::MissingActionKey.into()),
             },
@@ -1225,7 +1284,77 @@ impl<'a> CriticalPathEntryDisplay<'a> {
 
 #[cfg(test)]
 mod tests {
+    use std::time::UNIX_EPOCH;
+
+    use buck2_data::SpanStartEvent;
+    use buck2_events::BuckEvent;
+    use buck2_events::span::SpanId;
+    use buck2_wrapper_common::invocation_id::TraceId;
+
     use super::*;
+
+    fn action_execution_event(identifier: &str) -> BuckEvent {
+        BuckEvent::new(
+            UNIX_EPOCH,
+            TraceId::new(),
+            Some(SpanId::next()),
+            None,
+            SpanStartEvent {
+                data: Some(
+                    buck2_data::ActionExecutionStart {
+                        key: Some(buck2_data::ActionKey {
+                            id: Default::default(),
+                            owner: Some(buck2_data::action_key::Owner::TargetLabel(
+                                buck2_data::ConfiguredTargetLabel {
+                                    label: Some(buck2_data::TargetLabel {
+                                        package: "pkg".into(),
+                                        name: "target".into(),
+                                    }),
+                                    configuration: Some(buck2_data::Configuration {
+                                        full_name: "cfg".into(),
+                                    }),
+                                    execution_configuration: None,
+                                },
+                            )),
+                            key: String::new(),
+                        }),
+                        name: Some(buck2_data::ActionName {
+                            category: "category".into(),
+                            identifier: identifier.into(),
+                        }),
+                        kind: buck2_data::ActionKind::NotSet as i32,
+                    }
+                    .into(),
+                ),
+            }
+            .into(),
+        )
+    }
+
+    #[test]
+    fn action_event_display_hides_identifier_matching_target_leaf() -> buck2_error::Result<()> {
+        let event = action_execution_event("target");
+        let display = display_event(&event, TargetDisplayOptions::for_console(true))?;
+
+        assert_eq!(display.label.as_deref(), Some("pkg:target (cfg)"));
+        assert_eq!(display.detail, "category");
+        assert_eq!(display.category.as_deref(), Some("category"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn action_event_display_keeps_identifier_different_from_target_leaf() -> buck2_error::Result<()>
+    {
+        let event = action_execution_event("other");
+        let display = display_event(&event, TargetDisplayOptions::for_console(true))?;
+
+        assert_eq!(display.label.as_deref(), Some("pkg:target (cfg)"));
+        assert_eq!(display.detail, "category other");
+        assert_eq!(display.category.as_deref(), Some("category"));
+
+        Ok(())
+    }
 
     #[test]
     fn removes_color_characters() {
