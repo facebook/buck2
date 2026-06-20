@@ -175,7 +175,7 @@ repository = "https://github.com/facebook/buck2"
 [workspace.dependencies]
 allocative = { path = "allocative/allocative", features = ["anyhow", "bumpalo", "chrono", "compact_str", "dashmap", "either", "futures", "hashbrown", "indexmap", "num-bigint", "once_cell", "parking_lot", "prost-types", "serde_json", "slab", "smallvec", "sorted_vector_map", "tokio", "triomphe"] }
 anyhow = "1.0.102"
-anymap3 = "1.0.1"
+anymap3 = "1.1.0"
 arc-swap = { version = "1.9.0", features = ["weak"] }
 assert_matches = "1.5"
 async-compression = { version = "0.4.42", features = ["brotli", "bzip2", "deflate", "futures-io", "gzip", "tokio", "zlib", "zstd", "zstdmt"] }
