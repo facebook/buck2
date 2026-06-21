@@ -145,7 +145,7 @@ pub(crate) struct TargetInfo {
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub(crate) struct AliasedTargetInfo {
-    pub(crate) actual: Target,
+    pub(crate) actual: Option<Target>,
 }
 
 impl TargetInfo {

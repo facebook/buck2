@@ -337,15 +337,16 @@ fn resolve_aliases(
     let mut resolved_targets = vec![];
 
     for target in targets {
-        let destination_target = match aliases.get(target) {
-            Some(actual) => &actual.actual,
-            None => {
-                // we fall back to check the proc macros for aliases
-                // (these should exist in the aliases map, but they don't. yolo.)
-                match proc_macros.get(target) {
-                    Some(MacroOutput { actual, .. }) => actual,
-                    None => target,
-                }
+        let destination_target = if let Some(alias_target) = aliases.get(target)
+            && let Some(actual) = &alias_target.actual
+        {
+            actual
+        } else {
+            // we fall back to check the proc macros for aliases
+            // (these should exist in the aliases map, but they don't. yolo.)
+            match proc_macros.get(target) {
+                Some(MacroOutput { actual, .. }) => actual,
+                None => target,
             }
         };
 
@@ -667,7 +668,7 @@ impl Buck {
         for _ in 0..5 {
             let mut alias_destinations = alias_map
                 .values()
-                .map(|info| info.actual.clone())
+                .filter_map(|info| info.actual.clone())
                 .collect::<FxHashSet<_>>()
                 .into_iter()
                 .collect::<Vec<_>>();
@@ -688,7 +689,9 @@ impl Buck {
             }
 
             for destination in alias_map.values_mut() {
-                if let Some(new_destination) = new_aliases.get(&destination.actual) {
+                if let Some(actual) = &destination.actual
+                    && let Some(new_destination) = new_aliases.get(actual)
+                {
                     destination.actual = new_destination.actual.clone();
                 }
             }
@@ -1081,7 +1084,12 @@ fn deserialize_uquery_alias_info(v: serde_json::Value) -> FxHashMap<Target, Alia
             continue;
         };
         let actual = Target::new(actual_str);
-        map.insert(Target::new(target_str), AliasedTargetInfo { actual });
+        map.insert(
+            Target::new(target_str),
+            AliasedTargetInfo {
+                actual: Some(actual),
+            },
+        );
     }
 
     map
@@ -1466,7 +1474,7 @@ fn alias_of_existing_target() {
     aliases.insert(
         Target::new("//foo-alias"),
         AliasedTargetInfo {
-            actual: Target::new("//foo"),
+            actual: Some(Target::new("//foo")),
         },
     );
 
