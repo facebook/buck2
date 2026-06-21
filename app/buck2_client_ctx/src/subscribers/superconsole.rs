@@ -22,7 +22,9 @@ use buck2_event_observer::display;
 use buck2_event_observer::display::TargetDisplayOptions;
 use buck2_event_observer::display::display_file_watcher_end;
 use buck2_event_observer::event_observer::DebugEventObserverExtra;
+use buck2_event_observer::re_state::ReState;
 use buck2_event_observer::session_info::SessionInfo;
+use buck2_event_observer::two_snapshots::TwoSnapshots;
 use buck2_event_observer::unpack_event::VisitorError;
 use buck2_event_observer::unpack_event::unpack_event;
 use buck2_event_observer::verbosity::Verbosity;
@@ -547,6 +549,8 @@ impl Component for BuckRootComponent<'_> {
         draw.draw(
             &SessionInfoComponent {
                 session_info: self.state.session_info(),
+                re_state: self.state.simple_console.observer.re_state(),
+                two_snapshots: self.state.simple_console.observer.two_snapshots(),
             },
             mode,
         )?;
@@ -652,7 +656,7 @@ impl StatefulSuperConsole {
         config: SuperConsoleConfig,
         health_check_reports_receiver: Option<Receiver<Vec<DisplayReport>>>,
     ) -> buck2_error::Result<Self> {
-        let header = format!("Command: {command_name}.");
+        let header = format!("Command {command_name}");
         Ok(Self::Running(StatefulSuperConsoleImpl {
             header,
             state: SuperConsoleState::new(
@@ -757,6 +761,14 @@ impl SuperConsoleState {
 
     pub fn session_info(&self) -> &SessionInfo {
         self.simple_console.observer.session_info()
+    }
+
+    pub fn re_state(&self) -> &ReState {
+        self.simple_console.observer.re_state()
+    }
+
+    pub fn two_snapshots(&self) -> &TwoSnapshots {
+        self.simple_console.observer.two_snapshots()
     }
 
     pub fn tick(&mut self, tick: Tick) {
@@ -1842,9 +1854,9 @@ mod tests {
         } else {
             assert_frame_contains(&frame, "Build ID:");
         }
-        assert_frame_contains(&frame, "Network:");
-        assert_frame_contains(&frame, "(reSessionID-123)");
-        assert_frame_contains(&frame, "Remaining");
+        assert_frame_contains(&frame, "RE session:");
+        assert_frame_contains(&frame, "reSessionID-123");
+        assert_frame_contains(&frame, "Loading targets");
 
         console
             .handle_command_result(&buck2_cli_proto::CommandResult { result: None })
@@ -1864,8 +1876,13 @@ mod tests {
             legacy_dice: false,
         };
 
+        let re_state = ReState::new();
+        let two_snapshots = TwoSnapshots::default();
+
         let full = SessionInfoComponent {
             session_info: &info,
+            re_state: &re_state,
+            two_snapshots: &two_snapshots,
         }
         .draw_unchecked(
             Dimensions {
@@ -1881,6 +1898,8 @@ mod tests {
 
         let multiline = SessionInfoComponent {
             session_info: &info,
+            re_state: &re_state,
+            two_snapshots: &two_snapshots,
         }
         .draw_unchecked(
             Dimensions {
@@ -1897,6 +1916,8 @@ mod tests {
 
         let too_small = SessionInfoComponent {
             session_info: &info,
+            re_state: &re_state,
+            two_snapshots: &two_snapshots,
         }
         .draw_unchecked(
             Dimensions {
@@ -1907,6 +1928,77 @@ mod tests {
         )?;
 
         assert_eq!(too_small.len(), 1);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_session_info_network() -> buck2_error::Result<()> {
+        let info = SessionInfo {
+            trace_id: TraceId::null(),
+            test_session: None,
+            legacy_dice: false,
+        };
+
+        let mut re_state = ReState::new();
+        re_state.add_re_session(&buck2_data::RemoteExecutionSessionCreated {
+            session_id: "reSessionID-123".to_owned(),
+            experiment_name: "".to_owned(),
+            persistent_cache_mode: None,
+        });
+        re_state.update(&buck2_data::Snapshot::default());
+
+        let mut two_snapshots = TwoSnapshots::default();
+        let start = std::time::SystemTime::UNIX_EPOCH;
+        two_snapshots.update(start, &buck2_data::Snapshot::default());
+        two_snapshots.update(
+            start + std::time::Duration::from_secs(10),
+            &buck2_data::Snapshot {
+                re_upload_bytes: 10 * 1024 * 1024,
+                re_download_bytes: 1024 * 1024 * 1024,
+                http_download_bytes: 512 * 1024 * 1024,
+                ..Default::default()
+            },
+        );
+
+        let component = SessionInfoComponent {
+            session_info: &info,
+            re_state: &re_state,
+            two_snapshots: &two_snapshots,
+        };
+
+        let normal = component
+            .draw_unchecked(
+                Dimensions {
+                    width: 80,
+                    height: 10,
+                },
+                DrawMode::Normal,
+            )?
+            .fmt_for_test()
+            .to_string();
+        assert!(
+            normal.contains(
+                "RE session: reSessionID-123\nNetwork:    up    10MiB 1.0MiB/s\n            down 1.5GiB 154MiB/s"
+            ),
+            "unexpected render:\n{normal}"
+        );
+
+        let final_render = component
+            .draw_unchecked(
+                Dimensions {
+                    width: 80,
+                    height: 10,
+                },
+                DrawMode::Final,
+            )?
+            .fmt_for_test()
+            .to_string();
+        assert!(
+            final_render
+                .contains("RE session: reSessionID-123\nNetwork:    up 10MiB  down 1.5GiB"),
+            "unexpected render:\n{final_render}"
+        );
 
         Ok(())
     }

@@ -240,7 +240,7 @@ impl SuperConsoleToggle {
             SuperConsoleToggle::Dice => "DICE",
             SuperConsoleToggle::DebugEvents => "debug events",
             SuperConsoleToggle::TwoLinesMode => "two lines mode",
-            SuperConsoleToggle::DetailedRE => "detailed RE",
+            SuperConsoleToggle::DetailedRE => "network details",
             SuperConsoleToggle::Io => "I/O counters",
             SuperConsoleToggle::TargetConfigurations => "target configurations",
             SuperConsoleToggle::ExpandedProgress => "expanded progress",
