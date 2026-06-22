@@ -126,12 +126,13 @@ impl SqliteBackedPagableStorage {
 
     fn flush_buffer(&self) -> anyhow::Result<()> {
         let rx = self.write_rx.lock().expect("lock poisoned");
-        let items: Vec<_> = rx.try_iter().collect();
+        let mut items: Vec<_> = rx.try_iter().collect();
         drop(rx);
         self.write_count.store(0, Ordering::Relaxed);
         if items.is_empty() {
             return Ok(());
         }
+        items.sort_unstable_by_key(|(key, _bytes)| key.0);
 
         let mut conn = self.conns.get_readwrite();
         let tx = conn.transaction()?;
