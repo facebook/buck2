@@ -78,7 +78,7 @@ use crate::client_metadata::ClientMetadata;
 use crate::common::CommonBuildConfigurationOptions;
 use crate::common::CommonEventLogOptions;
 use crate::common::PreemptibleWhen;
-use crate::console_interaction_stream::SuperConsoleToggle;
+use crate::console_interaction_stream::ConsoleInteraction;
 use crate::exit_result::ExitResult;
 use crate::subscribers::classify_server_stderr::classify_server_stderr;
 use crate::subscribers::observer::ErrorObserver;
@@ -2515,12 +2515,13 @@ impl EventSubscriber for InvocationRecorder {
 
     async fn handle_console_interaction(
         &mut self,
-        c: &Option<SuperConsoleToggle>,
+        c: &ConsoleInteraction,
     ) -> buck2_error::Result<()> {
-        if let Some(c) = c {
-            self.tags
-                .push(format!("superconsole-toggle:{}", c.key()).to_owned())
-        }
+        let ConsoleInteraction::Toggle(c) = c else {
+            return Ok(());
+        };
+        self.tags
+            .push(format!("superconsole-toggle:{}", c.key()).to_owned());
         Ok(())
     }
 

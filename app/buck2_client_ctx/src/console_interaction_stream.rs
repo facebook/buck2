@@ -8,13 +8,19 @@
  * above-listed licenses.
  */
 
+use crossterm::event::Event;
+use crossterm::event::EventStream;
+use crossterm::event::KeyCode;
+use crossterm::event::KeyEventKind;
+use crossterm::event::KeyModifiers;
+use futures::StreamExt;
 use strum::EnumIter;
 use superconsole::Stdin;
-use tokio::io::AsyncReadExt;
 
 pub struct ConsoleInteractionStream<'a> {
-    pub stdin: &'a mut Stdin,
+    _stdin: &'a mut Stdin,
     term: InteractiveTerminal,
+    events: EventStream,
 }
 
 impl<'a> ConsoleInteractionStream<'a> {
@@ -31,7 +37,11 @@ impl<'a> ConsoleInteractionStream<'a> {
             }
         };
 
-        Some(Self { stdin, term })
+        Some(Self {
+            _stdin: stdin,
+            term,
+            events: EventStream::new(),
+        })
     }
 }
 
@@ -206,6 +216,24 @@ pub enum SuperConsoleToggle {
     Char(char),
 }
 
+pub enum ConsoleInteraction {
+    Toggle(SuperConsoleToggle),
+    Key(ConsoleKey),
+    Resize,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum ConsoleKey {
+    Escape,
+    Up,
+    Down,
+    Left,
+    Right,
+    ShiftLeft,
+    ShiftRight,
+    Other,
+}
+
 impl SuperConsoleToggle {
     pub fn description(&self) -> &str {
         match self {
@@ -250,42 +278,91 @@ impl SuperConsoleToggle {
 
 #[async_trait::async_trait]
 pub trait SuperConsoleInteraction: Send + Sync {
-    async fn toggle(&mut self) -> buck2_error::Result<Option<SuperConsoleToggle>>;
+    async fn interaction(&mut self) -> buck2_error::Result<ConsoleInteraction>;
 }
 
 #[async_trait::async_trait]
 impl SuperConsoleInteraction for ConsoleInteractionStream<'_> {
-    async fn toggle(&mut self) -> buck2_error::Result<Option<SuperConsoleToggle>> {
-        match self.stdin.read_u8().await {
-            Ok(c) => {
-                let c: char = c.into();
-                let console_toggle = match c {
-                    'd' => Some(SuperConsoleToggle::Dice),
-                    'e' => Some(SuperConsoleToggle::DebugEvents),
-                    '2' => Some(SuperConsoleToggle::TwoLinesMode),
-                    'r' => Some(SuperConsoleToggle::DetailedRE),
-                    'i' => Some(SuperConsoleToggle::Io),
-                    'p' => Some(SuperConsoleToggle::TargetConfigurations),
-                    'x' => Some(SuperConsoleToggle::ExpandedProgress),
-                    'c' => Some(SuperConsoleToggle::Commands),
-                    '+' => Some(SuperConsoleToggle::IncrLines),
-                    '-' => Some(SuperConsoleToggle::DecrLines),
-                    'k' => Some(SuperConsoleToggle::IncreaseReplaySpeed),
-                    'j' => Some(SuperConsoleToggle::DecreaseReplaySpeed),
-                    'y' => Some(SuperConsoleToggle::PauseReplay),
-                    '?' | 'h' => Some(SuperConsoleToggle::Help),
-                    _ => Some(SuperConsoleToggle::Char(c)),
-                };
-                Ok(console_toggle)
-            }
-            // NOTE: An EOF here would be reported as "unexpected" because we asked for a u8.
-            Err(e)
-                if e.kind() == std::io::ErrorKind::UnexpectedEof
-                    || e.kind() == std::io::ErrorKind::WouldBlock =>
-            {
+    async fn interaction(&mut self) -> buck2_error::Result<ConsoleInteraction> {
+        loop {
+            let Some(event) = self.events.next().await else {
                 futures::future::pending().await
+            };
+            let event = event
+                .map_err(|e| buck2_error::Error::from(e).context("Error reading console event"))?;
+            match event {
+                Event::Key(key) => {
+                    // Windows emits a Release event (and, with the keyboard
+                    // enhancement protocol, a Repeat) for every physical
+                    // keypress; act only on Press so one keystroke fires once.
+                    match key.kind {
+                        KeyEventKind::Press => {}
+                        KeyEventKind::Repeat | KeyEventKind::Release => continue,
+                    }
+                    let interaction = match key.code {
+                        KeyCode::Char(c) => ConsoleInteraction::Toggle(match c {
+                            'd' => SuperConsoleToggle::Dice,
+                            'e' => SuperConsoleToggle::DebugEvents,
+                            '2' => SuperConsoleToggle::TwoLinesMode,
+                            'r' => SuperConsoleToggle::DetailedRE,
+                            'i' => SuperConsoleToggle::Io,
+                            'p' => SuperConsoleToggle::TargetConfigurations,
+                            'x' => SuperConsoleToggle::ExpandedProgress,
+                            'c' => SuperConsoleToggle::Commands,
+                            '+' => SuperConsoleToggle::IncrLines,
+                            '-' => SuperConsoleToggle::DecrLines,
+                            'k' => SuperConsoleToggle::IncreaseReplaySpeed,
+                            'j' => SuperConsoleToggle::DecreaseReplaySpeed,
+                            'y' => SuperConsoleToggle::PauseReplay,
+                            '?' | 'h' => SuperConsoleToggle::Help,
+                            c => SuperConsoleToggle::Char(c),
+                        }),
+                        KeyCode::Enter => {
+                            ConsoleInteraction::Toggle(SuperConsoleToggle::Char('\n'))
+                        }
+                        KeyCode::Tab => ConsoleInteraction::Toggle(SuperConsoleToggle::Char('\t')),
+                        KeyCode::Esc => ConsoleInteraction::Key(ConsoleKey::Escape),
+                        KeyCode::Up => ConsoleInteraction::Key(ConsoleKey::Up),
+                        KeyCode::Down => ConsoleInteraction::Key(ConsoleKey::Down),
+                        KeyCode::Left => ConsoleInteraction::Key(
+                            if key.modifiers.contains(KeyModifiers::SHIFT) {
+                                ConsoleKey::ShiftLeft
+                            } else {
+                                ConsoleKey::Left
+                            },
+                        ),
+                        KeyCode::Right => ConsoleInteraction::Key(
+                            if key.modifiers.contains(KeyModifiers::SHIFT) {
+                                ConsoleKey::ShiftRight
+                            } else {
+                                ConsoleKey::Right
+                            },
+                        ),
+                        KeyCode::Backspace
+                        | KeyCode::Home
+                        | KeyCode::End
+                        | KeyCode::PageUp
+                        | KeyCode::PageDown
+                        | KeyCode::BackTab
+                        | KeyCode::Delete
+                        | KeyCode::Insert
+                        | KeyCode::F(_)
+                        | KeyCode::Null
+                        | KeyCode::CapsLock
+                        | KeyCode::ScrollLock
+                        | KeyCode::NumLock
+                        | KeyCode::PrintScreen
+                        | KeyCode::Pause
+                        | KeyCode::Menu
+                        | KeyCode::KeypadBegin
+                        | KeyCode::Media(_)
+                        | KeyCode::Modifier(_) => ConsoleInteraction::Key(ConsoleKey::Other),
+                    };
+                    return Ok(interaction);
+                }
+                Event::Resize(..) => return Ok(ConsoleInteraction::Resize),
+                Event::FocusGained | Event::FocusLost | Event::Mouse(_) | Event::Paste(_) => {}
             }
-            Err(e) => Err(buck2_error::Error::from(e).context("Error reading char from console")),
         }
     }
 }
@@ -294,7 +371,7 @@ pub struct NoopSuperConsoleInteraction;
 
 #[async_trait::async_trait]
 impl SuperConsoleInteraction for NoopSuperConsoleInteraction {
-    async fn toggle(&mut self) -> buck2_error::Result<Option<SuperConsoleToggle>> {
+    async fn interaction(&mut self) -> buck2_error::Result<ConsoleInteraction> {
         futures::future::pending().await
     }
 }
