@@ -562,6 +562,39 @@ async def test_run_with_anon_non_cbp_dep_eligible_for_dedupe(buck: Buck) -> None
 
 
 @buck_test()
+async def test_run_with_symlink_to_non_content_based_input_eligible_for_dedupe_bug(
+    buck: Buck,
+) -> None:
+    # TODO(T276504188): This test documents a BUG and asserts the buggy
+    # behavior, so it must be updated once the task is fixed.
+    #
+    # The `run_with_symlink_to_non_cbp_input` target's consuming `run` action
+    # depends on a symlink whose own path is content-based, but which points at
+    # a non-content-based (configuration-based) artifact. Because it is a `run`,
+    # the symlink (and therefore its target) is actually materialized as an
+    # input, so the action's resolved inputs still embed a configuration hash.
+    # The action is therefore NOT actually eligible for dedupe and should be
+    # reported as INELIGIBLE_INPUT.
+    #
+    # Instead it is wrongly reported as ELIGIBLE_FOR_DEDUPE: the eligibility
+    # check (`ArtifactGroup::is_eligible_for_dedupe`) only inspects each input
+    # artifact's own path and never follows a symlink to its target, so it
+    # misses the configuration-based target.
+    #
+    # When T276504188 is fixed, the consuming `run` action should instead be
+    # reported as INELIGIBLE_INPUT and this assertion must be flipped.
+    await buck.build(
+        "root//:run_with_symlink_to_non_cbp_input",
+        "--target-platforms",
+        "root//:p_default",
+    )
+
+    # The consuming run action executes last (it depends on every other action
+    # in the rule), so its eligibility verdict is the last event.
+    assert await is_eligible_for_action_dedup(buck) == ELIGIBLE_FOR_DEDUPE
+
+
+@buck_test()
 async def test_not_eligible_for_dedupe(buck: Buck) -> None:
     await buck.build(
         "root//:not_eligible_for_dedupe",

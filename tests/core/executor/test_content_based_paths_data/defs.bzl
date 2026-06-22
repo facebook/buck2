@@ -781,6 +781,54 @@ non_content_based_exec_dep = rule(
     attrs = {},
 )
 
+# Fixture for the symlink dedupe-eligibility blind spot (T276504188).
+#
+# The consuming `run` action depends on a symlink whose OWN path is
+# content-based, but which points at a NON-content-based (configuration-based)
+# artifact. A `run` genuinely materializes the symlink (and therefore its
+# target), so the configuration-based target really is part of the action's
+# resolved inputs. The dedupe-eligibility check only looks at each input
+# artifact's own path and never follows the symlink to its target, so it
+# wrongly reports the consuming action as eligible for dedupe even though its
+# resolved input still embeds a configuration hash.
+def _run_with_symlink_to_non_cbp_input_impl(ctx):
+    # Non-content-based: its on-disk path embeds a configuration hash, so any
+    # action that (transitively) depends on it is NOT eligible for dedupe.
+    non_cbp = ctx.actions.write("non_cbp", "non_cbp", has_content_based_path = False)
+
+    # Symlink whose own path is content-based, but which points at the
+    # non-content-based artifact above.
+    symlink = ctx.actions.symlink_file("symlink", non_cbp, has_content_based_path = True)
+
+    # Content-based script that reads the symlink, forcing the symlink (and its
+    # target) to actually be materialized as an input to the run action.
+    script = ctx.actions.declare_output("script.py", has_content_based_path = True)
+    script = ctx.actions.write(
+        script,
+        [
+            "import sys",
+            "with open(sys.argv[2], 'w') as out:",
+            "  with open(sys.argv[1]) as inp:",
+            "    out.write(inp.read())",
+        ],
+    )
+
+    # Consuming run action. Its top-level inputs (script + symlink) are both
+    # content-based, so the eligibility check passes them; the non-content-based
+    # target is reachable only *through* the symlink, so the check never sees it.
+    out = ctx.actions.declare_output("out", has_content_based_path = True)
+    ctx.actions.run(
+        cmd_args(["fbpython", script, symlink, out.as_output()]),
+        category = "test_run",
+    )
+
+    return [DefaultInfo(default_output = out)]
+
+run_with_symlink_to_non_cbp_input = rule(
+    impl = _run_with_symlink_to_non_cbp_input_impl,
+    attrs = {},
+)
+
 def _uses_exec_dep_impl(ctx):
     dep_out = ctx.attrs.exec_dep[DefaultInfo].default_outputs[0]
     script = ctx.actions.write(

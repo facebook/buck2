@@ -18,6 +18,7 @@ load(
     "resolve_promise_artifact",
     "run_with_anon_non_cbp_dep",
     "run_with_content_based_path",
+    "run_with_symlink_to_non_cbp_input",
     "rust_pattern_consumer",
     "rust_pattern_producer",
     "sets_inconsistent_params",
@@ -88,6 +89,10 @@ symlink(
 
 symlink_and_copy(
     name = "symlink_and_copy_with_content_based_path",
+)
+
+run_with_symlink_to_non_cbp_input(
+    name = "run_with_symlink_to_non_cbp_input",
 )
 
 copied_dir(
