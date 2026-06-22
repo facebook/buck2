@@ -24,16 +24,25 @@ use pagable::storage::traits::PagableStorage;
 use pagable::traits::SessionContext;
 use rusqlite::Connection;
 
+const NUM_SHARDS: usize = 16;
+
 /// SQLite-backed storage backend for pagable data.
 ///
-/// This storage implementation persists paged-out data to a SQLite database file.
+/// This storage implementation persists paged-out data to SQLite database files.
 /// It provides:
 /// - Serialized data storage indexed by content-addressable `DataKey`
 /// - Arc caching to avoid redundant deserialization
+///
+/// SQLite serializes writes per database file, so data is sharded by `DataKey`
+/// to allow page-out workers to write independent files in parallel.
 pub struct SqliteBackedPagableStorage {
-    conns: ConnectionPool,
+    shards: Vec<Shard>,
     arcs: DeserializedArcCache,
     session_context: SessionContext,
+}
+
+struct Shard {
+    conns: ConnectionPool,
     write_tx: mpsc::Sender<(DataKey, Vec<u8>)>,
     write_rx: Mutex<mpsc::Receiver<(DataKey, Vec<u8>)>>,
     write_count: AtomicUsize,
@@ -46,14 +55,10 @@ struct ConnectionPool {
 }
 
 impl ConnectionPool {
-    fn open(path: &Path) -> anyhow::Result<Self> {
+    fn open(path: &Path, num_readers: usize) -> anyhow::Result<Self> {
         let writer = Connection::open(path)?;
         Self::init_pragmas(&writer)?;
 
-        let num_readers = std::thread::available_parallelism()
-            .map(|n| n.get())
-            .unwrap_or(4)
-            .min(8);
         let mut readers = Vec::with_capacity(num_readers);
         for _ in 0..num_readers {
             let reader = Connection::open_with_flags(
@@ -86,8 +91,7 @@ impl ConnectionPool {
     }
 
     /// Round-robin with try_lock to skip connections held by other threads.
-    /// Falls back to the writer connection if all readers are busy.
-    /// Blocks on a reader if all readers + writer are busy.
+    /// Blocks on a reader if all readers are busy.
     fn get_reader(&self) -> MutexGuard<'_, Connection> {
         let start = self.next_reader.fetch_add(1, Ordering::Relaxed);
         let len = self.readers.len();
@@ -100,11 +104,9 @@ impl ConnectionPool {
     }
 }
 
-impl SqliteBackedPagableStorage {
-    /// Creates a new SQLite-backed storage in the given directory.
-    pub fn try_new(path: &Path) -> anyhow::Result<Self> {
-        std::fs::create_dir_all(path)?;
-        let conns = ConnectionPool::open(&path.join("pagable.db"))?;
+impl Shard {
+    fn open(path: &Path, num_readers: usize) -> anyhow::Result<Self> {
+        let conns = ConnectionPool::open(path, num_readers)?;
         conns.get_readwrite().execute_batch(
             "CREATE TABLE IF NOT EXISTS pagable_data (
                 key BLOB NOT NULL UNIQUE,
@@ -114,17 +116,13 @@ impl SqliteBackedPagableStorage {
         let (write_tx, write_rx) = mpsc::channel();
         Ok(Self {
             conns,
-            arcs: DeserializedArcCache::new(),
-            session_context: SessionContext::new(),
             write_tx,
             write_rx: Mutex::new(write_rx),
             write_count: AtomicUsize::new(0),
         })
     }
 
-    const WRITE_BUFFER_CAPACITY: usize = 32768;
-
-    fn flush_buffer(&self) -> anyhow::Result<()> {
+    fn flush(&self) -> anyhow::Result<()> {
         let rx = self.write_rx.lock().expect("lock poisoned");
         let mut items: Vec<_> = rx.try_iter().collect();
         drop(rx);
@@ -147,9 +145,39 @@ impl SqliteBackedPagableStorage {
         tx.commit()?;
         Ok(())
     }
+}
+
+impl SqliteBackedPagableStorage {
+    /// Creates a new SQLite-backed storage in the given directory.
+    pub fn try_new(path: &Path) -> anyhow::Result<Self> {
+        std::fs::create_dir_all(path)?;
+
+        // Readers only serve page-in. Keep the total connection count bounded
+        // now that writers are sharded across database files.
+        let readers_per_shard = std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(4)
+            .div_ceil(NUM_SHARDS)
+            .clamp(1, 2);
+        let shards = (0..NUM_SHARDS)
+            .map(|i| Shard::open(&path.join(format!("pagable.{i}.db")), readers_per_shard))
+            .collect::<anyhow::Result<Vec<_>>>()?;
+
+        Ok(Self {
+            shards,
+            arcs: DeserializedArcCache::new(),
+            session_context: SessionContext::new(),
+        })
+    }
+
+    const WRITE_BUFFER_CAPACITY: usize = 32768;
+
+    fn shard_for(&self, key: &DataKey) -> &Shard {
+        &self.shards[(key.0 % self.shards.len() as u128) as usize]
+    }
 
     fn fetch_data_read(&self, key: &DataKey) -> anyhow::Result<Arc<PagableData>> {
-        let conn = self.conns.get_reader();
+        let conn = self.shard_for(key).conns.get_reader();
         let bytes: Vec<u8> = {
             let mut stmt = conn
                 .prepare_cached("SELECT value FROM pagable_data WHERE key = ?1")
@@ -172,12 +200,14 @@ impl SqliteBackedPagableStorage {
     }
 
     pub fn shrink_memory(&self) {
-        if let Ok(conn) = self.conns.readwrite.lock() {
-            let _unused = conn.execute_batch("PRAGMA shrink_memory;");
-        }
-        for reader in &self.conns.readers {
-            if let Ok(conn) = reader.lock() {
+        for shard in &self.shards {
+            if let Ok(conn) = shard.conns.readwrite.lock() {
                 let _unused = conn.execute_batch("PRAGMA shrink_memory;");
+            }
+            for reader in &shard.conns.readers {
+                if let Ok(conn) = reader.lock() {
+                    let _unused = conn.execute_batch("PRAGMA shrink_memory;");
+                }
             }
         }
     }
@@ -253,20 +283,142 @@ impl PagableStorage for SqliteBackedPagableStorage {
     fn store_data(&self, data: PagableData) -> anyhow::Result<DataKey> {
         let key = data.compute_key();
         let bytes = Self::encode_pagable_data(&data);
-        self.write_tx
+        let shard = self.shard_for(&key);
+        shard
+            .write_tx
             .send((key, bytes))
             .map_err(|_| anyhow::anyhow!("write channel closed"))?;
-        if self.write_count.fetch_add(1, Ordering::Relaxed) + 1 >= Self::WRITE_BUFFER_CAPACITY {
-            self.flush_buffer()?;
+        if shard.write_count.fetch_add(1, Ordering::Relaxed) + 1 >= Self::WRITE_BUFFER_CAPACITY {
+            shard.flush()?;
         }
         Ok(key)
     }
 
     fn flush(&self) -> anyhow::Result<()> {
-        self.flush_buffer()
+        std::thread::scope(|scope| {
+            let handles: Vec<_> = self
+                .shards
+                .iter()
+                .map(|shard| scope.spawn(move || shard.flush()))
+                .collect();
+            for handle in handles {
+                handle.join().expect("flush thread panicked")?;
+            }
+            anyhow::Ok(())
+        })
     }
 
     fn release_memory(&self) {
         self.shrink_memory();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+    use std::time::SystemTime;
+    use std::time::UNIX_EPOCH;
+
+    use super::*;
+
+    struct TempStorageDir {
+        path: PathBuf,
+    }
+
+    impl TempStorageDir {
+        fn new(test_name: &str) -> anyhow::Result<Self> {
+            let id = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
+            let path = std::env::temp_dir().join(format!(
+                "pagable_storage_sqlite_{test_name}_{}_{}",
+                std::process::id(),
+                id
+            ));
+            std::fs::create_dir_all(&path)?;
+            Ok(Self { path })
+        }
+    }
+
+    impl Drop for TempStorageDir {
+        fn drop(&mut self) {
+            drop(std::fs::remove_dir_all(&self.path));
+        }
+    }
+
+    fn pagable_data(data: &[u8], arcs: Vec<DataKey>) -> PagableData {
+        PagableData {
+            data: data.to_vec(),
+            arcs,
+        }
+    }
+
+    fn shard_row_count(shard: &Shard) -> anyhow::Result<usize> {
+        let conn = shard.conns.readwrite.lock().expect("lock poisoned");
+        Ok(conn.query_row("SELECT COUNT(*) FROM pagable_data", [], |row| row.get(0))?)
+    }
+
+    #[test]
+    fn sqlite_sharded_storage_round_trips_data_and_arcs() -> anyhow::Result<()> {
+        let dir = TempStorageDir::new("sharded_round_trip")?;
+        let storage = SqliteBackedPagableStorage::try_new(&dir.path)?;
+
+        let mut expected = Vec::new();
+        for i in 0..128 {
+            let data = pagable_data(
+                format!("serialized payload {i}").as_bytes(),
+                vec![DataKey(i), DataKey(i + 1000)],
+            );
+            let expected_data = data.data.clone();
+            let expected_arcs = data.arcs.clone();
+            let key = storage.store_data(data)?;
+            expected.push((key, expected_data, expected_arcs));
+        }
+        storage.flush()?;
+
+        let nonempty_shards = storage
+            .shards
+            .iter()
+            .map(shard_row_count)
+            .collect::<anyhow::Result<Vec<_>>>()?
+            .into_iter()
+            .filter(|count| *count > 0)
+            .count();
+        assert!(
+            nonempty_shards > 1,
+            "expected writes to use multiple shards"
+        );
+
+        for (key, expected_data, expected_arcs) in expected {
+            let fetched = storage.fetch_data_blocking(&key)?;
+            assert_eq!(expected_data, fetched.data);
+            assert_eq!(expected_arcs, fetched.arcs);
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn sqlite_sharded_storage_ignores_duplicate_keys() -> anyhow::Result<()> {
+        let dir = TempStorageDir::new("duplicate_keys")?;
+        let storage = SqliteBackedPagableStorage::try_new(&dir.path)?;
+
+        let data = pagable_data(b"duplicate payload", vec![DataKey(11)]);
+        let key = data.compute_key();
+        assert_eq!(key, storage.store_data(data)?);
+        assert_eq!(
+            key,
+            storage.store_data(pagable_data(b"duplicate payload", vec![DataKey(11)]))?
+        );
+        storage.flush()?;
+
+        let row_count = storage
+            .shards
+            .iter()
+            .map(shard_row_count)
+            .try_fold(0, |acc, count| count.map(|count| acc + count))?;
+        assert_eq!(1, row_count);
+
+        let fetched = storage.fetch_data_blocking(&key)?;
+        assert_eq!(b"duplicate payload", fetched.data.as_slice());
+        assert_eq!(vec![DataKey(11)], fetched.arcs);
+        Ok(())
     }
 }
