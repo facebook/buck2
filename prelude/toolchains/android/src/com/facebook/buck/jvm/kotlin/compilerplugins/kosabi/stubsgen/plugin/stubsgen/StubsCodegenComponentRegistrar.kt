@@ -16,7 +16,6 @@ import com.facebook.kotlin.compilerplugins.kosabi.common.Logger
 import java.io.File
 import org.jetbrains.kotlin.cli.jvm.config.jvmClasspathRoots
 import org.jetbrains.kotlin.com.intellij.mock.MockProject
-import org.jetbrains.kotlin.com.intellij.openapi.extensions.LoadingOrder
 import org.jetbrains.kotlin.compiler.plugin.ComponentRegistrar
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.extensions.CollectAdditionalSourcesExtension
@@ -35,17 +34,18 @@ class StubsCodegenComponentRegistrar : ComponentRegistrar {
     val classPaths = configuration.jvmClasspathRoots
     Logger.log("[ClassPaths]\n")
     classPaths.forEach { Logger.log(it.canonicalPath) }
-    // We're generation stubs after all additional sources were collected
-    project.extensionArea
-        .getExtensionPoint(CollectAdditionalSourcesExtension.extensionPointName)
-        .registerExtension(
-            StubsAdditionalSourcesExtension(
-                stubsDumpDir = stubsGenDir,
-                stubsClassOutputDir = stubsClassOutputDir,
-                classPaths = classPaths,
-            ),
-            LoadingOrder.LAST,
-            project,
-        )
+    // We're generation stubs after all additional sources were collected.
+    // Use the ProjectExtensionDescriptor.registerExtension(project, ext) helper (registers with
+    // LoadingOrder.LAST) instead of touching project.extensionArea directly: in Kotlin 2.3 the
+    // extensionArea getter moved to the shaded ComponentManagerEx, which isn't on this plugin's
+    // compile classpath, so a direct access fails to type-check.
+    CollectAdditionalSourcesExtension.registerExtension(
+        project,
+        StubsAdditionalSourcesExtension(
+            stubsDumpDir = stubsGenDir,
+            stubsClassOutputDir = stubsClassOutputDir,
+            classPaths = classPaths,
+        ),
+    )
   }
 }
