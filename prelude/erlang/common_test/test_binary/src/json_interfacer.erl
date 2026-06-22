@@ -54,7 +54,7 @@ summary(omitted) -> ?OMITTED.
         details := binary(),
         durationSecs := float(),
         std_out := binary(),
-        endedTime => float()
+        endedTime => integer()
     }.
 
 -type collected_result() :: cth_tpx_test_tree:collected_result().
