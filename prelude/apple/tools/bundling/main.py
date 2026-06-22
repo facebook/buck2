@@ -304,7 +304,7 @@ def _get_codesigned_paths_from_spec(
     return codesigned_paths
 
 
-def _main() -> None:
+def _main(spec_temp_dir: tempfile.TemporaryDirectory) -> None:
     args_parser = _args_parser()
     args = args_parser.parse_args()
 
@@ -367,6 +367,13 @@ def _main() -> None:
         codesign_arguments=args.codesign_args,
         versioned_if_macos=args.versioned_if_macos,
     )
+
+    if args.include_build_info_file:
+        _amend_spec_with_build_uuid(
+            spec=spec,
+            resources_destination=args.resources_destination,
+            tmp_dir=Path(spec_temp_dir),
+        )
 
     incremental_state = assemble_bundle(
         spec=spec,
@@ -710,6 +717,40 @@ def _write_incremental_state(
         raise
 
 
+def _amend_spec_with_build_uuid(
+    spec: List[BundleSpecItem],
+    resources_destination: Optional[Path],
+    tmp_dir: Path,
+) -> None:
+    build_id = os.environ.get("BUCK_BUILD_ID")
+    if not build_id:
+        return
+
+    if resources_destination is None:
+        raise RuntimeError(
+            "`--resources-destination` is required when `--include-build-info-file` is set."
+        )
+
+    # There caveats when the build info would be updated - specifically, it would
+    # be updated whenever the action runs. When the action runs is more tricky
+    # to precisely specify but practically speaking, if the bundling action does
+    # not run due to behing a cache hit, the build uuid would be from the last
+    # build that produced the cache value.
+    #
+    # For example, if you did the following:
+    #  - `buck build //my:app` (build uuid X)
+    #  - `buck build //my:app` (build uuid Y)
+    #
+    # Build Y runs no actions at all (nothing invalidated because synthesized
+    # files are not inputs to the action), so `BuildInfo.json` would contain
+    # uuid X.
+    src = tmp_dir / "BuildInfo.json"
+    src.write_text(json.dumps({"build_uuid": build_id}, indent=2))
+    dst = str(resources_destination / "BuildInfo.json")
+
+    spec.append(BundleSpecItem(src=str(src), dst=dst))
+
+
 def _deduplicate_spec(spec: List[BundleSpecItem]) -> List[BundleSpecItem]:
     # It's possible to have the same spec multiple times as different
     # apple_resource() targets can refer to the _same_ resource file.
@@ -773,4 +814,5 @@ class ColoredLogFormatter(logging.Formatter):
 
 
 if __name__ == "__main__":
-    _main()
+    with tempfile.TemporaryDirectory() as spec_temp_dir:
+        _main(spec_temp_dir)

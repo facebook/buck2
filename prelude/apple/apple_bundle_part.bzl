@@ -315,8 +315,10 @@ def assemble_bundle(
     command.add("--check-conflicts")
     if ctx.attrs.versioned_macos_bundle:
         command.add("--versioned-if-macos")
-    if getattr(ctx.attrs, "include_build_info_file", False) and (ctx.attrs.extension in ctx.attrs.include_build_info_file_in_bundles_with_extensions):
-        command.add("--include-build-info-file")
+    if getattr(ctx.attrs, "include_build_info_file", False):
+        extension_allowed = ctx.attrs.extension in ctx.attrs.include_build_info_file_in_bundles_with_extensions
+        if extension_allowed:
+            command.add("--include-build-info-file")
     command.add(codesign_configuration_args)
 
     bundle_telemetry_logger = tools.bundle_telemetry_logger
