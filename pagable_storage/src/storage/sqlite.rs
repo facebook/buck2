@@ -23,11 +23,13 @@ use pagable::storage::traits::DeserializedArcCache;
 use pagable::storage::traits::PagableStorage;
 use pagable::traits::SessionContext;
 use rusqlite::Connection;
+use rusqlite::ToSql;
 
 const NUM_SHARDS: usize = 16;
 const INSERT_BATCH_ROWS: usize = 8;
-const INSERT_COLUMNS: usize = 2;
-const INSERT_SINGLE_SQL: &str = "INSERT OR IGNORE INTO pagable_data (key, value) VALUES (?1, ?2)";
+const INSERT_COLUMNS: usize = 3;
+const INSERT_SINGLE_SQL: &str =
+    "INSERT OR IGNORE INTO pagable_data (key_lo, key_hi, value) VALUES (?1, ?2, ?3)";
 
 /// SQLite-backed storage backend for pagable data.
 ///
@@ -112,8 +114,10 @@ impl Shard {
         let conns = ConnectionPool::open(path, num_readers)?;
         conns.get_readwrite().execute_batch(
             "CREATE TABLE IF NOT EXISTS pagable_data (
-                key BLOB NOT NULL UNIQUE,
-                value BLOB NOT NULL
+                key_lo INTEGER NOT NULL,
+                key_hi INTEGER NOT NULL,
+                value BLOB NOT NULL,
+                UNIQUE(key_hi, key_lo)
             );",
         )?;
         let (write_tx, write_rx) = mpsc::channel();
@@ -177,11 +181,12 @@ impl SqliteBackedPagableStorage {
 
     fn fetch_data_read(&self, key: &DataKey) -> anyhow::Result<Arc<PagableData>> {
         let conn = self.shard_for(key).conns.get_reader();
+        let (key_lo, key_hi) = data_key_parts(*key);
         let bytes: Vec<u8> = {
             let mut stmt = conn
-                .prepare_cached("SELECT value FROM pagable_data WHERE key = ?1")
+                .prepare_cached("SELECT value FROM pagable_data WHERE key_lo = ?1 AND key_hi = ?2")
                 .map_err(|e| anyhow::anyhow!("prepare failed: {}", e))?;
-            stmt.query_row(rusqlite::params![bytemuck::bytes_of(key)], |row| row.get(0))
+            stmt.query_row(rusqlite::params![key_lo, key_hi], |row| row.get(0))
                 .map_err(|e| anyhow::anyhow!("fetch failed for key {:?}: {}", key, e))?
         };
         Self::decode_pagable_data(&bytes, key)
@@ -312,6 +317,10 @@ impl PagableStorage for SqliteBackedPagableStorage {
     }
 }
 
+fn data_key_parts(key: DataKey) -> (i64, i64) {
+    ((key.0 as u64) as i64, ((key.0 >> 64) as u64) as i64)
+}
+
 fn sqlite_insert_batch_row_limit(conn: &Connection) -> anyhow::Result<usize> {
     let max_values: usize = conn
         .limit(rusqlite::limits::Limit::SQLITE_LIMIT_VARIABLE_NUMBER)?
@@ -321,26 +330,15 @@ fn sqlite_insert_batch_row_limit(conn: &Connection) -> anyhow::Result<usize> {
 }
 
 fn insert_sql(row_count: usize) -> String {
-    let mut sql = String::from("INSERT OR IGNORE INTO pagable_data (key, value) VALUES ");
+    let mut sql =
+        String::from("INSERT OR IGNORE INTO pagable_data (key_lo, key_hi, value) VALUES ");
     for i in 0..row_count {
         if i > 0 {
             sql.push_str(", ");
         }
-        sql.push_str("(?, ?)");
+        sql.push_str("(?, ?, ?)");
     }
     sql
-}
-
-fn execute_insert(
-    stmt: &mut rusqlite::Statement<'_>,
-    items: &[(DataKey, Vec<u8>)],
-) -> anyhow::Result<()> {
-    stmt.execute(rusqlite::params_from_iter(items.iter().flat_map(
-        |(key, bytes)| -> std::array::IntoIter<&[u8], INSERT_COLUMNS> {
-            [bytemuck::bytes_of(key), bytes.as_slice()].into_iter()
-        },
-    )))?;
-    Ok(())
 }
 
 fn insert_items(
@@ -365,6 +363,29 @@ fn insert_items(
     for item in &items[full_len..] {
         execute_insert(&mut single_stmt, std::slice::from_ref(item))?;
     }
+    Ok(())
+}
+
+fn execute_insert(
+    stmt: &mut rusqlite::Statement<'_>,
+    items: &[(DataKey, Vec<u8>)],
+) -> anyhow::Result<()> {
+    let key_parts = items
+        .iter()
+        .map(|(key, _bytes)| data_key_parts(*key))
+        .collect::<Vec<_>>();
+    let params: Vec<&dyn ToSql> = key_parts
+        .iter()
+        .zip(items)
+        .flat_map(|((key_lo, key_hi), (_key, bytes))| {
+            [
+                key_lo as &dyn ToSql,
+                key_hi as &dyn ToSql,
+                bytes as &dyn ToSql,
+            ]
+        })
+        .collect();
+    stmt.execute(rusqlite::params_from_iter(params))?;
     Ok(())
 }
 
@@ -422,9 +443,11 @@ mod tests {
             let mut conn = Connection::open_in_memory()?;
             conn.execute_batch(
                 "CREATE TABLE pagable_data (
-                    key BLOB PRIMARY KEY,
-                    value BLOB NOT NULL
-                ) WITHOUT ROWID;",
+                    key_lo INTEGER NOT NULL,
+                    key_hi INTEGER NOT NULL,
+                    value BLOB NOT NULL,
+                    UNIQUE(key_hi, key_lo)
+                );",
             )?;
             let tx = conn.transaction()?;
             let items = (0..item_count)
@@ -440,9 +463,10 @@ mod tests {
                 "{case}: every queued item should be inserted exactly once",
             );
             for (key, expected_value) in &items {
+                let (key_lo, key_hi) = data_key_parts(*key);
                 let value: Vec<u8> = conn.query_row(
-                    "SELECT value FROM pagable_data WHERE key = ?1",
-                    rusqlite::params![bytemuck::bytes_of(key)],
+                    "SELECT value FROM pagable_data WHERE key_lo = ?1 AND key_hi = ?2",
+                    rusqlite::params![key_lo, key_hi],
                     |row| row.get(0),
                 )?;
                 assert_eq!(
