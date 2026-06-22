@@ -107,9 +107,9 @@ impl SqliteBackedPagableStorage {
         let conns = ConnectionPool::open(&path.join("pagable.db"))?;
         conns.get_readwrite().execute_batch(
             "CREATE TABLE IF NOT EXISTS pagable_data (
-                key BLOB PRIMARY KEY,
+                key BLOB NOT NULL UNIQUE,
                 value BLOB NOT NULL
-            ) WITHOUT ROWID;",
+            );",
         )?;
         let (write_tx, write_rx) = mpsc::channel();
         Ok(Self {
