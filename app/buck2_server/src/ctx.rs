@@ -938,6 +938,7 @@ impl DiceCommandUpdater<'_, '_> {
             format!("lazy-cycle-detector:{}", has_cycle_detector),
             format!("miniperf:{}", enable_miniperf),
             format!("log-configured-graph-size:{}", log_configured_graph_size),
+            "peak-load-metrics:v2".to_owned(),
         ];
         tags.extend(CleanStaleConfig::adaptive_telemetry_tags(
             clean_stale_config.as_ref(),

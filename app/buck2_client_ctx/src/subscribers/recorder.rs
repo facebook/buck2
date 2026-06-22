@@ -100,6 +100,9 @@ pub fn process_memory(snapshot: &buck2_data::Snapshot) -> Option<u64> {
 
 const MEMORY_PRESSURE_TAG: &str = "memory_pressure_warning";
 
+const SYSTEM_LOAD1_WINDOW: Duration = Duration::from_secs(60);
+const SYSTEM_LOAD5_WINDOW: Duration = Duration::from_secs(5 * 60);
+
 pub struct InvocationRecorder {
     write_to_path: Option<AbsPathBuf>,
     command_name: Option<&'static str>,
@@ -1803,6 +1806,28 @@ impl InvocationRecorder {
         Ok(())
     }
 
+    fn update_peak_system_load(&mut self, elapsed: Duration, load1: f64, load5: f64) {
+        let num_cores = self.system_info.num_cores.unwrap_or(1) as f64;
+        // `load1`/`load5` are kernel exponential moving averages over the trailing 1 and 5 minutes, so a
+        // sample taken sooner than that after the invocation starts still reflects load from before it
+        // began. Only fold a sample into the peak once its averaging window lies entirely within the
+        // invocation.
+        if elapsed >= SYSTEM_LOAD1_WINDOW {
+            let normalized = load1 / num_cores;
+            self.peak_normalized_system_load1 = Some(
+                self.peak_normalized_system_load1
+                    .map_or(normalized, |v| f64::max(v, normalized)),
+            );
+        }
+        if elapsed >= SYSTEM_LOAD5_WINDOW {
+            let normalized = load5 / num_cores;
+            self.peak_normalized_system_load5 = Some(
+                self.peak_normalized_system_load5
+                    .map_or(normalized, |v| f64::max(v, normalized)),
+            );
+        }
+    }
+
     fn handle_snapshot(
         &mut self,
         update: &buck2_data::Snapshot,
@@ -2009,17 +2034,8 @@ impl InvocationRecorder {
         );
 
         if let Some(ref unix_stats) = update.unix_system_stats {
-            let num_cores = self.system_info.num_cores.unwrap_or(1) as f64;
-            let normalized_load1 = unix_stats.load1 / num_cores;
-            let normalized_load5 = unix_stats.load5 / num_cores;
-            self.peak_normalized_system_load1 = Some(
-                self.peak_normalized_system_load1
-                    .map_or(normalized_load1, |v| f64::max(v, normalized_load1)),
-            );
-            self.peak_normalized_system_load5 = Some(
-                self.peak_normalized_system_load5
-                    .map_or(normalized_load5, |v| f64::max(v, normalized_load5)),
-            );
+            let elapsed = duration_since(event.timestamp(), self.start_time);
+            self.update_peak_system_load(elapsed, unix_stats.load1, unix_stats.load5);
         }
 
         // Track maximum buck2 daemon memory usage from cgroup
@@ -2636,6 +2652,7 @@ fn duration_as_millis(duration: Duration) -> Option<u64> {
 #[cfg(test)]
 mod tests {
     use std::ffi::OsString;
+    use std::time::Duration;
     use std::time::SystemTime;
 
     use buck2_data::InvocationOutcome;
@@ -2686,5 +2703,39 @@ mod tests {
         let err = buck2_error!(ErrorTag::IoClientBrokenPipe, "test");
         let exit_result = ExitResult::err(err);
         assert_eq!(recorder.outcome(&exit_result), InvocationOutcome::Cancelled);
+    }
+
+    #[test]
+    fn test_peak_system_load_excludes_pre_invocation_window() {
+        let mut recorder =
+            InvocationRecorder::new(TraceId::new(), None, SystemTime::UNIX_EPOCH, vec![]);
+        // num_cores = 1 makes normalization the identity, so peaks equal the raw loads.
+        recorder.system_info.num_cores = Some(1);
+
+        // A sample inside both windows must be ignored: its averaging window reaches before the
+        // invocation started.
+        recorder.update_peak_system_load(Duration::from_secs(30), 10.0, 10.0);
+        assert_eq!(
+            recorder.peak_normalized_system_load1, None,
+            "load1 sampled within the 1-minute window must be ignored"
+        );
+        assert_eq!(
+            recorder.peak_normalized_system_load5, None,
+            "load5 sampled within the 5-minute window must be ignored"
+        );
+
+        // At exactly the 1-minute boundary, load1 counts but load5 is still inside its window.
+        recorder.update_peak_system_load(Duration::from_secs(60), 4.0, 99.0);
+        assert_eq!(recorder.peak_normalized_system_load1, Some(4.0));
+        assert_eq!(
+            recorder.peak_normalized_system_load5, None,
+            "load5 sampled within the 5-minute window must be ignored"
+        );
+
+        // At the 5-minute boundary both count; peak stays the running max, so the earlier larger
+        // load1 (4.0) is kept over the later 2.0.
+        recorder.update_peak_system_load(Duration::from_secs(5 * 60), 2.0, 7.0);
+        assert_eq!(recorder.peak_normalized_system_load1, Some(4.0));
+        assert_eq!(recorder.peak_normalized_system_load5, Some(7.0));
     }
 }
