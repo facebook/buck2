@@ -216,12 +216,11 @@ def cpp_binary(
     visibility = ["PUBLIC"],
     dlopen_enabled = None,
     compiler_specific_flags = None,
-    os_linker_flags = None,
     allocator = None,
     modules = None,
     **kwargs,
 ):
-    _unused = (dlopen_enabled, compiler_specific_flags, os_linker_flags, allocator, modules)  # @unused
+    _unused = (dlopen_enabled, compiler_specific_flags, allocator, modules)  # @unused
     prelude.cxx_binary(name = name, deps = _fix_deps(deps + external_deps_to_targets(external_deps)), visibility = visibility, **kwargs)
 
 def java_binary(name, jar_style = None, runtime = None, *args, **kwargs):
