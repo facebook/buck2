@@ -57,6 +57,7 @@ pub(crate) fn to_project_json(
     include_all_buildfiles: bool,
     extra_cfgs: &[String],
     buck: &Buck,
+    rustc_target: Option<&String>,
 ) -> Result<ProjectJson, anyhow::Error> {
     let project_root = buck.resolve_project_root()?;
 
@@ -220,7 +221,7 @@ pub(crate) fn to_project_json(
             build,
             is_proc_macro: info.proc_macro.unwrap_or(false),
             proc_macro_dylib_path,
-            target: None,
+            target: rustc_target.cloned(),
         };
         crates.push(crate_info);
     }
