@@ -14,12 +14,9 @@ import com.facebook.kotlin.compilerplugins.kosabi.stubsgen.generators.StubsGenAP
 import com.facebook.kotlin.compilercompat.FirAnalysisHandlerExtensionCompat
 // @oss-disable: import com.facebook.kotlin.compilerplugins.kosabi.stubsgen.generators.meta_only.StubsGenApiImpl
 import java.io.File
-import kotlin.collections.component1
-import kotlin.collections.component2
-import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles
-import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
+import org.jetbrains.kotlin.cli.common.config.kotlinSourceRoots
+import org.jetbrains.kotlin.cli.jvm.compiler.createSourceFilesFromSourceRoots
 import org.jetbrains.kotlin.com.intellij.openapi.project.Project
-import org.jetbrains.kotlin.com.intellij.openapi.util.Disposer
 import org.jetbrains.kotlin.config.CompilerConfiguration
 
 @SuppressWarnings("PackageLocationMismatch")
@@ -34,15 +31,13 @@ class StubsCodegenK2FirAnalysisHandlerExtension(
   }
 
   override fun doAnalysis(project: Project, configuration: CompilerConfiguration): Boolean {
-    val projectDisposable = Disposer.newDisposable("kosabi_stubgen")
     try {
-      val environment =
-          KotlinCoreEnvironment.createForProduction(
-              projectDisposable,
-              configuration,
-              EnvironmentConfigFiles.JVM_CONFIG_FILES,
-          )
-      val ktFiles = environment.getSourceFiles()
+      // Use the compiler's canonical source collection, which recognizes Kotlin sources by file
+      // type (including .kts) and reports an error for missing source roots. Mirrors the approach
+      // used by K2JvmAbiFirAnalysisHandlerExtension and replaces the deprecated
+      // KotlinCoreEnvironment-based K1 source lookup.
+      val ktFiles =
+          createSourceFilesFromSourceRoots(configuration, project, configuration.kotlinSourceRoots)
       StubsGenAPI( // @oss-enable
       // @oss-disable: StubsGenApiImpl(
               stubsDumpDir,
@@ -51,7 +46,6 @@ class StubsCodegenK2FirAnalysisHandlerExtension(
           )
           .generateStubs(ktFiles, configuration, project)
     } finally {
-      Disposer.dispose(projectDisposable)
       throw RuntimeException("Terminating compilation. We're done with Stubgen.")
     }
 
