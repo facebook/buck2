@@ -7,7 +7,10 @@ oncall("build_infra")
 bundled_cell(
     name = "prelude",
     include_from_file = "src/lib.rs",
-    source_listing = "prelude//:source_listing",
+    # NOTE: always use prelude_on_disk here! otherwise buck2-on-buck2 builds
+    # will be invalid due to weird circular prelude references.
+    # see <https://github.com/facebook/buck2/issues/971>
+    source_listing = "prelude_on_disk//:source_listing",
 )
 
 rust_library(
