@@ -120,7 +120,6 @@ def cpp_library(
     visibility = ["PUBLIC"],
     auto_headers = None,
     modular_headers = None,
-    arch_compiler_flags = None,
     labels = None,
     linker_flags = None,
     private_linker_flags = None,
@@ -138,7 +137,7 @@ def cpp_library(
     if oss_depends_on_folly and header_base_path.startswith("folly"):
         header_base_path = header_base_path.replace("folly/", "", 1)
 
-    _unused = (undefined_symbols, modular_headers, arch_compiler_flags, labels, propagated_pp_flags, feature, preferred_linkage)  # @unused
+    _unused = (undefined_symbols, modular_headers, labels, propagated_pp_flags, feature, preferred_linkage)  # @unused
     if headers == None:
         headers = []
     if labels != None and "oss_dependency" in labels:
