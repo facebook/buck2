@@ -49,13 +49,31 @@ use crate::target::TargetInfo;
 
 const CLIENT_METADATA_RUST_PROJECT: &str = "--client-metadata=id=rust-project";
 
+fn crate_cfg(
+    info: &TargetInfo,
+    global_extra_cfgs: &[String],
+    first_party_extra_cfgs: &[String],
+) -> Vec<String> {
+    info.cfg()
+        .into_iter()
+        .chain(global_extra_cfgs.iter().cloned())
+        .chain(
+            (!info.is_reindeer_third_party())
+                .then(|| first_party_extra_cfgs.iter().cloned())
+                .into_iter()
+                .flatten(),
+        )
+        .collect()
+}
+
 pub(crate) fn to_project_json(
     sysroot: Sysroot,
     expanded_and_resolved: ExpandedAndResolved,
     aliases: FxHashMap<Target, AliasedTargetInfo>,
     check_cycles: bool,
     include_all_buildfiles: bool,
-    extra_cfgs: &[String],
+    global_extra_cfgs: &[String],
+    first_party_extra_cfgs: &[String],
     buck: &Buck,
 ) -> Result<ProjectJson, anyhow::Error> {
     let project_root = buck.resolve_project_root()?;
@@ -211,11 +229,7 @@ pub(crate) fn to_project_json(
                 include_dirs,
                 exclude_dirs: vec![],
             }),
-            cfg: info
-                .cfg()
-                .into_iter()
-                .chain(extra_cfgs.iter().cloned())
-                .collect(),
+            cfg: crate_cfg(info, global_extra_cfgs, first_party_extra_cfgs),
             env,
             build,
             is_proc_macro: info.proc_macro.unwrap_or(false),
@@ -1389,6 +1403,54 @@ fn integration_tests_preserved() {
 
     let res = merge_unit_test_targets(targets.clone());
     assert!(res.contains_key(&Target::new("//foo-integration-test")));
+}
+
+#[test]
+fn test_cfg_scoped_to_first_party() {
+    let make_info = |label: &str| TargetInfo {
+        name: "foo".to_owned(),
+        label: label.to_owned(),
+        labels: vec![],
+        kind: Kind::Library,
+        edition: None,
+        srcs: vec![],
+        mapped_srcs: FxHashMap::default(),
+        crate_name: None,
+        crate_dynamic: None,
+        crate_root: PathBuf::default(),
+        deps: vec![],
+        test_deps: vec![],
+        named_deps: FxHashMap::default(),
+        proc_macro: None,
+        features: vec![],
+        env: FxHashMap::default(),
+        source_folder: PathBuf::from("/tmp"),
+        project_relative_buildfile: PathBuf::from("foo/BUCK"),
+        in_workspace: false,
+        rustc_flags: vec![],
+    };
+
+    let global_extra_cfgs = &["fbcode_build".to_owned()];
+    let first_party_extra_cfgs = &["test".to_owned()];
+
+    // First-party crate gets both `test` and `fbcode_build`, regardless of
+    // workspace membership (`in_workspace` is false here).
+    let first_party = crate_cfg(
+        &make_info("fbcode//buck2/integrations/rust-project:rust-project"),
+        global_extra_cfgs,
+        first_party_extra_cfgs,
+    );
+    assert!(first_party.contains(&"test".to_owned()));
+    assert!(first_party.contains(&"fbcode_build".to_owned()));
+
+    // Reindeer-vendored third-party crate keeps `fbcode_build` but not `test`.
+    let vendored = crate_cfg(
+        &make_info("fbsource//third-party/rust/vendor/tokio:1"),
+        global_extra_cfgs,
+        first_party_extra_cfgs,
+    );
+    assert!(!vendored.contains(&"test".to_owned()));
+    assert!(vendored.contains(&"fbcode_build".to_owned()));
 }
 
 #[test]

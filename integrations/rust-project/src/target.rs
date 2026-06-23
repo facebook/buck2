@@ -259,6 +259,27 @@ impl TargetInfo {
         // help performance.
         false
     }
+
+    /// Is this a reindeer-vendored third-party crate?
+    ///
+    /// Reindeer buckifies vendored crates under a fixed set of package roots,
+    /// authoritatively defined by `_assert_is_allowed_third_party_root` in
+    /// `fbsource//tools/build_defs/third_party:rust_third_party.bzl` (the
+    /// `rust_third_party` macros fail the build outside these roots).
+    pub(crate) fn is_reindeer_third_party(&self) -> bool {
+        // Strip the cell (e.g. `fbsource//`) and the target name (`:foo`) to get
+        // the buck package path.
+        let package = self
+            .label
+            .split_once("//")
+            .map_or(self.label.as_str(), |(_cell, rest)| rest);
+        let package = package.split(':').next().unwrap_or(package);
+
+        package == "third-party/rust"
+            || package == "third-party/rust/top"
+            || package.starts_with("third-party/rust/vendor/")
+            || package.starts_with("xplat/rust/toolchain/sysroot")
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq, Default)]
@@ -355,6 +376,47 @@ mod tests {
             info.cfg(),
             vec!["feature=\"foo_feature\"".to_owned(), "foo_cfg".to_owned()]
         );
+    }
+
+    #[test]
+    fn test_is_reindeer_third_party() {
+        let with_label = |label: &str| TargetInfo {
+            name: "foo".to_owned(),
+            label: label.to_owned(),
+            labels: vec![],
+            kind: Kind::Library,
+            edition: None,
+            srcs: vec![],
+            mapped_srcs: FxHashMap::default(),
+            crate_name: None,
+            crate_dynamic: None,
+            crate_root: PathBuf::default(),
+            deps: vec![],
+            test_deps: vec![],
+            named_deps: FxHashMap::default(),
+            proc_macro: None,
+            features: vec![],
+            env: FxHashMap::default(),
+            source_folder: PathBuf::from("/tmp"),
+            project_relative_buildfile: PathBuf::from("foo/BUCK"),
+            in_workspace: false,
+            rustc_flags: vec![],
+        };
+
+        assert!(with_label("fbsource//third-party/rust/vendor/tokio:1").is_reindeer_third_party());
+        assert!(with_label("fbsource//third-party/rust:tokio").is_reindeer_third_party());
+        assert!(with_label("fbsource//third-party/rust/top:rustc").is_reindeer_third_party());
+        assert!(
+            with_label("fbsource//xplat/rust/toolchain/sysroot:core").is_reindeer_third_party()
+        );
+
+        assert!(
+            !with_label("fbcode//buck2/integrations/rust-project:rust-project")
+                .is_reindeer_third_party()
+        );
+        // A first-party crate that merely lives under a similarly-named path is
+        // not a reindeer root.
+        assert!(!with_label("fbcode//third-party/rust-tools/foo:foo").is_reindeer_third_party());
     }
 
     #[test]
