@@ -736,6 +736,7 @@ message CommandResult {
     TraceIoResponse trace_io_response = 22;
     ConfiguredTargetsResponse configured_targets_response = 23;
     DapResponse dap_response = 24;
+    HydrationResponse hydration_response = 25;
     GenericResponse generic_response = 100;
     NewGenericResponseMessage new_generic_response_message = 101;
   }
@@ -959,11 +960,18 @@ message FlushDepFilesRequest {
 enum HydrationSubcommand {
   PAGE_OUT = 0;
   PAGE_IN = 1;
+  STATUS = 2;
 }
 
 message HydrationRequest {
   ClientContext context = 1;
   HydrationSubcommand subcommand = 2;
+}
+
+message HydrationResponse {
+  // Human-readable status report. Set only for `status`;
+  // absent for page-out / page-in.
+  optional string summary = 1;
 }
 
 message SetLogFilterRequest {

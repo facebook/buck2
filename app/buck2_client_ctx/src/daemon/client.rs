@@ -589,7 +589,7 @@ impl FlushingBuckdClient<'_> {
     stream_method!(
         hydration,
         HydrationRequest,
-        GenericResponse,
+        HydrationResponse,
         NoPartialResult
     );
 

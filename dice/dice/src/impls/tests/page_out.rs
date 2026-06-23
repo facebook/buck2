@@ -231,3 +231,77 @@ async fn page_out_without_storage_is_noop() -> anyhow::Result<()> {
     dice.page_out().await?;
     Ok(())
 }
+
+/// `pagable_status` reports everything resident before `page_out` and the
+/// pagable nodes as paged out afterwards. The `NoValueSerialize` node is skipped
+/// by `page_out`, so it stays resident — exercising both buckets at once.
+#[tokio::test]
+async fn pagable_status_reports_resident_then_paged_out() -> anyhow::Result<()> {
+    let tmp = tempdir()?;
+    let storage = DiceStorage::open(tmp.path())?;
+    let dice = make_dice(storage);
+
+    let mut tx = dice.updater().commit().await;
+    let _: u64 = tx.compute(&PagableKey(1)).await?;
+    let _: u64 = tx.compute(&PagableKey(2)).await?;
+    let _: u64 = tx.compute(&NonPagableKey(9)).await?;
+    drop(tx);
+    dice.wait_for_idle().await;
+
+    let status = dice.pagable_status().await;
+    assert_eq!(
+        status.resident_count, 3,
+        "all three computed nodes are resident before page_out"
+    );
+    assert_eq!(status.paged_out_count, 0);
+
+    dice.page_out().await?;
+
+    let status = dice.pagable_status().await;
+    assert_eq!(
+        status.paged_out_count, 2,
+        "the two pagable nodes are paged out"
+    );
+    assert_eq!(
+        status.resident_count, 1,
+        "the NoValueSerialize node is skipped by page_out and stays resident"
+    );
+
+    // The per-type breakdown sums back to the same totals.
+    let resident: usize = status.by_type.iter().map(|t| t.resident).sum();
+    let paged_out: usize = status.by_type.iter().map(|t| t.paged_out).sum();
+    assert_eq!(resident, 1);
+    assert_eq!(paged_out, 2);
+
+    Ok(())
+}
+
+/// When two key types have equal totals, `by_type` falls back to the name
+/// tie-break, so its order must be deterministic (the underlying HashMap's is
+/// not). Guards against a refactor dropping the tie-break.
+#[tokio::test]
+async fn pagable_status_by_type_is_deterministically_ordered() -> anyhow::Result<()> {
+    let tmp = tempdir()?;
+    let storage = DiceStorage::open(tmp.path())?;
+    let dice = make_dice(storage);
+
+    let mut tx = dice.updater().commit().await;
+    // Two key *types*, two resident nodes each — equal totals force the tie-break.
+    let _: u64 = tx.compute(&PagableKey(1)).await?;
+    let _: u64 = tx.compute(&PagableKey(2)).await?;
+    let _: u64 = tx.compute(&NonPagableKey(1)).await?;
+    let _: u64 = tx.compute(&NonPagableKey(2)).await?;
+    drop(tx);
+    dice.wait_for_idle().await;
+
+    let status = dice.pagable_status().await;
+    let names: Vec<&str> = status.by_type.iter().map(|t| t.key_type).collect();
+    let mut expected = names.clone();
+    expected.sort();
+    assert_eq!(
+        names, expected,
+        "by_type with equal totals must be ordered by key type name"
+    );
+
+    Ok(())
+}

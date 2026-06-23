@@ -17,6 +17,7 @@ use dupe::Dupe;
 
 use crate::DiceTransactionUpdater;
 use crate::DiceTransactionUpdaterImpl;
+use crate::HashMap;
 use crate::api::cycles::DetectCycles;
 use crate::api::data::DiceData;
 use crate::api::user_data::UserComputationData;
@@ -191,6 +192,74 @@ impl Dice {
             .await?;
         Ok(())
     }
+
+    /// Summarize pagable status: counts of resident vs paged-out node values
+    /// with a per-key-type breakdown.
+    ///
+    /// Read-only and does not require DICE to be idle — it reports a consistent
+    /// snapshot taken on the core-state thread.
+    pub async fn pagable_status(&self) -> PagableStatus {
+        let raw = self.state_handle.pagable_status().await;
+
+        // `key_index.get` can't panic here: keys are interned before their node
+        // enters the graph, and we snapshot the graph before resolving keys (the
+        // dual of `to_introspectable`'s ordering). Don't reorder those two steps.
+        let mut counts: HashMap<&'static str, (usize, usize)> = HashMap::default();
+        for key in &raw.resident {
+            counts
+                .entry(self.key_index.get(*key).key_type_name())
+                .or_default()
+                .0 += 1;
+        }
+        for key in &raw.paged_out {
+            counts
+                .entry(self.key_index.get(*key).key_type_name())
+                .or_default()
+                .1 += 1;
+        }
+        let mut by_type: Vec<PagableTypeStat> = counts
+            .into_iter()
+            .map(|(key_type, (resident, paged_out))| PagableTypeStat {
+                key_type,
+                resident,
+                paged_out,
+            })
+            .collect();
+        // Biggest contributors first, with a name tie-break so output is stable
+        // across runs (the underlying HashMap iteration order is not).
+        by_type.sort_by(|a, b| {
+            (b.resident + b.paged_out)
+                .cmp(&(a.resident + a.paged_out))
+                .then_with(|| a.key_type.cmp(b.key_type))
+        });
+
+        PagableStatus {
+            total_nodes: raw.total_nodes,
+            resident_count: raw.resident.len(),
+            paged_out_count: raw.paged_out.len(),
+            by_type,
+        }
+    }
+}
+
+/// Summary of how many DICE node values are resident in memory vs paged out to
+/// storage, returned by [`Dice::pagable_status`].
+pub struct PagableStatus {
+    /// All graph nodes, including vacant / in-progress ones. Hence
+    /// `total_nodes >= resident_count + paged_out_count`.
+    pub total_nodes: usize,
+    pub resident_count: usize,
+    pub paged_out_count: usize,
+    /// Per-key-type counts, sorted by total (resident + paged-out) descending.
+    pub by_type: Vec<PagableTypeStat>,
+}
+
+/// Resident vs paged-out node counts for a single key type. Part of
+/// [`PagableStatus`].
+pub struct PagableTypeStat {
+    pub key_type: &'static str,
+    pub resident: usize,
+    pub paged_out: usize,
 }
 
 #[cfg(test)]

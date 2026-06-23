@@ -32,6 +32,7 @@ use crate::impls::core::graph::types::VersionedGraphKey;
 use crate::impls::core::graph::types::VersionedGraphResult;
 use crate::impls::core::graph::types::VersionedGraphResultMismatch;
 use crate::impls::core::internals::CoreState;
+use crate::impls::core::internals::PagableStatusRaw;
 use crate::impls::core::processor::StateProcessor;
 use crate::impls::core::versions::VersionEpoch;
 use crate::impls::core::versions::introspection::VersionIntrospectable;
@@ -256,6 +257,12 @@ impl CoreStateHandle {
         self.call(StateRequest::EvictCachedValues { resp }, recv)
     }
 
+    /// Classify graph nodes as resident vs paged out.
+    pub(crate) fn pagable_status(&self) -> impl Future<Output = PagableStatusRaw> + use<> {
+        let (resp, recv) = oneshot::channel();
+        self.call(StateRequest::PagableStatus { resp }, recv)
+    }
+
     /// Returns nodes that need serialization before they can be paged out.
     pub(crate) fn keys_to_page_out(
         &self,
@@ -391,6 +398,8 @@ pub(super) enum StateRequest {
     },
     /// Drop in-memory values for nodes that already have an on-disk copy.
     EvictCachedValues { resp: Sender<()> },
+    /// Classify graph nodes as resident vs paged out.
+    PagableStatus { resp: Sender<PagableStatusRaw> },
     /// Collect nodes that need serialization before they can be paged out.
     KeysToPageOut {
         resp: Sender<Vec<(DiceKey, DiceValidValue)>>,

@@ -20,6 +20,7 @@ use buck2_server_ctx::template::ServerCommandTemplate;
 use buck2_server_ctx::template::run_server_command;
 use dice::Dice;
 use dice::DiceTransaction;
+use dice::PagableStatus;
 use dupe::Dupe;
 
 use crate::ctx::ServerCommandContext;
@@ -28,7 +29,7 @@ pub(crate) async fn hydration_command(
     ctx: &ServerCommandContext<'_>,
     partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
     req: buck2_cli_proto::HydrationRequest,
-) -> buck2_error::Result<buck2_cli_proto::GenericResponse> {
+) -> buck2_error::Result<buck2_cli_proto::HydrationResponse> {
     let dice = ctx.base_context.daemon.dice_manager.unsafe_dice().dupe();
     let subcommand = HydrationSubcommand::try_from(req.subcommand)?;
     run_server_command(
@@ -48,11 +49,16 @@ struct HydrationServerCommand {
 impl ServerCommandTemplate for HydrationServerCommand {
     type StartEvent = buck2_data::HydrationCommandStart;
     type EndEvent = buck2_data::HydrationCommandEnd;
-    type Response = buck2_cli_proto::GenericResponse;
+    type Response = buck2_cli_proto::HydrationResponse;
     type PartialResult = NoPartialResult;
 
     fn exclusive_command_name(&self) -> Option<String> {
-        Some("hydration".to_owned())
+        match self.subcommand {
+            HydrationSubcommand::PageOut | HydrationSubcommand::PageIn => {
+                Some("hydration".to_owned())
+            }
+            HydrationSubcommand::Status => None,
+        }
     }
 
     async fn command(
@@ -73,6 +79,7 @@ impl ServerCommandTemplate for HydrationServerCommand {
                 // have processed before purging
                 let _ = self.dice.metrics();
                 memory::purge_jemalloc()?;
+                Ok(buck2_cli_proto::HydrationResponse::default())
             }
             HydrationSubcommand::PageIn => {
                 self.dice.page_in().await.map_err(|e| {
@@ -81,8 +88,41 @@ impl ServerCommandTemplate for HydrationServerCommand {
                         buck2_error::ErrorTag::Environment,
                     )
                 })?;
+                Ok(buck2_cli_proto::HydrationResponse::default())
+            }
+            HydrationSubcommand::Status => {
+                let status = self.dice.pagable_status().await;
+                Ok(buck2_cli_proto::HydrationResponse {
+                    summary: Some(format_status_summary(&status)),
+                })
             }
         }
-        Ok(buck2_cli_proto::GenericResponse {})
     }
+}
+
+fn format_status_summary(status: &PagableStatus) -> String {
+    // `total_nodes` counts vacant/in-progress nodes too; the rest is "other".
+    // saturating_sub guards an underflow the struct invariant already rules out.
+    let other = status
+        .total_nodes
+        .saturating_sub(status.resident_count)
+        .saturating_sub(status.paged_out_count);
+    let mut summary = format!(
+        "DICE hydration: {} nodes ({} resident, {} paged out, {} other)\n",
+        status.total_nodes, status.resident_count, status.paged_out_count, other,
+    );
+    if !status.by_type.is_empty() {
+        summary.push('\n');
+        summary.push_str(&format!(
+            "{:>12}  {:>12}  {}\n",
+            "resident", "paged-out", "key type"
+        ));
+        for t in &status.by_type {
+            summary.push_str(&format!(
+                "{:>12}  {:>12}  {}\n",
+                t.resident, t.paged_out, t.key_type
+            ));
+        }
+    }
+    summary
 }

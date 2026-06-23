@@ -298,6 +298,7 @@ result_convert!(TargetsResponse);
 result_convert!(TargetsShowOutputsResponse);
 result_convert!(ConfiguredTargetsResponse);
 result_convert!(GenericResponse);
+result_convert!(HydrationResponse);
 result_convert!(ProfileResponse);
 result_convert!(InstallResponse);
 result_convert!(CleanStaleResponse);

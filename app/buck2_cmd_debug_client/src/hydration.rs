@@ -30,6 +30,8 @@ pub enum HydrationCommand {
     PageOut(PageOutCommand),
     /// Page in DICE values from storage.
     PageIn(PageInCommand),
+    /// Summarize which DICE node values are resident in memory vs paged out.
+    Status(StatusCommand),
 }
 
 #[derive(Debug, clap::Parser)]
@@ -38,11 +40,15 @@ pub struct PageOutCommand;
 #[derive(Debug, clap::Parser)]
 pub struct PageInCommand;
 
+#[derive(Debug, clap::Parser)]
+pub struct StatusCommand;
+
 impl HydrationCommand {
     fn subcommand(&self) -> HydrationSubcommand {
         match self {
             HydrationCommand::PageOut(_) => HydrationSubcommand::PageOut,
             HydrationCommand::PageIn(_) => HydrationSubcommand::PageIn,
+            HydrationCommand::Status(_) => HydrationSubcommand::Status,
         }
     }
 }
@@ -63,7 +69,7 @@ impl StreamingCommand for HydrationCommand {
         events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         let context = ctx.empty_client_context("debug-hydration")?;
-        buckd
+        let response = buckd
             .with_flushing()
             .hydration(
                 HydrationRequest {
@@ -75,6 +81,11 @@ impl StreamingCommand for HydrationCommand {
                 &mut NoPartialResultHandler,
             )
             .await??;
+
+        // Only `status` returns a report; page-out / page-in leave it `None`.
+        if let Some(summary) = response.summary {
+            buck2_client_ctx::println!("{}", summary.trim_end())?;
+        }
         ExitResult::success()
     }
 

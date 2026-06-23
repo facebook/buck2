@@ -50,6 +50,16 @@ pub(super) struct CoreState {
     pending_termination_tasks: Vec<DiceTask>,
 }
 
+/// `CoreState::pagable_status` result. Holds raw `DiceKey`s; the caller resolves
+/// them to key types off the core-state thread.
+#[derive(Debug)]
+pub(crate) struct PagableStatusRaw {
+    /// Includes vacant/in-progress nodes, so `>= resident + paged_out`.
+    pub(crate) total_nodes: usize,
+    pub(crate) resident: Vec<DiceKey>,
+    pub(crate) paged_out: Vec<DiceKey>,
+}
+
 impl CoreState {
     pub(super) fn new() -> Self {
         Self {
@@ -220,6 +230,29 @@ impl CoreState {
             keys.push((*key, data_key));
         }
         keys
+    }
+
+    /// Classify each `OccupiedGraphNode` as resident (value in memory) or paged
+    /// out (only a `DataKey` left). Occupied-but-neither can't happen (the
+    /// `PagableNodeValue` invariant) and is omitted from both lists.
+    pub(super) fn pagable_status(&self) -> PagableStatusRaw {
+        let mut resident = Vec::new();
+        let mut paged_out = Vec::new();
+        for (key, node) in &self.graph.nodes {
+            let VersionedGraphNode::Occupied(occ) = node else {
+                continue;
+            };
+            if occ.val().as_hydrated().is_some() {
+                resident.push(*key);
+            } else if occ.val().data_key().is_some() {
+                paged_out.push(*key);
+            }
+        }
+        PagableStatusRaw {
+            total_nodes: self.graph.nodes.len(),
+            resident,
+            paged_out,
+        }
     }
 
     /// Replaces the paged-out value at `key` with its hydrated form. No-op if the node
