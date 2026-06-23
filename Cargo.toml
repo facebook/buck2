@@ -281,7 +281,7 @@ bytes = { version = "1.11.1", features = ["serde"] }
 bytesize = "2.4.0"
 chrono = { version = "0.4.45", features = ["clock", "serde", "std"], default-features = false }
 clap = { version = "4.6.0", features = ["derive", "env", "string", "unicode", "wrap_help"] }
-clap_complete = "4.6.5"
+clap_complete = { version = "4.6.5", features = ["unstable-dynamic"] }
 cmp_any = { path = "gazebo/cmp_any" }
 common-path = "1.0.0"
 compact_str = { version = "0.9.1", features = ["serde"] }
