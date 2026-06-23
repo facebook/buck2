@@ -194,8 +194,8 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
           sourceWithStubsAndKaptAndKspOutputBuilder,
           sourceWithStubsAndKaptOutputBuilder,
           extraParams.getLanguageVersion());
-      ImmutableList.Builder<AbsPath> sourceOnlyAbiClasspathBuilder =
-          buildSourceOnlyAbiClasspath(parameters, extraParams);
+      ImmutableList.Builder<AbsPath> compilationClasspathBuilder =
+          buildCompilationClasspath(parameters, extraParams);
 
       prepareKosabiStubgenIfNeeded(
           buckOut,
@@ -214,7 +214,7 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
           reportsOutput,
           kotlinc,
           kosabiPluginOptions.getAllKosabiPlugins(),
-          sourceOnlyAbiClasspathBuilder,
+          compilationClasspathBuilder,
           postKotlinCompilationFailureSteps,
           kotlinCDAnalytics,
           extraParams.getLanguageVersion());
@@ -245,16 +245,14 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
               buckOut,
               kosabiPluginOptions.getKosabiPlugins(),
               sourceWithStubsAndKaptAndKspOutputBuilder,
-              sourceOnlyAbiClasspathBuilder.build(),
+              compilationClasspathBuilder.build(),
               moduleName,
               kotlinCDAnalytics);
 
-      // Build the reduced SO-ABI classpath for the applicability plugin.
-      // During library builds, the regular sourceOnlyAbiClasspath contains the
-      // full dep set. The applicability plugin needs the reduced set to detect
-      // types that won't be available during source-only-abi generation.
-      ImmutableList<AbsPath> applicabilityClasspath =
-          extraParams.getSourceOnlyAbiApplicabilityClasspathPaths();
+      // Reduced SO-ABI classpath for the applicability plugin (rfsoa +
+      // source_only_abi_deps only). Distinct from compilationClasspath which
+      // contains the full dep set during library builds.
+      ImmutableList<AbsPath> applicabilityClasspath = extraParams.getApplicabilityClasspath();
 
       KotlinCStepsBuilder.prepareKotlinCompilation(
           buckOut,
@@ -275,7 +273,7 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
           kotlinc,
           kosabiPluginOptions,
           kspInvocationStatus,
-          sourceOnlyAbiClasspathBuilder.build(),
+          compilationClasspathBuilder.build(),
           applicabilityClasspath,
           postKotlinCompilationFailureSteps,
           classpathSnapshots,
@@ -365,17 +363,18 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
   }
 
   /**
-   * Builds the classpath for source-only-abi compilation by combining regular classpath entries
-   * with the bootclasspath (which includes android.jar for Android targets).
+   * Builds the compilation classpath by combining regular classpath entries with the bootclasspath
+   * (which includes android.jar for Android targets). For library builds this is the full dep set;
+   * for SO-ABI builds it is the reduced set (rfsoa deps only).
    *
    * @param parameters Compiler parameters containing classpath entries
    * @param extraParams Kotlin-specific parameters containing resolved javac options with
    *     bootclasspath
    * @return A builder containing all classpath entries (regular + bootclasspath) as absolute paths
    */
-  static ImmutableList.Builder<AbsPath> buildSourceOnlyAbiClasspath(
+  static ImmutableList.Builder<AbsPath> buildCompilationClasspath(
       CompilerParameters parameters, KotlinExtraParams extraParams) {
-    ImmutableList.Builder<AbsPath> sourceOnlyAbiClasspathBuilder =
+    ImmutableList.Builder<AbsPath> compilationClasspathBuilder =
         ImmutableList.<AbsPath>builder()
             .addAll(
                 parameters.getClasspathEntries().stream()
@@ -383,12 +382,12 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
                     .filter(ClasspathUtils::assertValidClasspathsPattern)
                     .collect(Collectors.toList()));
 
-    sourceOnlyAbiClasspathBuilder.addAll(
+    compilationClasspathBuilder.addAll(
         extraParams.getResolvedJavacOptions().getBootclasspathList().stream()
             .map(RelPath::toAbsolutePath)
             .filter(ClasspathUtils::assertValidClasspathsPattern)
             .collect(Collectors.toList()));
 
-    return sourceOnlyAbiClasspathBuilder;
+    return compilationClasspathBuilder;
   }
 }

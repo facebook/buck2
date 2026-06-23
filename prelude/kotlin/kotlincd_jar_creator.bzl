@@ -394,7 +394,7 @@ def _encode_kotlin_extra_params(
         shouldKosabiJvmAbiGenUseK2 = True,
         kotlinClassesDir = kotlin_classes.as_output(),
         javaBinary = cmd_args(kotlin_toolchain.java_binary_for_kotlincd[RunInfo], delimiter = " ") if kotlin_toolchain.java_binary_for_kotlincd else "",
-        sourceOnlyAbiApplicabilityClasspathPaths = source_only_abi_applicability_classpath,
+        applicabilityClasspath = source_only_abi_applicability_classpath,
     )
 
 def _command_builder(

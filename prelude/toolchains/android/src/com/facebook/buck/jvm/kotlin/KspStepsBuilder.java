@@ -73,7 +73,7 @@ public class KspStepsBuilder {
       RelPath configuredBuckOut,
       ImmutableMap<String, AbsPath> resolvedKosabiPluginOptionPath,
       ImmutableSortedSet.Builder<RelPath> sourceBuilderWithKspOutputs,
-      ImmutableList<AbsPath> sourceOnlyAbiClasspath,
+      ImmutableList<AbsPath> compilationClasspath,
       String moduleName,
       KotlinCDAnalytics kotlinCDAnalytics) {
 
@@ -141,7 +141,7 @@ public class KspStepsBuilder {
 
     if (invokingRule.isSourceOnlyAbi()) {
       allClassPathsBuilder.addAll(
-          sourceOnlyAbiClasspath.stream().filter(p -> !allClasspaths.contains(p)).toList());
+          compilationClasspath.stream().filter(p -> !allClasspaths.contains(p)).toList());
     }
 
     Ksp2Step ksp2Step =

@@ -57,7 +57,7 @@ public class KosabiStubgenStepsBuilder {
       RelPath reportsOutput,
       Kotlinc kotlinc,
       ImmutableMap<String, AbsPath> allKosabiPluginOptionPath,
-      ImmutableList.Builder<AbsPath> sourceOnlyAbiClasspathBuilder,
+      ImmutableList.Builder<AbsPath> compilationClasspathBuilder,
       ImmutableList.Builder<IsolatedStep> postKotlinCompilationFailureSteps,
       KotlinCDAnalytics kotlinCDAnalytics,
       LanguageVersion languageVersion) {
@@ -76,7 +76,7 @@ public class KosabiStubgenStepsBuilder {
           buildTargetValueExtraParams.getGenPath("__%s_stubgen_stubs_class__");
 
       RelPath stubsJar = buildTargetValueExtraParams.getGenPath("__%s_stubgen_stubs.jar");
-      sourceOnlyAbiClasspathBuilder.add(stubsJar.toAbsolutePath());
+      compilationClasspathBuilder.add(stubsJar.toAbsolutePath());
 
       RelPath stubsOutputZipDir =
           buildTargetValueExtraParams.getGenPath("__%s_stubgen_stubs_zip__");
@@ -121,7 +121,7 @@ public class KosabiStubgenStepsBuilder {
                   .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)),
               "Terminating compilation. We're done with Stubgen.",
               false,
-              sourceOnlyAbiClasspathBuilder.build(),
+              compilationClasspathBuilder.build(),
               extraParams.getShouldVerifySourceOnlyAbiConstraints(),
               postKotlinCompilationFailureSteps.build(),
               extraParams.getDepTrackerPlugin(),
