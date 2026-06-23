@@ -226,7 +226,7 @@ list_sub_group(Group, Groups, SuiteGroups, Suite) when is_list(SuiteGroups) ->
 -spec test_case_info(suite(), [ct_groupname()], ct_testname()) -> #test_spec_test_info{}.
 test_case_info(Suite, Groups, Test) ->
     ok = test_exported_test(Suite, Test),
-    ListPeriodGroups = lists:join(":", lists:map(fun(Group) -> atom_to_list(Group) end, Groups)),
+    ListPeriodGroups = lists:join(":", [atom_to_list(Group) || Group <:- Groups]),
     Name = unicode_characters_to_binary(io_lib:format("~ts.~ts", [ListPeriodGroups, Test])),
     #test_spec_test_info{
         name = Name,

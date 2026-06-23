@@ -465,7 +465,7 @@ parse_test_name(Test, Suite) ->
             [] -> [];
             _ -> string:split(Groups0, ":", all)
         end,
-    Groups = lists:map(fun(GroupStr) -> list_to_atom(GroupStr) end, Groups1),
+    Groups = [list_to_atom(GroupStr) || GroupStr <:- Groups1],
     #ct_test{
         suite = Suite,
         groups = Groups,
