@@ -2,13 +2,10 @@ load("//defs.bzl", "suite", "toolchain")
 
 suite(
     name = "top",
-    deps = [] + (
-        ["//load_cycle:target"] if read_config("cycles", "load") == "yes" else []
-    ) + (
-        ["//:cycle_top"] if read_config("cycles", "cfg_graph") == "yes" else []
-    ) + (
-        ["//:toolchain_cycle_top"] if read_config("cycles", "cfg_toolchain") == "yes" else []
-    ),
+    deps = []
+    + (["//load_cycle:target"] if read_config("cycles", "load") == "yes" else [])
+    + (["//:cycle_top"] if read_config("cycles", "cfg_graph") == "yes" else [])
+    + (["//:toolchain_cycle_top"] if read_config("cycles", "cfg_toolchain") == "yes" else []),
 )
 
 suite(

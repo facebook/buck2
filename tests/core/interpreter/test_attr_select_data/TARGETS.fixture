@@ -16,8 +16,7 @@ platform(
 
 platform(
     name = "platform3",
-    constraint_values = [
-    ],
+    constraint_values = [],
 )
 
 constraint_setting(

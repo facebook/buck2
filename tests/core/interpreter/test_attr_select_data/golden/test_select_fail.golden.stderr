@@ -4,7 +4,7 @@ $ buck cquery root//:foo -v0 --target-platforms=//:platform1
 root//:foo (root//:platform1#<HASH>)
 
 $ buck cquery root//:foo --console=none -v0 --target-platforms=//:platform2
-Command failed: 
+Command failed:
 Error looking up configured node root//:foo (root//:platform2#<HASH>)
 
 Caused by:
@@ -12,7 +12,7 @@ Caused by:
     1: select resolved to select_fail(): fail message
 
 $ buck cquery root//:foo --console=none -v0 --target-platforms=//:platform3
-Command failed: 
+Command failed:
 Error looking up configured node root//:foo (root//:platform3#<HASH>)
 
 Caused by:
@@ -75,7 +75,7 @@ error_rule(
 )
 
 $ buck uquery root//:foo2 --console=none -v0 --output-format=starlark -c user.check_bad_coercion=1
-Command failed: 
+Command failed:
 Error evaluating expression:
     root//:foo2
     ^---------^
@@ -84,18 +84,18 @@ Error evaluating expression:
 Caused by:
     0: Error evaluating build file: `root//:TARGETS.fixture`
     1: error: Error coercing attribute `data` of `root//:foo2`
-         --> TARGETS.fixture:51:1
+         --> TARGETS.fixture:50:1
           |
-       51 | / error_rule(
-       52 | |     name = "foo2",
-       53 | |     data = select_fail("bad use") if read_root_config("user", "check_bad_coercion") != None else "",
-       54 | | )
+       50 | / error_rule(
+       51 | |     name = "foo2",
+       52 | |     data = select_fail("bad use") if read_root_config("user", "check_bad_coercion") != None else "",
+       53 | | )
           | |_^
           |
        Traceback (most recent call last):
-         * TARGETS.fixture:51, in <module>
+         * TARGETS.fixture:50, in <module>
              error_rule(
-       
+
     2: Error coercing attribute `data` of type `attrs.string()`
     3: Error coercing "bad use"
     4: Expected `str`, but got `SelectFail (repr: "bad use")`

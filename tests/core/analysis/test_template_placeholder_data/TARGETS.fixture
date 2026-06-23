@@ -1,4 +1,4 @@
-""" Sets up some targets for testing the classpath() query function
+"""Sets up some targets for testing the classpath() query function
 
 Especially tests handling around tsets. The combiner rule basically allows
 us to construct tsets w/ value and children and then we have tester() which

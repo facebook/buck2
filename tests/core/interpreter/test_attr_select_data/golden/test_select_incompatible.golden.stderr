@@ -70,7 +70,7 @@ error_rule(
 )
 
 $ buck uquery root//:incompat_foo2 --console=none -v0 --output-format=starlark -c user.check_bad_coercion_incompatible=1
-Command failed: 
+Command failed:
 Error evaluating expression:
     root//:incompat_foo2
     ^------------------^
@@ -79,18 +79,18 @@ Error evaluating expression:
 Caused by:
     0: Error evaluating build file: `root//:TARGETS.fixture`
     1: error: Error coercing attribute `data` of `root//:incompat_foo2`
-         --> TARGETS.fixture:79:1
+         --> TARGETS.fixture:78:1
           |
-       79 | / error_rule(
-       80 | |     name = "incompat_foo2",
-       81 | |     data = select_incompatible("bad use") if read_root_config("user", "check_bad_coercion_incompatible") != None else "",
-       82 | | )
+       78 | / error_rule(
+       79 | |     name = "incompat_foo2",
+       80 | |     data = select_incompatible("bad use") if read_root_config("user", "check_bad_coercion_incompatible") != None else "",
+       81 | | )
           | |_^
           |
        Traceback (most recent call last):
-         * TARGETS.fixture:79, in <module>
+         * TARGETS.fixture:78, in <module>
              error_rule(
-       
+
     2: Error coercing attribute `data` of type `attrs.string()`
     3: Error coercing "bad use"
     4: Expected `str`, but got `SelectIncompatible (repr: "bad use")`
@@ -99,7 +99,7 @@ $ buck cquery root//:depends_on_incompat -v0 --target-platforms=//:platform1
 root//:depends_on_incompat (root//:platform1#<HASH>)
 
 $ buck cquery root//:depends_on_incompat --console=none -v0 --target-platforms=//:platform2
-Command failed: 
+Command failed:
 Upgraded warning to failure via $BUCK2_HARD_ERROR
 
 Caused by:

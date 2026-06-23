@@ -248,10 +248,7 @@ uses_exec_dep(
 # they race and one writer's remove returns ENOENT.
 _N = 200
 
-[
-    constraint_setting(name = "cfg_setting_{}".format(i))
-    for i in range(_N)
-]
+[constraint_setting(name = "cfg_setting_{}".format(i)) for i in range(_N)]
 
 [
     constraint_value(
