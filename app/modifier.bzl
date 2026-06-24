@@ -81,7 +81,7 @@ def buck2_modifiers():
             "DEFAULT": None,
             "ovr_config//build_mode/default_opt_cxx:enabled": modifiers.conditional({
                 "DEFAULT": None,
-                "ovr_config//os:macos": "ovr_config//build_mode/constraints:fbcode-build-info-ldflags-accepted",
+                "ovr_config//os:macos": "ovr_config//build_mode/constraints:fbcode-build-info-ldflags[accepted]",
             }),
         }),
         modifiers.conditional({
