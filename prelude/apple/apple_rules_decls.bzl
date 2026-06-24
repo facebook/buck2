@@ -360,7 +360,7 @@ apple_binary = prelude_rule(
             "enable_distributed_thinlto": attrs.bool(
                 default = select({
                     "DEFAULT": False,
-                    "config//build_mode/constraints:distributed-thin-lto-enabled": True,
+                    "config//build_mode/constraints:distributed-thin-lto[enabled]": True,
                 })
             ),
             "enable_library_evolution": attrs.option(attrs.bool(), default = None),
@@ -677,7 +677,7 @@ apple_library = prelude_rule(
             "enable_distributed_thinlto": attrs.bool(
                 default = select({
                     "DEFAULT": False,
-                    "config//build_mode/constraints:distributed-thin-lto-enabled": True,
+                    "config//build_mode/constraints:distributed-thin-lto[enabled]": True,
                 })
             ),
             "enable_library_evolution": attrs.option(attrs.bool(), default = None),
