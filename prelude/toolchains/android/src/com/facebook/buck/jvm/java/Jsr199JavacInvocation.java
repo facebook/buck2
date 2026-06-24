@@ -340,8 +340,18 @@ class Jsr199JavacInvocation implements ResolvedJavac.Invocation {
       }
     }
 
+    /**
+     * Returns a snapshot of the diagnostics gathered so far. Formatting a diagnostic can make javac
+     * lazily complete an annotation type and report a new diagnostic into the collector, so
+     * iterating the collector's live view directly risks a ConcurrentModificationException on the
+     * compiler thread. Iterate this copy instead.
+     */
+    private List<Diagnostic<? extends JavaFileObject>> diagnosticsSnapshot() {
+      return new ArrayList<>(diagnostics.getDiagnostics());
+    }
+
     private void debugLogDiagnostics() {
-      for (Diagnostic<? extends JavaFileObject> diagnostic : diagnostics.getDiagnostics()) {
+      for (Diagnostic<? extends JavaFileObject> diagnostic : diagnosticsSnapshot()) {
         LOG.debug("javac: %s", DiagnosticPrettyPrinter.format(diagnostic));
       }
     }
@@ -349,7 +359,7 @@ class Jsr199JavacInvocation implements ResolvedJavac.Invocation {
     private void reportDiagnosticsToUser() {
       if (context.getVerbosity().shouldPrintStandardInformation()) {
         List<Diagnostic<? extends JavaFileObject>> cleanDiagnostics =
-            DiagnosticCleaner.clean(diagnostics.getDiagnostics());
+            DiagnosticCleaner.clean(diagnosticsSnapshot());
 
         int numErrors = 0;
         int numWarnings = 0;
@@ -375,7 +385,7 @@ class Jsr199JavacInvocation implements ResolvedJavac.Invocation {
     }
 
     private boolean buildSuccessful() {
-      return diagnostics.getDiagnostics().stream()
+      return diagnosticsSnapshot().stream()
           .noneMatch(diag -> diag.getKind() == Diagnostic.Kind.ERROR);
     }
 
@@ -587,7 +597,7 @@ class Jsr199JavacInvocation implements ResolvedJavac.Invocation {
                     javacTask,
                     ruleInfoFactory.create(fileManager),
                     () ->
-                        diagnostics.getDiagnostics().stream()
+                        diagnosticsSnapshot().stream()
                             .anyMatch(diagnostic -> diagnostic.getKind() == Diagnostic.Kind.ERROR),
                     getDiagnosticKindForSourceOnlyAbiCompatibility(abiGenerationMode));
           }
