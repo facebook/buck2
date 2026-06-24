@@ -56,12 +56,25 @@ impl TCode {
 
 impl Display for TCode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self == &TCode::OK {
-            write!(f, "OK")
-        } else if self == &TCode::INVALID_ARGUMENT {
-            write!(f, "INVALID_ARGUMENT")
-        } else {
-            write!(f, "UNKNOWN")
+        match *self {
+            TCode::OK => write!(f, "OK"),
+            TCode::CANCELLED => write!(f, "CANCELLED"),
+            TCode::UNKNOWN => write!(f, "UNKNOWN"),
+            TCode::INVALID_ARGUMENT => write!(f, "INVALID_ARGUMENT"),
+            TCode::DEADLINE_EXCEEDED => write!(f, "DEADLINE_EXCEEDED"),
+            TCode::NOT_FOUND => write!(f, "NOT_FOUND"),
+            TCode::ALREADY_EXISTS => write!(f, "ALREADY_EXISTS"),
+            TCode::PERMISSION_DENIED => write!(f, "PERMISSION_DENIED"),
+            TCode::RESOURCE_EXHAUSTED => write!(f, "RESOURCE_EXHAUSTED"),
+            TCode::FAILED_PRECONDITION => write!(f, "FAILED_PRECONDITION"),
+            TCode::ABORTED => write!(f, "ABORTED"),
+            TCode::OUT_OF_RANGE => write!(f, "OUT_OF_RANGE"),
+            TCode::UNIMPLEMENTED => write!(f, "UNIMPLEMENTED"),
+            TCode::INTERNAL => write!(f, "INTERNAL"),
+            TCode::UNAVAILABLE => write!(f, "UNAVAILABLE"),
+            TCode::DATA_LOSS => write!(f, "DATA_LOSS"),
+            TCode::UNAUTHENTICATED => write!(f, "UNAUTHENTICATED"),
+            _ => write!(f, "UNKNOWN"),
         }
     }
 }
@@ -88,5 +101,20 @@ impl Display for TCodeReasonGroup {
             TCodeReasonGroup::DIGEST_NOT_FOUND => write!(f, "DIGEST_NOT_FOUND"),
             _ => write!(f, "UNKNOWN"),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tcode_display_names_known_codes() {
+        assert_eq!(TCode::RESOURCE_EXHAUSTED.to_string(), "RESOURCE_EXHAUSTED");
+        assert_eq!(
+            TCode::FAILED_PRECONDITION.to_string(),
+            "FAILED_PRECONDITION"
+        );
+        assert_eq!(TCode::UNAVAILABLE.to_string(), "UNAVAILABLE");
     }
 }
