@@ -161,7 +161,9 @@ async def buck_fixture(  # noqa C901 : "too complex"
             current_test = (
                 __manifest__.fbmake["build_rule"] + os.environ["PYTEST_CURRENT_TEST"]
             )
-            isolation_prefix = hashlib.sha1(current_test.encode("utf-8")).hexdigest()
+            isolation_prefix = hashlib.sha256(current_test.encode("utf-8")).hexdigest()[
+                :40
+            ]
             # FIXME(T136079642): Buck2 on Windows has problem with relative symlinks over 260 chars, shorten the hash
             if is_windows:
                 isolation_prefix = isolation_prefix[:5]
