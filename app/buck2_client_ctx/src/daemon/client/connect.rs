@@ -214,11 +214,16 @@ pub enum DesiredTraceIoState {
     Existing,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[allow(clippy::large_enum_variant)]
-pub enum BuckdConnectConstraints {
+pub enum BuckdConnectOptions {
     ExistingOnly,
-    Constraints(DaemonConstraintsRequest),
+    Options(BuckdConnectDaemonOptions),
+}
+
+#[derive(Debug, Clone)]
+pub struct BuckdConnectDaemonOptions {
+    pub(crate) constraints: DaemonConstraintsRequest,
 }
 
 async fn get_channel(
@@ -281,19 +286,16 @@ pub fn buckd_startup_init_timeout() -> buck2_error::Result<Duration> {
 struct BuckdLifecycle<'a> {
     paths: &'a InvocationPaths,
     lock: BuckdLifecycleLock,
-    constraints: &'a DaemonConstraintsRequest,
 }
 
 impl<'a> BuckdLifecycle<'a> {
     async fn lock_with_timeout(
         paths: &'a InvocationPaths,
         deadline: StartupDeadline,
-        constraints: &'a DaemonConstraintsRequest,
     ) -> buck2_error::Result<BuckdLifecycle<'a>> {
         Ok(BuckdLifecycle::<'a> {
             paths,
             lock: BuckdLifecycleLock::lock_with_timeout(paths.daemon_dir()?, deadline).await?,
-            constraints,
         })
     }
 
@@ -304,7 +306,10 @@ impl<'a> BuckdLifecycle<'a> {
             .tag(ErrorTag::DaemonDirCleanupFailed)
     }
 
-    async fn start_server(&self) -> buck2_error::Result<()> {
+    async fn start_server(
+        &self,
+        constraints: &DaemonConstraintsRequest,
+    ) -> buck2_error::Result<()> {
         let mut args = vec!["--isolation-dir", self.paths.isolation.as_str(), "daemon"];
 
         let daemon_id = DaemonId::new();
@@ -313,11 +318,11 @@ impl<'a> BuckdLifecycle<'a> {
         args.push("--daemon-id");
         args.push(&daemon_id_s);
 
-        if self.constraints.is_trace_io_requested() {
+        if constraints.is_trace_io_requested() {
             args.push("--enable-trace-io");
         }
 
-        if let Some(r) = &self.constraints.reject_materializer_state {
+        if let Some(r) = &constraints.reject_materializer_state {
             args.push("--reject-materializer-state");
             args.push(r);
         }
@@ -353,16 +358,12 @@ impl<'a> BuckdLifecycle<'a> {
             self.start_server_unix(
                 args,
                 &daemon_env_vars,
-                &self.constraints.daemon_startup_config,
+                &constraints.daemon_startup_config,
                 &daemon_id,
             )
             .await
         } else {
-            self.start_server_windows(
-                args,
-                &daemon_env_vars,
-                &self.constraints.daemon_startup_config,
-            )
+            self.start_server_windows(args, &daemon_env_vars, &constraints.daemon_startup_config)
         }
     }
 
@@ -560,7 +561,7 @@ pub struct BootstrapBuckdClient {
 impl BootstrapBuckdClient {
     pub async fn connect(
         paths: &InvocationPaths,
-        constraints: BuckdConnectConstraints,
+        options: BuckdConnectOptions,
         events_ctx: &mut EventsCtx,
     ) -> buck2_error::Result<Self> {
         let daemon_dir = paths.daemon_dir()?;
@@ -568,12 +569,10 @@ impl BootstrapBuckdClient {
         fs_util::create_dir_all(&daemon_dir.path)
             .with_buck_error_context(|| format!("Error creating daemon dir: {daemon_dir}"))?;
 
-        let res = match constraints {
-            BuckdConnectConstraints::ExistingOnly => {
-                establish_connection_existing(&daemon_dir).await
-            }
-            BuckdConnectConstraints::Constraints(constraints) => {
-                establish_connection(paths, constraints, events_ctx).await
+        let res = match &options {
+            BuckdConnectOptions::ExistingOnly => establish_connection_existing(&daemon_dir).await,
+            BuckdConnectOptions::Options(options) => {
+                establish_connection(paths, options, events_ctx).await
             }
         };
 
@@ -629,14 +628,14 @@ impl BootstrapBuckdClient {
 /// Attempt to connect to a daemon that can satisfy specified constraints.
 /// If the daemon does not match constraints (different version or does not enable I/O tracing),
 /// it will kill it and restart it with the correct constraints.
-/// This behavior can be overridden by passing `BuckdConnectConstraints::ExistingOnly`.
+/// This behavior can be overridden by passing `BuckdConnectOptions::ExistingOnly`.
 /// In that case, then any existing buck daemon (regardless of constraint) is accepted.
 pub async fn connect_buckd(
-    constraints: BuckdConnectConstraints,
+    options: BuckdConnectOptions,
     events_ctx: &mut EventsCtx,
     paths: &InvocationPaths,
 ) -> buck2_error::Result<BuckdClientConnector> {
-    match BootstrapBuckdClient::connect(paths, constraints, events_ctx).await {
+    match BootstrapBuckdClient::connect(paths, options, events_ctx).await {
         Ok(client) => Ok(client.to_connector()),
         Err(e) => {
             events_ctx.handle_daemon_connection_failure();
@@ -665,9 +664,11 @@ pub async fn establish_connection_existing(
 
 async fn establish_connection(
     paths: &InvocationPaths,
-    constraints: DaemonConstraintsRequest,
+    options: &BuckdConnectDaemonOptions,
     events_ctx: &mut EventsCtx,
 ) -> buck2_error::Result<BootstrapBuckdClient> {
+    let constraints = &options.constraints;
+
     // There are many places where `establish_connection_inner` may hang.
     // If it does, better print something to the user instead of hanging quietly forever.
     let timeout = buckd_startup_init_timeout()?;
@@ -704,7 +705,7 @@ fn explain_failed_to_connect_reason(reason: buck2_data::DaemonWasStartedReason) 
 #[allow(clippy::collapsible_match)]
 async fn establish_connection_inner(
     paths: &InvocationPaths,
-    constraints: DaemonConstraintsRequest,
+    constraints: &DaemonConstraintsRequest,
     deadline: StartupDeadline,
     events_ctx: &mut EventsCtx,
 ) -> buck2_error::Result<BootstrapBuckdClient> {
@@ -713,7 +714,7 @@ async fn establish_connection_inner(
     let res = deadline
         .half()?
         .run("connecting to existing buck daemon", {
-            try_connect_existing_before_acquiring_lifecycle_lock(&daemon_dir, &constraints).map(Ok)
+            try_connect_existing_before_acquiring_lifecycle_lock(&daemon_dir, constraints).map(Ok)
         })
         .await;
     if let Ok(connect_before_restart) = res {
@@ -726,7 +727,7 @@ async fn establish_connection_inner(
     // Get the lifecycle lock to ensure we don't have races with other processes as we check and change things.
     let lifecycle_lock = deadline
         .down("acquire lifecycle lock", |deadline| {
-            BuckdLifecycle::lock_with_timeout(paths, deadline, &constraints)
+            BuckdLifecycle::lock_with_timeout(paths, deadline)
         })
         .await?;
 
@@ -821,7 +822,7 @@ async fn establish_connection_inner(
                     deadline,
                     &lifecycle_lock,
                     paths,
-                    &constraints,
+                    constraints,
                     events_ctx,
                     daemon_was_started_reason,
                 )
@@ -843,7 +844,7 @@ async fn start_new_buckd_and_connect(
 
     // Now there's definitely no server that can be connected to
     lifecycle_lock
-        .start_server()
+        .start_server(constraints)
         .await
         .buck_error_context("Error starting buck2 daemon")?;
     // It might take a little bit for the daemon server to start up. We could wait for the buckd.info
@@ -863,7 +864,7 @@ async fn start_new_buckd_and_connect(
     if let Err(reason) = constraints.satisfied(&client.constraints) {
         return Err(BuckdConnectError::BuckDaemonConstraintWrongAfterStart {
             reason,
-            expected: constraints.clone(),
+            expected: (*constraints).clone(),
             actual: client.constraints,
         }
         .into());

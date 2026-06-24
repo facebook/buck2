@@ -29,7 +29,8 @@ use crate::common::CommonStarlarkOptions;
 use crate::common::ui::CommonConsoleOptions;
 use crate::common::ui::get_console_with_root;
 use crate::daemon::client::BuckdClientConnector;
-use crate::daemon::client::connect::BuckdConnectConstraints;
+use crate::daemon::client::connect::BuckdConnectDaemonOptions;
+use crate::daemon::client::connect::BuckdConnectOptions;
 use crate::daemon::client::connect::DaemonConstraintsRequest;
 use crate::daemon::client::connect::DesiredTraceIoState;
 use crate::daemon::client::connect::connect_buckd;
@@ -228,25 +229,25 @@ impl<T: StreamingCommand> BuckSubcommand for T {
         events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         let work = async {
-            let mut constraints = if T::existing_only() {
-                BuckdConnectConstraints::ExistingOnly
+            let mut connect_options = if T::existing_only() {
+                BuckdConnectOptions::ExistingOnly
             } else {
                 let mut req =
                     DaemonConstraintsRequest::new(ctx.immediate_config, T::trace_io(&self))?;
                 ctx.restarter.apply_to_constraints(&mut req);
-                BuckdConnectConstraints::Constraints(req)
+                BuckdConnectOptions::Options(BuckdConnectDaemonOptions { constraints: req })
             };
             let buckd = match ctx.start_in_process_daemon.take() {
-                None => connect_buckd(constraints, events_ctx, ctx.paths()?).await,
+                None => connect_buckd(connect_options, events_ctx, ctx.paths()?).await,
                 Some(start_in_process_daemon) => {
                     // Start in-process daemon, wait until it is ready to accept connections.
                     start_in_process_daemon()?;
 
                     // Do not attempt to spawn a daemon if connect failed.
                     // Connect should not fail.
-                    constraints = BuckdConnectConstraints::ExistingOnly;
+                    connect_options = BuckdConnectOptions::ExistingOnly;
 
-                    connect_buckd(constraints, events_ctx, ctx.paths()?).await
+                    connect_buckd(connect_options, events_ctx, ctx.paths()?).await
                 }
             };
 

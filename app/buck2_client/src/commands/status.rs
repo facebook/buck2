@@ -13,7 +13,7 @@ use std::time::Duration;
 use buck2_cli_proto::StatusResponse;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
-use buck2_client_ctx::daemon::client::connect::BuckdConnectConstraints;
+use buck2_client_ctx::daemon::client::connect::BuckdConnectOptions;
 use buck2_client_ctx::daemon::client::connect::connect_buckd;
 use buck2_client_ctx::daemon::client::connect::establish_connection_existing;
 use buck2_client_ctx::events_ctx::EventsCtx;
@@ -84,7 +84,7 @@ impl StatusCommand {
                 buck2_client_ctx::println!("{}", serde_json::to_string_pretty(&statuses)?)?;
             } else {
                 match connect_buckd(
-                    BuckdConnectConstraints::ExistingOnly,
+                    BuckdConnectOptions::ExistingOnly,
                     &mut events_ctx,
                     ctx.paths()?,
                 )
