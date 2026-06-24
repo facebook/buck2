@@ -381,6 +381,10 @@ async fn build(
         None
     };
 
+    let return_run_args = request
+        .response_options
+        .as_ref()
+        .is_some_and(|o| o.return_run_args);
     let build_start = Instant::now();
     let cloned_ctx = ctx.clone(); // build_future does a mutable borrow on the context, so we clone it first
     let build_future = ctx.with_linear_recompute(|ctx| async move {
@@ -394,6 +398,7 @@ async fn build(
             MissingTargetBehavior::from_skip(build_opts.skip_missing_targets),
             build_opts.skip_incompatible_targets,
             graph_properties.dupe(),
+            return_run_args,
             timeout_observer.as_ref(),
             build_command_streaming_build_result_tx,
             build_start,
@@ -732,6 +737,7 @@ async fn build_targets(
     missing_target_behavior: MissingTargetBehavior,
     skip_incompatible_targets: bool,
     graph_properties: GraphPropertiesOptions,
+    return_run_args: bool,
     timeout_observer: Option<&Arc<dyn LivelinessObserver>>,
     streaming_build_result_tx: Option<UnboundedSender<BuildTargetResult>>,
     build_start: Instant,
@@ -753,6 +759,7 @@ async fn build_targets(
                 missing_target_behavior,
                 skip_incompatible_targets,
                 graph_properties,
+                return_run_args,
                 timeout_observer,
             )
             .left_future()
@@ -765,6 +772,7 @@ async fn build_targets(
             build_providers,
             materialization_and_upload,
             graph_properties,
+            return_run_args,
             timeout_observer,
         )
         .right_future(),
@@ -781,6 +789,7 @@ async fn build_targets_in_universe(
     build_providers: Arc<BuildProviders>,
     materialization_and_upload: MaterializationAndUploadContext,
     graph_properties: GraphPropertiesOptions,
+    return_run_args: bool,
     timeout_observer: Option<&Arc<dyn LivelinessObserver>>,
 ) {
     let providers_to_build = build_providers_to_providers_to_build(&build_providers);
@@ -804,6 +813,7 @@ async fn build_targets_in_universe(
                     build::BuildConfiguredLabelOptions {
                         skippable: false,
                         graph_properties,
+                        return_run_args,
                     },
                     timeout_observer,
                 )
@@ -825,6 +835,7 @@ async fn build_targets_with_global_target_platform<'a>(
     missing_target_behavior: MissingTargetBehavior,
     skip_incompatible_targets: bool,
     graph_properties: GraphPropertiesOptions,
+    return_run_args: bool,
     timeout_observer: Option<&'a Arc<dyn LivelinessObserver>>,
 ) {
     let global_cfg_options = &global_cfg_options;
@@ -843,6 +854,7 @@ async fn build_targets_with_global_target_platform<'a>(
                 missing_target_behavior,
                 skip_incompatible_targets,
                 graph_properties,
+                return_run_args,
                 timeout_observer,
             )
             .await
@@ -861,6 +873,7 @@ struct TargetBuildSpec {
     // the target platform).
     skippable: bool,
     graph_properties: GraphPropertiesOptions,
+    return_run_args: bool,
 }
 
 fn build_providers_to_providers_to_build(build_providers: &BuildProviders) -> ProvidersToBuild {
@@ -893,6 +906,7 @@ async fn build_targets_for_spec(
     missing_target_behavior: MissingTargetBehavior,
     skip_incompatible_targets: bool,
     graph_properties: GraphPropertiesOptions,
+    return_run_args: bool,
     timeout_observer: Option<&Arc<dyn LivelinessObserver>>,
 ) {
     let skippable = match spec {
@@ -958,6 +972,7 @@ async fn build_targets_for_spec(
             modifiers: modifiers.dupe(),
             skippable,
             graph_properties,
+            return_run_args,
         })
         .collect();
 
@@ -1030,6 +1045,7 @@ async fn build_target(
         build::BuildConfiguredLabelOptions {
             skippable: spec.skippable,
             graph_properties: spec.graph_properties,
+            return_run_args: spec.return_run_args,
         },
         timeout_observer,
     )

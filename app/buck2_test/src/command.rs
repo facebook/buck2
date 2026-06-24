@@ -1424,6 +1424,7 @@ async fn build_target_result(
                 BuildConfiguredLabelOptions {
                     skippable: false,
                     graph_properties: Default::default(),
+                    return_run_args: false,
                 },
                 None, // TODO: is this right?
             ),

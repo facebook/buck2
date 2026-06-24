@@ -21,7 +21,6 @@ use buck2_build_api::build::ProviderArtifacts;
 use buck2_build_api::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineBuilder;
-use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
 use buck2_certs::validate::CertState;
 use buck2_certs::validate::check_cert_state;
 use buck2_core::configuration::compatibility::MaybeCompatible;
@@ -212,43 +211,36 @@ impl<'a> ResultReporter<'a> {
             None => None,
         };
 
-        let run_args = if let Some(providers) = result.provider_collection.as_ref() {
-            if let Some(runinfo) = providers
-                .provider_collection()
-                .builtin_provider::<FrozenRunInfo>()
-            {
-                // Produce arguments to run on a local machine.
-                let path_separator = if cfg!(windows) {
-                    PathSeparatorKind::Windows
-                } else {
-                    PathSeparatorKind::Unix
-                };
-                let executor_fs = ExecutorFs::new(self.artifact_fs, path_separator);
-                let mut cli = Vec::<String>::new();
-                let error_counting_artifact_path_mapper =
-                    ErrorCountingArtifactPathMapperImpl::new(artifact_path_mapping);
-                let mut fmt = CommandLineBuilder::new_with_options(
-                    &mut cli,
-                    &error_counting_artifact_path_mapper,
-                    &executor_fs,
-                    true,
-                    None,
-                );
-                runinfo.add_to_command_line(&mut fmt)?;
-                if error_counting_artifact_path_mapper
-                    .content_based_paths_with_no_hash
-                    .get()
-                    > 0
-                {
-                    // If we have action errors, then it's possible that we weren't able to produce
-                    // the run info because we couldn't resolve a content-based path, and that's okay
-                    // because we don't expect to be able to use it anyway.
-                    Vec::new()
-                } else {
-                    cli
-                }
+        let run_args = if let Some(runinfo) = result.run_info.as_ref() {
+            // Produce arguments to run on a local machine.
+            let path_separator = if cfg!(windows) {
+                PathSeparatorKind::Windows
             } else {
+                PathSeparatorKind::Unix
+            };
+            let executor_fs = ExecutorFs::new(self.artifact_fs, path_separator);
+            let mut cli = Vec::<String>::new();
+            let error_counting_artifact_path_mapper =
+                ErrorCountingArtifactPathMapperImpl::new(artifact_path_mapping);
+            let mut fmt = CommandLineBuilder::new_with_options(
+                &mut cli,
+                &error_counting_artifact_path_mapper,
+                &executor_fs,
+                true,
+                None,
+            );
+            runinfo.add_to_command_line(&mut fmt)?;
+            if error_counting_artifact_path_mapper
+                .content_based_paths_with_no_hash
+                .get()
+                > 0
+            {
+                // If we have action errors, then it's possible that we weren't able to produce
+                // the run info because we couldn't resolve a content-based path, and that's okay
+                // because we don't expect to be able to use it anyway.
                 Vec::new()
+            } else {
+                cli
             }
         } else {
             Vec::new()

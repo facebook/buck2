@@ -280,6 +280,7 @@ impl StreamingCommand for BuildCommand {
                     response_options: Some(ResponseOptions {
                         return_outputs: self.show_output.format().is_some()
                             || self.output_path.is_some(),
+                        return_run_args: false,
                     }),
                     build_opts: Some(self.build_opts.to_proto()),
                     final_artifact_materializations: self.materializations.to_proto() as i32,

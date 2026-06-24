@@ -225,6 +225,8 @@ pub(crate) fn build<'v>(
                                         BuildConfiguredLabelOptions {
                                             skippable: false,
                                             graph_properties: Default::default(),
+                                            // bxl does not need the build result's RunInfo command line.
+                                            return_run_args: false,
                                         },
                                         None, // TODO: support timeouts?
                                     )

@@ -484,8 +484,10 @@ message BuildRequest {
     reserved 2;
     // Include target outputs? [default: false]
     bool return_outputs = 1;
+    // Include the target's resolved run command line? Set only by
+    // `buck run`. [default: false]
+    bool return_run_args = 3;
     // TODO(rafaelc): bool return_targets_without_data
-    // TODO(rafaelc): bool return_run_args
   }
   // Options regarding which data to include in the response.
   ResponseOptions response_options = 4;

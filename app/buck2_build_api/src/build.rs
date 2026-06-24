@@ -42,6 +42,7 @@ use futures::stream::StreamExt;
 use itertools::Itertools;
 use pagable::Pagable;
 use starlark::collections::SmallSet;
+use starlark::values::OwnedFrozenValueTyped;
 use tokio::sync::Mutex;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;
@@ -59,7 +60,7 @@ use crate::build::graph_properties::GraphPropertiesOptions;
 use crate::build::graph_properties::GraphPropertiesValues;
 use crate::build::outputs::get_outputs_for_top_level_target;
 use crate::build_signals::HasBuildSignals;
-use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
+use crate::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
 use crate::keep_going::KeepGoing;
 use crate::materialize::HasMaterializationQueueTracker;
 use crate::materialize::MaterializationAndUploadContext;
@@ -97,16 +98,12 @@ impl<T: Allocative> Allocative for Timed<T> {
     }
 }
 
-#[derive(Clone, Debug, Allocative, starlark::StarlarkPagable)]
+#[derive(Clone, Debug, Allocative)]
 pub struct ConfiguredBuildTargetResultGen<T> {
-    #[starlark_pagable(skip = "Vec::new()")] // todo!() deserialize correctly
     pub outputs: Vec<Timed<T>>,
-    pub provider_collection: Option<FrozenProviderCollectionValue>,
-    #[starlark_pagable(pagable)]
+    pub run_info: Option<OwnedFrozenValueTyped<FrozenRunInfo>>,
     pub target_rule_type_name: Option<String>,
-    #[starlark_pagable(skip = "None")] // todo!() deserialize correctly
     pub graph_properties: Option<buck2_error::Result<MaybeCompatible<GraphPropertiesValues>>>,
-    #[starlark_pagable(skip = "Vec::new()")] // todo!() deserialize errors
     pub errors: Vec<Timed<buck2_error::Error>>,
 }
 
@@ -256,14 +253,14 @@ impl BuildTargetResultBuilder {
                     .push(modifiers);
             }
             ConfiguredBuildEventVariant::Prepared {
-                provider_collection,
+                run_info,
                 target_rule_type_name,
             } => {
                 self.res
                     .entry(label.dupe())
                     .or_insert(Some(ConfiguredBuildTargetResultGen {
                         outputs: Vec::new(),
-                        provider_collection,
+                        run_info,
                         target_rule_type_name: Some(target_rule_type_name),
                         graph_properties: None,
                         errors: Vec::new(),
@@ -330,7 +327,7 @@ impl BuildTargetResultBuilder {
                     .entry(label.dupe())
                     .or_insert(Some(ConfiguredBuildTargetResultGen {
                         outputs: Vec::new(),
-                        provider_collection: None,
+                        run_info: None,
                         target_rule_type_name: None,
                         graph_properties: None,
                         errors: Vec::new(),
@@ -402,7 +399,7 @@ impl BuildTargetResultBuilder {
 
                     ConfiguredBuildTargetResult {
                         outputs,
-                        provider_collection: result.provider_collection.clone(),
+                        run_info: result.run_info.dupe(),
                         target_rule_type_name: result.target_rule_type_name.clone(),
                         graph_properties: result.graph_properties.clone(),
                         errors: result.errors.clone(),
@@ -486,7 +483,7 @@ pub enum ConfiguredBuildEventVariant {
         modifiers: Modifiers,
     },
     Prepared {
-        provider_collection: Option<FrozenProviderCollectionValue>,
+        run_info: Option<OwnedFrozenValueTyped<FrozenRunInfo>>,
         target_rule_type_name: String,
     },
     Execution(ConfiguredBuildEventExecutionVariant),
@@ -541,6 +538,8 @@ struct BuildDeadlineExpired;
 pub struct BuildConfiguredLabelOptions {
     pub skippable: bool,
     pub graph_properties: GraphPropertiesOptions,
+    /// Resolve the target's run command line (`run_args`). Set only by `buck run`;
+    pub return_run_args: bool,
 }
 
 pub async fn build_configured_label(
@@ -616,13 +615,13 @@ async fn build_configured_label_inner<'a>(
     let target_rule_type_name =
         get_target_rule_type_name(&mut ctx.get(), providers_label.target()).await?;
 
-    let provider_collection = if providers_to_build.run {
-        let providers = ctx
-            .get()
+    let run_info = if opts.return_run_args {
+        ctx.get()
             .get_providers(&providers_label)
             .await?
-            .require_compatible()?;
-        Some(providers)
+            .require_compatible()?
+            .value
+            .maybe_map(|c| c.as_ref().builtin_provider_value::<FrozenRunInfo>())
     } else {
         None
     };
@@ -723,7 +722,7 @@ async fn build_configured_label_inner<'a>(
     event_consumer.consume_configured(ConfiguredBuildEvent {
         label: providers_label.dupe(),
         variant: ConfiguredBuildEventVariant::Prepared {
-            provider_collection,
+            run_info,
             target_rule_type_name,
         },
     });
@@ -788,6 +787,9 @@ pub struct ProviderArtifacts {
 pub struct ProvidersToBuild {
     pub default: bool,
     pub default_other: bool,
+    /// Build the target's `RunInfo` input artifacts, so it is runnable. The `RunInfo` member of the
+    /// "which provider outputs to build" family ({default, default_other, run, tests}); distinct from
+    /// `BuildConfiguredLabelOptions::return_run_args`, which resolves the run command line.
     pub run: bool,
     pub tests: bool,
 }
