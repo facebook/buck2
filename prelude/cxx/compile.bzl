@@ -1219,15 +1219,16 @@ def _is_standalone_header(header: CHeader) -> bool:
     return True
 
 def _convert_raw_header(target_label: Label, raw_header: Artifact, include_dirs: list[CellPath]) -> CHeader:
-    package_prefix = str(target_label.path)
-    ns = paths.dirname(raw_header.short_path)
+    full_path = str(target_label.path) + "/" + raw_header.short_path
+    best_dir = None
     for d in include_dirs:
         abs_dir = str(d)
-        if paths.starts_with(abs_dir, package_prefix):
-            prefix = paths.relativize(abs_dir, package_prefix)
-            if paths.starts_with(ns, prefix):
-                ns = paths.relativize(ns, prefix)
-                break
+        if paths.starts_with(full_path, abs_dir) and (best_dir == None or len(abs_dir) > len(best_dir)):
+            best_dir = abs_dir
+    if best_dir != None:
+        ns = paths.dirname(paths.relativize(full_path, best_dir))
+    else:
+        ns = paths.dirname(raw_header.short_path)
     return CHeader(
         artifact = raw_header,
         name = raw_header.basename,
