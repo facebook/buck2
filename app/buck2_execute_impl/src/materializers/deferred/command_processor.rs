@@ -540,6 +540,45 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         }
     }
 
+    /// Propagate a Low→High priority bump to the artifact's direct deps tracked here
+    /// (local copy sources + symlink destinations).
+    fn promote_direct_deps_priority(&mut self, path: &ProjectRelativePath, priority: Priority) {
+        let (symlink_deps, copy_sources) = {
+            let Some(data) = self.tree.prefix_get(&mut path.iter()) else {
+                return;
+            };
+            let symlink_deps = data.deps.dupe();
+            let copy_sources = match &data.stage {
+                ArtifactMaterializationStage::Declared { method, .. } => match method.as_ref() {
+                    ArtifactMaterializationMethod::LocalCopy(_, copied_artifacts) => {
+                        copied_artifacts
+                            .iter()
+                            .map(|a| a.src.clone())
+                            .collect::<Vec<_>>()
+                    }
+                    _ => Vec::new(),
+                },
+                ArtifactMaterializationStage::Materialized { .. } => Vec::new(),
+            };
+            (symlink_deps, copy_sources)
+        };
+
+        let mut dep_paths = copy_sources;
+        if let Some(deps) = symlink_deps.as_ref() {
+            dep_paths.extend(self.tree.find_artifacts(deps));
+        }
+
+        for dep_path in dep_paths {
+            if let Some((_, data)) = Self::find_artifact_containing_path(&mut self.tree, &dep_path)
+                && let Some(active) = data.processing.active_ref()
+                && matches!(&active.future, ProcessingFuture::Materializing(_))
+                && active.priority_control.priority() == Priority::Low
+            {
+                active.priority_control.update(priority);
+            }
+        }
+    }
+
     /// Loop that runs for as long as the materializer is alive.
     ///
     /// It takes commands via the `Materializer` trait methods.
@@ -1298,13 +1337,15 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         tracing::debug!("existing future cancelled, starting fresh");
                         None
                     } else {
+                        let existing = f.clone();
                         if priority == Priority::High
                             && active.priority_control.priority() == Priority::Low
                         {
                             active.priority_control.update(priority);
+                            self.promote_direct_deps_priority(path, priority);
                         }
                         tracing::debug!("join existing future");
-                        return Ok(Some(f.clone()));
+                        return Ok(Some(existing));
                     }
                 }
             },

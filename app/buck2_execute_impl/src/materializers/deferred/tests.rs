@@ -1857,4 +1857,55 @@ mod state_machine {
         })
         .await
     }
+
+    /// High-priority promotion should propagate to direct symlink-dep targets.
+    #[tokio::test]
+    async fn test_priority_promotion_propagates_to_symlink_deps() -> buck2_error::Result<()> {
+        ignore_stack_overflow_checks_for_future(async {
+            let symlink_path = make_path("foo/parent_symlink");
+            let target_path = make_path("foo/dep_target");
+            let target_from_symlink = RelativePathBuf::from_system_path(Path::new("dep_target"))?;
+
+            let (mut dm, _) = make_processor(Default::default());
+            let digest_config = dm.io.digest_config();
+            let sender = dm.command_sender.dupe();
+
+            let _leases = dm
+                .eager_materializations
+                .register(vec![symlink_path.clone(), target_path.clone()], &sender);
+
+            eager_declare(&mut dm, &target_path, None);
+            assert_eq!(
+                get_priority_control(&mut dm, &target_path).priority(),
+                Priority::Low
+            );
+
+            let symlink_value = make_artifact_value_with_symlink_dep(
+                &target_path,
+                &target_from_symlink,
+                digest_config,
+            )?;
+            eager_declare_with_value(&mut dm, &symlink_path, symlink_value, None);
+            assert_eq!(
+                get_priority_control(&mut dm, &symlink_path).priority(),
+                Priority::Low
+            );
+
+            let _fut = dm
+                .materialize_artifact(&symlink_path, EventDispatcher::null())
+                .expect("Expected a materializing future");
+
+            assert_eq!(
+                get_priority_control(&mut dm, &symlink_path).priority(),
+                Priority::High,
+            );
+            assert_eq!(
+                get_priority_control(&mut dm, &target_path).priority(),
+                Priority::High,
+                "Direct symlink-dep target should be promoted to High along with its parent",
+            );
+            Ok(())
+        })
+        .await
+    }
 }
