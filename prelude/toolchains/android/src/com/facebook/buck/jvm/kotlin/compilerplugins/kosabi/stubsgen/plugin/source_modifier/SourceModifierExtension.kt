@@ -281,20 +281,21 @@ class SourceModifierExtension(
    * TODO: We may do in reverse like remove last child except some conditions.
    */
   private fun <T : KtCallableDeclaration> List<T>.findExpressionToConvertToTODO():
-      List<KtExpression> =
-      filterNot { it.typeReference == null }
-          .filterNot { it.hasModifier(KtTokens.CONST_KEYWORD) }
-          .flatMap {
-            listOfNotNull(
-                it.getChildOfType<KtBinaryExpression>(),
-                it.getChildOfType<KtBinaryExpressionWithTypeRHS>(),
-                it.getChildOfType<KtCallExpression>(),
-                it.getChildOfType<KtDotQualifiedExpression>(),
-                it.getChildOfType<KtLambdaExpression>(),
-                it.getChildOfType<KtStringTemplateExpression>(),
-                it.getChildOfType<KtWhenExpression>(),
-            )
-          }
+      List<KtExpression> = filterNot {
+    it.typeReference == null
+  }
+      .filterNot { it.hasModifier(KtTokens.CONST_KEYWORD) }
+      .flatMap {
+        listOfNotNull(
+            it.getChildOfType<KtBinaryExpression>(),
+            it.getChildOfType<KtBinaryExpressionWithTypeRHS>(),
+            it.getChildOfType<KtCallExpression>(),
+            it.getChildOfType<KtDotQualifiedExpression>(),
+            it.getChildOfType<KtLambdaExpression>(),
+            it.getChildOfType<KtStringTemplateExpression>(),
+            it.getChildOfType<KtWhenExpression>(),
+        )
+      }
 
   private fun calculateRangesToStrip(file: KtFile): List<IntRange> {
     val untypedPrivateNameFunctions =
