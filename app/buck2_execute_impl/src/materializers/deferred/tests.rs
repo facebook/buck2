@@ -1546,6 +1546,17 @@ mod state_machine {
     ) {
         let digest_config = dm.io.digest_config();
         let value = ArtifactValue::file(digest_config.empty_file());
+        eager_declare_with_value(dm, path, value, configuration_path);
+    }
+
+    /// Like `eager_declare`, but lets the caller supply the `ArtifactValue` (e.g. a symlink
+    /// with deps) instead of defaulting to an empty file.
+    fn eager_declare_with_value<T: IoHandler>(
+        dm: &mut DeferredMaterializerCommandProcessor<T>,
+        path: &ProjectRelativePathBuf,
+        value: ArtifactValue,
+        configuration_path: Option<ProjectRelativePathBuf>,
+    ) {
         dm.testing_process_one_command(MaterializerCommand::Declare(
             DeclareArtifactPayload {
                 path: path.clone(),
@@ -1781,6 +1792,67 @@ mod state_machine {
                     .iter()
                     .any(|(op, p)| *op == Op::Materialize && *p == path),
                 "Fresh materialize IO should have been dispatched"
+            );
+        })
+        .await
+    }
+
+    /// Releasing an eager cluster must not cancel Low siblings when any member is High.
+    #[tokio::test]
+    async fn test_eager_release_skips_cancel_when_cluster_has_promoted_member() {
+        ignore_stack_overflow_checks_for_future(async {
+            let config_path = make_path("buck-out/v2/eager/cluster/config");
+            let artifact_a = make_path("buck-out/v2/eager/cluster/a");
+            let artifact_b = make_path("buck-out/v2/eager/cluster/b");
+            let (mut dm, _) = make_processor(Default::default());
+
+            let sender = dm.command_sender.dupe();
+            let leases = dm
+                .eager_materializations
+                .register(vec![config_path.clone()], &sender);
+
+            eager_declare(&mut dm, &artifact_a, Some(config_path.clone()));
+            eager_declare(&mut dm, &artifact_b, Some(config_path.clone()));
+            assert_eq!(
+                get_priority_control(&mut dm, &artifact_a).priority(),
+                Priority::Low
+            );
+            assert_eq!(
+                get_priority_control(&mut dm, &artifact_b).priority(),
+                Priority::Low
+            );
+
+            let _fut_a = dm
+                .materialize_artifact(&artifact_a, EventDispatcher::null())
+                .expect("Expected a materializing future");
+            assert_eq!(
+                get_priority_control(&mut dm, &artifact_a).priority(),
+                Priority::High
+            );
+            assert_eq!(
+                get_priority_control(&mut dm, &artifact_b).priority(),
+                Priority::Low
+            );
+
+            let token_a = get_priority_control(&mut dm, &artifact_a)
+                .cancel_token()
+                .clone();
+            let token_b = get_priority_control(&mut dm, &artifact_b)
+                .cancel_token()
+                .clone();
+
+            drop(leases);
+            dm.testing_process_one_command(MaterializerCommand::ReleaseEagerPath(Arc::new(
+                config_path,
+            )));
+
+            assert!(
+                !token_a.is_cancelled(),
+                "High-priority cluster member must not be cancelled"
+            );
+            assert!(
+                !token_b.is_cancelled(),
+                "Low-priority cluster member must not be cancelled when a sibling is High"
             );
         })
         .await

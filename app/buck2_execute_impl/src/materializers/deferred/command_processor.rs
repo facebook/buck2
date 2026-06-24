@@ -506,6 +506,23 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
 
     fn release_eager_path(&mut self, path: Arc<ProjectRelativePathBuf>) {
         if let Some(paths_to_cancel) = self.eager_materializations.release(&path) {
+            // Treat paths_to_cancel as a dependency cluster (configured path + bridged
+            // action-output paths). Cancelling a Low member when another is High cascades
+            // a MaterializationCancelled into the High caller via symlink/copy deps.
+            let any_promoted = paths_to_cancel.iter().any(|p| {
+                if let Some((_, data)) = Self::find_artifact_containing_path(&mut self.tree, p)
+                    && let Some(active) = data.processing.active_ref()
+                    && matches!(&active.future, ProcessingFuture::Materializing(_))
+                    && !matches!(active.priority_control.priority(), Priority::Low)
+                {
+                    true
+                } else {
+                    false
+                }
+            });
+            if any_promoted {
+                return;
+            }
             for path in paths_to_cancel {
                 self.cancel_eager_materialization_if_low(&path);
             }
