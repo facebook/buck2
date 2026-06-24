@@ -397,6 +397,30 @@ fn retry_delay_from_rpc_status(status: &Status) -> Option<Duration> {
     })
 }
 
+fn capped_retry_delay_from_rpc_status(
+    status: &Status,
+    retry_max_delay: Duration,
+) -> Option<Duration> {
+    retry_delay_from_rpc_status(status).map(|delay| std::cmp::min(delay, retry_max_delay))
+}
+
+async fn sleep_for_execute_retry_info(
+    status: &Status,
+    retry_max_delay: Duration,
+    operation_name: Option<&str>,
+) {
+    let Some(delay) = capped_retry_delay_from_rpc_status(status, retry_max_delay) else {
+        return;
+    };
+
+    tracing::debug!(
+        operation_name = operation_name.unwrap_or(""),
+        delay_ms = delay.as_millis(),
+        "Delaying Execute retry per RetryInfo"
+    );
+    tokio::time::sleep(delay).await;
+}
+
 fn precondition_failures(status: &Status) -> impl Iterator<Item = PreconditionFailureDetail> + '_ {
     status.details.iter().filter_map(|detail| {
         if detail.type_url != PRECONDITION_FAILURE_TYPE_URL {
@@ -3448,6 +3472,12 @@ impl REClient {
                                             code = rpc_status.code,
                                             "Execute operation returned retryable error; retrying Execute"
                                         );
+                                        sleep_for_execute_retry_info(
+                                            &rpc_status,
+                                            retry_max_delay,
+                                            operation_name.as_deref(),
+                                        )
+                                        .await;
                                         stream = execute_stream(
                                             grpc_clients.clone(),
                                             metadata.clone(),
@@ -3485,6 +3515,12 @@ impl REClient {
                                             code = execute_response_status.code,
                                             "Execute response returned retryable status; retrying Execute"
                                         );
+                                        sleep_for_execute_retry_info(
+                                            &execute_response_status,
+                                            retry_max_delay,
+                                            operation_name.as_deref(),
+                                        )
+                                        .await;
                                         stream = execute_stream(
                                             grpc_clients.clone(),
                                             metadata.clone(),
@@ -6429,7 +6465,7 @@ mod tests {
         }
     }
 
-    fn retry_info_tonic_status(code: tonic::Code, retry_delay: Duration) -> tonic::Status {
+    fn retry_info_rpc_status(code: TCode, retry_delay: Duration) -> Status {
         let mut retry_info = Vec::new();
         RetryInfoDetail {
             retry_delay: Some(prost_types::Duration {
@@ -6440,17 +6476,21 @@ mod tests {
         .encode(&mut retry_info)
         .unwrap();
 
-        let mut details = Vec::new();
         Status {
-            code: tcode_from_grpc_code(code).0,
+            code: code.0,
             message: "retry later".to_owned(),
             details: vec![prost_types::Any {
                 type_url: RETRY_INFO_TYPE_URL.to_owned(),
                 value: retry_info,
             }],
         }
-        .encode(&mut details)
-        .unwrap();
+    }
+
+    fn retry_info_tonic_status(code: tonic::Code, retry_delay: Duration) -> tonic::Status {
+        let mut details = Vec::new();
+        retry_info_rpc_status(tcode_from_grpc_code(code), retry_delay)
+            .encode(&mut details)
+            .unwrap();
 
         tonic::Status::with_details(code, "retry later", details.into())
     }
@@ -6469,6 +6509,16 @@ mod tests {
         assert!(!should_retry_execute_after_operation_error(
             &status_for_code(TCode::CANCELLED)
         ));
+    }
+
+    #[test]
+    fn execute_retry_delay_from_retry_info_is_capped() {
+        let status = retry_info_rpc_status(TCode::RESOURCE_EXHAUSTED, Duration::from_secs(5));
+
+        assert_eq!(
+            capped_retry_delay_from_rpc_status(&status, Duration::from_millis(250)),
+            Some(Duration::from_millis(250))
+        );
     }
 
     #[test]
