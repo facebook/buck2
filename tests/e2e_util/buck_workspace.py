@@ -11,6 +11,7 @@
 
 import contextlib
 import hashlib
+import inspect
 import json
 import os
 import platform
@@ -499,6 +500,37 @@ BuckTestFn = Callable[..., Awaitable[None]]
 SKIPPABLE_PLATFORMS = ["darwin", "linux", "windows"]
 
 
+def _make_passing_test_for_skipped_platform(
+    fn: Callable[..., Any],
+) -> Callable[..., Any]:
+    def always_pass(*args: Any, **kwargs: Any) -> None:
+        pass
+
+    always_pass.__name__ = fn.__name__
+    always_pass.__qualname__ = fn.__qualname__
+    always_pass.__module__ = fn.__module__
+    always_pass.__doc__ = fn.__doc__
+
+    signature = inspect.signature(fn)
+    always_pass.__signature__ = signature.replace(  # pyre-ignore[16]
+        parameters=[
+            parameter
+            for name, parameter in signature.parameters.items()
+            if name != "buck"
+        ],
+    )
+
+    parametrize_marks = [
+        mark
+        for mark in getattr(fn, "pytestmark", [])
+        if getattr(mark, "name", None) == "parametrize"
+    ]
+    if parametrize_marks:
+        always_pass.pytestmark = parametrize_marks  # pyre-ignore[16]
+
+    return always_pass
+
+
 def buck_test(
     inplace: bool | None = None,
     data_dir: Optional[str] = "",
@@ -561,7 +593,7 @@ def buck_test(
         if p not in SKIPPABLE_PLATFORMS:
             raise Exception(f"skip_for_os must specifiy one of {SKIPPABLE_PLATFORMS}")
     if platform.system().lower() in skip_for_os:
-        return lambda *args: None
+        return _make_passing_test_for_skipped_platform
 
     if data_dir is not None and inplace:
         raise Exception(
