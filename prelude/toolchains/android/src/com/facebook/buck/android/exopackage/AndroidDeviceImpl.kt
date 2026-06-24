@@ -61,10 +61,30 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
         if (userId != null) append(" --user $userId")
       }
 
-      executeAdbCommandCatching(
-          "install $installArgs ${apk.absolutePath}",
-          "Failed to install ${apk.name}.",
-      )
+      val installCommand = "install $installArgs ${apk.absolutePath}"
+      try {
+        executeAdbCommand(installCommand)
+      } catch (e: AdbCommandFailedException) {
+        val conflictingPackage = extractSignatureMismatchPackage(e.message)
+        if (conflictingPackage == null) {
+          throw AndroidInstallException.adbCommandFailedException(
+              "Failed to install ${apk.name}.",
+              e.message,
+          )
+        }
+        LOG.warn(
+            "Install of ${apk.name} failed because $conflictingPackage is already installed with a" +
+                " mismatched signature; uninstalling it and retrying the install."
+        )
+        executeAdbCommandCatching(
+            "uninstall $conflictingPackage",
+            "Failed to uninstall $conflictingPackage while recovering from a signature mismatch.",
+        )
+        executeAdbCommandCatching(
+            installCommand,
+            "Failed to install ${apk.name} after uninstalling $conflictingPackage.",
+        )
+      }
     }
     val userSuffix = if (userId != null) " for user $userId" else ""
     val kbps = (apk.length() / 1024.0) / (elapsed / 1000.0)
@@ -72,6 +92,20 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
         "Installed ${apk.name}$userSuffix (${apk.length()} bytes) in ${elapsed/1000.0} s ($kbps kB/s)"
     )
     return true
+  }
+
+  /**
+   * Returns the package name from an adb `INSTALL_FAILED_UPDATE_INCOMPATIBLE` failure (signature
+   * mismatch), or null if the failure is not a signature mismatch. The package name is parsed from
+   * adb's message, e.g. "Existing package com.meta.ar.helixserver signatures do not match ...".
+   */
+  private fun extractSignatureMismatchPackage(message: String?): String? {
+    if (message == null || !message.contains(INSTALL_FAILED_UPDATE_INCOMPATIBLE)) {
+      return null
+    }
+    return SIGNATURE_MISMATCH_PACKAGE_PATTERN.find(message)?.groupValues?.getOrNull(1)?.takeIf {
+      PACKAGE_NAME_PATTERN.matches(it)
+    }
   }
 
   private fun shouldUseFastDeploy(): Boolean {
@@ -612,5 +646,15 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
     // --fastdeploy is only supported on Android 10+ (API 29+)
     // https://developer.android.com/tools/releases/platform-tools#2905_october_2019
     private const val MIN_SDK_VERSION_FOR_FASTDEPLOY = 29
+
+    private const val INSTALL_FAILED_UPDATE_INCOMPATIBLE = "INSTALL_FAILED_UPDATE_INCOMPATIBLE"
+
+    // Matches the package name in adb's signature-mismatch message, which is phrased as either
+    // "Existing package <pkg> signatures do not match ..." or "Package <pkg> signatures do not
+    // match ..." depending on the Android version.
+    private val SIGNATURE_MISMATCH_PACKAGE_PATTERN =
+        Regex("package (\\S+) signatures do not match", RegexOption.IGNORE_CASE)
+
+    private val PACKAGE_NAME_PATTERN = Regex("[\\w.]+")
   }
 }

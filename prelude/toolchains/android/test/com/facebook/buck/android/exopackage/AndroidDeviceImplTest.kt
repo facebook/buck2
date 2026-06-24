@@ -450,4 +450,75 @@ class AndroidDeviceImplTest {
       assertTrue(e.message!!.contains("fallback remount+push"))
     }
   }
+
+  @Test
+  fun testInstallApkRecoversFromSignatureMismatch() {
+    val apkFile = mock<File>()
+    whenever(apkFile.absolutePath).thenReturn("/path/to/test.apk")
+    whenever(apkFile.name).thenReturn("test.apk")
+    whenever(apkFile.length()).thenReturn(1024L)
+
+    val installCommand = "install -r -d /path/to/test.apk"
+
+    // First install attempt fails with a signature mismatch; the retry (after uninstall) succeeds.
+    var installAttempts = 0
+    doAnswer {
+          installAttempts++
+          if (installAttempts == 1) {
+            throw AdbCommandFailedException(
+                "Executing 'adb $installCommand' on $serialNumber failed with code 1.\nError:\n" +
+                    "Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE: Existing package " +
+                    "com.meta.ar.helixserver signatures do not match newer version; ignoring!]"
+            )
+          }
+          ""
+        }
+        .whenever(mockAdbUtils)
+        .executeAdbCommand(eq(installCommand), eq(serialNumber), any())
+
+    doReturn("Success")
+        .whenever(mockAdbUtils)
+        .executeAdbCommand(eq("uninstall com.meta.ar.helixserver"), eq(serialNumber), any())
+
+    val result = androidDevice.installApkOnDevice(apkFile, false, false, false, false)
+    assertTrue(result)
+
+    val inOrder = inOrder(mockAdbUtils)
+    // Original failing install attempt.
+    inOrder.verify(mockAdbUtils).executeAdbCommand(eq(installCommand), eq(serialNumber), any())
+    // Uninstall of the conflicting package.
+    inOrder
+        .verify(mockAdbUtils)
+        .executeAdbCommand(eq("uninstall com.meta.ar.helixserver"), eq(serialNumber), any())
+    // Retried install.
+    inOrder.verify(mockAdbUtils).executeAdbCommand(eq(installCommand), eq(serialNumber), any())
+  }
+
+  @Test
+  fun testInstallApkDoesNotRecoverFromUnrelatedFailure() {
+    val apkFile = mock<File>()
+    whenever(apkFile.absolutePath).thenReturn("/path/to/test.apk")
+    whenever(apkFile.name).thenReturn("test.apk")
+    whenever(apkFile.length()).thenReturn(1024L)
+
+    val installCommand = "install -r -d /path/to/test.apk"
+    doAnswer {
+          throw AdbCommandFailedException(
+              "Failure [INSTALL_FAILED_INSUFFICIENT_STORAGE: Not enough space]"
+          )
+        }
+        .whenever(mockAdbUtils)
+        .executeAdbCommand(eq(installCommand), eq(serialNumber), any())
+
+    try {
+      androidDevice.installApkOnDevice(apkFile, false, false, false, false)
+      fail("Expected AndroidInstallException")
+    } catch (e: AndroidInstallException) {
+      assertTrue(e.message!!.contains("Failed to install test.apk"))
+    }
+
+    // A non-signature-mismatch failure must not trigger an uninstall.
+    verify(mockAdbUtils, never())
+        .executeAdbCommand(argThat { startsWith("uninstall") }, eq(serialNumber), any())
+  }
 }
