@@ -37,10 +37,10 @@ use std::ops::DerefMut;
 use std::ops::Sub;
 use std::ptr;
 use std::sync::Arc;
+use std::sync::LazyLock;
 
 use allocative::Allocative;
 use dupe::Dupe;
-use once_cell::sync::Lazy;
 use pagable::Pagable;
 use pagable::StaticValue;
 
@@ -328,7 +328,7 @@ impl CodeMap {
     }
 
     pub fn empty_static() -> &'static CodeMap {
-        static EMPTY_CODEMAP: Lazy<CodeMap> = Lazy::new(CodeMap::default);
+        static EMPTY_CODEMAP: LazyLock<CodeMap> = LazyLock::new(CodeMap::default);
         &EMPTY_CODEMAP
     }
 

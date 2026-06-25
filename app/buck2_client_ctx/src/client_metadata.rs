@@ -8,8 +8,9 @@
  * above-listed licenses.
  */
 
+use std::sync::LazyLock;
+
 use buck2_core::buck2_env;
-use once_cell::sync::Lazy;
 use regex::Regex;
 
 /// A key / value metadata pair provided by the client. This will be injected into Buck2's logging.
@@ -43,7 +44,7 @@ impl ClientMetadata {
 
 pub fn parse_client_metadata(value: &str) -> buck2_error::Result<ClientMetadata> {
     const REGEX_TEXT: &str = "^[a-z][a-z0-9]*(_[a-z][a-z0-9]*)*$";
-    static REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(REGEX_TEXT).unwrap());
+    static REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(REGEX_TEXT).unwrap());
 
     let (key, value) = value
         .split_once('=')

@@ -42,7 +42,6 @@ hex.workspace = true
 hyper.workspace = true
 itertools.workspace = true
 num_enum.workspace = true
-once_cell.workspace = true
 pagable.workspace = true
 parking_lot.workspace = true
 prost-types.workspace = true

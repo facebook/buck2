@@ -9,7 +9,7 @@ version = "1.0.0"
 
 [dependencies]
 dunce = { workspace = true }
-once_cell = { workspace = true }
+once_cell = "1.21.4"
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }

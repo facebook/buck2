@@ -60,7 +60,6 @@ inferno.workspace = true
 itertools.workspace = true
 lsp-server.workspace = true
 lsp-types.workspace = true
-once_cell.workspace = true
 parking_lot.workspace = true
 pin-project.workspace = true
 prost.workspace = true

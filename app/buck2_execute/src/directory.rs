@@ -13,6 +13,7 @@ use std::fmt::Debug;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::LazyLock;
 
 use allocative::Allocative;
 use buck2_common::cas_digest::CasDigestConfig;
@@ -55,7 +56,6 @@ use chrono::DateTime;
 use chrono::Utc;
 use derive_more::Display;
 use dupe::Dupe;
-use once_cell::sync::Lazy;
 use pagable::Pagable;
 use ref_cast::RefCast;
 use remote_execution as RE;
@@ -68,8 +68,8 @@ use crate::digest_config::DigestConfig;
 use crate::re::manager::ManagedRemoteExecutionClient;
 
 #[allocative::root]
-pub static INTERNER: Lazy<DashMapDirectoryInterner<ActionDirectoryMember, TrackedFileDigest>> =
-    Lazy::new(DashMapDirectoryInterner::new);
+pub static INTERNER: LazyLock<DashMapDirectoryInterner<ActionDirectoryMember, TrackedFileDigest>> =
+    LazyLock::new(DashMapDirectoryInterner::new);
 
 impl SharedDirectoryInternable<TrackedFileDigest> for ActionDirectoryMember {
     fn interner() -> DashMapDirectoryInterner<Self, TrackedFileDigest> {

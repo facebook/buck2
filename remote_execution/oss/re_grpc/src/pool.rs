@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use std::env::VarError;
 use std::pin::Pin;
 use std::sync::Arc;
+use std::sync::LazyLock;
 use std::task::Context;
 use std::task::Poll;
 use std::time::Duration;
@@ -22,7 +23,6 @@ use http_body::Body;
 use http_body::Frame;
 use http_body_util::combinators::UnsyncBoxBody;
 use hyper_util::client::legacy::connect::HttpConnector;
-use once_cell::sync::Lazy;
 use prost::bytes::Bytes;
 use regex::Regex;
 use tokio::sync::Mutex;
@@ -67,7 +67,8 @@ fn substitute_env_vars_impl(
     s: &str,
     getter: impl Fn(&str) -> Result<String, VarError>,
 ) -> anyhow::Result<String> {
-    static ENV_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new("\\$[a-zA-Z_][a-zA-Z_0-9]*").unwrap());
+    static ENV_REGEX: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new("\\$[a-zA-Z_][a-zA-Z_0-9]*").unwrap());
 
     let mut out = String::with_capacity(s.len());
     let mut last_idx = 0;

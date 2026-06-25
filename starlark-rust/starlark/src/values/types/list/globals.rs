@@ -15,9 +15,10 @@
  * limitations under the License.
  */
 
+use std::sync::LazyLock;
+
 use allocative::Allocative;
 use dupe::Dupe;
-use once_cell::sync::Lazy;
 use pagable::Pagable;
 use starlark_derive::starlark_module;
 
@@ -49,7 +50,7 @@ use crate::values::typing::StarlarkIter;
 )]
 struct ListType;
 
-static LIST: Lazy<TyFunction> = Lazy::new(|| {
+static LIST: LazyLock<TyFunction> = LazyLock::new(|| {
     TyFunction::new_with_type_attr(
         ParamSpec::pos_only([], [Ty::iter(Ty::any())]),
         Ty::any_list(),

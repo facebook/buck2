@@ -22,9 +22,9 @@ use std::collections::hash_map::Entry::Occupied;
 use std::collections::hash_map::Entry::Vacant;
 use std::fmt::Display;
 use std::io::Write;
+use std::sync::LazyLock;
 
 use buck2_hash::StdBuckHashMap;
-use once_cell::sync::Lazy;
 use regex::Regex;
 use starlark_map::small_map::SmallMap;
 
@@ -100,9 +100,10 @@ pub(crate) trait DotDigraph<'a> {
 ///
 /// We support (approximately) the first two forms and then anything else gets quoted and escaped as the third form.
 fn escape_id(value: &str) -> String {
-    static RE_STRING: Lazy<Regex> = Lazy::new(|| Regex::new("^[a-zA-Z_][a-zA-Z_0-9]*$").unwrap());
-    static RE_NUMBER: Lazy<Regex> =
-        Lazy::new(|| Regex::new("^-?(.[0-9]+ | [0-9]+.[0-9]*)$").unwrap());
+    static RE_STRING: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new("^[a-zA-Z_][a-zA-Z_0-9]*$").unwrap());
+    static RE_NUMBER: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new("^-?(.[0-9]+ | [0-9]+.[0-9]*)$").unwrap());
 
     if RE_STRING.is_match(value) || RE_NUMBER.is_match(value) {
         return value.to_owned();

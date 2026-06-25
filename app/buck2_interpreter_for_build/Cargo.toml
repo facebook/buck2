@@ -40,7 +40,6 @@ hex.workspace = true
 indoc.workspace = true
 itertools.workspace = true
 maplit.workspace = true
-once_cell.workspace = true
 pagable.workspace = true
 quick-xml.workspace = true
 serde.workspace = true

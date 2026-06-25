@@ -11,8 +11,8 @@
 //! Builtin note attributes.
 
 use std::sync::Arc;
+use std::sync::LazyLock;
 
-use once_cell::sync::Lazy;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::ordered_set::OrderedSet;
 
@@ -234,13 +234,13 @@ const ALL_INTERNAL_ATTRS: [OptionalInternalAttribute; 11] = [
 ];
 
 pub fn is_internal_attr(name: &str) -> bool {
-    static ATTRS: Lazy<OrderedSet<&'static str>> =
-        Lazy::new(|| OrderedSet::from_iter(ALL_INTERNAL_ATTRS.iter().map(|attr| attr.name)));
+    static ATTRS: LazyLock<OrderedSet<&'static str>> =
+        LazyLock::new(|| OrderedSet::from_iter(ALL_INTERNAL_ATTRS.iter().map(|attr| attr.name)));
     ATTRS.contains(name)
 }
 
 pub(super) fn common_internal_attrs() -> &'static OrderedMap<&'static str, Attribute> {
-    static ATTRS: Lazy<OrderedMap<&'static str, Attribute>> = Lazy::new(|| {
+    static ATTRS: LazyLock<OrderedMap<&'static str, Attribute>> = LazyLock::new(|| {
         OrderedMap::from_iter(INTERNAL_ATTRS.iter().map(|attr| (attr.name, (attr.attr)())))
     });
     &ATTRS

@@ -15,8 +15,9 @@
  * limitations under the License.
  */
 
+use std::sync::LazyLock;
+
 use dupe::Dupe;
-use once_cell::sync::Lazy;
 
 use crate::environment::Globals;
 use crate::values::FrozenValue;
@@ -54,7 +55,7 @@ pub(crate) struct Constants {
 
 impl Constants {
     pub fn get() -> &'static Constants {
-        static RES: Lazy<Constants> = Lazy::new(|| {
+        static RES: LazyLock<Constants> = LazyLock::new(|| {
             let g = Globals::extended_internal();
             Constants {
                 fn_len: BuiltinFn(g.get_frozen("len").unwrap()),
@@ -71,7 +72,7 @@ impl Constants {
                 },
             }
         });
-        Lazy::force(&RES)
+        LazyLock::force(&RES)
     }
 }
 

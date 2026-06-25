@@ -8,6 +8,8 @@
  * above-listed licenses.
  */
 
+use std::sync::LazyLock;
+
 use allocative::Allocative;
 use buck2_core::buck2_env;
 use buck2_core::fs::project::ProjectRoot;
@@ -21,7 +23,6 @@ use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::file_name::FileNameBuf;
 use buck2_fs::working_dir::AbsWorkingDir;
-use once_cell::sync::Lazy;
 
 use crate::invocation_paths::InvocationPaths;
 use crate::invocation_paths_result::InvocationPathsResult;
@@ -149,7 +150,7 @@ pub(crate) fn home_buck_dir() -> buck2_error::Result<&'static AbsNormPath> {
         Ok(home.join(FileName::new(".buck")?))
     }
 
-    static DIR: Lazy<buck2_error::Result<AbsNormPathBuf>> = Lazy::new(find_dir);
+    static DIR: LazyLock<buck2_error::Result<AbsNormPathBuf>> = LazyLock::new(find_dir);
 
-    Ok(Lazy::force(&DIR).as_ref().map_err(dupe::Dupe::dupe)?)
+    Ok(LazyLock::force(&DIR).as_ref().map_err(dupe::Dupe::dupe)?)
 }

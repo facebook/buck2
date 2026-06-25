@@ -9,6 +9,7 @@
  */
 
 use std::sync::Arc;
+use std::sync::LazyLock;
 
 use buck2_event_observer::dice_state::DiceState;
 use buck2_event_observer::pending_estimate::pending_estimate;
@@ -22,13 +23,12 @@ use buck2_hash::StdBuckHashMap;
 use buck2_hash::StdBuckHashSet;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
-use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use parking_lot::MutexGuard;
 use tokio::sync::oneshot;
 
-static ACTIVE_COMMANDS: Lazy<Mutex<StdBuckHashMap<TraceId, ActiveCommandHandle>>> =
-    Lazy::new(|| Mutex::new(StdBuckHashMap::default()));
+static ACTIVE_COMMANDS: LazyLock<Mutex<StdBuckHashMap<TraceId, ActiveCommandHandle>>> =
+    LazyLock::new(|| Mutex::new(StdBuckHashMap::default()));
 
 /// Return the active commands, if you can access them.
 pub fn try_active_commands() -> Option<StdBuckHashMap<TraceId, ActiveCommandHandle>> {

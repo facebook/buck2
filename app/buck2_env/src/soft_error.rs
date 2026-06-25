@@ -10,6 +10,7 @@
 
 use std::str::FromStr;
 use std::sync::Arc;
+use std::sync::LazyLock;
 use std::sync::Mutex;
 use std::sync::OnceLock;
 use std::sync::atomic::AtomicUsize;
@@ -17,7 +18,6 @@ use std::sync::atomic::Ordering;
 
 use arc_swap::ArcSwapOption;
 use buck2_error::internal_error;
-use once_cell::sync::Lazy;
 use starlark_map::small_set::SmallSet;
 
 use crate::env::buck2_env;
@@ -111,8 +111,8 @@ static HARD_ERROR_CONFIG: HardErrorConfigHolder = HardErrorConfigHolder {
 
 static ALL_SOFT_ERROR_COUNTERS: Mutex<Vec<&'static AtomicUsize>> = Mutex::new(Vec::new());
 
-static HARD_ERROR_PANIC_ALLOWLIST: Lazy<SmallSet<String>> =
-    Lazy::new(|| SmallSet::from_iter(["spawn_version_control_collector_failed".to_owned()]));
+static HARD_ERROR_PANIC_ALLOWLIST: LazyLock<SmallSet<String>> =
+    LazyLock::new(|| SmallSet::from_iter(["spawn_version_control_collector_failed".to_owned()]));
 
 /// Throw a "soft_error" ie. a non-fatal error logged to logview.
 /// Errors will not be logged to stderr as warnings to the user, unless `quiet=false` is passed.

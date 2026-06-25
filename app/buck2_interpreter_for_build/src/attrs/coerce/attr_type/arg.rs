@@ -11,6 +11,7 @@
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::mem;
+use std::sync::LazyLock;
 
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_node::attrs::attr_type::arg::ArgAttrType;
@@ -30,7 +31,6 @@ use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
 use maplit::hashset;
-use once_cell::sync::Lazy;
 use starlark::typing::Ty;
 use starlark::values::Value;
 
@@ -42,8 +42,8 @@ use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
 // to try and resolve them to user defined macros with a target parameter,
 // because some of them don't take a target.
 // Taken from https://buck.build/function/string_parameter_macros.html.
-static UNIMPLEMENTED_MACROS: Lazy<HashSet<&'static str>> =
-    Lazy::new(|| hashset!["classpath_abi", "maven_coords", "output", "query_paths",]);
+static UNIMPLEMENTED_MACROS: LazyLock<HashSet<&'static str>> =
+    LazyLock::new(|| hashset!["classpath_abi", "maven_coords", "output", "query_paths",]);
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]

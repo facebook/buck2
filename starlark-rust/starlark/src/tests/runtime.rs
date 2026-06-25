@@ -19,11 +19,11 @@
 
 use std::fmt::Write;
 use std::mem;
+use std::sync::LazyLock;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
 use derive_more::Display;
-use once_cell::sync::Lazy;
 use starlark_derive::starlark_module;
 
 use crate as starlark;
@@ -64,7 +64,7 @@ impl Drop for Dealloc {
 
 crate::register_starlark_any!(Dealloc);
 
-static DEALLOC_COUNT: Lazy<AtomicUsize> = Lazy::new(|| AtomicUsize::new(0));
+static DEALLOC_COUNT: LazyLock<AtomicUsize> = LazyLock::new(|| AtomicUsize::new(0));
 
 #[test]
 fn test_deallocation() {

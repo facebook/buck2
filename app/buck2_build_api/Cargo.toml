@@ -53,7 +53,6 @@ inventory.workspace = true
 itertools.workspace = true
 linkme.workspace = true
 multimap.workspace = true
-once_cell.workspace = true
 pagable.workspace = true
 ref-cast.workspace = true
 regex.workspace = true

@@ -12,21 +12,21 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::process::Stdio;
+use std::sync::LazyLock;
 use std::time::Duration;
 use std::time::SystemTime;
 
 use buck2_core::soft_error;
-use once_cell::sync::Lazy;
 use regex::Regex;
 
-static KERNEL_OOM_KILL_RE: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"oom-kill:.*task_memcg=/([^,]+)").unwrap());
+static KERNEL_OOM_KILL_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"oom-kill:.*task_memcg=/([^,]+)").unwrap());
 
-static OOMD_KILL_RE: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"oomd kill:\s+\S+\s+\S+\s+\S+\s+(\S+)").unwrap());
+static OOMD_KILL_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"oomd kill:\s+\S+\s+\S+\s+\S+\s+(\S+)").unwrap());
 
-static SYSTEMD_OOMD_KILL_RE: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"Killed (\S+) due to memory pressure for ").unwrap());
+static SYSTEMD_OOMD_KILL_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"Killed (\S+) due to memory pressure for ").unwrap());
 
 /// How far before the daemon-disconnect time the `dmesg --since` window starts.
 ///

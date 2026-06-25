@@ -11,6 +11,7 @@
 use std::fmt;
 use std::fmt::Display;
 use std::sync::Arc;
+use std::sync::LazyLock;
 
 use allocative::Allocative;
 use buck2_error::BuckErrorContext;
@@ -19,7 +20,6 @@ use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::relative_path::Component;
 use buck2_fs::paths::relative_path::RelativePath;
 use dupe::Dupe;
-use once_cell::sync::Lazy;
 use pagable::Pagable;
 use regex::Regex;
 use serde::Serialize;
@@ -1196,8 +1196,8 @@ where
     T: PatternType,
 {
     // Imported from Buck1
-    static ALIAS_REGEX: Lazy<Regex> =
-        Lazy::new(|| Regex::new("^[a-zA-Z_-][a-zA-Z0-9_-]*$").unwrap());
+    static ALIAS_REGEX: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new("^[a-zA-Z_-][a-zA-Z0-9_-]*$").unwrap());
 
     // If the input starts with a cell path, it can't be an alias.
     if lex.cell_alias.is_some() {

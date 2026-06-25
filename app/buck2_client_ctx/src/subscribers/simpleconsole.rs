@@ -12,6 +12,7 @@ use std::borrow::Cow;
 use std::fmt::Display;
 use std::fmt::Write as _;
 use std::sync::Arc;
+use std::sync::LazyLock;
 use std::sync::Mutex;
 use std::time::Duration;
 use std::time::Instant;
@@ -37,7 +38,6 @@ use buck2_health_check::interface::HealthCheckType;
 use buck2_health_check::report::DisplayReport;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
-use once_cell::sync::Lazy;
 use superconsole::DrawMode;
 use superconsole::SuperConsole;
 use tokio::sync::mpsc::Receiver;
@@ -58,8 +58,8 @@ use crate::ticker::Tick;
 /// within this duration.
 const KEEPALIVE_TIME_LIMIT: Duration = Duration::from_secs(7);
 
-static ELAPSED_HEALTH_CHECK_MAP: Lazy<Mutex<StdBuckHashMap<HealthCheckType, (Instant, u64)>>> =
-    Lazy::new(|| Mutex::new(StdBuckHashMap::default()));
+static ELAPSED_HEALTH_CHECK_MAP: LazyLock<Mutex<StdBuckHashMap<HealthCheckType, (Instant, u64)>>> =
+    LazyLock::new(|| Mutex::new(StdBuckHashMap::default()));
 
 fn now_display() -> impl Display {
     chrono::Local::now().to_rfc3339_opts(::chrono::SecondsFormat::Millis, false)

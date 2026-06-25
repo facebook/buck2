@@ -13,12 +13,12 @@
 use std::future::Future;
 use std::mem::ManuallyDrop;
 use std::pin::Pin;
+use std::sync::LazyLock;
 use std::task::Context;
 use std::task::Poll;
 
 use dupe::Dupe;
 use futures::FutureExt;
-use once_cell::sync::Lazy;
 use thiserror::Error;
 
 use crate::details::cancellation_context::CancellationContextInner;
@@ -28,8 +28,8 @@ use crate::details::shared_state::CancellationContextSharedStateView;
 use crate::details::shared_state::CancellationHandleSharedStateView;
 use crate::details::shared_state::CancellationObserverFuture;
 
-static NEVER_CANCELLED: Lazy<CancellationContext> =
-    Lazy::new(|| CancellationContext(CancellationContextInner::NeverCancelled));
+static NEVER_CANCELLED: LazyLock<CancellationContext> =
+    LazyLock::new(|| CancellationContext(CancellationContextInner::NeverCancelled));
 
 /// Context available to the function running inside the future to control and manage it's own
 /// cancellation

@@ -31,7 +31,6 @@ futures.workspace = true
 gazebo.workspace = true
 itertools.workspace = true
 memchr.workspace = true
-once_cell.workspace = true
 pagable.workspace = true
 ref-cast.workspace = true
 serde.workspace = true

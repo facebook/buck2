@@ -15,9 +15,10 @@
  * limitations under the License.
  */
 
+use std::sync::LazyLock;
+
 use dupe::Dupe;
 use hashbrown::HashMap;
-use once_cell::sync::Lazy;
 
 use crate::environment::Methods;
 use crate::eval::Arguments;
@@ -129,6 +130,6 @@ impl KnownMethods {
 /// or method is not very common. Return arbitrary method if more than one
 /// method is found (e. g. `list.clear` and `dict.clear`).
 pub(crate) fn get_known_method(name: &str) -> Option<KnownMethod> {
-    static ANY_METHODS: Lazy<KnownMethods> = Lazy::new(KnownMethods::build);
+    static ANY_METHODS: LazyLock<KnownMethods> = LazyLock::new(KnownMethods::build);
     ANY_METHODS.methods.get(name).copied()
 }

@@ -20,9 +20,9 @@
 //! To be able to propagate the local slot number through parameter binding machinery.
 
 use std::array;
+use std::sync::LazyLock;
 
 use allocative::Allocative;
-use once_cell::sync::Lazy;
 use starlark_derive::NoSerialize;
 use starlark_derive::StarlarkPagable;
 use starlark_derive::starlark_value;
@@ -64,10 +64,10 @@ pub(crate) fn local_as_value(
     local: LocalSlotId,
 ) -> Option<FrozenValueTyped<'static, LocalAsValue>> {
     // 100 is practically enough.
-    static LOCALS: Lazy<(
+    static LOCALS: LazyLock<(
         FrozenHeapRef,
         [FrozenValueTyped<'static, LocalAsValue>; 100],
-    )> = Lazy::new(|| {
+    )> = LazyLock::new(|| {
         let heap = FrozenHeap::new();
         let locals = array::from_fn(|i| {
             heap.alloc_simple_typed_static(LocalAsValue {

@@ -46,7 +46,6 @@ futures.workspace = true
 gazebo.workspace = true
 itertools.workspace = true
 num-bigint.workspace = true
-once_cell.workspace = true
 pagable.workspace = true
 serde.workspace = true
 serde_json.workspace = true

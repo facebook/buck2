@@ -41,7 +41,6 @@ hex.workspace = true
 host_sharing.workspace = true
 http.workspace = true
 itertools.workspace = true
-once_cell.workspace = true
 pagable.workspace = true
 parking_lot.workspace = true
 remote_execution.workspace = true

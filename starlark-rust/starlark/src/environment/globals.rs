@@ -16,11 +16,11 @@
  */
 
 use std::sync::Arc;
+use std::sync::OnceLock;
 
 use allocative::Allocative;
 use dupe::Dupe;
 use itertools::Itertools;
-use once_cell::sync::OnceCell;
 use pagable::PagableDeserialize;
 use pagable::PagableDeserializer;
 use pagable::PagableSerialize;
@@ -428,7 +428,7 @@ impl GlobalsBuilder {
 /// [`globals_static!`](crate::globals_static) macro; the globals are built on
 /// first access via the supplied initializer.
 pub struct GlobalsStatic {
-    cell: OnceCell<Globals>,
+    cell: OnceLock<Globals>,
     name: &'static str,
     init: fn(&mut GlobalsBuilder),
 }
@@ -439,7 +439,7 @@ impl GlobalsStatic {
     /// from the call site.
     pub const fn new(name: &'static str, init: fn(&mut GlobalsBuilder)) -> GlobalsStatic {
         GlobalsStatic {
-            cell: OnceCell::new(),
+            cell: OnceLock::new(),
             name,
             init,
         }

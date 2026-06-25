@@ -40,7 +40,6 @@ dupe.workspace = true
 futures.workspace = true
 host_sharing.workspace = true
 itertools.workspace = true
-once_cell.workspace = true
 pagable.workspace = true
 remote_execution.workspace = true
 serde.workspace = true

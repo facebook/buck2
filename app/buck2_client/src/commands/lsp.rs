@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::sync::LazyLock;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -29,7 +30,6 @@ use buck2_client_ctx::stream_util::reborrow_stream_for_static;
 use buck2_client_ctx::streaming::StreamingCommand;
 use futures::stream::StreamExt;
 use lsp_server::Message;
-use once_cell::sync::Lazy;
 
 #[derive(Debug, clap::Parser)]
 #[clap(about = "Start an LSP server for starlark files")]
@@ -93,11 +93,12 @@ impl StreamingCommand for LspCommand {
     fn console_opts(&self) -> &CommonConsoleOptions {
         // This should only be communicated with by an IDE, so disable anything other
         // than the simple console
-        static SIMPLE_CONSOLE: Lazy<CommonConsoleOptions> = Lazy::new(|| CommonConsoleOptions {
-            console_type: ConsoleType::Simple,
-            ui: vec![],
-            no_interactive_console: true,
-        });
+        static SIMPLE_CONSOLE: LazyLock<CommonConsoleOptions> =
+            LazyLock::new(|| CommonConsoleOptions {
+                console_type: ConsoleType::Simple,
+                ui: vec![],
+                no_interactive_console: true,
+            });
         &SIMPLE_CONSOLE
     }
 

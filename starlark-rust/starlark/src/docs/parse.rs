@@ -16,9 +16,9 @@
  */
 
 use std::collections::HashMap;
+use std::sync::LazyLock;
 
 use dupe::Dupe;
-use once_cell::sync::Lazy;
 use regex::Regex;
 use regex::RegexBuilder;
 use starlark_syntax::syntax::ast::AstLiteral;
@@ -208,13 +208,13 @@ impl DocString {
 
     /// Removes rustdoc-style commented out lines from code blocks.
     fn remove_rust_comments(details: &str) -> String {
-        static CODEBLOCK_RE: Lazy<Regex> = Lazy::new(|| {
+        static CODEBLOCK_RE: LazyLock<Regex> = LazyLock::new(|| {
             RegexBuilder::new(r"```(\w*)\n.*?```")
                 .dot_matches_new_line(true)
                 .build()
                 .expect("regex to compile")
         });
-        static COMMENT_RE: Lazy<Regex> = Lazy::new(|| {
+        static COMMENT_RE: LazyLock<Regex> = LazyLock::new(|| {
             RegexBuilder::new(r"^# .*$\n")
                 .multi_line(true)
                 .build()
@@ -260,12 +260,13 @@ impl DocString {
                 }
             };
 
-        static STARLARK_SECTION_RE: Lazy<Regex> =
-            Lazy::new(|| Regex::new(r"^([\w -]+):\s*$").unwrap());
-        static STARLARK_INDENTED_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^(?:\s|$)").unwrap());
-        static RUST_SECTION_RE: Lazy<Regex> =
-            Lazy::new(|| Regex::new(r"^# ([\w -]+)\s*$").unwrap());
-        static RUST_INDENTED_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^.*").unwrap());
+        static STARLARK_SECTION_RE: LazyLock<Regex> =
+            LazyLock::new(|| Regex::new(r"^([\w -]+):\s*$").unwrap());
+        static STARLARK_INDENTED_RE: LazyLock<Regex> =
+            LazyLock::new(|| Regex::new(r"^(?:\s|$)").unwrap());
+        static RUST_SECTION_RE: LazyLock<Regex> =
+            LazyLock::new(|| Regex::new(r"^# ([\w -]+)\s*$").unwrap());
+        static RUST_INDENTED_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^.*").unwrap());
 
         let (section_re, indented_re) = match kind {
             DocStringKind::Starlark => (&STARLARK_SECTION_RE, &STARLARK_INDENTED_RE),
@@ -384,12 +385,12 @@ impl DocFunction {
     /// separate function to reduce the number of times that sections are parsed out of
     /// docstring (e.g. if a user wants both the `Args:` and `Returns:` sections)
     fn parse_params(kind: DocStringKind, args_section: &str) -> HashMap<String, String> {
-        static STARLARK_ARG_RE: Lazy<Regex> =
-            Lazy::new(|| Regex::new(r"^\*{0,2}(\w+):\s*(.*)").unwrap());
-        static RUST_ARG_RE: Lazy<Regex> =
-            Lazy::new(|| Regex::new(r"^(?:\* )?`(\w+)`:?\s*(.*)").unwrap());
+        static STARLARK_ARG_RE: LazyLock<Regex> =
+            LazyLock::new(|| Regex::new(r"^\*{0,2}(\w+):\s*(.*)").unwrap());
+        static RUST_ARG_RE: LazyLock<Regex> =
+            LazyLock::new(|| Regex::new(r"^(?:\* )?`(\w+)`:?\s*(.*)").unwrap());
 
-        static INDENTED_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^(?:\s|$)").unwrap());
+        static INDENTED_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(?:\s|$)").unwrap());
 
         let arg_re = match kind {
             DocStringKind::Starlark => &STARLARK_ARG_RE,

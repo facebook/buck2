@@ -11,6 +11,7 @@
 use std::path::PathBuf;
 use std::pin::Pin;
 use std::sync::Arc;
+use std::sync::LazyLock;
 use std::sync::Mutex;
 use std::task::Context;
 use std::task::Poll;
@@ -31,7 +32,6 @@ use futures::future::BoxFuture;
 use futures::future::Future;
 use futures::future::FutureExt;
 use futures::future::try_join3;
-use once_cell::sync::Lazy;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncWrite;
 use tokio::process::Child;
@@ -39,8 +39,8 @@ use tokio::process::Child;
 use crate::downward_api::BuckTestDownwardApi;
 use crate::orchestrator::BuckTestOrchestrator;
 
-static TEST_EXECUTOR_CLIENTS: Lazy<Mutex<StdBuckHashMap<u16, Arc<dyn TestExecutor>>>> =
-    Lazy::new(|| Mutex::new(StdBuckHashMap::default()));
+static TEST_EXECUTOR_CLIENTS: LazyLock<Mutex<StdBuckHashMap<u16, Arc<dyn TestExecutor>>>> =
+    LazyLock::new(|| Mutex::new(StdBuckHashMap::default()));
 
 pub struct TestExecutorClientWrapper(u16);
 impl TestExecutorClientWrapper {

@@ -12,6 +12,7 @@ use std::borrow::Borrow;
 use std::path::Path;
 use std::str::FromStr;
 use std::sync::Arc;
+use std::sync::LazyLock;
 use std::sync::Mutex;
 
 use buck2_common::cas_digest::TrackedCasDigest;
@@ -45,7 +46,6 @@ use futures::future::BoxFuture;
 use futures::future::Shared;
 use futures::stream::FuturesUnordered;
 use gazebo::prelude::*;
-use once_cell::sync::Lazy;
 use remote_execution::GetDigestsTtlResponse;
 use remote_execution::InlinedBlobWithDigest;
 use remote_execution::NamedDigest;
@@ -126,8 +126,8 @@ impl Uploader {
 
         let digests_and_ttls_iterator = if deduplicate_get_digests_ttl_calls {
             let (fut, reqs, new) = {
-                static GET_DIGESTS_TTL_DEDUP: Lazy<Mutex<GetDigestsTtlDeduper>> =
-                    Lazy::new(|| Mutex::new(GetDigestsTtlDeduper::default()));
+                static GET_DIGESTS_TTL_DEDUP: LazyLock<Mutex<GetDigestsTtlDeduper>> =
+                    LazyLock::new(|| Mutex::new(GetDigestsTtlDeduper::default()));
 
                 GetDigestsTtlDeduper::get_ttls(
                     &GET_DIGESTS_TTL_DEDUP,

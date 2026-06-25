@@ -14,6 +14,7 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::iter;
 use std::sync::Arc;
+use std::sync::LazyLock;
 
 use allocative::Allocative;
 use buck2_core::build_file_path::BuildFilePath;
@@ -37,7 +38,6 @@ use buck2_core::target::label::label::TargetLabel;
 use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
 use either::Either;
-use once_cell::sync::Lazy;
 use pagable::Pagable;
 use starlark_map::Hashed;
 use starlark_map::ordered_map::OrderedMap;
@@ -323,7 +323,7 @@ impl ConfiguredTargetNode {
     }
 
     pub(crate) fn actual_attribute() -> &'static Attribute {
-        static ATTRIBUTE: Lazy<Attribute> = Lazy::new(|| {
+        static ATTRIBUTE: LazyLock<Attribute> = LazyLock::new(|| {
             Attribute::new(None, "", AttrType::configured_dep(ProviderIdSet::EMPTY))
                 .expect("static Attribute::new failed")
         });

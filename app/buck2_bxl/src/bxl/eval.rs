@@ -10,6 +10,7 @@
 
 use std::future::Future;
 use std::sync::Arc;
+use std::sync::LazyLock;
 
 use allocative::Allocative;
 use buck2_build_api::bxl::result::BxlResult;
@@ -47,7 +48,6 @@ use dice::DiceTransaction;
 use dice_futures::cancellation::CancellationObserver;
 use dupe::Dupe;
 use itertools::Itertools;
-use once_cell::sync::Lazy;
 use starlark::eval::Evaluator;
 use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::UnpackValue;
@@ -69,7 +69,7 @@ use crate::bxl::starlark_defs::context::starlark_async::BxlDiceComputations;
 use crate::bxl::starlark_defs::eval_extra::BxlEvalExtra;
 use crate::bxl::starlark_defs::functions::BxlErrorWithoutStacktrace;
 
-pub(crate) static LIMITED_EXECUTOR: Lazy<Arc<LimitedExecutor>> = Lazy::new(|| {
+pub(crate) static LIMITED_EXECUTOR: LazyLock<Arc<LimitedExecutor>> = LazyLock::new(|| {
     Arc::new(LimitedExecutor::new(500)) // Default working thread of tokio is 512 threads. We set it to 500 for here to leave some room for other things.
 });
 

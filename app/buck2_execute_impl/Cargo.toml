@@ -39,7 +39,6 @@ gazebo.workspace = true
 host_sharing.workspace = true
 hostname.workspace = true
 itertools.workspace = true
-once_cell.workspace = true
 parking_lot.workspace = true
 pin-project.workspace = true
 prost.workspace = true

@@ -23,10 +23,10 @@
 #![allow(clippy::if_then_panic)]
 
 use std::collections::HashMap;
+use std::sync::LazyLock;
 
 use dupe::Dupe;
 use maplit::hashmap;
-use once_cell::sync::Lazy;
 use starlark_derive::starlark_module;
 
 use crate as starlark;
@@ -54,9 +54,9 @@ fn mk_environment() -> GlobalsBuilder {
     GlobalsBuilder::extended().with(test_functions)
 }
 
-static GLOBALS: Lazy<Globals> = Lazy::new(|| mk_environment().build());
+static GLOBALS: LazyLock<Globals> = LazyLock::new(|| mk_environment().build());
 
-static ASSERTS_STAR: Lazy<FrozenModule> = Lazy::new(|| {
+static ASSERTS_STAR: LazyLock<FrozenModule> = LazyLock::new(|| {
     let g = GlobalsBuilder::new()
         .with_namespace("asserts", asserts_star)
         .build();
@@ -236,8 +236,8 @@ impl<'a> Assert<'a> {
     pub fn new() -> Self {
         Self {
             dialect: Dialect::AllOptionsInternal,
-            modules: hashmap!["asserts.star".to_owned() => Lazy::force(&ASSERTS_STAR).dupe()],
-            globals: Lazy::force(&GLOBALS).dupe(),
+            modules: hashmap!["asserts.star".to_owned() => LazyLock::force(&ASSERTS_STAR).dupe()],
+            globals: LazyLock::force(&GLOBALS).dupe(),
             gc_strategy: None,
             setup_eval: Box::new(|_| ()),
             print_handler: None,

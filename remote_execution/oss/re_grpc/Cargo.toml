@@ -21,7 +21,6 @@ http-body-util.workspace = true
 hyper.workspace = true
 hyper-util.workspace = true
 lru.workspace = true
-once_cell.workspace = true
 prost.workspace = true
 prost-types.workspace = true
 rand.workspace = true

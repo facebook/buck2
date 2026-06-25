@@ -9,8 +9,8 @@
  */
 
 use std::collections::BTreeMap;
+use std::sync::LazyLock;
 
-use once_cell::sync::Lazy;
 use regex::Regex;
 use starlark_map::sorted_map::SortedMap;
 
@@ -148,7 +148,7 @@ impl ConfigResolver {
     }
 
     fn regex() -> &'static Regex {
-        static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\$\(config ([^)]*)\)").unwrap());
+        static RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\$\(config ([^)]*)\)").unwrap());
         &RE
     }
 

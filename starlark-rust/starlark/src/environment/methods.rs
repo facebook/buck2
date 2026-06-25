@@ -15,8 +15,9 @@
  * limitations under the License.
  */
 
+use std::sync::OnceLock;
+
 use dupe::Dupe;
-use once_cell::sync::OnceCell;
 use starlark_map::Hashed;
 
 use crate::__derive_refs::components::NativeCallableComponents;
@@ -276,7 +277,7 @@ impl MethodsBuilder {
 /// }
 /// ```
 pub struct MethodsStatic {
-    cell: OnceCell<Methods>,
+    cell: OnceLock<Methods>,
     name: &'static str,
     init: fn(&mut MethodsBuilder),
 }
@@ -287,7 +288,7 @@ impl MethodsStatic {
     /// from the call site.
     pub const fn new(name: &'static str, init: fn(&mut MethodsBuilder)) -> MethodsStatic {
         MethodsStatic {
-            cell: OnceCell::new(),
+            cell: OnceLock::new(),
             name,
             init,
         }

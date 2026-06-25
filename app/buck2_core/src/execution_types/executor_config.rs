@@ -13,6 +13,7 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::str::FromStr;
 use std::sync::Arc;
+use std::sync::LazyLock;
 use std::time::Duration;
 
 use allocative::Allocative;
@@ -21,7 +22,6 @@ use buck2_hash::BuckHasher;
 use derive_more::Display;
 use dupe::Dupe;
 use itertools::Itertools;
-use once_cell::sync::Lazy;
 use pagable::Pagable;
 use starlark_map::small_map::SmallMap;
 use starlark_map::sorted_map::SortedMap;
@@ -294,8 +294,8 @@ impl RemoteExecutorUseCase {
     /// The "buck2-default" use case. This is meant to be used when no use case is configured. It's
     /// not meant to be used for convenience when a use case is not available where it's needed!
     pub fn buck2_default() -> Self {
-        static USE_CASE: Lazy<RemoteExecutorUseCase> =
-            Lazy::new(|| RemoteExecutorUseCase::new("buck2-default".to_owned()));
+        static USE_CASE: LazyLock<RemoteExecutorUseCase> =
+            LazyLock::new(|| RemoteExecutorUseCase::new("buck2-default".to_owned()));
         *USE_CASE
     }
 }
@@ -587,8 +587,8 @@ pub struct MetaInternalExtraParams {
 
 impl MetaInternalExtraParams {
     pub fn default_arc() -> Arc<MetaInternalExtraParams> {
-        static DEFAULT: Lazy<Arc<MetaInternalExtraParams>> =
-            Lazy::new(|| Arc::new(MetaInternalExtraParams::default()));
+        static DEFAULT: LazyLock<Arc<MetaInternalExtraParams>> =
+            LazyLock::new(|| Arc::new(MetaInternalExtraParams::default()));
         DEFAULT.clone()
     }
 }

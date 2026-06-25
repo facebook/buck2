@@ -11,9 +11,9 @@
 use std::fmt;
 use std::fmt::Display;
 use std::str::FromStr;
+use std::sync::LazyLock;
 
 use anyhow::Context;
-use once_cell::sync::Lazy;
 use regex::Regex;
 
 #[derive(Clone, Default, PartialEq, Eq, Hash, Debug)]
@@ -33,7 +33,7 @@ impl FromStr for TDigest {
     type Err = anyhow::Error;
 
     fn from_str(digest: &str) -> anyhow::Result<TDigest> {
-        static DIGEST_RE: Lazy<Regex> = Lazy::new(|| {
+        static DIGEST_RE: LazyLock<Regex> = LazyLock::new(|| {
             Regex::new("([0-9a-f]+):([0-9]+)").expect("Failed to compile digest regex")
         });
 

@@ -11,13 +11,13 @@
 use std::fmt;
 use std::fmt::Display;
 use std::sync::Arc;
+use std::sync::LazyLock;
 
 use allocative::Allocative;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::plugins::PluginKind;
 use buck2_core::plugins::PluginKindSet;
 use dupe::Dupe;
-use once_cell::sync::Lazy;
 use pagable::Pagable;
 
 use crate::attrs::attr_type::any::AnyAttrType;
@@ -171,7 +171,7 @@ impl AttrType {
     }
 
     pub(crate) fn any_ref() -> &'static Self {
-        static ANY: Lazy<AttrType> = Lazy::new(AttrType::any);
+        static ANY: LazyLock<AttrType> = LazyLock::new(AttrType::any);
         &ANY
     }
 

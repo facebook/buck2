@@ -8,8 +8,9 @@
  * above-listed licenses.
  */
 
+use std::sync::LazyLock;
+
 use buck2_core::buck2_env;
-use once_cell::sync::Lazy;
 use regex::Regex;
 
 /// A key / value entry from --agent-context. Used to track agent intent,
@@ -67,7 +68,7 @@ fn parse_agent_env_metadata(meta: &str) -> Vec<AgentContextEntry> {
 /// Used as a clap `value_parser`.
 pub fn parse_agent_context(value: &str) -> buck2_error::Result<AgentContextEntry> {
     const REGEX_TEXT: &str = "^[a-z][a-z0-9]*(_[a-z][a-z0-9]*)*$";
-    static REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(REGEX_TEXT).unwrap());
+    static REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(REGEX_TEXT).unwrap());
 
     let (key, val) = value
         .split_once('=')

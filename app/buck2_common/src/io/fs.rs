@@ -11,6 +11,7 @@
 use std::ffi::OsString;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::LazyLock;
 
 use allocative::Allocative;
 use async_trait::async_trait;
@@ -28,7 +29,6 @@ use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use compact_str::CompactString;
 use dupe::Dupe;
-use once_cell::sync::Lazy;
 use pagable::Pagable;
 use tokio::sync::Semaphore;
 
@@ -118,7 +118,7 @@ impl IoProvider for FsIoProvider {
         // Don't want to totally saturate the executor with these so that some other work can progress.
         // For normal fs (or warm eden), something smaller would probably be fine, for eden this is probably
         // good (current plan in that impl is to allow multiple batches of 32 files at a time).
-        static SEMAPHORE: Lazy<Semaphore> = Lazy::new(|| Semaphore::new(100));
+        static SEMAPHORE: LazyLock<Semaphore> = LazyLock::new(|| Semaphore::new(100));
         let _permit = SEMAPHORE.acquire().await.unwrap();
 
         tokio::task::spawn_blocking(move || fs_util::read_to_string_if_exists(path)).await?
@@ -131,7 +131,7 @@ impl IoProvider for FsIoProvider {
         // Don't want to totally saturate the executor with these so that some other work can progress.
         // For normal fs (or warm eden), something smaller would probably be fine, for eden couple hundred is probably
         // good (current plan in that impl is to allow multiple batches of 128 dirs at a time).
-        static SEMAPHORE: Lazy<Semaphore> = Lazy::new(|| Semaphore::new(400));
+        static SEMAPHORE: LazyLock<Semaphore> = LazyLock::new(|| Semaphore::new(400));
         let _permit = SEMAPHORE.acquire().await.unwrap();
 
         let path = self.fs.resolve(&path);

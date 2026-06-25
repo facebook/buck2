@@ -29,7 +29,6 @@ indent_write.workspace = true
 itertools.workspace = true
 lock_free_hashtable.workspace = true
 memchr.workspace = true
-once_cell.workspace = true
 os_str_bytes.workspace = true
 pagable.workspace = true
 pin-project.workspace = true

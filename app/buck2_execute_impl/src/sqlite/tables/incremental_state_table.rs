@@ -10,12 +10,12 @@
 
 use std::borrow::Cow;
 use std::sync::Arc;
+use std::sync::LazyLock;
 
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_hash::BuckDashMap;
-use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use rusqlite::Connection;
 use starlark_map::small_map::SmallMap;
@@ -124,7 +124,7 @@ impl IncrementalStateSqliteTable {
     ) -> buck2_error::Result<()> {
         let entries =
             convert_incremental_state_to_sqlite_entries(run_action_key, incremental_path_map);
-        static SQL: Lazy<String> = Lazy::new(|| {
+        static SQL: LazyLock<String> = LazyLock::new(|| {
             format!(
                 "INSERT INTO {STATE_TABLE_NAME} (run_action_key, short_path, content_path) VALUES (?1, ?2, ?3)"
             )
@@ -156,7 +156,7 @@ impl IncrementalStateSqliteTable {
     }
 
     fn read_all_entries(&self) -> buck2_error::Result<Vec<SqliteEntry<'_>>> {
-        static SQL: Lazy<String> = Lazy::new(|| {
+        static SQL: LazyLock<String> = LazyLock::new(|| {
             format!("SELECT run_action_key, short_path, content_path FROM {STATE_TABLE_NAME}",)
         });
         tracing::trace!(sql = %*SQL, "reading all from table");

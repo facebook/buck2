@@ -49,7 +49,6 @@ host_sharing.workspace = true
 http.workspace = true
 hyper.workspace = true
 itertools.workspace = true
-once_cell.workspace = true
 pagable.workspace = true
 pathdiff.workspace = true
 prost.workspace = true

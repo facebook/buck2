@@ -9,9 +9,9 @@
  */
 
 use std::ops::ControlFlow;
+use std::sync::LazyLock;
 
 use buck2_data::error::ErrorTag;
-use once_cell::sync::Lazy;
 
 pub(crate) fn classify_server_stderr(
     error: buck2_error::Error,
@@ -81,9 +81,10 @@ pub(crate) fn classify_server_stderr(
 //       at ./xplat/rust/toolchain/sysroot/1.80.1/library/std/src/panicking.rs:652:5
 //    1: <buck2_server::daemon::server::BuckdServer as buck2_cli_proto::daemon_api_server::DaemonApi>::unstable_crash::{closure#0}
 //       at ./fbcode/buck2/app/buck2_server/src/daemon/crash.rs:18:13
-static RUST_STACK_FRAME: Lazy<regex::Regex> =
-    Lazy::new(|| regex::Regex::new(r"^\s*\d*:\s*(.*)$").unwrap());
-static RUST_CONTEXT: Lazy<regex::Regex> = Lazy::new(|| regex::Regex::new(r"^\s*at \S*$").unwrap());
+static RUST_STACK_FRAME: LazyLock<regex::Regex> =
+    LazyLock::new(|| regex::Regex::new(r"^\s*\d*:\s*(.*)$").unwrap());
+static RUST_CONTEXT: LazyLock<regex::Regex> =
+    LazyLock::new(|| regex::Regex::new(r"^\s*at \S*$").unwrap());
 
 fn extract_rust_frame(line: &str) -> ControlFlow<(), Option<String>> {
     if let Some(capture) = RUST_STACK_FRAME
@@ -99,16 +100,16 @@ fn extract_rust_frame(line: &str) -> ControlFlow<(), Option<String>> {
 }
 
 // 0   buck2                0x0000000107f548c0 _ZN5folly10symbolizer17getStackTraceSafeEPmm + 12
-static FOLLY_MAC_STACK_FRAME: Lazy<regex::Regex> =
-    Lazy::new(|| regex::Regex::new(r"^\d*\s*\S*\s*0x\w*\s*(\S*) \+ \d*$").unwrap());
+static FOLLY_MAC_STACK_FRAME: LazyLock<regex::Regex> =
+    LazyLock::new(|| regex::Regex::new(r"^\d*\s*\S*\s*0x\w*\s*(\S*) \+ \d*$").unwrap());
 
 // @ 000000000004455f (unknown)
 //                    /home/engshare/third-party2/glibc/2.34/src/glibc-2.34/signal/../sysdeps/unix/sysv/linux/libc_sigaction.c:8
 //                    -> /home/engshare/third-party2/glibc/2.34/src/glibc-2.34/signal/../sysdeps/unix/sysv/linux/x86_64/libc_sigaction.c
-static FOLLY_LINUX_STACK_FRAME: Lazy<regex::Regex> =
-    Lazy::new(|| regex::Regex::new(r"^\s*@\s*\w*\s*(.*)$").unwrap());
-static FOLLY_LINUX_CONTEXT: Lazy<regex::Regex> =
-    Lazy::new(|| regex::Regex::new(r"^\s*(-> )?.*$").unwrap());
+static FOLLY_LINUX_STACK_FRAME: LazyLock<regex::Regex> =
+    LazyLock::new(|| regex::Regex::new(r"^\s*@\s*\w*\s*(.*)$").unwrap());
+static FOLLY_LINUX_CONTEXT: LazyLock<regex::Regex> =
+    LazyLock::new(|| regex::Regex::new(r"^\s*(-> )?.*$").unwrap());
 
 fn extract_folly_frame(line: &str) -> ControlFlow<(), Option<String>> {
     if let Some(capture) = FOLLY_MAC_STACK_FRAME

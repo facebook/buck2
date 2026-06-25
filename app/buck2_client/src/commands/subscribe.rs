@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::sync::LazyLock;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -32,7 +33,6 @@ use buck2_error::internal_error;
 use buck2_subscription_proto::SubscriptionRequest;
 use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
-use once_cell::sync::Lazy;
 use prost::Message;
 use tokio_util::codec::FramedRead;
 
@@ -175,11 +175,12 @@ impl StreamingCommand for SubscribeCommand {
     fn console_opts(&self) -> &CommonConsoleOptions {
         // This should only be communicated with by an IDE, so disable anything other
         // than the simple console
-        static SIMPLE_CONSOLE: Lazy<CommonConsoleOptions> = Lazy::new(|| CommonConsoleOptions {
-            console_type: ConsoleType::Simple,
-            ui: vec![],
-            no_interactive_console: true,
-        });
+        static SIMPLE_CONSOLE: LazyLock<CommonConsoleOptions> =
+            LazyLock::new(|| CommonConsoleOptions {
+                console_type: ConsoleType::Simple,
+                ui: vec![],
+                no_interactive_console: true,
+            });
         &SIMPLE_CONSOLE
     }
 

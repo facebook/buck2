@@ -10,6 +10,7 @@
 
 use std::borrow::Cow;
 use std::sync::Arc;
+use std::sync::LazyLock;
 
 use allocative::Allocative;
 use async_trait::async_trait;
@@ -82,7 +83,6 @@ use buck2_hash::StdBuckHashSet;
 use derive_more::Display;
 use dupe::Dupe;
 use futures::StreamExt;
-use once_cell::sync::Lazy;
 use pagable::Pagable;
 use parking_lot::MappedMutexGuard;
 use parking_lot::Mutex;
@@ -93,7 +93,8 @@ use tracing::instrument;
 use crate::actions::impls::run::RunActionKey;
 
 #[allocative::root]
-static DEP_FILES: Lazy<BuckDashMap<RunActionKey, Arc<DepFileState>>> = Lazy::new(BuckDashMap::new);
+static DEP_FILES: LazyLock<BuckDashMap<RunActionKey, Arc<DepFileState>>> =
+    LazyLock::new(BuckDashMap::new);
 
 /// When this is set, we retain directories after fingerprinting, so that we can output them later
 /// for debugging via `buck2 audit dep-files`.

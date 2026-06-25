@@ -8,6 +8,8 @@
  * above-listed licenses.
  */
 
+use std::sync::LazyLock;
+
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::package::PackageLabel;
 use buck2_hash::StdBuckHashSet;
@@ -21,7 +23,6 @@ use futures::channel::mpsc;
 use futures::future::FutureExt;
 use futures::stream::FuturesUnordered;
 use gazebo::prelude::*;
-use once_cell::sync::Lazy;
 use tokio::sync::Semaphore;
 
 use crate::file_ops::trait_::DiceFileOps;
@@ -81,7 +82,7 @@ pub async fn collect_package_roots<E>(
     // We should make sure this is less than the semaphore used for limiting total read_dir.
     // TODO(cjhopman): We could probably figure out some form of tiered semaphore and tokio
     // num threads configuration to coordinate these.
-    static SEMAPHORE: Lazy<Semaphore> = Lazy::new(|| Semaphore::new(300));
+    static SEMAPHORE: LazyLock<Semaphore> = LazyLock::new(|| Semaphore::new(300));
     let semaphore = &SEMAPHORE;
 
     let mut queue = FuturesUnordered::new();

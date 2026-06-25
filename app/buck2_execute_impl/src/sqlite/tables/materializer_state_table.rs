@@ -10,6 +10,7 @@
 
 use std::borrow::Cow;
 use std::sync::Arc;
+use std::sync::LazyLock;
 
 use buck2_common::external_symlink::ExternalSymlink;
 use buck2_common::file_ops::metadata::FileDigest;
@@ -38,7 +39,6 @@ use chrono::TimeZone;
 use chrono::Utc;
 use gazebo::prelude::*;
 use itertools::Itertools;
-use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use rusqlite::Connection;
 
@@ -510,7 +510,7 @@ impl MaterializerStateSqliteTable {
         timestamp: DateTime<Utc>,
     ) -> buck2_error::Result<()> {
         let entries = convert_artifact_metadata_to_sqlite_entries(path, metadata, &timestamp);
-        static SQL: Lazy<String> = Lazy::new(|| {
+        static SQL: LazyLock<String> = LazyLock::new(|| {
             format!(
                 "INSERT INTO {STATE_TABLE_NAME} (path, artifact_type, digest_size, entry_hash, entry_hash_kind, file_is_executable, symlink_target, last_access_time, parent_path) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)"
             )
@@ -573,7 +573,7 @@ impl MaterializerStateSqliteTable {
     }
 
     fn read_all_entries(&self) -> buck2_error::Result<Vec<SqliteEntry<'_>>> {
-        static SQL: Lazy<String> = Lazy::new(|| {
+        static SQL: LazyLock<String> = LazyLock::new(|| {
             format!(
                 "SELECT path, artifact_type, digest_size, entry_hash, entry_hash_kind, file_is_executable, symlink_target, last_access_time, parent_path FROM {STATE_TABLE_NAME}",
             )

@@ -8,12 +8,13 @@
  * above-listed licenses.
  */
 
+use std::sync::LazyLock;
+
 use allocative::Allocative;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_error::internal_error;
 use globset::Candidate;
 use globset::GlobSetBuilder;
-use once_cell::sync::Lazy;
 use pagable::PagableDeserialize;
 use pagable::PagableDeserializer;
 use pagable::PagableSerialize;
@@ -100,7 +101,7 @@ impl IgnoreSet {
     /// Glob-containing patterns use `literal_separator(true)`, while plain
     /// directory names are turned into `{name,name/**}` matchers.
     fn build_globset(patterns: &[String]) -> Result<globset::GlobSet, globset::Error> {
-        static GLOB_CHARS: Lazy<Regex> = Lazy::new(|| Regex::new(r"[*?{\[]").unwrap());
+        static GLOB_CHARS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"[*?{\[]").unwrap());
 
         let mut builder = GlobSetBuilder::new();
         for val in patterns {

@@ -15,6 +15,7 @@ use std::io::Cursor;
 use std::num::NonZeroUsize;
 use std::pin::Pin;
 use std::sync::Arc;
+use std::sync::LazyLock;
 use std::sync::Mutex;
 use std::time::Duration;
 use std::time::Instant;
@@ -37,7 +38,6 @@ use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
 use gazebo::prelude::*;
 use lru::LruCache;
-use once_cell::sync::Lazy;
 use prost::Message;
 use re_grpc_proto::build::bazel::remote::execution::v2::ActionResult;
 use re_grpc_proto::build::bazel::remote::execution::v2::BatchReadBlobsRequest;
@@ -1824,7 +1824,8 @@ fn substitute_env_vars_impl(
     s: &str,
     getter: impl Fn(&str) -> Result<String, VarError>,
 ) -> anyhow::Result<String> {
-    static ENV_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new("\\$[a-zA-Z_][a-zA-Z_0-9]*").unwrap());
+    static ENV_REGEX: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new("\\$[a-zA-Z_][a-zA-Z_0-9]*").unwrap());
 
     let mut out = String::with_capacity(s.len());
     let mut last_idx = 0;

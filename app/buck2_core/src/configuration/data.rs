@@ -11,6 +11,7 @@
 use std::collections::BTreeMap;
 use std::hash::Hash;
 use std::hash::Hasher;
+use std::sync::LazyLock;
 
 use allocative::Allocative;
 use buck2_data::ToProtoMessage;
@@ -18,7 +19,6 @@ use buck2_hash::BuckHasher;
 use buck2_util::strong_hasher::Blake3StrongHasher;
 use dupe::Dupe;
 use equivalent::Equivalent;
-use once_cell::sync::Lazy;
 use pagable::Pagable;
 use serde::Serialize;
 use serde::Serializer;
@@ -144,7 +144,7 @@ impl ConfigurationData {
     }
 
     pub fn unspecified() -> Self {
-        static CONFIG: Lazy<ConfigurationData> = Lazy::new(|| {
+        static CONFIG: LazyLock<ConfigurationData> = LazyLock::new(|| {
             ConfigurationData::from_data(HashedConfigurationPlatform::new(
                 ConfigurationPlatform::Builtin(BuiltinPlatform::Unspecified),
             ))
@@ -154,7 +154,7 @@ impl ConfigurationData {
     }
 
     pub fn unspecified_exec() -> Self {
-        static CONFIG: Lazy<ConfigurationData> = Lazy::new(|| {
+        static CONFIG: LazyLock<ConfigurationData> = LazyLock::new(|| {
             ConfigurationData::from_data(HashedConfigurationPlatform::new(
                 ConfigurationPlatform::Builtin(BuiltinPlatform::UnspecifiedExec),
             ))
@@ -166,7 +166,7 @@ impl ConfigurationData {
     /// Produces the "unbound" configuration. This is used only when performing analysis of platform() targets and
     /// their dependencies (which is done to form the initial "bound" configurations).
     pub fn unbound() -> Self {
-        static CONFIG: Lazy<ConfigurationData> = Lazy::new(|| {
+        static CONFIG: LazyLock<ConfigurationData> = LazyLock::new(|| {
             ConfigurationData::from_data(HashedConfigurationPlatform::new(
                 ConfigurationPlatform::Builtin(BuiltinPlatform::Unbound),
             ))
@@ -178,7 +178,7 @@ impl ConfigurationData {
     /// Produces the "unbound_exec" configuration. This is used only when getting the exec_deps for a configured node
     /// before we've determined the execution configuration for the node.
     pub fn unbound_exec() -> Self {
-        static CONFIG: Lazy<ConfigurationData> = Lazy::new(|| {
+        static CONFIG: LazyLock<ConfigurationData> = LazyLock::new(|| {
             ConfigurationData::from_data(HashedConfigurationPlatform::new(
                 ConfigurationPlatform::Builtin(BuiltinPlatform::UnboundExec),
             ))

@@ -8,10 +8,11 @@
  * above-listed licenses.
  */
 
+use std::sync::LazyLock;
+
 use allocative::Allocative;
 use buck2_hash::BuckHasher;
 use dupe::Dupe;
-use once_cell::sync::Lazy;
 use pagable::Pagable;
 use static_interner::Intern;
 use static_interner::interner;
@@ -95,36 +96,36 @@ impl ConfigurationNoExec {
 
     #[inline]
     pub fn unbound() -> ConfigurationNoExec {
-        static UNBOUND: Lazy<ConfigurationNoExec> =
-            Lazy::new(|| ConfigurationNoExec::new(ConfigurationData::unbound()));
+        static UNBOUND: LazyLock<ConfigurationNoExec> =
+            LazyLock::new(|| ConfigurationNoExec::new(ConfigurationData::unbound()));
         UNBOUND.dupe()
     }
 
     #[inline]
     pub fn unspecified_exec() -> Self {
-        static UNSPECIFIED_EXEC: Lazy<ConfigurationNoExec> =
-            Lazy::new(|| ConfigurationNoExec::new(ConfigurationData::unspecified_exec()));
+        static UNSPECIFIED_EXEC: LazyLock<ConfigurationNoExec> =
+            LazyLock::new(|| ConfigurationNoExec::new(ConfigurationData::unspecified_exec()));
         UNSPECIFIED_EXEC.dupe()
     }
 
     #[inline]
     pub fn unbound_exec() -> Self {
-        static UNBOUND_EXEC: Lazy<ConfigurationNoExec> =
-            Lazy::new(|| ConfigurationNoExec::new(ConfigurationData::unbound_exec()));
+        static UNBOUND_EXEC: LazyLock<ConfigurationNoExec> =
+            LazyLock::new(|| ConfigurationNoExec::new(ConfigurationData::unbound_exec()));
         UNBOUND_EXEC.dupe()
     }
 
     #[inline]
     pub fn unspecified() -> Self {
-        static UNSPECIFIED: Lazy<ConfigurationNoExec> =
-            Lazy::new(|| ConfigurationNoExec::new(ConfigurationData::unspecified()));
+        static UNSPECIFIED: LazyLock<ConfigurationNoExec> =
+            LazyLock::new(|| ConfigurationNoExec::new(ConfigurationData::unspecified()));
         UNSPECIFIED.dupe()
     }
 
     #[inline]
     pub fn testing_new() -> Self {
-        static TESTING_NEW: Lazy<ConfigurationNoExec> =
-            Lazy::new(|| ConfigurationNoExec::new(ConfigurationData::testing_new()));
+        static TESTING_NEW: LazyLock<ConfigurationNoExec> =
+            LazyLock::new(|| ConfigurationNoExec::new(ConfigurationData::testing_new()));
         TESTING_NEW.dupe()
     }
 

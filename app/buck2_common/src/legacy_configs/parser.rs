@@ -10,6 +10,7 @@
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
+use std::sync::LazyLock;
 
 use allocative::Allocative;
 use buck2_core::cells::cell_root_path::CellRootPath;
@@ -20,7 +21,6 @@ use dupe::Dupe;
 use futures::FutureExt;
 use futures::future::BoxFuture;
 use itertools::Itertools;
-use once_cell::sync::Lazy;
 use pagable::Pagable;
 use regex::Regex;
 use starlark_map::sorted_map::SortedMap;
@@ -103,8 +103,8 @@ struct LegacyConfigFileParser<'p> {
 ///   <?file:/optional/absolute>
 ///   <file:relative/to/current>
 ///   <file:../../doesnt/need/to/be/forward/relative>
-static FILE_INCLUDE: Lazy<Regex> =
-    Lazy::new(|| Regex::new("<(?P<optional>\\?)?file:(?P<include>..*)>").unwrap());
+static FILE_INCLUDE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new("<(?P<optional>\\?)?file:(?P<include>..*)>").unwrap());
 
 impl LegacyConfigParser {
     pub(crate) fn new() -> Self {

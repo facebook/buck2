@@ -10,6 +10,7 @@
 
 use std::str::FromStr;
 use std::sync::Arc;
+use std::sync::LazyLock;
 
 use allocative::Allocative;
 use async_trait::async_trait;
@@ -59,7 +60,6 @@ use futures::future::Future;
 use futures::future::FutureExt;
 use futures::future::TryFutureExt;
 use gazebo::prelude::VecExt;
-use once_cell::sync::Lazy;
 use remote_execution::NamedDigest;
 use remote_execution::NamedDigestWithPermissions;
 use remote_execution::TCode;
@@ -482,7 +482,8 @@ impl IoHandler for DefaultIoHandler {
 fn maybe_tombstone_digest(digest: &FileDigest) -> buck2_error::Result<&FileDigest> {
     // This has to be of size 1 since size 0 will result in the RE client just producing an empty
     // instead of a not-found error.
-    static TOMBSTONE_DIGEST: Lazy<FileDigest> = Lazy::new(|| FileDigest::new_sha1([0; 20], 1));
+    static TOMBSTONE_DIGEST: LazyLock<FileDigest> =
+        LazyLock::new(|| FileDigest::new_sha1([0; 20], 1));
 
     fn convert_digests(val: &str) -> buck2_error::Result<StdBuckHashSet<FileDigest>> {
         val.split(' ')
