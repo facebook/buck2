@@ -104,8 +104,8 @@ def _cxx_toolchain_from_cxx_tools_info(ctx: AnalysisContext, cxx_tools_info: Cxx
     archiver_supports_argfiles = os != Os("macos")
     additional_linker_flags = ["-fuse-ld=lld"] if os == Os("linux") and cxx_tools_info.linker != "g++" and cxx_tools_info.cxx_compiler != "g++" else []
 
+    linker_type = cxx_tools_info.linker_type
     if os == Os("windows"):
-        linker_type = LinkerType("windows")
         binary_extension = "exe"
         object_file_extension = "obj"
         static_library_extension = "lib"
@@ -122,10 +122,8 @@ def _cxx_toolchain_from_cxx_tools_info(ctx: AnalysisContext, cxx_tools_info: Cxx
         shared_library_versioned_name_format = "{}.so.{}"
 
         if os == Os("macos"):
-            linker_type = LinkerType("darwin")
             pic_behavior = PicBehavior("always_enabled")
         else:
-            linker_type = LinkerType("gnu")
             pic_behavior = PicBehavior("supported")
 
     if cxx_tools_info.compiler_type == "clang":
