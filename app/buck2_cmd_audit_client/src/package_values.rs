@@ -13,10 +13,10 @@ use buck2_client_ctx::common::target_cfg::TargetCfgUnusedOptions;
 
 use crate::AuditSubcommand;
 
-/// Inspect package values.
+/// Inspect package values, visibility and within_view.
 ///
-/// Package values is the thing set with `write_package_value`
-/// function from `PACKAGE` files.
+/// Package values are set with `write_package_value` function from `PACKAGE` files.
+/// Visibility and within_view come from the `package()` function in `PACKAGE` files.
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
 #[clap(name = "package-values")]
 pub struct PackageValuesCommand {

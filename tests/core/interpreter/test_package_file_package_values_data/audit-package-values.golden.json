@@ -27,6 +27,10 @@
           }
         }
       ]
-    }
+    },
+    "visibility": [],
+    "within_view": [
+      "PUBLIC"
+    ]
   }
 }

@@ -3,6 +3,10 @@
 {
   "other//": {
     "aaa.bbb": "ccc",
-    "xxx.yyy": "zzz"
+    "xxx.yyy": "zzz",
+    "visibility": [],
+    "within_view": [
+      "PUBLIC"
+    ]
   }
 }

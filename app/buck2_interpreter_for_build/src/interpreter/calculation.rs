@@ -30,12 +30,12 @@ use buck2_interpreter::paths::package::PackageFilePath;
 use buck2_interpreter::paths::path::OwnedStarlarkPath;
 use buck2_interpreter::paths::path::StarlarkPath;
 use buck2_interpreter::prelude_path::PreludePath;
-use buck2_node::metadata::key::MetadataKey;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::nodes::frontend::TARGET_GRAPH_CALCULATION_IMPL;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::frontend::TargetGraphCalculationImpl;
 use buck2_node::package_values_calculation::PACKAGE_VALUES_CALCULATION;
+use buck2_node::package_values_calculation::PackageValues;
 use buck2_node::package_values_calculation::PackageValuesCalculation;
 use buck2_util::time_span::TimeSpan;
 use derive_more::Display;
@@ -51,7 +51,6 @@ use pagable::Pagable;
 use pagable::pagable_typetag;
 use smallvec::SmallVec;
 use starlark::environment::Globals;
-use starlark_map::small_map::SmallMap;
 
 use crate::interpreter::dice_calculation_delegate::HasCalculationDelegate;
 use crate::interpreter::dice_calculation_delegate::testing::EvalImportKey;
@@ -265,11 +264,13 @@ impl PackageValuesCalculation for PackageValuesCalculationInstance {
         &self,
         ctx: &mut DiceComputations<'_>,
         package: PackageLabel,
-    ) -> buck2_error::Result<SmallMap<MetadataKey, serde_json::Value>> {
-        ctx.eval_package_file(package)
-            .await?
-            .package_values()
-            .package_values_json()
+    ) -> buck2_error::Result<PackageValues> {
+        let super_package = ctx.eval_package_file(package).await?;
+        Ok(PackageValues {
+            package_values: super_package.package_values().package_values_json()?,
+            visibility: super_package.visibility().to_json(),
+            within_view: super_package.within_view().to_json(),
+        })
     }
 }
 

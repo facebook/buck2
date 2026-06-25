@@ -46,6 +46,9 @@ async def test_audit_package_values_select(buck: Buck) -> None:
     # Verify concat (select + select) has expected JSON structure
     assert pkg["sel.concat"]["__type"] == "concat"
     assert len(pkg["sel.concat"]["items"]) == 2
+    # Verify visibility fields exist alongside package values
+    assert "visibility" in pkg
+    assert "within_view" in pkg
 
 
 @buck_test()

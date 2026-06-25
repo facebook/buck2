@@ -12,9 +12,18 @@ use async_trait::async_trait;
 use buck2_core::package::PackageLabel;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
+use serde::Serialize;
 use starlark_map::small_map::SmallMap;
 
 use crate::metadata::key::MetadataKey;
+
+#[derive(Debug, Clone, Serialize)]
+pub struct PackageValues {
+    #[serde(flatten)]
+    pub package_values: SmallMap<MetadataKey, serde_json::Value>,
+    pub visibility: serde_json::Value,
+    pub within_view: serde_json::Value,
+}
 
 #[async_trait]
 pub trait PackageValuesCalculation: Send + Sync + 'static {
@@ -22,7 +31,7 @@ pub trait PackageValuesCalculation: Send + Sync + 'static {
         &self,
         ctx: &mut DiceComputations<'_>,
         package: PackageLabel,
-    ) -> buck2_error::Result<SmallMap<MetadataKey, serde_json::Value>>;
+    ) -> buck2_error::Result<PackageValues>;
 }
 
 pub static PACKAGE_VALUES_CALCULATION: LateBinding<&'static dyn PackageValuesCalculation> =

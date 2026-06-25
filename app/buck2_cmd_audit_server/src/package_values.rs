@@ -16,8 +16,8 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::parse_package::parse_package;
 use buck2_events::dispatch::console_message;
-use buck2_node::metadata::key::MetadataKey;
 use buck2_node::package_values_calculation::PACKAGE_VALUES_CALCULATION;
+use buck2_node::package_values_calculation::PackageValues;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -62,10 +62,8 @@ impl ServerAuditSubcommand for PackageValuesCommand {
                         .boxed()
                     })
                     .await?;
-                let package_values_by_package: SmallMap<
-                    PackageLabel,
-                    SmallMap<MetadataKey, serde_json::Value>,
-                > = package_values_by_package.into_iter().collect();
+                let package_values_by_package: SmallMap<PackageLabel, PackageValues> =
+                    package_values_by_package.into_iter().collect();
 
                 let mut stdout = stdout.as_writer();
                 serde_json::to_writer_pretty(&mut stdout, &package_values_by_package)?;

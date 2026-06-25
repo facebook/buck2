@@ -507,7 +507,7 @@ impl VisibilitySpecification {
     pub const DEFAULT: VisibilitySpecification =
         VisibilitySpecification(VisibilityPatternList::List(ThinArcSlice::empty()));
 
-    pub(crate) fn to_json(&self) -> serde_json::Value {
+    pub fn to_json(&self) -> serde_json::Value {
         self.0.to_json()
     }
 

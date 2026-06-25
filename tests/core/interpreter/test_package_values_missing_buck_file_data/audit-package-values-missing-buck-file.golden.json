@@ -2,6 +2,10 @@
 
 {
   "root//": {
-    "aaa.bbb": "ccc"
+    "aaa.bbb": "ccc",
+    "visibility": [],
+    "within_view": [
+      "PUBLIC"
+    ]
   }
 }
