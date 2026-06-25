@@ -824,9 +824,15 @@ impl<Kind: CasDigestKind> TrackedCasDigest<Kind> {
     where
         Kind: CasDigestKind,
     {
-        let res = Self::new(data, config);
-        res.update_expires(expiry);
-        res
+        if data.size() == 0 {
+            return Self::empty(config);
+        }
+        Self {
+            inner: Arc::new(TrackedCasDigestInner {
+                data,
+                expires: AtomicI64::new(expiry.timestamp()),
+            }),
+        }
     }
 
     pub fn empty(config: CasDigestConfig) -> Self
@@ -966,8 +972,12 @@ pub mod testing {
 
 #[cfg(test)]
 mod tests {
+    use chrono::Duration;
+
     use super::*;
+    use crate::file_ops::metadata::FileDigest;
     use crate::file_ops::metadata::FileDigestKind;
+    use crate::file_ops::metadata::TrackedFileDigest;
 
     #[test]
     fn test_digest_from_str() {
@@ -1127,5 +1137,40 @@ mod tests {
         ] {
             assert_eq!(v, v.to_string().parse().unwrap());
         }
+    }
+
+    #[test]
+    fn test_new_expires_empty_does_not_mutate_shared_singleton() {
+        // For zero-size data, `new_expires` must return the shared empty-digest
+        // singleton without touching its expiration. The previous implementation
+        // called `update_expires` on the singleton, corrupting the expiration
+        // observed by every other holder of the empty digest.
+        let config = testing::sha1();
+
+        // The singleton is created with expiration at the unix epoch.
+        let original_expiry = TrackedFileDigest::empty(config).expires().unwrap();
+        assert_eq!(
+            original_expiry,
+            Utc.timestamp_opt(0, 0).unwrap(),
+            "empty-digest singleton should start at the unix epoch"
+        );
+
+        let requested = Utc::now() + Duration::days(7);
+        let from_empty =
+            TrackedFileDigest::new_expires(FileDigest::empty(config), requested, config);
+
+        // The shared singleton is untouched ...
+        assert_eq!(
+            TrackedFileDigest::empty(config).expires().unwrap(),
+            original_expiry,
+            "new_expires on empty data must not mutate the shared empty-digest singleton"
+        );
+        // ... and the value returned for empty data is that same untouched
+        // singleton, not one carrying the requested (future) expiration.
+        assert_eq!(
+            from_empty.expires().unwrap(),
+            original_expiry,
+            "new_expires on empty data should return the singleton, ignoring the requested expiry"
+        );
     }
 }
