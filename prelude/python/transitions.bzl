@@ -102,7 +102,7 @@ def _refs():
         "_opt_by_default__opt_cxx_enabled": "@config//build_mode/default_opt_cxx:enabled",
         "_opt_by_default__split_dwarf_single": "@config//build_mode/constraints:debug_style[split-dwarf-single]",
         "_opt_by_default__static": "@config//build_mode/constraints:static",
-        "_opt_by_default_native_debug_enabled": "@config//build_mode/constraints:native-debugging-supported",
+        "_opt_by_default_native_debug_enabled": "@config//build_mode/constraints:native-debugging[supported]",
     }
 
 def _attrs():
