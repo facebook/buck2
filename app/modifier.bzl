@@ -66,8 +66,8 @@ def buck2_modifiers():
         modifiers.conditional({
             "DEFAULT": None,
             "ovr_config//build_mode/default_opt_cxx:enabled": modifiers.conditional({
-                "DEFAULT": "ovr_config//build_mode/constraints:fbcode-build-info-mode-stable",
-                "ovr_config//build_mode:opt": "ovr_config//build_mode/constraints:fbcode-build-info-mode-full",
+                "DEFAULT": "ovr_config//build_mode/constraints:fbcode-build-info-mode[stable]",
+                "ovr_config//build_mode:opt": "ovr_config//build_mode/constraints:fbcode-build-info-mode[full]",
             }),
         }),
         modifiers.conditional({

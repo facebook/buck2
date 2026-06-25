@@ -94,7 +94,7 @@ def _refs():
         "_opt_by_default__dev": "@config//build_mode/constraints:dev",
         "_opt_by_default__dev_san": "@config//build_mode:sanitizer_type[asan-ubsan-dev]",
         "_opt_by_default__execution_platform_marker": "@config//platform/execution/constraints:execution-platform-transitioned",
-        "_opt_by_default__fbcode_build_info_mode_full": "@config//build_mode/constraints:fbcode-build-info-mode-full",
+        "_opt_by_default__fbcode_build_info_mode_full": "@config//build_mode/constraints:fbcode-build-info-mode[full]",
         "_opt_by_default__linux": "@config//os/constraints:linux",
         "_opt_by_default__lto_none": "@config//build_mode/constraints:lto-none",
         "_opt_by_default__no_san": "@config//build_mode:sanitizer_type[no-san]",
