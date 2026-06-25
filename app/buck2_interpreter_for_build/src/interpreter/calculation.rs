@@ -270,6 +270,7 @@ impl PackageValuesCalculation for PackageValuesCalculationInstance {
             package_values: super_package.package_values().package_values_json()?,
             visibility: super_package.visibility().to_json(),
             within_view: super_package.within_view().to_json(),
+            visibility_cap: super_package.visibility_cap().to_json(),
         })
     }
 }

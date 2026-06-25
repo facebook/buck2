@@ -334,7 +334,7 @@ impl VisibilityPatternList {
         }
     }
 
-    fn to_json(&self) -> serde_json::Value {
+    pub fn to_json(&self) -> serde_json::Value {
         let list = match self {
             VisibilityPatternList::Public => vec![serde_json::Value::String(
                 VisibilityPattern::PUBLIC.to_owned(),
@@ -346,8 +346,9 @@ impl VisibilityPatternList {
                     VisibilityPattern::TargetNameGlob(r) => r.to_json(),
                 })
                 .collect(),
-            VisibilityPatternList::Intersection(_) => {
-                unreachable!("Intersection not supported in JSON serialization")
+            VisibilityPatternList::Intersection(sub_lists) => {
+                let parts: Vec<serde_json::Value> = sub_lists.iter().map(|s| s.to_json()).collect();
+                return serde_json::json!({ "intersection": parts });
             }
         };
         serde_json::Value::Array(list)

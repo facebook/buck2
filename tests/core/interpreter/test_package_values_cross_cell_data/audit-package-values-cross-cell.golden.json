@@ -7,6 +7,9 @@
     "visibility": [],
     "within_view": [
       "PUBLIC"
+    ],
+    "visibility_cap": [
+      "PUBLIC"
     ]
   }
 }

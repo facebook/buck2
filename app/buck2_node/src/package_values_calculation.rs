@@ -23,6 +23,7 @@ pub struct PackageValues {
     pub package_values: SmallMap<MetadataKey, serde_json::Value>,
     pub visibility: serde_json::Value,
     pub within_view: serde_json::Value,
+    pub visibility_cap: serde_json::Value,
 }
 
 #[async_trait]

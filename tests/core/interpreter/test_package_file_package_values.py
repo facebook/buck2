@@ -49,6 +49,20 @@ async def test_audit_package_values_select(buck: Buck) -> None:
     # Verify visibility fields exist alongside package values
     assert "visibility" in pkg
     assert "within_view" in pkg
+    assert "visibility_cap" in pkg
+
+
+@buck_test()
+async def test_audit_package_values_visibility_cap_intersection(
+    buck: Buck,
+) -> None:
+    stdout = (await buck.audit("package-values", "//capped/child")).stdout
+    result = json.loads(stdout)
+    pkg = result["root//capped/child"]
+    cap = pkg["visibility_cap"]
+    assert isinstance(cap, dict), f"Expected dict for intersection, got {type(cap)}"
+    assert "intersection" in cap
+    assert len(cap["intersection"]) == 2
 
 
 @buck_test()

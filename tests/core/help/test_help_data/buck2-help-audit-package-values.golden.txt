@@ -1,9 +1,10 @@
 # This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
 
-Inspect package values, visibility and within_view.
+Inspect package values, visibility, within_view and visibility_cap.
 
 Package values are set with `write_package_value` function from `PACKAGE` files. Visibility and
-within_view come from the `package()` function in `PACKAGE` files.
+within_view come from the `package()` function in `PACKAGE` files. Visibility_cap comes from
+`enforce_visibility_intersection()` in `PACKAGE` files.
 
 Usage: buck2 audit package-values [OPTIONS] [PACKAGES]...
 
