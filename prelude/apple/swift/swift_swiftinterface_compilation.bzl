@@ -37,6 +37,20 @@ def get_swift_interface_anon_targets(ctx: AnalysisContext, uncompiled_sdk_deps: 
         (
             _swift_interface_compilation,
             {
+                # There's an "implicit" arg being passed - the execution platform
+                # of the rule that's requesting the anon-targets. In this case,
+                # callers of `get_swift_interface_anon_targets()` will call
+                # `ctx.actions.anon_targets()`, so the exec platform will get
+                # inherited.
+                #
+                # This has an important implication - the exact same SDK target
+                # might get duplicated if it's requested `apple_library()`
+                # targets which have different execution platforms, even if
+                # everything else is the same - including the same toolchain.
+                #
+                # Because Swift compilation aggregates SDK modules from deps
+                # and SDK modules from the target itself, a duplication of the
+                # same compiled SDK module can occur in the module map.
                 "dep": d,
                 "has_content_based_path": True,
                 "name": d.label,
