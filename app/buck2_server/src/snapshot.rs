@@ -296,6 +296,22 @@ impl SnapshotCollector {
         snapshot.dice_key_count = metrics.key_count as u64;
         snapshot.dice_currently_active_key_count = metrics.currently_active_key_count as u64;
         snapshot.dice_active_transaction_count = metrics.active_transaction_count;
+
+        snapshot.dice_page_in_by_key_type = metrics
+            .page_in
+            .iter()
+            .map(|(&key_type, stats)| {
+                (
+                    String::from(key_type),
+                    buck2_data::DicePageInKeyTypeStats {
+                        count: stats.count,
+                        fetch_us: stats.fetch_us,
+                        deser_us: stats.deser_us,
+                        bytes: stats.bytes,
+                    },
+                )
+            })
+            .collect();
     }
 
     fn add_materializer_metrics(&self, snapshot: &mut buck2_data::Snapshot) {

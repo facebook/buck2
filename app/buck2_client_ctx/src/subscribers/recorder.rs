@@ -765,6 +765,12 @@ impl InvocationRecorder {
         let mut io_canonicalize_count = None;
         let mut io_eden_settle_count = None;
 
+        let mut page_in_count = None;
+        let mut page_in_fetch_us = None;
+        let mut page_in_deser_us = None;
+        let mut page_in_bytes = None;
+        let mut page_in_by_key_type = StdBuckHashMap::default();
+
         if let Some(snapshot) = &self.last_snapshot {
             sink_success_count =
                 calculate_diff_if_some(&snapshot.sink_successes, &self.initial_sink_success_count);
@@ -939,6 +945,22 @@ impl InvocationRecorder {
                 &snapshot.io_eden_settle_count,
                 &self.initial_io_eden_settle_count,
             );
+
+            // The Snapshot carries only the per-key-type map, so diff it
+            // first→last and derive the aggregate scalars by summing the delta
+            // (sum over key types == last_total − first_total).
+            if let Some(first) = &self.first_snapshot {
+                page_in_by_key_type = compute_page_in_by_key_type_delta(
+                    &first.dice_page_in_by_key_type,
+                    &snapshot.dice_page_in_by_key_type,
+                );
+                if !page_in_by_key_type.is_empty() {
+                    page_in_count = Some(page_in_by_key_type.values().map(|s| s.count).sum());
+                    page_in_fetch_us = Some(page_in_by_key_type.values().map(|s| s.fetch_us).sum());
+                    page_in_deser_us = Some(page_in_by_key_type.values().map(|s| s.deser_us).sum());
+                    page_in_bytes = Some(page_in_by_key_type.values().map(|s| s.bytes).sum());
+                }
+            }
 
             // We show memory/disk warnings in the console but we can't emit a tag event there due to having no access to dispatcher.
             // Also, it suffices to only emit a single tag per invocation, not one tag each time memory pressure is exceeded.
@@ -1223,6 +1245,11 @@ impl InvocationRecorder {
             io_write_count,
             io_canonicalize_count,
             io_eden_settle_count,
+            page_in_count,
+            page_in_fetch_us,
+            page_in_deser_us,
+            page_in_bytes,
+            page_in_by_key_type,
             repo_path: self.repo_path.take(),
         };
 
@@ -2606,6 +2633,29 @@ where
     }
 }
 
+/// Per-key-type delta of cumulative page-in counters between the command's
+/// first and last snapshot. Key types with no page-ins during the command
+/// (zero delta count) are omitted to keep the record compact.
+fn compute_page_in_by_key_type_delta(
+    first: &StdBuckHashMap<String, buck2_data::DicePageInKeyTypeStats>,
+    last: &StdBuckHashMap<String, buck2_data::DicePageInKeyTypeStats>,
+) -> StdBuckHashMap<String, buck2_data::DicePageInKeyTypeStats> {
+    last.iter()
+        .filter_map(|(key_type, l)| {
+            let base = first.get(key_type);
+            // saturating_sub guards against an (unexpected) counter regression,
+            // e.g. a daemon restart mid-command resetting the cumulatives.
+            let delta = buck2_data::DicePageInKeyTypeStats {
+                count: l.count.saturating_sub(base.map_or(0, |b| b.count)),
+                fetch_us: l.fetch_us.saturating_sub(base.map_or(0, |b| b.fetch_us)),
+                deser_us: l.deser_us.saturating_sub(base.map_or(0, |b| b.deser_us)),
+                bytes: l.bytes.saturating_sub(base.map_or(0, |b| b.bytes)),
+            };
+            (delta.count > 0).then(|| (key_type.clone(), delta))
+        })
+        .collect()
+}
+
 fn merge_file_watcher_stats(
     a: Option<buck2_data::FileWatcherStats>,
     b: Option<buck2_data::FileWatcherStats>,
@@ -2660,10 +2710,12 @@ mod tests {
     use buck2_error::ExitCode;
     use buck2_error::buck2_error;
     use buck2_error::internal_error;
+    use buck2_hash::StdBuckHashMap;
     use buck2_wrapper_common::invocation_id::TraceId;
 
     use crate::exit_result::ExitResult;
     use crate::subscribers::recorder::InvocationRecorder;
+    use crate::subscribers::recorder::compute_page_in_by_key_type_delta;
     use crate::subscribers::recorder::truncate_stderr;
 
     #[test]
@@ -2737,5 +2789,42 @@ mod tests {
         recorder.update_peak_system_load(Duration::from_secs(5 * 60), 2.0, 7.0);
         assert_eq!(recorder.peak_normalized_system_load1, Some(4.0));
         assert_eq!(recorder.peak_normalized_system_load5, Some(7.0));
+    }
+
+    #[test]
+    fn test_page_in_by_key_type_delta() {
+        let stat = |count, fetch_us, deser_us, bytes| buck2_data::DicePageInKeyTypeStats {
+            count,
+            fetch_us,
+            deser_us,
+            bytes,
+        };
+
+        // First-snapshot cumulatives include page-ins from earlier commands on
+        // this daemon, so they must be subtracted out.
+        let mut first = StdBuckHashMap::default();
+        first.insert("A".to_owned(), stat(10, 100, 200, 1000));
+        first.insert("C".to_owned(), stat(5, 50, 50, 500));
+
+        let mut last = StdBuckHashMap::default();
+        last.insert("A".to_owned(), stat(12, 130, 260, 1300)); // +2 this command
+        last.insert("B".to_owned(), stat(3, 30, 60, 300)); // new key type, baseline 0
+        last.insert("C".to_owned(), stat(5, 50, 50, 500)); // unchanged -> omitted
+
+        let delta = compute_page_in_by_key_type_delta(&first, &last);
+
+        assert_eq!(
+            delta.len(),
+            2,
+            "only key types with page-ins during the command are kept"
+        );
+        let a = delta.get("A").expect("A had new page-ins");
+        assert_eq!((a.count, a.fetch_us, a.deser_us, a.bytes), (2, 30, 60, 300));
+        let b = delta.get("B").expect("B is new this command (baseline 0)");
+        assert_eq!((b.count, b.fetch_us, b.deser_us, b.bytes), (3, 30, 60, 300));
+        assert!(
+            !delta.contains_key("C"),
+            "a key type with no new page-ins is omitted"
+        );
     }
 }

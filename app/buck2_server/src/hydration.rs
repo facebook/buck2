@@ -75,9 +75,9 @@ impl ServerCommandTemplate for HydrationServerCommand {
                         buck2_error::ErrorTag::Environment,
                     )
                 })?;
-                // waiting for metrics clears the dice state queue, ensures evictions
-                // have processed before purging
-                let _ = self.dice.metrics();
+                // metrics() blocks on the core-state thread, draining its FIFO
+                // queue, so the page-out evictions are processed before we purge.
+                drop(self.dice.metrics());
                 memory::purge_jemalloc()?;
                 Ok(buck2_cli_proto::HydrationResponse::default())
             }

@@ -104,7 +104,12 @@ impl Dice {
     }
 
     pub fn metrics(&self) -> Metrics {
-        self.state_handle.metrics()
+        let mut metrics = self.state_handle.metrics();
+        // Page-in counters live on the storage, not the core state.
+        if let Some(storage) = &self.pagable_storage {
+            metrics.page_in = storage.page_in_metrics_snapshot();
+        }
+        metrics
     }
 
     /// Current depth of the request queue feeding the dice core-state thread.

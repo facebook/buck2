@@ -446,6 +446,22 @@ message DiceKeyState {
   uint32 compute_finished = 6;
 }
 
+// Page-in counters for one DICE key type (a paged-out value read back in).
+// Cumulative in Snapshot; a per-command delta in InvocationRecord.
+message DicePageInKeyTypeStats {
+  uint64 count = 1;
+  // Microseconds fetching the top-level serialized blob. Nested PagableArc
+  // sub-values are fetched lazily during deserialize, so their I/O is in
+  // deser_us, not here.
+  uint64 fetch_us = 2;
+  // Microseconds deserializing, including the lazy fetch of nested PagableArc
+  // sub-values; dominates for arc-heavy values.
+  uint64 deser_us = 3;
+  // Top-level blob bytes only; excludes nested PagableArc sub-values, so
+  // near-zero for arc-heavy values.
+  uint64 bytes = 4;
+}
+
 message RemoteExecutionSessionCreated {
   string session_id = 1;
   string experiment_name = 2;
@@ -1015,6 +1031,11 @@ message Snapshot {
   // the number of keys actively present in the per transaction cache
   uint64 dice_currently_active_key_count = 102;
   uint32 dice_active_transaction_count = 103;
+
+  // DICE page-in counters per key type, cumulative since daemon start. The
+  // client recorder diffs first vs last snapshot for a per-command delta and
+  // sums across types for the aggregate.
+  map<string, DicePageInKeyTypeStats> dice_page_in_by_key_type = 120;
 
   uint64 deferred_materializer_queue_size = 104;
 
@@ -2939,6 +2960,16 @@ message InvocationRecord {
 
   // Agent context entries passed via --agent-context.
   repeated AgentContextEntry agent_context = 437;
+
+  // DICE page-in overhead for this invocation, computed as the delta between
+  // the first and last snapshot of the command.
+  optional uint64 page_in_count = 438;
+  optional uint64 page_in_fetch_us = 439;
+  optional uint64 page_in_deser_us = 440;
+  optional uint64 page_in_bytes = 441;
+  // Per-DICE-key-type page-in breakdown for this invocation. Key types with no
+  // page-ins during the command are omitted.
+  map<string, DicePageInKeyTypeStats> page_in_by_key_type = 442;
 }
 
 enum InvocationOutcome {

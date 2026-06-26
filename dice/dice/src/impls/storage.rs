@@ -19,6 +19,7 @@
 
 use std::path::Path;
 use std::sync::Arc;
+use std::time::Instant;
 
 use allocative::Allocative;
 use dashmap::DashMap;
@@ -34,11 +35,13 @@ use pagable::storage::traits::PageOutError;
 use pagable_storage::storage::sled::SledBackedPagableStorage;
 use pagable_storage::storage::sqlite::SqliteBackedPagableStorage;
 
+use crate::HashMap;
 use crate::impls::core::state::CoreStateHandle;
 use crate::impls::key::DiceKey;
 use crate::impls::key::DiceKeyErased;
 use crate::impls::key_index::DiceKeyIndex;
 use crate::impls::value::DiceValidValue;
+use crate::metrics::PageInKeyTypeMetrics;
 
 /// Pagable storage backing for DICE node values.
 ///
@@ -47,12 +50,25 @@ use crate::impls::value::DiceValidValue;
 pub struct DiceStorage {
     #[allocative(skip)]
     storage: Arc<dyn PagableStorage>,
+    // `Arc` so the per-worker `dupe()`s in bulk `page_in` share one counter set
+    // instead of each cloning a separate map.
+    #[allocative(skip)]
+    page_in_metrics: Arc<PageInMetrics>,
 }
 
 impl DiceStorage {
     /// Construct a `DiceStorage` from any [`PagableStorage`] backend.
     pub fn new(storage: Arc<dyn PagableStorage>) -> Self {
-        Self { storage }
+        Self {
+            storage,
+            page_in_metrics: Arc::new(PageInMetrics::default()),
+        }
+    }
+
+    /// Cumulative page-in counters per key type since this `DiceStorage` was
+    /// created.
+    pub(crate) fn page_in_metrics_snapshot(&self) -> HashMap<&'static str, PageInKeyTypeMetrics> {
+        self.page_in_metrics.snapshot()
     }
 
     /// Open (or create) a `DiceStorage` rooted at the given directory.
@@ -235,7 +251,14 @@ impl DiceStorage {
         key_dyn: &DiceKeyErased,
         data_key: DataKey,
     ) -> anyhow::Result<DiceValidValue> {
+        let fetch_start = Instant::now();
         let data = self.storage.fetch_data(&data_key).await?;
+        let fetch_us = fetch_start.elapsed().as_micros() as u64;
+        let bytes = data.data.len() as u64;
+
+        // pagable_deserialize_value lazily fetches nested `PagableArc` sub-values,
+        // so deser_us also covers that nested I/O, not just CPU.
+        let deser_start = Instant::now();
         let handle = PagableStorageHandle::new(self.storage.dupe());
         let mut deserializer = PagableDeserializerImpl::new(&data.data, &data.arcs, &handle);
         let arc = match key_dyn {
@@ -244,7 +267,37 @@ impl DiceStorage {
                 p.proj().pagable_deserialize_value(&mut deserializer)?
             }
         };
+        let deser_us = deser_start.elapsed().as_micros() as u64;
+
+        self.page_in_metrics
+            .record(key_dyn.key_type_name(), fetch_us, deser_us, bytes);
+
         Ok(DiceValidValue::from_arc(arc))
+    }
+}
+
+/// Cumulative page-in counters for a `DiceStorage`, broken down by key type.
+#[derive(Default)]
+struct PageInMetrics {
+    // DashMap keyed by `&'static str`: bulk `page_in` records from parallel
+    // workers (no global lock), and static keys avoid per-record allocation.
+    by_key_type: DashMap<&'static str, PageInKeyTypeMetrics>,
+}
+
+impl PageInMetrics {
+    fn record(&self, key_type: &'static str, fetch_us: u64, deser_us: u64, bytes: u64) {
+        let mut entry = self.by_key_type.entry(key_type).or_default();
+        entry.count += 1;
+        entry.fetch_us += fetch_us;
+        entry.deser_us += deser_us;
+        entry.bytes += bytes;
+    }
+
+    fn snapshot(&self) -> HashMap<&'static str, PageInKeyTypeMetrics> {
+        self.by_key_type
+            .iter()
+            .map(|entry| (*entry.key(), *entry.value()))
+            .collect()
     }
 }
 
@@ -258,4 +311,25 @@ fn env_concurrency(var: &str) -> usize {
                 .map(|n| n.get())
                 .unwrap_or(1)
         })
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::impls::storage::PageInMetrics;
+
+    #[test]
+    fn page_in_metrics_breakdown() {
+        let metrics = PageInMetrics::default();
+        metrics.record("A", 10, 20, 100);
+        metrics.record("A", 5, 5, 50);
+        metrics.record("B", 1, 2, 3);
+
+        // Snapshot is per-key-type only; "A"'s two records collapse into one
+        // entry, and summing across types is the caller's job.
+        let snap = metrics.snapshot();
+        let a = snap.get("A").expect("A was recorded");
+        assert_eq!((a.count, a.fetch_us, a.deser_us, a.bytes), (2, 15, 25, 150));
+        let b = snap.get("B").expect("B was recorded");
+        assert_eq!((b.count, b.fetch_us, b.deser_us, b.bytes), (1, 1, 2, 3));
+    }
 }
