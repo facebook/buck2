@@ -158,6 +158,26 @@ def _generate_error_handler(
 
     return handler
 
+# Resolves whether a genrule's outputs should use content-based paths. When
+# `has_content_based_path` is left unset, outputs consisting solely of headers
+# default to content-based paths.
+def _is_content_based(content_based: [bool, None], out_attr: [str, None], outs_attr: [dict, None]) -> bool:
+    # An explicit setting always wins; avoid scanning outputs.
+    if content_based != None:
+        return content_based
+
+    if out_attr != None:
+        return out_attr.endswith(".h")
+
+    if outs_attr == None:
+        return False
+
+    for paths in outs_attr.values():
+        for path in paths:
+            if not path.endswith(".h"):
+                return False
+    return True
+
 def process_genrule(
     ctx: AnalysisContext,
     out_attr: [str, None],
@@ -180,10 +200,11 @@ def process_genrule(
 
     executable_outs = getattr(ctx.attrs, "executable_outs", None)
 
-    content_based = getattr(ctx.attrs, "has_content_based_path", None)
-    if content_based == None:
-        # When unset, a single header output defaults to a content-based path.
-        content_based = out_attr != None and out_attr.endswith(".h")
+    content_based = _is_content_based(
+        getattr(ctx.attrs, "has_content_based_path", None),
+        out_attr,
+        outs_attr,
+    )
 
     # `out_dir_artifact`: The base artifact into which all the outputs go
     # `out_env`: The path we put into `$OUT`
