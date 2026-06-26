@@ -22,7 +22,6 @@ load(
 load(
     "@prelude//cxx:cxx_toolchain_types.bzl",
     "CxxToolchainInfo",
-    "LinkerInfo",  # @unused Used as a type
     "LinkerType",
 )
 load(
@@ -182,17 +181,11 @@ def cxx_link_into(
     linker_info = cxx_toolchain_info.linker_info
     is_incremental_link = opts.incremental_link
 
-    # For dedupe to work, this should match the content-basedness of the main output
-    # declared in _cxx_link() so that all of this action's outputs are content-based
-    # together; otherwise, some outputs won't be content-based, which makes dedupe
-    # impossible.
-    content_based = link_output_uses_content_based_path(result_type, opts, linker_info)
-
     dwp_tool_available = dwp_available(cxx_toolchain_info)
     is_result_executable = result_type.value == "executable"
 
     if linker_info.generate_linker_maps and linker_supports_linker_maps(linker_info.type):
-        linker_map = ctx.actions.declare_output(output.short_path + "-LinkMap.txt", has_content_based_path = content_based)
+        linker_map = ctx.actions.declare_output(output.short_path + "-LinkMap.txt", has_content_based_path = False)
         linker_map_data = CxxLinkerMapData(
             map = linker_map,
             binary = output,
@@ -202,7 +195,7 @@ def cxx_link_into(
         linker_map_data = None
 
     if linker_info.generate_gc_sections and linker_info.type == LinkerType("gnu"):
-        gc_sections_output = ctx.actions.declare_output(output.short_path + "-gc-sections.json", has_content_based_path = content_based)
+        gc_sections_output = ctx.actions.declare_output(output.short_path + "-gc-sections.json", has_content_based_path = False)
         gc_sections_data = CxxGcSectionsData(
             gc_sections = gc_sections_output,
             binary = output,
@@ -212,7 +205,7 @@ def cxx_link_into(
         gc_sections_data = None
 
     shared_library_interface = (
-        ctx.actions.declare_output(output.short_path + ".tbd", has_content_based_path = content_based) if opts.produce_shared_library_interface else None
+        ctx.actions.declare_output(output.short_path + ".tbd", has_content_based_path = False) if opts.produce_shared_library_interface else None
     )
 
     if is_incremental_link:
@@ -315,7 +308,6 @@ def cxx_link_into(
             links_with_extra_args,
             output_short_path = output.short_path,
             link_ordering = opts.link_ordering,
-            has_content_based_path = content_based,
         )
         all_link_args.add(link_args_output.link_args)
 
@@ -410,7 +402,7 @@ def cxx_link_into(
             output.short_path + ".split_debug_paths",
             project_artifacts(ctx.actions, links_to_rewrite),
             allow_args = True,
-            has_content_based_path = content_based,
+            has_content_based_path = False,
         )
         separate_debug_info_args = cmd_args(
             "--rewrite-content-based-dwo-paths",
@@ -519,7 +511,7 @@ def cxx_link_into(
     if hip_debug_extract_available(cxx_toolchain_info) and output.short_path.endswith(PRE_EXTRACT_SUFFIX):
         renamed = ctx.actions.declare_output(
             output.short_path.removesuffix(PRE_EXTRACT_SUFFIX),
-            has_content_based_path = content_based,
+            has_content_based_path = False,
         )
         ctx.actions.copy_file(renamed.as_output(), output)
         output = renamed
@@ -629,13 +621,7 @@ def _anon_cxx_link(ctx: AnalysisContext, output: str, result_type: CxxLinkResult
     if generates_split_debug(cxx_toolchain):
         split_debug_output = anon_link_target.artifact("split_debug_output")
 
-    output_promise = anon_link_target.artifact("output")
-    if link_output_uses_content_based_path(result_type, opts, cxx_toolchain.linker_info):
-        # The anon rule declares this output with a content-based path (see
-        # link_output_uses_content_based_path); promise artifacts must be told
-        # so explicitly when they resolve to a content-based artifact.
-        output_promise = ctx.actions.assert_has_content_based_path(output_promise)
-    output = ctx.actions.assert_short_path(output_promise, short_path = output)
+    output = ctx.actions.assert_short_path(anon_link_target.artifact("output"), short_path = output)
 
     external_debug_info = link_external_debug_info(
         ctx = ctx,
@@ -663,32 +649,6 @@ def _anon_cxx_link(ctx: AnalysisContext, output: str, result_type: CxxLinkResult
         shared_library_interface = None,
     )
 
-def link_output_uses_content_based_path(result_type: CxxLinkResultType, opts: LinkOptions, linker_info: LinkerInfo) -> bool:
-    # Shared-library link actions only. These link against symbol-table interface
-    # stubs rather than dependency implementations, so their inputs are
-    # content-addressable and the action can become eligible for
-    # cross-configuration / RE dedupe.
-    #
-    # Excluded:
-    # - Executables: making executable outputs content-based moves where
-    #   generator/compiler tools materialize, which breaks fbcode thrift cpp2
-    #   codegen (its per-file genrules `cp` from hardcoded relative paths to
-    #   those outputs).
-    # - Any LTO (local fat/monolithic/thin and distributed ThinLTO, which
-    #   requires thin): the (dist-)LTO link paths thread their own output-path
-    #   plumbing that does not compose with content-based paths.
-    # - Incremental links: they rely on no_outputs_cleanup / .ilk reuse.
-    # - Windows: content-based paths are untested there, and the import library
-    #   (.imp.lib) declared in get_import_library is non-content-based, which
-    #   would split this action's outputs and defeat dedupe.
-    # Static archiving (cxx_archive) is a separate action and is also excluded.
-    return (
-        result_type.value == "shared_library"
-        and not opts.incremental_link
-        and linker_info.lto_mode == LtoMode("none")
-        and linker_info.type != LinkerType("windows")
-    )
-
 def _cxx_link(ctx: AnalysisContext, output: str, result_type: CxxLinkResultType, opts: LinkOptions, anonymous: bool = False):
     if anonymous:
         return _anon_cxx_link(
@@ -697,11 +657,9 @@ def _cxx_link(ctx: AnalysisContext, output: str, result_type: CxxLinkResultType,
             result_type = result_type,
             opts = opts,
         )
-    cxx_toolchain_info = opts.cxx_toolchain or get_cxx_toolchain_info(ctx)
-    content_based = link_output_uses_content_based_path(result_type, opts, cxx_toolchain_info.linker_info)
     return cxx_link_into(
         ctx = ctx,
-        output = ctx.actions.declare_output(output, has_content_based_path = content_based),
+        output = ctx.actions.declare_output(output, has_content_based_path = False),
         result_type = result_type,
         opts = opts,
     )
