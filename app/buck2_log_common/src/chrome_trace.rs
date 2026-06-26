@@ -94,6 +94,7 @@ use futures::stream::BoxStream;
 use serde::Serialize;
 use serde_json::json;
 
+/// Generates a Chrome trace from a buck2 event log.
 #[derive(Debug, clap::Parser)]
 pub struct ChromeTraceCommand {
     #[clap(flatten)]

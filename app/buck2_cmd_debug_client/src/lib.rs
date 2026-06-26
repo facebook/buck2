@@ -14,10 +14,10 @@ use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
+use buck2_log_common::chrome_trace::ChromeTraceCommand;
 
 use crate::allocative::AllocativeCommand;
 use crate::allocator_stats::AllocatorStatsCommand;
-use crate::chrome_trace::ChromeTraceCommand;
 use crate::crash::CrashCommand;
 use crate::daemon_dir::DaemonDirCommand;
 use crate::dice_dump::DiceDumpCommand;
@@ -40,7 +40,6 @@ use crate::upload_re_logs::UploadReLogsCommand;
 
 mod allocative;
 mod allocator_stats;
-mod chrome_trace;
 mod crash;
 mod daemon_dir;
 mod dice_dump;
