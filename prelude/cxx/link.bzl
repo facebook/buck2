@@ -678,8 +678,16 @@ def link_output_uses_content_based_path(result_type: CxxLinkResultType, opts: Li
     #   requires thin): the (dist-)LTO link paths thread their own output-path
     #   plumbing that does not compose with content-based paths.
     # - Incremental links: they rely on no_outputs_cleanup / .ilk reuse.
+    # - Windows: content-based paths are untested there, and the import library
+    #   (.imp.lib) declared in get_import_library is non-content-based, which
+    #   would split this action's outputs and defeat dedupe.
     # Static archiving (cxx_archive) is a separate action and is also excluded.
-    return result_type.value == "shared_library" and not opts.incremental_link and linker_info.lto_mode == LtoMode("none")
+    return (
+        result_type.value == "shared_library"
+        and not opts.incremental_link
+        and linker_info.lto_mode == LtoMode("none")
+        and linker_info.type != LinkerType("windows")
+    )
 
 def _cxx_link(ctx: AnalysisContext, output: str, result_type: CxxLinkResultType, opts: LinkOptions, anonymous: bool = False):
     if anonymous:
