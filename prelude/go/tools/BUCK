@@ -40,6 +40,17 @@ prelude.go_bootstrap_binary(
 )
 
 prelude.go_bootstrap_binary(
+    name = "list_tests",
+    srcs = ["list_tests.go"],
+    build_args = [
+        "list_tests.go",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+)
+
+prelude.go_bootstrap_binary(
     name = "pkg_analyzer",
     srcs = ["pkg_analyzer.go"],
     build_args = [
