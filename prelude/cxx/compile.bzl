@@ -1236,6 +1236,11 @@ def _convert_raw_header(target_label: Label, raw_header: Artifact, include_dirs:
         named = False,
     )
 
+def _get_raw_header_include_dirs(preprocessors: list[CPreprocessor]) -> list[CellPath]:
+    return flatten([x.include_dirs for x in preprocessors]) + flatten(
+        [x.system_include_dirs.include_dirs for x in preprocessors if x.system_include_dirs != None]
+    )
+
 def _create_precompile_cmd(
     actions: AnalysisActions,
     target_label: Label,
@@ -1246,7 +1251,7 @@ def _create_precompile_cmd(
     extra_preprocessors: list[CPreprocessor],
     cmd: CxxCompileCommand,
 ) -> CxxSrcPrecompileCommand:
-    include_dirs = flatten([x.include_dirs for x in preprocessors])
+    include_dirs = _get_raw_header_include_dirs(preprocessors)
     converted_headers = [_convert_raw_header(target_label, raw_header, include_dirs) for raw_header in flatten([x.raw_headers for x in preprocessors])]
     header_group_regex = regex(header_group, fancy = False) if header_group else None
 
