@@ -17,6 +17,7 @@ use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
+use buck2_log_common::chrome_trace::ChromeTraceCommand;
 use dupe::Dupe;
 
 mod critical_path;
@@ -133,6 +134,7 @@ pub enum LogCommand {
     #[clap(subcommand)]
     Diff(diff::DiffCommand),
     ExternalConfigs(external_configs::ExternalConfigsCommand),
+    ChromeTrace(ChromeTraceCommand),
     #[clap(subcommand, hide = true)]
     Shed(shed::ShedCommand),
 }
@@ -160,6 +162,7 @@ impl LogCommand {
             Self::Summary(cmd) => ctx.exec(cmd, matches, events_ctx),
             Self::Diff(cmd) => cmd.exec(matches, ctx, events_ctx),
             Self::ExternalConfigs(cmd) => ctx.exec(cmd, matches, events_ctx),
+            Self::ChromeTrace(cmd) => ctx.exec(cmd, matches, events_ctx),
             Self::Shed(cmd) => cmd.exec(matches, ctx, events_ctx),
         }
     }
@@ -185,6 +188,7 @@ impl LogCommand {
             Self::Summary(cmd) => cmd.logging_name(),
             Self::Diff(_) => "log-diff",
             Self::ExternalConfigs(cmd) => cmd.logging_name(),
+            Self::ChromeTrace(cmd) => cmd.logging_name(),
             Self::Shed(_) => "log-shed",
         }
     }
