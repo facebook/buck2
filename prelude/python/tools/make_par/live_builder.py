@@ -10,7 +10,6 @@
 
 import os
 import shutil
-import sys
 
 from par_builder import ParBuilder
 from util import (
