@@ -180,7 +180,10 @@ def process_genrule(
 
     executable_outs = getattr(ctx.attrs, "executable_outs", None)
 
-    content_based = getattr(ctx.attrs, "has_content_based_path", False)
+    content_based = getattr(ctx.attrs, "has_content_based_path", None)
+    if content_based == None:
+        # When unset, a single header output defaults to a content-based path.
+        content_based = out_attr != None and out_attr.endswith(".h")
 
     # `out_dir_artifact`: The base artifact into which all the outputs go
     # `out_env`: The path we put into `$OUT`

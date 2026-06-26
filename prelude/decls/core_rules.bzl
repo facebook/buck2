@@ -37,6 +37,19 @@ def _has_content_based_path_attr():
         ),
     }
 
+def _optional_has_content_based_path_attr():
+    return {
+        "has_content_based_path": attrs.option(
+            attrs.bool(),
+            default = select({
+                "DEFAULT": None,
+                # @oss-disable[end= ]: "config//os/constraints:android": True,
+                # @oss-disable[end= ]: "config//runtime/constraints:android-host-test": True,
+                # @oss-disable[end= ]: "config//runtime/constraints:android-unit-test": True,
+            }),
+        ),
+    }
+
 alias = prelude_rule(
     name = "alias",
     docs = "",
@@ -856,7 +869,7 @@ genrule = prelude_rule(
             """,
             ),
         }
-        | _has_content_based_path_attr()
+        | _optional_has_content_based_path_attr()
         | genrule_common.env_arg()
         | genrule_common.environment_expansion_separator()
         | {
@@ -1675,6 +1688,7 @@ zip_file = prelude_rule(
 
 core_args = struct(
     has_content_based_path_attr = _has_content_based_path_attr,
+    optional_has_content_based_path_attr = _optional_has_content_based_path_attr,
 )
 
 core_rules = struct(

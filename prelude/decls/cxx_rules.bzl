@@ -387,7 +387,7 @@ cxx_genrule = prelude_rule(
         | buck.licenses_arg()
         | buck.labels_arg()
         | buck.contacts_arg()
-        | core_args.has_content_based_path_attr()
+        | core_args.optional_has_content_based_path_attr()
     ),
 )
 
