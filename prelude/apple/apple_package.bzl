@@ -43,7 +43,9 @@ def apple_package_impl(ctx: AnalysisContext) -> list[Provider]:
         )
         category = "apple_package_make"
 
-    sub_targets = {}
+    sub_targets = {
+        "bundle": ctx.attrs.bundle.providers,
+    }
 
     prepackaged_validators_artifacts = _get_prepackaged_validators_outputs(ctx, contents)
     if prepackaged_validators_artifacts:
