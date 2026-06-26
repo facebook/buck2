@@ -20,6 +20,7 @@ load(
 GraphQLiOSInfo = record(
     header_path_prefix = str | None,
     force_export_fragment_headers = bool,
+    use_implicit_codegen = bool,
 )
 
 GraphQLAndroidInfo = record(
@@ -27,6 +28,7 @@ GraphQLAndroidInfo = record(
     allow_type_models = bool,
     composition_mode = str | None,
     enable_associated_library = bool,
+    use_implicit_codegen = bool,
 )
 
 GraphQLCxxInfo = record()
