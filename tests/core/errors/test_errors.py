@@ -12,7 +12,7 @@ import re
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
-from buck2.tests.e2e_util.helper.golden import golden
+from buck2.tests.e2e_util.helper.golden import golden, strip_glog_lines
 
 
 @buck_test()
@@ -72,7 +72,10 @@ async def test_package_listing_errors(buck: Buck) -> None:
         )
         outs.append(stripped_stderr)
 
-    golden(output="\n\n\n".join(outs), rel_path="package_listing/expected.golden.out")
+    golden(
+        output=strip_glog_lines("\n\n\n".join(outs)),
+        rel_path="package_listing/expected.golden.out",
+    )
 
 
 @buck_test(

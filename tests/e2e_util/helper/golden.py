@@ -169,7 +169,25 @@ def sanitize_hashes(s: str) -> str:
     return re.sub(r"\b[0-9a-f]{40}:[0-9]{1,3}\b", "<DIGEST>", s)
 
 
+# C++ libraries linked into buck2 (and the tools it spawns) can emit glog-format
+# lines such as `I0623 15:40:41.926481 128942 Hash.cpp:327] tiHash seed: ...ull`
+# to stderr during process init. Their timestamps, PIDs, and source locations
+# vary between runs, so they leak non-deterministically into captured stderr and
+# must be dropped before comparing against goldens. The marker may be indented
+# (e.g. when nested inside an embedded daemon stderr block), so we match it
+# anywhere in the line.
+_GLOG_LINE_RE = re.compile(r".*[WIEF]\d{4} \d{2}:\d{2}:\d{2}\.\d{6}.*\n?")
+
+
+def strip_glog_lines(s: str) -> str:
+    # Drops whole matching lines (leading indentation and trailing newline
+    # included) while leaving every other newline intact, so callers' trailing
+    # and blank-line structure is preserved.
+    return _GLOG_LINE_RE.sub("", s)
+
+
 def sanitize_stderr(s: str) -> str:
+    s = strip_glog_lines(s)
     # Remove all timestamps
     s = re.sub(r"\[.{29}\]", "[<TIMESTAMP>]", s)
     # Remove all UUIDs
