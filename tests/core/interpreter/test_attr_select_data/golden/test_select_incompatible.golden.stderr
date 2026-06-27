@@ -70,7 +70,7 @@ error_rule(
 )
 
 $ buck uquery root//:incompat_foo2 --console=none -v0 --output-format=starlark -c user.check_bad_coercion_incompatible=1
-Command failed:
+Command failed: 
 Error evaluating expression:
     root//:incompat_foo2
     ^------------------^
@@ -90,7 +90,7 @@ Caused by:
        Traceback (most recent call last):
          * TARGETS.fixture:78, in <module>
              error_rule(
-
+       
     2: Error coercing attribute `data` of type `attrs.string()`
     3: Error coercing "bad use"
     4: Expected `str`, but got `SelectIncompatible (repr: "bad use")`
@@ -99,7 +99,7 @@ $ buck cquery root//:depends_on_incompat -v0 --target-platforms=//:platform1
 root//:depends_on_incompat (root//:platform1#<HASH>)
 
 $ buck cquery root//:depends_on_incompat --console=none -v0 --target-platforms=//:platform2
-Command failed:
+Command failed: 
 Upgraded warning to failure via $BUCK2_HARD_ERROR
 
 Caused by:

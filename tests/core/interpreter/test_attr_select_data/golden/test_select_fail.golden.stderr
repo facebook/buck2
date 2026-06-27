@@ -4,7 +4,7 @@ $ buck cquery root//:foo -v0 --target-platforms=//:platform1
 root//:foo (root//:platform1#<HASH>)
 
 $ buck cquery root//:foo --console=none -v0 --target-platforms=//:platform2
-Command failed:
+Command failed: 
 Error looking up configured node root//:foo (root//:platform2#<HASH>)
 
 Caused by:
@@ -12,7 +12,7 @@ Caused by:
     1: select resolved to select_fail(): fail message
 
 $ buck cquery root//:foo --console=none -v0 --target-platforms=//:platform3
-Command failed:
+Command failed: 
 Error looking up configured node root//:foo (root//:platform3#<HASH>)
 
 Caused by:
@@ -75,7 +75,7 @@ error_rule(
 )
 
 $ buck uquery root//:foo2 --console=none -v0 --output-format=starlark -c user.check_bad_coercion=1
-Command failed:
+Command failed: 
 Error evaluating expression:
     root//:foo2
     ^---------^
@@ -95,7 +95,7 @@ Caused by:
        Traceback (most recent call last):
          * TARGETS.fixture:50, in <module>
              error_rule(
-
+       
     2: Error coercing attribute `data` of type `attrs.string()`
     3: Error coercing "bad use"
     4: Expected `str`, but got `SelectFail (repr: "bad use")`
