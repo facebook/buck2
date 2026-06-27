@@ -1988,6 +1988,11 @@ def _mk_argsfiles(
             # The precompile_args field overrides these.
             return
 
+        if compiler_info.compiler_type in ("nasm", "windows_ml64"):
+            # NASM/MASM don't understand -ffile-prefix-map. .s/.sx/.S go through the gcc/clang
+            # driver (as_compiler_info) and do accept these flags.
+            return
+
         # Put file_prefix_args in argsfile, make sure they do not appear when evaluating $(cxxppflags)
         # to avoid "argument too long" errors
         file_prefix_args = headers_tag.tag_artifacts(preprocessor.set.project_as_args("file_prefix_args"))
