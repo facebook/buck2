@@ -15,6 +15,20 @@ load("@prelude//java:class_to_srcs.bzl", "JavaClassToSourceMapInfo")
 load("@prelude//java:java_providers.bzl", "KeystoreInfo")
 load("@prelude//utils:expect.bzl", "expect")
 
+# Native-library debug sub-targets that the wrapped android_apk/android_aab only
+# exposes in some configurations (e.g. relinker or native merging enabled).
+# Forward whichever happen to be present so they stay reachable through the
+# apk_genrule wrapper.
+_OPTIONAL_NATIVE_LIB_SUBTARGETS = [
+    "native_merge_debug",
+    "relinked_libs",
+    "relinked_libs_manifest",
+    "unrelinked_libs",
+]
+
+def _forward_optional_native_lib_subtargets(input_subtargets: dict) -> dict:
+    return {name: [input_subtargets[name][DefaultInfo]] for name in _OPTIONAL_NATIVE_LIB_SUBTARGETS if name in input_subtargets}
+
 def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
     expect((ctx.attrs.apk == None) != (ctx.attrs.aab == None), "Exactly one of 'apk' and 'aab' must be specified")
 
@@ -118,27 +132,7 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
                         "unstripped_native_libraries_files": [input_android_aab_subtargets["unstripped_native_libraries_files"][DefaultInfo]],
                         "unstripped_native_libraries_json": [input_android_aab_subtargets["unstripped_native_libraries_json"][DefaultInfo]],
                     }
-                    | (
-                        {
-                            "native_merge_debug": [input_android_aab_subtargets["native_merge_debug"][DefaultInfo]],
-                        }
-                        if "native_merge_debug" in input_android_aab_subtargets
-                        else {}
-                    )
-                    | (
-                        {
-                            "relinked_libs": [input_android_aab_subtargets["relinked_libs"][DefaultInfo]],
-                        }
-                        if "relinked_libs" in input_android_aab_subtargets
-                        else {}
-                    )
-                    | (
-                        {
-                            "relinked_libs_manifest": [input_android_aab_subtargets["relinked_libs_manifest"][DefaultInfo]],
-                        }
-                        if "relinked_libs_manifest" in input_android_aab_subtargets
-                        else {}
-                    ),
+                    | _forward_optional_native_lib_subtargets(input_android_aab_subtargets),
                 ),
                 AndroidDerivedApkInfo(
                     apk = output_apk,
@@ -155,27 +149,7 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
                     "unstripped_native_libraries_files": [input_android_aab_subtargets["unstripped_native_libraries_files"][DefaultInfo]],
                     "unstripped_native_libraries_json": [input_android_aab_subtargets["unstripped_native_libraries_json"][DefaultInfo]],
                 }
-                | (
-                    {
-                        "native_merge_debug": [input_android_aab_subtargets["native_merge_debug"][DefaultInfo]],
-                    }
-                    if "native_merge_debug" in input_android_aab_subtargets
-                    else {}
-                )
-                | (
-                    {
-                        "relinked_libs": [input_android_aab_subtargets["relinked_libs"][DefaultInfo]],
-                    }
-                    if "relinked_libs" in input_android_aab_subtargets
-                    else {}
-                )
-                | (
-                    {
-                        "relinked_libs_manifest": [input_android_aab_subtargets["relinked_libs_manifest"][DefaultInfo]],
-                    }
-                    if "relinked_libs_manifest" in input_android_aab_subtargets
-                    else {}
-                )
+                | _forward_optional_native_lib_subtargets(input_android_aab_subtargets)
             )
             default_providers = [
                 DefaultInfo(
@@ -199,27 +173,7 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
                 "unstripped_native_libraries_files": [input_android_apk_subtargets["unstripped_native_libraries_files"][DefaultInfo]],
                 "unstripped_native_libraries_json": [input_android_apk_subtargets["unstripped_native_libraries_json"][DefaultInfo]],
             }
-            | (
-                {
-                    "native_merge_debug": [input_android_apk_subtargets["native_merge_debug"][DefaultInfo]],
-                }
-                if "native_merge_debug" in input_android_apk_subtargets
-                else {}
-            )
-            | (
-                {
-                    "relinked_libs": [input_android_apk_subtargets["relinked_libs"][DefaultInfo]],
-                }
-                if "relinked_libs" in input_android_apk_subtargets
-                else {}
-            )
-            | (
-                {
-                    "relinked_libs_manifest": [input_android_apk_subtargets["relinked_libs_manifest"][DefaultInfo]],
-                }
-                if "relinked_libs_manifest" in input_android_apk_subtargets
-                else {}
-            )
+            | _forward_optional_native_lib_subtargets(input_android_apk_subtargets)
         )
         expect(
             len(filter(lambda x: isinstance(x, TemplatePlaceholderInfo), genrule_providers)) == 0,

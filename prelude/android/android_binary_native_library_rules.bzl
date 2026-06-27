@@ -242,6 +242,15 @@ def get_android_binary_native_library_info(
         dynamic_outputs.append(relinked_libs_output)
         dynamic_outputs.append(relinked_libs_manifest)
 
+    # Aggregate of every native library before the relinker's dead-code-stripping
+    # pass, exposed as the [unrelinked_libs] sub-target (the pre-relink counterpart
+    # of [relinked_libs]). Only the relinker produces an unrelinked vs relinked
+    # distinction, so this only exists when relinking is enabled.
+    unrelinked_libs_output = None
+    if enable_relinker:
+        unrelinked_libs_output = ctx.actions.declare_output("unrelinked_libs", dir = True)
+        dynamic_outputs.append(unrelinked_libs_output)
+
     lib_outputs_by_platform = _declare_library_subtargets(
         ctx, dynamic_outputs, original_shared_libs_by_platform, native_library_merge_map, native_library_merge_sequence, enable_relinker
     )
@@ -424,6 +433,13 @@ def get_android_binary_native_library_info(
                 native_merge_debug,
                 unrelinked = True,
             )
+            _write_native_libs_dir_and_manifest(
+                ctx,
+                unrelinked_shared_libs_by_platform,
+                outputs[unrelinked_libs_output],
+                None,
+                stripped = False,
+            )
 
         if defer_relink:
             # Run relinking as separate actions that can execute in parallel with other build steps.
@@ -432,22 +448,15 @@ def get_android_binary_native_library_info(
             # the combine script knows exactly which libraries to replace without guessing.
             relinked_libs_by_platform = relink_libraries(ctx, final_shared_libs_by_platform)
 
-            def write_relinked_libs_outputs(ctx, libs_by_platform, out_dir, out_manifest):
-                relinked_lib_files = {}
-                for platform, libs in libs_by_platform.items():
-                    abi_directory = CPU_FILTER_TO_ABI_DIRECTORY[platform]
-                    for soname, shlib in libs.items():
-                        relinked_lib_files["{}/{}".format(abi_directory, soname)] = shlib.stripped_lib or shlib.lib.output
-                ctx.actions.symlinked_dir(out_dir, relinked_lib_files)
-                ctx.actions.write_json(out_manifest, sorted(relinked_lib_files.keys()))
-
             if False: # @oss-enable
             # @oss-disable[end= ]: if is_late_gatorade_enabled(ctx):
                 # Run Gatorade cross-library optimization + codegen + re-link on
                 # the deferred relinked libs. The callback writes the final
                 # Gatorade-processed libs to the relinked_libs_output artifacts.
                 def deferred_gatorade_output(ctx, gatorade_libs_by_platform, dyn_outputs):
-                    write_relinked_libs_outputs(ctx, gatorade_libs_by_platform, dyn_outputs[relinked_libs_output], dyn_outputs[relinked_libs_manifest])
+                    _write_native_libs_dir_and_manifest(
+                        ctx, gatorade_libs_by_platform, dyn_outputs[relinked_libs_output], dyn_outputs[relinked_libs_manifest], stripped = True
+                    )
 
                 # @oss-disable[end= ]: gatorade_deferred_libs(
                     # @oss-disable[end= ]: ctx,
@@ -456,7 +465,9 @@ def get_android_binary_native_library_info(
                     # @oss-disable[end= ]: [outputs[relinked_libs_output], outputs[relinked_libs_manifest]],
                 # @oss-disable[end= ]: )
             else:
-                write_relinked_libs_outputs(ctx, relinked_libs_by_platform, outputs[relinked_libs_output], outputs[relinked_libs_manifest])
+                _write_native_libs_dir_and_manifest(
+                    ctx, relinked_libs_by_platform, outputs[relinked_libs_output], outputs[relinked_libs_manifest], stripped = True
+                )
 
             # Bind unrelinked subtarget outputs (same as final since we skipped inline relinking)
             _link_library_subtargets(
@@ -469,6 +480,13 @@ def get_android_binary_native_library_info(
                 split_groups,
                 native_merge_debug,
                 unrelinked = True,
+            )
+            _write_native_libs_dir_and_manifest(
+                ctx,
+                final_shared_libs_by_platform,
+                outputs[unrelinked_libs_output],
+                None,
+                stripped = False,
             )
 
         if ctx.attrs._android_toolchain[AndroidToolchainInfo].cross_module_native_deps_check:
@@ -591,6 +609,8 @@ def get_android_binary_native_library_info(
         enhance_ctx.debug_output("relinked_libs", relinked_libs_output)
     if relinked_libs_manifest:
         enhance_ctx.debug_output("relinked_libs_manifest", relinked_libs_manifest)
+    if unrelinked_libs_output:
+        enhance_ctx.debug_output("unrelinked_libs", unrelinked_libs_output)
 
     native_libs_for_primary_apk, exopackage_info = _get_exopackage_info(ctx, native_libs_always_in_primary_apk, native_libs, native_libs_metadata)
     return AndroidBinaryNativeLibsInfo(
@@ -610,6 +630,25 @@ _NativeLibSubtargetArtifacts = record(
     linker_command = Artifact | None,
     linker_argsfile = Artifact | None,
 )
+
+# Writes a directory of <abi>/<soname> shared libraries, and optionally a JSON
+# manifest listing those entries. Shared by the [relinked_libs] and
+# [unrelinked_libs] sub-targets. [relinked_libs] feeds the combine genrule and
+# wants the packaged (stripped) form plus the manifest (so the combine step
+# knows which libraries to replace); [unrelinked_libs] mirrors the per-library
+# [unrelinked] sub-target, exposing the unstripped linker output, and needs no
+# manifest (pass out_manifest = None).
+def _write_native_libs_dir_and_manifest(ctx, libs_by_platform, out_dir, out_manifest, stripped):
+    lib_files = {}
+    for platform in libs_by_platform:
+        libs = libs_by_platform[platform]
+        abi_directory = CPU_FILTER_TO_ABI_DIRECTORY[platform]
+        for soname in libs:
+            shlib = libs[soname]
+            lib_files["{}/{}".format(abi_directory, soname)] = (shlib.stripped_lib or shlib.lib.output) if stripped else shlib.lib.output
+    ctx.actions.symlinked_dir(out_dir, lib_files)
+    if out_manifest != None:
+        ctx.actions.write_json(out_manifest, sorted(lib_files.keys()))
 
 def _post_native_lib_graph_finalization_steps(
     ctx: AnalysisContext,
