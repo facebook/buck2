@@ -38,6 +38,7 @@ pub mod flavors;
 mod impls;
 mod pagable_arc;
 pub mod storage;
+#[cfg(test)]
 mod test;
 pub mod testing;
 pub mod traits;
