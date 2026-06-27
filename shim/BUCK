@@ -76,7 +76,7 @@ system_python_bootstrap_toolchain(
 
 system_rust_toolchain(
     name = "rust",
-    default_edition = "2021",
+    default_edition = "2024",
     visibility = ["PUBLIC"],
 )
 

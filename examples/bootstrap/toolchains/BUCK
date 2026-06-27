@@ -35,13 +35,13 @@ toolchain_alias(
 
 system_rust_toolchain(
     name = "rust_bootstrap_toolchain",
-    default_edition = "2021",
+    default_edition = "2024",
 )
 
 rust_toolchain(
     name = "rust_toolchain_with_compiled_rustc",
     compiler = ":rustc_with_bootstrap_toolchain",
-    default_edition = "2021",
+    default_edition = "2024",
 )
 
 configured_alias(
