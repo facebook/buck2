@@ -11,7 +11,7 @@ load(
     ":swift_incremental_support.bzl",
     "get_uses_content_based_paths",
 )
-load(":swift_toolchain_types.bzl", "SwiftCompiledModuleTset")
+load(":swift_toolchain_types.bzl", "SwiftCompiledModuleTset", "get_swift_module_map_deduped_entries")
 
 def write_swift_module_map_with_deps(ctx: AnalysisContext, module_name: str, all_deps: SwiftCompiledModuleTset) -> (Artifact, ArgLike):
     uses_content_based_paths = get_uses_content_based_paths(ctx)
@@ -21,7 +21,7 @@ def write_swift_module_map_with_deps(ctx: AnalysisContext, module_name: str, all
     )
     args = ctx.actions.write_json(
         artifact.as_output(),
-        all_deps.project_as_json("swift_module_map"),
+        get_swift_module_map_deduped_entries(all_deps),
         pretty = True,
         with_inputs = True,
     )
