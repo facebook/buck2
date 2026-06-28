@@ -175,7 +175,7 @@ async fn main() -> anyhow::Result<()> {
     // Flush the state processor queue so the SharedCache (which holds Arc clones
     // of all computed values) is dropped before we measure memory.
     drop(ctx);
-    let _ = dice.metrics();
+    drop(dice.metrics());
     benchmark_utils::jemalloc_purge();
     benchmark_utils::emit_stage("compute", compute_elapsed.as_secs_f64(), heap_dump)?;
 
