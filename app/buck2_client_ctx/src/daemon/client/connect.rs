@@ -306,10 +306,8 @@ impl<'a> BuckdLifecycle<'a> {
             .tag(ErrorTag::DaemonDirCleanupFailed)
     }
 
-    async fn start_server(
-        &self,
-        constraints: &DaemonConstraintsRequest,
-    ) -> buck2_error::Result<()> {
+    async fn start_server(&self, options: &BuckdConnectDaemonOptions) -> buck2_error::Result<()> {
+        let constraints = &options.constraints;
         let mut args = vec!["--isolation-dir", self.paths.isolation.as_str(), "daemon"];
 
         let daemon_id = DaemonId::new();
@@ -667,8 +665,6 @@ async fn establish_connection(
     options: &BuckdConnectDaemonOptions,
     events_ctx: &mut EventsCtx,
 ) -> buck2_error::Result<BootstrapBuckdClient> {
-    let constraints = &options.constraints;
-
     // There are many places where `establish_connection_inner` may hang.
     // If it does, better print something to the user instead of hanging quietly forever.
     let timeout = buckd_startup_init_timeout()?;
@@ -676,7 +672,7 @@ async fn establish_connection(
     deadline
         .down(
             "establishing connection to Buck daemon or start a daemon",
-            |timeout| establish_connection_inner(paths, constraints, timeout, events_ctx),
+            |timeout| establish_connection_inner(paths, options, timeout, events_ctx),
         )
         .await
 }
@@ -705,10 +701,11 @@ fn explain_failed_to_connect_reason(reason: buck2_data::DaemonWasStartedReason) 
 #[allow(clippy::collapsible_match)]
 async fn establish_connection_inner(
     paths: &InvocationPaths,
-    constraints: &DaemonConstraintsRequest,
+    options: &BuckdConnectDaemonOptions,
     deadline: StartupDeadline,
     events_ctx: &mut EventsCtx,
 ) -> buck2_error::Result<BootstrapBuckdClient> {
+    let constraints = &options.constraints;
     let daemon_dir = paths.daemon_dir()?;
 
     let res = deadline
@@ -822,7 +819,7 @@ async fn establish_connection_inner(
                     deadline,
                     &lifecycle_lock,
                     paths,
-                    constraints,
+                    options,
                     events_ctx,
                     daemon_was_started_reason,
                 )
@@ -835,16 +832,18 @@ async fn start_new_buckd_and_connect(
     deadline: StartupDeadline,
     lifecycle_lock: &BuckdLifecycle<'_>,
     paths: &InvocationPaths,
-    constraints: &DaemonConstraintsRequest,
+    options: &BuckdConnectDaemonOptions,
     events_ctx: &mut EventsCtx,
     daemon_was_started_reason: buck2_data::DaemonWasStartedReason,
 ) -> buck2_error::Result<BootstrapBuckdClient> {
+    let constraints = &options.constraints;
+
     // Daemon dir may be corrupted. Safer to delete it.
     lifecycle_lock.clean_daemon_dir()?;
 
     // Now there's definitely no server that can be connected to
     lifecycle_lock
-        .start_server(constraints)
+        .start_server(options)
         .await
         .buck_error_context("Error starting buck2 daemon")?;
     // It might take a little bit for the daemon server to start up. We could wait for the buckd.info
