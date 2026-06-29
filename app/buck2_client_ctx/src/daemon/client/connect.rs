@@ -224,6 +224,41 @@ pub enum BuckdConnectOptions {
 #[derive(Debug, Clone)]
 pub struct BuckdConnectDaemonOptions {
     pub(crate) constraints: DaemonConstraintsRequest,
+    /// Start the daemon by asking the installed Buck wrapper to re-exec it
+    /// outside of the AI sandbox.
+    ///
+    /// The normal Unix daemon startup path runs the daemon executable directly:
+    ///
+    /// ```text
+    /// <daemon-exe> --isolation-dir <dir> daemon ...
+    /// ```
+    ///
+    /// When this is set and the current process certificate has an `agent.id`
+    /// identity attribute, Buck preserves the normal daemon argv, but prefixes
+    /// it with the wrapper command and the canonical daemon executable:
+    ///
+    /// ```text
+    /// /usr/local/bin/buck2 unsandbox-daemon <daemon-exe> --isolation-dir <dir> daemon ...
+    /// ```
+    ///
+    /// This _only_ works if the wrapper is installed at `/usr/local/bin/buck2`,
+    /// as the BPFJailer policy only allows executables with that path the
+    /// ability to exit the jail.
+    ///
+    /// The wrapper owns the privileged/sandbox-specific part of the flow: it
+    /// validates that the requested executable is the Buck daemon associated
+    /// with the caller, escapes the AI sandbox where supported, and then execs
+    /// the daemon executable with the original daemon argv. From this client's
+    /// point of view, the spawned process still follows the ordinary Unix Buck
+    /// daemon startup contract: it forks, the launcher exits, and this code
+    /// waits for that launcher process before connecting to the daemon socket,
+    /// it just takes longer.
+    ///
+    /// This must remain a daemon-start-only path. The wrapper command is
+    /// intentionally constructed only around Buck's normal `daemon` argv, so
+    /// enabling this option should not create a general mechanism for
+    /// unsandboxing arbitrary Buck commands or user-provided executables.
+    pub(crate) daemon_start_unsandboxed_via_wrapper: bool,
 }
 
 async fn get_channel(
@@ -351,9 +386,41 @@ impl<'a> BuckdLifecycle<'a> {
         }
 
         if cfg!(unix) {
-            // On Unix we spawn a process which forks and exits,
-            // and here we wait for that spawned process to terminate.
+            // On Unix we spawn a process which forks and exits, and here we wait for that spawned
+            // process to terminate. That process is usually the Buck daemon executable, but may be
+            // the installed Buck wrapper, which runs the daemon on our behalf after unsandboxing it.
+            let daemon_exe = get_daemon_exe()?;
+            let canonical_daemon_exe;
+            let certificate_has_agent_identity = {
+                #[cfg(fbcode_build)]
+                {
+                    identity::agent_identity_from_env().is_some()
+                }
+
+                #[cfg(not(fbcode_build))]
+                {
+                    false
+                }
+            };
+            let (executable, args) =
+                if options.daemon_start_unsandboxed_via_wrapper && certificate_has_agent_identity {
+                    canonical_daemon_exe = daemon_exe
+                        .canonicalize()
+                        .buck_error_context("Failed to canonicalize Buck daemon executable")?
+                        .into_os_string()
+                        .into_string()
+                        .map_err(|_| {
+                            internal_error!("Buck daemon executable path is not valid UTF-8")
+                        })?;
+                    args.insert(0, canonical_daemon_exe.as_str());
+                    args.insert(0, "unsandbox-daemon");
+                    ("/usr/local/bin/buck2".into(), args)
+                } else {
+                    (daemon_exe.into_os_string(), args)
+                };
+
             self.start_server_unix(
+                executable,
                 args,
                 &daemon_env_vars,
                 &constraints.daemon_startup_config,
@@ -384,6 +451,7 @@ impl<'a> BuckdLifecycle<'a> {
 
     async fn start_server_unix(
         &self,
+        executable: std::ffi::OsString,
         args: Vec<&str>,
         daemon_env_vars: &[(&OsStr, &OsStr)],
         daemon_startup_config: &DaemonStartupConfig,
@@ -391,8 +459,6 @@ impl<'a> BuckdLifecycle<'a> {
     ) -> buck2_error::Result<()> {
         let project_dir = self.paths.project_root();
         let timeout_secs = buckd_startup_timeout()?;
-
-        let daemon_exe = get_daemon_exe()?;
 
         // Create a unique name that we know won't overlap with other buck2 daemons and has enough
         // information to understand at least a little bit about which daemon it is
@@ -410,7 +476,7 @@ impl<'a> BuckdLifecycle<'a> {
 
         let (cmd, resource_control_args) = create_daemon_spawn_command(
             &daemon_startup_config.resource_control,
-            daemon_exe,
+            executable,
             unit_name,
             project_dir.root(),
         )

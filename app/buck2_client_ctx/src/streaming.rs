@@ -235,7 +235,12 @@ impl<T: StreamingCommand> BuckSubcommand for T {
                 let mut req =
                     DaemonConstraintsRequest::new(ctx.immediate_config, T::trace_io(&self))?;
                 ctx.restarter.apply_to_constraints(&mut req);
-                BuckdConnectOptions::Options(BuckdConnectDaemonOptions { constraints: req })
+                BuckdConnectOptions::Options(BuckdConnectDaemonOptions {
+                    constraints: req,
+                    daemon_start_unsandboxed_via_wrapper: ctx
+                        .immediate_config
+                        .daemon_start_unsandboxed_via_wrapper()?,
+                })
             };
             let buckd = match ctx.start_in_process_daemon.take() {
                 None => connect_buckd(connect_options, events_ctx, ctx.paths()?).await,
