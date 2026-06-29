@@ -248,7 +248,7 @@ impl CommandStdStreams {
                 Ok(StdStreamPair { stdout, stderr })
             }
             Self::Remote(remote) => {
-                // TODO (torozco): This assumes that the existing remote outputs we have have the
+                // TODO (torozco): This assumes that the existing remote outputs we have the
                 // same re use case as what we passed in. Lots of things make this assumption, but
                 // for the sake of being safe, check it.
                 if remote.use_case() != client.use_case {

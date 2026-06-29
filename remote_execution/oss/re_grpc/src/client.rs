@@ -156,7 +156,7 @@ fn ttimestamp_from(ts: Option<::prost_types::Timestamp>) -> TTimestamp {
     }
 }
 
-/// Contains information queried from the the Remote Execution Capabilities service.
+/// Contains information queried from the Remote Execution Capabilities service.
 pub struct RECapabilities {
     /// Largest size of a message before being uploaded using bytestream service.
     /// 0 indicates no limit beyond constraint of underlying transport (which is unknown).

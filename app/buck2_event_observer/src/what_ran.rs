@@ -38,7 +38,7 @@ pub struct WhatRanOptions {
     #[clap(long)]
     pub skip_local_executions: bool,
     #[clap(long)]
-    /// Regular expression to filter commands by given action category (i.e. type of of actions that are
+    /// Regular expression to filter commands by given action category (i.e. type of actions that are
     /// similar but operate on different inputs, such as invocations of a C++
     /// compiler (whose category would be `cxx_compile`)). Matches by full string.
     pub filter_category: Option<String>,

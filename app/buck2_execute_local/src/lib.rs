@@ -406,7 +406,7 @@ impl KillProcess for DefaultKillProcess {
     }
 }
 
-/// Unify the the behavior of using a relative path for the executable between Unix and Windows. On
+/// Unify the behavior of using a relative path for the executable between Unix and Windows. On
 /// UNIX, the path is understood to be relative to the cwd of the *spawned process*, whereas on
 /// Windows, it's relative ot the cwd of the *spawning* process.
 ///

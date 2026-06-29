@@ -34,7 +34,7 @@ use crate::target::label::label::TargetLabel;
 #[display("{}", key)]
 pub struct ConstraintKey {
     pub key: TargetLabel,
-    // TODO(nero): remove Option when when we migrated to unified constraint rule
+    // TODO(nero): remove Option when we migrated to unified constraint rule
     pub default: Option<ConstraintValue>,
 }
 

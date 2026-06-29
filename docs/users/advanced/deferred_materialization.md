@@ -13,7 +13,7 @@ This can provide very substantial performance savings on builds that execute
 primarily on Remote Execution, since those builds become able to proceed without
 ever downloading any intermediary outputs.
 
-At Meta, despite very fast networks being used internally, this was was observed
+At Meta, despite very fast networks being used internally, this was observed
 to make real-world builds finish approximately 2.5 times faster.
 
 ## Pitfalls

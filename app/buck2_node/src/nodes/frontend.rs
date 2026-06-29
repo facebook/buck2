@@ -64,8 +64,8 @@ pub trait TargetGraphCalculation {
         package: PackageLabel,
     ) -> BoxFuture<'_, buck2_error::Result<Arc<EvaluationResult>>>;
 
-    /// For a TargetLabel, returns the TargetNode. This is really just part of the the interpreter
-    /// results for the the label's package, and so this is just a utility for accessing that, it
+    /// For a TargetLabel, returns the TargetNode. This is really just part of the interpreter
+    /// results for the label's package, and so this is just a utility for accessing that, it
     /// isn't separately cached.
     fn get_target_node<'a>(
         &'a mut self,

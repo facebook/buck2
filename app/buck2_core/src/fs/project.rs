@@ -250,7 +250,7 @@ impl ProjectRoot {
         // because we should only resolve symlinks found in the past that point into the project,
         // but
         // * not symlink found inside the project that point outside of it
-        // * not even symlinks found in the project unless we need to to resolve ".."
+        // * not even symlinks found in the project unless we need to resolve ".."
 
         // There's no empty `AbsPathBuf`, so we need to write this somewhat weird
         let mut current_prefix: Option<AbsPathBuf> = None;

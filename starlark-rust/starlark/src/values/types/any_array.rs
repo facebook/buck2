@@ -53,7 +53,7 @@ impl<T: Debug + 'static> AnyArray<T> {
     }
 
     /// This function is unsafe because it does not initialize content array,
-    /// but drops in in destructor.
+    /// but drops in destructor.
     pub(crate) unsafe fn new(len: usize) -> AnyArray<T> {
         AnyArray { len, content: [] }
     }
