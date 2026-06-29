@@ -182,20 +182,7 @@ SwiftCompiledModuleTset = transitive_set(
         "clang_module_file_flags": _add_clang_module_file_flags,  # Projects pcm modules as cli flags.
         "module_search_path": _add_swiftmodule_search_path,
     },
+    json_projections = {
+        "swift_module_map": _swift_module_map_struct,
+    },
 )
-
-def get_swift_module_map_deduped_entries(all_deps: SwiftCompiledModuleTset) -> list:
-    # A valid explicit Swift module map has at most one swiftmodule and one clang
-    # module per module name. The tset dedups by node identity, not module name, so
-    # the same module reached via two distinct nodes (e.g. an SDK module configured
-    # under two execution platforms) yields duplicate entries that swiftc rejects
-    # with "duplicate Swift module". Dedup by (module_name, is_swiftmodule) here.
-    seen = set()
-    entries = []
-    for module_info in all_deps.traverse():
-        key = (module_info.module_name, module_info.is_swiftmodule)
-        if key in seen:
-            continue
-        seen.add(key)
-        entries.append(_swift_module_map_struct(module_info))
-    return entries
