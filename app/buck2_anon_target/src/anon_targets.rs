@@ -483,6 +483,7 @@ impl AnonTargetKey {
                     profile: None, // Not implemented for anon targets
                     declared_actions: res.as_ref().ok().map(|(v, _)| v.num_declared_actions),
                     declared_artifacts: res.as_ref().ok().map(|(v, _)| v.num_declared_artifacts),
+                    error: res.as_ref().err().map(|e| format!("{e:#}")),
                 };
                 (res, end)
             },

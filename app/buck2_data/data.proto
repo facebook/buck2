@@ -2093,6 +2093,7 @@ message AnalysisEnd {
   AnalysisProfile profile = 2;
   optional uint64 declared_actions = 6;
   optional uint64 declared_artifacts = 7;
+  optional string error = 8;
 }
 
 message AnalysisStageStart {

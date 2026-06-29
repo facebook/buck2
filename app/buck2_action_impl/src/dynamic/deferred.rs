@@ -338,6 +338,8 @@ async fn execute_lambda(
                     Ok((token, finalized))
                 });
 
+                let error = output.as_ref().err().map(|e| format!("{e:#}"));
+
                 (
                     output,
                     buck2_data::AnalysisEnd {
@@ -348,6 +350,7 @@ async fn execute_lambda(
                         profile: None,
                         declared_actions,
                         declared_artifacts,
+                        error,
                     },
                 )
             })

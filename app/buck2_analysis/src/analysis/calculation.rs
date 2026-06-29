@@ -336,6 +336,8 @@ async fn get_analysis_result_inner(
                             MaybeCompatible::Compatible(result)
                         };
 
+                        let error = result.as_ref().err().map(|e| format!("{e:#}"));
+
                         (
                             (result, split_instants),
                             buck2_data::AnalysisEnd {
@@ -344,6 +346,7 @@ async fn get_analysis_result_inner(
                                 profile,
                                 declared_actions,
                                 declared_artifacts,
+                                error,
                             },
                         )
                     })
