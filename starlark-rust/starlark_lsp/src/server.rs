@@ -329,7 +329,7 @@ pub trait LspContext {
     ///
     /// `path` is the string representation in the `load()` statement. Its meaning is
     ///        implementation defined.
-    /// `current_file` is the the file that is including the `load()` statement, and should be used
+    /// `current_file` is the file that is including the `load()` statement, and should be used
     ///                if `path` is "relative" in a semantic sense.
     fn resolve_load(
         &self,

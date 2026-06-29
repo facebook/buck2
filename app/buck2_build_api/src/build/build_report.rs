@@ -8,7 +8,7 @@
  * above-listed licenses.
  */
 
-//! Processing and reporting the the results of the build
+//! Processing and reporting the results of the build
 
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;

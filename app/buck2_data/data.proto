@@ -2739,7 +2739,7 @@ message InvocationRecord {
   // The client has failed to connect to the daemon.
   optional bool daemon_connection_failure = 75;
   // Daemon was started by this command.
-  // Unset if the the command connected to existing daemon or did not start one.
+  // Unset if the command connected to existing daemon or did not start one.
   optional DaemonWasStartedReason daemon_was_started = 751;
   // Set if an event occurred that should trigger a command restart.
   optional bool should_restart = 752;

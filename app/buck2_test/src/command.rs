@@ -1229,7 +1229,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
             // flatten it?
             let node = node.forward_target().unwrap_or(&node);
 
-            // Look up `tests` in the the target we're testing, and if we find any tests, add them to the test backlog.
+            // Look up `tests` in the target we're testing, and if we find any tests, add them to the test backlog.
             if !state.ignore_tests_attribute {
                 for test in node.tests() {
                     work.push(TestDriverTask::ConfigureTarget {

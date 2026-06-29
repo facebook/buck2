@@ -157,7 +157,7 @@ impl DerefMut for BaseComputeCtx {
 }
 
 impl ModernComputeCtx<'_> {
-    /// Gets all the result of of the given computation key.
+    /// Gets all the result of the given computation key.
     /// recorded as dependencies of the current computation for which this
     /// context is for.
     pub(crate) fn compute<'a, K>(

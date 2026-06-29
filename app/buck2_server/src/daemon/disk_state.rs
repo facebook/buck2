@@ -130,7 +130,7 @@ pub(crate) async fn maybe_initialize_materializer_sqlite_db(
     )?;
 
     // Most things in the rest of `metadata` should go in the metadata sqlite table.
-    // TODO(scottcao): Narrow down what metadata we need and and insert them into the
+    // TODO(scottcao): Narrow down what metadata we need and insert them into the
     // metadata table before a feature rollout.
     let (db, load_result) = MaterializerStateSqliteDb::initialize(
         paths.materializer_state_path(),

@@ -525,7 +525,7 @@ impl Buck {
 
     /// Invoke `buck` with the given subcommands.
     ///
-    /// This method should only be used with with buck commands that do not accept
+    /// This method should only be used with buck commands that do not accept
     /// configuration options, such as `root`. [`Buck::command`] should be preferred.
     fn command_without_config<I, S>(&self, subcommands: I) -> Command
     where

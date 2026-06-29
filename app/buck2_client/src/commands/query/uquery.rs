@@ -95,7 +95,7 @@ pub struct UqueryCommand {
 
 #[async_trait(?Send)]
 impl StreamingCommand for UqueryCommand {
-    // FIXME: Figure out if we can replace this. We used to log this this way in Ingress :/
+    // FIXME: Figure out if we can replace this. We used to log this way in Ingress :/
     const COMMAND_NAME: &'static str = "query";
 
     async fn exec_impl(

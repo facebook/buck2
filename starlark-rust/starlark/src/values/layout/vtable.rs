@@ -71,7 +71,7 @@ use crate::values::traits::StarlarkValueVTableGet;
 #[derive(Copy, Clone, Dupe)]
 pub(crate) struct StarlarkValueRawPtr {
     /// Points to the end of `AValueHeader`.
-    /// May not be equal to to the start of `StarlarkValue` due to alignment.
+    /// May not be equal to the start of `StarlarkValue` due to alignment.
     pub(crate) ptr: *const (),
 }
 
