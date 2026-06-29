@@ -364,6 +364,15 @@ async fn build_action_inner(
             output_size = outputs.calc_output_count_and_bytes(false).bytes;
             action_result = Ok(outputs);
             execution_kind = Some(meta.execution_kind.as_enum());
+            if matches!(
+                meta.execution_kind.as_enum(),
+                buck2_data::ActionExecutionKind::Local
+                    | buck2_data::ActionExecutionKind::LocalWorker
+                    | buck2_data::ActionExecutionKind::LocalDepFile
+                    | buck2_data::ActionExecutionKind::LocalActionCache
+            ) {
+                hostname = buck2_events::metadata::hostname();
+            }
             wall_time = Some(meta.timing.wall_time);
             error = None;
             input_files_bytes = meta.input_files_bytes;

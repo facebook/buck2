@@ -1844,7 +1844,10 @@ message ActionExecutionEnd {
   // from the command, hybrid is turned on).
   optional bool eligible_for_full_hybrid = 33;
 
-  // Hostname of this action ran on. This is set only when the action fails.
+  // Hostname of the host this action ran on. Always set for locally-executed
+  // actions (which run on the buck2 daemon's host). Additionally set for any
+  // failed action regardless of execution kind, for logging in
+  // buck2_action_errors.
   optional string hostname = 34;
 
   // Fields related to the remote dep file cache

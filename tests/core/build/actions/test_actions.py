@@ -23,6 +23,10 @@ from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.utils import filter_events
 
+# Taken from the ActionExecutionKind enum in data.proto.
+ACTION_EXECUTION_KIND_LOCAL = 1
+ACTION_EXECUTION_KIND_REMOTE = 2
+
 
 @buck_test(data_dir="actions")
 async def test_write_json(buck: Buck) -> None:
@@ -177,6 +181,49 @@ async def test_simple_run(buck: Buck) -> None:
         buck.build("//run:rejects_bad_args"),
         stderr_regex="Type of parameter `arguments` doesn't match",
     )
+
+
+@buck_test(data_dir="actions")
+async def test_local_action_records_hostname(buck: Buck) -> None:
+    # A locally-executed action always runs on the buck2 daemon's host, so its
+    # ActionExecutionEnd event must carry that hostname -- including on the
+    # success path, which previously left it unset.
+    await buck.build("//run:runs_script_locally")
+
+    actions = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "SpanEnd",
+        "data",
+        "ActionExecution",
+    )
+    local = [a for a in actions if a["execution_kind"] == ACTION_EXECUTION_KIND_LOCAL]
+    assert len(local) == 1, actions
+    assert local[0]["hostname"] == socket.gethostname()
+
+
+@buck_test(data_dir="actions")
+async def test_remote_action_records_no_hostname(buck: Buck) -> None:
+    # A remotely-executed action does not run on the daemon host, so its
+    # ActionExecutionEnd event must not carry a hostname on the success path.
+    await buck.build(
+        "//run:runs_simple_script_remote",
+        "--remote-only",
+        "--no-remote-cache",
+    )
+
+    actions = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "SpanEnd",
+        "data",
+        "ActionExecution",
+    )
+    remote = [a for a in actions if a["execution_kind"] == ACTION_EXECUTION_KIND_REMOTE]
+    assert len(remote) == 1, actions
+    assert remote[0].get("hostname") is None
 
 
 @buck_test(data_dir="actions")
