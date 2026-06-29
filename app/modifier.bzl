@@ -42,10 +42,10 @@ def buck2_modifiers():
                 "DEFAULT": None,
                 "ovr_config//os:linux": modifiers.conditional({
                     "DEFAULT": modifiers.conditional({
-                        "DEFAULT": "ovr_config//build_mode/constraints:static",
-                        "ovr_config//build_mode:dev": "ovr_config//build_mode/constraints:shared",
+                        "DEFAULT": "ovr_config//build_mode/constraints:default_link_style[static]",
+                        "ovr_config//build_mode:dev": "ovr_config//build_mode/constraints:default_link_style[shared]",
                     }),
-                    "ovr_config//build_mode:sanitizer_type[asan]": "ovr_config//build_mode/constraints:static_pic",
+                    "ovr_config//build_mode:sanitizer_type[asan]": "ovr_config//build_mode/constraints:default_link_style[static_pic]",
                 }),
             }),
         }),
