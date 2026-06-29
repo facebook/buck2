@@ -2026,16 +2026,28 @@ def _mk_argsfiles(
                 file_prefix_args,
                 delimiter = " ",
             )
-            specs_file, _ = actions.write(
+            specs_file, specs_file_for_buck_action_rerun = write_for_dep_file_filtering(
                 file_prefix_args_filename + ".specs",
                 specs_content,
-                allow_args = True,
-                has_content_based_path = uses_content_based_paths,
             )
-            prefix_ref = cmd_args(specs_file, format = "-specs={}")
+            prefix_ref = cmd_args(
+                headers_tag.tag_artifacts(specs_file),
+                format = "-specs={}",
+                hidden = specs_file_for_buck_action_rerun,
+            )
         else:
             prefix_ref = file_prefix_args
-        argsfiles.append(mk_argsfile(file_prefix_args_filename, prefix_ref))
+
+        file_prefix_argsfile_for_compiler, file_prefix_argsfile_for_buck_action_rerun = mk_argsfile_for_dep_file_filtering(
+            file_prefix_args_filename,
+            prefix_ref,
+        )
+        argsfiles.append(
+            cmd_args(
+                headers_tag.tag_artifacts(file_prefix_argsfile_for_compiler),
+                hidden = file_prefix_argsfile_for_buck_action_rerun,
+            )
+        )
         args_list.append(prefix_ref)
 
     make_file_prefix_argsfile()
@@ -2051,21 +2063,19 @@ def _mk_argsfiles(
     file_name = filename_prefix + "cxx_compile_argsfile"
 
     # For Xcode to parse argsfiles of argsfiles, the paths in the former must be absolute.
-    argsfile, _ = actions.write(
+    argsfile, argsfile_for_buck_action_rerun = write_for_dep_file_filtering(
         file_name,
         file_args,
-        allow_args = True,
         absolute = is_xcode_argsfile,
-        has_content_based_path = uses_content_based_paths,
     )
 
     args = create_cmd_args(is_nasm, is_xcode_argsfile, args_list)
     input_args = [args, file_args]
 
     cmd_form = cmd_args(
-        argsfile,
+        headers_tag.tag_artifacts(argsfile),
         format = "-@{}" if is_nasm else "@{}",
-        hidden = input_args,
+        hidden = input_args + [argsfile_for_buck_action_rerun],
     )
 
     return CompileArgsfile(
