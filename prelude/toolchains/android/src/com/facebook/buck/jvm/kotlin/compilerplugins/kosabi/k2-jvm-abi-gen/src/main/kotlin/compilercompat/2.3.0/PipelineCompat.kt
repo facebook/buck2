@@ -24,24 +24,25 @@ import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles
 import org.jetbrains.kotlin.cli.jvm.compiler.legacy.pipeline.ModuleCompilerEnvironment
 import org.jetbrains.kotlin.cli.jvm.compiler.legacy.pipeline.ModuleCompilerIrBackendInput
-import org.jetbrains.kotlin.cli.jvm.compiler.legacy.pipeline.ModuleCompilerOutput
 import org.jetbrains.kotlin.cli.jvm.compiler.legacy.pipeline.convertToIrAndActualizeForJvm
 import org.jetbrains.kotlin.cli.jvm.compiler.legacy.pipeline.createProjectEnvironment
 import org.jetbrains.kotlin.cli.jvm.compiler.legacy.pipeline.generateCodeFromIr
+import org.jetbrains.kotlin.codegen.state.GenerationState
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.diagnostics.impl.BaseDiagnosticsCollector
 import org.jetbrains.kotlin.fir.backend.jvm.JvmFir2IrExtensions
-import org.jetbrains.kotlin.fir.pipeline.FirResult
+import org.jetbrains.kotlin.fir.pipeline.AllModulesFrontendOutput
 
 @Suppress("DEPRECATION_ERROR")
 typealias ModuleCompilerEnvironmentCompat = ModuleCompilerEnvironment
 
 typealias ModuleCompilerIrBackendInputCompat = ModuleCompilerIrBackendInput
 
-@Suppress("DEPRECATION_ERROR")
-typealias ModuleCompilerOutputCompat = ModuleCompilerOutput
+// generateCodeFromIr returns GenerationState directly in Kotlin 2.3 (the
+// ModuleCompilerOutput wrapper was removed); .factory is exposed on it.
+typealias ModuleCompilerOutputCompat = GenerationState
 
-fun FirResult.convertToIrAndActualizeForJvmCompat(
+fun AllModulesFrontendOutput.convertToIrAndActualizeForJvmCompat(
     fir2IrExtensions: JvmFir2IrExtensions,
     configuration: CompilerConfiguration,
     diagnosticsReporter: BaseDiagnosticsCollector,

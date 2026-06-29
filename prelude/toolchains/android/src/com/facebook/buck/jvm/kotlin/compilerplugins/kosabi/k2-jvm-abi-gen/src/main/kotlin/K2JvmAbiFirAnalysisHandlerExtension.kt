@@ -20,7 +20,6 @@ import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
 import java.io.File
 import org.jetbrains.kotlin.backend.jvm.JvmIrDeserializerImpl
-import org.jetbrains.kotlin.cli.common.SessionWithSources
 import org.jetbrains.kotlin.cli.common.config.KotlinSourceRoot
 import org.jetbrains.kotlin.cli.common.config.kotlinSourceRoots
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageLocation
@@ -30,7 +29,6 @@ import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import org.jetbrains.kotlin.cli.jvm.compiler.VfsBasedProjectEnvironment
 import org.jetbrains.kotlin.cli.jvm.compiler.createContextForIncrementalCompilation
-import org.jetbrains.kotlin.cli.jvm.compiler.createLibraryListForJvm
 import org.jetbrains.kotlin.cli.jvm.compiler.report
 import org.jetbrains.kotlin.com.intellij.openapi.diagnostic.Logger
 import org.jetbrains.kotlin.com.intellij.openapi.project.Project
@@ -42,23 +40,18 @@ import org.jetbrains.kotlin.com.intellij.psi.PsiManager
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.JVMConfigurationKeys
-import org.jetbrains.kotlin.config.languageVersionSettings
 import org.jetbrains.kotlin.config.messageCollector
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.EffectiveVisibility
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibilities
-import org.jetbrains.kotlin.diagnostics.DiagnosticReporterFactory
 import org.jetbrains.kotlin.extensions.CompilerConfigurationExtension
 import org.jetbrains.kotlin.extensions.PreprocessedFileCreator
-import org.jetbrains.kotlin.fir.DependencyListForCliModule
 import org.jetbrains.kotlin.fir.FirElement
-import org.jetbrains.kotlin.fir.FirModuleData
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.backend.jvm.JvmFir2IrExtensions
 import org.jetbrains.kotlin.fir.declarations.FirEnumEntry
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
-import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
 import org.jetbrains.kotlin.fir.declarations.FirTypeAlias
 import org.jetbrains.kotlin.fir.declarations.impl.FirResolvedDeclarationStatusImpl
 import org.jetbrains.kotlin.fir.declarations.utils.isConst
@@ -71,10 +64,6 @@ import org.jetbrains.kotlin.fir.extensions.FirDeclarationGenerationExtension
 import org.jetbrains.kotlin.fir.extensions.FirExtensionRegistrar
 import org.jetbrains.kotlin.fir.extensions.FirExtensionSessionComponent
 import org.jetbrains.kotlin.fir.extensions.MemberGenerationContext
-import org.jetbrains.kotlin.fir.java.FirProjectSessionProvider
-import org.jetbrains.kotlin.fir.moduleData
-import org.jetbrains.kotlin.fir.pipeline.FirResult
-import org.jetbrains.kotlin.fir.pipeline.ModuleCompilerAnalyzedOutput
 import org.jetbrains.kotlin.fir.pipeline.buildFirFromKtFiles
 import org.jetbrains.kotlin.fir.pipeline.runResolution
 import org.jetbrains.kotlin.fir.plugin.createMemberFunction
@@ -82,13 +71,6 @@ import org.jetbrains.kotlin.fir.plugin.createMemberProperty
 import org.jetbrains.kotlin.fir.plugin.createTopLevelClass
 import org.jetbrains.kotlin.fir.resolve.providers.dependenciesSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
-import org.jetbrains.kotlin.fir.session.FirJvmIncrementalCompilationSymbolProviders
-import org.jetbrains.kotlin.fir.session.FirSessionConfigurator
-import org.jetbrains.kotlin.fir.session.FirSharableJavaComponents
-import org.jetbrains.kotlin.fir.session.IncrementalCompilationContext
-import org.jetbrains.kotlin.fir.session.createSymbolProviders
-import org.jetbrains.kotlin.fir.session.environment.AbstractProjectFileSearchScope
-import org.jetbrains.kotlin.fir.session.firCachesFactoryForCliMode
 import org.jetbrains.kotlin.fir.symbols.SymbolInternals
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
@@ -112,8 +94,6 @@ import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
-import org.jetbrains.kotlin.platform.TargetPlatform
-import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
 import org.jetbrains.kotlin.psi.KtAnnotationEntry
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtTreeVisitorVoid
@@ -134,7 +114,7 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
   override fun doAnalysis(project: Project, configuration: CompilerConfiguration): Boolean {
     val updatedConfiguration =
         configuration.copy().apply {
-          put(JVMConfigurationKeys.RETAIN_OUTPUT_IN_MEMORY, true)
+          retainOutputInMemoryCompat()
           put(JVMConfigurationKeys.OUTPUT_DIRECTORY, File(outputPath))
           put(JVMConfigurationKeys.VALIDATE_BYTECODE, true)
           put(JVMConfigurationKeys.SKIP_BODIES, true)
@@ -208,7 +188,7 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
   // When FIR loads a class from bytecode (e.g., from a stub JAR), it includes references
   // to that class's supertypes. If those supertypes are not on the classpath (because
   // they're transitive dependencies not included in the stub JAR), we detect them here.
-  private fun collectMissingTypesFromFir(analysisResults: FirResult): Set<ClassId> {
+  private fun collectMissingTypesFromFir(analysisResults: FrontendOutputCompat): Set<ClassId> {
     val missingTypes = mutableSetOf<ClassId>()
 
     for (output in analysisResults.outputs) {
@@ -228,7 +208,7 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
   private class MissingTypeCollectorVisitor(
       private val session: FirSession,
       private val missingTypes: MutableSet<ClassId>,
-  ) : FirDefaultVisitorVoid() {
+  ) : FirNamedFunctionVisitorCompat() {
 
     // Track already-checked classes to avoid infinite recursion
     private val checkedClasses = mutableSetOf<ClassId>()
@@ -259,17 +239,15 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
       }
     }
 
-    override fun visitSimpleFunction(
-        simpleFunction: org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
-    ) {
+    override fun visitNamedFunctionCompat(namedFunction: FirNamedFunctionCompat) {
       // Check return type - these are from source, so start with isFromDependencyChain=false
       checkTypeResolvableRecursively(
-          simpleFunction.returnTypeRef.coneType,
+          namedFunction.returnTypeRef.coneType,
           isFromDependencyChain = false,
       )
 
       // Check parameter types
-      for (valueParameter in simpleFunction.valueParameters) {
+      for (valueParameter in namedFunction.valueParameters) {
         checkTypeResolvableRecursively(
             valueParameter.returnTypeRef.coneType,
             isFromDependencyChain = false,
@@ -446,7 +424,7 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
   // building (Fir2IrDeclarationStorage.findContainingIrClassSymbol).
   @OptIn(SymbolInternals::class)
   private fun stripUnresolvableSupertypesFromFir(
-      analysisResults: FirResult,
+      analysisResults: FrontendOutputCompat,
       missingTypes: Set<ClassId>,
   ) {
     val visited = mutableSetOf<ClassId>()
@@ -529,7 +507,7 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
   fun convertAnalyzedFirToIr(
       configuration: CompilerConfiguration,
       targetId: TargetId,
-      analysisResults: FirResult,
+      analysisResults: FrontendOutputCompat,
       environment: ModuleCompilerEnvironmentCompat,
       sourceFiles: List<KtFile>,
       project: Project,
@@ -572,10 +550,10 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
       projectEnvironment: VfsBasedProjectEnvironment,
       configuration: CompilerConfiguration,
       module: Module,
-      analysisResults: FirResult,
+      analysisResults: FrontendOutputCompat,
       sourceFiles: List<KtFile>,
   ): ModuleCompilerOutputCompat {
-    val cleanDiagnosticReporter = DiagnosticReporterFactory.createPendingReporter(messageCollector)
+    val cleanDiagnosticReporter = createPendingReporterCompat(messageCollector)
     val compilerEnvironment =
         ModuleCompilerEnvironmentCompat(projectEnvironment, cleanDiagnosticReporter)
 
@@ -605,7 +583,7 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
     // in-memory before writing to avoid a separate read-back pass.
     val outputDir = configuration[JVMConfigurationKeys.OUTPUT_DIRECTORY]
     if (outputDir != null) {
-      val outputFiles = result.generationState.factory.asList()
+      val outputFiles = result.classFileFactoryCompat.asList()
       outputFiles.forEach { outputFile ->
         val file = File(outputDir, outputFile.relativePath)
         file.parentFile?.mkdirs()
@@ -1134,7 +1112,7 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
       configuration: CompilerConfiguration,
       sources: List<KtFile>,
       module: Module,
-  ): FirResult {
+  ): FrontendOutputCompat {
     return compileSourceFilesToAnalyzedFirViaPsi(
         sources,
         module.getModuleName(),
@@ -1152,7 +1130,7 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
       ignoreErrors: Boolean = false,
       projectEnvironment: VfsBasedProjectEnvironment,
       configuration: CompilerConfiguration,
-  ): FirResult? {
+  ): FrontendOutputCompat? {
 
     val sourceScope =
         projectEnvironment.getSearchScopeByPsiFiles(ktFiles) +
@@ -1167,21 +1145,14 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
       librariesScope -= it
     }
     val sessionsWithSources =
-        prepareJvmSessions(
+        prepareJvmSessionsCompat(
             ktFiles,
             rootModuleName,
             friendPaths,
             librariesScope,
-            isCommonSource = { false },
-            isScript = { false },
-            fileBelongsToModule = { file: KtFile, moduleName: String ->
-              file.hmppModuleName == moduleName
-            },
-            createProviderAndScopeForIncrementalCompilation = {
-              providerAndScopeForIncrementalCompilation
-            },
-            projectEnvironment,
             configuration,
+            projectEnvironment,
+            providerAndScopeForIncrementalCompilation,
         )
 
     val outputs = sessionsWithSources.map { (session, sources) ->
@@ -1191,187 +1162,10 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
       // plugin checkers (like Litho K2) crash on unresolved references from stubs.
       val firFiles = session.buildFirFromKtFiles(sources)
       val (scopeSession, fir) = session.runResolution(firFiles)
-      ModuleCompilerAnalyzedOutput(session, scopeSession, fir)
+      moduleFrontendOutputCompat(session, scopeSession, fir)
     }
 
-    return FirResult(outputs)
-  }
-
-  private fun <F> prepareJvmSessions(
-      files: List<F>,
-      rootModuleNameAsString: String,
-      friendPaths: List<String>,
-      librariesScope: AbstractProjectFileSearchScope,
-      isCommonSource: (F) -> Boolean,
-      isScript: (F) -> Boolean,
-      fileBelongsToModule: (F, String) -> Boolean,
-      createProviderAndScopeForIncrementalCompilation: (List<F>) -> IncrementalCompilationContext?,
-      projectEnvironment: VfsBasedProjectEnvironment,
-      configuration: CompilerConfiguration,
-  ): List<SessionWithSources<F>> {
-    val libraryList = createLibraryListForJvm(rootModuleNameAsString, configuration, friendPaths)
-    val rootModuleName = Name.special("<$rootModuleNameAsString>")
-    return prepareJvmSessions(
-        files,
-        rootModuleName,
-        librariesScope,
-        libraryList,
-        isCommonSource,
-        isScript,
-        fileBelongsToModule,
-        createProviderAndScopeForIncrementalCompilation,
-        projectEnvironment,
-        configuration,
-    )
-  }
-
-  private fun <F> prepareJvmSessions(
-      files: List<F>,
-      rootModuleName: Name,
-      librariesScope: AbstractProjectFileSearchScope,
-      libraryList: DependencyListForCliModule,
-      isCommonSource: (F) -> Boolean,
-      isScript: (F) -> Boolean,
-      fileBelongsToModule: (F, String) -> Boolean,
-      createProviderAndScopeForIncrementalCompilation: (List<F>) -> IncrementalCompilationContext?,
-      projectEnvironment: VfsBasedProjectEnvironment,
-      configuration: CompilerConfiguration,
-  ): List<SessionWithSources<F>> {
-    val extensionRegistrars = FirExtensionRegistrar.getInstances(projectEnvironment.project)
-    val javaSourcesScope = projectEnvironment.getSearchScopeForProjectJavaSources()
-    val predefinedJavaComponents = FirSharableJavaComponents(firCachesFactoryForCliMode)
-
-    var firJvmIncrementalCompilationSymbolProviders: FirJvmIncrementalCompilationSymbolProviders? =
-        null
-    var firJvmIncrementalCompilationSymbolProvidersIsInitialized = false
-
-    return prepareSessions(
-        files,
-        configuration,
-        rootModuleName,
-        JvmPlatforms.unspecifiedJvmPlatform,
-        metadataCompilationMode = false,
-        libraryList,
-        isCommonSource,
-        isScript,
-        fileBelongsToModule,
-        createLibrarySession = { sessionProvider ->
-          createLibrarySessionCompat(
-              rootModuleName,
-              sessionProvider,
-              libraryList.moduleDataProvider,
-              projectEnvironment,
-              extensionRegistrars,
-              librariesScope,
-              projectEnvironment.getPackagePartProvider(librariesScope),
-              configuration.languageVersionSettings,
-              predefinedJavaComponents,
-          )
-        },
-    ) { moduleFiles, moduleData, sessionProvider, sessionConfigurator ->
-      createSourceSessionCompat(
-          moduleData,
-          sessionProvider,
-          javaSourcesScope,
-          projectEnvironment,
-          createIncrementalCompilationSymbolProviders = { session ->
-            // Temporary solution for KT-61942 - we need to share the provider built on top of
-            // previously compiled files,
-            // because we do not distinguish classes generated from common and platform sources, so
-            // may end up with the
-            // same type loaded from both. And if providers are not shared, the types will not match
-            // on the actualizing.
-            // The proper solution would be to build IC providers only on class files generated for
-            // the currently compiled module.
-            // But to solve it we need to have a mapping from module to its class files.
-            // TODO: reimplement with splitted providers after fixing KT-62686
-            if (firJvmIncrementalCompilationSymbolProvidersIsInitialized)
-                firJvmIncrementalCompilationSymbolProviders
-            else {
-              firJvmIncrementalCompilationSymbolProvidersIsInitialized = true
-              createProviderAndScopeForIncrementalCompilation(moduleFiles)
-                  ?.createSymbolProviders(session, moduleData, projectEnvironment)
-                  ?.also { firJvmIncrementalCompilationSymbolProviders = it }
-            }
-          },
-          extensionRegistrars,
-          configuration,
-          predefinedJavaComponents = predefinedJavaComponents,
-          needRegisterJavaElementFinder = true,
-          sessionConfigurator,
-      )
-    }
-  }
-
-  private fun <F> prepareSessions(
-      files: List<F>,
-      configuration: CompilerConfiguration,
-      rootModuleName: Name,
-      targetPlatform: TargetPlatform,
-      metadataCompilationMode: Boolean,
-      libraryList: DependencyListForCliModule,
-      isCommonSource: (F) -> Boolean,
-      isScript: (F) -> Boolean,
-      fileBelongsToModule: (F, String) -> Boolean,
-      createLibrarySession: (FirProjectSessionProvider) -> FirSession,
-      createSourceSession:
-          (
-              List<F>,
-              FirModuleData,
-              FirProjectSessionProvider,
-              FirSessionConfigurator.() -> Unit,
-          ) -> FirSession,
-  ): List<SessionWithSources<F>> {
-    val (_, nonScriptFiles) = files.partition(isScript)
-
-    val sessionProvider = FirProjectSessionProvider()
-
-    createLibrarySession(sessionProvider)
-
-    val sessionConfigurator: FirSessionConfigurator.() -> Unit = {}
-
-    val nonScriptSessions =
-        listOf(
-            createSingleSession(
-                nonScriptFiles,
-                rootModuleName,
-                libraryList,
-                targetPlatform,
-                sessionProvider,
-                sessionConfigurator,
-                createSourceSession,
-            )
-        )
-    return nonScriptSessions
-  }
-
-  private fun <F> createSingleSession(
-      files: List<F>,
-      rootModuleName: Name,
-      libraryList: DependencyListForCliModule,
-      targetPlatform: TargetPlatform,
-      sessionProvider: FirProjectSessionProvider,
-      sessionConfigurator: FirSessionConfigurator.() -> Unit,
-      createFirSession:
-          (
-              List<F>,
-              FirModuleData,
-              FirProjectSessionProvider,
-              FirSessionConfigurator.() -> Unit,
-          ) -> FirSession,
-  ): SessionWithSources<F> {
-    val platformModuleData =
-        createSourceModuleData(
-            rootModuleName,
-            libraryList.regularDependencies,
-            libraryList.dependsOnDependencies,
-            libraryList.friendDependenciesCompat,
-            targetPlatform,
-        )
-
-    val session =
-        createFirSession(files, platformModuleData, sessionProvider) { sessionConfigurator() }
-    return SessionWithSources(session, files)
+    return frontendOutputCompat(outputs)
   }
 }
 
@@ -1461,12 +1255,14 @@ class MissingConstantDeclarationGenerationExtension(
           if (isInternal && superClass.classKind == ClassKind.INTERFACE) {
             // Collect methods from this internal interface
             for (decl in superClass.declarations) {
-              if (decl is FirSimpleFunction) {
+              if (decl is FirNamedFunctionCompat) {
                 val visibility = decl.status.visibility
                 if (visibility == Visibilities.Public || visibility == Visibilities.Protected) {
                   // Check if method is not already declared in the class
                   val alreadyDeclaredInClass =
-                      classDecl.declarations.any { it is FirSimpleFunction && it.name == decl.name }
+                      classDecl.declarations.any {
+                        it is FirNamedFunctionCompat && it.name == decl.name
+                      }
 
                   // For enums, also check if method is overridden in any enum entry
                   val alreadyDeclaredInEnumEntry =
@@ -1475,7 +1271,7 @@ class MissingConstantDeclarationGenerationExtension(
                             if (entry is FirEnumEntry) {
                               val entryInit = entry.initializer as? FirAnonymousObjectExpression
                               entryInit?.anonymousObject?.declarations?.any {
-                                it is FirSimpleFunction && it.name == decl.name
+                                it is FirNamedFunctionCompat && it.name == decl.name
                               } ?: false
                             } else {
                               false
