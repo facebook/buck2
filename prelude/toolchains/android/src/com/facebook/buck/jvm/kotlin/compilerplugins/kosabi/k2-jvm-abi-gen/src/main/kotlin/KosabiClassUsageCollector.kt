@@ -34,7 +34,6 @@ import org.jetbrains.kotlin.fir.declarations.utils.isConst
 import org.jetbrains.kotlin.fir.declarations.utils.sourceElement
 import org.jetbrains.kotlin.fir.expressions.FirQualifiedAccessExpression
 import org.jetbrains.kotlin.fir.expressions.FirResolvedQualifier
-import org.jetbrains.kotlin.fir.pipeline.FirResult
 import org.jetbrains.kotlin.fir.references.symbol
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
 import org.jetbrains.kotlin.fir.symbols.SymbolInternals
@@ -72,7 +71,7 @@ class KosabiClassUsageCollector {
    * Walk the resolved FIR tree and collect all referenced classpath classes. Writes results to the
    * dep-tracker output path if available in the configuration.
    */
-  fun collectAndDump(analysisResults: FirResult, configuration: CompilerConfiguration) {
+  fun collectAndDump(analysisResults: FirResultCompat, configuration: CompilerConfiguration) {
     val outputPath = getDepTrackerOutputPath(configuration) ?: return
 
     for (output in analysisResults.outputs) {
@@ -206,7 +205,7 @@ class KosabiClassUsageCollector {
       // Record the dispatch receiver type (e.g., B.Companion in B.bConst)
       val calleeSymbol = qualifiedAccessExpression.calleeReference.symbol
       if (calleeSymbol is FirCallableSymbol<*>) {
-        val dispatchClassId = calleeSymbol.callableId.classId
+        val dispatchClassId = calleeSymbol.callableId?.classId
         if (dispatchClassId != null) {
           @OptIn(SymbolInternals::class)
           val classSymbol = session.symbolProvider.getClassLikeSymbolByClassId(dispatchClassId)
@@ -219,7 +218,8 @@ class KosabiClassUsageCollector {
     }
   }
 
-  private inner class ClassUsageVisitor(private val session: FirSession) : FirDefaultVisitorVoid() {
+  private inner class ClassUsageVisitor(private val session: FirSession) :
+      FirDefaultVisitorVoidCompat() {
     override fun visitElement(element: FirElement) {
       // Default: do not recurse into expressions/bodies
     }
@@ -242,9 +242,7 @@ class KosabiClassUsageCollector {
       }
     }
 
-    override fun visitSimpleFunction(
-        simpleFunction: org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
-    ) {
+    override fun visitNamedFunctionCompat(simpleFunction: FirNamedFunctionCompat) {
       recordType(simpleFunction.returnTypeRef.coneType, session)
       for (valueParameter in simpleFunction.valueParameters) {
         recordType(valueParameter.returnTypeRef.coneType, session)
