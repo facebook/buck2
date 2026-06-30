@@ -32,7 +32,6 @@ import org.jetbrains.kotlin.fir.expressions.FirQualifiedAccessExpression
 import org.jetbrains.kotlin.fir.expressions.FirVarargArgumentsExpression
 import org.jetbrains.kotlin.fir.expressions.FirWrappedArgumentExpression
 import org.jetbrains.kotlin.fir.expressions.impl.FirResolvedArgumentList
-import org.jetbrains.kotlin.fir.pipeline.FirResult
 import org.jetbrains.kotlin.fir.references.FirErrorNamedReference
 import org.jetbrains.kotlin.fir.references.FirResolvedNamedReference
 import org.jetbrains.kotlin.fir.symbols.SymbolInternals
@@ -64,7 +63,7 @@ internal class FirMetadataSanitizer {
 
   // ========== Pre-IR FIR cleanup ==========
 
-  fun stripAnnotationsWithErrors(analysisResults: FirResult) {
+  fun stripAnnotationsWithErrors(analysisResults: FirResultCompat) {
     for (output in analysisResults.outputs) {
       for (firFile in output.fir) {
         firFile.accept(FirAnnotationStrippingVisitor())
@@ -77,7 +76,7 @@ internal class FirMetadataSanitizer {
   // expressions in property initializers, causing the compiler to crash.
   // For ABI generation, we only need property types, not the actual initializer values,
   // so we can safely clear initializers that contain errors.
-  fun fixFirErrorExpressionsInPropertyInitializers(analysisResults: FirResult) {
+  fun fixFirErrorExpressionsInPropertyInitializers(analysisResults: FirResultCompat) {
     for (output in analysisResults.outputs) {
       for (firFile in output.fir) {
         firFile.accept(FirPropertyInitializerFixerVisitor())
@@ -620,17 +619,12 @@ internal class FirMetadataSanitizer {
             true
           }
         }
-        is org.jetbrains.kotlin.fir.expressions.FirArrayLiteral -> {
-          // Array literal [a, b, c] - check all elements
-          // FirArrayLiteral interface doesn't expose 'arguments' directly, use reflection
+        is FirCollectionLiteralCompat -> {
+          // Collection/array literal [a, b, c] - check all elements
           try {
-            val argumentListMethod = element.javaClass.getMethod("getArgumentList")
-            val argumentList =
-                argumentListMethod.invoke(element)
-                    as? org.jetbrains.kotlin.fir.expressions.FirArgumentList
-            argumentList?.arguments?.any { hasErrorExpression(it) } ?: false
+            element.argumentList.arguments.any { hasErrorExpression(it) }
           } catch (_: Exception) {
-            // If reflection fails, treat as error to be safe
+            // If access fails, treat as error to be safe
             true
           }
         }
