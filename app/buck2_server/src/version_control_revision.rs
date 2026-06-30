@@ -301,3 +301,78 @@ async fn repo_type(repo_root: &AbsNormPathBuf) -> buck2_error::Result<&'static R
         .as_ref()
         .map_err(|e| e.clone())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Run a `git` command in `repo_root`, panicking on failure. Used to set up
+    /// and inspect test repositories.
+    async fn git(repo_root: &AbsNormPathBuf, args: &[&str]) -> String {
+        run_git(repo_root, args)
+            .await
+            .unwrap_or_else(|e| panic!("`git {}` failed: {e}", args.join(" ")))
+    }
+
+    /// Initialize an empty git repo with a deterministic identity so that commits
+    /// succeed even in environments without a global git config.
+    async fn init_git_repo(repo_root: &AbsNormPathBuf) {
+        git(repo_root, &["init", "-q"]).await;
+        git(repo_root, &["config", "user.name", "Buck Test"]).await;
+        git(
+            repo_root,
+            &["config", "user.email", "buck-test@example.com"],
+        )
+        .await;
+        git(repo_root, &["config", "commit.gpgsign", "false"]).await;
+    }
+
+    fn temp_repo_root(temp_dir: &tempfile::TempDir) -> buck2_error::Result<AbsNormPathBuf> {
+        AbsNormPathBuf::try_from(temp_dir.path().to_path_buf())
+    }
+
+    fn write_file(repo_root: &AbsNormPathBuf, name: &str, contents: &str) {
+        let repo_path = std::path::Path::new(repo_root.as_path().to_str().unwrap());
+        std::fs::write(repo_path.join(name), contents).unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_get_git_revision_matches_head() -> buck2_error::Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let repo_root = temp_repo_root(&temp_dir)?;
+        init_git_repo(&repo_root).await;
+        write_file(&repo_root, "file.txt", "hello");
+        git(&repo_root, &["add", "file.txt"]).await;
+        git(&repo_root, &["commit", "-q", "-m", "initial"]).await;
+
+        let head = git(&repo_root, &["rev-parse", "HEAD"]).await;
+        let head = head.trim();
+
+        let mut revision = VersionControlRevision::default();
+        get_git_revision(&mut revision, &repo_root).await;
+
+        assert_eq!(revision.command_error, None);
+        assert_eq!(revision.git_revision.as_deref(), Some(head));
+        let git_revision = revision.git_revision.unwrap();
+        assert_eq!(git_revision.len(), 40);
+        assert!(git_revision.chars().all(|c| c.is_ascii_hexdigit()));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_get_git_status_clean() -> buck2_error::Result<()> {
+        let temp_dir = tempfile::tempdir()?;
+        let repo_root = temp_repo_root(&temp_dir)?;
+        init_git_repo(&repo_root).await;
+        write_file(&repo_root, "file.txt", "hello");
+        git(&repo_root, &["add", "file.txt"]).await;
+        git(&repo_root, &["commit", "-q", "-m", "initial"]).await;
+
+        let mut revision = VersionControlRevision::default();
+        get_git_status(&mut revision, &repo_root).await;
+
+        assert_eq!(revision.command_error, None);
+        assert_eq!(revision.has_local_changes, Some(false));
+        Ok(())
+    }
+}
