@@ -15,11 +15,11 @@ import com.android.ide.common.resources.MergedResourceWriter;
 import com.android.ide.common.resources.MergingException;
 import com.android.ide.common.resources.NoOpResourcePreprocessor;
 import com.android.ide.common.resources.ResourceMerger;
+import com.android.ide.common.resources.ResourcePathEncoding;
 import com.android.ide.common.resources.ResourceSet;
 import com.android.utils.ILogger;
 import com.facebook.infer.annotation.Nullsafe;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import java.nio.file.Path;
 import java.util.Objects;
 
@@ -51,8 +51,8 @@ class MergeAndroidResourceSourcesUtils {
             null /*blameLogFolder*/,
             Objects.requireNonNull(NoOpResourcePreprocessor.INSTANCE),
             tmpFolderPath.toFile(),
-            ImmutableMap.of() /* moduleSourceSet */,
-            "unused_package_name");
+            "unused_package_name",
+            new ResourcePathEncoding.AbsoluteNotRelocatable("Android Gradle Plugin only feature"));
     merger.mergeData(writer, /* cleanUp */ false);
   }
 }

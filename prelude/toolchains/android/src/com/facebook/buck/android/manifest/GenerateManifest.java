@@ -195,7 +195,8 @@ public class GenerateManifest {
               // NULLSAFE_FIXME[Not Vetted Third-Party]
               .withFeatures(
                   ManifestMerger2.Invoker.Feature.REMOVE_TOOLS_DECLARATIONS,
-                  ManifestMerger2.Invoker.Feature.DISABLE_PACKAGE_NAME_UNIQUENESS_CHECK)
+                  ManifestMerger2.Invoker.Feature.DISABLE_PACKAGE_NAME_UNIQUENESS_CHECK,
+                  ManifestMerger2.Invoker.Feature.USES_SDK_IN_MANIFEST_LENIENT_HANDLING)
               // NULLSAFE_FIXME[Not Vetted Third-Party]
               .addLibraryManifests(Iterables.toArray(libraryManifestFiles, File.class))
               // NULLSAFE_FIXME[Not Vetted Third-Party]
