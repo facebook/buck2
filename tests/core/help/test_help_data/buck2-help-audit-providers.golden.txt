@@ -18,6 +18,9 @@ Options:
       --print-debug
           Print the providers using debug format (very verbose)
 
+  -p, --provider <PROVIDER>
+          Print only the named provider(s)
+
   -h, --help
           Print help (see a summary with '-h')
 
