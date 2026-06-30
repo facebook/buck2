@@ -15,6 +15,7 @@ use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_cli_proto::ClientContext;
 use buck2_cmd_audit_client::providers::AuditProvidersCommand;
+use buck2_events::dispatch::console_message;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -91,6 +92,8 @@ async fn server_execute_with_dice(
     let mut stderr = server_ctx.stderr()?;
 
     let mut at_least_one_error = false;
+    let mut deferred_output = Vec::new();
+
     while let Some((target, result)) = futs.next().await {
         match result {
             Ok(v) => {
@@ -120,6 +123,53 @@ async fn server_execute_with_dice(
                         target,
                         indent("  ", &format!("{:?}", v.provider_collection()))
                     )?;
+                } else if !command.provider.is_empty() {
+                    let collection = v.provider_collection();
+                    let mut found_providers = Vec::new();
+                    let mut missing_providers = Vec::new();
+
+                    for provider_name in &command.provider {
+                        match collection
+                            .iter_providers()
+                            .find(|(id, _)| id.name == *provider_name)
+                        {
+                            Some((_, provider_value)) => {
+                                found_providers.push(format!("{provider_value:#}"));
+                            }
+                            None => {
+                                missing_providers.push(provider_name.as_str());
+                            }
+                        }
+                    }
+
+                    if !missing_providers.is_empty() {
+                        let label = if missing_providers.len() == 1 {
+                            "provider"
+                        } else {
+                            "providers"
+                        };
+                        let mut available = collection.provider_names();
+                        available.sort();
+                        let available_str = available
+                            .iter()
+                            .map(|n| format!("`{n}`"))
+                            .collect::<Vec<_>>()
+                            .join(", ");
+                        let missing_str = missing_providers
+                            .iter()
+                            .map(|n| format!("`{n}`"))
+                            .collect::<Vec<_>>()
+                            .join(", ");
+                        console_message(format!(
+                            "{}: {label} {missing_str} not found. Available providers: [{available_str}]",
+                            target.unconfigured()
+                        ));
+                    }
+
+                    if !found_providers.is_empty() {
+                        let inner = found_providers.join(",\n");
+                        deferred_output.push(format!("{}:\n{}\n", target, indent("  ", &inner)));
+                    }
                 } else {
                     write!(
                         &mut stdout,
@@ -139,6 +189,10 @@ async fn server_execute_with_dice(
                 at_least_one_error = true;
             }
         }
+    }
+
+    for output in &deferred_output {
+        write!(&mut stdout, "{output}")?;
     }
 
     stdout.flush()?;
