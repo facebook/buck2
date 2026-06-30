@@ -14,7 +14,7 @@ import re
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
-from buck2.tests.e2e_util.helper.golden import golden_replace_cfg_hash
+from buck2.tests.e2e_util.helper.golden import golden_replace_cfg_hash, sanitize_stderr
 
 
 def _replace_hash(s: str) -> str:
@@ -189,4 +189,65 @@ async def test_audit_providers_modifiers_fail_with_pattern_modifier_and_target_u
             "providers", "//:dummy?//:macos", "--target-universe", "//:dummy?//:linux"
         ),
         stderr_regex=r"Cannot use \?modifier syntax in target pattern expression with --target-universe flag",
+    )
+
+
+FILTER_GOLDEN_DIRECTORY = "filter/golden/"
+
+
+@buck_test(data_dir="filter")
+async def test_audit_providers_filter_single(buck: Buck) -> None:
+    result = await buck.audit("providers", "-p", "FooInfo", "//:has_all")
+
+    golden_replace_cfg_hash(
+        output=result.stdout,
+        rel_path=FILTER_GOLDEN_DIRECTORY + "audit_providers_filter_single.golden.txt",
+    )
+
+
+@buck_test(data_dir="filter")
+async def test_audit_providers_filter_multiple(buck: Buck) -> None:
+    result = await buck.audit(
+        "providers", "-p", "FooInfo", "-p", "BarInfo", "//:has_all"
+    )
+
+    golden_replace_cfg_hash(
+        output=result.stdout,
+        rel_path=FILTER_GOLDEN_DIRECTORY + "audit_providers_filter_multiple.golden.txt",
+    )
+
+
+@buck_test(data_dir="filter")
+async def test_audit_providers_filter_not_found(buck: Buck) -> None:
+    result = await buck.audit(
+        "providers", "-p", "Nonexistent1", "-p", "Nonexistent2", "//:has_all"
+    )
+
+    golden_replace_cfg_hash(
+        output=result.stdout,
+        rel_path=FILTER_GOLDEN_DIRECTORY
+        + "audit_providers_filter_not_found_stdout.golden.txt",
+    )
+    golden_replace_cfg_hash(
+        output=sanitize_stderr(result.stderr),
+        rel_path=FILTER_GOLDEN_DIRECTORY
+        + "audit_providers_filter_not_found_stderr.golden.txt",
+    )
+
+
+@buck_test(data_dir="filter")
+async def test_audit_providers_filter_multi_target(buck: Buck) -> None:
+    result = await buck.audit(
+        "providers", "-p", "FooInfo", "-p", "BarInfo", "//:has_all", "//:has_foo"
+    )
+
+    golden_replace_cfg_hash(
+        output=result.stdout,
+        rel_path=FILTER_GOLDEN_DIRECTORY
+        + "audit_providers_filter_multi_target_stdout.golden.txt",
+    )
+    golden_replace_cfg_hash(
+        output=sanitize_stderr(result.stderr),
+        rel_path=FILTER_GOLDEN_DIRECTORY
+        + "audit_providers_filter_multi_target_stderr.golden.txt",
     )
