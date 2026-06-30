@@ -158,6 +158,22 @@ def _generate_error_handler(
 
     return handler
 
+_HEADER_EXTENSIONS = [
+    ".h",
+    ".hpp",
+    ".hh",
+    ".h++",
+    ".hxx",
+    ".cuh",
+    ".inc",
+]
+
+def _is_header(path: str) -> bool:
+    for ext in _HEADER_EXTENSIONS:
+        if path.endswith(ext):
+            return True
+    return False
+
 # Resolves whether a genrule's outputs should use content-based paths. When
 # `has_content_based_path` is left unset, outputs consisting solely of headers
 # default to content-based paths.
@@ -167,14 +183,14 @@ def _is_content_based(content_based: [bool, None], out_attr: [str, None], outs_a
         return content_based
 
     if out_attr != None:
-        return out_attr.endswith(".h")
+        return _is_header(out_attr)
 
     if outs_attr == None:
         return False
 
     for paths in outs_attr.values():
         for path in paths:
-            if not path.endswith(".h"):
+            if not _is_header(path):
                 return False
     return True
 
