@@ -258,7 +258,7 @@ impl EdenIoProvider {
     async fn read_dir_impl(
         &self,
         path: ProjectRelativePathBuf,
-    ) -> buck2_error::Result<Vec<RawDirEntry>> {
+    ) -> buck2_error::Result<ReadDirOutcome> {
         let _guard = IoCounterKey::ReadDirEden.guard();
 
         let requested_attributes = i64::from(i32::from(FileAttributes::SOURCE_CONTROL_TYPE));
@@ -290,9 +290,16 @@ impl EdenIoProvider {
             edenfs::DirListAttributeDataOrError::error(err) => {
                 match err.errorCode {
                     Some(libc::ENOENT) => return Err(EdenError::from(err).into()),
+                    Some(libc::EACCES) => {
+                        tracing::debug!(
+                            "readdir({}): permission denied, treating as restricted directory",
+                            path
+                        );
+                        return Ok(ReadDirOutcome::EdenPermissionDenied);
+                    }
                     Some(libc::EINVAL) | Some(libc::ENOTDIR) => {
                         // Fallback to regular file I/O if we get EINVAL or ENOTDIR because that means it's a symlink
-                        return Ok(self.fs.read_dir_impl(path).await?.into_entries());
+                        return self.fs.read_dir_impl(path).await;
                     }
                     _ => return Err(EdenError::from(err).into()),
                 }
@@ -354,7 +361,7 @@ impl EdenIoProvider {
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-        Ok(entries)
+        Ok(ReadDirOutcome::Entries(entries))
     }
 
     async fn read_file_if_exists_impl(
@@ -481,10 +488,9 @@ impl IoProvider for EdenIoProvider {
         &self,
         path: ProjectRelativePathBuf,
     ) -> buck2_error::Result<ReadDirOutcome> {
-        match self.read_dir_impl(path).await {
-            Ok(entries) => Ok(ReadDirOutcome::Entries(entries)),
-            Err(e) => Err(e.tag([ErrorTag::IoEden])),
-        }
+        self.read_dir_impl(path)
+            .await
+            .map_err(|e| e.tag([ErrorTag::IoEden]))
     }
 
     async fn settle(&self) -> buck2_error::Result<()> {
