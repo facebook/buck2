@@ -27,6 +27,7 @@ AndroidToolchainInfo = provider(
         "apk_builder": provider_field(typing.Any, default = None),
         "apk_module_graph": provider_field(typing.Any, default = None),
         "app_without_resources_stub": provider_field(typing.Any, default = None),
+        "build_info_generator": provider_field(typing.Any, default = None),
         "bundle_apks_builder": provider_field(typing.Any, default = None),
         "bundle_builder": provider_field(typing.Any, default = None),
         "collect_perfetto": provider_field(typing.Any, default = None),

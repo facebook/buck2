@@ -56,6 +56,8 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
         compress_resources_dot_arsc = ctx.attrs.resource_compression == "enabled" or ctx.attrs.resource_compression == "enabled_with_strings_as_assets",
         validation_deps_outputs = get_validation_deps_outputs(ctx) + validation_outputs,
         packaging_options = ctx.attrs.packaging_options,
+        # Exclude BUCK_BUILD_ID from assets/BuildInfo.json for release builds.
+        include_build_info_file = ctx.attrs.include_build_info_file and ctx.attrs.package_type != "release",
     )
 
     if dex_files_info.secondary_dex_exopackage_info or native_library_info.exopackage_info or resources_info.exopackage_info:
@@ -175,6 +177,7 @@ def build_apk(
     compress_resources_dot_arsc: bool = False,
     validation_deps_outputs: [list[Artifact], None] = None,
     packaging_options: dict | None = None,
+    include_build_info_file: bool = False,
 ) -> Artifact:
     output_apk = actions.declare_output("{}.apk".format(output_filename), has_content_based_path = False)
 
@@ -225,6 +228,21 @@ def build_apk(
         "--jar-files-that-may-contain-resources-list",
         jar_files_that_may_contain_resources,
     ])
+
+    # Invoke the toolchain's build-info generator from this apk packaging action (which already has
+    # every APK input) so the baked BUCK_BUILD_ID refreshes when the APK content changes and
+    # cache-hits otherwise -- no separate action. Its run command is multi-token (java -jar ...), so
+    # pass it via an argfile the apk-builder reads and execs.
+    if include_build_info_file:
+        apk_builder_args.add(
+            "--build-info-generator-args",
+            argfile(
+                actions = actions,
+                name = "build_info_generator_args",
+                args = cmd_args(android_toolchain.build_info_generator[RunInfo]),
+                allow_args = True,
+            ),
+        )
 
     if packaging_options:
         for key, value in packaging_options.items():

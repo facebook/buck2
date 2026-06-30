@@ -20,6 +20,8 @@ import com.facebook.buck.util.zip.ZipCompressionLevel;
 import com.facebook.infer.annotation.Nullsafe;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.MoreFiles;
+import com.google.common.io.RecursiveDeleteOption;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -28,7 +30,9 @@ import java.nio.file.Paths;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
@@ -85,6 +89,10 @@ public class ApkBuilderExecutableMain {
   @Nullable
   private String uncompressedFilesList = null;
 
+  @Option(name = "--build-info-generator-args")
+  @Nullable
+  private String buildInfoGeneratorArgs = null;
+
   public static void main(String[] args) throws IOException {
     ApkBuilderExecutableMain main = new ApkBuilderExecutableMain();
     CmdLineParser parser = new CmdLineParser(main);
@@ -104,6 +112,13 @@ public class ApkBuilderExecutableMain {
         Files.readAllLines(Paths.get(assetDirectoriesList)).stream()
             .map(Paths::get)
             .collect(ImmutableSet.toImmutableSet());
+
+    Path buildInfoDir = null;
+    if (buildInfoGeneratorArgs != null) {
+      buildInfoDir = generateBuildInfoAssetDir(buildInfoGeneratorArgs);
+      assetDirectories =
+          ImmutableSet.<Path>builder().addAll(assetDirectories).add(buildInfoDir).build();
+    }
 
     ImmutableSet<Path> nativeLibraryDirectories =
         Files.readAllLines(Paths.get(nativeLibrariesDirectoriesList)).stream()
@@ -199,9 +214,46 @@ public class ApkBuilderExecutableMain {
           String.format(
               "Found duplicate file for APK: %1$s\nOrigin 1: %2$s\nOrigin 2: %3$s",
               e.getArchivePath(), e.getFile1(), e.getFile2()));
+    } finally {
+      if (buildInfoDir != null) {
+        // Clean up the synthesized build-info temp dir (the bundler does the same on iOS); the
+        // action sandbox would reclaim it anyway.
+        try {
+          MoreFiles.deleteRecursively(buildInfoDir, RecursiveDeleteOption.ALLOW_INSECURE);
+        } catch (IOException e) {
+          // Best-effort cleanup.
+        }
+      }
     }
 
     System.exit(0);
+  }
+
+  /**
+   * Runs the toolchain's build-info generator into a temp dir and returns it for inclusion as an
+   * APK asset. {@code argsFile} holds the generator's run command, one token per line; the
+   * generator reads {@code BUCK_BUILD_ID} from this action's environment, inherited by the
+   * subprocess. Keeping the build-info-writing logic in that separate toolchain tool, but running
+   * it from the apk packaging action, ties the baked id to the APK content (re-baked only when the
+   * APK changes).
+   */
+  private static Path generateBuildInfoAssetDir(String argsFile) throws IOException {
+    List<String> command = new ArrayList<>(Files.readAllLines(Paths.get(argsFile)));
+    Path dir = Files.createTempDirectory("build_info");
+    command.add("--output-dir");
+    command.add(dir.toString());
+    Process process = new ProcessBuilder(command).inheritIO().start();
+    int exitCode;
+    try {
+      exitCode = process.waitFor();
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new RuntimeException("Interrupted while running build-info generator", e);
+    }
+    if (exitCode != 0) {
+      throw new RuntimeException("Build-info generator failed with exit code " + exitCode);
+    }
+    return dir;
   }
 
   /**
