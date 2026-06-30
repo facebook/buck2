@@ -22,8 +22,6 @@ import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.backend.FirMetadataSource
 import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
-import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
-import org.jetbrains.kotlin.fir.declarations.builder.buildSimpleFunctionCopy
 import org.jetbrains.kotlin.fir.moduleData
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
 import org.jetbrains.kotlin.fir.serialization.providedDeclarationsForMetadataService
@@ -137,7 +135,7 @@ internal class FirSupertypePruner {
 
             val existingMethodNames =
                 firClass.declarations
-                    .filterIsInstance<FirSimpleFunction>()
+                    .filterIsInstance<FirNamedFunctionCompat>()
                     .map { it.name.asString() }
                     .toSet()
 
@@ -160,9 +158,9 @@ internal class FirSupertypePruner {
 
           @OptIn(SymbolInternals::class)
           private fun copyPrivateInterfaceMethodToClass(
-              interfaceMethod: FirSimpleFunction,
+              interfaceMethod: FirNamedFunctionCompat,
               targetClass: FirRegularClass,
-          ): FirSimpleFunction? {
+          ): FirNamedFunctionCompat? {
             return try {
               val targetClassId = targetClass.symbol.classId
               val newCallableId =
@@ -171,7 +169,7 @@ internal class FirSupertypePruner {
                       targetClassId.relativeClassName,
                       interfaceMethod.name,
                   )
-              buildSimpleFunctionCopy(interfaceMethod) {
+              buildNamedFunctionCopyCompat(interfaceMethod) {
                 origin = FirDeclarationOrigin.Source
                 symbol = FirNamedFunctionSymbol(newCallableId)
                 dispatchReceiverType =
@@ -189,8 +187,8 @@ internal class FirSupertypePruner {
           private fun collectMethodsFromPrivateInterfaces(
               session: FirSession,
               interfaceClassIds: Set<ClassId>,
-          ): List<FirSimpleFunction> {
-            val methods = mutableListOf<FirSimpleFunction>()
+          ): List<FirNamedFunctionCompat> {
+            val methods = mutableListOf<FirNamedFunctionCompat>()
             for (classId in interfaceClassIds) {
               val classSymbol =
                   session.symbolProvider.getClassLikeSymbolByClassId(classId) as? FirClassSymbol<*>
@@ -199,7 +197,7 @@ internal class FirSupertypePruner {
               if (firClass.classKind != ClassKind.INTERFACE) continue
 
               for (decl in firClass.declarations) {
-                if (decl is FirSimpleFunction) {
+                if (decl is FirNamedFunctionCompat) {
                   val visibility = decl.status.visibility
                   if (visibility == Visibilities.Public || visibility == Visibilities.Protected) {
                     methods.add(decl)
@@ -355,7 +353,7 @@ internal class FirSupertypePruner {
             // Get existing method names in the class to avoid duplicates
             val existingMethodNames =
                 firClass.declarations
-                    .filterIsInstance<FirSimpleFunction>()
+                    .filterIsInstance<FirNamedFunctionCompat>()
                     .map { it.name.asString() }
                     .toSet()
 
@@ -382,13 +380,13 @@ internal class FirSupertypePruner {
             }
           }
 
-          // Copy an interface method to a target class, creating a new FirSimpleFunction
+          // Copy an interface method to a target class, creating a new FirNamedFunctionCompat
           // with the appropriate origin and symbol for the target class.
           @OptIn(SymbolInternals::class)
           private fun copyInterfaceMethodToClass(
-              interfaceMethod: FirSimpleFunction,
+              interfaceMethod: FirNamedFunctionCompat,
               targetClass: FirRegularClass,
-          ): FirSimpleFunction {
+          ): FirNamedFunctionCompat {
             val targetClassId = targetClass.symbol.classId
             val newCallableId =
                 CallableId(
@@ -397,7 +395,7 @@ internal class FirSupertypePruner {
                     interfaceMethod.name,
                 )
 
-            return buildSimpleFunctionCopy(interfaceMethod) {
+            return buildNamedFunctionCopyCompat(interfaceMethod) {
               origin = FirDeclarationOrigin.Source
               symbol = FirNamedFunctionSymbol(newCallableId)
               // Update the dispatch receiver type to the target class
@@ -410,13 +408,14 @@ internal class FirSupertypePruner {
           }
 
           // Collect methods from the given interface ClassIds
-          // Returns the actual FirSimpleFunction objects so they can be copied into target classes
+          // Returns the actual FirNamedFunctionCompat objects so they can be copied into target
+          // classes
           @OptIn(SymbolInternals::class)
           private fun collectMethodsFromInterfaces(
               session: FirSession,
               interfaceClassIds: Set<ClassId>,
-          ): List<FirSimpleFunction> {
-            val methods = mutableListOf<FirSimpleFunction>()
+          ): List<FirNamedFunctionCompat> {
+            val methods = mutableListOf<FirNamedFunctionCompat>()
             for (classId in interfaceClassIds) {
               val classSymbol =
                   session.symbolProvider.getClassLikeSymbolByClassId(classId) as? FirClassSymbol<*>
@@ -425,7 +424,7 @@ internal class FirSupertypePruner {
               if (firClass.classKind != ClassKind.INTERFACE) continue
 
               for (decl in firClass.declarations) {
-                if (decl is FirSimpleFunction) {
+                if (decl is FirNamedFunctionCompat) {
                   // Only include public/protected methods
                   val visibility = decl.status.visibility
                   if (visibility == Visibilities.Public || visibility == Visibilities.Protected) {
