@@ -28,8 +28,6 @@ import org.jetbrains.kotlin.fir.backend.FirMetadataSource
 import org.jetbrains.kotlin.fir.declarations.FirDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
-import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
-import org.jetbrains.kotlin.fir.declarations.builder.buildSimpleFunctionCopy
 import org.jetbrains.kotlin.fir.declarations.utils.isConst
 import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.fir.expressions.FirAnnotationCall
@@ -41,7 +39,6 @@ import org.jetbrains.kotlin.fir.expressions.FirVarargArgumentsExpression
 import org.jetbrains.kotlin.fir.expressions.FirWrappedArgumentExpression
 import org.jetbrains.kotlin.fir.expressions.impl.FirResolvedArgumentList
 import org.jetbrains.kotlin.fir.moduleData
-import org.jetbrains.kotlin.fir.pipeline.FirResult
 import org.jetbrains.kotlin.fir.references.FirErrorNamedReference
 import org.jetbrains.kotlin.fir.references.FirResolvedNamedReference
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
@@ -88,7 +85,7 @@ internal class FirMetadataSanitizerStage : AbiGenStage {
    * 1. Strip ALL annotations that have error expressions in their arguments.
    * 2. Fix property initializers containing error expressions (clear them).
    */
-  fun cleanupFirTree(firResult: FirResult) {
+  fun cleanupFirTree(firResult: FirResultCompat) {
     for (output in firResult.outputs) {
       for (firFile in output.fir) {
         firFile.accept(FirSanitizingVisitor())
@@ -403,7 +400,7 @@ internal class FirMetadataSanitizerStage : AbiGenStage {
 
             val existingMethodNames =
                 firClass.declarations
-                    .filterIsInstance<FirSimpleFunction>()
+                    .filterIsInstance<FirNamedFunctionCompat>()
                     .map { it.name.asString() }
                     .toSet()
 
@@ -426,9 +423,9 @@ internal class FirMetadataSanitizerStage : AbiGenStage {
 
           @OptIn(SymbolInternals::class)
           private fun copyPrivateInterfaceMethodToClass(
-              interfaceMethod: FirSimpleFunction,
+              interfaceMethod: FirNamedFunctionCompat,
               targetClass: FirRegularClass,
-          ): FirSimpleFunction? {
+          ): FirNamedFunctionCompat? {
             return try {
               val targetClassId = targetClass.symbol.classId
               val newCallableId =
@@ -437,7 +434,7 @@ internal class FirMetadataSanitizerStage : AbiGenStage {
                       targetClassId.relativeClassName,
                       interfaceMethod.name,
                   )
-              buildSimpleFunctionCopy(interfaceMethod) {
+              buildNamedFunctionCopyCompat(interfaceMethod) {
                 origin = FirDeclarationOrigin.Source
                 symbol = FirNamedFunctionSymbol(newCallableId)
                 dispatchReceiverType =
@@ -455,8 +452,8 @@ internal class FirMetadataSanitizerStage : AbiGenStage {
           private fun collectMethodsFromPrivateInterfaces(
               session: FirSession,
               interfaceClassIds: Set<ClassId>,
-          ): List<FirSimpleFunction> {
-            val methods = mutableListOf<FirSimpleFunction>()
+          ): List<FirNamedFunctionCompat> {
+            val methods = mutableListOf<FirNamedFunctionCompat>()
             for (classId in interfaceClassIds) {
               val classSymbol =
                   session.symbolProvider.getClassLikeSymbolByClassId(classId) as? FirClassSymbol<*>
@@ -465,7 +462,7 @@ internal class FirMetadataSanitizerStage : AbiGenStage {
               if (firClass.classKind != ClassKind.INTERFACE) continue
 
               for (decl in firClass.declarations) {
-                if (decl is FirSimpleFunction) {
+                if (decl is FirNamedFunctionCompat) {
                   val visibility = decl.status.visibility
                   if (visibility == Visibilities.Public || visibility == Visibilities.Protected) {
                     methods.add(decl)
@@ -735,13 +732,9 @@ internal class FirMetadataSanitizerStage : AbiGenStage {
             true
           }
         }
-        is org.jetbrains.kotlin.fir.expressions.FirArrayLiteral -> {
+        is FirCollectionLiteralCompat -> {
           try {
-            val argumentListMethod = element.javaClass.getMethod("getArgumentList")
-            val argumentList =
-                argumentListMethod.invoke(element)
-                    as? org.jetbrains.kotlin.fir.expressions.FirArgumentList
-            argumentList?.arguments?.any { hasErrorExpression(it) } ?: false
+            element.argumentList.arguments.any { hasErrorExpression(it) }
           } catch (_: Exception) {
             true
           }
