@@ -86,19 +86,13 @@ async fn create_revision_data(
 ) -> buck2_data::VersionControlRevision {
     let mut revision = buck2_data::VersionControlRevision::default();
     match repo_type(repo_root).await {
-        Ok(repo_vcs) => {
-            match repo_vcs {
-                RepoVcs::Hg => create_hg_data(&mut revision, revision_type, repo_root).await,
-                RepoVcs::Git => {
-                    // TODO(rajneeshl): Implement the git data
-                    // Add a message for now so we can actually tell if revision is null due to git
-                    revision.command_error = Some("Git revision data not implemented".to_owned());
-                }
-                RepoVcs::Unknown => {
-                    revision.command_error = Some("Unknown repository type".to_owned());
-                }
+        Ok(repo_vcs) => match repo_vcs {
+            RepoVcs::Hg => create_hg_data(&mut revision, revision_type, repo_root).await,
+            RepoVcs::Git => create_git_data(&mut revision, revision_type, repo_root).await,
+            RepoVcs::Unknown => {
+                revision.command_error = Some("Unknown repository type".to_owned());
             }
-        }
+        },
         Err(e) => {
             revision.command_error = Some(format!("Failed to get repository type: {e:#}"));
         }
@@ -184,6 +178,100 @@ async fn get_hg_status(revision: &mut buck2_data::VersionControlRevision) {
     };
 }
 
+async fn create_git_data(
+    revision: &mut buck2_data::VersionControlRevision,
+    revision_type: RevisionDataType,
+    repo_root: &AbsNormPathBuf,
+) {
+    match revision_type {
+        RevisionDataType::CurrentRevision => get_git_revision(revision, repo_root).await,
+        RevisionDataType::Status => get_git_status(revision, repo_root).await,
+    }
+}
+
+async fn get_git_revision(
+    revision: &mut buck2_data::VersionControlRevision,
+    repo_root: &AbsNormPathBuf,
+) {
+    // `git rev-parse HEAD` resolves the current commit hash. This handles
+    // packed refs, detached HEADs, etc. without us having to parse `.git`.
+    match run_git(repo_root, &["rev-parse", "HEAD"]).await {
+        Ok(stdout) => revision.git_revision = Some(stdout.trim().to_owned()),
+        Err(e) => revision.command_error = Some(e),
+    }
+}
+
+async fn get_git_status(
+    revision: &mut buck2_data::VersionControlRevision,
+    repo_root: &AbsNormPathBuf,
+) {
+    // `git status --porcelain` prints one line per change; empty output means
+    // there are no local changes. Note that this counts untracked files as local
+    // changes (they show up as `??` lines), matching the behavior of `hg status`.
+    match run_git(repo_root, &["status", "--porcelain"]).await {
+        Ok(stdout) => revision.has_local_changes = Some(!stdout.trim().is_empty()),
+        Err(e) => revision.command_error = Some(e),
+    }
+}
+
+/// Run a `git` command rooted at `repo_root`, returning its stdout on success or
+/// an error message describing the failure.
+async fn run_git(repo_root: &AbsNormPathBuf, args: &[&str]) -> Result<String, String> {
+    let Some(repo_root) = repo_root.as_path().to_str() else {
+        return Err(format!(
+            "Repository root is not valid utf8: {}",
+            repo_root.as_path().display()
+        ));
+    };
+
+    // `-C <repo_root>` makes git operate on the repository regardless of the
+    // daemon's current working directory.
+    let mut full_args = vec!["-C", repo_root];
+    full_args.extend_from_slice(args);
+
+    // `GIT_OPTIONAL_LOCKS=0` prevents git from taking the index lock or
+    // refreshing the index on disk, so we don't contend with a concurrent user
+    // `git` invocation (e.g. for `git status`).
+    let output = match reap_on_drop_command("git", &full_args, Some(&[("GIT_OPTIONAL_LOCKS", "0")]))
+    {
+        Ok(command) => command.output().await,
+        Err(e) => {
+            return Err(format!(
+                "reap_on_drop_command for `git {}` failed: {e}",
+                args.join(" ")
+            ));
+        }
+    };
+
+    let result = match output {
+        Ok(result) => result,
+        Err(e) => {
+            return Err(format!(
+                "Command `git {}` failed with error: {e:?}",
+                args.join(" ")
+            ));
+        }
+    };
+
+    if !result.status.success() {
+        let stderr = match std::str::from_utf8(&result.stderr) {
+            Ok(s) => s,
+            Err(e) => return Err(format!("git {} stderr is not utf8: {e}", args.join(" "))),
+        };
+        return Err(format!(
+            "Command `git {}` failed with error code {}; stderr: {}",
+            args.join(" "),
+            result.status,
+            stderr
+        ));
+    }
+
+    match std::str::from_utf8(&result.stdout) {
+        Ok(s) => Ok(s.to_owned()),
+        Err(e) => Err(format!("git {} stdout is not utf8: {e}", args.join(" "))),
+    }
+}
+
 async fn repo_type(repo_root: &AbsNormPathBuf) -> buck2_error::Result<&'static RepoVcs> {
     static REPO_TYPE: OnceCell<buck2_error::Result<RepoVcs>> = OnceCell::const_new();
     async fn repo_type_impl(repo_root: &AbsNormPathBuf) -> buck2_error::Result<RepoVcs> {
@@ -193,7 +281,10 @@ async fn repo_type(repo_root: &AbsNormPathBuf) -> buck2_error::Result<&'static R
         );
 
         let is_hg = hg_metadata.is_ok_and(|output| output.is_dir());
-        let is_git = git_metadata.is_ok_and(|output| output.is_dir());
+        // `.git` can be a symlink or a file with contents like:
+        //
+        //     gitdir: /home/dog/buck2/.git/worktrees/buck3
+        let is_git = git_metadata.is_ok();
 
         if is_hg {
             Ok(RepoVcs::Hg)

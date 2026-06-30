@@ -905,6 +905,8 @@ message VersionControlRevision {
   // Unset: Unknown state.
   optional bool has_local_changes = 2;
   optional string command_error = 3;
+  // 40 characters hash for git revision.
+  optional string git_revision = 4;
 }
 
 // Event sent during build commands
@@ -2809,6 +2811,8 @@ message InvocationRecord {
   optional bool has_local_changes = 107;
   // Errors encountered during version control operations.
   repeated string version_control_errors = 108;
+  // 40 characters hash for git revision.
+  optional string git_revision = 109;
 
   // Detailed per-backend RE stats.
   optional uint64 zdb_download_queries = 200;
