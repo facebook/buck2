@@ -168,7 +168,11 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
     # -test.list. Eliminates cgo and TestMain startup costs from listing.
     # The lister mirrors `go test -list <regex>`
     env = dict(ctx.attrs.env)
-    env["TPX_LIST_TESTS_COMMAND"] = cmd_args([ctx.attrs._list_tests[RunInfo]], cmd_args(test_go_files_argsfile, format = "@{}"))
+    env["TPX_LIST_TESTS_COMMAND"] = cmd_args(
+        [ctx.attrs._list_tests[RunInfo]],
+        "-match=^Test.*",
+        cmd_args(test_go_files_argsfile, format = "@{}"),
+    )
 
     return inject_test_run_info(
         ctx,
