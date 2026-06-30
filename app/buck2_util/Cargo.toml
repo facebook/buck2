@@ -17,6 +17,7 @@ buck2_wrapper_common.workspace = true
 dupe.workspace = true
 futures.workspace = true
 pagable.workspace = true
+regex.workspace = true
 serde.workspace = true
 starlark_map.workspace = true
 static_assertions.workspace = true

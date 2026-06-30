@@ -14,6 +14,7 @@ rust_library(
     deps = [
         "fbsource//third-party/rust:blake3",
         "fbsource//third-party/rust:futures",
+        "fbsource//third-party/rust:regex",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:static_assertions",
         "fbsource//third-party/rust:sysinfo",

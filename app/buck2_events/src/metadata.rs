@@ -19,6 +19,23 @@ use buck2_wrapper_common::BUCK2_WRAPPER_ENV_VAR;
 
 use crate::daemon_id::DaemonId;
 
+/// Collects metadata from the current binary and environment, merged with any extras, suitable for telemetry purposes.
+///
+/// Extras are user-supplied (e.g. from the `[buck2_metadata]` buckconfig section) and so are only
+/// applied for keys not already populated by `collect`, ensuring user config cannot shadow trusted
+/// telemetry fields such as `hostname`, `username` or `daemon_uuid`.
+#[cfg(not(fbcode_build))]
+pub fn collect_with_extras(
+    daemon: &DaemonId,
+    extras: &StdBuckHashMap<String, String>,
+) -> StdBuckHashMap<String, String> {
+    let mut map = collect(daemon);
+    for (k, v) in extras.iter() {
+        map.entry(k.clone()).or_insert_with(|| v.clone());
+    }
+    map
+}
+
 /// Collects metadata from the current binary and environment and writes it as map, suitable for telemetry purposes.
 pub fn collect(daemon: &DaemonId) -> StdBuckHashMap<String, String> {
     facebook_only();

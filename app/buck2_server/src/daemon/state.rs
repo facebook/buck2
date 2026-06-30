@@ -29,6 +29,7 @@ use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
+use buck2_common::legacy_configs::parse_buckconfig_metadata;
 use buck2_common::sqlite::sqlite_db::SqliteDb;
 use buck2_common::sqlite::sqlite_db::SqliteIdentity;
 use buck2_core::buck2_env;
@@ -212,6 +213,8 @@ pub struct DaemonStateData {
     /// Semaphores for running actions locally. These need to be shared across commands.
     #[allocative(skip)]
     pub named_semaphores_for_run_actions: Arc<NamedSemaphores>,
+
+    pub buckconfig_metadata: StdBuckHashMap<String, String>,
 }
 
 impl DaemonStateData {
@@ -744,6 +747,7 @@ impl DaemonState {
                 daemon_id: daemon_id.dupe(),
                 daemon_originating_cgroup: init_ctx.daemon_originating_cgroup,
                 named_semaphores_for_run_actions: Arc::new(NamedSemaphores::new()),
+                buckconfig_metadata: parse_buckconfig_metadata(root_config),
             }))
         };
         let daemon_listener_span = tracing::Span::current();

@@ -17,6 +17,7 @@ pub mod arc_str;
 pub mod async_move_clone;
 pub mod commas;
 pub mod cycle_detector;
+pub mod env_vars;
 pub mod future;
 pub mod golden_test_helper;
 pub mod indent;
