@@ -83,3 +83,73 @@ read_package_value_not_found = bxl_main(
     impl = _read_package_value_not_found_impl,
     cli_args = {},
 )
+
+def _read_package_visibility_impl(ctx):
+    # Default: `root//` declares no visibility, so it is visible to nothing (`[]`).
+    # Exercise both the PackagePath form (from a node) and the string form.
+    root_pkg_path = ctx.unconfigured_targets("root//:dummy").label.package_path
+    asserts.equals(bxl.read_package_visibility(root_pkg_path), [])
+    asserts.equals(bxl.read_package_visibility("root//"), [])
+
+    # Explicit visibility declared in `vis_dir/PACKAGE`, via both input forms. The
+    # `target_name_glob(...)` entry is rendered as a JSON object, not a string.
+    vis_pkg_path = ctx.unconfigured_targets("root//vis_dir:vis_dummy").label.package_path
+    expected = [
+        "root//bar_dir/...",
+        "root//sub_dir:",
+        {"name_globs": ["*-test"], "within": [], "__type": "target_name_glob"},
+    ]
+    asserts.equals(bxl.read_package_visibility(vis_pkg_path), expected)
+    asserts.equals(bxl.read_package_visibility("root//vis_dir"), expected)
+
+read_package_visibility = bxl_main(
+    impl = _read_package_visibility_impl,
+    cli_args = {},
+)
+
+def _read_package_within_view_impl(ctx):
+    # Default: `root//` declares no within_view, so it defaults to `["PUBLIC"]`.
+    # Exercise both the PackagePath form (from a node) and the string form.
+    root_pkg_path = ctx.unconfigured_targets("root//:dummy").label.package_path
+    asserts.equals(bxl.read_package_within_view(root_pkg_path), ["PUBLIC"])
+    asserts.equals(bxl.read_package_within_view("root//"), ["PUBLIC"])
+
+    # Explicit within_view declared in `vis_dir/PACKAGE`, via both input forms.
+    vis_pkg_path = ctx.unconfigured_targets("root//vis_dir:vis_dummy").label.package_path
+    asserts.equals(bxl.read_package_within_view(vis_pkg_path), ["root//..."])
+    asserts.equals(bxl.read_package_within_view("root//vis_dir"), ["root//..."])
+
+read_package_within_view = bxl_main(
+    impl = _read_package_within_view_impl,
+    cli_args = {},
+)
+
+def _read_package_visibility_cap_impl(ctx):
+    # No ancestor caps visibility at the root, so the cap is PUBLIC (no restriction).
+    asserts.equals(bxl.read_package_visibility_cap("root//"), ["PUBLIC"])
+
+    # `cap_dir` opts into intersection-based visibility, so its explicit
+    # `package(visibility=...)` propagates as the cap. Exercise both input forms.
+    cap_pkg_path = ctx.unconfigured_targets("root//cap_dir:cap_dummy").label.package_path
+    asserts.equals(bxl.read_package_visibility_cap(cap_pkg_path), ["root//cap_dir/..."])
+    asserts.equals(
+        bxl.read_package_visibility_cap("root//cap_dir"),
+        ["root//cap_dir/..."],
+    )
+
+    # `cap_dir/sub_dir` declares its own visibility but does not opt in, so its cap
+    # is the one propagated from the `cap_dir` ancestor -- and is distinct from the
+    # package's own visibility. This exercises ancestor->descendant cap propagation.
+    asserts.equals(
+        bxl.read_package_visibility_cap("root//cap_dir/sub_dir"),
+        ["root//cap_dir/..."],
+    )
+    asserts.equals(
+        bxl.read_package_visibility("root//cap_dir/sub_dir"),
+        ["root//other:thing"],
+    )
+
+read_package_visibility_cap = bxl_main(
+    impl = _read_package_visibility_cap_impl,
+    cli_args = {},
+)

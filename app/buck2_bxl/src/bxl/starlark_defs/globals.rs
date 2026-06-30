@@ -23,6 +23,7 @@ use crate::bxl::starlark_defs::functions::register_artifact_function;
 use crate::bxl::starlark_defs::functions::register_error_handling_function;
 use crate::bxl::starlark_defs::functions::register_instant_function;
 use crate::bxl::starlark_defs::functions::register_read_package_value_function;
+use crate::bxl::starlark_defs::functions::register_read_package_visibility_functions;
 use crate::bxl::starlark_defs::functions::register_target_function;
 use crate::bxl::starlark_defs::type_names::register_bxl_type_names_in_bxl_namespace;
 
@@ -35,6 +36,7 @@ fn bxl_namespace(g: &mut GlobalsBuilder) {
     register_instant_function(g);
     register_error_handling_function(g);
     register_read_package_value_function(g);
+    register_read_package_visibility_functions(g);
     register_bxl_type_names_in_bxl_namespace(g);
     register_select_types(g);
     register_dynamic_actions(g);

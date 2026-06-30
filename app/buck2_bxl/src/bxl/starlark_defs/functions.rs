@@ -21,6 +21,7 @@ use buck2_interpreter_for_build::super_package::package_value::SuperPackageValue
 use buck2_node::metadata::key::MetadataKeyRef;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
+use buck2_node::super_package::SuperPackage;
 use dupe::Dupe;
 use futures::FutureExt;
 use starlark::environment::GlobalsBuilder;
@@ -282,6 +283,20 @@ impl<'v> PackagePathArg<'v> {
     }
 }
 
+/// Resolve `package_path` and evaluate its `PACKAGE` file, returning the merged
+/// `SuperPackage` (the contents of the `PACKAGE` file combined with those of its
+/// ancestors). Only callable from within Bxl.
+fn read_super_package<'v>(
+    package_path: PackagePathArg<'v>,
+    eval: &mut Evaluator<'v, '_, '_>,
+) -> starlark::Result<SuperPackage> {
+    let bxl_eval_extra = BxlEvalExtra::from_context(eval)?;
+    let package = package_path.pkg(bxl_eval_extra.core.cell_alias_resolver())?;
+    Ok(bxl_eval_extra
+        .dice
+        .via(|dice| async { dice.eval_package_file(package).await }.boxed_local())?)
+}
+
 #[starlark_module]
 pub(crate) fn register_read_package_value_function(builder: &mut GlobalsBuilder) {
     /// Read package value from the specified package path.
@@ -316,12 +331,7 @@ pub(crate) fn register_read_package_value_function(builder: &mut GlobalsBuilder)
     ) -> starlark::Result<Value<'v>> {
         let metadata_key = MetadataKeyRef::new(key).map_err(buck2_error::Error::from)?;
 
-        let bxl_eval_extra = BxlEvalExtra::from_context(eval)?;
-        let package = package_path.pkg(bxl_eval_extra.core.cell_alias_resolver())?;
-
-        let super_package = bxl_eval_extra
-            .dice
-            .via(|dice| async { dice.eval_package_file(package).await }.boxed_local())?;
+        let super_package = read_super_package(package_path, eval)?;
 
         // Use this instead of `get_package_value_json()`` to get the native Starlark value directly,
         // rather than converting the Starlark value to JSON first
@@ -333,5 +343,88 @@ pub(crate) fn register_read_package_value_function(builder: &mut GlobalsBuilder)
                 .access_owned_frozen_value(value.owned_frozen_value())),
             None => Ok(Value::new_none()),
         }
+    }
+}
+
+#[starlark_module]
+pub(crate) fn register_read_package_visibility_functions(builder: &mut GlobalsBuilder) {
+    /// Read the `visibility` declared via `package()` in the `PACKAGE` files for the
+    /// given package path.
+    ///
+    /// Returns the same JSON-shaped value as `buck2 audit package-values`: a list of
+    /// visibility pattern strings (with `target_name_glob(...)` entries rendered as
+    /// objects). An empty list means the package is visible to nothing by default.
+    ///
+    /// The `package_path` parameter accepts any of the following:
+    /// - A `PackagePath`
+    /// - A string representing a package path (e.g., "root//some/package")
+    ///
+    /// Sample usage:
+    /// ```python
+    /// def _impl_read_package_visibility(ctx):
+    ///     node = ctx.unconfigured_targets("root//some/package:target")
+    ///     visibility = bxl.read_package_visibility(node.label.package_path)
+    ///
+    ///     visibility2 = bxl.read_package_visibility("root//path/to/pkg")
+    /// ```
+    fn read_package_visibility<'v>(
+        #[starlark(require = pos)] package_path: PackagePathArg<'v>,
+        eval: &mut Evaluator<'v, '_, '_>,
+    ) -> starlark::Result<Value<'v>> {
+        let super_package = read_super_package(package_path, eval)?;
+        Ok(eval.heap().alloc(super_package.visibility().to_json()))
+    }
+
+    /// Read the `within_view` declared via `package()` in the `PACKAGE` files for the
+    /// given package path.
+    ///
+    /// Returns the same JSON-shaped value as `buck2 audit package-values`: a list of
+    /// pattern strings, or `["PUBLIC"]` when the package may depend on anything (the
+    /// default).
+    ///
+    /// The `package_path` parameter accepts any of the following:
+    /// - A `PackagePath`
+    /// - A string representing a package path (e.g., "root//some/package")
+    ///
+    /// Sample usage:
+    /// ```python
+    /// def _impl_read_package_within_view(ctx):
+    ///     node = ctx.unconfigured_targets("root//some/package:target")
+    ///     within_view = bxl.read_package_within_view(node.label.package_path)
+    ///
+    ///     within_view2 = bxl.read_package_within_view("root//path/to/pkg")
+    /// ```
+    fn read_package_within_view<'v>(
+        #[starlark(require = pos)] package_path: PackagePathArg<'v>,
+        eval: &mut Evaluator<'v, '_, '_>,
+    ) -> starlark::Result<Value<'v>> {
+        let super_package = read_super_package(package_path, eval)?;
+        Ok(eval.heap().alloc(super_package.within_view().to_json()))
+    }
+
+    /// Read the visibility cap propagated from `enforce_visibility_intersection()` in
+    /// ancestor `PACKAGE` files for the given package path.
+    ///
+    /// Returns the same JSON-shaped value as `buck2 audit package-values`: a list of
+    /// pattern strings, or `["PUBLIC"]` when no ancestor caps visibility (the default).
+    ///
+    /// The `package_path` parameter accepts any of the following:
+    /// - A `PackagePath`
+    /// - A string representing a package path (e.g., "root//some/package")
+    ///
+    /// Sample usage:
+    /// ```python
+    /// def _impl_read_package_visibility_cap(ctx):
+    ///     node = ctx.unconfigured_targets("root//some/package:target")
+    ///     visibility_cap = bxl.read_package_visibility_cap(node.label.package_path)
+    ///
+    ///     visibility_cap2 = bxl.read_package_visibility_cap("root//path/to/pkg")
+    /// ```
+    fn read_package_visibility_cap<'v>(
+        #[starlark(require = pos)] package_path: PackagePathArg<'v>,
+        eval: &mut Evaluator<'v, '_, '_>,
+    ) -> starlark::Result<Value<'v>> {
+        let super_package = read_super_package(package_path, eval)?;
+        Ok(eval.heap().alloc(super_package.visibility_cap().to_json()))
     }
 }

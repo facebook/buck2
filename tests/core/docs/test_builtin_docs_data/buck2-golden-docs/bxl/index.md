@@ -10,4 +10,7 @@
 ## main
 ## now
 ## read\_package\_value
+## read\_package\_visibility
+## read\_package\_visibility\_cap
+## read\_package\_within\_view
 ## utarget\_set
