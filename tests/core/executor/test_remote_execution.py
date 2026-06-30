@@ -32,25 +32,26 @@ async def test_re_connection_failure_no_retry(buck: Buck) -> None:
     assert "retrying after sleeping" not in out.stderr
 
 
-async def filter_re_use_case(buck: Buck) -> list[str]:
-    use_cases = []
-    for action in ["Queue", "WorkerDownload", "Execute", "WorkerUpload"]:
-        use_cases.extend(
-            await filter_events(
-                buck,
-                "Event",
-                "data",
-                "SpanStart",
-                "data",
-                "ExecutorStage",
-                "stage",
-                "Re",
-                "stage",
-                action,
-                "use_case",
-            )
+RE_USE_CASE_STAGES = ("Queue", "WorkerDownload", "Execute", "WorkerUpload")
+
+
+async def assert_re_use_case(buck: Buck, expected_use_case: str) -> None:
+    for action in RE_USE_CASE_STAGES:
+        use_cases = await filter_events(
+            buck,
+            "Event",
+            "data",
+            "SpanStart",
+            "data",
+            "ExecutorStage",
+            "stage",
+            "Re",
+            "stage",
+            action,
+            "use_case",
         )
-    return use_cases
+        assert use_cases, f"No RE `{action}` stages found"
+        assert all(use_case == expected_use_case for use_case in use_cases), use_cases
 
 
 @buck_test()
@@ -63,8 +64,7 @@ async def test_re_use_case_override_with_arg(buck: Buck) -> None:
         "--remote-only",
         "--no-remote-cache",
     )
-    use_cases = await filter_re_use_case(buck)
-    assert all(use_case == "buck2-testing" for use_case in use_cases)
+    await assert_re_use_case(buck, "buck2-testing")
     # Change the target input
     with open(buck.cwd / "input.txt", "w") as f:
         f.write(random_string())
@@ -75,8 +75,7 @@ async def test_re_use_case_override_with_arg(buck: Buck) -> None:
         "--config",
         "buck2_re_client.override_use_case=buck2-user",
     )
-    use_cases = await filter_re_use_case(buck)
-    assert all(use_case == "buck2-user" for use_case in use_cases)
+    await assert_re_use_case(buck, "buck2-user")
 
 
 @buck_test()
@@ -89,10 +88,7 @@ async def test_re_use_case_override_with_config(buck: Buck) -> None:
         "--remote-only",
         "--no-remote-cache",
     )
-    use_cases = await filter_re_use_case(buck)
-    # While only 4 are needed, we _can_ end up with multiple Queue stages, inflating the number.
-    assert len(use_cases) >= 4
-    assert all(use_case == "buck2-testing" for use_case in use_cases)
+    await assert_re_use_case(buck, "buck2-testing")
     # Change the target input
     with open(buck.cwd / "input.txt", "w") as f:
         f.write(random_string())
@@ -104,9 +100,7 @@ async def test_re_use_case_override_with_config(buck: Buck) -> None:
         "--remote-only",
         "--no-remote-cache",
     )
-    use_cases = await filter_re_use_case(buck)
-    assert len(use_cases) == 4
-    assert all(use_case == "buck2-user" for use_case in use_cases)
+    await assert_re_use_case(buck, "buck2-user")
 
 
 @buck_test()
@@ -119,9 +113,7 @@ async def test_re_use_case_override_with_external_config(buck: Buck) -> None:
         "--remote-only",
         "--no-remote-cache",
     )
-    use_cases = await filter_re_use_case(buck)
-    assert len(use_cases) == 4
-    assert all(use_case == "buck2-testing" for use_case in use_cases)
+    await assert_re_use_case(buck, "buck2-testing")
     # Change the target input
     with open(buck.cwd / "input.txt", "w") as f:
         f.write(random_string())
@@ -136,9 +128,7 @@ async def test_re_use_case_override_with_external_config(buck: Buck) -> None:
             "--config-file",
             f.name,
         )
-    use_cases = await filter_re_use_case(buck)
-    assert len(use_cases) == 4
-    assert all(use_case == "buck2-user" for use_case in use_cases)
+    await assert_re_use_case(buck, "buck2-user")
 
 
 @buck_test()
@@ -155,8 +145,7 @@ async def test_re_use_case_override_with_external_config_source(buck: Buck) -> N
             "--no-remote-cache",
             env=env,
         )
-        use_cases = await filter_re_use_case(buck)
-        assert all(use_case == "buck2-default" for use_case in use_cases)
+        await assert_re_use_case(buck, "buck2-default")
         # Change the target input
         with open(buck.cwd / "input.txt", "w") as f:
             f.write(random_string())
@@ -169,5 +158,4 @@ async def test_re_use_case_override_with_external_config_source(buck: Buck) -> N
             "--no-remote-cache",
             env=env,
         )
-        use_cases = await filter_re_use_case(buck)
-        assert all(use_case == "buck2-user" for use_case in use_cases)
+        await assert_re_use_case(buck, "buck2-user")
