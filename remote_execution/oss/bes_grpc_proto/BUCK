@@ -3,7 +3,7 @@ load("@fbcode//buck2:proto_defs.bzl", "rust_protobuf_library")
 oncall("build_infra")
 
 rust_protobuf_library(
-    name = "re_grpc_proto",
+    name = "bes_grpc_proto",
     srcs = glob(["src/**/*.rs"]),
     build_script = "build.rs",
     protos = glob(["proto/**/*.proto"]),
@@ -12,8 +12,6 @@ rust_protobuf_library(
     },
     deps = [
         "fbsource//third-party/rust:prost-types",
-        "fbsource//third-party/rust:serde",
-        "//buck2/app/buck2_data:buck2_data",
         "//buck2/remote_execution/oss/google_grpc_proto:google_grpc_proto",
     ],
 )

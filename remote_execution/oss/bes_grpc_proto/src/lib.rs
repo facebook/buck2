@@ -8,19 +8,12 @@
  * above-listed licenses.
  */
 
-pub use google_grpc_proto::google;
-
 #[allow(clippy::doc_lazy_continuation)]
-pub mod build {
-    pub mod bazel {
-        pub mod semver {
-            tonic::include_proto!("build.bazel.semver");
-        }
-        pub mod remote {
-            pub mod execution {
-                pub mod v2 {
-                    tonic::include_proto!("build.bazel.remote.execution.v2");
-                }
+pub mod google {
+    pub mod devtools {
+        pub mod build {
+            pub mod v1 {
+                tonic::include_proto!("google.devtools.build.v1");
             }
         }
     }
