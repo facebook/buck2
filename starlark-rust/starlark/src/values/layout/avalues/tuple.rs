@@ -22,7 +22,6 @@ use allocative::Key;
 use allocative::Visitor;
 use pagable::PagableDeserialize;
 use pagable::PagableSerialize;
-use starlark_syntax::slice_vec_ext::SliceExt;
 
 use crate::collections::maybe_uninit_backport::maybe_uninit_write_slice;
 use crate::pagable::vtable_register::register_special_avalue_frozen;
@@ -97,12 +96,12 @@ impl<'v> AValue<'v> for AValueTuple {
                 ForwardPtr::new_frozen(fv),
             );
 
-            // TODO: this allocation is unnecessary
-            let frozen_values = content.try_map(|v| freezer.freeze(*v))?;
-            r.fill(FrozenTuple::new(content.len()));
-
             let extra = &mut *extra;
-            maybe_uninit_write_slice(extra, &frozen_values);
+            assert_eq!(extra.len(), content.len());
+            for (elem_place, elem) in extra.iter_mut().zip(content) {
+                elem_place.write(freezer.freeze(*elem)?);
+            }
+            r.fill(FrozenTuple::new(content.len()));
 
             Ok(fv)
         }

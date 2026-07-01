@@ -252,12 +252,116 @@ pub(crate) struct BlackHole(pub(crate) ValueAllocSize);
 
 #[cfg(test)]
 mod tests {
+    use std::cell::RefCell;
+    use std::fmt;
+
+    use allocative::Allocative;
+    use starlark_derive::starlark_value;
+
+    use crate as starlark;
+    use crate::any::ProvidesStaticType;
     use crate::environment::Module;
+    use crate::values::Freeze;
+    use crate::values::Freezer;
+    use crate::values::NoSerialize;
+    use crate::values::StarlarkPagable;
+    use crate::values::StarlarkValue;
+    use crate::values::Trace;
     use crate::values::UnpackValue;
     use crate::values::Value;
+    use crate::values::ValueLike;
     use crate::values::dict::AllocDict;
+    use crate::values::freeze_error::FreezeResult;
     use crate::values::layout::heap::heap_type::StarlarkTestHeapName;
+    use crate::values::types::list::value::FrozenList;
     use crate::values::types::list::value::ListData;
+    use crate::values::types::tuple::value::FrozenTuple;
+
+    #[derive(Debug, Trace, ProvidesStaticType, NoSerialize, Allocative)]
+    struct ReentrantTupleFreeze<'v>(RefCell<Option<Value<'v>>>);
+
+    impl fmt::Display for ReentrantTupleFreeze<'_> {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_str("ReentrantTupleFreeze")
+        }
+    }
+
+    #[starlark_value(type = "reentrant_tuple_freeze")]
+    impl<'v> StarlarkValue<'v> for ReentrantTupleFreeze<'v> {}
+
+    #[derive(Debug, ProvidesStaticType, NoSerialize, Allocative, StarlarkPagable)]
+    struct FrozenReentrantTupleFreeze;
+
+    impl fmt::Display for FrozenReentrantTupleFreeze {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_str("FrozenReentrantTupleFreeze")
+        }
+    }
+
+    #[starlark_value(type = "reentrant_tuple_freeze")]
+    impl<'v> StarlarkValue<'v> for FrozenReentrantTupleFreeze {
+        type Canonical = ReentrantTupleFreeze<'v>;
+    }
+
+    impl<'v> Freeze for ReentrantTupleFreeze<'v> {
+        type Frozen = FrozenReentrantTupleFreeze;
+
+        fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
+            let owner = self
+                .0
+                .into_inner()
+                .expect("test value should point back to the tuple containing it");
+            let owner = freezer.freeze(owner)?;
+            assert!(
+                owner.downcast_ref::<FrozenTuple>().is_none(),
+                "tuple should not be observable until its inline elements are initialized",
+            );
+            Ok(FrozenReentrantTupleFreeze)
+        }
+    }
+
+    #[derive(Debug, Trace, ProvidesStaticType, NoSerialize, Allocative)]
+    struct ReentrantListFreeze<'v>(RefCell<Option<Value<'v>>>);
+
+    impl fmt::Display for ReentrantListFreeze<'_> {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_str("ReentrantListFreeze")
+        }
+    }
+
+    #[starlark_value(type = "reentrant_list_freeze")]
+    impl<'v> StarlarkValue<'v> for ReentrantListFreeze<'v> {}
+
+    #[derive(Debug, ProvidesStaticType, NoSerialize, Allocative, StarlarkPagable)]
+    struct FrozenReentrantListFreeze;
+
+    impl fmt::Display for FrozenReentrantListFreeze {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_str("FrozenReentrantListFreeze")
+        }
+    }
+
+    #[starlark_value(type = "reentrant_list_freeze")]
+    impl<'v> StarlarkValue<'v> for FrozenReentrantListFreeze {
+        type Canonical = ReentrantListFreeze<'v>;
+    }
+
+    impl<'v> Freeze for ReentrantListFreeze<'v> {
+        type Frozen = FrozenReentrantListFreeze;
+
+        fn freeze(self, freezer: &Freezer) -> FreezeResult<Self::Frozen> {
+            let owner = self
+                .0
+                .into_inner()
+                .expect("test value should point back to the list containing it");
+            let owner = freezer.freeze(owner)?;
+            assert!(
+                owner.downcast_ref::<FrozenList>().is_none(),
+                "list should not be observable until its inline elements are initialized",
+            );
+            Ok(FrozenReentrantListFreeze)
+        }
+    }
 
     #[test]
     fn tuple_cycle_freeze() {
@@ -268,6 +372,44 @@ mod tests {
                 .unwrap()
                 .push(tuple, module.heap());
             module.set("t", tuple);
+            module.freeze_named(StarlarkTestHeapName::frozen_heap_name())?;
+            crate::Result::Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn tuple_freeze_initializes_extra_before_payload_is_observable() {
+        Module::with_temp_heap(|module| {
+            let reentrant = module
+                .heap()
+                .alloc_complex(ReentrantTupleFreeze(RefCell::new(None)));
+            let tuple = module.heap().alloc_tuple(&[reentrant]);
+            reentrant
+                .downcast_ref::<ReentrantTupleFreeze>()
+                .unwrap()
+                .0
+                .replace(Some(tuple));
+            module.set("t", tuple);
+            module.freeze_named(StarlarkTestHeapName::frozen_heap_name())?;
+            crate::Result::Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn list_freeze_initializes_extra_before_payload_is_observable() {
+        Module::with_temp_heap(|module| {
+            let reentrant = module
+                .heap()
+                .alloc_complex(ReentrantListFreeze(RefCell::new(None)));
+            let list = module.heap().alloc_list(&[reentrant]);
+            reentrant
+                .downcast_ref::<ReentrantListFreeze>()
+                .unwrap()
+                .0
+                .replace(Some(list));
+            module.set("l", list);
             module.freeze_named(StarlarkTestHeapName::frozen_heap_name())?;
             crate::Result::Ok(())
         })
