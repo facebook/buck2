@@ -20,10 +20,10 @@ use crate::interpreter::build_context::BuildContext;
 
 #[starlark_module]
 pub(crate) fn register_read_config(globals: &mut GlobalsBuilder) {
-    /// Read a configuration from the nearest enclosing `.buckconfig`
-    /// of the `BUCK` file that started evaluation of this code.
+    /// Read a configuration value from the .buckconfig for the current
+    /// cell of the `BUCK` file that started evaluation of this code.
     ///
-    /// As an example, if you have a `.buckconfig` of:
+    /// As an example, if the current cell's .buckconfig contains:
     ///
     /// ```toml
     /// [package_options]
