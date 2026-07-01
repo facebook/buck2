@@ -110,6 +110,10 @@ pub struct SnapshotCollector {
     /// metrics from this handle instead.
     runtime: tokio::runtime::Handle,
     tokio_metrics_state: Arc<TokioMetricsState>,
+    /// Baseline of the page-in counters at command start, subtracted from the
+    /// current counters on the final snapshot to report only this command's
+    /// page-ins.
+    page_in_baseline: StdBuckHashMap<String, buck2_data::DicePageInKeyTypeStats>,
 }
 
 impl SnapshotCollector {
@@ -118,6 +122,7 @@ impl SnapshotCollector {
         buck_out_path: AbsNormPathBuf,
         runtime: tokio::runtime::Handle,
     ) -> SnapshotCollector {
+        let page_in_baseline = page_in_proto_map(&daemon);
         SnapshotCollector {
             daemon,
             net_io_collector: SystemNetworkIoCollector::new(),
@@ -125,6 +130,7 @@ impl SnapshotCollector {
             cpu_usage_collector: CpuUsageCollector::new().ok(),
             runtime,
             tokio_metrics_state: Arc::new(TokioMetricsState::new()),
+            page_in_baseline,
         }
     }
 
@@ -143,6 +149,14 @@ impl SnapshotCollector {
         self.add_cpu_usage(&mut snapshot);
         self.add_memory_metrics(&mut snapshot).await;
         self.add_tokio_runtime_stats(&mut snapshot);
+        snapshot
+    }
+
+    /// Like [`SnapshotCollector::create_snapshot`] but also adds the per-command
+    /// DICE page-in breakdown. Use only for the final snapshot of a command.
+    pub async fn create_snapshot_with_page_in_metrics(&self) -> buck2_data::Snapshot {
+        let mut snapshot = self.create_snapshot().await;
+        self.add_dice_page_in_metrics(&mut snapshot);
         snapshot
     }
 
@@ -296,22 +310,14 @@ impl SnapshotCollector {
         snapshot.dice_key_count = metrics.key_count as u64;
         snapshot.dice_currently_active_key_count = metrics.currently_active_key_count as u64;
         snapshot.dice_active_transaction_count = metrics.active_transaction_count;
+    }
 
-        snapshot.dice_page_in_by_key_type = metrics
-            .page_in
-            .iter()
-            .map(|(&key_type, stats)| {
-                (
-                    String::from(key_type),
-                    buck2_data::DicePageInKeyTypeStats {
-                        count: stats.count,
-                        fetch_us: stats.fetch_us,
-                        deser_us: stats.deser_us,
-                        bytes: stats.bytes,
-                    },
-                )
-            })
-            .collect();
+    /// Per-command DICE page-in breakdown, as a delta of the current counters
+    /// against the command-start baseline. Only for the final snapshot; see
+    /// [`SnapshotCollector::create_snapshot_with_page_in_metrics`].
+    fn add_dice_page_in_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
+        snapshot.dice_page_in_by_key_type =
+            compute_page_in_delta(&self.page_in_baseline, &page_in_proto_map(&self.daemon));
     }
 
     fn add_materializer_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
@@ -657,6 +663,52 @@ fn compute_worker_counter_deltas(
     }
 }
 
+/// Cumulative per-key-type page-in counters, as proto stats.
+fn page_in_proto_map(
+    daemon: &DaemonStateData,
+) -> StdBuckHashMap<String, buck2_data::DicePageInKeyTypeStats> {
+    daemon
+        .dice_manager
+        .unsafe_dice()
+        .page_in_metrics()
+        .iter()
+        .map(|(&key_type, stats)| {
+            (
+                String::from(key_type),
+                buck2_data::DicePageInKeyTypeStats {
+                    count: stats.count,
+                    fetch_us: stats.fetch_us,
+                    deser_us: stats.deser_us,
+                    bytes: stats.bytes,
+                },
+            )
+        })
+        .collect()
+}
+
+/// Per-key-type delta of the cumulative page-in counters between the command's
+/// start (`baseline`) and now (`current`).
+fn compute_page_in_delta(
+    baseline: &StdBuckHashMap<String, buck2_data::DicePageInKeyTypeStats>,
+    current: &StdBuckHashMap<String, buck2_data::DicePageInKeyTypeStats>,
+) -> StdBuckHashMap<String, buck2_data::DicePageInKeyTypeStats> {
+    current
+        .iter()
+        .filter_map(|(key_type, c)| {
+            let base = baseline.get(key_type);
+            // saturating_sub guards against an (unexpected) counter regression,
+            // e.g. a daemon restart mid-command resetting the cumulatives.
+            let delta = buck2_data::DicePageInKeyTypeStats {
+                count: c.count.saturating_sub(base.map_or(0, |b| b.count)),
+                fetch_us: c.fetch_us.saturating_sub(base.map_or(0, |b| b.fetch_us)),
+                deser_us: c.deser_us.saturating_sub(base.map_or(0, |b| b.deser_us)),
+                bytes: c.bytes.saturating_sub(base.map_or(0, |b| b.bytes)),
+            };
+            (delta.count > 0).then(|| (key_type.clone(), delta))
+        })
+        .collect()
+}
+
 /// Per-bucket `curr - prev` delta with trailing zeros trimmed.
 fn compute_bucket_deltas(prev: Option<&[u64]>, curr: &[u64]) -> Vec<u64> {
     let mut out: Vec<u64> = curr
@@ -732,6 +784,50 @@ mod tokio_unstable_smoke {
         let _ = m.remote_schedule_count();
         let _ = m.global_queue_depth();
         let _ = m.num_alive_tasks();
+    }
+}
+
+#[cfg(test)]
+mod compute_page_in_delta_tests {
+    use buck2_hash::StdBuckHashMap;
+
+    use super::compute_page_in_delta;
+
+    #[test]
+    fn delta_subtracts_baseline_and_drops_unchanged() {
+        let stat = |count, fetch_us, deser_us, bytes| buck2_data::DicePageInKeyTypeStats {
+            count,
+            fetch_us,
+            deser_us,
+            bytes,
+        };
+
+        // Baseline cumulatives include page-ins from earlier commands on this
+        // daemon, so they must be subtracted out.
+        let mut baseline = StdBuckHashMap::default();
+        baseline.insert("A".to_owned(), stat(10, 100, 200, 1000));
+        baseline.insert("C".to_owned(), stat(5, 50, 50, 500));
+
+        let mut current = StdBuckHashMap::default();
+        current.insert("A".to_owned(), stat(12, 130, 260, 1300)); // +2 this command
+        current.insert("B".to_owned(), stat(3, 30, 60, 300)); // new key type, baseline 0
+        current.insert("C".to_owned(), stat(5, 50, 50, 500)); // unchanged -> omitted
+
+        let delta = compute_page_in_delta(&baseline, &current);
+
+        assert_eq!(
+            delta.len(),
+            2,
+            "only key types with page-ins during the command are kept"
+        );
+        let a = delta.get("A").expect("A had new page-ins");
+        assert_eq!((a.count, a.fetch_us, a.deser_us, a.bytes), (2, 30, 60, 300));
+        let b = delta.get("B").expect("B is new this command (baseline 0)");
+        assert_eq!((b.count, b.fetch_us, b.deser_us, b.bytes), (3, 30, 60, 300));
+        assert!(
+            !delta.contains_key("C"),
+            "a key type with no new page-ins is omitted"
+        );
     }
 }
 

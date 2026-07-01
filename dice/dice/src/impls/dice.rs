@@ -28,6 +28,7 @@ use crate::impls::storage::DiceStorage;
 use crate::impls::transaction::TransactionUpdater;
 use crate::introspection::graph::GraphIntrospectable;
 use crate::metrics::Metrics;
+use crate::metrics::PageInKeyTypeMetrics;
 
 /// An incremental computation engine that executes arbitrary computations that
 /// maps `Key`s to values.
@@ -104,12 +105,17 @@ impl Dice {
     }
 
     pub fn metrics(&self) -> Metrics {
-        let mut metrics = self.state_handle.metrics();
-        // Page-in counters live on the storage, not the core state.
-        if let Some(storage) = &self.pagable_storage {
-            metrics.page_in = storage.page_in_metrics_snapshot();
-        }
-        metrics
+        self.state_handle.metrics()
+    }
+
+    /// Cumulative per-key-type page-in counters. Kept separate from
+    /// [`Dice::metrics`] as it is heavier; collect only at command boundaries,
+    /// not on the per-snapshot path.
+    pub fn page_in_metrics(&self) -> HashMap<&'static str, PageInKeyTypeMetrics> {
+        self.pagable_storage
+            .as_ref()
+            .map(|storage| storage.page_in_metrics_snapshot())
+            .unwrap_or_default()
     }
 
     /// Current depth of the request queue feeding the dice core-state thread.

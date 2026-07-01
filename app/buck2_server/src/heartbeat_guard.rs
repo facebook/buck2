@@ -77,9 +77,11 @@ impl HeartbeatGuard {
         let handle = self.handle.take().unwrap();
         handle.abort();
         drop(handle.await);
-        // Send one last snapshot.
-        self.events
-            .instant_event(Box::new(self.collector.create_snapshot().await));
+        // Send one last snapshot, with the page-in breakdown so this command's
+        // page-in overhead is captured in the invocation record.
+        self.events.instant_event(Box::new(
+            self.collector.create_snapshot_with_page_in_metrics().await,
+        ));
     }
 }
 

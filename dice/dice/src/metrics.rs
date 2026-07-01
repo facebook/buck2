@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-use crate::HashMap;
-
 /// Dice metrics.
 #[derive(Debug)]
 pub struct Metrics {
@@ -17,8 +15,6 @@ pub struct Metrics {
     /// The number of keys currently active in the per transaction cache
     pub currently_active_key_count: usize,
     pub active_transaction_count: u32,
-    /// Cumulative page-in counters per DICE key type;
-    pub page_in: HashMap<&'static str, PageInKeyTypeMetrics>,
 }
 
 /// Page-in counters for one DICE key type.

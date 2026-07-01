@@ -278,8 +278,6 @@ impl CoreState {
             key_count: self.graph.nodes.len(),
             currently_active_key_count: currently_running_key_count,
             active_transaction_count: active_transaction_count as u32, // probably won't support more than u32 transactions
-            // Page-in counters live on the storage; `Dice::metrics` fills them in.
-            page_in: Default::default(),
         }
     }
 
