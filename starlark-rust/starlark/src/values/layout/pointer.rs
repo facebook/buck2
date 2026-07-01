@@ -97,7 +97,7 @@ impl RawPointer {
     /// Get the pointer value with tag bits stripped.
     /// Returns the raw address suitable for comparison with header addresses.
     #[inline]
-    #[cfg(test)]
+    #[cfg(all(test, feature = "pagable"))]
     pub(crate) fn ptr_value_untagged(self) -> usize {
         self.0.get() & !TAG_MASK
     }
