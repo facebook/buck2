@@ -40,6 +40,7 @@ impl EventLog {
         start_time: SystemTime,
         log_size_counter_bytes: Option<Arc<AtomicU64>>,
         retained_event_logs: usize,
+        log_upload_url: Option<String>,
     ) -> EventLog {
         Self {
             writer: WriteEventLog::new(
@@ -52,6 +53,7 @@ impl EventLog {
                 start_time,
                 log_size_counter_bytes,
                 retained_event_logs,
+                log_upload_url,
             ),
         }
     }

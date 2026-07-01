@@ -66,6 +66,7 @@ pub struct WriteEventLog {
     buf: Vec<u8>,
     log_size_counter_bytes: Option<Arc<AtomicU64>>,
     retained_event_logs: usize,
+    log_upload_url: Option<String>,
 }
 
 impl WriteEventLog {
@@ -79,6 +80,7 @@ impl WriteEventLog {
         start_time: SystemTime,
         log_size_counter_bytes: Option<Arc<AtomicU64>>,
         retained_event_logs: usize,
+        log_upload_url: Option<String>,
     ) -> Self {
         Self {
             state: LogWriterState::Unopened {
@@ -93,6 +95,7 @@ impl WriteEventLog {
             buf: Vec::new(),
             log_size_counter_bytes,
             retained_event_logs,
+            log_upload_url,
         }
     }
 
@@ -182,6 +185,7 @@ impl WriteEventLog {
             path,
             event.trace_id()?.clone(),
             self.log_size_counter_bytes.clone(),
+            self.log_upload_url.clone(),
         )
         .await?;
         let mut writers = vec![writer];
@@ -257,6 +261,7 @@ async fn start_persist_event_log_subprocess(
     path: EventLogPathBuf,
     trace_id: TraceId,
     bytes_written: Option<Arc<AtomicU64>>,
+    log_upload_url: Option<String>,
 ) -> buck2_error::Result<NamedEventLogWriter> {
     let current_exe = std::env::current_exe().buck_error_context("No current_exe")?;
     let mut command = buck2_util::process::async_background_command(current_exe);
@@ -275,6 +280,8 @@ async fn start_persist_event_log_subprocess(
         .args(["--trace-id", &trace_id.to_string()]);
     if !should_upload_log()? {
         command.arg("--no-upload");
+    } else if let Some(url) = log_upload_url {
+        command.args(["--log-upload-url", &url]);
     };
     command.stdout(Stdio::null()).stdin(Stdio::piped());
 
@@ -585,6 +592,7 @@ mod tests {
                 log_size_counter_bytes: None,
                 start_time: SystemTime::UNIX_EPOCH,
                 retained_event_logs: 5,
+                log_upload_url: None,
             })
         }
     }
