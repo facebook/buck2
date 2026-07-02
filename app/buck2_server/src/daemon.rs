@@ -21,3 +21,4 @@ pub mod panic;
 pub mod server;
 pub(crate) mod server_allocative;
 pub mod state;
+pub(crate) mod tenting_provider;

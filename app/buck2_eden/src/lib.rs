@@ -15,6 +15,7 @@
 pub mod connection;
 pub mod error;
 pub mod io_provider;
+pub mod tenting;
 
 pub mod semaphore {
     use buck2_core::buck2_env;

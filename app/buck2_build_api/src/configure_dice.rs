@@ -16,6 +16,8 @@ use buck2_common::io::IoProvider;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::dice::SetLegacyConfigs;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
+use buck2_common::tenting::SetTentingAclProvider;
+use buck2_common::tenting::TentingAclProvider;
 use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::SetDigestConfig;
@@ -34,6 +36,7 @@ pub async fn configure_dice_for_buck(
     digest_config: DigestConfig,
     root_config: Option<&LegacyBuckConfig>,
     detect_cycles: Option<DetectCycles>,
+    tenting_acl_provider: Option<Arc<dyn TentingAclProvider>>,
 ) -> buck2_error::Result<Arc<Dice>> {
     let detect_cycles = detect_cycles.map_or_else(
         || {
@@ -53,6 +56,7 @@ pub async fn configure_dice_for_buck(
     let mut dice = Dice::builder();
     dice.set_io_provider(io);
     dice.set_digest_config(digest_config);
+    dice.set_tenting_acl_provider(tenting_acl_provider);
     let invalidation_tracking_enabled = match root_config {
         Some(c) => c
             .parse::<RolloutPercentage>(BuckconfigKeyRef {

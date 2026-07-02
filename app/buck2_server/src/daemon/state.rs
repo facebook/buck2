@@ -100,6 +100,7 @@ use crate::daemon::forkserver::maybe_launch_forkserver;
 use crate::daemon::io_provider::create_io_provider;
 use crate::daemon::panic::DaemonStatePanicDiceDump;
 use crate::daemon::server::BuckdServerInitPreferences;
+use crate::daemon::tenting_provider::create_tenting_acl_provider;
 
 /// For a buckd process there is a single DaemonState created at startup and never destroyed.
 #[derive(Allocative)]
@@ -615,9 +616,12 @@ impl DaemonState {
             )
             .await?;
 
+            tracing::info!("Creating tenting ACL provider...");
+            let tenting_acl_provider = create_tenting_acl_provider(fb, paths.project_root());
+
             tracing::info!("Constructing DICE...");
             let dice = init_ctx
-                .construct_dice(io.dupe(), digest_config, root_config)
+                .construct_dice(io.dupe(), digest_config, root_config, tenting_acl_provider)
                 .await?;
 
             tracing::info!("Creating file watcher...");

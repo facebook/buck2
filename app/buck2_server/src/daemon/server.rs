@@ -39,6 +39,7 @@ use buck2_common::io::trace::TracingIoProvider;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::memory;
 use buck2_common::sqlite::sqlite_db::SqliteIdentity;
+use buck2_common::tenting::TentingAclProvider;
 use buck2_core::buck2_env;
 use buck2_core::error::reload_hard_error_config;
 use buck2_core::error::reload_show_soft_error_config;
@@ -185,8 +186,16 @@ impl BuckdServerInitPreferences {
         io: Arc<dyn IoProvider>,
         digest_config: DigestConfig,
         root_config: &LegacyBuckConfig,
+        tenting_acl_provider: Option<Arc<dyn TentingAclProvider>>,
     ) -> buck2_error::Result<Arc<Dice>> {
-        configure_dice_for_buck(io, digest_config, Some(root_config), self.detect_cycles).await
+        configure_dice_for_buck(
+            io,
+            digest_config,
+            Some(root_config),
+            self.detect_cycles,
+            tenting_acl_provider,
+        )
+        .await
     }
 }
 
