@@ -10,6 +10,7 @@
 
 use std::sync::Arc;
 
+use buck2_common::tenting::TentingStatus;
 use buck2_core::cells::name::CellName;
 use buck2_test_api::data::ConfiguredTarget;
 use buck2_test_api::data::ExternalRunnerSpec;
@@ -38,6 +39,7 @@ pub trait TestProvider {
         target: ConfiguredTarget,
         executor: Arc<dyn TestExecutor + 'exec>,
         working_dir_cell: CellName,
+        tenting_acl_names: TentingStatus,
     ) -> BoxFuture<'exec, buck2_error::Result<()>>;
 }
 
@@ -52,6 +54,7 @@ pub fn build_external_runner_spec<'a>(
     contacts: impl Iterator<Item = &'a str>,
     target: ConfiguredTarget,
     working_dir_cell: CellName,
+    tenting_status: &TentingStatus,
 ) -> ExternalRunnerSpec {
     let mut handle_index = 0;
 
@@ -78,7 +81,21 @@ pub fn build_external_runner_spec<'a>(
         })
         .collect();
     let package_oncall = target.package_oncall.clone();
-    let labels: Vec<String> = labels.map(|l| l.to_owned()).collect();
+    let mut labels: Vec<String> = labels.map(|l| l.to_owned()).collect();
+    // Single JSON-array label, carried verbatim through TPX -> RR -> WWW. The three
+    // wire states let WWW tell "not tented" from "not reported":
+    //   Tented -> ["acl",..]    NotTented -> []    Unknown -> no label
+    match tenting_status {
+        TentingStatus::Tented(acl_names) => {
+            if let Ok(json) = serde_json::to_string(acl_names) {
+                labels.push(format!("tpx_test_config::tenting_acl_names={}", json));
+            }
+        }
+        TentingStatus::NotTented => {
+            labels.push("tpx_test_config::tenting_acl_names=[]".to_owned());
+        }
+        TentingStatus::Unknown => {}
+    }
     let contacts: Vec<String> = contacts.map(|l| l.to_owned()).collect();
     let oncall = contacts
         .iter()
@@ -116,6 +133,7 @@ impl TestProvider for FrozenExternalRunnerTestInfo {
         target: ConfiguredTarget,
         executor: Arc<dyn TestExecutor + 'exec>,
         working_dir_cell: CellName,
+        tenting_acl_names: TentingStatus,
     ) -> BoxFuture<'exec, buck2_error::Result<()>> {
         let spec = build_external_runner_spec(
             self.command(),
@@ -125,6 +143,7 @@ impl TestProvider for FrozenExternalRunnerTestInfo {
             self.contacts(),
             target,
             working_dir_cell,
+            &tenting_acl_names,
         );
         async move { executor.external_runner_spec(spec).await }.boxed()
     }
@@ -152,6 +171,7 @@ impl TestProvider for FrozenInternalRunnerTestInfo {
         target: ConfiguredTarget,
         executor: Arc<dyn TestExecutor + 'exec>,
         working_dir_cell: CellName,
+        tenting_acl_names: TentingStatus,
     ) -> BoxFuture<'exec, buck2_error::Result<()>> {
         let spec = build_external_runner_spec(
             self.command(),
@@ -161,6 +181,7 @@ impl TestProvider for FrozenInternalRunnerTestInfo {
             self.contacts(),
             target,
             working_dir_cell,
+            &tenting_acl_names,
         );
         async move { executor.external_runner_spec(spec).await }.boxed()
     }

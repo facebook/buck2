@@ -49,9 +49,12 @@ use buck2_common::liveliness_observer::TimeoutLivelinessObserver;
 use buck2_common::pattern::parse_from_cli::parse_patterns_with_modifiers_from_cli_args;
 use buck2_common::pattern::resolve::ResolveTargetPatterns;
 use buck2_common::pattern::resolve::ResolvedPattern;
+use buck2_common::tenting::HasTentingAclProvider;
+use buck2_common::tenting::TentingStatus;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::name::CellName;
 use buck2_core::configuration::compatibility::ResultMaybeCompatible;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::package::PackageLabelWithModifiers;
 use buck2_core::pattern::pattern::Modifiers;
@@ -883,12 +886,14 @@ enum TestDriverTask {
         label_with_modifiers: ProvidersLabelWithModifiers,
         skippable: bool,
         test_config_unification_rollout: bool,
+        tenting_acl_names: TentingStatus,
     },
     BuildTarget {
         label: ConfiguredProvidersLabel,
         modifiers: Modifiers,
         test_config_unification_rollout: bool,
         oncall: Option<String>,
+        tenting_acl_names: TentingStatus,
     },
     TestTarget {
         label: ConfiguredProvidersLabel,
@@ -897,6 +902,7 @@ enum TestDriverTask {
         build_target_result: BuildTargetResult,
         test_config_unification_rollout: bool,
         oncall: Option<String>,
+        tenting_acl_names: TentingStatus,
     },
 }
 
@@ -984,11 +990,13 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                                 label_with_modifiers,
                                 skippable,
                                 test_config_unification_rollout,
+                                tenting_acl_names,
                             } => {
                                 self.configure_target(
                                     label_with_modifiers,
                                     skippable,
                                     test_config_unification_rollout,
+                                    tenting_acl_names,
                                 );
                             }
                             TestDriverTask::BuildTarget {
@@ -996,12 +1004,14 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                                 modifiers,
                                 test_config_unification_rollout,
                                 oncall,
+                                tenting_acl_names,
                             } => {
                                 self.build_target(
                                     label,
                                     modifiers,
                                     test_config_unification_rollout,
                                     oncall,
+                                    tenting_acl_names,
                                 );
                             }
                             TestDriverTask::TestTarget {
@@ -1011,6 +1021,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                                 build_target_result,
                                 test_config_unification_rollout,
                                 oncall,
+                                tenting_acl_names,
                             } => {
                                 self.test_target(
                                     label,
@@ -1019,6 +1030,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                                     build_target_result,
                                     test_config_unification_rollout,
                                     oncall,
+                                    tenting_acl_names,
                                 );
                             }
                         }
@@ -1104,6 +1116,26 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                     }
                 }
 
+                let tenting_acl_names = if let Ok(project_path) =
+                    state.cell_resolver.resolve_path(package.as_cell_path())
+                {
+                    if let Ok(rel_path) = ProjectRelativePathBuf::try_from(project_path.to_string())
+                    {
+                        match state.ctx.global_data().get_tenting_acl_provider() {
+                            Some(provider) => provider
+                                .get_tenting_acl_names(&rel_path)
+                                .await
+                                .unwrap_or(TentingStatus::Unknown),
+                            // No provider configured: we cannot determine tenting.
+                            None => TentingStatus::Unknown,
+                        }
+                    } else {
+                        TentingStatus::Unknown
+                    }
+                } else {
+                    TentingStatus::Unknown
+                };
+
                 let labels =
                     targets
                         .into_iter()
@@ -1132,6 +1164,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                             label_with_modifiers,
                             skippable,
                             test_config_unification_rollout,
+                            tenting_acl_names: tenting_acl_names.dupe(),
                         }
                     })
                     .collect();
@@ -1147,6 +1180,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
         label_with_modifiers: ProvidersLabelWithModifiers,
         skippable: bool,
         test_config_unification_rollout: bool,
+        tenting_acl_names: TentingStatus,
     ) {
         if !self
             .labels_configured
@@ -1221,6 +1255,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                 modifiers: modifiers.dupe(),
                 test_config_unification_rollout,
                 oncall,
+                tenting_acl_names: tenting_acl_names.dupe(),
             }];
 
             // If this node is a forward, it'll get flattened when we do analysis and run the
@@ -1241,6 +1276,9 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                         // should change.
                         skippable: false,
                         test_config_unification_rollout,
+                        // Tenting is resolved per top-level target, not for targets
+                        // pulled in via the `tests` attribute; treat as undetermined.
+                        tenting_acl_names: TentingStatus::Unknown,
                     });
                 }
             }
@@ -1258,6 +1296,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
         modifiers: Modifiers,
         test_config_unification_rollout: bool,
         oncall: Option<String>,
+        tenting_acl_names: TentingStatus,
     ) {
         if !self.labels_tested.insert(label.dupe()) {
             self.work.push(
@@ -1309,6 +1348,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                 modifiers,
                 test_config_unification_rollout,
                 oncall,
+                tenting_acl_names,
             }])
         }
         .boxed();
@@ -1324,6 +1364,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
         build_target_result: BuildTargetResult,
         test_config_unification_rollout: bool,
         oncall: Option<String>,
+        tenting_acl_names: TentingStatus,
     ) {
         let should_test = !build_target_result.build_failed && !build_target_result.is_empty();
         self.build_target_result.extend(build_target_result);
@@ -1346,6 +1387,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                 state.internal_test_timeout,
                 test_config_unification_rollout,
                 oncall,
+                tenting_acl_names,
             )
             .await
             {
@@ -1445,6 +1487,7 @@ async fn test_target<'a, 'e>(
     internal_test_timeout: Duration,
     test_config_unification_rollout: bool,
     oncall: Option<String>,
+    tenting_acl_names: TentingStatus,
 ) -> buck2_error::Result<Option<ConfiguredProvidersLabel>> {
     let collection = providers.provider_collection();
 
@@ -1498,6 +1541,7 @@ async fn test_target<'a, 'e>(
                 provider.contacts(),
                 handle.clone(),
                 working_dir_cell,
+                &tenting_acl_names,
             );
             let spec = build_external_runner_spec(
                 provider.command(),
@@ -1507,6 +1551,7 @@ async fn test_target<'a, 'e>(
                 provider.contacts(),
                 handle,
                 working_dir_cell,
+                &tenting_acl_names,
             );
             crate::internal_runner::run_internal_test(
                 orchestrator.as_ref(),
@@ -1534,6 +1579,7 @@ async fn test_target<'a, 'e>(
                 working_dir_cell,
                 test_config_unification_rollout,
                 oncall,
+                tenting_acl_names,
             )
             .map(|l| Some(l).transpose())
             .left_future()
@@ -1576,6 +1622,7 @@ fn run_tests<'a, 'b>(
     working_dir_cell: CellName,
     test_config_unification_rollout: bool,
     oncall: Option<String>,
+    tenting_acl_names: TentingStatus,
 ) -> BoxFuture<'a, buck2_error::Result<ConfiguredProvidersLabel>> {
     let maybe_handle = build_configured_target_handle(
         providers_label.dupe(),
@@ -1587,7 +1634,8 @@ fn run_tests<'a, 'b>(
 
     match maybe_handle {
         Ok(handle) => {
-            let fut = test_info.dispatch(handle, test_executor, working_dir_cell);
+            let fut =
+                test_info.dispatch(handle, test_executor, working_dir_cell, tenting_acl_names);
 
             (async move {
                 fut.await
