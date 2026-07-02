@@ -1,0 +1,12 @@
+[buck2]
+digest_algorithms = SHA1
+materializations = deferred
+
+[buildfile]
+name = TARGETS.fixture
+
+[cells]
+root = .
+
+[build]
+execution_platforms = root//platforms:platforms

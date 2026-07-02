@@ -8,11 +8,13 @@
  * above-listed licenses.
  */
 
+use std::any::Any;
 use std::fmt;
 use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_common::file_ops::metadata::FileDigest;
 use buck2_common::file_ops::metadata::FileMetadata;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
@@ -22,6 +24,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_directory::directory::directory_iterator::DirectoryIterator;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_directory::directory::walk::ordered_entry_walk;
+use buck2_error::TypedContext;
 use buck2_events::dispatch::EventDispatcher;
 use chrono::DateTime;
 use chrono::Duration;
@@ -110,6 +113,68 @@ pub struct CasNotFoundError {
     pub directory: ActionDirectoryEntry<ActionSharedDirectory>,
     #[source]
     pub error: Arc<buck2_error::Error>,
+}
+
+#[derive(Allocative, Clone, Debug, Eq, PartialEq)]
+pub struct ReLostInput {
+    pub path: ProjectRelativePathBuf,
+    pub digest: FileDigest,
+}
+
+impl TypedContext for ReLostInput {
+    fn eq(&self, other: &dyn TypedContext) -> bool {
+        (other as &dyn Any).downcast_ref::<Self>() == Some(self)
+    }
+
+    fn display(&self) -> Option<String> {
+        Some(format!("{self:?}"))
+    }
+}
+
+#[derive(Allocative, Clone, Debug, Eq, PartialEq)]
+pub struct ReLostInputs {
+    inputs: Vec<ReLostInput>,
+}
+
+impl ReLostInputs {
+    pub fn new(inputs: Vec<ReLostInput>) -> Self {
+        Self { inputs }
+    }
+
+    pub fn from_cas_not_found(source: &CasNotFoundError) -> Self {
+        let inputs = ordered_entry_walk(source.directory.as_ref())
+            .filter_map(|entry| match entry {
+                DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) => {
+                    Some(file.digest.data().clone())
+                }
+                DirectoryEntry::Dir(_) | DirectoryEntry::Leaf(_) => None,
+            })
+            .with_paths()
+            .map(|(entry_path, digest)| ReLostInput {
+                path: source.path.join(entry_path),
+                digest,
+            })
+            .collect();
+        Self { inputs }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.inputs.is_empty()
+    }
+
+    pub fn inputs(&self) -> &[ReLostInput] {
+        &self.inputs
+    }
+}
+
+impl TypedContext for ReLostInputs {
+    fn eq(&self, other: &dyn TypedContext) -> bool {
+        (other as &dyn Any).downcast_ref::<Self>() == Some(self)
+    }
+
+    fn display(&self) -> Option<String> {
+        Some(format!("{self:?}"))
+    }
 }
 
 #[derive(buck2_error::Error, Debug)]

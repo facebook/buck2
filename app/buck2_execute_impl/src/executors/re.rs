@@ -171,6 +171,7 @@ impl ReExecutor {
         re_gang_workers: &[buck2_core::execution_types::executor_config::ReGangWorker],
         meta_internal_extra_params: &MetaInternalExtraParams,
         worker_tool_action_digest: Option<ActionDigest>,
+        force_skip_cache_read: bool,
     ) -> ControlFlow<CommandExecutionResult, (CommandExecutionManager, ExecuteResponseWithQueueStats)>
     {
         info!(
@@ -188,7 +189,7 @@ impl ReExecutor {
             re_gang_workers,
             identity,
             &mut manager,
-            self.skip_cache_read,
+            self.skip_cache_read || force_skip_cache_read,
             self.skip_cache_write,
             self.re_max_queue_time,
             self.re_resource_units,
@@ -378,6 +379,7 @@ impl PreparedCommandExecutor for ReExecutor {
                     network_access: _,
                 },
             digest_config,
+            force_skip_cache_read,
         } = command;
 
         let details = RemoteCommandExecutionDetails::new(
@@ -454,6 +456,7 @@ impl PreparedCommandExecutor for ReExecutor {
                 &re_gang_workers,
                 command.request.meta_internal_extra_params(),
                 worker_tool_action_digest,
+                *force_skip_cache_read,
             )
             .await?;
 
