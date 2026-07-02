@@ -34,6 +34,7 @@ import argparse
 import json
 import os
 import os.path
+import resource
 import subprocess
 import sys
 import traceback
@@ -90,6 +91,20 @@ def read_argsfile(argsfile_path: str) -> dict:
     return {idx: arg for idx, arg in args.items() if arg}
 
 
+def _enable_core_dumps() -> None:
+    # The index step runs the system linker, which -- unlike Meta binaries --
+    # installs no userspace crash handler, so a crash only leaves a core dump if
+    # the kernel writes one, and the kernel writes nothing while the RLIMIT_CORE
+    # soft limit is 0. buck2 sets no per-action rlimits, so raise the soft limit
+    # to the inherited hard limit here (best effort: a no-op when the hard limit
+    # is itself 0, which needs a host/container-level change instead).
+    try:
+        _, hard = resource.getrlimit(resource.RLIMIT_CORE)
+        resource.setrlimit(resource.RLIMIT_CORE, (hard, hard))
+    except (OSError, ValueError) as e:
+        print(f"warning: failed to enable core dumps: {e}", file=sys.stderr)
+
+
 def main(argv):
     parser = argparse.ArgumentParser()
     parser.add_argument("--meta")
@@ -102,6 +117,7 @@ def main(argv):
     parser.add_argument("index_args", nargs=argparse.REMAINDER)
     args = parser.parse_args(argv[1:])
 
+    _enable_core_dumps()
     subprocess.check_call(args.index_args[1:])
 
     bitcode_suffix = ".thinlto.bc"
