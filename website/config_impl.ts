@@ -111,6 +111,10 @@ const themeConfig: ClassicPresetConfig = ({
             label: 'GitHub issues',
             href: 'https://github.com/facebook/buck2/issues',
           },
+          {
+            label: 'Community Discord server',
+            href: 'https://discord.gg/N6NtcYQXU8',
+          },
         ],
       },
       {
