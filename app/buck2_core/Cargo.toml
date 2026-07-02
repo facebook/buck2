@@ -17,6 +17,10 @@ indent_write = { workspace = true }
 itertools = { workspace = true }
 memchr = { workspace = true }
 once_cell = { workspace = true }
+opentelemetry = { workspace = true }
+opentelemetry-otlp = { workspace = true }
+opentelemetry-semantic-conventions = { workspace = true }
+opentelemetry_sdk = { workspace = true }
 os_str_bytes = { workspace = true }
 pagable = { workspace = true }
 pin-project = { workspace = true }
@@ -35,6 +39,7 @@ tokio = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 triomphe = { workspace = true }
+uuid = { workspace = true }
 
 allocative = { workspace = true }
 cmp_any = { workspace = true }

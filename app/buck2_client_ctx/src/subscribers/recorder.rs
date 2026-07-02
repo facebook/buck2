@@ -43,7 +43,6 @@ use buck2_error::buck2_error;
 use buck2_error::classify::ERROR_TAG_UNCLASSIFIED;
 use buck2_error::classify::ErrorLike;
 use buck2_error::classify::source_area;
-use buck2_error::internal_error;
 use buck2_error::source_location::SourceLocation;
 use buck2_event_log::ttl::manifold_event_log_ttl;
 use buck2_event_observer::action_stats;
@@ -53,6 +52,8 @@ use buck2_event_observer::last_command_execution_kind::LastCommandExecutionKind;
 use buck2_event_observer::last_command_execution_kind::get_last_command_execution_time;
 use buck2_events::BuckEvent;
 use buck2_events::daemon_id::DaemonId;
+#[cfg(not(fbcode_build))]
+use buck2_events::sink::otel::new_otel_event_sink_if_enabled;
 use buck2_events::sink::remote::ScribeConfig;
 use buck2_events::sink::remote::new_remote_event_sink_if_enabled;
 use buck2_fs::error::IoResultExt;
@@ -2531,6 +2532,20 @@ impl EventSubscriber for InvocationRecorder {
         // Typically initialized already unless the command failed early.
         let fb = buck2_common::fbinit::get_or_init_fbcode_globals();
         let event = self.create_record_event();
+
+        // Send the record to every enabled remote sink. The OTLP sink has the same interface as the
+        // Scribe sink and is not Meta-specific, so it is the export path in OSS builds where the
+        // Scribe sink is a compile-time no-op. Telemetry must never fail a command, so an OTLP
+        // failure is logged rather than propagated.
+        #[cfg(not(fbcode_build))]
+        if let Some(otel_sink) = new_otel_event_sink_if_enabled() {
+            let span = tracing::info_span!("Recording invocation to OpenTelemetry");
+            let _guard = span.enter();
+            if let Err(e) = otel_sink.send_now(event.clone()).await {
+                tracing::warn!("Failed to export invocation record via OTLP: {e:#}");
+            }
+        }
+
         if let Some(scribe_sink) = new_remote_event_sink_if_enabled(
             fb,
             ScribeConfig {
@@ -2545,7 +2560,7 @@ impl EventSubscriber for InvocationRecorder {
             scribe_sink.send_now(event).await
         } else {
             tracing::info!("Invocation record is not sent to Scribe: {:?}", &event);
-            Err(internal_error!("Scribe sink not enabled"))
+            Ok(())
         }
     }
 
