@@ -77,7 +77,7 @@ impl ServerCommandTemplate for HydrationServerCommand {
                 })?;
                 // metrics() blocks on the core-state thread, draining its FIFO
                 // queue, so the page-out evictions are processed before we purge.
-                drop(self.dice.metrics());
+                let _ = self.dice.metrics();
                 memory::purge_jemalloc()?;
                 Ok(buck2_cli_proto::HydrationResponse::default())
             }
