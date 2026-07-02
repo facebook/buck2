@@ -31,30 +31,6 @@ buck_kotlin_library(
 )
 
 buck_kotlin_library(
-    name = "stubsgen-plugin",
-    srcs = glob(
-        [
-            "plugin/stubsgen/*.kt",
-            "plugin/model/*.kt",
-        ],
-    ),
-    labels = ["codegen_rule"],
-    provided_deps = [
-        "prelude//toolchains/android/third-party:kotlin-compiler",
-    ],
-    resources = glob(["plugin/stubsgen/resources/**"]),
-    resources_root = "plugin/stubsgen/resources",
-    tests = [
-        "fbsource//fbandroid/javatests/com/facebook/kotlin/compilerplugins/kosabi/integrationtest:integration-test",
-        "fbsource//fbandroid/javatests/com/facebook/kotlin/compilerplugins/kosabi/stubsgen:stubsgen",
-    ],
-    visibility = [
-        "PUBLIC",
-    ],
-    exported_deps = [":kosabi-common"],
-)
-
-buck_kotlin_library(
     name = "stubsgen-k2-plugin",
     srcs = glob(
         [
@@ -82,12 +58,6 @@ buck_kotlin_library(
     exported_deps = [
         ":kosabi-common",
     ],
-)
-
-buck_java_binary(
-    name = "stubsgen",
-    visibility = ["PUBLIC"],
-    deps = [":stubsgen-plugin"],
 )
 
 buck_java_binary(

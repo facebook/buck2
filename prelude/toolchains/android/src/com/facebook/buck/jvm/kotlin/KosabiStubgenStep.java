@@ -95,11 +95,7 @@ public class KosabiStubgenStep extends KotlincStep {
         false);
     this.stubgenDir = stubgenDir;
     this.stubClassOutputDir = stubClassOutputDir;
-    this.pluginPath =
-        "plugin:"
-            + (languageVersion.getSupportsK2()
-                ? "com.facebook.kotlin.compilerplugins.kosabi.stubsgen_k2"
-                : "com.facebook.kotlin.compilerplugins.kosabi.stubsgen");
+    this.pluginPath = "plugin:com.facebook.kotlin.compilerplugins.kosabi.stubsgen_k2";
   }
 
   @Override

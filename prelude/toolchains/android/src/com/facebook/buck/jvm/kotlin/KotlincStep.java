@@ -359,11 +359,6 @@ public class KotlincStep implements IsolatedStep {
       AbsPath stubPlugin =
           resolvedKosabiPluginOptionPath.get(KosabiConfig.PROPERTY_KOSABI_STUBS_GEN_K2_PLUGIN);
       builder.add(X_PLUGIN_ARG + stubPlugin);
-    } else if (resolvedKosabiPluginOptionPath.containsKey(
-        KosabiConfig.PROPERTY_KOSABI_STUBS_GEN_PLUGIN)) {
-      AbsPath stubPlugin =
-          resolvedKosabiPluginOptionPath.get(KosabiConfig.PROPERTY_KOSABI_STUBS_GEN_PLUGIN);
-      builder.add(X_PLUGIN_ARG + stubPlugin);
     }
 
     if (shouldKosabiJvmAbiGenUseK2) {
