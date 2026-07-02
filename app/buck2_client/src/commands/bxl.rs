@@ -131,7 +131,9 @@ impl StreamingCommand for BxlCommand {
         let console = self.common_ops.console_opts.final_console();
 
         if success {
-            console.print_success("BXL SUCCEEDED")?;
+            if ctx.verbosity.print_success_message() {
+                console.print_success("BXL SUCCEEDED")?;
+            }
         } else {
             console.print_error("BXL FAILED")?;
         }

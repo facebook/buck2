@@ -87,6 +87,21 @@ async def test_bxl_build_and_write(buck: Buck) -> None:
 
 
 @buck_test()
+async def test_bxl_not_show_bxl_succeeded(buck: Buck) -> None:
+    res = await buck.run_buck_command(
+        "-v=status",
+        "bxl",
+        "//actions_test:actions.bxl:build_and_write",
+        "--",
+        "--target",
+        "actions_test:fail",
+    )
+
+    assert res.process.returncode == 0
+    assert "BXL SUCCEEDED" not in res.stderr
+
+
+@buck_test()
 async def test_write_json_cell_path(buck: Buck) -> None:
     res = await buck.bxl("//actions_test:actions.bxl:write_json_cell_path")
     output_path = res.stdout.strip()
