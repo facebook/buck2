@@ -79,6 +79,34 @@ async def test_no_config_diff_command(buck: Buck) -> None:
 
 
 @buck_test()
+async def test_diff_order_config_diff_command(buck: Buck) -> None:
+    await buck.build(
+        "//:simple",
+        *with_buck2_output("out"),
+        *with_buck2_key_value("key_a", "1"),
+        *with_buck2_key_value("key_b", "2"),
+    )
+    out1 = await buck.log("last")
+    path1 = out1.stdout.strip()
+    await buck.build(
+        "//:simple",
+        *with_buck2_output("out"),
+        *with_buck2_key_value("key_b", "2"),
+        *with_buck2_key_value("key_a", "1"),
+    )
+    out2 = await buck.log("last")
+    path2 = out2.stdout.strip()
+    diff = (
+        await buck.log("diff", "external-configs", "--path1", path1, "--path2", path2)
+    ).stdout.splitlines()
+    # first three lines is the header
+    diff = diff[3:]
+    diff = json.loads("".join(diff))
+    # Repro of ignoring ordering differences
+    assert len(diff) == 0
+
+
+@buck_test()
 async def test_config_diff_command_command_line(buck: Buck) -> None:
     await buck.build(
         "//:simple",
