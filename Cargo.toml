@@ -279,7 +279,7 @@ buck2_validation = { path = "app/buck2_validation" }
 buck2_worker_proto = { path = "app/buck2_worker_proto" }
 buck2_wrapper_common = { path = "app/buck2_wrapper_common" }
 bumpalo = { version = "3.20.3", features = ["allocator_api", "collections"] }
-bytes = { version = "1.11.1", features = ["serde"] }
+bytes = { version = "1.12.0", features = ["serde"] }
 bytesize = "2.4.0"
 chrono = { version = "0.4.45", features = ["clock", "serde", "std"], default-features = false }
 clap = { version = "4.6.0", features = ["derive", "env", "string", "unicode", "wrap_help"] }
