@@ -27,11 +27,31 @@ use crate::diff::diff_options::DiffEventLogOptions;
 
 const PROJECT_ROOT: &str = "";
 
+/// Output format options for log diff external-config.
+///
+/// Determines how the command output is formatted and displayed.
+#[derive(Debug, Clone, clap::ValueEnum)]
+#[clap(rename_all = "snake_case")]
+enum ExternalConfigDiffFormat {
+    /// Human-readable output (default).
+    Readable,
+    /// JSON format, one object per line.
+    Json,
+}
+
 /// Identifies the diff between external buckconfigs between two commands.
 #[derive(Debug, clap::Parser)]
 pub struct ExternalConfigDiffCommand {
     #[clap(flatten)]
     diff_event_log: DiffEventLogOptions,
+    #[clap(
+        long,
+        help = "Which output format to use for this command",
+        default_value = "readable",
+        ignore_case = true,
+        value_enum
+    )]
+    format: ExternalConfigDiffFormat,
 }
 
 fn insert_config_value(
@@ -165,6 +185,7 @@ impl Display for DiffType<'_> {
             DiffType::FirstOnly { key, value } => write!(f, "{key}: {value} | _"),
             DiffType::SecondOnly { key, value } => write!(f, "{key}: _ | {value}"),
             DiffType::FullDiff { changes } => {
+                writeln!(f, "\n=== Full Diff ===")?;
                 for change in changes {
                     let sign = match change.tag {
                         DiffTag::Delete => "-",
@@ -188,7 +209,12 @@ impl BuckSubcommand for ExternalConfigDiffCommand {
         ctx: ClientCommandContext<'_>,
         _events_ctx: &mut EventsCtx,
     ) -> ExitResult {
-        let (log_path1, log_path2) = self.diff_event_log.get(&ctx).await?;
+        let Self {
+            diff_event_log,
+            format,
+        } = self;
+
+        let (log_path1, log_path2) = diff_event_log.get(&ctx).await?;
 
         let (invocation1, events1) = log_path1.unpack_stream().await?;
         let (invocation2, events2) = log_path2.unpack_stream().await?;
@@ -241,8 +267,25 @@ impl BuckSubcommand for ExternalConfigDiffCommand {
             diffs.push(DiffType::FullDiff { changes });
         }
 
-        let json_diffs = serde_json::to_string_pretty(&diffs)?;
-        buck2_client_ctx::println!("{}", json_diffs)?;
+        buck2_client_ctx::stdio::print_with_writer::<buck2_error::Error, _>(async move |w| {
+            match format {
+                ExternalConfigDiffFormat::Readable => {
+                    writeln!(w, "=== Summary Diff ===")?;
+                    for diff in &diffs {
+                        writeln!(w, "{diff}")?;
+                    }
+                }
+                ExternalConfigDiffFormat::Json => {
+                    for diff in &diffs {
+                        serde_json::to_writer(&mut *w, diff)?;
+                        writeln!(w)?;
+                    }
+                }
+            }
+            Ok(())
+        })
+        .await?;
+
         ExitResult::success()
     }
 }

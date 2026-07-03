@@ -23,6 +23,15 @@ Options:
       --recent2 <NUMBER>
           Open the event-log file from a recent command for the second command
 
+      --format <FORMAT>
+          Which output format to use for this command
+
+          Possible values:
+          - readable: Human-readable output (default)
+          - json:     JSON format, one object per line
+
+          [default: readable]
+
   -h, --help
           Print help (see a summary with '-h')
 

@@ -31,6 +31,12 @@ def with_buck2_key_value(key: str, value: str) -> typing.List[str]:
     ]
 
 
+def parse_json_diffs(stdout: str) -> typing.List[dict]:
+    # first three lines are the header
+    lines = stdout.splitlines()[3:]
+    return [json.loads(line) for line in lines if line.strip()]
+
+
 @buck_test()
 async def test_no_action_divergence_command(buck: Buck) -> None:
     await buck.build("//:simple", *with_buck2_output("foo"))
@@ -68,14 +74,17 @@ async def test_no_config_diff_command(buck: Buck) -> None:
     await buck.build("//:simple", *with_buck2_output("foo"))
     out2 = await buck.log("last")
     path2 = out2.stdout.strip()
-    diff = (
-        (await buck.log("diff", "external-configs", "--path1", path1, "--path2", path2))
-        .stdout.strip()
-        .splitlines()
+    out = await buck.log(
+        "diff",
+        "external-configs",
+        "--path1",
+        path1,
+        "--path2",
+        path2,
+        "--format=json",
     )
-    # first three lines is the header
-    diff = json.loads(diff[3])
-    assert len(diff) == 0
+    diffs = parse_json_diffs(out.stdout)
+    assert len(diffs) == 0
 
 
 @buck_test()
@@ -96,15 +105,19 @@ async def test_diff_order_config_diff_command(buck: Buck) -> None:
     )
     out2 = await buck.log("last")
     path2 = out2.stdout.strip()
-    diff = (
-        await buck.log("diff", "external-configs", "--path1", path1, "--path2", path2)
-    ).stdout.splitlines()
-    # first three lines is the header
-    diff = diff[3:]
-    diff = json.loads("".join(diff))
-    assert len(diff) == 1 and "FullDiff" in diff[0]
+    out = await buck.log(
+        "diff",
+        "external-configs",
+        "--path1",
+        path1,
+        "--path2",
+        path2,
+        "--format=json",
+    )
+    diffs = parse_json_diffs(out.stdout)
+    assert len(diffs) == 1 and "FullDiff" in diffs[0]
 
-    changes = diff[0]["FullDiff"]["changes"]
+    changes = diffs[0]["FullDiff"]["changes"]
     keys = {"test.key_a=1", "test.key_b=2"}
     original_order = [
         c["value"]
@@ -142,13 +155,16 @@ async def test_config_diff_command_command_line(buck: Buck) -> None:
     )
     out2 = await buck.log("last")
     path2 = out2.stdout.strip()
-    diff = (
-        await buck.log("diff", "external-configs", "--path1", path1, "--path2", path2)
-    ).stdout.splitlines()
-    # first three lines is the header
-    diff = diff[3:]
-    diff = json.loads("".join(diff))
-    summary_diffs = [d for d in diff if "FullDiff" not in d]
+    out = await buck.log(
+        "diff",
+        "external-configs",
+        "--path1",
+        path1,
+        "--path2",
+        path2,
+        "--format=json",
+    )
+    summary_diffs = [d for d in parse_json_diffs(out.stdout) if "FullDiff" not in d]
     assert len(summary_diffs) == 3
 
     assert (
@@ -186,13 +202,16 @@ async def test_config_diff_command_project_relative(buck: Buck) -> None:
     )
     out2 = await buck.log("last")
     path2 = out2.stdout.strip()
-    diff = (
-        await buck.log("diff", "external-configs", "--path1", path1, "--path2", path2)
-    ).stdout.splitlines()
-    # first three lines is the header
-    diff = diff[3:]
-    diff = json.loads("".join(diff))
-    summary_diffs = [d for d in diff if "FullDiff" not in d]
+    out = await buck.log(
+        "diff",
+        "external-configs",
+        "--path1",
+        path1,
+        "--path2",
+        path2,
+        "--format=json",
+    )
+    summary_diffs = [d for d in parse_json_diffs(out.stdout) if "FullDiff" not in d]
     assert len(summary_diffs) == 2
 
     first_only = {d["FirstOnly"]["key"] for d in summary_diffs if "FirstOnly" in d}
