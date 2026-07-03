@@ -490,6 +490,70 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
             .map(StarlarkTargetSet::from)?)
     }
 
+    /// The allbuildfiles query for finding the build files of the given targets and their transitive imports.
+    ///
+    /// Sample usage:
+    /// ```python
+    /// def _impl_allbuildfiles(ctx):
+    ///     result = ctx.uquery().allbuildfiles("root//bin:the_binary")
+    ///     ctx.output.print(result)
+    /// ```
+    fn allbuildfiles<'v>(
+        this: &StarlarkUQueryCtx<'v>,
+        universe: TargetListExprArg<'v>,
+        eval: &mut Evaluator<'v, '_, '_>,
+    ) -> starlark::Result<StarlarkFileSet> {
+        Ok(this
+            .ctx
+            .via_dice(eval, |dice| {
+                dice.via(|dice| {
+                    async {
+                        let universe = unpack_targets(this, dice, universe).await?;
+                        get_uquery_env(&this.ctx)
+                            .await?
+                            .allbuildfiles(dice, &universe)
+                            .await
+                    }
+                    .boxed_local()
+                })
+            })
+            .map(StarlarkFileSet::from)?)
+    }
+
+    /// The rbuildfiles query for finding all build files that transitively depend on the given files.
+    ///
+    /// Sample usage:
+    /// ```python
+    /// def _impl_rbuildfiles(ctx):
+    ///     result = ctx.uquery().rbuildfiles("bin/TARGETS", "bin/defs.bzl")
+    ///     ctx.output.print(result)
+    /// ```
+    fn rbuildfiles<'v>(
+        this: &StarlarkUQueryCtx<'v>,
+        universe: FileSetExpr,
+        argset: FileSetExpr,
+        eval: &mut Evaluator<'v, '_, '_>,
+    ) -> starlark::Result<StarlarkFileSet> {
+        Ok(this
+            .ctx
+            .via_dice(eval, |dice| {
+                dice.via(|dice| {
+                    async {
+                        get_uquery_env(&this.ctx)
+                            .await?
+                            .rbuildfiles(
+                                dice,
+                                (universe.get(&this.ctx).await?).as_ref(),
+                                (argset.get(&this.ctx).await?).as_ref(),
+                            )
+                            .await
+                    }
+                    .boxed_local()
+                })
+            })
+            .map(StarlarkFileSet::from)?)
+    }
+
     /// The attrregexfilter query for rule attribute filtering with regex.
     ///
     /// Sample usage:

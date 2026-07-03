@@ -71,6 +71,11 @@ pub(crate) enum LazyUqueryOperation {
         targets: OwnedTargetListExprArg,
     },
     Buildfile(OwnedTargetListExprArg),
+    AllBuildfiles(OwnedTargetListExprArg),
+    Rbuildfiles {
+        universe: OwnedFileSetExpr,
+        argset: OwnedFileSetExpr,
+    },
     Owner {
         files: OwnedFileSetExpr,
     },
@@ -95,6 +100,8 @@ pub(crate) enum LazyUqueryResult {
     Rdeps(StarlarkTargetSet<TargetNode>),
     Filter(StarlarkTargetSet<TargetNode>),
     Buildfile(StarlarkFileSet),
+    AllBuildfiles(StarlarkFileSet),
+    Rbuildfiles(StarlarkFileSet),
     Owner(StarlarkTargetSet<TargetNode>),
     TargetsInBuildfile(StarlarkTargetSet<TargetNode>),
     Eval(QueryEvaluationResult<TargetNode>),
@@ -114,6 +121,8 @@ impl LazyUqueryResult {
             LazyUqueryResult::Rdeps(target_set) => Ok(heap.alloc(target_set)),
             LazyUqueryResult::Filter(target_set) => Ok(heap.alloc(target_set)),
             LazyUqueryResult::Buildfile(file_set) => Ok(heap.alloc(file_set)),
+            LazyUqueryResult::AllBuildfiles(file_set) => Ok(heap.alloc(file_set)),
+            LazyUqueryResult::Rbuildfiles(file_set) => Ok(heap.alloc(file_set)),
             LazyUqueryResult::Owner(target_set) => Ok(heap.alloc(target_set)),
             LazyUqueryResult::TargetsInBuildfile(target_set) => Ok(heap.alloc(target_set)),
             LazyUqueryResult::Eval(result) => parse_query_evaluation_result(result, heap),
@@ -257,6 +266,27 @@ impl LazyUqueryOperation {
                 let res = target_set.buildfile();
 
                 Ok(LazyUqueryResult::Buildfile(StarlarkFileSet::from(res)))
+            }
+            LazyUqueryOperation::AllBuildfiles(expr) => {
+                let target_set = expr.to_unconfigured_target_set(core_data, dice).await?;
+
+                let res = get_uquery_env(core_data)
+                    .await?
+                    .allbuildfiles(dice, &target_set)
+                    .await?;
+
+                Ok(LazyUqueryResult::AllBuildfiles(StarlarkFileSet::from(res)))
+            }
+            LazyUqueryOperation::Rbuildfiles { universe, argset } => {
+                let universe = universe.get(core_data)?;
+                let argset = argset.get(core_data)?;
+
+                let res = get_uquery_env(core_data)
+                    .await?
+                    .rbuildfiles(dice, &universe, &argset)
+                    .await?;
+
+                Ok(LazyUqueryResult::Rbuildfiles(StarlarkFileSet::from(res)))
             }
             LazyUqueryOperation::Owner { files } => {
                 let file_set = files.get(core_data)?;

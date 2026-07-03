@@ -244,6 +244,46 @@ impl BxlCqueryFunctions for BxlCqueryFunctionsImpl {
             })
             .await?)
     }
+
+    async fn allbuildfiles(
+        &self,
+        dice: &mut DiceComputations<'_>,
+        universe: &TargetSet<ConfiguredTargetNode>,
+    ) -> buck2_error::Result<FileSet> {
+        Ok(dice
+            .with_linear_recompute(|dice| async move {
+                cquery_functions()
+                    .allbuildfiles(
+                        &self
+                            .cquery_env(&self.setup_dice_query_delegate(&dice).await?, None)
+                            .await?,
+                        universe,
+                    )
+                    .await
+            })
+            .await?)
+    }
+
+    async fn rbuildfiles(
+        &self,
+        dice: &mut DiceComputations<'_>,
+        universe: &FileSet,
+        argset: &FileSet,
+    ) -> buck2_error::Result<FileSet> {
+        Ok(dice
+            .with_linear_recompute(|dice| async move {
+                cquery_functions()
+                    .rbuildfiles(
+                        &self
+                            .cquery_env(&self.setup_dice_query_delegate(&dice).await?, None)
+                            .await?,
+                        universe,
+                        argset,
+                    )
+                    .await
+            })
+            .await?)
+    }
 }
 
 pub(crate) fn init_new_bxl_cquery_functions() {

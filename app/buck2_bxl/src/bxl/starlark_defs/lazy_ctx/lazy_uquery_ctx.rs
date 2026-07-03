@@ -263,6 +263,38 @@ fn lazy_uquery_methods(builder: &mut MethodsBuilder) {
         Ok(StarlarkLazy::new_uquery(op))
     }
 
+    /// Finds the build files of the given targets and their transitive imports.
+    ///
+    /// Example:
+    /// ```python
+    /// res = ctx.lazy.uquery().allbuildfiles("//:foo").catch().resolve()
+    /// ```
+    fn allbuildfiles<'v>(
+        #[starlark(this)] _this: &'v StarlarkLazyUqueryCtx,
+        #[starlark(require = pos)] universe: TargetListExprArg<'v>,
+    ) -> starlark::Result<StarlarkLazy> {
+        let universe = OwnedTargetListExprArg::from_ref(&universe);
+        let op = LazyUqueryOperation::AllBuildfiles(universe);
+        Ok(StarlarkLazy::new_uquery(op))
+    }
+
+    /// Finds all build files that transitively depend on the given files.
+    ///
+    /// Example:
+    /// ```python
+    /// res = ctx.lazy.uquery().rbuildfiles("bin/TARGETS", "bin/defs.bzl").catch().resolve()
+    /// ```
+    fn rbuildfiles<'v>(
+        #[starlark(this)] _this: &'v StarlarkLazyUqueryCtx,
+        #[starlark(require = pos)] universe: FileSetExpr<'v>,
+        #[starlark(require = pos)] argset: FileSetExpr<'v>,
+    ) -> starlark::Result<StarlarkLazy> {
+        let universe = OwnedFileSetExpr::from_ref(&universe);
+        let argset = OwnedFileSetExpr::from_ref(&argset);
+        let op = LazyUqueryOperation::Rbuildfiles { universe, argset };
+        Ok(StarlarkLazy::new_uquery(op))
+    }
+
     /// Finds targets that own the specified files.
     ///
     /// Example:
