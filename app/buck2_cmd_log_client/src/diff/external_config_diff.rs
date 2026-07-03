@@ -20,6 +20,8 @@ use derive_more::Display;
 use futures::Stream;
 use futures::TryStreamExt;
 use serde::Serialize;
+use similar::ChangeTag;
+use similar::TextDiff;
 
 use crate::diff::diff_options::DiffEventLogOptions;
 
@@ -119,7 +121,21 @@ async fn get_external_buckconfig_dict(
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Serialize)]
-pub enum DiffType<'a> {
+#[serde(rename_all = "lowercase")]
+enum DiffTag {
+    Equal,
+    Delete,
+    Insert,
+}
+
+#[derive(Debug, Hash, PartialEq, Eq, Serialize)]
+struct DiffChange {
+    tag: DiffTag,
+    value: String,
+}
+
+#[derive(Debug, Hash, PartialEq, Eq, Serialize)]
+enum DiffType<'a> {
     Changed {
         key: &'a str,
         old_value: &'a str,
@@ -133,6 +149,9 @@ pub enum DiffType<'a> {
         key: &'a str,
         value: &'a str,
     },
+    FullDiff {
+        changes: Vec<DiffChange>,
+    },
 }
 
 impl Display for DiffType<'_> {
@@ -145,6 +164,17 @@ impl Display for DiffType<'_> {
             } => write!(f, "{key}: {old_value} | {new_value}"),
             DiffType::FirstOnly { key, value } => write!(f, "{key}: {value} | _"),
             DiffType::SecondOnly { key, value } => write!(f, "{key}: _ | {value}"),
+            DiffType::FullDiff { changes } => {
+                for change in changes {
+                    let sign = match change.tag {
+                        DiffTag::Delete => "-",
+                        DiffTag::Insert => "+",
+                        DiffTag::Equal => " ",
+                    };
+                    writeln!(f, "{sign} {}", change.value)?;
+                }
+                Ok(())
+            }
         }
     }
 }
@@ -171,8 +201,8 @@ impl BuckSubcommand for ExternalConfigDiffCommand {
 
         // External buckconfigs are stored in the event log in order and can have overrides
         // We first resolve them into a single dict
-        let (dict1, _order1) = get_external_buckconfig_dict(events1).await?;
-        let (dict2, _order2) = get_external_buckconfig_dict(events2).await?;
+        let (dict1, order1) = get_external_buckconfig_dict(events1).await?;
+        let (dict2, order2) = get_external_buckconfig_dict(events2).await?;
         let mut diffs = Vec::new();
         for (key, value) in dict1.iter() {
             if let Some(new_value) = dict2.get(key) {
@@ -193,6 +223,24 @@ impl BuckSubcommand for ExternalConfigDiffCommand {
                 diffs.push(DiffType::SecondOnly { key, value });
             }
         }
+
+        if order1 != order2 {
+            let first: Vec<&str> = order1.iter().map(String::as_str).collect();
+            let second: Vec<&str> = order2.iter().map(String::as_str).collect();
+            let changes = TextDiff::from_slices(&first, &second)
+                .iter_all_changes()
+                .map(|change| DiffChange {
+                    tag: match change.tag() {
+                        ChangeTag::Equal => DiffTag::Equal,
+                        ChangeTag::Delete => DiffTag::Delete,
+                        ChangeTag::Insert => DiffTag::Insert,
+                    },
+                    value: change.value().to_owned(),
+                })
+                .collect();
+            diffs.push(DiffType::FullDiff { changes });
+        }
+
         let json_diffs = serde_json::to_string_pretty(&diffs)?;
         buck2_client_ctx::println!("{}", json_diffs)?;
         ExitResult::success()

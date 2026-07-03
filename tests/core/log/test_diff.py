@@ -102,8 +102,22 @@ async def test_diff_order_config_diff_command(buck: Buck) -> None:
     # first three lines is the header
     diff = diff[3:]
     diff = json.loads("".join(diff))
-    # Repro of ignoring ordering differences
-    assert len(diff) == 0
+    assert len(diff) == 1 and "FullDiff" in diff[0]
+
+    changes = diff[0]["FullDiff"]["changes"]
+    keys = {"test.key_a=1", "test.key_b=2"}
+    original_order = [
+        c["value"]
+        for c in changes
+        if c["tag"] in ("equal", "delete") and c["value"] in keys
+    ]
+    new_order = [
+        c["value"]
+        for c in changes
+        if c["tag"] in ("equal", "insert") and c["value"] in keys
+    ]
+    assert original_order == ["test.key_a=1", "test.key_b=2"]
+    assert new_order == ["test.key_b=2", "test.key_a=1"]
 
 
 @buck_test()
@@ -134,21 +148,22 @@ async def test_config_diff_command_command_line(buck: Buck) -> None:
     # first three lines is the header
     diff = diff[3:]
     diff = json.loads("".join(diff))
-    assert len(diff) == 3
+    summary_diffs = [d for d in diff if "FullDiff" not in d]
+    assert len(summary_diffs) == 3
 
     assert (
-        diff[0]["Changed"]["key"] == "test.buck2_output"
-        and diff[0]["Changed"]["old_value"] == "changed_old"
-        and diff[0]["Changed"]["new_value"] == "changed_new"
+        summary_diffs[0]["Changed"]["key"] == "test.buck2_output"
+        and summary_diffs[0]["Changed"]["old_value"] == "changed_old"
+        and summary_diffs[0]["Changed"]["new_value"] == "changed_new"
     )
 
     assert (
-        diff[1]["FirstOnly"]["key"] == "test.first"
-        and diff[1]["FirstOnly"]["value"] == "overwrite_x"
+        summary_diffs[1]["FirstOnly"]["key"] == "test.first"
+        and summary_diffs[1]["FirstOnly"]["value"] == "overwrite_x"
     )
     assert (
-        diff[2]["SecondOnly"]["key"] == "test.second"
-        and diff[2]["SecondOnly"]["value"] == "x"
+        summary_diffs[2]["SecondOnly"]["key"] == "test.second"
+        and summary_diffs[2]["SecondOnly"]["value"] == "x"
     )
 
 
@@ -177,11 +192,14 @@ async def test_config_diff_command_project_relative(buck: Buck) -> None:
     # first three lines is the header
     diff = diff[3:]
     diff = json.loads("".join(diff))
-    assert len(diff) == 2
+    summary_diffs = [d for d in diff if "FullDiff" not in d]
+    assert len(summary_diffs) == 2
 
+    first_only = {d["FirstOnly"]["key"] for d in summary_diffs if "FirstOnly" in d}
+    second_only = {d["SecondOnly"]["key"] for d in summary_diffs if "SecondOnly" in d}
     # We only store the path of the modefile
-    assert diff[0]["FirstOnly"]["key"] == "my_mode_a.bcfg"
-    assert diff[1]["SecondOnly"]["key"] == "my_mode_b.bcfg"
+    assert first_only == {"my_mode_a.bcfg"}
+    assert second_only == {"my_mode_b.bcfg"}
 
 
 @buck_test(write_invocation_record=True)

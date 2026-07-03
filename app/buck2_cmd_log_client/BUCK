@@ -24,6 +24,7 @@ rust_library(
         "fbsource//third-party/rust:regex",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_json",
+        "fbsource//third-party/rust:similar",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tokio-stream",
         "//buck2/app/buck2_cli_proto:buck2_cli_proto",
