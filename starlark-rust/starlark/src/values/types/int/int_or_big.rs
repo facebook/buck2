@@ -741,6 +741,24 @@ mod tests {
         assert_eq!("4", floor_div("-13", "-3"));
     }
 
+    fn left_shift(a: &str, b: &str) -> String {
+        int(a)
+            .as_ref()
+            .left_shift(int(b).as_ref())
+            .unwrap()
+            .to_string()
+    }
+
+    #[test]
+    fn test_left_shift_promotes_on_overflow() {
+        // Shifts that overflow `i32` must promote to `BigInt` rather than wrap.
+        assert_eq!("1073741824", left_shift("1", "30"));
+        assert_eq!("2147483648", left_shift("1", "31"));
+        assert_eq!("4294967296", left_shift("4", "30"));
+        assert_eq!("-4294967296", left_shift("-4", "30"));
+        assert_eq!("1267650600228229401496703205376", left_shift("1", "100"));
+    }
+
     #[test]
     fn test_percent_big() {
         assert_eq!(

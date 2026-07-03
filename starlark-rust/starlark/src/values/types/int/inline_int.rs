@@ -172,9 +172,13 @@ impl InlineInt {
 
     #[inline]
     pub(crate) fn checked_shl(self, rhs: u32) -> Option<InlineInt> {
-        self.0
-            .checked_shl(rhs)
-            .and_then(|i| InlineInt::try_from(i).ok())
+        // `i32::checked_shl` only rejects shifts that are too wide; it still
+        // wraps when significant bits are shifted out. Compute in `i64` so an
+        // overflowing shift falls through to the `BigInt` path.
+        if rhs >= 32 {
+            return None;
+        }
+        InlineInt::try_from((self.0 as i64) << rhs).ok()
     }
 
     pub(crate) fn to_bigint(self) -> BigInt {
