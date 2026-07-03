@@ -652,6 +652,7 @@ impl<'a, I: Iterator<Item = Lexeme>> ParserRd<'a, I> {
                     | Token::Int(_)
                     | Token::Float(_)
                     | Token::String(_)
+                    | Token::Bytes(_)
                     | Token::FStringStart(_)
                     | Token::OpeningRound
                     | Token::OpeningSquare

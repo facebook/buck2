@@ -309,6 +309,9 @@ fn test_bytes_literal() {
     assert_eq!(parse(r#"x = b"""triple""""#), "x = b\"triple\"\n");
     assert_eq!(parse(r#"x = rb"\n""#), "x = b\"\\\\n\"\n");
     assert_eq!(parse(r#"print(b"hi")"#), "print(b\"hi\")\n");
+    assert_eq!(parse(r#"x = (1, b"")"#), "x = (1, b\"\")\n");
+    assert_eq!(parse(r#"x = (b"", 1)"#), "x = (b\"\", 1)\n");
+    assert_eq!(parse(r#"x = (1, b"", 2)"#), "x = (1, b\"\", 2)\n");
 }
 
 #[test]
