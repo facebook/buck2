@@ -29,3 +29,16 @@ async def test_typecheck_fails(buck: Buck) -> None:
         buck.starlark("typecheck", "bad.bzl"),
         stderr_regex="Detected 2 errors",
     )
+
+
+@buck_test()
+async def test_typecheck_bundled_cell(buck: Buck) -> None:
+    # Files in bundled external cells do not exist on disk; check that they
+    # are read through the file ops that know how to materialize them.
+    await buck.starlark("typecheck", "uses_prelude.bzl")
+    await buck.starlark("typecheck", "nano_prelude/prelude.bzl")
+
+
+@buck_test()
+async def test_lint_bundled_cell(buck: Buck) -> None:
+    await buck.starlark("lint", "nano_prelude")
