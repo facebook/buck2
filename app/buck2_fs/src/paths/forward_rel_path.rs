@@ -1292,6 +1292,18 @@ impl ForwardRelativePathNormalizer {
     pub fn normalize_path<P: AsRef<Path> + ?Sized>(
         rel_path: &P,
     ) -> buck2_error::Result<Cow<'_, ForwardRelativePath>> {
+        match Self::normalize_path_unchecked(rel_path)? {
+            Cow::Borrowed(path) => Ok(Cow::Borrowed(ForwardRelativePath::new(path)?)),
+            Cow::Owned(path) => Ok(Cow::Owned(ForwardRelativePathBuf::try_from(path)?)),
+        }
+    }
+
+    /// Like `normalize_path`, but returns the normalized string without
+    /// requiring it to be representable as a `ForwardRelativePath` (e.g. it
+    /// may contain an embedded backslash on Unix).
+    pub fn normalize_path_unchecked<P: AsRef<Path> + ?Sized>(
+        rel_path: &P,
+    ) -> buck2_error::Result<Cow<'_, str>> {
         let rel_path = rel_path.as_ref();
         if !rel_path.is_relative() {
             return Err(
@@ -1303,12 +1315,11 @@ impl ForwardRelativePathNormalizer {
             .ok_or_else(|| ForwardRelativePathError::PathNotUtf8(rel_path.display().to_string()))?;
         let bytes = path_str.as_bytes();
         if cfg!(windows) && memchr::memchr(b'\\', bytes).is_some() {
-            let normalized_path = path_str.replace('\\', "/");
-            Ok(Cow::Owned(ForwardRelativePathBuf::try_from(
-                normalized_path,
-            )?))
+            // `\` is the path separator on Windows, so it cannot appear inside
+            // a component there; normalize it to the `/` buck's paths use.
+            Ok(Cow::Owned(path_str.replace('\\', "/")))
         } else {
-            Ok(Cow::Borrowed(ForwardRelativePath::new(path_str)?))
+            Ok(Cow::Borrowed(path_str))
         }
     }
 }
