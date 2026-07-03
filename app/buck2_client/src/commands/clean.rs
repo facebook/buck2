@@ -657,9 +657,9 @@ fn clean_buck_out_pass(path: &AbsNormPathBuf, state: &Arc<CleanProgressState>) -
                 // The walk gives us back absolute paths since we give it absolute paths.
                 let res = AbsPath::new(dir_entry.path()).and_then(|p| {
                     if is_dir {
-                        ok_if_not_found(fs_util::remove_dir(p))
+                        ok_if_not_found(fs_util::remove_dir_harder(p))
                     } else {
-                        ok_if_not_found(fs_util::remove_file(p))
+                        ok_if_not_found(fs_util::remove_file_harder(p))
                     }
                 });
 
@@ -689,7 +689,7 @@ fn clean_buck_out_pass(path: &AbsNormPathBuf, state: &Arc<CleanProgressState>) -
                 if entry.file_type().is_ok_and(|t| t.is_dir()) {
                     continue;
                 }
-                match ok_if_not_found(fs_util::remove_file(entry.path())) {
+                match ok_if_not_found(fs_util::remove_file_harder(entry.path())) {
                     Ok(()) => {
                         file_counter.fetch_add(1, Ordering::Relaxed);
                     }
@@ -697,7 +697,7 @@ fn clean_buck_out_pass(path: &AbsNormPathBuf, state: &Arc<CleanProgressState>) -
                 }
             }
         }
-        match ok_if_not_found(fs_util::remove_dir(dir)) {
+        match ok_if_not_found(fs_util::remove_dir_harder(dir)) {
             Ok(()) => {
                 dir_counter.fetch_add(1, Ordering::Relaxed);
             }
@@ -719,9 +719,9 @@ fn clean_buck_out_pass(path: &AbsNormPathBuf, state: &Arc<CleanProgressState>) -
                         .is_ok_and(|m| m.file_type().is_dir()),
                 };
                 let res = if is_dir {
-                    ok_if_not_found(fs_util::remove_dir(entry.path()))
+                    ok_if_not_found(fs_util::remove_dir_harder(entry.path()))
                 } else {
-                    ok_if_not_found(fs_util::remove_file(entry.path()))
+                    ok_if_not_found(fs_util::remove_file_harder(entry.path()))
                 };
                 match res {
                     Ok(()) => {
@@ -746,6 +746,30 @@ mod tests {
     use std::collections::BTreeMap;
 
     use super::*;
+
+    #[cfg(unix)]
+    #[test]
+    fn test_clean_readonly_directory_with_empty_children() -> buck2_error::Result<()> {
+        use std::os::unix::fs::PermissionsExt;
+
+        let tempdir = tempfile::tempdir()?;
+        let root = AbsNormPathBuf::new(tempdir.path().to_path_buf())?;
+        let parent = tempdir.path().join("delta");
+        std::fs::create_dir_all(parent.join("dev"))?;
+        std::fs::set_permissions(&parent, std::fs::Permissions::from_mode(0o555))?;
+
+        let state = Arc::new(CleanProgressState::new());
+        let outcome = clean_buck_out_pass(&root, &state);
+        drop(std::fs::set_permissions(
+            &parent,
+            std::fs::Permissions::from_mode(0o755),
+        ));
+
+        assert_eq!(outcome.failed, 0, "{:?}", outcome.first_error);
+        assert_eq!(std::fs::read_dir(&root)?.count(), 0);
+        assert_eq!(state.dirs_deleted(), 2);
+        Ok(())
+    }
 
     fn fixture<'a>(
         children: &'a BTreeMap<&'static str, Vec<&'static str>>,
