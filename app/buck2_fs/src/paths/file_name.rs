@@ -25,6 +25,7 @@ use ref_cast::RefCast;
 use serde::Deserialize;
 use serde::Serialize;
 
+use crate::paths::backslash_allowed;
 use crate::paths::forward_rel_path::ForwardRelativePath;
 use crate::paths::relative_path::RelativePath;
 
@@ -44,22 +45,27 @@ enum FileNameError {
     NotUnicode(OsString),
 }
 
-fn verify_file_name(file_name: &str) -> buck2_error::Result<()> {
+fn verify_file_name_with_policy(
+    file_name: &str,
+    allow_backslashes: bool,
+) -> buck2_error::Result<()> {
     if file_name.is_empty() {
         Err(FileNameError::Empty.into())
     } else if file_name == "." {
         Err(FileNameError::Dot.into())
     } else if file_name == ".." {
         Err(FileNameError::DotDot.into())
-    } else if file_name.contains('/') || file_name.contains('\\') {
-        // Note we do not allow backslashes in file names
-        // even if it is valid file name on Linux.
+    } else if file_name.contains('/') || (file_name.contains('\\') && !allow_backslashes) {
         Err(FileNameError::Slashes(file_name.to_owned()).into())
     } else {
         // At the moment we allow characters like '\0'
         // even if they are not valid at least on Linux.
         Ok(())
     }
+}
+
+fn verify_file_name(file_name: &str) -> buck2_error::Result<()> {
+    verify_file_name_with_policy(file_name, backslash_allowed())
 }
 
 /// File name. Cannot be empty, cannot contain slashes, '.' or '..'.
@@ -128,6 +134,9 @@ impl AsRef<ForwardRelativePath> for FileName {
 impl FileName {
     /// Creates an `FileName` if the given path represents a correct
     /// platform-independent file name, otherwise error.
+    ///
+    /// A backslash is rejected by default; `[buck2] allow_backslashes_in_paths = true`
+    /// allows it on platforms where it is not a path separator.
     ///
     /// ```
     /// use buck2_fs::paths::file_name::FileName;
@@ -390,5 +399,17 @@ impl TryFrom<CompactString> for FileNameBuf {
     fn try_from(value: CompactString) -> buck2_error::Result<FileNameBuf> {
         verify_file_name(value.as_str())?;
         Ok(FileNameBuf(value))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn backslash_policy() {
+        assert!(verify_file_name_with_policy("foo\\bar", false).is_err());
+        assert!(verify_file_name_with_policy("foo\\bar", true).is_ok());
+        assert!(verify_file_name_with_policy("foo/bar", true).is_err());
     }
 }

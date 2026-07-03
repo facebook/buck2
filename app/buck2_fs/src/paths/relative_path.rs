@@ -10,10 +10,13 @@
 
 //! Platform-agnostic, UTF-8, relative paths.
 //!
-//! A `RelativePath` is a `str`-backed path that always uses `/` as a separator. Backslashes are
-//! rejected on every platform — they are not treated as path separators here, just as in
-//! [`ForwardRelativePath`](crate::paths::forward_rel_path::ForwardRelativePath). `.` and `..`
-//! components and empty components (consecutive `/`) are still permitted.
+//! A `RelativePath` is a `str`-backed path that always uses `/` as a separator. A backslash is
+//! never treated as a separator, just as in
+//! [`ForwardRelativePath`](crate::paths::forward_rel_path::ForwardRelativePath). Backslashes are
+//! rejected by default; setting `[buck2] allow_backslashes_in_paths = true` allows them on
+//! platforms other than Windows, where they are valid path characters (e.g. systemd's escaped
+//! unit names).
+//! `.` and `..` components and empty components (consecutive `/`) are still permitted.
 //!
 //! Use [`ForwardRelativePath`](crate::paths::forward_rel_path::ForwardRelativePath) when the
 //! stronger "no `.`/`..`, no leading `/`" invariant is required; `RelativePath` is the looser form
@@ -45,6 +48,7 @@ use serde::Deserializer;
 use serde::Serialize;
 use strong_hash::StrongHash;
 
+use crate::paths::backslash_allowed;
 use crate::paths::file_name::FileName;
 
 const SEP: char = '/';
@@ -98,20 +102,18 @@ impl RelativePath {
 
     /// Wraps `s` as a `RelativePath`.
     ///
-    /// This function rejects paths that do not meet our standard path requirements, eg `\\` in
-    /// components, non `/` seperators, etc.. It should *not* be used to convert paths you got from
-    /// the OS; use `from_system_path` for that, which will handle all the typical platform
-    /// weirdness.
+    /// This function rejects paths that do not meet our standard path requirements, eg non-`/`
+    /// separators (`\\` on Windows), absolute paths, etc.. It should *not* be used to convert
+    /// paths you got from the OS; use `from_system_path` for that, which will handle all the
+    /// typical platform weirdness.
     #[inline]
     pub fn new(s: &str) -> buck2_error::Result<&RelativePath> {
         verify_relative_path(s, false)?;
         Ok(RelativePath::ref_cast(s))
     }
 
-    /// Wraps `s` as a `RelativePath` without enforcing the no-`\` invariant.
-    /// Callers must guarantee the string does not contain backslashes; passing
-    /// one through `unchecked_new` produces a `RelativePath` that violates the
-    /// type's contract and breaks downstream code that relies on it.
+    /// Wraps `s` as a `RelativePath` without validating it. Callers must guarantee the string
+    /// satisfies the configured path policy.
     #[inline]
     pub fn unchecked_new(s: &str) -> &RelativePath {
         RelativePath::ref_cast(s)
@@ -301,14 +303,14 @@ impl RelativePath {
 }
 
 impl RelativePathBuf {
-    /// Wraps `s` as a `RelativePathBuf`, rejecting any backslash.
+    /// Wraps `s` as a `RelativePathBuf`, rejecting paths that violate the configured policy.
     pub fn new(s: String) -> buck2_error::Result<RelativePathBuf> {
         verify_relative_path(&s, false)?;
         Ok(RelativePathBuf(s))
     }
 
-    /// Wraps `s` as a `RelativePathBuf` without enforcing the no-`\` invariant.
-    /// See [`RelativePath::unchecked_new`] for the obligation on the caller.
+    /// Wraps `s` as a `RelativePathBuf` without validating it. See
+    /// [`RelativePath::unchecked_new`] for the obligation on the caller.
     #[inline]
     pub fn unchecked_new(s: String) -> RelativePathBuf {
         RelativePathBuf(s)
@@ -329,12 +331,10 @@ impl RelativePathBuf {
     ///
     /// Iterates the path's native components, rejecting absolute components
     /// (Windows drive prefixes and root directories) and requiring UTF-8. On
-    /// Windows, this naturally converts `\` separators to `/` because
-    /// [`Path::components`] splits on the platform separator; on Unix, a
-    /// literal backslash inside a component is rejected with
-    /// [`FromSystemPathError::Backslash`] so that the resulting
-    /// `RelativePathBuf` upholds the no-`\` invariant. `.` components are
-    /// stripped; `..` components are preserved literally.
+    /// Windows, this converts `\` separators to `/` because [`Path::components`]
+    /// splits on the platform separator. On Unix, a backslash in a component is
+    /// rejected unless `[buck2] allow_backslashes_in_paths = true` is set. `.`
+    /// components are stripped and `..` components are preserved.
     ///
     /// ```
     /// use std::path::Path;
@@ -352,13 +352,19 @@ impl RelativePathBuf {
     pub fn from_system_path<P: AsRef<Path>>(
         path: P,
     ) -> Result<RelativePathBuf, FromSystemPathError> {
+        Self::from_system_path_with_policy(path.as_ref(), backslash_allowed())
+    }
+
+    fn from_system_path_with_policy(
+        path: &Path,
+        allow_backslashes: bool,
+    ) -> Result<RelativePathBuf, FromSystemPathError> {
         use std::path::Component::CurDir;
         use std::path::Component::Normal;
         use std::path::Component::ParentDir;
         use std::path::Component::Prefix;
         use std::path::Component::RootDir;
 
-        let path = path.as_ref();
         let mut buf = RelativePathBuf::empty();
         for c in path.components() {
             match c {
@@ -371,7 +377,7 @@ impl RelativePathBuf {
                     let s = s
                         .to_str()
                         .ok_or_else(|| FromSystemPathError::NonUtf8(path.display().to_string()))?;
-                    if memchr::memchr(b'\\', s.as_bytes()).is_some() {
+                    if memchr::memchr(b'\\', s.as_bytes()).is_some() && !allow_backslashes {
                         return Err(FromSystemPathError::Backslash(path.display().to_string()));
                     }
                     buf.push(RelativePath::unchecked_new(s));
@@ -610,6 +616,14 @@ pub(super) fn verify_relative_path(
     rel_path: &str,
     expect_forward: bool,
 ) -> buck2_error::Result<()> {
+    verify_relative_path_with_policy(rel_path, expect_forward, backslash_allowed())
+}
+
+fn verify_relative_path_with_policy(
+    rel_path: &str,
+    expect_forward: bool,
+    allow_backslashes: bool,
+) -> buck2_error::Result<()> {
     let bytes = rel_path.as_bytes();
     if bytes.is_empty() {
         return Ok(());
@@ -617,7 +631,7 @@ pub(super) fn verify_relative_path(
     if bytes[0] == b'/' {
         return Err(RelativePathError::PathNotRelative(rel_path.to_owned()).into());
     }
-    if memchr::memchr(b'\\', bytes).is_some() {
+    if memchr::memchr(b'\\', bytes).is_some() && !allow_backslashes {
         return Err(RelativePathError::Backslash(rel_path.to_owned()).into());
     }
 
@@ -819,9 +833,15 @@ mod tests {
     #[test]
     fn from_system_path_unix_rejects_backslash() {
         // On Unix, `\` is just a normal character in a path component. We
-        // reject it because `RelativePath` itself bans backslashes.
+        // reject it because `RelativePath` bans backslashes by default.
         let err = RelativePathBuf::from_system_path(Path::new("foo\\bar")).unwrap_err();
         assert!(matches!(err, FromSystemPathError::Backslash(_)), "{err:?}");
+        assert_eq!(
+            "foo\\bar",
+            RelativePathBuf::from_system_path_with_policy(Path::new("foo\\bar"), true)
+                .unwrap()
+                .as_str()
+        );
     }
 
     #[test]
@@ -833,6 +853,8 @@ mod tests {
         assert!(RelativePath::new("foo/./bar").is_ok());
         assert!(ForwardRelativePath::new("foo/./bar").is_err());
         assert!(RelativePath::new("a\\b").is_err());
+        assert!(verify_relative_path_with_policy("a\\b", false, true).is_ok());
+        assert!(verify_relative_path_with_policy("a\\b", true, true).is_ok());
         assert!(RelativePath::new("/a/b").is_err());
         assert!(RelativePath::new("a/b/").is_err());
         assert!(RelativePath::new("a//b").is_err());

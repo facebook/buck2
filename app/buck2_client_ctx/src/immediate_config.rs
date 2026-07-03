@@ -32,6 +32,7 @@ use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::abs_path::AbsPath;
+use buck2_fs::paths::init_allow_backslashes_in_paths;
 use buck2_fs::working_dir::AbsWorkingDir;
 use prost::Message;
 
@@ -59,6 +60,10 @@ impl ImmediateConfig {
             &[],
         ))?;
 
+        let daemon_startup_config = DaemonStartupConfig::new(&cells.root_config, &settings)
+            .buck_error_context("Error loading daemon startup config")?;
+        init_allow_backslashes_in_paths(daemon_startup_config.allow_backslashes_in_paths)?;
+
         let cwd_cell_alias_resolver = futures::executor::block_on(
             cells.get_cell_alias_resolver_for_cwd_fast(&roots.project_root, &roots.cwd),
         )?;
@@ -66,8 +71,7 @@ impl ImmediateConfig {
         Ok(ImmediateConfig {
             cell_resolver: cells.cell_resolver,
             cwd_cell_alias_resolver,
-            daemon_startup_config: DaemonStartupConfig::new(&cells.root_config, &settings)
-                .buck_error_context("Error loading daemon startup config")?,
+            daemon_startup_config,
             #[cfg(fbcode_build)]
             allow_daemon_start_unsandboxed_via_wrapper: cells
                 .root_config

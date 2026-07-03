@@ -68,6 +68,7 @@ use buck2_execute_impl::sqlite::materializer_db::MaterializerState;
 use buck2_execute_impl::sqlite::materializer_db::MaterializerStateSqliteDb;
 use buck2_file_watcher::file_watcher::FileWatcher;
 use buck2_fs::cwd::WorkingDirectory;
+use buck2_fs::paths::init_allow_backslashes_in_paths;
 use buck2_hash::StdBuckHashMap;
 use buck2_http::HttpClient;
 use buck2_http::HttpClientBuilder;
@@ -310,6 +311,9 @@ impl DaemonState {
 
         let daemon_state_data_rt = rt.clone();
         let init_fut = async move {
+            init_allow_backslashes_in_paths(
+                init_ctx.daemon_startup_config.allow_backslashes_in_paths,
+            )?;
             let fs = paths.project_root().clone();
 
             tracing::info!("Reading config...");
