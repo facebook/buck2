@@ -76,8 +76,11 @@ jobs:
         NATIVELINK_HEADER_RW_KEY_SECRET: ${{ secrets.NATIVELINK_HEADER_RW_KEY_SECRET }}
     - uses: ./.github/actions/setup_reindeer
     - uses: ./.github/actions/build_bootstrap
+  # The Meta-specific windows-8-core runner label does not exist on forks;
+  # fall back to the standard GitHub-hosted runner there so the job doesn't
+  # sit queued forever waiting for a runner that isn't available.
   windows-build-examples:
-    runs-on: windows-8-core
+    runs-on: ${{ github.repository_owner == 'facebook' && 'windows-8-core' || 'windows-latest' }}
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/setup_windows_env
