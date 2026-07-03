@@ -32,29 +32,40 @@ pub struct ExternalConfigDiffCommand {
     diff_event_log: DiffEventLogOptions,
 }
 
-fn insert_config_value(dict: &mut BTreeMap<String, String>, config: &buck2_data::ConfigValue) {
+fn insert_config_value(
+    dict: &mut BTreeMap<String, String>,
+    order: &mut Vec<String>,
+    config: &buck2_data::ConfigValue,
+) {
     let config_cell = config
         .cell
         .clone()
         .map_or(PROJECT_ROOT.to_owned(), |cell| format!("({cell})"));
-    dict.insert(
-        format!(
-            "{}{}.{}",
-            config_cell,
-            config.section.clone(),
-            config.key.clone()
-        ),
-        config.value.clone(),
+    let key = format!(
+        "{}{}.{}",
+        config_cell,
+        config.section.clone(),
+        config.key.clone()
     );
+    order.push(format!("{key}={}", config.value));
+    dict.insert(key, config.value.clone());
 }
 
-fn insert_config_values(dict: &mut BTreeMap<String, String>, configs: &[buck2_data::ConfigValue]) {
+fn insert_config_values(
+    dict: &mut BTreeMap<String, String>,
+    order: &mut Vec<String>,
+    configs: &[buck2_data::ConfigValue],
+) {
     configs
         .iter()
-        .for_each(|config_value| insert_config_value(dict, config_value))
+        .for_each(|config_value| insert_config_value(dict, order, config_value))
 }
 
-fn process_buckconfig_data(dict: &mut BTreeMap<String, String>, event: &buck2_data::BuckEvent) {
+fn process_buckconfig_data(
+    dict: &mut BTreeMap<String, String>,
+    order: &mut Vec<String>,
+    event: &buck2_data::BuckEvent,
+) {
     use buck2_data::buckconfig_component::Data::ConfigFile;
     use buck2_data::buckconfig_component::Data::ConfigValue;
     use buck2_data::buckconfig_component::Data::GlobalExternalConfigFile;
@@ -69,21 +80,24 @@ fn process_buckconfig_data(dict: &mut BTreeMap<String, String>, event: &buck2_da
                 .components
                 .iter()
                 .for_each(|component| match component.data.as_ref() {
-                    Some(ConfigValue(config_value)) => insert_config_value(dict, config_value),
+                    Some(ConfigValue(config_value)) => {
+                        insert_config_value(dict, order, config_value)
+                    }
                     Some(ConfigFile(config_file)) => config_file
                         .data
                         .as_ref()
                         .into_iter()
                         .for_each(|data| match data {
                             ProjectRelativePath(p) => {
+                                order.push(p.clone());
                                 dict.insert(p.clone(), "".to_owned());
                             }
                             GlobalExternalConfig(external_config_values) => {
-                                insert_config_values(dict, &external_config_values.values)
+                                insert_config_values(dict, order, &external_config_values.values)
                             }
                         }),
                     Some(GlobalExternalConfigFile(external_config_file)) => {
-                        insert_config_values(dict, &external_config_file.values)
+                        insert_config_values(dict, order, &external_config_file.values)
                     }
                     _ => {}
                 });
@@ -93,14 +107,15 @@ fn process_buckconfig_data(dict: &mut BTreeMap<String, String>, event: &buck2_da
 
 async fn get_external_buckconfig_dict(
     mut events: impl Stream<Item = buck2_error::Result<StreamValue>> + Unpin + Send,
-) -> buck2_error::Result<BTreeMap<String, String>> {
+) -> buck2_error::Result<(BTreeMap<String, String>, Vec<String>)> {
     let mut dict: BTreeMap<String, String> = BTreeMap::new();
+    let mut order: Vec<String> = Vec::new();
     while let Some(event) = events.try_next().await? {
         if let StreamValue::Event(event) = event {
-            process_buckconfig_data(&mut dict, &event);
+            process_buckconfig_data(&mut dict, &mut order, &event);
         }
     }
-    Ok(dict)
+    Ok((dict, order))
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Serialize)]
@@ -156,8 +171,8 @@ impl BuckSubcommand for ExternalConfigDiffCommand {
 
         // External buckconfigs are stored in the event log in order and can have overrides
         // We first resolve them into a single dict
-        let dict1 = get_external_buckconfig_dict(events1).await?;
-        let dict2 = get_external_buckconfig_dict(events2).await?;
+        let (dict1, _order1) = get_external_buckconfig_dict(events1).await?;
+        let (dict2, _order2) = get_external_buckconfig_dict(events2).await?;
         let mut diffs = Vec::new();
         for (key, value) in dict1.iter() {
             if let Some(new_value) = dict2.get(key) {
