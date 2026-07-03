@@ -1252,6 +1252,14 @@ impl PreparedCommandExecutor for LocalExecutor {
             digest_config,
         } = command;
 
+        // `All` makes the forkserver skip the network namespace; see
+        // `CommandExecutionRequest::disable_local_network_isolation`.
+        let network_access = if request.disable_local_network_isolation() {
+            Some(NetworkAccess::All)
+        } else {
+            prepared_action.network_access
+        };
+
         manager.start_waiting_category(WaitingCategory::LocalQueued);
         let local_resource_holders = executor_stage_async(
             buck2_data::LocalStage {
@@ -1297,7 +1305,7 @@ impl PreparedCommandExecutor for LocalExecutor {
                     cancellations,
                     *digest_config,
                     &local_resource_holders,
-                    prepared_action.network_access,
+                    network_access,
                 )
             })
             .await

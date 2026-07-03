@@ -407,6 +407,11 @@ pub struct CommandExecutionRequest {
     skip_resource_control: bool,
 
     network_access: Option<NetworkAccess>,
+
+    /// When set, the local executor runs this action without network isolation,
+    /// ignoring the inherited `network_access` policy; no effect on RE. Set by the test
+    /// orchestrator's `disable_local_network_isolation`, which explains the rationale.
+    disable_local_network_isolation: bool,
 }
 
 impl CommandExecutionRequest {
@@ -445,6 +450,7 @@ impl CommandExecutionRequest {
             is_test: false,
             skip_resource_control: false,
             network_access: None,
+            disable_local_network_isolation: false,
         }
     }
 
@@ -742,6 +748,15 @@ impl CommandExecutionRequest {
 
     pub fn network_access(&self) -> Option<NetworkAccess> {
         self.network_access
+    }
+
+    pub fn with_disable_local_network_isolation(mut self, v: bool) -> Self {
+        self.disable_local_network_isolation = v;
+        self
+    }
+
+    pub fn disable_local_network_isolation(&self) -> bool {
+        self.disable_local_network_isolation
     }
 }
 

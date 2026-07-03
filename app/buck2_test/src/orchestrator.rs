@@ -107,7 +107,6 @@ use buck2_execute::execute::request::CommandExecutionOutput;
 use buck2_execute::execute::request::CommandExecutionPaths;
 use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::request::ExecutorPreference;
-use buck2_execute::execute::request::NetworkAccess;
 use buck2_execute::execute::request::OutputCreationBehavior;
 use buck2_execute::execute::request::WorkerId;
 use buck2_execute::execute::request::WorkerSpec;
@@ -385,24 +384,17 @@ impl<'a> BuckTestOrchestrator<'a> {
         Ok(())
     }
 
-    /// Network access is configured on the executor (`CommandExecutorConfig`) and
-    /// applied by the command executor, which falls back to the executor policy
-    /// when the request does not set one. Execution and dynamic listing therefore
-    /// return `None` here and inherit that policy.
+    /// Whether to exempt this action from network isolation when it runs locally.
     ///
-    /// Static listing is the exception: its enumeration tool (gtest-list-tests,
-    /// coral, ...) is a DotSlash stub that can't resolve under network isolation,
-    /// so force `All` to override any executor-level policy.
-    fn requested_network_access(
-        stage: &TestStage,
-        test_info: &OwnedTestInfo,
-    ) -> Option<NetworkAccess> {
-        match stage {
-            TestStage::Listing { .. } if test_info.has_static_listing_label() => {
-                Some(NetworkAccess::All)
-            }
-            _ => None,
-        }
+    /// Static listing's enumeration tool (gtest-list-tests, coral, ...) is a DotSlash
+    /// stub that needs the network to resolve. On RE it can still resolve, because RE
+    /// has a DotSlash that works under the allowed isolation modes, so the listing
+    /// action inherits the normal executor policy and needs no override. Locally the
+    /// forkserver would put a restricted policy in a network namespace where the stub
+    /// can't resolve, so the local listing action must run without isolation. Has no
+    /// effect on remote execution.
+    fn disable_local_network_isolation(stage: &TestStage, test_info: &OwnedTestInfo) -> bool {
+        matches!(stage, TestStage::Listing { .. }) && test_info.has_static_listing_label()
     }
 
     async fn execute2(
@@ -551,7 +543,8 @@ impl<'a> BuckTestOrchestrator<'a> {
         let test_info = Self::get_test_info(dice, &test_target, internal_runner_config).await?;
         let effective_test_execution_caching =
             test_info.supports_test_execution_caching() && !disable_test_execution_caching;
-        let network_access = Self::requested_network_access(stage.as_ref(), &test_info);
+        let disable_local_network_isolation =
+            Self::disable_local_network_isolation(stage.as_ref(), &test_info);
         let test_executor = Self::get_test_executor(
             dice,
             &test_target,
@@ -644,7 +637,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             worker,
             test_executor.re_dynamic_image(),
             test_executor.meta_internal_extra_params(),
-            network_access,
+            disable_local_network_isolation,
         )
         .boxed()
         .await?;
@@ -986,7 +979,8 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
             &self.internal_runner_config,
         )
         .await?;
-        let network_access = Self::requested_network_access(&stage, &test_info);
+        let disable_local_network_isolation =
+            Self::disable_local_network_isolation(&stage, &test_info);
 
         // In contrast from actual test execution we do not check if local execution is possible.
         // We leave that decision to actual local execution runner that requests local execution preparation.
@@ -1073,7 +1067,7 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
             worker,
             test_executor.re_dynamic_image(),
             test_executor.meta_internal_extra_params(),
-            network_access,
+            disable_local_network_isolation,
         )
         .await?;
 
@@ -1749,7 +1743,7 @@ impl BuckTestOrchestrator<'_> {
         worker: Option<WorkerSpec>,
         re_dynamic_image: Option<RemoteExecutorCustomImage>,
         meta_internal_extra_params: Arc<MetaInternalExtraParams>,
-        network_access: Option<NetworkAccess>,
+        disable_local_network_isolation: bool,
     ) -> buck2_error::Result<CommandExecutionRequest> {
         let inputs = ensured_inputs
             .into_iter()
@@ -1792,7 +1786,7 @@ impl BuckTestOrchestrator<'_> {
             .with_remote_execution_custom_image(re_dynamic_image)
             .with_meta_internal_extra_params(meta_internal_extra_params)
             .with_required_local_resources(required_local_resources)?
-            .with_network_access(network_access)
+            .with_disable_local_network_isolation(disable_local_network_isolation)
             .with_is_test();
         if let Some(timeout) = timeout {
             request = request.with_timeout(timeout)
