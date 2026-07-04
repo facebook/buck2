@@ -14,7 +14,7 @@ use dice_error::result::CancellableResult;
 use dice_error::result::CancellationReason;
 use dice_futures::cancellation::CancellationContext;
 
-use crate::impls::task::dice::DiceTaskCompletionHandle;
+use crate::epoch::task::dice::DiceTaskCompletionHandle;
 use crate::value::DiceComputedValue;
 
 /// The handle to the 'DiceTask' owned by the spawned thread that is responsible for completing

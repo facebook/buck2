@@ -19,7 +19,7 @@ use crate::api::computations::DiceComputations;
 use crate::api::data::DiceData;
 use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
-use crate::impls::ctx::TransactionCtx;
+use crate::epoch::ctx::TransactionCtx;
 use crate::updater::TransactionUpdater;
 use crate::versions::VersionNumber;
 

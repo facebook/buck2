@@ -14,7 +14,7 @@ use derive_more::Display;
 use dupe::Dupe;
 
 use crate::HashMap;
-use crate::impls::cache::SharedCache;
+use crate::epoch::cache::SharedCache;
 use crate::versions::VersionNumber;
 
 /// Tracks the currently in-flight versions for updates and reads to ensure

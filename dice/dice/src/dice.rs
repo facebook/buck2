@@ -274,7 +274,7 @@ pub(crate) mod testing {
     use dupe::Dupe;
 
     use crate::dice::Dice;
-    use crate::impls::ctx::VersionEpochState;
+    use crate::epoch::ctx::VersionEpochState;
     use crate::updater::ActiveTransactionGuard;
     use crate::versions::VersionNumber;
 
