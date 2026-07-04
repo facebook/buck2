@@ -20,7 +20,7 @@ use crate::api::data::DiceData;
 use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
 use crate::impls::ctx::TransactionCtx;
-use crate::impls::transaction::TransactionUpdater;
+use crate::updater::TransactionUpdater;
 use crate::versions::VersionNumber;
 
 /// The struct for which we build transactions. This is where changes are recorded, and committed

@@ -233,8 +233,8 @@ mod tests {
     use crate::api::key::NoValueSerialize;
     use crate::api::key::ValueSerialize;
     use crate::dice::Dice;
-    use crate::impls::transaction::ChangeType;
     use crate::key::CowDiceKeyHashed;
+    use crate::updater::ChangeType;
     use crate::versions::VersionNumber;
 
     #[derive(Allocative, Clone, PartialEq, Eq, Hash, Debug, Display, Pagable)]

@@ -14,5 +14,4 @@ pub(crate) mod evaluator;
 pub(crate) mod task;
 #[cfg(test)]
 mod tests;
-pub(crate) mod transaction;
 pub(crate) mod worker;
