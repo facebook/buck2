@@ -18,10 +18,10 @@ use crate::ActivationData;
 use crate::api::projection::DiceProjectionComputations;
 use crate::api::storage_type::StorageType;
 use crate::api::user_data::UserComputationData;
-use crate::impls::ctx::CoreCtx;
+use crate::impls::ctx::ComputeCtx;
 use crate::impls::ctx::EvaluationData;
-use crate::impls::ctx::ModernComputeCtx;
-use crate::impls::ctx::SharedLiveTransactionCtx;
+use crate::impls::ctx::TrackedComputations;
+use crate::impls::ctx::VersionEpochState;
 use crate::impls::deps::RecordingDepsTracker;
 use crate::impls::deps::graph::SeriesParallelDeps;
 use crate::impls::dice::Dice;
@@ -37,13 +37,13 @@ use crate::impls::worker::state::DiceWorkerStateFinishedEvaluating;
 
 /// Evaluates Keys
 #[derive(Clone, Dupe)]
-pub(crate) struct AsyncEvaluator {
-    pub(super) per_live_version_ctx: SharedLiveTransactionCtx,
+pub(crate) struct TransactionData {
+    pub(super) epoch_state: VersionEpochState,
     pub(super) user_data: Arc<UserComputationData>,
     pub(super) dice: Arc<Dice>,
 }
 
-impl AsyncEvaluator {
+impl TransactionData {
     pub(crate) fn storage_type(&self, key: DiceKey) -> StorageType {
         let key_erased = self.dice.key_index.get(key);
         match key_erased {
@@ -63,14 +63,14 @@ impl AsyncEvaluator {
 
         match key_erased {
             DiceKeyErased::Key(key_dyn) => {
-                let core_ctx = CoreCtx {
-                    async_evaluator: self.dupe(),
+                let compute = ComputeCtx {
+                    transaction_data: self.dupe(),
                     parent_key: ParentKey::Some(key), // within this key's compute, this key is the parent
                     cycles,
                     evaluation_data: Mutex::new(EvaluationData::none()),
                 };
-                let mut ctx = ModernComputeCtx::Normal {
-                    ctx_data: &core_ctx,
+                let mut ctx = TrackedComputations::Normal {
+                    compute: &compute,
                     dep_trackers: RecordingDepsTracker::new(TrackedInvalidationPaths::clean()),
                 }
                 .into();
@@ -80,19 +80,19 @@ impl AsyncEvaluator {
 
                 state.finished(
                     handle,
-                    core_ctx.cycles,
+                    compute.cycles,
                     KeyEvaluationResult {
                         value: MaybeValidDiceValue::new(value, recorded_deps.deps_validity),
                         deps: recorded_deps.deps,
                         storage: key_dyn.storage_type(),
                         invalidation_paths: recorded_deps.invalidation_paths,
                     },
-                    core_ctx.evaluation_data.into_inner().into_activation_data(),
+                    compute.evaluation_data.into_inner().into_activation_data(),
                 )
             }
             DiceKeyErased::Projection(proj) => {
                 let base = self
-                    .per_live_version_ctx
+                    .epoch_state
                     .compute_opaque(
                         proj.base(),
                         ParentKey::Some(key), // the parent requesting the projection base is the projection itself

@@ -19,7 +19,7 @@ use crate::api::computations::DiceComputations;
 use crate::api::data::DiceData;
 use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
-use crate::impls::ctx::BaseComputeCtx;
+use crate::impls::ctx::TransactionCtx;
 use crate::impls::transaction::TransactionUpdater;
 use crate::versions::VersionNumber;
 
@@ -85,7 +85,7 @@ impl DiceTransactionUpdater {
 ///
 /// This SHOULD NOT be ever stored by computations, or any results of computations.
 #[derive(Clone, Dupe)]
-pub struct DiceTransaction(pub(crate) BaseComputeCtx);
+pub struct DiceTransaction(pub(crate) TransactionCtx);
 
 impl DiceTransaction {
     /// Returns whether the `DiceTransaction` is equivalent. Equivalent is defined as whether the

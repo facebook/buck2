@@ -23,8 +23,8 @@ use crate::api::key::Key;
 use crate::api::storage_type::StorageType;
 use crate::api::user_data::UserComputationData;
 use crate::impls::core::state::CoreStateHandle;
-use crate::impls::ctx::BaseComputeCtx;
-use crate::impls::ctx::SharedLiveTransactionCtx;
+use crate::impls::ctx::TransactionCtx;
+use crate::impls::ctx::VersionEpochState;
 use crate::impls::key::DiceKey;
 use crate::impls::value::DiceKeyValue;
 use crate::impls::value::DiceValidValue;
@@ -89,37 +89,37 @@ impl TransactionUpdater {
     }
 
     /// Commit the changes registered via 'changed' and 'changed_to' to the current newest version.
-    pub(crate) async fn commit(self) -> BaseComputeCtx {
+    pub(crate) async fn commit(self) -> TransactionCtx {
         let user_data = self.user_data.dupe();
         let dice = self.dice.dupe();
 
         let (transaction, guard) = self.commit_to_state().await;
 
-        BaseComputeCtx::new(transaction, user_data, dice, guard)
+        TransactionCtx::new(transaction, user_data, dice, guard)
     }
 
     /// Commit the changes registered via 'changed' and 'changed_to' to the current newest version,
     /// replacing the user data with the given set
-    pub(crate) async fn commit_with_data(self, extra: UserComputationData) -> BaseComputeCtx {
+    pub(crate) async fn commit_with_data(self, extra: UserComputationData) -> TransactionCtx {
         let dice = self.dice.dupe();
 
         let (transaction, guard) = self.commit_to_state().await;
 
-        BaseComputeCtx::new(transaction, Arc::new(extra), dice, guard)
+        TransactionCtx::new(transaction, Arc::new(extra), dice, guard)
     }
 
-    pub(crate) async fn existing_state(&self) -> BaseComputeCtx {
+    pub(crate) async fn existing_state(&self) -> TransactionCtx {
         let v = self.dice.state_handle.current_version().await;
         let guard = ActiveTransactionGuard::new(v, self.dice.state_handle.dupe());
         let (transaction, guard) = self.dice.state_handle.ctx_at_version(v, guard).await;
-        BaseComputeCtx::new(transaction, self.user_data.dupe(), self.dice.dupe(), guard)
+        TransactionCtx::new(transaction, self.user_data.dupe(), self.dice.dupe(), guard)
     }
 
     pub(crate) fn unstable_take(&self) {
         self.dice.state_handle.unstable_drop_everything()
     }
 
-    async fn commit_to_state(self) -> (SharedLiveTransactionCtx, ActiveTransactionGuard) {
+    async fn commit_to_state(self) -> (VersionEpochState, ActiveTransactionGuard) {
         let v = self
             .dice
             .state_handle

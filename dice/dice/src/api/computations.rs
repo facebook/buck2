@@ -31,9 +31,9 @@ use crate::api::key::Key;
 use crate::api::key::NoValueSerialize;
 use crate::api::key::ValueSerialize;
 use crate::api::user_data::UserComputationData;
-use crate::impls::ctx::LinearRecomputeModern;
-use crate::impls::ctx::ModernComputeCtx;
+use crate::impls::ctx::LinearRecomputeComputations;
 use crate::impls::ctx::ModernDiceComputationsData;
+use crate::impls::ctx::TrackedComputations;
 use crate::impls::key::DiceKeyDyn;
 
 /// The context for computations to register themselves, and request for additional dependencies.
@@ -44,7 +44,7 @@ use crate::impls::key::DiceKeyDyn;
 ///
 /// The context is valid only for the duration of the computation of a single key, and cannot be
 /// owned.
-pub struct DiceComputations<'a>(pub(crate) ModernComputeCtx<'a>);
+pub struct DiceComputations<'a>(pub(crate) TrackedComputations<'a>);
 
 fn _test_computations_sync_send() {
     fn _assert_sync_send<T: Sync + Send>() {}
@@ -383,7 +383,7 @@ impl<'d> DiceComputations<'d> {
     }
 }
 
-pub struct LinearRecomputeDiceComputations<'a>(pub(crate) LinearRecomputeModern<'a>);
+pub struct LinearRecomputeDiceComputations<'a>(pub(crate) LinearRecomputeComputations<'a>);
 
 impl LinearRecomputeDiceComputations<'_> {
     pub fn get(&self) -> DiceComputations<'_> {

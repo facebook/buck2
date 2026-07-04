@@ -22,8 +22,8 @@ use itertools::Either;
 use crate::ActivationData;
 use crate::ActivationTracker;
 use crate::DynKey;
-use crate::impls::evaluator::AsyncEvaluator;
 use crate::impls::evaluator::KeyEvaluationResult;
+use crate::impls::evaluator::TransactionData;
 use crate::impls::key::DiceKey;
 use crate::impls::key::DiceKeyErased;
 use crate::impls::key_index::DiceKeyIndex;
@@ -138,7 +138,7 @@ impl DiceWorkerStateLookupNode {
     pub(crate) fn checking_deps(
         self,
         _internals: &mut DiceTaskHandle,
-        eval: &AsyncEvaluator,
+        eval: &TransactionData,
     ) -> (
         DiceWorkerStateCheckingDeps,
         KeyComputingUserCycleDetectorData,
@@ -157,7 +157,7 @@ impl DiceWorkerStateLookupNode {
     pub(crate) fn lookup_dirtied(
         self,
         _internals: &mut DiceTaskHandle,
-        eval: &AsyncEvaluator,
+        eval: &TransactionData,
     ) -> (DiceWorkerStateEvaluating, KeyComputingUserCycleDetectorData) {
         debug!(msg = "lookup requires recompute.");
 

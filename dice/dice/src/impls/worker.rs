@@ -35,9 +35,9 @@ use crate::impls::core::state::CoreStateHandle;
 use crate::impls::core::versions::VersionEpoch;
 use crate::impls::deps::graph::SeriesParallelDeps;
 use crate::impls::deps::iterator::SeriesParallelDepsIteratorItem;
-use crate::impls::evaluator::AsyncEvaluator;
 use crate::impls::evaluator::KeyEvaluationResult;
 use crate::impls::evaluator::SyncEvaluator;
+use crate::impls::evaluator::TransactionData;
 use crate::impls::events::DiceEventDispatcher;
 use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
@@ -77,7 +77,7 @@ mod tests;
 /// time if they share the same key and version.
 pub(crate) struct DiceTaskWorker {
     k: DiceKey,
-    eval: AsyncEvaluator,
+    eval: TransactionData,
     event_dispatcher: DiceEventDispatcher,
     version_epoch: VersionEpoch,
 }
@@ -87,12 +87,12 @@ impl DiceTaskWorker {
         k: DiceKey,
         prepared_task: PreparedDiceTask,
         version_epoch: VersionEpoch,
-        eval: AsyncEvaluator,
+        eval: TransactionData,
         cycles: UserCycleDetectorData,
         event_dispatcher: DiceEventDispatcher,
         previously_cancelled_task: Option<PreviouslyCancelledTask>,
     ) -> DicePromise {
-        let span = debug_span!(parent: None, "spawned_dice_task", k = ?k, v = %eval.per_live_version_ctx.get_version(), v_epoch = %version_epoch);
+        let span = debug_span!(parent: None, "spawned_dice_task", k = ?k, v = %eval.epoch_state.get_version(), v_epoch = %version_epoch);
 
         let spawner = eval.user_data.spawner.dupe();
         let spawner_ctx = eval.user_data.dupe();
@@ -150,7 +150,7 @@ impl DiceTaskWorker {
         state_handle: CoreStateHandle,
         task_state: DiceWorkerStateLookupNode,
     ) -> CancellableResult<DiceWorkerStateFinishedAndCached> {
-        let v = self.eval.per_live_version_ctx.get_version();
+        let v = self.eval.epoch_state.get_version();
 
         let state_result = state_handle
             .lookup_key(VersionedGraphKey::new(v, self.k))
@@ -278,7 +278,7 @@ impl DiceTaskWorker {
         let res = {
             match result.value.into_valid_value() {
                 Ok(value) => {
-                    let v = self.eval.per_live_version_ctx.get_version();
+                    let v = self.eval.epoch_state.get_version();
                     state_handle
                         .update_computed(
                             VersionedGraphKey::new(v, self.k),
@@ -367,10 +367,10 @@ impl DiceTaskWorker {
 #[cfg_attr(debug_assertions, instrument(
     level = "debug",
     skip(eval, cycles),
-    fields(version = %eval.per_live_version_ctx.get_version(), version = %prev_verified_version)
+    fields(version = %eval.epoch_state.get_version(), version = %prev_verified_version)
 ))]
 async fn check_dependencies<'a>(
-    eval: &'a AsyncEvaluator,
+    eval: &'a TransactionData,
     parent_key: ParentKey,
     deps: &'a SeriesParallelDeps,
     prev_verified_version: VersionNumber,
@@ -395,7 +395,7 @@ async fn check_dependencies<'a>(
     }
 
     fn check_dependencies_series<'a>(
-        eval: &'a AsyncEvaluator,
+        eval: &'a TransactionData,
         parent_key: ParentKey,
         deps: impl Iterator<Item = SeriesParallelDepsIteratorItem<'a>> + Send + 'a,
         prev_verified_version: VersionNumber,
@@ -475,14 +475,14 @@ enum CheckDependencyResult {
 }
 
 async fn check_dependency(
-    eval: &AsyncEvaluator,
+    eval: &TransactionData,
     parent_key: ParentKey,
     dep: DiceKey,
     cycles: &KeyComputingUserCycleDetectorData,
     prev_verified_version: VersionNumber,
 ) -> CancellableResult<CheckDependencyResult> {
     let dep_result = eval
-        .per_live_version_ctx
+        .epoch_state
         .compute_opaque(
             dep,
             parent_key,

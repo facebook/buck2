@@ -18,7 +18,7 @@ use crate::impls::core::internals::CoreState;
 use crate::impls::core::state::CoreStateHandle;
 use crate::impls::core::state::QueueCounters;
 use crate::impls::core::state::StateRequest;
-use crate::impls::ctx::SharedLiveTransactionCtx;
+use crate::impls::ctx::VersionEpochState;
 
 pub(super) struct StateProcessor {
     state: CoreState,
@@ -81,7 +81,7 @@ impl StateProcessor {
             } => {
                 let (version_epoch, cache) = self.state.ctx_at_version(version);
 
-                let ctx = SharedLiveTransactionCtx::new(version, version_epoch, cache);
+                let ctx = VersionEpochState::new(version, version_epoch, cache);
                 let _ignored = resp.send((ctx, guard));
             }
             StateRequest::DropCtxAtVersion { version } => self.state.drop_ctx_at_version(version),
