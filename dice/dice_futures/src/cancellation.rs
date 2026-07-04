@@ -18,7 +18,6 @@ use std::task::Context;
 use std::task::Poll;
 
 use dupe::Dupe;
-use futures::FutureExt;
 use thiserror::Error;
 
 use crate::details::cancellation_context::CancellationContextInner;
@@ -152,8 +151,9 @@ impl<'a> CriticalSectionGuard<'a> {
 }
 
 /// A Future that resolves only when the associated task has been canceled.
+#[pin_project::pin_project]
 #[derive(Clone, Dupe)]
-pub struct CancellationObserver(pub(crate) CancellationObserverInner);
+pub struct CancellationObserver(#[pin] pub(crate) CancellationObserverInner);
 
 /// Similar to a CancellationObserver, but meant for use in synchronous code for
 /// detecting and exiting early from work when it's been cancelled.
@@ -211,19 +211,20 @@ impl From<&CancellationContext> for CancellationPoller {
     }
 }
 
+#[pin_project::pin_project(project = CancellationObserverInnerProj)]
 #[derive(Clone, Dupe)]
 pub(crate) enum CancellationObserverInner {
     NeverCancelled,
-    Explicit(CancellationObserverFuture),
+    Explicit(#[pin] CancellationObserverFuture),
 }
 
 impl Future for CancellationObserver {
     type Output = ();
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        match &mut self.0 {
-            CancellationObserverInner::Explicit(fut) => fut.poll_unpin(cx),
-            CancellationObserverInner::NeverCancelled => Poll::Pending,
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        match self.project().0.project() {
+            CancellationObserverInnerProj::Explicit(fut) => fut.poll(cx),
+            CancellationObserverInnerProj::NeverCancelled => Poll::Pending,
         }
     }
 }
