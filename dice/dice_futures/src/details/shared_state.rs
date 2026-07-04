@@ -12,13 +12,13 @@ use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::atomic::AtomicU8;
+use std::sync::atomic::AtomicU32;
 use std::sync::atomic::Ordering;
 use std::task::Context;
 use std::task::Poll;
 
 use dupe::Dupe;
 use futures::task::AtomicWaker;
-use parking_lot::Mutex;
 
 use crate::atomic_waker_set::AtomicWakerSet;
 use crate::atomic_waker_set::AtomicWakerSetEntry;
@@ -57,7 +57,7 @@ impl CancellableFutureSharedStateView {
         let shared_data = Arc::new(SharedStateData {
             state: AtomicU8::new(State::Normal.into()),
             cancellation_waker: AtomicWaker::new(),
-            prevent_cancellation: Mutex::new(PreventingCancellationCount(0)),
+            prevent_cancellation: AtomicU32::new(0),
             observer_wakers: AtomicWakerSet::new(),
         });
 
@@ -85,10 +85,11 @@ impl CancellableFutureSharedStateView {
     }
 
     pub(crate) fn has_open_critical_sections(&self) -> HasOpenCriticalSections {
-        self.inner
-            .prevent_cancellation
-            .lock()
-            .has_open_critical_sections()
+        if self.inner.prevent_cancellation.load(Ordering::Relaxed) > 0 {
+            HasOpenCriticalSections::Yes
+        } else {
+            HasOpenCriticalSections::No
+        }
     }
 }
 
@@ -111,9 +112,9 @@ pub(crate) enum HasOpenCriticalSections {
 
 impl CancellationContextSharedStateView {
     pub(crate) fn enter_critical_section(&self) -> CriticalSectionGuard<'_> {
-        let mut shared = self.inner.prevent_cancellation.lock();
-
-        shared.enter_critical_section();
+        self.inner
+            .prevent_cancellation
+            .fetch_add(1, Ordering::Relaxed);
 
         CriticalSectionGuard::new_explicit(self)
     }
@@ -129,8 +130,16 @@ impl CancellationContextSharedStateView {
     }
 
     pub(crate) fn exit_critical_section(&self) -> HasOpenCriticalSections {
-        let mut shared = self.inner.prevent_cancellation.lock();
-        shared.exit_critical_section()
+        if self
+            .inner
+            .prevent_cancellation
+            .fetch_sub(1, Ordering::Relaxed)
+            == 1
+        {
+            HasOpenCriticalSections::No
+        } else {
+            HasOpenCriticalSections::Yes
+        }
     }
 
     #[inline(always)]
@@ -171,7 +180,7 @@ struct SharedStateData {
     ///
     /// Any cancellation observers created from such critical sections will still resolve
     /// immediately.
-    prevent_cancellation: Mutex<PreventingCancellationCount>,
+    prevent_cancellation: AtomicU32,
 
     /// Wakers that expect to be woken up in case of a cancellation
     ///
@@ -188,29 +197,6 @@ impl SharedStateData {
             State::from(self.state.load(Ordering::Relaxed)),
             State::Cancelled
         )
-    }
-}
-
-/// How many observers are preventing immediate cancellation.
-struct PreventingCancellationCount(usize);
-
-impl PreventingCancellationCount {
-    fn has_open_critical_sections(&self) -> HasOpenCriticalSections {
-        if self.0 == 0 {
-            HasOpenCriticalSections::No
-        } else {
-            HasOpenCriticalSections::Yes
-        }
-    }
-
-    fn enter_critical_section(&mut self) {
-        self.0 += 1;
-    }
-
-    fn exit_critical_section(&mut self) -> HasOpenCriticalSections {
-        self.0 -= 1;
-
-        self.has_open_critical_sections()
     }
 }
 
