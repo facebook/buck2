@@ -137,7 +137,7 @@ impl<'d> DiceComputations<'d> {
     pub fn with_linear_recompute<'a, Func, Fut, T>(
         &'a mut self,
         func: Func,
-    ) -> impl Future<Output = T> + use<'a, Func, Fut, T>
+    ) -> impl Future<Output = T> + use<'a, 'd, Func, Fut, T>
     where
         Func: FnOnce(LinearRecomputeDiceComputations<'a>) -> Fut,
         Fut: Future<Output = T>,
@@ -357,7 +357,7 @@ impl<'d> DiceComputations<'d> {
     pub fn spawned<'a, T, Compute>(
         &'a mut self,
         closure: Compute,
-    ) -> impl Future<Output = T> + use<'a, Compute, T>
+    ) -> impl Future<Output = T> + use<'a, 'd, Compute, T>
     where
         T: Send + 'static,
         Compute: (for<'x> FnOnce(

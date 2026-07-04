@@ -16,37 +16,26 @@
 //! holds a `&mut` to the ctx), so instead they are stored out-of-line: The [`ParallelGroup`] for
 //! one parallel compute owns a single exactly-sized allocation with an entry per branch, and
 //! lives in the parent's dep tracker. (This is why the parallel compute APIs require
-//! `ExactSizeIterator`.) In other words, this is what previously was the typed-arena of
-//! `RecordedDeps` result slots, except that the entries hold the whole branch ctx.
+//! `ExactSizeIterator`.)
 //!
 //! Doing it this way, instead of via self-referential tricks like `OwningFuture`, means that the
-//! `&mut DiceComputations` handed to the closure can have a normal, nameable lifetime.
-//!
-//! # The erased lifetime
-//!
-//! The entries' ctx type is `DiceComputations<'static>`, which is a lie; they really are
-//! `DiceComputations<'x>` for some caller-known `'x` that is erased when a ctx is stored and
-//! restored (by `launch_erased`) when it is handed back out. The erasure is here because the
-//! true lifetime is not currently *nameable* at this type: It is the lifetime of a borrow of
-//! the very ctx that (through its dep tracker) owns this group. The next diff makes the ctx
-//! lifetime parameter uniform across a computation, at which point the true lifetime becomes
-//! nameable, this erasure gets deleted, and the two remaining `unsafe`s here go with it.
-//! Erasing a lifetime doesn't change layout or drop glue, so storing, dropping and consuming
-//! the erased values is otherwise unremarkable.
+//! `&mut DiceComputations` handed to the closure can have a normal, nameable lifetime, and the
+//! soundness story is just the borrow checker's: The branch borrows are reborrows of the
+//! `&'a mut` handout iterator, so by the time the parent ctx - and through it the group - can be
+//! touched again, they are provably dead.
 //!
 //! # Completion and extraction
 //!
 //! When a branch's future completes it only marks its entry as completed; the branch's deps are
 //! not extracted until the parent flattens the group on its next use. Nothing about a branch may
-//! be touched at completion time: The closure receives a real `&'a mut DiceComputations<_>` and
-//! is free to stash that reference somewhere that outlives the branch future. The parent can
-//! only reach the group again through its own ctx, at which point the borrow checker guarantees
-//! `'a` - and with it every reference into the entries - is dead.
+//! be touched at completion time: The closure receives a real `&'a mut DiceComputations<'d>` and
+//! is free to stash that reference somewhere that outlives the branch future, or even to return
+//! it as the branch future's output and keep using it after the join.
 //!
-//! Branch ctxs for linear recompute ctxs work differently; see [`super::linear_branches`].
+//! Branch ctxs for linear recompute ctxs work differently on every one of these points; see
+//! [`super::linear_branches`].
 
 use std::future::Future;
-use std::mem::transmute;
 use std::pin::Pin;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
@@ -59,39 +48,42 @@ use pin_project::pin_project;
 use crate::api::computations::DiceComputations;
 use crate::deps::RecordedDeps;
 
-/// One branch's slot: Its (lifetime-erased, see the module comment) ctx, and whether its future
-/// completed. Deps are only collected from completed branches; a branch whose future was dropped
-/// or leaked instead never influenced anything and its deps are discarded.
-pub(crate) struct BranchEntry {
+/// One branch's slot: Its ctx, and whether its future completed. Deps are only collected from
+/// completed branches; a branch whose future was dropped or leaked instead never influenced
+/// anything and its deps are discarded.
+pub(crate) struct BranchEntry<'d> {
     completed: AtomicBool,
-    ctx: DiceComputations<'static>,
+    ctx: DiceComputations<'d>,
+}
+
+impl<'d> BranchEntry<'d> {
+    pub(crate) fn parts(&mut self) -> (&AtomicBool, &mut DiceComputations<'d>) {
+        (&self.completed, &mut self.ctx)
+    }
 }
 
 /// Owns the branch ctxs of one parallel compute. Lives in the parent ctx's dep tracker.
-pub(crate) struct ParallelGroup {
-    entries: Box<[BranchEntry]>,
+pub(crate) struct ParallelGroup<'d> {
+    entries: Box<[BranchEntry<'d>]>,
 }
 
-impl ParallelGroup {
-    pub(crate) fn new<'x>(ctxs: impl ExactSizeIterator<Item = DiceComputations<'x>>) -> Self {
+impl<'d> ParallelGroup<'d> {
+    pub(crate) fn new(ctxs: impl ExactSizeIterator<Item = DiceComputations<'d>>) -> Self {
         ParallelGroup {
             entries: ctxs
                 .map(|ctx| BranchEntry {
                     completed: AtomicBool::new(false),
-                    // SAFETY: See the module comment on the erased lifetime.
-                    ctx: unsafe {
-                        transmute::<DiceComputations<'x>, DiceComputations<'static>>(ctx)
-                    },
+                    ctx,
                 })
                 .collect(),
         }
     }
 
-    /// Hands out the branches, in order; each is launched with
-    /// [`ParallelBranchFuture::launch_erased`]. The parallel compute APIs' borrow structure (the
-    /// branch futures hold these borrows, and the group is only reachable again through the
-    /// parent ctx once they're gone) is what keeps the handed-out ctxs alive for long enough.
-    pub(crate) fn handout(&mut self) -> std::slice::IterMut<'_, BranchEntry> {
+    /// Hands out the branches, in order. Each entry is one branch's completion flag and ctx;
+    /// the parallel compute APIs' borrow structure (the branch futures hold these borrows, and
+    /// the group is only reachable again through the parent ctx once they're gone) is the whole
+    /// soundness story.
+    pub(crate) fn handout(&mut self) -> std::slice::IterMut<'_, BranchEntry<'d>> {
         self.entries.iter_mut()
     }
 
@@ -119,8 +111,11 @@ impl ParallelGroup {
 /// leaked) leaves the flag unset and the branch's deps get discarded, since they never influenced
 /// anything.
 ///
-/// The inner future's type is generic so that a later diff can store async closures' futures
-/// here without boxing; for now `BoxFuture` is the only instantiation.
+/// `Fut` is boxed for the `BoxFuture`-based APIs and the unboxed `AsyncFnOnce::CallOnceFuture`
+/// for the async closure ones; in the latter case the future state lives directly in the join
+/// combinator's slot for this branch. Note that unlike a boxed future this future does not free
+/// the inner future when it completes; it lives until this future is dropped, which in the join
+/// combinator happens immediately upon completion anyway.
 #[pin_project]
 pub(crate) struct ParallelBranchFuture<'a, Fut> {
     #[pin]
@@ -131,42 +126,18 @@ pub(crate) struct ParallelBranchFuture<'a, Fut> {
 
 impl<'a, Fut: Future> ParallelBranchFuture<'a, Fut> {
     /// Eagerly invokes `func` on the branch's ctx and returns the branch's future.
-    pub(crate) fn launch<'x: 'a, F>(
-        (completed, ctx): (&'a AtomicBool, &'a mut DiceComputations<'x>),
+    pub(crate) fn launch<'d: 'a, F>(
+        (completed, ctx): (&'a AtomicBool, &'a mut DiceComputations<'d>),
         func: F,
     ) -> Self
     where
-        F: FnOnce(&'a mut DiceComputations<'x>) -> Fut,
+        F: FnOnce(&'a mut DiceComputations<'d>) -> Fut,
     {
         // Note that `func` must be called here, not in the branch future's first `poll`, so
         // that the future doesn't need to store `func`.
         ParallelBranchFuture {
             fut: func(ctx),
             completed: Some(completed),
-        }
-    }
-
-    /// Eagerly invokes `func` on the branch's ctx and returns the branch's future.
-    ///
-    /// # Safety
-    ///
-    /// `'x` must be the lifetime that was erased when the entry's ctx was stored; see the module
-    /// comment.
-    pub(crate) unsafe fn launch_erased<'x: 'a, F>(entry: &'a mut BranchEntry, func: F) -> Self
-    where
-        F: FnOnce(&'a mut DiceComputations<'x>) -> Fut,
-    {
-        // SAFETY: Restores the lifetime erased at storage time, per this function's contract.
-        let ctx = unsafe {
-            transmute::<&'a mut DiceComputations<'static>, &'a mut DiceComputations<'x>>(
-                &mut entry.ctx,
-            )
-        };
-        // Note that `func` must be called here, not in the branch future's first `poll`, so
-        // that the future doesn't need to store `func`.
-        ParallelBranchFuture {
-            fut: func(ctx),
-            completed: Some(&entry.completed),
         }
     }
 }

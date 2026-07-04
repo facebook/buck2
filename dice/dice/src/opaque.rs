@@ -64,7 +64,6 @@ mod tests {
     use crate::api::key::Key;
     use crate::api::key::NoValueSerialize;
     use crate::api::key::ValueSerialize;
-    use crate::deps::testing::RecordingDepsTrackersExt;
     use crate::key::DiceKey;
     use crate::opaque::OpaqueValue;
     use crate::value::DiceKeyValue;
@@ -109,12 +108,12 @@ mod tests {
         let i = TrackedInvalidationPaths::clean();
         let opaque = OpaqueValue::<K>::new(DiceKey { index: 0 }, &v, &i);
 
-        assert_eq!(ctx.dep_trackers().recorded_deps(), HashSet::default());
+        assert_eq!(ctx.recorded_deps_for_test(), HashSet::default());
 
         assert_eq!(*ctx.opaque_into_value(opaque), 1);
 
         assert_eq!(
-            ctx.dep_trackers().recorded_deps(),
+            ctx.recorded_deps_for_test(),
             [DiceKey { index: 0 }].into_iter().collect()
         );
     }

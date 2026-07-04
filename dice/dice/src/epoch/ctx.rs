@@ -11,7 +11,6 @@
 use std::any::Any;
 use std::future::Future;
 use std::ops::Deref;
-use std::ops::DerefMut;
 use std::sync::Arc as StdArc;
 
 use dice_error::DiceError;
@@ -36,12 +35,13 @@ use crate::api::key::Key;
 use crate::api::projection::ProjectionKey;
 use crate::api::user_data::UserComputationData;
 use crate::arc::Arc;
+use crate::deps::LinearDepsTracker;
 use crate::deps::RecordedDeps;
 use crate::deps::RecordingDepsTracker;
 use crate::dice::Dice;
 use crate::epoch::branches::BranchEntry;
-use crate::epoch::branches::ParallelBranchFuture;
 use crate::epoch::branches::ParallelGroup;
+use crate::epoch::branches::ParallelBranchFuture;
 use crate::epoch::evaluator::TransactionData;
 use crate::epoch::linear_branches::LinearBranches;
 use crate::epoch::evaluator::VersionEpochState;
@@ -225,14 +225,14 @@ impl<'d> TrackedComputations<'d> {
     pub(crate) fn with_linear_recompute<'a, Func, Fut, T>(
         &'a mut self,
         func: Func,
-    ) -> impl Future<Output = T> + use<'a, Func, Fut, T>
+    ) -> impl Future<Output = T> + use<'a, 'd, Func, Fut, T>
     where
         Func: FnOnce(LinearRecomputeDiceComputations<'a>) -> Fut,
         Fut: Future<Output = T>,
     {
         let (ctx_data, self_dep_trackers) = self.unpack();
         let shared = Arc::new(LinearShared {
-            dep_trackers: Mutex::new(RecordingDepsTracker::new(
+            dep_trackers: Mutex::new(LinearDepsTracker::new(
                 // TODO(cjhopman): if inspected during the with_linear_recompute, this will be missing some invalidation paths.
                 TrackedInvalidationPaths::clean(),
             )),
@@ -246,7 +246,7 @@ impl<'d> TrackedComputations<'d> {
         ));
 
         fut.map(move |v| {
-            let mut self_dep_trackers = self_dep_trackers.lock();
+            let mut self_dep_trackers = self_dep_trackers;
             // The unwrap is fine because the `LinearRecomputeDiceComputations` holding the other
             // reference is dead by the time the inner future completes.
             let shared = Arc::into_inner(shared).unwrap();
@@ -263,7 +263,7 @@ impl<'d> TrackedComputations<'d> {
     pub fn spawned<'a, T, Compute>(
         &'a mut self,
         closure: Compute,
-    ) -> impl Future<Output = T> + use<'a, Compute, T>
+    ) -> impl Future<Output = T> + use<'a, 'd, Compute, T>
     where
         T: Send + 'static,
         Compute: (for<'x> FnOnce(
@@ -306,7 +306,7 @@ impl<'d> TrackedComputations<'d> {
 
         task.map(move |(res, deps)| {
             let validity = deps.deps_validity;
-            let mut self_dep_trackers = self_dep_trackers.lock();
+            let mut self_dep_trackers = self_dep_trackers;
             for k in deps.deps.iter_keys() {
                 self_dep_trackers.record(k, validity, &TrackedInvalidationPaths::clean())
             }
@@ -321,7 +321,7 @@ impl<'d> TrackedComputations<'d> {
     }
 
     fn opaque_into_value_impl<K: Key>(
-        deps: DepsTrackerHolder,
+        mut deps: DepsTrackerHolder<'_, 'd>,
         opaque: OpaqueValue<'d, K>,
     ) -> &'d K::Value {
         let OpaqueValue {
@@ -331,8 +331,7 @@ impl<'d> TrackedComputations<'d> {
             ..
         } = opaque;
 
-        deps.lock()
-            .record(derive_from_key, derive_from.validity(), invalidation_paths);
+        deps.record(derive_from_key, derive_from.validity(), invalidation_paths);
 
         derive_from
             .downcast_maybe_transient::<K::Value>()
@@ -341,8 +340,7 @@ impl<'d> TrackedComputations<'d> {
 
     pub(crate) fn get_invalidation_paths(&mut self) -> DiceKeyTrackedInvalidationPaths {
         let (normal, high) = {
-            let mut dep_trackers = self.dep_trackers();
-            let paths = dep_trackers.invalidation_paths();
+            let paths = self.dep_trackers_holder().invalidation_paths();
             (paths.get_normal(), paths.get_high())
         };
         DiceKeyTrackedInvalidationPaths::new(
@@ -373,7 +371,7 @@ pub(crate) struct LinearRecomputeComputations<'a> {
 
 /// The state shared by all the ctxs of one `with_linear_recompute`.
 pub(crate) struct LinearShared {
-    dep_trackers: Mutex<RecordingDepsTracker>,
+    dep_trackers: Mutex<LinearDepsTracker>,
     /// Owns the ctxs of parallel computes done through linear ctxs; see [`LinearBranches`].
     branch_ctxs: LinearBranches,
 }
@@ -389,20 +387,20 @@ impl LinearRecomputeComputations<'_> {
 
 /// This is used to create the ctx for each individual parallel compute (from compute_many/compute_join/compute2/etc).
 ///
+/// For the Normal case, each parallel ctx records its deps into its own tracker, which the group
+/// owns and which the parent gathers up when the parallel compute is finished.
+///
+/// For the Linear case, each parallel ctx will record deps into the shared RecordingDepsTracker.
+///
 /// The two lifetimes here are deliberately separate: `'d` is the lifetime parameter of the
 /// `DiceComputations<'d>` that the parallel closures receive (and hence the lifetime of values
 /// computed through them), while `'a` is the borrow of the parent ctx. Only the returned futures
 /// are tied to `'a`; the ctxs handed to the closures are not, which is what allows values they
 /// compute to be held past the end of the parallel compute.
-///
-/// For the Normal case, each parallel ctx records its deps into its own tracker, which the group
-/// owns and which the parent gathers up when the parallel compute is finished.
-///
-/// For the Linear case, each parallel ctx will record deps into the shared RecordingDepsTracker.
 pub(crate) enum ModernComputeCtxParallelBuilder<'a, 'd> {
     Normal {
         /// The branches, pre-built by `parallel_builder`; `compute` claims them in order.
-        handout: std::slice::IterMut<'a, BranchEntry>,
+        handout: std::slice::IterMut<'a, BranchEntry<'d>>,
     },
     Linear {
         ctx_data: &'d ComputeCtx,
@@ -411,21 +409,21 @@ pub(crate) enum ModernComputeCtxParallelBuilder<'a, 'd> {
 }
 
 impl<'a, 'd: 'a> ModernComputeCtxParallelBuilder<'a, 'd> {
-    fn compute<F, T>(&mut self, func: F) -> ParallelBranchFuture<'a, BoxFuture<'a, T>>
+    fn compute<F, Fut>(&mut self, func: F) -> ParallelBranchFuture<'a, Fut>
     where
         // We don't actually need this closure to be `Send` and so we don't require that here, but
         // all the public APIs still do. It's unclear what we should commit to.
-        F: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, T>,
+        F: FnOnce(&'a mut DiceComputations<'d>) -> Fut,
+        Fut: Future,
     {
         match self {
-            ModernComputeCtxParallelBuilder::Normal { handout } => {
-                let entry = handout
+            ModernComputeCtxParallelBuilder::Normal { handout } => ParallelBranchFuture::launch(
+                handout
                     .next()
-                    .expect("more branches than the ExactSizeIterator promised");
-                // SAFETY: `parallel_builder` erased exactly this lifetime when it built the
-                // group's ctxs.
-                unsafe { ParallelBranchFuture::launch_erased(entry, func) }
-            }
+                    .expect("more branches than the ExactSizeIterator promised")
+                    .parts(),
+                func,
+            ),
             ModernComputeCtxParallelBuilder::Linear { ctx_data, shared } => {
                 ParallelBranchFuture::launch(
                     shared.branch_ctxs.alloc(
@@ -461,7 +459,7 @@ impl ModernDiceComputationsData {
 pub(crate) enum TrackedComputations<'a> {
     Normal {
         compute: &'a ComputeCtx,
-        dep_trackers: RecordingDepsTracker,
+        dep_trackers: RecordingDepsTracker<'a>,
     },
     /// The ctx within a with_linear_recompute.
     Linear {
@@ -482,11 +480,46 @@ impl TrackedComputations<'_> {
     }
 }
 
-struct DepsTrackerHolder<'a>(Either<&'a mut RecordingDepsTracker, &'a Mutex<RecordingDepsTracker>>);
+/// Write access to whichever dep tracker a ctx records into: A normal ctx's own tracker, or the
+/// mutex-shared one of a linear recompute.
+struct DepsTrackerHolder<'a, 'd>(
+    Either<&'a mut RecordingDepsTracker<'d>, &'a Mutex<LinearDepsTracker>>,
+);
 
-impl<'a> DepsTrackerHolder<'a> {
-    fn lock(self) -> impl DerefMut<Target = RecordingDepsTracker> {
-        self.0.map_right(|v| v.lock())
+impl<'a, 'd> DepsTrackerHolder<'a, 'd> {
+    fn record(
+        &mut self,
+        k: DiceKey,
+        validity: crate::value::DiceValidity,
+        invalidation_paths: &TrackedInvalidationPaths,
+    ) {
+        match &mut self.0 {
+            Either::Left(t) => t.record(k, validity, invalidation_paths),
+            Either::Right(m) => m.lock().record(k, validity, invalidation_paths),
+        }
+    }
+
+    fn update_invalidation_paths(&mut self, invalidation_paths: &TrackedInvalidationPaths) {
+        match &mut self.0 {
+            Either::Left(t) => t.update_invalidation_paths(invalidation_paths),
+            Either::Right(m) => m.lock().update_invalidation_paths(invalidation_paths),
+        }
+    }
+
+    fn invalidation_paths(&mut self) -> TrackedInvalidationPaths {
+        match &mut self.0 {
+            Either::Left(t) => t.invalidation_paths().dupe(),
+            Either::Right(m) => m.lock().invalidation_paths().dupe(),
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn recorded_deps(&mut self) -> crate::HashSet<DiceKey> {
+        use crate::deps::testing::RecordingDepsTrackersExt;
+        match &mut self.0 {
+            Either::Left(t) => t.recorded_deps(),
+            Either::Right(m) => m.lock().recorded_deps(),
+        }
     }
 }
 
@@ -528,11 +561,11 @@ impl<'d> TrackedComputations<'d> {
         }
     }
 
-    fn dep_trackers_holder(&mut self) -> DepsTrackerHolder<'_> {
+    fn dep_trackers_holder(&mut self) -> DepsTrackerHolder<'_, 'd> {
         self.unpack().1
     }
 
-    fn unpack(&mut self) -> (&'d ComputeCtx, DepsTrackerHolder<'_>) {
+    fn unpack(&mut self) -> (&'d ComputeCtx, DepsTrackerHolder<'_, 'd>) {
         match self {
             TrackedComputations::Normal {
                 compute: ctx_data,
@@ -557,11 +590,9 @@ impl<'d> TrackedComputations<'d> {
         derive_from: &OpaqueValue<K>,
         key: &P,
     ) -> DiceResult<P::Value> {
-        let (ctx_data, dep_trackers) = self.unpack();
+        let (ctx_data, mut dep_trackers) = self.unpack();
         let (dice_key, res) = ctx_data.project(key, derive_from)?;
-        dep_trackers
-            .lock()
-            .record(dice_key, res.value().validity(), res.invalidation_paths());
+        dep_trackers.record(dice_key, res.value().validity(), res.invalidation_paths());
 
         Ok(res
             .value()
@@ -585,8 +616,9 @@ impl<'d> TrackedComputations<'d> {
     }
 
     #[allow(unused)] // used in test
-    pub(crate) fn dep_trackers(&mut self) -> impl DerefMut<Target = RecordingDepsTracker> {
-        self.unpack().1.lock()
+    #[cfg(test)]
+    pub(crate) fn recorded_deps_for_test(&mut self) -> crate::HashSet<DiceKey> {
+        self.unpack().1.recorded_deps()
     }
 
     pub(crate) fn store_evaluation_data<T: Send + Sync + 'static>(

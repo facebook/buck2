@@ -23,13 +23,16 @@ pub(crate) mod iterator;
 /// The 'DepsTracker' is used to record dependencies of a particular compute node by calling
 /// 'record' for each dependency, and then getting a list of 'Dependency's at the end by calling
 /// 'collect_deps'.
-pub(crate) struct RecordingDepsTracker {
+///
+/// `'d` is the lifetime parameter of the ctx this tracker belongs to; it shows up here because
+/// during a parallel computation the tracker owns the branches' `DiceComputations<'d>`s.
+pub(crate) struct RecordingDepsTracker<'d> {
     deps: RecordedDeps,
 
     /// While a parallel computation is happening (from ctx.compute_many()/etc), this owns the
     /// parallel branches' ctxs. After the parallel computation is finished, the deps the branches
     /// recorded are gathered up and written to the deps above.
-    curr_parallel: Option<Box<ParallelGroup>>,
+    curr_parallel: Option<Box<ParallelGroup<'d>>>,
 }
 
 pub(crate) struct RecordedDeps {
@@ -96,14 +99,14 @@ impl RecordedDeps {
     }
 }
 
-mini_vec::size_assert::words_of_type!(RecordingDepsTracker, 5);
+mini_vec::size_assert::words_of_type!(RecordingDepsTracker<'static>, 5);
 
 fn _check_deps_trackers_send_and_sync() {
     fn _assert_send_sync<T: Send + Sync>() {}
-    _assert_send_sync::<RecordingDepsTracker>();
+    _assert_send_sync::<RecordingDepsTracker<'static>>();
 }
 
-impl RecordingDepsTracker {
+impl<'d> RecordingDepsTracker<'d> {
     pub(crate) fn new(invalidation_paths: TrackedInvalidationPaths) -> Self {
         let mut deps = RecordedDeps::new();
         deps.invalidation_paths = invalidation_paths;
@@ -140,7 +143,7 @@ impl RecordingDepsTracker {
 
     /// Used to start a new parallel computation, storing the group that owns the parallel
     /// branches' ctxs.
-    pub(crate) fn push_parallel(&mut self, group: ParallelGroup) -> &mut ParallelGroup {
+    pub(crate) fn push_parallel(&mut self, group: ParallelGroup<'d>) -> &mut ParallelGroup<'d> {
         self.flatten_parallel();
         assert!(self.curr_parallel.is_none());
         self.curr_parallel.insert(Box::new(group))
@@ -172,6 +175,49 @@ impl RecordingDepsTracker {
     }
 }
 
+/// The dep tracker shared by all the ctxs of one `with_linear_recompute`.
+///
+/// Unlike [`RecordingDepsTracker`] this never holds parallel branches: Linear ctxs' parallel
+/// computes record their deps straight into this shared tracker as they happen (that is the
+/// point of linear recompute), and their branch ctxs are kept alive elsewhere (see
+/// `linear_branches`). That is also why this type - which lives behind an `Arc` - doesn't need
+/// the ctx lifetime parameter.
+pub(crate) struct LinearDepsTracker {
+    deps: RecordedDeps,
+}
+
+impl LinearDepsTracker {
+    pub(crate) fn new(invalidation_paths: TrackedInvalidationPaths) -> Self {
+        let mut deps = RecordedDeps::new();
+        deps.invalidation_paths = invalidation_paths;
+        Self { deps }
+    }
+
+    pub(crate) fn record(
+        &mut self,
+        k: DiceKey,
+        validity: DiceValidity,
+        invalidation_paths: &TrackedInvalidationPaths,
+    ) {
+        self.deps.record(k, validity, invalidation_paths);
+    }
+
+    pub(crate) fn update_invalidation_paths(
+        &mut self,
+        invalidation_paths: &TrackedInvalidationPaths,
+    ) {
+        self.deps.update_invalidation_paths(invalidation_paths);
+    }
+
+    pub(crate) fn invalidation_paths(&self) -> &TrackedInvalidationPaths {
+        &self.deps.invalidation_paths
+    }
+
+    pub(crate) fn collect_deps(self) -> RecordedDeps {
+        self.deps
+    }
+}
+
 #[cfg(test)]
 pub(crate) mod testing {
     use crate::HashSet;
@@ -182,7 +228,13 @@ pub(crate) mod testing {
         fn recorded_deps(&self) -> HashSet<DiceKey>;
     }
 
-    impl RecordingDepsTrackersExt for RecordingDepsTracker {
+    impl RecordingDepsTrackersExt for RecordingDepsTracker<'_> {
+        fn recorded_deps(&self) -> HashSet<DiceKey> {
+            self.deps.iter_keys().collect()
+        }
+    }
+
+    impl RecordingDepsTrackersExt for super::LinearDepsTracker {
         fn recorded_deps(&self) -> HashSet<DiceKey> {
             self.deps.iter_keys().collect()
         }
