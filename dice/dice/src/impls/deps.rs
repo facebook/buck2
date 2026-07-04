@@ -77,7 +77,6 @@ impl RecordedDeps {
         }
     }
 
-    #[allow(clippy::boxed_local)]
     fn insert_parallel(&mut self, mut parallel: Arena<RecordedDeps>) {
         let mut new_keys = 0;
         let mut new_specs = 0;
