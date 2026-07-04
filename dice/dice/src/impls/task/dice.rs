@@ -212,21 +212,6 @@ pub(crate) enum TerminationObserver {
     Pending { task: DiceTask, generation: u32 },
 }
 
-impl TerminationObserver {
-    pub(crate) fn is_terminated(&self) -> bool {
-        match self {
-            TerminationObserver::Done(_) => true,
-            TerminationObserver::Pending { task, generation } => {
-                match task.as_ref().state_at(*generation) {
-                    StateAtGeneration::TerminatedSuccess(_) => true,
-                    StateAtGeneration::TerminatedCancelled => true,
-                    StateAtGeneration::Pending => false,
-                }
-            }
-        }
-    }
-}
-
 impl Future for TerminationObserver {
     type Output = Option<DiceComputedValue>;
 

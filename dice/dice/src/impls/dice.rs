@@ -147,7 +147,7 @@ impl Dice {
         let rx = self.state_handle.get_tasks_pending_cancellation();
         async move {
             let tasks = rx.await;
-            futures::future::join_all(tasks).await;
+            futures::future::join_all(tasks.iter().map(|t| t.as_ref().await_termination())).await;
         }
     }
 
@@ -155,7 +155,7 @@ impl Dice {
     pub async fn is_idle(&self) -> bool {
         let tasks = self.state_handle.get_tasks_pending_cancellation().await;
 
-        tasks.iter().all(|task| task.is_terminated())
+        tasks.iter().all(|task| !task.is_pending())
     }
 
     /// Page out every paged-in `OccupiedGraphNode` value to the configured `DiceStorage`.
