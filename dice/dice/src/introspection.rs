@@ -49,7 +49,7 @@ mod tests {
     use crate::api::key::Key;
     use crate::api::key::NoValueSerialize;
     use crate::api::key::ValueSerialize;
-    use crate::impls::dice::Dice;
+    use crate::dice::Dice;
     use crate::introspection::graph::SerializedGraphNodeForKey;
     use crate::introspection::serialize_graph;
 

@@ -38,14 +38,14 @@ use crate::core::versions::VersionEpoch;
 use crate::core::versions::introspection::VersionIntrospectable;
 use crate::deps::graph::SeriesParallelDeps;
 use crate::impls::ctx::VersionEpochState;
-use crate::impls::key::DiceKey;
 use crate::impls::task::dice::DiceTask;
 use crate::impls::transaction::ActiveTransactionGuard;
 use crate::impls::transaction::ChangeType;
-use crate::impls::value::DiceComputedValue;
-use crate::impls::value::DiceValidValue;
-use crate::impls::value::TrackedInvalidationPaths;
+use crate::key::DiceKey;
 use crate::metrics::Metrics;
+use crate::value::DiceComputedValue;
+use crate::value::DiceValidValue;
+use crate::value::TrackedInvalidationPaths;
 use crate::versions::VersionNumber;
 
 /// Padded out to a full cache line so that two of these placed adjacent in a

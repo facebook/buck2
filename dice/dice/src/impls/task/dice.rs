@@ -34,12 +34,12 @@ use parking_lot::Mutex;
 
 use super::handle::DiceTaskHandle;
 use crate::GlobalStats;
-use crate::impls::key::DiceKey;
-use crate::impls::key::ParentKey;
 use crate::impls::task::PreviouslyCancelledTask;
 use crate::impls::task::promise::DicePromise;
-use crate::impls::value::DiceComputedValue;
 use crate::introspection::DiceTaskState;
+use crate::key::DiceKey;
+use crate::key::ParentKey;
+use crate::value::DiceComputedValue;
 
 /// The shared, reference-counted state for computing a single key at a single version.
 ///
@@ -815,13 +815,13 @@ impl Future for TerminationObserver {
 #[cfg(test)]
 pub(crate) mod testing_helpers {
     use crate::api::key::Key;
-    use crate::impls::key::DiceKey;
     use crate::impls::task::dice::DiceTask;
-    use crate::impls::value::DiceComputedValue;
-    use crate::impls::value::DiceKeyValue;
-    use crate::impls::value::DiceValidValue;
-    use crate::impls::value::MaybeValidDiceValue;
-    use crate::impls::value::TrackedInvalidationPaths;
+    use crate::key::DiceKey;
+    use crate::value::DiceComputedValue;
+    use crate::value::DiceKeyValue;
+    use crate::value::DiceValidValue;
+    use crate::value::MaybeValidDiceValue;
+    use crate::value::TrackedInvalidationPaths;
     use crate::versions::VersionRanges;
 
     pub(crate) fn make_completed_task<K: Key>(key: DiceKey, val: K::Value) -> DiceTask {

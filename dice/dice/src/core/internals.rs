@@ -31,13 +31,13 @@ use crate::core::versions::VersionTracker;
 use crate::core::versions::introspection::VersionIntrospectable;
 use crate::deps::graph::SeriesParallelDeps;
 use crate::impls::cache::SharedCache;
-use crate::impls::key::DiceKey;
 use crate::impls::task::dice::DiceTask;
 use crate::impls::transaction::ChangeType;
-use crate::impls::value::DiceComputedValue;
-use crate::impls::value::DiceValidValue;
-use crate::impls::value::TrackedInvalidationPaths;
+use crate::key::DiceKey;
 use crate::metrics::Metrics;
+use crate::value::DiceComputedValue;
+use crate::value::DiceValidValue;
+use crate::value::TrackedInvalidationPaths;
 use crate::versions::VersionNumber;
 
 /// Core state of DICE, holding the actual graph and version information
@@ -314,15 +314,15 @@ mod tests {
     use crate::core::versions::VersionEpoch;
     use crate::deps::graph::SeriesParallelDeps;
     use crate::impls::cache::SharedCacheInsert;
-    use crate::impls::key::DiceKey;
     use crate::impls::task::dice::DiceTask;
     use crate::impls::task::dice::testing_helpers::make_completed_task;
     use crate::impls::task::spawn_dice_task;
     use crate::impls::transaction::ChangeType;
-    use crate::impls::value::DiceComputedValue;
-    use crate::impls::value::DiceKeyValue;
-    use crate::impls::value::DiceValidValue;
-    use crate::impls::value::TrackedInvalidationPaths;
+    use crate::key::DiceKey;
+    use crate::value::DiceComputedValue;
+    use crate::value::DiceKeyValue;
+    use crate::value::DiceValidValue;
+    use crate::value::TrackedInvalidationPaths;
     use crate::versions::VersionNumber;
 
     #[test]

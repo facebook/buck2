@@ -14,7 +14,7 @@ use ref_cast::RefCastCustom;
 use ref_cast::ref_cast_custom;
 
 use crate::Key;
-use crate::impls::key::DiceKeyErased;
+use crate::key::DiceKeyErased;
 
 /// A type erased Key. Dice APIs that return key references will pass them as DynKey (unless they can be
 /// passed as the specific Key type).

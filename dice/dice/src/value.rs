@@ -20,7 +20,7 @@ use crate::Key;
 use crate::ProjectionKey;
 use crate::api::key::InvalidationSourcePriority;
 use crate::arc::Arc;
-use crate::impls::key::DiceKey;
+use crate::key::DiceKey;
 use crate::versions::VersionNumber;
 use crate::versions::VersionRange;
 use crate::versions::VersionRanges;
@@ -421,13 +421,13 @@ where
 #[cfg(test)]
 pub mod testing {
     use crate::arc::Arc;
-    use crate::impls::key::DiceKey;
-    use crate::impls::value::DiceValidValue;
-    use crate::impls::value::DiceValueDyn;
-    use crate::impls::value::InvalidationPath;
-    use crate::impls::value::InvalidationPathNode;
-    use crate::impls::value::MaybeValidDiceValue;
-    use crate::impls::value::TrackedInvalidationPaths;
+    use crate::key::DiceKey;
+    use crate::value::DiceValidValue;
+    use crate::value::DiceValueDyn;
+    use crate::value::InvalidationPath;
+    use crate::value::InvalidationPathNode;
+    use crate::value::MaybeValidDiceValue;
+    use crate::value::TrackedInvalidationPaths;
     use crate::versions::VersionNumber;
 
     impl DiceValidValue {
@@ -469,7 +469,7 @@ pub mod testing {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::impls::value::testing::MakeInvalidationPaths;
+    use crate::value::testing::MakeInvalidationPaths;
 
     #[test]
 

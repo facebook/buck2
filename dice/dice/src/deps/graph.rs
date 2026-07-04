@@ -21,7 +21,7 @@ use crate::arc::Arc;
 use crate::deps::encoding::SPEncoder;
 use crate::deps::iterator::SeriesNodeIterator;
 use crate::deps::iterator::SeriesParallelDepsIteratorItem;
-use crate::impls::key::DiceKey;
+use crate::key::DiceKey;
 
 /// The DiceComputations compute apis are designed so that in normal usage the graph of
 /// inter-dep data dependencies within a compute node form a series-parallel graph.

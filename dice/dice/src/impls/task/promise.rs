@@ -19,7 +19,7 @@ use dice_error::result::CancellableResult;
 use pin_project::pin_project;
 
 use crate::impls::task::dice::DiceTaskDependentFuture;
-use crate::impls::value::DiceComputedValue;
+use crate::value::DiceComputedValue;
 
 /// A strong reference to a 'DiceTask' that is pollable as a future.
 /// This is only awoken when the result is ready, as none of the pollers are responsible for

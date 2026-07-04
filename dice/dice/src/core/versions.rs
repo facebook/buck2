@@ -188,10 +188,10 @@ pub(crate) mod introspection {
 
     use crate::HashMap;
     use crate::core::versions::VersionTracker;
-    use crate::impls::key::DiceKey;
     use crate::introspection::DiceTaskState;
     use crate::introspection::graph::AnyKey;
     use crate::introspection::graph::VersionNumber;
+    use crate::key::DiceKey;
 
     pub(crate) struct VersionIntrospectable(Vec<(usize, HashMap<DiceKey, DiceTaskState>)>);
 

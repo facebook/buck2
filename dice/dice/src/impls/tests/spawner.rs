@@ -31,7 +31,7 @@ use crate::api::key::Key;
 use crate::api::key::NoValueSerialize;
 use crate::api::key::ValueSerialize;
 use crate::api::user_data::UserComputationData;
-use crate::impls::dice::Dice;
+use crate::dice::Dice;
 
 struct MySpawner(AtomicUsize);
 

@@ -14,8 +14,8 @@ use dupe::Dupe;
 
 use crate::api::events::DiceEvent;
 use crate::api::events::DiceEventListener;
-use crate::impls::dice::Dice;
-use crate::impls::key::DiceKey;
+use crate::dice::Dice;
+use crate::key::DiceKey;
 
 #[derive(Clone, Dupe)]
 pub(crate) struct DiceEventDispatcher {

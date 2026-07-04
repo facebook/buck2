@@ -29,7 +29,7 @@ use crate::api::injected::InjectedKey;
 use crate::api::key::Key;
 use crate::api::key::NoValueSerialize;
 use crate::api::key::ValueSerialize;
-use crate::impls::dice::Dice;
+use crate::dice::Dice;
 
 #[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative, Pagable)]
 #[display("{}", self.0)]

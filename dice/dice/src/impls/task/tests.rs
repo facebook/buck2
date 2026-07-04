@@ -36,18 +36,18 @@ use crate::api::key::Key;
 use crate::api::key::NoValueSerialize;
 use crate::api::key::ValueSerialize;
 use crate::arc::Arc;
-use crate::impls::key::DiceKey;
-use crate::impls::key::ParentKey;
 use crate::impls::task::dice::DiceTask;
 use crate::impls::task::dice::DiceTaskDependedOnByResult;
 use crate::impls::task::dice::spawn_prepared_task;
 use crate::impls::task::handle::DiceTaskHandle;
 use crate::impls::task::promise::DicePromise;
-use crate::impls::value::DiceComputedValue;
-use crate::impls::value::DiceKeyValue;
-use crate::impls::value::DiceValidValue;
-use crate::impls::value::MaybeValidDiceValue;
-use crate::impls::value::TrackedInvalidationPaths;
+use crate::key::DiceKey;
+use crate::key::ParentKey;
+use crate::value::DiceComputedValue;
+use crate::value::DiceKeyValue;
+use crate::value::DiceValidValue;
+use crate::value::MaybeValidDiceValue;
+use crate::value::TrackedInvalidationPaths;
 use crate::versions::VersionRanges;
 
 #[derive(Allocative, Clone, Dupe, Debug, Display, Eq, PartialEq, Hash, Pagable)]

@@ -32,7 +32,7 @@ use crate::api::key::NoValueSerialize;
 use crate::api::key::PagableValueSerialize;
 use crate::api::key::ValueSerialize;
 use crate::api::user_data::UserComputationData;
-use crate::impls::dice::Dice;
+use crate::dice::Dice;
 
 /// Per-test compute counter, injected via `UserComputationData` so tests don't share state.
 #[derive(Clone, Dupe)]

@@ -11,7 +11,7 @@
 use crate::deps::encoding::SPDecoder;
 use crate::deps::graph::SPItem;
 use crate::deps::graph::SPSeriesHeader;
-use crate::impls::key::DiceKey;
+use crate::key::DiceKey;
 
 #[allow(unused)]
 pub(crate) enum SeriesParallelDepsIteratorItem<'a> {

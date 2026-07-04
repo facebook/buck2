@@ -15,7 +15,7 @@ use dice_error::result::CancellationReason;
 use dice_futures::cancellation::CancellationContext;
 
 use crate::impls::task::dice::DiceTaskCompletionHandle;
-use crate::impls::value::DiceComputedValue;
+use crate::value::DiceComputedValue;
 
 /// The handle to the 'DiceTask' owned by the spawned thread that is responsible for completing
 /// the task.

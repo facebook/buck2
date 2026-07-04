@@ -11,7 +11,7 @@
 use allocative::Allocative;
 use mini_vec::MiniVec;
 
-use crate::impls::key::DiceKey;
+use crate::key::DiceKey;
 use crate::versions::VersionNumber;
 
 /// Provides a set that lazily dedupes entries. This is efficient for common patterns that we see for rdeps tracking.

@@ -24,14 +24,14 @@ use crate::ActivationTracker;
 use crate::DynKey;
 use crate::impls::evaluator::KeyEvaluationResult;
 use crate::impls::evaluator::TransactionData;
-use crate::impls::key::DiceKey;
-use crate::impls::key::DiceKeyErased;
-use crate::impls::key_index::DiceKeyIndex;
 use crate::impls::task::PreviouslyCancelledTask;
 use crate::impls::task::handle::DiceTaskHandle;
-use crate::impls::user_cycle::KeyComputingUserCycleDetectorData;
-use crate::impls::user_cycle::UserCycleDetectorData;
-use crate::impls::value::DiceComputedValue;
+use crate::key::DiceKey;
+use crate::key::DiceKeyErased;
+use crate::key_index::DiceKeyIndex;
+use crate::user_cycle::KeyComputingUserCycleDetectorData;
+use crate::user_cycle::UserCycleDetectorData;
+use crate::value::DiceComputedValue;
 
 /// Represents when we are in a spawned dice task worker and are currently waiting for the previous
 /// cancelled instance of this task to finish cancelling.

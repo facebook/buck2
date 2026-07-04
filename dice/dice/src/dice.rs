@@ -22,12 +22,12 @@ use crate::api::data::DiceData;
 use crate::api::user_data::UserComputationData;
 use crate::core::state::CoreStateHandle;
 use crate::core::state::init_state;
-use crate::impls::key_index::DiceKeyIndex;
-use crate::impls::storage::DiceStorage;
 use crate::impls::transaction::TransactionUpdater;
 use crate::introspection::graph::GraphIntrospectable;
+use crate::key_index::DiceKeyIndex;
 use crate::metrics::Metrics;
 use crate::metrics::PageInKeyTypeMetrics;
+use crate::storage::DiceStorage;
 
 /// An incremental computation engine that executes arbitrary computations that
 /// maps `Key`s to values.
@@ -273,8 +273,8 @@ pub struct PagableTypeStat {
 pub(crate) mod testing {
     use dupe::Dupe;
 
+    use crate::dice::Dice;
     use crate::impls::ctx::VersionEpochState;
-    use crate::impls::dice::Dice;
     use crate::impls::transaction::ActiveTransactionGuard;
     use crate::versions::VersionNumber;
 

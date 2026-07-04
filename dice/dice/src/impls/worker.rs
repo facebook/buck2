@@ -35,12 +35,10 @@ use crate::core::state::CoreStateHandle;
 use crate::core::versions::VersionEpoch;
 use crate::deps::graph::SeriesParallelDeps;
 use crate::deps::iterator::SeriesParallelDepsIteratorItem;
+use crate::events::DiceEventDispatcher;
 use crate::impls::evaluator::KeyEvaluationResult;
 use crate::impls::evaluator::SyncEvaluator;
 use crate::impls::evaluator::TransactionData;
-use crate::impls::events::DiceEventDispatcher;
-use crate::impls::key::DiceKey;
-use crate::impls::key::ParentKey;
 use crate::impls::task::PreviouslyCancelledTask;
 use crate::impls::task::dice::PreparedDiceTask;
 use crate::impls::task::dice::spawn_prepared_task;
@@ -48,17 +46,19 @@ use crate::impls::task::handle::DiceTaskHandle;
 use crate::impls::task::projections::DiceSyncResult;
 use crate::impls::task::projections::ProjectionTaskCompletionHandle;
 use crate::impls::task::promise::DicePromise;
-use crate::impls::user_cycle::KeyComputingUserCycleDetectorData;
-use crate::impls::user_cycle::UserCycleDetectorData;
-use crate::impls::value::DiceComputedValue;
-use crate::impls::value::MaybeValidDiceValue;
-use crate::impls::value::TrackedInvalidationPaths;
 use crate::impls::worker::state::ActivationInfo;
 use crate::impls::worker::state::DiceWorkerStateAwaitingPrevious;
 use crate::impls::worker::state::DiceWorkerStateEvaluating;
 use crate::impls::worker::state::DiceWorkerStateFinishedAndCached;
 use crate::impls::worker::state::DiceWorkerStateFinishedEvaluating;
 use crate::impls::worker::state::DiceWorkerStateLookupNode;
+use crate::key::DiceKey;
+use crate::key::ParentKey;
+use crate::user_cycle::KeyComputingUserCycleDetectorData;
+use crate::user_cycle::UserCycleDetectorData;
+use crate::value::DiceComputedValue;
+use crate::value::MaybeValidDiceValue;
+use crate::value::TrackedInvalidationPaths;
 use crate::versions::VersionNumber;
 use crate::versions::VersionRange;
 
@@ -347,7 +347,7 @@ impl DiceTaskWorker {
         &self,
         state_handle: &CoreStateHandle,
         data_key: pagable::DataKey,
-    ) -> CancellableResult<crate::impls::value::DiceValidValue> {
+    ) -> CancellableResult<crate::value::DiceValidValue> {
         let storage = self
             .eval
             .dice

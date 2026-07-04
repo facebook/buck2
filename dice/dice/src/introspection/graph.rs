@@ -28,9 +28,9 @@ use crate::HashMap;
 use crate::HashSet;
 use crate::core::graph::introspection::VersionedGraphIntrospectable;
 use crate::core::versions::introspection::VersionIntrospectable;
-use crate::impls::key::DiceKey;
 use crate::introspection::DiceTaskState;
 use crate::introspection::serialize_dense_graph;
+use crate::key::DiceKey;
 
 pub struct GraphIntrospectable {
     pub(crate) graph: VersionedGraphIntrospectable,

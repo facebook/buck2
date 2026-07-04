@@ -37,11 +37,11 @@ use pagable_storage::storage::sqlite::SqliteBackedPagableStorage;
 
 use crate::HashMap;
 use crate::core::state::CoreStateHandle;
-use crate::impls::key::DiceKey;
-use crate::impls::key::DiceKeyErased;
-use crate::impls::key_index::DiceKeyIndex;
-use crate::impls::value::DiceValidValue;
+use crate::key::DiceKey;
+use crate::key::DiceKeyErased;
+use crate::key_index::DiceKeyIndex;
 use crate::metrics::PageInKeyTypeMetrics;
+use crate::value::DiceValidValue;
 
 /// Pagable storage backing for DICE node values.
 ///
@@ -315,7 +315,7 @@ fn env_concurrency(var: &str) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use crate::impls::storage::PageInMetrics;
+    use crate::storage::PageInMetrics;
 
     #[test]
     fn page_in_metrics_breakdown() {

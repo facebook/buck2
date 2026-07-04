@@ -17,10 +17,10 @@ use pagable::DataKey;
 
 use crate::arc::Arc;
 use crate::deps::graph::SeriesParallelDeps;
-use crate::impls::key::DiceKey;
-use crate::impls::value::DiceComputedValue;
-use crate::impls::value::DiceValidValue;
-use crate::impls::value::TrackedInvalidationPaths;
+use crate::key::DiceKey;
+use crate::value::DiceComputedValue;
+use crate::value::DiceValidValue;
+use crate::value::TrackedInvalidationPaths;
 use crate::versions::VersionNumber;
 use crate::versions::VersionRanges;
 
@@ -94,7 +94,7 @@ pub(crate) mod testing {
     use crate::core::graph::types::VersionedGraphResult;
     use crate::core::graph::types::VersionedGraphResultMismatch;
     use crate::gazebo::variants::VariantName;
-    use crate::impls::value::DiceComputedValue;
+    use crate::value::DiceComputedValue;
 
     #[allow(dead_code)]
     pub(crate) trait VersionedCacheResultAssertsExt {
