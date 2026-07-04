@@ -158,7 +158,8 @@ impl ModernComputeCtx<'_> {
         K: Key,
     {
         let (ctx_data, dep_trackers) = self.unpack();
-        Self::compute_opaque_impl(ctx_data, key)
+        ctx_data
+            .compute_opaque(key)
             .map(move |r| r.map(|opaque| Self::opaque_into_value_impl(dep_trackers, opaque)))
     }
 
@@ -173,25 +174,7 @@ impl ModernComputeCtx<'_> {
     where
         K: Key,
     {
-        Self::compute_opaque_impl(self.ctx_data(), key)
-    }
-
-    fn compute_opaque_impl<'d, K>(
-        ctx_data: &'d CoreCtx,
-        key: &K,
-    ) -> impl Future<Output = DiceResult<OpaqueValue<K>>> + use<'d, K>
-    where
-        K: Key,
-    {
-        ctx_data.compute_opaque(key).map(move |cancellable_result| {
-            let cancellable = cancellable_result.map(move |(dice_key, dice_value)| {
-                let value = dice_value.value().dupe();
-                let invalidation_paths = dice_value.invalidation_paths().dupe();
-                OpaqueValue::new(dice_key, value, invalidation_paths)
-            });
-
-            cancellable.map_err(DiceError::cancelled)
-        })
+        self.ctx_data().compute_opaque(key)
     }
 
     /// Computes all the given tasks in parallel, returning an unordered Stream
@@ -658,7 +641,7 @@ impl CoreCtx {
     pub(crate) fn compute_opaque<'d, K>(
         &'d self,
         key: &K,
-    ) -> impl Future<Output = CancellableResult<(DiceKey, &'d DiceComputedValue)>> + use<'d, K>
+    ) -> impl Future<Output = DiceResult<OpaqueValue<K>>> + use<'d, K>
     where
         K: Key,
     {
@@ -677,7 +660,12 @@ impl CoreCtx {
                 self.cycles
                     .subrequest(dice_key, &self.async_evaluator.dice.key_index),
             )
-            .map_ok(move |res| (dice_key, res))
+            .map_ok(move |dice_value| {
+                let value = dice_value.value().dupe();
+                let invalidation_paths = dice_value.invalidation_paths().dupe();
+                OpaqueValue::new(dice_key, value, invalidation_paths)
+            })
+            .map_err(DiceError::cancelled)
     }
 
     /// Compute "projection" based on deriving value
