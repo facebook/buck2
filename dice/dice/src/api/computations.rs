@@ -53,12 +53,21 @@ fn _test_computations_sync_send() {
 
 impl<'d> DiceComputations<'d> {
     /// Gets the result of the given computation key.
-    /// Record dependencies of the current computation for which this
-    /// context is for.
     pub fn compute<'a, K>(
         &'a mut self,
         key: &K,
     ) -> impl Future<Output = DiceResult<<K as Key>::Value>> + use<'a, 'd, K>
+    where
+        K: Key,
+    {
+        self.0.compute(key).map(|r| r.map(Dupe::dupe))
+    }
+
+    /// Gets the result of the given computation key.
+    pub fn compute_ref<'a, K>(
+        &'a mut self,
+        key: &K,
+    ) -> impl Future<Output = DiceResult<&'d <K as Key>::Value>> + use<'a, 'd, K>
     where
         K: Key,
     {

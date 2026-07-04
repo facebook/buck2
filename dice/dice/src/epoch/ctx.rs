@@ -142,12 +142,12 @@ impl<'d> TrackedComputations<'d> {
     pub(crate) fn compute<'a, K>(
         &'a mut self,
         key: &K,
-    ) -> impl Future<Output = DiceResult<<K as Key>::Value>> + use<'a, 'd, K>
+    ) -> impl Future<Output = DiceResult<&'d <K as Key>::Value>> + use<'a, 'd, K>
     where
         K: Key,
     {
         self.ctx_data().compute_opaque(key).map(move |r| {
-            r.map(|opaque| Self::opaque_into_value_impl(self.dep_trackers_holder(), opaque).dupe())
+            r.map(|opaque| Self::opaque_into_value_impl(self.dep_trackers_holder(), opaque))
         })
     }
 
