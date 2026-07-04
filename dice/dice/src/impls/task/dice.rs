@@ -207,22 +207,17 @@ pub(crate) enum ReadValueResult<'d> {
 }
 
 /// Future that resolves when a task is finished or fully cancelled and terminated.
-pub(crate) enum TerminationObserver {
-    Done(Option<DiceComputedValue>),
-    Pending { task: DiceTask, generation: u32 },
+pub(crate) struct TerminationObserver {
+    task: DiceTask,
+    generation: u32,
 }
 
 impl Future for TerminationObserver {
     type Output = Option<DiceComputedValue>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let (task, generation) = match self.get_mut() {
-            TerminationObserver::Done(v) => return Poll::Ready(v.take()),
-            TerminationObserver::Pending { task, generation } => (&*task, *generation),
-        };
-
         // Fast-path to avoid waker registration
-        match task.as_ref().state_at(generation) {
+        match self.task.as_ref().state_at(self.generation) {
             StateAtGeneration::TerminatedSuccess(v) => return Poll::Ready(Some(v.dupe())),
             StateAtGeneration::TerminatedCancelled => return Poll::Ready(None),
             StateAtGeneration::Pending => {}
@@ -233,8 +228,8 @@ impl Future for TerminationObserver {
         // have fired — so we must report `Ready` ourselves rather than rely on a missed wakeup. The
         // re-check is correctly synchronized because `push` acquires from whatever last reset or
         // closed the list (see `SimpleAtomicList`).
-        task.internal.wakers.push(cx.waker().clone());
-        match task.as_ref().state_at(generation) {
+        self.task.internal.wakers.push(cx.waker().clone());
+        match self.task.as_ref().state_at(self.generation) {
             StateAtGeneration::TerminatedSuccess(v) => Poll::Ready(Some(v.dupe())),
             StateAtGeneration::TerminatedCancelled => Poll::Ready(None),
             StateAtGeneration::Pending => Poll::Pending,
@@ -430,7 +425,7 @@ impl<'d> DiceTaskRef<'d> {
 
         drop(guard);
 
-        let previously_cancelled = PreviouslyCancelledTask::new(TerminationObserver::Pending {
+        let previously_cancelled = PreviouslyCancelledTask::new(TerminationObserver {
             task: self.clone_arc(),
             generation: prev_generation,
         });
@@ -524,25 +519,12 @@ impl<'d> DiceTaskRef<'d> {
     }
 
     /// Returns a future that resolves when this task finishes or is fully cancelled
-    /// and terminated. Dropping the returned `TerminationObserver` does NOT cancel the
-    /// task — observers are passive watchers.
-    ///
-    /// Used for:
-    /// - Tests: observing when a cancelled task has fully terminated.
-    /// - Task restart: a restarted task awaits termination of its previous computation
-    ///   before proceeding.
-    /// - `wait_for_idle`: DICE collects pending tasks from core state and awaits their
-    ///   termination observers to ensure all in-flight work has settled.
+    /// and terminated.
     pub(crate) fn await_termination(&self) -> TerminationObserver {
-        match self.internal.read_value() {
-            ReadValueResult::Finished(v) => TerminationObserver::Done(Some(v.dupe())),
-            ReadValueResult::Pending { .. } => {
-                let generation = self.internal.current_generation.load(Ordering::Relaxed);
-                TerminationObserver::Pending {
-                    task: self.clone_arc(),
-                    generation,
-                }
-            }
+        let generation = self.internal.current_generation.load(Ordering::Relaxed);
+        TerminationObserver {
+            task: self.clone_arc(),
+            generation,
         }
     }
 
