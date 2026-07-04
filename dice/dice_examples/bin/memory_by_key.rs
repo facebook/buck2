@@ -224,6 +224,7 @@ impl Shape {
             Shape::Chain => "chain    ",
             Shape::Dense { dense_width: 5 } => "dense w=5",
             Shape::Dense { dense_width: 20 } => "dense w=20",
+            Shape::Dense { dense_width: 64 } => "dense w=64",
             Shape::Dense { .. } => "dense    ",
         }
     }
@@ -759,6 +760,14 @@ async fn async_main() {
     if progress {
         eprint!(", dense w=20");
     }
+    // w=64 is measured because it is on the other side of a behavior change in how the
+    // parallel branches get awaited: futures' `join_all` switches to `FuturesOrdered` above
+    // 30 futures, so the per-branch suspended cost includes the collection's bookkeeping.
+    // It is excluded from the linear fit; the wide regime would skew the per-edge number.
+    let dense64 = run_phase(Shape::Dense { dense_width: 64 }, false).await;
+    if progress {
+        eprint!(", dense w=64");
+    }
 
     // ── Suspended-cost phases on fresh Dice instances ──
     if progress {
@@ -774,7 +783,11 @@ async fn async_main() {
     }
     let dense20_susp = run_suspended_phase(Shape::Dense { dense_width: 20 }).await;
     if progress {
-        eprintln!(", dense w=20");
+        eprint!(", dense w=20");
+    }
+    let dense64_susp = run_suspended_phase(Shape::Dense { dense_width: 64 }).await;
+    if progress {
+        eprintln!(", dense w=64");
     }
 
     // ── Linear regression of per-key cost vs edges ──
@@ -908,6 +921,7 @@ async fn async_main() {
         (&chain, &chain_susp),
         (&dense5, &dense5_susp),
         (&dense20, &dense20_susp),
+        (&dense64, &dense64_susp),
     ] {
         eprintln!(
             "    {:<24}{:>6.0}",
