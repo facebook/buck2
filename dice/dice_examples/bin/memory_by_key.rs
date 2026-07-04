@@ -32,11 +32,9 @@
 //! 3. **Per-active-tx test** (only on dense w=20): bump `Seed` and
 //!    recompute all roots while holding the ctx alive. `Buffer` absorbs
 //!    the change so no recomputation runs, but the `SharedCache` must
-//!    hold an entry for every key visited. Then **force storage→completed
-//!    migration** by re-`compute`-ing every key (which is what
-//!    `SharedCache::get` requires for promotion). The pre-vs-post-migration
-//!    delta isolates the cost of `DiceTask`s left in the in-flight
-//!    `storage` DashMap because nothing re-looked them up.
+//!    hold an entry for every key visited. This isolates the per-key
+//!    cost of the `SharedCache` entries an active transaction keeps
+//!    alive, plus how much of that persists after the ctx is dropped.
 //!
 //! 4. **Final unified report** linearly fits the three phases to extract
 //!    per-edge cost, fixed cost for the One and Many variants, and the
@@ -334,20 +332,16 @@ struct PhaseResult {
 
 #[derive(Debug, Clone, Copy)]
 struct TxResult {
-    /// Per-key heap cost while ctx is alive after compute (pre-migration).
-    full: f64,
-    /// Per-key heap cost after forcing every key to migrate from
-    /// `storage` to `completed`.
-    migrated: f64,
-    /// `full - migrated` — savings from migration.
-    in_storage_premium: f64,
+    /// Per-key heap cost of the `SharedCache` entries an active tx keeps
+    /// alive (measured while ctx is alive after compute).
+    active: f64,
     /// Per-key heap that persists after the ctx drops (verified_ranges
     /// extension etc.). Should be tiny.
     persisted_after_drop: f64,
 }
 
 /// Run a single phase end-to-end on a fresh `Dice` instance: warmup,
-/// per-shadow build with median slope, optionally per-tx + migration.
+/// per-shadow build with median slope, optionally the per-tx test.
 /// Drops dice and quiesces before returning.
 async fn run_phase(shape: Shape, do_tx: bool) -> PhaseResult {
     set_shape(shape);
@@ -413,7 +407,7 @@ async fn run_phase(shape: Shape, do_tx: bool) -> PhaseResult {
         per_key_min,
     );
 
-    // Optional per-tx test (with migration probe).
+    // Optional per-tx test.
     let tx = if do_tx {
         let total_keys = (NODE_COUNT as u64 + 1) * SHADOWS as u64;
         let total_keys_f = total_keys as f64;
@@ -425,35 +419,12 @@ async fn run_phase(shape: Shape, do_tx: bool) -> PhaseResult {
             drop(ctx.compute(&GraphNode(0, s)).await);
         }
         tokio::time::sleep(std::time::Duration::from_millis(QUIESCE_MS)).await;
-        let s_tx_full = Snapshot::take();
-        let full = (s_tx_full.heap - s_post_build.heap) as f64 / total_keys_f;
+        let s_tx_active = Snapshot::take();
+        let active = (s_tx_active.heap - s_post_build.heap) as f64 / total_keys_f;
         eprintln!(
-            "  tx (ctx alive, pre-migrate):    {:>10}  ({:>6.1} B/key)",
-            fmt_bytes(s_tx_full.heap - s_post_build.heap),
-            full,
-        );
-
-        // Force every key to migrate storage→completed by re-`compute`ing
-        // each one. SharedCache::get only migrates on lookup; the recursive
-        // root-compute path doesn't re-look-up leaves after they finish.
-        for s in 0..SHADOWS {
-            drop(ctx.compute(&Buffer(s)).await);
-            for k in 0..NODE_COUNT {
-                drop(ctx.compute(&GraphNode(k, s)).await);
-            }
-        }
-        tokio::time::sleep(std::time::Duration::from_millis(QUIESCE_MS)).await;
-        let s_tx_migrated = Snapshot::take();
-        let migrated = (s_tx_migrated.heap - s_post_build.heap) as f64 / total_keys_f;
-        let in_storage_premium = full - migrated;
-        eprintln!(
-            "  tx (after force-migration):     {:>10}  ({:>6.1} B/key)",
-            fmt_bytes(s_tx_migrated.heap - s_post_build.heap),
-            migrated,
-        );
-        eprintln!(
-            "  in-storage premium:                          ({:>6.1} B/key)",
-            in_storage_premium
+            "  tx (ctx alive):                 {:>10}  ({:>6.1} B/key)",
+            fmt_bytes(s_tx_active.heap - s_post_build.heap),
+            active,
         );
 
         drop(ctx);
@@ -466,9 +437,7 @@ async fn run_phase(shape: Shape, do_tx: bool) -> PhaseResult {
         );
 
         Some(TxResult {
-            full,
-            migrated,
-            in_storage_premium,
+            active,
             persisted_after_drop: persisted,
         })
     } else {
@@ -614,28 +583,11 @@ async fn async_main() {
     if let Some(tx) = dense20.tx {
         eprintln!();
         eprintln!("Per-active-tx (SharedCache) overhead, measured on dense w=20:");
-        eprintln!("  ctx alive (current behavior):   {:>6.1} B/key", tx.full);
+        eprintln!("  ctx alive:                {:>6.1} B/key", tx.active);
         eprintln!(
-            "  after forcing storage→completed:{:>6.1} B/key",
-            tx.migrated
-        );
-        eprintln!(
-            "  → in-storage premium:           {:>6.1} B/key  ({:.0}% of full cost)",
-            tx.in_storage_premium,
-            100.0 * tx.in_storage_premium / tx.full,
-        );
-        eprintln!(
-            "  persists after ctx drop:        {:>6.1} B/key  (verified_ranges extension etc.)",
+            "  persists after ctx drop:  {:>6.1} B/key  (verified_ranges extension etc.)",
             tx.persisted_after_drop
         );
-        eprintln!();
-        eprintln!("  → Eager migration in SharedCache (or end-of-tx sweep) would");
-        eprintln!(
-            "    reclaim ~{:.0} B/key per active version. Lazy migration in",
-            tx.in_storage_premium
-        );
-        eprintln!("    SharedCache::get only fires on subsequent lookups — leaves");
-        eprintln!("    of a recursive root-compute are never re-looked-up.");
     }
 
     eprintln!();
