@@ -13,7 +13,6 @@ pub(crate) mod handle;
 pub(crate) mod promise;
 #[cfg(test)]
 pub(crate) use dice::spawn_dice_task;
-mod atomic_list;
 
 use crate::impls::task::dice::TerminationObserver;
 

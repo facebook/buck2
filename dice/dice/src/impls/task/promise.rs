@@ -11,7 +11,6 @@
 //! Promise is a handle to a DiceTask that will be completed
 
 use std::future::Future;
-use std::mem;
 use std::pin::Pin;
 use std::task::Context;
 use std::task::Poll;
@@ -100,22 +99,14 @@ impl<'d> Future for DicePromise<'d> {
     type Output = CancellableResult<&'d DiceComputedValue>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let res = match &mut self.0 {
-            x @ DicePromiseInternal::Ready { .. } => {
-                match mem::replace(x, DicePromiseInternal::Done) {
-                    DicePromiseInternal::Ready { result } => Poll::Ready(Ok(result)),
-                    _ => unreachable!(),
-                }
-            }
-            DicePromiseInternal::Done => panic!("poll after ready"),
-            _ => match self.as_mut().project().0.project() {
-                DicePromiseInternalProj::Pending { future } => future.poll(cx),
-                _ => unreachable!(),
-            },
+        let res = match self.as_mut().project().0.project() {
+            DicePromiseInternalProj::Ready { result } => Poll::Ready(Ok(*result)),
+            DicePromiseInternalProj::Pending { future } => future.poll(cx),
+            DicePromiseInternalProj::Done => panic!("poll after ready"),
         };
 
         if matches!(res, Poll::Ready(..)) {
-            self.0 = DicePromiseInternal::Done;
+            self.project().0.set(DicePromiseInternal::Done);
         }
 
         res

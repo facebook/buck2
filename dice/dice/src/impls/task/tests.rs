@@ -128,9 +128,10 @@ async fn simple_task() -> anyhow::Result<()> {
 
     assert!(task.is_pending());
 
-    let mut promise = task
+    let promise = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 1 }))
         .unwrap();
+    pin_mut!(promise);
 
     assert_eq!(task.waiters_count(), 2);
 
@@ -318,9 +319,10 @@ async fn multiple_promises_all_completes() -> anyhow::Result<()> {
 async fn sync_complete_task_completes_promises() -> anyhow::Result<()> {
     let (task, initial_promise) = sync_dice_task(DiceKey { index: 100 });
 
-    let mut promise_before = task
+    let promise_before = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 0 }))
         .unwrap();
+    pin_mut!(promise_before);
 
     drop(initial_promise);
 
@@ -363,9 +365,10 @@ async fn sync_complete_task_completes_promises() -> anyhow::Result<()> {
 async fn sync_complete_task_with_future() -> anyhow::Result<()> {
     let (task, _initial_promise) = sync_dice_task(DiceKey { index: 100 });
 
-    let mut promise = task
+    let promise = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 0 }))
         .unwrap();
+    pin_mut!(promise);
 
     assert!(poll!(&mut promise).is_pending());
 
@@ -423,14 +426,14 @@ async fn sync_complete_task_with_future() -> anyhow::Result<()> {
 async fn sync_complete_task_wakes_waiters() -> anyhow::Result<()> {
     let (task, initial_promise) = sync_dice_task(DiceKey { index: 100 });
 
-    let mut promise1 = task
+    let promise1 = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 1 }))
         .unwrap();
 
-    let mut promise2 = task
+    let promise2 = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 2 }))
         .unwrap();
-    let mut promise3 = task
+    let promise3 = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 3 }))
         .unwrap();
 
@@ -443,6 +446,7 @@ async fn sync_complete_task_wakes_waiters() -> anyhow::Result<()> {
     let mut fut1 = std::pin::pin!({
         let barrier = barrier.dupe();
         async move {
+            let mut promise1 = std::pin::pin!(promise1);
             assert!(poll!(&mut promise1).is_pending());
             barrier.wait().await;
 
@@ -452,6 +456,7 @@ async fn sync_complete_task_wakes_waiters() -> anyhow::Result<()> {
     let mut fut2 = std::pin::pin!({
         let barrier = barrier.dupe();
         async move {
+            let mut promise2 = std::pin::pin!(promise2);
             assert!(poll!(&mut promise2).is_pending());
             barrier.wait().await;
 
@@ -461,6 +466,7 @@ async fn sync_complete_task_wakes_waiters() -> anyhow::Result<()> {
     let mut fut3 = std::pin::pin!({
         let barrier = barrier.dupe();
         async move {
+            let mut promise3 = std::pin::pin!(promise3);
             assert!(poll!(&mut promise3).is_pending());
             barrier.wait().await;
 
@@ -618,6 +624,7 @@ async fn sync_complete_finished_spawned_task() -> anyhow::Result<()> {
         .depended_on_by(ParentKey::Some(DiceKey { index: 1 }))
         .unwrap();
 
+    let promise_before = std::pin::pin!(promise_before);
     let polled = futures::poll!(promise_before);
 
     match polled {
@@ -630,6 +637,7 @@ async fn sync_complete_finished_spawned_task() -> anyhow::Result<()> {
         Poll::Pending => panic!("Promise should be ready immediately"),
     }
 
+    let promise_after = std::pin::pin!(promise_after);
     let polled = futures::poll!(promise_after);
 
     match polled {

@@ -16,11 +16,12 @@ use std::sync::atomic::AtomicU32;
 use std::sync::atomic::Ordering;
 use std::task::Context;
 use std::task::Poll;
-use std::task::Waker;
 
 use allocative::Allocative;
 use dice_error::result::CancellableResult;
 use dice_error::result::CancellationReason;
+use dice_futures::atomic_waker_set::AtomicWakerSet;
+use dice_futures::atomic_waker_set::AtomicWakerSetEntry;
 use dice_futures::cancellation::CancellationContext;
 use dice_futures::cancellation::DropcancelHandle;
 use dice_futures::spawn::CancellableFutureSpawner;
@@ -36,8 +37,6 @@ use crate::GlobalStats;
 use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
 use crate::impls::task::PreviouslyCancelledTask;
-use crate::impls::task::atomic_list::SimpleAtomicList;
-use crate::impls::task::atomic_list::SimpleAtomicListNodeSpec;
 use crate::impls::task::promise::DicePromise;
 use crate::impls::task::promise::DiceSyncResult;
 use crate::impls::value::DiceComputedValue;
@@ -162,7 +161,7 @@ pub(crate) struct DiceTaskInternal {
     /// which don't hold a strong count), and wakers here may actually be waiting on different
     /// generations. We don't attempt to be smart; when we wake anything, we wake everything, and
     /// things that didn't need to be woken just re-register themselves.
-    wakers: SimpleAtomicList<WakeOnDrain>,
+    wakers: AtomicWakerSet,
 
     /// The computed value; the access invariant is as follows:
     ///  1. Initially, only the `DiceTaskCompletionHandle` may access this; it writes `Some` here
@@ -182,14 +181,6 @@ pub(crate) struct DiceTaskInternal {
     last_cancellation_reason: Mutex<Option<CancellationReason>>,
 }
 
-struct WakeOnDrain;
-impl SimpleAtomicListNodeSpec for WakeOnDrain {
-    type Value = Waker;
-    fn drain(v: Waker) {
-        v.wake();
-    }
-}
-
 unsafe impl Send for DiceTaskInternal {}
 unsafe impl Sync for DiceTaskInternal {}
 
@@ -207,26 +198,29 @@ pub(crate) enum ReadValueResult<'d> {
 }
 
 /// Future that resolves when a task finishes at a particular generation.
+#[pin_project::pin_project(PinnedDrop)]
 pub(crate) struct TaskWaiter<'d> {
     task: DiceTaskRef<'d>,
     generation: u32,
+    #[pin]
+    waiter: AtomicWakerSetEntry,
 }
 
 impl<'d> Future for TaskWaiter<'d> {
     type Output = CancellableResult<&'d DiceComputedValue>;
 
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         // Fast-path to avoid waker registration
         if let Poll::Ready(v) = self.try_get() {
             return Poll::Ready(v);
         }
 
-        // Register our waker, then re-check. The generation may have terminated between the check
-        // above and this registration, and the `drain`/`close` that would have woken us may already
-        // have fired — so we must report `Ready` ourselves rather than rely on a missed wakeup. The
-        // re-check is correctly synchronized because `push` acquires from whatever last reset or
-        // closed the list (see `SimpleAtomicList`).
-        self.task.internal.wakers.push(cx.waker().clone());
+        // SAFETY: We're pinnned and this is the only waker set we use
+        unsafe {
+            let this = self.as_mut().project();
+            this.waiter
+                .register(&this.task.internal.wakers, cx.waker().clone());
+        }
         self.try_get()
     }
 }
@@ -247,9 +241,16 @@ impl<'d> TaskWaiter<'d> {
             ReadValueResult::Pending { .. } => Poll::Pending,
         }
     }
+}
 
-    pub(crate) fn task(&self) -> DiceTaskRef<'d> {
-        self.task
+#[pin_project::pinned_drop]
+impl<'d> PinnedDrop for TaskWaiter<'d> {
+    fn drop(self: Pin<&mut Self>) {
+        // SAFETY: We're pinnned and this is the only waker set we use
+        unsafe {
+            let this = self.project();
+            this.waiter.disconnect(&this.task.internal.wakers);
+        }
     }
 }
 
@@ -296,7 +297,7 @@ pub(crate) struct PreparedDiceTask<'d> {
 impl<'d> PreparedDiceTask<'d> {
     #[cfg(test)]
     pub(crate) fn task(&self) -> DiceTaskRef<'d> {
-        self.dependent_future.0.task()
+        self.dependent_future.0.task
     }
 }
 
@@ -333,7 +334,7 @@ impl DiceTask {
                 current_generation: AtomicU32::new(2),
                 terminated_generation: AtomicU32::new(1),
                 maybe_value: UnsafeCell::new(None),
-                wakers: SimpleAtomicList::new(),
+                wakers: AtomicWakerSet::new(),
                 critical: Mutex::new(Some(Box::new(Critical {
                     cancellation_handle,
                     sync_value: None,
@@ -351,6 +352,7 @@ impl DiceTask {
             dependent_future: DiceTaskDependentFuture(TaskWaiter {
                 task,
                 generation: 2,
+                waiter: AtomicWakerSetEntry::new(),
             }),
             completion_handle: DiceTaskCompletionHandle {
                 generation: 2,
@@ -382,6 +384,7 @@ impl<'d> DiceTaskRef<'d> {
                 DiceTaskDependentFuture(TaskWaiter {
                     task: self,
                     generation,
+                    waiter: AtomicWakerSetEntry::new(),
                 }),
             ));
         }
@@ -410,6 +413,7 @@ impl<'d> DiceTaskRef<'d> {
                 DiceTaskDependentFuture(TaskWaiter {
                     task: self,
                     generation: prev_generation,
+                    waiter: AtomicWakerSetEntry::new(),
                 }),
             ));
         }
@@ -442,6 +446,7 @@ impl<'d> DiceTaskRef<'d> {
             dependent_future: DiceTaskDependentFuture(TaskWaiter {
                 task: self,
                 generation: new_generation,
+                waiter: AtomicWakerSetEntry::new(),
             }),
             completion_handle: DiceTaskCompletionHandle {
                 generation: new_generation,
@@ -658,7 +663,7 @@ impl<'d> DiceTaskRef<'d> {
         };
         unsafe { *internal.maybe_value.get() = Some(value) };
         internal.terminated_generation.store(0, Ordering::Release);
-        internal.wakers.close();
+        internal.wakers.wake_all();
         // The task is now sealed for good: the cancellation handle and sync-projection slot in
         // `Critical` can never be needed again. Sealed tasks live in the cache indefinitely, so drop
         // the `Box<Critical>` to reclaim that memory.
@@ -689,7 +694,7 @@ impl<'d> DiceTaskRef<'d> {
         internal
             .terminated_generation
             .store(generation, Ordering::Relaxed);
-        internal.wakers.drain();
+        internal.wakers.wake_all();
     }
 
     /// Drop one dependent.
@@ -839,7 +844,8 @@ impl Drop for DiceTaskCompletionHandle {
 /// A dependent's view of an in-flight `DiceTask`, pollable for its result.
 // This is exactly a `TaskWaiter` with the additional semantics that it holds a strong count (and
 // releases one on drop).
-pub(crate) struct DiceTaskDependentFuture<'d>(TaskWaiter<'d>);
+#[pin_project::pin_project(PinnedDrop)]
+pub(crate) struct DiceTaskDependentFuture<'d>(#[pin] TaskWaiter<'d>);
 
 impl<'d> DiceTaskDependentFuture<'d> {
     pub(crate) fn task(&self) -> DiceTaskRef<'d> {
@@ -847,9 +853,10 @@ impl<'d> DiceTaskDependentFuture<'d> {
     }
 }
 
-impl<'d> Drop for DiceTaskDependentFuture<'d> {
-    fn drop(&mut self) {
-        self.0.task().drop_waiter();
+#[pin_project::pinned_drop]
+impl<'d> PinnedDrop for DiceTaskDependentFuture<'d> {
+    fn drop(self: Pin<&mut Self>) {
+        self.task().drop_waiter();
     }
 }
 
@@ -860,7 +867,7 @@ impl<'d> Future for DiceTaskDependentFuture<'d> {
         self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Self::Output> {
-        Pin::new(&mut self.get_mut().0).poll(cx)
+        self.project().0.poll(cx)
     }
 }
 
@@ -877,6 +884,7 @@ impl TerminationObserver {
                 TaskWaiter {
                     task: task.as_ref(),
                     generation,
+                    waiter: AtomicWakerSetEntry::new(),
                 }
                 .await
                 .ok()
