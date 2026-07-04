@@ -151,7 +151,7 @@ impl CoreState {
             .retain(|task| task.is_pending());
 
         self.pending_termination_tasks
-            .map(|task| task.await_termination())
+            .map(|task| task.as_ref().await_termination())
     }
 
     pub(super) fn unstable_drop_everything(&mut self) {
@@ -418,9 +418,11 @@ mod tests {
             }
             .boxed()
         });
-        finished_cancelling_tasks.cancel(CancellationReason::ByTest);
+        finished_cancelling_tasks
+            .as_ref()
+            .cancel(CancellationReason::ByTest);
 
-        finished_cancelling_tasks.await_termination().await;
+        finished_cancelling_tasks.as_ref().await_termination().await;
 
         finished_cancelling_tasks
     }

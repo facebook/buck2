@@ -658,7 +658,7 @@ async fn dropping_all_waiters_cancels_task() {
 
     barrier.wait().await;
 
-    let await_termination = task.await_termination();
+    let await_termination = task.as_ref().await_termination();
     futures::pin_mut!(await_termination);
 
     assert!(!task.is_ready());
@@ -716,8 +716,8 @@ async fn task_that_already_cancelled_returns_cancelled() {
         |_handle| async move { futures::future::pending().await }.boxed()
     });
 
-    task.cancel(CancellationReason::ByTest);
-    task.await_termination().await;
+    task.as_ref().cancel(CancellationReason::ByTest);
+    task.as_ref().await_termination().await;
     drop(initial_promise);
 
     // After cancellation, depended_on_by enters the restart path (the new
@@ -757,7 +757,7 @@ async fn dropping_termination_observer_does_not_cancel_task() {
     assert!(task.is_pending());
 
     // Create and drop a termination observer — this should NOT cancel the task
-    let observer = task.await_termination();
+    let observer = task.as_ref().await_termination();
     drop(observer);
 
     // Task should still be pending and not cancelled
