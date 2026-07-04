@@ -44,7 +44,6 @@ use crate::impls::key::DiceKeyDyn;
 ///
 /// The context is valid only for the duration of the computation of a single key, and cannot be
 /// owned.
-#[derive(Allocative)]
 pub struct DiceComputations<'a>(pub(crate) ModernComputeCtx<'a>);
 
 fn _test_computations_sync_send() {

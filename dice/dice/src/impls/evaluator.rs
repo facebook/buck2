@@ -10,7 +10,6 @@
 
 use std::sync::Arc;
 
-use allocative::Allocative;
 use dice_error::result::CancellableResult;
 use dupe::Dupe;
 
@@ -34,7 +33,7 @@ use crate::impls::worker::state::DiceWorkerStateEvaluating;
 use crate::impls::worker::state::DiceWorkerStateFinishedEvaluating;
 
 /// Evaluates Keys
-#[derive(Clone, Dupe, Allocative)]
+#[derive(Clone, Dupe)]
 pub(crate) struct AsyncEvaluator {
     pub(super) per_live_version_ctx: SharedLiveTransactionCtx,
     pub(super) user_data: Arc<UserComputationData>,

@@ -14,7 +14,6 @@ use std::ops::Deref;
 use std::ops::DerefMut;
 use std::sync::Arc;
 
-use allocative::Allocative;
 use derivative::Derivative;
 use dice_error::DiceError;
 use dice_error::DiceResult;
@@ -70,7 +69,6 @@ use crate::impls::worker::project_for_key;
 use crate::versions::VersionNumber;
 
 /// Context that is the base for which all requests start from
-#[derive(Allocative)]
 pub(crate) struct BaseComputeCtx {
     // we need to give off references of `DiceComputation` so hold this for now, but really once we
     // get rid of the enum, we just hold onto the base data directly and do some ref casts
@@ -471,7 +469,6 @@ impl ModernDiceComputationsData {
 }
 
 /// Context given to the `compute` function of a `Key`.
-#[derive(Allocative)]
 pub(crate) enum ModernComputeCtx<'a> {
     /// The initial ctx for a key computation.
     Owned {
@@ -480,28 +477,21 @@ pub(crate) enum ModernComputeCtx<'a> {
     },
     /// The ctx within a compute_many/compute_join/try_compute_join.
     Parallel {
-        #[allocative(skip)]
         ctx_data: &'a CoreCtx,
-        #[allocative(skip)]
         dep_trackers: RecordingDepsTracker,
     },
     /// The ctx within a with_linear_recompute.
     Linear {
-        #[allocative(skip)]
         ctx_data: &'a CoreCtx,
-        #[allocative(skip)]
         dep_trackers: &'a Mutex<RecordingDepsTracker>,
     },
 }
 
-#[derive(Allocative)]
 pub(crate) struct CoreCtx {
     async_evaluator: AsyncEvaluator,
     parent_key: ParentKey,
-    #[allocative(skip)]
     cycles: KeyComputingUserCycleDetectorData,
     // data for the entire compute of a Key, including parallel computes
-    #[allocative(skip)]
     evaluation_data: Mutex<EvaluationData>,
 }
 
@@ -775,7 +765,7 @@ impl CoreCtx {
 }
 
 /// Context that is shared for all current live computations of the same version.
-#[derive(Allocative, Derivative, Dupe, Clone)]
+#[derive(Derivative, Dupe, Clone)]
 #[derivative(Debug)]
 pub(crate) struct SharedLiveTransactionCtx {
     version: VersionNumber,

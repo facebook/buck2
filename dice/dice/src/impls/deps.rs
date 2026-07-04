@@ -10,7 +10,6 @@
 
 //! Trackers that records dependencies and reverse dependencies during execution of requested nodes
 
-use allocative::Allocative;
 use dupe::Dupe;
 use typed_arena::Arena;
 
@@ -26,18 +25,15 @@ pub(crate) mod iterator;
 /// The 'DepsTracker' is used to record dependencies of a particular compute node by calling
 /// 'record' for each dependency, and then getting a list of 'Dependency's at the end by calling
 /// 'collect_deps'.
-#[derive(Allocative)]
 pub(crate) struct RecordingDepsTracker {
     deps: RecordedDeps,
 
     /// While a parallel computation is happening (from ctx.compute_many()/etc), we'll have an Arena here
     /// where each parallel ctx gets a slot for its deps. After the parallel computation is finished, we'll
     /// then record this into deps above.
-    #[allocative(skip)] // TODO(cjhopman): Fix this.
     curr_parallel: Option<Box<SyncArena<RecordedDeps>>>,
 }
 
-#[derive(Allocative)]
 pub(crate) struct RecordedDeps {
     pub(crate) deps: SeriesParallelDeps,
     pub(crate) deps_validity: DiceValidity,
