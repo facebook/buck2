@@ -390,7 +390,7 @@ protoc-bin-vendored = "3.0.0"
 psutil = "3.3.0"
 quick-xml = { version = "0.37", features = ["overlapped-lists", "serialize"] }
 quote = "1.0.46"
-rand = "0.10.1"
+rand = "0.10.2"
 rand_chacha = "0.10"
 rand_distr = "0.6"
 rand_xoshiro = "0.8.1"
