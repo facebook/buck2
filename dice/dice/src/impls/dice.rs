@@ -16,7 +16,6 @@ use allocative::Allocative;
 use dupe::Dupe;
 
 use crate::DiceTransactionUpdater;
-use crate::DiceTransactionUpdaterImpl;
 use crate::HashMap;
 use crate::api::cycles::DetectCycles;
 use crate::api::data::DiceData;
@@ -98,10 +97,7 @@ impl Dice {
         self: &Arc<Self>,
         extra: UserComputationData,
     ) -> DiceTransactionUpdater {
-        DiceTransactionUpdater(DiceTransactionUpdaterImpl(TransactionUpdater::new(
-            self.dupe(),
-            Arc::new(extra),
-        )))
+        DiceTransactionUpdater(TransactionUpdater::new(self.dupe(), Arc::new(extra)))
     }
 
     pub fn metrics(&self) -> Metrics {
