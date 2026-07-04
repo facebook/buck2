@@ -14,6 +14,7 @@ use std::fmt::Formatter;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use mini_vec::packed_ptr::PackedPtr;
 
 use crate::Key;
 use crate::ProjectionKey;
@@ -149,6 +150,7 @@ pub(crate) enum InvalidationPath {
     Unknown,
     Invalidated(Arc<InvalidationPathNode>),
 }
+
 impl InvalidationPath {
     fn for_dependent(&self, key: DiceKey) -> InvalidationPath {
         match self {
@@ -193,33 +195,64 @@ pub(crate) struct InvalidationPathNode {
 }
 
 #[derive(Allocative, Debug, Clone, Dupe, PartialEq, Eq)]
-pub(crate) struct TrackedInvalidationPaths {
-    /// The path to a normal or high priority invalidation source.
+struct InvalidationPathsHeap {
     normal: InvalidationPath,
-    /// The path to a high priority invalidation source.
     high: InvalidationPath,
 }
 
+const TAG_ALLOCATED: u8 = 0;
+const TAG_BOTH_CLEAN: u8 = 1;
+const TAG_BOTH_UNKNOWN: u8 = 2;
+
+#[derive(Allocative, Debug, Clone, Dupe, PartialEq, Eq)]
+pub(crate) struct TrackedInvalidationPaths(PackedPtr<Option<Arc<InvalidationPathsHeap>>>);
+
 impl TrackedInvalidationPaths {
-    pub(crate) fn for_dependent(&self, key: DiceKey) -> TrackedInvalidationPaths {
-        TrackedInvalidationPaths {
-            normal: self.normal.for_dependent(key),
-            high: self.high.for_dependent(key),
+    fn from_pair(normal: InvalidationPath, high: InvalidationPath) -> Self {
+        match (normal, high) {
+            (InvalidationPath::Clean, InvalidationPath::Clean) => {
+                Self(PackedPtr::new(None, TAG_BOTH_CLEAN))
+            }
+            (InvalidationPath::Unknown, InvalidationPath::Unknown) => {
+                Self(PackedPtr::new(None, TAG_BOTH_UNKNOWN))
+            }
+            (normal, high) => Self(PackedPtr::new(
+                Some(Arc::new(InvalidationPathsHeap { normal, high })),
+                TAG_ALLOCATED,
+            )),
         }
+    }
+
+    fn get(&self) -> &InvalidationPathsHeap {
+        match self.0.extra() {
+            TAG_ALLOCATED => self.0.as_ref().unwrap(),
+            TAG_BOTH_CLEAN => &InvalidationPathsHeap {
+                normal: InvalidationPath::Clean,
+                high: InvalidationPath::Clean,
+            },
+            TAG_BOTH_UNKNOWN => &InvalidationPathsHeap {
+                normal: InvalidationPath::Unknown,
+                high: InvalidationPath::Unknown,
+            },
+            _ => unreachable!(),
+        }
+    }
+
+    pub(crate) fn for_dependent(&self, key: DiceKey) -> TrackedInvalidationPaths {
+        let this = self.get();
+        TrackedInvalidationPaths::from_pair(
+            this.normal.for_dependent(key),
+            this.high.for_dependent(key),
+        )
     }
 
     pub(crate) fn clean() -> TrackedInvalidationPaths {
-        TrackedInvalidationPaths {
-            normal: InvalidationPath::Clean,
-            high: InvalidationPath::Clean,
-        }
+        Self::from_pair(InvalidationPath::Clean, InvalidationPath::Clean)
     }
 
     pub(crate) fn at_version(&self, v: VersionNumber) -> TrackedInvalidationPaths {
-        TrackedInvalidationPaths {
-            normal: self.normal.at_version(v),
-            high: self.high.at_version(v),
-        }
+        let this = self.get();
+        TrackedInvalidationPaths::from_pair(this.normal.at_version(v), this.high.at_version(v))
     }
 
     pub(crate) fn new(
@@ -234,28 +267,27 @@ impl TrackedInvalidationPaths {
         }));
         match priority {
             InvalidationSourcePriority::Ignored => Self::clean(),
-            InvalidationSourcePriority::Normal => Self {
-                normal: path,
-                high: InvalidationPath::Clean,
-            },
-            InvalidationSourcePriority::High => Self {
-                normal: path.dupe(),
-                high: path,
-            },
+            InvalidationSourcePriority::Normal => Self::from_pair(path, InvalidationPath::Clean),
+            InvalidationSourcePriority::High => Self::from_pair(path.dupe(), path),
         }
     }
 
     pub(crate) fn update(&mut self, new_paths: TrackedInvalidationPaths) {
-        self.normal.update(new_paths.normal);
-        self.high.update(new_paths.high);
+        let this = self.get();
+        let new_paths = new_paths.get();
+        let mut normal = this.normal.dupe();
+        let mut high = this.high.dupe();
+        normal.update(new_paths.normal.dupe());
+        high.update(new_paths.high.dupe());
+        *self = Self::from_pair(normal, high);
     }
 
     pub(crate) fn get_normal(&self) -> InvalidationPath {
-        self.normal.dupe()
+        self.get().normal.dupe()
     }
 
     pub(crate) fn get_high(&self) -> InvalidationPath {
-        self.high.dupe()
+        self.get().high.dupe()
     }
 }
 
@@ -403,20 +435,19 @@ pub mod testing {
 
     impl MakeInvalidationPaths {
         pub fn into(self) -> TrackedInvalidationPaths {
-            TrackedInvalidationPaths {
-                normal: InvalidationPath::Invalidated(Arc::new(InvalidationPathNode {
-                    key: self.normal.0,
-                    version: VersionNumber::new(self.normal.1),
+            let normal = InvalidationPath::Invalidated(Arc::new(InvalidationPathNode {
+                key: self.normal.0,
+                version: VersionNumber::new(self.normal.1),
+                cause: InvalidationPath::Clean,
+            }));
+            let high = self.high.map_or(InvalidationPath::Clean, |(k, v)| {
+                InvalidationPath::Invalidated(Arc::new(InvalidationPathNode {
+                    key: k,
+                    version: VersionNumber::new(v),
                     cause: InvalidationPath::Clean,
-                })),
-                high: self.high.map_or(InvalidationPath::Clean, |(k, v)| {
-                    InvalidationPath::Invalidated(Arc::new(InvalidationPathNode {
-                        key: k,
-                        version: VersionNumber::new(v),
-                        cause: InvalidationPath::Clean,
-                    }))
-                }),
-            }
+                }))
+            });
+            TrackedInvalidationPaths::from_pair(normal, high)
         }
     }
 }

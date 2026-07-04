@@ -109,7 +109,7 @@ impl RecordedDeps {
     }
 }
 
-mini_vec::size_assert::words_of_type!(RecordingDepsTracker, 8);
+mini_vec::size_assert::words_of_type!(RecordingDepsTracker, 5);
 
 fn _check_deps_trackers_send_and_sync() {
     fn _assert_send_sync<T: Send + Sync>() {}
