@@ -152,6 +152,7 @@ members = [
   "remote_execution/oss/re_grpc_proto",
   "shed/lock_free_hashtable",
   "shed/lock_free_vec",
+  "shed/mini_vec",
   "shed/provider",
   "shed/setsketch",
   "shed/static_interner",
@@ -473,4 +474,4 @@ xattr = "1.6.1"
 zstd = { version = "0.13.3", features = ["experimental", "zstdmt"] }
 
 [workspace.lints.rust]
-unexpected_cfgs = { level = "allow", check-cfg = ["cfg(fbcode_build)", "cfg(buck_build)", "cfg(client_only)", "cfg(tokio_unstable)"]}
+unexpected_cfgs = { level = "allow", check-cfg = ["cfg(fbcode_build)", "cfg(buck_build)", "cfg(client_only)", "cfg(tokio_unstable)", "cfg(mini_vec_no_ptr_packing)"]}
