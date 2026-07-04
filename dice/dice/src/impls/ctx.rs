@@ -311,8 +311,9 @@ impl ModernComputeCtx<'_> {
             |cancellation| {
                 async move {
                     let res = closure(&mut inner_ctx, cancellation).await;
-                    let dep_trackers = inner_ctx.0.into_owned().1;
-                    (res, dep_trackers)
+                    // FIXME(JakobDegen): Why are we ignoring the other two?
+                    let (deps, _, _) = inner_ctx.0.finalize();
+                    (res, deps)
                 }
                 .boxed()
             },
@@ -320,8 +321,7 @@ impl ModernComputeCtx<'_> {
             ctx_data,
         );
 
-        task.map(move |(res, dep_trackers)| {
-            let deps = dep_trackers.collect_deps();
+        task.map(move |(res, deps)| {
             let validity = deps.deps_validity;
             let mut self_dep_trackers = self_dep_trackers.lock();
             for k in deps.deps.iter_keys() {
@@ -505,15 +505,6 @@ pub(crate) struct CoreCtx {
 }
 
 impl ModernComputeCtx<'static> {
-    fn into_owned(self) -> (CoreCtx, RecordingDepsTracker) {
-        match self {
-            ModernComputeCtx::Owned {
-                ctx_data,
-                dep_trackers,
-            } => (ctx_data, dep_trackers),
-            _ => unreachable!(),
-        }
-    }
     pub(crate) fn finalize(
         self,
     ) -> (
@@ -521,7 +512,13 @@ impl ModernComputeCtx<'static> {
         EvaluationData,
         KeyComputingUserCycleDetectorData,
     ) {
-        let (data, dep_trackers) = self.into_owned();
+        let (data, dep_trackers) = match self {
+            ModernComputeCtx::Owned {
+                ctx_data,
+                dep_trackers,
+            } => (ctx_data, dep_trackers),
+            _ => unreachable!(),
+        };
         (
             dep_trackers.collect_deps(),
             data.evaluation_data.into_inner(),
@@ -531,6 +528,7 @@ impl ModernComputeCtx<'static> {
 }
 
 struct DepsTrackerHolder<'a>(Either<&'a mut RecordingDepsTracker, &'a Mutex<RecordingDepsTracker>>);
+
 impl<'a> DepsTrackerHolder<'a> {
     fn lock(self) -> impl DerefMut<Target = RecordingDepsTracker> {
         self.0.map_right(|v| v.lock())
