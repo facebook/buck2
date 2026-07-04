@@ -159,9 +159,9 @@ impl VersionEpochState {
     pub(crate) fn compute_projection(
         &self,
         key: DiceKey,
-        state: CoreStateHandle,
+        base: &MaybeValidDiceValue,
+        base_invalidation_paths: &TrackedInvalidationPaths,
         transaction: &TransactionData,
-        eval: SyncEvaluator,
     ) -> CancellableResult<DiceComputedValue> {
         let task = match self.cache.get_projection(key) {
             SharedCacheLookup::Finished(result) => {
@@ -181,7 +181,16 @@ impl VersionEpochState {
             Ok(handle) => {
                 transaction.started(key);
                 // We inserted and are expected to do the computation
-                let r = project_for_key(state, handle, key, self.version, self.version_epoch, eval);
+                let eval_result =
+                    transaction.evaluate_projection(key, base, base_invalidation_paths);
+                let r = handle_project_eval_result(
+                    &transaction.dice.state_handle,
+                    handle,
+                    key,
+                    self.version,
+                    self.version_epoch,
+                    eval_result,
+                );
                 transaction.finished(key);
                 r
             }
@@ -285,6 +294,30 @@ impl TransactionData {
         }
     }
 
+    fn evaluate_projection(
+        &self,
+        key: DiceKey,
+        base: &MaybeValidDiceValue,
+        base_invalidation_paths: &TrackedInvalidationPaths,
+    ) -> KeyEvaluationResult {
+        let DiceKeyErased::Projection(proj) = self.dice.key_index.get(key) else {
+            unreachable!("cannot evaluate async keys synchronously")
+        };
+        let ctx = DiceProjectionComputations {
+            data: &self.dice.global_data,
+            user_data: &self.user_data,
+        };
+
+        let value = proj.proj().compute(base, &ctx);
+
+        KeyEvaluationResult {
+            value: MaybeValidDiceValue::new(value, base.validity()),
+            deps: SeriesParallelDeps::serial_from_vec(vec![proj.base()]),
+            storage: proj.proj().storage_type(),
+            invalidation_paths: base_invalidation_paths.for_dependent(key),
+        }
+    }
+
     pub(crate) fn started(&self, k: DiceKey) {
         let desc = self.dice.key_index.get(k).key_type_name();
 
@@ -334,16 +367,14 @@ impl TransactionData {
     }
 }
 
-fn project_for_key(
-    state: CoreStateHandle,
+fn handle_project_eval_result(
+    state: &CoreStateHandle,
     handle: ProjectionTaskCompletionHandle,
     k: DiceKey,
     v: VersionNumber,
     version_epoch: VersionEpoch,
-    eval: SyncEvaluator,
+    eval_result: KeyEvaluationResult,
 ) -> CancellableResult<DiceComputedValue> {
-    let eval_result = eval.evaluate(k);
-
     let (res, invalidation_paths, state_future) = {
         let KeyEvaluationResult {
             value,
@@ -392,55 +423,6 @@ fn project_for_key(
     };
 
     handle.complete(res)
-}
-
-/// Evaluates Keys
-#[derive(Clone, Dupe)]
-pub(crate) struct SyncEvaluator {
-    user_data: Arc<UserComputationData>,
-    dice: StdArc<Dice>,
-    base: MaybeValidDiceValue,
-    base_invalidation_paths: TrackedInvalidationPaths,
-}
-
-impl SyncEvaluator {
-    pub(crate) fn new(
-        user_data: Arc<UserComputationData>,
-        dice: StdArc<Dice>,
-        base: MaybeValidDiceValue,
-        base_invalidation_paths: TrackedInvalidationPaths,
-    ) -> Self {
-        Self {
-            user_data,
-            dice,
-            base,
-            base_invalidation_paths,
-        }
-    }
-
-    pub(crate) fn evaluate(&self, key: DiceKey) -> KeyEvaluationResult {
-        let key_erased = self.dice.key_index.get(key);
-        match key_erased {
-            DiceKeyErased::Key(_) => {
-                unreachable!("cannot evaluate async keys synchronously")
-            }
-            DiceKeyErased::Projection(proj) => {
-                let ctx = DiceProjectionComputations {
-                    data: &self.dice.global_data,
-                    user_data: &self.user_data,
-                };
-
-                let value = proj.proj().compute(&self.base, &ctx);
-
-                KeyEvaluationResult {
-                    value: MaybeValidDiceValue::new(value, self.base.validity()),
-                    deps: SeriesParallelDeps::serial_from_vec(vec![proj.base()]),
-                    storage: proj.proj().storage_type(),
-                    invalidation_paths: self.base_invalidation_paths.for_dependent(key),
-                }
-            }
-        }
-    }
 }
 
 pub(crate) struct KeyEvaluationResult {
