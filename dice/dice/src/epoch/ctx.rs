@@ -147,10 +147,9 @@ impl<'d> TrackedComputations<'d> {
     where
         K: Key,
     {
-        let (ctx_data, dep_trackers) = self.unpack();
-        ctx_data
-            .compute_opaque(key)
-            .map(move |r| r.map(|opaque| Self::opaque_into_value_impl(dep_trackers, opaque).dupe()))
+        self.ctx_data().compute_opaque(key).map(move |r| {
+            r.map(|opaque| Self::opaque_into_value_impl(self.dep_trackers_holder(), opaque).dupe())
+        })
     }
 
     /// Compute "opaque" value where the value is only accessible via projections.
@@ -523,6 +522,10 @@ impl<'d> TrackedComputations<'d> {
                 compute: ctx_data, ..
             } => ctx_data,
         }
+    }
+
+    fn dep_trackers_holder(&mut self) -> DepsTrackerHolder<'_> {
+        self.unpack().1
     }
 
     fn unpack(&mut self) -> (&'d ComputeCtx, DepsTrackerHolder<'_>) {
