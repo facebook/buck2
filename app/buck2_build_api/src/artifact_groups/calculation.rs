@@ -111,10 +111,10 @@ impl ArtifactGroupCalculation for DiceComputations<'_> {
 ///    of the ArtifactGroupValues until `into_group_values()` is called. For callers waiting
 ///    on many inputs, this allows them to only allocate those large values only after all
 ///    inputs are ready.
-pub(crate) fn ensure_artifact_group_staged<'a>(
-    ctx: &'a mut DiceComputations,
+pub(crate) fn ensure_artifact_group_staged<'a, 'd>(
+    ctx: &'a mut DiceComputations<'d>,
     input: ResolvedArtifactGroup<'a>,
-) -> impl Future<Output = buck2_error::Result<EnsureArtifactGroupReady>> + use<'a> {
+) -> impl Future<Output = buck2_error::Result<EnsureArtifactGroupReady>> + use<'a, 'd> {
     match input {
         ResolvedArtifactGroup::Artifact(artifact) => {
             ensure_artifact_staged(ctx, artifact.clone()).left_future()
@@ -127,10 +127,10 @@ pub(crate) fn ensure_artifact_group_staged<'a>(
 }
 
 /// See [ensure_artifact_group_staged].
-pub(super) fn ensure_base_artifact_staged<'a>(
-    dice: &'a mut DiceComputations,
+pub(super) fn ensure_base_artifact_staged<'a, 'd>(
+    dice: &'a mut DiceComputations<'d>,
     artifact: BaseArtifactKind,
-) -> impl Future<Output = buck2_error::Result<EnsureArtifactGroupReady>> + use<'a> {
+) -> impl Future<Output = buck2_error::Result<EnsureArtifactGroupReady>> + use<'a, 'd> {
     match artifact {
         BaseArtifactKind::Build(built) => ensure_build_artifact_staged(dice, built).left_future(),
         BaseArtifactKind::Source(source) => {
@@ -140,10 +140,10 @@ pub(super) fn ensure_base_artifact_staged<'a>(
 }
 
 /// See [ensure_artifact_group_staged].
-pub(super) fn ensure_artifact_staged<'a>(
-    dice: &'a mut DiceComputations,
+pub(super) fn ensure_artifact_staged<'a, 'd>(
+    dice: &'a mut DiceComputations<'d>,
     artifact: Artifact,
-) -> impl Future<Output = buck2_error::Result<EnsureArtifactGroupReady>> + use<'a> {
+) -> impl Future<Output = buck2_error::Result<EnsureArtifactGroupReady>> + use<'a, 'd> {
     let ArtifactKind { base, path } = artifact.data();
     match path.is_empty() {
         true => ensure_base_artifact_staged(dice, base.clone()).left_future(),
@@ -154,10 +154,10 @@ pub(super) fn ensure_artifact_staged<'a>(
     }
 }
 
-fn ensure_build_artifact_staged<'a>(
-    dice: &'a mut DiceComputations,
+fn ensure_build_artifact_staged<'a, 'd>(
+    dice: &'a mut DiceComputations<'d>,
     built: BuildArtifact,
-) -> impl Future<Output = buck2_error::Result<EnsureArtifactGroupReady>> + use<'a> {
+) -> impl Future<Output = buck2_error::Result<EnsureArtifactGroupReady>> + use<'a, 'd> {
     ActionCalculation::build_action(dice, built.key()).map(move |action_outputs| {
         let action_outputs = action_outputs?;
         if let Some(value) = action_outputs.get(built.get_path()) {

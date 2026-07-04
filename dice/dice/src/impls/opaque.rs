@@ -110,7 +110,7 @@ mod tests {
 
         assert_eq!(ctx.dep_trackers().recorded_deps(), HashSet::default());
 
-        assert_eq!(ctx.opaque_into_value(opaque), 1);
+        assert_eq!(*ctx.opaque_into_value(opaque), 1);
 
         assert_eq!(
             ctx.dep_trackers().recorded_deps(),
