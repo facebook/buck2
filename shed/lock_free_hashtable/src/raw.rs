@@ -240,6 +240,37 @@ impl<T: AtomicValue> LockFreeRawTable<T> {
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
+
+    /// Synchronize against all insert operations.
+    ///
+    /// Consider two threads and a shared flag variable, like this:
+    ///
+    /// ```text
+    /// # Thread 1              # Thread 2
+    /// table.insert(k, v);     store(flag, true, Relaxed);
+    /// load(flag, Relaxed);    table.iter() // Alternatively: table.get(k)
+    /// ```
+    ///
+    /// You would like to gurantee that either Thread 1 sees the flag as set or that Thread 2 sees
+    /// the inserted item.
+    ///
+    /// Under the C++ memory model, no strength of ordering on the `flag` operations is enough to
+    /// get that guarantee. The only way to get there is to insert a full SeqCst fence in between
+    /// both operations in each thread. If you'd like to learn more about this, ask your favorite
+    /// LLM about Store Buffering Pairs.
+    ///
+    /// This API is here to let you use the table's internal synchronization mechanisms to achieve
+    /// that guarantee more efficiently. In C++ terms, this operation creates a happens-before edge
+    /// with every `insert` operation on this table. As a result, calling this between the two
+    /// statements on Thread 2 suffices in the example above.
+    ///
+    /// Note that this is not particularly fast, and may become even slower in the future. It's
+    /// intended for cases where Thread 2 is the coldpath and you care about keeping expensive
+    /// synchronization out of Thread 1.
+    #[inline]
+    pub fn synchronize_with_inserts(&self) {
+        drop(self.write_lock.write());
+    }
 }
 
 /// Consuming iterator over entries in a `LockFreeRawTable`.
