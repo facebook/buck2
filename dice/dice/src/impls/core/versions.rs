@@ -69,8 +69,8 @@ struct ActiveVersionData {
 impl VersionTracker {
     pub(crate) fn new() -> Self {
         VersionTracker {
-            current: VersionNumber::ZERO,
-            invalid_before: VersionNumber::ZERO,
+            current: VersionNumber::FIRST,
+            invalid_before: VersionNumber::FIRST,
             active_versions: HashMap::default(),
             epoch_tracker: VersionEpochTracker::new(),
         }

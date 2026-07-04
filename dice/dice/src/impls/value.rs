@@ -406,13 +406,13 @@ pub mod testing {
             TrackedInvalidationPaths {
                 normal: InvalidationPath::Invalidated(Arc::new(InvalidationPathNode {
                     key: self.normal.0,
-                    version: VersionNumber(self.normal.1),
+                    version: VersionNumber::new(self.normal.1),
                     cause: InvalidationPath::Clean,
                 })),
                 high: self.high.map_or(InvalidationPath::Clean, |(k, v)| {
                     InvalidationPath::Invalidated(Arc::new(InvalidationPathNode {
                         key: k,
-                        version: VersionNumber(v),
+                        version: VersionNumber::new(v),
                         cause: InvalidationPath::Clean,
                     }))
                 }),
