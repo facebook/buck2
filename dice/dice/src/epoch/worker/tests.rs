@@ -1010,7 +1010,7 @@ async fn test_check_dependencies_can_eagerly_check_all_parallel_deps() -> anyhow
         &TrackedInvalidationPaths::clean(),
     );
     {
-        let parallel = deps.push_parallel(0).0;
+        let mut branches = Vec::new();
         for i in 0..3 {
             let offset = i * 5;
             let mut deps = RecordingDepsTracker::new(TrackedInvalidationPaths::clean());
@@ -1025,29 +1025,31 @@ async fn test_check_dependencies_can_eagerly_check_all_parallel_deps() -> anyhow
                 &TrackedInvalidationPaths::clean(),
             );
             {
-                let parallel = deps.push_parallel(2).0;
-                let mut deps = RecordingDepsTracker::new(TrackedInvalidationPaths::clean());
-                deps.record(
+                let mut inner_branches = Vec::new();
+                let mut inner = RecordingDepsTracker::new(TrackedInvalidationPaths::clean());
+                inner.record(
                     keys[5 + offset],
                     DiceValidity::Valid,
                     &TrackedInvalidationPaths::clean(),
                 );
-                parallel.alloc(deps.collect_deps());
-                let mut deps = RecordingDepsTracker::new(TrackedInvalidationPaths::clean());
-                deps.record(
+                inner_branches.push(inner.collect_deps());
+                let mut inner = RecordingDepsTracker::new(TrackedInvalidationPaths::clean());
+                inner.record(
                     keys[6 + offset],
                     DiceValidity::Valid,
                     &TrackedInvalidationPaths::clean(),
                 );
-                parallel.alloc(deps.collect_deps());
+                inner_branches.push(inner.collect_deps());
+                deps.insert_parallel_for_test(inner_branches);
             }
             deps.record(
                 keys[7 + offset],
                 DiceValidity::Valid,
                 &TrackedInvalidationPaths::clean(),
             );
-            parallel.alloc(deps.collect_deps());
+            branches.push(deps.collect_deps());
         }
+        deps.insert_parallel_for_test(branches);
     }
     deps.record(
         keys[18],

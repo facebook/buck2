@@ -40,7 +40,6 @@ thiserror.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 triomphe.workspace = true
-typed-arena.workspace = true
 
 [dev-dependencies]
 assert_matches.workspace = true

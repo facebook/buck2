@@ -479,6 +479,9 @@ fn _assert_dice_compute_future_sizes() {
 
     mini_vec::size_assert::words_of_async_fn_future!(DiceComputations::compute::<K>, (_, _), 8);
 
+    // 2 words per branch (the `ParallelBranchFuture`) plus `futures::future::Join` overhead. In
+    // exchange for this being inline instead of a single pointer, each branch saves a heap
+    // allocation that used to hold the branch's ctx.
     mini_vec::size_assert::words_of_async_fn_future!(
         DiceComputations::compute2::<_, u32, _, u32>,
         (
@@ -486,6 +489,6 @@ fn _assert_dice_compute_future_sizes() {
             DiceComputations::declare_closure(|ctx| panic!()),
             DiceComputations::declare_closure(|ctx| panic!())
         ),
-        4
+        8
     );
 }

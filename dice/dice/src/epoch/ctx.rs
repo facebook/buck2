@@ -17,7 +17,6 @@ use std::sync::Arc as StdArc;
 use dice_error::DiceError;
 use dice_error::DiceResult;
 use dice_futures::cancellation::CancellationContext;
-use dice_futures::owning_future::OwningFuture;
 use dice_futures::spawn::spawn_dropcancel;
 use dupe::Dupe;
 use futures::FutureExt;
@@ -25,7 +24,6 @@ use futures::TryFutureExt;
 use futures::future::BoxFuture;
 use itertools::Either;
 use parking_lot::Mutex;
-use typed_arena::Arena;
 
 use crate::ActivationData;
 use crate::LinearRecomputeDiceComputations;
@@ -41,7 +39,11 @@ use crate::arc::Arc;
 use crate::deps::RecordedDeps;
 use crate::deps::RecordingDepsTracker;
 use crate::dice::Dice;
+use crate::epoch::branches::BranchEntry;
+use crate::epoch::branches::ParallelBranchFuture;
+use crate::epoch::branches::ParallelGroup;
 use crate::epoch::evaluator::TransactionData;
+use crate::epoch::linear_branches::LinearBranches;
 use crate::epoch::evaluator::VersionEpochState;
 use crate::key::CowDiceKeyHashed;
 use crate::key::DiceKey;
@@ -172,10 +174,11 @@ impl<'d> TrackedComputations<'d> {
     ) -> Vec<impl Future<Output = T> + use<'a, Computes, F, T>>
     where
         Computes: IntoIterator<Item = F>,
+        Computes::IntoIter: ExactSizeIterator,
         F: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
     {
         let iter = computes.into_iter();
-        let parallel = self.parallel_builder(iter.size_hint().0);
+        let mut parallel = self.parallel_builder(iter.len());
         iter.map(|func| parallel.compute(func)).collect()
     }
 
@@ -191,7 +194,7 @@ impl<'d> TrackedComputations<'d> {
         Compute1: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
         Compute2: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, U> + Send,
     {
-        let parallel = self.parallel_builder(2);
+        let mut parallel = self.parallel_builder(2);
         (parallel.compute(compute1), parallel.compute(compute2))
     }
 
@@ -210,7 +213,7 @@ impl<'d> TrackedComputations<'d> {
         Compute2: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, U> + Send,
         Compute3: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, V> + Send,
     {
-        let parallel = self.parallel_builder(3);
+        let mut parallel = self.parallel_builder(3);
 
         (
             parallel.compute(compute1),
@@ -228,23 +231,26 @@ impl<'d> TrackedComputations<'d> {
         Fut: Future<Output = T>,
     {
         let (ctx_data, self_dep_trackers) = self.unpack();
-        let dep_trackers = Arc::new(Mutex::new(RecordingDepsTracker::new(
-            // TODO(cjhopman): if inspected during the with_linear_recompute, this will be missing some invalidation paths.
-            TrackedInvalidationPaths::clean(),
-        )));
+        let shared = Arc::new(LinearShared {
+            dep_trackers: Mutex::new(RecordingDepsTracker::new(
+                // TODO(cjhopman): if inspected during the with_linear_recompute, this will be missing some invalidation paths.
+                TrackedInvalidationPaths::clean(),
+            )),
+            branch_ctxs: LinearBranches::new(),
+        });
         let fut = func(LinearRecomputeDiceComputations(
             LinearRecomputeComputations {
                 ctx_data,
-                dep_trackers: dep_trackers.dupe(),
+                shared: shared.dupe(),
             },
         ));
 
         fut.map(move |v| {
             let mut self_dep_trackers = self_dep_trackers.lock();
-            let dep_trackers = Arc::into_inner(dep_trackers)
-                .unwrap()
-                .into_inner()
-                .collect_deps();
+            // The unwrap is fine because the `LinearRecomputeDiceComputations` holding the other
+            // reference is dead by the time the inner future completes.
+            let shared = Arc::into_inner(shared).unwrap();
+            let dep_trackers = shared.dep_trackers.into_inner().collect_deps();
             let validity = dep_trackers.deps_validity;
             for k in dep_trackers.deps.iter_keys() {
                 self_dep_trackers.record(k, validity, &TrackedInvalidationPaths::clean())
@@ -362,80 +368,70 @@ impl<'a> From<TrackedComputations<'a>> for DiceComputations<'a> {
 /// Like `TrackedComputations`, but for linear recompute.
 pub(crate) struct LinearRecomputeComputations<'a> {
     ctx_data: &'a ComputeCtx,
-    dep_trackers: Arc<Mutex<RecordingDepsTracker>>,
+    shared: Arc<LinearShared>,
+}
+
+/// The state shared by all the ctxs of one `with_linear_recompute`.
+pub(crate) struct LinearShared {
+    dep_trackers: Mutex<RecordingDepsTracker>,
+    /// Owns the ctxs of parallel computes done through linear ctxs; see [`LinearBranches`].
+    branch_ctxs: LinearBranches,
 }
 
 impl LinearRecomputeComputations<'_> {
     pub(crate) fn get(&self) -> DiceComputations<'_> {
         DiceComputations(TrackedComputations::Linear {
             compute: self.ctx_data,
-            dep_trackers: &self.dep_trackers,
+            shared: &self.shared,
         })
     }
 }
 
 /// This is used to create the ctx for each individual parallel compute (from compute_many/compute_join/compute2/etc).
 ///
-/// For the Normal case, each parallel ctx will be expected to record its deps into a RecordedDeps allocated in the arena.
+/// For the Normal case, each parallel ctx records its deps into its own tracker, which the group
+/// owns and which the parent gathers up when the parallel compute is finished.
 ///
 /// For the Linear case, each parallel ctx will record deps into the shared RecordingDepsTracker.
 pub(crate) enum ModernComputeCtxParallelBuilder<'a> {
     Normal {
-        ctx_data: &'a ComputeCtx,
-        tracker_arena: &'a Arena<RecordedDeps>,
-        invalidation_paths: &'a TrackedInvalidationPaths,
+        /// The branches, pre-built by `parallel_builder`; `compute` claims them in order.
+        handout: std::slice::IterMut<'a, BranchEntry>,
     },
     Linear {
         ctx_data: &'a ComputeCtx,
-        dep_trackers: &'a Mutex<RecordingDepsTracker>,
+        shared: &'a LinearShared,
     },
 }
 
 impl<'a> ModernComputeCtxParallelBuilder<'a> {
-    fn compute<F, T>(&self, func: F) -> impl Future<Output = T> + use<'a, T, F>
+    fn compute<F, T>(&mut self, func: F) -> ParallelBranchFuture<'a, BoxFuture<'a, T>>
     where
         // We don't actually need this closure to be `Send` and so we don't require that here, but
         // all the public APIs still do. It's unclear what we should commit to.
         F: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T>,
     {
         match self {
-            ModernComputeCtxParallelBuilder::Normal {
-                ctx_data,
-                tracker_arena,
-                invalidation_paths,
-            } => OwningFuture::new(
-                (
-                    tracker_arena.alloc(RecordedDeps::new()),
-                    TrackedComputations::Normal {
-                        compute: ctx_data,
-                        dep_trackers: RecordingDepsTracker::new((*invalidation_paths).dupe()),
-                    }
-                    .into(),
-                ),
-                // Note: We need to use `OwningFuture` here specifically because we want `func` to
-                // be called immediately instead of on the first poll. It's unclear whether that's
-                // needed for the API (someone should decide and commit either way) but it's
-                // important as a memory optimization, since it prevents the future returned from
-                // this function needing room to store `func`
-                |(_, ctx)| func(ctx),
-            )
-            .map_taking_data(|v, (this_deps, ctx)| {
-                *this_deps = ctx.0.finalize();
-                v
-            })
-            .left_future(),
-            ModernComputeCtxParallelBuilder::Linear {
-                ctx_data,
-                dep_trackers,
-            } => OwningFuture::new(
-                TrackedComputations::Linear {
-                    compute: ctx_data,
-                    dep_trackers,
-                }
-                .into(),
-                func,
-            )
-            .right_future(),
+            ModernComputeCtxParallelBuilder::Normal { handout } => {
+                let entry = handout
+                    .next()
+                    .expect("more branches than the ExactSizeIterator promised");
+                // SAFETY: `parallel_builder` erased exactly this lifetime when it built the
+                // group's ctxs.
+                unsafe { ParallelBranchFuture::launch_erased(entry, func) }
+            }
+            ModernComputeCtxParallelBuilder::Linear { ctx_data, shared } => {
+                ParallelBranchFuture::launch(
+                    shared.branch_ctxs.alloc(
+                        TrackedComputations::Linear {
+                            compute: ctx_data,
+                            shared,
+                        }
+                        .into(),
+                    ),
+                    func,
+                )
+            }
         }
     }
 }
@@ -464,7 +460,7 @@ pub(crate) enum TrackedComputations<'a> {
     /// The ctx within a with_linear_recompute.
     Linear {
         compute: &'a ComputeCtx,
-        dep_trackers: &'a Mutex<RecordingDepsTracker>,
+        shared: &'a LinearShared,
     },
 }
 
@@ -489,30 +485,33 @@ impl<'a> DepsTrackerHolder<'a> {
 }
 
 impl<'d> TrackedComputations<'d> {
-    fn parallel_builder(&mut self, size_hint: usize) -> ModernComputeCtxParallelBuilder<'_> {
+    fn parallel_builder(&mut self, len: usize) -> ModernComputeCtxParallelBuilder<'_> {
         match self {
             TrackedComputations::Normal {
                 compute: ctx_data,
                 dep_trackers,
             } => {
-                let (tracker_arena, invalidation_paths) = dep_trackers.push_parallel(size_hint);
+                let ctx_data: &ComputeCtx = ctx_data;
+                let invalidation_paths = dep_trackers.invalidation_paths().dupe();
+                let group = ParallelGroup::new((0..len).map(|_| {
+                    TrackedComputations::Normal {
+                        compute: ctx_data,
+                        dep_trackers: RecordingDepsTracker::new(invalidation_paths.dupe()),
+                    }
+                    .into()
+                }));
                 ModernComputeCtxParallelBuilder::Normal {
-                    ctx_data,
-                    tracker_arena,
-                    invalidation_paths,
+                    handout: dep_trackers.push_parallel(group).handout(),
                 }
             }
             TrackedComputations::Linear {
                 compute: ctx_data,
-                dep_trackers,
-            } => ModernComputeCtxParallelBuilder::Linear {
-                ctx_data,
-                dep_trackers,
-            },
+                shared,
+            } => ModernComputeCtxParallelBuilder::Linear { ctx_data, shared },
         }
     }
 
-    fn ctx_data(&self) -> &'d ComputeCtx {
+    pub(super) fn ctx_data(&self) -> &'d ComputeCtx {
         match self {
             TrackedComputations::Normal {
                 compute: ctx_data, ..
@@ -538,8 +537,11 @@ impl<'d> TrackedComputations<'d> {
             ),
             TrackedComputations::Linear {
                 compute: ctx_data,
-                dep_trackers,
-            } => (ctx_data, DepsTrackerHolder(Either::Right(dep_trackers))),
+                shared,
+            } => (
+                ctx_data,
+                DepsTrackerHolder(Either::Right(&shared.dep_trackers)),
+            ),
         }
     }
 
