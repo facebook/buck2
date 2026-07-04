@@ -23,6 +23,7 @@ use crate::impls::key::DiceKey;
 use crate::impls::task::dice::DiceTask;
 use crate::impls::task::dice::DiceTaskInternal;
 use crate::impls::task::dice::DiceTaskRef;
+use crate::impls::task::dice::PreparedDiceTask;
 use crate::impls::task::dice::ReadValueResult;
 use crate::impls::value::DiceComputedValue;
 
@@ -45,7 +46,7 @@ pub(crate) enum SharedCacheLookup<'d> {
 
 pub(crate) enum SharedCacheInsert<'d> {
     Occupied(DiceTaskRef<'d>),
-    Inserted,
+    Inserted(PreparedDiceTask),
     TransactionCancelled,
 }
 
@@ -72,14 +73,15 @@ impl SharedCache {
         }
     }
 
-    pub(crate) fn insert(&self, key: DiceKey, task: DiceTask) -> SharedCacheInsert {
+    pub(crate) fn insert(&self, key: DiceKey) -> SharedCacheInsert {
         if self.data.is_cancelled.load(Ordering::Relaxed) {
             return SharedCacheInsert::TransactionCancelled;
         }
 
+        let prepared_task = DiceTask::prepare(key);
         let (entry, not_inserted_value) = self.data.storage.insert(
             Self::key_hash(key),
-            task.internal,
+            prepared_task.task().dupe().internal,
             |left, right| left.key == right.key,
             |task| Self::key_hash(task.key),
         );
@@ -90,8 +92,19 @@ impl SharedCache {
 
         match not_inserted_value {
             Some(_) => SharedCacheInsert::Occupied(DiceTaskRef { internal: entry }),
-            None => SharedCacheInsert::Inserted,
+            None => SharedCacheInsert::Inserted(prepared_task),
         }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn testing_insert_task(&self, key: DiceKey, task: DiceTask) {
+        let (_, not_inserted_value) = self.data.storage.insert(
+            Self::key_hash(key),
+            task.internal,
+            |left, right| left.key == right.key,
+            |task| Self::key_hash(task.key),
+        );
+        assert!(not_inserted_value.is_none());
     }
 
     pub(crate) fn new() -> Self {
@@ -230,13 +243,6 @@ mod tests {
         })
     }
 
-    fn insert_task(cache: &SharedCache, key: DiceKey, task: DiceTask) {
-        assert!(matches!(
-            cache.insert(key, task),
-            SharedCacheInsert::Inserted
-        ));
-    }
-
     #[tokio::test]
     async fn test_drain_task() {
         let cache = SharedCache::new();
@@ -260,13 +266,13 @@ mod tests {
         let yet_to_cancel_tasks2 = make_never_finish_yet_to_cancel_task(pending_key2);
         let yet_to_cancel_tasks3 = make_never_finish_yet_to_cancel_task(pending_key3);
 
-        insert_task(&cache, completed_key1, completed_task1);
-        insert_task(&cache, completed_key2, completed_task2);
-        insert_task(&cache, finished_cancelling_key1, finished_cancelling_tasks1);
-        insert_task(&cache, finished_cancelling_key2, finished_cancelling_tasks2);
-        insert_task(&cache, pending_key1, yet_to_cancel_tasks1);
-        insert_task(&cache, pending_key2, yet_to_cancel_tasks2);
-        insert_task(&cache, pending_key3, yet_to_cancel_tasks3);
+        cache.testing_insert_task(completed_key1, completed_task1);
+        cache.testing_insert_task(completed_key2, completed_task2);
+        cache.testing_insert_task(finished_cancelling_key1, finished_cancelling_tasks1);
+        cache.testing_insert_task(finished_cancelling_key2, finished_cancelling_tasks2);
+        cache.testing_insert_task(pending_key1, yet_to_cancel_tasks1);
+        cache.testing_insert_task(pending_key2, yet_to_cancel_tasks2);
+        cache.testing_insert_task(pending_key3, yet_to_cancel_tasks3);
 
         assert!(matches!(
             cache.get(completed_key1),
@@ -277,10 +283,7 @@ mod tests {
 
         assert_eq!(pending_tasks.len(), 3);
         assert!(matches!(
-            cache.insert(
-                DiceKey { index: 999 },
-                DiceTask::prepare(DiceKey { index: 999 }).task().dupe()
-            ),
+            cache.insert(DiceKey { index: 999 }),
             SharedCacheInsert::TransactionCancelled
         ));
     }
