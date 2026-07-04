@@ -8,6 +8,10 @@
  * above-listed licenses.
  */
 
+// For naming `AsyncFnOnce::CallOnceFuture` in the parallel compute APIs.
+#![feature(async_fn_traits)]
+#![feature(unboxed_closures)]
+
 //!
 //! The dynamic incremental caching computation engine that powers buckv2.
 //!

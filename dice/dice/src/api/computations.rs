@@ -9,6 +9,7 @@
  */
 
 use std::future::Future;
+use std::ops::AsyncFnOnce;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -172,6 +173,33 @@ impl<'d> DiceComputations<'d> {
         self.0.compute_many(computes)
     }
 
+    /// Like [`Self::compute_many`], but takes async closures, whose futures are stored without
+    /// boxing.
+    ///
+    /// The bounds on these three functions use the angle-bracket form with an explicit `Fut`
+    /// parameter instead of `AsyncFnOnce(..) -> T` sugar plus a bound on the projected
+    /// `F::CallOnceFuture`. The two are equivalent in what they accept, but with the projection,
+    /// the returned opaque type's hidden type mentions `<F as AsyncFnOnce<..>>::CallOnceFuture`,
+    /// and rustc then rejects nested uses of these functions with "implementation of
+    /// `AsyncFnOnce` is not general enough".
+    pub fn compute_many_async<'a, Computes, F, Fut, T>(
+        &'a mut self,
+        computes: Computes,
+    ) -> Vec<impl Future<Output = T> + use<'a, 'd, Computes, F, Fut, T>>
+    where
+        Computes: IntoIterator<Item = F>,
+        Computes::IntoIter: ExactSizeIterator,
+        F: AsyncFnOnce<(&'a mut DiceComputations<'d>,), CallOnceFuture = Fut, Output = T> + Send,
+        Fut: Future<Output = T> + Send,
+    {
+        self.0
+            .compute_many_inner(
+                computes
+                    .into_iter()
+                    .map(|f| move |ctx: &'a mut DiceComputations<'d>| f.async_call_once((ctx,))),
+            )
+    }
+
     /// Maps the items into computation futures and joins on them.
     ///
     /// ```ignore
@@ -199,6 +227,59 @@ impl<'d> DiceComputations<'d> {
             move |ctx: &'a mut DiceComputations<'d>| -> BoxFuture<'a, R> { mapper(ctx, v) }
         }));
         dice_futures::join::join_all(futs)
+    }
+
+    /// Like [`Self::compute_join`], but takes an async closure, whose futures are stored without
+    /// boxing:
+    ///
+    /// ```ignore
+    /// ctx.compute_join_async(keys, async |dice, k: &Key| dice.compute(k).await).await;
+    /// ```
+    pub fn compute_join_async<'a, Items, Mapper, Fut, T, R>(
+        &'a mut self,
+        items: Items,
+        mapper: Mapper,
+    ) -> impl Future<Output = Vec<R>> + use<'a, 'd, Items, Mapper, Fut, T, R>
+    where
+        Items: IntoIterator<Item = T>,
+        Items::IntoIter: ExactSizeIterator,
+        Mapper: AsyncFnOnce<(&'a mut DiceComputations<'d>, T), CallOnceFuture = Fut, Output = R>
+            + Send
+            + Sync
+            + Copy,
+        Fut: Future<Output = R> + Send,
+        T: Send,
+    {
+        let futs = self.0.compute_many_inner(items.into_iter().map(|v| {
+            move |ctx: &'a mut DiceComputations<'d>| mapper.async_call_once((ctx, v))
+        }));
+        dice_futures::join::join_all(futs)
+    }
+
+    /// Like [`Self::try_compute_join`], but takes an async closure, whose futures are stored
+    /// without boxing.
+    pub fn try_compute_join_async<'a, Items, Mapper, Fut, T, R, E>(
+        &'a mut self,
+        items: Items,
+        mapper: Mapper,
+    ) -> impl Future<Output = Result<Vec<R>, E>> + use<'a, 'd, Items, Mapper, Fut, T, R, E>
+    where
+        Items: IntoIterator<Item = T>,
+        Items::IntoIter: ExactSizeIterator,
+        Mapper: AsyncFnOnce<
+                (&'a mut DiceComputations<'d>, T),
+                CallOnceFuture = Fut,
+                Output = Result<R, E>,
+            > + Send
+            + Sync
+            + Copy,
+        Fut: Future<Output = Result<R, E>> + Send,
+        T: Send,
+    {
+        let futs = self.0.compute_many_inner(items.into_iter().map(|v| {
+            move |ctx: &'a mut DiceComputations<'d>| mapper.async_call_once((ctx, v))
+        }));
+        dice_futures::join::try_join_all(futs)
     }
 
     /// Maps the items into computations futures and then returns a future which represents either a
@@ -239,6 +320,57 @@ impl<'d> DiceComputations<'d> {
         futures::future::join(t, u)
     }
 
+    /// Like [`Self::compute2`], but takes async closures, whose futures are stored without
+    /// boxing. Unlike for `compute_join_async`, "without boxing" here means inline in the
+    /// returned future - see the size assertions at the bottom of this file.
+    pub fn compute2_async<'a, Compute1, Fut1, T, Compute2, Fut2, U>(
+        &'a mut self,
+        compute1: Compute1,
+        compute2: Compute2,
+    ) -> impl Future<Output = (T, U)> + use<'a, 'd, Compute1, Fut1, T, Compute2, Fut2, U>
+    where
+        Compute1:
+            AsyncFnOnce<(&'a mut DiceComputations<'d>,), CallOnceFuture = Fut1, Output = T> + Send,
+        Compute2:
+            AsyncFnOnce<(&'a mut DiceComputations<'d>,), CallOnceFuture = Fut2, Output = U> + Send,
+        Fut1: Future<Output = T> + Send,
+        Fut2: Future<Output = U> + Send,
+    {
+        let (t, u) = self.0.compute2(
+            move |ctx| compute1.async_call_once((ctx,)),
+            move |ctx| compute2.async_call_once((ctx,)),
+        );
+        futures::future::join(t, u)
+    }
+
+    /// Like [`Self::try_compute2`], but takes async closures; see [`Self::compute2_async`].
+    pub fn try_compute2_async<'a, Compute1, Fut1, T, Compute2, Fut2, U, E>(
+        &'a mut self,
+        compute1: Compute1,
+        compute2: Compute2,
+    ) -> impl Future<Output = Result<(T, U), E>>
+    + use<'a, 'd, Compute1, Fut1, T, Compute2, Fut2, U, E>
+    where
+        Compute1: AsyncFnOnce<
+                (&'a mut DiceComputations<'d>,),
+                CallOnceFuture = Fut1,
+                Output = Result<T, E>,
+            > + Send,
+        Compute2: AsyncFnOnce<
+                (&'a mut DiceComputations<'d>,),
+                CallOnceFuture = Fut2,
+                Output = Result<U, E>,
+            > + Send,
+        Fut1: Future<Output = Result<T, E>> + Send,
+        Fut2: Future<Output = Result<U, E>> + Send,
+    {
+        let (t, u) = self.0.compute2(
+            move |ctx| compute1.async_call_once((ctx,)),
+            move |ctx| compute2.async_call_once((ctx,)),
+        );
+        futures::future::try_join(t, u)
+    }
+
     /// Compute all the given tasks in parallel.
     pub fn try_compute2<'a, Compute1, T, Compute2, U, E>(
         &'a mut self,
@@ -267,6 +399,69 @@ impl<'d> DiceComputations<'d> {
     {
         let (t, u, v) = self.0.compute3(compute1, compute2, compute3);
         futures::future::join3(t, u, v)
+    }
+
+    /// Like [`Self::compute3`], but takes async closures; see [`Self::compute2_async`].
+    pub fn compute3_async<'a, Compute1, Fut1, T, Compute2, Fut2, U, Compute3, Fut3, V>(
+        &'a mut self,
+        compute1: Compute1,
+        compute2: Compute2,
+        compute3: Compute3,
+    ) -> impl Future<Output = (T, U, V)>
+    + use<'a, 'd, Compute1, Fut1, T, Compute2, Fut2, U, Compute3, Fut3, V>
+    where
+        Compute1:
+            AsyncFnOnce<(&'a mut DiceComputations<'d>,), CallOnceFuture = Fut1, Output = T> + Send,
+        Compute2:
+            AsyncFnOnce<(&'a mut DiceComputations<'d>,), CallOnceFuture = Fut2, Output = U> + Send,
+        Compute3:
+            AsyncFnOnce<(&'a mut DiceComputations<'d>,), CallOnceFuture = Fut3, Output = V> + Send,
+        Fut1: Future<Output = T> + Send,
+        Fut2: Future<Output = U> + Send,
+        Fut3: Future<Output = V> + Send,
+    {
+        let (t, u, v) = self.0.compute3(
+            move |ctx| compute1.async_call_once((ctx,)),
+            move |ctx| compute2.async_call_once((ctx,)),
+            move |ctx| compute3.async_call_once((ctx,)),
+        );
+        futures::future::join3(t, u, v)
+    }
+
+    /// Like [`Self::try_compute3`], but takes async closures; see [`Self::compute2_async`].
+    pub fn try_compute3_async<'a, Compute1, Fut1, T, Compute2, Fut2, U, Compute3, Fut3, V, E>(
+        &'a mut self,
+        compute1: Compute1,
+        compute2: Compute2,
+        compute3: Compute3,
+    ) -> impl Future<Output = Result<(T, U, V), E>>
+    + use<'a, 'd, Compute1, Fut1, T, Compute2, Fut2, U, Compute3, Fut3, V, E>
+    where
+        Compute1: AsyncFnOnce<
+                (&'a mut DiceComputations<'d>,),
+                CallOnceFuture = Fut1,
+                Output = Result<T, E>,
+            > + Send,
+        Compute2: AsyncFnOnce<
+                (&'a mut DiceComputations<'d>,),
+                CallOnceFuture = Fut2,
+                Output = Result<U, E>,
+            > + Send,
+        Compute3: AsyncFnOnce<
+                (&'a mut DiceComputations<'d>,),
+                CallOnceFuture = Fut3,
+                Output = Result<V, E>,
+            > + Send,
+        Fut1: Future<Output = Result<T, E>> + Send,
+        Fut2: Future<Output = Result<U, E>> + Send,
+        Fut3: Future<Output = Result<V, E>> + Send,
+    {
+        let (t, u, v) = self.0.compute3(
+            move |ctx| compute1.async_call_once((ctx,)),
+            move |ctx| compute2.async_call_once((ctx,)),
+            move |ctx| compute3.async_call_once((ctx,)),
+        );
+        futures::future::try_join3(t, u, v)
     }
 
     /// Compute all the given tasks in parallel.
@@ -466,5 +661,41 @@ fn _assert_dice_compute_future_sizes() {
             DiceComputations::declare_closure(|ctx| panic!())
         ),
         8
+    );
+
+    // The future of the canonical async closure mapper - the thing that is stored, unboxed, in
+    // the join combinator's slot for each branch of a `compute_join_async`. There is no way to
+    // assert this for user closures, so this canary is what protects the per-branch memory from
+    // rustc size regressions and from unintentionally costly changes to `compute`'s future.
+    mini_vec::size_assert::words_of_expr!(
+        (async |ctx: &mut DiceComputations, k: &K| ctx.compute(k).await)
+            .async_call_once((panic!(), panic!())),
+        11
+    );
+
+    // The join future itself stays small independently of branch count or mapper size; the
+    // branch futures live behind the combinator's single allocation.
+    mini_vec::size_assert::words_of_async_fn_future!(
+        DiceComputations::compute_join_async,
+        (
+            _,
+            Vec::<u32>::new(),
+            async |ctx: &mut DiceComputations, _k: u32| -> u32 { panic!() }
+        ),
+        5
+    );
+
+    // Unlike compute_join_async, compute2_async's branch futures live inline in the returned
+    // future (there's no shared allocation to home them in), so its size grows with the async
+    // closures' futures - here two canonical single-compute ones. That is the deliberate
+    // tradeoff for not paying a box per branch; this assertion is what keeps it visible.
+    mini_vec::size_assert::words_of_async_fn_future!(
+        DiceComputations::compute2_async,
+        (
+            _,
+            async |ctx: &mut DiceComputations| ctx.compute(&K(0)).await,
+            async |ctx: &mut DiceComputations| ctx.compute(&K(1)).await
+        ),
+        24
     );
 }

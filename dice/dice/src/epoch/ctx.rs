@@ -167,6 +167,25 @@ impl<'d> TrackedComputations<'d> {
         self.ctx_data().compute_opaque(key)
     }
 
+    /// Starts one parallel branch per element, invoking each closure eagerly on a fresh branch
+    /// ctx. This is the primitive that all the parallel compute APIs bottom out in; the future
+    /// type is generic so that both the boxed (`BoxFuture`) and unboxed (async closure) public
+    /// APIs go through here.
+    pub(crate) fn compute_many_inner<'a, Starts, G, Fut>(
+        &'a mut self,
+        starts: Starts,
+    ) -> Vec<ParallelBranchFuture<'a, Fut>>
+    where
+        Starts: IntoIterator<Item = G>,
+        Starts::IntoIter: ExactSizeIterator,
+        G: FnOnce(&'a mut DiceComputations<'d>) -> Fut,
+        Fut: Future,
+    {
+        let iter = starts.into_iter();
+        let mut parallel = self.parallel_builder(iter.len());
+        iter.map(|func| parallel.compute(func)).collect()
+    }
+
     /// Computes all the given tasks in parallel, returning an unordered Stream
     pub(crate) fn compute_many<'a, Computes, F, T>(
         &'a mut self,
@@ -177,41 +196,44 @@ impl<'d> TrackedComputations<'d> {
         Computes::IntoIter: ExactSizeIterator,
         F: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, T> + Send,
     {
-        let iter = computes.into_iter();
-        let mut parallel = self.parallel_builder(iter.len());
-        iter.map(|func| parallel.compute(func)).collect()
+        self.compute_many_inner(computes)
     }
 
-    pub(crate) fn compute2<'a, Compute1, T, Compute2, U>(
+    pub(crate) fn compute2<'a, G1, Fut1, G2, Fut2>(
         &'a mut self,
-        compute1: Compute1,
-        compute2: Compute2,
+        compute1: G1,
+        compute2: G2,
     ) -> (
-        impl Future<Output = T> + use<'a, 'd, Compute1, T, Compute2, U>,
-        impl Future<Output = U> + use<'a, 'd, Compute1, T, Compute2, U>,
+        ParallelBranchFuture<'a, Fut1>,
+        ParallelBranchFuture<'a, Fut2>,
     )
     where
-        Compute1: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, T> + Send,
-        Compute2: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, U> + Send,
+        G1: FnOnce(&'a mut DiceComputations<'d>) -> Fut1,
+        G2: FnOnce(&'a mut DiceComputations<'d>) -> Fut2,
+        Fut1: Future,
+        Fut2: Future,
     {
         let mut parallel = self.parallel_builder(2);
         (parallel.compute(compute1), parallel.compute(compute2))
     }
 
-    pub(crate) fn compute3<'a, Compute1, T, Compute2, U, Compute3, V>(
+    pub(crate) fn compute3<'a, G1, Fut1, G2, Fut2, G3, Fut3>(
         &'a mut self,
-        compute1: Compute1,
-        compute2: Compute2,
-        compute3: Compute3,
+        compute1: G1,
+        compute2: G2,
+        compute3: G3,
     ) -> (
-        impl Future<Output = T> + use<'a, 'd, Compute1, T, Compute2, U, Compute3, V>,
-        impl Future<Output = U> + use<'a, 'd, Compute1, T, Compute2, U, Compute3, V>,
-        impl Future<Output = V> + use<'a, 'd, Compute1, T, Compute2, U, Compute3, V>,
+        ParallelBranchFuture<'a, Fut1>,
+        ParallelBranchFuture<'a, Fut2>,
+        ParallelBranchFuture<'a, Fut3>,
     )
     where
-        Compute1: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, T> + Send,
-        Compute2: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, U> + Send,
-        Compute3: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, V> + Send,
+        G1: FnOnce(&'a mut DiceComputations<'d>) -> Fut1,
+        G2: FnOnce(&'a mut DiceComputations<'d>) -> Fut2,
+        G3: FnOnce(&'a mut DiceComputations<'d>) -> Fut3,
+        Fut1: Future,
+        Fut2: Future,
+        Fut3: Future,
     {
         let mut parallel = self.parallel_builder(3);
 
