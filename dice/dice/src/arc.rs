@@ -97,6 +97,11 @@ impl<'a, T> ArcBorrow<'a, T> {
     pub(crate) unsafe fn from_ptr(raw: *const T) -> Self {
         ArcBorrow(unsafe { triomphe::ArcBorrow::from_ptr(raw) })
     }
+
+    #[inline]
+    pub(crate) fn get(self) -> &'a T {
+        self.0.get()
+    }
 }
 
 impl<T> Clone for ArcBorrow<'_, T> {

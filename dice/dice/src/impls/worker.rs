@@ -492,7 +492,9 @@ async fn check_dependency(
         .await?;
 
     if dep_result.versions().contains(prev_verified_version) {
-        Ok(CheckDependencyResult::NoChange(dep_result.into_parts().1))
+        Ok(CheckDependencyResult::NoChange(
+            dep_result.invalidation_paths().dupe(),
+        ))
     } else {
         Ok(CheckDependencyResult::Changed)
     }

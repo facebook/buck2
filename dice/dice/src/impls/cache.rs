@@ -39,7 +39,7 @@ pub(crate) struct SharedCache {
 }
 
 pub(crate) enum SharedCacheLookup<'d> {
-    Finished(DiceComputedValue),
+    Finished(&'d DiceComputedValue),
     InProgress(DiceTaskRef<'d>),
     Vacant,
 }
@@ -63,8 +63,8 @@ impl SharedCache {
 
         match entry {
             Some(task) => {
-                if let ReadValueResult::Finished(v) = task.read_value() {
-                    SharedCacheLookup::Finished(v.dupe())
+                if let ReadValueResult::Finished(v) = task.get().read_value() {
+                    SharedCacheLookup::Finished(v)
                 } else {
                     SharedCacheLookup::InProgress(DiceTaskRef { internal: task })
                 }

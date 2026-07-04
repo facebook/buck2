@@ -17,6 +17,7 @@ use std::task::Context;
 use std::task::Poll;
 
 use dice_error::result::CancellableResult;
+use dupe::Dupe;
 use futures::future::BoxFuture;
 use pin_project::pin_project;
 
@@ -32,7 +33,7 @@ pub(crate) struct DicePromise<'d>(#[pin] pub(super) DicePromiseInternal<'d>);
 #[pin_project(project = DicePromiseInternalProj)]
 pub(super) enum DicePromiseInternal<'d> {
     Ready {
-        result: DiceComputedValue,
+        result: &'d DiceComputedValue,
     },
     Pending {
         #[pin]
@@ -71,7 +72,7 @@ impl DiceSyncResult {
 }
 
 impl<'d> DicePromise<'d> {
-    pub(crate) fn ready(result: DiceComputedValue) -> Self {
+    pub(crate) fn ready(result: &'d DiceComputedValue) -> Self {
         Self(DicePromiseInternal::Ready { result })
     }
 
@@ -86,7 +87,7 @@ impl<'d> DicePromise<'d> {
         f: impl FnOnce() -> DiceSyncResult,
     ) -> CancellableResult<DiceComputedValue> {
         match self.0 {
-            DicePromiseInternal::Ready { result } => Ok(result),
+            DicePromiseInternal::Ready { result } => Ok(result.dupe()),
             DicePromiseInternal::Pending { future, .. } => {
                 future.task().sync_get_or_complete(future, f)
             }
@@ -96,7 +97,7 @@ impl<'d> DicePromise<'d> {
 }
 
 impl<'d> Future for DicePromise<'d> {
-    type Output = CancellableResult<DiceComputedValue>;
+    type Output = CancellableResult<&'d DiceComputedValue>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let res = match &mut self.0 {

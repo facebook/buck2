@@ -196,7 +196,8 @@ impl ModernComputeCtx<'_> {
     {
         ctx_data.compute_opaque(key).map(move |cancellable_result| {
             let cancellable = cancellable_result.map(move |(dice_key, dice_value)| {
-                let (value, invalidation_paths) = dice_value.into_parts();
+                let value = dice_value.value().dupe();
+                let invalidation_paths = dice_value.invalidation_paths().dupe();
                 OpaqueValue::new(dice_key, value, invalidation_paths)
             });
 
@@ -684,7 +685,7 @@ impl CoreCtx {
     pub(crate) fn compute_opaque<'d, K>(
         &'d self,
         key: &K,
-    ) -> impl Future<Output = CancellableResult<(DiceKey, DiceComputedValue)>> + use<'d, K>
+    ) -> impl Future<Output = CancellableResult<(DiceKey, &'d DiceComputedValue)>> + use<'d, K>
     where
         K: Key,
     {
@@ -808,7 +809,7 @@ pub(crate) struct SharedLiveTransactionCtx {
 }
 
 enum LookupResult<'d> {
-    Finished(DiceComputedValue),
+    Finished(&'d DiceComputedValue),
     Pending(DicePromise<'d>),
     NeedsRestart(PreparedDiceTask<'d>, Option<PreviouslyCancelledTask>),
     TransactionCancelled,
@@ -865,7 +866,7 @@ impl SharedLiveTransactionCtx {
         parent_key: ParentKey,
         eval: &AsyncEvaluator,
         cycles: UserCycleDetectorData,
-    ) -> impl Future<Output = CancellableResult<DiceComputedValue>> + use<'d> {
+    ) -> impl Future<Output = CancellableResult<&'d DiceComputedValue>> + use<'d> {
         match self.lookup_entry(key, parent_key) {
             LookupResult::Finished(dice_computed_value) => {
                 DicePromise::ready(dice_computed_value).left_future()
@@ -911,7 +912,7 @@ impl SharedLiveTransactionCtx {
     ) -> CancellableResult<DiceComputedValue> {
         let promise = match self.lookup_entry(key, parent_key) {
             LookupResult::Finished(dice_computed_value) => {
-                return Ok(dice_computed_value);
+                return Ok(dice_computed_value.dupe());
             }
             LookupResult::Pending(dice_promise) => dice_promise,
             LookupResult::NeedsRestart(prepared_dice_task, previously_cancelled_task) => {

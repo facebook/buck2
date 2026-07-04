@@ -96,8 +96,8 @@ impl DiceTask {
 }
 
 #[derive(Copy, Clone, Dupe)]
-pub(crate) struct DiceTaskRef<'a> {
-    pub(crate) internal: crate::arc::ArcBorrow<'a, DiceTaskInternal>,
+pub(crate) struct DiceTaskRef<'d> {
+    pub(crate) internal: crate::arc::ArcBorrow<'d, DiceTaskInternal>,
 }
 
 impl DiceTaskRef<'_> {
@@ -259,7 +259,7 @@ impl Future for TerminationObserver {
 
 /// Result of registering as a dependent of a task via `depended_on_by`.
 pub(crate) enum DiceTaskDependedOnByResult<'d> {
-    Finished(DiceComputedValue),
+    Finished(&'d DiceComputedValue),
     Pending(DicePromise<'d>),
     /// The task had been cancelled and this caller won the race to restart it. The caller must
     /// spawn the worker on the freshly prepared (next-generation) task, after awaiting termination
@@ -468,9 +468,9 @@ impl<'d> DiceTaskRef<'d> {
         DiceTaskDependedOnByResult::NeedsRestart(prepared, previously_cancelled)
     }
 
-    pub(crate) fn get_finished_value(&self) -> Option<DiceComputedValue> {
-        match self.internal.read_value() {
-            ReadValueResult::Finished(v) => Some(v.dupe()),
+    pub(crate) fn get_finished_value(self) -> Option<&'d DiceComputedValue> {
+        match self.internal.get().read_value() {
+            ReadValueResult::Finished(v) => Some(v),
             ReadValueResult::Pending { .. } => None,
         }
     }
@@ -575,14 +575,14 @@ impl<'d> DiceTaskRef<'d> {
     ) -> CancellableResult<DiceComputedValue> {
         // 1. Already finished?
         if let Some(v) = self.get_finished_value() {
-            return Ok(v);
+            return Ok(v.dupe());
         }
 
         let result = {
             let mut guard = self.internal.critical.lock();
             // May have raced, so need to check again
             if let Some(v) = self.get_finished_value() {
-                return Ok(v);
+                return Ok(v.dupe());
             }
 
             // Not finished (checked above, under the lock), so the task isn't sealed and `Critical`
@@ -898,9 +898,9 @@ pub(crate) struct DiceTaskDependentFuture<'d> {
 }
 
 impl<'d> DiceTaskDependentFuture<'d> {
-    pub(crate) fn try_get(&self) -> Option<CancellableResult<DiceComputedValue>> {
-        match self.task.internal.read_value() {
-            ReadValueResult::Finished(v) => Some(Ok(v.dupe())),
+    pub(crate) fn try_get(&self) -> Option<CancellableResult<&'d DiceComputedValue>> {
+        match self.task.internal.get().read_value() {
+            ReadValueResult::Finished(v) => Some(Ok(v)),
             ReadValueResult::Pending {
                 terminated_generation,
             } if terminated_generation >= self.generation => {
@@ -924,7 +924,7 @@ impl<'d> Drop for DiceTaskDependentFuture<'d> {
 }
 
 impl<'d> Future for DiceTaskDependentFuture<'d> {
-    type Output = CancellableResult<DiceComputedValue>;
+    type Output = CancellableResult<&'d DiceComputedValue>;
 
     fn poll(
         mut self: std::pin::Pin<&mut Self>,
