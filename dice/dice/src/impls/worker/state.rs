@@ -99,23 +99,17 @@ impl<'a> DiceWorkerStateAwaitingPrevious<'a> {
         previous: PreviouslyCancelledTask,
     ) -> Either<CancellableResult<DiceWorkerStateFinishedAndCached>, DiceWorkerStateLookupNode>
     {
-        previous.await_termination().await;
-
-        // old task actually finished, so just use that result if it wasn't
-        // cancelled
-
-        match previous
-            .get_finished_value()
-            .expect("Terminated task must have finished value")
-        {
-            Ok(res) => {
-                return Either::Left(self.previously_finished(res));
-            }
-            Err(_cancelled) => {
-                // actually was cancelled, so just continue re-evaluating
-            }
+        // A cancelled task can still race to completion before its cancellation lands. If the
+        // previous generation finished with a value, reuse it instead of recomputing: every
+        // generation of this task computes the same key at the same version, so the value is valid
+        // regardless of which generation produced it. Crucially, reusing it also avoids re-running
+        // the computation and so a *second* write of the same value into core state — duplicate
+        // writes aren't necessarily fatal, but they're hard to reason about, so we avoid them.
+        if let Some(v) = previous.await_termination().await {
+            return Either::Left(self.previously_finished(v));
         }
 
+        // Otherwise the previous generation actually cancelled; fall through and recompute.
         Either::Right(self.previously_cancelled(internals).await)
     }
 }

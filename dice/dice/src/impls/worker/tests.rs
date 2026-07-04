@@ -23,7 +23,6 @@ use async_trait::async_trait;
 use derive_more::Display;
 use dice_error::DiceError;
 use dice_error::result::CancellableResult;
-use dice_error::result::CancellationReason;
 use dice_futures::cancellation::CancellationContext;
 use dice_futures::cancellation::CancellationObserver;
 use dupe::Dupe;
@@ -64,6 +63,7 @@ use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
 use crate::impls::task::PreviouslyCancelledTask;
 use crate::impls::task::dice::DiceTask;
+use crate::impls::task::promise::DicePromise;
 use crate::impls::transaction::ActiveTransactionGuard;
 use crate::impls::transaction::ChangeType;
 use crate::impls::user_cycle::KeyComputingUserCycleDetectorData;
@@ -173,9 +173,10 @@ fn spawn_task(
     cycles: UserCycleDetectorData,
     event_dispatcher: DiceEventDispatcher,
     previously_cancelled_task: Option<PreviouslyCancelledTask>,
-) -> DiceTask {
+) -> (DiceTask, DicePromise) {
     let prepared_task = DiceTask::prepare(k);
-    DiceTaskWorker::spawn(
+    let task = prepared_task.task().dupe();
+    let promise = DiceTaskWorker::spawn(
         k,
         prepared_task,
         version_epoch,
@@ -183,7 +184,8 @@ fn spawn_task(
         cycles,
         event_dispatcher,
         previously_cancelled_task,
-    )
+    );
+    (task, promise)
 }
 
 #[tokio::test]
@@ -320,7 +322,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
         dice: dice.dupe(),
     };
 
-    let task = spawn_task(
+    let (task, _initial_promise) = spawn_task(
         key.dupe(),
         ctx.version_epoch,
         eval.dupe(),
@@ -346,7 +348,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
         dice: dice.dupe(),
     };
 
-    let task = spawn_task(
+    let (task, _initial_promise) = spawn_task(
         key.dupe(),
         ctx.version_epoch,
         eval.dupe(),
@@ -398,7 +400,7 @@ async fn spawn_with_no_previously_cancelled_task() {
     let events_dispatcher = DiceEventDispatcher::new(std::sync::Arc::new(NoOpTracker), dice.dupe());
     let previously_cancelled_task = None;
 
-    let task = spawn_task(
+    let (task, _initial_promise) = spawn_task(
         k,
         VersionEpoch::testing_new(0),
         eval,
@@ -453,7 +455,7 @@ async fn spawn_with_previously_cancelled_task_that_cancelled() {
     }
 
     let k = dice.key_index.index_key(CancellableNeverFinish);
-    let previous_task = spawn_task(
+    let (previous_task, prev_task_promise) = spawn_task(
         k,
         VersionEpoch::testing_new(0),
         eval.dupe(),
@@ -462,14 +464,16 @@ async fn spawn_with_previously_cancelled_task_that_cancelled() {
         None,
     );
 
-    previous_task.cancel(CancellationReason::ByTest);
+    drop(prev_task_promise);
 
-    let previously_cancelled_task = Some(PreviouslyCancelledTask::new(previous_task));
+    let previously_cancelled_task = Some(PreviouslyCancelledTask::new(
+        previous_task.await_termination(),
+    ));
 
     let is_ran = Arc::new(AtomicBool::new(false));
     let k = dice.key_index.index_key(IsRan(is_ran.dupe()));
     let cycles = UserCycleDetectorData::testing_new();
-    let task = spawn_task(
+    let (task, _initial_promise) = spawn_task(
         k,
         VersionEpoch::testing_new(0),
         eval,
@@ -523,7 +527,7 @@ async fn spawn_with_previously_cancelled_task_that_finished() {
     }
 
     let k = dice.key_index.index_key(Finish);
-    let previous_task = spawn_task(
+    let (previous_task, prev_task_promise) = spawn_task(
         k,
         VersionEpoch::testing_new(0),
         eval.dupe(),
@@ -537,14 +541,16 @@ async fn spawn_with_previously_cancelled_task_that_finished() {
         .unwrap()
         .await
         .unwrap();
-    previous_task.cancel(CancellationReason::ByTest);
+    drop(prev_task_promise);
 
-    let previously_cancelled_task = Some(PreviouslyCancelledTask::new(previous_task));
+    let previously_cancelled_task = Some(PreviouslyCancelledTask::new(
+        previous_task.await_termination(),
+    ));
 
     let is_ran = Arc::new(AtomicBool::new(false));
     let k = dice.key_index.index_key(IsRan(is_ran.dupe()));
     let cycles = UserCycleDetectorData::testing_new();
-    let task = spawn_task(
+    let (task, _initial_promise) = spawn_task(
         k,
         VersionEpoch::testing_new(0),
         eval,
@@ -555,6 +561,11 @@ async fn spawn_with_previously_cancelled_task_that_finished() {
 
     assert!(task.depended_on_by(ParentKey::None).unwrap().await.is_ok());
 
+    // The previous generation finished (rather than actually cancelling), so `await_previous` reuses
+    // its value instead of recomputing. The new key is therefore never evaluated — this is what
+    // avoids a duplicate write of the same value to core state. Contrast with
+    // `spawn_with_previously_cancelled_task_that_cancelled`, where the previous task was cancelled
+    // and so the new key is recomputed.
     assert!(!is_ran.load(Ordering::SeqCst));
 }
 
@@ -577,7 +588,7 @@ async fn mismatch_epoch_results_in_cancelled_result() {
     drop(guard);
 
     let k = dice.key_index.index_key(Finish);
-    let task = spawn_task(
+    let (task, _initial_promise) = spawn_task(
         k,
         shared_ctx.version_epoch,
         eval.dupe(),
@@ -690,7 +701,7 @@ async fn spawn_with_previously_cancelled_task_nested_cancelled() -> anyhow::Resu
     let cycles = UserCycleDetectorData::testing_new();
     let events_dispatcher = DiceEventDispatcher::new(std::sync::Arc::new(NoOpTracker), dice.dupe());
 
-    let first_task = spawn_task(
+    let (first_task, first_task_promise) = spawn_task(
         k,
         VersionEpoch::testing_new(0),
         eval.dupe(),
@@ -699,28 +710,30 @@ async fn spawn_with_previously_cancelled_task_nested_cancelled() -> anyhow::Resu
         None,
     );
     is_started.notified().await;
-    first_task.cancel(CancellationReason::ByTest);
+    drop(first_task_promise);
 
     let cycles = UserCycleDetectorData::testing_new();
-    let second_task = spawn_task(
+    let (second_task, second_task_promise) = spawn_task(
         k,
         VersionEpoch::testing_new(0),
         eval.dupe(),
         cycles,
         events_dispatcher.dupe(),
-        Some(PreviouslyCancelledTask::new(first_task)),
+        Some(PreviouslyCancelledTask::new(first_task.await_termination())),
     );
 
-    second_task.cancel(CancellationReason::ByTest);
+    drop(second_task_promise);
 
     let cycles = UserCycleDetectorData::testing_new();
-    let third_task = spawn_task(
+    let (third_task, _third_task_promise) = spawn_task(
         k,
         VersionEpoch::testing_new(0),
         eval,
         cycles,
         events_dispatcher,
-        Some(PreviouslyCancelledTask::new(second_task)),
+        Some(PreviouslyCancelledTask::new(
+            second_task.await_termination(),
+        )),
     );
 
     let promise = third_task.depended_on_by(ParentKey::None).unwrap();
@@ -835,7 +848,7 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
         dice: dice.dupe(),
     };
 
-    let task = spawn_task(
+    let (task, _initial_promise) = spawn_task(
         key.dupe(),
         ctx.version_epoch,
         eval.dupe(),
@@ -859,7 +872,7 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
         dice: dice.dupe(),
     };
 
-    let task = spawn_task(
+    let (task, _initial_promise) = spawn_task(
         key.dupe(),
         ctx.version_epoch,
         eval.dupe(),

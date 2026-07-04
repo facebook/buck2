@@ -92,7 +92,7 @@ impl SharedCache {
 
         let working_entry = match entry {
             dashmap::mapref::entry::Entry::Occupied(e) => {
-                if let Some(Ok(result)) = e.get().get_finished_value() {
+                if let Some(result) = e.get().get_finished_value() {
                     // Promote entry to computed.
                     // So lookup will be faster next time.
 
@@ -168,7 +168,7 @@ impl SharedCache {
 pub(crate) mod introspection {
     use crate::impls::cache::SharedCache;
     use crate::impls::key::DiceKey;
-    use crate::impls::task::DiceTaskState;
+    use crate::introspection::DiceTaskState;
 
     impl SharedCache {
         pub(crate) fn iter_tasks(&self) -> impl Iterator<Item = (DiceKey, DiceTaskState)> {

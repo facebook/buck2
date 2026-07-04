@@ -14,33 +14,27 @@ use dice_error::result::CancellableResult;
 use dice_error::result::CancellationReason;
 use dice_futures::cancellation::CancellationContext;
 
-use crate::impls::task::dice::DiceTask;
+use crate::impls::task::dice::DiceTaskCompletionHandle;
 use crate::impls::value::DiceComputedValue;
 
 /// The handle to the 'DiceTask' owned by the spawned thread that is responsible for completing
 /// the task.
 pub(crate) struct DiceTaskHandle<'a> {
-    pub(super) task: DiceTask,
     pub(super) cancellations: &'a CancellationContext,
+    completion_handle: Option<DiceTaskCompletionHandle>,
     // holds the result while `DiceTaskHandle` is not dropped, then upon drop, stores it into
     // `DiceTaskInternal` so that the result is always reported consistently at the very end of the task.
     result: Option<CancellableResult<DiceComputedValue>>,
 }
 
-/// After reporting that we are about to transition to a state, should we continue processing or
-/// should we terminate
-pub(crate) enum TaskState {
-    /// continue processing as normal
-    Continue,
-    /// task was finished already
-    Finished,
-}
-
 impl<'a> DiceTaskHandle<'a> {
-    pub(super) fn new(task: DiceTask, cancellations: &'a CancellationContext) -> Self {
+    pub(super) fn new(
+        completion_handle: DiceTaskCompletionHandle,
+        cancellations: &'a CancellationContext,
+    ) -> Self {
         Self {
-            task,
             cancellations,
+            completion_handle: Some(completion_handle),
             result: None,
         }
     }
@@ -62,22 +56,16 @@ unsafe impl Send for DiceTaskHandle<'_> {}
 
 impl Drop for DiceTaskHandle<'_> {
     fn drop(&mut self) {
+        let completion_handle = self.completion_handle.take().unwrap();
         match self.result.take() {
             Some(Ok(v)) => {
-                debug!("{:?} finished. Notifying result", self.task.key());
-                let _ignore = self.task.set_value(v);
+                completion_handle.completed(v);
             }
             Some(Err(reason)) => {
-                debug!("{:?} cancelled. Notifying cancellation", self.task.key());
-                self.task.report_terminated(reason);
+                completion_handle.terminated(reason);
             }
             None => {
-                debug!(
-                    "{:?} dropped without result. Notifying cancellation",
-                    self.task.key()
-                );
-                self.task
-                    .report_terminated(CancellationReason::HandleDropped);
+                completion_handle.terminated(CancellationReason::HandleDropped);
             }
         }
     }
