@@ -78,21 +78,27 @@ impl SharedCache {
             return SharedCacheInsert::TransactionCancelled;
         }
 
-        let prepared_task = DiceTask::prepare(key);
-        let (entry, not_inserted_value) = self.data.storage.insert(
-            Self::key_hash(key),
-            prepared_task.task().dupe().internal,
-            |left, right| left.key == right.key,
-            |task| Self::key_hash(task.key),
-        );
+        let maybe_prepared_task = DiceTask::prepare(key, |task| {
+            let (entry, not_inserted_value) = self.data.storage.insert(
+                Self::key_hash(key),
+                task.internal,
+                |left, right| left.key == right.key,
+                |task| Self::key_hash(task.key),
+            );
+            let entry = DiceTaskRef { internal: entry };
+            match not_inserted_value {
+                Some(_) => Err(entry),
+                None => Ok(entry),
+            }
+        });
 
         if self.data.is_cancelled.load(Ordering::Relaxed) {
             return SharedCacheInsert::TransactionCancelled;
         }
 
-        match not_inserted_value {
-            Some(_) => SharedCacheInsert::Occupied(DiceTaskRef { internal: entry }),
-            None => SharedCacheInsert::Inserted(prepared_task),
+        match maybe_prepared_task {
+            Ok(p) => SharedCacheInsert::Inserted(p),
+            Err(t) => SharedCacheInsert::Occupied(t),
         }
     }
 

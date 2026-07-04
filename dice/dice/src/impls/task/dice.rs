@@ -298,6 +298,7 @@ pub(crate) struct PreparedDiceTask {
 }
 
 impl PreparedDiceTask {
+    #[cfg(test)]
     pub(crate) fn task(&self) -> &DiceTask {
         &self.dependent_future.task
     }
@@ -310,7 +311,24 @@ enum StateAtGeneration<'d> {
 }
 
 impl DiceTask {
-    pub(crate) fn prepare(key: DiceKey) -> PreparedDiceTask {
+    #[cfg(test)]
+    pub(crate) fn prepare_testing(key: DiceKey) -> PreparedDiceTask {
+        // Spawning a dice task normally needs some kind of arena to allocate the task into; we don't
+        // have one, but this is tests, so just leak the thing
+        DiceTask::prepare::<()>(key, |t| Ok(Box::leak(Box::new(t)).as_ref())).unwrap()
+    }
+
+    /// Prepare a task for execution.
+    ///
+    /// Takes an alloc callback which should allocate the task into something long lived so that
+    /// further code can use references to it.
+    ///
+    /// Note: This API is just a little bit unsound, don't do anything funky in `alloc` by returning
+    /// a ref to an unrelated dice task. Should be fine.
+    pub(crate) fn prepare<'d, E>(
+        key: DiceKey,
+        alloc: impl FnOnce(DiceTask) -> Result<DiceTaskRef<'d>, E>,
+    ) -> Result<PreparedDiceTask, E> {
         let (future_spawner, cancellation_handle) = prepare_detached_cancellation();
 
         let cancellation_handle = cancellation_handle.into_dropcancel();
@@ -334,20 +352,22 @@ impl DiceTask {
             }),
         };
 
-        PreparedDiceTask {
+        let task = alloc(task)?;
+
+        Ok(PreparedDiceTask {
             task_spawner: DiceTaskSpawner {
                 inner: future_spawner,
             },
             dependent_future: DiceTaskDependentFuture {
-                task: task.dupe(),
+                task: task.clone_arc(),
                 completed: false,
                 generation: 2,
             },
             completion_handle: DiceTaskCompletionHandle {
                 generation: 2,
-                task,
+                task: task.clone_arc(),
             },
-        }
+        })
     }
 }
 
@@ -814,7 +834,7 @@ pub(crate) fn spawn_dice_task<S>(
     + Send
     + 'static,
 ) -> DiceTask {
-    let prepared_task = DiceTask::prepare(key);
+    let prepared_task = DiceTask::prepare_testing(key);
     let task = prepared_task.task().dupe();
     let promise = spawn_prepared_task(prepared_task, spawner, ctx, |handle| {
         async move {
@@ -972,7 +992,7 @@ pub(crate) mod testing_helpers {
         key: DiceKey,
         val: DiceComputedValue,
     ) -> DiceTask {
-        let prepared = DiceTask::prepare(key);
+        let prepared = DiceTask::prepare_testing(key);
         let task = prepared.task().dupe();
         prepared.completion_handle.completed(val);
         task

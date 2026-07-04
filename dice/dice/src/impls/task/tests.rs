@@ -85,7 +85,7 @@ fn spawn_dice_task<S>(
     ctx: &S,
     f: impl for<'a> FnOnce(&'a mut DiceTaskHandle) -> BoxFuture<'a, ()> + Send,
 ) -> (DiceTask, DicePromise) {
-    let prepared_task = DiceTask::prepare(key);
+    let prepared_task = DiceTask::prepare_testing(key);
     let task = prepared_task.task().dupe();
     let promise = spawn_prepared_task(prepared_task, spawner, ctx, f);
     (task, promise)
@@ -96,7 +96,7 @@ fn sync_dice_task(key: DiceKey) -> (DiceTask, DicePromise) {
         completion_handle: _completion_handle,
         dependent_future,
         task_spawner: _task_spawner,
-    } = DiceTask::prepare(key);
+    } = DiceTask::prepare_testing(key);
     let task = dependent_future.task().dupe();
     let promise = DicePromise::pending(dependent_future);
     (task, promise)
