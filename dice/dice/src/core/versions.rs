@@ -99,14 +99,10 @@ impl VersionTracker {
         (entry.version_epoch, entry.per_transaction_data.dupe())
     }
 
-    pub(crate) fn is_cleared_version(&self, v: VersionNumber) -> bool {
-        v < self.discarded_before
-    }
-
     /// Check whether computation associated with the given major version and epoch has or has not
     /// been cancelled
     pub(crate) fn is_cancelled(&self, v: VersionNumber, epoch: VersionEpoch) -> bool {
-        self.is_cleared_version(v)
+        v < self.discarded_before
             || self
                 .active_versions
                 .get(&v)

@@ -169,9 +169,6 @@ impl DiceTaskWorker {
                 })
             }
             VersionedGraphResult::Compute => None,
-            VersionedGraphResult::ClearedVersion => {
-                return Err(CancellationReason::Rejected);
-            }
         };
 
         self.eval.started(self.k);

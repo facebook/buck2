@@ -211,6 +211,22 @@ impl VersionedGraph {
         }
     }
 
+    pub(crate) fn clear(&mut self) {
+        // We clear out almost everything except for injected keys - injected keys at old versions
+        // can't be recomputed, so we need to retain them.
+        let mut nodes = std::mem::take(&mut self.nodes);
+        // The number of injected keys is typically small, so this is written to avoid new large allocations
+        let retained = nodes
+            .extract_if(|_, n| matches!(n, VersionedGraphNode::Injected(_)))
+            .collect();
+        self.nodes = retained;
+        // Do the actual drop on a different thread because we may have to drop a lot of stuff here.
+        std::thread::Builder::new()
+            .name("dice-drop-everything".to_owned())
+            .spawn(move || drop(nodes))
+            .expect("failed to spawn thread");
+    }
+
     /// Gets the entry corresponding to the cache entry if up to date.
     pub(crate) fn get(&self, key: VersionedGraphKey) -> VersionedGraphResult {
         if let Some(entry) = self.nodes.get(&key.k) {

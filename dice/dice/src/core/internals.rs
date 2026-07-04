@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-use std::thread;
-
 use dice_error::result::CancellableResult;
 use dice_error::result::CancellationReason;
 use dupe::Dupe;
@@ -109,11 +107,7 @@ impl CoreState {
     }
 
     pub(super) fn lookup_key(&mut self, key: VersionedGraphKey) -> VersionedGraphResult {
-        if self.version_tracker.is_cleared_version(key.v) {
-            VersionedGraphResult::ClearedVersion
-        } else {
-            self.graph.get(key)
-        }
+        self.graph.get(key)
     }
 
     pub(super) fn update_computed(
@@ -145,14 +139,7 @@ impl CoreState {
 
     pub(super) fn unstable_drop_everything(&mut self) {
         self.version_tracker.clear();
-
-        // Do the actual drop on a different thread because we may have to drop a lot of stuff
-        // here.
-        let map = std::mem::take(&mut self.graph.nodes);
-        thread::Builder::new()
-            .name("dice-drop-everything".to_owned())
-            .spawn(move || drop(map))
-            .expect("failed to spawn thread");
+        self.graph.clear();
     }
 
     /// Drop in-memory values for nodes that already have an on-disk copy.
