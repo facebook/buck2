@@ -15,7 +15,6 @@ use dice_error::result::CancellationReason;
 use dupe::Dupe;
 use pagable::DataKey;
 
-use super::graph::types::RejectedReason;
 use crate::api::key::InvalidationSourcePriority;
 use crate::api::storage_type::StorageType;
 use crate::arc::Arc;
@@ -110,8 +109,8 @@ impl CoreState {
     }
 
     pub(super) fn lookup_key(&mut self, key: VersionedGraphKey) -> VersionedGraphResult {
-        if self.version_tracker.should_reject(key.v) {
-            VersionedGraphResult::Rejected(RejectedReason::RejectedDueToGraphClear)
+        if self.version_tracker.is_cleared_version(key.v) {
+            VersionedGraphResult::ClearedVersion
         } else {
             self.graph.get(key)
         }
@@ -127,10 +126,8 @@ impl CoreState {
         deps: Arc<SeriesParallelDeps>,
         invalidation_paths: TrackedInvalidationPaths,
     ) -> CancellableResult<DiceComputedValue> {
-        if !self.version_tracker.is_relevant(key.v, epoch) {
+        if self.version_tracker.is_cancelled(key.v, epoch) {
             Err(CancellationReason::OutdatedEpoch)
-        } else if self.version_tracker.should_reject(key.v) {
-            Err(CancellationReason::Rejected)
         } else {
             Ok(self
                 .graph
