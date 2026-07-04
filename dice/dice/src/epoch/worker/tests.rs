@@ -22,12 +22,10 @@ use assert_matches::assert_matches;
 use async_trait::async_trait;
 use derive_more::Display;
 use dice_error::DiceError;
-use dice_error::result::CancellableResult;
 use dice_futures::cancellation::CancellationContext;
 use dice_futures::cancellation::CancellationObserver;
 use dupe::Dupe;
 use dupe::IterDupedExt;
-use futures::Future;
 use futures::pin_mut;
 use gazebo::prelude::SliceExt;
 use gazebo::variants::VariantName;
@@ -47,16 +45,13 @@ use crate::api::key::InvalidationSourcePriority;
 use crate::api::key::Key;
 use crate::api::key::NoValueSerialize;
 use crate::api::key::ValueSerialize;
-use crate::api::storage_type::StorageType;
 use crate::api::user_data::UserComputationData;
 use crate::arc::Arc;
-use crate::core::graph::types::VersionedGraphKey;
 use crate::core::versions::VersionEpoch;
 use crate::deps::RecordingDepsTracker;
 use crate::deps::graph::SeriesParallelDeps;
 use crate::dice::Dice;
 use crate::epoch::evaluator::TransactionData;
-use crate::epoch::evaluator::VersionEpochState;
 use crate::epoch::task::PreviouslyCancelledTask;
 use crate::epoch::task::dice::DiceTask;
 use crate::epoch::task::promise::DicePromise;
@@ -66,13 +61,9 @@ use crate::epoch::worker::check_dependencies;
 use crate::epoch::worker::testing::CheckDependenciesResultExt;
 use crate::key::DiceKey;
 use crate::key::ParentKey;
-use crate::updater::ActiveTransactionGuard;
 use crate::updater::ChangeType;
 use crate::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::user_cycle::UserCycleDetectorData;
-use crate::value::DiceComputedValue;
-use crate::value::DiceKeyValue;
-use crate::value::DiceValidValue;
 use crate::value::DiceValidity;
 use crate::value::TrackedInvalidationPaths;
 use crate::versions::VersionNumber;
@@ -717,10 +708,49 @@ async fn spawn_with_previously_cancelled_task_nested_cancelled() -> anyhow::Resu
 #[tokio::test]
 async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
 -> anyhow::Result<()> {
-    #[derive(Allocative, Clone, Debug, Display, Pagable)]
+    // A dependency that always recomputes to an equal value.
+    #[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative, Pagable)]
     #[display("{:?}", self)]
     #[pagable_typetag(DiceKeyDyn)]
-    struct NeverEqual;
+    struct Leaf;
+
+    #[async_trait]
+    impl Key for Leaf {
+        type Value = usize;
+
+        async fn compute(
+            &self,
+            _ctx: &mut DiceComputations,
+            _cancellations: &CancellationContext,
+        ) -> Self::Value {
+            1
+        }
+
+        fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+            x == y
+        }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            NoValueSerialize::<Self::Value>::new()
+        }
+    }
+
+    // Depends on `Leaf`, reports all values as unequal, and counts its own computations. The
+    // equality/compute-count split lets the test show that resurrection is driven by deps being
+    // unchanged, not by value equality.
+    #[derive(
+        Clone,
+        Dupe,
+        Debug,
+        Display,
+        derivative::Derivative,
+        Allocative,
+        PagablePanic
+    )]
+    #[derivative(Hash, PartialEq, Eq)]
+    #[display("{:?}", self)]
+    #[pagable_typetag(DiceKeyDyn)]
+    struct NeverEqual(#[derivative(Hash = "ignore", PartialEq = "ignore")] Arc<AtomicUsize>);
 
     #[async_trait]
     impl Key for NeverEqual {
@@ -728,10 +758,12 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
 
         async fn compute(
             &self,
-            _ctx: &mut DiceComputations,
+            ctx: &mut DiceComputations,
             _cancellations: &CancellationContext,
         ) -> Self::Value {
-            panic!("never ran as deps equal")
+            self.0.fetch_add(1, Ordering::SeqCst);
+            ctx.compute(&Leaf).await.unwrap();
+            Arc::new(())
         }
 
         fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
@@ -743,149 +775,36 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
         }
     }
 
-    impl PartialEq for NeverEqual {
-        fn eq(&self, _other: &Self) -> bool {
-            true
-        }
-    }
-    impl Eq for NeverEqual {}
-    impl Hash for NeverEqual {
-        fn hash<H: Hasher>(&self, _state: &mut H) {}
-    }
+    let dice = Dice::builder().build(DetectCycles::Disabled);
+    let compute_count = Arc::new(AtomicUsize::new(0));
 
-    /// creates the initial test graph with a single key that depends on a value
-    async fn populate_initial_graph(
-        dice: &std::sync::Arc<Dice>,
-        compute_key: DiceKey,
-        compute_res: DiceValidValue,
-    ) {
-        let (ctx, _guard) = get_ctx_at_version(dice, VersionNumber::new(1)).await;
+    // Initial computation: runs `NeverEqual::compute` once and records the dep on `Leaf`.
+    let ctx = dice.updater().commit().await;
+    let initial = ctx.compute(&NeverEqual(compute_count.dupe())).await?;
+    assert_eq!(compute_count.load(Ordering::SeqCst), 1);
 
-        // set the initial state
-        let _ignore = update_computed_value(
-            dice,
-            &ctx,
-            DiceKey { index: 100 },
-            VersionNumber::new(1),
-            DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)),
-            Arc::new(SeriesParallelDeps::None),
+    // Invalidate the dep. Each round `Leaf` recomputes to an equal value, so `NeverEqual`'s deps
+    // are unchanged and its value must be resurrected (reused) rather than recomputed -- even
+    // though `NeverEqual::equality` always reports values as different.
+    for _ in 0..2 {
+        let mut updater = dice.updater();
+        updater.changed(vec![Leaf])?;
+        let ctx = updater.commit().await;
+
+        let resurrected = ctx.compute(&NeverEqual(compute_count.dupe())).await?;
+
+        assert_eq!(
+            compute_count.load(Ordering::SeqCst),
+            1,
+            "NeverEqual must not be recomputed while its deps are unchanged"
         );
-        let _ignore = update_computed_value(
-            dice,
-            &ctx,
-            compute_key.dupe(),
-            VersionNumber::new(1),
-            compute_res.dupe(),
-            Arc::new(SeriesParallelDeps::serial_from_vec(vec![DiceKey {
-                index: 100,
-            }])),
+        assert!(
+            Arc::ptr_eq(&initial, &resurrected),
+            "the resurrected value must be the original instance"
         );
     }
-
-    /// gets a new context where the parent is dirtied such that it needs to check its deps
-    async fn ctx_after_soft_dirty(
-        dice: &std::sync::Arc<Dice>,
-        parent_key: DiceKey,
-    ) -> (VersionEpochState, ActiveTransactionGuard) {
-        let v = soft_dirty(dice, parent_key.dupe()).await;
-        dice.testing_shared_ctx(v).await
-    }
-
-    let dice = Dice::new(DiceData::new(), None);
-
-    let user_data = Arc::new(UserComputationData::new());
-
-    let res = DiceValidValue::testing_new(DiceKeyValue::<NeverEqual>::new(Arc::new(())));
-    let key = dice.key_index.index_key(NeverEqual);
-
-    populate_initial_graph(&dice, key.dupe(), res.dupe()).await;
-
-    let (ctx, _guard) = ctx_after_soft_dirty(&dice, key.dupe()).await;
-
-    let eval = TransactionData {
-        epoch_state: ctx.dupe(),
-        user_data: user_data.dupe(),
-        dice: dice.dupe(),
-    };
-
-    let (task, _initial_promise) = spawn_task(
-        key.dupe(),
-        ctx.version_epoch,
-        eval.dupe(),
-        UserCycleDetectorData::testing_new(),
-        None,
-    );
-    let computed_res = task.depended_on_by(ParentKey::None).unwrap().await?;
-    assert_eq!(
-        computed_res.versions(),
-        &VersionRanges::testing_new(vec![VersionRange::begins_with(VersionNumber::new(1))])
-    );
-    assert!(computed_res.value().instance_equal(&res));
-
-    // next version
-    let (ctx, _guard) = ctx_after_soft_dirty(&dice, key.dupe()).await;
-
-    let eval = TransactionData {
-        epoch_state: ctx.dupe(),
-        user_data: user_data.dupe(),
-        dice: dice.dupe(),
-    };
-
-    let (task, _initial_promise) = spawn_task(
-        key.dupe(),
-        ctx.version_epoch,
-        eval.dupe(),
-        UserCycleDetectorData::testing_new(),
-        None,
-    );
-    let computed_res = task.depended_on_by(ParentKey::None).unwrap().await?;
-    assert_eq!(
-        computed_res.versions(),
-        &VersionRanges::testing_new(vec![VersionRange::begins_with(VersionNumber::new(1))])
-    );
-    assert!(computed_res.value().instance_equal(&res));
 
     Ok(())
-}
-
-async fn soft_dirty(dice: &std::sync::Arc<Dice>, key: DiceKey) -> VersionNumber {
-    dice.state_handle
-        .update_state(vec![(
-            key.dupe(),
-            ChangeType::TestingSoftDirty,
-            InvalidationSourcePriority::Normal,
-        )])
-        .await
-}
-
-fn update_computed_value(
-    dice: &std::sync::Arc<Dice>,
-    ctx: &VersionEpochState,
-    k: DiceKey,
-    v: VersionNumber,
-    value: DiceValidValue,
-    deps: Arc<SeriesParallelDeps>,
-) -> impl Future<Output = CancellableResult<DiceComputedValue>> + use<> {
-    dice.state_handle.update_computed(
-        VersionedGraphKey::new(v, k),
-        ctx.version_epoch,
-        StorageType::Normal,
-        value,
-        deps,
-        TrackedInvalidationPaths::clean(),
-    )
-}
-
-async fn get_ctx_at_version(
-    dice: &std::sync::Arc<Dice>,
-    v: VersionNumber,
-) -> (VersionEpochState, ActiveTransactionGuard) {
-    dice.state_handle
-        .ctx_at_version(
-            VersionNumber::new(1),
-            ActiveTransactionGuard::new(v, dice.state_handle.dupe()),
-        )
-        .await
 }
 
 // tests that dependency checking stops at the first changed dep in a series node (see SeriesParallelDeps).
