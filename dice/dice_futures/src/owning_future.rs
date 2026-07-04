@@ -41,7 +41,7 @@ pub struct OwningFuture<T, D> {
 impl<T, D> OwningFuture<T, D> {
     pub fn new<F>(data: D, f: F) -> Pin<Box<Self>>
     where
-        F: for<'a> FnOnce(&'a mut D) -> BoxFuture<'a, T> + Send,
+        F: for<'a> FnOnce(&'a mut D) -> BoxFuture<'a, T>,
     {
         let this = OwningFuture {
             data: Some(data),
