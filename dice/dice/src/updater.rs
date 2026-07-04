@@ -8,7 +8,7 @@
  * above-listed licenses.
  */
 
-use std::sync::Arc;
+use std::sync::Arc as StdArc;
 
 use allocative::Allocative;
 use derivative::Derivative;
@@ -22,6 +22,7 @@ use crate::api::key::InvalidationSourcePriority;
 use crate::api::key::Key;
 use crate::api::storage_type::StorageType;
 use crate::api::user_data::UserComputationData;
+use crate::arc::Arc;
 use crate::core::state::CoreStateHandle;
 use crate::epoch::ctx::TransactionCtx;
 use crate::epoch::evaluator::VersionEpochState;
@@ -34,13 +35,13 @@ use crate::versions::VersionNumber;
 
 // TODO fill this more
 pub(crate) struct TransactionUpdater {
-    dice: Arc<Dice>,
+    dice: StdArc<Dice>,
     scheduled_changes: Changes,
     user_data: Arc<UserComputationData>,
 }
 
 impl TransactionUpdater {
-    pub(crate) fn new(dice: Arc<Dice>, user_data: Arc<UserComputationData>) -> Self {
+    pub(crate) fn new(dice: StdArc<Dice>, user_data: Arc<UserComputationData>) -> Self {
         Self {
             dice: dice.dupe(),
             scheduled_changes: Changes::new(dice),
@@ -74,7 +75,7 @@ impl TransactionUpdater {
     {
         changed.into_iter().try_for_each(|(k, new_value)| {
             match MaybeValidDiceValue::new(
-                Arc::new(DiceKeyValue::<K>::new(new_value)),
+                StdArc::new(DiceKeyValue::<K>::new(new_value)),
                 DiceValidity::Valid,
             )
             .into_valid_value()
@@ -83,7 +84,7 @@ impl TransactionUpdater {
                     k,
                     ChangeType::UpdateValue(validated_value, K::storage_type()),
                 ),
-                Err(_) => Err(DiceError::invalid_change(Arc::new(k))),
+                Err(_) => Err(DiceError::invalid_change(StdArc::new(k))),
             }
         })
     }
@@ -164,11 +165,11 @@ impl Drop for ActiveTransactionGuardInner {
 
 struct Changes {
     changes: HashMap<DiceKey, (ChangeType, InvalidationSourcePriority)>,
-    dice: Arc<Dice>,
+    dice: StdArc<Dice>,
 }
 
 impl Changes {
-    pub(crate) fn new(dice: Arc<Dice>) -> Self {
+    pub(crate) fn new(dice: StdArc<Dice>) -> Self {
         Self {
             changes: HashMap::default(),
             dice,
@@ -178,7 +179,7 @@ impl Changes {
     pub(crate) fn change<K: Key>(&mut self, key: K, change: ChangeType) -> DiceResult<()> {
         match (change, K::storage_type()) {
             (ChangeType::Invalidate, StorageType::Injected) => {
-                Err(DiceError::injected_key_invalidated(Arc::new(key)))
+                Err(DiceError::injected_key_invalidated(StdArc::new(key)))
             }
             (change, _) => {
                 let key = self.dice.key_index.index_key(key);

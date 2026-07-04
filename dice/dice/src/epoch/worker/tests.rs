@@ -188,7 +188,7 @@ fn spawn_task(
 async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
     let dice = Dice::new(DiceData::new(), None);
 
-    let user_data = std::sync::Arc::new(UserComputationData::new());
+    let user_data = Arc::new(UserComputationData::new());
 
     // Set initial value at v0
     let mut updater = dice.updater();
@@ -254,7 +254,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
 async fn when_equal_return_same_instance() -> anyhow::Result<()> {
     let dice = Dice::new(DiceData::new(), None);
 
-    let user_data = std::sync::Arc::new(UserComputationData::new());
+    let user_data = Arc::new(UserComputationData::new());
 
     let instance = Arc::new(AtomicUsize::new(0));
 
@@ -383,7 +383,7 @@ async fn spawn_with_no_previously_cancelled_task() {
     let is_ran = Arc::new(AtomicBool::new(false));
     let k = dice.key_index.index_key(IsRan(is_ran.dupe()));
 
-    let extra = std::sync::Arc::new(UserComputationData::new());
+    let extra = Arc::new(UserComputationData::new());
     let eval = TransactionData {
         epoch_state: shared_ctx.dupe(),
         user_data: extra.dupe(),
@@ -411,7 +411,7 @@ async fn spawn_with_previously_cancelled_task_that_cancelled() {
 
     let (shared_ctx, _guard) = dice.testing_shared_ctx(VersionNumber::new(1)).await;
 
-    let extra = std::sync::Arc::new(UserComputationData::new());
+    let extra = Arc::new(UserComputationData::new());
     let eval = TransactionData {
         epoch_state: shared_ctx.dupe(),
         user_data: extra.dupe(),
@@ -476,7 +476,7 @@ async fn spawn_with_previously_cancelled_task_that_finished() {
 
     let (shared_ctx, _guard) = dice.testing_shared_ctx(VersionNumber::new(1)).await;
 
-    let extra = std::sync::Arc::new(UserComputationData::new());
+    let extra = Arc::new(UserComputationData::new());
     let eval = TransactionData {
         epoch_state: shared_ctx.dupe(),
         user_data: extra.dupe(),
@@ -550,7 +550,7 @@ async fn mismatch_epoch_results_in_cancelled_result() {
 
     let (shared_ctx, guard) = dice.testing_shared_ctx(VersionNumber::new(1)).await;
 
-    let extra = std::sync::Arc::new(UserComputationData::new());
+    let extra = Arc::new(UserComputationData::new());
     let eval = TransactionData {
         epoch_state: shared_ctx.dupe(),
         user_data: extra.dupe(),
@@ -660,7 +660,7 @@ async fn spawn_with_previously_cancelled_task_nested_cancelled() -> anyhow::Resu
 
     let k = dice.key_index.index_key(key);
 
-    let extra = std::sync::Arc::new(UserComputationData::new());
+    let extra = Arc::new(UserComputationData::new());
     let eval = TransactionData {
         epoch_state: shared_ctx.dupe(),
         user_data: extra.dupe(),
@@ -793,7 +793,7 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
 
     let dice = Dice::new(DiceData::new(), None);
 
-    let user_data = std::sync::Arc::new(UserComputationData::new());
+    let user_data = Arc::new(UserComputationData::new());
 
     let res = DiceValidValue::testing_new(DiceKeyValue::<NeverEqual>::new(Arc::new(())));
     let key = dice.key_index.index_key(NeverEqual);
@@ -927,7 +927,7 @@ async fn test_check_dependencies_stops_at_changed() -> anyhow::Result<()> {
         .unwrap();
     let version = updater.commit().await.0.get_version();
 
-    let user_data = std::sync::Arc::new(UserComputationData::new());
+    let user_data = Arc::new(UserComputationData::new());
     let (ctx, _guard) = dice.testing_shared_ctx(version).await;
 
     let eval = TransactionData {
@@ -1021,7 +1021,7 @@ async fn test_check_dependencies_can_eagerly_check_all_parallel_deps() -> anyhow
         .unwrap();
     let version = updater.commit().await.0.get_version();
 
-    let user_data = std::sync::Arc::new(UserComputationData::new());
+    let user_data = Arc::new(UserComputationData::new());
     let (ctx, _guard) = dice.testing_shared_ctx(version).await;
 
     let eval = TransactionData {

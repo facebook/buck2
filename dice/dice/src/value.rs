@@ -11,6 +11,7 @@
 use std::any::Any;
 use std::fmt::Debug;
 use std::fmt::Formatter;
+use std::sync::Arc as StdArc;
 
 use allocative::Allocative;
 use dupe::Dupe;
@@ -59,15 +60,12 @@ impl DiceValidValue {
 /// Type erased value that may be transient, or whose dependencies are transient
 #[derive(Allocative, Clone, Dupe)]
 pub enum MaybeValidDiceValue {
-    Present(std::sync::Arc<dyn DiceValueDyn>),
-    Transient(std::sync::Arc<dyn DiceValueDyn>),
+    Present(StdArc<dyn DiceValueDyn>),
+    Transient(StdArc<dyn DiceValueDyn>),
 }
 
 impl MaybeValidDiceValue {
-    pub(crate) fn new(
-        value: std::sync::Arc<dyn DiceValueDyn>,
-        deps_validity: DiceValidity,
-    ) -> Self {
+    pub(crate) fn new(value: StdArc<dyn DiceValueDyn>, deps_validity: DiceValidity) -> Self {
         let validity = if value.validity() {
             deps_validity
         } else {

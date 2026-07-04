@@ -21,7 +21,7 @@ use mini_vec::packed_ptr::PointerValue;
 use mini_vec::packed_ptr::PointerValueAllocated;
 
 #[derive(Debug, Eq, PartialEq, Hash, Allocative)]
-pub(crate) struct Arc<T>(triomphe::Arc<T>);
+pub(crate) struct Arc<T: ?Sized>(triomphe::Arc<T>);
 
 impl<T> Arc<T> {
     #[inline]
@@ -30,14 +30,21 @@ impl<T> Arc<T> {
     }
 
     #[inline]
-    #[cfg(test)]
-    pub(crate) fn ptr_eq(this: &Self, other: &Self) -> bool {
-        triomphe::Arc::ptr_eq(&this.0, &other.0)
+    pub(crate) fn borrow_arc(&self) -> ArcBorrow<'_, T> {
+        ArcBorrow(self.0.borrow_arc())
     }
 
     #[inline]
-    pub(crate) fn borrow_arc(&self) -> ArcBorrow<'_, T> {
-        ArcBorrow(self.0.borrow_arc())
+    pub(crate) fn into_inner(self) -> Option<T> {
+        triomphe::Arc::try_unwrap(self.0).ok()
+    }
+}
+
+impl<T: ?Sized> Arc<T> {
+    #[inline]
+    #[cfg(test)]
+    pub(crate) fn ptr_eq(this: &Self, other: &Self) -> bool {
+        triomphe::Arc::ptr_eq(&this.0, &other.0)
     }
 }
 
@@ -48,14 +55,14 @@ impl<T: Clone> Arc<T> {
     }
 }
 
-impl<T> Clone for Arc<T> {
+impl<T: ?Sized> Clone for Arc<T> {
     #[inline]
     fn clone(&self) -> Self {
         Arc(self.0.clone())
     }
 }
 
-impl<T> Dupe for Arc<T> {}
+impl<T: ?Sized> Dupe for Arc<T> {}
 
 unsafe impl<T> RefCnt for Arc<T> {
     type Base = T;
@@ -76,7 +83,7 @@ unsafe impl<T> RefCnt for Arc<T> {
     }
 }
 
-impl<T> Deref for Arc<T> {
+impl<T: ?Sized> Deref for Arc<T> {
     type Target = triomphe::Arc<T>;
 
     #[inline]
@@ -85,6 +92,7 @@ impl<T> Deref for Arc<T> {
     }
 }
 
+// Not `?Sized` because triomphe doesn't really support it
 pub(crate) struct ArcBorrow<'a, T>(triomphe::ArcBorrow<'a, T>);
 
 impl<'a, T> ArcBorrow<'a, T> {

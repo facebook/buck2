@@ -9,7 +9,7 @@
  */
 
 use std::future::Future;
-use std::sync::Arc;
+use std::sync::Arc as StdArc;
 
 use derivative::Derivative;
 use dice_error::result::CancellableResult;
@@ -24,6 +24,8 @@ use crate::DiceEvent;
 use crate::api::projection::DiceProjectionComputations;
 use crate::api::storage_type::StorageType;
 use crate::api::user_data::UserComputationData;
+use crate::arc::Arc;
+use crate::core::graph::types::VersionedGraphKey;
 use crate::core::state::CoreStateHandle;
 use crate::core::versions::VersionEpoch;
 use crate::deps::RecordingDepsTracker;
@@ -38,9 +40,10 @@ use crate::epoch::ctx::TrackedComputations;
 use crate::epoch::task::PreviouslyCancelledTask;
 use crate::epoch::task::dice::PreparedDiceTask;
 use crate::epoch::task::handle::DiceTaskHandle;
+use crate::epoch::task::projections::DiceSyncResult;
+use crate::epoch::task::projections::ProjectionTaskCompletionHandle;
 use crate::epoch::task::promise::DicePromise;
 use crate::epoch::worker::DiceTaskWorker;
-use crate::epoch::worker::project_for_key;
 use crate::epoch::worker::state::DiceWorkerStateEvaluating;
 use crate::epoch::worker::state::DiceWorkerStateFinishedEvaluating;
 use crate::key::DiceKey;
@@ -52,6 +55,7 @@ use crate::value::DiceComputedValue;
 use crate::value::MaybeValidDiceValue;
 use crate::value::TrackedInvalidationPaths;
 use crate::versions::VersionNumber;
+use crate::versions::VersionRange;
 
 /// Context that is shared for all current live computations of the same version.
 #[derive(Derivative, Dupe, Clone)]
@@ -198,7 +202,7 @@ impl VersionEpochState {
 pub(crate) struct TransactionData {
     pub(super) epoch_state: VersionEpochState,
     pub(super) user_data: Arc<UserComputationData>,
-    pub(super) dice: Arc<Dice>,
+    pub(super) dice: StdArc<Dice>,
 }
 
 impl TransactionData {
@@ -330,11 +334,71 @@ impl TransactionData {
     }
 }
 
+fn project_for_key(
+    state: CoreStateHandle,
+    handle: ProjectionTaskCompletionHandle,
+    k: DiceKey,
+    v: VersionNumber,
+    version_epoch: VersionEpoch,
+    eval: SyncEvaluator,
+) -> CancellableResult<DiceComputedValue> {
+    let eval_result = eval.evaluate(k);
+
+    let (res, invalidation_paths, state_future) = {
+        let KeyEvaluationResult {
+            value,
+            deps,
+            storage,
+            invalidation_paths,
+        } = eval_result;
+        // send the update but don't wait for it
+        let state_future = match value.dupe().into_valid_value() {
+            Ok(value) => {
+                let rx = state.update_computed(
+                    VersionedGraphKey::new(v, k),
+                    version_epoch,
+                    storage,
+                    value,
+                    deps.into_arc(),
+                    invalidation_paths.dupe(),
+                );
+
+                rx.map(|res| res).boxed()
+            }
+            Err(_transient_result) => {
+                // transients are never stored in the state, but the result should be shared
+                // with async computations as if it were.
+                futures::future::ready(Ok(DiceComputedValue::new_for_transient(
+                    value.dupe(),
+                    v,
+                    invalidation_paths.dupe(),
+                )))
+                .boxed()
+            }
+        };
+
+        (value, invalidation_paths, state_future)
+    };
+
+    let computed_value = DiceComputedValue::new(
+        res,
+        Arc::new(VersionRange::begins_with(v).into_ranges()),
+        invalidation_paths,
+    );
+
+    let res = DiceSyncResult {
+        sync_result: computed_value,
+        state_future,
+    };
+
+    handle.complete(res)
+}
+
 /// Evaluates Keys
 #[derive(Clone, Dupe)]
 pub(crate) struct SyncEvaluator {
     user_data: Arc<UserComputationData>,
-    dice: Arc<Dice>,
+    dice: StdArc<Dice>,
     base: MaybeValidDiceValue,
     base_invalidation_paths: TrackedInvalidationPaths,
 }
@@ -342,7 +406,7 @@ pub(crate) struct SyncEvaluator {
 impl SyncEvaluator {
     pub(crate) fn new(
         user_data: Arc<UserComputationData>,
-        dice: Arc<Dice>,
+        dice: StdArc<Dice>,
         base: MaybeValidDiceValue,
         base_invalidation_paths: TrackedInvalidationPaths,
     ) -> Self {

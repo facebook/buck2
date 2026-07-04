@@ -14,7 +14,7 @@ use std::fmt::Formatter;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::mem;
-use std::sync::Arc;
+use std::sync::Arc as StdArc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
@@ -69,20 +69,20 @@ pub(crate) enum ParentKey {
 
 #[derive(Allocative, Clone, Dupe, Display)]
 pub(crate) enum DiceKeyErased {
-    Key(Arc<dyn DiceKeyDyn>),
+    Key(StdArc<dyn DiceKeyDyn>),
     Projection(ProjectionWithBase),
 }
 
 impl DiceKeyErased {
     pub(crate) fn key<K: Key>(k: K) -> Self {
-        Self::Key(Arc::new(k))
+        Self::Key(StdArc::new(k))
     }
 
     #[allow(unused)] // counterpart of projection to `key`
     pub(crate) fn proj<K: ProjectionKey>(base: DiceKey, k: K) -> Self {
         Self::Projection(ProjectionWithBase {
             base,
-            proj: Arc::new(k),
+            proj: StdArc::new(k),
         })
     }
 
@@ -127,18 +127,18 @@ impl DiceKeyErased {
         demand_impl.value
     }
 
-    pub(crate) fn downcast<K: 'static>(self) -> Option<Arc<K>> {
+    pub(crate) fn downcast<K: 'static>(self) -> Option<StdArc<K>> {
         match self {
             DiceKeyErased::Key(k) => {
                 if k.as_any().is::<K>() {
-                    Some(unsafe { Arc::from_raw(Arc::into_raw(k).cast()) })
+                    Some(unsafe { StdArc::from_raw(StdArc::into_raw(k).cast()) })
                 } else {
                     None
                 }
             }
             DiceKeyErased::Projection(proj) => {
                 if proj.proj.as_any().is::<K>() {
-                    Some(unsafe { Arc::from_raw(Arc::into_raw(proj.proj).cast()) })
+                    Some(unsafe { StdArc::from_raw(StdArc::into_raw(proj.proj).cast()) })
                 } else {
                     None
                 }
@@ -305,7 +305,7 @@ pub trait DiceKeyDyn: Allocative + Display + Send + Sync + PagableTagged + 'stat
         &self,
         ctx: &mut DiceComputations,
         cancellations: &CancellationContext,
-    ) -> Arc<dyn DiceValueDyn>;
+    ) -> StdArc<dyn DiceValueDyn>;
 
     fn cmp_any(&self) -> PartialEqAny<'_>;
 
@@ -313,7 +313,7 @@ pub trait DiceKeyDyn: Allocative + Display + Send + Sync + PagableTagged + 'stat
 
     fn as_any(&self) -> &dyn Any;
 
-    fn clone_arc(&self) -> Arc<dyn DiceKeyDyn>;
+    fn clone_arc(&self) -> StdArc<dyn DiceKeyDyn>;
 
     fn key_type_name(&self) -> &'static str;
 
@@ -332,7 +332,7 @@ pub trait DiceKeyDyn: Allocative + Display + Send + Sync + PagableTagged + 'stat
     fn pagable_deserialize_value<'de>(
         &self,
         deser: &mut dyn PagableDeserializer<'de>,
-    ) -> pagable::Result<Arc<dyn DiceValueDyn>>;
+    ) -> pagable::Result<StdArc<dyn DiceValueDyn>>;
 }
 
 #[async_trait]
@@ -344,9 +344,9 @@ where
         &self,
         ctx: &mut DiceComputations,
         cancellations: &CancellationContext,
-    ) -> Arc<dyn DiceValueDyn> {
+    ) -> StdArc<dyn DiceValueDyn> {
         let value = self.compute(ctx, cancellations).await;
-        Arc::new(DiceKeyValue::<K>::new(value))
+        StdArc::new(DiceKeyValue::<K>::new(value))
     }
 
     fn cmp_any(&self) -> PartialEqAny<'_> {
@@ -361,8 +361,8 @@ where
         self
     }
 
-    fn clone_arc(&self) -> Arc<dyn DiceKeyDyn> {
-        Arc::new(self.clone())
+    fn clone_arc(&self) -> StdArc<dyn DiceKeyDyn> {
+        StdArc::new(self.clone())
     }
 
     fn key_type_name(&self) -> &'static str {
@@ -391,9 +391,9 @@ where
     fn pagable_deserialize_value<'de>(
         &self,
         deser: &mut dyn PagableDeserializer<'de>,
-    ) -> pagable::Result<Arc<dyn DiceValueDyn>> {
+    ) -> pagable::Result<StdArc<dyn DiceValueDyn>> {
         let typed_value: K::Value = K::value_serialize().pagable_deserialize_value(deser)?;
-        Ok(Arc::new(DiceKeyValue::<K>::new(typed_value)))
+        Ok(StdArc::new(DiceKeyValue::<K>::new(typed_value)))
     }
 }
 
@@ -403,7 +403,7 @@ pub trait DiceProjectionDyn: Allocative + Display + Send + Sync + PagableTagged 
         &self,
         derive_from: &MaybeValidDiceValue,
         ctx: &DiceProjectionComputations,
-    ) -> Arc<dyn DiceValueDyn>;
+    ) -> StdArc<dyn DiceValueDyn>;
 
     fn cmp_any(&self) -> PartialEqAny<'_>;
 
@@ -411,7 +411,7 @@ pub trait DiceProjectionDyn: Allocative + Display + Send + Sync + PagableTagged 
 
     fn as_any(&self) -> &dyn Any;
 
-    fn clone_arc(&self) -> Arc<dyn DiceProjectionDyn>;
+    fn clone_arc(&self) -> StdArc<dyn DiceProjectionDyn>;
 
     fn key_type_name(&self) -> &'static str;
 
@@ -428,7 +428,7 @@ pub trait DiceProjectionDyn: Allocative + Display + Send + Sync + PagableTagged 
     fn pagable_deserialize_value<'de>(
         &self,
         deser: &mut dyn PagableDeserializer<'de>,
-    ) -> pagable::Result<Arc<dyn DiceValueDyn>>;
+    ) -> pagable::Result<StdArc<dyn DiceValueDyn>>;
 }
 
 impl<K> DiceProjectionDyn for K
@@ -439,14 +439,14 @@ where
         &self,
         derive_from: &MaybeValidDiceValue,
         ctx: &DiceProjectionComputations,
-    ) -> Arc<dyn DiceValueDyn> {
+    ) -> StdArc<dyn DiceValueDyn> {
         let value = self.compute(
             derive_from
                 .downcast_maybe_transient()
                 .expect("Projection Key derived from wrong type"),
             ctx,
         );
-        Arc::new(DiceProjectValue::<K>::new(value))
+        StdArc::new(DiceProjectValue::<K>::new(value))
     }
 
     fn cmp_any(&self) -> PartialEqAny<'_> {
@@ -461,8 +461,8 @@ where
         self
     }
 
-    fn clone_arc(&self) -> Arc<dyn DiceProjectionDyn> {
-        Arc::new(self.clone())
+    fn clone_arc(&self) -> StdArc<dyn DiceProjectionDyn> {
+        StdArc::new(self.clone())
     }
 
     fn key_type_name(&self) -> &'static str {
@@ -487,16 +487,16 @@ where
     fn pagable_deserialize_value<'de>(
         &self,
         deser: &mut dyn PagableDeserializer<'de>,
-    ) -> pagable::Result<Arc<dyn DiceValueDyn>> {
+    ) -> pagable::Result<StdArc<dyn DiceValueDyn>> {
         let typed_value: K::Value = K::value_serialize().pagable_deserialize_value(deser)?;
-        Ok(Arc::new(DiceProjectValue::<K>::new(typed_value)))
+        Ok(StdArc::new(DiceProjectValue::<K>::new(typed_value)))
     }
 }
 
 #[derive(Allocative, Clone, Dupe)]
 pub(crate) struct ProjectionWithBase {
     base: DiceKey,
-    proj: Arc<dyn DiceProjectionDyn>,
+    proj: StdArc<dyn DiceProjectionDyn>,
 }
 
 impl ProjectionWithBase {

@@ -10,8 +10,6 @@
 
 //! The main worker thread for the dice task
 
-use std::future;
-
 use dice_error::result::CancellableResult;
 use dice_error::result::CancellationReason;
 use dupe::Dupe;
@@ -27,7 +25,6 @@ use itertools::Either;
 use tracing::Instrument;
 
 use crate::api::activation_tracker::ActivationData;
-use crate::arc::Arc;
 use crate::core::graph::types::VersionedGraphKey;
 use crate::core::graph::types::VersionedGraphResult;
 use crate::core::graph::types::VersionedGraphResultMismatch;
@@ -35,15 +32,11 @@ use crate::core::state::CoreStateHandle;
 use crate::core::versions::VersionEpoch;
 use crate::deps::graph::SeriesParallelDeps;
 use crate::deps::iterator::SeriesParallelDepsIteratorItem;
-use crate::epoch::evaluator::KeyEvaluationResult;
-use crate::epoch::evaluator::SyncEvaluator;
 use crate::epoch::evaluator::TransactionData;
 use crate::epoch::task::PreviouslyCancelledTask;
 use crate::epoch::task::dice::PreparedDiceTask;
 use crate::epoch::task::dice::spawn_prepared_task;
 use crate::epoch::task::handle::DiceTaskHandle;
-use crate::epoch::task::projections::DiceSyncResult;
-use crate::epoch::task::projections::ProjectionTaskCompletionHandle;
 use crate::epoch::task::promise::DicePromise;
 use crate::epoch::worker::state::ActivationInfo;
 use crate::epoch::worker::state::DiceWorkerStateAwaitingPrevious;
@@ -59,7 +52,6 @@ use crate::value::DiceComputedValue;
 use crate::value::MaybeValidDiceValue;
 use crate::value::TrackedInvalidationPaths;
 use crate::versions::VersionNumber;
-use crate::versions::VersionRange;
 
 pub(crate) mod state;
 
@@ -520,66 +512,6 @@ impl CheckDependenciesResult<'_> {
             _ => panic!(),
         }
     }
-}
-
-pub(crate) fn project_for_key(
-    state: CoreStateHandle,
-    handle: ProjectionTaskCompletionHandle,
-    k: DiceKey,
-    v: VersionNumber,
-    version_epoch: VersionEpoch,
-    eval: SyncEvaluator,
-) -> CancellableResult<DiceComputedValue> {
-    let eval_result = eval.evaluate(k);
-
-    let (res, invalidation_paths, state_future) = {
-        let KeyEvaluationResult {
-            value,
-            deps,
-            storage,
-            invalidation_paths,
-        } = eval_result;
-        // send the update but don't wait for it
-        let state_future = match value.dupe().into_valid_value() {
-            Ok(value) => {
-                let rx = state.update_computed(
-                    VersionedGraphKey::new(v, k),
-                    version_epoch,
-                    storage,
-                    value,
-                    deps.into_arc(),
-                    invalidation_paths.dupe(),
-                );
-
-                rx.map(|res| res).boxed()
-            }
-            Err(_transient_result) => {
-                // transients are never stored in the state, but the result should be shared
-                // with async computations as if it were.
-                future::ready(Ok(DiceComputedValue::new_for_transient(
-                    value.dupe(),
-                    v,
-                    invalidation_paths.dupe(),
-                )))
-                .boxed()
-            }
-        };
-
-        (value, invalidation_paths, state_future)
-    };
-
-    let computed_value = DiceComputedValue::new(
-        res,
-        Arc::new(VersionRange::begins_with(v).into_ranges()),
-        invalidation_paths,
-    );
-
-    let res = DiceSyncResult {
-        sync_result: computed_value,
-        state_future,
-    };
-
-    handle.complete(res)
 }
 
 #[cfg(test)]
