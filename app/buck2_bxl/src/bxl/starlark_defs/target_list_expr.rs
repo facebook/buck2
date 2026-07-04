@@ -185,7 +185,7 @@ impl<'v> TargetListExpr<'v, TargetNode> {
         ctx: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<Cow<'v, TargetSet<TargetNode>>> {
         let set = ctx
-            .try_compute_join(self.iter(), |ctx, node_or_ref| {
+            .try_compute_join(self.iter().collect::<Vec<_>>(), |ctx, node_or_ref| {
                 async move { node_or_ref.get_from_dice(ctx).await }.boxed()
             })
             .await?
@@ -237,7 +237,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         self,
         dice: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<Vec<MaybeCompatible<ConfiguredTargetNode>>> {
-        dice.compute_join(self.iter(), |ctx, node_or_ref| {
+        dice.compute_join(self.iter().collect::<Vec<_>>(), |ctx, node_or_ref| {
             async move {
                 ctx.get_configured_target_node(node_or_ref.node_ref())
                     .await

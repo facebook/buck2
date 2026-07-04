@@ -345,7 +345,7 @@ async fn get_template_info_provider_artifacts(
 pub(crate) async fn get_from_template_placeholder_info(
     ctx: &mut DiceComputations<'_>,
     template_name: StaticStr,
-    targets: impl IntoIterator<Item = ConfiguredTargetLabel>,
+    targets: impl IntoIterator<Item = ConfiguredTargetLabel, IntoIter: ExactSizeIterator>,
 ) -> buck2_error::Result<BuckIndexMap<ConfiguredTargetLabel, Artifact>> {
     let mut label_to_artifact: BuckIndexMap<ConfiguredTargetLabel, Artifact> =
         BuckIndexMap::default();

@@ -205,7 +205,7 @@ pub(crate) fn build<'v>(
                     .wait_for(
                         // TODO (torozco): support --fail-fast in BXL.
                         false,
-                        dice.compute_join(build_spec.labels().unique(), |ctx, target| {
+                        dice.compute_join(build_spec.labels().unique().collect::<Vec<_>>(), |ctx, target| {
                             let consumer = consumer.clone();
                             async move {
                                 let target = target.clone();

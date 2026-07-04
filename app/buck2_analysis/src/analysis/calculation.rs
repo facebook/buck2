@@ -159,6 +159,7 @@ async fn resolve_queries_impl(
     queries: impl IntoIterator<Item = (String, ResolvedQueryLiterals<ConfiguredProvidersLabel>)>,
 ) -> buck2_error::Result<StdBuckHashMap<String, Arc<AnalysisQueryResult>>> {
     let deps: TargetSet<_> = configured_node.deps().duped().collect();
+    let queries: Vec<_> = queries.into_iter().collect();
     let query_results = ctx
         .try_compute_join(
             queries,
@@ -217,7 +218,7 @@ pub async fn get_dep_analysis<'v>(
     configured_node: ConfiguredTargetNodeRef<'v>,
     ctx: &mut DiceComputations<'_>,
 ) -> buck2_error::Result<Vec<(&'v ConfiguredTargetLabel, AnalysisResult)>> {
-    KeepGoing::try_compute_join_all(ctx, configured_node.deps(), |ctx, dep| {
+    KeepGoing::try_compute_join_all(ctx, configured_node.deps().collect::<Vec<_>>(), |ctx, dep| {
         async move {
             let res = ctx
                 .get_analysis_result(dep.label())

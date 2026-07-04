@@ -31,7 +31,7 @@ pub(crate) async fn analysis<'v>(
     Either<Option<StarlarkAnalysisResult>, Vec<(ConfiguredProvidersLabel, StarlarkAnalysisResult)>>,
 > {
     let analysis = dice
-        .compute_join(expr.labels(), |dice, label| {
+        .compute_join(expr.labels().collect::<Vec<_>>(), |dice, label| {
             async move {
                 let maybe_result = dice.get_analysis_result(label.target()).await?;
                 buck2_error::Ok((label, maybe_result))

@@ -256,7 +256,7 @@ impl UqueryDelegate for DiceQueryDelegate<'_, '_> {
         let mut ctx = self.ctx.get();
         let resolver = ctx.get_cell_resolver().await?;
         let buildfiles = ctx
-            .try_compute_join(resolver.cells(), |ctx, (name, _)| {
+            .try_compute_join(resolver.cells().collect::<Vec<_>>(), |ctx, (name, _)| {
                 async move {
                     DiceFileComputations::buildfiles(ctx, name)
                         .await

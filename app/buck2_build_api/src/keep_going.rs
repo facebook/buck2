@@ -18,7 +18,7 @@ pub struct KeepGoing;
 impl KeepGoing {
     pub fn try_compute_join_all<'a, T: Send, R: 'a, E: 'a>(
         ctx: &'a mut DiceComputations<'_>,
-        items: impl IntoIterator<Item = T>,
+        items: impl IntoIterator<Item = T, IntoIter: ExactSizeIterator>,
         mapper: impl for<'x> FnOnce(&'x mut DiceComputations<'a>, T) -> BoxFuture<'x, Result<R, E>>
         + Send
         + Sync
