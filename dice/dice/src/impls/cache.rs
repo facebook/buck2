@@ -14,22 +14,27 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 
 use allocative::Allocative;
+use dice_error::result::CancellableResult;
 use dice_error::result::CancellationReason;
 use dupe::Dupe;
 use lock_free_hashtable::sharded::ShardedLockFreeRawTable;
 
 use crate::arc::Arc;
+use crate::arc::ArcBorrow;
 use crate::impls::key::DiceKey;
 use crate::impls::task::dice::DiceTask;
 use crate::impls::task::dice::DiceTaskInternal;
 use crate::impls::task::dice::DiceTaskRef;
 use crate::impls::task::dice::PreparedDiceTask;
 use crate::impls::task::dice::ReadValueResult;
+use crate::impls::task::projections::ProjectionTask;
+use crate::impls::task::projections::ProjectionTaskCompletionHandle;
 use crate::impls::value::DiceComputedValue;
 
 #[derive(Allocative)]
 struct Data {
     storage: ShardedLockFreeRawTable<Arc<DiceTaskInternal>, 64>,
+    projection_storage: ShardedLockFreeRawTable<Arc<ProjectionTask>, 64>,
     is_cancelled: AtomicBool,
 }
 
@@ -38,15 +43,15 @@ pub(crate) struct SharedCache {
     data: Arc<Data>,
 }
 
-pub(crate) enum SharedCacheLookup<'d> {
-    Finished(&'d DiceComputedValue),
-    InProgress(DiceTaskRef<'d>),
+pub(crate) enum SharedCacheLookup<'d, T> {
+    Finished(CancellableResult<&'d DiceComputedValue>),
+    InProgress(T),
     Vacant,
 }
 
-pub(crate) enum SharedCacheInsert<'d> {
-    Occupied(DiceTaskRef<'d>),
-    Inserted(PreparedDiceTask<'d>),
+pub(crate) enum SharedCacheInsert<T, N> {
+    Occupied(T),
+    Inserted(N),
     TransactionCancelled,
 }
 
@@ -55,7 +60,7 @@ impl SharedCache {
         (key.index as u64).wrapping_mul(0x9e3779b97f4a7c15)
     }
 
-    pub(crate) fn get(&self, key: DiceKey) -> SharedCacheLookup<'_> {
+    pub(crate) fn get(&self, key: DiceKey) -> SharedCacheLookup<'_, DiceTaskRef<'_>> {
         let entry = self
             .data
             .storage
@@ -64,7 +69,7 @@ impl SharedCache {
         match entry {
             Some(task) => {
                 if let ReadValueResult::Finished(v) = task.get().read_value() {
-                    SharedCacheLookup::Finished(v)
+                    SharedCacheLookup::Finished(Ok(v))
                 } else {
                     SharedCacheLookup::InProgress(DiceTaskRef { internal: task })
                 }
@@ -73,7 +78,28 @@ impl SharedCache {
         }
     }
 
-    pub(crate) fn insert(&self, key: DiceKey) -> SharedCacheInsert {
+    pub(crate) fn get_projection(&self, key: DiceKey) -> SharedCacheLookup<&'_ ProjectionTask> {
+        let entry = self
+            .data
+            .projection_storage
+            .lookup(Self::key_hash(key), |task| task.key == key);
+
+        match entry {
+            Some(task) => {
+                if let Some(v) = task.get().try_read() {
+                    SharedCacheLookup::Finished(v)
+                } else {
+                    SharedCacheLookup::InProgress(task.get())
+                }
+            }
+            None => SharedCacheLookup::Vacant,
+        }
+    }
+
+    pub(crate) fn insert(
+        &self,
+        key: DiceKey,
+    ) -> SharedCacheInsert<DiceTaskRef<'_>, PreparedDiceTask<'_>> {
         if self.data.is_cancelled.load(Ordering::Relaxed) {
             return SharedCacheInsert::TransactionCancelled;
         }
@@ -102,6 +128,44 @@ impl SharedCache {
         }
     }
 
+    pub(crate) fn insert_projection(
+        &self,
+        key: DiceKey,
+    ) -> SharedCacheInsert<ArcBorrow<'_, ProjectionTask>, ProjectionTaskCompletionHandle> {
+        if self.data.is_cancelled.load(Ordering::Relaxed) {
+            return SharedCacheInsert::TransactionCancelled;
+        }
+
+        let maybe_prepared_task = ProjectionTask::prepare(key, |task| {
+            let (entry, not_inserted_value) = self.data.projection_storage.insert(
+                Self::key_hash(key),
+                task,
+                |left, right| left.key == right.key,
+                |task| Self::key_hash(task.key),
+            );
+            if not_inserted_value.is_some() {
+                Err(entry)
+            } else {
+                Ok(entry.get())
+            }
+        });
+
+        if self.data.is_cancelled.load(Ordering::Relaxed) {
+            return SharedCacheInsert::TransactionCancelled;
+        }
+
+        match maybe_prepared_task {
+            Ok(handle) => {
+                if self.data.is_cancelled.load(Ordering::Relaxed) {
+                    handle.cancel(CancellationReason::TransactionCancelled);
+                    return SharedCacheInsert::TransactionCancelled;
+                }
+                SharedCacheInsert::Inserted(handle)
+            }
+            Err(t) => SharedCacheInsert::Occupied(t),
+        }
+    }
+
     #[cfg(test)]
     pub(crate) fn testing_insert_task(&self, key: DiceKey, task: DiceTask) {
         let (_, not_inserted_value) = self.data.storage.insert(
@@ -117,6 +181,7 @@ impl SharedCache {
         SharedCache {
             data: Arc::new(Data {
                 storage: ShardedLockFreeRawTable::new(),
+                projection_storage: ShardedLockFreeRawTable::new(),
                 is_cancelled: AtomicBool::new(false),
             }),
         }
@@ -130,7 +195,8 @@ impl SharedCache {
         // The pattern with the `is_cancelled` flag is exactly what this is for
         self.data.storage.synchronize_with_inserts();
 
-        self.data
+        let regular = self
+            .data
             .storage
             .iter()
             .filter_map(|entry| {
@@ -143,7 +209,20 @@ impl SharedCache {
                     None
                 }
             })
-            .collect()
+            .collect();
+        // Projection keys can't really be cancelled; however, our caller is going to await the
+        // tasks we return and rely on all ongoing `compute` calls having finished at that time, so
+        // we must do something - we take the simple approach of just awaiting all ongoing
+        // projections at this point. We know this can't take too long because the number of
+        // outstanding projections is bounded by the worker thread count (given their synchronous
+        // nature)
+        for t in self.data.projection_storage.iter() {
+            if t.is_pending() {
+                drop(t.wait_sync());
+            }
+        }
+
+        regular
     }
 }
 
@@ -162,12 +241,18 @@ pub(crate) mod introspection {
 
     impl SharedCache {
         pub(crate) fn iter_tasks(&self) -> impl Iterator<Item = (DiceKey, DiceTaskState)> {
-            self.data.storage.iter().map(|entry| {
+            let regular = self.data.storage.iter().map(|entry| {
                 (
                     entry.key,
                     DiceTaskRef { internal: entry }.introspect_state(),
                 )
-            })
+            });
+            let projection = self
+                .data
+                .projection_storage
+                .iter()
+                .map(|entry| (entry.key, entry.introspect_state()));
+            regular.chain(projection)
         }
     }
 }

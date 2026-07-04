@@ -45,8 +45,9 @@ use crate::impls::task::PreviouslyCancelledTask;
 use crate::impls::task::dice::PreparedDiceTask;
 use crate::impls::task::dice::spawn_prepared_task;
 use crate::impls::task::handle::DiceTaskHandle;
+use crate::impls::task::projections::DiceSyncResult;
+use crate::impls::task::projections::ProjectionTaskCompletionHandle;
 use crate::impls::task::promise::DicePromise;
-use crate::impls::task::promise::DiceSyncResult;
 use crate::impls::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceComputedValue;
@@ -525,79 +526,69 @@ impl CheckDependenciesResult<'_> {
     }
 }
 
-#[cfg_attr(debug_assertions, instrument(
-    level = "debug",
-    skip(state, promise, eval, event_dispatcher),
-    fields(k = ?k, version = %v),
-))]
 pub(crate) fn project_for_key(
     state: CoreStateHandle,
-    promise: DicePromise,
+    handle: ProjectionTaskCompletionHandle,
     k: DiceKey,
     v: VersionNumber,
     version_epoch: VersionEpoch,
     eval: SyncEvaluator,
     event_dispatcher: DiceEventDispatcher,
 ) -> CancellableResult<DiceComputedValue> {
-    promise.sync_get_or_complete(|| {
-        event_dispatcher.started(k);
+    event_dispatcher.started(k);
 
-        debug!(msg = "running projection");
+    let eval_result = eval.evaluate(k);
 
-        let eval_result = eval.evaluate(k);
+    let (res, invalidation_paths, state_future) = {
+        let KeyEvaluationResult {
+            value,
+            deps,
+            storage,
+            invalidation_paths,
+        } = eval_result;
+        // send the update but don't wait for it
+        let state_future = match value.dupe().into_valid_value() {
+            Ok(value) => {
+                let rx = state.update_computed(
+                    VersionedGraphKey::new(v, k),
+                    version_epoch,
+                    storage,
+                    value,
+                    deps.into_arc(),
+                    invalidation_paths.dupe(),
+                );
 
-        debug!(msg = "projection finished. updating caches");
-
-        let (res, invalidation_paths, state_future) = {
-            let KeyEvaluationResult {
-                value,
-                deps,
-                storage,
-                invalidation_paths,
-            } = eval_result;
-            // send the update but don't wait for it
-            let state_future = match value.dupe().into_valid_value() {
-                Ok(value) => {
-                    let rx = state.update_computed(
-                        VersionedGraphKey::new(v, k),
-                        version_epoch,
-                        storage,
-                        value,
-                        deps.into_arc(),
-                        invalidation_paths.dupe(),
-                    );
-
-                    rx.map(|res| res).boxed()
-                }
-                Err(_transient_result) => {
-                    // transients are never stored in the state, but the result should be shared
-                    // with async computations as if it were.
-                    future::ready(Ok(DiceComputedValue::new_for_transient(
-                        value.dupe(),
-                        v,
-                        invalidation_paths.dupe(),
-                    )))
-                    .boxed()
-                }
-            };
-
-            (value, invalidation_paths, state_future)
+                rx.map(|res| res).boxed()
+            }
+            Err(_transient_result) => {
+                // transients are never stored in the state, but the result should be shared
+                // with async computations as if it were.
+                future::ready(Ok(DiceComputedValue::new_for_transient(
+                    value.dupe(),
+                    v,
+                    invalidation_paths.dupe(),
+                )))
+                .boxed()
+            }
         };
 
-        debug!(msg = "update future completed");
-        event_dispatcher.finished(k);
+        (value, invalidation_paths, state_future)
+    };
 
-        let computed_value = DiceComputedValue::new(
-            res,
-            Arc::new(VersionRange::begins_with(v).into_ranges()),
-            invalidation_paths,
-        );
+    event_dispatcher.finished(k);
 
-        DiceSyncResult {
-            sync_result: computed_value,
-            state_future,
-        }
-    })
+    let computed_value = DiceComputedValue::new(
+        res,
+        Arc::new(VersionRange::begins_with(v).into_ranges()),
+        invalidation_paths,
+    );
+
+    let res = DiceSyncResult {
+        sync_result: computed_value,
+        state_future,
+    };
+
+    handle.complete(res)
 }
 
 #[cfg(test)]

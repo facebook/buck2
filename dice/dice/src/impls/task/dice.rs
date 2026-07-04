@@ -38,7 +38,6 @@ use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
 use crate::impls::task::PreviouslyCancelledTask;
 use crate::impls::task::promise::DicePromise;
-use crate::impls::task::promise::DiceSyncResult;
 use crate::impls::value::DiceComputedValue;
 use crate::introspection::DiceTaskState;
 
@@ -188,8 +187,6 @@ struct Critical {
     /// Cancellation handle for the most recently created generation. The actual computation on the
     /// other side of this may have not yet started, or already been cancelled.
     cancellation_handle: DropcancelHandle,
-    /// See `DiceSyncResult::sync_result` for what this is
-    sync_value: Option<DiceComputedValue>,
 }
 
 pub(crate) enum ReadValueResult<'d> {
@@ -274,7 +271,7 @@ impl<'d> DiceTaskDependedOnByResult<'d> {
     pub(crate) fn unwrap(self) -> DicePromise<'d> {
         match self {
             DiceTaskDependedOnByResult::Pending(p) => p,
-            DiceTaskDependedOnByResult::Finished(v) => DicePromise::ready(v),
+            DiceTaskDependedOnByResult::Finished(v) => DicePromise::ready(Ok(v)),
             DiceTaskDependedOnByResult::NeedsRestart(_, _) => {
                 panic!("DiceTaskDependedOnByResult::unwrap called on NeedsRestart");
             }
@@ -337,7 +334,6 @@ impl DiceTask {
                 wakers: AtomicWakerSet::new(),
                 critical: Mutex::new(Some(Box::new(Critical {
                     cancellation_handle,
-                    sync_value: None,
                 }))),
                 last_cancellation_reason: Mutex::new(None),
             }),
@@ -532,93 +528,6 @@ impl<'d> DiceTaskRef<'d> {
     pub(crate) fn await_termination(self) -> TerminationObserver {
         let generation = self.internal.current_generation.load(Ordering::Relaxed);
         TerminationObserver::new(self, generation)
-    }
-
-    /// Synchronously get the value of this task, or compute it via a sync projection.
-    ///
-    /// This encapsulates the entire sync projection protocol:
-    /// 1. Check if the task already has a completed value
-    /// 2. Check if a sync projection value already exists
-    /// 3. Compute the sync value under write lock
-    /// 4. Spawn a background task to complete the async part
-    pub(crate) fn sync_get_or_complete(
-        &self,
-        prevent_cancellation_future: DiceTaskDependentFuture<'_>,
-        f: impl FnOnce() -> DiceSyncResult,
-    ) -> CancellableResult<DiceComputedValue> {
-        // 1. Already finished?
-        if let Some(v) = self.get_finished_value() {
-            return Ok(v.dupe());
-        }
-
-        let result = {
-            let mut guard = self.internal.critical.lock();
-            // May have raced, so need to check again
-            if let Some(v) = self.get_finished_value() {
-                return Ok(v.dupe());
-            }
-
-            // Not finished (checked above, under the lock), so the task isn't sealed and `Critical`
-            // is still present.
-            let critical = guard
-                .as_mut()
-                .expect("Critical is only dropped when the task is sealed");
-
-            // 2. Sync value already computed by a previous call?
-            if let Some(sync_res) = &critical.sync_value {
-                return Ok(sync_res.dupe());
-            }
-
-            // 3. Compute under lock.
-            let result = f();
-            critical.sync_value = Some(result.sync_result.dupe());
-            result
-        };
-
-        // 4. Spawn the async completion.
-        //
-        // Because this is async and we don't really keep track of it, things would get very messy
-        // if we started attempting to reason about cancellation here; for that reason, we avoid it.
-        // Once we get to this point, we commit to ensuring that this generation will complete with
-        // success. We do so by just bumping the strong count and "leaking" a waiter.
-        self.internal.strong_count.fetch_add(1, Ordering::Relaxed);
-
-        // Note that we know that this increment does not change the strong count 0 -> 1 because -
-        // until here - we have a `prevent_cancellation_future` which itself holds a strong count
-        let task = prevent_cancellation_future.0.task.clone_arc();
-        let generation = prevent_cancellation_future.0.generation;
-        drop(prevent_cancellation_future);
-        tokio::spawn({
-            let future = result.state_future;
-            async move {
-                let res = future.await;
-                // Clear sync_value now that the async result is in. If the task has already been
-                // sealed (by another generation), `Critical` is gone and there is nothing to clear.
-                let mut guard = task.internal.critical.lock();
-                if let Some(critical) = guard.as_mut() {
-                    critical.sync_value = None;
-                }
-                // Finalize the generation in the standard way
-                //
-                // FIXME(JakobDegen): `DiceCompletionHandle` is supposed to be the only way to do
-                // this, so it's not a great sign that we're not using it. We also can't just have
-                // the caller pass it in - the waiter that actually gets the `DiceCompletionHandle`
-                // might not have been the one that wins the race to the lock earlier. What happens
-                // right now is that the `DiceCompletionHandle` just gets discarded which works
-                // correctly, but if that ever changes things will go very wrong here. We should
-                // probably have different APIs to avoid handing one out in the sync case.
-                match res {
-                    Ok(v) => {
-                        task.as_ref().task_finished_success(guard, generation, v);
-                    }
-                    Err(e) => {
-                        task.as_ref().task_finished_cancelled(guard, generation, e);
-                    }
-                }
-            }
-        });
-
-        Ok(result.sync_result)
     }
 
     fn task_finished<'a>(

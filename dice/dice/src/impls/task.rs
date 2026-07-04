@@ -10,6 +10,7 @@
 
 pub(crate) mod dice;
 pub(crate) mod handle;
+pub(crate) mod projections;
 pub(crate) mod promise;
 #[cfg(test)]
 pub(crate) use dice::spawn_dice_task;

@@ -661,7 +661,6 @@ impl ComputeCtx {
 
         let r = self.transaction_data.epoch_state.compute_projection(
             dice_key,
-            self.parent_key,
             self.transaction_data.dice.state_handle.dupe(),
             SyncEvaluator::new(
                 self.transaction_data.user_data.dupe(),
@@ -736,7 +735,7 @@ pub(crate) struct VersionEpochState {
 }
 
 enum LookupResult<'d> {
-    Finished(&'d DiceComputedValue),
+    Finished(CancellableResult<&'d DiceComputedValue>),
     Pending(DicePromise<'d>),
     NeedsRestart(PreparedDiceTask<'d>, Option<PreviouslyCancelledTask>),
     TransactionCancelled,
@@ -770,7 +769,7 @@ impl VersionEpochState {
 
         match task.depended_on_by(parent_key) {
             DiceTaskDependedOnByResult::Finished(dice_computed_value) => {
-                LookupResult::Finished(dice_computed_value)
+                LookupResult::Finished(Ok(dice_computed_value))
             }
             DiceTaskDependedOnByResult::Pending(dice_promise) => {
                 LookupResult::Pending(dice_promise)
@@ -831,40 +830,42 @@ impl VersionEpochState {
     pub(crate) fn compute_projection(
         &self,
         key: DiceKey,
-        parent_key: ParentKey,
         state: CoreStateHandle,
         eval: SyncEvaluator,
         events: DiceEventDispatcher,
     ) -> CancellableResult<DiceComputedValue> {
-        let promise = match self.lookup_entry(key, parent_key) {
-            LookupResult::Finished(dice_computed_value) => {
-                return Ok(dice_computed_value.dupe());
+        let task = match self.cache.get_projection(key) {
+            SharedCacheLookup::Finished(result) => {
+                return result.map(Dupe::dupe);
             }
-            LookupResult::Pending(dice_promise) => dice_promise,
-            LookupResult::NeedsRestart(prepared_dice_task, _previously_cancelled_task) => {
-                // FIXME(JakobDegen): Ignoring `_previously_cancelled_task` is bad
-                let PreparedDiceTask {
-                    completion_handle: _unused,
-                    dependent_future,
-                    task_spawner: _unused2,
-                } = prepared_dice_task;
-
-                DicePromise::pending(dependent_future)
-            }
-            LookupResult::TransactionCancelled => {
-                return Err(CancellationReason::TransactionCancelled);
-            }
+            SharedCacheLookup::InProgress(task) => Err(task),
+            SharedCacheLookup::Vacant => match self.cache.insert_projection(key) {
+                SharedCacheInsert::Occupied(task) => Err(task.get()),
+                SharedCacheInsert::Inserted(new_task) => Ok(new_task),
+                SharedCacheInsert::TransactionCancelled => {
+                    return Err(CancellationReason::TransactionCancelled);
+                }
+            },
         };
 
-        project_for_key(
-            state,
-            promise,
-            key,
-            self.version,
-            self.version_epoch,
-            eval,
-            events,
-        )
+        match task {
+            Ok(handle) => {
+                // We inserted and are expected to do the computation
+                project_for_key(
+                    state,
+                    handle,
+                    key,
+                    self.version,
+                    self.version_epoch,
+                    eval,
+                    events,
+                )
+            }
+            Err(task) => {
+                // Someone else inserted
+                task.wait_sync()
+            }
+        }
     }
 
     pub(crate) fn get_version(&self) -> VersionNumber {
