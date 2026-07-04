@@ -9,9 +9,8 @@
  */
 
 pub(crate) mod cache;
-pub(crate) mod core;
 pub(crate) mod ctx;
-mod deps;
+pub(crate) mod deps;
 pub(crate) mod dice;
 pub(crate) mod evaluator;
 pub(crate) mod events;

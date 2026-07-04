@@ -174,14 +174,14 @@ use crate::HashSet;
 use crate::api::key::InvalidationSourcePriority;
 use crate::api::storage_type::StorageType;
 use crate::arc::Arc;
-use crate::impls::core::graph::nodes::ForceDirtyHistory;
-use crate::impls::core::graph::nodes::InjectedGraphNode;
-use crate::impls::core::graph::nodes::InvalidateResult;
-use crate::impls::core::graph::nodes::OccupiedGraphNode;
-use crate::impls::core::graph::nodes::VacantGraphNode;
-use crate::impls::core::graph::nodes::VersionedGraphNode;
-use crate::impls::core::graph::types::VersionedGraphKey;
-use crate::impls::core::graph::types::VersionedGraphResult;
+use crate::core::graph::nodes::ForceDirtyHistory;
+use crate::core::graph::nodes::InjectedGraphNode;
+use crate::core::graph::nodes::InvalidateResult;
+use crate::core::graph::nodes::OccupiedGraphNode;
+use crate::core::graph::nodes::VacantGraphNode;
+use crate::core::graph::nodes::VersionedGraphNode;
+use crate::core::graph::types::VersionedGraphKey;
+use crate::core::graph::types::VersionedGraphResult;
 use crate::impls::deps::graph::SeriesParallelDeps;
 use crate::impls::key::DiceKey;
 use crate::impls::value::DiceComputedValue;
@@ -437,8 +437,8 @@ pub(crate) mod testing {
 
     use gazebo::variants::VariantName;
 
-    use crate::impls::core::graph::storage::VersionedGraphResult;
-    use crate::impls::core::graph::types::VersionedGraphResultMismatch;
+    use crate::core::graph::storage::VersionedGraphResult;
+    use crate::core::graph::types::VersionedGraphResultMismatch;
     use crate::impls::value::DiceComputedValue;
 
     pub(crate) trait VersionedCacheResultAssertsExt {
@@ -508,12 +508,12 @@ mod tests {
     use crate::api::key::NoValueSerialize;
     use crate::api::key::ValueSerialize;
     use crate::arc::Arc;
-    use crate::impls::core::graph::storage::InvalidateKind;
-    use crate::impls::core::graph::storage::StorageType;
-    use crate::impls::core::graph::storage::ValueReusable;
-    use crate::impls::core::graph::storage::VersionedGraph;
-    use crate::impls::core::graph::storage::testing::VersionedCacheResultAssertsExt;
-    use crate::impls::core::graph::types::VersionedGraphKey;
+    use crate::core::graph::storage::InvalidateKind;
+    use crate::core::graph::storage::StorageType;
+    use crate::core::graph::storage::ValueReusable;
+    use crate::core::graph::storage::VersionedGraph;
+    use crate::core::graph::storage::testing::VersionedCacheResultAssertsExt;
+    use crate::core::graph::types::VersionedGraphKey;
     use crate::impls::deps::graph::SeriesParallelDeps;
     use crate::impls::key::DiceKey;
     use crate::impls::value::DiceKeyValue;
@@ -1607,7 +1607,7 @@ mod tests {
     // doesn't (or can't) hydrate first.
     // ---------------------------------------------------------------------
 
-    use crate::impls::core::graph::nodes::VersionedGraphNode;
+    use crate::core::graph::nodes::VersionedGraphNode;
 
     /// Paged-out node + lookup-returns-Compute (after force-dirty) +
     /// recompute with same value: the graph cannot equality-compare the new

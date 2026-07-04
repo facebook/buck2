@@ -36,7 +36,7 @@ use pagable_storage::storage::sled::SledBackedPagableStorage;
 use pagable_storage::storage::sqlite::SqliteBackedPagableStorage;
 
 use crate::HashMap;
-use crate::impls::core::state::CoreStateHandle;
+use crate::core::state::CoreStateHandle;
 use crate::impls::key::DiceKey;
 use crate::impls::key::DiceKeyErased;
 use crate::impls::key_index::DiceKeyIndex;

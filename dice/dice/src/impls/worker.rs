@@ -28,11 +28,11 @@ use tracing::Instrument;
 
 use crate::api::activation_tracker::ActivationData;
 use crate::arc::Arc;
-use crate::impls::core::graph::types::VersionedGraphKey;
-use crate::impls::core::graph::types::VersionedGraphResult;
-use crate::impls::core::graph::types::VersionedGraphResultMismatch;
-use crate::impls::core::state::CoreStateHandle;
-use crate::impls::core::versions::VersionEpoch;
+use crate::core::graph::types::VersionedGraphKey;
+use crate::core::graph::types::VersionedGraphResult;
+use crate::core::graph::types::VersionedGraphResultMismatch;
+use crate::core::state::CoreStateHandle;
+use crate::core::versions::VersionEpoch;
 use crate::impls::deps::graph::SeriesParallelDeps;
 use crate::impls::deps::iterator::SeriesParallelDepsIteratorItem;
 use crate::impls::evaluator::KeyEvaluationResult;

@@ -91,9 +91,9 @@ pub(crate) enum RejectedReason {
 
 #[cfg(test)]
 pub(crate) mod testing {
+    use crate::core::graph::types::VersionedGraphResult;
+    use crate::core::graph::types::VersionedGraphResultMismatch;
     use crate::gazebo::variants::VariantName;
-    use crate::impls::core::graph::types::VersionedGraphResult;
-    use crate::impls::core::graph::types::VersionedGraphResultMismatch;
     use crate::impls::value::DiceComputedValue;
 
     #[allow(dead_code)]
