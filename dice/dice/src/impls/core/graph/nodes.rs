@@ -60,7 +60,7 @@ pub(crate) enum VersionedGraphNode {
     Vacant(VacantGraphNode),
 }
 
-mini_vec::size_assert::words_of_type!(VersionedGraphNode, 18);
+mini_vec::size_assert::words_of_type!(VersionedGraphNode, 17);
 
 impl VersionedGraphNode {
     pub(crate) fn force_dirty(
