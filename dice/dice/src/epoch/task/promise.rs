@@ -15,9 +15,9 @@ use std::pin::Pin;
 use std::task::Context;
 use std::task::Poll;
 
-use dice_error::result::CancellableResult;
 use pin_project::pin_project;
 
+use crate::epoch::cache::TransactionResult;
 use crate::epoch::task::dice::DiceTaskDependentFuture;
 use crate::value::DiceComputedValue;
 
@@ -30,7 +30,7 @@ pub(crate) struct DicePromise<'d>(#[pin] pub(super) DicePromiseInternal<'d>);
 #[pin_project(project = DicePromiseInternalProj)]
 pub(super) enum DicePromiseInternal<'d> {
     Ready {
-        result: CancellableResult<&'d DiceComputedValue>,
+        result: &'d TransactionResult<DiceComputedValue>,
     },
     Pending {
         #[pin]
@@ -40,7 +40,7 @@ pub(super) enum DicePromiseInternal<'d> {
 }
 
 impl<'d> DicePromise<'d> {
-    pub(crate) fn ready(result: CancellableResult<&'d DiceComputedValue>) -> Self {
+    pub(crate) fn ready(result: &'d TransactionResult<DiceComputedValue>) -> Self {
         Self(DicePromiseInternal::Ready { result })
     }
 
@@ -50,7 +50,7 @@ impl<'d> DicePromise<'d> {
 }
 
 impl<'d> Future for DicePromise<'d> {
-    type Output = CancellableResult<&'d DiceComputedValue>;
+    type Output = &'d TransactionResult<DiceComputedValue>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let res = match self.as_mut().project().0.project() {

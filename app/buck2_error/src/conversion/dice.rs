@@ -10,7 +10,6 @@
 
 use dice_error::DiceErrorImpl;
 use dice_error::cycles::DetectCyclesParseError;
-use dice_error::result::CancellationReason;
 
 use crate::ErrorTag;
 
@@ -18,27 +17,22 @@ impl From<dice_error::DiceError> for crate::Error {
     #[cold]
     #[track_caller]
     fn from(value: dice_error::DiceError) -> Self {
-        let (error_tag, reason) = match *value.0 {
-            DiceErrorImpl::DuplicateChange(_) => (ErrorTag::DiceDuplicatedChange, None),
-            DiceErrorImpl::ChangedToInvalid(_) => (ErrorTag::DiceChangedToInvalid, None),
+        let error_tag = match *value.0 {
+            DiceErrorImpl::DuplicateChange(_) => ErrorTag::DiceDuplicatedChange,
+            DiceErrorImpl::ChangedToInvalid(_) => ErrorTag::DiceChangedToInvalid,
             DiceErrorImpl::InjectedKeyGotInvalidation(_) => {
-                (ErrorTag::DiceInjectedKeyGotInvalidation, None)
+                ErrorTag::DiceInjectedKeyGotInvalidation
             }
-            DiceErrorImpl::Cancelled(CancellationReason::Rejected) => {
-                (ErrorTag::DiceRejected, None)
-            }
-            DiceErrorImpl::Cancelled(reason) => (ErrorTag::DiceCancelled, Some(reason)),
+            // `DiceRejected` is a weird name for this, but is what it was historically, so keeping
+            // it
+            DiceErrorImpl::TransactionCancelled => ErrorTag::DiceRejected,
             DiceErrorImpl::UnexpectedCycleGuardType { .. } => {
-                (ErrorTag::DiceUnexpectedCycleGuardType, None)
+                ErrorTag::DiceUnexpectedCycleGuardType
             }
-            DiceErrorImpl::DuplicateActivationData => (ErrorTag::DiceDuplicateActivationData, None),
+            DiceErrorImpl::DuplicateActivationData => ErrorTag::DiceDuplicateActivationData,
         };
 
-        let mut error = crate::conversion::from_any_with_tag(value, error_tag);
-        if let Some(reason) = reason {
-            error = error.string_tag(&reason.to_string());
-        }
-        error
+        crate::conversion::from_any_with_tag(value, error_tag)
     }
 }
 

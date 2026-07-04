@@ -12,13 +12,10 @@ use std::future::Future;
 use std::sync::Arc as StdArc;
 
 use derivative::Derivative;
-use dice_error::result::CancellableResult;
-use dice_error::result::CancellationReason;
 use dupe::Dupe;
 use futures::FutureExt;
 use parking_lot::Mutex;
 
-use super::task::dice::DiceTaskDependedOnByResult;
 use crate::ActivationData;
 use crate::DiceEvent;
 use crate::api::projection::DiceProjectionComputations;
@@ -34,16 +31,20 @@ use crate::dice::Dice;
 use crate::epoch::cache::SharedCache;
 use crate::epoch::cache::SharedCacheInsert;
 use crate::epoch::cache::SharedCacheLookup;
+use crate::epoch::cache::TransactionResult;
 use crate::epoch::ctx::ComputeCtx;
 use crate::epoch::ctx::EvaluationData;
 use crate::epoch::ctx::TrackedComputations;
 use crate::epoch::task::PreviouslyCancelledTask;
+use crate::epoch::task::dice::DiceTaskDependedOnByResult;
 use crate::epoch::task::dice::PreparedDiceTask;
 use crate::epoch::task::handle::DiceTaskHandle;
 use crate::epoch::task::projections::DiceSyncResult;
 use crate::epoch::task::projections::ProjectionTaskCompletionHandle;
 use crate::epoch::task::promise::DicePromise;
 use crate::epoch::worker::DiceTaskWorker;
+use crate::epoch::worker::WorkerCancelled;
+use crate::epoch::worker::WorkerResult;
 use crate::epoch::worker::state::DiceWorkerStateEvaluating;
 use crate::epoch::worker::state::DiceWorkerStateFinishedEvaluating;
 use crate::key::DiceKey;
@@ -67,10 +68,9 @@ pub(crate) struct VersionEpochState {
     cache: SharedCache,
 }
 enum LookupResult<'d> {
-    Finished(CancellableResult<&'d DiceComputedValue>),
+    Finished(&'d TransactionResult<DiceComputedValue>),
     Pending(DicePromise<'d>),
     NeedsRestart(PreparedDiceTask<'d>, Option<PreviouslyCancelledTask>),
-    TransactionCancelled,
 }
 
 impl VersionEpochState {
@@ -93,15 +93,15 @@ impl VersionEpochState {
                 SharedCacheInsert::Inserted(prepared_task) => {
                     return LookupResult::NeedsRestart(prepared_task, None);
                 }
-                SharedCacheInsert::TransactionCancelled => {
-                    return LookupResult::TransactionCancelled;
+                SharedCacheInsert::TransactionCancelled(result) => {
+                    return LookupResult::Finished(result);
                 }
             },
         };
 
         match task.depended_on_by(parent_key) {
             DiceTaskDependedOnByResult::Finished(dice_computed_value) => {
-                LookupResult::Finished(Ok(dice_computed_value))
+                LookupResult::Finished(dice_computed_value)
             }
             DiceTaskDependedOnByResult::Pending(dice_promise) => {
                 LookupResult::Pending(dice_promise)
@@ -123,12 +123,10 @@ impl VersionEpochState {
         parent_key: ParentKey,
         eval: &TransactionData,
         cycles: UserCycleDetectorData,
-    ) -> impl Future<Output = CancellableResult<&'d DiceComputedValue>> + use<'d> {
+    ) -> impl Future<Output = &'d TransactionResult<DiceComputedValue>> + use<'d> {
         match self.lookup_entry(key, parent_key) {
-            LookupResult::Finished(dice_computed_value) => {
-                DicePromise::ready(dice_computed_value).left_future()
-            }
-            LookupResult::Pending(dice_promise) => dice_promise.left_future(),
+            LookupResult::Finished(dice_computed_value) => DicePromise::ready(dice_computed_value),
+            LookupResult::Pending(dice_promise) => dice_promise,
             LookupResult::NeedsRestart(prepared_dice_task, previously_cancelled_task) => {
                 let eval = eval.dupe();
 
@@ -140,13 +138,7 @@ impl VersionEpochState {
                     cycles,
                     previously_cancelled_task,
                 )
-                .left_future()
             }
-            LookupResult::TransactionCancelled => async move {
-                tokio::task::yield_now().await;
-                Err(CancellationReason::TransactionCancelled)
-            }
-            .right_future(),
         }
     }
 
@@ -157,17 +149,17 @@ impl VersionEpochState {
         base: &MaybeValidDiceValue,
         base_invalidation_paths: &TrackedInvalidationPaths,
         transaction: &TransactionData,
-    ) -> CancellableResult<DiceComputedValue> {
+    ) -> TransactionResult<DiceComputedValue> {
         let task = match self.cache.get_projection(key) {
             SharedCacheLookup::Finished(result) => {
-                return result.map(Dupe::dupe);
+                return result.dupe();
             }
             SharedCacheLookup::InProgress(task) => Err(task),
             SharedCacheLookup::Vacant => match self.cache.insert_projection(key) {
                 SharedCacheInsert::Occupied(task) => Err(task.get()),
                 SharedCacheInsert::Inserted(new_task) => Ok(new_task),
-                SharedCacheInsert::TransactionCancelled => {
-                    return Err(CancellationReason::TransactionCancelled);
+                SharedCacheInsert::TransactionCancelled(r) => {
+                    return r.dupe();
                 }
             },
         };
@@ -224,7 +216,7 @@ impl TransactionData {
         key: DiceKey,
         state: DiceWorkerStateEvaluating,
         cycles: KeyComputingUserCycleDetectorData,
-    ) -> CancellableResult<DiceWorkerStateFinishedEvaluating> {
+    ) -> WorkerResult<DiceWorkerStateFinishedEvaluating> {
         let key_erased = self.dice.key_index.get(key);
 
         match key_erased {
@@ -285,7 +277,13 @@ impl TransactionData {
                         self,
                         cycles.subrequest(proj.base(), &self.dice.key_index),
                     )
-                    .await?;
+                    .await
+                    .as_ref()
+                    .unpack()
+                    // We convert a transaction cancellation into a worker cancellation here. That's
+                    // not ideal form, but it's mostly fine in practice and there isn't really much
+                    // of an alternative.
+                    .map_err(|_| WorkerCancelled)?;
 
                 let ctx = DiceProjectionComputations {
                     data: &self.dice.global_data,
@@ -389,7 +387,7 @@ fn handle_project_eval_result(
     v: VersionNumber,
     version_epoch: VersionEpoch,
     eval_result: KeyEvaluationResult,
-) -> CancellableResult<DiceComputedValue> {
+) -> TransactionResult<DiceComputedValue> {
     let (res, invalidation_paths, state_future) = {
         let KeyEvaluationResult {
             value,
@@ -414,7 +412,7 @@ fn handle_project_eval_result(
             Err(_transient_result) => {
                 // transients are never stored in the state, but the result should be shared
                 // with async computations as if it were.
-                futures::future::ready(Ok(DiceComputedValue::new_for_transient(
+                futures::future::ready(TransactionResult::ok(DiceComputedValue::new_for_transient(
                     value.dupe(),
                     v,
                     invalidation_paths.dupe(),

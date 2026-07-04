@@ -10,7 +10,6 @@ license.workspace = true
 [dependencies]
 allocative.workspace = true
 cmp_any.workspace = true
-derive_more.workspace = true
 dupe.workspace = true
 thiserror.workspace = true
 

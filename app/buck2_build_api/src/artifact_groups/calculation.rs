@@ -256,11 +256,11 @@ size_assert::words_of_type!(EnsureArtifactGroupReady, 4);
 // important ones to track and not regress; the rest are here to help understand how changes impact
 // the important ones above, and regressing them is generally okay as long as the above don't.
 size_assert::words_of_async_fn_future!(DiceComputations::ensure_artifact_group, (_, _), 2);
-size_assert::words_of_async_fn_future!(ensure_artifact_group_staged, (_, _), 16);
-size_assert::words_of_async_fn_future!(ensure_artifact_staged, (_, _), 16);
-size_assert::words_of_async_fn_future!(ensure_base_artifact_staged, (_, _), 16);
-size_assert::words_of_async_fn_future!(ensure_build_artifact_staged, (_, _), 16);
-size_assert::words_of_async_fn_future!(ActionCalculation::build_action, (_, _), 10);
+size_assert::words_of_async_fn_future!(ensure_artifact_group_staged, (_, _), 15);
+size_assert::words_of_async_fn_future!(ensure_artifact_staged, (_, _), 15);
+size_assert::words_of_async_fn_future!(ensure_base_artifact_staged, (_, _), 15);
+size_assert::words_of_async_fn_future!(ensure_build_artifact_staged, (_, _), 15);
+size_assert::words_of_async_fn_future!(ActionCalculation::build_action, (_, _), 9);
 size_assert::words_of_async_fn_future!(ensure_source_artifact_staged, (_, _), 2);
 
 async fn dir_artifact_value(

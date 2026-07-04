@@ -10,11 +10,12 @@
 
 //! Handle to the DiceTask as seen by the thread responsible for completing the task
 
-use dice_error::result::CancellableResult;
-use dice_error::result::CancellationReason;
 use dice_futures::cancellation::CancellationContext;
 
+use crate::epoch::cache::TransactionResult;
 use crate::epoch::task::dice::DiceTaskCompletionHandle;
+use crate::epoch::worker::WorkerCancelled;
+use crate::epoch::worker::WorkerResult;
 use crate::value::DiceComputedValue;
 
 /// The handle to the 'DiceTask' owned by the spawned thread that is responsible for completing
@@ -24,7 +25,7 @@ pub(crate) struct DiceTaskHandle<'a> {
     completion_handle: Option<DiceTaskCompletionHandle>,
     // holds the result while `DiceTaskHandle` is not dropped, then upon drop, stores it into
     // `DiceTaskInternal` so that the result is always reported consistently at the very end of the task.
-    result: Option<CancellableResult<DiceComputedValue>>,
+    result: Option<WorkerResult<TransactionResult<DiceComputedValue>>>,
 }
 
 impl<'a> DiceTaskHandle<'a> {
@@ -43,12 +44,8 @@ impl<'a> DiceTaskHandle<'a> {
         self.cancellations
     }
 
-    pub(crate) fn finished(&mut self, value: DiceComputedValue) {
-        self.result = Some(Ok(value));
-    }
-
-    pub(crate) fn cancelled(&mut self, reason: CancellationReason) {
-        self.result = Some(Err(reason));
+    pub(crate) fn finished(&mut self, value: WorkerResult<TransactionResult<DiceComputedValue>>) {
+        self.result = Some(value);
     }
 }
 
@@ -61,11 +58,11 @@ impl Drop for DiceTaskHandle<'_> {
             Some(Ok(v)) => {
                 completion_handle.completed(v);
             }
-            Some(Err(reason)) => {
-                completion_handle.terminated(reason);
+            Some(Err(token)) => {
+                completion_handle.cancelled(token);
             }
             None => {
-                completion_handle.terminated(CancellationReason::HandleDropped);
+                completion_handle.cancelled(WorkerCancelled);
             }
         }
     }

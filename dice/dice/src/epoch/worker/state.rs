@@ -12,8 +12,6 @@
 
 use std::sync::Arc;
 
-use dice_error::result::CancellableResult;
-use dice_error::result::CancellationReason;
 use dice_futures::cancellation::CriticalSectionGuard;
 use dice_futures::cancellation::DisableCancellationGuard;
 use dupe::Dupe;
@@ -22,10 +20,13 @@ use itertools::Either;
 use crate::ActivationData;
 use crate::ActivationTracker;
 use crate::DynKey;
+use crate::epoch::cache::TransactionResult;
 use crate::epoch::evaluator::KeyEvaluationResult;
 use crate::epoch::evaluator::TransactionData;
 use crate::epoch::task::PreviouslyCancelledTask;
 use crate::epoch::task::handle::DiceTaskHandle;
+use crate::epoch::worker::WorkerCancelled;
+use crate::epoch::worker::WorkerResult;
 use crate::key::DiceKey;
 use crate::key::DiceKeyErased;
 use crate::key_index::DiceKeyIndex;
@@ -56,8 +57,8 @@ impl<'a> DiceWorkerStateAwaitingPrevious<'a> {
 
     pub(crate) fn previously_finished(
         self,
-        value: DiceComputedValue,
-    ) -> CancellableResult<DiceWorkerStateFinishedAndCached> {
+        value: TransactionResult<DiceComputedValue>,
+    ) -> WorkerResult<DiceWorkerStateFinishedAndCached> {
         let guard = self.prevent_cancellation.try_disable_cancellation();
         finish_with_cached_value(value, guard)
     }
@@ -90,8 +91,7 @@ impl<'a> DiceWorkerStateAwaitingPrevious<'a> {
         self,
         internals: &mut DiceTaskHandle<'_>,
         previous: PreviouslyCancelledTask,
-    ) -> Either<CancellableResult<DiceWorkerStateFinishedAndCached>, DiceWorkerStateLookupNode>
-    {
+    ) -> Either<WorkerResult<DiceWorkerStateFinishedAndCached>, DiceWorkerStateLookupNode> {
         // A cancelled task can still race to completion before its cancellation lands. If the
         // previous generation finished with a value, reuse it instead of recomputing: every
         // generation of this task computes the same key at the same version, so the value is valid
@@ -108,11 +108,11 @@ impl<'a> DiceWorkerStateAwaitingPrevious<'a> {
 }
 
 fn finish_with_cached_value(
-    value: DiceComputedValue,
+    value: TransactionResult<DiceComputedValue>,
     disable_cancellation: Option<DisableCancellationGuard>,
-) -> CancellableResult<DiceWorkerStateFinishedAndCached> {
+) -> WorkerResult<DiceWorkerStateFinishedAndCached> {
     match disable_cancellation {
-        None => Err(CancellationReason::Cached),
+        None => Err(WorkerCancelled),
         Some(g) => Ok(DiceWorkerStateFinishedAndCached {
             value,
             _prevent_cancellation: g,
@@ -163,9 +163,9 @@ impl DiceWorkerStateLookupNode {
         self,
         internals: &mut DiceTaskHandle,
         value: DiceComputedValue,
-    ) -> CancellableResult<DiceWorkerStateFinishedAndCached> {
+    ) -> WorkerResult<DiceWorkerStateFinishedAndCached> {
         let guard = internals.cancellation_ctx().try_disable_cancellation();
-        finish_with_cached_value(value, guard)
+        finish_with_cached_value(TransactionResult::ok(value), guard)
     }
 }
 
@@ -184,10 +184,10 @@ impl DiceWorkerStateCheckingDeps {
     pub(crate) fn deps_match(
         self,
         internals: &mut DiceTaskHandle,
-    ) -> CancellableResult<DiceWorkerStateFinished> {
+    ) -> WorkerResult<DiceWorkerStateFinished> {
         let guard = match internals.cancellation_ctx().try_disable_cancellation() {
             Some(g) => g,
-            None => return Err(CancellationReason::DepsMatch),
+            None => return Err(WorkerCancelled),
         };
 
         Ok(DiceWorkerStateFinished {
@@ -206,10 +206,10 @@ impl DiceWorkerStateEvaluating {
         cycles: KeyComputingUserCycleDetectorData,
         result: KeyEvaluationResult,
         activation_data: ActivationData,
-    ) -> CancellableResult<DiceWorkerStateFinishedEvaluating> {
+    ) -> WorkerResult<DiceWorkerStateFinishedEvaluating> {
         let guard = match internals.cancellation_ctx().try_disable_cancellation() {
             Some(g) => g,
-            None => return Err(CancellationReason::WorkerFinished),
+            None => return Err(WorkerCancelled),
         };
 
         drop(cycles);
@@ -241,7 +241,7 @@ pub(crate) struct DiceWorkerStateFinished {
 impl DiceWorkerStateFinished {
     pub(crate) fn cached(
         self,
-        value: DiceComputedValue,
+        value: TransactionResult<DiceComputedValue>,
         activation_info: Option<ActivationInfo>,
     ) -> DiceWorkerStateFinishedAndCached {
         if let Some(activation_info) = activation_info {
@@ -293,6 +293,6 @@ impl ActivationInfo {
 /// When the spawned dice worker is done computing and saving the value to core state cache.
 /// The final value is known.
 pub(crate) struct DiceWorkerStateFinishedAndCached {
-    pub(crate) value: DiceComputedValue,
+    pub(crate) value: TransactionResult<DiceComputedValue>,
     pub(crate) _prevent_cancellation: DisableCancellationGuard,
 }

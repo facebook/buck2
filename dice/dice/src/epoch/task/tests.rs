@@ -15,7 +15,6 @@ use allocative::Allocative;
 use assert_matches::assert_matches;
 use async_trait::async_trait;
 use derive_more::Display;
-use dice_error::result::CancellationReason;
 use dice_futures::cancellation::CancellationContext;
 use dice_futures::spawner::Spawner;
 use dice_futures::spawner::TokioSpawner;
@@ -36,6 +35,7 @@ use crate::api::key::Key;
 use crate::api::key::NoValueSerialize;
 use crate::api::key::ValueSerialize;
 use crate::arc::Arc;
+use crate::epoch::cache::TransactionResult;
 use crate::epoch::task::dice::DiceTask;
 use crate::epoch::task::dice::DiceTaskDependedOnByResult;
 use crate::epoch::task::dice::spawn_prepared_task;
@@ -100,13 +100,13 @@ async fn simple_task() -> anyhow::Result<()> {
                 // wait for the lock too
                 let _lock = lock.lock().await;
 
-                handle.finished(DiceComputedValue::new(
+                handle.finished(Ok(TransactionResult::ok(DiceComputedValue::new(
                     MaybeValidDiceValue::valid(DiceValidValue::testing_new(
                         DiceKeyValue::<K>::new(2),
                     )),
                     Arc::new(VersionRanges::new()),
                     TrackedInvalidationPaths::clean(),
-                ));
+                ))));
             }
             .boxed()
         });
@@ -139,7 +139,9 @@ async fn simple_task() -> anyhow::Result<()> {
 
     let v = promise.await;
     assert!(
-        v?.value()
+        v.as_ref()
+            .into_dice_result()?
+            .value()
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
     );
 
@@ -159,13 +161,13 @@ async fn not_ready_until_dropped() -> anyhow::Result<()> {
             let can_terminate = can_terminate.dupe();
             async move {
                 // wait for the lock too
-                handle.finished(DiceComputedValue::new(
+                handle.finished(Ok(TransactionResult::ok(DiceComputedValue::new(
                     MaybeValidDiceValue::valid(DiceValidValue::testing_new(
                         DiceKeyValue::<K>::new(1),
                     )),
                     Arc::new(VersionRanges::new()),
                     TrackedInvalidationPaths::clean(),
-                ));
+                ))));
 
                 sent_finish.notify_one();
 
@@ -198,7 +200,9 @@ async fn not_ready_until_dropped() -> anyhow::Result<()> {
     assert!(!task.is_pending());
 
     assert!(
-        v?.value()
+        v.as_ref()
+            .into_dice_result()?
+            .value()
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)))
     );
 
@@ -228,8 +232,11 @@ async fn never_ready_results_in_terminated() -> anyhow::Result<()> {
 
     assert_eq!(task.waiters_count(), 1);
 
-    let v = promise.await;
-    assert!(v.is_err());
+    // The worker terminated without ever reporting a value. A dependent can no longer observe that
+    // as a result (that would be a `WorkerCancelled`, and holding a `DicePromise` is supposed to
+    // prevent worker cancellation), so we drop the promise and observe termination directly.
+    drop(promise);
+    task.as_ref().await_termination().await;
 
     assert!(!task.is_ready());
     assert!(task.is_cancelled());
@@ -244,13 +251,13 @@ async fn multiple_promises_all_completes() -> anyhow::Result<()> {
         spawn_dice_task(DiceKey { index: 20 }, &TokioSpawner, &(), |handle| {
             async move {
                 // wait for the lock too
-                handle.finished(DiceComputedValue::new(
+                handle.finished(Ok(TransactionResult::ok(DiceComputedValue::new(
                     MaybeValidDiceValue::valid(DiceValidValue::testing_new(
                         DiceKeyValue::<K>::new(2),
                     )),
                     Arc::new(VersionRanges::new()),
                     TrackedInvalidationPaths::clean(),
-                ));
+                ))));
             }
             .boxed()
         });
@@ -277,23 +284,33 @@ async fn multiple_promises_all_completes() -> anyhow::Result<()> {
     let (v1, v2, v3, v4, v5) =
         futures::future::join5(promise1, promise2, promise3, promise4, promise5).await;
     assert!(
-        v1?.value()
+        v1.as_ref()
+            .into_dice_result()?
+            .value()
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
     );
     assert!(
-        v2?.value()
+        v2.as_ref()
+            .into_dice_result()?
+            .value()
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
     );
     assert!(
-        v3?.value()
+        v3.as_ref()
+            .into_dice_result()?
+            .value()
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
     );
     assert!(
-        v4?.value()
+        v4.as_ref()
+            .into_dice_result()?
+            .value()
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
     );
     assert!(
-        v5?.value()
+        v5.as_ref()
+            .into_dice_result()?
+            .value()
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(2)))
     );
 
@@ -377,9 +394,11 @@ async fn task_that_already_cancelled_returns_cancelled() {
         |_handle| async move { futures::future::pending().await }.boxed()
     });
 
-    task.as_ref().cancel(CancellationReason::ByTest);
-    task.as_ref().await_termination().await;
+    // Cancel the worker by dropping its only dependent. Note this is worker cancellation, not
+    // transaction cancellation: `cancel` would instead store a `TransactionCancelled` result, which
+    // reads back as `Finished` rather than triggering a restart.
     drop(initial_promise);
+    task.as_ref().await_termination().await;
 
     // After cancellation, depended_on_by enters the restart path (the new
     // design restarts cancelled-then-redepended tasks rather than returning
