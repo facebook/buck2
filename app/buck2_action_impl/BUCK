@@ -59,6 +59,7 @@ rust_library(
         "//buck2/host_sharing:host_sharing",
         "//buck2/pagable:pagable",
         "//buck2/remote_execution:remote_execution",
+        "//buck2/shed/mini_vec:mini_vec",
         "//buck2/starlark-rust/starlark:starlark",
         "//buck2/starlark-rust/starlark_map:starlark_map",
     ],

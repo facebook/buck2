@@ -14,7 +14,7 @@ use std::fmt::Display;
 use allocative::Allocative;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_util::size_assert;
-use buck2_util::thin_box::ThinBoxSlice;
+use mini_vec::MiniBoxSlice;
 use pagable::PagableDeserialize;
 use pagable::PagableSerialize;
 use starlark::pagable::StarlarkDeserialize;
@@ -70,21 +70,19 @@ fn deserialize_target_outputs(
 
 #[derive(Debug, PartialEq, Allocative, StarlarkPagable)]
 pub enum ResolvedQueryMacro {
-    // `ThinBoxSlice` lives in `buck2_util` (cannot depend on `starlark`),
-    // so the per-element starlark bridging lives here at the use site.
     Outputs(
         #[starlark_pagable(
-            serialize_with = "serialize_thinbox_starlark",
-            deserialize_with = "deserialize_thinbox_starlark"
+            serialize_with = "serialize_minibox_starlark",
+            deserialize_with = "deserialize_minibox_starlark"
         )]
-        ThinBoxSlice<Box<[StarlarkArtifact]>>,
+        MiniBoxSlice<Box<[StarlarkArtifact]>>,
     ),
-    Targets(#[starlark_pagable(pagable)] ThinBoxSlice<ConfiguredTargetLabel>),
+    Targets(#[starlark_pagable(pagable)] MiniBoxSlice<ConfiguredTargetLabel>),
     TargetsAndOutputs(Box<ResolvedQueryMacroTargetAndOutputs>),
 }
 
-fn serialize_thinbox_starlark<T: StarlarkSerialize + 'static>(
-    field: &ThinBoxSlice<T>,
+fn serialize_minibox_starlark<T: StarlarkSerialize + 'static>(
+    field: &MiniBoxSlice<T>,
     ctx: &mut dyn StarlarkSerializeContext,
 ) -> starlark::Result<()> {
     PagableSerialize::pagable_serialize(&field.len(), ctx.pagable())?;
@@ -94,15 +92,15 @@ fn serialize_thinbox_starlark<T: StarlarkSerialize + 'static>(
     Ok(())
 }
 
-fn deserialize_thinbox_starlark<T: StarlarkDeserialize + 'static>(
+fn deserialize_minibox_starlark<T: StarlarkDeserialize + 'static>(
     ctx: &mut dyn StarlarkDeserializeContext<'_>,
-) -> starlark::Result<ThinBoxSlice<T>> {
+) -> starlark::Result<MiniBoxSlice<T>> {
     let len = usize::pagable_deserialize(ctx.pagable())?;
     let mut items = Vec::with_capacity(len);
     for _ in 0..len {
         items.push(T::starlark_deserialize(ctx)?);
     }
-    Ok(ThinBoxSlice::from_iter(items))
+    Ok(MiniBoxSlice::from_iter(items))
 }
 
 size_assert::words_of_type!(ResolvedQueryMacro, 2);

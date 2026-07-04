@@ -36,11 +36,11 @@ use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_hash::StdBuckHashMap;
-use buck2_util::thin_box::ThinBoxSlice;
 use dupe::Dupe;
 use either::Either;
 use host_sharing::WeightClass;
 use host_sharing::WeightPercentage;
+use mini_vec::MiniBoxSlice;
 use starlark::collections::SmallSet;
 use starlark::environment::MethodsBuilder;
 use starlark::eval::Evaluator;
@@ -556,12 +556,12 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         let re_dependencies = remote_execution_dependencies
             .into_iter()
             .map(RemoteExecutorDependency::parse)
-            .collect::<buck2_error::Result<ThinBoxSlice<RemoteExecutorDependency>>>()?;
+            .collect::<buck2_error::Result<MiniBoxSlice<RemoteExecutorDependency>>>()?;
 
         let re_gang_workers = re_gang_workers
             .into_iter()
             .map(ReGangWorker::parse)
-            .collect::<buck2_error::Result<ThinBoxSlice<ReGangWorker>>>()?;
+            .collect::<buck2_error::Result<MiniBoxSlice<ReGangWorker>>>()?;
 
         let re_custom_image = parse_custom_re_image(
             "remote_execution_dynamic_image",

@@ -16,8 +16,8 @@ use buck2_core::package::source_path::SourcePathRef;
 use buck2_core::plugins::PluginKind;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
-use buck2_util::thin_box::ThinBoxSlice;
 use dupe::Dupe;
+use mini_vec::MiniBoxSlice;
 use pagable::Pagable;
 use starlark_map::ordered_set::OrderedSet;
 use starlark_map::vec2::Vec2;
@@ -29,23 +29,23 @@ use crate::attrs::traversal::CoercedAttrTraversal;
 pub struct CoercedDeps {
     /// Contains the deps derived from the attributes.
     /// Does not include the transition, exec or configuration deps.
-    pub deps: ThinBoxSlice<TargetLabel>,
+    pub deps: MiniBoxSlice<TargetLabel>,
 
     /// Contains the deps which are transitioned to other configuration
     /// (including split transitions).
-    pub transition_deps: ThinBoxSlice<(TargetLabel, Arc<TransitionId>)>,
+    pub transition_deps: MiniBoxSlice<(TargetLabel, Arc<TransitionId>)>,
 
     /// Contains the execution deps derived from the attributes.
-    pub exec_deps: ThinBoxSlice<TargetLabel>,
+    pub exec_deps: MiniBoxSlice<TargetLabel>,
 
     /// Contains the toolchain deps derived from the attributes.
-    pub toolchain_deps: ThinBoxSlice<TargetLabel>,
+    pub toolchain_deps: MiniBoxSlice<TargetLabel>,
 
     /// Contains the configuration deps
     pub configuration_deps: Vec2<ProvidersLabel, ConfigurationDepKind>,
 
     /// Contains the plugin deps
-    pub plugin_deps: ThinBoxSlice<TargetLabel>,
+    pub plugin_deps: MiniBoxSlice<TargetLabel>,
 }
 
 impl From<CoercedDepsCollector> for CoercedDeps {
