@@ -137,7 +137,7 @@ impl Shard {
         if items.is_empty() {
             return Ok(());
         }
-        items.sort_unstable_by_key(|(key, _bytes)| key.0);
+        items.sort_unstable_by_key(|(key, _bytes)| key.get());
 
         let mut conn = self.conns.get_readwrite();
         let insert_batch_rows = INSERT_BATCH_ROWS.min(sqlite_insert_batch_row_limit(&conn)?);
@@ -176,7 +176,7 @@ impl SqliteBackedPagableStorage {
     const WRITE_BUFFER_CAPACITY: usize = 32768;
 
     fn shard_for(&self, key: &DataKey) -> &Shard {
-        &self.shards[(key.0 % self.shards.len() as u128) as usize]
+        &self.shards[(key.get() % self.shards.len() as u128) as usize]
     }
 
     fn fetch_data_read(&self, key: &DataKey) -> anyhow::Result<Arc<PagableData>> {
@@ -318,7 +318,7 @@ impl PagableStorage for SqliteBackedPagableStorage {
 }
 
 fn data_key_parts(key: DataKey) -> (i64, i64) {
-    ((key.0 as u64) as i64, ((key.0 >> 64) as u64) as i64)
+    ((key.get() as u64) as i64, ((key.get() >> 64) as u64) as i64)
 }
 
 fn sqlite_insert_batch_row_limit(conn: &Connection) -> anyhow::Result<usize> {
@@ -451,7 +451,7 @@ mod tests {
             )?;
             let tx = conn.transaction()?;
             let items = (0..item_count)
-                .map(|i| (DataKey(i as u128), vec![i as u8]))
+                .map(|i| (DataKey::testing_new(i as u128), vec![i as u8]))
                 .collect::<Vec<_>>();
             insert_items(&tx, &items, batch_rows)?;
             tx.commit()?;
@@ -487,7 +487,7 @@ mod tests {
         for i in 0..128 {
             let data = pagable_data(
                 format!("serialized payload {i}").as_bytes(),
-                vec![DataKey(i), DataKey(i + 1000)],
+                vec![DataKey::testing_new(i), DataKey::testing_new(i + 1000)],
             );
             let expected_data = data.data.clone();
             let expected_arcs = data.arcs.clone();
@@ -522,12 +522,15 @@ mod tests {
         let dir = TempStorageDir::new("duplicate_keys")?;
         let storage = SqliteBackedPagableStorage::try_new(&dir.path)?;
 
-        let data = pagable_data(b"duplicate payload", vec![DataKey(11)]);
+        let data = pagable_data(b"duplicate payload", vec![DataKey::testing_new(11)]);
         let key = data.compute_key();
         assert_eq!(key, storage.store_data(data)?);
         assert_eq!(
             key,
-            storage.store_data(pagable_data(b"duplicate payload", vec![DataKey(11)]))?
+            storage.store_data(pagable_data(
+                b"duplicate payload",
+                vec![DataKey::testing_new(11)]
+            ))?
         );
         storage.flush()?;
 
@@ -540,7 +543,7 @@ mod tests {
 
         let fetched = storage.fetch_data_blocking(&key)?;
         assert_eq!(b"duplicate payload", fetched.data.as_slice());
-        assert_eq!(vec![DataKey(11)], fetched.arcs);
+        assert_eq!(vec![DataKey::testing_new(11)], fetched.arcs);
         Ok(())
     }
 }
