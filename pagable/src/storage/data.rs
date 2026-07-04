@@ -101,6 +101,13 @@ impl OptionalDataKey {
         }
     }
 
+    pub fn expect(&self, s: &str) -> DataKey {
+        match self {
+            Self::Some(lo, hi) => DataKey([lo.get(), *hi]),
+            Self::None => panic!("{}", s),
+        }
+    }
+
     pub fn is_some(&self) -> bool {
         matches!(self, Self::Some(_, _))
     }
@@ -116,6 +123,24 @@ impl From<DataKey> for OptionalDataKey {
             NonZeroU64::new(key.0[0]).expect("DataKey should never be zero"),
             key.0[1],
         )
+    }
+}
+
+impl From<Option<DataKey>> for OptionalDataKey {
+    fn from(key: Option<DataKey>) -> Self {
+        match key {
+            Some(key) => Self::from(key),
+            None => Self::None,
+        }
+    }
+}
+
+impl From<OptionalDataKey> for Option<DataKey> {
+    fn from(key: OptionalDataKey) -> Self {
+        match key {
+            OptionalDataKey::Some(lo, hi) => Some(DataKey([lo.get(), hi])),
+            OptionalDataKey::None => None,
+        }
     }
 }
 

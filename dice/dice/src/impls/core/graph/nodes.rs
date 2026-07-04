@@ -26,6 +26,7 @@ use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
 use itertools::Itertools;
 use pagable::DataKey;
+use pagable::OptionalDataKey;
 use sorted_vector_map::SortedVectorMap;
 
 use super::types::PagedOutMatch;
@@ -60,7 +61,7 @@ pub(crate) enum VersionedGraphNode {
     Vacant(VacantGraphNode),
 }
 
-mini_vec::size_assert::words_of_type!(VersionedGraphNode, 17);
+mini_vec::size_assert::words_of_type!(VersionedGraphNode, 16);
 
 impl VersionedGraphNode {
     pub(crate) fn force_dirty(
@@ -317,7 +318,7 @@ pub(crate) enum InvalidateResult<'a> {
 #[derive(Allocative, Debug)]
 pub(crate) struct PagableNodeValue {
     value: Option<DiceValidValue>,
-    data_key: Option<DataKey>,
+    data_key: OptionalDataKey,
 }
 
 impl PagableNodeValue {
@@ -325,7 +326,7 @@ impl PagableNodeValue {
     pub(crate) fn hydrated(value: DiceValidValue) -> Self {
         Self {
             value: Some(value),
-            data_key: None,
+            data_key: OptionalDataKey::None,
         }
     }
 
@@ -348,7 +349,7 @@ impl PagableNodeValue {
     /// Returns the on-disk key if the value has already been serialized to storage.
     /// When this is `Some`, the next page-out can skip re-serialization and reuse
     /// the existing key.
-    pub(crate) fn data_key(&self) -> Option<DataKey> {
+    pub(crate) fn data_key(&self) -> OptionalDataKey {
         self.data_key
     }
 }
@@ -539,7 +540,7 @@ impl OccupiedGraphNode {
     /// Records that the value has been written to storage at `data_key` and drops
     /// the in-memory value (the on-disk reference is now load-bearing).
     pub(crate) fn set_paged_out(&mut self, data_key: DataKey) {
-        self.res.data_key = Some(data_key);
+        self.res.data_key = Some(data_key).into();
         self.res.value = None;
     }
 

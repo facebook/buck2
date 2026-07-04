@@ -175,7 +175,7 @@ impl CoreState {
             let VersionedGraphNode::Occupied(occ) = node else {
                 continue;
             };
-            if let Some(data_key) = occ.val().data_key() {
+            if let Some(data_key) = occ.val().data_key().into() {
                 if occ.val().as_hydrated().is_some() {
                     occ.set_paged_out(data_key);
                 }
@@ -224,7 +224,7 @@ impl CoreState {
             if occ.val().as_hydrated().is_some() {
                 continue;
             }
-            let Some(data_key) = occ.val().data_key() else {
+            let Some(data_key) = occ.val().data_key().into() else {
                 continue;
             };
             keys.push((*key, data_key));
