@@ -102,22 +102,22 @@ async fn concurrent_identical_requests_are_reused() -> anyhow::Result<()> {
 
     let count = Arc::new(AtomicU8::new(0));
 
-    let mut ctx = dice.updater().commit().await;
+    let ctx = dice.updater().commit().await;
 
     let k = ComputeOnce(count.dupe());
 
-    let base = ctx.compute_opaque(&BaseK).await?;
+    let base = ctx.ctx().compute_opaque(&BaseK).await?;
 
-    ctx.projection(&base, &k)?;
+    ctx.ctx().projection(&base, &k)?;
 
     assert_eq!(count.load(Ordering::SeqCst), 1);
-    ctx.projection(&base, &k)?;
+    ctx.ctx().projection(&base, &k)?;
     assert_eq!(count.load(Ordering::SeqCst), 1);
 
     // call base again but technically same key
-    let base = ctx.compute_opaque(&BaseK).await?;
+    let base = ctx.ctx().compute_opaque(&BaseK).await?;
 
-    ctx.projection(&base, &k)?;
+    ctx.ctx().projection(&base, &k)?;
     assert_eq!(count.load(Ordering::SeqCst), 1);
 
     Ok(())

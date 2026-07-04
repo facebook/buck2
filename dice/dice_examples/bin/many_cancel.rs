@@ -330,7 +330,7 @@ async fn main() {
 
         ctx.changed_to(vec![(Leaf, 0)]).unwrap();
 
-        let mut ctx = ctx.commit().await;
+        let ctx = ctx.commit().await;
         drop(ctx.compute(&TopKey(0)).await);
     }
 
@@ -349,7 +349,7 @@ async fn main() {
             ..Default::default()
         });
         ctx.changed_to(vec![(Leaf, 1)]).unwrap();
-        let mut ctx = ctx.commit().await;
+        let ctx = ctx.commit().await;
         drop(ctx.compute(&TopKey(0)).await);
     }
 

@@ -231,7 +231,7 @@ async fn install(
             .into_iter()
             .collect();
 
-    let install_log_dir = &get_installer_log_directory(server_ctx, &mut ctx).await?;
+    let install_log_dir = &get_installer_log_directory(server_ctx, &mut ctx.ctx()).await?;
 
     // Snapshot the installed target labels for telemetry before the vec is
     // consumed by the install pipeline below. Deduped to keep
@@ -266,7 +266,8 @@ async fn install(
         })
     });
 
-    let install_requests = ctx.compute_many(install_requests);
+    let mut dice = ctx.ctx();
+    let install_requests = dice.compute_many(install_requests);
     try_join_all(install_requests)
         .await
         .buck_error_context("Interaction with installer failed.")?;
@@ -275,7 +276,7 @@ async fn install(
     // because rule-type lookup hit an error (DICE failure, unbound late binding, etc).
     let mut target_rule_type_names: Vec<String> = Vec::with_capacity(installed_target_labels.len());
     for label in &installed_target_labels {
-        match get_target_rule_type_name(&mut ctx, label).await {
+        match get_target_rule_type_name(&mut ctx.ctx(), label).await {
             Ok(name) => target_rule_type_names.push(name),
             Err(e) => {
                 let _unused = soft_error!(
@@ -306,18 +307,21 @@ async fn collect_install_request_data<'a>(
             .as_ref()
             .ok_or_else(|| internal_error!("target_cfg must be set"))?,
         server_ctx,
-        ctx,
+        &mut ctx.ctx(),
     )
     .await?;
 
     // Note <TargetName> does not return the providers
     let parsed_patterns_with_modifiers = parse_patterns_with_modifiers_from_cli_args::<
         ConfiguredProvidersPatternExtra,
-    >(ctx, &request.target_patterns, cwd)
+    >(&mut ctx.ctx(), &request.target_patterns, cwd)
     .await?;
     server_ctx.log_target_pattern_with_modifiers(&parsed_patterns_with_modifiers);
-    let resolved_pattern =
-        ResolveTargetPatterns::resolve_with_modifiers(ctx, &parsed_patterns_with_modifiers).await?;
+    let resolved_pattern = ResolveTargetPatterns::resolve_with_modifiers(
+        &mut ctx.ctx(),
+        &parsed_patterns_with_modifiers,
+    )
+    .await?;
 
     let resolved_pattern = resolved_pattern
         .convert_pattern()
@@ -330,7 +334,7 @@ async fn collect_install_request_data<'a>(
         let targets: Vec<(TargetName, ProvidersPatternExtra)> = match spec {
             PackageSpec::Targets(targets) => targets.into_iter().collect(),
             PackageSpec::All() => {
-                let interpreter_results = ctx.get_interpreter_results(package.dupe()).await?;
+                let interpreter_results = ctx.ctx().get_interpreter_results(package.dupe()).await?;
                 interpreter_results
                     .targets()
                     .keys()
@@ -363,9 +367,11 @@ async fn collect_install_request_data<'a>(
         for (target_name, providers) in targets {
             let label = providers.into_providers_label(package.dupe(), target_name.as_ref());
             let providers_label = ctx
+                .ctx()
                 .get_configured_provider_label(&label, &local_cfg_options)
                 .await?;
             let install_info = ctx
+                .ctx()
                 .get_providers(&providers_label)
                 .await?
                 .require_compatible()?

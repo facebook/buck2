@@ -45,7 +45,7 @@ use dupe::Dupe;
 use futures::future::FutureExt;
 
 async fn generate_profile_analysis(
-    mut ctx: DiceTransaction,
+    ctx: DiceTransaction,
     server_ctx: &dyn ServerCommandContextTrait,
     target_patterns: &[String],
     target_resolution_config: TargetResolutionConfig,
@@ -53,11 +53,12 @@ async fn generate_profile_analysis(
 ) -> buck2_error::Result<Arc<StarlarkProfileDataAndStats>> {
     let targets = parse_and_resolve_patterns_to_targets_from_cli_args::<
         ConfiguredProvidersPatternExtra,
-    >(&mut ctx, target_patterns, server_ctx.working_dir())
+    >(&mut ctx.ctx(), target_patterns, server_ctx.working_dir())
     .await?;
 
     let target_resolution_config = &target_resolution_config;
     let configured_targetss = ctx
+        .ctx()
         .try_compute_join(targets, |ctx, label| {
             async move {
                 target_resolution_config
@@ -73,7 +74,7 @@ async fn generate_profile_analysis(
 
     match profile_mode {
         StarlarkProfilerConfiguration::ProfileAnalysis(..) => {
-            profile_analysis(&mut ctx, &configured_targets)
+            profile_analysis(&mut ctx.ctx(), &configured_targets)
                 .await
                 .buck_error_context("Recursive profile analysis failed")
                 .map(Arc::new)
@@ -88,7 +89,7 @@ async fn generate_profile_loading(
 ) -> buck2_error::Result<StarlarkProfileDataAndStats> {
     // Self-check.
     let profile_mode = ctx
-        .clone()
+        .ctx()
         .get_starlark_profiler_mode(&StarlarkEvalKind::LoadBuildFile(package.dupe()))
         .await?;
     match profile_mode {
@@ -98,7 +99,7 @@ async fn generate_profile_loading(
         StarlarkProfileMode::Profile(_) => {}
     }
 
-    let eval_result = ctx.clone().get_interpreter_results(package).await?;
+    let eval_result = ctx.ctx().get_interpreter_results(package).await?;
 
     let starlark_profile = &eval_result
         .starlark_profile
@@ -179,7 +180,7 @@ impl ServerCommandTemplate for ProfileServerCommand {
 
 async fn generate_profile(
     server_ctx: &dyn ServerCommandContextTrait,
-    mut ctx: DiceTransaction,
+    ctx: DiceTransaction,
     target_patterns: &[String],
     target_cfg: &TargetCfg,
     target_universe: &[String],
@@ -187,7 +188,7 @@ async fn generate_profile(
     profile_mode: &StarlarkProfilerConfiguration,
 ) -> buck2_error::Result<Arc<StarlarkProfileDataAndStats>> {
     let target_resolution_config =
-        TargetResolutionConfig::from_args(&mut ctx, target_cfg, server_ctx, target_universe)
+        TargetResolutionConfig::from_args(&mut ctx.ctx(), target_cfg, server_ctx, target_universe)
             .await?;
 
     match action {
@@ -203,7 +204,7 @@ async fn generate_profile(
         }
         Action::Loading => {
             let resolved = parse_and_resolve_patterns_from_cli_args::<TargetPatternExtra>(
-                &mut ctx,
+                &mut ctx.ctx(),
                 target_patterns,
                 server_ctx.working_dir(),
             )

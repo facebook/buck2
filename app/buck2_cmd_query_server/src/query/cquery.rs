@@ -138,10 +138,10 @@ impl ServerCommandTemplate for CqueryServerCommand {
 async fn cquery(
     server_ctx: &dyn ServerCommandContextTrait,
     mut stdout: impl Write,
-    mut ctx: DiceTransaction,
+    ctx: DiceTransaction,
     request: &CqueryRequest,
 ) -> buck2_error::Result<CqueryResponse> {
-    let cell_resolver = ctx.get_cell_resolver().await?;
+    let cell_resolver = ctx.ctx().get_cell_resolver().await?;
     let output_configuration = QueryResultPrinter::from_request_options(
         &cell_resolver,
         &request.output_attributes,
@@ -176,7 +176,7 @@ async fn cquery(
             .as_ref()
             .ok_or_else(|| internal_error!("target_cfg must be set"))?,
         server_ctx,
-        &mut ctx,
+        &mut ctx.ctx(),
     )
     .await?;
 
@@ -188,7 +188,7 @@ async fn cquery(
     let (query_result, universes) = QUERY_FRONTEND
         .get()?
         .eval_cquery(
-            &mut ctx,
+            &mut ctx.ctx(),
             server_ctx.working_dir(),
             query,
             query_args,
@@ -206,7 +206,7 @@ async fn cquery(
         }
 
         write_query_profile_for_targets(
-            &mut ctx,
+            &mut ctx.ctx(),
             profile_mode,
             request.profile_output.as_deref(),
             universes.iter().flat_map(|u| {
@@ -221,38 +221,39 @@ async fn cquery(
         return Err(internal_error!("We did not request universes"));
     }
 
-    ctx.with_linear_recompute(|ctx| async move {
-        let should_print_providers = if *show_providers {
-            ShouldPrintProviders::Yes(&ctx as &dyn ProviderLookUp<ConfiguredTargetNode>)
-        } else {
-            ShouldPrintProviders::No
-        };
+    ctx.ctx()
+        .with_linear_recompute(|ctx| async move {
+            let should_print_providers = if *show_providers {
+                ShouldPrintProviders::Yes(&ctx as &dyn ProviderLookUp<ConfiguredTargetNode>)
+            } else {
+                ShouldPrintProviders::No
+            };
 
-        match query_result {
-            QueryEvaluationResult::Single(targets) => {
-                output_configuration
-                    .print_single_output(
-                        &mut stdout,
-                        targets,
-                        target_call_stacks,
-                        should_print_providers,
-                    )
-                    .await?
-            }
-            QueryEvaluationResult::Multiple(results) => {
-                output_configuration
-                    .print_multi_output(
-                        &mut stdout,
-                        results,
-                        target_call_stacks,
-                        should_print_providers,
-                    )
-                    .await?
-            }
-        };
-        buck2_error::Ok(())
-    })
-    .await?;
+            match query_result {
+                QueryEvaluationResult::Single(targets) => {
+                    output_configuration
+                        .print_single_output(
+                            &mut stdout,
+                            targets,
+                            target_call_stacks,
+                            should_print_providers,
+                        )
+                        .await?
+                }
+                QueryEvaluationResult::Multiple(results) => {
+                    output_configuration
+                        .print_multi_output(
+                            &mut stdout,
+                            results,
+                            target_call_stacks,
+                            should_print_providers,
+                        )
+                        .await?
+                }
+            };
+            buck2_error::Ok(())
+        })
+        .await?;
 
     Ok(CqueryResponse {})
 }

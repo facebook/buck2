@@ -85,7 +85,7 @@ async fn spawned_basic() -> anyhow::Result<()> {
 
     let mut updater = dice.updater();
     updater.changed_to(vec![(Injected(0), 42)])?;
-    let mut ctx = updater.commit().await;
+    let ctx = updater.commit().await;
 
     let result = ctx.compute(&SpawnedKey).await?;
     assert_eq!(result, 42);
@@ -133,14 +133,14 @@ async fn spawned_tracks_deps() -> anyhow::Result<()> {
     // Initial computation
     let mut updater = dice.updater();
     updater.changed_to(vec![(Injected(0), 100)])?;
-    let mut ctx = updater.commit().await;
+    let ctx = updater.commit().await;
 
     let result = ctx.compute(&CountingKey).await?;
     assert_eq!(result, 100);
     assert_eq!(COMPUTE_COUNT.load(Ordering::SeqCst), 1);
 
     // Same value, should be cached
-    let mut ctx = dice.updater().commit().await;
+    let ctx = dice.updater().commit().await;
     let result = ctx.compute(&CountingKey).await?;
     assert_eq!(result, 100);
     assert_eq!(COMPUTE_COUNT.load(Ordering::SeqCst), 1);
@@ -148,7 +148,7 @@ async fn spawned_tracks_deps() -> anyhow::Result<()> {
     // Change the dep, should recompute
     let mut updater = dice.updater();
     updater.changed_to(vec![(Injected(0), 200)])?;
-    let mut ctx = updater.commit().await;
+    let ctx = updater.commit().await;
 
     let result = ctx.compute(&CountingKey).await?;
     assert_eq!(result, 200);
@@ -202,7 +202,7 @@ async fn spawned_multiple() -> anyhow::Result<()> {
 
     let mut updater = dice.updater();
     updater.changed_to(vec![(Injected(0), 10), (Injected(1), 20)])?;
-    let mut ctx = updater.commit().await;
+    let ctx = updater.commit().await;
 
     let result = ctx.compute(&MultiSpawnKey).await?;
     assert_eq!(result, 30);
@@ -217,7 +217,8 @@ async fn spawned_runs_without_await() -> anyhow::Result<()> {
 
     let mut updater = dice.updater();
     updater.changed_to(vec![(Injected(0), 42)])?;
-    let mut ctx = updater.commit().await;
+    let ctx = updater.commit().await;
+    let mut ctx = ctx.ctx();
 
     let (tx, rx) = oneshot::channel::<i32>();
 

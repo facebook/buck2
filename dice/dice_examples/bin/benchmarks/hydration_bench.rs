@@ -164,13 +164,14 @@ async fn main() -> anyhow::Result<()> {
         updater.changed_to(vec![(NumDepsKey, cli.num_deps)])?;
         updater.commit().await;
     }
-    let mut ctx = dice.updater().commit().await;
+    let ctx = dice.updater().commit().await;
 
     let compute_start = Instant::now();
-    ctx.compute_join(0..cli.num_keys, |ctx, i| {
-        async move { ctx.compute(&BenchKey(i)).await.unwrap() }.boxed()
-    })
-    .await;
+    ctx.ctx()
+        .compute_join(0..cli.num_keys, |ctx, i| {
+            async move { ctx.compute(&BenchKey(i)).await.unwrap() }.boxed()
+        })
+        .await;
     let compute_elapsed = compute_start.elapsed();
     // Flush the state processor queue so the SharedCache (which holds Arc clones
     // of all computed values) is dropped before we measure memory.

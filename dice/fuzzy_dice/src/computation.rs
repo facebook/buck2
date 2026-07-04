@@ -290,7 +290,7 @@ mod tests {
     pub async fn test_smoke() -> anyhow::Result<()> {
         let empty_state = Arc::new(FuzzState::new());
         let dice = Dice::builder().build(DetectCycles::Disabled);
-        let mut ctx = {
+        let ctx = {
             let mut ctx = dice.updater();
             // let x1 = true
             ctx.set_equation(Var(1), Expr::Unit(Unit::Literal(true)))?;
@@ -312,10 +312,10 @@ mod tests {
             )?;
             ctx.commit().await
         };
-        assert!(ctx.eval(empty_state.dupe(), Var(1)).await?);
-        assert!(ctx.eval(empty_state.dupe(), Var(2)).await?);
-        assert!(!ctx.eval(empty_state.dupe(), Var(3)).await?);
-        assert!(ctx.eval(empty_state.dupe(), Var(4)).await?);
+        assert!(ctx.ctx().eval(empty_state.dupe(), Var(1)).await?);
+        assert!(ctx.ctx().eval(empty_state.dupe(), Var(2)).await?);
+        assert!(!ctx.ctx().eval(empty_state.dupe(), Var(3)).await?);
+        assert!(ctx.ctx().eval(empty_state.dupe(), Var(4)).await?);
         Ok(())
     }
 }

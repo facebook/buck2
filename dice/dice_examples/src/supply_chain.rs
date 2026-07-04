@@ -164,8 +164,8 @@ impl Setup for DiceTransactionUpdater {
             .unzip();
 
         // get the remote resources => company mapping
-        let mut state = self.existing_state().await;
-        let remote_resources = join_all(state.compute_many(resources.iter().map(|res| {
+        let state = self.existing_state().await;
+        let remote_resources = join_all(state.ctx().compute_many(resources.iter().map(|res| {
             DiceComputations::declare_closure(
                 |ctx: &mut DiceComputations<'_>| -> BoxFuture<DiceResult<Arc<Vec<LookupCompany>>>> {
                     ctx.compute(res).boxed()

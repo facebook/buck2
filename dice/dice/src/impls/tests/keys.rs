@@ -77,7 +77,8 @@ async fn concurrent_identical_requests_are_deduped() -> anyhow::Result<()> {
     let guard = Arc::new(Mutex::new(0));
     let _g = guard.lock().await;
 
-    let mut ctx = dice.updater().commit().await.0;
+    let ctx = dice.updater().commit().await.0;
+    let mut ctx = ctx.as_computations();
 
     let k = &ComputeOnce(guard.dupe());
 

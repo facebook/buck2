@@ -479,7 +479,7 @@ impl ConcurrencyHandler {
             preempt: Some(preempt_sender),
         };
 
-        let (mut transaction, tainted) = loop {
+        let (transaction, tainted) = loop {
             match &data.dice_status {
                 DiceStatus::Cleanup { future, epoch } => {
                     tracing::debug!("ActiveDice is in cleanup");
@@ -649,10 +649,14 @@ impl ConcurrencyHandler {
         }
 
         if transaction
+            .ctx()
             .is_injected_external_buckconfig_data_key_set()
             .await?
         {
-            let external_configs = transaction.get_injected_external_buckconfig_data().await?;
+            let external_configs = transaction
+                .ctx()
+                .get_injected_external_buckconfig_data()
+                .await?;
             let current_external_and_local_configs: Vec<buck2_data::BuckconfigComponent> =
                 external_configs
                     .get_buckconfig_components(project_root)
@@ -1560,7 +1564,7 @@ mod tests {
             .enter(
                 EventDispatcher::null(),
                 &NoChanges,
-                |mut dice, _timing| async move {
+                |dice, _timing| async move {
                     let compute = dice.compute(key).fuse();
 
                     let started = async {
@@ -1810,7 +1814,7 @@ mod tests {
                 .enter(
                     EventDispatcher::null(),
                     &CtxDifferent,
-                    |mut dice, _timing| async move {
+                    |dice, _timing| async move {
                         // NOTE: We need to actually compute something for DICE to be not-idle.
                         dice.compute(&K).await.unwrap();
                         tokio::task::yield_now().await;

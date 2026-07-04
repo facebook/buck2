@@ -67,7 +67,7 @@ impl Cache<'_> {
         match self.oracle.get(&(cell, path_type)) {
             Some(g) => Ok(g.dupe()),
             None => {
-                let globals = Environment::new(cell, path_type, &mut self.dice.clone())
+                let globals = Environment::new(cell, path_type, &mut self.dice.ctx())
                     .await?
                     .globals;
                 self.oracle.insert((cell, path_type), globals.dupe());
@@ -101,7 +101,7 @@ impl Cache<'_> {
             .await?
             .ok_or_else(|| internal_error!("File not found: `{path_str}`"))?;
 
-        let mut dice = self.dice.clone();
+        let mut dice = self.dice.ctx();
         let interp = dice
             .get_interpreter_calculator(OwnedStarlarkPath::new(path_ref))
             .await?;
@@ -152,13 +152,18 @@ impl StarlarkServerSubcommand for StarlarkTypecheckCommand {
         _client_ctx: ClientContext,
     ) -> buck2_error::Result<()> {
         Ok(server_ctx
-            .with_dice_ctx(|server_ctx, mut dice| async move {
-                let cell_resolver = &dice.get_cell_resolver().await?;
+            .with_dice_ctx(|server_ctx, dice| async move {
+                let cell_resolver = &dice.ctx().get_cell_resolver().await?;
                 let io = &dice.global_data().get_io_provider();
 
-                let files =
-                    starlark_files(&mut dice, &self.paths, server_ctx, cell_resolver, &**io)
-                        .await?;
+                let files = starlark_files(
+                    &mut dice.ctx(),
+                    &self.paths,
+                    server_ctx,
+                    cell_resolver,
+                    &**io,
+                )
+                .await?;
                 let mut stdout = stdout.as_writer();
                 let mut stderr = server_ctx.stderr()?;
                 let mut cache = Cache {

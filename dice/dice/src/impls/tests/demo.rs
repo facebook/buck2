@@ -174,6 +174,7 @@ async fn demo() -> anyhow::Result<()> {
             .updater()
             .commit()
             .await
+            .ctx()
             .filesystem()
             .read_file(f)
             .await

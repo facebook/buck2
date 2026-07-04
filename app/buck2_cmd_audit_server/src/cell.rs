@@ -36,12 +36,18 @@ impl ServerAuditSubcommand for AuditCellCommand {
         _client_ctx: ClientContext,
     ) -> buck2_error::Result<()> {
         Ok(server_ctx
-            .with_dice_ctx(|server_ctx, mut ctx| async move {
+            .with_dice_ctx(|server_ctx, ctx| async move {
                 let fs = server_ctx.project_root();
                 let cwd = server_ctx.working_dir();
 
-                let mappings =
-                    audit_cell(&mut ctx, &self.aliases_to_resolve, self.aliases, cwd, fs).await?;
+                let mappings = audit_cell(
+                    &mut ctx.ctx(),
+                    &self.aliases_to_resolve,
+                    self.aliases,
+                    cwd,
+                    fs,
+                )
+                .await?;
 
                 let mut stdout = stdout.as_writer();
                 if self.paths_only {

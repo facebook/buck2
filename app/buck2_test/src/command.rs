@@ -328,13 +328,13 @@ impl ServerCommandTemplate for TestServerCommand {
 
 async fn test(
     server_ctx: &dyn ServerCommandContextTrait,
-    mut ctx: DiceTransaction,
+    ctx: DiceTransaction,
     request: &TestRequest,
 ) -> buck2_error::Result<TestResponse> {
     // TODO (torozco): Should the --fail-fast flag work here?
 
     let cwd = server_ctx.working_dir();
-    let cell_resolver = ctx.get_cell_resolver().await?;
+    let cell_resolver = ctx.ctx().get_cell_resolver().await?;
     let working_dir_cell = cell_resolver.find(cwd);
 
     let client_ctx = request.client_context()?;
@@ -344,13 +344,14 @@ async fn test(
             .as_ref()
             .ok_or_else(|| internal_error!("target_cfg must be set"))?,
         server_ctx,
-        &mut ctx,
+        &mut ctx.ctx(),
     )
     .await?;
 
     // Get the test runner from the config. Note that we use a different key from v1 since the API
     // is completely different, so there is not expectation that the same binary works for both.
     let test_executor_config = ctx
+        .ctx()
         .get_legacy_config_property(
             cell_resolver.root_cell(),
             BuckconfigKeyRef {
@@ -367,7 +368,8 @@ async fn test(
                 .with_buck_error_context(|| format!("Invalid `test.v2_test_executor`: {config}"))?;
             let mut test_executor_args =
                 vec!["--buck-trace-id".to_owned(), client_ctx.trace_id.clone()];
-            let platform = match (*ctx)
+            let platform = match ctx
+                .ctx()
                 .get_interpreter_configuror()
                 .await?
                 .host_info()
@@ -397,7 +399,7 @@ async fn test(
     };
 
     let parsed_patterns_with_modifiers =
-        parse_patterns_with_modifiers_from_cli_args(&mut ctx, &request.target_patterns, cwd)
+        parse_patterns_with_modifiers_from_cli_args(&mut ctx.ctx(), &request.target_patterns, cwd)
             .await?;
     server_ctx.log_target_pattern_with_modifiers(&parsed_patterns_with_modifiers);
 
@@ -408,9 +410,11 @@ async fn test(
         return Err(ModifiersError::PatternModifiersWithGlobalModifiers.into());
     }
 
-    let resolved_pattern =
-        ResolveTargetPatterns::resolve_with_modifiers(&mut ctx, &parsed_patterns_with_modifiers)
-            .await?;
+    let resolved_pattern = ResolveTargetPatterns::resolve_with_modifiers(
+        &mut ctx.ctx(),
+        &parsed_patterns_with_modifiers,
+    )
+    .await?;
 
     let launcher: Box<dyn ExecutorLauncher> = Box::new(OutOfProcessTestExecutor {
         executable: test_executor,
@@ -566,9 +570,14 @@ async fn test(
     };
 
     let serialized_build_report = if build_opts.unstable_print_build_report {
-        let artifact_fs = ctx.get_artifact_fs().await?;
-        let build_report_opts =
-            build_report_opts(&mut ctx, &cell_resolver, build_opts, Default::default()).await?;
+        let artifact_fs = ctx.ctx().get_artifact_fs().await?;
+        let build_report_opts = build_report_opts(
+            &mut ctx.ctx(),
+            &cell_resolver,
+            build_opts,
+            Default::default(),
+        )
+        .await?;
 
         write_build_report(
             build_report_opts,
@@ -606,7 +615,7 @@ async fn test(
 }
 
 async fn test_targets(
-    mut ctx: DiceTransaction,
+    ctx: DiceTransaction,
     pattern: ResolvedPattern<ConfiguredProvidersPatternExtra>,
     global_cfg_options: GlobalCfgOptions,
     external_runner_args: Vec<String>,
@@ -678,6 +687,7 @@ async fn test_targets(
     let (test_status_sender, test_status_receiver) = mpsc::unbounded();
 
     let internal_test_timeout = ctx
+        .ctx()
         .get_legacy_config_property(
             cell_resolver.root_cell(),
             BuckconfigKeyRef {
@@ -691,15 +701,16 @@ async fn test_targets(
         .unwrap_or(Duration::from_secs(600));
 
     let internal_runner_config = InternalRunnerConfig::parse(
-        ctx.get_legacy_config_property(
-            cell_resolver.root_cell(),
-            BuckconfigKeyRef {
-                section: "test",
-                property: "use_internal_runner",
-            },
-        )
-        .await?
-        .as_deref(),
+        ctx.ctx()
+            .get_legacy_config_property(
+                cell_resolver.root_cell(),
+                BuckconfigKeyRef {
+                    section: "test",
+                    property: "use_internal_runner",
+                },
+            )
+            .await?
+            .as_deref(),
     );
 
     let internal_test_status_sender = test_status_sender.clone();
@@ -805,7 +816,7 @@ async fn test_targets(
                     .await
                     .buck_error_context("Failed to shutdown orchestrator")?;
 
-                let local_resource_registry = ctx.get_local_resource_registry()?;
+                let local_resource_registry = ctx.ctx().get_local_resource_registry()?;
 
                 local_resource_registry
                     .release_all_resources()
@@ -1055,7 +1066,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
             async move {
                 let res = match state
                     .ctx
-                    .clone()
+                    .ctx()
                     .get_interpreter_results(package.dupe())
                     .await
                 {
@@ -1207,7 +1218,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
         let fut = async move {
             let label = match state
                 .ctx
-                .clone()
+                .ctx()
                 .get_configured_provider_label(&providers_label, &local_cfg_options)
                 .await
             {
@@ -1222,7 +1233,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
 
             let node = match state
                 .ctx
-                .clone()
+                .ctx()
                 .get_configured_target_node(label.target())
                 .await
             {
@@ -1315,11 +1326,12 @@ impl<'a, 'e> TestDriver<'a, 'e> {
         let state = self.state;
         let build_label = label.dupe();
         let fut = async move {
-            let ctx = &mut state.ctx.clone();
+            let ctx = state.ctx.clone();
 
             let modifiers_dupe = modifiers.dupe();
 
             let result = match ctx
+                .ctx()
                 .with_linear_recompute(|ctx| async move {
                     build_target_result(
                         &ctx,

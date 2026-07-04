@@ -75,15 +75,15 @@ async fn test_dice_recompute_doesnt_reuse_wrong_deps() -> anyhow::Result<()> {
 
     let mut updater = dice.updater();
     updater.changed_to([(Leaf(0), 1), (Leaf(1), 100), (Leaf(2), 200)])?;
-    let mut ctx1 = updater.commit().await;
+    let ctx1 = updater.commit().await;
 
     let mut updater = dice.updater();
     updater.changed_to([(Leaf(0), 1), (Leaf(1), 300), (Leaf(2), 200)])?;
-    let mut ctx2 = updater.commit().await;
+    let ctx2 = updater.commit().await;
 
     let mut updater = dice.updater();
     updater.changed_to([(Leaf(0), 2), (Leaf(1), 400), (Leaf(2), 100)])?;
-    let mut ctx3 = updater.commit().await;
+    let ctx3 = updater.commit().await;
 
     assert_eq!(ctx1.compute(&Derived).await.unwrap(), 100);
     assert_eq!(ctx3.compute(&Derived).await.unwrap(), 100);
@@ -130,7 +130,7 @@ async fn test_dice_clear_doesnt_break_ongoing_computation() -> anyhow::Result<()
 
     let dice = Dice::builder().build(DetectCycles::Enabled);
     let updater = dice.updater();
-    let mut ctx1 = updater.commit().await;
+    let ctx1 = updater.commit().await;
 
     ctx1.compute(&Fib(3)).await?;
 
@@ -207,7 +207,7 @@ fn test_dice_clear_doesnt_cause_inject_compute() {
         let dice = Dice::builder().build(DetectCycles::Enabled);
         let mut updater = dice.updater();
         drop(updater.changed_to([(Leaf, 1)]));
-        let mut ctx1 = updater.commit().await;
+        let ctx1 = updater.commit().await;
         let fut = ctx1.compute(&Node);
 
         let updater = dice.updater();

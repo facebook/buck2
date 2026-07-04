@@ -33,9 +33,9 @@ impl ServerAuditSubcommand for AuditExecutionPlatformResolutionCommand {
         _client_ctx: ClientContext,
     ) -> buck2_error::Result<()> {
         Ok(server_ctx
-            .with_dice_ctx(|server_ctx, mut ctx| async move {
+            .with_dice_ctx(|server_ctx, ctx| async move {
                 let configured_patterns = audit_command_configured_target_labels(
-                    &mut ctx,
+                    &mut ctx.ctx(),
                     &self.patterns,
                     &self.target_cfg,
                     server_ctx,
@@ -44,7 +44,7 @@ impl ServerAuditSubcommand for AuditExecutionPlatformResolutionCommand {
 
                 let mut stdout = stdout.as_writer();
 
-                match ctx.get_execution_platforms().await? {
+                match ctx.ctx().get_execution_platforms().await? {
                     None => {
                         writeln!(
                             stdout,
@@ -66,6 +66,7 @@ impl ServerAuditSubcommand for AuditExecutionPlatformResolutionCommand {
                     // `get_configured_target_node` because exec platform resolution operates
                     // on `get_internal_configured_target_node`.
                     let configured_node = ctx
+                        .ctx()
                         .get_internal_configured_target_node(&configured_target)
                         .await
                         .require_compatible()?;

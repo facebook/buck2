@@ -138,12 +138,12 @@ async fn test_get_node() -> buck2_error::Result<()> {
         .mock_and_return(ExecutionPlatformsKey, Ok(None))
         .build(data)
         .unwrap();
-    let mut computations = computations.commit().await;
+    let computations = computations.commit().await;
 
-    let node = computations.get_target_node(&label1).await?;
+    let node = computations.ctx().get_target_node(&label1).await?;
     assert_eq!(node, node1);
 
-    let node = computations.get_target_node(&label2).await?;
+    let node = computations.ctx().get_target_node(&label2).await?;
     assert_eq!(node, node2);
 
     let conf_attrs1 = smallmap![
@@ -169,13 +169,14 @@ async fn test_get_node() -> buck2_error::Result<()> {
         ),
     ];
 
-    let node = computations.get_target_node(&label1).await?;
+    let node = computations.ctx().get_target_node(&label1).await?;
     assert_eq!(node, node1);
 
-    let node = computations.get_target_node(&label2).await?;
+    let node = computations.ctx().get_target_node(&label2).await?;
     assert_eq!(node, node2);
 
     let node = computations
+        .ctx()
         .get_configured_target_node(&label1.configure(cfg.dupe()))
         .await
         .require_compatible()?;
@@ -193,6 +194,7 @@ async fn test_get_node() -> buck2_error::Result<()> {
     assert_eq!(node_attrs, conf_attrs1);
 
     let node = computations
+        .ctx()
         .get_configured_target_node(&label2.configure(cfg.dupe()))
         .await
         .require_compatible()?;

@@ -727,7 +727,7 @@ impl CliArgType {
 
                     Some(CliArgValue::ConfiguredTargetLabel(
                         ctx.dice
-                            .clone()
+                            .ctx()
                             .get_configured_target(
                                 &parsed_pattern.as_target_label(x)?,
                                 local_cfg_options,
@@ -760,7 +760,7 @@ impl CliArgType {
                         &ctx.cell_alias_resolver,
                     )?;
                     let loaded = load_patterns(
-                        &mut ctx.dice.clone(),
+                        &mut ctx.dice.ctx(),
                         vec![pattern],
                         MissingTargetBehavior::Fail,
                     )
@@ -783,7 +783,7 @@ impl CliArgType {
                             &ctx.cell_alias_resolver,
                         )?;
                     let result = load_compatible_patterns_with_modifiers(
-                        &mut ctx.dice.clone(),
+                        &mut ctx.dice.ctx(),
                         vec![pattern_with_modifiers],
                         &ctx.global_cfg_options,
                         MissingTargetBehavior::Fail,
@@ -808,7 +808,7 @@ impl CliArgType {
                         &ctx.cell_alias_resolver,
                     )?;
                     let loaded = load_patterns(
-                        &mut ctx.dice.clone(),
+                        &mut ctx.dice.ctx(),
                         vec![pattern],
                         MissingTargetBehavior::Fail,
                     )

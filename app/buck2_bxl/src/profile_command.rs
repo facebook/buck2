@@ -83,8 +83,8 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
 
         let cwd = server_ctx.working_dir();
 
-        let cell_resolver = ctx.get_cell_resolver().await?;
-        let cell_alias_resolver = ctx.get_cell_alias_resolver_for_dir(cwd).await?;
+        let cell_resolver = ctx.ctx().get_cell_resolver().await?;
+        let cell_alias_resolver = ctx.ctx().get_cell_alias_resolver_for_dir(cwd).await?;
         let bxl_label =
             parse_bxl_label_from_cli(cwd, &opts.bxl_label, &cell_resolver, &cell_alias_resolver)?;
 
@@ -93,7 +93,7 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
                 .as_ref()
                 .ok_or_else(|| internal_error!("target_cfg must be set"))?,
             server_ctx,
-            &mut ctx,
+            &mut ctx.ctx(),
         )
         .await?;
 
@@ -122,6 +122,7 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
         );
 
         if let StarlarkProfileMode::None = ctx
+            .ctx()
             .get_starlark_profiler_mode(&bxl_key.as_starlark_eval_kind())
             .await?
         {
@@ -133,7 +134,7 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
             .with_structured_cancellation(|observer| {
                 async move {
                     buck2_error::Ok(
-                        eval(&mut ctx, bxl_key, observer)
+                        eval(&mut ctx.ctx(), bxl_key, observer)
                             .await
                             .map_err(|e| e.error)?
                             .1

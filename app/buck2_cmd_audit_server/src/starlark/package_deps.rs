@@ -31,11 +31,12 @@ pub(crate) async fn server_execute(
     _client_ctx: ClientContext,
 ) -> buck2_error::Result<()> {
     server_ctx
-        .with_dice_ctx(|server_ctx, mut dice_ctx| async move {
-            let cell_resolver = dice_ctx.get_cell_resolver().await?;
+        .with_dice_ctx(|server_ctx, dice_ctx| async move {
+            let cell_resolver = dice_ctx.ctx().get_cell_resolver().await?;
             let cwd = server_ctx.working_dir();
             let current_cell_path = cell_resolver.get_cell_path(cwd);
             let cell_alias_resolver = dice_ctx
+                .ctx()
                 .get_cell_alias_resolver(current_cell_path.cell())
                 .await?;
 
@@ -43,7 +44,7 @@ pub(crate) async fn server_execute(
 
             let module_deps = INTERPRETER_CALCULATION_IMPL
                 .get()?
-                .get_module_deps(&mut dice_ctx, package)
+                .get_module_deps(&mut dice_ctx.ctx(), package)
                 .await?;
 
             let mut stdout = stdout.as_writer();

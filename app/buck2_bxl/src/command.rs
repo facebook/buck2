@@ -201,8 +201,8 @@ impl BxlServerCommand {
         dice_ctx: &mut DiceTransaction,
     ) -> buck2_error::Result<BxlCommandContext<'a>> {
         let cwd = server_ctx.working_dir();
-        let cell_resolver = dice_ctx.get_cell_resolver().await?;
-        let cell_alias_resolver = dice_ctx.get_cell_alias_resolver_for_dir(cwd).await?;
+        let cell_resolver = dice_ctx.ctx().get_cell_resolver().await?;
+        let cell_alias_resolver = dice_ctx.ctx().get_cell_alias_resolver_for_dir(cwd).await?;
         let bxl_label = parse_bxl_label_from_cli(
             cwd,
             &self.req.bxl_label,
@@ -217,7 +217,7 @@ impl BxlServerCommand {
                 .as_ref()
                 .ok_or_else(|| internal_error!("target_cfg must be set"))?,
             server_ctx,
-            dice_ctx,
+            &mut dice_ctx.ctx(),
         )
         .await?;
 
@@ -238,11 +238,12 @@ impl BxlServerCommand {
         let cur_package =
             PackageLabel::from_cell_path(ctx.cell_resolver.get_cell_path(ctx.cwd).as_ref())?;
         let cell_name = ctx.cell_resolver.find(ctx.cwd);
-        let cell_alias_resolver = dice_ctx.get_cell_alias_resolver(cell_name).await?;
+        let cell_alias_resolver = dice_ctx.ctx().get_cell_alias_resolver(cell_name).await?;
 
-        let target_alias_resolver = dice_ctx.target_alias_resolver().await?;
+        let target_alias_resolver = dice_ctx.ctx().target_alias_resolver().await?;
 
         let bxl_module = dice_ctx
+            .ctx()
             .get_loaded_module(StarlarkModulePath::BxlFile(&ctx.bxl_label.bxl_path))
             .await?;
 
@@ -279,7 +280,7 @@ impl BxlServerCommand {
             ctx.global_cfg_options.dupe(),
         );
 
-        Ok(eval_bxl(dice_ctx, bxl_key.clone()).await?.0)
+        Ok(eval_bxl(&mut dice_ctx.ctx(), bxl_key.clone()).await?.0)
     }
 
     /// Materializes artifacts from the BXL result
@@ -293,8 +294,13 @@ impl BxlServerCommand {
     ) -> Vec<buck2_error::Error> {
         let materialization_context = self.create_materialization_context();
 
-        self.ensure_all_artifacts(dice_ctx, materialization_context, bxl_result, output)
-            .await
+        self.ensure_all_artifacts(
+            &mut dice_ctx.ctx(),
+            materialization_context,
+            bxl_result,
+            output,
+        )
+        .await
     }
 
     /// Creates a materialization context from request parameters.
@@ -459,7 +465,7 @@ impl BxlServerCommand {
             .expect("should have build options");
 
         let serialized_build_report = if bxl_opts.unstable_print_build_report {
-            let artifact_fs = dice_ctx.get_artifact_fs().await?;
+            let artifact_fs = dice_ctx.ctx().get_artifact_fs().await?;
             let build_report_opts = BuildReportOpts {
                 // These are all deprecated for `buck2 build`, so don't need to support them
                 print_unconfigured_section: false,
@@ -515,11 +521,12 @@ pub(crate) async fn get_bxl_cli_args(
 ) -> buck2_error::Result<BxlResolvedCliArgs> {
     let cur_package = PackageLabel::from_cell_path(cell_resolver.get_cell_path(&cwd).as_ref())?;
     let cell_name = cell_resolver.find(&cwd);
-    let cell_alias_resolver = ctx.get_cell_alias_resolver(cell_name).await?;
+    let cell_alias_resolver = ctx.ctx().get_cell_alias_resolver(cell_name).await?;
 
-    let target_alias_resolver = ctx.target_alias_resolver().await?;
+    let target_alias_resolver = ctx.ctx().target_alias_resolver().await?;
 
     let bxl_module = ctx
+        .ctx()
         .get_loaded_module(StarlarkModulePath::BxlFile(&bxl_label.bxl_path))
         .await?;
 

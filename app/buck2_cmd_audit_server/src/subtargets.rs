@@ -52,14 +52,15 @@ async fn server_execute_with_dice(
     command: &AuditSubtargetsCommand,
     server_ctx: &dyn ServerCommandContextTrait,
     mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
-    mut ctx: DiceTransaction,
+    ctx: DiceTransaction,
 ) -> buck2_error::Result<()> {
     // TODO(raulgarcia4): Extract function where possible, shares a lot of code with audit providers.
     let target_resolution_config =
-        audit_command_target_resolution_config(&mut ctx, &command.target_cfg, server_ctx).await?;
+        audit_command_target_resolution_config(&mut ctx.ctx(), &command.target_cfg, server_ctx)
+            .await?;
 
     let provider_labels = parse_and_resolve_provider_labels_with_modifiers_from_cli_args(
-        &mut ctx,
+        &mut ctx.ctx(),
         &command.patterns,
         server_ctx.working_dir(),
     )
@@ -69,15 +70,15 @@ async fn server_execute_with_dice(
 
     for label_with_modifiers in provider_labels {
         for providers_label in target_resolution_config
-            .get_configured_provider_label_with_modifiers(&mut ctx, &label_with_modifiers)
+            .get_configured_provider_label_with_modifiers(&mut ctx.ctx(), &label_with_modifiers)
             .await?
         {
             // `.push` is deprecated in newer `futures`,
             // but we did not updated vendored `futures` yet.
-            let mut ctx = ctx.clone();
+            let ctx = ctx.clone();
             #[allow(deprecated)]
             futs.push(async move {
-                let result = ctx.get_providers(&providers_label).await;
+                let result = ctx.ctx().get_providers(&providers_label).await;
                 (providers_label, result)
             });
         }

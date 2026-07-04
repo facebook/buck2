@@ -169,7 +169,7 @@
 //!
 //! // request the computation from DICE
 //! rt.block_on(async {
-//!     assert_eq!("aaaaaaaa", &*MyComputation(&mut ctx).compute_a(4, "a".into()).await);
+//!     assert_eq!("aaaaaaaa", &*MyComputation(&mut ctx.ctx()).compute_a(4, "a".into()).await);
 //! });
 //!
 //! let mut ctx = engine.updater();
@@ -179,7 +179,7 @@
 //!
 //! // request the computation from DICE
 //! rt.block_on(async {
-//!     assert_eq!("aaaaaaaaaa", &*MyComputation(&mut ctx).compute_a(4, "a".into()).await);
+//!     assert_eq!("aaaaaaaaaa", &*MyComputation(&mut ctx.ctx()).compute_a(4, "a".into()).await);
 //! });
 //! ```
 

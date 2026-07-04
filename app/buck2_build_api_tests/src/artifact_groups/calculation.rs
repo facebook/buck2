@@ -207,9 +207,10 @@ async fn test_ensure_artifact_group() -> buck2_error::Result<()> {
     dice.set_cell_resolver(cell_resolver)?;
     dice.set_buck_out_path(None)?;
     inject_legacy_config_for_test(&mut dice, cell_parent, LegacyBuckConfig::empty())?;
-    let mut dice = dice.commit().await;
+    let dice = dice.commit().await;
 
     let result = dice
+        .ctx()
         .ensure_artifact_group(&ArtifactGroup::TransitiveSetProjection(Arc::new(
             TransitiveSetProjectionWrapper::new(
                 TransitiveSetProjectionKey {

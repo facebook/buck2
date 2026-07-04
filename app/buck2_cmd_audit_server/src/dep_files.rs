@@ -33,16 +33,16 @@ impl ServerAuditSubcommand for AuditDepFilesCommand {
         _client_ctx: ClientContext,
     ) -> buck2_error::Result<()> {
         Ok(server_ctx
-            .with_dice_ctx(|server_ctx, mut ctx| async move {
+            .with_dice_ctx(|server_ctx, ctx| async move {
                 let global_cfg_options = global_cfg_options_from_client_context(
                     &self.target_cfg.target_cfg(),
                     server_ctx,
-                    &mut ctx,
+                    &mut ctx.ctx(),
                 )
                 .await?;
 
                 let label = parse_patterns_from_cli_args::<TargetPatternExtra>(
-                    &mut ctx,
+                    &mut ctx.ctx(),
                     std::slice::from_ref(&self.pattern),
                     server_ctx.working_dir(),
                 )
@@ -53,6 +53,7 @@ impl ServerAuditSubcommand for AuditDepFilesCommand {
                 .as_target_label(&self.pattern)?;
 
                 let label = ctx
+                    .ctx()
                     .get_configured_target_post_transition(&label, &global_cfg_options)
                     .await?;
 

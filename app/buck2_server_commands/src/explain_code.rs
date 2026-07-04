@@ -121,7 +121,7 @@ impl ActionEntry {
 
 pub(crate) async fn explain(
     server_ctx: &dyn ServerCommandContextTrait,
-    mut ctx: DiceTransaction,
+    ctx: DiceTransaction,
     req: &ExplainRequest,
 ) -> buck2_error::Result<()> {
     let build_log = EventLogPathBuf::infer(req.log_path.clone())?;
@@ -183,13 +183,13 @@ pub(crate) async fn explain(
     };
 
     let global_cfg_options =
-        global_cfg_options_from_client_context(&req.target_cfg, server_ctx, &mut ctx).await?;
+        global_cfg_options_from_client_context(&req.target_cfg, server_ctx, &mut ctx.ctx()).await?;
 
     let targets = {
         let (query_result, _universes) = QUERY_FRONTEND
             .get()?
             .eval_cquery(
-                &mut ctx,
+                &mut ctx.ctx(),
                 server_ctx.working_dir(),
                 &req.target,
                 &[],
@@ -212,7 +212,7 @@ pub(crate) async fn explain(
             let (targets_with_file_updates, _universes) = QUERY_FRONTEND
                 .get()?
                 .eval_cquery(
-                    &mut ctx,
+                    &mut ctx.ctx(),
                     server_ctx.working_dir(),
                     &format!("owner(\"{file_change}\")"),
                     &[],

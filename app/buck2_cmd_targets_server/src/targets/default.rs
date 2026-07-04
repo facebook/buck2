@@ -84,17 +84,23 @@ impl TargetHashOptions {
 
 pub(crate) async fn targets_batch(
     server_ctx: &dyn ServerCommandContextTrait,
-    mut dice: DiceTransaction,
+    dice: DiceTransaction,
     formatter: &dyn TargetFormatter,
     parsed_patterns: Vec<ParsedPattern<TargetPatternExtra>>,
     global_cfg_options: &GlobalCfgOptions,
     hash_options: TargetHashOptions,
     keep_going: bool,
 ) -> buck2_error::Result<TargetsResponse> {
-    let results = &load_patterns(&mut dice, parsed_patterns, MissingTargetBehavior::Fail).await?;
+    let results = &load_patterns(
+        &mut dice.ctx(),
+        parsed_patterns,
+        MissingTargetBehavior::Fail,
+    )
+    .await?;
 
-    let target_hashes = dice
-        .dupe()
+    let linear_dice = dice.dupe();
+    let target_hashes = linear_dice
+        .ctx()
         .with_linear_recompute(|linear_ctx| async move {
             match hash_options.graph_type {
                 TargetHashGraphType::Configured => buck2_error::Ok(Some(

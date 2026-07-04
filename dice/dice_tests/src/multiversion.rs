@@ -94,19 +94,19 @@ async fn test_a_multiversion_bug() {
         builder.build(DetectCycles::Enabled)
     };
 
-    let mut ctx1 = {
+    let ctx1 = {
         let mut updater = dice.updater();
         updater.changed_to(vec![(Leaf, 1)]).unwrap();
         updater.commit().await
     };
 
-    let mut ctx2 = {
+    let ctx2 = {
         let mut updater = dice.updater();
         updater.changed_to(vec![(Leaf, 2)]).unwrap();
         updater.commit().await
     };
 
-    let mut ctx3 = {
+    let ctx3 = {
         let mut updater = dice.updater();
         updater.changed_to(vec![(Leaf, 1)]).unwrap();
         updater.commit().await

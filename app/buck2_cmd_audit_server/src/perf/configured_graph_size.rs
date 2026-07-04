@@ -31,9 +31,9 @@ pub(crate) async fn server_execute(
     _client_ctx: ClientContext,
 ) -> buck2_error::Result<()> {
     server_ctx
-        .with_dice_ctx(|server_ctx, mut ctx| async move {
+        .with_dice_ctx(|server_ctx, ctx| async move {
             let targets = audit_command_configured_target_labels(
-                &mut ctx,
+                &mut ctx.ctx(),
                 &command.patterns,
                 &command.target_cfg,
                 server_ctx,
@@ -51,7 +51,7 @@ pub(crate) async fn server_execute(
             // We intentionally don't do this in parallel so that we can get the computation time for them.
             for target in &targets {
                 let MaybeCompatible::Compatible(node) =
-                    ctx.get_configured_target_node(target).await.ok()?
+                    ctx.ctx().get_configured_target_node(target).await.ok()?
                 else {
                     continue;
                 };

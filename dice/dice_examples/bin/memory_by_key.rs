@@ -461,7 +461,7 @@ async fn run_phase(shape: Shape, do_tx: bool) -> PhaseResult {
     {
         let mut updater = dice.updater();
         updater.changed_to(vec![(Seed, 0u32)]).unwrap();
-        let mut ctx = updater.commit().await;
+        let ctx = updater.commit().await;
         let n = WARMUP_KEYS.min(NODE_COUNT);
         for i in 0..n {
             drop(ctx.compute(&GraphNode(i, WARMUP_SHADOW_ID)).await);
@@ -476,7 +476,7 @@ async fn run_phase(shape: Shape, do_tx: bool) -> PhaseResult {
         // Build one shadow's root computation; dice walks the whole graph.
         let mut updater = dice.updater();
         updater.changed_to(vec![(Seed, 0u32)]).unwrap();
-        let mut ctx = updater.commit().await;
+        let ctx = updater.commit().await;
         drop(ctx.compute(&GraphNode(0, s)).await);
         drop(ctx);
         let snap = quiesce_and_snap(&dice).await;
@@ -513,7 +513,7 @@ async fn run_phase(shape: Shape, do_tx: bool) -> PhaseResult {
 
         let mut updater = dice.updater();
         updater.changed_to(vec![(Seed, 1u32)]).unwrap();
-        let mut ctx = updater.commit().await;
+        let ctx = updater.commit().await;
         for s in 0..SHADOWS {
             drop(ctx.compute(&GraphNode(0, s)).await);
         }
@@ -596,7 +596,7 @@ async fn run_suspended_phase(shape: Shape) -> SuspendedResult {
     {
         let mut updater = dice.updater();
         updater.changed_to(vec![(Seed, 0u32)]).unwrap();
-        let mut ctx = updater.commit().await;
+        let ctx = updater.commit().await;
         let n = WARMUP_KEYS.min(NODE_COUNT);
         for i in 0..n {
             drop(ctx.compute(&GraphNode(i, WARMUP_SHADOW_ID)).await);
@@ -624,7 +624,7 @@ async fn run_suspended_phase(shape: Shape) -> SuspendedResult {
         updater.changed_to(vec![(Seed, 0u32)]).unwrap();
         let ctx = updater.commit().await;
         handles.push(tokio::spawn(async move {
-            let mut ctx = ctx;
+            let ctx = ctx;
             drop(ctx.compute(&GraphNode(0, s)).await);
         }));
 
@@ -718,7 +718,7 @@ async fn async_main() {
         // Tiny warmup so the first read isn't on a cold runtime.
         let mut updater = dice_cal.updater();
         updater.changed_to(vec![(Seed, 0u32)]).unwrap();
-        let mut ctx = updater.commit().await;
+        let ctx = updater.commit().await;
         for i in 0..50 {
             drop(ctx.compute(&GraphNode(i, WARMUP_SHADOW_ID)).await);
         }

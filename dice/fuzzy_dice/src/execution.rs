@@ -378,7 +378,10 @@ impl DiceExecutionOrder {
                         }));
 
                         let exec_result = std::panic::AssertUnwindSafe(async {
-                            ctx.eval(state.dupe(), *var).await.expect("eval errored")
+                            ctx.ctx()
+                                .eval(state.dupe(), *var)
+                                .await
+                                .expect("eval errored")
                         })
                         .catch_unwind()
                         .await;

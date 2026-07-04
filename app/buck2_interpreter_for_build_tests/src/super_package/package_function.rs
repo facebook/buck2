@@ -45,9 +45,10 @@ simple(name = "a")
 "#,
     );
 
-    let mut ctx = calculation(&fs).await;
+    let ctx = calculation(&fs).await;
 
     let a = ctx
+        .ctx()
         .get_target_node(&TargetLabel::testing_parse("root//juxtaposition:a"))
         .await
         .unwrap();
@@ -79,9 +80,10 @@ simple(name = "a")
 "#,
     );
 
-    let mut ctx = calculation(&fs).await;
+    let ctx = calculation(&fs).await;
 
     let a = ctx
+        .ctx()
         .get_target_node(&TargetLabel::testing_parse("root//juxtaposition:a"))
         .await
         .unwrap();
@@ -130,9 +132,10 @@ simple(name = "a")
 "#,
     );
 
-    let mut ctx = calculation(&fs).await;
+    let ctx = calculation(&fs).await;
 
     let a = ctx
+        .ctx()
         .get_target_node(&TargetLabel::testing_parse("root//juxtaposition:a"))
         .await
         .unwrap();
@@ -194,9 +197,10 @@ simple(name = "a")
 "#,
     );
 
-    let mut ctx = calculation(&fs).await;
+    let ctx = calculation(&fs).await;
 
     let a = ctx
+        .ctx()
         .get_target_node(&TargetLabel::testing_parse("root//juxtaposition:a"))
         .await
         .unwrap();
@@ -253,9 +257,10 @@ simple(
 "#,
     );
 
-    let mut ctx = calculation(&fs).await;
+    let ctx = calculation(&fs).await;
 
     let a = ctx
+        .ctx()
         .get_target_node(&TargetLabel::testing_parse("root//juxtaposition:a"))
         .await
         .unwrap();
@@ -302,9 +307,10 @@ simple(name = "a")
 "#,
     );
 
-    let mut ctx = calculation(&fs).await;
+    let ctx = calculation(&fs).await;
 
     let err = ctx
+        .ctx()
         .get_target_node(&TargetLabel::testing_parse("root//juxtaposition:a"))
         .await
         .expect_err("non-str/non-target_name_glob visibility element must be rejected");
@@ -338,9 +344,10 @@ simple(name = "a")
 "#,
     );
 
-    let mut ctx = calculation(&fs).await;
+    let ctx = calculation(&fs).await;
 
     let err = ctx
+        .ctx()
         .get_target_node(&TargetLabel::testing_parse("root//juxtaposition:a"))
         .await
         .expect_err("`PUBLIC` in `within` must be rejected");
@@ -381,9 +388,10 @@ simple(name = "a")
 "#,
     );
 
-    let mut ctx = calculation(&fs).await;
+    let ctx = calculation(&fs).await;
 
     let a = ctx
+        .ctx()
         .get_target_node(&TargetLabel::testing_parse("root//juxtaposition:a"))
         .await
         .unwrap();
@@ -423,9 +431,10 @@ simple(name = "a")
 "#,
     );
 
-    let mut ctx = calculation(&fs).await;
+    let ctx = calculation(&fs).await;
 
     let a = ctx
+        .ctx()
         .get_target_node(&TargetLabel::testing_parse("root//juxtaposition:a"))
         .await
         .unwrap();

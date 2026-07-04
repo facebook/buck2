@@ -70,15 +70,21 @@ use crate::versions::VersionNumber;
 
 /// Context that is the base for which all requests start from
 pub(crate) struct BaseComputeCtx {
-    // we need to give off references of `DiceComputation` so hold this for now, but really once we
-    // get rid of the enum, we just hold onto the base data directly and do some ref casts
-    data: DiceComputations<'static>,
+    ctx: CoreCtx,
     live_version_guard: ActiveTransactionGuard,
 }
 
 impl Clone for BaseComputeCtx {
     fn clone(&self) -> Self {
-        BaseComputeCtx::clone_for(&self.data.0, self.live_version_guard.dupe())
+        Self {
+            ctx: CoreCtx {
+                async_evaluator: self.ctx.async_evaluator.dupe(),
+                parent_key: ParentKey::None,
+                cycles: KeyComputingUserCycleDetectorData::Untracked,
+                evaluation_data: Mutex::new(EvaluationData::none()),
+            },
+            live_version_guard: self.live_version_guard.dupe(),
+        }
     }
 }
 
@@ -92,57 +98,56 @@ impl BaseComputeCtx {
         live_version_guard: ActiveTransactionGuard,
     ) -> Self {
         Self {
-            data: DiceComputations(ModernComputeCtx::new(
-                ParentKey::None,
-                KeyComputingUserCycleDetectorData::Untracked,
-                AsyncEvaluator {
+            ctx: CoreCtx {
+                async_evaluator: AsyncEvaluator {
                     per_live_version_ctx,
                     user_data,
                     dice,
                 },
-            )),
-            live_version_guard,
-        }
-    }
-
-    fn clone_for(
-        modern: &ModernComputeCtx<'_>,
-        live_version_guard: ActiveTransactionGuard,
-    ) -> BaseComputeCtx {
-        Self {
-            data: DiceComputations(ModernComputeCtx::new(
-                ParentKey::None,
-                KeyComputingUserCycleDetectorData::Untracked,
-                modern.ctx_data().async_evaluator.clone(),
-            )),
+                parent_key: ParentKey::None,
+                cycles: KeyComputingUserCycleDetectorData::Untracked,
+                evaluation_data: Mutex::new(EvaluationData::none()),
+            },
             live_version_guard,
         }
     }
 
     pub(crate) fn get_version(&self) -> VersionNumber {
-        self.data.0.get_version()
+        self.ctx.get_version()
     }
 
-    pub(crate) fn as_computations(&self) -> &DiceComputations<'static> {
-        &self.data
+    pub(crate) fn compute<'a, K>(
+        &'a self,
+        key: &K,
+    ) -> impl Future<Output = DiceResult<<K as Key>::Value>> + use<'a, K>
+    where
+        K: Key,
+    {
+        self.ctx.compute_opaque(key).map_ok(|opaque| {
+            opaque
+                .derive_from
+                .downcast_maybe_transient::<K::Value>()
+                .expect("type mismatch")
+                .dupe()
+        })
     }
 
-    pub(crate) fn as_computations_mut(&mut self) -> &mut DiceComputations<'static> {
-        &mut self.data
+    pub(crate) fn as_computations(&self) -> ModernComputeCtx<'_> {
+        ModernComputeCtx::Parallel {
+            ctx_data: &self.ctx,
+            // Provide a dep tracker here because this type expects to track its deps, but in the
+            // context of a `DiceTransaction` we don't actually need the data
+            dep_trackers: RecordingDepsTracker::new(TrackedInvalidationPaths::clean()),
+        }
     }
 }
 
+// Just for convenience
 impl Deref for BaseComputeCtx {
-    type Target = ModernComputeCtx<'static>;
+    type Target = CoreCtx;
 
     fn deref(&self) -> &Self::Target {
-        &self.data.0
-    }
-}
-
-impl DerefMut for BaseComputeCtx {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.data.0
+        &self.ctx
     }
 }
 
@@ -610,10 +615,6 @@ impl ModernComputeCtx<'_> {
     /// each have their own individual data.
     pub(crate) fn per_transaction_data(&self) -> &UserComputationData {
         self.ctx_data().per_transaction_data()
-    }
-
-    pub(crate) fn get_version(&self) -> VersionNumber {
-        self.ctx_data().get_version()
     }
 
     #[allow(unused)] // used in test

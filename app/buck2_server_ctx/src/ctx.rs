@@ -230,11 +230,11 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
                         .enter(
                             self.events().dupe(),
                             &*setup,
-                            |mut dice, early_command_timing| async move {
+                            |dice, early_command_timing| async move {
                                 let events = self.events().dupe();
 
                                 let request_metadata = self.request_metadata().await?;
-                                let config_metadata = self.config_metadata(&mut dice).await?;
+                                let config_metadata = self.config_metadata(&mut dice.ctx()).await?;
                                 events
                                     .span_async(
                                         CommandCriticalStart {

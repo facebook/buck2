@@ -34,14 +34,17 @@ impl ServerAuditSubcommand for AuditAnalysisQueriesCommand {
         _client_ctx: ClientContext,
     ) -> buck2_error::Result<()> {
         Ok(server_ctx
-            .with_dice_ctx(|server_ctx, mut ctx| async move {
-                let target_resolution_config =
-                    audit_command_target_resolution_config(&mut ctx, &self.target_cfg, server_ctx)
-                        .await?;
+            .with_dice_ctx(|server_ctx, ctx| async move {
+                let target_resolution_config = audit_command_target_resolution_config(
+                    &mut ctx.ctx(),
+                    &self.target_cfg,
+                    server_ctx,
+                )
+                .await?;
 
                 let resolved_pattern =
                     parse_and_resolve_patterns_from_cli_args::<TargetPatternExtra>(
-                        &mut ctx,
+                        &mut ctx.ctx(),
                         &self.patterns,
                         server_ctx.working_dir(),
                     )
@@ -58,16 +61,17 @@ impl ServerAuditSubcommand for AuditAnalysisQueriesCommand {
                                     target.as_ref(),
                                 );
                                 for configured_target in target_resolution_config
-                                    .get_configured_target(&mut ctx, &label, None)
+                                    .get_configured_target(&mut ctx.ctx(), &label, None)
                                     .await?
                                 {
                                     let node = ctx
+                                        .ctx()
                                         .get_configured_target_node(&configured_target)
                                         .await
                                         .require_compatible()?;
 
                                     let query_results =
-                                        resolve_queries(&mut ctx, node.as_ref()).await?;
+                                        resolve_queries(&mut ctx.ctx(), node.as_ref()).await?;
                                     writeln!(stdout, "{label}:")?;
                                     for (query, result) in &query_results {
                                         writeln!(stdout, "  {query}")?;

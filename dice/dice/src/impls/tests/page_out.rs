@@ -121,7 +121,7 @@ async fn paged_out_value_is_hydrated_on_next_lookup() -> anyhow::Result<()> {
     let storage = DiceStorage::open(tmp.path())?;
     let dice = make_dice(storage);
 
-    let mut tx = dice
+    let tx = dice
         .updater_with_data(user_data_with_counter(&counter))
         .commit()
         .await;
@@ -133,7 +133,7 @@ async fn paged_out_value_is_hydrated_on_next_lookup() -> anyhow::Result<()> {
     dice.wait_for_idle().await;
     dice.page_out().await?;
 
-    let mut tx = dice
+    let tx = dice
         .updater_with_data(user_data_with_counter(&counter))
         .commit()
         .await;
@@ -157,7 +157,7 @@ async fn rehydrated_value_stays_in_memory() -> anyhow::Result<()> {
     let storage = DiceStorage::open(tmp.path())?;
     let dice = make_dice(storage);
 
-    let mut tx = dice
+    let tx = dice
         .updater_with_data(user_data_with_counter(&counter))
         .commit()
         .await;
@@ -168,7 +168,7 @@ async fn rehydrated_value_stays_in_memory() -> anyhow::Result<()> {
     dice.page_out().await?;
 
     // First post-page-out lookup hydrates and rehydrates.
-    let mut tx = dice
+    let tx = dice
         .updater_with_data(user_data_with_counter(&counter))
         .commit()
         .await;
@@ -180,7 +180,7 @@ async fn rehydrated_value_stays_in_memory() -> anyhow::Result<()> {
     // to call into storage again. We verify "no recompute" via the counter; we trust
     // that the lookup result was VersionedGraphResult::Match (not MatchPagedOut).
     for _ in 0..5 {
-        let mut tx = dice
+        let tx = dice
             .updater_with_data(user_data_with_counter(&counter))
             .commit()
             .await;
@@ -205,7 +205,7 @@ async fn page_out_skips_no_value_serialize_keys() -> anyhow::Result<()> {
     let storage = DiceStorage::open(tmp.path())?;
     let dice = make_dice(storage);
 
-    let mut tx = dice.updater().commit().await;
+    let tx = dice.updater().commit().await;
     let v1: u64 = tx.compute(&NonPagableKey(5)).await?;
     assert_eq!(v1, 35);
     drop(tx);
@@ -217,7 +217,7 @@ async fn page_out_skips_no_value_serialize_keys() -> anyhow::Result<()> {
     // the worker would try to hydrate via `NoValueSerialize::pagable_deserialize_value`
     // which is `unimplemented!()` — that would panic. So a successful lookup confirms
     // the node was correctly skipped.
-    let mut tx = dice.updater().commit().await;
+    let tx = dice.updater().commit().await;
     let v2: u64 = tx.compute(&NonPagableKey(5)).await?;
     assert_eq!(v2, 35);
 
@@ -241,7 +241,7 @@ async fn pagable_status_reports_resident_then_paged_out() -> anyhow::Result<()> 
     let storage = DiceStorage::open(tmp.path())?;
     let dice = make_dice(storage);
 
-    let mut tx = dice.updater().commit().await;
+    let tx = dice.updater().commit().await;
     let _: u64 = tx.compute(&PagableKey(1)).await?;
     let _: u64 = tx.compute(&PagableKey(2)).await?;
     let _: u64 = tx.compute(&NonPagableKey(9)).await?;
@@ -285,7 +285,7 @@ async fn pagable_status_by_type_is_deterministically_ordered() -> anyhow::Result
     let storage = DiceStorage::open(tmp.path())?;
     let dice = make_dice(storage);
 
-    let mut tx = dice.updater().commit().await;
+    let tx = dice.updater().commit().await;
     // Two key *types*, two resident nodes each — equal totals force the tie-break.
     let _: u64 = tx.compute(&PagableKey(1)).await?;
     let _: u64 = tx.compute(&PagableKey(2)).await?;
