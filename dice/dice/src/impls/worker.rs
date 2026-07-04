@@ -290,9 +290,9 @@ impl DiceTaskWorker {
                         )
                         .await
                 }
-                Err(value) => Ok(DiceComputedValue::new(
+                Err(value) => Ok(DiceComputedValue::new_for_transient(
                     value,
-                    Arc::new(VersionRange::begins_with(v).into_ranges()),
+                    v,
                     result.invalidation_paths,
                 )),
             }
@@ -546,7 +546,7 @@ pub(crate) fn project_for_key(
 
         debug!(msg = "projection finished. updating caches");
 
-        let (res, invalidation_paths, future) = {
+        let (res, invalidation_paths, state_future) = {
             let KeyEvaluationResult {
                 value,
                 deps,
@@ -565,12 +565,17 @@ pub(crate) fn project_for_key(
                         invalidation_paths.dupe(),
                     );
 
-                    Some(rx.map(|res| res).boxed())
+                    rx.map(|res| res).boxed()
                 }
                 Err(_transient_result) => {
                     // transients are never stored in the state, but the result should be shared
                     // with async computations as if it were.
-                    None
+                    future::ready(Ok(DiceComputedValue::new_for_transient(
+                        value.dupe(),
+                        v,
+                        invalidation_paths.dupe(),
+                    )))
+                    .boxed()
                 }
             };
 
@@ -585,8 +590,6 @@ pub(crate) fn project_for_key(
             Arc::new(VersionRange::begins_with(v).into_ranges()),
             invalidation_paths,
         );
-        let state_future =
-            future.unwrap_or_else(|| future::ready(Ok(computed_value.dupe())).boxed());
 
         DiceSyncResult {
             sync_result: computed_value,

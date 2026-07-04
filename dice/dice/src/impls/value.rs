@@ -22,6 +22,7 @@ use crate::api::key::InvalidationSourcePriority;
 use crate::arc::Arc;
 use crate::impls::key::DiceKey;
 use crate::versions::VersionNumber;
+use crate::versions::VersionRange;
 use crate::versions::VersionRanges;
 
 /// Type erased value associated for each Key in Dice. The 'DiceValidValue' only holds valid values
@@ -300,6 +301,24 @@ impl DiceComputedValue {
         Self {
             value,
             valid,
+            invalidation_paths,
+        }
+    }
+
+    /// A bunch of things in the per-transaction state expect `DiceComputedValue`s, but we don't
+    /// actually have a real one of those (because we don't have a real `VersionRange`) since we
+    /// didn't talk to the core state.
+    ///
+    /// Making up a `VersionRange` is pretty sketch, this function is here as documentation for
+    /// that.
+    pub(crate) fn new_for_transient(
+        value: MaybeValidDiceValue,
+        v: VersionNumber,
+        invalidation_paths: TrackedInvalidationPaths,
+    ) -> Self {
+        Self {
+            value,
+            valid: Arc::new(VersionRange::begins_with(v).into_ranges()),
             invalidation_paths,
         }
     }
