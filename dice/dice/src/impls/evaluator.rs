@@ -19,7 +19,6 @@ use crate::api::computations::DiceComputations;
 use crate::api::projection::DiceProjectionComputations;
 use crate::api::storage_type::StorageType;
 use crate::api::user_data::UserComputationData;
-use crate::ctx::DiceComputationsImpl;
 use crate::impls::ctx::ModernComputeCtx;
 use crate::impls::ctx::SharedLiveTransactionCtx;
 use crate::impls::deps::graph::SeriesParallelDeps;
@@ -62,16 +61,16 @@ impl AsyncEvaluator {
 
         match key_erased {
             DiceKeyErased::Key(key_dyn) => {
-                let mut new_ctx = DiceComputations(DiceComputationsImpl(ModernComputeCtx::new(
+                let mut new_ctx = DiceComputations(ModernComputeCtx::new(
                     ParentKey::Some(key), // within this key's compute, this key is the parent
                     cycles,
                     self.dupe(),
-                )));
+                ));
 
                 let value = key_dyn
                     .compute(&mut new_ctx, handle.cancellation_ctx())
                     .await;
-                let (recorded_deps, evaluation_data, cycles) = new_ctx.0.0.finalize();
+                let (recorded_deps, evaluation_data, cycles) = new_ctx.0.finalize();
 
                 state.finished(
                     handle,
