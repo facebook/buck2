@@ -174,16 +174,25 @@ impl InvalidationPath {
         }
     }
 
-    fn update(&mut self, other: InvalidationPath) {
-        if let InvalidationPath::Invalidated(other) = other {
-            match self {
-                InvalidationPath::Invalidated(this) if this.version > other.version => {}
-                InvalidationPath::Unknown => {}
-                InvalidationPath::Clean | InvalidationPath::Invalidated(..) => {
-                    *self = InvalidationPath::Invalidated(other);
+    fn merge(&self, other: &InvalidationPath) -> InvalidationPath {
+        match (self, other) {
+            (InvalidationPath::Unknown, _) => self,
+            // FIXME(JakobDegen): Why the asymmetric treatment? Bug?
+            (_, InvalidationPath::Unknown) => self,
+            (InvalidationPath::Clean, _) => other,
+            (_, InvalidationPath::Clean) => self,
+            (
+                InvalidationPath::Invalidated(self_node),
+                InvalidationPath::Invalidated(other_node),
+            ) => {
+                if self_node.version >= other_node.version {
+                    self
+                } else {
+                    other
                 }
             }
         }
+        .dupe()
     }
 }
 
@@ -224,27 +233,21 @@ impl TrackedInvalidationPaths {
         }
     }
 
-    fn get(&self) -> &InvalidationPathsHeap {
+    fn get(&self) -> (&InvalidationPath, &InvalidationPath) {
         match self.0.extra() {
-            TAG_ALLOCATED => self.0.as_ref().unwrap(),
-            TAG_BOTH_CLEAN => &InvalidationPathsHeap {
-                normal: InvalidationPath::Clean,
-                high: InvalidationPath::Clean,
-            },
-            TAG_BOTH_UNKNOWN => &InvalidationPathsHeap {
-                normal: InvalidationPath::Unknown,
-                high: InvalidationPath::Unknown,
-            },
+            TAG_ALLOCATED => {
+                let h = self.0.as_ref().unwrap();
+                (&h.normal, &h.high)
+            }
+            TAG_BOTH_CLEAN => (&InvalidationPath::Clean, &InvalidationPath::Clean),
+            TAG_BOTH_UNKNOWN => (&InvalidationPath::Unknown, &InvalidationPath::Unknown),
             _ => unreachable!(),
         }
     }
 
     pub(crate) fn for_dependent(&self, key: DiceKey) -> TrackedInvalidationPaths {
-        let this = self.get();
-        TrackedInvalidationPaths::from_pair(
-            this.normal.for_dependent(key),
-            this.high.for_dependent(key),
-        )
+        let (normal, high) = self.get();
+        TrackedInvalidationPaths::from_pair(normal.for_dependent(key), high.for_dependent(key))
     }
 
     pub(crate) fn clean() -> TrackedInvalidationPaths {
@@ -252,8 +255,8 @@ impl TrackedInvalidationPaths {
     }
 
     pub(crate) fn at_version(&self, v: VersionNumber) -> TrackedInvalidationPaths {
-        let this = self.get();
-        TrackedInvalidationPaths::from_pair(this.normal.at_version(v), this.high.at_version(v))
+        let (normal, high) = self.get();
+        TrackedInvalidationPaths::from_pair(normal.at_version(v), high.at_version(v))
     }
 
     pub(crate) fn new(
@@ -274,21 +277,17 @@ impl TrackedInvalidationPaths {
     }
 
     pub(crate) fn update(&mut self, new_paths: &TrackedInvalidationPaths) {
-        let this = self.get();
-        let new_paths = new_paths.get();
-        let mut normal = this.normal.dupe();
-        let mut high = this.high.dupe();
-        normal.update(new_paths.normal.dupe());
-        high.update(new_paths.high.dupe());
-        *self = Self::from_pair(normal, high);
+        let (this_normal, this_high) = self.get();
+        let (new_normal, new_high) = new_paths.get();
+        *self = Self::from_pair(this_normal.merge(new_normal), this_high.merge(new_high));
     }
 
     pub(crate) fn get_normal(&self) -> InvalidationPath {
-        self.get().normal.dupe()
+        self.get().0.dupe()
     }
 
     pub(crate) fn get_high(&self) -> InvalidationPath {
-        self.get().high.dupe()
+        self.get().1.dupe()
     }
 }
 
