@@ -16,7 +16,7 @@ use gazebo::variants::VariantName;
 use pagable::DataKey;
 
 use crate::arc::Arc;
-use crate::impls::deps::graph::SeriesParallelDeps;
+use crate::deps::graph::SeriesParallelDeps;
 use crate::impls::key::DiceKey;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceValidValue;

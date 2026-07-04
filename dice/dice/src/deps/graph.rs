@@ -18,9 +18,9 @@ use itertools::Itertools;
 use mini_vec::MiniVec;
 
 use crate::arc::Arc;
-use crate::impls::deps::encoding::SPEncoder;
-use crate::impls::deps::iterator::SeriesNodeIterator;
-use crate::impls::deps::iterator::SeriesParallelDepsIteratorItem;
+use crate::deps::encoding::SPEncoder;
+use crate::deps::iterator::SeriesNodeIterator;
+use crate::deps::iterator::SeriesParallelDepsIteratorItem;
 use crate::impls::key::DiceKey;
 
 /// The DiceComputations compute apis are designed so that in normal usage the graph of

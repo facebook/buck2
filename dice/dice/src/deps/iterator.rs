@@ -8,9 +8,9 @@
  * above-listed licenses.
  */
 
-use crate::impls::deps::encoding::SPDecoder;
-use crate::impls::deps::graph::SPItem;
-use crate::impls::deps::graph::SPSeriesHeader;
+use crate::deps::encoding::SPDecoder;
+use crate::deps::graph::SPItem;
+use crate::deps::graph::SPSeriesHeader;
 use crate::impls::key::DiceKey;
 
 #[allow(unused)]

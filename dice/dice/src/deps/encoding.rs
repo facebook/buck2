@@ -28,8 +28,8 @@ use itertools::Itertools;
 use mini_vec::MiniVec;
 use thiserror::Error;
 
-use crate::impls::deps::graph::SPItem;
-use crate::impls::deps::graph::SPSeriesHeader;
+use crate::deps::graph::SPItem;
+use crate::deps::graph::SPSeriesHeader;
 
 pub(crate) trait SPEncoder {
     fn write_series_header(&mut self, header: SPSeriesHeader);
@@ -235,10 +235,10 @@ pub(crate) enum SPDecoderError {
 mod test {
     use mini_vec::MiniVec;
 
-    use crate::impls::deps::encoding::SPDecoder;
-    use crate::impls::deps::encoding::SPEncoder;
-    use crate::impls::deps::graph::SPItem;
-    use crate::impls::deps::graph::SPSeriesHeader;
+    use crate::deps::encoding::SPDecoder;
+    use crate::deps::encoding::SPEncoder;
+    use crate::deps::graph::SPItem;
+    use crate::deps::graph::SPSeriesHeader;
 
     #[test]
     fn encoding_and_decoding_works() -> anyhow::Result<()> {

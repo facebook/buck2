@@ -182,7 +182,7 @@ use crate::core::graph::nodes::VacantGraphNode;
 use crate::core::graph::nodes::VersionedGraphNode;
 use crate::core::graph::types::VersionedGraphKey;
 use crate::core::graph::types::VersionedGraphResult;
-use crate::impls::deps::graph::SeriesParallelDeps;
+use crate::deps::graph::SeriesParallelDeps;
 use crate::impls::key::DiceKey;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceValidValue;
@@ -514,7 +514,7 @@ mod tests {
     use crate::core::graph::storage::VersionedGraph;
     use crate::core::graph::storage::testing::VersionedCacheResultAssertsExt;
     use crate::core::graph::types::VersionedGraphKey;
-    use crate::impls::deps::graph::SeriesParallelDeps;
+    use crate::deps::graph::SeriesParallelDeps;
     use crate::impls::key::DiceKey;
     use crate::impls::value::DiceKeyValue;
     use crate::impls::value::DiceValidValue;

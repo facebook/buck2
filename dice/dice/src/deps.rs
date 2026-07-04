@@ -12,7 +12,7 @@
 
 use typed_arena::Arena;
 
-use crate::impls::deps::graph::SeriesParallelDeps;
+use crate::deps::graph::SeriesParallelDeps;
 use crate::impls::key::DiceKey;
 use crate::impls::value::DiceValidity;
 use crate::impls::value::TrackedInvalidationPaths;
@@ -211,7 +211,7 @@ use sync_arena::SyncArena;
 #[cfg(test)]
 pub(crate) mod testing {
     use crate::HashSet;
-    use crate::impls::deps::RecordingDepsTracker;
+    use crate::deps::RecordingDepsTracker;
     use crate::impls::key::DiceKey;
 
     pub(crate) trait RecordingDepsTrackersExt {
@@ -232,10 +232,10 @@ mod tests {
     use typed_arena::Arena;
 
     use crate::HashSet;
-    use crate::impls::deps::RecordedDeps;
-    use crate::impls::deps::RecordingDepsTracker;
-    use crate::impls::deps::iterator::ParallelNodeIterator;
-    use crate::impls::deps::iterator::SeriesParallelDepsIteratorItem;
+    use crate::deps::RecordedDeps;
+    use crate::deps::RecordingDepsTracker;
+    use crate::deps::iterator::ParallelNodeIterator;
+    use crate::deps::iterator::SeriesParallelDepsIteratorItem;
     use crate::impls::key::DiceKey;
     use crate::impls::value::DiceValidity;
     use crate::impls::value::TrackedInvalidationPaths;
