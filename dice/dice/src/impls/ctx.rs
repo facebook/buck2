@@ -151,7 +151,7 @@ impl Deref for BaseComputeCtx {
     }
 }
 
-impl ModernComputeCtx<'_> {
+impl<'d> ModernComputeCtx<'d> {
     /// Gets all the result of the given computation key.
     /// recorded as dependencies of the current computation for which this
     /// context is for.
@@ -175,7 +175,7 @@ impl ModernComputeCtx<'_> {
     pub(crate) fn compute_opaque<'a, K>(
         &'a self,
         key: &K,
-    ) -> impl Future<Output = DiceResult<OpaqueValue<K>>> + use<'a, K>
+    ) -> impl Future<Output = DiceResult<OpaqueValue<'d, K>>> + use<'a, 'd, K>
     where
         K: Key,
     {
@@ -262,9 +262,9 @@ impl ModernComputeCtx<'_> {
                 .collect_deps();
             let validity = dep_trackers.deps_validity;
             for k in dep_trackers.deps.iter_keys() {
-                self_dep_trackers.record(k, validity, TrackedInvalidationPaths::clean())
+                self_dep_trackers.record(k, validity, &TrackedInvalidationPaths::clean())
             }
-            self_dep_trackers.update_invalidation_paths(dep_trackers.invalidation_paths.dupe());
+            self_dep_trackers.update_invalidation_paths(&dep_trackers.invalidation_paths);
             v
         })
     }
@@ -317,9 +317,9 @@ impl ModernComputeCtx<'_> {
             let validity = deps.deps_validity;
             let mut self_dep_trackers = self_dep_trackers.lock();
             for k in deps.deps.iter_keys() {
-                self_dep_trackers.record(k, validity, TrackedInvalidationPaths::clean())
+                self_dep_trackers.record(k, validity, &TrackedInvalidationPaths::clean())
             }
-            self_dep_trackers.update_invalidation_paths(deps.invalidation_paths.dupe());
+            self_dep_trackers.update_invalidation_paths(&deps.invalidation_paths);
 
             res
         })
@@ -507,7 +507,7 @@ impl<'a> DepsTrackerHolder<'a> {
     }
 }
 
-impl ModernComputeCtx<'_> {
+impl<'d> ModernComputeCtx<'d> {
     fn parallel_builder(&mut self, size_hint: usize) -> ModernComputeCtxParallelBuilder<'_> {
         match self {
             ModernComputeCtx::Normal {
@@ -531,7 +531,7 @@ impl ModernComputeCtx<'_> {
         }
     }
 
-    fn ctx_data(&self) -> &CoreCtx {
+    fn ctx_data(&self) -> &'d CoreCtx {
         match self {
             ModernComputeCtx::Normal { ctx_data, .. } => ctx_data,
             ModernComputeCtx::Linear { ctx_data, .. } => ctx_data,
@@ -623,9 +623,11 @@ impl CoreCtx {
                     .subrequest(dice_key, &self.async_evaluator.dice.key_index),
             )
             .map_ok(move |dice_value| {
-                let value = dice_value.value().dupe();
-                let invalidation_paths = dice_value.invalidation_paths().dupe();
-                OpaqueValue::new(dice_key, value, invalidation_paths)
+                OpaqueValue::new(
+                    dice_key,
+                    dice_value.value(),
+                    dice_value.invalidation_paths(),
+                )
             })
             .map_err(DiceError::cancelled)
     }
@@ -667,11 +669,9 @@ impl CoreCtx {
             Err(reason) => return Err(DiceError::cancelled(reason)),
         };
 
-        dep_trackers.lock().record(
-            dice_key,
-            r.value().validity(),
-            r.invalidation_paths().dupe(),
-        );
+        dep_trackers
+            .lock()
+            .record(dice_key, r.value().validity(), r.invalidation_paths());
 
         Ok(r.value()
             .downcast_maybe_transient::<K::Value>()

@@ -273,7 +273,7 @@ impl TrackedInvalidationPaths {
         }
     }
 
-    pub(crate) fn update(&mut self, new_paths: TrackedInvalidationPaths) {
+    pub(crate) fn update(&mut self, new_paths: &TrackedInvalidationPaths) {
         let this = self.get();
         let new_paths = new_paths.get();
         let mut normal = this.normal.dupe();
@@ -481,7 +481,7 @@ mod tests {
         let mut paths = TrackedInvalidationPaths::clean();
 
         paths.update(
-            MakeInvalidationPaths {
+            &MakeInvalidationPaths {
                 normal: (key0, 2),
                 high: None,
             }
@@ -498,7 +498,7 @@ mod tests {
         );
 
         paths.update(
-            MakeInvalidationPaths {
+            &MakeInvalidationPaths {
                 normal: (key1, 3),
                 high: Some((key1, 3)),
             }
@@ -515,7 +515,7 @@ mod tests {
         );
 
         paths.update(
-            MakeInvalidationPaths {
+            &MakeInvalidationPaths {
                 normal: (key2, 4),
                 high: None,
             }

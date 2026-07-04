@@ -187,7 +187,7 @@ impl VersionedGraphNode {
 
         let (force_dirty_restricted_range, invalidation_priority) = dirtied_history.get_x(key.v);
         if force_dirty_restricted_range.begin() > VersionNumber::FIRST {
-            invalidation_paths.update(TrackedInvalidationPaths::new(
+            invalidation_paths.update(&TrackedInvalidationPaths::new(
                 invalidation_priority,
                 key.k,
                 force_dirty_restricted_range.begin(),
@@ -514,7 +514,7 @@ impl OccupiedGraphNode {
         valid_deps_versions.insert(VersionRange::bounded(version, version.next()));
         Arc::make_mut(&mut self.metadata.verified_ranges).union_in_place(&valid_deps_versions);
 
-        self.invalidation_paths.update(new_invalidation_paths)
+        self.invalidation_paths.update(&new_invalidation_paths)
     }
 
     /// Returns this node's stored value (which may be hydrated or paged out).
@@ -576,7 +576,7 @@ impl OccupiedGraphNode {
         self.metadata.deps = Arc::new(SeriesParallelDeps::None);
         self.metadata.verified_ranges = Arc::new(VersionRange::begins_with(version).into_ranges());
         self.invalidation_paths
-            .update(TrackedInvalidationPaths::new(
+            .update(&TrackedInvalidationPaths::new(
                 invalidation_priority,
                 self.key,
                 version,
@@ -662,7 +662,7 @@ impl OccupiedGraphNode {
     ) -> bool {
         if let Some(invalidation_priority) = invalidation_priority {
             self.invalidation_paths
-                .update(TrackedInvalidationPaths::new(
+                .update(&TrackedInvalidationPaths::new(
                     invalidation_priority,
                     self.key,
                     v,
@@ -755,7 +755,7 @@ impl InjectedGraphNode {
         self.values
             .insert(version, Self::new_node_data(value, version));
         self.invalidation_paths
-            .update(TrackedInvalidationPaths::new(
+            .update(&TrackedInvalidationPaths::new(
                 invalidation_priority,
                 self.key,
                 version,

@@ -185,7 +185,7 @@ pub struct DiceCalculationDelegate<'c, 'd> {
 impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
     async fn get_legacy_buck_config_for_starlark(
         &mut self,
-    ) -> buck2_error::Result<OpaqueLegacyBuckConfigOnDice> {
+    ) -> buck2_error::Result<OpaqueLegacyBuckConfigOnDice<'d>> {
         self.ctx
             .get_legacy_config_on_dice(self.build_file_cell.name())
             .await

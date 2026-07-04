@@ -10,7 +10,6 @@
 
 //! Trackers that records dependencies and reverse dependencies during execution of requested nodes
 
-use dupe::Dupe;
 use typed_arena::Arena;
 
 use crate::impls::deps::graph::SeriesParallelDeps;
@@ -45,7 +44,7 @@ impl RecordedDeps {
         &mut self,
         k: DiceKey,
         validity: DiceValidity,
-        invalidation_paths: TrackedInvalidationPaths,
+        invalidation_paths: &TrackedInvalidationPaths,
     ) {
         self.deps.insert(k);
         self.deps_validity.and(validity);
@@ -57,11 +56,11 @@ impl RecordedDeps {
         self.record(
             DiceKey { index },
             DiceValidity::Valid,
-            TrackedInvalidationPaths::clean(),
+            &TrackedInvalidationPaths::clean(),
         );
     }
 
-    fn update_invalidation_paths(&mut self, paths: TrackedInvalidationPaths) {
+    fn update_invalidation_paths(&mut self, paths: &TrackedInvalidationPaths) {
         self.invalidation_paths.update(paths)
     }
 
@@ -79,8 +78,7 @@ impl RecordedDeps {
 
         for dep in parallel.iter_mut() {
             self.deps_validity.and(dep.deps_validity);
-            self.invalidation_paths
-                .update(dep.invalidation_paths.dupe());
+            self.invalidation_paths.update(&dep.invalidation_paths);
             let header = dep.deps.header();
             new_keys += header.keys_len();
             new_specs += header.encoded_len();
@@ -125,7 +123,7 @@ impl RecordingDepsTracker {
         &mut self,
         k: DiceKey,
         validity: DiceValidity,
-        invalidation_paths: TrackedInvalidationPaths,
+        invalidation_paths: &TrackedInvalidationPaths,
     ) {
         self.flatten_parallel();
         self.deps.record(k, validity, invalidation_paths);
@@ -136,14 +134,14 @@ impl RecordingDepsTracker {
         self.record(
             DiceKey { index },
             DiceValidity::Valid,
-            TrackedInvalidationPaths::clean(),
+            &TrackedInvalidationPaths::clean(),
         );
     }
     pub(crate) fn update_invalidation_paths(
         &mut self,
-        invalidation_paths: TrackedInvalidationPaths,
+        invalidation_paths: &TrackedInvalidationPaths,
     ) {
-        self.deps.update_invalidation_paths(invalidation_paths);
+        self.deps.update_invalidation_paths(&invalidation_paths);
     }
 
     /// Used to start a new parallel computation. Returns the Arena that each parallel ctx should record its deps to.
@@ -335,12 +333,12 @@ mod tests {
         deps_tracker.record(
             DiceKey { index: 2 },
             DiceValidity::Valid,
-            TrackedInvalidationPaths::clean(),
+            &TrackedInvalidationPaths::clean(),
         );
         deps_tracker.record(
             DiceKey { index: 3 },
             DiceValidity::Valid,
-            TrackedInvalidationPaths::clean(),
+            &TrackedInvalidationPaths::clean(),
         );
 
         let recorded_deps = deps_tracker.collect_deps();
@@ -359,7 +357,7 @@ mod tests {
         deps_tracker.record(
             DiceKey { index: 2 },
             DiceValidity::Valid,
-            MakeInvalidationPaths {
+            &MakeInvalidationPaths {
                 normal: (DiceKey { index: 101 }, 8),
                 high: None,
             }
@@ -382,7 +380,7 @@ mod tests {
                 s1.record(
                     DiceKey { index: 11 },
                     DiceValidity::Valid,
-                    MakeInvalidationPaths {
+                    &MakeInvalidationPaths {
                         normal: (DiceKey { index: 102 }, 6),
                         high: Some((DiceKey { index: 102 }, 6)),
                     }
@@ -409,12 +407,12 @@ mod tests {
         deps_tracker.record(
             DiceKey { index: 2 },
             DiceValidity::Valid,
-            TrackedInvalidationPaths::clean(),
+            &TrackedInvalidationPaths::clean(),
         );
         deps_tracker.record(
             DiceKey { index: 3 },
             DiceValidity::Transient,
-            TrackedInvalidationPaths::clean(),
+            &TrackedInvalidationPaths::clean(),
         );
 
         let recorded_deps = deps_tracker.collect_deps();

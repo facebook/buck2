@@ -1083,17 +1083,17 @@ async fn test_check_dependencies_can_eagerly_check_all_parallel_deps() -> anyhow
     deps.record(
         keys[0],
         DiceValidity::Valid,
-        TrackedInvalidationPaths::clean(),
+        &TrackedInvalidationPaths::clean(),
     );
     deps.record(
         keys[1],
         DiceValidity::Valid,
-        TrackedInvalidationPaths::clean(),
+        &TrackedInvalidationPaths::clean(),
     );
     deps.record(
         keys[2],
         DiceValidity::Valid,
-        TrackedInvalidationPaths::clean(),
+        &TrackedInvalidationPaths::clean(),
     );
     {
         let parallel = deps.push_parallel(0).0;
@@ -1103,12 +1103,12 @@ async fn test_check_dependencies_can_eagerly_check_all_parallel_deps() -> anyhow
             deps.record(
                 keys[3 + offset],
                 DiceValidity::Valid,
-                TrackedInvalidationPaths::clean(),
+                &TrackedInvalidationPaths::clean(),
             );
             deps.record(
                 keys[4 + offset],
                 DiceValidity::Valid,
-                TrackedInvalidationPaths::clean(),
+                &TrackedInvalidationPaths::clean(),
             );
             {
                 let parallel = deps.push_parallel(2).0;
@@ -1116,21 +1116,21 @@ async fn test_check_dependencies_can_eagerly_check_all_parallel_deps() -> anyhow
                 deps.record(
                     keys[5 + offset],
                     DiceValidity::Valid,
-                    TrackedInvalidationPaths::clean(),
+                    &TrackedInvalidationPaths::clean(),
                 );
                 parallel.alloc(deps.collect_deps());
                 let mut deps = RecordingDepsTracker::new(TrackedInvalidationPaths::clean());
                 deps.record(
                     keys[6 + offset],
                     DiceValidity::Valid,
-                    TrackedInvalidationPaths::clean(),
+                    &TrackedInvalidationPaths::clean(),
                 );
                 parallel.alloc(deps.collect_deps());
             }
             deps.record(
                 keys[7 + offset],
                 DiceValidity::Valid,
-                TrackedInvalidationPaths::clean(),
+                &TrackedInvalidationPaths::clean(),
             );
             parallel.alloc(deps.collect_deps());
         }
@@ -1138,12 +1138,12 @@ async fn test_check_dependencies_can_eagerly_check_all_parallel_deps() -> anyhow
     deps.record(
         keys[18],
         DiceValidity::Valid,
-        TrackedInvalidationPaths::clean(),
+        &TrackedInvalidationPaths::clean(),
     );
     deps.record(
         keys[19],
         DiceValidity::Valid,
-        TrackedInvalidationPaths::clean(),
+        &TrackedInvalidationPaths::clean(),
     );
 
     let deps = deps.collect_deps();
