@@ -11,6 +11,7 @@ license.workspace = true
 allocative.workspace = true
 dupe.workspace = true
 pagable.workspace = true
+static_assertions.workspace = true
 strong_hash.workspace = true
 
 [lints]

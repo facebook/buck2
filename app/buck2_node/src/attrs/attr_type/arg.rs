@@ -17,11 +17,11 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersLabelMaybeConfigured;
 use buck2_util::arc_str::ArcStr;
+use buck2_util::size_assert;
 use derive_more::Display;
 use dupe::Dupe;
 use gazebo::prelude::SliceExt;
 use pagable::Pagable;
-use static_assertions::assert_eq_size;
 use strong_hash::StrongHash;
 
 use crate::attrs::attr_type::query::QueryMacroBase;
@@ -73,7 +73,7 @@ pub enum StringWithMacros<P: ProvidersLabelMaybeConfigured> {
 }
 
 // Avoid changing the size accidentally.
-assert_eq_size!(StringWithMacros<ProvidersLabel>, [usize; 3]);
+size_assert::words_of_type!(StringWithMacros<ProvidersLabel>, 3);
 
 impl StringWithMacros<ConfiguredProvidersLabel> {
     pub fn concat(
@@ -167,8 +167,8 @@ pub enum StringWithMacrosPart<P: ProvidersLabelMaybeConfigured> {
     Macro(/* write_to_file */ bool, MacroBase<P>),
 }
 
-assert_eq_size!(MacroBase<ProvidersLabel>, [usize; 3]);
-assert_eq_size!(StringWithMacrosPart<ProvidersLabel>, [usize; 4]);
+size_assert::words_of_type!(MacroBase<ProvidersLabel>, 3);
+size_assert::words_of_type!(StringWithMacrosPart<ProvidersLabel>, 4);
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative, Pagable, StrongHash)]
 pub struct UnrecognizedMacro {

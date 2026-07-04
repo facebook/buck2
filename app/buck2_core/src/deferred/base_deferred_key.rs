@@ -22,12 +22,12 @@ use buck2_data::action_key_owner::BaseDeferredKeyProto;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_hash::BuckDefaultHasher;
+use buck2_util::size_assert;
 use cmp_any::PartialEqAny;
 use dupe::Dupe;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use pagable::typetag::PagableTagged;
-use static_assertions::assert_eq_size;
 use strong_hash::StrongHash;
 
 use crate::content_hash::ContentBasedPathHash;
@@ -85,7 +85,7 @@ pub enum BaseDeferredKey {
     BxlLabel(BaseDeferredKeyBxl),
 }
 
-assert_eq_size!(BaseDeferredKey, [usize; 3]);
+size_assert::words_of_type!(BaseDeferredKey, 3);
 
 impl PartialEq for BaseDeferredKey {
     fn eq(&self, other: &Self) -> bool {

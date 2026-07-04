@@ -402,7 +402,7 @@ pub(crate) struct ForceDirtyHistory {
 }
 
 // the vast majority of nodes are never force-dirtied, so we want to make sure that we optimize for that.
-static_assertions::assert_eq_size!(ForceDirtyHistory, [usize; 1]);
+mini_vec::size_assert::words_of_type!(ForceDirtyHistory, 1);
 
 impl ForceDirtyHistory {
     pub(crate) fn new() -> Self {

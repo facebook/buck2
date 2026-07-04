@@ -21,13 +21,13 @@ pub use artifact_group_values::ArtifactGroupValues;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
+use buck2_util::size_assert;
 use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
 use pagable::Pagable;
 use starlark::values::StarlarkPagableViaPagable;
-use static_assertions::assert_eq_size;
 
 use self::calculation::EnsureTransitiveSetProjectionKey;
 use crate::actions::calculation::BuildKey;
@@ -94,7 +94,7 @@ pub enum ArtifactGroup {
     Promise(Arc<PromiseArtifactWrapper>),
 }
 
-assert_eq_size!(ArtifactGroup, [usize; 2]);
+size_assert::words_of_type!(ArtifactGroup, 2);
 
 impl ArtifactGroup {
     /// Gets the resolved artifact group, which is used further downstream to use DICE to get

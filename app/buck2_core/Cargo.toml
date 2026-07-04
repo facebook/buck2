@@ -39,7 +39,6 @@ sequence_trie.workspace = true
 serde.workspace = true
 smallvec.workspace = true
 starlark_map.workspace = true
-static_assertions.workspace = true
 static_interner.workspace = true
 strong_hash.workspace = true
 tempfile.workspace = true

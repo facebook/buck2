@@ -12,6 +12,7 @@ use std::collections::BTreeMap;
 
 use allocative::Allocative;
 use buck2_hash::BuckHasher;
+use buck2_util::size_assert;
 use derive_more::Display;
 use dupe::Dupe;
 use pagable::Pagable;
@@ -147,8 +148,8 @@ enum PluginKindSetUnpacked {
 )]
 struct PluginKindSetData(Vec<(PluginKind, bool)>);
 
-static_assertions::assert_eq_size!(PluginKindSet, usize);
-static_assertions::assert_eq_size!(PluginKindSetUnpacked, [usize; 2]);
+size_assert::words_of_type!(PluginKindSet, 1);
+size_assert::words_of_type!(PluginKindSetUnpacked, 2);
 
 interner!(
     PLUGIN_KIND_SET_INTERNER,

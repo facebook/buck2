@@ -27,13 +27,13 @@ use pagable::arc_erase::StdArcEraseType;
 use pagable::arc_erase::deserialize_arc;
 use serde::Deserialize;
 use serde::Serialize;
-use static_assertions::assert_eq_size;
 use strong_hash::StrongHash;
 
 use crate::arc_str::base::ArcStrBase;
 use crate::arc_str::base::ArcStrBaseInner;
 use crate::arc_str::base::ArcStrBaseInnerConst;
 use crate::arc_str::base::ArcStrLenStrategy;
+use crate::size_assert;
 
 struct ThinArcStrProperties;
 
@@ -110,8 +110,8 @@ impl<'de> PagableDeserialize<'de> for ThinArcStr {
     }
 }
 
-assert_eq_size!(ThinArcStr, usize);
-assert_eq_size!(Option<ThinArcStr>, usize);
+size_assert::words_of_type!(ThinArcStr, 1);
+size_assert::words_of_type!(Option<ThinArcStr>, 1);
 
 static INNER_EMPTY: ArcStrBaseInnerConst<ThinArcStrProperties> = ArcStrBaseInner::EMPTY;
 

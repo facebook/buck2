@@ -59,5 +59,6 @@ rust_library(
         "//buck2/pagable_storage:pagable_storage",
         "//buck2/shed/lock_free_hashtable:lock_free_hashtable",
         "//buck2/shed/lock_free_vec:lock_free_vec",
+        "//buck2/shed/mini_vec:mini_vec",
     ],
 )
