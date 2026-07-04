@@ -37,7 +37,7 @@ use crate::core::processor::StateProcessor;
 use crate::core::versions::VersionEpoch;
 use crate::core::versions::introspection::VersionIntrospectable;
 use crate::deps::graph::SeriesParallelDeps;
-use crate::epoch::ctx::VersionEpochState;
+use crate::epoch::evaluator::VersionEpochState;
 use crate::epoch::task::dice::DiceTask;
 use crate::key::DiceKey;
 use crate::metrics::Metrics;
