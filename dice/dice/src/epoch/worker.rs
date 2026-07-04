@@ -51,7 +51,6 @@ use crate::epoch::worker::state::DiceWorkerStateEvaluating;
 use crate::epoch::worker::state::DiceWorkerStateFinishedAndCached;
 use crate::epoch::worker::state::DiceWorkerStateFinishedEvaluating;
 use crate::epoch::worker::state::DiceWorkerStateLookupNode;
-use crate::events::DiceEventDispatcher;
 use crate::key::DiceKey;
 use crate::key::ParentKey;
 use crate::user_cycle::KeyComputingUserCycleDetectorData;
@@ -79,7 +78,6 @@ mod tests;
 pub(crate) struct DiceTaskWorker {
     k: DiceKey,
     eval: TransactionData,
-    event_dispatcher: DiceEventDispatcher,
     version_epoch: VersionEpoch,
 }
 
@@ -90,7 +88,6 @@ impl DiceTaskWorker {
         version_epoch: VersionEpoch,
         eval: TransactionData,
         cycles: UserCycleDetectorData,
-        event_dispatcher: DiceEventDispatcher,
         previously_cancelled_task: Option<PreviouslyCancelledTask>,
     ) -> DicePromise {
         let span = debug_span!(parent: None, "spawned_dice_task", k = ?k, v = %eval.epoch_state.get_version(), v_epoch = %version_epoch);
@@ -102,7 +99,6 @@ impl DiceTaskWorker {
         let worker = DiceTaskWorker {
             k,
             eval,
-            event_dispatcher,
             version_epoch,
         };
 
@@ -190,9 +186,9 @@ impl DiceTaskWorker {
             }
         };
 
-        self.event_dispatcher.started(self.k);
+        self.eval.started(self.k);
         scopeguard::defer! {
-            self.event_dispatcher.finished(self.k);
+            self.eval.finished(self.k);
         };
 
         // deps_check_continuables needs to capture these and so they need to outlive it.
@@ -204,11 +200,11 @@ impl DiceTaskWorker {
                 cycles = cycles2;
                 mismatch = mismatch2;
 
-                self.event_dispatcher.check_deps_started(self.k);
+                self.eval.check_deps_started(self.k);
 
                 let check_deps_result = {
                     scopeguard::defer! {
-                        self.event_dispatcher.check_deps_finished(self.k);
+                        self.eval.check_deps_finished(self.k);
                     }
                     check_dependencies(
                         &self.eval,
@@ -308,9 +304,9 @@ impl DiceTaskWorker {
         task_state: DiceWorkerStateEvaluating,
         cycles: &KeyComputingUserCycleDetectorData,
     ) -> CancellableResult<DiceWorkerStateFinishedEvaluating> {
-        self.event_dispatcher.compute_started(self.k);
+        self.eval.compute_started(self.k);
         scopeguard::defer! {
-            self.event_dispatcher.compute_finished(self.k);
+            self.eval.compute_finished(self.k);
         };
 
         // TODO(bobyf) these also make good locations where we want to perform instrumentation
@@ -533,10 +529,7 @@ pub(crate) fn project_for_key(
     v: VersionNumber,
     version_epoch: VersionEpoch,
     eval: SyncEvaluator,
-    event_dispatcher: DiceEventDispatcher,
 ) -> CancellableResult<DiceComputedValue> {
-    event_dispatcher.started(k);
-
     let eval_result = eval.evaluate(k);
 
     let (res, invalidation_paths, state_future) = {
@@ -574,8 +567,6 @@ pub(crate) fn project_for_key(
 
         (value, invalidation_paths, state_future)
     };
-
-    event_dispatcher.finished(k);
 
     let computed_value = DiceComputedValue::new(
         res,

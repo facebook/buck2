@@ -15,6 +15,7 @@ use dupe::Dupe;
 use parking_lot::Mutex;
 
 use crate::ActivationData;
+use crate::DiceEvent;
 use crate::api::projection::DiceProjectionComputations;
 use crate::api::storage_type::StorageType;
 use crate::api::user_data::UserComputationData;
@@ -121,6 +122,54 @@ impl TransactionData {
                 )
             }
         }
+    }
+
+    pub(crate) fn started(&self, k: DiceKey) {
+        let desc = self.dice.key_index.get(k).key_type_name();
+
+        self.user_data
+            .tracker
+            .event(DiceEvent::Started { key_type: desc })
+    }
+
+    pub(crate) fn finished(&self, k: DiceKey) {
+        let desc = self.dice.key_index.get(k).key_type_name();
+
+        self.user_data
+            .tracker
+            .event(DiceEvent::Finished { key_type: desc })
+    }
+
+    pub(crate) fn check_deps_started(&self, k: DiceKey) {
+        let desc = self.dice.key_index.get(k).key_type_name();
+
+        self.user_data
+            .tracker
+            .event(DiceEvent::CheckDepsStarted { key_type: desc })
+    }
+
+    pub(crate) fn check_deps_finished(&self, k: DiceKey) {
+        let desc = self.dice.key_index.get(k).key_type_name();
+
+        self.user_data
+            .tracker
+            .event(DiceEvent::CheckDepsFinished { key_type: desc })
+    }
+
+    pub(crate) fn compute_started(&self, k: DiceKey) {
+        let desc = self.dice.key_index.get(k).key_type_name();
+
+        self.user_data
+            .tracker
+            .event(DiceEvent::ComputeStarted { key_type: desc })
+    }
+
+    pub(crate) fn compute_finished(&self, k: DiceKey) {
+        let desc = self.dice.key_index.get(k).key_type_name();
+
+        self.user_data
+            .tracker
+            .event(DiceEvent::ComputeFinished { key_type: desc })
     }
 }
 
