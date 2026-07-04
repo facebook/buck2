@@ -578,7 +578,7 @@ async fn dropping_request_future_doesnt_cancel_if_multiple_requests_active() {
 
     let dice = Dice::builder().build(DetectCycles::Disabled);
 
-    let mut ctx = dice.updater().commit().await.0.0;
+    let mut ctx = dice.updater().commit().await.0;
     let (req1, req2) = ctx.compute2(
         |ctx| ctx.compute(key).boxed(),
         |ctx| ctx.compute(key).boxed(),

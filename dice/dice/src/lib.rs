@@ -199,7 +199,6 @@ mod impls;
 pub mod introspection;
 pub(crate) mod metrics;
 pub(crate) mod stats;
-mod transaction;
 mod transaction_update;
 mod versions;
 
