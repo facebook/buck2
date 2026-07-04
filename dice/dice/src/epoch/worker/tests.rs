@@ -1336,7 +1336,7 @@ async fn _run_cancellation_caching_test(
     // Once tasks are cancelled, they can't end up in the cache. The second compute should always run.
     assert!(ran_compute);
     assert!(myresult.is_ok() == expected_value_from_cache.is_ok());
-    assert!(myresult.is_err() || (myresult.unwrap() == expected_value_from_cache.unwrap()));
+    assert!(myresult.is_err() || (*myresult.unwrap() == expected_value_from_cache.unwrap()));
 }
 
 macro_rules! cancellation_caching_test {

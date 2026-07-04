@@ -139,7 +139,7 @@ impl ExpectedInvalidation {
 fn assert_invalidations(
     normal: ExpectedInvalidation,
     high: ExpectedInvalidation,
-    actual: CapturedInvalidationPaths,
+    actual: &CapturedInvalidationPaths,
 ) {
     assert_single_invalidation(normal, &actual.0.normal_priority_path, "normal");
     assert_single_invalidation(high, &actual.0.high_priority_path, "high");

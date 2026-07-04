@@ -178,7 +178,9 @@ async fn demo_with_transient() -> anyhow::Result<()> {
 
     let ctx = dice.updater().commit().await;
     assert_eq!(
-        ctx.compute(&MaybeTransient(10, validity.dupe())).await?,
+        ctx.compute(&MaybeTransient(10, validity.dupe()))
+            .await?
+            .clone(),
         Ok(512)
     );
 

@@ -352,8 +352,9 @@ impl CostUpdater for DiceTransactionUpdater {
         new_price: u16,
     ) -> anyhow::Result<()> {
         let company_lookup = LookupCompany(Arc::new(company.to_owned()));
-        let old_company = self.existing_state().await.compute(&company_lookup).await?;
-        let mut new_company = (*old_company).clone();
+        let state = self.existing_state().await;
+        let old_company = state.compute(&company_lookup).await?;
+        let mut new_company = (**old_company).clone();
         let old_price = new_company.makes.get_mut(resource).ok_or_else(|| {
             anyhow::anyhow!("Tried to update cost for a resource company does not make")
         })?;

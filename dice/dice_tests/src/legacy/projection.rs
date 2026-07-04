@@ -249,6 +249,7 @@ async fn smoke() -> anyhow::Result<()> {
             name: "file.fl".to_owned(),
         })
         .await?
+        .clone()
         .map_err(|e| anyhow::anyhow!(format!("{:#}", e)))?;
     assert_eq!("<X>", &*file);
 
@@ -282,6 +283,7 @@ async fn smoke() -> anyhow::Result<()> {
             name: "file.fl".to_owned(),
         })
         .await?
+        .clone()
         .map_err(|e| anyhow::anyhow!(format!("{:#}", e)))?;
     assert_eq!("<X>", &*file);
 
@@ -314,6 +316,7 @@ async fn smoke() -> anyhow::Result<()> {
             name: "file.fl".to_owned(),
         })
         .await?
+        .clone()
         .map_err(|e| anyhow::anyhow!(format!("{:#}", e)))?;
     assert_eq!("<X>", &*file);
 

@@ -110,7 +110,7 @@ impl DiceTransaction {
     pub fn compute<'a, K>(
         &'a self,
         key: &K,
-    ) -> impl Future<Output = DiceResult<<K as Key>::Value>> + use<'a, K>
+    ) -> impl Future<Output = DiceResult<&'a <K as Key>::Value>> + use<'a, K>
     where
         K: Key,
     {
