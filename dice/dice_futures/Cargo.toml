@@ -10,6 +10,7 @@ license.workspace = true
 [dependencies]
 dupe.workspace = true
 futures.workspace = true
+mini_vec.workspace = true
 parking_lot.workspace = true
 pin-project.workspace = true
 smallvec.workspace = true

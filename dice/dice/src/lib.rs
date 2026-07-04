@@ -192,7 +192,6 @@ pub(crate) mod core;
 pub(crate) mod deps;
 pub(crate) mod dice;
 mod epoch;
-pub(crate) mod future;
 pub mod introspection;
 pub(crate) mod key;
 mod key_index;
