@@ -61,7 +61,7 @@ pub(crate) enum VersionedGraphNode {
     Vacant(VacantGraphNode),
 }
 
-mini_vec::size_assert::words_of_type!(VersionedGraphNode, 16);
+mini_vec::size_assert::words_of_type!(VersionedGraphNode, 15);
 
 impl VersionedGraphNode {
     pub(crate) fn force_dirty(
@@ -886,8 +886,8 @@ mod tests {
             deps0.dupe(),
             VersionRanges::testing_new(
                 vec![VersionRange::bounded(
-                    VersionNumber::new(0),
                     VersionNumber::new(1),
+                    VersionNumber::new(2),
                 )]
                 .into_iter()
                 .collect(),
@@ -896,16 +896,16 @@ mod tests {
             TrackedInvalidationPaths::clean(),
         );
 
-        assert!(entry.is_verified_at(VersionNumber::new(0)));
+        assert!(entry.is_verified_at(VersionNumber::new(1)));
         assert_eq!(*entry.deps(), deps0);
 
         entry.mark_unchanged(
-            VersionNumber::new(1),
+            VersionNumber::new(2),
             VersionRanges::new(),
             TrackedInvalidationPaths::clean(),
         );
 
-        assert!(entry.is_verified_at(VersionNumber::new(0)));
         assert!(entry.is_verified_at(VersionNumber::new(1)));
+        assert!(entry.is_verified_at(VersionNumber::new(2)));
     }
 }

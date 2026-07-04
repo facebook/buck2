@@ -321,10 +321,10 @@ mod tests {
         updater.changed(vec![K(1), K(2)])?;
 
         let ctx = updater.existing_state().await;
-        assert_eq!(ctx.0.get_version(), VersionNumber::new(0));
+        assert_eq!(ctx.0.get_version(), VersionNumber::new(1));
 
         let ctx = updater.commit().await;
-        assert_eq!(ctx.0.get_version(), VersionNumber::new(1));
+        assert_eq!(ctx.0.get_version(), VersionNumber::new(2));
 
         Ok(())
     }

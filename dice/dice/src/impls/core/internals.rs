@@ -341,7 +341,7 @@ mod tests {
                 ChangeType::Invalidate,
                 InvalidationSourcePriority::Normal
             )]),
-            VersionNumber::new(1)
+            VersionNumber::new(2)
         );
 
         assert_eq!(
@@ -350,14 +350,14 @@ mod tests {
                 ChangeType::Invalidate,
                 InvalidationSourcePriority::Normal
             )]),
-            VersionNumber::new(2)
+            VersionNumber::new(3)
         );
     }
 
     #[test]
     fn state_ctx_at_version() {
         let mut core = CoreState::new();
-        let v = VersionNumber::new(0);
+        let v = VersionNumber::new(1);
 
         let (epoch, ctx) = core.ctx_at_version(v);
 
@@ -398,7 +398,7 @@ mod tests {
                 TrackedInvalidationPaths::clean(),
             )
         }
-        let v: VersionNumber = VersionNumber::new(0);
+        let v: VersionNumber = VersionNumber::new(1);
         let (epoch, _ctx) = core.ctx_at_version(v);
         let res = update(&mut core, epoch, v);
         assert_eq!(res.err(), None);
@@ -488,7 +488,7 @@ mod tests {
     #[tokio::test]
     async fn state_tracks_pending_cancellation() {
         let mut core = CoreState::new();
-        let v = VersionNumber::new(0);
+        let v = VersionNumber::new(1);
 
         let (_epoch, cache) = core.ctx_at_version(v);
 

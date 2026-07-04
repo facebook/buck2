@@ -246,43 +246,43 @@ mod tests {
     fn simple_version_increases() {
         let mut vt = VersionTracker::new();
 
-        let _vg = vt.at(VersionNumber::new(0));
+        let _vg = vt.at(VersionNumber::new(1));
         assert_matches!(
-            vt.active_versions.get(&VersionNumber::new(0)), Some(active) if active.ref_count == 1
+            vt.active_versions.get(&VersionNumber::new(1)), Some(active) if active.ref_count == 1
         );
 
-        let _vg = vt.at(VersionNumber::new(0));
+        let _vg = vt.at(VersionNumber::new(1));
         assert_matches!(
-            vt.active_versions.get(&VersionNumber::new(0)), Some(active) if active.ref_count == 2
+            vt.active_versions.get(&VersionNumber::new(1)), Some(active) if active.ref_count == 2
         );
 
-        vt.drop_at_version(VersionNumber::new(0));
+        vt.drop_at_version(VersionNumber::new(1));
         assert_matches!(
-            vt.active_versions.get(&VersionNumber::new(0)), Some(active) if active.ref_count == 1
+            vt.active_versions.get(&VersionNumber::new(1)), Some(active) if active.ref_count == 1
         );
 
-        vt.drop_at_version(VersionNumber::new(0));
-        assert_matches!(vt.active_versions.get(&VersionNumber::new(0)), None);
+        vt.drop_at_version(VersionNumber::new(1));
+        assert_matches!(vt.active_versions.get(&VersionNumber::new(1)), None);
     }
 
     #[test]
     fn version_epoch_relevant() {
         let mut vt = VersionTracker::new();
 
-        let (epoch, _s) = vt.at(VersionNumber::new(0));
-        assert!(vt.is_relevant(VersionNumber::new(0), epoch));
-        assert!(!vt.is_relevant(VersionNumber::new(0), VersionEpoch::testing_new(9999)));
+        let (epoch, _s) = vt.at(VersionNumber::new(1));
+        assert!(vt.is_relevant(VersionNumber::new(1), epoch));
+        assert!(!vt.is_relevant(VersionNumber::new(1), VersionEpoch::testing_new(9999)));
 
-        let (epoch1, _s) = vt.at(VersionNumber::new(2));
-        assert!(!vt.is_relevant(VersionNumber::new(0), epoch1));
-        assert!(vt.is_relevant(VersionNumber::new(2), epoch1));
-        assert!(!vt.is_relevant(VersionNumber::new(2), epoch));
+        let (epoch1, _s) = vt.at(VersionNumber::new(3));
+        assert!(!vt.is_relevant(VersionNumber::new(1), epoch1));
+        assert!(vt.is_relevant(VersionNumber::new(3), epoch1));
+        assert!(!vt.is_relevant(VersionNumber::new(3), epoch));
 
-        vt.drop_at_version(VersionNumber::new(2));
-        let (epoch2, _s) = vt.at(VersionNumber::new(2));
-        assert!(!vt.is_relevant(VersionNumber::new(0), epoch1));
-        assert!(!vt.is_relevant(VersionNumber::new(2), epoch1));
-        assert!(vt.is_relevant(VersionNumber::new(2), epoch2));
+        vt.drop_at_version(VersionNumber::new(3));
+        let (epoch2, _s) = vt.at(VersionNumber::new(3));
+        assert!(!vt.is_relevant(VersionNumber::new(1), epoch1));
+        assert!(!vt.is_relevant(VersionNumber::new(3), epoch1));
+        assert!(vt.is_relevant(VersionNumber::new(3), epoch2));
     }
 
     #[test]
@@ -291,19 +291,19 @@ mod tests {
 
         {
             let v1 = vt.write();
-            assert_eq!(v1.version(), VersionNumber::new(1));
-            assert_eq!(v1.version(), VersionNumber::new(1));
+            assert_eq!(v1.version(), VersionNumber::new(2));
+            assert_eq!(v1.version(), VersionNumber::new(2));
 
-            assert_eq!(v1.commit(), VersionNumber::new(1));
-            assert_eq!(vt.current(), VersionNumber::new(1));
+            assert_eq!(v1.commit(), VersionNumber::new(2));
+            assert_eq!(vt.current(), VersionNumber::new(2));
         }
 
         {
             let v2 = vt.write();
-            assert_eq!(v2.version(), VersionNumber::new(2));
+            assert_eq!(v2.version(), VersionNumber::new(3));
 
-            assert_eq!(v2.undo(), VersionNumber::new(1));
-            assert_eq!(vt.current(), VersionNumber::new(1));
+            assert_eq!(v2.undo(), VersionNumber::new(2));
+            assert_eq!(vt.current(), VersionNumber::new(2));
         }
     }
 }
