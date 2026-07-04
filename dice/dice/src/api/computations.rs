@@ -152,24 +152,22 @@ impl<'d> DiceComputations<'d> {
     /// let data: String = data();
     /// let keys : Vec<Key> = keys();
     /// let futs = ctx.compute_many(keys.into_iter().map(|k|
-    ///   DiceComputations::declare_closure(
     ///     |dice: &mut DiceComputations| -> BoxFuture<String> {
     ///       async move {
     ///         dice.compute(k).await + data
     ///       }.boxed()
     ///     }
-    ///   )
     /// ));
     /// futures::future::join_all(futs).await;
     /// ```
     pub fn compute_many<'a, Computes, F, T>(
         &'a mut self,
         computes: Computes,
-    ) -> Vec<impl Future<Output = T> + use<'a, Computes, F, T>>
+    ) -> Vec<impl Future<Output = T> + use<'a, 'd, Computes, F, T>>
     where
         Computes: IntoIterator<Item = F>,
         Computes::IntoIter: ExactSizeIterator,
-        F: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
+        F: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, T> + Send,
     {
         self.0.compute_many(computes)
     }
@@ -180,42 +178,25 @@ impl<'d> DiceComputations<'d> {
     /// let mut ctx: &'a DiceComputations = ctx();
     /// let data: String = data();
     /// let keys : Vec<Key> = keys();
-    /// // When defined inplance, there's no need to use a declare helper.
     /// ctx.compute_join(keys, |dice: &mut DiceComputations, k: &Key| {
     ///     async move {
     ///       dice.compute(k).await + data
     ///     }
     ///   }).await;
-    ///
-    /// // If the closure is going to be declared outside the compute_many itself, you need to use
-    /// // declare_join_closure for it to get the right lifetime bounds.
-    /// let compute_one = DiceComputations::declare_join_closure(
-    ///   |dice: &mut DiceComputations, k: &Key| {
-    ///     async move {
-    ///       dice.compute(k).await + data
-    ///     }
-    ///   }
-    /// );
-    /// ctx.compute_join(keys, compute_one).await;
-    /// ````
+    /// ```
     pub fn compute_join<'a, Items, Mapper, T, R>(
         &'a mut self,
         items: Items,
         mapper: Mapper,
-    ) -> impl Future<Output = Vec<R>> + use<'a, Items, Mapper, T, R>
+    ) -> impl Future<Output = Vec<R>> + use<'a, 'd, Items, Mapper, T, R>
     where
         Items: IntoIterator<Item = T>,
         Items::IntoIter: ExactSizeIterator,
-        Mapper: for<'x> FnOnce(&'x mut DiceComputations<'a>, T) -> BoxFuture<'x, R>
-            + Send
-            + Sync
-            + Copy,
+        Mapper: FnOnce(&'a mut DiceComputations<'d>, T) -> BoxFuture<'a, R> + Send + Sync + Copy,
         T: Send,
     {
         let futs = self.compute_many(items.into_iter().map(move |v| {
-            DiceComputations::declare_closure(move |ctx: &mut DiceComputations| -> BoxFuture<R> {
-                mapper(ctx, v)
-            })
+            move |ctx: &'a mut DiceComputations<'d>| -> BoxFuture<'a, R> { mapper(ctx, v) }
         }));
         futures::future::join_all(futs)
     }
@@ -226,35 +207,33 @@ impl<'d> DiceComputations<'d> {
         &'a mut self,
         items: Items,
         mapper: Mapper,
-    ) -> impl Future<Output = Result<Vec<R>, E>> + use<'a, Items, Mapper, T, R, E>
+    ) -> impl Future<Output = Result<Vec<R>, E>> + use<'a, 'd, Items, Mapper, T, R, E>
     where
         Items: IntoIterator<Item = T>,
         Items::IntoIter: ExactSizeIterator,
-        Mapper: for<'x> FnOnce(&'x mut DiceComputations<'a>, T) -> BoxFuture<'x, Result<R, E>>
+        Mapper: FnOnce(&'a mut DiceComputations<'d>, T) -> BoxFuture<'a, Result<R, E>>
             + Send
             + Sync
             + Copy,
         T: Send,
     {
         let futs = self.compute_many(items.into_iter().map(move |v| {
-            DiceComputations::declare_closure(
-                move |ctx: &mut DiceComputations| -> BoxFuture<Result<R, E>> { mapper(ctx, v) },
-            )
+            move |ctx: &'a mut DiceComputations<'d>| -> BoxFuture<'a, Result<R, E>> {
+                mapper(ctx, v)
+            }
         }));
         crate::future::try_join_all(futs)
     }
 
     /// Computes all the given tasks in parallel.
-    ///
-    /// If the closures are defined out of the compute2 call, you need to use declare_closure() to get the right lifetimes.
     pub fn compute2<'a, Compute1, T, Compute2, U>(
         &'a mut self,
         compute1: Compute1,
         compute2: Compute2,
-    ) -> impl Future<Output = (T, U)> + use<'a, Compute1, T, Compute2, U>
+    ) -> impl Future<Output = (T, U)> + use<'a, 'd, Compute1, T, Compute2, U>
     where
-        Compute1: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
-        Compute2: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, U> + Send,
+        Compute1: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, T> + Send,
+        Compute2: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, U> + Send,
     {
         let (t, u) = self.0.compute2(compute1, compute2);
         futures::future::join(t, u)
@@ -265,30 +244,26 @@ impl<'d> DiceComputations<'d> {
         &'a mut self,
         compute1: Compute1,
         compute2: Compute2,
-    ) -> impl Future<Output = Result<(T, U), E>> + use<'a, Compute1, T, Compute2, U, E>
+    ) -> impl Future<Output = Result<(T, U), E>> + use<'a, 'd, Compute1, T, Compute2, U, E>
     where
-        Compute1:
-            for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, Result<T, E>> + Send,
-        Compute2:
-            for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, Result<U, E>> + Send,
+        Compute1: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, Result<T, E>> + Send,
+        Compute2: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, Result<U, E>> + Send,
     {
         let (t, u) = self.0.compute2(compute1, compute2);
         futures::future::try_join(t, u)
     }
 
     /// Computes all the given tasks in parallel.
-    ///
-    /// If the closures are defined out of the compute3 call, you need to use declare_closure() to get the right lifetimes.
     pub fn compute3<'a, Compute1, T, Compute2, U, Compute3, V>(
         &'a mut self,
         compute1: Compute1,
         compute2: Compute2,
         compute3: Compute3,
-    ) -> impl Future<Output = (T, U, V)> + use<'a, Compute1, T, Compute2, U, Compute3, V>
+    ) -> impl Future<Output = (T, U, V)> + use<'a, 'd, Compute1, T, Compute2, U, Compute3, V>
     where
-        Compute1: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
-        Compute2: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, U> + Send,
-        Compute3: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, V> + Send,
+        Compute1: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, T> + Send,
+        Compute2: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, U> + Send,
+        Compute3: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, V> + Send,
     {
         let (t, u, v) = self.0.compute3(compute1, compute2, compute3);
         futures::future::join3(t, u, v)
@@ -300,14 +275,12 @@ impl<'d> DiceComputations<'d> {
         compute1: Compute1,
         compute2: Compute2,
         compute3: Compute3,
-    ) -> impl Future<Output = Result<(T, U, V), E>> + use<'a, Compute1, T, Compute2, U, Compute3, V, E>
+    ) -> impl Future<Output = Result<(T, U, V), E>>
+    + use<'a, 'd, Compute1, T, Compute2, U, Compute3, V, E>
     where
-        Compute1:
-            for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, Result<T, E>> + Send,
-        Compute2:
-            for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, Result<U, E>> + Send,
-        Compute3:
-            for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, Result<V, E>> + Send,
+        Compute1: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, Result<T, E>> + Send,
+        Compute2: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, Result<U, E>> + Send,
+        Compute3: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, Result<V, E>> + Send,
     {
         let (t, u, v) = self.0.compute3(compute1, compute2, compute3);
         futures::future::try_join3(t, u, v)
@@ -315,23 +288,26 @@ impl<'d> DiceComputations<'d> {
 
     /// Used to declare a higher order closure for compute_join and try_compute_join.
     ///
-    /// We need to use BoxFuture here to express that the future captures the 'x lifetime.
+    /// A closure that is created where a compute_join-shaped closure is expected infers its
+    /// signature from that expected type and needs no help. This helper provides that same
+    /// expected type for closures declared at a distance - stored in a variable, accumulated in
+    /// a `Vec`, or created inside an iterator adapter for `compute_many` - where the compiler
+    /// would otherwise have nothing to infer the ctx type from.
     pub fn declare_join_closure<'a, T, R, Closure>(closure: Closure) -> Closure
     where
-        Closure: for<'x> FnOnce(&'x mut DiceComputations<'a>, T) -> BoxFuture<'x, R>
-            + Send
-            + Sync
-            + Copy,
+        'd: 'a,
+        Closure: FnOnce(&'a mut DiceComputations<'d>, T) -> BoxFuture<'a, R> + Send + Sync + Copy,
     {
         closure
     }
 
     /// Used to declare a higher order closure for compute2 and compute_many.
     ///
-    /// We need to use BoxFuture here to express that the future captures the 'x lifetime.
+    /// See `declare_join_closure` for when this is needed.
     pub fn declare_closure<'a, R, Closure>(closure: Closure) -> Closure
     where
-        Closure: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, R>,
+        'd: 'a,
+        Closure: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, R>,
     {
         closure
     }

@@ -16,21 +16,21 @@ use futures::future::BoxFuture;
 pub struct KeepGoing;
 
 impl KeepGoing {
-    pub fn try_compute_join_all<'a, T: Send, R: 'a, E: 'a>(
-        ctx: &'a mut DiceComputations<'_>,
+    pub fn try_compute_join_all<'a, 'd, T: Send, R: 'a, E: 'a>(
+        ctx: &'a mut DiceComputations<'d>,
         items: impl IntoIterator<Item = T, IntoIter: ExactSizeIterator>,
-        mapper: impl for<'x> FnOnce(&'x mut DiceComputations<'a>, T) -> BoxFuture<'x, Result<R, E>>
+        mapper: impl FnOnce(&'a mut DiceComputations<'d>, T) -> BoxFuture<'a, Result<R, E>>
         + Send
         + Sync
         + Copy,
     ) -> impl Future<Output = Result<Vec<R>, E>> {
         let keep_going = ctx.per_transaction_data().get_keep_going();
 
-        let futs = ctx.compute_many(items.into_iter().map(move |v| {
-            DiceComputations::declare_closure(
-                move |ctx: &mut DiceComputations| -> BoxFuture<Result<R, E>> { mapper(ctx, v) },
-            )
-        }));
+        let futs = ctx.compute_many(
+            items
+                .into_iter()
+                .map(move |v| move |ctx: &'a mut DiceComputations<'d>| mapper(ctx, v)),
+        );
 
         async move {
             Ok(if keep_going {

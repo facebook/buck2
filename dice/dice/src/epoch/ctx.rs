@@ -171,11 +171,11 @@ impl<'d> TrackedComputations<'d> {
     pub(crate) fn compute_many<'a, Computes, F, T>(
         &'a mut self,
         computes: Computes,
-    ) -> Vec<impl Future<Output = T> + use<'a, Computes, F, T>>
+    ) -> Vec<impl Future<Output = T> + use<'a, 'd, Computes, F, T>>
     where
         Computes: IntoIterator<Item = F>,
         Computes::IntoIter: ExactSizeIterator,
-        F: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
+        F: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, T> + Send,
     {
         let iter = computes.into_iter();
         let mut parallel = self.parallel_builder(iter.len());
@@ -187,12 +187,12 @@ impl<'d> TrackedComputations<'d> {
         compute1: Compute1,
         compute2: Compute2,
     ) -> (
-        impl Future<Output = T> + use<'a, Compute1, T, Compute2, U>,
-        impl Future<Output = U> + use<'a, Compute1, T, Compute2, U>,
+        impl Future<Output = T> + use<'a, 'd, Compute1, T, Compute2, U>,
+        impl Future<Output = U> + use<'a, 'd, Compute1, T, Compute2, U>,
     )
     where
-        Compute1: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
-        Compute2: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, U> + Send,
+        Compute1: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, T> + Send,
+        Compute2: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, U> + Send,
     {
         let mut parallel = self.parallel_builder(2);
         (parallel.compute(compute1), parallel.compute(compute2))
@@ -204,14 +204,14 @@ impl<'d> TrackedComputations<'d> {
         compute2: Compute2,
         compute3: Compute3,
     ) -> (
-        impl Future<Output = T> + use<'a, Compute1, T, Compute2, U, Compute3, V>,
-        impl Future<Output = U> + use<'a, Compute1, T, Compute2, U, Compute3, V>,
-        impl Future<Output = V> + use<'a, Compute1, T, Compute2, U, Compute3, V>,
+        impl Future<Output = T> + use<'a, 'd, Compute1, T, Compute2, U, Compute3, V>,
+        impl Future<Output = U> + use<'a, 'd, Compute1, T, Compute2, U, Compute3, V>,
+        impl Future<Output = V> + use<'a, 'd, Compute1, T, Compute2, U, Compute3, V>,
     )
     where
-        Compute1: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
-        Compute2: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, U> + Send,
-        Compute3: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, V> + Send,
+        Compute1: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, T> + Send,
+        Compute2: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, U> + Send,
+        Compute3: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, V> + Send,
     {
         let mut parallel = self.parallel_builder(3);
 
@@ -389,27 +389,33 @@ impl LinearRecomputeComputations<'_> {
 
 /// This is used to create the ctx for each individual parallel compute (from compute_many/compute_join/compute2/etc).
 ///
+/// The two lifetimes here are deliberately separate: `'d` is the lifetime parameter of the
+/// `DiceComputations<'d>` that the parallel closures receive (and hence the lifetime of values
+/// computed through them), while `'a` is the borrow of the parent ctx. Only the returned futures
+/// are tied to `'a`; the ctxs handed to the closures are not, which is what allows values they
+/// compute to be held past the end of the parallel compute.
+///
 /// For the Normal case, each parallel ctx records its deps into its own tracker, which the group
 /// owns and which the parent gathers up when the parallel compute is finished.
 ///
 /// For the Linear case, each parallel ctx will record deps into the shared RecordingDepsTracker.
-pub(crate) enum ModernComputeCtxParallelBuilder<'a> {
+pub(crate) enum ModernComputeCtxParallelBuilder<'a, 'd> {
     Normal {
         /// The branches, pre-built by `parallel_builder`; `compute` claims them in order.
         handout: std::slice::IterMut<'a, BranchEntry>,
     },
     Linear {
-        ctx_data: &'a ComputeCtx,
-        shared: &'a LinearShared,
+        ctx_data: &'d ComputeCtx,
+        shared: &'d LinearShared,
     },
 }
 
-impl<'a> ModernComputeCtxParallelBuilder<'a> {
+impl<'a, 'd: 'a> ModernComputeCtxParallelBuilder<'a, 'd> {
     fn compute<F, T>(&mut self, func: F) -> ParallelBranchFuture<'a, BoxFuture<'a, T>>
     where
         // We don't actually need this closure to be `Send` and so we don't require that here, but
         // all the public APIs still do. It's unclear what we should commit to.
-        F: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T>,
+        F: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, T>,
     {
         match self {
             ModernComputeCtxParallelBuilder::Normal { handout } => {
@@ -485,13 +491,13 @@ impl<'a> DepsTrackerHolder<'a> {
 }
 
 impl<'d> TrackedComputations<'d> {
-    fn parallel_builder(&mut self, len: usize) -> ModernComputeCtxParallelBuilder<'_> {
+    fn parallel_builder(&mut self, len: usize) -> ModernComputeCtxParallelBuilder<'_, 'd> {
         match self {
             TrackedComputations::Normal {
                 compute: ctx_data,
                 dep_trackers,
             } => {
-                let ctx_data: &ComputeCtx = ctx_data;
+                let ctx_data = *ctx_data;
                 let invalidation_paths = dep_trackers.invalidation_paths().dupe();
                 let group = ParallelGroup::new((0..len).map(|_| {
                     TrackedComputations::Normal {
