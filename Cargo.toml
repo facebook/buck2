@@ -363,7 +363,7 @@ lsp-server = "0.7.9"
 lsp-types = "0.97"
 maplit = "1.0"
 memchr = "2.8.2"
-memmap2 = "0.9.10"
+memmap2 = "0.9.11"
 mimalloc = { version = "0.1.52", default-features = false }
 multimap = "0.8.3"
 nix = { version = "0.30.1", features = ["dir", "event", "hostname", "inotify", "ioctl", "mman", "mount", "net", "poll", "ptrace", "reboot", "resource", "sched", "signal", "term", "time", "user", "zerocopy"] }
