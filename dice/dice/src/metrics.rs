@@ -12,8 +12,6 @@
 #[derive(Debug)]
 pub struct Metrics {
     pub key_count: usize,
-    /// The number of keys currently active in the per transaction cache
-    pub currently_active_key_count: usize,
     pub active_transaction_count: u32,
 }
 
