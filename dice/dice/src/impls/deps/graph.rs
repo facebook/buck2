@@ -15,6 +15,7 @@ use dupe::Dupe;
 use gazebo::variants::VariantName;
 use itertools::Either;
 use itertools::Itertools;
+use mini_vec::MiniVec;
 
 use crate::arc::Arc;
 use crate::impls::deps::encoding::SPEncoder;
@@ -177,9 +178,9 @@ impl SeriesParallelDeps {
 
 #[derive(Allocative, Eq, PartialEq)]
 pub(crate) struct SPDepsMany {
-    deps: Vec<DiceKey>,
+    deps: MiniVec<DiceKey>,
     /// This holds the encoded series-parallel graph structure, i.e. it tells how to read the deps list as a series-parallel graph.
-    spec: Vec<u32>,
+    spec: MiniVec<u32>,
     trailing_deps_start: u32,
 }
 
@@ -199,8 +200,8 @@ impl Debug for SPDepsMany {
 impl SPDepsMany {
     fn new() -> SPDepsMany {
         Self {
-            deps: Vec::new(),
-            spec: Vec::new(),
+            deps: MiniVec::new(),
+            spec: MiniVec::new(),
             trailing_deps_start: 0,
         }
     }
@@ -215,8 +216,8 @@ impl SPDepsMany {
 
     fn serial_from_vec(vec: Vec<DiceKey>) -> SPDepsMany {
         Self {
-            deps: vec,
-            spec: Vec::new(),
+            deps: vec.into(),
+            spec: MiniVec::new(),
             trailing_deps_start: 0,
         }
     }

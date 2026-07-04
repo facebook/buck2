@@ -25,6 +25,7 @@ use std::ops::Sub;
 use allocative::Allocative;
 use derive_more::Display;
 use dupe::Dupe;
+use mini_vec::MiniVec;
 
 use crate::arc::Arc;
 
@@ -113,9 +114,8 @@ impl VersionRange {
         VersionRange::new(begin, None)
     }
 
-    #[allow(unused)] // TODO(cjhopman): This will be used.
     pub(crate) fn into_ranges(self) -> VersionRanges {
-        VersionRanges(vec![self])
+        VersionRanges(std::iter::once(self).collect())
     }
 
     pub(crate) fn intersect(&self, other: &VersionRange) -> Option<Self> {
@@ -255,7 +255,7 @@ impl Ord for VersionRange {
 /// 3, and 4 would not be in the sequence of ranges, but 1, 2, 5, would be. This is essentially
 /// a list of numerical end-exclusive intervals.
 #[derive(Allocative, Eq, Debug, PartialEq, Hash, Clone, PartialOrd, Ord)]
-pub(crate) struct VersionRanges(Vec<VersionRange>);
+pub(crate) struct VersionRanges(MiniVec<VersionRange>);
 
 impl Display for VersionRanges {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -354,9 +354,9 @@ impl VersionRanges {
     pub(crate) fn union(&self, other: &VersionRanges) -> VersionRanges {
         // Pre-allocate with exact upper bound: merging can only reduce
         // the count, so the output is at most self.len() + other.len().
-        // This avoids Vec's doubling growth (0→4→8) which leaves
+        // This avoids the doubling growth (0→4→8) which leaves
         // significant unused capacity on the hot revalidation path.
-        let mut out = Vec::with_capacity(self.0.len() + other.0.len());
+        let mut out = MiniVec::with_capacity(self.0.len() + other.0.len());
         let mut this = self.0.iter().peekable();
         let mut other = other.0.iter().peekable();
         let mut pending: Option<VersionRange> = None;
@@ -404,7 +404,7 @@ impl VersionRanges {
     pub(crate) fn intersect(&self, other: &VersionRanges) -> VersionRanges {
         // A single range from one side can intersect multiple ranges
         // from the other, self.len() + other.len() is a safe upper bound.
-        let mut out = Vec::with_capacity(self.0.len() + other.0.len());
+        let mut out = MiniVec::with_capacity(self.0.len() + other.0.len());
         let mut this = self.0.iter().peekable();
         let mut other = other.0.iter().peekable();
         // Pending is the last range we saw that has the largest end point, which is not the
@@ -570,7 +570,7 @@ impl VersionRanges {
     }
 
     pub(crate) fn testing_new(ranges: Vec<VersionRange>) -> Self {
-        Self(ranges)
+        Self(ranges.into())
     }
 }
 
