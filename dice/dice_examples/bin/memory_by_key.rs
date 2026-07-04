@@ -71,6 +71,13 @@
 //!   jemalloc): byte-granular, immune to LLVM eliding alloc+free pairs,
 //!   refreshed via `epoch` advance before each read.
 
+// fbcode rust binaries link (unprefixed) jemalloc by default; in a cargo build we have to bring
+// it ourselves or the `mallctl` heap metric below won't even link. Mirrors app/buck2/bin/buck2.rs;
+// the `unprefixed_malloc_on_supported_platforms` feature is what makes plain `mallctl` resolve.
+#[global_allocator]
+#[cfg(all(any(target_os = "linux", target_os = "macos"), not(buck_build)))]
+static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicU64;

@@ -37,3 +37,6 @@ tokio.workspace = true
 
 [lints]
 workspace = true
+
+[target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
+tikv-jemallocator = { workspace = true, features = ["stats", "unprefixed_malloc_on_supported_platforms"] }
