@@ -11,7 +11,6 @@
 use std::sync::Arc as StdArc;
 
 use allocative::Allocative;
-use derivative::Derivative;
 use dice_error::DiceError;
 use dice_error::DiceResult;
 use dupe::Dupe;
@@ -139,8 +138,8 @@ impl TransactionUpdater {
     }
 }
 
-#[derive(Dupe, Clone, Derivative)]
-#[derivative(Debug)]
+#[derive(Debug, Dupe, Clone)]
+#[expect(dead_code, reason = "Field is only there to be kept alive")]
 pub(crate) struct ActiveTransactionGuard(Arc<ActiveTransactionGuardInner>);
 
 impl ActiveTransactionGuard {
@@ -149,11 +148,9 @@ impl ActiveTransactionGuard {
     }
 }
 
-#[derive(Derivative)]
-#[derivative(Debug)]
+#[derive(Debug)]
 pub(crate) struct ActiveTransactionGuardInner {
     v: VersionNumber,
-    #[derivative(Debug = "ignore")]
     state_handle: CoreStateHandle,
 }
 

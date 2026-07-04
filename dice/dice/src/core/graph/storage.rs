@@ -223,7 +223,6 @@ impl VersionedGraph {
     /// updates the cached value based on the given key and versions. The value
     /// is only stored if the version is newer than what is stored.
     /// Returns the new entry, and an optional old entry that was invalidated due to this update
-    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self, value, storage_type, deps, reusable), fields(key = ?key)))]
     pub(crate) fn update(
         &mut self,
         key: VersionedGraphKey,
@@ -341,7 +340,6 @@ impl VersionedGraph {
     // ------------------------- Implementation functions below --------------------
     // -----------------------------------------------------------------------------
 
-    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self, value, deps), fields(key = ?key, v = %v, valid_deps_versions = ?valid_deps_versions)))]
     fn update_empty(
         &mut self,
         key: DiceKey,
@@ -351,7 +349,6 @@ impl VersionedGraph {
         deps: Arc<SeriesParallelDeps>,
         invalidation_paths: TrackedInvalidationPaths,
     ) -> DiceComputedValue {
-        debug!("making new graph entry because previously empty");
         valid_deps_versions.insert(VersionRange::bounded(v, v.next()));
         let entry = OccupiedGraphNode::new(
             key,

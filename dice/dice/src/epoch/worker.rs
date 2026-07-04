@@ -22,7 +22,6 @@ use futures::stream;
 use futures::stream::FuturesUnordered;
 use gazebo::variants::VariantName;
 use itertools::Either;
-use tracing::Instrument;
 
 use crate::api::activation_tracker::ActivationData;
 use crate::core::graph::types::VersionedGraphKey;
@@ -82,8 +81,6 @@ impl DiceTaskWorker {
         cycles: UserCycleDetectorData,
         previously_cancelled_task: Option<PreviouslyCancelledTask>,
     ) -> DicePromise {
-        let span = debug_span!(parent: None, "spawned_dice_task", k = ?k, v = %eval.epoch_state.get_version(), v_epoch = %version_epoch);
-
         let spawner = eval.user_data.spawner.dupe();
         let spawner_ctx = eval.user_data.dupe();
         let state_handle = eval.dice.state_handle.dupe();
@@ -127,7 +124,6 @@ impl DiceTaskWorker {
                     }
                 }
             }
-            .instrument(span)
             .boxed()
         })
     }
@@ -301,9 +297,6 @@ impl DiceTaskWorker {
             self.eval.compute_finished(self.k);
         };
 
-        // TODO(bobyf) these also make good locations where we want to perform instrumentation
-        debug!(msg = "running evaluator");
-
         self.eval
             .evaluate(handle, self.k, task_state, cycles.clone())
             .await
@@ -344,6 +337,7 @@ impl DiceTaskWorker {
             .expect("paged-out lookup result requires DiceStorage to be configured");
         let key_dyn = self.eval.dice.key_index.get(self.k);
         let value = storage.hydrate(key_dyn, data_key).await.map_err(|e| {
+            // FIXME(JakobDegen): This is not an appropriate way to report an error.
             tracing::error!("failed to hydrate paged-out DICE value: {:#}", e);
             CancellationReason::HydrationFailure
         })?;
@@ -353,11 +347,6 @@ impl DiceTaskWorker {
 }
 
 /// Used for checking if dependencies have changed since the previously checked version.
-#[cfg_attr(debug_assertions, instrument(
-    level = "debug",
-    skip(eval, cycles),
-    fields(version = %eval.epoch_state.get_version(), version = %prev_verified_version)
-))]
 async fn check_dependencies<'a>(
     eval: &'a TransactionData,
     parent_key: ParentKey,
@@ -452,8 +441,6 @@ async fn check_dependencies<'a>(
     if deps.is_empty() {
         return Ok(CheckDependenciesResult::NoDeps);
     }
-
-    trace!(deps = ?deps);
 
     check_dependencies_series(eval, parent_key, deps.iter(), prev_verified_version, cycles).await
 }

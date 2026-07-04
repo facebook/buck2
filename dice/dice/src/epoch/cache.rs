@@ -10,6 +10,7 @@
 
 //! Shared, concurrent dice task cache that is shared between computations at the same version
 
+use std::fmt;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 
@@ -41,6 +42,12 @@ struct Data {
 #[derive(Allocative, Clone, Dupe)]
 pub(crate) struct SharedCache {
     data: Arc<Data>,
+}
+
+impl fmt::Debug for SharedCache {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("SharedCache")
+    }
 }
 
 pub(crate) enum SharedCacheLookup<'d, T> {

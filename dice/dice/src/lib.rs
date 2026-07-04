@@ -186,12 +186,6 @@
 // This sometimes flag false positives where proc-macros expand pass by value into pass by refs
 #![allow(clippy::trivially_copy_pass_by_ref)]
 
-#[macro_use]
-extern crate gazebo;
-
-#[macro_use]
-extern crate tracing;
-
 mod api;
 pub(crate) mod arc;
 pub(crate) mod core;

@@ -34,10 +34,8 @@ impl UserCycleDetectorData {
         if let Some(detector) = detector {
             let k_erased = key_index.get(k);
             if let Some(guard) = detector.start_computing_key(DynKey::ref_cast(k_erased)) {
-                debug!("cycles start key {:?}", k);
                 return KeyComputingUserCycleDetectorData::Detecting(Arc::new(DetectingData {
                     k_erased: k_erased.dupe(),
-                    k,
                     guard,
                     detector: detector.dupe(),
                 }));
@@ -61,7 +59,6 @@ pub(crate) enum KeyComputingUserCycleDetectorData {
 
 pub(crate) struct DetectingData {
     k_erased: DiceKeyErased,
-    k: DiceKey,
     guard: Arc<dyn UserCycleDetectorGuard>,
     detector: Arc<dyn UserCycleDetector>,
 }
@@ -98,7 +95,6 @@ impl KeyComputingUserCycleDetectorData {
 
 impl Drop for DetectingData {
     fn drop(&mut self) {
-        debug!("cycles finish key {:?}", self.k);
         self.detector
             .finished_computing_key(DynKey::ref_cast(&self.k_erased))
     }

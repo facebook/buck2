@@ -128,13 +128,10 @@ impl CoreState {
         invalidation_paths: TrackedInvalidationPaths,
     ) -> CancellableResult<DiceComputedValue> {
         if !self.version_tracker.is_relevant(key.v, epoch) {
-            debug!(msg = "update is rejected due to outdated epoch", k = ?key.k, v = %key.v, v_epoch = %epoch);
             Err(CancellationReason::OutdatedEpoch)
         } else if self.version_tracker.should_reject(key.v) {
-            debug!(msg = "update is rejected due to invalid version", k = ?key.k, v = %key.v);
             Err(CancellationReason::Rejected)
         } else {
-            debug!(msg = "update graph entry", k = ?key.k, v = %key.v, v_epoch = %epoch);
             Ok(self
                 .graph
                 .update(key, value, reusability, deps, storage, invalidation_paths)
@@ -150,7 +147,6 @@ impl CoreState {
     }
 
     pub(super) fn unstable_drop_everything(&mut self) {
-        debug!("Dropping all DICE nodes");
         self.version_tracker.clear();
 
         // Do the actual drop on a different thread because we may have to drop a lot of stuff
