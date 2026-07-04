@@ -46,7 +46,7 @@ pub(crate) enum SharedCacheLookup<'d> {
 
 pub(crate) enum SharedCacheInsert<'d> {
     Occupied(DiceTaskRef<'d>),
-    Inserted(PreparedDiceTask),
+    Inserted(PreparedDiceTask<'d>),
     TransactionCancelled,
 }
 

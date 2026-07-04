@@ -84,20 +84,20 @@ fn spawn_dice_task<S>(
     spawner: &dyn Spawner<S>,
     ctx: &S,
     f: impl for<'a> FnOnce(&'a mut DiceTaskHandle) -> BoxFuture<'a, ()> + Send,
-) -> (DiceTask, DicePromise) {
+) -> (DiceTask, DicePromise<'static>) {
     let prepared_task = DiceTask::prepare_testing(key);
-    let task = prepared_task.task().dupe();
+    let task = prepared_task.task().clone_arc();
     let promise = spawn_prepared_task(prepared_task, spawner, ctx, f);
     (task, promise)
 }
 
-fn sync_dice_task(key: DiceKey) -> (DiceTask, DicePromise) {
+fn sync_dice_task(key: DiceKey) -> (DiceTask, DicePromise<'static>) {
     let PreparedDiceTask {
         completion_handle: _completion_handle,
         dependent_future,
         task_spawner: _task_spawner,
     } = DiceTask::prepare_testing(key);
-    let task = dependent_future.task().dupe();
+    let task = dependent_future.task().clone_arc();
     let promise = DicePromise::pending(dependent_future);
     (task, promise)
 }
@@ -440,7 +440,7 @@ async fn sync_complete_task_wakes_waiters() -> anyhow::Result<()> {
 
     let barrier = Arc::new(Barrier::new(4));
 
-    let fut1 = tokio::spawn({
+    let mut fut1 = std::pin::pin!({
         let barrier = barrier.dupe();
         async move {
             assert!(poll!(&mut promise1).is_pending());
@@ -449,7 +449,7 @@ async fn sync_complete_task_wakes_waiters() -> anyhow::Result<()> {
             promise1.await
         }
     });
-    let fut2 = tokio::spawn({
+    let mut fut2 = std::pin::pin!({
         let barrier = barrier.dupe();
         async move {
             assert!(poll!(&mut promise2).is_pending());
@@ -458,7 +458,7 @@ async fn sync_complete_task_wakes_waiters() -> anyhow::Result<()> {
             promise2.await
         }
     });
-    let fut3 = tokio::spawn({
+    let mut fut3 = std::pin::pin!({
         let barrier = barrier.dupe();
         async move {
             assert!(poll!(&mut promise3).is_pending());
@@ -468,7 +468,13 @@ async fn sync_complete_task_wakes_waiters() -> anyhow::Result<()> {
         }
     });
 
-    barrier.wait().await;
+    // Drive all futures forward while waiting for the barrier to be hit
+    tokio::select! {
+        _ = &mut fut1 => unreachable!(),
+        _ = &mut fut2 => unreachable!(),
+        _ = &mut fut3 => unreachable!(),
+        _ = barrier.wait() => (),
+    }
 
     assert!(
         task.depended_on_by(ParentKey::None)
@@ -484,15 +490,15 @@ async fn sync_complete_task_wakes_waiters() -> anyhow::Result<()> {
 
     let (v1, v2, v3) = futures::future::join3(fut1, fut2, fut3).await;
     assert!(
-        v1??.value()
+        v1?.value()
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)))
     );
     assert!(
-        v2??.value()
+        v2?.value()
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)))
     );
     assert!(
-        v3??.value()
+        v3?.value()
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)))
     );
 

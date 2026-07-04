@@ -17,7 +17,6 @@ use std::task::Context;
 use std::task::Poll;
 
 use dice_error::result::CancellableResult;
-use dupe::Dupe;
 use futures::future::BoxFuture;
 use pin_project::pin_project;
 
@@ -28,16 +27,16 @@ use crate::impls::value::DiceComputedValue;
 /// This is only awoken when the result is ready, as none of the pollers are responsible for
 /// running the task to completion.
 #[pin_project]
-pub(crate) struct DicePromise(#[pin] pub(super) DicePromiseInternal);
+pub(crate) struct DicePromise<'d>(#[pin] pub(super) DicePromiseInternal<'d>);
 
 #[pin_project(project = DicePromiseInternalProj)]
-pub(super) enum DicePromiseInternal {
+pub(super) enum DicePromiseInternal<'d> {
     Ready {
         result: DiceComputedValue,
     },
     Pending {
         #[pin]
-        future: DiceTaskDependentFuture,
+        future: DiceTaskDependentFuture<'d>,
     },
     Done,
 }
@@ -61,6 +60,7 @@ pub(crate) struct DiceSyncResult {
 impl DiceSyncResult {
     #[cfg(test)]
     pub(crate) fn testing(v: DiceComputedValue) -> Self {
+        use dupe::Dupe;
         use futures::FutureExt;
 
         Self {
@@ -70,12 +70,12 @@ impl DiceSyncResult {
     }
 }
 
-impl DicePromise {
+impl<'d> DicePromise<'d> {
     pub(crate) fn ready(result: DiceComputedValue) -> Self {
         Self(DicePromiseInternal::Ready { result })
     }
 
-    pub(crate) fn pending(future: DiceTaskDependentFuture) -> Self {
+    pub(crate) fn pending(future: DiceTaskDependentFuture<'d>) -> Self {
         Self(DicePromiseInternal::Pending { future })
     }
 
@@ -87,17 +87,15 @@ impl DicePromise {
     ) -> CancellableResult<DiceComputedValue> {
         match self.0 {
             DicePromiseInternal::Ready { result } => Ok(result),
-            DicePromiseInternal::Pending { future, .. } => future
-                .task()
-                .dupe()
-                .as_ref()
-                .sync_get_or_complete(future, f),
+            DicePromiseInternal::Pending { future, .. } => {
+                future.task().sync_get_or_complete(future, f)
+            }
             DicePromiseInternal::Done => panic!("poll after ready"),
         }
     }
 }
 
-impl Future for DicePromise {
+impl<'d> Future for DicePromise<'d> {
     type Output = CancellableResult<DiceComputedValue>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
