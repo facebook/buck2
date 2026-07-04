@@ -70,7 +70,7 @@ impl DiceTask {
     }
 
     #[cfg(test)]
-    pub(crate) fn depended_on_by(&self, k: ParentKey) -> DiceTaskDependedOnByResult {
+    pub(crate) fn depended_on_by(&self, k: ParentKey) -> DiceTaskDependedOnByResult<'_> {
         self.as_ref().depended_on_by(k)
     }
 

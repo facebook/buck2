@@ -82,7 +82,7 @@ impl VersionEpochState {
         }
     }
 
-    fn lookup_entry(&self, key: DiceKey, parent_key: ParentKey) -> LookupResult {
+    fn lookup_entry(&self, key: DiceKey, parent_key: ParentKey) -> LookupResult<'_> {
         let task = match self.cache.get(key) {
             SharedCacheLookup::Finished(result) => {
                 return LookupResult::Finished(result);

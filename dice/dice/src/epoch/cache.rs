@@ -129,7 +129,7 @@ impl SharedCache {
         }
     }
 
-    pub(crate) fn get_projection(&self, key: DiceKey) -> SharedCacheLookup<&'_ ProjectionTask> {
+    pub(crate) fn get_projection(&self, key: DiceKey) -> SharedCacheLookup<'_, &'_ ProjectionTask> {
         let entry = self
             .data
             .projection_storage
