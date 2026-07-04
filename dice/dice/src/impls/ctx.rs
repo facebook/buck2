@@ -32,7 +32,6 @@ use parking_lot::Mutex;
 use typed_arena::Arena;
 
 use super::task::dice::DiceTaskDependedOnByResult;
-use crate::DiceTransactionUpdater;
 use crate::LinearRecomputeDiceComputations;
 use crate::UserCycleDetectorGuard;
 use crate::api::activation_tracker::ActivationData;
@@ -62,7 +61,6 @@ use crate::impls::task::PreviouslyCancelledTask;
 use crate::impls::task::dice::PreparedDiceTask;
 use crate::impls::task::promise::DicePromise;
 use crate::impls::transaction::ActiveTransactionGuard;
-use crate::impls::transaction::TransactionUpdater;
 use crate::impls::user_cycle::KeyComputingUserCycleDetectorData;
 use crate::impls::user_cycle::UserCycleDetectorData;
 use crate::impls::value::DiceComputedValue;
@@ -125,10 +123,6 @@ impl BaseComputeCtx {
 
     pub(crate) fn get_version(&self) -> VersionNumber {
         self.data.0.get_version()
-    }
-
-    pub(crate) fn into_updater(self) -> DiceTransactionUpdater {
-        DiceTransactionUpdater(self.data.0.into_updater())
     }
 
     pub(crate) fn as_computations(&self) -> &DiceComputations<'static> {
@@ -534,10 +528,6 @@ impl ModernComputeCtx<'static> {
             data.cycles,
         )
     }
-
-    pub(crate) fn into_updater(self) -> TransactionUpdater {
-        self.into_owned().0.into_updater()
-    }
 }
 
 struct DepsTrackerHolder<'a>(Either<&'a mut RecordingDepsTracker, &'a Mutex<RecordingDepsTracker>>);
@@ -766,13 +756,6 @@ impl CoreCtx {
 
     pub(crate) fn get_version(&self) -> VersionNumber {
         self.async_evaluator.per_live_version_ctx.get_version()
-    }
-
-    pub(crate) fn into_updater(self) -> TransactionUpdater {
-        TransactionUpdater::new(
-            self.async_evaluator.dice.dupe(),
-            self.async_evaluator.user_data.dupe(),
-        )
     }
 
     pub(crate) fn store_evaluation_data<T: Send + Sync + 'static>(

@@ -104,13 +104,6 @@ impl DiceTransaction {
     pub fn equality_token(&self) -> DiceEquality {
         DiceEquality(self.0.get_version())
     }
-
-    /// Creates an Updater to record changes to DICE that upon committing, creates a new transaction
-    /// that keeps the same set of user data. This is equivalent to `Dice::updater_with_user_data(data)`
-    /// where the `data` is taken from the current Transaction.
-    pub fn into_updater(self) -> DiceTransactionUpdater {
-        self.0.into_updater()
-    }
 }
 
 #[derive(Allocative, Eq, PartialEq, Copy, Clone, derive_more::Display)]
