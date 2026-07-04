@@ -31,7 +31,6 @@ use futures::future::BoxFuture;
 use parking_lot::Mutex;
 
 use super::handle::DiceTaskHandle;
-use crate::GlobalStats;
 use crate::epoch::cache::TransactionCancelled;
 use crate::epoch::cache::TransactionResult;
 use crate::epoch::task::PreviouslyCancelledTask;
@@ -489,10 +488,7 @@ impl<'d> DiceTaskRef<'d> {
     pub(crate) fn cancel(&self, token: TransactionCancelled) -> bool {
         drop(self.internal.maybe_value.set(TransactionResult::err(token)));
         let mut guard = self.internal.starter_lock.lock();
-        if let Some(dropcancel) = guard.take() {
-            GlobalStats::record_cancellation();
-            drop(dropcancel);
-        }
+        drop(guard.take());
         self.is_pending()
     }
 
@@ -597,10 +593,7 @@ impl<'d> DiceTaskRef<'d> {
         }
 
         // We were the last dependent. Cancel the spawned task if needed.
-        if let Some(dropcancel) = guard.take() {
-            GlobalStats::record_cancellation();
-            drop(dropcancel);
-        }
+        drop(guard.take());
     }
 }
 

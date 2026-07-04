@@ -198,7 +198,6 @@ pub(crate) mod key;
 mod key_index;
 pub(crate) mod metrics;
 pub(crate) mod opaque;
-pub(crate) mod stats;
 pub(crate) mod storage;
 pub(crate) mod updater;
 pub(crate) mod user_cycle;
@@ -252,7 +251,6 @@ pub use crate::introspection::serialize_graph;
 pub use crate::key::DiceKeyDyn;
 pub use crate::key::DiceProjectionDyn;
 pub use crate::opaque::OpaqueValue;
-pub use crate::stats::GlobalStats;
 pub use crate::storage::DiceStorage;
 pub use crate::value::DiceValueDyn;
 

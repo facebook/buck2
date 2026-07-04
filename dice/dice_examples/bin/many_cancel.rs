@@ -62,7 +62,6 @@ use dice::Dice;
 use dice::DiceComputations;
 use dice::DiceData;
 use dice::DiceKeyDyn;
-use dice::GlobalStats;
 use dice::InjectedKey;
 use dice::Key;
 use dice::UserComputationData;
@@ -354,6 +353,4 @@ async fn main() {
     }
 
     eprintln!("recompute took {}s", first_done.elapsed().as_secs_f32());
-
-    eprintln!("cancellation count {}", GlobalStats::get().cancellations);
 }
