@@ -13,7 +13,7 @@ bytemuck = { version = "1.25" }
 dashmap = { workspace = true }
 either = { workspace = true }
 pagable = { version = "=0.4.1", path = "../pagable" }
-rusqlite = { version = "0.37.0", features = ["bundled"] }
+rusqlite = { version = "0.37.0", features = ["bundled", "limits"] }
 sled = { version = "0.34" }
 tokio = { workspace = true, optional = true }
 
