@@ -20,6 +20,22 @@
 //! to callers: anything that reaches the global provider stored here -- a `tracing` layer bridged on
 //! top, or an out-of-band "wide event" span -- rides the same exporter.
 //!
+//! ## Environment variables
+//!
+//! We honor the standard OpenTelemetry environment variables so buck2 slots into an existing
+//! telemetry setup without buck2-specific configuration:
+//!
+//! * `OTEL_EXPORTER_OTLP_*` -- endpoint, headers, timeout, compression, TLS. Read by the exporter
+//!   builder itself; we only check the two endpoint variables to decide *whether* to export.
+//! * `OTEL_SDK_DISABLED=true` -- the spec's global kill-switch. `opentelemetry-rust` does not honor
+//!   it on its own, so we check it here and skip building the exporter entirely.
+//! * `OTEL_SERVICE_NAME` / `OTEL_RESOURCE_ATTRIBUTES` -- extra/overriding resource attributes,
+//!   merged in by [`resource`]. Our own authoritative attributes (pid, arch, os, host) win on
+//!   conflict; `service.name` defaults to `buck2` but yields to a user-provided value.
+//! * `TRACEPARENT` / `TRACESTATE` -- W3C Trace Context of the launching process (CI job, wrapper
+//!   script, ...). When present, our wide-event span is parented under that trace instead of being
+//!   a disconnected root. See [`export_span`].
+//!
 //! ## Deferred activation (important)
 //!
 //! The OTLP batch exporter spawns background threads (a batch-processor thread plus an HTTP client
@@ -41,19 +57,25 @@
 //! we drain it explicitly. [`shutdown`] does that drain and must be called on every exit path. See
 //! <https://github.com/open-telemetry/opentelemetry-rust/issues/1961>.
 
+use std::collections::HashMap;
 use std::sync::OnceLock;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::time::SystemTime;
 
 use buck2_error::conversion::from_any_with_tag;
+use opentelemetry::Context;
 use opentelemetry::KeyValue;
+use opentelemetry::propagation::TextMapPropagator as _;
 use opentelemetry::trace::Span as _;
 use opentelemetry::trace::Tracer as _;
 use opentelemetry::trace::TracerProvider as _;
 use opentelemetry_otlp::Protocol;
 use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::Resource;
+use opentelemetry_sdk::propagation::TraceContextPropagator;
+use opentelemetry_sdk::resource::EnvResourceDetector;
+use opentelemetry_sdk::resource::TelemetryResourceDetector;
 use opentelemetry_sdk::trace::BatchConfigBuilder;
 use opentelemetry_sdk::trace::BatchSpanProcessor;
 use opentelemetry_sdk::trace::SdkTracerProvider;
@@ -63,7 +85,6 @@ use opentelemetry_semantic_conventions::resource::HOST_NAME;
 use opentelemetry_semantic_conventions::resource::OS_TYPE;
 use opentelemetry_semantic_conventions::resource::PROCESS_PID;
 use opentelemetry_semantic_conventions::resource::SERVICE_INSTANCE_ID;
-use opentelemetry_semantic_conventions::resource::SERVICE_NAME;
 use opentelemetry_semantic_conventions::resource::SERVICE_VERSION;
 use uuid::Uuid;
 
@@ -95,6 +116,13 @@ fn otlp_endpoint_configured() -> bool {
     .any(|var| std::env::var_os(var).is_some_and(|v| !v.is_empty()))
 }
 
+/// The OpenTelemetry SDK kill-switch. Per the spec, `OTEL_SDK_DISABLED=true` (case-insensitive)
+/// disables the SDK; any other value, or an unset variable, leaves it enabled. `opentelemetry-rust`
+/// does not read this variable itself, so we check it and skip building the exporter.
+fn otel_sdk_disabled() -> bool {
+    std::env::var_os("OTEL_SDK_DISABLED").is_some_and(|v| v.eq_ignore_ascii_case("true"))
+}
+
 /// Map Rust's [`std::env::consts::OS`] to the OpenTelemetry `os.type` value set, passing through any
 /// value without a standardized equivalent (e.g. `ios`, `android`) as-is. Most names already match;
 /// only a couple are spelled differently.
@@ -123,9 +151,15 @@ fn otel_host_arch(arch: &str) -> &str {
 
 /// Resource attributes identifying this build invocation, following OpenTelemetry semantic
 /// conventions (<https://opentelemetry.io/docs/specs/semconv/resource/>).
+///
+/// Attributes are layered in ascending priority -- each step below overrides earlier ones on
+/// conflict -- so `service.name` falls back to `buck2` but yields to whatever the user configured,
+/// while the values buck2 measures itself always win. Expressing precedence by ordering lets the
+/// user's `service.name` simply override our default instead of us having to detect whether they set
+/// one. (We can't use the all-in-one `Resource::builder()`: it runs its detectors *first*, i.e. at
+/// the lowest priority, leaving no way to slip our `buck2` default underneath them.)
 fn resource(version: &'static str) -> Resource {
-    let mut attributes = vec![
-        KeyValue::new(SERVICE_NAME, "buck2"),
+    let mut authoritative = vec![
         // buck2 is not a deployed service, so `service.version` is just this binary's build version.
         // The caller passes it in (`BuckVersion::get_version()`, the same string `buck2 --version`
         // prints) because the richer version -- the source revision stamped at build time via
@@ -141,15 +175,36 @@ fn resource(version: &'static str) -> Resource {
         KeyValue::new(PROCESS_PID, i64::from(std::process::id())),
     ];
     if let Ok(Some(hostname)) = hostname::get().map(|h| h.into_string().ok()) {
-        attributes.push(KeyValue::new(HOST_NAME, hostname));
+        authoritative.push(KeyValue::new(HOST_NAME, hostname));
     }
-    Resource::builder().with_attributes(attributes).build()
+
+    let mut builder = Resource::builder_empty()
+        // Lowest priority: our default `service.name`, overridden by anything the user sets below.
+        .with_service_name("buck2")
+        // `telemetry.sdk.*`, plus any attributes from `OTEL_RESOURCE_ATTRIBUTES` (which may carry a
+        // `service.name` that then wins over our default, and other attributes like
+        // `deployment.environment` that flow through untouched).
+        .with_detectors(&[
+            Box::new(TelemetryResourceDetector),
+            Box::new(EnvResourceDetector::new()),
+        ]);
+    // `OTEL_SERVICE_NAME` is the dedicated variable and outranks a `service.name` in
+    // `OTEL_RESOURCE_ATTRIBUTES`; `EnvResourceDetector` only reads the latter, so apply it ourselves.
+    if let Some(name) = std::env::var_os("OTEL_SERVICE_NAME")
+        .and_then(|v| v.into_string().ok())
+        .filter(|v| !v.is_empty())
+    {
+        builder = builder.with_service_name(name);
+    }
+    // Highest priority: the attributes buck2 measures itself (pid, arch, os, host) win over anything
+    // the environment supplies.
+    builder.with_attributes(authoritative).build()
 }
 
 /// Build the OTLP exporter and tracer provider (spawning the exporter's background threads) and store
 /// the provider in [`PROVIDER`]. No-op when no endpoint is configured.
 fn build_provider(version: &'static str) -> buck2_error::Result<()> {
-    if !otlp_endpoint_configured() {
+    if otel_sdk_disabled() || !otlp_endpoint_configured() {
         return Ok(());
     }
 
@@ -213,8 +268,39 @@ pub fn export_span(
         .span_builder(name)
         .with_start_time(start)
         .with_attributes(attributes)
-        .start(&tracer);
+        .start_with_context(&tracer, &parent_context_from_env());
     span.end_with_timestamp(end);
+}
+
+/// Extract a parent trace context from the environment, following the W3C Trace Context convention
+/// that CI systems and wrappers (`otel-cli`, the Jenkins / GitHub Actions OpenTelemetry plugins,
+/// Buildkite, ...) use to hand an in-progress trace to child processes via `$TRACEPARENT` (and its
+/// companion `$TRACESTATE`). When buck2 is launched under such a trace, this makes our wide-event
+/// span a child of the launching trace instead of a disconnected root.
+///
+/// `opentelemetry-rust` only ever extracts trace context from HTTP-style carriers, never from the
+/// process environment, so we assemble a carrier from the env ourselves and run the standard
+/// `TraceContextPropagator` over it. Returns an empty (root) context when `$TRACEPARENT` is absent
+/// or malformed -- i.e. the previous always-root behavior.
+fn parent_context_from_env() -> Context {
+    let env = |var| std::env::var_os(var).and_then(|v| v.into_string().ok());
+    parent_context_from_carrier(
+        env("TRACEPARENT").as_deref(),
+        env("TRACESTATE").as_deref(),
+    )
+}
+
+/// The environment-independent core of [`parent_context_from_env`], split out so it can be tested
+/// without mutating process-global environment state.
+fn parent_context_from_carrier(traceparent: Option<&str>, tracestate: Option<&str>) -> Context {
+    let mut carrier: HashMap<String, String> = HashMap::new();
+    // The propagator keys off the lowercased header names, matching how these would arrive over HTTP.
+    for (header, value) in [("traceparent", traceparent), ("tracestate", tracestate)] {
+        if let Some(value) = value.filter(|v| !v.is_empty()) {
+            carrier.insert(header.to_owned(), value.to_owned());
+        }
+    }
+    TraceContextPropagator::new().extract(&carrier)
 }
 
 /// Build the OTLP exporter and start exporting, if telemetry is configured.
@@ -261,7 +347,51 @@ pub fn shutdown() {
 
 #[cfg(test)]
 mod tests {
+    use opentelemetry::trace::TraceContextExt as _;
+
     use super::*;
+
+    #[test]
+    fn traceparent_becomes_remote_parent() {
+        // A well-formed W3C traceparent yields a valid, remote parent span context whose trace id
+        // our span will inherit.
+        let cx = parent_context_from_carrier(
+            Some("00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01"),
+            None,
+        );
+        let span_context = cx.span().span_context().clone();
+        assert!(span_context.is_valid());
+        assert!(span_context.is_remote());
+        assert_eq!(
+            span_context.trace_id().to_string(),
+            "0af7651916cd43dd8448eb211c80319c"
+        );
+    }
+
+    #[test]
+    fn no_or_malformed_traceparent_is_root() {
+        // No traceparent -> no parent (a fresh root span, as before).
+        assert!(
+            !parent_context_from_carrier(None, None)
+                .span()
+                .span_context()
+                .is_valid()
+        );
+        // An empty value is treated as absent, not as a malformed header.
+        assert!(
+            !parent_context_from_carrier(Some(""), Some("foo=bar"))
+                .span()
+                .span_context()
+                .is_valid()
+        );
+        // Garbage is ignored rather than propagated.
+        assert!(
+            !parent_context_from_carrier(Some("not-a-traceparent"), None)
+                .span()
+                .span_context()
+                .is_valid()
+        );
+    }
 
     #[test]
     fn os_type_remaps_and_passes_through() {
