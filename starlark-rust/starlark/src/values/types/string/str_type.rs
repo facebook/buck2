@@ -200,7 +200,7 @@ impl StarlarkStr {
     }
 
     pub(crate) fn offset_of_content() -> usize {
-        memoffset::offset_of!(StarlarkStrN<0>, body)
+        mem::offset_of!(StarlarkStrN<0>, body)
     }
 
     /// Format a Rust string like `repr(s)`.

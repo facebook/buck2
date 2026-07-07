@@ -78,7 +78,6 @@ rust_library(
         "fbsource//third-party/rust:inventory",
         "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:maplit",
-        "fbsource//third-party/rust:memoffset",
         "fbsource//third-party/rust:num-bigint",
         "fbsource//third-party/rust:num-traits",
         "fbsource//third-party/rust:once_cell",

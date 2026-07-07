@@ -24,6 +24,7 @@ use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::fmt::Formatter;
+use std::mem;
 use std::slice;
 
 use allocative::Allocative;
@@ -104,7 +105,7 @@ crate::register_ty_starlark_value!(FrozenList);
 
 impl ListGen<FrozenListData> {
     pub(crate) fn offset_of_content() -> usize {
-        memoffset::offset_of!(FrozenListData, content)
+        mem::offset_of!(FrozenListData, content)
     }
 }
 

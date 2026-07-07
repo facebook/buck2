@@ -20,6 +20,7 @@ use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::fmt::Formatter;
+use std::mem;
 use std::slice;
 
 use allocative::Allocative;
@@ -90,7 +91,7 @@ impl<V: ValueLifetimeless> TupleGen<V> {
     }
 
     pub(crate) fn offset_of_content() -> usize {
-        memoffset::offset_of!(Self, content)
+        mem::offset_of!(Self, content)
     }
 }
 

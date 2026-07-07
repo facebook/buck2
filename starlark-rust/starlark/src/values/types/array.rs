@@ -24,6 +24,7 @@ use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::fmt::Formatter;
+use std::mem;
 use std::ptr;
 use std::slice;
 
@@ -117,7 +118,7 @@ impl ValueEmptyArray {
 
 impl<'v> Array<'v> {
     pub(crate) fn offset_of_content() -> usize {
-        memoffset::offset_of!(Self, content)
+        mem::offset_of!(Self, content)
     }
 
     /// Create an array with specified length and capacity.

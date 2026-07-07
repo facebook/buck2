@@ -63,7 +63,7 @@ impl<T: Debug + 'static> AnyArray<T> {
     }
 
     pub(crate) fn offset_of_content() -> usize {
-        memoffset::offset_of!(Self, content)
+        mem::offset_of!(Self, content)
     }
 }
 

@@ -324,7 +324,7 @@ impl<T> AValueRepr<T> {
     }
 
     pub(crate) fn offset_of_payload() -> usize {
-        memoffset::offset_of!(Self, payload)
+        mem::offset_of!(Self, payload)
     }
 
     /// Padding between header and payload.
