@@ -126,7 +126,7 @@ async fn daemon_unsandboxed_wrapper(options: &BuckdConnectDaemonOptions) -> Opti
         return None;
     }
 
-    if identity::agent_identity_from_env().is_none() {
+    if identity_env::agent_identity_from_env().is_none() {
         return None;
     }
 
