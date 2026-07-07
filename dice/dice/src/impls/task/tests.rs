@@ -738,7 +738,7 @@ async fn dropping_termination_observer_does_not_cancel_task() {
 
     barrier.wait().await;
 
-    // Register a dependant so the task stays alive
+    // Register a dependent so the task stays alive
     let promise = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 0 }))
         .unwrap();
@@ -753,7 +753,7 @@ async fn dropping_termination_observer_does_not_cancel_task() {
     assert!(task.is_pending());
     assert!(!task.is_terminated());
 
-    // Should still be able to register new dependants
+    // Should still be able to register new dependents
     let promise2 = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 1 }))
         .unwrap();

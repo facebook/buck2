@@ -151,11 +151,11 @@ impl DiceTaskInternalCritical {
         let mut deps = critical
             .dependants
             .take()
-            .expect("Invalid state where deps where taken already");
+            .expect("Invalid state where deps were taken already");
         let mut termination_observers = critical
             .termination_observers
             .take()
-            .expect("Invalid state where deps where taken already");
+            .expect("Invalid state where deps were taken already");
 
         deps.drain().for_each(|(_k, waker)| waker.wake());
         // wake up all the `TerminationObserver::poll`

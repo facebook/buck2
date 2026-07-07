@@ -50,7 +50,7 @@ use crate::impls::value::DiceComputedValue;
 /// implementation in that no poll will ever be doing real work. No Wakers sleeping will be awoken
 /// unless the task is ready.
 /// The task is not the "standard states" of Pending, Polling, etc as stored by Shared future,
-/// but instead we store the Dice specific states so that its useful when we dump the state.
+/// but instead we store the Dice specific states so that it's useful when we dump the state.
 /// Wakers are tracked with their corresponding DiceKeys, allowing us to track the rdeps and see
 /// which key is waiting on what
 ///
@@ -351,7 +351,7 @@ impl DiceTaskInternal {
                         let _ignore = internals.set_value(result);
                     }
                     Err(reason) => {
-                        // if its cancelled, report cancelled
+                        // if it's cancelled, report cancelled
                         internals.report_terminated(reason);
                     }
                 }
