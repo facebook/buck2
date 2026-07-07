@@ -135,8 +135,8 @@ public class GenerateManifest {
     // Post-process merge report to make all paths relative to current directory
     makePathsRelativeInMergeReport(mergeReportPath, logger);
 
-    // NULLSAFE_FIXME[Not Vetted Third-Party]
     String xmlText = mergingReport.getMergedDocument(MergingReport.MergedManifestKind.MERGED);
+    // NULLSAFE_FIXME[Parameter Not Nullable]
     xmlText = replacePlaceholders(xmlText, placeholders);
     xmlText = moveActivityAliasesToEnd(xmlText);
 
@@ -181,7 +181,6 @@ public class GenerateManifest {
       ILogger logger) {
     try {
       ManifestMerger2.Invoker manifestInvoker =
-          // NULLSAFE_FIXME[Not Vetted Third-Party]
           ManifestMerger2.newMerger(
               mainManifestFile, logger, ManifestMerger2.MergeType.APPLICATION);
       if (!APKModule.isRootModule(moduleName)) {
@@ -192,20 +191,14 @@ public class GenerateManifest {
 
       MergingReport mergingReport =
           manifestInvoker
-              // NULLSAFE_FIXME[Not Vetted Third-Party]
               .withFeatures(
                   ManifestMerger2.Invoker.Feature.REMOVE_TOOLS_DECLARATIONS,
                   ManifestMerger2.Invoker.Feature.DISABLE_PACKAGE_NAME_UNIQUENESS_CHECK,
                   ManifestMerger2.Invoker.Feature.USES_SDK_IN_MANIFEST_LENIENT_HANDLING)
-              // NULLSAFE_FIXME[Not Vetted Third-Party]
               .addLibraryManifests(Iterables.toArray(libraryManifestFiles, File.class))
-              // NULLSAFE_FIXME[Not Vetted Third-Party]
               .setMergeReportFile(mergeReportPath.toFile())
-              // NULLSAFE_FIXME[Not Vetted Third-Party]
               .merge();
-      // NULLSAFE_FIXME[Not Vetted Third-Party]
       if (mergingReport.getResult().isError()) {
-        // NULLSAFE_FIXME[Not Vetted Third-Party]
         for (MergingReport.Record record : mergingReport.getLoggingRecords()) {
           // NULLSAFE_FIXME[Parameter Not Nullable]
           logger.error(null, record.toString());
