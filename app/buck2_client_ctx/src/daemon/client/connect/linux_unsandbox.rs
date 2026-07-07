@@ -116,12 +116,6 @@ pub(super) async fn get_unix_daemon_and_args<'a>(
     }
 }
 
-#[cfg(not(fbcode_build))]
-async fn daemon_unsandboxed_wrapper(_options: &BuckdConnectDaemonOptions) -> Option<&'static str> {
-    None
-}
-
-#[cfg(fbcode_build)]
 async fn daemon_unsandboxed_wrapper(options: &BuckdConnectDaemonOptions) -> Option<&'static str> {
     const UNSANDBOX_DAEMON_WRAPPER: &str = "/usr/local/bin/buck";
     // This was the first release (d242c0c75785ff34bfcefbecc9cf4a40022df37b) that accepted the `unsandbox-daemon` command.

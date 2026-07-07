@@ -237,6 +237,7 @@ impl<T: StreamingCommand> BuckSubcommand for T {
                 ctx.restarter.apply_to_constraints(&mut req);
                 BuckdConnectOptions::Options(BuckdConnectDaemonOptions {
                     constraints: req,
+                    #[cfg(all(fbcode_build, target_os = "linux"))]
                     allow_daemon_start_unsandboxed_via_wrapper: ctx
                         .immediate_config
                         .allow_daemon_start_unsandboxed_via_wrapper()?,

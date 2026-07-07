@@ -74,10 +74,10 @@ use crate::startup_deadline::StartupDeadline;
 use crate::subscribers::classify_server_stderr::classify_server_stderr;
 use crate::subscribers::stdout_stderr_forwarder::StdoutStderrForwarder;
 
-#[cfg(target_os = "linux")]
+#[cfg(all(fbcode_build, target_os = "linux"))]
 mod linux_unsandbox;
 
-#[cfg(target_os = "linux")]
+#[cfg(all(fbcode_build, target_os = "linux"))]
 use self::linux_unsandbox::get_unix_daemon_and_args;
 
 /// The client side matcher for DaemonConstraints.
@@ -268,6 +268,7 @@ pub struct BuckdConnectDaemonOptions {
     /// intentionally constructed only around Buck's normal `daemon` argv, so
     /// enabling this option should not create a general mechanism for
     /// unsandboxing arbitrary Buck commands or user-provided executables.
+    #[cfg(all(fbcode_build, target_os = "linux"))]
     pub(crate) allow_daemon_start_unsandboxed_via_wrapper: bool,
 }
 
@@ -331,7 +332,7 @@ struct ExecutableAndArgs<'a> {
     args: Vec<Cow<'a, str>>,
 }
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(not(all(fbcode_build, target_os = "linux")))]
 async fn get_unix_daemon_and_args<'a>(
     _options: &BuckdConnectDaemonOptions,
     args: Vec<&'a str>,
