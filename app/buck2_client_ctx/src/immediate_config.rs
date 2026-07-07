@@ -40,7 +40,7 @@ struct ImmediateConfig {
     cwd_cell_alias_resolver: CellAliasResolver,
     daemon_startup_config: DaemonStartupConfig,
     #[cfg(fbcode_build)]
-    daemon_start_unsandboxed_via_wrapper: bool,
+    allow_daemon_start_unsandboxed_via_wrapper: bool,
     #[cfg(fbcode_build)]
     show_sentiment: bool,
 }
@@ -66,11 +66,11 @@ impl ImmediateConfig {
             daemon_startup_config: DaemonStartupConfig::new(&cells.root_config)
                 .buck_error_context("Error loading daemon startup config")?,
             #[cfg(fbcode_build)]
-            daemon_start_unsandboxed_via_wrapper: cells
+            allow_daemon_start_unsandboxed_via_wrapper: cells
                 .root_config
                 .parse::<bool>(BuckconfigKeyRef {
                     section: "buck2",
-                    property: "daemon_start_unsandboxed_via_wrapper",
+                    property: "allow_daemon_start_unsandboxed_via_wrapper",
                 })?
                 .unwrap_or(false),
             #[cfg(fbcode_build)]
@@ -92,7 +92,7 @@ struct ImmediateConfigContextData {
     cwd_cell_alias_resolver: CellAliasResolver,
     daemon_startup_config: DaemonStartupConfig,
     #[cfg(fbcode_build)]
-    daemon_start_unsandboxed_via_wrapper: bool,
+    allow_daemon_start_unsandboxed_via_wrapper: bool,
     project_filesystem: ProjectRoot,
     #[cfg(fbcode_build)]
     show_sentiment: bool,
@@ -130,10 +130,10 @@ impl<'a> ImmediateConfigContext<'a> {
         Ok(&self.data()?.daemon_startup_config)
     }
 
-    pub fn daemon_start_unsandboxed_via_wrapper(&self) -> buck2_error::Result<bool> {
+    pub fn allow_daemon_start_unsandboxed_via_wrapper(&self) -> buck2_error::Result<bool> {
         #[cfg(fbcode_build)]
         {
-            Ok(self.data()?.daemon_start_unsandboxed_via_wrapper)
+            Ok(self.data()?.allow_daemon_start_unsandboxed_via_wrapper)
         }
 
         #[cfg(not(fbcode_build))]
@@ -215,7 +215,8 @@ impl<'a> ImmediateConfigContext<'a> {
                     cwd_cell_alias_resolver: cfg.cwd_cell_alias_resolver,
                     daemon_startup_config,
                     #[cfg(fbcode_build)]
-                    daemon_start_unsandboxed_via_wrapper: cfg.daemon_start_unsandboxed_via_wrapper,
+                    allow_daemon_start_unsandboxed_via_wrapper: cfg
+                        .allow_daemon_start_unsandboxed_via_wrapper,
                     project_filesystem: roots.project_root,
                     #[cfg(fbcode_build)]
                     show_sentiment: cfg.show_sentiment,
