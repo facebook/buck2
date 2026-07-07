@@ -1606,6 +1606,7 @@ impl RemoteExecutionClientImpl {
                         ReGangLocality::NetworkDomain => {
                             remote_execution::LocalityConstraint::NETWORK_DOMAIN
                         }
+                        ReGangLocality::Rack => remote_execution::LocalityConstraint::RACK,
                     }
                 });
 

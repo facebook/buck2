@@ -127,12 +127,16 @@ pub enum ReGangLocality {
     Datacenter,
     /// Workers must be in the same network domain
     NetworkDomain,
+    /// Workers must be in the same rack
+    Rack,
 }
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(input)]
 enum ReGangLocalityErrors {
-    #[error("Invalid locality value `{0}`. Expected one of: region, datacenter, network_domain")]
+    #[error(
+        "Invalid locality value `{0}`. Expected one of: region, datacenter, network_domain, rack"
+    )]
     InvalidLocality(String),
 }
 
@@ -142,6 +146,7 @@ impl ReGangLocality {
             "region" => Ok(ReGangLocality::Region),
             "datacenter" => Ok(ReGangLocality::Datacenter),
             "network_domain" => Ok(ReGangLocality::NetworkDomain),
+            "rack" => Ok(ReGangLocality::Rack),
             _ => Err(ReGangLocalityErrors::InvalidLocality(s.to_owned()).into()),
         }
     }
