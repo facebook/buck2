@@ -240,7 +240,7 @@ impl CriticalPathProtoEnhancer {
         let duration_proto = duration_to_proto_saturating(duration);
         buck2_data::CriticalPathEntry2 {
             span_ids: Vec::new(),
-            duration: Some(duration_proto),
+            duration: Some(duration_proto.clone()),
             user_duration: Some(prost_types::Duration::default()),
             queue_duration: None,
             total_duration: Some(duration_proto),

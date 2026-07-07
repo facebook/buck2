@@ -193,7 +193,7 @@ mod tests {
         assert_eq!("root//bin.bzl", import.import().to_string());
 
         let import = expect_import("root", "other/bin");
-        assert_eq!("cell1//other.bzl@root", import.import().to_string());
+        assert_eq!("cell1//other.bzl", import.import().to_string());
         assert_eq!("symbol1", import.lookup_alias("alias1"));
         assert_eq!("symbol2", import.lookup_alias("alias2"));
         assert_eq!("symbol3", import.lookup_alias("symbol3"));

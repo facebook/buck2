@@ -30,7 +30,7 @@
 //! * `OTEL_SDK_DISABLED=true` -- the spec's global kill-switch. `opentelemetry-rust` does not honor
 //!   it on its own, so we check it here and skip building the exporter entirely.
 //! * `OTEL_SERVICE_NAME` / `OTEL_RESOURCE_ATTRIBUTES` -- extra/overriding resource attributes,
-//!   merged in by [`resource`]. Our own authoritative attributes (pid, arch, os, host) win on
+//!   merged in by `resource`. Our own authoritative attributes (pid, arch, os, host) win on
 //!   conflict; `service.name` defaults to `buck2` but yields to a user-provided value.
 //! * `TRACEPARENT` / `TRACESTATE` -- W3C Trace Context of the launching process (CI job, wrapper
 //!   script, ...). When present, our wide-event span is parented under that trace instead of being
@@ -234,7 +234,9 @@ fn build_provider(version: &'static str) -> buck2_error::Result<()> {
         .build();
 
     // `activate` runs once, so ignore an already-set slot.
-    let _ = PROVIDER.set(provider);
+    // Note: If the `set` call fails, the `provider` we pass in is returned, and our `provider` has
+    // a `Drop` impl which shuts it down, so we need an actual binding here to avoid a Clippy lint.
+    let _result = PROVIDER.set(provider);
 
     Ok(())
 }

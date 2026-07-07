@@ -598,13 +598,13 @@ async fn test(
                 // We don't have per-test details. Rather than showing all output
                 // (which would include passing tests), show nothing.
                 // This ensures we never show passing test output with --test-output=errors
-                let has_failures = test_statuses.failed.as_ref().map_or(false, |f| f.count > 0)
-                    || test_statuses.fatals.as_ref().map_or(false, |f| f.count > 0);
+                let has_failures = test_statuses.failed.as_ref().is_some_and(|f| f.count > 0)
+                    || test_statuses.fatals.as_ref().is_some_and(|f| f.count > 0);
 
                 if has_failures {
                     // Add a note explaining why output is suppressed
                     let msg = "\nNote: Test output suppressed with --test-output=errors because the test executor does not provide per-test output details.\n";
-                    (msg.to_string(), String::new())
+                    (msg.to_owned(), String::new())
                 } else {
                     (String::new(), String::new())
                 }

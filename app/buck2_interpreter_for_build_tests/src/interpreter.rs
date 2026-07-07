@@ -242,9 +242,9 @@ fn test_find_imports() {
 
     assert_eq!(
         &[
-            "root//imports/one.bzl@cell1",
+            "root//imports/one.bzl",
             "cell1//one.bzl",
-            "cell2//two.bzl@cell1",
+            "cell2//two.bzl",
             "cell1//config/foo/other.bzl",
             "cell1//config/bar/three.bzl",
         ],

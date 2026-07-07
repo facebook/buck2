@@ -39,6 +39,13 @@
 //!
 //! [semantic convention]: https://opentelemetry.io/docs/specs/semconv/
 
+// The `push_*_command_end` helpers all take their proto message by reference so they share a
+// uniform signature with their non-empty siblings and can be dispatched identically from the
+// `command_end` match. Several of those messages are empty (zero-sized), which trips
+// `trivially_copy_pass_by_ref`; passing them by value would only force clones/derefs at the call
+// sites for no benefit, so allow it file-wide.
+#![expect(clippy::trivially_copy_pass_by_ref)]
+
 use std::collections::HashMap;
 
 use opentelemetry::Array;

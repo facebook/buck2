@@ -256,6 +256,7 @@ pub struct RERuntimeOpts {
     /// Maximum retries for network requests.
     max_retries: usize,
     /// Timeout for RPC requests.
+    #[expect(unused)]
     rpc_timeout: Duration,
 }
 

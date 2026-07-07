@@ -5,7 +5,7 @@ on:
   workflow_dispatch: # allows manual triggering
 jobs:
   linux-build-and-test:
-    runs-on: 4-core-ubuntu
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v6
     - uses: ./.github/actions/setup_linux_env
@@ -16,13 +16,13 @@ jobs:
     steps:
     - uses: maxim-lobanov/setup-xcode@v1.6.0
       with:
-        xcode-version: 16.4.0
+        xcode-version: latest-stable
     - uses: actions/checkout@v6
     - uses: ./.github/actions/setup_macos_env
     - uses: ./.github/actions/build_debug
     - uses: ./.github/actions/run_test_py
   windows-build-and-test:
-    runs-on: windows-8-core
+    runs-on: windows-latest
     steps:
     - uses: actions/checkout@v6
     - uses: ./.github/actions/setup_windows_env

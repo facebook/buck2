@@ -16,7 +16,7 @@
 //! record to it exactly as they route to Scribe, with no special-casing. Unlike Scribe it is not
 //! Meta-specific, so it is the wide-event export path in open-source builds too.
 //!
-//! The actual proto -> attribute mapping lives in [`crate::sink::otel_record`]; spans are emitted
+//! The actual proto -> attribute mapping lives in `crate::sink::otel_record`; spans are emitted
 //! through [`buck2_core::logging::otel`], which owns the exporter lifecycle (activation after the
 //! daemon fork, flushing on exit).
 
