@@ -412,11 +412,13 @@ impl super::Game for Game {
 
     fn input(&mut self, input: Control) -> Option<Control> {
         match input {
+            // FrameBuffer renders row 0 at the bottom (y increases upward), so
+            // moving the cursor up on screen means increasing cursor_y.
             Control::Up | Control::Char('w') => {
-                self.cursor_y = (self.cursor_y + HEIGHT - 1) % HEIGHT;
+                self.cursor_y = (self.cursor_y + 1) % HEIGHT;
             }
             Control::Down | Control::Char('s') => {
-                self.cursor_y = (self.cursor_y + 1) % HEIGHT;
+                self.cursor_y = (self.cursor_y + HEIGHT - 1) % HEIGHT;
             }
             Control::Left | Control::Char('a') => {
                 self.cursor_x = (self.cursor_x + WIDTH - 1) % WIDTH;
