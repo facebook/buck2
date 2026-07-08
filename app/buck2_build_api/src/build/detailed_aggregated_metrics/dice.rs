@@ -15,6 +15,7 @@ use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_data::ComputeDetailedAggregatedMetricsEnd;
 use buck2_data::ComputeDetailedAggregatedMetricsStart;
 use buck2_error::internal_error;
@@ -67,6 +68,7 @@ pub trait HasDetailedAggregatedMetrics {
         events: &PerBuildEvents,
         artifact_fs: ArtifactFs,
         providers_to_skip: HashSet<BuildProviderType>,
+        skip_targets: &HashSet<ConfiguredProvidersLabel>,
         sketch_count: bool,
         sketch_size: bool,
     ) -> impl Future<Output = buck2_error::Result<ArtifactPathSketchResult>> + Send;
@@ -139,11 +141,17 @@ impl HasDetailedAggregatedMetrics for DiceComputations<'_> {
         events: &PerBuildEvents,
         artifact_fs: ArtifactFs,
         providers_to_skip: HashSet<BuildProviderType>,
+        skip_targets: &HashSet<ConfiguredProvidersLabel>,
         sketch_count: bool,
         sketch_size: bool,
     ) -> buck2_error::Result<ArtifactPathSketchResult> {
+        let targets: Vec<&TopLevelTargetSpec> = events
+            .top_level_targets
+            .iter()
+            .filter(|spec| !skip_targets.contains(&spec.label))
+            .collect();
         let results = self
-            .compute_join(events.top_level_targets.iter(), |ctx, spec| {
+            .compute_join(targets, |ctx, spec| {
                 let label = spec.label.clone();
                 let outputs = spec.outputs.dupe();
                 let artifact_fs = artifact_fs.clone();

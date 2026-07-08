@@ -54,6 +54,7 @@ use buck2_core::pattern::pattern::PackageSpec;
 use buck2_core::pattern::pattern::ParsedPatternWithModifiers;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
+use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::soft_error;
@@ -456,12 +457,27 @@ async fn build(
             let events = events.as_ref().ok_or_else(|| {
                 internal_error!("events should be Some when artifact path sketch is needed")
             })?;
+            // Artifact path sketching re-`ensure_artifact_group`s each target's outputs. For a
+            // target that hit the `--overall-timeout` deadline that would re-demand (and, via
+            // DICE, restart) an action the deadline just cancelled, hanging the command past its
+            // timeout. Those targets never finished building, so skip sketching them.
+            let timed_out_targets: HashSet<ConfiguredProvidersLabel> = build_result
+                .configured
+                .iter()
+                .filter_map(|(label, result)| {
+                    result
+                        .as_ref()
+                        .filter(|r| r.timed_out())
+                        .map(|_| label.clone())
+                })
+                .collect();
             let artifact_fs = ctx.get_artifact_fs().await?;
             Some(
                 ctx.compute_artifact_path_sketch(
                     events,
                     artifact_fs,
                     providers_to_skip_in_artifact_path_sketch,
+                    &timed_out_targets,
                     graph_properties.artifact_count_sketch,
                     graph_properties.artifact_size_sketch,
                 )

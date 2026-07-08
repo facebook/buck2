@@ -118,6 +118,14 @@ impl<T> ConfiguredBuildTargetResultGen<T> {
             .chain(self.errors.iter().map(|e| e.elapsed))
             .max()
     }
+
+    /// Whether this target hit the `--overall-timeout` deadline, as opposed to building
+    /// successfully or failing for some other reason.
+    pub fn timed_out(&self) -> bool {
+        self.errors
+            .iter()
+            .any(|e| e.inner.has_tag(buck2_error::ErrorTag::BuildDeadlineExpired))
+    }
 }
 
 pub type ConfiguredBuildTargetResult =
