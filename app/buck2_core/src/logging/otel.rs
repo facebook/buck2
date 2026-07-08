@@ -57,7 +57,6 @@
 //! we drain it explicitly. [`shutdown`] does that drain and must be called on every exit path. See
 //! <https://github.com/open-telemetry/opentelemetry-rust/issues/1961>.
 
-use std::collections::HashMap;
 use std::sync::OnceLock;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
@@ -67,6 +66,7 @@ use buck2_error::conversion::from_any_with_tag;
 use opentelemetry::Context;
 use opentelemetry::KeyValue;
 use opentelemetry::propagation::TextMapPropagator as _;
+use opentelemetry::propagation::environment::EnvironmentExtractor;
 use opentelemetry::trace::Span as _;
 use opentelemetry::trace::Tracer as _;
 use opentelemetry::trace::TracerProvider as _;
@@ -116,9 +116,14 @@ fn otlp_endpoint_configured() -> bool {
     .any(|var| std::env::var_os(var).is_some_and(|v| !v.is_empty()))
 }
 
-/// The OpenTelemetry SDK kill-switch. Per the spec, `OTEL_SDK_DISABLED=true` (case-insensitive)
-/// disables the SDK; any other value, or an unset variable, leaves it enabled. `opentelemetry-rust`
-/// does not read this variable itself, so we check it and skip building the exporter.
+/// Detect `$OTEL_SDK_DISABLED`.
+///
+/// Per the spec, `OTEL_SDK_DISABLED=true` (case-insensitive) disables the SDK; any other value, or
+/// an unset variable, leaves it enabled. `opentelemetry-rust` does not read this variable itself,
+/// so we check it and skip building the exporter.
+///
+/// This can be deleted when the upstream issue is resolved:
+/// - <https://github.com/open-telemetry/opentelemetry-rust/issues/1936>
 fn otel_sdk_disabled() -> bool {
     std::env::var_os("OTEL_SDK_DISABLED").is_some_and(|v| v.eq_ignore_ascii_case("true"))
 }
@@ -183,7 +188,10 @@ fn resource(version: &'static str) -> Resource {
         .with_service_name("buck2")
         // `telemetry.sdk.*`, plus any attributes from `OTEL_RESOURCE_ATTRIBUTES` (which may carry a
         // `service.name` that then wins over our default, and other attributes like
-        // `deployment.environment` that flow through untouched).
+        // `deployment.environment` that flow through untouched). `EnvResourceDetector` percent-decodes
+        // the values per the Resource SDK spec -- but only in our Mercury fork of `opentelemetry-rust`
+        // (see the workspace `Cargo.toml`); upstream does not yet. See
+        // <https://github.com/open-telemetry/opentelemetry-rust/issues/857>.
         .with_detectors(&[
             Box::new(TelemetryResourceDetector),
             Box::new(EnvResourceDetector::new()),
@@ -274,35 +282,20 @@ pub fn export_span(
     span.end_with_timestamp(end);
 }
 
-/// Extract a parent trace context from the environment, following the W3C Trace Context convention
-/// that CI systems and wrappers (`otel-cli`, the Jenkins / GitHub Actions OpenTelemetry plugins,
-/// Buildkite, ...) use to hand an in-progress trace to child processes via `$TRACEPARENT` (and its
-/// companion `$TRACESTATE`). When buck2 is launched under such a trace, this makes our wide-event
-/// span a child of the launching trace instead of a disconnected root.
+/// Extract a parent trace context from the environment.
 ///
-/// `opentelemetry-rust` only ever extracts trace context from HTTP-style carriers, never from the
-/// process environment, so we assemble a carrier from the env ourselves and run the standard
-/// `TraceContextPropagator` over it. Returns an empty (root) context when `$TRACEPARENT` is absent
-/// or malformed -- i.e. the previous always-root behavior.
+/// Follows the W3C Trace Context convention that CI systems and wrappers (`otel-cli`, the Jenkins /
+/// GitHub Actions OpenTelemetry plugins, Buildkite, ...) use to hand an in-progress trace to child
+/// processes via `$TRACEPARENT` (and its companion `$TRACESTATE`). When buck2 is launched under
+/// such a trace, this makes our wide-event span a child of the launching trace instead of a
+/// disconnected root.
+///
+/// `EnvironmentExtractor` snapshots the process environment as a propagation carrier, normalizing
+/// lookup keys so the `TraceContextPropagator`'s `traceparent`/`tracestate` reads resolve to
+/// `$TRACEPARENT`/`$TRACESTATE`. Returns an empty (root) context when `$TRACEPARENT` is absent or
+/// malformed -- i.e. the previous always-root behavior.
 fn parent_context_from_env() -> Context {
-    let env = |var| std::env::var_os(var).and_then(|v| v.into_string().ok());
-    parent_context_from_carrier(
-        env("TRACEPARENT").as_deref(),
-        env("TRACESTATE").as_deref(),
-    )
-}
-
-/// The environment-independent core of [`parent_context_from_env`], split out so it can be tested
-/// without mutating process-global environment state.
-fn parent_context_from_carrier(traceparent: Option<&str>, tracestate: Option<&str>) -> Context {
-    let mut carrier: HashMap<String, String> = HashMap::new();
-    // The propagator keys off the lowercased header names, matching how these would arrive over HTTP.
-    for (header, value) in [("traceparent", traceparent), ("tracestate", tracestate)] {
-        if let Some(value) = value.filter(|v| !v.is_empty()) {
-            carrier.insert(header.to_owned(), value.to_owned());
-        }
-    }
-    TraceContextPropagator::new().extract(&carrier)
+    TraceContextPropagator::new().extract(&EnvironmentExtractor::new())
 }
 
 /// Build the OTLP exporter and start exporting, if telemetry is configured.
@@ -353,14 +346,25 @@ mod tests {
 
     use super::*;
 
+    /// Build a parent context the way [`parent_context_from_env`] does, but from an explicit
+    /// environment snapshot (via `EnvironmentExtractor`'s `FromIterator`) so we needn't mutate the
+    /// process environment. Keys must be given already-normalized (uppercase), matching how a real
+    /// `$TRACEPARENT`/`$TRACESTATE` reaches the extractor.
+    fn parent_context_from_vars(vars: &[(&str, &str)]) -> Context {
+        let extractor = EnvironmentExtractor::from_iter(
+            vars.iter().map(|(k, v)| (k.to_string(), v.to_string())),
+        );
+        TraceContextPropagator::new().extract(&extractor)
+    }
+
     #[test]
     fn traceparent_becomes_remote_parent() {
         // A well-formed W3C traceparent yields a valid, remote parent span context whose trace id
         // our span will inherit.
-        let cx = parent_context_from_carrier(
-            Some("00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01"),
-            None,
-        );
+        let cx = parent_context_from_vars(&[(
+            "TRACEPARENT",
+            "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01",
+        )]);
         let span_context = cx.span().span_context().clone();
         assert!(span_context.is_valid());
         assert!(span_context.is_remote());
@@ -374,21 +378,21 @@ mod tests {
     fn no_or_malformed_traceparent_is_root() {
         // No traceparent -> no parent (a fresh root span, as before).
         assert!(
-            !parent_context_from_carrier(None, None)
+            !parent_context_from_vars(&[])
                 .span()
                 .span_context()
                 .is_valid()
         );
-        // An empty value is treated as absent, not as a malformed header.
+        // An empty value parses as no valid parent, even alongside a tracestate.
         assert!(
-            !parent_context_from_carrier(Some(""), Some("foo=bar"))
+            !parent_context_from_vars(&[("TRACEPARENT", ""), ("TRACESTATE", "foo=bar")])
                 .span()
                 .span_context()
                 .is_valid()
         );
         // Garbage is ignored rather than propagated.
         assert!(
-            !parent_context_from_carrier(Some("not-a-traceparent"), None)
+            !parent_context_from_vars(&[("TRACEPARENT", "not-a-traceparent")])
                 .span()
                 .span_context()
                 .is_valid()

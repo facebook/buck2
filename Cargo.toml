@@ -259,10 +259,13 @@ num_cpus = "1.16"
 num_enum = "0.7.4"
 object = "0.36.7"
 once_cell = "1.21"
-opentelemetry = "0.32.0"
-opentelemetry-otlp = { version = "0.32.0", default-features = false, features = ["trace", "http-proto", "reqwest-blocking-client", "reqwest-rustls"] }
-opentelemetry-semantic-conventions = { version = "0.32.0", features = ["semconv_experimental"] }
-opentelemetry_sdk = "0.32.1"
+# See:
+# - https://github.com/open-telemetry/opentelemetry-rust/pull/3586
+# - https://github.com/open-telemetry/opentelemetry-rust/pull/3587
+opentelemetry = { version = "0.32.0", git = "https://github.com/MercuryTechnologies/opentelemetry-rust.git", branch = "mercury-head", features = ["experimental_propagation_env_carrier"] }
+opentelemetry-otlp = { version = "0.32.0", git = "https://github.com/MercuryTechnologies/opentelemetry-rust.git", branch = "mercury-head", default-features = false, features = ["trace", "http-proto", "reqwest-blocking-client", "reqwest-rustls"] }
+opentelemetry-semantic-conventions = { version = "0.32.0", git = "https://github.com/MercuryTechnologies/opentelemetry-rust.git", branch = "mercury-head", features = ["semconv_experimental"] }
+opentelemetry_sdk = { version = "0.32.1", git = "https://github.com/MercuryTechnologies/opentelemetry-rust.git", branch = "mercury-head" }
 os_str_bytes = { version = "6.6.0", features = ["conversions"] }
 parking_lot = { version = "0.12.1", features = ["send_guard"] }
 paste = "1.0.15"
