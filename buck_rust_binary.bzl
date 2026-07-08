@@ -20,6 +20,14 @@ def buck_rust_binary(**kwargs):
     kwargs["link_group_map"] = []
 
     # JEMalloc is not (yet!) the default on MacOS so add the allocator
-    # explicitly on all platforms here.
-    kwargs.setdefault("allocator", "jemalloc")
+    # explicitly on all platforms here. Intel Mac (x86_64) jemalloc headers
+    # are no longer maintained (platform is EOL); fall back to the system
+    # allocator there.
+    kwargs.setdefault(
+        "allocator",
+        select({
+            "DEFAULT": "jemalloc",
+            "ovr_config//os:macos-x86_64": "malloc",
+        }),
+    )
     rust_binary(**kwargs)
