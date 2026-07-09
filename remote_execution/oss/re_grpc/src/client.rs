@@ -240,7 +240,8 @@ pub struct RECapabilities {
     /// Largest size of a message before being uploaded using bytestream service.
     /// 0 indicates no limit beyond constraint of underlying transport (which is unknown).
     max_total_batch_size: usize,
-    /// Compressors supported by the "compressed-blobs" bytestream resources.
+    /// Compressors supported by the "compressed-blobs" bytestream resources. Also used to decide
+    /// whether we can request zstd-compressed `BatchReadBlobs` responses.
     supported_compressors: Vec<Compressor>,
 }
 
@@ -258,6 +259,8 @@ pub struct RERuntimeOpts {
     /// Timeout for RPC requests.
     #[expect(unused)]
     rpc_timeout: Duration,
+    /// Whether to request zstd-compressed `BatchReadBlobs` responses (server supports zstd).
+    batch_read_zstd: bool,
 }
 
 #[derive(Clone)]
@@ -307,6 +310,15 @@ impl Compressor {
             Self::Brotli => "brotli",
         }
     }
+}
+
+/// Decompress a zstd-compressed blob returned in a `BatchReadBlobs` response.
+async fn zstd_decompress_blob(data: &[u8]) -> anyhow::Result<Vec<u8>> {
+    let mut decoder = ZstdDecoder::new(Cursor::new(data));
+    decoder.multiple_members(true);
+    let mut out = Vec::new();
+    decoder.read_to_end(&mut out).await?;
+    Ok(out)
 }
 
 pub struct REClientBuilder;
@@ -465,6 +477,9 @@ impl REClientBuilder {
                 cas_ttl_secs: opts.cas_ttl_secs.unwrap_or(3 * 60 * 60),
                 max_retries: opts.max_retries,
                 rpc_timeout: Duration::from_secs(opts.grpc_timeout),
+                batch_read_zstd: capabilities
+                    .supported_compressors
+                    .contains(&Compressor::Zstd),
             },
             grpc_clients,
             capabilities,
@@ -1500,6 +1515,17 @@ where
     let inlined_digests = request.inlined_digests.unwrap_or_default();
     let file_digests = request.file_digests.unwrap_or_default();
 
+    // Advertise zstd for BatchReadBlobs responses when the server supports it; Identity is always
+    // acceptable as a fallback and the server decides per-blob what to actually return.
+    let acceptable_compressors = if opts.batch_read_zstd {
+        vec![
+            compressor::Value::Zstd as i32,
+            compressor::Value::Identity as i32,
+        ]
+    } else {
+        vec![compressor::Value::Identity as i32]
+    };
+
     let mut curr_size = 0;
     let mut requests = vec![];
     let mut curr_digests = vec![];
@@ -1520,7 +1546,7 @@ where
             let read_blob_req = BatchReadBlobsRequest {
                 instance_name: instance_name.as_str().to_owned(),
                 digests: std::mem::take(&mut curr_digests),
-                acceptable_compressors: vec![compressor::Value::Identity as i32],
+                acceptable_compressors: acceptable_compressors.clone(),
                 ..Default::default()
             };
             requests.push(read_blob_req);
@@ -1533,7 +1559,7 @@ where
         let read_blob_req = BatchReadBlobsRequest {
             instance_name: instance_name.as_str().to_owned(),
             digests: std::mem::take(&mut curr_digests),
-            acceptable_compressors: vec![compressor::Value::Identity as i32],
+            acceptable_compressors: acceptable_compressors.clone(),
             ..Default::default()
         };
         requests.push(read_blob_req);
@@ -1548,7 +1574,20 @@ where
         for r in resp.responses.into_iter() {
             let digest = tdigest_from(r.digest.context("Response digest not found.")?);
             check_status(r.status.unwrap_or_default())?;
-            batched_blobs_response.insert(digest, r.data);
+            let data = if r.compressor == compressor::Value::Identity as i32 {
+                r.data
+            } else if r.compressor == compressor::Value::Zstd as i32 {
+                zstd_decompress_blob(&r.data)
+                    .await
+                    .context("Failed to decompress zstd BatchReadBlobs response")?
+            } else {
+                return Err(anyhow::anyhow!(
+                    "BatchReadBlobs response for `{}` used an unsupported compressor: {}",
+                    digest,
+                    r.compressor
+                ));
+            };
+            batched_blobs_response.insert(digest, data);
         }
     }
 
@@ -2005,6 +2044,7 @@ mod tests {
             cas_ttl_secs: 0,
             max_retries: 0,
             rpc_timeout: Duration::from_secs(60),
+            batch_read_zstd: false,
         }
     }
 
@@ -2610,6 +2650,65 @@ mod tests {
         )
         .await?;
 
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_batch_download_zstd() -> anyhow::Result<()> {
+        // The server returns a zstd-compressed blob; we advertise zstd and decompress it.
+        let blob = vec![9u8; 500];
+        let digest = TDigest {
+            hash: "dd".to_owned(),
+            size_in_bytes: blob.len() as i64,
+            ..Default::default()
+        };
+
+        let mut compressed = vec![];
+        ZstdEncoder::new(Cursor::new(blob.clone()))
+            .read_to_end(&mut compressed)
+            .await
+            .unwrap();
+
+        let req = DownloadRequest {
+            inlined_digests: Some(vec![digest.clone()]),
+            ..Default::default()
+        };
+
+        let res = BatchReadBlobsResponse {
+            responses: vec![batch_read_blobs_response::Response {
+                digest: Some(tdigest_to(digest.clone())),
+                data: compressed.clone(),
+                status: Some(Status::default()),
+                compressor: compressor::Value::Zstd as i32,
+            }],
+        };
+
+        let mut opts = test_re_runtime_opts();
+        opts.batch_read_zstd = true;
+
+        let expected = blob.clone();
+        let d_resp = download_impl(
+            &opts,
+            &InstanceName(None),
+            req,
+            None,
+            10000,
+            |req| {
+                let res = res.clone();
+                async move {
+                    // We advertised zstd as an acceptable response compressor.
+                    assert!(
+                        req.acceptable_compressors
+                            .contains(&(compressor::Value::Zstd as i32))
+                    );
+                    Ok(res)
+                }
+            },
+            |_digest| async move { anyhow::Ok(Box::pin(futures::stream::iter(vec![]))) },
+        )
+        .await?;
+
+        assert_eq!(d_resp.inlined_blobs.unwrap()[0].blob, expected);
         Ok(())
     }
 
