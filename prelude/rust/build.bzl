@@ -1614,6 +1614,19 @@ def _rustc_invoke(
             identifier += " "
         identifier += "[incr]"
 
+    # None defers the choice to the `buck2.default_allow_cache_upload` config; an
+    # explicit False overrides it. Actions without a preference pass None.
+    if allow_cache_upload or deferred_link_cmd != None:
+        # Opted in, or a deferred link. In the latter rustc compiles objects
+        # without linking, and we always cache those.
+        action_allow_cache_upload = True
+    elif is_clippy:
+        # Clippy never uploads.
+        action_allow_cache_upload = False
+    else:
+        # Libraries (check, metadata, rlib) have no preference.
+        action_allow_cache_upload = None
+
     ctx.actions.run(
         compile_cmd,
         local_only = local_only,
@@ -1622,8 +1635,7 @@ def _rustc_invoke(
         category = category,
         identifier = identifier,
         no_outputs_cleanup = incremental_enabled,
-        # We want to unconditionally cache object file compilations when rustc is not linking
-        allow_cache_upload = allow_cache_upload or deferred_link_cmd != None,
+        allow_cache_upload = action_allow_cache_upload,
         error_handler = toolchain_info.rust_error_handler,
     )
 
@@ -1634,7 +1646,8 @@ def _rustc_invoke(
             prefer_local = prefer_local,
             category = "deferred_link",
             identifier = identifier,
-            allow_cache_upload = allow_cache_upload,
+            # Defer to `buck2.default_allow_cache_upload` unless explicitly opted in.
+            allow_cache_upload = allow_cache_upload or None,
         )
 
     return Invoke(
