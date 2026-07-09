@@ -224,8 +224,24 @@ public class KspStepsBuilder {
   private static String getJvmDefaultMode(ImmutableList<String> args) {
     for (String arg : args) {
       String[] splitArg = arg.split("=");
-      if (splitArg.length == 2 && splitArg[0].equals("-Xjvm-default")) {
-        return splitArg[1];
+      if (splitArg.length == 2) {
+        if (splitArg[0].equals("-Xjvm-default")) {
+          return splitArg[1];
+        }
+        // Kotlin 2.3 renamed -Xjvm-default to -jvm-default with new mode names. Map them back to
+        // the legacy mode names KSP expects to preserve behavior.
+        if (splitArg[0].equals("-jvm-default")) {
+          switch (splitArg[1]) {
+            case "no-compatibility":
+              return "all";
+            case "enable":
+              return "all-compatibility";
+            case "disable":
+              return "disable";
+            default:
+              return splitArg[1];
+          }
+        }
       }
     }
     return "disabled";
