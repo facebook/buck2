@@ -196,7 +196,7 @@ def create_jar_artifact_kotlincd(
     )
 
     # this is required for the Kotlin compiler to be able to use jspecify annotations
-    extra_kotlinc_arguments = ["-Xjspecify-annotations=strict", "-Xtype-enhancement-improvements-strict-mode"] + extra_kotlinc_arguments
+    extra_kotlinc_arguments = ["-Xjspecify-annotations=strict"] + extra_kotlinc_arguments
 
     kotlin_extra_params = _encode_kotlin_extra_params(
         kotlin_toolchain = kotlin_toolchain,
