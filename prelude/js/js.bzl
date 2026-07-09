@@ -37,7 +37,7 @@ def _is_release():
                 "DEFAULT": False,
                 "config//build_mode:optimization[opt]": True,
             }),
-            "config//build_mode/constraints:release": True,
+            "config//build_mode/constraints:build_mode[release]": True,
         }),
         "config//runtime:fbcode": select({
             "DEFAULT": False,
