@@ -7,13 +7,16 @@
  * of this source tree.
  */
 
+use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
-use std::future::Future;
+
 use futures::Stream;
 use futures::TryStreamExt;
-use crate::error::{REClientError, TCode};
 use tracing::warn;
+
+use crate::error::REClientError;
+use crate::error::TCode;
 
 pub async fn retry<F, Fut, T>(
     method: &str,
@@ -173,9 +176,7 @@ where
                         {
                             warn!(
                                 "Retrying {} stream open after error: {}. Attempts remaining: {}",
-                                method,
-                                err,
-                                state.retries_left,
+                                method, err, state.retries_left,
                             );
                             tokio::time::sleep(state.delay).await;
                             state.delay *= 2;
@@ -201,9 +202,7 @@ where
                     {
                         warn!(
                             "Retrying {} stream read after error: {}. Attempts remaining: {}",
-                            method,
-                            err,
-                            state.retries_left,
+                            method, err, state.retries_left,
                         );
                         tokio::time::sleep(state.delay).await;
                         state.delay *= 2;

@@ -458,6 +458,9 @@ pub struct Buck2OssReConfiguration {
     pub max_decoding_message_size: Option<usize>,
     /// The max cumulative blob size for `Read` and `BatchReadBlobs` methods.
     pub max_total_batch_size: Option<usize>,
+    /// Minimum size in bytes of a blob's `data` before it is zstd-compressed in `BatchUpdateBlobs`
+    /// uploads.
+    pub batch_compression_threshold_bytes: Option<usize>,
     /// Maximum number of concurrent upload requests for each action.
     pub max_concurrent_uploads_per_action: Option<usize>,
     /// Time that digests are assumed to live in CAS after being touched.
@@ -570,6 +573,10 @@ impl Buck2OssReConfiguration {
             max_total_batch_size: legacy_config.parse(BuckconfigKeyRef {
                 section: BUCK2_RE_CLIENT_CFG_SECTION,
                 property: "max_total_batch_size",
+            })?,
+            batch_compression_threshold_bytes: legacy_config.parse(BuckconfigKeyRef {
+                section: BUCK2_RE_CLIENT_CFG_SECTION,
+                property: "batch_compression_threshold_bytes",
             })?,
             max_concurrent_uploads_per_action: legacy_config.parse(BuckconfigKeyRef {
                 section: BUCK2_RE_CLIENT_CFG_SECTION,
