@@ -1304,10 +1304,12 @@ impl InvocationRecorder {
     fn default_metadata() -> buck2_data::TypedMetadata {
         let mut ints = StdBuckHashMap::default();
         ints.insert("is_tty".to_owned(), std::io::stderr().is_tty() as i64);
-        buck2_data::TypedMetadata {
-            ints,
-            strings: StdBuckHashMap::default(),
+        let mut strings = StdBuckHashMap::default();
+        #[cfg(all(fbcode_build, target_os = "linux"))]
+        if let Some(agent_identity) = identity_env::agent_identity_from_env() {
+            strings.insert("client_agent_identity_from_env".to_owned(), agent_identity);
         }
+        buck2_data::TypedMetadata { ints, strings }
     }
 
     fn handle_command_start(

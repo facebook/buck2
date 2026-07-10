@@ -104,6 +104,7 @@ rust_library(
         "ovr_config//os:linux": [
             "fbsource//third-party/rust:psutil",
             "//buck2/app/buck2_forkserver:buck2_forkserver",
+            # @oss-disable[end= ]: "//common/rust/identity:identity_env",
         ],
         "ovr_config//os:macos": [
             "fbsource//third-party/rust:psutil",
