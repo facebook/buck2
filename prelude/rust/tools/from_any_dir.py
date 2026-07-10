@@ -50,6 +50,19 @@ def main():
     #   OUTPUT: Failed to compile memcmp_invalid_stripped_check
     cc = list(filter(lambda arg: arg != "-Wl,-lomp", cc))
 
+    # TODO: figure out why this flag passes `is_flag_supported` and is then rejected by the assembler.
+    #
+    #   Action failed: fbsource//third-party/rust/vendor/aws-lc-sys:0.42-build (buildscript)
+    #   clang: error: unsupported argument '--debug-prefix-map=/re_cwd/buck-out/v2/art/fbsource/third-party/rust/vendor/aws-lc-sys/__0.42-build__/output_artifacts/cwd=' to option '-Wa,'
+    #
+    # The relevant code in third-party/rust/vendor/aws-lc-sys-0.42.0/builder/cc_builder.rs is:
+    #
+    #   let asm_flag = format!("-Wa,--debug-prefix-map={path_str}=");
+    #   if cc_build.is_flag_supported(&asm_flag).unwrap_or(false) {
+    #       cc_build.asm_flag(asm_flag);
+    #   }
+    cc = list(filter(lambda arg: not arg.startswith("-Wa,--debug-prefix-map="), cc))
+
     os.chdir(args.cwd)
     try:
         os.execl(cc[0], cc[0], *cc[1:])
