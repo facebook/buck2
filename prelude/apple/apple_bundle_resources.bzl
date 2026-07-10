@@ -97,7 +97,7 @@ def get_apple_bundle_resource_part_list(ctx: AnalysisContext) -> AppleBundleReso
         )
 
     cxx_sanitizer_runtime_info = get_default_binary_dep(ctx.attrs.binary).get(CxxSanitizerRuntimeInfo) if ctx.attrs.binary else None
-    if cxx_sanitizer_runtime_info:
+    if cxx_sanitizer_runtime_info and get_extension_attr(ctx) != "appex":
         runtime_resource_spec = AppleResourceSpec(
             files = cxx_sanitizer_runtime_info.runtime_files,
             destination = AppleResourceDestination("frameworks"),
