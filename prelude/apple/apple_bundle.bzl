@@ -20,7 +20,7 @@ load("@prelude//apple:debug.bzl", "AppleSelectiveDebuggableMetadata")
 # @oss-disable[end= ]: load("@prelude//apple/meta_only:linker_outputs.bzl", "subtargets_for_apple_bundle_extra_outputs")
 load("@prelude//apple/user:apple_selected_debug_path_file.bzl", "SELECTED_DEBUG_PATH_FILE_NAME")
 load("@prelude//apple/user:apple_selective_debugging.bzl", "AppleSelectiveDebuggingInfo")
-load("@prelude//apple/validation:debug_artifacts.bzl", "get_debug_artifacts_validators")
+load("@prelude//apple/validation:required_reasons.bzl", "get_required_reasons_validator_output")
 load(
     "@prelude//cxx:cxx_transitive_diagnostics.bzl",
     "cxx_transitive_diagnostics_combine",
@@ -515,11 +515,26 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         ),
     ]
 
-    (validation_providers, validation_subtargets) = _get_debug_validators_subtargets_and_providers(
+    required_reasons_validator_output = get_required_reasons_validator_output(
         ctx,
         aggregated_debug_info.debug_info.debug_info_tset,
     )
-    sub_targets.update(validation_subtargets)
+    if required_reasons_validator_output != None:
+        sub_targets["required-reasons-validation"] = [
+            DefaultInfo(default_output = required_reasons_validator_output),
+        ]
+        validation_providers = [
+            ValidationInfo(
+                validations = [
+                    ValidationSpec(
+                        name = "required_reasons_usage",
+                        validation_result = required_reasons_validator_output,
+                    ),
+                ],
+            ),
+        ]
+    else:
+        validation_providers = []
 
     diagnostics_info = cxx_transitive_diagnostics_combine(
         ctx = ctx,
@@ -589,33 +604,6 @@ def _xcode_populate_attributes(ctx, processed_info_plist: Artifact, info_plist_r
 
     apple_xcode_data_add_xctoolchain(ctx, data)
     return data
-
-def _get_debug_validators_subtargets_and_providers(ctx, artifacts: ArtifactTSet) -> (list[Provider], dict[str, list[Provider]]):
-    name_to_debug_validator_artifact = get_debug_artifacts_validators(ctx, artifacts)
-    if not name_to_debug_validator_artifact:
-        return ([], {})
-
-    return (
-        [
-            ValidationInfo(
-                validations = [
-                    ValidationSpec(
-                        name = name,
-                        validation_result = artifact,
-                    )
-                    for name, artifact in name_to_debug_validator_artifact.items()
-                ],
-            ),
-        ],
-        {
-            "debug-artifacts-validators": [
-                DefaultInfo(
-                    default_outputs = name_to_debug_validator_artifact.values(),
-                    sub_targets = {name: [DefaultInfo(default_output = artifact)] for name, artifact in name_to_debug_validator_artifact.items()},
-                ),
-            ],
-        },
-    )
 
 def _linker_maps_data(actions: AnalysisActions, deps_with_binary: list[Dependency]) -> (Artifact, AppleBundleLinkerMapInfo):
     deps_linker_map_infos = filter(

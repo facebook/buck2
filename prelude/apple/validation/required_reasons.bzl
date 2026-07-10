@@ -10,24 +10,34 @@ load(
     "@prelude//:artifact_tset.bzl",
     "ArtifactTSet",  # @unused Used as a type
 )
+load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 
 _AnalysisInput = record(
     argsfile = field(Artifact),
     identifier = field(int),
 )
 
-def get_debug_artifacts_validators(ctx, artifacts: ArtifactTSet) -> dict[str, Artifact]:
+def get_required_reasons_validator_output(ctx, artifacts: ArtifactTSet) -> Artifact | None:
+    if not ctx.attrs.validate_rrapi_usage:
+        return None
+
     label_to_input_artifacts = _get_analysis_input_artifacts(ctx, artifacts)
     if not label_to_input_artifacts:
-        return {}
+        return None
 
-    name_to_validation_result = {}
-    for key, validator in ctx.attrs.debug_artifacts_validators.items():
-        analysis, reducer = validator
-        label_to_analysis_artifacts = _analyze_artifacts(ctx, key, analysis[RunInfo], label_to_input_artifacts)
-        name_to_validation_result[key] = _reduce_analysis_artifacts(ctx, key, reducer[RunInfo], label_to_analysis_artifacts)
-
-    return name_to_validation_result
+    required_reasons_tools = ctx.attrs._apple_toolchain[AppleToolchainInfo].required_reasons_tools
+    label_to_analysis_artifacts = _analyze_artifacts(
+        ctx,
+        "required_reasons_usage",
+        required_reasons_tools.analyzer,
+        label_to_input_artifacts,
+    )
+    return _validate_analysis_artifacts(
+        ctx,
+        "required_reasons_usage",
+        required_reasons_tools.validator,
+        label_to_analysis_artifacts,
+    )
 
 def _get_analysis_input_artifacts(ctx, artifacts: ArtifactTSet) -> dict[Label, list[_AnalysisInput]]:
     underlying_tset = artifacts._tset
@@ -70,9 +80,9 @@ def _analyze_artifacts(ctx, key: str, analysis_tool: RunInfo, label_to_artifacts
 
     return label_to_analysis
 
-def _reduce_analysis_artifacts(ctx, key: str, reducer_tool: RunInfo, label_to_artifacts: dict[Label, list[Artifact]]) -> Artifact:
+def _validate_analysis_artifacts(ctx, key: str, validator_tool: RunInfo, label_to_artifacts: dict[Label, list[Artifact]]) -> Artifact:
     input_json = ctx.actions.write_json(
-        "{}_reducer_args.json".format(key),
+        "{}_validator_args.json".format(key),
         label_to_artifacts,
         with_inputs = True,
         has_content_based_path = False,
@@ -81,13 +91,13 @@ def _reduce_analysis_artifacts(ctx, key: str, reducer_tool: RunInfo, label_to_ar
     output = ctx.actions.declare_output("{}.json".format(key), has_content_based_path = False)
     ctx.actions.run(
         cmd_args([
-            reducer_tool,
+            validator_tool,
             "--analysis-json-path",
             input_json,
             "--output",
             output.as_output(),
         ]),
-        category = "{}_reduce".format(key),
+        category = "{}_validate".format(key),
         identifier = ctx.attrs.name,
     )
     return output

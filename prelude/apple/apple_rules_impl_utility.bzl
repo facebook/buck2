@@ -294,9 +294,10 @@ def apple_bundle_extra_attrs():
         "selective_debugging": attrs.option(attrs.dep(providers = [AppleSelectiveDebuggingInfo]), default = None),
         "split_arch_dsym": attrs.bool(default = False),
         "universal": attrs.option(attrs.bool(), default = None),
+        "validate_rrapi_usage": attrs.bool(default = False),
         "_apple_toolchain": get_apple_bundle_toolchain_attr(),
         "_codesign_entitlements": attrs.option(attrs.source(), default = None),
-    } | apple_common.debug_artifacts_validators_arg()
+    }
     attribs.update(_apple_bundle_like_common_attrs())
     attribs.update(apple_common.entitlements_suffixed_key_map_arg())
     attribs.update(apple_common.entitlements_removed_keys_arg())

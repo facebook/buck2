@@ -179,26 +179,6 @@ def _privacy_manifest_arg():
         ),
     }
 
-def _debug_artifacts_validators_arg():
-    return {
-        "debug_artifacts_validators": attrs.dict(
-            attrs.string(),
-            attrs.tuple(
-                # A target which will be passed two named arguments:
-                # --artifacts: A path to a file containing a list of artifact paths to inspect.
-                # --output: The path to write the analysis output to.
-                attrs.exec_dep(providers = [RunInfo]),
-                # A target which is passed the outputs of the previous script
-                # and emits a ValidationSpec validation_result JSON file.
-                # --analysis-json-path: A path to a JSON artifact. Keys are the configured target.
-                # --output: The path to write the ValidationSpec validation_result JSON file.
-                # value is a list of artifact outputs from the previous script.
-                attrs.exec_dep(providers = [RunInfo]),
-            ),
-            default = {},
-        ),
-    }
-
 def _serialize_debugging_options_arg():
     return {
         # Need ability to distinguish between no value provided by users
@@ -487,7 +467,6 @@ apple_common = struct(
     extra_xcode_sources = _extra_xcode_sources,
     extra_xcode_files = _extra_xcode_files,
     privacy_manifest_arg = _privacy_manifest_arg,
-    debug_artifacts_validators_arg = _debug_artifacts_validators_arg,
     serialize_debugging_options_arg = _serialize_debugging_options_arg,
     uses_explicit_modules_arg = _uses_explicit_modules_arg,
     meta_apple_library_validation_enabled_arg = _meta_apple_library_validation_enabled_arg,
