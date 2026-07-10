@@ -6,6 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
 load("@prelude//apple:apple_utility.bzl", "expand_relative_prefixed_sdk_path")
 load("@prelude//apple/swift:swift_pcm_compilation.bzl", "get_compiled_pcm_deps_tset")
 load("@prelude//apple/swift:swift_types.bzl", "SWIFTMODULE_EXTENSION")
@@ -54,6 +55,7 @@ def get_swift_interface_anon_targets(ctx: AnalysisContext, uncompiled_sdk_deps: 
                 "dep": d,
                 "has_content_based_path": True,
                 "name": d.label,
+                "_apple_tools": ctx.attrs._apple_tools,
                 "_swift_toolchain": get_swift_toolchain_info_dep(ctx),
             },
         )
@@ -182,6 +184,7 @@ _swift_interface_compilation = rule(
     attrs = {
         "dep": attrs.dep(),
         "has_content_based_path": attrs.bool(),
+        "_apple_tools": attrs.dep(providers = [AppleToolsInfo]),
         "_swift_toolchain": attrs.dep(),
     },
 )

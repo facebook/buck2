@@ -1520,6 +1520,7 @@ apple_tools = prelude_rule(
         "assemble_bundle": attrs.exec_dep(providers = [RunInfo]),
         "bundle_telemetry_logger": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "codesign_manifest_tree_postprocessor": attrs.exec_dep(providers = [RunInfo]),
+        "dedupe_swift_module_map": attrs.exec_dep(providers = [RunInfo]),
         "dry_codesign_tool": attrs.exec_dep(providers = [RunInfo]),
         "framework_sanitizer": attrs.exec_dep(providers = [RunInfo]),
         "info_plist_processor": attrs.exec_dep(providers = [RunInfo]),

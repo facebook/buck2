@@ -13,6 +13,7 @@ apple_tools(
     assemble_bundle = "prelude//apple/tools/bundling:assemble_bundle",
     bundle_telemetry_logger = bundle_telemetry_logger_target(),
     codesign_manifest_tree_postprocessor = "prelude//apple/tools/codesign_manifest_tree_postprocessor:codesign_manifest_tree_postprocessor",
+    dedupe_swift_module_map = ":dedupe_swift_module_map",
     dry_codesign_tool = ":dry_codesign_tool",
     framework_sanitizer = ":framework_sanitizer",
     info_plist_processor = "prelude//apple/tools/info_plist_processor:tool",
@@ -54,6 +55,12 @@ python_binary(
     deps = [
         "prelude//apple/tools/re_compatibility_utils:re_compatibility_utils",
     ],
+)
+
+python_bootstrap_binary(
+    name = "dedupe_swift_module_map",
+    main = "dedupe_swift_module_map.py",
+    visibility = ["PUBLIC"],
 )
 
 python_bootstrap_binary(
@@ -121,6 +128,7 @@ export_file(
 python_library(
     name = "scripts-typing",
     srcs = [
+        "dedupe_swift_module_map.py",
         "dry_codesign_tool.py",
         "framework_sanitizer.py",
         "ipa_package_maker.py",
