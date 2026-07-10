@@ -101,6 +101,17 @@ load("@prelude//utils:utils.bzl", "dedupe_by_value")
 #    module) are controlled by `package_voltron_asset_libraries` and `can_be_asset` flags.
 #    Similarly, the metadata for each module is stored at `assets/<module_name>/libs.txt`.
 
+def _merged_lib_provided_by_apk_under_test(merged_lib, shared_libraries_to_exclude: set) -> bool:
+    # True when every primary constituent of a merged library is provided by the
+    # apk-under-test, so the instrumentation APK can drop its own copy and resolve
+    # the library at runtime from the apk-under-test instead.
+    if not shared_libraries_to_exclude or not merged_lib.primary_constituents:
+        return False
+    for constituent in merged_lib.primary_constituents:
+        if constituent.raw_target() not in shared_libraries_to_exclude:
+            return False
+    return True
+
 def get_android_binary_native_library_info(
     enhance_ctx: EnhancementContext,
     android_packageable_info: AndroidPackageableInfo,
@@ -405,8 +416,19 @@ def get_android_binary_native_library_info(
 
             ctx.actions.symlinked_dir(outputs[native_merge_debug], native_library_merge_debug_outputs)
 
+            # Merged libraries are assembled from the full linkable graph, so unlike the
+            # non-merging path (which filters via get_default_shared_libs) they do not
+            # otherwise honor shared_libraries_to_exclude. Drop any merged library whose
+            # primary constituents are all provided by the apk-under-test: re-emitting it
+            # would ship a duplicate merged .so that loads alongside the apk-under-test's
+            # copy in the instrumentation process and re-runs its link_whole static
+            # initializers. shared_libraries_to_exclude is empty for non-instrumentation
+            # binaries, so this is a no-op there.
             final_shared_libs_by_platform = {
-                platform: {soname: d.lib for soname, d in merged_shared_libs.items()} for platform, merged_shared_libs in merged_shared_libs_by_platform.items()
+                platform: {
+                    soname: d.lib for soname, d in merged_shared_libs.items() if not _merged_lib_provided_by_apk_under_test(d, shared_libraries_to_exclude)
+                }
+                for platform, merged_shared_libs in merged_shared_libs_by_platform.items()
             }
         elif enable_relinker:
             final_shared_libs_by_platform, native_library_merge_debug_outputs = _create_all_relinkable_links(
