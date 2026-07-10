@@ -6,7 +6,7 @@ runs:
   - uses: SebRollen/toml-action@v1.2.0
     id: read_rust_toolchain
     with:
-      file: rust-toolchain
+      file: rust-toolchain.toml
       field: toolchain.channel
   - uses: dtolnay/rust-toolchain@v1
     with:

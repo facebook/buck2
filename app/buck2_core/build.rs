@@ -28,7 +28,7 @@ fn rustc_version() -> String {
 
 /// Get the version we expect to be using.
 fn expected_version() -> String {
-    let path = "../../rust-toolchain";
+    let path = "../../rust-toolchain.toml";
     for line in fs::read_to_string(path).unwrap().lines() {
         let prefix = "# @rustc_version: ";
         if let Some(version) = line.strip_prefix(prefix) {
