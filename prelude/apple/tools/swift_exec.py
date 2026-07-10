@@ -16,7 +16,6 @@ import shlex
 import shutil
 import subprocess
 import sys
-import tempfile
 
 from writable import make_dir_recursively_writable, make_path_user_writable
 
@@ -45,99 +44,6 @@ def _get_modulemap(args):
                 return json.load(modulemap)
 
     return None
-
-
-def _dedupe_module_map_entries(entries: list) -> list:
-    # swiftc rejects an explicit module map with two entries for the same module
-    # name reached via distinct tset nodes. The dedup key is
-    # (moduleName, is_swiftmodule); in the projected JSON, swiftmodule entries
-    # have a modulePath field while clang pcm entries have a clangModulePath
-    # field, so the presence of modulePath reproduces is_swiftmodule exactly.
-    seen = set()
-    deduped = []
-    for entry in entries:
-        if "modulePath" in entry:
-            key = (entry["moduleName"], True)
-        elif "clangModulePath" in entry:
-            key = (entry["moduleName"], False)
-        else:
-            raise RuntimeError(f"Unrecognized module map entry: {entry}")
-
-        if key in seen:
-            continue
-        seen.add(key)
-        deduped.append(entry)
-
-    return deduped
-
-
-def _find_flag_line_in_argsfiles(
-    command: list[str], flag: str
-) -> tuple[int, int, list[str]] | None:
-    # Search every @argsfile referenced in `command`, in order, for the first
-    # line that begins with `flag`. Returns (index into `command` of the
-    # containing argsfile, index of the matching line within that argsfile), or
-    # None if no argsfile contains the flag.
-    for argsfile_index, arg in enumerate(command):
-        if not arg.startswith("@"):
-            continue
-        with open(arg[1:]) as f:
-            lines = [line.rstrip("\n") for line in f]
-        for line_index, line in enumerate(lines):
-            if line == flag:
-                return argsfile_index, line_index, lines
-    return None
-
-
-def _dedupe_swift_module_map(command: list[str], tmpdir: str) -> list[str]:
-    """
-    Reconstruct the swift args to de-dupe references to swift modules.
-    """
-    found = _find_flag_line_in_argsfiles(command, "-explicit-swift-module-map-file")
-    if found is None:
-        return command
-    argsfile_index, flag_line_index, lines = found
-
-    # The module map path is the line after the flag, or two lines after when
-    # the flag is sandwiched behind a -Xfrontend indirection. The bounded slice
-    # keeps the look-ahead in-bounds, so the single check below covers both a
-    # missing -Xfrontend value and a missing path.
-    next_lines = lines[flag_line_index + 1 : flag_line_index + 2]
-    path_line_index = flag_line_index + (
-        2 if next_lines and next_lines[0] == "-Xfrontend" else 1
-    )
-    if path_line_index >= len(lines):
-        raise RuntimeError(
-            "Expected a module map path following -explicit-swift-module-map-file "
-            "in argsfile but reached the end of the file."
-        )
-
-    modulemap_path = lines[path_line_index].strip()
-    with open(modulemap_path, "rb") as f:
-        entries = json.load(f)
-
-    deduped = _dedupe_module_map_entries(entries)
-    if len(deduped) == len(entries):
-        return command
-
-    # The module map is a Buck-produced input artifact that is also consumed by
-    # the swiftinterface compilation action, so we must not mutate it in place.
-    # Write the deduped map to a fresh temp file and repoint swiftc at it.
-    new_modulemap_path = os.path.join(tmpdir, "deduped.swift_module_map.json")
-    with open(new_modulemap_path, "w") as f:
-        json.dump(deduped, f)
-        f.write("\n")
-
-    new_lines = list(lines)
-    new_lines[path_line_index] = new_modulemap_path
-    new_argsfile_path = os.path.join(tmpdir, "deduped_argsfile")
-    with open(new_argsfile_path, "w") as f:
-        f.write("\n".join(new_lines))
-        f.write("\n")
-
-    new_command = list(command)
-    new_command[argsfile_index] = f"@{new_argsfile_path}"
-    return new_command
 
 
 def _get_modulename(args):
@@ -435,33 +341,23 @@ def main():
                     if maybe_path:
                         _make_path_user_writable(maybe_path)
 
-    # Look for a -explicit-swift-module-map-file flag, inspect it's contents
-    # and de-dupe swift module entries (multiple platform configs may result in
-    # more than 1 artifact, just take one: T275248592), change the @argfiles
-    # to point to a new temprorary file.
-    # "run_command" is the actual args we'll execute with, and we clean up
-    # the temporary files, so it will no longer be valid after this with block.
-    # We don't care about the de-duped swift modules after this with block.
-    with tempfile.TemporaryDirectory() as dedupe_tmpdir:
-        run_command = _dedupe_swift_module_map(command, dedupe_tmpdir)
+    # Ensure the directories referenced by the output file map exist.
+    # This can happen for Swift Incremental mode where there's no
+    # previous incremental action available
+    if "-output-file-map" in command:
+        with open(command[command.index("-output-file-map") + 1]) as f:
+            for entry in json.load(f).values():
+                for maybe_path in entry.values():
+                    if isinstance(maybe_path, str) and os.path.dirname(maybe_path):
+                        os.makedirs(os.path.dirname(maybe_path), exist_ok=True)
 
-        # Ensure the directories referenced by the output file map exist.
-        # This can happen for Swift Incremental mode where there's no
-        # previous incremental action available
-        if "-output-file-map" in run_command:
-            with open(run_command[run_command.index("-output-file-map") + 1]) as f:
-                for entry in json.load(f).values():
-                    for maybe_path in entry.values():
-                        if isinstance(maybe_path, str) and os.path.dirname(maybe_path):
-                            os.makedirs(os.path.dirname(maybe_path), exist_ok=True)
-
-        result = subprocess.run(
-            run_command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            encoding=sys.stdout.encoding,
-            env=env,
-        )
+    result = subprocess.run(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        encoding=sys.stdout.encoding,
+        env=env,
+    )
 
     print(result.stdout, file=sys.stdout, end="")
     print(result.stderr, file=sys.stderr, end="")
