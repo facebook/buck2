@@ -396,7 +396,7 @@ rand_distr = "0.6"
 rand_xoshiro = "0.8.1"
 re_grpc_proto = { path = "remote_execution/oss/re_grpc_proto" }
 ref-cast = "1.0.18"
-regex = "1.12.4"
+regex = "1.13.0"
 remote_execution = { path = "remote_execution/oss/re_grpc" }
 rusqlite = { version = "0.37.0", features = ["backup", "blob", "bundled", "column_decltype", "functions", "limits", "modern_sqlite", "serde_json"] }
 rustc-hash = "2.1.3"
