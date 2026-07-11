@@ -174,6 +174,8 @@ impl SetSketch {
     /// **Important:** This method relies on the locality-sensitive property of the sketch
     /// registers (i.e. that the register value for an element is independent of which set it
     /// belongs to). It must **not** be used with non-locality-sensitive weighting schemes.
+    /// For sketches built with `sketch_weighted`, the proportions are proportions of weight
+    /// mass rather than of element count.
     pub fn approx_proportion_not_included(&self, other: &SetSketch) -> (f64, f64) {
         // Implementation notes:
         //
@@ -431,6 +433,9 @@ where
     ///
     /// Use of this function can be mixed with the unweighted `sketch`; `sketch` is just an alias
     /// for this with weight 1.
+    ///
+    /// For new sketch corpuses, prefer `sketch_weighted`, which is just as fast but keeps
+    /// locality sensitivity.
     pub fn sketch_weighted_locality_unstable(&mut self, to_sketch: &T, weight: u64) {
         if weight == 0 {
             return;
@@ -518,6 +523,18 @@ fn sample_min_exp_stable(rng: &mut Xoshiro256PlusPlus, n: u64) -> f64 {
     -(-min).ln_1p()
 }
 
+/// Derives the seed of the dart stream for a given (element hash, octave) pair.
+///
+/// SplitMix64-style finalizer. Together with the dart stream layout this defines the
+/// register values of every sketch produced by `sketch_weighted`; it must never change
+/// once such sketches are persisted.
+fn mix_octave_seed(hval: u64, octave: u32) -> u64 {
+    let mut z = hval ^ 0x9E3779B97F4A7C15u64.wrapping_mul(octave as u64 + 1);
+    z = (z ^ (z >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
+    z = (z ^ (z >> 27)).wrapping_mul(0x94D049BB133111EB);
+    z ^ (z >> 31)
+}
+
 impl<T, H> SetSketcher<T, H>
 where
     T: Hash,
@@ -535,6 +552,9 @@ where
     ///     number of registers.
     ///
     /// This function also must not be mixed with unweighted sketches (for a given item anyway).
+    ///
+    /// For new sketch corpuses, prefer `sketch_weighted`, which offers the same guarantees in
+    /// amortized O(1).
     pub fn sketch_weighted_locality_stable(&mut self, to_sketch: &T, weight: u64) {
         if weight == 0 {
             return;
@@ -554,6 +574,163 @@ where
                 *r = k;
             }
         }
+    }
+}
+
+impl<T, H> SetSketcher<T, H>
+where
+    T: Hash,
+    H: Hasher + Default,
+{
+    /// Add the given value to the sketch using the given weight, preserving locality
+    /// sensitivity, in amortized O(1).
+    ///
+    /// This supersedes both `sketch_weighted_locality_unstable` (same speed, but locality
+    /// sensitive) and `sketch_weighted_locality_stable` (same guarantees, but amortized
+    /// O(1) plus O(log w) instead of O(m log w)).
+    ///
+    /// Semantics:
+    ///
+    ///  1. The cardinality estimate resulting from weighted insertions is the sum of the
+    ///     weights (exactly as for the other weighted insertion functions; the tuned
+    ///     parameter range caveats there apply here too).
+    ///  2. Within one sketch, re-inserting the same item with any set of weights is
+    ///     exactly equivalent to inserting it once with the largest of those weights.
+    ///  3. Locality sensitivity holds across different weights. For any register, two
+    ///     sketches agree with probability
+    ///     `sum_e min(w_A(e), w_B(e)) / sum_e max(w_A(e), w_B(e))` (weighted Jaccard),
+    ///     and `self`'s register exceeds `other`'s with probability
+    ///     `sum_e (w_A(e) - w_B(e))_+ / sum_e max(...)`. Consequently
+    ///     `approx_proportion_not_included` works, with its proportions reinterpreted as
+    ///     proportions of weight mass rather than of element count. An item's register
+    ///     contributions are also exactly monotone in its weight.
+    ///
+    /// Compatibility: this function realizes an item's register contributions differently
+    /// from every other insertion path, including plain `sketch`. Sketches that will ever
+    /// be compared or merged must insert any given item through this function in all of
+    /// them or in none of them; mixing paths for the same item makes it count roughly
+    /// twice toward cardinality and destroys its locality sensitivity. Migrating means
+    /// versioning persisted sketches and routing everything, including weight-1 inserts,
+    /// through this function.
+    ///
+    /// How it works: inserting `(item, w)` inserts a family of virtual sub-items of fixed,
+    /// exponentially growing weights — one per octave `[2^(j-1), 2^j)` of the mass
+    /// interval `[0, w)` — with the octave straddling `w` retained only up to `w`. Every
+    /// octave has a fixed weight, so no seed is ever used at two different rates (the
+    /// failure mode of the unstable path), and the octaves of `[0, w)` form a nested
+    /// chain, so different weights of one item share all sub-items except the topmost,
+    /// whose retentions nest. See `dart_insert` for the primitive and its contract.
+    pub fn sketch_weighted(&mut self, to_sketch: &T, weight: u64) {
+        if weight == 0 {
+            return;
+        }
+        let hval: u64 = self.b_hasher.hash_one(&to_sketch);
+        // Highest octave intersecting [0, weight). Largest octave first: it carries half
+        // the total enumeration rate, so `lower_k` rises to near its final value before
+        // the cheap low octaves are visited.
+        let top = 64 - weight.leading_zeros();
+        for j in (0..=top).rev() {
+            let lo: u128 = if j == 0 { 0 } else { 1u128 << (j - 1) };
+            let hi: u128 = 1u128 << j;
+            if lo >= weight as u128 {
+                continue;
+            }
+            let item_weight = (hi - lo) as f64;
+            let retained = ((weight as u128).min(hi) - lo) as f64;
+            self.dart_insert(mix_octave_seed(hval, j), item_weight, retained);
+        }
+    }
+
+    /// The weighted-insertion primitive: adds a virtual item of fixed weight
+    /// `item_weight`, keeping only `retained_mass` of it
+    /// (`0 < retained_mass <= item_weight`).
+    ///
+    /// The item's contribution is realized as a Poisson stream of "darts" `(x, u, index)`
+    /// with x-rate `a * m * item_weight`, each dart landing in a uniformly random
+    /// register with an independent uniform mark `u` in `[0, 1)`. A dart is applied iff
+    /// `u < retained_mass / item_weight`; a register's contribution is the encoding of
+    /// the smallest applied `x` landing on it. Contract, for fixed `(seed, item_weight)`:
+    ///
+    ///  1. Marginal: each register receives an `Exp(a * retained_mass)` contribution, so
+    ///     the item adds exactly `retained_mass` to the cardinality estimate.
+    ///  2. Nested thinning: across sketches applying retained masses `c <= c'`, register
+    ///     contributions are ordered accordingly and equal with probability exactly
+    ///     `c / c'`, independently per register. (`retained_mass == item_weight` is not a
+    ///     special code path: `u < 1` always holds.)
+    ///  3. The same seed must never be used with a different `item_weight`; the weight is
+    ///     part of the virtual item's identity. All variation goes through
+    ///     `retained_mass`.
+    ///
+    /// Realization requirements, each forced by clause 2: the stream is unbounded (a set
+    /// of exactly m points is not closed under thinning: keeping one sample w.p. p has
+    /// survival `1 - p + p*exp(-lambda*x)`, not `exp(-p*lambda*x)`); register marks are
+    /// i.i.d. rather than a permutation (sampling without replacement is not
+    /// thinning-closed); and every dart draws its marks in a fixed order whether or not
+    /// it is used, because consumers of one stream differ in `retained_mass` and
+    /// `lower_k` but must see bit-identical streams.
+    fn dart_insert(&mut self, seed: u64, item_weight: f64, retained_mass: f64) {
+        debug_assert!(retained_mass > 0. && retained_mass <= item_weight);
+        let mut rng = Xoshiro256PlusPlus::seed_from_u64(seed);
+        let scale = self.params.inva / (self.params.m as f64 * item_weight);
+        let keep_fraction = retained_mass / item_weight;
+        let mut x: f64 = 0.;
+        let mut darts_since_refresh: usize = 0;
+        loop {
+            x += scale * rng.sample::<f64, Exp1>(Exp1);
+            let k = Self::exp_sample_into_register_value(x, self.params);
+            // Darts arrive in increasing x, so k is non-increasing along the stream: once
+            // one dart cannot beat the smallest register, no later dart can beat any
+            // register.
+            if k as f64 <= self.lower_k {
+                break;
+            }
+            // `lower_k` is a stale bound, and unlike the other insertion paths this
+            // stream is unbounded, so staleness would be unbounded cost (a stale bound of
+            // 0 with a heavy item enumerates ~a*m*item_weight darts). Recompute every m
+            // darts, in addition to the every-m-improvements refresh below that all
+            // insertion paths share; refreshes read registers only and never touch the
+            // RNG, so they cannot desynchronize the stream across sketches.
+            darts_since_refresh += 1;
+            if darts_since_refresh >= self.params.m {
+                darts_since_refresh = 0;
+                self.refresh_lower_k();
+                if k as f64 <= self.lower_k {
+                    break;
+                }
+            }
+            // Fixed draw order for every dart, used or not.
+            let u: f64 = rng.sample::<f64, _>(StandardUniform);
+            let idx_bits: u64 = rng.sample::<u64, _>(StandardUniform);
+            if u >= keep_fraction {
+                // The dart falls in the part of the item's mass we were asked to leave
+                // out.
+                continue;
+            }
+            // Fixed-point map of idx_bits onto 0..m (bias < m/2^64). Like
+            // `mix_octave_seed`, this map is part of the persisted-sketch format.
+            let i = ((idx_bits as u128 * self.params.m as u128) >> 64) as usize;
+            if k > self.k_vec[i] {
+                self.k_vec[i] = k;
+                self.nbmin += 1;
+                // Unlike the intra-stream refresh above, this one keeps `lower_k` fresh
+                // *across* streams: improvements accumulate as the sketch grows, so this
+                // fires every constant-factor growth in total mass. Without it, streams
+                // shorter than m darts would never refresh and every insertion into a
+                // warm sketch would pay ~m darts against a permanently stale bound.
+                if self.nbmin.is_multiple_of(self.params.m) {
+                    self.refresh_lower_k();
+                }
+            }
+        }
+    }
+
+    fn refresh_lower_k(&mut self) {
+        let flow = self
+            .k_vec
+            .iter()
+            .fold(self.k_vec[0], |min: I, x| if x < &min { *x } else { min })
+            as f64;
+        self.lower_k = flow;
     }
 }
 
@@ -607,6 +784,7 @@ mod tests {
         [
             SetSketcher::sketch_weighted_locality_stable,
             SetSketcher::sketch_weighted_locality_unstable,
+            SetSketcher::sketch_weighted,
         ]
     }
 
@@ -697,6 +875,141 @@ mod tests {
         let expected_matches = a.params.m * 2 / 3;
         assert!(matches > expected_matches - 100);
         assert!(matches < expected_matches + 100);
+    }
+
+    #[test]
+    fn check_dart_locality_and_monotonicity_on_mismatched_weights() {
+        for (wa, wb) in [(100u64, 150u64), (5, 8), (5, 6), (1000, 1500), (7, 970)] {
+            let mut a = usize_sketcher();
+            a.sketch_weighted(&0, wa);
+            let mut b = usize_sketcher();
+            b.sketch_weighted(&0, wb);
+
+            let mut matches = 0usize;
+            for (ra, rb) in a.get_registers().iter().zip(b.get_registers().iter()) {
+                // Exact: the smaller weight's darts are a subset of the larger's.
+                assert!(ra <= rb, "w={wa} vs {wb}: register {ra} > {rb}");
+                if ra == rb {
+                    matches += 1;
+                }
+            }
+            // The match probability is the weighted Jaccard similarity `wa / wb`, plus a
+            // correction for both registers landing in the zero bucket (negligible under
+            // the recommended params, where `Pr[register = 0] = exp(-w / inva)`).
+            let q = wa as f64 / wb as f64;
+            let p = q + (1. - q) * (-(wb as f64) / a.params.inva).exp();
+            let m = a.params.m as f64;
+            let sigma = (m * p * (1. - p)).sqrt();
+            assert!(
+                ((matches as f64) - m * p).abs() < 5. * sigma + 8.,
+                "w={wa} vs {wb}: {matches} matches, expected ~{}",
+                m * p
+            );
+        }
+    }
+
+    #[test]
+    fn check_dart_max_weight_wins_exactly() {
+        let mut b = usize_sketcher();
+        b.sketch_weighted(&7, 5);
+
+        let mut a = usize_sketcher();
+        a.sketch_weighted(&7, 5);
+        a.sketch_weighted(&7, 3);
+        assert_eq!(a.get_registers(), b.get_registers());
+
+        let mut c = usize_sketcher();
+        c.sketch_weighted(&7, 3);
+        c.sketch_weighted(&7, 5);
+        assert_eq!(c.get_registers(), b.get_registers());
+    }
+
+    #[test]
+    fn check_dart_weighted_jaccard_multi_element() {
+        // A: 0..100 at weight 2 (mass 200). B: 50..150 at weight 3 (mass 300).
+        // sum max = 50*2 + 50*3 + 50*3 = 400; per register:
+        //   Pr[S == O] = sum min / sum max     = 100/400
+        //   Pr[S > O]  = sum (wA - wB)+ / max  = 100/400
+        //   Pr[S < O]  =                         200/400
+        let mut a = usize_sketcher();
+        for v in 0..100usize {
+            a.sketch_weighted(&v, 2);
+        }
+        let mut b = usize_sketcher();
+        for v in 50..150usize {
+            b.sketch_weighted(&v, 3);
+        }
+        check_cardinality_is_about(&a, 200);
+        check_cardinality_is_about(&b, 300);
+        check_cardinality_is_about(&a.clone().union(&b), 400);
+
+        let (mut eq, mut gt, mut lt) = (0usize, 0usize, 0usize);
+        for (ra, rb) in a.get_registers().iter().zip(b.get_registers().iter()) {
+            match ra.cmp(rb) {
+                std::cmp::Ordering::Equal => eq += 1,
+                std::cmp::Ordering::Greater => gt += 1,
+                std::cmp::Ordering::Less => lt += 1,
+            }
+        }
+        let m = a.params.m as f64;
+        for (count, p, name) in [(eq, 0.25, "eq"), (gt, 0.25, "gt"), (lt, 0.5, "lt")] {
+            let sigma = (m * p * (1. - p)).sqrt();
+            assert!(
+                ((count as f64) - m * p).abs() < 5. * sigma + 8.,
+                "{name}: {count} vs expected ~{}",
+                m * p
+            );
+        }
+
+        // The O(1) prefix filter reads weight-mass proportions:
+        // p_a / (p_a + p_i) = 0.25 / 0.5 = 0.5, up to 48-register prefix noise. Bounds kept
+        // deliberately loose.
+        let (low, high) = a.approx_proportion_not_included(&b);
+        assert!(low < 0.62, "low bound {low}");
+        assert!(high > 0.38, "high bound {high}");
+    }
+
+    #[test]
+    fn check_dart_heavy_weight_into_partially_filled_sketch() {
+        // Regression canary for `lower_k` staleness: without the per-stream refresh in
+        // `dart_insert` this enumerates ~a*m*w (order 1e17) darts and effectively hangs.
+        let mut a = usize_sketcher();
+        for v in 0..3usize {
+            a.sketch_weighted(&v, 1);
+        }
+        a.sketch_weighted(&1000, 1_000_000_000_000);
+        check_cardinality_is_about(&a, 1_000_000_000_003);
+    }
+
+    #[test]
+    fn check_dart_insert_nesting_law_directly() {
+        // The primitive's contract in isolation: same (seed, item_weight), different
+        // retained mass. Match probability is 2/8 plus the zero-bucket correction
+        // (negligible under the recommended params).
+        let seed = 0x5EED_u64;
+        let mut full = usize_sketcher();
+        full.dart_insert(seed, 8., 8.);
+        let mut thin = usize_sketcher();
+        thin.dart_insert(seed, 8., 2.);
+
+        check_cardinality_is_about(&full, 8);
+        check_cardinality_is_about(&thin, 2);
+
+        let mut matches = 0usize;
+        for (rt, rf) in thin.get_registers().iter().zip(full.get_registers().iter()) {
+            assert!(rt <= rf);
+            if rt == rf {
+                matches += 1;
+            }
+        }
+        let p = 0.25 + 0.75 * (-8.0f64 / full.params.inva).exp();
+        let m = full.params.m as f64;
+        let sigma = (m * p * (1. - p)).sqrt();
+        assert!(
+            ((matches as f64) - m * p).abs() < 5. * sigma + 8.,
+            "{matches} matches, expected ~{}",
+            m * p
+        );
     }
 
     #[test]
