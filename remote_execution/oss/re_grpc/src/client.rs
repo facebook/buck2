@@ -1768,7 +1768,7 @@ fn with_re_metadata<T>(
         // wrong), we just inline it here. This is a small hack that lets us use
         // our internal RE using this GRPC client for testing.
         //
-        // This is defined in `fbcode/remote_execution/grpc/metadata.proto`.
+        // This is defined in `fbcode/remote_execution/re_cas_common/grpc/proto/metadata.proto`.
         #[derive(prost::Message)]
         struct Metadata {
             #[prost(message, optional, tag = "15")]
