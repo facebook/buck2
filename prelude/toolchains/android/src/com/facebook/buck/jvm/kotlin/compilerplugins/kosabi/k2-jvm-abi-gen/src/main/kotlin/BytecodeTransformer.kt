@@ -202,16 +202,15 @@ class PrivateMetadataStripper : BytecodeTransformer {
     }
 
     // Parse the metadata
-    val header =
-        Metadata(
-            kind = metadataKind!!,
-            metadataVersion = metadataVersion ?: intArrayOf(),
-            data1 = data1!!,
-            data2 = data2!!,
-            extraString = extraString ?: "",
-            packageName = packageName ?: "",
-            extraInt = extraInt ?: 0,
-        )
+    val header = Metadata(
+        kind = metadataKind!!,
+        metadataVersion = metadataVersion ?: intArrayOf(),
+        data1 = data1!!,
+        data2 = data2!!,
+        extraString = extraString ?: "",
+        packageName = packageName ?: "",
+        extraInt = extraInt ?: 0,
+    )
 
     val metadata =
         try {

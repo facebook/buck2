@@ -204,18 +204,19 @@ internal class KotlinCDLoggerAnalyticsTest {
     return context
   }
 
-  private fun createFakeKotlinCDAnalytics(buildUuid: String? = DEFAULT_BUILDUUID) =
-      KotlinCDLoggerAnalytics(
-          kotlinCDLogger = kotlinCDLogger,
-          buildUuid = buildUuid,
-          target = TARGET,
-          subtarget = SUBTARGET,
-          executionPlatform = EXECTION_PLATFORM,
-          numJavaFiles = NUM_JAVA_FILES,
-          numKotlinFiles = NUM_KOTLIN_FILES,
-          incremental = INCREMENTAL,
-          clock = clock,
-      )
+  private fun createFakeKotlinCDAnalytics(
+      buildUuid: String? = DEFAULT_BUILDUUID
+  ) = KotlinCDLoggerAnalytics(
+      kotlinCDLogger = kotlinCDLogger,
+      buildUuid = buildUuid,
+      target = TARGET,
+      subtarget = SUBTARGET,
+      executionPlatform = EXECTION_PLATFORM,
+      numJavaFiles = NUM_JAVA_FILES,
+      numKotlinFiles = NUM_KOTLIN_FILES,
+      incremental = INCREMENTAL,
+      clock = clock,
+  )
 
   private fun createExpectedKotlinCDLogEntry(
       step: StepParam = StepParam.KOTLINC,
@@ -227,27 +228,26 @@ internal class KotlinCDLoggerAnalyticsTest {
       removedFiles: Set<String> = emptySet(),
       numKotlinTokens: Long? = null,
       numJavaTokens: Long? = null,
-  ) =
-      KotlinCDLogEntry(
-          time = Instant.now(clock).epochSecond,
-          eventTime = Instant.now(clock).epochSecond.toDouble(),
-          target = TARGET,
-          subtarget = SUBTARGET,
-          buildUuid = BUILD_UUID,
-          executionPlatform = EXECTION_PLATFORM,
-          numKotlinFiles = NUM_KOTLIN_FILES,
-          numJavaFiles = NUM_JAVA_FILES,
-          incremental = INCREMENTAL,
-          mode = kotlincMode?.value,
-          classpathChanges = (kotlincMode as? ModeParam.Incremental)?.classpathChangesParam?.value,
-          step = step.value,
-          languageVersion = languageVersion,
-          extras = extras,
-          addedAndModifiedFiles = modifiedFiles,
-          removedFiles = removedFiles,
-          numKotlinTokens = numKotlinTokens,
-          numJavaTokens = numJavaTokens,
-      )
+  ) = KotlinCDLogEntry(
+      time = Instant.now(clock).epochSecond,
+      eventTime = Instant.now(clock).epochSecond.toDouble(),
+      target = TARGET,
+      subtarget = SUBTARGET,
+      buildUuid = BUILD_UUID,
+      executionPlatform = EXECTION_PLATFORM,
+      numKotlinFiles = NUM_KOTLIN_FILES,
+      numJavaFiles = NUM_JAVA_FILES,
+      incremental = INCREMENTAL,
+      mode = kotlincMode?.value,
+      classpathChanges = (kotlincMode as? ModeParam.Incremental)?.classpathChangesParam?.value,
+      step = step.value,
+      languageVersion = languageVersion,
+      extras = extras,
+      addedAndModifiedFiles = modifiedFiles,
+      removedFiles = removedFiles,
+      numKotlinTokens = numKotlinTokens,
+      numJavaTokens = numJavaTokens,
+  )
 
   companion object TestParams {
     private const val TARGET = "target"

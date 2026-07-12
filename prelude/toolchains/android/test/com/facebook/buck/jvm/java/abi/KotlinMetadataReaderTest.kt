@@ -29,15 +29,14 @@ class KotlinMetadataReaderTest {
 
   @Test
   fun isFilePrivateClass_returnsTrueForPrivateTopLevelClass() {
-    val annotation =
-        compileAndGetKotlinMetadata(
-            "A.kt",
-            arrayOf(
-                "package com.example.buck",
-                "private class PrivateHelper { fun helper(): Int = 42 }",
-            ),
-            "com/example/buck/PrivateHelper.class",
-        )
+    val annotation = compileAndGetKotlinMetadata(
+        "A.kt",
+        arrayOf(
+            "package com.example.buck",
+            "private class PrivateHelper { fun helper(): Int = 42 }",
+        ),
+        "com/example/buck/PrivateHelper.class",
+    )
 
     val metadata = KotlinMetadataReader.readMetadata(annotation)
     assertTrue(
@@ -48,15 +47,14 @@ class KotlinMetadataReaderTest {
 
   @Test
   fun isFilePrivateClass_returnsTrueForPrivateObjectDeclaration() {
-    val annotation =
-        compileAndGetKotlinMetadata(
-            "A.kt",
-            arrayOf(
-                "package com.example.buck",
-                "private object PrivateSingleton { fun compute(): Int = 42 }",
-            ),
-            "com/example/buck/PrivateSingleton.class",
-        )
+    val annotation = compileAndGetKotlinMetadata(
+        "A.kt",
+        arrayOf(
+            "package com.example.buck",
+            "private object PrivateSingleton { fun compute(): Int = 42 }",
+        ),
+        "com/example/buck/PrivateSingleton.class",
+    )
 
     val metadata = KotlinMetadataReader.readMetadata(annotation)
     assertTrue(
@@ -67,12 +65,11 @@ class KotlinMetadataReaderTest {
 
   @Test
   fun isFilePrivateClass_returnsFalseForPublicClass() {
-    val annotation =
-        compileAndGetKotlinMetadata(
-            "A.kt",
-            arrayOf("package com.example.buck", "class PublicClass"),
-            "com/example/buck/PublicClass.class",
-        )
+    val annotation = compileAndGetKotlinMetadata(
+        "A.kt",
+        arrayOf("package com.example.buck", "class PublicClass"),
+        "com/example/buck/PublicClass.class",
+    )
 
     assertFalse(
         "Public Kotlin class should not be detected as file-private",
@@ -82,12 +79,11 @@ class KotlinMetadataReaderTest {
 
   @Test
   fun isFilePrivateClass_returnsFalseForInternalClass() {
-    val annotation =
-        compileAndGetKotlinMetadata(
-            "A.kt",
-            arrayOf("package com.example.buck", "internal class InternalClass"),
-            "com/example/buck/InternalClass.class",
-        )
+    val annotation = compileAndGetKotlinMetadata(
+        "A.kt",
+        arrayOf("package com.example.buck", "internal class InternalClass"),
+        "com/example/buck/InternalClass.class",
+    )
 
     assertFalse(
         "Internal Kotlin class should not be detected as file-private",
@@ -97,12 +93,11 @@ class KotlinMetadataReaderTest {
 
   @Test
   fun isFilePrivateClass_returnsFalseForOpenClass() {
-    val annotation =
-        compileAndGetKotlinMetadata(
-            "A.kt",
-            arrayOf("package com.example.buck", "open class OpenClass"),
-            "com/example/buck/OpenClass.class",
-        )
+    val annotation = compileAndGetKotlinMetadata(
+        "A.kt",
+        arrayOf("package com.example.buck", "open class OpenClass"),
+        "com/example/buck/OpenClass.class",
+    )
 
     assertFalse(
         "Open Kotlin class should not be detected as file-private",
@@ -115,17 +110,16 @@ class KotlinMetadataReaderTest {
     // A private inner class is NOT a file-private class — it's private within
     // its enclosing class. isFilePrivateClass should return false for inner classes
     // because they are handled separately by the ACC_PRIVATE bytecode check.
-    val annotation =
-        compileAndGetKotlinMetadata(
-            "A.kt",
-            arrayOf(
-                "package com.example.buck",
-                "class Outer {",
-                "  private class Inner { fun innerMethod(): Int = 0 }",
-                "}",
-            ),
-            "com/example/buck/Outer\$Inner.class",
-        )
+    val annotation = compileAndGetKotlinMetadata(
+        "A.kt",
+        arrayOf(
+            "package com.example.buck",
+            "class Outer {",
+            "  private class Inner { fun innerMethod(): Int = 0 }",
+            "}",
+        ),
+        "com/example/buck/Outer\$Inner.class",
+    )
 
     assertFalse(
         "Private inner class should NOT be detected as file-private",

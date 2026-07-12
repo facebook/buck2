@@ -390,11 +390,10 @@ internal class FirMetadataSanitizerStage : AbiGenStage {
           ) {
             if (strippedSupertypeClassIds.isEmpty()) return
 
-            val interfaceMethods =
-                collectMethodsFromPrivateInterfaces(
-                    firClass.moduleData.session,
-                    strippedSupertypeClassIds,
-                )
+            val interfaceMethods = collectMethodsFromPrivateInterfaces(
+                firClass.moduleData.session,
+                strippedSupertypeClassIds,
+            )
 
             if (interfaceMethods.isEmpty()) return
 
@@ -428,12 +427,11 @@ internal class FirMetadataSanitizerStage : AbiGenStage {
           ): FirNamedFunctionCompat? {
             return try {
               val targetClassId = targetClass.symbol.classId
-              val newCallableId =
-                  CallableId(
-                      targetClassId.packageFqName,
-                      targetClassId.relativeClassName,
-                      interfaceMethod.name,
-                  )
+              val newCallableId = CallableId(
+                  targetClassId.packageFqName,
+                  targetClassId.relativeClassName,
+                  interfaceMethod.name,
+              )
               buildNamedFunctionCopyCompat(interfaceMethod) {
                 origin = FirDeclarationOrigin.Source
                 symbol = FirNamedFunctionSymbol(newCallableId)

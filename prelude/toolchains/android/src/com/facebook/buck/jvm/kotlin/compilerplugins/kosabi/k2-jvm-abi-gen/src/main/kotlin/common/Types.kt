@@ -35,8 +35,7 @@ internal data class MethodSignature(
     val parameterTypes: List<String>,
 )
 
-internal fun IrSimpleFunction.methodSignature() =
-    MethodSignature(
-        name.asString(),
-        valueParameters.map { it.type.classFqName?.asString() ?: it.type.toString() },
-    )
+internal fun IrSimpleFunction.methodSignature() = MethodSignature(
+    name.asString(),
+    valueParameters.map { it.type.classFqName?.asString() ?: it.type.toString() },
+)

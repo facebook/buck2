@@ -80,24 +80,23 @@ internal class ClassStabilityTransformer(private val pluginContext: IrPluginCont
         ClassId(FqName("androidx.compose.runtime.internal"), Name.identifier("StabilityInferred"))
 
     // Known stable FQNs beyond primitives/String/Unit
-    private val KNOWN_STABLE_FQNS =
-        setOf(
-            "kotlin.Pair",
-            "kotlin.Triple",
-            "kotlin.Result",
-            "kotlin.ranges.IntRange",
-            "kotlin.ranges.LongRange",
-            "kotlin.ranges.CharRange",
-            "kotlin.coroutines.CoroutineContext.Key",
-            "kotlinx.collections.immutable.ImmutableList",
-            "kotlinx.collections.immutable.ImmutableSet",
-            "kotlinx.collections.immutable.ImmutableMap",
-            "kotlinx.collections.immutable.ImmutableCollection",
-            "kotlinx.collections.immutable.PersistentList",
-            "kotlinx.collections.immutable.PersistentSet",
-            "kotlinx.collections.immutable.PersistentMap",
-            "dagger.Lazy",
-        )
+    private val KNOWN_STABLE_FQNS = setOf(
+        "kotlin.Pair",
+        "kotlin.Triple",
+        "kotlin.Result",
+        "kotlin.ranges.IntRange",
+        "kotlin.ranges.LongRange",
+        "kotlin.ranges.CharRange",
+        "kotlin.coroutines.CoroutineContext.Key",
+        "kotlinx.collections.immutable.ImmutableList",
+        "kotlinx.collections.immutable.ImmutableSet",
+        "kotlinx.collections.immutable.ImmutableMap",
+        "kotlinx.collections.immutable.ImmutableCollection",
+        "kotlinx.collections.immutable.PersistentList",
+        "kotlinx.collections.immutable.PersistentSet",
+        "kotlinx.collections.immutable.PersistentMap",
+        "dagger.Lazy",
+    )
   }
 
   // Classes currently being analyzed (cycle detection)

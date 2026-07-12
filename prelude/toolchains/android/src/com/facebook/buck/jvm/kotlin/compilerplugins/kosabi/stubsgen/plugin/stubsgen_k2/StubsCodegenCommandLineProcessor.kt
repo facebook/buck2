@@ -54,30 +54,27 @@ class StubsCodegenCommandLineProcessor : CommandLineProcessor {
   companion object {
     const val COMPILER_PLUGIN_ID: String = "com.facebook.kotlin.compilerplugins.kosabi.stubsgen_k2"
 
-    val STUBS_GEN_DIR: CliOption =
-        CliOption(
-            optionName = stubsGenDirName,
-            valueDescription = "<file-path>",
-            description = "Path to stubs directory.",
-            required = false,
-            allowMultipleOccurrences = false,
-        )
-    val STUBS_CLASS_OUTPUT_DIR: CliOption =
-        CliOption(
-            optionName = stubsClassOutputDirName,
-            valueDescription = "<file-path>",
-            description = "Path to stubs class output directory.",
-            required = false,
-            allowMultipleOccurrences = false,
-        )
+    val STUBS_GEN_DIR: CliOption = CliOption(
+        optionName = stubsGenDirName,
+        valueDescription = "<file-path>",
+        description = "Path to stubs directory.",
+        required = false,
+        allowMultipleOccurrences = false,
+    )
+    val STUBS_CLASS_OUTPUT_DIR: CliOption = CliOption(
+        optionName = stubsClassOutputDirName,
+        valueDescription = "<file-path>",
+        description = "Path to stubs class output directory.",
+        required = false,
+        allowMultipleOccurrences = false,
+    )
 
-    val LOG_ENABLED: CliOption =
-        CliOption(
-            optionName = stubsGenLogEnabledName,
-            valueDescription = "<file-path>",
-            description = "Enable logger to write logs in file. local only",
-            required = false,
-            allowMultipleOccurrences = false,
-        )
+    val LOG_ENABLED: CliOption = CliOption(
+        optionName = stubsGenLogEnabledName,
+        valueDescription = "<file-path>",
+        description = "Enable logger to write logs in file. local only",
+        required = false,
+        allowMultipleOccurrences = false,
+    )
   }
 }

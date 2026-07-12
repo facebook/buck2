@@ -31,14 +31,13 @@ class SamePackageClassStubsGenerator : StubsGenerator {
     val allKnownSymbols = mutableSetOf<String>()
 
     // Kotlin/Java built-in, stdlib types
-    val sdkInternalTypes =
-        setOf(
-                PlainKTStdlibTypes,
-                PlainKTBuiltInTypes,
-                PlainKTJavaTypeAlias,
-                PlainJavaLangTypes,
-            )
-            .flatMap { it.all() }
+    val sdkInternalTypes = setOf(
+        PlainKTStdlibTypes,
+        PlainKTBuiltInTypes,
+        PlainKTJavaTypeAlias,
+        PlainJavaLangTypes,
+    )
+        .flatMap { it.all() }
 
     allKnownSymbols.addAll(sdkInternalTypes)
 

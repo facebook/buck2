@@ -104,11 +104,10 @@ class Ksp2Step(
     val logger = BuckKsp2Logger(stdErr)
 
     // Load processors
-    val processorClassloader: ClassLoader =
-        URLClassLoader(
-            kspProcessorsClasspathList.map { File(it).toURI().toURL() }.toTypedArray(),
-            filteringClassLoader,
-        )
+    val processorClassloader: ClassLoader = URLClassLoader(
+        kspProcessorsClasspathList.map { File(it).toURI().toURL() }.toTypedArray(),
+        filteringClassLoader,
+    )
     val processorProviders =
         ServiceLoader.load(
                 processorClassloader.loadClass(
@@ -122,18 +121,16 @@ class Ksp2Step(
     val apOptions = getApOptions()
 
     // Expand source paths
-    val sourceFilePathsExpanded =
-        getExpandedSourcePathsOrThrow(
-            ruleCellRoot = context.ruleCellRoot,
-            kotlinSourceFilePaths = sourceFilePaths,
-            ignoredPathMatcher =
-                if (invokingRule.isSourceOnlyAbi)
-                    GlobPatternMatcher.of("**/kosabi_stub.android.**.kt")
-                else null,
-            workingDirectory = Optional.of(outputPaths.workingDirectory.getPath()),
-            invokingRule = invokingRule,
-            logger = logger,
-        )
+    val sourceFilePathsExpanded = getExpandedSourcePathsOrThrow(
+        ruleCellRoot = context.ruleCellRoot,
+        kotlinSourceFilePaths = sourceFilePaths,
+        ignoredPathMatcher =
+            if (invokingRule.isSourceOnlyAbi) GlobPatternMatcher.of("**/kosabi_stub.android.**.kt")
+            else null,
+        workingDirectory = Optional.of(outputPaths.workingDirectory.getPath()),
+        invokingRule = invokingRule,
+        logger = logger,
+    )
     val sourceFilePathsResolved = sourceFilePathsExpanded.map { rootPath.resolve(it).toFile() }
 
     // Build KSP config
@@ -321,13 +318,12 @@ class Ksp2Step(
       return File(path)
     }
 
-    private val filteringClassLoader =
-        FilteringClassLoader(
-            this::class.java.classLoader,
-            ClassLoader.getPlatformClassLoader(),
-            "com.google.devtools.ksp.",
-            "kotlin.",
-            "ksp.",
-        )
+    private val filteringClassLoader = FilteringClassLoader(
+        this::class.java.classLoader,
+        ClassLoader.getPlatformClassLoader(),
+        "com.google.devtools.ksp.",
+        "kotlin.",
+        "ksp.",
+    )
   }
 }

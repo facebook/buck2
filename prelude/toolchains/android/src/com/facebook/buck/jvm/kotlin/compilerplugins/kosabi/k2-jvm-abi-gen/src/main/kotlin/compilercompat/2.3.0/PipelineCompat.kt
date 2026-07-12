@@ -47,13 +47,12 @@ fun AllModulesFrontendOutput.convertToIrAndActualizeForJvmCompat(
     configuration: CompilerConfiguration,
     diagnosticsReporter: BaseDiagnosticsCollector,
     irGeneratorExtensions: Collection<IrGenerationExtension>,
-) =
-    convertToIrAndActualizeForJvm(
-        fir2IrExtensions,
-        configuration,
-        diagnosticsReporter,
-        irGeneratorExtensions,
-    )
+) = convertToIrAndActualizeForJvm(
+    fir2IrExtensions,
+    configuration,
+    diagnosticsReporter,
+    irGeneratorExtensions,
+)
 
 fun createProjectEnvironmentCompat(
     configuration: CompilerConfiguration,

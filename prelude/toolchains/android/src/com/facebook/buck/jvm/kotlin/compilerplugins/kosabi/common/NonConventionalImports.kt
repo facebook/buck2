@@ -12,13 +12,12 @@ package com.facebook.kotlin.compilerplugins.kosabi.common
 
 object NonConventionalImports {
   /** [interfaces] is exclude list from Constant Value Naming convention in kosabi. */
-  val interfaces: Set<List<String>> =
-      setOf(
-          listOf("javax", "microedition", "khronos", "egl", "EGL"),
-          listOf("javax", "microedition", "khronos", "egl", "EGL10"),
-          listOf("javax", "microedition", "khronos", "egl", "EGL11"),
-          listOf("javax", "microedition", "khronos", "opengles", "GL"),
-          listOf("javax", "microedition", "khronos", "opengles", "GL10"),
-          listOf("javax", "microedition", "khronos", "opengles", "GL11"),
-      )
+  val interfaces: Set<List<String>> = setOf(
+      listOf("javax", "microedition", "khronos", "egl", "EGL"),
+      listOf("javax", "microedition", "khronos", "egl", "EGL10"),
+      listOf("javax", "microedition", "khronos", "egl", "EGL11"),
+      listOf("javax", "microedition", "khronos", "opengles", "GL"),
+      listOf("javax", "microedition", "khronos", "opengles", "GL10"),
+      listOf("javax", "microedition", "khronos", "opengles", "GL11"),
+  )
 }

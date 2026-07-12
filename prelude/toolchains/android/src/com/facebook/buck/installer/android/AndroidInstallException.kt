@@ -25,21 +25,19 @@ class AndroidInstallException(val installError: InstallError) :
     fun rebootRequired(msg: String) =
         AndroidInstallException(InstallError(msg, AndroidInstallErrorTag.MANUAL_REBOOT_REQUIRED))
 
-    fun tempFolderNotWritable(): AndroidInstallException =
-        AndroidInstallException(
-            InstallError(
-                "Temp folder is not writable.",
-                AndroidInstallErrorTag.TEMP_FOLDER_NOT_WRITABLE,
-            )
+    fun tempFolderNotWritable(): AndroidInstallException = AndroidInstallException(
+        InstallError(
+            "Temp folder is not writable.",
+            AndroidInstallErrorTag.TEMP_FOLDER_NOT_WRITABLE,
         )
+    )
 
-    fun operationNotSupported(operation: String): AndroidInstallException =
-        AndroidInstallException(
-            InstallError(
-                "Operation $operation is not supported.",
-                AndroidInstallErrorTag.OTHER_INFRA,
-            )
+    fun operationNotSupported(operation: String): AndroidInstallException = AndroidInstallException(
+        InstallError(
+            "Operation $operation is not supported.",
+            AndroidInstallErrorTag.OTHER_INFRA,
         )
+    )
 
     fun deviceAbiUnknown() =
         AndroidInstallException(

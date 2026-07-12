@@ -52,15 +52,14 @@ class BuildToolsKotlinc : Kotlinc {
       kotlinCDLoggingContext: KotlinCDLoggingContext,
   ): Int {
     val argsStart = System.nanoTime()
-    val compilerArgs =
-        buildCompilerArgs(
-            ruleCellRoot,
-            kotlinSourceFilePaths,
-            workingDirectory,
-            invokingRule,
-            options,
-            kotlinCDLoggingContext,
-        )
+    val compilerArgs = buildCompilerArgs(
+        ruleCellRoot,
+        kotlinSourceFilePaths,
+        workingDirectory,
+        invokingRule,
+        options,
+        kotlinCDLoggingContext,
+    )
     val argsMs = (System.nanoTime() - argsStart) / 1_000_000
 
     LOG.info(
@@ -82,11 +81,10 @@ class BuildToolsKotlinc : Kotlinc {
     val classLoaderMs = (System.nanoTime() - classLoaderStart) / 1_000_000
 
     val serviceLoadStart = System.nanoTime()
-    val kotlinCompilationService =
-        KotlinCompilationService(
-            CompilationService.loadImplementation(classLoader),
-            kotlinCDLoggingContext,
-        )
+    val kotlinCompilationService = KotlinCompilationService(
+        CompilationService.loadImplementation(classLoader),
+        kotlinCDLoggingContext,
+    )
     val serviceLoadMs = (System.nanoTime() - serviceLoadStart) / 1_000_000
 
     val gcBefore = getGcStats()
@@ -146,13 +144,12 @@ class BuildToolsKotlinc : Kotlinc {
       kotlinCDLoggingContext: KotlinCDLoggingContext,
   ): List<String> {
     val expandStart = System.nanoTime()
-    val expandedSources: ImmutableList<Path> =
-        getExpandedSourcePathsOrThrow(
-            ruleCellRoot,
-            kotlinSourceFilePaths,
-            workingDirectory,
-            invokingRule,
-        )
+    val expandedSources: ImmutableList<Path> = getExpandedSourcePathsOrThrow(
+        ruleCellRoot,
+        kotlinSourceFilePaths,
+        workingDirectory,
+        invokingRule,
+    )
     val expandMs = (System.nanoTime() - expandStart) / 1_000_000
     if (expandMs > 100) {
       LOG.info(

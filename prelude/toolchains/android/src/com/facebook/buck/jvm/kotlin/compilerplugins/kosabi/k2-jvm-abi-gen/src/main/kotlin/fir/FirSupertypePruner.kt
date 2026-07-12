@@ -125,11 +125,10 @@ internal class FirSupertypePruner {
           ) {
             if (strippedSupertypeClassIds.isEmpty()) return
 
-            val interfaceMethods =
-                collectMethodsFromPrivateInterfaces(
-                    firClass.moduleData.session,
-                    strippedSupertypeClassIds,
-                )
+            val interfaceMethods = collectMethodsFromPrivateInterfaces(
+                firClass.moduleData.session,
+                strippedSupertypeClassIds,
+            )
 
             if (interfaceMethods.isEmpty()) return
 
@@ -163,12 +162,11 @@ internal class FirSupertypePruner {
           ): FirNamedFunctionCompat? {
             return try {
               val targetClassId = targetClass.symbol.classId
-              val newCallableId =
-                  CallableId(
-                      targetClassId.packageFqName,
-                      targetClassId.relativeClassName,
-                      interfaceMethod.name,
-                  )
+              val newCallableId = CallableId(
+                  targetClassId.packageFqName,
+                  targetClassId.relativeClassName,
+                  interfaceMethod.name,
+              )
               buildNamedFunctionCopyCompat(interfaceMethod) {
                 origin = FirDeclarationOrigin.Source
                 symbol = FirNamedFunctionSymbol(newCallableId)
@@ -340,11 +338,10 @@ internal class FirSupertypePruner {
             }
 
             // Collect methods from stripped interfaces
-            val interfaceMethods =
-                collectMethodsFromInterfaces(
-                    firClass.moduleData.session,
-                    strippedSupertypeClassIds,
-                )
+            val interfaceMethods = collectMethodsFromInterfaces(
+                firClass.moduleData.session,
+                strippedSupertypeClassIds,
+            )
 
             if (interfaceMethods.isEmpty()) {
               return
@@ -388,12 +385,11 @@ internal class FirSupertypePruner {
               targetClass: FirRegularClass,
           ): FirNamedFunctionCompat {
             val targetClassId = targetClass.symbol.classId
-            val newCallableId =
-                CallableId(
-                    targetClassId.packageFqName,
-                    targetClassId.relativeClassName,
-                    interfaceMethod.name,
-                )
+            val newCallableId = CallableId(
+                targetClassId.packageFqName,
+                targetClassId.relativeClassName,
+                interfaceMethod.name,
+            )
 
             return buildNamedFunctionCopyCompat(interfaceMethod) {
               origin = FirDeclarationOrigin.Source

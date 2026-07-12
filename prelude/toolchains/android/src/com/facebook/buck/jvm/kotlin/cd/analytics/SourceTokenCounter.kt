@@ -31,14 +31,13 @@ object SourceTokenCounter {
     return TokenCounts(kotlinTokens, javaTokens)
   }
 
-  private val SKIPPED_TOKEN_TYPES =
-      setOf(
-          KtTokens.WHITE_SPACE,
-          KtTokens.EOL_COMMENT,
-          KtTokens.BLOCK_COMMENT,
-          KtTokens.DOC_COMMENT,
-          KtTokens.SHEBANG_COMMENT,
-      )
+  private val SKIPPED_TOKEN_TYPES = setOf(
+      KtTokens.WHITE_SPACE,
+      KtTokens.EOL_COMMENT,
+      KtTokens.BLOCK_COMMENT,
+      KtTokens.DOC_COMMENT,
+      KtTokens.SHEBANG_COMMENT,
+  )
 
   private fun countKotlinTokens(file: Path): Long {
     val text = Files.readString(file)

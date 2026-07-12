@@ -222,12 +222,11 @@ internal class JvmCompilationConfigurationFactoryTest {
 
   private fun createClasspathSnapshotBasedIncrementalCompilationApproachParameters(
       mode: KotlincMode.Incremental
-  ) =
-      ClasspathSnapshotBasedIncrementalCompilationApproachParameters(
-          newClasspathSnapshotFiles = mode.classpathChanges.classpathSnapshotFiles,
-          shrunkClasspathSnapshot =
-              mode.kotlicWorkingDir.resolve("shrunk-classpath-snapshot.bin").toFile(),
-      )
+  ) = ClasspathSnapshotBasedIncrementalCompilationApproachParameters(
+      newClasspathSnapshotFiles = mode.classpathChanges.classpathSnapshotFiles,
+      shrunkClasspathSnapshot =
+          mode.kotlicWorkingDir.resolve("shrunk-classpath-snapshot.bin").toFile(),
+  )
 
   private fun createFakeIncrementalKotlincMode(
       classpathChanges: ClasspathChanges = createFakeClasspathChanges(),

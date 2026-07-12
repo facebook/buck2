@@ -40,10 +40,10 @@ class StubsCodegenK2FirAnalysisHandlerExtension(
           createSourceFilesFromSourceRoots(configuration, project, configuration.kotlinSourceRoots)
       StubsGenAPI( // @oss-enable
       // @oss-disable: StubsGenApiImpl(
-              stubsDumpDir,
-              stubsClassOutputDir,
-              classPaths,
-          )
+          stubsDumpDir,
+          stubsClassOutputDir,
+          classPaths,
+      )
           .generateStubs(ktFiles, configuration, project)
     } finally {
       throw RuntimeException("Terminating compilation. We're done with Stubgen.")

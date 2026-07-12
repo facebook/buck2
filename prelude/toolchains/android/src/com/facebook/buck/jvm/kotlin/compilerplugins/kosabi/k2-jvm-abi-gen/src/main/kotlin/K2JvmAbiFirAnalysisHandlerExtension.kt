@@ -122,13 +122,12 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
     // the disposable is responsible to dispose the project after the analysis is done
     val disposable = Disposer.newDisposable("K2KosabiSession.project")
     try {
-      val projectEnvironment =
-          createProjectEnvironmentCompat(
-              updatedConfiguration,
-              disposable,
-              EnvironmentConfigFiles.JVM_CONFIG_FILES,
-              configuration.messageCollector,
-          )
+      val projectEnvironment = createProjectEnvironmentCompat(
+          updatedConfiguration,
+          disposable,
+          EnvironmentConfigFiles.JVM_CONFIG_FILES,
+          configuration.messageCollector,
+      )
       if (updatedConfiguration.messageCollector.hasErrors()) {
         return false
       }
@@ -140,21 +139,19 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
                   "Single module expected: ${updatedConfiguration[JVMConfigurationKeys.MODULES]}"
               )
 
-      val sourceFiles =
-          createSourceFilesFromSourceRoots(
-              updatedConfiguration,
-              projectEnvironment.project,
-              configuration.kotlinSourceRoots,
-          )
+      val sourceFiles = createSourceFilesFromSourceRoots(
+          updatedConfiguration,
+          projectEnvironment.project,
+          configuration.kotlinSourceRoots,
+      )
 
       // Run FIR frontend to analyze source files
-      val analysisResults =
-          runFrontendForKosabi(
-              projectEnvironment,
-              updatedConfiguration,
-              sourceFiles,
-              module,
-          )
+      val analysisResults = runFrontendForKosabi(
+          projectEnvironment,
+          updatedConfiguration,
+          sourceFiles,
+          module,
+      )
 
       // Collect class usage from the resolved FIR tree for dep file tracking.
       // The DependencyTracker compiler plugin's FIR checkers don't run in kosabi's
@@ -562,15 +559,14 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
 
     // Phase 2: FIR-to-IR conversion (includes IR sanitizer as extension)
 
-    val irInput =
-        convertAnalyzedFirToIr(
-            configuration,
-            TargetId(module),
-            analysisResults,
-            compilerEnvironment,
-            sourceFiles,
-            projectEnvironment.project,
-        )
+    val irInput = convertAnalyzedFirToIr(
+        configuration,
+        TargetId(module),
+        analysisResults,
+        compilerEnvironment,
+        sourceFiles,
+        projectEnvironment.project,
+    )
 
     // Phase 3: FIR metadata post-IR cleanup
     pipeline.firMetadataSanitizer.cleanupFirMetadataSources(irInput.irModuleFragment)
@@ -872,28 +868,26 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
             val fullSegments = segments + nestedClassParts.map { Name.identifier(it) }
 
             // For class imports, the full import path IS the class
-            val classId =
-                findClassIdForImportWithProperty(
-                    fullSegments,
-                    propertyName,
-                    session,
-                    sourcePackages,
-                    segments.size,
-                )
+            val classId = findClassIdForImportWithProperty(
+                fullSegments,
+                propertyName,
+                session,
+                sourcePackages,
+                segments.size,
+            )
             if (classId != null) {
               missingConstants.getOrPut(classId) { mutableSetOf() }.add(propertyName)
             }
           } else if (usage == importedName) {
             // Constant import: import pkg.Class.CONSTANT, used as CONSTANT
             val classSegments = segments.dropLast(1)
-            val classId =
-                findClassIdForImportWithProperty(
-                    classSegments,
-                    importedName,
-                    session,
-                    sourcePackages,
-                    classSegments.size,
-                )
+            val classId = findClassIdForImportWithProperty(
+                classSegments,
+                importedName,
+                session,
+                sourcePackages,
+                classSegments.size,
+            )
             if (classId != null) {
               missingConstants.getOrPut(classId) { mutableSetOf() }.add(importedName)
             }
@@ -1144,16 +1138,15 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
     providerAndScopeForIncrementalCompilation?.precompiledBinariesFileScope?.let {
       librariesScope -= it
     }
-    val sessionsWithSources =
-        prepareJvmSessionsCompat(
-            ktFiles,
-            rootModuleName,
-            friendPaths,
-            librariesScope,
-            configuration,
-            projectEnvironment,
-            providerAndScopeForIncrementalCompilation,
-        )
+    val sessionsWithSources = prepareJvmSessionsCompat(
+        ktFiles,
+        rootModuleName,
+        friendPaths,
+        librariesScope,
+        configuration,
+        projectEnvironment,
+        providerAndScopeForIncrementalCompilation,
+    )
 
     val outputs = sessionsWithSources.map { (session, sources) ->
       val missingConstants = collectMissingConstantsFromSourceFiles(sources, session)
@@ -1205,10 +1198,10 @@ class MissingConstantDeclarationGenerationExtension(
     val createdClass = createTopLevelClass(classId, JvmAbiGenPlugin, ClassKind.OBJECT)
     createdClass.replaceStatus(
         FirResolvedDeclarationStatusImpl(
-                Visibilities.Public,
-                Modality.FINAL,
-                EffectiveVisibility.Public,
-            )
+            Visibilities.Public,
+            Modality.FINAL,
+            EffectiveVisibility.Public,
+        )
             .apply { isStatic = true }
     )
     return createdClass.symbol
@@ -1340,18 +1333,17 @@ class MissingConstantDeclarationGenerationExtension(
     val methodInfo = methodInfos.find { it.name == methodName } ?: return emptyList()
 
     // Generate the function using the plugin utility
-    val function =
-        createMemberFunction(
-            owner,
-            JvmAbiGenPlugin,
-            methodName,
-            methodInfo.returnType,
-        ) {
-          // Add value parameters
-          for ((paramName, paramType) in methodInfo.valueParameters) {
-            valueParameter(paramName, paramType)
-          }
-        }
+    val function = createMemberFunction(
+        owner,
+        JvmAbiGenPlugin,
+        methodName,
+        methodInfo.returnType,
+    ) {
+      // Add value parameters
+      for ((paramName, paramType) in methodInfo.valueParameters) {
+        valueParameter(paramName, paramType)
+      }
+    }
 
     // Set status: public and final (required for enum implementations)
     function.replaceStatus(
@@ -1378,19 +1370,18 @@ class MissingConstantDeclarationGenerationExtension(
   ): FirPropertySymbol {
     // Default to String type with empty string value
     // Only constants that are not available in dependencies are generated
-    val property =
-        createMemberProperty(
-            owner,
-            JvmAbiGenPlugin,
-            Name.identifier(constantName),
-            session.builtinTypes.stringType.coneType,
-        )
+    val property = createMemberProperty(
+        owner,
+        JvmAbiGenPlugin,
+        Name.identifier(constantName),
+        session.builtinTypes.stringType.coneType,
+    )
     property.replaceStatus(
         FirResolvedDeclarationStatusImpl(
-                Visibilities.Public,
-                Modality.FINAL,
-                EffectiveVisibility.Public,
-            )
+            Visibilities.Public,
+            Modality.FINAL,
+            EffectiveVisibility.Public,
+        )
             .apply { isConst = true }
     )
     property.replaceInitializer(

@@ -121,39 +121,37 @@ fun prepareJvmSessionsCompat(
       predefinedJavaComponents,
   )
 
-  val platformModuleData =
-      createSourceModuleData(
-          moduleName,
-          libraryList.regularDependencies,
-          libraryList.dependsOnDependencies,
-          libraryList.friendDependenciesCompat,
-          JvmPlatforms.unspecifiedJvmPlatform,
-      )
+  val platformModuleData = createSourceModuleData(
+      moduleName,
+      libraryList.regularDependencies,
+      libraryList.dependsOnDependencies,
+      libraryList.friendDependenciesCompat,
+      JvmPlatforms.unspecifiedJvmPlatform,
+  )
 
   var incrementalSymbolProviders: FirJvmIncrementalCompilationSymbolProviders? = null
   var incrementalSymbolProvidersInitialized = false
 
-  val session =
-      createSourceSessionCompat(
-          platformModuleData,
-          sessionProvider,
-          javaSourcesScope,
-          projectEnvironment,
-          createIncrementalCompilationSymbolProviders = { firSession ->
-            if (incrementalSymbolProvidersInitialized) incrementalSymbolProviders
-            else {
-              incrementalSymbolProvidersInitialized = true
-              providerAndScopeForIncrementalCompilation
-                  ?.createSymbolProviders(firSession, platformModuleData, projectEnvironment)
-                  ?.also { incrementalSymbolProviders = it }
-            }
-          },
-          extensionRegistrars,
-          configuration,
-          predefinedJavaComponents = predefinedJavaComponents,
-          needRegisterJavaElementFinder = true,
-          init = {},
-      )
+  val session = createSourceSessionCompat(
+      platformModuleData,
+      sessionProvider,
+      javaSourcesScope,
+      projectEnvironment,
+      createIncrementalCompilationSymbolProviders = { firSession ->
+        if (incrementalSymbolProvidersInitialized) incrementalSymbolProviders
+        else {
+          incrementalSymbolProvidersInitialized = true
+          providerAndScopeForIncrementalCompilation
+              ?.createSymbolProviders(firSession, platformModuleData, projectEnvironment)
+              ?.also { incrementalSymbolProviders = it }
+        }
+      },
+      extensionRegistrars,
+      configuration,
+      predefinedJavaComponents = predefinedJavaComponents,
+      needRegisterJavaElementFinder = true,
+      init = {},
+  )
 
   return listOf(session to ktFiles)
 }
