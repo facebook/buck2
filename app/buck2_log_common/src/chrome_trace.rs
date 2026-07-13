@@ -1768,12 +1768,11 @@ impl BuckSubcommand for ChromeTraceCommand {
                 ansi_url(&download_url, &download_url)
             );
 
-            const PERFETTO_URL: &str =
-                "https://interncache-all.fbcdn.net/manifold/perfetto-artifacts/tree/ui/index.html";
-            let mut query_string = form_urlencoded::Serializer::new("".to_owned());
-            query_string.append_pair("url", &download_url);
+            const PERFETTO_URL: &str = "https://www.internalfb.com/intern/perfetto/open_trace/";
+            let mut query_string = form_urlencoded::Serializer::new(String::new());
+            query_string.append_pair("manifold_path", &bucket.path(manifold_filename.as_str()));
             let query_string = query_string.finish();
-            let perfetto_url = format!("{PERFETTO_URL}#!/?{}", query_string);
+            let perfetto_url = format!("{PERFETTO_URL}?{query_string}");
 
             println!("Perfetto: {}", ansi_url(&perfetto_url, &perfetto_url));
         }
