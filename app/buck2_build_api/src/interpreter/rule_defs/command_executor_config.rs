@@ -79,6 +79,8 @@ enum CommandExecutorConfigErrors {
     ReGangNumOfWorkersNotAnInt(String),
     #[error("expected an integer for `num_sub_groups` in `remote_execution_gang`, got `{0}`")]
     ReGangNumSubGroupsNotAnInt(String),
+    #[error("expected an integer for `resource_units` in `remote_execution_gang`, got `{0}`")]
+    ReGangResourceUnitsNotAnInt(String),
 }
 
 #[derive(
@@ -655,10 +657,22 @@ fn parse_remote_execution_gang<'v>(
         })
         .transpose()?;
 
+    let resource_units = gang
+        .get_str("resource_units")
+        .map(|v| {
+            v.unpack_i32().map(i64::from).ok_or_else(|| {
+                buck2_error::Error::from(CommandExecutorConfigErrors::ReGangResourceUnitsNotAnInt(
+                    v.to_repr(),
+                ))
+            })
+        })
+        .transpose()?;
+
     Ok(Some(ReGang::parse(
         capabilities,
         num_of_workers,
         locality,
         num_sub_groups,
+        resource_units,
     )?))
 }

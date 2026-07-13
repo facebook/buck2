@@ -1588,6 +1588,10 @@ impl RemoteExecutionClientImpl {
                             properties,
                             ..Default::default()
                         },
+                        host_resource_requirements: THostResourceRequirements {
+                            resource_units: gang.resource_units.unwrap_or_default(),
+                            ..Default::default()
+                        },
                         ..Default::default()
                     },
                     ..Default::default()
