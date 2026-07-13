@@ -124,7 +124,6 @@ public class AndroidBundleBuilderExecutableMain {
     Path tempDir = Files.createTempDirectory("bundleTempDir");
     Path rootModuleZip = tempDir.resolve("base.zip");
     modulePaths.add(rootModuleZip);
-    // NULLSAFE_FIXME[Not Vetted Third-Party]
     Path fakeResourcesApk = Files.createFile(tempDir.resolve("fake.txt"));
     Set<String> perModuleAddedFiles = new HashSet<>();
     Set<Path> addedSourceFiles = new HashSet<>();
@@ -256,19 +255,14 @@ public class AndroidBundleBuilderExecutableMain {
 
     Path outputPath = Paths.get(outputBundle);
     BuildBundleCommand.Builder bundleBuilder =
-        // NULLSAFE_FIXME[Not Vetted Third-Party]
         BuildBundleCommand.builder()
-            // NULLSAFE_FIXME[Not Vetted Third-Party]
             .setOutputPath(outputPath)
-            // NULLSAFE_FIXME[Not Vetted Third-Party]
             .setOverwriteOutput(true)
-            // NULLSAFE_FIXME[Not Vetted Third-Party]
             .setModulesPaths(modulePaths.build());
 
     if (pathToBundleConfigFile != null) {
       bundleBuilder.setBundleConfig(Paths.get(pathToBundleConfigFile));
     }
-    // NULLSAFE_FIXME[Not Vetted Third-Party]
     bundleBuilder.build().execute();
 
     ZipScrubber.scrubZip(outputPath);
