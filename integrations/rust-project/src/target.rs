@@ -89,14 +89,42 @@ pub(crate) struct MacroOutput {
     pub(crate) actual: Target,
     pub(crate) dylib: PathBuf,
 }
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum Kind {
-    #[serde(rename = "prelude//rules.bzl:rust_binary")]
     Binary,
-    #[serde(rename = "prelude//rules.bzl:rust_library")]
     Library,
-    #[serde(rename = "prelude//rules.bzl:rust_test")]
     Test,
+}
+
+impl<'de> Deserialize<'de> for Kind {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let kind = String::deserialize(deserializer)?;
+
+        if kind == "bin" || kind.ends_with(":rust_binary") {
+            return Ok(Self::Binary);
+        }
+        if kind == "lib" || kind.ends_with(":rust_library") {
+            return Ok(Self::Library);
+        }
+        if kind == "test" || kind.ends_with(":rust_test") {
+            return Ok(Self::Test);
+        }
+
+        Err(D::Error::unknown_variant(
+            &kind,
+            &[
+                "bin",
+                "lib",
+                "test",
+                "<rule>:rust_binary",
+                "<rule>:rust_library",
+                "<rule>:rust_test",
+            ],
+        ))
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
@@ -346,6 +374,28 @@ fn expand_atfile(path: &Path) -> Result<Vec<String>, anyhow::Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_kind_deserializes_legacy_and_semantic_values() -> Result<(), serde_json::Error> {
+        for (value, expected) in [
+            (r#""bin""#, Kind::Binary),
+            (r#""lib""#, Kind::Library),
+            (r#""test""#, Kind::Test),
+            (r#""prelude//rules.bzl:rust_binary""#, Kind::Binary),
+            (r#""prelude//rules.bzl:rust_library""#, Kind::Library),
+            (r#""prelude//rules.bzl:rust_test""#, Kind::Test),
+            (
+                r#""root//build/rules/rust_test.bzl:rust_test""#,
+                Kind::Test,
+            ),
+        ] {
+            assert_eq!(serde_json::from_str(value)?, expected);
+        }
+
+        assert!(serde_json::from_str::<Kind>(r#""rust_test""#).is_err());
+
+        Ok(())
+    }
 
     #[test]
     fn test_cfg() {
