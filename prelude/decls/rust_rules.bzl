@@ -13,6 +13,7 @@ load("@prelude//decls:third_party_common.bzl", "third_party_common")
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//rust:clippy_configuration.bzl", "ClippyConfiguration")
 load("@prelude//rust:link_info.bzl", "RustProcMacroPlugin")
+load("@prelude//rust/rust-analyzer:provider.bzl", "RustAnalyzerTargetKind")
 load("@prelude//rust:rust_binary.bzl", "rust_binary_impl", "rust_test_impl")
 load("@prelude//rust:rust_library.bzl", "rust_library_impl")
 load(":common.bzl", "RuntimeDependencyHandling", "buck", "prelude_rule")
@@ -42,6 +43,13 @@ def _rust_common_attributes(is_binary: bool):
         }
         | cxx_common.default_deps_arg()
     )
+
+def _rust_analyzer_target_kind(kind: str) -> dict[str, Attr]:
+    return {
+        "_rust_analyzer_target_kind": attrs.default_only(
+            attrs.enum(RustAnalyzerTargetKind.values(), default = kind),
+        ),
+    }
 
 def _rust_binary_attrs_group(prefix: str) -> dict[str, Attr]:
     attrs = rust_common.deps_arg(is_binary = True) | rust_common.named_deps_arg(is_binary = True) | rust_common.linker_flags_arg() | native_common.link_style()
@@ -139,6 +147,7 @@ rust_binary = prelude_rule(
         | rust_common.env_arg()
         | _rust_binary_attrs_group(prefix = "")
         | _rust_common_attributes(is_binary = True)
+        | _rust_analyzer_target_kind("bin")
         | _RUST_EXECUTABLE_ATTRIBUTES
         | rust_common.cxx_toolchain_arg()
         | rust_common.rust_toolchain_arg()
@@ -207,6 +216,7 @@ rust_library = prelude_rule(
         | native_common.link_style()
         | native_common.link_whole(link_whole_type = attrs.option(attrs.bool(), default = None))
         | _rust_common_attributes(is_binary = False)
+        | _rust_analyzer_target_kind("lib")
         | {
             "crate_dynamic": attrs.option(attrs.dep(), default = None),
             "doc_env": rust_common.env_arg()["env"],
@@ -283,6 +293,7 @@ rust_test = prelude_rule(
         | rust_common.build_and_run_env_arg()
         | _rust_binary_attrs_group(prefix = "")
         | _rust_common_attributes(is_binary = True)
+        | _rust_analyzer_target_kind("test")
         | _RUST_EXECUTABLE_ATTRIBUTES
         | {
             "framework": attrs.bool(

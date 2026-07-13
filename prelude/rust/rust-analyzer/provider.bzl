@@ -21,6 +21,8 @@ load(
 )
 load("@prelude//rust:link_info.bzl", "attr_crate", "get_available_proc_macros", "resolve_rust_deps")
 
+RustAnalyzerTargetKind = enum("bin", "lib", "test")
+
 RustAnalyzerInfo = provider(
     fields = {
         "available_proc_macros": list[Dependency],
@@ -37,6 +39,7 @@ RustAnalyzerInfo = provider(
         # exec deps used as inputs to genrules and other non-rust dependencies.
         "rust_deps": list[Dependency],
         "rustc_flags": cmd_args,
+        "target_kind": RustAnalyzerTargetKind,
         # The list of recursive rust dependencies for this target, including proc macros. Useful for
         # identifying the targets needing to be collected into Rust Analyzer's crate graph. Notably,
         # excludes rust dependencies that are used in build tools (e.g. build scripts).
@@ -94,5 +97,6 @@ def rust_analyzer_provider(ctx: AnalysisContext, compile_ctx: CompileContext, de
         features = ctx.attrs.features,
         rust_deps = rust_deps,
         rustc_flags = _compute_rustc_flags(ctx, compile_ctx),
+        target_kind = RustAnalyzerTargetKind(ctx.attrs._rust_analyzer_target_kind),
         transitive_target_set = _compute_transitive_target_set(ctx, rust_deps),
     )

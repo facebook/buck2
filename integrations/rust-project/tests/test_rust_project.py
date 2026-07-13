@@ -95,6 +95,28 @@ async def test_alias(buck: Buck) -> None:
 
 
 @buck_test(inplace=True, skip_for_os=["darwin", "windows"])
+async def test_semantic_target_kinds(buck: Buck) -> None:
+    result_raw = await buck.bxl(
+        "prelude//rust/rust-analyzer/resolve_deps.bxl:resolve_targets",
+        "--",
+        "--targets",
+        "//buck2/integrations/rust-project/tests/targets/foo:binary",
+        "//buck2/integrations/rust-project/tests/targets/foo:f",
+        "//buck2/integrations/rust-project/tests/targets/foo:native_test",
+        "//buck2/integrations/rust-project/tests/targets/foo:wrapped_test",
+    )
+    result: Dict[str, Any] = json.load(open(result_raw.stdout.rstrip()))
+    target_kinds = {t: v["kind"] for t, v in result["resolved_deps"].items()}
+
+    assert {
+        "fbcode//buck2/integrations/rust-project/tests/targets/foo:binary": "bin",
+        "fbcode//buck2/integrations/rust-project/tests/targets/foo:f": "lib",
+        "fbcode//buck2/integrations/rust-project/tests/targets/foo:native_test": "test",
+        "fbcode//buck2/integrations/rust-project/tests/targets/foo:wrapped_test": "test",
+    }.items() <= target_kinds.items()
+
+
+@buck_test(inplace=True, skip_for_os=["darwin", "windows"])
 async def test_resolve_owning_buildfile_no_extra_targets(buck: Buck) -> None:
     result_raw = await buck.bxl(
         "prelude//rust/rust-analyzer/resolve_deps.bxl:resolve_owning_buildfile",
@@ -148,7 +170,7 @@ async def test_fallback_compatible_with(buck: Buck) -> None:
 
     dep = list(result["resolved_deps"].values())[0]
 
-    assert dep["kind"] == "prelude//rules.bzl:rust_library"
+    assert dep["kind"] == "lib"
     assert dep["source_folder"] is not None
 
 

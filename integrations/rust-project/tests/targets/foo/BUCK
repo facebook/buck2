@@ -1,4 +1,7 @@
+load("@fbsource//tools/build_defs:rust_binary.bzl", "rust_binary")
 load("@fbsource//tools/build_defs:rust_library.bzl", "rust_library")
+load("@fbsource//tools/build_defs:rust_unittest.bzl", "rust_unittest")
+load(":wrapper.bzl", "rust_test")
 
 oncall("rust_foundation")
 
@@ -34,4 +37,21 @@ rust_library(
     srcs = ["lib_g.rs"],
     crate_root = "lib_g.rs",
     target_compatible_with = ["ovr_config//cpu/constraints:riscv64"],
+)
+
+rust_binary(
+    name = "binary",
+    srcs = ["main.rs"],
+)
+
+rust_unittest(
+    name = "native_test",
+    crate_root = "test.rs",
+    srcs = ["test.rs"],
+)
+
+rust_test(
+    name = "wrapped_test",
+    crate_root = "test.rs",
+    srcs = ["test.rs"],
 )
