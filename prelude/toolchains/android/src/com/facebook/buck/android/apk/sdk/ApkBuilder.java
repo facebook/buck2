@@ -52,7 +52,6 @@ public final class ApkBuilder implements IArchiveBuilder {
 
   /** A No-op zip filter. It's used to detect conflicts. */
   private final class NullZipFilter implements IZipEntryFilter {
-    // NULLSAFE_FIXME[Field Not Initialized]
     private File mInputFile;
 
     void reset(File inputFile) {
@@ -85,7 +84,6 @@ public final class ApkBuilder implements IArchiveBuilder {
     private final Set<String> mExcludedResources;
     private final List<String> mNativeLibs = new ArrayList<String>();
     private boolean mNativeLibsConflict = false;
-    // NULLSAFE_FIXME[Field Not Initialized]
     private File mInputFile;
 
     JavaAndNativeResourceFilter(Set<String> excludedResources) {
