@@ -49,6 +49,7 @@ pub mod pattern;
 pub mod rlimits;
 pub mod scope;
 pub mod self_test_timeout;
+pub mod settings;
 pub mod sqlite;
 pub mod starlark_profiler;
 pub mod target_aliases;
