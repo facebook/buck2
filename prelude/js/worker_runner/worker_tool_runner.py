@@ -206,22 +206,18 @@ def _fixup_command_args_file(command_args_file, index, tmp_dir) -> str:
     with open(command_args_file, "r") as input_f:
         try:
             content = json.load(input_f)
-        except json.JSONDecodeError:
-            raise Exception(
-                f"Unable to decode {command_args_file}, it should be a JSON file.",
-                file=sys.stderr,
-                flush=True,
-            )
+        except json.JSONDecodeError as error:
+            raise RuntimeError(
+                f"Unable to decode {command_args_file}, it should be a JSON file."
+            ) from error
 
     if "extraData" in content:
         try:
             content["extraData"] = json.loads(content["extraData"])
-        except json.JSONDecodeError:
-            raise Exception(
-                f"Unable to decode 'extraData' in {command_args_file}, it should be a JSON string.",
-                file=sys.stderr,
-                flush=True,
-            )
+        except json.JSONDecodeError as error:
+            raise RuntimeError(
+                f"Unable to decode 'extraData' in {command_args_file}, it should be a JSON string."
+            ) from error
 
     args_path = os.path.join(
         tmp_dir,
