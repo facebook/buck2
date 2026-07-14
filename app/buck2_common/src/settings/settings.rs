@@ -14,17 +14,52 @@ use allocative::Allocative;
 use dupe::Dupe;
 use serde::Deserialize;
 
-#[derive(Debug, Deserialize, Allocative)]
+struct SettingKey<T> {
+    internal_default: T,
+    oss_default: T,
+}
+
+impl<T: Clone> SettingKey<T> {
+    fn default_value(&self) -> T {
+        if cfg!(fbcode_build) {
+            self.internal_default.clone()
+        } else {
+            self.oss_default.clone()
+        }
+    }
+
+    fn resolve(&self, value: Option<T>) -> T {
+        value.unwrap_or_else(|| self.default_value())
+    }
+}
+
+const LOG_USE_MANIFOLD: SettingKey<bool> = SettingKey {
+    internal_default: true,
+    oss_default: false,
+};
+
+#[derive(Debug, Default, Deserialize, Allocative)]
 #[serde(deny_unknown_fields)]
-pub(crate) struct BuckSettingsData {}
+pub(crate) struct Buck2Section {
+    log_use_manifold: Option<bool>,
+}
+
+#[derive(Debug, Default, Deserialize, Allocative)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct BuckSettingsData {
+    #[serde(default)]
+    buck2: Buck2Section,
+}
 
 #[derive(Clone, Dupe, Debug, Allocative)]
-pub struct BuckSettings(
-    #[expect(dead_code, reason = "read in next diff")] pub(crate) Arc<BuckSettingsData>,
-);
+pub struct BuckSettings(pub(crate) Arc<BuckSettingsData>);
 
 impl BuckSettings {
     pub fn empty() -> Self {
-        Self(Arc::new(BuckSettingsData {}))
+        Self(Arc::new(BuckSettingsData::default()))
+    }
+
+    pub fn log_use_manifold(&self) -> bool {
+        LOG_USE_MANIFOLD.resolve(self.0.buck2.log_use_manifold)
     }
 }
