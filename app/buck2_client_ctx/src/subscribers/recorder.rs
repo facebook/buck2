@@ -1304,6 +1304,9 @@ impl InvocationRecorder {
     fn default_metadata() -> buck2_data::TypedMetadata {
         let mut ints = StdBuckHashMap::default();
         ints.insert("is_tty".to_owned(), std::io::stderr().is_tty() as i64);
+        // `strings` is only mutated under the cfg-gated block below, so in any other build
+        // configuration (notably OSS) the `mut` is unused and trips `-D unused_mut`.
+        #[cfg_attr(not(all(fbcode_build, target_os = "linux")), allow(unused_mut))]
         let mut strings = StdBuckHashMap::default();
         #[cfg(all(fbcode_build, target_os = "linux"))]
         if let Some(agent_identity) = identity_env::agent_identity_from_env() {
