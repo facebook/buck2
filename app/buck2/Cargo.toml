@@ -85,5 +85,5 @@ nix.workspace = true
 mimalloc.workspace = true
 windows-sys.workspace = true
 
-[lints]
-workspace = true
+[lints.rust]
+unexpected_cfgs = { level = "allow", check-cfg = ["cfg(fbcode_build)", "cfg(buck_build)", "cfg(client_only)", "cfg(tokio_unstable)", "cfg(buck2_memfrag)"]}

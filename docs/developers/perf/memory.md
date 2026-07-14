@@ -8,6 +8,11 @@ title: Memory Profiling
 the additional, mostly buck2-specific things that the heap-profiling tool
 chain will trip you up on.
 
+This page is about *where allocations happen* (the heap profile). For the
+`active - allocated` **slab-fragmentation** gap — partially-empty slabs pinned
+by survivors, which a heap profile cannot see — see
+[memory_fragmentation.md](memory_fragmentation.md).
+
 ## Enable profiling
 
 The daemon must be **started** with profiling on:

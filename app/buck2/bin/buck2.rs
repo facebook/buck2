@@ -41,11 +41,24 @@ use superconsole::Stdin;
 // So when we set our own allocator, buck build buck2 or buck2 build buck2 often breaks.
 // Making jemalloc the default only when we do a cargo build.
 #[global_allocator]
-#[cfg(all(any(target_os = "linux", target_os = "macos"), not(buck_build)))]
+#[cfg(all(
+    any(target_os = "linux", target_os = "macos"),
+    not(buck_build),
+    not(buck2_memfrag)
+))]
 static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 #[global_allocator]
-#[cfg(target_os = "windows")]
+#[cfg(all(target_os = "windows", not(buck2_memfrag)))]
 static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
+// Opt-in fragmentation profiler, enabled with `-c buck2_dev.memfrag=true`. It wraps
+// the system allocator (jemalloc in an fbcode build) rather than bringing its
+// own, so it doesn't double-link jemalloc the way the tikv allocator above
+// would. It stays a passthrough unless BUCK2_MEMFRAG_SHIFT is set at process
+// start, so a memfrag build can still serve as a normal daemon.
+#[global_allocator]
+#[cfg(buck2_memfrag)]
+static ALLOC: mem_frag::SamplingAlloc = mem_frag::SamplingAlloc::new();
 
 fn init_logging() -> buck2_error::Result<Arc<dyn LogConfigurationReloadHandle>> {
     static ENV_TRACING_LOG_FILE_PATH: &str = "BUCK_LOG_TO_FILE_PATH";
@@ -133,6 +146,12 @@ fn exec_with_logging(
 // it must be single-threaded. Commands that want to be multi-threaded/async
 // will start up their own tokio runtime.
 fn main() -> ! {
+    // Enable sampling early so the side table exists before the daemon forks
+    // (fork copies the heap). The dump watcher is started later, post-fork, in
+    // buck2_daemon — threads do not survive the daemonizing fork.
+    #[cfg(buck2_memfrag)]
+    mem_frag::init();
+
     buck2_core::client_only::CLIENT_ONLY_VAL.init(cfg!(client_only));
     #[cfg(not(client_only))]
     {

@@ -96,6 +96,8 @@ buck2 kill
 ## Where to go next
 
 - [memory.md](memory.md) — heap profiling, allocator stats, peak vs retained
+- [memory_fragmentation.md](memory_fragmentation.md) — attributing the
+  `active - allocated` slab-fragmentation gap to allocation sites (jemalloc only)
 - [benchmarking.md](benchmarking.md) — making measurements meaningful
 - [memory_regression_hunting.md](memory_regression_hunting.md) — comparing two binaries
 - [scripts/](scripts/) — runnable tooling that wraps the recipes above

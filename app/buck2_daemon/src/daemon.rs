@@ -328,6 +328,11 @@ impl DaemonCommand {
             (listener, process_info, endpoint)
         };
 
+        // Start the fragmentation dump watcher now that we are in the final
+        // (post-daemonize-fork) process; threads do not survive that fork.
+        #[cfg(buck2_memfrag)]
+        mem_frag::start_dump_watcher();
+
         let daemon_id = DaemonId::parse_from_str(&self.daemon_id)?;
         set_daemon_id_for_panics(daemon_id.dupe());
 
