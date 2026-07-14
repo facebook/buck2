@@ -304,6 +304,8 @@ def _cargo_buildscript_impl(ctx: AnalysisContext) -> list[Provider]:
     )
     deps_link = deps_tset.project_as_args("default")
     sanitizer_flags = ["-fno-sanitize=all"]
+    cc_is_clang = cxx_toolchain_info.c_compiler_info.compiler_type.startswith("clang")
+    cxx_is_clang = cxx_toolchain_info.cxx_compiler_info.compiler_type.startswith("clang")
     env["LD"] = _make_cc_shim(
         ctx = ctx,
         name = "__ld_shim",
@@ -319,7 +321,7 @@ def _cargo_buildscript_impl(ctx: AnalysisContext) -> list[Provider]:
         name = "__cc_shim",
         cmd = cmd_args(
             cxx_toolchain_info.c_compiler_info.compiler,
-            cmd_args(env["LD"], format = "--ld-path={}"),
+            cmd_args(env["LD"], format = "--ld-path={}") if cc_is_clang else cmd_args(),
             cxx_toolchain_info.c_compiler_info.preprocessor_flags,
             cxx_toolchain_info.c_compiler_info.compiler_flags,
             deps_preprocessor_flags,
@@ -334,7 +336,7 @@ def _cargo_buildscript_impl(ctx: AnalysisContext) -> list[Provider]:
         name = "__cxx_shim",
         cmd = cmd_args(
             cxx_toolchain_info.cxx_compiler_info.compiler,
-            cmd_args(env["LD"], format = "--ld-path={}"),
+            cmd_args(env["LD"], format = "--ld-path={}") if cxx_is_clang else cmd_args(),
             cxx_toolchain_info.cxx_compiler_info.preprocessor_flags,
             cxx_toolchain_info.cxx_compiler_info.compiler_flags,
             deps_preprocessor_flags,
