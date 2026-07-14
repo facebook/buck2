@@ -7,7 +7,10 @@ permissions:
 
 jobs:
   macos-build-examples:
-    runs-on: macos-latest
+    # Pinned to macos-14: on the macos-15 runner image `latest-stable` selects an
+    # Xcode/SDK that mis-targets the deployment SDK and breaks the `cargo build`
+    # step (actions/runner-images#12758). macos-14 resolves to a known-good Xcode 16.x.
+    runs-on: macos-14
     steps:
     - uses: maxim-lobanov/setup-xcode@v1.6.0
       with:
