@@ -370,7 +370,7 @@ def _compute_pex_providers(
     # debug symbols from the par
     debuginfo_files = []
     debuginfos = {}
-    if ctx.attrs.strip_libpar == "extract" and package_style == PackageStyle("standalone") and cxx_is_gnu(ctx):
+    if ctx.attrs.strip_libpar == "extract" and package_style in [PackageStyle("standalone"), PackageStyle("outplace")] and cxx_is_gnu(ctx):
         stripped_shlibs = []
         for shlib, libdir in shared_libs:
             name = paths.join(

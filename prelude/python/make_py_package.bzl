@@ -1041,7 +1041,7 @@ def _pex_modules_common_args(
             debug_artifacts.append((name, artifact))
 
     if ctx.attrs.package_split_dwarf_dwp:
-        if ctx.attrs.strip_libpar == "extract" and get_package_style(ctx) == PackageStyle("standalone") and cxx_is_gnu(ctx):
+        if ctx.attrs.strip_libpar == "extract" and get_package_style(ctx) in [PackageStyle("standalone"), PackageStyle("outplace")] and cxx_is_gnu(ctx):
             dwp_ext = ".debuginfo.dwp"
         else:
             dwp_ext = ".dwp"
