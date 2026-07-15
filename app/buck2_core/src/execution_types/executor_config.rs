@@ -165,7 +165,7 @@ pub struct ReGang {
     /// Optional number of sub-groups for locality partitioning
     pub num_sub_groups: Option<i32>,
     /// Optional resource_units each worker claims on its host
-    pub resource_units: Option<i64>,
+    pub resource_units: Option<i32>,
 }
 
 #[derive(Debug, buck2_error::Error)]
@@ -187,7 +187,7 @@ impl ReGang {
         num_of_workers: i32,
         locality: Option<ReGangLocality>,
         num_sub_groups: Option<i32>,
-        resource_units: Option<i64>,
+        resource_units: Option<i32>,
     ) -> buck2_error::Result<ReGang> {
         if num_of_workers <= 0 {
             return Err(ReGangErrors::InvalidNumOfWorkers(num_of_workers).into());

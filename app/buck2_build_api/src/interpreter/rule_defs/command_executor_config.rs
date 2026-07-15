@@ -660,7 +660,7 @@ fn parse_remote_execution_gang<'v>(
     let resource_units = gang
         .get_str("resource_units")
         .map(|v| {
-            v.unpack_i32().map(i64::from).ok_or_else(|| {
+            v.unpack_i32().ok_or_else(|| {
                 buck2_error::Error::from(CommandExecutorConfigErrors::ReGangResourceUnitsNotAnInt(
                     v.to_repr(),
                 ))
