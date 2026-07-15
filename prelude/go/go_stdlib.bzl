@@ -7,7 +7,6 @@
 # above-listed licenses.
 
 load("@prelude//cxx:cxx_context.bzl", "get_opt_cxx_toolchain_info")
-
 load("@prelude//cxx:headers.bzl", "CxxHeadersLayout", "CxxHeadersNaming")
 load("@prelude//cxx:target_sdk_version.bzl", "get_target_sdk_version_flags")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")

@@ -7,7 +7,6 @@
 # above-listed licenses.
 
 load("@prelude//:artifacts.bzl", "single_artifact")
-
 load("@prelude//dist:dist_info.bzl", "DistInfo")
 load(
     "@prelude//linking:link_info.bzl",

@@ -11,7 +11,6 @@ load("@prelude//python:source_db.bzl", "PythonSourceDBInfo")
 load("@prelude//python:toolchain.bzl", "PythonToolchainInfo")
 load("@prelude//python:typing.bzl", "get_default_sys_platform")
 load("@prelude//python/meta_only:config.bzl", "DEFAULT_PY_VERSION")  # @oss-disable
-
 # @oss-enable: load("@prelude//python:typing.bzl", "DEFAULT_PY_VERSION")
 load("@prelude//python/sourcedb:filter.bxl", "BUCK_PYTHON_RULE_KINDS")
 load("@prelude//utils:utils.bzl", "flatten")

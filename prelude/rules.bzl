@@ -7,7 +7,6 @@
 # above-listed licenses.
 
 load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
-
 # Combine the attributes we generate, we the custom implementations we have.
 load("@prelude//:rules_impl.bzl", "categorized_extra_attributes", "categorized_rule_decl_records", "extra_implemented_rules", "toolchain_rule_names")
 load("@prelude//apple:apple_platforms.bzl", "APPLE_PLATFORMS_KEY")

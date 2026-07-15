@@ -7,7 +7,6 @@
 # above-listed licenses.
 
 load("@prelude//:paths.bzl", "paths")
-
 load(
     "@prelude//cxx:preprocessor.bzl",
     "cxx_inherited_preprocessor_infos",

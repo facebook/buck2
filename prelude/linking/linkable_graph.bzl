@@ -8,7 +8,6 @@
 
 load("@prelude//cxx:cxx_toolchain_types.bzl", "PicBehavior")
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo")
-
 # TODO(mattpayne): Add this back once the type is supported by dependency mgmt
 # load("@prelude//cxx:shared_library_interface.bzl", "SharedInterfaceInfo")
 load("@prelude//linking:types.bzl", "Linkage")

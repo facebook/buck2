@@ -7,7 +7,6 @@
 # above-listed licenses.
 
 load("@prelude//cfg/modifier:name.bzl", "cfg_name")
-
 # NOTE: At the moment, target platforms and constraint values can't be propagated via build rule
 #       attributes all the way to configuration transitions. The reason is that the transition
 #       function is invoked before the rule, so any PlatformInfo and ConstraintValueInfo providers

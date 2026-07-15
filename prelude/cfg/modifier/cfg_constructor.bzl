@@ -15,7 +15,6 @@ load(
     "resolve_alias",
     "resolve_configuration",
 )
-
 load(
     ":types.bzl",
     "BuckconfigBackedModifierInfo",
