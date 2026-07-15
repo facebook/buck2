@@ -850,6 +850,7 @@ apple_package = prelude_rule(
             """,
             ),
             "ext": attrs.enum(ApplePackageExtension.values(), default = "ipa"),
+            "include_app_symbols": attrs.bool(default = False),
             "package_name": attrs.option(attrs.string(), default = None),
             "packager": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
             "packager_args": attrs.list(attrs.arg(), default = []),
