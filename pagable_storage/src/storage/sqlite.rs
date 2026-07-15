@@ -8,13 +8,15 @@
  * above-listed licenses.
  */
 
+use std::collections::VecDeque;
 use std::path::Path;
 use std::sync::Arc;
+use std::sync::Condvar;
 use std::sync::Mutex;
 use std::sync::MutexGuard;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
-use std::sync::mpsc;
+use std::thread::JoinHandle;
 
 use pagable::arc_erase::ArcEraseDyn;
 use pagable::storage::data::DataKey;
@@ -25,7 +27,10 @@ use pagable::traits::SessionContext;
 use rusqlite::Connection;
 use rusqlite::ToSql;
 
-const NUM_SHARDS: usize = 16;
+const NUM_SHARDS: usize = 10;
+const WRITE_BUFFER_CAPACITY: usize = 32768;
+const IDLE_SPARE_WRITE_BUFFERS: usize = 1;
+const BASELINE_PENDING_WRITE_BUFFERS: usize = 16;
 const INSERT_BATCH_ROWS: usize = 8;
 const INSERT_COLUMNS: usize = 3;
 const INSERT_SINGLE_SQL: &str =
@@ -47,10 +52,59 @@ pub struct SqliteBackedPagableStorage {
 }
 
 struct Shard {
+    /// The inner state of the shard, shared between the writer thread and producers
+    inner: Arc<ShardInner>,
+    /// The writer thread that flushes pending writes to the database.
+    writer: Option<JoinHandle<()>>,
+}
+
+struct ShardInner {
+    /// The connection pool for this shard.
     conns: ConnectionPool,
-    write_tx: mpsc::Sender<(DataKey, Vec<u8>)>,
-    write_rx: Mutex<mpsc::Receiver<(DataKey, Vec<u8>)>>,
-    write_count: AtomicUsize,
+    /// The number of rows to insert in a single sql statement execution.
+    insert_batch_rows: usize,
+    /// The sql statement to insert a batch of rows.
+    insert_batch_sql: String,
+    /// The state of the writer thread.
+    write_state: Mutex<ShardWriteState>,
+    /// The condition variable to signal the writer thread.
+    write_state_changed: Condvar,
+}
+
+struct ShardWriteState {
+    /// The buffer that producers enqueue writes into. Once full it's moved to pending_buffers
+    active_buffer: Vec<(DataKey, Vec<u8>)>,
+    /// Empty buffers available to replace active_buffer once it becomes pending.
+    /// May grow dynamically during page-out; flush and release_memory trim extras.
+    spare_buffers: Vec<Vec<(DataKey, Vec<u8>)>>,
+    /// Buffers that are full and ready to be written to the database by the writer thread
+    pending_buffers: VecDeque<Vec<(DataKey, Vec<u8>)>>,
+    /// Maximum number of pending buffers before blocking producers. `.capacity()` may be larger, hence the separate limit.
+    pending_capacity: usize,
+    /// Whether the writer thread is currently writing one of the pending_buffers to the database
+    writing: bool,
+    /// Whether the writer thread should stop and exit
+    shutdown: bool,
+    /// Error message if the writer thread failed
+    error: Option<String>,
+}
+
+impl ShardWriteState {
+    fn trim_idle_write_buffers(&mut self) {
+        while self.spare_buffers.len() > IDLE_SPARE_WRITE_BUFFERS {
+            self.spare_buffers.pop();
+        }
+    }
+
+    fn queue_active_for_later_flush(&mut self) {
+        debug_assert!(self.pending_buffers.len() < self.pending_capacity);
+        let replacement = self
+            .spare_buffers
+            .pop()
+            .unwrap_or_else(|| Vec::with_capacity(WRITE_BUFFER_CAPACITY));
+        self.pending_buffers
+            .push_back(std::mem::replace(&mut self.active_buffer, replacement));
+    }
 }
 
 struct ConnectionPool {
@@ -110,7 +164,12 @@ impl ConnectionPool {
 }
 
 impl Shard {
-    fn open(path: &Path, num_readers: usize) -> anyhow::Result<Self> {
+    fn open(
+        path: &Path,
+        num_readers: usize,
+        shard_id: usize,
+        pending_capacity: usize,
+    ) -> anyhow::Result<Self> {
         let conns = ConnectionPool::open(path, num_readers)?;
         conns.get_readwrite().execute_batch(
             "CREATE TABLE IF NOT EXISTS pagable_data (
@@ -120,33 +179,227 @@ impl Shard {
                 UNIQUE(key_hi, key_lo)
             );",
         )?;
-        let (write_tx, write_rx) = mpsc::channel();
-        Ok(Self {
+        let insert_batch_rows = {
+            let conn = conns.get_readwrite();
+            INSERT_BATCH_ROWS.min(sqlite_insert_batch_row_limit(&conn)?)
+        };
+        let inner = Arc::new(ShardInner {
             conns,
-            write_tx,
-            write_rx: Mutex::new(write_rx),
-            write_count: AtomicUsize::new(0),
+            insert_batch_rows,
+            insert_batch_sql: insert_sql(insert_batch_rows),
+            write_state: Mutex::new(ShardWriteState {
+                active_buffer: Vec::with_capacity(WRITE_BUFFER_CAPACITY),
+                spare_buffers: (0..IDLE_SPARE_WRITE_BUFFERS)
+                    .map(|_| Vec::with_capacity(WRITE_BUFFER_CAPACITY))
+                    .collect(),
+                pending_buffers: VecDeque::with_capacity(pending_capacity),
+                pending_capacity,
+                writing: false,
+                shutdown: false,
+                error: None,
+            }),
+            write_state_changed: Condvar::new(),
+        });
+        let writer_inner = inner.clone();
+        let writer = std::thread::Builder::new()
+            .name(format!("page-sql-{shard_id}"))
+            .spawn(move || writer_inner.writer_loop())
+            .map_err(|e| anyhow::anyhow!("failed to spawn sqlite page-out writer: {}", e))?;
+        Ok(Self {
+            inner,
+            writer: Some(writer),
         })
     }
 
     fn flush(&self) -> anyhow::Result<()> {
-        let rx = self.write_rx.lock().expect("lock poisoned");
-        let mut items: Vec<_> = rx.try_iter().collect();
-        drop(rx);
-        self.write_count.store(0, Ordering::Relaxed);
+        self.inner.flush()
+    }
+
+    #[inline]
+    fn enqueue(&self, item: (DataKey, Vec<u8>)) -> anyhow::Result<()> {
+        self.inner.enqueue(item)
+    }
+}
+
+impl Drop for Shard {
+    fn drop(&mut self) {
+        {
+            let mut state = self.inner.write_state.lock().expect("lock poisoned");
+            if !state.active_buffer.is_empty() {
+                while state.pending_buffers.len() >= state.pending_capacity && state.error.is_none()
+                {
+                    state = self
+                        .inner
+                        .write_state_changed
+                        .wait(state)
+                        .expect("lock poisoned");
+                }
+            }
+            if !state.active_buffer.is_empty() && state.error.is_none() {
+                state.queue_active_for_later_flush();
+            }
+            state.shutdown = true;
+            self.inner.write_state_changed.notify_all();
+        }
+        if let Some(writer) = self.writer.take() {
+            if let Err(payload) = writer.join() {
+                eprintln!(
+                    "Warning: sqlite page-out writer thread panicked: {}",
+                    panic_payload_to_string(payload.as_ref())
+                );
+            }
+        }
+    }
+}
+
+impl ShardInner {
+    fn flush(&self) -> anyhow::Result<()> {
+        let mut state = self.write_state.lock().expect("lock poisoned");
+        Self::check_error(&state)?;
+        if !state.active_buffer.is_empty() {
+            while state.pending_buffers.len() >= state.pending_capacity {
+                state = self.write_state_changed.wait(state).expect("lock poisoned");
+                Self::check_error(&state)?;
+            }
+            if !state.active_buffer.is_empty() {
+                state.queue_active_for_later_flush();
+                self.write_state_changed.notify_one();
+            }
+        }
+        while !state.pending_buffers.is_empty() || state.writing {
+            state = self.write_state_changed.wait(state).expect("lock poisoned");
+            Self::check_error(&state)?;
+        }
+        Self::check_error(&state)?;
+        state.trim_idle_write_buffers();
+        Ok(())
+    }
+
+    fn release_memory(&self) {
+        let mut state = self.write_state.lock().expect("lock poisoned");
+        state.trim_idle_write_buffers();
+    }
+
+    #[inline]
+    fn enqueue(&self, item: (DataKey, Vec<u8>)) -> anyhow::Result<()> {
+        let mut state = self.write_state.lock().expect("lock poisoned");
+        Self::check_error(&state)?;
+        state = self.queue_full_active_for_later_flush(state)?;
+        debug_assert!(state.active_buffer.len() < WRITE_BUFFER_CAPACITY);
+
+        state.active_buffer.push(item);
+        if state.active_buffer.len() < WRITE_BUFFER_CAPACITY {
+            return Ok(());
+        }
+
+        drop(self.queue_full_active_for_later_flush(state)?);
+        Ok(())
+    }
+
+    fn queue_full_active_for_later_flush<'a>(
+        &self,
+        mut state: MutexGuard<'a, ShardWriteState>,
+    ) -> anyhow::Result<MutexGuard<'a, ShardWriteState>> {
+        if state.active_buffer.len() < WRITE_BUFFER_CAPACITY {
+            return Ok(state);
+        }
+
+        while state.pending_buffers.len() >= state.pending_capacity {
+            state = self.write_state_changed.wait(state).expect("lock poisoned");
+            Self::check_error(&state)?;
+            if state.active_buffer.len() < WRITE_BUFFER_CAPACITY {
+                return Ok(state);
+            }
+        }
+
+        if state.active_buffer.len() >= WRITE_BUFFER_CAPACITY {
+            state.queue_active_for_later_flush();
+            self.write_state_changed.notify_one();
+        }
+        Ok(state)
+    }
+
+    fn writer_loop(&self) {
+        let mut state = self.write_state.lock().expect("lock poisoned");
+        loop {
+            // Wait until producers publish a buffer, final flush asks us
+            // to drain a partial one, or shutdown/error stops the writer.
+            while state.pending_buffers.is_empty() && !state.shutdown && state.error.is_none() {
+                state = self.write_state_changed.wait(state).expect("lock poisoned");
+            }
+            if state.error.is_some() || (state.pending_buffers.is_empty() && state.shutdown) {
+                return;
+            }
+            state.writing = true;
+
+            while state.error.is_none() && !state.pending_buffers.is_empty() {
+                // Fetch a pending buffer for writing to the database.
+                let mut items = state
+                    .pending_buffers
+                    .pop_front()
+                    .expect("writer was woken with no pending work");
+                // One freed pending slot can only unblock one producer.
+                self.write_state_changed.notify_one();
+                drop(state);
+
+                // Write the items to the database, catching any panics so that we can clean up.
+                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    self.write_items_impl(&mut items)
+                }))
+                .map_err(|payload| {
+                    format!(
+                        "sqlite page-out writer panicked: {}",
+                        panic_payload_to_string(payload.as_ref())
+                    )
+                })
+                .and_then(|result| result.map_err(|e| format!("{e:#}")));
+
+                // Return the empty buffer back to the spares.
+                items.clear();
+                state = self.write_state.lock().expect("lock poisoned");
+                state.spare_buffers.push(items);
+                if let Err(e) = result {
+                    state.error = Some(e);
+                }
+            }
+
+            state.writing = false;
+            // Draining or error completion can satisfy every concurrent flush waiter.
+            self.write_state_changed.notify_all();
+        }
+    }
+
+    fn write_items_impl(&self, items: &mut [(DataKey, Vec<u8>)]) -> anyhow::Result<()> {
         if items.is_empty() {
             return Ok(());
         }
         items.sort_unstable_by_key(|(key, _bytes)| key.0);
 
         let mut conn = self.conns.get_readwrite();
-        let insert_batch_rows = INSERT_BATCH_ROWS.min(sqlite_insert_batch_row_limit(&conn)?);
         let tx = conn.transaction()?;
         {
-            insert_items(&tx, &items, insert_batch_rows)?;
+            insert_items(&tx, items, self.insert_batch_rows, &self.insert_batch_sql)?;
         }
         tx.commit()?;
         Ok(())
+    }
+
+    #[inline]
+    fn check_error(state: &ShardWriteState) -> anyhow::Result<()> {
+        match &state.error {
+            Some(e) => Err(anyhow::anyhow!("sqlite page-out writer failed: {}", e)),
+            None => Ok(()),
+        }
+    }
+}
+
+fn panic_payload_to_string(payload: &(dyn std::any::Any + Send)) -> String {
+    if let Some(message) = payload.downcast_ref::<&'static str>() {
+        (*message).to_owned()
+    } else if let Some(message) = payload.downcast_ref::<String>() {
+        message.clone()
+    } else {
+        "<non-string panic payload>".to_owned()
     }
 }
 
@@ -157,13 +410,25 @@ impl SqliteBackedPagableStorage {
 
         // Readers only serve page-in. Keep the total connection count bounded
         // now that writers are sharded across database files.
+        let num_shards = NUM_SHARDS;
+        // Each shard can hold up to this many pending write buffers, plus one
+        // writer-owned buffer, one active producer buffer, and the idle spare
+        // buffers retained after flush.
+        let pending_buffer_capacity = BASELINE_PENDING_WRITE_BUFFERS.div_ceil(num_shards).max(1);
         let readers_per_shard = std::thread::available_parallelism()
             .map(|n| n.get())
             .unwrap_or(4)
-            .div_ceil(NUM_SHARDS)
+            .div_ceil(num_shards)
             .clamp(1, 2);
-        let shards = (0..NUM_SHARDS)
-            .map(|i| Shard::open(&path.join(format!("pagable.{i}.db")), readers_per_shard))
+        let shards = (0..num_shards)
+            .map(|i| {
+                Shard::open(
+                    &path.join(format!("pagable.{i}.db")),
+                    readers_per_shard,
+                    i,
+                    pending_buffer_capacity,
+                )
+            })
             .collect::<anyhow::Result<Vec<_>>>()?;
 
         Ok(Self {
@@ -173,14 +438,13 @@ impl SqliteBackedPagableStorage {
         })
     }
 
-    const WRITE_BUFFER_CAPACITY: usize = 32768;
-
+    #[inline]
     fn shard_for(&self, key: &DataKey) -> &Shard {
         &self.shards[(key.0 % self.shards.len() as u128) as usize]
     }
 
     fn fetch_data_read(&self, key: &DataKey) -> anyhow::Result<Arc<PagableData>> {
-        let conn = self.shard_for(key).conns.get_reader();
+        let conn = self.shard_for(key).inner.conns.get_reader();
         let (key_lo, key_hi) = data_key_parts(*key);
         let bytes: Vec<u8> = {
             let mut stmt = conn
@@ -205,10 +469,10 @@ impl SqliteBackedPagableStorage {
 
     pub fn shrink_memory(&self) {
         for shard in &self.shards {
-            if let Ok(conn) = shard.conns.readwrite.lock() {
+            if let Ok(conn) = shard.inner.conns.readwrite.lock() {
                 let _unused = conn.execute_batch("PRAGMA shrink_memory;");
             }
-            for reader in &shard.conns.readers {
+            for reader in &shard.inner.conns.readers {
                 if let Ok(conn) = reader.lock() {
                     let _unused = conn.execute_batch("PRAGMA shrink_memory;");
                 }
@@ -288,13 +552,7 @@ impl PagableStorage for SqliteBackedPagableStorage {
         let key = data.compute_key();
         let bytes = Self::encode_pagable_data(&data);
         let shard = self.shard_for(&key);
-        shard
-            .write_tx
-            .send((key, bytes))
-            .map_err(|_| anyhow::anyhow!("write channel closed"))?;
-        if shard.write_count.fetch_add(1, Ordering::Relaxed) + 1 >= Self::WRITE_BUFFER_CAPACITY {
-            shard.flush()?;
-        }
+        shard.enqueue((key, bytes))?;
         Ok(key)
     }
 
@@ -303,16 +561,20 @@ impl PagableStorage for SqliteBackedPagableStorage {
             let handles: Vec<_> = self
                 .shards
                 .iter()
-                .map(|shard| scope.spawn(move || shard.flush()))
+                .map(|shard| scope.spawn(move || shard.flush().map(drop)))
                 .collect();
             for handle in handles {
                 handle.join().expect("flush thread panicked")?;
             }
             anyhow::Ok(())
-        })
+        })?;
+        Ok(())
     }
 
     fn release_memory(&self) {
+        for shard in &self.shards {
+            shard.inner.release_memory();
+        }
         self.shrink_memory();
     }
 }
@@ -345,23 +607,27 @@ fn insert_items(
     tx: &rusqlite::Transaction<'_>,
     items: &[(DataKey, Vec<u8>)],
     batch_rows: usize,
+    batch_sql: &str,
 ) -> anyhow::Result<()> {
-    let mut single_stmt = tx.prepare_cached(INSERT_SINGLE_SQL)?;
     if batch_rows <= 1 {
+        let mut single_stmt = tx.prepare_cached(INSERT_SINGLE_SQL)?;
         for item in items {
             execute_insert(&mut single_stmt, std::slice::from_ref(item))?;
         }
         return Ok(());
     }
 
-    let batch_sql = insert_sql(batch_rows);
-    let mut batch_stmt = tx.prepare_cached(&batch_sql)?;
-    let full_len = items.len() / batch_rows * batch_rows;
-    for chunk in items[..full_len].chunks_exact(batch_rows) {
+    let mut batch_stmt = tx.prepare_cached(batch_sql)?;
+    let mut chunks = items.chunks_exact(batch_rows);
+    for chunk in &mut chunks {
         execute_insert(&mut batch_stmt, chunk)?;
     }
-    for item in &items[full_len..] {
-        execute_insert(&mut single_stmt, std::slice::from_ref(item))?;
+    let remainder = chunks.remainder();
+    if !remainder.is_empty() {
+        let mut single_stmt = tx.prepare_cached(INSERT_SINGLE_SQL)?;
+        for item in remainder {
+            execute_insert(&mut single_stmt, std::slice::from_ref(item))?;
+        }
     }
     Ok(())
 }
@@ -428,8 +694,59 @@ mod tests {
     }
 
     fn shard_row_count(shard: &Shard) -> anyhow::Result<usize> {
-        let conn = shard.conns.readwrite.lock().expect("lock poisoned");
+        shard.flush()?;
+        let conn = shard.inner.conns.readwrite.lock().expect("lock poisoned");
         Ok(conn.query_row("SELECT COUNT(*) FROM pagable_data", [], |row| row.get(0))?)
+    }
+
+    #[test]
+    fn sqlite_write_buffer_rotation_allocates_replacement_when_no_spare_exists() {
+        let pending_capacity = 2;
+        let mut state = ShardWriteState {
+            active_buffer: Vec::with_capacity(WRITE_BUFFER_CAPACITY),
+            spare_buffers: Vec::new(),
+            pending_buffers: VecDeque::with_capacity(pending_capacity),
+            pending_capacity,
+            writing: false,
+            shutdown: false,
+            error: None,
+        };
+
+        state
+            .active_buffer
+            .extend((0..WRITE_BUFFER_CAPACITY).map(|i| (DataKey(i as u128), Vec::new())));
+        state.queue_active_for_later_flush();
+
+        assert_eq!(1, state.pending_buffers.len());
+        assert!(state.active_buffer.is_empty());
+        assert!(
+            state.active_buffer.capacity() >= WRITE_BUFFER_CAPACITY,
+            "rotation should leave active with enough capacity for the next writes",
+        );
+    }
+
+    #[test]
+    fn sqlite_flush_trims_hot_write_buffers() -> anyhow::Result<()> {
+        let dir = TempStorageDir::new("trim_hot_buffers")?;
+        let storage = SqliteBackedPagableStorage::try_new(&dir.path)?;
+        let shard = &storage.shards[0];
+
+        {
+            let mut state = shard.inner.write_state.lock().expect("lock poisoned");
+            state
+                .spare_buffers
+                .push(Vec::with_capacity(WRITE_BUFFER_CAPACITY));
+            state
+                .spare_buffers
+                .push(Vec::with_capacity(WRITE_BUFFER_CAPACITY));
+            assert!(state.spare_buffers.len() > IDLE_SPARE_WRITE_BUFFERS);
+        }
+
+        shard.flush()?;
+
+        let state = shard.inner.write_state.lock().expect("lock poisoned");
+        assert_eq!(IDLE_SPARE_WRITE_BUFFERS, state.spare_buffers.len());
+        Ok(())
     }
 
     #[test]
@@ -453,7 +770,8 @@ mod tests {
             let items = (0..item_count)
                 .map(|i| (DataKey(i as u128), vec![i as u8]))
                 .collect::<Vec<_>>();
-            insert_items(&tx, &items, batch_rows)?;
+            let batch_sql = insert_sql(batch_rows);
+            insert_items(&tx, &items, batch_rows, &batch_sql)?;
             tx.commit()?;
 
             let row_count: usize =
@@ -541,6 +859,28 @@ mod tests {
         let fetched = storage.fetch_data_blocking(&key)?;
         assert_eq!(b"duplicate payload", fetched.data.as_slice());
         assert_eq!(vec![DataKey(11)], fetched.arcs);
+        Ok(())
+    }
+
+    #[test]
+    fn sqlite_storage_drop_drains_unflushed_active_buffer() -> anyhow::Result<()> {
+        let dir = TempStorageDir::new("drop_drains")?;
+        let key = {
+            let storage = SqliteBackedPagableStorage::try_new(&dir.path)?;
+            storage.store_data(pagable_data(b"drop drains payload", vec![DataKey(7)]))?
+        };
+
+        let shard_id = (key.0 % NUM_SHARDS as u128) as usize;
+        let conn = Connection::open(dir.path.join(format!("pagable.{shard_id}.db")))?;
+        let (key_lo, key_hi) = data_key_parts(key);
+        let value: Vec<u8> = conn.query_row(
+            "SELECT value FROM pagable_data WHERE key_lo = ?1 AND key_hi = ?2",
+            rusqlite::params![key_lo, key_hi],
+            |row| row.get(0),
+        )?;
+        let fetched = SqliteBackedPagableStorage::decode_pagable_data(&value, &key)?;
+        assert_eq!(b"drop drains payload", fetched.data.as_slice());
+        assert_eq!(vec![DataKey(7)], fetched.arcs);
         Ok(())
     }
 }
