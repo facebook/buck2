@@ -621,7 +621,13 @@ impl DaemonState {
 
             tracing::info!("Constructing DICE...");
             let dice = init_ctx
-                .construct_dice(io.dupe(), digest_config, root_config, tenting_acl_provider)
+                .construct_dice(
+                    io.dupe(),
+                    digest_config,
+                    root_config,
+                    tenting_acl_provider,
+                    paths.dice_state_path().as_ref(),
+                )
                 .await?;
 
             tracing::info!("Creating file watcher...");

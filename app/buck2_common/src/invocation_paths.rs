@@ -152,6 +152,17 @@ impl InvocationPaths {
             .join(self.incremental_state_dir_name())
     }
 
+    /// Subdirectory of `cache_dir` responsible for storing paged-out DICE node
+    /// values (see `buck2_hydration.enable_paging`).
+    ///
+    /// Deliberately absent from [`Self::valid_cache_dirs`], so it is wiped on
+    /// daemon startup: the `DiceKey`->`DataKey` mapping needed to read it back
+    /// lives only in the in-memory DICE graph, so a paged-out DB cannot outlive
+    /// the daemon that wrote it.
+    pub fn dice_state_path(&self) -> AbsNormPathBuf {
+        self.cache_dir_path().join(self.dice_state_dir_name())
+    }
+
     /// This is used by the forkserver to write the miniperf wrapper binary (if used), as well as
     /// temporary files used by miniperf. We put this in buck-out because that directory gets
     /// allowlisted for execution (because we write lots of tools there).
@@ -168,7 +179,13 @@ impl InvocationPaths {
         FileName::unchecked_new("incremental_state")
     }
 
+    fn dice_state_dir_name(&self) -> &FileName {
+        FileName::unchecked_new("dice_state")
+    }
+
     pub fn valid_cache_dirs(&self) -> Vec<&FileName> {
+        // `dice_state` is intentionally omitted so it is wiped on startup; see
+        // `dice_state_path`.
         vec![
             self.materializer_state_dir_name(),
             self.incremental_state_dir_name(),

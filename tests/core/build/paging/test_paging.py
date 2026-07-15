@@ -10,20 +10,11 @@
 
 
 import re
-import tempfile
 from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.api.buck_result import BuildResult
 from buck2.tests.e2e_util.buck_workspace import buck_test
-
-
-def _enable_pagable_storage(buck: Buck) -> None:
-    db_dir = Path(tempfile.mkdtemp(prefix="dice_db_"))
-    # Enable pagable DICE storage. Set before the first command so the daemon
-    # starts with it configured (see `configure_dice_for_buck`).
-    buck.set_env("BUCK2_DICE_DB_PATH", str(db_dir))
-    buck.set_env("PAGABLE_STORAGE_BACKEND", "sqlite")
 
 
 async def _build(buck: Buck) -> BuildResult:
@@ -55,8 +46,9 @@ async def test_incremental_build_after_page_out(buck: Buck) -> None:
     #
     # Note: this does not check that stale paged-out values are reclaimed from
     # storage. Garbage-collecting them is future work (reference counting).
-    _enable_pagable_storage(buck)
-
+    #
+    # Pagable storage is set up by `buck2_hydration.enable_paging = true` in the
+    # fixture `.buckconfig` (a `DaemonStartupConfig`).
     (buck.cwd / "src.txt").write_text("content-0\n")
     assert _output(await _build(buck)) == "content-0\n"
 

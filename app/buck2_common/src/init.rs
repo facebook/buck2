@@ -533,6 +533,11 @@ pub struct DaemonStartupConfig {
     pub retained_event_logs: usize,
     pub macos_qos_class: Option<String>,
     pub daemon_idle_timeout_s: Option<u64>,
+    /// When set, the daemon configures pagable DICE storage on disk, enabling
+    /// `buck2 debug hydration` to page node values out to / in from disk. Read at
+    /// startup because it determines whether storage is set up during daemon
+    /// construction.
+    pub enable_paging: bool,
 }
 
 impl DaemonStartupConfig {
@@ -644,6 +649,12 @@ impl DaemonStartupConfig {
                 section: "buck2",
                 property: "daemon_idle_timeout_s",
             })?,
+            enable_paging: config
+                .parse(BuckconfigKeyRef {
+                    section: "buck2_hydration",
+                    property: "enable_paging",
+                })?
+                .unwrap_or(false),
         })
     }
 
@@ -675,6 +686,7 @@ impl DaemonStartupConfig {
             retained_event_logs: DEFAULT_RETAINED_EVENT_LOGS,
             macos_qos_class: None,
             daemon_idle_timeout_s: None,
+            enable_paging: false,
         }
     }
 }

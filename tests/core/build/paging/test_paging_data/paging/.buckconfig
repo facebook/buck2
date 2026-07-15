@@ -3,3 +3,6 @@
 
 [buildfile]
   name=TARGETS.fixture
+
+[buck2_hydration]
+  enable_paging = true

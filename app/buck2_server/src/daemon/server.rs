@@ -187,6 +187,7 @@ impl BuckdServerInitPreferences {
         digest_config: DigestConfig,
         root_config: &LegacyBuckConfig,
         tenting_acl_provider: Option<Arc<dyn TentingAclProvider>>,
+        dice_state_path: &Path,
     ) -> buck2_error::Result<Arc<Dice>> {
         configure_dice_for_buck(
             io,
@@ -194,6 +195,9 @@ impl BuckdServerInitPreferences {
             Some(root_config),
             self.detect_cycles,
             tenting_acl_provider,
+            self.daemon_startup_config
+                .enable_paging
+                .then_some(dice_state_path),
         )
         .await
     }
