@@ -42,6 +42,7 @@ load(
     "append_linkable_args",
     "map_to_link_infos",
     "unpack_external_debug_info",
+    "unpack_link_args",
 )
 load("@prelude//linking:stamp_build_info.bzl", "cxx_stamp_build_info", "stamp_build_info")
 load("@prelude//linking:strip.bzl", "strip_object")
@@ -115,6 +116,7 @@ def cxx_gnu_dist_link(
     """
 
     links = opts.links
+    binary_links = opts.binary_links
 
     # A category suffix that will be added to the category of the link action that is generated.
     category_suffix = opts.category_suffix
@@ -445,6 +447,13 @@ def cxx_gnu_dist_link(
             index_cmd = index_cmd_parts.link_cmd
             index_cmd.add(cmd_args(index_argfile, format = "@{}"))
 
+            # Binary-only link flags (e.g. --wrap) must be present at the index
+            # step so symbol resolution matches the final link. They are
+            # intentionally omitted from the per-object opt actions so those
+            # actions stay identical across links and can be deduplicated.
+            for link in binary_links:
+                index_cmd.add(unpack_link_args(link))
+
             output_as_string = cmd_args(output, ignore_artifacts = True)
             index_cmd.add("-o", output_as_string)
             index_cmd.add(cmd_args(index_file_out.as_output(), format = "-Wl,--thinlto-index-only={}"))
@@ -757,6 +766,8 @@ def cxx_gnu_dist_link(
             if artifact != None and artifact.data_type == _DataType("archive"):
                 link_cmd_hidden.append(artifact.link_data.opt_objects_dir)
         link_cmd.add(cmd_args(final_link_index, format = "@{}"))
+        for link in binary_links:
+            link_cmd.add(unpack_link_args(link))
         link_cmd.add("-o", outputs[output].as_output())
         if linker_map:
             link_cmd.add(linker_map_args(cxx_toolchain, outputs[linker_map].as_output()).flags)
