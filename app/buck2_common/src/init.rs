@@ -352,9 +352,9 @@ impl FromStr for ResourceControlInit {
 const RESOURCE_CONTROL_ALGO_VERSION: u32 = 6;
 
 /// The current version of the daemon cgroup wrapping logic. Incrementing this to `N + 1` and
-/// setting `buck2_resource_control.status_if_min_daemon_cgroup_version` buckconfig to `N + 1`
-/// enables daemon cgroup wrapping (status = if_available) only if the bug fix is included in the
-/// version of buck in use.
+/// setting `buck2_resource_control.min_version_for_gated_status` buckconfig to `N + 1` enables the
+/// gated default status (`buck2_resource_control.version_gated_default_status`, defaulting to
+/// `if_available`) only if the bug fix is included in the version of buck in use.
 const DAEMON_CGROUP_VERSION: u32 = 1;
 
 impl ResourceControlConfig {
@@ -365,23 +365,29 @@ impl ResourceControlConfig {
         )? {
             Self::deserialize(env_conf)
         } else {
-            let status = config
-                .parse(BuckconfigKeyRef {
-                    section: "buck2_resource_control",
-                    property: "status",
-                })?
-                .unwrap_or(ResourceControlStatus::Off);
-            let status_if_min_daemon_cgroup_version: Option<u32> =
-                config.parse(BuckconfigKeyRef {
-                    section: "buck2_resource_control",
-                    property: "status_if_min_daemon_cgroup_version",
-                })?;
-            let status = if status_if_min_daemon_cgroup_version
-                .is_some_and(|min_version| DAEMON_CGROUP_VERSION >= min_version)
-            {
-                ResourceControlStatus::IfAvailable
-            } else {
+            let status: Option<ResourceControlStatus> = config.parse(BuckconfigKeyRef {
+                section: "buck2_resource_control",
+                property: "status",
+            })?;
+            let status = if let Some(status) = status {
                 status
+            } else {
+                let min_version_for_gated_status: Option<u32> = config.parse(BuckconfigKeyRef {
+                    section: "buck2_resource_control",
+                    property: "min_version_for_gated_status",
+                })?;
+                if min_version_for_gated_status
+                    .is_some_and(|min_version| DAEMON_CGROUP_VERSION >= min_version)
+                {
+                    config
+                        .parse(BuckconfigKeyRef {
+                            section: "buck2_resource_control",
+                            property: "version_gated_default_status",
+                        })?
+                        .unwrap_or(ResourceControlStatus::IfAvailable)
+                } else {
+                    ResourceControlStatus::Off
+                }
             };
             let init = config
                 .parse(BuckconfigKeyRef {
