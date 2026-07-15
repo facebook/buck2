@@ -93,41 +93,40 @@ pub(super) async fn get_unix_daemon_and_args<'a>(
 ) -> buck2_error::Result<ExecutableAndArgs<'a>> {
     let daemon_exe = super::get_daemon_exe()?;
 
-    if let Some(unsandboxed_daemon_wrapper) = daemon_unsandboxed_wrapper(options).await {
-        let canonical_daemon_exe = daemon_exe
-            .canonicalize()
-            .buck_error_context("Failed to canonicalize Buck daemon executable")?
-            .into_os_string()
-            .into_string()
-            .map_err(|_| internal_error!("Buck daemon executable path is not valid UTF-8"))?;
+    if let Some((unsandboxed_daemon_wrapper, canonical_daemon_exe)) =
+        daemon_unsandboxed_wrapper(options, &daemon_exe).await?
+    {
         let args = std::iter::once(Cow::Borrowed("unsandbox-daemon"))
             .chain(std::iter::once(Cow::Owned(canonical_daemon_exe)))
             .chain(args.into_iter().map(Cow::Borrowed))
             .collect();
-        Ok(ExecutableAndArgs {
+        return Ok(ExecutableAndArgs {
             executable: unsandboxed_daemon_wrapper.into(),
             args,
-        })
-    } else {
-        Ok(ExecutableAndArgs {
-            executable: daemon_exe.into_os_string(),
-            args: args.into_iter().map(Cow::Borrowed).collect(),
-        })
+        });
     }
+
+    Ok(ExecutableAndArgs {
+        executable: daemon_exe.into_os_string(),
+        args: args.into_iter().map(Cow::Borrowed).collect(),
+    })
 }
 
-async fn daemon_unsandboxed_wrapper(options: &BuckdConnectDaemonOptions) -> Option<&'static str> {
+async fn daemon_unsandboxed_wrapper(
+    options: &BuckdConnectDaemonOptions,
+    daemon_exe: &Path,
+) -> buck2_error::Result<Option<(&'static str, String)>> {
     const UNSANDBOX_DAEMON_WRAPPER: &str = "/usr/local/bin/buck";
     // This was the first release (d242c0c75785ff34bfcefbecc9cf4a40022df37b) that accepted the `unsandbox-daemon` command.
     const MIN_UNSANDBOX_DAEMON_WRAPPER_RELEASE: BuckWrapperRelease<'static> =
         BuckWrapperRelease(Cow::Borrowed("20260630-090501"));
 
     if !options.allow_daemon_start_unsandboxed_via_wrapper {
-        return None;
+        return Ok(None);
     }
 
     if identity_env::agent_identity_from_env().is_none() {
-        return None;
+        return Ok(None);
     }
 
     // TODO(jtbraun): Once all old wrappers are gone, we can remove most of these safety checks on the wrapper's suitability.
@@ -152,7 +151,7 @@ async fn daemon_unsandboxed_wrapper(options: &BuckdConnectDaemonOptions) -> Opti
             quiet: false,
             task: false
         );
-        return None;
+        return Ok(None);
     }
 
     let Some(release) = BuckWrapperRelease::create(UNSANDBOX_DAEMON_WRAPPER).await else {
@@ -166,7 +165,7 @@ async fn daemon_unsandboxed_wrapper(options: &BuckdConnectDaemonOptions) -> Opti
             quiet: false,
             task: false
         );
-        return None;
+        return Ok(None);
     };
 
     if !release.is_at_least(&MIN_UNSANDBOX_DAEMON_WRAPPER_RELEASE) {
@@ -182,10 +181,42 @@ async fn daemon_unsandboxed_wrapper(options: &BuckdConnectDaemonOptions) -> Opti
             quiet: false,
             task: false
         );
-        return None;
+        return Ok(None);
     }
 
-    Some(UNSANDBOX_DAEMON_WRAPPER)
+    let canonical_daemon_exe = daemon_exe
+        .canonicalize()
+        .buck_error_context("Failed to canonicalize Buck daemon executable")?;
+    if !matches!(
+        canonical_daemon_exe
+            .file_name()
+            .and_then(|filename| filename.to_str()),
+        Some("buck2" | "buck2-daemon")
+    ) {
+        let daemon_filename = canonical_daemon_exe
+            .file_name()
+            .map(|filename| filename.to_string_lossy())
+            .unwrap_or(Cow::Borrowed("<none>"));
+        let _unused = soft_error!(
+            "buck_unsandbox_daemon_unsupported_daemon_filename",
+            buck2_error!(
+                ErrorTag::Environment,
+                "Skipping Buck daemon sandbox escape because daemon executable filename `{}` is not supported by `{}`; expected `buck2` or `buck2-daemon`",
+                daemon_filename,
+                UNSANDBOX_DAEMON_WRAPPER
+            ),
+            quiet: false,
+            task: false
+        );
+        return Ok(None);
+    }
+
+    let canonical_daemon_exe = canonical_daemon_exe
+        .into_os_string()
+        .into_string()
+        .map_err(|_| internal_error!("Buck daemon executable path is not valid UTF-8"))?;
+
+    Ok(Some((UNSANDBOX_DAEMON_WRAPPER, canonical_daemon_exe)))
 }
 
 #[cfg(test)]
