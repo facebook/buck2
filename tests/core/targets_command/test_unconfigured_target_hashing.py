@@ -83,6 +83,36 @@ async def test_cfg_modifiers_change_target_hash(buck: Buck) -> None:
 
 
 @buck_test()
+async def test_visibility_cap_change_target_hash(buck: Buck) -> None:
+    result = await buck.targets(
+        ":public_lib",
+        "--show-unconfigured-target-hash",
+        "--target-hash-recursive=false",
+        "--json",
+    )
+
+    # `enforce_visibility_intersection()` caps visibility at the PACKAGE level
+    # without touching the target's `visibility` attribute (here `PUBLIC`), so
+    # without hashing the cap this change would be invisible to the target hash
+    # and thus to target determination. Regression for T279420508.
+    with open(buck.cwd / "PACKAGE", "w") as package:
+        package.write(
+            'package(visibility = ["//foo/..."])\nenforce_visibility_intersection()\n'
+        )
+
+    modified_result = await buck.targets(
+        ":public_lib",
+        "--show-unconfigured-target-hash",
+        "--target-hash-recursive=false",
+        "--json",
+    )
+    output = json.loads(result.stdout)
+    modified_output = json.loads(modified_result.stdout)
+
+    assert output[0]["buck.target_hash"] != modified_output[0]["buck.target_hash"]
+
+
+@buck_test()
 async def test_parent_cfg_modifiers_change_target_hash(buck: Buck) -> None:
     result = await buck.targets(
         "foo:bar",

@@ -171,7 +171,7 @@ impl TargetNodeData {
     }
 
     /// Cap inherited from `enforce_visibility_intersection()`. `Public` = no cap.
-    /// Stored on `Package` (per build file), so all targets in the same TARGETS
+    /// Stored on `Package` (per build file), so all targets in the same BUCK
     /// file share the same cap allocation.
     pub fn visibility_cap(&self) -> &VisibilityPatternList {
         &self.package.visibility_cap
@@ -411,6 +411,9 @@ impl TargetNode {
         self.label().hash(state);
         self.rule_type().hash(state);
         self.package_cfg_modifiers().hash(state);
+        // Hash the visibility_cap so that tightening the visibility
+        // at the PACKAGE level still invalidates the target hash
+        self.visibility_cap().hash(state);
         self.attrs(AttrInspectOptions::All).for_each(|x| {
             // We deliberately don't hash the attribute, as if the value being passed to analysis
             // stays the same, we don't care if the attribute that generated it changed.
