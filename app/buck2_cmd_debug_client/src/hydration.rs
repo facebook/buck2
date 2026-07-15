@@ -35,13 +35,22 @@ pub enum HydrationCommand {
 }
 
 #[derive(Debug, clap::Parser)]
-pub struct PageOutCommand;
+pub struct PageOutCommand {
+    #[clap(flatten)]
+    event_log_opts: CommonEventLogOptions,
+}
 
 #[derive(Debug, clap::Parser)]
-pub struct PageInCommand;
+pub struct PageInCommand {
+    #[clap(flatten)]
+    event_log_opts: CommonEventLogOptions,
+}
 
 #[derive(Debug, clap::Parser)]
-pub struct StatusCommand;
+pub struct StatusCommand {
+    #[clap(flatten)]
+    event_log_opts: CommonEventLogOptions,
+}
 
 impl HydrationCommand {
     fn subcommand(&self) -> HydrationSubcommand {
@@ -94,7 +103,11 @@ impl StreamingCommand for HydrationCommand {
     }
 
     fn event_log_opts(&self) -> &CommonEventLogOptions {
-        CommonEventLogOptions::default_ref()
+        match self {
+            HydrationCommand::PageOut(c) => &c.event_log_opts,
+            HydrationCommand::PageIn(c) => &c.event_log_opts,
+            HydrationCommand::Status(c) => &c.event_log_opts,
+        }
     }
 
     fn build_config_opts(&self) -> &CommonBuildConfigurationOptions {

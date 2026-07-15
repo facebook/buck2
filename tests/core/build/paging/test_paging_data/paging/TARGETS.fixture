@@ -1,0 +1,7 @@
+load(":rules.bzl", "copy_file")
+
+copy_file(
+    name = "mysrcrule",
+    src = "src.txt",
+    out = "out.txt",
+)
