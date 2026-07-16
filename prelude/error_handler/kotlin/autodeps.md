@@ -1,11 +1,3 @@
----
-llms-gk: 'autodeps_md'
-oncalls: ['android_devxx']
-apply_to_regex: '^(?!.*/(?:wearables?|smartglasses)/).*\.(java|kt)$'
-apply_to_clients: ['vscode']
-tools: ['AutodepsTool']
----
-
 ## MANDATORY: Run AutodepsTool After Import Changes
 
 **CRITICAL**: When you add or modify import statements in `.java` or `.kt` files, you **MUST run `AutodepsTool` BEFORE `validate_changes`**.
