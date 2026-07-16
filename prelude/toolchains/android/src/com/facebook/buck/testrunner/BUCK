@@ -263,7 +263,7 @@ fb_native.zip_file(
     name = "testrunner-bin-fixed",
     out = "testrunner-bin-fixed.jar",
     entries_to_exclude = [
-        "^(?!com/facebook/buck/|META-INF/services/org.junit.jupiter|com/fasterxml/jackson/core).*",
+        "^(?!com/facebook/buck/|META-INF/services/org.junit.jupiter|com/fasterxml/jackson/core|kotlin/).*",
     ],
     visibility = [
         "PUBLIC",
