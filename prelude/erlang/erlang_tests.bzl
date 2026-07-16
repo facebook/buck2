@@ -37,6 +37,7 @@ def erlang_tests_macro(
     srcs: list[str] = [],
     prefix: str | None = None,
     generated_app_labels: list[str] = [],
+    erl_opts: list[str] | Select | None = None,
     **common_attributes,
 ) -> None:
     """
@@ -61,6 +62,7 @@ def erlang_tests_macro(
             srcs = srcs,
             labels = generated_app_labels,
             applications = app_deps,
+            erl_opts = erl_opts,
         )
         deps.append(":{}".format(srcs_app))
 
@@ -86,7 +88,7 @@ def erlang_tests_macro(
             suite_name = "{}_{}".format(prefix, suite_name)
 
         # forward resources and deps fields and generate erlang_test target
-        erlang_test_rule(name = suite_name, suite = suite, deps = deps, resources = suite_resource, **common_attributes)
+        erlang_test_rule(name = suite_name, suite = suite, deps = deps, resources = suite_resource, erl_opts = erl_opts, **common_attributes)
 
 def normalize_suite_name(suite_name: str) -> str:
     return suite_name.split(":")[-1]

@@ -157,10 +157,6 @@ rules_attributes = {
                 Typically compile options are managed by global config files, however, sometimes it is
                 desirable to overwrite the pre-defined compile options. The `erl_opts` field allows developers to do so for individual
                 applications.
-
-                The main use-case are the applications listed in `third-party/`. This option should not be used by other applications
-                without consultation. Please ask in the [WhatsApp Dev Infra Q&A](https://fb.workplace.com/groups/728545201114362)
-                workplace group for support.
             """,
         ),
         "extra_includes": attrs.list(
@@ -449,6 +445,15 @@ rules_attributes = {
             default = {},
             doc = """
                 Add the given values to the environment variables with which the test is executed.
+            """,
+        ),
+        "erl_opts": attrs.option(
+            attrs.list(attrs.string()),
+            default = None,
+            doc = """
+                Typically compile options are managed by global config files, however, sometimes it is
+                desirable to overwrite the pre-defined compile options. The `erl_opts` field allows developers to do so for
+                the compilation of the test suites in this target.
             """,
         ),
         "extra_ct_hooks": attrs.list(
