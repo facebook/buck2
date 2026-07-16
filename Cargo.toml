@@ -326,7 +326,7 @@ fxhash = "0.2.1"
 games = { path = "games" }
 gazebo = { path = "gazebo/gazebo", features = ["str_pattern_extensions"] }
 glob = "0.3.2"
-globset = { version = "0.4.13", features = ["serde1"] }
+globset = { version = "0.4.19", features = ["serde1"] }
 hashbrown = "0.17.1"
 hex = { version = "0.4.3", features = ["alloc"] }
 host_sharing = { path = "host_sharing" }
