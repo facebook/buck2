@@ -97,6 +97,7 @@ pub mod execute;
 pub mod impls;
 pub mod query;
 pub mod registry;
+pub mod rewind;
 
 /// Represents an unregistered 'Action' that will be registered into the 'Actions' module.
 /// The 'UnregisteredAction' is not executable until it is registered, upon which it becomes an
@@ -285,6 +286,10 @@ pub trait ActionExecutionCtx: Send + Sync {
         request: &CommandExecutionRequest,
         prepared_action: &PreparedAction,
     ) -> ControlFlow<CommandExecutionResult, CommandExecutionManager>;
+
+    fn should_bypass_action_cache(&self) -> bool {
+        false
+    }
 
     async fn cache_upload(
         &mut self,

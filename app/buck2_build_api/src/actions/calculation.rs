@@ -21,6 +21,7 @@ use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_signals::env::NodeDuration;
 use buck2_build_signals::env::WaitingData;
 use buck2_common::events::HasEvents;
+use buck2_common::file_ops::metadata::FileDigest;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -29,15 +30,24 @@ use buck2_data::ActionErrorDiagnostics;
 use buck2_data::ActionSubErrors;
 use buck2_data::ToProtoMessage;
 use buck2_data::get_action_digest;
+use buck2_directory::directory::directory::Directory;
+use buck2_directory::directory::directory_iterator::DirectoryIterator;
+use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_error::BuckErrorContext;
+use buck2_error::ErrorTag;
 use buck2_event_observer::action_util::get_execution_time_ms;
 use buck2_events::dispatch::async_record_root_spans;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::span_async;
 use buck2_events::span::SpanId;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
+use buck2_execute::artifact_value::ArtifactValue;
+use buck2_execute::directory::ActionDirectoryMember;
+use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::execute::result::CommandExecutionReport;
 use buck2_execute::execute::result::CommandExecutionStatus;
+use buck2_execute::materialize::materializer::ReLostInput;
+use buck2_execute::materialize::materializer::ReLostInputs;
 use buck2_execute::output_size::OutputSize;
 use buck2_hash::BuckIndexMap;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
@@ -62,6 +72,7 @@ use smallvec::SmallVec;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use tracing::debug;
+use tracing::info;
 
 use crate::actions::RegisteredAction;
 use crate::actions::artifact::get_artifact_fs::GetArtifactFs;
@@ -69,10 +80,13 @@ use crate::actions::error::ActionError;
 use crate::actions::error_handler::ActionErrorHandlerError;
 use crate::actions::error_handler::ActionSubErrorResult;
 use crate::actions::error_handler::StarlarkActionErrorContext;
+use crate::actions::execute::action_executor::ActionExecutionMetadata;
 use crate::actions::execute::action_executor::ActionOutputs;
 use crate::actions::execute::action_executor::BuckActionExecutor;
 use crate::actions::execute::action_executor::HasActionExecutor;
 use crate::actions::execute::error::ExecuteError;
+use crate::actions::rewind::ActionRewindRequest;
+use crate::actions::rewind::HasActionRewindTracker;
 use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
 use crate::artifact_groups::calculation::ensure_artifact_group_staged;
@@ -110,7 +124,15 @@ async fn build_action_impl(
     build_action_no_redirect(ctx, cancellation, action).await
 }
 
-async fn build_action_no_redirect(
+fn build_action_no_redirect<'a>(
+    ctx: &'a mut DiceComputations<'_>,
+    cancellation: &'a CancellationContext,
+    action: Arc<RegisteredAction>,
+) -> BoxFuture<'a, buck2_error::Result<ActionOutputs>> {
+    build_action_no_redirect_impl(ctx, cancellation, action).boxed()
+}
+
+async fn build_action_no_redirect_impl(
     ctx: &mut DiceComputations<'_>,
     cancellation: &CancellationContext,
     action: Arc<RegisteredAction>,
@@ -310,9 +332,17 @@ async fn build_action_inner(
         }
         None => buck2_data::ExpectedEligibleForDedupe::UnknownEligibility,
     };
-    let (execute_result, command_reports) = executor
-        .execute(waiting_data, ensured_inputs, action, cancellation)
-        .await;
+    let skip_action_cache = ctx.per_transaction_data().is_action_rewound(action.key());
+    let (execute_result, command_reports) = execute_with_lost_input_rewind_request(
+        ctx,
+        cancellation,
+        executor,
+        waiting_data,
+        ensured_inputs,
+        action,
+        skip_action_cache,
+    )
+    .await;
 
     let allow_omit_details = execute_result.is_ok();
 
@@ -577,6 +607,270 @@ fn is_action_eligible_for_dedupe(
     }
 
     buck2_data::EligibleForDedupe::Eligible
+}
+
+struct LostCasInput {
+    digest: FileDigest,
+    path: ProjectRelativePathBuf,
+}
+
+async fn execute_with_lost_input_rewind_request(
+    _ctx: &mut DiceComputations<'_>,
+    cancellation: &CancellationContext,
+    executor: &BuckActionExecutor,
+    waiting_data: WaitingData,
+    ensured_inputs: BuckIndexMap<ArtifactGroup, ArtifactGroupValues>,
+    action: &Arc<RegisteredAction>,
+    skip_action_cache: bool,
+) -> (
+    Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError>,
+    Vec<CommandExecutionReport>,
+) {
+    let (execute_result, command_reports) = executor
+        .execute(
+            waiting_data,
+            ensured_inputs.clone(),
+            action,
+            cancellation,
+            skip_action_cache,
+        )
+        .await;
+
+    let execute_result = match execute_result {
+        Ok(result) => Ok(result),
+        Err(error) => Err(add_lost_input_rewind_request(
+            action.key(),
+            &ensured_inputs,
+            error,
+        )),
+    };
+
+    (execute_result, command_reports)
+}
+
+fn add_lost_input_rewind_request(
+    consumer_key: &ActionKey,
+    ensured_inputs: &BuckIndexMap<ArtifactGroup, ArtifactGroupValues>,
+    error: ExecuteError,
+) -> ExecuteError {
+    let lost_inputs = lost_cas_inputs(&error);
+    let request = if !lost_inputs.is_empty() {
+        let producer_keys = lost_input_producers(consumer_key, ensured_inputs, &lost_inputs);
+        if producer_keys.is_empty() {
+            return error;
+        }
+
+        rewind_request(producer_keys, consumer_key)
+    } else if is_missing_input_re_error(&error) {
+        let producer_keys = input_producers(consumer_key, ensured_inputs);
+        if producer_keys.is_empty() {
+            return error;
+        }
+
+        for producer_key in &producer_keys {
+            info!(
+                consumer_action = %consumer_key,
+                producer_action = %producer_key,
+                "Requesting DICE graph rewind after remote execution reported a missing input"
+            );
+        }
+
+        rewind_request(producer_keys, consumer_key)
+    } else if is_missing_input_materialization_error(&error) {
+        let producer_keys = input_producers(consumer_key, ensured_inputs);
+        if producer_keys.is_empty() {
+            return error;
+        }
+
+        for producer_key in &producer_keys {
+            info!(
+                consumer_action = %consumer_key,
+                producer_action = %producer_key,
+                "Requesting DICE graph rewind after local input materialization reported a missing input"
+            );
+        }
+
+        rewind_request(producer_keys, consumer_key)
+    } else {
+        return error;
+    };
+
+    match error {
+        ExecuteError::Error { error } => ExecuteError::Error {
+            error: error.context(request),
+        },
+        ExecuteError::CommandExecutionError {
+            error: Some(error), ..
+        } => ExecuteError::Error {
+            error: error.context(request),
+        },
+        error => error,
+    }
+}
+
+fn rewind_request(
+    mut producer_keys: Vec<ActionKey>,
+    consumer_key: &ActionKey,
+) -> ActionRewindRequest {
+    producer_keys.push(consumer_key.dupe());
+    ActionRewindRequest::new(producer_keys)
+}
+
+fn lost_cas_inputs(error: &ExecuteError) -> Vec<LostCasInput> {
+    let Some(error) = execute_error(error) else {
+        return Vec::new();
+    };
+
+    if let Some(lost_inputs) = error.find_typed_context::<ReLostInputs>() {
+        return lost_inputs
+            .inputs()
+            .iter()
+            .map(|lost_input| LostCasInput {
+                digest: lost_input.digest.clone(),
+                path: lost_input.path.clone(),
+            })
+            .collect();
+    }
+
+    error
+        .find_typed_context::<ReLostInput>()
+        .map(|lost_input| {
+            vec![LostCasInput {
+                digest: lost_input.digest.clone(),
+                path: lost_input.path.clone(),
+            }]
+        })
+        .unwrap_or_default()
+}
+
+fn lost_input_producers(
+    consumer_key: &ActionKey,
+    ensured_inputs: &BuckIndexMap<ArtifactGroup, ArtifactGroupValues>,
+    lost_inputs: &[LostCasInput],
+) -> Vec<ActionKey> {
+    let mut producer_keys = Vec::new();
+
+    for lost_input in lost_inputs {
+        let Some(producer_key) =
+            lost_input_producer(consumer_key, ensured_inputs, &lost_input.digest)
+        else {
+            continue;
+        };
+
+        info!(
+            consumer_action = %consumer_key,
+            producer_action = %producer_key,
+            lost_input_path = %lost_input.path,
+            lost_input_digest = %lost_input.digest,
+            "Requesting DICE graph rewind after a generated input disappeared from remote CAS"
+        );
+
+        if producer_keys.iter().any(|key| key == &producer_key) {
+            continue;
+        }
+        producer_keys.push(producer_key);
+    }
+
+    producer_keys
+}
+
+fn lost_input_producer(
+    consumer_key: &ActionKey,
+    ensured_inputs: &BuckIndexMap<ArtifactGroup, ArtifactGroupValues>,
+    lost_digest: &FileDigest,
+) -> Option<ActionKey> {
+    for values in ensured_inputs.values() {
+        for (artifact, value) in values.iter() {
+            if !artifact_value_contains_digest(value, lost_digest) {
+                continue;
+            }
+            let Some(action_key) = artifact.action_key() else {
+                continue;
+            };
+            if action_key == consumer_key {
+                continue;
+            }
+            return Some(action_key.dupe());
+        }
+    }
+
+    None
+}
+
+fn input_producers(
+    consumer_key: &ActionKey,
+    ensured_inputs: &BuckIndexMap<ArtifactGroup, ArtifactGroupValues>,
+) -> Vec<ActionKey> {
+    let mut producer_keys = Vec::new();
+
+    for values in ensured_inputs.values() {
+        for (artifact, _) in values.iter() {
+            let Some(action_key) = artifact.action_key() else {
+                continue;
+            };
+            if action_key == consumer_key {
+                continue;
+            }
+            if producer_keys.iter().any(|existing| existing == action_key) {
+                continue;
+            }
+            producer_keys.push(action_key.dupe());
+        }
+    }
+
+    producer_keys
+}
+
+fn artifact_value_contains_digest(value: &ArtifactValue, lost_digest: &FileDigest) -> bool {
+    match value.entry() {
+        DirectoryEntry::Dir(directory) => directory_contains_digest(directory, lost_digest),
+        DirectoryEntry::Leaf(ActionDirectoryMember::File(file)) => {
+            file.digest.data() == lost_digest
+        }
+        DirectoryEntry::Leaf(..) => false,
+    }
+}
+
+fn directory_contains_digest(directory: &ActionSharedDirectory, lost_digest: &FileDigest) -> bool {
+    directory
+        .unordered_walk_leaves()
+        .without_paths()
+        .any(|entry| match entry {
+            ActionDirectoryMember::File(file) => file.digest.data() == lost_digest,
+            ActionDirectoryMember::Symlink(_) | ActionDirectoryMember::ExternalSymlink(_) => false,
+        })
+}
+
+fn is_missing_input_re_error(error: &ExecuteError) -> bool {
+    let Some(error) = execute_error(error) else {
+        return false;
+    };
+    if !error.tags().contains(&ErrorTag::ReFailedPrecondition) {
+        return false;
+    }
+
+    let message = format!("{error:#}").to_ascii_lowercase();
+    message.contains("missing")
+        && (message.contains("input") || message.contains("blob") || message.contains("cas"))
+}
+
+fn is_missing_input_materialization_error(error: &ExecuteError) -> bool {
+    let Some(error) = execute_error(error) else {
+        return false;
+    };
+
+    error.tags().contains(&ErrorTag::MaterializationError)
+        && error.tags().contains(&ErrorTag::ReNotFound)
+}
+
+fn execute_error(error: &ExecuteError) -> Option<&buck2_error::Error> {
+    match error {
+        ExecuteError::Error { error } => Some(error),
+        ExecuteError::CommandExecutionError {
+            error: Some(error), ..
+        } => Some(error),
+        _ => None,
+    }
 }
 
 fn check_infra_error_patterns(

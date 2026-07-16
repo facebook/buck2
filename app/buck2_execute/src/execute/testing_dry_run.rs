@@ -64,6 +64,7 @@ impl PreparedCommandExecutor for DryRunExecutor {
             target: _target,
             prepared_action: _prepared_action,
             digest_config,
+            force_skip_cache_read: _,
         } = command;
 
         let manager = manager.claim().await;

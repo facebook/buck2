@@ -30,7 +30,7 @@ use crate::pattern::package_roots::find_package_roots;
 
 /// Pattern where `foo/...` is expanded to matching packages.
 /// Targets are not validated yet, and `:` is not yet expanded.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ResolvedPattern<T: PatternType> {
     pub specs: BuckIndexMap<PackageLabelWithModifiers, PackageSpec<T>>,
 }

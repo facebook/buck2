@@ -13,7 +13,12 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use async_trait::async_trait;
+use buck2_artifact::actions::key::ActionKey;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
+use buck2_build_api::actions::calculation::ActionCalculation;
+use buck2_build_api::actions::calculation::BuildKey;
+use buck2_build_api::actions::rewind::ActionRewindRequest;
+use buck2_build_api::actions::rewind::HasActionRewindTracker;
 use buck2_build_api::build;
 use buck2_build_api::build::AsyncBuildTargetResultBuilder;
 use buck2_build_api::build::BuildEvent;
@@ -32,6 +37,7 @@ use buck2_build_api::build::detailed_aggregated_metrics::types::ActionGraphSketc
 use buck2_build_api::build::detailed_aggregated_metrics::types::ArtifactPathSketchResult;
 use buck2_build_api::build::detailed_aggregated_metrics::types::DetailedAggregatedMetrics;
 use buck2_build_api::build::graph_properties::GraphPropertiesOptions;
+use buck2_build_api::materialize::HasMaterializationQueueTracker;
 use buck2_build_api::materialize::MaterializationAndUploadContext;
 use buck2_cli_proto::CommonBuildOptions;
 use buck2_cli_proto::build_request::BuildProviders;
@@ -143,6 +149,8 @@ impl ServerCommandTemplate for BuildServerCommand {
 fn expect_build_opts(req: &buck2_cli_proto::BuildRequest) -> &CommonBuildOptions {
     req.build_opts.as_ref().expect("should have build options")
 }
+
+const MAX_REPEATED_ACTION_REWINDS: usize = 20;
 
 #[derive(buck2_error::Error, Debug)]
 #[buck2(tag = Input)]
@@ -370,7 +378,7 @@ async fn build(
         .map(|s| s.into_build_provider_type())
         .collect();
 
-    let (streaming_build_result_tx, streaming_build_result_rx) =
+    let (streaming_build_result_tx, mut streaming_build_result_rx) =
         tokio::sync::mpsc::unbounded_channel();
     // Avoid computing and generating streaming build results if we don't have to
     let build_command_streaming_build_result_tx = if !build_opts
@@ -387,36 +395,61 @@ async fn build(
         .as_ref()
         .is_some_and(|o| o.return_run_args);
     let build_start = Instant::now();
-    let cloned_ctx = ctx.clone(); // build_future does a mutable borrow on the context, so we clone it first
-    let build_future = ctx.with_linear_recompute(|ctx| async move {
-        build_targets(
-            &ctx,
-            resolved_pattern,
-            target_resolution_config,
-            build_providers,
-            (final_artifact_materializations, final_artifact_uploads).into(),
-            build_opts.fail_fast,
-            MissingTargetBehavior::from_skip(build_opts.skip_missing_targets),
-            build_opts.skip_incompatible_targets,
-            graph_properties.dupe(),
-            return_run_args,
-            timeout_observer.as_ref(),
-            build_command_streaming_build_result_tx,
-            build_start,
-        )
-        .await
-    });
+    let mut rewinds = 0;
+    let build_result = loop {
+        let cloned_ctx = ctx.clone(); // build_future does a mutable borrow on the context, so we clone it first
+        let build_providers = build_providers.dupe();
+        let build_command_streaming_build_result_tx =
+            build_command_streaming_build_result_tx.clone();
+        let resolved_pattern = &resolved_pattern;
+        let target_resolution_config = &target_resolution_config;
+        let timeout_observer = timeout_observer.as_ref();
+        let build_future = ctx.with_linear_recompute(|ctx| async move {
+            build_targets(
+                &ctx,
+                &resolved_pattern,
+                &target_resolution_config,
+                build_providers,
+                (final_artifact_materializations, final_artifact_uploads).into(),
+                build_opts.fail_fast,
+                MissingTargetBehavior::from_skip(build_opts.skip_missing_targets),
+                build_opts.skip_incompatible_targets,
+                graph_properties.dupe(),
+                return_run_args,
+                timeout_observer,
+                build_command_streaming_build_result_tx,
+                build_start,
+            )
+            .await
+        });
 
-    let build_result = maybe_stream_build_reports(
-        build_future,
-        build_opts,
-        cloned_ctx,
-        graph_properties.dupe(),
-        server_ctx,
-        request,
-        streaming_build_result_rx,
-    )
-    .await?;
+        let build_result = maybe_stream_build_reports(
+            build_future,
+            build_opts,
+            cloned_ctx,
+            graph_properties.dupe(),
+            server_ctx,
+            request,
+            &mut streaming_build_result_rx,
+        )
+        .await?;
+
+        let Some(rewind) = find_action_rewind_request(&build_result) else {
+            break build_result;
+        };
+
+        if rewinds >= MAX_REPEATED_ACTION_REWINDS {
+            break build_result;
+        }
+        rewinds += 1;
+
+        tracing::info!(
+            rewind_count = rewinds,
+            rewind_actions = rewind.action_keys().len(),
+            "Rewinding DICE action graph after lost remote CAS input"
+        );
+        ctx = apply_action_rewind(ctx, rewind).await?;
+    };
 
     let want_detailed_metrics = ctx
         .parse_legacy_config_property(
@@ -585,7 +618,7 @@ async fn maybe_stream_build_reports(
     graph_properties: GraphPropertiesOptions,
     server_ctx: &dyn ServerCommandContextTrait,
     request: &buck2_cli_proto::BuildRequest,
-    mut streaming_build_result_rx: tokio::sync::mpsc::UnboundedReceiver<BuildTargetResult>,
+    streaming_build_result_rx: &mut tokio::sync::mpsc::UnboundedReceiver<BuildTargetResult>,
 ) -> buck2_error::Result<BuildTargetResult> {
     if build_opts
         .unstable_streaming_build_report_filename
@@ -636,6 +669,76 @@ async fn maybe_stream_build_reports(
             }
         }
     }
+}
+
+fn find_action_rewind_request(build_result: &BuildTargetResult) -> Option<ActionRewindRequest> {
+    fn merge_rewind(request: &mut Option<ActionRewindRequest>, error: &buck2_error::Error) {
+        let Some(found) = error.find_typed_context::<ActionRewindRequest>() else {
+            return;
+        };
+
+        match request {
+            Some(request) => request.merge(&found),
+            None => *request = Some((*found).clone()),
+        }
+    }
+
+    let mut request = None;
+    for errors in build_result.other_errors.values() {
+        for error in errors {
+            merge_rewind(&mut request, error);
+        }
+    }
+
+    for configured in build_result.configured.values().flatten() {
+        for error in &configured.errors {
+            merge_rewind(&mut request, &error.inner);
+        }
+        for output in &configured.outputs {
+            if let Err(error) = &output.inner {
+                merge_rewind(&mut request, error);
+            }
+        }
+    }
+
+    request
+}
+
+async fn apply_action_rewind(
+    mut ctx: DiceTransaction,
+    rewind: ActionRewindRequest,
+) -> buck2_error::Result<DiceTransaction> {
+    let action_keys = canonical_rewind_action_keys(&mut ctx, rewind.into_action_keys()).await?;
+    let mut updater = ctx.into_updater();
+    updater.changed(
+        action_keys
+            .iter()
+            .cloned()
+            .map(BuildKey)
+            .collect::<Vec<_>>(),
+    )?;
+    let ctx = updater.commit().await;
+    ctx.per_transaction_data()
+        .clear_materialization_queue_tracker();
+    ctx.per_transaction_data().set_rewound_actions(&action_keys);
+    Ok(ctx)
+}
+
+async fn canonical_rewind_action_keys(
+    ctx: &mut DiceTransaction,
+    action_keys: Vec<ActionKey>,
+) -> buck2_error::Result<Vec<ActionKey>> {
+    let mut canonical_action_keys = Vec::with_capacity(action_keys.len());
+    for action_key in action_keys {
+        let action = ActionCalculation::get_action(ctx, &action_key).await?;
+        if !canonical_action_keys
+            .iter()
+            .any(|existing| existing == action.key())
+        {
+            canonical_action_keys.push(action.key().dupe());
+        }
+    }
+    Ok(canonical_action_keys)
 }
 
 async fn process_build_result(
@@ -745,8 +848,8 @@ async fn process_build_result(
 
 async fn build_targets(
     ctx: &LinearRecomputeDiceComputations<'_>,
-    spec: ResolvedPattern<ConfiguredProvidersPatternExtra>,
-    target_resolution_config: TargetResolutionConfig,
+    spec: &ResolvedPattern<ConfiguredProvidersPatternExtra>,
+    target_resolution_config: &TargetResolutionConfig,
     build_providers: Arc<BuildProviders>,
     materialization_and_upload: MaterializationAndUploadContext,
     fail_fast: bool,
@@ -762,14 +865,14 @@ async fn build_targets(
         AsyncBuildTargetResultBuilder::new(streaming_build_result_tx, build_start);
     let fut = match target_resolution_config {
         TargetResolutionConfig::Default(global_cfg_options) => {
-            let spec = spec.convert_pattern().buck_error_context(
+            let spec = spec.clone().convert_pattern().buck_error_context(
                 "Targets with explicit configuration can only be built when the `--target-universe=` flag is provided",
             )?;
             build_targets_with_global_target_platform(
                 &consumer,
                 ctx,
                 spec,
-                global_cfg_options,
+                global_cfg_options.dupe(),
                 build_providers,
                 materialization_and_upload,
                 missing_target_behavior,
@@ -800,8 +903,8 @@ async fn build_targets(
 async fn build_targets_in_universe(
     event_consumer: &dyn BuildEventConsumer,
     ctx: &LinearRecomputeDiceComputations<'_>,
-    spec: ResolvedPattern<ConfiguredProvidersPatternExtra>,
-    universe: CqueryUniverse,
+    spec: &ResolvedPattern<ConfiguredProvidersPatternExtra>,
+    universe: &CqueryUniverse,
     build_providers: Arc<BuildProviders>,
     materialization_and_upload: MaterializationAndUploadContext,
     graph_properties: GraphPropertiesOptions,

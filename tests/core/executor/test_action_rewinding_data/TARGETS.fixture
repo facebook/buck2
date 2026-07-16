@@ -1,0 +1,99 @@
+load(
+    ":defs.bzl",
+    "consumer",
+    "consumer_two",
+    "many_input_targets",
+    "nondeterministic_middle",
+    "nondeterministic_producer",
+    "prefixed_consumer",
+    "producer",
+    "tree_dir_consumer",
+    "tree_dir_producer",
+    "tree_consumer",
+    "tree_producer",
+)
+
+producer(
+    name = "producer",
+)
+
+producer(
+    name = "producer_first",
+    content = "first generated input for action rewind\n",
+)
+
+producer(
+    name = "producer_second",
+    content = "second generated input for action rewind\n",
+)
+
+consumer(
+    name = "consumer",
+    dep = ":producer",
+)
+
+producer(
+    name = "local_input_producer",
+    prefer_remote = True,
+)
+
+consumer(
+    name = "local_input_consumer",
+    dep = ":local_input_producer",
+    local_only = True,
+)
+
+consumer_two(
+    name = "consumer_two",
+    first = ":producer_first",
+    second = ":producer_second",
+)
+
+many_input_targets(25)
+
+producer(
+    name = "top_level_output",
+    content = "top-level generated output for action rewind\n",
+)
+
+tree_producer(
+    name = "tree_producer",
+)
+
+tree_consumer(
+    name = "tree_consumer",
+    dep = ":tree_producer",
+)
+
+tree_dir_producer(
+    name = "tree_dir_producer",
+)
+
+tree_dir_consumer(
+    name = "tree_dir_consumer",
+    dep = ":tree_dir_producer",
+)
+
+nondeterministic_producer(
+    name = "nondeterministic_producer",
+)
+
+prefixed_consumer(
+    name = "nondeterministic_consumer",
+    dep = ":nondeterministic_producer",
+    out = "nondeterministic_consumer.txt",
+    prefix = "nondeterministic consumer saw: ",
+)
+
+nondeterministic_middle(
+    name = "nondeterministic_middle",
+    dep = ":nondeterministic_producer",
+)
+
+prefixed_consumer(
+    name = "nondeterministic_chain_consumer",
+    category = "consume_nondeterministic_chain",
+    dep = ":nondeterministic_middle",
+    out = "nondeterministic_chain_consumer.txt",
+    prefix = "nondeterministic chain consumer saw: ",
+)

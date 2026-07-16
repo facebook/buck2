@@ -1215,6 +1215,7 @@ impl BuckTestOrchestrator<'_> {
             request: &request,
             prepared_action: &prepared_action,
             digest_config,
+            force_skip_cache_read: false,
         };
 
         // instrument execution with a span.
@@ -1967,6 +1968,7 @@ impl BuckTestOrchestrator<'_> {
             request: &context.execution_request,
             prepared_action: &prepared_action,
             digest_config,
+            force_skip_cache_read: false,
         };
         let command = executor.exec_cmd(manager, &prepared_command, cancellation);
 
