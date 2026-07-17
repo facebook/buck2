@@ -334,6 +334,101 @@ impl TestOrchestratorClient {
     }
 }
 
+/// Implement the `TestOrchestrator` trait for the gRPC client so that both the
+/// gRPC-based and in-process paths can use `dyn TestOrchestrator` uniformly.
+/// Each method delegates to the identically-named inherent method which handles
+/// protobuf serialization and gRPC transport.
+#[async_trait::async_trait]
+impl TestOrchestrator for TestOrchestratorClient {
+    async fn execute2(
+        &self,
+        stage: TestStage,
+        target: ConfiguredTargetHandle,
+        cmd: Vec<ArgValue>,
+        env: SortedVectorMap<String, ArgValue>,
+        timeout: Duration,
+        host_sharing_requirements: HostSharingRequirements,
+        pre_create_dirs: Vec<DeclaredOutput>,
+        executor_override: Option<ExecutorConfigOverride>,
+        required_local_resources: RequiredLocalResources,
+        disable_test_execution_caching: bool,
+    ) -> buck2_error::Result<ExecuteResponse> {
+        // Calls the inherent method (inherent methods take priority over trait methods).
+        self.execute2(
+            stage,
+            target,
+            cmd,
+            env,
+            timeout,
+            host_sharing_requirements,
+            pre_create_dirs,
+            executor_override,
+            required_local_resources,
+            disable_test_execution_caching,
+        )
+        .await
+    }
+
+    async fn report_test_result(&self, r: TestResult) -> buck2_error::Result<()> {
+        self.report_test_result(r).await
+    }
+
+    async fn report_tests_discovered(
+        &self,
+        target: ConfiguredTargetHandle,
+        suite: String,
+        name: Vec<String>,
+    ) -> buck2_error::Result<()> {
+        self.report_tests_discovered(target, suite, name).await
+    }
+
+    async fn report_test_session(
+        &self,
+        session_info: String,
+        test_session_id: Option<String>,
+    ) -> buck2_error::Result<()> {
+        self.report_test_session(session_info, test_session_id)
+            .await
+    }
+
+    async fn end_of_test_results(&self, exit_code: i32) -> buck2_error::Result<()> {
+        self.end_of_test_results(exit_code).await
+    }
+
+    async fn prepare_for_local_execution(
+        &self,
+        stage: TestStage,
+        target: ConfiguredTargetHandle,
+        cmd: Vec<ArgValue>,
+        env: SortedVectorMap<String, ArgValue>,
+        pre_create_dirs: Vec<DeclaredOutput>,
+        required_local_resources: RequiredLocalResources,
+    ) -> buck2_error::Result<PrepareForLocalExecutionResult> {
+        self.prepare_for_local_execution(
+            stage,
+            target,
+            cmd,
+            env,
+            pre_create_dirs,
+            required_local_resources,
+        )
+        .await
+    }
+
+    async fn attach_info_message(&self, message: String) -> buck2_error::Result<()> {
+        self.attach_info_message(message).await
+    }
+
+    async fn upload_to_cas(
+        &self,
+        local_path: String,
+        ttl_seconds: i64,
+        use_case: String,
+    ) -> buck2_error::Result<CasDigest> {
+        self.upload_to_cas(local_path, ttl_seconds, use_case).await
+    }
+}
+
 struct TestOrchestratorService<T: TestOrchestrator> {
     inner: T,
 }
