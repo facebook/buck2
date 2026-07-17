@@ -17,11 +17,13 @@ use std::num::NonZeroI8;
 use std::num::NonZeroI16;
 use std::num::NonZeroI32;
 use std::num::NonZeroI64;
+use std::num::NonZeroI128;
 use std::num::NonZeroIsize;
 use std::num::NonZeroU8;
 use std::num::NonZeroU16;
 use std::num::NonZeroU32;
 use std::num::NonZeroU64;
+use std::num::NonZeroU128;
 use std::num::NonZeroUsize;
 use std::path::PathBuf;
 
@@ -139,6 +141,12 @@ impl Allocative for PathBuf {
     }
 }
 
+impl Allocative for NonZeroU128 {
+    fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
+        visitor.visit_simple_sized::<Self>();
+    }
+}
+
 impl Allocative for NonZeroU64 {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
         visitor.visit_simple_sized::<Self>();
@@ -158,6 +166,12 @@ impl Allocative for NonZeroU16 {
 }
 
 impl Allocative for NonZeroU8 {
+    fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
+        visitor.visit_simple_sized::<Self>();
+    }
+}
+
+impl Allocative for NonZeroI128 {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
         visitor.visit_simple_sized::<Self>();
     }

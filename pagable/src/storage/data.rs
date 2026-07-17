@@ -76,7 +76,7 @@ impl DataKey {
 #[derive(Debug, Clone, Copy, Hash, Allocative)]
 pub enum OptionalDataKey {
     None,
-    Some(#[allocative(skip)] NonZeroU128),
+    Some(NonZeroU128),
 }
 
 impl OptionalDataKey {
