@@ -236,6 +236,9 @@ impl DiceStorage {
     ) -> anyhow::Result<()> {
         const EVICT_BATCH_SIZE: usize = 1000;
         let mut pending_evictions = Vec::with_capacity(EVICT_BATCH_SIZE);
+        // Candidates whose value could not be serialized; marked so they aren't
+        // offered as page-out candidates again (until recomputed).
+        let mut non_pageable = Vec::new();
         for (dice_key, key_dyn, value) in items {
             // Stop promptly on cancellation; keys not yet processed stay paged
             // in, which is a valid state.
@@ -250,11 +253,16 @@ impl DiceStorage {
                         Vec::with_capacity(EVICT_BATCH_SIZE),
                     ));
                 }
+            } else {
+                non_pageable.push(dice_key);
             }
         }
         self.storage.flush()?;
         if !pending_evictions.is_empty() {
             state_handle.evict_keys(pending_evictions);
+        }
+        if !non_pageable.is_empty() {
+            state_handle.mark_non_pageable(non_pageable);
         }
         Ok(())
     }

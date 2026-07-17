@@ -149,6 +149,9 @@ impl StateProcessor {
             StateRequest::EvictKeys { keys } => {
                 self.state.evict_keys(keys);
             }
+            StateRequest::MarkNonPageable { keys } => {
+                self.state.mark_non_pageable(keys);
+            }
             StateRequest::Rehydrate { key, value } => {
                 self.state.rehydrate(key, value);
             }

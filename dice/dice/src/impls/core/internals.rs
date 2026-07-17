@@ -193,23 +193,31 @@ impl CoreState {
         }
     }
 
-    /// Returns nodes whose value is resident in memory but has no on-disk
-    /// copy yet. These need serialization before they can be paged out.
-    pub(super) fn keys_to_page_out(&self) -> Vec<(DiceKey, DiceValidValue)> {
-        let mut keys = Vec::new();
-        for (key, node) in &self.graph.nodes {
-            let VersionedGraphNode::Occupied(occ) = node else {
-                continue;
-            };
-            if occ.val().data_key().is_some() {
-                continue;
+    /// Mark nodes that page-out considered but could not serialize, so they are
+    /// not offered as page-out candidates again (until recomputed).
+    pub(super) fn mark_non_pageable(&mut self, keys: Vec<DiceKey>) {
+        for key in keys {
+            if let Some(VersionedGraphNode::Occupied(occ)) = self.graph.nodes.get_mut(&key) {
+                occ.mark_non_pageable();
             }
-            let Some(value) = occ.val().as_hydrated() else {
-                continue;
-            };
-            keys.push((*key, value.dupe()));
         }
-        keys
+    }
+
+    /// Returns resident nodes that have never been paged out — the page-out
+    /// candidates. Nodes already paged out, paged back in, or found non-pageable
+    /// are skipped.
+    pub(super) fn keys_to_page_out(&self) -> Vec<(DiceKey, DiceValidValue)> {
+        self.graph
+            .nodes
+            .iter()
+            .filter(|(_, node)| node.is_page_out_candidate())
+            .filter_map(|(key, node)| {
+                let VersionedGraphNode::Occupied(occ) = node else {
+                    return None;
+                };
+                Some((*key, occ.val().as_hydrated()?.dupe()))
+            })
+            .collect()
     }
 
     /// Returns the list of `(DiceKey, DataKey)` pairs for every paged-out
@@ -410,6 +418,47 @@ mod tests {
         core.drop_ctx_at_version(v);
         let res = update(&mut core, epoch, v);
         assert_eq!(res.err(), Some(CancellationReason::OutdatedEpoch));
+    }
+
+    #[test]
+    fn non_pageable_nodes_are_not_page_out_candidates() {
+        let mut core = CoreState::new();
+        let v = VersionNumber::new(0);
+        let (epoch, _ctx) = core.ctx_at_version(v);
+
+        let compute = |core: &mut CoreState, index: u32| {
+            let res = core.update_computed(
+                VersionedGraphKey::new(v, DiceKey { index }),
+                epoch,
+                StorageType::Normal,
+                DiceValidValue::testing_new(DiceKeyValue::<K>::new(index as usize)),
+                ValueReusable::EqualityBased,
+                Arc::new(SeriesParallelDeps::None),
+                TrackedInvalidationPaths::clean(),
+            );
+            assert_eq!(res.err(), None);
+        };
+        compute(&mut core, 0);
+        compute(&mut core, 1);
+
+        let candidates = |core: &CoreState| {
+            let mut keys: Vec<u32> = core
+                .keys_to_page_out()
+                .into_iter()
+                .map(|(k, _)| k.index)
+                .collect();
+            keys.sort();
+            keys
+        };
+
+        // Both freshly-computed resident values are page-out candidates.
+        assert_eq!(candidates(&core), vec![0, 1]);
+
+        // Marking one non-pageable (its value can't be serialized) drops it from
+        // the candidate set, so page-out won't keep retrying it; the other is
+        // unaffected.
+        core.mark_non_pageable(vec![DiceKey { index: 0 }]);
+        assert_eq!(candidates(&core), vec![1]);
     }
 
     async fn make_finished_cancelling_task(key: DiceKey) -> DiceTask {

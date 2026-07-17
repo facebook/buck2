@@ -278,6 +278,12 @@ impl CoreStateHandle {
         self.request(StateRequest::EvictKeys { keys })
     }
 
+    /// Mark nodes that page-out could not serialize so they are not offered as
+    /// candidates again. Fire-and-forget (FIFO, as with `evict_keys`).
+    pub(crate) fn mark_non_pageable(&self, keys: Vec<DiceKey>) {
+        self.request(StateRequest::MarkNonPageable { keys })
+    }
+
     /// Replace the paged-out value at `key` with its hydrated form. Fire-and-forget;
     /// any subsequent state requests for `key` are guaranteed to see the hydrated value
     /// because state requests are processed FIFO.
@@ -406,6 +412,8 @@ pub(super) enum StateRequest {
     },
     /// Mark nodes as paged out, dropping their in-memory values.
     EvictKeys { keys: Vec<(DiceKey, DataKey)> },
+    /// Mark nodes that page-out could not serialize.
+    MarkNonPageable { keys: Vec<DiceKey> },
     /// Replace the paged-out value at `key` with its hydrated form.
     Rehydrate {
         key: DiceKey,

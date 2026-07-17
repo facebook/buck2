@@ -104,6 +104,15 @@ impl VersionedGraphNode {
         }
     }
 
+    /// Whether this is an occupied node that has never been paged out, i.e. a
+    /// candidate for the next page-out.
+    pub(crate) fn is_page_out_candidate(&self) -> bool {
+        matches!(
+            self,
+            VersionedGraphNode::Occupied(occ) if occ.paged_state() == PagedState::NeverPagedOut
+        )
+    }
+
     /// Returns the VersionedGraphResult for the entry at the provided version.
     pub(crate) fn at_version(&self, v: VersionNumber) -> VersionedGraphResult {
         match self {
@@ -308,22 +317,25 @@ pub(crate) enum InvalidateResult<'a> {
     Changed(Option<std::vec::Drain<'a, DiceKey>>),
 }
 
-/// Whether an `OccupiedGraphNode`'s value has an on-disk (paged) copy, and if so
-/// the content-addressable key to load it with, stored inline as a `NonZeroU128`
-/// (`DataKey`'s natural non-zero form).
-///
-/// This is orthogonal to `PagableNodeValue::value`'s in-memory residency, except
-/// that `PagedOut` is exactly the state in which `value` is absent:
-///  - `NeverPagedOut`: no on-disk copy exists.
-///  - `PagedOut`: serialized to disk and evicted from memory, so the key is
-///    load-bearing.
-///  - `PagedBackIn`: serialized to disk and since re-hydrated, so the next
-///    page-out can reuse the key and skip re-serialization.
-#[derive(Allocative, Debug)]
+/// Whether an `OccupiedGraphNode`'s value has an on-disk (paged) copy, and where
+/// the value sits in its page-out lifecycle. Tracks lifecycle that
+/// `PagableNodeValue::value`'s in-memory residency alone can't express (e.g. a
+/// resident value that can't be serialized). Every state except `PagedOut` has
+/// `value` resident. The two paged variants store the content-addressable key
+/// inline as a `NonZeroU128` (`DataKey`'s natural non-zero form).
+#[derive(Allocative, Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum PagedState {
+    /// No on-disk copy exists; a candidate for the next page-out.
     NeverPagedOut,
+    /// Serialized to disk and evicted from memory, so the key is load-bearing and
+    /// `value` is absent.
     PagedOut(NonZeroU128),
+    /// Serialized to disk and since re-hydrated, so the next page-out can reuse the
+    /// key and skip re-serialization.
     PagedBackIn(NonZeroU128),
+    /// Considered for page-out but its value can't be serialized (e.g.
+    /// `NoValueSerialize`, or an `Err`); resident and not a page-out candidate.
+    NonPageable,
 }
 
 // `PagedState` folds in the key that previously lived in a `data_key:
@@ -371,7 +383,7 @@ impl PagableNodeValue {
     /// the existing key.
     pub(crate) fn data_key(&self) -> Option<DataKey> {
         match self.paged_state {
-            PagedState::NeverPagedOut => None,
+            PagedState::NeverPagedOut | PagedState::NonPageable => None,
             PagedState::PagedOut(k) | PagedState::PagedBackIn(k) => Some(DataKey(k.get())),
         }
     }
@@ -568,6 +580,17 @@ impl OccupiedGraphNode {
     pub(crate) fn set_paged_out(&mut self, data_key: DataKey) {
         self.res.paged_state = PagedState::PagedOut(data_key.to_non_zero());
         self.res.value = None;
+    }
+
+    /// Records that page-out considered this node but its value can't be
+    /// serialized, so it stays resident and is not a page-out candidate again
+    /// (until recomputed).
+    pub(crate) fn mark_non_pageable(&mut self) {
+        self.res.paged_state = PagedState::NonPageable;
+    }
+
+    pub(crate) fn paged_state(&self) -> PagedState {
+        self.res.paged_state
     }
 
     /// `expect_hydrated_msg` is forwarded to `expect_hydrated` and should explain why the
