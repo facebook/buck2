@@ -114,7 +114,6 @@ def _python_executable_attrs():
             "static_extension_utils": attrs.source(default = "prelude//python/tools:static_extension_utils.cpp"),
             "strip_libpar": attrs.enum(StripLibparStrategy, default = "none"),
             "strip_stapsdt": attrs.bool(default = False),
-            "supports_pyc_content_based_paths": attrs.bool(default = False),  # TODO(kasrag) Delete this when content-based paths are fulled rolled out
             "use_anon_target_for_analysis": attrs.bool(
                 default = False
             ),  # TODO(dcssiva) Delete this when we change the default analysis method to use anon targets
@@ -554,7 +553,6 @@ python_library = prelude_rule(
                  from the Python standard library.
             """,
             ),
-            "supports_pyc_content_based_paths": attrs.bool(default = False),
             "type_stubs": attrs.named_set(attrs.source(), sorted = True, default = []),
             "use_lifeguard_incremental": attrs.bool(default = False),
             "versioned_resources": attrs.option(attrs.versioned(attrs.named_set(attrs.source(), sorted = True)), default = None),
