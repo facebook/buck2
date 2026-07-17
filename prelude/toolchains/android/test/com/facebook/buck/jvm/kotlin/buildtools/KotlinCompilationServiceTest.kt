@@ -77,8 +77,10 @@ internal class KotlinCompilationServiceTest {
             """
             |class Foo {
             |
+            | var counter: Int = 0
+            |
             | fun foo() {
-            |   println("foo")
+            |   counter = 1
             | }
             |
             | fun bar() {}
@@ -159,7 +161,7 @@ internal class KotlinCompilationServiceTest {
     )
     val initialClassTimestamps = getClassModificationTimes()
 
-    fooSourceFile.changeContent("println(\"foo\")", "println(\"foo!\")")
+    fooSourceFile.changeContent("counter = 1", "counter = 2")
     val result =
         kotlinCompilationService.compile(
             projectId = ProjectId.ProjectUUID(UUID.randomUUID()),
@@ -266,7 +268,7 @@ internal class KotlinCompilationServiceTest {
     )
     val initialClassTimestamps = getClassModificationTimes()
 
-    fooSourceFile.changeContent("println(\"foo\")", "println(\"foo!\")")
+    fooSourceFile.changeContent("counter = 1", "counter = 2")
     kotlinCompilationService.compile(
         projectId = ProjectId.ProjectUUID(UUID.randomUUID()),
         arguments =
