@@ -12,6 +12,12 @@ buck_kotlin_test(
             "**/*.kt",
         ],
     ),
+    env = {
+        # The test compiles with `-no-stdlib` and must place a standalone kotlin-stdlib jar on the
+        # compiler classpath. A merged test binary jar drops the `META-INF/*.kotlin_module` metadata
+        # the compiler needs to resolve top-level stdlib declarations, so point at the discrete jar.
+        "KOTLIN_STDLIB_JAR": "$(location prelude//toolchains/android/third-party:kotlin-stdlib)",
+    },
     friend_paths = [
         "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/buildtools:buildtools",
         "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/cd/analytics:analytics",

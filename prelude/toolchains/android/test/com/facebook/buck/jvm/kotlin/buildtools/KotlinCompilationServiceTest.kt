@@ -24,7 +24,6 @@ import java.util.UUID
 import kotlin.io.path.absolute
 import kotlin.io.path.extension
 import kotlin.io.path.listDirectoryEntries
-import kotlin.io.path.toPath
 import org.jetbrains.kotlin.buildtools.api.CompilationResult
 import org.jetbrains.kotlin.buildtools.api.CompilationService
 import org.jetbrains.kotlin.buildtools.api.ExperimentalBuildToolsApi
@@ -469,14 +468,18 @@ internal class KotlinCompilationServiceTest {
       outputDir: AbsPath,
       classpath: List<AbsPath> = emptyList(),
   ): List<String> {
+    // The compiler is invoked with `-no-stdlib`, so the stdlib must be supplied explicitly on the
+    // classpath. It has to be a standalone kotlin-stdlib jar: resolving it reflectively from
+    // `KotlinVersion` yields the merged test binary, whose `META-INF/*.kotlin_module` metadata is
+    // stripped, leaving top-level declarations such as `println` unresolvable. The path is injected
+    // by the `KOTLIN_STDLIB_JAR` env var set on the test target.
     val stdlibLocation =
         AbsPath.of(
-            KotlinVersion::class
-                .java
-                .protectionDomain
-                .codeSource
-                .location
-                .toURI()
+            File(
+                    checkNotNull(System.getenv(KOTLIN_STDLIB_JAR_ENV)) {
+                      "$KOTLIN_STDLIB_JAR_ENV env var is not set"
+                    }
+                )
                 .toPath()
                 .absolute()
         )
@@ -522,5 +525,9 @@ internal class KotlinCompilationServiceTest {
     ClasspathSnapshotGenerator(dependencyOutput.path, snapshotFile.path, granularity).run()
 
     return snapshotFile.toFile()
+  }
+
+  companion object {
+    private const val KOTLIN_STDLIB_JAR_ENV = "KOTLIN_STDLIB_JAR"
   }
 }
