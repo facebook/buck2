@@ -17,12 +17,16 @@
 //!
 //! See `Dice::page_out` for the user-facing entry point.
 
+use std::fmt;
+use std::fmt::Display;
 use std::path::Path;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Instant;
 
 use allocative::Allocative;
 use dashmap::DashMap;
+use dice_error::storage::PagableStorageBackendParseError;
 use dupe::Dupe;
 use pagable::DataKey;
 use pagable::context::PagableDeserializerImpl;
@@ -34,6 +38,8 @@ use pagable::storage::traits::PagableStorage;
 use pagable::storage::traits::PageOutError;
 use pagable_storage::storage::sled::SledBackedPagableStorage;
 use pagable_storage::storage::sqlite::SqliteBackedPagableStorage;
+use serde::Deserialize;
+use serde::Serialize;
 
 use crate::HashMap;
 use crate::impls::core::state::CoreStateHandle;
@@ -42,6 +48,72 @@ use crate::impls::key::DiceKeyErased;
 use crate::impls::key_index::DiceKeyIndex;
 use crate::impls::value::DiceValidValue;
 use crate::metrics::PageInKeyTypeMetrics;
+
+/// On-disk backend for pagable DICE storage, from `buck2_hydration.pagable_storage_backend`.
+#[derive(
+    Allocative,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq
+)]
+pub enum PagableStorageBackend {
+    /// SQLite database files.
+    #[default]
+    Sqlite,
+    /// Sled embedded key-value DB.
+    Sled,
+    /// Serializes but discards data (no I/O).
+    Noop,
+}
+
+impl PagableStorageBackend {
+    /// This backend, unless the `PAGABLE_STORAGE_BACKEND` env var is set, in which
+    /// case that overrides it. Lets benchmarks pick a backend without a buckconfig.
+    pub fn with_env_override(self) -> anyhow::Result<Self> {
+        match std::env::var("PAGABLE_STORAGE_BACKEND") {
+            Ok(s) => Ok(s.parse()?),
+            Err(_) => Ok(self),
+        }
+    }
+
+    fn as_str(self) -> &'static str {
+        match self {
+            PagableStorageBackend::Sqlite => "sqlite",
+            PagableStorageBackend::Sled => "sled",
+            PagableStorageBackend::Noop => "noop",
+        }
+    }
+}
+
+impl Display for PagableStorageBackend {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl FromStr for PagableStorageBackend {
+    type Err = PagableStorageBackendParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        // Empty (the buckconfig default) selects SQLite.
+        if s.is_empty() || s.eq_ignore_ascii_case("sqlite") {
+            Ok(PagableStorageBackend::Sqlite)
+        } else if s.eq_ignore_ascii_case("sled") {
+            Ok(PagableStorageBackend::Sled)
+        } else if s.eq_ignore_ascii_case("noop") {
+            Ok(PagableStorageBackend::Noop)
+        } else {
+            Err(PagableStorageBackendParseError {
+                value: s.to_owned(),
+            })
+        }
+    }
+}
 
 /// Pagable storage backing for DICE node values.
 ///
@@ -71,24 +143,17 @@ impl DiceStorage {
         self.page_in_metrics.snapshot()
     }
 
-    /// Open (or create) a `DiceStorage` rooted at the given directory.
-    ///
-    /// The backend is selected by `PAGABLE_STORAGE_BACKEND`:
-    /// - `"sled"` → sled embedded DB
-    /// - `"noop"` → serializes but discards data (no I/O)
-    /// - anything else (including unset) → SQLite (default)
-    pub fn open(path: &Path) -> anyhow::Result<Self> {
-        let backend = std::env::var("PAGABLE_STORAGE_BACKEND").unwrap_or_default();
-        if backend == "sled" {
-            Ok(Self::new(Arc::new(SledBackedPagableStorage::try_new(
-                path,
-            )?)))
-        } else if backend == "noop" {
-            Ok(Self::new(Arc::new(NoopPagableStorage::new())))
-        } else {
-            Ok(Self::new(Arc::new(SqliteBackedPagableStorage::try_new(
-                path,
-            )?)))
+    /// Open (or create) a `DiceStorage` rooted at the given directory, using the
+    /// given on-disk `backend`.
+    pub fn open(path: &Path, backend: PagableStorageBackend) -> anyhow::Result<Self> {
+        match backend {
+            PagableStorageBackend::Sled => Ok(Self::new(Arc::new(
+                SledBackedPagableStorage::try_new(path)?,
+            ))),
+            PagableStorageBackend::Noop => Ok(Self::new(Arc::new(NoopPagableStorage::new()))),
+            PagableStorageBackend::Sqlite => Ok(Self::new(Arc::new(
+                SqliteBackedPagableStorage::try_new(path)?,
+            ))),
         }
     }
 

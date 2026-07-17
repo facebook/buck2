@@ -11,6 +11,7 @@
 use dice_error::DiceErrorImpl;
 use dice_error::cycles::DetectCyclesParseError;
 use dice_error::result::CancellationReason;
+use dice_error::storage::PagableStorageBackendParseError;
 
 use crate::ErrorTag;
 
@@ -46,6 +47,14 @@ impl From<DetectCyclesParseError> for crate::Error {
     #[cold]
     #[track_caller]
     fn from(value: DetectCyclesParseError) -> Self {
+        crate::conversion::from_any_with_tag(value, ErrorTag::Input)
+    }
+}
+
+impl From<PagableStorageBackendParseError> for crate::Error {
+    #[cold]
+    #[track_caller]
+    fn from(value: PagableStorageBackendParseError) -> Self {
         crate::conversion::from_any_with_tag(value, ErrorTag::Input)
     }
 }

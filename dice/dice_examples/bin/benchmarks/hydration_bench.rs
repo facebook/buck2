@@ -134,15 +134,16 @@ pub struct Cli {
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
+    let backend = dice::PagableStorageBackend::default().with_env_override()?;
+
     // Emit parameters as the first JSON line.
     {
-        let storage = std::env::var("PAGABLE_STORAGE_BACKEND").unwrap_or("sqlite".to_owned());
         let params = json_value::json!({
             "type": "params",
             "num_keys": cli.num_keys,
             "value_size": cli.value_size,
             "num_deps": cli.num_deps,
-            "storage": storage,
+            "storage": backend.to_string(),
         });
         let stdout = std::io::stdout();
         let mut out = stdout.lock();
@@ -152,7 +153,7 @@ async fn main() -> anyhow::Result<()> {
 
     let mut builder = Dice::builder();
     if let Ok(path) = std::env::var("BUCK2_DICE_DB_PATH") {
-        let storage = dice::DiceStorage::open(std::path::Path::new(&path))?;
+        let storage = dice::DiceStorage::open(std::path::Path::new(&path), backend)?;
         builder.set_pagable_storage(storage);
     }
     let dice = builder.build(DetectCycles::Disabled);

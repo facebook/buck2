@@ -25,6 +25,7 @@ use tempfile::tempdir;
 
 use crate::DiceKeyDyn;
 use crate::DiceStorage;
+use crate::PagableStorageBackend;
 use crate::api::computations::DiceComputations;
 use crate::api::cycles::DetectCycles;
 use crate::api::key::Key;
@@ -118,7 +119,7 @@ fn user_data_with_counter(counter: &ComputeCounter) -> UserComputationData {
 async fn paged_out_value_is_hydrated_on_next_lookup() -> anyhow::Result<()> {
     let counter = ComputeCounter::new();
     let tmp = tempdir()?;
-    let storage = DiceStorage::open(tmp.path())?;
+    let storage = DiceStorage::open(tmp.path(), PagableStorageBackend::Sqlite)?;
     let dice = make_dice(storage);
 
     let mut tx = dice
@@ -154,7 +155,7 @@ async fn paged_out_value_is_hydrated_on_next_lookup() -> anyhow::Result<()> {
 async fn rehydrated_value_stays_in_memory() -> anyhow::Result<()> {
     let counter = ComputeCounter::new();
     let tmp = tempdir()?;
-    let storage = DiceStorage::open(tmp.path())?;
+    let storage = DiceStorage::open(tmp.path(), PagableStorageBackend::Sqlite)?;
     let dice = make_dice(storage);
 
     let mut tx = dice
@@ -202,7 +203,7 @@ async fn rehydrated_value_stays_in_memory() -> anyhow::Result<()> {
 #[tokio::test]
 async fn page_out_skips_no_value_serialize_keys() -> anyhow::Result<()> {
     let tmp = tempdir()?;
-    let storage = DiceStorage::open(tmp.path())?;
+    let storage = DiceStorage::open(tmp.path(), PagableStorageBackend::Sqlite)?;
     let dice = make_dice(storage);
 
     let mut tx = dice.updater().commit().await;
@@ -238,7 +239,7 @@ async fn page_out_without_storage_is_noop() -> anyhow::Result<()> {
 #[tokio::test]
 async fn pagable_status_reports_resident_then_paged_out() -> anyhow::Result<()> {
     let tmp = tempdir()?;
-    let storage = DiceStorage::open(tmp.path())?;
+    let storage = DiceStorage::open(tmp.path(), PagableStorageBackend::Sqlite)?;
     let dice = make_dice(storage);
 
     let mut tx = dice.updater().commit().await;
@@ -282,7 +283,7 @@ async fn pagable_status_reports_resident_then_paged_out() -> anyhow::Result<()> 
 #[tokio::test]
 async fn pagable_status_by_type_is_deterministically_ordered() -> anyhow::Result<()> {
     let tmp = tempdir()?;
-    let storage = DiceStorage::open(tmp.path())?;
+    let storage = DiceStorage::open(tmp.path(), PagableStorageBackend::Sqlite)?;
     let dice = make_dice(storage);
 
     let mut tx = dice.updater().commit().await;

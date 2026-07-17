@@ -16,6 +16,7 @@ use buck2_core::buck2_env;
 use buck2_error::BuckErrorContext;
 #[cfg(unix)]
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+use dice::PagableStorageBackend;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -508,6 +509,39 @@ impl HealthCheckConfig {
     }
 }
 
+/// Pagable DICE storage settings, present (`Some`) only when paging is enabled
+/// via `buck2_hydration.enable_paging`. When present, the daemon sets up on-disk
+/// storage during construction so `buck2 debug hydration` can page node values
+/// out to / in from disk. Read at startup because it gates that setup.
+#[derive(Allocative, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct HydrationConfig {
+    /// On-disk backend for pagable storage.
+    pub pagable_storage_backend: PagableStorageBackend,
+}
+
+impl HydrationConfig {
+    /// Returns `None` when `buck2_hydration.enable_paging` is unset/false.
+    fn from_config(config: &LegacyBuckConfig) -> buck2_error::Result<Option<Self>> {
+        let enabled = config
+            .parse(BuckconfigKeyRef {
+                section: "buck2_hydration",
+                property: "enable_paging",
+            })?
+            .unwrap_or(false);
+        if !enabled {
+            return Ok(None);
+        }
+        Ok(Some(Self {
+            pagable_storage_backend: config
+                .parse::<PagableStorageBackend>(BuckconfigKeyRef {
+                    section: "buck2_hydration",
+                    property: "pagable_storage_backend",
+                })?
+                .unwrap_or_default(),
+        }))
+    }
+}
+
 /// Configurations that are used at startup by the daemon. Those are actually read by the client,
 /// and passed on to the daemon.
 ///
@@ -533,11 +567,8 @@ pub struct DaemonStartupConfig {
     pub retained_event_logs: usize,
     pub macos_qos_class: Option<String>,
     pub daemon_idle_timeout_s: Option<u64>,
-    /// When set, the daemon configures pagable DICE storage on disk, enabling
-    /// `buck2 debug hydration` to page node values out to / in from disk. Read at
-    /// startup because it determines whether storage is set up during daemon
-    /// construction.
-    pub enable_paging: bool,
+    /// Pagable DICE storage settings, or `None` when paging is disabled.
+    pub hydration: Option<HydrationConfig>,
 }
 
 impl DaemonStartupConfig {
@@ -649,12 +680,7 @@ impl DaemonStartupConfig {
                 section: "buck2",
                 property: "daemon_idle_timeout_s",
             })?,
-            enable_paging: config
-                .parse(BuckconfigKeyRef {
-                    section: "buck2_hydration",
-                    property: "enable_paging",
-                })?
-                .unwrap_or(false),
+            hydration: HydrationConfig::from_config(config)?,
         })
     }
 
@@ -686,7 +712,7 @@ impl DaemonStartupConfig {
             retained_event_logs: DEFAULT_RETAINED_EVENT_LOGS,
             macos_qos_class: None,
             daemon_idle_timeout_s: None,
-            enable_paging: false,
+            hydration: None,
         }
     }
 }

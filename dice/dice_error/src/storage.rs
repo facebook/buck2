@@ -8,11 +8,9 @@
  * above-listed licenses.
  */
 
-pub mod cycles;
-mod error;
-pub mod result;
-pub mod storage;
-
-pub use crate::error::DiceError;
-pub use crate::error::DiceErrorImpl;
-pub use crate::error::DiceResult;
+/// Error returned when parsing a `PagableStorageBackend` value from a string.
+#[derive(Debug, thiserror::Error)]
+#[error("Invalid pagable storage backend: `{value}`, expected `sqlite`, `sled`, or `noop`")]
+pub struct PagableStorageBackendParseError {
+    pub value: String,
+}

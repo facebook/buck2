@@ -189,15 +189,15 @@ impl BuckdServerInitPreferences {
         tenting_acl_provider: Option<Arc<dyn TentingAclProvider>>,
         dice_state_path: &Path,
     ) -> buck2_error::Result<Arc<Dice>> {
+        let hydration = self.daemon_startup_config.hydration.as_ref();
         configure_dice_for_buck(
             io,
             digest_config,
             Some(root_config),
             self.detect_cycles,
             tenting_acl_provider,
-            self.daemon_startup_config
-                .enable_paging
-                .then_some(dice_state_path),
+            hydration.map(|_| dice_state_path),
+            hydration.map_or_else(Default::default, |h| h.pagable_storage_backend),
         )
         .await
     }
