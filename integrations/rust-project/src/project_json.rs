@@ -93,6 +93,9 @@ pub(crate) struct Crate {
     /// proc-macro (.so, .dylib, or .dll. depends on the platform.)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) proc_macro_dylib_path: Option<PathBuf>,
+    /// Working directory used when expanding proc macros invoked from this crate.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) proc_macro_cwd: Option<PathBuf>,
 }
 
 /// Build system-specific additions the `rust-project.json`.

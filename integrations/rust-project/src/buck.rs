@@ -234,6 +234,7 @@ pub(crate) fn to_project_json(
             build,
             is_proc_macro: info.proc_macro.unwrap_or(false),
             proc_macro_dylib_path,
+            proc_macro_cwd: Some(project_root.clone()),
             target: None,
         };
         crates.push(crate_info);
