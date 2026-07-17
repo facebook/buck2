@@ -40,15 +40,8 @@ const LOG_USE_MANIFOLD: SettingKey<bool> = SettingKey {
 
 #[derive(Debug, Default, Deserialize, Allocative)]
 #[serde(deny_unknown_fields)]
-pub(crate) struct Buck2Section {
-    log_use_manifold: Option<bool>,
-}
-
-#[derive(Debug, Default, Deserialize, Allocative)]
-#[serde(deny_unknown_fields)]
 pub(crate) struct BuckSettingsData {
-    #[serde(default)]
-    buck2: Buck2Section,
+    log_use_manifold: Option<bool>,
 }
 
 #[derive(Clone, Dupe, Debug, Allocative)]
@@ -60,6 +53,6 @@ impl BuckSettings {
     }
 
     pub fn log_use_manifold(&self) -> bool {
-        LOG_USE_MANIFOLD.resolve(self.0.buck2.log_use_manifold)
+        LOG_USE_MANIFOLD.resolve(self.0.log_use_manifold)
     }
 }

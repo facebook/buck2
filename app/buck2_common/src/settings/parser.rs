@@ -93,9 +93,9 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_key() -> buck2_error::Result<()> {
+    fn test_parse_log_use_manifold() -> buck2_error::Result<()> {
         let fs = ProjectRootTemp::new()?;
-        fs.write_file(".bucksettings.toml", "[buck2]\nlog_use_manifold = false");
+        fs.write_file(".bucksettings.toml", "log_use_manifold = false");
         let settings = parse_repo_root(fs.path())?;
         assert!(!settings.log_use_manifold());
         Ok(())
