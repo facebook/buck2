@@ -7,7 +7,6 @@
 # above-listed licenses.
 
 load("@prelude//:paths.bzl", "paths")
-load("@prelude//utils:utils.bzl", "dedupe_by_value")
 load(
     ":erlang_build.bzl",
     "erlang_build",
@@ -65,10 +64,6 @@ def erlang_tests_macro(
             erl_opts = erl_opts,
         )
         deps.append(":{}".format(srcs_app))
-
-    common_attributes["labels"] = common_attributes.get("labels", [])
-
-    common_attributes["labels"] = dedupe_by_value(common_attributes["labels"])
 
     for suite in suites:
         # forward resources and deps fields and generate erlang_test target
