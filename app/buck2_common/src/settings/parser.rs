@@ -88,7 +88,12 @@ mod tests {
     fn test_parse_default_key() -> buck2_error::Result<()> {
         let fs = ProjectRootTemp::new()?;
         let settings = parse_repo_root(fs.path())?;
-        assert_eq!(settings.log_use_manifold(), cfg!(fbcode_build));
+        let expected = if cfg!(fbcode_build) {
+            None
+        } else {
+            Some(false)
+        };
+        assert_eq!(settings.log_use_manifold(), expected);
         Ok(())
     }
 
@@ -97,7 +102,7 @@ mod tests {
         let fs = ProjectRootTemp::new()?;
         fs.write_file(".bucksettings.toml", "log_use_manifold = false");
         let settings = parse_repo_root(fs.path())?;
-        assert!(!settings.log_use_manifold());
+        assert_eq!(settings.log_use_manifold(), Some(false));
         Ok(())
     }
 }

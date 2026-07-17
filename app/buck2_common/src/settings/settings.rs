@@ -15,12 +15,12 @@ use dupe::Dupe;
 use serde::Deserialize;
 
 struct SettingKey<T> {
-    internal_default: T,
-    oss_default: T,
+    internal_default: Option<T>,
+    oss_default: Option<T>,
 }
 
 impl<T: Clone> SettingKey<T> {
-    fn default_value(&self) -> T {
+    fn default_value(&self) -> Option<T> {
         if cfg!(fbcode_build) {
             self.internal_default.clone()
         } else {
@@ -28,14 +28,14 @@ impl<T: Clone> SettingKey<T> {
         }
     }
 
-    fn resolve(&self, value: Option<T>) -> T {
-        value.unwrap_or_else(|| self.default_value())
+    fn resolve(&self, value: Option<T>) -> Option<T> {
+        value.or_else(|| self.default_value())
     }
 }
 
 const LOG_USE_MANIFOLD: SettingKey<bool> = SettingKey {
-    internal_default: true,
-    oss_default: false,
+    internal_default: None,
+    oss_default: Some(false),
 };
 
 #[derive(Debug, Default, Deserialize, Allocative)]
@@ -52,7 +52,7 @@ impl BuckSettings {
         Self(Arc::new(BuckSettingsData::default()))
     }
 
-    pub fn log_use_manifold(&self) -> bool {
+    pub fn log_use_manifold(&self) -> Option<bool> {
         LOG_USE_MANIFOLD.resolve(self.0.log_use_manifold)
     }
 }
