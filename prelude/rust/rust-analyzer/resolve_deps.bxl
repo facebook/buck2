@@ -88,7 +88,7 @@ def _process_target_config(ctx: bxl.Context, target: bxl.ConfiguredTargetNode, a
         "env": env,
         "features": ra_info.features,
         "in_workspace": in_workspace,
-        "kind": target.rule_type,
+        "kind": ra_info.target_kind.value,
         "label": target.label.raw_target(),
         "labels": resolved_attrs.labels if hasattr(resolved_attrs, "labels") else [],
         "mapped_srcs": mapped_srcs,
@@ -179,7 +179,7 @@ def gather_unconfigured_deps(ctx: bxl.Context, targets: list[TargetLabel]) -> di
             "env": env,
             "features": _get_attr_no_select(target, "features"),
             "in_workspace": False,
-            "kind": target.rule_type,
+            "kind": _get_attr_no_select(target, "_rust_analyzer_target_kind"),
             "label": target.label,
             "labels": _get_attr_no_select(target, "labels") or [],
             "mapped_srcs": mapped_srcs,
@@ -256,12 +256,17 @@ def expand_proc_macros(ctx: bxl.Context, target_analysis: dict[Label, bxl.Analys
 # Returns a list of all the expanded targets including any workspaces, followed by just the workspaces
 def expand_targets(ctx: bxl.Context, targets: list[TargetLabel], exclude_workspaces: bool) -> (dict[Label, bxl.AnalysisResult], list[TargetLabel]):
     target_universe = ctx.target_universe(targets).target_set()
-    kind_target_list = ctx.cquery().kind("^(rust_binary|rust_library|rust_test|alias|_?transitioned)$", target_universe)
+    # Pick up any rule that sets RustAnalyzerTargetKind and so exposes RustAnalyzerInfo, regardless of its rule name.
+    # Custom rules that wrap/override our rust_* builtins but don't use the same names will be picked up here.
+    attr_target_list = ctx.cquery().attrregexfilter("_rust_analyzer_target_kind", "^(bin|lib|test)$", target_universe)
+
+    # Aliases don't set RustAnalyzerTargetKind, so we must fallback to grabbing all of them
+    alias_target_list = ctx.cquery().kind("^(alias|_?transitioned)$", target_universe)
 
     # Allow targets to opt-in to being treated as rust-analyzer-compatible.
     # This is used for cross-compilation targets that apply Buck transitions to Rust rules.
     labeled_target_list = ctx.cquery().attrfilter("labels", "rust_analyzer_target", target_universe)
-    expanded_targets = {t.label.raw_target(): t for t in kind_target_list + labeled_target_list}
+    expanded_targets = {t.label.raw_target(): t for t in attr_target_list + alias_target_list + labeled_target_list}
 
     # Map of potential workspaces to a list of the targets that name these as potential workspaces
     possible_workspaces = {}
@@ -406,7 +411,9 @@ def resolve_owning_buildfile_impl(ctx: bxl.Context) -> None:
     if ctx.cli_args.files:
         # Find targets that own these files and are relevant to rust.
         targets = ctx.uquery().owner(ctx.cli_args.files)
-        targets = ctx.uquery().kind("^(rust_binary|rust_library|rust_test|rust_filegroup)$", targets)
+        attr_targets = ctx.uquery().attrregexfilter("_rust_analyzer_target_kind", "^(bin|lib|test)$", targets)
+        filegroup_targets = ctx.uquery().kind("^rust_filegroup$", targets)
+        targets = attr_targets + filegroup_targets
 
         # Convert rust_filegroup targets to rust_library targets.
         targets = _resolve_vendor_rust_libraries(ctx, targets)
@@ -415,9 +422,10 @@ def resolve_owning_buildfile_impl(ctx: bxl.Context) -> None:
 
         # equivalent of `flat_map`ing
         targets = [target for sublist in targets for target in sublist]
-        kind_targets = ctx.uquery().kind("^(rust_binary|rust_library|rust_test|_?transitioned)$", targets)
+        attr_targets = ctx.uquery().attrregexfilter("_rust_analyzer_target_kind", "^(bin|lib|test)$", targets)
+        transitioned_targets = ctx.uquery().kind("^_?transitioned$", targets)
         labeled_targets = ctx.uquery().attrfilter("labels", "rust_analyzer_target", targets)
-        targets = kind_targets + labeled_targets
+        targets = attr_targets + transitioned_targets + labeled_targets
     elif ctx.cli_args.targets:
         # equivalent of `flat_map`ing
         targets = [target for sublist in ctx.cli_args.targets for target in sublist]
@@ -441,7 +449,8 @@ def resolve_owning_buildfile_impl(ctx: bxl.Context) -> None:
             continue
 
         all_buildfile_targets = ctx.uquery().targets_in_buildfile(buildfile_path)
-        extra_targets = ctx.uquery().kind("^(rust_binary|rust_library|rust_test|_?transitioned)$", all_buildfile_targets)
+        extra_targets = ctx.uquery().attrregexfilter("_rust_analyzer_target_kind", "^(bin|lib|test)$", all_buildfile_targets)
+        extra_targets += ctx.uquery().kind("^_?transitioned$", all_buildfile_targets)
         extra_targets += ctx.uquery().attrfilter("labels", "rust_analyzer_target", all_buildfile_targets)
 
         # Exclude targets with the rustc_do_no_check label from the extra targets. This

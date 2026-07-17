@@ -91,11 +91,11 @@ pub(crate) struct MacroOutput {
 }
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub(crate) enum Kind {
-    #[serde(rename = "prelude//rules.bzl:rust_binary")]
+    #[serde(rename = "bin")]
     Binary,
-    #[serde(rename = "prelude//rules.bzl:rust_library")]
+    #[serde(rename = "lib")]
     Library,
-    #[serde(rename = "prelude//rules.bzl:rust_test")]
+    #[serde(rename = "test")]
     Test,
 }
 
@@ -346,6 +346,21 @@ fn expand_atfile(path: &Path) -> Result<Vec<String>, anyhow::Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_kind_deserializes_semantic_values() -> Result<(), serde_json::Error> {
+        for (value, expected) in [
+            (r#""bin""#, Kind::Binary),
+            (r#""lib""#, Kind::Library),
+            (r#""test""#, Kind::Test),
+        ] {
+            assert_eq!(serde_json::from_str::<Kind>(value)?, expected);
+        }
+
+        assert!(serde_json::from_str::<Kind>(r#""prelude//rules.bzl:rust_test""#).is_err());
+
+        Ok(())
+    }
 
     #[test]
     fn test_cfg() {
