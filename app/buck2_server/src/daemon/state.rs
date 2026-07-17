@@ -216,6 +216,11 @@ pub struct DaemonStateData {
     pub named_semaphores_for_run_actions: Arc<NamedSemaphores>,
 
     pub buckconfig_metadata: StdBuckHashMap<String, String>,
+
+    /// Whether `buck2_hydration.page_out_on_idle` is enabled (a `DaemonStartupConfig`,
+    /// so fixed for the daemon's lifetime). Read per command in `finalize` to
+    /// decide whether to schedule a background page-out.
+    pub page_out_on_idle: bool,
 }
 
 impl DaemonStateData {
@@ -758,6 +763,11 @@ impl DaemonState {
                 daemon_originating_cgroup: init_ctx.daemon_originating_cgroup,
                 named_semaphores_for_run_actions: Arc::new(NamedSemaphores::new()),
                 buckconfig_metadata: parse_buckconfig_metadata(root_config),
+                page_out_on_idle: init_ctx
+                    .daemon_startup_config
+                    .hydration
+                    .as_ref()
+                    .is_some_and(|h| h.page_out_on_idle),
             }))
         };
         let daemon_listener_span = tracing::Span::current();

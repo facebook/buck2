@@ -618,6 +618,16 @@ impl BuckdServer {
                         )
                         .await;
 
+                        // The command's DICE work is done; schedule an idle
+                        // page-out. Fire-and-forget: it no-ops unless paging is
+                        // enabled and this is the last active command.
+                        let daemon_data = daemon_state.data();
+                        crate::hydration::spawn_page_out_on_idle(
+                            daemon_data.page_out_on_idle,
+                            daemon_data.dice_manager.dupe(),
+                            dispatch.trace_id().dupe(),
+                        );
+
                         context.finalize().await?;
                         res?
                     };

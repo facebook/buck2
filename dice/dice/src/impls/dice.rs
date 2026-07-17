@@ -30,6 +30,12 @@ use crate::introspection::graph::GraphIntrospectable;
 use crate::metrics::Metrics;
 use crate::metrics::PageInKeyTypeMetrics;
 
+/// Cancellation check for [`Dice::page_out_cancellable`]: returns `true` when the
+/// in-progress page-out should stop promptly. Polled per key, so it must be cheap
+/// and lock-free. A capture-free `fn`, so it needs no allocation and is `Copy`ed
+/// into each page-out worker.
+pub type PageOutCancel = fn() -> bool;
+
 /// An incremental computation engine that executes arbitrary computations that
 /// maps `Key`s to values.
 #[derive(Allocative)]
@@ -169,9 +175,30 @@ impl Dice {
     ///
     /// No-op if `DiceStorage` was not configured on the builder.
     pub async fn page_out(self: &Arc<Self>) -> anyhow::Result<()> {
+        // Never cancelled.
+        self.page_out_cancellable(|| false).await
+    }
+
+    /// Like [`Dice::page_out`], but stops promptly once `cancelled` returns true
+    /// (checked per key), leaving a partially paged-out graph (a valid state —
+    /// paged-out values hydrate back on demand). Used by automatic idle page-out
+    /// so it can yield promptly when a new command starts.
+    pub async fn page_out_cancellable(
+        self: &Arc<Self>,
+        cancelled: PageOutCancel,
+    ) -> anyhow::Result<()> {
         if !self.is_idle().await {
+            // A command can race in and make DICE non-idle even after the caller
+            // waited for idle — `wait_for_idle` is not a lasting guarantee. On the
+            // idle page-out path that same command also cancels us, so a set
+            // `cancelled` flag means this is that benign race: bail quietly. If we
+            // aren't cancelled, something called this on a non-idle graph, which
+            // risks paging out a value that's being recomputed — surface it.
+            if cancelled() {
+                return Ok(());
+            }
             return Err(anyhow::anyhow!(
-                "Dice::page_out called while DICE is not idle; call `wait_for_idle()` first"
+                "Dice::page_out called while DICE is not idle"
             ));
         }
         let Some(storage) = self.pagable_storage.as_ref() else {
@@ -180,7 +207,7 @@ impl Dice {
         self.state_handle.evict_cached_values().await;
         let keys = self.state_handle.keys_to_page_out().await;
         storage
-            .page_out(keys, &self.key_index, &self.state_handle)
+            .page_out(keys, &self.key_index, &self.state_handle, cancelled)
             .await
     }
 

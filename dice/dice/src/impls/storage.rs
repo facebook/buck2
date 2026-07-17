@@ -43,6 +43,7 @@ use serde::Serialize;
 
 use crate::HashMap;
 use crate::impls::core::state::CoreStateHandle;
+use crate::impls::dice::PageOutCancel;
 use crate::impls::key::DiceKey;
 use crate::impls::key::DiceKeyErased;
 use crate::impls::key_index::DiceKeyIndex;
@@ -163,11 +164,16 @@ impl DiceStorage {
     /// `keys` comes from `CoreState::paged_in_keys()`. For entries with an
     /// existing `DataKey` (on-disk copy still valid), no serialization is needed.
     /// For entries without, the value is serialized via the key's `ValueSerialize`.
+    ///
+    /// Stops after the current chunk if `cancelled` is set, leaving the remaining
+    /// keys paged in (a valid state). Pass an always-`false` flag for an
+    /// uninterruptible page-out.
     pub(crate) async fn page_out(
         &self,
         keys: Vec<(DiceKey, DiceValidValue)>,
         key_index: &DiceKeyIndex,
         state_handle: &CoreStateHandle,
+        cancelled: PageOutCancel,
     ) -> anyhow::Result<()> {
         if keys.is_empty() {
             return Ok(());
@@ -179,6 +185,9 @@ impl DiceStorage {
 
         let mut remaining = keys;
         while !remaining.is_empty() {
+            if cancelled() {
+                break;
+            }
             let split_at = remaining.len().min(CHUNK_SIZE);
             let mut chunk = remaining.split_off(split_at);
             std::mem::swap(&mut chunk, &mut remaining);
@@ -188,6 +197,11 @@ impl DiceStorage {
             let mut handles = Vec::with_capacity(num_workers);
 
             for _ in 0..num_workers {
+                // Stop spawning workers that would immediately cancel themselves if
+                // a command arrived mid-chunk.
+                if cancelled() {
+                    break;
+                }
                 let items: Vec<_> = (&mut chunk_iter)
                     .take(worker_size)
                     .map(|(k, v)| (k, key_index.get(k).dupe(), v))
@@ -199,7 +213,7 @@ impl DiceStorage {
                 let finished = finished.clone();
                 let state_handle = state_handle.dupe();
                 handles.push(tokio::spawn(async move {
-                    storage.page_out_chunk(items, &finished, &state_handle)
+                    storage.page_out_chunk(items, &finished, &state_handle, cancelled)
                 }));
             }
 
@@ -218,10 +232,16 @@ impl DiceStorage {
         items: Vec<(DiceKey, DiceKeyErased, DiceValidValue)>,
         finished: &DashMap<usize, Arc<ArcSerSlot>>,
         state_handle: &CoreStateHandle,
+        cancelled: PageOutCancel,
     ) -> anyhow::Result<()> {
         const EVICT_BATCH_SIZE: usize = 1000;
         let mut pending_evictions = Vec::with_capacity(EVICT_BATCH_SIZE);
         for (dice_key, key_dyn, value) in items {
+            // Stop promptly on cancellation; keys not yet processed stay paged
+            // in, which is a valid state.
+            if cancelled() {
+                break;
+            }
             if let Some(data_key) = self.page_out_value(&key_dyn, value, finished)? {
                 pending_evictions.push((dice_key, data_key));
                 if pending_evictions.len() >= EVICT_BATCH_SIZE {
@@ -254,7 +274,13 @@ impl DiceStorage {
                 .pagable_serialize_value(value.as_dyn(), &mut serializer),
         };
         match serialize_result {
-            None => Ok(None),
+            None => {
+                tracing::debug!(
+                    "Skipping page-out of `{}`: no value serializer",
+                    key_dyn.key_type_name()
+                );
+                Ok(None)
+            }
             Some(Err(e)) => Err(e),
             Some(Ok(())) => {
                 let (data, arcs) = serializer.finish();

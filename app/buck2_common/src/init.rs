@@ -509,25 +509,37 @@ impl HealthCheckConfig {
     }
 }
 
-/// Pagable DICE storage settings, present (`Some`) only when paging is enabled
-/// via `buck2_hydration.enable_paging`. When present, the daemon sets up on-disk
-/// storage during construction so `buck2 debug hydration` can page node values
-/// out to / in from disk. Read at startup because it gates that setup.
+/// Pagable DICE storage settings, present (`Some`) only when paging is enabled —
+/// either `buck2_hydration.enable_paging` or `buck2_hydration.page_out_on_idle`
+/// (which implies it). When present, the daemon sets up on-disk storage during
+/// construction so `buck2 debug hydration` can page node values out to / in from
+/// disk. Read at startup because it gates that setup.
 #[derive(Allocative, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct HydrationConfig {
     /// On-disk backend for pagable storage.
     pub pagable_storage_backend: PagableStorageBackend,
+    /// Automatically page the graph out to disk when the daemon goes idle.
+    pub page_out_on_idle: bool,
 }
 
 impl HydrationConfig {
-    /// Returns `None` when `buck2_hydration.enable_paging` is unset/false.
+    /// Returns `None` when neither `buck2_hydration.enable_paging` nor
+    /// `page_out_on_idle` is set.
     fn from_config(config: &LegacyBuckConfig) -> buck2_error::Result<Option<Self>> {
-        let enabled = config
+        let page_out_on_idle = config
             .parse(BuckconfigKeyRef {
                 section: "buck2_hydration",
-                property: "enable_paging",
+                property: "page_out_on_idle",
             })?
             .unwrap_or(false);
+        // `page_out_on_idle` implies pagable storage, so it enables it too.
+        let enabled = page_out_on_idle
+            || config
+                .parse(BuckconfigKeyRef {
+                    section: "buck2_hydration",
+                    property: "enable_paging",
+                })?
+                .unwrap_or(false);
         if !enabled {
             return Ok(None);
         }
@@ -538,6 +550,7 @@ impl HydrationConfig {
                     property: "pagable_storage_backend",
                 })?
                 .unwrap_or_default(),
+            page_out_on_idle,
         }))
     }
 }

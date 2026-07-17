@@ -40,6 +40,14 @@ pub fn active_commands() -> MutexGuard<'static, StdBuckHashMap<TraceId, ActiveCo
     ACTIVE_COMMANDS.lock()
 }
 
+/// Whether `trace_id` is the one and only active command. False if it isn't
+/// registered (e.g. an empty map), so callers must hold their own active-command
+/// guard when relying on this.
+pub fn is_only_active_command(trace_id: &TraceId) -> bool {
+    let active = ACTIVE_COMMANDS.lock();
+    active.len() == 1 && active.contains_key(trace_id)
+}
+
 /// Broadcasts an instant event, returns whether any subscribers were connected.
 pub fn broadcast_instant_event<E: Into<buck2_data::instant_event::Data> + Clone>(
     event: &E,
@@ -261,6 +269,10 @@ impl ActiveCommand {
                     });
             }
         }
+
+        // A new command is starting; cancel any in-progress idle page-out so it
+        // yields resources back to real work.
+        crate::hydration::cancel_active_page_out();
 
         Self {
             guard: ActiveCommandDropGuard { trace_id },

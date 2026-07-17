@@ -246,6 +246,7 @@ pub use crate::impls::dice::Dice;
 pub use crate::impls::dice::DiceDataBuilder;
 pub use crate::impls::dice::PagableStatus;
 pub use crate::impls::dice::PagableTypeStat;
+pub use crate::impls::dice::PageOutCancel;
 pub use crate::impls::key::DiceKeyDyn;
 pub use crate::impls::key::DiceProjectionDyn;
 pub use crate::impls::opaque::OpaqueValue;

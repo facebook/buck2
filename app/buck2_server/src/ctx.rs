@@ -479,6 +479,7 @@ impl<'a> ServerCommandContext<'a> {
         self.starlark_profiling_manager
             .finalize(&self.base_context.events)
             .await?;
+
         self.heartbeat_guard_handle.take().unwrap().finalize().await;
         Ok(())
     }
@@ -939,6 +940,10 @@ impl DiceCommandUpdater<'_, '_> {
             format!("miniperf:{}", enable_miniperf),
             format!("log-configured-graph-size:{}", log_configured_graph_size),
             "peak-load-metrics:v2".to_owned(),
+            format!(
+                "page-out-on-idle:{}",
+                self.cmd_ctx.base_context.daemon.page_out_on_idle
+            ),
         ];
         tags.extend(CleanStaleConfig::adaptive_telemetry_tags(
             clean_stale_config.as_ref(),
