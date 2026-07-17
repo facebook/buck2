@@ -204,6 +204,9 @@ message StdoutStreamingOutput {
 /// Preemption of the running command was detected/allowed
 message CommandPreempted {}
 
+/// The daemon triggered a background idle page-out at the end of this command.
+message PageOutTriggered {}
+
 // An event that represents a single point in time.
 message InstantEvent {
   reserved 2, 8, 9, 12, 13, 22, 24, 38, 41, 52, 53;
@@ -341,6 +344,8 @@ message InstantEvent {
     // recorder) can accumulate rule types without the producing command
     // having to thread them through its response.
     TargetRuleTypeName target_rule_type_name = 59;
+
+    PageOutTriggered page_out_triggered = 60;
   }
 }
 
@@ -2739,6 +2744,9 @@ message InvocationRecord {
   uint64 run_remote_dep_file_cache_count = 73;
   // List of concurrent command trace IDs
   repeated string concurrent_command_ids = 74;
+  // The daemon triggered a background idle page-out at the end of this command
+  // (reflects triggering, not completion).
+  optional bool page_out_triggered = 443;
   // The client has failed to connect to the daemon.
   optional bool daemon_connection_failure = 75;
   // Daemon was started by this command.

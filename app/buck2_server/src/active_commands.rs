@@ -270,10 +270,6 @@ impl ActiveCommand {
             }
         }
 
-        // A new command is starting; cancel any in-progress idle page-out so it
-        // yields resources back to real work.
-        crate::hydration::cancel_active_page_out();
-
         Self {
             guard: ActiveCommandDropGuard { trace_id },
             daemon_shutdown_channel: receiver,

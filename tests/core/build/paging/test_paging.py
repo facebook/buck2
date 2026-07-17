@@ -16,6 +16,10 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.api.buck_result import BuildResult
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
+# The fixture's `.buckconfig` sets two `DaemonStartupConfig`s:
+# `buck2_hydration.enable_paging` (pagable DICE storage on disk) and
+# `buck2_hydration.page_out_on_idle` (page the graph out when the daemon goes idle).
+
 
 async def _build(buck: Buck) -> BuildResult:
     return await buck.build("//:mysrcrule")
@@ -38,10 +42,24 @@ def _paged_in_count(result: BuildResult) -> int:
     return int(result.invocation_record().get("page_in_count", 0))
 
 
+async def _wait_for_page_out_idle(buck: Buck) -> int:
+    # `status --wait` blocks until any in-progress idle page-out finishes, so tests
+    # observe the settled state without polling. Returns the paged-out node count.
+    out = (await buck.debug("hydration", "status", "--wait")).stdout
+    paged_out = re.search(r"(\d+) paged out", out)
+    in_progress = re.search(r"page-out in progress: (yes|no)", out)
+    assert (
+        paged_out is not None
+        and in_progress is not None
+        and in_progress.group(1) == "no"
+    ), f"unexpected status output after --wait:\n{out}"
+    return int(paged_out.group(1))
+
+
 @buck_test(data_dir="paging", write_invocation_record=True)
 async def test_incremental_build_after_page_out(buck: Buck) -> None:
-    # Incremental builds must stay correct after values are paged out to disk,
-    # relying on on-demand page-in during the build (no manual page-in). Page-in
+    # Incremental builds must stay correct after an explicit `buck2 debug
+    # hydration page-out`, relying on on-demand page-in during the build. Page-in
     # is measured per command via `page_in_count` in the invocation record.
     #
     # Note: this does not check that stale paged-out values are reclaimed from
@@ -58,8 +76,8 @@ async def test_incremental_build_after_page_out(buck: Buck) -> None:
         "expected node values to actually be paged out"
     )
 
-    # Rebuild with no changes: served entirely by on-demand page-in of the
-    # paged-out values. The per-command page-in total is in the invocation record.
+    # Rebuild with no changes: served by on-demand page-in of the paged-out
+    # values. The per-command page-in total is in the invocation record.
     result = await _build(buck)
     assert _output(result) == "content-0\n"
     paged_in = _paged_in_count(result)
@@ -77,5 +95,41 @@ async def test_incremental_build_after_page_out(buck: Buck) -> None:
     assert await _paged_out_count(buck) > 0, (
         "expected node values to be paged out again"
     )
+    (buck.cwd / "src.txt").write_text("content-2\n")
+    assert _output(await _build(buck)) == "content-2\n"
+
+
+@buck_test(data_dir="paging", write_invocation_record=True)
+async def test_page_out_on_idle(buck: Buck) -> None:
+    # With `buck2_hydration.page_out_on_idle`, the daemon pages the DICE graph out to
+    # disk in a background task once it goes idle after a command. Subsequent
+    # builds stay correct by paging values back in on demand.
+    (buck.cwd / "src.txt").write_text("content-0\n")
+    result = await _build(buck)
+    assert _output(result) == "content-0\n"
+    # The sole active command triggers the idle page-out and records it.
+    assert result.invocation_record().get("page_out_triggered"), (
+        "expected the sole active command to trigger an idle page-out"
+    )
+
+    # Page-out runs in a detached background task once the daemon is idle. Wait
+    # for it to finish, then confirm the graph was actually paged out.
+    assert await _wait_for_page_out_idle(buck) > 0, (
+        "expected idle page-out to actually page values out"
+    )
+
+    # The paged-out values must now be paged back in on the next build.
+    result = await _build(buck)
+    assert _output(result) == "content-0\n"
+    paged_in = _paged_in_count(result)
+    assert paged_in > 0, (
+        f"expected paged-out values to be paged back in, got {paged_in}"
+    )
+
+    # Incremental correctness across invalidations (each also schedules an idle
+    # page-out): dependent nodes recompute, the rest hydrate on demand.
+    (buck.cwd / "src.txt").write_text("content-1\n")
+    assert _output(await _build(buck)) == "content-1\n"
+
     (buck.cwd / "src.txt").write_text("content-2\n")
     assert _output(await _build(buck)) == "content-2\n"

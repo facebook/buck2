@@ -48,6 +48,10 @@ pub struct PageInCommand {
 
 #[derive(Debug, clap::Parser)]
 pub struct StatusCommand {
+    /// Block until any in-progress idle page-out finishes before reporting.
+    #[clap(long)]
+    wait: bool,
+
     #[clap(flatten)]
     event_log_opts: CommonEventLogOptions,
 }
@@ -58,6 +62,13 @@ impl HydrationCommand {
             HydrationCommand::PageOut(_) => HydrationSubcommand::PageOut,
             HydrationCommand::PageIn(_) => HydrationSubcommand::PageIn,
             HydrationCommand::Status(_) => HydrationSubcommand::Status,
+        }
+    }
+
+    fn wait(&self) -> bool {
+        match self {
+            HydrationCommand::Status(c) => c.wait,
+            HydrationCommand::PageOut(_) | HydrationCommand::PageIn(_) => false,
         }
     }
 }
@@ -84,6 +95,7 @@ impl StreamingCommand for HydrationCommand {
                 HydrationRequest {
                     context: Some(context),
                     subcommand: self.subcommand().into(),
+                    wait: self.wait(),
                 },
                 events_ctx,
                 ctx.console_interaction_stream(self.console_opts()),

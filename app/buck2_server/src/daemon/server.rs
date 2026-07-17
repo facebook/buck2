@@ -189,6 +189,8 @@ impl BuckdServerInitPreferences {
         tenting_acl_provider: Option<Arc<dyn TentingAclProvider>>,
         dice_state_path: &Path,
     ) -> buck2_error::Result<Arc<Dice>> {
+        // `hydration` is `Some` when paging is enabled (via `enable_paging` or
+        // `page_out_on_idle`), which is what gates setting up on-disk storage.
         let hydration = self.daemon_startup_config.hydration.as_ref();
         configure_dice_for_buck(
             io,
@@ -489,6 +491,14 @@ impl BuckdServer {
             daemon_shutdown_channel,
             state,
         } = ActiveCommand::new(&dispatch, client_ctx.sanitized_argv.clone());
+
+        // A command that contends for the DICE graph is starting; cancel any
+        // in-progress idle page-out so it yields resources back. Read-only /
+        // debug commands opt out (see `triggers_idle_page_out`).
+        if opts.triggers_idle_page_out() {
+            crate::hydration::cancel_active_page_out();
+        }
+
         let data = daemon_state.data();
 
         // Fire off a system-wide event to record the memory usage of this process.
@@ -618,15 +628,22 @@ impl BuckdServer {
                         )
                         .await;
 
-                        // The command's DICE work is done; schedule an idle
-                        // page-out. Fire-and-forget: it no-ops unless paging is
-                        // enabled and this is the last active command.
-                        let daemon_data = daemon_state.data();
-                        crate::hydration::spawn_page_out_on_idle(
-                            daemon_data.page_out_on_idle,
-                            daemon_data.dice_manager.dupe(),
-                            dispatch.trace_id().dupe(),
-                        );
+                        // The command's DICE work is done; if it takes part in the
+                        // idle page-out lifecycle, schedule one. Read-only / debug
+                        // commands opt out (they also don't cancel on start).
+                        // Fire-and-forget: it no-ops unless paging is enabled and
+                        // this is the last active command.
+                        if opts.triggers_idle_page_out() {
+                            let daemon_data = daemon_state.data();
+                            let page_out_triggered = crate::hydration::spawn_page_out_on_idle(
+                                daemon_data.page_out_on_idle,
+                                daemon_data.dice_manager.dupe(),
+                                dispatch.trace_id().dupe(),
+                            );
+                            if page_out_triggered {
+                                dispatch.instant_event(buck2_data::PageOutTriggered {});
+                            }
+                        }
 
                         context.finalize().await?;
                         res?
@@ -1123,7 +1140,7 @@ impl DaemonApi for BuckdServer {
     ) -> Result<Response<ResponseStream>, Status> {
         self.run_streaming(
             req,
-            DefaultCommandOptions,
+            HydrationCommandOptions,
             |context, partial_result_dispatcher, req| {
                 crate::hydration::hydration_command(context, partial_result_dispatcher, req).boxed()
             },
@@ -1138,7 +1155,7 @@ impl DaemonApi for BuckdServer {
     ) -> Result<Response<ResponseStream>, Status> {
         self.run_streaming(
             req,
-            DefaultCommandOptions,
+            NonPagingCommandOptions,
             |context, partial_result_dispatcher, req| {
                 file_status_command(context, partial_result_dispatcher, req).boxed()
             },
@@ -1624,7 +1641,7 @@ impl DaemonApi for BuckdServer {
     ) -> Result<Response<Self::SubscriptionStream>, Status> {
         self.run_bidirectional(
             req,
-            DefaultCommandOptions,
+            NonPagingCommandOptions,
             |ctx,
              partial_result_dispatcher,
              _client_ctx,
@@ -1689,7 +1706,7 @@ impl DaemonApi for BuckdServer {
     ) -> Result<Response<ResponseStream>, Status> {
         self.run_streaming(
             req,
-            DefaultCommandOptions,
+            NonPagingCommandOptions,
             |context, _: PartialResultDispatcher<NoPartialResult>, req| {
                 trace_io_command(context, req).boxed()
             },
@@ -1713,6 +1730,15 @@ trait StreamingCommandOptions<Req>: OneshotCommandOptions {
         _req: &Req,
     ) -> buck2_error::Result<StarlarkProfilerConfiguration> {
         Ok(StarlarkProfilerConfiguration::None)
+    }
+
+    /// Whether this command takes part in the idle page-out lifecycle: it cancels
+    /// an in-progress page-out when it starts, and triggers a new one when it
+    /// finishes. True for commands that contend for the DICE graph; false for
+    /// read-only / non-graph commands (see `NonPagingCommandOptions`,
+    /// `HydrationCommandOptions`), which neither cancel nor trigger.
+    fn triggers_idle_page_out(&self) -> bool {
+        true
     }
 }
 
@@ -1840,6 +1866,31 @@ struct DefaultCommandOptions;
 impl OneshotCommandOptions for DefaultCommandOptions {}
 
 impl<Req> StreamingCommandOptions<Req> for DefaultCommandOptions {}
+
+/// Options for `debug hydration`. Its subcommands manage the idle page-out
+/// directly (see `hydration_command`), so starting one must not cancel it.
+struct HydrationCommandOptions;
+
+impl OneshotCommandOptions for HydrationCommandOptions {}
+
+impl<Req> StreamingCommandOptions<Req> for HydrationCommandOptions {
+    fn triggers_idle_page_out(&self) -> bool {
+        false
+    }
+}
+
+/// Options for commands that reach the daemon but do no DICE graph work —
+/// `debug trace-io`, `debug file-status`, and `subscribe`. They don't contend
+/// with a background idle page-out, so starting one leaves it running.
+struct NonPagingCommandOptions;
+
+impl OneshotCommandOptions for NonPagingCommandOptions {}
+
+impl<Req> StreamingCommandOptions<Req> for NonPagingCommandOptions {
+    fn triggers_idle_page_out(&self) -> bool {
+        false
+    }
+}
 
 #[cfg(test)]
 mod tests {

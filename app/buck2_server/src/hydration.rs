@@ -19,12 +19,14 @@
 //! Concurrency: automatic page-out deliberately does *not* take the DICE
 //! exclusivity lock the explicit command uses, so it never blocks an incoming
 //! command. Instead it only starts when no command is active and the daemon is
-//! idle, and it is cancelled (see [`Dice::page_out_cancellable`]) the moment any
-//! new command appears, so it yields CPU, I/O, and the DICE state thread back to
-//! real work. A partially paged-out graph is valid — paged-out values hydrate
-//! back on demand.
+//! idle, and it is cancelled (see [`Dice::page_out_cancellable`]) the moment a
+//! command that contends for the graph appears, so it yields CPU, I/O, and the
+//! DICE state thread back to real work. The read-only `status` command does not
+//! cancel it — with `--wait` it instead blocks until the page-out finishes. A
+//! partially paged-out graph is valid — paged-out values hydrate back on demand.
 
 use std::sync::Arc;
+use std::sync::LazyLock;
 use std::sync::atomic::AtomicU8;
 use std::sync::atomic::Ordering;
 
@@ -45,6 +47,7 @@ use dice::DiceTransaction;
 use dice::PagableStatus;
 use dice::PageOutCancel;
 use dupe::Dupe;
+use tokio::sync::Notify;
 
 use crate::active_commands::is_only_active_command;
 use crate::ctx::ServerCommandContext;
@@ -57,7 +60,11 @@ pub(crate) async fn hydration_command(
     let dice = ctx.base_context.daemon.dice_manager.unsafe_dice().dupe();
     let subcommand = HydrationSubcommand::try_from(req.subcommand)?;
     run_server_command(
-        HydrationServerCommand { dice, subcommand },
+        HydrationServerCommand {
+            dice,
+            subcommand,
+            wait: req.wait,
+        },
         ctx,
         partial_result_dispatcher,
     )
@@ -67,6 +74,8 @@ pub(crate) async fn hydration_command(
 struct HydrationServerCommand {
     dice: Arc<Dice>,
     subcommand: HydrationSubcommand,
+    /// `status --wait`: block until any in-progress idle page-out finishes.
+    wait: bool,
 }
 
 #[async_trait]
@@ -93,10 +102,15 @@ impl ServerCommandTemplate for HydrationServerCommand {
     ) -> buck2_error::Result<Self::Response> {
         match self.subcommand {
             HydrationSubcommand::PageOut => {
+                // A manual page-out supersedes any idle one; stop it first so they
+                // don't page the same graph out concurrently.
+                cancel_active_page_out();
                 page_out(&self.dice, || false).await?;
                 Ok(buck2_cli_proto::HydrationResponse::default())
             }
             HydrationSubcommand::PageIn => {
+                // Page-in wants values resident; stop any idle page-out racing it.
+                cancel_active_page_out();
                 self.dice
                     .page_in()
                     .await
@@ -104,6 +118,9 @@ impl ServerCommandTemplate for HydrationServerCommand {
                 Ok(buck2_cli_proto::HydrationResponse::default())
             }
             HydrationSubcommand::Status => {
+                if self.wait {
+                    wait_for_idle_page_out().await;
+                }
                 let status = self.dice.pagable_status().await;
                 Ok(buck2_cli_proto::HydrationResponse {
                     summary: Some(format_status_summary(&status, page_out_in_progress())),
@@ -170,6 +187,10 @@ const IDLE: u8 = 0;
 const RUNNING: u8 = 1;
 const CANCELLED: u8 = 2;
 
+/// Notified when an idle page-out finishes, so `status --wait` can await it
+/// instead of polling.
+static PAGE_OUT_DONE: LazyLock<Notify> = LazyLock::new(Notify::new);
+
 /// Whether a background idle page-out is running, for `buck2 debug hydration
 /// status`. A manual `page-out` isn't tracked: it holds the exclusive command
 /// lock, so a concurrent `status` blocks behind it and never observes it mid-run.
@@ -183,9 +204,24 @@ fn page_out_cancelled() -> bool {
     PAGE_OUT.load(Ordering::Relaxed) == CANCELLED
 }
 
-/// Cancel the in-progress idle page-out, if any. Called when any command starts
-/// (see `ActiveCommand::new`), so it yields resources back to real work. No-op if
-/// none is running or one is already cancelling.
+/// Block until no idle page-out is in progress, for `status --wait`.
+async fn wait_for_idle_page_out() {
+    loop {
+        let notified = PAGE_OUT_DONE.notified();
+        tokio::pin!(notified);
+        // Register as a waiter before the check so a page-out that finishes in the
+        // gap still wakes us.
+        notified.as_mut().enable();
+        if !page_out_in_progress() {
+            return;
+        }
+        notified.await;
+    }
+}
+
+/// Cancel the in-progress idle page-out, if any. Called when a command that
+/// contends for the graph starts (from `run_streaming`, gated by
+/// `triggers_idle_page_out`), and by the manual page-out / page-in subcommands.
 pub(crate) fn cancel_active_page_out() {
     let _ = PAGE_OUT.compare_exchange(RUNNING, CANCELLED, Ordering::Relaxed, Ordering::Relaxed);
 }
@@ -209,6 +245,7 @@ impl PageOutGuard {
 impl Drop for PageOutGuard {
     fn drop(&mut self) {
         PAGE_OUT.store(IDLE, Ordering::Relaxed);
+        PAGE_OUT_DONE.notify_waiters();
     }
 }
 

@@ -968,6 +968,8 @@ enum HydrationSubcommand {
 message HydrationRequest {
   ClientContext context = 1;
   HydrationSubcommand subcommand = 2;
+  // `status --wait`: block until any in-progress idle page-out finishes.
+  bool wait = 3;
 }
 
 message HydrationResponse {

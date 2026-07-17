@@ -6,3 +6,4 @@
 
 [buck2_hydration]
   enable_paging = true
+  page_out_on_idle = true

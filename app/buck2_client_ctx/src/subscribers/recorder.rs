@@ -213,6 +213,7 @@ pub struct InvocationRecorder {
     initial_hedwig_upload_queries: Option<u64>,
     initial_hedwig_upload_bytes: Option<u64>,
     concurrent_command_ids: StdBuckHashSet<String>,
+    page_out_triggered: bool,
     daemon_connection_failure: bool,
     /// Daemon started by this command.
     daemon_was_started: Option<buck2_data::DaemonWasStartedReason>,
@@ -429,6 +430,7 @@ impl InvocationRecorder {
             initial_hedwig_upload_queries: None,
             initial_hedwig_upload_bytes: None,
             concurrent_command_ids: StdBuckHashSet::default(),
+            page_out_triggered: false,
             daemon_connection_failure: false,
             daemon_was_started: None,
             should_restart: false,
@@ -1132,6 +1134,7 @@ impl InvocationRecorder {
             concurrent_command_ids: std::mem::take(&mut self.concurrent_command_ids)
                 .into_iter()
                 .collect(),
+            page_out_triggered: Some(self.page_out_triggered),
             daemon_connection_failure: Some(self.daemon_connection_failure),
             daemon_was_started: self.daemon_was_started.map(|t| t as i32),
             should_restart: Some(self.should_restart),
@@ -2392,6 +2395,10 @@ impl InvocationRecorder {
                     }
                     buck2_data::instant_event::Data::ConcurrentCommands(concurrent_commands) => {
                         self.handle_concurrent_commands(concurrent_commands)
+                    }
+                    buck2_data::instant_event::Data::PageOutTriggered(_) => {
+                        self.page_out_triggered = true;
+                        Ok(())
                     }
                     buck2_data::instant_event::Data::CellHasNewConfigs(_) => {
                         self.has_new_buckconfigs = true;
