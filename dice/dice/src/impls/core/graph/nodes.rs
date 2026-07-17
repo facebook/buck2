@@ -18,6 +18,7 @@
 //! number for each cache entry and a global version counter to determine
 //! up-to-date-ness of cache entries.
 
+use std::num::NonZeroU128;
 use std::ops::Bound;
 use std::ops::RangeBounds;
 
@@ -307,15 +308,37 @@ pub(crate) enum InvalidateResult<'a> {
     Changed(Option<std::vec::Drain<'a, DiceKey>>),
 }
 
+/// Whether an `OccupiedGraphNode`'s value has an on-disk (paged) copy, and if so
+/// the content-addressable key to load it with, stored inline as a `NonZeroU128`
+/// (`DataKey`'s natural non-zero form).
+///
+/// This is orthogonal to `PagableNodeValue::value`'s in-memory residency, except
+/// that `PagedOut` is exactly the state in which `value` is absent:
+///  - `NeverPagedOut`: no on-disk copy exists.
+///  - `PagedOut`: serialized to disk and evicted from memory, so the key is
+///    load-bearing.
+///  - `PagedBackIn`: serialized to disk and since re-hydrated, so the next
+///    page-out can reuse the key and skip re-serialization.
+#[derive(Allocative, Debug)]
+pub(crate) enum PagedState {
+    NeverPagedOut,
+    PagedOut(NonZeroU128),
+    PagedBackIn(NonZeroU128),
+}
+
+// `PagedState` folds in the key that previously lived in a `data_key:
+// Option<DataKey>` field, which was itself 32 bytes, so the fold costs no extra
+// size. It stays 32: the two key-carrying variants force a discriminant word that
+// the single `NonZeroU128` niche can't absorb.
+const _: () = assert!(std::mem::size_of::<PagedState>() == 32);
+
 /// The stored value for an `OccupiedGraphNode`. At least one of `value` (the
-/// in-memory hydrated form) and `data_key` (the on-disk content-addressable
-/// reference) must be set. When both are set, the value is resident in memory
-/// AND known to be persisted on disk, so the next page-out can skip
-/// re-serialization.
+/// in-memory hydrated form) and the on-disk copy tracked by `paged_state` must be
+/// present; `PagedState::PagedOut` is exactly the state in which `value` is absent.
 #[derive(Allocative, Debug)]
 pub(crate) struct PagableNodeValue {
     value: Option<DiceValidValue>,
-    data_key: Option<DataKey>,
+    paged_state: PagedState,
 }
 
 impl PagableNodeValue {
@@ -323,7 +346,7 @@ impl PagableNodeValue {
     pub(crate) fn hydrated(value: DiceValidValue) -> Self {
         Self {
             value: Some(value),
-            data_key: None,
+            paged_state: PagedState::NeverPagedOut,
         }
     }
 
@@ -347,7 +370,10 @@ impl PagableNodeValue {
     /// When this is `Some`, the next page-out can skip re-serialization and reuse
     /// the existing key.
     pub(crate) fn data_key(&self) -> Option<DataKey> {
-        self.data_key
+        match self.paged_state {
+            PagedState::NeverPagedOut => None,
+            PagedState::PagedOut(k) | PagedState::PagedBackIn(k) => Some(DataKey(k.get())),
+        }
     }
 }
 
@@ -528,16 +554,19 @@ impl OccupiedGraphNode {
     }
 
     /// Restores the in-memory hydrated value (typically after deserializing from
-    /// disk). Keeps any existing `data_key` so the next page-out skips
-    /// re-serialization.
+    /// disk), transitioning a `PagedOut` node to `PagedBackIn` so the on-disk key
+    /// survives for the next page-out to reuse.
     pub(crate) fn rehydrate(&mut self, value: DiceValidValue) {
         self.res.value = Some(value);
+        if let PagedState::PagedOut(k) = self.res.paged_state {
+            self.res.paged_state = PagedState::PagedBackIn(k);
+        }
     }
 
     /// Records that the value has been written to storage at `data_key` and drops
     /// the in-memory value (the on-disk reference is now load-bearing).
     pub(crate) fn set_paged_out(&mut self, data_key: DataKey) {
-        self.res.data_key = Some(data_key);
+        self.res.paged_state = PagedState::PagedOut(data_key.to_non_zero());
         self.res.value = None;
     }
 
@@ -597,7 +626,7 @@ impl OccupiedGraphNode {
                     )
                 } else {
                     VersionedGraphResult::MatchPagedOut(PagedOutMatch {
-                        data_key: self.res.data_key.expect(
+                        data_key: self.res.data_key().expect(
                             "PagableNodeValue invariant: at least one of value or data_key is set",
                         ),
                         valid: self.metadata.verified_ranges.dupe(),
@@ -620,7 +649,7 @@ impl OccupiedGraphNode {
                         })
                     } else {
                         VersionedGraphResult::CheckDepsPagedOut(PagedOutMismatch {
-                            data_key: self.res.data_key.expect(
+                            data_key: self.res.data_key().expect(
                                 "PagableNodeValue invariant: at least one of value or data_key is set",
                             ),
                             prev_verified_version,

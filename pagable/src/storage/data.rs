@@ -65,6 +65,13 @@ impl DataKey {
         }
         Self(value)
     }
+
+    /// Returns the key as a `NonZeroU128`. `DataKey` is morally a `NonZeroU128`
+    /// (see [`DataKey::compute`]) but stores a `u128` for bytemuck compatibility;
+    /// this recovers the non-zero form, panicking if the invariant is violated.
+    pub fn to_non_zero(self) -> NonZeroU128 {
+        NonZeroU128::new(self.0).expect("DataKey should never be zero")
+    }
 }
 
 /// A zero-cost optional representation of [`DataKey`].
@@ -98,8 +105,7 @@ impl OptionalDataKey {
 
 impl From<DataKey> for OptionalDataKey {
     fn from(key: DataKey) -> Self {
-        // SAFETY: DataKey should never be zero (it's morally a NonZeroU128)
-        Self::Some(NonZeroU128::new(key.0).expect("DataKey should never be zero"))
+        Self::Some(key.to_non_zero())
     }
 }
 
