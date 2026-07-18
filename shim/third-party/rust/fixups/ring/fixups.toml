@@ -101,13 +101,13 @@ fixup_include_paths = ["include"]
 compiler_flags = ["-Wno-error"]
 preferred_linkage = "static"
 
-[['cfg(all(version = "=0.17.14", target_arch = "x86_64", target_os = "windows"))'.cxx_library]]
+[['cfg(all(version = "=0.17.14", target_arch = "x86_64", target_os = "windows", target_env = "msvc"))'.cxx_library]]
 name = "ring-c-win-x86_84"
 srcs = ["crypto/**/*.c"]
 headers = ["include/**/*.h", "crypto/**/*.h", "third_party/**/*.h", "crypto/**/*.inl"]
 include_paths = ["include", "."]
 fixup_include_paths = ["include"]
-compiler_flags = ["-Wno-error"]
+compiler_flags = ["/WX-"]
 preferred_linkage = "static"
 [['cfg(all(version = "=0.17.14", target_arch = "x86_64", target_os = "windows"))'.prebuilt_cxx_library]]
 name = "ring-asm-windows-x86_84"
