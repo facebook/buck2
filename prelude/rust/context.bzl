@@ -52,6 +52,7 @@ CommonArgsInfo = record(
 CompileContext = record(
     # Clippy wrapper (wrapping clippy-driver so it has the same CLI as rustc).
     clippy_wrapper = field(cmd_args),
+    miri_wrapper = field(cmd_args | None),
     # Memoized common args for reuse.
     common_args = field(dict[(CrateType, Emit, LinkStrategy, bool, bool, bool, ProfileMode), CommonArgsInfo]),
     cxx_toolchain_info = field(CxxToolchainInfo),
@@ -89,6 +90,7 @@ def compile_context(ctx: AnalysisContext, binary: bool = False) -> CompileContex
 
     linker_with_pre_args, linker_pre_args = _linker(ctx, cxx_toolchain_info.linker_info, binary = binary)
     clippy_wrapper = _clippy_wrapper(ctx, toolchain_info)
+    miri_wrapper = _miri_wrapper(ctx, toolchain_info) if toolchain_info.miri_driver else None
 
     dep_ctx = DepCollectionContext(
         advanced_unstable_linking = toolchain_info.advanced_unstable_linking,
@@ -129,6 +131,7 @@ def compile_context(ctx: AnalysisContext, binary: bool = False) -> CompileContex
 
     return CompileContext(
         clippy_wrapper = clippy_wrapper,
+        miri_wrapper = miri_wrapper,
         common_args = {},
         cxx_toolchain_info = cxx_toolchain_info,
         dep_ctx = dep_ctx,
@@ -240,6 +243,49 @@ def _clippy_wrapper(ctx: AnalysisContext, toolchain_info: RustToolchainInfo) -> 
 
     return cmd_args(wrapper_file, hidden = [clippy_driver, rustc_print_sysroot])
 
+def _miri_wrapper(
+        ctx: AnalysisContext,
+        toolchain_info: RustToolchainInfo) -> cmd_args:
+    miri_driver = cmd_args(toolchain_info.miri_driver)
+
+    if ctx.attrs._exec_os_type[OsLookup].os == Os("windows"):
+        wrapper_file, _ = ctx.actions.write(
+            ctx.actions.declare_output("__miri_driver_wrapper.bat", has_content_based_path = True),
+            [
+                "@echo off",
+                "set MIRI_BE_RUSTC=target",
+                cmd_args(
+                    miri_driver,
+                    "--sysroot",
+                    toolchain_info.miri_sysroot_path,
+                    "%*",
+                    delimiter = " ",
+                ),
+            ],
+            allow_args = True,
+            has_content_based_path = True
+        )
+    else:
+        wrapper_file, _ = ctx.actions.write(
+            ctx.actions.declare_output("__miri_driver_wrapper.sh", has_content_based_path = True),
+            [
+                "#!/usr/bin/env bash",
+                "export MIRI_BE_RUSTC=target",
+                cmd_args(
+                    miri_driver,
+                    "--sysroot",
+                    toolchain_info.miri_sysroot_path,
+                    '"$@"',
+                    delimiter = " ",
+                ),
+            ],
+            is_executable = True,
+            allow_args = True,
+            has_content_based_path = True
+        )
+
+    return cmd_args(wrapper_file, hidden = [miri_driver, toolchain_info.miri_sysroot_path])
+
 def _attr_soname(ctx: AnalysisContext) -> str:
     """
     Get the shared library name to set for the given rust library.
@@ -264,6 +310,7 @@ _EMIT_PREFIX_SUFFIX = {
     Emit("mir"): (None, ".mir"),
     Emit("expand"): (None, ".rs"),
     Emit("clippy"): ("lib", ".rmeta"),  # Treated like metadata-fast
+    Emit("miri"): (None, None),  # Treated like metadata-fast
 }
 
 # Return the filename for a particular emitted artifact type
