@@ -63,7 +63,12 @@ compiler_flags = [
     "-DZSTDLIB_VISIBILITY=",
     "-DZDICTLIB_VISIBILITY=",
     "-DZSTDERRORLIB_VISIBILITY=",
-    "-DZSTD_LEGACY_SUPPORT=1"
+    "-DZSTD_LEGACY_SUPPORT=1",
+    # The zstd crate is built with the "zstdmt" feature, whose Rust side
+    # references ZSTD_createThreadPool/ZSTD_freeThreadPool — only defined
+    # when ZSTD_MULTITHREAD is set (zstd-sys build.rs does the same).
+    # ELF links hid the mismatch via --gc-sections; link.exe does not.
+    "-DZSTD_MULTITHREAD"
 ]
 
 [['cfg(all(target_os = "windows", target_env = "msvc"))'.cxx_library]]
@@ -120,5 +125,7 @@ compiler_flags = [
     "-DZSTDLIB_VISIBILITY=",
     "-DZDICTLIB_VISIBILITY=",
     "-DZSTDERRORLIB_VISIBILITY=",
-    "-DZSTD_LEGACY_SUPPORT=1"
+    "-DZSTD_LEGACY_SUPPORT=1",
+    # See the unix section: required by the zstd crate's "zstdmt" feature.
+    "-DZSTD_MULTITHREAD"
 ]
