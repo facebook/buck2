@@ -26,6 +26,8 @@ load("@prelude//android:voltron.bzl", "ROOT_MODULE", "all_targets_in_root_module
     # @oss-disable[end= ]: "gatorade_deferred_libs",
     # @oss-disable[end= ]: "gatorade_libraries",
     # @oss-disable[end= ]: "is_late_gatorade_enabled",
+    # @oss-disable[end= ]: "middle_gatorade_merge_args",
+    # @oss-disable[end= ]: "relink_for_native_libs",
 # @oss-disable[end= ]: )
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo", "PicBehavior")
 load(
@@ -443,7 +445,7 @@ def get_android_binary_native_library_info(
 
         if enable_relinker and not defer_relink:
             unrelinked_shared_libs_by_platform = final_shared_libs_by_platform
-            final_shared_libs_by_platform = relink_libraries(ctx, final_shared_libs_by_platform)
+            final_shared_libs_by_platform = _relink_for_native_libs(ctx, final_shared_libs_by_platform)
             _link_library_subtargets(
                 ctx,
                 outputs,
@@ -468,7 +470,7 @@ def get_android_binary_native_library_info(
             # The relinked libs are exposed as [relinked_libs] sub-target for the combine genrule.
             # A JSON manifest listing the <abi>/<soname> entries is produced alongside so that
             # the combine script knows exactly which libraries to replace without guessing.
-            relinked_libs_by_platform = relink_libraries(ctx, final_shared_libs_by_platform)
+            relinked_libs_by_platform = _relink_for_native_libs(ctx, final_shared_libs_by_platform)
 
             if False: # @oss-enable
             # @oss-disable[end= ]: if is_late_gatorade_enabled(ctx):
@@ -1757,6 +1759,8 @@ def _get_merged_linkables_for_platform(
         if soname in merge_linker_args:
             link_args += [LinkArgs(flags = merge_linker_args[soname])]
 
+        # Emit the Middle Gatorade container from the merge link; {} when off.
+        # @oss-disable[end= ]: mg_args = middle_gatorade_merge_args(ctx, output_path, cxx_toolchain)
         shared_lib = create_shared_lib(
             ctx,
             output_path = output_path,
@@ -1766,6 +1770,7 @@ def _get_merged_linkables_for_platform(
             shared_lib_deps = [link_group_linkable_nodes[label].shared_lib.soname.ensure_str() for label in shlib_deps],
             label = group_data.constituents[0],
             can_be_asset = can_be_asset,
+            # @oss-disable[end= ]: **mg_args,
         )
 
         link_group_linkable_nodes[group] = LinkGroupLinkableNode(
@@ -2199,6 +2204,10 @@ def relink_libraries(ctx: AnalysisContext, libraries_by_platform: dict[str, dict
             relinked_libraries[soname] = shared_lib
 
     return relinked_libraries_by_platform
+
+def _relink_for_native_libs(ctx: AnalysisContext, libraries_by_platform: dict[str, dict[str, SharedLibrary]]) -> dict[str, dict[str, SharedLibrary]]:
+    return relink_libraries(ctx, libraries_by_platform) # @oss-enable
+    # @oss-disable[end= ]: return relink_for_native_libs(ctx, libraries_by_platform, relink_libraries, create_shared_lib)
 
 def extract_provided_symbols(ctx: AnalysisContext, toolchain: CxxToolchainInfo, lib: Artifact) -> Artifact:
     return extract_defined_syms(ctx, toolchain, lib, "relinker_extract_provided_symbols")

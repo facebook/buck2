@@ -75,7 +75,7 @@ ResourceCompressionMode = ["disabled", "enabled", "enabled_strings_only", "enabl
 
 SdkProguardType = ["default", "optimized", "none"]
 
-# @oss-disable[end= ]: GatoradePhase = ["early", "late"]
+# @oss-disable[end= ]: GatoradePhase = ["early", "middle", "late"]
 
 DISABLE_STRIPPING = read_root_config("android", "disable_stripping") in ("True", "true")
 
