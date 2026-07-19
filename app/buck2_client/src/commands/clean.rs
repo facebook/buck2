@@ -486,7 +486,7 @@ fn clean_buck_out(path: &AbsNormPathBuf, console_type: ConsoleType) -> buck2_err
             thread_pool.execute(move || {
                 // The wlak gives us back absolute paths since we give it absolute paths.
                 let res = AbsPath::new(dir_entry.path()).and_then(|p| {
-                    fs_util::remove_file(p)
+                    fs_util::remove_file_harder(p)
                         .categorize_internal()
                         .map_err(Into::into)
                 });
