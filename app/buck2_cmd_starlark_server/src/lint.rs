@@ -15,11 +15,10 @@ use async_trait::async_trait;
 use buck2_cli_proto::ClientContext;
 use buck2_cmd_starlark_client::lint::StarlarkLintCommand;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_common::dice::data::HasIoProvider;
-use buck2_common::io::IoProvider;
+use buck2_common::file_ops::dice::DiceFileComputations;
+use buck2_common::file_ops::error::FileReadErrorContext;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::name::CellName;
-use buck2_error::internal_error;
 use buck2_hash::StdBuckHashMap;
 use buck2_hash::StdBuckHashSet;
 use buck2_interpreter::file_type::StarlarkFileType;
@@ -73,16 +72,15 @@ impl<'a> Cache<'a> {
 async fn lint_file(
     path: &StarlarkPath<'_>,
     cell_resolver: &CellResolver,
-    io: &dyn IoProvider,
     cache: &mut Cache<'_>,
 ) -> buck2_error::Result<Vec<Lint>> {
     let dialect = path.file_type().dialect(false);
     let proj_path = cell_resolver.resolve_path(path.path().as_ref().as_ref())?;
     let path_str = proj_path.to_string();
-    let content = io
-        .read_file_if_exists(proj_path)
-        .await?
-        .ok_or_else(|| internal_error!("File not found: `{path_str}`"))?;
+    let content =
+        DiceFileComputations::read_file(&mut cache.dice.clone(), path.path().as_ref().as_ref())
+            .await
+            .without_package_context_information()?;
     match AstModule::parse(&path_str, content.clone(), &dialect) {
         Ok(ast) => Ok(ast.lint(Some(&*cache.get_names(path).await?))),
         Err(err) => {
@@ -113,16 +111,15 @@ impl StarlarkServerSubcommand for StarlarkLintCommand {
         server_ctx
             .with_dice_ctx(|server_ctx, mut ctx| async move {
                 let cell_resolver = &ctx.get_cell_resolver().await?;
-                let io = &ctx.global_data().get_io_provider();
 
                 let mut stdout = stdout.as_writer();
                 let mut lint_count = 0;
                 let files =
-                    starlark_files(&mut ctx, &self.paths, server_ctx, cell_resolver, &**io).await?;
+                    starlark_files(&mut ctx, &self.paths, server_ctx, cell_resolver).await?;
                 let mut cache = Cache::new(&ctx);
 
                 for file in &files {
-                    let lints = lint_file(&file.borrow(), cell_resolver, &**io, &mut cache).await?;
+                    let lints = lint_file(&file.borrow(), cell_resolver, &mut cache).await?;
                     lint_count += lints.len();
                     for lint in lints {
                         writeln!(stdout, "{lint}")?;
