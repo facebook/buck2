@@ -17,7 +17,7 @@ import stat
 import sys
 import threading
 import warnings
-from collections.abc import Callable
+from collections.abc import Callable, MutableMapping
 from importlib.machinery import PathFinder
 from importlib.util import module_from_spec
 
@@ -181,6 +181,160 @@ def _extract_sitecustomize() -> str | None:
         return None  # Best effort
 
 
+def _runtime_lib_path_var() -> str:
+    return "DYLD_LIBRARY_PATH" if sys.platform == "darwin" else "LD_LIBRARY_PATH"
+
+
+def _par_runtime_lib_dir() -> str | None:
+    """Absolute path to the PAR's runtime/lib dir, or None if unavailable.
+
+    Under NativeLinkStrategy("native"), sys.executable is the native-main ELF,
+    whose $ORIGIN-relative RPATH only resolves to runtime/lib when the ELF is
+    materialized adjacent to the link-tree. When it is materialized elsewhere
+    (e.g. the content-addressed anon-target outputs produced under
+    python.use_anon_target_for_analysis), $ORIGIN realpath-resolves into an
+    unrelated tree and the bundled .so's cannot be found. FB_PAR_RUNTIME_FILES
+    points at the link-tree root at runtime, so runtime/lib is reconstructable
+    here regardless of where the ELF itself lives.
+    """
+    runtime_files = os.environ.get("FB_PAR_RUNTIME_FILES")
+    if not runtime_files:
+        return None
+    lib_dir = os.path.join(runtime_files, "runtime", "lib")
+    return lib_dir if os.path.isdir(lib_dir) else None
+
+
+def _inject_runtime_lib_path(env: MutableMapping[str, str], lib_path_var: str) -> None:
+    """Prepend the PAR's runtime/lib to `lib_path_var` in `env`, if resolvable.
+
+    A bare self-re-exec of sys.executable cannot rely on the parent's scrubbed
+    lib-path env, so reconstruct it from FB_PAR_RUNTIME_FILES. Any existing
+    value is preserved by appending after ours.
+    """
+    lib_dir = _par_runtime_lib_dir()
+    if lib_dir is None:
+        return
+    existing = env.get(lib_path_var)
+    if not existing:
+        env[lib_path_var] = lib_dir
+        return
+    # Dedup against canonicalized entries, so the same directory reached via a
+    # symlink, redundant separators, or a relative spelling is not prepended a
+    # second time and does not accumulate across chained re-execs.
+    lib_real = os.path.realpath(lib_dir)
+    for entry in existing.split(os.pathsep):
+        if entry == lib_dir or os.path.realpath(entry) == lib_real:
+            return
+    env[lib_path_var] = lib_dir + os.pathsep + existing
+
+
+def _is_self_reexec(executable: object) -> bool:
+    """True when `executable` is a re-exec of our own interpreter.
+
+    We only ever want to inject runtime/lib for a self-re-exec of
+    sys.executable (see _par_runtime_lib_dir), never for arbitrary child
+    programs, so this is deliberately narrow: an exact match against
+    sys.executable, with an os.path.realpath() fallback so resolved-path forms
+    also match. Bounding it to the interpreter keeps runtime/lib from ever
+    leaking into unrelated subprocesses.
+    """
+    if not isinstance(executable, (str, bytes, os.PathLike)):
+        return False
+    exe = os.fsdecode(executable)
+    if exe == sys.executable:
+        return True
+    try:
+        return os.path.realpath(exe) == os.path.realpath(sys.executable)
+    except (OSError, ValueError):
+        return False
+
+
+def _shell_command_reexecs_self(args: object) -> bool:
+    """True when a `shell=True` command string re-execs our own interpreter.
+
+    Popen(cmd, shell=True) / asyncio.create_subprocess_shell exec /bin/sh, not
+    sys.executable, so _is_self_reexec only ever sees the shell (or the whole
+    command string) and never injects runtime/lib. But the command string
+    itself can re-exec sys.executable (e.g. `sh -c "<native-main> -c ..."`), and
+    that grandchild ELF needs runtime/lib exactly as a direct self-re-exec
+    would. Detect it by looking for sys.executable as a command token in the
+    string. Kept narrow -- gated on the command actually invoking sys.executable
+    -- so runtime/lib is not injected into shells that only run unrelated
+    programs (buck / hg / git).
+    """
+    # With shell=True and a sequence, args[0] is the command string; any
+    # remaining items are extra args to the shell itself.
+    command = args[0] if isinstance(args, (list, tuple)) and args else args
+    if isinstance(command, bytes):
+        try:
+            command = os.fsdecode(command)
+        except ValueError:
+            return False
+    if not isinstance(command, str) or not sys.executable:
+        return False
+    # Match sys.executable as a whole shell token, not a raw substring: a
+    # substring search false-positives when the path appears inside another
+    # token or in quoted data, over-injecting runtime/lib into unrelated shells.
+    # shlex.split word-splits the way /bin/sh does.
+    import shlex
+
+    try:
+        tokens = shlex.split(command)
+    except ValueError:
+        # Unbalanced quotes etc.: can't tokenize safely, so don't inject rather
+        # than risk a substring false-positive on unrelated shells. A real
+        # self-re-exec command (built via shlex.quote) always parses.
+        return False
+    if sys.executable in tokens:
+        return True
+    try:
+        resolved = os.path.realpath(sys.executable)
+    except (OSError, ValueError):
+        return False
+    return bool(resolved) and resolved in tokens
+
+
+def _is_shell_invocation(pargs: tuple[object, ...], kwargs: dict[str, object]) -> bool:
+    """Whether Popen was invoked with shell=True (keyword or positional).
+
+    `pargs` is what the `_patched_init(self, args, *pargs)` wrapper captures
+    AFTER `self` and `args`, so it starts at `bufsize`. Popen's positional order
+    after `args` is: bufsize, executable, stdin, stdout, stderr, preexec_fn,
+    close_fds, shell, ... -- so `shell` is `pargs[7]` (bufsize is pargs[0]).
+    asyncio.create_subprocess_shell passes shell by keyword.
+    """
+    if "shell" in kwargs:
+        return bool(kwargs["shell"])
+    _SHELL_POS = 7  # index into pargs (which excludes self+args); see docstring
+    return len(pargs) > _SHELL_POS and bool(pargs[_SHELL_POS])
+
+
+def _env_for_self_reexec(
+    executable: object,
+    env: dict[str, str] | None,
+    args: object = None,
+    is_shell: bool = False,
+) -> dict[str, str] | None:
+    """Return an env that lets a self-re-exec child find the PAR's runtime/lib.
+
+    When `executable` is a self-re-exec of sys.executable -- or `is_shell` and
+    the `args` command string re-execs sys.executable (see
+    _shell_command_reexecs_self) -- return an env mapping (copying os.environ
+    when the caller passed None) with the lib path injected; otherwise return
+    `env` unchanged so inherit-env semantics are preserved for non-self-re-exec
+    children. This is purely additive to the lib path and never touches
+    PYTHONPATH/PYTHONHOME.
+    """
+    if not (
+        _is_self_reexec(executable) or (is_shell and _shell_command_reexecs_self(args))
+    ):
+        return env
+    if env is None:
+        env = os.environ.copy()
+    _inject_runtime_lib_path(env, _runtime_lib_path_var())
+    return env
+
+
 def __patch_spawn(var_names: list[str], saved_env: dict[str, str]) -> None:
     # Compute resolved PYTHONPATH once at patch time (not per-spawn).
     # dirs_only=True filters out zip files to avoid RecursionError from
@@ -212,6 +366,12 @@ def __patch_spawn(var_names: list[str], saved_env: dict[str, str]) -> None:
             parts.append(existing)
         parts.append(resolved_pythonpath)
         os.environ["PYTHONPATH"] = os.path.pathsep.join(parts)
+
+        # Reconstruct the lib path for native-strategy self-re-exec: the
+        # saved_env restore above is empty when the C++ RestoreEnv scrubbed the
+        # bootstrap LD_LIBRARY_PATH before Python captured it. __clear_env in the
+        # finally clause pops this back out after the child is spawned.
+        _inject_runtime_lib_path(os.environ, _runtime_lib_path_var())
 
     if sys.platform == "win32":
         import multiprocessing.popen_spawn_win32 as popen_win32
@@ -347,10 +507,151 @@ def __patch_subprocess_run(saved_env: dict[str, str]) -> None:
             for var in _lib_path_vars:
                 if var not in env and var in saved_env:
                     env[var] = saved_env[var]
+            # saved_env is empty when the bootstrap lib path was scrubbed before
+            # Python captured it, so also reconstruct runtime/lib directly. This
+            # is what lets a native-strategy sys.executable child load its
+            # bundled .so's when $ORIGIN doesn't resolve to the link-tree.
+            _inject_runtime_lib_path(env, _runtime_lib_path_var())
 
         return std_run(args, env=env, **kwargs)
 
     subprocess.run = _patched_run
+
+
+def __patch_subprocess_popen(saved_env: dict[str, str]) -> None:
+    import subprocess
+
+    orig_init = subprocess.Popen.__init__
+
+    # pyre-fixme[2]: Parameter must be annotated.
+    # pyre-fixme[53]: Captured variable `orig_init` is not annotated.
+    def _patched_init(self, args, *pargs, **kwargs) -> None:
+        # run / check_call / check_output and direct Popen(...) all funnel
+        # through Popen.__init__, so injecting the lib path here (rather than
+        # only in subprocess.run) covers every self-re-exec form -- including
+        # callers that pass an explicit env= already carrying PYTHONPATH, which
+        # the narrower subprocess.run gate deliberately skips. It also covers
+        # shell=True (asyncio.create_subprocess_shell / os.system-style)
+        # invocations whose command string re-execs sys.executable: those exec
+        # /bin/sh, so the direct self-re-exec check below misses them, but the
+        # native-main grandchild still needs runtime/lib. Only the lib path is
+        # touched, and only for a self-re-exec; PYTHONPATH/PYTHONHOME stay in
+        # __patch_subprocess_run and are idempotent with this
+        # (_inject_runtime_lib_path is membership-guarded).
+        executable = kwargs.get("executable")
+        candidate = (
+            executable
+            if executable is not None
+            else (args[0] if isinstance(args, (list, tuple)) and args else args)
+        )
+        env = _env_for_self_reexec(
+            candidate,
+            kwargs.get("env"),
+            args=args,
+            is_shell=_is_shell_invocation(pargs, kwargs),
+        )
+        if env is not None:
+            kwargs["env"] = env
+        orig_init(self, args, *pargs, **kwargs)
+
+    subprocess.Popen.__init__ = _patched_init
+
+
+def _wrap_os_functions(
+    names: tuple[str, ...],
+    # pyre-fixme[2]: Parameter must be annotated.
+    make_wrapper,
+) -> None:
+    """Replace each existing os.<name> with make_wrapper(original), if present."""
+    for name in names:
+        orig = getattr(os, name, None)
+        if orig is not None:
+            setattr(os, name, make_wrapper(orig))
+
+
+def __patch_os_exec_inherit_env(saved_env: dict[str, str]) -> None:
+    """execv/execvp/execl/execlp: child inherits the current environment, so
+    publish the lib path via os.environ. See __patch_os_exec_argv_env for the
+    shared invariant.
+    """
+    lib_path_var: str = _runtime_lib_path_var()
+
+    def _wrap(orig: Callable[..., None]) -> Callable[..., None]:
+        # pyre-fixme[2]: Parameter must be annotated.
+        # pyre-fixme[3]: Return type must be annotated.
+        def _patched(path, *args):
+            if _is_self_reexec(path):
+                _inject_runtime_lib_path(os.environ, lib_path_var)
+            return orig(path, *args)
+
+        return _patched
+
+    _wrap_os_functions(("execv", "execvp", "execl", "execlp"), _wrap)
+
+
+def __patch_os_exec_argv_env(saved_env: dict[str, str]) -> None:
+    """execve/execvpe(path, argv, env): env is the third positional mapping.
+
+    subprocess covers run / check_call / check_output / Popen, but a target can
+    also re-exec sys.executable directly. The invariant is the same as
+    _par_runtime_lib_dir: a native-strategy sys.executable child needs the
+    bundled lib path that the C++ RestoreEnv scrubbed from the parent.
+    """
+    lib_path_var: str = _runtime_lib_path_var()
+
+    def _wrap(orig: Callable[..., None]) -> Callable[..., None]:
+        # pyre-fixme[2]: Parameter must be annotated.
+        # pyre-fixme[3]: Return type must be annotated.
+        def _patched(path, argv, env, *args):
+            # env may be None (inherit the current environment); leave it
+            # untouched in that case so we don't change inherit-env semantics.
+            if env is not None and _is_self_reexec(path):
+                env = dict(env)
+                _inject_runtime_lib_path(env, lib_path_var)
+            return orig(path, argv, env, *args)
+
+        return _patched
+
+    _wrap_os_functions(("execve", "execvpe"), _wrap)
+
+
+def __patch_os_exec_trailing_env(saved_env: dict[str, str]) -> None:
+    """execle/execlpe(path, *args, env): env is the trailing positional mapping."""
+    lib_path_var: str = _runtime_lib_path_var()
+
+    def _wrap(orig: Callable[..., None]) -> Callable[..., None]:
+        # pyre-fixme[2]: Parameter must be annotated.
+        # pyre-fixme[3]: Return type must be annotated.
+        def _patched(path, *args):
+            # The trailing env may be None (inherit the current environment);
+            # leave it untouched so we don't change inherit-env semantics.
+            if args and args[-1] is not None and _is_self_reexec(path):
+                env = dict(args[-1])
+                _inject_runtime_lib_path(env, lib_path_var)
+                args = args[:-1] + (env,)
+            return orig(path, *args)
+
+        return _patched
+
+    _wrap_os_functions(("execle", "execlpe"), _wrap)
+
+
+def __patch_os_posix_spawn(saved_env: dict[str, str]) -> None:
+    """posix_spawn/posix_spawnp(path, argv, env, ...): env is a required mapping."""
+    lib_path_var: str = _runtime_lib_path_var()
+
+    def _wrap(orig: Callable[..., int]) -> Callable[..., int]:
+        # pyre-fixme[2]: Parameter must be annotated.
+        # pyre-fixme[3]: Return type must be annotated.
+        def _patched(path, argv, env, *args, **kwargs):
+            if _is_self_reexec(path):
+                env = dict(env)
+                _inject_runtime_lib_path(env, lib_path_var)
+            return orig(path, argv, env, *args, **kwargs)
+
+        return _patched
+
+    _wrap_os_functions(("posix_spawn", "posix_spawnp"), _wrap)
 
 
 def __patch_resource_tracker_fork() -> None:
@@ -470,6 +771,11 @@ def __clear_env(
         __patch_spawn_preparation_data()
         __patch_ctypes(saved_env)
         __patch_subprocess_run(saved_env)
+        __patch_subprocess_popen(saved_env)
+        __patch_os_exec_inherit_env(saved_env)
+        __patch_os_exec_argv_env(saved_env)
+        __patch_os_exec_trailing_env(saved_env)
+        __patch_os_posix_spawn(saved_env)
         __patch_resource_tracker_fork()
 
 
