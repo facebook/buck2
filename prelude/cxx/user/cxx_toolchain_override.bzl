@@ -249,6 +249,7 @@ def _cxx_toolchain_override(ctx):
         object_format = CxxObjectFormat(ctx.attrs.object_format) if ctx.attrs.object_format != None else base_toolchain.object_format,
         strip_flags_info = strip_flags_info,
         pic_behavior = PicBehavior(ctx.attrs.pic_behavior) if ctx.attrs.pic_behavior != None else base_toolchain.pic_behavior.value,
+        materialize_external_debug_info = base_toolchain.materialize_external_debug_info,
         split_debug_mode = SplitDebugMode(value_or(ctx.attrs.split_debug_mode, base_toolchain.split_debug_mode.value)),
         minimum_os_version = value_or(ctx.attrs.minimum_os_version, base_toolchain.minimum_os_version),
     )

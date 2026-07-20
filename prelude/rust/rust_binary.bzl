@@ -520,7 +520,8 @@ def _rust_binary_common(
     providers += [
         DefaultInfo(
             default_output = final_output,
-            other_outputs = runtime_files + executable_shlib_args.external_debug_info + external_debug_info,
+            other_outputs = runtime_files
+            + (executable_shlib_args.external_debug_info + external_debug_info if compile_ctx.cxx_toolchain_info.materialize_external_debug_info else []),
             sub_targets = sub_targets,
         ),
         DistInfo(

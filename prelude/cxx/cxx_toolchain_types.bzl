@@ -282,6 +282,11 @@ CxxToolchainInfo = provider(
         "lipo": provider_field([RunInfo, None], default = None),
         "llvm_cgdata": provider_field([RunInfo, None], default = None),
         "llvm_link": provider_field(typing.Any, default = None),
+        # Whether a top-level binary's unpacked external debug info (e.g.
+        # split-dwarf .dwo files) is materialized as part of building it, via
+        # DefaultInfo.other_outputs. When False, it can still be materialized
+        # explicitly via the `[debuginfo]` sub-target.
+        "materialize_external_debug_info": provider_field(bool, default = True),
         "minimum_os_version": provider_field([str, None], default = None),
         "objc_compiler_info": provider_field([ObjcCompilerInfo, None], default = None),
         "objcxx_compiler_info": provider_field([ObjcxxCompilerInfo, None], default = None),
@@ -347,6 +352,7 @@ def cxx_toolchain_infos(
     cuda_dep_tracking_mode = DepTrackingMode("none"),
     strip_flags_info = None,
     split_debug_mode = SplitDebugMode("none"),
+    materialize_external_debug_info = True,
     bolt_enabled = False,
     cell_to_path_prefix_map = {},
     llvm_cgdata = None,
@@ -413,6 +419,7 @@ def cxx_toolchain_infos(
         lipo = lipo,
         llvm_cgdata = llvm_cgdata,
         llvm_link = llvm_link,
+        materialize_external_debug_info = materialize_external_debug_info,
         objc_compiler_info = objc_compiler_info,
         objcxx_compiler_info = objcxx_compiler_info,
         object_format = object_format,

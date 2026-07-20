@@ -277,6 +277,7 @@ def cxx_toolchain_impl(ctx):
         raw_headers_as_headers_mode = RawHeadersAsHeadersMode(ctx.attrs.raw_headers_as_headers_mode) if ctx.attrs.raw_headers_as_headers_mode != None else None,
         rc_compiler_info = rc_info,
         remap_cwd = ctx.attrs.remap_cwd,
+        materialize_external_debug_info = ctx.attrs.materialize_external_debug_info,
         split_debug_mode = SplitDebugMode(ctx.attrs.split_debug_mode),
         strip_flags_info = strip_flags_info,
         minimum_os_version = ctx.attrs.minimum_os_version,
@@ -326,6 +327,7 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "llvm_cgdata": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "llvm_link": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "lto_mode": attrs.enum(LtoMode.values(), default = "none"),
+        "materialize_external_debug_info": attrs.bool(default = True),
         # Darwin only: the deployment target to use for this build
         "minimum_os_version": attrs.option(attrs.string(), default = None),
         "nm": dep_type(providers = [RunInfo]),
