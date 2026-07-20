@@ -31,11 +31,14 @@ use rand_xoshiro::rand_core::SeedableRng;
 #[derive(Copy, Clone, Debug)]
 pub struct SetSketchParams {
     // As per the paper; q is implicit in the choice of register type
+    #[cfg(test)]
+    a: f64,
     b: f64,
     m: usize,
     // Derived values
     lnb: f64,
-    inva: f64,
+    // `1/(a*m)`
+    invam: f64,
     rel_cardinality_factor: f64,
 }
 
@@ -44,10 +47,12 @@ impl SetSketchParams {
         let lnb = (b - 1.).ln_1p();
         let rel_cardinality_factor = m as f64 * (1. - 1. / b) / (a * lnb);
         SetSketchParams {
+            #[cfg(test)]
+            a,
             b,
             m,
             lnb: (b - 1.).ln_1p(),
-            inva: 1. / a,
+            invam: 1. / (a * (m as f64)),
             rel_cardinality_factor,
         }
     }
@@ -466,7 +471,7 @@ where
         //     exit condition will be when the darts get too big that they can't affect anything
         //     anymore. That recovers the error from step 1 and everything is exactly correct.
         let mut rng = Xoshiro256PlusPlus::seed_from_u64(seed);
-        let scale = self.params.inva / (self.params.m as f64 * max_weight);
+        let scale = self.params.invam / max_weight;
         let keep_fraction = weight / max_weight;
         let mut x: f64 = 0.;
         let mut darts_since_refresh: usize = 0;
@@ -711,7 +716,7 @@ mod tests {
             // correction for both registers landing in the zero bucket (negligible under
             // the recommended params, where `Pr[register = 0] = exp(-w / inva)`).
             let q = wa as f64 / wb as f64;
-            let p = q + (1. - q) * (-(wb as f64) / a.params.inva).exp();
+            let p = q + (1. - q) * (-(wb as f64) * a.params.a).exp();
             let m = a.params.m as f64;
             let sigma = (m * p * (1. - p)).sqrt();
             assert!(
@@ -828,7 +833,7 @@ mod tests {
                 matches += 1;
             }
         }
-        let p = 0.25 + 0.75 * (-8.0f64 / full.params.inva).exp();
+        let p = 0.25 + 0.75 * (-8.0f64 * full.params.a).exp();
         let m = full.params.m as f64;
         let sigma = (m * p * (1. - p)).sqrt();
         assert!(
