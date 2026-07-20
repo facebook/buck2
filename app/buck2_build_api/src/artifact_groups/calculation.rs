@@ -42,6 +42,7 @@ use buck2_execute::directory::INTERNER;
 use buck2_execute::directory::extract_artifact_value;
 use buck2_execute::directory::insert_artifact;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_util::size_assert;
 use buck2_util::time_span::TimeSpan;
 use derive_more::Display;
 use dice::DiceComputations;
@@ -249,45 +250,18 @@ impl EnsureArtifactGroupReady {
     }
 }
 
-static_assertions::assert_eq_size!(EnsureArtifactGroupReady, [usize; 4]);
+size_assert::words_of_type!(EnsureArtifactGroupReady, 4);
 
-// This assertion assures we don't unknowingly regress the size of this critical future.
-// TODO(cjhopman): We should be able to wrap this in a convenient assertion macro.
-#[allow(unused, clippy::diverging_sub_expression)]
-fn _assert_ensure_artifact_group_future_size() {
-    let mut ctx: DiceComputations = panic!();
-
-    // These first two are the important ones to track and not regress.
-    let v = ctx.ensure_artifact_group(panic!());
-    let e = [0u8; 128 / 8];
-    static_assertions::assert_eq_size_ptr!(&v, &e);
-
-    let v = ensure_artifact_group_staged(&mut ctx, panic!());
-    let e = [0u8; 1088 / 8];
-    static_assertions::assert_eq_size_ptr!(&v, &e);
-
-    // The rest of these are to help understand how changes are impacting the important ones above. Regressing these
-    // is generally okay if the above don't regress.
-    let v = ensure_artifact_staged(&mut ctx, panic!());
-    let e = [0u8; 1088 / 8];
-    static_assertions::assert_eq_size_ptr!(&v, &e);
-
-    let v = ensure_base_artifact_staged(&mut ctx, panic!());
-    let e = [0u8; 1088 / 8];
-    static_assertions::assert_eq_size_ptr!(&v, &e);
-
-    let v = ensure_build_artifact_staged(&mut ctx, panic!());
-    let e = [0u8; 1088 / 8];
-    static_assertions::assert_eq_size_ptr!(&v, &e);
-
-    let v = ActionCalculation::build_action(&mut ctx, panic!());
-    let e = [0u8; 704 / 8];
-    static_assertions::assert_eq_size_ptr!(&v, &e);
-
-    let v = ensure_source_artifact_staged(&mut ctx, panic!());
-    let e = [0u8; 128 / 8];
-    static_assertions::assert_eq_size_ptr!(&v, &e);
-}
+// Assert we don't unknowingly regress the size of these critical futures. The first two are the
+// important ones to track and not regress; the rest are here to help understand how changes impact
+// the important ones above, and regressing them is generally okay as long as the above don't.
+size_assert::words_of_async_fn_future!(DiceComputations::ensure_artifact_group, (_, _), 2);
+size_assert::words_of_async_fn_future!(ensure_artifact_group_staged, (_, _), 17);
+size_assert::words_of_async_fn_future!(ensure_artifact_staged, (_, _), 17);
+size_assert::words_of_async_fn_future!(ensure_base_artifact_staged, (_, _), 17);
+size_assert::words_of_async_fn_future!(ensure_build_artifact_staged, (_, _), 17);
+size_assert::words_of_async_fn_future!(ActionCalculation::build_action, (_, _), 11);
+size_assert::words_of_async_fn_future!(ensure_source_artifact_staged, (_, _), 2);
 
 async fn dir_artifact_value(
     ctx: &mut DiceComputations<'_>,

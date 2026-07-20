@@ -29,6 +29,7 @@ use buck2_execute::execute::request::OutputType;
 use buck2_execute::path::artifact_path::ArtifactPath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_util::arc_str::ThinArcS;
+use buck2_util::size_assert;
 use derivative::Derivative;
 use derive_more::Display;
 use derive_more::From;
@@ -43,7 +44,6 @@ use starlark::values::Trace;
 use starlark::values::ValueTyped;
 use starlark::values::any_complex::StarlarkAnyComplex;
 use starlark_map::Hashed;
-use static_assertions::assert_eq_size;
 
 use crate::actions::key::ActionKey;
 use crate::artifact::build_artifact::BuildArtifact;
@@ -88,7 +88,7 @@ struct ArtifactData {
     hidden_components_count: usize,
 }
 
-assert_eq_size!(ArtifactData, [usize; 9]);
+size_assert::words_of_type!(ArtifactData, 9);
 
 impl Artifact {
     pub fn new(
@@ -281,7 +281,7 @@ pub enum BaseArtifactKind {
     Build(BuildArtifact),
 }
 
-assert_eq_size!(BaseArtifactKind, [usize; 6]);
+size_assert::words_of_type!(BaseArtifactKind, 6);
 
 #[derive(
     Clone,
@@ -310,7 +310,7 @@ impl Display for ArtifactKind {
     }
 }
 
-assert_eq_size!(ArtifactKind, [usize; 7]);
+size_assert::words_of_type!(ArtifactKind, 7);
 
 impl From<SourceArtifact> for Artifact {
     fn from(a: SourceArtifact) -> Self {

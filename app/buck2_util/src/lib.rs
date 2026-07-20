@@ -42,3 +42,5 @@ pub mod truncate;
 
 // Re-export this to encourage people to use it in a fully qualified way.
 pub use async_move_clone::async_move_clone;
+// Re-export because not everything has `mini_vec` deps so this is a bit nicer.
+pub use mini_vec::size_assert;

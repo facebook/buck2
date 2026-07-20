@@ -14,11 +14,11 @@ use allocative::Allocative;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_data::ToProtoMessage;
+use buck2_util::size_assert;
 use dupe::Dupe;
 use pagable::Pagable;
 use starlark::values::StarlarkPagableViaPagable;
 use starlark_map::Hashed;
-use static_assertions::assert_eq_size;
 
 /// A key to look up an 'Action' from the 'ActionAnalysisResult'.
 /// Since 'Action's are registered as 'Deferred's
@@ -41,7 +41,7 @@ pub struct ActionKey {
     id: ActionIndex,
 }
 
-assert_eq_size!(ActionKey, [usize; 4]);
+size_assert::words_of_type!(ActionKey, 4);
 
 /// An unique identifier for different actions with the same parent.
 #[derive(

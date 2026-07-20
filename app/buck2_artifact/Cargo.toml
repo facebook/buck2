@@ -25,7 +25,6 @@ pagable.workspace = true
 serde.workspace = true
 starlark.workspace = true
 starlark_map.workspace = true
-static_assertions.workspace = true
 strong_hash.workspace = true
 take_mut.workspace = true
 

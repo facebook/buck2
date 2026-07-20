@@ -436,7 +436,6 @@ impl DiceComputationsData {
 // TODO(cjhopman): We should be able to wrap this in a convenient assertion macro.
 #[allow(unused, clippy::diverging_sub_expression)]
 fn _assert_dice_compute_future_sizes() {
-    let ctx: DiceComputations = panic!();
     #[derive(Allocative, Debug, Clone, PartialEq, Eq, Hash, Pagable)]
     #[pagable_typetag(DiceKeyDyn)]
     struct K(u64);
@@ -466,8 +465,6 @@ fn _assert_dice_compute_future_sizes() {
             NoValueSerialize::<Self::Value>::new()
         }
     }
-    let k: K = panic!();
-    let v = ctx.compute(&k);
-    let e = [0u8; 704 / 8];
-    static_assertions::assert_eq_size_ptr!(&v, &e);
+
+    mini_vec::size_assert::words_of_async_fn_future!(DiceComputations::compute::<K>, (_, _), 11);
 }

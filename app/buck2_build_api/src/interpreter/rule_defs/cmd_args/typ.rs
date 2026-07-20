@@ -23,6 +23,7 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_error::internal_error;
 use buck2_hash::BuckIndexSet;
+use buck2_util::size_assert;
 use display_container::display_pair;
 use display_container::fmt_container;
 use display_container::iter_display_chain;
@@ -61,7 +62,6 @@ use starlark::values::list::UnpackList;
 use starlark::values::starlark_value;
 use starlark::values::tuple::UnpackTuple;
 use starlark::values::type_repr::StarlarkTypeRepr;
-use static_assertions::assert_eq_size;
 
 use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
@@ -477,9 +477,9 @@ impl<'v, A: Fields<'v>, B: Fields<'v>> Fields<'v> for Either<A, B> {
 }
 
 // These types show up a lot in the frozen heaps, so make sure they don't regress
-assert_eq_size!(StarlarkCmdArgs<'static>, [usize; 8]);
-assert_eq_size!(FrozenStarlarkCmdArgs, [usize; 3]);
-assert_eq_size!(CommandLineOptions<'static>, [usize; 10]);
+size_assert::words_of_type!(StarlarkCmdArgs<'static>, 8);
+size_assert::words_of_type!(FrozenStarlarkCmdArgs, 3);
+size_assert::words_of_type!(CommandLineOptions<'static>, 10);
 
 impl<'v> Display for StarlarkCmdArgs<'v> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {

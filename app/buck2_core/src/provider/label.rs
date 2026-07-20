@@ -15,13 +15,13 @@ use std::iter;
 use allocative::Allocative;
 use buck2_util::arc_str::ArcSlice;
 use buck2_util::arc_str::ArcStr;
+use buck2_util::size_assert;
 use derive_more::Display;
 use dupe::Dupe;
 use pagable::Pagable;
 use serde::Deserialize;
 use serde::Serialize;
 use serde::Serializer;
-use static_assertions::assert_eq_size;
 use strong_hash::StrongHash;
 use triomphe::Arc;
 
@@ -142,7 +142,7 @@ pub enum ProvidersName {
     NonDefault(Arc<NonDefaultProvidersName>),
 }
 
-assert_eq_size!(ProvidersName, [usize; 1]);
+size_assert::words_of_type!(ProvidersName, 1);
 
 impl Dupe for ProvidersName {}
 
@@ -198,7 +198,7 @@ pub struct ProvidersLabel {
     name: ProvidersName,
 }
 
-assert_eq_size!(ProvidersLabel, [usize; 2]);
+size_assert::words_of_type!(ProvidersLabel, 2);
 
 impl ProvidersLabel {
     pub fn new(target: TargetLabel, name: ProvidersName) -> Self {

@@ -338,11 +338,7 @@ pub(crate) enum PagedState {
     NonPageable,
 }
 
-// `PagedState` folds in the key that previously lived in a `data_key:
-// Option<DataKey>` field, which was itself 32 bytes, so the fold costs no extra
-// size. It stays 32: the two key-carrying variants force a discriminant word that
-// the single `NonZeroU128` niche can't absorb.
-const _: () = assert!(std::mem::size_of::<PagedState>() == 32);
+mini_vec::size_assert::words_of_type!(PagedState, 4);
 
 /// The stored value for an `OccupiedGraphNode`. At least one of `value` (the
 /// in-memory hydrated form) and the on-disk copy tracked by `paged_state` must be
@@ -440,7 +436,7 @@ pub(crate) struct ForceDirtyHistory {
 }
 
 // the vast majority of nodes are never force-dirtied, so we want to make sure that we optimize for that.
-static_assertions::assert_eq_size!(ForceDirtyHistory, [usize; 1]);
+mini_vec::size_assert::words_of_type!(ForceDirtyHistory, 1);
 
 impl ForceDirtyHistory {
     pub(crate) fn new() -> Self {

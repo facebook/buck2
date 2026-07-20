@@ -18,6 +18,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::unpack_artifact::UnpackNo
 use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
 use buck2_error::buck2_error;
 use buck2_hash::BuckIndexSet;
+use buck2_util::size_assert;
 use dupe::Dupe;
 use starlark::StarlarkPagable;
 use starlark::collections::SmallSet;
@@ -92,7 +93,7 @@ pub(crate) enum DynamicAttrValue<
 }
 
 // This isn't *super* sensitive, but it's not nothing either
-static_assertions::assert_eq_size!(DynamicAttrValue<FrozenValue>, [usize; 4]);
+size_assert::words_of_type!(DynamicAttrValue<FrozenValue>, 4);
 
 // We implement `Freeze` manually because starlark `derive(Freeze)` does not support custom bounds.
 impl<V: ValueLifetimeless> Freeze for DynamicAttrValue<V> {

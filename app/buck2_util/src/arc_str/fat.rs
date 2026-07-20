@@ -28,13 +28,13 @@ use pagable::arc_erase::StdArcEraseType;
 use pagable::arc_erase::deserialize_arc;
 use serde::Deserialize;
 use serde::Serialize;
-use static_assertions::assert_eq_size;
 use strong_hash::StrongHash;
 
 use crate::arc_str::base::ArcStrBase;
 use crate::arc_str::base::ArcStrBaseInner;
 use crate::arc_str::base::ArcStrBaseInnerConst;
 use crate::arc_str::base::ArcStrLenStrategy;
+use crate::size_assert;
 
 struct ArcStrProperties;
 
@@ -67,8 +67,8 @@ pub struct ArcStr {
     base: ArcStrBase<ArcStrProperties>,
 }
 
-assert_eq_size!(ArcStr, Arc<str>);
-assert_eq_size!(Option<ArcStr>, Arc<str>);
+size_assert::same_size!(ArcStr, Arc<str>);
+size_assert::same_size!(Option<ArcStr>, Arc<str>);
 
 static INNER_EMPTY: ArcStrBaseInnerConst<ArcStrProperties> = ArcStrBaseInner::EMPTY;
 

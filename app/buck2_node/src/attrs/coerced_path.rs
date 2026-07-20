@@ -13,9 +13,9 @@ use std::iter;
 use allocative::Allocative;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_util::arc_str::ArcS;
+use buck2_util::size_assert;
 use either::Either;
 use pagable::Pagable;
-use static_assertions::assert_eq_size;
 use strong_hash::StrongHash;
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative, Pagable, StrongHash)]
@@ -34,7 +34,7 @@ pub enum CoercedPath {
 }
 
 // Avoid changing the size accidentally.
-assert_eq_size!(CoercedPath, [usize; 2]);
+size_assert::words_of_type!(CoercedPath, 2);
 
 impl CoercedPath {
     pub fn path(&self) -> &ArcS<PackageRelativePath> {

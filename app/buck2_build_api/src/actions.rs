@@ -27,6 +27,7 @@
 use std::borrow::Cow;
 use std::fmt::Debug;
 use std::ops::ControlFlow;
+use std::ops::Deref;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -75,7 +76,6 @@ use starlark::values::Heap;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::ValueOfUnchecked;
 use starlark::values::dict::DictType;
-use static_assertions::_core::ops::Deref;
 
 use crate::actions::execute::action_execution_target::ActionExecutionTarget;
 use crate::actions::execute::action_executor::ActionExecutionMetadata;

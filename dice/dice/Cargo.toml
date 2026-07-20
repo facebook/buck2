@@ -25,6 +25,7 @@ gazebo.workspace = true
 itertools.workspace = true
 lock_free_hashtable.workspace = true
 lock_free_vec.workspace = true
+mini_vec.workspace = true
 pagable = { workspace = true, optional = true }
 pagable_storage.workspace = true
 parking_lot.workspace = true

@@ -17,6 +17,7 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_interpreter::types::cell_root::CellRoot;
 use buck2_interpreter::types::project_root::StarlarkProjectRoot;
+use buck2_util::size_assert;
 use buck2_util::thin_box::ThinBoxSlice;
 use derive_more::Display;
 use display_container::fmt_container;
@@ -47,7 +48,6 @@ use starlark::values::ValueOfUnchecked;
 use starlark::values::ValueTypedComplex;
 use starlark::values::string::StarlarkStr;
 use starlark::values::type_repr::StarlarkTypeRepr;
-use static_assertions::assert_eq_size;
 
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkInputArtifactLike;
 use crate::interpreter::rule_defs::artifact::starlark_output_artifact::StarlarkOutputArtifact;
@@ -285,7 +285,7 @@ enum FrozenCommandLineOption {
     ),
 }
 
-assert_eq_size!(FrozenCommandLineOption, [usize; 2]);
+size_assert::words_of_type!(FrozenCommandLineOption, 2);
 
 #[derive(Debug, Default, Allocative, StarlarkPagable)]
 pub(crate) struct FrozenCommandLineOptions {

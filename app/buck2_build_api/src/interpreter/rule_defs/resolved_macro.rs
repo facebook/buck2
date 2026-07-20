@@ -18,6 +18,7 @@ use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_node::attrs::attr_type::arg::ConfiguredStringWithMacros;
 use buck2_util::arc_str::ArcStr;
+use buck2_util::size_assert;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
@@ -31,7 +32,6 @@ use starlark::values::StarlarkValue;
 use starlark::values::Value;
 use starlark::values::starlark_value;
 use starlark::values::type_repr::StarlarkTypeRepr;
-use static_assertions::assert_eq_size;
 
 use crate::artifact_groups::ArtifactGroup;
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
@@ -63,7 +63,7 @@ pub enum ResolvedMacro<'v> {
     Query(ResolvedQueryMacro),
 }
 
-assert_eq_size!(ResolvedMacro, [usize; 2]);
+size_assert::words_of_type!(ResolvedMacro, 2);
 
 impl<'v> Display for ResolvedMacro<'v> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

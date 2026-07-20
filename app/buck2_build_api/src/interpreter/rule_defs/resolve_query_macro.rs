@@ -13,6 +13,7 @@ use std::fmt::Display;
 
 use allocative::Allocative;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+use buck2_util::size_assert;
 use buck2_util::thin_box::ThinBoxSlice;
 use pagable::PagableDeserialize;
 use pagable::PagableSerialize;
@@ -21,7 +22,6 @@ use starlark::pagable::StarlarkDeserializeContext;
 use starlark::pagable::StarlarkSerialize;
 use starlark::pagable::StarlarkSerializeContext;
 use starlark::values::StarlarkPagable;
-use static_assertions::assert_eq_size;
 
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use crate::interpreter::rule_defs::artifact::starlark_artifact_like::StarlarkInputArtifactLike;
@@ -105,7 +105,7 @@ fn deserialize_thinbox_starlark<T: StarlarkDeserialize + 'static>(
     Ok(ThinBoxSlice::from_iter(items))
 }
 
-assert_eq_size!(ResolvedQueryMacro, [usize; 2]);
+size_assert::words_of_type!(ResolvedQueryMacro, 2);
 
 impl Display for ResolvedQueryMacro {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

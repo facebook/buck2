@@ -58,6 +58,7 @@ use buck2_hash::StdBuckHashMap;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterResultsKey;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterResultsKeyActivationData;
 use buck2_node::nodes::eval_result::EvaluationResult;
+use buck2_util::size_assert;
 use buck2_util::time_span::TimeSpan;
 use dice::ActivationData;
 use dice::ActivationTracker;
@@ -68,7 +69,6 @@ use gazebo::variants::VariantName;
 use itertools::Itertools;
 use ref_cast::RefCast;
 use smallvec::SmallVec;
-use static_assertions::assert_eq_size;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::task::JoinHandle;
@@ -114,14 +114,14 @@ enum NodeKey {
 // Explain the sizeof this struct (and avoid regressing it since we store it in the longest path
 // graph implementation).
 
-assert_eq_size!(BuildKey, [usize; 4]);
-assert_eq_size!(AnalysisKey, [usize; 2]);
-assert_eq_size!(EnsureTransitiveSetProjectionKey, [usize; 5]);
-assert_eq_size!(EnsureProjectedArtifactKey, [usize; 7]);
-assert_eq_size!(InterpreterResultsKey, [usize; 1]);
-assert_eq_size!(PackageListingKey, [usize; 1]);
-assert_eq_size!(BuildArtifact, [usize; 6]);
-assert_eq_size!(NodeKey, [usize; 7]);
+size_assert::words_of_type!(BuildKey, 4);
+size_assert::words_of_type!(AnalysisKey, 2);
+size_assert::words_of_type!(EnsureTransitiveSetProjectionKey, 5);
+size_assert::words_of_type!(EnsureProjectedArtifactKey, 7);
+size_assert::words_of_type!(InterpreterResultsKey, 1);
+size_assert::words_of_type!(PackageListingKey, 1);
+size_assert::words_of_type!(BuildArtifact, 6);
+size_assert::words_of_type!(NodeKey, 7);
 
 impl NodeKey {
     fn from_dyn_key(key: &DynKey) -> Option<Self> {
@@ -1104,7 +1104,7 @@ impl AnalysisNodeData {
     }
 }
 
-assert_eq_size!(NodeData, [usize; 20]);
+size_assert::words_of_type!(NodeData, 20);
 
 /// Finish key for the second part of a split analysis (regular target).
 /// Used when analysis is split due to anon target dependencies.

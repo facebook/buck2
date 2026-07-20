@@ -12,7 +12,6 @@
 
 use allocative::Allocative;
 use dupe::Dupe;
-use static_assertions::assert_eq_size;
 use typed_arena::Arena;
 
 use crate::impls::deps::graph::SeriesParallelDeps;
@@ -110,7 +109,7 @@ impl RecordedDeps {
     }
 }
 
-assert_eq_size!(RecordingDepsTracker, [usize; 8]);
+mini_vec::size_assert::words_of_type!(RecordingDepsTracker, 8);
 
 fn _check_deps_trackers_send_and_sync() {
     fn _assert_send_sync<T: Send + Sync>() {}

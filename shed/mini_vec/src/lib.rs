@@ -42,10 +42,12 @@
 //! edits.
 
 #![deny(missing_docs)]
+#![feature(decl_macro)]
 
 mod mini_box_slice;
 mod mini_vec;
 pub mod packed_ptr;
+pub mod size_assert;
 
 pub use mini_box_slice::MiniBoxSlice;
 pub use mini_vec::MiniVec;

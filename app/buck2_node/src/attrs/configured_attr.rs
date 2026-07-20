@@ -21,6 +21,7 @@ use buck2_core::target::label::label::TargetLabel;
 use buck2_error::buck2_error;
 use buck2_error::internal_error;
 use buck2_util::arc_str::ArcStr;
+use buck2_util::size_assert;
 use pagable::Pagable;
 use serde::Serialize;
 use serde::Serializer;
@@ -103,7 +104,7 @@ pub enum ConfiguredAttr {
 
 // For `ConfiguredAttr` size is not as important as for `CoercedAttr`,
 // yet we should keep it reasonable.
-static_assertions::assert_eq_size!(ConfiguredAttr, [usize; 4]);
+size_assert::words_of_type!(ConfiguredAttr, 4);
 
 impl AttrSerializeWithContext for ConfiguredAttr {
     fn serialize_with_ctx<S>(&self, ctx: &AttrFmtContext, s: S) -> Result<S::Ok, S::Error>
