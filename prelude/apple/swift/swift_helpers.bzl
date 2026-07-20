@@ -47,6 +47,20 @@ ENFORCED_CATEGORIES = [
 #
 #     return expect_eligible_for_dedupe
 
+def _is_swift_module_category(category: str) -> bool:
+    # Matches swiftmodule_compile[_with_explicit_mods] and every *pcm_compile
+    # category (swift_pcm_compile, swift_underlying_pcm_compile,
+    # swift_prebuilt_framework_pcm_compile).
+    return "swiftmodule" in category or "pcm_compile" in category
+
+def _low_pass_filter_for_category(category: str, prioritized: bool) -> bool:
+    # When prioritizing latency-critical Swift path, swiftmodule/pcm
+    # actions escape the low-pass filter (return False) so they stay local
+    # rather than being shed to RE. Everything else keeps the default.
+    if prioritized and _is_swift_module_category(category):
+        return False
+    return True
+
 def compile_with_argsfile_cmd(
     ctx: AnalysisContext,
     category: str,
@@ -230,6 +244,7 @@ def compile_with_argsfile(
         dep_files = dep_files,
         error_handler = swift_error_handler if cmd_output.error_deserializer else apple_build_error_handler,
         local_only = local_only,
+        low_pass_filter = _low_pass_filter_for_category(category, toolchain.prioritize_swift_critical_path),
         no_outputs_cleanup = no_outputs_cleanup,
         incremental_remote_outputs = incremental_remote_outputs,
         outputs_for_error_handler = cmd_output.error_outputs,
