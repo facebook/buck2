@@ -198,6 +198,11 @@ def _get_incremental_compilation_flags_and_objects(
     num_srcs: int,
 ) -> IncrementalCompilationOutput:
     extra_hidden = [output_swiftdoc.as_output()] if output_swiftdoc else []
+
+    # Match the driver -j to the Buck `weight` (num_threads) so the frontend-thread count matches
+    # the permits Buck reserves. Otherwise -j was always 6 while weight could be 1, oversubscribing
+    # up to ~6x and under-counting CPU in the (weight-based) low-pass-filter capacity.
+    num_threads = _get_incremental_num_threads(num_srcs)
     cmd = cmd_args(
         [
             "-disable-cmo",
@@ -207,7 +212,7 @@ def _get_incremental_compilation_flags_and_objects(
             "-experimental-emit-module-separately",
             "-incremental",
             "-j",
-            str(INCREMENTAL_SWIFT_COMPILE_MAX_NUM_THREADS),
+            str(num_threads),
             "-driver-batch-size-limit",
             str(INCREMENTAL_SWIFT_COMPILE_BATCH_SIZE),
         ],
@@ -267,7 +272,7 @@ def _get_incremental_compilation_flags_and_objects(
     return IncrementalCompilationOutput(
         artifacts = output_file_map_data.artifacts,
         incremental_flags_cmd = cmd,
-        num_threads = _get_incremental_num_threads(num_srcs),
+        num_threads = num_threads,
         output_file_map = output_file_map_data.output_file_map,
         skip_incremental_outputs = skip_incremental_outputs,
         swiftdeps = output_file_map_data.swiftdeps,
