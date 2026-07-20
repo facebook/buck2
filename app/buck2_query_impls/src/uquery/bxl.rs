@@ -208,6 +208,40 @@ impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
             })
             .await?)
     }
+    async fn allbuildfiles(
+        &self,
+        dice: &mut DiceComputations<'_>,
+        universe: &TargetSet<TargetNode>,
+    ) -> buck2_error::Result<FileSet> {
+        Ok(dice
+            .with_linear_recompute(|dice| async move {
+                uquery_functions()
+                    .allbuildfiles(
+                        &self.uquery_env(&self.uquery_delegate(&dice).await?).await?,
+                        universe,
+                    )
+                    .await
+            })
+            .await?)
+    }
+    async fn rbuildfiles(
+        &self,
+        dice: &mut DiceComputations<'_>,
+        universe: &FileSet,
+        argset: &FileSet,
+    ) -> buck2_error::Result<FileSet> {
+        Ok(dice
+            .with_linear_recompute(|dice| async move {
+                uquery_functions()
+                    .rbuildfiles(
+                        &self.uquery_env(&self.uquery_delegate(&dice).await?).await?,
+                        universe,
+                        argset,
+                    )
+                    .await
+            })
+            .await?)
+    }
 }
 
 pub(crate) fn init_new_bxl_uquery_functions() {

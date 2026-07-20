@@ -77,6 +77,17 @@ pub trait BxlCqueryFunctions: Send {
         dice: &mut DiceComputations<'_>,
         targets: &TargetSet<ConfiguredTargetNode>,
     ) -> buck2_error::Result<Vec<MaybeCompatible<ConfiguredTargetNode>>>;
+    async fn allbuildfiles(
+        &self,
+        dice: &mut DiceComputations<'_>,
+        universe: &TargetSet<ConfiguredTargetNode>,
+    ) -> buck2_error::Result<FileSet>;
+    async fn rbuildfiles(
+        &self,
+        dice: &mut DiceComputations<'_>,
+        universe: &FileSet,
+        argset: &FileSet,
+    ) -> buck2_error::Result<FileSet>;
 }
 
 #[async_trait]
@@ -125,6 +136,17 @@ pub trait BxlUqueryFunctions: Send {
         dice: &mut DiceComputations<'_>,
         file_set: &FileSet,
     ) -> buck2_error::Result<TargetSet<TargetNode>>;
+    async fn allbuildfiles(
+        &self,
+        dice: &mut DiceComputations<'_>,
+        universe: &TargetSet<TargetNode>,
+    ) -> buck2_error::Result<FileSet>;
+    async fn rbuildfiles(
+        &self,
+        dice: &mut DiceComputations<'_>,
+        universe: &FileSet,
+        argset: &FileSet,
+    ) -> buck2_error::Result<FileSet>;
 }
 
 #[async_trait]
