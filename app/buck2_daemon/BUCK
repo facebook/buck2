@@ -10,6 +10,11 @@ _memfrag = read_config("buck2_dev", "memfrag", "") == "true"
 rust_library(
     name = "buck2_daemon",
     srcs = glob(["src/**/*.rs"]),
+    autocargo = {
+        "cargo_toml_config": {
+            "extra_check_cfgs": ["cfg(buck2_memfrag)"],
+        },
+    },
     rustc_flags = ["--cfg=buck2_memfrag"] if _memfrag else [],
     test_deps = [
         "//buck2/app/buck2_certs:buck2_certs",
