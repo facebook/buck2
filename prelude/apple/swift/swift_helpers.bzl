@@ -21,6 +21,12 @@ load(
 load(":swift_output_file_map.bzl", "add_output_file_map_flags", "add_serialized_diagnostics_output")
 load(":swift_toolchain.bzl", "get_swift_toolchain_info")
 load(":swift_toolchain_types.bzl", "SwiftToolchainInfo")
+load(
+    ":swift_types.bzl",
+    "EXPLICIT_MODULES_CATEGORY_SUFFIX",
+    "SWIFTMODULE_COMPILE_CATEGORY",
+    "SWIFT_COMPILE_CATEGORY",
+)
 
 CompileWithArgsFileCmdOutput = record(
     cmd = field(cmd_args),
@@ -33,10 +39,10 @@ CompileWithArgsFileCmdOutput = record(
 )
 
 ENFORCED_CATEGORIES = [
-    "swiftmodule_compile_with_explicit_mods",
-    "swiftmodule_compile",
-    "swift_compile_with_explicit_mods",
-    "swift_compile",
+    SWIFTMODULE_COMPILE_CATEGORY + EXPLICIT_MODULES_CATEGORY_SUFFIX,
+    SWIFTMODULE_COMPILE_CATEGORY,
+    SWIFT_COMPILE_CATEGORY + EXPLICIT_MODULES_CATEGORY_SUFFIX,
+    SWIFT_COMPILE_CATEGORY,
 ]
 
 # def _get_should_expect_eligible_for_dedupe(ctx: AnalysisContext, category: str) -> bool:
@@ -52,6 +58,10 @@ def _is_swift_module_category(category: str) -> bool:
     # category (swift_pcm_compile, swift_underlying_pcm_compile,
     # swift_prebuilt_framework_pcm_compile).
     return "swiftmodule" in category or "pcm_compile" in category
+
+def _is_swift_object_category(category: str) -> bool:
+    # Bulk Swift object compiles (not swiftmodule/pcm).
+    return category in (SWIFT_COMPILE_CATEGORY, SWIFT_COMPILE_CATEGORY + EXPLICIT_MODULES_CATEGORY_SUFFIX)
 
 def _low_pass_filter_for_category(category: str, prioritized: bool) -> bool:
     # When prioritizing latency-critical Swift path, swiftmodule/pcm
@@ -236,6 +246,10 @@ def compile_with_argsfile(
     # TODO(xcshen): Re-enable when content-based paths for PCMs no longer
     # leak into .swiftmodule files, breaking @_implementationOnly blast radius.
     expect_eligible_for_dedupe = False  # _get_should_expect_eligible_for_dedupe(ctx, category)
+    if toolchain.prioritize_swift_critical_path and _is_swift_object_category(category):
+        weight = num_threads * 3
+    else:
+        weight = num_threads
     ctx.actions.run(
         cmd_output.cmd,
         allow_cache_upload = allow_cache_upload,
@@ -250,7 +264,7 @@ def compile_with_argsfile(
         outputs_for_error_handler = cmd_output.error_outputs,
         prefer_local = prefer_local,
         unique_input_inodes = True,
-        weight = num_threads,
+        weight = weight,
         expect_eligible_for_dedupe = expect_eligible_for_dedupe,
     )
 

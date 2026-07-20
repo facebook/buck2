@@ -16,6 +16,14 @@ SWIFT_EXTENSION = ".swift"
 
 SWIFTMODULE_EXTENSION = ".swiftmodule"
 
+# Base action categories for Swift compiles. When explicit modules are enabled,
+# EXPLICIT_MODULES_CATEGORY_SUFFIX is appended (see swift_compilation.bzl).
+SWIFT_COMPILE_CATEGORY = "swift_compile"
+
+SWIFTMODULE_COMPILE_CATEGORY = "swiftmodule_compile"
+
+EXPLICIT_MODULES_CATEGORY_SUFFIX = "_with_explicit_mods"
+
 SwiftCompilationModes = ("wmo", "incremental", "auto")
 
 SwiftMacroPlugin = plugins.kind()

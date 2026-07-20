@@ -21,7 +21,10 @@ load("@prelude//apple:modulemap.bzl", "create_modulemap")
 load("@prelude//apple/swift:swift_helpers.bzl", "compile_with_argsfile", "compile_with_argsfile_cmd", "uses_explicit_modules")
 load(
     "@prelude//apple/swift:swift_types.bzl",
+    "EXPLICIT_MODULES_CATEGORY_SUFFIX",
+    "SWIFTMODULE_COMPILE_CATEGORY",
     "SWIFTMODULE_EXTENSION",
+    "SWIFT_COMPILE_CATEGORY",
     "SWIFT_EXTENSION",
     "SwiftDependencyInfo",
     "SwiftMacroPlugin",
@@ -388,8 +391,8 @@ def compile_swift(
     exported_objc_modulemap_pp_info: [CPreprocessor, None],
     framework_search_paths_flags: cmd_args,
     extra_search_paths_flags: list[ArgLike] = [],
-    compile_category = "swift_compile",
-    compile_swiftmodule_category = "swiftmodule_compile",
+    compile_category = SWIFT_COMPILE_CATEGORY,
+    compile_swiftmodule_category = SWIFTMODULE_COMPILE_CATEGORY,
     is_macro = False,
 ) -> SwiftCompileResult:
     # If this target imports XCTest we need to pass the search path to its swiftmodule.
@@ -1006,7 +1009,7 @@ def _compile_with_argsfile(
     # are enabled for debugging and telemetry reasons. This is very important,
     # so do not be tempted to remove the suffixing.
     if extension and explicit_modules_enabled:
-        category += "_with_explicit_mods"
+        category += EXPLICIT_MODULES_CATEGORY_SUFFIX
 
     allow_cache_upload, action_execution_attributes = _get_action_properties(toolchain, cacheable, build_swift_incrementally, explicit_modules_enabled)
 
