@@ -60,7 +60,7 @@ pub(crate) enum VersionedGraphNode {
     Vacant(VacantGraphNode),
 }
 
-mini_vec::size_assert::words_of_type!(VersionedGraphNode, 18);
+mini_vec::size_assert::words_of_type!(VersionedGraphNode, 17);
 
 impl VersionedGraphNode {
     pub(crate) fn force_dirty(
@@ -339,7 +339,7 @@ pub(crate) enum PagedState {
     NonPageable,
 }
 
-mini_vec::size_assert::words_of_type!(PagedState, 4);
+mini_vec::size_assert::words_of_type!(PagedState, 3);
 
 /// The stored value for an `OccupiedGraphNode`. At least one of `value` (the
 /// in-memory hydrated form) and the on-disk copy tracked by `paged_state` must be

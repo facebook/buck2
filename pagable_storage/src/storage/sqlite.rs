@@ -713,7 +713,7 @@ mod tests {
         };
 
         state.active_buffer.extend(
-            (0..WRITE_BUFFER_CAPACITY).map(|i| (DataKey::testing_new(i as u128), Vec::new())),
+            (0..WRITE_BUFFER_CAPACITY).map(|i| (DataKey::testing_new((i + 1) as u128), Vec::new())),
         );
         state.queue_active_for_later_flush();
 
@@ -768,7 +768,7 @@ mod tests {
             )?;
             let tx = conn.transaction()?;
             let items = (0..item_count)
-                .map(|i| (DataKey::testing_new(i as u128 + 1), vec![i as u8]))
+                .map(|i| (DataKey::testing_new((i + 1) as u128 + 1), vec![i as u8]))
                 .collect::<Vec<_>>();
             let batch_sql = insert_sql(batch_rows);
             insert_items(&tx, &items, batch_rows, &batch_sql)?;
@@ -805,7 +805,7 @@ mod tests {
         for i in 0..128 {
             let data = pagable_data(
                 format!("serialized payload {i}").as_bytes(),
-                vec![DataKey::testing_new(i), DataKey::testing_new(i + 1000)],
+                vec![DataKey::testing_new(i + 1), DataKey::testing_new(i + 1000)],
             );
             let expected_data = data.data.clone();
             let expected_arcs = data.arcs.clone();

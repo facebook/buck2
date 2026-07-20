@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::num::NonZeroU64;
 use std::num::NonZeroU128;
 
 use allocative::Allocative;
@@ -22,7 +23,10 @@ use dupe::Dupe;
 /// The 128-bit size provides an extremely low collision probability
 /// (< 1e-15 after 820 billion samples).
 ///
-/// The u128 here is morally a NonZeroU128, but this integrates better with bytemuck by using a u128.
+/// Stored as `[u64; 2]` rather than `u128` to keep 8-byte alignment instead of 16-byte,
+/// while remaining bytemuck-compatible. The first half is morally a `NonZeroU64` —
+/// `compute()` ensures `self.0[0] != 0` so that [`OptionalDataKey`] can pack itself
+/// as `(NonZeroU64, u64)` and inherit the same 8-byte alignment.
 ///
 /// [`PagableArc`]: crate::PagableArc
 #[derive(
@@ -38,7 +42,7 @@ use dupe::Dupe;
     bytemuck::AnyBitPattern
 )]
 #[repr(transparent)]
-pub struct DataKey(u128);
+pub struct DataKey([u64; 2]);
 
 static_assertions::assert_eq_size!(DataKey, OptionalDataKey);
 
@@ -56,29 +60,31 @@ impl DataKey {
 
         // Use the first 128 bits of the blake3 hash
         let hash_bytes = hash.as_bytes();
-        let value = u128::from_le_bytes(hash_bytes[..16].try_into().unwrap());
+        let lo = u64::from_le_bytes(hash_bytes[..8].try_into().unwrap());
+        let hi = u64::from_le_bytes(hash_bytes[8..16].try_into().unwrap());
 
-        // NonZeroU128 requires a non-zero value. In the astronomically unlikely
-        // case of a zero hash, use 1 instead.
-        if value == 0 {
-            return Self(1);
+        // OptionalDataKey's niche representation requires `lo` to be non-zero. In the
+        // astronomically unlikely case of a zero first half, use 1 instead. Collision resistance
+        // remains effectively 128 bits.
+        if lo == 0 {
+            return Self([1, hi]);
         }
-        Self(value)
+        Self([lo, hi])
     }
 
     pub fn testing_new(v: u128) -> Self {
-        Self(v)
+        assert_ne!(v as u64, 0);
+        DataKey(bytemuck::cast(v))
     }
 
     pub fn get(self) -> u128 {
         self.to_non_zero().get()
     }
 
-    /// Returns the key as a `NonZeroU128`. `DataKey` is morally a `NonZeroU128`
-    /// (see [`DataKey::compute`]) but stores a `u128` for bytemuck compatibility;
-    /// this recovers the non-zero form, panicking if the invariant is violated.
+    /// Returns the key as a `NonZeroU128`.
     pub fn to_non_zero(self) -> NonZeroU128 {
-        NonZeroU128::new(self.0).expect("DataKey should never be zero")
+        NonZeroU128::new(((self.0[1] as u128) << 64) + (self.0[0] as u128))
+            .expect("DataKey should never be zero")
     }
 }
 
@@ -91,19 +97,19 @@ impl DataKey {
 #[derive(Debug, Clone, Copy, Hash, Allocative)]
 pub enum OptionalDataKey {
     None,
-    Some(NonZeroU128),
+    Some(#[allocative(skip)] NonZeroU64, u64),
 }
 
 impl OptionalDataKey {
     pub fn unwrap(&self) -> DataKey {
         match self {
-            Self::Some(nz) => DataKey(nz.get()),
+            Self::Some(a, b) => DataKey([a.get(), *b]),
             Self::None => panic!("unwrap called on None"),
         }
     }
 
     pub fn is_some(&self) -> bool {
-        matches!(self, Self::Some(_))
+        matches!(self, Self::Some(_, _))
     }
 
     pub fn is_none(&self) -> bool {
@@ -113,7 +119,10 @@ impl OptionalDataKey {
 
 impl From<DataKey> for OptionalDataKey {
     fn from(key: DataKey) -> Self {
-        Self::Some(key.to_non_zero())
+        Self::Some(
+            NonZeroU64::new(key.0[0]).expect("DataKey should never be zero"),
+            key.0[1],
+        )
     }
 }
 
