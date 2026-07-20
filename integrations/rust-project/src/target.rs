@@ -89,13 +89,20 @@ pub(crate) struct MacroOutput {
     pub(crate) actual: Target,
     pub(crate) dylib: PathBuf,
 }
+/// The kind of a Rust target, as reported by the `resolve_deps.bxl` prelude script.
+///
+/// This binary is shipped as a pinned prebuilt (via DotSlash) that is versioned
+/// independently of the prelude BXL it invokes, so a given binary may run against
+/// an older or newer prelude. Accept both the semantic kind names (`bin`/`lib`/`test`)
+/// emitted by newer preludes and the legacy fully-qualified rule types emitted by
+/// older ones.
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub(crate) enum Kind {
-    #[serde(rename = "bin")]
+    #[serde(rename = "bin", alias = "prelude//rules.bzl:rust_binary")]
     Binary,
-    #[serde(rename = "lib")]
+    #[serde(rename = "lib", alias = "prelude//rules.bzl:rust_library")]
     Library,
-    #[serde(rename = "test")]
+    #[serde(rename = "test", alias = "prelude//rules.bzl:rust_test")]
     Test,
 }
 
@@ -353,11 +360,15 @@ mod tests {
             (r#""bin""#, Kind::Binary),
             (r#""lib""#, Kind::Library),
             (r#""test""#, Kind::Test),
+            // Legacy fully-qualified rule types emitted by older preludes.
+            (r#""prelude//rules.bzl:rust_binary""#, Kind::Binary),
+            (r#""prelude//rules.bzl:rust_library""#, Kind::Library),
+            (r#""prelude//rules.bzl:rust_test""#, Kind::Test),
         ] {
             assert_eq!(serde_json::from_str::<Kind>(value)?, expected);
         }
 
-        assert!(serde_json::from_str::<Kind>(r#""prelude//rules.bzl:rust_test""#).is_err());
+        assert!(serde_json::from_str::<Kind>(r#""not_a_kind""#).is_err());
 
         Ok(())
     }
