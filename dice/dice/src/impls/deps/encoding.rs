@@ -25,6 +25,7 @@ use dupe::Dupe;
 use gazebo::prelude::OptionExt;
 use gazebo::variants::VariantName;
 use itertools::Itertools;
+use mini_vec::MiniVec;
 use thiserror::Error;
 
 use crate::impls::deps::graph::SPItem;
@@ -86,12 +87,12 @@ impl Debug for SPTag {
     }
 }
 
-fn push(vec: &mut Vec<u32>, tag: SPTag, value: u32) {
+fn push(vec: &mut MiniVec<u32>, tag: SPTag, value: u32) {
     assert!(value < (1 << 28));
     vec.push((tag.encode() << 28) | value);
 }
 
-impl SPEncoder for Vec<u32> {
+impl SPEncoder for MiniVec<u32> {
     fn write_series_header(&mut self, header: SPSeriesHeader) {
         match header {
             SPSeriesHeader::Simple { key_count } => {
@@ -232,6 +233,8 @@ pub(crate) enum SPDecoderError {
 
 #[cfg(test)]
 mod test {
+    use mini_vec::MiniVec;
+
     use crate::impls::deps::encoding::SPDecoder;
     use crate::impls::deps::encoding::SPEncoder;
     use crate::impls::deps::graph::SPItem;
@@ -239,7 +242,7 @@ mod test {
 
     #[test]
     fn encoding_and_decoding_works() -> anyhow::Result<()> {
-        let mut encoded = Vec::new();
+        let mut encoded = MiniVec::new();
 
         let item1 = SPItem::Keys { key_count: 3 };
         let item2 = SPItem::Keys { key_count: 2 };
@@ -280,12 +283,12 @@ mod test {
     #[test]
     fn decoder_returns_errors_on_wrong_type() -> anyhow::Result<()> {
         {
-            let mut encoded = Vec::new();
+            let mut encoded = MiniVec::new();
             encoded.write_item(SPItem::Keys { key_count: 1 });
             assert!(SPDecoder(encoded.iter()).read_series_header().is_err());
         }
         {
-            let mut encoded = Vec::new();
+            let mut encoded = MiniVec::new();
             encoded.write_item(SPItem::Parallel {
                 key_count: 100,
                 spec_count: 101,
@@ -293,12 +296,12 @@ mod test {
             assert!(SPDecoder(encoded.iter()).read_series_header().is_err());
         }
         {
-            let mut encoded = Vec::new();
+            let mut encoded = MiniVec::new();
             encoded.write_series_header(SPSeriesHeader::Simple { key_count: 1 });
             assert!(SPDecoder(encoded.iter()).read_item().is_err());
         }
         {
-            let mut encoded = Vec::new();
+            let mut encoded = MiniVec::new();
             encoded.write_series_header(SPSeriesHeader::Complex {
                 key_count: 100,
                 spec_count: 101,

@@ -61,7 +61,7 @@ pub(crate) enum VersionedGraphNode {
     Vacant(VacantGraphNode),
 }
 
-mini_vec::size_assert::words_of_type!(VersionedGraphNode, 20);
+mini_vec::size_assert::words_of_type!(VersionedGraphNode, 18);
 
 impl VersionedGraphNode {
     pub(crate) fn force_dirty(
@@ -316,7 +316,7 @@ impl VersionedGraphNode {
 pub(crate) enum InvalidateResult<'a> {
     NoChange,
     /// Returns the rdeps of the node (that must also be invalidated). There can be duplicates in this list.
-    Changed(Option<std::vec::Drain<'a, DiceKey>>),
+    Changed(Option<mini_vec::Drain<'a, DiceKey>>),
 }
 
 /// Whether an `OccupiedGraphNode`'s value has an on-disk (paged) copy, and where

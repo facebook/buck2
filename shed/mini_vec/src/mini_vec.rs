@@ -10,6 +10,7 @@
 
 //! Provides [`MiniVec`].
 
+mod drain;
 mod impls;
 
 use std::alloc;
@@ -22,6 +23,7 @@ use std::ptr::NonNull;
 use std::slice;
 
 use allocative::Allocative;
+pub use drain::Drain;
 
 use crate::packed_ptr::PackedPtr;
 
@@ -274,6 +276,106 @@ impl<T> MiniVec<T> {
     /// Drop all elements but keep the allocation.
     pub fn clear(&mut self) {
         self.truncate(0);
+    }
+
+    /// Insert `value` at index `idx`, shifting all elements at indices
+    /// `>= idx` one position to the right. Panics if `idx > len()`.
+    pub fn insert(&mut self, idx: usize, value: T) {
+        let len = self.len();
+        assert!(idx <= len, "insertion index (is {idx}) > len (is {len})");
+        if len == self.capacity() {
+            self.grow_one();
+        }
+        let unpacked = self.unpack();
+        // SAFETY:
+        // - `idx <= len <= cap`, so `elements + idx` is in bounds.
+        // - After `grow_one`, there is capacity for one more element, so
+        //   `elements + len` is also in bounds.
+        // - `ptr::copy` allows source/destination overlap.
+        unsafe {
+            let p = unpacked.elements.as_ptr().add(idx);
+            ptr::copy(p, p.add(1), len - idx);
+            ptr::write(p, value);
+            self.set_len(len + 1);
+        }
+    }
+
+    /// Remove consecutive duplicate elements, leaving only the first of
+    /// each run.
+    ///
+    /// Equivalent to [`Vec::dedup`].
+    pub fn dedup(&mut self)
+    where
+        T: PartialEq,
+    {
+        let len = self.len();
+        if len <= 1 {
+            return;
+        }
+        // Initially, `set_len` 0 so that if we panic anywhere below things only leak
+        unsafe {
+            self.set_len(0);
+        }
+        let unpacked = self.unpack();
+        let base = unpacked.elements.as_ptr();
+        let mut write: usize = 1;
+        let mut read: usize = 1;
+        while read < len {
+            // SAFETY: `read < len <= cap`, and `write - 1 < write <= read`,
+            // so both pointers reference initialized elements within the
+            // allocation. The two pointers are distinct (proof: at the top
+            // of every iteration `write <= read`, and `write - 1 < read`).
+            unsafe {
+                let read_p = base.add(read);
+                let prev_p = base.add(write - 1);
+                if *read_p == *prev_p {
+                    // Duplicate: drop and skip. The slot at `read` will
+                    // not be reused (its bytes will sit beyond the new
+                    // length and `set_len` below excludes them from
+                    // future drops).
+                    ptr::drop_in_place(read_p);
+                } else {
+                    if read != write {
+                        ptr::copy_nonoverlapping(read_p, base.add(write), 1);
+                    }
+                    write += 1;
+                }
+            }
+            read += 1;
+        }
+        // SAFETY: all kept elements live in `[0..write)`; the trailing
+        // bytes are either bit-copies of moved elements (whose owners are
+        // now at lower indices) or have been explicitly dropped above.
+        unsafe {
+            self.set_len(write);
+        }
+    }
+
+    /// Remove the elements in `range` and return an iterator that yields
+    /// them. Mirrors [`Vec::drain`].
+    ///
+    /// On the iterator's `Drop`, any unconsumed elements in the range are
+    /// dropped and the tail is shifted into the gap.
+    pub fn drain<R>(&mut self, range: R) -> Drain<'_, T>
+    where
+        R: std::ops::RangeBounds<usize>,
+    {
+        let len = self.len();
+        let start = match range.start_bound() {
+            std::ops::Bound::Included(&n) => n,
+            std::ops::Bound::Excluded(&n) => n.checked_add(1).expect("range start overflow"),
+            std::ops::Bound::Unbounded => 0,
+        };
+        let end = match range.end_bound() {
+            std::ops::Bound::Included(&n) => n.checked_add(1).expect("range end overflow"),
+            std::ops::Bound::Excluded(&n) => n,
+            std::ops::Bound::Unbounded => len,
+        };
+        assert!(start <= end, "drain range start ({start}) > end ({end})");
+        assert!(end <= len, "drain range end ({end}) > len ({len})");
+        // SAFETY: `start <= end <= len`, and we hand `Drain` exclusive
+        // access to `self` for the iterator's lifetime.
+        unsafe { Drain::new(self, start, end) }
     }
 
     /// Truncate the vector to `new_len`, dropping elements at indices
@@ -1370,5 +1472,191 @@ mod tests {
         assert_eq!(v.capacity(), cap_before);
         v.push(42);
         assert_eq!(v.as_slice(), &[42]);
+    }
+
+    #[test]
+    fn insert_basic() {
+        let mut v: MiniVec<u32> = MiniVec::new();
+        v.insert(0, 10);
+        v.insert(1, 30);
+        v.insert(1, 20);
+        v.insert(0, 5);
+        assert_eq!(v.as_slice(), &[5, 10, 20, 30]);
+    }
+
+    #[test]
+    fn insert_at_end_equals_push() {
+        let mut v: MiniVec<u32> = (0..5).collect();
+        v.insert(5, 99);
+        assert_eq!(v.as_slice(), &[0, 1, 2, 3, 4, 99]);
+    }
+
+    #[test]
+    fn insert_grows_capacity() {
+        // Forces multiple grows including the inline → extended boundary.
+        let mut v: MiniVec<u32> = MiniVec::new();
+        for i in 0..400 {
+            v.insert(0, i);
+        }
+        let expected: Vec<u32> = (0..400).rev().collect();
+        assert_eq!(v.as_slice(), expected.as_slice());
+        assert!(v.is_extended());
+    }
+
+    #[test]
+    #[should_panic(expected = "insertion index")]
+    fn insert_out_of_bounds_panics() {
+        let mut v: MiniVec<u32> = (0..3).collect();
+        v.insert(4, 99);
+    }
+
+    #[test]
+    fn dedup_basic() {
+        let mut v: MiniVec<u32> = vec![1, 1, 2, 3, 3, 3, 4, 5, 5].into();
+        v.dedup();
+        assert_eq!(v.as_slice(), &[1, 2, 3, 4, 5]);
+    }
+
+    #[test]
+    fn dedup_already_unique_no_change() {
+        let mut v: MiniVec<u32> = (0..10).collect();
+        v.dedup();
+        assert_eq!(v.len(), 10);
+        assert!(v.iter().enumerate().all(|(i, x)| *x as usize == i));
+    }
+
+    #[test]
+    fn dedup_all_same() {
+        let mut v: MiniVec<u32> = vec![7; 100].into();
+        v.dedup();
+        assert_eq!(v.as_slice(), &[7]);
+    }
+
+    #[test]
+    fn dedup_empty_and_single() {
+        let mut v: MiniVec<u32> = MiniVec::new();
+        v.dedup();
+        assert_eq!(v.len(), 0);
+        v.push(42);
+        v.dedup();
+        assert_eq!(v.as_slice(), &[42]);
+    }
+
+    #[test]
+    fn dedup_drops_correctly() {
+        // Each duplicate must be dropped exactly once.
+        let r = Rc::new(());
+        let mut v: MiniVec<Rc<()>> = MiniVec::new();
+        for _ in 0..6 {
+            v.push(r.clone());
+        }
+        // Refs: original + 6 in vec = 7.
+        assert_eq!(Rc::strong_count(&r), 7);
+        v.dedup();
+        // After dedup we keep 1 copy; the other 5 must be dropped.
+        assert_eq!(v.len(), 1);
+        assert_eq!(Rc::strong_count(&r), 2);
+        drop(v);
+        assert_eq!(Rc::strong_count(&r), 1);
+    }
+
+    #[test]
+    fn drain_full_range() {
+        let mut v: MiniVec<u32> = (0..5).collect();
+        let drained: Vec<u32> = v.drain(..).collect();
+        assert_eq!(drained, vec![0, 1, 2, 3, 4]);
+        assert_eq!(v.len(), 0);
+    }
+
+    #[test]
+    fn drain_middle_range() {
+        let mut v: MiniVec<u32> = (0..10).collect();
+        let drained: Vec<u32> = v.drain(3..7).collect();
+        assert_eq!(drained, vec![3, 4, 5, 6]);
+        assert_eq!(v.as_slice(), &[0, 1, 2, 7, 8, 9]);
+    }
+
+    #[test]
+    fn drain_empty_range_no_op() {
+        let mut v: MiniVec<u32> = (0..5).collect();
+        let drained: Vec<u32> = v.drain(2..2).collect();
+        assert!(drained.is_empty());
+        assert_eq!(v.as_slice(), &[0, 1, 2, 3, 4]);
+    }
+
+    #[test]
+    fn drain_unconsumed_still_removes() {
+        // Even if the iterator is dropped without being consumed, the
+        // elements in the range must be removed and the tail shifted.
+        let mut v: MiniVec<u32> = (0..10).collect();
+        drop(v.drain(2..6));
+        assert_eq!(v.as_slice(), &[0, 1, 6, 7, 8, 9]);
+    }
+
+    #[test]
+    fn drain_drops_unconsumed_elements() {
+        // Unconsumed elements in the drain range must still be dropped.
+        let r = Rc::new(());
+        let mut v: MiniVec<Rc<()>> = MiniVec::new();
+        for _ in 0..5 {
+            v.push(r.clone());
+        }
+        assert_eq!(Rc::strong_count(&r), 6);
+        drop(v.drain(1..4));
+        // 3 dropped (range), 2 kept in vec, plus the original.
+        assert_eq!(Rc::strong_count(&r), 3);
+        assert_eq!(v.len(), 2);
+        drop(v);
+        assert_eq!(Rc::strong_count(&r), 1);
+    }
+
+    #[test]
+    fn drain_partial_consume_drops_remainder() {
+        // Consume a prefix of the drained iterator; the rest must still be
+        // dropped, and the tail shifted in correctly.
+        let r = Rc::new(());
+        let mut v: MiniVec<Rc<()>> = (0..6).map(|_| r.clone()).collect();
+        assert_eq!(Rc::strong_count(&r), 7);
+        {
+            let mut iter = v.drain(1..5);
+            // Consume the first two of the four-element range.
+            drop(iter.next());
+            drop(iter.next());
+        } // drop iter — should drop the remaining 2 in the range
+        assert_eq!(v.len(), 2);
+        // 4 dropped from the drain range, 2 kept in v, + 1 original = 3.
+        assert_eq!(Rc::strong_count(&r), 3);
+        drop(v);
+        assert_eq!(Rc::strong_count(&r), 1);
+    }
+
+    #[test]
+    fn drain_extended_mode_full() {
+        let mut v: MiniVec<u32> = (0..1000).collect();
+        assert!(v.is_extended());
+        let drained: Vec<u32> = v.drain(..).collect();
+        assert_eq!(drained.len(), 1000);
+        assert_eq!(v.len(), 0);
+    }
+
+    #[test]
+    fn drain_leaked_does_not_double_drop() {
+        // mem::forget on the Drain leaks the in-range elements but must
+        // not leave the vec in an unsafe state: subsequent drop of v must
+        // not double-drop or read freed memory. The vec's len was lowered
+        // to the start of the drain range when the iterator was created,
+        // so the trailing elements are simply forgotten.
+        let r = Rc::new(());
+        let mut v: MiniVec<Rc<()>> = (0..5).map(|_| r.clone()).collect();
+        assert_eq!(Rc::strong_count(&r), 6);
+        std::mem::forget(v.drain(1..4));
+        // Vec length is now 1 (start of drain range). The 3 in-range and
+        // 1 tail elements are leaked.
+        assert_eq!(v.len(), 1);
+        // 1 still in v + 4 leaked + 1 original = 6.
+        assert_eq!(Rc::strong_count(&r), 6);
+        drop(v);
+        // Only the 1 element still tracked by v gets dropped; rest leaked.
+        assert_eq!(Rc::strong_count(&r), 5);
     }
 }

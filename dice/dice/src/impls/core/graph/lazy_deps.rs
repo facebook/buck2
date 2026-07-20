@@ -9,6 +9,7 @@
  */
 
 use allocative::Allocative;
+use mini_vec::MiniVec;
 
 use crate::impls::key::DiceKey;
 use crate::versions::VersionNumber;
@@ -33,7 +34,7 @@ use crate::versions::VersionNumber;
 /// ends up being better in practice than using HashSet.
 #[derive(Allocative, Debug)]
 pub(crate) struct LazyDepsSet {
-    data: Vec<DiceKey>,
+    data: MiniVec<DiceKey>,
     state: State,
 }
 
@@ -53,7 +54,7 @@ enum State {
 impl LazyDepsSet {
     pub(crate) fn new() -> LazyDepsSet {
         Self {
-            data: Vec::new(),
+            data: MiniVec::new(),
             state: State::New,
         }
     }
@@ -102,7 +103,7 @@ impl LazyDepsSet {
     }
 
     /// Clears the set and returns all currently stored deps. The returned iterator might contain duplicates.
-    pub(crate) fn drain(&mut self) -> std::vec::Drain<'_, DiceKey> {
+    pub(crate) fn drain(&mut self) -> mini_vec::Drain<'_, DiceKey> {
         self.state = State::New;
         self.data.drain(..)
     }
