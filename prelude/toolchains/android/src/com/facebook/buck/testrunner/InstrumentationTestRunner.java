@@ -108,6 +108,14 @@ public class InstrumentationTestRunner extends DeviceRunner {
   /** Env var to set the timeout multiplier for long-running tests. */
   static final String PER_TEST_TIMEOUT_MULTIPLIER_ENV = "ANDROID_PER_TEST_TIMEOUT_MULTIPLIER";
 
+  /**
+   * Env var controlling how a per-test artifact staging failure is handled. When set to "true", a
+   * staging failure aborts the run. Otherwise staging is best-effort: the failure is logged and the
+   * run continues without per-test artifact collection for that directory (needed for displayless
+   * emulator images that boot without external storage).
+   */
+  static final String FAIL_ON_ARTIFACT_STAGING_ERROR_ENV = "ANDROID_FAIL_ON_ARTIFACT_STAGING_ERROR";
+
   private static final String INSTRUMENTATION_TEST_DEFAULT_ARTIFACTS_DIR_TEMPLATE =
       "/sdcard/test_result/%s/%s/";
   private static final String INSTRUMENTATION_TEST_DEFAULT_ARTIFACTS_FILE_TEMPLATE =
@@ -905,7 +913,17 @@ public class InstrumentationTestRunner extends DeviceRunner {
     // Clear logcat logs prior to test run
     executeAdbShellCommand("logcat -c");
 
-    // Clean up output directories before the run
+    // Clean up + stage output directories before the run.
+    //
+    // Cleanup is mandatory: a stale directory left over from a prior run could pollute results, so
+    // a failed cleanup always aborts the run.
+    //
+    // Staging (creating the dir) is best-effort by default: some displayless/emulator images boot
+    // without external storage (no MediaProvider -> /sdcard unmounted), and that must not abort the
+    // entire test run. On such a device the failure is logged and the run continues; per-test
+    // artifacts for that dir just won't be collected. Set ANDROID_FAIL_ON_ARTIFACT_STAGING_ERROR to
+    // "true" to make a staging failure abort the run instead.
+    boolean failOnArtifactStagingError = "true".equals(getenv(FAIL_ON_ARTIFACT_STAGING_ERROR_ENV));
     for (final String devicePath : this.extraDirsToPull.keySet()) {
       String resolvedPath = resolvePathForUser(devicePath);
       String output = executeAdbShellCommand("rm -fr " + resolvedPath);
@@ -916,9 +934,23 @@ public class InstrumentationTestRunner extends DeviceRunner {
         System.exit(1);
       }
 
-      output = executeAdbShellCommand("mkdir -p " + resolvedPath);
-      if (!directoryExists(resolvedPath)) {
-        System.err.printf("Failed to create directory %s due to error: %s\n", resolvedPath, output);
+      try {
+        output = executeAdbShellCommand("mkdir -p " + resolvedPath);
+        if (!directoryExists(resolvedPath)) {
+          throw new RuntimeException(String.format("mkdir did not create directory: %s", output));
+        }
+      } catch (Exception e) {
+        if (failOnArtifactStagingError) {
+          System.err.printf(
+              "Failed to create directory %s due to error: %s\n", resolvedPath, e.getMessage());
+          System.exit(1);
+        }
+        System.err.printf(
+            "Warning: could not stage artifact directory %s; external storage may be"
+                + " unavailable on this device (e.g. a displayless emulator without"
+                + " MediaProvider). Continuing without per-test artifact collection for this"
+                + " dir. Error: %s\n",
+            resolvedPath, e.getMessage());
       }
     }
 
