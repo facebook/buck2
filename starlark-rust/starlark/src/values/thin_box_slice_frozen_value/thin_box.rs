@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 
-//! This type is a copy-paste of `buck2_util::thin_box::ThinBoxSlice`, with some mild adjustments.
+//! Internal `Box<[T]>`-like single-pointer slice used to back
+//! [`ThinBoxSliceFrozenValue`](super::packed_impl::ThinBoxSliceFrozenValue).
 //!
 //! Specifically:
 //!  1. This type guarantees that it's always a pointer with the bottom bit zero.

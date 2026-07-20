@@ -94,13 +94,13 @@ use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_hash::BuckIndexMap;
 use buck2_hash::BuckIndexSet;
 use buck2_hash::buck_indexmap;
-use buck2_util::thin_box::ThinBoxSlice;
 use derive_more::Display;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use host_sharing::HostSharingRequirements;
 use host_sharing::WeightClass;
 use itertools::Itertools;
+use mini_vec::MiniBoxSlice;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use serde_json::json;
@@ -254,8 +254,8 @@ pub(crate) struct UnregisteredRunAction {
     pub(crate) allow_offline_output_cache: bool,
     pub(crate) force_full_hybrid_if_capable: bool,
     pub(crate) unique_input_inodes: bool,
-    pub(crate) remote_execution_dependencies: ThinBoxSlice<RemoteExecutorDependency>,
-    pub(crate) re_gang_workers: ThinBoxSlice<ReGangWorker>,
+    pub(crate) remote_execution_dependencies: MiniBoxSlice<RemoteExecutorDependency>,
+    pub(crate) re_gang_workers: MiniBoxSlice<ReGangWorker>,
     // Since this is usually None, use a Box to avoid using memory that is the size
     // of RemoteExecutorCustomImage.
     pub(crate) remote_execution_custom_image: Option<Box<RemoteExecutorCustomImage>>,
