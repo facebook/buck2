@@ -1629,7 +1629,7 @@ mod tests {
 
         // Simulate a page-out: replace the node's hydrated value with a paged-out marker.
         if let Some(VersionedGraphNode::Occupied(occ)) = cache.nodes.get_mut(&key0.k) {
-            occ.set_paged_out(pagable::DataKey(0xdeadbeef));
+            occ.set_paged_out(pagable::DataKey::compute(0xdeadbeef, &[], &[]));
         } else {
             panic!("expected Occupied node");
         }
@@ -1680,7 +1680,7 @@ mod tests {
         );
 
         if let Some(VersionedGraphNode::Occupied(occ)) = cache.nodes.get_mut(&key.k) {
-            occ.set_paged_out(pagable::DataKey(0xdeadbeef));
+            occ.set_paged_out(pagable::DataKey::compute(0xdeadbeef, &[], &[]));
         } else {
             panic!("expected Occupied node");
         }

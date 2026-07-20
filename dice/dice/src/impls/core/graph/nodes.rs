@@ -18,7 +18,6 @@
 //! number for each cache entry and a global version counter to determine
 //! up-to-date-ness of cache entries.
 
-use std::num::NonZeroU128;
 use std::ops::Bound;
 use std::ops::RangeBounds;
 
@@ -331,10 +330,10 @@ pub(crate) enum PagedState {
     NeverPagedOut,
     /// Serialized to disk and evicted from memory, so the key is load-bearing and
     /// `value` is absent.
-    PagedOut(NonZeroU128),
+    PagedOut(DataKey),
     /// Serialized to disk and since re-hydrated, so the next page-out can reuse the
     /// key and skip re-serialization.
-    PagedBackIn(NonZeroU128),
+    PagedBackIn(DataKey),
     /// Considered for page-out but its value can't be serialized (e.g.
     /// `NoValueSerialize`, or an `Err`); resident and not a page-out candidate.
     NonPageable,
@@ -382,7 +381,7 @@ impl PagableNodeValue {
     pub(crate) fn data_key(&self) -> Option<DataKey> {
         match self.paged_state {
             PagedState::NeverPagedOut | PagedState::NonPageable => None,
-            PagedState::PagedOut(k) | PagedState::PagedBackIn(k) => Some(DataKey(k.get())),
+            PagedState::PagedOut(k) | PagedState::PagedBackIn(k) => Some(k),
         }
     }
 }
@@ -576,7 +575,7 @@ impl OccupiedGraphNode {
     /// Records that the value has been written to storage at `data_key` and drops
     /// the in-memory value (the on-disk reference is now load-bearing).
     pub(crate) fn set_paged_out(&mut self, data_key: DataKey) {
-        self.res.paged_state = PagedState::PagedOut(data_key.to_non_zero());
+        self.res.paged_state = PagedState::PagedOut(data_key);
         self.res.value = None;
     }
 

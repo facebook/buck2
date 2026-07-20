@@ -38,7 +38,7 @@ use dupe::Dupe;
     bytemuck::AnyBitPattern
 )]
 #[repr(transparent)]
-pub struct DataKey(pub u128);
+pub struct DataKey(u128);
 
 static_assertions::assert_eq_size!(DataKey, OptionalDataKey);
 
@@ -47,7 +47,7 @@ impl DataKey {
     ///
     /// Uses blake3 to hash the arc count, data bytes, and nested arc keys together.
     /// Returns a DataKey with a value guaranteed to be non-zero.
-    pub(crate) fn compute(arcs: usize, data: &[u8], more_data: &[u8]) -> Self {
+    pub fn compute(arcs: usize, data: &[u8], more_data: &[u8]) -> Self {
         let mut hasher = blake3::Hasher::new();
         hasher.update(&arcs.to_le_bytes());
         hasher.update(data);
@@ -64,6 +64,14 @@ impl DataKey {
             return Self(1);
         }
         Self(value)
+    }
+
+    pub fn testing_new(v: u128) -> Self {
+        Self(v)
+    }
+
+    pub fn get(self) -> u128 {
+        self.to_non_zero().get()
     }
 
     /// Returns the key as a `NonZeroU128`. `DataKey` is morally a `NonZeroU128`

@@ -373,7 +373,7 @@ impl ShardInner {
         if items.is_empty() {
             return Ok(());
         }
-        items.sort_unstable_by_key(|(key, _bytes)| key.0);
+        items.sort_unstable_by_key(|(key, _bytes)| key.get());
 
         let mut conn = self.conns.get_readwrite();
         let tx = conn.transaction()?;
@@ -440,7 +440,7 @@ impl SqliteBackedPagableStorage {
 
     #[inline]
     fn shard_for(&self, key: &DataKey) -> &Shard {
-        &self.shards[(key.0 % self.shards.len() as u128) as usize]
+        &self.shards[(key.get() % self.shards.len() as u128) as usize]
     }
 
     fn fetch_data_read(&self, key: &DataKey) -> anyhow::Result<Arc<PagableData>> {
@@ -580,7 +580,7 @@ impl PagableStorage for SqliteBackedPagableStorage {
 }
 
 fn data_key_parts(key: DataKey) -> (i64, i64) {
-    ((key.0 as u64) as i64, ((key.0 >> 64) as u64) as i64)
+    ((key.get() as u64) as i64, ((key.get() >> 64) as u64) as i64)
 }
 
 fn sqlite_insert_batch_row_limit(conn: &Connection) -> anyhow::Result<usize> {
@@ -712,9 +712,9 @@ mod tests {
             error: None,
         };
 
-        state
-            .active_buffer
-            .extend((0..WRITE_BUFFER_CAPACITY).map(|i| (DataKey(i as u128), Vec::new())));
+        state.active_buffer.extend(
+            (0..WRITE_BUFFER_CAPACITY).map(|i| (DataKey::testing_new(i as u128), Vec::new())),
+        );
         state.queue_active_for_later_flush();
 
         assert_eq!(1, state.pending_buffers.len());
@@ -768,7 +768,7 @@ mod tests {
             )?;
             let tx = conn.transaction()?;
             let items = (0..item_count)
-                .map(|i| (DataKey(i as u128), vec![i as u8]))
+                .map(|i| (DataKey::testing_new(i as u128 + 1), vec![i as u8]))
                 .collect::<Vec<_>>();
             let batch_sql = insert_sql(batch_rows);
             insert_items(&tx, &items, batch_rows, &batch_sql)?;
@@ -805,7 +805,7 @@ mod tests {
         for i in 0..128 {
             let data = pagable_data(
                 format!("serialized payload {i}").as_bytes(),
-                vec![DataKey(i), DataKey(i + 1000)],
+                vec![DataKey::testing_new(i), DataKey::testing_new(i + 1000)],
             );
             let expected_data = data.data.clone();
             let expected_arcs = data.arcs.clone();
@@ -840,12 +840,15 @@ mod tests {
         let dir = TempStorageDir::new("duplicate_keys")?;
         let storage = SqliteBackedPagableStorage::try_new(&dir.path)?;
 
-        let data = pagable_data(b"duplicate payload", vec![DataKey(11)]);
+        let data = pagable_data(b"duplicate payload", vec![DataKey::testing_new(11)]);
         let key = data.compute_key();
         assert_eq!(key, storage.store_data(data)?);
         assert_eq!(
             key,
-            storage.store_data(pagable_data(b"duplicate payload", vec![DataKey(11)]))?
+            storage.store_data(pagable_data(
+                b"duplicate payload",
+                vec![DataKey::testing_new(11)]
+            ))?
         );
         storage.flush()?;
 
@@ -858,7 +861,7 @@ mod tests {
 
         let fetched = storage.fetch_data_blocking(&key)?;
         assert_eq!(b"duplicate payload", fetched.data.as_slice());
-        assert_eq!(vec![DataKey(11)], fetched.arcs);
+        assert_eq!(vec![DataKey::testing_new(11)], fetched.arcs);
         Ok(())
     }
 
@@ -867,10 +870,13 @@ mod tests {
         let dir = TempStorageDir::new("drop_drains")?;
         let key = {
             let storage = SqliteBackedPagableStorage::try_new(&dir.path)?;
-            storage.store_data(pagable_data(b"drop drains payload", vec![DataKey(7)]))?
+            storage.store_data(pagable_data(
+                b"drop drains payload",
+                vec![DataKey::testing_new(7)],
+            ))?
         };
 
-        let shard_id = (key.0 % NUM_SHARDS as u128) as usize;
+        let shard_id = (key.get() % NUM_SHARDS as u128) as usize;
         let conn = Connection::open(dir.path.join(format!("pagable.{shard_id}.db")))?;
         let (key_lo, key_hi) = data_key_parts(key);
         let value: Vec<u8> = conn.query_row(
@@ -880,7 +886,7 @@ mod tests {
         )?;
         let fetched = SqliteBackedPagableStorage::decode_pagable_data(&value, &key)?;
         assert_eq!(b"drop drains payload", fetched.data.as_slice());
-        assert_eq!(vec![DataKey(7)], fetched.arcs);
+        assert_eq!(vec![DataKey::testing_new(7)], fetched.arcs);
         Ok(())
     }
 }
