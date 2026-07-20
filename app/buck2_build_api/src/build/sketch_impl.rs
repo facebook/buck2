@@ -193,7 +193,7 @@ impl<T: StrongHash, S: TypedSketch> Sketcher<T> for VersionedSketcher<T, S> {
 
     fn sketch_weighted(&mut self, t: &T, weight: u64) {
         self.sketcher
-            .sketch_weighted_locality_unstable(UseStrongHashing::ref_cast(t), weight);
+            .sketch_weighted(UseStrongHashing::ref_cast(t), weight);
     }
 }
 

@@ -8,7 +8,9 @@
  * above-listed licenses.
  */
 
-mod fyshuffle;
+//! Provides the [`SetSketch`] type which implements the setsketch1 algorithm (Ertl 2021,
+//! <https://arxiv.org/abs/2101.00314>).
+
 mod sketch;
 
 pub use sketch::SetSketch;
