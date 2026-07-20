@@ -86,4 +86,4 @@ mimalloc.workspace = true
 windows-sys.workspace = true
 
 [lints.rust]
-unexpected_cfgs = { level = "allow", check-cfg = ["cfg(fbcode_build)", "cfg(buck_build)", "cfg(client_only)", "cfg(tokio_unstable)", "cfg(buck2_memfrag)"]}
+unexpected_cfgs = { level = "allow", check-cfg = ["cfg(fbcode_build)", "cfg(buck_build)", "cfg(client_only)", "cfg(tokio_unstable)", "cfg(mini_vec_no_ptr_packing)", "cfg(buck2_memfrag)"]}
