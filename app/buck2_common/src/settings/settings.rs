@@ -34,6 +34,7 @@ impl<T: Clone> SettingKey<T> {
 }
 
 const LOG_USE_MANIFOLD: SettingKey<bool> = SettingKey {
+    // None is a migration placeholder to support buckconfig fallback
     internal_default: None,
     oss_default: Some(false),
 };

@@ -22,6 +22,7 @@ use serde::Serialize;
 
 use crate::legacy_configs::configs::LegacyBuckConfig;
 use crate::legacy_configs::key::BuckconfigKeyRef;
+use crate::settings::BuckSettings;
 
 pub const DEFAULT_RETAINED_EVENT_LOGS: usize = 12;
 
@@ -585,19 +586,23 @@ pub struct DaemonStartupConfig {
 }
 
 impl DaemonStartupConfig {
-    pub fn new(config: &LegacyBuckConfig) -> buck2_error::Result<Self> {
+    pub fn new(config: &LegacyBuckConfig, settings: &BuckSettings) -> buck2_error::Result<Self> {
         // Intepreted client side because we need the value here.
 
         let log_download_method = {
             // Determine the log download method to use. Only default to
             // manifold in fbcode contexts, or when specifically asked.
-            let use_manifold_default = cfg!(fbcode_build);
-            let use_manifold = config
-                .parse(BuckconfigKeyRef {
-                    section: "buck2",
-                    property: "log_use_manifold",
-                })?
-                .unwrap_or(use_manifold_default);
+            let use_manifold = settings
+                .log_use_manifold()
+                .map(Ok::<_, buck2_error::Error>)
+                .unwrap_or_else(|| {
+                    Ok(config
+                        .parse(BuckconfigKeyRef {
+                            section: "buck2",
+                            property: "log_use_manifold",
+                        })?
+                        .unwrap_or(cfg!(fbcode_build)))
+                })?;
 
             if use_manifold {
                 Ok(LogDownloadMethod::Manifold)
@@ -740,7 +745,7 @@ mod tests {
     #[test]
     fn test_daemon_idle_timeout_s_default() -> buck2_error::Result<()> {
         let config = parse(&[("config", indoc!(r#""#))], "config")?;
-        let startup_config = DaemonStartupConfig::new(&config)?;
+        let startup_config = DaemonStartupConfig::new(&config, &BuckSettings::empty())?;
         assert_eq!(startup_config.daemon_idle_timeout_s, None);
         Ok(())
     }
@@ -759,7 +764,7 @@ mod tests {
             )],
             "config",
         )?;
-        let startup_config = DaemonStartupConfig::new(&config)?;
+        let startup_config = DaemonStartupConfig::new(&config, &BuckSettings::empty())?;
         assert_eq!(startup_config.daemon_idle_timeout_s, Some(10800));
         Ok(())
     }

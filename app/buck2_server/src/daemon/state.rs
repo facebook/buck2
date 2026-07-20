@@ -1043,6 +1043,7 @@ async fn http_client_from_startup_config(
 mod tests {
 
     use buck2_common::legacy_configs::configs::testing::parse;
+    use buck2_common::settings::BuckSettings;
     use indoc::indoc;
 
     use super::*;
@@ -1087,7 +1088,7 @@ mod tests {
             )],
             "config",
         )?;
-        let startup_config = DaemonStartupConfig::new(&config)?;
+        let startup_config = DaemonStartupConfig::new(&config, &BuckSettings::empty())?;
         let builder = http_client_from_startup_config(&startup_config).await?;
         assert_eq!(5, builder.max_redirects().unwrap());
         assert_eq!(Some(Duration::from_millis(10)), builder.connect_timeout());
@@ -1115,7 +1116,7 @@ mod tests {
             )],
             "config",
         )?;
-        let startup_config = DaemonStartupConfig::new(&config)?;
+        let startup_config = DaemonStartupConfig::new(&config, &BuckSettings::empty())?;
         let builder = http_client_from_startup_config(&startup_config).await?;
         assert_eq!(None, builder.connect_timeout());
         assert_eq!(

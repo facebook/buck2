@@ -19,6 +19,7 @@ use buck2_common::invocation_roots::find_invocation_roots;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
 #[cfg(fbcode_build)]
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
+use buck2_common::settings::parser::parse_repo_root;
 use buck2_core::buck2_env;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
@@ -50,6 +51,8 @@ impl ImmediateConfig {
     /// and without parsing any configs for any referenced cells. This means this function might return
     /// an empty mapping if the root `.buckconfig` does not contain the cell definitions.
     fn parse(roots: &InvocationRoots) -> buck2_error::Result<ImmediateConfig> {
+        let settings = parse_repo_root(&roots.project_root)?;
+
         // This function is non-reentrant, and blocking for a bit should be ok
         let cells = futures::executor::block_on(BuckConfigBasedCells::parse_with_config_args(
             &roots.project_root,
@@ -63,7 +66,7 @@ impl ImmediateConfig {
         Ok(ImmediateConfig {
             cell_resolver: cells.cell_resolver,
             cwd_cell_alias_resolver,
-            daemon_startup_config: DaemonStartupConfig::new(&cells.root_config)
+            daemon_startup_config: DaemonStartupConfig::new(&cells.root_config, &settings)
                 .buck_error_context("Error loading daemon startup config")?,
             #[cfg(fbcode_build)]
             allow_daemon_start_unsandboxed_via_wrapper: cells
