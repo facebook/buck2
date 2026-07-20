@@ -373,6 +373,10 @@ notify = "8.2.0"
 num-bigint = { version = "0.4.8", features = ["rand", "serde"] }
 num_enum = "0.7.6"
 object = { version = "0.36.7", features = ["read", "write"] }
+opentelemetry = "0.32.0"
+opentelemetry-otlp = { version = "0.32.0", default-features = false, features = ["trace", "http-proto", "reqwest-blocking-client", "reqwest-rustls"] }
+opentelemetry-semantic-conventions = { version = "0.32.0", features = ["semconv_experimental"] }
+opentelemetry_sdk = "0.32.1"
 os_str_bytes = { version = "6.6.1", features = ["conversions"] }
 pagable = { path = "pagable", features = ["tokio"] }
 pagable_storage = { path = "pagable_storage", features = ["tokio"] }
