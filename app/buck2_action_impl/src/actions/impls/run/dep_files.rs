@@ -85,6 +85,7 @@ use buck2_hash::StdBuckHashMap;
 use buck2_hash::StdBuckHashSet;
 use derive_more::Display;
 use dupe::Dupe;
+use either::Either;
 use futures::StreamExt;
 use pagable::Pagable;
 use parking_lot::MappedMutexGuard;
@@ -100,7 +101,80 @@ use crate::actions::impls::run::RunActionKey;
 /// Groups the per-configuration dep-file states of one logical action, keyed by the action's
 /// configuration. The key is `None` for anon-target and BXL actions, which have no
 /// configuration (and always occupy their own single-entry slot).
-type ConfigActionSlot = SmallMap<Option<Configuration>, Arc<DepFileState>>;
+/// Most logical actions are only ever
+/// seen under a single configuration, so that common case is stored inline (`One`) to avoid
+/// allocating a map for a single entry; a second configuration promotes the slot to `Many`. The
+/// `Many` map is boxed so this enum stays pointer-sized -- single-configuration `One` slots (the
+/// common case) then don't pay for the map's larger inline footprint.
+#[derive(Allocative)]
+enum ConfigActionSlot {
+    One(Option<Configuration>, Arc<DepFileState>),
+    Many(Box<SmallMap<Option<Configuration>, Arc<DepFileState>>>),
+}
+
+impl ConfigActionSlot {
+    fn get(&self, cfg: &Option<Configuration>) -> Option<&Arc<DepFileState>> {
+        match self {
+            ConfigActionSlot::One(c, s) => (*c == *cfg).then_some(s),
+            ConfigActionSlot::Many(m) => m.get(cfg),
+        }
+    }
+
+    /// The dep-file state of every configuration in this slot.
+    fn states(&self) -> impl Iterator<Item = &Arc<DepFileState>> {
+        match self {
+            ConfigActionSlot::One(_, s) => Either::Left(std::iter::once(s)),
+            ConfigActionSlot::Many(m) => Either::Right(m.values()),
+        }
+    }
+
+    /// Insert (or replace) `cfg`'s entry, promoting `One` -> `Many` when a second configuration
+    /// appears.
+    fn insert(&mut self, cfg: Option<Configuration>, state: Arc<DepFileState>) {
+        match self {
+            ConfigActionSlot::Many(m) => {
+                m.insert(cfg, state);
+            }
+            ConfigActionSlot::One(c, s) if *c == cfg => {
+                *s = state;
+            }
+            _ => {
+                let ConfigActionSlot::One(c, s) =
+                    std::mem::replace(self, ConfigActionSlot::Many(Box::new(SmallMap::new())))
+                else {
+                    unreachable!("the arms above cover Many and the matching One");
+                };
+                let ConfigActionSlot::Many(m) = self else {
+                    unreachable!("just replaced with Many");
+                };
+                m.insert(c, s);
+                m.insert(cfg, state);
+            }
+        }
+    }
+
+    /// Remove `cfg`'s entry; returns true if the slot is now empty and should be dropped.
+    fn remove(&mut self, cfg: &Option<Configuration>) -> bool {
+        match self {
+            ConfigActionSlot::One(c, _) => *c == *cfg,
+            ConfigActionSlot::Many(m) => {
+                m.shift_remove(cfg);
+                m.is_empty()
+            }
+        }
+    }
+
+    /// Keep only entries whose state satisfies `f`; returns true if the slot is still non-empty.
+    fn retain_non_empty(&mut self, f: impl Fn(&Arc<DepFileState>) -> bool) -> bool {
+        match self {
+            ConfigActionSlot::One(_, s) => f(s),
+            ConfigActionSlot::Many(m) => {
+                m.retain(|_, s| f(s));
+                !m.is_empty()
+            }
+        }
+    }
+}
 
 #[allocative::root]
 static DEP_FILES: LazyLock<BuckDashMap<LogicalActionKey, ConfigActionSlot>> =
@@ -128,11 +202,8 @@ fn flush_non_local_dep_files() {
         "Flushing non-local dep files, current size is: {}",
         DEP_FILES.len()
     );
-    DEP_FILES.retain(|_, slot| {
-        slot.retain(|_, dep_file_state| dep_file_state.was_produced_locally);
-        // Drop the whole slot once its last configuration entry is gone.
-        !slot.is_empty()
-    });
+    // Keep only locally-produced states; drop a slot once its last configuration entry is gone.
+    DEP_FILES.retain(|_, slot| slot.retain_non_empty(|state| state.was_produced_locally));
     tracing::info!(
         "Number of remaining local dep file slots is: {}",
         DEP_FILES.len()
@@ -152,20 +223,11 @@ pub(crate) fn get_dep_files(key: &RunActionKey) -> Option<Arc<DepFileState>> {
 /// Remove a single configuration's entry from its slot, dropping the slot once it holds no more
 /// configurations. Every `DEP_FILES` removal funnels through here so empty slots don't leak.
 fn remove_dep_file_entry(key: &RunActionKey) {
-    let logical = key.to_logical();
-    // Take the slot's write guard only to remove the entry, then release it before removing the
-    // (now possibly empty) slot -- `remove_if` re-checks emptiness under its own guard, so a
-    // concurrent insert can never drop a non-empty slot.
-    let now_empty = match DEP_FILES.get_mut(&logical) {
-        Some(mut slot) => {
-            slot.shift_remove(&key.configuration());
-            slot.is_empty()
-        }
-        None => return,
-    };
-    if now_empty {
-        DEP_FILES.remove_if(&logical, |_, slot| slot.is_empty());
-    }
+    // Remove this configuration's entry and, if that empties the slot, drop the slot -- both under
+    // one guard via `remove_if_mut` (the closure mutates the slot and returns whether to drop it).
+    DEP_FILES.remove_if_mut(&key.to_logical(), |_, slot| {
+        slot.remove(&key.configuration())
+    });
 }
 
 /// The input signatures for a DepFileState. We compute those lazily, so we either have the input
@@ -797,7 +859,7 @@ pub(crate) async fn match_if_identical_action(
     // async `outputs_match` or `check_action`'s cache mutations. `check_action`'s miss-path
     // eviction of `key` is a no-op here: this configuration has no entry.
     let candidates: Vec<Arc<DepFileState>> = match DEP_FILES.get(&key.to_logical()) {
-        Some(slot) => slot.values().map(Dupe::dupe).collect(),
+        Some(slot) => slot.states().map(Dupe::dupe).collect(),
         None => Vec::new(),
     };
     for candidate in candidates {
@@ -1233,11 +1295,16 @@ pub(crate) async fn populate_dep_files(
         }
     };
 
-    let logical = dep_files_key.to_logical();
+    let cfg = dep_files_key.configuration();
+    let state = Arc::new(state);
     DEP_FILES
-        .entry(logical)
-        .or_insert_with(SmallMap::new)
-        .insert(dep_files_key.configuration(), Arc::new(state));
+        .entry(dep_files_key.to_logical())
+        .or_insert_with({
+            let cfg = cfg.dupe();
+            let state = state.dupe();
+            move || ConfigActionSlot::One(cfg, state)
+        })
+        .insert(cfg, state);
     Ok(())
 }
 
