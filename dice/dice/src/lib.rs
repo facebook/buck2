@@ -207,6 +207,7 @@ pub(crate) mod metrics;
 pub(crate) mod opaque;
 pub(crate) mod stats;
 pub(crate) mod storage;
+pub(crate) mod updater;
 pub(crate) mod user_cycle;
 pub(crate) mod value;
 mod versions;
