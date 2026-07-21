@@ -42,7 +42,7 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::HashMap;
-use crate::impls::core::state::CoreStateHandle;
+use crate::core::state::CoreStateHandle;
 use crate::impls::dice::PageOutCancel;
 use crate::impls::key::DiceKey;
 use crate::impls::key::DiceKeyErased;

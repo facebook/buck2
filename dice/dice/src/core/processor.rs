@@ -13,11 +13,11 @@ use std::sync::Arc;
 #[allow(unused_imports)]
 use gazebo::variants::VariantName;
 
-use crate::impls::core::graph::storage::ValueReusable;
-use crate::impls::core::internals::CoreState;
-use crate::impls::core::state::CoreStateHandle;
-use crate::impls::core::state::QueueCounters;
-use crate::impls::core::state::StateRequest;
+use crate::core::graph::storage::ValueReusable;
+use crate::core::internals::CoreState;
+use crate::core::state::CoreStateHandle;
+use crate::core::state::QueueCounters;
+use crate::core::state::StateRequest;
 use crate::impls::ctx::VersionEpochState;
 
 pub(super) struct StateProcessor {

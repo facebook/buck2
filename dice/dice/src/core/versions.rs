@@ -187,7 +187,7 @@ impl VersionForWrites<'_> {
 pub(crate) mod introspection {
 
     use crate::HashMap;
-    use crate::impls::core::versions::VersionTracker;
+    use crate::core::versions::VersionTracker;
     use crate::impls::key::DiceKey;
     use crate::introspection::DiceTaskState;
     use crate::introspection::graph::AnyKey;
@@ -238,8 +238,8 @@ pub(crate) mod introspection {
 mod tests {
     use assert_matches::assert_matches;
 
-    use crate::impls::core::versions::VersionEpoch;
-    use crate::impls::core::versions::VersionTracker;
+    use crate::core::versions::VersionEpoch;
+    use crate::core::versions::VersionTracker;
     use crate::versions::VersionNumber;
 
     #[test]

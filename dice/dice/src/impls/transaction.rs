@@ -22,7 +22,7 @@ use crate::api::key::InvalidationSourcePriority;
 use crate::api::key::Key;
 use crate::api::storage_type::StorageType;
 use crate::api::user_data::UserComputationData;
-use crate::impls::core::state::CoreStateHandle;
+use crate::core::state::CoreStateHandle;
 use crate::impls::ctx::TransactionCtx;
 use crate::impls::ctx::VersionEpochState;
 use crate::impls::key::DiceKey;

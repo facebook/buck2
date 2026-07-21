@@ -26,8 +26,8 @@ use serde::de::Visitor;
 
 use crate::HashMap;
 use crate::HashSet;
-use crate::impls::core::graph::introspection::VersionedGraphIntrospectable;
-use crate::impls::core::versions::introspection::VersionIntrospectable;
+use crate::core::graph::introspection::VersionedGraphIntrospectable;
+use crate::core::versions::introspection::VersionIntrospectable;
 use crate::impls::key::DiceKey;
 use crate::introspection::DiceTaskState;
 use crate::introspection::serialize_dense_graph;
