@@ -43,7 +43,7 @@ def _build_dependencies_file(
     run_worker_commands(
         ctx = ctx,
         worker_tool = ctx.attrs.worker,
-        command_args_files = [command_args_file],
+        command_args_file = command_args_file,
         identifier = transform_profile,
         category = "dependencies",
     )
@@ -101,7 +101,7 @@ def _build_js_bundle(
     run_worker_commands(
         ctx = ctx,
         worker_tool = ctx.attrs.worker,
-        command_args_files = [command_args_file],
+        command_args_file = command_args_file,
         identifier = base_dir,
         category = "bundle",
     )

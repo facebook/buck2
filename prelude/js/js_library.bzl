@@ -9,6 +9,7 @@
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//js:js_providers.bzl", "JsLibraryInfo", "get_transitive_outputs")
 load("@prelude//js:js_utils.bzl", "TRANSFORM_PROFILES", "get_canonical_src_name", "get_flavors", "run_worker_commands")
+load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:utils.bzl", "map_idx")
 
@@ -57,6 +58,7 @@ def _get_virtual_path(package: str, src: Artifact) -> str:
 # all of TRANSFORM_PROFILES.
 _PrecomputedJsFile = record(
     canonical_name = str,
+    hidden_inputs = list[ArgLike],
     job_args = dict,
 )
 
@@ -66,8 +68,10 @@ def _precompute_transform_job_args(ctx: AnalysisContext, flavors: list[str], gro
     # and `transformProfile`, so build the profile-independent portion exactly once here instead
     # of rebuilding it for every (source, profile) pair inside `_build_js_files`.
     extra_job_args = {}
+    extra_hidden_inputs = []
     if ctx.attrs.extra_json:
         extra_job_args["extraData"] = cmd_args(ctx.attrs.extra_json, delimiter = "")
+        extra_hidden_inputs.append(ctx.attrs.extra_json)
 
     if ctx.attrs.extra_babel_plugins:
         babel_plugin_configs = []
@@ -79,8 +83,10 @@ def _precompute_transform_job_args(ctx: AnalysisContext, flavors: list[str], gro
                 plugin_args_json = None
             plugin_artifact = plugin_dep[DefaultInfo].default_outputs[0]
             config = {"modulePath": plugin_artifact}
+            extra_hidden_inputs.append(plugin_artifact)
             if plugin_args_json != None:
                 config["pluginArgs"] = cmd_args(plugin_args_json, delimiter = "")
+                extra_hidden_inputs.append(plugin_args_json)
             babel_plugin_configs.append(config)
         extra_job_args["extraBabelPlugins"] = babel_plugin_configs
 
@@ -106,6 +112,7 @@ def _precompute_transform_job_args(ctx: AnalysisContext, flavors: list[str], gro
         precomputed_js_files.append(
             _PrecomputedJsFile(
                 canonical_name = grouped_src.canonical_name,
+                hidden_inputs = [grouped_src.main_source] + grouped_src.additional_sources + extra_hidden_inputs,
                 job_args = job_args,
             )
         )
@@ -117,7 +124,8 @@ def _build_js_files(ctx: AnalysisContext, transform_profile: str, precomputed_js
         return []
 
     all_output_paths = []
-    all_command_args_files = []
+    all_command_hidden_artifacts = []
+    all_job_args = []
     for precomputed_js_file in precomputed_js_files:
         identifier = "{}/{}".format(transform_profile, precomputed_js_file.canonical_name)
 
@@ -131,24 +139,33 @@ def _build_js_files(ctx: AnalysisContext, transform_profile: str, precomputed_js
         job_args["outputFilePath"] = output_path.as_output()
         job_args["transformProfile"] = "default" if transform_profile == "hermes-legacy" else transform_profile
 
-        command_args_file = ctx.actions.write_json(
-            "{}_command_args".format(identifier),
-            job_args,
-            with_inputs = True,
-            has_content_based_path = True,
-        )
-
         all_output_paths.append(output_path)
-        all_command_args_files.append(command_args_file)
+        all_command_hidden_artifacts.append(precomputed_js_file.hidden_inputs + [output_path.as_output()])
+        all_job_args.append(job_args)
+
+    command_args_file = ctx.actions.write_json(
+        "{}.js_command_args".format(transform_profile),
+        {
+            "commands": all_job_args,
+            "version": 1,
+        },
+        with_inputs = False,
+        has_content_based_path = True,
+    )
 
     batch_size = 25
     command_count = len(all_output_paths)
     for batch_number, start_index in enumerate(range(0, command_count, batch_size)):
         end_index = min(start_index + batch_size, command_count)
+        hidden_artifacts = []
+        for command_hidden_artifacts in all_command_hidden_artifacts[start_index:end_index]:
+            hidden_artifacts.extend(command_hidden_artifacts)
         run_worker_commands(
             ctx = ctx,
             worker_tool = ctx.attrs.worker,
-            command_args_files = all_command_args_files[start_index:end_index],
+            command_args_file = command_args_file,
+            command_args_file_range = (start_index, end_index),
+            hidden_artifacts = hidden_artifacts,
             identifier = "{}_{}_batch{}".format(ctx.label.name, transform_profile, batch_number),
             category = "transform",
             has_content_based_path = True,
@@ -187,7 +204,7 @@ def _build_library_files(ctx: AnalysisContext, transform_profile: str, flavors: 
     run_worker_commands(
         ctx = ctx,
         worker_tool = ctx.attrs.worker,
-        command_args_files = [command_args_file],
+        command_args_file = command_args_file,
         identifier = transform_profile,
         category = "library_files",
         has_content_based_path = True,
@@ -222,7 +239,7 @@ def _build_js_library(ctx: AnalysisContext, transform_profile: str, library_file
     run_worker_commands(
         ctx = ctx,
         worker_tool = ctx.attrs.worker,
-        command_args_files = [command_args_file],
+        command_args_file = command_args_file,
         identifier = transform_profile,
         category = "library_dependencies",
         has_content_based_path = True,

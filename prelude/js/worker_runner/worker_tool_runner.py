@@ -17,6 +17,7 @@ import traceback
 from typing import Any, Dict
 
 ENCODING = "utf-8"
+AGGREGATE_COMMAND_ARGS_VERSION = 1
 
 TYPE_HANDSHAKE = "handshake"
 TYPE_COMMAND = "command"
@@ -63,6 +64,13 @@ def _parse_args():
         nargs="+",
         metavar="command_args_file",
         help="Path to the file with command arguments",
+    )
+
+    parser.add_argument(
+        "--command-args-file-range",
+        type=str,
+        metavar="command_args_file_range",
+        help="START:END range of command arguments to run from an aggregate command args file",
     )
 
     # TODO(T121096376) remove this hack
@@ -203,6 +211,12 @@ def _println(line):
 
 
 def _fixup_command_args_file(command_args_file, index, tmp_dir) -> str:
+    content = _load_command_args_json(command_args_file)
+    content = _fixup_command_args_content(content, command_args_file)
+    return _write_command_args_file(content, index, tmp_dir)
+
+
+def _load_command_args_json(command_args_file) -> Dict[str, Any]:
     with open(command_args_file, "r") as input_f:
         try:
             content = json.load(input_f)
@@ -210,6 +224,15 @@ def _fixup_command_args_file(command_args_file, index, tmp_dir) -> str:
             raise RuntimeError(
                 f"Unable to decode {command_args_file}, it should be a JSON file."
             ) from error
+
+    if not isinstance(content, dict):
+        raise RuntimeError(f"{command_args_file} should contain a JSON object.")
+
+    return content
+
+
+def _fixup_command_args_content(content, command_args_file):
+    content = dict(content)
 
     if "extraData" in content:
         try:
@@ -219,6 +242,10 @@ def _fixup_command_args_file(command_args_file, index, tmp_dir) -> str:
                 f"Unable to decode 'extraData' in {command_args_file}, it should be a JSON string."
             ) from error
 
+    return content
+
+
+def _write_command_args_file(content, index, tmp_dir) -> str:
     args_path = os.path.join(
         tmp_dir,
         "fixup_command_args_{}".format(index),
@@ -229,8 +256,76 @@ def _fixup_command_args_file(command_args_file, index, tmp_dir) -> str:
     return args_path
 
 
+def _parse_command_args_file_range(command_args_file_range):
+    parts = command_args_file_range.split(":")
+    if len(parts) != 2:
+        raise RuntimeError(
+            f"Invalid --command-args-file-range '{command_args_file_range}', expected START:END."
+        )
+
+    try:
+        start = int(parts[0])
+        end = int(parts[1])
+    except ValueError as error:
+        raise RuntimeError(
+            f"Invalid --command-args-file-range '{command_args_file_range}', START and END must be integers."
+        ) from error
+
+    if start < 0 or end < 0 or start > end:
+        raise RuntimeError(
+            f"Invalid --command-args-file-range '{command_args_file_range}', expected 0 <= START <= END."
+        )
+
+    return start, end
+
+
+def _prepare_aggregate_command_args_files(
+    command_args_files,
+    command_args_file_range,
+    command_args_file_extra_data_fixup_hack,
+    tmp_dir,
+):
+    if len(command_args_files) != 1:
+        raise RuntimeError(
+            "--command-args-file-range requires exactly one --command-args-file."
+        )
+
+    command_args_file = command_args_files[0]
+    start, end = _parse_command_args_file_range(command_args_file_range)
+    content = _load_command_args_json(command_args_file)
+
+    if content.get("version") != AGGREGATE_COMMAND_ARGS_VERSION:
+        raise RuntimeError(
+            f"{command_args_file} has unsupported aggregate command args version: {content.get('version')}"
+        )
+
+    commands = content.get("commands")
+    if not isinstance(commands, list):
+        raise RuntimeError(f"{command_args_file} should contain a 'commands' list.")
+
+    if end > len(commands):
+        raise RuntimeError(
+            f"--command-args-file-range '{command_args_file_range}' exceeds {command_args_file} command count {len(commands)}."
+        )
+
+    expanded_command_args_files = []
+    for command_index, command in enumerate(commands[start:end], start):
+        if not isinstance(command, dict):
+            raise RuntimeError(
+                f"{command_args_file} command at index {command_index} should be a JSON object."
+            )
+        if command_args_file_extra_data_fixup_hack:
+            command = _fixup_command_args_content(command, command_args_file)
+        expanded_command_args_files.append(
+            _write_command_args_file(command, command_index, tmp_dir)
+        )
+
+    return expanded_command_args_files
+
+
 def _prepare_command_args_files(parsed_args, unparsed_args, tmp_dir):
     command_args_files = parsed_args.command_args_file
+    command_args_file_range = parsed_args.command_args_file_range
     command_args_file_extra_data_fixup_hack = (
         parsed_args.command_args_file_extra_data_fixup_hack
     )
@@ -239,8 +334,20 @@ def _prepare_command_args_files(parsed_args, unparsed_args, tmp_dir):
     if command_args_files and len(command_args) > 0:
         raise RuntimeError("Use either command line arguments or a file, not both!")
 
+    if command_args_file_range and not command_args_files:
+        raise RuntimeError(
+            "--command-args-file-range requires --command-args-file to be specified."
+        )
+
     if command_args_files:
-        if command_args_file_extra_data_fixup_hack:
+        if command_args_file_range:
+            command_args_files = _prepare_aggregate_command_args_files(
+                command_args_files,
+                command_args_file_range,
+                command_args_file_extra_data_fixup_hack,
+                tmp_dir,
+            )
+        elif command_args_file_extra_data_fixup_hack:
             command_args_files = [
                 _fixup_command_args_file(command_args_file, i, tmp_dir)
                 for i, command_args_file in enumerate(command_args_files)
