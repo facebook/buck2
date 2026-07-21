@@ -41,7 +41,6 @@ use crate::arc::Arc;
 use crate::deps::RecordedDeps;
 use crate::deps::RecordingDepsTracker;
 use crate::dice::Dice;
-use crate::epoch::evaluator::SyncEvaluator;
 use crate::epoch::evaluator::TransactionData;
 use crate::epoch::evaluator::VersionEpochState;
 use crate::key::CowDiceKeyHashed;
@@ -657,14 +656,9 @@ impl ComputeCtx {
             .epoch_state
             .compute_projection(
                 dice_key,
-                self.transaction_data.dice.state_handle.dupe(),
+                base.derive_from,
+                base.invalidation_paths,
                 &self.transaction_data,
-                SyncEvaluator::new(
-                    self.transaction_data.user_data.dupe(),
-                    self.transaction_data.dice.dupe(),
-                    base.derive_from.dupe(),
-                    base.invalidation_paths.dupe(),
-                ),
             )
             .map(|r| (dice_key, r))
             .map_err(DiceError::cancelled)
