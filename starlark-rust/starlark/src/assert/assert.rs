@@ -250,6 +250,11 @@ impl<'a> Assert<'a> {
         self.gc_strategy = Some(GcStrategy::Never)
     }
 
+    /// Configure garbage collection to run aggressively.
+    pub fn always_gc(&mut self) {
+        self.gc_strategy = Some(GcStrategy::Always)
+    }
+
     /// Configure a callback which is used to setup evaluator before each evaluation.
     pub fn setup_eval(&mut self, setup: impl Fn(&mut Evaluator) + 'static) {
         self.setup_eval = Box::new(setup);
