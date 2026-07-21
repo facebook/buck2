@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+pub mod atomic_waker_set;
 pub mod cancellation;
 mod details;
 pub mod drop;

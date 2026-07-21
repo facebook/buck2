@@ -61,6 +61,7 @@ impl<'s> BxlDiceComputations<'s> {
             let fut = with_dispatcher_async(dispatcher.clone(), self.0.access_mut(Box::new(f)));
             let fut = async move {
                 futures::pin_mut!(fut);
+                futures::pin_mut!(liveness);
 
                 match select(fut, liveness).await {
                     Either::Left((res, _)) => res,

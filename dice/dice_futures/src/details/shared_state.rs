@@ -19,8 +19,9 @@ use std::task::Poll;
 use dupe::Dupe;
 use futures::task::AtomicWaker;
 use parking_lot::Mutex;
-use slab::Slab;
 
+use crate::atomic_waker_set::AtomicWakerSet;
+use crate::atomic_waker_set::AtomicWakerSetEntry;
 use crate::cancellation::CancelledError;
 use crate::cancellation::CriticalSectionGuard;
 use crate::cancellation::DisableCancellationGuard;
@@ -57,7 +58,7 @@ impl CancellableFutureSharedStateView {
             state: AtomicU8::new(State::Normal.into()),
             cancellation_waker: AtomicWaker::new(),
             prevent_cancellation: Mutex::new(PreventingCancellationCount(0)),
-            observer_wakers: Mutex::new(Some(Default::default())),
+            observer_wakers: AtomicWakerSet::new(),
         });
 
         (
@@ -177,7 +178,7 @@ struct SharedStateData {
     /// Again, the ordering contract here is the same as with all other wakers; these are registered
     /// *before* checking the state for whether the future was already cancelled, and woken up after
     /// the state is updatd.
-    observer_wakers: Mutex<Option<Slab<Arc<AtomicWaker>>>>,
+    observer_wakers: AtomicWakerSet,
 }
 
 impl SharedStateData {
@@ -255,9 +256,7 @@ impl SharedStateData {
     fn notify_cancelled(&self) {
         if self.move_normal_state_to(State::Cancelled).is_ok() {
             self.cancellation_waker.wake();
-            if let Some(mut wakers) = self.observer_wakers.lock().take() {
-                wakers.drain().for_each(|waker| waker.wake());
-            }
+            self.observer_wakers.wake_all();
         }
     }
 
@@ -298,12 +297,11 @@ impl SharedStateData {
     }
 }
 
+#[pin_project::pin_project(PinnedDrop)]
 pub(crate) struct CancellationObserverFuture {
     inner: Arc<SharedStateData>,
-    // index into the waker for this future held by the Slab in `observer_wakers`
-    id: Option<usize>,
-    // duplicate of the waker held for us to update the waker on poll without acquiring lock
-    waker: Arc<AtomicWaker>,
+    #[pin]
+    entry: AtomicWakerSetEntry,
 }
 
 impl CancellationObserverFuture {
@@ -312,22 +310,17 @@ impl CancellationObserverFuture {
     }
 
     fn new_from_state(inner: Arc<SharedStateData>) -> Self {
-        let waker = Arc::new(AtomicWaker::new());
-        let id = inner
-            .observer_wakers
-            .lock()
-            .as_mut()
-            .map(|wakers| wakers.insert(waker.dupe()));
-        CancellationObserverFuture { inner, id, waker }
+        CancellationObserverFuture {
+            inner,
+            entry: AtomicWakerSetEntry::new(),
+        }
     }
 
-    fn remove_waker(&mut self, id: Option<usize>) {
-        if let Some(id) = id {
-            self.inner
-                .observer_wakers
-                .lock()
-                .as_mut()
-                .map(|wakers| wakers.remove(id));
+    fn disconnect(self: Pin<&mut Self>) {
+        let this = self.project();
+        // SAFETY: this is the only set we use
+        unsafe {
+            this.entry.disconnect(&this.inner.observer_wakers);
         }
     }
 
@@ -345,9 +338,10 @@ impl Clone for CancellationObserverFuture {
 
 impl Dupe for CancellationObserverFuture {}
 
-impl Drop for CancellationObserverFuture {
-    fn drop(&mut self) {
-        self.remove_waker(self.id);
+#[pin_project::pinned_drop]
+impl PinnedDrop for CancellationObserverFuture {
+    fn drop(self: Pin<&mut Self>) {
+        self.disconnect();
     }
 }
 
@@ -355,7 +349,19 @@ impl Future for CancellationObserverFuture {
     type Output = ();
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        self.waker.register(cx.waker());
+        // Fast path avoiding the register
+        if self.is_cancelled() {
+            // Won't bother with the `disconnect` here, we'll do it on drop
+            return Poll::Ready(());
+        }
+
+        unsafe {
+            let this = self.as_mut().project();
+            // SAFETY: We're pinned, we keep the state alive via our arc, and this is the only set
+            // we use
+            this.entry
+                .register(&this.inner.observer_wakers, cx.waker().clone());
+        }
 
         // Note that the semantics of `AtomicWaker` are exactly designed for this to be correct, but
         // nonetheless it's quite subtle. If this is racing with a `notify_cancelled` call, then
@@ -365,15 +371,11 @@ impl Future for CancellationObserverFuture {
         //  2. Our `register` came after the wake, in which case the `register` acquires the change
         //     to the state that preceded the `wake` in `notify_cancelled`; as such, it's
         //     guaranteed it'll be visible here.
-        match State::from(self.inner.state.load(Ordering::Relaxed)) {
-            State::Cancelled => {
-                // take the id so that we don't need to lock the wakers when this future is dropped
-                // after completion
-                let id = self.id.take();
-                self.remove_waker(id);
-                Poll::Ready(())
-            }
-            _ => Poll::Pending,
+        if self.is_cancelled() {
+            // Again, we could disconnect here but don't bother
+            Poll::Ready(())
+        } else {
+            Poll::Pending
         }
     }
 }
