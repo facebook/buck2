@@ -290,7 +290,7 @@ def _get_test_info(
         # @oss-disable[end= ]: labels.append("tpx:apple_test:local_execution_available")
 
     return ExternalRunnerTestInfo(
-        type = "custom",  # We inherit a label via the macro layer that overrides this.
+        type = "apple_test",
         command = ["false"],  # Tpx makes up its own args, we just pass params via the env.
         env = flatten_x([ctx.attrs.env or {}, env]),
         labels = labels,
