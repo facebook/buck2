@@ -8,6 +8,10 @@
  * above-listed licenses.
  */
 
+use async_trait::async_trait;
+use buck2_common::legacy_configs::dice::HasLegacyConfigs;
+use buck2_common::legacy_configs::key::BuckconfigKeyRef;
+use buck2_common::legacy_configs::view::LegacyBuckConfigView;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::name::CellName;
@@ -15,6 +19,7 @@ use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_node::visibility::LoadVisibility;
 use buck2_node::visibility::VisibilityPattern;
 use buck2_node::visibility::VisibilityWithinViewBuilder;
+use dice::DiceComputations;
 use either::Either;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
@@ -24,6 +29,45 @@ use starlark::values::none::NoneType;
 
 use crate::interpreter::build_context::BuildContext;
 use crate::interpreter::extra_value::InterpreterExtraValue;
+
+/// Buckconfig key (`buck2.check_load_visibility`) gating enforcement of load
+/// visibility declared via the `visibility()` builtin in `.bzl` files. Defaults
+/// to `true`: only files that call `visibility()` are restricted, so existing
+/// code is unaffected. Set it to `false` to disable enforcement.
+const CHECK_LOAD_VISIBILITY: BuckconfigKeyRef = BuckconfigKeyRef {
+    section: "buck2",
+    property: "check_load_visibility",
+};
+
+pub(crate) trait GetCheckLoadVisibility {
+    /// Whether to enforce load visibility declared via `visibility()`.
+    fn get_check_load_visibility(&mut self) -> buck2_error::Result<bool>;
+}
+
+impl<T> GetCheckLoadVisibility for T
+where
+    T: LegacyBuckConfigView,
+{
+    fn get_check_load_visibility(&mut self) -> buck2_error::Result<bool> {
+        Ok(self.parse::<bool>(CHECK_LOAD_VISIBILITY)?.unwrap_or(true))
+    }
+}
+
+#[async_trait]
+pub(crate) trait HasCheckLoadVisibility {
+    /// Reads `buck2.check_load_visibility` from the root buckconfig.
+    async fn get_check_load_visibility(&mut self) -> buck2_error::Result<bool>;
+}
+
+#[async_trait]
+impl HasCheckLoadVisibility for DiceComputations<'_> {
+    async fn get_check_load_visibility(&mut self) -> buck2_error::Result<bool> {
+        self.get_legacy_root_config_on_dice()
+            .await?
+            .view(self)
+            .get_check_load_visibility()
+    }
+}
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]
