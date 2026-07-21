@@ -174,7 +174,7 @@ fn spawn_task(
     event_dispatcher: DiceEventDispatcher,
     previously_cancelled_task: Option<PreviouslyCancelledTask>,
 ) -> (DiceTask, DicePromise) {
-    let prepared_task = DiceTask::prepare(k);
+    let prepared_task = DiceTask::prepare_testing(k);
     let task = prepared_task.task().dupe();
     let promise = DiceTaskWorker::spawn(
         k,
