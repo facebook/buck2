@@ -17,6 +17,7 @@ use async_trait::async_trait;
 use buck2_action_metadata_proto::DepFileInputs;
 use buck2_action_metadata_proto::RemoteDepFile;
 use buck2_artifact::artifact::artifact_type::Artifact;
+use buck2_artifact::artifact::artifact_type::BaseArtifactKind;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::ActionExecutionCtx;
@@ -1454,15 +1455,57 @@ impl DeclaredDepFiles {
         Ok(Some(ConcreteDepFiles { contents }))
     }
 
-    /// Returns whether two DeclaredDepFile instances have the same dep files. This ignores the tag
-    /// identity, but it requires the same paths declared using the same name. This is a
-    /// pre-requisite for being able to reuse dep files from a previous invocation.
+    /// Returns whether two `DeclaredDepFile` instances declare the same dep files.
+    ///
+    /// Two dep files are considered equal when they share the same
+    /// configuration-independent identity:
+    ///   - dep-file label
+    ///   - target-relative output path (and whether that path is content-based)
+    ///
+    /// The tag identity is ignored, but both sides must declare the same
+    /// paths under the same name.
+    ///
+    /// This is a prerequisite for reusing dep files from a previous invocation.
     fn declares_same_dep_files(&self, other: Option<&Self>) -> bool {
+        // We only compare `DepFileState`s that share the same target.
+        // Previous state is obtained from `DEP_FILES` using the same key,
+        // guaranteeing both sides have the same target
+        // (see: https://fburl.com/code/de5a9bko).
+        // The only part of the owner that can differ between the two is
+        // the configuration — which is intentionally ignored.
+        fn config_independent_key(
+            d: &DeclaredDepFile,
+        ) -> (&Arc<str>, &ForwardRelativePath, &ForwardRelativePath, bool) {
+            let (base, projected) = d.output.as_parts();
+            match base {
+                BaseArtifactKind::Build(b) => {
+                    let path = b.get_path();
+                    (
+                        &d.label,
+                        path.path(),
+                        projected,
+                        path.is_content_based_path(),
+                    )
+                }
+                BaseArtifactKind::Source(_) => {
+                    unreachable!("dep-file output must be a build artifact, not a source artifact")
+                }
+            }
+        }
+
         match other {
             None => self.tagged.is_empty(),
             Some(other) => {
-                let this = self.tagged.values().collect::<StdBuckHashSet<_>>();
-                let other = other.tagged.values().collect::<StdBuckHashSet<_>>();
+                let this = self
+                    .tagged
+                    .values()
+                    .map(config_independent_key)
+                    .collect::<StdBuckHashSet<_>>();
+                let other = other
+                    .tagged
+                    .values()
+                    .map(config_independent_key)
+                    .collect::<StdBuckHashSet<_>>();
                 this == other
             }
         }
@@ -1854,5 +1897,32 @@ mod tests {
         assert!(decl1.declares_same_dep_files(Some(&decl2)));
         assert!(!decl2.declares_same_dep_files(Some(&decl3)));
         assert!(!decl3.declares_same_dep_files(Some(&decl4)));
+    }
+
+    #[test]
+    fn test_declares_same_dep_files_across_configurations() {
+        // The same dep file declared under two different configurations compares equal: this is the
+        // loosening that lets dep-file state be reused across target configurations.
+        let make = |cfg: ConfigurationData, path: &str| DeclaredDepFiles {
+            tagged: OrderedMap::from_iter([(
+                ArtifactTag::testing_new(),
+                DeclaredDepFile {
+                    label: Arc::from("foo"),
+                    output: Artifact::from(BuildArtifact::testing_new(
+                        ConfiguredTargetLabel::testing_parse("cell//pkg:foo", cfg),
+                        path,
+                        ActionIndex::new(0),
+                    )),
+                },
+            )]),
+        };
+
+        let cfg_a = make(ConfigurationData::testing_new(), "foo/bar.h");
+        let cfg_b = make(ConfigurationData::unbound(), "foo/bar.h");
+        assert!(cfg_a.declares_same_dep_files(Some(&cfg_b)));
+
+        // A different output path is still not a match, even across configurations.
+        let cfg_b_other = make(ConfigurationData::unbound(), "foo/other.h");
+        assert!(!cfg_a.declares_same_dep_files(Some(&cfg_b_other)));
     }
 }

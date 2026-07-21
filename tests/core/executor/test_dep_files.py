@@ -410,7 +410,7 @@ async def test_dep_file_hit_identical_action(buck: Buck) -> None:
     )
 
 
-# Reproduces T237527198: changing ActionKey (by registering additional actions
+# Changing ActionKey (by registering additional actions
 # before the dep-file action during analysis) should not cause a dep-file cache
 # miss when the dep-file action itself is identical.
 @buck_test(
@@ -441,12 +441,9 @@ async def test_dep_file_hit_with_action_key_change(buck: Buck) -> None:
         "-c",
         "test.num_preceding_actions=1",
     )
-    # TODO(T237527198): The dep-file action should get a LOCAL_ACTION_CACHE hit
-    # here since it is identical, but the ActionKey index shift causes the dep
-    # file cache to report "Dep files declaration has changed".
     await check_execution_kind(
         buck,
-        [ACTION_EXECUTION_KIND_LOCAL],
+        [ACTION_EXECUTION_KIND_LOCAL_ACTION_CACHE],
         ignored=[ACTION_EXECUTION_KIND_SIMPLE],
     )
 
