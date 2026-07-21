@@ -40,10 +40,8 @@ use dupe::Dupe;
     Hash,
     bytemuck::NoUninit
 )]
-#[repr(transparent)]
-pub struct DataKey([u64; 2]);
-
-static_assertions::assert_eq_size!(DataKey, OptionalDataKey);
+#[repr(C)]
+pub struct DataKey(NonZeroU64, u64);
 
 impl DataKey {
     /// Computes a content-addressable key from serialized data and nested arcs.
@@ -65,15 +63,13 @@ impl DataKey {
         // OptionalDataKey's niche representation requires `lo` to be non-zero. In the
         // astronomically unlikely case of a zero first half, use 1 instead. Collision resistance
         // remains effectively 128 bits.
-        if lo == 0 {
-            return Self([1, hi]);
-        }
-        Self([lo, hi])
+        let lo = NonZeroU64::new(lo).unwrap_or(NonZeroU64::new(1).unwrap());
+        Self(lo, hi)
     }
 
     pub fn testing_new(v: u128) -> Self {
         assert_ne!(v as u64, 0);
-        DataKey(bytemuck::cast(v))
+        DataKey(NonZeroU64::new(v as u64).unwrap(), (v >> 64) as u64)
     }
 
     /// Reconstructs a `DataKey` from the 16-byte form written by
@@ -86,12 +82,12 @@ impl DataKey {
     pub fn from_stored_bytes(bytes: [u8; 16]) -> anyhow::Result<Self> {
         let lo = u64::from_ne_bytes(bytes[..8].try_into().unwrap());
         let hi = u64::from_ne_bytes(bytes[8..].try_into().unwrap());
-        if lo == 0 {
+        let Some(lo) = NonZeroU64::new(lo) else {
             return Err(anyhow::anyhow!(
                 "corrupt DataKey: first half must be non-zero"
             ));
-        }
-        Ok(Self([lo, hi]))
+        };
+        Ok(Self(lo, hi))
     }
 
     pub fn get(self) -> u128 {
@@ -100,46 +96,8 @@ impl DataKey {
 
     /// Returns the key as a `NonZeroU128`.
     pub fn to_non_zero(self) -> NonZeroU128 {
-        NonZeroU128::new(((self.0[1] as u128) << 64) + (self.0[0] as u128))
+        NonZeroU128::new(((self.1 as u128) << 64) + (self.0.get() as u128))
             .expect("DataKey should never be zero")
-    }
-}
-
-/// A zero-cost optional representation of [`DataKey`].
-///
-/// This enum provides the same memory layout as `Option<DataKey>` would have if `DataKey`
-/// still used `NonZeroU128` internally, enabling niche optimization. By using an explicit
-/// enum instead of `Option<DataKey>`, we can maintain this optimization while allowing
-/// `DataKey` to use `u128` for bytemuck compatibility.
-#[derive(Debug, Clone, Copy, Hash, Allocative)]
-pub enum OptionalDataKey {
-    None,
-    Some(#[allocative(skip)] NonZeroU64, u64),
-}
-
-impl OptionalDataKey {
-    pub fn unwrap(&self) -> DataKey {
-        match self {
-            Self::Some(a, b) => DataKey([a.get(), *b]),
-            Self::None => panic!("unwrap called on None"),
-        }
-    }
-
-    pub fn is_some(&self) -> bool {
-        matches!(self, Self::Some(_, _))
-    }
-
-    pub fn is_none(&self) -> bool {
-        matches!(self, Self::None)
-    }
-}
-
-impl From<DataKey> for OptionalDataKey {
-    fn from(key: DataKey) -> Self {
-        Self::Some(
-            NonZeroU64::new(key.0[0]).expect("DataKey should never be zero"),
-            key.0[1],
-        )
     }
 }
 

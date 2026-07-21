@@ -52,7 +52,6 @@ pub use impls::static_value;
 pub use impls::static_value::StaticBytes;
 pub use impls::static_value::StaticValue;
 pub use storage::data::DataKey;
-pub use storage::data::OptionalDataKey;
 pub use traits::Pagable;
 pub use traits::PagableBoxDeserialize;
 pub use traits::PagableCursor;
