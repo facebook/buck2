@@ -81,12 +81,7 @@ pub(crate) enum VersionedGraphResult {
     /// the entry is missing or there's no previously valid value to check
     Compute,
     /// the storage has rejected the request
-    Rejected(RejectedReason),
-}
-
-#[derive(Debug)]
-pub(crate) enum RejectedReason {
-    RejectedDueToGraphClear,
+    ClearedVersion,
 }
 
 #[cfg(test)]

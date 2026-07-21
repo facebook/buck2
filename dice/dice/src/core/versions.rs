@@ -20,7 +20,7 @@ use crate::versions::VersionNumber;
 #[derive(Allocative)]
 pub(crate) struct VersionTracker {
     current: VersionNumber,
-    invalid_before: VersionNumber,
+    discarded_before: VersionNumber,
     /// Tracks the currently active versions and how many contexts are holding each of them.
     active_versions: HashMap<VersionNumber, ActiveVersionData>,
     epoch_tracker: VersionEpochTracker,
@@ -65,7 +65,7 @@ impl VersionTracker {
     pub(crate) fn new() -> Self {
         VersionTracker {
             current: VersionNumber::FIRST,
-            invalid_before: VersionNumber::FIRST,
+            discarded_before: VersionNumber::FIRST,
             active_versions: HashMap::default(),
             epoch_tracker: VersionEpochTracker::new(),
         }
@@ -99,16 +99,18 @@ impl VersionTracker {
         (entry.version_epoch, entry.per_transaction_data.dupe())
     }
 
-    /// check if the given version and epoch are "relevant", that is the current active version's
-    /// epoch matches the given epoch
-    pub(crate) fn is_relevant(&self, v: VersionNumber, epoch: VersionEpoch) -> bool {
-        self.active_versions
-            .get(&v)
-            .is_some_and(|active| active.version_epoch == epoch)
+    pub(crate) fn is_cleared_version(&self, v: VersionNumber) -> bool {
+        v < self.discarded_before
     }
 
-    pub(crate) fn should_reject(&self, v: VersionNumber) -> bool {
-        v < self.invalid_before
+    /// Check whether computation associated with the given major version and epoch has or has not
+    /// been cancelled
+    pub(crate) fn is_cancelled(&self, v: VersionNumber, epoch: VersionEpoch) -> bool {
+        self.is_cleared_version(v)
+            || self
+                .active_versions
+                .get(&v)
+                .is_none_or(|active| active.version_epoch != epoch)
     }
 
     /// Drops reference to a VersionNumber given the token
@@ -142,8 +144,11 @@ impl VersionTracker {
     }
 
     pub(crate) fn clear(&mut self) {
+        // FIXME(JakobDegen): What's the safety story supposed to be here? It seems like we've made
+        // no attempt to stop there from being an ongoing transaction, and if there is we don't even
+        // attempt to actually cancel it. That seems obviously very unsound?
         self.current.inc();
-        self.invalid_before = self.current;
+        self.discarded_before = self.current;
     }
 }
 
@@ -257,19 +262,19 @@ mod tests {
         let mut vt = VersionTracker::new();
 
         let (epoch, _s) = vt.at(VersionNumber::new(1));
-        assert!(vt.is_relevant(VersionNumber::new(1), epoch));
-        assert!(!vt.is_relevant(VersionNumber::new(1), VersionEpoch::testing_new(9999)));
+        assert!(!vt.is_cancelled(VersionNumber::new(1), epoch));
+        assert!(vt.is_cancelled(VersionNumber::new(1), VersionEpoch::testing_new(9999)));
 
         let (epoch1, _s) = vt.at(VersionNumber::new(3));
-        assert!(!vt.is_relevant(VersionNumber::new(1), epoch1));
-        assert!(vt.is_relevant(VersionNumber::new(3), epoch1));
-        assert!(!vt.is_relevant(VersionNumber::new(3), epoch));
+        assert!(vt.is_cancelled(VersionNumber::new(1), epoch1));
+        assert!(!vt.is_cancelled(VersionNumber::new(3), epoch1));
+        assert!(vt.is_cancelled(VersionNumber::new(3), epoch));
 
         vt.drop_at_version(VersionNumber::new(3));
         let (epoch2, _s) = vt.at(VersionNumber::new(3));
-        assert!(!vt.is_relevant(VersionNumber::new(1), epoch1));
-        assert!(!vt.is_relevant(VersionNumber::new(3), epoch1));
-        assert!(vt.is_relevant(VersionNumber::new(3), epoch2));
+        assert!(vt.is_cancelled(VersionNumber::new(1), epoch1));
+        assert!(vt.is_cancelled(VersionNumber::new(3), epoch1));
+        assert!(!vt.is_cancelled(VersionNumber::new(3), epoch2));
     }
 
     #[test]
