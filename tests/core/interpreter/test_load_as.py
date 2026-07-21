@@ -23,3 +23,25 @@ async def test_load_as_extension_not_allowed(buck: Buck) -> None:
         buck.targets("//...", "-c", "buck2.load_as_allowlist="),
         stderr_regex=r"data\.lock\?as=toml.*load_as_allowlist",
     )
+
+
+@buck_test(data_dir="cross_cell")
+async def test_load_as_cross_cell_rejected(buck: Buck) -> None:
+    """An `?as=` load may not reference a file owned by another cell's package,
+    even when that package's intra-cell path matches the loader's. This checks
+    the isolation comparison is on the full cell path, not the raw package path:
+    both sides share the intra-cell path `pkg`, but the cells differ."""
+    await expect_failure(
+        buck.targets("//..."),
+        stderr_regex=r"other//pkg/lib\.lock\?as=toml.*only visible within its own package",
+    )
+
+
+@buck_test(data_dir="cross_package")
+async def test_load_as_cross_package_rejected(buck: Buck) -> None:
+    """An `?as=` load may not reference another package: the loader is in
+    `root//`, but `root//sub/data.lock` is owned by `root//sub`."""
+    await expect_failure(
+        buck.targets("//..."),
+        stderr_regex=r"data\.lock\?as=toml.*only visible within its own package",
+    )
