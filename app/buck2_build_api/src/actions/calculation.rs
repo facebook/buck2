@@ -767,20 +767,20 @@ impl ActionCalculation {
         }
     }
 
-    pub fn build_action<'a>(
-        ctx: &'a mut DiceComputations<'_>,
+    pub fn build_action<'a, 'd>(
+        ctx: &'a mut DiceComputations<'d>,
         action_key: &ActionKey,
-    ) -> impl Future<Output = buck2_error::Result<ActionOutputs>> + use<'a> {
+    ) -> impl Future<Output = buck2_error::Result<ActionOutputs>> + use<'a, 'd> {
         // build_action is called for every action key. We don't use `async fn` to ensure that it has minimal cost.
         // We don't currently consume this in buck_e2e but it's good to log for debugging purposes.
         debug!("build_action {}", action_key);
         ctx.compute(BuildKey::ref_cast(action_key)).map(|v| v?)
     }
 
-    pub fn build_artifact<'a>(
-        ctx: &'a mut DiceComputations<'_>,
+    pub fn build_artifact<'a, 'd>(
+        ctx: &'a mut DiceComputations<'d>,
         artifact: &BuildArtifact,
-    ) -> impl Future<Output = buck2_error::Result<ActionOutputs>> + use<'a> {
+    ) -> impl Future<Output = buck2_error::Result<ActionOutputs>> + use<'a, 'd> {
         Self::build_action(ctx, artifact.key())
     }
 }

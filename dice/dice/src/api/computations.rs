@@ -58,7 +58,7 @@ impl<'d> DiceComputations<'d> {
     pub fn compute<'a, K>(
         &'a mut self,
         key: &K,
-    ) -> impl Future<Output = DiceResult<<K as Key>::Value>> + use<'a, K>
+    ) -> impl Future<Output = DiceResult<<K as Key>::Value>> + use<'a, 'd, K>
     where
         K: Key,
     {
@@ -89,8 +89,8 @@ impl<'d> DiceComputations<'d> {
 
     pub fn opaque_into_value<K: Key>(
         &mut self,
-        derive_from: OpaqueValue<K>,
-    ) -> DiceResult<K::Value> {
+        derive_from: OpaqueValue<'d, K>,
+    ) -> DiceResult<&'d K::Value> {
         Ok(self.0.opaque_into_value(derive_from))
     }
 

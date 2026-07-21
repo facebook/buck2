@@ -158,14 +158,14 @@ impl<'d> ModernComputeCtx<'d> {
     pub(crate) fn compute<'a, K>(
         &'a mut self,
         key: &K,
-    ) -> impl Future<Output = DiceResult<<K as Key>::Value>> + use<'a, K>
+    ) -> impl Future<Output = DiceResult<<K as Key>::Value>> + use<'a, 'd, K>
     where
         K: Key,
     {
         let (ctx_data, dep_trackers) = self.unpack();
         ctx_data
             .compute_opaque(key)
-            .map(move |r| r.map(|opaque| Self::opaque_into_value_impl(dep_trackers, opaque)))
+            .map(move |r| r.map(|opaque| Self::opaque_into_value_impl(dep_trackers, opaque).dupe()))
     }
 
     /// Compute "opaque" value where the value is only accessible via projections.
@@ -325,11 +325,14 @@ impl<'d> ModernComputeCtx<'d> {
         })
     }
 
-    pub(crate) fn opaque_into_value<K: Key>(&mut self, opaque: OpaqueValue<K>) -> K::Value {
+    pub(crate) fn opaque_into_value<K: Key>(&mut self, opaque: OpaqueValue<'d, K>) -> &'d K::Value {
         Self::opaque_into_value_impl(self.unpack().1, opaque)
     }
 
-    fn opaque_into_value_impl<K: Key>(deps: DepsTrackerHolder, opaque: OpaqueValue<K>) -> K::Value {
+    fn opaque_into_value_impl<K: Key>(
+        deps: DepsTrackerHolder,
+        opaque: OpaqueValue<'d, K>,
+    ) -> &'d K::Value {
         let OpaqueValue {
             derive_from_key,
             derive_from,
@@ -343,7 +346,6 @@ impl<'d> ModernComputeCtx<'d> {
         derive_from
             .downcast_maybe_transient::<K::Value>()
             .expect("type mismatch")
-            .dupe()
     }
 
     pub(crate) fn get_invalidation_paths(&mut self) -> DiceKeyTrackedInvalidationPaths {
@@ -538,7 +540,7 @@ impl<'d> ModernComputeCtx<'d> {
         }
     }
 
-    fn unpack(&mut self) -> (&CoreCtx, DepsTrackerHolder<'_>) {
+    fn unpack(&mut self) -> (&'d CoreCtx, DepsTrackerHolder<'_>) {
         match self {
             ModernComputeCtx::Normal {
                 ctx_data,
@@ -603,7 +605,7 @@ impl CoreCtx {
     pub(crate) fn compute_opaque<'d, K>(
         &'d self,
         key: &K,
-    ) -> impl Future<Output = DiceResult<OpaqueValue<K>>> + use<'d, K>
+    ) -> impl Future<Output = DiceResult<OpaqueValue<'d, K>>> + use<'d, K>
     where
         K: Key,
     {
