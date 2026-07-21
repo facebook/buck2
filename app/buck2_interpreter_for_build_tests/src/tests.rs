@@ -93,9 +93,10 @@ async fn test_eval_import() {
         ),
     );
 
-    let mut ctx = calculation(&fs).await;
+    let ctx = calculation(&fs).await;
 
     let env = ctx
+        .ctx()
         .get_loaded_module_from_import_path(&ImportPath::testing_new("root//pkg:two.bzl"))
         .await
         .unwrap();
@@ -132,8 +133,9 @@ async fn test_eval_import_with_load() {
         ),
     );
 
-    let mut ctx = calculation(&fs).await;
+    let ctx = calculation(&fs).await;
     let env = ctx
+        .ctx()
         .get_loaded_module_from_import_path(&ImportPath::testing_new("root//pkg:two.bzl"))
         .await
         .unwrap();
@@ -207,10 +209,14 @@ async fn test_eval_build_file() {
         ),
     );
 
-    let mut ctx = calculation(&fs).await;
+    let ctx = calculation(&fs).await;
 
     let package = PackageLabel::testing_parse("root//pkg");
-    let eval_result = ctx.get_interpreter_results(package.dupe()).await.unwrap();
+    let eval_result = ctx
+        .ctx()
+        .get_interpreter_results(package.dupe())
+        .await
+        .unwrap();
     assert_eq!(package, eval_result.package());
     let target_names = eval_result
         .targets()

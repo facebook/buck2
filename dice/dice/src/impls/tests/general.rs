@@ -106,7 +106,7 @@ async fn set_injected_multiple_times_per_commit() -> anyhow::Result<()> {
         ctx.changed_to(vec![(Foo(0), 0)])?;
         ctx.changed_to(vec![(Foo(1), 1)])?;
 
-        let mut ctx = ctx.commit().await;
+        let ctx = ctx.commit().await;
         assert_eq!(ctx.compute(&Foo(0)).await?, 0);
         assert_eq!(ctx.compute(&Foo(1)).await?, 1);
     }
@@ -263,9 +263,9 @@ async fn different_data_per_compute_ctx() {
         d
     };
 
-    let mut ctx0 = dice.updater_with_data(per_cmd_data0).commit().await;
+    let ctx0 = dice.updater_with_data(per_cmd_data0).commit().await;
 
-    let mut ctx1 = dice.updater_with_data(per_cmd_data1).commit().await;
+    let ctx1 = dice.updater_with_data(per_cmd_data1).commit().await;
 
     let request0 = ctx0.compute(&DataRequest(0));
     let request1 = ctx1.compute(&DataRequest(1));
@@ -424,7 +424,7 @@ fn user_cycle_detector_receives_events() -> anyhow::Result<()> {
             })),
             ..Default::default()
         };
-        let mut ctx = dice.updater_with_data(user_data).commit().await;
+        let ctx = dice.updater_with_data(user_data).commit().await;
         let res = ctx.compute(&Fib(20)).await?.expect("should succeed");
         assert_eq!(res, 6765);
 
@@ -536,7 +536,7 @@ async fn dropping_request_future_cancels_execution() {
 
     let dice = Dice::builder().build(DetectCycles::Disabled);
 
-    let mut ctx = dice.updater().commit().await;
+    let ctx = dice.updater().commit().await;
 
     let key = KeyThatShouldntRun {
         barrier1: barrier1.dupe(),
@@ -578,7 +578,8 @@ async fn dropping_request_future_doesnt_cancel_if_multiple_requests_active() {
 
     let dice = Dice::builder().build(DetectCycles::Disabled);
 
-    let mut ctx = dice.updater().commit().await.0;
+    let ctx = dice.updater().commit().await.0;
+    let mut ctx = ctx.as_computations();
     let (req1, req2) = ctx.compute2(
         |ctx| ctx.compute(key).boxed(),
         |ctx| ctx.compute(key).boxed(),
@@ -660,7 +661,7 @@ async fn user_cycle_detector_is_present(dice: Arc<Dice>) -> anyhow::Result<()> {
         cycle_detector: Some(Arc::new(AccessCycleDetector)),
         ..Default::default()
     };
-    let mut ctx = dice.updater_with_data(user_data).commit().await;
+    let ctx = dice.updater_with_data(user_data).commit().await;
     Ok(ctx.compute(&AccessCycleGuardKey).await?)
 }
 
@@ -668,7 +669,7 @@ async fn user_cycle_detector_is_present(dice: Arc<Dice>) -> anyhow::Result<()> {
 async fn test_dice_usable_after_cancellations() {
     let dice = Dice::builder().build(DetectCycles::Disabled);
 
-    let mut ctx = dice.updater().commit().await;
+    let ctx = dice.updater().commit().await;
 
     let barrier1 = Arc::new(tokio::sync::Semaphore::new(0));
     let barrier2 = Arc::new(tokio::sync::Semaphore::new(0));
@@ -693,7 +694,7 @@ async fn test_dice_usable_after_cancellations() {
 
     assert!(!is_ran.load(Ordering::Acquire));
 
-    let mut ctx = dice.updater().commit().await;
+    let ctx = dice.updater().commit().await;
 
     // req2 still succeed. Note that due to dice caching, even if we make a new key, the same
     // instance would be used, so just use the same one.
@@ -710,7 +711,7 @@ async fn test_dice_usable_after_cancellations() {
 async fn test_is_idle_respects_active_transactions() {
     let dice = Dice::builder().build(DetectCycles::Disabled);
 
-    let mut ctx = dice.updater().commit().await;
+    let ctx = dice.updater().commit().await;
 
     let barrier1 = Arc::new(tokio::sync::Semaphore::new(0));
     let barrier2 = Arc::new(tokio::sync::Semaphore::new(0));

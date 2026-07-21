@@ -43,12 +43,12 @@ impl ServerAuditSubcommand for AuditFilePackageCommand {
         _client_ctx: ClientContext,
     ) -> buck2_error::Result<()> {
         Ok(server_ctx
-            .with_dice_ctx(|server_ctx, mut ctx| async move {
+            .with_dice_ctx(|server_ctx, ctx| async move {
                 let cwd_abs = server_ctx.working_dir_abs();
                 let project_root = server_ctx.project_root();
 
                 let mappings =
-                    audit_build_package(&mut ctx, &self.paths, cwd_abs, project_root).await?;
+                    audit_build_package(&mut ctx.ctx(), &self.paths, cwd_abs, project_root).await?;
 
                 let mut stdout = stdout.as_writer();
                 if self.json {

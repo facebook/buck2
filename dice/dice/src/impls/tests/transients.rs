@@ -66,7 +66,7 @@ async fn invalid_results_are_not_cached() -> anyhow::Result<()> {
     let dice = Dice::builder().build(DetectCycles::Enabled);
     let is_ran = Arc::new(AtomicBool::new(false));
     {
-        let mut ctx = dice.updater().commit().await;
+        let ctx = dice.updater().commit().await;
         ctx.compute(&AlwaysTransient(is_ran.dupe())).await?;
         assert!(is_ran.load(Ordering::SeqCst));
 
@@ -76,7 +76,7 @@ async fn invalid_results_are_not_cached() -> anyhow::Result<()> {
         assert!(!is_ran.load(Ordering::SeqCst));
 
         // simultaneously ctx should also re-use the result
-        let mut ctx1 = dice.updater().commit().await;
+        let ctx1 = dice.updater().commit().await;
         is_ran.store(false, Ordering::SeqCst);
         ctx1.compute(&AlwaysTransient(is_ran.dupe())).await?;
         assert!(!is_ran.load(Ordering::SeqCst));
@@ -84,7 +84,7 @@ async fn invalid_results_are_not_cached() -> anyhow::Result<()> {
 
     {
         // new context should re-run
-        let mut ctx = dice.updater().commit().await;
+        let ctx = dice.updater().commit().await;
         is_ran.store(false, Ordering::SeqCst);
         ctx.compute(&AlwaysTransient(is_ran.dupe())).await?;
         assert!(is_ran.load(Ordering::SeqCst));
@@ -158,7 +158,7 @@ async fn demo_with_transient() -> anyhow::Result<()> {
 
     let dice = Dice::builder().build(DetectCycles::Enabled);
 
-    let mut ctx = dice.updater().commit().await;
+    let ctx = dice.updater().commit().await;
     let validity = Arc::new(AtomicBool::new(false));
 
     assert!(
@@ -176,7 +176,7 @@ async fn demo_with_transient() -> anyhow::Result<()> {
 
     drop(ctx);
 
-    let mut ctx = dice.updater().commit().await;
+    let ctx = dice.updater().commit().await;
     assert_eq!(
         ctx.compute(&MaybeTransient(10, validity.dupe())).await?,
         Ok(512)

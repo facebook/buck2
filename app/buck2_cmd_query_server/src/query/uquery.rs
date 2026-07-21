@@ -120,10 +120,10 @@ impl ServerCommandTemplate for UqueryServerCommand {
 async fn uquery(
     server_ctx: &dyn ServerCommandContextTrait,
     mut stdout: impl Write,
-    mut ctx: DiceTransaction,
+    ctx: DiceTransaction,
     request: &UqueryRequest,
 ) -> buck2_error::Result<UqueryResponse> {
-    let cell_resolver = ctx.get_cell_resolver().await?;
+    let cell_resolver = ctx.ctx().get_cell_resolver().await?;
     let output_configuration = QueryResultPrinter::from_request_options(
         &cell_resolver,
         &request.output_attributes,
@@ -146,7 +146,7 @@ async fn uquery(
 
     let query_result = QUERY_FRONTEND
         .get()?
-        .eval_uquery(&mut ctx, server_ctx.working_dir(), query, query_args)
+        .eval_uquery(&mut ctx.ctx(), server_ctx.working_dir(), query, query_args)
         .await?;
 
     match query_result {

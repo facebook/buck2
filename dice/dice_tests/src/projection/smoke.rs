@@ -251,7 +251,7 @@ async fn smoke() -> anyhow::Result<()> {
         ..Default::default()
     });
 
-    let mut ctx = ctx.commit().await;
+    let ctx = ctx.commit().await;
 
     let file = ctx
         .compute(&FileKey {
@@ -284,7 +284,7 @@ async fn smoke() -> anyhow::Result<()> {
     data.data.set(GlobalConfig {
         config: HashMap::from_iter([("x".to_owned(), "X".to_owned())]),
     });
-    let mut ctx = dice.updater_with_data(data).commit().await;
+    let ctx = dice.updater_with_data(data).commit().await;
 
     let file = ctx
         .compute(&FileKey {
@@ -316,7 +316,7 @@ async fn smoke() -> anyhow::Result<()> {
             ("y".to_owned(), "Y".to_owned()),
         ]),
     });
-    let mut ctx = dice.updater_with_data(data).commit().await;
+    let ctx = dice.updater_with_data(data).commit().await;
 
     let file = ctx
         .compute(&FileKey {
@@ -441,7 +441,7 @@ async fn projection_sync_and_then_recompute_incremental_reuses_key() -> anyhow::
 
     let mut updater = dice.updater();
     updater.changed_to([(BaseKey, 1)])?;
-    let mut ctx = updater.commit().await;
+    let ctx = updater.commit().await;
 
     assert_eq!(ctx.compute(&DependsOnProjection(is_ran.dupe())).await?, 1);
     assert!(is_ran.load(Ordering::SeqCst));
@@ -450,11 +450,11 @@ async fn projection_sync_and_then_recompute_incremental_reuses_key() -> anyhow::
     // introduce a change
     let mut updater = dice.updater();
     updater.changed_to([(BaseKey, 9999)])?;
-    let mut ctx = updater.commit().await;
+    let ctx = updater.commit().await;
 
     // if we run the sync first
-    let derive_from = ctx.compute_opaque(&BaseKey).await?;
-    let projected = ctx.projection(&derive_from, &ProjectionEqualKey)?;
+    let derive_from = ctx.ctx().compute_opaque(&BaseKey).await?;
+    let projected = ctx.ctx().projection(&derive_from, &ProjectionEqualKey)?;
     assert_eq!(projected, 1);
 
     // should not be ran

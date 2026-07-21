@@ -86,7 +86,7 @@ impl ServerCommandTemplate for TargetsShowOutputsServerCommand {
 
 async fn targets_show_outputs(
     server_ctx: &dyn ServerCommandContextTrait,
-    mut ctx: DiceTransaction,
+    ctx: DiceTransaction,
     request: &TargetsRequest,
 ) -> buck2_error::Result<TargetsShowOutputsResponse> {
     let cwd = server_ctx.working_dir();
@@ -97,24 +97,27 @@ async fn targets_show_outputs(
             .as_ref()
             .ok_or_else(|| internal_error!("target_cfg must be set"))?,
         server_ctx,
-        &mut ctx,
+        &mut ctx.ctx(),
     )
     .await?;
 
     let parsed_patterns = parse_patterns_from_cli_args::<ProvidersPatternExtra>(
-        &mut ctx,
+        &mut ctx.ctx(),
         &request.target_patterns,
         cwd,
     )
     .await?;
 
-    let artifact_fs = ctx.get_artifact_fs().await?;
+    let artifact_fs = ctx.ctx().get_artifact_fs().await?;
 
     let mut targets_paths = Vec::new();
 
-    for targets_artifacts in
-        retrieve_targets_artifacts_from_patterns(&mut ctx, &global_cfg_options, &parsed_patterns)
-            .await?
+    for targets_artifacts in retrieve_targets_artifacts_from_patterns(
+        &mut ctx.ctx(),
+        &global_cfg_options,
+        &parsed_patterns,
+    )
+    .await?
     {
         let mut paths = Vec::new();
         for artifact in targets_artifacts.artifacts {

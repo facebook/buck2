@@ -57,12 +57,12 @@ impl ServerCommandTemplate for ConfiguredTargetsServerCommand {
         &self,
         server_ctx: &dyn ServerCommandContextTrait,
         _partial_result_dispatcher: PartialResultDispatcher<NoPartialResult>,
-        mut ctx: DiceTransaction,
+        ctx: DiceTransaction,
     ) -> buck2_error::Result<ConfiguredTargetsResponse> {
         // TODO(nga): this should accept `ConfiguredTargetPatternExtra`. And handle the universe.
         let parsed_patterns_with_modifiers =
             parse_patterns_with_modifiers_from_cli_args::<TargetPatternExtra>(
-                &mut ctx,
+                &mut ctx.ctx(),
                 &self.req.target_patterns,
                 server_ctx.working_dir(),
             )
@@ -76,7 +76,7 @@ impl ServerCommandTemplate for ConfiguredTargetsServerCommand {
                 .as_ref()
                 .ok_or_else(|| internal_error!("target_cfg must be set"))?,
             server_ctx,
-            &mut ctx,
+            &mut ctx.ctx(),
         )
         .await?;
 
@@ -85,7 +85,7 @@ impl ServerCommandTemplate for ConfiguredTargetsServerCommand {
         let keep_going = self.req.keep_going;
 
         let result = load_compatible_patterns_with_modifiers(
-            &mut ctx,
+            &mut ctx.ctx(),
             parsed_patterns_with_modifiers,
             &global_cfg_options,
             skip_missing_targets,

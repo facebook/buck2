@@ -94,10 +94,10 @@ impl ServerCommandTemplate for AqueryServerCommand {
 async fn aquery(
     server_ctx: &dyn ServerCommandContextTrait,
     mut stdout: impl Write,
-    mut ctx: DiceTransaction,
+    ctx: DiceTransaction,
     request: &buck2_cli_proto::AqueryRequest,
 ) -> buck2_error::Result<buck2_cli_proto::AqueryResponse> {
-    let cell_resolver = ctx.get_cell_resolver().await?;
+    let cell_resolver = ctx.ctx().get_cell_resolver().await?;
 
     let output_configuration = QueryResultPrinter::from_request_options(
         &cell_resolver,
@@ -116,14 +116,14 @@ async fn aquery(
             .as_ref()
             .ok_or_else(|| internal_error!("target_cfg must be set"))?,
         server_ctx,
-        &mut ctx,
+        &mut ctx.ctx(),
     )
     .await?;
 
     let query_result = QUERY_FRONTEND
         .get()?
         .eval_aquery(
-            &mut ctx,
+            &mut ctx.ctx(),
             server_ctx.working_dir(),
             query,
             query_args,

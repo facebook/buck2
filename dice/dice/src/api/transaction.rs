@@ -9,8 +9,6 @@
  */
 
 use std::future::Future;
-use std::ops::Deref;
-use std::ops::DerefMut;
 
 use allocative::Allocative;
 use dice_error::DiceResult;
@@ -18,6 +16,7 @@ use dupe::Dupe;
 use futures::FutureExt;
 
 use crate::api::computations::DiceComputations;
+use crate::api::data::DiceData;
 use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
 use crate::impls::ctx::BaseComputeCtx;
@@ -103,6 +102,40 @@ impl DiceTransaction {
     pub fn equality_token(&self) -> DiceEquality {
         DiceEquality(self.0.get_version())
     }
+
+    /// Request the result of computing a particular key.
+    ///
+    /// This is similar to `DiceComputations::compute`, but a bit more flexible as it takes `&self`
+    /// - the standard requirements around structured dependencies don't apply.
+    pub fn compute<'a, K>(
+        &'a self,
+        key: &K,
+    ) -> impl Future<Output = DiceResult<<K as Key>::Value>> + use<'a, K>
+    where
+        K: Key,
+    {
+        self.0.compute(key)
+    }
+
+    /// Get access to a `DiceComputations` connected to this transaction.
+    ///
+    /// Usually not needed over `compute`, but can be useful for sharing code.
+    pub fn ctx(&self) -> DiceComputations<'_> {
+        DiceComputations(self.0.as_computations())
+    }
+
+    /// Data that is static for the lifetime of the current request context. This lifetime is
+    /// the lifetime of the top-level `DiceComputation` used for all requests.
+    /// The data is also specific to each request context, so multiple concurrent requests can
+    /// each have their own individual data.
+    pub fn per_transaction_data(&self) -> &UserComputationData {
+        self.0.per_transaction_data()
+    }
+
+    /// Data that is shared for all requests of this DICE instance.
+    pub fn global_data(&self) -> &DiceData {
+        self.0.global_data()
+    }
 }
 
 #[derive(Allocative, Eq, PartialEq, Copy, Clone, derive_more::Display)]
@@ -132,19 +165,5 @@ impl DiceEquivalent for DiceTransaction {
 impl DiceEquivalent for DiceEquality {
     fn version_for_equivalence(&self) -> DiceEquality {
         *self
-    }
-}
-
-impl Deref for DiceTransaction {
-    type Target = DiceComputations<'static>;
-
-    fn deref(&self) -> &Self::Target {
-        self.0.as_computations()
-    }
-}
-
-impl DerefMut for DiceTransaction {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.0.as_computations_mut()
     }
 }

@@ -83,11 +83,11 @@ async fn test_linear_recompute_tracks_deps() {
         builder.build(DetectCycles::Enabled)
     };
 
-    let mut ctx = dice.updater().commit().await;
+    let ctx = dice.updater().commit().await;
 
     assert_eq!(ctx.compute(&K::Top).await.unwrap(), 4950);
 
-    let mut ctx = {
+    let ctx = {
         let mut updater = dice.updater();
         updater.changed_to(vec![(K::Mid(50), 0)]).unwrap();
         updater.commit().await

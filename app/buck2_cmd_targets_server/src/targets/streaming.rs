@@ -68,7 +68,7 @@ fn write_str(outputter: &mut dyn Write, s: &mut String) -> buck2_error::Result<(
 ///   Passing from cli args `--imports` from `app/buck2_client/src/commands/targets.rs`.
 pub(crate) async fn targets_streaming(
     server_ctx: &dyn ServerCommandContextTrait,
-    mut dice: DiceTransaction,
+    dice: DiceTransaction,
     formatter: Arc<dyn TargetFormatter>,
     outputter: &mut (dyn Write + Send),
     parsed_patterns: Vec<ParsedPattern<TargetPatternExtra>>,
@@ -87,7 +87,7 @@ pub(crate) async fn targets_streaming(
             let formatter = formatter.dupe();
             let imported = imported.dupe();
             let threads = threads.dupe();
-            let mut ctx = cloned_dice.dupe();
+            let ctx = cloned_dice.dupe();
 
             spawn_dropcancel(
                 |_cancellation| {
@@ -95,8 +95,16 @@ pub(crate) async fn targets_streaming(
                         async move {
                             let (package, spec) = x?;
                             let res = process_package(
-                                &mut ctx, formatter, package, spec, cached, keep_going, imports,
-                                fast_hash, threads, imported,
+                                &mut ctx.ctx(),
+                                formatter,
+                                package,
+                                spec,
+                                cached,
+                                keep_going,
+                                imports,
+                                fast_hash,
+                                threads,
+                                imported,
                             )
                             .await;
                             buck2_error::Ok(res)
@@ -156,7 +164,7 @@ pub(crate) async fn targets_streaming(
                 // and there aren't many, so we just do it on the main thread.
                 // We ignore errors as these will bubble up as BUCK file errors already.
                 if let Ok(Some((package_file_path, imports))) =
-                    package_imports(&mut dice, x.dupe()).await
+                    package_imports(&mut dice.ctx(), x.dupe()).await
                 {
                     if needs_separator {
                         formatter.separator(&mut buffer);
@@ -187,7 +195,7 @@ pub(crate) async fn targets_streaming(
             }
             needs_separator = true;
             // No need to parallelise these this step because it will already be on the DICE graph
-            let loaded = dice.get_loaded_module_from_import_path(&path).await?;
+            let loaded = dice.ctx().get_loaded_module_from_import_path(&path).await?;
             let imports = loaded.imports().cloned().collect::<Vec<_>>();
             formatter.imports(path.path(), &imports, None, &mut buffer);
             todo.extend(imports);
@@ -279,7 +287,7 @@ impl PreparePackageResult {
 }
 
 async fn process_package(
-    ctx: &mut DiceTransaction,
+    ctx: &mut DiceComputations<'_>,
     formatter: Arc<dyn TargetFormatter>,
     package: PackageLabel,
     spec: PackageSpec<TargetPatternExtra>,

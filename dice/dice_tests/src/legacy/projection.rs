@@ -242,7 +242,7 @@ async fn smoke() -> anyhow::Result<()> {
         ..Default::default()
     });
 
-    let mut ctx = ctx.commit().await;
+    let ctx = ctx.commit().await;
 
     let file = ctx
         .compute(&FileKey {
@@ -275,7 +275,7 @@ async fn smoke() -> anyhow::Result<()> {
     data.data.set(GlobalConfig {
         config: HashMap::from_iter([("x".to_owned(), "X".to_owned())]),
     });
-    let mut ctx = dice.updater_with_data(data).commit().await;
+    let ctx = dice.updater_with_data(data).commit().await;
 
     let file = ctx
         .compute(&FileKey {
@@ -307,7 +307,7 @@ async fn smoke() -> anyhow::Result<()> {
             ("y".to_owned(), "Y".to_owned()),
         ]),
     });
-    let mut ctx = dice.updater_with_data(data).commit().await;
+    let ctx = dice.updater_with_data(data).commit().await;
 
     let file = ctx
         .compute(&FileKey {

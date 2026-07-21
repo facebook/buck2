@@ -347,14 +347,15 @@ async fn async_main() {
     {
         let mut updater = dice.updater();
         updater.changed_to(vec![(Seed, 0)]).unwrap();
-        let mut ctx = updater.commit().await;
-        ctx.compute_join(0..args.shadows, |ctx, s| {
-            async move {
-                drop(ctx.compute(&GraphNode(0, s)).await);
-            }
-            .boxed()
-        })
-        .await;
+        let ctx = updater.commit().await;
+        ctx.ctx()
+            .compute_join(0..args.shadows, |ctx, s| {
+                async move {
+                    drop(ctx.compute(&GraphNode(0, s)).await);
+                }
+                .boxed()
+            })
+            .await;
     }
     eprintln!(
         "Initial computation: {:.3}s\n",
@@ -371,17 +372,18 @@ async fn async_main() {
         updater.changed_to(vec![(Seed, i)]).unwrap();
 
         let t0 = Instant::now();
-        let mut ctx = updater.commit().await;
+        let ctx = updater.commit().await;
         let commit_dur = t0.elapsed();
 
         let t1 = Instant::now();
-        ctx.compute_join(0..args.shadows, |ctx, s| {
-            async move {
-                drop(ctx.compute(&GraphNode(0, s)).await);
-            }
-            .boxed()
-        })
-        .await;
+        ctx.ctx()
+            .compute_join(0..args.shadows, |ctx, s| {
+                async move {
+                    drop(ctx.compute(&GraphNode(0, s)).await);
+                }
+                .boxed()
+            })
+            .await;
         let compute_dur = t1.elapsed();
 
         let t2 = Instant::now();

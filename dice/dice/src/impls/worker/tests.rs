@@ -1358,7 +1358,7 @@ async fn _run_cancellation_caching_test(
     };
     k.reset(&cancel_type, FIRST_COMPUTE_MS, cancel_poller_type)
         .await;
-    let mut txn: crate::DiceTransaction = dice.updater().commit().await;
+    let txn: crate::DiceTransaction = dice.updater().commit().await;
     let task = txn.compute(&k);
     let start_cancel = {
         // Before cancelling the task, we have to wait for the `compute()` method on

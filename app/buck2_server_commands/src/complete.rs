@@ -50,7 +50,7 @@ impl ServerCommandTemplate for CompleteServerCommand {
         &self,
         server_ctx: &dyn ServerCommandContextTrait,
         _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
-        mut dice: DiceTransaction,
+        dice: DiceTransaction,
     ) -> buck2_error::Result<Self::Response> {
         let cwd = server_ctx.working_dir().to_buf();
         let partial_target = self.req.partial_target.clone();
@@ -62,14 +62,14 @@ impl ServerCommandTemplate for CompleteServerCommand {
         // never be possible to get completions for a buildfile that takes more than 500ms to load.
         tokio::spawn(async move {
             let parsed_target_patterns = parse_patterns_from_cli_args::<TargetPatternExtra>(
-                &mut dice,
+                &mut dice.ctx(),
                 &[partial_target],
                 &cwd,
             )
             .await?;
 
             let results = &load_patterns(
-                &mut dice,
+                &mut dice.ctx(),
                 parsed_target_patterns,
                 MissingTargetBehavior::Fail,
             )

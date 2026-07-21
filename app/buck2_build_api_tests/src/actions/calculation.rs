@@ -280,7 +280,7 @@ async fn test_get_action_for_artifact() -> buck2_error::Result<()> {
         build_artifact.key(),
         registered_action.dupe(),
     );
-    let mut dice_computations = dice_builder
+    let dice_computations = dice_builder
         .build(UserComputationData::new())
         .unwrap()
         .commit()
@@ -288,7 +288,7 @@ async fn test_get_action_for_artifact() -> buck2_error::Result<()> {
 
     let result = with_dispatcher_async(
         EventDispatcher::null(),
-        ActionCalculation::get_action(&mut dice_computations, build_artifact.key()),
+        ActionCalculation::get_action(&mut dice_computations.ctx(), build_artifact.key()),
     )
     .await;
     assert_eq!(result?, registered_action);
@@ -312,7 +312,7 @@ async fn test_build_action() -> buck2_error::Result<()> {
     );
 
     let dry_run_tracker = Arc::new(Mutex::new(vec![]));
-    let mut dice_computations = make_default_dice_state(
+    let dice_computations = make_default_dice_state(
         dry_run_tracker.dupe(),
         &temp_fs,
         vec![{
@@ -326,7 +326,8 @@ async fn test_build_action() -> buck2_error::Result<()> {
     .await?;
 
     let result =
-        ActionCalculation::build_action(&mut dice_computations, registered_action.key()).await;
+        ActionCalculation::build_action(&mut dice_computations.ctx(), registered_action.key())
+            .await;
 
     result.unwrap();
 
@@ -362,7 +363,7 @@ async fn test_build_artifact() -> buck2_error::Result<()> {
     );
 
     let dry_run_tracker = Arc::new(Mutex::new(vec![]));
-    let mut dice_computations = make_default_dice_state(dry_run_tracker.dupe(), &temp_fs, {
+    let dice_computations = make_default_dice_state(dry_run_tracker.dupe(), &temp_fs, {
         let registered_action = registered_action.dupe();
         let action_key = build_artifact.key().dupe();
         vec![Box::new(move |builder| {
@@ -373,7 +374,7 @@ async fn test_build_artifact() -> buck2_error::Result<()> {
 
     let result = with_dispatcher_async(
         EventDispatcher::null(),
-        ActionCalculation::build_artifact(&mut dice_computations, &build_artifact),
+        ActionCalculation::build_artifact(&mut dice_computations.ctx(), &build_artifact),
     )
     .await;
 
@@ -410,7 +411,7 @@ async fn test_ensure_artifact_build_artifact() -> buck2_error::Result<()> {
     );
 
     let dry_run_tracker = Arc::new(Mutex::new(vec![]));
-    let mut dice_computations = make_default_dice_state(dry_run_tracker.dupe(), &temp_fs, {
+    let dice_computations = make_default_dice_state(dry_run_tracker.dupe(), &temp_fs, {
         let registered_action = registered_action.dupe();
         let action_key = build_artifact.key().dupe();
         vec![Box::new(move |builder| {
@@ -422,6 +423,7 @@ async fn test_ensure_artifact_build_artifact() -> buck2_error::Result<()> {
     let result = with_dispatcher_async(
         EventDispatcher::null(),
         dice_computations
+            .ctx()
             .ensure_artifact_group(&ArtifactGroup::Artifact(build_artifact.dupe().into())),
     )
     .await;
@@ -462,7 +464,7 @@ async fn test_ensure_artifact_source_artifact() -> buck2_error::Result<()> {
         data.set_digest_config(DigestConfig::testing_default());
     });
     let file_ops = TestFileOps::new_with_files_metadata(btreemap![path => metadata.dupe()]);
-    let mut dice_computations = file_ops
+    let dice_computations = file_ops
         .mock_in_cell(CellName::testing_new("cell"), dice_builder)
         .build(UserComputationData::new())
         .unwrap()
@@ -473,7 +475,7 @@ async fn test_ensure_artifact_source_artifact() -> buck2_error::Result<()> {
     let input = ArtifactGroup::Artifact(source_artifact.dupe());
     let result = with_dispatcher_async(
         EventDispatcher::null(),
-        dice_computations.ensure_artifact_group(&input),
+        dice_computations.ctx().ensure_artifact_group(&input),
     )
     .await?
     .iter()
@@ -513,7 +515,7 @@ async fn test_ensure_artifact_external_symlink() -> buck2_error::Result<()> {
         data.set_digest_config(DigestConfig::testing_default());
     });
     let file_ops = TestFileOps::new_with_symlinks(btreemap![path => symlink.dupe()]);
-    let mut dice_computations = file_ops
+    let dice_computations = file_ops
         .mock_in_cell(CellName::testing_new("cell"), dice_builder)
         .build(UserComputationData::new())
         .unwrap()
@@ -524,7 +526,7 @@ async fn test_ensure_artifact_external_symlink() -> buck2_error::Result<()> {
     let input = ArtifactGroup::Artifact(source_artifact.dupe());
     let result = with_dispatcher_async(
         EventDispatcher::null(),
-        dice_computations.ensure_artifact_group(&input),
+        dice_computations.ctx().ensure_artifact_group(&input),
     )
     .await?
     .iter()

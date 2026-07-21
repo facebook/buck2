@@ -154,7 +154,7 @@ struct RunArgsMissingSeparator;
 
 async fn build(
     server_ctx: &dyn ServerCommandContextTrait,
-    mut ctx: DiceTransaction,
+    ctx: DiceTransaction,
     request: &buck2_cli_proto::BuildRequest,
 ) -> buck2_error::Result<buck2_cli_proto::BuildResponse> {
     if request.run_args_missing_separator {
@@ -182,11 +182,11 @@ async fn build(
         Arc::new(TimeoutLivelinessObserver::new(timeout)) as Arc<dyn LivelinessObserver>
     });
 
-    let cell_resolver = ctx.get_cell_resolver().await?;
+    let cell_resolver = ctx.ctx().get_cell_resolver().await?;
 
     let parsed_patterns_with_modifiers: Vec<
         ParsedPatternWithModifiers<ConfiguredProvidersPatternExtra>,
-    > = parse_patterns_with_modifiers_from_cli_args(&mut ctx, &request.target_patterns, cwd)
+    > = parse_patterns_with_modifiers_from_cli_args(&mut ctx.ctx(), &request.target_patterns, cwd)
         .await?;
 
     let has_pattern_modifiers = parsed_patterns_with_modifiers
@@ -196,11 +196,14 @@ async fn build(
     server_ctx.log_target_pattern_with_modifiers(&parsed_patterns_with_modifiers);
 
     let resolved_pattern: ResolvedPattern<ConfiguredProvidersPatternExtra> =
-        ResolveTargetPatterns::resolve_with_modifiers(&mut ctx, &parsed_patterns_with_modifiers)
-            .await?;
+        ResolveTargetPatterns::resolve_with_modifiers(
+            &mut ctx.ctx(),
+            &parsed_patterns_with_modifiers,
+        )
+        .await?;
 
     let target_resolution_config = TargetResolutionConfig::from_args(
-        &mut ctx,
+        &mut ctx.ctx(),
         request
             .target_cfg
             .as_ref()
@@ -234,6 +237,7 @@ async fn build(
         .unwrap();
 
     let want_configured_graph_size = ctx
+        .ctx()
         .parse_legacy_config_property(
             cell_resolver.root_cell(),
             BuckconfigKeyRef {
@@ -245,6 +249,7 @@ async fn build(
         .unwrap_or_default();
 
     let want_configured_graph_sketch = ctx
+        .ctx()
         .parse_legacy_config_property(
             cell_resolver.root_cell(),
             BuckconfigKeyRef {
@@ -256,6 +261,7 @@ async fn build(
         .unwrap_or_default();
 
     let want_total_configured_graph_sketch = ctx
+        .ctx()
         .parse_legacy_config_property(
             cell_resolver.root_cell(),
             BuckconfigKeyRef {
@@ -267,6 +273,7 @@ async fn build(
         .unwrap_or_default();
 
     let want_retained_analysis_memory_sketch = ctx
+        .ctx()
         .parse_legacy_config_property(
             cell_resolver.root_cell(),
             BuckconfigKeyRef {
@@ -278,6 +285,7 @@ async fn build(
         .unwrap_or_default();
 
     let want_action_graph_sketch = ctx
+        .ctx()
         .parse_legacy_config_property(
             cell_resolver.root_cell(),
             BuckconfigKeyRef {
@@ -289,6 +297,7 @@ async fn build(
         .unwrap_or_default();
 
     let want_peak_analysis_memory_sketch = ctx
+        .ctx()
         .parse_legacy_config_property(
             cell_resolver.root_cell(),
             BuckconfigKeyRef {
@@ -300,6 +309,7 @@ async fn build(
         .unwrap_or_default();
 
     let want_peak_load_memory_sketch = ctx
+        .ctx()
         .parse_legacy_config_property(
             cell_resolver.root_cell(),
             BuckconfigKeyRef {
@@ -311,6 +321,7 @@ async fn build(
         .unwrap_or_default();
 
     let want_artifact_count_sketch: bool = ctx
+        .ctx()
         .parse_legacy_config_property(
             cell_resolver.root_cell(),
             BuckconfigKeyRef {
@@ -322,6 +333,7 @@ async fn build(
         .unwrap_or_default();
 
     let want_artifact_size_sketch: bool = ctx
+        .ctx()
         .parse_legacy_config_property(
             cell_resolver.root_cell(),
             BuckconfigKeyRef {
@@ -333,6 +345,7 @@ async fn build(
         .unwrap_or_default();
 
     let want_log_sketch_cardinalities: bool = ctx
+        .ctx()
         .parse_legacy_config_property(
             cell_resolver.root_cell(),
             BuckconfigKeyRef {
@@ -357,6 +370,7 @@ async fn build(
     };
 
     let providers_to_skip_in_artifact_path_sketch: HashSet<BuildProviderType> = ctx
+        .ctx()
         .parse_legacy_config_list_property::<SkipProvider>(
             cell_resolver.root_cell(),
             BuckconfigKeyRef {
@@ -388,7 +402,8 @@ async fn build(
         .is_some_and(|o| o.return_run_args);
     let build_start = Instant::now();
     let cloned_ctx = ctx.clone(); // build_future does a mutable borrow on the context, so we clone it first
-    let build_future = ctx.with_linear_recompute(|ctx| async move {
+    let mut dice = ctx.ctx();
+    let build_future = dice.with_linear_recompute(|ctx| async move {
         build_targets(
             &ctx,
             resolved_pattern,
@@ -419,6 +434,7 @@ async fn build(
     .await?;
 
     let want_detailed_metrics = ctx
+        .ctx()
         .parse_legacy_config_property(
             cell_resolver.root_cell(),
             BuckconfigKeyRef {
@@ -436,7 +452,7 @@ async fn build(
         || graph_properties.artifact_count_sketch
         || graph_properties.artifact_size_sketch;
     let mut events = if need_events {
-        Some(ctx.take_per_build_events()?)
+        Some(ctx.ctx().take_per_build_events()?)
     } else {
         None
     };
@@ -444,7 +460,7 @@ async fn build(
     // Compute action graph sketch independently if requested (doesn't require detailed_metrics)
     let action_graph_sketch_result = if graph_properties.action_graph_sketch {
         if let Some(ref events) = events {
-            Some(ctx.compute_action_graph_sketch(events).await?)
+            Some(ctx.ctx().compute_action_graph_sketch(events).await?)
         } else {
             None
         }
@@ -471,17 +487,18 @@ async fn build(
                         .map(|_| label.clone())
                 })
                 .collect();
-            let artifact_fs = ctx.get_artifact_fs().await?;
+            let artifact_fs = ctx.ctx().get_artifact_fs().await?;
             Some(
-                ctx.compute_artifact_path_sketch(
-                    events,
-                    artifact_fs,
-                    providers_to_skip_in_artifact_path_sketch,
-                    &timed_out_targets,
-                    graph_properties.artifact_count_sketch,
-                    graph_properties.artifact_size_sketch,
-                )
-                .await?,
+                ctx.ctx()
+                    .compute_artifact_path_sketch(
+                        events,
+                        artifact_fs,
+                        providers_to_skip_in_artifact_path_sketch,
+                        &timed_out_targets,
+                        graph_properties.artifact_count_sketch,
+                        graph_properties.artifact_size_sketch,
+                    )
+                    .await?,
             )
         } else {
             None
@@ -491,7 +508,7 @@ async fn build(
         let events = events.take().ok_or_else(|| {
             internal_error!("events should be Some when detailed metrics is needed")
         })?;
-        let mut metrics = ctx.compute_detailed_metrics(events).await?;
+        let mut metrics = ctx.ctx().compute_detailed_metrics(events).await?;
         for target_metric in &mut metrics.top_level_target_metrics {
             if let Some(Some(result)) = build_result.configured.get(&target_metric.target) {
                 target_metric.wall_clock_completion_ms =
@@ -525,7 +542,7 @@ async fn build(
 
 async fn process_streaming_build_result(
     server_ctx: &dyn ServerCommandContextTrait,
-    mut ctx: DiceTransaction,
+    ctx: DiceTransaction,
     request: &buck2_cli_proto::BuildRequest,
     build_result: BuildTargetResult,
     detailed_metrics: Option<DetailedAggregatedMetrics>,
@@ -535,11 +552,16 @@ async fn process_streaming_build_result(
     let build_opts = expect_build_opts(request);
     let fs = server_ctx.project_root();
     let cwd: &buck2_core::fs::project_rel_path::ProjectRelativePath = server_ctx.working_dir();
-    let cell_resolver = ctx.get_cell_resolver().await?;
-    let artifact_fs = ctx.get_artifact_fs().await?;
+    let cell_resolver = ctx.ctx().get_cell_resolver().await?;
+    let artifact_fs = ctx.ctx().get_artifact_fs().await?;
 
-    let build_report_opts =
-        build_report_opts(&mut ctx, &cell_resolver, build_opts, graph_properties_opts).await?;
+    let build_report_opts = build_report_opts(
+        &mut ctx.ctx(),
+        &cell_resolver,
+        build_opts,
+        graph_properties_opts,
+    )
+    .await?;
 
     stream_build_report(
         build_report_opts,
@@ -561,17 +583,22 @@ async fn process_streaming_build_result(
 
 async fn init_streaming_build_report(
     server_ctx: &dyn ServerCommandContextTrait,
-    mut ctx: DiceTransaction,
+    ctx: DiceTransaction,
     request: &buck2_cli_proto::BuildRequest,
     graph_properties_opts: GraphPropertiesOptions,
 ) -> buck2_error::Result<()> {
     let build_opts = expect_build_opts(request);
     let fs = server_ctx.project_root();
     let cwd: &buck2_core::fs::project_rel_path::ProjectRelativePath = server_ctx.working_dir();
-    let cell_resolver = ctx.get_cell_resolver().await?;
+    let cell_resolver = ctx.ctx().get_cell_resolver().await?;
 
-    let build_report_opts =
-        build_report_opts(&mut ctx, &cell_resolver, build_opts, graph_properties_opts).await?;
+    let build_report_opts = build_report_opts(
+        &mut ctx.ctx(),
+        &cell_resolver,
+        build_opts,
+        graph_properties_opts,
+    )
+    .await?;
 
     initialize_streaming_build_report(build_report_opts, fs, cwd)?;
 
@@ -640,7 +667,7 @@ async fn maybe_stream_build_reports(
 
 async fn process_build_result(
     server_ctx: &dyn ServerCommandContextTrait,
-    mut ctx: DiceTransaction,
+    ctx: DiceTransaction,
     request: &buck2_cli_proto::BuildRequest,
     build_result: BuildTargetResult,
     detailed_metrics: Option<DetailedAggregatedMetrics>,
@@ -654,8 +681,8 @@ async fn process_build_result(
     let build_opts = expect_build_opts(request);
     let response_options = request.response_options.unwrap_or_default();
 
-    let cell_resolver = ctx.get_cell_resolver().await?;
-    let artifact_fs = ctx.get_artifact_fs().await?;
+    let cell_resolver = ctx.ctx().get_cell_resolver().await?;
+    let artifact_fs = ctx.ctx().get_artifact_fs().await?;
 
     let result_reports = ResultReporter::convert(
         &artifact_fs,
@@ -668,8 +695,13 @@ async fn process_build_result(
     .await?;
 
     let serialized_build_report = if build_opts.unstable_print_build_report {
-        let build_report_opts =
-            build_report_opts(&mut ctx, &cell_resolver, build_opts, graph_properties_opts).await?;
+        let build_report_opts = build_report_opts(
+            &mut ctx.ctx(),
+            &cell_resolver,
+            build_opts,
+            graph_properties_opts,
+        )
+        .await?;
 
         write_build_report(
             build_report_opts,
@@ -698,6 +730,7 @@ async fn process_build_result(
     }
 
     let should_create_unhashed_links = ctx
+        .ctx()
         .parse_legacy_config_property(
             cell_resolver.root_cell(),
             BuckconfigKeyRef {

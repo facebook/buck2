@@ -31,9 +31,9 @@ async fn test_literal() -> Result<(), Arc<anyhow::Error>> {
     let mut ctx = dice.updater();
     let (var, eq) = parse_math_equation("a=5").unwrap();
     ctx.set_equation(var.dupe(), eq)?;
-    let mut ctx = ctx.commit().await;
+    let ctx = ctx.commit().await;
 
-    assert_eq!(5, ctx.eval(var).await?);
+    assert_eq!(5, ctx.ctx().eval(var).await?);
 
     Ok(())
 }
@@ -46,9 +46,9 @@ async fn test_var() -> Result<(), Arc<anyhow::Error>> {
     let eqs = parse_math_equations(vec!["b=a", "a=3"]).unwrap();
 
     ctx.set_equations(eqs)?;
-    let mut ctx = ctx.commit().await;
+    let ctx = ctx.commit().await;
 
-    assert_eq!(3, ctx.eval(var("b")).await?);
+    assert_eq!(3, ctx.ctx().eval(var("b")).await?);
     Ok(())
 }
 
@@ -61,10 +61,10 @@ async fn test_compound() -> Result<(), Arc<anyhow::Error>> {
     let eq = parse_math_equations(eq).unwrap();
 
     ctx.set_equations(eq)?;
-    let mut ctx = ctx.commit().await;
+    let ctx = ctx.commit().await;
 
-    assert_eq!(3, ctx.eval(var("a")).await?);
-    assert_eq!(6, ctx.eval(var("b")).await?);
+    assert_eq!(3, ctx.ctx().eval(var("a")).await?);
+    assert_eq!(6, ctx.ctx().eval(var("b")).await?);
 
     Ok(())
 }
@@ -78,15 +78,15 @@ async fn test_changed_eq() -> Result<(), Arc<anyhow::Error>> {
     let eq = parse_math_equations(eq).unwrap();
 
     ctx.set_equations(eq)?;
-    let mut ctx = ctx.commit().await;
+    let ctx = ctx.commit().await;
 
-    assert_eq!(6, ctx.eval(var("b")).await?);
+    assert_eq!(6, ctx.ctx().eval(var("b")).await?);
 
     let mut ctx = dice.updater();
     ctx.set_equation(var("a"), Equation::Unit(Unit::Literal(4)))?;
-    let mut ctx = ctx.commit().await;
+    let ctx = ctx.commit().await;
 
-    assert_eq!(8, ctx.eval(var("b")).await?);
+    assert_eq!(8, ctx.ctx().eval(var("b")).await?);
 
     Ok(())
 }

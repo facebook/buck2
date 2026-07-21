@@ -103,7 +103,7 @@ impl ResolveAliasFormatter for LinesWriter {
 }
 
 pub(crate) async fn targets_resolve_aliases(
-    mut dice: DiceTransaction,
+    dice: DiceTransaction,
     request: &TargetsRequest,
     parsed_target_patterns: Vec<ParsedPattern<TargetPatternExtra>>,
 ) -> buck2_error::Result<TargetsResponse> {
@@ -128,6 +128,7 @@ pub(crate) async fn targets_resolve_aliases(
         .collect::<StdBuckHashSet<_>>();
 
     let packages: StdBuckHashMap<_, _> = dice
+        .ctx()
         .compute_join(packages, |ctx: &mut _, package| {
             async move {
                 (

@@ -120,9 +120,9 @@ impl ServerCommandTemplate for FileStatusServerCommand {
         &self,
         server_ctx: &dyn ServerCommandContextTrait,
         mut stdout: PartialResultDispatcher<Self::PartialResult>,
-        mut ctx: DiceTransaction,
+        ctx: DiceTransaction,
     ) -> buck2_error::Result<Self::Response> {
-        let cell_resolver = &ctx.get_cell_resolver().await?;
+        let cell_resolver = &ctx.ctx().get_cell_resolver().await?;
         let project_root = server_ctx.project_root();
         let digest_config = ctx.global_data().get_digest_config();
 
@@ -145,7 +145,7 @@ impl ServerCommandTemplate for FileStatusServerCommand {
         for path in &self.req.paths {
             let path = project_root.relativize_any(AbsPath::new(Path::new(path))?)?;
             writeln!(&mut stderr, "Check file status: {path}")?;
-            check_file_status(&mut ctx, cell_resolver, io, &path, &mut result).await?;
+            check_file_status(&mut ctx.ctx(), cell_resolver, io, &path, &mut result).await?;
         }
         if result.bad != 0 {
             Err(buck2_error::buck2_error!(

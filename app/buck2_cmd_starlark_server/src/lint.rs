@@ -63,7 +63,7 @@ impl<'a> Cache<'a> {
         if let Some(res) = self.cached.get(&(cell, path_type)) {
             return Ok(res.dupe());
         }
-        let env: Environment = Environment::new(cell, path_type, &mut self.dice.clone()).await?;
+        let env: Environment = Environment::new(cell, path_type, &mut self.dice.ctx()).await?;
         let res = Arc::new(env.get_names(path_type, self.dice).await?);
         self.cached.insert((cell, path_type), res.dupe());
         Ok(res)
@@ -111,14 +111,20 @@ impl StarlarkServerSubcommand for StarlarkLintCommand {
         _client_ctx: ClientContext,
     ) -> buck2_error::Result<()> {
         server_ctx
-            .with_dice_ctx(|server_ctx, mut ctx| async move {
-                let cell_resolver = &ctx.get_cell_resolver().await?;
+            .with_dice_ctx(|server_ctx, ctx| async move {
+                let cell_resolver = &ctx.ctx().get_cell_resolver().await?;
                 let io = &ctx.global_data().get_io_provider();
 
                 let mut stdout = stdout.as_writer();
                 let mut lint_count = 0;
-                let files =
-                    starlark_files(&mut ctx, &self.paths, server_ctx, cell_resolver, &**io).await?;
+                let files = starlark_files(
+                    &mut ctx.ctx(),
+                    &self.paths,
+                    server_ctx,
+                    cell_resolver,
+                    &**io,
+                )
+                .await?;
                 let mut cache = Cache::new(&ctx);
 
                 for file in &files {

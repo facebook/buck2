@@ -173,9 +173,10 @@ async fn test_analysis_calculation() -> buck2_error::Result<()> {
             Arc::new(ConcurrentTargetLabelInterner::default()),
         )?,
     )?;
-    let mut dice = dice.commit().await;
+    let dice = dice.commit().await;
 
     let analysis = dice
+        .ctx()
         .get_analysis_result(
             &TargetLabel::testing_parse("cell//pkg:rule1")
                 .configure(ConfigurationData::testing_new()),

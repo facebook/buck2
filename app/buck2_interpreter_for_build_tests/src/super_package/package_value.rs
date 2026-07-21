@@ -61,8 +61,9 @@ async fn test_package_value_same_dir_package_file() {
 
     let package_label = PackageLabel::testing_parse("root//headphones");
 
-    let mut ctx = calculation(&fs).await;
-    let mut interpreter = ctx
+    let ctx = calculation(&fs).await;
+    let mut dice = ctx.ctx();
+    let mut interpreter = dice
         .get_interpreter_calculator(OwnedStarlarkPath::PackageFile(
             PackageFilePath::package_file_for_dir(package_label.as_cell_path()),
         ))
@@ -120,8 +121,9 @@ async fn test_package_value_parent_dir_package_file() {
 
     let package_label = PackageLabel::testing_parse("root//trackpad");
 
-    let mut ctx = calculation(&fs).await;
-    let mut interpreter = ctx
+    let ctx = calculation(&fs).await;
+    let mut dice = ctx.ctx();
+    let mut interpreter = dice
         .get_interpreter_calculator(OwnedStarlarkPath::PackageFile(
             PackageFilePath::package_file_for_dir(package_label.as_cell_path()),
         ))
@@ -160,8 +162,9 @@ async fn test_overwrite_package_value_not_allowed_without_overwrite_flag() {
 
     let package_label = PackageLabel::testing_parse("root//foo");
 
-    let mut ctx = calculation(&fs).await;
-    let mut interpreter = ctx
+    let ctx = calculation(&fs).await;
+    let mut dice = ctx.ctx();
+    let mut interpreter = dice
         .get_interpreter_calculator(OwnedStarlarkPath::PackageFile(
             PackageFilePath::package_file_for_dir(package_label.as_cell_path()),
         ))
@@ -201,8 +204,9 @@ async fn test_overwrite_package_value_with_flag() {
         ),
     );
 
-    let mut ctx = calculation(&fs).await;
+    let ctx = calculation(&fs).await;
     let result = ctx
+        .ctx()
         .get_interpreter_results(PackageLabel::testing_parse("root//foo"))
         .await
         .unwrap();
@@ -247,8 +251,9 @@ async fn test_read_parent_package_value() {
 
     let package_label = PackageLabel::testing_parse("root//foo");
 
-    let mut ctx = calculation(&fs).await;
-    let mut interpreter = ctx
+    let ctx = calculation(&fs).await;
+    let mut dice = ctx.ctx();
+    let mut interpreter = dice
         .get_interpreter_calculator(OwnedStarlarkPath::PackageFile(
             PackageFilePath::package_file_for_dir(package_label.as_cell_path()),
         ))
@@ -315,8 +320,9 @@ async fn test_read_parent_package_value_from_bzl() {
 
     let package_label = PackageLabel::testing_parse("root//foo");
 
-    let mut ctx = calculation(&fs).await;
-    let mut interpreter = ctx
+    let ctx = calculation(&fs).await;
+    let mut dice = ctx.ctx();
+    let mut interpreter = dice
         .get_interpreter_calculator(OwnedStarlarkPath::PackageFile(
             PackageFilePath::package_file_for_dir(package_label.as_cell_path()),
         ))
@@ -354,8 +360,9 @@ async fn test_read_parent_package_value_is_suggested_in_package_file() {
 
     let package_label = PackageLabel::testing_parse("root//foo");
 
-    let mut ctx = calculation(&fs).await;
-    let mut interpreter = ctx
+    let ctx = calculation(&fs).await;
+    let mut dice = ctx.ctx();
+    let mut interpreter = dice
         .get_interpreter_calculator(OwnedStarlarkPath::PackageFile(
             PackageFilePath::package_file_for_dir(package_label.as_cell_path()),
         ))
@@ -399,8 +406,9 @@ async fn test_read_parent_package_value_is_suggested_in_bzl_file() {
 
     let package_label = PackageLabel::testing_parse("root//foo");
 
-    let mut ctx = calculation(&fs).await;
-    let mut interpreter = ctx
+    let ctx = calculation(&fs).await;
+    let mut dice = ctx.ctx();
+    let mut interpreter = dice
         .get_interpreter_calculator(OwnedStarlarkPath::PackageFile(
             PackageFilePath::package_file_for_dir(package_label.as_cell_path()),
         ))
@@ -446,8 +454,9 @@ async fn test_config_unification_rollout_function_override() {
         ),
     );
     let package_label = PackageLabel::testing_parse("root//foo");
-    let mut ctx = calculation(&fs).await;
-    let mut interpreter = ctx
+    let ctx = calculation(&fs).await;
+    let mut dice = ctx.ctx();
+    let mut interpreter = dice
         .get_interpreter_calculator(OwnedStarlarkPath::PackageFile(
             PackageFilePath::package_file_for_dir(package_label.as_cell_path()),
         ))

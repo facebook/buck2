@@ -20,7 +20,6 @@ use std::fmt::Display;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::ops::ControlFlow;
-use std::ops::DerefMut;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -414,7 +413,7 @@ impl<'a> BuckTestOrchestrator<'a> {
 
         let test_target = self.session.get(test_target)?;
 
-        let fs = self.dice.clone().get_artifact_fs().await?;
+        let fs = self.dice.ctx().get_artifact_fs().await?;
         let pre_create_dirs = Arc::new(pre_create_dirs);
 
         let ExecuteData {
@@ -426,7 +425,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             outputs,
             command_execution,
         } = prepare_and_execute(
-            self.dice.dupe().deref_mut(),
+            &mut self.dice.dupe().ctx(),
             self.cancellations,
             TestExecutionKey {
                 test_target,
@@ -765,7 +764,7 @@ impl Key for TestExecutionKey {
 }
 
 async fn prepare_and_execute(
-    ctx: &mut DiceComputations<'static>,
+    ctx: &mut DiceComputations<'_>,
     cancellation: &CancellationContext,
     key: TestExecutionKey,
     liveliness_observer: Arc<dyn LivelinessObserver>,
@@ -971,10 +970,10 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
     ) -> buck2_error::Result<PrepareForLocalExecutionResult> {
         let test_target = self.session.get(test_target)?;
 
-        let fs = self.dice.clone().get_artifact_fs().await?;
+        let fs = self.dice.ctx().get_artifact_fs().await?;
 
         let test_info = Self::get_test_info(
-            self.dice.dupe().deref_mut(),
+            &mut self.dice.dupe().ctx(),
             &test_target,
             &self.internal_runner_config,
         )
@@ -985,12 +984,12 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
         // In contrast from actual test execution we do not check if local execution is possible.
         // We leave that decision to actual local execution runner that requests local execution preparation.
         let setup_local_resources_executor =
-            Self::get_local_executor(self.dice.dupe().deref_mut(), &fs).await?;
+            Self::get_local_executor(&mut self.dice.dupe().ctx(), &fs).await?;
         let available_resources: HashMap<_, _> = test_info.local_resources().into_iter().collect();
         let rule_required_names = test_info.execution_required_local_resource_names();
         let providers = {
             required_providers(
-                self.dice.dupe().deref_mut(),
+                &mut self.dice.dupe().ctx(),
                 available_resources,
                 rule_required_names,
                 &required_local_resources,
@@ -1000,7 +999,7 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
         let setup_commands: Vec<PreparedLocalResourceSetupContext> = self
             .dice
             .dupe()
-            .deref_mut()
+            .ctx()
             .try_compute_join(providers, |dice, provider| {
                 let fs = fs.clone();
                 let executor_fs = setup_local_resources_executor.executor_fs();
@@ -1020,7 +1019,7 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
 
         // Tests are not run, so there is no executor override.
         let test_executor = Self::get_test_executor(
-            self.dice.dupe().deref_mut(),
+            &mut self.dice.dupe().ctx(),
             &test_target,
             &test_info,
             None,
@@ -1030,7 +1029,7 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
         )
         .await?;
         let test_executable_expanded = Self::expand_test_executable(
-            self.dice.dupe().deref_mut(),
+            &mut self.dice.dupe().ctx(),
             &test_target,
             &test_info,
             Cow::Owned(cmd),
@@ -1053,7 +1052,7 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
         } = test_executable_expanded;
 
         let execution_request = Self::create_command_execution_request(
-            self.dice.dupe().deref_mut(),
+            &mut self.dice.dupe().ctx(),
             cwd,
             expanded_cmd,
             expanded_env,
@@ -1072,7 +1071,7 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
         .await?;
 
         let materializer = self.dice.per_transaction_data().get_materializer();
-        let blocking_executor = self.dice.get_blocking_executor();
+        let blocking_executor = self.dice.ctx().get_blocking_executor();
 
         let materialized_inputs = materialize_inputs(
             &fs,
@@ -1101,7 +1100,7 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
                 self.dice.global_data().get_digest_config(),
             )
             .await?;
-            let blocking_executor = self.dice.get_blocking_executor();
+            let blocking_executor = self.dice.ctx().get_blocking_executor();
 
             prep_scratch_path(&materialized_inputs.scratch, &fs).await?;
 

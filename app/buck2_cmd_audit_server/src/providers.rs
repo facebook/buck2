@@ -57,14 +57,15 @@ async fn server_execute_with_dice(
     command: &AuditProvidersCommand,
     server_ctx: &dyn ServerCommandContextTrait,
     mut stdout: PartialResultDispatcher<buck2_cli_proto::StdoutBytes>,
-    mut ctx: DiceTransaction,
+    ctx: DiceTransaction,
 ) -> buck2_error::Result<()> {
     let target_resolution_config =
-        audit_command_target_resolution_config(&mut ctx, &command.target_cfg, server_ctx).await?;
+        audit_command_target_resolution_config(&mut ctx.ctx(), &command.target_cfg, server_ctx)
+            .await?;
 
     let provider_labels_with_modifiers =
         parse_and_resolve_provider_labels_with_modifiers_from_cli_args(
-            &mut ctx,
+            &mut ctx.ctx(),
             &command.patterns,
             server_ctx.working_dir(),
         )
@@ -73,7 +74,7 @@ async fn server_execute_with_dice(
     let mut futs = Vec::new();
     for label_with_modifiers in provider_labels_with_modifiers {
         for configured_providers_label in target_resolution_config
-            .get_configured_provider_label_with_modifiers(&mut ctx, &label_with_modifiers)
+            .get_configured_provider_label_with_modifiers(&mut ctx.ctx(), &label_with_modifiers)
             .await?
         {
             futs.push(DiceComputations::declare_closure(|ctx| {
@@ -86,7 +87,8 @@ async fn server_execute_with_dice(
         }
     }
 
-    let mut futs: FuturesOrdered<_> = ctx.compute_many(futs).into_iter().collect();
+    let mut dice = ctx.ctx();
+    let mut futs: FuturesOrdered<_> = dice.compute_many(futs).into_iter().collect();
 
     let mut stdout = stdout.as_writer();
     let mut stderr = server_ctx.stderr()?;

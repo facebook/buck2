@@ -34,13 +34,13 @@ async fn setup(companies: Vec<Company>) -> anyhow::Result<(Arc<Dice>, DiceTransa
 
 #[tokio::test]
 async fn test_no_resources() -> Result<(), Arc<anyhow::Error>> {
-    let (dice, mut ctx) = setup(vec![Company {
+    let (dice, ctx) = setup(vec![Company {
         name: Arc::new("hello world".to_owned()),
         makes: HashMap::new(),
     }])
     .await?;
 
-    assert_eq!(None, ctx.resource_cost(&Resource::Wood).await?);
+    assert_eq!(None, ctx.ctx().resource_cost(&Resource::Wood).await?);
     let mut ctx = dice.updater();
     let success = ctx
         .change_company_resource_cost("hello world", &Resource::Stick, 5)
@@ -51,20 +51,20 @@ async fn test_no_resources() -> Result<(), Arc<anyhow::Error>> {
 
 #[tokio::test]
 async fn test_other_resource() -> Result<(), Arc<anyhow::Error>> {
-    let (_, mut ctx) = setup(vec![Company {
+    let (_, ctx) = setup(vec![Company {
         name: Arc::new("hello world".to_owned()),
         makes: [(Resource::Wood, 2)].iter().cloned().collect(),
     }])
     .await?;
 
-    assert_eq!(None, ctx.resource_cost(&Resource::Stick).await?);
-    assert_eq!(Some(2), ctx.resource_cost(&Resource::Wood).await?);
+    assert_eq!(None, ctx.ctx().resource_cost(&Resource::Stick).await?);
+    assert_eq!(Some(2), ctx.ctx().resource_cost(&Resource::Wood).await?);
     Ok(())
 }
 
 #[tokio::test]
 async fn test_simple() -> Result<(), Arc<anyhow::Error>> {
-    let (_, mut ctx) = setup(vec![
+    let (_, ctx) = setup(vec![
         Company {
             name: Arc::new("Steve".to_owned()),
             makes: [
@@ -99,7 +99,7 @@ async fn test_simple() -> Result<(), Arc<anyhow::Error>> {
     for (resource, cost) in &expected {
         assert_eq!(
             Some(*cost),
-            ctx.resource_cost(resource).await?,
+            ctx.ctx().resource_cost(resource).await?,
             "Testing {resource}",
         );
     }
@@ -108,7 +108,7 @@ async fn test_simple() -> Result<(), Arc<anyhow::Error>> {
 
 #[tokio::test]
 async fn test_complex() -> Result<(), Arc<anyhow::Error>> {
-    let (_, mut ctx) = setup(vec![
+    let (_, ctx) = setup(vec![
         Company {
             name: Arc::new("Steve".to_owned()),
             makes: [
@@ -158,7 +158,7 @@ async fn test_complex() -> Result<(), Arc<anyhow::Error>> {
     for (resource, cost) in &expected {
         assert_eq!(
             Some(*cost),
-            ctx.resource_cost(resource).await?,
+            ctx.ctx().resource_cost(resource).await?,
             "Testing {resource}",
         );
     }
@@ -195,11 +195,11 @@ async fn test_change_cost() -> Result<(), Arc<anyhow::Error>> {
         .await
         .map_err(|e| Arc::new(anyhow::anyhow!(e)))?;
 
-    let mut ctx = ctx.commit().await;
+    let ctx = ctx.commit().await;
 
     assert_eq!(
         Some(3 * 7 + 2 * (2 * (1 + 2) + 2) + 10),
-        ctx.resource_cost(&Resource::Pickaxe).await?
+        ctx.ctx().resource_cost(&Resource::Pickaxe).await?
     );
 
     let mut ctx = dice.updater();

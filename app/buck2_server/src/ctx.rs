@@ -597,8 +597,11 @@ impl DiceUpdater for DiceCommandUpdater<'_, '_> {
         mut ctx: DiceTransactionUpdater,
         early_timings: &mut EarlyCommandTimingBuilder,
     ) -> buck2_error::Result<(DiceTransactionUpdater, UserComputationData)> {
-        let existing_state = &mut ctx.existing_state().await.clone();
-        let cells_and_configs = self.cmd_ctx.load_new_configs(existing_state).await?;
+        let existing_state = ctx.existing_state().await.clone();
+        let cells_and_configs = self
+            .cmd_ctx
+            .load_new_configs(&mut existing_state.ctx())
+            .await?;
 
         // Validate agent context against buckconfig schema if entries were provided.
         if !self.cmd_ctx.agent_context.is_empty() {
@@ -617,7 +620,9 @@ impl DiceUpdater for DiceCommandUpdater<'_, '_> {
             self.cmd_ctx.isolation_prefix.as_str(),
         )?;
 
-        existing_state.maybe_enable_detailed_aggregated_metrics(&cells_and_configs.root_config)?;
+        existing_state
+            .ctx()
+            .maybe_enable_detailed_aggregated_metrics(&cells_and_configs.root_config)?;
 
         let cell_resolver = cells_and_configs.cell_resolver;
 

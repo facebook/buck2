@@ -35,8 +35,8 @@ pub(crate) async fn debug_eval_command(
     req: DebugEvalRequest,
 ) -> buck2_error::Result<DebugEvalResponse> {
     context
-        .with_dice_ctx(|server_ctx, mut ctx| async move {
-            let cell_resolver = ctx.get_cell_resolver().await?;
+        .with_dice_ctx(|server_ctx, ctx| async move {
+            let cell_resolver = ctx.ctx().get_cell_resolver().await?;
             let current_cell_path = cell_resolver.get_cell_path(server_ctx.working_dir());
             let mut loads = Vec::new();
 
@@ -57,8 +57,12 @@ pub(crate) async fn debug_eval_command(
                 } else {
                     return Err(DebugEvalError::InvalidImportPath(path).into());
                 };
-                loads
-                    .push(async move { ctx.clone().get_loaded_module(import_path.borrow()).await });
+                loads.push(async move {
+                    ctx.clone()
+                        .ctx()
+                        .get_loaded_module(import_path.borrow())
+                        .await
+                });
             }
 
             // Catch errors, ignore results.

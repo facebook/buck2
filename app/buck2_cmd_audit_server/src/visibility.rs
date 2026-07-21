@@ -38,7 +38,7 @@ enum VisibilityCommandError {
 }
 
 async fn verify_visibility(
-    mut ctx: DiceTransaction,
+    ctx: DiceTransaction,
     targets: TargetSet<TargetNode>,
 ) -> buck2_error::Result<()> {
     let mut new_targets: TargetSet<TargetNode> = TargetSet::new();
@@ -48,18 +48,19 @@ async fn verify_visibility(
         Ok(())
     };
 
-    ctx.with_linear_recompute(|ctx| async move {
-        let lookup = TargetNodeLookup(&ctx);
+    ctx.ctx()
+        .with_linear_recompute(|ctx| async move {
+            let lookup = TargetNodeLookup(&ctx);
 
-        async_depth_first_postorder_traversal(
-            &lookup,
-            targets.iter_names(),
-            QueryTargetDepsSuccessors,
-            visit,
-        )
-        .await
-    })
-    .await?;
+            async_depth_first_postorder_traversal(
+                &lookup,
+                targets.iter_names(),
+                QueryTargetDepsSuccessors,
+                visit,
+            )
+            .await
+        })
+        .await?;
 
     let mut visibility_errors = Vec::new();
 
@@ -108,16 +109,17 @@ impl ServerAuditSubcommand for AuditVisibilityCommand {
         _client_ctx: ClientContext,
     ) -> buck2_error::Result<()> {
         Ok(server_ctx
-            .with_dice_ctx(|server_ctx, mut ctx| async move {
+            .with_dice_ctx(|server_ctx, ctx| async move {
                 let parsed_patterns = parse_patterns_from_cli_args::<TargetPatternExtra>(
-                    &mut ctx,
+                    &mut ctx.ctx(),
                     &self.patterns,
                     server_ctx.working_dir(),
                 )
                 .await?;
 
                 let parsed_target_patterns =
-                    load_patterns(&mut ctx, parsed_patterns, MissingTargetBehavior::Fail).await?;
+                    load_patterns(&mut ctx.ctx(), parsed_patterns, MissingTargetBehavior::Fail)
+                        .await?;
 
                 let mut nodes = TargetSet::<TargetNode>::new();
                 for (_package, result) in parsed_target_patterns.iter() {

@@ -41,8 +41,9 @@ impl ServerAuditSubcommand for PackageValuesCommand {
         }
 
         Ok(server_ctx
-            .with_dice_ctx(|server_ctx, mut dice_ctx| async move {
+            .with_dice_ctx(|server_ctx, dice_ctx| async move {
                 let cell_alias_resolver = dice_ctx
+                    .ctx()
                     .get_cell_alias_resolver_for_dir(server_ctx.working_dir())
                     .await?;
 
@@ -51,6 +52,7 @@ impl ServerAuditSubcommand for PackageValuesCommand {
                     .try_map(|package| parse_package(package.dupe(), &cell_alias_resolver))?;
 
                 let package_values_by_package = dice_ctx
+                    .ctx()
                     .try_compute_join(packages, |ctx, package| {
                         async move {
                             let package_values = PACKAGE_VALUES_CALCULATION

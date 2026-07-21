@@ -57,7 +57,7 @@ async fn audit_dep_files(
         }
     };
 
-    let artifact_fs = ctx.clone().get_artifact_fs().await?;
+    let artifact_fs = ctx.ctx().get_artifact_fs().await?;
     let dep_files = read_dep_files(
         state.has_signatures(),
         declared_dep_files,

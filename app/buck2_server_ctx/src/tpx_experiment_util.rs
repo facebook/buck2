@@ -20,15 +20,19 @@ use crate::experiment_util::get_experiment_tags;
 /// This function retrieves all experiments from buckconfig that start with "experiments.tpx_"
 /// and returns them as a HashSet with the "experiments.tpx_" prefix removed.
 pub async fn get_tpx_experiments(
-    mut ctx: DiceTransaction,
+    ctx: DiceTransaction,
     project_root: &ProjectRoot,
 ) -> buck2_error::Result<StdBuckHashSet<String>> {
     // Get all experiments from buckconfig
-    if !ctx.is_injected_external_buckconfig_data_key_set().await? {
+    if !ctx
+        .ctx()
+        .is_injected_external_buckconfig_data_key_set()
+        .await?
+    {
         return Ok(StdBuckHashSet::default());
     }
 
-    let external_configs = ctx.get_injected_external_buckconfig_data().await?;
+    let external_configs = ctx.ctx().get_injected_external_buckconfig_data().await?;
     let current_external_and_local_configs = external_configs
         .get_buckconfig_components(project_root)
         .await;

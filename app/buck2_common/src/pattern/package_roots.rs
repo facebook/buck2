@@ -47,12 +47,13 @@ pub fn find_package_roots_stream(
 
     // We don't wait on the task finishing. The packages_rx we return will naturally end when the tx side is dropped.
     let ctx_data = ctx.per_transaction_data();
-    let mut ctx = ctx.dupe();
+    let ctx = ctx.dupe();
     let spawned = spawn_dropcancel(
         |_cancellations| {
             async move {
                 // ignore because the errors will be sent back via the stream
                 let _ignored = ctx
+                    .ctx()
                     .with_linear_recompute(|ctx| async move {
                         collect_package_roots(&DiceFileOps(&ctx), paths, |res| {
                             packages_tx.unbounded_send(res)

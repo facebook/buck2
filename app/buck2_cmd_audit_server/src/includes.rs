@@ -202,8 +202,8 @@ impl ServerAuditSubcommand for AuditIncludesCommand {
         _client_ctx: ClientContext,
     ) -> buck2_error::Result<()> {
         Ok(server_ctx
-            .with_dice_ctx(|server_ctx, mut ctx| async move {
-                let cells = ctx.get_cell_resolver().await?;
+            .with_dice_ctx(|server_ctx, ctx| async move {
+                let cells = ctx.ctx().get_cell_resolver().await?;
                 let cwd = server_ctx.working_dir();
                 let current_cell = cells.get(cells.find(cwd))?;
                 let fs = server_ctx.project_root();
@@ -216,12 +216,12 @@ impl ServerAuditSubcommand for AuditIncludesCommand {
                     .unique()
                     .map(|path| {
                         let path = path.to_owned();
-                        let mut ctx = ctx.dupe();
+                        let ctx = ctx.dupe();
                         let cell_path = resolve_path(&cells, fs, &current_cell_abs_path, &path);
                         async move {
                             let load_result = try {
                                 let cell_path = cell_path?;
-                                load_and_collect_includes(&mut ctx, &cell_path).await?
+                                load_and_collect_includes(&mut ctx.ctx(), &cell_path).await?
                             };
                             (path, load_result)
                         }

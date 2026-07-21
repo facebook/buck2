@@ -186,7 +186,7 @@ impl FileHasher for PathsAndContentsHasher {
         }
 
         let mut res = Vec::new();
-        hash_item(&mut self.dice.clone(), cell_path.as_ref(), &mut res).await?;
+        hash_item(&mut self.dice.ctx(), cell_path.as_ref(), &mut res).await?;
         Ok(res)
     }
 }
@@ -433,7 +433,7 @@ impl TargetHashes {
     }
 
     pub(crate) async fn compute<T: TargetHashingTargetNode, L: AsyncNodeLookup<T>>(
-        mut dice: DiceTransaction,
+        dice: DiceTransaction,
         lookup: L,
         targets: Vec<(
             PackageLabelWithModifiers,
@@ -447,7 +447,7 @@ impl TargetHashes {
     where
         T::Key: ConfiguredOrUnconfiguredTargetLabel,
     {
-        let targets = T::get_target_nodes(&mut dice, targets, global_cfg_options).await?;
+        let targets = T::get_target_nodes(&mut dice.ctx(), targets, global_cfg_options).await?;
         let file_hasher = Self::new_file_hasher(dice.dupe(), file_hash_mode);
         if target_hash_recursive {
             Self::compute_recursive_target_hashes(dice, lookup, targets, file_hasher, use_fast_hash)
