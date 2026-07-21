@@ -445,7 +445,7 @@ textwrap = { version = "0.16.0", features = ["terminal_size"] }
 thiserror = "2.0.18"
 threadpool = "1.8.1"
 three_billion_instructions = { path = "shed/three_billion_instructions" }
-tikv-jemallocator = "0.6.1"
+tikv-jemallocator = { version = "0.6.1", features = ["stats", "unprefixed_malloc_on_supported_platforms"] }
 tokio = { version = "1.52.4", features = ["full", "test-util", "tracing"] }
 tokio-retry = "0.3.2"
 tokio-rustls = { version = "0.26.4", features = ["logging", "ring", "tls12"], default-features = false }

@@ -35,5 +35,8 @@ pagable.workspace = true
 ref-cast.workspace = true
 tokio.workspace = true
 
+[target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
+tikv-jemallocator.workspace = true
+
 [lints]
 workspace = true

@@ -9,6 +9,23 @@ rust_library(
     srcs = glob(
         ["src/**/*.rs"],
     ),
+    autocargo = {
+        "cargo_toml_config": {
+            "dependencies_override": {
+                "target": {
+                    '\'cfg(any(target_os = "linux", target_os = "macos"))\'': {
+                        "dependencies": {
+                            "tikv-jemallocator": {
+                                "features": ["stats", "unprefixed_malloc_on_supported_platforms"],
+                                "path": None,
+                                "version": "0.6.1",
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    },
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:async-trait",
