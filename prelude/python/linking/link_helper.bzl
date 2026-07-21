@@ -70,15 +70,7 @@ python_implicit_attrs = {
 def _process_native_linking_rule_impl(ctx):
     python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
     python_internal_tools = ctx.attrs._python_internal_tools[PythonInternalToolsInfo]
-    # The flattened transitive native closure, used for resource gathering (and to
-    # keep dep edges / cache identity). NOT the executable link roots: those come
-    # from `executable_deps` + the extension info. Passing this closure as the
-    # rule's `deps` would make `cxx_executable`'s `cxx_attr_deps(ctx)` fold the
-    # whole closure into `exec_dep_roots`, which flips ~every link group to a
-    # dynamic (DT_NEEDED) dep instead of an embedded static one -- which can load a
-    # duplicate copy of a runtime library and corrupt results -- diverging from the
-    # non-anon path, where `cxx_attr_deps` sees only the declared first-order `deps`.
-    raw_deps = ctx.attrs.cxx_deps
+    raw_deps = ctx.attrs.deps
     shared_libs, extensions, link_args, extra, extra_artifacts, linker_map_data, gc_sections_data, runtime_files = process_native_linking(
         ctx,
         raw_deps,
@@ -104,10 +96,6 @@ def _process_native_linking_rule_impl(ctx):
 process_native_linking_rule = rule(
     impl = _process_native_linking_rule_impl,
     attrs = {
-        # The flattened TRANSITIVE native closure, used for resource gathering
-        # (see `cxx_deps` read in the impl). Kept out of `deps` on purpose: it must
-        # not reach `cxx_executable`'s `cxx_attr_deps(ctx)` as executable link roots.
-        "cxx_deps": attrs.list(attrs.dep(), default = []),
         # The binary's DECLARED first-order deps (== the outer `ctx.attrs.deps`),
         # used ONLY to classify dlopen / shared-only libs -- exactly as the non-anon
         # path does. Deliberately excludes the preload + resolved versioned deps
@@ -115,11 +103,7 @@ process_native_linking_rule = rule(
         # libs as shared-only reshapes the link-group partition and can duplicate a
         # runtime library, corrupting results at runtime.
         "declared_deps": attrs.list(attrs.dep(), default = []),
-        # The binary's DECLARED first-order deps (== the outer `ctx.attrs.deps`),
-        # matching what the non-anon path's `cxx_executable` reads via
-        # `cxx_attr_deps(ctx)`. This is what determines the executable's own link
-        # roots, so it MUST mirror the non-anon `deps` (not the native closure).
-        "deps": attrs.list(attrs.dep(), default = []),
+        "deps": attrs.list(attrs.dep()),  # Note: cxx-only deps here
         # The binary's FIRST-ORDER deps (== the non-anon `raw_deps`). Used as the
         # positional deps to merge_cxx_extension_info: each dep's CxxExtensionLinkInfo
         # tset is traversed, so per-python_library dlopen/shared-only classifications

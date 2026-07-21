@@ -552,22 +552,12 @@ def _convert_python_library_to_executable(
 
             explicit_attrs = {
                 "allow_cache_upload": allow_cache_upload,
-                # The flattened transitive native closure -- carried for resource
-                # gathering and dep edges. Deliberately NOT passed as `deps`: as
-                # `deps` it would reach `cxx_executable`'s `cxx_attr_deps(ctx)` and
-                # become executable link roots, dynamically linking ~every link
-                # group (extra DT_NEEDED, and a duplicate copy of a runtime library)
-                # unlike non-anon.
-                "cxx_deps": list(native_deps.values()),
                 # The DECLARED first-order deps only (`ctx.attrs.deps`, before the
                 # raw_deps preload/versioned expansion), used for dlopen/shared-only
                 # classification -- matches non-anon. Using raw_deps here would
                 # over-classify versioned native deps and corrupt results at runtime.
                 "declared_deps": ctx.attrs.deps,
-                # The DECLARED first-order deps, mirroring what the non-anon path's
-                # `cxx_executable` reads via `cxx_attr_deps(ctx)` for the executable's
-                # own link roots.
-                "deps": ctx.attrs.deps,
+                "deps": list(native_deps.values()),
                 # The binary's first-order deps (== `raw_deps`), threaded in so the
                 # anon link reconstructs the non-anon extension-info computation.
                 # The flattened `deps` above drops intermediate python_library nodes
