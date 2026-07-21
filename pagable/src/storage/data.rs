@@ -23,10 +23,10 @@ use dupe::Dupe;
 /// The 128-bit size provides an extremely low collision probability
 /// (< 1e-15 after 820 billion samples).
 ///
-/// Stored as `[u64; 2]` rather than `u128` to keep 8-byte alignment instead of 16-byte,
-/// while remaining bytemuck-compatible. The first half is morally a `NonZeroU64` —
-/// `compute()` ensures `self.0[0] != 0` so that [`OptionalDataKey`] can pack itself
-/// as `(NonZeroU64, u64)` and inherit the same 8-byte alignment.
+/// Stored as `(NonZeroU64, u64)` rather than `u128` to keep 8-byte alignment instead of
+/// 16-byte, while remaining bytemuck-compatible. The `NonZeroU64` first half lets
+/// `Option<DataKey>` be niche-packed to the same size and alignment; `compute()` ensures the
+/// first half is non-zero so a real key is never confused with `None`.
 ///
 /// [`PagableArc`]: crate::PagableArc
 #[derive(
@@ -60,7 +60,7 @@ impl DataKey {
         let lo = u64::from_le_bytes(hash_bytes[..8].try_into().unwrap());
         let hi = u64::from_le_bytes(hash_bytes[8..16].try_into().unwrap());
 
-        // OptionalDataKey's niche representation requires `lo` to be non-zero. In the
+        // Option<DataKey>'s niche representation requires `lo` to be non-zero. In the
         // astronomically unlikely case of a zero first half, use 1 instead. Collision resistance
         // remains effectively 128 bits.
         let lo = NonZeroU64::new(lo).unwrap_or(NonZeroU64::new(1).unwrap());
