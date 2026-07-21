@@ -45,3 +45,25 @@ async def test_load_as_cross_package_rejected(buck: Buck) -> None:
         buck.targets("//..."),
         stderr_regex=r"data\.lock\?as=toml.*only visible within its own package",
     )
+
+
+@buck_test(data_dir="cross_package_json")
+async def test_load_json_cross_package_rejected(buck: Buck) -> None:
+    """A native `.json` load (no `?as=`) is package-isolated exactly like an
+    `?as=` load: the loader is in `root//`, but `root//sub/data.json` is owned
+    by `root//sub`."""
+    await expect_failure(
+        buck.targets("//..."),
+        stderr_regex=r"data\.json.*only visible within its own package",
+    )
+
+
+@buck_test(data_dir="cross_package_toml")
+async def test_load_toml_cross_package_rejected(buck: Buck) -> None:
+    """A native `.toml` load (no `?as=`) is package-isolated exactly like an
+    `?as=` load: the loader is in `root//`, but `root//sub/data.toml` is owned
+    by `root//sub`."""
+    await expect_failure(
+        buck.targets("//..."),
+        stderr_regex=r"data\.toml.*only visible within its own package",
+    )

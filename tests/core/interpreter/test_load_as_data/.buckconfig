@@ -10,4 +10,4 @@
 [project]
   # Isolated mini-repos used only by the cross-cell / cross-package tests
   # (each selected via data_dir); ignored so the default `//...` tests skip them.
-  ignore = cross_cell,cross_package
+  ignore = cross_cell,cross_package,cross_package_json,cross_package_toml
