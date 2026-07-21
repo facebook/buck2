@@ -46,7 +46,7 @@ pub trait PackedStorage: Sized + sealed::Sealed {
 impl<P: PointerValue> sealed::Sealed for PackedStorageRef<P> {}
 impl<P: PointerValue> sealed::Sealed for PackedStorageOwned<P> {}
 
-/// See [`PackedStorage`].
+/// See `PackedStorage`.
 #[repr(transparent)]
 #[derive(Copy, Clone)]
 pub struct PackedStorageRef<P: PointerValue>(pub(super) Raw, pub(super) PhantomData<P>);
@@ -63,7 +63,7 @@ impl<P: PointerValue> PackedStorage for PackedStorageRef<P> {
     }
 }
 
-/// See [`PackedStorage`].
+/// See `PackedStorage`.
 #[repr(transparent)]
 pub struct PackedStorageOwned<P: PointerValue>(Raw, PhantomData<P>);
 

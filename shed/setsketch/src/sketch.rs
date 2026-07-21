@@ -563,8 +563,8 @@ where
     ///
     /// This function runs in time amortized `O(log W)`.
     ///
-    /// The algorithm used here is based on BagMinHash (Ertl 2018, https://arxiv.org/abs/1802.03914)
-    /// and DartMinHash (Christiani 2020, https://arxiv.org/abs/2005.11547) with some gentle
+    /// The algorithm used here is based on BagMinHash (Ertl 2018, <https://arxiv.org/abs/1802.03914>)
+    /// and DartMinHash (Christiani 2020, <https://arxiv.org/abs/2005.11547>) with some gentle
     /// massaging for compatibility with setsketch and to improve presentation.
     pub fn sketch_weighted(&mut self, to_sketch: &T, weight: u64) {
         if weight == 0 {

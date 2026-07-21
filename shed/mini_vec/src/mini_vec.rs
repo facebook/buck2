@@ -912,7 +912,7 @@ impl<T> From<Vec<T>> for MiniVec<T> {
     /// adopted verbatim — no element copy or reallocation. Above that limit
     /// the buffer can still be adopted as an extended-mode allocation when
     /// `T`'s alignment and the spare capacity allow the elements to be slid
-    /// past an in-buffer [`Header`] (see [`Self::try_from_vec_extended`]);
+    /// past an in-buffer `Header` (see `Self::try_from_vec_extended`);
     /// failing that, the elements are copied through the iterator path.
     fn from(vec: Vec<T>) -> Self {
         let _ = Self::_ASSERT_NOT_ZST;
