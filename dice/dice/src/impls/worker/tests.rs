@@ -467,7 +467,7 @@ async fn spawn_with_previously_cancelled_task_that_cancelled() {
     drop(prev_task_promise);
 
     let previously_cancelled_task = Some(PreviouslyCancelledTask::new(
-        previous_task.await_termination(),
+        previous_task.as_ref().await_termination(),
     ));
 
     let is_ran = Arc::new(AtomicBool::new(false));
@@ -544,7 +544,7 @@ async fn spawn_with_previously_cancelled_task_that_finished() {
     drop(prev_task_promise);
 
     let previously_cancelled_task = Some(PreviouslyCancelledTask::new(
-        previous_task.await_termination(),
+        previous_task.as_ref().await_termination(),
     ));
 
     let is_ran = Arc::new(AtomicBool::new(false));
@@ -719,7 +719,9 @@ async fn spawn_with_previously_cancelled_task_nested_cancelled() -> anyhow::Resu
         eval.dupe(),
         cycles,
         events_dispatcher.dupe(),
-        Some(PreviouslyCancelledTask::new(first_task.await_termination())),
+        Some(PreviouslyCancelledTask::new(
+            first_task.as_ref().await_termination(),
+        )),
     );
 
     drop(second_task_promise);
@@ -732,7 +734,7 @@ async fn spawn_with_previously_cancelled_task_nested_cancelled() -> anyhow::Resu
         cycles,
         events_dispatcher,
         Some(PreviouslyCancelledTask::new(
-            second_task.await_termination(),
+            second_task.as_ref().await_termination(),
         )),
     );
 

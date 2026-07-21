@@ -87,9 +87,11 @@ impl DicePromise {
     ) -> CancellableResult<DiceComputedValue> {
         match self.0 {
             DicePromiseInternal::Ready { result } => Ok(result),
-            DicePromiseInternal::Pending { future, .. } => {
-                future.task().dupe().sync_get_or_complete(future, f)
-            }
+            DicePromiseInternal::Pending { future, .. } => future
+                .task()
+                .dupe()
+                .as_ref()
+                .sync_get_or_complete(future, f),
             DicePromiseInternal::Done => panic!("poll after ready"),
         }
     }

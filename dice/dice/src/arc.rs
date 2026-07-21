@@ -34,6 +34,11 @@ impl<T> Arc<T> {
     pub(crate) fn ptr_eq(this: &Self, other: &Self) -> bool {
         triomphe::Arc::ptr_eq(&this.0, &other.0)
     }
+
+    #[inline]
+    pub(crate) fn borrow_arc(&self) -> ArcBorrow<'_, T> {
+        ArcBorrow(self.0.borrow_arc())
+    }
 }
 
 impl<T: Clone> Arc<T> {

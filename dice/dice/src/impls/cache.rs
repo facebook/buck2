@@ -22,6 +22,7 @@ use crate::arc::Arc;
 use crate::impls::key::DiceKey;
 use crate::impls::task::dice::DiceTask;
 use crate::impls::task::dice::DiceTaskInternal;
+use crate::impls::task::dice::DiceTaskRef;
 use crate::impls::task::dice::ReadValueResult;
 use crate::impls::value::DiceComputedValue;
 
@@ -118,13 +119,11 @@ impl SharedCache {
             .storage
             .iter()
             .filter_map(|entry| {
-                let task = DiceTask {
-                    internal: entry.clone_arc(),
-                };
+                let task = DiceTaskRef { internal: entry };
 
                 if task.is_pending() {
                     task.cancel(CancellationReason::TransactionDropped);
-                    Some(task)
+                    Some(task.clone_arc())
                 } else {
                     None
                 }
@@ -143,7 +142,7 @@ impl SharedCache {
 pub(crate) mod introspection {
     use crate::impls::cache::SharedCache;
     use crate::impls::key::DiceKey;
-    use crate::impls::task::dice::DiceTask;
+    use crate::impls::task::dice::DiceTaskRef;
     use crate::introspection::DiceTaskState;
 
     impl SharedCache {
@@ -151,10 +150,7 @@ pub(crate) mod introspection {
             self.data.storage.iter().map(|entry| {
                 (
                     entry.key,
-                    DiceTask {
-                        internal: entry.clone_arc(),
-                    }
-                    .introspect_state(),
+                    DiceTaskRef { internal: entry }.introspect_state(),
                 )
             })
         }
@@ -220,8 +216,10 @@ mod tests {
             }
             .boxed()
         });
-        finished_cancelling_tasks.cancel(CancellationReason::ByTest);
-        finished_cancelling_tasks.await_termination().await;
+        finished_cancelling_tasks
+            .as_ref()
+            .cancel(CancellationReason::ByTest);
+        finished_cancelling_tasks.as_ref().await_termination().await;
 
         finished_cancelling_tasks
     }

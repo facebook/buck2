@@ -30,7 +30,6 @@ use dupe::Dupe;
 use futures::FutureExt;
 use futures::future::BoxFuture;
 use parking_lot::Mutex;
-use ref_cast::RefCast;
 
 use super::handle::DiceTaskHandle;
 use crate::GlobalStats;
@@ -58,10 +57,54 @@ use crate::introspection::DiceTaskState;
 /// "generation", so the same `DiceTask` can outlive several cancelled computations. See
 /// `depended_on_by` and the `current_generation` / `terminated_generation` fields for how
 /// generations encode the task's state.
-#[derive(Allocative, Clone, Dupe, RefCast)]
+#[derive(Allocative, Clone, Dupe)]
 #[repr(transparent)]
 pub(crate) struct DiceTask {
     pub(crate) internal: crate::arc::Arc<DiceTaskInternal>,
+}
+
+impl DiceTask {
+    pub(crate) fn as_ref(&self) -> DiceTaskRef<'_> {
+        DiceTaskRef {
+            internal: self.internal.borrow_arc(),
+        }
+    }
+
+    pub(crate) fn depended_on_by(&self, k: ParentKey) -> DiceTaskDependedOnByResult {
+        self.as_ref().depended_on_by(k)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn waiters_count(&self) -> u32 {
+        self.as_ref().waiters_count()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn is_ready(&self) -> bool {
+        self.as_ref().is_ready()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn is_cancelled(&self) -> bool {
+        self.as_ref().is_cancelled()
+    }
+
+    pub(crate) fn is_pending(&self) -> bool {
+        self.as_ref().is_pending()
+    }
+}
+
+#[derive(Copy, Clone, Dupe)]
+pub(crate) struct DiceTaskRef<'a> {
+    pub(crate) internal: crate::arc::ArcBorrow<'a, DiceTaskInternal>,
+}
+
+impl DiceTaskRef<'_> {
+    pub(crate) fn clone_arc(self) -> DiceTask {
+        DiceTask {
+            internal: self.internal.clone_arc(),
+        }
+    }
 }
 
 #[derive(Allocative)]
@@ -172,11 +215,13 @@ impl TerminationObserver {
     pub(crate) fn is_terminated(&self) -> bool {
         match self {
             TerminationObserver::Done(_) => true,
-            TerminationObserver::Pending { task, generation } => match task.state_at(*generation) {
-                StateAtGeneration::TerminatedSuccess(_) => true,
-                StateAtGeneration::TerminatedCancelled => true,
-                StateAtGeneration::Pending => false,
-            },
+            TerminationObserver::Pending { task, generation } => {
+                match task.as_ref().state_at(*generation) {
+                    StateAtGeneration::TerminatedSuccess(_) => true,
+                    StateAtGeneration::TerminatedCancelled => true,
+                    StateAtGeneration::Pending => false,
+                }
+            }
         }
     }
 }
@@ -191,7 +236,7 @@ impl Future for TerminationObserver {
         };
 
         // Fast-path to avoid waker registration
-        match task.state_at(generation) {
+        match task.as_ref().state_at(generation) {
             StateAtGeneration::TerminatedSuccess(v) => return Poll::Ready(Some(v.dupe())),
             StateAtGeneration::TerminatedCancelled => return Poll::Ready(None),
             StateAtGeneration::Pending => {}
@@ -203,7 +248,7 @@ impl Future for TerminationObserver {
         // re-check is correctly synchronized because `push` acquires from whatever last reset or
         // closed the list (see `SimpleAtomicList`).
         task.internal.wakers.push(cx.waker().clone());
-        match task.state_at(generation) {
+        match task.as_ref().state_at(generation) {
             StateAtGeneration::TerminatedSuccess(v) => Poll::Ready(Some(v.dupe())),
             StateAtGeneration::TerminatedCancelled => Poll::Ready(None),
             StateAtGeneration::Pending => Poll::Pending,
@@ -303,10 +348,12 @@ impl DiceTask {
             },
         }
     }
+}
 
+impl DiceTaskRef<'_> {
     /// `k` depends on this task, returning a `DicePromise` that will complete when this task
     /// completes
-    pub(crate) fn depended_on_by(&self, _k: ParentKey) -> DiceTaskDependedOnByResult {
+    pub(crate) fn depended_on_by(self, _k: ParentKey) -> DiceTaskDependedOnByResult {
         if let Some(v) = self.get_finished_value() {
             return DiceTaskDependedOnByResult::Finished(v);
         }
@@ -323,7 +370,7 @@ impl DiceTask {
             let generation = internal.current_generation.load(Ordering::Relaxed);
             return DiceTaskDependedOnByResult::Pending(DicePromise::pending(
                 DiceTaskDependentFuture {
-                    task: self.dupe(),
+                    task: self.clone_arc(),
                     completed: false,
                     generation,
                 },
@@ -352,7 +399,7 @@ impl DiceTask {
             // Something already restarted it.
             return DiceTaskDependedOnByResult::Pending(DicePromise::pending(
                 DiceTaskDependentFuture {
-                    task: self.dupe(),
+                    task: self.clone_arc(),
                     completed: false,
                     generation: prev_generation,
                 },
@@ -378,7 +425,7 @@ impl DiceTask {
         drop(guard);
 
         let previously_cancelled = PreviouslyCancelledTask::new(TerminationObserver::Pending {
-            task: self.dupe(),
+            task: self.clone_arc(),
             generation: prev_generation,
         });
 
@@ -387,13 +434,13 @@ impl DiceTask {
                 inner: future_spawner,
             },
             dependent_future: DiceTaskDependentFuture {
-                task: self.dupe(),
+                task: self.clone_arc(),
                 completed: false,
                 generation: new_generation,
             },
             completion_handle: DiceTaskCompletionHandle {
                 generation: new_generation,
-                task: self.dupe(),
+                task: self.clone_arc(),
             },
         };
 
@@ -486,7 +533,7 @@ impl DiceTask {
             ReadValueResult::Pending { .. } => {
                 let generation = self.internal.current_generation.load(Ordering::Relaxed);
                 TerminationObserver::Pending {
-                    task: self.dupe(),
+                    task: self.clone_arc(),
                     generation,
                 }
             }
@@ -563,18 +610,24 @@ impl DiceTask {
                 // probably have different APIs to avoid handing one out in the sync case.
                 match res {
                     Ok(v) => {
-                        prevent_cancellation_future.task.task_finished_success(
-                            guard,
-                            prevent_cancellation_future.generation,
-                            v,
-                        );
+                        prevent_cancellation_future
+                            .task
+                            .as_ref()
+                            .task_finished_success(
+                                guard,
+                                prevent_cancellation_future.generation,
+                                v,
+                            );
                     }
                     Err(e) => {
-                        prevent_cancellation_future.task.task_finished_cancelled(
-                            guard,
-                            prevent_cancellation_future.generation,
-                            e,
-                        );
+                        prevent_cancellation_future
+                            .task
+                            .as_ref()
+                            .task_finished_cancelled(
+                                guard,
+                                prevent_cancellation_future.generation,
+                                e,
+                            );
                     }
                 }
                 drop(prevent_cancellation_future);
@@ -799,7 +852,7 @@ pub(crate) struct DiceTaskCompletionHandle {
 
 impl DiceTaskCompletionHandle {
     pub(crate) fn terminated(self, reason: CancellationReason) {
-        self.task.task_finished_cancelled(
+        self.task.as_ref().task_finished_cancelled(
             self.task.internal.critical.lock(),
             self.generation,
             reason,
@@ -807,8 +860,11 @@ impl DiceTaskCompletionHandle {
     }
 
     pub(crate) fn completed(self, v: DiceComputedValue) {
-        self.task
-            .task_finished_success(self.task.internal.critical.lock(), self.generation, v);
+        self.task.as_ref().task_finished_success(
+            self.task.internal.critical.lock(),
+            self.generation,
+            v,
+        );
     }
 }
 
@@ -852,7 +908,7 @@ impl DiceTaskDependentFuture {
 
 impl Drop for DiceTaskDependentFuture {
     fn drop(&mut self) {
-        self.task.drop_waiter();
+        self.task.as_ref().drop_waiter();
     }
 }
 
