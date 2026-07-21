@@ -12,7 +12,7 @@ use std::any::Any;
 use std::future::Future;
 use std::ops::Deref;
 use std::ops::DerefMut;
-use std::sync::Arc;
+use std::sync::Arc as StdArc;
 
 use dice_error::DiceError;
 use dice_error::DiceResult;
@@ -37,6 +37,7 @@ use crate::api::invalidation_tracking::DiceKeyTrackedInvalidationPaths;
 use crate::api::key::Key;
 use crate::api::projection::ProjectionKey;
 use crate::api::user_data::UserComputationData;
+use crate::arc::Arc;
 use crate::deps::RecordedDeps;
 use crate::deps::RecordingDepsTracker;
 use crate::dice::Dice;
@@ -79,7 +80,7 @@ impl TransactionCtx {
     pub(crate) fn new(
         per_live_version_ctx: VersionEpochState,
         user_data: Arc<UserComputationData>,
-        dice: Arc<Dice>,
+        dice: StdArc<Dice>,
         live_version_guard: ActiveTransactionGuard,
     ) -> Self {
         Self {
@@ -586,7 +587,7 @@ impl<'d> TrackedComputations<'d> {
         self.ctx_data().store_evaluation_data(value)
     }
 
-    pub(crate) fn cycle_guard<T: UserCycleDetectorGuard>(&self) -> DiceResult<Option<Arc<T>>> {
+    pub(crate) fn cycle_guard<T: UserCycleDetectorGuard>(&self) -> DiceResult<Option<StdArc<T>>> {
         self.ctx_data().cycle_guard()
     }
 }
@@ -699,7 +700,7 @@ impl ComputeCtx {
         Ok(())
     }
 
-    pub(crate) fn cycle_guard<T: UserCycleDetectorGuard>(&self) -> DiceResult<Option<Arc<T>>> {
+    pub(crate) fn cycle_guard<T: UserCycleDetectorGuard>(&self) -> DiceResult<Option<StdArc<T>>> {
         self.cycles.cycle_guard()
     }
 }

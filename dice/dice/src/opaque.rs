@@ -47,7 +47,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
+    use std::sync::Arc as StdArc;
 
     use allocative::Allocative;
     use async_trait::async_trait;
@@ -104,7 +104,8 @@ mod tests {
         let ctx = dice.updater().commit().await.0;
         let mut ctx = ctx.as_computations();
 
-        let v = MaybeValidDiceValue::new(Arc::new(DiceKeyValue::<K>::new(1)), DiceValidity::Valid);
+        let v =
+            MaybeValidDiceValue::new(StdArc::new(DiceKeyValue::<K>::new(1)), DiceValidity::Valid);
         let i = TrackedInvalidationPaths::clean();
         let opaque = OpaqueValue::<K>::new(DiceKey { index: 0 }, &v, &i);
 

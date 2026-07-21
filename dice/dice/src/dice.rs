@@ -10,7 +10,7 @@
 
 use std::fmt::Debug;
 use std::future::Future;
-use std::sync::Arc;
+use std::sync::Arc as StdArc;
 
 use allocative::Allocative;
 use dupe::Dupe;
@@ -20,6 +20,7 @@ use crate::HashMap;
 use crate::api::cycles::DetectCycles;
 use crate::api::data::DiceData;
 use crate::api::user_data::UserComputationData;
+use crate::arc::Arc;
 use crate::core::state::CoreStateHandle;
 use crate::core::state::init_state;
 use crate::introspection::graph::GraphIntrospectable;
@@ -74,16 +75,16 @@ impl DiceDataBuilder {
         self.pagable_storage = Some(storage);
     }
 
-    pub fn build(self, _detect_cycles: DetectCycles) -> Arc<Dice> {
+    pub fn build(self, _detect_cycles: DetectCycles) -> StdArc<Dice> {
         Dice::new(self.data, self.pagable_storage)
     }
 }
 
 impl Dice {
-    pub(crate) fn new(global_data: DiceData, pagable_storage: Option<DiceStorage>) -> Arc<Self> {
+    pub(crate) fn new(global_data: DiceData, pagable_storage: Option<DiceStorage>) -> StdArc<Self> {
         let state_handle = init_state();
 
-        Arc::new(Dice {
+        StdArc::new(Dice {
             key_index: Default::default(),
             state_handle,
             global_data,
@@ -95,12 +96,12 @@ impl Dice {
         DiceDataBuilder::new()
     }
 
-    pub fn updater(self: &Arc<Self>) -> DiceTransactionUpdater {
+    pub fn updater(self: &StdArc<Self>) -> DiceTransactionUpdater {
         self.updater_with_data(UserComputationData::new())
     }
 
     pub fn updater_with_data(
-        self: &Arc<Self>,
+        self: &StdArc<Self>,
         extra: UserComputationData,
     ) -> DiceTransactionUpdater {
         DiceTransactionUpdater(TransactionUpdater::new(self.dupe(), Arc::new(extra)))
@@ -170,7 +171,7 @@ impl Dice {
     /// `wait_for_idle()` first.
     ///
     /// No-op if `DiceStorage` was not configured on the builder.
-    pub async fn page_out(self: &Arc<Self>) -> anyhow::Result<()> {
+    pub async fn page_out(self: &StdArc<Self>) -> anyhow::Result<()> {
         // Never cancelled.
         self.page_out_cancellable(|| false).await
     }
@@ -180,7 +181,7 @@ impl Dice {
     /// paged-out values hydrate back on demand). Used by automatic idle page-out
     /// so it can yield promptly when a new command starts.
     pub async fn page_out_cancellable(
-        self: &Arc<Self>,
+        self: &StdArc<Self>,
         cancelled: PageOutCancel,
     ) -> anyhow::Result<()> {
         if !self.is_idle().await {
@@ -211,7 +212,7 @@ impl Dice {
     /// configured `DiceStorage`, used for debugging.
     ///
     /// **Caller must ensure DICE is idle** before calling this.
-    pub async fn page_in(self: &Arc<Self>) -> anyhow::Result<()> {
+    pub async fn page_in(self: &StdArc<Self>) -> anyhow::Result<()> {
         if !self.is_idle().await {
             return Err(anyhow::anyhow!(
                 "Dice::page_in called while DICE is not idle; call `wait_for_idle()` first"
