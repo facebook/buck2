@@ -28,6 +28,7 @@ async def test_apple_coverage(buck: Buck) -> None:
             "--",
             "--collect-coverage",
             f"--coverage-output={covfile.name}",
+            "--return-zero-on-skips",
         )
         paths = []
         with open(covfile.name) as results:
