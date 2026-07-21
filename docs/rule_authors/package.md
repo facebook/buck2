@@ -104,6 +104,41 @@ deps, and not transitive deps.
 If `inherit` is `True`, then the `visibility` and `within_view` will be
 inherited from the nearest parent `PACKAGE`.
 
+#### [`enforce_visibility_intersection`](../../api/build#enforce_visibility_intersection)
+
+```python
+def enforce_visibility_intersection() -> None
+```
+
+This global API is only available in `PACKAGE` files. Unlike the other `PACKAGE`
+APIs, calling it from a `bzl` file included in a `PACKAGE` file results in an
+error. It may be called at most once per `PACKAGE` file.
+
+By default, `package(visibility=...)` only supplies a default visibility: a
+target that declares its own `visibility` ignores the `PACKAGE` visibility
+entirely. `enforce_visibility_intersection()` changes this to
+intersection-based visibility for the current `PACKAGE` and all of its
+descendants: every target's effective visibility is the intersection (logical
+AND) of its own `visibility` and a propagating cap.
+
+The cap is built from the explicit `package(visibility=...)` list of each
+opted-in ancestor `PACKAGE`. Because the cap only tightens visibility, a target
+can never be made visible to more than its own `visibility` allows. Declaring a
+broader `visibility` on the target cannot escape the cap.
+
+`"PUBLIC"` is the identity of the intersection, so a target with
+`visibility=["PUBLIC"]` is silently clipped to the cap rather than rejected.
+
+Calling `enforce_visibility_intersection()` without a non-`None`
+`package(visibility=...)` in the same file (i.e. `visibility` omitted or set to
+`None`) contributes nothing to the cap. The parent's cap simply propagates
+unchanged, so a directory can opt into enforcement without further narrowing
+what its parents already allow.
+
+The propagated cap can be inspected via `buck2 audit package-values`. When a
+visibility check fails because of the cap, the error reports the cap that
+blocked it.
+
 #### [`read_config`](../../api/build#read_config)
 
 `PACKAGE` files are able to call `read_config` to read buckconfigs.
