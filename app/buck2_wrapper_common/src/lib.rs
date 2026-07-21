@@ -110,12 +110,16 @@ fn get_all_tgids_linux() -> Option<StdBuckHashSet<sysinfo::Pid>> {
 /// Find all buck2 processes in the system.
 fn find_buck2_processes(who_is_asking: WhoIsAsking) -> Vec<ProcessInfo> {
     let mut system = System::new();
+    let linux_tgids =
+        get_all_tgids_linux().map(|pids| pids.into_iter().collect::<Vec<sysinfo::Pid>>());
+    let processes_to_update = match &linux_tgids {
+        Some(pids) => ProcessesToUpdate::Some(pids),
+        None => ProcessesToUpdate::All,
+    };
     system.refresh_processes_specifics(
-        ProcessesToUpdate::All,
+        processes_to_update,
         true,
-        ProcessRefreshKind::nothing()
-            .with_exe(UpdateKind::Always)
-            .with_cmd(UpdateKind::Always),
+        ProcessRefreshKind::nothing().with_exe(UpdateKind::Always),
     );
 
     let mut current_parents = StdBuckHashSet::default();
@@ -129,38 +133,52 @@ fn find_buck2_processes(who_is_asking: WhoIsAsking) -> Vec<ProcessInfo> {
         parent = system.process(pid).and_then(|p| p.parent());
     }
 
-    let filtered_proc_list = get_all_tgids_linux();
-
     let mut buck2_processes = Vec::new();
-    for (pid, process) in system.processes() {
-        // See comment on `get_all_tgids_linux`
-        if let Some(filtered_proc_list) = filtered_proc_list.as_ref() {
-            if !filtered_proc_list.contains(pid) {
-                continue;
-            }
-        }
+    for (sys_pid, process) in system.processes() {
         let Some(exe) = process.exe() else {
             continue;
         };
-        if is_buck2_exe(exe, who_is_asking) && !current_parents.contains(pid) {
-            let Ok(pid) = Pid::from_u32(pid.as_u32()) else {
+        if is_buck2_exe(exe, who_is_asking) && !current_parents.contains(sys_pid) {
+            let Ok(pid) = Pid::from_u32(sys_pid.as_u32()) else {
                 continue;
             };
-            let cmd: Vec<String> = process
-                .cmd()
-                .iter()
-                .map(|s| s.to_string_lossy().into_owned())
-                .collect();
-            let isolation_dir = parse_isolation_dir(&cmd);
-            buck2_processes.push(ProcessInfo {
-                pid,
-                name: process.name().to_string_lossy().into_owned(),
-                isolation_dir,
-            });
+            buck2_processes.push((
+                *sys_pid,
+                ProcessInfo {
+                    pid,
+                    name: process.name().to_string_lossy().into_owned(),
+                    isolation_dir: None,
+                },
+            ));
         }
     }
 
+    let matched_pids = buck2_processes
+        .iter()
+        .map(|(pid, _)| *pid)
+        .collect::<Vec<_>>();
+    if !matched_pids.is_empty() {
+        system.refresh_processes_specifics(
+            ProcessesToUpdate::Some(&matched_pids),
+            true,
+            ProcessRefreshKind::nothing().with_cmd(UpdateKind::Always),
+        );
+    }
+
     buck2_processes
+        .into_iter()
+        .map(|(pid, mut process_info)| {
+            if let Some(process) = system.process(pid) {
+                let cmd = process
+                    .cmd()
+                    .iter()
+                    .map(|s| s.to_string_lossy().into_owned())
+                    .collect::<Vec<_>>();
+                process_info.isolation_dir = parse_isolation_dir(&cmd);
+            }
+            process_info
+        })
+        .collect()
 }
 
 /// Kills all running Buck2 processes, except this process's hierarchy. Returns whether it
@@ -256,4 +274,92 @@ pub fn killall(who_is_asking: WhoIsAsking, write: impl Fn(String)) -> bool {
     }
 
     printer.ok
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_isolation_dir() {
+        for (args, expected) in [
+            (
+                &["buck2", "--isolation-dir", "custom", "daemon"][..],
+                Some("custom"),
+            ),
+            (
+                &["buck2", "--isolation-dir=custom", "daemon"][..],
+                Some("custom"),
+            ),
+            (&["buck2", "daemon"][..], None),
+            (&["buck2", "--isolation-dir"][..], None),
+        ] {
+            let args = args.iter().map(|arg| (*arg).to_owned()).collect::<Vec<_>>();
+            assert_eq!(expected.map(str::to_owned), parse_isolation_dir(&args));
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn test_find_buck2_processes() {
+        use std::fs;
+        use std::path::PathBuf;
+        use std::process::Child;
+        use std::process::Stdio;
+        use std::time::SystemTime;
+
+        use buck2_util::process::background_command;
+
+        struct ChildGuard {
+            child: Child,
+            temp_dir: PathBuf,
+        }
+
+        impl Drop for ChildGuard {
+            fn drop(&mut self) {
+                let _ignored = self.child.kill();
+                let _ignored = self.child.wait();
+                let _ignored = fs::remove_dir_all(&self.temp_dir);
+            }
+        }
+
+        let nonce = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .expect("system clock should be after the Unix epoch")
+            .as_nanos();
+        let temp_dir = std::env::temp_dir().join(format!(
+            "buck2_wrapper_common_process_scan_{}_{}",
+            std::process::id(),
+            nonce,
+        ));
+        fs::create_dir(&temp_dir).expect("temporary test directory should be created");
+        let fake_buck2 = temp_dir.join("buck2");
+        fs::copy("/bin/sh", &fake_buck2).expect("test buck2 executable should be copied");
+
+        let child = background_command(&fake_buck2)
+            .args(["-c", "read _", "--isolation-dir=process-scan-test"])
+            .stdin(Stdio::piped())
+            .spawn()
+            .expect("fake buck2 process should start");
+        let child_pid = child.id();
+        let _guard = ChildGuard { child, temp_dir };
+
+        let processes = find_buck2_processes(WhoIsAsking::Buck2);
+        let child_process = processes
+            .iter()
+            .find(|process| process.pid.to_u32() == child_pid)
+            .expect("scan should find the fake buck2 child process");
+        assert_eq!(
+            Some("process-scan-test"),
+            child_process.isolation_dir.as_deref(),
+        );
+
+        let current_pid = std::process::id();
+        assert!(
+            processes
+                .iter()
+                .all(|process| process.pid.to_u32() != current_pid),
+            "scan should exclude the invoking process",
+        );
+    }
 }
