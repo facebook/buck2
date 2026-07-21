@@ -334,10 +334,7 @@ async def test_cpp_test_coverage_when_filter_by_test_binary_header_file(
         file_filter=[header_name],
     )
 
-    assert len(paths) == 2, str(paths)
-    assert header_name in paths
-    source_name = "fbcode/testing_frameworks/code_coverage/playground/Test.cpp"
-    assert source_name in paths
+    assert paths == [header_name]
 
 
 @buck_test(inplace=True)
