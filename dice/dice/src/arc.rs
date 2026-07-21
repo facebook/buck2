@@ -10,10 +10,14 @@
 
 use std::ops::Deref;
 use std::ptr;
+use std::ptr::NonNull;
 
 use allocative::Allocative;
 use dupe::Dupe;
 use lock_free_hashtable::atomic_value::AtomicValue;
+use mini_vec::packed_ptr::PackedStorageOwned;
+use mini_vec::packed_ptr::PointerValue;
+use mini_vec::packed_ptr::PointerValueAllocated;
 
 #[derive(Debug, Eq, PartialEq, Hash, Allocative)]
 pub(crate) struct Arc<T>(triomphe::Arc<T>);
@@ -88,3 +92,25 @@ impl<T> AtomicValue for Arc<T> {
         unsafe { &*raw }
     }
 }
+
+impl<T: 'static> PointerValue for Arc<T> {
+    type Ref<'a> = &'a T;
+    type Storage = PackedStorageOwned<Self>;
+
+    fn into_pointer(self) -> NonNull<u8> {
+        // SAFETY: `Arc::into_raw` returns a non-null pointer.
+        unsafe { NonNull::new_unchecked(triomphe::Arc::into_raw(self.0).cast::<u8>().cast_mut()) }
+    }
+
+    unsafe fn from_pointer_owned(ptr: NonNull<u8>) -> Self {
+        // SAFETY: `ptr` came from `Arc::into_raw` (via `into_pointer`).
+        unsafe { Self(triomphe::Arc::from_raw(ptr.cast::<T>().as_ptr())) }
+    }
+
+    unsafe fn from_pointer_ref<'a>(ptr: NonNull<u8>) -> &'a T {
+        // SAFETY: `ptr` points to the `T` inside an existing `Arc`.
+        unsafe { ptr.cast::<T>().as_ref() }
+    }
+}
+
+impl<T: 'static> PointerValueAllocated for Arc<T> {}
