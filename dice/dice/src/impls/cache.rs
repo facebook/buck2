@@ -62,7 +62,7 @@ impl SharedCache {
         match entry {
             Some(task) => {
                 if let ReadValueResult::Finished(v) = task.read_value() {
-                    SharedCacheLookup::Finished(v)
+                    SharedCacheLookup::Finished(v.dupe())
                 } else {
                     SharedCacheLookup::InProgress(DiceTask {
                         internal: task.clone_arc(),

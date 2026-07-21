@@ -157,8 +157,8 @@ struct Critical {
     sync_value: Option<DiceComputedValue>,
 }
 
-pub(crate) enum ReadValueResult {
-    Finished(DiceComputedValue),
+pub(crate) enum ReadValueResult<'d> {
+    Finished(&'d DiceComputedValue),
     Pending { terminated_generation: u32 },
 }
 
@@ -192,7 +192,7 @@ impl Future for TerminationObserver {
 
         // Fast-path to avoid waker registration
         match task.state_at(generation) {
-            StateAtGeneration::TerminatedSuccess(v) => return Poll::Ready(Some(v)),
+            StateAtGeneration::TerminatedSuccess(v) => return Poll::Ready(Some(v.dupe())),
             StateAtGeneration::TerminatedCancelled => return Poll::Ready(None),
             StateAtGeneration::Pending => {}
         }
@@ -204,7 +204,7 @@ impl Future for TerminationObserver {
         // closed the list (see `SimpleAtomicList`).
         task.internal.wakers.push(cx.waker().clone());
         match task.state_at(generation) {
-            StateAtGeneration::TerminatedSuccess(v) => Poll::Ready(Some(v)),
+            StateAtGeneration::TerminatedSuccess(v) => Poll::Ready(Some(v.dupe())),
             StateAtGeneration::TerminatedCancelled => Poll::Ready(None),
             StateAtGeneration::Pending => Poll::Pending,
         }
@@ -257,10 +257,10 @@ impl PreparedDiceTask {
     }
 }
 
-enum StateAtGeneration {
+enum StateAtGeneration<'d> {
     Pending,
     TerminatedCancelled,
-    TerminatedSuccess(DiceComputedValue),
+    TerminatedSuccess(&'d DiceComputedValue),
 }
 
 impl DiceTask {
@@ -402,7 +402,7 @@ impl DiceTask {
 
     pub(crate) fn get_finished_value(&self) -> Option<DiceComputedValue> {
         match self.internal.read_value() {
-            ReadValueResult::Finished(v) => Some(v),
+            ReadValueResult::Finished(v) => Some(v.dupe()),
             ReadValueResult::Pending { .. } => None,
         }
     }
@@ -482,7 +482,7 @@ impl DiceTask {
     ///   termination observers to ensure all in-flight work has settled.
     pub(crate) fn await_termination(&self) -> TerminationObserver {
         match self.internal.read_value() {
-            ReadValueResult::Finished(v) => TerminationObserver::Done(Some(v)),
+            ReadValueResult::Finished(v) => TerminationObserver::Done(Some(v.dupe())),
             ReadValueResult::Pending { .. } => {
                 let generation = self.internal.current_generation.load(Ordering::Relaxed);
                 TerminationObserver::Pending {
@@ -661,7 +661,7 @@ impl DiceTask {
     }
 
     /// Returns the state of the given generation.
-    fn state_at(&self, generation: u32) -> StateAtGeneration {
+    fn state_at(&self, generation: u32) -> StateAtGeneration<'_> {
         // FIXME(JakobDegen): Doesn't really do what it says in the comment, since if a generation
         // after the provided one finished, it'll report that it finished.
         match self.internal.read_value() {
@@ -710,12 +710,12 @@ impl DiceTask {
 }
 
 impl DiceTaskInternal {
-    pub(crate) fn read_value(&self) -> ReadValueResult {
+    pub(crate) fn read_value(&self) -> ReadValueResult<'_> {
         match self.terminated_generation.load(Ordering::Acquire) {
             0 => ReadValueResult::Finished(
                 // SAFETY: `Acquire` load of `0` synchronizes with the op that wrote this, as per
                 // the invariant on this
-                unsafe { &*self.maybe_value.get() }.as_ref().unwrap().dupe(),
+                unsafe { &*self.maybe_value.get() }.as_ref().unwrap(),
             ),
             terminated_generation => ReadValueResult::Pending {
                 terminated_generation,
@@ -833,7 +833,7 @@ pub(crate) struct DiceTaskDependentFuture {
 impl DiceTaskDependentFuture {
     pub(crate) fn try_get(&self) -> Option<CancellableResult<DiceComputedValue>> {
         match self.task.internal.read_value() {
-            ReadValueResult::Finished(v) => Some(Ok(v)),
+            ReadValueResult::Finished(v) => Some(Ok(v.dupe())),
             ReadValueResult::Pending {
                 terminated_generation,
             } if terminated_generation >= self.generation => {
