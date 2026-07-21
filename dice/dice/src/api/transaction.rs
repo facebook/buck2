@@ -26,7 +26,6 @@ use crate::versions::VersionNumber;
 
 /// The struct for which we build transactions. This is where changes are recorded, and committed
 /// to DICE, which returns the Transaction where we spawn computations.
-#[derive(Allocative)]
 #[repr(transparent)]
 pub struct DiceTransactionUpdater(pub(crate) TransactionUpdater);
 
@@ -86,7 +85,7 @@ impl DiceTransactionUpdater {
 /// the time of creation of this transaction.
 ///
 /// This SHOULD NOT be ever stored by computations, or any results of computations.
-#[derive(Allocative, Clone, Dupe)]
+#[derive(Clone, Dupe)]
 pub struct DiceTransaction(pub(crate) BaseComputeCtx);
 
 impl DiceTransaction {

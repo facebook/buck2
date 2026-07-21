@@ -33,7 +33,6 @@ use crate::impls::value::MaybeValidDiceValue;
 use crate::versions::VersionNumber;
 
 // TODO fill this more
-#[derive(Allocative)]
 pub(crate) struct TransactionUpdater {
     dice: Arc<Dice>,
     scheduled_changes: Changes,
@@ -139,7 +138,7 @@ impl TransactionUpdater {
     }
 }
 
-#[derive(Allocative, Dupe, Clone, Derivative)]
+#[derive(Dupe, Clone, Derivative)]
 #[derivative(Debug)]
 pub(crate) struct ActiveTransactionGuard(Arc<ActiveTransactionGuardInner>);
 
@@ -149,7 +148,7 @@ impl ActiveTransactionGuard {
     }
 }
 
-#[derive(Allocative, Derivative)]
+#[derive(Derivative)]
 #[derivative(Debug)]
 pub(crate) struct ActiveTransactionGuardInner {
     v: VersionNumber,
@@ -163,7 +162,6 @@ impl Drop for ActiveTransactionGuardInner {
     }
 }
 
-#[derive(Allocative)]
 struct Changes {
     changes: HashMap<DiceKey, (ChangeType, InvalidationSourcePriority)>,
     dice: Arc<Dice>,
