@@ -611,16 +611,21 @@ impl DiceTaskRef<'_> {
         // Because this is async and we don't really keep track of it, things would get very messy
         // if we started attempting to reason about cancellation here; for that reason, we avoid it.
         // Once we get to this point, we commit to ensuring that this generation will complete with
-        // success. We do so by capturing the `DiceTaskDependentFuture`; that holds a strong count
-        // for the current generation and so makes sure it can't end, and we invoke
-        // `task_finished_success` before dropping it.
+        // success. We do so by just bumping the strong count and "leaking" a waiter.
+        self.internal.strong_count.fetch_add(1, Ordering::Relaxed);
+
+        // Note that we know that this increment does not change the strong count 0 -> 1 because -
+        // until here - we have a `prevent_cancellation_future` which itself holds a strong count
+        let task = prevent_cancellation_future.task.dupe();
+        let generation = prevent_cancellation_future.generation;
+        drop(prevent_cancellation_future);
         tokio::spawn({
             let future = result.state_future;
             async move {
                 let res = future.await;
                 // Clear sync_value now that the async result is in. If the task has already been
                 // sealed (by another generation), `Critical` is gone and there is nothing to clear.
-                let mut guard = prevent_cancellation_future.task.internal.critical.lock();
+                let mut guard = task.internal.critical.lock();
                 if let Some(critical) = guard.as_mut() {
                     critical.sync_value = None;
                 }
@@ -635,27 +640,12 @@ impl DiceTaskRef<'_> {
                 // probably have different APIs to avoid handing one out in the sync case.
                 match res {
                     Ok(v) => {
-                        prevent_cancellation_future
-                            .task
-                            .as_ref()
-                            .task_finished_success(
-                                guard,
-                                prevent_cancellation_future.generation,
-                                v,
-                            );
+                        task.as_ref().task_finished_success(guard, generation, v);
                     }
                     Err(e) => {
-                        prevent_cancellation_future
-                            .task
-                            .as_ref()
-                            .task_finished_cancelled(
-                                guard,
-                                prevent_cancellation_future.generation,
-                                e,
-                            );
+                        task.as_ref().task_finished_cancelled(guard, generation, e);
                     }
                 }
-                drop(prevent_cancellation_future);
             }
         });
 
