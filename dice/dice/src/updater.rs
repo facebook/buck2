@@ -24,7 +24,7 @@ use crate::api::storage_type::StorageType;
 use crate::api::user_data::UserComputationData;
 use crate::core::state::CoreStateHandle;
 use crate::epoch::ctx::TransactionCtx;
-use crate::epoch::ctx::VersionEpochState;
+use crate::epoch::evaluator::VersionEpochState;
 use crate::key::DiceKey;
 use crate::value::DiceKeyValue;
 use crate::value::DiceValidValue;

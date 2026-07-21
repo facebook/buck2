@@ -8,33 +8,190 @@
  * above-listed licenses.
  */
 
+use std::future::Future;
 use std::sync::Arc;
 
+use derivative::Derivative;
 use dice_error::result::CancellableResult;
+use dice_error::result::CancellationReason;
 use dupe::Dupe;
+use futures::FutureExt;
 use parking_lot::Mutex;
 
+use super::task::dice::DiceTaskDependedOnByResult;
 use crate::ActivationData;
 use crate::DiceEvent;
 use crate::api::projection::DiceProjectionComputations;
 use crate::api::storage_type::StorageType;
 use crate::api::user_data::UserComputationData;
+use crate::core::state::CoreStateHandle;
+use crate::core::versions::VersionEpoch;
 use crate::deps::RecordingDepsTracker;
 use crate::deps::graph::SeriesParallelDeps;
 use crate::dice::Dice;
+use crate::epoch::cache::SharedCache;
+use crate::epoch::cache::SharedCacheInsert;
+use crate::epoch::cache::SharedCacheLookup;
 use crate::epoch::ctx::ComputeCtx;
 use crate::epoch::ctx::EvaluationData;
 use crate::epoch::ctx::TrackedComputations;
-use crate::epoch::ctx::VersionEpochState;
+use crate::epoch::task::PreviouslyCancelledTask;
+use crate::epoch::task::dice::PreparedDiceTask;
 use crate::epoch::task::handle::DiceTaskHandle;
+use crate::epoch::task::promise::DicePromise;
+use crate::epoch::worker::DiceTaskWorker;
+use crate::epoch::worker::project_for_key;
 use crate::epoch::worker::state::DiceWorkerStateEvaluating;
 use crate::epoch::worker::state::DiceWorkerStateFinishedEvaluating;
 use crate::key::DiceKey;
 use crate::key::DiceKeyErased;
 use crate::key::ParentKey;
 use crate::user_cycle::KeyComputingUserCycleDetectorData;
+use crate::user_cycle::UserCycleDetectorData;
+use crate::value::DiceComputedValue;
 use crate::value::MaybeValidDiceValue;
 use crate::value::TrackedInvalidationPaths;
+use crate::versions::VersionNumber;
+
+/// Context that is shared for all current live computations of the same version.
+#[derive(Derivative, Dupe, Clone)]
+#[derivative(Debug)]
+pub(crate) struct VersionEpochState {
+    version: VersionNumber,
+    pub(crate) version_epoch: VersionEpoch,
+    #[derivative(Debug = "ignore")]
+    cache: SharedCache,
+}
+enum LookupResult<'d> {
+    Finished(CancellableResult<&'d DiceComputedValue>),
+    Pending(DicePromise<'d>),
+    NeedsRestart(PreparedDiceTask<'d>, Option<PreviouslyCancelledTask>),
+    TransactionCancelled,
+}
+
+impl VersionEpochState {
+    pub(crate) fn new(v: VersionNumber, version_epoch: VersionEpoch, cache: SharedCache) -> Self {
+        Self {
+            version: v,
+            version_epoch,
+            cache,
+        }
+    }
+
+    fn lookup_entry(&self, key: DiceKey, parent_key: ParentKey) -> LookupResult<'_> {
+        let task = match self.cache.get(key) {
+            SharedCacheLookup::Finished(result) => {
+                return LookupResult::Finished(result);
+            }
+            SharedCacheLookup::InProgress(task) => task,
+            SharedCacheLookup::Vacant => match self.cache.insert(key) {
+                SharedCacheInsert::Occupied(dice_task) => dice_task,
+                SharedCacheInsert::Inserted(prepared_task) => {
+                    return LookupResult::NeedsRestart(prepared_task, None);
+                }
+                SharedCacheInsert::TransactionCancelled => {
+                    return LookupResult::TransactionCancelled;
+                }
+            },
+        };
+
+        match task.depended_on_by(parent_key) {
+            DiceTaskDependedOnByResult::Finished(dice_computed_value) => {
+                LookupResult::Finished(Ok(dice_computed_value))
+            }
+            DiceTaskDependedOnByResult::Pending(dice_promise) => {
+                LookupResult::Pending(dice_promise)
+            }
+            DiceTaskDependedOnByResult::NeedsRestart(
+                prepared_dice_task,
+                previously_cancelled_task,
+            ) => LookupResult::NeedsRestart(prepared_dice_task, Some(previously_cancelled_task)),
+        }
+    }
+
+    /// Compute "opaque" value where the value is only accessible via projections.
+    /// Projections allow accessing derived results from the "opaque" value,
+    /// where the dependency of reading a projection is the projection value rather
+    /// than the entire opaque value.
+    pub(crate) fn compute_opaque<'d>(
+        &'d self,
+        key: DiceKey,
+        parent_key: ParentKey,
+        eval: &TransactionData,
+        cycles: UserCycleDetectorData,
+    ) -> impl Future<Output = CancellableResult<&'d DiceComputedValue>> + use<'d> {
+        match self.lookup_entry(key, parent_key) {
+            LookupResult::Finished(dice_computed_value) => {
+                DicePromise::ready(dice_computed_value).left_future()
+            }
+            LookupResult::Pending(dice_promise) => dice_promise.left_future(),
+            LookupResult::NeedsRestart(prepared_dice_task, previously_cancelled_task) => {
+                let eval = eval.dupe();
+
+                DiceTaskWorker::spawn(
+                    key,
+                    prepared_dice_task,
+                    self.version_epoch,
+                    eval,
+                    cycles,
+                    previously_cancelled_task,
+                )
+                .left_future()
+            }
+            LookupResult::TransactionCancelled => {
+                let v = self.version;
+                let v_epoch = self.version_epoch;
+                async move {
+                    debug!(msg = "computing shared state is cancelled", k = ?key, v = ?v, v_epoch = ?v_epoch);
+                    tokio::task::yield_now().await;
+                    Err(CancellationReason::TransactionCancelled)
+                }
+                    .right_future()
+            }
+        }
+    }
+
+    /// Compute "projection" based on deriving value
+    pub(crate) fn compute_projection(
+        &self,
+        key: DiceKey,
+        state: CoreStateHandle,
+        transaction: &TransactionData,
+        eval: SyncEvaluator,
+    ) -> CancellableResult<DiceComputedValue> {
+        let task = match self.cache.get_projection(key) {
+            SharedCacheLookup::Finished(result) => {
+                return result.map(Dupe::dupe);
+            }
+            SharedCacheLookup::InProgress(task) => Err(task),
+            SharedCacheLookup::Vacant => match self.cache.insert_projection(key) {
+                SharedCacheInsert::Occupied(task) => Err(task.get()),
+                SharedCacheInsert::Inserted(new_task) => Ok(new_task),
+                SharedCacheInsert::TransactionCancelled => {
+                    return Err(CancellationReason::TransactionCancelled);
+                }
+            },
+        };
+
+        match task {
+            Ok(handle) => {
+                transaction.started(key);
+                // We inserted and are expected to do the computation
+                let r = project_for_key(state, handle, key, self.version, self.version_epoch, eval);
+                transaction.finished(key);
+                r
+            }
+            Err(task) => {
+                // Someone else inserted
+                task.wait_sync()
+            }
+        }
+    }
+
+    pub(crate) fn get_version(&self) -> VersionNumber {
+        self.version
+    }
+}
 
 /// Evaluates Keys
 #[derive(Clone, Dupe)]
