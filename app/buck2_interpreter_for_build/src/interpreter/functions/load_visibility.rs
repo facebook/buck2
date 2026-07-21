@@ -14,6 +14,7 @@ use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::legacy_configs::view::LegacyBuckConfigView;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
+use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::name::CellName;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_node::visibility::LoadVisibility;
@@ -71,7 +72,7 @@ impl HasCheckLoadVisibility for DiceComputations<'_> {
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]
-enum LoadVisibilityError {
+pub(crate) enum LoadVisibilityError {
     #[error(
         "`visibility()` must be called at the top level of the `.bzl` file it applies to, not from inside a function"
     )]
@@ -92,6 +93,17 @@ enum LoadVisibilityError {
     NegativePattern(String),
     #[error("`\"private\"` must be the only entry when passed to `visibility()`")]
     PrivateNotAlone,
+    #[error(
+        "`{loader}` cannot load `{loaded}`: it is not visible to this package. `{loaded}` declares `visibility({visibility})`; to allow this load, its `visibility()` must include `\"{pattern}\"`."
+    )]
+    NotVisible {
+        loader: CellPath,
+        loaded: CellPath,
+        visibility: String,
+        /// The package pattern of the loader, as it would be written in the
+        /// loaded file's `visibility()`.
+        pattern: String,
+    },
 }
 
 /// The `"private"` special token, meaning "loadable only from the same package".
