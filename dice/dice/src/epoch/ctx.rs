@@ -574,7 +574,16 @@ impl<'d> TrackedComputations<'d> {
         key: &P,
     ) -> DiceResult<P::Value> {
         let (ctx_data, dep_trackers) = self.unpack();
-        ctx_data.project(key, derive_from, dep_trackers)
+        let (dice_key, res) = ctx_data.project(key, derive_from)?;
+        dep_trackers
+            .lock()
+            .record(dice_key, res.value().validity(), res.invalidation_paths());
+
+        Ok(res
+            .value()
+            .downcast_maybe_transient::<P::Value>()
+            .expect("Type mismatch when computing key")
+            .dupe())
     }
 
     /// Data that is static per the entire lifetime of Dice. These data are initialized at the
@@ -650,39 +659,28 @@ impl ComputeCtx {
         &self,
         key: &K,
         base: &OpaqueValue<B>,
-        dep_trackers: DepsTrackerHolder,
-    ) -> DiceResult<K::Value> {
+    ) -> DiceResult<(DiceKey, DiceComputedValue)> {
         let dice_key = self
             .transaction_data
             .dice
             .key_index
             .index(CowDiceKeyHashed::proj_ref(base.derive_from_key, key));
 
-        let r = self.transaction_data.epoch_state.compute_projection(
-            dice_key,
-            self.transaction_data.dice.state_handle.dupe(),
-            &self.transaction_data,
-            SyncEvaluator::new(
-                self.transaction_data.user_data.dupe(),
-                self.transaction_data.dice.dupe(),
-                base.derive_from.dupe(),
-                base.invalidation_paths.dupe(),
-            ),
-        );
-
-        let r = match r {
-            Ok(r) => r,
-            Err(reason) => return Err(DiceError::cancelled(reason)),
-        };
-
-        dep_trackers
-            .lock()
-            .record(dice_key, r.value().validity(), r.invalidation_paths());
-
-        Ok(r.value()
-            .downcast_maybe_transient::<K::Value>()
-            .expect("Type mismatch when computing key")
-            .dupe())
+        self.transaction_data
+            .epoch_state
+            .compute_projection(
+                dice_key,
+                self.transaction_data.dice.state_handle.dupe(),
+                &self.transaction_data,
+                SyncEvaluator::new(
+                    self.transaction_data.user_data.dupe(),
+                    self.transaction_data.dice.dupe(),
+                    base.derive_from.dupe(),
+                    base.invalidation_paths.dupe(),
+                ),
+            )
+            .map(|r| (dice_key, r))
+            .map_err(DiceError::cancelled)
     }
 
     /// Data that is static per the entire lifetime of Dice. These data are initialized at the
