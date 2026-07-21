@@ -31,8 +31,8 @@ use crate::api::key::Key;
 use crate::api::key::NoValueSerialize;
 use crate::api::key::ValueSerialize;
 use crate::api::user_data::UserComputationData;
-use crate::ctx::DiceComputationsImpl;
-use crate::ctx::LinearRecomputeDiceComputationsImpl;
+use crate::impls::ctx::LinearRecomputeModern;
+use crate::impls::ctx::ModernComputeCtx;
 use crate::impls::ctx::ModernDiceComputationsData;
 use crate::impls::key::DiceKeyDyn;
 
@@ -45,7 +45,7 @@ use crate::impls::key::DiceKeyDyn;
 /// The context is valid only for the duration of the computation of a single key, and cannot be
 /// owned.
 #[derive(Allocative)]
-pub struct DiceComputations<'a>(pub(crate) DiceComputationsImpl<'a>);
+pub struct DiceComputations<'a>(pub(crate) ModernComputeCtx<'a>);
 
 fn _test_computations_sync_send() {
     fn _assert_sync_send<T: Sync + Send>() {}
@@ -92,7 +92,7 @@ impl DiceComputations<'_> {
         &mut self,
         derive_from: OpaqueValue<K>,
     ) -> DiceResult<K::Value> {
-        self.0.opaque_into_value(derive_from)
+        Ok(self.0.opaque_into_value(derive_from))
     }
 
     /// DiceComputations &mut-based api can make some computations much more complex to express, but without it
@@ -384,7 +384,7 @@ impl DiceComputations<'_> {
     }
 }
 
-pub struct LinearRecomputeDiceComputations<'a>(pub(crate) LinearRecomputeDiceComputationsImpl<'a>);
+pub struct LinearRecomputeDiceComputations<'a>(pub(crate) LinearRecomputeModern<'a>);
 
 impl LinearRecomputeDiceComputations<'_> {
     pub fn get(&self) -> DiceComputations<'_> {

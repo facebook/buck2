@@ -43,8 +43,6 @@ use crate::api::invalidation_tracking::DiceKeyTrackedInvalidationPaths;
 use crate::api::key::Key;
 use crate::api::projection::ProjectionKey;
 use crate::api::user_data::UserComputationData;
-use crate::ctx::DiceComputationsImpl;
-use crate::ctx::LinearRecomputeDiceComputationsImpl;
 use crate::impls::cache::SharedCache;
 use crate::impls::cache::SharedCacheInsert;
 use crate::impls::cache::SharedCacheLookup;
@@ -85,7 +83,7 @@ pub(crate) struct BaseComputeCtx {
 
 impl Clone for BaseComputeCtx {
     fn clone(&self) -> Self {
-        BaseComputeCtx::clone_for(&self.data.0.0, self.live_version_guard.dupe())
+        BaseComputeCtx::clone_for(&self.data.0, self.live_version_guard.dupe())
     }
 }
 
@@ -99,7 +97,7 @@ impl BaseComputeCtx {
         live_version_guard: ActiveTransactionGuard,
     ) -> Self {
         Self {
-            data: DiceComputations(DiceComputationsImpl(ModernComputeCtx::new(
+            data: DiceComputations(ModernComputeCtx::new(
                 ParentKey::None,
                 KeyComputingUserCycleDetectorData::Untracked,
                 AsyncEvaluator {
@@ -107,7 +105,7 @@ impl BaseComputeCtx {
                     user_data,
                     dice,
                 },
-            ))),
+            )),
             live_version_guard,
         }
     }
@@ -117,11 +115,11 @@ impl BaseComputeCtx {
         live_version_guard: ActiveTransactionGuard,
     ) -> BaseComputeCtx {
         Self {
-            data: DiceComputations(DiceComputationsImpl(ModernComputeCtx::new(
+            data: DiceComputations(ModernComputeCtx::new(
                 ParentKey::None,
                 KeyComputingUserCycleDetectorData::Untracked,
                 modern.ctx_data().async_evaluator.clone(),
-            ))),
+            )),
             live_version_guard,
         }
     }
@@ -131,7 +129,7 @@ impl BaseComputeCtx {
     }
 
     pub(crate) fn into_updater(self) -> DiceTransactionUpdater {
-        DiceTransactionUpdater(DiceTransactionUpdaterImpl(self.data.0.0.into_updater()))
+        DiceTransactionUpdater(DiceTransactionUpdaterImpl(self.data.0.into_updater()))
     }
 
     pub(crate) fn as_computations(&self) -> &DiceComputations<'static> {
@@ -147,13 +145,13 @@ impl Deref for BaseComputeCtx {
     type Target = ModernComputeCtx<'static>;
 
     fn deref(&self) -> &Self::Target {
-        &self.data.0.0
+        &self.data.0
     }
 }
 
 impl DerefMut for BaseComputeCtx {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.data.0.0
+        &mut self.data.0
     }
 }
 
@@ -272,12 +270,10 @@ impl ModernComputeCtx<'_> {
             // TODO(cjhopman): if inspected during the with_linear_recompute, this will be missing some invalidation paths.
             TrackedInvalidationPaths::clean(),
         )));
-        let fut = func(LinearRecomputeDiceComputations(
-            LinearRecomputeDiceComputationsImpl(LinearRecomputeModern {
-                ctx_data,
-                dep_trackers: dep_trackers.dupe(),
-            }),
-        ));
+        let fut = func(LinearRecomputeDiceComputations(LinearRecomputeModern {
+            ctx_data,
+            dep_trackers: dep_trackers.dupe(),
+        }));
 
         fut.map(move |v| {
             let mut self_dep_trackers = self_dep_trackers.lock();
@@ -308,12 +304,11 @@ impl ModernComputeCtx<'_> {
             + 'static,
     {
         let (ctx_data, self_dep_trackers) = self.unpack();
-        let mut inner_ctx: DiceComputations<'static> =
-            DiceComputations(DiceComputationsImpl(ModernComputeCtx::new(
-                ctx_data.parent_key,
-                ctx_data.cycles.clone(),
-                ctx_data.async_evaluator.dupe(),
-            )));
+        let mut inner_ctx: DiceComputations<'static> = DiceComputations(ModernComputeCtx::new(
+            ctx_data.parent_key,
+            ctx_data.cycles.clone(),
+            ctx_data.async_evaluator.dupe(),
+        ));
 
         let user_data = ctx_data.per_transaction_data();
         let spawner = user_data.spawner.dupe();
@@ -323,7 +318,7 @@ impl ModernComputeCtx<'_> {
             |cancellation| {
                 async move {
                     let res = closure(&mut inner_ctx, cancellation).await;
-                    let dep_trackers = inner_ctx.0.0.into_owned().1;
+                    let dep_trackers = inner_ctx.0.into_owned().1;
                     (res, dep_trackers)
                 }
                 .boxed()
@@ -388,7 +383,7 @@ impl ModernComputeCtx<'_> {
 
 impl<'a> From<ModernComputeCtx<'a>> for DiceComputations<'a> {
     fn from(value: ModernComputeCtx<'a>) -> Self {
-        DiceComputations(DiceComputationsImpl(value))
+        DiceComputations(value)
     }
 }
 
@@ -399,10 +394,10 @@ pub(crate) struct LinearRecomputeModern<'a> {
 
 impl LinearRecomputeModern<'_> {
     pub(crate) fn get(&self) -> DiceComputations<'_> {
-        DiceComputations(DiceComputationsImpl(ModernComputeCtx::Linear {
+        DiceComputations(ModernComputeCtx::Linear {
             ctx_data: self.ctx_data,
             dep_trackers: &self.dep_trackers,
-        }))
+        })
     }
 }
 
@@ -443,7 +438,7 @@ impl<'a> ModernComputeCtxParallelBuilder<'a> {
                 ),
                 |(_, ctx)| func(ctx),
             )
-            .map_taking_data(|v, (this_deps, ctx)| match ctx.0.0 {
+            .map_taking_data(|v, (this_deps, ctx)| match ctx.0 {
                 ModernComputeCtx::Parallel { dep_trackers, .. } => {
                     *this_deps = dep_trackers.collect_deps();
                     v
