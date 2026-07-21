@@ -32,7 +32,7 @@
     in {
       devShells.default = pkgs.mkShell {
         buildInputs = pkgs.lib.optionals pkgs.stdenv.isLinux ([
-          pkgs.mold-wrapped
+          pkgs.mold
         ]) ++ [
           # NOTE (aseipp): needed on aarch64-linux, so that the linker can
           # properly find libatomic.so, but harmless elsewhere
