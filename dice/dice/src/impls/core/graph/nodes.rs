@@ -60,7 +60,7 @@ pub(crate) enum VersionedGraphNode {
     Vacant(VacantGraphNode),
 }
 
-mini_vec::size_assert::words_of_type!(VersionedGraphNode, 17);
+mini_vec::size_assert::words_of_type!(VersionedGraphNode, 16);
 
 impl VersionedGraphNode {
     pub(crate) fn force_dirty(
@@ -110,7 +110,7 @@ impl VersionedGraphNode {
     pub(crate) fn is_page_out_candidate(&self) -> bool {
         matches!(
             self,
-            VersionedGraphNode::Occupied(occ) if occ.paged_state() == PagedState::NeverPagedOut
+            VersionedGraphNode::Occupied(occ) if occ.val().is_page_out_candidate()
         )
     }
 
@@ -318,52 +318,44 @@ pub(crate) enum InvalidateResult<'a> {
     Changed(Option<mini_vec::Drain<'a, DiceKey>>),
 }
 
-/// Whether an `OccupiedGraphNode`'s value has an on-disk (paged) copy, and where
-/// the value sits in its page-out lifecycle. Tracks lifecycle that
-/// `PagableNodeValue::value`'s in-memory residency alone can't express (e.g. a
-/// resident value that can't be serialized). Every state except `PagedOut` has
-/// `value` resident. The two paged variants store the content-addressable key
-/// inline as a `NonZeroU128` (`DataKey`'s natural non-zero form).
-#[derive(Allocative, Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum PagedState {
+/// This is not really its own enum, it's morally just more variants for the below enum, but this
+/// separation is needed for rustc to figure out a 4-word layout.
+#[derive(Allocative, Debug)]
+pub(crate) enum PagableNodeValueOther {
     /// No on-disk copy exists; a candidate for the next page-out.
-    NeverPagedOut,
-    /// Serialized to disk and evicted from memory, so the key is load-bearing and
-    /// `value` is absent.
+    NeverPagedOut(DiceValidValue),
+    /// Serialized to disk and evicted from memory, so the on-disk key is load-bearing
+    /// and no hydrated value is resident.
     PagedOut(DataKey),
-    /// Serialized to disk and since re-hydrated, so the next page-out can reuse the
-    /// key and skip re-serialization.
-    PagedBackIn(DataKey),
     /// Considered for page-out but its value can't be serialized (e.g.
     /// `NoValueSerialize`, or an `Err`); resident and not a page-out candidate.
-    NonPageable,
+    NonPageable(DiceValidValue),
 }
 
-mini_vec::size_assert::words_of_type!(PagedState, 3);
-
-/// The stored value for an `OccupiedGraphNode`. At least one of `value` (the
-/// in-memory hydrated form) and the on-disk copy tracked by `paged_state` must be
-/// present; `PagedState::PagedOut` is exactly the state in which `value` is absent.
+/// The stored value for an `OccupiedGraphNode`. At least one of the in-memory
+/// hydrated value and the on-disk (paged) copy is always present; `PagedOut` is
+/// exactly the state in which the hydrated value is absent.
 #[derive(Allocative, Debug)]
-pub(crate) struct PagableNodeValue {
-    value: Option<DiceValidValue>,
-    paged_state: PagedState,
+pub(crate) enum PagableNodeValue {
+    /// Serialized to disk and since re-hydrated, so the next page-out can reuse the
+    /// key and skip re-serialization.
+    PagedBackIn(DataKey, DiceValidValue),
+    Other(PagableNodeValueOther),
 }
+
+mini_vec::size_assert::words_of_type!(PagableNodeValue, 4);
 
 impl PagableNodeValue {
     /// Constructs a hydrated-only value (no on-disk copy yet).
-    pub(crate) fn hydrated(value: DiceValidValue) -> Self {
-        Self {
-            value: Some(value),
-            paged_state: PagedState::NeverPagedOut,
-        }
+    fn hydrated(value: DiceValidValue) -> Self {
+        Self::Other(PagableNodeValueOther::NeverPagedOut(value))
     }
 
     /// Returns the hydrated value, panicking with `msg` if the value is not currently
     /// resident in memory. `msg` should explain why the caller knows the value is
     /// hydrated (analogous to `Option::expect`).
-    pub(crate) fn expect_hydrated(&self, msg: &str) -> &DiceValidValue {
-        self.value.as_ref().unwrap_or_else(|| {
+    fn expect_hydrated(&self, msg: &str) -> &DiceValidValue {
+        self.as_hydrated().unwrap_or_else(|| {
             panic!(
                 "PagableNodeValue::expect_hydrated called on a paged-out value: {}",
                 msg
@@ -372,17 +364,35 @@ impl PagableNodeValue {
     }
 
     pub(crate) fn as_hydrated(&self) -> Option<&DiceValidValue> {
-        self.value.as_ref()
+        match self {
+            PagableNodeValue::PagedBackIn(_, value)
+            | PagableNodeValue::Other(
+                PagableNodeValueOther::NeverPagedOut(value)
+                | PagableNodeValueOther::NonPageable(value),
+            ) => Some(value),
+            PagableNodeValue::Other(PagableNodeValueOther::PagedOut(_)) => None,
+        }
     }
 
     /// Returns the on-disk key if the value has already been serialized to storage.
     /// When this is `Some`, the next page-out can skip re-serialization and reuse
     /// the existing key.
     pub(crate) fn data_key(&self) -> Option<DataKey> {
-        match self.paged_state {
-            PagedState::NeverPagedOut | PagedState::NonPageable => None,
-            PagedState::PagedOut(k) | PagedState::PagedBackIn(k) => Some(k),
+        match self {
+            PagableNodeValue::PagedBackIn(k, _)
+            | PagableNodeValue::Other(PagableNodeValueOther::PagedOut(k)) => Some(*k),
+            PagableNodeValue::Other(
+                PagableNodeValueOther::NeverPagedOut(_) | PagableNodeValueOther::NonPageable(_),
+            ) => None,
         }
+    }
+
+    /// Whether the value has never been paged out — a candidate for the next page-out.
+    fn is_page_out_candidate(&self) -> bool {
+        matches!(
+            self,
+            PagableNodeValue::Other(PagableNodeValueOther::NeverPagedOut(_))
+        )
     }
 }
 
@@ -564,30 +574,30 @@ impl OccupiedGraphNode {
 
     /// Restores the in-memory hydrated value (typically after deserializing from
     /// disk), transitioning a `PagedOut` node to `PagedBackIn` so the on-disk key
-    /// survives for the next page-out to reuse.
+    /// survives for the next page-out to reuse. A no-op if the node is not currently
+    /// paged out (e.g. it was recomputed while the async hydration was in flight).
     pub(crate) fn rehydrate(&mut self, value: DiceValidValue) {
-        self.res.value = Some(value);
-        if let PagedState::PagedOut(k) = self.res.paged_state {
-            self.res.paged_state = PagedState::PagedBackIn(k);
+        if let PagableNodeValue::Other(PagableNodeValueOther::PagedOut(k)) = &self.res {
+            self.res = PagableNodeValue::PagedBackIn(*k, value);
         }
     }
 
     /// Records that the value has been written to storage at `data_key` and drops
     /// the in-memory value (the on-disk reference is now load-bearing).
     pub(crate) fn set_paged_out(&mut self, data_key: DataKey) {
-        self.res.paged_state = PagedState::PagedOut(data_key);
-        self.res.value = None;
+        self.res = PagableNodeValue::Other(PagableNodeValueOther::PagedOut(data_key));
     }
 
     /// Records that page-out considered this node but its value can't be
     /// serialized, so it stays resident and is not a page-out candidate again
     /// (until recomputed).
     pub(crate) fn mark_non_pageable(&mut self) {
-        self.res.paged_state = PagedState::NonPageable;
-    }
-
-    pub(crate) fn paged_state(&self) -> PagedState {
-        self.res.paged_state
+        let value = self
+            .res
+            .as_hydrated()
+            .expect("mark_non_pageable is only called on resident page-out candidates")
+            .dupe();
+        self.res = PagableNodeValue::Other(PagableNodeValueOther::NonPageable(value));
     }
 
     /// `expect_hydrated_msg` is forwarded to `expect_hydrated` and should explain why the
@@ -640,9 +650,9 @@ impl OccupiedGraphNode {
     fn at_version(&self, v: VersionNumber) -> VersionedGraphResult {
         match self.metadata.verified_ranges.find_value_upper_bound(v) {
             Some(found) if found == v => {
-                if self.res.value.is_some() {
+                if self.res.as_hydrated().is_some() {
                     VersionedGraphResult::Match(
-                        self.computed_val(v, "the Hydrated branch checked value.is_some()"),
+                        self.computed_val(v, "the Match branch checked as_hydrated().is_some()"),
                     )
                 } else {
                     VersionedGraphResult::MatchPagedOut(PagedOutMatch {
@@ -661,7 +671,7 @@ impl OccupiedGraphNode {
                     .restricted_range(v)
                     .contains(&prev_verified_version)
                 {
-                    if let Some(value) = &self.res.value {
+                    if let Some(value) = self.res.as_hydrated() {
                         VersionedGraphResult::CheckDeps(VersionedGraphResultMismatch {
                             entry: value.dupe(),
                             prev_verified_version,
