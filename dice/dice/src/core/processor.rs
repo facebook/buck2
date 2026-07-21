@@ -18,7 +18,7 @@ use crate::core::internals::CoreState;
 use crate::core::state::CoreStateHandle;
 use crate::core::state::QueueCounters;
 use crate::core::state::StateRequest;
-use crate::impls::ctx::VersionEpochState;
+use crate::epoch::ctx::VersionEpochState;
 
 pub(super) struct StateProcessor {
     state: CoreState,

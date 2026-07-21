@@ -31,9 +31,9 @@ use crate::api::key::Key;
 use crate::api::key::NoValueSerialize;
 use crate::api::key::ValueSerialize;
 use crate::api::user_data::UserComputationData;
-use crate::impls::ctx::LinearRecomputeComputations;
-use crate::impls::ctx::ModernDiceComputationsData;
-use crate::impls::ctx::TrackedComputations;
+use crate::epoch::ctx::LinearRecomputeComputations;
+use crate::epoch::ctx::ModernDiceComputationsData;
+use crate::epoch::ctx::TrackedComputations;
 use crate::key::DiceKeyDyn;
 
 /// The context for computations to register themselves, and request for additional dependencies.

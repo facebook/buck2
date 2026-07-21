@@ -35,23 +35,23 @@ use crate::core::state::CoreStateHandle;
 use crate::core::versions::VersionEpoch;
 use crate::deps::graph::SeriesParallelDeps;
 use crate::deps::iterator::SeriesParallelDepsIteratorItem;
+use crate::epoch::evaluator::KeyEvaluationResult;
+use crate::epoch::evaluator::SyncEvaluator;
+use crate::epoch::evaluator::TransactionData;
+use crate::epoch::task::PreviouslyCancelledTask;
+use crate::epoch::task::dice::PreparedDiceTask;
+use crate::epoch::task::dice::spawn_prepared_task;
+use crate::epoch::task::handle::DiceTaskHandle;
+use crate::epoch::task::projections::DiceSyncResult;
+use crate::epoch::task::projections::ProjectionTaskCompletionHandle;
+use crate::epoch::task::promise::DicePromise;
+use crate::epoch::worker::state::ActivationInfo;
+use crate::epoch::worker::state::DiceWorkerStateAwaitingPrevious;
+use crate::epoch::worker::state::DiceWorkerStateEvaluating;
+use crate::epoch::worker::state::DiceWorkerStateFinishedAndCached;
+use crate::epoch::worker::state::DiceWorkerStateFinishedEvaluating;
+use crate::epoch::worker::state::DiceWorkerStateLookupNode;
 use crate::events::DiceEventDispatcher;
-use crate::impls::evaluator::KeyEvaluationResult;
-use crate::impls::evaluator::SyncEvaluator;
-use crate::impls::evaluator::TransactionData;
-use crate::impls::task::PreviouslyCancelledTask;
-use crate::impls::task::dice::PreparedDiceTask;
-use crate::impls::task::dice::spawn_prepared_task;
-use crate::impls::task::handle::DiceTaskHandle;
-use crate::impls::task::projections::DiceSyncResult;
-use crate::impls::task::projections::ProjectionTaskCompletionHandle;
-use crate::impls::task::promise::DicePromise;
-use crate::impls::worker::state::ActivationInfo;
-use crate::impls::worker::state::DiceWorkerStateAwaitingPrevious;
-use crate::impls::worker::state::DiceWorkerStateEvaluating;
-use crate::impls::worker::state::DiceWorkerStateFinishedAndCached;
-use crate::impls::worker::state::DiceWorkerStateFinishedEvaluating;
-use crate::impls::worker::state::DiceWorkerStateLookupNode;
 use crate::key::DiceKey;
 use crate::key::ParentKey;
 use crate::user_cycle::KeyComputingUserCycleDetectorData;
@@ -593,7 +593,7 @@ pub(crate) fn project_for_key(
 
 #[cfg(test)]
 pub(crate) mod testing {
-    use crate::impls::worker::CheckDependenciesResult;
+    use crate::epoch::worker::CheckDependenciesResult;
 
     pub(crate) trait CheckDependenciesResultExt {
         fn is_changed(&self) -> bool;

@@ -260,7 +260,7 @@ mod tests {
     use crate::api::key::NoValueSerialize;
     use crate::api::key::ValueSerialize;
     use crate::arc::Arc;
-    use crate::impls::task::projections::DiceSyncResult;
+    use crate::epoch::task::projections::DiceSyncResult;
     use crate::key::DiceKey;
     use crate::value::DiceComputedValue;
     use crate::value::DiceKeyValue;

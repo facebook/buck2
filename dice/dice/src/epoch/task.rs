@@ -15,7 +15,7 @@ pub(crate) mod promise;
 #[cfg(test)]
 pub(crate) use dice::spawn_dice_task;
 
-use crate::impls::task::dice::TerminationObserver;
+use crate::epoch::task::dice::TerminationObserver;
 
 #[cfg(test)]
 mod tests;
@@ -29,7 +29,7 @@ impl PreviouslyCancelledTask {
         Self { previous }
     }
 
-    pub(crate) fn await_termination(self) -> crate::impls::task::dice::TerminationObserver {
+    pub(crate) fn await_termination(self) -> crate::epoch::task::dice::TerminationObserver {
         self.previous
     }
 }

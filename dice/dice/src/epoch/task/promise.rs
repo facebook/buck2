@@ -18,7 +18,7 @@ use std::task::Poll;
 use dice_error::result::CancellableResult;
 use pin_project::pin_project;
 
-use crate::impls::task::dice::DiceTaskDependentFuture;
+use crate::epoch::task::dice::DiceTaskDependentFuture;
 use crate::value::DiceComputedValue;
 
 /// A strong reference to a 'DiceTask' that is pollable as a future.

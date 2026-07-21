@@ -34,8 +34,8 @@ use parking_lot::Mutex;
 
 use super::handle::DiceTaskHandle;
 use crate::GlobalStats;
-use crate::impls::task::PreviouslyCancelledTask;
-use crate::impls::task::promise::DicePromise;
+use crate::epoch::task::PreviouslyCancelledTask;
+use crate::epoch::task::promise::DicePromise;
 use crate::introspection::DiceTaskState;
 use crate::key::DiceKey;
 use crate::key::ParentKey;
@@ -819,7 +819,7 @@ impl Future for TerminationObserver {
 #[cfg(test)]
 pub(crate) mod testing_helpers {
     use crate::api::key::Key;
-    use crate::impls::task::dice::DiceTask;
+    use crate::epoch::task::dice::DiceTask;
     use crate::key::DiceKey;
     use crate::value::DiceComputedValue;
     use crate::value::DiceKeyValue;
