@@ -21,8 +21,12 @@ prelude.go_bootstrap_binary(
 
 prelude.go_bootstrap_binary(
     name = "go_wrapper",
-    srcs = ["go_wrapper.go"],
+    srcs = [
+        "buildid.go",
+        "go_wrapper.go",
+    ],
     build_args = [
+        "buildid.go",
         "go_wrapper.go",
     ],
     visibility = ["PUBLIC"],
@@ -81,4 +85,9 @@ prelude.go_bootstrap_binary(
     visibility = [
         "PUBLIC",
     ],
+)
+
+prelude.go_test(
+    name = "buildid_test",
+    srcs = ["buildid.go", "buildid_test.go"],
 )

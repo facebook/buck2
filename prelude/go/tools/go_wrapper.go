@@ -63,6 +63,7 @@ func main() {
 	var defaultGoArch = flag.String("default-goarch", "", "default GOARCH (if not set by env)")
 	var outputFile = flag.String("output", "", "file to redirect stdout to")
 	var convertJsonStream = flag.Bool("convert-json-stream", false, "convert json stream to array")
+	var gnuBuildID = flag.Bool("gnu-build-id", false, "rewrite .note.gnu.build-id with sha256 of the linked output (internal Go links only)")
 	flag.Parse()
 	unknownArgs := flag.Args()
 
@@ -168,5 +169,15 @@ func main() {
 		}
 		fmt.Fprintln(os.Stderr, "Error running command:", err)
 		os.Exit(exitCode)
+	}
+
+	if *gnuBuildID {
+		out := outputPath(unknownArgs)
+		if out == "" {
+			log.Fatalf("--gnu-build-id set but no -o output found in linker args: %v", unknownArgs)
+		}
+		if err := setGNUBuildID(out); err != nil {
+			log.Fatalf("Error setting GNU build id: %s", err)
+		}
 	}
 }
