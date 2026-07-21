@@ -67,10 +67,14 @@ pub(crate) struct DiceTask {
 #[derive(Allocative)]
 #[allocative(skip)]
 pub(crate) struct DiceTaskInternal {
-    #[expect(dead_code)] // used by the lock-free cache representation in a later split
     pub(crate) key: DiceKey,
 
     /// Holds some data that actually needs to be lock protected.
+    ///
+    /// This is `None` exactly once the task has been sealed (a worker finished successfully and set
+    /// `terminated_generation` to 0). At that point the cancellation handle and sync-projection slot
+    /// are useless, and since sealed tasks live in the cache indefinitely we drop the
+    /// `Box<Critical>` to save memory. While the task is unsealed this is always `Some`.
     ///
     /// Additionally, there is an invariant that whenever any of the following happen:
     ///  - `strong_count` is changed 1 -> 0
@@ -78,7 +82,7 @@ pub(crate) struct DiceTaskInternal {
     ///  - Either `current_generation` or `terminated_generation` are changed
     ///
     /// That must be done *with this lock held.*
-    critical: Mutex<Critical>,
+    critical: Mutex<Option<Box<Critical>>>,
 
     /// The number of things waiting on this task.
     ///
@@ -279,10 +283,10 @@ impl DiceTask {
                 terminated_generation: AtomicU32::new(1),
                 maybe_value: UnsafeCell::new(None),
                 wakers: SimpleAtomicList::new(),
-                critical: Mutex::new(Critical {
+                critical: Mutex::new(Some(Box::new(Critical {
                     cancellation_handle,
                     sync_value: None,
-                }),
+                }))),
                 last_cancellation_reason: Mutex::new(None),
             }),
         };
@@ -368,7 +372,7 @@ impl DiceTask {
         // Build new cancellation infrastructure for the next generation.
         let (future_spawner, cancellation_handle) = prepare_detached_cancellation();
         let cancellation_handle = cancellation_handle.into_dropcancel();
-        guard.cancellation_handle = cancellation_handle;
+        guard.as_mut().unwrap().cancellation_handle = cancellation_handle;
 
         // Setting this allows other calls to follow the fast path. We could probably do this just after
         // updating current_generation, but it's a bit easier to reason about if we finish all our updates first.
@@ -439,7 +443,9 @@ impl DiceTask {
         let guard = self.internal.critical.lock();
         *self.internal.last_cancellation_reason.lock() = Some(reason);
         GlobalStats::record_cancellation();
-        guard.cancellation_handle.cancel();
+        if let Some(critical) = guard.as_ref() {
+            critical.cancellation_handle.cancel();
+        }
     }
 
     #[cfg(test)]
@@ -514,14 +520,20 @@ impl DiceTask {
                 return Ok(v);
             }
 
+            // Not finished (checked above, under the lock), so the task isn't sealed and `Critical`
+            // is still present.
+            let critical = guard
+                .as_mut()
+                .expect("Critical is only dropped when the task is sealed");
+
             // 2. Sync value already computed by a previous call?
-            if let Some(sync_res) = &guard.sync_value {
+            if let Some(sync_res) = &critical.sync_value {
                 return Ok(sync_res.dupe());
             }
 
             // 3. Compute under lock.
             let result = f();
-            guard.sync_value = Some(result.sync_result.dupe());
+            critical.sync_value = Some(result.sync_result.dupe());
             result
         };
 
@@ -537,9 +549,12 @@ impl DiceTask {
             let future = result.state_future;
             async move {
                 let res = future.await;
-                // Clear sync_value now that the async result is in.
+                // Clear sync_value now that the async result is in. If the task has already been
+                // sealed (by another generation), `Critical` is gone and there is nothing to clear.
                 let mut guard = prevent_cancellation_future.task.internal.critical.lock();
-                guard.sync_value = None;
+                if let Some(critical) = guard.as_mut() {
+                    critical.sync_value = None;
+                }
                 // Finalize the generation in the standard way
                 //
                 // FIXME(JakobDegen): `DiceCompletionHandle` is supposed to be the only way to do
@@ -574,9 +589,9 @@ impl DiceTask {
 
     fn task_finished<'a>(
         &'_ self,
-        guard: parking_lot::MutexGuard<'a, Critical>,
+        guard: parking_lot::MutexGuard<'a, Option<Box<Critical>>>,
         generation: u32,
-    ) -> Option<parking_lot::MutexGuard<'a, Critical>> {
+    ) -> Option<parking_lot::MutexGuard<'a, Option<Box<Critical>>>> {
         let internal = &*self.internal;
         let last_terminated = internal.terminated_generation.load(Ordering::Relaxed);
         if last_terminated == 0 {
@@ -604,24 +619,27 @@ impl DiceTask {
     /// Calling this on a subsequent generation after a previous one succeeded is tolerated.
     fn task_finished_success(
         &self,
-        guard: parking_lot::MutexGuard<'_, Critical>,
+        guard: parking_lot::MutexGuard<'_, Option<Box<Critical>>>,
         generation: u32,
         value: DiceComputedValue,
     ) {
         let internal = &*self.internal;
-        let maybe_guard = self.task_finished(guard, generation);
-        if maybe_guard.is_none() {
+        let Some(mut guard) = self.task_finished(guard, generation) else {
             return;
-        }
+        };
         unsafe { *internal.maybe_value.get() = Some(value) };
         internal.terminated_generation.store(0, Ordering::Release);
         internal.wakers.close();
+        // The task is now sealed for good: the cancellation handle and sync-projection slot in
+        // `Critical` can never be needed again. Sealed tasks live in the cache indefinitely, so drop
+        // the `Box<Critical>` to reclaim that memory.
+        *guard = None;
     }
 
     /// Mark that a generation has terminated in cancellation.
     fn task_finished_cancelled(
         &self,
-        guard: parking_lot::MutexGuard<'_, Critical>,
+        guard: parking_lot::MutexGuard<'_, Option<Box<Critical>>>,
         generation: u32,
         reason: CancellationReason,
     ) {
@@ -685,9 +703,12 @@ impl DiceTask {
             return;
         }
 
-        // We were the last dependent. Cancel the spawned task.
-        GlobalStats::record_cancellation();
-        guard.cancellation_handle.cancel();
+        // We were the last dependent. Cancel the spawned task — unless the task is already sealed
+        // (`Critical` dropped), in which case there is nothing running to cancel.
+        if let Some(critical) = guard.as_ref() {
+            GlobalStats::record_cancellation();
+            critical.cancellation_handle.cancel();
+        }
     }
 }
 

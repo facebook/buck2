@@ -11,6 +11,7 @@ license.workspace = true
 allocative.workspace = true
 anyhow.workspace = true
 anymap3.workspace = true
+arc-swap.workspace = true
 async-trait.workspace = true
 buck2_hash.workspace = true
 cmp_any.workspace = true
