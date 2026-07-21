@@ -15,23 +15,24 @@ use std::ops::DerefMut;
 use allocative::Allocative;
 use dice_error::DiceResult;
 use dupe::Dupe;
+use futures::FutureExt;
 
 use crate::api::computations::DiceComputations;
 use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
 use crate::impls::ctx::BaseComputeCtx;
-use crate::transaction_update::DiceTransactionUpdaterImpl;
+use crate::impls::transaction::TransactionUpdater;
 use crate::versions::VersionNumber;
 
 /// The struct for which we build transactions. This is where changes are recorded, and committed
 /// to DICE, which returns the Transaction where we spawn computations.
 #[derive(Allocative)]
 #[repr(transparent)]
-pub struct DiceTransactionUpdater(pub(crate) DiceTransactionUpdaterImpl);
+pub struct DiceTransactionUpdater(pub(crate) TransactionUpdater);
 
 impl DiceTransactionUpdater {
     pub fn existing_state(&self) -> impl Future<Output = DiceTransaction> {
-        self.0.existing_state()
+        self.0.existing_state().map(DiceTransaction)
     }
 
     /// Records a set of `Key`s as changed so that they, and any dependents will
@@ -61,7 +62,7 @@ impl DiceTransactionUpdater {
 
     /// Commit the changes registered via 'changed' and 'changed_to' to the current newest version.
     pub fn commit(self) -> impl Future<Output = DiceTransaction> {
-        self.0.commit()
+        self.0.commit().map(DiceTransaction)
     }
 
     /// Commit the changes registered via 'changed' and 'changed_to' to the current newest version,
@@ -70,11 +71,12 @@ impl DiceTransactionUpdater {
         self,
         extra: UserComputationData,
     ) -> impl Future<Output = DiceTransaction> {
-        self.0.commit_with_data(extra)
+        self.0.commit_with_data(extra).map(DiceTransaction)
     }
 
     pub fn unstable_take(self) -> Self {
-        Self(self.0.unstable_take())
+        self.0.unstable_take();
+        self
     }
 }
 

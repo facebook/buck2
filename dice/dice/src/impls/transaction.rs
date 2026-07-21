@@ -276,7 +276,6 @@ mod tests {
         assert_matches!(
             updater
                 .0
-                .0
                 .scheduled_changes
                 .changes
                 .get(&dice.key_index.index(CowDiceKeyHashed::key(K(1)))),
@@ -284,7 +283,6 @@ mod tests {
         );
         assert_matches!(
             updater
-                .0
                 .0
                 .scheduled_changes
                 .changes
@@ -294,7 +292,7 @@ mod tests {
 
         assert_matches!(
         updater
-            .0.0.scheduled_changes
+            .0.scheduled_changes
             .changes
             .get(&dice.key_index.index(CowDiceKeyHashed::key(K(3)))),
         Some((ChangeType::UpdateValue(x, _), _)) if *x.downcast_ref::<usize>().unwrap() == 3
@@ -302,7 +300,7 @@ mod tests {
 
         assert_matches!(
         updater
-            .0.0.scheduled_changes
+            .0.scheduled_changes
             .changes
             .get(&dice.key_index.index(CowDiceKeyHashed::key(K(4)))),
         Some((ChangeType::UpdateValue(x, _), _)) if *x.downcast_ref::<usize>().unwrap() == 4

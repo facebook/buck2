@@ -199,7 +199,6 @@ mod impls;
 pub mod introspection;
 pub(crate) mod metrics;
 pub(crate) mod stats;
-mod transaction_update;
 mod versions;
 
 pub use dice_futures::cancellation::CancellationContext; // expose cancellation context as api
@@ -254,7 +253,6 @@ pub use crate::impls::value::DiceValueDyn;
 pub use crate::introspection::serialize_dense_graph;
 pub use crate::introspection::serialize_graph;
 pub use crate::stats::GlobalStats;
-use crate::transaction_update::DiceTransactionUpdaterImpl;
 
 pub mod testing {
     pub use crate::api::dice::testing::DiceBuilder;

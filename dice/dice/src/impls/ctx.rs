@@ -69,7 +69,6 @@ use crate::impls::value::DiceComputedValue;
 use crate::impls::value::TrackedInvalidationPaths;
 use crate::impls::worker::DiceTaskWorker;
 use crate::impls::worker::project_for_key;
-use crate::transaction_update::DiceTransactionUpdaterImpl;
 use crate::versions::VersionNumber;
 
 /// Context that is the base for which all requests start from
@@ -129,7 +128,7 @@ impl BaseComputeCtx {
     }
 
     pub(crate) fn into_updater(self) -> DiceTransactionUpdater {
-        DiceTransactionUpdater(DiceTransactionUpdaterImpl(self.data.0.into_updater()))
+        DiceTransactionUpdater(self.data.0.into_updater())
     }
 
     pub(crate) fn as_computations(&self) -> &DiceComputations<'static> {
