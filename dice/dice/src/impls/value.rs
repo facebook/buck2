@@ -334,10 +334,6 @@ impl DiceComputedValue {
     pub(crate) fn invalidation_paths(&self) -> &TrackedInvalidationPaths {
         &self.invalidation_paths
     }
-
-    pub(crate) fn into_parts(self) -> (MaybeValidDiceValue, TrackedInvalidationPaths) {
-        (self.value, self.invalidation_paths)
-    }
 }
 
 impl Debug for DiceComputedValue {
