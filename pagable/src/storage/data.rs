@@ -38,8 +38,7 @@ use dupe::Dupe;
     Dupe,
     Copy,
     Hash,
-    bytemuck::NoUninit,
-    bytemuck::AnyBitPattern
+    bytemuck::NoUninit
 )]
 #[repr(transparent)]
 pub struct DataKey([u64; 2]);
@@ -75,6 +74,24 @@ impl DataKey {
     pub fn testing_new(v: u128) -> Self {
         assert_ne!(v as u64, 0);
         DataKey(bytemuck::cast(v))
+    }
+
+    /// Reconstructs a `DataKey` from the 16-byte form written by
+    /// [`bytemuck::bytes_of`] / [`bytemuck::cast_slice`].
+    ///
+    /// Fails if the bytes encode a zero first half. A `DataKey` always has a non-zero
+    /// first half (see [`DataKey::compute`]) so that [`OptionalDataKey`] can use it as a
+    /// niche; bytes read back from storage are untrusted, so this is checked here rather
+    /// than assumed.
+    pub fn from_stored_bytes(bytes: [u8; 16]) -> anyhow::Result<Self> {
+        let lo = u64::from_ne_bytes(bytes[..8].try_into().unwrap());
+        let hi = u64::from_ne_bytes(bytes[8..].try_into().unwrap());
+        if lo == 0 {
+            return Err(anyhow::anyhow!(
+                "corrupt DataKey: first half must be non-zero"
+            ));
+        }
+        Ok(Self([lo, hi]))
     }
 
     pub fn get(self) -> u128 {

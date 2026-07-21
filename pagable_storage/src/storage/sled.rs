@@ -222,9 +222,9 @@ impl SledBackedPagableStorage {
         let arcs = (0..arcs_len)
             .map(|i| {
                 let offset = 16 + data_len + i * 16;
-                bytemuck::pod_read_unaligned(&bytes[offset..offset + 16])
+                DataKey::from_stored_bytes(bytes[offset..offset + 16].try_into()?)
             })
-            .collect();
+            .collect::<anyhow::Result<Vec<_>>>()?;
         Ok(Arc::new(PagableData { data, arcs }))
     }
 }
