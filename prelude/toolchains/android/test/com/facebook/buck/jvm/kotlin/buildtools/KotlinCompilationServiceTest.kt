@@ -161,6 +161,7 @@ internal class KotlinCompilationServiceTest {
     )
     val initialClassTimestamps = getClassModificationTimes()
 
+    awaitFileSystemTimestampTick()
     fooSourceFile.changeContent("counter = 1", "counter = 2")
     val result =
         kotlinCompilationService.compile(
@@ -191,6 +192,7 @@ internal class KotlinCompilationServiceTest {
         mode = createIncrementalMode(),
     )
     val initialClassTimestamps = getClassModificationTimes()
+    awaitFileSystemTimestampTick()
     fooSourceFile.changeContent("foo()", "foo(i: Int = 1)")
 
     val result =
@@ -324,6 +326,7 @@ internal class KotlinCompilationServiceTest {
     )
     val initialClassTimestamps = getClassModificationTimes()
 
+    awaitFileSystemTimestampTick()
     fooSourceFile.changeContent("foo()", "foo(i: Int = 1)")
     kotlinCompilationService.compile(
         projectId = ProjectId.ProjectUUID(UUID.randomUUID()),
@@ -436,6 +439,7 @@ internal class KotlinCompilationServiceTest {
     )
     val initialClassTimestamps = getClassModificationTimes()
 
+    awaitFileSystemTimestampTick()
     fooSourceFile.changeContent("fun bar() {}", "")
     kotlinCompilationService.compile(
         projectId = ProjectId.ProjectUUID(UUID.randomUUID()),
@@ -517,13 +521,25 @@ internal class KotlinCompilationServiceTest {
         path.fileName.toString() to Files.getLastModifiedTime(path).toMillis()
       }
 
+  /**
+   * Recompilation is detected by observing a change in an output `.class` file's modification time.
+   * Filesystem timestamps have coarse granularity (up to 1s on some filesystems), so a recompile
+   * that lands in the same tick as the preceding compile produces an identical timestamp and is
+   * indistinguishable from "not recompiled". Call this between the two compiles so the regenerated
+   * `.class` files are guaranteed a strictly later timestamp.
+   */
+  private fun awaitFileSystemTimestampTick() {
+    Thread.sleep(FILESYSTEM_TIMESTAMP_GRANULARITY_MS)
+  }
+
   private fun generateClasspathSnapshot(
       dependencyOutput: AbsPath,
       granularity: SnapshotGranularity,
   ): File {
-    // see details in docs for `CachedClasspathSnapshotSerializer` for details why we can't use a
-    // fixed name
-    val snapshotFile = librarySnapshotsDir.resolve("dep-${System.currentTimeMillis()}.snapshot")
+    // `CachedClasspathSnapshotSerializer` caches snapshots by file name (see its docs), so every
+    // snapshot needs a distinct name or a stale cached snapshot is returned. A timestamp-based name
+    // collides when two snapshots are generated within the same millisecond, so use a UUID instead.
+    val snapshotFile = librarySnapshotsDir.resolve("dep-${UUID.randomUUID()}.snapshot")
     ClasspathSnapshotGenerator(dependencyOutput.path, snapshotFile.path, granularity).run()
 
     return snapshotFile.toFile()
@@ -531,5 +547,8 @@ internal class KotlinCompilationServiceTest {
 
   companion object {
     private const val KOTLIN_STDLIB_JAR_ENV = "KOTLIN_STDLIB_JAR"
+
+    // Sleep long enough to cross a filesystem timestamp tick even at 1s granularity.
+    private const val FILESYSTEM_TIMESTAMP_GRANULARITY_MS = 1_100L
   }
 }
