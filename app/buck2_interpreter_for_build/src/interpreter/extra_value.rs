@@ -13,6 +13,7 @@ use std::cell::OnceCell;
 use allocative::Allocative;
 use buck2_error::BuckErrorOptionContext;
 use buck2_node::attrs::coercion_context::CoerceMemoTable;
+use buck2_node::visibility::LoadVisibility;
 use starlark::StarlarkPagable;
 use starlark::StarlarkPagablePanic;
 use starlark::any::ProvidesStaticType;
