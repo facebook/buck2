@@ -114,3 +114,16 @@ async def test_call_from_bzl_is_rejected(buck: Buck) -> None:
         output=sanitize_stderr(result.stderr),
         rel_path="golden/test_call_from_bzl_is_rejected.golden.txt",
     )
+
+
+@buck_test()
+async def test_calling_twice_in_one_package_is_rejected(buck: Buck) -> None:
+    # A second `enforce_visibility_intersection()` in the same PACKAGE file fails.
+    result = await expect_failure(
+        buck.ctargets("root//at_most_once/leaf:t"),
+        stderr_regex=r"`enforce_visibility_intersection\(\)` function can be used at most once per `PACKAGE` file",
+    )
+    golden(
+        output=sanitize_stderr(result.stderr),
+        rel_path="golden/test_calling_twice_in_one_package_is_rejected.golden.txt",
+    )
