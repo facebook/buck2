@@ -320,9 +320,6 @@ impl VersionedGraph {
 
         let queue = {
             let res = match invalidate {
-                InvalidateKind::Invalidate => {
-                    entry.mark_invalidated(key.v, Some(invalidation_priority))
-                }
                 InvalidateKind::ForceDirty => entry.force_dirty(key.v, invalidation_priority),
                 InvalidateKind::Update(value, _) => {
                     entry.on_injected(key.v, value, invalidation_priority)
@@ -427,8 +424,6 @@ impl ValueReusable {
 
 pub(crate) enum InvalidateKind {
     ForceDirty,
-    #[allow(unused)] // constructed for tests
-    Invalidate,
     Update(DiceValidValue, StorageType),
 }
 
