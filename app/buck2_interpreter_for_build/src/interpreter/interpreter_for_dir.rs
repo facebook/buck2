@@ -182,6 +182,14 @@ enum LoadResolutionError {
         wanted: CellPath,
         location: String,
     },
+    #[error(
+        "`load(\"{path}?as={format}\", ...)` is not allowed: the `?as=` format override may only be used on files matching a glob in `buck2.load_as_allowlist`. Add a filename glob such as `{file_name}` or `*` (all files) to that buckconfig to permit it."
+    )]
+    FormatOverrideNotAllowed {
+        path: CellPath,
+        format: &'static str,
+        file_name: String,
+    },
 }
 
 impl LoadResolver for InterpreterLoadResolver {
@@ -214,6 +222,25 @@ impl LoadResolver for InterpreterLoadResolver {
                 StarlarkFileType::Bxl => {
                     return Ok(OwnedStarlarkModulePath::BxlFile(BxlFilePath::new(path)?));
                 }
+            }
+        }
+
+        // An `?as=` format override may only be used on files that have been
+        // explicitly allowed via `buck2.load_as_allowlist`.
+        if let Some(format) = format_hint {
+            let file_name = path.path().file_name().map(|f| f.as_str());
+            if !self
+                .config
+                .global_state
+                .load_as_allowlist
+                .is_allowed(file_name)
+            {
+                return Err(LoadResolutionError::FormatOverrideNotAllowed {
+                    path: path.clone(),
+                    format: format.as_str(),
+                    file_name: file_name.unwrap_or_default().to_owned(),
+                }
+                .into());
             }
         }
 

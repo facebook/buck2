@@ -42,6 +42,16 @@ pub enum ImportFormat {
     Toml,
 }
 
+impl ImportFormat {
+    /// The name as it appears in an `?as=` load hint (`json`, `toml`).
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ImportFormat::Json => "json",
+            ImportFormat::Toml => "toml",
+        }
+    }
+}
+
 /// Path of a `.bzl` file.
 #[derive(Clone, Hash, StrongHash, Eq, PartialEq, Debug, Allocative, Pagable)]
 pub struct ImportPath {

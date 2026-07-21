@@ -12,6 +12,7 @@
 import json
 
 from buck2.tests.e2e_util.api.buck import Buck
+from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
@@ -60,3 +61,43 @@ async def test_imports_as_toml(buck: Buck) -> None:
     assert found_direct, (
         "top-level direct.lock?as=toml should appear as a leaf import with empty sub-imports"
     )
+
+
+@buck_test()
+async def test_imports_as_toml_star_allows_all(buck: Buck) -> None:
+    """`*` in `buck2.load_as_allowlist` allows every file."""
+    result = await buck.targets(
+        "//...",
+        "--json",
+        "--streaming",
+        "--imports",
+        "-c",
+        "buck2.load_as_allowlist=*",
+    )
+    xs = json.loads(result.stdout)
+    assert any(
+        x.get("buck.file") == "root//uv.lock" and x.get("buck.imports") == []
+        for x in xs
+    ), "uv.lock?as=toml should load when all extensions are allowed via `*`"
+
+
+@buck_test()
+async def test_imports_as_toml_whole_filename_allowlist(buck: Buck) -> None:
+    """An entry in `buck2.load_as_allowlist` may be a whole file name
+    (e.g. `uv.lock`), not just an extension, so specific package-manager
+    lockfiles can be allowed without opening up every `*.lock` file."""
+    result = await buck.targets(
+        "//...",
+        "--json",
+        "--streaming",
+        "--imports",
+        "-c",
+        "buck2.load_as_allowlist=uv.lock,direct.lock",
+    )
+    xs = json.loads(result.stdout)
+    loaded = {
+        x["buck.file"] for x in xs if x.get("buck.imports") is not None
+    }
+    assert "root//uv.lock" in loaded
+    assert "root//direct.lock" in loaded
+
