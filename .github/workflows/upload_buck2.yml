@@ -51,18 +51,18 @@ jobs:
       fail-fast: false
       matrix:
         target:
-          - os: 'ubuntu-22.04'
+          - os: 'ubuntu-26.04'
             triple: 'aarch64-unknown-linux-gnu'
             cross: true
-          - os: 'ubuntu-22.04'
+          - os: 'ubuntu-26.04'
             triple: 'aarch64-unknown-linux-musl'
             cross: true
-          - os: 'ubuntu-22.04'
+          - os: 'ubuntu-26.04'
             triple: 'x86_64-unknown-linux-gnu'
-          - os: 'ubuntu-22.04'
+          - os: 'ubuntu-26.04'
             triple: 'x86_64-unknown-linux-musl'
             cross: true
-          - os: 'ubuntu-22.04'
+          - os: 'ubuntu-26.04'
             triple: 'riscv64gc-unknown-linux-gnu'
             cross: true
           - os: 'macos-15'
@@ -70,7 +70,7 @@ jobs:
             cross: true
           - os: 'macos-15'
             triple: 'x86_64-apple-darwin'
-          - os: 'windows-2022'
+          - os: 'windows-2025'
             triple: 'x86_64-pc-windows-msvc'
             is_windows: true
           - os: 'windows-11-arm'
