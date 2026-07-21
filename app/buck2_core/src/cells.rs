@@ -327,7 +327,7 @@ impl CellResolver {
         Ok(self.get_cell_path(&fs.relativize_any(path)?))
     }
 
-    pub fn cells(&self) -> impl Iterator<Item = (CellName, &CellInstance)> {
+    pub fn cells(&self) -> impl ExactSizeIterator<Item = (CellName, &CellInstance)> {
         self.0
             .cells
             .iter()

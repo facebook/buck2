@@ -159,6 +159,7 @@ async fn resolve_queries_impl(
     queries: impl IntoIterator<Item = (String, ResolvedQueryLiterals<ConfiguredProvidersLabel>)>,
 ) -> buck2_error::Result<StdBuckHashMap<String, Arc<AnalysisQueryResult>>> {
     let deps: TargetSet<_> = configured_node.deps().duped().collect();
+    let queries: Vec<_> = queries.into_iter().collect();
     let query_results = ctx
         .try_compute_join(
             queries,

@@ -169,12 +169,12 @@ pub(crate) enum ConfiguredTargetListExprArg<'v> {
 }
 
 impl<'v> TargetListExpr<'v, TargetNode> {
-    pub(crate) fn iter(&self) -> Box<dyn Iterator<Item = TargetExpr<'v, TargetNode>> + '_> {
+    pub(crate) fn iter(&self) -> impl ExactSizeIterator<Item = TargetExpr<'v, TargetNode>> {
         match &self {
-            Self::One(one) => Box::new(iter::once(one.clone())),
-            Self::Iterable(iterable) => Box::new(iterable.iter().cloned()),
+            Self::One(one) => Either::Left(Either::Left(iter::once(one.clone()))),
+            Self::Iterable(iterable) => Either::Left(Either::Right(iterable.iter().cloned())),
             Self::TargetSet(target_set) => {
-                Box::new(target_set.iter().map(|s| TargetExpr::Node(s.clone())))
+                Either::Right(target_set.iter().map(|s| TargetExpr::Node(s.clone())))
             }
         }
     }
@@ -220,7 +220,7 @@ pub(crate) enum TargetExprError {
 }
 
 impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
-    fn iter(&self) -> Box<dyn Iterator<Item = TargetExpr<'v, ConfiguredTargetNode>> + '_> {
+    fn iter(&self) -> Box<dyn ExactSizeIterator<Item = TargetExpr<'v, ConfiguredTargetNode>> + '_> {
         match &self {
             Self::One(one) => Box::new(iter::once(one.clone())),
             Self::Iterable(iterable) => Box::new(iterable.iter().cloned()),

@@ -158,7 +158,11 @@ pub(crate) struct AqueryData {
 // than `(TransitiveSetKey, ProjectionIndex)`. We already have that information when constructing it and the
 // artifact side of it holds a starlark ref. That would allow someone with an ArtifactGroup to synchronously
 // traverse the tset graph rather than needing to asynchronously resolve a TransitiveSetKey.
-async fn convert_inputs<'c, 'a, Iter: IntoIterator<Item = &'a ArtifactGroup>>(
+async fn convert_inputs<
+    'c,
+    'a,
+    Iter: IntoIterator<Item = &'a ArtifactGroup, IntoIter: ExactSizeIterator>,
+>(
     ctx: &'c mut DiceComputations<'_>,
     node_cache: DiceAqueryNodesCache,
     inputs: Iter,

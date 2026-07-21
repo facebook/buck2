@@ -168,6 +168,7 @@ impl<'d> DiceComputations<'d> {
     ) -> Vec<impl Future<Output = T> + use<'a, Computes, F, T>>
     where
         Computes: IntoIterator<Item = F>,
+        Computes::IntoIter: ExactSizeIterator,
         F: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
     {
         self.0.compute_many(computes)
@@ -204,6 +205,7 @@ impl<'d> DiceComputations<'d> {
     ) -> impl Future<Output = Vec<R>> + use<'a, Items, Mapper, T, R>
     where
         Items: IntoIterator<Item = T>,
+        Items::IntoIter: ExactSizeIterator,
         Mapper: for<'x> FnOnce(&'x mut DiceComputations<'a>, T) -> BoxFuture<'x, R>
             + Send
             + Sync
@@ -227,6 +229,7 @@ impl<'d> DiceComputations<'d> {
     ) -> impl Future<Output = Result<Vec<R>, E>> + use<'a, Items, Mapper, T, R, E>
     where
         Items: IntoIterator<Item = T>,
+        Items::IntoIter: ExactSizeIterator,
         Mapper: for<'x> FnOnce(&'x mut DiceComputations<'a>, T) -> BoxFuture<'x, Result<R, E>>
             + Send
             + Sync

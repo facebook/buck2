@@ -663,7 +663,7 @@ impl<'a> ConfiguredTargetNodeRef<'a> {
     }
 
     #[inline]
-    pub fn deps(self) -> impl Iterator<Item = &'a ConfiguredTargetNode> {
+    pub fn deps(self) -> impl ExactSizeIterator<Item = &'a ConfiguredTargetNode> {
         self.0.get().all_deps.all_deps.iter()
     }
 

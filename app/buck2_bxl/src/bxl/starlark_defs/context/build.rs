@@ -205,37 +205,40 @@ pub(crate) fn build<'v>(
                     .wait_for(
                         // TODO (torozco): support --fail-fast in BXL.
                         false,
-                        dice.compute_join(build_spec.labels().unique(), |ctx, target| {
-                            let consumer = consumer.clone();
-                            async move {
-                                let target = target.clone();
+                        dice.compute_join(
+                            build_spec.labels().unique().collect::<Vec<_>>(),
+                            |ctx, target| {
+                                let consumer = consumer.clone();
+                                async move {
+                                    let target = target.clone();
 
-                                ctx.with_linear_recompute(|ctx| async move {
-                                    build_configured_label(
-                                        &consumer,
-                                        &ctx,
-                                        (materializations, uploads).into(),
-                                        target,
-                                        &ProvidersToBuild {
-                                            default: true,
-                                            default_other: true,
-                                            run: true,
-                                            tests: true,
-                                        }, // TODO support skipping/configuring?
-                                        BuildConfiguredLabelOptions {
-                                            skippable: false,
-                                            graph_properties: Default::default(),
-                                            // bxl does not need the build result's RunInfo command line.
-                                            return_run_args: false,
-                                        },
-                                        None, // TODO: support timeouts?
-                                    )
+                                    ctx.with_linear_recompute(|ctx| async move {
+                                        build_configured_label(
+                                            &consumer,
+                                            &ctx,
+                                            (materializations, uploads).into(),
+                                            target,
+                                            &ProvidersToBuild {
+                                                default: true,
+                                                default_other: true,
+                                                run: true,
+                                                tests: true,
+                                            }, // TODO support skipping/configuring?
+                                            BuildConfiguredLabelOptions {
+                                                skippable: false,
+                                                graph_properties: Default::default(),
+                                                // bxl does not need the build result's RunInfo command line.
+                                                return_run_args: false,
+                                            },
+                                            None, // TODO: support timeouts?
+                                        )
+                                        .await
+                                    })
                                     .await
-                                })
-                                .await
-                            }
-                            .boxed()
-                        })
+                                }
+                                .boxed()
+                            },
+                        )
                         .map(|_| ()),
                     )
                     .await

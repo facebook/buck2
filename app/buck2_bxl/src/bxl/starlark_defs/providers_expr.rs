@@ -272,7 +272,7 @@ impl ProvidersExpr<ProvidersLabel> {
 }
 
 impl<P: ProvidersLabelMaybeConfigured> ProvidersExpr<P> {
-    pub(crate) fn labels(&self) -> impl Iterator<Item = &P> {
+    pub(crate) fn labels(&self) -> impl ExactSizeIterator<Item = &P> {
         match &self {
             ProvidersExpr::Literal(item) => Either::Left(std::iter::once(item)),
             ProvidersExpr::Iterable(iter) => Either::Right(iter.iter()),
