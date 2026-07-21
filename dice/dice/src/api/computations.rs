@@ -51,7 +51,7 @@ fn _test_computations_sync_send() {
     _assert_sync_send::<DiceComputations>();
 }
 
-impl DiceComputations<'_> {
+impl<'d> DiceComputations<'d> {
     /// Gets the result of the given computation key.
     /// Record dependencies of the current computation for which this
     /// context is for.
@@ -72,7 +72,7 @@ impl DiceComputations<'_> {
     pub fn compute_opaque<'a, K>(
         &'a self,
         key: &K,
-    ) -> impl Future<Output = DiceResult<OpaqueValue<K>>> + use<'a, K>
+    ) -> impl Future<Output = DiceResult<OpaqueValue<'d, K>>> + use<'a, 'd, K>
     where
         K: Key,
     {

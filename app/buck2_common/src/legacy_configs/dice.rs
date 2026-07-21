@@ -45,11 +45,11 @@ use crate::legacy_configs::view::LegacyBuckConfigView;
 
 /// Buckconfig view which queries buckconfig entry from DICE.
 #[derive(Clone, Dupe)]
-pub struct OpaqueLegacyBuckConfigOnDice {
-    config: Arc<OpaqueValue<LegacyBuckConfigForCellKey>>,
+pub struct OpaqueLegacyBuckConfigOnDice<'d> {
+    config: Arc<OpaqueValue<'d, LegacyBuckConfigForCellKey>>,
 }
 
-impl std::fmt::Debug for OpaqueLegacyBuckConfigOnDice {
+impl<'d> std::fmt::Debug for OpaqueLegacyBuckConfigOnDice<'d> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("LegacyBuckConfigOnDice")
             .field("config", &self.config)
@@ -57,10 +57,10 @@ impl std::fmt::Debug for OpaqueLegacyBuckConfigOnDice {
     }
 }
 
-impl OpaqueLegacyBuckConfigOnDice {
+impl<'d> OpaqueLegacyBuckConfigOnDice<'d> {
     pub fn lookup(
         &self,
-        ctx: &mut DiceComputations,
+        ctx: &mut DiceComputations<'d>,
         key: BuckconfigKeyRef,
     ) -> buck2_error::Result<Option<Arc<str>>> {
         let BuckconfigKeyRef { section, property } = key;
@@ -73,17 +73,14 @@ impl OpaqueLegacyBuckConfigOnDice {
         )?)
     }
 
-    pub fn view<'a, 'd>(
-        &'a self,
-        ctx: &'a mut DiceComputations<'d>,
-    ) -> LegacyBuckConfigOnDice<'a, 'd> {
+    pub fn view<'a>(&'a self, ctx: &'a mut DiceComputations<'d>) -> LegacyBuckConfigOnDice<'a, 'd> {
         LegacyBuckConfigOnDice { ctx, config: self }
     }
 }
 
 pub struct LegacyBuckConfigOnDice<'a, 'd> {
     ctx: &'a mut DiceComputations<'d>,
-    config: &'a OpaqueLegacyBuckConfigOnDice,
+    config: &'a OpaqueLegacyBuckConfigOnDice<'d>,
 }
 
 impl LegacyBuckConfigOnDice<'_, '_> {
@@ -120,7 +117,7 @@ pub trait HasInjectedLegacyConfigs {
 }
 
 #[async_trait]
-pub trait HasLegacyConfigs {
+pub trait HasLegacyConfigs<'d> {
     /// Get buckconfigs.
     ///
     /// This operation does not record buckconfig as a dependency of current computation.
@@ -128,11 +125,11 @@ pub trait HasLegacyConfigs {
     async fn get_legacy_config_on_dice(
         &mut self,
         cell_name: CellName,
-    ) -> buck2_error::Result<OpaqueLegacyBuckConfigOnDice>;
+    ) -> buck2_error::Result<OpaqueLegacyBuckConfigOnDice<'d>>;
 
     async fn get_legacy_root_config_on_dice(
         &mut self,
-    ) -> buck2_error::Result<OpaqueLegacyBuckConfigOnDice>;
+    ) -> buck2_error::Result<OpaqueLegacyBuckConfigOnDice<'d>>;
 
     /// Use this function carefully: a computation which fetches this key will be recomputed
     /// if any buckconfig property changes.
@@ -357,11 +354,11 @@ pub fn inject_legacy_config_for_test(
 }
 
 #[async_trait]
-impl HasLegacyConfigs for DiceComputations<'_> {
+impl<'d> HasLegacyConfigs<'d> for DiceComputations<'d> {
     async fn get_legacy_config_on_dice(
         &mut self,
         cell_name: CellName,
-    ) -> buck2_error::Result<OpaqueLegacyBuckConfigOnDice> {
+    ) -> buck2_error::Result<OpaqueLegacyBuckConfigOnDice<'d>> {
         let config = self
             .compute_opaque(&LegacyBuckConfigForCellKey { cell_name })
             .await?;
@@ -375,7 +372,7 @@ impl HasLegacyConfigs for DiceComputations<'_> {
 
     async fn get_legacy_root_config_on_dice(
         &mut self,
-    ) -> buck2_error::Result<OpaqueLegacyBuckConfigOnDice> {
+    ) -> buck2_error::Result<OpaqueLegacyBuckConfigOnDice<'d>> {
         let cell_resolver = self.get_cell_resolver().await?;
         self.get_legacy_config_on_dice(cell_resolver.root_cell())
             .await

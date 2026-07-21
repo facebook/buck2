@@ -19,22 +19,22 @@ use crate::impls::value::TrackedInvalidationPaths;
 
 #[derive(Derivative)]
 #[derivative(Debug)]
-pub struct OpaqueValue<K: Key> {
+pub struct OpaqueValue<'d, K: Key> {
     pub(crate) derive_from_key: DiceKey,
     #[derivative(Debug = "ignore")]
-    pub(crate) derive_from: MaybeValidDiceValue,
-    pub(crate) invalidation_paths: TrackedInvalidationPaths,
+    pub(crate) derive_from: &'d MaybeValidDiceValue,
+    pub(crate) invalidation_paths: &'d TrackedInvalidationPaths,
     ty: PhantomData<K>,
 }
 
-impl<K> OpaqueValue<K>
+impl<'d, K> OpaqueValue<'d, K>
 where
     K: Key,
 {
     pub(crate) fn new(
         derive_from_key: DiceKey,
-        derive_from: MaybeValidDiceValue,
-        invalidation_paths: TrackedInvalidationPaths,
+        derive_from: &'d MaybeValidDiceValue,
+        invalidation_paths: &'d TrackedInvalidationPaths,
     ) -> Self {
         Self {
             derive_from_key,
@@ -104,11 +104,9 @@ mod tests {
         let ctx = dice.updater().commit().await.0;
         let mut ctx = ctx.as_computations();
 
-        let opaque = OpaqueValue::<K>::new(
-            DiceKey { index: 0 },
-            MaybeValidDiceValue::new(Arc::new(DiceKeyValue::<K>::new(1)), DiceValidity::Valid),
-            TrackedInvalidationPaths::clean(),
-        );
+        let v = MaybeValidDiceValue::new(Arc::new(DiceKeyValue::<K>::new(1)), DiceValidity::Valid);
+        let i = TrackedInvalidationPaths::clean();
+        let opaque = OpaqueValue::<K>::new(DiceKey { index: 0 }, &v, &i);
 
         assert_eq!(ctx.dep_trackers().recorded_deps(), HashSet::default());
 

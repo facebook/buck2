@@ -410,7 +410,7 @@ async fn check_dependencies<'a>(
                             .await
                         {
                             Ok(CheckDependencyResult::NoChange(dep_paths)) => {
-                                invalidation_paths.update(dep_paths);
+                                invalidation_paths.update(&dep_paths);
                             }
                             Ok(CheckDependencyResult::Changed) => {
                                 return Ok(CheckDependenciesResult::Changed {
@@ -441,7 +441,7 @@ async fn check_dependencies<'a>(
                                 CheckDependenciesResult::NoChange {
                                     invalidation_paths: deps_paths,
                                 } => {
-                                    invalidation_paths.update(deps_paths);
+                                    invalidation_paths.update(&deps_paths);
                                 }
                                 CheckDependenciesResult::NoDeps => {}
                                 CheckDependenciesResult::Changed { continuables } => {

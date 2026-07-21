@@ -174,15 +174,15 @@ impl<'a> LegacyBuckConfigsForStarlark<'a> {
 
 pub(crate) struct ConfigsOnDiceViewForStarlark<'a, 'd> {
     ctx: &'a mut DiceComputations<'d>,
-    buckconfig: OpaqueLegacyBuckConfigOnDice,
-    root_buckconfig: OpaqueLegacyBuckConfigOnDice,
+    buckconfig: OpaqueLegacyBuckConfigOnDice<'d>,
+    root_buckconfig: OpaqueLegacyBuckConfigOnDice<'d>,
 }
 
 impl<'a, 'd> ConfigsOnDiceViewForStarlark<'a, 'd> {
     pub(crate) fn new(
         ctx: &'a mut DiceComputations<'d>,
-        buckconfig: OpaqueLegacyBuckConfigOnDice,
-        root_buckconfig: OpaqueLegacyBuckConfigOnDice,
+        buckconfig: OpaqueLegacyBuckConfigOnDice<'d>,
+        root_buckconfig: OpaqueLegacyBuckConfigOnDice<'d>,
     ) -> Self {
         Self {
             ctx,
@@ -213,9 +213,9 @@ impl BuckConfigsViewForStarlark for ConfigsOnDiceViewForStarlark<'_, '_> {
 #[buck2(tag = Input)]
 struct DeprecatedConfigError(String, Arc<str>);
 
-fn read_config_and_report_deprecated(
-    ctx: &mut DiceComputations,
-    config: &OpaqueLegacyBuckConfigOnDice,
+fn read_config_and_report_deprecated<'d>(
+    ctx: &mut DiceComputations<'d>,
+    config: &OpaqueLegacyBuckConfigOnDice<'d>,
     key: BuckconfigKeyRef,
 ) -> buck2_error::Result<Option<Arc<str>>> {
     let result = config.lookup(ctx, key)?;
