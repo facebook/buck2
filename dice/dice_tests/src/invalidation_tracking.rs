@@ -209,8 +209,8 @@ fn test_compute_tracks_invalidations() -> anyhow::Result<()> {
             builder.build(DetectCycles::Enabled)
         };
 
-        // We want to set up the invalidation sources such that the FooInjected are all invalidated at `2 * self.0` (i.e NormalInjected(4)
-        // is invalidated at 40) and the FooChanged forms are at `2 * self.0 + 1`
+        // We want to set up the invalidation sources such that the FooInjected(n) are all invalidated at `2 * n + 2` (i.e. NormalInjected(4)
+        // is invalidated at 10) and the FooChanged(n) forms are at `2 * n + 3`
 
         for i in 0..10 {
             let mut updater = dice.updater();
@@ -288,39 +288,39 @@ fn test_compute_tracks_invalidations() -> anyhow::Result<()> {
         assert_invalidations(
             ExpectedInvalidation::Invalidated(vec![ExpectedInvalidation::item(
                 NormalInjected(1),
-                3,
+                4,
             )]),
-            ExpectedInvalidation::Invalidated(vec![ExpectedInvalidation::item(HighInjected(0), 1)]),
+            ExpectedInvalidation::Invalidated(vec![ExpectedInvalidation::item(HighInjected(0), 2)]),
             ctx.compute(&Top(1)).await?,
         );
         assert_invalidations(
-            ExpectedInvalidation::Invalidated(vec![ExpectedInvalidation::item(HighChanged(1), 4)]),
-            ExpectedInvalidation::Invalidated(vec![ExpectedInvalidation::item(HighChanged(1), 4)]),
+            ExpectedInvalidation::Invalidated(vec![ExpectedInvalidation::item(HighChanged(1), 5)]),
+            ExpectedInvalidation::Invalidated(vec![ExpectedInvalidation::item(HighChanged(1), 5)]),
             ctx.compute(&Top(2)).await?,
         );
         assert_invalidations(
             ExpectedInvalidation::Invalidated(vec![ExpectedInvalidation::item(
                 NormalChanged(1),
-                4,
+                5,
             )]),
-            ExpectedInvalidation::Invalidated(vec![ExpectedInvalidation::item(HighChanged(0), 2)]),
+            ExpectedInvalidation::Invalidated(vec![ExpectedInvalidation::item(HighChanged(0), 3)]),
             ctx.compute(&Top(3)).await?,
         );
 
         assert_invalidations(
             ExpectedInvalidation::Invalidated(vec![
-                ExpectedInvalidation::item(NormalChanged(1), 4),
-                ExpectedInvalidation::item(Top(3), 4),
-                ExpectedInvalidation::item(Top(4), 4),
-                ExpectedInvalidation::item(Top(5), 4),
-                ExpectedInvalidation::item(Top(6), 4),
+                ExpectedInvalidation::item(NormalChanged(1), 5),
+                ExpectedInvalidation::item(Top(3), 5),
+                ExpectedInvalidation::item(Top(4), 5),
+                ExpectedInvalidation::item(Top(5), 5),
+                ExpectedInvalidation::item(Top(6), 5),
             ]),
             ExpectedInvalidation::Invalidated(vec![
-                ExpectedInvalidation::item(HighChanged(0), 2),
-                ExpectedInvalidation::item(Top(3), 2),
-                ExpectedInvalidation::item(Top(4), 2),
-                ExpectedInvalidation::item(Top(5), 2),
-                ExpectedInvalidation::item(Top(6), 2),
+                ExpectedInvalidation::item(HighChanged(0), 3),
+                ExpectedInvalidation::item(Top(3), 3),
+                ExpectedInvalidation::item(Top(4), 3),
+                ExpectedInvalidation::item(Top(5), 3),
+                ExpectedInvalidation::item(Top(6), 3),
             ]),
             ctx.compute(&Top(7)).await?,
         );
@@ -380,12 +380,12 @@ fn test_compute_tracks_invalidations_over_versions() -> anyhow::Result<()> {
         let mut ctx = dice.updater().commit().await;
         assert_invalidations(
             ExpectedInvalidation::Invalidated(vec![
-                ExpectedInvalidation::item(HighInjected(0), 1),
-                ExpectedInvalidation::item(HighChanged(0), 1),
+                ExpectedInvalidation::item(HighInjected(0), 2),
+                ExpectedInvalidation::item(HighChanged(0), 2),
             ]),
             ExpectedInvalidation::Invalidated(vec![
-                ExpectedInvalidation::item(HighInjected(0), 1),
-                ExpectedInvalidation::item(HighChanged(0), 1),
+                ExpectedInvalidation::item(HighInjected(0), 2),
+                ExpectedInvalidation::item(HighChanged(0), 2),
             ]),
             ctx.compute(&Top(0)).await?,
         );
@@ -397,12 +397,12 @@ fn test_compute_tracks_invalidations_over_versions() -> anyhow::Result<()> {
         let mut ctx = dice.updater().commit().await;
         assert_invalidations(
             ExpectedInvalidation::Invalidated(vec![
-                ExpectedInvalidation::item(HighInjected(0), 2),
-                ExpectedInvalidation::item(HighChanged(0), 2),
+                ExpectedInvalidation::item(HighInjected(0), 3),
+                ExpectedInvalidation::item(HighChanged(0), 3),
             ]),
             ExpectedInvalidation::Invalidated(vec![
-                ExpectedInvalidation::item(HighInjected(0), 2),
-                ExpectedInvalidation::item(HighChanged(0), 2),
+                ExpectedInvalidation::item(HighInjected(0), 3),
+                ExpectedInvalidation::item(HighChanged(0), 3),
             ]),
             ctx.compute(&Top(0)).await?,
         );
@@ -413,8 +413,8 @@ fn test_compute_tracks_invalidations_over_versions() -> anyhow::Result<()> {
 
         let mut ctx = dice.updater().commit().await;
         assert_invalidations(
-            ExpectedInvalidation::Invalidated(vec![ExpectedInvalidation::item(HighChanged(0), 3)]),
-            ExpectedInvalidation::Invalidated(vec![ExpectedInvalidation::item(HighChanged(0), 3)]),
+            ExpectedInvalidation::Invalidated(vec![ExpectedInvalidation::item(HighChanged(0), 4)]),
+            ExpectedInvalidation::Invalidated(vec![ExpectedInvalidation::item(HighChanged(0), 4)]),
             ctx.compute(&Top(0)).await?,
         );
 

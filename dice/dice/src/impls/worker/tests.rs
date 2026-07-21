@@ -361,7 +361,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
 
     assert_eq!(
         res.versions(),
-        &VersionRanges::testing_new(vec![VersionRange::begins_with(VersionNumber::new(0))])
+        &VersionRanges::testing_new(vec![VersionRange::begins_with(VersionNumber::new(1))])
     );
 
     // verify that the instance we return and store is the same as the original instance
@@ -383,7 +383,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
 async fn spawn_with_no_previously_cancelled_task() {
     let dice = Dice::new(DiceData::new(), None);
 
-    let (shared_ctx, _guard) = dice.testing_shared_ctx(VersionNumber::new(0)).await;
+    let (shared_ctx, _guard) = dice.testing_shared_ctx(VersionNumber::new(1)).await;
 
     let is_ran = Arc::new(AtomicBool::new(false));
     let k = dice.key_index.index_key(IsRan(is_ran.dupe()));
@@ -416,7 +416,7 @@ async fn spawn_with_no_previously_cancelled_task() {
 async fn spawn_with_previously_cancelled_task_that_cancelled() {
     let dice = Dice::new(DiceData::new(), None);
 
-    let (shared_ctx, _guard) = dice.testing_shared_ctx(VersionNumber::new(0)).await;
+    let (shared_ctx, _guard) = dice.testing_shared_ctx(VersionNumber::new(1)).await;
 
     let extra = std::sync::Arc::new(UserComputationData::new());
     let eval = AsyncEvaluator {
@@ -487,7 +487,7 @@ async fn spawn_with_previously_cancelled_task_that_cancelled() {
 async fn spawn_with_previously_cancelled_task_that_finished() {
     let dice = Dice::new(DiceData::new(), None);
 
-    let (shared_ctx, _guard) = dice.testing_shared_ctx(VersionNumber::new(0)).await;
+    let (shared_ctx, _guard) = dice.testing_shared_ctx(VersionNumber::new(1)).await;
 
     let extra = std::sync::Arc::new(UserComputationData::new());
     let eval = AsyncEvaluator {
@@ -562,7 +562,7 @@ async fn spawn_with_previously_cancelled_task_that_finished() {
 async fn mismatch_epoch_results_in_cancelled_result() {
     let dice = Dice::new(DiceData::new(), None);
 
-    let (shared_ctx, guard) = dice.testing_shared_ctx(VersionNumber::new(0)).await;
+    let (shared_ctx, guard) = dice.testing_shared_ctx(VersionNumber::new(1)).await;
 
     let extra = std::sync::Arc::new(UserComputationData::new());
     let eval = AsyncEvaluator {
@@ -677,7 +677,7 @@ async fn spawn_with_previously_cancelled_task_nested_cancelled() -> anyhow::Resu
         prevent_cancel: prevent_cancel.dupe(),
     };
 
-    let (shared_ctx, _guard) = dice.testing_shared_ctx(VersionNumber::new(0)).await;
+    let (shared_ctx, _guard) = dice.testing_shared_ctx(VersionNumber::new(1)).await;
 
     let k = dice.key_index.index_key(key);
 
@@ -785,14 +785,14 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
         compute_key: DiceKey,
         compute_res: DiceValidValue,
     ) {
-        let (ctx, _guard) = get_ctx_at_version(dice, VersionNumber::new(0)).await;
+        let (ctx, _guard) = get_ctx_at_version(dice, VersionNumber::new(1)).await;
 
         // set the initial state
         let _ignore = update_computed_value(
             dice,
             &ctx,
             DiceKey { index: 100 },
-            VersionNumber::new(0),
+            VersionNumber::new(1),
             DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)),
             Arc::new(SeriesParallelDeps::None),
         );
@@ -800,7 +800,7 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
             dice,
             &ctx,
             compute_key.dupe(),
-            VersionNumber::new(0),
+            VersionNumber::new(1),
             compute_res.dupe(),
             Arc::new(SeriesParallelDeps::serial_from_vec(vec![DiceKey {
                 index: 100,
@@ -846,7 +846,7 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
     let computed_res = task.depended_on_by(ParentKey::None).unwrap().await?;
     assert_eq!(
         computed_res.versions(),
-        &VersionRanges::testing_new(vec![VersionRange::begins_with(VersionNumber::new(0))])
+        &VersionRanges::testing_new(vec![VersionRange::begins_with(VersionNumber::new(1))])
     );
     assert!(computed_res.value().instance_equal(&res));
 
@@ -870,7 +870,7 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
     let computed_res = task.depended_on_by(ParentKey::None).unwrap().await?;
     assert_eq!(
         computed_res.versions(),
-        &VersionRanges::testing_new(vec![VersionRange::begins_with(VersionNumber::new(0))])
+        &VersionRanges::testing_new(vec![VersionRange::begins_with(VersionNumber::new(1))])
     );
     assert!(computed_res.value().instance_equal(&res));
 
@@ -911,7 +911,7 @@ async fn get_ctx_at_version(
 ) -> (SharedLiveTransactionCtx, ActiveTransactionGuard) {
     dice.state_handle
         .ctx_at_version(
-            VersionNumber::new(0),
+            VersionNumber::new(1),
             ActiveTransactionGuard::new(v, dice.state_handle.dupe()),
         )
         .await

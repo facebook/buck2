@@ -563,16 +563,16 @@ mod tests {
         let res = DiceValidValue::testing_new(DiceKeyValue::<K>::new(100));
         let dep_key = DiceKey { index: 1 };
         let key_at = |v| VersionedGraphKey::new(VersionNumber::new(v), DiceKey { index: 0 });
-        let key = key_at(0);
+        let key1 = key_at(1);
 
-        inject(&mut cache, 0, dep_key, 100);
+        inject(&mut cache, 1, dep_key, 100);
         // first, empty cache gives none
-        cache.get(key).assert_compute();
+        cache.get(key1).assert_compute();
 
         assert!(
             cache
                 .update(
-                    key.dupe(),
+                    key1.dupe(),
                     res.dupe(),
                     ValueReusable::EqualityBased,
                     Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
@@ -582,16 +582,16 @@ mod tests {
                 .1
         );
 
-        assert!(cache.get(key.dupe()).assert_match().value().equality(&res));
+        assert!(cache.get(key1.dupe()).assert_match().value().equality(&res));
 
         let res2 = DiceValidValue::testing_new(DiceKeyValue::<K>::new(200));
 
-        let key2 = key_at(2);
-        inject(&mut cache, 2, dep_key, 200);
+        let key3 = key_at(3);
+        inject(&mut cache, 3, dep_key, 200);
         assert!(
             cache
                 .update(
-                    key2.dupe(),
+                    key3.dupe(),
                     res2.dupe(),
                     ValueReusable::EqualityBased,
                     Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
@@ -603,34 +603,34 @@ mod tests {
 
         assert!(
             cache
-                .get(key2.dupe())
+                .get(key3.dupe())
                 .assert_match()
                 .value()
                 .equality(&res2)
         );
         // old version is gone
-        let entry = cache.get(key.dupe());
+        let entry = cache.get(key1.dupe());
 
         entry.assert_compute();
 
-        inject(&mut cache, 3, dep_key, 300);
+        inject(&mut cache, 4, dep_key, 300);
 
-        let entry = cache.get(key_at(3));
+        let entry = cache.get(key_at(4));
         let mismatch = entry.assert_check_deps();
         assert!(mismatch.entry.equality(&res2));
-        assert_eq!(mismatch.prev_verified_version, VersionNumber::new(2));
+        assert_eq!(mismatch.prev_verified_version, VersionNumber::new(3));
 
         // if the value is the same, then versions are shared
         let res3 = DiceValidValue::testing_new(DiceKeyValue::<K>::new(200));
-        let key4 = key_at(4);
         let key5 = key_at(5);
+        let key6 = key_at(6);
 
-        inject(&mut cache, 4, dep_key, 400);
-        inject(&mut cache, 5, dep_key, 500);
+        inject(&mut cache, 5, dep_key, 400);
+        inject(&mut cache, 6, dep_key, 500);
         assert!(
             !cache
                 .update(
-                    key5.dupe(),
+                    key6.dupe(),
                     res3,
                     ValueReusable::EqualityBased,
                     Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
@@ -642,33 +642,33 @@ mod tests {
 
         assert!(
             cache
-                .get(key5.dupe(),)
+                .get(key6.dupe(),)
                 .assert_match()
                 .value()
                 .equality(&res2)
         );
         assert!(
             cache
-                .get(key2.dupe(),)
+                .get(key3.dupe(),)
                 .assert_match()
                 .value()
                 .equality(&res2)
         );
         // the first result is gone still
-        let entry = cache.get(key.dupe());
+        let entry = cache.get(key1.dupe());
         entry.assert_compute();
 
-        let entry = cache.get(key_at(3));
+        let entry = cache.get(key_at(4));
         let mismatch = entry.assert_check_deps();
         assert!(mismatch.entry.equality(&res2));
-        assert_eq!(mismatch.prev_verified_version, VersionNumber::new(2));
+        assert_eq!(mismatch.prev_verified_version, VersionNumber::new(3));
 
         // smaller version numbers don't get cached
         let res4 = DiceValidValue::testing_new(DiceKeyValue::<K>::new(400));
         assert!(
             cache
                 .update(
-                    key4.dupe(),
+                    key5.dupe(),
                     res4,
                     ValueReusable::EqualityBased,
                     Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
@@ -677,58 +677,58 @@ mod tests {
                 )
                 .1
         );
-        let entry = cache.get(key4.dupe());
+        let entry = cache.get(key5.dupe());
         let mismatch = entry.assert_check_deps();
         assert!(mismatch.entry.equality(&res2));
-        assert_eq!(mismatch.prev_verified_version, VersionNumber::new(2));
+        assert_eq!(mismatch.prev_verified_version, VersionNumber::new(3));
 
         assert!(
             cache
-                .get(key5.dupe())
+                .get(key6.dupe())
                 .assert_match()
                 .value()
                 .equality(&res2)
         );
         assert!(
             cache
-                .get(key2.dupe())
+                .get(key3.dupe())
                 .assert_match()
                 .value()
                 .equality(&res2)
         );
         // the first result is gone still
-        let entry = cache.get(key.dupe());
+        let entry = cache.get(key1.dupe());
         entry.assert_compute();
 
-        // @3 still needs deps check
-        let entry = cache.get(key_at(3));
+        // @4 still needs deps check
+        let entry = cache.get(key_at(4));
         let mismatch = entry.assert_check_deps();
         assert!(mismatch.entry.equality(&res2));
-        assert_eq!(mismatch.prev_verified_version, VersionNumber::new(2));
+        assert_eq!(mismatch.prev_verified_version, VersionNumber::new(3));
 
         // different key is miss
         cache
             .get(VersionedGraphKey::new(
-                VersionNumber::new(5),
+                VersionNumber::new(6),
                 DiceKey { index: 1000 },
             ))
             .assert_compute();
 
-        let key7 = VersionedGraphKey::new(VersionNumber::new(7), DiceKey { index: 0 });
+        let key8 = VersionedGraphKey::new(VersionNumber::new(8), DiceKey { index: 0 });
 
         cache.invalidate(
-            key7,
+            key8,
             InvalidateKind::ForceDirty,
             InvalidationSourcePriority::Normal,
         );
-        cache.get(key7.dupe()).assert_compute()
+        cache.get(key8.dupe()).assert_compute()
     }
 
     #[test]
     fn injected_keys_are_stored_indefinitely() {
         let mut cache = VersionedGraph::new();
         let res = DiceValidValue::testing_new(DiceKeyValue::<K>::new(100));
-        let key = VersionedGraphKey::new(VersionNumber::new(0), DiceKey { index: 0 });
+        let key = VersionedGraphKey::new(VersionNumber::new(1), DiceKey { index: 0 });
 
         assert!(cache.invalidate(
             key,
@@ -739,7 +739,7 @@ mod tests {
         assert!(cache.get(key.dupe()).assert_match().value().equality(&res));
 
         let res2 = DiceValidValue::testing_new(DiceKeyValue::<K>::new(200));
-        let key2 = VersionedGraphKey::new(VersionNumber::new(1), DiceKey { index: 0 });
+        let key2 = VersionedGraphKey::new(VersionNumber::new(2), DiceKey { index: 0 });
 
         assert!(cache.invalidate(
             key2,
@@ -758,8 +758,8 @@ mod tests {
 
         // skip a few versions
         let res3 = DiceValidValue::testing_new(DiceKeyValue::<K>::new(300));
-        let key3 = VersionedGraphKey::new(VersionNumber::new(5), DiceKey { index: 0 });
-        let key2 = VersionedGraphKey::new(VersionNumber::new(1), DiceKey { index: 0 });
+        let key3 = VersionedGraphKey::new(VersionNumber::new(6), DiceKey { index: 0 });
+        let key2 = VersionedGraphKey::new(VersionNumber::new(2), DiceKey { index: 0 });
         assert!(cache.invalidate(
             key3,
             InvalidateKind::Update(res3.dupe(), StorageType::Injected),
@@ -783,7 +783,7 @@ mod tests {
         assert!(cache.get(key.dupe()).assert_match().value().equality(&res));
 
         // keys goes to the largest version that's smaller than it
-        let key4 = VersionedGraphKey::new(VersionNumber::new(4), DiceKey { index: 0 });
+        let key4 = VersionedGraphKey::new(VersionNumber::new(5), DiceKey { index: 0 });
         assert!(
             cache
                 .get(key4.dupe())
@@ -792,7 +792,7 @@ mod tests {
                 .equality(&res2)
         );
 
-        let key5 = VersionedGraphKey::new(VersionNumber::new(6), DiceKey { index: 0 });
+        let key5 = VersionedGraphKey::new(VersionNumber::new(7), DiceKey { index: 0 });
         assert!(
             cache
                 .get(key5.dupe())
@@ -802,7 +802,7 @@ mod tests {
         );
 
         // different key is none
-        let key6 = VersionedGraphKey::new(VersionNumber::new(6), DiceKey { index: 100 });
+        let key6 = VersionedGraphKey::new(VersionNumber::new(7), DiceKey { index: 100 });
         cache.get(key6.dupe()).assert_compute();
     }
 
@@ -816,28 +816,28 @@ mod tests {
         let res = DiceValidValue::testing_new(DiceKeyValue::<K>::new(100));
 
         let existing = cache.invalidate(
-            key_a(0),
+            key_a(1),
             InvalidateKind::ForceDirty,
             InvalidationSourcePriority::Normal,
         );
         assert!(existing);
 
-        cache.get(key_a(0).dupe()).assert_compute();
-        cache.get(key_a(1).dupe()).assert_compute();
-
-        let existing = cache.invalidate(
-            key_a(2),
-            InvalidateKind::ForceDirty,
-            InvalidationSourcePriority::Normal,
-        );
-        assert!(existing);
-
-        cache.get(key_a(0).dupe()).assert_compute();
         cache.get(key_a(1).dupe()).assert_compute();
         cache.get(key_a(2).dupe()).assert_compute();
 
+        let existing = cache.invalidate(
+            key_a(3),
+            InvalidateKind::ForceDirty,
+            InvalidationSourcePriority::Normal,
+        );
+        assert!(existing);
+
+        cache.get(key_a(1).dupe()).assert_compute();
+        cache.get(key_a(2).dupe()).assert_compute();
+        cache.get(key_a(3).dupe()).assert_compute();
+
         cache.update(
-            key_a(0),
+            key_a(1),
             res.dupe(),
             ValueReusable::EqualityBased,
             Arc::new(SeriesParallelDeps::None),
@@ -846,19 +846,19 @@ mod tests {
         );
         assert!(
             cache
-                .get(key_a(0).dupe())
+                .get(key_a(1).dupe())
                 .assert_match()
                 .value()
                 .equality(&res)
         );
         assert!(
             cache
-                .get(key_a(1).dupe())
+                .get(key_a(2).dupe())
                 .assert_match()
                 .value()
                 .equality(&res)
         );
-        cache.get(key_a(2).dupe()).assert_compute();
+        cache.get(key_a(3).dupe()).assert_compute();
     }
 
     #[test]
@@ -929,98 +929,17 @@ mod tests {
         let res = DiceValidValue::testing_new(DiceKeyValue::<K>::new(100));
 
         let dep_key = DiceKey { index: 1 };
-        let key5 = VersionedGraphKey::new(VersionNumber::new(5), DiceKey { index: 0 });
+        let key6 = VersionedGraphKey::new(VersionNumber::new(6), DiceKey { index: 0 });
 
-        for v in 0..10 {
+        for v in 1..11 {
             inject(&mut cache, v, dep_key, v * 100);
         }
 
         // first, empty cache gives none
-        cache.get(key5.dupe()).assert_compute();
+        cache.get(key6.dupe()).assert_compute();
 
         assert!(
             cache
-                .update(
-                    key5.dupe(),
-                    res.dupe(),
-                    ValueReusable::EqualityBased,
-                    Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
-                    StorageType::Normal,
-                    TrackedInvalidationPaths::clean(),
-                )
-                .1
-        );
-
-        assert!(
-            cache
-                .get(key5.dupe())
-                .assert_match()
-                .value()
-                .instance_equal(&res)
-        );
-
-        // now insert a new value of a older version, this shouldn't evict anything.
-        let res2 = DiceValidValue::testing_new(DiceKeyValue::<K>::new(200));
-        let key4 = VersionedGraphKey::new(VersionNumber::new(4), DiceKey { index: 0 });
-        assert!(
-            cache
-                .update(
-                    key4.dupe(),
-                    res2.dupe(),
-                    ValueReusable::EqualityBased,
-                    Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
-                    StorageType::Normal,
-                    TrackedInvalidationPaths::clean(),
-                )
-                .1
-        );
-        cache.get(key4.dupe()).assert_compute();
-        // the newer version should still be there
-        assert!(
-            cache
-                .get(key5.dupe())
-                .assert_match()
-                .value()
-                .instance_equal(&res)
-        );
-        assert!(cache.nodes.contains_key(&DiceKey { index: 0 }));
-
-        // now insert the same value of a older version, this shouldn't evict anything but reuses
-        // the existing node.
-        let key3 = VersionedGraphKey::new(VersionNumber::new(3), DiceKey { index: 0 });
-        assert!(
-            !cache
-                .update(
-                    key3.dupe(),
-                    res.dupe(),
-                    ValueReusable::EqualityBased,
-                    Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
-                    StorageType::Normal,
-                    TrackedInvalidationPaths::clean(),
-                )
-                .1
-        );
-
-        assert!(
-            cache
-                .get(key5.dupe())
-                .assert_match()
-                .value()
-                .instance_equal(&res)
-        );
-        assert!(
-            cache
-                .get(key3.dupe())
-                .assert_match()
-                .value()
-                .instance_equal(&res)
-        );
-
-        // now insert the same value of a newer version, this shouldn't evict anything but reuses
-        // the existing node.
-        let key6 = VersionedGraphKey::new(VersionNumber::new(6), DiceKey { index: 0 });
-        assert!(
-            !cache
                 .update(
                     key6.dupe(),
                     res.dupe(),
@@ -1034,14 +953,95 @@ mod tests {
 
         assert!(
             cache
-                .get(key5.dupe())
+                .get(key6.dupe())
+                .assert_match()
+                .value()
+                .instance_equal(&res)
+        );
+
+        // now insert a new value of a older version, this shouldn't evict anything.
+        let res2 = DiceValidValue::testing_new(DiceKeyValue::<K>::new(200));
+        let key5 = VersionedGraphKey::new(VersionNumber::new(5), DiceKey { index: 0 });
+        assert!(
+            cache
+                .update(
+                    key5.dupe(),
+                    res2.dupe(),
+                    ValueReusable::EqualityBased,
+                    Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
+                    StorageType::Normal,
+                    TrackedInvalidationPaths::clean(),
+                )
+                .1
+        );
+        cache.get(key5.dupe()).assert_compute();
+        // the newer version should still be there
+        assert!(
+            cache
+                .get(key6.dupe())
+                .assert_match()
+                .value()
+                .instance_equal(&res)
+        );
+        assert!(cache.nodes.contains_key(&DiceKey { index: 0 }));
+
+        // now insert the same value of a older version, this shouldn't evict anything but reuses
+        // the existing node.
+        let key4 = VersionedGraphKey::new(VersionNumber::new(4), DiceKey { index: 0 });
+        assert!(
+            !cache
+                .update(
+                    key4.dupe(),
+                    res.dupe(),
+                    ValueReusable::EqualityBased,
+                    Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
+                    StorageType::Normal,
+                    TrackedInvalidationPaths::clean(),
+                )
+                .1
+        );
+
+        assert!(
+            cache
+                .get(key6.dupe())
                 .assert_match()
                 .value()
                 .instance_equal(&res)
         );
         assert!(
             cache
+                .get(key4.dupe())
+                .assert_match()
+                .value()
+                .instance_equal(&res)
+        );
+
+        // now insert the same value of a newer version, this shouldn't evict anything but reuses
+        // the existing node.
+        let key7 = VersionedGraphKey::new(VersionNumber::new(7), DiceKey { index: 0 });
+        assert!(
+            !cache
+                .update(
+                    key7.dupe(),
+                    res.dupe(),
+                    ValueReusable::EqualityBased,
+                    Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
+                    StorageType::Normal,
+                    TrackedInvalidationPaths::clean(),
+                )
+                .1
+        );
+
+        assert!(
+            cache
                 .get(key6.dupe())
+                .assert_match()
+                .value()
+                .instance_equal(&res)
+        );
+        assert!(
+            cache
+                .get(key7.dupe())
                 .assert_match()
                 .value()
                 .instance_equal(&res)
@@ -1059,19 +1059,19 @@ mod tests {
         let res_fake = DiceValidValue::testing_new(DiceKeyValue::<K>::new(99999));
 
         let dep_key = DiceKey { index: 1 };
-        for v in 0..10 {
+        for v in 1..11 {
             inject(&mut cache, v, dep_key, v * 100);
         }
 
-        let key5 = VersionedGraphKey::new(VersionNumber::new(5), DiceKey { index: 0 });
+        let key6 = VersionedGraphKey::new(VersionNumber::new(6), DiceKey { index: 0 });
 
         // first, empty cache gives none
-        cache.get(key5.dupe()).assert_compute();
+        cache.get(key6.dupe()).assert_compute();
 
         assert!(
             cache
                 .update(
-                    key5.dupe(),
+                    key6.dupe(),
                     res.dupe(),
                     // there's nothing in the cache to be reused.
                     ValueReusable::EqualityBased,
@@ -1084,7 +1084,7 @@ mod tests {
 
         assert!(
             cache
-                .get(key5.dupe())
+                .get(key6.dupe())
                 .assert_match()
                 .value()
                 .instance_equal(&res)
@@ -1092,24 +1092,24 @@ mod tests {
 
         // now insert a new value of a older version, this shouldn't evict anything
         // because Normal stores the most recent N by version number.
-        let key4 = VersionedGraphKey::new(VersionNumber::new(4), DiceKey { index: 0 });
+        let key5 = VersionedGraphKey::new(VersionNumber::new(5), DiceKey { index: 0 });
         assert!(
             cache
                 .update(
-                    key4.dupe(),
+                    key5.dupe(),
                     res_fake.dupe(),
-                    ValueReusable::VersionBased(VersionNumber::new(1)),
+                    ValueReusable::VersionBased(VersionNumber::new(2)),
                     Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
                     StorageType::Normal,
                     TrackedInvalidationPaths::clean(),
                 )
                 .1
         );
-        cache.get(key4.dupe()).assert_compute();
+        cache.get(key5.dupe()).assert_compute();
         // the newer version should still be there
         assert!(
             cache
-                .get(key5.dupe())
+                .get(key6.dupe())
                 .assert_match()
                 .value()
                 .instance_equal(&res)
@@ -1119,13 +1119,13 @@ mod tests {
 
         // now insert the same value of a older version, this shouldn't evict anything but reuses
         // the existing node and drops the res_fake value.
-        let key3 = VersionedGraphKey::new(VersionNumber::new(3), DiceKey { index: 0 });
+        let key4 = VersionedGraphKey::new(VersionNumber::new(4), DiceKey { index: 0 });
         assert!(
             !cache
                 .update(
-                    key3.dupe(),
+                    key4.dupe(),
                     res_fake.dupe(),
-                    ValueReusable::VersionBased(VersionNumber::new(5)),
+                    ValueReusable::VersionBased(VersionNumber::new(6)),
                     Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
                     StorageType::Normal,
                     TrackedInvalidationPaths::clean(),
@@ -1133,44 +1133,6 @@ mod tests {
                 .1
         );
 
-        assert!(
-            cache
-                .get(key5.dupe())
-                .assert_match()
-                .value()
-                .instance_equal(&res)
-        );
-        assert!(
-            cache
-                .get(key3.dupe())
-                .assert_match()
-                .value()
-                .instance_equal(&res)
-        );
-
-        // now insert the different value at a newer version, but with VersionBased reusability.
-        // this shouldn't evict anything and should drop the res_fake value.
-        let key6 = VersionedGraphKey::new(VersionNumber::new(6), DiceKey { index: 0 });
-        assert!(
-            !cache
-                .update(
-                    key6.dupe(),
-                    res_fake.dupe(),
-                    ValueReusable::VersionBased(VersionNumber::new(5)),
-                    Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
-                    StorageType::Normal,
-                    TrackedInvalidationPaths::clean(),
-                )
-                .1
-        );
-
-        assert!(
-            cache
-                .get(key5.dupe())
-                .assert_match()
-                .value()
-                .instance_equal(&res)
-        );
         assert!(
             cache
                 .get(key6.dupe())
@@ -1178,14 +1140,52 @@ mod tests {
                 .value()
                 .instance_equal(&res)
         );
+        assert!(
+            cache
+                .get(key4.dupe())
+                .assert_match()
+                .value()
+                .instance_equal(&res)
+        );
+
+        // now insert the different value at a newer version, but with VersionBased reusability.
+        // this shouldn't evict anything and should drop the res_fake value.
+        let key7 = VersionedGraphKey::new(VersionNumber::new(7), DiceKey { index: 0 });
+        assert!(
+            !cache
+                .update(
+                    key7.dupe(),
+                    res_fake.dupe(),
+                    ValueReusable::VersionBased(VersionNumber::new(6)),
+                    Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
+                    StorageType::Normal,
+                    TrackedInvalidationPaths::clean(),
+                )
+                .1
+        );
+
+        assert!(
+            cache
+                .get(key6.dupe())
+                .assert_match()
+                .value()
+                .instance_equal(&res)
+        );
+        assert!(
+            cache
+                .get(key7.dupe())
+                .assert_match()
+                .value()
+                .instance_equal(&res)
+        );
 
         // now insert a different value at a newer version, with Equality reusability.
         // this should evict the old cached values.
-        let key7 = VersionedGraphKey::new(VersionNumber::new(7), DiceKey { index: 0 });
+        let key8 = VersionedGraphKey::new(VersionNumber::new(8), DiceKey { index: 0 });
         assert!(
             cache
                 .update(
-                    key7.dupe(),
+                    key8.dupe(),
                     res_fake.dupe(),
                     ValueReusable::EqualityBased,
                     Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
@@ -1195,7 +1195,7 @@ mod tests {
                 .1
         );
 
-        cache.get(key5.dupe()).assert_compute();
+        cache.get(key6.dupe()).assert_compute();
     }
 
     #[test]
@@ -1203,7 +1203,7 @@ mod tests {
         let mut cache = VersionedGraph::new();
         let res = DiceValidValue::testing_new(DiceKeyValue::<K>::new(100));
 
-        let key = VersionedGraphKey::new(VersionNumber::new(0), DiceKey { index: 0 });
+        let key = VersionedGraphKey::new(VersionNumber::new(1), DiceKey { index: 0 });
         cache.update(
             key,
             res.dupe(),
@@ -1213,7 +1213,7 @@ mod tests {
             TrackedInvalidationPaths::clean(),
         );
 
-        let key1 = VersionedGraphKey::new(VersionNumber::new(0), DiceKey { index: 1 });
+        let key1 = VersionedGraphKey::new(VersionNumber::new(1), DiceKey { index: 1 });
         cache.update(
             key1,
             res.dupe(),
@@ -1225,7 +1225,7 @@ mod tests {
             TrackedInvalidationPaths::clean(),
         );
 
-        let key2 = VersionedGraphKey::new(VersionNumber::new(0), DiceKey { index: 2 });
+        let key2 = VersionedGraphKey::new(VersionNumber::new(1), DiceKey { index: 2 });
         cache.update(
             key2,
             res.dupe(),
@@ -1238,7 +1238,7 @@ mod tests {
         );
 
         assert!(cache.invalidate(
-            VersionedGraphKey::new(VersionNumber::new(1), DiceKey { index: 0 }),
+            VersionedGraphKey::new(VersionNumber::new(2), DiceKey { index: 0 }),
             InvalidateKind::ForceDirty,
             InvalidationSourcePriority::Normal,
         ));
@@ -1246,7 +1246,7 @@ mod tests {
         assert_eq!(
             cache
                 .get(VersionedGraphKey::new(
-                    VersionNumber::new(1),
+                    VersionNumber::new(2),
                     DiceKey { index: 1 }
                 ))
                 .assert_check_deps()
@@ -1258,7 +1258,7 @@ mod tests {
         assert_eq!(
             cache
                 .get(VersionedGraphKey::new(
-                    VersionNumber::new(1),
+                    VersionNumber::new(2),
                     DiceKey { index: 2 }
                 ))
                 .assert_check_deps()
@@ -1276,7 +1276,7 @@ mod tests {
         let mut cache = VersionedGraph::new();
         let res = DiceValidValue::testing_new(DiceKeyValue::<K>::new(100));
 
-        let key = VersionedGraphKey::new(VersionNumber::new(0), DiceKey { index: 0 });
+        let key = VersionedGraphKey::new(VersionNumber::new(1), DiceKey { index: 0 });
         cache.update(
             key,
             res.dupe(),
@@ -1287,12 +1287,12 @@ mod tests {
         );
 
         assert!(!cache.invalidate(
-            VersionedGraphKey::new(VersionNumber::new(1), DiceKey { index: 0 }),
+            VersionedGraphKey::new(VersionNumber::new(2), DiceKey { index: 0 }),
             InvalidateKind::Update(res.dupe(), StorageType::Normal),
             InvalidationSourcePriority::Normal,
         ));
 
-        let key = VersionedGraphKey::new(VersionNumber::new(2), DiceKey { index: 0 });
+        let key = VersionedGraphKey::new(VersionNumber::new(3), DiceKey { index: 0 });
         cache.update(
             key,
             res.dupe(),
@@ -1303,7 +1303,7 @@ mod tests {
         );
 
         assert!(cache.invalidate(
-            VersionedGraphKey::new(VersionNumber::new(1), DiceKey { index: 0 }),
+            VersionedGraphKey::new(VersionNumber::new(2), DiceKey { index: 0 }),
             InvalidateKind::Update(
                 DiceValidValue::testing_new(DiceKeyValue::<K>::new(30)),
                 StorageType::Normal
@@ -1324,32 +1324,32 @@ mod tests {
             let key_a = DiceKey { index: 0 };
             let key_b = DiceKey { index: 1 };
 
-            let key_a0 = VersionedGraphKey::new(VersionNumber::new(0), key_a);
             let key_a1 = VersionedGraphKey::new(VersionNumber::new(1), key_a);
             let key_a2 = VersionedGraphKey::new(VersionNumber::new(2), key_a);
+            let key_a3 = VersionedGraphKey::new(VersionNumber::new(3), key_a);
 
-            let key_b0 = VersionedGraphKey::new(VersionNumber::new(0), key_b);
             let key_b1 = VersionedGraphKey::new(VersionNumber::new(1), key_b);
             let key_b2 = VersionedGraphKey::new(VersionNumber::new(2), key_b);
+            let key_b3 = VersionedGraphKey::new(VersionNumber::new(3), key_b);
 
             cache.invalidate(
-                key_a0,
-                InvalidateKind::Update(res.dupe(), StorageType::Injected),
-                InvalidationSourcePriority::Normal,
-            );
-            cache.invalidate(
                 key_a1,
-                InvalidateKind::Update(res2.dupe(), StorageType::Injected),
+                InvalidateKind::Update(res.dupe(), StorageType::Injected),
                 InvalidationSourcePriority::Normal,
             );
             cache.invalidate(
                 key_a2,
+                InvalidateKind::Update(res2.dupe(), StorageType::Injected),
+                InvalidationSourcePriority::Normal,
+            );
+            cache.invalidate(
+                key_a3,
                 InvalidateKind::Update(res.dupe(), StorageType::Injected),
                 InvalidationSourcePriority::Normal,
             );
 
             cache.update(
-                key_b0,
+                key_b1,
                 res.dupe(),
                 ValueReusable::EqualityBased,
                 Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_a])),
@@ -1357,11 +1357,11 @@ mod tests {
                 TrackedInvalidationPaths::clean(),
             );
 
-            // deferred dirty propagation should have b invalidated at v1.
-            cache.get(key_b1).assert_check_deps();
+            // deferred dirty propagation should have b invalidated at v2.
+            cache.get(key_b2).assert_check_deps();
 
             cache.update(
-                key_b2,
+                key_b3,
                 res.dupe(),
                 ValueReusable::EqualityBased,
                 Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_a])),
@@ -1369,20 +1369,20 @@ mod tests {
                 TrackedInvalidationPaths::clean(),
             );
 
-            cache.get(key_b0).assert_match();
-            cache.get(key_b1).assert_check_deps();
-            cache.get(key_b2).assert_match();
+            cache.get(key_b1).assert_match();
+            cache.get(key_b2).assert_check_deps();
+            cache.get(key_b3).assert_match();
 
-            // this last bit checks a specific optimization. we know that b is valid at v0 and v2, if
-            // we compute something at v0 that depends only on b, we should be able to reuse the computed value
-            // at v2
+            // this last bit checks a specific optimization. we know that b is valid at v1 and v3, if
+            // we compute something at v1 that depends only on b, we should be able to reuse the computed value
+            // at v3
             let key_c = DiceKey { index: 2 };
-            let key_c0 = VersionedGraphKey::new(VersionNumber::new(0), key_c);
             let key_c1 = VersionedGraphKey::new(VersionNumber::new(1), key_c);
             let key_c2 = VersionedGraphKey::new(VersionNumber::new(2), key_c);
+            let key_c3 = VersionedGraphKey::new(VersionNumber::new(3), key_c);
 
             cache.update(
-                key_c0,
+                key_c1,
                 res.dupe(),
                 ValueReusable::EqualityBased,
                 Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_b])),
@@ -1390,9 +1390,9 @@ mod tests {
                 TrackedInvalidationPaths::clean(),
             );
 
-            cache.get(key_c0).assert_match();
-            cache.get(key_c1).assert_check_deps();
-            cache.get(key_c2).assert_match();
+            cache.get(key_c1).assert_match();
+            cache.get(key_c2).assert_check_deps();
+            cache.get(key_c3).assert_match();
 
             Ok(())
         }
@@ -1407,21 +1407,21 @@ mod tests {
         let key_a = DiceKey { index: 0 };
         let key_b = DiceKey { index: 1 };
 
-        let key_a0 = VersionedGraphKey::new(VersionNumber::new(0), key_a);
         let key_a1 = VersionedGraphKey::new(VersionNumber::new(1), key_a);
         let key_a2 = VersionedGraphKey::new(VersionNumber::new(2), key_a);
+        let key_a3 = VersionedGraphKey::new(VersionNumber::new(3), key_a);
 
-        let key_b0 = VersionedGraphKey::new(VersionNumber::new(0), key_b);
+        let key_b1 = VersionedGraphKey::new(VersionNumber::new(1), key_b);
 
-        // b is valid from 0->inf
+        // b is valid from 1->inf
         cache.invalidate(
-            key_b0,
+            key_b1,
             InvalidateKind::Update(res.dupe(), StorageType::Injected),
             InvalidationSourcePriority::Normal,
         );
 
         cache.update(
-            key_a0,
+            key_a1,
             res.dupe(),
             ValueReusable::EqualityBased,
             Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_b])),
@@ -1430,13 +1430,13 @@ mod tests {
         );
 
         cache.invalidate(
-            key_a1,
+            key_a2,
             InvalidateKind::ForceDirty,
             InvalidationSourcePriority::Normal,
         );
 
-        cache.get(key_a1).assert_compute();
         cache.get(key_a2).assert_compute();
+        cache.get(key_a3).assert_compute();
 
         Ok(())
     }
@@ -1449,27 +1449,27 @@ mod tests {
         let key_a = DiceKey { index: 0 };
         let key_b = DiceKey { index: 1 };
 
-        let key_a0 = VersionedGraphKey::new(VersionNumber::new(0), key_a);
         let key_a1 = VersionedGraphKey::new(VersionNumber::new(1), key_a);
         let key_a2 = VersionedGraphKey::new(VersionNumber::new(2), key_a);
         let key_a3 = VersionedGraphKey::new(VersionNumber::new(3), key_a);
+        let key_a4 = VersionedGraphKey::new(VersionNumber::new(4), key_a);
 
-        let key_b0 = VersionedGraphKey::new(VersionNumber::new(0), key_b);
+        let key_b1 = VersionedGraphKey::new(VersionNumber::new(1), key_b);
 
-        // b is valid from 0->inf
+        // b is valid from 1->inf
         cache.invalidate(
-            key_b0,
+            key_b1,
             InvalidateKind::Update(res.dupe(), StorageType::Injected),
             InvalidationSourcePriority::Normal,
         );
 
         cache.invalidate(
-            key_a2,
+            key_a3,
             InvalidateKind::ForceDirty,
             InvalidationSourcePriority::Normal,
         );
         cache.update(
-            key_a3,
+            key_a4,
             res.dupe(),
             ValueReusable::EqualityBased,
             Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_b])),
@@ -1477,8 +1477,8 @@ mod tests {
             TrackedInvalidationPaths::clean(),
         );
 
-        cache.get(key_a0).assert_compute();
         cache.get(key_a1).assert_compute();
+        cache.get(key_a2).assert_compute();
 
         Ok(())
     }
@@ -1492,40 +1492,28 @@ mod tests {
         let key_a = DiceKey { index: 0 };
         let key_b = DiceKey { index: 1 };
 
-        let key_a0 = VersionedGraphKey::new(VersionNumber::new(0), key_a);
         let key_a1 = VersionedGraphKey::new(VersionNumber::new(1), key_a);
         let key_a2 = VersionedGraphKey::new(VersionNumber::new(2), key_a);
         let key_a3 = VersionedGraphKey::new(VersionNumber::new(3), key_a);
+        let key_a4 = VersionedGraphKey::new(VersionNumber::new(4), key_a);
 
-        let key_b0 = VersionedGraphKey::new(VersionNumber::new(0), key_b);
+        let key_b1 = VersionedGraphKey::new(VersionNumber::new(1), key_b);
 
-        // b is valid from 0->inf
+        // b is valid from 1->inf
         cache.invalidate(
-            key_b0,
+            key_b1,
             InvalidateKind::Update(res.dupe(), StorageType::Injected),
             InvalidationSourcePriority::Normal,
         );
 
-        // a force-dirtied at v1
+        // a force-dirtied at v2
         cache.invalidate(
-            key_a1,
+            key_a2,
             InvalidateKind::ForceDirty,
             InvalidationSourcePriority::Normal,
         );
 
-        // a computed at v2, since deps haven't changed it should be valid at v1 but due to force dirty not at v0
-        cache.update(
-            key_a2,
-            res.dupe(),
-            ValueReusable::EqualityBased,
-            Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_b])),
-            StorageType::Normal,
-            TrackedInvalidationPaths::clean(),
-        );
-
-        cache.get(key_a0).assert_compute();
-        cache.get(key_a1).assert_match();
-
+        // a computed at v3, since deps haven't changed it should be valid at v2 but due to force dirty not at v1
         cache.update(
             key_a3,
             res.dupe(),
@@ -1535,8 +1523,20 @@ mod tests {
             TrackedInvalidationPaths::clean(),
         );
 
-        cache.get(key_a0).assert_compute();
-        cache.get(key_a1).assert_match();
+        cache.get(key_a1).assert_compute();
+        cache.get(key_a2).assert_match();
+
+        cache.update(
+            key_a4,
+            res.dupe(),
+            ValueReusable::EqualityBased,
+            Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_b])),
+            StorageType::Normal,
+            TrackedInvalidationPaths::clean(),
+        );
+
+        cache.get(key_a1).assert_compute();
+        cache.get(key_a2).assert_match();
 
         Ok(())
     }
@@ -1549,22 +1549,22 @@ mod tests {
         let key_a = DiceKey { index: 0 };
         let key_b = DiceKey { index: 1 };
 
-        let key_a0 = VersionedGraphKey::new(VersionNumber::new(0), key_a);
         let key_a1 = VersionedGraphKey::new(VersionNumber::new(1), key_a);
         let key_a2 = VersionedGraphKey::new(VersionNumber::new(2), key_a);
+        let key_a3 = VersionedGraphKey::new(VersionNumber::new(3), key_a);
 
-        let key_b0 = VersionedGraphKey::new(VersionNumber::new(0), key_b);
+        let key_b1 = VersionedGraphKey::new(VersionNumber::new(1), key_b);
 
-        // b is valid from 0->inf
+        // b is valid from 1->inf
         cache.invalidate(
-            key_b0,
+            key_b1,
             InvalidateKind::Update(res.dupe(), StorageType::Injected),
             InvalidationSourcePriority::Normal,
         );
 
-        let key_a100 = VersionedGraphKey::new(VersionNumber::new(100), key_a);
+        let key_a101 = VersionedGraphKey::new(VersionNumber::new(101), key_a);
 
-        for i in 1..100 {
+        for i in 2..101 {
             cache.invalidate(
                 VersionedGraphKey::new(VersionNumber::new(i), key_a),
                 InvalidateKind::ForceDirty,
@@ -1573,7 +1573,7 @@ mod tests {
         }
 
         cache.update(
-            key_a100,
+            key_a101,
             res.dupe(),
             ValueReusable::EqualityBased,
             Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_b])),
@@ -1582,7 +1582,7 @@ mod tests {
         );
 
         cache.update(
-            key_a0,
+            key_a1,
             res.dupe(),
             ValueReusable::EqualityBased,
             Arc::new(SeriesParallelDeps::serial_from_vec(vec![key_b])),
@@ -1590,12 +1590,12 @@ mod tests {
             TrackedInvalidationPaths::clean(),
         );
 
-        // There was a force-dirty at v1 (and v2, v3, ...), we should not be able to reuse the
-        // value at v0 regardless of deps.
-        cache.get(key_a0).assert_match();
-        cache.get(key_a1).assert_compute();
+        // There was a force-dirty at v2 (and v3, v4, ...), we should not be able to reuse the
+        // value at v1 regardless of deps.
+        cache.get(key_a1).assert_match();
         cache.get(key_a2).assert_compute();
-        cache.get(key_a2).assert_compute();
+        cache.get(key_a3).assert_compute();
+        cache.get(key_a3).assert_compute();
 
         Ok(())
     }
@@ -1616,10 +1616,10 @@ mod tests {
     #[test]
     fn paged_out_recompute_replaces_entry_without_panic() {
         let mut cache = VersionedGraph::new();
-        let key0 = VersionedGraphKey::new(VersionNumber::new(0), DiceKey { index: 0 });
+        let key1 = VersionedGraphKey::new(VersionNumber::new(1), DiceKey { index: 0 });
         let value = DiceValidValue::testing_new(DiceKeyValue::<K>::new(100));
         cache.update(
-            key0,
+            key1,
             value,
             ValueReusable::EqualityBased,
             Arc::new(SeriesParallelDeps::None),
@@ -1628,26 +1628,26 @@ mod tests {
         );
 
         // Simulate a page-out: replace the node's hydrated value with a paged-out marker.
-        if let Some(VersionedGraphNode::Occupied(occ)) = cache.nodes.get_mut(&key0.k) {
+        if let Some(VersionedGraphNode::Occupied(occ)) = cache.nodes.get_mut(&key1.k) {
             occ.set_paged_out(pagable::DataKey::compute(0xdeadbeef, &[], &[]));
         } else {
             panic!("expected Occupied node");
         }
 
-        // Force-dirty at v=1. This shrinks verified_ranges to [0, 1) so a lookup at
-        // v=1 returns Compute, prompting the worker to recompute and send
+        // Force-dirty at v=2. This shrinks verified_ranges to [1, 2) so a lookup at
+        // v=2 returns Compute, prompting the worker to recompute and send
         // UpdateComputed (which then triggers the equality reuse check).
         cache.invalidate(
-            VersionedGraphKey::new(VersionNumber::new(1), DiceKey { index: 0 }),
+            VersionedGraphKey::new(VersionNumber::new(2), DiceKey { index: 0 }),
             InvalidateKind::ForceDirty,
             InvalidationSourcePriority::Normal,
         );
 
         // Worker recomputes and sends UpdateComputed with the same value+deps.
         let new_value = DiceValidValue::testing_new(DiceKeyValue::<K>::new(100));
-        let key_v1 = VersionedGraphKey::new(VersionNumber::new(1), DiceKey { index: 0 });
+        let key_v2 = VersionedGraphKey::new(VersionNumber::new(2), DiceKey { index: 0 });
         cache.update(
-            key_v1,
+            key_v2,
             new_value.dupe(),
             ValueReusable::EqualityBased,
             Arc::new(SeriesParallelDeps::None),
@@ -1657,7 +1657,7 @@ mod tests {
 
         // The entry was replaced (not reused) — the new lookup must see the hydrated
         // value, which we verify by reading it back as a successful Match.
-        let result = cache.get(key_v1);
+        let result = cache.get(key_v2);
         let computed = result.unpack_match().expect("entry should be a Match");
         assert!(computed.value().equality(&new_value));
     }
@@ -1668,7 +1668,7 @@ mod tests {
     #[test]
     fn paged_out_inject_replaces_entry_without_panic() {
         let mut cache = VersionedGraph::new();
-        let key = VersionedGraphKey::new(VersionNumber::new(0), DiceKey { index: 0 });
+        let key = VersionedGraphKey::new(VersionNumber::new(1), DiceKey { index: 0 });
         let value = DiceValidValue::testing_new(DiceKeyValue::<K>::new(100));
         cache.update(
             key,
@@ -1686,9 +1686,9 @@ mod tests {
         }
 
         let new_value = DiceValidValue::testing_new(DiceKeyValue::<K>::new(200));
-        let key_v1 = VersionedGraphKey::new(VersionNumber::new(1), DiceKey { index: 0 });
+        let key_v2 = VersionedGraphKey::new(VersionNumber::new(2), DiceKey { index: 0 });
         let changed = cache.invalidate(
-            key_v1,
+            key_v2,
             InvalidateKind::Update(new_value.dupe(), StorageType::Normal),
             InvalidationSourcePriority::Normal,
         );
@@ -1696,7 +1696,7 @@ mod tests {
         // if the new value happens to equal the paged-out one, because we can't tell.
         assert!(changed);
 
-        let result = cache.get(key_v1);
+        let result = cache.get(key_v2);
         let computed = result.unpack_match().expect("entry should be a Match");
         assert!(computed.value().equality(&new_value));
     }
