@@ -72,13 +72,12 @@ impl DataKey {
         DataKey(NonZeroU64::new(v as u64).unwrap(), (v >> 64) as u64)
     }
 
-    /// Reconstructs a `DataKey` from the 16-byte form written by
-    /// [`bytemuck::bytes_of`] / [`bytemuck::cast_slice`].
+    /// Reconstructs a `DataKey` from the 16-byte form written by [`bytemuck::bytes_of`] /
+    /// [`bytemuck::cast_slice`].
     ///
-    /// Fails if the bytes encode a zero first half. A `DataKey` always has a non-zero
-    /// first half (see [`DataKey::compute`]) so that [`OptionalDataKey`] can use it as a
-    /// niche; bytes read back from storage are untrusted, so this is checked here rather
-    /// than assumed.
+    /// Fails if the bytes encode a zero first half. A `DataKey` always has a non-zero first half
+    /// (see [`DataKey::compute`]); bytes read back from storage are untrusted, so this is checked
+    /// here rather than assumed.
     pub fn from_stored_bytes(bytes: [u8; 16]) -> anyhow::Result<Self> {
         let lo = u64::from_ne_bytes(bytes[..8].try_into().unwrap());
         let hi = u64::from_ne_bytes(bytes[8..].try_into().unwrap());
