@@ -16,8 +16,6 @@ use std::task::Context;
 use std::task::Poll;
 
 use dice_error::result::CancellableResult;
-use dupe::Dupe;
-use futures::future::BoxFuture;
 use pin_project::pin_project;
 
 use crate::impls::task::dice::DiceTaskDependentFuture;
@@ -32,7 +30,7 @@ pub(crate) struct DicePromise<'d>(#[pin] pub(super) DicePromiseInternal<'d>);
 #[pin_project(project = DicePromiseInternalProj)]
 pub(super) enum DicePromiseInternal<'d> {
     Ready {
-        result: &'d DiceComputedValue,
+        result: CancellableResult<&'d DiceComputedValue>,
     },
     Pending {
         #[pin]
@@ -41,57 +39,13 @@ pub(super) enum DicePromiseInternal<'d> {
     Done,
 }
 
-/// result of a synchronous projection
-pub(crate) struct DiceSyncResult {
-    /// The value that's ready now without checking core state
-    ///
-    /// Usually, after finishing a `Key::compute` and before letting rdeps use the result, we
-    /// roundtrip to the core state. The value returned after that is typically about the same as
-    /// the value we had before, but it may be valid at a wider range of versions.
-    ///
-    /// On sync computes we can't go to the core state and so we kind of make up a conservative
-    /// version range and spawn a background task that'll report the real one later. This is the
-    /// value that we use until then.
-    pub(crate) sync_result: DiceComputedValue,
-    /// the future value after checking core state
-    pub(crate) state_future: BoxFuture<'static, CancellableResult<DiceComputedValue>>,
-}
-
-impl DiceSyncResult {
-    #[cfg(test)]
-    pub(crate) fn testing(v: DiceComputedValue) -> Self {
-        use dupe::Dupe;
-        use futures::FutureExt;
-
-        Self {
-            sync_result: v.dupe(),
-            state_future: futures::future::ready(Ok(v)).boxed(),
-        }
-    }
-}
-
 impl<'d> DicePromise<'d> {
-    pub(crate) fn ready(result: &'d DiceComputedValue) -> Self {
+    pub(crate) fn ready(result: CancellableResult<&'d DiceComputedValue>) -> Self {
         Self(DicePromiseInternal::Ready { result })
     }
 
     pub(crate) fn pending(future: DiceTaskDependentFuture<'d>) -> Self {
         Self(DicePromiseInternal::Pending { future })
-    }
-
-    /// Get the value if already complete, or complete it. Note that `f` may run even if the result
-    /// is not used.
-    pub(crate) fn sync_get_or_complete(
-        self,
-        f: impl FnOnce() -> DiceSyncResult,
-    ) -> CancellableResult<DiceComputedValue> {
-        match self.0 {
-            DicePromiseInternal::Ready { result } => Ok(result.dupe()),
-            DicePromiseInternal::Pending { future, .. } => {
-                future.task().sync_get_or_complete(future, f)
-            }
-            DicePromiseInternal::Done => panic!("poll after ready"),
-        }
     }
 }
 
@@ -100,7 +54,7 @@ impl<'d> Future for DicePromise<'d> {
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let res = match self.as_mut().project().0.project() {
-            DicePromiseInternalProj::Ready { result } => Poll::Ready(Ok(*result)),
+            DicePromiseInternalProj::Ready { result } => Poll::Ready(*result),
             DicePromiseInternalProj::Pending { future } => future.poll(cx),
             DicePromiseInternalProj::Done => panic!("poll after ready"),
         };
