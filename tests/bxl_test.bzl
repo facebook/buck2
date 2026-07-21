@@ -15,8 +15,10 @@ def bxl_test(src, name = None, labels = None, buck_args: list[str] | None = None
     point.
 
     Parameters:
-        src: source path of BXL script. This cannot be a target since bxl
-            can only be invoked from the repo and not from buck-out.
+        src: source path of BXL script, or an `export_file` target with the same
+             name as the BXL script's path and `mode = "reference"`. Pass a
+             target only if you need to use the same test script from `bxl_test`
+             targets in different packages, otherwise the source path suffices.
         name: Name of the test target. If unspecified, use src as the name.
         buck_args: Arguments to `buck2 bxl` invocation for buck specifically.
             Common examples are `--config` flags and `---modifier` flags.
@@ -28,28 +30,30 @@ def bxl_test(src, name = None, labels = None, buck_args: list[str] | None = None
             values taking precedence.
     """
 
-    if ":" in src:
-        fail("`src` cannot be a target. Found `{}` for `src`".format(src))
     if not src.endswith(".bxl"):
         fail("`src` must end in '.bxl'. Found `{}` for `src`".format(src))
 
-    # Need to include `name` to keep this target unique, in case there are multiple bxl_tests defined for same bxl file
-    export_file_name = "{}.{}.export_file".format(src, name)
-    export_file(name = export_file_name, src = src, mode = "reference")
+    if ":" not in src:
+        # Need to include `name` to keep this target unique, in case there are multiple bxl_tests defined for same bxl file
+        export_file_name = "{}.{}.export_file".format(src, name)
+        export_file(name = export_file_name, src = src, mode = "reference")
+        export_file_target = ":{}".format(export_file_name)
 
-    # This is ugly but needed for buck1 compatibility
-    cell = native.repository_name()[1:]
-    base_path = native.package_name()
-    bxl_main = "{}//{}/{}:test".format(cell, base_path, src)
-
-    if not name:
-        name = src
+        bxl_main = "{}//{}/{}:test".format(native.get_cell_name(), native.package_name(), src)
+        if not name:
+            name = src
+    else:
+        export_file_target = src
+        target_base, _, target_name = src.rpartition(":")
+        bxl_main = "{}/{}:test".format(target_base, target_name)
+        if not name:
+            name = target_name
 
     merged_env = {
         "BXL_MAIN": bxl_main,
         # This env var is used to properly declare a dep on the src file.
         # I didn't use `resources` or `deps` because attaching to an env var makes debugging easier if needed.
-        "_BXL_SRC": "$(location :{})".format(export_file_name),
+        "_BXL_SRC": "$(location {})".format(export_file_target),
     }
     if bxl_args:
         merged_env["BXL_ARGS"] = " ".join(bxl_args)
