@@ -300,7 +300,7 @@ pub struct PagableTypeStat {
 pub(crate) mod testing {
     use dupe::Dupe;
 
-    use crate::impls::ctx::SharedLiveTransactionCtx;
+    use crate::impls::ctx::VersionEpochState;
     use crate::impls::dice::Dice;
     use crate::impls::transaction::ActiveTransactionGuard;
     use crate::versions::VersionNumber;
@@ -309,7 +309,7 @@ pub(crate) mod testing {
         pub(crate) async fn testing_shared_ctx(
             &self,
             v: VersionNumber,
-        ) -> (SharedLiveTransactionCtx, ActiveTransactionGuard) {
+        ) -> (VersionEpochState, ActiveTransactionGuard) {
             let guard = ActiveTransactionGuard::new(v, self.state_handle.dupe());
             self.state_handle.ctx_at_version(v, guard).await
         }
