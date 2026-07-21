@@ -9,17 +9,15 @@
  */
 
 //! A task stored by Dice that is shared for all transactions at the same version
-use std::cell::UnsafeCell;
 use std::future::Future;
 use std::pin::Pin;
+use std::sync::OnceLock;
 use std::sync::atomic::AtomicU32;
 use std::sync::atomic::Ordering;
 use std::task::Context;
 use std::task::Poll;
 
 use allocative::Allocative;
-use dice_error::result::CancellableResult;
-use dice_error::result::CancellationReason;
 use dice_futures::atomic_waker_set::AtomicWakerSet;
 use dice_futures::atomic_waker_set::AtomicWakerSetEntry;
 use dice_futures::cancellation::CancellationContext;
@@ -34,8 +32,12 @@ use parking_lot::Mutex;
 
 use super::handle::DiceTaskHandle;
 use crate::GlobalStats;
+use crate::epoch::cache::TransactionCancelled;
+use crate::epoch::cache::TransactionResult;
 use crate::epoch::task::PreviouslyCancelledTask;
 use crate::epoch::task::promise::DicePromise;
+use crate::epoch::worker::WorkerCancelled;
+use crate::epoch::worker::WorkerResult;
 use crate::introspection::DiceTaskState;
 use crate::key::DiceKey;
 use crate::key::ParentKey;
@@ -110,47 +112,49 @@ impl DiceTaskRef<'_> {
 #[allocative(skip)]
 pub(crate) struct DiceTaskInternal {
     pub(crate) key: DiceKey,
-
-    /// Holds some data that actually needs to be lock protected.
-    ///
-    /// This is `None` exactly once the task has been sealed (a worker finished successfully and set
-    /// `terminated_generation` to 0). At that point the cancellation handle and sync-projection slot
-    /// are useless, and since sealed tasks live in the cache indefinitely we drop the
-    /// `Box<Critical>` to save memory. While the task is unsealed this is always `Some`.
-    ///
-    /// Additionally, there is an invariant that whenever any of the following happen:
-    ///  - `strong_count` is changed 1 -> 0
-    ///  - `strong_count` is changed 0 -> 1
-    ///  - Either `current_generation` or `terminated_generation` are changed
-    ///
-    /// That must be done *with this lock held.*
-    critical: Mutex<Option<Box<Critical>>>,
-
-    /// The number of things waiting on this task.
-    ///
-    /// Changing this `0 -> 1` requires a release store (and subsequent acquire loads) so that the
-    /// changes to `Critical` and other fields in this type are visible to other waiters later
-    /// grabbing handles by incrementing this.
-    strong_count: AtomicU32,
-
     /// Because things may be cancelled, it may take multiple attempts ("generations") before an
     /// execution is actually driven to completion. These fields track that.
     ///
-    /// The `current_generation` is the most recently created generation. A new one is created when
-    /// the strong count goes 0 -> 1, and the worker for the generation is cancelled when the strong
-    /// count goes 1 -> 0.
+    /// The `started_generation` is the most recently created generation. Normally, it is the case
+    /// that `current_generation` is at most `terminated_generation + 1`, but in the face of rapid
+    /// cancellation that is not strictly required.
     ///
-    /// The `terminated_generation` is the most recent generation for which the associated worker
-    /// has *fully* terminated, either by succeeding or by its cancellation completing. Note that
-    /// cancellation is an async operation, so there may be some delay between strong count going to
+    /// The `starter_lock` holds the cancellation handle for the most recently started generation
+    /// (previous generations have already been cancelled).
+    ///
+    /// You should primarily think of the lock as protecting "generation start" events, ie
+    /// preventing multiple threads from attempting to start the same generation. However, it is not
+    /// only held by the generation starting code; it is also needed when there is other code that
+    /// needs to synchronize itself with generation start logic.
+    ///
+    /// A new one is created when the strong count goes 0 -> 1, and the worker for the generation is
+    /// cancelled when the strong count goes 1 -> 0.
+    started_generation: AtomicU32,
+    starter_lock: Mutex<Option<DropcancelHandle>>,
+    /// The computed value, ie the eventual output of the task.
+    ///
+    /// This is set effectively whenever the value is ready. After it is set, no new generations
+    /// will be started, though previously started ones may still be running.
+    maybe_value: OnceLock<TransactionResult<DiceComputedValue>>,
+    /// The number of things waiting on the the task.
+    ///
+    /// When this is zero, the most recently started generation has been cancelled; incrementing
+    /// this `0 -> 1` requires starting a new generation.
+    ///
+    /// Changing this `0 -> 1` also requires a release store (and subsequent acquire loads) so that
+    /// the changes to `Critical` and other fields in this type are visible to other waiters later
+    /// grabbing handles by incrementing this.
+    strong_count: AtomicU32,
+    /// The most recent generation that has fully terminated, either by succeeding or by cancelling.
+    ///
+    /// Cancellation is an async operation, so there is some delay between strong count going to
     /// zero and the termination incrementing.
     ///
-    /// Normally, it is the case that `current_generation` is at most `terminated_generation + 1`,
-    /// but in the face of rapid cancellation that is not strictly required.
-    ///
-    /// When a worker finishes successfully (ie not via cancelling), `terminated_generation` is set
-    /// to zero which "seals" this task in some sense.
-    current_generation: AtomicU32,
+    /// The only sort of non-trivial ordering thing here is that incrementing
+    /// `terminated_generation` is the last thing that the execution of a generation does, and it
+    /// does so with a `Release` store; if it's going to produce any result in `maybe_value`, that
+    /// will be populated first (and can be made visible by `acquire` loading the
+    /// `terminated_generation`).
     terminated_generation: AtomicU32,
 
     /// Wakers of everything currently parked on this task; as a mental model this can be thought of
@@ -161,82 +165,83 @@ pub(crate) struct DiceTaskInternal {
     /// generations. We don't attempt to be smart; when we wake anything, we wake everything, and
     /// things that didn't need to be woken just re-register themselves.
     wakers: AtomicWakerSet,
-
-    /// The computed value; the access invariant is as follows:
-    ///  1. Initially, only the `DiceTaskCompletionHandle` may access this; it writes `Some` here
-    ///     when it's ready.
-    ///  2. The `DiceTaskCompletionHandle` `Release` stores `0` into `terminated_generation` above.
-    ///     This value is immutable from then on.
-    ///  3. Anything else which `Acquire` loads the `0` from `terminated_generation` may read this.
-    maybe_value: UnsafeCell<Option<DiceComputedValue>>,
-
-    /// The most recently provided cancellation reason
-    ///
-    /// FIXME(JakobDegen): This is also kind of messy, users of this might want the cancellation
-    /// reason for a specific generation, not whatever this is. But also, a previous version of this
-    /// code made a (poor) attempt to have some distinction between final cancellations - those that
-    /// are expected to retire the task in the minor version for good - and cancellations that apply
-    /// to just one generation. Possibly we should attempt to do that right.
-    last_cancellation_reason: Mutex<Option<CancellationReason>>,
 }
 
 unsafe impl Send for DiceTaskInternal {}
 unsafe impl Sync for DiceTaskInternal {}
 
-struct Critical {
-    /// Cancellation handle for the most recently created generation. The actual computation on the
-    /// other side of this may have not yet started, or already been cancelled.
-    cancellation_handle: DropcancelHandle,
-}
-
-pub(crate) enum ReadValueResult<'d> {
-    Finished(&'d DiceComputedValue),
+enum ReadValueResult<'d> {
+    Finished(&'d TransactionResult<DiceComputedValue>),
     Pending { terminated_generation: u32 },
 }
 
-/// Future that resolves when a task finishes at a particular generation.
+/// Future-like type that waits on a task.
+///
+/// Can either be used to wait on a specific generation or on general completion.
 #[pin_project::pin_project(PinnedDrop)]
 pub(crate) struct TaskWaiter<'d> {
     task: DiceTaskRef<'d>,
-    generation: u32,
     #[pin]
     waiter: AtomicWakerSetEntry,
 }
 
-impl<'d> Future for TaskWaiter<'d> {
-    type Output = CancellableResult<&'d DiceComputedValue>;
+impl<'d> TaskWaiter<'d> {
+    /// When using this to wait until task completion, poll this.
+    ///
+    /// Note that it's very ill-advised to do this if you don't hold a strong count to the task, as
+    /// without one completion might never happen.
+    fn poll_complete(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<&'d TransactionResult<DiceComputedValue>> {
+        let this = self.as_mut().project();
+        let internal = this.task.internal.get();
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let check = || {
+            if let Some(r) = internal.maybe_value.get() {
+                Poll::Ready(r)
+            } else {
+                Poll::Pending
+            }
+        };
+
         // Fast-path to avoid waker registration
-        if let Poll::Ready(v) = self.try_get() {
-            return Poll::Ready(v);
+        if let Poll::Ready(r) = check() {
+            return Poll::Ready(r);
         }
-
         // SAFETY: We're pinned and this is the only waker set we use
         unsafe {
-            let this = self.as_mut().project();
-            this.waiter
-                .register(&this.task.internal.wakers, cx.waker().clone());
+            this.waiter.register(&internal.wakers, cx.waker().clone());
         }
-        self.try_get()
+        check()
     }
-}
 
-impl<'d> TaskWaiter<'d> {
-    fn try_get(&self) -> Poll<CancellableResult<&'d DiceComputedValue>> {
-        match self.task.internal.get().read_value() {
-            // FIXME(JakobDegen): Is it right that we report success if it succeeded at a generation
-            // other than this one?
-            ReadValueResult::Finished(v) => Poll::Ready(Ok(v)),
-            ReadValueResult::Pending {
-                terminated_generation,
-            } if terminated_generation >= self.generation => {
-                let r = *self.task.internal.last_cancellation_reason.lock();
-                // FIXME(JakobDegen): Probably shouldn't have a default here
-                Poll::Ready(Err(r.unwrap_or(CancellationReason::HandleDropped)))
+    /// When using this to wait until a particular generation completes, poll this.
+    fn poll_at_generation(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        generation: u32,
+    ) -> Poll<WorkerResult<&'d TransactionResult<DiceComputedValue>>> {
+        let this = self.as_mut().project();
+        let internal = this.task.internal.get();
+
+        let check = || {
+            if internal.terminated_generation.load(Ordering::Acquire) >= generation {
+                Poll::Ready(internal.maybe_value.get().ok_or(WorkerCancelled))
+            } else {
+                Poll::Pending
             }
-            ReadValueResult::Pending { .. } => Poll::Pending,
+        };
+
+        // Fast-path to avoid waker registration
+        if let Poll::Ready(r) = check() {
+            return Poll::Ready(r);
         }
+        // SAFETY: We're pinnned and this is the only waker set we use
+        unsafe {
+            this.waiter.register(&internal.wakers, cx.waker().clone());
+        }
+        check()
     }
 }
 
@@ -253,7 +258,7 @@ impl<'d> PinnedDrop for TaskWaiter<'d> {
 
 /// Result of registering as a dependent of a task via `depended_on_by`.
 pub(crate) enum DiceTaskDependedOnByResult<'d> {
-    Finished(&'d DiceComputedValue),
+    Finished(&'d TransactionResult<DiceComputedValue>),
     Pending(DicePromise<'d>),
     /// The task had been cancelled and this caller won the race to restart it. The caller must
     /// spawn the worker on the freshly prepared (next-generation) task, after awaiting termination
@@ -271,7 +276,7 @@ impl<'d> DiceTaskDependedOnByResult<'d> {
     pub(crate) fn unwrap(self) -> DicePromise<'d> {
         match self {
             DiceTaskDependedOnByResult::Pending(p) => p,
-            DiceTaskDependedOnByResult::Finished(v) => DicePromise::ready(Ok(v)),
+            DiceTaskDependedOnByResult::Finished(v) => DicePromise::ready(v),
             DiceTaskDependedOnByResult::NeedsRestart(_, _) => {
                 panic!("DiceTaskDependedOnByResult::unwrap called on NeedsRestart");
             }
@@ -325,17 +330,12 @@ impl DiceTask {
             internal: crate::arc::Arc::new(DiceTaskInternal {
                 key,
                 strong_count: AtomicU32::new(1),
-                // First generation. Per the invariant on `current_generation`, `term (1) ==
-                // cur (2) - 1` is the "in progress" state; `0` is reserved as the "finished"
-                // sentinel, so generations start at 2/1 rather than 1/0.
-                current_generation: AtomicU32::new(2),
-                terminated_generation: AtomicU32::new(1),
-                maybe_value: UnsafeCell::new(None),
+                // First generation.
+                started_generation: AtomicU32::new(1),
+                terminated_generation: AtomicU32::new(0),
+                maybe_value: OnceLock::new(),
                 wakers: AtomicWakerSet::new(),
-                critical: Mutex::new(Some(Box::new(Critical {
-                    cancellation_handle,
-                }))),
-                last_cancellation_reason: Mutex::new(None),
+                starter_lock: Mutex::new(Some(cancellation_handle)),
             }),
         };
 
@@ -351,11 +351,10 @@ impl DiceTask {
             },
             dependent_future: DiceTaskDependentFuture(TaskWaiter {
                 task,
-                generation: 2,
                 waiter: AtomicWakerSetEntry::new(),
             }),
             completion_handle: DiceTaskCompletionHandle {
-                generation: 2,
+                generation: 1,
                 task: task.clone_arc(),
             },
         })
@@ -379,18 +378,16 @@ impl<'d> DiceTaskRef<'d> {
             .is_ok()
         {
             // fast path, strong_count > 0: task is in progress
-            let generation = internal.current_generation.load(Ordering::Relaxed);
             return DiceTaskDependedOnByResult::Pending(DicePromise::pending(
                 DiceTaskDependentFuture(TaskWaiter {
                     task: self,
-                    generation,
                     waiter: AtomicWakerSetEntry::new(),
                 }),
             ));
         }
 
         // strong_count == 0: task was cancelled, need to restart it.
-        let mut guard = self.internal.critical.lock();
+        let mut guard = self.internal.starter_lock.lock();
 
         // Now need to recheck in case we raced with something.
         if let Some(v) = self.get_finished_value() {
@@ -407,28 +404,26 @@ impl<'d> DiceTaskRef<'d> {
             })
             .is_ok()
         {
-            let prev_generation = internal.current_generation.load(Ordering::Relaxed);
             // Something already restarted it.
             return DiceTaskDependedOnByResult::Pending(DicePromise::pending(
                 DiceTaskDependentFuture(TaskWaiter {
                     task: self,
-                    generation: prev_generation,
                     waiter: AtomicWakerSetEntry::new(),
                 }),
             ));
         }
 
         // We are the restarter.
-        let prev_generation = internal.current_generation.load(Ordering::Relaxed);
+        let prev_generation = internal.started_generation.load(Ordering::Relaxed);
         let new_generation = prev_generation + 1;
         self.internal
-            .current_generation
+            .started_generation
             .store(new_generation, Ordering::Relaxed);
 
         // Build new cancellation infrastructure for the next generation.
         let (future_spawner, cancellation_handle) = prepare_detached_cancellation();
         let cancellation_handle = cancellation_handle.into_dropcancel();
-        guard.as_mut().unwrap().cancellation_handle = cancellation_handle;
+        *guard = Some(cancellation_handle);
 
         // Setting this allows other calls to follow the fast path. We could probably do this just after
         // updating current_generation, but it's a bit easier to reason about if we finish all our updates first.
@@ -445,7 +440,6 @@ impl<'d> DiceTaskRef<'d> {
             },
             dependent_future: DiceTaskDependentFuture(TaskWaiter {
                 task: self,
-                generation: new_generation,
                 waiter: AtomicWakerSetEntry::new(),
             }),
             completion_handle: DiceTaskCompletionHandle {
@@ -457,7 +451,7 @@ impl<'d> DiceTaskRef<'d> {
         DiceTaskDependedOnByResult::NeedsRestart(prepared, previously_cancelled)
     }
 
-    pub(crate) fn get_finished_value(self) -> Option<&'d DiceComputedValue> {
+    pub(crate) fn get_finished_value(self) -> Option<&'d TransactionResult<DiceComputedValue>> {
         match self.internal.get().read_value() {
             ReadValueResult::Finished(v) => Some(v),
             ReadValueResult::Pending { .. } => None,
@@ -470,13 +464,14 @@ impl<'d> DiceTaskRef<'d> {
     }
 
     /// Returns whether the task may have any outstanding work.
+    ///
+    /// Note that this operation is basically only well-defined on tasks that have been cancelled
+    /// (or finished); otherwise there's nothing stopping this from racing with a new worker
+    /// starting.
     pub(crate) fn is_pending(&self) -> bool {
-        match self.internal.read_value() {
-            ReadValueResult::Finished(_) => false,
-            ReadValueResult::Pending {
-                terminated_generation,
-            } => terminated_generation < self.internal.current_generation.load(Ordering::Relaxed),
-        }
+        let started = self.internal.started_generation.load(Ordering::Relaxed);
+        let terminated = self.internal.terminated_generation.load(Ordering::Relaxed);
+        terminated < started
     }
 
     pub(crate) fn introspect_state(&self) -> DiceTaskState {
@@ -485,7 +480,7 @@ impl<'d> DiceTaskRef<'d> {
             ReadValueResult::Pending {
                 terminated_generation,
             } if terminated_generation
-                < self.internal.current_generation.load(Ordering::Relaxed) =>
+                < self.internal.started_generation.load(Ordering::Relaxed) =>
             {
                 DiceTaskState::InProgress
             }
@@ -493,13 +488,16 @@ impl<'d> DiceTaskRef<'d> {
         }
     }
 
-    pub(crate) fn cancel(&self, reason: CancellationReason) {
-        let guard = self.internal.critical.lock();
-        *self.internal.last_cancellation_reason.lock() = Some(reason);
-        GlobalStats::record_cancellation();
-        if let Some(critical) = guard.as_ref() {
-            critical.cancellation_handle.cancel();
+    /// Cancels the task, ensuring no new workers can be started, and return whether any work is
+    /// pending
+    pub(crate) fn cancel(&self, token: TransactionCancelled) -> bool {
+        drop(self.internal.maybe_value.set(TransactionResult::err(token)));
+        let mut guard = self.internal.starter_lock.lock();
+        if let Some(dropcancel) = guard.take() {
+            GlobalStats::record_cancellation();
+            drop(dropcancel);
         }
+        self.is_pending()
     }
 
     #[cfg(test)]
@@ -512,102 +510,72 @@ impl<'d> DiceTaskRef<'d> {
 
     #[cfg(test)]
     pub(crate) fn is_cancelled(&self) -> bool {
-        // Three states (per the generation invariant):
-        //   * Finished:  terminated_generation == 0
-        //   * Pending:   terminated_generation == current_generation - 1
-        //   * Cancelled: terminated_generation == current_generation
-        // Use read_value() (which returns Pending(term)) and compare against
-        // current. >= is defensive in case ordering ever briefly violates the
-        // invariant.
+        // The worker was cancelled iff it produced no value at all (`Pending`, i.e. `maybe_value`
+        // unset) and its most recent generation has terminated (`terminated >= started`). A
+        // transaction cancellation is not this case: it stores a `TransactionCancelled` result, so
+        // it reads back as `Finished`. `>=` (rather than `==`) is defensive against a brief
+        // ordering window where `terminated` could momentarily exceed `started`.
         match self.internal.read_value() {
             ReadValueResult::Finished(_) => false,
             ReadValueResult::Pending {
                 terminated_generation,
-            } => terminated_generation >= self.internal.current_generation.load(Ordering::Relaxed),
+            } => terminated_generation >= self.internal.started_generation.load(Ordering::Relaxed),
         }
     }
 
     /// Returns a future that resolves when this task finishes or is fully cancelled
     /// and terminated.
     pub(crate) fn await_termination(self) -> TerminationObserver {
-        let generation = self.internal.current_generation.load(Ordering::Relaxed);
+        let generation = self.internal.started_generation.load(Ordering::Relaxed);
         TerminationObserver::new(self, generation)
     }
 
-    fn task_finished<'a>(
-        &'_ self,
-        guard: parking_lot::MutexGuard<'a, Option<Box<Critical>>>,
-        generation: u32,
-    ) -> Option<parking_lot::MutexGuard<'a, Option<Box<Critical>>>> {
-        let internal = &*self.internal;
-        let last_terminated = internal.terminated_generation.load(Ordering::Relaxed);
-        if last_terminated == 0 {
-            // Everything was sealed earlier, so at this point it's completely safe to ignore this
-            return None;
+    fn task_finished(&'_ self, generation: u32) {
+        let prev = self
+            .internal
+            .terminated_generation
+            .fetch_add(1, Ordering::Release);
+        // We verify that the generations are cancelled in order, not out of order. To see why this
+        // is locally important for correctness, consider what happens if 9 reports completion
+        // before 8. 9 must have been cancelled for that to be possible, but we would not be allowed
+        // to mark it as terminated, since that would imply that 8 finished too. But when 8
+        // eventually does come back as fully cancelled, we won't know to mark 9 as cancelled too,
+        // and everything will stall.
+        //
+        // FIXME(JakobDegen): It's a very non-local property that this is ok; in practice the worker
+        // disables cancellations at the right times to make things work out, but it'd be good if
+        // that were a lot more obvious.
+        assert_eq!(
+            prev + 1,
+            generation,
+            "Generations did not terminate in order"
+        );
+        let mut guard = self.internal.starter_lock.lock();
+        let current = self.internal.started_generation.load(Ordering::Relaxed);
+        if current == generation {
+            // The cancellation handle corresponds to this task; make sure to discard it to ensure
+            // memory is released. Note that the requirement that `guard` is held when `current` is
+            // changed makes the generation comparison and this operation "atomic"
+            guard
+                .take()
+                // Convert into a cancellation handle so that we don't do the "cancel" part of the
+                // "dropcancel". It wouldn't really matter since the thing being cancelled is done
+                // already anyway, but seems mildly cleaner.
+                .map(|dropcancel| dropcancel.into_cancellable());
         }
-        if last_terminated + 1 != generation {
-            // Otherwise, we verify that the generations are cancelled in order, not out of order.
-            // To see why this is locally important for correctness, consider what happens if 9
-            // reports completion before 8. 9 must have been cancelled for that to be possible, but
-            // we would not be allowed to mark it as terminated, since that would imply that 8
-            // finished too. But when 8 eventually does come back as fully cancelled, we won't know
-            // to mark 9 as cancelled too, and everything will stall.
-            //
-            // FIXME(JakobDegen): It's a very non-local property that this is ok; in practice the
-            // worker disables cancellations at the right times to make things work out, but it'd be
-            // good if that were a lot more obvious.
-            panic!("Generations did not terminate in order");
-        }
-        Some(guard)
+        drop(guard);
+        self.internal.wakers.wake_all();
     }
 
     /// Mark that a generation has terminated successfully.
-    ///
-    /// Calling this on a subsequent generation after a previous one succeeded is tolerated.
-    fn task_finished_success(
-        &self,
-        guard: parking_lot::MutexGuard<'_, Option<Box<Critical>>>,
-        generation: u32,
-        value: DiceComputedValue,
-    ) {
-        let internal = &*self.internal;
-        let Some(mut guard) = self.task_finished(guard, generation) else {
-            return;
-        };
-        unsafe { *internal.maybe_value.get() = Some(value) };
-        internal.terminated_generation.store(0, Ordering::Release);
-        internal.wakers.wake_all();
-        // The task is now sealed for good: the cancellation handle and sync-projection slot in
-        // `Critical` can never be needed again. Sealed tasks live in the cache indefinitely, so drop
-        // the `Box<Critical>` to reclaim that memory.
-        *guard = None;
+    fn task_finished_result(&self, generation: u32, value: TransactionResult<DiceComputedValue>) {
+        drop(self.internal.maybe_value.set(value));
+        self.task_finished(generation);
     }
 
     /// Mark that a generation has terminated in cancellation.
-    fn task_finished_cancelled(
-        &self,
-        guard: parking_lot::MutexGuard<'_, Option<Box<Critical>>>,
-        generation: u32,
-        reason: CancellationReason,
-    ) {
-        let internal = &*self.internal;
-        let maybe_guard = self.task_finished(guard, generation);
-        if maybe_guard.is_none() {
-            return;
-        }
-
-        if reason != CancellationReason::HandleDropped {
-            // In the handle dropped case it was probably dropped because of a cancellation reason
-            // already stored here.
-            //
-            // FIXME(JakobDegen): Messy.
-            *internal.last_cancellation_reason.lock() = Some(reason);
-        }
-
-        internal
-            .terminated_generation
-            .store(generation, Ordering::Relaxed);
-        internal.wakers.wake_all();
+    fn task_finished_no_result(&self, generation: u32, _token: WorkerCancelled) {
+        self.task_finished(generation);
     }
 
     /// Drop one dependent.
@@ -625,32 +593,28 @@ impl<'d> DiceTaskRef<'d> {
         }
 
         // Slow path: we appear to be the last dependent.
-        let guard = self.internal.critical.lock();
+        let mut guard = self.internal.starter_lock.lock();
         let prev = self.internal.strong_count.fetch_sub(1, Ordering::Relaxed);
         if prev != 1 {
             // A new dependent registered.
             return;
         }
 
-        // We were the last dependent. Cancel the spawned task — unless the task is already sealed
-        // (`Critical` dropped), in which case there is nothing running to cancel.
-        if let Some(critical) = guard.as_ref() {
+        // We were the last dependent. Cancel the spawned task if needed.
+        if let Some(dropcancel) = guard.take() {
             GlobalStats::record_cancellation();
-            critical.cancellation_handle.cancel();
+            drop(dropcancel);
         }
     }
 }
 
 impl DiceTaskInternal {
-    pub(crate) fn read_value(&self) -> ReadValueResult<'_> {
-        match self.terminated_generation.load(Ordering::Acquire) {
-            0 => ReadValueResult::Finished(
-                // SAFETY: `Acquire` load of `0` synchronizes with the op that wrote this, as per
-                // the invariant on this
-                unsafe { &*self.maybe_value.get() }.as_ref().unwrap(),
-            ),
-            terminated_generation => ReadValueResult::Pending {
-                terminated_generation,
+    fn read_value(&self) -> ReadValueResult<'_> {
+        let terminated = self.terminated_generation.load(Ordering::Acquire);
+        match self.maybe_value.get() {
+            Some(v) => ReadValueResult::Finished(v),
+            None => ReadValueResult::Pending {
+                terminated_generation: terminated,
             },
         }
     }
@@ -730,20 +694,14 @@ pub(crate) struct DiceTaskCompletionHandle {
 }
 
 impl DiceTaskCompletionHandle {
-    pub(crate) fn terminated(self, reason: CancellationReason) {
-        self.task.as_ref().task_finished_cancelled(
-            self.task.internal.critical.lock(),
-            self.generation,
-            reason,
-        );
+    pub(crate) fn cancelled(self, token: WorkerCancelled) {
+        self.task
+            .as_ref()
+            .task_finished_no_result(self.generation, token);
     }
 
-    pub(crate) fn completed(self, v: DiceComputedValue) {
-        self.task.as_ref().task_finished_success(
-            self.task.internal.critical.lock(),
-            self.generation,
-            v,
-        );
+    pub(crate) fn completed(self, v: TransactionResult<DiceComputedValue>) {
+        self.task.as_ref().task_finished_result(self.generation, v);
     }
 }
 
@@ -774,31 +732,35 @@ impl<'d> PinnedDrop for DiceTaskDependentFuture<'d> {
 }
 
 impl<'d> Future for DiceTaskDependentFuture<'d> {
-    type Output = CancellableResult<&'d DiceComputedValue>;
+    type Output = &'d TransactionResult<DiceComputedValue>;
 
     fn poll(
         self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Self::Output> {
-        self.project().0.poll(cx)
+        self.project().0.poll_complete(cx)
     }
 }
 
 /// A future that resolves when the underlying task is complete and idle.
 // Unlike `DiceTaskDependentFuture`, this does not hold a strong count. It's also less well
 // optimized.
-pub(crate) struct TerminationObserver(BoxFuture<'static, Option<DiceComputedValue>>);
+pub(crate) struct TerminationObserver(
+    BoxFuture<'static, Option<TransactionResult<DiceComputedValue>>>,
+);
 
 impl TerminationObserver {
     fn new(t: DiceTaskRef<'_>, generation: u32) -> Self {
         let task = t.clone_arc();
         TerminationObserver(
             async move {
-                TaskWaiter {
+                let mut wait = std::pin::pin!(TaskWaiter {
                     task: task.as_ref(),
-                    generation,
                     waiter: AtomicWakerSetEntry::new(),
-                }
+                });
+                std::pin::pin!(std::future::poll_fn(|cx| {
+                    TaskWaiter::poll_at_generation(wait.as_mut(), cx, generation)
+                }))
                 .await
                 .ok()
                 .map(|t| t.dupe())
@@ -809,7 +771,7 @@ impl TerminationObserver {
 }
 
 impl Future for TerminationObserver {
-    type Output = Option<DiceComputedValue>;
+    type Output = Option<TransactionResult<DiceComputedValue>>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         Pin::new(&mut self.get_mut().0).poll(cx)
@@ -819,6 +781,7 @@ impl Future for TerminationObserver {
 #[cfg(test)]
 pub(crate) mod testing_helpers {
     use crate::api::key::Key;
+    use crate::epoch::cache::TransactionResult;
     use crate::epoch::task::dice::DiceTask;
     use crate::key::DiceKey;
     use crate::value::DiceComputedValue;
@@ -847,7 +810,9 @@ pub(crate) mod testing_helpers {
     ) -> DiceTask {
         let prepared = DiceTask::prepare_testing(key);
         let task = prepared.task().clone_arc();
-        prepared.completion_handle.completed(val);
+        prepared
+            .completion_handle
+            .completed(TransactionResult::ok(val));
         task
     }
 }

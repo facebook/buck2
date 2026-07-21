@@ -630,14 +630,15 @@ impl ComputeCtx {
                 self.cycles
                     .subrequest(dice_key, &self.transaction_data.dice.key_index),
             )
-            .map_ok(move |dice_value| {
-                OpaqueValue::new(
-                    dice_key,
-                    dice_value.value(),
-                    dice_value.invalidation_paths(),
-                )
+            .map(move |result| {
+                result.as_ref().into_dice_result().map(|dice_value| {
+                    OpaqueValue::new(
+                        dice_key,
+                        dice_value.value(),
+                        dice_value.invalidation_paths(),
+                    )
+                })
             })
-            .map_err(DiceError::cancelled)
     }
 
     /// Compute "projection" based on deriving value
@@ -660,8 +661,8 @@ impl ComputeCtx {
                 base.invalidation_paths,
                 &self.transaction_data,
             )
+            .into_dice_result()
             .map(|r| (dice_key, r))
-            .map_err(DiceError::cancelled)
     }
 
     /// Data that is static per the entire lifetime of Dice. These data are initialized at the

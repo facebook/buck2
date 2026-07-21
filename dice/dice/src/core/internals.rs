@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-use dice_error::result::CancellableResult;
-use dice_error::result::CancellationReason;
 use dupe::Dupe;
 use pagable::DataKey;
 
@@ -28,6 +26,7 @@ use crate::core::versions::VersionTracker;
 use crate::core::versions::introspection::VersionIntrospectable;
 use crate::deps::graph::SeriesParallelDeps;
 use crate::epoch::cache::SharedCache;
+use crate::epoch::cache::TransactionResult;
 use crate::epoch::task::dice::DiceTask;
 use crate::key::DiceKey;
 use crate::metrics::Metrics;
@@ -119,14 +118,15 @@ impl CoreState {
         reusability: ValueReusable,
         deps: Arc<SeriesParallelDeps>,
         invalidation_paths: TrackedInvalidationPaths,
-    ) -> CancellableResult<DiceComputedValue> {
+    ) -> TransactionResult<DiceComputedValue> {
         if self.version_tracker.is_cancelled(key.v, epoch) {
-            Err(CancellationReason::Rejected)
+            TransactionResult::make_cancelled()
         } else {
-            Ok(self
-                .graph
-                .update(key, value, reusability, deps, storage, invalidation_paths)
-                .0)
+            TransactionResult::ok(
+                self.graph
+                    .update(key, value, reusability, deps, storage, invalidation_paths)
+                    .0,
+            )
         }
     }
 
@@ -276,8 +276,6 @@ mod tests {
     use allocative::Allocative;
     use async_trait::async_trait;
     use derive_more::Display;
-    use dice_error::result::CancellableResult;
-    use dice_error::result::CancellationReason;
     use dice_futures::cancellation::CancellationContext;
     use dice_futures::spawner::TokioSpawner;
     use dupe::Dupe;
@@ -293,19 +291,18 @@ mod tests {
     use crate::api::key::NoValueSerialize;
     use crate::api::key::ValueSerialize;
     use crate::arc::Arc;
-    use crate::core::graph::storage::ValueReusable;
     use crate::core::graph::types::VersionedGraphKey;
     use crate::core::internals::CoreState;
     use crate::core::internals::StorageType;
-    use crate::core::versions::VersionEpoch;
+    use crate::core::internals::ValueReusable;
     use crate::deps::graph::SeriesParallelDeps;
     use crate::epoch::cache::SharedCacheInsert;
+    use crate::epoch::cache::TransactionCancelled;
     use crate::epoch::task::dice::DiceTask;
     use crate::epoch::task::dice::testing_helpers::make_completed_task;
     use crate::epoch::task::spawn_dice_task;
     use crate::key::DiceKey;
     use crate::updater::ChangeType;
-    use crate::value::DiceComputedValue;
     use crate::value::DiceKeyValue;
     use crate::value::DiceValidValue;
     use crate::value::TrackedInvalidationPaths;
@@ -361,38 +358,6 @@ mod tests {
     }
 
     #[test]
-    fn cancellation_reason() {
-        let mut core = CoreState::new();
-        fn update(
-            core: &mut CoreState,
-            epoch: VersionEpoch,
-            version: VersionNumber,
-        ) -> CancellableResult<DiceComputedValue> {
-            core.update_computed(
-                VersionedGraphKey::new(version, DiceKey { index: 0 }),
-                epoch,
-                StorageType::Normal,
-                DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)),
-                ValueReusable::EqualityBased,
-                Arc::new(SeriesParallelDeps::None),
-                TrackedInvalidationPaths::clean(),
-            )
-        }
-        let v: VersionNumber = VersionNumber::new(1);
-        let (epoch, _ctx) = core.ctx_at_version(v);
-        let res = update(&mut core, epoch, v);
-        assert_eq!(res.err(), None);
-
-        core.unstable_drop_everything();
-        let res = update(&mut core, epoch, v);
-        assert_eq!(res.err(), Some(CancellationReason::Rejected));
-
-        core.drop_ctx_at_version(v);
-        let res = update(&mut core, epoch, v);
-        assert_eq!(res.err(), Some(CancellationReason::Rejected));
-    }
-
-    #[test]
     fn non_pageable_nodes_are_not_page_out_candidates() {
         let mut core = CoreState::new();
         let v = VersionNumber::FIRST;
@@ -408,7 +373,7 @@ mod tests {
                 Arc::new(SeriesParallelDeps::None),
                 TrackedInvalidationPaths::clean(),
             );
-            assert_eq!(res.err(), None);
+            assert!(res.unpack().is_ok());
         };
         compute(&mut core, 0);
         compute(&mut core, 1);
@@ -443,7 +408,7 @@ mod tests {
         });
         finished_cancelling_tasks
             .as_ref()
-            .cancel(CancellationReason::ByTest);
+            .cancel(TransactionCancelled);
 
         finished_cancelling_tasks.as_ref().await_termination().await;
 
@@ -554,7 +519,7 @@ mod tests {
 
         assert!(matches!(
             cache.insert(DiceKey { index: 999 },),
-            SharedCacheInsert::TransactionCancelled
+            SharedCacheInsert::TransactionCancelled(_)
         ));
 
         // let the cancellable tasks cancel

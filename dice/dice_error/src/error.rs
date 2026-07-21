@@ -15,7 +15,6 @@ use dupe::Dupe;
 use thiserror::Error;
 
 use crate::cycles::RequestedKey;
-use crate::result::CancellationReason;
 
 #[derive(Clone, Dupe, Debug, Error, Allocative)]
 #[error(transparent)]
@@ -30,8 +29,8 @@ impl DiceError {
         DiceError(Arc::new(DiceErrorImpl::DuplicateChange(key)))
     }
 
-    pub fn cancelled(reason: CancellationReason) -> Self {
-        DiceError(Arc::new(DiceErrorImpl::Cancelled(reason)))
+    pub fn transaction_cancelled() -> Self {
+        DiceError(Arc::new(DiceErrorImpl::TransactionCancelled))
     }
 
     pub fn duplicate_activation_data() -> Self {
@@ -51,10 +50,8 @@ pub enum DiceErrorImpl {
     ChangedToInvalid(Arc<dyn RequestedKey>),
     #[error("Key `{0}` is an InjectedKey and received an invalidation")]
     InjectedKeyGotInvalidation(Arc<dyn RequestedKey>),
-    /// NOTE: This isn't an error users normally see, since if the user is waiting on a result, the
-    /// future doesn't get cancelled.
-    #[error("The evaluation of this key was cancelled: {0}")]
-    Cancelled(CancellationReason),
+    #[error("The transaction was cancelled")]
+    TransactionCancelled,
     #[error(
         "Requested cycle_guard of type {}, but current guard has type {}",
         expected_type_name,

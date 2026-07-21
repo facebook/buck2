@@ -465,7 +465,7 @@ fn _assert_dice_compute_future_sizes() {
         }
     }
 
-    mini_vec::size_assert::words_of_async_fn_future!(DiceComputations::compute::<K>, (_, _), 10);
+    mini_vec::size_assert::words_of_async_fn_future!(DiceComputations::compute::<K>, (_, _), 9);
 
     mini_vec::size_assert::words_of_async_fn_future!(
         DiceComputations::compute2::<_, u32, _, u32>,

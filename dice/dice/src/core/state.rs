@@ -13,7 +13,6 @@ use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
 use allocative::Allocative;
-use dice_error::result::CancellableResult;
 use dupe::Dupe;
 use futures::Future;
 use pagable::DataKey;
@@ -36,6 +35,7 @@ use crate::core::processor::StateProcessor;
 use crate::core::versions::VersionEpoch;
 use crate::core::versions::introspection::VersionIntrospectable;
 use crate::deps::graph::SeriesParallelDeps;
+use crate::epoch::cache::TransactionResult;
 use crate::epoch::evaluator::VersionEpochState;
 use crate::epoch::task::dice::DiceTask;
 use crate::key::DiceKey;
@@ -194,7 +194,7 @@ impl CoreStateHandle {
         value: DiceValidValue,
         deps: Arc<SeriesParallelDeps>,
         invalidation_paths: TrackedInvalidationPaths,
-    ) -> impl Future<Output = CancellableResult<DiceComputedValue>> + use<> {
+    ) -> impl Future<Output = TransactionResult<DiceComputedValue>> + use<> {
         let (resp, recv) = oneshot::channel();
         self.call(
             StateRequest::UpdateComputed {
@@ -218,7 +218,7 @@ impl CoreStateHandle {
         storage: StorageType,
         previous: VersionedGraphResultMismatch,
         invalidation_paths: TrackedInvalidationPaths,
-    ) -> impl Future<Output = CancellableResult<DiceComputedValue>> + use<> {
+    ) -> impl Future<Output = TransactionResult<DiceComputedValue>> + use<> {
         let (resp, recv) = oneshot::channel();
         self.call(
             StateRequest::UpdateMismatchAsUnchanged {
@@ -379,7 +379,7 @@ pub(super) enum StateRequest {
         invalidation_paths: TrackedInvalidationPaths,
         /// Response of the new value to use. This could be a different instance that is `Eq` to the
         /// given computed value if the state already stores an instance of value that is equal.
-        resp: Sender<CancellableResult<DiceComputedValue>>,
+        resp: Sender<TransactionResult<DiceComputedValue>>,
     },
     /// Report that a value has been verified to be unchanged due to its deps
     UpdateMismatchAsUnchanged {
@@ -392,7 +392,7 @@ pub(super) enum StateRequest {
         invalidation_paths: TrackedInvalidationPaths,
         /// Response of the new value to use. This could be a different instance that is `Eq` to the
         /// given computed value if the state already stores an instance of value that is equal.
-        resp: Sender<CancellableResult<DiceComputedValue>>,
+        resp: Sender<TransactionResult<DiceComputedValue>>,
     },
     /// Get all the tasks pending cancellation
     GetTasksPendingCancellation { resp: Sender<Vec<DiceTask>> },

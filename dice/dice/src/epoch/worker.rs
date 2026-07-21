@@ -10,8 +10,6 @@
 
 //! The main worker thread for the dice task
 
-use dice_error::result::CancellableResult;
-use dice_error::result::CancellationReason;
 use dupe::Dupe;
 use futures::Future;
 use futures::FutureExt;
@@ -31,6 +29,8 @@ use crate::core::state::CoreStateHandle;
 use crate::core::versions::VersionEpoch;
 use crate::deps::graph::SeriesParallelDeps;
 use crate::deps::iterator::SeriesParallelDepsIteratorItem;
+use crate::epoch::cache::TransactionCancelled;
+use crate::epoch::cache::TransactionResult;
 use crate::epoch::evaluator::TransactionData;
 use crate::epoch::task::PreviouslyCancelledTask;
 use crate::epoch::task::dice::PreparedDiceTask;
@@ -56,6 +56,11 @@ pub(crate) mod state;
 
 #[cfg(test)]
 mod tests;
+
+/// An error indicating that the worker this is running in the context of was cancelled.
+pub(crate) struct WorkerCancelled;
+
+pub(crate) type WorkerResult<T> = Result<T, WorkerCancelled>;
 
 /// The worker on the spawned dice task
 ///
@@ -112,17 +117,7 @@ impl DiceTaskWorker {
                     Either::Right(state) => worker.do_work(handle, state_handle, state).await,
                 };
 
-                match result {
-                    Ok(DiceWorkerStateFinishedAndCached {
-                        _prevent_cancellation,
-                        value,
-                    }) => {
-                        handle.finished(value);
-                    }
-                    Err(reason) => {
-                        handle.cancelled(reason);
-                    }
-                }
+                handle.finished(result.map(|state| state.value));
             }
             .boxed()
         })
@@ -134,7 +129,7 @@ impl DiceTaskWorker {
         handle: &mut DiceTaskHandle<'_>,
         state_handle: CoreStateHandle,
         task_state: DiceWorkerStateLookupNode,
-    ) -> CancellableResult<DiceWorkerStateFinishedAndCached> {
+    ) -> WorkerResult<DiceWorkerStateFinishedAndCached> {
         let v = self.eval.epoch_state.get_version();
 
         let state_result = state_handle
@@ -191,14 +186,29 @@ impl DiceTaskWorker {
                     scopeguard::defer! {
                         self.eval.check_deps_finished(self.k);
                     }
-                    check_dependencies(
+                    match check_dependencies(
                         &self.eval,
                         ParentKey::Some(self.k),
                         &mismatch.deps_to_validate,
                         mismatch.prev_verified_version,
                         &cycles,
                     )
-                    .await?
+                    .await
+                    {
+                        Ok(x) => x,
+                        Err(transaction_cancelled) => {
+                            // Probably this worker is going to be cancelled very soon, but we don't
+                            // want to risk introducing any race conditions by just assuming that,
+                            // so we handle this properly.
+                            return match handle.cancellation_ctx().try_disable_cancellation() {
+                                Some(g) => Ok(DiceWorkerStateFinishedAndCached {
+                                    value: TransactionResult::err(transaction_cancelled),
+                                    _prevent_cancellation: g,
+                                }),
+                                None => Err(WorkerCancelled),
+                            };
+                        }
+                    }
                 };
 
                 match check_deps_result {
@@ -223,7 +233,7 @@ impl DiceTaskWorker {
                             )
                             .await;
 
-                        return response.map(|r| task_state.cached(r, activation_info));
+                        return Ok(task_state.cached(response, activation_info));
                     }
                     CheckDependenciesResult::NoDeps => {
                         // TODO(cjhopman): Why do we treat nodeps as deps not matching? There seems to be some
@@ -272,7 +282,7 @@ impl DiceTaskWorker {
                         )
                         .await
                 }
-                Err(value) => Ok(DiceComputedValue::new_for_transient(
+                Err(value) => TransactionResult::ok(DiceComputedValue::new_for_transient(
                     value,
                     v,
                     result.invalidation_paths,
@@ -280,7 +290,7 @@ impl DiceTaskWorker {
             }
         };
 
-        res.map(|res| state.cached(res, activation_info))
+        Ok(state.cached(res, activation_info))
     }
 
     async fn compute(
@@ -288,7 +298,7 @@ impl DiceTaskWorker {
         handle: &mut DiceTaskHandle<'_>,
         task_state: DiceWorkerStateEvaluating,
         cycles: &KeyComputingUserCycleDetectorData,
-    ) -> CancellableResult<DiceWorkerStateFinishedEvaluating> {
+    ) -> WorkerResult<DiceWorkerStateFinishedEvaluating> {
         self.eval.compute_started(self.k);
         scopeguard::defer! {
             self.eval.compute_finished(self.k);
@@ -325,7 +335,7 @@ impl DiceTaskWorker {
         &self,
         state_handle: &CoreStateHandle,
         data_key: pagable::DataKey,
-    ) -> CancellableResult<crate::value::DiceValidValue> {
+    ) -> WorkerResult<crate::value::DiceValidValue> {
         let storage = self
             .eval
             .dice
@@ -336,7 +346,8 @@ impl DiceTaskWorker {
         let value = storage.hydrate(key_dyn, data_key).await.map_err(|e| {
             // FIXME(JakobDegen): This is not an appropriate way to report an error.
             tracing::error!("failed to hydrate paged-out DICE value: {:#}", e);
-            CancellationReason::HydrationFailure
+            // FIXME(JakobDegen): And this *really* isn't
+            WorkerCancelled
         })?;
         state_handle.rehydrate(self.k, value.dupe());
         Ok(value)
@@ -350,14 +361,14 @@ async fn check_dependencies<'a>(
     deps: &'a SeriesParallelDeps,
     prev_verified_version: VersionNumber,
     cycles: &'a KeyComputingUserCycleDetectorData,
-) -> CancellableResult<CheckDependenciesResult<'a>> {
+) -> Result<CheckDependenciesResult<'a>, TransactionCancelled> {
     async fn drain_continuables<
         'a,
-        Fut: Future<Output = CancellableResult<CheckDependenciesResult<'a>>>,
+        Fut: Future<Output = Result<CheckDependenciesResult<'a>, TransactionCancelled>>,
     >(
-        inner: BoxFuture<'a, CancellableResult<()>>,
+        inner: BoxFuture<'a, Result<(), TransactionCancelled>>,
         parallel: FuturesUnordered<Fut>,
-    ) -> CancellableResult<()> {
+    ) -> Result<(), TransactionCancelled> {
         let parallel = parallel.map(|v| v.map(|_| ()));
         let combined = stream::select(inner.into_stream(), parallel);
         pin_mut!(combined);
@@ -375,7 +386,7 @@ async fn check_dependencies<'a>(
         deps: impl Iterator<Item = SeriesParallelDepsIteratorItem<'a>> + Send + 'a,
         prev_verified_version: VersionNumber,
         cycles: &'a KeyComputingUserCycleDetectorData,
-    ) -> BoxFuture<'a, CancellableResult<CheckDependenciesResult<'a>>> {
+    ) -> BoxFuture<'a, Result<CheckDependenciesResult<'a>, TransactionCancelled>> {
         let mut invalidation_paths = TrackedInvalidationPaths::clean();
         async move {
             for v in deps {
@@ -453,7 +464,7 @@ async fn check_dependency(
     dep: DiceKey,
     cycles: &KeyComputingUserCycleDetectorData,
     prev_verified_version: VersionNumber,
-) -> CancellableResult<CheckDependencyResult> {
+) -> Result<CheckDependencyResult, TransactionCancelled> {
     let dep_result = eval
         .epoch_state
         .compute_opaque(
@@ -462,7 +473,9 @@ async fn check_dependency(
             eval,
             cycles.subrequest(dep, &eval.dice.key_index),
         )
-        .await?;
+        .await
+        .as_ref()
+        .unpack()?;
 
     if dep_result.versions().contains(prev_verified_version) {
         Ok(CheckDependencyResult::NoChange(
@@ -486,7 +499,7 @@ enum CheckDependenciesResult<'a> {
         ///
         /// Those other checks won't be dropped/cancelled until the continuables future is dropped,
         /// and polling it will continue that deps check process.
-        continuables: BoxFuture<'a, CancellableResult<()>>,
+        continuables: BoxFuture<'a, Result<(), TransactionCancelled>>,
     },
 }
 impl CheckDependenciesResult<'_> {

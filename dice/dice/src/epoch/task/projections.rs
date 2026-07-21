@@ -11,8 +11,6 @@
 use std::sync::OnceLock;
 
 use allocative::Allocative;
-use dice_error::result::CancellableResult;
-use dice_error::result::CancellationReason;
 use dupe::Dupe;
 use futures::future::BoxFuture;
 use parking_lot::MappedRwLockReadGuard;
@@ -20,6 +18,8 @@ use parking_lot::RwLock;
 use parking_lot::RwLockReadGuard;
 
 use crate::arc::Arc;
+use crate::epoch::cache::TransactionCancelled;
+use crate::epoch::cache::TransactionResult;
 use crate::introspection::DiceTaskState;
 use crate::key::DiceKey;
 use crate::value::DiceComputedValue;
@@ -37,7 +37,7 @@ pub(crate) struct DiceSyncResult {
     /// value that we use until then.
     pub(crate) sync_result: DiceComputedValue,
     /// The future with the value that core state returns
-    pub(crate) state_future: BoxFuture<'static, CancellableResult<DiceComputedValue>>,
+    pub(crate) state_future: BoxFuture<'static, TransactionResult<DiceComputedValue>>,
 }
 
 impl DiceSyncResult {
@@ -48,7 +48,7 @@ impl DiceSyncResult {
 
         Self {
             sync_result: v.dupe(),
-            state_future: futures::future::ready(Ok(v)).boxed(),
+            state_future: futures::future::ready(TransactionResult::ok(v)).boxed(),
         }
     }
 }
@@ -67,11 +67,11 @@ pub(crate) struct ProjectionTask {
     /// The value that the core state returned, once it's actually ready.
     ///
     /// This is always set before the `Some` in `critical` is replaced with a `None`.
-    value: OnceLock<CancellableResult<DiceComputedValue>>,
+    value: OnceLock<TransactionResult<DiceComputedValue>>,
 }
 
 struct Critical {
-    sync_value: OnceLock<CancellableResult<DiceComputedValue>>,
+    sync_value: OnceLock<TransactionResult<DiceComputedValue>>,
 }
 
 /// The handle given to the thread responsible for performing and completing the computation.
@@ -119,13 +119,13 @@ impl ProjectionTask {
     }
 
     /// Read the finished value if it's available
-    pub(crate) fn try_read(&self) -> Option<CancellableResult<&'_ DiceComputedValue>> {
-        self.value.get().map(|r| r.as_ref().map_err(|c| *c))
+    pub(crate) fn try_read(&self) -> Option<&'_ TransactionResult<DiceComputedValue>> {
+        self.value.get()
     }
 
     fn value_or_guard(
         &self,
-    ) -> Result<&CancellableResult<DiceComputedValue>, MappedRwLockReadGuard<'_, Critical>> {
+    ) -> Result<&TransactionResult<DiceComputedValue>, MappedRwLockReadGuard<'_, Critical>> {
         // Fast path check
         if let Some(v) = self.value.get() {
             return Ok(v);
@@ -142,14 +142,17 @@ impl ProjectionTask {
     fn insert_computed(
         this: Arc<Self>,
         result: DiceSyncResult,
-    ) -> CancellableResult<DiceComputedValue> {
+    ) -> TransactionResult<DiceComputedValue> {
         match this.value_or_guard() {
             Ok(v) => {
                 // This doesn't normally happen, except in the case of a cancellation
                 return v.dupe();
             }
             Err(g) => {
-                if g.sync_value.set(Ok(result.sync_result.dupe())).is_err() {
+                if g.sync_value
+                    .set(TransactionResult::ok(result.sync_result.dupe()))
+                    .is_err()
+                {
                     // Same here, someone else beat us to it. For consistency, make sure we return that value
                     return g.sync_value.get().unwrap().dupe();
                 }
@@ -161,34 +164,34 @@ impl ProjectionTask {
         tokio::spawn({
             let future = result.state_future;
             async move {
-                let Ok(res) = future.await else {
+                let Ok(res) = future.await.unpack() else {
                     // FIXME(JakobDegen): It's really not clear what we should do in the
                     // cancellation case. However, in the face of uncertainty it's probably best to
                     // guarantee that `.try_read()` on a projection task always agree on whether
                     // things were cancelled or not, so we ignore the cancellation.
                     return;
                 };
-                this.value.set(Ok(res)).unwrap();
+                this.value.set(TransactionResult::ok(res)).unwrap();
                 // Clear `critical` now that we're done
                 drop(this.critical.write().take().unwrap());
             }
         });
 
-        Ok(result.sync_result)
+        TransactionResult::ok(result.sync_result)
     }
 
-    fn cancel(&self, reason: CancellationReason) {
+    fn cancel(&self, token: TransactionCancelled) {
         // This is effectively exactly the same logic as `insert_computed`
         if let Err(g) = self.value_or_guard() {
-            if g.sync_value.set(Err(reason)).is_ok() {
-                self.value.set(Err(reason)).unwrap();
+            if g.sync_value.set(TransactionResult::err(token)).is_ok() {
+                self.value.set(TransactionResult::err(token)).unwrap();
                 drop(g);
                 drop(self.critical.write().take().unwrap());
             }
         }
     }
 
-    pub(crate) fn wait_sync(&self) -> CancellableResult<DiceComputedValue> {
+    pub(crate) fn wait_sync(&self) -> TransactionResult<DiceComputedValue> {
         match self.value_or_guard() {
             Ok(v) => v.dupe(),
             Err(g) => g.sync_value.wait().dupe(),
@@ -215,12 +218,12 @@ impl ProjectionTaskCompletionHandle {
     pub(crate) fn complete(
         mut self,
         result: DiceSyncResult,
-    ) -> CancellableResult<DiceComputedValue> {
+    ) -> TransactionResult<DiceComputedValue> {
         ProjectionTask::insert_computed(self.0.take().unwrap(), result)
     }
 
-    pub(crate) fn cancel(mut self, reason: CancellationReason) {
-        self.0.take().unwrap().cancel(reason);
+    pub(crate) fn cancel(mut self, token: TransactionCancelled) {
+        self.0.take().unwrap().cancel(token);
     }
 }
 
@@ -230,7 +233,7 @@ impl Drop for ProjectionTaskCompletionHandle {
             // Attempt to enforce that this handle was completed or cancelled. Cancellation paths
             // tend to be a bit poorly tested though, so do that in unit tests only.
             #[cfg(not(test))]
-            t.cancel(CancellationReason::HandleDropped);
+            t.cancel(TransactionCancelled);
             #[cfg(test)]
             {
                 drop(t);
@@ -245,7 +248,6 @@ mod tests {
     use allocative::Allocative;
     use async_trait::async_trait;
     use derive_more::Display;
-    use dice_error::result::CancellationReason;
     use dice_futures::cancellation::CancellationContext;
     use dupe::Dupe;
     use futures::FutureExt;
@@ -260,6 +262,7 @@ mod tests {
     use crate::api::key::NoValueSerialize;
     use crate::api::key::ValueSerialize;
     use crate::arc::Arc;
+    use crate::epoch::cache::TransactionResult;
     use crate::epoch::task::projections::DiceSyncResult;
     use crate::key::DiceKey;
     use crate::value::DiceComputedValue;
@@ -325,13 +328,13 @@ mod tests {
 
         let returned = handle.complete(DiceSyncResult::testing(computed(2)));
         assert!(
-            is_val(&returned?, 2),
+            is_val(&returned.into_dice_result()?, 2),
             "insert_computed returns the computed value"
         );
 
         for waiter in waiters {
             assert!(
-                is_val(&waiter.await??, 2),
+                is_val(&waiter.await?.into_dice_result()?, 2),
                 "every waiter observes the computed value"
             );
         }
@@ -349,13 +352,11 @@ mod tests {
         let (tx, rx) = oneshot::channel();
         let returned = handle.complete(DiceSyncResult {
             sync_result: computed(2),
-            state_future: rx
-                .map(|res| res.map_err(|_| CancellationReason::ByTest).flatten())
-                .boxed(),
+            state_future: rx.map(|res| TransactionResult::ok(res.unwrap())).boxed(),
         });
 
         assert!(
-            is_val(&returned.as_ref().unwrap(), 2),
+            is_val(returned.as_ref().into_dice_result().unwrap(), 2),
             "the sync value is returned immediately"
         );
         assert!(
@@ -363,21 +364,21 @@ mod tests {
             "the final value is unavailable until the future resolves"
         );
         assert!(
-            is_val(&task.wait_sync()?, 2),
+            is_val(&task.wait_sync().into_dice_result()?, 2),
             "waiters get the sync value while the future is pending"
         );
 
-        tx.send(Ok(computed(99))).unwrap();
+        tx.send(computed(99)).unwrap();
         while task.try_read().is_none() {
             tokio::task::yield_now().await;
         }
 
         assert!(
-            is_val(task.try_read().unwrap()?, 99),
+            is_val(task.try_read().unwrap().as_ref().into_dice_result()?, 99),
             "the final value reflects the future's result"
         );
         assert!(
-            is_val(&task.wait_sync()?, 99),
+            is_val(&task.wait_sync().into_dice_result()?, 99),
             "wait_sync now fast-paths to the final value"
         );
 

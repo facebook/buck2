@@ -15,8 +15,8 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 
 use allocative::Allocative;
-use dice_error::result::CancellableResult;
-use dice_error::result::CancellationReason;
+use dice_error::DiceError;
+use dice_error::DiceResult;
 use dupe::Dupe;
 use lock_free_hashtable::sharded::ShardedLockFreeRawTable;
 
@@ -26,11 +26,47 @@ use crate::epoch::task::dice::DiceTask;
 use crate::epoch::task::dice::DiceTaskInternal;
 use crate::epoch::task::dice::DiceTaskRef;
 use crate::epoch::task::dice::PreparedDiceTask;
-use crate::epoch::task::dice::ReadValueResult;
 use crate::epoch::task::projections::ProjectionTask;
 use crate::epoch::task::projections::ProjectionTaskCompletionHandle;
 use crate::key::DiceKey;
 use crate::value::DiceComputedValue;
+
+#[derive(Debug, Copy, Clone, Dupe)]
+pub(crate) struct TransactionCancelled;
+
+/// A `Result`-like wrapper that also represents transaction cancellation.
+///
+/// This is newtyped because unlike other results, this should almost never be short-circuited. For
+/// almost all purposes, a `TransactionCancelled` is treated as a real computation result exactly
+/// like a "successful" one.
+#[derive(Debug, Clone, Dupe)]
+pub(crate) struct TransactionResult<T>(Result<T, TransactionCancelled>);
+
+impl<T> TransactionResult<T> {
+    pub(crate) fn ok(t: T) -> Self {
+        Self(Ok(t))
+    }
+
+    pub(crate) fn err(token: TransactionCancelled) -> Self {
+        Self(Err(token))
+    }
+
+    pub(crate) const fn make_cancelled() -> Self {
+        Self(Err(TransactionCancelled))
+    }
+
+    pub(crate) fn unpack(self) -> Result<T, TransactionCancelled> {
+        self.0
+    }
+
+    pub(crate) fn as_ref(&self) -> TransactionResult<&T> {
+        TransactionResult(self.0.as_ref().map_err(|e| *e))
+    }
+
+    pub(crate) fn into_dice_result(self) -> DiceResult<T> {
+        self.0.map_err(|_| DiceError::transaction_cancelled())
+    }
+}
 
 #[derive(Allocative)]
 struct Data {
@@ -51,7 +87,7 @@ impl fmt::Debug for SharedCache {
 }
 
 pub(crate) enum SharedCacheLookup<'d, T> {
-    Finished(CancellableResult<&'d DiceComputedValue>),
+    Finished(&'d TransactionResult<DiceComputedValue>),
     InProgress(T),
     Vacant,
 }
@@ -59,7 +95,14 @@ pub(crate) enum SharedCacheLookup<'d, T> {
 pub(crate) enum SharedCacheInsert<T, N> {
     Occupied(T),
     Inserted(N),
-    TransactionCancelled,
+    TransactionCancelled(&'static TransactionResult<DiceComputedValue>),
+}
+
+impl<T, N> SharedCacheInsert<T, N> {
+    fn cancelled(_t: TransactionCancelled) -> Self {
+        static R: TransactionResult<DiceComputedValue> = TransactionResult::make_cancelled();
+        Self::TransactionCancelled(&R)
+    }
 }
 
 impl SharedCache {
@@ -75,10 +118,11 @@ impl SharedCache {
 
         match entry {
             Some(task) => {
-                if let ReadValueResult::Finished(v) = task.get().read_value() {
-                    SharedCacheLookup::Finished(Ok(v))
+                let task = DiceTaskRef { internal: task };
+                if let Some(v) = task.get_finished_value() {
+                    SharedCacheLookup::Finished(v)
                 } else {
-                    SharedCacheLookup::InProgress(DiceTaskRef { internal: task })
+                    SharedCacheLookup::InProgress(task)
                 }
             }
             None => SharedCacheLookup::Vacant,
@@ -108,7 +152,7 @@ impl SharedCache {
         key: DiceKey,
     ) -> SharedCacheInsert<DiceTaskRef<'_>, PreparedDiceTask<'_>> {
         if self.data.is_cancelled.load(Ordering::Relaxed) {
-            return SharedCacheInsert::TransactionCancelled;
+            return SharedCacheInsert::cancelled(TransactionCancelled);
         }
 
         let maybe_prepared_task = DiceTask::prepare(key, |task| {
@@ -126,7 +170,7 @@ impl SharedCache {
         });
 
         if self.data.is_cancelled.load(Ordering::Relaxed) {
-            return SharedCacheInsert::TransactionCancelled;
+            return SharedCacheInsert::cancelled(TransactionCancelled);
         }
 
         match maybe_prepared_task {
@@ -140,7 +184,7 @@ impl SharedCache {
         key: DiceKey,
     ) -> SharedCacheInsert<ArcBorrow<'_, ProjectionTask>, ProjectionTaskCompletionHandle> {
         if self.data.is_cancelled.load(Ordering::Relaxed) {
-            return SharedCacheInsert::TransactionCancelled;
+            return SharedCacheInsert::cancelled(TransactionCancelled);
         }
 
         let maybe_prepared_task = ProjectionTask::prepare(key, |task| {
@@ -158,14 +202,14 @@ impl SharedCache {
         });
 
         if self.data.is_cancelled.load(Ordering::Relaxed) {
-            return SharedCacheInsert::TransactionCancelled;
+            return SharedCacheInsert::cancelled(TransactionCancelled);
         }
 
         match maybe_prepared_task {
             Ok(handle) => {
                 if self.data.is_cancelled.load(Ordering::Relaxed) {
-                    handle.cancel(CancellationReason::TransactionCancelled);
-                    return SharedCacheInsert::TransactionCancelled;
+                    handle.cancel(TransactionCancelled);
+                    return SharedCacheInsert::cancelled(TransactionCancelled);
                 }
                 SharedCacheInsert::Inserted(handle)
             }
@@ -208,9 +252,7 @@ impl SharedCache {
             .iter()
             .filter_map(|entry| {
                 let task = DiceTaskRef { internal: entry };
-
-                if task.is_pending() {
-                    task.cancel(CancellationReason::TransactionDropped);
+                if task.cancel(TransactionCancelled) {
                     Some(task.clone_arc())
                 } else {
                     None
@@ -269,7 +311,6 @@ mod tests {
     use allocative::Allocative;
     use async_trait::async_trait;
     use derive_more::Display;
-    use dice_error::result::CancellationReason;
     use dice_futures::cancellation::CancellationContext;
     use dice_futures::spawner::TokioSpawner;
     use dupe::Dupe;
@@ -285,6 +326,7 @@ mod tests {
     use crate::epoch::cache::SharedCache;
     use crate::epoch::cache::SharedCacheInsert;
     use crate::epoch::cache::SharedCacheLookup;
+    use crate::epoch::cache::TransactionCancelled;
     use crate::epoch::task::dice::DiceTask;
     use crate::epoch::task::dice::testing_helpers::make_completed_task;
     use crate::epoch::task::spawn_dice_task;
@@ -325,7 +367,7 @@ mod tests {
         });
         finished_cancelling_tasks
             .as_ref()
-            .cancel(CancellationReason::ByTest);
+            .cancel(TransactionCancelled);
         finished_cancelling_tasks.as_ref().await_termination().await;
 
         finished_cancelling_tasks
@@ -382,7 +424,7 @@ mod tests {
         assert_eq!(pending_tasks.len(), 3);
         assert!(matches!(
             cache.insert(DiceKey { index: 999 }),
-            SharedCacheInsert::TransactionCancelled
+            SharedCacheInsert::TransactionCancelled(_)
         ));
     }
 }
