@@ -93,3 +93,17 @@ class LoadVisibilityTest(BuckTestCase):
         ]:
             failure = await expect_failure(buck.targets(f"//{package}:"))
             self.assertIn(message, failure.stderr)
+
+    @buck_test(data_dir="bxl")
+    async def test_load_visibility_bxl_allowed(self, buck: Buck) -> None:
+        """Load visibility of a `.bzl` is enforced for `.bxl` loaders too: a `.bxl`
+        within the declared visibility may load the `.bzl`."""
+        await buck.bxl("//app/allowed.bxl:check")
+
+    @buck_test(data_dir="bxl")
+    async def test_load_visibility_bxl_denied(self, buck: Buck) -> None:
+        """A `.bxl` loading a private `.bzl` from another package is rejected."""
+        await expect_failure(
+            buck.bxl("//app/denied.bxl:check"),
+            stderr_regex="not visible to this package",
+        )

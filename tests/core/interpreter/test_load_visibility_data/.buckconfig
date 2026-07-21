@@ -10,4 +10,4 @@ prelude = root
 [project]
 # Isolated mini-repos used only by the denied / bad-usage tests (each selected
 # via data_dir); ignored so the default `//...` tests skip them.
-ignore = denied, twice, indirect, bad_usage
+ignore = denied, twice, indirect, bad_usage, bxl
