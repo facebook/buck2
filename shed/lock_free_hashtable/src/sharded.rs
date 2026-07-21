@@ -100,6 +100,16 @@ impl<T: AtomicValue, const SHARDS: usize> ShardedLockFreeRawTable<T, SHARDS> {
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
+
+    /// Synchronize against all insert operations.
+    ///
+    /// See [`LockFreeRawTable::synchronize_with_inserts`].
+    #[inline]
+    pub fn synchronize_with_inserts(&self) {
+        for shard in &self.shards {
+            shard.synchronize_with_inserts();
+        }
+    }
 }
 
 /// Iterator over all entries in sharded raw table.
