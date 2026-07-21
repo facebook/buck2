@@ -169,6 +169,10 @@
 
 use allocative::Allocative;
 
+use self::store::NodeEntry;
+use self::store::NodeMut;
+use self::store::NodeStore;
+use self::store::VacantSlot;
 use crate::HashMap;
 use crate::HashSet;
 use crate::api::key::InvalidationSourcePriority;
@@ -196,40 +200,157 @@ use crate::versions::VersionRanges;
 /// dependencies.
 #[derive(Allocative)]
 pub(crate) struct VersionedGraph {
-    /// storage that stores every version forever
-    /// This storage is implemented so that the map keys are composed of the versions for which
-    /// the node changes. Corresponding to each key is a node storing the values and the history.
-    /// VacantGraphEntries can only be present when no other entries are present for the key at
-    /// any version.
-    pub(crate) nodes: HashMap<DiceKey, VersionedGraphNode>,
+    /// All graph nodes, behind [`NodeStore`], which keeps the raw map (`get_mut` /
+    /// `insert` / `entry`) private to its module so a node can only be mutated through
+    /// `node_mut` / `node_entry`. A later diff makes those choke points reconcile a
+    /// page-out candidate index. Read access via `nodes()`.
+    pub(crate) nodes: NodeStore,
+}
+
+/// Owns the node map, exposing mutation only through `node_mut` / `node_entry`. The
+/// map is private to this module, so no other code — including the rest of
+/// `storage.rs` — can reach its raw `&mut`; a later diff adds a candidate index here
+/// that these choke points keep in sync.
+mod store {
+    use std::collections::hash_map::Entry;
+    use std::collections::hash_map::VacantEntry;
+
+    use allocative::Allocative;
+
+    use crate::HashMap;
+    use crate::core::graph::nodes::VersionedGraphNode;
+    use crate::key::DiceKey;
+
+    #[derive(Allocative)]
+    pub(crate) struct NodeStore {
+        /// Stores every version forever. The map keys are composed of the versions for
+        /// which the node changes; each maps to a node storing the values and history.
+        /// VacantGraphEntries can only be present when no other entries are present for
+        /// the key at any version.
+        nodes: HashMap<DiceKey, VersionedGraphNode>,
+    }
+
+    impl NodeStore {
+        pub(super) fn new() -> Self {
+            Self {
+                nodes: Default::default(),
+            }
+        }
+
+        /// Read-only access to all nodes (iterate, count, look up).
+        pub(super) fn nodes(&self) -> &HashMap<DiceKey, VersionedGraphNode> {
+            &self.nodes
+        }
+
+        /// Remove and return all non-injected nodes, keeping injected ones (injected
+        /// keys at old versions can't be recomputed). The returned map is the caller's
+        /// to drop.
+        pub(super) fn retain_injected(&mut self) -> HashMap<DiceKey, VersionedGraphNode> {
+            let mut nodes = std::mem::take(&mut self.nodes);
+            // The number of injected keys is typically small, so this is written to avoid new large allocations
+            self.nodes = nodes
+                .extract_if(|_, n| matches!(n, VersionedGraphNode::Injected(_)))
+                .collect();
+            nodes
+        }
+
+        /// Choke point for mutate-or-insert: one `entry` lookup resolved to a
+        /// [`NodeMut`] guard (present) or a [`VacantSlot`] (absent). A later diff makes
+        /// both reconcile a candidate index, so callers never touch the map directly.
+        pub(super) fn node_entry(&mut self, key: DiceKey) -> NodeEntry<'_> {
+            match self.nodes.entry(key) {
+                Entry::Occupied(occ) => NodeEntry::Occupied(NodeMut {
+                    node: occ.into_mut(),
+                }),
+                Entry::Vacant(vacant) => NodeEntry::Vacant(VacantSlot { vacant }),
+            }
+        }
+
+        /// Choke point for mutating a present node in place; `None` if absent. Uses
+        /// `get_mut` directly (no insert path); [`node_entry`](Self::node_entry) is the
+        /// mutate-or-insert counterpart.
+        pub(super) fn node_mut(&mut self, key: DiceKey) -> Option<NodeMut<'_>> {
+            self.nodes.get_mut(&key).map(|node| NodeMut { node })
+        }
+    }
+
+    /// Guard from [`NodeStore::node_mut`] / the occupied case of
+    /// [`NodeStore::node_entry`]; derefs to the node. A later diff gives it a `Drop`
+    /// that reconciles the candidate set with the node's candidacy, so routing all
+    /// in-place mutation through it keeps the set in sync by construction.
+    pub(crate) struct NodeMut<'a> {
+        node: &'a mut VersionedGraphNode,
+    }
+
+    impl std::ops::Deref for NodeMut<'_> {
+        type Target = VersionedGraphNode;
+        fn deref(&self) -> &VersionedGraphNode {
+            self.node
+        }
+    }
+
+    impl std::ops::DerefMut for NodeMut<'_> {
+        fn deref_mut(&mut self) -> &mut VersionedGraphNode {
+            self.node
+        }
+    }
+
+    /// The empty-slot half of [`NodeStore::node_entry`]: an absent node's insertion
+    /// point. Inserting through it is the sole way to add a node, so a later diff can
+    /// reconcile the candidate set here without a separate insert or `contains_key`.
+    pub(super) struct VacantSlot<'a> {
+        vacant: VacantEntry<'a, DiceKey, VersionedGraphNode>,
+    }
+
+    impl VacantSlot<'_> {
+        /// The key this slot would fill.
+        pub(super) fn key(&self) -> DiceKey {
+            *self.vacant.key()
+        }
+
+        /// Fill the slot.
+        pub(super) fn insert(self, node: VersionedGraphNode) {
+            self.vacant.insert(node);
+        }
+    }
+
+    /// Result of [`NodeStore::node_entry`]: one `entry` lookup resolved to either a
+    /// mutation guard over the present node or an insertion slot for the absent one.
+    pub(super) enum NodeEntry<'a> {
+        Occupied(NodeMut<'a>),
+        Vacant(VacantSlot<'a>),
+    }
 }
 
 impl VersionedGraph {
     pub(crate) fn new() -> Self {
         Self {
-            nodes: Default::default(),
+            nodes: NodeStore::new(),
         }
     }
 
     pub(crate) fn clear(&mut self) {
         // We clear out almost everything except for injected keys - injected keys at old versions
         // can't be recomputed, so we need to retain them.
-        let mut nodes = std::mem::take(&mut self.nodes);
-        // The number of injected keys is typically small, so this is written to avoid new large allocations
-        let retained = nodes
-            .extract_if(|_, n| matches!(n, VersionedGraphNode::Injected(_)))
-            .collect();
-        self.nodes = retained;
+        let dropped = self.nodes.retain_injected();
         // Do the actual drop on a different thread because we may have to drop a lot of stuff here.
         std::thread::Builder::new()
             .name("dice-drop-everything".to_owned())
-            .spawn(move || drop(nodes))
+            .spawn(move || drop(dropped))
             .expect("failed to spawn thread");
+    }
+
+    pub(crate) fn node_mut(&mut self, key: DiceKey) -> Option<NodeMut<'_>> {
+        self.nodes.node_mut(key)
+    }
+
+    pub(crate) fn nodes(&self) -> &HashMap<DiceKey, VersionedGraphNode> {
+        self.nodes.nodes()
     }
 
     /// Gets the entry corresponding to the cache entry if up to date.
     pub(crate) fn get(&self, key: VersionedGraphKey) -> VersionedGraphResult {
-        if let Some(entry) = self.nodes.get(&key.k) {
+        if let Some(entry) = self.nodes.nodes().get(&key.k) {
             entry.at_version(key.v)
         } else {
             VersionedGraphResult::Compute
@@ -258,16 +379,18 @@ impl VersionedGraph {
 
         // Add rdeps.
         for dep in deps.iter_keys() {
-            let node = self.nodes.get_mut(&dep).expect("dependency should exist");
+            let mut node = self.nodes.node_mut(dep).expect("dependency should exist");
             node.add_rdep_at(key.v, key.k);
             node.intersect_valid_versions_at(key.v, &mut valid_deps_versions);
         }
 
         let invalidation_paths = invalidation_paths.for_dependent(key.k);
 
-        // Update entry.
-        match self.nodes.get_mut(&key.k) {
-            Some(entry) => entry.on_computed(
+        // Update entry: mutate in place if present, otherwise fill the empty slot —
+        // both resolved by one `node_entry` lookup, which reconciles the candidate
+        // set via the guard or the slot.
+        match self.nodes.node_entry(key.k) {
+            NodeEntry::Occupied(mut entry) => entry.on_computed(
                 key,
                 value,
                 valid_deps_versions,
@@ -275,10 +398,9 @@ impl VersionedGraph {
                 deps,
                 invalidation_paths,
             ),
-
-            None => (
-                self.update_empty(
-                    key.k,
+            NodeEntry::Vacant(slot) => (
+                Self::update_empty(
+                    slot,
                     key.v,
                     value,
                     valid_deps_versions,
@@ -298,9 +420,26 @@ impl VersionedGraph {
         invalidate: InvalidateKind,
         invalidation_priority: InvalidationSourcePriority,
     ) -> bool {
-        let entry = match self.nodes.get_mut(&key.k) {
-            Some(entry) => entry,
-            _ => {
+        // Mutate in place if present, otherwise construct and fill the empty slot —
+        // one `node_entry` lookup either way, with the candidate set reconciled by
+        // the guard or the slot. The rdep queue is collected into `queue` so the
+        // entry borrow ends before `invalidate_rdeps` re-borrows `self`.
+        let queue = match self.nodes.node_entry(key.k) {
+            NodeEntry::Occupied(mut entry) => {
+                let res = match invalidate {
+                    InvalidateKind::ForceDirty => entry.force_dirty(key.v, invalidation_priority),
+                    InvalidateKind::Update(value, _) => {
+                        entry.on_injected(key.v, value, invalidation_priority)
+                    }
+                };
+                match res {
+                    InvalidateResult::Changed(rdeps) => {
+                        rdeps.into_iter().flatten().collect::<HashSet<DiceKey>>()
+                    }
+                    InvalidateResult::NoChange => return false,
+                }
+            }
+            NodeEntry::Vacant(slot) => {
                 let new_entry = match invalidate {
                     InvalidateKind::Update(value, StorageType::Injected) => {
                         VersionedGraphNode::Injected(InjectedGraphNode::new(
@@ -327,27 +466,10 @@ impl VersionedGraph {
                         VersionedGraphNode::Vacant(node)
                     }
                 };
-
-                self.nodes.insert(key.k, new_entry);
+                slot.insert(new_entry);
                 return true;
             }
         };
-
-        let queue = {
-            let res = match invalidate {
-                InvalidateKind::ForceDirty => entry.force_dirty(key.v, invalidation_priority),
-                InvalidateKind::Update(value, _) => {
-                    entry.on_injected(key.v, value, invalidation_priority)
-                }
-            };
-
-            if let InvalidateResult::Changed(rdeps) = res {
-                rdeps.into_iter().flatten().collect()
-            } else {
-                return false;
-            }
-        };
-
         self.invalidate_rdeps(key.v, queue);
         true
     }
@@ -357,14 +479,14 @@ impl VersionedGraph {
     // -----------------------------------------------------------------------------
 
     fn update_empty(
-        &mut self,
-        key: DiceKey,
+        slot: VacantSlot<'_>,
         v: VersionNumber,
         value: DiceValidValue,
         mut valid_deps_versions: VersionRanges,
         deps: Arc<SeriesParallelDeps>,
         invalidation_paths: TrackedInvalidationPaths,
     ) -> DiceComputedValue {
+        let key = slot.key();
         valid_deps_versions.insert(VersionRange::bounded(v, v.next()));
         let entry = OccupiedGraphNode::new(
             key,
@@ -376,7 +498,9 @@ impl VersionedGraph {
         );
 
         let res = entry.computed_val(v, "newly-constructed OccupiedGraphNode is always hydrated");
-        self.nodes.insert(key, VersionedGraphNode::Occupied(entry));
+        // A freshly-computed node has never been paged out; filling the slot adds it
+        // to the candidate set.
+        slot.insert(VersionedGraphNode::Occupied(entry));
         res
     }
 
@@ -384,7 +508,7 @@ impl VersionedGraph {
         let mut queue: Vec<_> = queued.iter().copied().collect();
 
         while let Some(rdep) = queue.pop() {
-            if let Some(node) = self.nodes.get_mut(&rdep) {
+            if let Some(mut node) = self.nodes.node_mut(rdep) {
                 if let InvalidateResult::Changed(Some(rdeps)) = node.mark_invalidated(version, None)
                 {
                     for dep in rdeps.into_iter() {
@@ -991,7 +1115,7 @@ mod tests {
                 .value()
                 .instance_equal(&res)
         );
-        assert!(cache.nodes.contains_key(&DiceKey { index: 0 }));
+        assert!(cache.nodes().contains_key(&DiceKey { index: 0 }));
 
         // now insert the same value of a older version, this shouldn't evict anything but reuses
         // the existing node.
@@ -1123,7 +1247,7 @@ mod tests {
                 .instance_equal(&res)
         );
         // there should be size 1
-        assert!(cache.nodes.contains_key(&DiceKey { index: 0 }));
+        assert!(cache.nodes().contains_key(&DiceKey { index: 0 }));
 
         // now insert the same value of a older version, this shouldn't evict anything but reuses
         // the existing node and drops the res_fake value.
@@ -1635,11 +1759,13 @@ mod tests {
             TrackedInvalidationPaths::clean(),
         );
 
-        // Simulate a page-out: replace the node's hydrated value with a paged-out marker.
-        if let Some(VersionedGraphNode::Occupied(occ)) = cache.nodes.get_mut(&key1.k) {
+        // Simulate a page-out through the mutation choke point, replacing the node's
+        // hydrated value with a paged-out marker.
+        if let Some(mut node) = cache.node_mut(key1.k) {
+            let VersionedGraphNode::Occupied(occ) = &mut *node else {
+                panic!("expected Occupied node");
+            };
             occ.set_paged_out(pagable::DataKey::compute(0xdeadbeef, &[], &[]));
-        } else {
-            panic!("expected Occupied node");
         }
 
         // Force-dirty at v=2. This shrinks verified_ranges to [1, 2) so a lookup at
@@ -1687,10 +1813,12 @@ mod tests {
             TrackedInvalidationPaths::clean(),
         );
 
-        if let Some(VersionedGraphNode::Occupied(occ)) = cache.nodes.get_mut(&key.k) {
+        // Simulate a page-out through the mutation choke point.
+        if let Some(mut node) = cache.node_mut(key.k) {
+            let VersionedGraphNode::Occupied(occ) = &mut *node else {
+                panic!("expected Occupied node");
+            };
             occ.set_paged_out(pagable::DataKey::compute(0xdeadbeef, &[], &[]));
-        } else {
-            panic!("expected Occupied node");
         }
 
         let new_value = DiceValidValue::testing_new(DiceKeyValue::<K>::new(200));

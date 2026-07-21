@@ -42,7 +42,7 @@ impl VersionedGraph {
             node.to_introspectable()
         }
 
-        for (k, versioned_node) in self.nodes.iter() {
+        for (k, versioned_node) in self.nodes() {
             if let Some(serialized) = visit_node(*k, versioned_node) {
                 nodes.insert(*k, serialized);
             }

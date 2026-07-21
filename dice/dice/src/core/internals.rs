@@ -146,12 +146,24 @@ impl CoreState {
     /// These nodes have both a `DataKey` and a resident value; after this call
     /// only the `DataKey` remains.
     pub(super) fn evict_cached_values(&mut self) {
-        for node in self.graph.nodes.values_mut() {
-            let VersionedGraphNode::Occupied(occ) = node else {
-                continue;
-            };
-            if let Some(data_key) = occ.val().data_key() {
-                if occ.val().as_hydrated().is_some() {
+        let to_evict: Vec<(DiceKey, DataKey)> = self
+            .graph
+            .nodes()
+            .iter()
+            .filter_map(|(key, node)| {
+                let VersionedGraphNode::Occupied(occ) = node else {
+                    return None;
+                };
+                let data_key = occ.val().data_key()?;
+                occ.val()
+                    .as_hydrated()
+                    .is_some()
+                    .then_some((*key, data_key))
+            })
+            .collect();
+        for (key, data_key) in to_evict {
+            if let Some(mut node) = self.graph.node_mut(key) {
+                if let VersionedGraphNode::Occupied(occ) = &mut *node {
                     occ.set_paged_out(data_key);
                 }
             }
@@ -162,8 +174,10 @@ impl CoreState {
     /// with their `DataKey`s. Skips nodes that are missing, vacant, or injected.
     pub(super) fn evict_keys(&mut self, keys: Vec<(DiceKey, DataKey)>) {
         for (key, data_key) in keys {
-            if let Some(VersionedGraphNode::Occupied(occ)) = self.graph.nodes.get_mut(&key) {
-                occ.set_paged_out(data_key);
+            if let Some(mut node) = self.graph.node_mut(key) {
+                if let VersionedGraphNode::Occupied(occ) = &mut *node {
+                    occ.set_paged_out(data_key);
+                }
             }
         }
     }
@@ -172,8 +186,10 @@ impl CoreState {
     /// not offered as page-out candidates again (until recomputed).
     pub(super) fn mark_non_pageable(&mut self, keys: Vec<DiceKey>) {
         for key in keys {
-            if let Some(VersionedGraphNode::Occupied(occ)) = self.graph.nodes.get_mut(&key) {
-                occ.mark_non_pageable();
+            if let Some(mut node) = self.graph.node_mut(key) {
+                if let VersionedGraphNode::Occupied(occ) = &mut *node {
+                    occ.mark_non_pageable();
+                }
             }
         }
     }
@@ -183,7 +199,7 @@ impl CoreState {
     /// are skipped.
     pub(super) fn keys_to_page_out(&self) -> Vec<(DiceKey, DiceValidValue)> {
         self.graph
-            .nodes
+            .nodes()
             .iter()
             .filter(|(_, node)| node.is_page_out_candidate())
             .filter_map(|(key, node)| {
@@ -199,7 +215,7 @@ impl CoreState {
     /// Used to decide whether a page-out would do anything.
     pub(super) fn has_pageable_values(&self) -> bool {
         self.graph
-            .nodes
+            .nodes()
             .values()
             .any(|node| node.is_page_out_candidate())
     }
@@ -209,7 +225,7 @@ impl CoreState {
     /// outside the core state thread and sends rehydrate messages back.
     pub(super) fn paged_out_keys(&self) -> Vec<(DiceKey, DataKey)> {
         let mut keys = Vec::new();
-        for (key, node) in &self.graph.nodes {
+        for (key, node) in self.graph.nodes() {
             let VersionedGraphNode::Occupied(occ) = node else {
                 continue;
             };
@@ -230,7 +246,7 @@ impl CoreState {
     pub(super) fn pagable_status(&self) -> PagableStatusRaw {
         let mut resident = Vec::new();
         let mut paged_out = Vec::new();
-        for (key, node) in &self.graph.nodes {
+        for (key, node) in self.graph.nodes() {
             let VersionedGraphNode::Occupied(occ) = node else {
                 continue;
             };
@@ -241,7 +257,7 @@ impl CoreState {
             }
         }
         PagableStatusRaw {
-            total_nodes: self.graph.nodes.len(),
+            total_nodes: self.graph.nodes().len(),
             resident,
             paged_out,
         }
@@ -250,8 +266,10 @@ impl CoreState {
     /// Replaces the paged-out value at `key` with its hydrated form. No-op if the node
     /// is missing, vacant, injected, or already hydrated.
     pub(super) fn rehydrate(&mut self, key: DiceKey, value: DiceValidValue) {
-        if let Some(VersionedGraphNode::Occupied(occ)) = self.graph.nodes.get_mut(&key) {
-            occ.rehydrate(value);
+        if let Some(mut node) = self.graph.node_mut(key) {
+            if let VersionedGraphNode::Occupied(occ) = &mut *node {
+                occ.rehydrate(value);
+            }
         }
     }
 
@@ -265,7 +283,7 @@ impl CoreState {
         }
 
         Metrics {
-            key_count: self.graph.nodes.len(),
+            key_count: self.graph.nodes().len(),
             active_transaction_count: active_transaction_count as u32, // probably won't support more than u32 transactions
         }
     }
