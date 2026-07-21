@@ -554,10 +554,7 @@ impl OccupiedGraphNode {
         valid_deps_versions
             .intersect_range(self.metadata.dirtied_history.restricted_range(version));
         valid_deps_versions.insert(VersionRange::bounded(version, version.next()));
-
-        if !valid_deps_versions.is_empty() {
-            Arc::make_mut(&mut self.metadata.verified_ranges).union_in_place(&valid_deps_versions);
-        }
+        Arc::make_mut(&mut self.metadata.verified_ranges).union_in_place(&valid_deps_versions);
 
         self.invalidation_paths.update(new_invalidation_paths)
     }
