@@ -28,7 +28,18 @@ ANDROID_EMULATOR_ABI_LABEL_PREFIX = "tpx-re-config::"
 DEFAULT_ANDROID_SUBPLATFORM = "android-30"
 DEFAULT_ANDROID_PLATFORM = "android-emulator"
 DEFAULT_ANDROID_INSTRUMENTATION_TESTS_USE_CASE = "instrumentation-tests"
-RIOT_USE_CASES = ["horizon-os-diff", "horizon-os-other", "horizon-os-human-lease", "wearables-diff", "wearables-other", "wearables-human-lease"]
+RIOT_USE_CASES = [
+    "foundation-diff",
+    "horizon-experiences-diff",
+    "horizon-os-codemod-diff",
+    "horizon-os-diff",
+    "horizon-os-human-lease",
+    "horizon-os-other",
+    "vr-diff",
+    "wearables-diff",
+    "wearables-human-lease",
+    "wearables-other",
+]
 SUPPORTED_POOLS = ["EUREKA_POOL", "HOLLYWOOD_POOL", "STAGE_DELPHI_POOL", "PANTHER_POOL", "SEACLIFF_POOL"]
 SUPPORTED_PLATFORMS = ["riot", "android-emulator"]
 SUPPORTED_USE_CASES = RIOT_USE_CASES + [DEFAULT_ANDROID_INSTRUMENTATION_TESTS_USE_CASE]
