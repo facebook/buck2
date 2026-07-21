@@ -36,7 +36,7 @@ use crate::api::key::InvalidationSourcePriority;
 use crate::arc::Arc;
 use crate::core::graph::lazy_deps::LazyDepsSet;
 use crate::core::graph::types::VersionedGraphResultMismatch;
-use crate::impls::deps::graph::SeriesParallelDeps;
+use crate::deps::graph::SeriesParallelDeps;
 use crate::impls::key::DiceKey;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceValidValue;
@@ -893,7 +893,7 @@ mod tests {
     use crate::arc::Arc;
     use crate::core::graph::nodes::ForceDirtyHistory;
     use crate::core::graph::nodes::OccupiedGraphNode;
-    use crate::impls::deps::graph::SeriesParallelDeps;
+    use crate::deps::graph::SeriesParallelDeps;
     use crate::impls::key::DiceKey;
     use crate::impls::value::DiceKeyValue;
     use crate::impls::value::DiceValidValue;

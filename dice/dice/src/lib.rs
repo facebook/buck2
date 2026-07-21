@@ -195,6 +195,7 @@ extern crate tracing;
 mod api;
 pub(crate) mod arc;
 pub(crate) mod core;
+pub(crate) mod deps;
 pub(crate) mod future;
 mod impls;
 pub mod introspection;

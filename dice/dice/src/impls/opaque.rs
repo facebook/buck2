@@ -64,7 +64,7 @@ mod tests {
     use crate::api::key::Key;
     use crate::api::key::NoValueSerialize;
     use crate::api::key::ValueSerialize;
-    use crate::impls::deps::testing::RecordingDepsTrackersExt;
+    use crate::deps::testing::RecordingDepsTrackersExt;
     use crate::impls::key::DiceKey;
     use crate::impls::opaque::OpaqueValue;
     use crate::impls::value::DiceKeyValue;
