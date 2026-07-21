@@ -318,7 +318,6 @@ mod tests {
     use crate::api::key::NoValueSerialize;
     use crate::api::key::ValueSerialize;
     use crate::arc::Arc;
-    use crate::impls::cache::SharedCache;
     use crate::impls::cache::SharedCacheInsert;
     use crate::impls::core::graph::storage::ValueReusable;
     use crate::impls::core::graph::types::VersionedGraphKey;
@@ -537,13 +536,6 @@ mod tests {
         never_cancel_tasks
     }
 
-    fn insert_task(cache: &SharedCache, key: DiceKey, task: DiceTask) {
-        assert!(matches!(
-            cache.insert(key, task),
-            SharedCacheInsert::Inserted
-        ));
-    }
-
     #[tokio::test]
     async fn state_tracks_pending_cancellation() {
         let mut core = CoreState::new();
@@ -573,23 +565,20 @@ mod tests {
         let never_cancel_key1 = DiceKey { index: 100500 };
         let never_cancel_tasks1 = make_never_cancellable_task(never_cancel_key1).await;
 
-        insert_task(&cache, completed_key1, completed_task1);
-        insert_task(&cache, completed_key2, completed_task2);
-        insert_task(&cache, finished_cancelling_key1, finished_cancelling_tasks1);
-        insert_task(&cache, finished_cancelling_key2, finished_cancelling_tasks2);
-        insert_task(&cache, pending_key1, yet_to_cancel_tasks1);
-        insert_task(&cache, pending_key2, yet_to_cancel_tasks2);
-        insert_task(&cache, never_cancel_key1, never_cancel_tasks1);
+        cache.testing_insert_task(completed_key1, completed_task1);
+        cache.testing_insert_task(completed_key2, completed_task2);
+        cache.testing_insert_task(finished_cancelling_key1, finished_cancelling_tasks1);
+        cache.testing_insert_task(finished_cancelling_key2, finished_cancelling_tasks2);
+        cache.testing_insert_task(pending_key1, yet_to_cancel_tasks1);
+        cache.testing_insert_task(pending_key2, yet_to_cancel_tasks2);
+        cache.testing_insert_task(never_cancel_key1, never_cancel_tasks1);
 
         core.drop_ctx_at_version(v);
 
         assert_eq!(core.get_tasks_pending_cancellation().len(), 3);
 
         assert!(matches!(
-            cache.insert(
-                DiceKey { index: 999 },
-                DiceTask::prepare(DiceKey { index: 999 }).task().dupe()
-            ),
+            cache.insert(DiceKey { index: 999 },),
             SharedCacheInsert::TransactionCancelled
         ));
 
@@ -605,7 +594,7 @@ mod tests {
 
         let never_cancel_tasks2 = make_never_cancellable_task(DiceKey { index: 300 }).await;
 
-        insert_task(&cache, DiceKey { index: 300 }, never_cancel_tasks2);
+        cache.testing_insert_task(DiceKey { index: 300 }, never_cancel_tasks2);
 
         core.drop_ctx_at_version(v);
 

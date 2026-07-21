@@ -61,7 +61,6 @@ use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
 use crate::impls::opaque::OpaqueValue;
 use crate::impls::task::PreviouslyCancelledTask;
-use crate::impls::task::dice::DiceTask;
 use crate::impls::task::dice::PreparedDiceTask;
 use crate::impls::task::promise::DicePromise;
 use crate::impls::transaction::ActiveTransactionGuard;
@@ -831,18 +830,15 @@ impl SharedLiveTransactionCtx {
                 return LookupResult::Finished(result);
             }
             SharedCacheLookup::InProgress(task) => task,
-            SharedCacheLookup::Vacant => {
-                let prepared_task = DiceTask::prepare(key);
-                match self.cache.insert(key, prepared_task.task().dupe()) {
-                    SharedCacheInsert::Occupied(dice_task) => dice_task,
-                    SharedCacheInsert::Inserted => {
-                        return LookupResult::NeedsRestart(prepared_task, None);
-                    }
-                    SharedCacheInsert::TransactionCancelled => {
-                        return LookupResult::TransactionCancelled;
-                    }
+            SharedCacheLookup::Vacant => match self.cache.insert(key) {
+                SharedCacheInsert::Occupied(dice_task) => dice_task,
+                SharedCacheInsert::Inserted(prepared_task) => {
+                    return LookupResult::NeedsRestart(prepared_task, None);
                 }
-            }
+                SharedCacheInsert::TransactionCancelled => {
+                    return LookupResult::TransactionCancelled;
+                }
+            },
         };
 
         match task.depended_on_by(parent_key) {
