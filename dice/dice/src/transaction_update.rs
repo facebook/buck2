@@ -18,7 +18,6 @@ use crate::DiceTransaction;
 use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
 use crate::impls::transaction::TransactionUpdater;
-use crate::transaction::DiceTransactionImpl;
 
 /// The struct for which we build transactions. This is where changes are recorded, and committed
 /// to DICE, which returns the Transaction where we spawn computations.
@@ -27,9 +26,7 @@ pub(crate) struct DiceTransactionUpdaterImpl(pub(crate) TransactionUpdater);
 
 impl DiceTransactionUpdaterImpl {
     pub(crate) fn existing_state(&self) -> impl Future<Output = DiceTransaction> + '_ {
-        self.0
-            .existing_state()
-            .map(|d| DiceTransaction(DiceTransactionImpl(d)))
+        self.0.existing_state().map(DiceTransaction)
     }
 
     /// Records a set of `Key`s as changed so that they, and any dependents will
@@ -59,9 +56,7 @@ impl DiceTransactionUpdaterImpl {
 
     /// Commit the changes registered via 'changed' and 'changed_to' to the current newest version.
     pub(crate) fn commit(self) -> impl Future<Output = DiceTransaction> {
-        self.0
-            .commit()
-            .map(|x| DiceTransaction(DiceTransactionImpl(x)))
+        self.0.commit().map(DiceTransaction)
     }
 
     /// Commit the changes registered via 'changed' and 'changed_to' to the current newest version,
@@ -70,9 +65,7 @@ impl DiceTransactionUpdaterImpl {
         self,
         extra: UserComputationData,
     ) -> impl Future<Output = DiceTransaction> {
-        self.0
-            .commit_with_data(extra)
-            .map(|x| DiceTransaction(DiceTransactionImpl(x)))
+        self.0.commit_with_data(extra).map(DiceTransaction)
     }
 
     /// Clears the entire DICE state. The dropping of values from memory happens asynchronously.
