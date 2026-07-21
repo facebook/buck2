@@ -436,16 +436,7 @@ async def test_cpp_test_coverage_when_filter_by_header_file_in_headers_only_libr
         file_filter=[header_name],
     )
 
-    assert len(paths) == 3, str(paths)
-    assert header_name in paths
-    assert (
-        "fbcode/testing_frameworks/code_coverage/playground/TestWithDepWithOnlyHeaders.cpp"
-        in paths
-    )
-    assert (
-        "fbcode/testing_frameworks/code_coverage/playground/TestWithDepWithOnlyHeaders.h"
-        in paths
-    )
+    assert paths == [header_name]
 
 
 @buck_test(inplace=True)
