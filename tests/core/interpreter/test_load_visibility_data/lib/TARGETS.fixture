@@ -1,0 +1,7 @@
+# Same-package loads: always allowed, including the private `priv.bzl`.
+
+load(":default.bzl", "DSYM")
+load(":priv.bzl", "PRIVSYM")
+load(":vis.bzl", "SYM")
+
+_all = (PRIVSYM, SYM, DSYM)
