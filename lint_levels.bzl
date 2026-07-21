@@ -85,6 +85,7 @@ CLIPPY_DENY = [
     "clippy::verbose_file_reads",
     "dead_code",
     "let_underscore_drop",
+    "mismatched_lifetime_syntaxes",
     "unexpected_cfgs",
     "unused_extern_crates",
     "unused_imports",
