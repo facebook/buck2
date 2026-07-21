@@ -37,14 +37,14 @@ pub(crate) struct SharedCache {
     data: Arc<Data>,
 }
 
-pub(crate) enum SharedCacheLookup {
+pub(crate) enum SharedCacheLookup<'d> {
     Finished(DiceComputedValue),
-    InProgress(DiceTask),
+    InProgress(DiceTaskRef<'d>),
     Vacant,
 }
 
-pub(crate) enum SharedCacheInsert {
-    Occupied(DiceTask),
+pub(crate) enum SharedCacheInsert<'d> {
+    Occupied(DiceTaskRef<'d>),
     Inserted,
     TransactionCancelled,
 }
@@ -54,7 +54,7 @@ impl SharedCache {
         (key.index as u64).wrapping_mul(0x9e3779b97f4a7c15)
     }
 
-    pub(crate) fn get(&self, key: DiceKey) -> SharedCacheLookup {
+    pub(crate) fn get(&self, key: DiceKey) -> SharedCacheLookup<'_> {
         let entry = self
             .data
             .storage
@@ -65,16 +65,14 @@ impl SharedCache {
                 if let ReadValueResult::Finished(v) = task.read_value() {
                     SharedCacheLookup::Finished(v.dupe())
                 } else {
-                    SharedCacheLookup::InProgress(DiceTask {
-                        internal: task.clone_arc(),
-                    })
+                    SharedCacheLookup::InProgress(DiceTaskRef { internal: task })
                 }
             }
             None => SharedCacheLookup::Vacant,
         }
     }
 
-    pub(crate) fn insert(&self, key: DiceKey, task: DiceTask) -> SharedCacheInsert {
+    pub(crate) fn insert(&self, key: DiceKey, task: DiceTask) -> SharedCacheInsert<'_> {
         if self.data.is_cancelled.load(Ordering::Relaxed) {
             return SharedCacheInsert::TransactionCancelled;
         }
@@ -91,9 +89,7 @@ impl SharedCache {
         }
 
         match not_inserted_value {
-            Some(_) => SharedCacheInsert::Occupied(DiceTask {
-                internal: entry.clone_arc(),
-            }),
+            Some(_) => SharedCacheInsert::Occupied(DiceTaskRef { internal: entry }),
             None => SharedCacheInsert::Inserted,
         }
     }
