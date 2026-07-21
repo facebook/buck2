@@ -308,7 +308,6 @@ impl SnapshotCollector {
     fn add_dice_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
         let metrics = self.daemon.dice_manager.unsafe_dice().metrics();
         snapshot.dice_key_count = metrics.key_count as u64;
-        snapshot.dice_currently_active_key_count = metrics.currently_active_key_count as u64;
         snapshot.dice_active_transaction_count = metrics.active_transaction_count;
     }
 

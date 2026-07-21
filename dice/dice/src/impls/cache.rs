@@ -135,10 +135,6 @@ impl SharedCache {
         }
     }
 
-    pub(crate) fn active_tasks_count(&self) -> usize {
-        self.data.storage.len() + self.data.completed.len()
-    }
-
     /// This function gets the termination observer for all running tasks when transaction is
     /// cancelled and prevents further tasks from being added
     pub(crate) fn cancel_pending_tasks(self) -> Vec<DiceTask> {

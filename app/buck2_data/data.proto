@@ -932,6 +932,7 @@ message TargetRuleTypeName {
 
 // A snapshot of current system state, with useful info.
 message Snapshot {
+  reserved 102;
   // Resident set size in bytes of the buck2 daemon.
   // Does not include subprocesses (e.g. local actions).
   optional uint64 buck2_rss = 11;
@@ -1035,8 +1036,6 @@ message Snapshot {
   optional uint64 host_cpu_usage_user_ms = 13;
 
   uint64 dice_key_count = 101;
-  // the number of keys actively present in the per transaction cache
-  uint64 dice_currently_active_key_count = 102;
   uint32 dice_active_transaction_count = 103;
 
   // Per-command DICE page-in counters per key type (a delta vs the

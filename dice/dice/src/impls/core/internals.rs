@@ -273,18 +273,15 @@ impl CoreState {
 
     /// Returns some metrics about the current state of DICE. Don't do expensive things here.
     pub(super) fn metrics(&self) -> Metrics {
-        let mut currently_running_key_count = 0;
         let mut active_transaction_count = 0;
 
         let currently_active = self.version_tracker.currently_active();
         for active in currently_active {
             active_transaction_count += active.0;
-            currently_running_key_count += active.1.active_tasks_count();
         }
 
         Metrics {
             key_count: self.graph.nodes.len(),
-            currently_active_key_count: currently_running_key_count,
             active_transaction_count: active_transaction_count as u32, // probably won't support more than u32 transactions
         }
     }
