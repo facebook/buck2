@@ -160,7 +160,7 @@ fn different_requests_are_spawned_in_parallel() -> anyhow::Result<()> {
         let k = &ComputeParallel(barrier.dupe());
 
         let futs = (0..n_thread)
-            .map(|_| async move { ctx.clone().compute(k).await })
+            .map(|_| async move { ctx.clone().compute(k).await.copied() })
             .collect::<Vec<_>>();
 
         let mut sum = 0;

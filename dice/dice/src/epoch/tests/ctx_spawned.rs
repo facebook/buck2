@@ -88,7 +88,7 @@ async fn spawned_basic() -> anyhow::Result<()> {
     let ctx = updater.commit().await;
 
     let result = ctx.compute(&SpawnedKey).await?;
-    assert_eq!(result, 42);
+    assert_eq!(*result, 42);
 
     Ok(())
 }
@@ -136,13 +136,13 @@ async fn spawned_tracks_deps() -> anyhow::Result<()> {
     let ctx = updater.commit().await;
 
     let result = ctx.compute(&CountingKey).await?;
-    assert_eq!(result, 100);
+    assert_eq!(*result, 100);
     assert_eq!(COMPUTE_COUNT.load(Ordering::SeqCst), 1);
 
     // Same value, should be cached
     let ctx = dice.updater().commit().await;
     let result = ctx.compute(&CountingKey).await?;
-    assert_eq!(result, 100);
+    assert_eq!(*result, 100);
     assert_eq!(COMPUTE_COUNT.load(Ordering::SeqCst), 1);
 
     // Change the dep, should recompute
@@ -151,7 +151,7 @@ async fn spawned_tracks_deps() -> anyhow::Result<()> {
     let ctx = updater.commit().await;
 
     let result = ctx.compute(&CountingKey).await?;
-    assert_eq!(result, 200);
+    assert_eq!(*result, 200);
     assert_eq!(COMPUTE_COUNT.load(Ordering::SeqCst), 2);
 
     Ok(())
@@ -205,7 +205,7 @@ async fn spawned_multiple() -> anyhow::Result<()> {
     let ctx = updater.commit().await;
 
     let result = ctx.compute(&MultiSpawnKey).await?;
-    assert_eq!(result, 30);
+    assert_eq!(*result, 30);
 
     Ok(())
 }

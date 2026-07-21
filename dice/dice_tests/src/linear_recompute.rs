@@ -85,7 +85,7 @@ async fn test_linear_recompute_tracks_deps() {
 
     let ctx = dice.updater().commit().await;
 
-    assert_eq!(ctx.compute(&K::Top).await.unwrap(), 4950);
+    assert_eq!(*ctx.compute(&K::Top).await.unwrap(), 4950);
 
     let ctx = {
         let mut updater = dice.updater();
@@ -94,5 +94,5 @@ async fn test_linear_recompute_tracks_deps() {
     };
 
     // should be 50 less.
-    assert_eq!(ctx.compute(&K::Top).await.unwrap(), 4900);
+    assert_eq!(*ctx.compute(&K::Top).await.unwrap(), 4900);
 }

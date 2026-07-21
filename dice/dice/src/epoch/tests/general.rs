@@ -107,8 +107,8 @@ async fn set_injected_multiple_times_per_commit() -> anyhow::Result<()> {
         ctx.changed_to(vec![(Foo(1), 1)])?;
 
         let ctx = ctx.commit().await;
-        assert_eq!(ctx.compute(&Foo(0)).await?, 0);
-        assert_eq!(ctx.compute(&Foo(1)).await?, 1);
+        assert_eq!(*ctx.compute(&Foo(0)).await?, 0);
+        assert_eq!(*ctx.compute(&Foo(1)).await?, 1);
     }
 
     {
@@ -200,7 +200,8 @@ fn dice_computations_are_parallel() {
 
         let futs = (0..n_thread)
             .map(|i| async move {
-                dice.updater()
+                *dice
+                    .updater()
                     .commit()
                     .await
                     .compute(&Blocking {
@@ -215,7 +216,7 @@ fn dice_computations_are_parallel() {
         futures::future::join_all(futs)
             .await
             .iter()
-            .for_each(|res| sum += res);
+            .for_each(|res| sum += *res);
 
         assert_eq!(sum, n_thread);
     })
@@ -270,8 +271,8 @@ async fn different_data_per_compute_ctx() {
     let request0 = ctx0.compute(&DataRequest(0));
     let request1 = ctx1.compute(&DataRequest(1));
 
-    assert_eq!(request0.await.unwrap(), 0);
-    assert_eq!(request1.await.unwrap(), 1);
+    assert_eq!(*request0.await.unwrap(), 0);
+    assert_eq!(*request1.await.unwrap(), 1);
 }
 
 #[test]
@@ -425,7 +426,7 @@ fn user_cycle_detector_receives_events() -> anyhow::Result<()> {
             ..Default::default()
         };
         let ctx = dice.updater_with_data(user_data).commit().await;
-        let res = ctx.compute(&Fib(20)).await?.expect("should succeed");
+        let res = ctx.compute(&Fib(20)).await?.dupe().expect("should succeed");
         assert_eq!(res, 6765);
 
         let check_events = move |i, expected_edges| {
@@ -662,7 +663,8 @@ async fn user_cycle_detector_is_present(dice: Arc<Dice>) -> anyhow::Result<()> {
         ..Default::default()
     };
     let ctx = dice.updater_with_data(user_data).commit().await;
-    Ok(ctx.compute(&AccessCycleGuardKey).await?)
+    ctx.compute(&AccessCycleGuardKey).await?;
+    Ok(())
 }
 
 #[tokio::test]

@@ -85,9 +85,9 @@ async fn test_dice_recompute_doesnt_reuse_wrong_deps() -> anyhow::Result<()> {
     updater.changed_to([(Leaf(0), 2), (Leaf(1), 400), (Leaf(2), 100)])?;
     let ctx3 = updater.commit().await;
 
-    assert_eq!(ctx1.compute(&Derived).await.unwrap(), 100);
-    assert_eq!(ctx3.compute(&Derived).await.unwrap(), 100);
-    assert_eq!(ctx2.compute(&Derived).await.unwrap(), 300);
+    assert_eq!(*ctx1.compute(&Derived).await.unwrap(), 100);
+    assert_eq!(*ctx3.compute(&Derived).await.unwrap(), 100);
+    assert_eq!(*ctx2.compute(&Derived).await.unwrap(), 300);
 
     Ok(())
 }

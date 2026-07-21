@@ -74,6 +74,6 @@ async fn different_data_per_compute_ctx() {
     let request0 = ctx0.compute(&DataRequest(0));
     let request1 = ctx1.compute(&DataRequest(1));
 
-    assert_eq!(request0.await.unwrap(), 0);
-    assert_eq!(request1.await.unwrap(), 1);
+    assert_eq!(*request0.await.unwrap(), 0);
+    assert_eq!(*request1.await.unwrap(), 1);
 }

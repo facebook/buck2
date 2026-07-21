@@ -258,6 +258,7 @@ async fn smoke() -> anyhow::Result<()> {
             name: "file.fl".to_owned(),
         })
         .await?
+        .clone()
         .map_err(|e| anyhow::anyhow!(format!("{:#}", e)))?;
     assert_eq!("<X>", &*file);
 
@@ -291,6 +292,7 @@ async fn smoke() -> anyhow::Result<()> {
             name: "file.fl".to_owned(),
         })
         .await?
+        .clone()
         .map_err(|e| anyhow::anyhow!(format!("{:#}", e)))?;
     assert_eq!("<X>", &*file);
 
@@ -323,6 +325,7 @@ async fn smoke() -> anyhow::Result<()> {
             name: "file.fl".to_owned(),
         })
         .await?
+        .clone()
         .map_err(|e| anyhow::anyhow!(format!("{:#}", e)))?;
     assert_eq!("<X>", &*file);
 
@@ -443,7 +446,7 @@ async fn projection_sync_and_then_recompute_incremental_reuses_key() -> anyhow::
     updater.changed_to([(BaseKey, 1)])?;
     let ctx = updater.commit().await;
 
-    assert_eq!(ctx.compute(&DependsOnProjection(is_ran.dupe())).await?, 1);
+    assert_eq!(*ctx.compute(&DependsOnProjection(is_ran.dupe())).await?, 1);
     assert!(is_ran.load(Ordering::SeqCst));
 
     is_ran.store(false, Ordering::SeqCst);
@@ -458,7 +461,7 @@ async fn projection_sync_and_then_recompute_incremental_reuses_key() -> anyhow::
     assert_eq!(projected, 1);
 
     // should not be ran
-    assert_eq!(ctx.compute(&DependsOnProjection(is_ran.dupe())).await?, 1);
+    assert_eq!(*ctx.compute(&DependsOnProjection(is_ran.dupe())).await?, 1);
     assert!(!is_ran.load(Ordering::SeqCst));
 
     Ok(())
