@@ -9,8 +9,6 @@
  */
 
 use allocative::Allocative;
-use derivative::Derivative;
-use derive_more::Display;
 use dupe::Dupe;
 
 use crate::HashMap;
@@ -46,8 +44,7 @@ impl VersionEpochTracker {
     }
 }
 
-#[derive(Copy, Clone, Eq, Debug, Display, Dupe, PartialEq, Allocative)]
-#[display("v{}", _0)]
+#[derive(Copy, Clone, Eq, Debug, Dupe, PartialEq, Allocative)]
 pub(crate) struct VersionEpoch(usize);
 
 impl VersionEpoch {
@@ -57,10 +54,8 @@ impl VersionEpoch {
     }
 }
 
-#[derive(Derivative, Allocative)]
-#[derivative(Debug)]
+#[derive(Debug, Allocative)]
 struct ActiveVersionData {
-    #[derivative(Debug = "ignore")]
     per_transaction_data: SharedCache,
     ref_count: usize,
     version_epoch: VersionEpoch,
@@ -90,12 +85,6 @@ impl VersionTracker {
     pub(crate) fn at(&mut self, v: VersionNumber) -> (VersionEpoch, SharedCache) {
         let entry = self.active_versions.entry(v).or_insert_with(|| {
             let version_epoch = self.epoch_tracker.next();
-
-            debug!(
-                msg = "Creating new shared state",
-                v = %v,
-                v_epoch = %version_epoch
-            );
 
             ActiveVersionData {
                 // TODO properly create the PerLiveTransactionCtx
@@ -135,14 +124,12 @@ impl VersionTracker {
         };
 
         if ref_count == 0 {
-            let removed = self.active_versions.remove(&v).expect("existed above");
-
-            debug!(
-                msg = "shared state removed",
-                v = %v,
-                v_epoch = %removed.version_epoch
-            );
-            Some(removed.per_transaction_data)
+            Some(
+                self.active_versions
+                    .remove(&v)
+                    .expect("existed above")
+                    .per_transaction_data,
+            )
         } else {
             None
         }

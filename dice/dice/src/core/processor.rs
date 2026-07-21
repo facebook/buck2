@@ -10,9 +10,6 @@
 
 use std::sync::Arc;
 
-#[allow(unused_imports)]
-use gazebo::variants::VariantName;
-
 use crate::core::graph::storage::ValueReusable;
 use crate::core::internals::CoreState;
 use crate::core::state::CoreStateHandle;
@@ -64,10 +61,8 @@ impl StateProcessor {
                 break;
             }
         }
-        debug!("Processor terminated");
     }
 
-    #[cfg_attr(debug_assertions, instrument(skip_all, fields(kind = %message.variant_name())))]
     fn iteration(&mut self, message: StateRequest) {
         match message {
             StateRequest::UpdateState { changes, resp } => {

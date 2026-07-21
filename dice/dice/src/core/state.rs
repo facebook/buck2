@@ -8,21 +8,20 @@
  * above-listed licenses.
  */
 
+use std::fmt;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
 use allocative::Allocative;
-use derivative::Derivative;
 use dice_error::result::CancellableResult;
 use dupe::Dupe;
 use futures::Future;
-use gazebo::variants::VariantName;
 use pagable::DataKey;
 use static_assertions::const_assert_eq;
 use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::oneshot;
 use tokio::sync::oneshot::Receiver;
 use tokio::sync::oneshot::Sender;
-use tokio::sync::oneshot::{self};
 
 use crate::api::key::InvalidationSourcePriority;
 use crate::api::storage_type::StorageType;
@@ -103,6 +102,12 @@ pub(crate) struct CoreStateHandle {
     /// through the queue and so could not measure it from inside).
     counters: std::sync::Arc<QueueCounters>,
     // should this handle hold onto the thread and terminate it when all of Dice is dropped?
+}
+
+impl fmt::Debug for CoreStateHandle {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("CoreStateHandle")
+    }
 }
 
 impl CoreStateHandle {
@@ -339,8 +344,6 @@ pub(crate) fn init_state() -> CoreStateHandle {
 }
 
 /// Core state is accessed via message passing to a single threaded processor
-#[derive(Derivative, VariantName)]
-#[derivative(Debug)]
 pub(super) enum StateRequest {
     /// Updates the core state with the given set of changes. The new VersionNumber that should be
     /// used is sent back via the channel provided
@@ -392,10 +395,7 @@ pub(super) enum StateRequest {
         resp: Sender<CancellableResult<DiceComputedValue>>,
     },
     /// Get all the tasks pending cancellation
-    GetTasksPendingCancellation {
-        #[derivative(Debug = "ignore")]
-        resp: Sender<Vec<DiceTask>>,
-    },
+    GetTasksPendingCancellation { resp: Sender<Vec<DiceTask>> },
     /// For unstable take
     UnstableDropEverything,
     /// Collect the keys of all paged-out graph nodes.
@@ -415,16 +415,11 @@ pub(super) enum StateRequest {
     /// Mark nodes that page-out could not serialize.
     MarkNonPageable { keys: Vec<DiceKey> },
     /// Replace the paged-out value at `key` with its hydrated form.
-    Rehydrate {
-        key: DiceKey,
-        #[derivative(Debug = "ignore")]
-        value: DiceValidValue,
-    },
+    Rehydrate { key: DiceKey, value: DiceValidValue },
     /// Collect metrics
     Metrics { resp: Sender<Metrics> },
     /// Collects the introspectable dice state
     Introspection {
-        #[derivative(Debug = "ignore")]
         resp: Sender<(VersionedGraphIntrospectable, VersionIntrospectable)>,
     },
     /// Makes the dice state available temporarily to be able to run allocative
@@ -434,7 +429,6 @@ pub(super) enum StateRequest {
     /// lifetime that starts when the response is sent, and ends when the provided sender is
     /// dropped. Failing to drop all references to the `Arc` by then will cause a panic.
     MakeAvailableForAllocative {
-        #[derivative(Debug = "ignore")]
         resp: Sender<(std::sync::Arc<CoreState>, Sender<std::convert::Infallible>)>,
     },
 }

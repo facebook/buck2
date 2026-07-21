@@ -47,7 +47,6 @@ impl<'a> DiceWorkerStateAwaitingPrevious<'a> {
         cycles: UserCycleDetectorData,
         prevent_cancellation: CriticalSectionGuard<'a>,
     ) -> Self {
-        debug!(msg = "Task started. Waiting for previously cancelled task if any");
         Self {
             k,
             cycles,
@@ -59,8 +58,6 @@ impl<'a> DiceWorkerStateAwaitingPrevious<'a> {
         self,
         value: DiceComputedValue,
     ) -> CancellableResult<DiceWorkerStateFinishedAndCached> {
-        debug!(msg = "previously cancelled task actually finished");
-
         let guard = self.prevent_cancellation.try_disable_cancellation();
         finish_with_cached_value(value, guard)
     }
@@ -69,8 +66,6 @@ impl<'a> DiceWorkerStateAwaitingPrevious<'a> {
         self,
         _internals: &mut DiceTaskHandle<'_>,
     ) -> DiceWorkerStateLookupNode {
-        debug!(msg = "previously cancelled task was cancelled");
-
         self.prevent_cancellation.exit_critical_section().await;
 
         DiceWorkerStateLookupNode {
@@ -83,8 +78,6 @@ impl<'a> DiceWorkerStateAwaitingPrevious<'a> {
         self,
         _internals: &mut DiceTaskHandle<'_>,
     ) -> DiceWorkerStateLookupNode {
-        debug!(msg = "no previous task to wait for");
-
         self.prevent_cancellation.exit_critical_section().await;
 
         DiceWorkerStateLookupNode {
@@ -143,8 +136,6 @@ impl DiceWorkerStateLookupNode {
         DiceWorkerStateCheckingDeps,
         KeyComputingUserCycleDetectorData,
     ) {
-        debug!(msg = "found existing entry with mismatching version. checking if deps changed.");
-
         let cycles = self.cycles.start_computing_key(
             self.k,
             &eval.dice.key_index,
@@ -159,8 +150,6 @@ impl DiceWorkerStateLookupNode {
         _internals: &mut DiceTaskHandle,
         eval: &TransactionData,
     ) -> (DiceWorkerStateEvaluating, KeyComputingUserCycleDetectorData) {
-        debug!(msg = "lookup requires recompute.");
-
         let cycles = self.cycles.start_computing_key(
             self.k,
             &eval.dice.key_index,
@@ -175,8 +164,6 @@ impl DiceWorkerStateLookupNode {
         internals: &mut DiceTaskHandle,
         value: DiceComputedValue,
     ) -> CancellableResult<DiceWorkerStateFinishedAndCached> {
-        debug!(msg = "found existing entry with matching version in cache. reusing result.");
-
         let guard = internals.cancellation_ctx().try_disable_cancellation();
         finish_with_cached_value(value, guard)
     }
@@ -191,8 +178,6 @@ impl DiceWorkerStateCheckingDeps {
         self,
         _internals: &mut DiceTaskHandle,
     ) -> DiceWorkerStateEvaluating {
-        debug!(msg = "deps changed");
-
         DiceWorkerStateEvaluating {}
     }
 
@@ -200,14 +185,9 @@ impl DiceWorkerStateCheckingDeps {
         self,
         internals: &mut DiceTaskHandle,
     ) -> CancellableResult<DiceWorkerStateFinished> {
-        debug!(msg = "reusing previous value because deps didn't change. Updating caches");
-
         let guard = match internals.cancellation_ctx().try_disable_cancellation() {
             Some(g) => g,
-            None => {
-                debug!("evaluation cancelled, skipping cache updates");
-                return Err(CancellationReason::DepsMatch);
-            }
+            None => return Err(CancellationReason::DepsMatch),
         };
 
         Ok(DiceWorkerStateFinished {
@@ -227,14 +207,9 @@ impl DiceWorkerStateEvaluating {
         result: KeyEvaluationResult,
         activation_data: ActivationData,
     ) -> CancellableResult<DiceWorkerStateFinishedEvaluating> {
-        debug!(msg = "evaluation finished. updating caches");
-
         let guard = match internals.cancellation_ctx().try_disable_cancellation() {
             Some(g) => g,
-            None => {
-                debug!("evaluation cancelled, skipping cache updates");
-                return Err(CancellationReason::WorkerFinished);
-            }
+            None => return Err(CancellationReason::WorkerFinished),
         };
 
         drop(cycles);
@@ -269,8 +244,6 @@ impl DiceWorkerStateFinished {
         value: DiceComputedValue,
         activation_info: Option<ActivationInfo>,
     ) -> DiceWorkerStateFinishedAndCached {
-        debug!(msg = "Update caches complete");
-
         if let Some(activation_info) = activation_info {
             activation_info.activation_tracker.key_activated(
                 DynKey::ref_cast(&activation_info.key),

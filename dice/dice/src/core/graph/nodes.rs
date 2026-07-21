@@ -162,7 +162,6 @@ impl VersionedGraphNode {
     }
 
     /// Returns the newly updated value for the key, and whether or not any state changed.
-    #[cfg_attr(debug_assertions, instrument(level = "debug", skip(self, value, deps, reusable), fields(key = ?key, valid_deps_versions = ?valid_deps_versions)))]
     pub(crate) fn on_computed(
         &mut self,
         key: super::types::VersionedGraphKey,
@@ -174,7 +173,6 @@ impl VersionedGraphNode {
     ) -> (DiceComputedValue, bool) {
         let (dirtied_history, overwrite_entry) = match self {
             VersionedGraphNode::Occupied(entry) if reusable.is_reusable(&value, &deps, entry) => {
-                debug!("marking graph entry as unchanged");
                 entry.mark_unchanged(key.v, valid_deps_versions, invalidation_paths);
                 let ret = entry.computed_val(
                     key.v,
@@ -211,7 +209,6 @@ impl VersionedGraphNode {
             // that we claim something changed when we don't change anything. It's likely that the
             // the return value actually is used to mean something different than that we changed
             // something.
-            debug!("skipping new graph entry because value is older than current entry");
             return (
                 DiceComputedValue::new(
                     MaybeValidDiceValue::valid(value),
@@ -222,7 +219,6 @@ impl VersionedGraphNode {
             );
         }
 
-        debug!("making new graph entry because value not reusable");
         let new = OccupiedGraphNode::new(
             key.k,
             value,

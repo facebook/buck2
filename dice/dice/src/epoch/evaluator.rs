@@ -142,16 +142,11 @@ impl VersionEpochState {
                 )
                 .left_future()
             }
-            LookupResult::TransactionCancelled => {
-                let v = self.version;
-                let v_epoch = self.version_epoch;
-                async move {
-                    debug!(msg = "computing shared state is cancelled", k = ?key, v = ?v, v_epoch = ?v_epoch);
-                    tokio::task::yield_now().await;
-                    Err(CancellationReason::TransactionCancelled)
-                }
-                    .right_future()
+            LookupResult::TransactionCancelled => async move {
+                tokio::task::yield_now().await;
+                Err(CancellationReason::TransactionCancelled)
             }
+            .right_future(),
         }
     }
 

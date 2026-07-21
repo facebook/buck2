@@ -26,6 +26,7 @@ use std::ops::Sub;
 use allocative::Allocative;
 use derive_more::Display;
 use dupe::Dupe;
+use gazebo::cmp_chain;
 use mini_vec::MiniVec;
 
 use crate::arc::Arc;
