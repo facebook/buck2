@@ -195,29 +195,28 @@ impl CoreState {
     }
 
     /// Returns resident nodes that have never been paged out — the page-out
-    /// candidates. Nodes already paged out, paged back in, or found non-pageable
-    /// are skipped.
+    /// candidates. Enumerated from the graph's candidate set rather than scanning
+    /// every node.
     pub(super) fn keys_to_page_out(&self) -> Vec<(DiceKey, DiceValidValue)> {
         self.graph
-            .nodes()
+            .page_out_candidates()
             .iter()
-            .filter(|(_, node)| node.is_page_out_candidate())
-            .filter_map(|(key, node)| {
-                let VersionedGraphNode::Occupied(occ) = node else {
+            .filter_map(|index| {
+                let key = DiceKey {
+                    index: index as u32,
+                };
+                let VersionedGraphNode::Occupied(occ) = self.graph.nodes().get(&key)? else {
                     return None;
                 };
-                Some((*key, occ.val().as_hydrated()?.dupe()))
+                Some((key, occ.val().as_hydrated()?.dupe()))
             })
             .collect()
     }
 
     /// Whether any node is a page-out candidate (resident and never paged out).
-    /// Used to decide whether a page-out would do anything.
+    /// O(1); used to decide whether a page-out would do anything.
     pub(super) fn has_pageable_values(&self) -> bool {
-        self.graph
-            .nodes()
-            .values()
-            .any(|node| node.is_page_out_candidate())
+        !self.graph.page_out_candidates().is_empty()
     }
 
     /// Returns the list of `(DiceKey, DataKey)` pairs for every paged-out

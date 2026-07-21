@@ -189,6 +189,7 @@ async-trait = "0.1.86"
 backtrace = "0.3"
 base64 = { version = "0.22.1", features = ["alloc"] }
 bincode = { version = "2", features = ["serde"] }
+bit-set = "0.9"
 blake3 = { version = "=1.8.2", features = ["mmap", "rayon", "traits-preview"] }
 buck2_action_impl = { path = "app/buck2_action_impl" }
 buck2_action_metadata_proto = { path = "app/buck2_action_metadata_proto" }

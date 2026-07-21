@@ -13,6 +13,7 @@ anyhow.workspace = true
 anymap3.workspace = true
 arc-swap.workspace = true
 async-trait.workspace = true
+bit-set.workspace = true
 buck2_hash.workspace = true
 cmp_any.workspace = true
 dashmap.workspace = true

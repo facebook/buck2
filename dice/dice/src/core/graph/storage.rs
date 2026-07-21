@@ -168,6 +168,7 @@
 //! value-based dep checks.
 
 use allocative::Allocative;
+use bit_set::BitSet;
 
 use self::store::NodeEntry;
 use self::store::NodeMut;
@@ -200,22 +201,23 @@ use crate::versions::VersionRanges;
 /// dependencies.
 #[derive(Allocative)]
 pub(crate) struct VersionedGraph {
-    /// All graph nodes, behind [`NodeStore`], which keeps the raw map (`get_mut` /
-    /// `insert` / `entry`) private to its module so a node can only be mutated through
-    /// `node_mut` / `node_entry`. A later diff makes those choke points reconcile a
-    /// page-out candidate index. Read access via `nodes()`.
+    /// All graph nodes plus the page-out candidate index, behind [`NodeStore`], which
+    /// keeps the raw map (`get_mut` / `insert` / `entry`) private to its module so a
+    /// node can only be mutated through the reconciling `node_mut` / `node_entry`.
+    /// Read access via `nodes()` / `page_out_candidates()`.
     pub(crate) nodes: NodeStore,
 }
 
-/// Owns the node map, exposing mutation only through `node_mut` / `node_entry`. The
-/// map is private to this module, so no other code — including the rest of
-/// `storage.rs` — can reach its raw `&mut`; a later diff adds a candidate index here
-/// that these choke points keep in sync.
+/// Owns the node map and the page-out candidate index together, exposing only
+/// reconciling mutation. The fields are private to this module, so no other code —
+/// including the rest of `storage.rs` — can mutate a node off the choke points; the
+/// candidate set can only drift via a bug inside this module.
 mod store {
     use std::collections::hash_map::Entry;
     use std::collections::hash_map::VacantEntry;
 
     use allocative::Allocative;
+    use bit_set::BitSet;
 
     use crate::HashMap;
     use crate::core::graph::nodes::VersionedGraphNode;
@@ -228,12 +230,18 @@ mod store {
         /// VacantGraphEntries can only be present when no other entries are present for
         /// the key at any version.
         nodes: HashMap<DiceKey, VersionedGraphNode>,
+        /// Occupied nodes in `PagedState::NeverPagedOut` — the page-out candidates,
+        /// keyed by `DiceKey::index`. Reconciled by the `NodeMut` guard's `Drop` and by
+        /// `VacantSlot::insert`.
+        #[allocative(skip)]
+        candidates: BitSet,
     }
 
     impl NodeStore {
         pub(super) fn new() -> Self {
             Self {
                 nodes: Default::default(),
+                candidates: BitSet::new(),
             }
         }
 
@@ -242,10 +250,19 @@ mod store {
             &self.nodes
         }
 
+        /// Read-only access to the page-out candidate index.
+        pub(super) fn candidates(&self) -> &BitSet {
+            &self.candidates
+        }
+
         /// Remove and return all non-injected nodes, keeping injected ones (injected
         /// keys at old versions can't be recomputed). The returned map is the caller's
         /// to drop.
         pub(super) fn retain_injected(&mut self) -> HashMap<DiceKey, VersionedGraphNode> {
+            // Every candidate is an occupied, never-paged-out node, so all candidates are
+            // among the removed non-injected nodes; injected nodes are never candidates.
+            // Clearing the whole index is therefore correct.
+            self.candidates.make_empty();
             let mut nodes = std::mem::take(&mut self.nodes);
             // The number of injected keys is typically small, so this is written to avoid new large allocations
             self.nodes = nodes
@@ -255,31 +272,70 @@ mod store {
         }
 
         /// Choke point for mutate-or-insert: one `entry` lookup resolved to a
-        /// [`NodeMut`] guard (present) or a [`VacantSlot`] (absent). A later diff makes
-        /// both reconcile a candidate index, so callers never touch the map directly.
+        /// [`NodeMut`] guard (present) or a [`VacantSlot`] (absent). Both reconcile the
+        /// candidate set, so callers never touch it — or the map — directly.
         pub(super) fn node_entry(&mut self, key: DiceKey) -> NodeEntry<'_> {
+            let candidates = &mut self.candidates;
             match self.nodes.entry(key) {
-                Entry::Occupied(occ) => NodeEntry::Occupied(NodeMut {
-                    node: occ.into_mut(),
-                }),
-                Entry::Vacant(vacant) => NodeEntry::Vacant(VacantSlot { vacant }),
+                Entry::Occupied(occ) => {
+                    NodeEntry::Occupied(NodeMut::new(candidates, key, occ.into_mut()))
+                }
+                Entry::Vacant(vacant) => NodeEntry::Vacant(VacantSlot { candidates, vacant }),
             }
         }
 
         /// Choke point for mutating a present node in place; `None` if absent. Uses
-        /// `get_mut` directly (no insert path); [`node_entry`](Self::node_entry) is the
-        /// mutate-or-insert counterpart.
+        /// `get_mut` directly (no insert path); the guard's `Drop` reconciles the
+        /// candidate set. [`node_entry`](Self::node_entry) is the mutate-or-insert
+        /// counterpart.
         pub(super) fn node_mut(&mut self, key: DiceKey) -> Option<NodeMut<'_>> {
-            self.nodes.get_mut(&key).map(|node| NodeMut { node })
+            let node = self.nodes.get_mut(&key)?;
+            Some(NodeMut::new(&mut self.candidates, key, node))
+        }
+
+        /// Assert the candidate set holds exactly the graph's page-out candidates, via
+        /// an O(n) scan. Test-only drift oracle: the choke points keep the set in sync
+        /// by construction (the raw map is unreachable outside this module), so this is
+        /// not needed as a runtime backstop — only to check the reconcile logic itself.
+        #[cfg(test)]
+        pub(super) fn assert_consistent(&self) {
+            let mut expected: Vec<usize> = self
+                .nodes
+                .iter()
+                .filter(|(_, n)| n.is_page_out_candidate())
+                .map(|(k, _)| k.index as usize)
+                .collect();
+            expected.sort_unstable();
+            assert_eq!(
+                self.candidates.iter().collect::<Vec<usize>>(),
+                expected,
+                "candidate set holds the wrong keys",
+            );
         }
     }
 
     /// Guard from [`NodeStore::node_mut`] / the occupied case of
-    /// [`NodeStore::node_entry`]; derefs to the node. A later diff gives it a `Drop`
-    /// that reconciles the candidate set with the node's candidacy, so routing all
-    /// in-place mutation through it keeps the set in sync by construction.
+    /// [`NodeStore::node_entry`]; derefs to the node. On drop it reconciles the
+    /// candidate set with the node's candidacy (comparing before/after), so all
+    /// in-place mutation keeps the set in sync by construction.
     pub(crate) struct NodeMut<'a> {
+        candidates: &'a mut BitSet,
         node: &'a mut VersionedGraphNode,
+        key: DiceKey,
+        was_candidate: bool,
+    }
+
+    impl<'a> NodeMut<'a> {
+        /// Captures the node's current candidacy so `Drop` can reconcile against it.
+        fn new(candidates: &'a mut BitSet, key: DiceKey, node: &'a mut VersionedGraphNode) -> Self {
+            let was_candidate = node.is_page_out_candidate();
+            NodeMut {
+                candidates,
+                node,
+                key,
+                was_candidate,
+            }
+        }
     }
 
     impl std::ops::Deref for NodeMut<'_> {
@@ -295,10 +351,27 @@ mod store {
         }
     }
 
+    impl Drop for NodeMut<'_> {
+        fn drop(&mut self) {
+            let is_candidate = self.node.is_page_out_candidate();
+            match (self.was_candidate, is_candidate) {
+                (false, true) => {
+                    self.candidates.insert(self.key.index as usize);
+                }
+                (true, false) => {
+                    self.candidates.remove(self.key.index as usize);
+                }
+                _ => {}
+            }
+        }
+    }
+
     /// The empty-slot half of [`NodeStore::node_entry`]: an absent node's insertion
-    /// point. Inserting through it is the sole way to add a node, so a later diff can
-    /// reconcile the candidate set here without a separate insert or `contains_key`.
+    /// point, paired with the candidate set. Inserting through it reconciles candidacy
+    /// in the same lookup, so mutate-or-insert needs no separate insert nor a
+    /// `contains_key` probe.
     pub(super) struct VacantSlot<'a> {
+        candidates: &'a mut BitSet,
         vacant: VacantEntry<'a, DiceKey, VersionedGraphNode>,
     }
 
@@ -308,8 +381,12 @@ mod store {
             *self.vacant.key()
         }
 
-        /// Fill the slot.
+        /// Fill the slot, adding the key to the candidate set if the new node is a
+        /// candidate. The slot was empty, so the key cannot already be present.
         pub(super) fn insert(self, node: VersionedGraphNode) {
+            if node.is_page_out_candidate() {
+                self.candidates.insert(self.vacant.key().index as usize);
+            }
             self.vacant.insert(node);
         }
     }
@@ -338,6 +415,19 @@ impl VersionedGraph {
             .name("dice-drop-everything".to_owned())
             .spawn(move || drop(dropped))
             .expect("failed to spawn thread");
+    }
+
+    /// The page-out candidate index: occupied, never-paged-out nodes, keyed by
+    /// `DiceKey::index`. Read-only; maintained by the reconciling choke points.
+    pub(crate) fn page_out_candidates(&self) -> &BitSet {
+        self.nodes.candidates()
+    }
+
+    /// Assert the candidate set holds exactly the graph's page-out candidates; the
+    /// test-only drift oracle (see [`NodeStore::assert_consistent`]).
+    #[cfg(test)]
+    pub(crate) fn assert_candidates_consistent(&self) {
+        self.nodes.assert_consistent();
     }
 
     pub(crate) fn node_mut(&mut self, key: DiceKey) -> Option<NodeMut<'_>> {
@@ -1835,5 +1925,70 @@ mod tests {
         let result = cache.get(key_v2);
         let computed = result.unpack_match().expect("entry should be a Match");
         assert!(computed.value().equality(&new_value));
+    }
+
+    /// The `node_mut` guard keeps `page_out_candidates` in sync with the graph as
+    /// nodes are computed, paged out, marked non-pageable, and dropped — checked by
+    /// `assert_candidates_consistent` (exact key set vs a full scan) after each
+    /// transition.
+    #[test]
+    fn page_out_candidate_set_tracks_the_graph() {
+        let mut cache = VersionedGraph::new();
+        let value = DiceValidValue::testing_new(DiceKeyValue::<K>::new(100));
+        let compute = |cache: &mut VersionedGraph, index: u32| {
+            cache.update(
+                VersionedGraphKey::new(VersionNumber::new(1), DiceKey { index }),
+                value.dupe(),
+                ValueReusable::EqualityBased,
+                Arc::new(SeriesParallelDeps::None),
+                StorageType::Normal,
+                TrackedInvalidationPaths::clean(),
+            );
+        };
+        // Page-out and mark-non-pageable go through the `node_mut` choke point — the
+        // same reconciling path the state thread uses — so the candidate set is
+        // exercised, not bypassed.
+        let page_out = |cache: &mut VersionedGraph, index: u32, data_key: u128| {
+            if let Some(mut node) = cache.node_mut(DiceKey { index }) {
+                if let VersionedGraphNode::Occupied(occ) = &mut *node {
+                    occ.set_paged_out(pagable::DataKey::testing_new(data_key));
+                }
+            }
+        };
+        let set_non_pageable = |cache: &mut VersionedGraph, index: u32| {
+            if let Some(mut node) = cache.node_mut(DiceKey { index }) {
+                if let VersionedGraphNode::Occupied(occ) = &mut *node {
+                    occ.mark_non_pageable();
+                }
+            }
+        };
+
+        // Empty graph: nothing to page out.
+        assert!(cache.page_out_candidates().is_empty());
+        cache.assert_candidates_consistent();
+
+        // Freshly-computed nodes are candidates (resident, never paged out).
+        compute(&mut cache, 0);
+        compute(&mut cache, 1);
+        assert!(!cache.page_out_candidates().is_empty());
+        cache.assert_candidates_consistent();
+
+        // Paging one out drops it as a candidate; the other still counts.
+        page_out(&mut cache, 0, 1);
+        assert!(!cache.page_out_candidates().is_empty());
+        cache.assert_candidates_consistent();
+
+        // Marking the last candidate non-pageable leaves none.
+        set_non_pageable(&mut cache, 1);
+        assert!(cache.page_out_candidates().is_empty());
+        cache.assert_candidates_consistent();
+
+        // Bulk-removing nodes clears the candidate set.
+        compute(&mut cache, 2);
+        assert!(!cache.page_out_candidates().is_empty());
+        cache.assert_candidates_consistent();
+        cache.nodes.retain_injected();
+        assert!(cache.page_out_candidates().is_empty());
+        cache.assert_candidates_consistent();
     }
 }
