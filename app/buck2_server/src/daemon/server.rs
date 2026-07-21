@@ -639,7 +639,8 @@ impl BuckdServer {
                                 daemon_data.page_out_on_idle,
                                 daemon_data.dice_manager.dupe(),
                                 dispatch.trace_id().dupe(),
-                            );
+                            )
+                            .await;
                             if page_out_triggered {
                                 dispatch.instant_event(buck2_data::PageOutTriggered {});
                             }

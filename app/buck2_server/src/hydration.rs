@@ -253,8 +253,10 @@ impl Drop for PageOutGuard {
 /// that triggered this page-out — is the only still-active command (so paging
 /// won't contend with other work). Returns whether one was triggered (not whether
 /// it succeeds). When commands overlap, only the last to finish still sees itself
-/// as the sole active command, so only it triggers.
-pub(crate) fn spawn_page_out_on_idle(
+/// as the sole active command, so only it triggers. Returns `false` when there is
+/// nothing to page out (e.g. a no-op build or a non-build command that computed no
+/// new values).
+pub(crate) async fn spawn_page_out_on_idle(
     enabled: bool,
     dice_manager: Arc<ConcurrencyHandler>,
     trace_id: TraceId,
@@ -267,9 +269,12 @@ pub(crate) fn spawn_page_out_on_idle(
         return false;
     };
 
-    // Re-check now the page-out is registered (`RUNNING`): a command starting during
-    // the window above wouldn't have cancelled us.
-    if !is_only_active_command(&trace_id) {
+    // Decide whether to page out under the guard, so the decision can't go stale:
+    // the cancel flag is now registered (a command starting in the window above
+    // wouldn't have cancelled us, so re-check it), and no other page-out can run
+    // concurrently and drain the candidates before the background task starts.
+    if !is_only_active_command(&trace_id) || !dice_manager.unsafe_dice().has_pageable_values().await
+    {
         return false;
     }
 

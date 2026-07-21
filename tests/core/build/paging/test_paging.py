@@ -133,3 +133,22 @@ async def test_page_out_on_idle(buck: Buck) -> None:
 
     (buck.cwd / "src.txt").write_text("content-2\n")
     assert _output(await _build(buck)) == "content-2\n"
+
+
+@buck_test(data_dir="paging", write_invocation_record=True)
+async def test_page_out_triggered_only_when_values_computed(buck: Buck) -> None:
+    # A command triggers an idle page-out only when it computed values worth
+    # paging out. The cold build does; a following no-op rebuild does not.
+    (buck.cwd / "src.txt").write_text("content-0\n")
+    result = await _build(buck)
+    assert _output(result) == "content-0\n"
+    assert result.invocation_record().get("page_out_triggered"), (
+        "the cold build computes values, so it triggers a page-out"
+    )
+    await _wait_for_page_out_idle(buck)
+
+    result = await _build(buck)
+    assert _output(result) == "content-0\n"
+    assert not result.invocation_record().get("page_out_triggered"), (
+        "a no-op rebuild computes nothing new, so it should not trigger a page-out"
+    )

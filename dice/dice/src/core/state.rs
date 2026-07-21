@@ -276,6 +276,12 @@ impl CoreStateHandle {
         self.call(StateRequest::KeysToPageOut { resp }, recv)
     }
 
+    /// Whether any node is a page-out candidate (resident, never paged out).
+    pub(crate) fn has_pageable_values(&self) -> impl Future<Output = bool> + use<> {
+        let (resp, recv) = oneshot::channel();
+        self.call(StateRequest::HasPageableValues { resp }, recv)
+    }
+
     /// Evict in-memory values for the given nodes, marking them as paged out.
     /// Fire-and-forget; any subsequent state requests are guaranteed to see
     /// the evicted state because state requests are processed FIFO.
@@ -410,6 +416,8 @@ pub(super) enum StateRequest {
     KeysToPageOut {
         resp: Sender<Vec<(DiceKey, DiceValidValue)>>,
     },
+    /// Whether any node is a page-out candidate (resident, never paged out).
+    HasPageableValues { resp: Sender<bool> },
     /// Mark nodes as paged out, dropping their in-memory values.
     EvictKeys { keys: Vec<(DiceKey, DataKey)> },
     /// Mark nodes that page-out could not serialize.
