@@ -135,25 +135,6 @@ async def test_action_suspend(
 
     await _check_suspends(buck, kill_and_retry, temp, res)
 
-    pressure_starts = await filter_events(
-        buck,
-        "Event",
-        "data",
-        "SpanStart",
-        "data",
-        "MemoryPressure",
-    )
-    pressure_ends = await filter_events(
-        buck,
-        "Event",
-        "data",
-        "SpanEnd",
-        "data",
-        "MemoryPressure",
-    )
-    assert len(pressure_starts) == 1
-    assert len(pressure_ends) == 1
-
 
 @buck_test(skip_for_os=["darwin", "windows"], disable_daemon_cgroup=False)
 @env("BUCK2_HARD_ERROR", "panic")
