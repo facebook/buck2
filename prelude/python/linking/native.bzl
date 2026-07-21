@@ -240,11 +240,39 @@ def _get_link_group_info(
 
 def _compute_cxx_extension_info(ctx, deps) -> (CxxExtensionLinkInfo, CxxExtensionLinkInfoReduced):
     executable_deps = ctx.attrs.executable_deps
+
+    # The non-anon path feeds two DISTINCT dep sets into merge_cxx_extension_info,
+    # and they are not interchangeable:
+    #  - merge_deps (positional): the binary's `raw_deps` (declared deps + preload +
+    #    resolved versioned deps). Each dep's CxxExtensionLinkInfo tset is accumulated
+    #    and traversed, so per-python_library dlopen/shared-only classifications
+    #    (recorded on the intermediate library nodes) are reached transitively.
+    #  - declared_deps (shared_deps): ONLY the declared first-order deps
+    #    (`ctx.attrs.deps`). These are classified directly (not traversed) as
+    #    dlopen / shared-only at this node.
+    # The anon target runs in its own context without `library`/`raw_deps`, so
+    # python_binary.bzl threads both in: `first_order_deps` (= raw_deps) and
+    # `declared_deps` (= the outer `ctx.attrs.deps`). Keeping them separate is
+    # load-bearing:
+    #  * classifying the versioned native deps that raw_deps adds (but the declared
+    #    set excludes) as shared-only reshapes the link-group partition and can
+    #    change which native libraries are embedded vs dynamically linked, risking a
+    #    duplicated runtime library and incorrect results at runtime; and
+    #  * the flattened transitive closure the anon rule's `deps` attr carries would
+    #    drop every intermediate python_library node (merge_native_deps omits
+    #    is_native_dep=False), losing their classifications entirely.
+    if getattr(ctx.attrs, "use_anon_target_for_analysis", False):
+        merge_deps = ctx.attrs.first_order_deps
+        declared_deps = ctx.attrs.declared_deps
+    else:
+        merge_deps = deps
+        declared_deps = ctx.attrs.deps
+
     extension_info = merge_cxx_extension_info(
         ctx.actions,
-        deps + executable_deps,
-        # Add in dlopen-enabled libs from first-order deps.
-        shared_deps = ctx.attrs.deps + python_attr_preload_deps(ctx),
+        merge_deps + executable_deps,
+        # dlopen-enabled / shared-only libs from the declared first-order deps.
+        shared_deps = declared_deps + python_attr_preload_deps(ctx),
     )
     extension_info_reduced = reduce_cxx_extension_info(extension_info)
     return extension_info, extension_info_reduced
