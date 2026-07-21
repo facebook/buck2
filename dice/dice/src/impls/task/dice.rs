@@ -258,23 +258,23 @@ impl Future for TerminationObserver {
 }
 
 /// Result of registering as a dependent of a task via `depended_on_by`.
-pub(crate) enum DiceTaskDependedOnByResult {
+pub(crate) enum DiceTaskDependedOnByResult<'d> {
     Finished(DiceComputedValue),
-    Pending(DicePromise),
+    Pending(DicePromise<'d>),
     /// The task had been cancelled and this caller won the race to restart it. The caller must
     /// spawn the worker on the freshly prepared (next-generation) task, after awaiting termination
     /// of the previous generation.
-    NeedsRestart(PreparedDiceTask, PreviouslyCancelledTask),
+    NeedsRestart(PreparedDiceTask<'d>, PreviouslyCancelledTask),
 }
 
-impl DiceTaskDependedOnByResult {
+impl<'d> DiceTaskDependedOnByResult<'d> {
     /// Unwrap to a `DicePromise`. `Finished(v)` returns a ready promise; `Pending`
     /// returns the inner promise. Panics on `NeedsRestart` because callers using
     /// `unwrap` haven't agreed to drive the restart. Used in tests where the
     /// caller knows the task is in-flight.
     #[cfg(test)]
     #[track_caller]
-    pub(crate) fn unwrap(self) -> DicePromise {
+    pub(crate) fn unwrap(self) -> DicePromise<'d> {
         match self {
             DiceTaskDependedOnByResult::Pending(p) => p,
             DiceTaskDependedOnByResult::Finished(v) => DicePromise::ready(v),
@@ -288,19 +288,19 @@ impl DiceTaskDependedOnByResult {
 /// Everything needed to start (or restart) one generation of a `DiceTask`: hand it to
 /// `spawn_prepared_task` to launch the worker and obtain a `DicePromise`. All three members are
 /// minted for the same generation.
-pub(crate) struct PreparedDiceTask {
+pub(crate) struct PreparedDiceTask<'d> {
     /// Lets the worker report the value or cancellation for this generation.
     pub(crate) completion_handle: DiceTaskCompletionHandle,
     /// The first dependent of this generation; becomes the promise returned to the spawner.
-    pub(crate) dependent_future: DiceTaskDependentFuture,
+    pub(crate) dependent_future: DiceTaskDependentFuture<'d>,
     /// Spawns the cancellable worker future for this generation.
     pub(crate) task_spawner: DiceTaskSpawner,
 }
 
-impl PreparedDiceTask {
+impl<'d> PreparedDiceTask<'d> {
     #[cfg(test)]
-    pub(crate) fn task(&self) -> &DiceTask {
-        &self.dependent_future.task
+    pub(crate) fn task(&self) -> DiceTaskRef<'d> {
+        self.dependent_future.task
     }
 }
 
@@ -312,7 +312,7 @@ enum StateAtGeneration<'d> {
 
 impl DiceTask {
     #[cfg(test)]
-    pub(crate) fn prepare_testing(key: DiceKey) -> PreparedDiceTask {
+    pub(crate) fn prepare_testing(key: DiceKey) -> PreparedDiceTask<'static> {
         // Spawning a dice task normally needs some kind of arena to allocate the task into; we don't
         // have one, but this is tests, so just leak the thing
         DiceTask::prepare::<()>(key, |t| Ok(Box::leak(Box::new(t)).as_ref())).unwrap()
@@ -328,7 +328,7 @@ impl DiceTask {
     pub(crate) fn prepare<'d, E>(
         key: DiceKey,
         alloc: impl FnOnce(DiceTask) -> Result<DiceTaskRef<'d>, E>,
-    ) -> Result<PreparedDiceTask, E> {
+    ) -> Result<PreparedDiceTask<'d>, E> {
         let (future_spawner, cancellation_handle) = prepare_detached_cancellation();
 
         let cancellation_handle = cancellation_handle.into_dropcancel();
@@ -363,7 +363,7 @@ impl DiceTask {
                 inner: future_spawner,
             },
             dependent_future: DiceTaskDependentFuture {
-                task: task.clone_arc(),
+                task,
                 completed: false,
                 generation: 2,
             },
@@ -375,10 +375,10 @@ impl DiceTask {
     }
 }
 
-impl DiceTaskRef<'_> {
+impl<'d> DiceTaskRef<'d> {
     /// `k` depends on this task, returning a `DicePromise` that will complete when this task
     /// completes
-    pub(crate) fn depended_on_by(self, _k: ParentKey) -> DiceTaskDependedOnByResult {
+    pub(crate) fn depended_on_by(self, _k: ParentKey) -> DiceTaskDependedOnByResult<'d> {
         if let Some(v) = self.get_finished_value() {
             return DiceTaskDependedOnByResult::Finished(v);
         }
@@ -395,7 +395,7 @@ impl DiceTaskRef<'_> {
             let generation = internal.current_generation.load(Ordering::Relaxed);
             return DiceTaskDependedOnByResult::Pending(DicePromise::pending(
                 DiceTaskDependentFuture {
-                    task: self.clone_arc(),
+                    task: self,
                     completed: false,
                     generation,
                 },
@@ -424,7 +424,7 @@ impl DiceTaskRef<'_> {
             // Something already restarted it.
             return DiceTaskDependedOnByResult::Pending(DicePromise::pending(
                 DiceTaskDependentFuture {
-                    task: self.clone_arc(),
+                    task: self,
                     completed: false,
                     generation: prev_generation,
                 },
@@ -459,7 +459,7 @@ impl DiceTaskRef<'_> {
                 inner: future_spawner,
             },
             dependent_future: DiceTaskDependentFuture {
-                task: self.clone_arc(),
+                task: self,
                 completed: false,
                 generation: new_generation,
             },
@@ -574,7 +574,7 @@ impl DiceTaskRef<'_> {
     /// 4. Spawn a background task to complete the async part
     pub(crate) fn sync_get_or_complete(
         &self,
-        prevent_cancellation_future: DiceTaskDependentFuture,
+        prevent_cancellation_future: DiceTaskDependentFuture<'_>,
         f: impl FnOnce() -> DiceSyncResult,
     ) -> CancellableResult<DiceComputedValue> {
         // 1. Already finished?
@@ -616,7 +616,7 @@ impl DiceTaskRef<'_> {
 
         // Note that we know that this increment does not change the strong count 0 -> 1 because -
         // until here - we have a `prevent_cancellation_future` which itself holds a strong count
-        let task = prevent_cancellation_future.task.dupe();
+        let task = prevent_cancellation_future.task.clone_arc();
         let generation = prevent_cancellation_future.generation;
         drop(prevent_cancellation_future);
         tokio::spawn({
@@ -792,12 +792,12 @@ impl DiceTaskInternal {
     }
 }
 
-pub(crate) fn spawn_prepared_task<S>(
-    task: PreparedDiceTask,
+pub(crate) fn spawn_prepared_task<'d, S>(
+    task: PreparedDiceTask<'d>,
     spawner: &dyn dice_futures::spawner::Spawner<S>,
     ctx: &S,
     f: impl for<'a> FnOnce(&'a mut DiceTaskHandle) -> BoxFuture<'a, ()> + Send,
-) -> DicePromise {
+) -> DicePromise<'d> {
     use dice_futures::owning_future::OwningFuture;
     let PreparedDiceTask {
         completion_handle,
@@ -829,7 +829,7 @@ pub(crate) fn spawn_dice_task<S>(
     + 'static,
 ) -> DiceTask {
     let prepared_task = DiceTask::prepare_testing(key);
-    let task = prepared_task.task().dupe();
+    let task = prepared_task.task().clone_arc();
     let promise = spawn_prepared_task(prepared_task, spawner, ctx, |handle| {
         async move {
             let _ignored = f(handle).await;
@@ -894,14 +894,14 @@ impl Drop for DiceTaskCompletionHandle {
 /// corresponds to one unit of `strong_count`; its drop decrements via `drop_waiter`, which is how a
 /// task notices when its last dependent is gone. Resolves to the value when the task finishes, or
 /// to a cancellation error once `terminated_generation` reaches the generation it is watching.
-pub(crate) struct DiceTaskDependentFuture {
-    task: DiceTask,
+pub(crate) struct DiceTaskDependentFuture<'d> {
+    task: DiceTaskRef<'d>,
     /// The generation whose outcome this future is waiting for.
     generation: u32,
     completed: bool,
 }
 
-impl DiceTaskDependentFuture {
+impl<'d> DiceTaskDependentFuture<'d> {
     pub(crate) fn try_get(&self) -> Option<CancellableResult<DiceComputedValue>> {
         match self.task.internal.read_value() {
             ReadValueResult::Finished(v) => Some(Ok(v.dupe())),
@@ -916,18 +916,18 @@ impl DiceTaskDependentFuture {
         }
     }
 
-    pub(crate) fn task(&self) -> &DiceTask {
-        &self.task
+    pub(crate) fn task(&self) -> DiceTaskRef<'d> {
+        self.task
     }
 }
 
-impl Drop for DiceTaskDependentFuture {
+impl<'d> Drop for DiceTaskDependentFuture<'d> {
     fn drop(&mut self) {
-        self.task.as_ref().drop_waiter();
+        self.task.drop_waiter();
     }
 }
 
-impl Future for DiceTaskDependentFuture {
+impl<'d> Future for DiceTaskDependentFuture<'d> {
     type Output = CancellableResult<DiceComputedValue>;
 
     fn poll(
@@ -957,8 +957,6 @@ impl Future for DiceTaskDependentFuture {
 
 #[cfg(test)]
 pub(crate) mod testing_helpers {
-    use dupe::Dupe;
-
     use crate::api::key::Key;
     use crate::impls::key::DiceKey;
     use crate::impls::task::dice::DiceTask;
@@ -987,7 +985,7 @@ pub(crate) mod testing_helpers {
         val: DiceComputedValue,
     ) -> DiceTask {
         let prepared = DiceTask::prepare_testing(key);
-        let task = prepared.task().dupe();
+        let task = prepared.task().clone_arc();
         prepared.completion_handle.completed(val);
         task
     }

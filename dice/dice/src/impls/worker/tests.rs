@@ -173,9 +173,9 @@ fn spawn_task(
     cycles: UserCycleDetectorData,
     event_dispatcher: DiceEventDispatcher,
     previously_cancelled_task: Option<PreviouslyCancelledTask>,
-) -> (DiceTask, DicePromise) {
+) -> (DiceTask, DicePromise<'static>) {
     let prepared_task = DiceTask::prepare_testing(k);
-    let task = prepared_task.task().dupe();
+    let task = prepared_task.task().clone_arc();
     let promise = DiceTaskWorker::spawn(
         k,
         prepared_task,

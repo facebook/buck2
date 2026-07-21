@@ -187,10 +187,10 @@ impl ModernComputeCtx<'_> {
         Self::compute_opaque_impl(self.ctx_data(), key)
     }
 
-    fn compute_opaque_impl<K>(
-        ctx_data: &CoreCtx,
+    fn compute_opaque_impl<'d, K>(
+        ctx_data: &'d CoreCtx,
         key: &K,
-    ) -> impl Future<Output = DiceResult<OpaqueValue<K>>> + use<K>
+    ) -> impl Future<Output = DiceResult<OpaqueValue<K>>> + use<'d, K>
     where
         K: Key,
     {
@@ -681,10 +681,10 @@ impl CoreCtx {
     /// Projections allow accessing derived results from the "opaque" value,
     /// where the dependency of reading a projection is the projection value rather
     /// than the entire opaque value.
-    pub(crate) fn compute_opaque<K>(
-        &self,
+    pub(crate) fn compute_opaque<'d, K>(
+        &'d self,
         key: &K,
-    ) -> impl Future<Output = CancellableResult<(DiceKey, DiceComputedValue)>> + use<K>
+    ) -> impl Future<Output = CancellableResult<(DiceKey, DiceComputedValue)>> + use<'d, K>
     where
         K: Key,
     {
@@ -807,10 +807,10 @@ pub(crate) struct SharedLiveTransactionCtx {
     cache: SharedCache,
 }
 
-enum LookupResult {
+enum LookupResult<'d> {
     Finished(DiceComputedValue),
-    Pending(DicePromise),
-    NeedsRestart(PreparedDiceTask, Option<PreviouslyCancelledTask>),
+    Pending(DicePromise<'d>),
+    NeedsRestart(PreparedDiceTask<'d>, Option<PreviouslyCancelledTask>),
     TransactionCancelled,
 }
 
@@ -859,13 +859,13 @@ impl SharedLiveTransactionCtx {
     /// Projections allow accessing derived results from the "opaque" value,
     /// where the dependency of reading a projection is the projection value rather
     /// than the entire opaque value.
-    pub(crate) fn compute_opaque(
-        &self,
+    pub(crate) fn compute_opaque<'d>(
+        &'d self,
         key: DiceKey,
         parent_key: ParentKey,
         eval: &AsyncEvaluator,
         cycles: UserCycleDetectorData,
-    ) -> impl Future<Output = CancellableResult<DiceComputedValue>> + use<> {
+    ) -> impl Future<Output = CancellableResult<DiceComputedValue>> + use<'d> {
         match self.lookup_entry(key, parent_key) {
             LookupResult::Finished(dice_computed_value) => {
                 DicePromise::ready(dice_computed_value).left_future()
