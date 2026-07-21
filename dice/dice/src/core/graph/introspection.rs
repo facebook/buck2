@@ -19,7 +19,6 @@ use crate::arc::Arc;
 use crate::core::graph::nodes::ForceDirtyHistory;
 use crate::core::graph::nodes::VersionedGraphNode;
 use crate::core::graph::storage::VersionedGraph;
-use crate::impls::key::DiceKey;
 use crate::introspection::graph::AnyKey;
 use crate::introspection::graph::CellHistory;
 use crate::introspection::graph::GraphNodeKind;
@@ -27,6 +26,7 @@ use crate::introspection::graph::KeyID;
 use crate::introspection::graph::SerializedGraphNode;
 use crate::introspection::graph::SerializedGraphNodeForKey;
 use crate::introspection::graph::VersionNumber;
+use crate::key::DiceKey;
 
 pub struct VersionedGraphIntrospectable {
     pub nodes: HashMap<DiceKey, SerializedGraphNode>,

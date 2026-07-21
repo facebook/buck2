@@ -18,10 +18,10 @@ use parking_lot::Mutex;
 use parking_lot::MutexGuard;
 
 use crate::Key;
-use crate::impls::key::CowDiceKeyHashed;
-use crate::impls::key::DiceKey;
-use crate::impls::key::DiceKeyErased;
-use crate::impls::key::DiceKeyErasedRef;
+use crate::key::CowDiceKeyHashed;
+use crate::key::DiceKey;
+use crate::key::DiceKeyErased;
+use crate::key::DiceKeyErasedRef;
 
 const KEY_BY_INDEX_BUCKETS: usize =
     lock_free_vec::buckets_for_max_capacity(DiceKeyIndex::MAX_INDEX_IN_SHARD as usize + 1);
@@ -162,10 +162,10 @@ impl DiceKeyIndex {
 
 mod introspect {
     use crate::HashMap;
-    use crate::impls::key::DiceKey;
-    use crate::impls::key_index::DiceKeyIndex;
-    use crate::impls::key_index::DiceKeyUnpacked;
     use crate::introspection::graph::AnyKey;
+    use crate::key::DiceKey;
+    use crate::key_index::DiceKeyIndex;
+    use crate::key_index::DiceKeyUnpacked;
 
     impl DiceKeyIndex {
         pub(crate) fn introspect(&self) -> HashMap<DiceKey, AnyKey> {
@@ -227,8 +227,8 @@ mod tests {
     use crate::api::key::Key;
     use crate::api::key::NoValueSerialize;
     use crate::api::key::ValueSerialize;
-    use crate::impls::key_index::DiceKeyIndex;
-    use crate::impls::key_index::DiceKeyUnpacked;
+    use crate::key_index::DiceKeyIndex;
+    use crate::key_index::DiceKeyUnpacked;
 
     #[test]
     fn test_max_index_in_shard() {

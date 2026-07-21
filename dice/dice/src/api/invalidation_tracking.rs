@@ -35,9 +35,9 @@ use dupe::Dupe;
 use gazebo::variants::VariantName;
 
 pub use crate::api::dyn_key::DynKey;
-use crate::impls::dice::Dice;
-use crate::impls::value::InvalidationPath;
-use crate::impls::value::InvalidationPathNode;
+use crate::dice::Dice;
+use crate::value::InvalidationPath;
+use crate::value::InvalidationPathNode;
 use crate::versions::VersionNumber;
 
 /// The invalidation paths for a key. This is accessible from [`crate::DiceComputations::get_invalidation_paths()`]

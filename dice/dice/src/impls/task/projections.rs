@@ -20,9 +20,9 @@ use parking_lot::RwLock;
 use parking_lot::RwLockReadGuard;
 
 use crate::arc::Arc;
-use crate::impls::key::DiceKey;
-use crate::impls::value::DiceComputedValue;
 use crate::introspection::DiceTaskState;
+use crate::key::DiceKey;
+use crate::value::DiceComputedValue;
 
 /// The result of actually evaluating the `compute` on a projection
 pub(crate) struct DiceSyncResult {
@@ -260,13 +260,13 @@ mod tests {
     use crate::api::key::NoValueSerialize;
     use crate::api::key::ValueSerialize;
     use crate::arc::Arc;
-    use crate::impls::key::DiceKey;
     use crate::impls::task::projections::DiceSyncResult;
-    use crate::impls::value::DiceComputedValue;
-    use crate::impls::value::DiceKeyValue;
-    use crate::impls::value::DiceValidValue;
-    use crate::impls::value::MaybeValidDiceValue;
-    use crate::impls::value::TrackedInvalidationPaths;
+    use crate::key::DiceKey;
+    use crate::value::DiceComputedValue;
+    use crate::value::DiceKeyValue;
+    use crate::value::DiceValidValue;
+    use crate::value::MaybeValidDiceValue;
+    use crate::value::TrackedInvalidationPaths;
     use crate::versions::VersionRanges;
 
     #[derive(Allocative, Clone, Dupe, Debug, Display, Eq, PartialEq, Hash, Pagable)]

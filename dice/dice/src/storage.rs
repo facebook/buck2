@@ -43,12 +43,12 @@ use serde::Serialize;
 
 use crate::HashMap;
 use crate::core::state::CoreStateHandle;
-use crate::impls::dice::PageOutCancel;
-use crate::impls::key::DiceKey;
-use crate::impls::key::DiceKeyErased;
-use crate::impls::key_index::DiceKeyIndex;
-use crate::impls::value::DiceValidValue;
+use crate::dice::PageOutCancel;
+use crate::key::DiceKey;
+use crate::key::DiceKeyErased;
+use crate::key_index::DiceKeyIndex;
 use crate::metrics::PageInKeyTypeMetrics;
+use crate::value::DiceValidValue;
 
 /// On-disk backend for pagable DICE storage, from `buck2_hydration.pagable_storage_backend`.
 #[derive(
@@ -414,7 +414,7 @@ fn env_concurrency(var: &str) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use crate::impls::storage::PageInMetrics;
+    use crate::storage::PageInMetrics;
 
     #[test]
     fn page_in_metrics_breakdown() {

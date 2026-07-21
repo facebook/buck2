@@ -27,7 +27,7 @@ use crate::api::cycles::DetectCycles;
 use crate::api::key::Key;
 use crate::api::key::NoValueSerialize;
 use crate::api::key::ValueSerialize;
-use crate::impls::dice::Dice;
+use crate::dice::Dice;
 
 #[tokio::test]
 async fn invalid_results_are_not_cached() -> anyhow::Result<()> {

@@ -13,9 +13,9 @@
 use typed_arena::Arena;
 
 use crate::deps::graph::SeriesParallelDeps;
-use crate::impls::key::DiceKey;
-use crate::impls::value::DiceValidity;
-use crate::impls::value::TrackedInvalidationPaths;
+use crate::key::DiceKey;
+use crate::value::DiceValidity;
+use crate::value::TrackedInvalidationPaths;
 
 pub(crate) mod encoding;
 pub(crate) mod graph;
@@ -212,7 +212,7 @@ use sync_arena::SyncArena;
 pub(crate) mod testing {
     use crate::HashSet;
     use crate::deps::RecordingDepsTracker;
-    use crate::impls::key::DiceKey;
+    use crate::key::DiceKey;
 
     pub(crate) trait RecordingDepsTrackersExt {
         fn recorded_deps(&self) -> HashSet<DiceKey>;
@@ -236,10 +236,10 @@ mod tests {
     use crate::deps::RecordingDepsTracker;
     use crate::deps::iterator::ParallelNodeIterator;
     use crate::deps::iterator::SeriesParallelDepsIteratorItem;
-    use crate::impls::key::DiceKey;
-    use crate::impls::value::DiceValidity;
-    use crate::impls::value::TrackedInvalidationPaths;
-    use crate::impls::value::testing::MakeInvalidationPaths;
+    use crate::key::DiceKey;
+    use crate::value::DiceValidity;
+    use crate::value::TrackedInvalidationPaths;
+    use crate::value::testing::MakeInvalidationPaths;
 
     struct DisplaySPDeps<'a, T: Iterator<Item = SeriesParallelDepsIteratorItem<'a>>>(T);
     impl<'a, T: Iterator<Item = SeriesParallelDepsIteratorItem<'a>>> DisplaySPDeps<'a, T> {

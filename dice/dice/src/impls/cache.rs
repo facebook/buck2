@@ -21,7 +21,6 @@ use lock_free_hashtable::sharded::ShardedLockFreeRawTable;
 
 use crate::arc::Arc;
 use crate::arc::ArcBorrow;
-use crate::impls::key::DiceKey;
 use crate::impls::task::dice::DiceTask;
 use crate::impls::task::dice::DiceTaskInternal;
 use crate::impls::task::dice::DiceTaskRef;
@@ -29,7 +28,8 @@ use crate::impls::task::dice::PreparedDiceTask;
 use crate::impls::task::dice::ReadValueResult;
 use crate::impls::task::projections::ProjectionTask;
 use crate::impls::task::projections::ProjectionTaskCompletionHandle;
-use crate::impls::value::DiceComputedValue;
+use crate::key::DiceKey;
+use crate::value::DiceComputedValue;
 
 #[derive(Allocative)]
 struct Data {
@@ -235,9 +235,9 @@ impl SharedCache {
 
 pub(crate) mod introspection {
     use crate::impls::cache::SharedCache;
-    use crate::impls::key::DiceKey;
     use crate::impls::task::dice::DiceTaskRef;
     use crate::introspection::DiceTaskState;
+    use crate::key::DiceKey;
 
     impl SharedCache {
         pub(crate) fn iter_tasks(&self) -> impl Iterator<Item = (DiceKey, DiceTaskState)> {
@@ -278,10 +278,10 @@ mod tests {
     use crate::impls::cache::SharedCache;
     use crate::impls::cache::SharedCacheInsert;
     use crate::impls::cache::SharedCacheLookup;
-    use crate::impls::key::DiceKey;
     use crate::impls::task::dice::DiceTask;
     use crate::impls::task::dice::testing_helpers::make_completed_task;
     use crate::impls::task::spawn_dice_task;
+    use crate::key::DiceKey;
 
     #[derive(Allocative, Clone, Debug, Display, Eq, PartialEq, Hash, Pagable)]
     #[pagable_typetag(DiceKeyDyn)]

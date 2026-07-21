@@ -183,10 +183,10 @@ use crate::core::graph::nodes::VersionedGraphNode;
 use crate::core::graph::types::VersionedGraphKey;
 use crate::core::graph::types::VersionedGraphResult;
 use crate::deps::graph::SeriesParallelDeps;
-use crate::impls::key::DiceKey;
-use crate::impls::value::DiceComputedValue;
-use crate::impls::value::DiceValidValue;
-use crate::impls::value::TrackedInvalidationPaths;
+use crate::key::DiceKey;
+use crate::value::DiceComputedValue;
+use crate::value::DiceValidValue;
+use crate::value::TrackedInvalidationPaths;
 use crate::versions::VersionNumber;
 use crate::versions::VersionRange;
 use crate::versions::VersionRanges;
@@ -439,7 +439,7 @@ pub(crate) mod testing {
 
     use crate::core::graph::storage::VersionedGraphResult;
     use crate::core::graph::types::VersionedGraphResultMismatch;
-    use crate::impls::value::DiceComputedValue;
+    use crate::value::DiceComputedValue;
 
     pub(crate) trait VersionedCacheResultAssertsExt {
         fn assert_compute(&self);
@@ -515,10 +515,10 @@ mod tests {
     use crate::core::graph::storage::testing::VersionedCacheResultAssertsExt;
     use crate::core::graph::types::VersionedGraphKey;
     use crate::deps::graph::SeriesParallelDeps;
-    use crate::impls::key::DiceKey;
-    use crate::impls::value::DiceKeyValue;
-    use crate::impls::value::DiceValidValue;
-    use crate::impls::value::TrackedInvalidationPaths;
+    use crate::key::DiceKey;
+    use crate::value::DiceKeyValue;
+    use crate::value::DiceValidValue;
+    use crate::value::TrackedInvalidationPaths;
     use crate::versions::VersionNumber;
 
     #[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Pagable)]

@@ -42,12 +42,12 @@ use crate::api::key::ValueSerialize;
 use crate::api::projection::DiceProjectionComputations;
 use crate::api::projection::ProjectionKey;
 use crate::api::storage_type::StorageType;
-use crate::impls::hash;
-use crate::impls::hash::key_hash;
-use crate::impls::value::DiceKeyValue;
-use crate::impls::value::DiceProjectValue;
-use crate::impls::value::DiceValueDyn;
-use crate::impls::value::MaybeValidDiceValue;
+use crate::hash;
+use crate::hash::key_hash;
+use crate::value::DiceKeyValue;
+use crate::value::DiceProjectValue;
+use crate::value::DiceValueDyn;
+use crate::value::MaybeValidDiceValue;
 
 /// Type erased internal dice key
 #[derive(
@@ -568,11 +568,11 @@ mod introspection {
     use cmp_any::PartialEqAny;
     use dupe::Dupe;
 
-    use crate::impls::key::DiceKey;
-    use crate::impls::key::DiceKeyErased;
     use crate::introspection::graph::AnyKey;
     use crate::introspection::graph::KeyForIntrospection;
     use crate::introspection::graph::KeyID;
+    use crate::key::DiceKey;
+    use crate::key::DiceKeyErased;
 
     impl DiceKey {
         pub(crate) fn introspect(&self) -> KeyID {
@@ -650,9 +650,9 @@ mod tests {
     use crate::api::key::ValueSerialize;
     use crate::api::projection::DiceProjectionComputations;
     use crate::api::projection::ProjectionKey;
-    use crate::impls::key::DiceKey;
-    use crate::impls::key::DiceKeyErased;
-    use crate::impls::key::DiceProjectionDyn;
+    use crate::key::DiceKey;
+    use crate::key::DiceKeyErased;
+    use crate::key::DiceProjectionDyn;
 
     #[test]
     fn downcast_key_does_not_increase_refs() {

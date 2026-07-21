@@ -25,11 +25,11 @@ use crate::api::user_data::UserComputationData;
 use crate::core::state::CoreStateHandle;
 use crate::impls::ctx::TransactionCtx;
 use crate::impls::ctx::VersionEpochState;
-use crate::impls::key::DiceKey;
-use crate::impls::value::DiceKeyValue;
-use crate::impls::value::DiceValidValue;
-use crate::impls::value::DiceValidity;
-use crate::impls::value::MaybeValidDiceValue;
+use crate::key::DiceKey;
+use crate::value::DiceKeyValue;
+use crate::value::DiceValidValue;
+use crate::value::DiceValidity;
+use crate::value::MaybeValidDiceValue;
 use crate::versions::VersionNumber;
 
 // TODO fill this more
@@ -232,9 +232,9 @@ mod tests {
     use crate::api::key::Key;
     use crate::api::key::NoValueSerialize;
     use crate::api::key::ValueSerialize;
-    use crate::impls::dice::Dice;
-    use crate::impls::key::CowDiceKeyHashed;
+    use crate::dice::Dice;
     use crate::impls::transaction::ChangeType;
+    use crate::key::CowDiceKeyHashed;
     use crate::versions::VersionNumber;
 
     #[derive(Allocative, Clone, PartialEq, Eq, Hash, Debug, Display, Pagable)]

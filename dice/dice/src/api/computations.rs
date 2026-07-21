@@ -34,7 +34,7 @@ use crate::api::user_data::UserComputationData;
 use crate::impls::ctx::LinearRecomputeComputations;
 use crate::impls::ctx::ModernDiceComputationsData;
 use crate::impls::ctx::TrackedComputations;
-use crate::impls::key::DiceKeyDyn;
+use crate::key::DiceKeyDyn;
 
 /// The context for computations to register themselves, and request for additional dependencies.
 /// The dependencies accessed are tracked for caching via the `DiceCtx`.

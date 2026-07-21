@@ -13,9 +13,9 @@ use std::marker::PhantomData;
 use derivative::Derivative;
 
 use crate::api::key::Key;
-use crate::impls::key::DiceKey;
-use crate::impls::value::MaybeValidDiceValue;
-use crate::impls::value::TrackedInvalidationPaths;
+use crate::key::DiceKey;
+use crate::value::MaybeValidDiceValue;
+use crate::value::TrackedInvalidationPaths;
 
 #[derive(Derivative)]
 #[derivative(Debug)]
@@ -65,12 +65,12 @@ mod tests {
     use crate::api::key::NoValueSerialize;
     use crate::api::key::ValueSerialize;
     use crate::deps::testing::RecordingDepsTrackersExt;
-    use crate::impls::key::DiceKey;
-    use crate::impls::opaque::OpaqueValue;
-    use crate::impls::value::DiceKeyValue;
-    use crate::impls::value::DiceValidity;
-    use crate::impls::value::MaybeValidDiceValue;
-    use crate::impls::value::TrackedInvalidationPaths;
+    use crate::key::DiceKey;
+    use crate::opaque::OpaqueValue;
+    use crate::value::DiceKeyValue;
+    use crate::value::DiceValidity;
+    use crate::value::MaybeValidDiceValue;
+    use crate::value::TrackedInvalidationPaths;
 
     #[derive(Allocative, Clone, Hash, Eq, PartialEq, Debug, Display, Pagable)]
     #[pagable_typetag(DiceKeyDyn)]

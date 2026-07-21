@@ -18,9 +18,9 @@ use dupe::Dupe;
 use crate::DynKey;
 use crate::api::user_data::UserCycleDetector;
 use crate::api::user_data::UserCycleDetectorGuard;
-use crate::impls::key::DiceKey;
-use crate::impls::key::DiceKeyErased;
-use crate::impls::key_index::DiceKeyIndex;
+use crate::key::DiceKey;
+use crate::key::DiceKeyErased;
+use crate::key_index::DiceKeyIndex;
 
 pub(crate) struct UserCycleDetectorData(());
 

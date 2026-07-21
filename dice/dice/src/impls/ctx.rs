@@ -45,27 +45,27 @@ use crate::core::state::CoreStateHandle;
 use crate::core::versions::VersionEpoch;
 use crate::deps::RecordedDeps;
 use crate::deps::RecordingDepsTracker;
+use crate::dice::Dice;
+use crate::events::DiceEventDispatcher;
 use crate::impls::cache::SharedCache;
 use crate::impls::cache::SharedCacheInsert;
 use crate::impls::cache::SharedCacheLookup;
-use crate::impls::dice::Dice;
 use crate::impls::evaluator::SyncEvaluator;
 use crate::impls::evaluator::TransactionData;
-use crate::impls::events::DiceEventDispatcher;
-use crate::impls::key::CowDiceKeyHashed;
-use crate::impls::key::DiceKey;
-use crate::impls::key::ParentKey;
-use crate::impls::opaque::OpaqueValue;
 use crate::impls::task::PreviouslyCancelledTask;
 use crate::impls::task::dice::PreparedDiceTask;
 use crate::impls::task::promise::DicePromise;
 use crate::impls::transaction::ActiveTransactionGuard;
-use crate::impls::user_cycle::KeyComputingUserCycleDetectorData;
-use crate::impls::user_cycle::UserCycleDetectorData;
-use crate::impls::value::DiceComputedValue;
-use crate::impls::value::TrackedInvalidationPaths;
 use crate::impls::worker::DiceTaskWorker;
 use crate::impls::worker::project_for_key;
+use crate::key::CowDiceKeyHashed;
+use crate::key::DiceKey;
+use crate::key::ParentKey;
+use crate::opaque::OpaqueValue;
+use crate::user_cycle::KeyComputingUserCycleDetectorData;
+use crate::user_cycle::UserCycleDetectorData;
+use crate::value::DiceComputedValue;
+use crate::value::TrackedInvalidationPaths;
 use crate::versions::VersionNumber;
 
 /// Provides a `DiceTransaction` access to key computations.
@@ -593,7 +593,7 @@ impl<'d> TrackedComputations<'d> {
     }
 
     #[allow(unused)] // used in test
-    pub(super) fn dep_trackers(&mut self) -> impl DerefMut<Target = RecordingDepsTracker> {
+    pub(crate) fn dep_trackers(&mut self) -> impl DerefMut<Target = RecordingDepsTracker> {
         self.unpack().1.lock()
     }
 
