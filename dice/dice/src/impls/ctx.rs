@@ -410,6 +410,7 @@ pub(crate) enum ModernComputeCtxParallelBuilder<'a> {
         dep_trackers: &'a Mutex<RecordingDepsTracker>,
     },
 }
+
 impl<'a> ModernComputeCtxParallelBuilder<'a> {
     fn compute<F, T>(&self, func: F) -> impl Future<Output = T> + use<'a, F, T>
     where

@@ -48,23 +48,26 @@ pub macro same_size($($t:tt)*) {}
 /// Assert that the future returned by the given async fn has size equal to the specified number of
 /// pointers.
 ///
-/// The function's arguments should be written as `_`; use like:
+/// Each argument should be written as `_`, which expands to a `panic!()` placeholder of the right
+/// type. When that placeholder is not enough to determine the future's type - e.g. the function is
+/// generic over a closure type that must be inferred from the argument - write that argument as an
+/// explicit expression instead:
 ///
 /// ```ignore
-/// size_assert::words_of_async_fn_future!(my_async_fn, (_, _, _), 5);
+/// size_assert::words_of_async_fn_future!(my_async_fn, (_, |x| panic!(), _), 5);
 /// ```
+///
+/// Like the `_` placeholders, explicit arguments are only ever type-checked, never run, so they may
+/// themselves be (or contain) `panic!()`.
 #[cfg(all(not(mini_vec_no_ptr_packing), target_pointer_width = "64"))]
-pub macro words_of_async_fn_future($f:path, ($($arg:tt),* $(,)?), $w:literal) {
+pub macro words_of_async_fn_future($f:path, ($($arg:tt)*), $w:literal) {
     const _: () = {
-        // The body is only ever type-checked, never run: the `panic!()` placeholders construct a
-        // value of the future's type without needing real arguments, and the size check fires at
-        // compile time regardless of the function being called.
+        // The body is only ever type-checked, never run: the placeholders construct a value of the
+        // future's type without needing real arguments, and the size check fires at compile time
+        // regardless of the function being called.
         #[allow(unused, clippy::diverging_sub_expression)]
         fn assert() {
-            $crate::size_assert::__macro_refs::static_assertions::assert_eq_size_ptr!(
-                &$f($($crate::size_assert::__macro_refs::panic_placeholder!($arg)),*),
-                &[0usize; $w]
-            );
+            $crate::size_assert::__macro_refs::assert_async_fn_future_size!(($f) ($w) () $($arg)*);
         }
     };
 }
@@ -78,12 +81,34 @@ pub macro words_of_async_fn_future($($t:tt)*) {}
 pub mod __macro_refs {
     pub use static_assertions;
 
-    /// Expands to a `panic!()` (a value of type `!`), discarding `$arg`.
+    /// Emits the size assertion for [`super::words_of_async_fn_future`].
     ///
-    /// Used to fill in async fn arguments when only the size of the returned future matters: `!` coerces
-    /// to any argument type, and a `tt` binding is needed to drive the argument repetition.
-    pub macro panic_placeholder($arg:tt) {
-        ::std::panic!()
+    /// This is a tt-muncher over the comma-separated argument list: it rewrites each `_` to a
+    /// `panic!()` placeholder, passes any other argument through verbatim, and accumulates the
+    /// results until the list is exhausted, at which point it emits the assertion. The muncher is
+    /// necessary because neither fragment type covers the whole list on its own: `_` is not an
+    /// `expr` (ruling out `$(:expr),*`), while explicit arguments may be multi-token expressions
+    /// (ruling out `$(:tt),*`).
+    pub macro assert_async_fn_future_size {
+        // All arguments consumed: emit the assertion.
+        (($f:path) ($w:literal) ($($arg:expr,)*)) => {
+            $crate::size_assert::__macro_refs::static_assertions::assert_eq_size_ptr!(
+                &$f($($arg),*),
+                &[0usize; $w]
+            );
+        },
+        // `_` placeholder (optionally followed by a comma and more arguments).
+        (($f:path) ($w:literal) ($($arg:expr,)*) _ $(, $($rest:tt)*)?) => {
+            $crate::size_assert::__macro_refs::assert_async_fn_future_size!(
+                ($f) ($w) ($($arg,)* ::std::panic!(),) $($($rest)*)?
+            );
+        },
+        // Explicit expression argument (optionally followed by a comma and more arguments).
+        (($f:path) ($w:literal) ($($arg:expr,)*) $next:expr $(, $($rest:tt)*)?) => {
+            $crate::size_assert::__macro_refs::assert_async_fn_future_size!(
+                ($f) ($w) ($($arg,)* $next,) $($($rest)*)?
+            );
+        },
     }
 }
 
@@ -95,4 +120,6 @@ mod __compile_test {
     super::words_of_type!(usize, 1);
     super::same_size!(usize, u64);
     super::words_of_async_fn_future!(three_args, (_, _, _), 1);
+    // Mix `_` placeholders with an explicit, multi-token expression argument.
+    super::words_of_async_fn_future!(three_args, (_, 1u16 + 1u16, _), 1);
 }
