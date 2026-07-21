@@ -743,7 +743,7 @@ pub(crate) async fn match_if_identical_action(
     );
 
     if actions_match == InitialDepFileLookupResult::Hit
-        && outputs_match(ctx, &previous_state).await?
+        && outputs_are_still_present_in_materializer(ctx, &previous_state).await?
     {
         tracing::trace!("Dep files are a hit");
         return Ok((Some(previous_state.result.dupe()), false));
@@ -786,7 +786,7 @@ pub(crate) async fn match_or_clear_dep_file(
         ctx,
     )
     .await?;
-    if dep_files_match && outputs_match(ctx, &previous_state).await? {
+    if dep_files_match && outputs_are_still_present_in_materializer(ctx, &previous_state).await? {
         tracing::trace!("Dep files are a hit");
         return Ok(Some(previous_state.result.dupe()));
     }
@@ -804,7 +804,7 @@ enum InitialDepFileLookupResult {
     CheckFilteredInputs,
 }
 
-async fn outputs_match(
+async fn outputs_are_still_present_in_materializer(
     ctx: &dyn ActionExecutionCtx,
     previous_state: &Arc<DepFileState>,
 ) -> buck2_error::Result<bool> {
@@ -969,12 +969,14 @@ async fn dep_files_match(
 /// because we need to rehash the outputs. Having to re-run the action isn't the best, but it's
 /// probably infrequent enough that we seem unlikely to care.
 fn outputs_are_reusable(declared_outputs: &[BuildArtifact], outputs: &ActionOutputs) -> bool {
-    for out in declared_outputs {
-        if outputs.get(out.get_path()).is_none() {
-            return false;
-        }
-    }
-    true
+    // Match by configuration-independent output path so an identical action built under a different
+    // configuration is still recognized as reusable.
+    let cached: StdBuckHashSet<&ForwardRelativePath> =
+        outputs.iter().map(|(path, _)| path.path()).collect();
+    declared_outputs.iter().all(|out| {
+        let path = out.get_path();
+        cached.contains(&(path.path()))
+    })
 }
 
 /// Read the dep files for this DepFileState. This will return None if the dep files cannot be
