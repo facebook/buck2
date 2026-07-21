@@ -262,6 +262,26 @@ impl TransactionData {
                 )
             }
             DiceKeyErased::Projection(proj) => {
+                // Ending up here is unusual - it means that we have somehow `compute_opaque`d a
+                // projection key.
+                //
+                // You'd hope that that's never possible, but unfortunately it is - it happens in
+                // dep checks, where we unconditionally `compute_opaque` the deps without checking
+                // what kind of key they are.
+                //
+                // Double unfortunately, this is not just a "someone called the wrong function"
+                // issue. It's load bearing because the normal projection compute path never
+                // actually does any check-deps like behavior; it returns a value with a valid
+                // version ranges only ever at the latest version, which means that a dep validity
+                // check on it would always fail. By going through the `compute_opaque` path we make
+                // sure to check the core state and therefore get a wider valid range.
+                //
+                // FIXME(JakobDegen):
+                //  1. There's supposed to be an invariant that we only evaluate keys once and this
+                //     transparently sets us up to violate that.
+                //  2. It's completely unclear why we're ok with this kind of discrepency between
+                //     the recompute and normal cases.
+                //  3. This is insanity.
                 let base = self
                     .epoch_state
                     .compute_opaque(
