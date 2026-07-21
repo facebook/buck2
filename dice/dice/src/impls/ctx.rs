@@ -398,9 +398,11 @@ pub(crate) enum ModernComputeCtxParallelBuilder<'a> {
 }
 
 impl<'a> ModernComputeCtxParallelBuilder<'a> {
-    fn compute<F, T>(&self, func: F) -> impl Future<Output = T> + use<'a, F, T>
+    fn compute<F, T>(&self, func: F) -> impl Future<Output = T> + use<'a, T, F>
     where
-        F: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
+        // We don't actually need this closure to be `Send` and so we don't require that here, but
+        // all the public APIs still do. It's unclear what we should commit to.
+        F: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T>,
     {
         match self {
             ModernComputeCtxParallelBuilder::Normal {
@@ -416,6 +418,11 @@ impl<'a> ModernComputeCtxParallelBuilder<'a> {
                     }
                     .into(),
                 ),
+                // Note: We need to use `OwningFuture` here specifically because we want `func` to
+                // be called immediately instead of on the first poll. It's unclear whether that's
+                // needed for the API (someone should decide and commit either way) but it's
+                // important as a memory optimization, since it prevents the future returned from
+                // this function needing room to store `func`
                 |(_, ctx)| func(ctx),
             )
             .map_taking_data(|v, (this_deps, ctx)| match ctx.0 {
