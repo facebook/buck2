@@ -56,6 +56,7 @@ use buck2_build_signals::env::WaitingData;
 use buck2_common::io::trace::TracingIoProvider;
 use buck2_core::category::Category;
 use buck2_core::category::CategoryRef;
+use buck2_core::configuration::pair::Configuration;
 use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::execution_types::executor_config::MetaInternalExtraParams;
@@ -66,6 +67,7 @@ use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuckOutPathKind;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_core::target::label::label::TargetLabel;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_error::internal_error;
@@ -168,7 +170,7 @@ impl Display for MetadataParameter {
 }
 
 /// A key that uniquely identifies a RunAction.
-#[derive(Eq, PartialEq, Hash, Display, Allocative)]
+#[derive(Eq, PartialEq, Hash, Clone, Dupe, Display, Allocative)]
 #[display(
     "{} {} {}",
     owner,
@@ -178,14 +180,25 @@ impl Display for MetadataParameter {
 pub(crate) struct RunActionKey {
     owner: BaseDeferredKey,
     category: Category,
-    identifier: Option<String>,
+    identifier: Option<Arc<str>>,
+}
+
+/// The configuration-independent identity of a `RunActionKey`
+#[derive(Eq, PartialEq, Hash, Clone, Dupe, Allocative)]
+pub(crate) enum LogicalActionKey {
+    Configured {
+        target: TargetLabel,
+        category: Category,
+        identifier: Option<Arc<str>>,
+    },
+    Other(RunActionKey),
 }
 
 impl RunActionKey {
     pub(crate) fn new(
         owner: BaseDeferredKey,
         category: Category,
-        identifier: Option<String>,
+        identifier: Option<Arc<str>>,
     ) -> Self {
         Self {
             owner,
@@ -194,11 +207,36 @@ impl RunActionKey {
         }
     }
 
+    pub(crate) fn owner(&self) -> &BaseDeferredKey {
+        &self.owner
+    }
+
+    /// The target configuration (`cfg` + `exec_cfg`) of this action, if it is owned by a configured
+    /// target. `None` for anon-target and BXL actions, which have no such configuration.
+    pub(crate) fn configuration(&self) -> Option<Configuration> {
+        self.owner()
+            .unpack_target_label()
+            .map(|t| t.cfg_pair().dupe())
+    }
+
     pub(crate) fn from_action_execution_target(target: ActionExecutionTarget<'_>) -> Self {
         Self {
             owner: target.owner().dupe(),
             category: target.category().to_owned(),
-            identifier: target.identifier().map(|t| t.to_owned()),
+            identifier: target.identifier().map(Arc::from),
+        }
+    }
+
+    pub(crate) fn to_logical(&self) -> LogicalActionKey {
+        match &self.owner {
+            BaseDeferredKey::TargetLabel(configured) => LogicalActionKey::Configured {
+                target: configured.unconfigured().dupe(),
+                category: self.category,
+                identifier: self.identifier.dupe(),
+            },
+            BaseDeferredKey::AnonTarget(_) | BaseDeferredKey::BxlLabel(_) => {
+                LogicalActionKey::Other(self.dupe())
+            }
         }
     }
 }

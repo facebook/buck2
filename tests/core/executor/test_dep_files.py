@@ -10,6 +10,7 @@
 
 
 import hashlib
+import json
 import typing
 from pathlib import Path
 from typing import Any
@@ -410,9 +411,159 @@ async def test_dep_file_hit_identical_action(buck: Buck) -> None:
     )
 
 
-# Changing ActionKey (by registering additional actions
-# before the dep-file action during analysis) should not cause a dep-file cache
-# miss when the dep-file action itself is identical.
+# Skipping on windows: simple_dep_file's action uses symlinks, which aren't supported there.
+@buck_test(
+    # test uses symlinks that mess up with eden symlink redirection on MacOS
+    setup_eden=False,
+    data_dir="dep_files",
+    skip_for_os=["windows"],
+)
+async def test_dep_file_hit_across_configurations(buck: Buck) -> None:
+    # An action whose outputs are all content-based and whose inputs are all eligible for dedupe has
+    # a configuration-independent input directory, command line and output paths.
+    #
+    # This builds an identical, dedupe-eligible action under two different
+    # target configurations (platform_a and platform_b).
+    result_a = await buck.build(
+        "app:simple_dep_file",
+        "--target-platforms",
+        "root//platforms:platform_a",
+        "--local-only",
+        "--no-remote-cache",  # Turn off remote cache query so we execute locally
+        "--show-output",
+    )
+    await check_execution_kind(
+        buck, [ACTION_EXECUTION_KIND_LOCAL], ignored=[ACTION_EXECUTION_KIND_SIMPLE]
+    )
+
+    result_b = await buck.build(
+        "app:simple_dep_file",
+        "--target-platforms",
+        "root//platforms:platform_b",
+        "--local-only",
+        "--show-output",
+    )
+    await check_no_cache_query(buck)
+    await check_execution_kind(
+        buck,
+        [ACTION_EXECUTION_KIND_LOCAL_ACTION_CACHE],
+        ignored=[ACTION_EXECUTION_KIND_SIMPLE],
+    )
+    await check_match_dep_files_events(
+        buck, [MatchDepFilesEvent(remote_cache=False, checking_filtered_inputs=False)]
+    )
+
+    def single_output(result: Any) -> str:
+        outputs = result.get_target_to_build_output()
+        assert len(outputs) == 1, outputs
+        return next(iter(outputs.values()))
+
+    async def platform_config_hash(platform: str) -> str:
+        # cquery keys its json output by the configured target label, which ends in the
+        # configuration hash, e.g.
+        # "root//app:simple_dep_file (root//platforms:platform_a#5baf920a753b3a79)".
+        out = (
+            await buck.cquery(
+                "app:simple_dep_file",
+                "--target-platforms",
+                platform,
+                "--output-attribute=name",
+            )
+        ).stdout
+        keys = list(json.loads(out).keys())
+        assert len(keys) == 1, keys
+        label = keys[0]
+        assert "#" in label, f"no configuration hash in cquery key: {label}"
+        return label.split("#", 1)[1].split(")", 1)[0]
+
+    reported_a = single_output(result_a)
+    reported_b = single_output(result_b)
+
+    hash_a = await platform_config_hash("root//platforms:platform_a")
+    hash_b = await platform_config_hash("root//platforms:platform_b")
+    assert hash_a != hash_b, f"platforms should have distinct config hashes: {hash_a}"
+    assert hash_a in reported_a, f"{hash_a} not in {reported_a}"
+    assert hash_b in reported_b, f"{hash_b} not in {reported_b}"
+    assert reported_a.replace(hash_a, hash_b) == reported_b, (
+        f"outputs paths should only differ in config hashes {reported_a} vs {reported_b}"
+    )
+
+    # Each configuration-hash path is a symlink into the deduplicated, configuration-independent
+    # content-based location, so both resolve to the exact same file.
+    path_a = (buck.cwd / reported_a).resolve()
+    path_b = (buck.cwd / reported_b).resolve()
+    assert path_a == path_b, (
+        f"content-based output should resolve to one file: {path_a} vs {path_b}"
+    )
+    # ...and the file the cache hit points at must exist with the correct content.
+    assert path_b.exists(), (
+        f"cross-config cache hit output is not materialized: {path_b}"
+    )
+    assert path_b.read_text() == "output"
+
+
+@buck_test(
+    setup_eden=False,
+    data_dir="dep_files",
+    skip_for_os=["windows"],
+)
+async def test_select_divergent_actions_do_not_thrash_across_configurations(
+    buck: Buck,
+) -> None:
+    # `app:select_divergent`'s action command line differs per configuration via select(), so its two
+    # configurations are genuinely different actions. The local action cache
+    # keeps a per-configuration entry, so building one configuration must not evict
+    # another's entry: each configuration still gets its own incremental local action cache hit.
+
+    # Build under platform_a -> executes and caches platform_a's entry.
+    await buck.build(
+        "app:select_divergent",
+        "--target-platforms",
+        "root//platforms:platform_a",
+        "--local-only",
+        "--no-remote-cache",
+        "-c",
+        "test.dummy_config=d1",
+    )
+    await check_execution_kind(
+        buck, [ACTION_EXECUTION_KIND_LOCAL], ignored=[ACTION_EXECUTION_KIND_SIMPLE]
+    )
+
+    # Build under platform_b -> a different action (different command line). It must execute (no
+    # cross-config hit, since the identity differs) and must not evict platform_a's entry.
+    await buck.build(
+        "app:select_divergent",
+        "--target-platforms",
+        "root//platforms:platform_b",
+        "--local-only",
+        "--no-remote-cache",
+        "-c",
+        "test.dummy_config=d1",
+    )
+    await check_execution_kind(
+        buck, [ACTION_EXECUTION_KIND_LOCAL], ignored=[ACTION_EXECUTION_KIND_SIMPLE]
+    )
+
+    # Rebuild under platform_a with a no-op config change to force a DICE recompute. platform_a's
+    # entry survived the platform_b build, so this is served by the local action cache.
+    await buck.build(
+        "app:select_divergent",
+        "--target-platforms",
+        "root//platforms:platform_a",
+        "--local-only",
+        "-c",
+        "test.dummy_config=d2",
+    )
+    await check_execution_kind(
+        buck,
+        [ACTION_EXECUTION_KIND_LOCAL_ACTION_CACHE],
+        ignored=[ACTION_EXECUTION_KIND_SIMPLE],
+    )
+
+
+# Changing ActionKey (by registering additional actions before the dep-file action
+# during analysis) does not cause a dep-file cache miss when the dep-file action itself is
+# identical -- the dep-file/output comparison is configuration- and ActionKey-independent.
 @buck_test(
     setup_eden=False,
     data_dir="dep_files",

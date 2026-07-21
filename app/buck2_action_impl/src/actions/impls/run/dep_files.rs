@@ -34,8 +34,10 @@ use buck2_common::cas_digest::CasDigestData;
 use buck2_common::file_ops::metadata::FileDigest;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_core::buck2_env;
+use buck2_core::configuration::pair::Configuration;
 use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
 use buck2_directory::directory::directory::Directory;
@@ -89,12 +91,19 @@ use parking_lot::MappedMutexGuard;
 use parking_lot::Mutex;
 use parking_lot::MutexGuard;
 use starlark_map::ordered_map::OrderedMap;
+use starlark_map::small_map::SmallMap;
 use tracing::instrument;
 
+use crate::actions::impls::run::LogicalActionKey;
 use crate::actions::impls::run::RunActionKey;
 
+/// Groups the per-configuration dep-file states of one logical action, keyed by the action's
+/// configuration. The key is `None` for anon-target and BXL actions, which have no
+/// configuration (and always occupy their own single-entry slot).
+type ConfigActionSlot = SmallMap<Option<Configuration>, Arc<DepFileState>>;
+
 #[allocative::root]
-static DEP_FILES: LazyLock<BuckDashMap<RunActionKey, Arc<DepFileState>>> =
+static DEP_FILES: LazyLock<BuckDashMap<LogicalActionKey, ConfigActionSlot>> =
     LazyLock::new(BuckDashMap::new);
 
 /// When this is set, we retain directories after fingerprinting, so that we can output them later
@@ -119,9 +128,13 @@ fn flush_non_local_dep_files() {
         "Flushing non-local dep files, current size is: {}",
         DEP_FILES.len()
     );
-    DEP_FILES.retain(|_, dep_file_state| dep_file_state.was_produced_locally);
+    DEP_FILES.retain(|_, slot| {
+        slot.retain(|_, dep_file_state| dep_file_state.was_produced_locally);
+        // Drop the whole slot once its last configuration entry is gone.
+        !slot.is_empty()
+    });
     tracing::info!(
-        "Number of remaining local dep files is: {}",
+        "Number of remaining local dep file slots is: {}",
         DEP_FILES.len()
     );
 }
@@ -132,7 +145,27 @@ pub(crate) fn init_flush_dep_files() {
 }
 
 pub(crate) fn get_dep_files(key: &RunActionKey) -> Option<Arc<DepFileState>> {
-    DEP_FILES.get(key).map(|s| s.dupe())
+    let slot = DEP_FILES.get(&key.to_logical())?;
+    slot.get(&key.configuration()).map(Dupe::dupe)
+}
+
+/// Remove a single configuration's entry from its slot, dropping the slot once it holds no more
+/// configurations. Every `DEP_FILES` removal funnels through here so empty slots don't leak.
+fn remove_dep_file_entry(key: &RunActionKey) {
+    let logical = key.to_logical();
+    // Take the slot's write guard only to remove the entry, then release it before removing the
+    // (now possibly empty) slot -- `remove_if` re-checks emptiness under its own guard, so a
+    // concurrent insert can never drop a non-empty slot.
+    let now_empty = match DEP_FILES.get_mut(&logical) {
+        Some(mut slot) => {
+            slot.shift_remove(&key.configuration());
+            slot.is_empty()
+        }
+        None => return,
+    };
+    if now_empty {
+        DEP_FILES.remove_if(&logical, |_, slot| slot.is_empty());
+    }
 }
 
 /// The input signatures for a DepFileState. We compute those lazily, so we either have the input
@@ -717,7 +750,7 @@ pub(crate) fn make_dep_file_bundle<'a>(
 
 /// See if there is an identical action that matches in the cache.
 /// If there is, return the outputs. Otherwise, additionally return a boolean to indicate if the lookup was a miss.
-#[instrument(level = "debug", skip(input_directory_digest,cli_digest,ctx), fields(key = %key))]
+#[instrument(level = "debug", skip(input_directory_digest, cli_digest, ctx), fields(key = %key))]
 pub(crate) async fn match_if_identical_action(
     ctx: &dyn ActionExecutionCtx,
     key: &RunActionKey,
@@ -727,34 +760,70 @@ pub(crate) async fn match_if_identical_action(
     declared_outputs: &[BuildArtifact],
     declared_dep_files: &DeclaredDepFiles,
 ) -> buck2_error::Result<(Option<ActionOutputs>, bool)> {
-    let previous_state = match get_dep_files(key) {
-        Some(d) => d.dupe(),
-        None => return Ok((None, false)),
-    };
+    // First, this configuration's own cached action.
+    if let Some(previous_state) = get_dep_files(key) {
+        let actions_match = check_action(
+            key,
+            &previous_state,
+            input_directory_digest,
+            local_worker_digest,
+            cli_digest,
+            declared_outputs,
+            declared_dep_files,
+        );
 
-    let actions_match = check_action(
-        key,
-        &previous_state,
-        input_directory_digest,
-        local_worker_digest,
-        cli_digest,
-        declared_outputs,
-        declared_dep_files,
-    );
+        if actions_match == InitialDepFileLookupResult::Hit
+            && outputs_are_still_present_in_materializer(ctx, &previous_state).await?
+        {
+            tracing::trace!("Dep files are a hit");
+            return Ok((Some(previous_state.result.dupe()), false));
+        }
 
-    if actions_match == InitialDepFileLookupResult::Hit
-        && outputs_are_still_present_in_materializer(ctx, &previous_state).await?
-    {
-        tracing::trace!("Dep files are a hit");
-        return Ok((Some(previous_state.result.dupe()), false));
+        // Don't remove the key from cache in this case as we did not fully check with the dep file content
+        tracing::trace!("Local dep file cache does not have an identical action cached");
+        return Ok((
+            None,
+            actions_match == InitialDepFileLookupResult::CheckFilteredInputs,
+        ));
     }
 
-    // Don't remote the key from cache in this case as we did not fully check with the dep file content
-    tracing::trace!("Local dep file cache does not have an identical action cached");
-    Ok((
-        None,
-        actions_match == InitialDepFileLookupResult::CheckFilteredInputs,
-    ))
+    // No entry for this configuration. If the action is eligible for cross-configuration dedupe, try
+    // to reuse an identical action built under a different configuration in the same slot. We reuse
+    // `check_action` and conservatively honor only its exact-match `Hit` verdict (an identical input
+    // directory), never reading another configuration's dep file; a later change can widen this to
+    // the dep-file-filtered case.
+
+    // `states_for_logical` clones the candidates out, so we don't hold any store lock across the
+    // async `outputs_match` or `check_action`'s cache mutations. `check_action`'s miss-path
+    // eviction of `key` is a no-op here: this configuration has no entry.
+    let candidates: Vec<Arc<DepFileState>> = match DEP_FILES.get(&key.to_logical()) {
+        Some(slot) => slot.values().map(Dupe::dupe).collect(),
+        None => Vec::new(),
+    };
+    for candidate in candidates {
+        let actions_match = check_action(
+            key,
+            &candidate,
+            input_directory_digest,
+            local_worker_digest,
+            cli_digest,
+            declared_outputs,
+            declared_dep_files,
+        );
+        if actions_match == InitialDepFileLookupResult::Hit {
+            if !outputs_are_still_present_in_materializer(ctx, &candidate).await? {
+                return Ok((None, false));
+            }
+            // Re-key the cached result to this configuration's declared outputs: `ActionOutputs`
+            // is configuration-sensitive, so another configuration's result can't be returned
+            // verbatim -- we reuse its `ArtifactValue`s, matched by configuration-independent path.
+            tracing::trace!("Cross-configuration local action cache hit");
+            let outputs = remap_outputs_to_declared(declared_outputs, &candidate.result)?;
+            return Ok((Some(outputs), false));
+        }
+    }
+
+    Ok((None, false))
 }
 
 /// Match the dep file recorded for key, or clear it from the map (if it exists).
@@ -792,7 +861,7 @@ pub(crate) async fn match_or_clear_dep_file(
     }
 
     tracing::trace!("Dep files are a miss, removing the key from cache");
-    DEP_FILES.remove(key);
+    remove_dep_file_entry(key);
 
     Ok(None)
 }
@@ -833,6 +902,45 @@ async fn outputs_are_still_present_in_materializer(
     Ok(materializer_accepts)
 }
 
+/// Pair each declared output with its `ArtifactValue` from `cached_result`, matched by
+/// configuration-independent output path (target-relative path + resolution method).
+fn pair_declared_with_cached<'a>(
+    declared_outputs: &'a [BuildArtifact],
+    cached_result: &ActionOutputs,
+) -> buck2_error::Result<Vec<(&'a BuildArtifactPath, ArtifactValue)>> {
+    let by_short_path: StdBuckHashMap<&ForwardRelativePath, &ArtifactValue> = cached_result
+        .iter()
+        .map(|(path, value)| (path.path(), value))
+        .collect();
+    declared_outputs
+        .iter()
+        .map(|declared| {
+            let path = declared.get_path();
+            let value = by_short_path.get(&(path.path())).ok_or_else(|| {
+                internal_error!(
+                    "Dep file cache hit but cached result is missing output `{}`",
+                    path.path()
+                )
+            })?;
+            buck2_error::Ok((path, (*value).dupe()))
+        })
+        .collect()
+}
+
+/// Build an `ActionOutputs` for this configuration's `declared_outputs`, reusing the `ArtifactValue`s
+/// from an identical action built under a different configuration (matched by configuration-independent
+/// output path).
+fn remap_outputs_to_declared(
+    declared_outputs: &[BuildArtifact],
+    cached_result: &ActionOutputs,
+) -> buck2_error::Result<ActionOutputs> {
+    let outputs = pair_declared_with_cached(declared_outputs, cached_result)?
+        .into_iter()
+        .map(|(path, value)| (path.dupe(), value))
+        .collect();
+    Ok(ActionOutputs::new(outputs))
+}
+
 fn check_action(
     key: &RunActionKey,
     previous_state: &DepFileState,
@@ -846,25 +954,25 @@ fn check_action(
         // We first need to check if the same dep files existed before or not. If not, then we
         // can't assume they'll still be on disk, and we have to bail.
         tracing::trace!("Dep files miss: Dep files declaration has changed");
-        DEP_FILES.remove(key);
+        remove_dep_file_entry(key);
         return InitialDepFileLookupResult::Miss;
     }
 
     if !outputs_are_reusable(declared_outputs, &previous_state.result) {
         tracing::trace!("Dep files miss: Output declaration has changed");
-        DEP_FILES.remove(key);
+        remove_dep_file_entry(key);
         return InitialDepFileLookupResult::Miss;
     }
 
     if *cli_digest != previous_state.digests.cli {
         tracing::trace!("Dep files miss: Command line has changed");
-        DEP_FILES.remove(key);
+        remove_dep_file_entry(key);
         return InitialDepFileLookupResult::Miss;
     }
 
     if *local_worker_digest != previous_state.digests.local_worker_directory {
         tracing::trace!("Dep files miss: Local worker directory has changed");
-        DEP_FILES.remove(key);
+        remove_dep_file_entry(key);
         return InitialDepFileLookupResult::Miss;
     }
 
@@ -1125,7 +1233,11 @@ pub(crate) async fn populate_dep_files(
         }
     };
 
-    DEP_FILES.insert(dep_files_key, Arc::new(state));
+    let logical = dep_files_key.to_logical();
+    DEP_FILES
+        .entry(logical)
+        .or_insert_with(SmallMap::new)
+        .insert(dep_files_key.configuration(), Arc::new(state));
     Ok(())
 }
 

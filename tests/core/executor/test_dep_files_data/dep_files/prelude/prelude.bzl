@@ -157,6 +157,22 @@ simple_dep_file = rule(
     },
 )
 
+def _cross_config_run_impl(ctx):
+    # A minimal `run` action that copies a marker file to a content-based output.
+    marker = ctx.actions.write("marker", ctx.attrs.marker_content, has_content_based_path = True)
+    out = ctx.actions.declare_output("out", has_content_based_path = True)
+    ctx.actions.run(cmd_args(["cp", marker, out.as_output()]), category = "test_run")
+    return [DefaultInfo(default_output = out)]
+
+cross_config_run = rule(
+    impl = _cross_config_run_impl,
+    attrs = {
+        "marker_content": attrs.string(),
+        # Unused by the action; only used to force a DICE recompute across builds via a buckconfig change
+        "_ignored": attrs.string(default = ""),
+    },
+)
+
 def _shared_dir_dep_file_impl(ctx):
     has_content_based_path = ctx.attrs.use_content_based_paths
     used_input = ctx.actions.write("used_input1", ctx.attrs.used_input_contents, has_content_based_path = has_content_based_path)

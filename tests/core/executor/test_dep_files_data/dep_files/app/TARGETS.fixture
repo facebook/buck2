@@ -34,6 +34,16 @@ shared_dir_dep_file(
     unused_input_contents = read_config("test", "unused_input_contents", "default"),
 )
 
+# A run action whose input differs per configuration.
+cross_config_run(
+    name = "select_divergent",
+    marker_content = select({
+        "root//platforms:config_a": "a",
+        "root//platforms:config_b": "b",
+    }),
+    _ignored = read_config("test", "dummy_config"),
+)
+
 dep_file_with_preceding_actions(
     name = "dep_file_with_preceding_actions",
 )

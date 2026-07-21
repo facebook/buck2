@@ -121,6 +121,11 @@ async def test_run_remote_with_content_based_path(buck: Buck) -> None:
         "--remote-only",
     )
     what_ran1 = await read_what_ran(buck)
+    # Flush the local dep file cache so the second (cross-configuration) build still goes through the
+    # RE path and shows up in what-ran. Otherwise it would be served by the cross-configuration local
+    # action cache (this action is dedupe-eligible), and what-ran would be empty. The cross-config
+    # local cache hit itself is covered by test_dep_files.py::test_dep_file_hit_across_configurations.
+    await buck.debug("flush-dep-files")
     result2 = await buck.build(
         target,
         "--target-platforms",
@@ -492,6 +497,11 @@ async def test_run_action_with_incremental_metadata(buck: Buck) -> None:
         "--remote-only",
     )
     what_ran1 = await read_what_ran(buck)
+    # Flush the local dep file cache so the second (cross-configuration) build still goes through the
+    # RE path and shows up in what-ran. Otherwise it would be served by the cross-configuration local
+    # action cache (this action is dedupe-eligible), and what-ran would be empty. The cross-config
+    # local cache hit itself is covered by test_dep_files.py::test_dep_file_hit_across_configurations.
+    await buck.debug("flush-dep-files")
     await buck.build(
         target,
         "--target-platforms",

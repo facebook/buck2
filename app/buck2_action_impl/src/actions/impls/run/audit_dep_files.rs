@@ -10,6 +10,7 @@
 
 use std::borrow::Cow;
 use std::io::Write;
+use std::sync::Arc;
 
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::audit_dep_files::AUDIT_DEP_FILES;
@@ -42,7 +43,11 @@ async fn audit_dep_files(
     identifier: Option<String>,
     stdout: &mut (dyn Write + Send),
 ) -> buck2_error::Result<()> {
-    let key = RunActionKey::new(BaseDeferredKey::TargetLabel(label), category, identifier);
+    let key = RunActionKey::new(
+        BaseDeferredKey::TargetLabel(label),
+        category,
+        identifier.map(Arc::from),
+    );
 
     let state = get_dep_files(&key)
         .ok_or_else(|| internal_error!("Failed to find dep files for key `{key}`"))?;
