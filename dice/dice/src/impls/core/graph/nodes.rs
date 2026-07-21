@@ -194,7 +194,7 @@ impl VersionedGraphNode {
         };
 
         let (force_dirty_restricted_range, invalidation_priority) = dirtied_history.get_x(key.v);
-        if force_dirty_restricted_range.begin() > VersionNumber(0) {
+        if force_dirty_restricted_range.begin() > VersionNumber::FIRST {
             invalidation_paths.update(TrackedInvalidationPaths::new(
                 invalidation_priority,
                 key.k,
@@ -203,7 +203,7 @@ impl VersionedGraphNode {
         }
 
         valid_deps_versions.intersect_range(force_dirty_restricted_range);
-        let computed_version = VersionRange::bounded(key.v, VersionNumber::new(key.v.0 + 1));
+        let computed_version = VersionRange::bounded(key.v, key.v.next());
         valid_deps_versions.insert(computed_version);
 
         if !overwrite_entry {
@@ -486,7 +486,7 @@ impl ForceDirtyHistory {
     fn get_x(&self, version: VersionNumber) -> (VersionRange, InvalidationSourcePriority) {
         match &self.versions {
             None => (
-                VersionRange::begins_with(VersionNumber::ZERO),
+                VersionRange::begins_with(VersionNumber::FIRST),
                 InvalidationSourcePriority::Normal,
             ),
             Some(data) => {
@@ -506,8 +506,8 @@ impl ForceDirtyHistory {
                     match (begin, end) {
                         (Some(begin), Some(end)) => VersionRange::bounded(begin, end),
                         (Some(begin), None) => VersionRange::begins_with(begin),
-                        (None, Some(end)) => VersionRange::bounded(VersionNumber::new(0), end),
-                        (None, None) => VersionRange::begins_with(VersionNumber::ZERO),
+                        (None, Some(end)) => VersionRange::bounded(VersionNumber::FIRST, end),
+                        (None, None) => VersionRange::begins_with(VersionNumber::FIRST),
                     },
                     *invalidation_priority,
                 )
@@ -553,10 +553,7 @@ impl OccupiedGraphNode {
     ) {
         valid_deps_versions
             .intersect_range(self.metadata.dirtied_history.restricted_range(version));
-        valid_deps_versions.insert(VersionRange::bounded(
-            version,
-            VersionNumber::new(version.0 + 1),
-        ));
+        valid_deps_versions.insert(VersionRange::bounded(version, version.next()));
 
         if !valid_deps_versions.is_empty() {
             Arc::make_mut(&mut self.metadata.verified_ranges).union_in_place(&valid_deps_versions);
@@ -731,7 +728,7 @@ impl OccupiedGraphNode {
                 ));
         }
         Arc::make_mut(&mut self.metadata.verified_ranges)
-            .intersect_range(VersionRange::bounded(VersionNumber::ZERO, v))
+            .intersect_range(VersionRange::bounded(VersionNumber::FIRST, v))
     }
 
     fn rdeps(&self) -> impl Iterator<Item = DiceKey> {

@@ -239,7 +239,7 @@ impl VersionedGraph {
             );
         };
 
-        let mut valid_deps_versions = VersionRange::begins_with(VersionNumber::ZERO).into_ranges();
+        let mut valid_deps_versions = VersionRange::begins_with(VersionNumber::FIRST).into_ranges();
 
         // Add rdeps.
         for dep in deps.iter_keys() {
@@ -355,7 +355,7 @@ impl VersionedGraph {
         invalidation_paths: TrackedInvalidationPaths,
     ) -> DiceComputedValue {
         debug!("making new graph entry because previously empty");
-        valid_deps_versions.insert(VersionRange::bounded(v, VersionNumber::new(v.0 + 1)));
+        valid_deps_versions.insert(VersionRange::bounded(v, v.next()));
         let entry = OccupiedGraphNode::new(
             key,
             value,
@@ -1098,7 +1098,7 @@ mod tests {
                 .update(
                     key4.dupe(),
                     res_fake.dupe(),
-                    ValueReusable::VersionBased(VersionNumber(1)),
+                    ValueReusable::VersionBased(VersionNumber::new(1)),
                     Arc::new(SeriesParallelDeps::serial_from_vec(vec![dep_key])),
                     StorageType::Normal,
                     TrackedInvalidationPaths::clean(),
@@ -1566,7 +1566,7 @@ mod tests {
 
         for i in 1..100 {
             cache.invalidate(
-                VersionedGraphKey::new(VersionNumber(i), key_a),
+                VersionedGraphKey::new(VersionNumber::new(i), key_a),
                 InvalidateKind::ForceDirty,
                 InvalidationSourcePriority::Normal,
             );

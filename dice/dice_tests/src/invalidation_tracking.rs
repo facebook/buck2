@@ -176,7 +176,7 @@ fn assert_single_invalidation(
                 expected,
                 actual.get_invalidation_path().map(|v| (
                     format!("{}({})", v.key.key_type_name(), v.key),
-                    v.version.value()
+                    v.version.testing_value()
                 ))
             )
         }

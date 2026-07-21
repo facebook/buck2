@@ -34,12 +34,13 @@ use crate::arc::Arc;
 // split this due to formatters not agreeing
 #[derive(PartialEq, Hash, Clone, Ord, PartialOrd, Allocative)]
 #[display("v{}", _0)]
-pub struct VersionNumber(pub(crate) usize);
+pub struct VersionNumber(usize);
 
 impl VersionNumber {
     /// First transaction has version number zero.
-    pub(crate) const ZERO: VersionNumber = VersionNumber(0);
+    pub(crate) const FIRST: VersionNumber = VersionNumber(0);
 
+    #[cfg(test)]
     pub(crate) fn new(num: usize) -> Self {
         VersionNumber(num)
     }
@@ -49,10 +50,19 @@ impl VersionNumber {
     }
 
     pub(crate) fn dec(&mut self) {
-        self.0 = self.0.checked_sub(1).expect("shouldn't underflow");
+        assert!(self.0 > 0);
+        self.0 -= 1;
     }
 
-    pub fn value(&self) -> usize {
+    pub(crate) fn next(self) -> Self {
+        let mut next = self;
+        next.inc();
+        next
+    }
+
+    /// Only for use in dice_tests
+    #[doc(hidden)]
+    pub fn testing_value(self) -> usize {
         self.0
     }
 }
