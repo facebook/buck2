@@ -344,7 +344,6 @@ impl DiceTask {
             },
             dependent_future: DiceTaskDependentFuture {
                 task,
-                completed: false,
                 generation: 2,
             },
             completion_handle: DiceTaskCompletionHandle {
@@ -376,7 +375,6 @@ impl<'d> DiceTaskRef<'d> {
             return DiceTaskDependedOnByResult::Pending(DicePromise::pending(
                 DiceTaskDependentFuture {
                     task: self,
-                    completed: false,
                     generation,
                 },
             ));
@@ -405,7 +403,6 @@ impl<'d> DiceTaskRef<'d> {
             return DiceTaskDependedOnByResult::Pending(DicePromise::pending(
                 DiceTaskDependentFuture {
                     task: self,
-                    completed: false,
                     generation: prev_generation,
                 },
             ));
@@ -440,7 +437,6 @@ impl<'d> DiceTaskRef<'d> {
             },
             dependent_future: DiceTaskDependentFuture {
                 task: self,
-                completed: false,
                 generation: new_generation,
             },
             completion_handle: DiceTaskCompletionHandle {
@@ -865,7 +861,6 @@ pub(crate) struct DiceTaskDependentFuture<'d> {
     task: DiceTaskRef<'d>,
     /// The generation whose outcome this future is waiting for.
     generation: u32,
-    completed: bool,
 }
 
 impl<'d> DiceTaskDependentFuture<'d> {
@@ -898,11 +893,10 @@ impl<'d> Future for DiceTaskDependentFuture<'d> {
     type Output = CancellableResult<&'d DiceComputedValue>;
 
     fn poll(
-        mut self: std::pin::Pin<&mut Self>,
+        self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Self::Output> {
         if let Some(v) = self.try_get() {
-            self.completed = true;
             return Poll::Ready(v);
         }
 
@@ -913,10 +907,7 @@ impl<'d> Future for DiceTaskDependentFuture<'d> {
         // closed the list (see `SimpleAtomicList`); the `push` return value is therefore irrelevant.
         self.task.internal.wakers.push(cx.waker().clone());
         match self.try_get() {
-            Some(v) => {
-                self.completed = true;
-                Poll::Ready(v)
-            }
+            Some(v) => Poll::Ready(v),
             None => Poll::Pending,
         }
     }
