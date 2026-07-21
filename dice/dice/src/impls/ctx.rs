@@ -133,7 +133,7 @@ impl BaseComputeCtx {
     }
 
     pub(crate) fn as_computations(&self) -> ModernComputeCtx<'_> {
-        ModernComputeCtx::Parallel {
+        ModernComputeCtx::Normal {
             ctx_data: &self.ctx,
             // Provide a dep tracker here because this type expects to track its deps, but in the
             // context of a `DiceTransaction` we don't actually need the data
@@ -283,11 +283,13 @@ impl ModernComputeCtx<'_> {
             + 'static,
     {
         let (ctx_data, self_dep_trackers) = self.unpack();
-        let mut inner_ctx: DiceComputations<'static> = DiceComputations(ModernComputeCtx::new(
-            ctx_data.parent_key,
-            ctx_data.cycles.clone(),
-            ctx_data.async_evaluator.dupe(),
-        ));
+        let inner_core_ctx = CoreCtx {
+            async_evaluator: ctx_data.async_evaluator.dupe(),
+            parent_key: ctx_data.parent_key.dupe(),
+            // FIXME(JakobDegen): These are never looked at again below, seems bad?
+            cycles: ctx_data.cycles.clone(),
+            evaluation_data: Mutex::new(EvaluationData::none()),
+        };
 
         let user_data = ctx_data.per_transaction_data();
         let spawner = user_data.spawner.dupe();
@@ -296,9 +298,13 @@ impl ModernComputeCtx<'_> {
         let task = spawn_dropcancel(
             |cancellation| {
                 async move {
-                    let res = closure(&mut inner_ctx, cancellation).await;
-                    // FIXME(JakobDegen): Why are we ignoring the other two?
-                    let (deps, _, _) = inner_ctx.0.finalize();
+                    let mut ctx = ModernComputeCtx::Normal {
+                        ctx_data: &inner_core_ctx,
+                        dep_trackers: RecordingDepsTracker::new(TrackedInvalidationPaths::clean()),
+                    }
+                    .into();
+                    let res = closure(&mut ctx, cancellation).await;
+                    let deps = ctx.0.finalize();
                     (res, deps)
                 }
                 .boxed()
@@ -412,7 +418,7 @@ impl<'a> ModernComputeCtxParallelBuilder<'a> {
             } => OwningFuture::new(
                 (
                     tracker_arena.alloc(RecordedDeps::new()),
-                    ModernComputeCtx::Parallel {
+                    ModernComputeCtx::Normal {
                         ctx_data,
                         dep_trackers: RecordingDepsTracker::new((*invalidation_paths).dupe()),
                     }
@@ -425,12 +431,9 @@ impl<'a> ModernComputeCtxParallelBuilder<'a> {
                 // this function needing room to store `func`
                 |(_, ctx)| func(ctx),
             )
-            .map_taking_data(|v, (this_deps, ctx)| match ctx.0 {
-                ModernComputeCtx::Parallel { dep_trackers, .. } => {
-                    *this_deps = dep_trackers.collect_deps();
-                    v
-                }
-                _ => unreachable!(),
+            .map_taking_data(|v, (this_deps, ctx)| {
+                *this_deps = ctx.0.finalize();
+                v
             })
             .left_future(),
             ModernComputeCtxParallelBuilder::Linear {
@@ -465,13 +468,7 @@ impl ModernDiceComputationsData {
 
 /// Context given to the `compute` function of a `Key`.
 pub(crate) enum ModernComputeCtx<'a> {
-    /// The initial ctx for a key computation.
-    Owned {
-        ctx_data: CoreCtx,
-        dep_trackers: RecordingDepsTracker,
-    },
-    /// The ctx within a compute_many/compute_join/try_compute_join.
-    Parallel {
+    Normal {
         ctx_data: &'a CoreCtx,
         dep_trackers: RecordingDepsTracker,
     },
@@ -483,33 +480,22 @@ pub(crate) enum ModernComputeCtx<'a> {
 }
 
 pub(crate) struct CoreCtx {
-    async_evaluator: AsyncEvaluator,
-    parent_key: ParentKey,
-    cycles: KeyComputingUserCycleDetectorData,
+    pub(crate) async_evaluator: AsyncEvaluator,
+    pub(crate) parent_key: ParentKey,
+    pub(crate) cycles: KeyComputingUserCycleDetectorData,
     // data for the entire compute of a Key, including parallel computes
-    evaluation_data: Mutex<EvaluationData>,
+    pub(crate) evaluation_data: Mutex<EvaluationData>,
 }
 
-impl ModernComputeCtx<'static> {
-    pub(crate) fn finalize(
-        self,
-    ) -> (
-        RecordedDeps,
-        EvaluationData,
-        KeyComputingUserCycleDetectorData,
-    ) {
-        let (data, dep_trackers) = match self {
-            ModernComputeCtx::Owned {
-                ctx_data,
+impl ModernComputeCtx<'_> {
+    pub(crate) fn finalize(self) -> RecordedDeps {
+        match self {
+            ModernComputeCtx::Normal {
+                ctx_data: _,
                 dep_trackers,
-            } => (ctx_data, dep_trackers),
+            } => dep_trackers.collect_deps(),
             _ => unreachable!(),
-        };
-        (
-            dep_trackers.collect_deps(),
-            data.evaluation_data.into_inner(),
-            data.cycles,
-        )
+        }
     }
 }
 
@@ -522,36 +508,9 @@ impl<'a> DepsTrackerHolder<'a> {
 }
 
 impl ModernComputeCtx<'_> {
-    pub(crate) fn new(
-        parent_key: ParentKey,
-        cycles: KeyComputingUserCycleDetectorData,
-        async_evaluator: AsyncEvaluator,
-    ) -> ModernComputeCtx<'static> {
-        ModernComputeCtx::Owned {
-            dep_trackers: RecordingDepsTracker::new(TrackedInvalidationPaths::clean()),
-            ctx_data: CoreCtx {
-                async_evaluator,
-                parent_key,
-                cycles,
-                evaluation_data: Mutex::new(EvaluationData::none()),
-            },
-        }
-    }
-
     fn parallel_builder(&mut self, size_hint: usize) -> ModernComputeCtxParallelBuilder<'_> {
         match self {
-            ModernComputeCtx::Owned {
-                ctx_data,
-                dep_trackers,
-            } => {
-                let (tracker_arena, invalidation_paths) = dep_trackers.push_parallel(size_hint);
-                ModernComputeCtxParallelBuilder::Normal {
-                    ctx_data,
-                    tracker_arena,
-                    invalidation_paths,
-                }
-            }
-            ModernComputeCtx::Parallel {
+            ModernComputeCtx::Normal {
                 ctx_data,
                 dep_trackers,
             } => {
@@ -574,19 +533,14 @@ impl ModernComputeCtx<'_> {
 
     fn ctx_data(&self) -> &CoreCtx {
         match self {
-            ModernComputeCtx::Owned { ctx_data, .. } => ctx_data,
-            ModernComputeCtx::Parallel { ctx_data, .. } => ctx_data,
+            ModernComputeCtx::Normal { ctx_data, .. } => ctx_data,
             ModernComputeCtx::Linear { ctx_data, .. } => ctx_data,
         }
     }
 
     fn unpack(&mut self) -> (&CoreCtx, DepsTrackerHolder<'_>) {
         match self {
-            ModernComputeCtx::Owned {
-                ctx_data,
-                dep_trackers,
-            } => (ctx_data, DepsTrackerHolder(Either::Left(dep_trackers))),
-            ModernComputeCtx::Parallel {
+            ModernComputeCtx::Normal {
                 ctx_data,
                 dep_trackers,
             } => (

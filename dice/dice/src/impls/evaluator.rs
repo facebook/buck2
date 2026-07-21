@@ -12,14 +12,17 @@ use std::sync::Arc;
 
 use dice_error::result::CancellableResult;
 use dupe::Dupe;
+use parking_lot::Mutex;
 
 use crate::ActivationData;
-use crate::api::computations::DiceComputations;
 use crate::api::projection::DiceProjectionComputations;
 use crate::api::storage_type::StorageType;
 use crate::api::user_data::UserComputationData;
+use crate::impls::ctx::CoreCtx;
+use crate::impls::ctx::EvaluationData;
 use crate::impls::ctx::ModernComputeCtx;
 use crate::impls::ctx::SharedLiveTransactionCtx;
+use crate::impls::deps::RecordingDepsTracker;
 use crate::impls::deps::graph::SeriesParallelDeps;
 use crate::impls::dice::Dice;
 use crate::impls::key::DiceKey;
@@ -60,27 +63,31 @@ impl AsyncEvaluator {
 
         match key_erased {
             DiceKeyErased::Key(key_dyn) => {
-                let mut new_ctx = DiceComputations(ModernComputeCtx::new(
-                    ParentKey::Some(key), // within this key's compute, this key is the parent
+                let core_ctx = CoreCtx {
+                    async_evaluator: self.dupe(),
+                    parent_key: ParentKey::Some(key), // within this key's compute, this key is the parent
                     cycles,
-                    self.dupe(),
-                ));
+                    evaluation_data: Mutex::new(EvaluationData::none()),
+                };
+                let mut ctx = ModernComputeCtx::Normal {
+                    ctx_data: &core_ctx,
+                    dep_trackers: RecordingDepsTracker::new(TrackedInvalidationPaths::clean()),
+                }
+                .into();
 
-                let value = key_dyn
-                    .compute(&mut new_ctx, handle.cancellation_ctx())
-                    .await;
-                let (recorded_deps, evaluation_data, cycles) = new_ctx.0.finalize();
+                let value = key_dyn.compute(&mut ctx, handle.cancellation_ctx()).await;
+                let recorded_deps = ctx.0.finalize();
 
                 state.finished(
                     handle,
-                    cycles,
+                    core_ctx.cycles,
                     KeyEvaluationResult {
                         value: MaybeValidDiceValue::new(value, recorded_deps.deps_validity),
                         deps: recorded_deps.deps,
                         storage: key_dyn.storage_type(),
                         invalidation_paths: recorded_deps.invalidation_paths,
                     },
-                    evaluation_data.into_activation_data(),
+                    core_ctx.evaluation_data.into_inner().into_activation_data(),
                 )
             }
             DiceKeyErased::Projection(proj) => {
