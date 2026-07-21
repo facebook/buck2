@@ -176,9 +176,78 @@ impl ConfigActionSlot {
     }
 }
 
+/// Backing store for the process-global dep-file cache: a concurrent map from `(logical action,
+/// configuration) -> dep-file state`. A logical action maps to a per-configuration slot, stored inline
+/// for the common single-configuration case and promoting to a map on a second configuration;
+/// DashMap's sharded locking synchronizes access. `cfg` is `None` for anon-target and BXL actions.
+#[derive(Default, Allocative)]
+struct ShardedDepFiles {
+    map: BuckDashMap<LogicalActionKey, ConfigActionSlot>,
+}
+
+impl ShardedDepFiles {
+    /// State cached for exactly this `(logical, cfg)`, if any.
+    fn get(
+        &self,
+        logical: &LogicalActionKey,
+        cfg: &Option<Configuration>,
+    ) -> Option<Arc<DepFileState>> {
+        self.map.get(logical)?.get(cfg).map(Dupe::dupe)
+    }
+
+    /// Insert or replace the state for `(logical, cfg)`.
+    fn insert(
+        &self,
+        logical: LogicalActionKey,
+        cfg: Option<Configuration>,
+        state: Arc<DepFileState>,
+    ) {
+        // `entry(..).or_insert_with(..)` holds the shard guard across the insert, so promoting a slot
+        // to `Many` when a second configuration populates it concurrently is atomic (no lost entry).
+        self.map
+            .entry(logical)
+            .or_insert_with({
+                let cfg = cfg.dupe();
+                let state = state.dupe();
+                move || ConfigActionSlot::One(cfg, state)
+            })
+            .insert(cfg, state);
+    }
+
+    /// Remove the entry for `(logical, cfg)`, if present.
+    fn remove(&self, logical: &LogicalActionKey, cfg: &Option<Configuration>) {
+        // Remove the entry and, if that empties the slot, drop the slot -- both under one guard.
+        self.map.remove_if_mut(logical, |_, slot| slot.remove(cfg));
+    }
+
+    /// Every cached state for `logical`, across all configurations -- the cross-configuration
+    /// candidates. Returned owned so the caller can drop the shard guard before awaiting.
+    fn states_for_logical(&self, logical: &LogicalActionKey) -> Vec<Arc<DepFileState>> {
+        match self.map.get(logical) {
+            Some(slot) => slot.states().map(Dupe::dupe).collect(),
+            None => Vec::new(),
+        }
+    }
+
+    /// Drop every entry whose state does not satisfy `keep`.
+    fn retain(&self, keep: impl Fn(&DepFileState) -> bool) {
+        self.map
+            .retain(|_, slot| slot.retain_non_empty(|state| keep(state)));
+    }
+
+    /// Drop all entries.
+    fn clear(&self) {
+        self.map.clear();
+    }
+
+    /// Number of cached logical actions (approximate; used only for logging).
+    fn len(&self) -> usize {
+        self.map.len()
+    }
+}
+
 #[allocative::root]
-static DEP_FILES: LazyLock<BuckDashMap<LogicalActionKey, ConfigActionSlot>> =
-    LazyLock::new(BuckDashMap::new);
+static DEP_FILES: LazyLock<ShardedDepFiles> = LazyLock::new(ShardedDepFiles::default);
 
 /// When this is set, we retain directories after fingerprinting, so that we can output them later
 /// for debugging via `buck2 audit dep-files`.
@@ -202,8 +271,8 @@ fn flush_non_local_dep_files() {
         "Flushing non-local dep files, current size is: {}",
         DEP_FILES.len()
     );
-    // Keep only locally-produced states; drop a slot once its last configuration entry is gone.
-    DEP_FILES.retain(|_, slot| slot.retain_non_empty(|state| state.was_produced_locally));
+    // Keep only locally-produced states.
+    DEP_FILES.retain(|state| state.was_produced_locally);
     tracing::info!(
         "Number of remaining local dep file slots is: {}",
         DEP_FILES.len()
@@ -216,18 +285,12 @@ pub(crate) fn init_flush_dep_files() {
 }
 
 pub(crate) fn get_dep_files(key: &RunActionKey) -> Option<Arc<DepFileState>> {
-    let slot = DEP_FILES.get(&key.to_logical())?;
-    slot.get(&key.configuration()).map(Dupe::dupe)
+    DEP_FILES.get(&key.to_logical(), &key.configuration())
 }
 
-/// Remove a single configuration's entry from its slot, dropping the slot once it holds no more
-/// configurations. Every `DEP_FILES` removal funnels through here so empty slots don't leak.
+/// Remove a single configuration's entry from the cache.
 fn remove_dep_file_entry(key: &RunActionKey) {
-    // Remove this configuration's entry and, if that empties the slot, drop the slot -- both under
-    // one guard via `remove_if_mut` (the closure mutates the slot and returns whether to drop it).
-    DEP_FILES.remove_if_mut(&key.to_logical(), |_, slot| {
-        slot.remove(&key.configuration())
-    });
+    DEP_FILES.remove(&key.to_logical(), &key.configuration());
 }
 
 /// The input signatures for a DepFileState. We compute those lazily, so we either have the input
@@ -858,10 +921,7 @@ pub(crate) async fn match_if_identical_action(
     // `states_for_logical` clones the candidates out, so we don't hold any store lock across the
     // async `outputs_match` or `check_action`'s cache mutations. `check_action`'s miss-path
     // eviction of `key` is a no-op here: this configuration has no entry.
-    let candidates: Vec<Arc<DepFileState>> = match DEP_FILES.get(&key.to_logical()) {
-        Some(slot) => slot.states().map(Dupe::dupe).collect(),
-        None => Vec::new(),
-    };
+    let candidates = DEP_FILES.states_for_logical(&key.to_logical());
     for candidate in candidates {
         let actions_match = check_action(
             key,
@@ -1295,16 +1355,11 @@ pub(crate) async fn populate_dep_files(
         }
     };
 
-    let cfg = dep_files_key.configuration();
-    let state = Arc::new(state);
-    DEP_FILES
-        .entry(dep_files_key.to_logical())
-        .or_insert_with({
-            let cfg = cfg.dupe();
-            let state = state.dupe();
-            move || ConfigActionSlot::One(cfg, state)
-        })
-        .insert(cfg, state);
+    DEP_FILES.insert(
+        dep_files_key.to_logical(),
+        dep_files_key.configuration(),
+        Arc::new(state),
+    );
     Ok(())
 }
 
