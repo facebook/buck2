@@ -8,35 +8,28 @@
  * above-listed licenses.
  */
 
-pub(crate) mod critical;
 pub(crate) mod dice;
 pub(crate) mod handle;
 pub(crate) mod promise;
-mod state;
 #[cfg(test)]
 pub(crate) use dice::spawn_dice_task;
-pub(crate) use dice::sync_dice_task;
-pub(crate) use state::DiceTaskState;
+mod atomic_list;
+
+use crate::impls::task::dice::TerminationObserver;
 
 #[cfg(test)]
 mod tests;
 
 pub(crate) struct PreviouslyCancelledTask {
-    previous: dice::DiceTask,
+    previous: TerminationObserver,
 }
 
 impl PreviouslyCancelledTask {
-    pub(crate) fn new(previous: dice::DiceTask) -> Self {
+    pub(crate) fn new(previous: TerminationObserver) -> Self {
         Self { previous }
     }
 
-    pub(crate) fn await_termination(&self) -> crate::impls::task::dice::TerminationObserver {
-        self.previous.await_termination()
-    }
-
-    pub(crate) fn get_finished_value(
-        &self,
-    ) -> Option<dice_error::result::CancellableResult<crate::impls::value::DiceComputedValue>> {
-        self.previous.get_finished_value()
+    pub(crate) fn await_termination(self) -> crate::impls::task::dice::TerminationObserver {
+        self.previous
     }
 }

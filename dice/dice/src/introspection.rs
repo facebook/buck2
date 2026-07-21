@@ -19,6 +19,18 @@ pub(crate) mod introspect;
 pub use crate::introspection::introspect::serialize_dense_graph;
 pub use crate::introspection::introspect::serialize_graph;
 
+/// A point-in-time snapshot of a `DiceTask`'s state, surfaced for graph introspection (e.g.
+/// `graph::GraphIntrospectable::keys_currently_running`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DiceTaskState {
+    /// Task is in progress (not yet completed)
+    InProgress,
+    /// Value is ready to be used
+    Ready,
+    /// Task will never become Ready
+    Terminated,
+}
+
 #[cfg(test)]
 mod tests {
     use allocative::Allocative;

@@ -29,13 +29,12 @@ mini_vec.workspace = true
 pagable = { workspace = true, optional = true }
 pagable_storage.workspace = true
 parking_lot.workspace = true
+pin-project.workspace = true
 ref-cast.workspace = true
 scopeguard.workspace = true
 serde.workspace = true
-slab.workspace = true
 sorted_vector_map.workspace = true
 static_assertions.workspace = true
-take_mut.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 tracing.workspace = true

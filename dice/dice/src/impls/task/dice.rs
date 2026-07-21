@@ -12,191 +12,459 @@
 use std::cell::UnsafeCell;
 use std::future::Future;
 use std::pin::Pin;
+use std::sync::atomic::AtomicU32;
 use std::sync::atomic::Ordering;
 use std::task::Context;
 use std::task::Poll;
+use std::task::Waker;
 
 use allocative::Allocative;
-use allocative::Visitor;
 use dice_error::result::CancellableResult;
 use dice_error::result::CancellationReason;
+use dice_futures::cancellation::CancellationContext;
+use dice_futures::cancellation::DropcancelHandle;
 use dice_futures::spawn::CancellableFutureSpawner;
 use dice_futures::spawn::prepare_detached_cancellation;
 use dice_futures::spawner::Spawner;
 use dupe::Dupe;
-use dupe::OptionDupedExt;
 use futures::FutureExt;
-use parking_lot::RwLock;
+use futures::future::BoxFuture;
+use parking_lot::Mutex;
+use ref_cast::RefCast;
 
-use crate::arc::Arc;
+use super::handle::DiceTaskHandle;
+use crate::GlobalStats;
 use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
-use crate::impls::task::critical::CancellationState;
-use crate::impls::task::handle::TaskState;
+use crate::impls::task::PreviouslyCancelledTask;
+use crate::impls::task::atomic_list::SimpleAtomicList;
+use crate::impls::task::atomic_list::SimpleAtomicListNodeSpec;
 use crate::impls::task::promise::DicePromise;
 use crate::impls::task::promise::DiceSyncResult;
-use crate::impls::task::state::AtomicDiceTaskState;
 use crate::impls::value::DiceComputedValue;
+use crate::introspection::DiceTaskState;
 
+/// The shared, reference-counted state for computing a single key at a single version.
 ///
-/// 'DiceTask' is approximately a copy of Shared and Weak from std, but with some custom special
-/// record keeping to allow us to track the waiters as DiceKeys.
+/// It behaves like a shared, spawned future: many dependents can await the same in-flight
+/// computation, but none of them drive it. The value is produced by a separately spawned worker
+/// (see `spawn_prepared_task`) that reports the result through a `DiceTaskCompletionHandle`.
+/// Polling a dependent only registers a waker; it never does real work, and a waker is only woken
+/// once the result is ready or the generation is cancelled/restarted.
 ///
-/// 'std::future::Weak' is akin to 'DiceTask', and each 'DicePromise' is a strong reference to it
-/// akin to a 'std::future::Shared'.
-///
-/// The DiceTask is always completed by a thread whose future is the 'JoinHandle'. The thread
-/// reports updates to the state of the future via 'DiceTaskHandle'. Simplifying the future
-/// implementation in that no poll will ever be doing real work. No Wakers sleeping will be awoken
-/// unless the task is ready.
-/// The task is not the "standard states" of Pending, Polling, etc as stored by Shared future,
-/// but instead we store the Dice specific states so that it's useful when we dump the state.
-/// Wakers are tracked with their corresponding DiceKeys, allowing us to track the rdeps and see
-/// which key is waiting on what
-///
-/// We can explicitly track cancellations by tracking the Waker drops.
-#[derive(Allocative, Clone, Dupe)]
+/// Each `DicePromise` / `DiceTaskDependentFuture` is a dependent ("strong reference"), counted by
+/// `strong_count`. When the last dependent goes away the in-flight computation is cancelled, but
+/// the `DiceTask` is not discarded; the next dependent to arrive *restarts* it in place as a new
+/// "generation", so the same `DiceTask` can outlive several cancelled computations. See
+/// `depended_on_by` and the `current_generation` / `terminated_generation` fields for how
+/// generations encode the task's state.
+#[derive(Allocative, Clone, Dupe, RefCast)]
+#[repr(transparent)]
 pub(crate) struct DiceTask {
-    internal: Arc<DiceTaskInternal>,
+    pub(crate) internal: crate::arc::Arc<DiceTaskInternal>,
 }
 
-impl DiceTask {
-    fn new(internal: Arc<DiceTaskInternal>) -> Self {
-        Self { internal }
+#[derive(Allocative)]
+#[allocative(skip)]
+pub(crate) struct DiceTaskInternal {
+    #[expect(dead_code)] // used by the lock-free cache representation in a later split
+    pub(crate) key: DiceKey,
+
+    /// Holds some data that actually needs to be lock protected.
+    ///
+    /// Additionally, there is an invariant that whenever any of the following happen:
+    ///  - `strong_count` is changed 1 -> 0
+    ///  - `strong_count` is changed 0 -> 1
+    ///  - Either `current_generation` or `terminated_generation` are changed
+    ///
+    /// That must be done *with this lock held.*
+    critical: Mutex<Critical>,
+
+    /// The number of things waiting on this task.
+    ///
+    /// Changing this `0 -> 1` requires a release store (and subsequent acquire loads) so that the
+    /// changes to `Critical` and other fields in this type are visible to other waiters later
+    /// grabbing handles by incrementing this.
+    strong_count: AtomicU32,
+
+    /// Because things may be cancelled, it may take multiple attempts ("generations") before an
+    /// execution is actually driven to completion. These fields track that.
+    ///
+    /// The `current_generation` is the most recently created generation. A new one is created when
+    /// the strong count goes 0 -> 1, and the worker for the generation is cancelled when the strong
+    /// count goes 1 -> 0.
+    ///
+    /// The `terminated_generation` is the most recent generation for which the associated worker
+    /// has *fully* terminated, either by succeeding or by its cancellation completing. Note that
+    /// cancellation is an async operation, so there may be some delay between strong count going to
+    /// zero and the termination incrementing.
+    ///
+    /// Normally, it is the case that `current_generation` is at most `terminated_generation + 1`,
+    /// but in the face of rapid cancellation that is not strictly required.
+    ///
+    /// When a worker finishes successfully (ie not via cancelling), `terminated_generation` is set
+    /// to zero which "seals" this task in some sense.
+    current_generation: AtomicU32,
+    terminated_generation: AtomicU32,
+
+    /// Wakers of everything currently parked on this task; as a mental model this can be thought of
+    /// as having a number of entries equalling the strong count.
+    ///
+    /// In practice though there can be a lot of other stuff here (such as `TerminationObserver`s,
+    /// which don't hold a strong count), and wakers here may actually be waiting on different
+    /// generations. We don't attempt to be smart; when we wake anything, we wake everything, and
+    /// things that didn't need to be woken just re-register themselves.
+    wakers: SimpleAtomicList<WakeOnDrain>,
+
+    /// The computed value; the access invariant is as follows:
+    ///  1. Initially, only the `DiceTaskCompletionHandle` may access this; it writes `Some` here
+    ///     when it's ready.
+    ///  2. The `DiceTaskCompletionHandle` `Release` stores `0` into `terminated_generation` above.
+    ///     This value is immutable from then on.
+    ///  3. Anything else which `Acquire` loads the `0` from `terminated_generation` may read this.
+    maybe_value: UnsafeCell<Option<DiceComputedValue>>,
+
+    /// The most recently provided cancellation reason
+    ///
+    /// FIXME(JakobDegen): This is also kind of messy, users of this might want the cancellation
+    /// reason for a specific generation, not whatever this is. But also, a previous version of this
+    /// code made a (poor) attempt to have some distinction between final cancellations - those that
+    /// are expected to retire the task in the minor version for good - and cancellations that apply
+    /// to just one generation. Possibly we should attempt to do that right.
+    last_cancellation_reason: Mutex<Option<CancellationReason>>,
+}
+
+struct WakeOnDrain;
+impl SimpleAtomicListNodeSpec for WakeOnDrain {
+    type Value = Waker;
+    fn drain(v: Waker) {
+        v.wake();
     }
 }
 
-pub(crate) struct PreparedDiceTask {
-    task: DiceTask,
-    task_spawner: DiceTaskSpawner,
+unsafe impl Send for DiceTaskInternal {}
+unsafe impl Sync for DiceTaskInternal {}
+
+struct Critical {
+    /// Cancellation handle for the most recently created generation. The actual computation on the
+    /// other side of this may have not yet started, or already been cancelled.
+    cancellation_handle: DropcancelHandle,
+    /// The value produced synchronously by an in-flight sync projection, served to concurrent
+    /// callers until the matching async completion lands and clears it. See `sync_get_or_complete`.
+    ///
+    /// FIXME(JakobDegen): Better explain why this is needed.
+    sync_value: Option<DiceComputedValue>,
 }
 
-pub(crate) struct DiceTaskSpawner {
-    inner: CancellableFutureSpawner,
-}
-
-impl PreparedDiceTask {
-    pub(crate) fn task(&self) -> &DiceTask {
-        &self.task
-    }
-}
-
-struct DiceTaskInternal {
-    #[allow(dead_code)] // used by debug! logging when enabled
-    key: DiceKey,
-    /// The internal progress state of the task
-    state: AtomicDiceTaskState,
-
-    /// Mutex-guarded critical section: dependants, termination observers, and cancellation state.
-    critical: super::critical::DiceTaskInternalCritical,
-    /// The value if finished computing
-    maybe_value: UnsafeCell<Option<CancellableResult<DiceComputedValue>>>,
-    /// the synchronous value from a sync computation that isn't yet in the core state
-    sync_value: RwLock<Option<DiceComputedValue>>,
-}
-
-impl Allocative for DiceTaskInternal {
-    fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
-        let mut visitor = visitor.enter_self_sized::<Self>();
-        visitor.visit_field(allocative::Key::new("critical"), &self.critical);
-        if self.state.is_ready(Ordering::Acquire) {
-            visitor.visit_field(allocative::Key::new("maybe_value"), unsafe {
-                &*self.maybe_value.get()
-            });
-        }
-        visitor.exit();
-    }
+pub(crate) enum ReadValueResult {
+    Finished(DiceComputedValue),
+    Pending { terminated_generation: u32 },
 }
 
 /// Future that resolves when a task is finished or fully cancelled and terminated.
-/// Dropping a `TerminationObserver` does NOT cancel the task — observers are passive.
 pub(crate) enum TerminationObserver {
-    Done,
-    Pending { waiter: DicePromise },
+    Done(Option<DiceComputedValue>),
+    Pending { task: DiceTask, generation: u32 },
 }
 
 impl TerminationObserver {
     pub(crate) fn is_terminated(&self) -> bool {
         match self {
-            TerminationObserver::Done => true,
-            TerminationObserver::Pending { waiter } => !waiter.is_pending(),
+            TerminationObserver::Done(_) => true,
+            TerminationObserver::Pending { task, generation } => match task.state_at(*generation) {
+                StateAtGeneration::TerminatedSuccess(_) => true,
+                StateAtGeneration::TerminatedCancelled => true,
+                StateAtGeneration::Pending => false,
+            },
         }
     }
 }
 
 impl Future for TerminationObserver {
-    type Output = ();
+    type Output = Option<DiceComputedValue>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        match self.get_mut() {
-            TerminationObserver::Done => Poll::Ready(()),
-            TerminationObserver::Pending { waiter } => waiter.poll_unpin(cx).map(|_| ()),
+        let (task, generation) = match self.get_mut() {
+            TerminationObserver::Done(v) => return Poll::Ready(v.take()),
+            TerminationObserver::Pending { task, generation } => (&*task, *generation),
+        };
+
+        // Fast-path to avoid waker registration
+        match task.state_at(generation) {
+            StateAtGeneration::TerminatedSuccess(v) => return Poll::Ready(Some(v)),
+            StateAtGeneration::TerminatedCancelled => return Poll::Ready(None),
+            StateAtGeneration::Pending => {}
+        }
+
+        // Register our waker, then re-check. The generation may have terminated between the check
+        // above and this registration, and the `drain`/`close` that would have woken us may already
+        // have fired — so we must report `Ready` ourselves rather than rely on a missed wakeup. The
+        // re-check is correctly synchronized because `push` acquires from whatever last reset or
+        // closed the list (see `SimpleAtomicList`).
+        task.internal.wakers.push(cx.waker().clone());
+        match task.state_at(generation) {
+            StateAtGeneration::TerminatedSuccess(v) => Poll::Ready(Some(v)),
+            StateAtGeneration::TerminatedCancelled => Poll::Ready(None),
+            StateAtGeneration::Pending => Poll::Pending,
         }
     }
+}
+
+/// Result of registering as a dependent of a task via `depended_on_by`.
+pub(crate) enum DiceTaskDependedOnByResult {
+    Finished(DiceComputedValue),
+    Pending(DicePromise),
+    /// The task had been cancelled and this caller won the race to restart it. The caller must
+    /// spawn the worker on the freshly prepared (next-generation) task, after awaiting termination
+    /// of the previous generation.
+    NeedsRestart(PreparedDiceTask, PreviouslyCancelledTask),
+}
+
+impl DiceTaskDependedOnByResult {
+    /// Unwrap to a `DicePromise`. `Finished(v)` returns a ready promise; `Pending`
+    /// returns the inner promise. Panics on `NeedsRestart` because callers using
+    /// `unwrap` haven't agreed to drive the restart. Used in tests where the
+    /// caller knows the task is in-flight.
+    #[cfg(test)]
+    #[track_caller]
+    pub(crate) fn unwrap(self) -> DicePromise {
+        match self {
+            DiceTaskDependedOnByResult::Pending(p) => p,
+            DiceTaskDependedOnByResult::Finished(v) => DicePromise::ready(v),
+            DiceTaskDependedOnByResult::NeedsRestart(_, _) => {
+                panic!("DiceTaskDependedOnByResult::unwrap called on NeedsRestart");
+            }
+        }
+    }
+}
+
+/// Everything needed to start (or restart) one generation of a `DiceTask`: hand it to
+/// `spawn_prepared_task` to launch the worker and obtain a `DicePromise`. All three members are
+/// minted for the same generation.
+pub(crate) struct PreparedDiceTask {
+    /// Lets the worker report the value or cancellation for this generation.
+    pub(crate) completion_handle: DiceTaskCompletionHandle,
+    /// The first dependent of this generation; becomes the promise returned to the spawner.
+    pub(crate) dependent_future: DiceTaskDependentFuture,
+    /// Spawns the cancellable worker future for this generation.
+    pub(crate) task_spawner: DiceTaskSpawner,
+}
+
+impl PreparedDiceTask {
+    pub(crate) fn task(&self) -> &DiceTask {
+        &self.dependent_future.task
+    }
+}
+
+enum StateAtGeneration {
+    Pending,
+    TerminatedCancelled,
+    TerminatedSuccess(DiceComputedValue),
 }
 
 impl DiceTask {
     pub(crate) fn prepare(key: DiceKey) -> PreparedDiceTask {
         let (future_spawner, cancellation_handle) = prepare_detached_cancellation();
-        let task = DiceTask::new(DiceTaskInternal::new(key, CancellationState::Pending));
-        task.set_cancellation_handle(cancellation_handle);
+
+        let cancellation_handle = cancellation_handle.into_dropcancel();
+
+        let task = Self {
+            internal: crate::arc::Arc::new(DiceTaskInternal {
+                key,
+                strong_count: AtomicU32::new(1),
+                // First generation. Per the invariant on `current_generation`, `term (1) ==
+                // cur (2) - 1` is the "in progress" state; `0` is reserved as the "finished"
+                // sentinel, so generations start at 2/1 rather than 1/0.
+                current_generation: AtomicU32::new(2),
+                terminated_generation: AtomicU32::new(1),
+                maybe_value: UnsafeCell::new(None),
+                wakers: SimpleAtomicList::new(),
+                critical: Mutex::new(Critical {
+                    cancellation_handle,
+                    sync_value: None,
+                }),
+                last_cancellation_reason: Mutex::new(None),
+            }),
+        };
 
         PreparedDiceTask {
-            task,
             task_spawner: DiceTaskSpawner {
                 inner: future_spawner,
+            },
+            dependent_future: DiceTaskDependentFuture {
+                task: task.dupe(),
+                completed: false,
+                generation: 2,
+            },
+            completion_handle: DiceTaskCompletionHandle {
+                generation: 2,
+                task,
             },
         }
     }
 
     /// `k` depends on this task, returning a `DicePromise` that will complete when this task
     /// completes
-    pub(crate) fn depended_on_by(&self, k: ParentKey) -> CancellableResult<DicePromise> {
-        if let Some(result) = self.internal.read_value() {
-            result.map(DicePromise::ready)
-        } else {
-            match self.internal.critical.depended_on_by(k) {
-                super::critical::DependedOnByResult::Cancelled(cancellation_reason) => {
-                    Err(cancellation_reason)
-                }
-                super::critical::DependedOnByResult::Pending(slab_id, waker) => {
-                    Ok(DicePromise::pending(slab_id, self.dupe(), waker))
-                }
-                super::critical::DependedOnByResult::Finished => self
-                    .internal
-                    .read_value()
-                    .expect("invalid state where deps are taken before state is ready")
-                    .map(DicePromise::ready),
-            }
+    pub(crate) fn depended_on_by(&self, _k: ParentKey) -> DiceTaskDependedOnByResult {
+        if let Some(v) = self.get_finished_value() {
+            return DiceTaskDependedOnByResult::Finished(v);
+        }
+
+        let internal = &*self.internal;
+        if internal
+            .strong_count
+            .fetch_update(Ordering::Relaxed, Ordering::Acquire, |v| {
+                if v == 0 { None } else { Some(v + 1) }
+            })
+            .is_ok()
+        {
+            // fast path, strong_count > 0: task is in progress
+            let generation = internal.current_generation.load(Ordering::Relaxed);
+            return DiceTaskDependedOnByResult::Pending(DicePromise::pending(
+                DiceTaskDependentFuture {
+                    task: self.dupe(),
+                    completed: false,
+                    generation,
+                },
+            ));
+        }
+
+        // strong_count == 0: task was cancelled, need to restart it.
+        let mut guard = self.internal.critical.lock();
+
+        // Now need to recheck in case we raced with something.
+        if let Some(v) = self.get_finished_value() {
+            // Something already finished it.
+            return DiceTaskDependedOnByResult::Finished(v);
+        }
+
+        // We cannot update this 0 -> 1 until after we've stored our generation as current, but we can't do that
+        // until we confirm that we are actually the restarter.
+        if internal
+            .strong_count
+            .fetch_update(Ordering::Relaxed, Ordering::Acquire, |v| {
+                if v == 0 { None } else { Some(v + 1) }
+            })
+            .is_ok()
+        {
+            let prev_generation = internal.current_generation.load(Ordering::Relaxed);
+            // Something already restarted it.
+            return DiceTaskDependedOnByResult::Pending(DicePromise::pending(
+                DiceTaskDependentFuture {
+                    task: self.dupe(),
+                    completed: false,
+                    generation: prev_generation,
+                },
+            ));
+        }
+
+        // We are the restarter.
+        let prev_generation = internal.current_generation.load(Ordering::Relaxed);
+        let new_generation = prev_generation + 1;
+        self.internal
+            .current_generation
+            .store(new_generation, Ordering::Relaxed);
+
+        // Build new cancellation infrastructure for the next generation.
+        let (future_spawner, cancellation_handle) = prepare_detached_cancellation();
+        let cancellation_handle = cancellation_handle.into_dropcancel();
+        guard.cancellation_handle = cancellation_handle;
+
+        // Setting this allows other calls to follow the fast path. We could probably do this just after
+        // updating current_generation, but it's a bit easier to reason about if we finish all our updates first.
+        self.internal.strong_count.store(1, Ordering::Release);
+
+        drop(guard);
+
+        let previously_cancelled = PreviouslyCancelledTask::new(TerminationObserver::Pending {
+            task: self.dupe(),
+            generation: prev_generation,
+        });
+
+        let prepared = PreparedDiceTask {
+            task_spawner: DiceTaskSpawner {
+                inner: future_spawner,
+            },
+            dependent_future: DiceTaskDependentFuture {
+                task: self.dupe(),
+                completed: false,
+                generation: new_generation,
+            },
+            completion_handle: DiceTaskCompletionHandle {
+                generation: new_generation,
+                task: self.dupe(),
+            },
+        };
+
+        DiceTaskDependedOnByResult::NeedsRestart(prepared, previously_cancelled)
+    }
+
+    pub(crate) fn get_finished_value(&self) -> Option<DiceComputedValue> {
+        match self.internal.read_value() {
+            ReadValueResult::Finished(v) => Some(v),
+            ReadValueResult::Pending { .. } => None,
         }
     }
 
-    pub(crate) fn get_finished_value(&self) -> Option<CancellableResult<DiceComputedValue>> {
-        self.internal.read_value()
+    #[cfg(test)]
+    pub(crate) fn waiters_count(&self) -> u32 {
+        self.internal.strong_count.load(Ordering::Relaxed)
     }
 
-    /// true if this task is not yet complete and not yet canceled.
+    /// Returns whether the task may have any outstanding work.
     pub(crate) fn is_pending(&self) -> bool {
-        self.internal.is_pending()
+        match self.internal.read_value() {
+            ReadValueResult::Finished(_) => false,
+            ReadValueResult::Pending {
+                terminated_generation,
+            } => terminated_generation < self.internal.current_generation.load(Ordering::Relaxed),
+        }
     }
 
-    #[allow(unused)] // future introspection functions
-    pub(crate) fn inspect_waiters(&self) -> Option<Vec<ParentKey>> {
-        self.internal.critical.get_waiters_copy()
+    pub(crate) fn introspect_state(&self) -> DiceTaskState {
+        match self.internal.read_value() {
+            ReadValueResult::Finished(_) => DiceTaskState::Ready,
+            ReadValueResult::Pending {
+                terminated_generation,
+            } if terminated_generation
+                < self.internal.current_generation.load(Ordering::Relaxed) =>
+            {
+                DiceTaskState::InProgress
+            }
+            ReadValueResult::Pending { .. } => DiceTaskState::Terminated,
+        }
     }
 
     pub(crate) fn cancel(&self, reason: CancellationReason) {
-        self.internal.critical.cancel(reason);
+        let guard = self.internal.critical.lock();
+        *self.internal.last_cancellation_reason.lock() = Some(reason);
+        GlobalStats::record_cancellation();
+        guard.cancellation_handle.cancel();
     }
 
     #[cfg(test)]
     pub(crate) fn is_ready(&self) -> bool {
-        self.internal.state.is_ready(Ordering::SeqCst)
+        match self.internal.read_value() {
+            ReadValueResult::Finished(_) => true,
+            ReadValueResult::Pending { .. } => false,
+        }
     }
 
     #[cfg(test)]
-    pub(crate) fn is_terminated(&self) -> bool {
-        self.internal.state.is_terminated(Ordering::SeqCst)
+    pub(crate) fn is_cancelled(&self) -> bool {
+        // Three states (per the generation invariant):
+        //   * Finished:  terminated_generation == 0
+        //   * Pending:   terminated_generation == current_generation - 1
+        //   * Cancelled: terminated_generation == current_generation
+        // Use read_value() (which returns Pending(term)) and compare against
+        // current. >= is defensive in case ordering ever briefly violates the
+        // invariant.
+        match self.internal.read_value() {
+            ReadValueResult::Finished(_) => false,
+            ReadValueResult::Pending {
+                terminated_generation,
+            } => terminated_generation >= self.internal.current_generation.load(Ordering::Relaxed),
+        }
     }
 
     /// Returns a future that resolves when this task finishes or is fully cancelled
@@ -210,50 +478,16 @@ impl DiceTask {
     /// - `wait_for_idle`: DICE collects pending tasks from core state and awaits their
     ///   termination observers to ensure all in-flight work has settled.
     pub(crate) fn await_termination(&self) -> TerminationObserver {
-        match self.internal.critical.await_termination() {
-            Some((slab_id, waker)) => TerminationObserver::Pending {
-                waiter: DicePromise::pending(slab_id, self.dupe(), waker),
-            },
-            None => {
-                let _finished_or_fully_cancelled = self
-                    .internal
-                    .read_value()
-                    .expect("invalid state where deps are taken before state is ready");
-
-                TerminationObserver::Done
+        match self.internal.read_value() {
+            ReadValueResult::Finished(v) => TerminationObserver::Done(Some(v)),
+            ReadValueResult::Pending { .. } => {
+                let generation = self.internal.current_generation.load(Ordering::Relaxed);
+                TerminationObserver::Pending {
+                    task: self.dupe(),
+                    generation,
+                }
             }
         }
-    }
-
-    pub(crate) fn introspect_state(&self) -> super::state::DiceTaskState {
-        self.internal.state.introspect_state()
-    }
-
-    pub(super) fn key(&self) -> DiceKey {
-        self.internal.key()
-    }
-
-    pub(super) fn read_value(&self) -> Option<CancellableResult<DiceComputedValue>> {
-        self.internal.read_value()
-    }
-
-    pub(super) fn drop_waiter(&self, slab: &SlabId) {
-        self.internal.drop_waiter(slab);
-    }
-
-    pub(super) fn set_value(
-        &self,
-        value: DiceComputedValue,
-    ) -> CancellableResult<DiceComputedValue> {
-        self.internal.set_value(value)
-    }
-
-    pub(super) fn report_terminated(&self, reason: CancellationReason) {
-        self.internal.report_terminated(reason);
-    }
-
-    fn set_cancellation_handle(&self, handle: dice_futures::cancellation::CancellationHandle) {
-        self.internal.set_cancellation_handle(handle);
     }
 
     /// Synchronously get the value of this task, or compute it via a sync projection.
@@ -265,228 +499,407 @@ impl DiceTask {
     /// 4. Spawn a background task to complete the async part
     pub(crate) fn sync_get_or_complete(
         &self,
+        prevent_cancellation_future: DiceTaskDependentFuture,
         f: impl FnOnce() -> DiceSyncResult,
     ) -> CancellableResult<DiceComputedValue> {
-        DiceTaskInternal::sync_get_or_complete(&self.internal, f)
-    }
-}
-
-pub(crate) enum SlabId {
-    Dependants(usize),
-    TerminationObserver(usize),
-}
-
-impl DiceTaskInternal {
-    fn key(&self) -> DiceKey {
-        self.key
-    }
-
-    fn read_value(&self) -> Option<CancellableResult<DiceComputedValue>> {
-        if self.state.is_ready(Ordering::Acquire) || self.state.is_terminated(Ordering::Acquire) {
-            Some(
-                unsafe {
-                    // SAFETY: main thread only writes this before setting state to `READY`
-                    &*self.maybe_value.get()
-                }
-                .as_ref()
-                .duped()
-                .expect("result should be present"),
-            )
-        } else {
-            None
-        }
-    }
-
-    fn drop_waiter(&self, slab: &SlabId) {
-        self.critical.drop_waiter(slab);
-    }
-
-    fn sync_get_or_complete(
-        this: &Arc<Self>,
-        f: impl FnOnce() -> DiceSyncResult,
-    ) -> CancellableResult<DiceComputedValue> {
-        if let Some(res) = this.read_value() {
-            return res;
-        }
-
-        if let Some(sync_res) = {
-            let lock = this.sync_value.read();
-            let value = lock.dupe();
-            drop(lock);
-            value
-        } {
-            return Ok(sync_res);
+        // 1. Already finished?
+        if let Some(v) = self.get_finished_value() {
+            return Ok(v);
         }
 
         let result = {
-            let mut locked = this.sync_value.write();
-
-            if let Some(res) = locked.as_ref() {
-                return Ok(res.dupe());
+            let mut guard = self.internal.critical.lock();
+            // May have raced, so need to check again
+            if let Some(v) = self.get_finished_value() {
+                return Ok(v);
             }
 
+            // 2. Sync value already computed by a previous call?
+            if let Some(sync_res) = &guard.sync_value {
+                return Ok(sync_res.dupe());
+            }
+
+            // 3. Compute under lock.
             let result = f();
-
-            assert!(
-                locked.replace(result.sync_result.dupe()).is_none(),
-                "should only complete sync result once"
-            );
-
+            guard.sync_value = Some(result.sync_result.dupe());
             result
         };
 
+        // 4. Spawn the async completion.
+        //
+        // Because this is async and we don't really keep track of it, things would get very messy
+        // if we started attempting to reason about cancellation here; for that reason, we avoid it.
+        // Once we get to this point, we commit to ensuring that this generation will complete with
+        // success. We do so by capturing the `DiceTaskDependentFuture`; that holds a strong count
+        // for the current generation and so makes sure it can't end, and we invoke
+        // `task_finished_success` before dropping it.
         tokio::spawn({
             let future = result.state_future;
-            let internals = this.dupe();
-
             async move {
                 let res = future.await;
-
-                let mut sync_value = internals.sync_value.write();
-
+                // Clear sync_value now that the async result is in.
+                let mut guard = prevent_cancellation_future.task.internal.critical.lock();
+                guard.sync_value = None;
+                // Finalize the generation in the standard way
+                //
+                // FIXME(JakobDegen): `DiceCompletionHandle` is supposed to be the only way to do
+                // this, so it's not a great sign that we're not using it. We also can't just have
+                // the caller pass it in - the waiter that actually gets the `DiceCompletionHandle`
+                // might not have been the one that wins the race to the lock earlier. What happens
+                // right now is that the `DiceCompletionHandle` just gets discarded which works
+                // correctly, but if that ever changes things will go very wrong here. We should
+                // probably have different APIs to avoid handing one out in the sync case.
                 match res {
-                    Ok(result) => {
-                        // only errors if cancelled, so we can ignore any errors when
-                        // setting the result
-                        let _ignore = internals.set_value(result);
+                    Ok(v) => {
+                        prevent_cancellation_future.task.task_finished_success(
+                            guard,
+                            prevent_cancellation_future.generation,
+                            v,
+                        );
                     }
-                    Err(reason) => {
-                        // if it's cancelled, report cancelled
-                        internals.report_terminated(reason);
+                    Err(e) => {
+                        prevent_cancellation_future.task.task_finished_cancelled(
+                            guard,
+                            prevent_cancellation_future.generation,
+                            e,
+                        );
                     }
                 }
-
-                // stop storing the sync value since the async one is done
-                sync_value.take()
+                drop(prevent_cancellation_future);
             }
         });
 
         Ok(result.sync_result)
     }
 
-    fn set_cancellation_handle(&self, handle: dice_futures::cancellation::CancellationHandle) {
-        self.critical.set_cancellation_handle(handle);
-    }
-
-    fn new(key: DiceKey, cancellation: CancellationState) -> Arc<Self> {
-        Arc::new(Self {
-            key,
-            state: AtomicDiceTaskState::default(),
-            maybe_value: UnsafeCell::new(None),
-            critical: super::critical::DiceTaskInternalCritical::new(cancellation),
-            sync_value: Default::default(),
-        })
-    }
-
-    fn set_value(&self, value: DiceComputedValue) -> CancellableResult<DiceComputedValue> {
-        match self.state.sync() {
-            TaskState::Continue => {}
-            TaskState::Finished => {
-                return self
-                    .read_value()
-                    .expect("task finished must mean result is ready");
-            }
-        };
-
-        let prev_exist = unsafe {
-            // SAFETY: no tasks read the value unless state is converted to `READY`
-            &mut *self.maybe_value.get()
+    fn task_finished<'a>(
+        &'_ self,
+        guard: parking_lot::MutexGuard<'a, Critical>,
+        generation: u32,
+    ) -> Option<parking_lot::MutexGuard<'a, Critical>> {
+        let internal = &*self.internal;
+        let last_terminated = internal.terminated_generation.load(Ordering::Relaxed);
+        if last_terminated == 0 {
+            // Everything was sealed earlier, so at this point it's completely safe to ignore this
+            return None;
         }
-        .replace(Ok(value.dupe()))
-        .is_some();
-        assert!(
-            !prev_exist,
-            "invalid state where somehow value was already written"
-        );
-
-        self.state.report_ready();
-        self.critical.wake_dependents();
-
-        Ok(value)
-    }
-
-    /// report the task as terminated. This should only be called once. No effect if called after
-    /// task is already ready
-    fn report_terminated(&self, reason: CancellationReason) {
-        match self.state.sync() {
-            TaskState::Continue => {}
-            TaskState::Finished => {
-                return;
-            }
-        };
-
-        let prev_exist = unsafe {
-            // SAFETY: no tasks read the value unless state is converted to `READY`
-            &mut *self.maybe_value.get()
+        if last_terminated + 1 != generation {
+            // Otherwise, we verify that the generations are cancelled in order, not out of order.
+            // To see why this is locally important for correctness, consider what happens if 9
+            // reports completion before 8. 9 must have been cancelled for that to be possible, but
+            // we would not be allowed to mark it as terminated, since that would imply that 8
+            // finished too. But when 8 eventually does come back as fully cancelled, we won't know
+            // to mark 9 as cancelled too, and everything will stall.
+            //
+            // FIXME(JakobDegen): It's a very non-local property that this is ok; in practice the
+            // worker disables cancellations at the right times to make things work out, but it'd be
+            // good if that were a lot more obvious.
+            panic!("Generations did not terminate in order");
         }
-        .replace(Err(reason))
-        .is_some();
-        assert!(
-            !prev_exist,
-            "invalid state where somehow value was already written"
-        );
-
-        self.state.report_terminated();
-        self.critical.wake_dependents();
+        Some(guard)
     }
 
-    /// true if this task is not yet complete and not yet canceled.
-    fn is_pending(&self) -> bool {
-        !(self.state.is_ready(Ordering::Acquire) || self.state.is_terminated(Ordering::Acquire))
+    /// Mark that a generation has terminated successfully.
+    ///
+    /// Calling this on a subsequent generation after a previous one succeeded is tolerated.
+    fn task_finished_success(
+        &self,
+        guard: parking_lot::MutexGuard<'_, Critical>,
+        generation: u32,
+        value: DiceComputedValue,
+    ) {
+        let internal = &*self.internal;
+        let maybe_guard = self.task_finished(guard, generation);
+        if maybe_guard.is_none() {
+            return;
+        }
+        unsafe { *internal.maybe_value.get() = Some(value) };
+        internal.terminated_generation.store(0, Ordering::Release);
+        internal.wakers.close();
+    }
+
+    /// Mark that a generation has terminated in cancellation.
+    fn task_finished_cancelled(
+        &self,
+        guard: parking_lot::MutexGuard<'_, Critical>,
+        generation: u32,
+        reason: CancellationReason,
+    ) {
+        let internal = &*self.internal;
+        let maybe_guard = self.task_finished(guard, generation);
+        if maybe_guard.is_none() {
+            return;
+        }
+
+        if reason != CancellationReason::HandleDropped {
+            // In the handle dropped case it was probably dropped because of a cancellation reason
+            // already stored here.
+            //
+            // FIXME(JakobDegen): Messy.
+            *internal.last_cancellation_reason.lock() = Some(reason);
+        }
+
+        internal
+            .terminated_generation
+            .store(generation, Ordering::Relaxed);
+        internal.wakers.drain();
+    }
+
+    /// Returns the state of the given generation.
+    fn state_at(&self, generation: u32) -> StateAtGeneration {
+        // FIXME(JakobDegen): Doesn't really do what it says in the comment, since if a generation
+        // after the provided one finished, it'll report that it finished.
+        match self.internal.read_value() {
+            ReadValueResult::Finished(v) => StateAtGeneration::TerminatedSuccess(v),
+            ReadValueResult::Pending {
+                terminated_generation,
+            } => {
+                if terminated_generation >= generation {
+                    StateAtGeneration::TerminatedCancelled
+                } else {
+                    StateAtGeneration::Pending
+                }
+            }
+        }
+    }
+
+    /// Drop one dependent.
+    fn drop_waiter(&self) {
+        // Fast path: decrement strong_count if > 1.
+        if self
+            .internal
+            .strong_count
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |v| {
+                if v == 1 { None } else { Some(v - 1) }
+            })
+            .is_ok()
+        {
+            return;
+        }
+
+        // Slow path: we appear to be the last dependent.
+        let guard = self.internal.critical.lock();
+        let prev = self.internal.strong_count.fetch_sub(1, Ordering::Relaxed);
+        if prev != 1 {
+            // A new dependent registered.
+            return;
+        }
+
+        // We were the last dependent. Cancel the spawned task.
+        GlobalStats::record_cancellation();
+        guard.cancellation_handle.cancel();
     }
 }
 
-// our use of `UnsafeCell` is okay to be send and sync.
-// Each unsafe block around its access has comments explaining the invariants.
-unsafe impl Send for DiceTaskInternal {}
-unsafe impl Sync for DiceTaskInternal {}
+impl DiceTaskInternal {
+    pub(crate) fn read_value(&self) -> ReadValueResult {
+        match self.terminated_generation.load(Ordering::Acquire) {
+            0 => ReadValueResult::Finished(
+                // SAFETY: `Acquire` load of `0` synchronizes with the op that wrote this, as per
+                // the invariant on this
+                unsafe { &*self.maybe_value.get() }.as_ref().unwrap().dupe(),
+            ),
+            terminated_generation => ReadValueResult::Pending {
+                terminated_generation,
+            },
+        }
+    }
+}
+
+pub(crate) fn spawn_prepared_task<S>(
+    task: PreparedDiceTask,
+    spawner: &dyn dice_futures::spawner::Spawner<S>,
+    ctx: &S,
+    f: impl for<'a> FnOnce(&'a mut DiceTaskHandle) -> BoxFuture<'a, ()> + Send,
+) -> DicePromise {
+    use dice_futures::owning_future::OwningFuture;
+    let PreparedDiceTask {
+        completion_handle,
+        dependent_future,
+        task_spawner,
+    } = task;
+
+    task_spawner.spawn_cancellable(
+        |cancellations| {
+            let handle = DiceTaskHandle::new(completion_handle, cancellations);
+            OwningFuture::new(handle, f).boxed()
+        },
+        spawner,
+        ctx,
+    );
+
+    DicePromise::pending(dependent_future)
+}
 
 #[cfg(test)]
 pub(crate) fn spawn_dice_task<S>(
     key: DiceKey,
     spawner: &dyn dice_futures::spawner::Spawner<S>,
     ctx: &S,
-    f: impl for<'a, 'b> FnOnce(
-        &'a mut super::handle::DiceTaskHandle<'b>,
+    f: impl for<'a> FnOnce(
+        &'a mut DiceTaskHandle,
     ) -> futures::future::BoxFuture<'a, Box<dyn std::any::Any + Send>>
-    + Send,
+    + Send
+    + 'static,
 ) -> DiceTask {
-    spawn_prepared_task(DiceTask::prepare(key), spawner, ctx, f)
-}
-
-pub(crate) fn spawn_prepared_task<S>(
-    prepared_task: PreparedDiceTask,
-    spawner: &dyn Spawner<S>,
-    ctx: &S,
-    f: impl for<'a, 'b> FnOnce(
-        &'a mut super::handle::DiceTaskHandle<'b>,
-    ) -> futures::future::BoxFuture<'a, Box<dyn std::any::Any + Send>>
-    + Send,
-) -> DiceTask {
-    use dice_futures::owning_future::OwningFuture;
-
-    let PreparedDiceTask { task, task_spawner } = prepared_task;
-
-    task_spawner.inner.spawn(
-        {
-            let task = task.dupe();
-            |cancellations| {
-                let handle = super::handle::DiceTaskHandle::new(task, cancellations);
-                OwningFuture::new(handle, f).boxed()
-            }
-        },
-        spawner,
-        ctx,
-    );
-
+    let prepared_task = DiceTask::prepare(key);
+    let task = prepared_task.task().dupe();
+    let promise = spawn_prepared_task(prepared_task, spawner, ctx, |handle| {
+        async move {
+            let _ignored = f(handle).await;
+        }
+        .boxed()
+    });
+    std::mem::forget(promise);
     task
 }
 
-/// Unsafe as this creates a Task that must be completed explicitly otherwise polling will never
-/// complete.
-pub(crate) unsafe fn sync_dice_task(key: DiceKey) -> DiceTask {
-    DiceTask::new(DiceTaskInternal::new(
-        key,
-        CancellationState::NotCancellable,
-    ))
+pub struct DiceTaskSpawner {
+    pub(crate) inner: CancellableFutureSpawner,
+}
+
+impl DiceTaskSpawner {
+    pub(crate) fn spawn_cancellable<S>(
+        self,
+        f: impl for<'a> FnOnce(&'a CancellationContext) -> BoxFuture<'a, ()> + Send,
+        spawner: &dyn Spawner<S>,
+        ctx: &S,
+    ) {
+        self.inner.spawn(f, spawner, ctx);
+    }
+}
+
+/// The sole right to finalize one generation of a `DiceTask`. Held by the spawned worker (inside
+/// `DiceTaskHandle`) or by an in-flight sync projection. Finalization is generation-checked: if the
+/// task has since been restarted, `completed`/`terminated` for this stale generation are no-ops, so
+/// a slow or duplicate completion can't clobber a newer computation.
+pub(crate) struct DiceTaskCompletionHandle {
+    /// The generation this handle is allowed to finalize.
+    pub(super) generation: u32,
+    pub(super) task: DiceTask,
+}
+
+impl DiceTaskCompletionHandle {
+    pub(crate) fn terminated(self, reason: CancellationReason) {
+        self.task.task_finished_cancelled(
+            self.task.internal.critical.lock(),
+            self.generation,
+            reason,
+        );
+    }
+
+    pub(crate) fn completed(self, v: DiceComputedValue) {
+        self.task
+            .task_finished_success(self.task.internal.critical.lock(), self.generation, v);
+    }
+}
+
+impl Drop for DiceTaskCompletionHandle {
+    fn drop(&mut self) {
+        // Intentionally does nothing, and this is important because of the FIXME in the sync case
+        // below
+    }
+}
+
+/// A dependent's view of an in-flight `DiceTask`, pollable for its result. Each live instance
+/// corresponds to one unit of `strong_count`; its drop decrements via `drop_waiter`, which is how a
+/// task notices when its last dependent is gone. Resolves to the value when the task finishes, or
+/// to a cancellation error once `terminated_generation` reaches the generation it is watching.
+pub(crate) struct DiceTaskDependentFuture {
+    task: DiceTask,
+    /// The generation whose outcome this future is waiting for.
+    generation: u32,
+    completed: bool,
+}
+
+impl DiceTaskDependentFuture {
+    pub(crate) fn try_get(&self) -> Option<CancellableResult<DiceComputedValue>> {
+        match self.task.internal.read_value() {
+            ReadValueResult::Finished(v) => Some(Ok(v)),
+            ReadValueResult::Pending {
+                terminated_generation,
+            } if terminated_generation >= self.generation => {
+                let r = *self.task.internal.last_cancellation_reason.lock();
+                // FIXME(JakobDegen): Probably shouldn't have a default here
+                Some(Err(r.unwrap_or(CancellationReason::HandleDropped)))
+            }
+            _ => None,
+        }
+    }
+
+    pub(crate) fn task(&self) -> &DiceTask {
+        &self.task
+    }
+}
+
+impl Drop for DiceTaskDependentFuture {
+    fn drop(&mut self) {
+        self.task.drop_waiter();
+    }
+}
+
+impl Future for DiceTaskDependentFuture {
+    type Output = CancellableResult<DiceComputedValue>;
+
+    fn poll(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Self::Output> {
+        if let Some(v) = self.try_get() {
+            self.completed = true;
+            return Poll::Ready(v);
+        }
+
+        // Register our waker, then re-check. The task may have terminated between the check above
+        // and this registration, and the `drain`/`close` that would have woken us may already have
+        // fired — so we must report `Ready` ourselves rather than rely on a missed wakeup. The
+        // re-check is correctly synchronized because `push` acquires from whatever last reset or
+        // closed the list (see `SimpleAtomicList`); the `push` return value is therefore irrelevant.
+        self.task.internal.wakers.push(cx.waker().clone());
+        match self.try_get() {
+            Some(v) => {
+                self.completed = true;
+                Poll::Ready(v)
+            }
+            None => Poll::Pending,
+        }
+    }
+}
+
+#[cfg(test)]
+pub(crate) mod testing_helpers {
+    use dupe::Dupe;
+
+    use crate::api::key::Key;
+    use crate::impls::key::DiceKey;
+    use crate::impls::task::dice::DiceTask;
+    use crate::impls::value::DiceComputedValue;
+    use crate::impls::value::DiceKeyValue;
+    use crate::impls::value::DiceValidValue;
+    use crate::impls::value::MaybeValidDiceValue;
+    use crate::impls::value::TrackedInvalidationPaths;
+    use crate::versions::VersionRanges;
+
+    pub(crate) fn make_completed_task<K: Key>(key: DiceKey, val: K::Value) -> DiceTask {
+        make_completed_task_with_computed_value(
+            key,
+            DiceComputedValue::new(
+                MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(
+                    val,
+                ))),
+                crate::arc::Arc::new(VersionRanges::new()),
+                TrackedInvalidationPaths::clean(),
+            ),
+        )
+    }
+
+    pub(crate) fn make_completed_task_with_computed_value(
+        key: DiceKey,
+        val: DiceComputedValue,
+    ) -> DiceTask {
+        let prepared = DiceTask::prepare(key);
+        let task = prepared.task().dupe();
+        prepared.completion_handle.completed(val);
+        task
+    }
 }

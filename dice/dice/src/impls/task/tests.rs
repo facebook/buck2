@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::any::Any;
 use std::hash::Hash;
 use std::task::Poll;
 
@@ -18,9 +17,11 @@ use async_trait::async_trait;
 use derive_more::Display;
 use dice_error::result::CancellationReason;
 use dice_futures::cancellation::CancellationContext;
+use dice_futures::spawner::Spawner;
 use dice_futures::spawner::TokioSpawner;
 use dupe::Dupe;
 use futures::FutureExt;
+use futures::future::BoxFuture;
 use futures::pin_mut;
 use futures::poll;
 use pagable::Pagable;
@@ -39,9 +40,13 @@ use crate::api::key::ValueSerialize;
 use crate::arc::Arc;
 use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
+use crate::impls::task::dice::DiceTask;
+use crate::impls::task::dice::DiceTaskDependedOnByResult;
+use crate::impls::task::dice::PreparedDiceTask;
+use crate::impls::task::dice::spawn_prepared_task;
+use crate::impls::task::handle::DiceTaskHandle;
+use crate::impls::task::promise::DicePromise;
 use crate::impls::task::promise::DiceSyncResult;
-use crate::impls::task::spawn_dice_task;
-use crate::impls::task::sync_dice_task;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceKeyValue;
 use crate::impls::value::DiceValidValue;
@@ -74,6 +79,29 @@ impl Key for K {
     }
 }
 
+fn spawn_dice_task<S>(
+    key: DiceKey,
+    spawner: &dyn Spawner<S>,
+    ctx: &S,
+    f: impl for<'a> FnOnce(&'a mut DiceTaskHandle) -> BoxFuture<'a, ()> + Send,
+) -> (DiceTask, DicePromise) {
+    let prepared_task = DiceTask::prepare(key);
+    let task = prepared_task.task().dupe();
+    let promise = spawn_prepared_task(prepared_task, spawner, ctx, f);
+    (task, promise)
+}
+
+fn sync_dice_task(key: DiceKey) -> (DiceTask, DicePromise) {
+    let PreparedDiceTask {
+        completion_handle: _completion_handle,
+        dependent_future,
+        task_spawner: _task_spawner,
+    } = DiceTask::prepare(key);
+    let task = dependent_future.task().dupe();
+    let promise = DicePromise::pending(dependent_future);
+    (task, promise)
+}
+
 #[tokio::test]
 async fn simple_task() -> anyhow::Result<()> {
     let lock = Arc::new(Mutex::new(()));
@@ -81,21 +109,22 @@ async fn simple_task() -> anyhow::Result<()> {
     let lock_dupe = lock.dupe();
     let locked = lock_dupe.lock().await;
 
-    let task = spawn_dice_task(DiceKey { index: 10 }, &TokioSpawner, &(), |handle| {
-        async move {
-            // wait for the lock too
-            let _lock = lock.lock().await;
+    let (task, _initial_promise) =
+        spawn_dice_task(DiceKey { index: 10 }, &TokioSpawner, &(), |handle| {
+            async move {
+                // wait for the lock too
+                let _lock = lock.lock().await;
 
-            handle.finished(DiceComputedValue::new(
-                MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(2))),
-                Arc::new(VersionRanges::new()),
-                TrackedInvalidationPaths::clean(),
-            ));
-
-            Box::new(()) as Box<dyn Any + Send + 'static>
-        }
-        .boxed()
-    });
+                handle.finished(DiceComputedValue::new(
+                    MaybeValidDiceValue::valid(DiceValidValue::testing_new(
+                        DiceKeyValue::<K>::new(2),
+                    )),
+                    Arc::new(VersionRanges::new()),
+                    TrackedInvalidationPaths::clean(),
+                ));
+            }
+            .boxed()
+        });
 
     assert!(task.is_pending());
 
@@ -103,10 +132,7 @@ async fn simple_task() -> anyhow::Result<()> {
         .depended_on_by(ParentKey::Some(DiceKey { index: 1 }))
         .unwrap();
 
-    assert_eq!(
-        task.inspect_waiters(),
-        Some(vec![ParentKey::Some(DiceKey { index: 1 })])
-    );
+    assert_eq!(task.waiters_count(), 2);
 
     let polled = futures::poll!(&mut promise);
     assert!(
@@ -141,40 +167,38 @@ async fn not_ready_until_dropped() -> anyhow::Result<()> {
     let sent_finish = std::sync::Arc::new(Notify::new());
     let can_terminate = std::sync::Arc::new(Notify::new());
 
-    let task = spawn_dice_task(DiceKey { index: 500 }, &TokioSpawner, &(), |handle| {
-        let sent_finish = sent_finish.dupe();
-        let can_terminate = can_terminate.dupe();
-        async move {
-            // wait for the lock too
-            handle.finished(DiceComputedValue::new(
-                MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(1))),
-                Arc::new(VersionRanges::new()),
-                TrackedInvalidationPaths::clean(),
-            ));
+    let (task, _initial_promise) =
+        spawn_dice_task(DiceKey { index: 500 }, &TokioSpawner, &(), |handle| {
+            let sent_finish = sent_finish.dupe();
+            let can_terminate = can_terminate.dupe();
+            async move {
+                // wait for the lock too
+                handle.finished(DiceComputedValue::new(
+                    MaybeValidDiceValue::valid(DiceValidValue::testing_new(
+                        DiceKeyValue::<K>::new(1),
+                    )),
+                    Arc::new(VersionRanges::new()),
+                    TrackedInvalidationPaths::clean(),
+                ));
 
-            sent_finish.notify_one();
+                sent_finish.notify_one();
 
-            can_terminate.notified().await;
-
-            Box::new(()) as Box<dyn Any + Send + 'static>
-        }
-        .boxed()
-    });
+                can_terminate.notified().await;
+            }
+            .boxed()
+        });
 
     let promise = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 1 }))
         .unwrap();
     pin_mut!(promise);
 
-    assert_eq!(
-        task.inspect_waiters(),
-        Some(vec![ParentKey::Some(DiceKey { index: 1 })])
-    );
+    assert_eq!(task.waiters_count(), 2);
 
     sent_finish.notified().await;
 
     assert!(!task.is_ready());
-    assert!(!task.is_terminated());
+    assert!(!task.is_cancelled());
     assert!(task.is_pending());
 
     assert_matches!(poll!(&mut promise), Poll::Pending);
@@ -184,7 +208,7 @@ async fn not_ready_until_dropped() -> anyhow::Result<()> {
     let v = promise.await;
 
     assert!(task.is_ready());
-    assert!(!task.is_terminated());
+    assert!(!task.is_cancelled());
     assert!(!task.is_pending());
 
     assert!(
@@ -201,30 +225,28 @@ async fn not_ready_until_dropped() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn never_ready_results_in_terminated() -> anyhow::Result<()> {
-    let task = spawn_dice_task(DiceKey { index: 500 }, &TokioSpawner, &(), |handle| {
-        async move {
-            let _handle = handle;
-            // never report ready
-
-            Box::new(()) as Box<dyn Any + Send + 'static>
-        }
-        .boxed()
-    });
+    let (task, initial_promise) =
+        spawn_dice_task(DiceKey { index: 500 }, &TokioSpawner, &(), |handle| {
+            async move {
+                let _handle = handle;
+                // never report ready
+            }
+            .boxed()
+        });
 
     let promise = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 1 }))
         .unwrap();
 
-    assert_eq!(
-        task.inspect_waiters(),
-        Some(vec![ParentKey::Some(DiceKey { index: 1 })])
-    );
+    drop(initial_promise);
+
+    assert_eq!(task.waiters_count(), 1);
 
     let v = promise.await;
     assert!(v.is_err());
 
     assert!(!task.is_ready());
-    assert!(task.is_terminated());
+    assert!(task.is_cancelled());
     assert!(!task.is_pending());
 
     Ok(())
@@ -232,19 +254,20 @@ async fn never_ready_results_in_terminated() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn multiple_promises_all_completes() -> anyhow::Result<()> {
-    let task = spawn_dice_task(DiceKey { index: 20 }, &TokioSpawner, &(), |handle| {
-        async move {
-            // wait for the lock too
-            handle.finished(DiceComputedValue::new(
-                MaybeValidDiceValue::valid(DiceValidValue::testing_new(DiceKeyValue::<K>::new(2))),
-                Arc::new(VersionRanges::new()),
-                TrackedInvalidationPaths::clean(),
-            ));
-
-            Box::new(()) as Box<dyn Any + Send + 'static>
-        }
-        .boxed()
-    });
+    let (task, initial_promise) =
+        spawn_dice_task(DiceKey { index: 20 }, &TokioSpawner, &(), |handle| {
+            async move {
+                // wait for the lock too
+                handle.finished(DiceComputedValue::new(
+                    MaybeValidDiceValue::valid(DiceValidValue::testing_new(
+                        DiceKeyValue::<K>::new(2),
+                    )),
+                    Arc::new(VersionRanges::new()),
+                    TrackedInvalidationPaths::clean(),
+                ));
+            }
+            .boxed()
+        });
 
     let promise1 = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 1 }))
@@ -262,16 +285,8 @@ async fn multiple_promises_all_completes() -> anyhow::Result<()> {
         .depended_on_by(ParentKey::Some(DiceKey { index: 5 }))
         .unwrap();
 
-    assert_eq!(
-        task.inspect_waiters(),
-        Some(vec![
-            ParentKey::Some(DiceKey { index: 1 }),
-            ParentKey::Some(DiceKey { index: 2 }),
-            ParentKey::Some(DiceKey { index: 3 }),
-            ParentKey::Some(DiceKey { index: 4 }),
-            ParentKey::Some(DiceKey { index: 5 }),
-        ])
-    );
+    drop(initial_promise);
+    assert_eq!(task.waiters_count(), 5);
 
     let (v1, v2, v3, v4, v5) =
         futures::future::join5(promise1, promise2, promise3, promise4, promise5).await;
@@ -301,14 +316,13 @@ async fn multiple_promises_all_completes() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn sync_complete_task_completes_promises() -> anyhow::Result<()> {
-    let task = unsafe {
-        // SAFETY: completed below later
-        sync_dice_task(DiceKey { index: 100 })
-    };
+    let (task, initial_promise) = sync_dice_task(DiceKey { index: 100 });
 
     let mut promise_before = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 0 }))
         .unwrap();
+
+    drop(initial_promise);
 
     assert!(poll!(&mut promise_before).is_pending());
 
@@ -347,10 +361,7 @@ async fn sync_complete_task_completes_promises() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn sync_complete_task_with_future() -> anyhow::Result<()> {
-    let task = unsafe {
-        // SAFETY: completed below later
-        sync_dice_task(DiceKey { index: 100 })
-    };
+    let (task, _initial_promise) = sync_dice_task(DiceKey { index: 100 });
 
     let mut promise = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 0 }))
@@ -410,10 +421,7 @@ async fn sync_complete_task_with_future() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn sync_complete_task_wakes_waiters() -> anyhow::Result<()> {
-    let task = unsafe {
-        // SAFETY: completed below later
-        sync_dice_task(DiceKey { index: 88 })
-    };
+    let (task, initial_promise) = sync_dice_task(DiceKey { index: 100 });
 
     let mut promise1 = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 1 }))
@@ -426,14 +434,9 @@ async fn sync_complete_task_wakes_waiters() -> anyhow::Result<()> {
         .depended_on_by(ParentKey::Some(DiceKey { index: 3 }))
         .unwrap();
 
-    assert_eq!(
-        task.inspect_waiters(),
-        Some(vec![
-            ParentKey::Some(DiceKey { index: 1 }),
-            ParentKey::Some(DiceKey { index: 2 }),
-            ParentKey::Some(DiceKey { index: 3 }),
-        ])
-    );
+    drop(initial_promise);
+
+    assert_eq!(task.waiters_count(), 3);
 
     let barrier = Arc::new(Barrier::new(4));
 
@@ -502,7 +505,7 @@ async fn sync_complete_unfinished_spawned_task() -> anyhow::Result<()> {
 
     let g = lock.lock().await;
 
-    let task = spawn_dice_task(DiceKey { index: 88 }, &TokioSpawner, &(), {
+    let (task, _initial_promise) = spawn_dice_task(DiceKey { index: 88 }, &TokioSpawner, &(), {
         let lock = lock.dupe();
         |handle| {
             async move {
@@ -515,8 +518,6 @@ async fn sync_complete_unfinished_spawned_task() -> anyhow::Result<()> {
                     Arc::new(VersionRanges::new()),
                     TrackedInvalidationPaths::clean(),
                 ));
-
-                Box::new(()) as Box<dyn Any + Send + 'static>
             }
             .boxed()
         }
@@ -538,12 +539,16 @@ async fn sync_complete_unfinished_spawned_task() -> anyhow::Result<()> {
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)))
     );
 
+    while task.is_pending() {
+        tokio::task::yield_now().await;
+    }
+
     let promise_after = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 1 }))
         .unwrap();
 
     assert!(
-        promise_before
+        promise_after
             .await?
             .value()
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)))
@@ -552,7 +557,7 @@ async fn sync_complete_unfinished_spawned_task() -> anyhow::Result<()> {
     drop(g);
 
     assert!(
-        promise_after
+        promise_before
             .await?
             .value()
             .equality(&DiceValidValue::testing_new(DiceKeyValue::<K>::new(1)))
@@ -565,7 +570,7 @@ async fn sync_complete_unfinished_spawned_task() -> anyhow::Result<()> {
 async fn sync_complete_finished_spawned_task() -> anyhow::Result<()> {
     let sem = Arc::new(Semaphore::new(0));
 
-    let task = spawn_dice_task(DiceKey { index: 44 }, &TokioSpawner, &(), {
+    let (task, _initial_promise) = spawn_dice_task(DiceKey { index: 44 }, &TokioSpawner, &(), {
         let sem = sem.dupe();
         |handle| {
             async move {
@@ -579,8 +584,6 @@ async fn sync_complete_finished_spawned_task() -> anyhow::Result<()> {
                 ));
 
                 sem.add_permits(1);
-
-                Box::new(()) as Box<dyn Any + Send + 'static>
             }
             .boxed()
         }
@@ -640,7 +643,7 @@ async fn sync_complete_finished_spawned_task() -> anyhow::Result<()> {
 async fn dropping_all_waiters_cancels_task() {
     let barrier = Arc::new(Barrier::new(2));
 
-    let task = spawn_dice_task(DiceKey { index: 600 }, &TokioSpawner, &(), {
+    let (task, initial_promise) = spawn_dice_task(DiceKey { index: 600 }, &TokioSpawner, &(), {
         let barrier = barrier.dupe();
         |handle| {
             async move {
@@ -659,13 +662,15 @@ async fn dropping_all_waiters_cancels_task() {
     futures::pin_mut!(await_termination);
 
     assert!(!task.is_ready());
-    assert!(!task.is_terminated());
+    assert!(!task.is_cancelled());
     assert!(task.is_pending());
     assert_matches!(futures::poll!(&mut await_termination), Poll::Pending);
 
     let promise1 = task
         .depended_on_by(ParentKey::Some(DiceKey { index: 0 }))
         .unwrap();
+
+    drop(initial_promise);
 
     assert!(task.is_pending());
     assert_matches!(futures::poll!(&mut await_termination), Poll::Pending);
@@ -689,34 +694,40 @@ async fn dropping_all_waiters_cancels_task() {
     drop(promise2);
     drop(promise3);
 
+    await_termination.await;
+    assert!(!task.is_ready());
+    assert!(task.is_cancelled());
+    assert!(!task.is_pending());
+
+    // After cancellation, depended_on_by enters the restart path (the new
+    // design restarts cancelled-then-redepended tasks rather than returning
+    // a cancelled result). NeedsRestart confirms the task was cancelled.
     match task.depended_on_by(ParentKey::None) {
-        Ok(_) => {
+        DiceTaskDependedOnByResult::Pending(_) | DiceTaskDependedOnByResult::Finished(_) => {
             panic!("should be cancelled")
         }
-        Err(_) => {}
+        DiceTaskDependedOnByResult::NeedsRestart(_, _) => {}
     }
-
-    task.await_termination().await;
-
-    assert!(!task.is_ready());
-    assert!(task.is_terminated());
-    assert!(!task.is_pending());
 }
 
 #[tokio::test]
 async fn task_that_already_cancelled_returns_cancelled() {
-    let task = spawn_dice_task(DiceKey { index: 777 }, &TokioSpawner, &(), {
+    let (task, initial_promise) = spawn_dice_task(DiceKey { index: 777 }, &TokioSpawner, &(), {
         |_handle| async move { futures::future::pending().await }.boxed()
     });
 
     task.cancel(CancellationReason::ByTest);
     task.await_termination().await;
+    drop(initial_promise);
 
+    // After cancellation, depended_on_by enters the restart path (the new
+    // design restarts cancelled-then-redepended tasks rather than returning
+    // a cancelled result). NeedsRestart confirms the task was cancelled.
     match task.depended_on_by(ParentKey::None) {
-        Ok(_) => {
+        DiceTaskDependedOnByResult::Pending(_) | DiceTaskDependedOnByResult::Finished(_) => {
             panic!("should be cancelled")
         }
-        Err(_) => {}
+        DiceTaskDependedOnByResult::NeedsRestart(_, _) => {}
     }
 }
 
@@ -724,7 +735,7 @@ async fn task_that_already_cancelled_returns_cancelled() {
 async fn dropping_termination_observer_does_not_cancel_task() {
     let barrier = Arc::new(Barrier::new(2));
 
-    let task = spawn_dice_task(DiceKey { index: 888 }, &TokioSpawner, &(), {
+    let (task, _initial_promise) = spawn_dice_task(DiceKey { index: 888 }, &TokioSpawner, &(), {
         let barrier = barrier.dupe();
         |handle| {
             async move {
@@ -751,7 +762,7 @@ async fn dropping_termination_observer_does_not_cancel_task() {
 
     // Task should still be pending and not cancelled
     assert!(task.is_pending());
-    assert!(!task.is_terminated());
+    assert!(!task.is_cancelled());
 
     // Should still be able to register new dependents
     let promise2 = task

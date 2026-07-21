@@ -264,42 +264,11 @@ pub mod testing {
 
 #[cfg(test)]
 pub(crate) mod testing_helpers {
-    use std::any::Any;
-
-    use dice_futures::spawner::TokioSpawner;
-    use futures::FutureExt;
-
     use crate::api::key::Key;
-    use crate::arc::Arc;
     use crate::impls::key::DiceKey;
-    use crate::impls::key::ParentKey;
     use crate::impls::task::dice::DiceTask;
-    use crate::impls::task::spawn_dice_task;
-    use crate::impls::value::DiceComputedValue;
-    use crate::impls::value::DiceKeyValue;
-    use crate::impls::value::DiceValidValue;
-    use crate::impls::value::MaybeValidDiceValue;
-    use crate::impls::value::TrackedInvalidationPaths;
-    use crate::versions::VersionRanges;
 
     pub(crate) async fn make_completed_task<K: Key>(key: DiceKey, val: K::Value) -> DiceTask {
-        let task = spawn_dice_task(key, &TokioSpawner, &(), |handle| {
-            async move {
-                handle.finished(DiceComputedValue::new(
-                    MaybeValidDiceValue::valid(DiceValidValue::testing_new(
-                        DiceKeyValue::<K>::new(val),
-                    )),
-                    Arc::new(VersionRanges::new()),
-                    TrackedInvalidationPaths::clean(),
-                ));
-
-                Box::new(()) as Box<dyn Any + Send>
-            }
-            .boxed()
-        });
-
-        task.depended_on_by(ParentKey::None).unwrap().await.unwrap();
-
-        task
+        crate::impls::task::dice::testing_helpers::make_completed_task::<K>(key, val)
     }
 }

@@ -10,7 +10,6 @@
 
 //! The main worker thread for the dice task
 
-use std::any::Any;
 use std::future;
 
 use dice_error::result::CancellableResult;
@@ -43,7 +42,6 @@ use crate::impls::events::DiceEventDispatcher;
 use crate::impls::key::DiceKey;
 use crate::impls::key::ParentKey;
 use crate::impls::task::PreviouslyCancelledTask;
-use crate::impls::task::dice::DiceTask;
 use crate::impls::task::dice::PreparedDiceTask;
 use crate::impls::task::dice::spawn_prepared_task;
 use crate::impls::task::handle::DiceTaskHandle;
@@ -93,7 +91,7 @@ impl DiceTaskWorker {
         cycles: UserCycleDetectorData,
         event_dispatcher: DiceEventDispatcher,
         previously_cancelled_task: Option<PreviouslyCancelledTask>,
-    ) -> DiceTask {
+    ) -> DicePromise {
         let span = debug_span!(parent: None, "spawned_dice_task", k = ?k, v = %eval.per_live_version_ctx.get_version(), v_epoch = %version_epoch);
 
         let spawner = eval.user_data.spawner.dupe();
@@ -139,8 +137,6 @@ impl DiceTaskWorker {
                         handle.cancelled(reason);
                     }
                 }
-
-                Box::new(()) as Box<dyn Any + Send + 'static>
             }
             .instrument(span)
             .boxed()

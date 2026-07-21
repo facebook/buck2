@@ -487,9 +487,11 @@ mod tests {
     async fn make_yet_to_cancel_tasks(key: DiceKey) -> (DiceTask, BlockCancel, Arc<Semaphore>) {
         let block_cancel = Arc::new(Semaphore::new(0));
         let arrive_cancel = Arc::new(Semaphore::new(0));
-        let yet_to_cancel_tasks = spawn_dice_task(key, &TokioSpawner, &(), |handle| {
-            let block_cancel = block_cancel.dupe();
-            let arrive_cancel = arrive_cancel.dupe();
+        let block_cancel_task = block_cancel.dupe();
+        let arrive_cancel_task = arrive_cancel.dupe();
+        let yet_to_cancel_tasks = spawn_dice_task(key, &TokioSpawner, &(), move |handle| {
+            let block_cancel = block_cancel_task.dupe();
+            let arrive_cancel = arrive_cancel_task.dupe();
             async move {
                 handle
                     .cancellation_ctx()
@@ -515,8 +517,9 @@ mod tests {
 
     async fn make_never_cancellable_task(key: DiceKey) -> DiceTask {
         let arrive_never_cancel = Arc::new(Semaphore::new(0));
-        let never_cancel_tasks = spawn_dice_task(key, &TokioSpawner, &(), |handle| {
-            let arrive_never_cancel = arrive_never_cancel.dupe();
+        let arrive_never_cancel_task = arrive_never_cancel.dupe();
+        let never_cancel_tasks = spawn_dice_task(key, &TokioSpawner, &(), move |handle| {
+            let arrive_never_cancel = arrive_never_cancel_task.dupe();
             async move {
                 handle
                     .cancellation_ctx()
