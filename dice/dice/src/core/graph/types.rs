@@ -80,8 +80,6 @@ pub(crate) enum VersionedGraphResult {
     CheckDepsPagedOut(PagedOutMismatch),
     /// the entry is missing or there's no previously valid value to check
     Compute,
-    /// the storage has rejected the request
-    ClearedVersion,
 }
 
 #[cfg(test)]
