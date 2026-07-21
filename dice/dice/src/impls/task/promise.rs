@@ -44,7 +44,15 @@ pub(super) enum DicePromiseInternal {
 
 /// result of a synchronous projection
 pub(crate) struct DiceSyncResult {
-    /// the value that's ready now without checking core state
+    /// The value that's ready now without checking core state
+    ///
+    /// Usually, after finishing a `Key::compute` and before letting rdeps use the result, we
+    /// roundtrip to the core state. The value returned after that is typically about the same as
+    /// the value we had before, but it may be valid at a wider range of versions.
+    ///
+    /// On sync computes we can't go to the core state and so we kind of make up a conservative
+    /// version range and spawn a background task that'll report the real one later. This is the
+    /// value that we use until then.
     pub(crate) sync_result: DiceComputedValue,
     /// the future value after checking core state
     pub(crate) state_future: BoxFuture<'static, CancellableResult<DiceComputedValue>>,

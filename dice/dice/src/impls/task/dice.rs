@@ -153,10 +153,7 @@ struct Critical {
     /// Cancellation handle for the most recently created generation. The actual computation on the
     /// other side of this may have not yet started, or already been cancelled.
     cancellation_handle: DropcancelHandle,
-    /// The value produced synchronously by an in-flight sync projection, served to concurrent
-    /// callers until the matching async completion lands and clears it. See `sync_get_or_complete`.
-    ///
-    /// FIXME(JakobDegen): Better explain why this is needed.
+    /// See `DiceSyncResult::sync_result` for what this is
     sync_value: Option<DiceComputedValue>,
 }
 
