@@ -96,24 +96,7 @@ def _process_native_linking_rule_impl(ctx):
 process_native_linking_rule = rule(
     impl = _process_native_linking_rule_impl,
     attrs = {
-        # The binary's DECLARED first-order deps (== the outer `ctx.attrs.deps`),
-        # used ONLY to classify dlopen / shared-only libs -- exactly as the non-anon
-        # path does. Deliberately excludes the preload + resolved versioned deps
-        # that `first_order_deps` (raw_deps) adds: classifying those versioned native
-        # libs as shared-only reshapes the link-group partition and can duplicate a
-        # runtime library, corrupting results at runtime.
-        "declared_deps": attrs.list(attrs.dep(), default = []),
         "deps": attrs.list(attrs.dep()),  # Note: cxx-only deps here
-        # The binary's FIRST-ORDER deps (== the non-anon `raw_deps`). Used as the
-        # positional deps to merge_cxx_extension_info: each dep's CxxExtensionLinkInfo
-        # tset is traversed, so per-python_library dlopen/shared-only classifications
-        # are reached transitively. (Direct classification uses `declared_deps`.)
-        # Distinct from `deps`, the flattened TRANSITIVE native closure kept for
-        # resource gathering; that closure drops intermediate python_library nodes
-        # (merge_native_deps omits is_native_dep=False), losing their classifications
-        # -> missing runtime shared libraries or duplicate statically-linked copies
-        # of a library.
-        "first_order_deps": attrs.list(attrs.dep(), default = []),
         "package_style": attrs.any(),
         "rpath": attrs.string(),
         "static_extension_utils": attrs.source(),

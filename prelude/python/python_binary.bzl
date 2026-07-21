@@ -552,17 +552,7 @@ def _convert_python_library_to_executable(
 
             explicit_attrs = {
                 "allow_cache_upload": allow_cache_upload,
-                # The DECLARED first-order deps only (`ctx.attrs.deps`, before the
-                # raw_deps preload/versioned expansion), used for dlopen/shared-only
-                # classification -- matches non-anon. Using raw_deps here would
-                # over-classify versioned native deps and corrupt results at runtime.
-                "declared_deps": ctx.attrs.deps,
                 "deps": list(native_deps.values()),
-                # The binary's first-order deps (== `raw_deps`), threaded in so the
-                # anon link reconstructs the non-anon extension-info computation.
-                # The flattened `deps` above drops intermediate python_library nodes
-                # and their dlopen/shared-only classifications.
-                "first_order_deps": deps,
                 "name": "python_linking:" + ctx.attrs.name,
                 "package_style": package_style,
                 "rpath": ctx.attrs.name,
