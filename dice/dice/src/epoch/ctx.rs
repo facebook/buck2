@@ -56,7 +56,6 @@ use crate::epoch::task::dice::PreparedDiceTask;
 use crate::epoch::task::promise::DicePromise;
 use crate::epoch::worker::DiceTaskWorker;
 use crate::epoch::worker::project_for_key;
-use crate::events::DiceEventDispatcher;
 use crate::key::CowDiceKeyHashed;
 use crate::key::DiceKey;
 use crate::key::ParentKey;
@@ -662,15 +661,12 @@ impl ComputeCtx {
         let r = self.transaction_data.epoch_state.compute_projection(
             dice_key,
             self.transaction_data.dice.state_handle.dupe(),
+            &self.transaction_data,
             SyncEvaluator::new(
                 self.transaction_data.user_data.dupe(),
                 self.transaction_data.dice.dupe(),
                 base.derive_from.dupe(),
                 base.invalidation_paths.dupe(),
-            ),
-            DiceEventDispatcher::new(
-                self.transaction_data.user_data.tracker.dupe(),
-                self.transaction_data.dice.dupe(),
             ),
         );
 
@@ -799,8 +795,6 @@ impl VersionEpochState {
             LookupResult::Pending(dice_promise) => dice_promise.left_future(),
             LookupResult::NeedsRestart(prepared_dice_task, previously_cancelled_task) => {
                 let eval = eval.dupe();
-                let events =
-                    DiceEventDispatcher::new(eval.user_data.tracker.dupe(), eval.dice.dupe());
 
                 DiceTaskWorker::spawn(
                     key,
@@ -808,7 +802,6 @@ impl VersionEpochState {
                     self.version_epoch,
                     eval,
                     cycles,
-                    events,
                     previously_cancelled_task,
                 )
                 .left_future()
@@ -831,8 +824,8 @@ impl VersionEpochState {
         &self,
         key: DiceKey,
         state: CoreStateHandle,
+        transaction: &TransactionData,
         eval: SyncEvaluator,
-        events: DiceEventDispatcher,
     ) -> CancellableResult<DiceComputedValue> {
         let task = match self.cache.get_projection(key) {
             SharedCacheLookup::Finished(result) => {
@@ -850,16 +843,11 @@ impl VersionEpochState {
 
         match task {
             Ok(handle) => {
+                transaction.started(key);
                 // We inserted and are expected to do the computation
-                project_for_key(
-                    state,
-                    handle,
-                    key,
-                    self.version,
-                    self.version_epoch,
-                    eval,
-                    events,
-                )
+                let r = project_for_key(state, handle, key, self.version, self.version_epoch, eval);
+                transaction.finished(key);
+                r
             }
             Err(task) => {
                 // Someone else inserted
