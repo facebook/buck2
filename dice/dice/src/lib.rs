@@ -199,7 +199,6 @@ pub(crate) mod deps;
 pub(crate) mod dice;
 pub(crate) mod events;
 pub(crate) mod future;
-mod hash;
 mod impls;
 pub mod introspection;
 pub(crate) mod key;

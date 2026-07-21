@@ -9,9 +9,11 @@
  */
 
 use std::any::Any;
+use std::any::TypeId;
 use std::fmt::Formatter;
 use std::hash::Hash;
 use std::hash::Hasher;
+use std::mem;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -42,8 +44,6 @@ use crate::api::key::ValueSerialize;
 use crate::api::projection::DiceProjectionComputations;
 use crate::api::projection::ProjectionKey;
 use crate::api::storage_type::StorageType;
-use crate::hash;
-use crate::hash::key_hash;
 use crate::value::DiceKeyValue;
 use crate::value::DiceProjectValue;
 use crate::value::DiceValueDyn;
@@ -241,6 +241,17 @@ impl<'a> CowDiceKey<'a> {
     }
 }
 
+fn key_hash<K: Hash + 'static>(key: &K) -> u64 {
+    let mut hasher = BuckHasher::default();
+    if mem::size_of::<K>() == 0 {
+        // Hashing `TypeId` unconditionally measurably slows down hashing.
+        TypeId::of::<K>().hash(&mut hasher);
+    } else {
+        key.hash(&mut hasher);
+    }
+    hasher.finish()
+}
+
 pub(crate) struct CowDiceKeyHashed<'a> {
     cow: CowDiceKey<'a>,
     hash: u64,
@@ -343,7 +354,7 @@ where
     }
 
     fn hash(&self) -> u64 {
-        hash::key_hash(self)
+        key_hash(self)
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -443,7 +454,7 @@ where
     }
 
     fn hash(&self) -> u64 {
-        hash::key_hash(self)
+        key_hash(self)
     }
 
     fn as_any(&self) -> &dyn Any {
