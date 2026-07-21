@@ -39,7 +39,7 @@ use crate::impls::core::versions::introspection::VersionIntrospectable;
 use crate::impls::ctx::VersionEpochState;
 use crate::impls::deps::graph::SeriesParallelDeps;
 use crate::impls::key::DiceKey;
-use crate::impls::task::dice::TerminationObserver;
+use crate::impls::task::dice::DiceTask;
 use crate::impls::transaction::ActiveTransactionGuard;
 use crate::impls::transaction::ChangeType;
 use crate::impls::value::DiceComputedValue;
@@ -231,7 +231,7 @@ impl CoreStateHandle {
     /// Get all the tasks pending cancellation
     pub(crate) fn get_tasks_pending_cancellation(
         &self,
-    ) -> impl Future<Output = Vec<TerminationObserver>> + use<> {
+    ) -> impl Future<Output = Vec<DiceTask>> + use<> {
         let (resp, recv) = oneshot::channel();
         self.call(StateRequest::GetTasksPendingCancellation { resp }, recv)
     }
@@ -394,7 +394,7 @@ pub(super) enum StateRequest {
     /// Get all the tasks pending cancellation
     GetTasksPendingCancellation {
         #[derivative(Debug = "ignore")]
-        resp: Sender<Vec<TerminationObserver>>,
+        resp: Sender<Vec<DiceTask>>,
     },
     /// For unstable take
     UnstableDropEverything,

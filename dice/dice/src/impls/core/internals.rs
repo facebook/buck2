@@ -13,7 +13,6 @@ use std::thread;
 use dice_error::result::CancellableResult;
 use dice_error::result::CancellationReason;
 use dupe::Dupe;
-use gazebo::prelude::SliceExt;
 use pagable::DataKey;
 
 use super::graph::types::RejectedReason;
@@ -34,7 +33,6 @@ use crate::impls::core::versions::introspection::VersionIntrospectable;
 use crate::impls::deps::graph::SeriesParallelDeps;
 use crate::impls::key::DiceKey;
 use crate::impls::task::dice::DiceTask;
-use crate::impls::task::dice::TerminationObserver;
 use crate::impls::transaction::ChangeType;
 use crate::impls::value::DiceComputedValue;
 use crate::impls::value::DiceValidValue;
@@ -146,12 +144,11 @@ impl CoreState {
         }
     }
 
-    pub(super) fn get_tasks_pending_cancellation(&mut self) -> Vec<TerminationObserver> {
+    pub(super) fn get_tasks_pending_cancellation(&mut self) -> Vec<DiceTask> {
         self.pending_termination_tasks
             .retain(|task| task.is_pending());
 
-        self.pending_termination_tasks
-            .map(|task| task.as_ref().await_termination())
+        self.pending_termination_tasks.clone()
     }
 
     pub(super) fn unstable_drop_everything(&mut self) {
