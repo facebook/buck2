@@ -371,13 +371,13 @@ impl DiceTaskWorker {
 #[cfg_attr(debug_assertions, instrument(
     level = "debug",
     skip(eval, cycles),
-    fields(version = %eval.per_live_version_ctx.get_version(), version = %version)
+    fields(version = %eval.per_live_version_ctx.get_version(), version = %prev_verified_version)
 ))]
 async fn check_dependencies<'a>(
     eval: &'a AsyncEvaluator,
     parent_key: ParentKey,
     deps: &'a SeriesParallelDeps,
-    version: VersionNumber,
+    prev_verified_version: VersionNumber,
     cycles: &'a KeyComputingUserCycleDetectorData,
 ) -> CancellableResult<CheckDependenciesResult<'a>> {
     async fn drain_continuables<
@@ -402,7 +402,7 @@ async fn check_dependencies<'a>(
         eval: &'a AsyncEvaluator,
         parent_key: ParentKey,
         deps: impl Iterator<Item = SeriesParallelDepsIteratorItem<'a>> + Send + 'a,
-        version: VersionNumber,
+        prev_verified_version: VersionNumber,
         cycles: &'a KeyComputingUserCycleDetectorData,
     ) -> BoxFuture<'a, CancellableResult<CheckDependenciesResult<'a>>> {
         let mut invalidation_paths = TrackedInvalidationPaths::clean();
@@ -410,7 +410,9 @@ async fn check_dependencies<'a>(
             for v in deps {
                 match v {
                     SeriesParallelDepsIteratorItem::Key(k) => {
-                        match check_dependency(eval, parent_key, *k, cycles, version).await {
+                        match check_dependency(eval, parent_key, *k, cycles, prev_verified_version)
+                            .await
+                        {
                             Ok(CheckDependencyResult::NoChange(dep_paths)) => {
                                 invalidation_paths.update(dep_paths);
                             }
@@ -427,8 +429,14 @@ async fn check_dependencies<'a>(
                     SeriesParallelDepsIteratorItem::Parallel(p) => {
                         let mut futures: FuturesUnordered<_> = p
                             .map(|deps| {
-                                check_dependencies_series(eval, parent_key, deps, version, cycles)
-                                    .boxed()
+                                check_dependencies_series(
+                                    eval,
+                                    parent_key,
+                                    deps,
+                                    prev_verified_version,
+                                    cycles,
+                                )
+                                .boxed()
                             })
                             .collect();
 
@@ -462,7 +470,7 @@ async fn check_dependencies<'a>(
 
     trace!(deps = ?deps);
 
-    check_dependencies_series(eval, parent_key, deps.iter(), version, cycles).await
+    check_dependencies_series(eval, parent_key, deps.iter(), prev_verified_version, cycles).await
 }
 
 enum CheckDependencyResult {
@@ -475,7 +483,7 @@ async fn check_dependency(
     parent_key: ParentKey,
     dep: DiceKey,
     cycles: &KeyComputingUserCycleDetectorData,
-    version: VersionNumber,
+    prev_verified_version: VersionNumber,
 ) -> CancellableResult<CheckDependencyResult> {
     let dep_result = eval
         .per_live_version_ctx
@@ -487,7 +495,7 @@ async fn check_dependency(
         )
         .await?;
 
-    if dep_result.versions().contains(version) {
+    if dep_result.versions().contains(prev_verified_version) {
         Ok(CheckDependencyResult::NoChange(dep_result.into_parts().1))
     } else {
         Ok(CheckDependencyResult::Changed)
