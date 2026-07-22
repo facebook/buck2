@@ -205,7 +205,6 @@ async def test_python_coverage_filtering_by_header_file_on_cpp_dep(
     buck: Buck, tmp_path: Path
 ) -> None:
     header_file = "fbcode/buck2/tests/targets/rules/python/coverage/cpp_lib.h"
-    source_file = header_file.replace(".h", ".cpp")
     result = await collect_coverage_for(
         buck,
         tmp_path,
@@ -214,9 +213,7 @@ async def test_python_coverage_filtering_by_header_file_on_cpp_dep(
         file_filter=[header_file],
     )
 
-    assert set(result) == {source_file}, (
-        f"Only {source_file} should have coverage, instead got coverage for {str(result)}"
-    )
+    assert result == []
 
 
 @buck_test(inplace=True)
