@@ -11,7 +11,7 @@ Passing a directory exits non-zero
 
 Nonexistent file exits non-zero
   $ starlark-fmt nonexistent.bzl 2>&1
-  ERROR nonexistent.bzl: No such file or directory (os error 2)
+  ERROR nonexistent.bzl: * (glob)
   ERROR 1 file failed to format
   [1]
 
@@ -22,7 +22,7 @@ Valid files are still formatted when bad ones are mixed in
   $ starlark-fmt good.bzl nonexistent.bzl 2>&1 | sort
    INFO process_file: good.bzl: formatted
   ERROR 1 file failed to format
-  ERROR nonexistent.bzl: No such file or directory (os error 2)
+  ERROR nonexistent.bzl: * (glob)
   [1]
   $ cat good.bzl
   
@@ -30,9 +30,9 @@ Valid files are still formatted when bad ones are mixed in
 Multiple bad files reports all errors
   $ starlark-fmt no1.bzl no2.bzl no3.bzl 2>&1 | sort
   ERROR 3 files failed to format
-  ERROR no1.bzl: No such file or directory (os error 2)
-  ERROR no2.bzl: No such file or directory (os error 2)
-  ERROR no3.bzl: No such file or directory (os error 2)
+  ERROR no1.bzl: * (glob)
+  ERROR no2.bzl: * (glob)
+  ERROR no3.bzl: * (glob)
   [1]
 
 Directory mixed with valid file still formats the valid file

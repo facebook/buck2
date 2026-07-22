@@ -99,10 +99,6 @@ cram_test(
     + [
         "tests/setup.sh",
     ],
-    # TODO: these cram tests assert Linux-specific OS error strings (e.g. "No
-    # such file or directory") and CRLF behavior, so they only run on Linux for
-    # now. Make them cross-platform and drop this restriction.
-    compatible_with = ["ovr_config//os:linux"],
     env = {
         "STARLARK_FMT_PATH": "$(exe_target :starlark_fmt)",
     },
