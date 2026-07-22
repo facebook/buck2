@@ -13,6 +13,7 @@ pub mod cancellation;
 mod details;
 pub mod drop;
 pub mod drop_on_ready;
+pub mod join;
 mod maybe_future;
 pub mod owning_future;
 pub mod spawn;

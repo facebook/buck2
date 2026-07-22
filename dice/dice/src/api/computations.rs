@@ -262,7 +262,7 @@ impl<'d> DiceComputations<'d> {
         let futs = self.compute_many(items.into_iter().map(move |v| {
             move |ctx: &'a mut DiceComputations<'d>| -> BoxFuture<'a, R> { mapper(ctx, v) }
         }));
-        futures::future::join_all(futs)
+        dice_futures::join::join_all(futs)
     }
 
     /// Maps the items into computations futures and then returns a future which represents either a
@@ -286,7 +286,7 @@ impl<'d> DiceComputations<'d> {
                 mapper(ctx, v)
             }
         }));
-        crate::future::try_join_all(futs)
+        dice_futures::join::try_join_all(futs)
     }
 
     /// Computes all the given tasks in parallel.

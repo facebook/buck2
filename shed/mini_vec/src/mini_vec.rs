@@ -91,6 +91,8 @@ unsafe impl<T: Send> Send for MiniVec<T> {}
 // SAFETY: `MiniVec<T>` aliases its `T`s through `&self`/`&mut self` exactly
 // like `Vec<T>` does.
 unsafe impl<T: Sync> Sync for MiniVec<T> {}
+// `MiniVec`s are not structurally pinned
+impl<T> Unpin for MiniVec<T> {}
 
 struct Unpacked<T> {
     /// Pointer to the first element. May be dangling when `cap == 0`.
