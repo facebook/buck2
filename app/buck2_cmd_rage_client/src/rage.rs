@@ -620,7 +620,7 @@ async fn user_prompt_select_log(
     logs: &[EventLogPathBuf],
 ) -> buck2_error::Result<usize> {
     buck2_client_ctx::eprintln!("Which buck invocation would you like to report?\n")?;
-    let logs_summary = futures::future::join_all(
+    let logs_summary = buck2_util::future::join_all(
         logs.iter()
             .map(|log_path| async move { log_path.get_summary().await.ok() }),
     )

@@ -35,7 +35,6 @@ use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::FutureExt;
 use futures::StreamExt;
-use futures::future::join_all;
 use futures::stream::FuturesUnordered;
 use gazebo::prelude::*;
 use pagable::Pagable;
@@ -164,7 +163,7 @@ impl Setup for DiceTransactionUpdater {
         // get the remote resources => company mapping
         let state = self.existing_state().await;
         let remote_resources =
-            join_all(state.ctx().compute_many(
+            dice_futures::join::join_all(state.ctx().compute_many(
                 resources.iter().map(|res| {
                     DiceComputations::declare_closure(async |ctx| ctx.compute(res).await)
                 }),
@@ -312,11 +311,13 @@ impl Cost for DiceComputations<'_> {
                     .await
                     .map_err(|e| Arc::new(anyhow::anyhow!(e)))?;
 
-                let costs = join_all(ctx.compute_many(companies.iter().map(|company| {
-                    DiceComputations::declare_closure(async |ctx| {
-                        lookup_company_resource_cost(ctx, company, &self.0).await
-                    })
-                })))
+                let costs = dice_futures::join::join_all(ctx.compute_many(companies.iter().map(
+                    |company| {
+                        DiceComputations::declare_closure(async |ctx| {
+                            lookup_company_resource_cost(ctx, company, &self.0).await
+                        })
+                    },
+                )))
                 .await;
 
                 Ok(costs

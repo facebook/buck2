@@ -213,7 +213,7 @@ fn dice_computations_are_parallel() {
             })
             .collect::<Vec<_>>();
 
-        futures::future::join_all(futs)
+        dice_futures::join::join_all(futs)
             .await
             .iter()
             .for_each(|res| sum += *res);

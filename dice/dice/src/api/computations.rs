@@ -158,7 +158,7 @@ impl<'d> DiceComputations<'d> {
     ///         dice.compute(k).await + data
     ///     }
     /// ));
-    /// futures::future::join_all(futs).await;
+    /// dice_futures::join::join_all(futs).await;
     /// ```
     ///
     /// ## Why

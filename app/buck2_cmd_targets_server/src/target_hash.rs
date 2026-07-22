@@ -42,7 +42,6 @@ use dupe::Dupe;
 use futures::FutureExt;
 use futures::StreamExt;
 use futures::future::Shared;
-use futures::future::join_all;
 use futures::join;
 use futures::stream::FuturesUnordered;
 use os_str_bytes::OsStrBytes;
@@ -327,8 +326,10 @@ impl TargetHashes {
                                 })?;
                             }
 
-                            let (dep_hashes, input_hashes) =
-                                join!(join_all(dep_futures), join_all(input_futs));
+                            let (dep_hashes, input_hashes) = join!(
+                                buck2_util::future::join_all(dep_futures),
+                                buck2_util::future::join_all(input_futs)
+                            );
 
                             TargetHashes::hash_deps(dep_hashes, &mut *hasher)?;
                             TargetHashes::hash_files(input_hashes, &mut *hasher)?;
@@ -408,7 +409,7 @@ impl TargetHashes {
                                 buck2_error::Ok(())
                             })?;
 
-                            let input_hashes = join_all(input_futs).await;
+                            let input_hashes = buck2_util::future::join_all(input_futs).await;
                             TargetHashes::hash_files(input_hashes, &mut *hasher)?;
                         }
 
@@ -422,7 +423,10 @@ impl TargetHashes {
             .collect();
 
         let target_mapping: StdBuckHashMap<TargetLabel, buck2_error::Result<BuckTargetHash>> =
-            join_all(hashing_futures).await.into_iter().collect();
+            buck2_util::future::join_all(hashing_futures)
+                .await
+                .into_iter()
+                .collect();
         Ok(Self { target_mapping })
     }
 

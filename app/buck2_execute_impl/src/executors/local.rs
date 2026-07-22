@@ -100,7 +100,6 @@ use futures::future;
 use futures::future::Either;
 use futures::future::FutureExt;
 use futures::future::Shared;
-use futures::future::join_all;
 use futures::stream::StreamExt;
 use gazebo::prelude::*;
 use host_sharing::HostSharingBroker;
@@ -1221,7 +1220,7 @@ impl LocalExecutor {
 
             // The materialization we do for incremental action outputs is best-effort. The copy
             // will fail if the materialization failed, and that's okay.
-            join_all(copy_futs).await;
+            buck2_util::future::join_all(copy_futs).await;
         }
 
         Ok(())

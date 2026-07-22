@@ -148,7 +148,7 @@ where
     }
 
     Ok((
-        futures::future::join_all(ctx.compute_many(by_package_fns))
+        buck2_util::future::join_all(ctx.compute_many(by_package_fns))
             .await
             .into_iter(),
         package_errors,

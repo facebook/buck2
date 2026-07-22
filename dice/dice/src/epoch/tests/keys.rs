@@ -164,7 +164,7 @@ fn different_requests_are_spawned_in_parallel() -> anyhow::Result<()> {
             .collect::<Vec<_>>();
 
         let mut sum = 0;
-        futures::future::join_all(futs)
+        dice_futures::join::join_all(futs)
             .await
             .into_iter()
             .try_for_each(|res| {

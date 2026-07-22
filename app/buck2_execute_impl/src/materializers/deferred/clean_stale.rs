@@ -465,7 +465,9 @@ fn create_clean_fut<T: IoHandler>(
                 })
                 .map(|(path, size)| {
                     clean_artifact(path, size, cancellations, &io, liveliness_observer.dupe())
-                }),
+                })
+                .collect::<Vec<_>>()
+                .into_iter(),
         )
         .await?;
 

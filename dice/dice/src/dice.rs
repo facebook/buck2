@@ -154,7 +154,8 @@ impl Dice {
         let rx = self.state_handle.get_tasks_pending_cancellation();
         async move {
             let tasks = rx.await;
-            futures::future::join_all(tasks.iter().map(|t| t.as_ref().await_termination())).await;
+            dice_futures::join::join_all(tasks.iter().map(|t| t.as_ref().await_termination()))
+                .await;
         }
     }
 

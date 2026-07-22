@@ -248,7 +248,7 @@ impl WriteEventLog {
                 .filter_map(|w| w.child())
                 .map(|proc| wait_for_child_and_log(proc, "Event Log"));
 
-            futures::future::join_all(futs).await;
+            buck2_util::future::join_all(futs.collect::<Vec<_>>()).await;
         }
     }
 }

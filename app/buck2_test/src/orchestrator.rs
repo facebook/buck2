@@ -1853,7 +1853,9 @@ impl BuckTestOrchestrator<'_> {
                     )
                 }
             });
-        for (target, result) in futures::future::join_all(resource_futs).await {
+        for (target, result) in
+            buck2_util::future::join_all(resource_futs.collect::<Vec<_>>()).await
+        {
             lock.insert(target, result);
         }
 

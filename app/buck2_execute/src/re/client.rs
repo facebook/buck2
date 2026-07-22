@@ -2050,7 +2050,7 @@ impl Drop for RemoteExecutionClientImpl {
     }
 }
 
-fn chunks<T>(v: Vec<T>, chunk_size: usize) -> impl Iterator<Item = Vec<T>> {
+fn chunks<T>(v: Vec<T>, chunk_size: usize) -> impl ExactSizeIterator<Item = Vec<T>> {
     if !v.is_empty() && v.len() <= chunk_size {
         return Either::Left(std::iter::once(v));
     }

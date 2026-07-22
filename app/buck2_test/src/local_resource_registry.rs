@@ -55,7 +55,7 @@ impl LocalResourceRegistry {
                         ))
                 });
 
-            futures::future::join_all(resource_futs)
+            buck2_util::future::join_all(resource_futs.collect::<Vec<_>>())
                 .await
                 .into_iter()
                 .collect::<Result<(), _>>()?;

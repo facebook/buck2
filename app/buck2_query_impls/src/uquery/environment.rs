@@ -315,7 +315,7 @@ impl QueryEnvironment for UqueryEnvironment<'_> {
                         buck2_error::Ok(owner_targets)
                     });
 
-                    for nodes in futures::future::join_all(package_futs).await.into_iter() {
+                    for nodes in buck2_util::future::join_all(package_futs).await.into_iter() {
                         for node in nodes?.into_iter() {
                             found_owner = true;
                             result.insert(node);

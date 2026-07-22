@@ -14,6 +14,7 @@ buck2_env.workspace = true
 buck2_error.workspace = true
 buck2_hash.workspace = true
 buck2_wrapper_common.workspace = true
+dice_futures.workspace = true
 dupe.workspace = true
 futures.workspace = true
 mini_vec.workspace = true
