@@ -560,22 +560,20 @@ impl Key for EnsureTransitiveSetProjectionKey {
 
         let projection_sub_inputs = set.get_projection_sub_inputs(self.0.projection)?;
 
-        let sub_inputs: Vec<_> = tokio::task::unconstrained(KeepGoing::try_compute_join_all(
-            ctx,
-            projection_sub_inputs.iter(),
-            |ctx, a| async move { a.resolved_artifact(ctx).await }.boxed(),
-        ))
-        .await?;
+        let sub_inputs: Vec<_> =
+            KeepGoing::try_compute_join_all(ctx, projection_sub_inputs.iter(), async |ctx, a| {
+                a.resolved_artifact(ctx).await
+            })
+            .await?;
 
         let (values, children) = {
             // Compute the new inputs. Note that ordering here (and below) is important to ensure
             // stability of the ArtifactGroupValues we produce across executions, which try_compute_join_all preserves.
-            let ready_inputs: Vec<_> = tokio::task::unconstrained(KeepGoing::try_compute_join_all(
-                ctx,
-                sub_inputs.iter(),
-                |ctx, v| async move { ensure_artifact_group_staged(ctx, v.clone()).await }.boxed(),
-            ))
-            .await?;
+            let ready_inputs: Vec<_> =
+                KeepGoing::try_compute_join_all(ctx, sub_inputs.iter(), async |ctx, v| {
+                    ensure_artifact_group_staged(ctx, v.clone()).await
+                })
+                .await?;
 
             // Partition our inputs in artifacts and projections.
             let mut values_count = 0;

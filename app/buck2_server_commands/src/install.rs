@@ -100,7 +100,6 @@ use chrono::Utc;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
-use futures::future::FutureExt;
 use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
 use starlark_map::small_map::SmallMap;
@@ -251,23 +250,20 @@ async fn install(
 
     let install_requests = install_request_data_vec.into_iter().map(|data| {
         let installer_run_args = &request.installer_run_args;
-        DiceComputations::declare_closure(move |ctx| {
-            async move {
-                handle_install_request(
-                    ctx,
-                    install_log_dir,
-                    &data,
-                    installer_run_args,
-                    request.installer_debug,
-                )
-                .await
-            }
-            .boxed()
+        DiceComputations::declare_closure(async move |ctx| {
+            handle_install_request(
+                ctx,
+                install_log_dir,
+                &data,
+                installer_run_args,
+                request.installer_debug,
+            )
+            .await
         })
     });
 
     let mut dice = ctx.ctx();
-    let install_requests = dice.compute_many_boxed(install_requests);
+    let install_requests = dice.compute_many(install_requests);
     try_join_all(install_requests)
         .await
         .buck_error_context("Interaction with installer failed.")?;

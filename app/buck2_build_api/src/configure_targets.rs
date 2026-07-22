@@ -29,7 +29,6 @@ use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use dice::DiceComputations;
 use dupe::Dupe;
-use futures::FutureExt;
 
 // Returns a tuple of compatible targets, incompatible targets, and target-level errors.
 // NOTE: This function returns Result<(..., Vec<Error>)> to support keep-going:
@@ -124,14 +123,11 @@ where
 
                 let target_fns = targets.into_iter().map(|target| {
                     let duped_cfg_options = local_cfg_options.dupe();
-                    DiceComputations::declare_closure(|ctx| {
-                        async move {
-                            let target = ctx
-                                .get_configured_target(target.label(), &duped_cfg_options)
-                                .await?;
-                            ctx.get_configured_target_node(&target).await
-                        }
-                        .boxed()
+                    DiceComputations::declare_closure(async move |ctx| {
+                        let target = ctx
+                            .get_configured_target(target.label(), &duped_cfg_options)
+                            .await?;
+                        ctx.get_configured_target_node(&target).await
                     })
                 });
 
@@ -152,7 +148,7 @@ where
     }
 
     Ok((
-        futures::future::join_all(ctx.compute_many_boxed(by_package_fns))
+        futures::future::join_all(ctx.compute_many(by_package_fns))
             .await
             .into_iter(),
         package_errors,

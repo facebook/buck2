@@ -61,7 +61,6 @@ use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
 use dupe::Dupe;
 use dupe::IterDupedExt;
-use futures::FutureExt;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use smallvec::SmallVec;
@@ -213,15 +212,12 @@ pub async fn get_dep_analysis<'v>(
     configured_node: ConfiguredTargetNodeRef<'v>,
     ctx: &mut DiceComputations<'_>,
 ) -> buck2_error::Result<Vec<(&'v ConfiguredTargetLabel, AnalysisResult)>> {
-    KeepGoing::try_compute_join_all(ctx, configured_node.deps(), |ctx, dep| {
-        async move {
-            let res = ctx
-                .get_analysis_result(dep.label())
-                .await
-                .and_then(|v| v.require_compatible());
-            res.map(|x| (dep.label(), x))
-        }
-        .boxed()
+    KeepGoing::try_compute_join_all(ctx, configured_node.deps(), async |ctx, dep| {
+        let res = ctx
+            .get_analysis_result(dep.label())
+            .await
+            .and_then(|v| v.require_compatible());
+        res.map(|x| (dep.label(), x))
     })
     .await
 }

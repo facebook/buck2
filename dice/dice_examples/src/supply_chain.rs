@@ -31,12 +31,10 @@ use dice::DiceKeyDyn;
 use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
 use dice::Key;
-use dice_error::DiceResult;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::FutureExt;
 use futures::StreamExt;
-use futures::future::BoxFuture;
 use futures::future::join_all;
 use futures::stream::FuturesUnordered;
 use gazebo::prelude::*;
@@ -165,14 +163,13 @@ impl Setup for DiceTransactionUpdater {
 
         // get the remote resources => company mapping
         let state = self.existing_state().await;
-        let remote_resources = join_all(state.ctx().compute_many(resources.iter().map(|res| {
-            DiceComputations::declare_closure(
-                |ctx: &mut DiceComputations<'_>| -> BoxFuture<DiceResult<Arc<Vec<LookupCompany>>>> {
-                    ctx.compute(res).boxed()
-                },
-            )
-        })))
-        .await;
+        let remote_resources =
+            join_all(state.ctx().compute_many(
+                resources.iter().map(|res| {
+                    DiceComputations::declare_closure(async |ctx| ctx.compute(res).await)
+                }),
+            ))
+            .await;
 
         // combine remote company list with local company list for reach resource
         let joined: Vec<_> = resources
@@ -246,14 +243,18 @@ async fn lookup_company_resource_cost(
             }
 
             // get the unit cost for each resource needed to make item
-            let mut futs : FuturesUnordered<_> =
-                ctx.compute_many(recipe.ingredients.iter().map(|(required, resource)| {
-                    DiceComputations::declare_closure(|ctx: &mut DiceComputations<'_>| -> BoxFuture<Result<Option<u16>, Arc<anyhow::Error>>> {
-                            ctx.resource_cost(resource).map(|res| {
+            let mut futs: FuturesUnordered<_> = ctx
+                .compute_many(recipe.ingredients.iter().map(|(required, resource)| {
+                    DiceComputations::declare_closure(async |ctx| {
+                        ctx.resource_cost(resource)
+                            .map(|res| {
                                 Ok::<_, Arc<anyhow::Error>>(res?.map(|x| x * *required as u16))
-                            }).boxed()
+                            })
+                            .await
                     })
-                })).into_iter().collect();
+                }))
+                .into_iter()
+                .collect();
 
             let mut sum = 0;
             while let Some(x) = futs.next().await {
@@ -311,15 +312,10 @@ impl Cost for DiceComputations<'_> {
                     .await
                     .map_err(|e| Arc::new(anyhow::anyhow!(e)))?;
 
-                let costs = join_all(ctx
-                    .compute_many(companies.iter().map(|company| {
-                        DiceComputations::declare_closure(
-                            |ctx: &mut DiceComputations<'_>| -> BoxFuture<Result<Option<u16>, Arc<anyhow::Error>>> {
-                                lookup_company_resource_cost(ctx, company, &self.0).boxed()
-                            }
-                        )
-                    })))
-                    .await;
+                let costs = join_all(ctx.compute_many(companies.iter().map(|company| {
+                    async |ctx| lookup_company_resource_cost(ctx, company, &self.0).await
+                })))
+                .await;
 
                 Ok(costs
                     .into_iter()

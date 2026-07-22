@@ -167,12 +167,11 @@ async fn convert_inputs<
     node_cache: DiceAqueryNodesCache,
     inputs: Iter,
 ) -> buck2_error::Result<Vec<ActionInput>> {
-    let resolved_artifacts: Vec<_> = tokio::task::unconstrained(KeepGoing::try_compute_join_all(
-        ctx,
-        inputs,
-        |ctx, input| async move { input.resolved_artifact(ctx).await }.boxed(),
-    ))
-    .await?;
+    let resolved_artifacts: Vec<_> =
+        KeepGoing::try_compute_join_all(ctx, inputs, async |ctx, input| {
+            input.resolved_artifact(ctx).await
+        })
+        .await?;
 
     let (artifacts, projections): (Vec<_>, Vec<_>) = Itertools::partition_map(
         resolved_artifacts

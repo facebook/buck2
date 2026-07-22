@@ -16,6 +16,8 @@
 #![feature(used_with_arg)]
 #![feature(hasher_prefixfree_extras)]
 #![feature(iterator_try_collect)]
+#![feature(async_fn_traits)]
+#![feature(unboxed_closures)]
 
 #[macro_use]
 extern crate starlark;

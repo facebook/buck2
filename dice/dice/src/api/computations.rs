@@ -317,7 +317,8 @@ impl<'d> DiceComputations<'d> {
             self.0.compute_many(items.into_iter().map(|v| {
                 move |ctx: &'a mut DiceComputations<'d>| mapper.async_call_once((ctx, v))
             }));
-        dice_futures::join::join_all(futs)
+        // We embed the `unconstrained` here because buck2 has always benefitted from this
+        tokio::task::unconstrained(dice_futures::join::join_all(futs))
     }
 
     /// Like [`Self::try_compute_join`], but takes an async closure, whose futures are stored
@@ -344,7 +345,7 @@ impl<'d> DiceComputations<'d> {
             self.0.compute_many(items.into_iter().map(|v| {
                 move |ctx: &'a mut DiceComputations<'d>| mapper.async_call_once((ctx, v))
             }));
-        dice_futures::join::try_join_all(futs)
+        tokio::task::unconstrained(dice_futures::join::try_join_all(futs))
     }
 
     /// Maps the items into computations futures and then returns a future which represents either a
@@ -561,10 +562,12 @@ impl<'d> DiceComputations<'d> {
     /// Used to declare a higher order closure for compute2 and compute_many.
     ///
     /// See `declare_join_closure` for when this is needed.
-    pub fn declare_closure<'a, R, Closure>(closure: Closure) -> Closure
+    pub fn declare_closure<'a, R, Fut, Closure>(closure: Closure) -> Closure
     where
         'd: 'a,
-        Closure: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, R>,
+        Closure:
+            AsyncFnOnce<(&'a mut DiceComputations<'d>,), CallOnceFuture = Fut, Output = R> + Send,
+        Fut: Future<Output = R> + Send,
     {
         closure
     }

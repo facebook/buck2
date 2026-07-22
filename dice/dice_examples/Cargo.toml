@@ -26,7 +26,6 @@ async-trait.workspace = true
 clap.workspace = true
 derive_more.workspace = true
 dice.workspace = true
-dice_error.workspace = true
 dice_futures.workspace = true
 dupe.workspace = true
 futures.workspace = true

@@ -60,7 +60,6 @@ use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
 use dupe::IterDupedExt;
-use futures::FutureExt;
 use futures::StreamExt;
 use futures::stream::FuturesUnordered;
 use itertools::Itertools;
@@ -367,23 +366,20 @@ impl BxlServerCommand {
         let artifacts_to_materialize: Vec<_> = bxl_result.artifacts().iter().duped().collect();
 
         let mut futs: FuturesUnordered<_> = ctx
-            .compute_many_boxed(artifacts_to_materialize.into_iter().map(|artifact| {
-                DiceComputations::declare_closure(|ctx| {
-                    async move {
-                        let res = materialize_and_upload_artifact_group(
-                            ctx,
-                            &artifact,
-                            materialization_context,
-                            &ctx.per_transaction_data()
-                                .get_materialization_queue_tracker(),
-                        )
-                        .await;
-                        match res {
-                            Ok(_) => Ok(artifact),
-                            Err(e) => Err(e),
-                        }
+            .compute_many(artifacts_to_materialize.into_iter().map(|artifact| {
+                DiceComputations::declare_closure(async |ctx| {
+                    let res = materialize_and_upload_artifact_group(
+                        ctx,
+                        &artifact,
+                        materialization_context,
+                        &ctx.per_transaction_data()
+                            .get_materialization_queue_tracker(),
+                    )
+                    .await;
+                    match res {
+                        Ok(_) => Ok(artifact),
+                        Err(e) => Err(e),
                     }
-                    .boxed()
                 })
             }))
             .into_iter()

@@ -149,22 +149,16 @@ async fn build_action_no_redirect(
     let ensured_inputs = if inputs.is_empty() {
         BuckIndexMap::default()
     } else {
-        let ready_inputs: Vec<_> = tokio::task::unconstrained(KeepGoing::try_compute_join_all(
-            ctx,
-            inputs.iter(),
-            |ctx, v| {
-                async move {
-                    let resolved = v.resolved_artifact(ctx).await?;
-                    buck2_error::Ok(
-                        ensure_artifact_group_staged(ctx, resolved.clone())
-                            .await?
-                            .into_group_values(&resolved)?,
-                    )
-                }
-                .boxed()
-            },
-        ))
-        .await?;
+        let ready_inputs: Vec<_> =
+            KeepGoing::try_compute_join_all(ctx, inputs.iter(), async |ctx, v| {
+                let resolved = v.resolved_artifact(ctx).await?;
+                buck2_error::Ok(
+                    ensure_artifact_group_staged(ctx, resolved.clone())
+                        .await?
+                        .into_group_values(&resolved)?,
+                )
+            })
+            .await?;
 
         let mut results = BuckIndexMap::with_capacity(inputs.len());
         for (artifact, ready) in zip(inputs.iter(), ready_inputs) {

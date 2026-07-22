@@ -25,9 +25,7 @@ use dice::NoValueSerialize;
 use dice::ValueSerialize;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
-use futures::FutureExt;
 use futures::future;
-use futures::future::BoxFuture;
 use pagable::Pagable;
 use pagable::PagablePanic;
 use pagable::pagable_typetag;
@@ -63,14 +61,10 @@ async fn resolve_units<'a>(
 ) -> anyhow::Result<Vec<bool>> {
     let futs = ctx.compute_many(units.iter().map(|unit| {
         let state = state.dupe();
-        DiceComputations::declare_closure(
-            move |ctx: &mut DiceComputations| -> BoxFuture<Result<bool, anyhow::Error>> {
-                match unit {
-                    Unit::Variable(var) => ctx.eval(state, *var).boxed(),
-                    Unit::Literal(lit) => futures::future::ready(Ok(*lit)).boxed(),
-                }
-            },
-        )
+        DiceComputations::declare_closure(async move |ctx| match unit {
+            Unit::Variable(var) => ctx.eval(state, *var).await,
+            Unit::Literal(lit) => Ok(*lit),
+        })
     }));
     future::join_all(futs).await.into_iter().collect()
 }

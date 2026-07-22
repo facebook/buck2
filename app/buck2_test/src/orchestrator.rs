@@ -1680,14 +1680,12 @@ impl BuckTestOrchestrator<'_> {
 
             let inputs = expander.get_inputs()?;
             // We already built these before reaching out to tpx, so these should already be ready.
-            let ensured_inputs = KeepGoing::try_compute_join_all(dice, inputs, |dice, input| {
-                async move {
+            let ensured_inputs =
+                KeepGoing::try_compute_join_all(dice, inputs, async |dice, input| {
                     let artifact_group_value = dice.ensure_artifact_group(&input).await?;
                     buck2_error::Ok((input, artifact_group_value))
-                }
-                .boxed()
-            })
-            .await?;
+                })
+                .await?;
 
             let (expanded_cmd, expanded_env, expanded_worker) = if test_info
                 .use_project_relative_paths()

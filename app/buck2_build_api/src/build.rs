@@ -643,7 +643,7 @@ async fn build_configured_label_inner(
             tokio::task::unconstrained(KeepGoing::try_compute_join_all(
                 &mut ctx.get(),
                 outputs.iter(),
-                |ctx, (output, _type)| async move { output.resolved_artifact(ctx).await }.boxed(),
+                async |ctx, (output, _type)| output.resolved_artifact(ctx).await,
             ))
             .await?;
         let node_keys = resolved_artifacts

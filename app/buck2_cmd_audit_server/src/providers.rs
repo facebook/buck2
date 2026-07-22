@@ -23,7 +23,6 @@ use buck2_server_ctx::pattern_parse_and_resolve::parse_and_resolve_provider_labe
 use buck2_util::indent::indent;
 use dice::DiceComputations;
 use dice::DiceTransaction;
-use futures::FutureExt;
 use futures::StreamExt;
 use futures::stream::FuturesOrdered;
 
@@ -77,18 +76,15 @@ async fn server_execute_with_dice(
             .get_configured_provider_label_with_modifiers(&mut ctx.ctx(), &label_with_modifiers)
             .await?
         {
-            futs.push(DiceComputations::declare_closure(|ctx| {
-                async move {
-                    let result = ctx.get_providers(&configured_providers_label).await;
-                    (configured_providers_label, result)
-                }
-                .boxed()
+            futs.push(DiceComputations::declare_closure(async |ctx| {
+                let result = ctx.get_providers(&configured_providers_label).await;
+                (configured_providers_label, result)
             }));
         }
     }
 
     let mut dice = ctx.ctx();
-    let mut futs: FuturesOrdered<_> = dice.compute_many_boxed(futs).into_iter().collect();
+    let mut futs: FuturesOrdered<_> = dice.compute_many(futs).into_iter().collect();
 
     let mut stdout = stdout.as_writer();
     let mut stderr = server_ctx.stderr()?;

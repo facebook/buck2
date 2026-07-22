@@ -27,9 +27,7 @@ use dice::InjectedKey;
 use dice::Key;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
-use futures::FutureExt;
 use futures::future;
-use futures::future::BoxFuture;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 
@@ -176,14 +174,10 @@ async fn resolve_units<'a>(
     units: &[Unit],
 ) -> Result<Vec<i64>, Arc<anyhow::Error>> {
     let futs = ctx.compute_many(units.iter().map(|unit| {
-        DiceComputations::declare_closure(
-            move |ctx: &mut DiceComputations| -> BoxFuture<Result<i64, Arc<anyhow::Error>>> {
-                match unit {
-                    Unit::Var(var) => ctx.eval(var.clone()).boxed(),
-                    Unit::Literal(lit) => futures::future::ready(Ok(*lit)).boxed(),
-                }
-            },
-        )
+        DiceComputations::declare_closure(async move |ctx| match unit {
+            Unit::Var(var) => ctx.eval(var.clone()).await,
+            Unit::Literal(lit) => Ok(*lit),
+        })
     }));
 
     future::join_all(futs)

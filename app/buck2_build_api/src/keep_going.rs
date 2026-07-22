@@ -11,36 +11,37 @@
 use dice::DiceComputations;
 use dice::UserComputationData;
 use futures::Future;
-use futures::future::BoxFuture;
+use futures::FutureExt;
 
 pub struct KeepGoing;
 
 impl KeepGoing {
-    pub fn try_compute_join_all<'a, 'd, T: Send, R: 'a, E: 'a>(
+    pub fn try_compute_join_all<'a, 'd, Items, Mapper, Fut, T, R, E>(
         ctx: &'a mut DiceComputations<'d>,
-        items: impl IntoIterator<Item = T, IntoIter: ExactSizeIterator>,
-        mapper: impl FnOnce(&'a mut DiceComputations<'d>, T) -> BoxFuture<'a, Result<R, E>>
-        + Send
-        + Sync
-        + Copy,
-    ) -> impl Future<Output = Result<Vec<R>, E>> {
+        items: Items,
+        mapper: Mapper,
+    ) -> impl Future<Output = Result<Vec<R>, E>> + use<'a, 'd, Items, Mapper, Fut, T, R, E>
+    where
+        Items: IntoIterator<Item = T>,
+        Items::IntoIter: ExactSizeIterator,
+        Mapper: AsyncFnOnce<
+                (&'a mut DiceComputations<'d>, T),
+                CallOnceFuture = Fut,
+                Output = Result<R, E>,
+            > + Send
+            + Sync
+            + Copy,
+        Fut: Future<Output = Result<R, E>> + Send,
+        T: Send,
+    {
         let keep_going = ctx.per_transaction_data().get_keep_going();
 
-        let futs = ctx.compute_many_boxed(
-            items
-                .into_iter()
-                .map(move |v| move |ctx: &'a mut DiceComputations<'d>| mapper(ctx, v)),
-        );
-
-        async move {
-            Ok(if keep_going {
-                futures::future::join_all(futs)
-                    .await
-                    .into_iter()
-                    .try_collect::<Vec<_>>()?
-            } else {
-                buck2_util::future::try_join_all(futs).await?
-            })
+        if keep_going {
+            ctx.compute_join(items, mapper)
+                .map(|v| v.into_iter().try_collect::<Vec<_>>())
+                .left_future()
+        } else {
+            ctx.try_compute_join(items, mapper).right_future()
         }
     }
 }
