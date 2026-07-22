@@ -395,7 +395,8 @@ pub(crate) fn print_build_succeeded(
 /// Prints two things at command end:
 ///
 /// 1. **Buck UI URL re-print** — emitted only when a superconsole was
-///    actually constructed for the command (`used_superconsole`).
+///    actually constructed for the command (`used_superconsole`) and status
+///    verbosity is enabled.
 ///    Superconsole's live area showed the URL during the command but
 ///    clears on exit, so without the re-print the URL would be gone from
 ///    scrollback. Simple-console runs already printed it at command start
@@ -425,6 +426,10 @@ pub(crate) fn print_buck_ui_and_rating(
     ctx: &ClientCommandContext<'_>,
     used_superconsole: bool,
 ) -> buck2_error::Result<()> {
+    if !ctx.verbosity.print_status() {
+        return Ok(());
+    }
+
     let show_rating = should_show_rating(&ctx.trace_id);
 
     if used_superconsole {
