@@ -31,7 +31,7 @@ interface AdditionalClientSettings {
 
 /// Get a setting at the path, or throw an error if it's not set.
 function requireSetting<T>(path: string): T {
-    const ret: T = vscode.workspace.getConfiguration().get(path);
+    const ret: T | undefined = vscode.workspace.getConfiguration().get<T>(path);
     if (ret == undefined) {
         throw new Error(`Setting "${path}" was not configured`)
     }

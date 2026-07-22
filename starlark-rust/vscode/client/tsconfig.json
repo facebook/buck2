@@ -5,7 +5,8 @@
 		"lib": ["ES2019"],
 		"outDir": "out",
 		"rootDir": "src",
-		"sourceMap": true
+		"sourceMap": true,
+		"skipLibCheck": true
 	},
 	"include": ["src"],
 	"exclude": ["node_modules", ".vscode-test"]

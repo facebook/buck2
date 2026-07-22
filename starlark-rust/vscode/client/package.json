@@ -10,16 +10,16 @@
 		"url": "https://github.com/Microsoft/vscode-extension-samples"
 	},
 	"engines": {
-		"vscode": "^1.82.0"
+		"vscode": "^1.91.0"
 	},
 	"dependencies": {
 		"cd": "^0.3.3",
 		"starlark": "file:..",
-		"vscode-languageclient": "^9.0.1"
+		"vscode-languageclient": "^10.1.0"
 	},
 	"devDependencies": {
-		"@types/vscode": "1.82.0",
-		"@vscode/test-electron": "^1.3.0"
+		"@types/vscode": "1.91.0",
+		"@vscode/test-electron": "^3.0.0"
 	},
 	"overrides": {
 		"@tootallnate/once": ">=3.0.1",
