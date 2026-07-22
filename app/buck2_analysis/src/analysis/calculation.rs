@@ -163,49 +163,44 @@ async fn resolve_queries_impl(
     let query_results = ctx
         .try_compute_join(
             queries,
-            |ctx,
-             (query, resolved_literals_labels): (
+            async |ctx,
+                   (query, resolved_literals_labels): (
                 String,
                 ResolvedQueryLiterals<ConfiguredProvidersLabel>,
             )| {
-                let deps = &deps;
-                async move {
-                    let mut resolved_literals =
-                        HashMap::with_capacity(resolved_literals_labels.0.len());
-                    for ((offset, len), label) in resolved_literals_labels.0 {
-                        let literal = &query[offset..offset + len];
-                        let node = deps.get(label.target()).ok_or_else(|| {
-                            internal_error!("Literal `{literal}` not found in `deps`")
-                        })?;
-                        resolved_literals.insert(literal.to_owned(), node.dupe());
-                    }
+                let mut resolved_literals =
+                    HashMap::with_capacity(resolved_literals_labels.0.len());
+                for ((offset, len), label) in resolved_literals_labels.0 {
+                    let literal = &query[offset..offset + len];
+                    let node = deps.get(label.target()).ok_or_else(|| {
+                        internal_error!("Literal `{literal}` not found in `deps`")
+                    })?;
+                    resolved_literals.insert(literal.to_owned(), node.dupe());
+                }
 
-                    let result =
-                        (EVAL_ANALYSIS_QUERY.get()?)(ctx, &query, resolved_literals).await?;
+                let result = (EVAL_ANALYSIS_QUERY.get()?)(ctx, &query, resolved_literals).await?;
 
-                    // analysis for all the deps in the query result should already have been run since they must
-                    // be in our dependency graph, and so we don't worry about parallelizing these lookups.
-                    let mut query_results = Vec::new();
-                    for node in result.iter() {
-                        let label = node.label();
-                        query_results.push((
-                            label.dupe(),
-                            ctx.get_analysis_result(label)
-                                .await?
-                                .require_compatible()?
-                                .providers()?
-                                .to_owned(),
-                        ))
-                    }
-
-                    buck2_error::Ok((
-                        query.to_owned(),
-                        Arc::new(AnalysisQueryResult {
-                            result: query_results,
-                        }),
+                // analysis for all the deps in the query result should already have been run since they must
+                // be in our dependency graph, and so we don't worry about parallelizing these lookups.
+                let mut query_results = Vec::new();
+                for node in result.iter() {
+                    let label = node.label();
+                    query_results.push((
+                        label.dupe(),
+                        ctx.get_analysis_result(label)
+                            .await?
+                            .require_compatible()?
+                            .providers()?
+                            .to_owned(),
                     ))
                 }
-                .boxed()
+
+                buck2_error::Ok((
+                    query.to_owned(),
+                    Arc::new(AnalysisQueryResult {
+                        result: query_results,
+                    }),
+                ))
             },
         )
         .await?;
@@ -289,8 +284,8 @@ async fn get_analysis_result_inner(
             RuleType::Starlark(func) => {
                 let (dep_analysis, query_results) = ctx
                     .try_compute2(
-                        |ctx| get_dep_analysis(configured_node, ctx).boxed(),
-                        |ctx| resolve_queries(ctx, configured_node).boxed(),
+                        async |ctx| get_dep_analysis(configured_node, ctx).await,
+                        async |ctx| resolve_queries(ctx, configured_node).await,
                     )
                     .await?;
 
@@ -450,31 +445,25 @@ pub async fn profile_analysis(
     }
 
     let nodes: Vec<ConfiguredTargetNode> = ctx
-        .try_compute_join(targets.iter(), |ctx, target| {
-            async move {
-                let node = ctx
-                    .get_configured_target_node(target)
-                    .await
-                    .require_compatible()?;
-                buck2_error::Ok(node)
-            }
-            .boxed()
+        .try_compute_join(targets.iter(), async |ctx, target| {
+            let node = ctx
+                .get_configured_target_node(target)
+                .await
+                .require_compatible()?;
+            buck2_error::Ok(node)
         })
         .await?;
 
     let all_deps = all_deps(&nodes);
 
     let profile_datas = ctx
-        .try_compute_join(all_deps.iter(), |ctx, node| {
-            async move {
-                let result = ctx
-                    .get_analysis_result(node.label())
-                    .await?
-                    .require_compatible()?;
-                // This may be `None` if we are running profiling for a subset of the targets.
-                buck2_error::Ok(result.profile_data)
-            }
-            .boxed()
+        .try_compute_join(all_deps.iter(), async |ctx, node| {
+            let result = ctx
+                .get_analysis_result(node.label())
+                .await?
+                .require_compatible()?;
+            // This may be `None` if we are running profiling for a subset of the targets.
+            buck2_error::Ok(result.profile_data)
         })
         .await?;
 

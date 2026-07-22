@@ -74,8 +74,8 @@ impl<'v> AnonPromisesDyn<'v> for AnonPromises<'v> {
 
         let values = accessor
             .with_dice(|dice| {
-                dice.try_compute_join(anon_target_keys.iter(), |dice, anon_target_key| {
-                    async move { anon_target_key.resolve(dice).await }.boxed()
+                dice.try_compute_join(anon_target_keys.iter(), async |dice, anon_target_key| {
+                    anon_target_key.resolve(dice).await
                 })
                 .boxed_local()
             })

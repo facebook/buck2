@@ -336,8 +336,8 @@ impl Key for Fib {
         }
         let (a, b) = {
             ctx.compute2(
-                |ctx| ctx.compute(&Fib(self.0 - 2)).boxed(),
-                |ctx| ctx.compute(&Fib(self.0 - 1)).boxed(),
+                async |ctx| ctx.compute(&Fib(self.0 - 2)).await,
+                async |ctx| ctx.compute(&Fib(self.0 - 1)).await,
             )
             .await
         };

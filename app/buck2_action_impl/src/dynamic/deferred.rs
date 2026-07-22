@@ -393,12 +393,10 @@ pub(crate) async fn prepare_and_execute_lambda(
                     stage: Some(buck2_data::MaterializedArtifacts {}.into()),
                 },
                 ctx.try_compute2(
-                    |ctx| Box::pin(materialize_inputs(&ensured_artifacts, ctx)),
-                    |ctx| {
-                        Box::pin(resolve_dynamic_values(
-                            &lambda.as_ref().static_fields.dynamic_values,
-                            ctx,
-                        ))
+                    async |ctx| materialize_inputs(&ensured_artifacts, ctx).await,
+                    async |ctx| {
+                        resolve_dynamic_values(&lambda.as_ref().static_fields.dynamic_values, ctx)
+                            .await
                     },
                 ),
                 buck2_data::DeferredPreparationStageEnd {},
@@ -444,12 +442,9 @@ async fn ensure_artifacts_built(
         return Ok(Vec::new());
     }
 
-    ctx.try_compute_join(materialized_artifacts, |ctx, artifact| {
-        async move {
-            ctx.ensure_artifact_group(&ArtifactGroup::Artifact(artifact.dupe()))
-                .await
-        }
-        .boxed()
+    ctx.try_compute_join(materialized_artifacts, async |ctx, artifact| {
+        ctx.ensure_artifact_group(&ArtifactGroup::Artifact(artifact.dupe()))
+            .await
     })
     .await
 }
@@ -501,15 +496,13 @@ async fn resolve_dynamic_values(
     }
 
     let providers = ctx
-        .try_compute_join(dynamic_values, |ctx, dynamic_value| {
-            Box::pin(async {
-                let result = dynamic_lambda_result(ctx, &dynamic_value.dynamic_lambda_results_key)
-                    .await?
-                    .analysis_values
-                    .provider_collection()?
-                    .to_owned();
-                buck2_error::Ok((dynamic_value.dupe(), result))
-            })
+        .try_compute_join(dynamic_values, async |ctx, dynamic_value| {
+            let result = dynamic_lambda_result(ctx, &dynamic_value.dynamic_lambda_results_key)
+                .await?
+                .analysis_values
+                .provider_collection()?
+                .to_owned();
+            buck2_error::Ok((dynamic_value.dupe(), result))
         })
         .await?;
 

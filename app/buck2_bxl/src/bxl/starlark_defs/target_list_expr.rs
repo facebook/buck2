@@ -41,7 +41,6 @@ use dice::DiceComputations;
 use dupe::Dupe;
 use dupe::IterDupedExt;
 use either::Either;
-use futures::FutureExt;
 use starlark::collections::SmallSet;
 use starlark::values::Heap;
 use starlark::values::UnpackValue;
@@ -185,8 +184,8 @@ impl<'v> TargetListExpr<'v, TargetNode> {
         ctx: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<Cow<'v, TargetSet<TargetNode>>> {
         let set = ctx
-            .try_compute_join(self.iter(), |ctx, node_or_ref| {
-                async move { node_or_ref.get_from_dice(ctx).await }.boxed()
+            .try_compute_join(self.iter(), async |ctx, node_or_ref| {
+                node_or_ref.get_from_dice(ctx).await
             })
             .await?
             .into_iter()
@@ -237,13 +236,10 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         self,
         dice: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<Vec<MaybeCompatible<ConfiguredTargetNode>>> {
-        dice.compute_join(self.iter(), |ctx, node_or_ref| {
-            async move {
-                ctx.get_configured_target_node(node_or_ref.node_ref())
-                    .await
-                    .ok()
-            }
-            .boxed()
+        dice.compute_join(self.iter(), async |ctx, node_or_ref| {
+            ctx.get_configured_target_node(node_or_ref.node_ref())
+                .await
+                .ok()
         })
         .await
         .into_iter()
@@ -472,19 +468,16 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
             }
             ConfiguredTargetListArg::TargetSet(s) => {
                 let results: Vec<ResultMaybeCompatible<ConfiguredTargetNode>> = dice
-                    .compute_join(s.0.iter(), |dice, node| {
-                        async move {
-                            Self::check_allow_unconfigured(
-                                allow_unconfigured,
-                                &node.label().to_string(),
-                                global_cfg_options,
-                            )?;
-                            let label = dice
-                                .get_configured_target(node.label(), global_cfg_options)
-                                .await?;
-                            dice.get_configured_target_node(&label).await
-                        }
-                        .boxed()
+                    .compute_join(s.0.iter(), async |dice, node| {
+                        Self::check_allow_unconfigured(
+                            allow_unconfigured,
+                            &node.label().to_string(),
+                            global_cfg_options,
+                        )?;
+                        let label = dice
+                            .get_configured_target(node.label(), global_cfg_options)
+                            .await?;
+                        dice.get_configured_target_node(&label).await
                     })
                     .await;
 

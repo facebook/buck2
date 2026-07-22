@@ -52,22 +52,12 @@ pub async fn materialize_and_upload_artifact_group(
 ) -> buck2_error::Result<ArtifactGroupValues> {
     let (values, _) = {
         let fut = ctx.try_compute2(
-            |ctx| {
-                let group = artifact_group;
-                async move {
-                    materialize_artifact_group(ctx, group, contexts.0, queue_tracker).await
-                }
-                .boxed()
+            async |ctx| {
+                materialize_artifact_group(ctx, artifact_group, contexts.0, queue_tracker).await
             },
-            |ctx| {
-                let group = artifact_group;
-                async move {
-                    match contexts.1 {
-                        UploadContext::Skip => Ok(()),
-                        UploadContext::Upload => ensure_uploaded(ctx, group).await,
-                    }
-                }
-                .boxed()
+            async |ctx| match contexts.1 {
+                UploadContext::Skip => Ok(()),
+                UploadContext::Upload => ensure_uploaded(ctx, artifact_group).await,
             },
         );
 

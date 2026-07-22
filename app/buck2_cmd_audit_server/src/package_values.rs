@@ -22,7 +22,6 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use dupe::Dupe;
-use futures::FutureExt;
 use gazebo::prelude::SliceExt;
 use starlark_map::small_map::SmallMap;
 
@@ -53,15 +52,12 @@ impl ServerAuditSubcommand for PackageValuesCommand {
 
                 let package_values_by_package = dice_ctx
                     .ctx()
-                    .try_compute_join(packages, |ctx, package| {
-                        async move {
-                            let package_values = PACKAGE_VALUES_CALCULATION
-                                .get()?
-                                .package_values(ctx, package.dupe())
-                                .await?;
-                            buck2_error::Ok((package, package_values))
-                        }
-                        .boxed()
+                    .try_compute_join(packages, async |ctx, package| {
+                        let package_values = PACKAGE_VALUES_CALCULATION
+                            .get()?
+                            .package_values(ctx, package.dupe())
+                            .await?;
+                        buck2_error::Ok((package, package_values))
                     })
                     .await?;
                 let package_values_by_package: SmallMap<PackageLabel, PackageValues> =

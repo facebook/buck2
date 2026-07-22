@@ -39,7 +39,6 @@ use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
-use futures::FutureExt;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use ref_cast::RefCast;
@@ -209,14 +208,11 @@ impl Key for MatchedConfigurationSettingKeysKey {
         _cancellation: &CancellationContext,
     ) -> Self::Value {
         let config_nodes = ctx
-            .compute_join(self.configuration_deps.iter(), |ctx, d| {
-                async move {
-                    (
-                        d.dupe(),
-                        get_configuration_node(ctx, &self.target_cfg, self.target_cell, d).await,
-                    )
-                }
-                .boxed()
+            .compute_join(self.configuration_deps.iter(), async |ctx, d| {
+                (
+                    d.dupe(),
+                    get_configuration_node(ctx, &self.target_cfg, self.target_cell, d).await,
+                )
             })
             .await;
 

@@ -152,7 +152,7 @@ where
     }
 
     Ok((
-        futures::future::join_all(ctx.compute_many(by_package_fns))
+        futures::future::join_all(ctx.compute_many_boxed(by_package_fns))
             .await
             .into_iter(),
         package_errors,

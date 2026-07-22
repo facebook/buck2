@@ -356,7 +356,7 @@ impl Key for GraphNode {
                     drop(ctx.compute(&Buffer(shadow)).await);
                 } else {
                     let end = (self.0 + 1 + dense_width).min(NODE_COUNT);
-                    ctx.compute_join_async(self.0 + 1..end, async |ctx, i| {
+                    ctx.compute_join(self.0 + 1..end, async |ctx, i| {
                         drop(ctx.compute(&GraphNode(i, shadow)).await);
                     })
                     .await;

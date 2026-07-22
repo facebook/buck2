@@ -25,7 +25,6 @@ use dice::InvalidationSourcePriority;
 use dice::Key;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
-use futures::future::FutureExt;
 use gazebo::prelude::*;
 use gazebo::variants::VariantName;
 use pagable::Pagable;
@@ -252,13 +251,8 @@ fn test_compute_tracks_invalidations() -> anyhow::Result<()> {
                     3 => {
                         ctx.compute(&HighChanged(0)).await.unwrap();
                         ctx.compute2(
-                            |ctx| {
-                                async move { ctx.compute(&NormalInjected(1)).await.unwrap() }
-                                    .boxed()
-                            },
-                            |ctx| {
-                                async move { ctx.compute(&NormalChanged(1)).await.unwrap() }.boxed()
-                            },
+                            async |ctx| ctx.compute(&NormalInjected(1)).await.unwrap(),
+                            async |ctx| ctx.compute(&NormalChanged(1)).await.unwrap(),
                         )
                         .await;
                     }

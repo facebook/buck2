@@ -53,7 +53,6 @@ use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
-use futures::FutureExt;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use starlark::codemap::FileSpan;
@@ -213,22 +212,19 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         modules: &[(Option<FileSpan>, OwnedStarlarkModulePath)],
     ) -> buck2_error::Result<ModuleDeps> {
         Ok(ModuleDeps(
-            ctx.try_compute_join(modules, |ctx, (span, import)| {
-                async move {
-                    ctx.get_loaded_module(import.borrow())
-                        .await
-                        .with_buck_error_context(|| {
-                            format!(
-                                "From load at {}",
-                                span.as_ref()
-                                    .map_or("implicit location".to_owned(), |file_span| file_span
-                                        .resolve()
-                                        .begin_file_line()
-                                        .to_string())
-                            )
-                        })
-                }
-                .boxed()
+            ctx.try_compute_join(modules, async |ctx, (span, import)| {
+                ctx.get_loaded_module(import.borrow())
+                    .await
+                    .with_buck_error_context(|| {
+                        format!(
+                            "From load at {}",
+                            span.as_ref()
+                                .map_or("implicit location".to_owned(), |file_span| file_span
+                                    .resolve()
+                                    .begin_file_line()
+                                    .to_string())
+                        )
+                    })
             })
             .await?,
         ))
@@ -601,8 +597,8 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
             let ((), listing) = self
                 .ctx
                 .try_compute2(
-                    |ctx| check_starlark_stack_size(ctx).boxed(),
-                    |ctx| Self::resolve_package_listing(ctx, package.dupe()).boxed(),
+                    async |ctx| check_starlark_stack_size(ctx).await,
+                    async |ctx| Self::resolve_package_listing(ctx, package.dupe()).await,
                 )
                 .await?;
 

@@ -52,7 +52,6 @@ use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNodeRef;
 use derive_more::Display;
-use futures::future::FutureExt;
 use dice::DiceComputations;
 use dice::Key;
 use dice::OkPagableValueSerialize;
@@ -560,18 +559,16 @@ async fn check_execution_platform(
     // Then check that all exec_deps are compatible with the platform. We collect errors separately,
     // so that we do not report an error if we would later find an incompatibility.
     let dep_results = ctx
-        .compute_join(exec_deps.iter(), |ctx, dep| {
-            Box::pin(async move {
-                let cfg = exec_platform.cfg().dupe();
-                configure_exec_dep_with_modifiers(ctx, dep, &cfg)
-                    .await
-                    .map_err(|e| {
-                        e.context(format!(
-                            "Error checking compatibility of `{}` with `{}`",
-                            dep, cfg
-                        ))
-                    })
-            })
+        .compute_join(exec_deps.iter(), async |ctx, dep| {
+            let cfg = exec_platform.cfg().dupe();
+            configure_exec_dep_with_modifiers(ctx, dep, &cfg)
+                .await
+                .map_err(|e| {
+                    e.context(format!(
+                        "Error checking compatibility of `{}` with `{}`",
+                        dep, cfg
+                    ))
+                })
         })
         .await;
 
@@ -592,13 +589,9 @@ async fn check_execution_platform(
     }
 
     for result in ctx
-        .compute_join(toolchain_deps.iter(), |ctx, dep| {
-            let dep = dep.dupe();
-            let exec_platform = exec_platform.dupe();
-            async move {
-                check_toolchain_execution_platform_compatibility(ctx, dep, exec_platform).await
-            }
-            .boxed()
+        .compute_join(toolchain_deps.iter(), async |ctx, dep| {
+            check_toolchain_execution_platform_compatibility(ctx, dep.dupe(), exec_platform.dupe())
+                .await
         })
         .await
     {

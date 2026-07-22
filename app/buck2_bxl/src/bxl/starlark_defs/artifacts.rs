@@ -31,7 +31,6 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Dupe;
 use dupe::IterDupedExt;
-use futures::FutureExt;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
@@ -508,26 +507,22 @@ impl LazyBuildArtifact {
         ctx: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<Vec<ActionOutputs>> {
         let res = ctx
-            .try_compute_join(&self.artifacts_to_build, |ctx, artifact_group| {
-                async move {
-                    let artifact_group_values = ctx.ensure_artifact_group(artifact_group).await?;
-                    let build_artifacts = artifact_group_values
-                        .iter()
-                        .filter_map(|(artifact, _value)| {
-                            if let BaseArtifactKind::Build(artifact) = artifact.as_parts().0 {
-                                Some(artifact.dupe())
-                            } else {
-                                None
-                            }
-                        })
-                        .collect::<Vec<_>>();
-                    ctx.try_compute_join(build_artifacts, |ctx, build_artifact| {
-                        async move { ActionCalculation::build_artifact(ctx, &build_artifact).await }
-                            .boxed()
+            .try_compute_join(&self.artifacts_to_build, async |ctx, artifact_group| {
+                let artifact_group_values = ctx.ensure_artifact_group(artifact_group).await?;
+                let build_artifacts = artifact_group_values
+                    .iter()
+                    .filter_map(|(artifact, _value)| {
+                        if let BaseArtifactKind::Build(artifact) = artifact.as_parts().0 {
+                            Some(artifact.dupe())
+                        } else {
+                            None
+                        }
                     })
-                    .await
-                }
-                .boxed()
+                    .collect::<Vec<_>>();
+                ctx.try_compute_join(build_artifacts, async |ctx, build_artifact| {
+                    ActionCalculation::build_artifact(ctx, &build_artifact).await
+                })
+                .await
             })
             .await?;
         Ok(res.into_iter().flatten().collect::<Vec<_>>())

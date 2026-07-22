@@ -26,7 +26,7 @@ impl KeepGoing {
     ) -> impl Future<Output = Result<Vec<R>, E>> {
         let keep_going = ctx.per_transaction_data().get_keep_going();
 
-        let futs = ctx.compute_many(
+        let futs = ctx.compute_many_boxed(
             items
                 .into_iter()
                 .map(move |v| move |ctx: &'a mut DiceComputations<'d>| mapper(ctx, v)),

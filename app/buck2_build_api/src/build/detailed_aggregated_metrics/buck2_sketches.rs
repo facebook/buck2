@@ -45,7 +45,6 @@ use dice::Key;
 use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
 use dupe::Dupe;
-use futures::FutureExt;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use starlark::values::FrozenHeapName;
@@ -235,8 +234,8 @@ pub(crate) async fn compute_artifact_path_sketches_for_target(
         .collect();
 
     let values: Vec<ArtifactGroupValues> = ctx
-        .try_compute_join(filtered.iter(), |ctx, artifact_group| {
-            async move { ctx.ensure_artifact_group(artifact_group).await }.boxed()
+        .try_compute_join(filtered.iter(), async |ctx, artifact_group| {
+            ctx.ensure_artifact_group(artifact_group).await
         })
         .await?;
 
@@ -366,13 +365,10 @@ impl Key for LoadGraphPropertiesKey {
         let mut sketcher = DEFAULT_SKETCH_VERSION.create_sketcher();
 
         let pkg_results = ctx
-            .try_compute_join(packages.iter(), |ctx, pkg| {
-                async move {
-                    ctx.get_interpreter_results(pkg.dupe())
-                        .await
-                        .map(|r| (pkg.dupe(), r))
-                }
-                .boxed()
+            .try_compute_join(packages.iter(), async |ctx, pkg| {
+                ctx.get_interpreter_results(pkg.dupe())
+                    .await
+                    .map(|r| (pkg.dupe(), r))
             })
             .await?;
 
@@ -387,13 +383,10 @@ impl Key for LoadGraphPropertiesKey {
         }
 
         let loaded_modules = ctx
-            .try_compute_join(imports.iter(), |ctx, import| {
-                async move {
-                    ctx.get_loaded_module_from_import_path(import)
-                        .await
-                        .map(|m| m.env().frozen_heap().dupe())
-                }
-                .boxed()
+            .try_compute_join(imports.iter(), async |ctx, import| {
+                ctx.get_loaded_module_from_import_path(import)
+                    .await
+                    .map(|m| m.env().frozen_heap().dupe())
             })
             .await?;
 

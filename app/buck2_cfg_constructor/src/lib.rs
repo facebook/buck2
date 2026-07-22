@@ -42,7 +42,6 @@ use buck2_node::rule_type::RuleType;
 use calculation::CfgConstructorCalculationInstance;
 use dice::DiceComputations;
 use dice_futures::cancellation::CancellationContext;
-use futures::FutureExt;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use starlark::collections::SmallMap;
@@ -150,32 +149,28 @@ async fn analyze_constraints(
         .get_cell_alias_resolver(cell_resolver.root_cell())
         .await?;
     let res = ctx
-        .try_compute_join(refs, |ctx, label_str| {
-            async move {
-                // Ensure all refs are configuration rules
-                let label = ProvidersLabel::parse(
-                    &label_str,
-                    cell_resolver.root_cell(),
-                    cell_resolver,
-                    cell_alias_resolver,
-                )?;
+        .try_compute_join(refs, async |ctx, label_str| {
+            // Ensure all refs are configuration rules
+            let label = ProvidersLabel::parse(
+                &label_str,
+                cell_resolver.root_cell(),
+                cell_resolver,
+                cell_alias_resolver,
+            )?;
 
-                if ctx.get_target_node(label.target()).await?.rule_kind() == RuleKind::Configuration
-                {
-                    Ok((
+            if ctx.get_target_node(label.target()).await?.rule_kind() == RuleKind::Configuration {
+                Ok((
+                    label_str,
+                    ctx.get_configuration_analysis_result(&label).await?,
+                ))
+            } else {
+                Err::<_, buck2_error::Error>(
+                    CfgConstructorError::PostConstraintAnalysisRefsMustBeConfigurationRules(
                         label_str,
-                        ctx.get_configuration_analysis_result(&label).await?,
-                    ))
-                } else {
-                    Err::<_, buck2_error::Error>(
-                        CfgConstructorError::PostConstraintAnalysisRefsMustBeConfigurationRules(
-                            label_str,
-                        )
-                        .into(),
                     )
-                }
+                    .into(),
+                )
             }
-            .boxed()
         })
         .await?;
     Ok(res.into_iter().collect())

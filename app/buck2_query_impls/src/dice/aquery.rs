@@ -188,10 +188,8 @@ async fn convert_inputs<
     let mut deps =
         artifacts.into_map(|a| ActionInput::ActionKey(ActionQueryNodeRef::Action(a.dupe())));
     let projection_deps = ctx
-        .try_compute_join(projections, |ctx, key| {
-            let key = key.dupe();
-            let node_cache = node_cache.dupe();
-            async move { get_tset_node(node_cache, ctx, key).await }.boxed()
+        .try_compute_join(projections, async |ctx, key| {
+            get_tset_node(node_cache.dupe(), ctx, key.dupe()).await
         })
         .await?;
 

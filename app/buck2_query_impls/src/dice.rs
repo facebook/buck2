@@ -58,7 +58,6 @@ use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use dice::DiceComputations;
 use dice::LinearRecomputeDiceComputations;
-use futures::FutureExt;
 use gazebo::prelude::*;
 
 use crate::cquery::environment::CqueryDelegate;
@@ -258,13 +257,10 @@ impl UqueryDelegate for DiceQueryDelegate<'_, '_> {
         let mut ctx = self.ctx.get();
         let resolver = ctx.get_cell_resolver().await?;
         let buildfiles = ctx
-            .try_compute_join(resolver.cells(), |ctx, (name, _)| {
-                async move {
-                    DiceFileComputations::buildfiles(ctx, name)
-                        .await
-                        .map(|x| (name, x))
-                }
-                .boxed()
+            .try_compute_join(resolver.cells(), async |ctx, (name, _)| {
+                DiceFileComputations::buildfiles(ctx, name)
+                    .await
+                    .map(|x| (name, x))
             })
             .await?;
 

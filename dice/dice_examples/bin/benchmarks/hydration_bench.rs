@@ -28,7 +28,6 @@ use dice::InjectedKey;
 use dice::Key;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
-use futures::FutureExt;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 
@@ -94,8 +93,8 @@ impl Key for BenchKey {
         // Depend on `num_deps` predecessor keys (j < self.0) to form a DAG.
         let start = self.0.saturating_sub(num_deps);
         if start < self.0 {
-            ctx.compute_join(start..self.0, |ctx, j| {
-                async move { ctx.compute(&BenchKey(j)).await.unwrap() }.boxed()
+            ctx.compute_join(start..self.0, async |ctx, j| {
+                ctx.compute(&BenchKey(j)).await.unwrap()
             })
             .await;
         }
@@ -169,8 +168,8 @@ async fn main() -> anyhow::Result<()> {
 
     let compute_start = Instant::now();
     ctx.ctx()
-        .compute_join(0..cli.num_keys, |ctx, i| {
-            async move { ctx.compute(&BenchKey(i)).await.unwrap() }.boxed()
+        .compute_join(0..cli.num_keys, async |ctx, i| {
+            ctx.compute(&BenchKey(i)).await.unwrap()
         })
         .await;
     let compute_elapsed = compute_start.elapsed();

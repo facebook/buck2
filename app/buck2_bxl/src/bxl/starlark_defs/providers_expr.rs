@@ -26,7 +26,6 @@ use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use dice::DiceComputations;
 use dupe::Dupe;
-use futures::FutureExt;
 use itertools::Either;
 use starlark::values::UnpackValue;
 use starlark::values::list::UnpackList;
@@ -198,16 +197,13 @@ impl ProvidersExpr<ConfiguredProvidersLabel> {
     ) -> buck2_error::Result<ProvidersExpr<ConfiguredProvidersLabel>> {
         match arg {
             AnyProvidersLabelListArg::StarlarkTargetSet(s) => Ok(ProvidersExpr::Iterable(
-                dice.try_compute_join(s.0.iter(), |dice, node| {
-                    async move {
-                        let providers_label = ProvidersLabel::default_for(node.label().dupe());
-                        dice.get_configured_provider_label(
-                            &providers_label,
-                            global_cfg_options_override,
-                        )
-                        .await
-                    }
-                    .boxed()
+                dice.try_compute_join(s.0.iter(), async |dice, node| {
+                    let providers_label = ProvidersLabel::default_for(node.label().dupe());
+                    dice.get_configured_provider_label(
+                        &providers_label,
+                        global_cfg_options_override,
+                    )
+                    .await
                 })
                 .await?,
             )),

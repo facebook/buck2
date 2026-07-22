@@ -48,7 +48,6 @@ use dice::Key;
 use dice::NoValueSerialize;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
-use futures::FutureExt;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 
@@ -205,11 +204,8 @@ impl Key for GraphNode {
             Shape::Wide => {
                 if self.0 == 0 {
                     // Root: fan out to all other nodes.
-                    ctx.compute_join(1..args.node_count, |ctx, i| {
-                        async move {
-                            drop(ctx.compute(&GraphNode(i, shadow)).await);
-                        }
-                        .boxed()
+                    ctx.compute_join(1..args.node_count, async |ctx, i| {
+                        drop(ctx.compute(&GraphNode(i, shadow)).await);
                     })
                     .await;
                 } else {
@@ -232,11 +228,8 @@ impl Key for GraphNode {
                 if first_child < total {
                     // Interior node: depend on children.
                     let last_child = (first_child + args.branching).min(total);
-                    ctx.compute_join(first_child..last_child, |ctx, i| {
-                        async move {
-                            drop(ctx.compute(&GraphNode(i, shadow)).await);
-                        }
-                        .boxed()
+                    ctx.compute_join(first_child..last_child, async |ctx, i| {
+                        drop(ctx.compute(&GraphNode(i, shadow)).await);
                     })
                     .await;
                 } else {
@@ -256,11 +249,8 @@ impl Key for GraphNode {
                 } else {
                     // Depend on nodes in range (self.0+1)..end.
                     // Last dep in range also transitively reaches Buffer.
-                    ctx.compute_join(self.0 + 1..end, |ctx, i| {
-                        async move {
-                            drop(ctx.compute(&GraphNode(i, shadow)).await);
-                        }
-                        .boxed()
+                    ctx.compute_join(self.0 + 1..end, async |ctx, i| {
+                        drop(ctx.compute(&GraphNode(i, shadow)).await);
                     })
                     .await;
                 }
@@ -349,11 +339,8 @@ async fn async_main() {
         updater.changed_to(vec![(Seed, 0)]).unwrap();
         let ctx = updater.commit().await;
         ctx.ctx()
-            .compute_join(0..args.shadows, |ctx, s| {
-                async move {
-                    drop(ctx.compute(&GraphNode(0, s)).await);
-                }
-                .boxed()
+            .compute_join(0..args.shadows, async |ctx, s| {
+                drop(ctx.compute(&GraphNode(0, s)).await);
             })
             .await;
     }
@@ -377,11 +364,8 @@ async fn async_main() {
 
         let t1 = Instant::now();
         ctx.ctx()
-            .compute_join(0..args.shadows, |ctx, s| {
-                async move {
-                    drop(ctx.compute(&GraphNode(0, s)).await);
-                }
-                .boxed()
+            .compute_join(0..args.shadows, async |ctx, s| {
+                drop(ctx.compute(&GraphNode(0, s)).await);
             })
             .await;
         let compute_dur = t1.elapsed();

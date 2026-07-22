@@ -42,7 +42,6 @@ use buck2_server_ctx::template::run_server_command;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use dupe::Dupe;
-use futures::future::FutureExt;
 use gazebo::prelude::VecExt;
 
 struct TargetsArtifacts {
@@ -149,23 +148,18 @@ async fn retrieve_artifacts_for_targets(
     global_cfg_options: &GlobalCfgOptions,
 ) -> buck2_error::Result<Vec<TargetsArtifacts>> {
     let artifacts_for_specs = ctx
-        .try_compute_join(spec.specs, |ctx, (package_with_modifiers, spec)| {
-            async move {
-                {
-                    let res = ctx
-                        .get_interpreter_results(package_with_modifiers.package.dupe())
-                        .await?;
-                    retrieve_artifacts_for_spec(
-                        ctx,
-                        package_with_modifiers.package.dupe(),
-                        spec,
-                        global_cfg_options,
-                        res,
-                    )
-                    .await
-                }
-            }
-            .boxed()
+        .try_compute_join(spec.specs, async |ctx, (package_with_modifiers, spec)| {
+            let res = ctx
+                .get_interpreter_results(package_with_modifiers.package.dupe())
+                .await?;
+            retrieve_artifacts_for_spec(
+                ctx,
+                package_with_modifiers.package.dupe(),
+                spec,
+                global_cfg_options,
+                res,
+            )
+            .await
         })
         .await?;
 
@@ -209,10 +203,11 @@ async fn retrieve_artifacts_for_spec(
         }
     };
 
-    let outputs = ctx.try_compute_join(todo_targets, |ctx, (providers_label, cfg_flags)| {
-        async move { retrieve_artifacts_for_provider_label(ctx, providers_label, cfg_flags).await }
-            .boxed()
-    }).await?;
+    let outputs = ctx
+        .try_compute_join(todo_targets, async |ctx, (providers_label, cfg_flags)| {
+            retrieve_artifacts_for_provider_label(ctx, providers_label, cfg_flags).await
+        })
+        .await?;
     Ok(outputs)
 }
 

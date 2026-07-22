@@ -61,7 +61,6 @@ use buck2_query_parser::BinaryOp;
 use dice::DiceComputations;
 use dupe::Dupe;
 use dupe::IterDupedExt;
-use futures::FutureExt;
 use pagable::StaticStr;
 use starlark::values::UnpackValue;
 
@@ -368,18 +367,14 @@ pub(crate) async fn get_from_template_placeholder_info(
     // Artifacts are put here to keep them in the correct order in the output, tsets are top-level tset nodes that we need
     // to traverse.
     let artifacts = ctx
-        .try_compute_join(targets, |ctx, target| {
-            async move {
-                let artifacts =
-                    get_template_info_provider_artifacts(ctx, &target, template_name.as_str())
-                        .await?;
-                buck2_error::Ok(
-                    artifacts
-                        .into_iter()
-                        .map(move |artifact| (target.dupe(), artifact)),
-                )
-            }
-            .boxed()
+        .try_compute_join(targets, async |ctx, target| {
+            let artifacts =
+                get_template_info_provider_artifacts(ctx, &target, template_name.as_str()).await?;
+            buck2_error::Ok(
+                artifacts
+                    .into_iter()
+                    .map(move |artifact| (target.dupe(), artifact)),
+            )
         })
         .await?;
     let mut artifacts: VecDeque<_> = artifacts.into_iter().flatten().collect();

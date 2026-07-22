@@ -51,7 +51,6 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dice::LinearRecomputeDiceComputations;
 use dupe::Dupe;
-use futures::FutureExt;
 use futures::StreamExt;
 use futures::stream::FuturesUnordered;
 use gazebo::prelude::*;
@@ -136,8 +135,8 @@ impl<T: QueryTarget> PreresolvedQueryLiterals<T> {
         dice: &mut DiceComputations<'_>,
     ) -> Self {
         let resolved_literal_results = dice
-            .compute_join(literals.iter(), |ctx, lit| {
-                async move { (lit.to_owned(), base.eval_literals(&[lit], ctx).await) }.boxed()
+            .compute_join(literals.iter(), async |ctx, lit| {
+                (lit.to_owned(), base.eval_literals(&[lit], ctx).await)
             })
             .await;
         let mut resolved_literals = StdBuckHashMap::default();

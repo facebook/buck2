@@ -21,7 +21,6 @@ buck2_interpreter_for_build.workspace = true
 buck2_server_ctx.workspace = true
 dice.workspace = true
 dupe.workspace = true
-futures.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 starlark.workspace = true

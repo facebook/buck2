@@ -59,13 +59,10 @@ async fn generate_profile_analysis(
     let target_resolution_config = &target_resolution_config;
     let configured_targetss = ctx
         .ctx()
-        .try_compute_join(targets, |ctx, label| {
-            async move {
-                target_resolution_config
-                    .get_configured_target(ctx, &label.target_label, None)
-                    .await
-            }
-            .boxed()
+        .try_compute_join(targets, async |ctx, label| {
+            target_resolution_config
+                .get_configured_target(ctx, &label.target_label, None)
+                .await
         })
         .await?;
 

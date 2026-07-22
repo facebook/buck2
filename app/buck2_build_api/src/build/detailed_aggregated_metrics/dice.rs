@@ -24,7 +24,6 @@ use dice::DiceComputations;
 use dice::DiceDataBuilder;
 use dice::UserComputationData;
 use dupe::Dupe;
-use futures::FutureExt;
 
 use crate::build::BuildProviderType;
 use crate::build::detailed_aggregated_metrics::buck2_sketches::ArtifactPathSketches;
@@ -151,34 +150,27 @@ impl HasDetailedAggregatedMetrics for DiceComputations<'_> {
             .filter(|spec| !skip_targets.contains(&spec.label))
             .collect();
         let results = self
-            .compute_join(targets, |ctx, spec| {
-                let label = spec.label.clone();
-                let outputs = spec.outputs.dupe();
-                let artifact_fs = artifact_fs.clone();
-                let providers_to_skip = providers_to_skip.clone();
-                async move {
-                    match compute_artifact_path_sketches_for_target(
-                        ctx,
-                        &outputs,
-                        &artifact_fs,
-                        &providers_to_skip,
-                        sketch_size,
-                        sketch_count,
-                    )
-                    .await
-                    {
-                        Ok(sketches) => Ok((label, sketches)),
-                        Err(e) => {
-                            let _ignored = buck2_core::soft_error!(
-                                "artifact_path_sketch_computation_error",
-                                e,
-                                quiet: true
-                            );
-                            Ok((label, ArtifactPathSketches::empty()))
-                        }
+            .compute_join(targets, async |ctx, spec| {
+                match compute_artifact_path_sketches_for_target(
+                    ctx,
+                    &spec.outputs,
+                    &artifact_fs,
+                    &providers_to_skip,
+                    sketch_size,
+                    sketch_count,
+                )
+                .await
+                {
+                    Ok(sketches) => Ok((spec.label.dupe(), sketches)),
+                    Err(e) => {
+                        let _ignored = buck2_core::soft_error!(
+                            "artifact_path_sketch_computation_error",
+                            e,
+                            quiet: true
+                        );
+                        Ok((spec.label.dupe(), ArtifactPathSketches::empty()))
                     }
                 }
-                .boxed()
             })
             .await;
 

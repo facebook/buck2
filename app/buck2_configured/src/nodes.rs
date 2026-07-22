@@ -523,8 +523,8 @@ pub(crate) async fn gather_deps(
     }
 
     let dep_results = ctx
-        .compute_join(traversal.deps.iter(), |ctx, v| {
-            async move { ctx.get_internal_configured_target_node(v.0.target()).await }.boxed()
+        .compute_join(traversal.deps.iter(), async |ctx, v| {
+            ctx.get_internal_configured_target_node(v.0.target()).await
         })
         .await;
 
@@ -859,14 +859,11 @@ async fn compute_configured_target_node_no_transition(
         async move {
             ctx.compute_join(
                 toolchain_deps,
-                |ctx, target: &TargetConfiguredTargetLabel| {
-                    async move {
-                        ctx.get_internal_configured_target_node(
-                            &target.with_exec_cfg(execution_platform_cfg.cfg().dupe()),
-                        )
-                        .await
-                    }
-                    .boxed()
+                async |ctx, target: &TargetConfiguredTargetLabel| {
+                    ctx.get_internal_configured_target_node(
+                        &target.with_exec_cfg(execution_platform_cfg.cfg().dupe()),
+                    )
+                    .await
                 },
             )
             .await
@@ -876,19 +873,16 @@ async fn compute_configured_target_node_no_transition(
 
     let get_exec_deps = DiceComputations::declare_closure(|ctx| {
         async move {
-            ctx.compute_join(exec_deps, |ctx, (target, check_visibility)| {
-                async move {
-                    // Apply modifiers to exec_dep before configuring
-                    let result = configure_exec_dep_with_modifiers(
-                        ctx,
-                        target.target().unconfigured(),
-                        execution_platform_cfg.cfg(),
-                    )
-                    .await;
+            ctx.compute_join(exec_deps, async |ctx, (target, check_visibility)| {
+                // Apply modifiers to exec_dep before configuring
+                let result = configure_exec_dep_with_modifiers(
+                    ctx,
+                    target.target().unconfigured(),
+                    execution_platform_cfg.cfg(),
+                )
+                .await;
 
-                    (result, *check_visibility)
-                }
-                .boxed()
+                (result, *check_visibility)
             })
             .await
         }
@@ -896,7 +890,7 @@ async fn compute_configured_target_node_no_transition(
     });
 
     let (toolchain_dep_results, exec_dep_results): (Vec<_>, Vec<_>) =
-        ctx.compute2(get_toolchain_deps, get_exec_deps).await;
+        ctx.compute2_boxed(get_toolchain_deps, get_exec_deps).await;
 
     let mut deps = gathered_deps.deps;
     let mut exec_deps = Vec::with_capacity(gathered_deps.exec_deps.len());

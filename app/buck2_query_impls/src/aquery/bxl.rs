@@ -35,7 +35,6 @@ use dice::DiceComputations;
 use dice::LinearRecomputeDiceComputations;
 use dupe::Dupe;
 use futures::FutureExt;
-use futures::future::BoxFuture;
 use itertools::Either;
 
 use crate::aquery::environment::AqueryDelegate;
@@ -239,36 +238,33 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
         let target_sets = dice
             .try_compute_join(
                 configured_labels,
-                |ctx: &mut DiceComputations,
-                 label: ConfiguredProvidersLabel|
-                 -> BoxFuture<
-                    buck2_error::Result<Either<ConfiguredTargetLabel, TargetSet<ActionQueryNode>>>,
+                async |ctx: &mut DiceComputations,
+                       label: ConfiguredProvidersLabel|
+                       -> buck2_error::Result<
+                    Either<ConfiguredTargetLabel, TargetSet<ActionQueryNode>>,
                 > {
-                    async move {
-                        let maybe_result = ctx.get_analysis_result(label.target()).await?;
+                    let maybe_result = ctx.get_analysis_result(label.target()).await?;
 
-                        match maybe_result {
-                            MaybeCompatible::Incompatible(reason) => {
-                                // Aquery skips incompatible targets by default on the CLI, but let's at least
-                                // log the error messages to BXL's stderr
-                                Ok(Either::Left(reason.target.dupe()))
-                            }
-                            MaybeCompatible::Compatible(result) => {
-                                ctx.with_linear_recompute(|ctx| {
-                                    async move {
-                                        let delegate = &self.aquery_delegate(ctx).await?;
-                                        let target_set = delegate
-                                            .get_target_set_from_analysis(&label, result.clone())
-                                            .await?;
-                                        Ok(Either::Right(target_set))
-                                    }
-                                    .boxed()
-                                })
-                                .await
-                            }
+                    match maybe_result {
+                        MaybeCompatible::Incompatible(reason) => {
+                            // Aquery skips incompatible targets by default on the CLI, but let's at least
+                            // log the error messages to BXL's stderr
+                            Ok(Either::Left(reason.target.dupe()))
+                        }
+                        MaybeCompatible::Compatible(result) => {
+                            ctx.with_linear_recompute(|ctx| {
+                                async move {
+                                    let delegate = &self.aquery_delegate(ctx).await?;
+                                    let target_set = delegate
+                                        .get_target_set_from_analysis(&label, result.clone())
+                                        .await?;
+                                    Ok(Either::Right(target_set))
+                                }
+                                .boxed()
+                            })
+                            .await
                         }
                     }
-                    .boxed()
                 },
             )
             .await?;

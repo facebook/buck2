@@ -20,7 +20,6 @@ use buck2_error::internal_error;
 use buck2_test_api::data::RequiredLocalResources;
 use buck2_test_api::data::TestStage;
 use dice::DiceComputations;
-use futures::FutureExt;
 use itertools::Itertools;
 use starlark::values::OwnedFrozenValueTyped;
 
@@ -73,8 +72,8 @@ pub(crate) async fn required_providers<'v>(
         })
         .collect::<Result<Vec<_>, buck2_error::Error>>()?;
 
-    dice.compute_join(targets, |dice, target| {
-        async move { get_local_resource_info(dice, target).await }.boxed()
+    dice.compute_join(targets, async |dice, target| {
+        get_local_resource_info(dice, target).await
     })
     .await
     .into_iter()

@@ -88,7 +88,7 @@ async fn server_execute_with_dice(
     }
 
     let mut dice = ctx.ctx();
-    let mut futs: FuturesOrdered<_> = dice.compute_many(futs).into_iter().collect();
+    let mut futs: FuturesOrdered<_> = dice.compute_many_boxed(futs).into_iter().collect();
 
     let mut stdout = stdout.as_writer();
     let mut stderr = server_ctx.stderr()?;

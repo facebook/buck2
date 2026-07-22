@@ -29,7 +29,6 @@ use buck2_interpreter::parse_import::parse_import_with_config;
 use buck2_interpreter::paths::module::StarlarkModulePath;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use dice::DiceTransaction;
-use futures::FutureExt;
 use starlark::docs::multipage::DocModuleInfo;
 
 use crate::builtins::write_docs_to_subdir;
@@ -125,16 +124,13 @@ pub(crate) async fn docs_starlark(
 
     let docs: Vec<_> = dice_ctx
         .ctx()
-        .try_compute_join(lookups, |ctx, path| {
-            async move {
-                let doc = ctx
-                    .get_loaded_module(path.to_starlark_module_path())
-                    .await?
-                    .env()
-                    .documentation();
-                buck2_error::Ok((path, doc))
-            }
-            .boxed()
+        .try_compute_join(lookups, async |ctx, path| {
+            let doc = ctx
+                .get_loaded_module(path.to_starlark_module_path())
+                .await?
+                .env()
+                .documentation();
+            buck2_error::Ok((path, doc))
         })
         .await?;
 

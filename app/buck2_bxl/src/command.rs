@@ -367,7 +367,7 @@ impl BxlServerCommand {
         let artifacts_to_materialize: Vec<_> = bxl_result.artifacts().iter().duped().collect();
 
         let mut futs: FuturesUnordered<_> = ctx
-            .compute_many(artifacts_to_materialize.into_iter().map(|artifact| {
+            .compute_many_boxed(artifacts_to_materialize.into_iter().map(|artifact| {
                 DiceComputations::declare_closure(|ctx| {
                     async move {
                         let res = materialize_and_upload_artifact_group(

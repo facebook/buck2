@@ -33,7 +33,6 @@ use buck2_node::nodes::attributes::PACKAGE;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use dice::DiceTransaction;
 use dupe::Dupe;
-use futures::FutureExt;
 
 use crate::json::QuotedJson;
 use crate::targets::fmt::JsonWriter;
@@ -129,14 +128,11 @@ pub(crate) async fn targets_resolve_aliases(
 
     let packages: StdBuckHashMap<_, _> = dice
         .ctx()
-        .compute_join(packages, |ctx: &mut _, package| {
-            async move {
-                (
-                    package.dupe(),
-                    ctx.get_interpreter_results(package.dupe()).await,
-                )
-            }
-            .boxed()
+        .compute_join(packages, async |ctx: &mut _, package| {
+            (
+                package.dupe(),
+                ctx.get_interpreter_results(package.dupe()).await,
+            )
         })
         .await
         .into_iter()

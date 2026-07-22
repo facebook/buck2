@@ -23,7 +23,6 @@ use dice::DiceKeyDyn;
 use dice::Key;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
-use futures::FutureExt;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 
@@ -77,21 +76,18 @@ impl Key for Top {
     ) -> Self::Value {
         // References obtained inside parallel branches must be holdable after the join completes.
         let refs: Vec<&Arc<u32>> = ctx
-            .compute_join(1..4u32, |ctx, i| {
-                async move { ctx.compute_ref(&Leaf(i)).await.unwrap() }.boxed()
+            .compute_join(1..4u32, async |ctx, i| {
+                ctx.compute_ref(&Leaf(i)).await.unwrap()
             })
             .await;
 
         // ...including refs from *nested* parallel branches escaping both levels.
         let nested: Vec<&Arc<u32>> = ctx
-            .compute_join(1..3u32, |ctx, i| {
-                async move {
-                    ctx.compute_join(1..3u32, move |ctx, j| {
-                        async move { ctx.compute_ref(&Leaf(100 * i + j)).await.unwrap() }.boxed()
-                    })
-                    .await
-                }
-                .boxed()
+            .compute_join(1..3u32, async |ctx, i| {
+                ctx.compute_join(1..3u32, async move |ctx, j| {
+                    ctx.compute_ref(&Leaf(100 * i + j)).await.unwrap()
+                })
+                .await
             })
             .await
             .into_iter()

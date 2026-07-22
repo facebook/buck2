@@ -467,13 +467,10 @@ impl Directory {
             let mut subpackages = Vec::new();
 
             for res in ctx
-                .compute_join(subdirs, |ctx: &mut DiceComputations, path| {
-                    async move {
-                        let res = Directory::gather(ctx, buildfile_candidates, root, &path, false)
-                            .await?;
-                        Ok((path, res))
-                    }
-                    .boxed()
+                .compute_join(subdirs, async |ctx: &mut DiceComputations, path| {
+                    let res =
+                        Directory::gather(ctx, buildfile_candidates, root, &path, false).await?;
+                    Ok((path, res))
                 })
                 .await
             {

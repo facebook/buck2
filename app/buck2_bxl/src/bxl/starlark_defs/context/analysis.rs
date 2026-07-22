@@ -14,7 +14,6 @@ use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use dice::DiceComputations;
 use either::Either;
-use futures::FutureExt;
 use gazebo::prelude::*;
 
 use crate::bxl::starlark_defs::analysis_result::StarlarkAnalysisResult;
@@ -31,12 +30,9 @@ pub(crate) async fn analysis<'v>(
     Either<Option<StarlarkAnalysisResult>, Vec<(ConfiguredProvidersLabel, StarlarkAnalysisResult)>>,
 > {
     let analysis = dice
-        .compute_join(expr.labels(), |dice, label| {
-            async move {
-                let maybe_result = dice.get_analysis_result(label.target()).await?;
-                buck2_error::Ok((label, maybe_result))
-            }
-            .boxed()
+        .compute_join(expr.labels(), async |dice, label| {
+            let maybe_result = dice.get_analysis_result(label.target()).await?;
+            buck2_error::Ok((label, maybe_result))
         })
         .await
         .into_iter()

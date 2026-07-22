@@ -36,7 +36,6 @@ use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Dupe;
-use futures::FutureExt;
 use gazebo::prelude::SliceExt;
 use pagable::Pagable;
 use starlark::any::ProvidesStaticType;
@@ -236,15 +235,12 @@ async fn alloc_deps<'v>(
     ctx: &mut DiceComputations<'_>,
 ) -> buck2_error::Result<ValueOfUnchecked<'v, DictType<StarlarkProvidersLabel, Dependency<'v>>>> {
     let analysis_results: Vec<_> = ctx
-        .try_compute_join(deps, |ctx, target| {
-            async move {
-                let res = ctx
-                    .get_analysis_result(target.target())
-                    .await?
-                    .require_compatible()?;
-                buck2_error::Ok((target, res))
-            }
-            .boxed()
+        .try_compute_join(deps, async |ctx, target| {
+            let res = ctx
+                .get_analysis_result(target.target())
+                .await?
+                .require_compatible()?;
+            buck2_error::Ok((target, res))
         })
         .await?;
 

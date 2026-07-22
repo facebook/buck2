@@ -292,20 +292,17 @@ async fn dir_artifact_value(
                 .included;
 
             let entry_values = ctx
-                .try_compute_join(files.iter(), |ctx, x| {
-                    async move {
-                        // TODO(scottcao): This current creates a `DirArtifactValueKey` for each subdir of a source directory.
-                        // Instead, this should be 1 key for the entire top-level directory since there's almost
-                        // no chance of getting cache hit with a sub-directory.
-                        let value = path_artifact_value(
-                            ctx,
-                            Arc::new(self.0.as_ref().join(&x.file_name)),
-                            None,
-                        )
-                        .await?;
-                        buck2_error::Ok((x.file_name.clone(), value))
-                    }
-                    .boxed()
+                .try_compute_join(files.iter(), async |ctx, x| {
+                    // TODO(scottcao): This current creates a `DirArtifactValueKey` for each subdir of a source directory.
+                    // Instead, this should be 1 key for the entire top-level directory since there's almost
+                    // no chance of getting cache hit with a sub-directory.
+                    let value = path_artifact_value(
+                        ctx,
+                        Arc::new(self.0.as_ref().join(&x.file_name)),
+                        None,
+                    )
+                    .await?;
+                    buck2_error::Ok((x.file_name.clone(), value))
                 })
                 .await?;
 

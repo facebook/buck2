@@ -31,7 +31,6 @@ use dice_error::DiceError;
 use dupe::Dupe;
 use dupe::IterDupedExt;
 use either::Either;
-use futures::future::FutureExt;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 
@@ -75,8 +74,8 @@ impl TransitiveValidationKey {
             .filter(|spec| !spec.optional() || enabled_optional_validations.contains(spec.name()))
             .map(|spec| spec.validation_result().get_bound_artifact())
             .collect::<buck2_error::Result<Vec<Artifact>>>()?;
-        ctx.try_compute_join(artifacts, |ctx, output| {
-            async move { compute_single_validation(ctx, output).await }.boxed()
+        ctx.try_compute_join(artifacts, async |ctx, output| {
+            compute_single_validation(ctx, output).await
         })
         .await
         .map(|_| ())
@@ -89,13 +88,9 @@ impl TransitiveValidationKey {
     ) -> Result<(), TreatValidationFailureAsError> {
         ctx.try_compute_join(
             transitive_validations.0.children.iter().duped(),
-            |ctx, label| {
-                let key = TransitiveValidationKey(label);
-                async move {
-                    let result = ctx.compute(&key).await?;
-                    tighten_cached_validation_result(result)
-                }
-                .boxed()
+            async |ctx, label| {
+                let result = ctx.compute(&TransitiveValidationKey(label)).await?;
+                tighten_cached_validation_result(result)
             },
         )
         .await
@@ -128,14 +123,14 @@ impl Key for TransitiveValidationKey {
         };
         let result = ctx
             .try_compute2(
-                {
-                    let transitive_validations = transitive_validations.dupe();
-                    move |ctx| {
-                        self.validate_current_node(ctx, transitive_validations)
-                            .boxed()
-                    }
+                async |ctx| {
+                    self.validate_current_node(ctx, transitive_validations.dupe())
+                        .await
                 },
-                move |ctx| self.validate_children(ctx, transitive_validations).boxed(),
+                async |ctx| {
+                    self.validate_children(ctx, transitive_validations.dupe())
+                        .await
+                },
             )
             .await;
         match result {

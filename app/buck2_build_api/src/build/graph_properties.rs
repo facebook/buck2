@@ -26,7 +26,6 @@ use dice::DiceComputations;
 use dice::Key;
 use dice::ValueSerialize;
 use dupe::Dupe;
-use futures::FutureExt;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 
@@ -236,49 +235,40 @@ pub async fn get_graph_properties(
 ) -> ResultMaybeCompatible<GraphPropertiesValues> {
     let (configured_graph, analysis_sketches, load_sketch) = ctx
         .compute3(
-            |ctx| {
-                async {
-                    ctx.compute(&ConfiguredGraphPropertiesKey {
-                        label: label.dupe(),
-                        configured_graph_sketch,
-                    })
-                    .await?
-                }
-                .boxed()
+            async |ctx| {
+                ctx.compute(&ConfiguredGraphPropertiesKey {
+                    label: label.dupe(),
+                    configured_graph_sketch,
+                })
+                .await?
             },
-            |ctx| {
-                async {
-                    let (retained, analysis_peak) =
-                        if retained_analysis_memory_sketch || peak_analysis_memory_sketch {
-                            ctx.compute(&AnalysisGraphPropertiesKey {
-                                label: label.dupe(),
-                                compute_retained: retained_analysis_memory_sketch,
-                                compute_peak: peak_analysis_memory_sketch,
-                            })
-                            .await??
-                            .to_result_maybe_compatible()?
-                        } else {
-                            (None, None)
-                        };
-                    ResultMaybeCompatible::Compatible((retained, analysis_peak))
-                }
-                .boxed()
-            },
-            |ctx| {
-                async {
-                    if peak_load_memory_sketch {
-                        let sketch = ctx
-                            .compute(&LoadGraphPropertiesKey {
-                                label: label.dupe(),
-                            })
-                            .await??
-                            .to_result_maybe_compatible()?;
-                        ResultMaybeCompatible::Compatible(Some(sketch))
+            async |ctx| {
+                let (retained, analysis_peak) =
+                    if retained_analysis_memory_sketch || peak_analysis_memory_sketch {
+                        ctx.compute(&AnalysisGraphPropertiesKey {
+                            label: label.dupe(),
+                            compute_retained: retained_analysis_memory_sketch,
+                            compute_peak: peak_analysis_memory_sketch,
+                        })
+                        .await??
+                        .to_result_maybe_compatible()?
                     } else {
-                        ResultMaybeCompatible::Compatible(None)
-                    }
+                        (None, None)
+                    };
+                ResultMaybeCompatible::Compatible((retained, analysis_peak))
+            },
+            async |ctx| {
+                if peak_load_memory_sketch {
+                    let sketch = ctx
+                        .compute(&LoadGraphPropertiesKey {
+                            label: label.dupe(),
+                        })
+                        .await??
+                        .to_result_maybe_compatible()?;
+                    ResultMaybeCompatible::Compatible(Some(sketch))
+                } else {
+                    ResultMaybeCompatible::Compatible(None)
                 }
-                .boxed()
             },
         )
         .await;

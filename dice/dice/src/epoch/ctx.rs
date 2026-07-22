@@ -730,7 +730,6 @@ mod tests {
     use derive_more::Display;
     use dice_futures::cancellation::CancellationContext;
     use dupe::Dupe;
-    use futures::FutureExt;
     use pagable::Pagable;
     use pagable::pagable_typetag;
 
@@ -790,12 +789,7 @@ mod tests {
 
                 // Escape both branch ctxs out of the parallel region without accessing any deps
                 // inside it.
-                let (branch_a, branch_b) = ctx
-                    .compute2(
-                        |ctx| async move { ctx }.boxed(),
-                        |ctx| async move { ctx }.boxed(),
-                    )
-                    .await;
+                let (branch_a, branch_b) = ctx.compute2(async |ctx| ctx, async |ctx| ctx).await;
 
                 // Record the dependencies only now, through the escaped ctxs.
                 let a = branch_a.compute(&Injected(0)).await.unwrap();

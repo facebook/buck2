@@ -996,24 +996,14 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
             )
             .await?
         };
+        let executor_fs = setup_local_resources_executor.executor_fs();
         let setup_commands: Vec<PreparedLocalResourceSetupContext> = self
             .dice
             .dupe()
             .ctx()
-            .try_compute_join(providers, |dice, provider| {
-                let fs = fs.clone();
-                let executor_fs = setup_local_resources_executor.executor_fs();
-                async move {
-                    Self::prepare_local_resource(
-                        dice,
-                        provider,
-                        &fs,
-                        &executor_fs,
-                        Duration::default(),
-                    )
+            .try_compute_join(providers, async |dice, provider| {
+                Self::prepare_local_resource(dice, provider, &fs, &executor_fs, Duration::default())
                     .await
-                }
-                .boxed()
             })
             .await?;
 
@@ -1814,14 +1804,15 @@ impl BuckTestOrchestrator<'_> {
             return Ok(vec![]);
         }
         let setup_commands = dice
-            .try_compute_join(required_providers, |dice, provider| {
-                let fs = executor.fs();
-                let executor_fs = executor.executor_fs();
-                async move {
-                    Self::prepare_local_resource(dice, provider, fs, &executor_fs, default_timeout)
-                        .await
-                }
-                .boxed()
+            .try_compute_join(required_providers, async |dice, provider| {
+                Self::prepare_local_resource(
+                    dice,
+                    provider,
+                    &executor.fs(),
+                    &executor.executor_fs(),
+                    default_timeout,
+                )
+                .await
             })
             .await?;
 
@@ -1896,8 +1887,8 @@ impl BuckTestOrchestrator<'_> {
         };
 
         let inputs = dice
-            .try_compute_join(visited_inputs, |dice, group| {
-                async move { dice.ensure_artifact_group(&group).await }.boxed()
+            .try_compute_join(visited_inputs, async |dice, group| {
+                dice.ensure_artifact_group(&group).await
             })
             .await?;
 
