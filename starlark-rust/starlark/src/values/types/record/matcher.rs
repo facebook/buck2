@@ -28,9 +28,15 @@ use crate::values::types::type_instance_id::TypeInstanceId;
 use crate::values::typing::type_compiled::matcher::TypeMatcher;
 use crate::values::typing::type_compiled::matcher::TypeMatcherDyn;
 
+/// The runtime [`TypeMatcher`] for a specific `record` type.
+///
+/// Matches exactly the [`Record`]s produced by one `record()` definition, and no
+/// others. Matching is by the record type's identity, not its field shape, so two
+/// structurally identical record types (for example, the same fields defined in
+/// two different files) never match each other.
 #[derive(Hash, Debug, Eq, PartialEq, Clone, Dupe, Allocative, Pagable)]
 #[pagable_typetag(TypeMatcherDyn)]
-pub(crate) struct RecordTypeMatcher {
+pub struct RecordTypeMatcher {
     pub(crate) id: TypeInstanceId,
 }
 
