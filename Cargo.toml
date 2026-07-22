@@ -149,6 +149,7 @@ members = [
   "pagable_derive",
   "pagable_storage",
   "remote_execution/oss/bazel_bep_proto",
+  "remote_execution/oss/bes_grpc_proto",
   "remote_execution/oss/google_grpc_proto",
   "remote_execution/oss/re_grpc",
   "remote_execution/oss/re_grpc_proto",
@@ -191,6 +192,7 @@ async-trait = "0.1.86"
 backtrace = "0.3"
 base64 = { version = "0.22.1", features = ["alloc"] }
 bazel_bep_proto = { path = "remote_execution/oss/bazel_bep_proto" }
+bes_grpc_proto = { path = "remote_execution/oss/bes_grpc_proto" }
 bincode = { version = "2", features = ["serde"] }
 bit-set = "0.9"
 blake3 = { version = "=1.8.2", features = ["mmap", "rayon", "traits-preview"] }
