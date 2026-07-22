@@ -21,7 +21,7 @@ load(
 )
 load("@prelude//rust:link_info.bzl", "attr_crate", "get_available_proc_macros", "resolve_rust_deps")
 
-RustAnalyzerTargetKind = enum("bin", "lib", "test")
+RustAnalyzerTargetKind = enum("bin", "lib", "test", "unit_test")
 
 RustAnalyzerInfo = provider(
     fields = {
@@ -98,9 +98,12 @@ def rust_analyzer_provider(ctx: AnalysisContext, compile_ctx: CompileContext, de
     rust_deps = _compute_rust_deps(ctx, compile_ctx.dep_ctx)
     target_kind = RustAnalyzerTargetKind(ctx.attrs._rust_analyzer_target_kind)
     unit_test_of = ctx.attrs.unit_test_of
+    if target_kind == RustAnalyzerTargetKind("unit_test") and unit_test_of == None:
+        fail("Rust analyzer target kind `unit_test` requires `unit_test_of`")
     if unit_test_of != None:
-        if target_kind != RustAnalyzerTargetKind("test"):
+        if target_kind != RustAnalyzerTargetKind("test") and target_kind != RustAnalyzerTargetKind("unit_test"):
             fail("`unit_test_of` may only be set on Rust test targets")
+        target_kind = RustAnalyzerTargetKind("unit_test")
         unit_test_of = unit_test_of[RustAnalyzerInfo].target
 
     return RustAnalyzerInfo(

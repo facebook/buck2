@@ -34,6 +34,13 @@ rust_library(
 )
 
 rules["rust_library"](
+    name = "declared_test_parent",
+    srcs = ["lib_f.rs"],
+    crate_root = "lib_f.rs",
+    tests = [":native_test"],
+)
+
+rules["rust_library"](
     name = "unit_test_parent",
     srcs = ["lib_f.rs"],
     crate_root = "lib_f.rs",
@@ -47,6 +54,22 @@ rules["rust_library"](
     proc_macro = True,
     tests = [":proc_macro_unit_test"],
     _workspaces = [":proc_macro_unit_test_parent"],
+)
+
+rules["rust_library"](
+    name = "inactive_workspace_member",
+    srcs = ["lib_f.rs"],
+    crate_root = "lib_f.rs",
+    tests = [":native_test"],
+    _workspaces = [":f"],
+)
+
+rules["rust_library"](
+    name = "outside_workspace",
+    srcs = ["lib_e.rs"],
+    crate_root = "lib_e.rs",
+    deps = [":inactive_workspace_member"],
+    _workspaces = [":f"],
 )
 
 rust_library(
