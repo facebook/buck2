@@ -35,7 +35,6 @@ buck_kotlin_library(
     srcs = glob(
         [
             "plugin/stubsgen_k2/*.kt",
-            "plugin/model/*.kt",
         ],
     ),
     labels = ["codegen_rule"],
