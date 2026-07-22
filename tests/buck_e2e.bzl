@@ -8,6 +8,7 @@
 
 load("@fbcode//buck2/app:modifier.bzl", "buck2_modifiers")
 load("@fbcode_macros//build_defs:native_rules.bzl", "buck_filegroup")
+load("@fbcode_macros//build_defs:platform_utils.bzl", "platform_utils")
 load("@fbcode_macros//build_defs:python_pytest.bzl", "python_pytest")
 load("@fbsource//tools/target_determinator/macros:ci.bzl", "ci")
 load("@fbsource//tools/target_determinator/macros:ci_hint.bzl", "ci_hint")
@@ -178,6 +179,9 @@ def buck_e2e_test(
             reason = "Non isolated buck2 e2e tests depend heavily on macros",
             target = name,
             compatible_with = compatible_with,
+            # This matches the actual test binary (via _convert_binary in
+            # tools/build_defs/fbcode_macros/build_defs/lib/python_common.bzl).
+            default_target_platform = platform_utils.get_cxx_platform_for_current_buildfile().target_platform,
         )
 
 def buck2_e2e_test(
