@@ -47,10 +47,11 @@ pub static EVAL_ANON_TARGET: LateBinding<
 > = LateBinding::new("EVAL_ANON_TARGET");
 
 pub static GET_PROMISED_ARTIFACT: LateBinding<
-    for<'c> fn(
+    for<'c, 'd> fn(
         &'c PromiseArtifact,
-        &'c mut DiceComputations,
-    ) -> Pin<Box<dyn Future<Output = buck2_error::Result<Artifact>> + Send + 'c>>,
+        &'c mut DiceComputations<'d>,
+    )
+        -> Pin<Box<dyn Future<Output = buck2_error::Result<&'d Artifact>> + Send + 'c>>,
 > = LateBinding::new("GET_PROMISED_ARTIFACT");
 
 async fn lookup_deferred_inner(

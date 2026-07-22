@@ -259,7 +259,7 @@ impl AnonTargetDependents {
                 async |ctx, promise_artifact_attr| {
                     get_artifact_from_anon_target_analysis(&promise_artifact_attr.id, ctx)
                         .await
-                        .map(|artifact| (promise_artifact_attr, artifact))
+                        .map(|artifact| (promise_artifact_attr, artifact.dupe()))
                 },
             )
         }

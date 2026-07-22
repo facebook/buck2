@@ -103,17 +103,17 @@ impl ArtifactGroup {
     /// look get the results via the `EnsureTransitiveSetProjectionKey`, which expands the underlying
     /// tset. For the `Promise` variant, we will look up the promised artifact values by getting
     /// the analysis results of the owning anon target's analysis.
-    pub async fn resolved_artifact(
-        &self,
-        ctx: &mut DiceComputations<'_>,
-    ) -> buck2_error::Result<ResolvedArtifactGroup<'_>> {
+    pub async fn resolved_artifact<'a, 'd: 'a>(
+        &'a self,
+        ctx: &mut DiceComputations<'d>,
+    ) -> buck2_error::Result<ResolvedArtifactGroup<'a>> {
         Ok(match self {
-            ArtifactGroup::Artifact(a) => ResolvedArtifactGroup::Artifact(a.clone()),
+            ArtifactGroup::Artifact(a) => ResolvedArtifactGroup::Artifact(a),
             ArtifactGroup::TransitiveSetProjection(a) => {
                 ResolvedArtifactGroup::TransitiveSetProjection(&a.key)
             }
             ArtifactGroup::Promise(p) => match p.promise_artifact.get() {
-                Some(a) => ResolvedArtifactGroup::Artifact(a.clone()),
+                Some(a) => ResolvedArtifactGroup::Artifact(a),
                 None => {
                     let artifact = (GET_PROMISED_ARTIFACT.get()?)(&p.promise_artifact, ctx).await?;
                     ResolvedArtifactGroup::Artifact(artifact)
@@ -184,9 +184,9 @@ impl ArtifactGroup {
 // TODO(@wendyy) if we move PromiseArtifact into ArtifactKind someday, we should probably
 // split the Artifact variant into two cases (artifact by ref and by value) to prevent memory
 // regressions.
-#[derive(Clone)]
+#[derive(Clone, Copy, Dupe)]
 pub enum ResolvedArtifactGroup<'a> {
-    Artifact(Artifact),
+    Artifact(&'a Artifact),
     TransitiveSetProjection(&'a TransitiveSetProjectionKey),
 }
 

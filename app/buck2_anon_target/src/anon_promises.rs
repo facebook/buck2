@@ -13,6 +13,7 @@ use async_trait::async_trait;
 use buck2_build_api::analysis::anon_promises_dyn::AnonPromisesDyn;
 use buck2_build_api::analysis::anon_promises_dyn::RunAnonPromisesAccessor;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
+use dupe::ResultDupedExt;
 use either::Either;
 use futures::FutureExt;
 use starlark::eval::Evaluator;
@@ -75,7 +76,7 @@ impl<'v> AnonPromisesDyn<'v> for AnonPromises<'v> {
         let values = accessor
             .with_dice(|dice| {
                 dice.try_compute_join(anon_target_keys.iter(), async |dice, anon_target_key| {
-                    anon_target_key.resolve(dice).await
+                    anon_target_key.resolve(dice).await.duped()
                 })
                 .boxed_local()
             })

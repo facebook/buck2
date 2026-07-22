@@ -87,9 +87,9 @@ impl ArtifactGroupCalculation for DiceComputations<'_> {
     ) -> buck2_error::Result<ArtifactGroupValues> {
         // TODO consider if we need to cache this
         let resolved_artifacts = input.resolved_artifact(self).await?;
-        ensure_artifact_group_staged(self, resolved_artifacts.clone())
+        ensure_artifact_group_staged(self, resolved_artifacts)
             .await?
-            .into_group_values(&resolved_artifacts)
+            .into_group_values(resolved_artifacts)
     }
 }
 
@@ -117,7 +117,7 @@ pub(crate) fn ensure_artifact_group_staged<'a, 'd>(
 ) -> impl Future<Output = buck2_error::Result<EnsureArtifactGroupReady>> + use<'a, 'd> {
     match input {
         ResolvedArtifactGroup::Artifact(artifact) => {
-            ensure_artifact_staged(ctx, artifact.clone()).left_future()
+            ensure_artifact_staged(ctx, artifact).left_future()
         }
         ResolvedArtifactGroup::TransitiveSetProjection(key) => ctx
             .compute(EnsureTransitiveSetProjectionKey::ref_cast(key))
@@ -129,7 +129,7 @@ pub(crate) fn ensure_artifact_group_staged<'a, 'd>(
 /// See [ensure_artifact_group_staged].
 pub(super) fn ensure_base_artifact_staged<'a, 'd>(
     dice: &'a mut DiceComputations<'d>,
-    artifact: BaseArtifactKind,
+    artifact: &'a BaseArtifactKind,
 ) -> impl Future<Output = buck2_error::Result<EnsureArtifactGroupReady>> + use<'a, 'd> {
     match artifact {
         BaseArtifactKind::Build(built) => ensure_build_artifact_staged(dice, built).left_future(),
@@ -142,11 +142,11 @@ pub(super) fn ensure_base_artifact_staged<'a, 'd>(
 /// See [ensure_artifact_group_staged].
 pub(super) fn ensure_artifact_staged<'a, 'd>(
     dice: &'a mut DiceComputations<'d>,
-    artifact: Artifact,
+    artifact: &'a Artifact,
 ) -> impl Future<Output = buck2_error::Result<EnsureArtifactGroupReady>> + use<'a, 'd> {
     let ArtifactKind { base, path } = artifact.data();
     match path.is_empty() {
-        true => ensure_base_artifact_staged(dice, base.clone()).left_future(),
+        true => ensure_base_artifact_staged(dice, base).left_future(),
         false => dice
             .compute(EnsureProjectedArtifactKey::ref_cast(artifact.data()))
             .map(|v| Ok(EnsureArtifactGroupReady::Single(v??)))
@@ -156,7 +156,7 @@ pub(super) fn ensure_artifact_staged<'a, 'd>(
 
 fn ensure_build_artifact_staged<'a, 'd>(
     dice: &'a mut DiceComputations<'d>,
-    built: BuildArtifact,
+    built: &'a BuildArtifact,
 ) -> impl Future<Output = buck2_error::Result<EnsureArtifactGroupReady>> + use<'a, 'd> {
     ActionCalculation::build_action(dice, built.key()).map(move |action_outputs| {
         let action_outputs = action_outputs?;
@@ -164,7 +164,7 @@ fn ensure_build_artifact_staged<'a, 'd>(
             Ok(EnsureArtifactGroupReady::Single(value.dupe()))
         } else {
             Err(
-                EnsureArtifactStagedError::BuildArtifactMissing(built.clone(), action_outputs)
+                EnsureArtifactStagedError::BuildArtifactMissing(built.dupe(), action_outputs)
                     .into(),
             )
         }
@@ -173,7 +173,7 @@ fn ensure_build_artifact_staged<'a, 'd>(
 
 fn ensure_source_artifact_staged<'a>(
     dice: &'a mut DiceComputations,
-    source: SourceArtifact,
+    source: &'a SourceArtifact,
 ) -> impl Future<Output = buck2_error::Result<EnsureArtifactGroupReady>> + use<'a> {
     async move {
         Ok(EnsureArtifactGroupReady::Single(
@@ -225,13 +225,13 @@ impl EnsureArtifactGroupReady {
     /// is the same one that was used to ensure this.
     pub(crate) fn into_group_values<'v>(
         self,
-        resolved_artifact_group: &ResolvedArtifactGroup<'v>,
+        resolved_artifact_group: ResolvedArtifactGroup<'v>,
     ) -> buck2_error::Result<ArtifactGroupValues> {
         match self {
             EnsureArtifactGroupReady::TransitiveSet(values) => Ok(values),
             EnsureArtifactGroupReady::Single(value) => match resolved_artifact_group {
                 ResolvedArtifactGroup::Artifact(artifact) => {
-                    Ok(ArtifactGroupValues::from_artifact(artifact.clone(), value))
+                    Ok(ArtifactGroupValues::from_artifact(artifact.dupe(), value))
                 }
                 ResolvedArtifactGroup::TransitiveSetProjection(_) => {
                     Err(EnsureArtifactStagedError::ExpectedTransitiveSet.into())
@@ -256,10 +256,10 @@ size_assert::words_of_type!(EnsureArtifactGroupReady, 4);
 // important ones to track and not regress; the rest are here to help understand how changes impact
 // the important ones above, and regressing them is generally okay as long as the above don't.
 size_assert::words_of_async_fn_future!(DiceComputations::ensure_artifact_group, (_, _), 2);
-size_assert::words_of_async_fn_future!(ensure_artifact_group_staged, (_, _), 14);
-size_assert::words_of_async_fn_future!(ensure_artifact_staged, (_, _), 14);
-size_assert::words_of_async_fn_future!(ensure_base_artifact_staged, (_, _), 14);
-size_assert::words_of_async_fn_future!(ensure_build_artifact_staged, (_, _), 14);
+size_assert::words_of_async_fn_future!(ensure_artifact_group_staged, (_, _), 9);
+size_assert::words_of_async_fn_future!(ensure_artifact_staged, (_, _), 9);
+size_assert::words_of_async_fn_future!(ensure_base_artifact_staged, (_, _), 9);
+size_assert::words_of_async_fn_future!(ensure_build_artifact_staged, (_, _), 9);
 size_assert::words_of_async_fn_future!(ActionCalculation::build_action, (_, _), 8);
 size_assert::words_of_async_fn_future!(ensure_source_artifact_staged, (_, _), 2);
 
@@ -485,7 +485,7 @@ impl Key for EnsureProjectedArtifactKey {
             ));
         }
 
-        let base_value = ensure_base_artifact_staged(ctx, base.dupe())
+        let base_value = ensure_base_artifact_staged(ctx, base)
             .await?
             .unpack_single()?;
         let base_content_based_path_hash = base_value.content_based_path_hash();
@@ -556,8 +556,6 @@ impl Key for EnsureTransitiveSetProjectionKey {
     ) -> Self::Value {
         let set = self.0.key.lookup(ctx).await?;
 
-        let artifact_fs = ctx.get_artifact_fs().await?;
-
         let projection_sub_inputs = set.get_projection_sub_inputs(self.0.projection)?;
 
         let sub_inputs: Vec<_> =
@@ -569,9 +567,11 @@ impl Key for EnsureTransitiveSetProjectionKey {
         let (values, children) = {
             // Compute the new inputs. Note that ordering here (and below) is important to ensure
             // stability of the ArtifactGroupValues we produce across executions, which try_compute_join_all preserves.
+
+            // FIXME(JakobDegen): The amount of stuff we're holding over this await point is extremely clowny
             let ready_inputs: Vec<_> =
                 KeepGoing::try_compute_join_all(ctx, sub_inputs.iter(), async |ctx, v| {
-                    ensure_artifact_group_staged(ctx, v.clone()).await
+                    ensure_artifact_group_staged(ctx, *v).await
                 })
                 .await?;
 
@@ -586,7 +586,7 @@ impl Key for EnsureTransitiveSetProjectionKey {
             let mut values = SmallVec::<[_; 1]>::with_capacity(values_count);
             let mut children = Vec::with_capacity(sub_inputs.len() - values_count);
 
-            for (group, ready) in zip(sub_inputs.iter(), ready_inputs) {
+            for (group, ready) in zip(sub_inputs.iter().copied(), ready_inputs) {
                 match group {
                     ResolvedArtifactGroup::Artifact(artifact) => {
                         values.push((artifact.dupe(), ready.unpack_single()?))
@@ -598,6 +598,8 @@ impl Key for EnsureTransitiveSetProjectionKey {
             }
             (values, children)
         };
+
+        let artifact_fs = ctx.get_artifact_fs().await?;
 
         // At this point we're holding a lot of data and want to ensure that we don't hold that across any
         // .await, so move into a little sync closure and call that

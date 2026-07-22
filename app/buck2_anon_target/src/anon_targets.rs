@@ -90,6 +90,8 @@ use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
+use dupe::ResultDupedErrExt;
+use dupe::ResultDupedExt;
 use futures::FutureExt;
 use futures::future::BoxFuture;
 use pagable::Pagable;
@@ -400,11 +402,11 @@ impl AnonTargetKey {
         AnonTargetAttr::from_coerced_attr(attr_name, x, ty)
     }
 
-    pub(crate) async fn resolve(
+    pub(crate) async fn resolve<'d>(
         &self,
-        dice: &mut DiceComputations<'_>,
-    ) -> buck2_error::Result<AnalysisResult> {
-        dice.compute(self).await?
+        dice: &mut DiceComputations<'d>,
+    ) -> buck2_error::Result<&'d AnalysisResult> {
+        dice.compute_ref(self).await?.as_ref().duped_err()
     }
 
     fn run_analysis<'a>(
@@ -626,8 +628,9 @@ impl AnonAttrCtx {
 }
 
 pub(crate) fn init_eval_anon_target() {
-    EVAL_ANON_TARGET
-        .init(|ctx, key| Box::pin(async move { AnonTargetKey::downcast(key)?.resolve(ctx).await }));
+    EVAL_ANON_TARGET.init(|ctx, key| {
+        Box::pin(async move { AnonTargetKey::downcast(key)?.resolve(ctx).await.duped() })
+    });
 }
 
 pub(crate) fn init_get_promised_artifact() {
@@ -638,10 +641,10 @@ pub(crate) fn init_get_promised_artifact() {
     });
 }
 
-pub(crate) async fn get_artifact_from_anon_target_analysis(
+pub(crate) async fn get_artifact_from_anon_target_analysis<'d>(
     promise_id: &PromiseArtifactId,
-    ctx: &mut DiceComputations<'_>,
-) -> buck2_error::Result<Artifact> {
+    ctx: &mut DiceComputations<'d>,
+) -> buck2_error::Result<&'d Artifact> {
     let owner = promise_id.owner();
     let analysis_result = match owner {
         BaseDeferredKey::AnonTarget(anon_target) => {
@@ -661,8 +664,7 @@ pub(crate) async fn get_artifact_from_anon_target_analysis(
     Ok(analysis_result
         .promise_artifact_map()
         .get(promise_id)
-        .ok_or_else(|| PromiseArtifactResolveError::NotFoundInAnalysis(promise_id.clone()))?
-        .clone())
+        .ok_or_else(|| PromiseArtifactResolveError::NotFoundInAnalysis(promise_id.clone()))?)
 }
 
 pub(crate) fn init_anon_target_registry_new() {
