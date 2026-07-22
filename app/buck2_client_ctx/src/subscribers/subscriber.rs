@@ -13,7 +13,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use buck2_events::BuckEvent;
 
-use crate::console_interaction_stream::SuperConsoleToggle;
+use crate::console_interaction_stream::ConsoleInteraction;
 use crate::exit_result::ExitResult;
 use crate::subscribers::observer::ErrorObserver;
 use crate::ticker::Tick;
@@ -38,7 +38,7 @@ pub trait EventSubscriber: Send {
     }
     async fn handle_console_interaction(
         &mut self,
-        _c: &Option<SuperConsoleToggle>,
+        _c: &ConsoleInteraction,
     ) -> buck2_error::Result<()> {
         Ok(())
     }

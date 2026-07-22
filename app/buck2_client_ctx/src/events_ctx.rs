@@ -37,10 +37,10 @@ use tokio::runtime::Runtime;
 
 use crate::client_cpu_tracker::ClientCpuTracker;
 use crate::command_outcome::CommandOutcome;
+use crate::console_interaction_stream::ConsoleInteraction;
 use crate::console_interaction_stream::ConsoleInteractionStream;
 use crate::console_interaction_stream::NoopSuperConsoleInteraction;
 use crate::console_interaction_stream::SuperConsoleInteraction;
-use crate::console_interaction_stream::SuperConsoleToggle;
 use crate::daemon::client::BuckdClient;
 use crate::daemon::client::NoPartialResultHandler;
 use crate::daemon::client::tonic_status_to_error;
@@ -291,8 +291,8 @@ impl<'a> DaemonEventsCtx<'a> {
                     Some(event) = self.tailers.recv() => {
                         self.dispatch_tailer_event(event).await?;
                     }
-                    c = console_interaction.toggle() => {
-                        self.inner.handle_console_interaction(&c?).await?;
+                    interaction = console_interaction.interaction() => {
+                        self.inner.handle_console_interaction(&interaction?).await?;
                     }
                     tick = self.ticker.tick() => {
                         self.inner.tick(&tick).await?;
@@ -517,10 +517,12 @@ impl EventsCtx {
 
     async fn handle_console_interaction(
         &mut self,
-        toggle: &Option<SuperConsoleToggle>,
+        interaction: &ConsoleInteraction,
     ) -> buck2_error::Result<()> {
-        self.try_for_each_subscriber(|subscriber| subscriber.handle_console_interaction(toggle))
-            .await
+        self.try_for_each_subscriber(|subscriber| {
+            subscriber.handle_console_interaction(interaction)
+        })
+        .await
     }
 
     async fn handle_events(

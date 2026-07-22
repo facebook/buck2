@@ -189,11 +189,61 @@ pub fn display_action_key(
     }
 }
 
-pub fn display_action_name_opt(name: Option<&ActionName>) -> String {
-    match name {
-        Some(name) if name.identifier.is_empty() => name.category.clone(),
-        Some(name) => format!("{} {}", name.category, name.identifier),
-        _ => "unknown".to_owned(),
+fn action_key_leaf_name(action_key: &ActionKey) -> buck2_error::Result<&str> {
+    let ActionKey {
+        owner: Some(owner), ..
+    } = action_key
+    else {
+        return Err(ParseEventError::MissingActionOwner.into());
+    };
+
+    match owner {
+        action_key::Owner::TargetLabel(ConfiguredTargetLabel {
+            label: Some(TargetLabel { package: _, name }),
+            configuration: _,
+            execution_configuration: _,
+        })
+        | action_key::Owner::TestTargetLabel(ConfiguredTargetLabel {
+            label: Some(TargetLabel { package: _, name }),
+            configuration: _,
+            execution_configuration: _,
+        })
+        | action_key::Owner::LocalResourceSetup(ConfiguredTargetLabel {
+            label: Some(TargetLabel { package: _, name }),
+            configuration: _,
+            execution_configuration: _,
+        }) => Ok(name.as_str()),
+        action_key::Owner::TargetLabel(ConfiguredTargetLabel {
+            label: None,
+            configuration: _,
+            execution_configuration: _,
+        })
+        | action_key::Owner::TestTargetLabel(ConfiguredTargetLabel {
+            label: None,
+            configuration: _,
+            execution_configuration: _,
+        })
+        | action_key::Owner::LocalResourceSetup(ConfiguredTargetLabel {
+            label: None,
+            configuration: _,
+            execution_configuration: _,
+        }) => Err(ParseEventError::InvalidConfiguredTargetLabel.into()),
+        action_key::Owner::BxlKey(BxlFunctionKey {
+            label: Some(BxlFunctionLabel { bxl_path: _, name }),
+        }) => Ok(name.as_str()),
+        action_key::Owner::BxlKey(BxlFunctionKey { label: None }) => {
+            Err(ParseEventError::MissingBxlFunctionLabel.into())
+        }
+        action_key::Owner::AnonTarget(AnonTarget {
+            name: Some(TargetLabel { package: _, name }),
+            execution_configuration: _,
+            hash: _,
+        }) => Ok(name.as_str()),
+        action_key::Owner::AnonTarget(AnonTarget {
+            name: None,
+            execution_configuration: _,
+            hash: _,
+        }) => Err(ParseEventError::InvalidAnonTarget.into()),
     }
 }
 
@@ -218,8 +268,62 @@ pub fn display_action_identity(
     Ok(format!("{key_string}{action_string}"))
 }
 
+/// A rendered span event, split into the entity it acts on (`label`) and what is
+/// happening to it (`detail`).
+///
+/// Keeping the two apart lets the console style and lay them out independently —
+/// e.g. leave the target plain and color the action — instead of re-parsing a
+/// flattened `"{label} -- {detail}"` string.
+pub struct EventDisplay {
+    pub label: Option<String>,
+    pub detail: String,
+    pub category: Option<String>,
+}
+
+impl EventDisplay {
+    fn bare(detail: impl Into<String>) -> Self {
+        Self {
+            label: None,
+            detail: detail.into(),
+            category: None,
+        }
+    }
+
+    fn labeled(label: impl Into<String>, detail: impl Into<String>) -> Self {
+        Self {
+            label: Some(label.into()),
+            detail: detail.into(),
+            category: None,
+        }
+    }
+
+    fn labeled_action(
+        label: impl Into<String>,
+        detail: impl Into<String>,
+        category: impl Into<String>,
+    ) -> Self {
+        Self {
+            label: Some(label.into()),
+            detail: detail.into(),
+            category: Some(category.into()),
+        }
+    }
+}
+
+impl fmt::Display for EventDisplay {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.label {
+            Some(label) => write!(f, "{label} -- {}", self.detail),
+            None => write!(f, "{}", self.detail),
+        }
+    }
+}
+
 /// Formats event payloads for display.
-pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> buck2_error::Result<String> {
+pub fn display_event(
+    event: &BuckEvent,
+    opts: TargetDisplayOptions,
+) -> buck2_error::Result<EventDisplay> {
     let res: buck2_error::Result<_> = try {
         let data = match event.data() {
             buck2_data::buck_event::Data::SpanStart(start) => start.data.as_ref().unwrap(),
@@ -229,9 +333,21 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> buck2_err
         let res: buck2_error::Result<_> = match data {
             Data::ActionExecution(action) => match &action.key {
                 Some(key) => {
-                    let string = display_action_key(key, opts)?;
-                    let action_descriptor = display_action_name_opt(action.name.as_ref());
-                    Ok(format!("{string} -- action ({action_descriptor})"))
+                    let target = display_action_key(key, opts)?;
+                    let event = match action.name.as_ref() {
+                        Some(name) => {
+                            let detail = if name.identifier.is_empty()
+                                || name.identifier.as_str() == action_key_leaf_name(key)?
+                            {
+                                name.category.clone()
+                            } else {
+                                format!("{} {}", name.category, name.identifier)
+                            };
+                            EventDisplay::labeled_action(target, detail, name.category.clone())
+                        }
+                        None => EventDisplay::labeled(target, "unknown"),
+                    };
+                    Ok(event)
                 }
                 None => Err(ParseEventError::MissingActionKey.into()),
             },
@@ -256,12 +372,15 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> buck2_err
                         Ok(&build.path)
                     }
                 }?;
-                Ok(format!("{key} -- materializing `{path}`"))
+                Ok(EventDisplay::labeled(
+                    key,
+                    format!("materializing `{path}`"),
+                ))
             }
             Data::Analysis(analysis) => match &analysis.target {
                 Some(target) => {
                     let target = display_analysis_target(target, opts)?;
-                    Ok(format!("{target} -- running analysis"))
+                    Ok(EventDisplay::labeled(target, "running analysis"))
                 }
                 None => Err(ParseEventError::MissingConfiguredTargetLabel.into()),
             },
@@ -271,17 +390,23 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> buck2_err
                     .as_ref()
                     .ok_or_else(|| internal_error!("analysis stage is missing"))?;
                 let stage = display_analysis_stage(stage);
-                Ok(stage.into())
+                Ok(EventDisplay::bare(stage))
             }
-            Data::AnalysisResolveQueries(resolve_queries) => Ok(format!(
-                "{} -- analysis queries",
+            Data::AnalysisResolveQueries(resolve_queries) => Ok(EventDisplay::labeled(
                 display_configured_target_label_opt(
                     resolve_queries.standard_target.as_ref(),
-                    opts
-                )?
+                    opts,
+                )?,
+                "analysis queries",
             )),
-            Data::LoadPackage(load) => Ok(format!("{} -- loading package file tree", load.path)),
-            Data::Load(load) => Ok(format!("{} -- evaluating build file", load.module_id)),
+            Data::LoadPackage(load) => Ok(EventDisplay::labeled(
+                load.path.clone(),
+                "loading package file tree",
+            )),
+            Data::Load(load) => Ok(EventDisplay::labeled(
+                load.module_id.clone(),
+                "evaluating build file",
+            )),
             Data::ExecutorStage(info) => {
                 let stage = info
                     .stage
@@ -289,11 +414,11 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> buck2_err
                     .ok_or_else(|| internal_error!("executor stage is missing"))?;
                 let stage = display_executor_stage(stage)
                     .ok_or_else(|| internal_error!("unknown executor stage"))?;
-                Ok(stage.into())
+                Ok(EventDisplay::bare(stage))
             }
-            Data::TestDiscovery(discovery) => Ok(format!(
-                "Test {} -- discovering tests",
-                discovery.suite_name
+            Data::TestDiscovery(discovery) => Ok(EventDisplay::labeled(
+                format!("Test {}", discovery.suite_name),
+                "discovering tests",
             )),
             Data::TestRun(start) => match &start.suite {
                 Some(suite) => {
@@ -308,16 +433,19 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> buck2_err
                             )
                         }
                     };
-                    Ok(format!("Test {} -- {}", suite.suite_name, tests))
+                    Ok(EventDisplay::labeled(
+                        format!("Test {}", suite.suite_name),
+                        tests,
+                    ))
                 }
                 None => Err(ParseEventError::MissingSuiteName.into()),
             },
             Data::CommandCritical(..) => Err(ParseEventError::UnexpectedEvent.into()),
             Data::Command(..) => Err(ParseEventError::UnexpectedEvent.into()),
-            Data::FileWatcher(x) => Ok(format!(
+            Data::FileWatcher(x) => Ok(EventDisplay::bare(format!(
                 "Syncing file changes via {}",
                 display_file_watcher(x.provider)
-            )),
+            ))),
             Data::MatchDepFiles(buck2_data::MatchDepFilesStart {
                 checking_filtered_inputs,
                 remote_cache,
@@ -332,32 +460,40 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> buck2_err
                 } else {
                     "partial"
                 };
-                Ok(format!("dep_files({detail},{location})"))
+                Ok(EventDisplay::bare(format!(
+                    "dep_files({detail},{location})"
+                )))
             }
-            Data::SharedTask(buck2_data::SharedTaskStart { owner_trace_id }) => Ok(format!(
-                "Waiting on task from another command: {owner_trace_id}"
-            )),
-            Data::CacheUpload(_) => Ok("upload (action)".to_owned()),
-            Data::DepFileUpload(_) => Ok("upload (dep_file)".to_owned()),
-            Data::CreateOutputSymlinks(..) => Ok("Creating output symlinks".to_owned()),
-            Data::InstallEventInfo(info) => Ok(format!(
+            Data::SharedTask(buck2_data::SharedTaskStart { owner_trace_id }) => {
+                Ok(EventDisplay::bare(format!(
+                    "Waiting on task from another command: {owner_trace_id}"
+                )))
+            }
+            Data::CacheUpload(_) => Ok(EventDisplay::bare("upload (action)")),
+            Data::DepFileUpload(_) => Ok(EventDisplay::bare("upload (dep_file)")),
+            Data::CreateOutputSymlinks(..) => Ok(EventDisplay::bare("Creating output symlinks")),
+            Data::InstallEventInfo(info) => Ok(EventDisplay::bare(format!(
                 "Sending {} at path {}",
                 info.artifact_name, info.file_path
-            )),
-            Data::DiceStateUpdate(..) => Ok("Syncing changes to graph".to_owned()),
-            Data::Materialization(..) => Ok("materializing".to_owned()),
+            ))),
+            Data::DiceStateUpdate(..) => Ok(EventDisplay::bare("Syncing changes to graph")),
+            Data::Materialization(..) => Ok(EventDisplay::bare("materializing")),
             Data::DiceCriticalSection(..) => Err(ParseEventError::UnexpectedEvent.into()),
-            Data::DiceBlockConcurrentCommand(cmd) => Ok(format!(
+            Data::DiceBlockConcurrentCommand(cmd) => Ok(EventDisplay::bare(format!(
                 "Waiting for command [{}] to finish",
                 truncate(&cmd.cmd_args, 200),
-            )),
-            Data::DiceSynchronizeSection(..) => Ok("Synchronizing buck2 internal state".to_owned()),
-            Data::DiceCleanup(..) => Ok("Cleaning up graph state".to_owned()),
+            ))),
+            Data::DiceSynchronizeSection(..) => {
+                Ok(EventDisplay::bare("Synchronizing buck2 internal state"))
+            }
+            Data::DiceCleanup(..) => Ok(EventDisplay::bare("Cleaning up graph state")),
             Data::ExclusiveCommandWait(buck2_data::ExclusiveCommandWaitStart { command_name }) => {
                 if let Some(name) = command_name {
-                    Ok(format!("Waiting for command [{name}] to finish"))
+                    Ok(EventDisplay::bare(format!(
+                        "Waiting for command [{name}] to finish"
+                    )))
                 } else {
-                    Ok("Waiting for dice".to_owned())
+                    Ok(EventDisplay::bare("Waiting for dice"))
                 }
             }
             Data::DeferredPreparationStage(prep) => {
@@ -367,7 +503,9 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> buck2_err
                     .as_ref()
                     .ok_or_else(|| internal_error!("Missing `stage`"))?
                 {
-                    Stage::MaterializedArtifacts(_) => Ok("local_materialize_inputs".to_owned()),
+                    Stage::MaterializedArtifacts(_) => {
+                        Ok(EventDisplay::bare("local_materialize_inputs"))
+                    }
                 }
             }
             Data::DynamicLambda(lambda) => {
@@ -385,29 +523,33 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> buck2_err
                     Owner::AnonTarget(anon_target) => display_anon_target(anon_target),
                 }?;
 
-                Ok(format!("{label} -- dynamic analysis"))
+                Ok(EventDisplay::labeled(label, "dynamic analysis"))
             }
-            Data::BxlExecution(execution) => {
-                Ok(format!("Executing BXL script `{}`", execution.name))
-            }
-            Data::BxlDiceInvocation(..) => Ok("Waiting for graph computations".to_owned()),
-            Data::ReUpload(..) => Ok("re_upload".to_owned()),
-            Data::ConnectToInstaller(buck2_data::ConnectToInstallerStart { tcp_port }) => {
-                Ok(format!("Connecting to installer on port {tcp_port}"))
-            }
-            Data::Fake(fake) => Ok(format!("{} -- speak of the devil", fake.caramba)),
+            Data::BxlExecution(execution) => Ok(EventDisplay::bare(format!(
+                "Executing BXL script `{}`",
+                execution.name
+            ))),
+            Data::BxlDiceInvocation(..) => Ok(EventDisplay::bare("Waiting for graph computations")),
+            Data::ReUpload(..) => Ok(EventDisplay::bare("re_upload")),
+            Data::ConnectToInstaller(buck2_data::ConnectToInstallerStart { tcp_port }) => Ok(
+                EventDisplay::bare(format!("Connecting to installer on port {tcp_port}")),
+            ),
+            Data::Fake(fake) => Ok(EventDisplay::labeled(
+                fake.caramba.clone(),
+                "speak of the devil",
+            )),
             Data::LocalResources(res) => {
                 let target = display_configured_target_label_opt(res.target_label.as_ref(), opts)?;
-                Ok(format!("{target} -- Local resources setup"))
+                Ok(EventDisplay::labeled(target, "Local resources setup"))
             }
-            Data::ReleaseLocalResources(..) => Ok("Releasing local resources".to_owned()),
+            Data::ReleaseLocalResources(..) => Ok(EventDisplay::bare("Releasing local resources")),
             Data::BxlEnsureArtifacts(..) => Err(ParseEventError::UnexpectedEvent.into()),
-            Data::ActionErrorHandlerExecution(..) => {
-                Ok("Running error handler on action failure".to_owned())
-            }
-            Data::CqueryUniverseBuild(..) => Ok("Building cquery universe".to_owned()),
+            Data::ActionErrorHandlerExecution(..) => Ok(EventDisplay::bare(
+                "Running error handler on action failure",
+            )),
+            Data::CqueryUniverseBuild(..) => Ok(EventDisplay::bare("Building cquery universe")),
             Data::ComputeDetailedAggregatedMetrics(..) => {
-                Ok("Computing detailed aggregated metrics".to_owned())
+                Ok(EventDisplay::bare("Computing detailed aggregated metrics"))
             }
         };
 
@@ -561,6 +703,61 @@ pub fn display_executor_stage(
     };
 
     Some(label)
+}
+
+/// Whether `event` is an executor stage that is actively running the action,
+/// rather than queueing, fetching from cache/RE, or materializing inputs.
+///
+/// Gates the slow-action coloring so the warning reflects slow work, not time
+/// spent waiting for a local slot or for inputs under contention.
+pub fn is_active_execution_stage(event: &BuckEvent) -> bool {
+    let buck2_data::buck_event::Data::SpanStart(start) = event.data() else {
+        return false;
+    };
+    let Some(Data::ExecutorStage(info)) = start.data.as_ref() else {
+        return false;
+    };
+    let Some(stage) = info.stage.as_ref() else {
+        return false;
+    };
+
+    use buck2_data::executor_stage_start::Stage;
+    match stage {
+        Stage::Local(local) => {
+            use buck2_data::local_stage::Stage as Local;
+            match local.stage.as_ref() {
+                Some(Local::Execute(..)) | Some(Local::WorkerExecute(..)) => true,
+                Some(Local::Queued(..))
+                | Some(Local::MaterializeInputs(..))
+                | Some(Local::PrepareOutputs(..))
+                | Some(Local::AcquireLocalResource(..))
+                | Some(Local::WorkerInit(..))
+                | Some(Local::WorkerQueued(..))
+                | Some(Local::WorkerWait(..))
+                | None => false,
+            }
+        }
+        Stage::Re(re) => {
+            use buck2_data::re_stage::Stage as Re;
+            match re.stage.as_ref() {
+                Some(Re::Execute(..)) => true,
+                Some(Re::Download(..))
+                | Some(Re::Queue(..))
+                | Some(Re::QueueOverQuota(..))
+                | Some(Re::QueueAcquiringDependencies(..))
+                | Some(Re::QueueNoWorkerAvailable(..))
+                | Some(Re::QueueCancelled(..))
+                | Some(Re::WorkerDownload(..))
+                | Some(Re::WorkerUpload(..))
+                | Some(Re::Unknown(..))
+                | Some(Re::MaterializeFailedInputs(..))
+                | Some(Re::BeforeActionExecution(..))
+                | Some(Re::AfterActionExecution(..))
+                | None => false,
+            }
+        }
+        Stage::Prepare(..) | Stage::CacheQuery(..) | Stage::CacheHit(..) => false,
+    }
 }
 
 #[derive(buck2_error::Error, Debug)]
@@ -1142,7 +1339,77 @@ impl<'a> CriticalPathEntryDisplay<'a> {
 
 #[cfg(test)]
 mod tests {
+    use std::time::UNIX_EPOCH;
+
+    use buck2_data::SpanStartEvent;
+    use buck2_events::BuckEvent;
+    use buck2_events::span::SpanId;
+    use buck2_wrapper_common::invocation_id::TraceId;
+
     use super::*;
+
+    fn action_execution_event(identifier: &str) -> BuckEvent {
+        BuckEvent::new(
+            UNIX_EPOCH,
+            TraceId::new(),
+            Some(SpanId::next()),
+            None,
+            SpanStartEvent {
+                data: Some(
+                    buck2_data::ActionExecutionStart {
+                        key: Some(buck2_data::ActionKey {
+                            id: Default::default(),
+                            owner: Some(buck2_data::action_key::Owner::TargetLabel(
+                                buck2_data::ConfiguredTargetLabel {
+                                    label: Some(buck2_data::TargetLabel {
+                                        package: "pkg".into(),
+                                        name: "target".into(),
+                                    }),
+                                    configuration: Some(buck2_data::Configuration {
+                                        full_name: "cfg".into(),
+                                    }),
+                                    execution_configuration: None,
+                                },
+                            )),
+                            key: String::new(),
+                        }),
+                        name: Some(buck2_data::ActionName {
+                            category: "category".into(),
+                            identifier: identifier.into(),
+                        }),
+                        kind: buck2_data::ActionKind::NotSet as i32,
+                    }
+                    .into(),
+                ),
+            }
+            .into(),
+        )
+    }
+
+    #[test]
+    fn action_event_display_hides_identifier_matching_target_leaf() -> buck2_error::Result<()> {
+        let event = action_execution_event("target");
+        let display = display_event(&event, TargetDisplayOptions::for_console(true))?;
+
+        assert_eq!(display.label.as_deref(), Some("pkg:target (cfg)"));
+        assert_eq!(display.detail, "category");
+        assert_eq!(display.category.as_deref(), Some("category"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn action_event_display_keeps_identifier_different_from_target_leaf() -> buck2_error::Result<()>
+    {
+        let event = action_execution_event("other");
+        let display = display_event(&event, TargetDisplayOptions::for_console(true))?;
+
+        assert_eq!(display.label.as_deref(), Some("pkg:target (cfg)"));
+        assert_eq!(display.detail, "category other");
+        assert_eq!(display.category.as_deref(), Some("category"));
+
+        Ok(())
+    }
 
     #[test]
     fn removes_color_characters() {

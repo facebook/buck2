@@ -490,7 +490,7 @@ where
             }
         }
 
-        if let Some(re) = &self
+        if let Some(re) = self
             .observer()
             .re_state()
             .render_header(snapshots, DrawMode::Final)

@@ -21,13 +21,12 @@ use superconsole::Dimensions;
 use superconsole::DrawMode;
 use superconsole::Line;
 use superconsole::Lines;
-use superconsole::Span;
 use superconsole::components::DrawVertical;
-use superconsole::style::Stylize;
 
 use self::table_builder::Table;
 use crate::subscribers::superconsole::SuperConsoleState;
 use crate::subscribers::superconsole::timed_list::table_builder::Row;
+use crate::subscribers::superconsole::timed_list::table_builder::SummaryRow;
 use crate::subscribers::superconsole::timed_list::table_builder::TimedRow;
 
 mod table_builder;
@@ -66,42 +65,44 @@ impl TimedListBody<'_> {
         let info = root.info();
         let child_info = single_child.info();
 
-        // always display the event and subaction
-        let mut event_string = format!(
-            "{} [{}",
-            display::display_event(
-                &info.event,
-                TargetDisplayOptions::for_console(display_platform)
-            )?,
-            display::display_event(
-                &child_info.event,
-                TargetDisplayOptions::for_console(display_platform)
-            )?
-        );
+        let root_event = display::display_event(
+            &info.event,
+            TargetDisplayOptions::for_console(display_platform),
+        )?;
+        let child_event = display::display_event(
+            &child_info.event,
+            TargetDisplayOptions::for_console(display_platform),
+        )?;
 
         let child_info_elapsed = self.state.timekeeper.duration_since(child_info.start);
         let info_elapsed = self.state.timekeeper.duration_since(info.start);
         let subaction_ratio = child_info_elapsed.as_secs_f64() / info_elapsed.as_secs_f64();
 
-        // but only display the time of the subaction if it differs significantly.
+        let mut aux = child_event.to_string();
         if subaction_ratio < DISPLAY_SUBACTION_CUTOFF {
-            let subaction_time = fmt_duration::fmt_duration(child_info_elapsed);
-            event_string.push(' ');
-            event_string.push_str(&subaction_time);
+            aux.push(' ');
+            aux.push_str(&fmt_duration::fmt_duration(child_info_elapsed));
         }
-
         if remaining_children > 0 {
-            write!(event_string, " + {remaining_children}")
-                .expect("Write to String is not fallible");
+            write!(aux, " + {remaining_children}").expect("Write to String is not fallible");
         }
 
-        event_string.push(']');
+        // Escalate the row color on time in the current stage, and only while
+        // actively executing -- total elapsed is mostly queueing under contention.
+        let style_age = if display::is_active_execution_stage(&child_info.event) {
+            child_info_elapsed
+        } else {
+            Duration::ZERO
+        };
 
-        TimedRow::text(
+        TimedRow::new(
             0,
-            event_string,
+            root_event.label,
+            root_event.detail,
+            root_event.category,
+            Some(aux),
             fmt_duration::fmt_duration(info_elapsed),
-            info_elapsed,
+            style_age,
             self.cutoffs,
         )
     }
@@ -163,28 +164,30 @@ impl Component for TimedListBody<'_> {
         let mut builder = Table::new();
 
         let mut first_not_rendered = None;
+        let mut visible_roots = 0;
 
-        for root in &mut roots {
+        while let Some(root) = roots.next() {
             let rows = self.draw_root(&root)?;
+            let hidden_roots_after_this = roots.len();
+            let reserved_summary_rows = if hidden_roots_after_this > 0 { 1 } else { 0 };
 
-            if builder.len() + rows.len() >= max_lines {
+            if builder.len() + rows.len() + reserved_summary_rows > max_lines {
                 first_not_rendered = Some(root);
                 break;
             }
 
             builder.rows.extend(rows.into_iter().map(Row::from));
+            visible_roots += 1;
         }
 
-        // Add remaining unshown tasks, if any.
-        let more = roots.len() as u64 + first_not_rendered.map_or(0, |_| 1);
+        let more = roots.len() + first_not_rendered.map_or(0, |_| 1);
 
         if more > 0 {
-            let remaining = format!("... and {more} more currently executing");
-            builder.rows.push(
-                std::iter::once(Span::new_styled(remaining.italic())?)
-                    .collect::<Line>()
-                    .into(),
-            );
+            let total = visible_roots + more;
+            builder.rows.push(Row::Summary(SummaryRow {
+                visible_roots,
+                total_roots: total,
+            }));
         }
 
         builder.draw(dimensions, mode)
@@ -202,7 +205,7 @@ impl Component for TimedListHeader {
         dimensions: Dimensions,
         _mode: DrawMode,
     ) -> buck2_error::Result<Lines> {
-        Ok(Lines(vec![Line::unstyled(&"-".repeat(dimensions.width))?]))
+        Ok(Lines(vec![Line::unstyled(&"─".repeat(dimensions.width))?]))
     }
 }
 
@@ -371,9 +374,9 @@ mod tests {
         )?;
         let expected = [
 
-            "----------------------------------------",
-            "<span fg=dark_yellow>test -- speak of the devil</span>          <span fg=dark_yellow>3.0s</span>",
-            "foo -- speak of the devil           1.0s",
+            "────────────────────────────────────────",
+            "test<span fg=dark_grey> · </span>speak of the devil           <span fg=dark_grey>3.0s</span>",
+            "foo<span fg=dark_grey> · </span>speak of the devil            <span fg=dark_grey>1.0s</span>",
         ].iter().map(|l| format!("{l}\n")).join("");
 
         pretty_assertions::assert_eq!(output.fmt_for_test().to_string(), expected);
@@ -454,9 +457,9 @@ mod tests {
             DrawMode::Normal,
         )?;
         let expected = [
-            "----------------------------------------",
-            "e1 -- speak of the devil            1.0s",
-            "<span italic>... and 2 more currently executing</span>",
+            "────────────────────────────────────────",
+            "e1<span fg=dark_grey> · </span>speak of the devil             <span fg=dark_grey>1.0s</span>",
+            "<span fg=dark_grey italic>1/3 running actions shown</span>",
         ]
         .iter()
         .map(|l| format!("{l}\n"))
@@ -505,8 +508,8 @@ mod tests {
             )?;
 
             let expected = [
-                "------------------------------------------------------------",
-                "<span fg=dark_red>pkg:target -- action (category identifier)</span>             <span fg=dark_red>10.0s</span>",
+                "────────────────────────────────────────────────────────────",
+                "pkg:target<span fg=dark_grey> [</span>category identifier<span fg=dark_grey>]</span>                       <span fg=dark_grey>10.0s</span>",
             ].iter().map(|l| format!("{l}\n")).join("");
 
             pretty_assertions::assert_eq!(output.fmt_for_test().to_string(), expected);
@@ -524,8 +527,8 @@ mod tests {
             )?;
 
             let expected = [
-                "------------------------------------------------------------",
-                "<span italic>... and 1 more currently executing</span>",
+                "────────────────────────────────────────────────────────────",
+                "pkg:target<span fg=dark_grey> [</span>category identifier<span fg=dark_grey>]</span>                       <span fg=dark_grey>10.0s</span>",
             ]
             .iter()
             .map(|l| format!("{l}\n"))
@@ -596,9 +599,12 @@ mod tests {
             DrawMode::Normal,
         )?;
         let expected = [
-            "--------------------------------------------------------------------------------",
-            "<span fg=dark_red>pkg:target -- action (category identifier) [prepare 5.0s]</span>                  <span fg=dark_red>10.0s</span>",
-        ].iter().map(|l| format!("{l}\n")).join("");
+            "────────────────────────────────────────────────────────────────────────────────",
+            "pkg:target<span fg=dark_grey> [</span>category identifier<span fg=dark_grey>]</span> <span fg=dark_grey>prepare         5.0s</span>                      <span fg=dark_grey>10.0s</span>",
+        ]
+        .iter()
+        .map(|l| format!("{l}\n"))
+        .join("");
 
         pretty_assertions::assert_eq!(output.fmt_for_test().to_string(), expected);
 
@@ -645,9 +651,12 @@ mod tests {
             DrawMode::Normal,
         )?;
         let expected = [
-            "--------------------------------------------------------------------------------",
-            "<span fg=dark_red>pkg:target -- action (category identifier) [prepare 5.0s + 1]</span>              <span fg=dark_red>10.0s</span>",
-        ].iter().map(|l| format!("{l}\n")).join("");
+            "────────────────────────────────────────────────────────────────────────────────",
+            "pkg:target<span fg=dark_grey> [</span>category identifier<span fg=dark_grey>]</span> <span fg=dark_grey>prepare         5.0s + 1</span>                  <span fg=dark_grey>10.0s</span>",
+        ]
+        .iter()
+        .map(|l| format!("{l}\n"))
+        .join("");
 
         pretty_assertions::assert_eq!(output.fmt_for_test().to_string(), expected);
 
