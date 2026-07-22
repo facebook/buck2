@@ -201,49 +201,43 @@ impl<'d> DiceComputations<'d> {
     /// `DiceComputations::with_linear_recompute`. `with_linear_recompute` gives you free access to
     /// unstructured dependencies, in exchange for pessimizing the recompute path by doing it in
     /// some linearized order.
-    ///
-    /// ## Enforcement
-    ///
-    /// Unfortunately, compliance with this is not strictly enforced. There's nothing that directly
-    /// stops you from returning the `ctx` provided to each future from the future and initiating
-    /// cross-talk between what ought to be parallel branches. Don't do that; you are subject to
-    /// issues like the above if you do.
-    // Note that dependencies are still correctly tracked even in the cross-talk case; only
-    // recompute structure is violated.
-    //
-    // A previous design instead had closure signatures like `for<'x> FnOnce(&'x mut
-    // DiceComputations<'a>) -> BoxFuture<'x>`. That makes this quite a bit better because you can
-    // no longer return the `ctx` from the future, though code trying hard enough could still do bad
-    // things with channels or other such constructs. The design encounters a lot of ergonomic and
-    // memory disadvantages though, so it's not in use anymore.
-    //
-    // There may be some temptation to instead have closures like `for<'x> FnOnce(&'x mut
-    // DiceComputations<'d>) -> BoxFuture<'x>` (notice `'d` switched for `'a`). This would marginally
-    // but not drastically improves ergonomics (hrtbs are still painful), but actually on its own it
-    // doesn't work at all; until Rust grows support for writing `for<'x> where 'a: 'x`, that API
-    // would require you to return `BoxFuture<'x>` for any `'x` potentially as big as `'d`, which
-    // means you could no longer capture references to locals.
-    pub fn compute_many<'a, Computes, F, Fut, T>(
+    pub fn compute_many<'a, Computes, F, T>(
         &'a mut self,
         computes: Computes,
-    ) -> Vec<impl Future<Output = T> + use<'a, 'd, Computes, F, Fut, T>>
+        // Note that both here and elsewhere in this file the `Send` being explicit is load-bearing;
+        // without it, the compiler struggles to find the right strategy for proving the bound later
+        // on.
+    ) -> Vec<impl Future<Output = T> + Send + use<'a, 'd, Computes, F, T>>
     where
         Computes: IntoIterator<Item = F>,
         Computes::IntoIter: ExactSizeIterator,
-        // Note: Here and everywhere else, the use of async closures could be avoided by having the
-        // signatures on the public compute functions look like those on the underlying
-        // `compute_many`s called here.
-        F: AsyncFnOnce<(&'a mut DiceComputations<'d>,), CallOnceFuture = Fut, Output = T> + Send,
-        // There's something funky going on in rustc here. You'd usually just write this as `<F as
-        // AsyncFnOnce<...>>::CallOnceFuture: Send` without the `Fut` generic parameter, but when
-        // you do that rustc reports errors because for some reason it attempts to prove a
-        // higher-kinded trait bound. An instance of <https://github.com/rust-lang/rust/issues/110338>
-        Fut: Future<Output = T> + Send,
+        F: for<'x> AsyncFnOnce(&'x mut DiceComputations<'d>) -> T + Send,
+        // There's some very funky things going on here. This trait impl here, as written, works and
+        // does the expected thing. However, if you doing this exact same thing with `FnOnce`
+        // instead of `AsyncFnOnce`, the compiler has a self-admitted bug where it forces callers
+        // into `'d = 'static`. Why `AsyncFnOnce` is different in any regard remains a bit of a
+        // mystery, my suspicion is that it's because of the `Self` in `CallOnceFuture: ...Self...`.
+        //
+        // Interestingly enough, that is exactly the boat in which
+        // `TrackedComputations::compute_many` finds itself. It works around this by taking
+        // `FnOnce(&'a mut DiceC...` instead of `for<'x> FnOnce(&'x ...`. That makes for a mildly
+        // less sound API but avoids a bunch of the pain.
+        //
+        // If any of this turns into a rustc upgrade hazard at any point, ie there are changes to
+        // some of the APIs that are not just cosmetic and can't be easily addressed then, in
+        // decreasing order of preference:
+        //
+        //  - Propagate the signature of this API down into `TrackedComputations`
+        //  - Wrap some things in an `UnsafeSendAssert` and comment out/weaken send bounds as needed
+        //    to unblock.
+        //  - Propagate the signature of the `TrackedComputations` API back here, removing the async
+        //    closures
+        for<'x> <F as AsyncFnOnce<(&'x mut DiceComputations<'d>,)>>::CallOnceFuture: Send,
     {
         self.0.compute_many(
             computes
                 .into_iter()
-                .map(|f| move |ctx: &'a mut DiceComputations<'d>| f.async_call_once((ctx,))),
+                .map(|f| move |ctx: &'a mut DiceComputations<'d>| f(ctx)),
         )
     }
 
@@ -259,163 +253,147 @@ impl<'d> DiceComputations<'d> {
     ///     }
     ///   }).await;
     /// ```
-    pub fn compute_join<'a, Items, Mapper, Fut, T, R>(
+    pub fn compute_join<'a, Items, Mapper, T, R>(
         &'a mut self,
         items: Items,
         mapper: Mapper,
-    ) -> impl Future<Output = Vec<R>> + use<'a, 'd, Items, Mapper, Fut, T, R>
+    ) -> impl Future<Output = Vec<R>> + Send + use<'a, 'd, Items, Mapper, T, R>
     where
         Items: IntoIterator<Item = T>,
         Items::IntoIter: ExactSizeIterator,
-        Mapper: AsyncFnOnce<(&'a mut DiceComputations<'d>, T), CallOnceFuture = Fut, Output = R>
-            + Send
-            + Sync
-            + Copy,
-        Fut: Future<Output = R> + Send,
+        Mapper: for<'x> AsyncFnOnce(&'x mut DiceComputations<'d>, T) -> R + Send + Sync + Copy,
+        for<'x> <Mapper as AsyncFnOnce<(&'x mut DiceComputations<'d>, T)>>::CallOnceFuture: Send,
         T: Send,
+        R: Send,
     {
-        let futs =
-            self.0.compute_many(items.into_iter().map(|v| {
-                move |ctx: &'a mut DiceComputations<'d>| mapper.async_call_once((ctx, v))
-            }));
+        let futs = self.0.compute_many(
+            items
+                .into_iter()
+                .map(|v| move |ctx: &'a mut DiceComputations<'d>| mapper(ctx, v)),
+        );
         // We embed the `unconstrained` here because buck2 has always benefitted from this
         tokio::task::unconstrained(dice_futures::join::join_all(futs))
     }
 
     /// Maps the items into computations futures and then returns a future which represents either a
     /// collection of the results or an error.
-    pub fn try_compute_join<'a, Items, Mapper, Fut, T, R, E>(
+    pub fn try_compute_join<'a, Items, Mapper, T, R, E>(
         &'a mut self,
         items: Items,
         mapper: Mapper,
-    ) -> impl Future<Output = Result<Vec<R>, E>> + use<'a, 'd, Items, Mapper, Fut, T, R, E>
+    ) -> impl Future<Output = Result<Vec<R>, E>> + Send + use<'a, 'd, Items, Mapper, T, R, E>
     where
         Items: IntoIterator<Item = T>,
         Items::IntoIter: ExactSizeIterator,
-        Mapper: AsyncFnOnce<
-                (&'a mut DiceComputations<'d>, T),
-                CallOnceFuture = Fut,
-                Output = Result<R, E>,
-            > + Send
+        Mapper: for<'x> AsyncFnOnce(&'x mut DiceComputations<'d>, T) -> Result<R, E>
+            + Send
             + Sync
             + Copy,
-        Fut: Future<Output = Result<R, E>> + Send,
+        for<'x> <Mapper as AsyncFnOnce<(&'x mut DiceComputations<'d>, T)>>::CallOnceFuture: Send,
         T: Send,
+        R: Send,
+        E: Send,
     {
-        let futs =
-            self.0.compute_many(items.into_iter().map(|v| {
-                move |ctx: &'a mut DiceComputations<'d>| mapper.async_call_once((ctx, v))
-            }));
+        let futs = self.0.compute_many(
+            items
+                .into_iter()
+                .map(|v| move |ctx: &'a mut DiceComputations<'d>| mapper(ctx, v)),
+        );
         tokio::task::unconstrained(dice_futures::join::try_join_all(futs))
     }
 
     /// Computes all the given tasks in parallel.
-    pub fn compute2<'a, Compute1, Fut1, T, Compute2, Fut2, U>(
+    pub fn compute2<'a, Compute1, T, Compute2, U>(
         &'a mut self,
         compute1: Compute1,
         compute2: Compute2,
-    ) -> impl Future<Output = (T, U)> + use<'a, 'd, Compute1, Fut1, T, Compute2, Fut2, U>
+    ) -> impl Future<Output = (T, U)> + Send + use<'a, 'd, Compute1, T, Compute2, U>
     where
-        Compute1:
-            AsyncFnOnce<(&'a mut DiceComputations<'d>,), CallOnceFuture = Fut1, Output = T> + Send,
-        Compute2:
-            AsyncFnOnce<(&'a mut DiceComputations<'d>,), CallOnceFuture = Fut2, Output = U> + Send,
-        Fut1: Future<Output = T> + Send,
-        Fut2: Future<Output = U> + Send,
+        Compute1: for<'x> AsyncFnOnce(&'x mut DiceComputations<'d>) -> T + Send,
+        for<'x> <Compute1 as AsyncFnOnce<(&'x mut DiceComputations<'d>,)>>::CallOnceFuture: Send,
+        Compute2: for<'x> AsyncFnOnce(&'x mut DiceComputations<'d>) -> U + Send,
+        for<'x> <Compute2 as AsyncFnOnce<(&'x mut DiceComputations<'d>,)>>::CallOnceFuture: Send,
+        T: Send,
+        U: Send,
     {
-        let (t, u) = self.0.compute2(
-            move |ctx| compute1.async_call_once((ctx,)),
-            move |ctx| compute2.async_call_once((ctx,)),
-        );
+        let (t, u) = self
+            .0
+            .compute2(move |ctx| compute1(ctx), move |ctx| compute2(ctx));
         futures::future::join(t, u)
     }
 
     /// Like [`Self::try_compute2`], but takes async closures; see [`Self::compute2_async`].
-    pub fn try_compute2<'a, Compute1, Fut1, T, Compute2, Fut2, U, E>(
+    pub fn try_compute2<'a, Compute1, T, Compute2, U, E>(
         &'a mut self,
         compute1: Compute1,
         compute2: Compute2,
-    ) -> impl Future<Output = Result<(T, U), E>> + use<'a, 'd, Compute1, Fut1, T, Compute2, Fut2, U, E>
+    ) -> impl Future<Output = Result<(T, U), E>> + Send + use<'a, 'd, Compute1, T, Compute2, U, E>
     where
-        Compute1: AsyncFnOnce<
-                (&'a mut DiceComputations<'d>,),
-                CallOnceFuture = Fut1,
-                Output = Result<T, E>,
-            > + Send,
-        Compute2: AsyncFnOnce<
-                (&'a mut DiceComputations<'d>,),
-                CallOnceFuture = Fut2,
-                Output = Result<U, E>,
-            > + Send,
-        Fut1: Future<Output = Result<T, E>> + Send,
-        Fut2: Future<Output = Result<U, E>> + Send,
+        Compute1: for<'x> AsyncFnOnce(&'x mut DiceComputations<'d>) -> Result<T, E> + Send,
+        for<'x> <Compute1 as AsyncFnOnce<(&'x mut DiceComputations<'d>,)>>::CallOnceFuture: Send,
+        Compute2: for<'x> AsyncFnOnce(&'x mut DiceComputations<'d>) -> Result<U, E> + Send,
+        for<'x> <Compute2 as AsyncFnOnce<(&'x mut DiceComputations<'d>,)>>::CallOnceFuture: Send,
+        T: Send,
+        U: Send,
+        E: Send,
     {
-        let (t, u) = self.0.compute2(
-            move |ctx| compute1.async_call_once((ctx,)),
-            move |ctx| compute2.async_call_once((ctx,)),
-        );
+        let (t, u) = self
+            .0
+            .compute2(move |ctx| compute1(ctx), move |ctx| compute2(ctx));
         futures::future::try_join(t, u)
     }
 
     /// Like [`Self::compute3`], but takes async closures; see [`Self::compute2_async`].
-    pub fn compute3<'a, Compute1, Fut1, T, Compute2, Fut2, U, Compute3, Fut3, V>(
+    pub fn compute3<'a, Compute1, T, Compute2, U, Compute3, V>(
         &'a mut self,
         compute1: Compute1,
         compute2: Compute2,
         compute3: Compute3,
-    ) -> impl Future<Output = (T, U, V)>
-    + use<'a, 'd, Compute1, Fut1, T, Compute2, Fut2, U, Compute3, Fut3, V>
+    ) -> impl Future<Output = (T, U, V)> + Send + use<'a, 'd, Compute1, T, Compute2, U, Compute3, V>
     where
-        Compute1:
-            AsyncFnOnce<(&'a mut DiceComputations<'d>,), CallOnceFuture = Fut1, Output = T> + Send,
-        Compute2:
-            AsyncFnOnce<(&'a mut DiceComputations<'d>,), CallOnceFuture = Fut2, Output = U> + Send,
-        Compute3:
-            AsyncFnOnce<(&'a mut DiceComputations<'d>,), CallOnceFuture = Fut3, Output = V> + Send,
-        Fut1: Future<Output = T> + Send,
-        Fut2: Future<Output = U> + Send,
-        Fut3: Future<Output = V> + Send,
+        Compute1: for<'x> AsyncFnOnce(&'x mut DiceComputations<'d>) -> T + Send,
+        for<'x> <Compute1 as AsyncFnOnce<(&'x mut DiceComputations<'d>,)>>::CallOnceFuture: Send,
+        Compute2: for<'x> AsyncFnOnce(&'x mut DiceComputations<'d>) -> U + Send,
+        for<'x> <Compute2 as AsyncFnOnce<(&'x mut DiceComputations<'d>,)>>::CallOnceFuture: Send,
+        Compute3: for<'x> AsyncFnOnce(&'x mut DiceComputations<'d>) -> V + Send,
+        for<'x> <Compute3 as AsyncFnOnce<(&'x mut DiceComputations<'d>,)>>::CallOnceFuture: Send,
+        T: Send,
+        U: Send,
+        V: Send,
     {
         let (t, u, v) = self.0.compute3(
-            move |ctx| compute1.async_call_once((ctx,)),
-            move |ctx| compute2.async_call_once((ctx,)),
-            move |ctx| compute3.async_call_once((ctx,)),
+            move |ctx| compute1(ctx),
+            move |ctx| compute2(ctx),
+            move |ctx| compute3(ctx),
         );
         futures::future::join3(t, u, v)
     }
 
     /// Like [`Self::try_compute3`], but takes async closures; see [`Self::compute2_async`].
-    pub fn try_compute3<'a, Compute1, Fut1, T, Compute2, Fut2, U, Compute3, Fut3, V, E>(
+    pub fn try_compute3<'a, Compute1, T, Compute2, U, Compute3, V, E>(
         &'a mut self,
         compute1: Compute1,
         compute2: Compute2,
         compute3: Compute3,
     ) -> impl Future<Output = Result<(T, U, V), E>>
-    + use<'a, 'd, Compute1, Fut1, T, Compute2, Fut2, U, Compute3, Fut3, V, E>
+    + Send
+    + use<'a, 'd, Compute1, T, Compute2, U, Compute3, V, E>
     where
-        Compute1: AsyncFnOnce<
-                (&'a mut DiceComputations<'d>,),
-                CallOnceFuture = Fut1,
-                Output = Result<T, E>,
-            > + Send,
-        Compute2: AsyncFnOnce<
-                (&'a mut DiceComputations<'d>,),
-                CallOnceFuture = Fut2,
-                Output = Result<U, E>,
-            > + Send,
-        Compute3: AsyncFnOnce<
-                (&'a mut DiceComputations<'d>,),
-                CallOnceFuture = Fut3,
-                Output = Result<V, E>,
-            > + Send,
-        Fut1: Future<Output = Result<T, E>> + Send,
-        Fut2: Future<Output = Result<U, E>> + Send,
-        Fut3: Future<Output = Result<V, E>> + Send,
+        Compute1: for<'x> AsyncFnOnce(&'x mut DiceComputations<'d>) -> Result<T, E> + Send,
+        for<'x> <Compute1 as AsyncFnOnce<(&'x mut DiceComputations<'d>,)>>::CallOnceFuture: Send,
+        Compute2: for<'x> AsyncFnOnce(&'x mut DiceComputations<'d>) -> Result<U, E> + Send,
+        for<'x> <Compute2 as AsyncFnOnce<(&'x mut DiceComputations<'d>,)>>::CallOnceFuture: Send,
+        Compute3: for<'x> AsyncFnOnce(&'x mut DiceComputations<'d>) -> Result<V, E> + Send,
+        for<'x> <Compute3 as AsyncFnOnce<(&'x mut DiceComputations<'d>,)>>::CallOnceFuture: Send,
+        T: Send,
+        U: Send,
+        V: Send,
+        E: Send,
     {
         let (t, u, v) = self.0.compute3(
-            move |ctx| compute1.async_call_once((ctx,)),
-            move |ctx| compute2.async_call_once((ctx,)),
-            move |ctx| compute3.async_call_once((ctx,)),
+            move |ctx| compute1(ctx),
+            move |ctx| compute2(ctx),
+            move |ctx| compute3(ctx),
         );
         futures::future::try_join3(t, u, v)
     }
@@ -438,12 +416,10 @@ impl<'d> DiceComputations<'d> {
     /// Used to declare a higher order closure for compute2 and compute_many.
     ///
     /// See `declare_join_closure` for when this is needed.
-    pub fn declare_closure<'a, R, Fut, Closure>(closure: Closure) -> Closure
+    pub fn declare_closure<Closure, R>(closure: Closure) -> Closure
     where
-        'd: 'a,
-        Closure:
-            AsyncFnOnce<(&'a mut DiceComputations<'d>,), CallOnceFuture = Fut, Output = R> + Send,
-        Fut: Future<Output = R> + Send,
+        Closure: for<'x> AsyncFnOnce(&'x mut DiceComputations<'d>) -> R + Send,
+        for<'x> <Closure as AsyncFnOnce<(&'x mut DiceComputations<'d>,)>>::CallOnceFuture: Send,
     {
         closure
     }
@@ -616,8 +592,8 @@ fn _assert_dice_compute_future_sizes() {
         DiceComputations::compute2,
         (
             _,
-            async |ctx: &mut DiceComputations| ctx.compute(&K(0)).await,
-            async |ctx: &mut DiceComputations| ctx.compute(&K(1)).await
+            async |ctx| ctx.compute(&K(0)).await,
+            async |ctx| ctx.compute(&K(1)).await
         ),
         24
     );

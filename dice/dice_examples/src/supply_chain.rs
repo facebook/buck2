@@ -313,7 +313,9 @@ impl Cost for DiceComputations<'_> {
                     .map_err(|e| Arc::new(anyhow::anyhow!(e)))?;
 
                 let costs = join_all(ctx.compute_many(companies.iter().map(|company| {
-                    async |ctx| lookup_company_resource_cost(ctx, company, &self.0).await
+                    DiceComputations::declare_closure(async |ctx| {
+                        lookup_company_resource_cost(ctx, company, &self.0).await
+                    })
                 })))
                 .await;
 

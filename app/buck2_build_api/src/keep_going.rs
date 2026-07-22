@@ -16,23 +16,22 @@ use futures::FutureExt;
 pub struct KeepGoing;
 
 impl KeepGoing {
-    pub fn try_compute_join_all<'a, 'd, Items, Mapper, Fut, T, R, E>(
+    pub fn try_compute_join_all<'a, 'd, Items, Mapper, T, R, E>(
         ctx: &'a mut DiceComputations<'d>,
         items: Items,
         mapper: Mapper,
-    ) -> impl Future<Output = Result<Vec<R>, E>> + use<'a, 'd, Items, Mapper, Fut, T, R, E>
+    ) -> impl Future<Output = Result<Vec<R>, E>> + Send + use<'a, 'd, Items, Mapper, T, R, E>
     where
         Items: IntoIterator<Item = T>,
         Items::IntoIter: ExactSizeIterator,
-        Mapper: AsyncFnOnce<
-                (&'a mut DiceComputations<'d>, T),
-                CallOnceFuture = Fut,
-                Output = Result<R, E>,
-            > + Send
+        Mapper: for<'x> AsyncFnOnce(&'x mut DiceComputations<'d>, T) -> Result<R, E>
+            + Send
             + Sync
             + Copy,
-        Fut: Future<Output = Result<R, E>> + Send,
+        for<'x> <Mapper as AsyncFnOnce<(&'x mut DiceComputations<'d>, T)>>::CallOnceFuture: Send,
         T: Send,
+        R: Send,
+        E: Send,
     {
         let keep_going = ctx.per_transaction_data().get_keep_going();
 
