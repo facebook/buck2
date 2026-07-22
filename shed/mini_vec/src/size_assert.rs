@@ -76,6 +76,33 @@ pub macro words_of_async_fn_future($f:path, ($($arg:tt)*), $w:literal) {
 #[cfg(not(all(not(mini_vec_no_ptr_packing), target_pointer_width = "64")))]
 pub macro words_of_async_fn_future($($t:tt)*) {}
 
+/// Assert that the value of the given expression has size equal to the specified number of
+/// pointers.
+///
+/// This is the escape hatch for values whose types cannot be named, notably closures and their
+/// futures. The expression is only ever type-checked, never run, so it may contain `panic!()`
+/// wherever a value is needed:
+///
+/// ```ignore
+/// size_assert::words_of_expr!((async |x: u8| x).async_call_once((panic!(),)), 2);
+/// ```
+#[cfg(all(not(mini_vec_no_ptr_packing), target_pointer_width = "64"))]
+pub macro words_of_expr($e:expr, $w:literal) {
+    const _: () = {
+        #[allow(unused, clippy::diverging_sub_expression)]
+        fn assert() {
+            $crate::size_assert::__macro_refs::static_assertions::assert_eq_size_ptr!(
+                &$e,
+                &[0usize; $w]
+            );
+        }
+    };
+}
+
+/// Does nothing in this configuration
+#[cfg(not(all(not(mini_vec_no_ptr_packing), target_pointer_width = "64")))]
+pub macro words_of_expr($($t:tt)*) {}
+
 #[allow(missing_docs)]
 #[doc(hidden)]
 pub mod __macro_refs {
@@ -122,4 +149,8 @@ mod __compile_test {
     super::words_of_async_fn_future!(three_args, (_, _, _), 1);
     // Mix `_` placeholders with an explicit, multi-token expression argument.
     super::words_of_async_fn_future!(three_args, (_, 1u16 + 1u16, _), 1);
+    super::words_of_expr!(
+        three_args(::std::panic!(), ::std::panic!(), ::std::panic!()),
+        1
+    );
 }

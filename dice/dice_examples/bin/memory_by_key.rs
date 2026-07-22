@@ -95,7 +95,6 @@ use dice::Key;
 use dice::NoValueSerialize;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
-use futures::FutureExt;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 
@@ -357,11 +356,8 @@ impl Key for GraphNode {
                     drop(ctx.compute(&Buffer(shadow)).await);
                 } else {
                     let end = (self.0 + 1 + dense_width).min(NODE_COUNT);
-                    ctx.compute_join(self.0 + 1..end, |ctx, i| {
-                        async move {
-                            drop(ctx.compute(&GraphNode(i, shadow)).await);
-                        }
-                        .boxed()
+                    ctx.compute_join_async(self.0 + 1..end, async |ctx, i| {
+                        drop(ctx.compute(&GraphNode(i, shadow)).await);
                     })
                     .await;
                 }
