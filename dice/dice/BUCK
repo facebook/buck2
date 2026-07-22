@@ -48,7 +48,6 @@ rust_library(
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tracing",
         "fbsource//third-party/rust:triomphe",
-        "fbsource//third-party/rust:typed-arena",
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_hash:buck2_hash",
         "//buck2/dice/dice_error:dice_error",

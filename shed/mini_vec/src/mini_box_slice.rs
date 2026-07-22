@@ -16,6 +16,7 @@ use std::fmt;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::ops::Deref;
+use std::ops::DerefMut;
 use std::slice;
 
 use allocative::Allocative;
@@ -58,6 +59,12 @@ impl<T> MiniBoxSlice<T> {
     #[inline]
     pub fn as_slice(&self) -> &[T] {
         self.0.as_slice()
+    }
+
+    /// Mutably borrow the elements as a slice.
+    #[inline]
+    pub fn as_mut_slice(&mut self) -> &mut [T] {
+        self.0.as_mut_slice()
     }
 
     /// Pointer to the first element.
@@ -114,9 +121,12 @@ impl<T> Deref for MiniBoxSlice<T> {
     }
 }
 
-// Intentionally NO `DerefMut`, `as_mut_slice`, `as_mut_ptr`, `iter_mut`,
-// or owning iterator that borrows mutably — keeping the type immutable is
-// what preserves the `len == cap` invariant once construction is done.
+impl<T> DerefMut for MiniBoxSlice<T> {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.0.as_mut_slice()
+    }
+}
 
 impl<T> AsRef<[T]> for MiniBoxSlice<T> {
     #[inline]

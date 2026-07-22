@@ -463,7 +463,6 @@ tracing = { version = "0.1.41", features = ["attributes", "valuable"] }
 tracing-subscriber = { version = "0.3.23", features = ["chrono", "env-filter", "json", "local-time", "parking_lot", "registry"] }
 triomphe = { version = "0.1.16", features = ["arc-swap"] }
 twox-hash = "1.6.1"
-typed-arena = "2"
 uuid = { version = "1.24.0", features = ["rng-getrandom", "serde", "v4", "v5", "v6", "v7", "v8"] }
 walkdir = "2.3"
 watchman_client = "0.9.0"

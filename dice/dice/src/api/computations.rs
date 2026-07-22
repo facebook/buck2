@@ -486,6 +486,6 @@ fn _assert_dice_compute_future_sizes() {
             DiceComputations::declare_closure(|ctx| panic!()),
             DiceComputations::declare_closure(|ctx| panic!())
         ),
-        4
+        8
     );
 }

@@ -10,9 +10,8 @@
 
 //! Trackers that records dependencies and reverse dependencies during execution of requested nodes
 
-use typed_arena::Arena;
-
 use crate::deps::graph::SeriesParallelDeps;
+use crate::epoch::branches::ParallelArena;
 use crate::key::DiceKey;
 use crate::value::DiceValidity;
 use crate::value::TrackedInvalidationPaths;
@@ -27,10 +26,10 @@ pub(crate) mod iterator;
 pub(crate) struct RecordingDepsTracker {
     deps: RecordedDeps,
 
-    /// While a parallel computation is happening (from ctx.compute_many()/etc), we'll have an Arena here
-    /// where each parallel ctx gets a slot for its deps. After the parallel computation is finished, we'll
-    /// then record this into deps above.
-    curr_parallel: Option<Box<SyncArena<RecordedDeps>>>,
+    /// While a parallel computation is happening (from ctx.compute_many()/etc), this owns the
+    /// parallel branches' ctxs. After the parallel computation is finished, the deps the branches
+    /// recorded are gathered up and written to the deps above.
+    curr_parallel: Option<ParallelArena>,
 }
 
 pub(crate) struct RecordedDeps {
@@ -72,11 +71,11 @@ impl RecordedDeps {
         }
     }
 
-    fn insert_parallel(&mut self, mut parallel: Arena<RecordedDeps>) {
+    fn insert_parallel(&mut self, parallel: Vec<RecordedDeps>) {
         let mut new_keys = 0;
         let mut new_specs = 0;
 
-        for dep in parallel.iter_mut() {
+        for dep in &parallel {
             self.deps_validity.and(dep.deps_validity);
             self.invalidation_paths.update(&dep.invalidation_paths);
             let header = dep.deps.header();
@@ -87,13 +86,8 @@ impl RecordedDeps {
             return;
         }
 
-        self.deps.insert_parallel(
-            parallel
-                .iter_mut()
-                .map(|v| std::mem::replace(&mut v.deps, SeriesParallelDeps::None)),
-            new_keys,
-            new_specs,
-        );
+        self.deps
+            .insert_parallel(parallel.into_iter().map(|v| v.deps), new_keys, new_specs);
     }
 
     #[cfg(test)]
@@ -144,24 +138,12 @@ impl RecordingDepsTracker {
         self.deps.update_invalidation_paths(&invalidation_paths);
     }
 
-    /// Used to start a new parallel computation. Returns the Arena that each parallel ctx should record its deps to.
-    pub(crate) fn push_parallel(
-        &mut self,
-        size_hint: usize,
-    ) -> (&Arena<RecordedDeps>, &TrackedInvalidationPaths) {
+    /// Used to start a new parallel computation, storing the group that owns the parallel
+    /// branches' ctxs.
+    pub(crate) fn push_parallel(&mut self, group: ParallelArena) -> &mut ParallelArena {
         self.flatten_parallel();
         assert!(self.curr_parallel.is_none());
-
-        let Self {
-            curr_parallel,
-            deps,
-        } = self;
-        (
-            curr_parallel
-                .insert(Box::new(SyncArena::with_capacity(size_hint)))
-                .inner(),
-            &deps.invalidation_paths,
-        )
+        self.curr_parallel.insert(group)
     }
 
     pub(crate) fn collect_deps(mut self) -> RecordedDeps {
@@ -173,7 +155,7 @@ impl RecordingDepsTracker {
     /// that accesses/writes to deps.
     fn flatten_parallel(&mut self) {
         if let Some(parallel) = self.curr_parallel.take() {
-            self.deps.insert_parallel(parallel.into_inner())
+            self.deps.insert_parallel(parallel.take_deps())
         }
     }
 
@@ -181,32 +163,14 @@ impl RecordingDepsTracker {
         self.flatten_parallel();
         &self.deps.invalidation_paths
     }
-}
 
-mod sync_arena {
-    // We put SyncArena in its own mod to make the inner Arena truly private.
-    use typed_arena::Arena;
-
-    pub(super) struct SyncArena<T>(Arena<T>);
-
-    /// Safety: SyncArena only exposes apis taking `&mut self` and `self`.
-    unsafe impl<T: Sync> Sync for SyncArena<T> {}
-
-    impl<T> SyncArena<T> {
-        pub(super) fn with_capacity(s: usize) -> Self {
-            Self(Arena::with_capacity(s))
-        }
-
-        pub(super) fn inner(&mut self) -> &mut Arena<T> {
-            &mut self.0
-        }
-
-        pub(super) fn into_inner(self) -> Arena<T> {
-            self.0
-        }
+    /// Tests inject parallel deps directly instead of going through real parallel ctxs.
+    #[cfg(test)]
+    pub(crate) fn insert_parallel_for_test(&mut self, parallel: Vec<RecordedDeps>) {
+        self.flatten_parallel();
+        self.deps.insert_parallel(parallel);
     }
 }
-use sync_arena::SyncArena;
 
 #[cfg(test)]
 pub(crate) mod testing {
@@ -229,7 +193,6 @@ pub(crate) mod testing {
 mod tests {
 
     use itertools::Itertools;
-    use typed_arena::Arena;
 
     use crate::HashSet;
     use crate::deps::RecordedDeps;
@@ -374,19 +337,17 @@ mod tests {
         );
 
         {
-            let p1 = deps_tracker.push_parallel(0).0;
-            {
-                let s1 = p1.alloc(RecordedDeps::new());
-                s1.record(
-                    DiceKey { index: 11 },
-                    DiceValidity::Valid,
-                    &MakeInvalidationPaths {
-                        normal: (DiceKey { index: 102 }, 6),
-                        high: Some((DiceKey { index: 102 }, 6)),
-                    }
-                    .into(),
-                );
-            }
+            let mut s1 = RecordedDeps::new();
+            s1.record(
+                DiceKey { index: 11 },
+                DiceValidity::Valid,
+                &MakeInvalidationPaths {
+                    normal: (DiceKey { index: 102 }, 6),
+                    high: Some((DiceKey { index: 102 }, 6)),
+                }
+                .into(),
+            );
+            deps_tracker.insert_parallel_for_test(vec![s1]);
         }
         assert_eq!(
             deps_tracker.invalidation_paths(),
@@ -429,32 +390,26 @@ mod tests {
         let mut tracker = RecordingDepsTracker::new(TrackedInvalidationPaths::clean());
 
         {
-            let p1 = tracker.push_parallel(0).0;
-            {
-                let s1 = p1.alloc(RecordedDeps::new());
+            let mut s1 = RecordedDeps::new();
+            for i in 11..=19 {
+                s1.record_fresh_valid_key(i);
+            }
 
-                for i in 11..=19 {
-                    s1.record_fresh_valid_key(i);
-                }
-            }
+            let mut s2 = RecordedDeps::new();
+            s2.record_fresh_valid_key(21);
             {
-                let s2 = p1.alloc(RecordedDeps::new());
-                s2.record_fresh_valid_key(21);
-                {
-                    let p2 = Box::new(Arena::new());
-                    {
-                        let s3 = p2.alloc(RecordedDeps::new());
-                        s3.record_fresh_valid_key(22);
-                        s3.record_fresh_valid_key(23);
-                    }
-                    {
-                        let s3 = p2.alloc(RecordedDeps::new());
-                        s3.record_fresh_valid_key(24);
-                        s3.record_fresh_valid_key(25);
-                    }
-                    s2.insert_parallel(*p2);
-                }
+                let mut s3a = RecordedDeps::new();
+                s3a.record_fresh_valid_key(22);
+                s3a.record_fresh_valid_key(23);
+
+                let mut s3b = RecordedDeps::new();
+                s3b.record_fresh_valid_key(24);
+                s3b.record_fresh_valid_key(25);
+
+                s2.insert_parallel(vec![s3a, s3b]);
             }
+
+            tracker.insert_parallel_for_test(vec![s1, s2]);
         }
 
         tracker.record_fresh_valid_key(91);
@@ -462,11 +417,13 @@ mod tests {
         tracker.record_fresh_valid_key(93);
 
         {
-            let p2 = tracker.push_parallel(3).0;
+            let mut branches = Vec::new();
             for i in 0..5 {
-                let s = p2.alloc(RecordedDeps::new());
+                let mut s = RecordedDeps::new();
                 s.record_fresh_valid_key(32 + i);
+                branches.push(s);
             }
+            tracker.insert_parallel_for_test(branches);
         }
         tracker.record_fresh_valid_key(94);
         tracker.record_fresh_valid_key(95);

@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+pub(crate) mod branches;
 pub(crate) mod cache;
 pub(crate) mod ctx;
 pub(crate) mod evaluator;
