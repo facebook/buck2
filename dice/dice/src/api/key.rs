@@ -44,7 +44,7 @@ use crate::introspection::graph::short_type_name;
 pub trait Key:
     Allocative + Debug + Display + Clone + Eq + Hash + Send + Sync + Pagable + PagableTagged + 'static
 {
-    type Value: Allocative + Dupe + Send + Sync + 'static;
+    type Value: Allocative + Send + Sync + 'static;
 
     /// Provides a short informative name for this key type.
     fn key_type_name() -> &'static str {

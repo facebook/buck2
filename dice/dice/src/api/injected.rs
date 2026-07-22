@@ -15,7 +15,6 @@ use std::hash::Hash;
 use allocative::Allocative;
 use async_trait::async_trait;
 use dice_futures::cancellation::CancellationContext;
-use dupe::Dupe;
 use pagable::Pagable;
 use pagable::PagableDeserializeOwned;
 use pagable::PagableSerialize;
@@ -51,7 +50,7 @@ pub trait InjectedKey:
     + PagableTagged
     + 'static
 {
-    type Value: Allocative + Dupe + Send + Sync + 'static;
+    type Value: Allocative + Send + Sync + 'static;
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool;
 

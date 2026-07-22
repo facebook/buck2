@@ -22,7 +22,8 @@ use crate::PagableSerializer;
 /// paged out (e.g. error or otherwise non-pagable values), in which case it is
 /// kept in memory.
 pub trait ValueSerialize {
-    type Value: Allocative + Dupe + Send + Sync + 'static;
+    type Value: Allocative + Send + Sync + 'static;
+
     fn pagable_serialize_value(
         &self,
         v: &Self::Value,

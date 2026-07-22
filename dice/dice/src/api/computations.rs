@@ -60,6 +60,7 @@ impl<'d> DiceComputations<'d> {
     ) -> impl Future<Output = DiceResult<<K as Key>::Value>> + use<'a, 'd, K>
     where
         K: Key,
+        K::Value: Dupe,
     {
         self.0.compute(key).map(|r| r.map(Dupe::dupe))
     }
