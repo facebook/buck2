@@ -9,7 +9,6 @@
  */
 
 use std::future::Future;
-use std::mem::transmute;
 use std::pin::Pin;
 use std::task::Context;
 use std::task::Poll;
@@ -24,34 +23,28 @@ use crate::api::computations::DiceComputations;
 use crate::deps::RecordedDeps;
 
 /// The object that holds the context provided to each branch of a `compute_many` or similar call.
-pub(crate) struct BranchEntry {
+pub(crate) struct BranchEntry<'d> {
     /// Completion flag that indicates whether this branch was actually driven to completion or not.
     /// Used to avoid recording deps if eg the future was cancelled.
     completed: bool,
-    // TODO(JakobDegen): The `'static` here is obviously a lie, this (and the associated unsafety)
-    // get removed in a couple diffs. We don't bother with safety comments around this stuff either
-    // for now.
-    ctx: DiceComputations<'static>,
+    ctx: DiceComputations<'d>,
 }
 
 /// An arena holding the branch entries for one `compute_many` call.
 ///
 /// This entire thing is quite memory sensitive, which is why we require things like exactly sized
 /// iterators.
-pub(crate) struct ParallelArena {
-    entries: MiniBoxSlice<BranchEntry>,
+pub(crate) struct ParallelArena<'d> {
+    entries: MiniBoxSlice<BranchEntry<'d>>,
 }
 
-impl ParallelArena {
-    pub(crate) fn new<'x>(ctxs: impl ExactSizeIterator<Item = DiceComputations<'x>>) -> Self {
+impl<'d> ParallelArena<'d> {
+    pub(crate) fn new(ctxs: impl ExactSizeIterator<Item = DiceComputations<'d>>) -> Self {
         ParallelArena {
             entries: ctxs
                 .map(|ctx| BranchEntry {
                     completed: false,
-                    // SAFETY: See the module comment on the erased lifetime.
-                    ctx: unsafe {
-                        transmute::<DiceComputations<'x>, DiceComputations<'static>>(ctx)
-                    },
+                    ctx,
                 })
                 .collect(),
         }
@@ -61,7 +54,7 @@ impl ParallelArena {
     /// [`ParallelBranchFuture::launch_erased`]. The parallel compute APIs' borrow structure (the
     /// branch futures hold these borrows, and the group is only reachable again through the
     /// parent ctx once they're gone) is what keeps the handed-out ctxs alive for long enough.
-    pub(crate) fn handout(&mut self) -> std::slice::IterMut<'_, BranchEntry> {
+    pub(crate) fn handout(&mut self) -> std::slice::IterMut<'_, BranchEntry<'d>> {
         self.entries.iter_mut()
     }
 
@@ -85,7 +78,7 @@ impl ParallelArena {
 /// We can't know exact sizes here, but this also isn't used in perf sensitive places, so we just do
 /// a naive inefficient thing.
 pub(crate) struct LinearRecomputeArena {
-    cells: Mutex<MiniVec<Box<BranchEntry>>>,
+    cells: Mutex<MiniVec<Box<BranchEntry<'static>>>>,
 }
 
 impl LinearRecomputeArena {
@@ -95,16 +88,44 @@ impl LinearRecomputeArena {
         }
     }
 
-    pub(crate) fn alloc<'a, 'd>(&'a self, ctx: DiceComputations<'d>) -> &'a mut BranchEntry {
-        let mut entry = Box::new(BranchEntry {
-            completed: false,
-            ctx: unsafe { transmute::<DiceComputations<'d>, DiceComputations<'static>>(ctx) },
-        });
+    pub(crate) fn alloc<'a, 'd: 'a>(
+        &'a self,
+        ctx: DiceComputations<'d>,
+    ) -> &'a mut BranchEntry<'d> {
+        // SAFETY: Below we transmute things to static, allocate, and return at the type named
+        // above. Safety is generally ensured via the return type bounding all the lifetimes in all
+        // the appropriate ways, but there's one exception: The drop impls. The
+        // `DiceComputations`/`BranchEntry`s are not dropped until the `LinearRecomputeArena` is,
+        // which may be arbitrarily far later.
+        //
+        // The reason we know that this is sound is because these types don't do anything with the
+        // `'d` except use it to store a `&'d ...`, and dropping that after it has expired doesn't
+        // hurt. Fortunately, Rust even supports this dropping of expired references; `dropck` is an
+        // analysis the compiler performs to ensure that that's only done when it doesn't lead to
+        // unsoundness, the terminology in that case is that "`BranchEntry<'d>` is may_dangle in
+        // `'d`".
+        //
+        // There's no direct way to assert that `'d` is indeed `may_dangle`, but we can do it
+        // indirectly via a function like this; as long as this compiles, this API is sound.
+        fn _check_may_dangle(f: for<'a> fn(&'a String) -> BranchEntry<'a>) {
+            let dummy = String::new();
+            let _v = f(&dummy);
+            drop(dummy);
+            // `BranchEntry<'a>` is dropped here, with a lifetime `'a` that expired in the line above.
+        }
+
+        let mut entry = unsafe {
+            Box::new(
+                std::mem::transmute::<BranchEntry<'d>, BranchEntry<'static>>(BranchEntry {
+                    completed: false,
+                    ctx,
+                }),
+            )
+        };
         let ptr = &raw mut *entry;
         self.cells.lock().push(entry);
-        // SAFETY: This is just a very standard arena pattern; the `Box` stabilizes the ptr and the
-        // `&'a self` keeps everything alive for long enough.
-        unsafe { &mut *ptr }
+        // SAFETY: Other than the `Drop` point above this is a standard arena.
+        unsafe { &mut *ptr.cast() }
     }
 }
 
@@ -124,20 +145,14 @@ pub(crate) struct ParallelBranchFuture<'a, Fut> {
 
 impl<'a, Fut: Future> ParallelBranchFuture<'a, Fut> {
     /// Eagerly invokes `func` on the branch's ctx and returns the branch's future.
-    pub(crate) fn launch<'x: 'a, F>(entry: &'a mut BranchEntry, func: F) -> Self
+    pub(crate) fn launch<'d: 'a, F>(entry: &'a mut BranchEntry<'d>, func: F) -> Self
     where
-        F: FnOnce(&'a mut DiceComputations<'x>) -> Fut,
+        F: FnOnce(&'a mut DiceComputations<'d>) -> Fut,
     {
-        // SAFETY: Restores the lifetime erased at storage time, per this function's contract.
-        let ctx = unsafe {
-            transmute::<&'a mut DiceComputations<'static>, &'a mut DiceComputations<'x>>(
-                &mut entry.ctx,
-            )
-        };
         // Note that `func` must be called here, not in the branch future's first `poll`, so
         // that the future doesn't need to store `func`.
         ParallelBranchFuture {
-            fut: func(ctx),
+            fut: func(&mut entry.ctx),
             completed: Some(&mut entry.completed),
         }
     }

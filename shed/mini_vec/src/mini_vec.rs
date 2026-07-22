@@ -948,7 +948,10 @@ impl<T> From<Vec<T>> for MiniVec<T> {
     }
 }
 
-impl<T> Drop for MiniVec<T> {
+// SAFETY: The `may_dangle` gives us partially conservative handling wrt dropck by rustc. The
+// soundness argument for this is simple: `Vec` has the same thing and we don't do anything more
+// intersting than `Vec` does. Rustonomicon has a bit more details on what this is.
+unsafe impl<#[may_dangle] T> Drop for MiniVec<T> {
     fn drop(&mut self) {
         let unpacked = self.unpack();
         // Use a guard so the allocation is freed even if dropping an

@@ -420,7 +420,7 @@ impl<'d> DiceComputations<'d> {
     pub fn spawned<'a, T, Compute>(
         &'a mut self,
         closure: Compute,
-    ) -> impl Future<Output = T> + use<'a, Compute, T>
+    ) -> impl Future<Output = T> + use<'a, 'd, Compute, T>
     where
         T: Send + 'static,
         Compute: (for<'x> FnOnce(

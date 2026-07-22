@@ -43,6 +43,7 @@
 
 #![deny(missing_docs)]
 #![feature(decl_macro)]
+#![feature(dropck_eyepatch)]
 
 mod mini_box_slice;
 mod mini_vec;
