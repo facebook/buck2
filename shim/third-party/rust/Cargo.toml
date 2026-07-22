@@ -182,6 +182,13 @@ ref-cast = "1.0.18"
 regex = "1.12.3"
 relative-path = { version = "1.7.0", features = ["serde"] }
 ring = "=0.17.14" # Upgrading this is possible, but a pain, so we don't want to pick up every new minor version
+ruff_formatter = "0.0.4"
+ruff_python_ast = "0.0.4"
+ruff_python_formatter = "0.0.4"
+ruff_python_parser = "0.0.4"
+ruff_python_trivia = "0.0.4"
+ruff_source_file = "0.0.4"
+ruff_text_size = "0.0.4"
 rusqlite = { version = "0.37.0", features = ["backup", "blob", "bundled", "column_decltype", "functions", "limits", "modern_sqlite", "serde_json"] }
 rustc-hash = "2.1.2"
 rustls = { version = "0.23.37", features = ["logging", "ring", "std", "tls12"], default-features = false }
