@@ -174,8 +174,11 @@ impl BuckSubcommand for ReplayCommand {
                 buck2_client_ctx::eprintln!("{}", e.message)?;
             }
 
-            // FIXME(JakobDegen)(easy): This should probably return failures if there were errors
-            ExitResult::success()
+            if res.errors.is_empty() {
+                ExitResult::success()
+            } else {
+                ExitResult::from_command_result_errors(res.errors)
+            }
         };
 
         with_simple_sigint_handler(work)
