@@ -10,7 +10,6 @@
 
 
 import json
-import re
 from pathlib import Path
 from typing import List
 
@@ -215,38 +214,20 @@ async def test_rust_test_coverage_of_cpp_file_filtering_by_file_with_ligen_cpp_d
     assert paths == [file_to_collect_coverage], str(paths)
 
 
-def any_item_matches(items: List[str], regex: str) -> bool:
-    for i in items:
-        if re.fullmatch(regex, i):
-            return True
-    return False
-
-
 @buck_test(inplace=True)
 async def test_rust_test_coverage_of_cpp_file_filtering_by_header_with_cxx(
     buck: Buck, tmp_path: Path
 ) -> None:
+    header_name = "fbcode/testing_frameworks/code_coverage/rust/AdderWithHeaderCode.h"
     paths = await collect_coverage_for(
         buck,
         tmp_path,
         "testing_frameworks/code_coverage/rust:tests_with_code_in_cpp_header",
         folder_filter=[],
-        file_filter=[
-            "fbcode/testing_frameworks/code_coverage/rust/AdderWithHeaderCode.h"
-        ],
+        file_filter=[header_name],
     )
 
     # cxx.h is a CXX bridge framework header whose buck-out path now resolves
     # to a source path due to -fcoverage-prefix-map; filter it out.
     paths = [p for p in paths if not p.endswith("/cxx.h")]
-    assert len(paths) == 3, str(paths)
-    assert (
-        "fbcode/testing_frameworks/code_coverage/rust/AdderWithHeaderCode.cpp" in paths
-    ), str(paths)
-    assert (
-        "fbcode/testing_frameworks/code_coverage/rust/AdderWithHeaderCode.h" in paths
-    ), str(paths)
-    assert any_item_matches(
-        paths,
-        r"fbcode/testing_frameworks/code_coverage/rust/__tests_with_code_in_cpp_header-bridge_generated.cc__/[a-z0-9]+/out/generated.cc",
-    ), str(paths)
+    assert paths == [header_name]
