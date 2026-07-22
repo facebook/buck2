@@ -171,11 +171,11 @@ impl<'d> TrackedComputations<'d> {
     pub(crate) fn compute_many<'a, Computes, F, T>(
         &'a mut self,
         computes: Computes,
-    ) -> Vec<impl Future<Output = T> + use<'a, Computes, F, T>>
+    ) -> Vec<impl Future<Output = T> + use<'a, 'd, Computes, F, T>>
     where
         Computes: IntoIterator<Item = F>,
         Computes::IntoIter: ExactSizeIterator,
-        F: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
+        F: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, T> + Send,
     {
         let iter = computes.into_iter();
         let mut parallel = self.parallel_builder(iter.len());
@@ -187,12 +187,12 @@ impl<'d> TrackedComputations<'d> {
         compute1: Compute1,
         compute2: Compute2,
     ) -> (
-        impl Future<Output = T> + use<'a, Compute1, T, Compute2, U>,
-        impl Future<Output = U> + use<'a, Compute1, T, Compute2, U>,
+        impl Future<Output = T> + use<'a, 'd, Compute1, T, Compute2, U>,
+        impl Future<Output = U> + use<'a, 'd, Compute1, T, Compute2, U>,
     )
     where
-        Compute1: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
-        Compute2: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, U> + Send,
+        Compute1: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, T> + Send,
+        Compute2: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, U> + Send,
     {
         let mut parallel = self.parallel_builder(2);
         (parallel.compute(compute1), parallel.compute(compute2))
@@ -204,14 +204,14 @@ impl<'d> TrackedComputations<'d> {
         compute2: Compute2,
         compute3: Compute3,
     ) -> (
-        impl Future<Output = T> + use<'a, Compute1, T, Compute2, U, Compute3, V>,
-        impl Future<Output = U> + use<'a, Compute1, T, Compute2, U, Compute3, V>,
-        impl Future<Output = V> + use<'a, Compute1, T, Compute2, U, Compute3, V>,
+        impl Future<Output = T> + use<'a, 'd, Compute1, T, Compute2, U, Compute3, V>,
+        impl Future<Output = U> + use<'a, 'd, Compute1, T, Compute2, U, Compute3, V>,
+        impl Future<Output = V> + use<'a, 'd, Compute1, T, Compute2, U, Compute3, V>,
     )
     where
-        Compute1: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T> + Send,
-        Compute2: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, U> + Send,
-        Compute3: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, V> + Send,
+        Compute1: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, T> + Send,
+        Compute2: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, U> + Send,
+        Compute3: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, V> + Send,
     {
         let mut parallel = self.parallel_builder(3);
 
@@ -389,27 +389,33 @@ impl LinearRecomputeComputations<'_> {
 
 /// This is used to create the ctx for each individual parallel compute (from compute_many/compute_join/compute2/etc).
 ///
+/// The two lifetimes here are deliberately separate: `'d` is the lifetime parameter of the
+/// `DiceComputations<'d>` that the parallel closures receive (and hence the lifetime of values
+/// computed through them), while `'a` is the borrow of the parent ctx. Only the returned futures
+/// are tied to `'a`; the ctxs handed to the closures are not, which is what allows values they
+/// compute to be held past the end of the parallel compute.
+///
 /// For the Normal case, each parallel ctx records its deps into its own tracker, which the group
 /// owns and which the parent gathers up when the parallel compute is finished.
 ///
 /// For the Linear case, each parallel ctx will record deps into the shared RecordingDepsTracker.
-pub(crate) enum ModernComputeCtxParallelBuilder<'a> {
+pub(crate) enum ModernComputeCtxParallelBuilder<'a, 'd> {
     Normal {
         /// The branches, pre-built by `parallel_builder`; `compute` claims them in order.
         handout: std::slice::IterMut<'a, BranchEntry>,
     },
     Linear {
-        ctx_data: &'a ComputeCtx,
-        shared: &'a LinearShared,
+        ctx_data: &'d ComputeCtx,
+        shared: &'d LinearShared,
     },
 }
 
-impl<'a> ModernComputeCtxParallelBuilder<'a> {
+impl<'a, 'd: 'a> ModernComputeCtxParallelBuilder<'a, 'd> {
     fn compute<F, T>(&mut self, func: F) -> ParallelBranchFuture<'a, BoxFuture<'a, T>>
     where
         // We don't actually need this closure to be `Send` and so we don't require that here, but
         // all the public APIs still do. It's unclear what we should commit to.
-        F: for<'x> FnOnce(&'x mut DiceComputations<'a>) -> BoxFuture<'x, T>,
+        F: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, T>,
     {
         match self {
             ModernComputeCtxParallelBuilder::Normal { handout } => {
@@ -483,13 +489,13 @@ impl<'a> DepsTrackerHolder<'a> {
 }
 
 impl<'d> TrackedComputations<'d> {
-    fn parallel_builder(&mut self, len: usize) -> ModernComputeCtxParallelBuilder<'_> {
+    fn parallel_builder(&mut self, len: usize) -> ModernComputeCtxParallelBuilder<'_, 'd> {
         match self {
             TrackedComputations::Normal {
                 compute: ctx_data,
                 dep_trackers,
             } => {
-                let ctx_data: &ComputeCtx = ctx_data;
+                let ctx_data = *ctx_data;
                 let invalidation_paths = dep_trackers.invalidation_paths().dupe();
                 let group = ParallelArena::new((0..len).map(|_| {
                     TrackedComputations::Normal {
@@ -712,5 +718,130 @@ impl EvaluationData {
 
     pub(crate) fn into_activation_data(self) -> ActivationData {
         ActivationData::Evaluated(self.0)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::atomic::AtomicUsize;
+    use std::sync::atomic::Ordering;
+
+    use allocative::Allocative;
+    use async_trait::async_trait;
+    use derive_more::Display;
+    use dice_futures::cancellation::CancellationContext;
+    use dupe::Dupe;
+    use futures::FutureExt;
+    use pagable::Pagable;
+    use pagable::pagable_typetag;
+
+    use crate::DiceKeyDyn;
+    use crate::api::computations::DiceComputations;
+    use crate::api::cycles::DetectCycles;
+    use crate::api::injected::InjectedKey;
+    use crate::api::key::Key;
+    use crate::api::key::NoValueSerialize;
+    use crate::api::key::ValueSerialize;
+    use crate::dice::Dice;
+
+    #[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative, Pagable)]
+    #[display("{}", self.0)]
+    #[pagable_typetag(DiceKeyDyn)]
+    struct Injected(i32);
+
+    #[async_trait]
+    impl InjectedKey for Injected {
+        type Value = i32;
+
+        fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+            x == y
+        }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            NoValueSerialize::<Self::Value>::new()
+        }
+    }
+
+    /// Exercises the "cross-talk" escape hatch documented on `DiceComputations::compute_many`:
+    /// returning the `ctx` out of a parallel branch and only touching dependencies through it
+    /// *after* the join. Doing this is discouraged because it corrupts the recorded recompute
+    /// *structure* (the deps get attributed to the parallel group rather than to the sequential
+    /// region that actually accessed them), but the deps themselves must not be lost. If they were,
+    /// changing `Injected(0)` / `Injected(1)` below would leave `CrossTalk` stale instead of forcing
+    /// the recompute this test asserts.
+    #[tokio::test]
+    async fn cross_talk_still_tracks_deps() -> anyhow::Result<()> {
+        static COMPUTE_COUNT: AtomicUsize = AtomicUsize::new(0);
+
+        #[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative, Pagable)]
+        #[display("CrossTalk")]
+        #[pagable_typetag(DiceKeyDyn)]
+        struct CrossTalk;
+
+        #[async_trait]
+        impl Key for CrossTalk {
+            type Value = i32;
+
+            async fn compute(
+                &self,
+                ctx: &mut DiceComputations,
+                _cancellations: &CancellationContext,
+            ) -> Self::Value {
+                COMPUTE_COUNT.fetch_add(1, Ordering::SeqCst);
+
+                // Escape both branch ctxs out of the parallel region without accessing any deps
+                // inside it.
+                let (branch_a, branch_b) = ctx
+                    .compute2(
+                        |ctx| async move { ctx }.boxed(),
+                        |ctx| async move { ctx }.boxed(),
+                    )
+                    .await;
+
+                // Record the dependencies only now, through the escaped ctxs.
+                let a = branch_a.compute(&Injected(0)).await.unwrap();
+                let b = branch_b.compute(&Injected(1)).await.unwrap();
+
+                a + b
+            }
+
+            fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+                x == y
+            }
+
+            fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+                NoValueSerialize::<Self::Value>::new()
+            }
+        }
+
+        let dice = Dice::builder().build(DetectCycles::Disabled);
+
+        // Initial computation: 100 + 1 == 101, computed exactly once.
+        let mut updater = dice.updater();
+        updater.changed_to(vec![(Injected(0), 100), (Injected(1), 1)])?;
+        let ctx = updater.commit().await;
+        assert_eq!(*ctx.compute(&CrossTalk).await?, 101);
+        assert_eq!(COMPUTE_COUNT.load(Ordering::SeqCst), 1);
+
+        // Nothing changed: served from cache, no recompute.
+        let ctx = dice.updater().commit().await;
+        assert_eq!(*ctx.compute(&CrossTalk).await?, 101);
+        assert_eq!(COMPUTE_COUNT.load(Ordering::SeqCst), 1);
+
+        // Change the dep reached through the first escaped ctx: must recompute to 200 + 1 == 201.
+        let mut updater = dice.updater();
+        updater.changed_to(vec![(Injected(0), 200)])?;
+        let ctx = updater.commit().await;
+        assert_eq!(*ctx.compute(&CrossTalk).await?, 201);
+        assert_eq!(COMPUTE_COUNT.load(Ordering::SeqCst), 2);
+
+        // Change the dep reached through the second escaped ctx: must recompute to 200 + 2 == 202.
+        let mut updater = dice.updater();
+        updater.changed_to(vec![(Injected(1), 2)])?;
+        let ctx = updater.commit().await;
+        assert_eq!(*ctx.compute(&CrossTalk).await?, 202);
+        assert_eq!(COMPUTE_COUNT.load(Ordering::SeqCst), 3);
+
+        Ok(())
     }
 }
