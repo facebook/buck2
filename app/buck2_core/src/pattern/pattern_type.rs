@@ -46,7 +46,18 @@ enum PatternTypeError {
 /// This is either 'TargetLabel', 'ConfiguredTargetLabel', or
 /// 'ConfiguredProvidersLabel'
 pub trait PatternType:
-    Sized + Clone + Default + Display + Debug + PartialEq + Eq + Ord + Allocative + 'static
+    Send
+    + Sync
+    + Sized
+    + Clone
+    + Default
+    + Display
+    + Debug
+    + PartialEq
+    + Eq
+    + Ord
+    + Allocative
+    + 'static
 {
     const NAME: &'static str;
 

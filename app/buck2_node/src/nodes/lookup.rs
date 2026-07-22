@@ -19,7 +19,7 @@ use crate::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use crate::nodes::frontend::TargetGraphCalculation;
 use crate::nodes::unconfigured::TargetNode;
 
-pub struct TargetNodeLookup<'c, 'd>(pub &'c LinearRecomputeDiceComputations<'d>);
+pub struct TargetNodeLookup<'c, 'd>(pub LinearRecomputeDiceComputations<'c, 'd>);
 
 #[async_trait]
 impl AsyncNodeLookup<TargetNode> for TargetNodeLookup<'_, '_> {
@@ -28,7 +28,7 @@ impl AsyncNodeLookup<TargetNode> for TargetNodeLookup<'_, '_> {
     }
 }
 
-pub struct ConfiguredTargetNodeLookup<'c, 'd>(pub &'c LinearRecomputeDiceComputations<'d>);
+pub struct ConfiguredTargetNodeLookup<'c, 'd>(pub LinearRecomputeDiceComputations<'c, 'd>);
 
 #[async_trait]
 impl AsyncNodeLookup<ConfiguredTargetNode> for ConfiguredTargetNodeLookup<'_, '_> {

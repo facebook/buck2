@@ -22,6 +22,7 @@ use buck2_error::BuckErrorContext;
 use buck2_hash::BuckIndexMap;
 use dice::DiceComputations;
 use dupe::Dupe;
+use futures::FutureExt;
 use gazebo::prelude::VecExt;
 
 use crate::file_ops::trait_::DiceFileOps;
@@ -113,8 +114,8 @@ impl ResolveTargetPatterns {
         ctx: &mut DiceComputations<'_>,
         patterns: &[ParsedPattern<P>],
     ) -> buck2_error::Result<ResolvedPattern<P>> {
-        ctx.with_linear_recompute(|ctx| async move {
-            resolve_target_patterns_impl(patterns, &DiceFileOps(&ctx)).await
+        ctx.with_linear_recompute(|ctx| {
+            async move { resolve_target_patterns_impl(patterns, &DiceFileOps(ctx)).await }.boxed()
         })
         .await
     }
@@ -124,8 +125,11 @@ impl ResolveTargetPatterns {
         ctx: &mut DiceComputations<'_>,
         patterns: &[ParsedPatternWithModifiers<P>],
     ) -> buck2_error::Result<ResolvedPattern<P>> {
-        ctx.with_linear_recompute(|ctx| async move {
-            resolve_target_patterns_with_modifiers_impl(patterns, &DiceFileOps(&ctx)).await
+        ctx.with_linear_recompute(|ctx| {
+            async move {
+                resolve_target_patterns_with_modifiers_impl(patterns, &DiceFileOps(ctx)).await
+            }
+            .boxed()
         })
         .await
     }

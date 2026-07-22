@@ -212,27 +212,30 @@ pub(crate) fn build<'v>(
                                 async move {
                                     let target = target.clone();
 
-                                    ctx.with_linear_recompute(|ctx| async move {
-                                        build_configured_label(
-                                            &consumer,
-                                            &ctx,
-                                            (materializations, uploads).into(),
-                                            target,
-                                            &ProvidersToBuild {
-                                                default: true,
-                                                default_other: true,
-                                                run: true,
-                                                tests: true,
-                                            }, // TODO support skipping/configuring?
-                                            BuildConfiguredLabelOptions {
-                                                skippable: false,
-                                                graph_properties: Default::default(),
-                                                // bxl does not need the build result's RunInfo command line.
-                                                return_run_args: false,
-                                            },
-                                            None, // TODO: support timeouts?
-                                        )
-                                        .await
+                                    ctx.with_linear_recompute(|ctx| {
+                                        async move {
+                                            build_configured_label(
+                                                &consumer,
+                                                ctx,
+                                                (materializations, uploads).into(),
+                                                target,
+                                                &ProvidersToBuild {
+                                                    default: true,
+                                                    default_other: true,
+                                                    run: true,
+                                                    tests: true,
+                                                }, // TODO support skipping/configuring?
+                                                BuildConfiguredLabelOptions {
+                                                    skippable: false,
+                                                    graph_properties: Default::default(),
+                                                    // bxl does not need the build result's RunInfo command line.
+                                                    return_run_args: false,
+                                                },
+                                                None, // TODO: support timeouts?
+                                            )
+                                            .await
+                                        }
+                                        .boxed()
                                     })
                                     .await
                                 }

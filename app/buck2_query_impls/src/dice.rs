@@ -188,7 +188,7 @@ impl LiteralParser {
 /// A Uquery delegate that resolves TargetNodes with the provided
 /// InterpreterCalculation.
 pub(crate) struct DiceQueryDelegate<'c, 'd> {
-    ctx: &'c LinearRecomputeDiceComputations<'d>,
+    ctx: LinearRecomputeDiceComputations<'c, 'd>,
     query_data: Arc<DiceQueryData>,
 }
 
@@ -234,7 +234,7 @@ impl DiceQueryData {
 
 impl<'c, 'd> DiceQueryDelegate<'c, 'd> {
     pub(crate) fn new(
-        ctx: &'c LinearRecomputeDiceComputations<'d>,
+        ctx: LinearRecomputeDiceComputations<'c, 'd>,
         query_data: Arc<DiceQueryData>,
     ) -> Self {
         Self { ctx, query_data }
@@ -298,7 +298,7 @@ impl UqueryDelegate for DiceQueryDelegate<'_, '_> {
         Ok(FileSet::new(buck_indexset![FileNode(cell_path)]))
     }
 
-    fn linear_dice_computations(&self) -> &LinearRecomputeDiceComputations<'_> {
+    fn linear_dice_computations(&self) -> LinearRecomputeDiceComputations<'_, '_> {
         self.ctx
     }
 
@@ -383,7 +383,7 @@ impl QueryLiterals<TargetNode> for DiceQueryData {
 }
 
 pub(crate) async fn get_dice_query_delegate<'a, 'c: 'a, 'd>(
-    ctx: &'c LinearRecomputeDiceComputations<'d>,
+    ctx: LinearRecomputeDiceComputations<'c, 'd>,
     working_dir: &'a ProjectRelativePath,
     global_cfg_options: GlobalCfgOptions,
 ) -> buck2_error::Result<DiceQueryDelegate<'c, 'd>> {

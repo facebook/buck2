@@ -17,6 +17,7 @@ use buck2_node::nodes::configured_ref::ConfiguredGraphNodeRef;
 use buck2_query::query::syntax::simple::eval::evaluator::QueryEvaluator;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use dice::DiceComputations;
+use futures::FutureExt;
 
 use crate::analysis::configured_graph::AnalysisConfiguredGraphQueryDelegate;
 use crate::analysis::configured_graph::AnalysisDiceQueryDelegate;
@@ -33,19 +34,22 @@ async fn eval_analysis_query(
     query: &str,
     resolved_literals: HashMap<String, ConfiguredTargetNode>,
 ) -> buck2_error::Result<TargetSet<ConfiguredGraphNodeRef>> {
-    ctx.with_linear_recompute(|ctx| async move {
-        let dice_query_delegate = Arc::new(AnalysisDiceQueryDelegate { ctx: &ctx });
-        let delegate = AnalysisConfiguredGraphQueryDelegate {
-            dice_query_delegate,
-            resolved_literals,
-        };
+    ctx.with_linear_recompute(|ctx| {
+        async move {
+            let dice_query_delegate = Arc::new(AnalysisDiceQueryDelegate { ctx });
+            let delegate = AnalysisConfiguredGraphQueryDelegate {
+                dice_query_delegate,
+                resolved_literals,
+            };
 
-        let functions = ConfiguredGraphQueryEnvironment::functions();
-        let env = ConfiguredGraphQueryEnvironment::new(&delegate);
-        let evaluator = QueryEvaluator::new(&env, &functions);
+            let functions = ConfiguredGraphQueryEnvironment::functions();
+            let env = ConfiguredGraphQueryEnvironment::new(&delegate);
+            let evaluator = QueryEvaluator::new(&env, &functions);
 
-        let result = evaluator.eval_query(query).await?;
-        result.try_into_targets()
+            let result = evaluator.eval_query(query).await?;
+            result.try_into_targets()
+        }
+        .boxed()
     })
     .await
 }

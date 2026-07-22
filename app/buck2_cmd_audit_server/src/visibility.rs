@@ -25,6 +25,7 @@ use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use dice::DiceTransaction;
 use dupe::Dupe;
+use futures::FutureExt;
 
 use crate::ServerAuditSubcommand;
 
@@ -49,16 +50,19 @@ async fn verify_visibility(
     };
 
     ctx.ctx()
-        .with_linear_recompute(|ctx| async move {
-            let lookup = TargetNodeLookup(&ctx);
+        .with_linear_recompute(|ctx| {
+            async move {
+                let lookup = TargetNodeLookup(ctx);
 
-            async_depth_first_postorder_traversal(
-                &lookup,
-                targets.iter_names(),
-                QueryTargetDepsSuccessors,
-                visit,
-            )
-            .await
+                async_depth_first_postorder_traversal(
+                    &lookup,
+                    targets.iter_names(),
+                    QueryTargetDepsSuccessors,
+                    visit,
+                )
+                .await
+            }
+            .boxed()
         })
         .await?;
 

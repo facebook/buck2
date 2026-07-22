@@ -54,11 +54,14 @@ pub fn find_package_roots_stream(
                 // ignore because the errors will be sent back via the stream
                 let _ignored = ctx
                     .ctx()
-                    .with_linear_recompute(|ctx| async move {
-                        collect_package_roots(&DiceFileOps(&ctx), paths, |res| {
-                            packages_tx.unbounded_send(res)
-                        })
-                        .await
+                    .with_linear_recompute(|ctx| {
+                        async move {
+                            collect_package_roots(&DiceFileOps(ctx), paths, |res| {
+                                packages_tx.unbounded_send(res)
+                            })
+                            .await
+                        }
+                        .boxed()
                     })
                     .await;
 

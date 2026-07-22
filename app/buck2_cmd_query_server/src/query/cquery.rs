@@ -39,6 +39,7 @@ use buck2_util::truncate::truncate;
 use dice::DiceTransaction;
 use dice::LinearRecomputeDiceComputations;
 use dupe::Dupe;
+use futures::FutureExt;
 
 use crate::query::printer::ProviderLookUp;
 use crate::query::printer::QueryResultPrinter;
@@ -137,7 +138,7 @@ impl ServerCommandTemplate for CqueryServerCommand {
 
 async fn cquery(
     server_ctx: &dyn ServerCommandContextTrait,
-    mut stdout: impl Write,
+    mut stdout: impl Write + Send,
     ctx: DiceTransaction,
     request: &CqueryRequest,
 ) -> buck2_error::Result<CqueryResponse> {
@@ -222,36 +223,39 @@ async fn cquery(
     }
 
     ctx.ctx()
-        .with_linear_recompute(|ctx| async move {
-            let should_print_providers = if *show_providers {
-                ShouldPrintProviders::Yes(&ctx as &dyn ProviderLookUp<ConfiguredTargetNode>)
-            } else {
-                ShouldPrintProviders::No
-            };
+        .with_linear_recompute(|ctx| {
+            async move {
+                let should_print_providers = if *show_providers {
+                    ShouldPrintProviders::Yes(&ctx as &dyn ProviderLookUp<ConfiguredTargetNode>)
+                } else {
+                    ShouldPrintProviders::No
+                };
 
-            match query_result {
-                QueryEvaluationResult::Single(targets) => {
-                    output_configuration
-                        .print_single_output(
-                            &mut stdout,
-                            targets,
-                            target_call_stacks,
-                            should_print_providers,
-                        )
-                        .await?
-                }
-                QueryEvaluationResult::Multiple(results) => {
-                    output_configuration
-                        .print_multi_output(
-                            &mut stdout,
-                            results,
-                            target_call_stacks,
-                            should_print_providers,
-                        )
-                        .await?
-                }
-            };
-            buck2_error::Ok(())
+                match query_result {
+                    QueryEvaluationResult::Single(targets) => {
+                        output_configuration
+                            .print_single_output(
+                                &mut stdout,
+                                targets,
+                                target_call_stacks,
+                                should_print_providers,
+                            )
+                            .await?
+                    }
+                    QueryEvaluationResult::Multiple(results) => {
+                        output_configuration
+                            .print_multi_output(
+                                &mut stdout,
+                                results,
+                                target_call_stacks,
+                                should_print_providers,
+                            )
+                            .await?
+                    }
+                };
+                buck2_error::Ok(())
+            }
+            .boxed()
         })
         .await?;
 
@@ -259,7 +263,7 @@ async fn cquery(
 }
 
 #[async_trait]
-impl ProviderLookUp<ConfiguredTargetNode> for LinearRecomputeDiceComputations<'_> {
+impl ProviderLookUp<ConfiguredTargetNode> for LinearRecomputeDiceComputations<'_, '_> {
     async fn lookup(
         &self,
         t: &ConfiguredTargetNode,

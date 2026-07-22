@@ -100,7 +100,7 @@ pub(crate) trait UqueryDelegate: Send + Sync {
         path: &CellPath,
     ) -> buck2_error::Result<Vec<PackageLabel>>;
 
-    fn linear_dice_computations(&self) -> &LinearRecomputeDiceComputations<'_>;
+    fn linear_dice_computations(&self) -> LinearRecomputeDiceComputations<'_, '_>;
 
     fn ctx(&self) -> DiceComputations<'_>;
 }
@@ -661,7 +661,7 @@ async fn first_order_imports(
 // Uquery and Cquery share ImportPath traversal logic, so we move the logic to this function.
 pub(crate) async fn get_transitive_loads(
     top_level_imports: Vec<ImportPath>,
-    ctx: &LinearRecomputeDiceComputations<'_>,
+    ctx: LinearRecomputeDiceComputations<'_, '_>,
 ) -> buck2_error::Result<Vec<ImportPath>> {
     #[derive(Clone, Dupe)]
     struct Node(Arc<ImportPath>);
@@ -698,7 +698,7 @@ pub(crate) async fn get_transitive_loads(
     let mut imports: Vec<ImportPath> = Vec::new();
 
     struct Delegate<'c, 'a> {
-        ctx: &'c LinearRecomputeDiceComputations<'a>,
+        ctx: LinearRecomputeDiceComputations<'c, 'a>,
     }
 
     let visit = |target: Node| {

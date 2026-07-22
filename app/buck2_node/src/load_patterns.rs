@@ -48,14 +48,14 @@ enum BuildErrors {
 }
 
 struct Builder<'c, 'd> {
-    ctx: &'c LinearRecomputeDiceComputations<'d>,
+    ctx: LinearRecomputeDiceComputations<'c, 'd>,
     already_loading: std::collections::HashSet<PackageLabel, BuckHasherBuilder>,
     load_package_futs:
         FuturesUnordered<BoxFuture<'c, (PackageLabel, buck2_error::Result<Arc<EvaluationResult>>)>>,
 }
 
 impl Builder<'_, '_> {
-    pub fn new<'c, 'd>(ctx: &'c LinearRecomputeDiceComputations<'d>) -> Builder<'c, 'd> {
+    pub fn new<'c, 'd>(ctx: LinearRecomputeDiceComputations<'c, 'd>) -> Builder<'c, 'd> {
         Builder {
             ctx,
             already_loading: std::collections::HashSet::default(),
@@ -81,12 +81,12 @@ impl Builder<'_, '_> {
     }
 }
 
-async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
-    ctx: &'c LinearRecomputeDiceComputations<'_>,
+async fn resolve_patterns_and_load_buildfiles<'c, 'd, T: PatternType>(
+    ctx: LinearRecomputeDiceComputations<'c, 'd>,
     parsed_patterns: Vec<ParsedPattern<T>>,
 ) -> buck2_error::Result<(
     ResolvedPattern<T>,
-    impl Stream<Item = (PackageLabel, buck2_error::Result<Arc<EvaluationResult>>)> + use<'c, T>,
+    impl Stream<Item = (PackageLabel, buck2_error::Result<Arc<EvaluationResult>>)> + use<'c, 'd, T>,
 )> {
     let mut spec = ResolvedPattern::<T>::new();
     let mut recursive_packages = Vec::new();
@@ -119,12 +119,12 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
     Ok((spec, builder.load_package_futs))
 }
 
-async fn resolve_patterns_with_modifiers_and_load_buildfiles<'c, T: PatternType>(
-    ctx: &'c LinearRecomputeDiceComputations<'_>,
+async fn resolve_patterns_with_modifiers_and_load_buildfiles<'c, 'd, T: PatternType>(
+    ctx: LinearRecomputeDiceComputations<'c, 'd>,
     parsed_patterns_with_modifiers: Vec<ParsedPatternWithModifiers<T>>,
 ) -> buck2_error::Result<(
     ResolvedPattern<T>,
-    impl Stream<Item = (PackageLabel, buck2_error::Result<Arc<EvaluationResult>>)> + use<'c, T>,
+    impl Stream<Item = (PackageLabel, buck2_error::Result<Arc<EvaluationResult>>)> + use<'c, 'd, T>,
 )> {
     let mut spec = ResolvedPattern::<T>::new();
 
@@ -331,17 +331,20 @@ pub async fn load_patterns<T: PatternType>(
     parsed_patterns: Vec<ParsedPattern<T>>,
     skip_missing_targets: MissingTargetBehavior,
 ) -> buck2_error::Result<LoadedPatterns<T>> {
-    ctx.with_linear_recompute(|ctx| async move {
-        let (spec, mut load_package_futs) =
-            resolve_patterns_and_load_buildfiles(&ctx, parsed_patterns).await?;
+    ctx.with_linear_recompute(|ctx| {
+        async move {
+            let (spec, mut load_package_futs) =
+                resolve_patterns_and_load_buildfiles(ctx, parsed_patterns).await?;
 
-        let mut results: BTreeMap<PackageLabel, buck2_error::Result<Arc<EvaluationResult>>> =
-            BTreeMap::new();
-        while let Some((pkg, load_res)) = load_package_futs.next().await {
-            results.insert(pkg, load_res);
+            let mut results: BTreeMap<PackageLabel, buck2_error::Result<Arc<EvaluationResult>>> =
+                BTreeMap::new();
+            while let Some((pkg, load_res)) = load_package_futs.next().await {
+                results.insert(pkg, load_res);
+            }
+
+            apply_spec(spec, results, skip_missing_targets)
         }
-
-        apply_spec(spec, results, skip_missing_targets)
+        .boxed()
     })
     .await
 }
@@ -351,17 +354,20 @@ pub async fn load_patterns_with_modifiers<T: PatternType>(
     parsed_patterns: Vec<ParsedPatternWithModifiers<T>>,
     skip_missing_targets: MissingTargetBehavior,
 ) -> buck2_error::Result<LoadedPatterns<T>> {
-    ctx.with_linear_recompute(|ctx| async move {
-        let (spec, mut load_package_futs) =
-            resolve_patterns_with_modifiers_and_load_buildfiles(&ctx, parsed_patterns).await?;
+    ctx.with_linear_recompute(|ctx| {
+        async move {
+            let (spec, mut load_package_futs) =
+                resolve_patterns_with_modifiers_and_load_buildfiles(ctx, parsed_patterns).await?;
 
-        let mut results: BTreeMap<PackageLabel, buck2_error::Result<Arc<EvaluationResult>>> =
-            BTreeMap::new();
-        while let Some((pkg, load_res)) = load_package_futs.next().await {
-            results.insert(pkg, load_res);
+            let mut results: BTreeMap<PackageLabel, buck2_error::Result<Arc<EvaluationResult>>> =
+                BTreeMap::new();
+            while let Some((pkg, load_res)) = load_package_futs.next().await {
+                results.insert(pkg, load_res);
+            }
+
+            apply_spec(spec, results, skip_missing_targets)
         }
-
-        apply_spec(spec, results, skip_missing_targets)
+        .boxed()
     })
     .await
 }

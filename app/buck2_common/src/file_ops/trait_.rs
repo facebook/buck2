@@ -48,7 +48,7 @@ pub trait FileOps: Send + Sync {
 /// A wrapper around DiceComputations for places that want to interact with a dyn FileOps.
 ///
 /// In general, it's better to use DiceFileComputations directly.
-pub struct DiceFileOps<'c, 'd>(pub &'c LinearRecomputeDiceComputations<'d>);
+pub struct DiceFileOps<'c, 'd>(pub LinearRecomputeDiceComputations<'c, 'd>);
 
 #[async_trait]
 impl FileOps for DiceFileOps<'_, '_> {

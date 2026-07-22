@@ -43,6 +43,7 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dice::LinearRecomputeDiceComputations;
 use dupe::Dupe;
+use futures::FutureExt;
 use futures::StreamExt;
 use futures::stream::FuturesOrdered;
 use gazebo::prelude::*;
@@ -95,7 +96,7 @@ async fn get_transitive_includes(
     }
 
     struct Lookup<'a, 'd> {
-        ctx: &'a LinearRecomputeDiceComputations<'d>,
+        ctx: LinearRecomputeDiceComputations<'a, 'd>,
     }
 
     #[async_trait]
@@ -131,16 +132,19 @@ async fn get_transitive_includes(
         }
     }
 
-    ctx.with_linear_recompute(|ctx| async move {
-        let lookup = Lookup { ctx: &ctx };
+    ctx.with_linear_recompute(|ctx| {
+        async move {
+            let lookup = Lookup { ctx };
 
-        async_depth_first_postorder_traversal(
-            &lookup,
-            load_result.imports().map(NodeRef::ref_cast),
-            Delegate,
-            visit,
-        )
-        .await
+            async_depth_first_postorder_traversal(
+                &lookup,
+                load_result.imports().map(NodeRef::ref_cast),
+                Delegate,
+                visit,
+            )
+            .await
+        }
+        .boxed()
     })
     .await?;
     Ok(imports)

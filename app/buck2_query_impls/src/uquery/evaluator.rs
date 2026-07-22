@@ -66,7 +66,7 @@ impl UqueryEvaluator<'_, '_> {
 /// Evaluates some query expression. TargetNodes are resolved via the interpreter from
 /// the provided DiceCtx.
 pub(crate) async fn get_uquery_evaluator<'a, 'c: 'a, 'd>(
-    ctx: &'c LinearRecomputeDiceComputations<'d>,
+    ctx: LinearRecomputeDiceComputations<'c, 'd>,
     working_dir: &'a ProjectRelativePath,
 ) -> buck2_error::Result<UqueryEvaluator<'c, 'd>> {
     let dice_query_delegate =

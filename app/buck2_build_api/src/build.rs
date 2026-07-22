@@ -552,7 +552,7 @@ pub struct BuildConfiguredLabelOptions {
 
 pub async fn build_configured_label(
     event_consumer: &dyn BuildEventConsumer,
-    ctx: &LinearRecomputeDiceComputations<'_>,
+    ctx: LinearRecomputeDiceComputations<'_, '_>,
     materialization_and_upload: MaterializationAndUploadContext,
     providers_label: ConfiguredProvidersLabel,
     providers_to_build: &ProvidersToBuild,
@@ -577,14 +577,14 @@ pub async fn build_configured_label(
     }
 }
 
-async fn build_configured_label_inner<'a>(
+async fn build_configured_label_inner(
     event_consumer: &dyn BuildEventConsumer,
-    ctx: &'a LinearRecomputeDiceComputations<'_>,
+    ctx: LinearRecomputeDiceComputations<'_, '_>,
     materialization_and_upload: MaterializationAndUploadContext,
     providers_label: ConfiguredProvidersLabel,
     providers_to_build: &ProvidersToBuild,
     opts: BuildConfiguredLabelOptions,
-    timeout_observer: Option<&'a Arc<dyn LivelinessObserver>>,
+    timeout_observer: Option<&'_ Arc<dyn LivelinessObserver>>,
 ) -> buck2_error::Result<()> {
     let outputs = match get_outputs_for_top_level_target(
         &mut ctx.get(),

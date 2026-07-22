@@ -28,6 +28,7 @@ use buck2_query::query::syntax::simple::functions::helpers::CapturedExpr;
 use dice::DiceComputations;
 use dice::LinearRecomputeDiceComputations;
 use dupe::Dupe;
+use futures::FutureExt;
 
 use crate::dice::DiceQueryData;
 use crate::dice::DiceQueryDelegate;
@@ -45,7 +46,7 @@ struct BxlUqueryFunctionsImpl {
 impl BxlUqueryFunctionsImpl {
     async fn uquery_delegate<'c, 'd>(
         &self,
-        dice: &'c LinearRecomputeDiceComputations<'d>,
+        dice: LinearRecomputeDiceComputations<'c, 'd>,
     ) -> buck2_error::Result<DiceQueryDelegate<'c, 'd>> {
         let cell_resolver = dice.get().get_cell_resolver().await?;
         let cell_alias_resolver = dice
@@ -83,16 +84,19 @@ impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
         to: &TargetSet<TargetNode>,
         captured_expr: Option<&CapturedExpr>,
     ) -> buck2_error::Result<TargetSet<TargetNode>> {
-        dice.with_linear_recompute(|dice| async move {
-            Ok(uquery_functions()
-                .allpaths(
-                    &self.uquery_env(&self.uquery_delegate(&dice).await?).await?,
-                    &DefaultQueryFunctionsModule::new(),
-                    from,
-                    to,
-                    captured_expr,
-                )
-                .await?)
+        dice.with_linear_recompute(|dice| {
+            async move {
+                Ok(uquery_functions()
+                    .allpaths(
+                        &self.uquery_env(&self.uquery_delegate(dice).await?).await?,
+                        &DefaultQueryFunctionsModule::new(),
+                        from,
+                        to,
+                        captured_expr,
+                    )
+                    .await?)
+            }
+            .boxed()
         })
         .await
     }
@@ -103,16 +107,19 @@ impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
         to: &TargetSet<TargetNode>,
         captured_expr: Option<&CapturedExpr>,
     ) -> buck2_error::Result<TargetSet<TargetNode>> {
-        dice.with_linear_recompute(|dice| async move {
-            Ok(uquery_functions()
-                .somepath(
-                    &self.uquery_env(&self.uquery_delegate(&dice).await?).await?,
-                    &DefaultQueryFunctionsModule::new(),
-                    from,
-                    to,
-                    captured_expr,
-                )
-                .await?)
+        dice.with_linear_recompute(|dice| {
+            async move {
+                Ok(uquery_functions()
+                    .somepath(
+                        &self.uquery_env(&self.uquery_delegate(dice).await?).await?,
+                        &DefaultQueryFunctionsModule::new(),
+                        from,
+                        to,
+                        captured_expr,
+                    )
+                    .await?)
+            }
+            .boxed()
         })
         .await
     }
@@ -124,16 +131,19 @@ impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
         captured_expr: Option<&CapturedExpr>,
     ) -> buck2_error::Result<TargetSet<TargetNode>> {
         Ok(dice
-            .with_linear_recompute(|dice| async move {
-                uquery_functions()
-                    .deps(
-                        &self.uquery_env(&self.uquery_delegate(&dice).await?).await?,
-                        &DefaultQueryFunctionsModule::new(),
-                        targets,
-                        depth,
-                        captured_expr,
-                    )
-                    .await
+            .with_linear_recompute(|dice| {
+                async move {
+                    uquery_functions()
+                        .deps(
+                            &self.uquery_env(&self.uquery_delegate(dice).await?).await?,
+                            &DefaultQueryFunctionsModule::new(),
+                            targets,
+                            depth,
+                            captured_expr,
+                        )
+                        .await
+                }
+                .boxed()
             })
             .await?)
     }
@@ -146,17 +156,20 @@ impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
         captured_expr: Option<&CapturedExpr>,
     ) -> buck2_error::Result<TargetSet<TargetNode>> {
         Ok(dice
-            .with_linear_recompute(|dice| async move {
-                uquery_functions()
-                    .rdeps(
-                        &self.uquery_env(&self.uquery_delegate(&dice).await?).await?,
-                        &DefaultQueryFunctionsModule::new(),
-                        universe,
-                        targets,
-                        depth,
-                        captured_expr,
-                    )
-                    .await
+            .with_linear_recompute(|dice| {
+                async move {
+                    uquery_functions()
+                        .rdeps(
+                            &self.uquery_env(&self.uquery_delegate(dice).await?).await?,
+                            &DefaultQueryFunctionsModule::new(),
+                            universe,
+                            targets,
+                            depth,
+                            captured_expr,
+                        )
+                        .await
+                }
+                .boxed()
             })
             .await?)
     }
@@ -166,13 +179,16 @@ impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
         targets: &TargetSet<TargetNode>,
     ) -> buck2_error::Result<TargetSet<TargetNode>> {
         Ok(dice
-            .with_linear_recompute(|dice| async move {
-                uquery_functions()
-                    .testsof(
-                        &self.uquery_env(&self.uquery_delegate(&dice).await?).await?,
-                        targets,
-                    )
-                    .await
+            .with_linear_recompute(|dice| {
+                async move {
+                    uquery_functions()
+                        .testsof(
+                            &self.uquery_env(&self.uquery_delegate(dice).await?).await?,
+                            targets,
+                        )
+                        .await
+                }
+                .boxed()
             })
             .await?)
     }
@@ -182,13 +198,16 @@ impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
         file_set: &FileSet,
     ) -> buck2_error::Result<TargetSet<TargetNode>> {
         Ok(dice
-            .with_linear_recompute(|dice| async move {
-                uquery_functions()
-                    .owner(
-                        &self.uquery_env(&self.uquery_delegate(&dice).await?).await?,
-                        file_set,
-                    )
-                    .await
+            .with_linear_recompute(|dice| {
+                async move {
+                    uquery_functions()
+                        .owner(
+                            &self.uquery_env(&self.uquery_delegate(dice).await?).await?,
+                            file_set,
+                        )
+                        .await
+                }
+                .boxed()
             })
             .await?)
     }
@@ -198,13 +217,16 @@ impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
         file_set: &FileSet,
     ) -> buck2_error::Result<TargetSet<TargetNode>> {
         Ok(dice
-            .with_linear_recompute(|dice| async move {
-                uquery_functions()
-                    .targets_in_buildfile(
-                        &self.uquery_env(&self.uquery_delegate(&dice).await?).await?,
-                        file_set,
-                    )
-                    .await
+            .with_linear_recompute(|dice| {
+                async move {
+                    uquery_functions()
+                        .targets_in_buildfile(
+                            &self.uquery_env(&self.uquery_delegate(dice).await?).await?,
+                            file_set,
+                        )
+                        .await
+                }
+                .boxed()
             })
             .await?)
     }
@@ -214,13 +236,16 @@ impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
         universe: &TargetSet<TargetNode>,
     ) -> buck2_error::Result<FileSet> {
         Ok(dice
-            .with_linear_recompute(|dice| async move {
-                uquery_functions()
-                    .allbuildfiles(
-                        &self.uquery_env(&self.uquery_delegate(&dice).await?).await?,
-                        universe,
-                    )
-                    .await
+            .with_linear_recompute(|dice| {
+                async move {
+                    uquery_functions()
+                        .allbuildfiles(
+                            &self.uquery_env(&self.uquery_delegate(dice).await?).await?,
+                            universe,
+                        )
+                        .await
+                }
+                .boxed()
             })
             .await?)
     }
@@ -231,14 +256,17 @@ impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
         argset: &FileSet,
     ) -> buck2_error::Result<FileSet> {
         Ok(dice
-            .with_linear_recompute(|dice| async move {
-                uquery_functions()
-                    .rbuildfiles(
-                        &self.uquery_env(&self.uquery_delegate(&dice).await?).await?,
-                        universe,
-                        argset,
-                    )
-                    .await
+            .with_linear_recompute(|dice| {
+                async move {
+                    uquery_functions()
+                        .rbuildfiles(
+                            &self.uquery_env(&self.uquery_delegate(dice).await?).await?,
+                            universe,
+                            argset,
+                        )
+                        .await
+                }
+                .boxed()
             })
             .await?)
     }

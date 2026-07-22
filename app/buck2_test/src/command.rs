@@ -1332,16 +1332,19 @@ impl<'a, 'e> TestDriver<'a, 'e> {
 
             let result = match ctx
                 .ctx()
-                .with_linear_recompute(|ctx| async move {
-                    build_target_result(
-                        &ctx,
-                        state.label_filtering,
-                        build_label,
-                        modifiers_dupe,
-                        state.build_default_info,
-                        state.build_run_info,
-                    )
-                    .await
+                .with_linear_recompute(|ctx| {
+                    async move {
+                        build_target_result(
+                            ctx,
+                            state.label_filtering,
+                            build_label,
+                            modifiers_dupe,
+                            state.build_default_info,
+                            state.build_run_info,
+                        )
+                        .await
+                    }
+                    .boxed()
                 })
                 .await
             {
@@ -1417,7 +1420,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
 }
 
 async fn build_target_result(
-    ctx: &LinearRecomputeDiceComputations<'_>,
+    ctx: LinearRecomputeDiceComputations<'_, '_>,
     label_filtering: &TestLabelFiltering,
     label: ConfiguredProvidersLabel,
     modifiers: Modifiers,

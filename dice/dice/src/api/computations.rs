@@ -31,7 +31,7 @@ use crate::api::key::Key;
 use crate::api::key::NoValueSerialize;
 use crate::api::key::ValueSerialize;
 use crate::api::user_data::UserComputationData;
-use crate::epoch::ctx::LinearRecomputeComputations;
+use crate::epoch::ctx::LinearShared;
 use crate::epoch::ctx::ModernDiceComputationsData;
 use crate::epoch::ctx::TrackedComputations;
 use crate::key::DiceKeyDyn;
@@ -134,13 +134,12 @@ impl<'d> DiceComputations<'d> {
     /// ```
     ///
     /// In this example, the recomputation of all of keys2 and keys3 would be done linearly, but keys1 and keys4 would be recomputed in parallel.
-    pub fn with_linear_recompute<'a, Func, Fut, T>(
+    pub fn with_linear_recompute<'a, Func, T>(
         &'a mut self,
         func: Func,
-    ) -> impl Future<Output = T> + use<'a, Func, Fut, T>
+    ) -> impl Future<Output = T> + use<'a, 'd, Func, T>
     where
-        Func: FnOnce(LinearRecomputeDiceComputations<'a>) -> Fut,
-        Fut: Future<Output = T>,
+        Func: for<'x> FnOnce(LinearRecomputeDiceComputations<'x, 'a>) -> BoxFuture<'x, T>,
     {
         self.0.with_linear_recompute(func)
     }
@@ -435,20 +434,21 @@ impl<'d> DiceComputations<'d> {
     }
 }
 
-pub struct LinearRecomputeDiceComputations<'a>(pub(crate) LinearRecomputeComputations<'a>);
+#[derive(Copy, Clone, Dupe)]
+pub struct LinearRecomputeDiceComputations<'l, 'a>(pub(crate) &'l LinearShared<'a>);
 
-impl LinearRecomputeDiceComputations<'_> {
-    pub fn get(&self) -> DiceComputations<'_> {
+impl<'l, 'a> LinearRecomputeDiceComputations<'l, 'a> {
+    pub fn get(&self) -> DiceComputations<'l> {
         self.0.get()
     }
 
     /// Spawn a computation on a new tokio task.
     ///
     /// See [`DiceComputations::spawned`] for details.
-    pub fn spawned<'a, T, Compute>(
-        &'a self,
+    pub fn spawned<T, Compute>(
+        &self,
         closure: Compute,
-    ) -> impl Future<Output = T> + use<'a, Compute, T>
+    ) -> impl Future<Output = T> + use<'a, 'l, Compute, T>
     where
         T: Send + 'static,
         Compute: (for<'x> FnOnce(
@@ -458,7 +458,7 @@ impl LinearRecomputeDiceComputations<'_> {
             + Send
             + 'static,
     {
-        OwningFuture::new(self.get(), |ctx| ctx.spawned(closure).boxed())
+        OwningFuture::new(self.get(), |ctx| ctx.0.spawned(closure).boxed())
     }
 }
 

@@ -17,6 +17,7 @@ use std::sync::Arc as StdArc;
 use dice_error::DiceError;
 use dice_error::DiceResult;
 use dice_futures::cancellation::CancellationContext;
+use dice_futures::owning_future::OwningFuture;
 use dice_futures::spawn::spawn_dropcancel;
 use dupe::Dupe;
 use futures::FutureExt;
@@ -222,41 +223,34 @@ impl<'d> TrackedComputations<'d> {
         )
     }
 
-    pub(crate) fn with_linear_recompute<'a, Func, Fut, T>(
+    pub(crate) fn with_linear_recompute<'a, Func, T>(
         &'a mut self,
         func: Func,
-    ) -> impl Future<Output = T> + use<'a, Func, Fut, T>
+    ) -> impl Future<Output = T> + use<'a, 'd, Func, T>
     where
-        Func: FnOnce(LinearRecomputeDiceComputations<'a>) -> Fut,
-        Fut: Future<Output = T>,
+        Func: for<'x> FnOnce(LinearRecomputeDiceComputations<'x, 'a>) -> BoxFuture<'x, T>,
     {
-        let (ctx_data, self_dep_trackers) = self.unpack();
-        let shared = Arc::new(LinearShared {
+        let (compute_ctx, self_dep_trackers) = self.unpack();
+        let shared = LinearShared {
+            compute_ctx,
             dep_trackers: Mutex::new(RecordingDepsTracker::new(
                 // TODO(cjhopman): if inspected during the with_linear_recompute, this will be missing some invalidation paths.
                 TrackedInvalidationPaths::clean(),
             )),
             branch_ctxs: LinearRecomputeArena::new(),
-        });
-        let fut = func(LinearRecomputeDiceComputations(
-            LinearRecomputeComputations {
-                ctx_data,
-                shared: shared.dupe(),
-            },
-        ));
-
-        fut.map(move |v| {
+        };
+        OwningFuture::new(shared, |shared| {
+            func(LinearRecomputeDiceComputations(shared))
+        })
+        .map_taking_data(move |res, shared| {
             let mut self_dep_trackers = self_dep_trackers.lock();
-            // FIXME(JakobDegen): This unwrap is plausibly not fine, there's nothing forcing the
-            // `LinearRecomputeDiceComputations` to be dropped before we get here.
-            let shared = Arc::into_inner(shared).unwrap();
             let dep_trackers = shared.dep_trackers.into_inner().collect_deps();
             let validity = dep_trackers.deps_validity;
             for k in dep_trackers.deps.iter_keys() {
                 self_dep_trackers.record(k, validity, &TrackedInvalidationPaths::clean())
             }
             self_dep_trackers.update_invalidation_paths(&dep_trackers.invalidation_paths);
-            v
+            res
         })
     }
 
@@ -365,25 +359,17 @@ impl<'a> From<TrackedComputations<'a>> for DiceComputations<'a> {
     }
 }
 
-/// Like `TrackedComputations`, but for linear recompute.
-pub(crate) struct LinearRecomputeComputations<'a> {
-    ctx_data: &'a ComputeCtx,
-    shared: Arc<LinearShared>,
-}
-
 /// The state shared by all the ctxs of one `with_linear_recompute`.
-pub(crate) struct LinearShared {
+pub(crate) struct LinearShared<'d> {
+    compute_ctx: &'d ComputeCtx,
     dep_trackers: Mutex<RecordingDepsTracker>,
     /// Owns the ctx of any parallel futures created from this one.
     branch_ctxs: LinearRecomputeArena,
 }
 
-impl LinearRecomputeComputations<'_> {
+impl LinearShared<'_> {
     pub(crate) fn get(&self) -> DiceComputations<'_> {
-        DiceComputations(TrackedComputations::Linear {
-            compute: self.ctx_data,
-            shared: &self.shared,
-        })
+        DiceComputations(TrackedComputations::Linear { shared: self })
     }
 }
 
@@ -405,8 +391,7 @@ pub(crate) enum ModernComputeCtxParallelBuilder<'a, 'd> {
         handout: std::slice::IterMut<'a, BranchEntry>,
     },
     Linear {
-        ctx_data: &'d ComputeCtx,
-        shared: &'d LinearShared,
+        shared: &'d LinearShared<'d>,
     },
 }
 
@@ -424,18 +409,12 @@ impl<'a, 'd: 'a> ModernComputeCtxParallelBuilder<'a, 'd> {
                     .expect("more branches than the ExactSizeIterator promised");
                 ParallelBranchFuture::launch(entry, func)
             }
-            ModernComputeCtxParallelBuilder::Linear { ctx_data, shared } => {
-                ParallelBranchFuture::launch(
-                    shared.branch_ctxs.alloc(
-                        TrackedComputations::Linear {
-                            compute: ctx_data,
-                            shared,
-                        }
-                        .into(),
-                    ),
-                    func,
-                )
-            }
+            ModernComputeCtxParallelBuilder::Linear { shared } => ParallelBranchFuture::launch(
+                shared
+                    .branch_ctxs
+                    .alloc(TrackedComputations::Linear { shared }.into()),
+                func,
+            ),
         }
     }
 }
@@ -462,10 +441,7 @@ pub(crate) enum TrackedComputations<'a> {
         dep_trackers: RecordingDepsTracker,
     },
     /// The ctx within a with_linear_recompute.
-    Linear {
-        compute: &'a ComputeCtx,
-        shared: &'a LinearShared,
-    },
+    Linear { shared: &'a LinearShared<'a> },
 }
 
 impl TrackedComputations<'_> {
@@ -508,10 +484,9 @@ impl<'d> TrackedComputations<'d> {
                     handout: dep_trackers.push_parallel(group).handout(),
                 }
             }
-            TrackedComputations::Linear {
-                compute: ctx_data,
-                shared,
-            } => ModernComputeCtxParallelBuilder::Linear { ctx_data, shared },
+            TrackedComputations::Linear { shared } => {
+                ModernComputeCtxParallelBuilder::Linear { shared }
+            }
         }
     }
 
@@ -520,9 +495,7 @@ impl<'d> TrackedComputations<'d> {
             TrackedComputations::Normal {
                 compute: ctx_data, ..
             } => ctx_data,
-            TrackedComputations::Linear {
-                compute: ctx_data, ..
-            } => ctx_data,
+            TrackedComputations::Linear { shared, .. } => shared.compute_ctx,
         }
     }
 
@@ -539,11 +512,8 @@ impl<'d> TrackedComputations<'d> {
                 ctx_data,
                 DepsTrackerHolder(Either::Left(&mut *dep_trackers)),
             ),
-            TrackedComputations::Linear {
-                compute: ctx_data,
-                shared,
-            } => (
-                ctx_data,
+            TrackedComputations::Linear { shared } => (
+                shared.compute_ctx,
                 DepsTrackerHolder(Either::Right(&shared.dep_trackers)),
             ),
         }

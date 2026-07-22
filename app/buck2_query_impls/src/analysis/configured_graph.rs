@@ -40,7 +40,7 @@ use crate::analysis::environment::ConfiguredGraphQueryEnvironmentDelegate;
 use crate::analysis::environment::get_from_template_placeholder_info;
 
 pub(crate) struct AnalysisDiceQueryDelegate<'c, 'd> {
-    pub(crate) ctx: &'c LinearRecomputeDiceComputations<'d>,
+    pub(crate) ctx: LinearRecomputeDiceComputations<'c, 'd>,
 }
 
 impl AnalysisDiceQueryDelegate<'_, '_> {

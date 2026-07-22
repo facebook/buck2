@@ -403,23 +403,26 @@ async fn build(
     let build_start = Instant::now();
     let cloned_ctx = ctx.clone(); // build_future does a mutable borrow on the context, so we clone it first
     let mut dice = ctx.ctx();
-    let build_future = dice.with_linear_recompute(|ctx| async move {
-        build_targets(
-            &ctx,
-            resolved_pattern,
-            target_resolution_config,
-            build_providers,
-            (final_artifact_materializations, final_artifact_uploads).into(),
-            build_opts.fail_fast,
-            MissingTargetBehavior::from_skip(build_opts.skip_missing_targets),
-            build_opts.skip_incompatible_targets,
-            graph_properties.dupe(),
-            return_run_args,
-            timeout_observer.as_ref(),
-            build_command_streaming_build_result_tx,
-            build_start,
-        )
-        .await
+    let build_future = dice.with_linear_recompute(|ctx| {
+        async move {
+            build_targets(
+                ctx,
+                resolved_pattern,
+                target_resolution_config,
+                build_providers,
+                (final_artifact_materializations, final_artifact_uploads).into(),
+                build_opts.fail_fast,
+                MissingTargetBehavior::from_skip(build_opts.skip_missing_targets),
+                build_opts.skip_incompatible_targets,
+                graph_properties.dupe(),
+                return_run_args,
+                timeout_observer.as_ref(),
+                build_command_streaming_build_result_tx,
+                build_start,
+            )
+            .await
+        }
+        .boxed()
     });
 
     let build_result = maybe_stream_build_reports(
@@ -777,7 +780,7 @@ async fn process_build_result(
 }
 
 async fn build_targets(
-    ctx: &LinearRecomputeDiceComputations<'_>,
+    ctx: LinearRecomputeDiceComputations<'_, '_>,
     spec: ResolvedPattern<ConfiguredProvidersPatternExtra>,
     target_resolution_config: TargetResolutionConfig,
     build_providers: Arc<BuildProviders>,
@@ -832,7 +835,7 @@ async fn build_targets(
 
 async fn build_targets_in_universe(
     event_consumer: &dyn BuildEventConsumer,
-    ctx: &LinearRecomputeDiceComputations<'_>,
+    ctx: LinearRecomputeDiceComputations<'_, '_>,
     spec: ResolvedPattern<ConfiguredProvidersPatternExtra>,
     universe: CqueryUniverse,
     build_providers: Arc<BuildProviders>,
@@ -874,9 +877,9 @@ async fn build_targets_in_universe(
         .await
 }
 
-async fn build_targets_with_global_target_platform<'a>(
-    event_consumer: &'a dyn BuildEventConsumer,
-    ctx: &'a LinearRecomputeDiceComputations<'_>,
+async fn build_targets_with_global_target_platform(
+    event_consumer: &dyn BuildEventConsumer,
+    ctx: LinearRecomputeDiceComputations<'_, '_>,
     spec: ResolvedPattern<ProvidersPatternExtra>,
     global_cfg_options: GlobalCfgOptions,
     build_providers: Arc<BuildProviders>,
@@ -885,7 +888,7 @@ async fn build_targets_with_global_target_platform<'a>(
     skip_incompatible_targets: bool,
     graph_properties: GraphPropertiesOptions,
     return_run_args: bool,
-    timeout_observer: Option<&'a Arc<dyn LivelinessObserver>>,
+    timeout_observer: Option<&Arc<dyn LivelinessObserver>>,
 ) {
     let global_cfg_options = &global_cfg_options;
     let build_providers = &build_providers;
@@ -946,7 +949,7 @@ fn build_providers_to_providers_to_build(build_providers: &BuildProviders) -> Pr
 
 async fn build_targets_for_spec(
     event_consumer: &dyn BuildEventConsumer,
-    ctx: &LinearRecomputeDiceComputations<'_>,
+    ctx: LinearRecomputeDiceComputations<'_, '_>,
     spec: PackageSpec<ProvidersPatternExtra>,
     package_with_modifiers: PackageLabelWithModifiers,
     global_cfg_options: GlobalCfgOptions,
@@ -1049,7 +1052,7 @@ async fn build_targets_for_spec(
 
 async fn build_target(
     event_consumer: &dyn BuildEventConsumer,
-    ctx: &LinearRecomputeDiceComputations<'_>,
+    ctx: LinearRecomputeDiceComputations<'_, '_>,
     spec: TargetBuildSpec,
     providers_to_build: &ProvidersToBuild,
     materialization_and_upload: MaterializationAndUploadContext,

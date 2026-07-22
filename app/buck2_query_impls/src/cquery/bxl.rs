@@ -30,6 +30,7 @@ use buck2_query::query::syntax::simple::functions::helpers::CapturedExpr;
 use dice::DiceComputations;
 use dice::LinearRecomputeDiceComputations;
 use dupe::Dupe;
+use futures::FutureExt;
 
 use crate::cquery::environment::CqueryEnvironment;
 use crate::dice::DiceQueryData;
@@ -48,7 +49,7 @@ struct BxlCqueryFunctionsImpl {
 impl BxlCqueryFunctionsImpl {
     async fn setup_dice_query_delegate<'c, 'd>(
         &self,
-        dice: &'c LinearRecomputeDiceComputations<'d>,
+        dice: LinearRecomputeDiceComputations<'c, 'd>,
     ) -> buck2_error::Result<DiceQueryDelegate<'c, 'd>> {
         let cell_resolver = dice.get().get_cell_resolver().await?;
         let cell_alias_resolver = dice
@@ -98,20 +99,23 @@ impl BxlCqueryFunctions for BxlCqueryFunctionsImpl {
         captured_expr: Option<&CapturedExpr>,
     ) -> buck2_error::Result<TargetSet<ConfiguredTargetNode>> {
         Ok(dice
-            .with_linear_recompute(|dice| async move {
-                buck2_error::Ok(
-                    cquery_functions()
-                        .allpaths(
-                            &self
-                                .cquery_env(&self.setup_dice_query_delegate(&dice).await?, None)
-                                .await?,
-                            &DefaultQueryFunctionsModule::new(),
-                            from,
-                            to,
-                            captured_expr,
-                        )
-                        .await?,
-                )
+            .with_linear_recompute(|dice| {
+                async move {
+                    buck2_error::Ok(
+                        cquery_functions()
+                            .allpaths(
+                                &self
+                                    .cquery_env(&self.setup_dice_query_delegate(dice).await?, None)
+                                    .await?,
+                                &DefaultQueryFunctionsModule::new(),
+                                from,
+                                to,
+                                captured_expr,
+                            )
+                            .await?,
+                    )
+                }
+                .boxed()
             })
             .await?)
     }
@@ -124,20 +128,23 @@ impl BxlCqueryFunctions for BxlCqueryFunctionsImpl {
         captured_expr: Option<&CapturedExpr>,
     ) -> buck2_error::Result<TargetSet<ConfiguredTargetNode>> {
         Ok(dice
-            .with_linear_recompute(|dice| async move {
-                buck2_error::Ok(
-                    cquery_functions()
-                        .somepath(
-                            &self
-                                .cquery_env(&self.setup_dice_query_delegate(&dice).await?, None)
-                                .await?,
-                            &DefaultQueryFunctionsModule::new(),
-                            from,
-                            to,
-                            captured_expr,
-                        )
-                        .await?,
-                )
+            .with_linear_recompute(|dice| {
+                async move {
+                    buck2_error::Ok(
+                        cquery_functions()
+                            .somepath(
+                                &self
+                                    .cquery_env(&self.setup_dice_query_delegate(dice).await?, None)
+                                    .await?,
+                                &DefaultQueryFunctionsModule::new(),
+                                from,
+                                to,
+                                captured_expr,
+                            )
+                            .await?,
+                    )
+                }
+                .boxed()
             })
             .await?)
     }
@@ -149,10 +156,13 @@ impl BxlCqueryFunctions for BxlCqueryFunctionsImpl {
         target_universe: Option<&TargetSet<ConfiguredTargetNode>>,
     ) -> buck2_error::Result<TargetSet<ConfiguredTargetNode>> {
         Ok(dice
-            .with_linear_recompute(|dice| async move {
-                let query_delegate = self.setup_dice_query_delegate(&dice).await?;
-                let cquery_env = self.cquery_env(&query_delegate, target_universe).await?;
-                cquery_functions().owner(&cquery_env, file_set).await
+            .with_linear_recompute(|dice| {
+                async move {
+                    let query_delegate = self.setup_dice_query_delegate(dice).await?;
+                    let cquery_env = self.cquery_env(&query_delegate, target_universe).await?;
+                    cquery_functions().owner(&cquery_env, file_set).await
+                }
+                .boxed()
             })
             .await?)
     }
@@ -165,18 +175,21 @@ impl BxlCqueryFunctions for BxlCqueryFunctionsImpl {
         captured_expr: Option<&CapturedExpr>,
     ) -> buck2_error::Result<TargetSet<ConfiguredTargetNode>> {
         Ok(dice
-            .with_linear_recompute(|dice| async move {
-                cquery_functions()
-                    .deps(
-                        &self
-                            .cquery_env(&self.setup_dice_query_delegate(&dice).await?, None)
-                            .await?,
-                        &DefaultQueryFunctionsModule::new(),
-                        targets,
-                        depth,
-                        captured_expr,
-                    )
-                    .await
+            .with_linear_recompute(|dice| {
+                async move {
+                    cquery_functions()
+                        .deps(
+                            &self
+                                .cquery_env(&self.setup_dice_query_delegate(dice).await?, None)
+                                .await?,
+                            &DefaultQueryFunctionsModule::new(),
+                            targets,
+                            depth,
+                            captured_expr,
+                        )
+                        .await
+                }
+                .boxed()
             })
             .await?)
     }
@@ -190,19 +203,22 @@ impl BxlCqueryFunctions for BxlCqueryFunctionsImpl {
         captured_expr: Option<&CapturedExpr>,
     ) -> buck2_error::Result<TargetSet<ConfiguredTargetNode>> {
         Ok(dice
-            .with_linear_recompute(|dice| async move {
-                cquery_functions()
-                    .rdeps(
-                        &self
-                            .cquery_env(&self.setup_dice_query_delegate(&dice).await?, None)
-                            .await?,
-                        &DefaultQueryFunctionsModule::new(),
-                        universe,
-                        targets,
-                        depth,
-                        captured_expr,
-                    )
-                    .await
+            .with_linear_recompute(|dice| {
+                async move {
+                    cquery_functions()
+                        .rdeps(
+                            &self
+                                .cquery_env(&self.setup_dice_query_delegate(dice).await?, None)
+                                .await?,
+                            &DefaultQueryFunctionsModule::new(),
+                            universe,
+                            targets,
+                            depth,
+                            captured_expr,
+                        )
+                        .await
+                }
+                .boxed()
             })
             .await?)
     }
@@ -213,15 +229,18 @@ impl BxlCqueryFunctions for BxlCqueryFunctionsImpl {
         targets: &TargetSet<ConfiguredTargetNode>,
     ) -> buck2_error::Result<TargetSet<ConfiguredTargetNode>> {
         Ok(dice
-            .with_linear_recompute(|dice| async move {
-                cquery_functions()
-                    .testsof(
-                        &self
-                            .cquery_env(&self.setup_dice_query_delegate(&dice).await?, None)
-                            .await?,
-                        targets,
-                    )
-                    .await
+            .with_linear_recompute(|dice| {
+                async move {
+                    cquery_functions()
+                        .testsof(
+                            &self
+                                .cquery_env(&self.setup_dice_query_delegate(dice).await?, None)
+                                .await?,
+                            targets,
+                        )
+                        .await
+                }
+                .boxed()
             })
             .await?)
     }
@@ -232,15 +251,18 @@ impl BxlCqueryFunctions for BxlCqueryFunctionsImpl {
         targets: &TargetSet<ConfiguredTargetNode>,
     ) -> buck2_error::Result<Vec<MaybeCompatible<ConfiguredTargetNode>>> {
         Ok(dice
-            .with_linear_recompute(|dice| async move {
-                cquery_functions()
-                    .testsof_with_default_target_platform(
-                        &self
-                            .cquery_env(&self.setup_dice_query_delegate(&dice).await?, None)
-                            .await?,
-                        targets,
-                    )
-                    .await
+            .with_linear_recompute(|dice| {
+                async move {
+                    cquery_functions()
+                        .testsof_with_default_target_platform(
+                            &self
+                                .cquery_env(&self.setup_dice_query_delegate(dice).await?, None)
+                                .await?,
+                            targets,
+                        )
+                        .await
+                }
+                .boxed()
             })
             .await?)
     }
@@ -251,15 +273,18 @@ impl BxlCqueryFunctions for BxlCqueryFunctionsImpl {
         universe: &TargetSet<ConfiguredTargetNode>,
     ) -> buck2_error::Result<FileSet> {
         Ok(dice
-            .with_linear_recompute(|dice| async move {
-                cquery_functions()
-                    .allbuildfiles(
-                        &self
-                            .cquery_env(&self.setup_dice_query_delegate(&dice).await?, None)
-                            .await?,
-                        universe,
-                    )
-                    .await
+            .with_linear_recompute(|dice| {
+                async move {
+                    cquery_functions()
+                        .allbuildfiles(
+                            &self
+                                .cquery_env(&self.setup_dice_query_delegate(dice).await?, None)
+                                .await?,
+                            universe,
+                        )
+                        .await
+                }
+                .boxed()
             })
             .await?)
     }
@@ -271,16 +296,19 @@ impl BxlCqueryFunctions for BxlCqueryFunctionsImpl {
         argset: &FileSet,
     ) -> buck2_error::Result<FileSet> {
         Ok(dice
-            .with_linear_recompute(|dice| async move {
-                cquery_functions()
-                    .rbuildfiles(
-                        &self
-                            .cquery_env(&self.setup_dice_query_delegate(&dice).await?, None)
-                            .await?,
-                        universe,
-                        argset,
-                    )
-                    .await
+            .with_linear_recompute(|dice| {
+                async move {
+                    cquery_functions()
+                        .rbuildfiles(
+                            &self
+                                .cquery_env(&self.setup_dice_query_delegate(dice).await?, None)
+                                .await?,
+                            universe,
+                            argset,
+                        )
+                        .await
+                }
+                .boxed()
             })
             .await?)
     }

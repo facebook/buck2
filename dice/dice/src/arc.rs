@@ -33,11 +33,6 @@ impl<T> Arc<T> {
     pub(crate) fn borrow_arc(&self) -> ArcBorrow<'_, T> {
         ArcBorrow(self.0.borrow_arc())
     }
-
-    #[inline]
-    pub(crate) fn into_inner(self) -> Option<T> {
-        triomphe::Arc::try_unwrap(self.0).ok()
-    }
 }
 
 impl<T: ?Sized> Arc<T> {
