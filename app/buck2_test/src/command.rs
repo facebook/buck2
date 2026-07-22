@@ -148,10 +148,10 @@ struct ExecutorReport {
 }
 
 impl ExecutorReport {
-    fn ingest(&mut self, status: &ExecutorMessage) {
+    fn ingest(&mut self, status: &ExecutorMessage, session: &TestSession) {
         match status {
             ExecutorMessage::TestResult(res) => {
-                self.statuses.ingest(res);
+                self.statuses.ingest(res, session);
             }
             ExecutorMessage::ExitCode(exit_code) => {
                 self.exit_code = Some(*exit_code);
@@ -209,19 +209,24 @@ struct TestStatuses {
     listing_failed: CounterWithExamples,
 }
 impl TestStatuses {
-    fn ingest(&mut self, result: &TestResult) {
+    fn ingest(&mut self, result: &TestResult, session: &TestSession) {
+        let display_name: std::borrow::Cow<'_, str> = match session.get(result.target) {
+            Ok(label) => std::borrow::Cow::Owned(format!("{} ({})", result.name, label.cfg())),
+            Err(_) => std::borrow::Cow::Borrowed(result.name.as_str()),
+        };
+        let name = display_name.as_ref();
         match result.status {
-            TestStatus::PASS => self.passed.add(&result.name),
-            TestStatus::FAIL => self.failed.add(&result.name),
-            TestStatus::SKIP => self.skipped.add(&result.name),
-            TestStatus::OMITTED => self.omitted.add(&result.name),
-            TestStatus::FATAL => self.fatals.add(&result.name),
-            TestStatus::TIMEOUT => self.timed_out.add(&result.name),
-            TestStatus::INFRA_FAILURE => self.infra_failure.add(&result.name),
+            TestStatus::PASS => self.passed.add(name),
+            TestStatus::FAIL => self.failed.add(name),
+            TestStatus::SKIP => self.skipped.add(name),
+            TestStatus::OMITTED => self.omitted.add(name),
+            TestStatus::FATAL => self.fatals.add(name),
+            TestStatus::TIMEOUT => self.timed_out.add(name),
+            TestStatus::INFRA_FAILURE => self.infra_failure.add(name),
             TestStatus::UNKNOWN => {}
             TestStatus::RERUN => {}
-            TestStatus::LISTING_SUCCESS => self.listing_success.add(&result.name),
-            TestStatus::LISTING_FAILED => self.listing_failed.add(&result.name),
+            TestStatus::LISTING_SUCCESS => self.listing_success.add(name),
+            TestStatus::LISTING_FAILED => self.listing_failed.add(name),
         }
     }
 }
@@ -803,7 +808,7 @@ async fn test_targets(
                 // Wait for the tests to finish running.
                 let test_statuses = test_status_receiver
                     .try_fold(ExecutorReport::default(), |mut acc, result| {
-                        acc.ingest(&result);
+                        acc.ingest(&result, &session);
                         future::ready(Ok(acc))
                     })
                     .await
