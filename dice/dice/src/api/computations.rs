@@ -323,7 +323,7 @@ impl<'d> DiceComputations<'d> {
         futures::future::join(t, u)
     }
 
-    /// Like [`Self::try_compute2`], but takes async closures; see [`Self::compute2_async`].
+    /// Like [`Self::compute2`], but the computations can fail, returning an error if any of them do.
     pub fn try_compute2<'a, Compute1, T, Compute2, U, E>(
         &'a mut self,
         compute1: Compute1,
@@ -344,7 +344,7 @@ impl<'d> DiceComputations<'d> {
         futures::future::try_join(t, u)
     }
 
-    /// Like [`Self::compute3`], but takes async closures; see [`Self::compute2_async`].
+    /// Like [`Self::compute2`], but with three computations.
     pub fn compute3<'a, Compute1, T, Compute2, U, Compute3, V>(
         &'a mut self,
         compute1: Compute1,
@@ -370,7 +370,7 @@ impl<'d> DiceComputations<'d> {
         futures::future::join3(t, u, v)
     }
 
-    /// Like [`Self::try_compute3`], but takes async closures; see [`Self::compute2_async`].
+    /// Like [`Self::compute3`], but the computations can fail, returning an error if any of them do.
     pub fn try_compute3<'a, Compute1, T, Compute2, U, Compute3, V, E>(
         &'a mut self,
         compute1: Compute1,
