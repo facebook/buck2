@@ -401,7 +401,7 @@ re_grpc_proto = { path = "remote_execution/oss/re_grpc_proto" }
 ref-cast = "1.0.18"
 regex = "1.13.1"
 remote_execution = { path = "remote_execution/oss/re_grpc" }
-rusqlite = { version = "0.37.0", features = ["backup", "blob", "bundled", "column_decltype", "functions", "limits", "modern_sqlite", "serde_json"] }
+rusqlite = { version = "0.37.0", features = ["backup", "blob", "bundled", "column_decltype", "functions", "limits", "modern_sqlite", "serde_json", "vtab"] }
 rustc-hash = "2.1.3"
 rustls = { version = "0.23.37", features = ["ring"] }
 rustls-native-certs = "0.8.3"
