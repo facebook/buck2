@@ -336,11 +336,28 @@ mod tests {
         let fake_buck2 = temp_dir.join("buck2");
         fs::copy("/bin/sh", &fake_buck2).expect("test buck2 executable should be copied");
 
-        let child = background_command(&fake_buck2)
-            .args(["-c", "read _", "--isolation-dir=process-scan-test"])
-            .stdin(Stdio::piped())
-            .spawn()
-            .expect("fake buck2 process should start");
+        // Under OSS `cargo test` (all tests share one process, unlike buck's
+        // per-test process isolation) a sibling test's `fork` can inherit the
+        // write fd `fs::copy` briefly holds on `fake_buck2`, making `exec` fail
+        // with ETXTBSY until that fd clears. Retry past the window.
+        let mut child = None;
+        for _ in 0..100 {
+            match background_command(&fake_buck2)
+                .args(["-c", "read _", "--isolation-dir=process-scan-test"])
+                .stdin(Stdio::piped())
+                .spawn()
+            {
+                Ok(spawned) => {
+                    child = Some(spawned);
+                    break;
+                }
+                Err(e) if e.raw_os_error() == Some(nix::libc::ETXTBSY) => {
+                    thread::sleep(Duration::from_millis(10));
+                }
+                Err(e) => panic!("fake buck2 process should start: {e:?}"),
+            }
+        }
+        let child = child.expect("fake buck2 process should start before ETXTBSY window closes");
         let child_pid = child.id();
         let _guard = ChildGuard { child, temp_dir };
 
