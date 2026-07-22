@@ -154,10 +154,8 @@ impl<'d> DiceComputations<'d> {
     /// let data: String = data();
     /// let keys : Vec<Key> = keys();
     /// let futs = ctx.compute_many(keys.into_iter().map(|k|
-    ///     |dice: &mut DiceComputations| -> BoxFuture<String> {
-    ///       async move {
+    ///     async move |dice: &mut DiceComputations| {
     ///         dice.compute(k).await + data
-    ///       }.boxed()
     ///     }
     /// ));
     /// futures::future::join_all(futs).await;
@@ -225,20 +223,6 @@ impl<'d> DiceComputations<'d> {
     // doesn't work at all; until Rust grows support for writing `for<'x> where 'a: 'x`, that API
     // would require you to return `BoxFuture<'x>` for any `'x` potentially as big as `'d`, which
     // means you could no longer capture references to locals.
-    pub fn compute_many_boxed<'a, Computes, F, T>(
-        &'a mut self,
-        computes: Computes,
-    ) -> Vec<impl Future<Output = T> + use<'a, 'd, Computes, F, T>>
-    where
-        Computes: IntoIterator<Item = F>,
-        Computes::IntoIter: ExactSizeIterator,
-        F: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, T> + Send,
-    {
-        self.0.compute_many(computes)
-    }
-
-    /// Like [`Self::compute_many`], but takes async closures, whose futures are stored without
-    /// boxing.
     pub fn compute_many<'a, Computes, F, Fut, T>(
         &'a mut self,
         computes: Computes,
@@ -275,29 +259,6 @@ impl<'d> DiceComputations<'d> {
     ///     }
     ///   }).await;
     /// ```
-    pub fn compute_join_boxed<'a, Items, Mapper, T, R>(
-        &'a mut self,
-        items: Items,
-        mapper: Mapper,
-    ) -> impl Future<Output = Vec<R>> + use<'a, 'd, Items, Mapper, T, R>
-    where
-        Items: IntoIterator<Item = T>,
-        Items::IntoIter: ExactSizeIterator,
-        Mapper: FnOnce(&'a mut DiceComputations<'d>, T) -> BoxFuture<'a, R> + Send + Sync + Copy,
-        T: Send,
-    {
-        let futs = self.compute_many_boxed(items.into_iter().map(move |v| {
-            move |ctx: &'a mut DiceComputations<'d>| -> BoxFuture<'a, R> { mapper(ctx, v) }
-        }));
-        dice_futures::join::join_all(futs)
-    }
-
-    /// Like [`Self::compute_join`], but takes an async closure, whose futures are stored without
-    /// boxing:
-    ///
-    /// ```ignore
-    /// ctx.compute_join_async(keys, async |dice, k: &Key| dice.compute(k).await).await;
-    /// ```
     pub fn compute_join<'a, Items, Mapper, Fut, T, R>(
         &'a mut self,
         items: Items,
@@ -321,8 +282,8 @@ impl<'d> DiceComputations<'d> {
         tokio::task::unconstrained(dice_futures::join::join_all(futs))
     }
 
-    /// Like [`Self::try_compute_join`], but takes an async closure, whose futures are stored
-    /// without boxing.
+    /// Maps the items into computations futures and then returns a future which represents either a
+    /// collection of the results or an error.
     pub fn try_compute_join<'a, Items, Mapper, Fut, T, R, E>(
         &'a mut self,
         items: Items,
@@ -348,46 +309,7 @@ impl<'d> DiceComputations<'d> {
         tokio::task::unconstrained(dice_futures::join::try_join_all(futs))
     }
 
-    /// Maps the items into computations futures and then returns a future which represents either a
-    /// collection of the results or an error.
-    pub fn try_compute_join_boxed<'a, Items, Mapper, T, R, E>(
-        &'a mut self,
-        items: Items,
-        mapper: Mapper,
-    ) -> impl Future<Output = Result<Vec<R>, E>> + use<'a, 'd, Items, Mapper, T, R, E>
-    where
-        Items: IntoIterator<Item = T>,
-        Items::IntoIter: ExactSizeIterator,
-        Mapper: FnOnce(&'a mut DiceComputations<'d>, T) -> BoxFuture<'a, Result<R, E>>
-            + Send
-            + Sync
-            + Copy,
-        T: Send,
-    {
-        let futs = self.compute_many_boxed(items.into_iter().map(move |v| {
-            move |ctx: &'a mut DiceComputations<'d>| -> BoxFuture<'a, Result<R, E>> {
-                mapper(ctx, v)
-            }
-        }));
-        dice_futures::join::try_join_all(futs)
-    }
-
     /// Computes all the given tasks in parallel.
-    pub fn compute2_boxed<'a, Compute1, T, Compute2, U>(
-        &'a mut self,
-        compute1: Compute1,
-        compute2: Compute2,
-    ) -> impl Future<Output = (T, U)> + use<'a, 'd, Compute1, T, Compute2, U>
-    where
-        Compute1: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, T> + Send,
-        Compute2: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, U> + Send,
-    {
-        let (t, u) = self.0.compute2(compute1, compute2);
-        futures::future::join(t, u)
-    }
-
-    /// Like [`Self::compute2`], but takes async closures, whose futures are stored without
-    /// boxing.
     pub fn compute2<'a, Compute1, Fut1, T, Compute2, Fut2, U>(
         &'a mut self,
         compute1: Compute1,
@@ -433,36 +355,6 @@ impl<'d> DiceComputations<'d> {
             move |ctx| compute2.async_call_once((ctx,)),
         );
         futures::future::try_join(t, u)
-    }
-
-    /// Compute all the given tasks in parallel.
-    pub fn try_compute2_boxed<'a, Compute1, T, Compute2, U, E>(
-        &'a mut self,
-        compute1: Compute1,
-        compute2: Compute2,
-    ) -> impl Future<Output = Result<(T, U), E>> + use<'a, 'd, Compute1, T, Compute2, U, E>
-    where
-        Compute1: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, Result<T, E>> + Send,
-        Compute2: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, Result<U, E>> + Send,
-    {
-        let (t, u) = self.0.compute2(compute1, compute2);
-        futures::future::try_join(t, u)
-    }
-
-    /// Computes all the given tasks in parallel.
-    pub fn compute3_boxed<'a, Compute1, T, Compute2, U, Compute3, V>(
-        &'a mut self,
-        compute1: Compute1,
-        compute2: Compute2,
-        compute3: Compute3,
-    ) -> impl Future<Output = (T, U, V)> + use<'a, 'd, Compute1, T, Compute2, U, Compute3, V>
-    where
-        Compute1: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, T> + Send,
-        Compute2: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, U> + Send,
-        Compute3: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, V> + Send,
-    {
-        let (t, u, v) = self.0.compute3(compute1, compute2, compute3);
-        futures::future::join3(t, u, v)
     }
 
     /// Like [`Self::compute3`], but takes async closures; see [`Self::compute2_async`].
@@ -525,22 +417,6 @@ impl<'d> DiceComputations<'d> {
             move |ctx| compute2.async_call_once((ctx,)),
             move |ctx| compute3.async_call_once((ctx,)),
         );
-        futures::future::try_join3(t, u, v)
-    }
-
-    /// Compute all the given tasks in parallel.
-    pub fn try_compute3_boxed<'a, Compute1, T, Compute2, U, Compute3, V, E>(
-        &'a mut self,
-        compute1: Compute1,
-        compute2: Compute2,
-        compute3: Compute3,
-    ) -> impl Future<Output = Result<(T, U, V), E>> + use<'a, 'd, Compute1, T, Compute2, U, Compute3, V, E>
-    where
-        Compute1: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, Result<T, E>> + Send,
-        Compute2: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, Result<U, E>> + Send,
-        Compute3: FnOnce(&'a mut DiceComputations<'d>) -> BoxFuture<'a, Result<V, E>> + Send,
-    {
-        let (t, u, v) = self.0.compute3(compute1, compute2, compute3);
         futures::future::try_join3(t, u, v)
     }
 
@@ -715,16 +591,6 @@ fn _assert_dice_compute_future_sizes() {
     }
 
     mini_vec::size_assert::words_of_async_fn_future!(DiceComputations::compute::<K>, (_, _), 8);
-
-    mini_vec::size_assert::words_of_async_fn_future!(
-        DiceComputations::compute2_boxed::<_, u32, _, u32>,
-        (
-            _,
-            DiceComputations::declare_closure(|ctx| panic!()),
-            DiceComputations::declare_closure(|ctx| panic!())
-        ),
-        8
-    );
 
     // The future of the canonical async closure mapper - the thing that is stored, unboxed, in the
     // join combinator's slot for each branch of a `compute_join_async`. This is mostly just here to
