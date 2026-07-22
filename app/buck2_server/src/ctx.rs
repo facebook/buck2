@@ -64,6 +64,7 @@ use buck2_core::facebook_only;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_core::pattern::pattern::InferTargetNames;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern::ParsedPatternWithModifiers;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
@@ -626,6 +627,19 @@ impl DiceUpdater for DiceCommandUpdater<'_, '_> {
 
         let cell_resolver = cells_and_configs.cell_resolver;
 
+        let infer_target_names = if cells_and_configs
+            .root_config
+            .parse::<bool>(BuckconfigKeyRef {
+                section: "buck2",
+                property: "infer_target_names",
+            })?
+            .unwrap_or(false)
+        {
+            InferTargetNames::Yes
+        } else {
+            InferTargetNames::No
+        };
+
         let configuror = BuildInterpreterConfiguror::new(
             prelude_path(&cell_resolver)?,
             self.interpreter_platform,
@@ -633,6 +647,7 @@ impl DiceUpdater for DiceCommandUpdater<'_, '_> {
             self.interpreter_xcode_version.clone(),
             self.cmd_ctx.record_target_call_stacks,
             self.cmd_ctx.skip_targets_with_duplicate_names,
+            infer_target_names,
             None,
             // New interner for each transaction.
             Arc::new(ConcurrentTargetLabelInterner::default()),

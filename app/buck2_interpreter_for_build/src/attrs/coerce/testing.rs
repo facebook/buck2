@@ -21,6 +21,7 @@ use buck2_core::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedR
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
 use buck2_core::package::PackageLabel;
+use buck2_core::pattern::pattern::InferTargetNames;
 use buck2_core::target::label::interner::ConcurrentTargetLabelInterner;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
@@ -73,6 +74,7 @@ pub fn coercion_ctx_listing(package_listing: PackageListing) -> impl AttrCoercio
         CellPathWithAllowedRelativeDir::backwards_relative_not_supported(
             package.as_cell_path().to_owned(),
         ),
+        InferTargetNames::No,
     )
 }
 
@@ -111,6 +113,7 @@ pub fn to_value<'v>(env: &Module<'v>, globals: &Globals, content: &str) -> Value
             bzl_path: import_path,
         }),
         false,
+        InferTargetNames::No,
     );
 
     let mut eval = Evaluator::new(env);

@@ -36,6 +36,7 @@ use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::fs::project::ProjectRootTemp;
 use buck2_core::package::PackageLabel;
+use buck2_core::pattern::pattern::InferTargetNames;
 use buck2_core::provider::id::ProviderId;
 use buck2_core::provider::id::testing::ProviderIdExt;
 use buck2_core::target::label::interner::ConcurrentTargetLabelInterner;
@@ -169,6 +170,7 @@ async fn test_analysis_calculation() -> buck2_error::Result<()> {
             None,
             false,
             false,
+            InferTargetNames::No,
             None,
             Arc::new(ConcurrentTargetLabelInterner::default()),
         )?,

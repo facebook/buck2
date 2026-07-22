@@ -32,6 +32,7 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::package::PackageLabel;
+use buck2_core::pattern::pattern::InferTargetNames;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern::ParsedPatternWithModifiers;
 use buck2_core::pattern::pattern::TargetParsingRel;
@@ -152,6 +153,7 @@ impl LiteralParser {
             ),
             &self.cell_resolver,
             &self.cell_alias_resolver,
+            InferTargetNames::No,
         )
     }
 
