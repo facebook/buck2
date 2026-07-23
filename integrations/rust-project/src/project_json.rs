@@ -169,6 +169,7 @@ impl From<crate::target::Kind> for TargetKind {
             Binary => TargetKind::Bin,
             Library => TargetKind::Lib,
             Test => TargetKind::Test,
+            UnitTest => TargetKind::Test,
         }
     }
 }
