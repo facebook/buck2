@@ -237,17 +237,29 @@ pub struct FrozenHeap {
 /// Automatically implemented for any type that is `StrongHash + Any + Send + Sync + Debug`.
 /// `StrongHash` is required (rather than `Hash`) because heap identities are
 /// derived from this and must be deterministic across processes.
-pub trait UserHeapName: std::fmt::Display + Any + Send + Sync + Debug + 'static {
+#[pagable::pagable_typetag]
+pub trait UserHeapName:
+    std::fmt::Display + pagable::typetag::PagableTagged + Any + Send + Sync + Debug + 'static
+{
     /// Strong-hash this value through a trait object.
     fn dyn_strong_hash(&self, state: &mut dyn Hasher);
     /// Downcast support.
     fn as_any(&self) -> &dyn Any;
-
+    /// Clone this name through a trait object.
     fn clone_name(&self) -> Box<dyn UserHeapName>;
 }
 
-impl<T: std::fmt::Display + Clone + StrongHash + Any + Send + Sync + Debug + 'static> UserHeapName
-    for T
+impl<
+    T: std::fmt::Display
+        + pagable::typetag::PagableTagged
+        + Clone
+        + StrongHash
+        + Any
+        + Send
+        + Sync
+        + Debug
+        + 'static,
+> UserHeapName for T
 {
     fn dyn_strong_hash(&self, mut state: &mut dyn Hasher) {
         self.strong_hash(&mut state);
@@ -267,7 +279,7 @@ impl Clone for Box<dyn UserHeapName> {
 }
 
 /// Name/identifier for a frozen heap, used for heap graph tracking and metrics.
-#[derive(Clone, derive_more::Display, Debug)]
+#[derive(Clone, derive_more::Display, Debug, pagable::Pagable)]
 pub enum FrozenHeapName {
     /// For starlark Methods heaps.
     Method(MethodFrozenHeapName),
@@ -277,6 +289,13 @@ pub enum FrozenHeapName {
     Singleton(SingletonFrozenHeapName),
     /// For user/downstream code.
     User(Box<dyn UserHeapName>),
+}
+
+impl FrozenHeapName {
+    /// Create a user heap name backed by an owned string.
+    pub fn user(name: impl Into<String>) -> Self {
+        Self::User(Box::new(StringUserHeapName(name.into())))
+    }
 }
 
 impl StrongHash for FrozenHeapName {
@@ -296,7 +315,8 @@ impl StrongHash for FrozenHeapName {
 
 /// Testing sentinel for starlark crate's own tests.
 /// Used as `FrozenHeapName::User(Box::new(StarlarkTestHeapName))`.
-#[derive(Debug, StrongHash, Hash, Clone, derive_more::Display)]
+#[derive(Debug, StrongHash, Hash, Clone, derive_more::Display, pagable::Pagable)]
+#[pagable::pagable_typetag(UserHeapName)]
 #[display("StarlarkTestHeapName")]
 pub(crate) struct StarlarkTestHeapName;
 
@@ -305,6 +325,12 @@ impl StarlarkTestHeapName {
         FrozenHeapName::User(Box::new(Self))
     }
 }
+
+/// Owned-string user heap name for callers without a dedicated name type.
+#[derive(Debug, StrongHash, Hash, Clone, derive_more::Display, pagable::Pagable)]
+#[pagable::pagable_typetag(UserHeapName)]
+#[display("{}", _0)]
+pub struct StringUserHeapName(String);
 
 /// A frozen heap name derived from source location, for singleton heaps.
 ///

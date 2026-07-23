@@ -99,12 +99,7 @@ impl OwnedFrozenValue {
     /// use starlark::values::OwnedFrozenValue;
     /// let heap = FrozenHeap::new();
     /// let value = heap.alloc("test");
-    /// unsafe {
-    ///     OwnedFrozenValue::new(
-    ///         heap.into_ref_named(FrozenHeapName::User(Box::new("test"))),
-    ///         value,
-    ///     )
-    /// };
+    /// unsafe { OwnedFrozenValue::new(heap.into_ref_named(FrozenHeapName::user("test")), value) };
     /// ```
     pub unsafe fn new(owner: FrozenHeapRef, value: FrozenValue) -> Self {
         Self { owner, value }
@@ -280,12 +275,7 @@ impl<T: for<'a> StarlarkValue<'a>> OwnedFrozenValueTyped<T> {
     /// use starlark::values::OwnedFrozenValue;
     /// let heap = FrozenHeap::new();
     /// let value = heap.alloc("test");
-    /// unsafe {
-    ///     OwnedFrozenValue::new(
-    ///         heap.into_ref_named(FrozenHeapName::User(Box::new("test"))),
-    ///         value,
-    ///     )
-    /// };
+    /// unsafe { OwnedFrozenValue::new(heap.into_ref_named(FrozenHeapName::user("test")), value) };
     /// ```
     pub unsafe fn new<'a>(owner: FrozenHeapRef, value: FrozenValueTyped<'a, T>) -> Self {
         // SAFETY: The caller has asserted that this heap ref keeps the value alive.

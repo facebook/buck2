@@ -157,9 +157,9 @@ impl<'v> Context<'v> {
                 let module = AstModule::parse_file(path, &self.dialect).into_anyhow_result()?;
                 eval.eval_module(module, &self.globals)?;
             }
-            Ok::<_, starlark::Error>(env.freeze_named(FrozenHeapName::User(Box::new(
-                path.to_string_lossy().into_owned(),
-            )))?)
+            Ok::<_, starlark::Error>(
+                env.freeze_named(FrozenHeapName::user(path.to_string_lossy()))?,
+            )
         })
     }
 

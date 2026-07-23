@@ -21,6 +21,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use derive_more::Display;
+use pagable::Pagable;
 use pagable::PagableDeserialize;
 use pagable::PagableSerialize;
 use starlark_derive::NoSerialize;
@@ -36,6 +37,9 @@ use crate as starlark;
 use crate::const_frozen_string;
 use crate::environment::GlobalFrozenHeapName;
 use crate::environment::GlobalsBuilder;
+use crate::environment::MethodFrozenHeapName;
+use crate::pagable::heap_ref_id::HeapRefId;
+use crate::singleton_heap_name;
 use crate::starlark_simple_value;
 use crate::values::FrozenHeap;
 use crate::values::FrozenHeapRef;
@@ -54,9 +58,11 @@ pagable::static_str!(CROSS_THREAD_GLOBALS_HEAP_NAME = "cross_thread");
 pagable::static_str!(BENCH_EVAL_HEAP_NAME = "bench_eval");
 pagable::static_str!(TEST_BCINSTRS_HEAP_NAME = "test_bcinstrs");
 pagable::static_str!(TEST_BCINSTRS_DET_GLOBALS_HEAP_NAME = "test_bcinstrs_det_globals");
+pagable::static_str!(METHOD_TEST_HEAP_NAME = "method_test");
 
 /// Private test heap name for pagable tests.
-#[derive(Clone, derive_more::Display, Debug, Hash, StrongHash)]
+#[derive(Clone, derive_more::Display, Debug, Hash, StrongHash, Pagable)]
+#[pagable::pagable_typetag(crate::values::UserHeapName)]
 #[display("TestHeapName({})", _0)]
 struct TestHeapName(String);
 
@@ -115,6 +121,47 @@ fn round_trip_heap_ref(heap_ref: &FrozenHeapRef) -> crate::Result<FrozenHeapRef>
     let mut de = pagable::testing::TestingDeserializer::new(&bytes);
     let restored = FrozenHeapRef::pagable_deserialize(&mut de).map_err(crate::Error::new_other)?;
     Ok(restored)
+}
+
+fn round_trip_heap_name(name: &FrozenHeapName) -> crate::Result<FrozenHeapName> {
+    let mut ser = pagable::testing::TestingSerializer::new();
+    name.pagable_serialize(&mut ser)
+        .map_err(crate::Error::new_other)?;
+    let bytes = ser.finish();
+
+    let mut de = pagable::testing::TestingDeserializer::new(&bytes);
+    FrozenHeapName::pagable_deserialize(&mut de).map_err(crate::Error::new_other)
+}
+
+#[test]
+fn test_frozen_heap_name_round_trip() -> crate::Result<()> {
+    let names = [
+        FrozenHeapName::Global(GlobalFrozenHeapName {
+            name: TEST_EVAL_HEAP_NAME,
+        }),
+        FrozenHeapName::Method(MethodFrozenHeapName {
+            name: METHOD_TEST_HEAP_NAME,
+        }),
+        FrozenHeapName::Singleton(singleton_heap_name!()),
+        TestHeapName::heap_name("user_test"),
+    ];
+
+    for name in names {
+        let expected_id = HeapRefId::from_heap_name(&name);
+        let expected_display = name.to_string();
+        let restored = round_trip_heap_name(&name)?;
+        assert_eq!(HeapRefId::from_heap_name(&restored), expected_id);
+        assert_eq!(restored.to_string(), expected_display);
+
+        if let FrozenHeapName::User(user) = restored {
+            assert_eq!(
+                user.as_any().downcast_ref::<TestHeapName>().unwrap().0,
+                "user_test"
+            );
+        }
+    }
+
+    Ok(())
 }
 
 #[test]

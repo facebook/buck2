@@ -29,6 +29,7 @@ use crate::paths::module::OwnedStarlarkModulePath;
 #[derive(
     Debug, Clone, Dupe, Hash, Eq, PartialEq, Allocative, StrongHash, Pagable
 )]
+#[pagable::pagable_tagged(starlark::values::UserHeapName)]
 pub enum StarlarkEvalKind {
     Analysis(ConfiguredTargetLabel),
     Load(Arc<OwnedStarlarkModulePath>),
@@ -42,6 +43,9 @@ pub enum StarlarkEvalKind {
     BxlDynamic(ThinArcStr),
     Unknown(ThinArcStr),
 }
+
+pagable::register_typetag!(StarlarkEvalKind as dyn starlark::values::UserHeapName);
+
 impl StarlarkEvalKind {
     pub fn as_path(&self) -> buck2_error::Result<ForwardRelativePathBuf> {
         let mut path = self.to_string();

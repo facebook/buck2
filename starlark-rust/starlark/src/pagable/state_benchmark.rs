@@ -33,6 +33,7 @@ use std::time::Instant;
 use allocative::Allocative;
 use dashmap::DashMap;
 use derive_more::Display;
+use pagable::Pagable;
 use starlark_derive::NoSerialize;
 use starlark_derive::ProvidesStaticType;
 use starlark_derive::StarlarkPagable;
@@ -71,7 +72,8 @@ impl<'v> StarlarkValue<'v> for BenchValue {
     type Canonical = Self;
 }
 
-#[derive(Debug, Clone, Display, Hash, StrongHash)]
+#[derive(Debug, Clone, Display, Hash, StrongHash, Pagable)]
+#[pagable::pagable_typetag(crate::values::UserHeapName)]
 #[display("BenchHeapName({})", _0)]
 struct BenchHeapName(String);
 
@@ -218,7 +220,7 @@ fn test_chunk_index_beats_per_value_hashmap_memory_and_speed() {
 
     // Stride across heaps/bumps to avoid "all hits in one chunk".
     let mut sample_ptrs: Vec<usize> = Vec::with_capacity(NUM_LOOKUPS);
-    'fill: loop {
+    'fill: {
         for (_, _, ptrs) in &heaps {
             for (i, &p) in ptrs.iter().enumerate() {
                 if i % 4 == 0 {
@@ -229,7 +231,6 @@ fn test_chunk_index_beats_per_value_hashmap_memory_and_speed() {
                 }
             }
         }
-        break;
     }
 
     // Accumulate into `black_box` so the loop body can't be elided.

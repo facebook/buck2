@@ -197,9 +197,9 @@ impl<'v> BazelContext<'v> {
                         let module = AstModule::parse_file(x, &dialect).into_anyhow_result()?;
                         eval.eval_module(module, &globals).into_anyhow_result()?;
                     }
-                    Ok::<_, anyhow::Error>(env.freeze_named(FrozenHeapName::User(Box::new(
-                        x.to_string_lossy().into_owned(),
-                    )))?)
+                    Ok::<_, anyhow::Error>(
+                        env.freeze_named(FrozenHeapName::user(x.to_string_lossy()))?,
+                    )
                 })
             })
             .collect::<anyhow::Result<_>>()?;

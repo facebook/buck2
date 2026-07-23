@@ -271,7 +271,7 @@
 //!         // After creating a module we freeze it, preventing further mutation.
 //!         // It can now be used as the input for other Starlark modules.
 //!         // Each frozen module is given a name to identify its heap.
-//!         Ok(module.freeze_named(FrozenHeapName::User(Box::new(file.to_owned())))?)
+//!         Ok(module.freeze_named(FrozenHeapName::user(file))?)
 //!     })
 //! }
 //!
