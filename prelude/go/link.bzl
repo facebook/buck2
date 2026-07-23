@@ -212,6 +212,11 @@ def link(
             [ext_links],
         )
         ext_link_args = cmd_args(hidden = ext_link_args_output.hidden, quote = "shell")
+
+        # Toolchain linker_flags must precede the objects, not go via cmd/link's -extldflags (which
+        # it emits last): otherwise -Wl,-Bsymbolic-functions overrides cmd/link's own -Wl,-Bsymbolic
+        # for c-shared, leaving runtime cgo data symbols preemptible and breaking the link.
+        ext_link_args.add(cxx_toolchain.linker_info.linker_flags)
         ext_link_args.add(executable_args.extra_link_args)
         ext_link_args.add(external_linker_flags)
         ext_link_args.add(ext_link_args_output.link_args)
@@ -247,10 +252,11 @@ def link(
             has_content_based_path = True,
         )
         cmd.add("-extld", linker_wrapper, cmd_args(hidden = [cxx_link_cmd, ext_link_args, ext_link_args_output.hidden]))
+        # Kept here (not in the argfile) because these carry libraries (-lc, -ldl, ...) that must
+        # follow the objects, and cmd/link emits -extldflags last.
         cmd.add(
             "-extldflags",
             cmd_args(
-                cxx_toolchain.linker_info.linker_flags,
                 go_toolchain.external_linker_flags,
                 delimiter = " ",
                 quote = "shell",
