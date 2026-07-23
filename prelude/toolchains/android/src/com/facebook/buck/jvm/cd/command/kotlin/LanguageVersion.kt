@@ -44,7 +44,16 @@ class LanguageVersion(private val internalValue: String) {
     get() = LANGUAGE_VERSION_ARG + value
 
   fun isGreaterOrEqual(version: KotlinSupportedLanguageVersion): Boolean {
-    return internalValue >= version.value
+    // Compare numerically per version component so that e.g. "2.10" >= "2.2" holds.
+    // A plain string comparison is lexicographic and breaks once a minor reaches 2 digits.
+    val current = internalValue.split(".")
+    val target = version.value.split(".")
+    for (i in 0 until maxOf(current.size, target.size)) {
+      val c = current.getOrNull(i)?.toIntOrNull() ?: 0
+      val t = target.getOrNull(i)?.toIntOrNull() ?: 0
+      if (c != t) return c > t
+    }
+    return true
   }
 
   // Kotlinc 1.6+ can properly recognize `-language-version` flag
