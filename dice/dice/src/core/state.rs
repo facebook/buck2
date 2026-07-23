@@ -256,12 +256,6 @@ impl CoreStateHandle {
         self.call(StateRequest::PagedOutKeys { resp }, recv)
     }
 
-    /// Drop in-memory values for nodes that already have an on-disk copy.
-    pub(crate) fn evict_cached_values(&self) -> impl Future<Output = ()> + use<> {
-        let (resp, recv) = oneshot::channel();
-        self.call(StateRequest::EvictCachedValues { resp }, recv)
-    }
-
     /// Classify graph nodes as resident vs paged out.
     pub(crate) fn pagable_status(&self) -> impl Future<Output = PagableStatusRaw> + use<> {
         let (resp, recv) = oneshot::channel();
@@ -408,8 +402,6 @@ pub(super) enum StateRequest {
     PagedOutKeys {
         resp: Sender<anyhow::Result<Vec<(DiceKey, DataKey)>>>,
     },
-    /// Drop in-memory values for nodes that already have an on-disk copy.
-    EvictCachedValues { resp: Sender<()> },
     /// Classify graph nodes as resident vs paged out.
     PagableStatus { resp: Sender<PagableStatusRaw> },
     /// Collect nodes that need serialization before they can be paged out.

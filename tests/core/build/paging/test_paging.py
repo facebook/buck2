@@ -38,8 +38,8 @@ async def _paged_out_count(buck: Buck) -> int:
 
 
 def _paged_in_count(result: BuildResult) -> int:
-    # Populated by `write_invocation_record=True` on the test.
-    return int(result.invocation_record().get("page_in_count", 0))
+    # Populated by `write_invocation_record=True` on the test; absent/null when 0.
+    return int(result.invocation_record().get("page_in_count") or 0)
 
 
 async def _wait_for_page_out_idle(buck: Buck) -> int:
@@ -180,4 +180,40 @@ async def test_page_out_triggered_only_when_values_computed(buck: Buck) -> None:
     assert _output(result) == "content-0\n"
     assert not result.invocation_record().get("page_out_triggered"), (
         "a no-op rebuild computes nothing new, so it should not trigger a page-out"
+    )
+
+
+@buck_test(data_dir="paging", write_invocation_record=True)
+async def test_page_out_at_most_once(buck: Buck) -> None:
+    # A value is paged out at most once: once an incremental build pages a value
+    # back in (or recomputes it), it stays resident rather than being paged out
+    # again.
+    (buck.cwd / "src.txt").write_text("content-0\n")
+    assert _output(await _build(buck)) == "content-0\n"
+    await _wait_for_page_out_idle(buck)
+
+    # This build pages its working set back in and recomputes the affected nodes.
+    # Those values were already paged out once, so they stay resident: nothing new
+    # to page out, so the build does not trigger a page-out.
+    (buck.cwd / "src.txt").write_text("content-1\n")
+    result = await _build(buck)
+    assert _output(result) == "content-1\n"
+    # Precondition: this build actually paged values back in (otherwise the
+    # assertion below would hold vacuously).
+    assert _paged_in_count(result) > 0, (
+        "expected the incremental build to page its working set back in"
+    )
+    assert not result.invocation_record().get("page_out_triggered"), (
+        "values paged in by an incremental build must stay resident, leaving "
+        "nothing new to page out"
+    )
+
+    # The working set stayed resident, so the next incremental build pages nothing
+    # back in.
+    (buck.cwd / "src.txt").write_text("content-2\n")
+    result = await _build(buck)
+    assert _output(result) == "content-2\n"
+    assert _paged_in_count(result) == 0, (
+        f"expected the working set to stay resident, but {_paged_in_count(result)} "
+        "values were paged in"
     )

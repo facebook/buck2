@@ -142,34 +142,6 @@ impl CoreState {
         self.graph.clear();
     }
 
-    /// Drop in-memory values for nodes that already have an on-disk copy.
-    /// These nodes have both a `DataKey` and a resident value; after this call
-    /// only the `DataKey` remains.
-    pub(super) fn evict_cached_values(&mut self) {
-        let to_evict: Vec<(DiceKey, DataKey)> = self
-            .graph
-            .nodes()
-            .iter()
-            .filter_map(|(key, node)| {
-                let VersionedGraphNode::Occupied(occ) = node else {
-                    return None;
-                };
-                let data_key = occ.val().data_key()?;
-                occ.val()
-                    .as_hydrated()
-                    .is_some()
-                    .then_some((*key, data_key))
-            })
-            .collect();
-        for (key, data_key) in to_evict {
-            if let Some(mut node) = self.graph.node_mut(key) {
-                if let VersionedGraphNode::Occupied(occ) = &mut *node {
-                    occ.set_paged_out(data_key);
-                }
-            }
-        }
-    }
-
     /// Evict in-memory values for the given nodes, marking them as paged out
     /// with their `DataKey`s. Skips nodes that are missing, vacant, or injected.
     pub(super) fn evict_keys(&mut self, keys: Vec<(DiceKey, DataKey)>) {
@@ -183,7 +155,7 @@ impl CoreState {
     }
 
     /// Mark nodes that page-out considered but could not serialize, so they are
-    /// not offered as page-out candidates again (until recomputed).
+    /// not offered as page-out candidates again (including after a recompute).
     pub(super) fn mark_non_pageable(&mut self, keys: Vec<DiceKey>) {
         for key in keys {
             if let Some(mut node) = self.graph.node_mut(key) {
@@ -240,8 +212,8 @@ impl CoreState {
     }
 
     /// Classify each `OccupiedGraphNode` as resident (value in memory) or paged
-    /// out (only a `DataKey` left). Occupied-but-neither can't happen (the
-    /// `PagableNodeValue` invariant) and is omitted from both lists.
+    /// out (only a `DataKey` left). Occupied-but-neither can't happen (a
+    /// `PagableNodeValue` always holds exactly one) and is omitted from both lists.
     pub(super) fn pagable_status(&self) -> PagableStatusRaw {
         let mut resident = Vec::new();
         let mut paged_out = Vec::new();

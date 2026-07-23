@@ -202,7 +202,6 @@ impl Dice {
         let Some(storage) = self.pagable_storage.as_ref() else {
             return Ok(());
         };
-        self.state_handle.evict_cached_values().await;
         let keys = self.state_handle.keys_to_page_out().await;
         storage
             .page_out(keys, &self.key_index, &self.state_handle, cancelled)

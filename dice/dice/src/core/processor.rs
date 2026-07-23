@@ -131,10 +131,6 @@ impl StateProcessor {
             StateRequest::PagedOutKeys { resp } => {
                 drop(resp.send(Ok(self.state.paged_out_keys())));
             }
-            StateRequest::EvictCachedValues { resp } => {
-                self.state.evict_cached_values();
-                let _ = resp.send(());
-            }
             StateRequest::PagableStatus { resp } => {
                 drop(resp.send(self.state.pagable_status()));
             }

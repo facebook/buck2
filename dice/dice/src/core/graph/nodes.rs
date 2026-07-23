@@ -60,7 +60,7 @@ pub(crate) enum VersionedGraphNode {
     Vacant(VacantGraphNode),
 }
 
-mini_vec::size_assert::words_of_type!(VersionedGraphNode, 13);
+mini_vec::size_assert::words_of_type!(VersionedGraphNode, 11);
 
 impl VersionedGraphNode {
     pub(crate) fn force_dirty(
@@ -171,7 +171,11 @@ impl VersionedGraphNode {
         deps: Arc<SeriesParallelDeps>,
         mut invalidation_paths: TrackedInvalidationPaths,
     ) -> (DiceComputedValue, bool) {
-        let (dirtied_history, overwrite_entry) = match self {
+        let (dirtied_history, overwrite_entry, make_res): (
+            _,
+            _,
+            fn(DiceValidValue) -> PagableNodeValue,
+        ) = match self {
             VersionedGraphNode::Occupied(entry) if reusable.is_reusable(&value, &deps, entry) => {
                 entry.mark_unchanged(key.v, valid_deps_versions, invalidation_paths);
                 let ret = entry.computed_val(
@@ -185,9 +189,14 @@ impl VersionedGraphNode {
                 (
                     &entry.metadata.dirtied_history,
                     !entry.metadata.ever_valid_after(key.v),
+                    entry.val().after_recompute(),
                 )
             }
-            VersionedGraphNode::Vacant(entry) => (&entry.dirtied_history, true),
+            VersionedGraphNode::Vacant(entry) => (
+                &entry.dirtied_history,
+                true,
+                PagableNodeValue::NeverPagedOut,
+            ),
             _ => unreachable!("injected nodes are never computed"),
         };
 
@@ -219,7 +228,7 @@ impl VersionedGraphNode {
             );
         }
 
-        let new = OccupiedGraphNode::new(
+        let mut new = OccupiedGraphNode::new(
             key.k,
             value,
             deps,
@@ -227,6 +236,13 @@ impl VersionedGraphNode {
             dirtied_history.clone(),
             invalidation_paths,
         );
+        // Carry the previous value's page-out lifecycle onto the recomputed value: a
+        // key that was paged out stays resident once recomputed rather than becoming a
+        // candidate again. `new` is always freshly `NeverPagedOut` here.
+        let PagableNodeValue::NeverPagedOut(v) = new.res else {
+            unreachable!("`OccupiedGraphNode::new` always constructs a `NeverPagedOut` value");
+        };
+        new.res = make_res(v);
         let ret = new.computed_val(
             key.v,
             "newly-constructed OccupiedGraphNode is always hydrated",
@@ -314,43 +330,47 @@ pub(crate) enum InvalidateResult<'a> {
     Changed(Option<mini_vec::Drain<'a, DiceKey>>),
 }
 
-/// This is not really its own enum, it's morally just more variants for the below enum, but this
-/// separation is needed for rustc to figure out a 4-word layout.
-#[derive(Allocative, Debug)]
-pub(crate) enum PagableNodeValueOther {
-    /// No on-disk copy exists; a candidate for the next page-out.
-    NeverPagedOut(DiceValidValue),
-    /// Serialized to disk and evicted from memory, so the on-disk key is load-bearing
-    /// and no hydrated value is resident.
-    PagedOut(DataKey),
-    /// Considered for page-out but its value can't be serialized (e.g.
-    /// `NoValueSerialize`, or an `Err`); resident and not a page-out candidate.
-    NonPageable(DiceValidValue),
-}
-
-/// The stored value for an `OccupiedGraphNode`. At least one of the in-memory
-/// hydrated value and the on-disk (paged) copy is always present; `PagedOut` is
-/// exactly the state in which the hydrated value is absent.
+/// The stored value of an `OccupiedGraphNode` together with where it sits in the
+/// page-out lifecycle. Every state except `PagedOut` keeps the hydrated value
+/// resident; `PagedOut` keeps only the content-addressable on-disk `DataKey`.
 #[derive(Allocative, Debug)]
 pub(crate) enum PagableNodeValue {
-    /// Serialized to disk and since re-hydrated, so the next page-out can reuse the
-    /// key and skip re-serialization.
-    PagedBackIn(DataKey, DiceValidValue),
-    Other(PagableNodeValueOther),
+    /// Resident, no on-disk copy — a candidate for the next page-out.
+    NeverPagedOut(DiceValidValue),
+    /// Serialized to disk and evicted from memory, so the key is load-bearing and no
+    /// hydrated value is resident.
+    PagedOut(DataKey),
+    /// Resident but its value can't be serialized (e.g. `NoValueSerialize`, or an
+    /// `Err`); not a page-out candidate.
+    NonPageable(DiceValidValue),
+    /// Was paged out and is resident again — recomputed to a fresh value or reloaded
+    /// via `page-in`. Not a page-out candidate (a value is paged out at most once);
+    /// the previous on-disk key is no longer tracked.
+    Recomputed(DiceValidValue),
 }
 
-mini_vec::size_assert::words_of_type!(PagableNodeValue, 4);
+mini_vec::size_assert::words_of_type!(PagableNodeValue, 3);
 
 impl PagableNodeValue {
-    /// Constructs a hydrated-only value (no on-disk copy yet).
+    /// A resident value that has never been paged out.
     fn hydrated(value: DiceValidValue) -> Self {
-        Self::Other(PagableNodeValueOther::NeverPagedOut(value))
+        PagableNodeValue::NeverPagedOut(value)
     }
 
-    /// Returns the hydrated value, panicking with `msg` if the value is not currently
-    /// resident in memory. `msg` should explain why the caller knows the value is
-    /// hydrated (analogous to `Option::expect`).
-    fn expect_hydrated(&self, msg: &str) -> &DiceValidValue {
+    /// The hydrated value, if one is resident (every state but `PagedOut`).
+    pub(crate) fn as_hydrated(&self) -> Option<&DiceValidValue> {
+        match self {
+            PagableNodeValue::NeverPagedOut(value)
+            | PagableNodeValue::NonPageable(value)
+            | PagableNodeValue::Recomputed(value) => Some(value),
+            PagableNodeValue::PagedOut(_) => None,
+        }
+    }
+
+    /// The hydrated value, panicking with `msg` if it is paged out. `msg` should
+    /// explain why the caller knows the value is resident (analogous to
+    /// `Option::expect`).
+    pub(crate) fn expect_hydrated(&self, msg: &str) -> &DiceValidValue {
         self.as_hydrated().unwrap_or_else(|| {
             panic!(
                 "PagableNodeValue::expect_hydrated called on a paged-out value: {}",
@@ -359,36 +379,35 @@ impl PagableNodeValue {
         })
     }
 
-    pub(crate) fn as_hydrated(&self) -> Option<&DiceValidValue> {
-        match self {
-            PagableNodeValue::PagedBackIn(_, value)
-            | PagableNodeValue::Other(
-                PagableNodeValueOther::NeverPagedOut(value)
-                | PagableNodeValueOther::NonPageable(value),
-            ) => Some(value),
-            PagableNodeValue::Other(PagableNodeValueOther::PagedOut(_)) => None,
-        }
-    }
-
-    /// Returns the on-disk key if the value has already been serialized to storage.
-    /// When this is `Some`, the next page-out can skip re-serialization and reuse
-    /// the existing key.
+    /// The on-disk key of a `PagedOut` value (in-memory copy evicted), used to load
+    /// it back in. `None` for resident values.
     pub(crate) fn data_key(&self) -> Option<DataKey> {
         match self {
-            PagableNodeValue::PagedBackIn(k, _)
-            | PagableNodeValue::Other(PagableNodeValueOther::PagedOut(k)) => Some(*k),
-            PagableNodeValue::Other(
-                PagableNodeValueOther::NeverPagedOut(_) | PagableNodeValueOther::NonPageable(_),
-            ) => None,
+            PagableNodeValue::PagedOut(k) => Some(*k),
+            PagableNodeValue::NeverPagedOut(_)
+            | PagableNodeValue::NonPageable(_)
+            | PagableNodeValue::Recomputed(_) => None,
         }
     }
 
-    /// Whether the value has never been paged out — a candidate for the next page-out.
+    /// Whether this value has never been paged out — a candidate for the next
+    /// page-out.
     fn is_page_out_candidate(&self) -> bool {
-        matches!(
-            self,
-            PagableNodeValue::Other(PagableNodeValueOther::NeverPagedOut(_))
-        )
+        matches!(self, PagableNodeValue::NeverPagedOut(_))
+    }
+
+    /// The variant a freshly-recomputed (or paged-in) value takes given this
+    /// (previous) state, returned as a constructor for the caller to wrap the new
+    /// value. A value is paged out at most once: once it has been paged out (or
+    /// found non-pageable) it stays resident rather than becoming a candidate again.
+    fn after_recompute(&self) -> fn(DiceValidValue) -> PagableNodeValue {
+        match self {
+            PagableNodeValue::NeverPagedOut(_) => PagableNodeValue::NeverPagedOut,
+            PagableNodeValue::NonPageable(_) => PagableNodeValue::NonPageable,
+            PagableNodeValue::Recomputed(_) | PagableNodeValue::PagedOut(_) => {
+                PagableNodeValue::Recomputed
+            }
+        }
     }
 }
 
@@ -563,31 +582,29 @@ impl OccupiedGraphNode {
     }
 
     /// Restores the in-memory hydrated value (typically after deserializing from
-    /// disk), transitioning a `PagedOut` node to `PagedBackIn` so the on-disk key
-    /// survives for the next page-out to reuse. A no-op if the node is not currently
-    /// paged out (e.g. it was recomputed while the async hydration was in flight).
+    /// disk), marking a `PagedOut` node `Recomputed`: resident again and no longer a
+    /// page-out candidate (it has already been paged out once).
     pub(crate) fn rehydrate(&mut self, value: DiceValidValue) {
-        if let PagableNodeValue::Other(PagableNodeValueOther::PagedOut(k)) = &self.res {
-            self.res = PagableNodeValue::PagedBackIn(*k, value);
+        if matches!(self.res, PagableNodeValue::PagedOut(_)) {
+            self.res = PagableNodeValue::Recomputed(value);
         }
     }
 
     /// Records that the value has been written to storage at `data_key` and drops
     /// the in-memory value (the on-disk reference is now load-bearing).
     pub(crate) fn set_paged_out(&mut self, data_key: DataKey) {
-        self.res = PagableNodeValue::Other(PagableNodeValueOther::PagedOut(data_key));
+        self.res = PagableNodeValue::PagedOut(data_key);
     }
 
     /// Records that page-out considered this node but its value can't be
-    /// serialized, so it stays resident and is not a page-out candidate again
-    /// (until recomputed).
+    /// serialized, so it stays resident and is not a page-out candidate (nor
+    /// after a recompute — see `PagableNodeValue::after_recompute`).
     pub(crate) fn mark_non_pageable(&mut self) {
         let value = self
             .res
-            .as_hydrated()
-            .expect("mark_non_pageable is only called on resident page-out candidates")
+            .expect_hydrated("mark_non_pageable is only called on resident page-out candidates")
             .dupe();
-        self.res = PagableNodeValue::Other(PagableNodeValueOther::NonPageable(value));
+        self.res = PagableNodeValue::NonPageable(value);
     }
 
     /// `expect_hydrated_msg` is forwarded to `expect_hydrated` and should explain why the
@@ -647,7 +664,7 @@ impl OccupiedGraphNode {
                 } else {
                     VersionedGraphResult::MatchPagedOut(PagedOutMatch {
                         data_key: self.res.data_key().expect(
-                            "PagableNodeValue invariant: at least one of value or data_key is set",
+                            "a non-resident `PagableNodeValue` is always `PagedOut`, which has a `DataKey`",
                         ),
                         valid: self.metadata.verified_ranges.dupe(),
                         invalidation_paths: self.invalidation_paths.at_version(v),
@@ -670,7 +687,7 @@ impl OccupiedGraphNode {
                     } else {
                         VersionedGraphResult::CheckDepsPagedOut(PagedOutMismatch {
                             data_key: self.res.data_key().expect(
-                                "PagableNodeValue invariant: at least one of value or data_key is set",
+                                "a non-resident `PagableNodeValue` is always `PagedOut`, which has a `DataKey`",
                             ),
                             prev_verified_version,
                             deps_to_validate: self.metadata.deps.dupe(),

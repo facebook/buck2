@@ -230,7 +230,7 @@ mod store {
         /// VacantGraphEntries can only be present when no other entries are present for
         /// the key at any version.
         nodes: HashMap<DiceKey, VersionedGraphNode>,
-        /// Occupied nodes in `PagedState::NeverPagedOut` — the page-out candidates,
+        /// Occupied nodes in `PagableNodeValue::NeverPagedOut` — the page-out candidates,
         /// keyed by `DiceKey::index`. Reconciled by the `NodeMut` guard's `Drop` and by
         /// `VacantSlot::insert`.
         #[allocative(skip)]
