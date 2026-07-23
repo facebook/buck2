@@ -121,6 +121,9 @@ use crate::daemon::server_allocative::spawn_allocative;
 use crate::daemon::state::DaemonState;
 use crate::daemon::state::DaemonStateData;
 use crate::file_status::file_status_command;
+use crate::hydration::cancel_active_page_out;
+use crate::hydration::hydration_command;
+use crate::hydration::spawn_page_out_on_idle;
 use crate::lsp::run_lsp_server_command;
 use crate::new_generic::new_generic_command;
 use crate::profile::profile_command;
@@ -513,7 +516,7 @@ impl BuckdServer {
         // in-progress idle page-out so it yields resources back. Read-only /
         // debug commands opt out (see `triggers_idle_page_out`).
         if opts.triggers_idle_page_out() {
-            crate::hydration::cancel_active_page_out();
+            cancel_active_page_out();
         }
 
         let data = daemon_state.data();
@@ -652,10 +655,13 @@ impl BuckdServer {
                         // this is the last active command.
                         if opts.triggers_idle_page_out() {
                             let daemon_data = daemon_state.data();
-                            let page_out_triggered = crate::hydration::spawn_page_out_on_idle(
+                            let page_out_triggered = spawn_page_out_on_idle(
                                 daemon_data.page_out_on_idle,
                                 daemon_data.dice_manager.dupe(),
                                 dispatch.trace_id().dupe(),
+                                // Check headroom on the filesystem the paged-out values
+                                // are written to (`buck-out`), not the project root.
+                                daemon_state.paths.buck_out_path(),
                             )
                             .await;
                             if page_out_triggered {
@@ -1160,7 +1166,7 @@ impl DaemonApi for BuckdServer {
             req,
             HydrationCommandOptions,
             |context, partial_result_dispatcher, req| {
-                crate::hydration::hydration_command(context, partial_result_dispatcher, req).boxed()
+                hydration_command(context, partial_result_dispatcher, req).boxed()
             },
         )
         .await

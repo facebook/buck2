@@ -521,6 +521,9 @@ pub struct HydrationConfig {
     pub pagable_storage_backend: PagableStorageBackend,
     /// Automatically page the graph out to disk when the daemon goes idle.
     pub page_out_on_idle: bool,
+    /// Idle page-out only runs when at least this many GiB of disk are free to
+    /// write the paged-out values to.
+    pub page_out_min_free_disk_gb: u64,
 }
 
 impl HydrationConfig {
@@ -552,6 +555,12 @@ impl HydrationConfig {
                 })?
                 .unwrap_or_default(),
             page_out_on_idle,
+            page_out_min_free_disk_gb: config
+                .parse(BuckconfigKeyRef {
+                    section: "buck2_hydration",
+                    property: "page_out_min_free_disk_gb",
+                })?
+                .unwrap_or(100),
         }))
     }
 }

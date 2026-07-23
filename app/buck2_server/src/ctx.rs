@@ -962,7 +962,7 @@ impl DiceCommandUpdater<'_, '_> {
             "peak-load-metrics:v2".to_owned(),
             format!(
                 "page-out-on-idle:{}",
-                self.cmd_ctx.base_context.daemon.page_out_on_idle
+                self.cmd_ctx.base_context.daemon.page_out_on_idle.is_some()
             ),
         ];
         tags.extend(CleanStaleConfig::adaptive_telemetry_tags(

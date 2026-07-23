@@ -12,9 +12,11 @@
 //! disk), plus automatic page-out when the daemon goes idle.
 //!
 //! Automatic page-out is enabled with `buck2_hydration.page_out_on_idle = true`. When
-//! enabled, every command schedules a background task (see
+//! enabled, a finishing command schedules a background task (see
 //! [`spawn_page_out_on_idle`]) that waits for DICE to go idle and then pages out
-//! to reclaim memory.
+//! to reclaim memory — but only when there is something to page out and there is
+//! disk headroom (see [`should_page_out`], configurable via `buck2_hydration.*` /
+//! [`PageOutThresholds`]).
 //!
 //! Concurrency: automatic page-out deliberately does *not* take the DICE
 //! exclusivity lock the explicit command uses, so it never blocks an incoming
@@ -35,6 +37,8 @@ use buck2_cli_proto::HydrationSubcommand;
 use buck2_common::memory;
 use buck2_error::ErrorTag;
 use buck2_error::conversion::from_any_with_tag;
+use buck2_fs::fs_util;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_server_ctx::concurrency::ConcurrencyHandler;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
@@ -249,19 +253,37 @@ impl Drop for PageOutGuard {
     }
 }
 
-/// Spawn a background idle page-out, if `enabled` and `trace_id` — the command
-/// that triggered this page-out — is the only still-active command (so paging
-/// won't contend with other work). Returns whether one was triggered (not whether
-/// it succeeds). When commands overlap, only the last to finish still sees itself
-/// as the sole active command, so only it triggers. Returns `false` when there is
-/// nothing to page out (e.g. a no-op build or a non-build command that computed no
-/// new values).
+/// Resource thresholds gating idle page-out. GiB (not bytes) so
+/// `DaemonStartupConfig` stays `Eq` (no floats).
+#[derive(Clone, Copy, allocative::Allocative)]
+pub(crate) struct PageOutThresholds {
+    /// Page out only when at least this many GiB of disk are free to write to.
+    pub(crate) min_free_disk_gb: u64,
+}
+
+/// Spawn a background idle page-out, if it is enabled (`thresholds` is `Some`) and
+/// `trace_id` — the command that triggered this page-out — is the only still-active
+/// command (so paging won't contend with other work). Returns whether one was
+/// triggered (not whether it succeeds). When commands overlap, only the last to
+/// finish still sees itself as the sole active command, so only it triggers. Returns
+/// `false` when idle page-out is disabled, there is nothing to page out (e.g. a
+/// no-op build or a non-build command that computed no new values), or there is not
+/// enough disk headroom (see [`should_page_out`]).
 pub(crate) async fn spawn_page_out_on_idle(
-    enabled: bool,
+    thresholds: Option<PageOutThresholds>,
     dice_manager: Arc<ConcurrencyHandler>,
     trace_id: TraceId,
+    disk_check_path: AbsNormPathBuf,
 ) -> bool {
-    if !enabled || !is_only_active_command(&trace_id) {
+    let Some(thresholds) = thresholds else {
+        return false;
+    };
+
+    if !is_only_active_command(&trace_id) {
+        return false;
+    }
+
+    if !should_page_out(disk_check_path, thresholds).await {
         return false;
     }
 
@@ -286,6 +308,45 @@ pub(crate) async fn spawn_page_out_on_idle(
     true
 }
 
+/// Whether the daemon has enough disk headroom to make an idle page-out
+/// worthwhile. Thresholds come from [`PageOutThresholds`]; tests relax them to force
+/// page-out deterministically.
+///
+/// Does a blocking disk stat, so it offloads to a blocking thread; a slow or stuck
+/// disk stat can't stall a tokio worker.
+async fn should_page_out(disk_check_path: AbsNormPathBuf, thresholds: PageOutThresholds) -> bool {
+    tokio::task::spawn_blocking(move || {
+        let free_disk_bytes = match fs_util::disk_space_stats(&disk_check_path) {
+            Ok(disk) => Some(disk.free_space),
+            Err(e) => {
+                tracing::debug!("Skipping page-out on idle: disk check failed: {e:#}");
+                None
+            }
+        };
+        should_page_out_decision(free_disk_bytes, thresholds)
+    })
+    .await
+    .unwrap_or(false)
+}
+
+/// Pure decision behind [`should_page_out`], split out so the threshold logic is
+/// unit-testable without a live disk reading. Page out only when there is disk
+/// headroom (`free_disk_bytes` at or above `min_free_disk_gb`). `free_disk_bytes` is
+/// `None` when the disk check failed — treated as no headroom.
+fn should_page_out_decision(free_disk_bytes: Option<u64>, thresholds: PageOutThresholds) -> bool {
+    let min_free_disk_bytes = thresholds
+        .min_free_disk_gb
+        .saturating_mul(1024 * 1024 * 1024);
+    match free_disk_bytes {
+        Some(free) if free >= min_free_disk_bytes => true,
+        Some(free) => {
+            tracing::debug!("Skipping page-out on idle: only {free} bytes of disk free");
+            false
+        }
+        None => false,
+    }
+}
+
 async fn page_out_on_idle(
     _guard: PageOutGuard,
     dice_manager: Arc<ConcurrencyHandler>,
@@ -300,4 +361,31 @@ async fn page_out_on_idle(
     // rare, so don't check here — `page_out` observes the flag and stops promptly.
     tracing::info!("Daemon is idle; paging DICE out to reclaim memory");
     page_out(&dice, page_out_cancelled).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const GIB: u64 = 1024 * 1024 * 1024;
+
+    #[test]
+    fn pages_out_only_with_disk_headroom() {
+        let thresholds = PageOutThresholds {
+            min_free_disk_gb: 20,
+        };
+        assert!(should_page_out_decision(Some(50 * GIB), thresholds));
+        assert!(should_page_out_decision(Some(20 * GIB), thresholds)); // threshold is inclusive
+        assert!(!should_page_out_decision(Some(19 * GIB), thresholds));
+        assert!(!should_page_out_decision(None, thresholds)); // disk check failed
+    }
+
+    #[test]
+    fn min_free_disk_gb_saturates() {
+        // A huge GiB threshold saturates rather than overflowing; nothing meets it.
+        let thresholds = PageOutThresholds {
+            min_free_disk_gb: u64::MAX,
+        };
+        assert!(!should_page_out_decision(Some(u64::MAX - 1), thresholds));
+    }
 }

@@ -101,6 +101,7 @@ use crate::daemon::io_provider::create_io_provider;
 use crate::daemon::panic::DaemonStatePanicDiceDump;
 use crate::daemon::server::BuckdServerInitPreferences;
 use crate::daemon::tenting_provider::create_tenting_acl_provider;
+use crate::hydration::PageOutThresholds;
 
 /// For a buckd process there is a single DaemonState created at startup and never destroyed.
 #[derive(Allocative)]
@@ -217,10 +218,11 @@ pub struct DaemonStateData {
 
     pub buckconfig_metadata: StdBuckHashMap<String, String>,
 
-    /// Whether `buck2_hydration.page_out_on_idle` is enabled (a `DaemonStartupConfig`,
-    /// so fixed for the daemon's lifetime). Read per command in `finalize` to
-    /// decide whether to schedule a background page-out.
-    pub page_out_on_idle: bool,
+    /// Idle page-out config: the resource-pressure thresholds, `Some` iff
+    /// `buck2_hydration.page_out_on_idle` is enabled (a `DaemonStartupConfig`, so
+    /// fixed for the daemon's lifetime). Read per command in `finalize` to decide
+    /// whether to schedule a background page-out; `None` disables it.
+    pub(crate) page_out_on_idle: Option<PageOutThresholds>,
 }
 
 impl DaemonStateData {
@@ -763,11 +765,16 @@ impl DaemonState {
                 daemon_originating_cgroup: init_ctx.daemon_originating_cgroup,
                 named_semaphores_for_run_actions: Arc::new(NamedSemaphores::new()),
                 buckconfig_metadata: parse_buckconfig_metadata(root_config),
+                // `Some` (with thresholds) iff idle page-out is enabled; `None`
+                // otherwise. Defaults live in `HydrationConfig::from_config`, not here.
                 page_out_on_idle: init_ctx
                     .daemon_startup_config
                     .hydration
                     .as_ref()
-                    .is_some_and(|h| h.page_out_on_idle),
+                    .filter(|h| h.page_out_on_idle)
+                    .map(|h| PageOutThresholds {
+                        min_free_disk_gb: h.page_out_min_free_disk_gb,
+                    }),
             }))
         };
         let daemon_listener_span = tracing::Span::current();
