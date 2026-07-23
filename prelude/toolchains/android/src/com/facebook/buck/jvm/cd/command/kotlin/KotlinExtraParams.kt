@@ -40,7 +40,6 @@ data class KotlinExtraParams(
     val incrementalStateDir: Optional<AbsPath>,
     val shouldKsp2RunIncrementally: Boolean,
     private val languageVersionString: String,
-    val shouldKosabiJvmAbiGenUseK2: Boolean,
     val kotlinClassesDir: AbsPath,
     val javaBinary: Optional<String>,
     val applicabilityClasspath: ImmutableList<AbsPath> = ImmutableList.of(),

@@ -388,7 +388,6 @@ def _encode_kotlin_extra_params(
         shouldKsp2RunIncrementally = should_ksp2_run_incrementally,
         incrementalStateDir = incremental_state_dir.as_output() if incremental_state_dir else None,
         languageVersion = language_version,
-        shouldKosabiJvmAbiGenUseK2 = True,
         kotlinClassesDir = kotlin_classes.as_output(),
         javaBinary = cmd_args(kotlin_toolchain.java_binary_for_kotlincd[RunInfo], delimiter = " ") if kotlin_toolchain.java_binary_for_kotlincd else "",
         applicabilityClasspath = source_only_abi_applicability_classpath,
