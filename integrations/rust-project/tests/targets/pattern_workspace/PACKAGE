@@ -1,0 +1,5 @@
+native.rust_with_workspace(
+    patterns = [
+        "fbcode//buck2/integrations/rust-project/tests/targets/pattern_workspace/...",
+    ],
+)

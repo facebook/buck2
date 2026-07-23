@@ -6,11 +6,16 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load(":with_workspace.bzl", "package_key")
+load(":with_workspace.bzl", "package_key", "patterns_package_key")
 
 def rust_common_macro_wrapper(rust_rule):
     def rust_common_impl(**kwargs):
         workspaces = read_package_value(package_key) or []
-        rust_rule(_workspaces = workspaces, **kwargs)
+        workspace_patterns = read_package_value(patterns_package_key) or []
+        rust_rule(
+            _workspace_patterns = workspace_patterns,
+            _workspaces = workspaces,
+            **kwargs
+        )
 
     return rust_common_impl

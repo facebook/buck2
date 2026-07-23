@@ -93,6 +93,55 @@ async def test_workspaces(buck: Buck) -> None:
 
 
 @buck_test(inplace=True, skip_for_os=["darwin", "windows"])
+async def test_workspace_patterns(buck: Buck) -> None:
+    result_raw = await buck.bxl(
+        "prelude//rust/rust-analyzer/resolve_deps.bxl:resolve_targets",
+        "--",
+        "--targets",
+        "//buck2/integrations/rust-project/tests/targets/pattern_workspace/entry:entry",
+    )
+    result: Dict[str, Any] = json.load(open(result_raw.stdout.rstrip()))
+
+    expected_targets = {
+        "fbcode//buck2/integrations/rust-project/tests/targets/pattern_workspace/entry:entry",
+        "fbcode//buck2/integrations/rust-project/tests/targets/pattern_workspace/sibling:_proc_macro",
+        "fbcode//buck2/integrations/rust-project/tests/targets/pattern_workspace/sibling:proc_macro_consumer",
+        "fbcode//buck2/integrations/rust-project/tests/targets/pattern_workspace/sibling:sibling",
+        "fbcode//buck2/integrations/rust-project/tests/targets/pattern_workspace/sibling:sibling_test",
+    }
+    assert expected_targets <= set(result["expanded_targets"])
+    assert len(result["expanded_targets"]) == len(set(result["expanded_targets"]))
+    assert all(result["resolved_deps"][target]["in_workspace"] for target in expected_targets)
+
+    result_raw = await buck.bxl(
+        "prelude//rust/rust-analyzer/resolve_deps.bxl:resolve_targets",
+        "--",
+        "--targets",
+        "//buck2/integrations/rust-project/tests/targets/pattern_workspace/entry:entry",
+        "--exclude_workspaces=true",
+    )
+    result = json.load(open(result_raw.stdout.rstrip()))
+    assert result["expanded_targets"] == [
+        "fbcode//buck2/integrations/rust-project/tests/targets/pattern_workspace/entry:entry"
+    ]
+
+
+@buck_test(inplace=True, skip_for_os=["darwin", "windows"])
+async def test_workspace_labels_keyword(buck: Buck) -> None:
+    result_raw = await buck.bxl(
+        "prelude//rust/rust-analyzer/resolve_deps.bxl:resolve_targets",
+        "--",
+        "--targets",
+        "//buck2/integrations/rust-project/tests/targets/label_workspace:member",
+    )
+    result: Dict[str, Any] = json.load(open(result_raw.stdout.rstrip()))
+
+    assert result["expanded_targets"] == [
+        "fbcode//buck2/integrations/rust-project/tests/targets/label_workspace:root"
+    ]
+
+
+@buck_test(inplace=True, skip_for_os=["darwin", "windows"])
 async def test_alias(buck: Buck) -> None:
     result_raw = await buck.bxl(
         "prelude//rust/rust-analyzer/resolve_deps.bxl:resolve_targets",

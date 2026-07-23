@@ -200,6 +200,14 @@ def _cxx_toolchain_arg():
 
 def _workspaces_arg():
     return {
+        "_workspace_patterns": attrs.list(
+            attrs.string(),
+            default = [],
+            doc = """
+    Internal implementation detail of Rust workspaces. This should not be set manually and will be
+     replaced in favor of metadata in a future version of buck2.
+""",
+        ),
         "_workspaces": attrs.list(
             attrs.label(),
             default = [],

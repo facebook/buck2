@@ -25,6 +25,11 @@ ExpandedAndResolved = record(
     resolved_deps = dict[TargetLabel, TargetInfo],
 )
 
+WorkspacePatternGroup = record(
+    candidates = list[TargetLabel],
+    patterns = list[str],
+)
+
 def materialize(ctx: bxl.Context, target: bxl.ConfiguredTargetNode) -> Artifact:
     analysis = ctx.analysis(target)
     sources = analysis.providers()[DefaultInfo].sub_targets["sources"][DefaultInfo].default_outputs[0]
@@ -287,6 +292,41 @@ def expand_proc_macros(ctx: bxl.Context, target_analysis: dict[Label, bxl.Analys
         )
     return out
 
+def merge_workspace_target_configurations(
+        targets: bxl.ConfiguredTargetSet,
+        workspace_candidates: list[bxl.ConfiguredTargetNode]) -> bxl.ConfiguredTargetSet:
+    candidates_by_raw_label = {}
+    for candidate in workspace_candidates:
+        candidate = candidate.unwrap_forward()
+        raw_label = candidate.label.raw_target()
+        existing = candidates_by_raw_label.get(raw_label)
+        if existing != None and existing.label != candidate.label:
+            fail("Rust workspace matched multiple direct configurations of `{}`: `{}` and `{}`".format(raw_label, existing.label, candidate.label))
+        candidates_by_raw_label[raw_label] = candidate
+
+    merged_candidates = {}
+    other_targets = []
+    for target in targets:
+        raw_label = target.label.raw_target()
+        candidate = candidates_by_raw_label.get(raw_label)
+        if candidate == None:
+            other_targets.append(target)
+            continue
+
+        existing = merged_candidates.get(raw_label)
+        if existing == None:
+            merged_candidates[raw_label] = target
+        elif existing.label == target.label:
+            pass
+        elif existing.label == candidate.label:
+            merged_candidates[raw_label] = target
+        elif target.label == candidate.label:
+            pass
+        else:
+            fail("Rust workspace resolved `{}` in multiple dependency configurations: `{}` and `{}`".format(raw_label, existing.label, target.label))
+
+    return ctarget_set(other_targets + merged_candidates.values())
+
 # Returns a list of all the expanded targets including any workspaces, followed by just the workspaces
 def expand_targets(ctx: bxl.Context, targets: list[TargetLabel], exclude_workspaces: bool) -> (dict[Label, bxl.AnalysisResult], list[TargetLabel]):
     target_universe = ctx.target_universe(targets).target_set()
@@ -305,6 +345,7 @@ def expand_targets(ctx: bxl.Context, targets: list[TargetLabel], exclude_workspa
 
     workspace_groups = {}
     possible_workspaces = {}
+    pattern_groups = {}
     if not exclude_workspaces:
         for label, t in expanded_targets.items():
             workspaces = t.attrs_lazy().get("_workspaces")
@@ -320,6 +361,16 @@ def expand_targets(ctx: bxl.Context, targets: list[TargetLabel], exclude_workspa
 
                 if workspace_group:
                     workspace_groups[label] = workspace_group
+
+            patterns = t.attrs_lazy().get("_workspace_patterns")
+            if patterns:
+                patterns = patterns.value()
+                if patterns:
+                    group = pattern_groups.setdefault(str(patterns), WorkspacePatternGroup(
+                        candidates = [],
+                        patterns = patterns,
+                    ))
+                    group.candidates.append(label)
 
     workspace_analysis = ctx.analysis(ctx.target_universe(possible_workspaces.keys()).target_set())
 
@@ -338,19 +389,35 @@ def expand_targets(ctx: bxl.Context, targets: list[TargetLabel], exclude_workspa
                 active_workspace_groups[candidate] = ()
 
     active_workspaces = {}
+    workspace_candidates = {}
     for candidate in active_workspace_groups:
         for workspace in workspace_groups[candidate]:
             active_workspaces[workspace] = ()
 
-        # Remove the target from the expanded targets. This is correct because we know
-        # that the target will reappear later as a dep of the workspace. To understand why
-        # it's necessary, consider the case where the target is a proc macro: Later doing
-        # cquery deps(proc_macro + workspace) will result in the proc macro appearing twice,
-        # once in its exec configuration and once in its target configuration
-        # FIXME: Add a test for this. It's currently a bit hard to test because proc macros
-        # in the prelude are a bit hard in general
+        target = expanded_targets[candidate].unwrap_forward()
+        workspace_candidates[target.label] = target
         expanded_targets.pop(candidate, None)
-    target_set = ctx.target_universe(expanded_targets.keys() + active_workspaces.keys()).target_set()
+
+    active_pattern_targets = {}
+    for group in pattern_groups.values():
+        pattern_targets = ctx.unconfigured_targets(group.patterns)
+        configured_pattern_targets = ctx.configured_targets(list(pattern_targets))
+        pattern_attr_targets = ctx.cquery().attrregexfilter("_rust_analyzer_target_kind", "^(bin|lib|test|unit_test)$", configured_pattern_targets)
+        pattern_alias_targets = ctx.cquery().kind("^(alias|_?transitioned)$", configured_pattern_targets)
+        pattern_labeled_targets = ctx.cquery().attrfilter("labels", "rust_analyzer_target", configured_pattern_targets)
+        pattern_targets = {}
+        for target in pattern_attr_targets + pattern_alias_targets + pattern_labeled_targets:
+            target = target.unwrap_forward()
+            pattern_targets[target.label] = target
+
+        for candidate in group.candidates:
+            if expanded_targets[candidate].unwrap_forward().label in pattern_targets:
+                active_pattern_targets.update(pattern_targets)
+                workspace_candidates.update(pattern_targets)
+                break
+
+    target_set = ctx.target_universe(expanded_targets.keys() + active_workspaces.keys() + active_pattern_targets.values()).target_set()
+    target_set = merge_workspace_target_configurations(target_set, list(workspace_candidates.values()))
     target_analysis = ctx.analysis(target_set)
     return target_analysis, sorted(active_workspaces.keys())
 
