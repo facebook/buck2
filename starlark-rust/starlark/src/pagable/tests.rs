@@ -48,6 +48,13 @@ use crate::values::dict::globals::register_dict;
 use crate::values::layout::heap::heap_type::FrozenHeapName;
 use crate::values::list::globals::register_list;
 
+pagable::static_str!(TEST_EVAL_HEAP_NAME = "test_eval");
+pagable::static_str!(TESTING_GLOBALS_HEAP_NAME = "testing");
+pagable::static_str!(CROSS_THREAD_GLOBALS_HEAP_NAME = "cross_thread");
+pagable::static_str!(BENCH_EVAL_HEAP_NAME = "bench_eval");
+pagable::static_str!(TEST_BCINSTRS_HEAP_NAME = "test_bcinstrs");
+pagable::static_str!(TEST_BCINSTRS_DET_GLOBALS_HEAP_NAME = "test_bcinstrs_det_globals");
+
 /// Private test heap name for pagable tests.
 #[derive(Clone, derive_more::Display, Debug, Hash, StrongHash)]
 #[display("TestHeapName({})", _0)]
@@ -135,7 +142,9 @@ a.append(a)
 "#;
 
     let ast = AstModule::parse("test_module.star", code.to_owned(), &Dialect::Extended)?;
-    let globals = GlobalsBuilder::new().build_named(GlobalFrozenHeapName { name: "test_eval" });
+    let globals = GlobalsBuilder::new().build_named(GlobalFrozenHeapName {
+        name: TEST_EVAL_HEAP_NAME,
+    });
     let frozen_module = Module::with_temp_heap(|module| {
         {
             let mut eval = Evaluator::new(&module);
@@ -2307,7 +2316,9 @@ fn test_globals_roundtrip() {
         register_dict(globals);
     });
 
-    let globals = globals.build_named(GlobalFrozenHeapName { name: "testing" });
+    let globals = globals.build_named(GlobalFrozenHeapName {
+        name: TESTING_GLOBALS_HEAP_NAME,
+    });
 
     let mut serializer = pagable::testing::TestingSerializer::new();
     globals.pagable_serialize(&mut serializer).unwrap();
@@ -2901,7 +2912,7 @@ b.append(a)
 
     let ast = AstModule::parse("cross_thread.star", code.to_owned(), &Dialect::Extended).unwrap();
     let globals = GlobalsBuilder::new().build_named(GlobalFrozenHeapName {
-        name: "cross_thread",
+        name: CROSS_THREAD_GLOBALS_HEAP_NAME,
     });
     let frozen_module = Module::with_temp_heap(|module| {
         {
@@ -3133,8 +3144,9 @@ fn bench_pagable_ser_deser_by_value_type() -> crate::Result<()> {
         let code = lines.join("\n");
 
         let ast = AstModule::parse("bench_module.star", code, &Dialect::Extended)?;
-        let globals =
-            GlobalsBuilder::new().build_named(GlobalFrozenHeapName { name: "bench_eval" });
+        let globals = GlobalsBuilder::new().build_named(GlobalFrozenHeapName {
+            name: BENCH_EVAL_HEAP_NAME,
+        });
         let frozen_module = Module::with_temp_heap(|module| {
             {
                 let mut eval = Evaluator::new(&module);
@@ -3516,7 +3528,7 @@ def many_locals():
 
     let ast = AstModule::parse("test_bcinstrs.star", code.to_owned(), &Dialect::Extended)?;
     let globals = GlobalsBuilder::standard().build_named(GlobalFrozenHeapName {
-        name: "test_bcinstrs",
+        name: TEST_BCINSTRS_HEAP_NAME,
     });
     let frozen_module = Module::with_temp_heap(|module| {
         {
@@ -3620,7 +3632,7 @@ def use_comprehension():
     // Shared globals so native-fn refs (`range`) get the same `HeapRefId` in
     // both compilations.
     let globals = GlobalsBuilder::standard().build_named(GlobalFrozenHeapName {
-        name: "test_bcinstrs_det_globals",
+        name: TEST_BCINSTRS_DET_GLOBALS_HEAP_NAME,
     });
 
     // Same heap name both times so self-references encode to the same `HeapRefId`.

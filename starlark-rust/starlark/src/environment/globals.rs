@@ -25,6 +25,7 @@ use pagable::PagableDeserialize;
 use pagable::PagableDeserializer;
 use pagable::PagableSerialize;
 use pagable::PagableSerializer;
+use pagable::StaticStr;
 
 use crate as starlark;
 use crate::__derive_refs::components::NativeCallableComponents;
@@ -130,10 +131,10 @@ impl<'de> PagableDeserialize<'de> for GlobalsData {
 }
 
 /// Heap name for a [`Globals`] object, used for heap graph tracking.
-#[derive(Debug, Clone, Copy, Hash)]
+#[derive(Debug, Clone, Copy, Hash, pagable::Pagable)]
 pub struct GlobalFrozenHeapName {
     /// A name identifying this globals heap.
-    pub name: &'static str,
+    pub name: StaticStr,
 }
 
 impl std::fmt::Display for GlobalFrozenHeapName {
@@ -429,7 +430,7 @@ impl GlobalsBuilder {
 /// first access via the supplied initializer.
 pub struct GlobalsStatic {
     cell: OnceLock<Globals>,
-    name: &'static str,
+    name: StaticStr,
     init: fn(&mut GlobalsBuilder),
 }
 
@@ -437,7 +438,7 @@ impl GlobalsStatic {
     /// Create a new [`GlobalsStatic`]. Prefer the
     /// [`globals_static!`](crate::globals_static) macro, which fills in `name`
     /// from the call site.
-    pub const fn new(name: &'static str, init: fn(&mut GlobalsBuilder)) -> GlobalsStatic {
+    pub const fn new(name: StaticStr, init: fn(&mut GlobalsBuilder)) -> GlobalsStatic {
         GlobalsStatic {
             cell: OnceLock::new(),
             name,
@@ -496,11 +497,13 @@ impl GlobalsStatic {
 macro_rules! globals_static {
     ($vis:vis $name:ident = $init:expr) => {
         #[allow(dead_code)]
-        $vis static $name: $crate::__derive_refs::GlobalsStatic =
-            $crate::__derive_refs::GlobalsStatic::new(
-                concat!(module_path!(), "::", stringify!($name)),
-                $init,
+        $vis static $name: $crate::__derive_refs::GlobalsStatic = {
+            $crate::__derive_refs::static_str!(
+                __GLOBAL_HEAP_NAME =
+                concat!(module_path!(), "::", stringify!($name))
             );
+            $crate::__derive_refs::GlobalsStatic::new(__GLOBAL_HEAP_NAME, $init)
+        };
 
         $crate::__derive_refs::inventory::submit! {
             $crate::__derive_refs::StaticHeapEntry {

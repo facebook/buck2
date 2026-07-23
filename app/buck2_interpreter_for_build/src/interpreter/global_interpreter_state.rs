@@ -30,6 +30,8 @@ use crate::interpreter::configuror::BuildInterpreterConfiguror;
 use crate::interpreter::context::HasInterpreterContext;
 use crate::interpreter::globals::base_globals;
 
+pagable::static_str!(GLOBAL_ENV_HEAP_NAME = concat!(module_path!(), "::global_env"));
+
 /// Information shared across interpreters. Contains no cell-specific
 /// information.
 #[derive(Allocative, pagable::Pagable)]
@@ -64,7 +66,7 @@ impl GlobalInterpreterState {
                 }
             })
             .build_named(GlobalFrozenHeapName {
-                name: concat!(module_path!(), "::global_env"),
+                name: GLOBAL_ENV_HEAP_NAME,
             });
 
         Ok(Self {
