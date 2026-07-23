@@ -633,4 +633,5 @@ def _asm_args(go_toolchain: GoToolchainInfo, pkg_import_path: str, main: bool, s
         ["-D", "GOOS_" + go_toolchain.env_go_os] if go_toolchain.env_go_os else [],
         ["-D", "GOARCH_" + go_toolchain.env_go_arch] if go_toolchain.env_go_arch else [],
         ["-shared"] if shared else [],
+        ["-std"] if go_toolchain.version and go_toolchain.version.minor >= 27 else [],  # todo: safe to remove once go1.28 is released
     ]
