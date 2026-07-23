@@ -90,6 +90,7 @@ INHERITED_ENV = [
     "NIX_LDFLAGS",
     "NIX_LDFLAGS_FOR_TARGET",
     "NIX_NO_SELF_RPATH",
+    "NIX_DEBUG",
 ]
 
 
