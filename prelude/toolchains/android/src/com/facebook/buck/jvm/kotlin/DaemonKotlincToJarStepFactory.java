@@ -11,7 +11,6 @@
 package com.facebook.buck.jvm.kotlin;
 
 import static com.facebook.buck.jvm.kotlin.ClasspathUtils.getClasspathSnapshots;
-import static com.facebook.buck.jvm.kotlin.KaptStepsBuilder.isKaptSupportedForCurrentKotlinLanguageVersion;
 import static com.facebook.buck.jvm.kotlin.KosabiStubgenStepsBuilder.prepareKosabiStubgenIfNeeded;
 import static com.facebook.buck.jvm.kotlin.KspStepsBuilder.prepareKspProcessorsIfNeeded;
 
@@ -281,7 +280,6 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
 
     ResolvedJavacOptions resolvedJavacOptions = extraParams.getResolvedJavacOptions();
     if (hasKotlinSources
-        && isKaptSupportedForCurrentKotlinLanguageVersion(extraParams.getLanguageVersion())
         && extraParams.getAnnotationProcessingTool() == AnnotationProcessingTool.KAPT) {
       // Most of the time, KotlinC have ran annotation processing,
       // so only run "java on mix" processors (very uncommon) on Javac

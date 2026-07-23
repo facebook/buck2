@@ -115,10 +115,6 @@ public class KaptStepsBuilder {
       ImmutableSortedSet.Builder<RelPath> sourceWithStubsAndKaptAndKspOutputBuilder,
       ImmutableSortedSet.Builder<RelPath> sourceWithStubsAndKaptOutputBuilder,
       LanguageVersion kotlinLanguageVersion) {
-    if (!isKaptSupportedForCurrentKotlinLanguageVersion(kotlinLanguageVersion)) {
-      return;
-    }
-
     // We don't need the Kapt processor to run for source-only-abi
     if (invokingRule.isSourceOnlyAbi()) {
       return;
@@ -310,16 +306,6 @@ public class KaptStepsBuilder {
     }
 
     return KOTLINC_KAPT_USE_USE_KAPT4_OLD;
-  }
-
-  public static boolean isKaptSupportedForCurrentKotlinLanguageVersion(
-      LanguageVersion languageVersion) {
-    // Newer Java versions removed a constructor from the Java JDK that KAPT relies on. The issue
-    // was fixed on Kotlin 1.6 (https://youtrack.jetbrains.com/issue/KT-47583)
-    //
-    // Once we have our supported AOSP versions on a later Kotlin version, we can remove this.
-    // AOSP 12 uses Kotlin 1.4.2 => https://fburl.com/code/94fkfr6r
-    return languageVersion.getSupportsLanguageVersion();
   }
 
   /**
