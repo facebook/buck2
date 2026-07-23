@@ -7,7 +7,6 @@
  * of this source tree. You may select, at your option, one of the
  * above-listed licenses.
  */
-
 use std::path::PathBuf;
 
 use buck2_cli_proto::new_generic::DocsOutputFormat;
@@ -22,6 +21,7 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedRelativeDir;
 use buck2_core::cells::name::CellName;
 use buck2_hash::StdBuckHashSet;
+use buck2_interpreter::import_paths::HasImportPaths;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::parse_import::ParseImportOptions;
 use buck2_interpreter::parse_import::RelativeImports;
@@ -76,6 +76,7 @@ fn parse_starlark_paths(
     cell_resolver: &CellAliasResolver,
     current_dir: &CellPath,
     symbol_patterns: &[String],
+    cell_segmentation: bool,
 ) -> buck2_error::Result<StdBuckHashSet<StarlarkFilePath>> {
     let parse_options = ParseImportOptions {
         allow_missing_at_symbol: true,
@@ -96,7 +97,7 @@ fn parse_starlark_paths(
                 Ok(StarlarkFilePath::Bxl(BxlFilePath::new(path)?))
             } else {
                 Ok(StarlarkFilePath::Bzl(
-                    ImportPath::new_with_build_file_cells(path, current_cell)?,
+                    ImportPath::new_with_build_file_cells(path, current_cell, cell_segmentation)?,
                 ))
             }
         })
@@ -115,11 +116,13 @@ pub(crate) async fn docs_starlark(
         .ctx()
         .get_cell_alias_resolver(current_cell_path.cell())
         .await?;
+    let cell_segmentation = dice_ctx.get_cell_segmentation().await?;
 
     let lookups = parse_starlark_paths(
         &cell_alias_resolver,
         &current_cell_path,
         &request.symbol_patterns,
+        cell_segmentation,
     )?;
 
     let docs: Vec<_> = dice_ctx
