@@ -19,9 +19,6 @@ async def test_re_resource_exhausted_reported_as_infra_failure(buck: Buck) -> No
         "--remote-only",
         "--no-remote-cache",
         "fbcode//buck2/tests/targets/rules/sh_test:test_remote_explicit",
-        "--",
-        "--experiment",
-        "classify_re_error_as_infra",
         env={
             "BUCK2_TEST_FAIL_RE_RESOURCE_EXHAUSTED": "true",
         },
