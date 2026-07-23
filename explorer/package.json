@@ -57,6 +57,6 @@
     "@tootallnate/once": ">=3.0.1",
     "@xmldom/xmldom": ">=0.9.10",
     "lodash": ">=4.18.0",
-    "tmp": ">=0.2.6"
+    "tmp": ">=0.2.7"
   }
 }
