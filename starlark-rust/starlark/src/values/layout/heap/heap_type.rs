@@ -311,9 +311,9 @@ impl StarlarkTestHeapName {
 /// This type can only be created via the [`singleton_heap_name!`](crate::singleton_heap_name)
 /// macro, which captures `file!()`, `line!()`, and `column!()` at the call site.
 /// This ensures each name is unique and stable across process runs.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, pagable::Pagable)]
 pub struct SingletonFrozenHeapName {
-    file: &'static str,
+    file: pagable::StaticStr,
     line: u32,
     col: u32,
 }
@@ -321,7 +321,7 @@ pub struct SingletonFrozenHeapName {
 impl SingletonFrozenHeapName {
     /// Internal constructor. Do not call directly; use [`singleton_heap_name!`](crate::singleton_heap_name).
     #[doc(hidden)]
-    pub const fn _new(file: &'static str, line: u32, col: u32) -> Self {
+    pub const fn _new(file: pagable::StaticStr, line: u32, col: u32) -> Self {
         Self { file, line, col }
     }
 }
@@ -342,9 +342,10 @@ impl std::fmt::Display for SingletonFrozenHeapName {
 /// ```
 #[macro_export]
 macro_rules! singleton_heap_name {
-    () => {
-        $crate::values::SingletonFrozenHeapName::_new(file!(), line!(), column!())
-    };
+    () => {{
+        $crate::__derive_refs::static_str!(__SINGLETON_HEAP_FILE = file!());
+        $crate::values::SingletonFrozenHeapName::_new(__SINGLETON_HEAP_FILE, line!(), column!())
+    }};
 }
 
 /// `FrozenHeap` when it is no longer modified and can be shared between threads.
