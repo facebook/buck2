@@ -94,40 +94,26 @@ static PyObject* _create_module(PyObject* self, PyObject* spec) {
     return nullptr;
   }
 
-#if PY_VERSION_HEX >= 0x030F0000
-  throw std::runtime_error(
-      "Native python does not support Python 3.15 and later.");
-#elif PY_VERSION_HEX >= 0x030E0000 && defined(META_PYTHON)
-  mod = _Ci_PyImport_CreateBuiltinFromSpecAndInitfunc(spec, initfunc);
-#elif PY_VERSION_HEX >= 0x030E0000
+#if PY_VERSION_HEX >= 0x030E0000
+  // Python 3.14+ uses PyImport_CreateModuleFromInitfunc. This API was
+  // upstreamed in 3.15 (gh-116146) and backported to Meta Python 3.14
+  // (patched/Include/cpython/import.h). The older Meta-specific
+  // _Ci_PyImport_CreateBuiltinFromSpecAndInitfunc is now obsolete and
+  // can be avoided.
   mod = PyImport_CreateModuleFromInitfunc(spec, initfunc);
-#elif PY_VERSION_HEX >= 0x030D0000
-  // There is no supported Meta/Cinder Python 3.13 build, and stock Python 3.13
-  // has no _Py_PackageContext.
-  mod = initfunc();
-#elif PY_VERSION_HEX >= 0x030C0000 && defined(META_PYTHON)
-  // Meta Python 3.12 exposes a custom C-API to call statically linked module
-  // init functions with package context.
-  mod = _Ci_PyImport_CallInitFuncWithContext(namestr.c_str(), initfunc);
 #elif PY_VERSION_HEX >= 0x030C0000
-  // Stock CPython 3.12+ (no _Py_PackageContext)
-  mod = initfunc();
-#elif PY_VERSION_HEX >= 0x030A0000
-  // In Python 3.10 we need to handle package context swapping
-  // ourselves
-  const char* oldcontext = _Py_PackageContext;
-  _Py_PackageContext = namestr.c_str();
-  if (_Py_PackageContext == nullptr) {
-    _Py_PackageContext = oldcontext;
-    Py_DECREF(name);
-    return nullptr;
-  }
-  mod = initfunc();
-  _Py_PackageContext = oldcontext;
+  // Python 3.12-3.13: directly call the init function. Meta Python 3.12
+  // exposes a custom C-API for package context handling; there is no
+  // supported Meta/Cinder Python 3.13 build, so 3.13 falls back to the stock
+  // path.
+#if defined(META_PYTHON)
+  mod = _Ci_PyImport_CallInitFuncWithContext(namestr.c_str(), initfunc);
 #else
-  // _Py_PackageContext undefined in 3.9 and earlier
+  mod = initfunc();
+#endif
+#else
   throw std::runtime_error(
-      "Native python does not support Python 3.9 and earlier.");
+      "Native python does not support Python 3.11 and earlier.");
 #endif
   if (mod == nullptr) {
     Py_DECREF(name);
