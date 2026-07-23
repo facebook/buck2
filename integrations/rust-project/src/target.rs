@@ -106,7 +106,7 @@ pub(crate) enum Kind {
     #[serde(rename = "test", alias = "prelude//rules.bzl:rust_test")]
     Test,
     #[serde(rename = "unit_test")]
-    UnitTest,
+    UnitTest { unit_test_of: Target },
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
@@ -137,10 +137,6 @@ pub(crate) struct TargetInfo {
     pub(crate) crate_dynamic: Option<PathBuf>,
     pub(crate) crate_root: PathBuf,
     pub(crate) deps: Vec<Target>,
-    #[serde(default, rename = "tests")]
-    pub(crate) test_deps: Vec<Target>,
-    #[serde(default)]
-    pub(crate) unit_test_of: Option<Target>,
     // Optional set of renamed crates. in buck2, these are not unified with
     // `buck.direct_dependencies` and are instead a separate entry.
     #[serde(deserialize_with = "deserialize_named_deps")]
@@ -368,7 +364,9 @@ mod tests {
             (r#"{"kind":"test"}"#, Kind::Test),
             (
                 r#"{"kind":"unit_test","unit_test_of":"//foo"}"#,
-                Kind::UnitTest,
+                Kind::UnitTest {
+                    unit_test_of: Target::new("//foo"),
+                },
             ),
             // Legacy fully-qualified rule types emitted by older preludes.
             (r#"{"kind":"prelude//rules.bzl:rust_binary"}"#, Kind::Binary),
@@ -382,45 +380,13 @@ mod tests {
         }
 
         assert!(serde_json::from_str::<Kind>(r#"{"kind":"not_a_kind"}"#).is_err());
-        assert_eq!(
-            serde_json::from_str::<Kind>(r#"{"kind":"unit_test"}"#)?,
-            Kind::UnitTest
-        );
+        assert!(serde_json::from_str::<Kind>(r#"{"kind":"unit_test"}"#).is_err());
 
         Ok(())
     }
 
     #[test]
-    fn test_target_info_deserializes_rollout_shapes() -> Result<(), serde_json::Error> {
-        let transitional: TargetInfo = serde_json::from_str(
-            r#"{
-                "name": "foo-unit",
-                "label": "//foo-unit",
-                "labels": [],
-                "kind": "test",
-                "unit_test_of": "//foo",
-                "edition": "2021",
-                "srcs": [],
-                "mapped_srcs": {},
-                "crate": "foo",
-                "crate_dynamic": null,
-                "crate_root": "lib.rs",
-                "deps": [],
-                "tests": [],
-                "named_deps": {},
-                "proc_macro": null,
-                "features": [],
-                "env": {},
-                "source_folder": "/unit",
-                "project_relative_buildfile": "foo/BUCK",
-                "in_workspace": true,
-                "rustc_flags": []
-            }"#,
-        )?;
-        assert_eq!(transitional.kind, Kind::Test);
-        assert_eq!(transitional.unit_test_of, Some(Target::new("//foo")));
-        assert!(transitional.test_deps.is_empty());
-
+    fn test_target_info_deserializes_unit_test() -> Result<(), serde_json::Error> {
         let final_shape: TargetInfo = serde_json::from_str(
             r#"{
                 "name": "foo-unit",
@@ -445,9 +411,12 @@ mod tests {
                 "rustc_flags": []
             }"#,
         )?;
-        assert_eq!(final_shape.kind, Kind::UnitTest);
-        assert_eq!(final_shape.unit_test_of, Some(Target::new("//foo")));
-        assert!(final_shape.test_deps.is_empty());
+        assert_eq!(
+            final_shape.kind,
+            Kind::UnitTest {
+                unit_test_of: Target::new("//foo"),
+            }
+        );
 
         Ok(())
     }
@@ -466,8 +435,6 @@ mod tests {
             crate_dynamic: None,
             crate_root: PathBuf::default(),
             deps: vec![],
-            test_deps: vec![],
-            unit_test_of: None,
             named_deps: FxHashMap::default(),
             proc_macro: None,
             features: vec!["foo_feature".to_owned()],
@@ -498,8 +465,6 @@ mod tests {
             crate_dynamic: None,
             crate_root: PathBuf::default(),
             deps: vec![],
-            test_deps: vec![],
-            unit_test_of: None,
             named_deps: FxHashMap::default(),
             proc_macro: None,
             features: vec![],
@@ -540,8 +505,6 @@ mod tests {
             crate_dynamic: None,
             crate_root: PathBuf::default(),
             deps: vec![],
-            test_deps: vec![],
-            unit_test_of: None,
             named_deps: FxHashMap::default(),
             proc_macro: None,
             features: vec![],
@@ -568,8 +531,6 @@ mod tests {
             crate_dynamic: None,
             crate_root: PathBuf::default(),
             deps: vec![],
-            test_deps: vec![],
-            unit_test_of: None,
             named_deps: FxHashMap::default(),
             proc_macro: None,
             features: vec![],
@@ -596,8 +557,6 @@ mod tests {
             crate_dynamic: None,
             crate_root: PathBuf::default(),
             deps: vec![],
-            test_deps: vec![],
-            unit_test_of: None,
             named_deps: FxHashMap::default(),
             proc_macro: None,
             features: vec![],
@@ -624,8 +583,6 @@ mod tests {
             crate_dynamic: None,
             crate_root: PathBuf::default(),
             deps: vec![],
-            test_deps: vec![],
-            unit_test_of: None,
             named_deps: FxHashMap::default(),
             proc_macro: None,
             features: vec![],

@@ -423,51 +423,20 @@ fn as_deps(
 fn merge_unit_test_targets(
     target_map: FxHashMap<Target, TargetInfo>,
 ) -> Result<FxHashMap<Target, TargetInfo>, anyhow::Error> {
-    let mut inferred_unit_test_parents = FxHashMap::default();
-    for (parent, info) in &target_map {
-        for test in &info.test_deps {
-            if !test.ends_with("-unittest") {
-                continue;
-            }
-            if let Some(existing) = inferred_unit_test_parents.insert(test.clone(), parent.clone())
-            {
-                anyhow::bail!("unit test `{test}` is declared by both `{existing}` and `{parent}`",);
-            }
-        }
-    }
-
     let mut targets = FxHashMap::default();
     let mut unit_tests = Vec::new();
     let mut unit_test_targets = FxHashMap::default();
     for (target, info) in target_map {
-        let inferred_unit_test_of = inferred_unit_test_parents.remove(&target);
-        if let (Some(unit_test_of), Some(inferred_unit_test_of)) =
-            (&info.unit_test_of, &inferred_unit_test_of)
-            && unit_test_of != inferred_unit_test_of
-        {
-            anyhow::bail!(
-                "unit test `{target}` declares parent `{unit_test_of}`, but `{inferred_unit_test_of}` lists it as a test",
-            );
-        }
-        let unit_test_of = info.unit_test_of.clone().or(inferred_unit_test_of);
-        let Some(unit_test_of) = unit_test_of else {
-            if info.kind == Kind::UnitTest {
-                anyhow::bail!("unit test `{target}` does not declare `unit_test_of`");
-            }
+        let Kind::UnitTest { unit_test_of } = &info.kind else {
             targets.insert(target, info);
             continue;
         };
-        if info.kind != Kind::Test && info.kind != Kind::UnitTest {
-            anyhow::bail!(
-                "target `{target}` declares unit-test parent `{unit_test_of}`, but is not a test",
-            );
-        }
         if let Some(existing) = unit_test_targets.insert(unit_test_of.clone(), target.clone()) {
             anyhow::bail!(
                 "unit tests `{existing}` and `{target}` both declare `{unit_test_of}` as their parent",
             );
         }
-        unit_tests.push((target, unit_test_of, info));
+        unit_tests.push((target, unit_test_of.clone(), info));
     }
 
     for (unit_test_target, unit_test_of, unit_test_info) in unit_tests {
@@ -1248,8 +1217,6 @@ fn merge_unit_test_omits_parent_dependency() -> Result<(), anyhow::Error> {
             crate_dynamic: None,
             crate_root: PathBuf::default(),
             deps: vec![],
-            test_deps: vec![Target::new("//foo-unittest")],
-            unit_test_of: None,
             named_deps: FxHashMap::default(),
             proc_macro: None,
             features: vec![],
@@ -1267,7 +1234,9 @@ fn merge_unit_test_omits_parent_dependency() -> Result<(), anyhow::Error> {
             name: "foo-unittest".to_owned(),
             label: "foo-unittest".to_owned(),
             labels: vec![],
-            kind: Kind::Test,
+            kind: Kind::UnitTest {
+                unit_test_of: Target::new("//foo"),
+            },
             edition: None,
             srcs: vec![],
             mapped_srcs: FxHashMap::default(),
@@ -1275,8 +1244,6 @@ fn merge_unit_test_omits_parent_dependency() -> Result<(), anyhow::Error> {
             crate_dynamic: None,
             crate_root: PathBuf::default(),
             deps: vec![Target::new("//foo")],
-            test_deps: vec![],
-            unit_test_of: None,
             named_deps: FxHashMap::default(),
             proc_macro: None,
             features: vec![],
@@ -1323,8 +1290,6 @@ fn merge_unit_test_configuration_into_recorded_parent() -> Result<(), anyhow::Er
             crate_dynamic: None,
             crate_root: PathBuf::from("lib.rs"),
             deps: vec![Target::new("//parent-dep")],
-            test_deps: vec![],
-            unit_test_of: None,
             named_deps,
             proc_macro: None,
             features: vec!["parent".to_owned()],
@@ -1359,7 +1324,9 @@ fn merge_unit_test_configuration_into_recorded_parent() -> Result<(), anyhow::Er
             name: "arbitrary-unit-target".to_owned(),
             label: "arbitrary-unit-target".to_owned(),
             labels: vec![],
-            kind: Kind::Test,
+            kind: Kind::UnitTest {
+                unit_test_of: Target::new("//foo"),
+            },
             edition: Some(Edition::Edition2021),
             srcs: vec![PathBuf::from("parent.rs"), PathBuf::from("test.rs")],
             mapped_srcs,
@@ -1367,8 +1334,6 @@ fn merge_unit_test_configuration_into_recorded_parent() -> Result<(), anyhow::Er
             crate_dynamic: None,
             crate_root: PathBuf::from("lib.rs"),
             deps: vec![Target::new("//foo"), Target::new("//test-framework")],
-            test_deps: vec![],
-            unit_test_of: Some(Target::new("//foo")),
             named_deps,
             proc_macro: None,
             features: vec!["parent".to_owned(), "test".to_owned()],
@@ -1434,8 +1399,6 @@ fn merge_unit_test_rejects_named_dependency_conflicts() {
             crate_dynamic: None,
             crate_root: PathBuf::from("lib.rs"),
             deps: vec![],
-            test_deps: vec![],
-            unit_test_of: None,
             named_deps,
             proc_macro: None,
             features: vec![],
@@ -1455,7 +1418,9 @@ fn merge_unit_test_rejects_named_dependency_conflicts() {
             name: "foo-unit".to_owned(),
             label: "foo-unit".to_owned(),
             labels: vec![],
-            kind: Kind::UnitTest,
+            kind: Kind::UnitTest {
+                unit_test_of: Target::new("//foo"),
+            },
             edition: None,
             srcs: vec![],
             mapped_srcs: FxHashMap::default(),
@@ -1463,8 +1428,6 @@ fn merge_unit_test_rejects_named_dependency_conflicts() {
             crate_dynamic: None,
             crate_root: PathBuf::from("lib.rs"),
             deps: vec![],
-            test_deps: vec![],
-            unit_test_of: Some(Target::new("//foo")),
             named_deps,
             proc_macro: None,
             features: vec![],
@@ -1493,7 +1456,9 @@ fn merge_unit_test_rejects_missing_parent() {
             name: "foo-unit".to_owned(),
             label: "foo-unit".to_owned(),
             labels: vec![],
-            kind: Kind::UnitTest,
+            kind: Kind::UnitTest {
+                unit_test_of: Target::new("//foo"),
+            },
             edition: None,
             srcs: vec![],
             mapped_srcs: FxHashMap::default(),
@@ -1501,8 +1466,6 @@ fn merge_unit_test_rejects_missing_parent() {
             crate_dynamic: None,
             crate_root: PathBuf::from("lib.rs"),
             deps: vec![],
-            test_deps: vec![],
-            unit_test_of: Some(Target::new("//foo")),
             named_deps: FxHashMap::default(),
             proc_macro: None,
             features: vec![],
@@ -1541,8 +1504,6 @@ fn integration_tests_preserved() -> Result<(), anyhow::Error> {
             crate_dynamic: None,
             crate_root: PathBuf::default(),
             deps: vec![],
-            test_deps: vec![],
-            unit_test_of: None,
             named_deps: FxHashMap::default(),
             proc_macro: None,
             features: vec![],
@@ -1568,8 +1529,6 @@ fn integration_tests_preserved() -> Result<(), anyhow::Error> {
             crate_dynamic: None,
             crate_root: PathBuf::default(),
             deps: vec![Target::new("//foo")],
-            test_deps: vec![],
-            unit_test_of: None,
             named_deps: FxHashMap::default(),
             proc_macro: None,
             features: vec![],
@@ -1601,8 +1560,6 @@ fn test_cfg_scoped_to_first_party() {
         crate_dynamic: None,
         crate_root: PathBuf::default(),
         deps: vec![],
-        test_deps: vec![],
-        unit_test_of: None,
         named_deps: FxHashMap::default(),
         proc_macro: None,
         features: vec![],
@@ -1653,8 +1610,6 @@ fn named_deps_underscores() {
             crate_dynamic: None,
             crate_root: PathBuf::default(),
             deps: vec![],
-            test_deps: vec![],
-            unit_test_of: None,
             named_deps: FxHashMap::default(),
             proc_macro: None,
             features: vec![],
@@ -1681,8 +1636,6 @@ fn named_deps_underscores() {
         crate_dynamic: None,
         crate_root: PathBuf::default(),
         deps: vec![],
-        test_deps: vec![],
-        unit_test_of: None,
         named_deps,
         proc_macro: None,
         features: vec![],
