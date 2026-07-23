@@ -102,6 +102,7 @@ use rand::SeedableRng;
 use tokio::runtime::Handle;
 use tokio::sync::oneshot;
 use tokio::time::timeout;
+use tokio::time::timeout_at;
 use tonic::Code;
 use tonic::Request;
 use tonic::Response;
@@ -145,9 +146,10 @@ struct DaemonShutdown {
 
     /// This channel is used to trigger a graceful shutdown of the grpc server. After
     /// an item is sent on this channel, the server will start rejecting new requests
-    /// and once current requests are finished the server will shutdown.
+    /// and once current requests are finished the server will shutdown. The item is
+    /// the deadline for completing the graceful shutdown.
     #[allocative(skip)]
-    shutdown_channel: UnboundedSender<()>,
+    shutdown_channel: UnboundedSender<tokio::time::Instant>,
 }
 
 impl DaemonShutdown {
@@ -163,9 +165,10 @@ impl DaemonShutdown {
         crate::active_commands::broadcast_shutdown(&reason);
 
         let timeout = timeout.unwrap_or(DEFAULT_KILL_TIMEOUT);
+        let shutdown_deadline = tokio::time::Instant::now() + timeout;
 
         // Ignore errors on shutdown_channel as that would mean we've already started shutdown;
-        let _ = self.shutdown_channel.unbounded_send(());
+        let _ = self.shutdown_channel.unbounded_send(shutdown_deadline);
         self.delegate
             .force_shutdown_with_timeout(reason.to_string(), timeout);
     }
@@ -280,7 +283,8 @@ impl BuckdServer {
         let now = SystemTime::now();
         let now = now.duration_since(SystemTime::UNIX_EPOCH)?;
 
-        let (shutdown_channel, shutdown_receiver): (UnboundedSender<()>, _) = mpsc::unbounded();
+        let (shutdown_channel, shutdown_receiver): (UnboundedSender<tokio::time::Instant>, _) =
+            mpsc::unbounded();
         let (command_channel, command_receiver): (UnboundedSender<()>, _) = mpsc::unbounded();
 
         let materializations = MaterializationMethod::try_new_from_config_value(
@@ -327,6 +331,7 @@ impl BuckdServer {
             )
             .await?,
         );
+        let dice = daemon_state.data().dice_manager.unsafe_dice().dupe();
 
         #[cfg(fbcode_build)]
         {
@@ -362,7 +367,7 @@ impl BuckdServer {
             rt,
         }));
 
-        let shutdown =
+        let (shutdown, shutdown_deadline) =
             server_shutdown_signal(command_receiver, shutdown_receiver, daemon_idle_timeout_s)?;
         let server = Server::builder()
             .layer(InterceptorLayer::new(BuckCheckAuthTokenInterceptor {
@@ -384,7 +389,19 @@ impl BuckdServer {
             tokio::time::sleep(Duration::from_secs(sleep_secs)).await;
         }
 
-        server.await?;
+        let server_result = server.await;
+
+        let shutdown_deadline = shutdown_deadline
+            .await
+            .unwrap_or_else(|_| tokio::time::Instant::now() + DEFAULT_KILL_TIMEOUT);
+        if timeout_at(shutdown_deadline, dice.wait_for_idle())
+            .await
+            .is_err()
+        {
+            tracing::warn!("timed out waiting for DICE tasks to finish during shutdown");
+        }
+
+        server_result?;
 
         Ok(())
     }
@@ -1745,9 +1762,12 @@ trait StreamingCommandOptions<Req>: OneshotCommandOptions {
 
 fn server_shutdown_signal(
     command_receiver: UnboundedReceiver<()>,
-    mut shutdown_receiver: UnboundedReceiver<()>,
+    mut shutdown_receiver: UnboundedReceiver<tokio::time::Instant>,
     daemon_idle_timeout_s: Option<u64>,
-) -> buck2_error::Result<impl Future<Output = ()>> {
+) -> buck2_error::Result<(
+    impl Future<Output = ()>,
+    oneshot::Receiver<tokio::time::Instant>,
+)> {
     let mut duration = daemon_idle_timeout_s
         .map(Duration::from_secs)
         .unwrap_or(DEFAULT_INACTIVITY_TIMEOUT);
@@ -1759,15 +1779,24 @@ fn server_shutdown_signal(
         duration = Duration::from_secs(1);
     }
 
-    Ok(async move {
+    let (shutdown_deadline_sender, shutdown_deadline_receiver) = oneshot::channel();
+
+    let shutdown = async move {
         let timeout = inactivity_timeout(command_receiver, duration);
         let shutdown = shutdown_receiver.next();
 
         futures::pin_mut!(shutdown);
         futures::pin_mut!(timeout);
 
-        futures::future::select(timeout, shutdown).await;
-    })
+        let shutdown_deadline = match futures::future::select(timeout, shutdown).await {
+            futures::future::Either::Left(_) => tokio::time::Instant::now() + DEFAULT_KILL_TIMEOUT,
+            futures::future::Either::Right((shutdown_deadline, _)) => shutdown_deadline
+                .unwrap_or_else(|| tokio::time::Instant::now() + DEFAULT_KILL_TIMEOUT),
+        };
+        let _ = shutdown_deadline_sender.send(shutdown_deadline);
+    };
+
+    Ok((shutdown, shutdown_deadline_receiver))
 }
 
 async fn inactivity_timeout(mut command_receiver: UnboundedReceiver<()>, duration: Duration) {
@@ -1906,9 +1935,10 @@ mod tests {
         tokio::time::pause();
 
         let (_cmd_tx, cmd_rx) = mpsc::unbounded::<()>();
-        let (_shutdown_tx, shutdown_rx) = mpsc::unbounded::<()>();
+        let (_shutdown_tx, shutdown_rx) = mpsc::unbounded::<tokio::time::Instant>();
 
-        let shutdown_future = server_shutdown_signal(cmd_rx, shutdown_rx, Some(2)).unwrap();
+        let (shutdown_future, shutdown_deadline) =
+            server_shutdown_signal(cmd_rx, shutdown_rx, Some(2)).unwrap();
         futures::pin_mut!(shutdown_future);
 
         let result = tokio::time::timeout(Duration::from_secs(1), &mut shutdown_future).await;
@@ -1916,6 +1946,10 @@ mod tests {
 
         let result = tokio::time::timeout(Duration::from_secs(2), &mut shutdown_future).await;
         assert!(result.is_ok(), "should shut down after idle timeout");
+        assert_eq!(
+            tokio::time::Instant::now() + DEFAULT_KILL_TIMEOUT,
+            shutdown_deadline.await.unwrap()
+        );
     }
 
     #[tokio::test]
@@ -1923,9 +1957,9 @@ mod tests {
         tokio::time::pause();
 
         let (_cmd_tx, cmd_rx) = mpsc::unbounded::<()>();
-        let (_shutdown_tx, shutdown_rx) = mpsc::unbounded::<()>();
+        let (_shutdown_tx, shutdown_rx) = mpsc::unbounded::<tokio::time::Instant>();
 
-        let shutdown_future = server_shutdown_signal(cmd_rx, shutdown_rx, None).unwrap();
+        let (shutdown_future, _) = server_shutdown_signal(cmd_rx, shutdown_rx, None).unwrap();
         futures::pin_mut!(shutdown_future);
 
         let result = tokio::time::timeout(Duration::from_secs(3600), &mut shutdown_future).await;
@@ -1937,9 +1971,9 @@ mod tests {
         tokio::time::pause();
 
         let (cmd_tx, cmd_rx) = mpsc::unbounded::<()>();
-        let (_shutdown_tx, shutdown_rx) = mpsc::unbounded::<()>();
+        let (_shutdown_tx, shutdown_rx) = mpsc::unbounded::<tokio::time::Instant>();
 
-        let shutdown_future = server_shutdown_signal(cmd_rx, shutdown_rx, Some(3)).unwrap();
+        let (shutdown_future, _) = server_shutdown_signal(cmd_rx, shutdown_rx, Some(3)).unwrap();
         futures::pin_mut!(shutdown_future);
 
         tokio::time::advance(Duration::from_secs(2)).await;
@@ -1953,5 +1987,21 @@ mod tests {
             result.is_ok(),
             "should shut down after idle timeout post-reset"
         );
+    }
+
+    #[tokio::test]
+    async fn test_server_shutdown_preserves_deadline() {
+        tokio::time::pause();
+
+        let (_cmd_tx, cmd_rx) = mpsc::unbounded::<()>();
+        let (shutdown_tx, shutdown_rx) = mpsc::unbounded();
+        let (shutdown_future, shutdown_deadline) =
+            server_shutdown_signal(cmd_rx, shutdown_rx, None).unwrap();
+        let expected_deadline = tokio::time::Instant::now() + Duration::from_secs(7);
+
+        shutdown_tx.unbounded_send(expected_deadline).unwrap();
+        shutdown_future.await;
+
+        assert_eq!(expected_deadline, shutdown_deadline.await.unwrap());
     }
 }
