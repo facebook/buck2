@@ -37,6 +37,9 @@ pub(crate) struct ProcessedFile<'a> {
     /// the `original` field in lint output so `arc lint --apply-patches` finds
     /// and replaces the exact byte range that exists on disk (files with
     /// `\r\n` line endings would otherwise leave a tail of unconsumed CRs).
+    // Only read by the `lint` subcommand, which is `#[cfg(fbcode_build)]`, so this
+    // field is unused in the open-source build.
+    #[cfg_attr(not(fbcode_build), allow(dead_code))]
     pub(crate) raw: String,
     /// Source after normalizing line endings (`\r\n` → `\n`).
     pub(crate) source: String,
