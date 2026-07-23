@@ -13,6 +13,9 @@ use derivative::Derivative;
 use derive_more::Display;
 use display_container::fmt_container;
 use dupe::Dupe;
+use serde::Serialize;
+use serde::Serializer;
+use serde::ser::SerializeMap;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
@@ -21,7 +24,6 @@ use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::Freeze;
 use starlark::values::FrozenValue;
-use starlark::values::NoSerialize;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
@@ -45,8 +47,6 @@ enum BxlResultError {
     ProvidesStaticType,
     Derivative,
     Display,
-    // TODO(nero): implement Serialize for StarlarkError
-    NoSerialize,
     Allocative,
     Trace,
     starlark::StarlarkPagablePanic // badbadbad!!! todo!("bxl")
@@ -54,6 +54,18 @@ enum BxlResultError {
 #[display("bxl.Error({})", StarlarkStr::repr(&format!("{err:?}")))]
 pub(crate) struct StarlarkError {
     err: buck2_error::Error,
+}
+
+impl Serialize for StarlarkError {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut map = serializer.serialize_map(Some(2))?;
+        map.serialize_entry("result", "error")?;
+        map.serialize_entry("value", &format!("{:?}", self.err))?;
+        map.end()
+    }
 }
 
 impl StarlarkError {
@@ -85,8 +97,6 @@ fn error_methods(builder: &mut MethodsBuilder) {
 
 #[derive(
     Debug,
-    // TODO(nero): implement Serialize for StarlarkResult
-    NoSerialize,
     Trace,
     Freeze,
     ProvidesStaticType,
@@ -97,6 +107,26 @@ fn error_methods(builder: &mut MethodsBuilder) {
 pub(crate) enum StarlarkResultGen<T> {
     Ok(T),
     Err(#[freeze(identity)] buck2_error::Error),
+}
+
+impl<'v, V: ValueLike<'v>> Serialize for StarlarkResultGen<V> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut map = serializer.serialize_map(Some(2))?;
+        match self {
+            StarlarkResultGen::Ok(val) => {
+                map.serialize_entry("result", "ok")?;
+                map.serialize_entry("value", &val.to_value())?;
+            }
+            StarlarkResultGen::Err(err) => {
+                map.serialize_entry("result", "error")?;
+                map.serialize_entry("value", &format!("{:?}", err))?;
+            }
+        }
+        map.end()
+    }
 }
 
 pub(crate) type StarlarkResult<'v> = StarlarkResultGen<Value<'v>>;
