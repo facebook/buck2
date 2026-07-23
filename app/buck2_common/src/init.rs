@@ -616,9 +616,11 @@ impl DaemonStartupConfig {
             if use_manifold {
                 Ok(LogDownloadMethod::Manifold)
             } else {
-                let log_url = config.get(BuckconfigKeyRef {
-                    section: "buck2",
-                    property: "log_url",
+                let log_url = settings.log_url().or_else(|| {
+                    config.get(BuckconfigKeyRef {
+                        section: "buck2",
+                        property: "log_url",
+                    })
                 });
                 if let Some(log_url) = log_url {
                     if log_url.is_empty() {

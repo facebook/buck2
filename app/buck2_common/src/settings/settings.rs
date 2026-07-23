@@ -33,6 +33,11 @@ impl<T: Clone> SettingKey<T> {
     }
 }
 
+const LOG_URL: SettingKey<&'static str> = SettingKey {
+    internal_default: None,
+    oss_default: None,
+};
+
 const LOG_USE_MANIFOLD: SettingKey<bool> = SettingKey {
     // None is a migration placeholder to support buckconfig fallback
     internal_default: None,
@@ -43,6 +48,7 @@ const LOG_USE_MANIFOLD: SettingKey<bool> = SettingKey {
 #[serde(deny_unknown_fields)]
 pub(crate) struct BuckSettingsData {
     log_use_manifold: Option<bool>,
+    log_url: Option<String>,
 }
 
 #[derive(Clone, Dupe, Debug, Allocative)]
@@ -55,5 +61,12 @@ impl BuckSettings {
 
     pub fn log_use_manifold(&self) -> Option<bool> {
         LOG_USE_MANIFOLD.resolve(self.0.log_use_manifold)
+    }
+
+    pub fn log_url(&self) -> Option<&str> {
+        self.0
+            .log_url
+            .as_deref()
+            .or_else(|| LOG_URL.default_value())
     }
 }

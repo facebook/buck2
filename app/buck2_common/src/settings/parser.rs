@@ -105,4 +105,13 @@ mod tests {
         assert_eq!(settings.log_use_manifold(), Some(false));
         Ok(())
     }
+
+    #[test]
+    fn test_parse_log_url() -> buck2_error::Result<()> {
+        let fs = ProjectRootTemp::new()?;
+        fs.write_file(".bucksettings.toml", "log_url = \"test.com\"");
+        let settings = parse_repo_root(fs.path())?;
+        assert_eq!(settings.log_url(), Some("test.com"));
+        Ok(())
+    }
 }
