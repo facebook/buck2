@@ -17,6 +17,7 @@ rustc-hash.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 serde_path_to_error.workspace = true
+shlex.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 whoami.workspace = true

@@ -74,10 +74,10 @@ pub(crate) fn to_project_json(
     include_all_buildfiles: bool,
     global_extra_cfgs: &[String],
     first_party_extra_cfgs: &[String],
+    project_root: &Path,
     buck: &Buck,
+    test_runnable_args: Option<&[String]>,
 ) -> Result<ProjectJson, anyhow::Error> {
-    let project_root = buck.resolve_project_root()?;
-
     let ExpandedAndResolved {
         expanded_targets: _,
         queried_proc_macros: proc_macros,
@@ -143,7 +143,7 @@ pub(crate) fn to_project_json(
 
         // We don't need to push the source folder as rust-analyzer by default will use the root-module parent().
         // info.root_module() will output either the fbcode source file or the symlinked one based on if it's a mapped source or not
-        let root_module = info.root_module(&project_root);
+        let root_module = info.root_module(project_root);
 
         let mut env = FxHashMap::default();
 
@@ -234,7 +234,7 @@ pub(crate) fn to_project_json(
             build,
             is_proc_macro: info.proc_macro.unwrap_or(false),
             proc_macro_dylib_path,
-            proc_macro_cwd: Some(project_root.clone()),
+            proc_macro_cwd: Some(project_root.to_owned()),
             target: None,
         };
         crates.push(crate_info);
@@ -244,19 +244,25 @@ pub(crate) fn to_project_json(
         check_cycles_in_crate_graph(&crates);
     }
 
+    let test_runnable_args = if let Some(test_runnable_args) = test_runnable_args {
+        test_runnable_args.to_owned()
+    } else {
+        vec![
+            "test".to_owned(),
+            CLIENT_METADATA_RUST_PROJECT.to_owned(),
+            "{label}".to_owned(),
+            "--".to_owned(),
+            "{test_id}".to_owned(),
+            "--print-passing-details".to_owned(),
+        ]
+    };
+
     let jp = ProjectJson {
         sysroot: Box::new(sysroot),
         crates,
         runnables: vec![Runnable {
-            program: "buck".to_owned(),
-            args: vec![
-                "test".to_owned(),
-                CLIENT_METADATA_RUST_PROJECT.to_owned(),
-                "{label}".to_owned(),
-                "--".to_owned(),
-                "{test_id}".to_owned(),
-                "--print-passing-details".to_owned(),
-            ],
+            program: buck.command.clone(),
+            args: test_runnable_args,
             cwd: project_root.to_owned(),
             kind: RunnableKind::TestOne,
         }],
@@ -1197,6 +1203,78 @@ fn unwrap_selector_best_effort(v: &serde_json::Value) -> Option<String> {
         }
         _ => None,
     }
+}
+
+#[test]
+fn project_json_runnable_uses_configured_buck_command() -> Result<(), anyhow::Error> {
+    let buck = Buck::new(Some("custom-buck2".to_owned()), None, None);
+    let project = to_project_json(
+        Sysroot {
+            sysroot: PathBuf::from("/sysroot"),
+            sysroot_src: None,
+            sysroot_project: None,
+        },
+        ExpandedAndResolved::default(),
+        FxHashMap::default(),
+        false,
+        false,
+        &[],
+        &[],
+        Path::new("/project"),
+        &buck,
+        None,
+    )?;
+    let project = serde_json::to_value(project)?;
+
+    assert_eq!(project["runnables"][0]["program"], "custom-buck2");
+    assert_eq!(
+        project["runnables"][0]["args"],
+        serde_json::json!([
+            "test",
+            "--client-metadata=id=rust-project",
+            "{label}",
+            "--",
+            "{test_id}",
+            "--print-passing-details"
+        ])
+    );
+
+    Ok(())
+}
+
+#[test]
+fn project_json_runnable_uses_configured_template() -> Result<(), anyhow::Error> {
+    let buck = Buck::new(Some("custom-buck2".to_owned()), None, None);
+    let project = to_project_json(
+        Sysroot {
+            sysroot: PathBuf::from("/sysroot"),
+            sysroot_src: None,
+            sysroot_project: None,
+        },
+        ExpandedAndResolved::default(),
+        FxHashMap::default(),
+        false,
+        false,
+        &[],
+        &[],
+        Path::new("/project"),
+        &buck,
+        Some(&[
+            "test".to_owned(),
+            "{label}".to_owned(),
+            "--".to_owned(),
+            "--test-arg".to_owned(),
+            "{test_id}".to_owned(),
+        ]),
+    )?;
+    let project = serde_json::to_value(project)?;
+
+    assert_eq!(
+        project["runnables"][0]["args"],
+        serde_json::json!(["test", "{label}", "--", "--test-arg", "{test_id}"])
+    );
+
+    Ok(())
 }
 
 #[test]
