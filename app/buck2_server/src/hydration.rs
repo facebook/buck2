@@ -35,6 +35,7 @@ use std::sync::atomic::Ordering;
 use async_trait::async_trait;
 use buck2_cli_proto::HydrationSubcommand;
 use buck2_common::memory;
+use buck2_core::soft_error;
 use buck2_error::ErrorTag;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_fs::fs_util;
@@ -302,7 +303,10 @@ pub(crate) async fn spawn_page_out_on_idle(
 
     tokio::spawn(async move {
         if let Err(e) = page_out_on_idle(guard, dice_manager).await {
-            tracing::warn!("Automatic page-out on idle failed: {:#}", e);
+            let _unused = soft_error!(
+                "page_out_on_idle_failed",
+                e.context("Automatic page-out on idle failed")
+            );
         }
     });
     true
