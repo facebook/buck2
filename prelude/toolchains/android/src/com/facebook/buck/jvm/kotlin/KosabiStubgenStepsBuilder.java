@@ -118,7 +118,6 @@ public class KosabiStubgenStepsBuilder {
                           KosabiConfig.PROPERTY_KOSABI_STUBS_GEN_K2_PLUGIN.equals(entry.getKey()))
                   .collect(ImmutableMap.toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)),
               "Terminating compilation. We're done with Stubgen.",
-              false,
               compilationClasspathBuilder.build(),
               extraParams.getShouldVerifySourceOnlyAbiConstraints(),
               postKotlinCompilationFailureSteps.build(),

@@ -70,7 +70,6 @@ public class KotlincStep implements IsolatedStep {
   private final RelPath configuredBuckOut;
   private final ImmutableMap<String, AbsPath> resolvedKosabiPluginOptionPath;
   private final @Nullable String kosabiEarlyTerminationMessagePrefix;
-  private final boolean kosabiShouldEnableMixedCompilation;
   // For SO-ABI builds: reduced classpath (rfsoa deps only), used as kotlinc -classpath.
   // For library builds: full dep set, used only by KosabiStubgen/KSP — NOT for applicability.
   private final ImmutableList<AbsPath> compilationClasspath;
@@ -102,7 +101,6 @@ public class KotlincStep implements IsolatedStep {
       RelPath configuredBuckOut,
       ImmutableMap<String, AbsPath> resolvedKosabiPluginOptionPath,
       @Nullable String kosabiEarlyTerminationMessagePrefix,
-      boolean kosabiShouldEnableMixedCompilation,
       ImmutableList<AbsPath> compilationClasspath,
       ImmutableList<AbsPath> applicabilityClasspath,
       boolean verifySourceOnlyAbiConstraints,
@@ -127,7 +125,6 @@ public class KotlincStep implements IsolatedStep {
     this.configuredBuckOut = configuredBuckOut;
     this.resolvedKosabiPluginOptionPath = resolvedKosabiPluginOptionPath;
     this.kosabiEarlyTerminationMessagePrefix = kosabiEarlyTerminationMessagePrefix;
-    this.kosabiShouldEnableMixedCompilation = kosabiShouldEnableMixedCompilation;
     this.compilationClasspath = compilationClasspath;
     this.applicabilityClasspath = applicabilityClasspath;
     this.verifySourceOnlyAbiConstraints = verifySourceOnlyAbiConstraints;
@@ -353,9 +350,8 @@ public class KotlincStep implements IsolatedStep {
       ImmutableList.Builder<String> builder,
       LanguageVersion languageVersion,
       AbsPath ruleCellRoot) {
-    if (languageVersion.getSupportsK2()
-        && resolvedKosabiPluginOptionPath.containsKey(
-            KosabiConfig.PROPERTY_KOSABI_STUBS_GEN_K2_PLUGIN)) {
+    if (resolvedKosabiPluginOptionPath.containsKey(
+        KosabiConfig.PROPERTY_KOSABI_STUBS_GEN_K2_PLUGIN)) {
       AbsPath stubPlugin =
           resolvedKosabiPluginOptionPath.get(KosabiConfig.PROPERTY_KOSABI_STUBS_GEN_K2_PLUGIN);
       builder.add(X_PLUGIN_ARG + stubPlugin);

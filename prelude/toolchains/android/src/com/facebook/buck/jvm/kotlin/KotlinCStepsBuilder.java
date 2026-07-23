@@ -49,7 +49,6 @@ public class KotlinCStepsBuilder {
       RelPath reportsOutput,
       Kotlinc kotlinc,
       KosabiPluginOptions kosabiPluginOptions,
-      KspStepsBuilder.KSPInvocationStatus kspInvocationStatus,
       ImmutableList<AbsPath> compilationClasspath,
       ImmutableList<AbsPath> applicabilityClasspath,
       ImmutableList.Builder<IsolatedStep> postKotlinCompilationFailureSteps,
@@ -84,8 +83,6 @@ public class KotlinCStepsBuilder {
             buckOut,
             kosabiPluginOptions.getKosabiPlugins(),
             extraParams.getKosabiJvmAbiGenEarlyTerminationMessagePrefix().orElse(null),
-            invokingRule.isSourceOnlyAbi()
-                && kspInvocationStatus == KspStepsBuilder.KSPInvocationStatus.KSP2_INVOKED,
             compilationClasspath,
             applicabilityClasspath,
             extraParams.getShouldVerifySourceOnlyAbiConstraints(),
