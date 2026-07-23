@@ -100,6 +100,35 @@ async def test_incremental_build_after_page_out(buck: Buck) -> None:
 
 
 @buck_test(data_dir="paging", write_invocation_record=True)
+async def test_page_out_frozen_value_into_already_paged_out_heap(
+    buck: Buck,
+) -> None:
+    # Regression test for a page-out serialization panic:
+    #   FrozenValue pointer ... not found in any registered heap's chunk index
+    #   (starlark-rust/.../pagable/starlark_serialize_context.rs)
+    #
+    # `module_const_a` and `module_const_b` each hold, in their analysis result, a
+    # `FrozenValue` that lives on `rules.bzl`'s shared module heap. The panic only
+    # surfaces across *two* page-outs: the first evicts the shared module heap, and
+    # the second must serialize the other target's `FrozenValue` into that
+    # now-paged-out (unregistered) heap. A single page-out of a fresh graph never
+    # trips it, because every reachable heap is still registered.
+    await buck.build("//:module_const_a")
+    await buck.debug("hydration", "page-out")
+    assert await _paged_out_count(buck) > 0, (
+        "expected the first target's values (and the shared module heap) to page out"
+    )
+
+    # Analyze the second target, then page out again. Serializing its provider's
+    # `FrozenValue` into the already-paged-out module heap must not crash.
+    await buck.build("//:module_const_b")
+    await buck.debug("hydration", "page-out")
+
+    # The second page-out must leave module_const_b hydratable.
+    await buck.build("//:module_const_b")
+
+
+@buck_test(data_dir="paging", write_invocation_record=True)
 async def test_page_out_on_idle(buck: Buck) -> None:
     # With `buck2_hydration.page_out_on_idle`, the daemon pages the DICE graph out to
     # disk in a background task once it goes idle after a command. Subsequent

@@ -1,7 +1,18 @@
-load(":rules.bzl", "copy_file")
+load(":rules.bzl", "copy_file", "module_const")
 
 copy_file(
     name = "mysrcrule",
     src = "src.txt",
     out = "out.txt",
+)
+
+# Two targets whose analysis results each hold a `FrozenValue` from `rules.bzl`'s
+# shared module heap. Paging one out (evicting that shared heap), then paging out
+# the other, exercises serializing a `FrozenValue` into an already-paged-out heap.
+module_const(
+    name = "module_const_a",
+)
+
+module_const(
+    name = "module_const_b",
 )
