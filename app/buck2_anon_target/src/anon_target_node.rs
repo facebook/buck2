@@ -10,6 +10,7 @@
 
 use std::any::Any;
 use std::fmt;
+use std::fmt::Write;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::sync::Arc;
@@ -46,6 +47,7 @@ use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_node::rule_type::StarlarkRuleType;
 use buck2_util::strong_hasher::Blake3StrongHasher;
 use cmp_any::PartialEqAny;
+use compact_str::CompactString;
 use dupe::Dupe;
 use pagable::Pagable;
 use pagable::pagable_typetag;
@@ -79,7 +81,6 @@ pub(crate) struct AnonTarget {
     variant: AnonTargetVariant,
     /// The cached strong hash value - we do have to cache this, it's quite perf sensitive
     strong_hash: u64,
-    strong_hash_str: String,
     /// Cached hash value
     hash: u64,
 }
@@ -94,9 +95,9 @@ impl fmt::Display for AnonTarget {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "{} (anon: {}) ({})",
+            "{} (anon: {:x}) ({})",
             self.name(),
-            self.path_hash(),
+            self.strong_hash,
             self.exec_cfg()
         )
     }
@@ -121,7 +122,7 @@ impl AnonTarget {
         buck2_data::AnonTarget {
             name: Some(self.name().as_proto()),
             execution_configuration: Some(self.exec_cfg().cfg().as_proto()),
-            hash: self.path_hash().to_owned(),
+            hash: format!("{:x}", self.strong_hash),
         }
     }
 
@@ -147,7 +148,6 @@ impl AnonTarget {
         exec_cfg.hash(&mut strong_hash);
         variant.hash(&mut strong_hash);
         let strong_hash = strong_hash.finish();
-        let strong_hash_str = format!("{strong_hash:x}");
 
         AnonTarget {
             name,
@@ -157,7 +157,6 @@ impl AnonTarget {
             variant,
             hash: full_hash,
             strong_hash,
-            strong_hash_str,
         }
     }
 
@@ -167,11 +166,6 @@ impl AnonTarget {
 
     pub(crate) fn attrs(&self) -> &SortedMap<String, AnonTargetAttr> {
         &self.attrs
-    }
-
-    /// The hash that is used in anon target artifact paths
-    fn path_hash(&self) -> &str {
-        &self.strong_hash_str
     }
 
     pub(crate) fn exec_cfg(&self) -> &ConfigurationNoExec {
@@ -292,6 +286,18 @@ impl BaseDeferredKeyDyn for AnonTarget {
         content_hash: Option<&ContentBasedPathHash>,
     ) -> buck2_error::Result<ProjectRelativePathBuf> {
         let cell_relative_path = self.name().pkg().cell_relative_path().as_str();
+        let mut configuration_path_hash = CompactString::with_capacity(16);
+        let path_hash = if path_resolution_method == BuckOutPathKind::Configuration {
+            write!(&mut configuration_path_hash, "{:x}", self.strong_hash)
+                .expect("u64 hex formatting fits in 16 bytes");
+            configuration_path_hash.as_str()
+        } else if let Some(content_hash) = content_hash {
+            content_hash.as_str()
+        } else {
+            return Err(PathResolutionError::ContentBasedPathWithNoContentHash(
+                path.to_buf(),
+            ))?;
+        };
 
         // It is performance critical that we use slices and allocate via `join` instead of
         // repeated calls to `join` on the path object because `join` allocates on each call,
@@ -318,15 +324,7 @@ impl BaseDeferredKeyDyn for AnonTarget {
             } else {
                 "/"
             },
-            if path_resolution_method == BuckOutPathKind::Configuration {
-                self.path_hash()
-            } else if let Some(content_hash) = content_hash {
-                content_hash.as_str()
-            } else {
-                return Err(PathResolutionError::ContentBasedPathWithNoContentHash(
-                    path.to_buf(),
-                ))?;
-            },
+            path_hash,
             "/__",
             self.name().name().as_str(),
             "__",

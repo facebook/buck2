@@ -27,6 +27,7 @@ buck2_interpreter_for_build.workspace = true
 buck2_node.workspace = true
 buck2_util.workspace = true
 cmp_any.workspace = true
+compact_str.workspace = true
 derive_more.workspace = true
 dice.workspace = true
 dice_futures.workspace = true
