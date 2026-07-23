@@ -68,6 +68,7 @@ def sh_test_impl(ctx: AnalysisContext) -> list[Provider]:
             executor_overrides = re_executors.executor_overrides,
             run_from_project_root = run_from_project_root,
             use_project_relative_paths = use_project_relative_paths,
+            supports_test_execution_caching = ctx.attrs.supports_test_execution_caching,
         ),
     ) + [
         DefaultInfo(),
