@@ -73,8 +73,8 @@ def buck2_modifiers():
         modifiers.conditional({
             "DEFAULT": None,
             "ovr_config//build_mode/default_opt_cxx:enabled": modifiers.conditional({
-                "DEFAULT": "ovr_config//build_mode/constraints:python-default-package-style-inplace",
-                "ovr_config//build_mode:opt": "ovr_config//build_mode/constraints:python-default-package-style-standalone",
+                "DEFAULT": "ovr_config//build_mode/constraints:python-default-package-style[inplace]",
+                "ovr_config//build_mode:opt": "ovr_config//build_mode/constraints:python-default-package-style[standalone]",
             }),
         }),
         modifiers.conditional({
