@@ -29,6 +29,7 @@ use dashmap::DashMap;
 use dice_error::storage::PagableStorageBackendParseError;
 use dupe::Dupe;
 use pagable::DataKey;
+use pagable::SessionContext;
 use pagable::context::PagableDeserializerImpl;
 use pagable::storage::handle::PagableStorageHandle;
 use pagable::storage::noop::NoopPagableStorage;
@@ -181,6 +182,7 @@ impl DiceStorage {
         // Process this many keys in parallel at a time, limit peak RSS
         const CHUNK_SIZE: usize = 32768;
         let finished: Arc<DashMap<usize, Arc<ArcSerSlot>>> = Arc::new(DashMap::new());
+        let session_context = Arc::new(SessionContext::new());
         let num_workers = env_concurrency("BUCK2_DICE_PAGE_OUT_WORKERS");
 
         let mut remaining = keys;
@@ -211,9 +213,16 @@ impl DiceStorage {
                 }
                 let storage = self.dupe();
                 let finished = finished.clone();
+                let session_context = session_context.dupe();
                 let state_handle = state_handle.dupe();
                 handles.push(tokio::spawn(async move {
-                    storage.page_out_chunk(items, &finished, &state_handle, cancelled)
+                    storage.page_out_chunk(
+                        items,
+                        &finished,
+                        &session_context,
+                        &state_handle,
+                        cancelled,
+                    )
                 }));
             }
 
@@ -231,6 +240,7 @@ impl DiceStorage {
         &self,
         items: Vec<(DiceKey, DiceKeyErased, DiceValidValue)>,
         finished: &DashMap<usize, Arc<ArcSerSlot>>,
+        session_context: &SessionContext,
         state_handle: &CoreStateHandle,
         cancelled: PageOutCancel,
     ) -> anyhow::Result<()> {
@@ -245,7 +255,9 @@ impl DiceStorage {
             if cancelled() {
                 break;
             }
-            if let Some(data_key) = self.page_out_value(&key_dyn, value, finished)? {
+            if let Some(data_key) =
+                self.page_out_value(&key_dyn, value, finished, session_context)?
+            {
                 pending_evictions.push((dice_key, data_key));
                 if pending_evictions.len() >= EVICT_BATCH_SIZE {
                     state_handle.evict_keys(std::mem::replace(
@@ -272,8 +284,8 @@ impl DiceStorage {
         key_dyn: &DiceKeyErased,
         value: DiceValidValue,
         finished: &DashMap<usize, Arc<ArcSerSlot>>,
+        session_context: &SessionContext,
     ) -> anyhow::Result<Option<DataKey>> {
-        let session_context = self.storage.session_context();
         let mut serializer = SerializerForPaging::new(session_context);
         let serialize_result = match key_dyn {
             DiceKeyErased::Key(k) => k.pagable_serialize_value(value.as_dyn(), &mut serializer),
