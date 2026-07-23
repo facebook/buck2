@@ -117,6 +117,56 @@ async def test_semantic_target_kinds(buck: Buck) -> None:
 
 
 @buck_test(inplace=True, skip_for_os=["darwin", "windows"])
+async def test_unit_test_records_parent(buck: Buck) -> None:
+    result_raw = await buck.bxl(
+        "prelude//rust/rust-analyzer/resolve_deps.bxl:resolve_targets",
+        "--",
+        "--targets",
+        "//buck2/integrations/rust-project/tests/targets/foo:arbitrary_unit_test",
+        "--exclude_workspaces=true",
+    )
+    result: Dict[str, Any] = json.load(open(result_raw.stdout.rstrip()))
+
+    unit_test = result["resolved_deps"][
+        "fbcode//buck2/integrations/rust-project/tests/targets/foo:arbitrary_unit_test"
+    ]
+    assert unit_test["kind"] == "test"
+    assert (
+        unit_test["unit_test_of"]
+        == "fbcode//buck2/integrations/rust-project/tests/targets/foo:unit_test_parent"
+    )
+    assert (
+        "fbcode//buck2/integrations/rust-project/tests/targets/foo:unit_test_parent"
+        in result["resolved_deps"]
+    )
+
+
+@buck_test(inplace=True, skip_for_os=["darwin", "windows"])
+async def test_proc_macro_unit_test_records_configured_parent(buck: Buck) -> None:
+    result_raw = await buck.bxl(
+        "prelude//rust/rust-analyzer/resolve_deps.bxl:resolve_targets",
+        "--",
+        "--targets",
+        "//buck2/integrations/rust-project/tests/targets/foo:proc_macro_unit_test",
+        "--exclude_workspaces=true",
+    )
+    result: Dict[str, Any] = json.load(open(result_raw.stdout.rstrip()))
+
+    unit_test = result["resolved_deps"][
+        "fbcode//buck2/integrations/rust-project/tests/targets/foo:proc_macro_unit_test"
+    ]
+    assert unit_test["kind"] == "test"
+    assert (
+        unit_test["unit_test_of"]
+        == "fbcode//buck2/integrations/rust-project/tests/targets/foo:_proc_macro_unit_test_parent"
+    )
+    assert (
+        "fbcode//buck2/integrations/rust-project/tests/targets/foo:_proc_macro_unit_test_parent"
+        in result["resolved_deps"]
+    )
+
+
+@buck_test(inplace=True, skip_for_os=["darwin", "windows"])
 async def test_resolve_owning_buildfile_no_extra_targets(buck: Buck) -> None:
     result_raw = await buck.bxl(
         "prelude//rust/rust-analyzer/resolve_deps.bxl:resolve_owning_buildfile",

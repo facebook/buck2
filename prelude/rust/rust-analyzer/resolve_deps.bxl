@@ -77,6 +77,8 @@ def _process_target_config(ctx: bxl.Context, target: bxl.ConfiguredTargetNode, a
 
     env = {k: cmd_args(v, delimiter = "") for k, v in ra_info.env.items()}
 
+    unit_test_of = ra_info.unit_test_of.raw_target() if ra_info.unit_test_of != None else None
+
     # copy over the absolute paths and raw targets into the output
     attrs = target.attrs_eager()
     return {
@@ -100,6 +102,7 @@ def _process_target_config(ctx: bxl.Context, target: bxl.ConfiguredTargetNode, a
         "source_folder": materialize(ctx, target),  # Always generate the source folder. Let rust-project resolve whether or not to use it
         "srcs": srcs,
         "tests": tests,
+        "unit_test_of": unit_test_of,
     }
 
 def _select_assume_default(value):
@@ -170,6 +173,11 @@ def gather_unconfigured_deps(ctx: bxl.Context, targets: list[TargetLabel]) -> di
         for test in _get_attr_no_select(target, "tests") or []:
             tests.append(test.raw_target())
 
+        target_kind = _get_attr_no_select(target, "_rust_analyzer_target_kind")
+        unit_test_of = _get_attr_no_select(target, "unit_test_of")
+        if unit_test_of != None and target_kind != "test":
+            fail("`unit_test_of` may only be set on Rust test targets")
+
         info = {
             "crate": _get_attr_no_select(target, "crate"),
             "crate_dynamic": _get_attr_no_select(target, "crate_dynamic"),
@@ -179,7 +187,7 @@ def gather_unconfigured_deps(ctx: bxl.Context, targets: list[TargetLabel]) -> di
             "env": env,
             "features": _get_attr_no_select(target, "features"),
             "in_workspace": False,
-            "kind": _get_attr_no_select(target, "_rust_analyzer_target_kind"),
+            "kind": target_kind,
             "label": target.label,
             "labels": _get_attr_no_select(target, "labels") or [],
             "mapped_srcs": mapped_srcs,
@@ -191,6 +199,7 @@ def gather_unconfigured_deps(ctx: bxl.Context, targets: list[TargetLabel]) -> di
             "source_folder": source_folder,
             "srcs": srcs,
             "tests": tests,
+            "unit_test_of": unit_test_of,
         }
 
         out[target.label] = info
@@ -256,6 +265,7 @@ def expand_proc_macros(ctx: bxl.Context, target_analysis: dict[Label, bxl.Analys
 # Returns a list of all the expanded targets including any workspaces, followed by just the workspaces
 def expand_targets(ctx: bxl.Context, targets: list[TargetLabel], exclude_workspaces: bool) -> (dict[Label, bxl.AnalysisResult], list[TargetLabel]):
     target_universe = ctx.target_universe(targets).target_set()
+
     # Pick up any rule that sets RustAnalyzerTargetKind and so exposes RustAnalyzerInfo, regardless of its rule name.
     # Custom rules that wrap/override our rust_* builtins but don't use the same names will be picked up here.
     attr_target_list = ctx.cquery().attrregexfilter("_rust_analyzer_target_kind", "^(bin|lib|test)$", target_universe)
