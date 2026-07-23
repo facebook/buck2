@@ -428,8 +428,7 @@ impl FrozenFrozenHeap {
             .as_ref()
             .expect("The name of the FrozenFrozenHeap should exist in starlark pagable serialize");
         let heap_id = HeapRefId::from_heap_name(heap_name);
-        // TODO(nero): right now FrozenHeapName hasn't been implemented for Pagable. so just serialize HeapRefId;
-        heap_id.pagable_serialize(serializer)?;
+        heap_name.pagable_serialize(serializer)?;
 
         self.refs.len().pagable_serialize(serializer)?;
         for heap_ref in self.refs.iter() {
@@ -535,11 +534,13 @@ impl FrozenFrozenHeap {
         Ok(())
     }
 
-    /// Read just the `HeapRefId` prefix; pair with [`deserialize_skeleton`](Self::deserialize_skeleton).
-    pub fn deserialize_heap_id<'de, D: PagableDeserializer<'de> + ?Sized>(
+    /// Read the heap identity prefix; pair with [`deserialize_skeleton`](Self::deserialize_skeleton).
+    pub fn deserialize_heap_identity<'de, D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
-    ) -> crate::Result<HeapRefId> {
-        Ok(HeapRefId::pagable_deserialize(deserializer)?)
+    ) -> crate::Result<(HeapRefId, FrozenHeapName)> {
+        let name = FrozenHeapName::pagable_deserialize(deserializer)?;
+        let heap_id = HeapRefId::from_heap_name(&name);
+        Ok((heap_id, name))
     }
 
     /// Read refs + body header given an already-read `heap_id`, then seek
@@ -554,6 +555,7 @@ impl FrozenFrozenHeap {
     pub fn deserialize_skeleton<'de, D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
         heap_id: HeapRefId,
+        name: FrozenHeapName,
         recipe: Arc<dyn pagable::PagableDeserializerRecipe>,
     ) -> crate::Result<Arc<Self>> {
         // Refs are read eagerly — referenced heaps must be registered before
@@ -580,7 +582,7 @@ impl FrozenFrozenHeap {
         let heap = Arc::new(FrozenFrozenHeap {
             arena: Arena::default(),
             refs: refs.into_boxed_slice(),
-            name: None,
+            name: Some(name),
             peak_allocated_bytes: None,
         });
         let arena_ptr: *const Arena<ChunkAllocator> = &heap.arena;
@@ -672,9 +674,10 @@ fn deserialize_heap_arc_with_recipe(
     de: &mut dyn PagableDeserializer<'_>,
     recipe: Arc<dyn pagable::PagableDeserializerRecipe>,
 ) -> pagable::Result<Box<dyn pagable::arc_erase::ArcEraseDyn>> {
-    let heap_id = FrozenFrozenHeap::deserialize_heap_id(de).map_err(|e| e.into_anyhow())?;
-    let arc =
-        FrozenFrozenHeap::deserialize_skeleton(de, heap_id, recipe).map_err(|e| e.into_anyhow())?;
+    let (heap_id, name) =
+        FrozenFrozenHeap::deserialize_heap_identity(de).map_err(|e| e.into_anyhow())?;
+    let arc = FrozenFrozenHeap::deserialize_skeleton(de, heap_id, name, recipe)
+        .map_err(|e| e.into_anyhow())?;
     Ok(Box::new(arc))
 }
 

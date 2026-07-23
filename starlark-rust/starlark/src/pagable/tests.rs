@@ -165,6 +165,20 @@ fn test_frozen_heap_name_round_trip() -> crate::Result<()> {
 }
 
 #[test]
+fn test_frozen_heap_ref_round_trip_preserves_name() -> crate::Result<()> {
+    let heap = FrozenHeap::new();
+    heap.alloc("value");
+    let heap_ref = heap.into_ref_named(TestHeapName::heap_name("preserved_name"));
+    let expected_id = HeapRefId::from_heap_name(heap_ref.name().unwrap());
+
+    let restored = round_trip_heap_ref(&heap_ref)?;
+    let restored_name = restored.name().expect("heap name should round-trip");
+    assert_eq!(HeapRefId::from_heap_name(restored_name), expected_id);
+    assert_eq!(restored_name.to_string(), "TestHeapName(preserved_name)");
+    Ok(())
+}
+
+#[test]
 fn test_module_eval_round_trip() -> crate::Result<()> {
     use std::any::TypeId;
 
