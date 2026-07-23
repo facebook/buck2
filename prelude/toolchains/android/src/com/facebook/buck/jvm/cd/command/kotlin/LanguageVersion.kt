@@ -12,7 +12,6 @@ package com.facebook.buck.jvm.cd.command.kotlin
 
 enum class KotlinSupportedLanguageVersion(val value: String) {
   v1_6("1.6"),
-  DEFAULT_K1("1.9"),
   V2_0("2.0"),
   V2_1("2.1"),
 }
@@ -56,8 +55,6 @@ class LanguageVersion(private val internalValue: String) {
   companion object {
     private val LANGUAGE_VERSION_PARAM_SUPPORTED_FROM = KotlinSupportedLanguageVersion.v1_6
     private const val LANGUAGE_VERSION_ARG: String = "-language-version="
-    @JvmStatic
-    val K1: LanguageVersion = LanguageVersion(KotlinSupportedLanguageVersion.DEFAULT_K1.value)
     @JvmStatic val K2: LanguageVersion = LanguageVersion(KotlinSupportedLanguageVersion.V2_0.value)
   }
 }
