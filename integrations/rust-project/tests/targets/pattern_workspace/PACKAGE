@@ -1,4 +1,7 @@
 native.rust_with_workspace(
+    exclude_patterns = [
+        "fbcode//buck2/integrations/rust-project/tests/targets/pattern_workspace/excluded/...",
+    ],
     patterns = [
         "fbcode//buck2/integrations/rust-project/tests/targets/pattern_workspace/...",
     ],

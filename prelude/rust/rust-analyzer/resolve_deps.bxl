@@ -27,6 +27,7 @@ ExpandedAndResolved = record(
 
 WorkspacePatternGroup = record(
     candidates = list[TargetLabel],
+    exclude_patterns = list[str],
     patterns = list[str],
 )
 
@@ -366,8 +367,11 @@ def expand_targets(ctx: bxl.Context, targets: list[TargetLabel], exclude_workspa
             if patterns:
                 patterns = patterns.value()
                 if patterns:
-                    group = pattern_groups.setdefault(str(patterns), WorkspacePatternGroup(
+                    exclude_patterns = t.attrs_lazy().get("_workspace_exclude_patterns")
+                    exclude_patterns = exclude_patterns.value() if exclude_patterns else []
+                    group = pattern_groups.setdefault(str([patterns, exclude_patterns]), WorkspacePatternGroup(
                         candidates = [],
+                        exclude_patterns = exclude_patterns,
                         patterns = patterns,
                     ))
                     group.candidates.append(label)
@@ -400,7 +404,17 @@ def expand_targets(ctx: bxl.Context, targets: list[TargetLabel], exclude_workspa
 
     active_pattern_targets = {}
     for group in pattern_groups.values():
-        pattern_targets = ctx.unconfigured_targets(group.patterns)
+        candidates = group.candidates
+        if group.exclude_patterns:
+            excluded_targets = ctx.unconfigured_targets(group.exclude_patterns)
+            excluded_labels = {target.label: () for target in excluded_targets}
+            candidates = [candidate for candidate in candidates if candidate not in excluded_labels]
+            if not candidates:
+                continue
+            pattern_targets = ctx.unconfigured_targets(group.patterns) - excluded_targets
+        else:
+            pattern_targets = ctx.unconfigured_targets(group.patterns)
+
         configured_pattern_targets = ctx.configured_targets(list(pattern_targets))
         pattern_attr_targets = ctx.cquery().attrregexfilter("_rust_analyzer_target_kind", "^(bin|lib|test|unit_test)$", configured_pattern_targets)
         pattern_alias_targets = ctx.cquery().kind("^(alias|_?transitioned)$", configured_pattern_targets)
@@ -410,7 +424,7 @@ def expand_targets(ctx: bxl.Context, targets: list[TargetLabel], exclude_workspa
             target = target.unwrap_forward()
             pattern_targets[target.label] = target
 
-        for candidate in group.candidates:
+        for candidate in candidates:
             if expanded_targets[candidate].unwrap_forward().label in pattern_targets:
                 active_pattern_targets.update(pattern_targets)
                 workspace_candidates.update(pattern_targets)

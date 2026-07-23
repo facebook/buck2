@@ -112,6 +112,9 @@ async def test_workspace_patterns(buck: Buck) -> None:
     assert expected_targets <= set(result["expanded_targets"])
     assert len(result["expanded_targets"]) == len(set(result["expanded_targets"]))
     assert all(result["resolved_deps"][target]["in_workspace"] for target in expected_targets)
+    excluded_target = "fbcode//buck2/integrations/rust-project/tests/targets/pattern_workspace/excluded:excluded"
+    assert excluded_target not in result["expanded_targets"]
+    assert excluded_target not in result["resolved_deps"]
 
     result_raw = await buck.bxl(
         "prelude//rust/rust-analyzer/resolve_deps.bxl:resolve_targets",
@@ -124,6 +127,15 @@ async def test_workspace_patterns(buck: Buck) -> None:
     assert result["expanded_targets"] == [
         "fbcode//buck2/integrations/rust-project/tests/targets/pattern_workspace/entry:entry"
     ]
+
+    result_raw = await buck.bxl(
+        "prelude//rust/rust-analyzer/resolve_deps.bxl:resolve_targets",
+        "--",
+        "--targets",
+        "//buck2/integrations/rust-project/tests/targets/pattern_workspace/excluded:excluded",
+    )
+    result = json.load(open(result_raw.stdout.rstrip()))
+    assert result["expanded_targets"] == [excluded_target]
 
 
 @buck_test(inplace=True, skip_for_os=["darwin", "windows"])
