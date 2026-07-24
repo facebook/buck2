@@ -248,7 +248,7 @@ async def test_listing_failure(buck: Buck) -> None:
     )
     assert re.search(r"Listing Fail 1", output.stderr)
     assert re.search(
-        r"1 LISTINGS FAILED\n(\s)+⚠ fbcode\/\/buck2\/tests\/targets\/rules\/python\/broken:broken\n",
+        r"1 LISTINGS FAILED\n(\s)+⚠ fbcode\/\/buck2\/tests\/targets\/rules\/python\/broken:broken( \(cfg:.*?\))?\n",
         output.stderr,
         re.DOTALL,
     )
