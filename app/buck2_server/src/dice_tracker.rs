@@ -135,6 +135,6 @@ impl BuckDiceTracker {
 
 impl DiceEventListener for BuckDiceTracker {
     fn event(&self, event: DiceEvent) {
-        let _ = self.event_forwarder.unbounded_send(event);
+        let _ignored = self.event_forwarder.unbounded_send(event);
     }
 }
