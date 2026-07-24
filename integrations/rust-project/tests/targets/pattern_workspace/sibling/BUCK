@@ -1,0 +1,25 @@
+native.rust_library(
+    name = "sibling",
+    srcs = ["lib.rs"],
+    crate_root = "lib.rs",
+)
+
+native.rust_library(
+    name = "proc_macro_consumer",
+    srcs = ["lib.rs"],
+    crate_root = "lib.rs",
+    deps = [":proc_macro"],
+)
+
+native.rust_library(
+    name = "proc_macro",
+    srcs = ["lib.rs"],
+    crate_root = "lib.rs",
+    proc_macro = True,
+)
+
+native.rust_test(
+    name = "sibling_test",
+    srcs = ["test.rs"],
+    crate_root = "test.rs",
+)

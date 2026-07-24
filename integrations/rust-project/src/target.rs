@@ -93,10 +93,11 @@ pub(crate) struct MacroOutput {
 ///
 /// This binary is shipped as a pinned prebuilt (via DotSlash) that is versioned
 /// independently of the prelude BXL it invokes, so a given binary may run against
-/// an older or newer prelude. Accept both the semantic kind names (`bin`/`lib`/`test`)
+/// an older or newer prelude. Accept both the semantic kind names (`bin`/`lib`/`test`/`unit_test`)
 /// emitted by newer preludes and the legacy fully-qualified rule types emitted by
 /// older ones.
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[serde(tag = "kind")]
 pub(crate) enum Kind {
     #[serde(rename = "bin", alias = "prelude//rules.bzl:rust_binary")]
     Binary,
@@ -104,6 +105,8 @@ pub(crate) enum Kind {
     Library,
     #[serde(rename = "test", alias = "prelude//rules.bzl:rust_test")]
     Test,
+    #[serde(rename = "unit_test")]
+    UnitTest { unit_test_of: Target },
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
@@ -118,6 +121,7 @@ pub(crate) struct TargetInfo {
     /// This is generic metadata about the target.
     pub(crate) labels: Vec<String>,
 
+    #[serde(flatten)]
     pub(crate) kind: Kind,
     pub(crate) edition: Option<Edition>,
     pub(crate) srcs: Vec<PathBuf>,
@@ -133,8 +137,6 @@ pub(crate) struct TargetInfo {
     pub(crate) crate_dynamic: Option<PathBuf>,
     pub(crate) crate_root: PathBuf,
     pub(crate) deps: Vec<Target>,
-    #[serde(rename = "tests")]
-    pub(crate) test_deps: Vec<Target>,
     // Optional set of renamed crates. in buck2, these are not unified with
     // `buck.direct_dependencies` and are instead a separate entry.
     #[serde(deserialize_with = "deserialize_named_deps")]
@@ -357,18 +359,64 @@ mod tests {
     #[test]
     fn test_kind_deserializes_semantic_values() -> Result<(), serde_json::Error> {
         for (value, expected) in [
-            (r#""bin""#, Kind::Binary),
-            (r#""lib""#, Kind::Library),
-            (r#""test""#, Kind::Test),
+            (r#"{"kind":"bin"}"#, Kind::Binary),
+            (r#"{"kind":"lib"}"#, Kind::Library),
+            (r#"{"kind":"test"}"#, Kind::Test),
+            (
+                r#"{"kind":"unit_test","unit_test_of":"//foo"}"#,
+                Kind::UnitTest {
+                    unit_test_of: Target::new("//foo"),
+                },
+            ),
             // Legacy fully-qualified rule types emitted by older preludes.
-            (r#""prelude//rules.bzl:rust_binary""#, Kind::Binary),
-            (r#""prelude//rules.bzl:rust_library""#, Kind::Library),
-            (r#""prelude//rules.bzl:rust_test""#, Kind::Test),
+            (r#"{"kind":"prelude//rules.bzl:rust_binary"}"#, Kind::Binary),
+            (
+                r#"{"kind":"prelude//rules.bzl:rust_library"}"#,
+                Kind::Library,
+            ),
+            (r#"{"kind":"prelude//rules.bzl:rust_test"}"#, Kind::Test),
         ] {
             assert_eq!(serde_json::from_str::<Kind>(value)?, expected);
         }
 
-        assert!(serde_json::from_str::<Kind>(r#""not_a_kind""#).is_err());
+        assert!(serde_json::from_str::<Kind>(r#"{"kind":"not_a_kind"}"#).is_err());
+        assert!(serde_json::from_str::<Kind>(r#"{"kind":"unit_test"}"#).is_err());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_target_info_deserializes_unit_test() -> Result<(), serde_json::Error> {
+        let final_shape: TargetInfo = serde_json::from_str(
+            r#"{
+                "name": "foo-unit",
+                "label": "//foo-unit",
+                "labels": [],
+                "kind": "unit_test",
+                "unit_test_of": "//foo",
+                "edition": "2021",
+                "srcs": [],
+                "mapped_srcs": {},
+                "crate": "foo",
+                "crate_dynamic": null,
+                "crate_root": "lib.rs",
+                "deps": [],
+                "named_deps": {},
+                "proc_macro": null,
+                "features": [],
+                "env": {},
+                "source_folder": "/unit",
+                "project_relative_buildfile": "foo/BUCK",
+                "in_workspace": true,
+                "rustc_flags": []
+            }"#,
+        )?;
+        assert_eq!(
+            final_shape.kind,
+            Kind::UnitTest {
+                unit_test_of: Target::new("//foo"),
+            }
+        );
 
         Ok(())
     }
@@ -387,7 +435,6 @@ mod tests {
             crate_dynamic: None,
             crate_root: PathBuf::default(),
             deps: vec![],
-            test_deps: vec![],
             named_deps: FxHashMap::default(),
             proc_macro: None,
             features: vec!["foo_feature".to_owned()],
@@ -418,7 +465,6 @@ mod tests {
             crate_dynamic: None,
             crate_root: PathBuf::default(),
             deps: vec![],
-            test_deps: vec![],
             named_deps: FxHashMap::default(),
             proc_macro: None,
             features: vec![],
@@ -459,7 +505,6 @@ mod tests {
             crate_dynamic: None,
             crate_root: PathBuf::default(),
             deps: vec![],
-            test_deps: vec![],
             named_deps: FxHashMap::default(),
             proc_macro: None,
             features: vec![],
@@ -486,7 +531,6 @@ mod tests {
             crate_dynamic: None,
             crate_root: PathBuf::default(),
             deps: vec![],
-            test_deps: vec![],
             named_deps: FxHashMap::default(),
             proc_macro: None,
             features: vec![],
@@ -513,7 +557,6 @@ mod tests {
             crate_dynamic: None,
             crate_root: PathBuf::default(),
             deps: vec![],
-            test_deps: vec![],
             named_deps: FxHashMap::default(),
             proc_macro: None,
             features: vec![],
@@ -540,7 +583,6 @@ mod tests {
             crate_dynamic: None,
             crate_root: PathBuf::default(),
             deps: vec![],
-            test_deps: vec![],
             named_deps: FxHashMap::default(),
             proc_macro: None,
             features: vec![],

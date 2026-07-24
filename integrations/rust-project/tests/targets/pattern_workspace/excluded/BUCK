@@ -1,0 +1,5 @@
+native.rust_library(
+    name = "excluded",
+    srcs = ["lib.rs"],
+    crate_root = "lib.rs",
+)

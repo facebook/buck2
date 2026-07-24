@@ -7,10 +7,34 @@
 # above-listed licenses.
 
 package_key = "rust.workspaces"
+exclude_patterns_package_key = "rust.workspace_exclude_patterns"
+patterns_package_key = "rust.workspace_patterns"
 
-def with_rust_workspace(targets):
-    if isinstance(targets, str):
-        targets = [targets]
+def with_rust_workspace(labels = None, patterns = None, exclude_patterns = None):
+    if isinstance(labels, str):
+        labels = [labels]
+    if isinstance(patterns, str):
+        patterns = [patterns]
+    if isinstance(exclude_patterns, str):
+        exclude_patterns = [exclude_patterns]
 
-    parent = read_parent_package_value(package_key) or []
-    write_package_value(package_key, parent + targets, overwrite = True)
+    exclude_patterns = exclude_patterns or []
+
+    if bool(labels) == bool(patterns):
+        fail("rust_with_workspace requires exactly one of `labels` or `patterns`")
+    if exclude_patterns and not patterns:
+        fail("rust_with_workspace `exclude_patterns` requires `patterns`")
+
+    parent_labels = read_parent_package_value(package_key) or []
+    parent_exclude_patterns = read_parent_package_value(exclude_patterns_package_key) or []
+    parent_patterns = read_parent_package_value(patterns_package_key) or []
+
+    if labels:
+        if parent_patterns or parent_exclude_patterns:
+            fail("rust_with_workspace cannot mix `labels` and `patterns` through PACKAGE inheritance")
+        write_package_value(package_key, parent_labels + labels, overwrite = True)
+    else:
+        if parent_labels:
+            fail("rust_with_workspace cannot mix `labels` and `patterns` through PACKAGE inheritance")
+        write_package_value(exclude_patterns_package_key, parent_exclude_patterns + exclude_patterns, overwrite = True)
+        write_package_value(patterns_package_key, parent_patterns + patterns, overwrite = True)

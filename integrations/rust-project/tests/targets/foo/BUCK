@@ -1,6 +1,7 @@
 load("@fbsource//tools/build_defs:rust_binary.bzl", "rust_binary")
 load("@fbsource//tools/build_defs:rust_library.bzl", "rust_library")
 load("@fbsource//tools/build_defs:rust_unittest.bzl", "rust_unittest")
+load("@prelude//:rules.bzl", "rules")
 load(":wrapper.bzl", "custom_rust_test")
 
 oncall("rust_foundation")
@@ -32,6 +33,45 @@ rust_library(
     crate_root = "lib_f.rs",
 )
 
+rules["rust_library"](
+    name = "declared_test_parent",
+    srcs = ["lib_f.rs"],
+    crate_root = "lib_f.rs",
+    tests = [":native_test"],
+)
+
+rules["rust_library"](
+    name = "unit_test_parent",
+    srcs = ["lib_f.rs"],
+    crate_root = "lib_f.rs",
+    tests = [":arbitrary_unit_test"],
+)
+
+rules["rust_library"](
+    name = "proc_macro_unit_test_parent",
+    srcs = ["lib_f.rs"],
+    crate_root = "lib_f.rs",
+    proc_macro = True,
+    tests = [":proc_macro_unit_test"],
+    _workspaces = [":proc_macro_unit_test_parent"],
+)
+
+rules["rust_library"](
+    name = "inactive_workspace_member",
+    srcs = ["lib_f.rs"],
+    crate_root = "lib_f.rs",
+    tests = [":native_test"],
+    _workspaces = [":f"],
+)
+
+rules["rust_library"](
+    name = "outside_workspace",
+    srcs = ["lib_e.rs"],
+    crate_root = "lib_e.rs",
+    deps = [":inactive_workspace_member"],
+    _workspaces = [":f"],
+)
+
 rust_library(
     name = "g_with_compatibility",
     srcs = ["lib_g.rs"],
@@ -54,4 +94,18 @@ custom_rust_test(
     name = "wrapped_test",
     srcs = ["test.rs"],
     crate_root = "test.rs",
+)
+
+rules["rust_test"](
+    name = "arbitrary_unit_test",
+    srcs = ["lib_f.rs"],
+    crate_root = "lib_f.rs",
+    unit_test_of = ":unit_test_parent",
+)
+
+rules["rust_test"](
+    name = "proc_macro_unit_test",
+    srcs = ["lib_f.rs"],
+    crate_root = "lib_f.rs",
+    unit_test_of = ":proc_macro_unit_test_parent",
 )
