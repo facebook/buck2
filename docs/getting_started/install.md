@@ -40,8 +40,8 @@ Buck2 currently requires a nightly Rust toolchain. The simplest setup is via
 you. Once it's installed, build and install `buck2` directly from GitHub:
 
 ```bash
-rustup install nightly-2026-05-22
-cargo +nightly-2026-05-22 install --git https://github.com/facebook/buck2.git buck2
+rustup install nightly-2026-04-11
+cargo +nightly-2026-04-11 install --git https://github.com/facebook/buck2.git buck2
 ```
 
 This installs `buck2` into a suitable directory such as `$HOME/.cargo/bin`,

@@ -370,10 +370,6 @@ impl<T, E: Into<buck2_error::Error>> std::ops::FromResidual<Result<std::convert:
     }
 }
 
-impl<T> std::ops::Residual<T> for ResultMaybeCompatible<std::convert::Infallible> {
-    type TryType = ResultMaybeCompatible<T>;
-}
-
 impl<T> std::ops::Try for ResultMaybeCompatible<T> {
     type Output = T;
 
