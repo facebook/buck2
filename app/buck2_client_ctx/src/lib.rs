@@ -11,6 +11,7 @@
 #![feature(once_cell_try)]
 #![feature(try_blocks)]
 #![feature(try_trait_v2)]
+#![feature(try_trait_v2_residual)]
 #![feature(used_with_arg)]
 
 pub mod agent_context;
