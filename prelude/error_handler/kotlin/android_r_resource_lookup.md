@@ -19,29 +19,29 @@ AI agents often assume `com.facebook.R`, but many resources use different packag
 import com.facebook.R
 use(R.string.clips_live_element_bottomsheet_account_grid_item_label)
 
-// CORRECT - looked up with FindResourcePackage
+// CORRECT - looked up with find-resource-package
 import com.instagram.basel.snippets.R
 use(R.string.clips_live_element_bottomsheet_account_grid_item_label)
 ```
 
 ## Usage
 
-```python
-FindResourcePackage(
-    resource="R.drawable.icon_name",  # Required: R.<type>.<name>
-    app="ig4a"                         # Optional: whatsapp, fb4a, fbandroid, ig4a, m4a, origami
-)
 ```
+meta android.build find-resource-package --resource "R.drawable.icon_name" [--app ig4a]
+```
+
+- `--resource` (required): `R.<type>.<name>`
+- `--app` (optional): `whatsapp`, `fb4a`, `fbandroid`, `ig4a`, `m4a`, `origami`
 
 Returns the correct **package** for imports and **Buck target** for dependencies.
 
 ## Workflow
 
-1. **Look up**: `FindResourcePackage(resource="R.drawable.my_icon")`
-   - If multiple packages are returned, try passing the `app` parameter to narrow down (e.g., `app="ig4a"`)
+1. **Look up**: `meta android.build find-resource-package --resource "R.drawable.my_icon"`
+   - If multiple packages are returned, try passing `--app` to narrow down (e.g., `--app ig4a`)
    - If still ambiguous, investigate which package is correct by checking existing code references in your module
 2. **Import**: Use the returned package (e.g., `import com.instagram.icons.R`)
-3. **Run AutodepsTool**: It will automatically add the correct BUCK dependency
+3. **Run autodeps**: `xplat/tools/autodeps2 --languages android --ignore-lint-config <file>` will automatically add the correct BUCK dependency
 
 ### Fixing Unresolved R Reference Build Failures
 
@@ -54,7 +54,7 @@ Simply identify the R resource causing the failure and follow the steps above.
 
 ## Adding NEW Resources
 
-When creating new resources (e.g., adding drawables to XML), `FindResourcePackage` won't help since the resource isn't indexed yet.
+When creating new resources (e.g., adding drawables to XML), `find-resource-package` won't help since the resource isn't indexed yet.
 
 **To determine the package for new resources:**
 
@@ -69,7 +69,7 @@ When creating new resources (e.g., adding drawables to XML), `FindResourcePackag
 
 ### Adding the BUCK dependency for new resources
 
-After determining the correct R package, you must manually add the resource target to your module's BUCK file (AutodepsTool won't have new resources in its index):
+After determining the correct R package, you must manually add the resource target to your module's BUCK file (autodeps won't have new resources in its index):
 
 1. **Find the resource dependency**:
    - Take the R import package (e.g., `com.facebook.samples.litho` from `import com.facebook.samples.litho.R`)
