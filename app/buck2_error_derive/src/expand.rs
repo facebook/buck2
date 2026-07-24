@@ -78,7 +78,7 @@ fn impl_struct(input: Struct) -> TokenStream {
         quote! {
             #field_pats
             #tags
-            let error_msg = format!("{}", &#arg_token);
+            let error_msg = format!("{}", #arg_token);
 
             // All errors called by source should have From implemented
             let error: buck2_error::Error = #arg_token.#member.into();
@@ -248,7 +248,7 @@ fn impl_enum(mut input: Enum) -> TokenStream {
             }
         } else {
             let source_location_type_name =
-                syn::LitStr::new(&format!("{}::{}", &ty, &variant.ident), Span::call_site());
+                syn::LitStr::new(&format!("{}::{}", ty, variant.ident), Span::call_site());
             quote! {
                 #tags
 

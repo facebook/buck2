@@ -147,7 +147,7 @@ fn gen_for_docstring(span: Span, docs: Option<&DocString>) -> TokenStream {
 
 fn gen_for_method(parsed: &Parsed, method: &Method) -> syn::Result<MethodCodegen> {
     let func_ty = Ident::new(
-        &format!("__{}QueryFunction", &method.name),
+        &format!("__{}QueryFunction", method.name),
         method.name.span(),
     );
 
