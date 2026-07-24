@@ -13,6 +13,7 @@
 #![feature(impl_trait_in_assoc_type)]
 #![feature(used_with_arg)]
 #![feature(try_trait_v2)]
+#![feature(try_trait_v2_residual)]
 
 // Re-export these because we don't want to make people add a dependency on this crate everywhere
 pub use buck2_env::env;
