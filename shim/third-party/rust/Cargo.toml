@@ -93,7 +93,6 @@ fs4 = { version = "0.9.1", features = ["sync"] }
 futures = "0.3.31"
 futures-intrusive = "0.4.2"
 fxhash = "0.2.1"
-gazebo = { version = "0.8.1", features = ["str_pattern_extensions"] }
 glob = "0.3.2"
 globset = { version = "0.4.13", features = ["serde1"] }
 hashbrown = "0.17"
