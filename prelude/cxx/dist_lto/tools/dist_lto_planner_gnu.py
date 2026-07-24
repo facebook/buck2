@@ -12,8 +12,9 @@ A simple wrapper around a distributed thinlto index command to fit into buck2's
 distributed thinlto build.
 
 This reads in a couple of things:
-    1. The "meta" file. This is a list of tuples of (object file, index output,
-    plan output). All items are line-separated (so each tuple is three lines).
+    1. The "meta" JSON file. This is a list of all the linkable information.
+       It contains the object file, index output, plan output.
+       As well as associated pre/post flags for linkables.
     2. The index and link plan output paths
     3. The commands for the actual index command.
 
@@ -38,7 +39,27 @@ import resource
 import subprocess
 import sys
 import traceback
-from typing import List
+from typing import List, TextIO
+
+
+def _flatten_deep(items):
+    """Flatten recursive list of lists to a single list.
+
+    Example:
+    >>> _flatten_deep([1, [2, 3], 4, [5, [6]]]) == [1, 2, 3, 4, 5, 6]
+    """
+
+    def flatten_deep_helper(items, result):
+        for item in items:
+            if isinstance(item, (list, tuple)):
+                flatten_deep_helper(item, result)
+            else:
+                result.append(item)
+
+    result = []
+    flatten_deep_helper(items, result)
+
+    return result
 
 
 def _get_argsfile(args) -> str:
@@ -64,31 +85,10 @@ def _extract_lib_search_path(argsfile_path: str) -> List[str]:
     return lib_search_path
 
 
-def read_argsfile(argsfile_path: str) -> dict:
-    """Example argsfile format:
-
-    idx:0
-    -Wl,-S
-    -pie
-    idx: 1
-    idx: 2
-    -Wl,--push-state
-    -Wl,--no-as-needed
-    idx: 3
-    -Wl,--pop-state
-    """
-    args = {}
-    idx = -1
-    with open(argsfile_path) as argsfile:
-        for line in argsfile:
-            line = line.rstrip()
-            if line.startswith("idx: "):
-                idx = int(line.split(" ")[1])
-            elif idx not in args:
-                args[idx] = [line]
-            else:
-                args[idx].append(line)
-    return {idx: arg for idx, arg in args.items() if arg}
+def _write_args(argsfile: TextIO, args: List[str]) -> None:
+    for arg in args:
+        argsfile.write(arg.strip())
+        argsfile.write("\n")
 
 
 def _enable_core_dumps() -> None:
@@ -111,9 +111,6 @@ def main(argv):
     parser.add_argument("--index")
     parser.add_argument("--link-plan")
     parser.add_argument("--final-link-index")
-    parser.add_argument("--pre-flags")
-    parser.add_argument("--linkables")
-    parser.add_argument("--post-flags")
     parser.add_argument("index_args", nargs=argparse.REMAINDER)
     args = parser.parse_args(argv[1:])
 
@@ -124,23 +121,54 @@ def main(argv):
     imports_suffix = ".imports"
     opt_objects_suffix = ".opt.o"  # please note the files are not exist yet, this is to generate the index file use in final link
 
-    pre_flags = read_argsfile(args.pre_flags)
-    linkables = read_argsfile(args.linkables)
-    post_flags = read_argsfile(args.post_flags)
-
+    # `linkables_index` contains the linkables that are NOT LLVM IR bitcode files (e.g., machine code archives, shared libraries).
+    # `linkables_index`'s key is the path to the linkable and the value is a dictionary containing the cmd_args and the meta_index.
+    # example path: `"fbcode/third-party-buck/platform010/build/glog/lib/libglog.a"`
+    # `linkables_index` is used to re-attach associated flags (pre/post flags and flags in the cmd_args form like `-Wl,--whole-archive`/`-Wl,--no-whole-archive`)
+    # for the final_link_index @argsfile used in the the Phase 4 final link.
+    # The associated flags are otherwise dropped because `ld.lld` produces an `index.full` file in the Phase 2 Thin Link step
+    # only contains the path to the linkable and no flags.
     linkables_index = {}
-    # a map of linkables to the (pre_flag, post_flag) indexes
-    for idx, linkable_list in linkables.items():
-        if not linkable_list:
-            continue
-        elif len(linkable_list) == 1:
-            linkables_index[linkable_list[0].strip()] = (idx, idx)
-        else:
-            linkables_index[linkable_list[0].strip()] = (idx, -1)
-            linkables_index[linkable_list[-1].strip()] = (-1, idx)
 
-    with open(args.meta) as meta:
-        meta_lines = [line.strip() for line in meta.readlines()]
+    with open(args.meta) as f:
+        meta = json.load(f)
+
+    for meta_entry_index1, meta_entry1 in enumerate(meta):
+        for linkable in meta_entry1["linkables"]:
+            if linkable["type"] == "cmd_args":
+                obj = linkable["object"]
+
+                if obj["type"] == "archive":
+                    linkable_path = obj["archive"]
+                    linkables_index[linkable_path] = {
+                        "cmd_args": linkable["cmd_args"],
+                        "meta_index": meta_entry_index1,
+                    }
+                elif obj["type"] == "shared_lib":
+                    linkable_path = obj["name"]
+                    linkables_index[linkable_path] = {
+                        "cmd_args": linkable["cmd_args"],
+                        "meta_index": meta_entry_index1,
+                    }
+                elif obj["type"] == "objects":
+                    objects = obj["objects"]
+                    for o in objects:
+                        linkable_path = o
+                        linkables_index[linkable_path] = {
+                            # Use the individual object `o` instead of the outer `cmd_args`
+                            # because 1/ this only needs the individual object, and the outer `cmd_args` contains ALL the objects.
+                            # 2/ we don't need the `-Wl,--start-lib`/`-Wl,--end-lib` in the `cmd_args` for the final link,
+                            # because the final link uses the exact set of objects per --thinlto-full-index from Phase 2 Thin Link.
+                            "cmd_args": o,
+                            "meta_index": meta_entry_index1,
+                        }
+
+                elif obj["type"] == "frameworks":
+                    raise Exception(
+                        f"Apple Frameworks linkables are not supported on GNU {obj}"
+                    )
+                else:
+                    raise Exception(f"unknown linkable type: {obj}")
 
     def read_imports(path, imports_path):
         with open(imports_path) as infile:
@@ -149,32 +177,63 @@ def main(argv):
     def index_path(path):
         return os.path.join(args.index, path)
 
-    # The meta file comes directly from dist_lto.bzl and consists of a list of
-    # 7-tuples of information. It is easiest for us to write each tuple member
-    # as a separate line in Starlark, so these 7-tuples are encoded in groups
-    # of seven lines.
+    # The meta file comes directly from dist_lto.bzl and consists of a list of JSON objects.
     #
-    # The seven pieces of information are:
-    #  1. The path to the source bitcode file. This is used as an index into
-    #     a dictionary (`mapping`) that records much of the metadata coming
-    #     from these lines.
-    #  2. The path to an output bitcode file. This script is expected to place a
-    #     ThinLTO index file at this location (suffixed `.thinlto.bc`).
-    #  3. The path to an output plan. This script is expected to place a link
-    #     plan here (a JSON document indicating which other object files this)
-    #     object file depends on, among other things.
-    #  4. The link data's index in the Starlark array.
-    #  5. If this object file came from an archive, the name of the archive. Otherwise,
-    #     this line is empty.
-    #  6. If this object file came from an archive, the path to an output plan.
-    #     This script is expected to produce an archive link plan here (a JSON)
-    #     document similar to the object link plan, except containing link
-    #     information for every file in the archive from which this object
-    #     came. Otherwise, this line is empty.
-    #  7. If this object file came from an archive, the indexes directory of that
-    #     archive. This script is expected to place all ThinLTO indexes derived
-    #     from object files originating from this archive in that directory.
-    #     Otherwise, this line is empty.
+    # Example:
+    # ```
+    # [
+    #    {
+    #       "linkables": [
+    #          {
+    #             "type": "bitcode",
+    #             "path": "buck-out/v2/art/fbcode/d5271865af863393/instagram/dist/__clf_sidecar__/__objects__/CLFSidecarMain.cpp.o",
+    #             "output": "buck-out/v2/art/fbcode/d5271865af863393/instagram/dist/__clf_sidecar__/unknown-2/CLFSidecarMain.cpp.o.thinlto.bc",
+    #             "plan_output": "buck-out/v2/art/fbcode/d5271865af863393/instagram/dist/__clf_sidecar__/unknown-2/CLFSidecarMain.cpp.o.opt.plan",
+    #             "idx": 0
+    #          },
+    #          ...
+    #        ],
+    #        "pre_flags": [],
+    #        "post_flags": [],
+    #    },
+    #    {
+    #       "linkables": [
+    #         {
+    #            "type": "cmd_args",
+    #            "cmd_args": [ "fbcode/third-party-buck/platform010/build/glog/lib/libglog.a" ],
+    #            "linkable_type": "archive_linkable",
+    #            "object": {
+    #              "type": "archive",
+    #              "archive": "fbcode/third-party-buck/platform010/build/glog/lib/libglog.a",
+    #            }
+    #         }
+    #       ]
+    #     },
+    #    ...
+    # ]
+    # ```
+    #
+    # Inside objects with type "bitcode" and "archive", there are several attributes:
+    #  - path: The path to the source bitcode file from Phase 1 Compile.
+    #        This is used as an index into a dictionary (`mapping`) that records much of the metadata coming
+    #        from these lines.
+    #  - output: The path to output location of Phase 2 Thin Link's analysis result for this individual module.
+    #        This script is expected to place a ThinLTO index file at this location (suffixed `.thinlto.bc`).
+    #  - plan_output: The path to an output plan. This script is expected to place a link
+    #        plan here (a JSON document indicating which other object files this)
+    #        object file depends on, among other things.
+    #  - idx: The link data's index in the Starlark array.
+    #  - archive_name: If this object file came from an archive, the name of the archive.
+    #        Otherwise, this line is empty.
+    #  - archive_plan: If this object file came from an archive, the path to an output plan.
+    #        This script is expected to produce an archive link plan here (a JSON)
+    #        document similar to the object link plan, except containing link
+    #        information for every file in the archive from which this object
+    #        came. Otherwise, this line is empty.
+    #  - archive_index_dir: If this object file came from an archive, the indexes directory of that
+    #        archive. This script is expected to place all ThinLTO indexes derived
+    #        from object files originating from this archive in that directory.
+    #        Otherwise, this line is empty.
     #
     # There are two indices that are derived from this meta file: the object
     # index (mapping["index"]) and the archive index (mapping["archive_index"]).
@@ -182,30 +241,47 @@ def main(argv):
     # linkables, respectively. This script does not inspect them.
     mapping = {}
     archives = {}
-    for i in range(0, len(meta_lines), 7):
-        path = meta_lines[i]
-        output = meta_lines[i + 1]
-        plan_output = meta_lines[i + 2]
-        idx = int(meta_lines[i + 3])
-        archive_name = meta_lines[i + 4]
-        archive_plan = meta_lines[i + 5]
-        archive_index_dir = meta_lines[i + 6]
+    for meta_entry_index2, meta_entry2 in enumerate(meta):
+        for linkable in meta_entry2["linkables"]:
+            if linkable["type"] == "bitcode":
+                path = linkable["path"]
+                output = linkable["output"]
+                plan_output = linkable["plan_output"]
+                idx = linkable["idx"]
+                mapping[path] = {
+                    "output": output,
+                    "plan_output": plan_output,
+                    "index": idx,
+                    "meta_index": meta_entry_index2,
+                    "archive_index": None,
+                    "archive_name": "",
+                }
+            elif linkable["type"] == "archive":
+                archive_idx = linkable["archive_idx"]
+                archive_name = linkable["archive_name"]
+                archive_plan = linkable["archive_plan"]
+                archive_index_dir = linkable["archive_index_dir"]
 
-        archive_idx = idx if output == "" else None  # archives do not have outputs
-        mapping[path] = {
-            "output": output,
-            "plan_output": plan_output,
-            "index": idx,
-            "archive_index": archive_idx,
-            "archive_name": archive_name,
-        }
-        if archive_idx is not None:
-            archives[idx] = {
-                "name": archive_name,
-                "objects": [],
-                "plan": archive_plan,
-                "index_dir": archive_index_dir,
-            }
+                # Warning: `shared_obj_mapping_entry` is shared for all objects to use less memory.
+                # Create a copy of it for each object if there needs to be mutations to individual objects.
+                shared_obj_mapping_entry = {
+                    "output": "",
+                    "plan_output": "",
+                    "index": archive_idx,
+                    "meta_index": meta_entry_index2,
+                    "archive_index": archive_idx,
+                    "archive_name": archive_name,
+                }
+                for obj in linkable["objects"] or ():
+                    path = obj["path"]
+                    mapping[path] = shared_obj_mapping_entry
+
+                archives[archive_idx] = {
+                    "name": archive_name,
+                    "objects": [],
+                    "plan": archive_plan,
+                    "index_dir": archive_index_dir,
+                }
 
     non_lto_objects = {}
     for path, data in sorted(mapping.items(), key=lambda v: v[0]):
@@ -306,12 +382,18 @@ def main(argv):
         with open(archive["plan"], "w") as planout:
             json.dump(archive_plan, planout, sort_keys=True)
 
-    # We read the `index`` and `index.full`` files produced by linker in index stage
+    # We read the `index` and `index.full` files produced by linker in index stage
     # and translate them to 2 outputs:
     # 1. A link plan build final_link args. (This one may be able to be removed if we refactor the workflow)
     # 2. A files list (*.final_link_index) used for final link stage which includes all the
     #    files needed. it's based on index.full with some modification, like path updates
     #    and redundant(added by toolchain) dependencies removing.
+    # The `index` file is a list of the LLVM IR bitcode files that were analyzed in the Phase 2 Thin Link Step.
+    # The `index.full` file is of ALL linkables used in the linking process, ordered by their symbol resolution.
+    # For a full discussion on `index.full` see https://reviews.llvm.org/D130229
+    # The file paths in `index` and the LLVM IR Bitcode files in `index.full` are listed as a child of the `args.index` directory.
+    # HOWEVER, the LLVM IR Bitcode files do NOT exist there and instead exist in the location with the `args.index` directory stripped off (i.e., with `os.path.relpath(start=args.index)`).
+    # The files suffixed with `.imports` and `.thinlto.bc` DO exist in the directory under `args.index`.
     index = {}
     index_files_set = set()
     # TODO(T130322878): since we call linker wrapper twice (in index and in final_link), to avoid these libs get
@@ -358,80 +440,147 @@ def main(argv):
     ):
         final_link_index_output.write("\n".join(lib_search_path) + "\n")
 
-        def write_pre_flags(idx):
-            for flag in pre_flags.pop(idx, []):
-                final_link_index_output.write(flag + "\n")
+        # Write out first flags without an associated linkable in the meta.
+        # Stop once we see the first linkable because
+        # flags with an associated linkables are written in the order they are seen in `full_index_input`.
+        # Keep track of last index watermark to continue writing flags without a linkable at a later point.
+        flags_without_linkable_watermark = -1
 
-        def write_post_flags(idx):
-            for flag in post_flags.pop(idx, []):
-                final_link_index_output.write(flag + "\n")
+        # Keep track of the flags that were written because at the end we'll write out the once that weren't.
+        # The index into `flags_written_tracker` corresponds to the `index` into `meta``.
+        flags_written_tracker = bytearray(len(meta))
+
+        for meta_entry_index3, meta_entry3 in enumerate(meta):
+            if meta_entry3["linkables"]:
+                # Break once we see the first linkable entry.
+                break
+            else:
+                flags_without_linkable_watermark = meta_entry_index3
+
+                pre_flags = _flatten_deep(meta_entry3["pre_flags"])
+                _write_args(final_link_index_output, pre_flags)
+
+                post_flags = _flatten_deep(meta_entry3["post_flags"])
+                _write_args(final_link_index_output, post_flags)
+                flags_written_tracker[meta_entry_index3] = 1
+
+        # Keep track of the previous meta_index so when the meta_index changes between loop iterations
+        # the post flags are written for the previous meta_index and pre_flags are written for the new meta_index.
+        prev_meta_index = None
 
         for line in full_index_input:
             line = line.strip()
             if any(filter(line.endswith, KNOWN_REMOVABLE_DEPS_SUFFIX)):
                 continue
+            # LLVM IR files that are indexed in Phase 2 Thin Link are reported by `ld.lld` to exist under the directory `args.index`,
+            # but they actually exist at the path with the prefix `args.index` removed.
+            # Remove the prefix `args.index` with `os.path.relpath`.
             path = os.path.relpath(line, start=args.index)
 
             if path in mapping:
-                pre_flag_idx = post_flag_idx = mapping[path]["index"]
+                meta_index = mapping[path]["meta_index"]
+            elif line in mapping:
+                # This case happens when a library is marked with `enable_distributed_thinlto = True`, but
+                # has `compiler_flags = ["-fno-lto"]`.
+                # In this case the .o file is a machine code file and thus it is NOT indexed by Phase 2 Thin Link,
+                # and `line` is NOT prefixed with `args.index`.
+                meta_index = mapping[line]["meta_index"]
+            elif line in linkables_index:
+                meta_index = linkables_index[line]["meta_index"]
             else:
-                pre_flag_idx, post_flag_idx = linkables_index.setdefault(line, (-1, -1))
-            min_pre_post_flag_idx = min(
-                min(pre_flags, default=pre_flag_idx),
-                min(post_flags, default=post_flag_idx),
+                meta_index = None
+
+            has_meta_entry = meta_index is not None
+
+            if has_meta_entry:
+                # For simplicity, mark now that we have written the flags for this entry.
+                flags_written_tracker[meta_index] = 1
+
+            write_post_flags = (
+                prev_meta_index is not None and prev_meta_index != meta_index
             )
+            if write_post_flags:
+                if post_flags := meta[prev_meta_index]["post_flags"]:
+                    _write_args(final_link_index_output, _flatten_deep(post_flags))
 
-            # Wrtie pre-post-flags that we've gone past. These are not positional
-            # relative to the linkables, but are relative to each other.
-            while (pre_flag_idx > -1 and min_pre_post_flag_idx < pre_flag_idx) or (
-                post_flag_idx > -1 and min_pre_post_flag_idx < post_flag_idx
-            ):
-                if (
-                    pre_flag_idx == -1
-                    and min(pre_flags, default=min_pre_post_flag_idx)
-                    <= min_pre_post_flag_idx
-                ) or (min_pre_post_flag_idx < pre_flag_idx):
-                    write_pre_flags(min_pre_post_flag_idx)
-                if (
-                    post_flag_idx == -1
-                    and min(post_flags, default=min_pre_post_flag_idx)
-                    <= min_pre_post_flag_idx
-                ) or min_pre_post_flag_idx < post_flag_idx:
-                    write_post_flags(min_pre_post_flag_idx)
-                min_pre_post_flag_idx += 1
+            # Write next set of flags without a linkable that come up to the current linkable.
+            while has_meta_entry and flags_without_linkable_watermark < meta_index:
+                flags_without_linkable_watermark += 1
+                meta_entry4 = meta[flags_without_linkable_watermark]
+                if not meta_entry4["linkables"]:
+                    pre_flags = _flatten_deep(meta_entry4["pre_flags"])
+                    _write_args(final_link_index_output, pre_flags)
 
-            write_pre_flags(pre_flag_idx)
+                    post_flags = _flatten_deep(meta_entry4["post_flags"])
+                    _write_args(final_link_index_output, post_flags)
 
+                    flags_written_tracker[flags_without_linkable_watermark] = 1
+
+            write_pre_flags = has_meta_entry and (
+                prev_meta_index is None or prev_meta_index != meta_index
+            )
+            if write_pre_flags:
+                if pre_flags := meta[meta_index]["pre_flags"]:
+                    _write_args(final_link_index_output, _flatten_deep(pre_flags))
+
+            prev_meta_index = meta_index
+
+            output_written = False
             if line in index_files_set:
-                if path not in mapping:
-                    # handle objects from genrule archives (not tracked by dist_lto)
-                    final_link_index_output.write(line + "\n")
-                elif mapping[path]["output"]:
-                    # handle files that were not extracted from archives
+                if path in mapping and mapping[path]["output"]:
+                    # This case is for a known and true LLVM IR Bitcode file that was
+                    # NOT extracted from an archive.
+
+                    # Get the output path to the actual file that is linked in Phase 4 Final Link,
+                    # which is resulting file from Phase 3 ThinLTO Backends.
+                    # These files are suffixed with ".opt.o" and are siblings to the ".thinlto.bc" files,
+                    # so the path is obtained by replacing the suffix.
                     output = mapping[path]["output"].replace(
                         bitcode_suffix, opt_objects_suffix
                     )
                     final_link_index_output.write(output + "\n")
+                    output_written = True
+
                 elif os.path.exists(index_path(path) + imports_suffix):
                     # handle files built from source that were extracted from archives
                     opt_objects_path = path.replace(
                         "/objects/", "/opt_objects/objects/"
                     )
                     final_link_index_output.write(opt_objects_path + "\n")
+                    output_written = True
+
+            if not output_written:
+                # handle:
+                # - objects from genrule archives (not tracked by dist_lto)
+                # - pre-built archives
+                # - input files that did not come from linker input, e.g. linkerscirpts
+                if line in linkables_index:
+                    # If this is a known linkable, then use the original cmd_args from the linkable entry,
+                    # which could contain for example, "-Wl,--whole-archive" and "-Wl,--no-whole-archive" flags.
+                    linkable_entry = linkables_index[line]
+                    cmd_args = linkable_entry["cmd_args"]
+                    if isinstance(cmd_args, list):
+                        _write_args(final_link_index_output, _flatten_deep(cmd_args))
+                    else:
+                        final_link_index_output.write(cmd_args + "\n")
                 else:
-                    # handle pre-built archives
                     final_link_index_output.write(line + "\n")
 
-            else:
-                # handle input files that did not come from linker input, e.g. linkerscirpts
-                final_link_index_output.write(line + "\n")
+        # Write post flags for the last iteration of the loop
+        if prev_meta_index is not None:
+            if post_flags := meta[prev_meta_index]["post_flags"]:
+                _write_args(final_link_index_output, _flatten_deep(post_flags))
 
-            write_post_flags(post_flag_idx)
-
-        # write any remaining pre/post flags that are not associated with any linkables
-        for idx in sorted((pre_flags | post_flags).keys()):
-            write_pre_flags(idx)
-            write_post_flags(idx)
+        # Write out the remaining unwritten flags
+        for flags_written_tracker_index, flags_written_tracker_entry in enumerate(
+            flags_written_tracker
+        ):
+            if not flags_written_tracker_entry:
+                meta_entry5 = meta[flags_written_tracker_index]
+                pre_flags = _flatten_deep(meta_entry5["pre_flags"])
+                _write_args(final_link_index_output, pre_flags)
+                post_flags = _flatten_deep(meta_entry5["post_flags"])
+                _write_args(final_link_index_output, post_flags)
 
 
 if __name__ == "__main__":
