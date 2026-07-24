@@ -26,13 +26,25 @@ bindeps = true
 # Name of the generated file.
 file_name = "BUCK.reindeer"
 
+platform_compatibility_on_all_targets = true
+
 # Rules used for various kinds of targets.
-rust_library = "cargo.rust_library"
-rust_binary = "cargo.rust_binary"
+rust_library = "third_party_rust_rust_library"
+rust_binary = "third_party_rust_rust_binary"
 prebuilt_cxx_library = "third_party_rust_prebuilt_cxx_library"
+cxx_library = "third_party_rust_cxx_library"
+alias = "third_party_rust_alias"
+alias_with_platforms = "third_party_rust_alias"
 
 buckfile_imports = """
 load("@prelude//rust:cargo_buildscript.bzl", "buildscript_run")
 load("@prelude//rust:cargo_package.bzl", "cargo")
-load("@shim//third-party/macros:rust_third_party.bzl", "third_party_rust_prebuilt_cxx_library")
+load(
+    "@shim//third-party/macros:rust_third_party.bzl",
+    "third_party_rust_alias",
+    "third_party_rust_cxx_library",
+    "third_party_rust_prebuilt_cxx_library",
+    "third_party_rust_rust_binary",
+    "third_party_rust_rust_library",
+)
 """
