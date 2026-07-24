@@ -1470,8 +1470,15 @@ impl DaemonApi for BuckdServer {
     ) -> Result<Response<UnstableAllocatorStatsResponse>, Status> {
         self.check_if_accepting_requests()?;
 
-        let response = memory::allocator_stats(&req.into_inner().options)
-            .buck_error_context("Failed to retrieve allocator stats");
+        let req = req.into_inner();
+        let response = if req.purge {
+            memory::purge_jemalloc()
+                .buck_error_context("Failed to purge jemalloc")
+                .and_then(|()| memory::allocator_stats(&req.options))
+        } else {
+            memory::allocator_stats(&req.options)
+        }
+        .buck_error_context("Failed to retrieve allocator stats");
 
         match response {
             Ok(response) => Ok(Response::new(UnstableAllocatorStatsResponse { response })),
