@@ -49,7 +49,6 @@ def stamp_build_info(
     """
     if cxx_stamp_build_info(ctx):
         build_info = dict(ctx.attrs._build_info)
-        build_info["late_stamping"] = True
         library_versions = _get_library_versions(links)
         if library_versions:
             build_info["library_versions"] = library_versions
