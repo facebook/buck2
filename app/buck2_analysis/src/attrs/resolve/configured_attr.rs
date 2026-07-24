@@ -36,7 +36,6 @@ use dupe::Dupe;
 use gazebo::prelude::SliceExt;
 use starlark::values::Heap;
 use starlark::values::Value;
-use starlark::values::dict::Dict;
 use starlark::values::list::AllocList;
 use starlark::values::tuple::AllocTuple;
 use starlark_map::small_map::SmallMap;
@@ -134,7 +133,7 @@ impl ConfiguredAttrExt for ConfiguredAttr {
                         v.resolve_single(pkg, ctx)?,
                     );
                 }
-                Ok(ctx.heap().alloc(Dict::new(res)))
+                Ok(ctx.heap().alloc_dict(res))
             }
             ConfiguredAttr::None => Ok(Value::new_none()),
             ConfiguredAttr::OneOf(box l, _) => l.resolve_single(pkg, ctx),
@@ -208,7 +207,7 @@ fn configured_attr_to_value<'v>(
                 );
             }
 
-            heap.alloc(Dict::new(res))
+            heap.alloc_dict(res)
         }
         ConfiguredAttr::None => Value::new_none(),
         ConfiguredAttr::OneOf(box l, _) => configured_attr_to_value(l, pkg, heap)?,
@@ -243,7 +242,7 @@ fn configured_attr_to_value<'v>(
                 );
             }
 
-            heap.alloc(Dict::new(map))
+            heap.alloc_dict(map)
         }
         ConfiguredAttr::ConfigurationDep(c) => {
             // TODO(T198210718)

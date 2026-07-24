@@ -39,7 +39,6 @@ use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
-use starlark::values::dict::Dict;
 use starlark::values::dict::UnpackDictEntries;
 use starlark::values::list::AllocList;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
@@ -129,7 +128,7 @@ fn anon_target_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkAnonTarget<'v>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<Value<'v>> {
-        Ok(eval.heap().alloc(Dict::new(
+        Ok(eval.heap().alloc_dict(
             this.artifacts
                 .iter()
                 .map(|(k, v)| {
@@ -144,7 +143,7 @@ fn anon_target_methods(builder: &mut MethodsBuilder) {
                     ))
                 })
                 .collect::<starlark::Result<_>>()?,
-        )))
+        ))
     }
 
     /// Gets a specific `StarlarkPromiseArtifact` by name. Returns an error if the name was not found in the

@@ -34,7 +34,6 @@ use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
 use dice::DiceComputations;
 use dupe::Dupe;
 use starlark::values::Value;
-use starlark::values::dict::Dict;
 use starlark::values::tuple::AllocTuple;
 use starlark_map::small_map::SmallMap;
 
@@ -115,7 +114,7 @@ impl AnonTargetAttrResolution for AnonTargetAttr {
                         v.resolve_single(pkg, anon_resolution_ctx)?,
                     );
                 }
-                Ok(ctx.heap().alloc(Dict::new(res)))
+                Ok(ctx.heap().alloc_dict(res))
             }
             AnonTargetAttr::None => Ok(Value::new_none()),
             AnonTargetAttr::OneOf(box l, _) => l.resolve_single(pkg, anon_resolution_ctx),

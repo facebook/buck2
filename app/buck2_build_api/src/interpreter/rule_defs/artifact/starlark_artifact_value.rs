@@ -31,7 +31,6 @@ use starlark::values::NoSerialize;
 use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
-use starlark::values::dict::Dict;
 use starlark::values::starlark_value;
 
 #[derive(Debug, ProvidesStaticType, NoSerialize, Allocative, StarlarkPagable)]
@@ -96,7 +95,7 @@ fn json_convert<'v>(v: serde_json::Value, heap: Heap<'v>) -> starlark::Result<Va
             for (k, v) in mp.into_iter() {
                 res.insert_hashed(heap.alloc(k).get_hashed()?, json_convert(v, heap)?);
             }
-            Ok(heap.alloc(Dict::new(res)))
+            Ok(heap.alloc_dict(res))
         }
     }
 }

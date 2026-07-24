@@ -44,7 +44,6 @@ use starlark::values::ValueLifetimeless;
 use starlark::values::ValueLike;
 use starlark::values::ValueOf;
 use starlark::values::ValueOfUncheckedGeneric;
-use starlark::values::dict::Dict;
 use starlark::values::dict::DictRef;
 use starlark::values::dict::DictType;
 use starlark::values::none::NoneOr;
@@ -191,7 +190,7 @@ impl<'v> StarlarkSelector<'v> {
                         }
                     }
                     Ok(eval.heap().alloc(StarlarkSelector::new(
-                        ValueOf::unpack_value_err(eval.heap().alloc(Dict::new(mapped)))
+                        ValueOf::unpack_value_err(eval.heap().alloc_dict(mapped))
                             .internal_error("validated at construction")?,
                     )))
                 }

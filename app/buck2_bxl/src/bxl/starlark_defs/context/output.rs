@@ -59,7 +59,6 @@ use starlark::values::Trace;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
 use starlark::values::ValueLike;
-use starlark::values::dict::Dict;
 use starlark::values::dict::DictRef;
 use starlark::values::dict::UnpackDictEntries;
 use starlark::values::list::ListRef;
@@ -839,7 +838,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
             EnsureMultipleArtifactsArg::BxlBuildResult(bxl_build_result) => {
                 Ok(heap.alloc(get_artifacts_from_bxl_build_result(bxl_build_result, this)?))
             }
-            EnsureMultipleArtifactsArg::Dict(build_result_dict) => Ok(heap.alloc(Dict::new(
+            EnsureMultipleArtifactsArg::Dict(build_result_dict) => Ok(heap.alloc_dict(
                 build_result_dict
                     .entries
                     .into_iter()
@@ -859,7 +858,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
                         ))
                     })
                     .collect::<buck2_error::Result<_>>()?,
-            ))),
+            )),
             EnsureMultipleArtifactsArg::CmdLine(cmd_line) => {
                 // TODO(nga): we should not be doing that here.
                 //   If we pass random string to this function,

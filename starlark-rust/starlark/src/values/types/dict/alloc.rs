@@ -26,7 +26,6 @@ use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::Value;
-use crate::values::dict::Dict;
 use crate::values::dict::value::FrozenDictData;
 use crate::values::layout::value::ValueLike;
 use crate::values::type_repr::StarlarkTypeRepr;
@@ -87,7 +86,7 @@ where
                 v.alloc_value(heap),
             );
         }
-        heap.alloc(Dict::new(map))
+        heap.alloc_dict(map)
     }
 }
 

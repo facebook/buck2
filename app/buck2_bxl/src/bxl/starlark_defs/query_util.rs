@@ -14,7 +14,6 @@ use buck2_query::query::syntax::simple::eval::values::QueryEvaluationValue;
 use starlark::typing::HasTyVTable;
 use starlark::values::Heap;
 use starlark::values::Value;
-use starlark::values::dict::Dict;
 
 use super::targetset::NodeLike;
 use crate::bxl::starlark_defs::file_set::StarlarkFileSet;
@@ -34,7 +33,7 @@ where
             }
             QueryEvaluationValue::FileSet(files) => heap.alloc(StarlarkFileSet::from(files)),
         },
-        QueryEvaluationResult::Multiple(multi) => heap.alloc(Dict::new(
+        QueryEvaluationResult::Multiple(multi) => heap.alloc_dict(
             multi
                 .0
                 .into_iter()
@@ -58,6 +57,6 @@ where
                     ))
                 })
                 .collect::<buck2_error::Result<_>>()?,
-        )),
+        ),
     })
 }

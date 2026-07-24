@@ -46,7 +46,6 @@ use starlark::values::Heap;
 use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Value;
-use starlark::values::dict::Dict;
 use starlark::values::list::AllocList;
 use starlark::values::starlark_value;
 use starlark::values::tuple::AllocTuple;
@@ -164,7 +163,7 @@ impl CoercedAttrExt for CoercedAttr {
                     );
                 }
 
-                heap.alloc(Dict::new(res))
+                heap.alloc_dict(res)
             }
             CoercedAttr::None => Value::new_none(),
             CoercedAttr::OneOf(l, _) => l.as_ref().to_value(pkg, heap)?,
