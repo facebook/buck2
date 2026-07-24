@@ -269,6 +269,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
   }
 
   protected static class ArgsParser {
+    private final Map<String, String> environment;
     File outputDirectory = null;
     DeviceArgs deviceArgs = null;
     String apkUnderTestPath = null;
@@ -298,6 +299,14 @@ public class InstrumentationTestRunner extends DeviceRunner {
     String preTestSetupScript = null;
     List<String> extraApksToInstall = new ArrayList<>();
     @Nullable Integer userId = null;
+
+    ArgsParser() {
+      this(System.getenv());
+    }
+
+    ArgsParser(Map<String, String> environment) {
+      this.environment = environment;
+    }
 
     @SuppressWarnings("PMD.BlacklistedSystemGetenv")
     void fromArgs(String... args) throws IOException {
@@ -469,7 +478,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
       // Process env-based setup - using package name to uniquify the folders
       // and avoid concurrency problems
 
-      String testArtifactsPath = System.getenv(TEST_RESULT_ARTIFACTS_ENV);
+      String testArtifactsPath = environment.get(TEST_RESULT_ARTIFACTS_ENV);
       if (testArtifactsPath != null) {
         String devicePath =
             String.format(
@@ -478,7 +487,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
         extraInstrumentationArguments.put(TEST_RESULT_ARTIFACTS_ENV, devicePath);
       }
 
-      String testArtifactAnnotationsPath = System.getenv(TEST_RESULT_ARTIFACTS_ANNOTATIONS_ENV);
+      String testArtifactAnnotationsPath = environment.get(TEST_RESULT_ARTIFACTS_ANNOTATIONS_ENV);
       if (testArtifactAnnotationsPath != null) {
         String devicePath =
             String.format(
@@ -489,12 +498,12 @@ public class InstrumentationTestRunner extends DeviceRunner {
         extraInstrumentationArguments.put(TEST_RESULT_ARTIFACTS_ANNOTATIONS_ENV, devicePath);
       }
 
-      String preTestSetupEnv = System.getenv(PRE_TEST_SETUP_SCRIPT);
+      String preTestSetupEnv = environment.get(PRE_TEST_SETUP_SCRIPT);
       if (preTestSetupEnv != null) {
         this.preTestSetupScript = preTestSetupEnv;
       }
 
-      String extraApksToInstall = System.getenv(APEXES_TO_INSTALL);
+      String extraApksToInstall = environment.get(APEXES_TO_INSTALL);
       if (extraApksToInstall != null) {
         this.extraApksToInstall = Arrays.asList(extraApksToInstall.split(","));
       }
@@ -1155,14 +1164,20 @@ public class InstrumentationTestRunner extends DeviceRunner {
       return null;
     }
 
-    String appScopedStoragePerTestCoveragePath =
+    String devicePerTestCoveragePath =
         getAppScopedStoragePath(
             packageName, targetPackageName, isSelfInstrumenting, PER_TEST_COVERAGE_SUBDIR);
+    if (devicePerTestCoveragePath == null) {
+      devicePerTestCoveragePath =
+          String.format(
+              INSTRUMENTATION_TEST_DEFAULT_ARTIFACTS_DIR_TEMPLATE,
+              PER_TEST_COVERAGE_SUBDIR,
+              packageName);
+    }
     String hostPerTestCoverageDir = getHostPerTestCoverageDir();
-    if (appScopedStoragePerTestCoveragePath != null && hostPerTestCoverageDir != null) {
-      extraDirsToPull.put(appScopedStoragePerTestCoveragePath, hostPerTestCoverageDir);
-      extraInstrumentationArguments.put(
-          PER_TEST_COVERAGE_DIR_ARG, appScopedStoragePerTestCoveragePath);
+    if (hostPerTestCoverageDir != null) {
+      extraDirsToPull.put(devicePerTestCoveragePath, hostPerTestCoverageDir);
+      extraInstrumentationArguments.put(PER_TEST_COVERAGE_DIR_ARG, devicePerTestCoveragePath);
     }
     return hostPerTestCoverageDir;
   }

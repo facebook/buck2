@@ -441,6 +441,32 @@ public class InstrumentationTestRunnerTest {
   }
 
   @Test
+  public void perTestCoverageUsesLegacyStorageBeforeApi30() throws Throwable {
+    ArrayList<String> capturedShellCommands = new ArrayList<>();
+    Path hostCoverageDir = tmp.newFolder("legacy_per_test_coverage").getPath();
+    String deviceCoverageDir = "/sdcard/test_result/per_test_coverage/com.example.test/";
+
+    Map<String, String> env = new HashMap<>();
+    env.put(InstrumentationTestRunner.PER_TEST_COVERAGE_ENABLED_ENV, "true");
+    env.put(InstrumentationTestRunner.PER_TEST_COVERAGE_DIR_ENV, hostCoverageDir.toString());
+
+    Map<Path, byte[]> filesOnDevice = new HashMap<>();
+    filesOnDevice.put(
+        Paths.get(deviceCoverageDir, "manifest.jsonl"), "{\"test\":\"example\"}\n".getBytes());
+
+    InstrumentationTestRunner runner =
+        createInstrumentationTestRunnerWithDeviceForSdk(
+            "27", capturedShellCommands, filesOnDevice, env, new HashMap<>());
+    runner.run();
+
+    String instrumentCommand = findInstrumentationCommand(capturedShellCommands);
+    Assert.assertTrue(
+        instrumentCommand.contains(
+            "-e " + InstrumentationTestRunner.PER_TEST_COVERAGE_DIR_ARG + " " + deviceCoverageDir));
+    Assert.assertTrue(Files.exists(hostCoverageDir.resolve("manifest.jsonl")));
+  }
+
+  @Test
   public void pullDirPullsContentsDirectlyToDestination() throws Throwable {
     // Set up a device directory structure with files
     Map<Path, byte[]> filesOnDevice = new HashMap<>();
@@ -464,7 +490,8 @@ public class InstrumentationTestRunnerTest {
       "--auto-run-on-connected-device"
     };
 
-    InstrumentationTestRunner.ArgsParser argsParser = new InstrumentationTestRunner.ArgsParser();
+    InstrumentationTestRunner.ArgsParser argsParser =
+        new InstrumentationTestRunner.ArgsParser(new HashMap<>());
     DeviceRunner.DeviceArgs deviceArgs = DeviceRunner.getDeviceArgs(args);
     argsParser.fromArgs(args);
 
@@ -597,7 +624,8 @@ public class InstrumentationTestRunnerTest {
       "10"
     };
 
-    InstrumentationTestRunner.ArgsParser argsParser = new InstrumentationTestRunner.ArgsParser();
+    InstrumentationTestRunner.ArgsParser argsParser =
+        new InstrumentationTestRunner.ArgsParser(new HashMap<>());
     argsParser.fromArgs(args);
 
     Assert.assertEquals(Integer.valueOf(10), argsParser.userId);
@@ -619,7 +647,8 @@ public class InstrumentationTestRunnerTest {
       "--auto-run-on-connected-device"
     };
 
-    InstrumentationTestRunner.ArgsParser argsParser = new InstrumentationTestRunner.ArgsParser();
+    InstrumentationTestRunner.ArgsParser argsParser =
+        new InstrumentationTestRunner.ArgsParser(new HashMap<>());
     argsParser.fromArgs(args);
 
     Assert.assertNull(argsParser.userId);
@@ -725,7 +754,8 @@ public class InstrumentationTestRunnerTest {
       "10"
     };
 
-    InstrumentationTestRunner.ArgsParser argsParser = new InstrumentationTestRunner.ArgsParser();
+    InstrumentationTestRunner.ArgsParser argsParser =
+        new InstrumentationTestRunner.ArgsParser(new HashMap<>());
     DeviceRunner.DeviceArgs deviceArgs = DeviceRunner.getDeviceArgs(args);
     argsParser.fromArgs(args);
 
@@ -784,6 +814,11 @@ public class InstrumentationTestRunnerTest {
           protected String executeAdbShellCommand(String command) throws Exception {
             capturedShellCommands.add(command);
             return "";
+          }
+
+          @Override
+          protected String getenv(String envVar) {
+            return null;
           }
 
           @Override
@@ -851,7 +886,8 @@ public class InstrumentationTestRunnerTest {
       // Note: No --user argument
     };
 
-    InstrumentationTestRunner.ArgsParser argsParser = new InstrumentationTestRunner.ArgsParser();
+    InstrumentationTestRunner.ArgsParser argsParser =
+        new InstrumentationTestRunner.ArgsParser(new HashMap<>());
     DeviceRunner.DeviceArgs deviceArgs = DeviceRunner.getDeviceArgs(args);
     argsParser.fromArgs(args);
 
@@ -910,6 +946,11 @@ public class InstrumentationTestRunnerTest {
           protected String executeAdbShellCommand(String command) throws Exception {
             capturedShellCommands.add(command);
             return "";
+          }
+
+          @Override
+          protected String getenv(String envVar) {
+            return null;
           }
 
           @Override
@@ -1112,7 +1153,8 @@ public class InstrumentationTestRunnerTest {
 
     String[] allArgs = argsList.toArray(new String[0]);
 
-    InstrumentationTestRunner.ArgsParser argsParser = new InstrumentationTestRunner.ArgsParser();
+    InstrumentationTestRunner.ArgsParser argsParser =
+        new InstrumentationTestRunner.ArgsParser(new HashMap<>());
     DeviceRunner.DeviceArgs deviceArgs = DeviceRunner.getDeviceArgs(allArgs);
     argsParser.fromArgs(allArgs);
 
@@ -1234,7 +1276,8 @@ public class InstrumentationTestRunnerTest {
       // Note: No --apk-under-test-path
     };
 
-    InstrumentationTestRunner.ArgsParser argsParser = new InstrumentationTestRunner.ArgsParser();
+    InstrumentationTestRunner.ArgsParser argsParser =
+        new InstrumentationTestRunner.ArgsParser(new HashMap<>());
     DeviceRunner.DeviceArgs deviceArgs = DeviceRunner.getDeviceArgs(args);
     argsParser.fromArgs(args);
 
@@ -1311,6 +1354,11 @@ public class InstrumentationTestRunnerTest {
 
             // Default: return empty string
             return "";
+          }
+
+          @Override
+          protected String getenv(String envVar) {
+            return null;
           }
 
           @Override
@@ -1410,7 +1458,7 @@ public class InstrumentationTestRunnerTest {
     System.arraycopy(args, 0, allArgs, 0, args.length);
     System.arraycopy(extraArgs, 0, allArgs, args.length, extraArgs.length);
 
-    InstrumentationTestRunner.ArgsParser argsParser = new InstrumentationTestRunner.ArgsParser();
+    InstrumentationTestRunner.ArgsParser argsParser = new InstrumentationTestRunner.ArgsParser(env);
     DeviceRunner.DeviceArgs deviceArgs = DeviceRunner.getDeviceArgs(args);
     argsParser.fromArgs(allArgs);
 
