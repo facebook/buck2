@@ -12,6 +12,7 @@ use std::time::Duration;
 
 use allocative::Allocative;
 use buck2_core::buck2_env;
+use buck2_core::soft_error;
 use buck2_data::*;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::dispatch::with_dispatcher_async;
@@ -98,6 +99,16 @@ impl BuckDiceTracker {
                         }
                         Some(DiceEvent::ComputeFinished{key_type}) => {
                             states.entry(key_type).or_insert_with(DiceKeyState::default).compute_finished += 1;
+                        }
+                        Some(DiceEvent::HydrationFailed{key_type, error}) => {
+                            soft_error!(
+                                "dice_hydration_failed",
+                                buck2_error::buck2_error!(
+                                    buck2_error::ErrorTag::Tier0,
+                                    "Failed to page a DICE value back in for `{key_type}`: {error}"
+                                )
+                            )
+                            .ok();
                         }
                         None => {
                             // This indicates that the sender side has been dropped and we can exit.

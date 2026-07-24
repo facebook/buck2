@@ -29,6 +29,13 @@ pub enum DiceEvent {
 
     /// Compute has finished.
     ComputeFinished { key_type: &'static str },
+
+    /// Reading a paged-out value back from disk failed. Reported for telemetry;
+    /// carries the failing key's type and the error message.
+    HydrationFailed {
+        key_type: &'static str,
+        error: String,
+    },
 }
 
 pub trait DiceEventListener: Allocative + Send + Sync + 'static {

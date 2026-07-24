@@ -378,6 +378,15 @@ impl TransactionData {
             .tracker
             .event(DiceEvent::ComputeFinished { key_type: desc })
     }
+
+    pub(crate) fn hydration_failed(&self, k: DiceKey, error: &anyhow::Error) {
+        let desc = self.dice.key_index.get(k).key_type_name();
+
+        self.user_data.tracker.event(DiceEvent::HydrationFailed {
+            key_type: desc,
+            error: format!("{error:#}"),
+        })
+    }
 }
 
 fn handle_project_eval_result(

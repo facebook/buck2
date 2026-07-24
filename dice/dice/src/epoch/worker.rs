@@ -142,26 +142,40 @@ impl DiceTaskWorker {
                 return task_state.lookup_matches(handle, entry);
             }
             VersionedGraphResult::MatchPagedOut(paged) => {
-                let entry = self
+                match self
                     .hydrate_and_rehydrate(&state_handle, paged.data_key)
-                    .await?;
-                let entry = DiceComputedValue::new(
-                    MaybeValidDiceValue::valid(entry),
-                    paged.valid,
-                    paged.invalidation_paths,
-                );
-                return task_state.lookup_matches(handle, entry);
+                    .await
+                {
+                    Ok(entry) => {
+                        let entry = DiceComputedValue::new(
+                            MaybeValidDiceValue::valid(entry),
+                            paged.valid,
+                            paged.invalidation_paths,
+                        );
+                        return task_state.lookup_matches(handle, entry);
+                    }
+                    Err(e) => {
+                        self.eval.hydration_failed(self.k, &e);
+                        return self.finish_hydration_failure(handle);
+                    }
+                }
             }
             VersionedGraphResult::CheckDeps(mismatch2) => Some(mismatch2),
             VersionedGraphResult::CheckDepsPagedOut(paged) => {
-                let entry = self
+                match self
                     .hydrate_and_rehydrate(&state_handle, paged.data_key)
-                    .await?;
-                Some(VersionedGraphResultMismatch {
-                    entry,
-                    prev_verified_version: paged.prev_verified_version,
-                    deps_to_validate: paged.deps_to_validate,
-                })
+                    .await
+                {
+                    Ok(entry) => Some(VersionedGraphResultMismatch {
+                        entry,
+                        prev_verified_version: paged.prev_verified_version,
+                        deps_to_validate: paged.deps_to_validate,
+                    }),
+                    Err(e) => {
+                        self.eval.hydration_failed(self.k, &e);
+                        return self.finish_hydration_failure(handle);
+                    }
+                }
             }
             VersionedGraphResult::Compute => None,
         };
@@ -327,15 +341,16 @@ impl DiceTaskWorker {
     /// so the graph node returns to the `Hydrated` state for subsequent lookups. The
     /// returned value is the worker's local copy.
     ///
-    /// Hydration I/O failures (e.g. storage corruption, missing data) are surfaced as
-    /// `CancellationReason::HydrationFailure` so the worker terminates cleanly rather
-    /// than panicking. A missing `DiceStorage` is an internal invariant violation (we
-    /// only receive a paged-out lookup result if storage is configured) and panics.
+    /// Returns `Err` if the value cannot be read back (e.g. storage corruption, a
+    /// serialize/deserialize asymmetry). Callers turn that into a failed computation
+    /// via [`Self::finish_hydration_failure`] rather than propagating it as a value.
+    /// A missing `DiceStorage` is an internal invariant violation (we only receive a
+    /// paged-out lookup result if storage is configured) and panics.
     async fn hydrate_and_rehydrate(
         &self,
         state_handle: &CoreStateHandle,
         data_key: pagable::DataKey,
-    ) -> WorkerResult<crate::value::DiceValidValue> {
+    ) -> anyhow::Result<crate::value::DiceValidValue> {
         let storage = self
             .eval
             .dice
@@ -343,14 +358,30 @@ impl DiceTaskWorker {
             .as_ref()
             .expect("paged-out lookup result requires DiceStorage to be configured");
         let key_dyn = self.eval.dice.key_index.get(self.k);
-        let value = storage.hydrate(key_dyn, data_key).await.map_err(|e| {
-            // FIXME(JakobDegen): This is not an appropriate way to report an error.
-            tracing::error!("failed to hydrate paged-out DICE value: {:#}", e);
-            // FIXME(JakobDegen): And this *really* isn't
-            WorkerCancelled
-        })?;
+        let value = storage.hydrate(key_dyn, data_key).await?;
         state_handle.rehydrate(self.k, value.dupe());
         Ok(value)
+    }
+
+    /// Finish the worker after a paged-out value failed to hydrate. The failure is
+    /// surfaced to awaiters as a cancelled computation so they resolve promptly;
+    /// finishing with a bare `WorkerCancelled` (no result) would instead leave every
+    /// awaiting computation blocked forever waiting for a value that never arrives.
+    ///
+    /// TODO: recompute the value instead of failing — a paged-out value is a cache
+    /// entry and is always recomputable, so a hydration failure should degrade to a
+    /// recompute rather than an error.
+    fn finish_hydration_failure(
+        &self,
+        handle: &mut DiceTaskHandle<'_>,
+    ) -> WorkerResult<DiceWorkerStateFinishedAndCached> {
+        match handle.cancellation_ctx().try_disable_cancellation() {
+            Some(g) => Ok(DiceWorkerStateFinishedAndCached {
+                value: TransactionResult::make_cancelled(),
+                _prevent_cancellation: g,
+            }),
+            None => Err(WorkerCancelled),
+        }
     }
 }
 

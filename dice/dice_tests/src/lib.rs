@@ -17,4 +17,5 @@ mod legacy;
 mod linear_recompute;
 mod multiversion;
 mod opaque;
+mod paging;
 mod projection;
