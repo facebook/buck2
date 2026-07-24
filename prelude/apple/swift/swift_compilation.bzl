@@ -194,7 +194,7 @@ def _get_target_flags(ctx) -> list[str]:
     else:
         return ["-target", get_target_triple(ctx)]
 
-def get_swift_framework_anonymous_targets(ctx: AnalysisContext, get_providers: typing.Callable) -> Promise:
+def get_swift_anonymous_targets_for_prebuilt_framework(ctx: AnalysisContext, get_providers: typing.Callable) -> Promise:
     # Get SDK deps from direct dependencies,
     # all transitive deps will be compiled recursively.
     direct_uncompiled_sdk_deps = get_uncompiled_sdk_deps(
