@@ -154,9 +154,17 @@ impl DiceTaskWorker {
                         );
                         return task_state.lookup_matches(handle, entry);
                     }
+                    // The on-disk value couldn't be read back (I/O or a deserialize
+                    // failure). It's just a cache entry, so recover by recomputing
+                    // (fall through to the `Compute` path) and report it for telemetry.
+                    // Note: the lost value can't be compared against the recompute, so
+                    // `update_computed` can't do equality-based early cutoff (see
+                    // `ValueReusable::is_reusable`) and treats the node as changed —
+                    // this dirties its rdeps and recomputes through them even if the
+                    // recomputed value is identical.
                     Err(e) => {
                         self.eval.hydration_failed(self.k, &e);
-                        return self.finish_hydration_failure(handle);
+                        None
                     }
                 }
             }
@@ -171,9 +179,10 @@ impl DiceTaskWorker {
                         prev_verified_version: paged.prev_verified_version,
                         deps_to_validate: paged.deps_to_validate,
                     }),
+                    // As above: recompute on a failed page-in (and dirty rdeps).
                     Err(e) => {
                         self.eval.hydration_failed(self.k, &e);
-                        return self.finish_hydration_failure(handle);
+                        None
                     }
                 }
             }
@@ -342,10 +351,11 @@ impl DiceTaskWorker {
     /// returned value is the worker's local copy.
     ///
     /// Returns `Err` if the value cannot be read back (e.g. storage corruption, a
-    /// serialize/deserialize asymmetry). Callers turn that into a failed computation
-    /// via [`Self::finish_hydration_failure`] rather than propagating it as a value.
-    /// A missing `DiceStorage` is an internal invariant violation (we only receive a
-    /// paged-out lookup result if storage is configured) and panics.
+    /// serialize/deserialize asymmetry). Callers treat that as a cache miss and
+    /// recompute the key, reporting the failure via
+    /// [`TransactionData::hydration_failed`]. A missing `DiceStorage` is an internal
+    /// invariant violation (we only receive a paged-out lookup result if storage is
+    /// configured) and panics.
     async fn hydrate_and_rehydrate(
         &self,
         state_handle: &CoreStateHandle,
@@ -361,27 +371,6 @@ impl DiceTaskWorker {
         let value = storage.hydrate(key_dyn, data_key).await?;
         state_handle.rehydrate(self.k, value.dupe());
         Ok(value)
-    }
-
-    /// Finish the worker after a paged-out value failed to hydrate. The failure is
-    /// surfaced to awaiters as a cancelled computation so they resolve promptly;
-    /// finishing with a bare `WorkerCancelled` (no result) would instead leave every
-    /// awaiting computation blocked forever waiting for a value that never arrives.
-    ///
-    /// TODO: recompute the value instead of failing — a paged-out value is a cache
-    /// entry and is always recomputable, so a hydration failure should degrade to a
-    /// recompute rather than an error.
-    fn finish_hydration_failure(
-        &self,
-        handle: &mut DiceTaskHandle<'_>,
-    ) -> WorkerResult<DiceWorkerStateFinishedAndCached> {
-        match handle.cancellation_ctx().try_disable_cancellation() {
-            Some(g) => Ok(DiceWorkerStateFinishedAndCached {
-                value: TransactionResult::make_cancelled(),
-                _prevent_cancellation: g,
-            }),
-            None => Err(WorkerCancelled),
-        }
     }
 }
 

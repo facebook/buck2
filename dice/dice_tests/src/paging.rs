@@ -89,10 +89,11 @@ impl Key for FailToHydrateKey {
 }
 
 /// Regression: when a paged-out value cannot be read back in, the awaiting
-/// computation must not hang. Previously the worker cancelled without ever
-/// producing a result, leaving every awaiter blocked forever.
+/// computation must not hang (previously the worker cancelled without ever
+/// producing a result, leaving every awaiter blocked forever) and must recover by
+/// recomputing.
 #[tokio::test]
-async fn failed_hydrate_of_paged_out_value_does_not_hang() -> anyhow::Result<()> {
+async fn failed_hydrate_of_paged_out_value_recomputes() -> anyhow::Result<()> {
     let tmp = tempdir()?;
     let storage = DiceStorage::open(tmp.path(), PagableStorageBackend::Sqlite)?;
     let dice = {
@@ -111,19 +112,14 @@ async fn failed_hydrate_of_paged_out_value_does_not_hang() -> anyhow::Result<()>
     dice.page_out().await?;
 
     // Looking the key up again pages it back in, but deserialization always fails.
-    // This must resolve promptly rather than hanging the computation.
+    // The computation must recover by recomputing rather than hanging or erroring.
+    // The paged-in value can never deserialize, so getting 700 back proves it was
+    // recomputed.
     let tx = dice.updater().commit().await;
-    let result = tokio::time::timeout(Duration::from_secs(10), tx.compute(&FailToHydrateKey(7)))
+    let v2: u64 = *tokio::time::timeout(Duration::from_secs(10), tx.compute(&FailToHydrateKey(7)))
         .await
-        .expect("compute must not hang when a paged-out value fails to hydrate");
-
-    // Fail-first behavior: a failed hydrate surfaces as an error instead of hanging.
-    // TODO: once failed hydrates fall back to recomputation, this should instead be
-    // `Ok(700)` (recomputed rather than read from disk).
-    assert!(
-        result.is_err(),
-        "expected a failed hydrate to surface as an error, not a value"
-    );
+        .expect("compute must not hang when a paged-out value fails to hydrate")?;
+    assert_eq!(v2, 700, "a failed hydrate should recompute the value");
 
     Ok(())
 }
