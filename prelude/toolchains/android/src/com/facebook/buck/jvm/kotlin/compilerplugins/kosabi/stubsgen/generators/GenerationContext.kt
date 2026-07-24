@@ -14,11 +14,11 @@ import com.facebook.kotlin.compilerplugins.kosabi.common.FullTypeQualifier
 import com.facebook.kotlin.compilerplugins.kosabi.common.parseClasspathFileClassesAndPackages
 import com.facebook.kotlin.compilerplugins.kosabi.stubsgen.stub.container.StubsContainer
 import com.facebook.kotlin.compilerplugins.kosabi.stubsgen.stub.container.StubsContainerImpl
-import com.facebook.kotlin.compilerplugins.kosabi.stubsgen.util.UserTypeUtil
 import com.facebook.kotlin.compilerplugins.kosabi.stubsgen.util.calculateQualifierList
 import com.facebook.kotlin.compilerplugins.kosabi.stubsgen.util.declaredTypes
 import com.facebook.kotlin.compilerplugins.kosabi.stubsgen.util.toImportedClass
 import java.io.File
+import org.jetbrains.kotlin.com.intellij.psi.PsiElement
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.KtAnnotationEntry
 import org.jetbrains.kotlin.psi.KtCallExpression
@@ -28,16 +28,18 @@ import org.jetbrains.kotlin.psi.KtClassOrObject
 import org.jetbrains.kotlin.psi.KtDelegatedSuperTypeEntry
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
+import org.jetbrains.kotlin.psi.KtNullableType
 import org.jetbrains.kotlin.psi.KtParameterList
 import org.jetbrains.kotlin.psi.KtSecondaryConstructor
 import org.jetbrains.kotlin.psi.KtSuperTypeCallEntry
 import org.jetbrains.kotlin.psi.KtSuperTypeEntry
 import org.jetbrains.kotlin.psi.KtSuperTypeList
 import org.jetbrains.kotlin.psi.KtSuperTypeListEntry
+import org.jetbrains.kotlin.psi.KtTreeVisitorVoid
 import org.jetbrains.kotlin.psi.KtTypeAlias
 import org.jetbrains.kotlin.psi.KtTypeParameter
+import org.jetbrains.kotlin.psi.KtTypeReference
 import org.jetbrains.kotlin.psi.KtUserType
-import org.jetbrains.kotlin.psi.psiUtil.collectDescendantsOfType
 import org.jetbrains.kotlin.psi.psiUtil.getChildOfType
 import org.jetbrains.kotlin.psi.psiUtil.getChildrenOfType
 import org.jetbrains.kotlin.psi.psiUtil.referenceExpression
@@ -93,72 +95,93 @@ class GenerationContext {
       val importDirectives = projectFiles.flatMap { it.importList?.imports ?: emptyList() }
       this.importedDeclarations = importDirectives.mapNotNull { it.toImportedClass() }.toSet()
       this.importAlias = importDirectives.mapNotNull { it.aliasName }.toSet()
-
       this.importedTypes = importedDeclarations.filterNot { it.isTopLevelDeclaration() }.toSet()
-      this.fullQualifierTypes =
-          UserTypeUtil.collectMultiSegmentQualifiers(this)
-              .map { FullTypeQualifier(it) }
-              .filterNot { it.isSdkQualifier() }
-              .toSet()
+
       val dataInClasspath: Pair<Set<FullTypeQualifier>, Set<List<String>>> =
           parseClasspathFileClassesAndPackages(classpath)
       externalTypeReferences = dataInClasspath.first + knownGeneratedTypes
       pkgsInClasspath = dataInClasspath.second
 
-      this.interfaceTypes =
-          projectFiles
-              .flatMap { it.getInterfaceTypes() }
-              // TODO: Could it be null?? at any point? Why?
-              // TODO: log these cases
-              .mapNotNull { it.typeAsUserType }
-
-      this.annotationEntries = projectFiles.flatMap { it.collectDescendantsOfType() }
-
-      this.typeAliasSymbol =
-          projectFiles
-              .flatMap { it.collectDescendantsOfType<KtTypeAlias>() }
-              .mapNotNull { it.name }
-              .toSet()
-
+      // declaredTypes is a structural getChildrenOfType recursion (it intentionally excludes
+      // local/anonymous classes in function bodies), so it stays out of the single-pass DFS below.
       this.declaredTypes = projectFiles.flatMap { it.declaredTypes() }.toSet()
-      this.usedUserTypes =
-          projectFiles
-              .flatMap {
-                it.collectDescendantsOfType<KtUserType> { userType ->
-                  userType.calculateQualifierList().size == 1
+
+      // Single-pass PSI traversal: one DFS per file collects everything the generators need,
+      // replacing 9 separate whole-tree collectDescendantsOfType walks. Semantics are preserved
+      // 1:1 — same node sets, same filters, and typeValueArgs keeps its per-file
+      // superCall -> callExpr -> class ordering so the last-key-wins toMap is unchanged.
+      val annotations = mutableListOf<KtAnnotationEntry>()
+      val aliasNames = mutableSetOf<String>()
+      val paramNames = mutableSetOf<String>()
+      val usedTypes = mutableSetOf<KtUserType>()
+      val multiSegQualifiers = mutableListOf<List<String>>()
+      val interfaceUserTypes = mutableListOf<KtUserType>()
+      val typeValueArgPairs = mutableListOf<Pair<String, Int>>()
+      for (ktFile in projectFiles) {
+        val superCallPairs = mutableListOf<Pair<String, Int>>()
+        val callExprPairs = mutableListOf<Pair<String, Int>>()
+        val classCtorPairs = mutableListOf<Pair<String, Int>>()
+        ktFile.accept(
+            object : KtTreeVisitorVoid() {
+              override fun visitElement(element: PsiElement) {
+                if (element is KtAnnotationEntry) {
+                  annotations.add(element)
                 }
+                if (element is KtTypeAlias) {
+                  element.name?.let { aliasNames.add(it) }
+                }
+                if (element is KtTypeParameter) {
+                  element.name?.let { paramNames.add(it) }
+                }
+                if (element is KtUserType && element.calculateQualifierList().size == 1) {
+                  usedTypes.add(element)
+                }
+                if (element is KtTypeReference) {
+                  element.userTypeForQualifier()?.calculateQualifierList()?.let { qualifier ->
+                    if (qualifier.size >= 2) {
+                      multiSegQualifiers.add(qualifier)
+                    }
+                  }
+                }
+                if (element is KtClassOrObject) {
+                  interfaceUserTypes.addAll(
+                      element.getInterfaceTypes().mapNotNull { it.typeAsUserType }
+                  )
+                }
+                if (element is KtSuperTypeCallEntry) {
+                  element.typeValueArgs()?.let { superCallPairs.add(it) }
+                }
+                if (element is KtCallExpression) {
+                  element.typeValueArgs()?.let { callExprPairs.add(it) }
+                }
+                if (element is KtClass) {
+                  element.typeValueArgsFromSuperSecondaryConstructor()?.let {
+                    classCtorPairs.add(it)
+                  }
+                }
+                super.visitElement(element)
               }
-              .toSet()
+            }
+        )
+        typeValueArgPairs.addAll(superCallPairs)
+        typeValueArgPairs.addAll(callExprPairs)
+        typeValueArgPairs.addAll(classCtorPairs)
+      }
 
-      this.parameterNames =
-          projectFiles
-              .flatMap {
-                it.collectDescendantsOfType<KtTypeParameter>().mapNotNull { it -> it.name }
-              }
+      this.annotationEntries = annotations
+      this.typeAliasSymbol = aliasNames
+      this.parameterNames = paramNames
+      this.usedUserTypes = usedTypes
+      this.interfaceTypes = interfaceUserTypes
+      this.fullQualifierTypes =
+          multiSegQualifiers
+              .distinct()
+              .map { FullTypeQualifier(it) }
+              .filterNot { it.isSdkQualifier() }
               .toSet()
-
-      this.typeValueArgs =
-          projectFiles
-              .flatMap { ktFile ->
-                val superTypeCallEntryArgsPairs =
-                    ktFile.collectDescendantsOfType<KtSuperTypeCallEntry>().mapNotNull { entry ->
-                      entry.typeValueArgs()
-                    }
-                val callExpressionArgsPairs =
-                    ktFile.collectDescendantsOfType<KtCallExpression>().mapNotNull { expr ->
-                      expr.typeValueArgs()
-                    }
-                val classSuperSecondaryConstructorArgsPairs =
-                    ktFile.collectDescendantsOfType<KtClass>().mapNotNull { clazz ->
-                      clazz.typeValueArgsFromSuperSecondaryConstructor()
-                    }
-                superTypeCallEntryArgsPairs +
-                    callExpressionArgsPairs +
-                    classSuperSecondaryConstructorArgsPairs
-              }
-              // TODO: We might have multiple ctors for each type.
-              // For now we're just skipping to have one (the default)
-              .toMap()
+      // TODO: We might have multiple ctors for each type.
+      // For now we're just skipping to have one (the default)
+      this.typeValueArgs = typeValueArgPairs.toMap()
     }
   }
 
@@ -202,9 +225,6 @@ class GenerationContext {
     }
     return null
   }
-
-  private fun KtFile.getInterfaceTypes(): List<KtSuperTypeListEntry> =
-      collectDescendantsOfType<KtClassOrObject>().flatMap { it.getInterfaceTypes() }
 
   /**
    * This filters out possible class candidate while supporting delegation
@@ -256,6 +276,19 @@ class GenerationContext {
 
   private fun List<KtSecondaryConstructor>.superConstructor() = filter {
     !it.hasImplicitDelegationCall() && it.getDelegationCall().calleeExpression?.isThis == false
+  }
+
+  /**
+   * The [KtUserType] directly under a [KtTypeReference], unwrapping a single nullable wrapper.
+   * Mirrors the former UserTypeUtil.getUserType used by collectMultiSegmentQualifiers.
+   *
+   * When non-nullable: KtTypeReference - KtUserType. When nullable: KtTypeReference -
+   * KtNullableType
+   * - KtUserType.
+   */
+  private fun KtTypeReference.userTypeForQualifier(): KtUserType? {
+    val nullableTypeWrapper = getChildOfType<KtNullableType>()
+    return (nullableTypeWrapper ?: this).getChildOfType<KtUserType>()
   }
 
   fun packageName(): String? {
