@@ -168,7 +168,7 @@ async fn failed_hydrate_reports_a_hydration_failed_event() -> anyhow::Result<()>
         hydration_failures: captured.clone(),
     });
     let tx = dice.updater_with_data(data).commit().await;
-    let _ = tokio::time::timeout(Duration::from_secs(10), tx.compute(&FailToHydrateKey(7)))
+    let _ignored = tokio::time::timeout(Duration::from_secs(10), tx.compute(&FailToHydrateKey(7)))
         .await
         .expect("compute must not hang when a paged-out value fails to hydrate");
 
