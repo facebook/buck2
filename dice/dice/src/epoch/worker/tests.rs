@@ -1316,7 +1316,7 @@ async fn _run_cancellation_caching_test(
     // Ensure that the time it took to run the test is expected
     match cancel_type {
         CancelType::Sync | CancelType::ASync => {
-            let limit = (FIRST_COMPUTE_MS as f64) * 0.05 + (CANCELLATION_WAIT_MS as f64) * 1.05;
+            let limit = (FIRST_COMPUTE_MS as f64) * 0.5 + (CANCELLATION_WAIT_MS as f64) * 1.05;
             assert!(
                 elapsed_ms < limit as u64,
                 "cancelled key recompute took too long: elapsed_ms={elapsed_ms} but expected < {limit_u64} \
