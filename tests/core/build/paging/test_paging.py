@@ -9,6 +9,7 @@
 # pyre-strict
 
 
+import asyncio
 import re
 from pathlib import Path
 
@@ -40,6 +41,11 @@ async def _paged_out_count(buck: Buck) -> int:
 def _paged_in_count(result: BuildResult) -> int:
     # Populated by `write_invocation_record=True` on the test; absent/null when 0.
     return int(result.invocation_record().get("page_in_count") or 0)
+
+
+def _target_output(result: BuildResult, target: str) -> str:
+    output = result.get_build_report().output_for_target(f"root//:{target}")
+    return Path(output).read_text()
 
 
 async def _wait_for_page_out_idle(buck: Buck) -> int:
@@ -126,6 +132,33 @@ async def test_page_out_frozen_value_into_already_paged_out_heap(
 
     # The second page-out must leave module_const_b hydratable.
     await buck.build("//:module_const_b")
+
+
+@buck_test(data_dir="paging", write_invocation_record=True)
+async def test_page_in_shared_anon_target(buck: Buck) -> None:
+    # Bound post-page-out commands because the old typetag mismatch hung hydration.
+    command_timeout_seconds = 60
+    result = await buck.build("//:uses_anon_a")
+    assert _target_output(result, "uses_anon_a") == "anonymous target\n"
+
+    await asyncio.wait_for(
+        buck.debug("hydration", "page-out"), timeout=command_timeout_seconds
+    )
+    paged_out_count = await asyncio.wait_for(
+        _paged_out_count(buck), timeout=command_timeout_seconds
+    )
+    assert paged_out_count > 0, "expected the anonymous target analysis to be paged out"
+
+    # Analyze a new parent that requests the same anonymous target. Unlike a
+    # no-op rebuild of the first parent, this has to load the paged-out anonymous
+    # target analysis result before it can resolve the promise.
+    result = await asyncio.wait_for(
+        buck.build("//:uses_anon_b"), timeout=command_timeout_seconds
+    )
+    assert _target_output(result, "uses_anon_b") == "anonymous target\n"
+    assert _paged_in_count(result) > 0, (
+        "expected the anonymous target analysis to be paged back in"
+    )
 
 
 @buck_test(data_dir="paging", write_invocation_record=True)

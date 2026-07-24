@@ -101,7 +101,7 @@ pub fn typetag_trait(item: ItemTrait) -> syn::Result<TokenStream> {
 /// Generate code for an impl block for a struct or impl declaration for a struct with `#[pagable_typetag]`.
 ///
 /// This generates:
-/// - `PagableTagged` impl for the concrete type
+/// - `PagableTypeTag` impl for the concrete type
 /// - `inventory::submit!` to register the type with the trait-specific registration struct
 fn typetag_struct(
     item: TokenStream,
@@ -112,18 +112,10 @@ fn typetag_struct(
     quote! {
         #item
 
-        // Implement PagableTagged for the concrete type
-        impl pagable::typetag::PagableTagged for #self_ty {
-            fn pagable_type_tag(&self) -> &'static str {
+        // Implement PagableTypeTag for the concrete type
+        impl pagable::typetag::PagableTypeTag for #self_ty {
+            fn pagable_type_tag_static() -> &'static str {
                 #type_tag
-            }
-            fn pagable_serialize_body(
-                &self,
-                serializer: &mut dyn pagable::PagableSerializer,
-            ) -> pagable::Result<()> {
-                // Forward to the `PagableSerialize` impl (typically from
-                // `#[derive(Pagable)]`) which writes just the body.
-                <Self as pagable::PagableSerialize>::pagable_serialize(self, serializer)
             }
         }
 
@@ -137,7 +129,7 @@ fn typetag_struct(
         pagable::__internal::inventory::submit! {
             <dyn #trait_path>::__pagable_wrap_registration(
                 pagable::typetag::TypetagRegistration {
-                    tag: || #type_tag,
+                    tag: <#self_ty as pagable::typetag::PagableTypeTag>::pagable_type_tag_static,
                     deserialize: |deserializer| {
                         let value: #self_ty =
                             pagable::PagableDeserialize::pagable_deserialize(deserializer)?;

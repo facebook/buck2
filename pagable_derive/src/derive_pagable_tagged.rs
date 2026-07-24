@@ -13,7 +13,7 @@ use quote::quote;
 use syn::DeriveInput;
 use syn::parse_macro_input;
 
-/// `#[pagable_tagged(TraitName)]` — generates a `PagableTagged` impl that
+/// `#[pagable_tagged(TraitName)]` — generates a `PagableTypeTag` impl that
 /// requires `Self: PagableRegisteredFor<dyn TraitName>`, where `Self` is the
 /// full wrapper type (e.g. `Wrapper<F>`).
 pub fn pagable_tagged_impl(attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -34,16 +34,9 @@ pub fn pagable_tagged_impl(attr: TokenStream, item: TokenStream) -> TokenStream 
     let expanded = quote! {
         #input
 
-        impl #impl_generics pagable::typetag::PagableTagged for #name #ty_generics #where_clause {
-            fn pagable_type_tag(&self) -> &'static str {
+        impl #impl_generics pagable::typetag::PagableTypeTag for #name #ty_generics #where_clause {
+            fn pagable_type_tag_static() -> &'static str {
                 ::std::any::type_name::<Self>()
-            }
-            fn pagable_serialize_body(
-                &self,
-                serializer: &mut dyn pagable::PagableSerializer,
-            ) -> pagable::Result<()> {
-                // Forward to the `PagableSerialize` impl which writes just the body.
-                <Self as pagable::PagableSerialize>::pagable_serialize(self, serializer)
             }
         }
     };

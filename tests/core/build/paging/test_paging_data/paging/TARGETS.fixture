@@ -1,4 +1,4 @@
-load(":rules.bzl", "copy_file", "module_const")
+load(":rules.bzl", "copy_file", "module_const", "uses_anon")
 
 copy_file(
     name = "mysrcrule",
@@ -15,4 +15,12 @@ module_const(
 
 module_const(
     name = "module_const_b",
+)
+
+uses_anon(
+    name = "uses_anon_a",
+)
+
+uses_anon(
+    name = "uses_anon_b",
 )

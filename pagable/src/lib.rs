@@ -30,6 +30,7 @@ pub use pagable_derive::pagable_tagged;
 pub use pagable_derive::pagable_typetag;
 pub use typetag::PagableRegisteredFor;
 pub use typetag::PagableTagged;
+pub use typetag::PagableTypeTag;
 
 pub mod arc_erase;
 pub mod context;

@@ -46,13 +46,19 @@
 //! - `PagableBoxDeserialize` impl for `dyn Trait`
 //!
 //! The `#[pagable_typetag]` attribute macro on an impl block generates:
-//! - `PagableTagged` impl for the concrete type (using the type name as the tag)
+//! - `PagableTypeTag` impl for the concrete type (using the type name as the tag)
 //! - `inventory::submit!` to register the type with its tag
 
 use std::collections::HashMap;
 
 use crate::PagableDeserializer;
+use crate::PagableSerialize;
 use crate::PagableSerializer;
+
+/// Static type tag used to register a concrete type for trait-object deserialization.
+pub trait PagableTypeTag: Sized {
+    fn pagable_type_tag_static() -> &'static str;
+}
 
 /// Object-safe serialization trait for tagged types.
 ///
@@ -68,14 +74,10 @@ use crate::PagableSerializer;
 /// relation out lets the macro own the `PagableSerialize` impl for the dyn
 /// type so `Arc<dyn Trait>` serialization automatically includes the tag.
 pub trait PagableTagged: Send + Sync {
-    /// Get the type tag for this concrete type.
+    /// Get the type tag through a trait object, for serialization.
     fn pagable_type_tag(&self) -> &'static str;
 
     /// Write the body of this value (no tag). Mirrors `PagableSerialize::pagable_serialize`.
-    ///
-    /// Concrete types forward to `PagableSerialize::pagable_serialize(self, ser)`.
-    /// `#[pagable_typetag(Trait)]` / `#[pagable_tagged(Trait)]` derives generate
-    /// this forwarding automatically.
     ///
     /// Why this exists (instead of having `serialize_tagged` call
     /// `<Self as PagableSerialize>::pagable_serialize` directly):
@@ -85,8 +87,8 @@ pub trait PagableTagged: Send + Sync {
     /// - `where Self: PagableSerialize` → `serialize_tagged` references `Self` in its
     ///   where clause, the whole trait loses `dyn`-compatibility (E0038).
     ///
-    /// So `pagable_serialize_body` has to be a genuine vtable-dispatched required
-    /// method that each concrete type forwards to its `PagableSerialize::pagable_serialize`.
+    /// So `pagable_serialize_body` has to be a genuine vtable-dispatched method.
+    /// The blanket implementation below forwards it to `PagableSerialize`.
     fn pagable_serialize_body(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()>;
 
     /// Write `tag + body`. The `#[pagable_typetag]` macro generates an
@@ -98,24 +100,37 @@ pub trait PagableTagged: Send + Sync {
     }
 }
 
+impl<T> PagableTagged for T
+where
+    T: PagableTypeTag + PagableSerialize + Send + Sync,
+{
+    fn pagable_type_tag(&self) -> &'static str {
+        T::pagable_type_tag_static()
+    }
+
+    fn pagable_serialize_body(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
+        self.pagable_serialize(serializer)
+    }
+}
+
 /// Marker trait — `PagableTagged` registration for generic wrapper types.
 ///
 /// For a generic `Wrapper<T>`, `#[pagable_tagged(MyDynTrait)]` expands to a
-/// blanket `PagableTagged` impl gated on `Self: PagableRegisteredFor<dyn
+/// `PagableTypeTag` impl gated on `Self: PagableRegisteredFor<dyn
 /// MyDynTrait>`:
 ///
 /// ```ignore
 /// #[pagable_tagged(MyDynTrait)]
 /// struct Wrapper<T: MyInnerTrait>(pub T);
 ///
-/// // Expands to (this is the link from PagableTagged to PagableRegisteredFor):
-/// impl<T: MyInnerTrait> PagableTagged for Wrapper<T>
+/// // Expands to (the blanket impl then provides PagableTagged):
+/// impl<T: MyInnerTrait> PagableTypeTag for Wrapper<T>
 /// where
 ///     Self: PagableRegisteredFor<dyn MyDynTrait>,
 /// { /* ... */ }
 /// ```
 ///
-/// So `Wrapper<X>: PagableTagged` exists only when
+/// So `Wrapper<X>: PagableTypeTag` and therefore `PagableTagged` exist only when
 /// `impl PagableRegisteredFor<dyn MyDynTrait> for Wrapper<X>` does.
 ///
 /// **Don't** implement this trait by hand. Call
@@ -166,7 +181,7 @@ impl<T: ?Sized + 'static> TypetagRegistry<T> {
 
 /// Register a concrete generic instantiation of a wrapper for pagable
 /// typetag dispatch. Each call emits the `PagableRegisteredFor<dyn Trait>`
-/// impl plus an inventory entry keyed by `std::any::type_name`. See
+/// impl plus an inventory entry keyed by the concrete type's canonical tag. See
 /// [`PagableRegisteredFor`] for the full picture.
 ///
 /// Prerequisite: `Trait` must have `#[pagable_typetag]` applied.
@@ -185,7 +200,7 @@ macro_rules! register_typetag {
         $crate::__internal::inventory::submit! {
             <dyn $trait>::__pagable_wrap_registration(
                 $crate::typetag::TypetagRegistration {
-                    tag: ::std::any::type_name::<$concrete>,
+                    tag: <$concrete as $crate::typetag::PagableTypeTag>::pagable_type_tag_static,
                     deserialize: |deserializer| {
                         let value: $concrete =
                             $crate::PagableDeserialize::pagable_deserialize(deserializer)?;
@@ -224,6 +239,19 @@ mod tests {
             &self.name
         }
     }
+
+    #[crate::pagable_typetag]
+    pub trait SecondaryNamed: PagableTagged + Send + Sync + Debug {
+        fn name(&self) -> &str;
+    }
+
+    impl SecondaryNamed for Key {
+        fn name(&self) -> &str {
+            &self.name
+        }
+    }
+
+    crate::register_typetag!(Key as dyn SecondaryNamed);
 
     #[derive(Pagable, Debug, Eq, PartialEq)]
     #[crate::pagable_typetag(Named)]
@@ -264,6 +292,30 @@ mod tests {
         let mut deserializer = TestingDeserializer::new(&bytes);
 
         let restored: Box<dyn Named> = <dyn Named>::deserialize_box(&mut deserializer)?;
+
+        assert_eq!(restored.name(), "test");
+        Ok(())
+    }
+
+    #[test]
+    fn test_typetag_roundtrip_with_secondary_registration() -> crate::Result<()> {
+        use crate::testing::TestingDeserializer;
+        use crate::testing::TestingSerializer;
+        use crate::traits::PagableBoxDeserialize;
+
+        let value: Arc<dyn SecondaryNamed> = Arc::new(Key {
+            name: Arc::new("test".to_owned()),
+        });
+
+        assert_eq!(value.pagable_type_tag(), "Key");
+
+        let mut serializer = TestingSerializer::new();
+        value.serialize_tagged(&mut serializer)?;
+        let bytes = serializer.finish();
+
+        let mut deserializer = TestingDeserializer::new(&bytes);
+        let restored: Box<dyn SecondaryNamed> =
+            <dyn SecondaryNamed>::deserialize_box(&mut deserializer)?;
 
         assert_eq!(restored.name(), "test");
         Ok(())

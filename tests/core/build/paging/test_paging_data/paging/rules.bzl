@@ -35,3 +35,22 @@ module_const = rule(
     impl = _module_const_impl,
     attrs = {},
 )
+
+def _anon_impl(ctx):
+    out = ctx.actions.write("anon.txt", "anonymous target\n", has_content_based_path = False)
+    return [DefaultInfo(default_output = out)]
+
+_anon = rule(
+    impl = _anon_impl,
+    attrs = {},
+)
+
+def _uses_anon_impl(ctx):
+    return ctx.actions.anon_target(_anon, {}).promise.map(
+        lambda providers: [providers[DefaultInfo]],
+    )
+
+uses_anon = rule(
+    impl = _uses_anon_impl,
+    attrs = {},
+)

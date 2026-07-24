@@ -20,7 +20,7 @@ use dice::Key;
 use dice_futures::cancellation::CancellationContext;
 use futures::future::FutureExt;
 use pagable::Pagable;
-use pagable::PagableTagged;
+use pagable::PagableTypeTag;
 
 #[tokio::test]
 async fn test_linear_recompute_tracks_deps() {
@@ -31,15 +31,9 @@ async fn test_linear_recompute_tracks_deps() {
         #[display("K::Mid({})", _0)]
         Mid(u32),
     }
-    impl PagableTagged for K {
-        fn pagable_type_tag(&self) -> &'static str {
+    impl PagableTypeTag for K {
+        fn pagable_type_tag_static() -> &'static str {
             "K"
-        }
-        fn pagable_serialize_body(
-            &self,
-            ser: &mut dyn pagable::PagableSerializer,
-        ) -> pagable::Result<()> {
-            <Self as pagable::PagableSerialize>::pagable_serialize(self, ser)
         }
     }
 

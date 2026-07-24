@@ -23,7 +23,7 @@ use dice::NoValueSerialize;
 use dice::ValueSerialize;
 use dice_futures::cancellation::CancellationContext;
 use pagable::Pagable;
-use pagable::PagableTagged;
+use pagable::PagableTypeTag;
 use pagable::pagable_typetag;
 
 #[tokio::test]
@@ -53,15 +53,9 @@ async fn test_a_multiversion_bug() {
         #[display("Derived::Mid")]
         Mid,
     }
-    impl PagableTagged for Derived {
-        fn pagable_type_tag(&self) -> &'static str {
+    impl PagableTypeTag for Derived {
+        fn pagable_type_tag_static() -> &'static str {
             "Derived"
-        }
-        fn pagable_serialize_body(
-            &self,
-            ser: &mut dyn pagable::PagableSerializer,
-        ) -> pagable::Result<()> {
-            <Self as pagable::PagableSerialize>::pagable_serialize(self, ser)
         }
     }
 
