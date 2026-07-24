@@ -55,6 +55,8 @@ strong_hash.workspace = true
 tokio.workspace = true
 
 [dev-dependencies]
+buck2_anon_target.workspace = true
+buck2_transition.workspace = true
 ctor.workspace = true
 maplit.workspace = true
 

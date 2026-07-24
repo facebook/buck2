@@ -35,6 +35,7 @@ use starlark::values::Freezer;
 use starlark::values::FrozenValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
+use starlark::values::StarlarkPagable;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Value;
@@ -194,12 +195,19 @@ impl<'v> Freeze for BxlFunction<'v> {
     }
 }
 
-#[derive(Debug, Display, ProvidesStaticType, NoSerialize, Allocative,   starlark::StarlarkPagablePanic // okay("bxl")
+#[derive(
+    Debug,
+    Display,
+    ProvidesStaticType,
+    NoSerialize,
+    Allocative,
+    StarlarkPagable
 )]
 #[display("{}()", bxl_id.name)]
 pub(crate) struct FrozenBxlFunction {
     implementation: FrozenValue,
     cli_args: SmallMap<String, CliArgs>,
+    #[starlark_pagable(pagable)]
     bxl_id: Arc<BxlFunctionLabel>,
     docs: Option<String>,
 }
@@ -252,5 +260,58 @@ impl FrozenBxlFunction {
         }
 
         Ok(res)
+    }
+}
+
+starlark::__starlark_pagable_only! {
+    #[cfg(test)]
+    mod tests {
+        use pagable::PagableDeserialize;
+        use pagable::PagableSerialize;
+        use starlark::values::FrozenHeap;
+        use starlark::values::FrozenHeapName;
+        use starlark::values::OwnedFrozenValue;
+        use starlark::values::ValueLike;
+
+        use super::*;
+
+        #[test]
+        fn frozen_bxl_function_round_trips() -> pagable::Result<()> {
+            let heap = FrozenHeap::new();
+            let implementation = heap.alloc("implementation");
+            let expected_label = BxlFunctionLabel {
+                bxl_path: BxlFilePath::testing_new("cell", "dir/test.bxl"),
+                name: "main".to_owned(),
+            };
+            let root = heap.alloc_simple(FrozenBxlFunction {
+                implementation,
+                cli_args: SmallMap::new(),
+                bxl_id: Arc::new(expected_label.clone()),
+                docs: Some("test docs".to_owned()),
+            });
+            let heap_ref =
+                heap.into_ref_named(FrozenHeapName::user("frozen_bxl_function_round_trips"));
+            // SAFETY: `heap_ref` owns the arena containing `root`.
+            let owned = unsafe { OwnedFrozenValue::new(heap_ref, root) };
+
+            let mut serializer = pagable::testing::TestingSerializer::new();
+            owned.pagable_serialize(&mut serializer)?;
+            let bytes = serializer.finish();
+            let mut deserializer = pagable::testing::TestingDeserializer::new(&bytes);
+            let restored = OwnedFrozenValue::pagable_deserialize(&mut deserializer)?;
+            let restored = restored
+                .value()
+                .downcast_ref::<FrozenBxlFunction>()
+                .expect("round-tripped value should remain a FrozenBxlFunction");
+
+            assert_eq!(
+                restored.implementation.to_value().unpack_str(),
+                Some("implementation")
+            );
+            assert!(restored.cli_args.is_empty());
+            assert_eq!(restored.bxl_id.as_ref(), &expected_label);
+            assert_eq!(restored.docs.as_deref(), Some("test docs"));
+            Ok(())
+        }
     }
 }
