@@ -232,6 +232,22 @@ exists.
 
 Below is an incomplete list of supported buckconfigs.
 
+## [buck2]
+
+By default, Buck2 rejects backslashes in file names and relative paths on every
+platform so that paths remain portable. Projects that require literal
+backslashes on platforms where they are valid path characters can opt in from
+the root `.buckconfig`:
+
+```ini
+[buck2]
+  allow_backslashes_in_paths = true
+```
+
+Changing this setting restarts the Buck2 daemon because it changes path-type
+invariants for the process. On Windows, where a backslash is a path separator,
+literal backslashes remain disallowed.
+
 ## [alias]
 
 This section contains definitions of [build target](build_target.md) aliases.
