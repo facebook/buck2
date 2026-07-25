@@ -28,6 +28,7 @@ use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
 use allocative::Allocative;
+use artifact_tree::ArtifactClassification;
 use artifact_tree::ArtifactMaterializationMethod;
 use artifact_tree::ArtifactMaterializationStage;
 use artifact_tree::ProcessingFuture;
@@ -156,6 +157,38 @@ impl<T: IoHandler> Drop for DeferredMaterializerAccessor<T> {
 pub struct DeferredMaterializerStats {
     declares: AtomicU64,
     declares_reused: AtomicU64,
+    sizes: RwLock<MaterializerSizeStats>,
+}
+
+#[derive(Allocative, Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(crate) struct MaterializerSizeStats {
+    pub(crate) final_output: u64,
+    pub(crate) intermediate_only: u64,
+}
+
+impl DeferredMaterializerStats {
+    pub(crate) fn add_materialized(&self, classification: ArtifactClassification, size: u64) {
+        let mut sizes = self.sizes.write();
+        match classification {
+            ArtifactClassification::FinalOutput => sizes.final_output += size,
+            ArtifactClassification::IntermediateOnly => sizes.intermediate_only += size,
+        }
+    }
+
+    pub(crate) fn remove_materialized(&self, classification: ArtifactClassification, size: u64) {
+        let mut sizes = self.sizes.write();
+        let bucket = match classification {
+            ArtifactClassification::FinalOutput => &mut sizes.final_output,
+            ArtifactClassification::IntermediateOnly => &mut sizes.intermediate_only,
+        };
+        *bucket = bucket.saturating_sub(size);
+    }
+
+    pub(crate) fn promote_materialized(&self, size: u64) {
+        let mut sizes = self.sizes.write();
+        sizes.intermediate_only = sizes.intermediate_only.saturating_sub(size);
+        sizes.final_output += size;
+    }
 }
 
 pub struct DeferredMaterializerConfigs {
@@ -698,6 +731,14 @@ impl DeferredMaterializerAccessor<DefaultIoHandler> {
         };
 
         let stats = Arc::new(DeferredMaterializerStats::default());
+        if let Some(sqlite_state) = &sqlite_state {
+            for entry in sqlite_state {
+                stats.add_materialized(
+                    entry.classification,
+                    artifact_tree::artifact_metadata_size(&entry.metadata),
+                );
+            }
+        }
 
         let num_entries_from_sqlite = sqlite_state.as_ref().map_or(0, |s| s.len()) as u64;
         let materializer_state_info = buck2_data::MaterializerStateInfo {

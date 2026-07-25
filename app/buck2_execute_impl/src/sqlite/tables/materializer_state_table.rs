@@ -82,13 +82,18 @@ enum MaterializerStateTableError {
     ArtifactClassificationMissing,
 }
 
-impl ToSql for ArtifactClassification {
-    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
-        let value = match self {
+impl ArtifactClassification {
+    fn sqlite_value(self) -> i64 {
+        match self {
             Self::IntermediateOnly => 0,
             Self::FinalOutput => 1,
-        };
-        Ok(ToSqlOutput::Owned(Value::Integer(value)))
+        }
+    }
+}
+
+impl ToSql for ArtifactClassification {
+    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
+        Ok(ToSqlOutput::Owned(Value::Integer(self.sqlite_value())))
     }
 }
 
@@ -625,6 +630,32 @@ impl MaterializerStateSqliteTable {
             tracing::trace!(sql = %sql, chunk = ?chunk, "updating last_access_times");
             tx.execute(&sql, rusqlite::params_from_iter(chunk.map(|p| p.as_str())))
                 .with_buck_error_context(|| format!("updating sqlite table {STATE_TABLE_NAME}"))?;
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
+    pub(crate) fn update_classifications(
+        &self,
+        paths: &[ProjectRelativePathBuf],
+        classification: ArtifactClassification,
+    ) -> buck2_error::Result<()> {
+        let mut conn = self.connection.lock();
+        let tx = conn.transaction()?;
+        for chunk in paths.chunks(100) {
+            let sql = format!(
+                "UPDATE {STATE_TABLE_NAME} SET classification = {} WHERE path IN ({}) AND parent_path IS NULL",
+                classification.sqlite_value(),
+                itertools::repeat_n("?", chunk.len()).join(","),
+            );
+            tracing::trace!(sql = %sql, chunk = ?chunk, "updating classifications");
+            tx.execute(
+                &sql,
+                rusqlite::params_from_iter(chunk.iter().map(|path| path.as_str())),
+            )
+            .with_buck_error_context(|| {
+                format!("updating classifications in sqlite table {STATE_TABLE_NAME}")
+            })?;
         }
         tx.commit()?;
         Ok(())

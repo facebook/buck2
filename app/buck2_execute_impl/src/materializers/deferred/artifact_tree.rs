@@ -37,6 +37,7 @@ use futures::future::BoxFuture;
 use futures::future::Shared;
 use tracing::instrument;
 
+use crate::materializers::deferred::DeferredMaterializerStats;
 use crate::materializers::deferred::SharedMaterializingError;
 use crate::materializers::deferred::WriteFile;
 use crate::materializers::deferred::file_tree::FileTree;
@@ -73,6 +74,7 @@ pub struct ArtifactMaterializationData {
     /// Taken from `deps` of `ArtifactValue`. Used to materialize deps of the artifact.
     pub(crate) deps: Option<ActionSharedDirectory>,
     pub(crate) classification: ArtifactClassification,
+    pub(crate) logical_size_bytes: u64,
     pub(crate) stage: ArtifactMaterializationStage,
     /// An optional future that may be processing something at the current path
     /// (for example, materializing or deleting). Any other future that needs to process
@@ -299,11 +301,13 @@ impl ArtifactTree {
                     last_access_time,
                     classification,
                 } = entry;
+                let logical_size_bytes = artifact_metadata_size(&metadata);
                 tree.insert(
                     path.iter().map(|f| f.to_owned()),
                     Box::new(ArtifactMaterializationData {
                         deps: None,
                         classification,
+                        logical_size_bytes,
                         stage: ArtifactMaterializationStage::Materialized {
                             metadata,
                             last_access_time,
@@ -443,12 +447,19 @@ impl ArtifactTree {
         &mut self,
         paths: Vec<ProjectRelativePathBuf>,
         sqlite_db: Option<&mut MaterializerStateSqliteDb>,
+        stats: &DeferredMaterializerStats,
     ) -> buck2_error::Result<Vec<(ProjectRelativePathBuf, ProcessingFuture)>> {
         let mut invalidated_paths = Vec::new();
         let mut futs = Vec::new();
 
         for path in paths {
             for (path, data) in self.remove_path(&path) {
+                if matches!(
+                    data.stage,
+                    ArtifactMaterializationStage::Materialized { .. }
+                ) {
+                    stats.remove_materialized(data.classification, data.logical_size_bytes);
+                }
                 if let Some(processing_fut) = data.processing.into_future() {
                     futs.push((path.clone(), processing_fut));
                 }

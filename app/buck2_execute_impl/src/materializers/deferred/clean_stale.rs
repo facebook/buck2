@@ -51,6 +51,7 @@ use tokio::sync::oneshot::Sender;
 
 use crate::materializers::deferred::ArtifactMaterializationStage;
 use crate::materializers::deferred::DeferredMaterializerCommandProcessor;
+use crate::materializers::deferred::DeferredMaterializerStats;
 use crate::materializers::deferred::artifact_tree::ArtifactMaterializationData;
 use crate::materializers::deferred::artifact_tree::ArtifactTree;
 use crate::materializers::deferred::artifact_tree::artifact_metadata_size;
@@ -221,6 +222,7 @@ impl CleanStaleArtifactsCommand {
                     &mut processor.tree,
                     sqlite_db,
                     &processor.io,
+                    &processor.stats,
                     processor.cancellations,
                     liveliness_observer.clone(),
                 )
@@ -235,6 +237,7 @@ impl CleanStaleArtifactsCommand {
         tree: &mut ArtifactTree,
         sqlite_db: &mut MaterializerStateSqliteDb,
         io: &Arc<T>,
+        materializer_stats: &DeferredMaterializerStats,
         cancellations: &'static CancellationContext,
         liveliness_observer: Arc<dyn LivelinessObserverSync>,
     ) -> buck2_error::Result<PendingCleanResult> {
@@ -360,6 +363,7 @@ impl CleanStaleArtifactsCommand {
                 tree,
                 sqlite_db,
                 io,
+                materializer_stats,
                 cancellations,
                 liveliness_observer,
             )?))
@@ -410,6 +414,7 @@ fn create_clean_fut<T: IoHandler>(
     tree: &mut ArtifactTree,
     sqlite_db: &mut MaterializerStateSqliteDb,
     io: &Arc<T>,
+    materializer_stats: &DeferredMaterializerStats,
     cancellations: &'static CancellationContext,
     liveliness_observer: Arc<dyn LivelinessObserverSync>,
 ) -> buck2_error::Result<BoxFuture<'static, buck2_error::Result<CleanResult>>> {
@@ -427,8 +432,11 @@ fn create_clean_fut<T: IoHandler>(
         })
         .collect();
 
-    let existing_clean_futs =
-        tree.invalidate_paths_and_collect_futures(paths_to_invalidate, Some(sqlite_db))?;
+    let existing_clean_futs = tree.invalidate_paths_and_collect_futures(
+        paths_to_invalidate,
+        Some(sqlite_db),
+        materializer_stats,
+    )?;
     let mut existing_materialization_futs = vec![];
     for data in tree.iter_without_paths() {
         if let Some(active) = data.processing.active_ref()
