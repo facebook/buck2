@@ -63,7 +63,7 @@ use crate::sqlite::materializer_db::MaterializerStateEntry;
 const STATE_TABLE_NAME: &str = "materializer_state";
 
 #[derive(buck2_error::Error, Debug, PartialEq, Eq)]
-#[buck2(tag = Tier0)]
+#[buck2(tag = InternalError)]
 enum MaterializerStateTableError {
     #[error("Internal error: expected field `{}` to be not null for artifact type '{}'", .field, .artifact_type)]
     ExpectedFieldIsMissing {
