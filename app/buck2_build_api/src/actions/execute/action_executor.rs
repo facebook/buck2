@@ -877,9 +877,9 @@ mod tests {
     use buck2_execute::execute::request::CommandExecutionRequest;
     use buck2_execute::execute::request::OutputType;
     use buck2_execute::execute::testing_dry_run::DryRunExecutor;
-    use buck2_execute::materialize::nodisk::NoDiskMaterializer;
     use buck2_execute::re::manager::UnconfiguredRemoteExecutionClient;
     use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
+    use buck2_execute_impl::materializers::deferred::NoDiskDeferredMaterializer;
     use buck2_fs::fs_util::uncategorized as fs_util;
     use buck2_hash::buck_indexset;
     use buck2_http::HttpClientBuilder;
@@ -940,7 +940,10 @@ mod tests {
             Arc::new(DummyBlockingExecutor {
                 fs: project_fs.dupe(),
             }),
-            Arc::new(NoDiskMaterializer),
+            Arc::new(
+                NoDiskDeferredMaterializer::testing_new_no_disk(project_fs.dupe())
+                    .expect("No-disk materializer should initialize"),
+            ),
             EventDispatcher::null(),
             UnconfiguredRemoteExecutionClient::testing_new_dummy(),
             DigestConfig::testing_default(),

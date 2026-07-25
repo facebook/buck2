@@ -1788,11 +1788,11 @@ mod tests {
     use buck2_core::fs::project::ProjectRoot;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_execute::execute::blocking::testing::DummyBlockingExecutor;
-    use buck2_execute::materialize::nodisk::NoDiskMaterializer;
     use buck2_hash::StdBuckHashMap;
     use host_sharing::HostSharingStrategy;
 
     use super::*;
+    use crate::materializers::deferred::NoDiskDeferredMaterializer;
 
     fn artifact_fs(project_fs: ProjectRoot) -> ArtifactFs {
         ArtifactFs::new(
@@ -1812,7 +1812,9 @@ mod tests {
 
         let executor = LocalExecutor::new(
             artifact_fs,
-            Arc::new(NoDiskMaterializer),
+            Arc::new(NoDiskDeferredMaterializer::testing_new_no_disk(
+                project_fs.dupe(),
+            )?),
             Arc::new(IncrementalDbState::db_disabled()),
             Arc::new(DummyBlockingExecutor {
                 fs: project_fs.dupe(),

@@ -15,6 +15,8 @@ use std::sync::LazyLock;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_common::file_ops::metadata::FileDigest;
+use buck2_common::file_ops::metadata::FileMetadata;
+use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_core::buck2_env;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -90,6 +92,27 @@ pub struct DefaultIoHandler {
     /// Executor for blocking IO operations
     io_executor: Arc<dyn BlockingExecutor>,
     http_client: HttpClient,
+}
+
+#[derive(Allocative)]
+pub struct NoDiskIoHandler {
+    fs: ProjectRoot,
+    digest_config: DigestConfig,
+    buck_out_path: ProjectRelativePathBuf,
+}
+
+impl NoDiskIoHandler {
+    pub fn new(
+        fs: ProjectRoot,
+        digest_config: DigestConfig,
+        buck_out_path: ProjectRelativePathBuf,
+    ) -> Self {
+        Self {
+            fs,
+            digest_config,
+            buck_out_path,
+        }
+    }
 }
 
 struct MaterializationStat {
@@ -467,6 +490,117 @@ impl IoHandler for DefaultIoHandler {
 
     fn re_client_manager(&self) -> &Arc<ReConnectionManager> {
         &self.re_client_manager
+    }
+
+    fn fs(&self) -> &ProjectRoot {
+        &self.fs
+    }
+
+    fn digest_config(&self) -> DigestConfig {
+        self.digest_config
+    }
+}
+
+#[async_trait]
+impl IoHandler for NoDiskIoHandler {
+    fn write<'a>(
+        self: &Arc<Self>,
+        path: ProjectRelativePathBuf,
+        _write: Arc<WriteFile>,
+        version: Version,
+        command_sender: Arc<MaterializerSender<Self>>,
+        _cancellations: &'a CancellationContext,
+    ) -> BoxFuture<'a, Result<(), SharedMaterializingError>> {
+        async move {
+            let _ignored = command_sender.send_low_priority(
+                LowPriorityMaterializerCommand::MaterializationFinished {
+                    path,
+                    timestamp: Utc::now(),
+                    version,
+                    result: Ok(()),
+                },
+            );
+            Ok(())
+        }
+        .boxed()
+    }
+
+    async fn immediate_write<'a>(
+        self: &Arc<Self>,
+        generate: Box<dyn FnOnce() -> buck2_error::Result<Vec<WriteRequest>> + Send + 'a>,
+    ) -> buck2_error::Result<Vec<ArtifactValue>> {
+        generate()?
+            .into_iter()
+            .map(|request| {
+                let digest = TrackedFileDigest::from_content(
+                    &request.content,
+                    self.digest_config.cas_digest_config(),
+                );
+                Ok(ArtifactValue::file(FileMetadata {
+                    digest,
+                    is_executable: request.is_executable,
+                }))
+            })
+            .collect()
+    }
+
+    fn clean_path<'a>(
+        self: &Arc<Self>,
+        path: ProjectRelativePathBuf,
+        version: Version,
+        command_sender: Arc<MaterializerSender<Self>>,
+        _cancellations: &'a CancellationContext,
+    ) -> BoxFuture<'a, buck2_error::Result<()>> {
+        async move {
+            let _ignored =
+                command_sender.send_low_priority(LowPriorityMaterializerCommand::CleanupFinished {
+                    path,
+                    version,
+                    result: Ok(()),
+                });
+            Ok(())
+        }
+        .boxed()
+    }
+
+    async fn clean_invalidated_path<'a>(
+        self: &Arc<Self>,
+        _request: CleanInvalidatedPathRequest,
+        _cancellations: &'a CancellationContext,
+    ) -> buck2_error::Result<()> {
+        Ok(())
+    }
+
+    async fn materialize_entry(
+        self: &Arc<Self>,
+        _path: ProjectRelativePathBuf,
+        _method: Arc<ArtifactMaterializationMethod>,
+        _entry: ActionDirectoryEntry<ActionSharedDirectory>,
+        _priority_control: DynamicPriorityHandle,
+        _event_dispatcher: EventDispatcher,
+        _cancellations: &CancellationContext,
+    ) -> Result<(), MaterializeEntryError> {
+        Ok(())
+    }
+
+    fn create_ttl_refresh(
+        self: &Arc<Self>,
+        _tree: &ArtifactTree,
+        _min_ttl: Duration,
+    ) -> Option<BoxFuture<'static, buck2_error::Result<()>>> {
+        None
+    }
+
+    fn read_dir(&self, path: &AbsNormPathBuf) -> buck2_error::Result<ReadDir> {
+        fs_util::read_dir(path).categorize_internal()
+    }
+
+    fn buck_out_path(&self) -> &ProjectRelativePathBuf {
+        &self.buck_out_path
+    }
+
+    fn re_client_manager(&self) -> &Arc<ReConnectionManager> {
+        panic!("No-disk materializers do not have an RE client")
     }
 
     fn fs(&self) -> &ProjectRoot {

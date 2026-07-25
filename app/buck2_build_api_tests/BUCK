@@ -32,6 +32,7 @@ rust_unittest(
         "//buck2/app/buck2_error:buck2_error",
         "//buck2/app/buck2_events:buck2_events",
         "//buck2/app/buck2_execute:buck2_execute",
+        "//buck2/app/buck2_execute_impl:buck2_execute_impl",
         "//buck2/app/buck2_file_watcher:buck2_file_watcher",
         "//buck2/app/buck2_fs:buck2_fs",
         "//buck2/app/buck2_hash:buck2_hash",

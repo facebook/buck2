@@ -19,6 +19,7 @@ rust_library(
     },
     test_deps = [
         "//buck2/app/buck2_certs:buck2_certs",
+        "//buck2/app/buck2_execute_impl:buck2_execute_impl",
         "//buck2/app/buck2_wrapper_common:buck2_wrapper_common",
     ],
     deps = [
