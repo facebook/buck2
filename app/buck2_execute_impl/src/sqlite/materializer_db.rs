@@ -26,6 +26,7 @@ use chrono::DateTime;
 use chrono::Utc;
 use dupe::Dupe;
 
+use crate::materializers::deferred::artifact_tree::ArtifactClassification;
 use crate::materializers::deferred::artifact_tree::ArtifactMetadata;
 use crate::sqlite::tables::materializer_state_table::MaterializerStateSqliteTable;
 
@@ -34,13 +35,14 @@ use crate::sqlite::tables::materializer_state_table::MaterializerStateSqliteTabl
 /// materializer state sqlite db schema! If you forget to bump this version,
 /// then you can fix forward by bumping the `buck2.sqlite_materializer_state_version`
 /// buckconfig in the project root's .buckconfig.
-pub const MATERIALIZER_DB_SCHEMA_VERSION: u64 = 8;
+pub const MATERIALIZER_DB_SCHEMA_VERSION: u64 = 9;
 
 #[derive(Debug)]
 pub struct MaterializerStateEntry {
     pub path: ProjectRelativePathBuf,
     pub metadata: ArtifactMetadata,
     pub last_access_time: DateTime<Utc>,
+    pub classification: ArtifactClassification,
 }
 
 pub type MaterializerState = Vec<MaterializerStateEntry>;
@@ -304,21 +306,25 @@ mod tests {
                 path: ProjectRelativePath::unchecked_new("a").to_owned(),
                 metadata: DirectoryEntry::Dir(shared_directory),
                 last_access_time: now_seconds(),
+                classification: ArtifactClassification::FinalOutput,
             },
             MaterializerStateEntry {
                 path: ProjectRelativePath::unchecked_new("b/c").to_owned(),
                 metadata: DirectoryEntry::Leaf(file),
                 last_access_time: now_seconds(),
+                classification: ArtifactClassification::IntermediateOnly,
             },
             MaterializerStateEntry {
                 path: ProjectRelativePath::unchecked_new("d").to_owned(),
                 metadata: DirectoryEntry::Leaf(symlink),
                 last_access_time: now_seconds(),
+                classification: ArtifactClassification::FinalOutput,
             },
             MaterializerStateEntry {
                 path: ProjectRelativePath::unchecked_new("e").to_owned(),
                 metadata: DirectoryEntry::Leaf(external_symlink),
                 last_access_time: now_seconds(),
+                classification: ArtifactClassification::IntermediateOnly,
             },
         ];
         let mut artifacts: StdBuckHashMap<_, _> =
@@ -326,7 +332,12 @@ mod tests {
 
         for (path, entry) in artifacts.iter() {
             table
-                .insert(path, &entry.metadata, entry.last_access_time)
+                .insert(
+                    path,
+                    &entry.metadata,
+                    entry.last_access_time,
+                    entry.classification,
+                )
                 .unwrap();
         }
 
@@ -362,6 +373,7 @@ mod tests {
         fn eq(&self, other: &Self) -> bool {
             self.path == other.path
                 && self.last_access_time == other.last_access_time
+                && self.classification == other.classification
                 && artifact_metadata_eq(&self.metadata, &other.metadata)
         }
     }
@@ -416,7 +428,12 @@ mod tests {
             assert_metadata_matches(db.tables.created_by_table.read_all()?, &metadatas[0]);
 
             db.materializer_state_table()
-                .insert(&path, &artifact_metadata, timestamp)
+                .insert(
+                    &path,
+                    &artifact_metadata,
+                    timestamp,
+                    ArtifactClassification::FinalOutput,
+                )
                 .unwrap();
         }
 
@@ -427,7 +444,7 @@ mod tests {
             assert_matches!(
                 loaded_state,
                 Ok(v) => {
-                    assert_eq!(v, vec![MaterializerStateEntry {path: path.clone(), metadata: artifact_metadata.clone(), last_access_time: timestamp}]);
+                    assert_eq!(v, vec![MaterializerStateEntry {path: path.clone(), metadata: artifact_metadata.clone(), last_access_time: timestamp, classification: ArtifactClassification::FinalOutput}]);
                 }
             );
             assert_metadata_matches(db.tables.created_by_table.read_all()?, &metadatas[0]);
@@ -448,7 +465,12 @@ mod tests {
             assert_metadata_matches(db.tables.created_by_table.read_all()?, &metadatas[2]);
 
             db.materializer_state_table()
-                .insert(&path, &artifact_metadata, timestamp)
+                .insert(
+                    &path,
+                    &artifact_metadata,
+                    timestamp,
+                    ArtifactClassification::IntermediateOnly,
+                )
                 .unwrap();
         }
 
@@ -463,7 +485,7 @@ mod tests {
             assert_matches!(
                 loaded_state,
                 Ok(v) => {
-                    assert_eq!(v, vec![MaterializerStateEntry { path, metadata: artifact_metadata, last_access_time: timestamp }]);
+                    assert_eq!(v, vec![MaterializerStateEntry { path, metadata: artifact_metadata, last_access_time: timestamp, classification: ArtifactClassification::IntermediateOnly }]);
                 }
             );
             assert_metadata_matches(db.tables.created_by_table.read_all()?, &metadatas[2]);

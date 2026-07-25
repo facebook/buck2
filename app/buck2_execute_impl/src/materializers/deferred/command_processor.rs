@@ -73,6 +73,7 @@ use crate::materializers::deferred::MaterializerSender;
 use crate::materializers::deferred::SharedMaterializingError;
 use crate::materializers::deferred::TtlRefreshConfiguration;
 use crate::materializers::deferred::TtlRefreshHistoryEntry;
+use crate::materializers::deferred::artifact_tree::ArtifactClassification;
 use crate::materializers::deferred::artifact_tree::ArtifactMaterializationData;
 use crate::materializers::deferred::artifact_tree::ArtifactMaterializationMethod;
 use crate::materializers::deferred::artifact_tree::ArtifactMaterializationStage;
@@ -986,12 +987,14 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
 
     fn declare_existing(&mut self, path: &ProjectRelativePath, value: ArtifactValue) {
         let metadata = value.entry().dupe();
+        let classification = ArtifactClassification::IntermediateOnly;
         on_materialization(
             self.sqlite_db.as_mut(),
             &self.subscriptions,
             path,
             &metadata,
             Utc::now(),
+            classification,
             "materializer_declare_existing_error",
         );
 
@@ -999,6 +1002,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             path.iter().map(|f| f.to_owned()),
             Box::new(ArtifactMaterializationData {
                 deps: value.deps().duped(),
+                classification,
                 stage: ArtifactMaterializationStage::Materialized {
                     metadata,
                     last_access_time: Utc::now(),
@@ -1133,6 +1137,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
 
         let data = Box::new(ArtifactMaterializationData {
             deps: value.deps().duped(),
+            classification: ArtifactClassification::IntermediateOnly,
             stage: ArtifactMaterializationStage::Declared {
                 entry: value.entry().dupe(),
                 method,
@@ -1658,6 +1663,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                                 &artifact_path,
                                 &metadata,
                                 timestamp,
+                                info.classification,
                                 "materializer_finished_error",
                             );
 
@@ -1701,12 +1707,14 @@ fn on_materialization(
     path: &ProjectRelativePath,
     metadata: &ArtifactMetadata,
     timestamp: DateTime<Utc>,
+    classification: ArtifactClassification,
     error_name: &'static str,
 ) {
     if let Some(sqlite_db) = sqlite_db {
-        if let Err(e) = sqlite_db
-            .materializer_state_table()
-            .insert(path, metadata, timestamp)
+        if let Err(e) =
+            sqlite_db
+                .materializer_state_table()
+                .insert(path, metadata, timestamp, classification)
         {
             let _unused = soft_error!(error_name, e, quiet: true);
         }

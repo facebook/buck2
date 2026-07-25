@@ -72,12 +72,19 @@ pub struct Version(pub u64);
 pub struct ArtifactMaterializationData {
     /// Taken from `deps` of `ArtifactValue`. Used to materialize deps of the artifact.
     pub(crate) deps: Option<ActionSharedDirectory>,
+    pub(crate) classification: ArtifactClassification,
     pub(crate) stage: ArtifactMaterializationStage,
     /// An optional future that may be processing something at the current path
     /// (for example, materializing or deleting). Any other future that needs to process
     /// this path would need to wait on the existing future to finish.
     /// TODO(scottcao): Turn this into a queue of pending futures.
     pub(crate) processing: Processing,
+}
+
+#[derive(Allocative, Clone, Copy, Debug, Dupe, Eq, PartialEq)]
+pub enum ArtifactClassification {
+    FinalOutput,
+    IntermediateOnly,
 }
 
 /// Represents a processing future + the version at which it was issued. When receiving
@@ -290,11 +297,13 @@ impl ArtifactTree {
                     path,
                     metadata,
                     last_access_time,
+                    classification,
                 } = entry;
                 tree.insert(
                     path.iter().map(|f| f.to_owned()),
                     Box::new(ArtifactMaterializationData {
                         deps: None,
+                        classification,
                         stage: ArtifactMaterializationStage::Materialized {
                             metadata,
                             last_access_time,
