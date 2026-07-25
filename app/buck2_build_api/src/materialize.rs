@@ -57,7 +57,7 @@ pub async fn materialize_and_upload_artifact_group(
             },
             async |ctx| match contexts.1 {
                 UploadContext::Skip => Ok(()),
-                UploadContext::Upload => ensure_uploaded(ctx, artifact_group).await,
+                UploadContext::Upload => ensure_uploaded(ctx, artifact_group).boxed().await,
             },
         );
 
@@ -71,7 +71,7 @@ pub async fn materialize_and_upload_artifact_group(
 buck2_util::size_assert::words_of_async_fn_future!(
     materialize_and_upload_artifact_group,
     (_, _, _, _),
-    965
+    45
 );
 // These are here just for understanding
 #[cfg(fbcode_build)]
