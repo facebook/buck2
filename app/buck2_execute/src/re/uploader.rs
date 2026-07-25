@@ -456,7 +456,6 @@ impl Uploader {
                     )
                     .await,
             )
-            .await
             .map_err(|e| {
                 if e.tags().contains(&buck2_error::ErrorTag::ReInvalidArgument) {
                     buck2_error::buck2_error!(
@@ -474,6 +473,19 @@ impl Uploader {
         Ok(stats)
     }
 }
+
+#[cfg(fbcode_build)] // Relies on fbcode future sizes
+buck2_util::size_assert::words_of_async_fn_future!(
+    Uploader::upload,
+    (_, _, _, _, _, _, _, _, _, _),
+    842
+);
+#[cfg(fbcode_build)] // Relies on fbcode future sizes
+buck2_util::size_assert::words_of_async_fn_future!(
+    Uploader::find_missing,
+    (_, _, _, _, _, _, _),
+    808
+);
 
 fn should_error_for_missing_digest(info: &CasDownloadInfo) -> bool {
     // RE sometimes reports things that exist as missing. We don't fully understand why at this

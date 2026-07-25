@@ -94,7 +94,7 @@ fn re_error(
     }
 }
 
-pub(crate) async fn with_error_handler<T>(
+pub(crate) fn with_error_handler<T>(
     re_action: &str,
     re_session_id: &str,
     result: anyhow::Result<T>,

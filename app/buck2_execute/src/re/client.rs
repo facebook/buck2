@@ -995,8 +995,7 @@ impl RemoteExecutionClientImpl {
                         .with_logger(logger)
                         .build_and_connect()
                         .await,
-                )
-                .await?
+                )?
             };
 
             #[cfg(not(fbcode_build))]
@@ -1005,8 +1004,7 @@ impl RemoteExecutionClientImpl {
                     op_name,
                     "<none>",
                     REClientBuilder::build_and_connect(&static_metadata.0).await,
-                )
-                .await?
+                )?
             };
 
             let respect_file_symlinks = {
@@ -1076,8 +1074,7 @@ impl RemoteExecutionClientImpl {
                     },
                 )
                 .await,
-        )
-        .await;
+        );
 
         let res = match res {
             Ok(r) => Some(r),
@@ -1125,8 +1122,7 @@ impl RemoteExecutionClientImpl {
                     },
                 )
                 .await,
-        )
-        .await?;
+        )?;
         Ok(())
     }
 
@@ -1680,8 +1676,7 @@ impl RemoteExecutionClientImpl {
                 worker_tool_action_digest.is_some(),
             )
             .await,
-        )
-        .await;
+        );
 
         if let Some(induced_cache_miss) = induced_cache_miss {
             induced_cache_miss.store(true, std::sync::atomic::Ordering::Relaxed);
@@ -1773,8 +1768,7 @@ impl RemoteExecutionClientImpl {
                     },
                 )
                 .await,
-        )
-        .await?;
+        )?;
 
         let mut blobs: Vec<T> = Vec::with_capacity(expected_blobs);
         if let Some(ds) = response.inlined_blobs {
@@ -1819,8 +1813,7 @@ impl RemoteExecutionClientImpl {
                 // boxed() to segment the future
                 .boxed()
                 .await,
-        )
-        .await?;
+        )?;
 
         response
             .inlined_blobs
@@ -1843,7 +1836,6 @@ impl RemoteExecutionClientImpl {
                 .upload_blob_with_digest(blob.blob, blob.digest, use_case.metadata(None))
                 .await,
         )
-        .await
     }
 
     async fn materialize_files(
@@ -1894,8 +1886,7 @@ impl RemoteExecutionClientImpl {
                             },
                         )
                         .await,
-                )
-                .await?;
+                )?;
 
                 buck2_error::Ok(ChunkDownloadResult::Downloaded(response.local_cache_stats))
             }
@@ -1946,7 +1937,6 @@ impl RemoteExecutionClientImpl {
                 )
                 .await,
         )
-        .await
     }
 
     async fn extend_digest_ttl(
@@ -1971,8 +1961,7 @@ impl RemoteExecutionClientImpl {
                     },
                 )
                 .await,
-        )
-        .await?;
+        )?;
         Ok(())
     }
 
@@ -2016,8 +2005,7 @@ impl RemoteExecutionClientImpl {
                     },
                 )
                 .await,
-        )
-        .await?;
+        )?;
 
         trace_action_digest(
             &digest,
@@ -2032,6 +2020,13 @@ impl RemoteExecutionClientImpl {
         Ok(response)
     }
 }
+
+#[cfg(fbcode_build)] // Relies on fbcode future sizes
+buck2_util::size_assert::words_of_async_fn_future!(
+    RemoteExecutionClientImpl::get_digests_ttl,
+    (_, _, _),
+    587
+);
 
 /// Drop the REClient on a blocking thread. The REClient destructor does a blocking wait on async
 /// calls (it tells the server to cancel its calls, but it waits for an ack), so we shouldn't drop
