@@ -13,6 +13,7 @@ use buck2_cli_proto::new_generic::MaterializeResponse;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::span_async;
+use buck2_execute::materialize::materializer::MaterializationPurpose;
 use buck2_server_ctx::commands::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 
@@ -48,6 +49,6 @@ async fn materialize(
     server_ctx
         .daemon
         .materializer
-        .ensure_materialized(project_paths)
+        .ensure_materialized(project_paths, MaterializationPurpose::IntermediateOnly)
         .await
 }

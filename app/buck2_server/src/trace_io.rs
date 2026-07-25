@@ -14,6 +14,7 @@ use buck2_common::file_ops::metadata::RawSymlink;
 use buck2_common::io::trace::TracingIoProvider;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::span_async;
+use buck2_execute::materialize::materializer::MaterializationPurpose;
 use buck2_server_ctx::commands::command_end;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 
@@ -65,7 +66,10 @@ async fn build_response_with_trace(
     let buck_out_entries: Vec<_> = provider.trace().buck_out_entries();
     context
         .materializer()
-        .ensure_materialized(buck_out_entries.clone())
+        .ensure_materialized(
+            buck_out_entries.clone(),
+            MaterializationPurpose::IntermediateOnly,
+        )
         .await
         .buck_error_context("Error materializing buck-out paths for trace")?;
 

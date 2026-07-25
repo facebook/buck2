@@ -31,6 +31,7 @@ use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::materialize::materializer::ArtifactNotMaterializedReason;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::MaterializationError;
+use buck2_execute::materialize::materializer::MaterializationPurpose;
 use buck2_execute::materialize::utils::dynamic_priority_handle::DynamicPriorityHandle;
 use buck2_execute::materialize::utils::priority_semaphore::Priority;
 use buck2_fs::fs_util::disk_space_stats;
@@ -178,6 +179,7 @@ pub(super) enum MaterializerCommand<T: 'static> {
     /// concludes (whether successfully or not).
     Ensure(
         Vec<ProjectRelativePathBuf>,
+        MaterializationPurpose,
         EventDispatcher,
         Option<SpanId>,
         oneshot::Sender<BoxStream<'static, Result<(), MaterializationError>>>,
@@ -249,7 +251,9 @@ impl<T> std::fmt::Debug for MaterializerCommand<T> {
             MaterializerCommand::InvalidateFilePaths(paths, ..) => {
                 write!(f, "InvalidateFilePaths({paths:?})")
             }
-            MaterializerCommand::Ensure(paths, _, _, _) => write!(f, "Ensure({paths:?}, _)",),
+            MaterializerCommand::Ensure(paths, purpose, _, _, _) => {
+                write!(f, "Ensure({paths:?}, {purpose:?}, _)",)
+            }
             MaterializerCommand::Subscription(op) => write!(f, "Subscription({op:?})",),
             MaterializerCommand::Extension(ext) => write!(f, "Extension({ext:?})"),
             MaterializerCommand::Abort => write!(f, "Abort"),
@@ -815,21 +819,25 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 })
             }
             // Entry point for `ensure_materialized` calls
-            MaterializerCommand::Ensure(paths, event_dispatcher, parent_id, fut_sender) => {
-                maybe_proxy_current_span(parent_id, || {
-                    self.maybe_log_command(&event_dispatcher, || {
-                        buck2_data::materializer_command::Data::Ensure(
-                            buck2_data::materializer_command::Ensure {
-                                paths: paths.iter().map(|p| p.to_string()).collect::<Vec<_>>(),
-                            },
-                        )
-                    });
+            MaterializerCommand::Ensure(
+                paths,
+                _purpose,
+                event_dispatcher,
+                parent_id,
+                fut_sender,
+            ) => maybe_proxy_current_span(parent_id, || {
+                self.maybe_log_command(&event_dispatcher, || {
+                    buck2_data::materializer_command::Data::Ensure(
+                        buck2_data::materializer_command::Ensure {
+                            paths: paths.iter().map(|p| p.to_string()).collect::<Vec<_>>(),
+                        },
+                    )
+                });
 
-                    fut_sender
-                        .send(self.materialize_many_artifacts(paths, event_dispatcher))
-                        .ok();
-                })
-            }
+                fut_sender
+                    .send(self.materialize_many_artifacts(paths, event_dispatcher))
+                    .ok();
+            }),
             MaterializerCommand::Subscription(sub) => sub.execute(self),
             MaterializerCommand::Extension(ext) => ext.execute(self),
             MaterializerCommand::Abort => unreachable!(),

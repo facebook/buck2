@@ -45,6 +45,7 @@ use buck2_error::internal_error;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::materialize::materializer::HasMaterializer;
+use buck2_execute::materialize::materializer::MaterializationPurpose;
 use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_external_cells_bundled::BundledCell;
 use buck2_external_cells_bundled::BundledFile;
@@ -478,7 +479,9 @@ pub(crate) async fn materialize_all(
         paths.push(path);
     }
 
-    materializer.ensure_materialized(paths).await?;
+    materializer
+        .ensure_materialized(paths, MaterializationPurpose::IntermediateOnly)
+        .await?;
     Ok(buck_out_resolver.resolve_external_cell_source(
         CellRelativePath::unchecked_new(""),
         ExternalCellOrigin::Bundled(cell),

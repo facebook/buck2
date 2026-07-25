@@ -16,6 +16,7 @@ use buck2_build_api::actions::calculation::ActionCalculation;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use buck2_execute::materialize::materializer::HasMaterializer;
+use buck2_execute::materialize::materializer::MaterializationPurpose;
 use buck2_fs::async_fs_util;
 use buck2_fs::error::IoResultExt;
 use derive_more::Display;
@@ -87,7 +88,10 @@ impl Key for SingleValidationKey {
         // Make sure validation result is materialized before we parse it
         ctx.per_transaction_data()
             .get_materializer()
-            .ensure_materialized(vec![project_relative_path])
+            .ensure_materialized(
+                vec![project_relative_path],
+                MaterializationPurpose::IntermediateOnly,
+            )
             .await?;
 
         let content = async_fs_util::read_to_string(&validation_result_path)

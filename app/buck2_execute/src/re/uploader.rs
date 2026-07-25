@@ -62,6 +62,7 @@ use crate::directory::ReDirectorySerializer;
 use crate::execute::blobs::ActionBlobs;
 use crate::materialize::materializer::ArtifactNotMaterializedReason;
 use crate::materialize::materializer::CasDownloadInfo;
+use crate::materialize::materializer::MaterializationPurpose;
 use crate::materialize::materializer::Materializer;
 use crate::re::action_identity::ReActionIdentity;
 use crate::re::client::RemoteExecutionClient;
@@ -400,7 +401,10 @@ impl Uploader {
 
         if !paths_to_materialize.is_empty() {
             materializer
-                .ensure_materialized(paths_to_materialize)
+                .ensure_materialized(
+                    paths_to_materialize,
+                    MaterializationPurpose::IntermediateOnly,
+                )
                 .await
                 .buck_error_context("Error materializing paths for upload")?;
         }

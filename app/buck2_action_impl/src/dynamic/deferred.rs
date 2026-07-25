@@ -50,6 +50,7 @@ use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::materialize::materializer::HasMaterializer;
+use buck2_execute::materialize::materializer::MaterializationPurpose;
 use buck2_hash::BuckIndexMap;
 use buck2_hash::StdBuckHashMap;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
@@ -481,7 +482,7 @@ async fn materialize_inputs(
 
     ctx.per_transaction_data()
         .get_materializer()
-        .ensure_materialized(paths)
+        .ensure_materialized(paths, MaterializationPurpose::IntermediateOnly)
         .await?;
 
     Ok(InputArtifactsMaterialized(()))

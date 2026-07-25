@@ -70,6 +70,7 @@ use buck2_execute::knobs::ExecutorGlobalKnobs;
 use buck2_execute::materialize::materializer::CopiedArtifact;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::MaterializationError;
+use buck2_execute::materialize::materializer::MaterializationPurpose;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute_local::CommandResult;
 use buck2_execute_local::DefaultKillProcess;
@@ -1027,7 +1028,10 @@ impl LocalExecutor {
         .await?;
 
         self.materializer
-            .ensure_materialized(configuration_paths)
+            .ensure_materialized(
+                configuration_paths,
+                MaterializationPurpose::IntermediateOnly,
+            )
             .await?;
 
         Ok((
@@ -1561,7 +1565,9 @@ async fn materialize_build_outputs(
         }
     }
 
-    materializer.ensure_materialized(paths.clone()).await?;
+    materializer
+        .ensure_materialized(paths.clone(), MaterializationPurpose::IntermediateOnly)
+        .await?;
 
     Ok(paths)
 }

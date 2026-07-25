@@ -46,6 +46,7 @@ use buck2_execute::execute::result::CommandExecutionMetadata;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
+use buck2_execute::materialize::materializer::MaterializationPurpose;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::action_identity::ReActionIdentity;
 use buck2_execute::re::error::RemoteExecutionError;
@@ -254,7 +255,9 @@ async fn materialize_failed_build_outputs(
         }
     }
 
-    materializer.ensure_materialized(paths.clone()).await?;
+    materializer
+        .ensure_materialized(paths.clone(), MaterializationPurpose::IntermediateOnly)
+        .await?;
 
     Ok(paths)
 }

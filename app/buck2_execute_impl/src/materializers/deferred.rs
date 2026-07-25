@@ -63,6 +63,7 @@ use buck2_execute::materialize::materializer::DeferredMaterializerExtensions;
 use buck2_execute::materialize::materializer::EagerMaterializationGuard;
 use buck2_execute::materialize::materializer::HttpDownloadInfo;
 use buck2_execute::materialize::materializer::MaterializationError;
+use buck2_execute::materialize::materializer::MaterializationPurpose;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_execute::re::manager::ReConnectionManager;
@@ -75,6 +76,7 @@ use chrono::Utc;
 use derivative::Derivative;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
+use futures::TryStreamExt;
 use futures::stream::BoxStream;
 use parking_lot::RwLock;
 use tokio::runtime::Handle;
@@ -534,6 +536,7 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
         self.command_sender
             .send(MaterializerCommand::Ensure(
                 artifact_paths,
+                MaterializationPurpose::IntermediateOnly,
                 get_dispatcher(),
                 current_span(),
                 sender,
@@ -545,12 +548,34 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
         Ok(materialization_fut)
     }
 
+    async fn ensure_materialized(
+        &self,
+        artifact_paths: Vec<ProjectRelativePathBuf>,
+        purpose: MaterializationPurpose,
+    ) -> buck2_error::Result<()> {
+        let (sender, recv) = oneshot::channel();
+        self.command_sender
+            .send(MaterializerCommand::Ensure(
+                artifact_paths,
+                purpose,
+                get_dispatcher(),
+                current_span(),
+                sender,
+            ))
+            .buck_error_context("Sending Ensure() command.")?;
+        let materialization_fut = recv
+            .await
+            .buck_error_context("Receiving materialization future from command thread.")?;
+        Ok(materialization_fut.try_collect().await?)
+    }
+
     async fn try_materialize_final_artifact(
         &self,
         artifact_path: ProjectRelativePathBuf,
     ) -> buck2_error::Result<bool> {
         if self.materialize_final_artifacts {
-            self.ensure_materialized(vec![artifact_path]).await?;
+            self.ensure_materialized(vec![artifact_path], MaterializationPurpose::FinalOutput)
+                .await?;
             Ok(true)
         } else {
             Ok(false)

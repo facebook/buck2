@@ -144,6 +144,12 @@ pub struct DeclareArtifactPayload {
     pub configuration_path: Option<ProjectRelativePathBuf>,
 }
 
+#[derive(Clone, Copy, Debug, Dupe, Eq, PartialEq)]
+pub enum MaterializationPurpose {
+    FinalOutput,
+    IntermediateOnly,
+}
+
 /// A trait providing methods to asynchronously materialize artifacts.
 ///
 /// # Invariants
@@ -256,6 +262,7 @@ pub trait Materializer: Allocative + Send + Sync + 'static {
     async fn ensure_materialized(
         &self,
         artifact_paths: Vec<ProjectRelativePathBuf>,
+        _purpose: MaterializationPurpose,
     ) -> buck2_error::Result<()> {
         Ok(self
             .materialize_many(artifact_paths)

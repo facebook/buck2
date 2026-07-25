@@ -116,6 +116,7 @@ use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::execute::result::CommandExecutionStatus;
 use buck2_execute::execute::target::CommandExecutionTarget;
 use buck2_execute::materialize::materializer::HasMaterializer;
+use buck2_execute::materialize::materializer::MaterializationPurpose;
 use buck2_execute_impl::executors::local::EnvironmentBuilder;
 use buck2_execute_impl::executors::local::apply_local_execution_environment;
 use buck2_execute_impl::executors::local::create_output_dirs;
@@ -499,7 +500,10 @@ impl<'a> BuckTestOrchestrator<'a> {
         self.dice
             .per_transaction_data()
             .get_materializer()
-            .ensure_materialized(paths_to_materialize)
+            .ensure_materialized(
+                paths_to_materialize,
+                MaterializationPurpose::IntermediateOnly,
+            )
             .await
             .buck_error_context("Error materializing test outputs")?;
 
