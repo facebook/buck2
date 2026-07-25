@@ -1072,6 +1072,8 @@ message Snapshot {
 
   uint64 deferred_materializer_declares = 200;
   uint64 deferred_materializer_declares_reused = 201;
+  uint64 deferred_materializer_final_output_logical_bytes = 202;
+  uint64 deferred_materializer_intermediate_only_logical_bytes = 203;
 
   optional UnixSystemStats unix_system_stats = 300;
 

@@ -656,7 +656,7 @@ mod state_machine {
                 digest_config,
             )?;
 
-            dm.testing_declare_existing(&target_path, target_value);
+            dm.testing_declare_existing(&target_path, target_value.dupe());
             dm.testing_declare_existing(&symlink_path, symlink_value);
             assert_eq!(
                 *dm.stats.sizes.read(),
@@ -714,6 +714,20 @@ mod state_machine {
                     .all(|entry| entry.classification == ArtifactClassification::FinalOutput)
             );
 
+            dm.testing_declare_existing(&target_path, target_value);
+            let data = dm
+                .tree
+                .prefix_get(&mut target_path.iter())
+                .expect("redeclared artifact should be present");
+            assert_eq!(data.classification, ArtifactClassification::FinalOutput);
+            assert_eq!(
+                *dm.stats.sizes.read(),
+                MaterializerSizeStats {
+                    final_output: content.len() as u64,
+                    intermediate_only: 0,
+                }
+            );
+
             let (sender, receiver) = oneshot::channel();
             dm.testing_process_one_command(MaterializerCommand::InvalidateFilePaths(
                 vec![target_path, symlink_path],
@@ -750,13 +764,34 @@ mod state_machine {
             .await?;
             assert!(dm.has_artifact_at(path.clone()).await?);
 
-            assert!(!dm.try_materialize_final_artifact(path).await?);
+            assert!(!dm.try_materialize_final_artifact(path.clone()).await?);
             assert_eq!(
                 *dm.stats.sizes.read(),
                 MaterializerSizeStats {
                     final_output: 0,
                     intermediate_only: content.len() as u64,
                 }
+            );
+
+            let mut snapshot = buck2_data::Snapshot::default();
+            dm.add_snapshot_stats(&mut snapshot);
+            assert_eq!(snapshot.deferred_materializer_final_output_logical_bytes, 0);
+            assert_eq!(
+                snapshot.deferred_materializer_intermediate_only_logical_bytes,
+                content.len() as u64
+            );
+
+            dm.materialize_final_artifacts = true;
+            assert!(dm.try_materialize_final_artifact(path).await?);
+            let mut snapshot = buck2_data::Snapshot::default();
+            dm.add_snapshot_stats(&mut snapshot);
+            assert_eq!(
+                snapshot.deferred_materializer_final_output_logical_bytes,
+                content.len() as u64
+            );
+            assert_eq!(
+                snapshot.deferred_materializer_intermediate_only_logical_bytes,
+                0
             );
             dm.abort();
             Ok(())

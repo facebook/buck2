@@ -167,6 +167,10 @@ pub(crate) struct MaterializerSizeStats {
 }
 
 impl DeferredMaterializerStats {
+    pub(crate) fn sizes(&self) -> MaterializerSizeStats {
+        *self.sizes.read()
+    }
+
     pub(crate) fn add_materialized(&self, classification: ArtifactClassification, size: u64) {
         let mut sizes = self.sizes.write();
         match classification {
@@ -642,6 +646,9 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
         snapshot.deferred_materializer_declares_reused =
             self.stats.declares_reused.load(Ordering::Relaxed);
         snapshot.deferred_materializer_queue_size = self.command_sender.counters.queue_size() as _;
+        let sizes = self.stats.sizes();
+        snapshot.deferred_materializer_final_output_logical_bytes = sizes.final_output;
+        snapshot.deferred_materializer_intermediate_only_logical_bytes = sizes.intermediate_only;
     }
 
     async fn get_artifact_entries_for_materialized_paths(

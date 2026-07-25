@@ -1048,7 +1048,24 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
     fn declare_existing(&mut self, path: &ProjectRelativePath, value: ArtifactValue) {
         let metadata = value.entry().dupe();
         let logical_size_bytes = artifact_metadata_size(&metadata);
-        let classification = ArtifactClassification::IntermediateOnly;
+        let classification = {
+            let mut path_iter = path.iter();
+            match self.tree.prefix_get(&mut path_iter) {
+                Some(data)
+                    if path_iter.next().is_none()
+                        && matches!(
+                            &data.stage,
+                            ArtifactMaterializationStage::Materialized {
+                                metadata: previous_metadata,
+                                ..
+                            } if artifact_metadata_matches_entry(previous_metadata, &metadata)
+                        ) =>
+                {
+                    data.classification
+                }
+                _ => ArtifactClassification::IntermediateOnly,
+            }
+        };
         if let Err(error) = self.tree.invalidate_paths_and_collect_futures(
             vec![path.to_owned()],
             self.sqlite_db.as_mut(),
