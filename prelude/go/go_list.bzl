@@ -71,7 +71,7 @@ def go_list(
     ]
 
     identifier = paths.basename(pkg_import_path)
-    actions.run(go_list_args, env = env, category = "go_list", identifier = identifier)
+    actions.run(go_list_args, env = env, category = "go_list", identifier = identifier, allow_cache_upload = go_toolchain.allow_cache_upload)
 
     return go_list_out
 

@@ -145,6 +145,6 @@ def _combine_package(ctx: AnalysisContext, pkg_import_path: str, a_file: Artifac
     ]
 
     identifier = paths.basename(pkg_import_path) + "-combined"
-    ctx.actions.run(pack_cmd, env = env, category = "go_pack", identifier = identifier)
+    ctx.actions.run(pack_cmd, env = env, category = "go_pack", identifier = identifier, allow_cache_upload = go_toolchain.allow_cache_upload)
 
     return pkg_file

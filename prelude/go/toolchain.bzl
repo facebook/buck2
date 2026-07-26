@@ -25,6 +25,7 @@ GoDistrInfo = provider(
 GoToolchainInfo = provider(
     # @unsorted-dict-items
     fields = {
+        "allow_cache_upload": provider_field(bool | None, default = None),
         "assembler": provider_field(RunInfo),
         "assembler_flags": provider_field(typing.Any, default = []),
         "cxx_compiler_flags": provider_field(typing.Any, default = []),
