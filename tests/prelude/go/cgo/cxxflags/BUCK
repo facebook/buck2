@@ -1,0 +1,34 @@
+load("@fbcode//buck2/tests/prelude:py_assertion.bzl", "py_assertion")
+
+oncall("golang")
+
+prelude = native
+
+# `-std=` is gcc/clang spelling; the Windows toolchain is MSVC, which rejects it.
+_NOT_WINDOWS = select({
+    "DEFAULT": [],
+    "config//os:windows": ["config//:none"],
+})
+
+prelude.go_binary(
+    name = "bin",
+    srcs = [
+        "lib.c",
+        "lib.cc",
+        "main.go",
+    ],
+    headers = ["lib.h"],
+    header_namespace = "",
+    target_compatible_with = _NOT_WINDOWS,
+)
+
+py_assertion(
+    name = "check_output",
+    script = """
+import subprocess
+import sys
+assert subprocess.check_output([sys.argv[1]]).decode().strip() == "i = 4"
+""",
+    script_args = ["$(exe_target :bin)"],
+    target_compatible_with = _NOT_WINDOWS,
+)

@@ -1,0 +1,28 @@
+load("@fbcode//buck2/tests/prelude:py_assertion.bzl", "py_assertion")
+
+oncall("golang")
+
+prelude = native
+
+# Windows needs no directive to reach sqrt, so there the test is merely a
+# smoke test; on Darwin and Linux the link genuinely depends on the
+# `#cgo LDFLAGS:` directives being honoured.
+prelude.go_binary(
+    name = "bin",
+    srcs = [
+        "lib.c",
+        "main.go",
+    ],
+    headers = ["lib.h"],
+    header_namespace = "",
+)
+
+py_assertion(
+    name = "check_output",
+    script = """
+import subprocess
+import sys
+assert subprocess.check_output([sys.argv[1]]).decode().strip() == "i = 4"
+""",
+    script_args = ["$(exe_target :bin)"],
+)
