@@ -765,6 +765,23 @@ def cxx_gnu_dist_link(
         for artifact in index_link_data:
             if artifact != None and artifact.data_type == _DataType("archive"):
                 link_cmd_hidden.append(artifact.link_data.opt_objects_dir)
+
+        # The final_link_index is a plain-text argsfile emitted by the planner tool, so the
+        # paths it references carry no associated buck2 artifacts. Beyond the archive
+        # opt_objects_dirs above, it can reference the per-link pre/post flags and the
+        # non-object/-archive linkables (e.g. link-group shared-library interface stubs from
+        # SharedLibLinkable). Add those artifacts as hidden inputs so buck2 materializes them
+        # before the local final link.
+        final_link_index_inputs = cmd_args()
+        for flags_list in pre_post_flags.values():
+            for flags in flags_list:
+                final_link_index_inputs.add(flags.pre_flags)
+                final_link_index_inputs.add(flags.post_flags)
+        for linkables_list in linkables_index.values():
+            for linkable in linkables_list:
+                append_linkable_args(final_link_index_inputs, linkable)
+        link_cmd_hidden.append(final_link_index_inputs)
+
         link_cmd.add(cmd_args(final_link_index, format = "@{}"))
         for link in binary_links:
             link_cmd.add(unpack_link_args(link))
