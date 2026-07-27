@@ -764,6 +764,11 @@ fn test_slice_forms_cover_all_components() {
 }
 
 #[test]
+fn test_f_string_display_roundtrip() {
+    assert_display_roundtrip(r#"f"a{x}b""#, "\"a{}b\".format(x)\n");
+}
+
+#[test]
 fn test_dict_comprehension_parses() {
     assert_eq!(
         parse("x = {k: v for k in xs if pred(k)}"),

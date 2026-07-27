@@ -628,7 +628,8 @@ impl Display for Expr {
             Expr::Literal(x) => write!(f, "{x}"),
             Expr::FString(x) => {
                 // Write out the desugared form.
-                write!(f, "{}.format(", x.format.node)?;
+                fmt_string_literal(f, &x.format.node)?;
+                f.write_str(".format(")?;
                 comma_separated_fmt(f, &x.expressions, |x, f| write!(f, "{}", x.node), false)?;
                 f.write_str(")")
             }
