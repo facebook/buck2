@@ -1,0 +1,5 @@
+native.rust_library(
+    name = "entry",
+    srcs = ["lib.rs"],
+    crate_root = "lib.rs",
+)

@@ -1,0 +1,5 @@
+native.rust_with_workspace(
+    labels = [
+        "fbcode//buck2/integrations/rust-project/tests/targets/label_workspace:root",
+    ],
+)

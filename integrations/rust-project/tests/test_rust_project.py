@@ -52,8 +52,21 @@ async def test_workspaces(buck: Buck) -> None:
         "fbcode//buck2/integrations/rust-project/tests/targets/bar:d": True,
         "fbcode//buck2/integrations/rust-project/tests/targets/foo:e": True,
         "fbcode//buck2/integrations/rust-project/tests/targets/foo:f": True,
+        "fbcode//buck2/integrations/rust-project/tests/targets/foo:f-unittest": True,
     }
     assert expected_subset.items() <= target_and_in_workspace.items()
+
+    result_raw = await buck.bxl(
+        "prelude//rust/rust-analyzer/resolve_deps.bxl:resolve_targets",
+        "--",
+        "--targets",
+        "//buck2/integrations/rust-project/tests/targets/foo:a",
+    )
+    result = json.load(open(result_raw.stdout.rstrip()))
+    assert result["expanded_targets"] == [
+        "fbcode//buck2/integrations/rust-project/tests/targets/bar:d",
+        "fbcode//buck2/integrations/rust-project/tests/targets/foo:a",
+    ]
 
     # The target being edited is not in any workspaces
     result_raw = await buck.bxl(
@@ -77,6 +90,67 @@ async def test_workspaces(buck: Buck) -> None:
     }
 
     assert expected_subset.items() <= target_and_in_workspace.items()
+
+
+@buck_test(inplace=True, skip_for_os=["darwin", "windows"])
+async def test_workspace_patterns(buck: Buck) -> None:
+    result_raw = await buck.bxl(
+        "prelude//rust/rust-analyzer/resolve_deps.bxl:resolve_targets",
+        "--",
+        "--targets",
+        "//buck2/integrations/rust-project/tests/targets/pattern_workspace/entry:entry",
+    )
+    result: Dict[str, Any] = json.load(open(result_raw.stdout.rstrip()))
+
+    expected_targets = {
+        "fbcode//buck2/integrations/rust-project/tests/targets/pattern_workspace/entry:entry",
+        "fbcode//buck2/integrations/rust-project/tests/targets/pattern_workspace/sibling:_proc_macro",
+        "fbcode//buck2/integrations/rust-project/tests/targets/pattern_workspace/sibling:proc_macro_consumer",
+        "fbcode//buck2/integrations/rust-project/tests/targets/pattern_workspace/sibling:sibling",
+        "fbcode//buck2/integrations/rust-project/tests/targets/pattern_workspace/sibling:sibling_test",
+    }
+    assert expected_targets <= set(result["expanded_targets"])
+    assert len(result["expanded_targets"]) == len(set(result["expanded_targets"]))
+    assert all(result["resolved_deps"][target]["in_workspace"] for target in expected_targets)
+    excluded_target = "fbcode//buck2/integrations/rust-project/tests/targets/pattern_workspace/excluded:excluded"
+    assert excluded_target not in result["expanded_targets"]
+    assert excluded_target not in result["resolved_deps"]
+
+    result_raw = await buck.bxl(
+        "prelude//rust/rust-analyzer/resolve_deps.bxl:resolve_targets",
+        "--",
+        "--targets",
+        "//buck2/integrations/rust-project/tests/targets/pattern_workspace/entry:entry",
+        "--exclude_workspaces=true",
+    )
+    result = json.load(open(result_raw.stdout.rstrip()))
+    assert result["expanded_targets"] == [
+        "fbcode//buck2/integrations/rust-project/tests/targets/pattern_workspace/entry:entry"
+    ]
+
+    result_raw = await buck.bxl(
+        "prelude//rust/rust-analyzer/resolve_deps.bxl:resolve_targets",
+        "--",
+        "--targets",
+        "//buck2/integrations/rust-project/tests/targets/pattern_workspace/excluded:excluded",
+    )
+    result = json.load(open(result_raw.stdout.rstrip()))
+    assert result["expanded_targets"] == [excluded_target]
+
+
+@buck_test(inplace=True, skip_for_os=["darwin", "windows"])
+async def test_workspace_labels_keyword(buck: Buck) -> None:
+    result_raw = await buck.bxl(
+        "prelude//rust/rust-analyzer/resolve_deps.bxl:resolve_targets",
+        "--",
+        "--targets",
+        "//buck2/integrations/rust-project/tests/targets/label_workspace:member",
+    )
+    result: Dict[str, Any] = json.load(open(result_raw.stdout.rstrip()))
+
+    assert result["expanded_targets"] == [
+        "fbcode//buck2/integrations/rust-project/tests/targets/label_workspace:root"
+    ]
 
 
 @buck_test(inplace=True, skip_for_os=["darwin", "windows"])
@@ -114,6 +188,91 @@ async def test_semantic_target_kinds(buck: Buck) -> None:
         "fbcode//buck2/integrations/rust-project/tests/targets/foo:native_test": "test",
         "fbcode//buck2/integrations/rust-project/tests/targets/foo:wrapped_test": "test",
     }.items() <= target_kinds.items()
+
+
+@buck_test(inplace=True, skip_for_os=["darwin", "windows"])
+async def test_declared_tests_are_resolved(buck: Buck) -> None:
+    result_raw = await buck.bxl(
+        "prelude//rust/rust-analyzer/resolve_deps.bxl:resolve_targets",
+        "--",
+        "--targets",
+        "//buck2/integrations/rust-project/tests/targets/foo:declared_test_parent",
+        "--exclude_workspaces=true",
+    )
+    result: Dict[str, Any] = json.load(open(result_raw.stdout.rstrip()))
+
+    assert (
+        result["resolved_deps"][
+            "fbcode//buck2/integrations/rust-project/tests/targets/foo:native_test"
+        ]["kind"]
+        == "test"
+    )
+
+
+@buck_test(inplace=True, skip_for_os=["darwin", "windows"])
+async def test_unit_test_records_parent(buck: Buck) -> None:
+    result_raw = await buck.bxl(
+        "prelude//rust/rust-analyzer/resolve_deps.bxl:resolve_targets",
+        "--",
+        "--targets",
+        "//buck2/integrations/rust-project/tests/targets/foo:arbitrary_unit_test",
+        "--exclude_workspaces=true",
+    )
+    result: Dict[str, Any] = json.load(open(result_raw.stdout.rstrip()))
+
+    unit_test = result["resolved_deps"][
+        "fbcode//buck2/integrations/rust-project/tests/targets/foo:arbitrary_unit_test"
+    ]
+    assert unit_test["kind"] == "unit_test"
+    assert (
+        unit_test["unit_test_of"]
+        == "fbcode//buck2/integrations/rust-project/tests/targets/foo:unit_test_parent"
+    )
+    assert (
+        "fbcode//buck2/integrations/rust-project/tests/targets/foo:unit_test_parent"
+        in result["resolved_deps"]
+    )
+
+
+@buck_test(inplace=True, skip_for_os=["darwin", "windows"])
+async def test_proc_macro_unit_test_records_configured_parent(buck: Buck) -> None:
+    result_raw = await buck.bxl(
+        "prelude//rust/rust-analyzer/resolve_deps.bxl:resolve_targets",
+        "--",
+        "--targets",
+        "//buck2/integrations/rust-project/tests/targets/foo:proc_macro_unit_test",
+        "--exclude_workspaces=true",
+    )
+    result: Dict[str, Any] = json.load(open(result_raw.stdout.rstrip()))
+
+    unit_test = result["resolved_deps"][
+        "fbcode//buck2/integrations/rust-project/tests/targets/foo:proc_macro_unit_test"
+    ]
+    assert unit_test["kind"] == "unit_test"
+    assert (
+        unit_test["unit_test_of"]
+        == "fbcode//buck2/integrations/rust-project/tests/targets/foo:_proc_macro_unit_test_parent"
+    )
+    assert (
+        "fbcode//buck2/integrations/rust-project/tests/targets/foo:_proc_macro_unit_test_parent"
+        in result["resolved_deps"]
+    )
+
+
+@buck_test(inplace=True, skip_for_os=["darwin", "windows"])
+async def test_inactive_workspace_does_not_expand_tests(buck: Buck) -> None:
+    result_raw = await buck.bxl(
+        "prelude//rust/rust-analyzer/resolve_deps.bxl:resolve_targets",
+        "--",
+        "--targets",
+        "//buck2/integrations/rust-project/tests/targets/foo:outside_workspace",
+    )
+    result: Dict[str, Any] = json.load(open(result_raw.stdout.rstrip()))
+
+    assert (
+        "fbcode//buck2/integrations/rust-project/tests/targets/foo:native_test"
+        not in result["resolved_deps"]
+    )
 
 
 @buck_test(inplace=True, skip_for_os=["darwin", "windows"])

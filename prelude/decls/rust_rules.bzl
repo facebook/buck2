@@ -15,7 +15,7 @@ load("@prelude//rust:clippy_configuration.bzl", "ClippyConfiguration")
 load("@prelude//rust:link_info.bzl", "RustProcMacroPlugin")
 load("@prelude//rust:rust_binary.bzl", "rust_binary_impl", "rust_test_impl")
 load("@prelude//rust:rust_library.bzl", "rust_library_impl")
-load("@prelude//rust/rust-analyzer:provider.bzl", "RustAnalyzerTargetKind")
+load("@prelude//rust/rust-analyzer:provider.bzl", "RustAnalyzerInfo", "RustAnalyzerTargetKind")
 load(":common.bzl", "RuntimeDependencyHandling", "buck", "prelude_rule")
 load(":cxx_common.bzl", "cxx_common")
 load(":native_common.bzl", "native_common")
@@ -49,6 +49,7 @@ def _rust_analyzer_target_kind(kind: str) -> dict[str, Attr]:
         "_rust_analyzer_target_kind": attrs.default_only(
             attrs.enum(RustAnalyzerTargetKind.values(), default = kind),
         ),
+        "unit_test_of": attrs.option(attrs.dep(providers = [RustAnalyzerInfo]), default = None),
     }
 
 def _rust_binary_attrs_group(prefix: str) -> dict[str, Attr]:

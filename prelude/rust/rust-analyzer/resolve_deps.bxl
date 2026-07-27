@@ -25,6 +25,12 @@ ExpandedAndResolved = record(
     resolved_deps = dict[TargetLabel, TargetInfo],
 )
 
+WorkspacePatternGroup = record(
+    candidates = list[TargetLabel],
+    exclude_patterns = list[str],
+    patterns = list[str],
+)
+
 def materialize(ctx: bxl.Context, target: bxl.ConfiguredTargetNode) -> Artifact:
     analysis = ctx.analysis(target)
     sources = analysis.providers()[DefaultInfo].sub_targets["sources"][DefaultInfo].default_outputs[0]
@@ -34,7 +40,11 @@ def _get_nullable_attr(attrs, key: str) -> typing.Any:
     nullable = getattr(attrs, key, None)
     return nullable.value() if nullable != None else None
 
-def _process_target_config(ctx: bxl.Context, target: bxl.ConfiguredTargetNode, analysis: bxl.AnalysisResult, in_workspace: bool) -> TargetInfo:
+def _process_target_config(
+        ctx: bxl.Context,
+        target: bxl.ConfiguredTargetNode,
+        analysis: bxl.AnalysisResult,
+        in_workspace: bool) -> TargetInfo:
     target = target.unwrap_forward()
 
     providers = analysis.providers()
@@ -70,12 +80,9 @@ def _process_target_config(ctx: bxl.Context, target: bxl.ConfiguredTargetNode, a
         for dep, alias in resolved_attrs.named_deps.items():
             named_deps[dep] = alias.label.raw_target()
 
-    # remove the configured platform for tests
-    tests = []
-    for test in resolved_attrs.tests:
-        tests.append(test.raw_target())
-
     env = {k: cmd_args(v, delimiter = "") for k, v in ra_info.env.items()}
+
+    unit_test_of = ra_info.unit_test_of.raw_target() if ra_info.unit_test_of != None else None
 
     # copy over the absolute paths and raw targets into the output
     attrs = target.attrs_eager()
@@ -99,7 +106,7 @@ def _process_target_config(ctx: bxl.Context, target: bxl.ConfiguredTargetNode, a
         "rustc_flags": ra_info.rustc_flags,
         "source_folder": materialize(ctx, target),  # Always generate the source folder. Let rust-project resolve whether or not to use it
         "srcs": srcs,
-        "tests": tests,
+        "unit_test_of": unit_test_of,
     }
 
 def _select_assume_default(value):
@@ -166,9 +173,14 @@ def gather_unconfigured_deps(ctx: bxl.Context, targets: list[TargetLabel]) -> di
         if not crate_root:
             continue
 
-        tests = []
-        for test in _get_attr_no_select(target, "tests") or []:
-            tests.append(test.raw_target())
+        target_kind = _get_attr_no_select(target, "_rust_analyzer_target_kind")
+        unit_test_of = _get_attr_no_select(target, "unit_test_of")
+        if target_kind == "unit_test" and unit_test_of == None:
+            fail("Rust analyzer target kind `unit_test` requires `unit_test_of`")
+        if unit_test_of != None:
+            if target_kind != "test" and target_kind != "unit_test":
+                fail("`unit_test_of` may only be set on Rust test targets")
+            target_kind = "unit_test"
 
         info = {
             "crate": _get_attr_no_select(target, "crate"),
@@ -179,7 +191,7 @@ def gather_unconfigured_deps(ctx: bxl.Context, targets: list[TargetLabel]) -> di
             "env": env,
             "features": _get_attr_no_select(target, "features"),
             "in_workspace": False,
-            "kind": _get_attr_no_select(target, "_rust_analyzer_target_kind"),
+            "kind": target_kind,
             "label": target.label,
             "labels": _get_attr_no_select(target, "labels") or [],
             "mapped_srcs": mapped_srcs,
@@ -190,14 +202,30 @@ def gather_unconfigured_deps(ctx: bxl.Context, targets: list[TargetLabel]) -> di
             "rustc_flags": _get_attr_no_select(target, "rustc_flags"),
             "source_folder": source_folder,
             "srcs": srcs,
-            "tests": tests,
+            "unit_test_of": unit_test_of,
         }
 
         out[target.label] = info
 
     return out
 
-def gather_deps(ctx: bxl.Context, target_analysis: dict[Label, bxl.AnalysisResult], workspaces: list[TargetLabel]) -> dict[TargetLabel, TargetInfo]:
+def _is_in_workspace(target: bxl.ConfiguredTargetNode, target_analysis: dict[Label, bxl.AnalysisResult], workspaces: list[TargetLabel]) -> bool:
+    label = target.label.with_sub_target()
+    if label in target_analysis:
+        return True
+
+    candidate_workspaces = target.attrs_lazy().get("_workspaces")
+    if candidate_workspaces:
+        for candidate_workspace in candidate_workspaces.value():
+            if candidate_workspace.raw_target() in workspaces:
+                return True
+
+    return False
+
+def expand_workspace_tests(
+        ctx: bxl.Context,
+        target_analysis: dict[Label, bxl.AnalysisResult],
+        workspaces: list[TargetLabel]) -> dict[Label, bxl.AnalysisResult]:
     targets = set()
     for _target, analysis in target_analysis.items():
         info = analysis.providers().get(RustAnalyzerInfo)
@@ -205,30 +233,42 @@ def gather_deps(ctx: bxl.Context, target_analysis: dict[Label, bxl.AnalysisResul
             for target_set in info.transitive_target_set:
                 targets.add(target_set)
 
-    # TODO(romanp) support set as target_universe arg
-    outputs = ctx.target_universe(list(targets)).target_set()
+    outputs = ctx.configured_targets(list(targets))
+    workspace_targets = ctarget_set()
+    for target in outputs:
+        if _is_in_workspace(target, target_analysis, workspaces):
+            workspace_targets += ctarget_set([target])
+
+    declared_tests = ctx.cquery().testsof(workspace_targets)
+    rust_tests = ctx.cquery().attrregexfilter("_rust_analyzer_target_kind", "^(test|unit_test)$", declared_tests)
+
+    expanded = dict(target_analysis)
+    expanded.update(ctx.analysis(rust_tests))
+    return expanded
+
+def gather_deps(
+        ctx: bxl.Context,
+        target_analysis: dict[Label, bxl.AnalysisResult],
+        workspaces: list[TargetLabel]) -> dict[TargetLabel, TargetInfo]:
+    targets = set()
+    for _target, analysis in target_analysis.items():
+        info = analysis.providers().get(RustAnalyzerInfo)
+        if info:
+            for target_set in info.transitive_target_set:
+                targets.add(target_set)
+
+    outputs = ctx.configured_targets(list(targets))
     out = {}
 
     # Eagerly analyze targets
     analysis = ctx.analysis(outputs)
 
     for target in outputs:
-        attrs = target.attrs_lazy()
-        label = target.label.with_sub_target()
-
-        in_workspace = label in target_analysis
-        candidate_workspaces = attrs.get("_workspaces")
-        if candidate_workspaces:
-            for candidate_workspace in candidate_workspaces.value():
-                if candidate_workspace.raw_target() in workspaces:
-                    in_workspace = True
-                    break
-
         target_info = _process_target_config(
             ctx = ctx,
             target = target,
             analysis = analysis[target.label.with_sub_target()],
-            in_workspace = in_workspace,
+            in_workspace = _is_in_workspace(target, target_analysis, workspaces),
         )
 
         out[target.label.raw_target()] = target_info
@@ -253,12 +293,48 @@ def expand_proc_macros(ctx: bxl.Context, target_analysis: dict[Label, bxl.Analys
         )
     return out
 
+def merge_workspace_target_configurations(
+        targets: bxl.ConfiguredTargetSet,
+        workspace_candidates: list[bxl.ConfiguredTargetNode]) -> bxl.ConfiguredTargetSet:
+    candidates_by_raw_label = {}
+    for candidate in workspace_candidates:
+        candidate = candidate.unwrap_forward()
+        raw_label = candidate.label.raw_target()
+        existing = candidates_by_raw_label.get(raw_label)
+        if existing != None and existing.label != candidate.label:
+            fail("Rust workspace matched multiple direct configurations of `{}`: `{}` and `{}`".format(raw_label, existing.label, candidate.label))
+        candidates_by_raw_label[raw_label] = candidate
+
+    merged_candidates = {}
+    other_targets = []
+    for target in targets:
+        raw_label = target.label.raw_target()
+        candidate = candidates_by_raw_label.get(raw_label)
+        if candidate == None:
+            other_targets.append(target)
+            continue
+
+        existing = merged_candidates.get(raw_label)
+        if existing == None:
+            merged_candidates[raw_label] = target
+        elif existing.label == target.label:
+            pass
+        elif existing.label == candidate.label:
+            merged_candidates[raw_label] = target
+        elif target.label == candidate.label:
+            pass
+        else:
+            fail("Rust workspace resolved `{}` in multiple dependency configurations: `{}` and `{}`".format(raw_label, existing.label, target.label))
+
+    return ctarget_set(other_targets + merged_candidates.values())
+
 # Returns a list of all the expanded targets including any workspaces, followed by just the workspaces
 def expand_targets(ctx: bxl.Context, targets: list[TargetLabel], exclude_workspaces: bool) -> (dict[Label, bxl.AnalysisResult], list[TargetLabel]):
     target_universe = ctx.target_universe(targets).target_set()
+
     # Pick up any rule that sets RustAnalyzerTargetKind and so exposes RustAnalyzerInfo, regardless of its rule name.
     # Custom rules that wrap/override our rust_* builtins but don't use the same names will be picked up here.
-    attr_target_list = ctx.cquery().attrregexfilter("_rust_analyzer_target_kind", "^(bin|lib|test)$", target_universe)
+    attr_target_list = ctx.cquery().attrregexfilter("_rust_analyzer_target_kind", "^(bin|lib|test|unit_test)$", target_universe)
 
     # Aliases don't set RustAnalyzerTargetKind, so we must fallback to grabbing all of them
     alias_target_list = ctx.cquery().kind("^(alias|_?transitioned)$", target_universe)
@@ -268,45 +344,96 @@ def expand_targets(ctx: bxl.Context, targets: list[TargetLabel], exclude_workspa
     labeled_target_list = ctx.cquery().attrfilter("labels", "rust_analyzer_target", target_universe)
     expanded_targets = {t.label.raw_target(): t for t in attr_target_list + alias_target_list + labeled_target_list}
 
-    # Map of potential workspaces to a list of the targets that name these as potential workspaces
+    workspace_groups = {}
     possible_workspaces = {}
+    pattern_groups = {}
     if not exclude_workspaces:
         for label, t in expanded_targets.items():
             workspaces = t.attrs_lazy().get("_workspaces")
             if workspaces:
+                workspace_group = []
                 for workspace in workspaces.value():
                     if not ctx.target_exists(str(workspace.raw_target())):
                         continue
 
-                    possible_workspaces.setdefault(workspace.raw_target(), []).append(label)
+                    workspace = workspace.raw_target()
+                    workspace_group.append(workspace)
+                    possible_workspaces.setdefault(workspace, []).append(label)
+
+                if workspace_group:
+                    workspace_groups[label] = workspace_group
+
+            patterns = t.attrs_lazy().get("_workspace_patterns")
+            if patterns:
+                patterns = patterns.value()
+                if patterns:
+                    exclude_patterns = t.attrs_lazy().get("_workspace_exclude_patterns")
+                    exclude_patterns = exclude_patterns.value() if exclude_patterns else []
+                    group = pattern_groups.setdefault(str([patterns, exclude_patterns]), WorkspacePatternGroup(
+                        candidates = [],
+                        exclude_patterns = exclude_patterns,
+                        patterns = patterns,
+                    ))
+                    group.candidates.append(label)
 
     workspace_analysis = ctx.analysis(ctx.target_universe(possible_workspaces.keys()).target_set())
 
-    active_workspaces = {}
+    active_workspace_groups = {}
     for workspace_label, analysis in workspace_analysis.items():
         workspace = workspace_label.raw_target()
-        candidate_deps = possible_workspaces[workspace]
+        candidates = possible_workspaces[workspace]
         workspace_info = analysis.providers().get(RustAnalyzerInfo)
         if workspace_info:
             workspace_deps = {t.raw_target(): () for t in workspace_info.transitive_target_set}
         else:
             workspace_deps = {}
 
-        for d in candidate_deps:
-            if d in workspace_deps:
-                active_workspaces[workspace] = ()
+        for candidate in candidates:
+            if candidate in workspace_deps:
+                active_workspace_groups[candidate] = ()
 
-                # Remove the target from the expanded targets. This is correct because we know
-                # that the target will reappear later as a dep of the workspace. To understand why
-                # it's necessary, consider the case where the target is a proc macro: Later doing
-                # cquery deps(proc_macro + workspace) will result in the proc macro appearing twice,
-                # once in its exec configuration and once in its target configuration
-                # FIXME: Add a test for this. It's currently a bit hard to test because proc macros
-                # in the prelude are a bit hard in general
-                expanded_targets.pop(d, None)
-    target_set = ctx.target_universe(expanded_targets.keys() + active_workspaces.keys()).target_set()
+    active_workspaces = {}
+    workspace_candidates = {}
+    for candidate in active_workspace_groups:
+        for workspace in workspace_groups[candidate]:
+            active_workspaces[workspace] = ()
+
+        target = expanded_targets[candidate].unwrap_forward()
+        workspace_candidates[target.label] = target
+        expanded_targets.pop(candidate, None)
+
+    active_pattern_targets = {}
+    for group in pattern_groups.values():
+        candidates = group.candidates
+        if group.exclude_patterns:
+            excluded_targets = ctx.unconfigured_targets(group.exclude_patterns)
+            excluded_labels = {target.label: () for target in excluded_targets}
+            candidates = [candidate for candidate in candidates if candidate not in excluded_labels]
+            if not candidates:
+                continue
+            pattern_targets = ctx.unconfigured_targets(group.patterns) - excluded_targets
+        else:
+            pattern_targets = ctx.unconfigured_targets(group.patterns)
+
+        configured_pattern_targets = ctx.configured_targets(list(pattern_targets))
+        pattern_attr_targets = ctx.cquery().attrregexfilter("_rust_analyzer_target_kind", "^(bin|lib|test|unit_test)$", configured_pattern_targets)
+        pattern_alias_targets = ctx.cquery().kind("^(alias|_?transitioned)$", configured_pattern_targets)
+        pattern_labeled_targets = ctx.cquery().attrfilter("labels", "rust_analyzer_target", configured_pattern_targets)
+        pattern_targets = {}
+        for target in pattern_attr_targets + pattern_alias_targets + pattern_labeled_targets:
+            target = target.unwrap_forward()
+            pattern_targets[target.label] = target
+
+        for candidate in candidates:
+            if expanded_targets[candidate].unwrap_forward().label in pattern_targets:
+                active_pattern_targets.update(pattern_targets)
+                workspace_candidates.update(pattern_targets)
+                break
+
+    target_set = ctx.target_universe(expanded_targets.keys() + active_workspaces.keys() + active_pattern_targets.values()).target_set()
+    target_set = merge_workspace_target_configurations(target_set, list(workspace_candidates.values()))
     target_analysis = ctx.analysis(target_set)
-    return target_analysis, sorted(possible_workspaces.keys())
+    return target_analysis, sorted(active_workspaces.keys())
 
 def resolve_targets_impl(ctx: bxl.Context) -> None:
     # equivalent of `flat_map`ing
@@ -314,8 +441,9 @@ def resolve_targets_impl(ctx: bxl.Context) -> None:
     actions = ctx.bxl_actions().actions
 
     target_analysis, workspaces = expand_targets(ctx, targets, ctx.cli_args.exclude_workspaces)
-    queried_proc_macros = expand_proc_macros(ctx, target_analysis)
-    resolved_deps = gather_deps(ctx, target_analysis, workspaces)
+    expanded_target_analysis = expand_workspace_tests(ctx, target_analysis, workspaces)
+    queried_proc_macros = expand_proc_macros(ctx, expanded_target_analysis)
+    resolved_deps = gather_deps(ctx, expanded_target_analysis, workspaces)
 
     expanded_targets = sorted([t.raw_target() for t in target_analysis.keys()])
     if not expanded_targets:
@@ -411,7 +539,7 @@ def resolve_owning_buildfile_impl(ctx: bxl.Context) -> None:
     if ctx.cli_args.files:
         # Find targets that own these files and are relevant to rust.
         targets = ctx.uquery().owner(ctx.cli_args.files)
-        attr_targets = ctx.uquery().attrregexfilter("_rust_analyzer_target_kind", "^(bin|lib|test)$", targets)
+        attr_targets = ctx.uquery().attrregexfilter("_rust_analyzer_target_kind", "^(bin|lib|test|unit_test)$", targets)
         filegroup_targets = ctx.uquery().kind("^rust_filegroup$", targets)
         targets = attr_targets + filegroup_targets
 
@@ -422,7 +550,7 @@ def resolve_owning_buildfile_impl(ctx: bxl.Context) -> None:
 
         # equivalent of `flat_map`ing
         targets = [target for sublist in targets for target in sublist]
-        attr_targets = ctx.uquery().attrregexfilter("_rust_analyzer_target_kind", "^(bin|lib|test)$", targets)
+        attr_targets = ctx.uquery().attrregexfilter("_rust_analyzer_target_kind", "^(bin|lib|test|unit_test)$", targets)
         transitioned_targets = ctx.uquery().kind("^_?transitioned$", targets)
         labeled_targets = ctx.uquery().attrfilter("labels", "rust_analyzer_target", targets)
         targets = attr_targets + transitioned_targets + labeled_targets
@@ -449,7 +577,7 @@ def resolve_owning_buildfile_impl(ctx: bxl.Context) -> None:
             continue
 
         all_buildfile_targets = ctx.uquery().targets_in_buildfile(buildfile_path)
-        extra_targets = ctx.uquery().attrregexfilter("_rust_analyzer_target_kind", "^(bin|lib|test)$", all_buildfile_targets)
+        extra_targets = ctx.uquery().attrregexfilter("_rust_analyzer_target_kind", "^(bin|lib|test|unit_test)$", all_buildfile_targets)
         extra_targets += ctx.uquery().kind("^_?transitioned$", all_buildfile_targets)
         extra_targets += ctx.uquery().attrfilter("labels", "rust_analyzer_target", all_buildfile_targets)
 
