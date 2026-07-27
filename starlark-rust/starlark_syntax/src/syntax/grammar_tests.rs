@@ -177,7 +177,7 @@ fn test_top_level_comment() {
 
 #[test]
 fn test_top_level_load() {
-    let want = "load(\"//top/level/load.bzl\", top-level = \"top-level\")\n";
+    let want = "load(\"//top/level/load.bzl\", \"top-level\")\n";
     assert_eq!(
         parse("\nload(\"//top/level/load.bzl\", \"top-level\")\n"),
         want
@@ -190,6 +190,7 @@ fn test_top_level_load() {
         parse("\nload(\n  \"//top/level/load.bzl\",\n  \"top-level\",\n)\n"),
         want
     );
+    assert_eq!(parse(want), want);
 }
 
 #[test]
@@ -749,10 +750,11 @@ fn test_identifier_led_call_arguments_continue_parsing() {
 
 #[test]
 fn test_load_alias_forms() {
-    assert_eq!(
-        parse("load(\"m.bzl\", alias = \"real\", \"plain\",)"),
-        "load(\"m.bzl\", alias = \"real\", plain = \"plain\")\n"
+    assert_display_roundtrip(
+        "load(\"m.bzl\", alias = \"real\", \"plain\",)",
+        "load(\"m.bzl\", alias = \"real\", \"plain\")\n",
     );
+    assert_display_roundtrip("load(\"m.bzl\", \"if\")", "load(\"m.bzl\", \"if\")\n");
 }
 
 #[test]

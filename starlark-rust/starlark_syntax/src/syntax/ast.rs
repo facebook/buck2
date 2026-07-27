@@ -815,8 +815,12 @@ impl Stmt {
                     f,
                     &load.args,
                     |x, f| {
-                        write!(f, "{} = ", x.local.node)?;
-                        fmt_string_literal(f, &(x.their.node))
+                        if x.local.node.ident == x.their.node {
+                            fmt_string_literal(f, &x.their.node)
+                        } else {
+                            write!(f, "{} = ", x.local.node)?;
+                            fmt_string_literal(f, &x.their.node)
+                        }
                     },
                     false,
                 )?;
