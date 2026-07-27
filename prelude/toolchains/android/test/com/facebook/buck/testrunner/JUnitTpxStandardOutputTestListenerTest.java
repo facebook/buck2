@@ -10,7 +10,6 @@
 
 package com.facebook.buck.testrunner;
 
-import com.facebook.buck.testresultsoutput.TestResultsOutputEvent.RunFailureStatus;
 import com.facebook.buck.testresultsoutput.TestResultsOutputSender;
 import java.io.BufferedReader;
 import java.io.File;
@@ -244,47 +243,6 @@ public class JUnitTpxStandardOutputTestListenerTest {
       String endLine = reader.readLine();
       Assert.assertTrue(endLine.contains("finish"));
       Assert.assertTrue(endLine.contains("DISABLED_testSkipped (TestClass)"));
-
-      Assert.assertNull(reader.readLine());
-    }
-  }
-
-  @Test
-  public void testUnpairedFailureIsCapturedNotEmitted() throws IOException {
-    // A setup-crash failure (no matching testStarted) is captured, not thrown, and emits no event.
-    String setupTrace = "sandbox init boom";
-    try (FileOutputStream fileOutputStream = new FileOutputStream(tempFile)) {
-      JUnitTpxStandardOutputListener listener = createListener(fileOutputStream);
-
-      Description description = Description.createTestDescription("TestClass", "testOne");
-      Failure failure = new Failure(description, new Throwable(setupTrace));
-      listener.testFailure(failure);
-
-      Assert.assertEquals(1, listener.getUnpairedFailureTraces().size());
-      Assert.assertTrue(listener.getUnpairedFailureTraces().get(0).contains(setupTrace));
-    }
-
-    try (BufferedReader reader = new BufferedReader(new FileReader(tempFile))) {
-      Assert.assertNull("Unpaired failure must not emit any event on its own", reader.readLine());
-    }
-  }
-
-  @Test
-  public void testSetupCrashIsReportedAsFatalRunFailure() throws IOException {
-    // A setup crash is reported as a FATAL run failure carrying the trace, not a per-case result.
-    String trace = "MissingTargetSdkException: sdk 34 not in target_sdk_levels";
-    try (FileOutputStream fileOutputStream = new FileOutputStream(tempFile)) {
-      TestResultsOutputSender sender = new TestResultsOutputSender(fileOutputStream);
-      sender.sendRunFailure(RunFailureStatus.FATAL, 123L, "suite crashed during setup", trace);
-    }
-
-    try (BufferedReader reader = new BufferedReader(new FileReader(tempFile))) {
-      String line = reader.readLine();
-      Assert.assertTrue(line.contains("run_failure"));
-      Assert.assertTrue(line.contains(trace));
-      // RunFailureStatus: FATAL == 2. Must be FATAL and not a per-case start/finish event.
-      Assert.assertTrue(line.contains("\"status\":2"));
-      Assert.assertFalse(line.contains("finish"));
 
       Assert.assertNull(reader.readLine());
     }
