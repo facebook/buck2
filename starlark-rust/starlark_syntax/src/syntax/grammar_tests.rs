@@ -774,6 +774,11 @@ fn test_integer_dot_display_roundtrip() {
 }
 
 #[test]
+fn test_integer_dot_assignment_display_roundtrip() {
+    assert_display_roundtrip("(1).field = value", "(1).field = value\n");
+}
+
+#[test]
 fn test_unary_postfix_receiver_display_roundtrip() {
     assert_display_roundtrip("(-x).field", "(-x).field\n");
     assert_display_roundtrip("(+f)()", "(+f)()\n");

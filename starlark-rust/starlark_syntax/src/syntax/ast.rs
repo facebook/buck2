@@ -670,7 +670,13 @@ impl Display for AssignTarget {
                 comma_separated_fmt(f, e, |x, f| write!(f, "{}", x.node), true)?;
                 f.write_str(")")
             }
-            AssignTarget::Dot(e, s) => write!(f, "{}.{}", e.node, s.node),
+            AssignTarget::Dot(e, s) => {
+                if matches!(&e.node, Expr::Literal(AstLiteral::Int(_))) {
+                    write!(f, "({}).{}", e.node, s.node)
+                } else {
+                    write!(f, "{}.{}", e.node, s.node)
+                }
+            }
             AssignTarget::Index(e_i) => {
                 let (e, i) = &**e_i;
                 write!(f, "{}[{}]", e.node, i.node)
