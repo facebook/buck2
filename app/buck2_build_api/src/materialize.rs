@@ -77,7 +77,7 @@ buck2_util::size_assert::words_of_async_fn_future!(
 #[cfg(fbcode_build)]
 buck2_util::size_assert::words_of_async_fn_future!(materialize_artifact_group, (_, _, _, _), 26);
 #[cfg(fbcode_build)]
-buck2_util::size_assert::words_of_async_fn_future!(ensure_uploaded, (_, _), 407);
+buck2_util::size_assert::words_of_async_fn_future!(ensure_uploaded, (_, _), 401);
 
 async fn materialize_artifact_group(
     ctx: &mut DiceComputations<'_>,
@@ -178,21 +178,23 @@ async fn ensure_uploaded(
 ) -> buck2_error::Result<()> {
     let digest_config = ctx.global_data().get_digest_config();
     let artifact_fs = ctx.get_artifact_fs().await?;
-    let mut dir = ActionDirectoryBuilder::empty();
-    let values = ctx.ensure_artifact_group(artifact_group).await?;
-    for (artifact, value) in values.iter() {
-        let path = artifact.resolve_path(
-            &artifact_fs,
-            if artifact.path_resolution_requires_artifact_value() {
-                Some(value.content_based_path_hash())
-            } else {
-                None
-            }
-            .as_ref(),
-        )?;
-        buck2_execute::directory::insert_artifact(&mut dir, path, value)?;
-    }
-    let dir = dir.fingerprint(digest_config.as_directory_serializer());
+    let dir = {
+        let mut dir = ActionDirectoryBuilder::empty();
+        let values = ctx.ensure_artifact_group(artifact_group).await?;
+        for (artifact, value) in values.iter() {
+            let path = artifact.resolve_path(
+                &artifact_fs,
+                if artifact.path_resolution_requires_artifact_value() {
+                    Some(value.content_based_path_hash())
+                } else {
+                    None
+                }
+                .as_ref(),
+            )?;
+            buck2_execute::directory::insert_artifact(&mut dir, path, value)?;
+        }
+        dir.fingerprint(digest_config.as_directory_serializer())
+    };
     let re_use_case = ctx
         .get_legacy_root_config_on_dice()
         .await
