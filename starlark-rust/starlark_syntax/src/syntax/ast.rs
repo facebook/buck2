@@ -509,6 +509,14 @@ fn fmt_string_literal(f: &mut Formatter<'_>, s: &str) -> fmt::Result {
     f.write_str("\"")
 }
 
+fn fmt_postfix_receiver(f: &mut Formatter<'_>, e: &Expr) -> fmt::Result {
+    if matches!(e, Expr::Minus(_) | Expr::Plus(_) | Expr::BitNot(_)) {
+        write!(f, "({e})")
+    } else {
+        Display::fmt(e, f)
+    }
+}
+
 impl Display for AstLiteral {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
@@ -547,7 +555,8 @@ impl Display for Expr {
                 if matches!(&e.node, Expr::Literal(AstLiteral::Int(_))) {
                     write!(f, "({}).{}", e.node, s.node)
                 } else {
-                    write!(f, "{}.{}", e.node, s.node)
+                    fmt_postfix_receiver(f, &e.node)?;
+                    write!(f, ".{}", s.node)
                 }
             }
             Expr::Lambda(LambdaP {
@@ -562,7 +571,8 @@ impl Display for Expr {
                 f.write_str(")")
             }
             Expr::Call(e, args) => {
-                write!(f, "{}(", e.node)?;
+                fmt_postfix_receiver(f, &e.node)?;
+                f.write_str("(")?;
                 for (i, x) in args.args.iter().enumerate() {
                     if i != 0 {
                         f.write_str(", ")?;
@@ -573,14 +583,17 @@ impl Display for Expr {
             }
             Expr::Index(e_i) => {
                 let (e, i) = &**e_i;
-                write!(f, "{}[{}]", e.node, i.node)
+                fmt_postfix_receiver(f, &e.node)?;
+                write!(f, "[{}]", i.node)
             }
             Expr::Index2(a_i0_i1) => {
                 let (a, i0, i1) = &**a_i0_i1;
-                write!(f, "{}[{}, {}]", a.node, i0.node, i1.node)
+                fmt_postfix_receiver(f, &a.node)?;
+                write!(f, "[{}, {}]", i0.node, i1.node)
             }
             Expr::Slice(e, i1, i2, i3) => {
-                write!(f, "{}[", e.node)?;
+                fmt_postfix_receiver(f, &e.node)?;
+                f.write_str("[")?;
                 if let Some(x) = i1 {
                     write!(f, "{}:", x.node)?
                 } else {

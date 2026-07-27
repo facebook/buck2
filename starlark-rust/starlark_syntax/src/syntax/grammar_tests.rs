@@ -774,6 +774,15 @@ fn test_integer_dot_display_roundtrip() {
 }
 
 #[test]
+fn test_unary_postfix_receiver_display_roundtrip() {
+    assert_display_roundtrip("(-x).field", "(-x).field\n");
+    assert_display_roundtrip("(+f)()", "(+f)()\n");
+    assert_display_roundtrip("(~x)[i]", "(~x)[i]\n");
+    assert_display_roundtrip("(-x)[i, j]", "(-x)[i, j]\n");
+    assert_display_roundtrip("(-x)[a:b:c]", "(-x)[a:b:c]\n");
+}
+
+#[test]
 fn test_float_display_roundtrip() {
     assert_display_roundtrip("1.0", "1.0\n");
 }
