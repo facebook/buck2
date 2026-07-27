@@ -525,7 +525,7 @@ async fn upload_re_logs_impl(
     re_session_id: String,
 ) -> buck2_error::Result<String> {
     let bucket = Bucket::RAGE_DUMPS;
-    let filename = format!("flat/{}-re_logs.zst", &re_session_id);
+    let filename = format!("flat/{}-re_logs.zst", re_session_id);
     upload_re_logs(manifold, bucket, re_logs_dir, &re_session_id, &filename).await?;
 
     Ok(manifold_leads(&bucket, filename))

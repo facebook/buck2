@@ -77,20 +77,20 @@ fn dice_dump_tsv(dice: &Arc<Dice>, path: &Path) -> buck2_error::Result<()> {
 
     let nodes = File::create(&nodes_path).buck_error_context(format!(
         "Failed to open DICE node dumpfile {:?}",
-        &nodes_path
+        nodes_path
     ))?;
     let mut nodes = GzEncoder::new(BufWriter::new(nodes), Compression::default());
 
     let edges = File::create(&edges_path).buck_error_context(format!(
         "Failed to open DICE edge dumpfile {:?}",
-        &edges_path
+        edges_path
     ))?;
     let mut edges = GzEncoder::new(BufWriter::new(edges), Compression::default());
 
     let nodes_currently_running =
         File::create(&nodes_currently_running_path).buck_error_context(format!(
             "Failed to open DICE node currently running dumpfile {:?}",
-            &nodes_currently_running_path
+            nodes_currently_running_path
         ))?;
     let mut nodes_currently_running = GzEncoder::new(
         BufWriter::new(nodes_currently_running),
@@ -108,15 +108,15 @@ fn dice_dump_tsv(dice: &Arc<Dice>, path: &Path) -> buck2_error::Result<()> {
 
     nodes
         .try_finish()
-        .buck_error_context(format!("Failed to flush DICE nodes to {:?}", &nodes_path))?;
+        .buck_error_context(format!("Failed to flush DICE nodes to {:?}", nodes_path))?;
     edges
         .try_finish()
-        .buck_error_context(format!("Failed to flush DICE edges to {:?}", &edges_path))?;
+        .buck_error_context(format!("Failed to flush DICE edges to {:?}", edges_path))?;
     nodes_currently_running
         .try_finish()
         .buck_error_context(format!(
             "Failed to flush DICE nodes currently running to {:?}",
-            &nodes_currently_running_path
+            nodes_currently_running_path
         ))?;
 
     Ok(())
@@ -127,7 +127,7 @@ fn dice_dump_bincode(dice: &Arc<Dice>, path: &Path) -> buck2_error::Result<()> {
     std::fs::create_dir_all(path.parent().unwrap())
         .buck_error_context("Failed to create directory")?;
     let out = File::create(&path)
-        .buck_error_context(format!("Failed to open serde DICE dumpfile {:?}", &path))?;
+        .buck_error_context(format!("Failed to open serde DICE dumpfile {:?}", path))?;
     let mut out = GzEncoder::new(BufWriter::new(out), Compression::default());
 
     bincode::serde::encode_into_std_write(
@@ -145,7 +145,7 @@ fn dice_dump_json_pretty(dice: &Arc<Dice>, path: &Path) -> buck2_error::Result<(
     std::fs::create_dir_all(path.parent().unwrap())
         .buck_error_context("Failed to create directory")?;
     let out = File::create(&path)
-        .buck_error_context(format!("Failed to open serde DICE dumpfile {:?}", &path))?;
+        .buck_error_context(format!("Failed to open serde DICE dumpfile {:?}", path))?;
     let out = GzEncoder::new(BufWriter::new(out), Compression::default());
 
     let mut writer = serde_json::Serializer::pretty(out);

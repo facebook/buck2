@@ -80,7 +80,7 @@ impl<T: Debug> std::fmt::Debug for Board<T> {
         let mut board_dbg = "\n".to_owned();
         for y in 0..HEIGHT {
             for x in 0..WIDTH {
-                board_dbg += &format!(" {:width$} ", &board_display.get(x, y), width = max_len);
+                board_dbg += &format!(" {:width$} ", board_display.get(x, y), width = max_len);
             }
             board_dbg += "\n";
         }
@@ -653,8 +653,8 @@ impl Game {
                                     "bad floater at {},{}: {:?} {:?}",
                                     x,
                                     y,
-                                    &state,
-                                    &self.stack
+                                    state,
+                                    self.stack
                                 );
                                 self.stack.set(x, y + 1, self.stack.get(x, y));
                                 self.stack.set(x, y, None);

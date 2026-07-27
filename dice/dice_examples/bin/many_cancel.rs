@@ -294,7 +294,7 @@ pub struct Config {
 async fn main() {
     let config = Config::parse();
 
-    eprintln!("Using config {:?}", &config);
+    eprintln!("Using config {:?}", config);
 
     let builder = Dice::builder();
     let dice = if config.detect_cycles {

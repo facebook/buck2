@@ -287,7 +287,7 @@ impl Key for ConfigurationNodeKey {
         let matches =
             configuration_matches(ctx, &self.target_cfg, self.target_cell, &result).await?;
 
-        Ok(ConfigurationNode::new(Some(result).filter(|_| matches)))
+        Ok(ConfigurationNode::new(matches.then_some(result)))
     }
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {

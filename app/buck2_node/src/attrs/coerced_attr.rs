@@ -360,8 +360,8 @@ impl AttrDisplayWithContext for CoercedAttr {
     fn fmt(&self, ctx: &AttrFmtContext, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             CoercedAttr::Selector(s) => s.fmt(ctx, f),
-            CoercedAttr::SelectFail(s) => write!(f, "select_fail(\"{}\")", &s),
-            CoercedAttr::SelectIncompatible(s) => write!(f, "select_incompatible(\"{}\")", &s),
+            CoercedAttr::SelectFail(s) => write!(f, "select_fail(\"{}\")", s),
+            CoercedAttr::SelectIncompatible(s) => write!(f, "select_incompatible(\"{}\")", s),
             CoercedAttr::Concat(c) => c.fmt(ctx, f),
             CoercedAttr::Bool(v) => {
                 write!(f, "{v}")

@@ -40,7 +40,7 @@ impl Component for StarlarkDebuggerComponent<'_> {
             if lines.len() < 7 {
                 lines.push(format!(
                     "( stopped)   {:<60} @ {}",
-                    &stopped.description, &stopped.stopped_at
+                    stopped.description, stopped.stopped_at
                 ));
             }
         }
@@ -48,7 +48,7 @@ impl Component for StarlarkDebuggerComponent<'_> {
             if lines.len() < 7 {
                 lines.push(format!(
                     "(*stopped) {:<60} @ {}",
-                    &stopped.description, &stopped.stopped_at
+                    stopped.description, stopped.stopped_at
                 ));
             }
         }

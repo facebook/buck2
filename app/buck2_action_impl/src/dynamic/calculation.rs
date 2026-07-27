@@ -90,7 +90,7 @@ impl Key for DynamicLambdaDiceKey {
         let analysis_values = prepare_and_execute_lambda(ctx, cancellation, lambda, self.0.dupe())
             .await
             .with_buck_error_context(|| {
-                format!("Error running dynamic analysis for `{}`", &self.0.owner())
+                format!("Error running dynamic analysis for `{}`", self.0.owner())
             })?;
         let res = Arc::new(DynamicLambdaResult { analysis_values });
         ctx.analysis_complete(

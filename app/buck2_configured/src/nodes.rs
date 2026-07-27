@@ -1143,7 +1143,7 @@ impl LookingUpConfiguredNodeContext {
 impl std::fmt::Display for LookingUpConfiguredNodeContext {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.len == 1 {
-            write!(f, "Error looking up configured node {}", &self.target)?;
+            write!(f, "Error looking up configured node {}", self.target)?;
         } else {
             writeln!(
                 f,

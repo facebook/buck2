@@ -1189,13 +1189,13 @@ impl ChromeTraceWriter {
                         self.rate_of_change_counters
                             .set_average_rate_of_change_per_s(
                                 event.timestamp(),
-                                &format!("{}_send_bytes", &nic),
+                                &format!("{}_send_bytes", nic),
                                 stats.tx_bytes,
                             )?;
                         self.rate_of_change_counters
                             .set_average_rate_of_change_per_s(
                                 event.timestamp(),
-                                &format!("{}_receive_bytes", &nic),
+                                &format!("{}_receive_bytes", nic),
                                 stats.rx_bytes,
                             )?;
                     }

@@ -57,7 +57,7 @@ fn execution_order_from_path(filepath: &Path) -> anyhow::Result<DiceExecutionOrd
     // Well, maybe it's our own stderr and we can parse it?
     let cleaned_up = magical_cleanup(&buf)?;
     serde_json::from_reader::<_, DiceExecutionOrder>(&mut cleaned_up.as_bytes())
-        .context(format!("While parsing {}", &cleaned_up))
+        .context(format!("While parsing {}", cleaned_up))
 }
 
 #[derive(clap::Parser)]

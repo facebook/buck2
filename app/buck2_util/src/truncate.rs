@@ -26,7 +26,7 @@ pub fn truncate(msg: &str, max_length: usize) -> String {
         format!(
             "{}{}{}",
             &msg[0..msg.ceil_char_boundary(max_length_without_truncation_msg / 2)],
-            &TRUNCATION_MSG,
+            TRUNCATION_MSG,
             &msg[msg.floor_char_boundary(msg.len() - (max_length_without_truncation_msg / 2))
                 ..msg.len()]
         )

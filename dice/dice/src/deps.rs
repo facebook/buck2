@@ -479,7 +479,7 @@ mod tests {
 
         let deps = tracker.collect_deps();
 
-        eprintln!("{:?}", &deps.deps);
+        eprintln!("{:?}", deps.deps);
 
         let rendered = DisplaySPDeps(deps.deps.iter()).debug_string();
 

@@ -191,7 +191,7 @@ impl Debug for SPDepsMany {
                 "deps",
                 &format!("[{}]", self.deps.iter().map(|v| v.index).join(",")),
             )
-            .field("spec", &format!("[{:?}]", &self.spec))
+            .field("spec", &format!("[{:?}]", self.spec))
             .field("trailing_deps_start", &self.trailing_deps_start)
             .finish()
     }

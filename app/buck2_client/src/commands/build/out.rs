@@ -202,7 +202,7 @@ fn copy_symlink<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(
         .buck_error_context(format!(
             "Creating symlink at {:?} pointing to {:?}",
             dst_path.as_ref(),
-            &symlink_target
+            symlink_target
         ))?;
 
     Ok(())
@@ -238,7 +238,7 @@ where
                     copy_symlink(&entry_source_path, &entry_destination_path, &copy_context)
                 })
                 .await
-                .buck_error_context(format!("Copying symlink {:?}", &entry.path()))?
+                .buck_error_context(format!("Copying symlink {:?}", entry.path()))?
             } else {
                 tokio::fs::copy(&entry.path(), &entry_destination_path)
                     .await

@@ -204,7 +204,7 @@ impl StreamingCommand for StarlarkDebugAttachCommand {
                                 if !soft_error.quiet {
                                     self.write_console(&format!(
                                         "soft error: {}",
-                                        &soft_error.payload
+                                        soft_error.payload
                                     ))?;
                                 }
                             }

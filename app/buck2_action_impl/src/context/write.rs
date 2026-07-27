@@ -303,7 +303,7 @@ pub(crate) fn analysis_actions_methods_write(methods: &mut MethodsBuilder) {
             for i in 0..written_macro_count {
                 let macro_file = this.declare_output(
                     None,
-                    &format!("{}/{}.macro", &macro_directory_path, i),
+                    &format!("{}/{}.macro", macro_directory_path, i),
                     OutputType::File,
                     eval.call_stack_top_location(),
                     path_resolution_method,

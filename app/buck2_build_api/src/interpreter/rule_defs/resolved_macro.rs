@@ -73,7 +73,7 @@ impl<'v> Display for ResolvedMacro<'v> {
                 if default_outputs.is_empty() {
                     write!(f, "$(location ...)")
                 } else {
-                    write!(f, "$(location {})", &default_outputs[0])
+                    write!(f, "$(location {})", default_outputs[0])
                 }
             }
             ResolvedMacro::Source(a) => write!(f, "$(source {a})"),

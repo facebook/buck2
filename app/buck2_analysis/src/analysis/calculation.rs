@@ -103,7 +103,7 @@ impl Key for AnalysisKey {
         ctx.analysis_started(&deferred_key)?;
         let res = get_analysis_result(ctx, &self.0, cancellation)
             .await
-            .with_buck_error_context(|| format!("Error running analysis for `{}`", &self.0))?;
+            .with_buck_error_context(|| format!("Error running analysis for `{}`", self.0))?;
         if let MaybeCompatible::Compatible(v) = &res {
             ctx.analysis_complete(&deferred_key, &DeferredHolder::Analysis(v.dupe()))?;
         }

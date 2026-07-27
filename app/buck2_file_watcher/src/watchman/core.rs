@@ -156,7 +156,7 @@ impl Display for WatchmanEvent {
         write!(
             f,
             "{:?}{}<{}>",
-            &self.event,
+            self.event,
             self.kind.symbol(),
             self.path.to_string_lossy()
         )

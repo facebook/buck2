@@ -452,7 +452,7 @@ impl Component for ProgressHeader<'_> {
         let header_width =
             "Executing actions   _/_         _ local,   _ remote  ".len() + 4 * (num_width - 1);
 
-        let elapsed = format!("elapsed {}", &self.time_elapsed);
+        let elapsed = format!("elapsed {}", self.time_elapsed);
 
         // During normal drawing, the elapsed time is in the last row at the end. In the final rendering it gets its own line and is on the left.
         let inline_elapsed = match mode {

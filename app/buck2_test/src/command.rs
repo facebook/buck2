@@ -1889,7 +1889,7 @@ fn ai_agent_tpx_args(agent_context: &[buck2_data::AgentContextEntry]) -> Vec<Str
     };
 
     push_tag("ai-agent".to_owned());
-    push_tag(format!("ai_agent_id={}", &id_entry.value));
+    push_tag(format!("ai_agent_id={}", id_entry.value));
 
     if let Some(inv) = find(AgentContextEntry::KEY_INVOCATION_ID) {
         let inv_id = inv

@@ -1979,7 +1979,6 @@ impl BuckTestOrchestrator<'_> {
                     std_streams,
                     exit_code,
                     status,
-                    timing: _,
                     ..
                 },
             ..

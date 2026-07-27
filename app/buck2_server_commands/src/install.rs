@@ -713,7 +713,7 @@ impl<'a> ConnectedInstaller<'a> {
                     path: path.to_owned(),
                     err: format!(
                         "Received install id: {} doesn't match with the sent one: {}",
-                        response.install_id, &install_id
+                        response.install_id, install_id
                     ),
                 }
                 .into());

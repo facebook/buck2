@@ -120,10 +120,7 @@ pub fn write_starlark_profile(
 
     if let Some(profile) = profile_data.profile_data.gen_flame_data()? {
         let mut options = inferno::flamegraph::Options::default();
-        let title = format!(
-            "Flame Graph - {}",
-            &profile_data.profile_data.profile_mode().to_string()
-        );
+        let title = format!("Flame Graph - {}", profile_data.profile_data.profile_mode());
         options.title = if targets.len() == 1 {
             format!("{} on {}", title, targets[0])
         } else if targets.len() > 1 {

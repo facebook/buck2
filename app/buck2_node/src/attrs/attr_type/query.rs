@@ -82,7 +82,7 @@ pub struct QueryMacroBase<P: ProvidersLabelMaybeConfigured> {
 
 impl<P: ProvidersLabelMaybeConfigured> Display for QueryMacroBase<P> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {}", &self.expansion_type, self.query.query)?;
+        write!(f, "{} {}", self.expansion_type, self.query.query)?;
         Ok(())
     }
 }

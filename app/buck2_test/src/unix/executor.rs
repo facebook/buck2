@@ -94,7 +94,7 @@ pub(crate) async fn spawn(
     let proc = command.spawn().with_buck_error_context(|| {
         format!(
             "Failed to start {} for OutOfProcessTestExecutor",
-            &executable.display()
+            executable.display()
         )
     })?;
 

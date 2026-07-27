@@ -469,9 +469,9 @@ impl<'a> BuckdLifecycle<'a> {
             .unwrap_or_default();
         let unit_name = format!(
             "buck2-daemon.{}.{}.{}",
-            &repo_name,
+            repo_name,
             self.paths.isolation.as_str(),
-            &daemon_id,
+            daemon_id,
         );
 
         let (cmd, resource_control_args) = create_daemon_spawn_command(

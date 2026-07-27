@@ -238,7 +238,7 @@ pub(crate) fn delete_unknown_disk_state(
     res.with_buck_error_context(|| {
         format!(
             "deleting unrecognized caches in {} to prevent them from going stale",
-            &cache_dir_path
+            cache_dir_path
         )
     })
 }

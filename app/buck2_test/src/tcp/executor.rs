@@ -56,7 +56,7 @@ pub(crate) async fn spawn(
     let proc = command.spawn().with_buck_error_context(|| {
         format!(
             "Failed to start {} for OutOfProcessTestExecutor",
-            &executable.display()
+            executable.display()
         )
     })?;
 
@@ -72,7 +72,7 @@ pub(crate) async fn spawn(
         .with_buck_error_context(|| {
             format!(
                 "Failed to accept TCP connection from {}",
-                &executable.display()
+                executable.display()
             )
         })?;
 

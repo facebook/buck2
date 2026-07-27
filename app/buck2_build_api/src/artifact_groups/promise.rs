@@ -147,7 +147,7 @@ impl PromiseArtifactId {
 
 impl Display for PromiseArtifactId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}#{}", &self.owner, self.id)
+        write!(f, "{}#{}", self.owner, self.id)
     }
 }
 
@@ -234,7 +234,7 @@ impl Display for PromiseArtifact {
             write!(
                 f,
                 "PromiseArtifact(Unresolved({}, {}))",
-                &self.id.owner, self.id.id
+                self.id.owner, self.id.id
             )
         }
     }

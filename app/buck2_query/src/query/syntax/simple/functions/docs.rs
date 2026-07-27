@@ -33,7 +33,7 @@ impl ArgDescription {
     pub fn render_markdown(&self, options: &MarkdownOptions) -> String {
         format!(
             "{}: {}",
-            &self.name,
+            self.name,
             self.repr_format
                 .replace("{}", &self.arg_type.rendered_reference(options))
         )
@@ -62,7 +62,7 @@ impl FunctionDescription {
         format!(
             " - {}{}",
             self.rendered_reference(options),
-            &match &self.short_help {
+            match &self.short_help {
                 None => "".to_owned(),
                 Some(v) => format!(": {v}"),
             }

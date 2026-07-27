@@ -1661,7 +1661,7 @@ impl RemoteExecutionClientImpl {
             },
             ..Default::default()
         };
-        let re_action = format!("Execute with digest {}", &action_digest);
+        let re_action = format!("Execute with digest {}", action_digest);
         let res = with_error_handler(
             re_action.as_str(),
             self.get_session_id(),
