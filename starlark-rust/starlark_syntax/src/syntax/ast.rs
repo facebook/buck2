@@ -500,7 +500,7 @@ fn fmt_string_literal(f: &mut Formatter<'_>, s: &str) -> fmt::Result {
             '\n' => f.write_str("\\n")?,
             '\t' => f.write_str("\\t")?,
             '\r' => f.write_str("\\r")?,
-            '\0' => f.write_str("\\0")?,
+            '\0' => f.write_str("\\x00")?,
             '"' => f.write_str("\\\"")?,
             '\\' => f.write_str("\\\\")?,
             x => f.write_str(&x.to_string())?,

@@ -769,6 +769,16 @@ fn test_f_string_display_roundtrip() {
 }
 
 #[test]
+fn test_nul_display_roundtrip() {
+    assert_display_roundtrip(r#"x = "\x001""#, "x = \"\\x001\"\n");
+    assert_display_roundtrip(r#"x = f"\x001{y}""#, "x = \"\\x001{}\".format(y)\n");
+    assert_display_roundtrip(
+        r#"load("m", symbol = "\x001")"#,
+        "load(\"m\", symbol = \"\\x001\")\n",
+    );
+}
+
+#[test]
 fn test_integer_dot_display_roundtrip() {
     assert_display_roundtrip("(1).imag", "(1).imag\n");
 }
