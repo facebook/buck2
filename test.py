@@ -284,6 +284,7 @@ def clippy(package_args: list[str], fix: bool, target_args: list[str]) -> None:
         [
             "cargo",
             "clippy",
+            "--keep-going",
             *package_args,
             *target_args,
             *clippy_fix_args,
