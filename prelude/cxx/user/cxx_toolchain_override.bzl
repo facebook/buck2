@@ -197,6 +197,7 @@ def _cxx_toolchain_override(ctx):
 
     base_binary_utilities_info = base_toolchain.binary_utilities_info
     binary_utilities_info = BinaryUtilitiesInfo(
+        bolt = _pick_bin(ctx.attrs.bolt, base_binary_utilities_info.bolt),
         nm = _pick_bin(ctx.attrs.nm, base_binary_utilities_info.nm),
         objcopy = _pick_bin(ctx.attrs.objcopy, base_binary_utilities_info.objcopy),
         objdump = _pick_bin(ctx.attrs.objdump, base_binary_utilities_info.objdump),
@@ -276,6 +277,7 @@ cxx_toolchain_override_registration_spec = RuleRegistrationSpec(
         "asm_compiler_type": attrs.option(attrs.string(), default = None),
         "asm_preprocessor_flags": attrs.option(attrs.list(attrs.arg()), default = None),
         "base": attrs.toolchain_dep(providers = [CxxToolchainInfo]),
+        "bolt": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "bolt_enabled": attrs.option(attrs.bool(), default = None),
         "c_compiler": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "c_compiler_flags": attrs.option(attrs.list(attrs.arg()), default = None),
