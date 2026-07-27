@@ -493,7 +493,12 @@ def _compile(
     )
 
     actions.run(
-        compile_cmd, env = env, category = "go_compile", identifier = "{} [{}]".format(pkg_import_path, build_variant_id), error_handler = go_build_error_handler
+        compile_cmd,
+        env = env,
+        category = "go_compile",
+        identifier = "{} [{}]".format(pkg_import_path, build_variant_id),
+        error_handler = go_build_error_handler,
+        allow_cache_upload = go_toolchain.allow_cache_upload,
     )
 
     return (out_x, out_a, asmhdr)
@@ -533,7 +538,7 @@ def _symabis(
         s_files,
     ]
 
-    actions.run(asm_cmd, env = env, category = "go_symabis", identifier = pkg_import_path)
+    actions.run(asm_cmd, env = env, category = "go_symabis", identifier = pkg_import_path, allow_cache_upload = go_toolchain.allow_cache_upload)
 
     return symabis
 
@@ -574,7 +579,13 @@ def _asssembly(
             s_file,
         ]
 
-        actions.run(asm_cmd, env = env, category = "go_assembly", identifier = "{}/{} [{}]".format(pkg_import_path, s_file.short_path, build_variant_id))
+        actions.run(
+            asm_cmd,
+            env = env,
+            category = "go_assembly",
+            identifier = "{}/{} [{}]".format(pkg_import_path, s_file.short_path, build_variant_id),
+            allow_cache_upload = go_toolchain.allow_cache_upload,
+        )
 
     return o_files
 
@@ -597,7 +608,13 @@ def _pack(
         o_files,
     ]
 
-    actions.run(pack_cmd, env = env, category = "go_pack", identifier = "{} [{}]".format(pkg_import_path, build_variant_id))
+    actions.run(
+        pack_cmd,
+        env = env,
+        category = "go_pack",
+        identifier = "{} [{}]".format(pkg_import_path, build_variant_id),
+        allow_cache_upload = go_toolchain.allow_cache_upload,
+    )
 
     return pkg_file
 
@@ -622,7 +639,7 @@ def _embedcfg(
         embed_patterns,
     ]
 
-    actions.run(embed_cmd, category = "go_embedcfg", identifier = pkg_import_path)
+    actions.run(embed_cmd, category = "go_embedcfg", identifier = pkg_import_path, allow_cache_upload = go_toolchain.allow_cache_upload)
 
     return embedcfg.with_associated_artifacts([srcs_dir])
 

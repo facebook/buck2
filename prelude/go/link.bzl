@@ -277,6 +277,7 @@ def link(
             shared = use_shared_code,
             identifier = identifier_prefix,
             out = output.as_output(),
+            allow_cache_upload = go_toolchain.allow_cache_upload,
         )
     )
 
@@ -298,6 +299,7 @@ def _link_impl(
     shared: bool,
     identifier: str,
     out: OutputArtifact,
+    allow_cache_upload: bool | None,
 ) -> list[Provider]:
     go_stdlib_value = go_stdlib_value.providers[GoStdlibDynamicValue]
 
@@ -311,7 +313,7 @@ def _link_impl(
         ["-o", out],
         main_pkg_o,
     ]
-    actions.run(cmd, env = env_vars, category = "go_link", identifier = identifier)
+    actions.run(cmd, env = env_vars, category = "go_link", identifier = identifier, allow_cache_upload = allow_cache_upload)
     return []
 
 _link = dynamic_actions(
@@ -326,5 +328,6 @@ _link = dynamic_actions(
         "shared": dynattrs.value(bool),
         "identifier": dynattrs.value(str),
         "out": dynattrs.output(),
+        "allow_cache_upload": dynattrs.value(bool | None),
     },
 )

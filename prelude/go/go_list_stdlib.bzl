@@ -33,7 +33,7 @@ def go_list_stdlib(actions: AnalysisActions, go_toolchain: GoToolchainInfo, cgo_
         ["-asan"] if go_toolchain.asan and cgo_enabled else [],
         "std",
     ]
-    actions.run(go_list_args, env = env, category = "go_list_stdlib")
+    actions.run(go_list_args, env = env, category = "go_list_stdlib", allow_cache_upload = go_toolchain.allow_cache_upload)
 
     return go_list_stdlib_out
 

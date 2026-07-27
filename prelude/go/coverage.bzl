@@ -67,6 +67,6 @@ def cover_srcs(
         cgo_files,
     ]
 
-    actions.run(cover_cmd, env = env, category = "go_cover", identifier = pkg_import_path)
+    actions.run(cover_cmd, env = env, category = "go_cover", identifier = pkg_import_path, allow_cache_upload = go_toolchain.allow_cache_upload)
 
     return [instrum_vars_file] + instrum_go_files, instrum_cgo_files, out_config_file

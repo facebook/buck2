@@ -30,6 +30,7 @@ def _go_toolchain_impl(ctx):
             },
         ),
         GoToolchainInfo(
+            allow_cache_upload = ctx.attrs.allow_cache_upload,
             assembler = go_distr.tool_asm,
             assembler_flags = ctx.attrs.assembler_flags,
             cxx_compiler_flags = ctx.attrs.cxx_compiler_flags,
@@ -63,6 +64,7 @@ go_toolchain = rule(
     impl = _go_toolchain_impl,
     is_toolchain_rule = True,
     attrs = {
+        "allow_cache_upload": attrs.option(attrs.bool(), default = None),
         "asan": attrs.bool(default = False),
         "assembler_flags": attrs.list(attrs.arg(), default = []),
         "build_tags": attrs.list(attrs.string(), default = []),

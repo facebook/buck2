@@ -127,7 +127,7 @@ def _cgo(
     env = get_toolchain_env_vars(go_toolchain)
     env["CC"] = _cxx_wrapper(actions, go_toolchain, cgo_build_context, own_pre)
 
-    actions.run(cmd, env = env, category = "go_cgo", identifier = pkg_import_path)
+    actions.run(cmd, env = env, category = "go_cgo", identifier = pkg_import_path, allow_cache_upload = go_toolchain.allow_cache_upload)
 
     return project_go_and_c_files(srcs, gen_dir), gen_dir
 
