@@ -329,7 +329,6 @@ cxx_extra_attributes = {
             "exported_header_style": attrs.enum(IncludeType, default = "system"),
             "header_dirs": attrs.option(attrs.list(attrs.source(allow_directory = True)), default = None),
             "linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
-            "platform_header_dirs": attrs.option(attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.source(allow_directory = True)))), default = None),
             "post_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
             "preferred_linkage": attrs.enum(
                 Linkage.values(),
