@@ -543,7 +543,13 @@ impl Display for Expr {
                 comma_separated_fmt(f, e, |x, f| write!(f, "{}", x.node), true)?;
                 f.write_str(")")
             }
-            Expr::Dot(e, s) => write!(f, "{}.{}", e.node, s.node),
+            Expr::Dot(e, s) => {
+                if matches!(&e.node, Expr::Literal(AstLiteral::Int(_))) {
+                    write!(f, "({}).{}", e.node, s.node)
+                } else {
+                    write!(f, "{}.{}", e.node, s.node)
+                }
+            }
             Expr::Lambda(LambdaP {
                 params,
                 body,

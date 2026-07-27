@@ -769,6 +769,11 @@ fn test_f_string_display_roundtrip() {
 }
 
 #[test]
+fn test_integer_dot_display_roundtrip() {
+    assert_display_roundtrip("(1).imag", "(1).imag\n");
+}
+
+#[test]
 fn test_dict_comprehension_parses() {
     assert_eq!(
         parse("x = {k: v for k in xs if pred(k)}"),
