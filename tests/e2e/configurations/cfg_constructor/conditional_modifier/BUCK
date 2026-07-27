@@ -1,21 +1,24 @@
-load("@fbsource//tools/build_defs:fb_native_wrapper.bzl", "fb_native")
 load("@prelude//cfg/modifier:conditional_modifier.bzl", "conditional_modifier")
+load("@prelude//configurations:constraint_alias.bzl", "constraint_with_aliases")
 
 oncall("build_infra")
 
 # This is for testing `conditional_modifier` rule builds. The bxl tests will test that the produced values
 # do what we expect them to do for modifier resolution
 
-fb_native.constraint_setting(name = "test")
-
-fb_native.constraint_value(
-    name = "test1",
-    constraint_setting = ":test",
-)
-
-fb_native.constraint_value(
-    name = "test2",
-    constraint_setting = ":test",
+constraint_with_aliases(
+    name = "test",
+    aliases = {
+        "test1": "test1",
+        "test2": "test2",
+    },
+    default = "unspecified",
+    values = [
+        "test1",
+        "test2",
+        "unspecified",
+    ],
+    visibility = [],
 )
 
 conditional_modifier(
