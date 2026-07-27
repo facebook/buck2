@@ -238,26 +238,27 @@ public class ExopackageInstaller {
     }
 
     LOG.debug("App path: %s", appPackageInfo.get().apkPath);
-    String installedAppSignature = getInstalledAppSignature(appPackageInfo.get().apkPath);
-    String localAppSignature = ExopackageUtil.getJarSignature(apkInfo.getApkPath().toString());
-    LOG.info("Local app signature: %s", localAppSignature);
-    LOG.info("Remote app signature: %s", installedAppSignature);
+    String installedAppManifestDigest = getInstalledAppManifestDigest(appPackageInfo.get().apkPath);
+    String localAppManifestDigest =
+        ExopackageUtil.getJarManifestDigest(apkInfo.getApkPath().toString());
+    LOG.info("Local APK manifest digest: %s", localAppManifestDigest);
+    LOG.info("Installed APK manifest digest: %s", installedAppManifestDigest);
 
-    if (!installedAppSignature.equals(localAppSignature)) {
-      LOG.info("App signatures do not match.  Must re-install.");
+    if (!installedAppManifestDigest.equals(localAppManifestDigest)) {
+      LOG.info("APK manifest digests do not match.  Must re-install.");
       return true;
     }
 
-    LOG.info("App signatures match.  No need to install.");
+    LOG.info("APK manifest digests match.  No need to install.");
     return false;
   }
 
-  private String getInstalledAppSignature(String packagePath) throws Exception {
-    String output = device.getSignature(packagePath);
+  private String getInstalledAppManifestDigest(String packagePath) throws Exception {
+    String output = device.getApkManifestDigest(packagePath);
 
     String result = output.trim();
     if (result.contains("\n") || result.contains("\r")) {
-      throw new IllegalStateException("Unexpected return from get-signature:\n" + output);
+      throw new IllegalStateException("Unexpected APK manifest digest:\n" + output);
     }
 
     return result;

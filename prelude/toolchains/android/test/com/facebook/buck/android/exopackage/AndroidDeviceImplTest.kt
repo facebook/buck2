@@ -10,6 +10,8 @@
 
 package com.facebook.buck.android.exopackage
 
+import com.facebook.buck.installer.android.AndroidInstallErrorClassifier
+import com.facebook.buck.installer.android.AndroidInstallErrorTag
 import com.facebook.buck.installer.android.AndroidInstallException
 import java.io.File
 import org.junit.Assert.assertEquals
@@ -206,7 +208,7 @@ class AndroidDeviceImplTest {
   }
 
   @Test
-  fun testGetSignature() {
+  fun testGetApkManifestDigest() {
     val packagePath = "/data/app/com.test.app-1/base.apk"
     whenever(
             mockAdbUtils.executeAdbShellCommand(
@@ -223,7 +225,7 @@ class AndroidDeviceImplTest {
         )
         .thenReturn("SHA1-Digest-Manifest: abcdef1234567890")
 
-    val result = androidDevice.getSignature(packagePath)
+    val result = androidDevice.getApkManifestDigest(packagePath)
 
     assertEquals("abcdef1234567890", result)
   }
@@ -495,7 +497,7 @@ class AndroidDeviceImplTest {
   }
 
   @Test
-  fun testInstallApkDoesNotRecoverFromUnrelatedFailure() {
+  fun testInstallApkClassifiesInsufficientStorageWithoutUninstalling() {
     val apkFile = mock<File>()
     whenever(apkFile.absolutePath).thenReturn("/path/to/test.apk")
     whenever(apkFile.name).thenReturn("test.apk")
@@ -515,10 +517,21 @@ class AndroidDeviceImplTest {
       fail("Expected AndroidInstallException")
     } catch (e: AndroidInstallException) {
       assertTrue(e.message!!.contains("Failed to install test.apk"))
+      assertTrue(e.message!!.contains("NO_SPACE_LEFT_ON_DEVICE"))
     }
 
-    // A non-signature-mismatch failure must not trigger an uninstall.
+    // Classification must not make the low-level installer uninstall implicitly.
     verify(mockAdbUtils, never())
         .executeAdbCommand(argThat { startsWith("uninstall") }, eq(serialNumber), any())
+  }
+
+  @Test
+  fun testClassifiesAndroidInsufficientStorageErrorCode() {
+    val error =
+        AndroidInstallErrorClassifier.fromErrorMessage(
+            "Failure [INSTALL_FAILED_INSUFFICIENT_STORAGE: Failed to override installation location]"
+        )
+
+    assertEquals(setOf(AndroidInstallErrorTag.NO_SPACE_LEFT_ON_DEVICE), error.tags)
   }
 }

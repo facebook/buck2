@@ -67,7 +67,7 @@ public class TestAndroidDevice implements AndroidDevice {
   }
 
   @Override
-  public String getSignature(String packagePath) throws Exception {
+  public String getApkManifestDigest(String packagePath) throws Exception {
     throw new UnsupportedOperationException();
   }
 

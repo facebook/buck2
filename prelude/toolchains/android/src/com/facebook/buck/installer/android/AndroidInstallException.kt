@@ -13,6 +13,12 @@ package com.facebook.buck.installer.android
 import com.facebook.buck.core.util.log.Logger
 import com.facebook.buck.installer.InstallError
 
+private const val INSUFFICIENT_STORAGE_ERROR = "INSTALL_FAILED_INSUFFICIENT_STORAGE"
+private const val NO_SPACE_LEFT_ON_DEVICE_ERROR = "No space left on device"
+
+internal fun isInsufficientStorageFailure(message: String): Boolean =
+    message.contains(INSUFFICIENT_STORAGE_ERROR) || message.contains(NO_SPACE_LEFT_ON_DEVICE_ERROR)
+
 class AndroidInstallException(val installError: InstallError) :
     RuntimeException(installError.message) {
   init {
@@ -56,7 +62,7 @@ class AndroidInstallException(val installError: InstallError) :
       val errorMessage = exceptionMessage?.let { "\n" + it } ?: ""
       val fullMessage = "$message.$errorMessage"
       val tag =
-          if (fullMessage.contains("No space left on device")) {
+          if (isInsufficientStorageFailure(fullMessage)) {
             AndroidInstallErrorTag.NO_SPACE_LEFT_ON_DEVICE
           } else {
             AndroidInstallErrorTag.ADB_COMMAND_FAILED

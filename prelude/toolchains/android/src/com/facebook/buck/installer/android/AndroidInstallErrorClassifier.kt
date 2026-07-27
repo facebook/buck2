@@ -14,7 +14,7 @@ import com.facebook.buck.installer.InstallError
 
 object AndroidInstallErrorClassifier {
   fun fromErrorMessage(input: String): InstallError {
-    if (input.contains("No space left on device")) {
+    if (isInsufficientStorageFailure(input)) {
       return createInstallError(
           AndroidInstallErrorTag.NO_SPACE_LEFT_ON_DEVICE,
           "No space left on device. Free up space on the device and try again.",

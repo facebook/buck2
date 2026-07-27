@@ -47,7 +47,7 @@ public class ExopackageUtil {
     return filesBuilder.build();
   }
 
-  public static String getJarSignature(String packagePath) throws IOException {
+  public static String getJarManifestDigest(String packagePath) throws IOException {
     Pattern signatureFilePattern = Pattern.compile("META-INF/[A-Z]+\\.SF");
 
     ZipFile packageZip = null;

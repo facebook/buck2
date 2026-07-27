@@ -86,7 +86,7 @@ public interface AndroidDevice {
 
   void uninstallPackage(String packageName) throws Exception;
 
-  String getSignature(String packagePath) throws Exception;
+  String getApkManifestDigest(String packagePath) throws Exception;
 
   ImmutableSortedSet<Path> listDirRecursive(Path dirPath) throws Exception;
 

@@ -348,7 +348,7 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
   }
 
   @Throws(Exception::class)
-  override fun getSignature(packagePath: String): String {
+  override fun getApkManifestDigest(packagePath: String): String {
     val entry: String =
         executeAdbShellCommand("unzip -l $packagePath | grep -E -o 'META-INF/[A-Z]+\\.SF'").trim()
     val result: String =
