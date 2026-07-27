@@ -179,7 +179,7 @@ impl Uploader {
             let client = client.clone();
             let metadata = use_case.metadata(identity);
             let digests = input_digests.iter().map(|d| d.to_re()).collect();
-            let digests_ttl = client.get_digests_ttl(digests, metadata).await;
+            let digests_ttl = client.get_digests_ttl(digests, &metadata).await;
 
             let input_digests = input_digests.iter().copied().collect();
 
@@ -448,7 +448,7 @@ impl Uploader {
                 client.get_session_id(),
                 client.get_raw_re_client()
                     .upload(
-                        use_case.metadata(identity),
+                        &use_case.metadata(identity),
                         UploadRequest {
                             files_with_digest: Some(upload_files),
                             inlined_blobs_with_digest: Some(upload_blobs),
@@ -482,13 +482,13 @@ impl Uploader {
 buck2_util::size_assert::words_of_async_fn_future!(
     Uploader::upload,
     (_, _, _, _, _, _, _, _, _, _),
-    842
+    327
 );
 #[cfg(fbcode_build)] // Relies on fbcode future sizes
 buck2_util::size_assert::words_of_async_fn_future!(
     Uploader::find_missing,
     (_, _, _, _, _, _, _),
-    808
+    257
 );
 
 fn should_error_for_missing_digest(info: &CasDownloadInfo) -> bool {
@@ -693,7 +693,7 @@ fn query_digest_ttls<'s>(
     let digests = input_digests.iter().map(|d| d.to_re()).collect();
 
     async move {
-        let digests_ttl = client.get_digests_ttl(digests, metadata).await;
+        let digests_ttl = client.get_digests_ttl(digests, &metadata).await;
 
         {
             let mut guard = deduper.lock().expect("Poisoned lock");

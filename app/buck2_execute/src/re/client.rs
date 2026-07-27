@@ -421,7 +421,7 @@ impl RemoteExecutionClient {
     pub async fn get_digests_ttl(
         &self,
         digests: Vec<TDigest>,
-        metadata: RemoteExecutionMetadata,
+        metadata: &RemoteExecutionMetadata,
     ) -> buck2_error::Result<GetDigestsTtlResponse> {
         self.data
             .get_digests_ttl
@@ -432,7 +432,7 @@ impl RemoteExecutionClient {
     pub async fn get_digest_expirations(
         &self,
         digests: Vec<TDigest>,
-        metadata: RemoteExecutionMetadata,
+        metadata: &RemoteExecutionMetadata,
     ) -> buck2_error::Result<Vec<(TDigest, DateTime<Utc>)>> {
         let now = Utc::now();
         let ttls = self.get_digests_ttl(digests, metadata).await?;
@@ -1066,7 +1066,7 @@ impl RemoteExecutionClientImpl {
             self.client()
                 .get_action_cache_client()
                 .get_action_result(
-                    use_case.metadata(None),
+                    &use_case.metadata(None),
                     ActionResultRequest {
                         digest: action_digest.to_re(),
                         platform: Some(re_platform(platform)),
@@ -1112,7 +1112,7 @@ impl RemoteExecutionClientImpl {
             self.client()
                 .get_cas_client()
                 .upload(
-                    use_case.metadata(None),
+                    &use_case.metadata(None),
                     UploadRequest {
                         files_with_digest: Some(files_with_digest),
                         inlined_blobs_with_digest: Some(inlined_blobs_with_digest),
@@ -1128,7 +1128,7 @@ impl RemoteExecutionClientImpl {
 
     async fn execute_impl(
         &self,
-        metadata: RemoteExecutionMetadata,
+        metadata: &RemoteExecutionMetadata,
         request: ExecuteRequest,
         action_digest: &ActionDigest,
         manager: &mut CommandExecutionManager,
@@ -1666,7 +1666,7 @@ impl RemoteExecutionClientImpl {
             re_action.as_str(),
             self.get_session_id(),
             self.execute_impl(
-                metadata,
+                &metadata,
                 request,
                 &action_digest,
                 manager,
@@ -1761,7 +1761,7 @@ impl RemoteExecutionClientImpl {
             self.client()
                 .get_cas_client()
                 .download(
-                    use_case.metadata(identity),
+                    &use_case.metadata(identity),
                     DownloadRequest {
                         inlined_digests: Some(digests),
                         ..Default::default()
@@ -1804,7 +1804,7 @@ impl RemoteExecutionClientImpl {
             self.client()
                 .get_cas_client()
                 .download(
-                    use_case.metadata(None),
+                    &use_case.metadata(None),
                     DownloadRequest {
                         inlined_digests: Some(vec![digest.clone()]),
                         ..Default::default()
@@ -1833,7 +1833,7 @@ impl RemoteExecutionClientImpl {
             "upload_blob",
             self.get_session_id(),
             self.client()
-                .upload_blob_with_digest(blob.blob, blob.digest, use_case.metadata(None))
+                .upload_blob_with_digest(blob.blob, blob.digest, &use_case.metadata(None))
                 .await,
         )
     }
@@ -1879,7 +1879,7 @@ impl RemoteExecutionClientImpl {
                     self.client()
                         .get_cas_client()
                         .download(
-                            use_case.metadata(None),
+                            &use_case.metadata(None),
                             DownloadRequest {
                                 file_digests: Some(chunk),
                                 ..Default::default()
@@ -1921,7 +1921,7 @@ impl RemoteExecutionClientImpl {
     async fn get_digests_ttl(
         &self,
         digests: Vec<TDigest>,
-        metadata: RemoteExecutionMetadata,
+        metadata: &RemoteExecutionMetadata,
     ) -> buck2_error::Result<GetDigestsTtlResponse> {
         with_error_handler(
             "get_digests_ttl",
@@ -1953,7 +1953,7 @@ impl RemoteExecutionClientImpl {
             self.client()
                 .get_cas_client()
                 .extend_digest_ttl(
-                    use_case.metadata(None),
+                    &use_case.metadata(None),
                     ExtendDigestsTtlRequest {
                         digests,
                         ttl: ttl.as_secs() as i64,
@@ -1989,7 +1989,7 @@ impl RemoteExecutionClientImpl {
             self.client()
                 .get_action_cache_client()
                 .write_action_result(
-                    RemoteExecutionMetadata {
+                    &RemoteExecutionMetadata {
                         platform: Some(re_platform(platform)),
                         client_context: Some(TClientContextMetadata {
                             attributes,
@@ -2025,7 +2025,7 @@ impl RemoteExecutionClientImpl {
 buck2_util::size_assert::words_of_async_fn_future!(
     RemoteExecutionClientImpl::get_digests_ttl,
     (_, _, _),
-    587
+    35
 );
 
 /// Drop the REClient on a blocking thread. The REClient destructor does a blocking wait on async

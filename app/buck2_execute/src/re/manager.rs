@@ -509,7 +509,7 @@ impl ManagedRemoteExecutionClient {
         self.lock()?
             .get()
             .await?
-            .get_digest_expirations(digests, self.use_case.metadata(None))
+            .get_digest_expirations(digests, &self.use_case.metadata(None))
             .await
     }
 

@@ -77,7 +77,7 @@ buck2_util::size_assert::words_of_async_fn_future!(
 #[cfg(fbcode_build)]
 buck2_util::size_assert::words_of_async_fn_future!(materialize_artifact_group, (_, _, _, _), 26);
 #[cfg(fbcode_build)]
-buck2_util::size_assert::words_of_async_fn_future!(ensure_uploaded, (_, _), 922);
+buck2_util::size_assert::words_of_async_fn_future!(ensure_uploaded, (_, _), 407);
 
 async fn materialize_artifact_group(
     ctx: &mut DiceComputations<'_>,
