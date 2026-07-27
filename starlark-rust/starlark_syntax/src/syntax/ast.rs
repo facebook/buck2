@@ -513,7 +513,7 @@ impl Display for AstLiteral {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             AstLiteral::Int(i) => write!(f, "{}", i.node),
-            AstLiteral::Float(n) => write!(f, "{}", n.node),
+            AstLiteral::Float(n) => write!(f, "{:?}", n.node),
             AstLiteral::String(s) => fmt_string_literal(f, &s.node),
             AstLiteral::Bytes(b) => {
                 f.write_str("b\"")?;
