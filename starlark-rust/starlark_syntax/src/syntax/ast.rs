@@ -674,12 +674,14 @@ impl Display for AssignTarget {
                 if matches!(&e.node, Expr::Literal(AstLiteral::Int(_))) {
                     write!(f, "({}).{}", e.node, s.node)
                 } else {
-                    write!(f, "{}.{}", e.node, s.node)
+                    fmt_postfix_receiver(f, &e.node)?;
+                    write!(f, ".{}", s.node)
                 }
             }
             AssignTarget::Index(e_i) => {
                 let (e, i) = &**e_i;
-                write!(f, "{}[{}]", e.node, i.node)
+                fmt_postfix_receiver(f, &e.node)?;
+                write!(f, "[{}]", i.node)
             }
             AssignTarget::Identifier(s) => write!(f, "{}", s.node),
         }
