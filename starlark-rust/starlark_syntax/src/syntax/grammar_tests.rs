@@ -760,6 +760,7 @@ fn test_slice_forms_cover_all_components() {
     assert_assignment_rhs_is_slice("x = a[:2]", "a", None, Some("2"), None);
     assert_assignment_rhs_is_slice("x = a[1:]", "a", Some("1"), None, None);
     assert_assignment_rhs_is_slice("x = a[1:2:3]", "a", Some("1"), Some("2"), Some("3"));
+    assert_display_roundtrip("a[1:2]", "a[1:2]\n");
 }
 
 #[test]
@@ -798,6 +799,12 @@ fn test_error_tuple_trailing_comma() {
 
 pub fn parse(program: &str) -> String {
     parse_ast(program).statement.to_string()
+}
+
+fn assert_display_roundtrip(program: &str, expected: &str) {
+    let displayed = parse(program);
+    assert_eq!(displayed, expected);
+    assert_eq!(parse(&displayed), displayed);
 }
 
 pub fn parse_ast(program: &str) -> AstModule {

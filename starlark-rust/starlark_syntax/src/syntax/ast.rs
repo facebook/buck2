@@ -574,7 +574,7 @@ impl Display for Expr {
                 write!(f, "{}[{}, {}]", a.node, i0.node, i1.node)
             }
             Expr::Slice(e, i1, i2, i3) => {
-                write!(f, "{}[]", e.node)?;
+                write!(f, "{}[", e.node)?;
                 if let Some(x) = i1 {
                     write!(f, "{}:", x.node)?
                 } else {
@@ -586,7 +586,7 @@ impl Display for Expr {
                 if let Some(x) = i3 {
                     write!(f, ":{}", x.node)?
                 }
-                Ok(())
+                f.write_str("]")
             }
             Expr::Identifier(s) => Display::fmt(&s.node, f),
             Expr::Not(e) => write!(f, "(not {})", e.node),
