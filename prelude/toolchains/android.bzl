@@ -7,6 +7,7 @@
 # above-listed licenses.
 
 load("@prelude//android:android_toolchain.bzl", "AndroidPlatformInfo", "AndroidToolchainInfo")
+load("@prelude//tests:test_listing.bzl", "TestListingInfo")
 
 def _android_sdk_tools_impl(ctx):
     sub_targets = {}
@@ -160,6 +161,9 @@ def system_android_toolchain_rule_impl(ctx):
         AndroidPlatformInfo(
             name = ctx.attrs.name,
         ),
+        TestListingInfo(
+            list_tests = ctx.attrs.list_tests,
+        ),
         AndroidToolchainInfo(
             aapt2 = ctx.attrs.aapt2[RunInfo],
             aapt2_filter_resources = ctx.attrs.aapt2_filter_resources[RunInfo],
@@ -256,6 +260,7 @@ system_android_toolchain_rule = rule(
         "instrumentation_test_runner_main_class": attrs.string(),
         "jar_splitter_command": attrs.dep(providers = [RunInfo]),
         "jdk_system_image": attrs.source(),
+        "list_tests": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
         "manifest_utils": attrs.dep(providers = [RunInfo]),
         "merge_android_resource_sources": attrs.dep(providers = [RunInfo]),
         "merge_android_resources": attrs.dep(providers = [RunInfo]),
