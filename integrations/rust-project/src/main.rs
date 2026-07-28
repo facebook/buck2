@@ -121,6 +121,9 @@ enum Command {
         /// Include a `build` section for every crate, including dependencies. Otherwise, `build` is only included for crates in the workspace.
         #[clap(long)]
         include_all_buildfiles: bool,
+
+        #[clap(long)]
+        rustc_target: Option<String>,
     },
     /// `DevelopJson` is a more limited, stripped down [`Command::Develop`].
     ///
@@ -150,6 +153,9 @@ enum Command {
 
         #[clap(long, default_value = "50", env = "RUST_PROJECT_EXTRA_TARGETS")]
         max_extra_targets: Option<usize>,
+
+        #[clap(long)]
+        rustc_target: Option<String>,
 
         args: JsonArguments,
     },
@@ -451,6 +457,7 @@ fn json_args_pass() {
             buck2_command: None,
             max_extra_targets: Some(50),
             mode: None,
+            rustc_target: None,
         }),
         version: false,
     };
@@ -471,6 +478,7 @@ fn json_args_pass() {
             buck2_command: None,
             max_extra_targets: Some(50),
             mode: None,
+            rustc_target: None,
         }),
         version: false,
     };
@@ -491,6 +499,7 @@ fn json_args_pass() {
             buck2_command: None,
             max_extra_targets: Some(50),
             mode: None,
+            rustc_target: None,
         }),
         version: false,
     };
