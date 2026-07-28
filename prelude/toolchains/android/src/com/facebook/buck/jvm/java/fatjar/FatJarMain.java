@@ -68,6 +68,7 @@ public class FatJarMain {
     ClassLoader classLoader = FatJarMain.class.getClassLoader();
 
     // Create a temp dir to house the native libraries.
+    int exitCode;
     try (ManagedTemporaryDirectory temp = new ManagedTemporaryDirectory("fatjar.", !debug)) {
       Path workingDirectory = temp.getPath();
       if (debug) {
@@ -115,10 +116,11 @@ public class FatJarMain {
       updateEnvironment(environment, nativeLibs, debug);
       processBuilder.inheritIO();
 
-      // Wait for the inner process to finish, and propagate it's exit code, before cleaning
-      // up the native libraries.
-      System.exit(processBuilder.start().waitFor());
+      // Wait for the inner process, then let the try-with-resources delete the unpacked
+      // native libraries before we exit
+      exitCode = processBuilder.start().waitFor();
     }
+    System.exit(exitCode);
   }
 
   private static Path getRootDirectory() throws IOException, InterruptedException {
@@ -379,31 +381,38 @@ public class FatJarMain {
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
       if (!removeTempDirectory) {
         printDebugInfo("Skipping temp directory removal. Temp directory: " + path);
         return;
       }
-      Files.walkFileTree(
-          path,
-          new SimpleFileVisitor<Path>() {
+      try {
+        Files.walkFileTree(
+            path,
+            new SimpleFileVisitor<Path>() {
 
-            @Override
-            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
-                throws IOException {
-              Files.delete(file);
-              return FileVisitResult.CONTINUE;
-            }
-
-            @Override
-            public FileVisitResult postVisitDirectory(Path dir, IOException e) throws IOException {
-              if (e != null) {
-                throw e;
+              @Override
+              public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
+                  throws IOException {
+                Files.delete(file);
+                return FileVisitResult.CONTINUE;
               }
-              Files.delete(dir);
-              return FileVisitResult.CONTINUE;
-            }
-          });
+
+              @Override
+              public FileVisitResult postVisitDirectory(Path dir, IOException e)
+                  throws IOException {
+                if (e != null) {
+                  throw e;
+                }
+                Files.delete(dir);
+                return FileVisitResult.CONTINUE;
+              }
+            });
+      } catch (IOException e) {
+        // Best-effort: a failure to delete scratch must not mask the child's exit code or the
+        // primary failure. Warn (stderr is captured by callers) and leave it for the tmp reaper.
+        System.err.println("WARNING: failed to remove fat jar temp directory " + path + ": " + e);
+      }
     }
 
     public Path getPath() {
