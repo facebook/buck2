@@ -52,6 +52,12 @@ pub mod buck_cgroup_tree {
         None
     }
 
+    pub(crate) fn parse_procfs_cgroup_output(
+        _out: &str,
+    ) -> buck2_error::Result<crate::path::CgroupPathBuf> {
+        unreachable!("not used on windows")
+    }
+
     pub struct PreppedBuckCgroups;
 
     impl PreppedBuckCgroups {

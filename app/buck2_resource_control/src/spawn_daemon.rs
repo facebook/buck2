@@ -20,6 +20,7 @@ use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_util::process;
 use buck2_util::process::async_background_command;
 
+use crate::buck_cgroup_tree::parse_procfs_cgroup_output;
 use crate::buck_cgroup_tree::read_current_cgroup;
 #[cfg(unix)]
 use crate::cgroup::Cgroup;
@@ -49,7 +50,22 @@ enum SystemdNotAvailableReason {
     UnsupportedPlatform,
     #[error("systemd-run --user probe failed (exit code {code}): {stderr}")]
     SystemdRunUserProbeFailure { code: String, stderr: String },
+    #[error("systemd-run --user probe returned unusable cgroup membership `{cgroup}`")]
+    SystemdRunUserProbeInvalidCgroup {
+        cgroup: String,
+        #[source]
+        error: buck2_error::Error,
+    },
 }
+
+const SYSTEMD_RUN_SCOPE_ARGS: &[&str] = &[
+    "--user",
+    "--scope",
+    "--quiet",
+    "--collect",
+    "--property=Delegate=yes",
+    "--slice=buck2",
+];
 
 enum DaemonSpawner {
     None,
@@ -170,19 +186,26 @@ fn systemd_run_command(
     working_directory: &AbsNormPath,
 ) -> std::process::Command {
     let mut cmd = process::background_command("systemd-run");
-    cmd.arg("--user");
-    cmd.arg("--scope");
-    cmd.arg("--quiet");
-    cmd.arg("--collect");
-    cmd.arg("--property=Delegate=yes");
+    cmd.args(SYSTEMD_RUN_SCOPE_ARGS);
     // N.B. the slice name here is used by BPFJailer to assign the `buck` Role
     // ID to the daemon process, which is what gives the daemon permission to
     // exit the jail.
-    cmd.arg("--slice=buck2");
     cmd.arg(format!("--working-directory={working_directory}"));
     cmd.arg(format!("--unit={unit_name}"));
     cmd.arg(program);
     cmd
+}
+
+fn validate_systemd_run_cgroup(raw_stdout: &[u8]) -> Result<(), SystemdNotAvailableReason> {
+    let stdout = String::from_utf8_lossy(raw_stdout);
+    parse_procfs_cgroup_output(&stdout)
+        .map(|_| ())
+        .map_err(
+            |error| SystemdNotAvailableReason::SystemdRunUserProbeInvalidCgroup {
+                cgroup: stdout.trim().to_owned(),
+                error,
+            },
+        )
 }
 
 fn validate_systemd_version(raw_stdout: &[u8]) -> Result<(), SystemdNotAvailableReason> {
@@ -236,19 +259,19 @@ async fn systemd_check_available() -> buck2_error::Result<()> {
         },
     }
 
-    // Verify that `systemd-run --user` can actually connect to the user's
-    // systemd instance. `systemctl --version` only checks that systemd is
-    // installed, but `systemd-run --user` needs a D-Bus session bus
-    // ($DBUS_SESSION_BUS_ADDRESS or $XDG_RUNTIME_DIR) to talk to the user's
-    // systemd. In sandboxed environments (e.g. VS Code 3p extension sandbox)
-    // these env vars are stripped, causing `systemd-run --user` to fail at
-    // runtime. This probe catches that upfront so `if_available` can fall back.
+    // Exercise the same scope configuration used for the daemon and verify that
+    // the resulting cgroup is visible from this namespace. A cgroup namespace
+    // may let systemd-run succeed while reporting a path containing `..`, which
+    // the daemon cannot access through its cgroup filesystem.
     match async_background_command("systemd-run")
-        .args(["--user", "--scope", "--quiet", "--", "/bin/true"])
+        .args(SYSTEMD_RUN_SCOPE_ARGS)
+        .args(["--", "/bin/cat", "/proc/self/cgroup"])
         .output()
         .await
     {
-        Ok(output) if output.status.success() => Ok(()),
+        Ok(output) if output.status.success() => {
+            validate_systemd_run_cgroup(&output.stdout).map_err(Into::into)
+        }
         Ok(output) => {
             let code = output
                 .status
@@ -304,6 +327,26 @@ mod tests {
         assert!(matches!(
             validate_systemd_version(raw_output).unwrap_err(),
             SystemdNotAvailableReason::TooOldSystemdVersion { .. }
+        ));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_validate_systemd_run_cgroup_visible() {
+        assert!(
+            validate_systemd_run_cgroup(
+                b"0::/user.slice/user-1000.slice/user@1000.service/buck2.slice/run.scope\n"
+            )
+            .is_ok()
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_validate_systemd_run_cgroup_hidden_parent() {
+        assert!(matches!(
+            validate_systemd_run_cgroup(b"0::/../../buck2.slice/run.scope\n").unwrap_err(),
+            SystemdNotAvailableReason::SystemdRunUserProbeInvalidCgroup { .. }
         ));
     }
 

@@ -42,7 +42,7 @@ enum CgroupParsingError {
     NoCgroupV2Membership(String),
 }
 
-fn parse_procfs_cgroup_output(out: &str) -> buck2_error::Result<CgroupPathBuf> {
+pub(crate) fn parse_procfs_cgroup_output(out: &str) -> buck2_error::Result<CgroupPathBuf> {
     fn find_v2(out: &str) -> Option<&str> {
         // Filter out any membership in v1 hierarchies
         let mut filt = out.lines().filter_map(|l| l.strip_prefix("0::"));
