@@ -1,3 +1,4 @@
+load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
 load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_binary", "buck_java_library", "buck_prebuilt_artifact", "buck_prebuilt_jar")
 load("@prelude//toolchains/android/tools/build_rules:fb_native.bzl", "fb_native")
 load("@prelude//utils:source_listing.bzl", "source_listing")
@@ -51,7 +52,7 @@ buck_java_library(
 
 fb_native.alias(
     name = "api-stubber",
-    actual = ":api-stubber_prebuilt",
+    actual = ":api-stubber_prebuilt" if is_full_meta_repo() else ":api-stubber-main",
     visibility = ["PUBLIC"],
 )
 

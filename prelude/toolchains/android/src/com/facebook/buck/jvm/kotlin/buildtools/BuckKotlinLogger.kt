@@ -61,6 +61,12 @@ internal class BuckKotlinLogger(
     stdErr.println(msg)
   }
 
+  override fun warn(msg: String, throwable: Throwable?) {
+    if (!LOG.isLoggable(Level.WARNING)) return
+    stdErr.println(msg)
+    throwable?.printStackTrace(stdErr)
+  }
+
   companion object {
     private val LOG: Logger = Logger.get(BuckKotlinLogger::class.java)
   }
