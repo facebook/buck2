@@ -22,19 +22,31 @@ pub(crate) async fn crash(req: UnstableCrashRequest) -> buck2_error::Result<Gene
     })?;
     match crash_type {
         CrashType::Panic => {
-            panic!("explicitly requested panic (via unstable_crash)");
-            #[allow(unreachable_code)]
-            Ok(GenericResponse {})
+            crash_on_dedicated_thread(|| panic!("explicitly requested panic (via unstable_crash)"))
         }
         CrashType::Abort => {
             // Crash with SIGABRT.
             // Should trigger folly signal handler to dump stack trace.
             // SIGSEGV,SIGTERM,SIGBUS,SIGILL,etc. should behave similarly.
             // https://fburl.com/code/ap385ats
-            std::process::abort();
+            crash_on_dedicated_thread(|| std::process::abort())
         }
         CrashType::Oom => allocate_memory(req.bytes).await,
     }
+}
+
+fn crash_on_dedicated_thread(
+    crash: impl FnOnce() + Send + 'static,
+) -> buck2_error::Result<GenericResponse> {
+    // Keep intentional crashes on a dedicated thread so their backtraces are isolated
+    // from whichever async stack happens to be servicing the request.
+    thread::Builder::new()
+        .name("buck2-crash".to_owned())
+        .spawn(crash)
+        .buck_error_context("Failed to spawn crash thread")?
+        .join()
+        .expect("crash thread should terminate the daemon");
+    Ok(GenericResponse {})
 }
 
 const NUM_THREADS: usize = 4;
