@@ -42,32 +42,10 @@ use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_core::buck2_env;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
-use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
-#[cfg(fbcode_build)]
-use superconsole::style::Color;
-#[cfg(fbcode_build)]
-use superconsole::style::ContentStyle;
-#[cfg(fbcode_build)]
-use superconsole::style::StyledContent;
 
 use crate::commands::build::out::copy_to_out;
 use crate::print::PrintOutputs;
-
-#[cfg(fbcode_build)]
-macro_rules! colored {
-    ($color:expr, $text:expr) => {
-        StyledContent::new(
-            ContentStyle {
-                foreground_color: Some($color),
-                background_color: None,
-                underline_color: None,
-                attributes: Default::default(),
-            },
-            $text,
-        )
-    };
-}
 
 mod out;
 
@@ -301,7 +279,7 @@ impl StreamingCommand for BuildCommand {
         };
 
         let console = self.common_opts.console_opts.final_console();
-        print_buck_ui_and_rating(&console, ctx, events_ctx.used_superconsole)?;
+        print_buck_ui(&console, ctx, events_ctx.used_superconsole)?;
 
         if success {
             if self.patterns.is_empty() {
@@ -392,109 +370,34 @@ pub(crate) fn print_build_succeeded(
     Ok(())
 }
 
-/// Prints two things at command end:
-///
-/// 1. **Buck UI URL re-print** — emitted only when a superconsole was
-///    actually constructed for the command (`used_superconsole`).
-///    Superconsole's live area showed the URL during the command but
-///    clears on exit, so without the re-print the URL would be gone from
-///    scrollback. Simple-console runs already printed it at command start
-///    (simpleconsole.rs) and that line stays in scrollback, so re-printing
-///    would be a duplicate. The flag comes from `get_console_with_root`
-///    via `EventsCtx::used_superconsole`, so it correctly reports `false`
-///    for the `ConsoleType::Auto`-falls-back-to-simple case.
-///
-/// 2. **Build-speed rating prompt** — two flavors, gated independently:
-///    - Hyperlink-capable terminals: a single OSC 8 link via
-///      [`print_build_rating`]. Gated only on hyperlink support (and TTY
-///      inside the helper) — the link is a self-contained one-liner that
-///      doesn't need to share the URL gate.
-///    - Non-hyperlink terminals: piggy-backs on the URL re-print above.
-///      We prepend "⭐ Rate this build speed, follow this link:" and append
-///      `?rbs` to the URL we were already going to print, so the rate
-///      prompt rides for free on the line we had to emit anyway. We don't
-///      print a separate rate prompt for simple-console users because
-///      we'd have to duplicate the URL line just to attach the `?rbs`
-///      suffix — that's the only reason this branch shares the URL gate.
-///
-/// Safe to call from any streaming command (build, run, test, install) so
-/// the sentiment survey reaches all of them — callers in other commands
-/// should not invoke this helper.
-pub(crate) fn print_buck_ui_and_rating(
+/// Re-prints the Buck UI URL at command end, but only when a superconsole was
+/// actually constructed for the command (`used_superconsole`). Superconsole's
+/// live area showed the URL during the command but clears on exit, so without
+/// the re-print the URL would be gone from scrollback. Simple-console runs
+/// already printed it at command start (simpleconsole.rs) and that line stays
+/// in scrollback, so re-printing would be a duplicate. The flag comes from
+/// `get_console_with_root` via `EventsCtx::used_superconsole`, so it correctly
+/// reports `false` for the `ConsoleType::Auto`-falls-back-to-simple case.
+pub(crate) fn print_buck_ui(
     console: &FinalConsole,
     ctx: &ClientCommandContext<'_>,
     used_superconsole: bool,
 ) -> buck2_error::Result<()> {
-    let show_rating = should_show_rating(&ctx.trace_id);
-
     if used_superconsole {
         if cfg!(fbcode_build) {
-            // ?rbs (rate build speed) triggers a modal in Buck UI prompting
-            // the user to rate their build speed experience. Only emitted in
-            // the non-hyperlink branch — hyperlink terminals get the inline
-            // hyperlink prompt below.
-            let mut rate_build_speed_suffix = "";
-            if show_rating && !console.supports_hyperlinks() {
-                console.print_stderr("\u{2B50} Rate this build speed, follow this link:")?;
-                rate_build_speed_suffix = "?rbs";
-            }
             console.print_stderr(&format!(
-                "Buck UI: https://www.internalfb.com/buck2/{}{}",
-                ctx.trace_id, rate_build_speed_suffix
+                "Buck UI: https://www.internalfb.com/buck2/{}",
+                ctx.trace_id
             ))?;
         } else {
             console.print_stderr(&format!("Build ID: {}", ctx.trace_id))?;
         }
     }
-
-    #[cfg(fbcode_build)]
-    if show_rating && console.supports_hyperlinks() {
-        print_build_rating(console, ctx)?;
-    }
     Ok(())
-}
-
-/// Sample 1/16 of builds (those whose trace id's first hex digit is `'0'`)
-/// for the rating prompt — keeps the survey unobtrusive while still reaching
-/// the population.
-fn should_show_rating(trace_id: &TraceId) -> bool {
-    is_in_rating_sample(trace_id.as_bytes()[0])
-}
-
-/// True when the high nibble of `first_byte` is zero — i.e. the leading hex
-/// digit of the UUID's textual form is `'0'`. Acts on the raw byte so we
-/// avoid allocating the textual form just to read its first character.
-fn is_in_rating_sample(first_byte: u8) -> bool {
-    first_byte >> 4 == 0
 }
 
 pub(crate) fn print_build_failed(console: &FinalConsole) -> buck2_error::Result<()> {
     console.print_error("BUILD FAILED")
-}
-
-#[cfg(fbcode_build)]
-fn print_build_rating(
-    console: &FinalConsole,
-    ctx: &ClientCommandContext<'_>,
-) -> buck2_error::Result<()> {
-    // Only show rating prompt to humans, not AI
-    if !console.is_tty() {
-        return Ok(());
-    }
-
-    // Gated by the cpe_buck_sentiment GK via [experiments] sentiment buckconfig
-    if !ctx.immediate_config.show_sentiment() {
-        return Ok(());
-    }
-
-    let url = format!("https://www.internalfb.com/buck2/{}?rbs", ctx.trace_id);
-    let good = colored!(Color::Yellow, "Good");
-    let bad = colored!(Color::Yellow, "Bad");
-    console.print_stderr(&format!(
-        "\u{2B50} Rate this build speed: \x1b]8;;{}&sentiment=SATISFIED\x1b\\{}\x1b]8;;\x1b\\ or \x1b]8;;{}&sentiment=DISSATISFIED\x1b\\{}\x1b]8;;\x1b\\",
-        url, good, url, bad,
-    ))?;
-    Ok(())
 }
 
 pub(crate) fn print_outputs(
@@ -603,47 +506,6 @@ mod tests {
             ]),
             Ok(..)
         );
-
-        Ok(())
-    }
-
-    #[test]
-    fn rating_sample_covers_high_nibble_zero() {
-        // High nibble 0 spans bytes 0x00..=0x0f — exactly 1/16 of the input
-        // space, the intended sampling rate.
-        for byte in 0x00u8..=0x0f {
-            assert!(
-                is_in_rating_sample(byte),
-                "byte 0x{byte:02x} (high nibble 0) should be sampled"
-            );
-        }
-    }
-
-    #[test]
-    fn rating_sample_excludes_other_high_nibbles() {
-        // Every other byte (15/16 of the space) must be excluded.
-        for byte in 0x10u8..=0xff {
-            assert!(
-                !is_in_rating_sample(byte),
-                "byte 0x{byte:02x} (high nibble != 0) should not be sampled"
-            );
-        }
-    }
-
-    #[test]
-    fn rating_sample_works_with_real_trace_id() -> buck2_error::Result<()> {
-        use std::str::FromStr;
-
-        // First byte = 0x00 → high nibble 0 → sampled.
-        let zero = TraceId::from_str("00000000-0000-0000-0000-000000000000")?;
-        assert!(should_show_rating(&zero));
-        // First byte = 0x0a → high nibble 0 → sampled (textual form starts '0a…').
-        let leading_zero = TraceId::from_str("0a000000-0000-0000-0000-000000000000")?;
-        assert!(should_show_rating(&leading_zero));
-
-        // First byte = 0x10 → high nibble 1 → not sampled.
-        let nonzero = TraceId::from_str("10000000-0000-0000-0000-000000000000")?;
-        assert!(!should_show_rating(&nonzero));
 
         Ok(())
     }

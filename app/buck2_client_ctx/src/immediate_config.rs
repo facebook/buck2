@@ -42,8 +42,6 @@ struct ImmediateConfig {
     daemon_startup_config: DaemonStartupConfig,
     #[cfg(fbcode_build)]
     allow_daemon_start_unsandboxed_via_wrapper: bool,
-    #[cfg(fbcode_build)]
-    show_sentiment: bool,
 }
 
 impl ImmediateConfig {
@@ -76,14 +74,6 @@ impl ImmediateConfig {
                     property: "allow_daemon_start_unsandboxed_via_wrapper",
                 })?
                 .unwrap_or(false),
-            #[cfg(fbcode_build)]
-            show_sentiment: cells
-                .root_config
-                .get(BuckconfigKeyRef {
-                    section: "experiments",
-                    property: "sentiment",
-                })
-                .is_some_and(|v| v == "true"),
         })
     }
 }
@@ -97,8 +87,6 @@ struct ImmediateConfigContextData {
     #[cfg(fbcode_build)]
     allow_daemon_start_unsandboxed_via_wrapper: bool,
     project_filesystem: ProjectRoot,
-    #[cfg(fbcode_build)]
-    show_sentiment: bool,
 }
 
 pub struct ImmediateConfigContext<'a> {
@@ -143,11 +131,6 @@ impl<'a> ImmediateConfigContext<'a> {
         {
             Ok(false)
         }
-    }
-
-    #[cfg(fbcode_build)]
-    pub fn show_sentiment(&self) -> bool {
-        self.data().map(|d| d.show_sentiment).unwrap_or(false)
     }
 
     /// Resolves a cell path (i.e., contains `//`) into an absolute path. The cell path must have
@@ -221,8 +204,6 @@ impl<'a> ImmediateConfigContext<'a> {
                     allow_daemon_start_unsandboxed_via_wrapper: cfg
                         .allow_daemon_start_unsandboxed_via_wrapper,
                     project_filesystem: roots.project_root,
-                    #[cfg(fbcode_build)]
-                    show_sentiment: cfg.show_sentiment,
                 })
             })
             .buck_error_context("Error creating cell resolver")
