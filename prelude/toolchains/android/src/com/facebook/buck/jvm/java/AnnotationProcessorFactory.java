@@ -53,7 +53,7 @@ class AnnotationProcessorFactory implements AutoCloseable {
   private Processor createProcessor(ClassLoader classLoader, String name) {
     try {
       Class<? extends Processor> aClass = classLoader.loadClass(name).asSubclass(Processor.class);
-      return new TracingProcessorWrapper(buildTargetName, aClass.newInstance());
+      return aClass.newInstance();
     } catch (ReflectiveOperationException e) {
       // If this happens, then the build is really in trouble. Better warn the user.
       throw new RuntimeException(

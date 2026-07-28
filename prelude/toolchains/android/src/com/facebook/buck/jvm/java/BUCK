@@ -61,7 +61,6 @@ buck_kotlin_library(
         "ResolvedJavac.java",
         "ResolvedJavacOptions.kt",
         "ResolvedJavacPluginProperties.java",
-        "TracingProcessorWrapper.java",
     ],
     provided_deps = [
         # Plugin API is loaded by the bootstrapper at runtime; don't need to depend on it strongly
