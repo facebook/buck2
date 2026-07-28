@@ -20,6 +20,7 @@ import com.facebook.buck.jvm.kotlin.cd.analytics.logger.model.KotlinCDLogEntry
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
+import java.util.concurrent.Executor
 import org.junit.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
@@ -32,6 +33,8 @@ internal class KotlinCDLoggerAnalyticsTest {
   private val kotlinCDLogger: KotlinCDLogger = mock()
 
   private val clock = Clock.fixed(Instant.parse("2018-08-22T10:00:00Z"), ZoneOffset.UTC)
+
+  private val directExecutor = Executor { it.run() }
 
   @Test
   fun `when buildUuid is null, data are not logged`() {
@@ -216,6 +219,7 @@ internal class KotlinCDLoggerAnalyticsTest {
       numKotlinFiles = NUM_KOTLIN_FILES,
       incremental = INCREMENTAL,
       clock = clock,
+      executor = directExecutor,
   )
 
   private fun createExpectedKotlinCDLogEntry(
