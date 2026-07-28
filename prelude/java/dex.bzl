@@ -37,7 +37,7 @@ def get_dex_produced_from_java_library(
     dex_toolchain: DexToolchainInfo,
     jar_to_dex: Artifact,
     needs_desugar: bool = False,
-    desugar_deps: [TransitiveSetArgsProjection, None] = None,
+    desugar_deps: [TransitiveSetArgsProjection, list[Artifact], None] = None,
     weight_factor: int = 1,
 ) -> DexLibraryInfo:
     d8_cmd = cmd_args(dex_toolchain.d8_command[RunInfo])

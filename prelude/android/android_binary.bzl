@@ -27,6 +27,8 @@ load("@prelude//android:exopackage.bzl", "get_exopackage_flags")
 load("@prelude//android:preprocess_java_classes.bzl", "get_preprocessed_java_classes")
 load("@prelude//android:util.bzl", "create_enhancement_context")
 load("@prelude//android:voltron.bzl", "get_target_to_module_mapping")
+load("@prelude//java:dex.bzl", "get_dex_produced_from_java_library")
+load("@prelude//java:dex_toolchain.bzl", "DexToolchainInfo")
 load(
     "@prelude//java:java_providers.bzl",
     "JavaPackagingDep",  # @unused Used as type
@@ -220,7 +222,32 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
         else:
             proguard_output = None
 
-        if ctx.attrs.use_split_dex:
+        preprocess_predex_merge = ctx.attrs.preprocess_java_classes_bash and not has_proguard_config and not ctx.attrs.disable_pre_dex
+        if preprocess_predex_merge:
+            dex_toolchain = ctx.attrs._dex_toolchain[DexToolchainInfo]
+            preprocessed_jars = list(jars_to_owners.keys())
+            pre_dexed_libs = [
+                get_dex_produced_from_java_library(
+                    ctx,
+                    dex_toolchain = dex_toolchain,
+                    jar_to_dex = jar,
+                    needs_desugar = True,
+                    desugar_deps = preprocessed_jars,
+                )
+                for jar in preprocessed_jars
+            ]
+            if ctx.attrs.use_split_dex:
+                dex_files_info = merge_to_split_dex(
+                    ctx,
+                    android_toolchain,
+                    pre_dexed_libs,
+                    get_split_dex_merge_config(ctx, android_toolchain),
+                    target_to_module_mapping_file,
+                    enable_bootstrap_dexes = ctx.attrs.enable_bootstrap_dexes,
+                )
+            else:
+                dex_files_info = merge_to_single_dex(ctx, android_toolchain, pre_dexed_libs)
+        elif ctx.attrs.use_split_dex:
             dex_files_info = get_multi_dex(
                 ctx,
                 android_toolchain,
