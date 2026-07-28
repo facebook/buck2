@@ -1,12 +1,12 @@
 # Shortcomings with Existing Features
 
-Below are the four potential approaches for handling the [nccl version + sanitizer problem](main.md) and where each one falls short.
+Below are the four potential approaches for handling the [nccl version + sanitizer problem](main.md#problem) and where each one falls short.
 
 ## Case 1: always require `-m cfg//nccl:version[latest]` to be used with `-m <sanitizer>`
 
 This is the first solution most people jump to, since sanitizer is usually enabled as a CLI modifier and it's easy to stick both modifiers into a modefile for each sanitizer. It fails for two reasons.
 
-1. Requiring multiple CLI modifiers in combination breaks the fundamental UX promise of modifiers, which is that a small set of unified keywords is enough to enable things like sanitizer builds. Our goal is for simple CLIs like `-m asan` to work standalone.
+1. Requiring multiple CLI modifiers in combination breaks the fundamental UX promise of modifiers, which is that a small set of unified keywords is enough to enable diverse/complex behaviors. Our goal is for simple, unified CLI flags like `-m asan` to work standalone.
 2. A dep binary may require a different nccl version to build than its parent binary, so nccl version can change in transition functions on binaries. Passing `-m <sanitizer>` on the CLI doesn't help in the transition case, because the transition will override the sanitizer value set from the CLI.
 
 ## Case 2: use conditional modifiers
