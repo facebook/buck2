@@ -249,10 +249,39 @@ def sanitize_daemon_stderr(s: str) -> str:
 
 def sanitize_stacktrace(s: str) -> str:
     s = sanitize_stderr(s)
+    lines = s.splitlines()
+
+    # Rust wraps a frame's demangled symbol across multiple physical lines when
+    # it is long (e.g. deeply generic async future types). Only the first such
+    # line carries the ` NN:` prefix; the wrapped continuations do not, so the
+    # per-line filter below cannot catch them and they leak non-deterministically
+    # into the golden depending on which frames are live at crash time. Drop the
+    # whole frame block between the "stack backtrace:" header and the terminating
+    # "note:" line (both kept) so no frame content leaks regardless of wrapping.
+    start = next(
+        (
+            i
+            for i, x in enumerate(lines)
+            if re.match(r"\[<TIMESTAMP>\].*stack backtrace:\s*$", x)
+        ),
+        None,
+    )
+    if start is not None:
+        end = next(
+            (
+                i
+                for i in range(start + 1, len(lines))
+                if re.match(r"\[<TIMESTAMP>\]\s+note:", lines[i])
+            ),
+            None,
+        )
+        if end is not None:
+            lines = lines[: start + 1] + lines[end:]
+
     return "\n".join(
         filter(
             lambda x: re.match(r"\[<TIMESTAMP>\]((\s+\d+:)|(\s+at )).*", x) is None,
-            s.splitlines(),
+            lines,
         )
     )
 
