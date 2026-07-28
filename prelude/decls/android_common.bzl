@@ -68,8 +68,27 @@ def _manifest_arg():
         ),
     }
 
+def _patches_system_module_arg():
+    return {
+        "patches_system_module": attrs.bool(
+            default = False,
+            doc = """
+    Allow this target's sources to (re)declare packages that already exist
+     in the `--system` module image (`java.base`). Needed under the JDK 9+
+     module system when compiling stub sources for such packages (e.g.
+     Android's `dalvik.system`), which otherwise fail with "package exists
+     in another module: java.base". When set, the compiler is invoked with
+     `--patch-module java.base=.`, folding this target's sources into that
+     module. All sources in the compilation are patched in, so a target
+     using this should only contain sources whose packages belong in the
+     system module.
+""",
+        ),
+    }
+
 android_common = struct(
     manifest_apk_arg = _manifest_apk_arg,
     deps_apk_arg = _deps_apk_arg,
     manifest_arg = _manifest_arg,
+    patches_system_module_arg = _patches_system_module_arg,
 )

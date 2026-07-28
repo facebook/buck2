@@ -1090,6 +1090,7 @@ android_library = prelude_rule(
         | jvm_common.javac()
         | jvm_common.enable_used_classes()
         | jvm_common.classic_java_content_based_paths()
+        | android_common.patches_system_module_arg()
         | {
             "android_optional_jars": attrs.option(attrs.list(attrs.dep()), default = None),
             "capabilities_registrations": attrs.option(attrs.list(attrs.any()), default = None),
@@ -1834,6 +1835,7 @@ robolectric_test = prelude_rule(
             "_kotlin_toolchain": toolchains_common.kotlin(),
         }
         | android_common.manifest_arg()
+        | android_common.patches_system_module_arg()
         | jvm_common.abi_generation_mode()
         | jvm_common.annotation_processors()
         | jvm_common.k2()

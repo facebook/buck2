@@ -162,6 +162,12 @@ def build_android_library(
         # Force javac to avoid generating bytecode that uses java.lang.invoke.StringConcatFactory. This is only present in Android build tools SDK 36+.
         extra_arguments.append("-XDstringConcat=inline")
 
+    if ctx.attrs.patches_system_module:
+        extra_arguments += [
+            "--patch-module",
+            "java.base=.",
+        ]
+
     if ctx.attrs.language != None and ctx.attrs.language.lower() == "kotlin":
         return build_kotlin_library(
             ctx,
