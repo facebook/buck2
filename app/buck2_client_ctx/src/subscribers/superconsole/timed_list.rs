@@ -459,7 +459,7 @@ mod tests {
         let expected = [
             "────────────────────────────────────────",
             "e1<span fg=dark_grey> · </span>speak of the devil             <span fg=dark_grey>1.0s</span>",
-            "<span fg=dark_grey italic>1/3 running actions shown</span>",
+            "<span fg=dark_grey italic>1/3 running tasks shown</span>",
         ]
         .iter()
         .map(|l| format!("{l}\n"))
