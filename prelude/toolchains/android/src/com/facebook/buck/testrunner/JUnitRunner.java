@@ -62,6 +62,13 @@ public final class JUnitRunner extends BaseRunner {
   static final String JUL_DEBUG_LOGS_HEADER = "====DEBUG LOGS====\n\n";
   static final String JUL_ERROR_LOGS_HEADER = "====ERROR LOGS====\n\n";
 
+  static final String SETUP_CRASH_MESSAGE_PREFIX =
+      "The test suite crashed during setup before any test could run, so no per-case results were"
+          + " produced. Reported as a fatal run failure (not skipped). Check the suite for an"
+          + " exception in class initialization, a @BeforeClass method, or (for Robolectric) the"
+          + " sandbox/SDK configuration (e.g. target_sdk_levels). The originating failure"
+          + " follows:\n\n";
+
   private static final String STD_OUT_LOG_LEVEL_PROPERTY = "com.facebook.buck.stdOutLogLevel";
   private static final String STD_ERR_LOG_LEVEL_PROPERTY = "com.facebook.buck.stdErrLogLevel";
 
@@ -103,9 +110,11 @@ public final class JUnitRunner extends BaseRunner {
         perTestCoverageListener = new PerTestJUnitCoverageRunListener(new File(perTestCoverageDir));
       } catch (Exception e) {
         // JaCoCo agent not available — report as infra failure via TPX
-        reportInfraFailure(
+        reportRunFailure(
             testResultsOutputSender,
-            "Per-test coverage requested but JaCoCo agent is not available: " + e.getMessage());
+            TestResultsOutputEvent.RunFailureStatus.INFRA_FAILURE,
+            "Per-test coverage requested but JaCoCo agent is not available: " + e.getMessage(),
+            null);
       }
     }
 
@@ -171,6 +180,21 @@ public final class JUnitRunner extends BaseRunner {
             }
           }
         }
+
+        // On a setup crash the selected cases produce no result and TPX records them as SKIPPED,
+        // outside autopilot's FAILED+FATAL filter. Report the run as FATAL rather than synthesizing
+        // per-case results for cases that never ran (which would break the TPX/runner contract).
+        if (tpxListener != null && !isDryRun) {
+          List<String> setupFailureTraces = tpxListener.getUnpairedFailureTraces();
+          if (!setupFailureTraces.isEmpty()) {
+            String trace = String.join("\n\n", setupFailureTraces);
+            reportRunFailure(
+                testResultsOutputSender,
+                TestResultsOutputEvent.RunFailureStatus.FATAL,
+                SETUP_CRASH_MESSAGE_PREFIX + trace,
+                trace);
+          }
+        }
       }
       // Combine the results with the tests we filtered out
       List<TestResult> actualResults = combineResults(results, filter.filteredOut);
@@ -192,10 +216,12 @@ public final class JUnitRunner extends BaseRunner {
     if (perTestCoverageListener != null) {
       perTestCoverageListener.close();
       if (perTestCoverageListener.getCoverageError() != null) {
-        reportInfraFailure(
+        reportRunFailure(
             testResultsOutputSender,
+            TestResultsOutputEvent.RunFailureStatus.INFRA_FAILURE,
             "Per-test coverage collection failed: "
-                + perTestCoverageListener.getCoverageError().getMessage());
+                + perTestCoverageListener.getCoverageError().getMessage(),
+            null);
       }
     }
 
@@ -205,15 +231,13 @@ public final class JUnitRunner extends BaseRunner {
     }
   }
 
-  private static void reportInfraFailure(Optional<TestResultsOutputSender> sender, String message) {
+  private static void reportRunFailure(
+      Optional<TestResultsOutputSender> sender,
+      TestResultsOutputEvent.RunFailureStatus status,
+      String message,
+      String stacktrace) {
     if (sender.isPresent()) {
-      sender
-          .get()
-          .sendRunFailure(
-              TestResultsOutputEvent.RunFailureStatus.INFRA_FAILURE,
-              System.currentTimeMillis(),
-              message,
-              null);
+      sender.get().sendRunFailure(status, System.currentTimeMillis(), message, stacktrace);
     }
   }
 

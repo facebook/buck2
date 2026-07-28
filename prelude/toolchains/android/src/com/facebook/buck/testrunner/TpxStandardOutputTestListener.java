@@ -12,8 +12,11 @@ package com.facebook.buck.testrunner;
 
 import com.facebook.buck.testresultsoutput.TestResultsOutputEvent.TestStatus;
 import com.facebook.buck.testresultsoutput.TestResultsOutputSender;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -27,6 +30,9 @@ public class TpxStandardOutputTestListener {
 
   private Map<String, TestIdentifierStatus> testIdentifierStatuses = new HashMap<>();
   private Set<String> finishedTests = new HashSet<>();
+
+  // Traces of failures reported without a matching testStarted (suite setup crashes).
+  private final List<String> unpairedFailureTraces = new ArrayList<>();
 
   private class TestIdentifierStatus {
     private long startTime;
@@ -102,10 +108,18 @@ public class TpxStandardOutputTestListener {
   public void testFailed(String identifier, String trace) {
     TestIdentifierStatus status = testIdentifierStatuses.get(identifier);
     if (status == null) {
-      throw new IllegalStateException("testFailed called without testStarted");
+      // No matching testStarted means the suite crashed during setup. Capture the trace instead of
+      // throwing, which would evict this listener from JUnit's RunNotifier and drop the failure.
+      unpairedFailureTraces.add(trace);
+      return;
     }
 
     status.setFailed(trace);
+  }
+
+  /** Traces of failures that arrived without a matching testStarted (suite setup crashes). */
+  public List<String> getUnpairedFailureTraces() {
+    return Collections.unmodifiableList(unpairedFailureTraces);
   }
 
   /**
