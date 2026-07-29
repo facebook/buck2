@@ -280,11 +280,21 @@ impl Dice {
 
         PagableStatus {
             total_nodes: raw.total_nodes,
-            resident_count: raw.resident.len(),
-            paged_out_count: raw.paged_out.len(),
+            resident_count: raw.counts.resident,
+            paged_out_count: raw.counts.paged_out,
+            candidate_count: raw.counts.candidates,
             by_type,
         }
     }
+}
+
+/// Resident, paged-out, and page-out-candidate DICE node counts. `candidates` is the
+/// subset of `resident` never paged out.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PagableNodeCounts {
+    pub resident: usize,
+    pub paged_out: usize,
+    pub candidates: usize,
 }
 
 /// Summary of how many DICE node values are resident in memory vs paged out to
@@ -295,6 +305,9 @@ pub struct PagableStatus {
     pub total_nodes: usize,
     pub resident_count: usize,
     pub paged_out_count: usize,
+    /// Resident nodes eligible for page-out (never paged out); a subset of
+    /// `resident_count`.
+    pub candidate_count: usize,
     /// Per-key-type counts, sorted by total (resident + paged-out) descending.
     pub by_type: Vec<PagableTypeStat>,
 }

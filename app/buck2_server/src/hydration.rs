@@ -143,8 +143,12 @@ fn format_status_summary(status: &PagableStatus, page_out_in_progress: bool) -> 
         .saturating_sub(status.resident_count)
         .saturating_sub(status.paged_out_count);
     let mut summary = format!(
-        "DICE hydration: {} nodes ({} resident, {} paged out, {} other)\n",
-        status.total_nodes, status.resident_count, status.paged_out_count, other,
+        "DICE hydration: {} nodes ({} resident, {} paged out, {} other; {} page-out candidates)\n",
+        status.total_nodes,
+        status.resident_count,
+        status.paged_out_count,
+        other,
+        status.candidate_count,
     );
     summary.push_str(&format!(
         "idle page-out in progress: {}\n",

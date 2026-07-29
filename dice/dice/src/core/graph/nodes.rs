@@ -62,10 +62,10 @@ pub(crate) enum VersionedGraphNode {
 
 mini_vec::size_assert::words_of_type!(VersionedGraphNode, 11);
 
-/// A node's state for page-out tracking: whether it's a tracked occupied node and, if
-/// so, whether its value is resident or paged out. Captured before a mutation and
-/// recomputed after so the page-out candidate set can be reconciled by delta. Only
-/// `Occupied` nodes are tracked.
+/// A node's classification for the pagable index (see [`crate::core::graph::storage`]):
+/// whether it's a tracked occupied node and, if so, its resident / paged-out state.
+/// Captured before a mutation and recomputed after so the index can be reconciled by
+/// delta. Only `Occupied` nodes are tracked.
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub(crate) enum PagableState {
     /// The value is resident in memory. `candidate` is true iff it has never been
@@ -73,14 +73,25 @@ pub(crate) enum PagableState {
     Resident { candidate: bool },
     /// The value has been paged out to disk.
     PagedOut,
-    /// Not an occupied pagable value (a vacant slot or an injected node), so it is
-    /// never a page-out candidate. Injected values are resident in memory but live in
-    /// a separate `VersionedGraphNode` variant and are never paged, so they're
-    /// excluded here (and from the existing `pagable_status` scan) by design.
+    /// Not an occupied pagable value, so it contributes to none of the index's
+    /// tallies: a vacant slot (never computed / invalidated away) or an injected
+    /// node. Injected values are resident in memory but live in a separate
+    /// `VersionedGraphNode` variant and are never paged, so they're excluded here (and
+    /// from the existing `pagable_status` scan) by design.
     Untracked,
 }
 
 impl PagableState {
+    /// Whether the value is resident in memory (whether or not it's a candidate).
+    pub(crate) fn is_resident(self) -> bool {
+        matches!(self, PagableState::Resident { .. })
+    }
+
+    /// Whether the value is paged out to disk.
+    pub(crate) fn is_paged_out(self) -> bool {
+        matches!(self, PagableState::PagedOut)
+    }
+
     /// Whether the node is a page-out candidate (resident and never paged out).
     pub(crate) fn is_candidate(self) -> bool {
         matches!(self, PagableState::Resident { candidate: true })
@@ -130,7 +141,7 @@ impl VersionedGraphNode {
         }
     }
 
-    /// Classify this node for page-out tracking (see [`PagableState`]).
+    /// Classify this node for the pagable index (see [`PagableState`]).
     pub(crate) fn pagable_state(&self) -> PagableState {
         let VersionedGraphNode::Occupied(occ) = self else {
             return PagableState::Untracked;

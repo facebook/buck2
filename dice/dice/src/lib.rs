@@ -248,6 +248,7 @@ pub use crate::api::user_data::UserCycleDetector;
 pub use crate::api::user_data::UserCycleDetectorGuard;
 pub use crate::dice::Dice;
 pub use crate::dice::DiceDataBuilder;
+pub use crate::dice::PagableNodeCounts;
 pub use crate::dice::PagableStatus;
 pub use crate::dice::PagableTypeStat;
 pub use crate::dice::PageOutCancel;

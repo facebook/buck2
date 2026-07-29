@@ -188,6 +188,7 @@ use crate::core::graph::nodes::VersionedGraphNode;
 use crate::core::graph::types::VersionedGraphKey;
 use crate::core::graph::types::VersionedGraphResult;
 use crate::deps::graph::SeriesParallelDeps;
+use crate::dice::PagableNodeCounts;
 use crate::key::DiceKey;
 use crate::value::DiceComputedValue;
 use crate::value::DiceValidValue;
@@ -222,6 +223,7 @@ mod store {
     use crate::HashMap;
     use crate::core::graph::nodes::PagableState;
     use crate::core::graph::nodes::VersionedGraphNode;
+    use crate::dice::PagableNodeCounts;
     use crate::key::DiceKey;
 
     #[derive(Allocative)]
@@ -231,18 +233,35 @@ mod store {
         /// VacantGraphEntries can only be present when no other entries are present for
         /// the key at any version.
         nodes: HashMap<DiceKey, VersionedGraphNode>,
-        /// Occupied nodes in `PagableNodeValue::NeverPagedOut` — the page-out candidates,
-        /// keyed by `DiceKey::index`. Reconciled by the `NodeMut` guard's `Drop` and by
-        /// `VacantSlot::insert`.
+        /// Incrementally-maintained index of the occupied nodes' pageable state,
+        /// reconciled by the `NodeMut` guard's `Drop` and by `VacantSlot::insert` so it
+        /// never needs a scan.
         #[allocative(skip)]
+        index: PagableIndex,
+    }
+
+    /// Summary of the occupied nodes' pageable state: the page-out candidate set plus
+    /// the resident / paged-out counts. Everything keys off the value variant, so
+    /// invalidation / force-dirty (which don't change the variant) leave it untouched.
+    #[derive(Default)]
+    struct PagableIndex {
+        /// `PagableNodeValue::NeverPagedOut` nodes — the page-out candidates, keyed by
+        /// `DiceKey::index`.
         candidates: BitSet,
+        /// Count of page-out candidates (the cardinality of `candidates`, tracked so it
+        /// is available in O(1) without scanning the bitset).
+        candidate_count: usize,
+        /// Count of occupied nodes whose value is resident in memory.
+        resident_count: usize,
+        /// Count of occupied nodes that are paged out to disk.
+        paged_out_count: usize,
     }
 
     impl NodeStore {
         pub(super) fn new() -> Self {
             Self {
                 nodes: Default::default(),
-                candidates: BitSet::new(),
+                index: PagableIndex::default(),
             }
         }
 
@@ -253,17 +272,26 @@ mod store {
 
         /// Read-only access to the page-out candidate index.
         pub(super) fn candidates(&self) -> &BitSet {
-            &self.candidates
+            &self.index.candidates
+        }
+
+        /// The occupied nodes' pageable-state counts, read O(1).
+        pub(super) fn pagable_node_counts(&self) -> PagableNodeCounts {
+            PagableNodeCounts {
+                resident: self.index.resident_count,
+                paged_out: self.index.paged_out_count,
+                candidates: self.index.candidate_count,
+            }
         }
 
         /// Remove and return all non-injected nodes, keeping injected ones (injected
         /// keys at old versions can't be recomputed). The returned map is the caller's
         /// to drop.
         pub(super) fn retain_injected(&mut self) -> HashMap<DiceKey, VersionedGraphNode> {
-            // Every candidate is an occupied, never-paged-out node, so all candidates are
-            // among the removed non-injected nodes; injected nodes are never candidates.
-            // Clearing the whole index is therefore correct.
-            self.candidates.make_empty();
+            // Injected nodes are never `Occupied`, so they contribute to none of these
+            // tallies; every counted node is among the removed non-injected ones.
+            // Resetting to empty is therefore correct.
+            self.index = PagableIndex::default();
             let mut nodes = std::mem::take(&mut self.nodes);
             // The number of injected keys is typically small, so this is written to avoid new large allocations
             self.nodes = nodes
@@ -276,12 +304,12 @@ mod store {
         /// [`NodeMut`] guard (present) or a [`VacantSlot`] (absent). Both reconcile the
         /// candidate set, so callers never touch it — or the map — directly.
         pub(super) fn node_entry(&mut self, key: DiceKey) -> NodeEntry<'_> {
-            let candidates = &mut self.candidates;
+            let index = &mut self.index;
             match self.nodes.entry(key) {
                 Entry::Occupied(occ) => {
-                    NodeEntry::Occupied(NodeMut::new(candidates, key, occ.into_mut()))
+                    NodeEntry::Occupied(NodeMut::new(index, key, occ.into_mut()))
                 }
-                Entry::Vacant(vacant) => NodeEntry::Vacant(VacantSlot { candidates, vacant }),
+                Entry::Vacant(vacant) => NodeEntry::Vacant(VacantSlot { index, vacant }),
             }
         }
 
@@ -291,7 +319,7 @@ mod store {
         /// counterpart.
         pub(super) fn node_mut(&mut self, key: DiceKey) -> Option<NodeMut<'_>> {
             let node = self.nodes.get_mut(&key)?;
-            Some(NodeMut::new(&mut self.candidates, key, node))
+            Some(NodeMut::new(&mut self.index, key, node))
         }
 
         /// Assert the candidate set holds exactly the graph's page-out candidates, via
@@ -308,31 +336,57 @@ mod store {
                 .collect();
             expected.sort_unstable();
             assert_eq!(
-                self.candidates.iter().collect::<Vec<usize>>(),
+                self.index.candidates.iter().collect::<Vec<usize>>(),
                 expected,
                 "candidate set holds the wrong keys",
+            );
+            assert_eq!(
+                self.index.candidate_count,
+                expected.len(),
+                "candidate count drifted",
+            );
+            assert_eq!(
+                self.index.resident_count,
+                self.nodes
+                    .values()
+                    .filter(|n| n.pagable_state().is_resident())
+                    .count(),
+                "resident count drifted",
+            );
+            assert_eq!(
+                self.index.paged_out_count,
+                self.nodes
+                    .values()
+                    .filter(|n| n.pagable_state().is_paged_out())
+                    .count(),
+                "paged-out count drifted",
             );
         }
     }
 
     /// Guard from [`NodeStore::node_mut`] / the occupied case of
     /// [`NodeStore::node_entry`]; derefs to the node. On drop it reconciles the
-    /// candidate set with the node's candidacy (comparing before/after), so all
-    /// in-place mutation keeps the set in sync by construction.
+    /// candidate set and the resident / paged-out counts with the node's
+    /// classification (comparing before/after), so all in-place mutation keeps them in
+    /// sync by construction.
     pub(crate) struct NodeMut<'a> {
-        candidates: &'a mut BitSet,
+        index: &'a mut PagableIndex,
         node: &'a mut VersionedGraphNode,
         key: DiceKey,
         /// The node's state when the guard was created; compared against its state on
-        /// `Drop` to reconcile the candidate set by delta.
+        /// `Drop` to reconcile the index by delta.
         prev_state: PagableState,
     }
 
     impl<'a> NodeMut<'a> {
-        fn new(candidates: &'a mut BitSet, key: DiceKey, node: &'a mut VersionedGraphNode) -> Self {
+        fn new(
+            index: &'a mut PagableIndex,
+            key: DiceKey,
+            node: &'a mut VersionedGraphNode,
+        ) -> Self {
             let prev_state = node.pagable_state();
             NodeMut {
-                candidates,
+                index,
                 node,
                 key,
                 prev_state,
@@ -358,11 +412,23 @@ mod store {
             let (before, after) = (self.prev_state, self.node.pagable_state());
             match (before.is_candidate(), after.is_candidate()) {
                 (false, true) => {
-                    self.candidates.insert(self.key.index as usize);
+                    self.index.candidates.insert(self.key.index as usize);
+                    self.index.candidate_count += 1;
                 }
                 (true, false) => {
-                    self.candidates.remove(self.key.index as usize);
+                    self.index.candidates.remove(self.key.index as usize);
+                    self.index.candidate_count -= 1;
                 }
+                _ => {}
+            }
+            match (before.is_resident(), after.is_resident()) {
+                (false, true) => self.index.resident_count += 1,
+                (true, false) => self.index.resident_count -= 1,
+                _ => {}
+            }
+            match (before.is_paged_out(), after.is_paged_out()) {
+                (false, true) => self.index.paged_out_count += 1,
+                (true, false) => self.index.paged_out_count -= 1,
                 _ => {}
             }
         }
@@ -373,7 +439,7 @@ mod store {
     /// in the same lookup, so mutate-or-insert needs no separate insert nor a
     /// `contains_key` probe.
     pub(super) struct VacantSlot<'a> {
-        candidates: &'a mut BitSet,
+        index: &'a mut PagableIndex,
         vacant: VacantEntry<'a, DiceKey, VersionedGraphNode>,
     }
 
@@ -386,8 +452,18 @@ mod store {
         /// Fill the slot, adding the key to the candidate set if the new node is a
         /// candidate. The slot was empty, so the key cannot already be present.
         pub(super) fn insert(self, node: VersionedGraphNode) {
-            if node.pagable_state().is_candidate() {
-                self.candidates.insert(self.vacant.key().index as usize);
+            let state = node.pagable_state();
+            if state.is_candidate() {
+                self.index
+                    .candidates
+                    .insert(self.vacant.key().index as usize);
+                self.index.candidate_count += 1;
+            }
+            if state.is_resident() {
+                self.index.resident_count += 1;
+            }
+            if state.is_paged_out() {
+                self.index.paged_out_count += 1;
             }
             self.vacant.insert(node);
         }
@@ -423,6 +499,12 @@ impl VersionedGraph {
     /// `DiceKey::index`. Read-only; maintained by the reconciling choke points.
     pub(crate) fn page_out_candidates(&self) -> &BitSet {
         self.nodes.candidates()
+    }
+
+    /// The occupied nodes' pageable-state counts, read O(1) from the
+    /// incrementally-maintained tallies (no graph scan).
+    pub(crate) fn pagable_node_counts(&self) -> PagableNodeCounts {
+        self.nodes.pagable_node_counts()
     }
 
     /// Assert the candidate set holds exactly the graph's page-out candidates; the
@@ -739,6 +821,7 @@ mod tests {
     use crate::core::graph::storage::testing::VersionedCacheResultAssertsExt;
     use crate::core::graph::types::VersionedGraphKey;
     use crate::deps::graph::SeriesParallelDeps;
+    use crate::dice::PagableNodeCounts;
     use crate::key::DiceKey;
     use crate::value::DiceKeyValue;
     use crate::value::DiceValidValue;
@@ -1929,10 +2012,11 @@ mod tests {
         assert!(computed.value().equality(&new_value));
     }
 
-    /// The `node_mut` guard keeps `page_out_candidates` in sync with the graph as
-    /// nodes are computed, paged out, marked non-pageable, and dropped — checked by
-    /// `assert_candidates_consistent` (exact key set vs a full scan) after each
-    /// transition.
+    /// The `node_mut` / `VacantSlot` choke points keep the occupied-node tallies
+    /// (`page_out_candidates` plus the resident / paged-out counts) in sync with the
+    /// graph as nodes are computed, paged out, paged back in, marked non-pageable, and
+    /// dropped — checked by `assert_candidates_consistent` (exact set + counts vs a
+    /// full scan) and explicit `pagable_node_counts` assertions after each transition.
     #[test]
     fn page_out_candidate_set_tracks_the_graph() {
         let mut cache = VersionedGraph::new();
@@ -1964,33 +2048,57 @@ mod tests {
                 }
             }
         };
+        let page_in = |cache: &mut VersionedGraph, index: u32| {
+            if let Some(mut node) = cache.node_mut(DiceKey { index }) {
+                if let VersionedGraphNode::Occupied(occ) = &mut *node {
+                    occ.rehydrate(value.dupe());
+                }
+            }
+        };
 
-        // Empty graph: nothing to page out.
+        let counts = |resident, paged_out, candidates| PagableNodeCounts {
+            resident,
+            paged_out,
+            candidates,
+        };
+
+        // Empty graph: nothing resident, paged out, or to page out.
         assert!(cache.page_out_candidates().is_empty());
+        assert_eq!(cache.pagable_node_counts(), counts(0, 0, 0));
         cache.assert_candidates_consistent();
 
-        // Freshly-computed nodes are candidates (resident, never paged out).
+        // Freshly-computed nodes are resident candidates (never paged out).
         compute(&mut cache, 0);
         compute(&mut cache, 1);
         assert!(!cache.page_out_candidates().is_empty());
+        assert_eq!(cache.pagable_node_counts(), counts(2, 0, 2));
         cache.assert_candidates_consistent();
 
-        // Paging one out drops it as a candidate; the other still counts.
+        // Paging one out drops it as a candidate and moves it to the paged-out count.
         page_out(&mut cache, 0, 1);
         assert!(!cache.page_out_candidates().is_empty());
+        assert_eq!(cache.pagable_node_counts(), counts(1, 1, 1));
         cache.assert_candidates_consistent();
 
-        // Marking the last candidate non-pageable leaves none.
+        // Paging it back in makes it resident again (but not a page-out candidate).
+        page_in(&mut cache, 0);
+        assert_eq!(cache.pagable_node_counts(), counts(2, 0, 1));
+        cache.assert_candidates_consistent();
+
+        // Marking the last candidate non-pageable drops candidacy but stays resident.
         set_non_pageable(&mut cache, 1);
         assert!(cache.page_out_candidates().is_empty());
+        assert_eq!(cache.pagable_node_counts(), counts(2, 0, 0));
         cache.assert_candidates_consistent();
 
-        // Bulk-removing nodes clears the candidate set.
+        // Bulk-removing nodes clears every tally.
         compute(&mut cache, 2);
         assert!(!cache.page_out_candidates().is_empty());
+        assert_eq!(cache.pagable_node_counts(), counts(3, 0, 1));
         cache.assert_candidates_consistent();
         cache.nodes.retain_injected();
         assert!(cache.page_out_candidates().is_empty());
+        assert_eq!(cache.pagable_node_counts(), counts(0, 0, 0));
         cache.assert_candidates_consistent();
     }
 }

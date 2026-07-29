@@ -25,6 +25,7 @@ use crate::core::versions::VersionEpoch;
 use crate::core::versions::VersionTracker;
 use crate::core::versions::introspection::VersionIntrospectable;
 use crate::deps::graph::SeriesParallelDeps;
+use crate::dice::PagableNodeCounts;
 use crate::epoch::cache::SharedCache;
 use crate::epoch::cache::TransactionResult;
 use crate::epoch::task::dice::DiceTask;
@@ -48,8 +49,10 @@ pub(super) struct CoreState {
 /// them to key types off the core-state thread.
 #[derive(Debug)]
 pub(crate) struct PagableStatusRaw {
-    /// Includes vacant/in-progress nodes, so `>= resident + paged_out`.
+    /// Includes vacant/in-progress nodes, so `>= counts.resident + counts.paged_out`.
     pub(crate) total_nodes: usize,
+    pub(crate) counts: PagableNodeCounts,
+    /// Per-key-type breakdown source; lengths equal `counts.resident` / `counts.paged_out`.
     pub(crate) resident: Vec<DiceKey>,
     pub(crate) paged_out: Vec<DiceKey>,
 }
@@ -227,8 +230,17 @@ impl CoreState {
                 paged_out.push(*key);
             }
         }
+        let counts = self.graph.pagable_node_counts();
+        debug_assert_eq!(resident.len(), counts.resident, "resident count drifted");
+        debug_assert_eq!(paged_out.len(), counts.paged_out, "paged-out count drifted");
+        debug_assert_eq!(
+            self.graph.page_out_candidates().count(),
+            counts.candidates,
+            "candidate count drifted",
+        );
         PagableStatusRaw {
             total_nodes: self.graph.nodes().len(),
+            counts,
             resident,
             paged_out,
         }
