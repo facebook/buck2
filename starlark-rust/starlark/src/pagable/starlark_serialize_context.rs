@@ -29,6 +29,7 @@ use dupe::Dupe;
 use pagable::PagableSerialize;
 use pagable::PagableSerializer;
 
+use crate::pagable::error::PagableError;
 use crate::pagable::heap_ref_id::HeapRefId;
 use crate::pagable::serialized_frozen_value::SerializedFrozenValue;
 use crate::pagable::starlark_serialize::StarlarkSerializeContext;
@@ -281,12 +282,10 @@ impl StarlarkSerializeContext for StarlarkSerializerImpl<'_> {
                 // Payload pointer, must match the key used in `Arena::build_ptr_to_offset_map`.
                 let raw_ptr = fv.to_value().get_ref().value.ptr as usize;
 
-                let (heap_id, value_index) = self.state.lookup_ptr(raw_ptr).unwrap_or_else(|| {
-                    panic!(
-                        "FrozenValue pointer {:#x} not found in any registered heap's chunk index",
-                        raw_ptr
-                    )
-                });
+                let (heap_id, value_index) = self
+                    .state
+                    .lookup_ptr(raw_ptr)
+                    .ok_or(PagableError::FrozenValueNotRegistered { raw_ptr })?;
 
                 let serialized = SerializedFrozenValue::HeapPtr {
                     heap_id,

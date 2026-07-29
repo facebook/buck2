@@ -63,6 +63,14 @@ pub enum PagableError {
     #[error("Frozen heap is already registered with a different StarlarkSerState")]
     HeapRegisteredWithDifferentSerState,
 
+    /// A `FrozenValue` being serialized points into a heap whose chunk index
+    /// was never registered, so its `value_index` cannot be resolved.
+    #[error("FrozenValue pointer {raw_ptr:#x} not found in any registered heap's chunk index")]
+    FrozenValueNotRegistered {
+        /// Payload address of the unresolved `FrozenValue`.
+        raw_ptr: usize,
+    },
+
     /// A `StarlarkPagable`-derived enum was deserialized with an unknown variant tag.
     #[error("Invalid `{enum_name}` variant tag: {tag}")]
     InvalidVariantTag {
