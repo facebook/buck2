@@ -19,7 +19,7 @@ def kotlincd_toolchain(name, java_binary_for_kotlincd = None, visibility = None)
         dep_files = "none",
         kapt_base64_encoder = "prelude//kotlin/tools/kapt_base64_encoder:kapt_base64_encoder",
         kotlin_stdlib = "prelude//toolchains/android/third-party:kotlin-stdlib",
-        kotlin_version = "2.2.0",
+        kotlin_version = "2.0.0",
         kotlin_home_libraries = [
             "prelude//toolchains/android/third-party:kotlin-annotations",
             "prelude//toolchains/android/third-party:kotlin-build-tools-impl",
@@ -32,7 +32,7 @@ def kotlincd_toolchain(name, java_binary_for_kotlincd = None, visibility = None)
             "prelude//toolchains/android/third-party:kotlinx-coroutines-core-jvm",
         ],
         kotlinc = "prelude//toolchains/android/third-party:kotlin-compiler-binary",
-        kotlincd = "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/cd/workertool:kotlincd_tool-main",
+        kotlincd = "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/cd/workertool:kotlincd_tool",
         kotlinc_protocol = "kotlincd",
         kotlincd_main_class = "com.facebook.buck.jvm.kotlin.cd.workertool.KotlinCDMain",
         visibility = visibility,
