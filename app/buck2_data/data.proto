@@ -475,6 +475,8 @@ message PagingSummary {
   // DICE page-in counters per key type, as a delta vs the command-start
   // baseline.
   map<string, DicePageInKeyTypeStats> dice_page_in_by_key_type = 1;
+  // Size in bytes of the DICE pagable on-disk store, measured at command end.
+  optional uint64 paging_db_size_bytes = 2;
 }
 
 message RemoteExecutionSessionCreated {
@@ -2992,6 +2994,8 @@ message InvocationRecord {
   // Per-DICE-key-type page-in breakdown for this invocation. Key types with no
   // page-ins during the command are omitted.
   map<string, DicePageInKeyTypeStats> page_in_by_key_type = 442;
+  // Size in bytes of the DICE pagable on-disk store, measured at command end.
+  optional uint64 paging_db_size_bytes = 444;
 }
 
 enum InvocationOutcome {

@@ -10,6 +10,7 @@
 
 use std::sync::Arc;
 
+use buck2_core::soft_error;
 use buck2_hash::StdBuckHashMap;
 
 use crate::daemon::state::DaemonStateData;
@@ -37,6 +38,32 @@ impl PagingManager {
                 &self.page_in_baseline,
                 &page_in_proto_map(&self.daemon),
             ),
+            paging_db_size_bytes: measured_db_size_bytes(
+                self.daemon
+                    .dice_manager
+                    .unsafe_dice()
+                    .paging_db_size_bytes(),
+            ),
+        }
+    }
+}
+
+/// Turn the cached DB-size measurement into a reportable value, emitting a
+/// `soft_error` (and reporting nothing) when the last measurement walk failed,
+/// rather than silently dropping the failure.
+fn measured_db_size_bytes(size: Option<Result<u64, Arc<std::io::Error>>>) -> Option<u64> {
+    match size {
+        None => None,
+        Some(Ok(bytes)) => Some(bytes),
+        Some(Err(e)) => {
+            let _unused = soft_error!(
+                "paging_db_size_measurement_failed",
+                buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::Tier0,
+                    "Failed to measure pagable DB size: {e}"
+                )
+            );
+            None
         }
     }
 }

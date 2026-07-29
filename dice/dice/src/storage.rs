@@ -25,6 +25,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use allocative::Allocative;
+use arc_swap::ArcSwap;
 use dashmap::DashMap;
 use dice_error::storage::PagableStorageBackendParseError;
 use dupe::Dupe;
@@ -127,6 +128,16 @@ pub struct DiceStorage {
     // instead of each cloning a separate map.
     #[allocative(skip)]
     page_in_metrics: Arc<PageInMetrics>,
+    /// On-disk root of the store, for measuring its size. `None` when constructed
+    /// without a path (`new`, e.g. tests), which never has an on-disk footprint to
+    /// measure. `Arc<Path>` keeps `DiceStorage` cheap to `dupe`.
+    #[allocative(skip)]
+    path: Option<Arc<Path>>,
+    /// Cached on-disk store size (bytes), refreshed at page-out so the command-end read
+    /// needs no filesystem walk. Holds a `Result` so a failed walk surfaces (as a
+    /// `soft_error`) instead of reporting 0. `Arc` so `dupe`d handles share one cache.
+    #[allocative(skip)]
+    cached_db_size_bytes: Arc<ArcSwap<Result<u64, Arc<std::io::Error>>>>,
 }
 
 impl DiceStorage {
@@ -135,6 +146,8 @@ impl DiceStorage {
         Self {
             storage,
             page_in_metrics: Arc::new(PageInMetrics::default()),
+            path: None,
+            cached_db_size_bytes: Arc::new(ArcSwap::new(Arc::new(Ok(0)))),
         }
     }
 
@@ -144,18 +157,43 @@ impl DiceStorage {
         self.page_in_metrics.snapshot()
     }
 
+    /// The last measured on-disk store size in bytes, or `None` if this storage has
+    /// no on-disk path (constructed via `new`). `Some(Err)` if the last measurement
+    /// walk failed. Cached at page-out, so it is cheap on the command-end path (no
+    /// filesystem walk).
+    pub(crate) fn on_disk_size_bytes(&self) -> Option<Result<u64, Arc<std::io::Error>>> {
+        self.path
+            .as_ref()
+            .map(|_| (**self.cached_db_size_bytes.load()).clone())
+    }
+
+    /// Walk the on-disk store and cache the resulting size (or the walk error), off
+    /// the executor via `spawn_blocking`. Called at the end of page-out, the only point
+    /// the append-only store changes. No-op without an on-disk path.
+    async fn refresh_db_size_bytes(&self) {
+        if let Some(path) = self.path.dupe() {
+            let result = tokio::task::spawn_blocking(move || dir_size_bytes(&path))
+                .await
+                .unwrap_or_else(|e| Err(std::io::Error::other(e)))
+                .map_err(Arc::new);
+            self.cached_db_size_bytes.store(Arc::new(result));
+        }
+    }
+
     /// Open (or create) a `DiceStorage` rooted at the given directory, using the
     /// given on-disk `backend`.
     pub fn open(path: &Path, backend: PagableStorageBackend) -> anyhow::Result<Self> {
-        match backend {
-            PagableStorageBackend::Sled => Ok(Self::new(Arc::new(
-                SledBackedPagableStorage::try_new(path)?,
-            ))),
-            PagableStorageBackend::Noop => Ok(Self::new(Arc::new(NoopPagableStorage::new()))),
-            PagableStorageBackend::Sqlite => Ok(Self::new(Arc::new(
-                SqliteBackedPagableStorage::try_new(path)?,
-            ))),
-        }
+        let storage: Arc<dyn PagableStorage> = match backend {
+            PagableStorageBackend::Sled => Arc::new(SledBackedPagableStorage::try_new(path)?),
+            PagableStorageBackend::Noop => Arc::new(NoopPagableStorage::new()),
+            PagableStorageBackend::Sqlite => Arc::new(SqliteBackedPagableStorage::try_new(path)?),
+        };
+        // The store is empty until the first page-out, so the size cache starts at 0
+        // and is populated there rather than walked here on the async startup path.
+        Ok(Self {
+            path: Some(Arc::from(path)),
+            ..Self::new(storage)
+        })
     }
 
     /// Serialize and page out all paged-in values, then mark them as paged
@@ -224,6 +262,9 @@ impl DiceStorage {
 
         self.storage.flush()?;
         self.storage.release_memory();
+        // The append-only store only changes here; refresh the cached size so the
+        // command-end path reports it without a filesystem walk.
+        self.refresh_db_size_bytes().await;
         Ok(())
     }
 
@@ -410,6 +451,22 @@ fn env_concurrency(var: &str) -> usize {
                 .map(|n| n.get())
                 .unwrap_or(1)
         })
+}
+
+/// Sum the sizes of all files under `path`, recursing into subdirectories. Any
+/// read or stat error aborts the walk and is returned to the caller.
+fn dir_size_bytes(path: &Path) -> std::io::Result<u64> {
+    let mut total = 0;
+    for entry in std::fs::read_dir(path)? {
+        let entry = entry?;
+        let metadata = entry.metadata()?;
+        total += if metadata.is_dir() {
+            dir_size_bytes(&entry.path())?
+        } else {
+            metadata.len()
+        };
+    }
+    Ok(total)
 }
 
 #[cfg(test)]

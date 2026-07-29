@@ -121,6 +121,15 @@ impl Dice {
             .unwrap_or_default()
     }
 
+    /// Last measured on-disk size in bytes of the pagable store, or `None` if
+    /// pagable storage is not configured. `Some(Err)` if the measurement walk failed.
+    /// Cached at page-out (the store is append-only), so this is cheap.
+    pub fn paging_db_size_bytes(&self) -> Option<Result<u64, StdArc<std::io::Error>>> {
+        self.pagable_storage
+            .as_ref()
+            .and_then(|storage| storage.on_disk_size_bytes())
+    }
+
     /// Current depth of the request queue feeding the dice core-state thread.
     /// Sampled synchronously without enqueueing a request, so this can be
     /// called even when the queue is fully backed up.

@@ -1254,6 +1254,10 @@ impl InvocationRecorder {
             page_in_deser_us,
             page_in_bytes,
             page_in_by_key_type,
+            paging_db_size_bytes: self
+                .paging_summary
+                .as_ref()
+                .and_then(|s| s.paging_db_size_bytes),
             repo_path: self.repo_path.take(),
         };
 
