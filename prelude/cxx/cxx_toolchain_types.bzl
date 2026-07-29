@@ -8,6 +8,7 @@
 
 load("@prelude//cxx:cxx_apple_linker_flags.bzl", "apple_extra_darwin_linker_flags", "apple_format_target_triple", "is_valid_apple_platform_name")
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
+load("@prelude//target_stats:target_stats_tools.bzl", "TargetStatsToolsInfo")
 
 LinkerType = enum("gnu", "darwin", "windows", "wasm")
 
@@ -300,6 +301,7 @@ CxxToolchainInfo = provider(
         "split_debug_mode": provider_field(typing.Any, default = None),
         "strip_flags_info": provider_field(typing.Any, default = None),
         "supported_compile_flavors": provider_field(typing.Any, default = []),
+        "target_stats_tools": provider_field([TargetStatsToolsInfo, None], default = None),
         "use_dep_files": provider_field(typing.Any, default = None),
         "use_distributed_thinlto": provider_field(typing.Any, default = None),
     },
@@ -372,6 +374,7 @@ def cxx_toolchain_infos(
     pass_plugin = None,
     default_deps = [],
     runtime_dependency_handling = RuntimeDependencyHandling("no_symlink"),
+    target_stats_tools = None,
 ):
     """
     Creates the collection of cxx-toolchain Infos for a cxx toolchain.
@@ -438,6 +441,7 @@ def cxx_toolchain_infos(
         cxx_error_handler = cxx_error_handler,
         supported_compile_flavors = supported_compile_flavors,
         default_deps = default_deps,
+        target_stats_tools = target_stats_tools,
     )
 
     ldflags_shared_extra = None
