@@ -32,18 +32,18 @@ impl PagingManager {
         }
     }
 
-    pub(crate) fn summary(&self) -> buck2_data::PagingSummary {
+    pub(crate) async fn summary(&self) -> buck2_data::PagingSummary {
+        let dice = self.daemon.dice_manager.unsafe_dice();
+        let counts = dice.pagable_node_counts().await;
         buck2_data::PagingSummary {
             dice_page_in_by_key_type: compute_page_in_delta(
                 &self.page_in_baseline,
                 &page_in_proto_map(&self.daemon),
             ),
-            paging_db_size_bytes: measured_db_size_bytes(
-                self.daemon
-                    .dice_manager
-                    .unsafe_dice()
-                    .paging_db_size_bytes(),
-            ),
+            paging_db_size_bytes: measured_db_size_bytes(dice.paging_db_size_bytes()),
+            resident_node_count: Some(counts.resident as u64),
+            paged_out_node_count: Some(counts.paged_out as u64),
+            candidate_node_count: Some(counts.candidates as u64),
         }
     }
 }

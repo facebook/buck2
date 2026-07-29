@@ -495,7 +495,7 @@ impl<'a> ServerCommandContext<'a> {
         // captured at command start).
         self.base_context
             .events
-            .instant_event(self.paging_manager.summary());
+            .instant_event(self.paging_manager.summary().await);
         Ok(())
     }
 }

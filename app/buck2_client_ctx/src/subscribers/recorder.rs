@@ -1258,6 +1258,18 @@ impl InvocationRecorder {
                 .paging_summary
                 .as_ref()
                 .and_then(|s| s.paging_db_size_bytes),
+            paging_resident_node_count: self
+                .paging_summary
+                .as_ref()
+                .and_then(|s| s.resident_node_count),
+            paging_paged_out_node_count: self
+                .paging_summary
+                .as_ref()
+                .and_then(|s| s.paged_out_node_count),
+            paging_candidate_node_count: self
+                .paging_summary
+                .as_ref()
+                .and_then(|s| s.candidate_node_count),
             repo_path: self.repo_path.take(),
         };
 
