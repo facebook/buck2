@@ -18,11 +18,14 @@
 //! Implementation of StarlarkSerializeContext.
 
 use std::collections::BTreeMap;
+use std::mem;
 use std::sync::Arc;
 use std::sync::RwLock;
 
 use allocative::Allocative;
-use dashmap::DashSet;
+use dashmap::DashMap;
+use dashmap::mapref::entry::Entry;
+use dupe::Dupe;
 use pagable::PagableSerialize;
 use pagable::PagableSerializer;
 
@@ -33,6 +36,8 @@ use crate::pagable::static_value::get_static_value_id;
 use crate::values::FrozenValue;
 use crate::values::layout::heap::arena::ChunkInfo;
 use crate::values::layout::heap::heap_type::FrozenHeapRef;
+use crate::values::layout::heap::heap_type::WeakFrozenHeapRef;
+use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::pointer::PointerTags;
 
 /// Per-chunk entry in [`StarlarkSerState::chunks`]. The chunk's base
@@ -52,68 +57,67 @@ pub(crate) struct ChunkEntry {
     payload_offsets: Box<[u32]>,
 }
 
-/// Shared serialization state across all heaps in a session, stored in
-/// `SessionContext` as `Arc<StarlarkSerState>`.
+#[derive(Allocative)]
+struct ResidentHeapEntry {
+    heap: WeakFrozenHeapRef,
+    /// Chunks ordered by `values_before` for value-index lookup.
+    chunks_by_value_index: Box<[(usize, Arc<ChunkEntry>)]>,
+}
+
+/// Shared resident-heap state across serialization and deserialization in a
+/// session, stored in `SessionContext` as `Arc<StarlarkSerState>`.
 #[derive(Allocative)]
 pub(crate) struct StarlarkSerState {
     /// Per-chunk index keyed by chunk base address.
-    chunks: RwLock<BTreeMap<usize, ChunkEntry>>,
-    /// Heaps whose chunk entries have already been folded into `chunks`.
-    /// Used to skip duplicate registrations on transitive ref walks.
-    registered_heaps: DashSet<HeapRefId>,
+    chunks: RwLock<BTreeMap<usize, Arc<ChunkEntry>>>,
+    /// Resident heaps and their value-index-ordered chunks.
+    resident_heaps: DashMap<HeapRefId, ResidentHeapEntry>,
 }
 
 impl StarlarkSerState {
     pub(crate) fn new() -> Self {
         Self {
             chunks: RwLock::new(BTreeMap::new()),
-            registered_heaps: DashSet::new(),
+            resident_heaps: DashMap::new(),
         }
     }
 
-    fn register_heap(&self, heap_id: HeapRefId, entries: Vec<ChunkInfo>) {
+    fn register_heap(&self, heap_id: HeapRefId, heap: WeakFrozenHeapRef, entries: Vec<ChunkInfo>) {
+        let chunks_by_value_index: Vec<_> = entries
+            .into_iter()
+            .map(|info| {
+                let base = info.base;
+                let entry = Arc::new(ChunkEntry {
+                    size: info.size,
+                    heap_id,
+                    values_before: info.values_before,
+                    payload_offsets: info.payload_offsets.into_boxed_slice(),
+                });
+                (base, entry)
+            })
+            .collect();
+
         {
             let mut chunks = self.chunks.write().expect("chunks lock poisoned");
-            for info in entries {
-                chunks.insert(
-                    info.base,
-                    ChunkEntry {
-                        size: info.size,
-                        heap_id,
-                        values_before: info.values_before,
-                        payload_offsets: info.payload_offsets.into_boxed_slice(),
-                    },
-                );
+            for (base, entry) in &chunks_by_value_index {
+                chunks.insert(*base, entry.dupe());
             }
         }
-        // Mark registered AFTER inserts so any observer of
-        // `has_heap(heap_id) == true` is guaranteed to see all entries.
-        self.registered_heaps.insert(heap_id);
+        // Publish the heap after its chunks so a successful weak upgrade is
+        // guaranteed to have a complete pointer index.
+        self.resident_heaps.insert(
+            heap_id,
+            ResidentHeapEntry {
+                heap,
+                chunks_by_value_index: chunks_by_value_index.into_boxed_slice(),
+            },
+        );
     }
 
-    /// Check if a heap's offset map has already been registered.
-    fn has_heap(&self, heap_id: HeapRefId) -> bool {
-        self.registered_heaps.contains(&heap_id)
-    }
-
-    /// Recursively ensure that chunk indices are registered for a heap
-    /// (identified by `heap_id`, with given `refs`) and all of its transitive dependencies.
-    pub(crate) fn ensure_chunk_index_registered_inner(
-        self: &Arc<Self>,
-        heap_id: HeapRefId,
-        refs: &[FrozenHeapRef],
-        build_chunks: impl FnOnce() -> Vec<ChunkInfo>,
-    ) -> pagable::Result<()> {
-        if self.has_heap(heap_id) {
-            return Ok(());
-        }
-
-        for dep in refs {
-            self.ensure_chunk_index_registered(dep)?;
-        }
-
-        self.register_heap(heap_id, build_chunks());
-        Ok(())
+    pub(crate) fn resident_heap(&self, heap_id: HeapRefId) -> Option<FrozenHeapRef> {
+        self.resident_heaps
+            .get(&heap_id)
+            .and_then(|entry| entry.heap.upgrade())
     }
 
     /// Recursively ensure that chunk indices are registered for a heap
@@ -130,21 +134,36 @@ impl StarlarkSerState {
         let Some(name) = heap_ref.name() else {
             return Ok(());
         };
-        heap_ref.register_ser_state(self)?;
         let heap_id = HeapRefId::from_heap_name(name);
-        self.ensure_chunk_index_registered_inner(heap_id, heap_ref.refs_slice(), || {
-            heap_ref.build_chunk_index()
-        })
+        if self.resident_heap(heap_id).is_some() {
+            return Ok(());
+        }
+
+        for dep in heap_ref.refs_slice() {
+            self.ensure_chunk_index_registered(dep)?;
+        }
+
+        heap_ref.register_ser_state(self)?;
+        let heap = heap_ref
+            .downgrade()
+            .expect("named FrozenHeapRef should have an inner heap");
+        self.register_heap(heap_id, heap, heap_ref.build_chunk_index());
+        Ok(())
     }
 
     pub(crate) fn unregister_heap(
         &self,
         heap_id: HeapRefId,
+        heap_ptr: *const (),
         chunk_bases: impl IntoIterator<Item = usize>,
     ) {
         // Let future registrations proceed before removing this still-live
         // arena's addresses, which cannot be reused until Drop completes.
-        self.registered_heaps.remove(&heap_id);
+        if let Entry::Occupied(entry) = self.resident_heaps.entry(heap_id)
+            && entry.get().heap.points_to(heap_ptr)
+        {
+            entry.remove();
+        }
         let mut chunks = self.chunks.write().expect("chunks lock poisoned");
         for base in chunk_bases {
             if chunks
@@ -154,6 +173,36 @@ impl StarlarkSerState {
                 chunks.remove(&base);
             }
         }
+    }
+
+    /// Resolve a value index directly into a heap that is still resident.
+    pub(crate) fn lookup_resident_value(
+        &self,
+        heap_id: HeapRefId,
+        value_index: u32,
+        is_str: bool,
+    ) -> Option<FrozenValue> {
+        // Keep the arena alive while converting its indexed payload address
+        // back to an AValueHeader pointer.
+        let (heap, base, entry) = {
+            let resident = self.resident_heaps.get(&heap_id)?;
+            let chunk_index = resident
+                .chunks_by_value_index
+                .partition_point(|(_, entry)| entry.values_before <= value_index)
+                .checked_sub(1)?;
+            let (base, entry) = resident.chunks_by_value_index.get(chunk_index)?;
+            (resident.heap.dupe(), *base, entry.dupe())
+        };
+        let _heap = heap.upgrade()?;
+        let within_chunk_index = value_index.checked_sub(entry.values_before)?;
+        let payload_offset = entry.payload_offsets.get(within_chunk_index as usize)?;
+        let payload_ptr = base.checked_add(*payload_offset as usize)?;
+        let header_ptr =
+            payload_ptr.checked_sub(mem::size_of::<AValueHeader>())? as *const AValueHeader;
+        // SAFETY: `_heap` keeps the arena alive, and this chunk entry belongs
+        // to that resident heap.
+        let header = unsafe { &*header_ptr };
+        Some(FrozenValue::new_ptr(header, is_str))
     }
 
     /// Resolve a raw payload pointer to its `(heap_id, value_index)` by

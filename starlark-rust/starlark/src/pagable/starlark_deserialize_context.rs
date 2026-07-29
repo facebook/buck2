@@ -43,6 +43,7 @@ use crate::pagable::heap_ref_id::HeapRefId;
 use crate::pagable::lookup_vtable;
 use crate::pagable::serialized_frozen_value::SerializedFrozenValue;
 use crate::pagable::starlark_deserialize::StarlarkDeserializeContext;
+use crate::pagable::starlark_serialize_context::StarlarkSerState;
 use crate::pagable::static_value::get_frozen_value_by_static_id;
 use crate::values::FrozenValue;
 use crate::values::layout::heap::allocator::alloc::allocator::ChunkAllocator;
@@ -704,6 +705,15 @@ impl<'a, 'de> StarlarkDeserializerImpl<'a, 'de> {
         value_index: u32,
         is_str: bool,
     ) -> crate::Result<FrozenValue> {
+        if let Some(value) = self
+            .pagable
+            .session_context()
+            .get::<Arc<StarlarkSerState>>()
+            .and_then(|state| state.lookup_resident_value(heap_id, value_index, is_str))
+        {
+            return Ok(value);
+        }
+
         let target_state = self
             .state
             .get_heap(&heap_id)

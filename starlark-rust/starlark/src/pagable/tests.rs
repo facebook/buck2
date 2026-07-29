@@ -645,8 +645,11 @@ fn test_heap_ref_dedup_round_trip() -> crate::Result<()> {
 /// for every registered header, regardless of cross-heap address mixing.
 #[test]
 fn test_ser_state_lookup_resolves_cross_heap_ptrs() -> crate::Result<()> {
+    use std::mem;
+
     use crate::pagable::heap_ref_id::HeapRefId;
     use crate::pagable::starlark_serialize_context::StarlarkSerState;
+    use crate::values::layout::heap::repr::AValueHeader;
 
     // Enough values to push each heap into multiple chunks (geometric
     // chunk sizes 512, 1024, ... → ~500 SimpleData spans 3-5 chunks).
@@ -750,6 +753,16 @@ fn test_ser_state_lookup_resolves_cross_heap_ptrs() -> crate::Result<()> {
             assert_eq!(
                 got_index, expected_index as u32,
                 "ptr {raw_ptr:#x}: got value_index {got_index}, expected {expected_index}",
+            );
+            let resident_value = state
+                .lookup_resident_value(heap_id, expected_index as u32, false)
+                .unwrap_or_else(|| {
+                    panic!("value_index {expected_index} missing from resident heap {heap_id:?}")
+                });
+            assert_eq!(
+                resident_value.ptr_value().ptr_value_untagged() + mem::size_of::<AValueHeader>(),
+                raw_ptr,
+                "value_index {expected_index} resolved to the wrong resident allocation",
             );
         }
     }
@@ -1366,7 +1379,7 @@ fn test_frozen_record_type_round_trip() -> crate::Result<()> {
     let heap_ref = heap.into_ref_named(TestHeapName::heap_name("test_frozen_record_type"));
     // SAFETY: heap_ref owns the arena hosting root.
     let owned = unsafe { OwnedFrozenValue::new(heap_ref, root) };
-    let restored = round_trip_owned_frozen_value_pagable_ser_de_impl(&owned)?;
+    let restored = round_trip_owned_frozen_value_pagable_ser_de_impl(owned)?;
 
     let tuple: &crate::values::types::tuple::value::FrozenTuple = restored
         .value()
@@ -1727,7 +1740,7 @@ fn test_with_starlark_context_arc_dedup_round_trip() -> crate::Result<()> {
     let heap_ref = heap.into_ref_named(TestHeapName::heap_name("test_with_starlark_context_arc"));
     // SAFETY: heap_ref owns the arena hosting root.
     let owned = unsafe { OwnedFrozenValue::new(heap_ref, root) };
-    let restored = round_trip_owned_frozen_value_pagable_ser_de_impl(&owned)?;
+    let restored = round_trip_owned_frozen_value_pagable_ser_de_impl(owned)?;
 
     let tuple: &crate::values::types::tuple::value::FrozenTuple = restored
         .value()
@@ -1822,7 +1835,7 @@ fn test_arc_blanket_round_trip() -> crate::Result<()> {
     let heap_ref = heap.into_ref_named(TestHeapName::heap_name("test_arc_blanket"));
     // SAFETY: heap_ref owns the arena hosting root.
     let owned = unsafe { OwnedFrozenValue::new(heap_ref, root) };
-    let restored = round_trip_owned_frozen_value_pagable_ser_de_impl(&owned)?;
+    let restored = round_trip_owned_frozen_value_pagable_ser_de_impl(owned)?;
 
     let tuple: &crate::values::types::tuple::value::FrozenTuple = restored
         .value()
@@ -2422,9 +2435,10 @@ fn test_globals_roundtrip() {
 
 /// Round-trip an `OwnedFrozenValue` through `SerializerForPaging` +
 /// `InMemoryPagableStorage` + `PagableDeserializerImpl` (the real concrete
-/// impls used in production, not the testing ones).
+/// impls used in production, not the testing ones). Consumes and drops the
+/// source before page-in so the serialized heap is reconstructed.
 fn round_trip_owned_frozen_value_pagable_ser_de_impl(
-    owned: &OwnedFrozenValue,
+    owned: OwnedFrozenValue,
 ) -> crate::Result<OwnedFrozenValue> {
     use std::any::TypeId;
 
@@ -2451,6 +2465,7 @@ fn round_trip_owned_frozen_value_pagable_ser_de_impl(
             .page_out_item(data, arcs, &finished, session_ctx)
             .map_err(crate::Error::new_other)?
     };
+    drop(owned);
 
     let top_data = storage
         .fetch_arc_or_data_blocking(&TypeId::of::<()>(), &top_key)
@@ -2484,7 +2499,8 @@ fn test_cross_heap_frozen_value_round_trip_via_storage() -> crate::Result<()> {
 
     // SAFETY: `main_heap_ref` keeps the arena hosting `ref_fv` alive.
     let owned = unsafe { OwnedFrozenValue::new(main_heap_ref, ref_fv) };
-    let restored = round_trip_owned_frozen_value_pagable_ser_de_impl(&owned)?;
+    drop(dep_heap_ref);
+    let restored = round_trip_owned_frozen_value_pagable_ser_de_impl(owned)?;
 
     let undrop_headers = restored.owner().collect_undrop_headers_ordered();
     assert_eq!(undrop_headers.len(), 1);
@@ -2537,7 +2553,7 @@ fn test_with_starlark_context_arc_dedup_round_trip_via_storage() {
     // SAFETY: `heap_ref` keeps the arena hosting `outer_a_fv` alive.
     let owned = unsafe { OwnedFrozenValue::new(heap_ref, outer_a_fv) };
     let restored =
-        round_trip_owned_frozen_value_pagable_ser_de_impl(&owned).expect("round-trip via storage");
+        round_trip_owned_frozen_value_pagable_ser_de_impl(owned).expect("round-trip via storage");
 
     // Partial deser: only the root `OuterArcValue` (and its transitive deps)
     // is materialized. The second `OuterArcValue`, which is unreachable from
@@ -2680,7 +2696,7 @@ fn test_partial_deser_skips_unreachable_values() -> crate::Result<()> {
 
     // SAFETY: `heap_ref` keeps the arena alive.
     let owned = unsafe { OwnedFrozenValue::new(heap_ref, reachable_fv) };
-    let restored = round_trip_owned_frozen_value_pagable_ser_de_impl(&owned)?;
+    let restored = round_trip_owned_frozen_value_pagable_ser_de_impl(owned)?;
 
     let undrop = restored.owner().collect_undrop_headers_ordered();
     // Only the reachable SimpleData is materialized; the other two are skipped.
@@ -2711,7 +2727,7 @@ fn test_partial_deser_materializes_in_demand_order() -> crate::Result<()> {
 
     // SAFETY: `heap_ref` keeps the arena alive.
     let owned = unsafe { OwnedFrozenValue::new(heap_ref, root_fv) };
-    let restored = round_trip_owned_frozen_value_pagable_ser_de_impl(&owned)?;
+    let restored = round_trip_owned_frozen_value_pagable_ser_de_impl(owned)?;
 
     let undrop = restored.owner().collect_undrop_headers_ordered();
     assert_eq!(undrop.len(), 2);
@@ -2778,6 +2794,58 @@ fn deser_owned_frozen_value_from_storage(
         .expect("top-level key should return data, not a cached arc");
     let mut de = PagableDeserializerImpl::new(&top_data.data, &top_data.arcs, handle);
     OwnedFrozenValue::pagable_deserialize(&mut de).map_err(crate::Error::new_other)
+}
+
+/// X and Y point into the same heap. After X is paged out and its owner is
+/// dropped, Y keeps that heap resident. Paging X back in must reuse Y's heap
+/// and X's original allocation instead of reconstructing a duplicate heap.
+#[test]
+fn test_page_in_reuses_resident_shared_heap() -> crate::Result<()> {
+    use dupe::Dupe;
+    use pagable::storage::handle::PagableStorageHandle;
+    use pagable::storage::in_memory::InMemoryPagableStorage;
+
+    let heap = FrozenHeap::new();
+    let x = heap.alloc_simple(SimpleData {
+        flag: true,
+        count: 1,
+    });
+    let y = heap.alloc_simple(SimpleData {
+        flag: false,
+        count: 2,
+    });
+    let heap_ref = heap.into_ref_named(TestHeapName::heap_name("resident_shared"));
+    let x_ptr = x.ptr_value().ptr_value_untagged();
+
+    // SAFETY: both OwnedFrozenValues keep their shared heap alive.
+    let owned_x = unsafe { OwnedFrozenValue::new(heap_ref.dupe(), x) };
+    let owned_y = unsafe { OwnedFrozenValue::new(heap_ref, y) };
+
+    let backing = InMemoryPagableStorage::new();
+    let handle = PagableStorageHandle::new(backing.handle());
+    let key_x = ser_owned_frozen_value_into_storage(&backing, &owned_x)?;
+    drop(owned_x);
+
+    // `owned_y` is now the only application-owned reference keeping the
+    // original heap resident while X is paged back in.
+    let restored_x = deser_owned_frozen_value_from_storage(&backing, &handle, &key_x)?;
+    assert_eq!(
+        restored_x.owner(),
+        owned_y.owner(),
+        "page-in should reuse the original heap kept alive by Y",
+    );
+    assert_eq!(
+        restored_x.value().ptr_value().ptr_value_untagged(),
+        x_ptr,
+        "X should point to its original allocation in the resident heap",
+    );
+    let restored_data = restored_x
+        .value()
+        .downcast_ref::<SimpleData>()
+        .expect("restored X should be SimpleData");
+    assert_eq!(restored_data.count, 1);
+
+    Ok(())
 }
 
 /// Multi-heap, multi-`OwnedFrozenValue` partial-deser, with incremental
@@ -3458,6 +3526,12 @@ fn test_concurrent_page_in_does_not_hash_sentinel_key() {
     let key_data = ser_one(&ofv_key);
     let map_data = ser_one(&ofv_map);
 
+    // Force page-in through deserialization. Otherwise resident-heap reuse
+    // returns the source allocation and `GateField::starlark_deserialize` never runs.
+    drop(ofv_key);
+    drop(ofv_map);
+    drop(heap_ref);
+
     // Install the gate so the key's deserialization blocks.
     let (started_tx, started_rx) = mpsc::channel();
     let (release_tx, release_rx) = mpsc::channel();
@@ -3485,7 +3559,9 @@ fn test_concurrent_page_in_does_not_hash_sentinel_key() {
     // Thread A: deserialize the key. It claims the key and blocks inside GateField.
     let h_a = deser_one(key_data, handle.clone(), storage.clone());
     // Wait until A is blocked inside the key's deser (key is now in-progress).
-    started_rx.recv().expect("key deser never started");
+    started_rx
+        .recv_timeout(Duration::from_secs(10))
+        .expect("key deser never started");
 
     // Thread B: deserialize the map, which must hash the (in-progress) key.
     let h_b = deser_one(map_data, handle.clone(), storage.clone());

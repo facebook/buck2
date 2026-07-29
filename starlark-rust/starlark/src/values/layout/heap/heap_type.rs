@@ -392,6 +392,19 @@ struct FrozenFrozenHeap {
     ser_state: OnceLock<Weak<StarlarkSerState>>,
 }
 
+#[derive(Clone, Dupe, Allocative)]
+pub(crate) struct WeakFrozenHeapRef(#[allocative(skip)] Weak<FrozenFrozenHeap>);
+
+impl WeakFrozenHeapRef {
+    pub(crate) fn upgrade(&self) -> Option<FrozenHeapRef> {
+        self.0.upgrade().map(|heap| FrozenHeapRef(Some(heap)))
+    }
+
+    pub(crate) fn points_to(&self, heap_ptr: *const ()) -> bool {
+        self.0.as_ptr().cast::<()>() == heap_ptr
+    }
+}
+
 // SAFETY: read-only access to already-allocated arena memory is safe across
 // threads. Concurrent allocations during partial-deser are serialized by
 // `HeapDeserializationState.arena_alloc_lock`.
@@ -443,7 +456,6 @@ impl FrozenFrozenHeap {
             .name
             .as_ref()
             .expect("The name of the FrozenFrozenHeap should exist in starlark pagable serialize");
-        let heap_id = HeapRefId::from_heap_name(heap_name);
         heap_name.pagable_serialize(serializer)?;
 
         self.refs.len().pagable_serialize(serializer)?;
@@ -499,13 +511,9 @@ impl FrozenFrozenHeap {
 
         // Record base_pos — all offsets are relative to here.
         let base_pos = serializer.position();
-        // Register chunk indices for this heap + transitive deps before
-        // serializing values (which may reference values cross-heap).
+        // FrozenHeapRef registered this heap and its transitive dependencies
+        // before deferring this Arc for serialization.
         let state = StarlarkSerializerImpl::get_or_create_state(serializer);
-        self.register_ser_state(&state)?;
-        state.ensure_chunk_index_registered_inner(heap_id, &self.refs, || {
-            self.arena.build_chunk_index()
-        })?;
         let mut ctx = StarlarkSerializerImpl::new(serializer, state);
 
         // Serialize value data, recording start cursor per value.
@@ -560,6 +568,38 @@ impl FrozenFrozenHeap {
         Ok((heap_id, name))
     }
 
+    /// Deserialize the heap references and advance past the lazily-read body.
+    fn deserialize_refs_and_skip_body<'de, D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> crate::Result<(Box<[FrozenHeapRef]>, PagableCursor)> {
+        let refs_count = usize::pagable_deserialize(deserializer)?;
+        let mut refs = Vec::with_capacity(refs_count);
+        for _ in 0..refs_count {
+            refs.push(FrozenHeapRef::pagable_deserialize(deserializer)?);
+        }
+
+        let mut header = [0u8; 8];
+        for b in &mut header {
+            *b = u8::pagable_deserialize(deserializer)?;
+        }
+        let body_byte_length =
+            u32::from_le_bytes([header[0], header[1], header[2], header[3]]) as usize;
+        let body_arc_count =
+            u32::from_le_bytes([header[4], header[5], header[6], header[7]]) as usize;
+        let metadata_start = deserializer.position();
+
+        // SAFETY: the serialized body header records the exact cursor delta to
+        // the end of this heap body.
+        unsafe {
+            deserializer.seek(PagableCursor {
+                byte_pos: metadata_start.byte_pos + body_byte_length,
+                arc_index: metadata_start.arc_index + body_arc_count,
+            })
+        };
+
+        Ok((refs.into_boxed_slice(), metadata_start))
+    }
+
     /// Read refs + body header given an already-read `heap_id`, then seek
     /// past the heap body. Returns an `Arc<Self>` with an empty arena.
     /// Slot metadata is parsed lazily on first `ensure_initialized` via the
@@ -577,28 +617,11 @@ impl FrozenFrozenHeap {
     ) -> crate::Result<Arc<Self>> {
         // Refs are read eagerly — referenced heaps must be registered before
         // any of this heap's values can be resolved later.
-        let refs_count = usize::pagable_deserialize(deserializer)?;
-        let mut refs = Vec::with_capacity(refs_count);
-        for _ in 0..refs_count {
-            refs.push(FrozenHeapRef::pagable_deserialize(deserializer)?);
-        }
-
-        // Read 8-byte body header: (body_byte_length, body_arc_count).
-        let mut header = [0u8; 8];
-        for b in &mut header {
-            *b = u8::pagable_deserialize(deserializer)?;
-        }
-        let body_byte_length =
-            u32::from_le_bytes([header[0], header[1], header[2], header[3]]) as usize;
-        let body_arc_count =
-            u32::from_le_bytes([header[4], header[5], header[6], header[7]]) as usize;
-
-        // `metadata_start` is captured right after the body header.
-        let metadata_start = deserializer.position();
+        let (refs, metadata_start) = Self::deserialize_refs_and_skip_body(deserializer)?;
 
         let heap = Arc::new(FrozenFrozenHeap {
             arena: Arena::default(),
-            refs: refs.into_boxed_slice(),
+            refs,
             name: Some(name),
             peak_allocated_bytes: None,
             ser_state: OnceLock::new(),
@@ -612,15 +635,6 @@ impl FrozenFrozenHeap {
 
         let state = StarlarkDeserializerImpl::get_or_create_state(deserializer.as_dyn());
         state.register_heap(heap_id, deser_state);
-
-        // SAFETY: seek past the entire body — we computed the end cursor from
-        // `metadata_start + (body_byte_length, body_arc_count)`.
-        unsafe {
-            deserializer.seek(PagableCursor {
-                byte_pos: metadata_start.byte_pos + body_byte_length,
-                arc_index: metadata_start.arc_index + body_arc_count,
-            })
-        };
 
         Ok(heap)
     }
@@ -636,6 +650,7 @@ impl Drop for FrozenFrozenHeap {
         };
         state.unregister_heap(
             HeapRefId::from_heap_name(name),
+            (self as *const Self).cast::<()>(),
             self.arena.allocated_chunk_bases(),
         );
     }
@@ -668,6 +683,8 @@ impl PagableSerialize for FrozenHeapRef {
         let is_some = self.0.is_some();
         is_some.pagable_serialize(serializer)?;
         if let Some(ref arc) = self.0 {
+            let state = StarlarkSerializerImpl::get_or_create_state(serializer);
+            state.ensure_chunk_index_registered(self)?;
             serializer.serialize_arc(arc)?;
         }
         Ok(())
@@ -702,13 +719,27 @@ impl<'de> PagableDeserialize<'de> for FrozenHeapRef {
     }
 }
 
-/// Reads the heap's `HeapRefId`, then stash the recipe to `HeapDeserializationState``.
+/// Reuses a resident heap when possible; otherwise creates its lazy-deserialization state.
 fn deserialize_heap_arc_with_recipe(
     de: &mut dyn PagableDeserializer<'_>,
     recipe: Arc<dyn pagable::PagableDeserializerRecipe>,
 ) -> pagable::Result<Box<dyn pagable::arc_erase::ArcEraseDyn>> {
     let (heap_id, name) =
         FrozenFrozenHeap::deserialize_heap_identity(de).map_err(|e| e.into_anyhow())?;
+    if let Some(heap) = de
+        .session_context()
+        .get::<Arc<StarlarkSerState>>()
+        .and_then(|state| state.resident_heap(heap_id))
+    {
+        // Reusing the allocation avoids reconstructing the heap, but its refs
+        // and body still occupy this deserializer's byte and arc streams.
+        // Consume them so the next value starts at the correct cursor.
+        FrozenFrozenHeap::deserialize_refs_and_skip_body(de).map_err(|e| e.into_anyhow())?;
+        let arc = heap
+            .0
+            .expect("resident FrozenHeapRef should have an inner heap");
+        return Ok(Box::new(arc));
+    }
     let arc = FrozenFrozenHeap::deserialize_skeleton(de, heap_id, name, recipe)
         .map_err(|e| e.into_anyhow())?;
     Ok(Box::new(arc))
@@ -823,6 +854,12 @@ impl FrozenHeapRef {
             inner.register_ser_state(state)?;
         }
         Ok(())
+    }
+
+    pub(crate) fn downgrade(&self) -> Option<WeakFrozenHeapRef> {
+        self.0
+            .as_ref()
+            .map(|heap| WeakFrozenHeapRef(Arc::downgrade(heap)))
     }
 
     pub(crate) fn iter_values(&self) -> impl Iterator<Item = FrozenValue> {

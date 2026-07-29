@@ -30,8 +30,8 @@ use crate::pagable::static_value::StaticValueId;
 /// is currently being (de)serialized.
 ///
 /// `value_index` is the value's position in the heap's serialization order
-/// (drop bump first, then non-drop bump). Resolved via the heap's per-value
-/// address table registered in `StarlarkDeserState.heap_value_addrs`.
+/// (drop bump first, then non-drop bump). It resolves either through the
+/// resident heap's chunk index or the heap's lazy-deserialization state.
 #[derive(Debug)]
 pub(super) enum SerializedFrozenValue {
     HeapPtr {
