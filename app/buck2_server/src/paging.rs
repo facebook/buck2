@@ -46,6 +46,7 @@ use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_hash::StdBuckHashMap;
 use buck2_server_ctx::concurrency::ConcurrencyHandler;
 use dice::Dice;
+use dice::PagableNodeCounts;
 use dice::PageOutCancel;
 use dupe::Dupe;
 use tokio::sync::Notify;
@@ -70,9 +71,8 @@ impl PagingManager {
         }
     }
 
-    pub(crate) async fn summary(&self) -> buck2_data::PagingSummary {
+    fn summary(&self, counts: &PagableNodeCounts) -> buck2_data::PagingSummary {
         let dice = self.daemon.dice_manager.unsafe_dice();
-        let counts = dice.pagable_node_counts().await;
         buck2_data::PagingSummary {
             dice_page_in_by_key_type: compute_page_in_delta(
                 &self.page_in_baseline,
@@ -93,7 +93,15 @@ impl PagingManager {
         disk_check_path: AbsNormPathBuf,
         triggers_idle_page_out: bool,
     ) {
-        dispatcher.instant_event(self.summary().await);
+        // Read the node tally once and share it: the paging telemetry and the page-out
+        // candidates gate both need it.
+        let counts = self
+            .daemon
+            .dice_manager
+            .unsafe_dice()
+            .pagable_node_counts()
+            .await;
+        dispatcher.instant_event(self.summary(&counts));
 
         if !triggers_idle_page_out {
             return;
@@ -103,6 +111,7 @@ impl PagingManager {
             self.daemon.dice_manager.dupe(),
             dispatcher.dupe(),
             disk_check_path,
+            counts.candidates,
         )
         .await;
         if triggered {
@@ -289,6 +298,7 @@ pub(crate) async fn spawn_page_out_on_idle(
     dice_manager: Arc<ConcurrencyHandler>,
     dispatcher: EventDispatcher,
     disk_check_path: AbsNormPathBuf,
+    pagable_candidates: usize,
 ) -> bool {
     let Some(thresholds) = thresholds else {
         return false;
@@ -306,18 +316,10 @@ pub(crate) async fn spawn_page_out_on_idle(
         return false;
     };
 
-    // Decide whether to page out under the guard, so the decision can't go stale:
-    // the cancel flag is now registered (a command starting in the window above
-    // wouldn't have cancelled us, so re-check it), and no other page-out can run
-    // concurrently and drain the candidates before the background task starts.
-    if !is_only_active_command(dispatcher.trace_id())
-        || dice_manager
-            .unsafe_dice()
-            .pagable_node_counts()
-            .await
-            .candidates
-            == 0
-    {
+    // Re-check under the guard: a command that started in the window above (which
+    // wouldn't have cancelled us) mustn't slip through. Also bail if there is nothing
+    // to page out.
+    if !is_only_active_command(dispatcher.trace_id()) || pagable_candidates == 0 {
         return false;
     }
 
