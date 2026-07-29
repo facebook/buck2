@@ -10,16 +10,6 @@ rust_library(
     autocargo = {
         "cargo_toml_config": {
             "extra_buck_dependencies": {
-                # Transitive-only pin: `ruff_python_ast` pulls in `get-size2`,
-                # whose 0.10.2 needs `compact_str ^0.10` while the workspace pins
-                # `compact_str 0.9.1`. Force `get-size2 = "=0.10.1"` (compatible
-                # with 0.9) into the OSS `[workspace.dependencies]` by referencing
-                # it here. This only affects the generated Cargo.toml, not the Buck
-                # rule's `deps`, so RUSTUNUSEDDEPS is unaffected; the version is
-                # inherited from third-party/rust/Cargo.toml.
-                "dependencies": [
-                    "fbsource//third-party/rust:get-size2",
-                ],
                 # `quickcheck_arbitrary_derive` is a Meta-internal crate used only
                 # by the fbcode_build-gated fuzz tests; drop it from the generated
                 # Cargo.toml so the OSS cargo build doesn't reference an unexported

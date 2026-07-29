@@ -19,7 +19,6 @@ anyhow.workspace = true
 argfile.workspace = true
 clap.workspace = true
 either.workspace = true
-get-size2.workspace = true
 globset.workspace = true
 rayon.workspace = true
 ruff_formatter.workspace = true
