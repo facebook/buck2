@@ -854,9 +854,16 @@ async fn establish_connection_inner(
                             ))
                             .await?;
 
-                        hard_kill_until(&buckd_info.info, &deadline)
-                            .await
-                            .map_err(|error| BuckdConnectError::DaemonKillFailed { error })?;
+                        // The recorded daemon is unusable either way, so start a new one rather
+                        // than leaving buckd.info in place for the next invocation to trip over.
+                        if let Err(error) = hard_kill_until(&buckd_info.info, &deadline).await {
+                            events_ctx
+                                .eprintln(&format!(
+                                    "{}",
+                                    BuckdConnectError::DaemonKillFailed { error }
+                                ))
+                                .await?;
+                        }
 
                         reason
                     }
