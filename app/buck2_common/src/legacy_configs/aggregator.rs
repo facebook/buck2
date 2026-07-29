@@ -21,6 +21,7 @@ use buck2_core::cells::name::CellName;
 use buck2_core::cells::nested::NestedCells;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_error::internal_error;
+use buck2_hash::IntentionallyStdHashMap;
 use buck2_hash::StdBuckHashMap;
 use instance::CellInstance;
 
@@ -47,7 +48,7 @@ enum CellError {
 #[derive(Debug)]
 pub(crate) struct CellsAggregator {
     cell_infos: StdBuckHashMap<CellName, CellAggregatorInfo>,
-    root_aliases: StdBuckHashMap<NonEmptyCellAlias, CellName>,
+    root_aliases: IntentionallyStdHashMap<NonEmptyCellAlias, CellName>,
     root_cell: CellName,
 }
 
@@ -65,7 +66,7 @@ impl CellsAggregator {
     ) -> buck2_error::Result<Self> {
         let mut path_rmap = StdBuckHashMap::default();
         let mut infos = StdBuckHashMap::default();
-        let mut combined_aliases = StdBuckHashMap::default();
+        let mut combined_aliases = IntentionallyStdHashMap::new();
         for (cell, path) in cells {
             let real_cell = match path_rmap.try_insert(path.clone(), cell) {
                 Ok(_) => {

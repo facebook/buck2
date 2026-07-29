@@ -58,6 +58,7 @@ use buck2_events::sink::remote::new_remote_event_sink_if_enabled;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_path::AbsPathBuf;
+use buck2_hash::IntentionallyStdHashMap;
 use buck2_hash::StdBuckHashMap;
 use buck2_hash::StdBuckHashSet;
 use buck2_util::network_speed_average::NetworkSpeedAverage;
@@ -179,7 +180,7 @@ pub struct InvocationRecorder {
     sink_max_buffer_depth: u64,
     soft_error_categories: StdBuckHashSet<SoftError>,
     concurrent_command_blocking_duration: Option<Duration>,
-    metadata: StdBuckHashMap<String, String>,
+    metadata: IntentionallyStdHashMap<String, String>,
     analysis_count: u64,
     load_count: u64,
     daemon_in_memory_state_is_corrupted: bool,
@@ -773,7 +774,7 @@ impl InvocationRecorder {
         let mut page_in_fetch_us = None;
         let mut page_in_deser_us = None;
         let mut page_in_bytes = None;
-        let mut page_in_by_key_type = StdBuckHashMap::default();
+        let mut page_in_by_key_type = IntentionallyStdHashMap::new();
 
         // Already a per-command delta from the daemon; sum across key types for
         // the aggregate scalars.
@@ -1326,12 +1327,12 @@ impl InvocationRecorder {
     // Collects client-side state and data, suitable for telemetry.
     // NOTE: If data is visible from the daemon, put it in cli::metadata::collect()
     fn default_metadata() -> buck2_data::TypedMetadata {
-        let mut ints = StdBuckHashMap::default();
+        let mut ints = IntentionallyStdHashMap::new();
         ints.insert("is_tty".to_owned(), std::io::stderr().is_tty() as i64);
         // `strings` is only mutated under the cfg-gated block below, so in any other build
         // configuration (notably OSS) the `mut` is unused and trips `-D unused_mut`.
         #[cfg_attr(not(all(fbcode_build, target_os = "linux")), allow(unused_mut))]
-        let mut strings = StdBuckHashMap::default();
+        let mut strings = IntentionallyStdHashMap::new();
         #[cfg(all(fbcode_build, target_os = "linux"))]
         if let Some(agent_identity) = identity_env::agent_identity_from_env() {
             strings.insert("client_agent_identity_from_env".to_owned(), agent_identity);

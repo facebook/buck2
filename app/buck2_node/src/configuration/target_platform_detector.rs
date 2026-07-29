@@ -136,7 +136,7 @@ impl TargetPlatformDetector {
 mod tests {
     use buck2_core::cells::alias::NonEmptyCellAlias;
     use buck2_core::cells::cell_root_path::CellRootPathBuf;
-    use buck2_hash::StdBuckHashMap;
+    use buck2_hash::IntentionallyStdHashMap;
 
     use super::*;
 
@@ -153,7 +153,7 @@ mod tests {
                     CellRootPathBuf::testing_new("cell1"),
                 ),
             ],
-            StdBuckHashMap::from_iter([(
+            IntentionallyStdHashMap::from([(
                 NonEmptyCellAlias::testing_new("alias1"),
                 CellName::testing_new("cell1"),
             )]),
@@ -217,7 +217,7 @@ mod tests {
                     CellRootPathBuf::testing_new("cell1"),
                 ),
             ],
-            StdBuckHashMap::from_iter([(
+            IntentionallyStdHashMap::from([(
                 NonEmptyCellAlias::testing_new("alias1"),
                 CellName::testing_new("cell1"),
             )]),

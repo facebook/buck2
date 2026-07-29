@@ -32,7 +32,7 @@ use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::file_name::FileName;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::IntentionallyStdHashMap;
 
 use crate::daemon::server::BuckdServerInitPreferences;
 
@@ -71,12 +71,13 @@ fn sqlite_db_setup_metadata_and_versions(
     deferred_materializer_config: Option<&DeferredMaterializerConfigs>,
     daemon_id: &DaemonId,
 ) -> buck2_error::Result<(
-    StdBuckHashMap<String, String>,
-    StdBuckHashMap<String, String>,
+    IntentionallyStdHashMap<String, String>,
+    IntentionallyStdHashMap<String, String>,
 )> {
     let metadata = buck2_events::metadata::collect(daemon_id);
 
-    let mut versions = StdBuckHashMap::from([("schema_version".to_owned(), schema_version)]);
+    let mut versions =
+        IntentionallyStdHashMap::from([("schema_version".to_owned(), schema_version)]);
 
     if let Some(config) = deferred_materializer_config {
         versions.insert(

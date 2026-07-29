@@ -93,7 +93,7 @@ use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::file_name::FileNameBuf;
 use buck2_fs::working_dir::AbsWorkingDir;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::IntentionallyStdHashMap;
 use buck2_hash::StdBuckHashSet;
 use buck2_interpreter::dice::starlark_debug::SetStarlarkDebugger;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
@@ -1009,14 +1009,14 @@ impl DiceCommandUpdater<'_, '_> {
     }
 }
 
-struct ConfigMetadataHolder(StdBuckHashMap<String, String>);
+struct ConfigMetadataHolder(IntentionallyStdHashMap<String, String>);
 
 fn collect_config_metadata_into(config: &LegacyBuckConfig, data: &mut UserComputationData) {
     // Facebook only: metadata collection for Scribe writes
     facebook_only();
 
     fn add_config(
-        map: &mut StdBuckHashMap<String, String>,
+        map: &mut IntentionallyStdHashMap<String, String>,
         cfg: &LegacyBuckConfig,
         key: BuckconfigKeyRef<'static>,
         field_name: &'static str,
@@ -1038,7 +1038,7 @@ fn collect_config_metadata_into(config: &LegacyBuckConfig, data: &mut UserComput
         sample_json.get("normals")?.as_object().cloned()
     }
 
-    let mut metadata = StdBuckHashMap::default();
+    let mut metadata = IntentionallyStdHashMap::new();
 
     add_config(
         &mut metadata,
@@ -1215,7 +1215,9 @@ impl ServerCommandContextTrait for ServerCommandContext<'_> {
     }
 
     /// Gathers metadata to attach to events for when a command starts and stops.
-    async fn request_metadata(&self) -> buck2_error::Result<StdBuckHashMap<String, String>> {
+    async fn request_metadata(
+        &self,
+    ) -> buck2_error::Result<IntentionallyStdHashMap<String, String>> {
         // Facebook only: metadata collection for Scribe writes
         facebook_only();
 
@@ -1283,7 +1285,7 @@ impl ServerCommandContextTrait for ServerCommandContext<'_> {
     async fn config_metadata(
         &self,
         ctx: &mut DiceComputations<'_>,
-    ) -> buck2_error::Result<StdBuckHashMap<String, String>> {
+    ) -> buck2_error::Result<IntentionallyStdHashMap<String, String>> {
         ctx.per_transaction_data()
             .data
             .get::<ConfigMetadataHolder>()

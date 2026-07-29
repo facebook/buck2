@@ -97,7 +97,8 @@ impl FunctionDescription {
 
 // Instances created by #[query_module]
 pub struct ModuleDescription {
-    pub functions: BuckIndexMap<&'static str, FunctionDescription>,
+    /// Note: Uses raw `indexmap::IndexMap` because the proc-macro generates `indexmap!`.
+    pub functions: indexmap::IndexMap<&'static str, FunctionDescription>,
 
     pub short_help: Option<String>,
     pub details: Option<String>,

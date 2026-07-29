@@ -14,7 +14,7 @@ use std::sync::OnceLock;
 
 use buck2_core::ci::ci_identifiers;
 use buck2_core::facebook_only;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::IntentionallyStdHashMap;
 use buck2_wrapper_common::BUCK2_WRAPPER_ENV_VAR;
 
 use crate::daemon_id::DaemonId;
@@ -27,8 +27,8 @@ use crate::daemon_id::DaemonId;
 #[cfg(not(fbcode_build))]
 pub fn collect_with_extras(
     daemon: &DaemonId,
-    extras: &StdBuckHashMap<String, String>,
-) -> StdBuckHashMap<String, String> {
+    extras: &IntentionallyStdHashMap<String, String>,
+) -> IntentionallyStdHashMap<String, String> {
     let mut map = collect(daemon);
     for (k, v) in extras.iter() {
         map.entry(k.clone()).or_insert_with(|| v.clone());
@@ -37,15 +37,19 @@ pub fn collect_with_extras(
 }
 
 /// Collects metadata from the current binary and environment and writes it as map, suitable for telemetry purposes.
-pub fn collect(daemon: &DaemonId) -> StdBuckHashMap<String, String> {
+pub fn collect(daemon: &DaemonId) -> IntentionallyStdHashMap<String, String> {
     facebook_only();
-    fn add_env_var(map: &mut StdBuckHashMap<String, String>, key: &'static str, var: &'static str) {
+    fn add_env_var(
+        map: &mut IntentionallyStdHashMap<String, String>,
+        key: &'static str,
+        var: &'static str,
+    ) {
         if let Ok(data) = env::var(var) {
             map.insert(key.to_owned(), data);
         }
     }
 
-    let mut map = StdBuckHashMap::default();
+    let mut map = IntentionallyStdHashMap::new();
 
     let info = system_info();
     if let Some(hostname) = info.hostname {

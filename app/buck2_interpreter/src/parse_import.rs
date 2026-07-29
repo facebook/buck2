@@ -166,12 +166,12 @@ pub fn parse_bzl_path_with_config(
 mod tests {
     use buck2_core::cells::alias::NonEmptyCellAlias;
     use buck2_core::cells::name::CellName;
-    use buck2_hash::StdBuckHashMap;
+    use buck2_hash::IntentionallyStdHashMap;
 
     use super::*;
 
     fn resolver() -> CellAliasResolver {
-        let mut m = StdBuckHashMap::default();
+        let mut m = IntentionallyStdHashMap::new();
         m.insert(
             NonEmptyCellAlias::new("cell1".to_owned()).unwrap(),
             CellName::testing_new("cell1"),

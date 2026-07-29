@@ -65,7 +65,7 @@ mod imp {
     use buck2_events::metadata;
     use buck2_events::sink::remote::ScribeConfig;
     use buck2_events::sink::remote::new_remote_event_sink_if_enabled;
-    use buck2_hash::StdBuckHashMap;
+    use buck2_hash::IntentionallyStdHashMap;
     use buck2_util::threads::thread_spawn;
     use fbinit::FacebookInit;
     use tokio::runtime::Builder;
@@ -126,7 +126,9 @@ mod imp {
     }
 
     /// Collects metadata from the current environment for use in LogView.
-    fn get_metadata_for_panic(options: &StructuredErrorOptions) -> StdBuckHashMap<String, String> {
+    fn get_metadata_for_panic(
+        options: &StructuredErrorOptions,
+    ) -> IntentionallyStdHashMap<String, String> {
         #[cfg_attr(client_only, allow(unused_mut))]
         let mut map = metadata::collect(&get_daemon_id_for_panics());
         #[cfg(not(client_only))]

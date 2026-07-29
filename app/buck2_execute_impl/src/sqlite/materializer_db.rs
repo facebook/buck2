@@ -21,7 +21,7 @@ use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::IntentionallyStdHashMap;
 use chrono::DateTime;
 use chrono::Utc;
 use dupe::Dupe;
@@ -95,8 +95,8 @@ impl MaterializerStateSqliteDb {
     /// create a new one.
     pub async fn initialize(
         materializer_state_dir: AbsNormPathBuf,
-        versions: StdBuckHashMap<String, String>,
-        current_instance_metadata: StdBuckHashMap<String, String>,
+        versions: IntentionallyStdHashMap<String, String>,
+        current_instance_metadata: IntentionallyStdHashMap<String, String>,
         // Using `BlockingExecutor` out of convenience. This function should be called during startup
         // when there's not a lot of I/O so it shouldn't matter.
         io_executor: Arc<dyn BlockingExecutor>,
@@ -119,8 +119,8 @@ impl MaterializerStateSqliteDb {
     /// Internal implementation that handles digest config
     fn initialize_materializer_sqlite_db(
         materializer_state_dir: AbsNormPathBuf,
-        versions: StdBuckHashMap<String, String>,
-        current_instance_metadata: StdBuckHashMap<String, String>,
+        versions: IntentionallyStdHashMap<String, String>,
+        current_instance_metadata: IntentionallyStdHashMap<String, String>,
         digest_config: DigestConfig,
         reject_identity: Option<&SqliteIdentity>,
     ) -> buck2_error::Result<(Self, buck2_error::Result<MaterializerState>)> {
@@ -168,8 +168,8 @@ impl MaterializerStateSqliteDb {
 #[allow(unused)] // Used by test modules
 pub(crate) fn testing_materializer_state_sqlite_db(
     fs: &ProjectRoot,
-    versions: StdBuckHashMap<String, String>,
-    metadata: StdBuckHashMap<String, String>,
+    versions: IntentionallyStdHashMap<String, String>,
+    metadata: IntentionallyStdHashMap<String, String>,
     reject_identity: Option<&SqliteIdentity>,
 ) -> buck2_error::Result<(
     MaterializerStateSqliteDb,
@@ -202,6 +202,7 @@ mod tests {
     use buck2_execute::directory::ActionDirectoryMember;
     use buck2_execute::directory::new_symlink;
     use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+    use buck2_hash::StdBuckHashMap;
     use chrono::TimeZone;
     use itertools::Itertools;
     use parking_lot::Mutex;
@@ -380,7 +381,7 @@ mod tests {
 
     #[test]
     fn test_initialize_sqlite_db() -> buck2_error::Result<()> {
-        fn testing_metadatas() -> Vec<StdBuckHashMap<String, String>> {
+        fn testing_metadatas() -> Vec<IntentionallyStdHashMap<String, String>> {
             let metadata = buck2_events::metadata::collect(&DaemonId::new());
             let mut metadatas = vec![metadata; 5];
             for (i, metadata) in metadatas.iter_mut().enumerate() {
@@ -390,8 +391,8 @@ mod tests {
         }
 
         fn assert_metadata_matches(
-            mut have: StdBuckHashMap<String, String>,
-            want: &StdBuckHashMap<String, String>,
+            mut have: IntentionallyStdHashMap<String, String>,
+            want: &IntentionallyStdHashMap<String, String>,
         ) {
             // Remove the key we inject (and check it's there).
             have.remove("timestamp_on_initialization").unwrap();
@@ -410,8 +411,8 @@ mod tests {
         let timestamp = now_seconds();
         let metadatas = testing_metadatas();
 
-        let v0 = StdBuckHashMap::from([("version".to_owned(), "0".to_owned())]);
-        let v1 = StdBuckHashMap::from([("version".to_owned(), "1".to_owned())]);
+        let v0 = IntentionallyStdHashMap::from([("version".to_owned(), "0".to_owned())]);
+        let v1 = IntentionallyStdHashMap::from([("version".to_owned(), "1".to_owned())]);
 
         {
             let (mut db, loaded_state) = testing_materializer_state_sqlite_db(

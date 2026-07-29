@@ -286,6 +286,7 @@ mod tests {
     use buck2_events::Event;
     use buck2_events::daemon_id::DaemonId;
     use buck2_events::source::ChannelEventSource;
+    use buck2_hash::IntentionallyStdHashMap;
 
     use super::*;
 
@@ -389,7 +390,7 @@ mod tests {
                 data: Some(
                     buck2_data::DiceStateSnapshot {
                         key_states: {
-                            let mut map = StdBuckHashMap::default();
+                            let mut map = IntentionallyStdHashMap::new();
                             map.insert(
                                 "BuildKey".to_owned(),
                                 buck2_data::DiceKeyState {

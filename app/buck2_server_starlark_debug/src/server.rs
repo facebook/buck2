@@ -21,6 +21,7 @@ use buck2_error::internal_error;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
+use buck2_hash::IntentionallyStdHashMap;
 use buck2_hash::StdBuckHashMap;
 use buck2_interpreter::starlark_debug::StarlarkDebugController;
 use debugserver_types as dap;
@@ -751,7 +752,7 @@ impl ServerState {
     /// debugger isn't attached, and so when a command receives the snapshot it can know
     /// that a debugger is attached to the buck daemon.
     fn get_snapshot(&self) -> buck2_data::DebugAdapterSnapshot {
-        let mut current_handles = StdBuckHashMap::default();
+        let mut current_handles = IntentionallyStdHashMap::new();
 
         for hook_state in self.current_hooks.values() {
             if let Some(v) = &hook_state.stopped_at {

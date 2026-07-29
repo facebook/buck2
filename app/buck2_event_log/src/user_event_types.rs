@@ -194,7 +194,7 @@ mod tests {
     use buck2_data::StarlarkUserMetadataListValue;
     use buck2_data::StarlarkUserMetadataValue;
     use buck2_data::starlark_user_metadata_value::Value;
-    use buck2_hash::StdBuckHashMap;
+    use buck2_hash::IntentionallyStdHashMap;
     use maplit::hashmap;
 
     #[test]
@@ -203,7 +203,7 @@ mod tests {
             value: Some(Value::BoolValue(true)),
         };
 
-        let mut metadata = StdBuckHashMap::default();
+        let mut metadata = IntentionallyStdHashMap::new();
         metadata.insert("bool_value".to_owned(), val1);
 
         let starlark_user_event = StarlarkUserEvent {
@@ -239,7 +239,7 @@ mod tests {
             value: Some(Value::ListValue(list)),
         };
 
-        let mut metadata = StdBuckHashMap::default();
+        let mut metadata = IntentionallyStdHashMap::new();
         metadata.insert("list_value".to_owned(), val);
 
         let starlark_user_event = StarlarkUserEvent {
@@ -273,7 +273,7 @@ mod tests {
             value: Some(Value::DictValue(dict)),
         };
 
-        let mut metadata = StdBuckHashMap::default();
+        let mut metadata = IntentionallyStdHashMap::new();
         metadata.insert("dict_value".to_owned(), val);
 
         let starlark_user_event = StarlarkUserEvent {

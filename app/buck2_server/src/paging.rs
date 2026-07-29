@@ -45,7 +45,7 @@ use buck2_error::ErrorTag;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::metadata;
-use buck2_hash::StdBuckHashMap;
+use buck2_hash::IntentionallyStdHashMap;
 use buck2_server_ctx::concurrency::ConcurrencyHandler;
 use buck2_util::process_stats::process_stats;
 use dice::Dice;
@@ -64,7 +64,7 @@ use crate::jemalloc_stats::get_allocator_stats;
 pub(crate) struct PagingManager {
     daemon: Arc<DaemonStateData>,
     total_disk_space_bytes: Option<u64>,
-    page_in_baseline: StdBuckHashMap<String, buck2_data::DicePageInKeyTypeStats>,
+    page_in_baseline: IntentionallyStdHashMap<String, buck2_data::DicePageInKeyTypeStats>,
 }
 
 impl PagingManager {
@@ -158,7 +158,7 @@ fn measured_db_size_bytes(size: Option<Result<u64, Arc<std::io::Error>>>) -> Opt
 /// Cumulative per-key-type page-in counters, as proto stats.
 fn page_in_proto_map(
     daemon: &DaemonStateData,
-) -> StdBuckHashMap<String, buck2_data::DicePageInKeyTypeStats> {
+) -> IntentionallyStdHashMap<String, buck2_data::DicePageInKeyTypeStats> {
     daemon
         .dice_manager
         .unsafe_dice()
@@ -181,9 +181,9 @@ fn page_in_proto_map(
 /// Per-key-type delta of the cumulative page-in counters between the command's
 /// start (`baseline`) and now (`current`).
 fn compute_page_in_delta(
-    baseline: &StdBuckHashMap<String, buck2_data::DicePageInKeyTypeStats>,
-    current: &StdBuckHashMap<String, buck2_data::DicePageInKeyTypeStats>,
-) -> StdBuckHashMap<String, buck2_data::DicePageInKeyTypeStats> {
+    baseline: &IntentionallyStdHashMap<String, buck2_data::DicePageInKeyTypeStats>,
+    current: &IntentionallyStdHashMap<String, buck2_data::DicePageInKeyTypeStats>,
+) -> IntentionallyStdHashMap<String, buck2_data::DicePageInKeyTypeStats> {
     current
         .iter()
         .filter_map(|(key_type, c)| {
@@ -466,7 +466,7 @@ fn page_out_memory_snapshot(dice: &Arc<Dice>) -> (Option<u64>, Option<u64>, Opti
 
 #[cfg(test)]
 mod tests {
-    use buck2_hash::StdBuckHashMap;
+    use buck2_hash::IntentionallyStdHashMap;
 
     use super::PageOutThresholds;
     use super::compute_page_in_delta;
@@ -485,11 +485,11 @@ mod tests {
 
         // Baseline cumulatives include page-ins from earlier commands on this
         // daemon, so they must be subtracted out.
-        let mut baseline = StdBuckHashMap::default();
+        let mut baseline = IntentionallyStdHashMap::default();
         baseline.insert("A".to_owned(), stat(10, 100, 200, 1000));
         baseline.insert("C".to_owned(), stat(5, 50, 50, 500));
 
-        let mut current = StdBuckHashMap::default();
+        let mut current = IntentionallyStdHashMap::default();
         current.insert("A".to_owned(), stat(12, 130, 260, 1300)); // +2 this command
         current.insert("B".to_owned(), stat(3, 30, 60, 300)); // new key type, baseline 0
         current.insert("C".to_owned(), stat(5, 50, 50, 500)); // unchanged -> omitted

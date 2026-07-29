@@ -34,6 +34,7 @@ use buck2_directory::directory::fingerprinted_directory::FingerprintedDirectory;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_error::internal_error;
+use buck2_hash::IntentionallyStdHashMap;
 use buck2_hash::StdBuckHashMap;
 use buck2_hash::StdBuckHashSet;
 use chrono::Duration;
@@ -72,7 +73,7 @@ use crate::re::metadata::RemoteExecutionMetadataExt;
 #[derive(Clone, Debug, Default)]
 pub struct UploadStats {
     pub total: ReUploadMetrics,
-    pub by_extension: StdBuckHashMap<String, ReUploadMetrics>,
+    pub by_extension: IntentionallyStdHashMap<String, ReUploadMetrics>,
 }
 
 pub struct Uploader {}
@@ -412,7 +413,7 @@ impl Uploader {
         // Compute stats of digests we're about to upload so we can report them
         // to the span end event of this stage of execution.
         let stats = {
-            let mut stats_by_extension = StdBuckHashMap::default();
+            let mut stats_by_extension = IntentionallyStdHashMap::new();
             let mut named_digest_byte_count: u64 = 0;
             for nd in &upload_files {
                 // Aggregate metrics by file extension.

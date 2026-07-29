@@ -23,6 +23,7 @@ use buck2_execute::materialize::utils::dynamic_priority_handle::DynamicPriorityH
 use buck2_execute::materialize::utils::priority_semaphore::Priority;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_hash::StdBuckHashMap;
+use buck2_hash::StdBuckHashSet;
 use parking_lot::Mutex;
 
 use super::*;
@@ -118,6 +119,7 @@ mod state_machine {
     use buck2_fs::paths::RelativePathBuf;
     use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+    use buck2_hash::IntentionallyStdHashMap;
     use buck2_util::threads::ignore_stack_overflow_checks_for_future;
     use buck2_wrapper_common::invocation_id::TraceId;
     use futures::StreamExt;
@@ -427,8 +429,8 @@ mod state_machine {
     fn make_db(fs: &ProjectRoot) -> (MaterializerStateSqliteDb, Option<MaterializerState>) {
         let (db, state) = testing_materializer_state_sqlite_db(
             fs,
-            StdBuckHashMap::from([("version".to_owned(), "0".to_owned())]),
-            StdBuckHashMap::default(),
+            IntentionallyStdHashMap::from([("version".to_owned(), "0".to_owned())]),
+            IntentionallyStdHashMap::new(),
             None,
         )
         .unwrap();

@@ -1290,7 +1290,7 @@ mod tests {
     use std::marker::PhantomData;
 
     use assert_matches::assert_matches;
-    use buck2_hash::StdBuckHashMap;
+    use buck2_hash::IntentionallyStdHashMap;
     use dupe::Dupe;
     use gazebo::prelude::*;
     use test_case::test_case;
@@ -1445,7 +1445,7 @@ mod tests {
                     CellRootPathBuf::testing_new("cell2"),
                 ),
             ],
-            StdBuckHashMap::from_iter([
+            IntentionallyStdHashMap::from_iter([
                 (
                     NonEmptyCellAlias::testing_new("cell1"),
                     CellName::testing_new("cell1"),

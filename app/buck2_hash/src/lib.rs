@@ -272,6 +272,22 @@ pub type StdBuckHashMap<K, V> = std::collections::HashMap<K, V>;
 /// and a faster alternative.
 pub type StdBuckHashSet<K> = std::collections::HashSet<K>;
 
+/// A [`HashMap`](std::collections::HashMap) that intentionally uses the standard library's
+/// default `RandomState` hasher rather than buck2's performance-optimized hasher.
+///
+/// Use this at API boundaries where the concrete type `HashMap<K, V>` is required —
+/// for example, protobuf-generated struct fields, third-party crate APIs, or rusqlite
+/// result collection. In all other cases, prefer [`BuckHashMap`].
+pub type IntentionallyStdHashMap<K, V> = std::collections::HashMap<K, V>;
+
+/// A [`HashSet`](std::collections::HashSet) that intentionally uses the standard library's
+/// default `RandomState` hasher rather than buck2's performance-optimized hasher.
+///
+/// Use this at API boundaries where the concrete type `HashSet<K>` is required —
+/// for example, starlark's `ast.lint()` API which expects `&HashSet<String>`.
+/// In all other cases, prefer [`BuckHashSet`].
+pub type IntentionallyStdHashSet<K> = std::collections::HashSet<K>;
+
 #[cfg(test)]
 mod tests {
     use std::hash::Hash;
