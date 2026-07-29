@@ -21,6 +21,10 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 # `buck2_hydration.enable_paging` (pagable DICE storage on disk) and
 # `buck2_hydration.page_out_on_idle` (page the graph out when the daemon goes idle).
 
+# `buck2_data.PageOutStarted::Started` — the invocation record serializes the
+# `page_out_started` enum field as its integer value (see data.proto).
+_PAGE_OUT_STARTED_STARTED = 1
+
 
 async def _build(buck: Buck) -> BuildResult:
     return await buck.build("//:mysrcrule")
@@ -170,9 +174,9 @@ async def test_page_out_on_idle(buck: Buck) -> None:
     result = await _build(buck)
     assert _output(result) == "content-0\n"
     # The sole active command triggers the idle page-out and records it.
-    assert result.invocation_record().get("page_out_triggered"), (
-        "expected the sole active command to trigger an idle page-out"
-    )
+    assert (
+        result.invocation_record().get("page_out_started") == _PAGE_OUT_STARTED_STARTED
+    ), "expected the sole active command to trigger an idle page-out"
 
     # Page-out runs in a detached background task once the daemon is idle. Wait
     # for it to finish, then confirm the graph was actually paged out.
@@ -204,16 +208,16 @@ async def test_page_out_triggered_only_when_values_computed(buck: Buck) -> None:
     (buck.cwd / "src.txt").write_text("content-0\n")
     result = await _build(buck)
     assert _output(result) == "content-0\n"
-    assert result.invocation_record().get("page_out_triggered"), (
-        "the cold build computes values, so it triggers a page-out"
-    )
+    assert (
+        result.invocation_record().get("page_out_started") == _PAGE_OUT_STARTED_STARTED
+    ), "the cold build computes values, so it triggers a page-out"
     await _wait_for_page_out_idle(buck)
 
     result = await _build(buck)
     assert _output(result) == "content-0\n"
-    assert not result.invocation_record().get("page_out_triggered"), (
-        "a no-op rebuild computes nothing new, so it should not trigger a page-out"
-    )
+    assert (
+        result.invocation_record().get("page_out_started") != _PAGE_OUT_STARTED_STARTED
+    ), "a no-op rebuild computes nothing new, so it should not trigger a page-out"
 
 
 @buck_test(data_dir="paging", write_invocation_record=True)
@@ -236,7 +240,9 @@ async def test_page_out_at_most_once(buck: Buck) -> None:
     assert _paged_in_count(result) > 0, (
         "expected the incremental build to page its working set back in"
     )
-    assert not result.invocation_record().get("page_out_triggered"), (
+    assert (
+        result.invocation_record().get("page_out_started") != _PAGE_OUT_STARTED_STARTED
+    ), (
         "values paged in by an incremental build must stay resident, leaving "
         "nothing new to page out"
     )

@@ -77,7 +77,7 @@ impl PagingManager {
     fn summary(
         &self,
         counts: &PagableNodeCounts,
-        page_out_triggered: bool,
+        page_out_started: buck2_data::PageOutStarted,
     ) -> buck2_data::PagingSummary {
         let dice = self.daemon.dice_manager.unsafe_dice();
         buck2_data::PagingSummary {
@@ -89,7 +89,7 @@ impl PagingManager {
             resident_node_count: Some(counts.resident as u64),
             paged_out_node_count: Some(counts.paged_out as u64),
             candidate_node_count: Some(counts.candidates as u64),
-            page_out_triggered: Some(page_out_triggered),
+            page_out_started: Some(page_out_started as i32),
         }
     }
 
@@ -113,16 +113,19 @@ impl PagingManager {
             command_end_snapshot.used_disk_space_bytes,
             self.total_disk_space_bytes,
         );
-        let page_out_triggered = triggers_idle_page_out
-            && spawn_page_out_on_idle(
+        let page_out_started = if triggers_idle_page_out {
+            spawn_page_out_on_idle(
                 self.daemon.page_out_on_idle,
                 self.daemon.dice_manager.dupe(),
                 dispatcher.dupe(),
                 free_disk_bytes,
                 counts.candidates,
             )
-            .await;
-        dispatcher.instant_event(self.summary(&counts, page_out_triggered));
+            .await
+        } else {
+            buck2_data::PageOutStarted::CommandOptedOut
+        };
+        dispatcher.instant_event(self.summary(&counts, page_out_started));
     }
 }
 
@@ -291,42 +294,44 @@ pub(crate) struct PageOutThresholds {
     pub(crate) min_free_disk_gb: u64,
 }
 
-/// Spawn a background idle page-out, if it is enabled (`thresholds` is `Some`) and
-/// `trace_id` — the command that triggered this page-out — is the only still-active
-/// command (so paging won't contend with other work). Returns whether one was
-/// triggered (not whether it succeeds). When commands overlap, only the last to
-/// finish still sees itself as the sole active command, so only it triggers. Returns
-/// `false` when idle page-out is disabled, there is nothing to page out (e.g. a
-/// no-op build or a non-build command that computed no new values), or there is not
-/// enough disk headroom (see [`should_page_out_decision`]).
+/// Spawn a background idle page-out if it should run, returning the outcome:
+/// [`PageOutStarted::Started`] if one was scheduled (not whether it succeeds), else the
+/// reason it wasn't — disabled, not enough disk headroom, another command active, one
+/// already running, or nothing to page out. When commands overlap, only the last to
+/// finish still sees itself as the sole active command, so only it starts one.
 pub(crate) async fn spawn_page_out_on_idle(
     thresholds: Option<PageOutThresholds>,
     dice_manager: Arc<ConcurrencyHandler>,
     dispatcher: EventDispatcher,
     free_disk_bytes: Option<u64>,
     pagable_candidates: usize,
-) -> bool {
+) -> buck2_data::PageOutStarted {
+    use buck2_data::PageOutStarted;
+
     let Some(thresholds) = thresholds else {
-        return false;
+        return PageOutStarted::Disabled;
     };
 
     if !is_only_active_command(dispatcher.trace_id()) {
-        return false;
+        return PageOutStarted::OtherCommandsActive;
     }
 
-    if !should_page_out_decision(free_disk_bytes, thresholds) {
-        return false;
+    if let Some(reason) = should_page_out_decision(free_disk_bytes, thresholds) {
+        return reason;
     }
 
     let Some(guard) = PageOutGuard::acquire() else {
-        return false;
+        return PageOutStarted::AlreadyRunning;
     };
 
     // Re-check under the guard: a command that started in the window above (which
     // wouldn't have cancelled us) mustn't slip through. Also bail if there is nothing
     // to page out.
-    if !is_only_active_command(dispatcher.trace_id()) || pagable_candidates == 0 {
-        return false;
+    if !is_only_active_command(dispatcher.trace_id()) {
+        return PageOutStarted::OtherCommandsActive;
+    }
+    if pagable_candidates == 0 {
+        return PageOutStarted::NothingToPageOut;
     }
 
     tokio::spawn(async move {
@@ -337,7 +342,7 @@ pub(crate) async fn spawn_page_out_on_idle(
             );
         }
     });
-    true
+    PageOutStarted::Started
 }
 
 /// Free disk space (bytes) on `buck-out` (where paged-out values are written),
@@ -348,21 +353,24 @@ fn free_disk_space_bytes(used: Option<u64>, total: Option<u64>) -> Option<u64> {
     Some(total?.saturating_sub(used?))
 }
 
-/// The idle page-out disk gate, split out so the threshold logic is unit-testable.
-/// Page out only when there is disk headroom (`free_disk_bytes` at or above
-/// `min_free_disk_gb`). `free_disk_bytes` is `None` when free disk couldn't be
-/// determined (total or used disk unavailable) — treated as no headroom.
-fn should_page_out_decision(free_disk_bytes: Option<u64>, thresholds: PageOutThresholds) -> bool {
+/// The idle page-out disk gate: `None` when there is headroom (`free_disk_bytes` at or
+/// above `min_free_disk_gb`), else the reason there isn't —
+/// [`PageOutStarted::InsufficientDiskHeadroom`], or [`PageOutStarted::FreeDiskUnknown`]
+/// when `free_disk_bytes` is `None` (total or used disk unavailable).
+fn should_page_out_decision(
+    free_disk_bytes: Option<u64>,
+    thresholds: PageOutThresholds,
+) -> Option<buck2_data::PageOutStarted> {
     let min_free_disk_bytes = thresholds
         .min_free_disk_gb
         .saturating_mul(1024 * 1024 * 1024);
     match free_disk_bytes {
-        Some(free) if free >= min_free_disk_bytes => true,
+        Some(free) if free >= min_free_disk_bytes => None,
         Some(free) => {
             tracing::debug!("Skipping page-out on idle: only {free} bytes of disk free");
-            false
+            Some(buck2_data::PageOutStarted::InsufficientDiskHeadroom)
         }
-        None => false,
+        None => Some(buck2_data::PageOutStarted::FreeDiskUnknown),
     }
 }
 
@@ -434,10 +442,18 @@ mod tests {
         let thresholds = PageOutThresholds {
             min_free_disk_gb: 20,
         };
-        assert!(should_page_out_decision(Some(50 * GIB), thresholds));
-        assert!(should_page_out_decision(Some(20 * GIB), thresholds)); // threshold is inclusive
-        assert!(!should_page_out_decision(Some(19 * GIB), thresholds));
-        assert!(!should_page_out_decision(None, thresholds)); // free disk unknown
+        assert_eq!(should_page_out_decision(Some(50 * GIB), thresholds), None);
+        // threshold is inclusive
+        assert_eq!(should_page_out_decision(Some(20 * GIB), thresholds), None);
+        assert_eq!(
+            should_page_out_decision(Some(19 * GIB), thresholds),
+            Some(buck2_data::PageOutStarted::InsufficientDiskHeadroom)
+        );
+        // Free disk couldn't be determined.
+        assert_eq!(
+            should_page_out_decision(None, thresholds),
+            Some(buck2_data::PageOutStarted::FreeDiskUnknown)
+        );
     }
 
     #[test]
@@ -446,6 +462,9 @@ mod tests {
         let thresholds = PageOutThresholds {
             min_free_disk_gb: u64::MAX,
         };
-        assert!(!should_page_out_decision(Some(u64::MAX - 1), thresholds));
+        assert_eq!(
+            should_page_out_decision(Some(u64::MAX - 1), thresholds),
+            Some(buck2_data::PageOutStarted::InsufficientDiskHeadroom)
+        );
     }
 }

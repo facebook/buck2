@@ -466,6 +466,28 @@ message DicePageInKeyTypeStats {
 
 // Per-command statistics about DICE pagable storage, emitted once at command
 // end.
+// Outcome of the idle page-out decision at the end of a command: either it was
+// started, or the reason it wasn't.
+enum PageOutStarted {
+  PAGE_OUT_STARTED_UNSPECIFIED = 0;
+  // A background idle page-out was scheduled.
+  PAGE_OUT_STARTED_STARTED = 1;
+  // Idle page-out is disabled (`buck2_hydration.page_out_on_idle` unset).
+  PAGE_OUT_STARTED_DISABLED = 2;
+  // Nothing to page out (no pagable candidates).
+  PAGE_OUT_STARTED_NOTHING_TO_PAGE_OUT = 3;
+  // Not enough free disk to write paged-out values to `buck-out`.
+  PAGE_OUT_STARTED_INSUFFICIENT_DISK_HEADROOM = 4;
+  // Free disk couldn't be determined (total or used disk unavailable).
+  PAGE_OUT_STARTED_FREE_DISK_UNKNOWN = 5;
+  // A page-out is already running (single-flight guard held).
+  PAGE_OUT_STARTED_ALREADY_RUNNING = 6;
+  // This command type does not take part in the idle page-out lifecycle.
+  PAGE_OUT_STARTED_COMMAND_OPTED_OUT = 7;
+  // Another command is active, so paging would contend with real work.
+  PAGE_OUT_STARTED_OTHER_COMMANDS_ACTIVE = 8;
+}
+
 message PagingSummary {
   // DICE page-in counters per key type, as a delta vs the command-start
   // baseline.
@@ -478,9 +500,9 @@ message PagingSummary {
   optional uint64 paged_out_node_count = 4;
   // Page-out candidate DICE node count, measured at command end.
   optional uint64 candidate_node_count = 5;
-  // Whether the daemon scheduled a background idle page-out at the end of this
-  // command (reflects triggering, not completion).
-  optional bool page_out_triggered = 6;
+  // Whether a background idle page-out was started at the end of this command,
+  // or the reason it wasn't.
+  optional PageOutStarted page_out_started = 6;
 }
 
 message RemoteExecutionSessionCreated {
@@ -2628,7 +2650,7 @@ enum DaemonWasStartedReason {
 // It's sent from the client to Scribe at the end of each invocation
 message InvocationRecord {
   reserved 1, 22, 27, 28, 36, 61, 62, 66, 77, 82, 88, 89, 100, 234, 235, 400,
-      401;
+      401, 443;
 
   // Optional - present if ever sent to client.
   // Will be missing on a cancelled build.
@@ -2756,9 +2778,6 @@ message InvocationRecord {
   uint64 run_remote_dep_file_cache_count = 73;
   // List of concurrent command trace IDs
   repeated string concurrent_command_ids = 74;
-  // The daemon triggered a background idle page-out at the end of this command
-  // (reflects triggering, not completion).
-  optional bool page_out_triggered = 443;
   // The client has failed to connect to the daemon.
   optional bool daemon_connection_failure = 75;
   // Daemon was started by this command.
@@ -3000,6 +3019,9 @@ message InvocationRecord {
   map<string, DicePageInKeyTypeStats> page_in_by_key_type = 442;
   // Size in bytes of the DICE pagable on-disk store, measured at command end.
   optional uint64 paging_db_size_bytes = 444;
+  // Whether a background idle page-out was started at the end of this command,
+  // or the reason it wasn't (reflects the decision, not completion).
+  optional PageOutStarted page_out_started = 445;
   // Resident (non-paged out) DICE node count at command end.
   optional uint64 paging_resident_node_count = 446;
   // Paged-out DICE node count at command end.

@@ -1136,10 +1136,10 @@ impl InvocationRecorder {
             concurrent_command_ids: std::mem::take(&mut self.concurrent_command_ids)
                 .into_iter()
                 .collect(),
-            page_out_triggered: self
+            page_out_started: self
                 .paging_summary
                 .as_ref()
-                .and_then(|s| s.page_out_triggered),
+                .and_then(|s| s.page_out_started),
             daemon_connection_failure: Some(self.daemon_connection_failure),
             daemon_was_started: self.daemon_was_started.map(|t| t as i32),
             should_restart: Some(self.should_restart),
