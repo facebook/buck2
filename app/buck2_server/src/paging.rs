@@ -74,7 +74,11 @@ impl PagingManager {
         }
     }
 
-    fn summary(&self, counts: &PagableNodeCounts) -> buck2_data::PagingSummary {
+    fn summary(
+        &self,
+        counts: &PagableNodeCounts,
+        page_out_triggered: bool,
+    ) -> buck2_data::PagingSummary {
         let dice = self.daemon.dice_manager.unsafe_dice();
         buck2_data::PagingSummary {
             dice_page_in_by_key_type: compute_page_in_delta(
@@ -85,11 +89,12 @@ impl PagingManager {
             resident_node_count: Some(counts.resident as u64),
             paged_out_node_count: Some(counts.paged_out as u64),
             candidate_node_count: Some(counts.candidates as u64),
+            page_out_triggered: Some(page_out_triggered),
         }
     }
 
-    /// Called at command end: emit this command's paging telemetry, then schedule a
-    /// background idle page-out if `triggers_idle_page_out`.
+    /// Called at command end: schedule a background idle page-out (if
+    /// `triggers_idle_page_out`) and emit this command's paging telemetry.
     pub(crate) async fn maybe_trigger_page_out_on_idle(
         &self,
         dispatcher: &EventDispatcher,
@@ -104,26 +109,20 @@ impl PagingManager {
             .unsafe_dice()
             .pagable_node_counts()
             .await;
-        dispatcher.instant_event(self.summary(&counts));
-
-        if !triggers_idle_page_out {
-            return;
-        }
         let free_disk_bytes = free_disk_space_bytes(
             command_end_snapshot.used_disk_space_bytes,
             self.total_disk_space_bytes,
         );
-        let triggered = spawn_page_out_on_idle(
-            self.daemon.page_out_on_idle,
-            self.daemon.dice_manager.dupe(),
-            dispatcher.dupe(),
-            free_disk_bytes,
-            counts.candidates,
-        )
-        .await;
-        if triggered {
-            dispatcher.instant_event(buck2_data::PageOutTriggered {});
-        }
+        let page_out_triggered = triggers_idle_page_out
+            && spawn_page_out_on_idle(
+                self.daemon.page_out_on_idle,
+                self.daemon.dice_manager.dupe(),
+                dispatcher.dupe(),
+                free_disk_bytes,
+                counts.candidates,
+            )
+            .await;
+        dispatcher.instant_event(self.summary(&counts, page_out_triggered));
     }
 }
 

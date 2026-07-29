@@ -204,12 +204,9 @@ message StdoutStreamingOutput {
 /// Preemption of the running command was detected/allowed
 message CommandPreempted {}
 
-/// The daemon triggered a background idle page-out at the end of this command.
-message PageOutTriggered {}
-
 // An event that represents a single point in time.
 message InstantEvent {
-  reserved 2, 8, 9, 12, 13, 22, 24, 38, 41, 52, 53;
+  reserved 2, 8, 9, 12, 13, 22, 24, 38, 41, 52, 53, 60;
 
   oneof data {
     StructuredError structured_error = 1;
@@ -344,8 +341,6 @@ message InstantEvent {
     // recorder) can accumulate rule types without the producing command
     // having to thread them through its response.
     TargetRuleTypeName target_rule_type_name = 59;
-
-    PageOutTriggered page_out_triggered = 60;
 
     PagingSummary paging_summary = 63;
   }
@@ -483,6 +478,9 @@ message PagingSummary {
   optional uint64 paged_out_node_count = 4;
   // Page-out candidate DICE node count, measured at command end.
   optional uint64 candidate_node_count = 5;
+  // Whether the daemon scheduled a background idle page-out at the end of this
+  // command (reflects triggering, not completion).
+  optional bool page_out_triggered = 6;
 }
 
 message RemoteExecutionSessionCreated {
