@@ -14,15 +14,24 @@
 //! some light API adjustments - are distinguished in that they are automatically disabled when this
 //! crate's pointer packing is disabled, ensuring that it doesn't introduce compilation failures.
 
-// The macros below expand to an *item* (`static_assertions::assert_eq_size!` produces a `const _`),
-// so they can be invoked at module level as a drop-in for `assert_eq_size!`. Do not wrap the
-// expansion in a block `{ ... }` - that turns it into a block expression that is only valid in
+// The macros below expand to a `const _` item, so they can be invoked at module level. Do not wrap
+// the expansion in a block `{ ... }` - that turns it into a block expression that is only valid in
 // statement position.
 
 /// Assert that the provided type has size equal to the specified number of pointers.
 #[cfg(all(not(mini_vec_no_ptr_packing), target_pointer_width = "64"))]
 pub macro words_of_type($ty:ty, $w:literal) {
-    $crate::size_assert::__macro_refs::static_assertions::assert_eq_size!($ty, [usize; $w]);
+    const _: () = {
+        const ACTUAL_BYTES: usize = ::core::mem::size_of::<$ty>();
+        const EXPECTED_BYTES: usize = ::core::mem::size_of::<[usize; $w]>();
+
+        let _ = <$ty as $crate::size_assert::__macro_refs::TypeHasExpectedWordSize<
+            ACTUAL_BYTES,
+            { ACTUAL_BYTES / ::core::mem::size_of::<usize>() },
+            EXPECTED_BYTES,
+            $w,
+        >>::ASSERT;
+    };
 }
 
 // Note that it's very intentional that the `cfg` is outside the macro, not inside it. That way it
@@ -38,7 +47,13 @@ pub macro words_of_type($($t:tt)*) {}
 /// the point is that one type is layout-compatible with another (e.g. a newtype around `Arc<str>`).
 #[cfg(all(not(mini_vec_no_ptr_packing), target_pointer_width = "64"))]
 pub macro same_size($a:ty, $b:ty) {
-    $crate::size_assert::__macro_refs::static_assertions::assert_eq_size!($a, $b);
+    const _: () = {
+        let _ = <$a as $crate::size_assert::__macro_refs::SameSizeAs<
+            $b,
+            { ::core::mem::size_of::<$a>() },
+            { ::core::mem::size_of::<$b>() },
+        >>::ASSERT;
+    };
 }
 
 /// Does nothing in this configuration
@@ -65,7 +80,7 @@ pub macro words_of_async_fn_future($f:path, ($($arg:tt)*), $w:literal) {
         // The body is only ever type-checked, never run: the placeholders construct a value of the
         // future's type without needing real arguments, and the size check fires at compile time
         // regardless of the function being called.
-        #[allow(unused, clippy::diverging_sub_expression)]
+        #[allow(unused, unreachable_code, clippy::diverging_sub_expression)]
         fn assert() {
             $crate::size_assert::__macro_refs::assert_async_fn_future_size!(($f) ($w) () $($arg)*);
         }
@@ -89,12 +104,18 @@ pub macro words_of_async_fn_future($($t:tt)*) {}
 #[cfg(all(not(mini_vec_no_ptr_packing), target_pointer_width = "64"))]
 pub macro words_of_expr($e:expr, $w:literal) {
     const _: () = {
-        #[allow(unused, clippy::diverging_sub_expression)]
+        #[allow(unused, unreachable_code, clippy::diverging_sub_expression)]
         fn assert() {
-            $crate::size_assert::__macro_refs::static_assertions::assert_eq_size_ptr!(
-                &$e,
-                &[0usize; $w]
-            );
+            const ACTUAL_BYTES: usize =
+                $crate::size_assert::__macro_refs::size_of_return(|| $e);
+            const EXPECTED_BYTES: usize = ::core::mem::size_of::<[usize; $w]>();
+
+            $crate::size_assert::__macro_refs::ExprHasExpectedWordSize::<
+                ACTUAL_BYTES,
+                { ACTUAL_BYTES / ::core::mem::size_of::<usize>() },
+                EXPECTED_BYTES,
+                $w,
+            >::assert_size(|| $e);
         }
     };
 }
@@ -106,7 +127,78 @@ pub macro words_of_expr($($t:tt)*) {}
 #[allow(missing_docs)]
 #[doc(hidden)]
 pub mod __macro_refs {
-    pub use static_assertions;
+    // The function pointer infers an unnameable return type without evaluating its body.
+    pub const fn size_of_return<T>(_: fn() -> T) -> usize {
+        ::core::mem::size_of::<T>()
+    }
+
+    #[diagnostic::on_unimplemented(
+        message = "Type `{Self}` has word count {ACTUAL_WORDS} ({ACTUAL_BYTES} bytes); expected {EXPECTED_WORDS} ({EXPECTED_BYTES} bytes)"
+    )]
+    pub trait TypeHasExpectedWordSize<
+        const ACTUAL_BYTES: usize,
+        const ACTUAL_WORDS: usize,
+        const EXPECTED_BYTES: usize,
+        const EXPECTED_WORDS: usize,
+    >
+    {
+        const ASSERT: ();
+    }
+
+    impl<T, const BYTES: usize, const WORDS: usize>
+        TypeHasExpectedWordSize<BYTES, WORDS, BYTES, WORDS> for T
+    {
+        const ASSERT: () = ();
+    }
+
+    #[diagnostic::on_unimplemented(
+        message = "Expression of type `{Self}` has word count {ACTUAL_WORDS} ({ACTUAL_BYTES} bytes); expected {EXPECTED_WORDS} ({EXPECTED_BYTES} bytes)"
+    )]
+    pub trait ExprHasExpectedWordSize<
+        const ACTUAL_BYTES: usize,
+        const ACTUAL_WORDS: usize,
+        const EXPECTED_BYTES: usize,
+        const EXPECTED_WORDS: usize,
+    >: Sized
+    {
+        fn assert_size(_: fn() -> Self);
+    }
+
+    impl<T, const BYTES: usize, const WORDS: usize>
+        ExprHasExpectedWordSize<BYTES, WORDS, BYTES, WORDS> for T
+    {
+        fn assert_size(_: fn() -> Self) {}
+    }
+
+    #[diagnostic::on_unimplemented(
+        message = "Future of type `{Self}` has word count {ACTUAL_WORDS} ({ACTUAL_BYTES} bytes); expected {EXPECTED_WORDS} ({EXPECTED_BYTES} bytes)"
+    )]
+    pub trait FutureHasExpectedWordSize<
+        const ACTUAL_BYTES: usize,
+        const ACTUAL_WORDS: usize,
+        const EXPECTED_BYTES: usize,
+        const EXPECTED_WORDS: usize,
+    >: Sized
+    {
+        fn assert_size(_: fn() -> Self);
+    }
+
+    impl<T, const BYTES: usize, const WORDS: usize>
+        FutureHasExpectedWordSize<BYTES, WORDS, BYTES, WORDS> for T
+    {
+        fn assert_size(_: fn() -> Self) {}
+    }
+
+    #[diagnostic::on_unimplemented(
+        message = "Size mismatch between `{Self}` ({LEFT_BYTES} bytes) and `{Rhs}` ({RIGHT_BYTES} bytes)"
+    )]
+    pub trait SameSizeAs<Rhs, const LEFT_BYTES: usize, const RIGHT_BYTES: usize> {
+        const ASSERT: ();
+    }
+
+    impl<Lhs, Rhs, const BYTES: usize> SameSizeAs<Rhs, BYTES, BYTES> for Lhs {
+        const ASSERT: () = ();
+    }
 
     /// Emits the size assertion for [`super::words_of_async_fn_future`].
     ///
@@ -119,10 +211,17 @@ pub mod __macro_refs {
     pub macro assert_async_fn_future_size {
         // All arguments consumed: emit the assertion.
         (($f:path) ($w:literal) ($($arg:expr,)*)) => {
-            $crate::size_assert::__macro_refs::static_assertions::assert_eq_size_ptr!(
-                &$f($($arg),*),
-                &[0usize; $w]
+            const ACTUAL_BYTES: usize = $crate::size_assert::__macro_refs::size_of_return(
+                || $f($($arg),*)
             );
+            const EXPECTED_BYTES: usize = ::core::mem::size_of::<[usize; $w]>();
+
+            $crate::size_assert::__macro_refs::FutureHasExpectedWordSize::<
+                ACTUAL_BYTES,
+                { ACTUAL_BYTES / ::core::mem::size_of::<usize>() },
+                EXPECTED_BYTES,
+                $w,
+            >::assert_size(|| $f($($arg),*));
         },
         // `_` placeholder (optionally followed by a comma and more arguments).
         (($f:path) ($w:literal) ($($arg:expr,)*) _ $(, $($rest:tt)*)?) => {
@@ -144,11 +243,16 @@ mod __compile_test {
         0
     }
 
+    async fn closure_arg<F: FnOnce(u8) -> u8>(f: F, pad: u64) -> u64 {
+        f(0) as u64 + pad
+    }
+
     super::words_of_type!(usize, 1);
     super::same_size!(usize, u64);
     super::words_of_async_fn_future!(three_args, (_, _, _), 1);
     // Mix `_` placeholders with an explicit, multi-token expression argument.
     super::words_of_async_fn_future!(three_args, (_, 1u16 + 1u16, _), 1);
+    super::words_of_async_fn_future!(closure_arg, (|x| x, 0u64), 2);
     super::words_of_expr!(
         three_args(::std::panic!(), ::std::panic!(), ::std::panic!()),
         1
