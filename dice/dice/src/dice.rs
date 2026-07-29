@@ -183,17 +183,19 @@ impl Dice {
     /// No-op if `DiceStorage` was not configured on the builder.
     pub async fn page_out(self: &StdArc<Self>) -> anyhow::Result<()> {
         // Never cancelled.
-        self.page_out_cancellable(|| false).await
+        self.page_out_cancellable(|| false).await?;
+        Ok(())
     }
 
     /// Like [`Dice::page_out`], but stops promptly once `cancelled` returns true
     /// (checked per key), leaving a partially paged-out graph (a valid state —
     /// paged-out values hydrate back on demand). Used by automatic idle page-out
-    /// so it can yield promptly when a new command starts.
+    /// so it can yield promptly when a new command starts. Returns the number of
+    /// values written out to disk.
     pub async fn page_out_cancellable(
         self: &StdArc<Self>,
         cancelled: PageOutCancel,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<usize> {
         if !self.is_idle().await {
             // A command can race in and make DICE non-idle even after the caller
             // waited for idle — `wait_for_idle` is not a lasting guarantee. On the
@@ -202,14 +204,14 @@ impl Dice {
             // aren't cancelled, something called this on a non-idle graph, which
             // risks paging out a value that's being recomputed — surface it.
             if cancelled() {
-                return Ok(());
+                return Ok(0);
             }
             return Err(anyhow::anyhow!(
                 "Dice::page_out called while DICE is not idle"
             ));
         }
         let Some(storage) = self.pagable_storage.as_ref() else {
-            return Ok(());
+            return Ok(0);
         };
         let keys = self.state_handle.keys_to_page_out().await;
         storage

@@ -35,14 +35,17 @@ use std::sync::Arc;
 use std::sync::LazyLock;
 use std::sync::atomic::AtomicU8;
 use std::sync::atomic::Ordering;
+use std::time::Instant;
 
 use buck2_common::memory;
 use buck2_core::soft_error;
 use buck2_error::ErrorTag;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_events::metadata;
 use buck2_hash::StdBuckHashMap;
 use buck2_server_ctx::concurrency::ConcurrencyHandler;
+use buck2_util::process_stats::process_stats;
 use dice::Dice;
 use dice::PagableNodeCounts;
 use dice::PageOutCancel;
@@ -51,6 +54,7 @@ use tokio::sync::Notify;
 
 use crate::active_commands::is_only_active_command;
 use crate::daemon::state::DaemonStateData;
+use crate::jemalloc_stats::get_allocator_stats;
 
 /// Command-scoped collector for DICE paging telemetry. Captures a baseline of the
 /// cumulative page-in counters at construction (command start) and produces the
@@ -201,8 +205,9 @@ fn compute_page_in_delta(
 pub(crate) async fn page_out(
     dice: &Arc<Dice>,
     cancelled: PageOutCancel,
-) -> buck2_error::Result<()> {
-    dice.page_out_cancellable(cancelled)
+) -> buck2_error::Result<usize> {
+    let paged_out_count = dice
+        .page_out_cancellable(cancelled)
         .await
         .map_err(|e| from_any_with_tag(e, ErrorTag::Environment))?;
 
@@ -210,7 +215,7 @@ pub(crate) async fn page_out(
     // processed before we purge.
     let _ = dice.metrics();
     memory::purge_jemalloc()?;
-    Ok(())
+    Ok(paged_out_count)
 }
 
 /// Lock-free state of the background idle page-out, doubling as the single-flight
@@ -335,7 +340,7 @@ pub(crate) async fn spawn_page_out_on_idle(
     }
 
     tokio::spawn(async move {
-        if let Err(e) = page_out_on_idle(guard, dice_manager).await {
+        if let Err(e) = page_out_on_idle(guard, dice_manager, dispatcher).await {
             let _unused = soft_error!(
                 "page_out_on_idle_failed",
                 e.context("Automatic page-out on idle failed")
@@ -377,6 +382,7 @@ fn should_page_out_decision(
 async fn page_out_on_idle(
     _guard: PageOutGuard,
     dice_manager: Arc<ConcurrencyHandler>,
+    dispatcher: EventDispatcher,
 ) -> buck2_error::Result<()> {
     let dice = dice_manager.unsafe_dice().dupe();
 
@@ -387,7 +393,51 @@ async fn page_out_on_idle(
     // A command may have arrived (and cancelled us) while we waited for idle. That's
     // rare, so don't check here — `page_out` observes the flag and stops promptly.
     tracing::info!("Daemon is idle; paging DICE out to reclaim memory");
-    page_out(&dice, page_out_cancelled).await
+    let (resident_bytes_before, allocated_bytes_before, db_size_bytes_before) =
+        page_out_memory_snapshot(&dice);
+    let start = Instant::now();
+    let result = page_out(&dice, page_out_cancelled).await;
+    let duration_ms = (Instant::now() - start).as_millis() as u64;
+    let (resident_bytes_after, allocated_bytes_after, db_size_bytes_after) =
+        page_out_memory_snapshot(&dice);
+    let (paged_out_count, error) = match &result {
+        Ok(n) => (*n as u64, None),
+        Err(e) => (0, Some(e.into())),
+    };
+    // Emitted on the triggering command's dispatcher. That command has already
+    // finalized, so this is a "late" event on its trace and its per-command channel
+    // is gone — but the dispatcher tees to the daemon Scribe sink, and
+    // `ChannelEventSink` drops post-disconnect `Buck` events without panicking, so
+    // it still reaches Scribe with the command's trace id. Logged to the
+    // `buck2_page_outs` table.
+    dispatcher.instant_event(buck2_data::PageOutSummary {
+        metadata: metadata::collect(dispatcher.daemon_id()),
+        command_uuid: Some(dispatcher.trace_id().to_string()),
+        paged_out_count,
+        duration_ms,
+        cancelled: page_out_cancelled(),
+        error,
+        resident_bytes_before,
+        resident_bytes_after,
+        allocated_bytes_before,
+        allocated_bytes_after,
+        db_size_bytes_before,
+        db_size_bytes_after,
+    });
+    result.map(|_| ())
+}
+
+/// `(resident RSS, jemalloc allocated, pagable DB on-disk size)` in bytes, each
+/// `None` when unavailable: no RSS on this platform, not built with jemalloc, or no
+/// pagable storage configured. Reads `/proc` and the store directory, so it is only
+/// called around a page-out, never on the hot path.
+fn page_out_memory_snapshot(dice: &Arc<Dice>) -> (Option<u64>, Option<u64>, Option<u64>) {
+    let resident = process_stats().rss_bytes;
+    let allocated = get_allocator_stats().ok().and_then(|s| s.bytes_allocated);
+    // A measurement error here is surfaced via the command-end `PagingSummary`; for
+    // these before/after metrics just use the size when available.
+    let db_size = dice.paging_db_size_bytes().and_then(|r| r.ok());
+    (resident, allocated, db_size)
 }
 
 #[cfg(test)]

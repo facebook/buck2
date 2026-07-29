@@ -212,9 +212,9 @@ impl DiceStorage {
         key_index: &DiceKeyIndex,
         state_handle: &CoreStateHandle,
         cancelled: PageOutCancel,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<usize> {
         if keys.is_empty() {
-            return Ok(());
+            return Ok(0);
         }
         // Process this many keys in parallel at a time, limit peak RSS
         const CHUNK_SIZE: usize = 32768;
@@ -265,7 +265,7 @@ impl DiceStorage {
         // The append-only store only changes here; refresh the cached size so the
         // command-end path reports it without a filesystem walk.
         self.refresh_db_size_bytes().await;
-        Ok(())
+        Ok(finished.len())
     }
 
     fn page_out_chunk(

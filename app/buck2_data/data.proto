@@ -204,6 +204,34 @@ message StdoutStreamingOutput {
 /// Preemption of the running command was detected/allowed
 message CommandPreempted {}
 
+/// The result of a background idle page-out, once it finishes. Logged to the
+/// `buck2_page_outs` table (see the buck2_cleans pipeline).
+message PageOutSummary {
+  map<string, string> metadata = 1;
+  /// The command whose finalize triggered this idle page-out.
+  optional string command_uuid = 2;
+  /// Number of DICE values written out to disk.
+  uint64 paged_out_count = 3;
+  /// Wall-clock duration of the page-out.
+  uint64 duration_ms = 4;
+  /// True if a new command interrupted the page-out before it finished (a valid
+  /// state — the remaining values stay paged in).
+  bool cancelled = 5;
+  optional ErrorReport error = 6;
+  /// Process resident set size (bytes) before / after the page-out. Absent if
+  /// the platform doesn't report RSS.
+  optional uint64 resident_bytes_before = 7;
+  optional uint64 resident_bytes_after = 8;
+  /// jemalloc bytes allocated before / after the page-out. Absent when not
+  /// built with jemalloc.
+  optional uint64 allocated_bytes_before = 9;
+  optional uint64 allocated_bytes_after = 10;
+  /// On-disk size (bytes) of the pagable DICE store before / after the
+  /// page-out. Absent if pagable storage is not configured.
+  optional uint64 db_size_bytes_before = 11;
+  optional uint64 db_size_bytes_after = 12;
+}
+
 // An event that represents a single point in time.
 message InstantEvent {
   reserved 2, 8, 9, 12, 13, 22, 24, 38, 41, 52, 53, 60;
@@ -341,6 +369,8 @@ message InstantEvent {
     // recorder) can accumulate rule types without the producing command
     // having to thread them through its response.
     TargetRuleTypeName target_rule_type_name = 59;
+
+    PageOutSummary page_out_summary = 62;
 
     PagingSummary paging_summary = 63;
   }

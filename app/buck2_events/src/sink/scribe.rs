@@ -225,6 +225,7 @@ impl RemoteEventSink {
                     Some(Data::StructuredError(..)) => true,
                     Some(Data::PersistEventLogSubprocess(..)) => true,
                     Some(Data::CleanStaleResult(..)) => true,
+                    Some(Data::PageOutSummary(..)) => true,
                     Some(Data::ConfigurationCreated(..)) => true,
                     Some(Data::DetailedAggregatedMetrics(..)) => true,
                     Some(Data::ResourceControlEvent(..)) => true,
