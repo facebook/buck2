@@ -10,6 +10,7 @@ fbsource = root
 fbcode = root
 ovr_config = prelude
 toolchains = prelude
+config = prelude
 
 [external_cells]
 prelude = bundled
