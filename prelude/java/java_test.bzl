@@ -184,8 +184,9 @@ def build_junit_test(
         ])
         env["TPX_LIST_TESTS_COMMAND"] = list_tests_command
 
+    test_info_type = getattr(ctx.attrs, "test_info_type", None) or "junit"
     test_info = ExternalRunnerTestInfo(
-        type = "junit",
+        type = test_info_type,
         command = cmd,
         env = env,
         labels = ctx.attrs.labels,

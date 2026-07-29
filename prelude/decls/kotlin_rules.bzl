@@ -304,6 +304,7 @@ kotlin_test = prelude_rule(
             "target": attrs.option(attrs.string(), default = None),
             "test_case_timeout_ms": attrs.option(attrs.int(), default = None),
             "test_class_names_file": attrs.option(attrs.source(), default = None),
+            "test_info_type": attrs.option(attrs.string(), default = None),
             "unbundled_resources_root": attrs.option(attrs.source(allow_directory = True), default = None),
             "use_cxx_libraries": attrs.option(attrs.bool(), default = None),
             "use_dependency_order_classpath": attrs.option(attrs.bool(), default = None),
