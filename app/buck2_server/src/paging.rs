@@ -84,6 +84,31 @@ impl PagingManager {
             candidate_node_count: Some(counts.candidates as u64),
         }
     }
+
+    /// Called at command end: emit this command's paging telemetry, then schedule a
+    /// background idle page-out if `triggers_idle_page_out`.
+    pub(crate) async fn maybe_trigger_page_out_on_idle(
+        &self,
+        dispatcher: &EventDispatcher,
+        disk_check_path: AbsNormPathBuf,
+        triggers_idle_page_out: bool,
+    ) {
+        dispatcher.instant_event(self.summary().await);
+
+        if !triggers_idle_page_out {
+            return;
+        }
+        let triggered = spawn_page_out_on_idle(
+            self.daemon.page_out_on_idle,
+            self.daemon.dice_manager.dupe(),
+            dispatcher.dupe(),
+            disk_check_path,
+        )
+        .await;
+        if triggered {
+            dispatcher.instant_event(buck2_data::PageOutTriggered {});
+        }
+    }
 }
 
 /// Turn the cached DB-size measurement into a reportable value, emitting a

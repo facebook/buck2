@@ -125,7 +125,6 @@ use crate::hydration::hydration_command;
 use crate::lsp::run_lsp_server_command;
 use crate::new_generic::new_generic_command;
 use crate::paging::cancel_active_page_out;
-use crate::paging::spawn_page_out_on_idle;
 use crate::profile::profile_command;
 use crate::profiling_manager::StarlarkProfilingManager;
 use crate::snapshot;
@@ -648,28 +647,14 @@ impl BuckdServer {
                         )
                         .await;
 
-                        // The command's DICE work is done; if it takes part in the
-                        // idle page-out lifecycle, schedule one. Read-only / debug
-                        // commands opt out (they also don't cancel on start).
-                        // Fire-and-forget: it no-ops unless paging is enabled and
-                        // this is the last active command.
-                        if opts.triggers_idle_page_out() {
-                            let daemon_data = daemon_state.data();
-                            let page_out_triggered = spawn_page_out_on_idle(
-                                daemon_data.page_out_on_idle,
-                                daemon_data.dice_manager.dupe(),
-                                dispatch.dupe(),
-                                // Check headroom on the filesystem the paged-out values
-                                // are written to (`buck-out`), not the project root.
+                        // Finalize the command, emitting its paging telemetry and (if
+                        // eligible) scheduling an idle page-out.
+                        context
+                            .finalize(
                                 daemon_state.paths.buck_out_path(),
+                                opts.triggers_idle_page_out(),
                             )
-                            .await;
-                            if page_out_triggered {
-                                dispatch.instant_event(buck2_data::PageOutTriggered {});
-                            }
-                        }
-
-                        context.finalize().await?;
+                            .await?;
                         res?
                     };
 

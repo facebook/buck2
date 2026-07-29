@@ -484,18 +484,26 @@ impl<'a> ServerCommandContext<'a> {
     }
 
     // Called at the end of the command to perform any necessary final actions or cleanup.
-    pub(crate) async fn finalize(mut self) -> buck2_error::Result<()> {
+    pub(crate) async fn finalize(
+        mut self,
+        disk_check_path: AbsNormPathBuf,
+        triggers_idle_page_out: bool,
+    ) -> buck2_error::Result<()> {
         self.starlark_profiling_manager
             .finalize(&self.base_context.events)
             .await?;
 
         self.heartbeat_guard_handle.take().unwrap().finalize().await;
 
-        // Emit this command's DICE paging telemetry (a delta vs the baseline
-        // captured at command start).
-        self.base_context
-            .events
-            .instant_event(self.paging_manager.summary().await);
+        // Emits this command's DICE paging telemetry and, if eligible, schedules an
+        // idle page-out.
+        self.paging_manager
+            .maybe_trigger_page_out_on_idle(
+                &self.base_context.events,
+                disk_check_path,
+                triggers_idle_page_out,
+            )
+            .await;
         Ok(())
     }
 }
