@@ -121,11 +121,11 @@ use crate::daemon::server_allocative::spawn_allocative;
 use crate::daemon::state::DaemonState;
 use crate::daemon::state::DaemonStateData;
 use crate::file_status::file_status_command;
-use crate::hydration::cancel_active_page_out;
 use crate::hydration::hydration_command;
-use crate::hydration::spawn_page_out_on_idle;
 use crate::lsp::run_lsp_server_command;
 use crate::new_generic::new_generic_command;
+use crate::paging::cancel_active_page_out;
+use crate::paging::spawn_page_out_on_idle;
 use crate::profile::profile_command;
 use crate::profiling_manager::StarlarkProfilingManager;
 use crate::snapshot;
@@ -658,7 +658,7 @@ impl BuckdServer {
                             let page_out_triggered = spawn_page_out_on_idle(
                                 daemon_data.page_out_on_idle,
                                 daemon_data.dice_manager.dupe(),
-                                dispatch.trace_id().dupe(),
+                                dispatch.dupe(),
                                 // Check headroom on the filesystem the paged-out values
                                 // are written to (`buck-out`), not the project root.
                                 daemon_state.paths.buck_out_path(),

@@ -101,7 +101,7 @@ use crate::daemon::io_provider::create_io_provider;
 use crate::daemon::panic::DaemonStatePanicDiceDump;
 use crate::daemon::server::BuckdServerInitPreferences;
 use crate::daemon::tenting_provider::create_tenting_acl_provider;
-use crate::hydration::PageOutThresholds;
+use crate::paging::PageOutThresholds;
 
 /// For a buckd process there is a single DaemonState created at startup and never destroyed.
 #[derive(Allocative)]
