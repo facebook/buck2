@@ -269,6 +269,7 @@ impl<'a> ServerCommandContext<'a> {
         snapshot_collector: SnapshotCollector,
         cancellations: &'a CancellationContext,
         command_start: Instant,
+        total_disk_space_bytes: Option<u64>,
     ) -> buck2_error::Result<Self> {
         let working_dir = AbsNormPath::new(&client_context.working_dir)?;
 
@@ -342,7 +343,7 @@ impl<'a> ServerCommandContext<'a> {
         let heartbeat_guard_handle =
             HeartbeatGuard::new(base_context.events.dupe(), snapshot_collector);
 
-        let paging_manager = PagingManager::new(base_context.daemon.dupe());
+        let paging_manager = PagingManager::new(base_context.daemon.dupe(), total_disk_space_bytes);
 
         let debugger_handle = create_debugger_handle(base_context.events.dupe());
 
@@ -486,21 +487,22 @@ impl<'a> ServerCommandContext<'a> {
     // Called at the end of the command to perform any necessary final actions or cleanup.
     pub(crate) async fn finalize(
         mut self,
-        disk_check_path: AbsNormPathBuf,
         triggers_idle_page_out: bool,
     ) -> buck2_error::Result<()> {
         self.starlark_profiling_manager
             .finalize(&self.base_context.events)
             .await?;
 
-        self.heartbeat_guard_handle.take().unwrap().finalize().await;
+        // The heartbeat guard's last snapshot; reused to gate idle page-out on disk
+        // headroom without a fresh stat.
+        let command_end_snapshot = self.heartbeat_guard_handle.take().unwrap().finalize().await;
 
         // Emits this command's DICE paging telemetry and, if eligible, schedules an
         // idle page-out.
         self.paging_manager
             .maybe_trigger_page_out_on_idle(
                 &self.base_context.events,
-                disk_check_path,
+                &command_end_snapshot,
                 triggers_idle_page_out,
             )
             .await;

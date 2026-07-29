@@ -520,6 +520,14 @@ impl BuckdServer {
 
         let data = daemon_state.data();
 
+        // The total disk space on `buck-out`, effectively fixed for the daemon's life.
+        // Captured here alongside `SystemInfo` and handed to this command's
+        // `PagingManager`, which pairs it with the command-end snapshot's used-disk
+        // reading to gate idle page-out without a second disk stat.
+        let total_disk_space_bytes = disk_space_stats(daemon_state.paths.buck_out_path())
+            .ok()
+            .map(|DiskSpaceStats { total_space, .. }| total_space);
+
         // Fire off a system-wide event to record the memory usage of this process.
         // TODO(ezgi): add it to oneshot command too
         let system_warning_config = &data.system_warning_config;
@@ -527,9 +535,7 @@ impl BuckdServer {
             system_total_memory_bytes: Some(system_memory_stats()),
             memory_pressure_threshold_percent: system_warning_config
                 .memory_pressure_threshold_percent,
-            total_disk_space_bytes: disk_space_stats(daemon_state.paths.buck_out_path())
-                .ok()
-                .map(|DiskSpaceStats { total_space, .. }| total_space),
+            total_disk_space_bytes,
             remaining_disk_space_threshold_gb: system_warning_config
                 .remaining_disk_space_threshold_gb,
             min_re_download_bytes_threshold: system_warning_config.min_re_download_bytes_threshold,
@@ -635,6 +641,7 @@ impl BuckdServer {
                             snapshot_collector,
                             cancellations,
                             command_start,
+                            total_disk_space_bytes,
                         )?;
 
                         let res = func(
@@ -649,12 +656,7 @@ impl BuckdServer {
 
                         // Finalize the command, emitting its paging telemetry and (if
                         // eligible) scheduling an idle page-out.
-                        context
-                            .finalize(
-                                daemon_state.paths.buck_out_path(),
-                                opts.triggers_idle_page_out(),
-                            )
-                            .await?;
+                        context.finalize(opts.triggers_idle_page_out()).await?;
                         res?
                     };
 
