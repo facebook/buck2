@@ -516,6 +516,9 @@ enum PageOutStarted {
   PAGE_OUT_STARTED_COMMAND_OPTED_OUT = 7;
   // Another command is active, so paging would contend with real work.
   PAGE_OUT_STARTED_OTHER_COMMANDS_ACTIVE = 8;
+  // A prior idle page-out errored, so it is disabled for the rest of this
+  // daemon's lifetime.
+  PAGE_OUT_STARTED_DISABLED_AFTER_ERROR = 9;
 }
 
 message PagingSummary {

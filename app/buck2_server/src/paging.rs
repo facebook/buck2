@@ -33,11 +33,13 @@
 
 use std::sync::Arc;
 use std::sync::LazyLock;
+use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicU8;
 use std::sync::atomic::Ordering;
 use std::time::Instant;
 
 use buck2_common::memory;
+use buck2_core::buck2_env;
 use buck2_core::soft_error;
 use buck2_error::ErrorTag;
 use buck2_error::conversion::from_any_with_tag;
@@ -206,6 +208,12 @@ pub(crate) async fn page_out(
     dice: &Arc<Dice>,
     cancelled: PageOutCancel,
 ) -> buck2_error::Result<usize> {
+    if buck2_env!("BUCK2_TEST_FAIL_PAGE_OUT", bool, applicability = testing).unwrap() {
+        return Err(buck2_error::buck2_error!(
+            ErrorTag::TestOnly,
+            "Injected page-out failure (BUCK2_TEST_FAIL_PAGE_OUT)"
+        ));
+    }
     let paged_out_count = dice
         .page_out_cancellable(cancelled)
         .await
@@ -232,6 +240,13 @@ const CANCELLED: u8 = 2;
 /// Notified when an idle page-out finishes, so `status --wait` can await it
 /// instead of polling.
 static PAGE_OUT_DONE: LazyLock<Notify> = LazyLock::new(Notify::new);
+
+/// Set when an idle page-out returns an error. Once set, no further idle
+/// page-outs are scheduled for the rest of this daemon's lifetime.
+/// Paging may be in a bad state, this avoids wasting work if we hit the same error
+/// and/or avoids page out values that will later cause page in failures.
+/// Cleared only on daemon restart.
+static PAGE_OUT_FAILED: AtomicBool = AtomicBool::new(false);
 
 /// Whether a background idle page-out is running, for `buck2 debug hydration
 /// status`. A manual `page-out` isn't tracked: it holds the exclusive command
@@ -316,6 +331,10 @@ pub(crate) async fn spawn_page_out_on_idle(
     let Some(thresholds) = thresholds else {
         return PageOutStarted::Disabled;
     };
+
+    if PAGE_OUT_FAILED.load(Ordering::Relaxed) {
+        return PageOutStarted::DisabledAfterError;
+    }
 
     if !is_only_active_command(dispatcher.trace_id()) {
         return PageOutStarted::OtherCommandsActive;
@@ -402,7 +421,12 @@ async fn page_out_on_idle(
         page_out_memory_snapshot(&dice);
     let (paged_out_count, error) = match &result {
         Ok(n) => (*n as u64, None),
-        Err(e) => (0, Some(e.into())),
+        Err(e) => {
+            // Set before this function returns (dropping the single-flight guard) so a
+            // `status --wait` that unblocks on guard release already sees the flag.
+            PAGE_OUT_FAILED.store(true, Ordering::Relaxed);
+            (0, Some(e.into()))
+        }
     };
     // Emitted on the triggering command's dispatcher. That command has already
     // finalized, so this is a "late" event on its trace and its per-command channel

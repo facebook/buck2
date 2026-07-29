@@ -15,15 +15,16 @@ from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.api.buck_result import BuildResult
-from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.buck_workspace import buck_test, env
 
 # The fixture's `.buckconfig` sets two `DaemonStartupConfig`s:
 # `buck2_hydration.enable_paging` (pagable DICE storage on disk) and
 # `buck2_hydration.page_out_on_idle` (page the graph out when the daemon goes idle).
 
-# `buck2_data.PageOutStarted::Started` — the invocation record serializes the
+# `buck2_data.PageOutStarted::*` — the invocation record serializes the
 # `page_out_started` enum field as its integer value (see data.proto).
 _PAGE_OUT_STARTED_STARTED = 1
+_PAGE_OUT_STARTED_DISABLED_AFTER_ERROR = 9
 
 
 async def _build(buck: Buck) -> BuildResult:
@@ -199,6 +200,37 @@ async def test_page_out_on_idle(buck: Buck) -> None:
 
     (buck.cwd / "src.txt").write_text("content-2\n")
     assert _output(await _build(buck)) == "content-2\n"
+
+
+@buck_test(data_dir="paging", write_invocation_record=True)
+@env("BUCK2_TEST_FAIL_PAGE_OUT", "true")
+async def test_idle_page_out_disabled_after_error(buck: Buck) -> None:
+    # A failed idle page-out disables idle page-out for the rest of the daemon's
+    # lifetime: the failure is likely persistent, so retrying at the end of every
+    # command would repeat the work and re-log the error. `BUCK2_TEST_FAIL_PAGE_OUT`
+    # injects the failure on the idle path only.
+    (buck.cwd / "src.txt").write_text("content-0\n")
+    result = await _build(buck)
+    assert _output(result) == "content-0\n"
+    # The cold build computes values, so it schedules an idle page-out...
+    assert (
+        result.invocation_record().get("page_out_started") == _PAGE_OUT_STARTED_STARTED
+    ), "the cold build should schedule an idle page-out"
+
+    # ...which then fails (injected). Wait for the background task to settle; it
+    # sets the "disabled" flag before releasing the single-flight guard that
+    # `status --wait` blocks on, so the flag is observable once this returns.
+    await _wait_for_page_out_idle(buck)
+
+    # A rebuild that recomputes values would normally schedule another page-out,
+    # but the prior failure has disabled idle page-out, so it must not.
+    (buck.cwd / "src.txt").write_text("content-1\n")
+    result = await _build(buck)
+    assert _output(result) == "content-1\n"
+    assert (
+        result.invocation_record().get("page_out_started")
+        == _PAGE_OUT_STARTED_DISABLED_AFTER_ERROR
+    ), "a prior idle page-out failure must disable idle page-out for future commands"
 
 
 @buck_test(data_dir="paging", write_invocation_record=True)
