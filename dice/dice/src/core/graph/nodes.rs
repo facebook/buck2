@@ -62,6 +62,31 @@ pub(crate) enum VersionedGraphNode {
 
 mini_vec::size_assert::words_of_type!(VersionedGraphNode, 11);
 
+/// A node's state for page-out tracking: whether it's a tracked occupied node and, if
+/// so, whether its value is resident or paged out. Captured before a mutation and
+/// recomputed after so the page-out candidate set can be reconciled by delta. Only
+/// `Occupied` nodes are tracked.
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub(crate) enum PagableState {
+    /// The value is resident in memory. `candidate` is true iff it has never been
+    /// paged out, so it is eligible for the next page-out.
+    Resident { candidate: bool },
+    /// The value has been paged out to disk.
+    PagedOut,
+    /// Not an occupied pagable value (a vacant slot or an injected node), so it is
+    /// never a page-out candidate. Injected values are resident in memory but live in
+    /// a separate `VersionedGraphNode` variant and are never paged, so they're
+    /// excluded here (and from the existing `pagable_status` scan) by design.
+    Untracked,
+}
+
+impl PagableState {
+    /// Whether the node is a page-out candidate (resident and never paged out).
+    pub(crate) fn is_candidate(self) -> bool {
+        matches!(self, PagableState::Resident { candidate: true })
+    }
+}
+
 impl VersionedGraphNode {
     pub(crate) fn force_dirty(
         &mut self,
@@ -105,13 +130,21 @@ impl VersionedGraphNode {
         }
     }
 
-    /// Whether this is an occupied node that has never been paged out, i.e. a
-    /// candidate for the next page-out.
-    pub(crate) fn is_page_out_candidate(&self) -> bool {
-        matches!(
-            self,
-            VersionedGraphNode::Occupied(occ) if occ.val().is_page_out_candidate()
-        )
+    /// Classify this node for page-out tracking (see [`PagableState`]).
+    pub(crate) fn pagable_state(&self) -> PagableState {
+        let VersionedGraphNode::Occupied(occ) = self else {
+            return PagableState::Untracked;
+        };
+        let val = occ.val();
+        if val.as_hydrated().is_some() {
+            PagableState::Resident {
+                candidate: val.is_page_out_candidate(),
+            }
+        } else {
+            // A `PagableNodeValue` always holds a value or a data key, so a
+            // non-hydrated occupied node is paged out.
+            PagableState::PagedOut
+        }
     }
 
     /// Returns the VersionedGraphResult for the entry at the provided version.

@@ -220,6 +220,7 @@ mod store {
     use bit_set::BitSet;
 
     use crate::HashMap;
+    use crate::core::graph::nodes::PagableState;
     use crate::core::graph::nodes::VersionedGraphNode;
     use crate::key::DiceKey;
 
@@ -302,7 +303,7 @@ mod store {
             let mut expected: Vec<usize> = self
                 .nodes
                 .iter()
-                .filter(|(_, n)| n.is_page_out_candidate())
+                .filter(|(_, n)| n.pagable_state().is_candidate())
                 .map(|(k, _)| k.index as usize)
                 .collect();
             expected.sort_unstable();
@@ -322,18 +323,19 @@ mod store {
         candidates: &'a mut BitSet,
         node: &'a mut VersionedGraphNode,
         key: DiceKey,
-        was_candidate: bool,
+        /// The node's state when the guard was created; compared against its state on
+        /// `Drop` to reconcile the candidate set by delta.
+        prev_state: PagableState,
     }
 
     impl<'a> NodeMut<'a> {
-        /// Captures the node's current candidacy so `Drop` can reconcile against it.
         fn new(candidates: &'a mut BitSet, key: DiceKey, node: &'a mut VersionedGraphNode) -> Self {
-            let was_candidate = node.is_page_out_candidate();
+            let prev_state = node.pagable_state();
             NodeMut {
                 candidates,
                 node,
                 key,
-                was_candidate,
+                prev_state,
             }
         }
     }
@@ -353,8 +355,8 @@ mod store {
 
     impl Drop for NodeMut<'_> {
         fn drop(&mut self) {
-            let is_candidate = self.node.is_page_out_candidate();
-            match (self.was_candidate, is_candidate) {
+            let (before, after) = (self.prev_state, self.node.pagable_state());
+            match (before.is_candidate(), after.is_candidate()) {
                 (false, true) => {
                     self.candidates.insert(self.key.index as usize);
                 }
@@ -384,7 +386,7 @@ mod store {
         /// Fill the slot, adding the key to the candidate set if the new node is a
         /// candidate. The slot was empty, so the key cannot already be present.
         pub(super) fn insert(self, node: VersionedGraphNode) {
-            if node.is_page_out_candidate() {
+            if node.pagable_state().is_candidate() {
                 self.candidates.insert(self.vacant.key().index as usize);
             }
             self.vacant.insert(node);
