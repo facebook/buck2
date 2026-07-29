@@ -135,6 +135,7 @@ async fn uquery(
         query,
         query_args,
         context,
+        allow_partial_graph,
         ..
     } = request;
 
@@ -146,7 +147,13 @@ async fn uquery(
 
     let query_result = QUERY_FRONTEND
         .get()?
-        .eval_uquery(&mut ctx.ctx(), server_ctx.working_dir(), query, query_args)
+        .eval_uquery(
+            &mut ctx.ctx(),
+            server_ctx.working_dir(),
+            query,
+            query_args,
+            *allow_partial_graph,
+        )
         .await?;
 
     match query_result {

@@ -66,6 +66,7 @@ impl BxlCqueryFunctionsImpl {
             &self.working_dir,
             self.project_root.dupe(),
             target_alias_resolver,
+            false, // allow_partial_graph
         ));
 
         Ok(DiceQueryDelegate::new(dice, query_data.dupe()))

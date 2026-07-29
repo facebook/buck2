@@ -352,6 +352,7 @@ impl TargetHashes {
             targets.iter_names(),
             QueryTargetDepsSuccessors,
             visit,
+            false, // allow_partial_graph
         )
         .await?;
 

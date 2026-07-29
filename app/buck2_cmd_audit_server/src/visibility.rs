@@ -59,6 +59,7 @@ async fn verify_visibility(
                     targets.iter_names(),
                     QueryTargetDepsSuccessors,
                     visit,
+                    false, // allow_partial_graph
                 )
                 .await
             }

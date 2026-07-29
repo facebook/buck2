@@ -29,6 +29,7 @@ use crate::uquery::environment::UqueryEnvironment;
 pub(crate) struct UqueryEvaluator<'c, 'd> {
     dice_query_delegate: DiceQueryDelegate<'c, 'd>,
     functions: DefaultQueryFunctionsModule<UqueryEnvironment<'c>>,
+    allow_partial_graph: bool,
 }
 
 impl UqueryEvaluator<'_, '_> {
@@ -56,6 +57,7 @@ impl UqueryEvaluator<'_, '_> {
                 Ok(UqueryEnvironment::new(
                     &self.dice_query_delegate,
                     Arc::new(resolved_literals),
+                    self.allow_partial_graph,
                 ))
             },
         )
@@ -68,13 +70,20 @@ impl UqueryEvaluator<'_, '_> {
 pub(crate) async fn get_uquery_evaluator<'a, 'c: 'a, 'd>(
     ctx: LinearRecomputeDiceComputations<'c, 'd>,
     working_dir: &'a ProjectRelativePath,
+    allow_partial_graph: bool,
 ) -> buck2_error::Result<UqueryEvaluator<'c, 'd>> {
-    let dice_query_delegate =
-        get_dice_query_delegate(ctx, working_dir, GlobalCfgOptions::default()).await?;
+    let dice_query_delegate = get_dice_query_delegate(
+        ctx,
+        working_dir,
+        GlobalCfgOptions::default(),
+        allow_partial_graph,
+    )
+    .await?;
     let functions = DefaultQueryFunctionsModule::new();
 
     Ok(UqueryEvaluator {
         dice_query_delegate,
         functions,
+        allow_partial_graph,
     })
 }

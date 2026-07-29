@@ -313,7 +313,13 @@ impl LazyUqueryOperation {
             LazyUqueryOperation::Eval { query, query_args } => {
                 let res = QUERY_FRONTEND
                     .get()?
-                    .eval_uquery(dice, &core_data.working_dir()?, query, query_args)
+                    .eval_uquery(
+                        dice,
+                        &core_data.working_dir()?,
+                        query,
+                        query_args,
+                        false, // allow_partial_graph
+                    )
                     .await?;
 
                 Ok(LazyUqueryResult::Eval(res))

@@ -16,6 +16,7 @@ rust_library(
         "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:ref-cast",
         "fbsource//third-party/rust:tokio",
+        "fbsource//third-party/rust:tracing",
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_core:buck2_core",
         "//buck2/app/buck2_error:buck2_error",

@@ -194,6 +194,10 @@ pub(crate) struct DiceQueryDelegate<'c, 'd> {
 pub(crate) struct DiceQueryData {
     literal_parser: LiteralParser,
     global_cfg_options: GlobalCfgOptions,
+    /// With uquery `--allow-partial-graph`, skip packages that fail to load
+    /// while enumerating an open-ended (recursive) literal, instead of
+    /// aborting. Explicitly named literals still fail on load errors.
+    allow_partial_graph: bool,
 }
 
 impl DiceQueryData {
@@ -204,6 +208,7 @@ impl DiceQueryData {
         working_dir: &ProjectRelativePath,
         project_root: ProjectRoot,
         target_alias_resolver: BuckConfigTargetAliasResolver,
+        allow_partial_graph: bool,
     ) -> Self {
         let cell_path = cell_resolver.get_cell_path(working_dir);
 
@@ -219,6 +224,7 @@ impl DiceQueryData {
                 target_alias_resolver,
             },
             global_cfg_options,
+            allow_partial_graph,
         }
     }
 
@@ -368,12 +374,40 @@ impl QueryLiterals<TargetNode> for DiceQueryData {
         ctx: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<TargetSet<TargetNode>> {
         let parsed_patterns = literals.try_map(|p| self.literal_parser.parse_target_pattern(p))?;
-        let loaded_patterns =
-            load_patterns(ctx, parsed_patterns, MissingTargetBehavior::Fail).await?;
+
+        // `--allow-partial-graph` tolerates load failures only in the open-ended
+        // parts of a query that have to be enumerated (recursive `//foo/...`
+        // patterns). Explicitly named target/package literals must still fully
+        // resolve, so a broken or missing one always fails the query.
+        let (recursive_patterns, explicit_patterns): (Vec<_>, Vec<_>) = parsed_patterns
+            .into_iter()
+            .partition(|p| matches!(p, ParsedPattern::Recursive(..)));
+
         let mut target_set = TargetSet::new();
-        for (_package, results) in loaded_patterns.into_iter() {
-            target_set.extend(results?.into_values());
+
+        for (_package, result) in load_patterns(ctx, explicit_patterns, MissingTargetBehavior::Fail)
+            .await?
+            .into_iter()
+        {
+            target_set.extend(result?.into_values());
         }
+
+        for (_package, result) in
+            load_patterns(ctx, recursive_patterns, MissingTargetBehavior::Fail)
+                .await?
+                .into_iter()
+        {
+            match result {
+                Ok(res) => target_set.extend(res.into_values()),
+                Err(e) if self.allow_partial_graph => {
+                    tracing::trace!(
+                        "query allow-partial-graph: skipping a package that failed to load: {e:#}"
+                    );
+                }
+                Err(e) => return Err(e),
+            }
+        }
+
         Ok(target_set)
     }
 }
@@ -382,6 +416,7 @@ pub(crate) async fn get_dice_query_delegate<'a, 'c: 'a, 'd>(
     ctx: LinearRecomputeDiceComputations<'c, 'd>,
     working_dir: &'a ProjectRelativePath,
     global_cfg_options: GlobalCfgOptions,
+    allow_partial_graph: bool,
 ) -> buck2_error::Result<DiceQueryDelegate<'c, 'd>> {
     let cell_resolver = ctx.get().get_cell_resolver().await?;
     let cell_alias_resolver = ctx
@@ -404,6 +439,7 @@ pub(crate) async fn get_dice_query_delegate<'a, 'c: 'a, 'd>(
             working_dir,
             project_root,
             target_alias_resolver,
+            allow_partial_graph,
         )),
     ))
 }

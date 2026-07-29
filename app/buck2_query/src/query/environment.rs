@@ -152,6 +152,13 @@ pub trait TraversalFilter<T: QueryTarget>: Send + Sync {
 pub trait QueryEnvironment: Send + Sync {
     type Target: QueryTarget;
 
+    /// Whether the query should skip nodes/edges that fail to load and return
+    /// a best-effort partial result, instead of aborting on the first error.
+    /// Defaults to false; `uquery` overrides it from `--allow-partial-graph`
+    fn allow_partial_graph(&self) -> bool {
+        false
+    }
+
     async fn get_node(
         &self,
         node_ref: &<Self::Target as LabeledNode>::Key,
@@ -207,6 +214,7 @@ pub trait QueryEnvironment: Send + Sync {
             QueryEnvironmentAsNodeLookup { env: self },
             QueryTargetFilteredDepsSuccesors { filter },
             |t| to.get(t).duped(),
+            self.allow_partial_graph(),
         )
         .await?
         .unwrap_or_default();
@@ -247,6 +255,7 @@ pub trait QueryEnvironment: Send + Sync {
             &QueryEnvironmentAsNodeLookup { env: self },
             universe.iter().map(|n| n.node_key().clone()),
             QueryTargetFilteredDepsSuccesors { filter },
+            self.allow_partial_graph(),
         )
         .await?;
 

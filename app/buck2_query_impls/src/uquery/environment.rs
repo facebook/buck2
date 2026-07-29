@@ -116,6 +116,7 @@ pub(crate) trait QueryLiterals<T: QueryTarget>: Send + Sync {
 pub(crate) struct UqueryEnvironment<'c> {
     delegate: &'c dyn UqueryDelegate,
     literals: Arc<dyn QueryLiterals<TargetNode> + 'c>,
+    allow_partial_graph: bool,
 }
 
 pub(crate) struct PreresolvedQueryLiterals<T: QueryTarget> {
@@ -183,8 +184,13 @@ impl<'c> UqueryEnvironment<'c> {
     pub(crate) fn new(
         delegate: &'c dyn UqueryDelegate,
         literals: Arc<dyn QueryLiterals<TargetNode> + 'c>,
+        allow_partial_graph: bool,
     ) -> Self {
-        Self { delegate, literals }
+        Self {
+            delegate,
+            literals,
+            allow_partial_graph,
+        }
     }
 
     pub(crate) fn describe() -> QueryEnvironmentDescription {
@@ -209,6 +215,10 @@ impl<'c> UqueryEnvironment<'c> {
 #[async_trait]
 impl QueryEnvironment for UqueryEnvironment<'_> {
     type Target = TargetNode;
+
+    fn allow_partial_graph(&self) -> bool {
+        self.allow_partial_graph
+    }
 
     async fn get_node(&self, node_ref: &TargetLabel) -> buck2_error::Result<Self::Target> {
         UqueryEnvironment::get_node(self, node_ref).await
@@ -245,6 +255,7 @@ impl QueryEnvironment for UqueryEnvironment<'_> {
             root.iter_names(),
             traversal_delegate,
             visit,
+            self.allow_partial_graph,
         )
         .await
     }
@@ -262,6 +273,7 @@ impl QueryEnvironment for UqueryEnvironment<'_> {
             delegate,
             visit,
             depth,
+            self.allow_partial_graph,
         )
         .await
     }
@@ -524,6 +536,7 @@ pub(crate) async fn rbuildfiles(
         all_top_level_imports.iter().map(NodeRef::ref_cast),
         delegate,
         visit,
+        false, // allow_partial_graph
     )
     .await?;
 
@@ -728,7 +741,8 @@ pub(crate) async fn get_transitive_loads(
 
     let import_nodes = top_level_imports.iter().map(NodeRef::ref_cast);
 
-    async_depth_first_postorder_traversal(&lookup, import_nodes, traversal_delegate, visit).await?;
+    async_depth_first_postorder_traversal(&lookup, import_nodes, traversal_delegate, visit, false)
+        .await?;
 
     Ok(imports)
 }

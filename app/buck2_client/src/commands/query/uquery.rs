@@ -85,6 +85,16 @@ pub struct UqueryCommand {
     #[clap(flatten)]
     query_common: CommonQueryOptions,
 
+    /// Allows querying the best-effort partial graph instead of aborting on the
+    /// first error by skipping nodes that fail to load and edges that point to
+    /// them. This only applies to the open-ended parts of the graph, e.g. an
+    /// `rdeps(//foo/...` pattern or traversal between two explicit points. An
+    /// explicit target literal given must resolve, e.g.
+    /// `rdeps(//foo:bar, //baz:lib)` will still fail if `//foo:bar` or
+    /// `//baz:lib` is missing or broken.
+    #[clap(long)]
+    allow_partial_graph: bool,
+
     /// Uquery doesn't need these flags, but they are used in mode files, so we need to keep them.
     #[clap(flatten)]
     _target_cfg: TargetCfgUnusedOptions,
@@ -119,6 +129,7 @@ impl StreamingCommand for UqueryCommand {
                     context: Some(context),
                     output_attributes,
                     unstable_output_format,
+                    allow_partial_graph: self.allow_partial_graph,
                 },
                 events_ctx,
                 ctx.console_interaction_stream(&self.common_opts.console_opts),

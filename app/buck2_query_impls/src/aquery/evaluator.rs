@@ -85,7 +85,13 @@ pub(crate) async fn get_dice_aquery_delegate<'a, 'c: 'a, 'd>(
     working_dir: &'a ProjectRelativePath,
     global_cfg_options: GlobalCfgOptions,
 ) -> buck2_error::Result<Arc<DiceAqueryDelegate<'c, 'd>>> {
-    let dice_query_delegate = get_dice_query_delegate(ctx, working_dir, global_cfg_options).await?;
+    let dice_query_delegate = get_dice_query_delegate(
+        ctx,
+        working_dir,
+        global_cfg_options,
+        false, // allow_partial_graph
+    )
+    .await?;
     let dice_query_delegate = Arc::new(DiceAqueryDelegate::new(dice_query_delegate).await?);
     Ok(dice_query_delegate)
 }

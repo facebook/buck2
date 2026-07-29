@@ -44,11 +44,13 @@ impl QueryFrontend for QueryFrontendImpl {
         working_dir: &ProjectRelativePath,
         query: &str,
         query_args: &[String],
+        allow_partial_graph: bool,
     ) -> buck2_error::Result<QueryEvaluationResult<TargetNode>> {
         Ok(ctx
             .with_linear_recompute(|ctx| {
                 async move {
-                    let evaluator = get_uquery_evaluator(ctx, working_dir).await?;
+                    let evaluator =
+                        get_uquery_evaluator(ctx, working_dir, allow_partial_graph).await?;
                     evaluator.eval_query(query, query_args).await
                 }
                 .boxed()
@@ -77,8 +79,13 @@ impl QueryFrontend for QueryFrontendImpl {
         Ok(ctx
             .with_linear_recompute(|ctx| {
                 async move {
-                    let dice_query_delegate =
-                        get_dice_query_delegate(ctx, working_dir, global_cfg_options).await?;
+                    let dice_query_delegate = get_dice_query_delegate(
+                        ctx,
+                        working_dir,
+                        global_cfg_options,
+                        false, // allow_partial_graph
+                    )
+                    .await?;
 
                     // TODO(nga): this should support configured target patterns
                     //   similarly to what we do for `build` command.
@@ -129,7 +136,13 @@ async fn universe_from_literals(
 ) -> buck2_error::Result<CqueryUniverse> {
     ctx.with_linear_recompute(|ctx| {
         async move {
-            let query_delegate = get_dice_query_delegate(ctx, cwd, global_cfg_options).await?;
+            let query_delegate = get_dice_query_delegate(
+                ctx,
+                cwd,
+                global_cfg_options,
+                false, // allow_partial_graph
+            )
+            .await?;
             Ok(preresolve_literals_and_build_universe(
                 &query_delegate,
                 query_delegate.query_data(),

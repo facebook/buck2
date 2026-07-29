@@ -251,7 +251,15 @@ impl QueryEnvironment for ConfiguredGraphQueryEnvironment<'_> {
         visit: impl FnMut(Self::Target) -> buck2_error::Result<()> + Send,
         depth: u32,
     ) -> buck2_error::Result<()> {
-        async_depth_limited_traversal(&NodeLookupId, root.iter(), delegate, visit, depth).await
+        async_depth_limited_traversal(
+            &NodeLookupId,
+            root.iter(),
+            delegate,
+            visit,
+            depth,
+            self.allow_partial_graph(),
+        )
+        .await
     }
 
     async fn owner(&self, _paths: &FileSet) -> buck2_error::Result<TargetSet<Self::Target>> {

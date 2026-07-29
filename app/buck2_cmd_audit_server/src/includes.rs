@@ -141,6 +141,7 @@ async fn get_transitive_includes(
                 load_result.imports().map(NodeRef::ref_cast),
                 Delegate,
                 visit,
+                false, // allow_partial_graph
             )
             .await
         }

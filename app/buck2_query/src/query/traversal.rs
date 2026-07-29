@@ -142,6 +142,7 @@ pub async fn async_depth_limited_traversal<
     successors: impl AsyncChildVisitor<T>,
     mut visit: impl FnMut(T) -> buck2_error::Result<()>,
     max_depth: u32,
+    allow_partial_graph: bool,
 ) -> buck2_error::Result<()> {
     let mut visited: std::collections::HashMap<_, _, StarlarkHasherBuilder> =
         std::collections::HashMap::default();
@@ -168,6 +169,9 @@ pub async fn async_depth_limited_traversal<
     // (see https://github.com/rust-lang/futures-rs/issues/2053). Clean this up once a good
     // solution there exists.
     while let Some((target, depth, node)) = tokio::task::unconstrained(queue.next()).await {
+        // `allow_partial_graph` only skips graph load / enumeration errors. A `visit` error
+        // is the caller's own error and must always propagate, so `visit` runs outside this
+        // block.
         let result: buck2_error::Result<_> = try {
             let node = node?;
             if depth != max_depth {
@@ -180,17 +184,28 @@ pub async fn async_depth_limited_traversal<
                     .await?;
             }
 
-            visit(node)?;
+            node
         };
 
-        if let Err(mut e) = result {
-            let mut target = target;
-            while let Some(Some(parent)) = visited.get(&target) {
-                e = e.context(format!("Error traversing children of {parent}"));
-                target = parent.clone();
+        let node = match result {
+            Ok(node) => node,
+            Err(mut e) => {
+                if allow_partial_graph {
+                    tracing::trace!(
+                        "query allow-partial-graph: skipping `{target}` due to error: {e:#}"
+                    );
+                    continue;
+                }
+                let mut target = target;
+                while let Some(Some(parent)) = visited.get(&target) {
+                    e = e.context(format!("Error traversing children of {parent}"));
+                    target = parent.clone();
+                }
+                return Err(e);
             }
-            return Err(e);
-        }
+        };
+
+        visit(node)?;
     }
 
     Ok(())
@@ -208,8 +223,15 @@ pub async fn async_depth_first_postorder_traversal<
     root: Iter,
     successors: impl AsyncChildVisitor<T>,
     mut visit: impl FnMut(T) -> buck2_error::Result<()>,
+    allow_partial_graph: bool,
 ) -> buck2_error::Result<()> {
-    let graph = Graph::build(nodes, root.clone().into_iter().cloned(), successors).await?;
+    let graph = Graph::build(
+        nodes,
+        root.clone().into_iter().cloned(),
+        successors,
+        allow_partial_graph,
+    )
+    .await?;
 
     graph.depth_first_postorder_traversal(root.into_iter().cloned(), |node| visit(node.dupe()))
 }
@@ -424,6 +446,7 @@ mod tests {
                     results.push(n.0);
                     Ok(())
                 },
+                false, // allow_partial_graph
             )
             .await?;
         }
@@ -457,6 +480,7 @@ mod tests {
                     Ok(())
                 },
                 0,
+                false, // allow_partial_graph
             )
             .await?;
         }
@@ -474,10 +498,46 @@ mod tests {
                     Ok(())
                 },
                 1,
+                false, // allow_partial_graph
             )
             .await?;
         }
         assert_eq!(results1, vec![Ref(0), Ref(1), Ref(2)]);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_async_depth_limited_traversal_visit_error_propagates() -> buck2_error::Result<()>
+    {
+        // A `visit` error is the caller's own error, not a graph-load failure, so it must
+        // propagate even when `allow_partial_graph` is set.
+        let graph = make_graph(&[(0, &[1]), (1, &[])])?;
+        let mut targets = TargetSet::new();
+        targets.insert(graph.get(&Ref(0))?);
+
+        let delegate = graph.child_visitor();
+        let result = async_depth_limited_traversal(
+            &graph.async_node_lookup(),
+            targets.iter_names(),
+            delegate,
+            |_n| -> buck2_error::Result<()> {
+                Err(buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::Tier0,
+                    "visit error"
+                ))
+            },
+            1,
+            true, // allow_partial_graph
+        )
+        .await;
+
+        let err = result
+            .expect_err("visit error should propagate, not be swallowed by allow_partial_graph");
+        assert!(
+            format!("{err:#}").contains("visit error"),
+            "unexpected error: {err:#}"
+        );
 
         Ok(())
     }

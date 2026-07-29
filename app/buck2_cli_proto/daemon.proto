@@ -329,6 +329,9 @@ message UqueryRequest {
   repeated string output_attributes = 3;
   // The literals for a repeated query (one containing `%s`).
   repeated string query_args = 4;
+  // Skip nodes/edges that fail to load and return a best-effort partial
+  // result.
+  bool allow_partial_graph = 7;
 
   // These should possibly be deleted and never become real options. Let's not
   // pollute the low ids (and then forever need a comment about them).

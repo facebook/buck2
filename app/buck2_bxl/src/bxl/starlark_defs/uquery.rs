@@ -614,7 +614,13 @@ fn uquery_methods(builder: &mut MethodsBuilder) {
                     parse_query_evaluation_result(
                         QUERY_FRONTEND
                             .get()?
-                            .eval_uquery(dice, &this.ctx.working_dir()?, query, &query_args)
+                            .eval_uquery(
+                                dice,
+                                &this.ctx.working_dir()?,
+                                query,
+                                &query_args,
+                                false, // allow_partial_graph
+                            )
                             .await?,
                         heap,
                     )

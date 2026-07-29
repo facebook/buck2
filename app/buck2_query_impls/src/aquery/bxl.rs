@@ -78,6 +78,7 @@ impl BxlAqueryFunctionsImpl {
             &self.working_dir,
             self.project_root.dupe(),
             target_alias_resolver,
+            false, // allow_partial_graph
         ));
         let query_delegate = DiceQueryDelegate::new(dice, query_data);
 

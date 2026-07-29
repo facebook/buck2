@@ -89,6 +89,13 @@ Options:
 
           [possible values: dot, json, dot_compact, starlark, html]
 
+      --allow-partial-graph
+          Allows querying the best-effort partial graph instead of aborting on the first error by
+          skipping nodes that fail to load and edges that point to them. This only applies to the
+          open-ended parts of the graph, e.g. an `rdeps(//foo/...` pattern or traversal between two
+          explicit points. An explicit target literal given must resolve, e.g. `rdeps(//foo:bar,
+          //baz:lib)` will still fail if `//foo:bar` or `//baz:lib` is missing or broken
+
   -m, --modifier <VALUE>
           This option is not used
 

@@ -62,6 +62,7 @@ impl BxlUqueryFunctionsImpl {
             &self.working_dir,
             self.project_root.dupe(),
             target_alias_resolver,
+            false, // allow_partial_graph
         ));
         Ok(DiceQueryDelegate::new(dice, query_data))
     }
@@ -71,7 +72,7 @@ impl BxlUqueryFunctionsImpl {
         delegate: &'c DiceQueryDelegate<'c, 'd>,
     ) -> buck2_error::Result<UqueryEnvironment<'c>> {
         let literals = delegate.query_data().dupe();
-        Ok(UqueryEnvironment::new(delegate, literals))
+        Ok(UqueryEnvironment::new(delegate, literals, false))
     }
 }
 

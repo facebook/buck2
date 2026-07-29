@@ -63,6 +63,7 @@ pub(crate) async fn async_bfs_find_path<'a, N: LabeledNode + 'static>(
     lookup: impl AsyncNodeLookup<N>,
     successors: impl AsyncChildVisitor<N>,
     target: impl Fn(&N::Key) -> Option<N> + Sync,
+    allow_partial_graph: bool,
 ) -> buck2_error::Result<Option<Vec<N>>> {
     let lookup = &lookup;
 
@@ -152,6 +153,10 @@ pub(crate) async fn async_bfs_find_path<'a, N: LabeledNode + 'static>(
                 }
             }
             Err(mut e) => {
+                if allow_partial_graph {
+                    // Skip nodes with errors if we allow a partial graph
+                    continue;
+                }
                 e = e.context(format!("traversing {key}"));
                 let mut nodes = Vec::new();
                 visited.take_path(&key, |node| nodes.push(node))?;
@@ -223,13 +228,19 @@ mod tests {
                 .into_iter()
                 .map(|n| TestNode(TestNodeKey(n)))
                 .collect();
-            let path = async_bfs_find_path(&roots, self, self, |n| {
-                if n.0 == target {
-                    Some(TestNode(*n))
-                } else {
-                    None
-                }
-            })
+            let path = async_bfs_find_path(
+                &roots,
+                self,
+                self,
+                |n| {
+                    if n.0 == target {
+                        Some(TestNode(*n))
+                    } else {
+                        None
+                    }
+                },
+                false, // allow_partial_graph
+            )
             .await?;
             Ok(path.map(|path| path.into_map(|n| n.0.0)))
         }

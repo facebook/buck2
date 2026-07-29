@@ -163,6 +163,7 @@ impl QueryEnvironment for CqueryEnvironment<'_> {
             root.iter_names(),
             traversal_delegate,
             visit,
+            self.allow_partial_graph(),
         )
         .await
     }
@@ -180,6 +181,7 @@ impl QueryEnvironment for CqueryEnvironment<'_> {
             delegate,
             visit,
             depth,
+            self.allow_partial_graph(),
         )
         .await
     }

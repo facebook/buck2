@@ -191,7 +191,14 @@ impl QueryEnvironment for TestEnv {
         visit: impl FnMut(Self::Target) -> buck2_error::Result<()> + Send,
     ) -> buck2_error::Result<()> {
         // TODO: Should this be part of QueryEnvironment's default impl?
-        async_depth_first_postorder_traversal(self, root.iter_names(), delegate, visit).await
+        async_depth_first_postorder_traversal(
+            self,
+            root.iter_names(),
+            delegate,
+            visit,
+            self.allow_partial_graph(),
+        )
+        .await
     }
 
     async fn depth_limited_traversal(
@@ -201,7 +208,15 @@ impl QueryEnvironment for TestEnv {
         visit: impl FnMut(Self::Target) -> buck2_error::Result<()> + Send,
         depth: u32,
     ) -> buck2_error::Result<()> {
-        async_depth_limited_traversal(self, root.iter_names(), delegate, visit, depth).await
+        async_depth_limited_traversal(
+            self,
+            root.iter_names(),
+            delegate,
+            visit,
+            depth,
+            self.allow_partial_graph(),
+        )
+        .await
     }
 
     async fn owner(&self, _paths: &FileSet) -> buck2_error::Result<TargetSet<Self::Target>> {
