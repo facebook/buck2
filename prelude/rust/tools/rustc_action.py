@@ -61,8 +61,6 @@ INHERITED_ENV = [
     "DOTSLASH_CACHE",
     # Required to run Python on Windows (for linker wrapper).
     "SYSTEMROOT",
-    # Our rustc wrapper. https://fburl.com/code/qcos5aho
-    "SYSROOT_MULTIPLEXER_DEBUG",
     # Required on Windows for getpass.getuser() to work.
     "USERNAME",
     # Option to disable hg pre-fork client.
