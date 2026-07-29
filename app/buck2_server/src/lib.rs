@@ -28,6 +28,7 @@ pub mod lsp;
 mod materialize;
 mod net_io;
 pub(crate) mod new_generic;
+mod paging;
 pub mod profile;
 pub(crate) mod profile_patterns;
 pub mod profiling_manager;

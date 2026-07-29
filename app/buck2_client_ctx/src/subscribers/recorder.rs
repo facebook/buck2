@@ -168,6 +168,7 @@ pub struct InvocationRecorder {
     time_to_first_infra_failure_test_result: Option<Duration>,
 
     system_info: SystemInfo,
+    paging_summary: Option<buck2_data::PagingSummary>,
     file_watcher_stats: Option<buck2_data::FileWatcherStats>,
     file_watcher_duration: Option<Duration>,
     time_to_last_action_execution_end: Option<Duration>,
@@ -383,6 +384,7 @@ impl InvocationRecorder {
             time_to_first_infra_failure_test_result: None,
             time_to_first_unknown_test_result: None,
             system_info: SystemInfo::default(),
+            paging_summary: None,
             file_watcher_stats: None,
             file_watcher_duration: None,
             time_to_last_action_execution_end: None,
@@ -775,6 +777,18 @@ impl InvocationRecorder {
         let mut page_in_bytes = None;
         let mut page_in_by_key_type = StdBuckHashMap::default();
 
+        // Already a per-command delta from the daemon; sum across key types for
+        // the aggregate scalars.
+        if let Some(paging_summary) = &self.paging_summary
+            && !paging_summary.dice_page_in_by_key_type.is_empty()
+        {
+            page_in_by_key_type = paging_summary.dice_page_in_by_key_type.clone();
+            page_in_count = Some(page_in_by_key_type.values().map(|s| s.count).sum());
+            page_in_fetch_us = Some(page_in_by_key_type.values().map(|s| s.fetch_us).sum());
+            page_in_deser_us = Some(page_in_by_key_type.values().map(|s| s.deser_us).sum());
+            page_in_bytes = Some(page_in_by_key_type.values().map(|s| s.bytes).sum());
+        }
+
         if let Some(snapshot) = &self.last_snapshot {
             sink_success_count =
                 calculate_diff_if_some(&snapshot.sink_successes, &self.initial_sink_success_count);
@@ -949,16 +963,6 @@ impl InvocationRecorder {
                 &snapshot.io_eden_settle_count,
                 &self.initial_io_eden_settle_count,
             );
-
-            // Already a per-command delta from the daemon; sum across key types
-            // for the aggregate scalars.
-            if !snapshot.dice_page_in_by_key_type.is_empty() {
-                page_in_by_key_type = snapshot.dice_page_in_by_key_type.clone();
-                page_in_count = Some(page_in_by_key_type.values().map(|s| s.count).sum());
-                page_in_fetch_us = Some(page_in_by_key_type.values().map(|s| s.fetch_us).sum());
-                page_in_deser_us = Some(page_in_by_key_type.values().map(|s| s.deser_us).sum());
-                page_in_bytes = Some(page_in_by_key_type.values().map(|s| s.bytes).sum());
-            }
 
             // We show memory/disk warnings in the console but we can't emit a tag event there due to having no access to dispatcher.
             // Also, it suffices to only emit a single tag per invocation, not one tag each time memory pressure is exceeded.
@@ -2409,6 +2413,10 @@ impl InvocationRecorder {
                     }
                     buck2_data::instant_event::Data::SystemInfo(system_info) => {
                         self.handle_system_info(system_info)
+                    }
+                    buck2_data::instant_event::Data::PagingSummary(paging_summary) => {
+                        self.paging_summary = Some(paging_summary.clone());
+                        Ok(())
                     }
                     buck2_data::instant_event::Data::TargetCfg(target_cfg) => {
                         self.target_cfg = Some(target_cfg.clone());

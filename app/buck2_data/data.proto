@@ -346,6 +346,8 @@ message InstantEvent {
     TargetRuleTypeName target_rule_type_name = 59;
 
     PageOutTriggered page_out_triggered = 60;
+
+    PagingSummary paging_summary = 63;
   }
 }
 
@@ -465,6 +467,14 @@ message DicePageInKeyTypeStats {
   // Top-level blob bytes only; excludes nested PagableArc sub-values, so
   // near-zero for arc-heavy values.
   uint64 bytes = 4;
+}
+
+// Per-command statistics about DICE pagable storage, emitted once at command
+// end.
+message PagingSummary {
+  // DICE page-in counters per key type, as a delta vs the command-start
+  // baseline.
+  map<string, DicePageInKeyTypeStats> dice_page_in_by_key_type = 1;
 }
 
 message RemoteExecutionSessionCreated {
@@ -932,7 +942,7 @@ message TargetRuleTypeName {
 
 // A snapshot of current system state, with useful info.
 message Snapshot {
-  reserved 102;
+  reserved 102, 120;
   // Resident set size in bytes of the buck2 daemon.
   // Does not include subprocesses (e.g. local actions).
   optional uint64 buck2_rss = 11;
@@ -1037,11 +1047,6 @@ message Snapshot {
 
   uint64 dice_key_count = 101;
   uint32 dice_active_transaction_count = 103;
-
-  // Per-command DICE page-in counters per key type (a delta vs the
-  // command-start baseline). Set only on the final snapshot, not periodic
-  // heartbeats, to keep it out of the frequent event log.
-  map<string, DicePageInKeyTypeStats> dice_page_in_by_key_type = 120;
 
   uint64 deferred_materializer_queue_size = 104;
 

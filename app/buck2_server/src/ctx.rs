@@ -141,6 +141,7 @@ use crate::daemon::state::DaemonStateData;
 use crate::dice_tracker::BuckDiceTracker;
 use crate::heartbeat_guard::HeartbeatGuard;
 use crate::host_info;
+use crate::paging::PagingManager;
 use crate::profile_patterns::FileWritingProfileEventListener;
 use crate::profiling_manager::StarlarkProfilingManager;
 use crate::snapshot::SnapshotCollector;
@@ -228,6 +229,10 @@ pub struct ServerCommandContext<'a> {
     /// Option so that we can ensure heartbeat events are cancelled before everything else is
     /// dropped.
     heartbeat_guard_handle: Option<HeartbeatGuard>,
+
+    /// Captures DICE paging telemetry at command start; emitted at command end
+    /// (see [`ServerCommandContext::finalize`]).
+    paging_manager: PagingManager,
 
     /// The current state of the certificate. This is used to detect errors due to invalid certs.
     cert_state: CertState,
@@ -337,6 +342,8 @@ impl<'a> ServerCommandContext<'a> {
         let heartbeat_guard_handle =
             HeartbeatGuard::new(base_context.events.dupe(), snapshot_collector);
 
+        let paging_manager = PagingManager::new(base_context.daemon.dupe());
+
         let debugger_handle = create_debugger_handle(base_context.events.dupe());
 
         Ok(ServerCommandContext {
@@ -361,6 +368,7 @@ impl<'a> ServerCommandContext<'a> {
             disable_starlark_types: client_context.disable_starlark_types,
             unstable_typecheck: client_context.unstable_typecheck,
             heartbeat_guard_handle: Some(heartbeat_guard_handle),
+            paging_manager,
             daemon_uuid_from_client: client_context.daemon_uuid.clone(),
             command_name: client_context.command_name.clone(),
             sanitized_argv: client_context.sanitized_argv.clone(),
@@ -482,6 +490,12 @@ impl<'a> ServerCommandContext<'a> {
             .await?;
 
         self.heartbeat_guard_handle.take().unwrap().finalize().await;
+
+        // Emit this command's DICE paging telemetry (a delta vs the baseline
+        // captured at command start).
+        self.base_context
+            .events
+            .instant_event(self.paging_manager.summary());
         Ok(())
     }
 }
