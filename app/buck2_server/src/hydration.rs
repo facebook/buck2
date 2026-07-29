@@ -300,7 +300,13 @@ pub(crate) async fn spawn_page_out_on_idle(
     // the cancel flag is now registered (a command starting in the window above
     // wouldn't have cancelled us, so re-check it), and no other page-out can run
     // concurrently and drain the candidates before the background task starts.
-    if !is_only_active_command(&trace_id) || !dice_manager.unsafe_dice().has_pageable_values().await
+    if !is_only_active_command(&trace_id)
+        || dice_manager
+            .unsafe_dice()
+            .pagable_node_counts()
+            .await
+            .candidates
+            == 0
     {
         return false;
     }

@@ -134,11 +134,11 @@ impl StateProcessor {
             StateRequest::PagableStatus { resp } => {
                 drop(resp.send(self.state.pagable_status()));
             }
+            StateRequest::PagableNodeCounts { resp } => {
+                let _ = resp.send(self.state.pagable_node_counts());
+            }
             StateRequest::KeysToPageOut { resp } => {
                 drop(resp.send(self.state.keys_to_page_out()));
-            }
-            StateRequest::HasPageableValues { resp } => {
-                let _ = resp.send(self.state.has_pageable_values());
             }
             StateRequest::EvictKeys { keys } => {
                 self.state.evict_keys(keys);

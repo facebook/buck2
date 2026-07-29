@@ -35,6 +35,7 @@ use crate::core::processor::StateProcessor;
 use crate::core::versions::VersionEpoch;
 use crate::core::versions::introspection::VersionIntrospectable;
 use crate::deps::graph::SeriesParallelDeps;
+use crate::dice::PagableNodeCounts;
 use crate::epoch::cache::TransactionResult;
 use crate::epoch::evaluator::VersionEpochState;
 use crate::epoch::task::dice::DiceTask;
@@ -262,18 +263,19 @@ impl CoreStateHandle {
         self.call(StateRequest::PagableStatus { resp }, recv)
     }
 
+    /// Resident, paged-out, and candidate node counts, read O(1) from the core-state
+    /// tallies.
+    pub(crate) fn pagable_node_counts(&self) -> impl Future<Output = PagableNodeCounts> + use<> {
+        let (resp, recv) = oneshot::channel();
+        self.call(StateRequest::PagableNodeCounts { resp }, recv)
+    }
+
     /// Returns nodes that need serialization before they can be paged out.
     pub(crate) fn keys_to_page_out(
         &self,
     ) -> impl Future<Output = Vec<(DiceKey, DiceValidValue)>> + use<> {
         let (resp, recv) = oneshot::channel();
         self.call(StateRequest::KeysToPageOut { resp }, recv)
-    }
-
-    /// Whether any node is a page-out candidate (resident, never paged out).
-    pub(crate) fn has_pageable_values(&self) -> impl Future<Output = bool> + use<> {
-        let (resp, recv) = oneshot::channel();
-        self.call(StateRequest::HasPageableValues { resp }, recv)
     }
 
     /// Evict in-memory values for the given nodes, marking them as paged out.
@@ -404,12 +406,13 @@ pub(super) enum StateRequest {
     },
     /// Classify graph nodes as resident vs paged out.
     PagableStatus { resp: Sender<PagableStatusRaw> },
+    /// Resident, paged-out, and candidate node counts, read O(1) from the core-state
+    /// tallies.
+    PagableNodeCounts { resp: Sender<PagableNodeCounts> },
     /// Collect nodes that need serialization before they can be paged out.
     KeysToPageOut {
         resp: Sender<Vec<(DiceKey, DiceValidValue)>>,
     },
-    /// Whether any node is a page-out candidate (resident, never paged out).
-    HasPageableValues { resp: Sender<bool> },
     /// Mark nodes as paged out, dropping their in-memory values.
     EvictKeys { keys: Vec<(DiceKey, DataKey)> },
     /// Mark nodes that page-out could not serialize.

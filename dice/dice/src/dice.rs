@@ -208,16 +208,6 @@ impl Dice {
             .await
     }
 
-    /// Whether a page-out would have anything to do: some value is resident and
-    /// has never been paged out. Returns `false` when no pagable storage is
-    /// configured. Cheap to call (single state query).
-    pub async fn has_pageable_values(&self) -> bool {
-        if self.pagable_storage.is_none() {
-            return false;
-        }
-        self.state_handle.has_pageable_values().await
-    }
-
     /// Page in (rehydrate) all paged-out `OccupiedGraphNode` values from the
     /// configured `DiceStorage`, used for debugging.
     ///
@@ -285,6 +275,13 @@ impl Dice {
             candidate_count: raw.counts.candidates,
             by_type,
         }
+    }
+
+    /// Resident, paged-out, and page-out-candidate DICE node counts, read O(1) from
+    /// incrementally-maintained core-state tallies (no graph scan). Counts every
+    /// occupied node regardless of whether pagable storage is configured.
+    pub async fn pagable_node_counts(&self) -> PagableNodeCounts {
+        self.state_handle.pagable_node_counts().await
     }
 }
 

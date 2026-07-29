@@ -188,12 +188,6 @@ impl CoreState {
             .collect()
     }
 
-    /// Whether any node is a page-out candidate (resident and never paged out).
-    /// O(1); used to decide whether a page-out would do anything.
-    pub(super) fn has_pageable_values(&self) -> bool {
-        !self.graph.page_out_candidates().is_empty()
-    }
-
     /// Returns the list of `(DiceKey, DataKey)` pairs for every paged-out
     /// `OccupiedGraphNode`. The caller performs the actual (async) hydration
     /// outside the core state thread and sends rehydrate messages back.
@@ -244,6 +238,10 @@ impl CoreState {
             resident,
             paged_out,
         }
+    }
+
+    pub(super) fn pagable_node_counts(&self) -> PagableNodeCounts {
+        self.graph.pagable_node_counts()
     }
 
     /// Replaces the paged-out value at `key` with its hydrated form. No-op if the node
