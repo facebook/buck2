@@ -114,7 +114,7 @@ impl PagableSerialize for FrozenModule {
         // chunk indices now so the upcoming starlark serializer can resolve
         // FrozenValue pointers. Same trick as `OwnedFrozenValue`.
         let state = StarlarkSerializerImpl::get_or_create_state(serializer);
-        state.ensure_chunk_index_registered(&self.heap);
+        state.ensure_chunk_index_registered(&self.heap)?;
         let mut ctx = StarlarkSerializerImpl::new(serializer, state);
 
         self.module

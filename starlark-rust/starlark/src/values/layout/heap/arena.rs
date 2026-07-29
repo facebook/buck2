@@ -497,6 +497,19 @@ impl<A: ArenaAllocator> Arena<A> {
         headers
     }
 
+    pub(crate) fn allocated_chunk_bases(&self) -> Vec<usize> {
+        fn append<A: ArenaAllocator>(bump: &A, bases: &mut Vec<usize>) {
+            bases.extend(
+                unsafe { bump.iter_allocated_chunks_rev() }.map(|chunk| chunk.as_ptr() as usize),
+            );
+        }
+
+        let mut bases = Vec::new();
+        append(&self.drop, &mut bases);
+        append(&self.non_drop, &mut bases);
+        bases
+    }
+
     /// Per-chunk index for serialization-time `ptr → value_index` lookup.
     /// Entries are in serialization order (drop bump first, then non-drop).
     pub(crate) fn build_chunk_index(&self) -> Vec<ChunkInfo> {

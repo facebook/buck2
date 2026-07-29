@@ -99,20 +99,21 @@ impl StarlarkSerState {
     /// Recursively ensure that chunk indices are registered for a heap
     /// (identified by `heap_id`, with given `refs`) and all of its transitive dependencies.
     pub(crate) fn ensure_chunk_index_registered_inner(
-        &self,
+        self: &Arc<Self>,
         heap_id: HeapRefId,
         refs: &[FrozenHeapRef],
         build_chunks: impl FnOnce() -> Vec<ChunkInfo>,
-    ) {
+    ) -> pagable::Result<()> {
         if self.has_heap(heap_id) {
-            return;
+            return Ok(());
         }
 
         for dep in refs {
-            self.ensure_chunk_index_registered(dep);
+            self.ensure_chunk_index_registered(dep)?;
         }
 
         self.register_heap(heap_id, build_chunks());
+        Ok(())
     }
 
     /// Recursively ensure that chunk indices are registered for a heap
@@ -122,14 +123,37 @@ impl StarlarkSerState {
     /// heap serialization flow (e.g. in `OwnedFrozenValue`), where the
     /// pagable arc mechanism defers heap serialization but we need the
     /// value-index maps immediately to resolve pointers.
-    pub(crate) fn ensure_chunk_index_registered(&self, heap_ref: &FrozenHeapRef) {
+    pub(crate) fn ensure_chunk_index_registered(
+        self: &Arc<Self>,
+        heap_ref: &FrozenHeapRef,
+    ) -> pagable::Result<()> {
         let Some(name) = heap_ref.name() else {
-            return;
+            return Ok(());
         };
+        heap_ref.register_ser_state(self)?;
         let heap_id = HeapRefId::from_heap_name(name);
         self.ensure_chunk_index_registered_inner(heap_id, heap_ref.refs_slice(), || {
             heap_ref.build_chunk_index()
-        });
+        })
+    }
+
+    pub(crate) fn unregister_heap(
+        &self,
+        heap_id: HeapRefId,
+        chunk_bases: impl IntoIterator<Item = usize>,
+    ) {
+        // Let future registrations proceed before removing this still-live
+        // arena's addresses, which cannot be reused until Drop completes.
+        self.registered_heaps.remove(&heap_id);
+        let mut chunks = self.chunks.write().expect("chunks lock poisoned");
+        for base in chunk_bases {
+            if chunks
+                .get(&base)
+                .is_some_and(|entry| entry.heap_id == heap_id)
+            {
+                chunks.remove(&base);
+            }
+        }
     }
 
     /// Resolve a raw payload pointer to its `(heap_id, value_index)` by

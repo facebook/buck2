@@ -59,6 +59,10 @@ pub enum PagableError {
         heap_id: crate::pagable::heap_ref_id::HeapRefId,
     },
 
+    /// A frozen heap was registered with more than one serialization state.
+    #[error("Frozen heap is already registered with a different StarlarkSerState")]
+    HeapRegisteredWithDifferentSerState,
+
     /// A `StarlarkPagable`-derived enum was deserialized with an unknown variant tag.
     #[error("Invalid `{enum_name}` variant tag: {tag}")]
     InvalidVariantTag {

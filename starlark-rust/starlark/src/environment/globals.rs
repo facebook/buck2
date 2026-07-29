@@ -85,7 +85,7 @@ impl PagableSerialize for GlobalsData {
         // FrozenValue pointers. Same trick as `OwnedFrozenValue` and
         // `FrozenModule`.
         let state = StarlarkSerializerImpl::get_or_create_state(serializer);
-        state.ensure_chunk_index_registered(&self.heap);
+        state.ensure_chunk_index_registered(&self.heap)?;
         let mut ctx = StarlarkSerializerImpl::new(serializer, state);
 
         self.variables

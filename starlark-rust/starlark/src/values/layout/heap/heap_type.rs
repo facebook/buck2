@@ -31,6 +31,8 @@ use std::mem::MaybeUninit;
 use std::ops::Deref;
 use std::ptr;
 use std::sync::Arc;
+use std::sync::OnceLock;
+use std::sync::Weak;
 
 use allocative::Allocative;
 use bumpalo::Bump;
@@ -51,10 +53,12 @@ use crate::collections::StarlarkHashValue;
 use crate::environment::GlobalFrozenHeapName;
 use crate::environment::MethodFrozenHeapName;
 use crate::eval::runtime::profile::instant::ProfilerInstant;
+use crate::pagable::error::PagableError;
 use crate::pagable::heap_ref_id::HeapRefId;
 use crate::pagable::starlark_deserialize_context::HeapDeserializationState;
 use crate::pagable::starlark_deserialize_context::StarlarkDeserializerImpl;
 use crate::pagable::starlark_serialize::StarlarkSerializeContext;
+use crate::pagable::starlark_serialize_context::StarlarkSerState;
 use crate::pagable::starlark_serialize_context::StarlarkSerializerImpl;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
@@ -384,6 +388,8 @@ struct FrozenFrozenHeap {
     #[allocative(skip)] // We don't really expect it to be big
     name: Option<FrozenHeapName>,
     peak_allocated_bytes: Option<usize>,
+    #[allocative(skip)]
+    ser_state: OnceLock<Weak<StarlarkSerState>>,
 }
 
 // SAFETY: read-only access to already-allocated arena memory is safe across
@@ -393,6 +399,16 @@ unsafe impl Sync for FrozenFrozenHeap {}
 unsafe impl Send for FrozenFrozenHeap {}
 
 impl FrozenFrozenHeap {
+    fn register_ser_state(&self, state: &Arc<StarlarkSerState>) -> pagable::Result<()> {
+        let state = Arc::downgrade(state);
+        let registered = self.ser_state.get_or_init(|| state.dupe());
+        if Weak::ptr_eq(registered, &state) {
+            Ok(())
+        } else {
+            Err(PagableError::HeapRegisteredWithDifferentSerState.into())
+        }
+    }
+
     /// Serialization format:
     /// ```text
     /// [refs_count: usize]
@@ -486,9 +502,10 @@ impl FrozenFrozenHeap {
         // Register chunk indices for this heap + transitive deps before
         // serializing values (which may reference values cross-heap).
         let state = StarlarkSerializerImpl::get_or_create_state(serializer);
+        self.register_ser_state(&state)?;
         state.ensure_chunk_index_registered_inner(heap_id, &self.refs, || {
             self.arena.build_chunk_index()
-        });
+        })?;
         let mut ctx = StarlarkSerializerImpl::new(serializer, state);
 
         // Serialize value data, recording start cursor per value.
@@ -584,6 +601,7 @@ impl FrozenFrozenHeap {
             refs: refs.into_boxed_slice(),
             name: Some(name),
             peak_allocated_bytes: None,
+            ser_state: OnceLock::new(),
         });
         let arena_ptr: *const Arena<ChunkAllocator> = &heap.arena;
 
@@ -605,6 +623,21 @@ impl FrozenFrozenHeap {
         };
 
         Ok(heap)
+    }
+}
+
+impl Drop for FrozenFrozenHeap {
+    fn drop(&mut self) {
+        let Some(name) = &self.name else {
+            return;
+        };
+        let Some(state) = self.ser_state.get().and_then(Weak::upgrade) else {
+            return;
+        };
+        state.unregister_heap(
+            HeapRefId::from_heap_name(name),
+            self.arena.allocated_chunk_bases(),
+        );
     }
 }
 
@@ -785,6 +818,13 @@ impl FrozenHeapRef {
         }
     }
 
+    pub(crate) fn register_ser_state(&self, state: &Arc<StarlarkSerState>) -> pagable::Result<()> {
+        if let Some(inner) = &self.0 {
+            inner.register_ser_state(state)?;
+        }
+        Ok(())
+    }
+
     pub(crate) fn iter_values(&self) -> impl Iterator<Item = FrozenValue> {
         struct FrozenValueCollector(Vec<FrozenValue>);
         let mut items = FrozenValueCollector(Vec::new());
@@ -889,6 +929,7 @@ impl FrozenHeap {
                 refs: refs.into_iter().collect(),
                 name,
                 peak_allocated_bytes,
+                ser_state: OnceLock::new(),
             })))
         }
     }

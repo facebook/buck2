@@ -38,7 +38,9 @@ use crate::const_frozen_string;
 use crate::environment::GlobalFrozenHeapName;
 use crate::environment::GlobalsBuilder;
 use crate::environment::MethodFrozenHeapName;
+use crate::pagable::error::PagableError;
 use crate::pagable::heap_ref_id::HeapRefId;
+use crate::pagable::starlark_serialize_context::StarlarkSerState;
 use crate::singleton_heap_name;
 use crate::starlark_simple_value;
 use crate::values::FrozenHeap;
@@ -724,10 +726,16 @@ fn test_ser_state_lookup_resolves_cross_heap_ptrs() -> crate::Result<()> {
     assert!(b_chunks >= 2, "heap B should span >= 2 chunks");
     assert!(c_chunks >= 2, "heap C should span >= 2 chunks");
 
-    let state = StarlarkSerState::new();
-    state.ensure_chunk_index_registered(&heap_a_ref);
-    state.ensure_chunk_index_registered(&heap_b_ref);
-    state.ensure_chunk_index_registered(&heap_c_ref);
+    let state = Arc::new(StarlarkSerState::new());
+    state
+        .ensure_chunk_index_registered(&heap_a_ref)
+        .expect("register heap A chunk index");
+    state
+        .ensure_chunk_index_registered(&heap_b_ref)
+        .expect("register heap B chunk index");
+    state
+        .ensure_chunk_index_registered(&heap_c_ref)
+        .expect("register heap C chunk index");
 
     for (heap_id, ptrs) in [
         (heap_a_id, &heap_a_ptrs),
@@ -763,6 +771,33 @@ fn test_ser_state_lookup_resolves_cross_heap_ptrs() -> crate::Result<()> {
     assert_eq!(state.lookup_ptr(b_ref_c_ptr), Some((heap_b_id, 1)));
 
     Ok(())
+}
+
+#[test]
+fn test_heap_registration_rejects_different_ser_state() {
+    let heap = FrozenHeap::new();
+    heap.alloc_simple(SimpleData {
+        flag: true,
+        count: 1,
+    });
+    let heap_ref = heap.into_ref_named(TestHeapName::heap_name("single_ser_state"));
+
+    let first_state = Arc::new(StarlarkSerState::new());
+    first_state
+        .ensure_chunk_index_registered(&heap_ref)
+        .expect("register heap in first state");
+    first_state
+        .ensure_chunk_index_registered(&heap_ref)
+        .expect("repeat registration in the same state");
+
+    let second_state = Arc::new(StarlarkSerState::new());
+    let error = second_state
+        .ensure_chunk_index_registered(&heap_ref)
+        .expect_err("registration in a different state should fail");
+    assert!(matches!(
+        error.downcast_ref::<PagableError>(),
+        Some(PagableError::HeapRegisteredWithDifferentSerState),
+    ));
 }
 
 #[test]
@@ -3520,13 +3555,9 @@ fn page_out_in_module(
 /// Serialize a `FrozenModule`, returning the top-level data buffer.
 fn serialize_module_top_bytes(
     frozen_module: &crate::environment::FrozenModule,
+    session_ctx: &pagable::SessionContext,
 ) -> crate::Result<Vec<u8>> {
-    use pagable::storage::in_memory::InMemoryPagableStorage;
     use pagable::storage::support::SerializerForPaging;
-
-    let backing = InMemoryPagableStorage::new();
-    let storage = backing.handle();
-    let session_ctx = storage.session_context();
 
     let mut ser = SerializerForPaging::new(session_ctx);
     frozen_module
@@ -3712,8 +3743,12 @@ def use_comprehension():
         })?)
     };
 
-    let bytes_a = serialize_module_top_bytes(&compile()?)?;
-    let bytes_b = serialize_module_top_bytes(&compile()?)?;
+    let backing = pagable::storage::in_memory::InMemoryPagableStorage::new();
+    let storage = backing.handle();
+    let session_ctx = storage.session_context();
+
+    let bytes_a = serialize_module_top_bytes(&compile()?, session_ctx)?;
+    let bytes_b = serialize_module_top_bytes(&compile()?, session_ctx)?;
 
     assert_eq!(
         bytes_a, bytes_b,
