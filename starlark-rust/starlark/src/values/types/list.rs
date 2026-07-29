@@ -27,5 +27,6 @@ pub(crate) mod value;
 
 pub use crate::values::types::list::alloc::AllocList;
 pub use crate::values::types::list::list_type::ListType;
+pub use crate::values::types::list::refs::FrozenListRef;
 pub use crate::values::types::list::refs::ListRef;
 pub use crate::values::types::list::unpack::UnpackList;
