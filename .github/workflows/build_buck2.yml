@@ -99,11 +99,15 @@ jobs:
             echo "buck2_zst=artifacts/buck2-${{ matrix.target.triple }}.exe.zst" >> "$GITHUB_OUTPUT"
             echo "buck2_rust_project_out=target/${{ matrix.target.triple }}/release/rust-project.exe" >> "$GITHUB_OUTPUT"
             echo "buck2_rust_project_zst=artifacts/rust-project-${{ matrix.target.triple }}.exe.zst" >> "$GITHUB_OUTPUT"
+            echo "starlark_fmt_out=target/${{ matrix.target.triple }}/release/starlark_fmt.exe" >> "$GITHUB_OUTPUT"
+            echo "starlark_fmt_zst=artifacts/starlark_fmt-${{ matrix.target.triple }}.exe.zst" >> "$GITHUB_OUTPUT"
           else
             echo "buck2_out=target/${{ matrix.target.triple }}/release/buck2" >> "$GITHUB_OUTPUT"
             echo "buck2_zst=artifacts/buck2-${{ matrix.target.triple }}.zst" >> "$GITHUB_OUTPUT"
             echo "buck2_rust_project_out=target/${{ matrix.target.triple }}/release/rust-project" >> "$GITHUB_OUTPUT"
             echo "buck2_rust_project_zst=artifacts/rust-project-${{ matrix.target.triple }}.zst" >> "$GITHUB_OUTPUT"
+            echo "starlark_fmt_out=target/${{ matrix.target.triple }}/release/starlark_fmt" >> "$GITHUB_OUTPUT"
+            echo "starlark_fmt_zst=artifacts/starlark_fmt-${{ matrix.target.triple }}.zst" >> "$GITHUB_OUTPUT"
           fi
       - name: Build
         shell: bash
@@ -125,7 +129,7 @@ jobs:
           else
             CARGO=cargo
           fi
-          $CARGO build --release --bin buck2 --bin rust-project --target ${{ matrix.target.triple }}
+          $CARGO build --release --bin buck2 --bin rust-project --bin starlark_fmt --target ${{ matrix.target.triple }}
       - name: Sanity check with examples/with_prelude
         if: ${{ !matrix.target.cross }}
         shell: bash
@@ -151,6 +155,7 @@ jobs:
           mkdir artifacts
           zstd -z ${{ steps.set_variables.outputs.buck2_out }} -o ${{ steps.set_variables.outputs.buck2_zst }}
           zstd -z ${{ steps.set_variables.outputs.buck2_rust_project_out }} -o ${{ steps.set_variables.outputs.buck2_rust_project_zst }}
+          zstd -z ${{ steps.set_variables.outputs.starlark_fmt_out }} -o ${{ steps.set_variables.outputs.starlark_fmt_zst }}
       - name: Upload
         uses: actions/upload-artifact@v6
         with:
