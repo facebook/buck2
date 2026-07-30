@@ -718,10 +718,10 @@ impl ValueReusable {
                 // We can't compare against a paged-out value without hydrating it,
                 // which would require blocking I/O on the core thread. Treat as not
                 // reusable; the graph will replace the entry with the new (hydrated)
-                // value. Worker-driven hydration via `Rehydrate` happens on lookups
-                // that explicitly return `MatchPagedOut` / `CheckDepsPagedOut`, so
-                // we only land here when the lookup returned `Compute` over a
-                // force-dirtied paged-out node.
+                // value. Worker-driven hydration via `Rehydrate` happens before this
+                // comparison when a `MatchPagedOut` / `CheckDepsPagedOut` lookup needs
+                // the previous value, so we only land here when the lookup returned
+                // `Compute` over a force-dirtied paged-out node.
                 value
                     .val()
                     .as_hydrated()

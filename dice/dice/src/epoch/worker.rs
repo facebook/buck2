@@ -22,6 +22,8 @@ use gazebo::variants::VariantName;
 use itertools::Either;
 
 use crate::api::activation_tracker::ActivationData;
+use crate::arc::Arc;
+use crate::core::graph::types::PagedOutMismatch;
 use crate::core::graph::types::VersionedGraphKey;
 use crate::core::graph::types::VersionedGraphResult;
 use crate::core::graph::types::VersionedGraphResultMismatch;
@@ -75,6 +77,27 @@ pub(crate) struct DiceTaskWorker {
     k: DiceKey,
     eval: TransactionData,
     version_epoch: VersionEpoch,
+}
+
+enum CheckDepsCandidate {
+    Resident(VersionedGraphResultMismatch),
+    PagedOut(PagedOutMismatch),
+}
+
+impl CheckDepsCandidate {
+    fn prev_verified_version(&self) -> VersionNumber {
+        match self {
+            Self::Resident(mismatch) => mismatch.prev_verified_version,
+            Self::PagedOut(mismatch) => mismatch.prev_verified_version,
+        }
+    }
+
+    fn deps_to_validate(&self) -> &Arc<SeriesParallelDeps> {
+        match self {
+            Self::Resident(mismatch) => &mismatch.deps_to_validate,
+            Self::PagedOut(mismatch) => &mismatch.deps_to_validate,
+        }
+    }
 }
 
 impl DiceTaskWorker {
@@ -137,7 +160,7 @@ impl DiceTaskWorker {
             .await;
 
         // handle cancelled/cache hits before sending started events
-        let deps_to_check = match state_result {
+        let check_deps_candidate = match state_result {
             VersionedGraphResult::Match(entry) => {
                 return task_state.lookup_matches(handle, entry);
             }
@@ -168,23 +191,11 @@ impl DiceTaskWorker {
                     }
                 }
             }
-            VersionedGraphResult::CheckDeps(mismatch2) => Some(mismatch2),
-            VersionedGraphResult::CheckDepsPagedOut(paged) => {
-                match self
-                    .hydrate_and_rehydrate(&state_handle, paged.data_key)
-                    .await
-                {
-                    Ok(entry) => Some(VersionedGraphResultMismatch {
-                        entry,
-                        prev_verified_version: paged.prev_verified_version,
-                        deps_to_validate: paged.deps_to_validate,
-                    }),
-                    // As above: recompute on a failed page-in (and dirty rdeps).
-                    Err(e) => {
-                        self.eval.hydration_failed(self.k, &e);
-                        None
-                    }
-                }
+            VersionedGraphResult::CheckDeps(mismatch) => {
+                Some(CheckDepsCandidate::Resident(mismatch))
+            }
+            VersionedGraphResult::CheckDepsPagedOut(mismatch) => {
+                Some(CheckDepsCandidate::PagedOut(mismatch))
             }
             VersionedGraphResult::Compute => None,
         };
@@ -194,14 +205,14 @@ impl DiceTaskWorker {
             self.eval.finished(self.k);
         };
 
+        let mut old_value_hydration_failed = false;
+
         // deps_check_continuables needs to capture these and so they need to outlive it.
         let cycles;
-        let mismatch;
-        let (task_state, deps_check_continuables) = match deps_to_check {
-            Some(mismatch2) => {
+        let (task_state, deps_check_continuables) = match check_deps_candidate.as_ref() {
+            Some(mismatch) => {
                 let (task_state, cycles2) = task_state.checking_deps(handle, &self.eval);
                 cycles = cycles2;
-                mismatch = mismatch2;
 
                 self.eval.check_deps_started(self.k);
 
@@ -212,8 +223,8 @@ impl DiceTaskWorker {
                     match check_dependencies(
                         &self.eval,
                         ParentKey::Some(self.k),
-                        &mismatch.deps_to_validate,
-                        mismatch.prev_verified_version,
+                        mismatch.deps_to_validate(),
+                        mismatch.prev_verified_version(),
                         &cycles,
                     )
                     .await
@@ -239,24 +250,48 @@ impl DiceTaskWorker {
                         let invalidation_paths =
                             check_deps_result.unwrap_no_change_invalidation_paths();
 
-                        let task_state = task_state.deps_match(handle)?;
+                        let mismatch = match mismatch {
+                            CheckDepsCandidate::Resident(mismatch) => Some(mismatch.dupe()),
+                            CheckDepsCandidate::PagedOut(mismatch) => {
+                                match self
+                                    .hydrate_and_rehydrate(&state_handle, mismatch.data_key)
+                                    .await
+                                {
+                                    Ok(entry) => Some(VersionedGraphResultMismatch {
+                                        entry,
+                                        prev_verified_version: mismatch.prev_verified_version,
+                                        deps_to_validate: mismatch.deps_to_validate.dupe(),
+                                    }),
+                                    Err(e) => {
+                                        self.eval.hydration_failed(self.k, &e);
+                                        old_value_hydration_failed = true;
+                                        None
+                                    }
+                                }
+                            }
+                        };
 
-                        let activation_info = self.activation_info(
-                            mismatch.deps_to_validate.iter_keys(),
-                            ActivationData::Reused,
-                        );
+                        match mismatch {
+                            Some(mismatch) => {
+                                let task_state = task_state.deps_match(handle)?;
+                                let activation_info = self.activation_info(
+                                    mismatch.deps_to_validate.iter_keys(),
+                                    ActivationData::Reused,
+                                );
+                                let response = state_handle
+                                    .update_mismatch_as_unchanged(
+                                        VersionedGraphKey::new(v, self.k),
+                                        self.version_epoch,
+                                        self.eval.storage_type(self.k),
+                                        mismatch,
+                                        invalidation_paths,
+                                    )
+                                    .await;
 
-                        let response = state_handle
-                            .update_mismatch_as_unchanged(
-                                VersionedGraphKey::new(v, self.k),
-                                self.version_epoch,
-                                self.eval.storage_type(self.k),
-                                mismatch,
-                                invalidation_paths,
-                            )
-                            .await;
-
-                        return Ok(task_state.cached(response, activation_info));
+                                return Ok(task_state.cached(response, activation_info));
+                            }
+                            None => (task_state.deps_not_match(handle), None),
+                        }
                     }
                     CheckDependenciesResult::NoDeps => {
                         // TODO(cjhopman): Why do we treat nodeps as deps not matching? There seems to be some
@@ -294,6 +329,21 @@ impl DiceTaskWorker {
             match result.value.into_valid_value() {
                 Ok(value) => {
                     let v = self.eval.epoch_state.get_version();
+                    // If the dependencies still match, restore the paged-out old value so
+                    // `update_computed` can compare it with the newly computed value. If they
+                    // differ, the old graph entry is not reusable and no comparison is needed.
+                    if !old_value_hydration_failed
+                        && let Some(CheckDepsCandidate::PagedOut(mismatch)) =
+                            check_deps_candidate.as_ref()
+                        && result.deps == **mismatch.deps_to_validate
+                    {
+                        if let Err(e) = self
+                            .hydrate_and_rehydrate(&state_handle, mismatch.data_key)
+                            .await
+                        {
+                            self.eval.hydration_failed(self.k, &e);
+                        }
+                    }
                     state_handle
                         .update_computed(
                             VersionedGraphKey::new(v, self.k),

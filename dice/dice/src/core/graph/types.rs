@@ -37,7 +37,7 @@ impl VersionedGraphKey {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Dupe, Debug)]
 pub(crate) struct VersionedGraphResultMismatch {
     /// Last known value for the key.
     pub(crate) entry: DiceValidValue,
@@ -57,8 +57,9 @@ pub(crate) struct PagedOutMatch {
 }
 
 /// Equivalent of [`VersionedGraphResultMismatch`] for the case where the previous entry's
-/// value is paged out. The worker hydrates `data_key` via `DiceStorage` to materialize the
-/// previous value before deciding whether deps still hold.
+/// value is paged out. The worker can validate dependencies without hydrating it. It hydrates
+/// `data_key` if the dependencies are unchanged, or when the old value is needed to compare
+/// an equal-structure recomputation for reuse.
 #[derive(Debug)]
 pub(crate) struct PagedOutMismatch {
     pub(crate) data_key: DataKey,

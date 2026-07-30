@@ -1018,4 +1018,27 @@ mod tests {
         assert!(entry.is_verified_at(VersionNumber::new(1)));
         assert!(entry.is_verified_at(VersionNumber::new(2)));
     }
+
+    #[test]
+    fn rehydrate_does_not_overwrite_resident_value() {
+        let resident = DiceValidValue::testing_new(DiceKeyValue::<K>::new(2));
+        let stale = DiceValidValue::testing_new(DiceKeyValue::<K>::new(1));
+        let mut entry = OccupiedGraphNode::new(
+            DiceKey { index: 1335 },
+            resident.dupe(),
+            Arc::new(SeriesParallelDeps::None),
+            VersionRange::begins_with(VersionNumber::new(1)).into_ranges(),
+            ForceDirtyHistory::new(),
+            TrackedInvalidationPaths::clean(),
+        );
+
+        entry.rehydrate(stale);
+
+        assert!(
+            entry
+                .val()
+                .expect_hydrated("the resident value must survive stale hydration")
+                .equality(&resident)
+        );
+    }
 }

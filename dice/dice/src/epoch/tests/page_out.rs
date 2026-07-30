@@ -102,6 +102,150 @@ impl Key for NonPagableKey {
     }
 }
 
+#[derive(Clone, Dupe)]
+struct DeferredComputeCounts(Arc<[AtomicUsize; 4]>);
+
+impl DeferredComputeCounts {
+    fn new() -> Self {
+        Self(Arc::new(std::array::from_fn(|_| AtomicUsize::new(0))))
+    }
+
+    fn increment(&self, index: usize) {
+        self.0[index].fetch_add(1, Ordering::SeqCst);
+    }
+
+    fn count(&self, index: usize) -> usize {
+        self.0[index].load(Ordering::SeqCst)
+    }
+}
+
+#[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Pagable)]
+#[pagable_typetag(DiceKeyDyn)]
+struct DeferredInput(u8);
+
+#[async_trait]
+impl Key for DeferredInput {
+    type Value = u64;
+
+    async fn compute(
+        &self,
+        _ctx: &mut DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
+        unreachable!("DeferredInput values are injected")
+    }
+
+    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+        x == y
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        NoValueSerialize::<Self::Value>::new()
+    }
+}
+
+#[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Pagable)]
+#[pagable_typetag(DiceKeyDyn)]
+struct DeferredNonPagableKey(u8);
+
+#[async_trait]
+impl Key for DeferredNonPagableKey {
+    type Value = u64;
+
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
+        match self.0 {
+            0 => {
+                ctx.compute(&DeferredInput(0))
+                    .await
+                    .expect("injected modulo input should compute")
+                    % 2
+            }
+            1 => {
+                if let Ok(counts) = ctx
+                    .per_transaction_data()
+                    .data
+                    .get::<DeferredComputeCounts>()
+                {
+                    counts.increment(3);
+                }
+                ctx.compute(&DeferredPagableKey(1))
+                    .await
+                    .expect("pagable parent should compute")
+                    * 10
+            }
+            _ => unreachable!("unknown deferred non-pagable test key"),
+        }
+    }
+
+    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+        x == y
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        NoValueSerialize::<Self::Value>::new()
+    }
+}
+
+#[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Pagable)]
+#[pagable_typetag(DiceKeyDyn)]
+struct DeferredPagableKey(u8);
+
+#[async_trait]
+impl Key for DeferredPagableKey {
+    type Value = u64;
+
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
+        if let Ok(counts) = ctx
+            .per_transaction_data()
+            .data
+            .get::<DeferredComputeCounts>()
+        {
+            counts.increment(usize::from(self.0));
+        }
+
+        match self.0 {
+            0 => ctx
+                .compute(&DeferredNonPagableKey(0))
+                .await
+                .expect("modulo dependency should compute"),
+            1 => {
+                ctx.compute(&DeferredInput(0))
+                    .await
+                    .expect("injected modulo input should compute")
+                    % 2
+            }
+            2 => {
+                let selector = ctx
+                    .compute(&DeferredInput(1))
+                    .await
+                    .expect("injected selector should compute");
+                ctx.compute(&DeferredInput(
+                    u8::try_from(selector).expect("selector should fit in u8") + 2,
+                ))
+                .await
+                .expect("selected injected value should compute")
+            }
+            _ => unreachable!("unknown deferred pagable test key"),
+        }
+    }
+
+    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+        x == y
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        PagableValueSerialize::<Self::Value>::new()
+    }
+}
+
 fn make_dice(storage: DiceStorage) -> Arc<Dice> {
     let mut builder = Dice::builder();
     builder.set_pagable_storage(storage);
@@ -112,6 +256,18 @@ fn user_data_with_counter(counter: &ComputeCounter) -> UserComputationData {
     let mut d = UserComputationData::new();
     d.data.set(counter.dupe());
     d
+}
+
+fn user_data_with_deferred_counts(counts: &DeferredComputeCounts) -> UserComputationData {
+    let mut data = UserComputationData::new();
+    data.data.set(counts.dupe());
+    data
+}
+
+fn deferred_page_in_count(dice: &Dice) -> u64 {
+    dice.page_in_metrics()
+        .get(<DeferredPagableKey as Key>::key_type_name())
+        .map_or(0, |metrics| metrics.count)
 }
 
 /// Page out, then look up the same key — should hydrate from disk, not recompute.
@@ -194,6 +350,106 @@ async fn rehydrated_value_stays_in_memory() -> anyhow::Result<()> {
         1,
         "all lookups after the initial compute should be cache hits"
     );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn check_deps_paged_out_hydrates_when_deps_are_unchanged() -> anyhow::Result<()> {
+    let counts = DeferredComputeCounts::new();
+    let tmp = tempdir()?;
+    let dice = make_dice(DiceStorage::open(
+        tmp.path(),
+        PagableStorageBackend::Sqlite,
+    )?);
+
+    let mut updater = dice.updater_with_data(user_data_with_deferred_counts(&counts));
+    updater.changed_to([(DeferredInput(0), 1)])?;
+    let tx = updater.commit().await;
+    assert_eq!(*tx.compute(&DeferredPagableKey(0)).await?, 1);
+    drop(tx);
+
+    dice.wait_for_idle().await;
+    dice.page_out().await?;
+
+    let mut updater = dice.updater_with_data(user_data_with_deferred_counts(&counts));
+    updater.changed_to([(DeferredInput(0), 3)])?;
+    let tx = updater.commit().await;
+    assert_eq!(*tx.compute(&DeferredPagableKey(0)).await?, 1);
+
+    assert_eq!(counts.count(0), 1, "the paged-out parent should be reused");
+    assert_eq!(deferred_page_in_count(&dice), 1);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn check_deps_paged_out_skips_page_in_when_deps_change() -> anyhow::Result<()> {
+    let counts = DeferredComputeCounts::new();
+    let tmp = tempdir()?;
+    let dice = make_dice(DiceStorage::open(
+        tmp.path(),
+        PagableStorageBackend::Sqlite,
+    )?);
+
+    let mut updater = dice.updater_with_data(user_data_with_deferred_counts(&counts));
+    updater.changed_to([
+        (DeferredInput(1), 0),
+        (DeferredInput(2), 7),
+        (DeferredInput(3), 7),
+    ])?;
+    let tx = updater.commit().await;
+    assert_eq!(*tx.compute(&DeferredPagableKey(2)).await?, 7);
+    drop(tx);
+
+    dice.wait_for_idle().await;
+    dice.page_out().await?;
+
+    let mut updater = dice.updater_with_data(user_data_with_deferred_counts(&counts));
+    updater.changed_to([(DeferredInput(1), 1)])?;
+    let tx = updater.commit().await;
+    assert_eq!(*tx.compute(&DeferredPagableKey(2)).await?, 7);
+
+    assert_eq!(counts.count(2), 2, "the parent should be recomputed");
+    assert_eq!(
+        deferred_page_in_count(&dice),
+        0,
+        "the old value is not needed when the dependency structure changes"
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn check_deps_paged_out_hydrates_to_compare_equal_recompute() -> anyhow::Result<()> {
+    let counts = DeferredComputeCounts::new();
+    let tmp = tempdir()?;
+    let dice = make_dice(DiceStorage::open(
+        tmp.path(),
+        PagableStorageBackend::Sqlite,
+    )?);
+
+    let mut updater = dice.updater_with_data(user_data_with_deferred_counts(&counts));
+    updater.changed_to([(DeferredInput(0), 1)])?;
+    let tx = updater.commit().await;
+    assert_eq!(*tx.compute(&DeferredNonPagableKey(1)).await?, 10);
+    drop(tx);
+
+    dice.wait_for_idle().await;
+    dice.page_out().await?;
+
+    let mut updater = dice.updater_with_data(user_data_with_deferred_counts(&counts));
+    updater.changed_to([(DeferredInput(0), 3)])?;
+    let tx = updater.commit().await;
+    assert_eq!(*tx.compute(&DeferredNonPagableKey(1)).await?, 10);
+
+    assert_eq!(counts.count(1), 2, "the paged-out parent should recompute");
+    assert_eq!(
+        counts.count(3),
+        1,
+        "the observer should reuse the equality-verified parent"
+    );
+    assert_eq!(deferred_page_in_count(&dice), 1);
 
     Ok(())
 }
