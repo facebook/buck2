@@ -13,8 +13,9 @@ import pathlib
 import tempfile
 import unittest
 import zipfile
+from contextlib import redirect_stdout
 
-from gen_class_to_source_map import generate_class_to_source_map
+from gen_class_to_source_map import generate_class_to_source_map, main
 
 
 class GenClassToSourceMapTest(unittest.TestCase):
@@ -289,4 +290,20 @@ class GenClassToSourceMapTest(unittest.TestCase):
         self.assertEqual(
             classes,
             [{"className": "com.example.Legacy", "srcPath": str(source)}],
+        )
+
+    def test_defaults_output_to_stdout(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            jar_path = pathlib.Path(temp_dir) / "library.jar"
+            with zipfile.ZipFile(jar_path, "w"):
+                pass
+
+            output = io.StringIO()
+            with redirect_stdout(output):
+                exit_code = main(["gen_class_to_source_map", str(jar_path)])
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(
+            json.loads(output.getvalue()),
+            {"jarPath": str(jar_path), "classes": []},
         )

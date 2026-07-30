@@ -201,7 +201,7 @@ def main(argv: list[str]) -> int:
         help="Prefixes of classes to include in the output, even if their source isn't present",
     )
     parser.add_argument(
-        "--output", "-o", type=argparse.FileType("w"), default=sys.stdin
+        "--output", "-o", type=argparse.FileType("w"), default=sys.stdout
     )
     parser.add_argument("--sources_jar", required=False)
     parser.add_argument("--debuginfo", required=False)
