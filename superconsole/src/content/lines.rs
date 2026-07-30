@@ -747,6 +747,25 @@ strips out {bs}invalid control sequences",
     }
 
     #[test]
+    fn test_combined_sgr_parameters_and_unicode() {
+        let input = "\x1b[1;34;43m\u{1f9b6} styled\x1b[22;39;49m plain";
+        let lines = Lines::from_colored_multiline_string(input);
+        let expected = Line::from_iter([
+            Span::new_styled_lossy(StyledContent::new(
+                ContentStyle {
+                    foreground_color: Some(Color::AnsiValue(4)),
+                    background_color: Some(Color::AnsiValue(3)),
+                    underline_color: None,
+                    attributes: Attributes::from(Attribute::Bold),
+                },
+                "\u{1f9b6} styled".to_owned(),
+            )),
+            Span::new_unstyled(" plain").unwrap(),
+        ]);
+        assert_eq!(Lines(vec![expected]), lines);
+    }
+
+    #[test]
     fn test_fmt_for_test() {
         let lines = Lines::from_iter([
             Line::unstyled("orange").unwrap(),
