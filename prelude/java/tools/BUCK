@@ -92,6 +92,15 @@ prelude.python_test(
 )
 
 prelude.python_test(
+    name = "test_gen_class_to_source_map",
+    srcs = [
+        "gen_class_to_source_map.py",
+        "tests/test_gen_class_to_source_map.py",
+    ],
+    base_module = "",
+)
+
+prelude.python_test(
     name = "test_list_class_names",
     srcs = [
         "list_class_names.py",
