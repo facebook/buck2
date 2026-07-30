@@ -1291,7 +1291,22 @@ impl<'a> CriticalPathEntryDisplay<'a> {
             Entry::GenericEntry(generic_entry) => {
                 (generic_entry.kind.as_str(), String::new(), None, None, None)
             }
-            Entry::PageIn(page_in) => ("page_in", page_in.key_type.clone(), None, None, None),
+            Entry::PageIn(page_in) => {
+                let count = page_in.count.max(1);
+                let name = if count == 1 {
+                    page_in.key_type.clone()
+                } else {
+                    let mut key_type_counts = page_in.key_type_counts.iter().collect::<Vec<_>>();
+                    key_type_counts.sort_unstable_by_key(|(key_type, _)| *key_type);
+                    let key_types = key_type_counts
+                        .into_iter()
+                        .map(|(key_type, count)| format!("{key_type}: {count}"))
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    format!("{count} keys ({key_types})")
+                };
+                ("page_in", name, None, None, None)
+            }
             Entry::Waiting(entry) => {
                 let name = entry.category.clone().unwrap_or_default();
                 ("waiting", name, None, None, None)

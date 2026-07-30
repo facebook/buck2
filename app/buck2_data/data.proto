@@ -710,6 +710,11 @@ message CriticalPathEntry2 {
   message PageIn {
     // The DICE key type that was paged in, e.g. "analysis_key".
     string key_type = 1;
+    // Number of page-ins represented by this entry. Older entries with the
+    // default value represent one page-in.
+    uint64 count = 2;
+    // Per-key-type breakdown when multiple page-ins are grouped together.
+    map<string, uint64> key_type_counts = 3;
   }
 
   message Load {

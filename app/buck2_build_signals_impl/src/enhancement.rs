@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::collections::BTreeMap;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -172,7 +173,7 @@ impl CriticalPathProtoEnhancer {
     }
 
     pub(crate) fn into_entries(self) -> Vec<buck2_data::CriticalPathEntry2> {
-        self.entries
+        group_page_in_entries(self.entries)
     }
 
     /// Internal implementation for adding entries with automatic waiting entry insertion.
@@ -255,5 +256,310 @@ impl CriticalPathProtoEnhancer {
                     .unwrap_or(u64::MAX),
             ),
         }
+    }
+}
+
+fn group_page_in_entries(
+    entries: Vec<buck2_data::CriticalPathEntry2>,
+) -> Vec<buck2_data::CriticalPathEntry2> {
+    use buck2_data::critical_path_entry2::Entry;
+
+    let mut result = Vec::with_capacity(entries.len());
+    let mut entries = entries.into_iter().peekable();
+
+    while let Some(entry) = entries.next() {
+        if !matches!(entry.entry, Some(Entry::PageIn(..))) {
+            result.push(entry);
+            continue;
+        }
+
+        let mut run = vec![entry];
+        loop {
+            let mut bridge = Vec::new();
+            while entries.peek().is_some_and(|entry| {
+                matches!(entry.entry, Some(Entry::Waiting(..))) || is_zero_duration_connector(entry)
+            }) {
+                bridge.push(entries.next().unwrap());
+            }
+
+            if matches!(
+                entries.peek().and_then(|entry| entry.entry.as_ref()),
+                Some(Entry::PageIn(..))
+            ) {
+                run.extend(bridge);
+                run.push(entries.next().unwrap());
+            } else {
+                result.push(group_page_in_run(run));
+                result.extend(bridge);
+                break;
+            }
+        }
+    }
+
+    result
+}
+
+fn is_zero_duration_connector(entry: &buck2_data::CriticalPathEntry2) -> bool {
+    use buck2_data::critical_path_entry2::Entry;
+
+    !matches!(entry.entry, Some(Entry::PageIn(..) | Entry::Waiting(..)))
+        && entry.span_ids.is_empty()
+        && proto_duration(entry.duration.as_ref()).is_zero()
+        && proto_duration(entry.user_duration.as_ref()).is_zero()
+        && proto_duration(entry.total_duration.as_ref()).is_zero()
+        && proto_duration(entry.potential_improvement_duration.as_ref()).is_zero()
+        && proto_duration(entry.queue_duration.as_ref()).is_zero()
+        && proto_duration(entry.non_critical_path_duration.as_ref()).is_zero()
+}
+
+fn group_page_in_run(
+    entries: Vec<buck2_data::CriticalPathEntry2>,
+) -> buck2_data::CriticalPathEntry2 {
+    use buck2_data::critical_path_entry2::Entry;
+
+    let page_in_count = entries
+        .iter()
+        .filter(|entry| matches!(entry.entry, Some(Entry::PageIn(..))))
+        .count();
+    if page_in_count == 1 {
+        return entries.into_iter().next().unwrap();
+    }
+
+    let mut count = 0u64;
+    let mut key_type_counts = BTreeMap::<String, u64>::new();
+    for entry in &entries {
+        let Some(Entry::PageIn(page_in)) = &entry.entry else {
+            continue;
+        };
+        let entry_count = page_in.count.max(1);
+        count = count.saturating_add(entry_count);
+        if page_in.key_type_counts.is_empty() {
+            let type_count = key_type_counts.entry(page_in.key_type.clone()).or_default();
+            *type_count = type_count.saturating_add(entry_count);
+        } else {
+            for (key_type, count) in &page_in.key_type_counts {
+                let type_count = key_type_counts.entry(key_type.clone()).or_default();
+                *type_count = type_count.saturating_add(*count);
+            }
+        }
+    }
+
+    let key_type = match key_type_counts.keys().next() {
+        Some(key_type) if key_type_counts.len() == 1 => key_type.clone(),
+        _ => "multiple".to_owned(),
+    };
+    let total_duration = sum_proto_durations(entries.iter().map(|entry| &entry.total_duration));
+    let start_offset_ns = entries.first().and_then(|entry| entry.start_offset_ns);
+    let end_offset_ns = entries
+        .iter()
+        .filter_map(|entry| {
+            let start_offset_ns = entry.start_offset_ns?;
+            let duration = proto_duration(entry.total_duration.as_ref())
+                .saturating_add(proto_duration(entry.non_critical_path_duration.as_ref()));
+            Some(start_offset_ns.saturating_add(duration.as_nanos().try_into().unwrap_or(u64::MAX)))
+        })
+        .max();
+    let non_critical_path_duration = match (start_offset_ns, end_offset_ns) {
+        (Some(start), Some(end)) => Some(duration_to_proto_saturating(
+            Duration::from_nanos(end.saturating_sub(start))
+                .saturating_sub(proto_duration(total_duration.as_ref())),
+        )),
+        _ => sum_proto_durations(
+            entries
+                .iter()
+                .map(|entry| &entry.non_critical_path_duration),
+        ),
+    };
+
+    buck2_data::CriticalPathEntry2 {
+        span_ids: entries
+            .iter()
+            .flat_map(|entry| entry.span_ids.iter().copied())
+            .collect(),
+        duration: sum_proto_durations(entries.iter().map(|entry| &entry.duration)),
+        user_duration: sum_proto_durations(entries.iter().map(|entry| &entry.user_duration)),
+        total_duration,
+        potential_improvement_duration: sum_proto_durations(entries.iter().filter_map(|entry| {
+            matches!(entry.entry, Some(Entry::PageIn(..)))
+                .then_some(&entry.potential_improvement_duration)
+        })),
+        queue_duration: sum_proto_durations(entries.iter().filter_map(|entry| {
+            matches!(entry.entry, Some(Entry::PageIn(..))).then_some(&entry.queue_duration)
+        })),
+        non_critical_path_duration,
+        start_offset_ns,
+        entry: Some(Entry::PageIn(buck2_data::critical_path_entry2::PageIn {
+            key_type,
+            count,
+            key_type_counts: key_type_counts.into_iter().collect(),
+        })),
+    }
+}
+
+fn sum_proto_durations<'a>(
+    durations: impl IntoIterator<Item = &'a Option<prost_types::Duration>>,
+) -> Option<prost_types::Duration> {
+    let mut found = false;
+    let mut total = Duration::ZERO;
+    for duration in durations.into_iter().filter_map(Option::as_ref) {
+        found = true;
+        total = total.saturating_add(proto_duration(Some(duration)));
+    }
+    found.then(|| duration_to_proto_saturating(total))
+}
+
+fn proto_duration(duration: Option<&prost_types::Duration>) -> Duration {
+    duration
+        .and_then(|duration| (*duration).try_into().ok())
+        .unwrap_or(Duration::ZERO)
+}
+
+#[cfg(test)]
+mod tests {
+    use buck2_data::critical_path_entry2;
+
+    use super::*;
+
+    fn entry(
+        entry: critical_path_entry2::Entry,
+        start_ms: u64,
+        critical_ms: u64,
+        non_critical_ms: u64,
+    ) -> buck2_data::CriticalPathEntry2 {
+        buck2_data::CriticalPathEntry2 {
+            span_ids: Vec::new(),
+            duration: Some(duration_to_proto_saturating(Duration::from_millis(
+                critical_ms,
+            ))),
+            user_duration: Some(duration_to_proto_saturating(Duration::from_millis(
+                critical_ms,
+            ))),
+            total_duration: Some(duration_to_proto_saturating(Duration::from_millis(
+                critical_ms,
+            ))),
+            potential_improvement_duration: None,
+            queue_duration: None,
+            non_critical_path_duration: Some(duration_to_proto_saturating(Duration::from_millis(
+                non_critical_ms,
+            ))),
+            start_offset_ns: Some(Duration::from_millis(start_ms).as_nanos() as u64),
+            entry: Some(entry),
+        }
+    }
+
+    fn page_in(key_type: &str, start_ms: u64, duration_ms: u64) -> buck2_data::CriticalPathEntry2 {
+        entry(
+            critical_path_entry2::PageIn {
+                key_type: key_type.to_owned(),
+                count: 1,
+                key_type_counts: Default::default(),
+            }
+            .into(),
+            start_ms,
+            duration_ms,
+            0,
+        )
+    }
+
+    fn waiting(start_ms: u64, duration_ms: u64) -> buck2_data::CriticalPathEntry2 {
+        entry(
+            critical_path_entry2::Waiting {
+                category: Some("for_deps".to_owned()),
+            }
+            .into(),
+            start_ms,
+            0,
+            duration_ms,
+        )
+    }
+
+    fn duration(duration: &Option<prost_types::Duration>) -> Duration {
+        (*duration).unwrap().try_into().unwrap()
+    }
+
+    #[test]
+    fn groups_page_ins_separated_only_by_waiting() {
+        let trailing_waiting = waiting(10, 1);
+        let result = group_page_in_entries(vec![
+            page_in("analysis_key", 0, 2),
+            waiting(2, 3),
+            page_in("package_listing", 5, 5),
+            trailing_waiting.clone(),
+        ]);
+
+        assert_eq!(2, result.len());
+        assert_eq!(trailing_waiting, result[1]);
+
+        let grouped = &result[0];
+        let Some(critical_path_entry2::Entry::PageIn(page_in)) = &grouped.entry else {
+            panic!("expected grouped page-in entry");
+        };
+        assert_eq!(2, page_in.count);
+        assert_eq!(Some(&1), page_in.key_type_counts.get("analysis_key"));
+        assert_eq!(Some(&1), page_in.key_type_counts.get("package_listing"));
+        assert_eq!(Duration::from_millis(7), duration(&grouped.duration));
+        assert_eq!(Duration::from_millis(7), duration(&grouped.total_duration));
+        assert_eq!(
+            Duration::from_millis(3),
+            duration(&grouped.non_critical_path_duration)
+        );
+        assert_eq!(Some(0), grouped.start_offset_ns);
+    }
+
+    #[test]
+    fn does_not_group_page_ins_across_other_work() {
+        let other = entry(
+            critical_path_entry2::GenericEntry {
+                kind: "other".to_owned(),
+            }
+            .into(),
+            2,
+            1,
+            0,
+        );
+        let result = group_page_in_entries(vec![
+            page_in("analysis_key", 0, 2),
+            other,
+            page_in("analysis_key", 3, 2),
+        ]);
+
+        assert_eq!(3, result.len());
+    }
+
+    #[test]
+    fn groups_page_ins_across_zero_duration_connectors() {
+        let connector = entry(
+            critical_path_entry2::GenericEntry {
+                kind: "connector".to_owned(),
+            }
+            .into(),
+            2,
+            0,
+            0,
+        );
+        let result = group_page_in_entries(vec![
+            page_in("analysis_key", 0, 2),
+            connector,
+            page_in("analysis_key", 2, 2),
+        ]);
+
+        assert_eq!(1, result.len());
+        let Some(critical_path_entry2::Entry::PageIn(page_in)) = &result[0].entry else {
+            panic!("expected grouped page-in entry");
+        };
+        assert_eq!(2, page_in.count);
+    }
+
+    #[test]
+    fn includes_unrepresented_gaps_in_group_envelope() {
+        let mut second = page_in("analysis_key", 0, 1);
+        second.start_offset_ns = Some(Duration::from_micros(2500).as_nanos() as u64);
+        let result = group_page_in_entries(vec![page_in("analysis_key", 0, 2), second]);
+
+        assert_eq!(1, result.len());
+        assert_eq!(
+            Duration::from_micros(500),
+            duration(&result[0].non_critical_path_duration)
+        );
     }
 }

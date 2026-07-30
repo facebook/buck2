@@ -272,6 +272,8 @@ impl NodeKey {
                     NodeKey::PageInConnector(key) => key.key_type_name().to_owned(),
                     _ => inner.variant_name_lowercase().to_owned(),
                 },
+                count: 1,
+                key_type_counts: Default::default(),
             }
             .into(),
         }
