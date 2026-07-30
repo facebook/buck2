@@ -21,7 +21,6 @@ use crossterm::style::Attribute;
 use crossterm::style::Attributes;
 use crossterm::style::Color;
 use itertools::Itertools;
-use termwiz::cell::Hyperlink;
 use termwiz::cell::Intensity;
 use termwiz::color::ColorSpec;
 use termwiz::color::RgbColor;
@@ -31,6 +30,7 @@ use termwiz::escape::csi::CSI;
 use termwiz::escape::csi::Sgr;
 
 use crate::Dimensions;
+use crate::Hyperlink;
 use crate::Line;
 use crate::Span;
 use crate::style::ContentStyle;
@@ -113,7 +113,7 @@ impl ColoredStringParser {
             Action::OperatingSystemCommand(cmd) => match *cmd {
                 OperatingSystemCommand::SetHyperlink(hy) => {
                     self.push_current();
-                    self.hyperlink = hy;
+                    self.hyperlink = hy.map(|hy| Hyperlink::new(hy.uri()));
                 }
                 _ => {}
             },

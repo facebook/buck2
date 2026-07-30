@@ -250,6 +250,7 @@ triomphe = { version = "0.1.11", features = ["arc-swap"] }
 twox-hash = "1.6.1"
 typed-arena = "2"
 unicode-segmentation = "1.13.2"
+unicode-width = "0.2.2"
 uuid = { version = "1.23.0", features = ["serde", "rng-getrandom", "v4", "v5", "v6", "v7", "v8"] }
 vt100 = "0.16.2"
 walkdir = "2.3"

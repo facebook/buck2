@@ -22,15 +22,31 @@ use crossterm::style::SetAttributes;
 use crossterm::style::SetBackgroundColor;
 use crossterm::style::SetForegroundColor;
 use crossterm::style::StyledContent;
-use termwiz::cell;
-use termwiz::cell::Hyperlink;
 use unicode_segmentation::Graphemes;
 use unicode_segmentation::UnicodeSegmentation;
+use unicode_width::UnicodeWidthStr;
 
 #[derive(Debug, thiserror::Error)]
 pub enum SpanError {
     #[error("Word {0} contains non-space whitespace")]
     InvalidWhitespace(String),
+}
+
+/// A hyperlink that can be attached to a [`Span`], rendered as an OSC 8 terminal
+/// escape sequence so supporting terminals make the span's text clickable.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Hyperlink(String);
+
+impl Hyperlink {
+    /// Creates a hyperlink pointing at `uri`.
+    pub fn new(uri: impl Into<String>) -> Self {
+        Self(uri.into())
+    }
+
+    /// Returns the target URI of the hyperlink.
+    pub fn uri(&self) -> &str {
+        &self.0
+    }
 }
 
 /// A `Span` is a segment of text that may or may not have [`style`](crate::style) applied to it.
@@ -198,8 +214,7 @@ impl Span {
 
     /// Returns the number of graphemes in the span.
     pub fn len(&self) -> usize {
-        // Pulled this dep from another FB employee's project - better unicode support for terminal column widths.
-        cell::unicode_column_width(&self.content, None)
+        self.content.width()
     }
 
     pub fn is_empty(&self) -> bool {

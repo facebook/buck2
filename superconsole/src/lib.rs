@@ -27,6 +27,7 @@
 
 pub use components::Component;
 pub use components::DrawMode;
+pub use content::Hyperlink;
 pub use content::Line;
 pub use content::Lines;
 pub use content::Span;
