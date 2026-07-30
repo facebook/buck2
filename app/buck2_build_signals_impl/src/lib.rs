@@ -13,6 +13,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::hash::Hash;
 use std::sync::Arc;
+use std::sync::OnceLock;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -55,6 +56,7 @@ use buck2_events::dispatch::instant_event;
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_events::span::SpanId;
 use buck2_hash::BuckDashMap;
+use buck2_hash::BuckDashSet;
 use buck2_hash::StdBuckHashMap;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterResultsKey;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterResultsKeyActivationData;
@@ -111,6 +113,10 @@ enum NodeKey {
 
     // Dynamically-typed.
     Dyn(&'static str, BuildSignalsNodeKey),
+
+    // A DICE key that is normally omitted from the graph, retained as a zero-duration connector
+    // because it paged in or depends on a key that did.
+    PageInConnector(DynKey),
 
     // Evaluation work separated from the key's completion because hydration happened after it.
     EvaluationWork(Arc<NodeKey>),
@@ -254,13 +260,18 @@ impl NodeKey {
             }
             .into(),
 
+            key @ NodeKey::PageInConnector(..) => key.into_generic_entry(),
+
             NodeKey::EvaluationWork(inner) => inner
                 .as_ref()
                 .dupe()
                 .into_critical_path_entry_data(extra_data),
 
             NodeKey::PageIn(inner) => buck2_data::critical_path_entry2::PageIn {
-                key_type: inner.variant_name_lowercase().to_owned(),
+                key_type: match &*inner {
+                    NodeKey::PageInConnector(key) => key.key_type_name().to_owned(),
+                    _ => inner.variant_name_lowercase().to_owned(),
+                },
             }
             .into(),
         }
@@ -293,6 +304,7 @@ impl fmt::Display for NodeKey {
             Self::TestExecution(k) => write!(f, "TestExecution({k:?})"),
             Self::TestListing(k) => write!(f, "TestListing({k:?})"),
             Self::Dyn(name, k) => write!(f, "{name}({k})"),
+            Self::PageInConnector(key) => write!(f, "{}({key})", key.key_type_name()),
             Self::EvaluationWork(k) => write!(f, "EvaluationWork({k})"),
             Self::PageIn(k) => write!(f, "PageIn({k})"),
         }
@@ -368,6 +380,67 @@ pub(crate) struct Evaluation {
 pub(crate) struct BuildSignalSender {
     sender: UnboundedSender<BuildSignal>,
     pending_page_in_phases: BuckDashMap<NodeKey, PageInPhase>,
+    // `None` until the first page-in is recorded (via `key_paged_in`), so builds that never
+    // page in allocate nothing here and keep the fast early-return for unmapped keys. Never
+    // cleared once set, matching the monotonic nature of page-in tracking within a build.
+    page_in_reachability: OnceLock<PageInReachability>,
+}
+
+/// Tracks which keys reach a page-in (themselves, or transitively through a dependency), so
+/// otherwise-filtered DICE keys on the chain between a page-in and the graph can be retained
+/// as `PageInConnector` connectors. Only exists once a page-in has occurred (see
+/// [`BuildSignalSender::page_in_reachability`]).
+#[derive(Default)]
+struct PageInReachability {
+    keys: BuckDashSet<DynKey>,
+}
+
+impl PageInReachability {
+    fn reaches_page_in(&self, key: &DynKey) -> bool {
+        self.keys.contains(key)
+    }
+
+    fn record_page_in(&self, key: &DynKey) {
+        self.keys.insert(key.dupe());
+    }
+
+    /// Resolve an activation into its graph representation while tracking page-in reachability:
+    /// walk `deps`, substituting `PageInConnector` connectors for unmapped deps that reach a page-in;
+    /// mark `key` if it (or a dep) reaches one; and return the graph key plus dep keys, or `None`
+    /// when `key` is unmapped and doesn't reach a page-in (so it is dropped).
+    fn resolve_graph_keys(
+        &self,
+        key: &DynKey,
+        mapped_key: Option<NodeKey>,
+        deps: &mut dyn Iterator<Item = &DynKey>,
+    ) -> Option<(NodeKey, Vec<NodeKey>)> {
+        let mut has_dep_reaching_page_in = false;
+        let dep_keys = deps
+            .filter_map(|dep| {
+                let mapped_dep = NodeKey::from_dyn_key(dep);
+                if self.reaches_page_in(dep) {
+                    has_dep_reaching_page_in = true;
+                    Some(mapped_dep.unwrap_or_else(|| NodeKey::PageInConnector(dep.dupe())))
+                } else {
+                    mapped_dep
+                }
+            })
+            .collect();
+
+        // Mark `key` (even when mapped) so its reachability propagates to its parents. Dependency
+        // callbacks finish before the parent's, so the mark is visible as activations complete.
+        let reaches_page_in = has_dep_reaching_page_in || self.reaches_page_in(key);
+        if reaches_page_in {
+            self.keys.insert(key.dupe());
+        }
+
+        let key = match mapped_key {
+            Some(key) => key,
+            None if reaches_page_in => NodeKey::PageInConnector(key.dupe()),
+            None => return None,
+        };
+        Some((key, dep_keys))
+    }
 }
 
 impl BuildSignalSender {
@@ -488,8 +561,19 @@ impl ActivationTracker for BuildSignalSender {
         deps: &mut dyn Iterator<Item = &DynKey>,
         activation_data: ActivationData,
     ) {
-        let Some(key) = NodeKey::from_dyn_key(key) else {
-            return;
+        let mapped_key = NodeKey::from_dyn_key(key);
+        let (key, dep_keys) = match self.page_in_reachability.get() {
+            Some(reachability) => match reachability.resolve_graph_keys(key, mapped_key, deps) {
+                Some(resolved) => resolved,
+                None => return,
+            },
+            None => {
+                // No page-in has happened yet: keep only mapped keys, exactly as before paging.
+                let Some(key) = mapped_key else {
+                    return;
+                };
+                (key, deps.filter_map(NodeKey::from_dyn_key).collect())
+            }
         };
         let page_in =
             self.pending_page_in_phases
@@ -503,7 +587,7 @@ impl ActivationTracker for BuildSignalSender {
             key,
             extra_data: NodeExtraData::None,
             duration: NodeDuration::zero(),
-            dep_keys: deps.into_iter().filter_map(NodeKey::from_dyn_key).collect(),
+            dep_keys,
             spans: Default::default(),
             waiting_data: WaitingData::new(),
             split_discovery: None,
@@ -646,9 +730,11 @@ impl ActivationTracker for BuildSignalSender {
     }
 
     fn key_paged_in(&self, key: &DynKey, start: Instant, duration: Duration, phase: PageInPhase) {
-        let Some(key) = NodeKey::from_dyn_key(key) else {
-            return;
-        };
+        self.page_in_reachability
+            .get_or_init(PageInReachability::default)
+            .record_page_in(key);
+        let key =
+            NodeKey::from_dyn_key(key).unwrap_or_else(|| NodeKey::PageInConnector(key.dupe()));
         if phase != PageInPhase::Match {
             self.pending_page_in_phases.insert(key.dupe(), phase);
         }
@@ -1424,6 +1510,7 @@ fn create_build_signals() -> (BuildSignalsInstaller, Box<dyn DeferredBuildSignal
     let sender = Arc::new(BuildSignalSender {
         sender,
         pending_page_in_phases: BuckDashMap::new(),
+        page_in_reachability: OnceLock::new(),
     });
     let installer = BuildSignalsInstaller {
         build_signals: sender.dupe() as _,

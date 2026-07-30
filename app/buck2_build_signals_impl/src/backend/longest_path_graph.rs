@@ -313,8 +313,12 @@ fn compute_critical_paths(
 
     let critical_path = critical_path
         .iter()
-        .map(|(cp_idx, vertex_idx)| {
+        .filter_map(|(cp_idx, vertex_idx)| {
             let vertex_idx = *vertex_idx;
+            if matches!(keys[vertex_idx], NodeKey::PageInConnector(..)) {
+                return None;
+            }
+
             let key = keys[vertex_idx].dupe();
 
             let node_data = data[vertex_idx].clone();
@@ -325,12 +329,12 @@ fn compute_critical_paths(
             let potential_improvement = Some(Duration::from_micros(
                 critical_path_cost.runtime - replacement_durations[cp_idx].runtime,
             ));
-            DetailedCriticalPathEntry {
+            Some(DetailedCriticalPathEntry {
                 key,
                 data: node_data,
                 potential_improvement,
                 deps_finished_time,
-            }
+            })
         })
         .collect();
 
@@ -375,12 +379,14 @@ fn compute_slowest_paths(
 
         let (deps_finished_time, prev_node) = prev.unzip();
 
-        slowest_path.push(DetailedCriticalPathEntry {
-            key: keys[curr].dupe(),
-            data: data[curr].clone(),
-            potential_improvement: None,
-            deps_finished_time,
-        });
+        if !matches!(keys[curr], NodeKey::PageInConnector(..)) {
+            slowest_path.push(DetailedCriticalPathEntry {
+                key: keys[curr].dupe(),
+                data: data[curr].clone(),
+                potential_improvement: None,
+                deps_finished_time,
+            });
+        }
         node = prev_node;
     }
 

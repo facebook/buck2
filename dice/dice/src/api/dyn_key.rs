@@ -8,8 +8,12 @@
  * above-listed licenses.
  */
 
+use std::fmt::Debug;
 use std::fmt::Display;
+use std::hash::Hash;
+use std::hash::Hasher;
 
+use dupe::Dupe;
 use ref_cast::RefCastCustom;
 use ref_cast::ref_cast_custom;
 
@@ -18,7 +22,7 @@ use crate::key::DiceKeyErased;
 
 /// A type erased Key. Dice APIs that return key references will pass them as DynKey (unless they can be
 /// passed as the specific Key type).
-#[derive(RefCastCustom)]
+#[derive(Clone, Dupe, Eq, PartialEq, RefCastCustom)]
 #[repr(transparent)]
 pub struct DynKey {
     pub(crate) erased: DiceKeyErased,
@@ -54,5 +58,17 @@ impl DynKey {
 impl Display for DynKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         Display::fmt(&self.erased, f)
+    }
+}
+
+impl Debug for DynKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(self, f)
+    }
+}
+
+impl Hash for DynKey {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.erased.hash().hash(state);
     }
 }
