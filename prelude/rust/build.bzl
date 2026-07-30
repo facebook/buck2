@@ -1466,6 +1466,8 @@ def _rustc_emit(
                 # IMPORTANT: this flag is the only way that the Emit("metadata") and
                 # Emit("link") operations are allowed to diverge without causing them to
                 # get different crate hashes.
+                if not compile_ctx.toolchain_info.nightly_features:
+                    fail("Pipelined builds use the unstable `-Zno-codegen` flag and require a toolchain with `nightly_features = True`")
                 emit_args.add("-Zno-codegen")
                 effective_emit = "link"
         elif emit == Emit("metadata-fast") or emit == Emit("clippy"):

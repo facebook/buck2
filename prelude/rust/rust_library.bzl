@@ -195,16 +195,25 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
 
         param_subtargets.setdefault(params, {})
         if LinkageLang("rust") in langs:
-            param_metadata_outputs[params] = {
-                MetadataKind("link"): link,
-                MetadataKind("full"): rust_compile(
+            if toolchain_info.nightly_features:
+                # Pipelined build: dependents that need full metadata compile
+                # against the `-Zno-codegen` "hollow rlib" instead of waiting
+                # for this crate's codegen.
+                metadata_full = rust_compile(
                     ctx = ctx,
                     compile_ctx = compile_ctx,
                     emit = Emit("metadata-full"),
                     params = params,
                     default_roots = _DEFAULT_ROOTS,
                     incremental_enabled = ctx.attrs.incremental_enabled,
-                ),
+                )
+            else:
+                # Pipelining requires the unstable `-Zno-codegen`; dependents
+                # wait for the real rlib instead.
+                metadata_full = link
+            param_metadata_outputs[params] = {
+                MetadataKind("link"): link,
+                MetadataKind("full"): metadata_full,
                 MetadataKind("fast"): meta_fast,
             }
 
