@@ -9,7 +9,29 @@ oncall("build_infra")
 pagable_transition_alias(
     name = "buck2",
     actual = "//buck2/app/buck2:buck2-bin",
-    labels = [ci.aarch64(ci.skip_test())],
+    labels = ci.labels(
+        ci.modifiers(
+            [
+                "ovr_config//cpu:arm64",
+                "ovr_config//build_mode/constraints:dev",
+            ],
+            ci.skip_test(),
+        ),
+        ci.modifiers(
+            [
+                "ovr_config//cpu:x86_64",
+                "ovr_config//build_mode/constraints:opt",
+            ],
+            ci.skip_test(),
+        ),
+        ci.modifiers(
+            [
+                "ovr_config//cpu:arm64",
+                "ovr_config//build_mode/constraints:opt",
+            ],
+            ci.skip_test(),
+        ),
+    ),
 )
 
 buck2_bundle(
