@@ -137,6 +137,12 @@ def _create_kotlin_sources(
     jdk_release = getattr(ctx.attrs, "jdk_release", None) or ctx.attrs.java_version
     if jdk_release and not ctx.attrs.no_x_jdk_release:
         kotlinc_cmd_args.add(["-Xjdk-release=" + jdk_release])
+    else:
+        jvm_target = get_kotlinc_compatible_target(str(target_level))
+        kotlinc_cmd_args.add([
+            "-jvm-target",
+            jvm_target,
+        ])
 
     module_name = ctx.label.package.replace("/", ".") + "." + ctx.label.name
     kotlinc_cmd_args.add(
@@ -149,12 +155,6 @@ def _create_kotlin_sources(
         + ctx.attrs.extra_kotlinc_arguments
         + get_language_version_arg(ctx),
     )
-
-    jvm_target = get_kotlinc_compatible_target(str(target_level))
-    kotlinc_cmd_args.add([
-        "-jvm-target",
-        jvm_target,
-    ])
 
     kapt_generated_sources_output = None
     if annotation_processor_properties.annotation_processors:
