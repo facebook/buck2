@@ -28,6 +28,7 @@ path = "top/main.rs"
 # and all options Cargo supports.
 [dependencies]
 annotate-snippets = { version = "0.9.1", features = ["color"] }
+anstyle-parse = "1.0.0"
 anyhow = "1.0.102"
 anymap3 = "1.0.1"
 arc-swap = "1.9.0"
