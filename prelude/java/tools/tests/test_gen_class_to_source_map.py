@@ -48,7 +48,7 @@ class GenClassToSourceMapTest(unittest.TestCase):
         )
         return json.loads(output.getvalue())["classes"]
 
-    def test_maps_case_mismatch_with_debuginfo(self) -> None:
+    def test_maps_case_mismatch_for_class_and_source_consumers(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             directory = pathlib.Path(temp_dir)
             source = directory / "MWATestInitializer.kt"
@@ -69,6 +69,10 @@ class GenClassToSourceMapTest(unittest.TestCase):
             [
                 {
                     "className": "com.example.MwaTestInitializer",
+                    "srcPath": str(source),
+                },
+                {
+                    "className": "com.example.MWATestInitializer",
                     "srcPath": str(source),
                 },
             ],
@@ -119,6 +123,7 @@ class GenClassToSourceMapTest(unittest.TestCase):
             [
                 {"className": "com.example.First", "srcPath": str(source)},
                 {"className": "com.example.Second", "srcPath": str(source)},
+                {"className": "com.example.Shared", "srcPath": str(source)},
             ],
         )
 

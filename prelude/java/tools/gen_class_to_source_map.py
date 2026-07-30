@@ -91,6 +91,12 @@ def _resolve_source_path(
     )
 
 
+def _source_identity(class_name: str, source_path: str) -> str:
+    package, _, _ = class_name.rpartition(".")
+    source_stem = _source_stem(source_path)
+    return package + "." + source_stem if package else source_stem
+
+
 def _jar_class_names(jar: str) -> list[str]:
     with zipfile.ZipFile(jar) as jar_file:
         return [
@@ -98,6 +104,17 @@ def _jar_class_names(jar: str) -> list[str]:
             for entry in jar_file.namelist()
             if entry.endswith(".class")
         ]
+
+
+def _add_source_identity_aliases(entries: dict[str, dict[str, str]]) -> None:
+    # Android aggregate coverage identifies a source by package and file stem.
+    # Preserve a real class mapping if it has the same name as that identity.
+    for entry in list(entries.values()):
+        source_path = entry.get("srcPath")
+        if source_path is None:
+            continue
+        identity = _source_identity(entry["className"], source_path)
+        entries.setdefault(identity, {"className": identity, "srcPath": source_path})
 
 
 def _build_class_entries(
@@ -135,6 +152,8 @@ def _build_class_entries(
             and compiled_class.startswith(include_prefixes)
         ):
             entries[class_name] = {"className": class_name}
+
+    _add_source_identity_aliases(entries)
 
     return list(entries.values())
 
