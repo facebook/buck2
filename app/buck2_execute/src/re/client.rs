@@ -2031,7 +2031,7 @@ impl RemoteExecutionClientImpl {
 buck2_util::size_assert::words_of_async_fn_future!(
     RemoteExecutionClientImpl::get_digests_ttl,
     (_, _, _, _),
-    38
+    ~38
 );
 
 /// Drop the REClient on a blocking thread. The REClient destructor does a blocking wait on async

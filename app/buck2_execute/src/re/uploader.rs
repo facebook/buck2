@@ -483,13 +483,13 @@ impl Uploader {
 buck2_util::size_assert::words_of_async_fn_future!(
     Uploader::upload,
     (_, _, _, _, _, _, _, _, _, _),
-    327
+    ~327
 );
 #[cfg(fbcode_build)] // Relies on fbcode future sizes
 buck2_util::size_assert::words_of_async_fn_future!(
     Uploader::find_missing,
     (_, _, _, _, _, _, _),
-    260
+    ~260
 );
 
 fn should_error_for_missing_digest(info: &CasDownloadInfo) -> bool {

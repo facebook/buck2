@@ -105,7 +105,7 @@ async fn build_action_impl(
     build_action_no_redirect(ctx, cancellation, action).await
 }
 
-mini_vec::size_assert::words_of_async_fn_future!(build_action_impl, (_, _, _), 43);
+mini_vec::size_assert::words_of_async_fn_future!(build_action_impl, (_, _, _), ~43);
 
 async fn build_action_no_redirect(
     ctx: &mut DiceComputations<'_>,

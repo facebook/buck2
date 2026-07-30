@@ -63,6 +63,11 @@ pub macro same_size($($t:tt)*) {}
 /// Assert that the future returned by the given async fn has size equal to the specified number of
 /// pointers.
 ///
+/// Writing the size as `~N` instead asserts it only approximately, allowing the actual size to
+/// drift up to 10% (but at least 5 words) in each direction before the assertion fails. Prefer this
+/// form for large futures, where the point is to catch substantial regressions and an exact
+/// assertion would demand an update for every incidental size change.
+///
 /// Each argument should be written as `_`, which expands to a `panic!()` placeholder of the right
 /// type. When that placeholder is not enough to determine the future's type - e.g. the function is
 /// generic over a closure type that must be inferred from the argument - write that argument as an
@@ -75,16 +80,30 @@ pub macro same_size($($t:tt)*) {}
 /// Like the `_` placeholders, explicit arguments are only ever type-checked, never run, so they may
 /// themselves be (or contain) `panic!()`.
 #[cfg(all(not(mini_vec_no_ptr_packing), target_pointer_width = "64"))]
-pub macro words_of_async_fn_future($f:path, ($($arg:tt)*), $w:literal) {
-    const _: () = {
-        // The body is only ever type-checked, never run: the placeholders construct a value of the
-        // future's type without needing real arguments, and the size check fires at compile time
-        // regardless of the function being called.
-        #[allow(unused, unreachable_code, clippy::diverging_sub_expression)]
-        fn assert() {
-            $crate::size_assert::__macro_refs::assert_async_fn_future_size!(($f) ($w) () $($arg)*);
-        }
-    };
+pub macro words_of_async_fn_future {
+    ($f:path, ($($arg:tt)*), $w:literal) => {
+        const _: () = {
+            // The body is only ever type-checked, never run: the placeholders construct a value of
+            // the future's type without needing real arguments, and the size check fires at compile
+            // time regardless of the function being called.
+            #[allow(unused, unreachable_code, clippy::diverging_sub_expression)]
+            fn assert() {
+                $crate::size_assert::__macro_refs::assert_async_fn_future_size!(
+                    ($f) ($w) () $($arg)*
+                );
+            }
+        };
+    },
+    ($f:path, ($($arg:tt)*), ~ $w:literal) => {
+        const _: () = {
+            #[allow(unused, unreachable_code, clippy::diverging_sub_expression)]
+            fn assert() {
+                $crate::size_assert::__macro_refs::assert_async_fn_future_size!(
+                    ($f) (~ $w) () $($arg)*
+                );
+            }
+        };
+    },
 }
 
 /// Does nothing in this configuration
@@ -101,23 +120,48 @@ pub macro words_of_async_fn_future($($t:tt)*) {}
 /// ```ignore
 /// size_assert::words_of_expr!((async |x: u8| x).async_call_once((panic!(),)), 2);
 /// ```
+///
+/// Supports the same approximate `~N` size spelling as [`words_of_async_fn_future`].
 #[cfg(all(not(mini_vec_no_ptr_packing), target_pointer_width = "64"))]
-pub macro words_of_expr($e:expr, $w:literal) {
-    const _: () = {
-        #[allow(unused, unreachable_code, clippy::diverging_sub_expression)]
-        fn assert() {
-            const ACTUAL_BYTES: usize =
-                $crate::size_assert::__macro_refs::size_of_return(|| $e);
-            const EXPECTED_BYTES: usize = ::core::mem::size_of::<[usize; $w]>();
+pub macro words_of_expr {
+    ($e:expr, $w:literal) => {
+        const _: () = {
+            #[allow(unused, unreachable_code, clippy::diverging_sub_expression)]
+            fn assert() {
+                const ACTUAL_BYTES: usize =
+                    $crate::size_assert::__macro_refs::size_of_return(|| $e);
+                const EXPECTED_BYTES: usize = ::core::mem::size_of::<[usize; $w]>();
 
-            $crate::size_assert::__macro_refs::ExprHasExpectedWordSize::<
-                ACTUAL_BYTES,
-                { ACTUAL_BYTES / ::core::mem::size_of::<usize>() },
-                EXPECTED_BYTES,
-                $w,
-            >::assert_size(|| $e);
-        }
-    };
+                $crate::size_assert::__macro_refs::ExprHasExpectedWordSize::<
+                    ACTUAL_BYTES,
+                    { ACTUAL_BYTES / ::core::mem::size_of::<usize>() },
+                    EXPECTED_BYTES,
+                    $w,
+                >::assert_size(|| $e);
+            }
+        };
+    },
+    ($e:expr, ~ $w:literal) => {
+        const _: () = {
+            #[allow(unused, unreachable_code, clippy::diverging_sub_expression)]
+            fn assert() {
+                const ACTUAL_BYTES: usize =
+                    $crate::size_assert::__macro_refs::size_of_return(|| $e);
+                const ACTUAL_WORDS: usize = ACTUAL_BYTES / ::core::mem::size_of::<usize>();
+                const BOUNDS: (usize, usize) =
+                    $crate::size_assert::__macro_refs::approx_size_bounds($w);
+
+                $crate::size_assert::__macro_refs::ExprHasApproxWordSize::<
+                    ACTUAL_BYTES,
+                    ACTUAL_WORDS,
+                    $w,
+                    { BOUNDS.0 },
+                    { BOUNDS.1 },
+                    { BOUNDS.0 <= ACTUAL_WORDS && ACTUAL_WORDS <= BOUNDS.1 },
+                >::assert_size(|| $e);
+            }
+        };
+    },
 }
 
 /// Does nothing in this configuration
@@ -130,6 +174,19 @@ pub mod __macro_refs {
     // The function pointer infers an unnameable return type without evaluating its body.
     pub const fn size_of_return<T>(_: fn() -> T) -> usize {
         ::core::mem::size_of::<T>()
+    }
+
+    // If these change, update the doc comment on [`super::words_of_async_fn_future`].
+    const APPROX_TOLERANCE_PERCENT: usize = 10;
+    const APPROX_TOLERANCE_MIN_WORDS: usize = 5;
+
+    /// The `(min, max)` word counts accepted by an approximate size assertion against `expected`.
+    pub const fn approx_size_bounds(expected: usize) -> (usize, usize) {
+        let mut tolerance = expected * APPROX_TOLERANCE_PERCENT / 100;
+        if tolerance < APPROX_TOLERANCE_MIN_WORDS {
+            tolerance = APPROX_TOLERANCE_MIN_WORDS;
+        }
+        (expected.saturating_sub(tolerance), expected + tolerance)
     }
 
     #[diagnostic::on_unimplemented(
@@ -190,6 +247,76 @@ pub mod __macro_refs {
     }
 
     #[diagnostic::on_unimplemented(
+        message = "Expression of type `{Self}` has word count {ACTUAL_WORDS} ({ACTUAL_BYTES} bytes), outside the range {MIN_WORDS}..={MAX_WORDS} accepted by the assertion of ~{EXPECTED_WORDS}; if the new size is expected, update the assertion to ~{ACTUAL_WORDS}"
+    )]
+    pub trait ExprHasApproxWordSize<
+        const ACTUAL_BYTES: usize,
+        const ACTUAL_WORDS: usize,
+        const EXPECTED_WORDS: usize,
+        const MIN_WORDS: usize,
+        const MAX_WORDS: usize,
+        const WITHIN_BOUNDS: bool,
+    >: Sized
+    {
+        fn assert_size(_: fn() -> Self);
+    }
+
+    impl<
+        T,
+        const ACTUAL_BYTES: usize,
+        const ACTUAL_WORDS: usize,
+        const EXPECTED_WORDS: usize,
+        const MIN_WORDS: usize,
+        const MAX_WORDS: usize,
+    >
+        ExprHasApproxWordSize<
+            ACTUAL_BYTES,
+            ACTUAL_WORDS,
+            EXPECTED_WORDS,
+            MIN_WORDS,
+            MAX_WORDS,
+            true,
+        > for T
+    {
+        fn assert_size(_: fn() -> Self) {}
+    }
+
+    #[diagnostic::on_unimplemented(
+        message = "Future of type `{Self}` has word count {ACTUAL_WORDS} ({ACTUAL_BYTES} bytes), outside the range {MIN_WORDS}..={MAX_WORDS} accepted by the assertion of ~{EXPECTED_WORDS}; if the new size is expected, update the assertion to ~{ACTUAL_WORDS}"
+    )]
+    pub trait FutureHasApproxWordSize<
+        const ACTUAL_BYTES: usize,
+        const ACTUAL_WORDS: usize,
+        const EXPECTED_WORDS: usize,
+        const MIN_WORDS: usize,
+        const MAX_WORDS: usize,
+        const WITHIN_BOUNDS: bool,
+    >: Sized
+    {
+        fn assert_size(_: fn() -> Self);
+    }
+
+    impl<
+        T,
+        const ACTUAL_BYTES: usize,
+        const ACTUAL_WORDS: usize,
+        const EXPECTED_WORDS: usize,
+        const MIN_WORDS: usize,
+        const MAX_WORDS: usize,
+    >
+        FutureHasApproxWordSize<
+            ACTUAL_BYTES,
+            ACTUAL_WORDS,
+            EXPECTED_WORDS,
+            MIN_WORDS,
+            MAX_WORDS,
+            true,
+        > for T
+    {
+        fn assert_size(_: fn() -> Self) {}
+    }
+
+    #[diagnostic::on_unimplemented(
         message = "Size mismatch between `{Self}` ({LEFT_BYTES} bytes) and `{Rhs}` ({RIGHT_BYTES} bytes)"
     )]
     pub trait SameSizeAs<Rhs, const LEFT_BYTES: usize, const RIGHT_BYTES: usize> {
@@ -207,9 +334,10 @@ pub mod __macro_refs {
     /// results until the list is exhausted, at which point it emits the assertion. The muncher is
     /// necessary because neither fragment type covers the whole list on its own: `_` is not an
     /// `expr` (ruling out `$(:expr),*`), while explicit arguments may be multi-token expressions
-    /// (ruling out `$(:tt),*`).
+    /// (ruling out `$(:tt),*`). The size spec (`N` or `~ N`) rides along unchanged and selects
+    /// which assertion is emitted at the end.
     pub macro assert_async_fn_future_size {
-        // All arguments consumed: emit the assertion.
+        // All arguments consumed: emit the exact assertion.
         (($f:path) ($w:literal) ($($arg:expr,)*)) => {
             const ACTUAL_BYTES: usize = $crate::size_assert::__macro_refs::size_of_return(
                 || $f($($arg),*)
@@ -223,16 +351,34 @@ pub mod __macro_refs {
                 $w,
             >::assert_size(|| $f($($arg),*));
         },
+        // All arguments consumed: emit the approximate assertion.
+        (($f:path) (~ $w:literal) ($($arg:expr,)*)) => {
+            const ACTUAL_BYTES: usize = $crate::size_assert::__macro_refs::size_of_return(
+                || $f($($arg),*)
+            );
+            const ACTUAL_WORDS: usize = ACTUAL_BYTES / ::core::mem::size_of::<usize>();
+            const BOUNDS: (usize, usize) =
+                $crate::size_assert::__macro_refs::approx_size_bounds($w);
+
+            $crate::size_assert::__macro_refs::FutureHasApproxWordSize::<
+                ACTUAL_BYTES,
+                ACTUAL_WORDS,
+                $w,
+                { BOUNDS.0 },
+                { BOUNDS.1 },
+                { BOUNDS.0 <= ACTUAL_WORDS && ACTUAL_WORDS <= BOUNDS.1 },
+            >::assert_size(|| $f($($arg),*));
+        },
         // `_` placeholder (optionally followed by a comma and more arguments).
-        (($f:path) ($w:literal) ($($arg:expr,)*) _ $(, $($rest:tt)*)?) => {
+        (($f:path) ($($size:tt)+) ($($arg:expr,)*) _ $(, $($rest:tt)*)?) => {
             $crate::size_assert::__macro_refs::assert_async_fn_future_size!(
-                ($f) ($w) ($($arg,)* ::std::panic!(),) $($($rest)*)?
+                ($f) ($($size)+) ($($arg,)* ::std::panic!(),) $($($rest)*)?
             );
         },
         // Explicit expression argument (optionally followed by a comma and more arguments).
-        (($f:path) ($w:literal) ($($arg:expr,)*) $next:expr $(, $($rest:tt)*)?) => {
+        (($f:path) ($($size:tt)+) ($($arg:expr,)*) $next:expr $(, $($rest:tt)*)?) => {
             $crate::size_assert::__macro_refs::assert_async_fn_future_size!(
-                ($f) ($w) ($($arg,)* $next,) $($($rest)*)?
+                ($f) ($($size)+) ($($arg,)* $next,) $($($rest)*)?
             );
         },
     }
@@ -253,8 +399,23 @@ mod __compile_test {
     // Mix `_` placeholders with an explicit, multi-token expression argument.
     super::words_of_async_fn_future!(three_args, (_, 1u16 + 1u16, _), 1);
     super::words_of_async_fn_future!(closure_arg, (|x| x, 0u64), 2);
+    super::words_of_async_fn_future!(three_args, (_, _, _), ~1);
     super::words_of_expr!(
         three_args(::std::panic!(), ::std::panic!(), ::std::panic!()),
         1
     );
+    super::words_of_expr!(
+        three_args(::std::panic!(), ::std::panic!(), ::std::panic!()),
+        ~1
+    );
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn approx_size_bounds() {
+        assert_eq!(super::__macro_refs::approx_size_bounds(400), (360, 440));
+        assert_eq!(super::__macro_refs::approx_size_bounds(30), (25, 35));
+        assert_eq!(super::__macro_refs::approx_size_bounds(2), (0, 7));
+    }
 }
