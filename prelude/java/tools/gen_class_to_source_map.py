@@ -13,6 +13,7 @@ import json
 import os
 import sys
 import zipfile
+from collections import defaultdict
 from collections.abc import Iterable
 from typing import TextIO
 
@@ -33,10 +34,33 @@ def _normalize_kotlin_file_facade(class_name: str, source_path: str | None) -> s
     if source_path is None or not class_name.endswith("Kt"):
         return class_name
 
+    # A Kotlin file facade (`Foo.kt` -> class `FooKt`) is renamed back to the file
+    # name, but a real class literally named `FooKt` (from `FooKt.kt`) is left alone.
     simple_name = class_name.rsplit(".", 1)[-1]
     if simple_name[:-2] == _source_stem(source_path):
         return class_name[:-2]
     return class_name
+
+
+def _load_debug_class_to_source_map(path: str | None) -> dict[str, str]:
+    if path is None:
+        return {}
+
+    with open(path) as debuginfo_file:
+        source_files = json.load(debuginfo_file)
+
+    class_to_sources: defaultdict[str, set[str]] = defaultdict(set)
+    for source_file in source_files:
+        for class_info in source_file["classes"]:
+            class_to_sources[class_info["name"]].add(source_file["file_path"])
+
+    unique_class_to_source: dict[str, str] = {}
+    for class_name, source_paths in class_to_sources.items():
+        # Never guess which source owns a class claimed by multiple files.
+        if len(source_paths) != 1:
+            continue
+        unique_class_to_source[class_name] = next(iter(source_paths))
+    return unique_class_to_source
 
 
 def _legacy_source_for_class(class_name: str, sources: dict[str, str]) -> str | None:
@@ -52,6 +76,21 @@ def _legacy_source_for_class(class_name: str, sources: dict[str, str]) -> str | 
     return None
 
 
+def _resolve_source_path(
+    compiled_class: str,
+    top_level_class: str,
+    debug_class_to_source: dict[str, str],
+    legacy_sources: dict[str, str],
+) -> str | None:
+    # Debug records are authoritative. Legacy matching keeps toolchains without
+    # debug support, and classes missing from otherwise valid debug data, working.
+    return (
+        debug_class_to_source.get(compiled_class)
+        or debug_class_to_source.get(top_level_class)
+        or _legacy_source_for_class(top_level_class, legacy_sources)
+    )
+
+
 def _jar_class_names(jar: str) -> list[str]:
     with zipfile.ZipFile(jar) as jar_file:
         return [
@@ -64,24 +103,40 @@ def _jar_class_names(jar: str) -> list[str]:
 def _build_class_entries(
     jar: str,
     source_paths: Iterable[str],
+    debuginfo: str | None,
     include_classes_prefixes: Iterable[str],
 ) -> list[dict[str, str]]:
     legacy_sources = {os.path.splitext(source)[0]: source for source in source_paths}
+    debug_class_to_source = _load_debug_class_to_source_map(debuginfo)
     include_prefixes = tuple(include_classes_prefixes)
-    entries = []
+    entries: dict[str, dict[str, str]] = {}
 
     for compiled_class in _jar_class_names(jar):
-        if "$" in compiled_class:
-            continue
-
-        source_path = _legacy_source_for_class(compiled_class, legacy_sources)
-        class_name = _normalize_kotlin_file_facade(compiled_class, source_path)
+        top_level_class = compiled_class.split("$", 1)[0]
+        source_path = _resolve_source_path(
+            compiled_class,
+            top_level_class,
+            debug_class_to_source,
+            legacy_sources,
+        )
+        class_name = _normalize_kotlin_file_facade(top_level_class, source_path)
+        existing_entry = entries.get(class_name)
         if source_path is not None:
-            entries.append({"className": class_name, "srcPath": source_path})
-        elif compiled_class.startswith(include_prefixes):
-            entries.append({"className": class_name})
+            # Nested and synthetic classes collapse to their top-level class. Prefer
+            # a sourceful mapping regardless of their order in the JAR.
+            if existing_entry is None or "srcPath" not in existing_entry:
+                entries[class_name] = {
+                    "className": class_name,
+                    "srcPath": source_path,
+                }
+        elif (
+            existing_entry is None
+            and "$" not in compiled_class
+            and compiled_class.startswith(include_prefixes)
+        ):
+            entries[class_name] = {"className": class_name}
 
-    return entries
+    return list(entries.values())
 
 
 def _write_sources_jar(classes: Iterable[dict[str, str]], output: str) -> None:
@@ -100,10 +155,16 @@ def generate_class_to_source_map(
     source_paths: Iterable[str],
     output: TextIO,
     *,
+    debuginfo: str | None = None,
     include_classes_prefixes: Iterable[str] = (),
     sources_jar: str | None = None,
 ) -> None:
-    classes = _build_class_entries(jar, source_paths, include_classes_prefixes)
+    classes = _build_class_entries(
+        jar,
+        source_paths,
+        debuginfo,
+        include_classes_prefixes,
+    )
     if sources_jar is not None:
         _write_sources_jar(classes, sources_jar)
 
@@ -124,6 +185,7 @@ def main(argv: list[str]) -> int:
         "--output", "-o", type=argparse.FileType("w"), default=sys.stdin
     )
     parser.add_argument("--sources_jar", required=False)
+    parser.add_argument("--debuginfo", required=False)
     parser.add_argument("jar")
     parser.add_argument("sources", nargs="*")
     args = parser.parse_args(argv[1:])
@@ -132,6 +194,7 @@ def main(argv: list[str]) -> int:
         args.jar,
         args.sources,
         args.output,
+        debuginfo=args.debuginfo,
         include_classes_prefixes=args.include_classes_prefixes,
         sources_jar=args.sources_jar,
     )

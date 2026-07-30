@@ -68,7 +68,13 @@ def create_class_to_source_map_info(
     )
 
 def create_class_to_source_map_from_jar(
-    actions: AnalysisActions, name: str, java_toolchain: JavaToolchainInfo, jar: Artifact, srcs: list[Artifact], sources_jar_name: [str, None] = None
+    actions: AnalysisActions,
+    name: str,
+    java_toolchain: JavaToolchainInfo,
+    jar: Artifact,
+    srcs: list[Artifact],
+    sources_jar_name: [str, None] = None,
+    debuginfo: Artifact | None = None,
 ) -> (Artifact, Artifact | None):
     output = actions.declare_output(name, has_content_based_path = True)
     cmd = cmd_args(java_toolchain.gen_class_to_source_map[RunInfo])
@@ -76,6 +82,8 @@ def create_class_to_source_map_from_jar(
         for item in java_toolchain.gen_class_to_source_map_include_sourceless_compiled_packages:
             cmd.add("-i", item)
     cmd.add("-o", output.as_output())
+    if debuginfo != None:
+        cmd.add("--debuginfo", debuginfo)
     cmd.add(jar)
     cmd.add(at_argfile(actions = actions, name = "class_to_srcs_map_argsfile.txt", args = srcs, has_content_based_path = True))
     sources_jar = None
