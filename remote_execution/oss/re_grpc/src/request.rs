@@ -73,6 +73,7 @@ pub struct FindMissingBlobsRequest {
 #[derive(Default)]
 pub struct GetDigestsTtlRequest {
     pub digests: Vec<TDigest>,
+    pub is_for_upload: Option<bool>,
     pub _dot_dot: (),
 }
 

@@ -180,7 +180,7 @@ impl Uploader {
             let client = client.clone();
             let metadata = use_case.metadata(identity);
             let digests = input_digests.iter().map(|d| d.to_re()).collect();
-            let digests_ttl = client.get_digests_ttl(digests, &metadata).await;
+            let digests_ttl = client.get_digests_ttl(digests, &metadata, true).await;
 
             let input_digests = input_digests.iter().copied().collect();
 
@@ -489,7 +489,7 @@ buck2_util::size_assert::words_of_async_fn_future!(
 buck2_util::size_assert::words_of_async_fn_future!(
     Uploader::find_missing,
     (_, _, _, _, _, _, _),
-    257
+    260
 );
 
 fn should_error_for_missing_digest(info: &CasDownloadInfo) -> bool {
@@ -694,7 +694,7 @@ fn query_digest_ttls<'s>(
     let digests = input_digests.iter().map(|d| d.to_re()).collect();
 
     async move {
-        let digests_ttl = client.get_digests_ttl(digests, &metadata).await;
+        let digests_ttl = client.get_digests_ttl(digests, &metadata, true).await;
 
         {
             let mut guard = deduper.lock().expect("Poisoned lock");

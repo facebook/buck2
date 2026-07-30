@@ -422,10 +422,14 @@ impl RemoteExecutionClient {
         &self,
         digests: Vec<TDigest>,
         metadata: &RemoteExecutionMetadata,
+        is_for_upload: bool,
     ) -> buck2_error::Result<GetDigestsTtlResponse> {
         self.data
             .get_digests_ttl
-            .op(self.data.client.get_digests_ttl(digests, metadata))
+            .op(self
+                .data
+                .client
+                .get_digests_ttl(digests, metadata, is_for_upload))
             .await
     }
 
@@ -435,7 +439,7 @@ impl RemoteExecutionClient {
         metadata: &RemoteExecutionMetadata,
     ) -> buck2_error::Result<Vec<(TDigest, DateTime<Utc>)>> {
         let now = Utc::now();
-        let ttls = self.get_digests_ttl(digests, metadata).await?;
+        let ttls = self.get_digests_ttl(digests, metadata, false).await?;
         Ok(ttls
             .digests_with_ttl
             .into_iter()
@@ -1922,6 +1926,7 @@ impl RemoteExecutionClientImpl {
         &self,
         digests: Vec<TDigest>,
         metadata: &RemoteExecutionMetadata,
+        is_for_upload: bool,
     ) -> buck2_error::Result<GetDigestsTtlResponse> {
         with_error_handler(
             "get_digests_ttl",
@@ -1932,6 +1937,7 @@ impl RemoteExecutionClientImpl {
                     metadata,
                     GetDigestsTtlRequest {
                         digests,
+                        is_for_upload: Some(is_for_upload),
                         ..Default::default()
                     },
                 )
@@ -2024,8 +2030,8 @@ impl RemoteExecutionClientImpl {
 #[cfg(fbcode_build)] // Relies on fbcode future sizes
 buck2_util::size_assert::words_of_async_fn_future!(
     RemoteExecutionClientImpl::get_digests_ttl,
-    (_, _, _),
-    35
+    (_, _, _, _),
+    38
 );
 
 /// Drop the REClient on a blocking thread. The REClient destructor does a blocking wait on async
