@@ -69,8 +69,10 @@ def _self_profile(ctx: AnalysisContext, compile_ctx: CompileContext, self_profil
         sub_targets["trace"] = _make_trace_providers(compile_ctx, proftrace)
     return [DefaultInfo(sub_targets = sub_targets)]
 
+# `llvm_time_trace` and `self_profile` are `None` on toolchains without
+# `nightly_features`, where the corresponding `-Z` flags cannot be used.
 def make_profile_providers(
-    ctx: AnalysisContext, compile_ctx: CompileContext, llvm_ir_noopt: Artifact, llvm_time_trace: RustcOutput, self_profile: RustcOutput
+    ctx: AnalysisContext, compile_ctx: CompileContext, llvm_ir_noopt: Artifact, llvm_time_trace: RustcOutput | None, self_profile: RustcOutput | None
 ) -> list[Provider]:
     sub_targets = {}
 
@@ -78,7 +80,9 @@ def make_profile_providers(
     if llvm_lines != None:
         sub_targets["llvm_lines"] = llvm_lines
 
-    sub_targets["llvm_passes"] = _llvm_time_trace(compile_ctx, llvm_time_trace)
-    sub_targets["rustc_stages"] = _self_profile(ctx, compile_ctx, self_profile)
+    if llvm_time_trace != None:
+        sub_targets["llvm_passes"] = _llvm_time_trace(compile_ctx, llvm_time_trace)
+    if self_profile != None:
+        sub_targets["rustc_stages"] = _self_profile(ctx, compile_ctx, self_profile)
 
     return [DefaultInfo(sub_targets = sub_targets)]

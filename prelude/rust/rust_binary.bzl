@@ -423,15 +423,17 @@ def _rust_binary_common(
     if remarks.compile_output.remarks_json:
         extra_compiled_targets["remarks.json"] = remarks.compile_output.remarks_json
 
-    extra_compiled_targets["expand"] = rust_compile(
-        ctx = ctx,
-        compile_ctx = compile_ctx,
-        emit = Emit("expand"),
-        params = strategy_param[DEFAULT_STATIC_LINK_STRATEGY],
-        default_roots = default_roots,
-        extra_flags = extra_flags,
-        incremental_enabled = ctx.attrs.incremental_enabled,
-    ).output
+    if compile_ctx.toolchain_info.nightly_features:
+        # `-Zunpretty=expanded` is unstable
+        extra_compiled_targets["expand"] = rust_compile(
+            ctx = ctx,
+            compile_ctx = compile_ctx,
+            emit = Emit("expand"),
+            params = strategy_param[DEFAULT_STATIC_LINK_STRATEGY],
+            default_roots = default_roots,
+            extra_flags = extra_flags,
+            incremental_enabled = ctx.attrs.incremental_enabled,
+        ).output
 
     llvm_ir_noopt = rust_compile(
         ctx = ctx,
@@ -442,30 +444,35 @@ def _rust_binary_common(
         extra_flags = extra_flags,
         incremental_enabled = ctx.attrs.incremental_enabled,
     ).output
-    llvm_time_trace = rust_compile(
-        ctx = ctx,
-        compile_ctx = compile_ctx,
-        emit = Emit("link"),
-        params = params,
-        default_roots = default_roots,
-        extra_link_args = executable_shlib_args.extra_link_args,
-        extra_flags = extra_flags,
-        rust_cxx_link_group_info = rust_cxx_link_group_info,
-        incremental_enabled = ctx.attrs.incremental_enabled,
-        profile_mode = ProfileMode("llvm-time-trace"),
-    )
-    self_profile = rust_compile(
-        ctx = ctx,
-        compile_ctx = compile_ctx,
-        emit = Emit("link"),
-        params = params,
-        default_roots = default_roots,
-        extra_link_args = executable_shlib_args.extra_link_args,
-        extra_flags = extra_flags,
-        rust_cxx_link_group_info = rust_cxx_link_group_info,
-        incremental_enabled = ctx.attrs.incremental_enabled,
-        profile_mode = ProfileMode("self-profile"),
-    )
+    if compile_ctx.toolchain_info.nightly_features:
+        llvm_time_trace = rust_compile(
+            ctx = ctx,
+            compile_ctx = compile_ctx,
+            emit = Emit("link"),
+            params = params,
+            default_roots = default_roots,
+            extra_link_args = executable_shlib_args.extra_link_args,
+            extra_flags = extra_flags,
+            rust_cxx_link_group_info = rust_cxx_link_group_info,
+            incremental_enabled = ctx.attrs.incremental_enabled,
+            profile_mode = ProfileMode("llvm-time-trace"),
+        )
+        self_profile = rust_compile(
+            ctx = ctx,
+            compile_ctx = compile_ctx,
+            emit = Emit("link"),
+            params = params,
+            default_roots = default_roots,
+            extra_link_args = executable_shlib_args.extra_link_args,
+            extra_flags = extra_flags,
+            rust_cxx_link_group_info = rust_cxx_link_group_info,
+            incremental_enabled = ctx.attrs.incremental_enabled,
+            profile_mode = ProfileMode("self-profile"),
+        )
+    else:
+        # `-Zllvm-time-trace` and `-Zself-profile` are unstable
+        llvm_time_trace = None
+        self_profile = None
     profiles = make_profile_providers(
         ctx = ctx,
         compile_ctx = compile_ctx,

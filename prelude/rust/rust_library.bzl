@@ -309,26 +309,31 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         document_private_items = False,
     )
 
-    rustdoc_coverage = generate_rustdoc_coverage(
-        ctx = ctx,
-        compile_ctx = compile_ctx,
-        params = static_library_params,
-        default_roots = _DEFAULT_ROOTS,
-    )
+    if toolchain_info.nightly_features:
+        rustdoc_coverage = generate_rustdoc_coverage(
+            ctx = ctx,
+            compile_ctx = compile_ctx,
+            params = static_library_params,
+            default_roots = _DEFAULT_ROOTS,
+        )
 
-    expand = rust_compile(
-        ctx = ctx,
-        compile_ctx = compile_ctx,
-        emit = Emit("expand"),
-        params = static_library_params,
-        default_roots = _DEFAULT_ROOTS,
-        # This is needed as rustc can generate expanded sources that do not
-        # fully compile, but will report an error even if it succeeds.
-        # TODO(pickett): Handle this at the rustc action level, we shouldn't
-        # need to pass a special arg here, expand should just work.
-        infallible_diagnostics = True,
-        incremental_enabled = ctx.attrs.incremental_enabled,
-    )
+        expand = rust_compile(
+            ctx = ctx,
+            compile_ctx = compile_ctx,
+            emit = Emit("expand"),
+            params = static_library_params,
+            default_roots = _DEFAULT_ROOTS,
+            # This is needed as rustc can generate expanded sources that do not
+            # fully compile, but will report an error even if it succeeds.
+            # TODO(pickett): Handle this at the rustc action level, we shouldn't
+            # need to pass a special arg here, expand should just work.
+            infallible_diagnostics = True,
+            incremental_enabled = ctx.attrs.incremental_enabled,
+        ).output
+    else:
+        # `--show-coverage` and `-Zunpretty=expanded` are unstable
+        rustdoc_coverage = None
+        expand = None
 
     llvm_ir_noopt = rust_compile(
         ctx = ctx,
@@ -338,24 +343,29 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         default_roots = _DEFAULT_ROOTS,
         incremental_enabled = ctx.attrs.incremental_enabled,
     ).output
-    llvm_time_trace = rust_compile(
-        ctx = ctx,
-        compile_ctx = compile_ctx,
-        emit = Emit("link"),
-        params = static_library_params,
-        default_roots = _DEFAULT_ROOTS,
-        incremental_enabled = ctx.attrs.incremental_enabled,
-        profile_mode = ProfileMode("llvm-time-trace"),
-    )
-    self_profile = rust_compile(
-        ctx = ctx,
-        compile_ctx = compile_ctx,
-        emit = Emit("link"),
-        params = static_library_params,
-        default_roots = _DEFAULT_ROOTS,
-        incremental_enabled = ctx.attrs.incremental_enabled,
-        profile_mode = ProfileMode("self-profile"),
-    )
+    if toolchain_info.nightly_features:
+        llvm_time_trace = rust_compile(
+            ctx = ctx,
+            compile_ctx = compile_ctx,
+            emit = Emit("link"),
+            params = static_library_params,
+            default_roots = _DEFAULT_ROOTS,
+            incremental_enabled = ctx.attrs.incremental_enabled,
+            profile_mode = ProfileMode("llvm-time-trace"),
+        )
+        self_profile = rust_compile(
+            ctx = ctx,
+            compile_ctx = compile_ctx,
+            emit = Emit("link"),
+            params = static_library_params,
+            default_roots = _DEFAULT_ROOTS,
+            incremental_enabled = ctx.attrs.incremental_enabled,
+            profile_mode = ProfileMode("self-profile"),
+        )
+    else:
+        # `-Zllvm-time-trace` and `-Zself-profile` are unstable
+        llvm_time_trace = None
+        self_profile = None
     profiles = make_profile_providers(
         ctx = ctx,
         compile_ctx = compile_ctx,
@@ -380,23 +390,28 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     if toolchain_info.rustc_target_triple != None and toolchain_info.rustc_target_triple != targets.exec_triple(ctx):
         doctests_enabled = False
 
-    rustdoc_test_params = build_params(
-        rule = RuleType("binary"),
-        proc_macro = ctx.attrs.proc_macro,
-        link_strategy = doc_link_strategy,
-        lib_output_style = None,
-        lang = LinkageLang("rust"),
-        linker_type = compile_ctx.cxx_toolchain_info.linker_info.type,
-        target_os_type = ctx.attrs._target_os_type[OsLookup],
-    )
-    rustdoc_test = generate_rustdoc_test(
-        ctx = ctx,
-        compile_ctx = compile_ctx,
-        rlib = param_output[static_library_params].output,
-        link_infos = link_infos,
-        params = rustdoc_test_params,
-        default_roots = _DEFAULT_ROOTS,
-    )
+    if toolchain_info.nightly_features:
+        rustdoc_test_params = build_params(
+            rule = RuleType("binary"),
+            proc_macro = ctx.attrs.proc_macro,
+            link_strategy = doc_link_strategy,
+            lib_output_style = None,
+            lang = LinkageLang("rust"),
+            linker_type = compile_ctx.cxx_toolchain_info.linker_info.type,
+            target_os_type = ctx.attrs._target_os_type[OsLookup],
+        )
+        rustdoc_test = generate_rustdoc_test(
+            ctx = ctx,
+            compile_ctx = compile_ctx,
+            rlib = param_output[static_library_params].output,
+            link_infos = link_infos,
+            params = rustdoc_test_params,
+            default_roots = _DEFAULT_ROOTS,
+        )
+    else:
+        # Doctests are invoked via rustdoc's unstable `--test-runtool`
+        doctests_enabled = False
+        rustdoc_test = None
 
     # infallible_diagnostics allows us to circumvent compilation failures and
     # treat the resulting rustc action as a success, even if a metadata
@@ -448,7 +463,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         rustdoc_test = rustdoc_test,
         doctests_enabled = doctests_enabled,
         check_artifacts = output_as_diag_subtargets(diag_artifacts[incr_enabled], clippy_artifacts[incr_enabled]),
-        expand = expand.output,
+        expand = expand,
         sources = compile_ctx.symlinked_srcs,
         transitive_srcs = compile_ctx.transitive_srcs,
         rustdoc_coverage = rustdoc_coverage,
@@ -730,22 +745,24 @@ def _default_providers(
     linked_object: LinkedObject | None,
     remarks_artifact: RustcOutput,
     rustdoc: Artifact,
-    rustdoc_test: cmd_args,
+    rustdoc_test: cmd_args | None,
     doctests_enabled: bool,
     check_artifacts: dict[str, Artifact | None],
-    expand: Artifact,
+    expand: Artifact | None,
     sources: Artifact,
     transitive_srcs: RustSourcesTSet,
-    rustdoc_coverage: Artifact,
+    rustdoc_coverage: Artifact | None,
     named_deps_names: Artifact | None,
     profiles: list[Provider],
 ) -> list[Provider]:
     targets = {}
     targets.update(check_artifacts)
     targets["sources"] = sources
-    targets["expand"] = expand
+    if expand != None:
+        targets["expand"] = expand
     targets["doc"] = rustdoc
-    targets["doc-coverage"] = rustdoc_coverage
+    if rustdoc_coverage != None:
+        targets["doc-coverage"] = rustdoc_coverage
     targets["remarks.txt"] = remarks_artifact.compile_output.remarks_txt
     targets["remarks.json"] = remarks_artifact.compile_output.remarks_json
     if named_deps_names:
@@ -782,19 +799,20 @@ def _default_providers(
 
     providers = []
 
-    rustdoc_test_info = ExternalRunnerTestInfo(
-        type = "rustdoc",
-        command = [rustdoc_test],
-        run_from_project_root = True,
-        use_project_relative_paths = True,
-    )
+    if rustdoc_test != None:
+        rustdoc_test_info = ExternalRunnerTestInfo(
+            type = "rustdoc",
+            command = [rustdoc_test],
+            run_from_project_root = True,
+            use_project_relative_paths = True,
+        )
 
-    # Always let the user run doctests via `buck2 test :crate[doc]`
-    sub_targets["doc"].append(rustdoc_test_info)
+        # Always let the user run doctests via `buck2 test :crate[doc]`
+        sub_targets["doc"].append(rustdoc_test_info)
 
-    # But only run it as a part of `buck2 test :crate` if it's not disabled
-    if doctests_enabled:
-        providers.append(rustdoc_test_info)
+        # But only run it as a part of `buck2 test :crate` if it's not disabled
+        if doctests_enabled:
+            providers.append(rustdoc_test_info)
 
     providers.append(
         DefaultInfo(

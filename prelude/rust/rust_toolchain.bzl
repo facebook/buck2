@@ -36,7 +36,7 @@ RustSanitizer = enum("address", "cfi", "hwaddress", "kcfi", "leak", "memory", "m
 # should, but some of them probably shouldn't?
 # @unsorted-dict-items
 rust_toolchain_attrs = {
-    # Report unused dependencies
+    # Report unused dependencies. Requires `nightly_features`.
     "report_unused_deps": provider_field(bool, default = False),
     # Rustc target triple to use
     # https://doc.rust-lang.org/rustc/platform-support.html
@@ -48,7 +48,7 @@ rust_toolchain_attrs = {
     # Rustc flags, except that they are applied on the command line after the
     # target's rustc flags
     "extra_rustc_flags": provider_field(list[typing.Any], default = []),
-    # Path to search for custom target .json files
+    # Path to search for custom target .json files. Requires `nightly_features`.
     "rust_target_path": provider_field(Dependency | None, default = None),
     # Flags applied only on check builds
     "rustc_check_flags": provider_field(list[typing.Any], default = []),
@@ -101,7 +101,7 @@ rust_toolchain_attrs = {
     # Setting this enables additional behaviors that improves linking at the
     # cost of using unstable implementation details of rustc. At the moment,
     # this is only used for linking rlibs into C++/C builds, instead of using
-    # staticlibs, but that's expected to change.
+    # staticlibs, but that's expected to change. Requires `nightly_features`.
     #
     # FIXME(JakobDegen): This should require `explicit_sysroot_deps` in the
     # future.
@@ -130,9 +130,20 @@ rust_toolchain_attrs = {
     #
     # FIXME(JakobDegen): Fix `enum` so that we can set `unwind` as the default
     "panic_runtime": provider_field(PanicRuntime),
-    # Setting this allows Rust rules to use features which are only available
-    # on nightly releases, or on any release if the compiler is invoked with
-    # `RUSTC_BOOTSTRAP=1`.
+    # Grants the rules permission to use unstable compiler functionality.
+    #
+    # When set, the rules pass `RUSTC_BOOTSTRAP=1` to compiler invocations,
+    # which makes unstable functionality available even on stable-channel
+    # compiler builds. The rules use this for pipelined builds (`-Zno-codegen`)
+    # and to implement the `[expand]`, `[doc-coverage]`, and profiling
+    # subtargets as well as doctests. Toolchains must also set this if their
+    # own flags or the code being compiled rely on unstable functionality
+    # (`-Z` flags, `#![feature(...)]`).
+    #
+    # When unset, builds only use stable compiler functionality: the features
+    # listed above are implemented differently or unavailable, and toolchain
+    # fields that inherently require unstable functionality (see their docs)
+    # may not be set.
     "nightly_features": provider_field(bool, default = True),
     # The `cargo llvm-lines` binary - if present, Rust targets have a
     # `llvm-lines` subtarget
@@ -156,6 +167,7 @@ rust_toolchain_attrs = {
     "pgo_profile": provider_field(Artifact | None, default = None),
     # Sanitizer to enable via -Zsanitizer=<value> (e.g., "address", "thread", "memory", "leak", "cfi", "hwaddress")
     # See https://doc.rust-lang.org/beta/unstable-book/compiler-flags/sanitizer.html
+    # Requires `nightly_features`.
     "sanitizer": provider_field(RustSanitizer | None, default = None),
     # Substrings that are restricted in target-level rustc_flags. Each entry is
     # checked via a contains() match against every flag. For example, specifying

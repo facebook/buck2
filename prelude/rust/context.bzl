@@ -82,6 +82,7 @@ CompileContext = record(
 
 def compile_context(ctx: AnalysisContext, binary: bool = False) -> CompileContext:
     toolchain_info = ctx.attrs._rust_toolchain[RustToolchainInfo]
+    _validate_nightly_features(toolchain_info)
     internal_tools_info = ctx.attrs._rust_internal_tools_toolchain[RustInternalToolsInfo]
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)
 
@@ -144,6 +145,31 @@ def compile_context(ctx: AnalysisContext, binary: bool = False) -> CompileContex
         toolchain_info = toolchain_info,
         transitive_dependency_dirs = set(),
     )
+
+# Reject toolchain configurations that implicitly rely on unstable compiler
+# functionality if the toolchain does not also allow such functionality.
+def _validate_nightly_features(toolchain_info: RustToolchainInfo):
+    if toolchain_info.nightly_features:
+        return
+
+    requires_nightly = [
+        ("advanced_unstable_linking", toolchain_info.advanced_unstable_linking),
+        # Sysroot deps are passed via the unstable `--extern noprelude:...`
+        ("explicit_sysroot_deps", toolchain_info.explicit_sysroot_deps != None),
+        # `--json=unused-externs-silent` is unstable
+        ("report_unused_deps", toolchain_info.report_unused_deps),
+        # Custom target JSON files are unstable
+        ("rust_target_path", toolchain_info.rust_target_path != None),
+        # `-Zsanitizer` is unstable
+        ("sanitizer", toolchain_info.sanitizer != None),
+    ]
+    for name, enabled in requires_nightly:
+        if enabled:
+            fail(
+                "The Rust toolchain sets `{}`, which relies on unstable compiler functionality. It requires a toolchain with `nightly_features = True`.".format(
+                    name
+                )
+            )
 
 def _linker(ctx: AnalysisContext, linker_info: LinkerInfo, binary: bool = False) -> (cmd_args, cmd_args):
     pre_args = cmd_args(
