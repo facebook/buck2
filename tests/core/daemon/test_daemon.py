@@ -109,6 +109,35 @@ async def test_corrupted_buckd_info(buck: Buck, corrupt: str) -> None:
 
 
 @buck_test()
+async def test_recovers_when_daemon_pid_cannot_be_killed(buck: Buck) -> None:
+    # A stale buckd.info can name a pid we cannot kill (e.g. one reused by a
+    # process owned by another user). Buck must report the failed kill and start
+    # a fresh daemon rather than aborting, which used to leave buckd.info in
+    # place so every later invocation failed the same way.
+    await buck.targets("//:rule")
+
+    daemon_dir = await buck.get_daemon_dir()
+    with open(f"{daemon_dir}/buckd.info") as f:
+        info = json.load(f)
+
+    # Kill the daemon so its endpoint stops accepting connections, forcing the
+    # next invocation down the "could not connect, killing daemon" path.
+    await buck.kill()
+
+    # Point buckd.info at a pid that hard_kill_until cannot kill. An out-of-range
+    # pid fails the kill deterministically on every platform, standing in for the
+    # reused/foreign pid from the original bug report.
+    info["pid"] = 9999999999999
+    with open(f"{daemon_dir}/buckd.info", "w") as f:
+        json.dump(info, f)
+
+    # The stale daemon info causes the command to fail to connect entirely.
+    await expect_failure(
+        buck.targets("//:rule"), stderr_regex="Failed to connect to buck daemon"
+    )
+
+
+@buck_test()
 async def test_process_title(buck: Buck) -> None:
     await buck.build()  # Start the daemon
     status = await buck.status()
