@@ -170,7 +170,7 @@ This will lead to overbuilding and is not supported. Configuration {} not found 
 
     return [
         AndroidApkInfo(apk = output_apk, materialized_artifacts = materialized_artifacts, manifest = resources_info.manifest),
-        AndroidInstrumentationApkInfo(apk_under_test = ctx.attrs.apk[AndroidApkInfo].apk),
+        AndroidInstrumentationApkInfo(apk_under_test = ctx.attrs.apk[AndroidApkInfo].apk, is_self_instrumenting = is_self_instrumenting),
         DefaultInfo(default_output = output_apk, other_outputs = materialized_artifacts, sub_targets = sub_targets | class_to_srcs_subtargets),
         class_to_srcs,
     ]

@@ -83,7 +83,10 @@ def android_instrumentation_test_impl(ctx: AnalysisContext):
     expect(apk_info != None, "Provided APK must have AndroidApkInfo!")
 
     instrumentation_apk_info = ctx.attrs.apk.get(AndroidInstrumentationApkInfo)
-    if instrumentation_apk_info != None:
+    # A self-instrumenting apk already bundles the app-under-test's contents, and its manifest's
+    # targetPackage is the self apk itself rather than the un-merged app-under-test apk's package,
+    # so there is no separate app-under-test to install.
+    if instrumentation_apk_info != None and not instrumentation_apk_info.is_self_instrumenting:
         cmd.extend(["--apk-under-test-path", instrumentation_apk_info.apk_under_test])
     if ctx.attrs.is_self_instrumenting:
         cmd.extend(["--is-self-instrumenting"])

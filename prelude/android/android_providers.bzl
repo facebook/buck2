@@ -178,6 +178,7 @@ AndroidApkUnderTestInfo = provider(
 AndroidInstrumentationApkInfo = provider(
     fields = {
         "apk_under_test": provider_field(typing.Any, default = None),  # "artifact"
+        "is_self_instrumenting": provider_field(bool, default = False),
     },
 )
 
