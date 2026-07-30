@@ -41,7 +41,7 @@ RIOT_USE_CASES = [
     "wearables-other",
 ]
 SUPPORTED_POOLS = ["EUREKA_POOL", "HOLLYWOOD_POOL", "STAGE_DELPHI_POOL", "PANTHER_POOL", "SEACLIFF_POOL"]
-SUPPORTED_PLATFORMS = ["riot", "android-emulator"]
+SUPPORTED_PLATFORMS = ["riot", "android-emulator", "rl-emulator"]
 SUPPORTED_USE_CASES = RIOT_USE_CASES + [DEFAULT_ANDROID_INSTRUMENTATION_TESTS_USE_CASE]
 
 def android_instrumentation_test_impl(ctx: AnalysisContext):
