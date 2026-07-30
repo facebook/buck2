@@ -420,6 +420,26 @@ mod tests {
     }
 
     #[test]
+    fn multi_codepoint_emoji() {
+        let emoji = "\u{1F469}\u{1F3FF}\u{200D}\u{1F91D}\u{200D}\u{1F469}\u{1F3FC}";
+        let span = Span::new_unstyled(emoji).unwrap();
+        assert_eq!(span.len(), 2);
+    }
+
+    #[test]
+    fn render_hyperlink() {
+        let span = Span::new_unstyled("example")
+            .unwrap()
+            .with_hyperlink(Some(Hyperlink::new("https://example.com")));
+        let mut rendered = String::new();
+        span.render(&mut rendered).unwrap();
+        assert_eq!(
+            rendered,
+            "\x1B]8;;https://example.com\x1B\\example\x1B]8;;\x1B\\"
+        );
+    }
+
+    #[test]
     fn test_padding_equality() {
         let lhs = Span::new_styled_lossy("   ".to_owned().red());
         let rhs = Span::new_styled_lossy("   ".to_owned().yellow());

@@ -722,6 +722,31 @@ strips out {bs}invalid control sequences",
     }
 
     #[test]
+    fn test_bright_and_colon_delimited_colors() {
+        let input = "\x1b[91mbright\x1b[39mdefault\x1b[48:2::1:2:3mbg\x1b[49mplain";
+        let lines = Lines::from_colored_multiline_string(input);
+        let expected = Line::from_iter([
+            Span::new_styled_lossy(StyledContent::new(
+                ContentStyle {
+                    foreground_color: Some(Color::AnsiValue(9)),
+                    ..Default::default()
+                },
+                "bright".to_owned(),
+            )),
+            Span::new_unstyled("default").unwrap(),
+            Span::new_styled_lossy(StyledContent::new(
+                ContentStyle {
+                    background_color: Some(Color::Rgb { r: 1, g: 2, b: 3 }),
+                    ..Default::default()
+                },
+                "bg".to_owned(),
+            )),
+            Span::new_unstyled("plain").unwrap(),
+        ]);
+        assert_eq!(Lines(vec![expected]), lines);
+    }
+
+    #[test]
     fn test_fmt_for_test() {
         let lines = Lines::from_iter([
             Line::unstyled("orange").unwrap(),
