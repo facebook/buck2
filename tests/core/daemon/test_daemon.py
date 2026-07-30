@@ -131,10 +131,9 @@ async def test_recovers_when_daemon_pid_cannot_be_killed(buck: Buck) -> None:
     with open(f"{daemon_dir}/buckd.info", "w") as f:
         json.dump(info, f)
 
-    # The stale daemon info causes the command to fail to connect entirely.
-    await expect_failure(
-        buck.targets("//:rule"), stderr_regex="Failed to connect to buck daemon"
-    )
+    # Recovers by starting a new daemon; this used to fail to connect entirely.
+    result = await buck.targets("//:rule")
+    assert "Failed to kill buckd" in result.stderr
 
 
 @buck_test()
