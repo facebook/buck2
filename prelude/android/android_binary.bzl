@@ -226,16 +226,30 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
         if preprocess_predex_merge:
             dex_toolchain = ctx.attrs._dex_toolchain[DexToolchainInfo]
             preprocessed_jars = list(jars_to_owners.keys())
-            pre_dexed_libs = [
-                get_dex_produced_from_java_library(
-                    ctx,
-                    dex_toolchain = dex_toolchain,
-                    jar_to_dex = jar,
-                    needs_desugar = True,
-                    desugar_deps = preprocessed_jars,
+
+            # R.java jars are byte-light but field-heavy (one field per resource id) and are
+            # re-dexed from scratch here. Dexing them with the default weight factor packs the
+            # whole R.java jar into a single secondary dex, overflowing the 64K field-reference
+            # limit. Preserve the r_dot_java_weight_factor that compiled_r_dot_java_deps applies
+            # on the non-preprocessed path so R.java spreads across secondary dexes here too.
+            r_dot_java_jar_basenames = [dep.jar.basename for dep in compiled_r_dot_java_deps]
+            pre_dexed_libs = []
+            for jar in preprocessed_jars:
+                weight_factor = 1
+                for r_dot_java_jar_basename in r_dot_java_jar_basenames:
+                    if jar.basename.endswith(r_dot_java_jar_basename):
+                        weight_factor = android_toolchain.r_dot_java_weight_factor * 2
+                        break
+                pre_dexed_libs.append(
+                    get_dex_produced_from_java_library(
+                        ctx,
+                        dex_toolchain = dex_toolchain,
+                        jar_to_dex = jar,
+                        needs_desugar = True,
+                        desugar_deps = preprocessed_jars,
+                        weight_factor = weight_factor,
+                    ),
                 )
-                for jar in preprocessed_jars
-            ]
             if ctx.attrs.use_split_dex:
                 dex_files_info = merge_to_split_dex(
                     ctx,
