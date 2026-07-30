@@ -707,6 +707,11 @@ message CriticalPathEntry2 {
     string kind = 1;
   }
 
+  message PageIn {
+    // The DICE key type that was paged in, e.g. "analysis_key".
+    string key_type = 1;
+  }
+
   message Load {
     string package = 1;
   }
@@ -763,6 +768,7 @@ message CriticalPathEntry2 {
     DynamicAnalysis dynamic_analysis = 110;
     EnsureTransitiveSetProjection ensure_transitive_set_projection = 111;
     AnonAnalysis anon_analysis = 112;
+    PageIn page_in = 113;
   }
 }
 

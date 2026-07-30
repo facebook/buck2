@@ -1291,6 +1291,7 @@ impl<'a> CriticalPathEntryDisplay<'a> {
             Entry::GenericEntry(generic_entry) => {
                 (generic_entry.kind.as_str(), String::new(), None, None, None)
             }
+            Entry::PageIn(page_in) => ("page_in", page_in.key_type.clone(), None, None, None),
             Entry::Waiting(entry) => {
                 let name = entry.category.clone().unwrap_or_default();
                 ("waiting", name, None, None, None)
