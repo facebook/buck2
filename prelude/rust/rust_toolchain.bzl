@@ -131,8 +131,9 @@ rust_toolchain_attrs = {
     # FIXME(JakobDegen): Fix `enum` so that we can set `unwind` as the default
     "panic_runtime": provider_field(PanicRuntime),
     # Setting this allows Rust rules to use features which are only available
-    # on nightly release.
-    "nightly_features": provider_field(bool, default = False),
+    # on nightly releases, or on any release if the compiler is invoked with
+    # `RUSTC_BOOTSTRAP=1`.
+    "nightly_features": provider_field(bool, default = True),
     # The `cargo llvm-lines` binary - if present, Rust targets have a
     # `llvm-lines` subtarget
     "llvm_lines_tool": provider_field(RunInfo | None, default = None),
