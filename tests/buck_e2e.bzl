@@ -37,6 +37,7 @@ def buck_e2e_test(
     ci_srcs = [],
     ci_deps = [],
     compatible_with = None,
+    heavyweight_threads = "4",
 ):
     """
     Custom macro for buck2/buckaemon end-to-end tests using pytest.
@@ -73,10 +74,14 @@ def buck_e2e_test(
     else:
         env["BUCK2_E2E_TEST_FLAVOR"] = "any"
         serialize_test_cases = serialize_test_cases if serialize_test_cases != None else True
-    heavyweight_label = "heavyweight8_experimental"
-    heavyweight_threads = "8"
+    heavyweight_label = {
+        "4": "heavyweight",
+        "8": "heavyweight8_experimental",
+    }.get(heavyweight_threads)
+    if heavyweight_label == None:
+        fail("Unsupported heavyweight thread count: {}".format(heavyweight_threads))
 
-    # Running multiple bucks are expensive. This label specifies that each test gets 4 or 8 CPU slots
+    # Running multiple bucks are expensive. This label specifies how many CPU slots each test gets
     # when TPX schedules them. See different possible values for heavyweight label here:
     # https://www.internalfb.com/wiki/TAE/tpx/Tpx_user_guide/#tests-that-oom-or-time-o.
     labels.append(heavyweight_label)
@@ -211,6 +216,7 @@ def buck2_e2e_test(
     ci_srcs = [],
     ci_deps = [],
     compatible_with = None,
+    heavyweight_threads = "4",
 ):
     """
     Custom macro for buck2 end-to-end tests using pytest. All tests are run against buck2 compiled in-repo (compiled buck2).
@@ -245,6 +251,7 @@ def buck2_e2e_test(
         "contacts": contacts,
         "data": data,
         "data_dir": data_dir,
+        "heavyweight_threads": heavyweight_threads,
         "labels": labels,
         "pytest_confcutdir": pytest_confcutdir,
         "pytest_config": pytest_config,

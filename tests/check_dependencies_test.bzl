@@ -20,6 +20,7 @@ def _check_dependencies_test(name, target, contacts, env, labels: list[str], dep
         name = name,
         srcs = {"fbcode//buck2/tests/e2e_util:test_bxl_check_dependencies_template.py": "test_bxl_check_dependencies_template.py"},
         env = env,
+        heavyweight_threads = "8",
         labels = labels,
         test_with_compiled_buck2 = False,
         test_with_deployed_buck2 = True,
