@@ -217,6 +217,7 @@ pub(crate) type HashSet<K> = buck2_hash::BuckHashSet<K>;
 
 pub use crate::api::activation_tracker::ActivationData;
 pub use crate::api::activation_tracker::ActivationTracker;
+pub use crate::api::activation_tracker::PageInPhase;
 pub use crate::api::computations::DiceComputations;
 pub use crate::api::computations::DiceComputationsData;
 pub use crate::api::computations::LinearRecomputeDiceComputations;

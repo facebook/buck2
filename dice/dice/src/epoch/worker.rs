@@ -10,6 +10,8 @@
 
 //! The main worker thread for the dice task
 
+use std::time::Instant;
+
 use dupe::Dupe;
 use futures::Future;
 use futures::FutureExt;
@@ -21,7 +23,9 @@ use futures::stream::FuturesUnordered;
 use gazebo::variants::VariantName;
 use itertools::Either;
 
+use crate::DynKey;
 use crate::api::activation_tracker::ActivationData;
+use crate::api::activation_tracker::PageInPhase;
 use crate::arc::Arc;
 use crate::core::graph::types::PagedOutMismatch;
 use crate::core::graph::types::VersionedGraphKey;
@@ -166,7 +170,7 @@ impl DiceTaskWorker {
             }
             VersionedGraphResult::MatchPagedOut(paged) => {
                 match self
-                    .hydrate_and_rehydrate(&state_handle, paged.data_key)
+                    .hydrate_and_rehydrate(&state_handle, paged.data_key, PageInPhase::Match)
                     .await
                 {
                     Ok(entry) => {
@@ -254,7 +258,11 @@ impl DiceTaskWorker {
                             CheckDepsCandidate::Resident(mismatch) => Some(mismatch.dupe()),
                             CheckDepsCandidate::PagedOut(mismatch) => {
                                 match self
-                                    .hydrate_and_rehydrate(&state_handle, mismatch.data_key)
+                                    .hydrate_and_rehydrate(
+                                        &state_handle,
+                                        mismatch.data_key,
+                                        PageInPhase::AfterDependencyValidation,
+                                    )
                                     .await
                                 {
                                     Ok(entry) => Some(VersionedGraphResultMismatch {
@@ -338,7 +346,11 @@ impl DiceTaskWorker {
                         && result.deps == **mismatch.deps_to_validate
                     {
                         if let Err(e) = self
-                            .hydrate_and_rehydrate(&state_handle, mismatch.data_key)
+                            .hydrate_and_rehydrate(
+                                &state_handle,
+                                mismatch.data_key,
+                                PageInPhase::AfterRecompute,
+                            )
                             .await
                         {
                             self.eval.hydration_failed(self.k, &e);
@@ -410,6 +422,7 @@ impl DiceTaskWorker {
         &self,
         state_handle: &CoreStateHandle,
         data_key: pagable::DataKey,
+        phase: PageInPhase,
     ) -> anyhow::Result<crate::value::DiceValidValue> {
         let storage = self
             .eval
@@ -418,7 +431,18 @@ impl DiceTaskWorker {
             .as_ref()
             .expect("paged-out lookup result requires DiceStorage to be configured");
         let key_dyn = self.eval.dice.key_index.get(self.k);
+        let hydrate_start = Instant::now();
         let value = storage.hydrate(key_dyn, data_key).await?;
+        // Forward the phase so consumers can place hydration relative to dependency and compute
+        // work.
+        if let Some(activation_tracker) = self.eval.user_data.activation_tracker.as_ref() {
+            activation_tracker.key_paged_in(
+                DynKey::ref_cast(key_dyn),
+                hydrate_start,
+                hydrate_start.elapsed(),
+                phase,
+            );
+        }
         state_handle.rehydrate(self.k, value.dupe());
         Ok(value)
     }
