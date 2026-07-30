@@ -173,6 +173,10 @@ fn main() -> io::Result<()> {
             "#[serde(rename = \"critical_path_duration_us\", with = \"crate::serialize_duration_as_micros\")]",
         )
         .field_attribute(
+            "critical_path_page_in",
+            "#[serde(rename = \"critical_path_page_in_us\", with = \"crate::serialize_duration_as_micros\")]",
+        )
+        .field_attribute(
             "ActionExecutionEnd.wall_time",
             "#[serde(rename = \"wall_time_us\", with = \"crate::serialize_duration_as_micros\")]",
         )

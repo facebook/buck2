@@ -3067,6 +3067,9 @@ message InvocationRecord {
   optional uint64 paging_paged_out_node_count = 447;
   // Page-out candidate DICE node count at command end.
   optional uint64 paging_candidate_node_count = 448;
+
+  // Total DICE page-in time on the critical path.
+  google.protobuf.Duration critical_path_page_in = 449;
 }
 
 enum InvocationOutcome {

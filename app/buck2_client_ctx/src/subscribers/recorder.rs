@@ -119,6 +119,7 @@ pub struct InvocationRecorder {
     re_experiment_name: Option<String>,
     persistent_cache_mode: Option<String>,
     critical_path_duration: Option<Duration>,
+    critical_path_page_in: Option<Duration>,
     tags: Vec<String>,
     run_local_count: u64,
     run_remote_count: u64,
@@ -337,6 +338,7 @@ impl InvocationRecorder {
             re_experiment_name: None,
             persistent_cache_mode: None,
             critical_path_duration: None,
+            critical_path_page_in: None,
             tags: vec![],
             run_local_count: 0,
             run_remote_count: 0,
@@ -1022,6 +1024,7 @@ impl InvocationRecorder {
             cli_args: self.cli_args.clone(),
             representative_config_flags: self.representative_config_flags.clone(),
             critical_path_duration: self.critical_path_duration.and_then(|x| x.try_into().ok()),
+            critical_path_page_in: self.critical_path_page_in.and_then(|x| x.try_into().ok()),
             metadata: Some(metadata),
             tags: self.tags.drain(..).collect(),
             run_local_count: self.run_local_count,
@@ -1821,14 +1824,23 @@ impl InvocationRecorder {
         _event: &BuckEvent,
     ) -> buck2_error::Result<()> {
         let mut duration = Duration::default();
+        let mut page_in = Duration::default();
 
         for node in &info.critical_path2 {
             if let Some(d) = &node.duration {
-                duration += d.try_into_duration()?;
+                let d = d.try_into_duration()?;
+                duration += d;
+                if matches!(
+                    node.entry,
+                    Some(buck2_data::critical_path_entry2::Entry::PageIn(_))
+                ) {
+                    page_in += d;
+                }
             }
         }
 
         self.critical_path_duration = Some(duration);
+        self.critical_path_page_in = Some(page_in);
         self.critical_path_backend = info.backend_name.clone();
         Ok(())
     }
