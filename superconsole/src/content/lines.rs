@@ -17,17 +17,14 @@ use std::io::Write;
 use std::iter;
 use std::mem;
 
+use anstyle_parse::DefaultCharAccumulator;
+use anstyle_parse::Params;
+use anstyle_parse::Parser;
+use anstyle_parse::Perform;
 use crossterm::style::Attribute;
 use crossterm::style::Attributes;
 use crossterm::style::Color;
 use itertools::Itertools;
-use termwiz::cell::Intensity;
-use termwiz::color::ColorSpec;
-use termwiz::color::RgbColor;
-use termwiz::escape::Action;
-use termwiz::escape::OperatingSystemCommand;
-use termwiz::escape::csi::CSI;
-use termwiz::escape::csi::Sgr;
 
 use crate::Dimensions;
 use crate::Hyperlink;
@@ -69,58 +66,138 @@ impl ColoredStringParser {
         self.spans.push(span);
     }
 
-    fn spec_to_color(spec: ColorSpec) -> Option<Color> {
-        match spec {
-            ColorSpec::Default => None,
-            ColorSpec::PaletteIndex(idx) => Some(Color::AnsiValue(idx)),
-            ColorSpec::TrueColor(srgba) => Some(RgbColor::from(srgba).to_tuple_rgb8().into()),
-        }
-    }
-
     /// Given a line w/ some ANSI encoded color characters, turn it into a list of spans.
-    fn parse_line(&mut self, parser: &mut termwiz::escape::parser::Parser, s: &str) -> Line {
+    fn parse_line(&mut self, parser: &mut Parser, s: &str) -> Line {
         // Because we only stick "printable" characters onto the buffer, and skip any other
         // class of characters that we don't recognize, this should be a
         // roughly sanitized string. We do one more pass when we create the Span, just to
         // make sure, but that is a pretty fast check.
-        parser.parse(s.as_bytes(), |a| match a {
-            Action::Print(c) => {
-                self.line_buffer.push(c);
-            }
-            Action::CSI(CSI::Sgr(Sgr::Reset)) => {
-                self.push_current();
-                self.foreground_color = None;
-                self.background_color = None;
-                self.attributes = Attributes::default();
-            }
-            Action::CSI(CSI::Sgr(Sgr::Intensity(intensity))) => {
-                self.push_current();
-                self.attributes = match intensity {
-                    Intensity::Normal => Attributes::default(),
-                    Intensity::Bold => Attributes::from(Attribute::Bold),
-                    Intensity::Half => Attributes::from(Attribute::Dim),
-                };
-            }
-            Action::CSI(CSI::Sgr(Sgr::Foreground(spec))) => {
-                self.push_current();
-                self.foreground_color = Self::spec_to_color(spec);
-            }
-
-            Action::CSI(CSI::Sgr(Sgr::Background(spec))) => {
-                self.push_current();
-                self.background_color = Self::spec_to_color(spec);
-            }
-            Action::OperatingSystemCommand(cmd) => match *cmd {
-                OperatingSystemCommand::SetHyperlink(hy) => {
-                    self.push_current();
-                    self.hyperlink = hy.map(|hy| Hyperlink::new(hy.uri()));
-                }
-                _ => {}
-            },
-            _ => {}
-        });
+        for byte in s.bytes() {
+            parser.advance(self, byte);
+        }
         self.push_current();
         Line::from_iter(mem::take(&mut self.spans))
+    }
+
+    fn set_intensity(&mut self, attribute: Option<Attribute>) {
+        self.push_current();
+        self.attributes = attribute.map(Attributes::from).unwrap_or_default();
+    }
+
+    fn set_foreground(&mut self, color: Option<Color>) {
+        self.push_current();
+        self.foreground_color = color;
+    }
+
+    fn set_background(&mut self, color: Option<Color>) {
+        self.push_current();
+        self.background_color = color;
+    }
+
+    fn reset(&mut self) {
+        self.push_current();
+        self.foreground_color = None;
+        self.background_color = None;
+        self.attributes = Attributes::default();
+    }
+
+    fn extended_color(params: &[&[u16]], index: &mut usize) -> Option<Color> {
+        let mode = *params.get(*index + 1)?.first()?;
+        match mode {
+            5 => {
+                let color = u8::try_from(*params.get(*index + 2)?.first()?).ok()?;
+                *index += 2;
+                Some(Color::AnsiValue(color))
+            }
+            2 => {
+                let r = u8::try_from(*params.get(*index + 2)?.first()?).ok()?;
+                let g = u8::try_from(*params.get(*index + 3)?.first()?).ok()?;
+                let b = u8::try_from(*params.get(*index + 4)?.first()?).ok()?;
+                *index += 4;
+                Some(Color::Rgb { r, g, b })
+            }
+            _ => None,
+        }
+    }
+
+    fn extended_color_subparams(param: &[u16]) -> Option<Color> {
+        match param {
+            [_, 5, color] => Some(Color::AnsiValue(u8::try_from(*color).ok()?)),
+            [_, 2, r, g, b] | [_, 2, _, r, g, b] => Some(Color::Rgb {
+                r: u8::try_from(*r).ok()?,
+                g: u8::try_from(*g).ok()?,
+                b: u8::try_from(*b).ok()?,
+            }),
+            _ => None,
+        }
+    }
+
+    fn apply_sgr(&mut self, params: &Params) {
+        let params = params.iter().collect::<Vec<_>>();
+        let mut index = 0;
+        while index < params.len() {
+            let param = params[index];
+            let action = param.first().copied().unwrap_or_default();
+            match action {
+                0 => self.reset(),
+                1 => self.set_intensity(Some(Attribute::Bold)),
+                2 => self.set_intensity(Some(Attribute::Dim)),
+                22 => self.set_intensity(None),
+                30..=37 => self.set_foreground(Some(Color::AnsiValue((action - 30) as u8))),
+                38 => {
+                    let color = if param.len() > 1 {
+                        Self::extended_color_subparams(param)
+                    } else {
+                        Self::extended_color(&params, &mut index)
+                    };
+                    if let Some(color) = color {
+                        self.set_foreground(Some(color));
+                    }
+                }
+                39 => self.set_foreground(None),
+                40..=47 => self.set_background(Some(Color::AnsiValue((action - 40) as u8))),
+                48 => {
+                    let color = if param.len() > 1 {
+                        Self::extended_color_subparams(param)
+                    } else {
+                        Self::extended_color(&params, &mut index)
+                    };
+                    if let Some(color) = color {
+                        self.set_background(Some(color));
+                    }
+                }
+                49 => self.set_background(None),
+                90..=97 => self.set_foreground(Some(Color::AnsiValue((action - 82) as u8))),
+                100..=107 => self.set_background(Some(Color::AnsiValue((action - 92) as u8))),
+                _ => {}
+            }
+            index += 1;
+        }
+    }
+}
+
+impl Perform for ColoredStringParser {
+    fn print(&mut self, c: char) {
+        self.line_buffer.push(c);
+    }
+
+    fn osc_dispatch(&mut self, params: &[&[u8]], _bell_terminated: bool) {
+        if params.first().copied() != Some(b"8") || params.len() < 3 {
+            return;
+        }
+
+        self.push_current();
+        let uri = params[2..]
+            .iter()
+            .map(|param| String::from_utf8_lossy(param))
+            .join(";");
+        self.hyperlink = (!uri.is_empty()).then(|| Hyperlink::new(uri));
+    }
+
+    fn csi_dispatch(&mut self, params: &Params, intermediates: &[u8], ignore: bool, action: u8) {
+        if !ignore && intermediates.is_empty() && action == b'm' {
+            self.apply_sgr(params);
+        }
     }
 }
 
@@ -160,7 +237,7 @@ impl Lines {
     /// Note that any other types of control characters are omitted, and certain whitespace
     /// characters are also disallowed / replaced.
     pub fn from_colored_multiline_string(multiline_string: &str) -> Lines {
-        let mut parser = termwiz::escape::parser::Parser::new();
+        let mut parser = Parser::<DefaultCharAccumulator>::new();
         let mut color_parser = ColoredStringParser::default();
         multiline_string
             .lines()
@@ -716,6 +793,18 @@ strips out {bs}invalid control sequences",
                 .with_hyperlink(Some(Hyperlink::new("https://example.com"))),
             Span::new_unstyled(".").unwrap(),
         ])]
+        .into_iter()
+        .collect();
+        assert_eq!(expected, lines);
+    }
+
+    #[test]
+    fn test_bell_terminated_hyperlink_with_semicolon() {
+        let input = "\x1b]8;;https://example.com/a;b\x07link\x1b]8;;\x07";
+        let lines = Lines::from_colored_multiline_string(input);
+        let expected: Lines = vec![Line::from_iter([Span::new_unstyled("link")
+            .unwrap()
+            .with_hyperlink(Some(Hyperlink::new("https://example.com/a;b")))])]
         .into_iter()
         .collect();
         assert_eq!(expected, lines);

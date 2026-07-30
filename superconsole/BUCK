@@ -14,6 +14,7 @@ rust_library(
         "fbsource//third-party/rust:derive_more",
     ],
     deps = [
+        "fbsource//third-party/rust:anstyle-parse",
         "fbsource//third-party/rust:bytes",
         "fbsource//third-party/rust:crossbeam-channel",
         "fbsource//third-party/rust:crossterm",
@@ -21,7 +22,6 @@ rust_library(
         "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:pin-project",
         "fbsource//third-party/rust:take_mut",
-        "fbsource//third-party/rust:termwiz",
         "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tokio-stream",
