@@ -55,6 +55,6 @@ async def test_cli_modifiers_bad_input(buck: Buck) -> None:
 
 @BUCK_TEST_MARKER
 async def test_cli_modifier_alias(buck: Buck) -> None:
-    assert "ovr_config//os/constraints:linux" in await get_cfg(
+    assert "ovr_config//os/constraints:os[linux]" in await get_cfg(
         buck, TARGET, "--modifier", "linux"
     )

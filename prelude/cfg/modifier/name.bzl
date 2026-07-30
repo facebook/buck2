@@ -17,7 +17,7 @@
 NAMED_CONSTRAINT_SETTINGS = {
     # TODO(scottcao): Add OSS constraints as well
     "ovr_config//build_mode/constraints:core_build_mode": (lambda label: str(label.sub_target[0])),
-    "ovr_config//os/constraints:os": None,
+    "ovr_config//os/constraints:os": (lambda label: str(label.sub_target[0])),
     "ovr_config//cpu/constraints:cpu": None,
     "ovr_config//runtime/constraints:runtime": None,
     "ovr_config//runtime/constraints:runtime_version": None,
