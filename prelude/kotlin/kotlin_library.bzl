@@ -73,6 +73,7 @@ def _create_kotlin_sources(
     additional_classpath_entries: JavaCompilingDepsTSet | None,
     bootclasspath_entries: list[Artifact],
     plugins: list[tuple],
+    target_level: int,
     output_artifact_prefix: str = "",
 ) -> (Artifact, Artifact | None, Artifact | None):
     """
@@ -149,12 +150,11 @@ def _create_kotlin_sources(
         + get_language_version_arg(ctx),
     )
 
-    jvm_target = get_kotlinc_compatible_target(ctx.attrs.target) if ctx.attrs.target else None
-    if jvm_target:
-        kotlinc_cmd_args.add([
-            "-jvm-target",
-            jvm_target,
-        ])
+    jvm_target = get_kotlinc_compatible_target(str(target_level))
+    kotlinc_cmd_args.add([
+        "-jvm-target",
+        jvm_target,
+    ])
 
     kapt_generated_sources_output = None
     if annotation_processor_properties.annotation_processors:
@@ -444,6 +444,7 @@ def build_kotlin_library(
         bootclasspath_jar_snapshots_for_kotlinc = custom_jdk_info.bootclasspath_jar_snapshots if custom_jdk_info and ctx.attrs.incremental else []
 
         javac_tool = derive_javac(ctx.attrs.javac) if ctx.attrs.javac else None
+        source_level, target_level = get_java_version_attributes(ctx)
 
         kotlin_toolchain = ctx.attrs._kotlin_toolchain[KotlinToolchainInfo]
         if javac_tool or kotlin_toolchain.kotlinc_protocol == "classic":
@@ -455,7 +456,8 @@ def build_kotlin_library(
                 ksp_annotation_processor_properties,
                 additional_classpath_entries,
                 bootclasspath_for_kotlinc,
-                plugins = ctx.attrs.kotlin_compiler_plugins,
+                ctx.attrs.kotlin_compiler_plugins,
+                target_level,
             )
             semanticdb_res = _semanticdb_plugin(ctx, kotlin_toolchain)
             if not ctx.attrs._is_building_android_binary and semanticdb_res:
@@ -468,7 +470,8 @@ def build_kotlin_library(
                     ksp_annotation_processor_properties,
                     additional_classpath_entries,
                     bootclasspath_for_kotlinc,
-                    plugins = semanticdb_plugin,
+                    semanticdb_plugin,
+                    target_level,
                     output_artifact_prefix = "semanticdb",
                 )
                 extra_sub_targets = extra_sub_targets | {"semanticdb": [DefaultInfo(default_output = semanticdb_output)]}
@@ -515,7 +518,6 @@ def build_kotlin_library(
                 "Kotlin compiler mode: kotlincd and java compiler mode: {} don't match.".format(ctx.attrs._java_toolchain[JavaToolchainInfo].javac_protocol)
                 + "\nHint: If you have a Java toolchain with a custom javac, you should also provide a custom kotlinc for your Kotlin toolchain.",
             )
-            source_level, target_level = get_java_version_attributes(ctx)
             extra_arguments = cmd_args(
                 ctx.attrs.extra_arguments + extra_arguments,
                 # The outputs of validation_deps need to be added as hidden arguments
