@@ -255,6 +255,26 @@ def wrap_link_info(inner: LinkInfo, pre_flags: list[typing.Any] = [], post_flags
 def _is_linkable_comprised_of_object_files_or_a_lazy_archive(linkable: LinkableTypes) -> bool:
     return isinstance(linkable, ObjectsLinkable) or (isinstance(linkable, ArchiveLinkable) and not linkable.link_whole)
 
+def serialize_linkable_for_thinlto(linkable: LinkableTypes) -> dict[str, typing.Any]:
+    """Serialize the `linkable` so that it can be used in the ThinLTO metadata file."""
+    object = {}
+    if isinstance(linkable, ArchiveLinkable):
+        object["type"] = "archive"
+        object["archive"] = linkable.archive.artifact
+    elif isinstance(linkable, SharedLibLinkable):
+        object["type"] = "shared_lib"
+        object["name"] = linkable.lib
+    elif isinstance(linkable, ObjectsLinkable):
+        # This path should NOT be reached.
+        # ObjectLinkables are managed as bitcode, not as generic linkables.
+        fail("ObjectsLinkable are sent as _BitcodeLinkData {}".format(str(linkable)))
+    elif isinstance(linkable, FrameworksLinkable) or isinstance(linkable, SwiftmoduleLinkable):
+        fail("Apple Frameworks linkables are not supported on GNU {}".format(str(linkable)))
+    else:
+        fail("Encountered unhandled linkable {}".format(str(linkable)))
+
+    return object
+
 # Adds appropriate args representing `linkable` to `args`
 def append_linkable_args(args: cmd_args, linkable: LinkableTypes):
     if isinstance(linkable, ArchiveLinkable):
