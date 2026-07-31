@@ -187,6 +187,13 @@ fn mock_analysis_for_action_resolution(
     )
 }
 
+fn test_cell_resolver() -> CellResolver {
+    CellResolver::testing_with_name_and_path(
+        CellName::testing_new("cell"),
+        CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell-path".into())),
+    )
+}
+
 async fn make_default_dice_state(
     dry_run_tracker: Arc<Mutex<Vec<DryRunEntry>>>,
     temp_fs: &ProjectRootTemp,
@@ -194,10 +201,7 @@ async fn make_default_dice_state(
 ) -> buck2_error::Result<DiceTransaction> {
     let fs = temp_fs.path().dupe();
 
-    let cell_resolver = CellResolver::testing_with_name_and_path(
-        CellName::testing_new("cell"),
-        CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell-path".into())),
-    );
+    let cell_resolver = test_cell_resolver();
     let output_path = ProjectRelativePathBuf::unchecked_new("buck-out/v2".into());
 
     let mut dice_builder = DiceBuilder::new();
@@ -473,17 +477,20 @@ async fn test_ensure_artifact_source_artifact() -> buck2_error::Result<()> {
         is_executable: true,
     };
 
+    let fs = ProjectRootTemp::new()?;
     let dice_builder = DiceBuilder::new().set_data(|data| {
+        data.set_testing_io_provider(&fs);
         data.set_digest_config(DigestConfig::testing_default());
     });
     let file_ops = TestFileOps::new_with_files_metadata(btreemap![path => metadata.dupe()]);
-    let dice_computations = file_ops
+    let mut dice = file_ops
         .mock_in_cell(CellName::testing_new("cell"), dice_builder)
         .build(UserComputationData::new())
         .await
-        .unwrap()
-        .commit()
-        .await;
+        .unwrap();
+    dice.set_cell_resolver(test_cell_resolver())?;
+    dice.set_buck_out_path(None)?;
+    let dice_computations = dice.commit().await;
 
     let source_artifact = Artifact::from(source_artifact);
     let input = ArtifactGroup::Artifact(source_artifact.dupe());
@@ -522,17 +529,20 @@ async fn test_ensure_artifact_external_symlink() -> buck2_error::Result<()> {
         .unwrap(),
     );
 
+    let fs = ProjectRootTemp::new()?;
     let dice_builder = DiceBuilder::new().set_data(|data| {
+        data.set_testing_io_provider(&fs);
         data.set_digest_config(DigestConfig::testing_default());
     });
     let file_ops = TestFileOps::new_with_symlinks(btreemap![path => symlink.dupe()]);
-    let dice_computations = file_ops
+    let mut dice = file_ops
         .mock_in_cell(CellName::testing_new("cell"), dice_builder)
         .build(UserComputationData::new())
         .await
-        .unwrap()
-        .commit()
-        .await;
+        .unwrap();
+    dice.set_cell_resolver(test_cell_resolver())?;
+    dice.set_buck_out_path(None)?;
+    let dice_computations = dice.commit().await;
 
     let source_artifact = Artifact::from(source_artifact);
     let input = ArtifactGroup::Artifact(source_artifact.dupe());
