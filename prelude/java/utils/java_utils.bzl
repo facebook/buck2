@@ -94,6 +94,14 @@ def to_java_version(java_version: str) -> int:
     else:
         return int(java_version)
 
+def get_string_concat_inline_javac_args(source_level: int) -> list[str]:
+    # Android build tools before SDK 36 lack java.lang.invoke.StringConcatFactory, which javac
+    # targets for invokedynamic string concatenation at -source 9+ (JEP 280). Force javac to emit
+    # classic StringBuilder concatenation instead so the bytecode compiles and runs against those SDKs.
+    if source_level >= 9:
+        return ["-XDstringConcat=inline"]
+    return []
+
 def get_abi_generation_mode(abi_generation_mode):
     return {
         None: None,

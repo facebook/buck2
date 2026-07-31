@@ -33,6 +33,7 @@ load(
     "@prelude//java/utils:java_utils.bzl",
     "CustomJdkInfo",
     "get_java_version_attributes",
+    "get_string_concat_inline_javac_args",
 )
 load("@prelude//kotlin:kotlin_library.bzl", "build_kotlin_library")
 load("@prelude//utils:expect.bzl", "expect")
@@ -156,11 +157,8 @@ def build_android_library(
         else None
     )
 
-    extra_arguments = []
     source_level, _ = get_java_version_attributes(ctx)
-    if source_level >= 9:
-        # Force javac to avoid generating bytecode that uses java.lang.invoke.StringConcatFactory. This is only present in Android build tools SDK 36+.
-        extra_arguments.append("-XDstringConcat=inline")
+    extra_arguments = get_string_concat_inline_javac_args(source_level)
 
     if ctx.attrs.patches_system_module:
         extra_arguments += [
