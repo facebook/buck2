@@ -10,6 +10,7 @@
 
 import logging
 import os
+import plistlib
 import subprocess
 import sys
 from pathlib import Path
@@ -30,8 +31,16 @@ def _find_executable_for_signed_path(path: Path, platform: ApplePlatform) -> Pat
 
     contents_subdir = "Contents/MacOS" if platform.is_desktop() else ""
     contents_dir = path / contents_subdir
-    # TODO(): Read binary name from Info.plist
-    return contents_dir / path.stem
+
+    # Read binary name from Info.plist
+    info_plist_path = path / (
+        "Contents/Info.plist" if platform.is_desktop() else "Info.plist"
+    )
+    with open(info_plist_path, "rb") as file:
+        plist = plistlib.load(file)
+    executable_name = plist["CFBundleExecutable"]
+
+    return contents_dir / executable_name
 
 
 def _logged_subprocess_run(
