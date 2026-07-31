@@ -1,6 +1,7 @@
 load("@fbcode//buck2:buck_rust_binary.bzl", "buck_rust_binary")
 # @oss-disable[end= ]: load("@fbcode_macros//build_defs:platform_utils.bzl", "platform_utils")
 load("@fbsource//tools/build_defs:rust_library.bzl", "rust_library")
+load("@prelude//configurations:constraint_alias.bzl", "constraint_with_aliases")
 load(":transition.bzl", "buck2_client_transition_alias")
 
 oncall("build_infra")
@@ -183,13 +184,16 @@ platform_utils = None # @oss-enable
 
 _dtp = platform_utils.get_cxx_platform_for_base_path(prelude.package_name()).target_platform if platform_utils else None
 
-prelude.constraint_setting(
+constraint_with_aliases(
     name = "buck2_client_only_setting",
-)
-
-prelude.constraint_value(
-    name = "buck2_client_only_build",
-    constraint_setting = ":buck2_client_only_setting",
+    aliases = {
+        "buck2_client_only_build": "build",
+    },
+    default = "unspecified",
+    values = [
+        "build",
+        "unspecified",
+    ],
 )
 
 buck2_client_transition_alias(
