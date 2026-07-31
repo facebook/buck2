@@ -591,7 +591,12 @@ def _make_py_package_impl(
         modules.add(modules_args)
         if package_style == PackageStyle("outplace"):
             modules.add(cmd_args("--copy-files", hidden = runtime_artifacts))
-        ctx.actions.run(modules, category = "par", identifier = "modules{}".format(output_suffix))
+        ctx.actions.run(
+            modules,
+            category = "par",
+            identifier = "modules{}".format(output_suffix),
+            allow_cache_upload = allow_cache_upload,
+        )
 
         bootstrap = cmd_args(python_internal_tools.make_py_package_inplace)
         bootstrap.add(bootstrap_args)
@@ -604,7 +609,12 @@ def _make_py_package_impl(
         for flag in ctx.attrs.interpreter_args:
             bootstrap.add(cmd_args(["--python-interpreter-flags={}".format(flag)]))
 
-        ctx.actions.run(bootstrap, category = "par", identifier = "bootstrap{}".format(output_suffix))
+        ctx.actions.run(
+            bootstrap,
+            category = "par",
+            identifier = "bootstrap{}".format(output_suffix),
+            allow_cache_upload = allow_cache_upload,
+        )
 
     run_args = []
 

@@ -120,11 +120,13 @@ prelude.python_bootstrap_binary(
 )
 
 # Run the test suite with this command:
-# buck2 run prelude//python/tools:wheel_tests --target-platforms prelude//platforms:default
+# buck2 run prelude//python/tools:tool_tests --target-platforms prelude//platforms:default
 prelude.sh_binary(
-    name = "wheel_tests",
+    name = "tool_tests",
     main = "tests/main.sh",
     resources = [
+        "make_py_package_inplace.py",
+        "run_inplace.py.in",
         "wheel.py",
     ]
     + glob(["tests/**/*.py"]),
