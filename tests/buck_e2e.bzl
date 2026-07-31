@@ -330,7 +330,13 @@ def buck2_core_tests(extra_attrs = {}, target_extra_attrs = {}):
     """
 
     # @lint-ignore BUCKRESTRICTEDSYNTAX
-    items = set([i.split("/")[0] for i in glob(["**/*", "**/.*"])])
+    items = set([
+        i.split("/")[0]
+        for i in glob(
+            ["**/*", "**/.*"],
+            exclude = [".pyre_configuration.local"],
+        )
+    ])
     items = list(items)
 
     generated_targets = []
