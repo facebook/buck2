@@ -31,4 +31,5 @@ ci = struct(
     mode = _lbl,
     opt = _lbl,
     labels = _labels,
+    modifiers = _lbl,
 )
