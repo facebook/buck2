@@ -221,6 +221,32 @@ async def test_symlinked_dir_with_content_based_path(buck: Buck) -> None:
 
 
 @buck_test()
+async def test_assembled_dir_with_content_based_path(buck: Buck) -> None:
+    target = "root//:assembled_dir_with_content_based_path"
+    await build_target_with_different_platforms_and_verify_output_paths_are_identical(
+        buck, target
+    )
+
+    # Entry modes must be honored: `assembled_dir.copy` entries are laid out
+    # as real bytes, `assembled_dir.symlink` entries as symlinks.
+    result = await buck.build(
+        target,
+        "--target-platforms",
+        "root//:p_default",
+        "--show-output",
+    )
+    path = result.get_target_to_build_output().get(target)
+    assert path is not None
+    out = buck.cwd / path
+    assert out.is_dir()
+    for name in ["copied", "copied_dep"]:
+        assert (out / name).is_file()
+        assert not (out / name).is_symlink()
+    for name in ["symlinked", "symlinked_dep"]:
+        assert (out / name).is_symlink()
+
+
+@buck_test()
 async def test_cas_artifact_with_content_based_path(buck: Buck) -> None:
     await build_target_with_different_platforms_and_verify_output_paths_are_identical(
         buck, "root//:empty_cas_artifact_with_content_based_path"

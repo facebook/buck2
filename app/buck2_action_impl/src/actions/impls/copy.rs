@@ -47,7 +47,7 @@ enum CopyActionValidationError {
     UnsupportedInput(ArtifactGroup),
 }
 
-#[derive(Debug, Allocative, Pagable)]
+#[derive(Debug, Allocative, Pagable, Clone, Copy, Dupe)]
 pub(crate) enum CopyMode {
     Copy {
         // Override the destination executable bit to +x (true) or -x (false)

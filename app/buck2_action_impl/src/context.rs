@@ -17,6 +17,7 @@ use crate::context::run::analysis_actions_methods_run;
 use crate::context::unsorted::analysis_actions_methods_unsorted;
 use crate::context::write::analysis_actions_methods_write;
 
+pub(crate) mod assembled_dir;
 mod copy;
 mod download;
 pub(crate) mod dynamic_output;

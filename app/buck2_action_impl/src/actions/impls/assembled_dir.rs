@@ -50,49 +50,76 @@ use crate::actions::impls::copy::CopyMode;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]
-enum SymlinkedDirError {
-    #[error("Paths to symlink_dir must be non-overlapping, but got `{0}` and `{1}`")]
+enum AssembledDirError {
+    #[error(
+        "Paths to copied_dir/symlinked_dir/assembled_dir must be non-overlapping, but got `{0}` and `{1}`"
+    )]
     OverlappingPaths(Box<ForwardRelativePath>, Box<ForwardRelativePath>),
-    #[error("Paths to symlink_dir must not be empty")]
+    #[error("Paths to copied_dir/symlinked_dir/assembled_dir must not be empty")]
     EmptyPath,
-    #[error("Only artifact inputs are supported in symlink_dir actions, got {0}")]
+    #[error(
+        "Only artifact inputs are supported in copied_dir/symlinked_dir/assembled_dir actions, got {0}"
+    )]
     UnsupportedInput(ArtifactGroup),
 }
 
-#[derive(Allocative)]
-pub(crate) struct UnregisteredSymlinkedDirAction {
-    copy: CopyMode,
-    args: Vec<(ArtifactGroup, Box<ForwardRelativePath>)>,
-    // All associated artifacts of inputs unioned together
-    unioned_associated_artifacts: AssociatedArtifacts,
+/// The shared implementation behind `copied_dir`, `symlinked_dir` and
+/// `assembled_dir`: one directory assembled from input artifacts, each laid
+/// out by its own `CopyMode`. `copied_dir` / `symlinked_dir` apply a uniform
+/// mode to every entry; `assembled_dir` mixes modes per entry.
+/// Which Starlark surface built this action: `symlinked_dir` for the
+/// uniform-mode constructors (`copied_dir` / `symlinked_dir`, preserving
+/// their pre-existing action category) and `assembled_dir` for the
+/// mixed-mode form. Only affects the action's reported category.
+#[derive(Debug, Allocative, Pagable, Clone, Copy, Dupe)]
+pub(crate) enum DirActionCategory {
+    SymlinkedDir,
+    AssembledDir,
 }
 
-impl UnregisteredSymlinkedDirAction {
+impl DirActionCategory {
+    fn as_str(self) -> &'static str {
+        match self {
+            DirActionCategory::SymlinkedDir => "symlinked_dir",
+            DirActionCategory::AssembledDir => "assembled_dir",
+        }
+    }
+}
+
+#[derive(Allocative)]
+pub(crate) struct UnregisteredAssembledDirAction {
+    args: Vec<(ArtifactGroup, Box<ForwardRelativePath>, CopyMode)>,
+    // All associated artifacts of inputs unioned together
+    unioned_associated_artifacts: AssociatedArtifacts,
+    category: DirActionCategory,
+}
+
+impl UnregisteredAssembledDirAction {
     /// Validate that no output path is duplicated or overlapping.
     /// Duplicates are easy - overlapping only happens with symlinks to directories (a bad idea),
     /// and would look like `a` and `a/b` both being given.
     fn validate_args(
-        args: &mut [(ArtifactGroup, Box<ForwardRelativePath>)],
+        args: &mut [(ArtifactGroup, Box<ForwardRelativePath>, CopyMode)],
     ) -> buck2_error::Result<()> {
         // We sort the inputs. They are morally a set, so it shouldn't matter too much,
         // and this lets us implement the overlap check more easily.
         args.sort_by(|x, y| x.1.cmp(&y.1));
 
-        for ((_, x), (_, y)) in args.iter().zip(args.iter().skip(1)) {
+        for ((_, x, _), (_, y, _)) in args.iter().zip(args.iter().skip(1)) {
             if y.starts_with(x) {
-                return Err(SymlinkedDirError::OverlappingPaths(x.clone(), y.clone()).into());
+                return Err(AssembledDirError::OverlappingPaths(x.clone(), y.clone()).into());
             }
         }
         if args.len() == 1 && args[0].1.is_empty() {
-            return Err(SymlinkedDirError::EmptyPath.into());
+            return Err(AssembledDirError::EmptyPath.into());
         }
 
-        for (g, _) in args.iter() {
+        for (g, _, _) in args.iter() {
             // TODO: Exclude other variants once they become available here. For now, this is a
             // noop.
             match g {
                 ArtifactGroup::Artifact(..) | ArtifactGroup::Promise(..) => {}
-                other => return Err(SymlinkedDirError::UnsupportedInput(other.dupe()).into()),
+                other => return Err(AssembledDirError::UnsupportedInput(other.dupe()).into()),
             };
         }
 
@@ -103,8 +130,9 @@ impl UnregisteredSymlinkedDirAction {
     // them into an optional tuple of vector and an index set respectively
     fn unpack_args<'v>(
         srcs: UnpackDictEntries<&'v str, ValueAsInputArtifactLike<'v>>,
+        copy: CopyMode,
     ) -> buck2_error::Result<(
-        Vec<(ArtifactGroup, Box<ForwardRelativePath>)>,
+        Vec<(ArtifactGroup, Box<ForwardRelativePath>, CopyMode)>,
         SmallSet<ArtifactGroup>,
     )> {
         // This assignment doesn't look like it should be necessary, but we get an error if we
@@ -120,6 +148,7 @@ impl UnregisteredSymlinkedDirAction {
                         ForwardRelativePathBuf::try_from(k.to_owned())
                             .buck_error_context("dict key must be a forward relative path")?
                             .into_box(),
+                        copy,
                     ),
                     associates,
                 ))
@@ -140,7 +169,7 @@ impl UnregisteredSymlinkedDirAction {
         copy: CopyMode,
         srcs: UnpackDictEntries<&'v str, ValueAsInputArtifactLike<'v>>,
     ) -> buck2_error::Result<Self> {
-        let (mut args, unioned_associated_artifacts) = Self::unpack_args(srcs)
+        let (mut args, unioned_associated_artifacts) = Self::unpack_args(srcs, copy)
             // FIXME: This warning is talking about the Starlark-level argument name `srcs`.
             //        Once we use a proper Value parser this should all get cleaned up.
             .buck_error_context(
@@ -153,9 +182,40 @@ impl UnregisteredSymlinkedDirAction {
             CopyMode::Copy { .. } => (),
         };
         Ok(Self {
-            copy,
             args,
             unioned_associated_artifacts: AssociatedArtifacts::from(unioned_associated_artifacts),
+            category: DirActionCategory::SymlinkedDir,
+        })
+    }
+
+    /// Build a dir whose entries mix copied files and symlinks: `Copy`
+    /// entries are laid out as real (content-addressed) bytes, `Symlink`
+    /// entries point at their source artifacts. All destination paths must be
+    /// non-overlapping -- mixing copies and symlinks under overlapping paths
+    /// is ill-defined.
+    pub(crate) fn new_assembled<'v>(
+        contents: Vec<(&'v str, ValueAsInputArtifactLike<'v>, CopyMode)>,
+    ) -> buck2_error::Result<Self> {
+        let mut args = Vec::with_capacity(contents.len());
+        let mut assocs = SmallSet::new();
+        for (k, as_artifact, mode) in contents {
+            let associates = as_artifact.0.get_associated_artifacts();
+            args.push((
+                as_artifact.0.get_artifact_group()?,
+                ForwardRelativePathBuf::try_from(k.to_owned())
+                    .buck_error_context("dict key must be a forward relative path")?
+                    .into_box(),
+                mode,
+            ));
+            associates.iter().flat_map(|v| v.iter()).for_each(|a| {
+                assocs.insert(a.dupe());
+            });
+        }
+        Self::validate_args(&mut args)?;
+        Ok(Self {
+            args,
+            unioned_associated_artifacts: AssociatedArtifacts::from(assocs),
+            category: DirActionCategory::AssembledDir,
         })
     }
 
@@ -164,29 +224,29 @@ impl UnregisteredSymlinkedDirAction {
     }
 }
 
-impl UnregisteredAction for UnregisteredSymlinkedDirAction {
+impl UnregisteredAction for UnregisteredAssembledDirAction {
     fn register(
         self: Box<Self>,
         outputs: BuckIndexSet<BuildArtifact>,
         _starlark_data: Option<OwnedFrozenValue>,
         _error_handler: Option<OwnedFrozenValue>,
     ) -> buck2_error::Result<Box<dyn Action>> {
-        Ok(Box::new(SymlinkedDirAction {
-            copy: self.copy,
+        Ok(Box::new(AssembledDirAction {
             args: self.args,
             outputs: BoxSliceSet::from(outputs),
+            category: self.category,
         }))
     }
 }
 
 #[derive(Debug, Allocative, Pagable)]
-struct SymlinkedDirAction {
-    copy: CopyMode,
-    args: Vec<(ArtifactGroup, Box<ForwardRelativePath>)>,
+struct AssembledDirAction {
+    args: Vec<(ArtifactGroup, Box<ForwardRelativePath>, CopyMode)>,
     outputs: BoxSliceSet<BuildArtifact>,
+    category: DirActionCategory,
 }
 
-impl SymlinkedDirAction {
+impl AssembledDirAction {
     fn output(&self) -> &BuildArtifact {
         self.outputs
             .iter()
@@ -197,7 +257,7 @@ impl SymlinkedDirAction {
 
 #[pagable_typetag]
 #[async_trait]
-impl Action for SymlinkedDirAction {
+impl Action for AssembledDirAction {
     fn kind(&self) -> buck2_data::ActionKind {
         buck2_data::ActionKind::SymlinkedDir
     }
@@ -215,7 +275,7 @@ impl Action for SymlinkedDirAction {
     }
 
     fn category(&self) -> CategoryRef<'_> {
-        CategoryRef::unchecked_new("symlinked_dir")
+        CategoryRef::unchecked_new(self.category.as_str())
     }
 
     fn identifier(&self) -> Option<&str> {
@@ -235,7 +295,7 @@ impl Action for SymlinkedDirAction {
         let mut builder = ArtifactValueBuilder::new(fs, ctx.digest_config());
         let mut srcs = Vec::new();
 
-        for (group, relative_dest) in &self.args {
+        for (group, relative_dest, copy) in &self.args {
             let (src_artifact, value) = ctx
                 .artifact_values(group)
                 .iter()
@@ -255,7 +315,7 @@ impl Action for SymlinkedDirAction {
             )?;
             let temp_dest = temp_output.join(relative_dest);
 
-            match self.copy {
+            match copy {
                 CopyMode::Copy {
                     executable_bit_override,
                 } => {
@@ -263,9 +323,14 @@ impl Action for SymlinkedDirAction {
                         value,
                         src.as_ref(),
                         temp_dest.as_ref(),
-                        executable_bit_override,
+                        *executable_bit_override,
                     )?;
-                    srcs.push((src, relative_dest, dest_entry.map_dir(|d| d.as_immutable())));
+                    srcs.push((
+                        src,
+                        relative_dest,
+                        dest_entry.map_dir(|d| d.as_immutable()),
+                        *executable_bit_override,
+                    ));
                 }
                 CopyMode::Symlink => {
                     builder.add_symlinked(value, src, temp_dest.as_ref())?;
@@ -285,19 +350,16 @@ impl Action for SymlinkedDirAction {
         )?;
         let srcs = srcs
             .into_iter()
-            .map(|(src, relative_dest, dest_entry)| {
-                CopiedArtifact::new(
-                    src,
-                    actual_output.join(relative_dest),
-                    dest_entry,
-                    match self.copy {
-                        CopyMode::Copy {
-                            executable_bit_override,
-                        } => executable_bit_override,
-                        CopyMode::Symlink => None,
-                    },
-                )
-            })
+            .map(
+                |(src, relative_dest, dest_entry, executable_bit_override)| {
+                    CopiedArtifact::new(
+                        src,
+                        actual_output.join(relative_dest),
+                        dest_entry,
+                        executable_bit_override,
+                    )
+                },
+            )
             .collect_vec();
 
         let configuration_path = ctx
@@ -335,19 +397,20 @@ mod tests {
     // TODO: This needs proper tests, but right now it's kind of a pain to get the
     //       action framework up and running to test actions
     #[test]
-    fn symlinked_dir_test() {}
+    fn assembled_dir_test() {}
 
     #[test]
-    fn test_symlinked_dir_validation() {
+    fn test_assembled_dir_validation() {
         fn validate(paths: &[&str]) -> buck2_error::Result<()> {
             let a = ArtifactGroup::Artifact(mk_artifact());
             let mut xs = paths.map(|x| {
                 (
                     a.dupe(),
                     ForwardRelativePath::new(x).unwrap().to_buf().into_box(),
+                    CopyMode::Symlink,
                 )
             });
-            UnregisteredSymlinkedDirAction::validate_args(&mut xs)
+            UnregisteredAssembledDirAction::validate_args(&mut xs)
         }
 
         // Check that error conditions are detected

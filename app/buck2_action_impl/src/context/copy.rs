@@ -13,19 +13,22 @@ use buck2_build_api::interpreter::rule_defs::artifact::output_artifact_like::Out
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsInputArtifactLike;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_declared_artifact::StarlarkDeclaredArtifact;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
+use buck2_error::internal_error;
 use buck2_execute::execute::request::OutputType;
 use buck2_hash::buck_indexset;
 use dupe::OptionDupedExt;
 use starlark::environment::MethodsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
+use starlark::values::UnpackValue;
 use starlark::values::ValueTyped;
 use starlark::values::dict::UnpackDictEntries;
 use starlark::values::none::NoneOr;
 
+use crate::actions::impls::assembled_dir::UnregisteredAssembledDirAction;
 use crate::actions::impls::copy::CopyMode;
 use crate::actions::impls::copy::UnregisteredCopyAction;
-use crate::actions::impls::symlinked_dir::UnregisteredSymlinkedDirAction;
+use crate::context::assembled_dir::StarlarkAssembledDirEntry;
 
 fn create_dir_tree<'v>(
     eval: &mut Evaluator<'v, '_, '_>,
@@ -35,7 +38,45 @@ fn create_dir_tree<'v>(
     copy: CopyMode,
     has_content_based_path: Option<bool>,
 ) -> buck2_error::Result<ValueTyped<'v, StarlarkDeclaredArtifact<'v>>> {
-    let action = UnregisteredSymlinkedDirAction::new(copy, srcs)?;
+    let action = UnregisteredAssembledDirAction::new(copy, srcs)?;
+    let unioned_associated_artifacts = action.unioned_associated_artifacts();
+
+    let mut this = this.state()?;
+    let (declaration, output_artifact) =
+        this.get_or_declare_output(eval, output, OutputType::Directory, has_content_based_path)?;
+    this.register_action(buck_indexset![output_artifact], action, None, None)?;
+
+    Ok(declaration.into_declared_artifact(unioned_associated_artifacts))
+}
+
+fn create_assembled_dir_tree<'v>(
+    eval: &mut Evaluator<'v, '_, '_>,
+    this: &AnalysisActions<'v>,
+    output: OutputArtifactArg<'v>,
+    contents: UnpackDictEntries<&'v str, &'v StarlarkAssembledDirEntry<'v>>,
+    has_content_based_path: Option<bool>,
+) -> buck2_error::Result<ValueTyped<'v, StarlarkDeclaredArtifact<'v>>> {
+    let entries = contents
+        .entries
+        .into_iter()
+        .map(|(k, entry)| {
+            // The entry constructors (`assembled_dir.copy` / `assembled_dir.symlink`)
+            // only accept artifact-like values, so this re-unpack cannot fail.
+            let as_artifact = ValueAsInputArtifactLike::unpack_value_opt(entry.artifact)
+                .ok_or_else(|| {
+                    internal_error!("assembled_dir entry holds a validated artifact-like value")
+                })?;
+            let mode = if entry.copy {
+                CopyMode::Copy {
+                    executable_bit_override: None,
+                }
+            } else {
+                CopyMode::Symlink
+            };
+            buck2_error::Ok((k, as_artifact, mode))
+        })
+        .collect::<buck2_error::Result<Vec<_>>>()?;
+    let action = UnregisteredAssembledDirAction::new_assembled(entries)?;
     let unioned_associated_artifacts = action.unioned_associated_artifacts();
 
     let mut this = this.state()?;
@@ -187,6 +228,50 @@ pub(crate) fn analysis_actions_methods_copy(methods: &mut MethodsBuilder) {
             CopyMode::Copy {
                 executable_bit_override: executable_bit_override.into_option(),
             },
+            has_content_based_path.into_option(),
+        )?)
+    }
+
+    /// Returns an `artifact` that is a directory whose entries are a mix of
+    /// copied files and symlinks. `contents` is a dictionary of path (string,
+    /// relative to the result directory) to entry, where an entry wraps a
+    /// bound `artifact` in a materialization mode:
+    /// `assembled_dir.copy(artifact)` entries are laid out as real
+    /// (content-addressed) bytes, while `assembled_dir.symlink(artifact)`
+    /// entries are symlinks pointing at their source artifacts.
+    ///
+    /// Use a copy for inputs that must be physically present in the directory --
+    /// e.g. an executable whose `$ORIGIN`-relative RPATH or sibling
+    /// `.resources.json` has to resolve inside this dir (a symlinked exe would
+    /// resolve `$ORIGIN` against its realpath, not this dir). Use a symlink for
+    /// inputs that already live at an immutable (content-based) path, to avoid
+    /// duplicating their bytes while staying robust to rebuilds.
+    ///
+    /// ```python
+    /// bundle = ctx.actions.assembled_dir(
+    ///     "bundle",
+    ///     contents = {
+    ///         "app": assembled_dir.copy(exe),
+    ///         "app.resources.json": assembled_dir.copy(manifest),
+    ///         "res": assembled_dir.symlink(resource_dir),
+    ///     },
+    /// )
+    /// ```
+    fn assembled_dir<'v>(
+        this: &AnalysisActions<'v>,
+        #[starlark(require = pos)] output: OutputArtifactArg<'v>,
+        #[starlark(require = named)] contents: UnpackDictEntries<
+            &'v str,
+            &'v StarlarkAssembledDirEntry<'v>,
+        >,
+        #[starlark(require = named, default = NoneOr::None)] has_content_based_path: NoneOr<bool>,
+        eval: &mut Evaluator<'v, '_, '_>,
+    ) -> starlark::Result<ValueTyped<'v, StarlarkDeclaredArtifact<'v>>> {
+        Ok(create_assembled_dir_tree(
+            eval,
+            this,
+            output,
+            contents,
             has_content_based_path.into_option(),
         )?)
     }

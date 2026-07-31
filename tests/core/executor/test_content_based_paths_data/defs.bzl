@@ -260,6 +260,31 @@ symlinked_dir = rule(
     },
 )
 
+def _assembled_dir_impl(ctx):
+    to_copy = ctx.actions.declare_output("to_copy", has_content_based_path = True)
+    ctx.actions.write(to_copy, "to_copy")
+    to_symlink = ctx.actions.declare_output("to_symlink", has_content_based_path = True)
+    ctx.actions.write(to_symlink, "to_symlink")
+    out = ctx.actions.assembled_dir(
+        "out",
+        contents = {
+            "copied": assembled_dir.copy(to_copy),
+            "copied_dep": assembled_dir.copy(ctx.attrs.dep),
+            "symlinked": assembled_dir.symlink(to_symlink),
+            "symlinked_dep": assembled_dir.symlink(ctx.attrs.dep),
+        },
+        has_content_based_path = True,
+    )
+
+    return [DefaultInfo(default_output = out)]
+
+assembled_dir_rule = rule(
+    impl = _assembled_dir_impl,
+    attrs = {
+        "dep": attrs.source(),
+    },
+)
+
 def _cas_artifact_with_content_based_path_impl(ctx: AnalysisContext):
     out = ctx.actions.cas_artifact(
         "out",

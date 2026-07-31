@@ -2,6 +2,7 @@ load(
     ":defs.bzl",
     "anon_non_cbp_wrapper",
     "argsfile_with_incorrectly_declared_output",
+    "assembled_dir_rule",
     "cas_artifact_with_content_based_path",
     "copied_dir",
     "copy",
@@ -103,6 +104,11 @@ copied_dir(
 symlinked_dir(
     name = "symlinked_dir_with_content_based_path",
     to_symlink = ":write_with_content_based_path",
+)
+
+assembled_dir_rule(
+    name = "assembled_dir_with_content_based_path",
+    dep = ":write_with_content_based_path",
 )
 
 cas_artifact_with_content_based_path(
