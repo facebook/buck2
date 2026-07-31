@@ -395,6 +395,11 @@ def cxx_gnu_dist_link(
                             "archive_idx": link_data.id,
                             "archive_index_dir": outputs[link_data.indexes_dir].as_output(),
                             "archive_name": link_data.name,
+                            # `opt_objects_dir` is produced downstream of this plan, so it
+                            # can only be passed as a path: `ignore_artifacts` keeps it out
+                            # of the meta file's inputs, and `delimiter` makes it serialize
+                            # as a string rather than a single-element list.
+                            "archive_opt_objects_dir": cmd_args(link_data.opt_objects_dir, delimiter = "", ignore_artifacts = True),
                             "archive_plan": outputs[link_data.plan].as_output(),
                             "link_whole": link_data.link_whole,
                             "objects": [] if manifest["objects"] else None,
@@ -601,7 +606,11 @@ def cxx_gnu_dist_link(
             plan_json = artifacts[archive.plan].read_json()
             if "objects" not in plan_json or not plan_json["objects"] or lazy.is_all(lambda e: not e["is_bc"], plan_json["objects"]):
                 # Nothing in this directory was lto-able; let's just copy the archive.
-                ctx.actions.copy_file(outputs[archive.opt_objects_dir], archive.objects_dir)
+                # `opt_objects_dir` is the only dir of an lto-able archive that the final
+                # link materializes, and it must hold every member at the member's path
+                # relative to the archive's base dir -- the layout the per-member branch
+                # below builds, and the one the planner derives final-link paths from.
+                ctx.actions.copied_dir(outputs[archive.opt_objects_dir], {"objects": archive.objects_dir})
                 ctx.actions.write(outputs[archive.opt_manifest], "")
                 if archive.dwo_dir != None:
                     ctx.actions.symlinked_dir(outputs[archive.dwo_dir], {})

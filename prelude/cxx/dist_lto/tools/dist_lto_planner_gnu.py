@@ -216,6 +216,11 @@ def main(argv):
     #        archive. This script is expected to place all ThinLTO indexes derived
     #        from object files originating from this archive in that directory.
     #        Otherwise, this line is empty.
+    #  - archive_opt_objects_dir: If this object file came from an archive, the directory where
+    #        Phase 3 stages every member of that archive, each at its path relative
+    #        to the archive's base dir (the dir holding `archive_plan`). It is the
+    #        only dir of the archive that Phase 4 Final Link materializes, so the
+    #        final-link index must refer to members through it.
     #
     # There are two indices that are derived from this meta file: the object
     # index (mapping["index"]) and the archive index (mapping["archive_index"]).
@@ -237,12 +242,15 @@ def main(argv):
                     "meta_index": meta_entry_index2,
                     "archive_index": None,
                     "archive_name": "",
+                    "opt_object_path": "",
                 }
             elif linkable["type"] == "archive":
                 archive_idx = linkable["archive_idx"]
                 archive_name = linkable["archive_name"]
                 archive_plan = linkable["archive_plan"]
                 archive_index_dir = linkable["archive_index_dir"]
+                archive_opt_objects_dir = linkable["archive_opt_objects_dir"]
+                archive_base_dir = os.path.dirname(archive_plan)
 
                 obj_mapping_entry = {
                     "output": "",
@@ -255,7 +263,15 @@ def main(argv):
                 }
                 for obj in linkable["objects"] or ():
                     path = obj["path"]
-                    mapping[path] = dict(obj_mapping_entry)
+                    mapping[path] = dict(
+                        obj_mapping_entry,
+                        # Where Phase 3 stages this member, and thus the path Phase 4
+                        # Final Link must use for it.
+                        opt_object_path=os.path.join(
+                            archive_opt_objects_dir,
+                            os.path.relpath(path, archive_base_dir),
+                        ),
+                    )
 
                 archives[archive_idx] = {
                     "name": archive_name,
@@ -548,46 +564,43 @@ def main(argv):
                 final_link_index_output.write("-Wl,--start-lib\n")
                 in_start_lib_group = True
 
-            output_written = False
-            if line in index_files_set:
-                if path in mapping and mapping[path]["output"]:
-                    # This case is for a known and true LLVM IR Bitcode file that was
-                    # NOT extracted from an archive.
+            if line in index_files_set and path in mapping and mapping[path]["output"]:
+                # This case is for a known and true LLVM IR Bitcode file that was
+                # NOT extracted from an archive.
 
-                    # Get the output path to the actual file that is linked in Phase 4 Final Link,
-                    # which is resulting file from Phase 3 ThinLTO Backends.
-                    # These files are suffixed with ".opt.o" and are siblings to the ".thinlto.bc" files,
-                    # so the path is obtained by replacing the suffix.
-                    output = mapping[path]["output"].replace(
-                        bitcode_suffix, opt_objects_suffix
-                    )
-                    final_link_index_output.write(output + "\n")
-                    output_written = True
-
-                elif os.path.exists(index_path(path) + imports_suffix):
-                    # handle files built from source that were extracted from archives
-                    opt_objects_path = path.replace(
-                        "/objects/", "/opt_objects/objects/"
-                    )
-                    final_link_index_output.write(opt_objects_path + "\n")
-                    output_written = True
-
-            if not output_written:
+                # Get the output path to the actual file that is linked in Phase 4 Final Link,
+                # which is resulting file from Phase 3 ThinLTO Backends.
+                # These files are suffixed with ".opt.o" and are siblings to the ".thinlto.bc" files,
+                # so the path is obtained by replacing the suffix.
+                output = mapping[path]["output"].replace(
+                    bitcode_suffix, opt_objects_suffix
+                )
+                final_link_index_output.write(output + "\n")
+            elif (
+                mapping_entry is not None and mapping_entry["archive_index"] is not None
+            ):
+                # A member extracted from an LTO-able archive. Phase 3 stages every
+                # member -- bitcode and machine code alike -- in the archive's
+                # `opt_objects` dir, so both kinds are redirected there. Machine-code
+                # members occur for e.g. Rust `compiler_builtins`, which rustc emits as
+                # native objects even under `-Clinker-plugin-lto` (the crate is
+                # `#![no_builtins]`), so `ld.lld` produces no ThinLTO index for them.
+                final_link_index_output.write(mapping_entry["opt_object_path"] + "\n")
+            elif line in linkables_index:
+                # If this is a known linkable, then use the original cmd_args from the linkable entry,
+                # which could contain for example, "-Wl,--whole-archive" and "-Wl,--no-whole-archive" flags.
+                linkable_entry = linkables_index[line]
+                cmd_args = linkable_entry["cmd_args"]
+                if isinstance(cmd_args, list):
+                    _write_args(final_link_index_output, _flatten_deep(cmd_args))
+                else:
+                    final_link_index_output.write(cmd_args + "\n")
+            else:
                 # handle:
                 # - objects from genrule archives (not tracked by dist_lto)
                 # - pre-built archives
                 # - input files that did not come from linker input, e.g. linkerscirpts
-                if line in linkables_index:
-                    # If this is a known linkable, then use the original cmd_args from the linkable entry,
-                    # which could contain for example, "-Wl,--whole-archive" and "-Wl,--no-whole-archive" flags.
-                    linkable_entry = linkables_index[line]
-                    cmd_args = linkable_entry["cmd_args"]
-                    if isinstance(cmd_args, list):
-                        _write_args(final_link_index_output, _flatten_deep(cmd_args))
-                    else:
-                        final_link_index_output.write(cmd_args + "\n")
-                else:
-                    final_link_index_output.write(line + "\n")
+                final_link_index_output.write(line + "\n")
 
         # Close a still-open `-Wl,--start-lib` group left by the final archive members.
         if in_start_lib_group:
