@@ -10,6 +10,7 @@
 
 use async_trait::async_trait;
 use buck2_core::bzl::ImportPath;
+use buck2_core::bzl::LoadFormat;
 use buck2_core::package::PackageLabel;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
@@ -65,10 +66,10 @@ pub trait InterpreterCalculation {
         &mut self,
         path: &ImportPath,
     ) -> buck2_error::Result<LoadedModule> {
-        let module_path = match path.path().path().extension() {
-            Some("json") => StarlarkModulePath::JsonFile(path),
-            Some("toml") => StarlarkModulePath::TomlFile(path),
-            _ => StarlarkModulePath::LoadFile(path),
+        let module_path = match path.load_format() {
+            LoadFormat::Json => StarlarkModulePath::JsonFile(path),
+            LoadFormat::Toml => StarlarkModulePath::TomlFile(path),
+            LoadFormat::Bzl => StarlarkModulePath::LoadFile(path),
         };
         self.get_loaded_module(module_path).await
     }

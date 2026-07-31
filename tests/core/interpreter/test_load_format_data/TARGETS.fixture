@@ -1,0 +1,10 @@
+load(":deps.lock?format=toml", lock = "value")
+load(":metadata.txt?format=json", metadata = "value")
+load(":rules.bzl.in?format=bzl", "greeting")
+
+# buildifier: disable=print
+print("DATA_LOAD_TEST_OUTPUT: " + repr({
+    "lock": lock,
+    "metadata": metadata,
+    "greeting": greeting,
+}))

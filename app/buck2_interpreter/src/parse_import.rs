@@ -11,6 +11,7 @@
 //! Parses imports for load_file() calls in build files.
 
 use buck2_core::bzl::ImportPath;
+use buck2_core::bzl::LoadFormat;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
@@ -37,6 +38,24 @@ enum ImportParseError {
         "Unable to parse import spec. Expected format `(@<cell>)//package/name:filename.bzl` or `:filename.bzl`, but got a path. Got `{0}`"
     )]
     NotAFileName(String),
+    #[error("Unable to parse import spec. Expected a `?format=` query, got `?{1}` in `{0}`")]
+    UnknownQuery(String, String),
+}
+
+/// Split a trailing `?format=<fmt>` query off a `load()` string.
+///
+/// The format overrides the extension-based choice of parser, so that files whose names carry
+/// no usable extension (`Cargo.lock`) or a misleading one (`rules.bzl.in`) can still be loaded.
+pub fn split_load_format(import: &str) -> buck2_error::Result<(&str, Option<LoadFormat>)> {
+    match import.split_once('?') {
+        None => Ok((import, None)),
+        Some((path, query)) => match query.strip_prefix("format=") {
+            Some(format) => Ok((path, Some(LoadFormat::parse(format)?))),
+            None => {
+                Err(ImportParseError::UnknownQuery(import.to_owned(), query.to_owned()).into())
+            }
+        },
+    }
 }
 
 pub enum RelativeImports<'a> {
@@ -419,6 +438,28 @@ mod tests {
                 );
             }
         };
+        Ok(())
+    }
+
+    #[test]
+    fn test_split_load_format() -> buck2_error::Result<()> {
+        assert_eq!((":a.bzl", None), split_load_format(":a.bzl")?);
+        assert_eq!(
+            (":Cargo.lock", Some(LoadFormat::Toml)),
+            split_load_format(":Cargo.lock?format=toml")?
+        );
+        assert_eq!(
+            ("cell//pkg:package.json.tmpl", Some(LoadFormat::Json)),
+            split_load_format("cell//pkg:package.json.tmpl?format=json")?
+        );
+        assert_eq!(
+            (":rules.bzl.in", Some(LoadFormat::Bzl)),
+            split_load_format(":rules.bzl.in?format=bzl")?
+        );
+
+        assert!(split_load_format(":a.bzl?format=yaml").is_err());
+        assert!(split_load_format(":a.bzl?other=1").is_err());
+        assert!(split_load_format(":a.bzl?").is_err());
         Ok(())
     }
 }
