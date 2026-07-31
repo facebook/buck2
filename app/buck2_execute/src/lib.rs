@@ -16,6 +16,7 @@
 pub mod artifact;
 pub mod artifact_utils;
 pub mod artifact_value;
+pub mod dep_file_state;
 pub mod digest;
 pub mod digest_config;
 pub mod directory;
