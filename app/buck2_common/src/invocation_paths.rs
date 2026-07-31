@@ -152,6 +152,12 @@ impl InvocationPaths {
             .join(self.incremental_state_dir_name())
     }
 
+    /// Subdirectory of `cache_dir` responsible for storing the persisted local dep-file
+    /// (local action) cache.
+    pub fn dep_file_state_path(&self) -> AbsNormPathBuf {
+        self.cache_dir_path().join(self.dep_file_state_dir_name())
+    }
+
     /// Subdirectory of `cache_dir` responsible for storing paged-out DICE node
     /// values (see `buck2_hydration.enable_paging`).
     ///
@@ -179,6 +185,10 @@ impl InvocationPaths {
         FileName::unchecked_new("incremental_state")
     }
 
+    fn dep_file_state_dir_name(&self) -> &FileName {
+        FileName::unchecked_new("dep_file_state")
+    }
+
     fn dice_state_dir_name(&self) -> &FileName {
         FileName::unchecked_new("dice_state")
     }
@@ -189,6 +199,7 @@ impl InvocationPaths {
         vec![
             self.materializer_state_dir_name(),
             self.incremental_state_dir_name(),
+            self.dep_file_state_dir_name(),
         ]
     }
 
