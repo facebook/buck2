@@ -12,10 +12,14 @@ load(":apple_core_data_types.bzl", "AppleCoreDataSpec")
 load(":scene_kit_assets_types.bzl", "SceneKitAssetsSpec")
 
 # Represents the values for the `destination` field of `apple_resource`
+#
+# Not every destination is meaningful for every bundle kind: like `loginitems`, `launchagents`
+# only has a path in macOS application bundles, and resolves to the bundle root elsewhere.
 AppleResourceDestination = enum(
     "executables",
     "extensionkit_extensions",
     "frameworks",
+    "launchagents",
     "loginitems",
     "plugins",
     "resources",

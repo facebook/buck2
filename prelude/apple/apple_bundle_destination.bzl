@@ -26,6 +26,7 @@ AppleBundleDestination = enum(
     "quicklook",
     "bundleroot",
     "loginitems",
+    "launchagents",
     "appclips",
     "extensionkit_extensions",
 )
@@ -43,6 +44,7 @@ AppleBundleDestinationPaths = record(
     quicklook = field(str, ""),
     bundleroot = field(str, ""),
     loginitems = field(str, ""),
+    launchagents = field(str, ""),
     appclips = field(str, ""),
     extensionkit_extensions = field(str, ""),
 )
@@ -78,6 +80,7 @@ _MacOSBundleDestinationPaths = AppleBundleDestinationPaths(
     quicklook = paths.join(macOS_content_path, "Library/QuickLook"),
     bundleroot = macOS_content_path,
     loginitems = paths.join(macOS_content_path, "Library/LoginItems"),
+    launchagents = paths.join(macOS_content_path, "Library/LaunchAgents"),
 )
 
 _MacOSFrameworkBundleDestinationPaths = AppleBundleDestinationPaths(
@@ -149,6 +152,8 @@ def bundle_relative_path_for_destination(destination: AppleBundleDestination, sd
         return bundle_destinations.bundleroot
     elif destination.value == "loginitems":
         return bundle_destinations.loginitems
+    elif destination.value == "launchagents":
+        return bundle_destinations.launchagents
     elif destination.value == "appclips":
         return bundle_destinations.appclips
     fail("Unsupported Apple bundle destination {}".format(destination))
