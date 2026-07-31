@@ -31,6 +31,7 @@ load(
     "run_dwp_action",
 )
 load("@prelude//cxx:link_types.bzl", "LinkOptions")
+load("@prelude//linking:execution_preference.bzl", "get_action_execution_attributes")
 load(
     "@prelude//linking:link_info.bzl",
     "ArchiveLinkable",
@@ -47,7 +48,6 @@ load(
 )
 load("@prelude//linking:stamp_build_info.bzl", "cxx_stamp_build_info", "stamp_build_info")
 load("@prelude//linking:strip.bzl", "strip_object")
-load("@prelude//utils:actions.bzl", "ActionExecutionAttributes")
 load("@prelude//utils:lazy.bzl", "lazy")
 
 # `_BitcodeLinkData` holds data
@@ -156,6 +156,8 @@ def cxx_gnu_dist_link(
     identifier = opts.identifier
 
     enable_late_build_info_stamping = executable_link and cxx_stamp_build_info(ctx)
+
+    link_action_execution_properties = get_action_execution_attributes(opts.link_execution_preference)
     enable_bolt = executable_link and cxx_use_bolt(ctx)
 
     def make_cat(c: str) -> str:
@@ -450,9 +452,10 @@ def cxx_gnu_dist_link(
                 if thin_link_info.post_flags:
                     index_args.add(thin_link_info.post_flags)
 
+            prepend_index_args.add(index_args)
             index_argfile, _ = ctx.actions.write(
                 outputs[index_argsfile_out].as_output(),
-                prepend_index_args.add(index_args),
+                prepend_index_args,
                 allow_args = True,
             )
 
@@ -463,7 +466,7 @@ def cxx_gnu_dist_link(
             index_cmd_parts = cxx_link_cmd_parts(cxx_toolchain, executable_link)
 
             index_cmd = index_cmd_parts.link_cmd
-            index_cmd.add(cmd_args(index_argfile, format = "@{}"))
+            index_cmd.add(cmd_args(index_argfile, format = "@{}", hidden = prepend_index_args))
 
             # Binary-only link flags (e.g. --wrap) must be present at the index
             # step so symbol resolution matches the final link. They are
@@ -503,7 +506,16 @@ def cxx_gnu_dist_link(
             )
             plan_cmd.add(index_cmd)
 
-            ctx.actions.run(plan_cmd, category = index_cat, identifier = identifier, local_only = True)
+            ctx.actions.run(
+                plan_cmd,
+                category = index_cat,
+                identifier = identifier,
+                prefer_local = link_action_execution_properties.prefer_local,
+                prefer_remote = link_action_execution_properties.prefer_remote,
+                local_only = link_action_execution_properties.local_only,
+                weight = opts.link_weight,
+                force_full_hybrid_if_capable = link_action_execution_properties.full_hybrid,
+            )
 
         # TODO(T117513091) - dynamic_output does not allow for an empty list of dynamic inputs. If we have no archives
         # to process, we will have no dynamic inputs, and the plan action can be non-dynamic.
@@ -733,6 +745,8 @@ def cxx_gnu_dist_link(
                 else:
                     append_linkable_args(link_cmd_hidden, linkable)
 
+            # pre/post flags may reference artifacts (e.g. linker scripts via
+            # `-Wl,--script=path`).
             link_cmd_hidden.add(link.pre_flags)
             link_cmd_hidden.add(link.post_flags)
 
@@ -755,7 +769,15 @@ def cxx_gnu_dist_link(
         link_cmd.add(link_cmd_parts.post_linker_flags)
 
         ctx.actions.run(
-            link_cmd, category = make_cat("thin_lto_link"), identifier = identifier, local_only = True, allow_cache_upload = enable_late_build_info_stamping
+            link_cmd,
+            category = make_cat("thin_lto_link"),
+            identifier = identifier,
+            prefer_local = link_action_execution_properties.prefer_local,
+            prefer_remote = link_action_execution_properties.prefer_remote,
+            local_only = link_action_execution_properties.local_only,
+            weight = opts.link_weight,
+            force_full_hybrid_if_capable = link_action_execution_properties.full_hybrid,
+            allow_cache_upload = enable_late_build_info_stamping,
         )
 
     final_link_inputs = [link_plan_out, final_link_index] + archive_opt_manifests
@@ -818,9 +840,10 @@ def cxx_gnu_dist_link(
                 category_suffix = category_suffix,
                 referenced_objects = referenced_objects,
                 dwp_output = outputs[dwp_output],
-                # distributed thinlto link actions are ran locally, run llvm-dwp locally as well to
-                # ensure all dwo source files are available
-                action_execution_properties = ActionExecutionAttributes(local_only = True),
+                # Mirror the link action's execution preference so dwp runs
+                # alongside the link (avoids round-tripping dwo files when link
+                # is local).
+                action_execution_properties = link_action_execution_properties,
             )
 
         ctx.actions.dynamic_output(
