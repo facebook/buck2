@@ -7,3 +7,4 @@
 # above-listed licenses.
 
 cargo_env = true
+extra_srcs = ["src/schema.json"]

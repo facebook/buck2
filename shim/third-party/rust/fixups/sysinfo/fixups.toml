@@ -6,5 +6,4 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-buildscript.run = true
-extra_srcs = ["src/**/*.rs"]
+extra_srcs = ["README.md", "md_doc/**/*.md"]

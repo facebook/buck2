@@ -7,7 +7,6 @@
 # above-listed licenses.
 
 cfgs = ["tokio_unstable", "tokio_track_caller"]
-
+extra_deps = [":tracing"]
+extra_srcs = ["src/**/*.rs"]
 features = ["tokio_track_caller"]
-
-extra_deps = [ ":tracing" ]

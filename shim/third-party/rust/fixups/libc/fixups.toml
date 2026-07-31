@@ -7,3 +7,6 @@
 # above-listed licenses.
 
 buildscript.run = true
+
+# `mod types` hidden inside a macro expansion.
+extra_srcs = ["src/types.rs"]

@@ -6,5 +6,5 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-buildscript.run = true
-extra_srcs = ["src/**/*.rs"]
+['cfg(version = ">=5")']
+extra_srcs = ["src/version"]

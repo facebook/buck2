@@ -7,4 +7,3 @@
 # above-listed licenses.
 
 buildscript.run = true
-extra_srcs = ["src/**/*.rs"]
