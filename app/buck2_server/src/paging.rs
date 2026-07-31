@@ -122,6 +122,7 @@ impl PagingManager {
         let page_out_started = if triggers_idle_page_out {
             spawn_page_out_on_idle(
                 self.daemon.page_out_on_idle,
+                self.daemon.allow_multiple_idle_page_outs,
                 self.daemon.dice_manager.dupe(),
                 dispatcher.dupe(),
                 free_disk_bytes,
@@ -248,6 +249,10 @@ static PAGE_OUT_DONE: LazyLock<Notify> = LazyLock::new(Notify::new);
 /// Cleared only on daemon restart.
 static PAGE_OUT_FAILED: AtomicBool = AtomicBool::new(false);
 
+/// Set immediately before the first automatic idle page-out is spawned. By
+/// default it is never cleared, limiting automatic page-out to one run per daemon.
+static IDLE_PAGE_OUT_HAS_RUN: AtomicBool = AtomicBool::new(false);
+
 /// Whether a background idle page-out is running, for `buck2 debug hydration
 /// status`. A manual `page-out` isn't tracked: it holds the exclusive command
 /// lock, so a concurrent `status` blocks behind it and never observes it mid-run.
@@ -293,7 +298,7 @@ impl PageOutGuard {
     /// the flag, so a new one must not start and race it on the same graph.
     fn acquire() -> Option<Self> {
         PAGE_OUT
-            .compare_exchange(IDLE, RUNNING, Ordering::Relaxed, Ordering::Relaxed)
+            .compare_exchange(IDLE, RUNNING, Ordering::Acquire, Ordering::Relaxed)
             .is_ok()
             .then_some(PageOutGuard)
     }
@@ -301,7 +306,8 @@ impl PageOutGuard {
 
 impl Drop for PageOutGuard {
     fn drop(&mut self) {
-        PAGE_OUT.store(IDLE, Ordering::Relaxed);
+        // Publish `IDLE_PAGE_OUT_HAS_RUN` before another scheduler acquires the guard.
+        PAGE_OUT.store(IDLE, Ordering::Release);
         PAGE_OUT_DONE.notify_waiters();
     }
 }
@@ -317,10 +323,12 @@ pub(crate) struct PageOutThresholds {
 /// Spawn a background idle page-out if it should run, returning the outcome:
 /// [`PageOutStarted::Started`] if one was scheduled (not whether it succeeds), else the
 /// reason it wasn't — disabled, not enough disk headroom, another command active, one
-/// already running, or nothing to page out. When commands overlap, only the last to
-/// finish still sees itself as the sole active command, so only it starts one.
+/// already running, one already ran, or nothing to page out. When commands overlap,
+/// only the last to finish still sees itself as the sole active command, so only it
+/// starts one.
 pub(crate) async fn spawn_page_out_on_idle(
     thresholds: Option<PageOutThresholds>,
+    allow_multiple_idle_page_outs: bool,
     dice_manager: Arc<ConcurrencyHandler>,
     dispatcher: EventDispatcher,
     free_disk_bytes: Option<u64>,
@@ -348,6 +356,10 @@ pub(crate) async fn spawn_page_out_on_idle(
         return PageOutStarted::AlreadyRunning;
     };
 
+    if IDLE_PAGE_OUT_HAS_RUN.load(Ordering::Relaxed) && !allow_multiple_idle_page_outs {
+        return PageOutStarted::AlreadyRan;
+    }
+
     // Re-check under the guard: a command that started in the window above (which
     // wouldn't have cancelled us) mustn't slip through. Also bail if there is nothing
     // to page out.
@@ -358,6 +370,7 @@ pub(crate) async fn spawn_page_out_on_idle(
         return PageOutStarted::NothingToPageOut;
     }
 
+    IDLE_PAGE_OUT_HAS_RUN.store(true, Ordering::Relaxed);
     tokio::spawn(async move {
         if let Err(e) = page_out_on_idle(guard, dice_manager, dispatcher).await {
             let _unused = soft_error!(

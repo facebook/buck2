@@ -223,6 +223,9 @@ pub struct DaemonStateData {
     /// fixed for the daemon's lifetime). Read per command in `finalize` to decide
     /// whether to schedule a background page-out; `None` disables it.
     pub(crate) page_out_on_idle: Option<PageOutThresholds>,
+
+    /// Running more than one automatic idle page-out during this daemon's lifetime.
+    pub(crate) allow_multiple_idle_page_outs: bool,
 }
 
 impl DaemonStateData {
@@ -775,6 +778,11 @@ impl DaemonState {
                     .map(|h| PageOutThresholds {
                         min_free_disk_gb: h.page_out_min_free_disk_gb,
                     }),
+                allow_multiple_idle_page_outs: init_ctx
+                    .daemon_startup_config
+                    .hydration
+                    .as_ref()
+                    .is_some_and(|h| h.allow_multiple_idle_page_outs),
             }))
         };
         let daemon_listener_span = tracing::Span::current();

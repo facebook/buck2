@@ -25,6 +25,7 @@ from buck2.tests.e2e_util.buck_workspace import buck_test, env
 # `page_out_started` enum field as its integer value (see data.proto).
 _PAGE_OUT_STARTED_STARTED = 1
 _PAGE_OUT_STARTED_DISABLED_AFTER_ERROR = 9
+_PAGE_OUT_STARTED_ALREADY_RAN = 10
 
 
 async def _build(buck: Buck) -> BuildResult:
@@ -233,7 +234,11 @@ async def test_idle_page_out_disabled_after_error(buck: Buck) -> None:
     ), "a prior idle page-out failure must disable idle page-out for future commands"
 
 
-@buck_test(data_dir="paging", write_invocation_record=True)
+@buck_test(
+    data_dir="paging",
+    write_invocation_record=True,
+    extra_buck_config={"buck2_hydration": {"allow_multiple_idle_page_outs": "true"}},
+)
 async def test_page_out_triggered_only_when_values_computed(buck: Buck) -> None:
     # A command triggers an idle page-out only when it computed values worth
     # paging out. The cold build does; a following no-op rebuild does not.
@@ -252,7 +257,11 @@ async def test_page_out_triggered_only_when_values_computed(buck: Buck) -> None:
     ), "a no-op rebuild computes nothing new, so it should not trigger a page-out"
 
 
-@buck_test(data_dir="paging", write_invocation_record=True)
+@buck_test(
+    data_dir="paging",
+    write_invocation_record=True,
+    extra_buck_config={"buck2_hydration": {"allow_multiple_idle_page_outs": "true"}},
+)
 async def test_page_out_at_most_once(buck: Buck) -> None:
     # A value is paged out at most once: once an incremental build pages a value
     # back in (or recomputes it), it stays resident rather than being paged out
@@ -288,3 +297,37 @@ async def test_page_out_at_most_once(buck: Buck) -> None:
         f"expected the working set to stay resident, but {_paged_in_count(result)} "
         "values were paged in"
     )
+
+
+@buck_test(data_dir="paging", write_invocation_record=True)
+async def test_idle_page_out_runs_once_per_daemon(buck: Buck) -> None:
+    first = await buck.build("//:module_const_a")
+    assert (
+        first.invocation_record().get("page_out_started") == _PAGE_OUT_STARTED_STARTED
+    ), "expected the first eligible command to start an idle page-out"
+    await _wait_for_page_out_idle(buck)
+
+    second = await buck.build("//:module_const_b")
+    assert (
+        second.invocation_record().get("page_out_started")
+        == _PAGE_OUT_STARTED_ALREADY_RAN
+    ), "expected the daemon to suppress a second idle page-out"
+
+
+@buck_test(
+    data_dir="paging",
+    write_invocation_record=True,
+    extra_buck_config={"buck2_hydration": {"allow_multiple_idle_page_outs": "true"}},
+)
+async def test_idle_page_out_rollout_config_allows_multiple_runs(buck: Buck) -> None:
+    first = await buck.build("//:module_const_a")
+    assert (
+        first.invocation_record().get("page_out_started") == _PAGE_OUT_STARTED_STARTED
+    ), "expected the first eligible command to start an idle page-out"
+    await _wait_for_page_out_idle(buck)
+
+    second = await buck.build("//:module_const_b")
+    assert (
+        second.invocation_record().get("page_out_started") == _PAGE_OUT_STARTED_STARTED
+    ), "expected the rollout config to allow a second idle page-out"
+    await _wait_for_page_out_idle(buck)

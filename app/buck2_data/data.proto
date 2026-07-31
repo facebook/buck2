@@ -519,6 +519,10 @@ enum PageOutStarted {
   // A prior idle page-out errored, so it is disabled for the rest of this
   // daemon's lifetime.
   PAGE_OUT_STARTED_DISABLED_AFTER_ERROR = 9;
+  // An idle page-out already ran in this daemon. Set
+  // `buck2_hydration.allow_multiple_idle_page_outs = true` to allow repeated
+  // runs.
+  PAGE_OUT_STARTED_ALREADY_RAN = 10;
 }
 
 message PagingSummary {
