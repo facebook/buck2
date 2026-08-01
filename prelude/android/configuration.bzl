@@ -28,7 +28,7 @@ load("@prelude//utils:expect.bzl", "expect")
 _REFS = {
     "arm64": "config//cpu/constraints:arm64",
     "armv7": "config//cpu/constraints:arm32",
-    "build_only_native_code": "prelude//android/constraints:build_only_native_code",
+    "build_only_native_code": "prelude//android/constraints:maybe_build_only_native_code[build_only_native_code]",
     "building_android_binary": "prelude//os:building_android_binary",
     "cpu": "config//cpu/constraints:cpu",
     "maybe_build_only_native_code": "prelude//android/constraints:maybe_build_only_native_code",
