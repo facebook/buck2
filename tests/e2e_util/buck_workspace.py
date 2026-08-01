@@ -222,6 +222,10 @@ async def buck_fixture(  # noqa C901 : "too complex"
                 f.write(line)
         env["BUCK2_TEST_EXTRA_EXTERNAL_CONFIG"] = extra_config
 
+        settings_home_dir = os.path.join(base_dir, "settings_home")
+        os.makedirs(settings_home_dir, exist_ok=True)
+        env["BUCK2_TEST_SETTINGS_HOME_DIR"] = settings_home_dir
+
         buck = Buck(
             Path(test_executable),
             cwd=buck_cwd,

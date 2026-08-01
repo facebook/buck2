@@ -982,3 +982,6 @@ class Buck(Executable):
     async def prev_daemon_stderr(self) -> str:
         daemon_dir = await self.get_daemon_dir()
         return (daemon_dir / "prev/buckd.stderr").read_text()
+
+    def get_settings_home_dir(self) -> Path:
+        return Path(self._env["BUCK2_TEST_SETTINGS_HOME_DIR"])
