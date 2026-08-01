@@ -30,6 +30,17 @@ _MODULE_SUFFIXES = set([
 
 _CATCH_ALL_STUB_CONTENT = "from typing import Any\n\ndef __getattr__(name: str) -> Any: ...\n"
 
+_MANIFESTLESS_RULE_TYPES = set([
+    "forward",
+    "prelude//rules.bzl:command_alias",
+    "prelude//rules.bzl:export_file",
+    "prelude//rules.bzl:filegroup",
+])
+
+def _rule_has_no_manifest(rule_type: str) -> bool:
+    """Whether a rule contributes no manifest beyond targets already in its dependency graph."""
+    return rule_type in _MANIFESTLESS_RULE_TYPES
+
 def _get_suffix(path: str) -> str | None:
     """Extract the file suffix without leading dot (e.g. 'py') from a path, or None if no suffix."""
     last_sep = path.rfind("/")
@@ -430,18 +441,7 @@ def _main(ctx: bxl.Context) -> None:
     json = {"db": entries, "root": ctx.root()}
 
     # We only want to add `deps` to targets that are in the output.
-    known_targets = {
-        x.label.raw_target(): x
-        for x in _list_targets(ctx)
-        if x.rule_type
-        not in (
-            "forward",
-            "prelude//rules.bzl:command_alias",
-            "prelude//rules.bzl:export_file",
-            "prelude//rules.bzl:filegroup",
-        )
-        and x.label.name != "restricted_bin"
-    }
+    known_targets = {x.label.raw_target(): x for x in _list_targets(ctx) if not _rule_has_no_manifest(x.rule_type) and x.label.name != "restricted_bin"}
 
     # Tracks genrule targets whose outputs are re-exported by a python_library
     # via its srcs attribute (not just deps). Populated during _handle_python_library
