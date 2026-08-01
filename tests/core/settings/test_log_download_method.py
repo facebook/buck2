@@ -32,6 +32,11 @@ def _write_buckconfig_log_url(buck: Buck, value: str) -> None:
         f.write(f"\n[buck2]\nlog_url = {value}\n")
 
 
+def _write_home_local_settings(buck: Buck, settings: str) -> None:
+    home = buck.get_settings_home_dir()
+    (home / ".bucksettings.local.toml").write_text(settings)
+
+
 @buck_test()
 async def test_settings_override_buckconfig(buck: Buck) -> None:
     _write_buckconfig_log_use_manifold(buck, True)
@@ -63,3 +68,12 @@ async def test_log_url_fallback_to_buckconfig(buck: Buck) -> None:
 
     await buck.server()
     assert await _log_download_method(buck) == {"Curl": "test.com"}
+
+
+@buck_test()
+async def test_home_local_settings_override_repo(buck: Buck) -> None:
+    (buck.cwd / ".bucksettings.toml").write_text("log_use_manifold = false\n")
+    _write_home_local_settings(buck, "log_use_manifold = true\n")
+
+    await buck.server()
+    assert await _log_download_method(buck) == "Manifold"

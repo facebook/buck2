@@ -72,6 +72,24 @@ impl BuckSettings {
 }
 
 #[cfg(test)]
+pub(crate) mod testing {
+    use serde::Deserialize;
+
+    #[derive(Debug, Deserialize, PartialEq)]
+    #[serde(deny_unknown_fields)]
+    pub struct TestBuckSettingsData {
+        pub test_flag: Option<bool>,
+        pub test_section: Option<TestSection>,
+    }
+
+    #[derive(Debug, Deserialize, PartialEq)]
+    #[serde(deny_unknown_fields)]
+    pub struct TestSection {
+        pub test_value: Option<String>,
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::settings::parser::resolve;
@@ -89,14 +107,14 @@ mod tests {
 
     #[test]
     fn test_log_use_manifold() -> buck2_error::Result<()> {
-        let settings = resolve(table("log_use_manifold = false"))?;
+        let settings = resolve(vec![table("log_use_manifold = false")])?;
         assert_eq!(settings.log_use_manifold(), Some(false));
         Ok(())
     }
 
     #[test]
     fn test_log_url() -> buck2_error::Result<()> {
-        let settings = resolve(table("log_url = \"test.com\""))?;
+        let settings = resolve(vec![table("log_url = \"test.com\"")])?;
         assert_eq!(settings.log_url(), Some("test.com"));
         Ok(())
     }
