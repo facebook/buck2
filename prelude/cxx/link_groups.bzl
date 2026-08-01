@@ -1187,6 +1187,7 @@ def create_link_groups(
             linkables = linkables[link_group_spec.group.name],
             linker_flags = (
                 linker_flags
+                + link_group_spec.group.attrs.linker_flags
                 + link_group_spec.group.attrs.exported_linker_flags
                 + ([cmd_args(link_group_spec.group.attrs.linker_script, format = "-Wl,--script={}")] if link_group_spec.group.attrs.linker_script else [])
             ),
