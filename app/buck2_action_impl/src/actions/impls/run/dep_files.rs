@@ -335,6 +335,16 @@ struct HasDeclaredDepFiles {
     input_signatures: Mutex<DepFileStateInputSignatures>,
 }
 
+/// Configuration-independent identity of a declared dep file: the tuple `check_action` compares to
+/// decide whether two actions declare the same dep files, ignoring tag identity and configuration.
+#[derive(Hash, PartialEq, Eq, Clone, Allocative)]
+struct DeclaredDepFileIdentity {
+    label: Arc<str>,
+    path: ForwardRelativePathBuf,
+    projected: ForwardRelativePathBuf,
+    is_content_based: bool,
+}
+
 /// The state that resulted from the previous evaluation of a command that produced dep files. This
 /// contains everything we need to determine whether re-evaluation is necessary (and if it isn't,
 /// to return the previous value).
@@ -895,7 +905,7 @@ pub(crate) async fn match_if_identical_action(
             cli_digest,
             declared_outputs,
             declared_dep_files,
-        );
+        )?;
 
         if actions_match == InitialDepFileLookupResult::Hit
             && outputs_are_still_present_in_materializer(ctx, &previous_state).await?
@@ -931,7 +941,7 @@ pub(crate) async fn match_if_identical_action(
             cli_digest,
             declared_outputs,
             declared_dep_files,
-        );
+        )?;
         if actions_match == InitialDepFileLookupResult::Hit {
             if !outputs_are_still_present_in_materializer(ctx, &candidate).await? {
                 return Ok((None, false));
@@ -1071,39 +1081,44 @@ fn check_action(
     cli_digest: &ExpandedCommandLineDigest,
     declared_outputs: &[BuildArtifact],
     declared_dep_files: &DeclaredDepFiles,
-) -> InitialDepFileLookupResult {
-    if !declared_dep_files.declares_same_dep_files(previous_state.declared_dep_files()) {
+) -> buck2_error::Result<InitialDepFileLookupResult> {
+    let previous_identities = previous_state
+        .declared_dep_files()
+        .map(DeclaredDepFiles::identities)
+        .transpose()?
+        .unwrap_or_default();
+    if declared_dep_files.identities()? != previous_identities {
         // We first need to check if the same dep files existed before or not. If not, then we
         // can't assume they'll still be on disk, and we have to bail.
         tracing::trace!("Dep files miss: Dep files declaration has changed");
         remove_dep_file_entry(key);
-        return InitialDepFileLookupResult::Miss;
+        return Ok(InitialDepFileLookupResult::Miss);
     }
 
     if !outputs_are_reusable(declared_outputs, &previous_state.result) {
         tracing::trace!("Dep files miss: Output declaration has changed");
         remove_dep_file_entry(key);
-        return InitialDepFileLookupResult::Miss;
+        return Ok(InitialDepFileLookupResult::Miss);
     }
 
     if *cli_digest != previous_state.digests.cli {
         tracing::trace!("Dep files miss: Command line has changed");
         remove_dep_file_entry(key);
-        return InitialDepFileLookupResult::Miss;
+        return Ok(InitialDepFileLookupResult::Miss);
     }
 
     if *local_worker_digest != previous_state.digests.local_worker_directory {
         tracing::trace!("Dep files miss: Local worker directory has changed");
         remove_dep_file_entry(key);
-        return InitialDepFileLookupResult::Miss;
+        return Ok(InitialDepFileLookupResult::Miss);
     }
 
     if *input_directory_digest == previous_state.digests.directory {
         // The actions are identical
         tracing::trace!("Dep files hit: Command line and directory have not changed");
-        return InitialDepFileLookupResult::Hit;
+        return Ok(InitialDepFileLookupResult::Hit);
     }
-    InitialDepFileLookupResult::CheckFilteredInputs
+    Ok(InitialDepFileLookupResult::CheckFilteredInputs)
 }
 
 async fn dep_files_match(
@@ -1125,7 +1140,7 @@ async fn dep_files_match(
         cli_digest,
         declared_outputs,
         declared_dep_files,
-    );
+    )?;
     if initial_check == InitialDepFileLookupResult::Hit {
         return Ok(true);
     }
@@ -1558,6 +1573,27 @@ struct DeclaredDepFile {
     output: Artifact,
 }
 
+impl DeclaredDepFile {
+    /// The configuration-independent identity of this declared dep file.
+    fn identity(&self) -> buck2_error::Result<DeclaredDepFileIdentity> {
+        let (base, projected) = self.output.as_parts();
+        match base {
+            BaseArtifactKind::Build(b) => {
+                let path = b.get_path();
+                Ok(DeclaredDepFileIdentity {
+                    label: self.label.dupe(),
+                    path: path.path().to_owned(),
+                    projected: projected.to_owned(),
+                    is_content_based: path.is_content_based_path(),
+                })
+            }
+            BaseArtifactKind::Source(_) => Err(internal_error!(
+                "dep-file output must be a build artifact, not a source artifact"
+            )),
+        }
+    }
+}
+
 /// All the dep files declared by a command;
 #[derive(Default, Debug, Allocative)]
 pub(crate) struct DeclaredDepFiles {
@@ -1691,60 +1727,19 @@ impl DeclaredDepFiles {
         Ok(Some(ConcreteDepFiles { contents }))
     }
 
-    /// Returns whether two `DeclaredDepFile` instances declare the same dep files.
+    /// The set of configuration-independent identities of the dep files this action declares.
     ///
-    /// Two dep files are considered equal when they share the same
-    /// configuration-independent identity:
-    ///   - dep-file label
-    ///   - target-relative output path (and whether that path is content-based)
-    ///
-    /// The tag identity is ignored, but both sides must declare the same
-    /// paths under the same name.
-    ///
-    /// This is a prerequisite for reusing dep files from a previous invocation.
-    fn declares_same_dep_files(&self, other: Option<&Self>) -> bool {
-        // We only compare `DepFileState`s that share the same target.
-        // Previous state is obtained from `DEP_FILES` using the same key,
-        // guaranteeing both sides have the same target
-        // (see: https://fburl.com/code/de5a9bko).
-        // The only part of the owner that can differ between the two is
-        // the configuration — which is intentionally ignored.
-        fn config_independent_key(
-            d: &DeclaredDepFile,
-        ) -> (&Arc<str>, &ForwardRelativePath, &ForwardRelativePath, bool) {
-            let (base, projected) = d.output.as_parts();
-            match base {
-                BaseArtifactKind::Build(b) => {
-                    let path = b.get_path();
-                    (
-                        &d.label,
-                        path.path(),
-                        projected,
-                        path.is_content_based_path(),
-                    )
-                }
-                BaseArtifactKind::Source(_) => {
-                    unreachable!("dep-file output must be a build artifact, not a source artifact")
-                }
-            }
-        }
-
-        match other {
-            None => self.tagged.is_empty(),
-            Some(other) => {
-                let this = self
-                    .tagged
-                    .values()
-                    .map(config_independent_key)
-                    .collect::<StdBuckHashSet<_>>();
-                let other = other
-                    .tagged
-                    .values()
-                    .map(config_independent_key)
-                    .collect::<StdBuckHashSet<_>>();
-                this == other
-            }
-        }
+    /// Two actions declare the same dep files iff their identity sets are equal (`==`). An identity
+    /// is the dep-file label, target-relative output path, projected path, and whether the path is
+    /// content-based; the tag identity and the configuration are intentionally ignored. Because
+    /// cached state is looked up by a key that already fixes the (unconfigured) target, comparing
+    /// these identities is sufficient to reuse dep files (or the whole action) from a previous
+    /// invocation, possibly under a different configuration.
+    fn identities(&self) -> buck2_error::Result<StdBuckHashSet<DeclaredDepFileIdentity>> {
+        self.tagged
+            .values()
+            .map(DeclaredDepFile::identity)
+            .collect()
     }
 }
 
@@ -2078,7 +2073,7 @@ mod tests {
     }
 
     #[test]
-    fn test_declares_same_dep_files() {
+    fn test_declares_same_dep_files() -> buck2_error::Result<()> {
         let target =
             ConfiguredTargetLabel::testing_parse("cell//pkg:foo", ConfigurationData::testing_new());
 
@@ -2129,14 +2124,15 @@ mod tests {
             tagged: OrderedMap::from_iter([(tag2.dupe(), depfile3.dupe())]),
         };
 
-        assert!(decl1.declares_same_dep_files(Some(&decl1)));
-        assert!(decl1.declares_same_dep_files(Some(&decl2)));
-        assert!(!decl2.declares_same_dep_files(Some(&decl3)));
-        assert!(!decl3.declares_same_dep_files(Some(&decl4)));
+        assert!(decl1.identities()? == decl1.identities()?);
+        assert!(decl1.identities()? == decl2.identities()?);
+        assert!(decl2.identities()? != decl3.identities()?);
+        assert!(decl3.identities()? != decl4.identities()?);
+        Ok(())
     }
 
     #[test]
-    fn test_declares_same_dep_files_across_configurations() {
+    fn test_declares_same_dep_files_across_configurations() -> buck2_error::Result<()> {
         // The same dep file declared under two different configurations compares equal: this is the
         // loosening that lets dep-file state be reused across target configurations.
         let make = |cfg: ConfigurationData, path: &str| DeclaredDepFiles {
@@ -2155,10 +2151,11 @@ mod tests {
 
         let cfg_a = make(ConfigurationData::testing_new(), "foo/bar.h");
         let cfg_b = make(ConfigurationData::unbound(), "foo/bar.h");
-        assert!(cfg_a.declares_same_dep_files(Some(&cfg_b)));
+        assert!(cfg_a.identities()? == cfg_b.identities()?);
 
         // A different output path is still not a match, even across configurations.
         let cfg_b_other = make(ConfigurationData::unbound(), "foo/other.h");
-        assert!(!cfg_a.declares_same_dep_files(Some(&cfg_b_other)));
+        assert!(cfg_a.identities()? != cfg_b_other.identities()?);
+        Ok(())
     }
 }
