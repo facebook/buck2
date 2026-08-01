@@ -13,8 +13,7 @@ use std::sync::Arc;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_error::BuckErrorContext;
 use buck2_fs::fs_util;
-use buck2_fs::paths::abs_norm_path::AbsNormPath;
-use buck2_fs::paths::file_name::FileName;
+use buck2_fs::paths::abs_path::AbsPath;
 
 use crate::settings::BuckSettings;
 use crate::settings::settings::BuckSettingsData;
@@ -26,25 +25,38 @@ enum SettingsError {
     Parse(toml::de::Error),
 }
 
-fn parse_file(path: &AbsNormPath) -> buck2_error::Result<BuckSettings> {
+/// Parses a settings file into an untyped table.
+fn parse_table(path: &AbsPath) -> buck2_error::Result<Option<toml::Table>> {
     let Some(content) = fs_util::read_to_string_if_exists(path)
-        .with_buck_error_context(|| format!("Reading `{}`", path))?
+        .with_buck_error_context(|| format!("Reading `{}`", path.display()))?
     else {
-        return Ok(BuckSettings::empty());
+        return Ok(None);
     };
 
-    let data: BuckSettingsData = toml::from_str(&content)
+    let table = toml::from_str::<toml::Table>(&content)
         .map_err(SettingsError::Parse)
-        .with_buck_error_context(|| format!("Parsing `{}`", path))?;
+        .with_buck_error_context(|| format!("Parsing `{}`", path.display()))?;
 
+    Ok(Some(table))
+}
+
+/// Deserializes a settings table into typed settings.
+pub(crate) fn resolve(table: toml::Table) -> buck2_error::Result<BuckSettings> {
+    let data: BuckSettingsData = table.try_into().map_err(SettingsError::Parse)?;
     Ok(BuckSettings(Arc::new(data)))
 }
 
-pub fn parse_repo_root(project_root: &ProjectRoot) -> buck2_error::Result<BuckSettings> {
-    let path = project_root
-        .root()
-        .join(FileName::unchecked_new(".bucksettings.toml"));
-    parse_file(&path)
+pub fn parse_settings(project_fs: &ProjectRoot) -> buck2_error::Result<BuckSettings> {
+    let path = project_fs.root().as_abs_path().join(".bucksettings.toml");
+    match parse_table(&path)? {
+        Some(table) => resolve(table),
+        None => Ok(BuckSettings::empty()),
+    }
+}
+
+#[cfg(test)]
+pub(crate) fn table(content: &str) -> toml::Table {
+    toml::from_str(content).unwrap()
 }
 
 #[cfg(test)]
@@ -54,64 +66,44 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_missing_repo_root() -> buck2_error::Result<()> {
+    fn test_parse_table_missing_file() -> buck2_error::Result<()> {
         let fs = ProjectRootTemp::new()?;
-        parse_repo_root(fs.path())?;
+        let path = fs.path().root().as_abs_path().join(".bucksettings.toml");
+        assert_eq!(parse_table(&path)?, None);
         Ok(())
     }
 
     #[test]
-    fn test_parse_empty_file() -> buck2_error::Result<()> {
+    fn test_parse_table_invalid_format() -> buck2_error::Result<()> {
         let fs = ProjectRootTemp::new()?;
-        fs.write_file(".bucksettings.toml", "");
-        parse_repo_root(fs.path())?;
-        Ok(())
-    }
-
-    #[test]
-    fn test_parse_invalid_format() -> buck2_error::Result<()> {
-        let fs = ProjectRootTemp::new()?;
+        let path = fs.path().root().as_abs_path().join(".bucksettings.toml");
         fs.write_file(".bucksettings.toml", "= broken");
-        assert!(parse_repo_root(fs.path()).is_err());
+        assert!(parse_table(&path).is_err());
         Ok(())
     }
 
     #[test]
-    fn test_parse_invalid_key() -> buck2_error::Result<()> {
+    fn test_parse_table() -> buck2_error::Result<()> {
         let fs = ProjectRootTemp::new()?;
-        fs.write_file(".bucksettings.toml", "unknown_key = true");
-        assert!(parse_repo_root(fs.path()).is_err());
+        let path = fs.path().root().as_abs_path().join(".bucksettings.toml");
+
+        fs.write_file(".bucksettings.toml", "");
+        assert_eq!(parse_table(&path)?, Some(toml::Table::new()));
+
+        let sectioned = "test_value = \"x\"\n[test_section]\ntest_flag = true";
+        fs.write_file(".bucksettings.toml", sectioned);
+        assert_eq!(parse_table(&path)?, Some(table(sectioned)));
+
         Ok(())
     }
 
     #[test]
-    fn test_parse_default_key() -> buck2_error::Result<()> {
-        let fs = ProjectRootTemp::new()?;
-        let settings = parse_repo_root(fs.path())?;
-        let expected = if cfg!(fbcode_build) {
-            None
-        } else {
-            Some(false)
-        };
-        assert_eq!(settings.log_use_manifold(), expected);
-        Ok(())
+    fn test_resolve_rejects_unknown_key() {
+        assert!(resolve(table("nonexistent = true")).is_err());
     }
 
     #[test]
-    fn test_parse_log_use_manifold() -> buck2_error::Result<()> {
-        let fs = ProjectRootTemp::new()?;
-        fs.write_file(".bucksettings.toml", "log_use_manifold = false");
-        let settings = parse_repo_root(fs.path())?;
-        assert_eq!(settings.log_use_manifold(), Some(false));
-        Ok(())
-    }
-
-    #[test]
-    fn test_parse_log_url() -> buck2_error::Result<()> {
-        let fs = ProjectRootTemp::new()?;
-        fs.write_file(".bucksettings.toml", "log_url = \"test.com\"");
-        let settings = parse_repo_root(fs.path())?;
-        assert_eq!(settings.log_url(), Some("test.com"));
-        Ok(())
+    fn test_resolve_rejects_invalid_type() {
+        assert!(resolve(table("log_use_manifold = \"invalid\"")).is_err());
     }
 }

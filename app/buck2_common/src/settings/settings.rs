@@ -70,3 +70,34 @@ impl BuckSettings {
             .or_else(|| LOG_URL.default_value())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::settings::parser::resolve;
+    use crate::settings::parser::table;
+
+    #[test]
+    fn test_default_log_use_manifold() {
+        let expected = if cfg!(fbcode_build) {
+            None
+        } else {
+            Some(false)
+        };
+        assert_eq!(BuckSettings::empty().log_use_manifold(), expected);
+    }
+
+    #[test]
+    fn test_log_use_manifold() -> buck2_error::Result<()> {
+        let settings = resolve(table("log_use_manifold = false"))?;
+        assert_eq!(settings.log_use_manifold(), Some(false));
+        Ok(())
+    }
+
+    #[test]
+    fn test_log_url() -> buck2_error::Result<()> {
+        let settings = resolve(table("log_url = \"test.com\""))?;
+        assert_eq!(settings.log_url(), Some("test.com"));
+        Ok(())
+    }
+}
