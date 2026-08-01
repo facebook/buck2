@@ -28,6 +28,7 @@ use pagable::PagableSerializer;
 use regex::Regex;
 use static_interner::Intern;
 use static_interner::interner;
+use strong_hash::StrongHash;
 
 /// Interned category data, representing a family of actions.
 #[derive(
@@ -37,6 +38,7 @@ use static_interner::interner;
     Eq,
     Hash,
     Allocative,
+    StrongHash,
     derive_more::Display,
     Pagable
 )]
@@ -54,6 +56,7 @@ interner!(CATEGORY_INTERNER, BuckHasher, CategoryData, String);
     Eq,
     Hash,
     Allocative,
+    StrongHash,
     derive_more::Display
 )]
 pub struct Category(Intern<CategoryData>);

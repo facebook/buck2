@@ -51,6 +51,7 @@ smallvec.workspace = true
 sorted_vector_map.workspace = true
 starlark.workspace = true
 starlark_map.workspace = true
+strong_hash.workspace = true
 tracing.workspace = true
 
 [lints]

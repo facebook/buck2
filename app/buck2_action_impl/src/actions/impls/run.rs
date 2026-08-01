@@ -132,6 +132,7 @@ use starlark::values::dict::AllocDict;
 use starlark::values::dict::DictRef;
 use starlark::values::dict::DictType;
 use starlark::values::starlark_value;
+use strong_hash::StrongHash;
 
 use self::dep_files::DepFileBundle;
 use crate::actions::impls::offline;
@@ -170,7 +171,7 @@ impl Display for MetadataParameter {
 }
 
 /// A key that uniquely identifies a RunAction.
-#[derive(Eq, PartialEq, Hash, Clone, Dupe, Display, Allocative)]
+#[derive(Eq, PartialEq, Hash, Clone, Dupe, Display, Allocative, StrongHash)]
 #[display(
     "{} {} {}",
     owner,
@@ -184,7 +185,7 @@ pub(crate) struct RunActionKey {
 }
 
 /// The configuration-independent identity of a `RunActionKey`
-#[derive(Eq, PartialEq, Hash, Clone, Dupe, Allocative)]
+#[derive(Eq, PartialEq, Hash, Clone, Dupe, Allocative, StrongHash)]
 pub(crate) enum LogicalActionKey {
     Configured {
         target: TargetLabel,
