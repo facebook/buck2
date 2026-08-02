@@ -12,7 +12,6 @@ import subprocess
 from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
@@ -68,10 +67,15 @@ async def test_requested_paths_are_sub_targets(buck: Buck) -> None:
 
 
 @buck_test()
-async def test_the_repository_itself_is_not_reachable(buck: Buck) -> None:
-    _init_repo(cwd=buck.cwd)
+async def test_git_dir_sub_target_is_a_repository(buck: Buck) -> None:
+    rev = _init_repo(cwd=buck.cwd)
 
-    await expect_failure(
-        buck.build("root//:fetch.git[.git]"),
-        stderr_regex="sub target named `.git`.*is not available",
+    res = await buck.build_without_report(
+        "root//:fetch.git[.git]", "--show-full-simple-output"
+    )
+    git_dir = Path(res.stdout.strip())
+
+    # Validate this is a proper .git tree
+    assert _git(["--git-dir", str(git_dir), "cat-file", "-t", rev], cwd=buck.cwd) == (
+        "commit"
     )
