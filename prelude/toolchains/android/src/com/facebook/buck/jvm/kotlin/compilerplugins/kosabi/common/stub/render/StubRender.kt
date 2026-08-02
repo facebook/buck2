@@ -74,7 +74,7 @@ private fun FileSpec.Builder.renderTopLevelDeclaration(stub: KStub) = apply {
       AnnotationSpec.builder(JvmName::class)
           .addMember("%S", stub.name)
           .useSiteTarget(AnnotationSpec.UseSiteTarget.FILE)
-          .build()
+          .build(),
   )
 
   stub.funStubs.map { it.renderFunction(isOpen = false) }.forEach { addFunction(it) }
@@ -107,7 +107,7 @@ private fun KStub.renderType(stubType: KStub.Type): TypeSpec {
                     if (annotation.attributesText.isNotEmpty())
                         addMember(CodeBlock.of(annotation.attributesText))
                   }
-                  .build()
+                  .build(),
           )
         }
         extends?.let {
@@ -119,7 +119,7 @@ private fun KStub.renderType(stubType: KStub.Type): TypeSpec {
         innerStubs
             .map {
               it.renderType(
-                  if (it.doNotRenderAsKotlinObject) it.type else it.returnObjectTypeIfNeeded()
+                  if (it.doNotRenderAsKotlinObject) it.type else it.returnObjectTypeIfNeeded(),
               )
             }
             .forEach { addType(it) }
@@ -201,7 +201,7 @@ private fun KFunStub.renderFunction(isOpen: Boolean = true): FunSpec {
               if (annotation.attributesText.isNotEmpty())
                   addMember(CodeBlock.of(annotation.attributesText))
             }
-            .build()
+            .build(),
     )
   }
 
@@ -234,7 +234,7 @@ private fun TypeSpec.Builder.stubDefaultCtor(ctorStub: KCtorStub?): TypeSpec.Bui
 
   ctorStub.namedArgs.forEach { (name, type) ->
     addProperty(
-        PropertySpec.builder(name, type.asTypeName()).initializer(name).mutable(true).build()
+        PropertySpec.builder(name, type.asTypeName()).initializer(name).mutable(true).build(),
     )
   }
 }

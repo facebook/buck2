@@ -83,14 +83,14 @@ class Ksp2Step(
         return StepExecutionResult(
             StepExecutionResults.ERROR_EXIT_CODE,
             Optional.of(
-                "${stderr.getContentsAsString(StandardCharsets.UTF_8)}\n${e.stackTraceToString()}For URLClassLoader LinkError similar to P1626402598, try adding affected class to FilteringClassLoader's allowlist. See D63143327"
+                "${stderr.getContentsAsString(StandardCharsets.UTF_8)}\n${e.stackTraceToString()}For URLClassLoader LinkError similar to P1626402598, try adding affected class to FilteringClassLoader's allowlist. See D63143327",
             ),
         )
       } catch (e: Throwable) {
         return StepExecutionResult(
             StepExecutionResults.ERROR_EXIT_CODE,
             Optional.of(
-                "${stderr.getContentsAsString(StandardCharsets.UTF_8)}\n${e.stackTraceToString()}"
+                "${stderr.getContentsAsString(StandardCharsets.UTF_8)}\n${e.stackTraceToString()}",
             ),
         )
       }
@@ -111,7 +111,7 @@ class Ksp2Step(
     val processorProviders =
         ServiceLoader.load(
                 processorClassloader.loadClass(
-                    "com.google.devtools.ksp.processing.SymbolProcessorProvider"
+                    "com.google.devtools.ksp.processing.SymbolProcessorProvider",
                 ),
                 processorClassloader,
             )
@@ -199,7 +199,7 @@ class Ksp2Step(
               |  removedSources = ${kspConfig.removedSources.joinToString()}
               |  changedClasses = ${kspConfig.changedClasses.joinToString()}
               |]"""
-            .trimMargin()
+            .trimMargin(),
     )
     // Run!
     val kotlinSymbolProcessing = KotlinSymbolProcessing(kspConfig, processorProviders, logger)
@@ -257,7 +257,7 @@ class Ksp2Step(
       } catch (exception: IOException) {
         logger.exception(exception)
         throw RuntimeException(
-            "Unable to expand sources for ${invokingRule.fullyQualifiedName} into $workingDirectory"
+            "Unable to expand sources for ${invokingRule.fullyQualifiedName} into $workingDirectory",
         )
       }
 
@@ -305,7 +305,7 @@ class Ksp2Step(
       val output = outputFuture.get()
       if (exitCode != 0) {
         throw RuntimeException(
-            "java binary exited with code $exitCode: $binary\n" + "Output: ${output.take(500)}"
+            "java binary exited with code $exitCode: $binary\n" + "Output: ${output.take(500)}",
         )
       }
       val match = JAVA_HOME_REGEX.find(output)
@@ -313,7 +313,7 @@ class Ksp2Step(
           match?.groupValues?.get(1)?.trim()
               ?: throw RuntimeException(
                   "Could not parse java.home from java binary output: $binary\n" +
-                      "Output (first 500 chars): ${output.take(500)}"
+                      "Output (first 500 chars): ${output.take(500)}",
               )
       return File(path)
     }

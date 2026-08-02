@@ -41,7 +41,7 @@ class InterfaceStubsGenerator : StubsGenerator {
         |  [Warning] ImportTypes not found
         |    - name: $qualifierList
       """
-                  .trimMargin()
+                  .trimMargin(),
           )
           continue
         }
@@ -61,7 +61,7 @@ class InterfaceStubsGenerator : StubsGenerator {
           |    - name: $pkg:$name
           |    - inners: $inners
         """
-                .trimMargin()
+                .trimMargin(),
         )
       }
     }

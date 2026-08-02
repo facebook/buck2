@@ -87,7 +87,7 @@ class InnerClassStubsGenerator : StubsGenerator {
                       |      - name: ${innerStub.pkg ?: ""}:${innerStub.name}
                       |      - type: ${innerStub.type.name}
                     """
-                            .trimMargin()
+                            .trimMargin(),
                     )
                   }
           innerQualifier = "${innerQualifier}.${qualifierPart}"
@@ -95,7 +95,7 @@ class InnerClassStubsGenerator : StubsGenerator {
         }
       }
           ?: Logger.log(
-              "  [Error] An error occurs to qualifier: $qualifier. We should have an outer $pkg:$name stub at this point"
+              "  [Error] An error occurs to qualifier: $qualifier. We should have an outer $pkg:$name stub at this point",
           )
     }
   }

@@ -123,7 +123,7 @@ data class BuildTargetValueExtraParams(
       if (!matcher.matches()) {
         throw RuntimeException(
             "Can't reconstruct extra params from fullyQualifiedName: " +
-                buildTargetValue.fullyQualifiedName
+                buildTargetValue.fullyQualifiedName,
         )
       }
       val basePath = matcher.group(2)

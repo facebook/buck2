@@ -66,7 +66,7 @@ class GenericStubsGenerator : StubsGenerator {
           |    - name: $pkg:${name.first()}
           |    - inner class names: $innerClassNames
         """
-                .trimMargin()
+                .trimMargin(),
         )
       }
     }

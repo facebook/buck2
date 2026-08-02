@@ -32,7 +32,7 @@ class DepFileUtilsTest {
             "/path/to/C.jar" to setOf("Class3.class", "Class1.class"),
             "/path/to/A.jar" to setOf("ClassA.class"),
             "/path/to/B.jar" to setOf("ClassB.class"),
-        )
+        ),
     )
     val depFileOutput = tempFolder.newFile("dep-file.txt").toPath()
 
@@ -71,7 +71,7 @@ class DepFileUtilsTest {
             "/path/to/C.jar" to setOf("Class3.class", "Class1.class"),
             "/path/to/A.jar" to setOf("ClassA.class"),
             "/path/to/D.jar" to setOf("ClassD.class"),
-        )
+        ),
     )
 
     DepFileUtils.usedClassesToDepFile(
@@ -94,7 +94,7 @@ class DepFileUtilsTest {
             "/path/to/C.jar" to setOf("Class3.class", "Class1.class"),
             "/path/to/A.jar" to setOf("ClassZ.class"),
             "/path/to/B.jar" to setOf("ClassB.class"),
-        )
+        ),
     )
     val jarToJarDirMapPath = tempFolder.newFile("jar-to-dir-map.txt").toPath()
     Files.write(
@@ -127,7 +127,7 @@ class DepFileUtilsTest {
             "/path/to/C.jar" to setOf("Class3.class", "Class1.class"),
             "/path/to/A.jar" to setOf("ClassA.class"),
             "/path/to/B.jar" to setOf("ClassB.class"),
-        )
+        ),
     )
     val usedJarsOutput = tempFolder.newFile("used-jars.txt").toPath()
 
@@ -154,7 +154,7 @@ class DepFileUtilsTest {
             "/path/to/C.jar" to setOf("Class3.class", "Class2.class"),
             "/path/to/A.jar" to setOf("ClassA.class"),
             "/path/to/B.jar" to setOf("ClassB.class"),
-        )
+        ),
     )
     val usedJarsOutput = tempFolder.newFile("used-jars.txt").toPath()
 

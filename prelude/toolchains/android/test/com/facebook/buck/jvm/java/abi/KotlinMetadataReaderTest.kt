@@ -148,7 +148,7 @@ class KotlinMetadataReaderTest {
         val entry =
             jarFile.getJarEntry(classEntryName)
                 ?: throw AssertionError(
-                    "Expected class entry $classEntryName not found in compiled JAR"
+                    "Expected class entry $classEntryName not found in compiled JAR",
                 )
 
         val classNode = ClassNode(Opcodes.ASM9)

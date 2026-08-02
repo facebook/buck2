@@ -104,12 +104,12 @@ class AndroidDeviceImplTest {
         .thenReturn("Package manager is ready")
     // Mock storage ready check
     whenever(
-            mockAdbUtils.executeAdbShellCommand(
-                "ls /storage/emulated/0 2>&1 || echo STORAGE_NOT_READY",
-                serialNumber,
-                true,
-            )
-        )
+        mockAdbUtils.executeAdbShellCommand(
+            "ls /storage/emulated/0 2>&1 || echo STORAGE_NOT_READY",
+            serialNumber,
+            true,
+        ),
+    )
         .thenReturn("Android\nDownload\nPictures")
 
     val result = androidDevice.installApexOnDevice(apexFile, false, true, true, true)
@@ -211,18 +211,18 @@ class AndroidDeviceImplTest {
   fun testGetApkManifestDigest() {
     val packagePath = "/data/app/com.test.app-1/base.apk"
     whenever(
-            mockAdbUtils.executeAdbShellCommand(
-                "unzip -l $packagePath | grep -E -o 'META-INF/[A-Z]+\\.SF'",
-                serialNumber,
-            )
-        )
+        mockAdbUtils.executeAdbShellCommand(
+            "unzip -l $packagePath | grep -E -o 'META-INF/[A-Z]+\\.SF'",
+            serialNumber,
+        ),
+    )
         .thenReturn("META-INF/CERT.SF")
     whenever(
-            mockAdbUtils.executeAdbShellCommand(
-                "unzip -p $packagePath META-INF/CERT.SF | grep -E 'SHA1-Digest-Manifest:|SHA-256-Digest-Manifest:'",
-                serialNumber,
-            )
-        )
+        mockAdbUtils.executeAdbShellCommand(
+            "unzip -p $packagePath META-INF/CERT.SF | grep -E 'SHA1-Digest-Manifest:|SHA-256-Digest-Manifest:'",
+            serialNumber,
+        ),
+    )
         .thenReturn("SHA1-Digest-Manifest: abcdef1234567890")
 
     val result = androidDevice.getApkManifestDigest(packagePath)
@@ -268,11 +268,11 @@ class AndroidDeviceImplTest {
   @Test
   fun testGetDiskSpace() {
     whenever(
-            mockAdbUtils.executeAdbShellCommand(
-                "df -h /data | awk '{print $2, $3, $4}'",
-                serialNumber,
-            )
-        )
+        mockAdbUtils.executeAdbShellCommand(
+            "df -h /data | awk '{print $2, $3, $4}'",
+            serialNumber,
+        ),
+    )
         .thenReturn("Size Used Available\n64G 32G 32G")
 
     val result = androidDevice.getDiskSpace()
@@ -470,7 +470,7 @@ class AndroidDeviceImplTest {
             throw AdbCommandFailedException(
                 "Executing 'adb $installCommand' on $serialNumber failed with code 1.\nError:\n" +
                     "Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE: Existing package " +
-                    "com.meta.ar.helixserver signatures do not match newer version; ignoring!]"
+                    "com.meta.ar.helixserver signatures do not match newer version; ignoring!]",
             )
           }
           ""
@@ -506,7 +506,7 @@ class AndroidDeviceImplTest {
     val installCommand = "install -r -d /path/to/test.apk"
     doAnswer {
           throw AdbCommandFailedException(
-              "Failure [INSTALL_FAILED_INSUFFICIENT_STORAGE: Not enough space]"
+              "Failure [INSTALL_FAILED_INSUFFICIENT_STORAGE: Not enough space]",
           )
         }
         .whenever(mockAdbUtils)
@@ -529,7 +529,7 @@ class AndroidDeviceImplTest {
   fun testClassifiesAndroidInsufficientStorageErrorCode() {
     val error =
         AndroidInstallErrorClassifier.fromErrorMessage(
-            "Failure [INSTALL_FAILED_INSUFFICIENT_STORAGE: Failed to override installation location]"
+            "Failure [INSTALL_FAILED_INSUFFICIENT_STORAGE: Failed to override installation location]",
         )
 
     assertEquals(setOf(AndroidInstallErrorTag.NO_SPACE_LEFT_ON_DEVICE), error.tags)

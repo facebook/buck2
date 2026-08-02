@@ -25,7 +25,7 @@ import java.util.jar.JarFile
  */
 @Suppress("detekt.SwallowedException")
 fun parseClasspathFileClassesAndPackages(
-    classpath: List<File>
+    classpath: List<File>,
 ): Pair<Set<FullTypeQualifier>, Set<List<String>>> {
   val outerFTQs = mutableSetOf<FullTypeQualifier>()
   val pkgs = mutableSetOf<List<String>>()

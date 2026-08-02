@@ -103,7 +103,7 @@ internal class SourceTokenCounterTest {
 
     // Same code with added comments and extra whitespace — should yield same count
     ktFile.writeText(
-        "// line comment\nval   x   =   1 /* block comment */ /** doc comment */\n// trailing"
+        "// line comment\nval   x   =   1 /* block comment */ /** doc comment */\n// trailing",
     )
     val commentedResult =
         SourceTokenCounter.countTokens(listOf(Path.of("Commented.kt")), tempDir.root.toPath())

@@ -51,7 +51,7 @@ class SamePackageClassStubsGenerator : StubsGenerator {
                 context.declaredTypes +
                 autoImportedExternalTypes +
                 context.fullQualifierTypes)
-            .flatMap { it.segments + it.names }
+            .flatMap { it.segments + it.names },
     )
 
     // Alias & type parameter names
@@ -61,7 +61,7 @@ class SamePackageClassStubsGenerator : StubsGenerator {
     allKnownSymbols.addAll(
         context.annotationEntries
             .mapNotNull { it.typeReference?.getChildOfType<KtUserType>() }
-            .mapNotNull { it.referencedName }
+            .mapNotNull { it.referencedName },
     )
 
     val maybeUnknownClasses =

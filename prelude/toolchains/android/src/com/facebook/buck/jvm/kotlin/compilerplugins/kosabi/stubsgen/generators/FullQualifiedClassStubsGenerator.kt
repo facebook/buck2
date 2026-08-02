@@ -44,7 +44,7 @@ class FullQualifiedClassStubsGenerator : StubsGenerator {
                       |      - name: ${innerStub.pkg ?: ""}:${innerStub.name}
                       |      - type: ${innerStub.type.name}
                     """
-                              .trimMargin()
+                              .trimMargin(),
                       )
                     }
             stubToEdit = innerStub

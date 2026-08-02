@@ -206,7 +206,7 @@ object StubBytecodeRender {
                           classifier = KmClassifier.Class(ANY_CLASSIFIER)
                           isNullable = true
                         }
-                  }
+                  },
               )
             }
             signature = fn.signature

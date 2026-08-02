@@ -65,14 +65,14 @@ class BuildToolsKotlinc : Kotlinc {
     LOG.info(
         "[KotlinC Toolchain Build Step from for target:${invokingRule.fullyQualifiedName} type:${invokingRule.type}] " +
             "Running ${CompilationService::class.java.name} ${getIncrementalInfoMessage(mode)} " +
-            "with arguments:[${compilerArgs.joinToString()}] "
+            "with arguments:[${compilerArgs.joinToString()}] ",
     )
 
     // Machine-parseable log entry for tooling
     // Format: KOTLINCD_INVOCATION|target|type|incremental|arg_count
     // Followed by: KOTLINCD_ARG|<arg> for each argument
     LOG.info(
-        "KOTLINCD_INVOCATION|${invokingRule.fullyQualifiedName}|${invokingRule.type}|${getIncrementalInfoMessage(mode)}|${compilerArgs.size}"
+        "KOTLINCD_INVOCATION|${invokingRule.fullyQualifiedName}|${invokingRule.type}|${getIncrementalInfoMessage(mode)}|${compilerArgs.size}",
     )
     compilerArgs.forEach { arg -> LOG.info("KOTLINCD_ARG|$arg") }
 
@@ -102,7 +102,7 @@ class BuildToolsKotlinc : Kotlinc {
     val gcDeltaCount = gcAfter.second - gcBefore.second
 
     LOG.info(
-        "KOTLINCD_TIMING|${invokingRule.fullyQualifiedName}|args_ms=$argsMs|classloader_ms=$classLoaderMs|service_load_ms=$serviceLoadMs|compile_ms=$compileMs|gc_time_ms=$gcDeltaMs|gc_count=$gcDeltaCount"
+        "KOTLINCD_TIMING|${invokingRule.fullyQualifiedName}|args_ms=$argsMs|classloader_ms=$classLoaderMs|service_load_ms=$serviceLoadMs|compile_ms=$compileMs|gc_time_ms=$gcDeltaMs|gc_count=$gcDeltaCount",
     )
 
     return result.toExitCode.code
@@ -153,7 +153,7 @@ class BuildToolsKotlinc : Kotlinc {
     val expandMs = (System.nanoTime() - expandStart) / 1_000_000
     if (expandMs > 100) {
       LOG.info(
-          "KOTLINCD_SOURCE_EXPAND|${invokingRule.fullyQualifiedName}|expand_ms=$expandMs|source_count=${expandedSources.size}"
+          "KOTLINCD_SOURCE_EXPAND|${invokingRule.fullyQualifiedName}|expand_ms=$expandMs|source_count=${expandedSources.size}",
       )
     }
 
@@ -211,7 +211,7 @@ class BuildToolsKotlinc : Kotlinc {
       } catch (exception: IOException) {
         LOG.error(exception)
         throw RuntimeException(
-            "Unable to expand sources for ${invokingRule.fullyQualifiedName} into $workingDirectory"
+            "Unable to expand sources for ${invokingRule.fullyQualifiedName} into $workingDirectory",
         )
       }
 

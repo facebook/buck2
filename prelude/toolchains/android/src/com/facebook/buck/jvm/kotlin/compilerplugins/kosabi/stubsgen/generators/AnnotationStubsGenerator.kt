@@ -52,7 +52,7 @@ class AnnotationStubsGenerator : StubsGenerator {
             |    - name: $pkg:$name
             |    - inners: $inners
           """
-                      .trimMargin()
+                      .trimMargin(),
               )
             }
           } else {
@@ -61,7 +61,7 @@ class AnnotationStubsGenerator : StubsGenerator {
                 """
           |  [Warning] ImportTypes not found
           |    - name: $genFullQualifier
-          """
+          """,
             )
           }
         }

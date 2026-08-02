@@ -265,7 +265,7 @@ internal class KotlinCompilationServiceTest {
             ),
         mode =
             createIncrementalMode(
-                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot))
+                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot)),
             ),
     )
     val initialClassTimestamps = getClassModificationTimes()
@@ -291,7 +291,7 @@ internal class KotlinCompilationServiceTest {
             ),
         mode =
             createIncrementalMode(
-                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot))
+                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot)),
             ),
     )
     val postCompilationTimestamps = getClassModificationTimes()
@@ -321,7 +321,7 @@ internal class KotlinCompilationServiceTest {
             ),
         mode =
             createIncrementalMode(
-                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot))
+                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot)),
             ),
     )
     resetClassModificationTimesToSentinel()
@@ -347,7 +347,7 @@ internal class KotlinCompilationServiceTest {
             ),
         mode =
             createIncrementalMode(
-                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot))
+                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot)),
             ),
     )
     val postCompilationTimestamps = getClassModificationTimes()
@@ -377,7 +377,7 @@ internal class KotlinCompilationServiceTest {
             ),
         mode =
             createIncrementalMode(
-                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot))
+                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot)),
             ),
     )
     val initialClassTimestamps = getClassModificationTimes()
@@ -403,7 +403,7 @@ internal class KotlinCompilationServiceTest {
             ),
         mode =
             createIncrementalMode(
-                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot))
+                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot)),
             ),
     )
     val postCompilationTimestamps = getClassModificationTimes()
@@ -433,7 +433,7 @@ internal class KotlinCompilationServiceTest {
             ),
         mode =
             createIncrementalMode(
-                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot))
+                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot)),
             ),
     )
     resetClassModificationTimesToSentinel()
@@ -459,7 +459,7 @@ internal class KotlinCompilationServiceTest {
             ),
         mode =
             createIncrementalMode(
-                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot))
+                ClasspathChanges.ToBeComputedByIncrementalCompiler(ImmutableList.of(snapshot)),
             ),
     )
     val postCompilationTimestamps = getClassModificationTimes()
@@ -480,12 +480,12 @@ internal class KotlinCompilationServiceTest {
     val stdlibLocation =
         AbsPath.of(
             File(
-                    checkNotNull(System.getenv(KOTLIN_STDLIB_JAR_ENV)) {
-                      "$KOTLIN_STDLIB_JAR_ENV env var is not set"
-                    }
-                )
+                checkNotNull(System.getenv(KOTLIN_STDLIB_JAR_ENV)) {
+                  "$KOTLIN_STDLIB_JAR_ENV env var is not set"
+                },
+            )
                 .toPath()
-                .absolute()
+                .absolute(),
         )
 
     return buildList {
@@ -502,7 +502,7 @@ internal class KotlinCompilationServiceTest {
   }
 
   private fun createIncrementalMode(
-      classPathChanges: ClasspathChanges = ClasspathChanges.NoChanges(ImmutableList.of())
+      classPathChanges: ClasspathChanges = ClasspathChanges.NoChanges(ImmutableList.of()),
   ) =
       KotlincMode.Incremental(
           rootProjectDir = temporaryFolder.root,

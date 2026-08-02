@@ -134,7 +134,7 @@ internal class FirMetadataSanitizerStage : AbiGenStage {
           }
 
           private fun stripThrowsAndErrorAnnotationsFromDeclaration(
-              declaration: IrDeclarationBase
+              declaration: IrDeclarationBase,
           ) {
             val metadataSourceOwner = declaration as? IrMetadataSourceOwner ?: return
             val metadataSource = metadataSourceOwner.metadata ?: return
@@ -147,7 +147,7 @@ internal class FirMetadataSanitizerStage : AbiGenStage {
           // --- @Throws stripping helpers ---
 
           private fun stripThrowsFromFirDeclaration(
-              declaration: org.jetbrains.kotlin.fir.declarations.FirDeclaration?
+              declaration: org.jetbrains.kotlin.fir.declarations.FirDeclaration?,
           ) {
             if (declaration == null) return
 
@@ -238,7 +238,7 @@ internal class FirMetadataSanitizerStage : AbiGenStage {
           // --- Annotation error stripping helpers ---
 
           private fun stripAnnotationsWithErrorsFromFirDeclaration(
-              declaration: org.jetbrains.kotlin.fir.declarations.FirDeclaration?
+              declaration: org.jetbrains.kotlin.fir.declarations.FirDeclaration?,
           ) {
             if (declaration == null) return
 
@@ -373,7 +373,7 @@ internal class FirMetadataSanitizerStage : AbiGenStage {
           }
 
           private fun getPrivateClassIdFromTypeRef(
-              typeRef: org.jetbrains.kotlin.fir.types.FirTypeRef
+              typeRef: org.jetbrains.kotlin.fir.types.FirTypeRef,
           ): ClassId? {
             val coneType =
                 (typeRef as? org.jetbrains.kotlin.fir.types.FirResolvedTypeRef)?.coneType
@@ -563,7 +563,7 @@ internal class FirMetadataSanitizerStage : AbiGenStage {
                   hasError = true
                 }
               }
-            }
+            },
         )
         hasError
       }
@@ -642,7 +642,7 @@ internal class FirMetadataSanitizerStage : AbiGenStage {
     }
 
     private fun stripAnnotationsWithErrors(
-        declaration: org.jetbrains.kotlin.fir.declarations.FirDeclaration
+        declaration: org.jetbrains.kotlin.fir.declarations.FirDeclaration,
     ) {
       try {
         val annotationsField = findFieldInHierarchy(declaration.javaClass, "annotations") ?: return

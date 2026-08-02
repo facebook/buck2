@@ -74,7 +74,7 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
         }
         LOG.warn(
             "Install of ${apk.name} failed because $conflictingPackage is already installed with a" +
-                " mismatched signature; uninstalling it and retrying the install."
+                " mismatched signature; uninstalling it and retrying the install.",
         )
         executeAdbCommandCatching(
             "uninstall $conflictingPackage",
@@ -89,7 +89,7 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
     val userSuffix = if (userId != null) " for user $userId" else ""
     val kbps = (apk.length() / 1024.0) / (elapsed / 1000.0)
     LOG.info(
-        "Installed ${apk.name}$userSuffix (${apk.length()} bytes) in ${elapsed/1000.0} s ($kbps kB/s)"
+        "Installed ${apk.name}$userSuffix (${apk.length()} bytes) in ${elapsed/1000.0} s ($kbps kB/s)",
     )
     return true
   }
@@ -153,7 +153,7 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
       } catch (e: AdbCommandFailedException) {
         if ((e.message ?: "").contains("INSTALL_FAILED_VERIFICATION_FAILURE: Staged session ")) {
           throw AndroidInstallException.rebootRequired(
-              "Device is already staged; You need to run 'adb reboot' on your device."
+              "Device is already staged; You need to run 'adb reboot' on your device.",
           )
         }
 
@@ -161,7 +161,7 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
         // retry without the --force-non-staged flag. Then reboot automatically.
         if (
             (e.message ?: "").contains(
-                "INSTALL_FAILED_INTERNAL_ERROR: APEX installation failed: Set of native libs required"
+                "INSTALL_FAILED_INTERNAL_ERROR: APEX installation failed: Set of native libs required",
             )
         ) {
           // try install again without --force-non-staged
@@ -173,7 +173,7 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
               "Installed ${apex.name} on device; however --force-non-staged doesn't work when the" +
                   " native lib dependencies of an apex have changed. You need to run 'adb" +
                   " reboot' on your device to complete the install. See also:" +
-                  " https://www.internalfb.com/intern/wiki/RL/RL_Release_and_Reliability/Build_and_Release_Infra/APEX_in_fbsource/Pit_falls/"
+                  " https://www.internalfb.com/intern/wiki/RL/RL_Release_and_Reliability/Build_and_Release_Infra/APEX_in_fbsource/Pit_falls/",
           )
         }
 
@@ -182,7 +182,7 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
         if ((e.message ?: "").contains("INSTALL_FAILED_PACKAGE_CHANGED")) {
           LOG.info(
               "INSTALL_FAILED_PACKAGE_CHANGED for ${apex.name}, " +
-                  "attempting fallback install via remount and push"
+                  "attempting fallback install via remount and push",
           )
           try {
             // Remount so that we can write to /system_ext/apex
@@ -228,7 +228,7 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
             "--force-non-staged is not available on device" +
                 "(is the device running an older build?); " +
                 "${apex.name} was installed successfully but will not be active until " +
-                "you run 'adb reboot' on your device"
+                "you run 'adb reboot' on your device",
         )
       }
 
@@ -245,7 +245,7 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
           }
         } catch (e: AdbCommandFailedException) {
           throw AndroidInstallException.rebootRequired(
-              "Failed to stop+start shell; ${apex.name} was installed successfully but device will be in an unknown state until you run 'adb reboot'"
+              "Failed to stop+start shell; ${apex.name} was installed successfully but device will be in an unknown state until you run 'adb reboot'",
           )
         }
       }
@@ -351,10 +351,9 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
   override fun getApkManifestDigest(packagePath: String): String {
     val entry: String =
         executeAdbShellCommand("unzip -l $packagePath | grep -E -o 'META-INF/[A-Z]+\\.SF'").trim()
-    val result: String =
-        executeAdbShellCommand(
-            "unzip -p $packagePath $entry | grep -E 'SHA1-Digest-Manifest:|SHA-256-Digest-Manifest:'"
-        )
+    val result: String = executeAdbShellCommand(
+        "unzip -p $packagePath $entry | grep -E 'SHA1-Digest-Manifest:|SHA-256-Digest-Manifest:'",
+    )
     val (_, digest) = result.split(":", limit = 2)
     return digest.trim()
   }
@@ -384,7 +383,7 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
       val tempFile = File.createTempFile("files_to_delete", ".txt")
       try {
         tempFile.writeText(
-            filesToDelete.joinToString("\n") { Paths.get(dirPath).resolve(it).toString() }
+            filesToDelete.joinToString("\n") { Paths.get(dirPath).resolve(it).toString() },
         )
         executeAdbCommand("push -z brotli ${tempFile.absolutePath} /data/local/tmp")
         executeAdbShellCommand("cat /data/local/tmp/${tempFile.name} | xargs rm -f")

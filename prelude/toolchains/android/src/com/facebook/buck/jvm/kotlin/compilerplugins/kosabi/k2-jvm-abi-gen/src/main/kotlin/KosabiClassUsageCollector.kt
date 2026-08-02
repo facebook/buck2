@@ -194,7 +194,7 @@ class KosabiClassUsageCollector {
     }
 
     override fun visitQualifiedAccessExpression(
-        qualifiedAccessExpression: FirQualifiedAccessExpression
+        qualifiedAccessExpression: FirQualifiedAccessExpression,
     ) {
       // Record the type of the expression itself
       try {
@@ -266,7 +266,7 @@ class KosabiClassUsageCollector {
     }
 
     override fun visitConstructor(
-        constructor: org.jetbrains.kotlin.fir.declarations.FirConstructor
+        constructor: org.jetbrains.kotlin.fir.declarations.FirConstructor,
     ) {
       for (valueParameter in constructor.valueParameters) {
         recordType(valueParameter.returnTypeRef.coneType, session)
@@ -296,7 +296,7 @@ class KosabiClassUsageCollector {
       return try {
         val clpClass =
             Class.forName(
-                "com.facebook.kotlin.compilerplugins.usedclasses.cli.DependencyTrackerCommandLineProcessor"
+                "com.facebook.kotlin.compilerplugins.usedclasses.cli.DependencyTrackerCommandLineProcessor",
             )
         val companionField = clpClass.getDeclaredField("Companion")
         val companion = companionField.get(null)

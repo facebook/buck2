@@ -46,6 +46,6 @@ fun generateFakeKtFile(project: Project, renderedKStub: RenderedKStub): FakeKtFi
           .createFile(
               "kosabi_stub.${if (renderedKStub.stub.pkg?.isNotEmpty() == true) "${renderedKStub.stub.pkg}." else ""}${renderedKStub.stub.name}.kt",
               renderedKStub.render,
-          )
+          ),
   )
 }

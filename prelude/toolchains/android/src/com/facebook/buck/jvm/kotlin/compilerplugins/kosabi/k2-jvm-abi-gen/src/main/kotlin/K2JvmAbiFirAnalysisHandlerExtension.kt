@@ -136,7 +136,7 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
       val module =
           updatedConfiguration[JVMConfigurationKeys.MODULES]?.single()
               ?: error(
-                  "Single module expected: ${updatedConfiguration[JVMConfigurationKeys.MODULES]}"
+                  "Single module expected: ${updatedConfiguration[JVMConfigurationKeys.MODULES]}",
               )
 
       val sourceFiles = createSourceFilesFromSourceRoots(
@@ -260,7 +260,7 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
     }
 
     override fun visitConstructor(
-        constructor: org.jetbrains.kotlin.fir.declarations.FirConstructor
+        constructor: org.jetbrains.kotlin.fir.declarations.FirConstructor,
     ) {
       // Check parameter types
       for (valueParameter in constructor.valueParameters) {
@@ -495,7 +495,7 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
                   declaration.accept(this)
                 }
               }
-            }
+            },
         )
       }
     }
@@ -718,7 +718,7 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
         if (buildFilePath != null && Logger.isInitialized()) {
           Logger.getInstance(KotlinCoreEnvironment::class.java)
               .warn(
-                  "$message\n\nbuild file path: $buildFilePath\ncontent:\n${buildFilePath.readText()}"
+                  "$message\n\nbuild file path: $buildFilePath\ncontent:\n${buildFilePath.readText()}",
               )
         }
 
@@ -1202,7 +1202,7 @@ class MissingConstantDeclarationGenerationExtension(
             Modality.FINAL,
             EffectiveVisibility.Public,
         )
-            .apply { isStatic = true }
+            .apply { isStatic = true },
     )
     return createdClass.symbol
   }
@@ -1282,7 +1282,7 @@ class MissingConstantDeclarationGenerationExtension(
                                 decl.valueParameters.map { param ->
                                   param.name to param.returnTypeRef.coneType
                                 },
-                        )
+                        ),
                     )
                   }
                 }
@@ -1351,7 +1351,7 @@ class MissingConstantDeclarationGenerationExtension(
             Visibilities.Public,
             Modality.FINAL,
             EffectiveVisibility.Public,
-        )
+        ),
     )
 
     return listOf(function.symbol)
@@ -1382,7 +1382,7 @@ class MissingConstantDeclarationGenerationExtension(
             Modality.FINAL,
             EffectiveVisibility.Public,
         )
-            .apply { isConst = true }
+            .apply { isConst = true },
     )
     property.replaceInitializer(
         buildLiteralExpression(
@@ -1390,7 +1390,7 @@ class MissingConstantDeclarationGenerationExtension(
             kind = ConstantValueKind.String,
             value = "",
             setType = true,
-        )
+        ),
     )
     return property.symbol
   }

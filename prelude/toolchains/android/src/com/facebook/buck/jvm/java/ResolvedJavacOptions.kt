@@ -33,7 +33,7 @@ data class ResolvedJavacOptions(
     get() = !javaAnnotationProcessorParams.isEmpty
 
   fun withJavaAnnotationProcessorParams(
-      javaAnnotationProcessorParams: JavacPluginParams
+      javaAnnotationProcessorParams: JavacPluginParams,
   ): ResolvedJavacOptions {
     if (this.javaAnnotationProcessorParams == javaAnnotationProcessorParams) {
       return this
@@ -180,7 +180,7 @@ data class ResolvedJavacOptions(
           bootclasspathList
               .stream()
               .map(RelPath::toString)
-              .collect(Collectors.joining(File.pathSeparator))
+              .collect(Collectors.joining(File.pathSeparator)),
       )
     }
   }

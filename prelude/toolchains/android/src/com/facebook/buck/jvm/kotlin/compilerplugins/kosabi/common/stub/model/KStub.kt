@@ -24,7 +24,7 @@ class KStub(val pkg: String?, val name: String) {
       |    - name: $pkg:$name
       |    - type: ${field.name} -> ${value.name}
     """
-              .trimMargin()
+              .trimMargin(),
       )
       field = value
     }
@@ -39,7 +39,7 @@ class KStub(val pkg: String?, val name: String) {
       |    - type: ${type.name}
       |    - genericTypes: $field -> $value
     """
-                .trimMargin()
+                .trimMargin(),
         )
       }
       field = value
@@ -53,7 +53,7 @@ class KStub(val pkg: String?, val name: String) {
         |    - name: $pkg:$name
         |    - type: ${type.name}
         |    - ctorParams: $field -> $value
-      """
+      """,
       )
       field = value
     }

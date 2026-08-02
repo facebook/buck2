@@ -85,7 +85,7 @@ internal class KotlinCDLoggerAnalyticsTest {
     val expectedEntry = createExpectedKotlinCDLogEntry(extras = """{"testKey": ["testValue"]}""")
 
     kotlinCDAnalytics.log(
-        createKotlinCDLoggingContext(extras = mapOf("testKey" to listOf("testValue")))
+        createKotlinCDLoggingContext(extras = mapOf("testKey" to listOf("testValue"))),
     )
 
     verify(kotlinCDLogger, times(1)).log(expectedEntry)
@@ -99,8 +99,8 @@ internal class KotlinCDLoggerAnalyticsTest {
 
     kotlinCDAnalytics.log(
         createKotlinCDLoggingContext(
-            extras = mapOf("testKey" to listOf("testValue1", "testValue2"))
-        )
+            extras = mapOf("testKey" to listOf("testValue1", "testValue2")),
+        ),
     )
 
     verify(kotlinCDLogger, times(1)).log(expectedEntry)
@@ -109,11 +109,10 @@ internal class KotlinCDLoggerAnalyticsTest {
   @Test
   fun `when extras contains a list of key-list pairs, correct json data are logged`() {
     val kotlinCDAnalytics = createFakeKotlinCDAnalytics()
-    val expectedEntry =
-        createExpectedKotlinCDLogEntry(
-            extras =
-                """{"testKey1": ["testValue1", "testValue2"], "testKey2": ["testValue3", "testValue4"]}"""
-        )
+    val expectedEntry = createExpectedKotlinCDLogEntry(
+        extras =
+            """{"testKey1": ["testValue1", "testValue2"], "testKey2": ["testValue3", "testValue4"]}""",
+    )
 
     kotlinCDAnalytics.log(
         createKotlinCDLoggingContext(
@@ -121,8 +120,8 @@ internal class KotlinCDLoggerAnalyticsTest {
                 mapOf(
                     "testKey1" to listOf("testValue1", "testValue2"),
                     "testKey2" to listOf("testValue3", "testValue4"),
-                )
-        )
+                ),
+        ),
     )
 
     verify(kotlinCDLogger, times(1)).log(expectedEntry)
@@ -141,8 +140,8 @@ internal class KotlinCDLoggerAnalyticsTest {
                     ClasspathChangesParam.NO_CHANGES,
                     setOf(AbsPath.get("/B"), AbsPath.get("/A")),
                     emptySet(),
-                )
-        )
+                ),
+        ),
     )
 
     verify(kotlinCDLogger, times(1)).log(expectedEntry)
@@ -161,8 +160,8 @@ internal class KotlinCDLoggerAnalyticsTest {
                     ClasspathChangesParam.NO_CHANGES,
                     emptySet(),
                     setOf(AbsPath.get("/B"), AbsPath.get("/A")),
-                )
-        )
+                ),
+        ),
     )
 
     verify(kotlinCDLogger, times(1)).log(expectedEntry)
@@ -175,7 +174,7 @@ internal class KotlinCDLoggerAnalyticsTest {
         createExpectedKotlinCDLogEntry(numKotlinTokens = 1000L, numJavaTokens = 500L)
 
     kotlinCDAnalytics.log(
-        createKotlinCDLoggingContext(numKotlinTokens = 1000L, numJavaTokens = 500L)
+        createKotlinCDLoggingContext(numKotlinTokens = 1000L, numJavaTokens = 500L),
     )
 
     verify(kotlinCDLogger, times(1)).log(expectedEntry)
@@ -208,7 +207,7 @@ internal class KotlinCDLoggerAnalyticsTest {
   }
 
   private fun createFakeKotlinCDAnalytics(
-      buildUuid: String? = DEFAULT_BUILDUUID
+      buildUuid: String? = DEFAULT_BUILDUUID,
   ) = KotlinCDLoggerAnalytics(
       kotlinCDLogger = kotlinCDLogger,
       buildUuid = buildUuid,

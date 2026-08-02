@@ -145,7 +145,7 @@ class GenerationContext {
                 }
                 if (element is KtClassOrObject) {
                   interfaceUserTypes.addAll(
-                      element.getInterfaceTypes().mapNotNull { it.typeAsUserType }
+                      element.getInterfaceTypes().mapNotNull { it.typeAsUserType },
                   )
                 }
                 if (element is KtSuperTypeCallEntry) {
@@ -161,7 +161,7 @@ class GenerationContext {
                 }
                 super.visitElement(element)
               }
-            }
+            },
         )
         typeValueArgPairs.addAll(superCallPairs)
         typeValueArgPairs.addAll(callExprPairs)

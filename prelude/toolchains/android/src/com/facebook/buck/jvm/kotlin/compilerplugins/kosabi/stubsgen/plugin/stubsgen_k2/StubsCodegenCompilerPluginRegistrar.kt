@@ -39,7 +39,7 @@ class StubsCodegenCompilerPluginRegistrar : CompilerPluginRegistrarCompat() {
             stubsDumpDir = stubsGenDir,
             stubsClassOutputDir = stubsClassOutputDir,
             classPaths = classPaths,
-        )
+        ),
     )
   }
 

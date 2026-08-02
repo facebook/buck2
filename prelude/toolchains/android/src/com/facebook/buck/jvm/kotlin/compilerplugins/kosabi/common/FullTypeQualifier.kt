@@ -56,7 +56,7 @@ class FullTypeQualifier : Comparable<FullTypeQualifier> {
     }
     if (names.isEmpty() && member == null) {
       Logger.log(
-          "Topic: [FullTypeQualifier] Invalid segments: $segments caused empty names and null member in FullTypeQualifier"
+          "Topic: [FullTypeQualifier] Invalid segments: $segments caused empty names and null member in FullTypeQualifier",
       )
     }
   }
@@ -123,7 +123,7 @@ class FullTypeQualifier : Comparable<FullTypeQualifier> {
  * @param qualifiersToFilter set of [FullTypeQualifier] to filter from current set
  */
 fun Collection<FullTypeQualifier>.filterDifferentOuterClassIn(
-    qualifiersToFilter: Collection<FullTypeQualifier>
+    qualifiersToFilter: Collection<FullTypeQualifier>,
 ): List<FullTypeQualifier> = filterNot { qualifier ->
   qualifiersToFilter.contains(qualifier.outerClassOnlyQualifier())
 }
