@@ -1,12 +1,16 @@
+load("@prelude//configurations:constraint_alias.bzl", "constraint_with_aliases")
+
 oncall("build_infra")
 
-constraint_setting(
+constraint_with_aliases(
     name = "bootstrap",
-    visibility = ["PUBLIC"],
-)
-
-constraint_value(
-    name = "use_bootstrap",
-    constraint_setting = ":bootstrap",
+    aliases = {
+        "use_bootstrap": "use",
+    },
+    default = "unspecified",
+    values = [
+        "use",
+        "unspecified",
+    ],
     visibility = ["PUBLIC"],
 )
