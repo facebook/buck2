@@ -7,6 +7,7 @@ using:
 - `source <(buck2 completion bash)`
 - `source <(buck2 completion zsh)`
 - `source (buck2 completion fish | psub)`
+- `buck2 completion powershell | Out-String | Invoke-Expression`
 
 Usage: buck2 completion [OPTIONS] <SHELL>
 
@@ -14,7 +15,7 @@ Arguments:
   <SHELL>
           shell for which to generate completion script
 
-          [possible values: bash, fish, zsh]
+          [possible values: bash, fish, zsh, powershell]
 
 Options:
   -h, --help
