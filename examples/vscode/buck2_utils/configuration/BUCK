@@ -1,18 +1,18 @@
+load("@prelude//configurations:constraint_alias.bzl", "constraint_with_aliases")
+
 oncall("build_infra")
 
-constraint_setting(
+constraint_with_aliases(
     name = "configuration",
-    visibility = ["PUBLIC"],
-)
-
-constraint_value(
-    name = "debug",
-    constraint_setting = ":configuration",
-    visibility = ["PUBLIC"],
-)
-
-constraint_value(
-    name = "release",
-    constraint_setting = ":configuration",
+    aliases = {
+        "debug": "debug",
+        "release": "release",
+    },
+    default = "unspecified",
+    values = [
+        "debug",
+        "release",
+        "unspecified",
+    ],
     visibility = ["PUBLIC"],
 )
