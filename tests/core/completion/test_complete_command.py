@@ -28,6 +28,22 @@ def complete_test(
     globals()[name] = buck_test()(impl)
 
 
+def flagfile_complete_test(
+    name: str,
+    input: str,
+    expected: typing.List[str],
+    cwd: str = "",
+) -> None:
+    async def impl(buck: Buck) -> None:
+        # Pass the partial as a single `--flagfile=<value>` token (the form the shell
+        # wrappers use). Passing it as two tokens would let buck2's own argfile
+        # expansion try to read a partial `@...` value as a real flagfile.
+        res = await buck.complete(f"--flagfile={input}", rel_cwd=Path(cwd))
+        assert res.stdout.splitlines() == expected
+
+    globals()[name] = buck_test()(impl)
+
+
 complete_test(
     name="test_target_provides_targets_for_path_ending_with_a_colon",
     input="baredir0/buckdir0b:",
@@ -89,4 +105,22 @@ complete_test(
     input="cell1_alias//buck2:",
     expected=["cell1_alias//buck2:buck2", "cell1_alias//buck2:symlinked_buck2_and_tpx"],
     cwd="cell1/buck2/fake_prelude",
+)
+
+flagfile_complete_test(
+    name="test_flagfile_completes_a_directory_fragment",
+    input="baredir0/bare",
+    expected=["baredir0/baredir0a/"],
+)
+
+flagfile_complete_test(
+    name="test_flagfile_completes_plain_files_as_flagfiles",
+    input="baredir0/baredir0a/unus",
+    expected=["baredir0/baredir0a/unused"],
+)
+
+flagfile_complete_test(
+    name="test_flagfile_preserves_at_prefix_and_completes_a_fragment",
+    input="@baredir0/baredir0a/unus",
+    expected=["@baredir0/baredir0a/unused"],
 )

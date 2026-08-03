@@ -27,16 +27,38 @@ $BuckCompleter = {
     $completeBin = if ($env:_BUCK_COMPLETE_BIN) { $env:_BUCK_COMPLETE_BIN } else { 'buck2' }
     $targetSubcommands = @('build', 'ctargets', 'install', 'run', 'targets', 'test', 'utargets')
 
+    $elements = $commandAst.CommandElements
+
     # The subcommand is the first bareword after argv[0] that is neither a flag nor an
     # `@flagfile`, stopping at a `--` separator.
     $subcommand = $null
-    $elements = $commandAst.CommandElements
     for ($i = 1; $i -lt $elements.Count; $i++) {
         $value = $elements[$i].Extent.Text
         if ($value -eq '--') { break }
         if ($value.StartsWith('-') -or $value.StartsWith('@')) { continue }
         $subcommand = $value
         break
+    }
+
+    # The token immediately before the one being completed (used to detect `--flagfile`
+    # <value> and `--config-file` <value>).
+    $prev = ''
+    if ($elements.Count -ge 1) {
+        $last = $elements[$elements.Count - 1].Extent.Text
+        if (($last -eq $wordToComplete) -and ($elements.Count -ge 2)) {
+            $prev = $elements[$elements.Count - 2].Extent.Text
+        } elseif ($last -ne $wordToComplete) {
+            $prev = $last
+        }
+    }
+
+    # Flagfile / mode-file completion: an `@file` argument or the value of
+    # `--flagfile`/`--config-file`.
+    if ($wordToComplete.StartsWith('@') -or $prev -eq '--flagfile' -or $prev -eq '--config-file') {
+        $flagfiles = @(& $completeBin complete --flagfile="$wordToComplete" 2>$null)
+        return $flagfiles | ForEach-Object {
+            [CompletionResult]::new($_, $_, [CompletionResultType]::ParameterValue, $_)
+        }
     }
 
     # Dynamic target completion for target-taking subcommands. Skipped when the current

@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+mod flagfile;
 mod package;
 mod path_completer;
 mod path_sanitizer;
@@ -27,14 +28,26 @@ use buck2_error::buck2_error;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_path::AbsPath;
+use flagfile::FlagfileCompleter;
 use package::PackageCompleter;
 use target::CompleteTargetCommand;
 
 #[derive(Debug, clap::Parser)]
 #[clap(name = "complete", hide = true)]
+#[clap(group(
+    clap::ArgGroup::new("what")
+        .required(true)
+        .args(&["partial_target", "partial_flagfile"]),
+))]
 pub struct CompleteCommand {
     #[clap(long = "target", help = "Target to complete")]
-    partial_target: String,
+    partial_target: Option<String>,
+
+    #[clap(
+        long = "flagfile",
+        help = "Flagfile (mode file / `@file` argument) to complete"
+    )]
+    partial_flagfile: Option<String>,
 
     #[clap(
         hide = true,
@@ -116,7 +129,18 @@ impl CompleteCommand {
         ctx: ClientCommandContext<'_>,
         events_ctx: &mut EventsCtx,
     ) -> ExitResult {
-        match self.partial_target.split(':').collect::<Vec<_>>()[..] {
+        // Flagfile (mode file) completion is resolved entirely from the filesystem and
+        // never needs the daemon.
+        if let Some(partial_flagfile) = self.partial_flagfile {
+            let roots = &ctx.paths()?.roots;
+            let completer = FlagfileCompleter::new(&ctx.working_dir, roots).await?;
+            return print_completions(completer.complete(&partial_flagfile).await);
+        }
+
+        let partial_target = self
+            .partial_target
+            .expect("clap arg group guarantees one of --target or --flagfile is set");
+        match partial_target.split(':').collect::<Vec<_>>()[..] {
             // Package completion is performed locally and called here directly
             [given_partial_package] => {
                 let roots = &ctx.paths()?.roots;
