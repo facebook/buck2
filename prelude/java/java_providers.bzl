@@ -435,6 +435,9 @@ def create_java_packaging_dep(
     ctx: AnalysisContext,
     library_jar: Artifact | None = None,
     output_for_classpath_macro: Artifact | None = None,
+    # Defaults off because callers outside `create_java_library_providers` dex synthetic jars that
+    # hold only part of a nest (per-type R.java jars, canary classes), which D8 rejects when nest
+    # desugaring is on. Such jars have no cross-nest private access, so skipping is safe.
     needs_desugar: bool = False,
     desugar_deps: [TransitiveSetArgsProjection, None] = None,
     is_prebuilt_jar: bool = False,
@@ -630,7 +633,7 @@ def _create_non_template_providers(
     exported_deps: list[Dependency] = [],
     exported_provided_deps: list[Dependency] = [],
     runtime_deps: list[Dependency] = [],
-    needs_desugar: bool = False,
+    needs_desugar: bool = True,
     desugar_classpath: [TransitiveSetArgsProjection, None] = None,
     is_prebuilt_jar: bool = False,
     has_srcs: bool = True,
@@ -746,7 +749,7 @@ def create_java_library_providers(
     provided_deps: list[Dependency] = [],
     exported_provided_deps: list[Dependency] = [],
     runtime_deps: list[Dependency] = [],
-    needs_desugar: bool = False,
+    needs_desugar: bool = True,
     is_prebuilt_jar: bool = False,
     has_srcs: bool = True,
     sources_jar: Artifact | None = None,
