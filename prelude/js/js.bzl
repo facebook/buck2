@@ -48,8 +48,8 @@ def _is_release():
 def _select_asset_dest_path_resolver():
     return select({
         "DEFAULT": None,
-        "fbsource//tools/build_defs/js/constraints/asset_dest_path_resolver:android": "android",
-        "fbsource//tools/build_defs/js/constraints/asset_dest_path_resolver:generic": "generic",
+        "fbsource//tools/build_defs/js/constraints/asset_dest_path_resolver:asset_dest_path_resolver[android]": "android",
+        "fbsource//tools/build_defs/js/constraints/asset_dest_path_resolver:asset_dest_path_resolver[generic]": "generic",
     })
 
 implemented_rules = {
