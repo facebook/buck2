@@ -1120,6 +1120,13 @@ impl ChromeTraceWriter {
                 data: Some(instant_data),
             }) => match instant_data {
                 buck2_data::instant_event::Data::Snapshot(snapshot) => {
+                    if let Some(buck2_rss) = snapshot.buck2_rss {
+                        self.process_memory_counters.set(
+                            event.timestamp(),
+                            "rss_gigabyte",
+                            (buck2_rss) as f64 / Self::BYTES_PER_GIGABYTE,
+                        )?;
+                    }
                     self.process_memory_counters.set(
                         event.timestamp(),
                         "max_rss_gigabyte",
@@ -1130,6 +1137,13 @@ impl ChromeTraceWriter {
                             event.timestamp(),
                             "malloc_active_gigabyte",
                             (malloc_bytes_active) as f64 / Self::BYTES_PER_GIGABYTE,
+                        )?;
+                    }
+                    if let Some(malloc_bytes_allocated) = snapshot.malloc_bytes_allocated {
+                        self.process_memory_counters.set(
+                            event.timestamp(),
+                            "malloc_allocated_gigabyte",
+                            (malloc_bytes_allocated) as f64 / Self::BYTES_PER_GIGABYTE,
                         )?;
                     }
                     self.rate_of_change_counters
