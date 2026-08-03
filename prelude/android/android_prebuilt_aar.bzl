@@ -122,7 +122,6 @@ def android_prebuilt_aar_impl(ctx: AnalysisContext) -> list[Provider]:
         global_code_config = java_toolchain.global_code_config,
         exported_deps = ctx.attrs.deps,
         provided_deps = ctx.attrs.desugar_deps,
-        needs_desugar = True,
         is_prebuilt_jar = True,
         annotation_jars_dir = annotation_jars_dir,
         proguard_config = proguard_config,

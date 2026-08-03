@@ -75,7 +75,6 @@ def prebuilt_jar_impl(ctx: AnalysisContext) -> list[Provider]:
             declared_deps = ctx.attrs.deps,
             exported_deps = ctx.attrs.deps,
             provided_deps = ctx.attrs.desugar_deps,
-            needs_desugar = True,
             is_prebuilt_jar = True,
             gwt_module = gwt_output,
             sources_jar = ctx.attrs.source_jar,

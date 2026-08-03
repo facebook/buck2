@@ -790,7 +790,6 @@ def build_java_library(
         provided_deps = ctx.attrs.provided_deps + provided_deps_query,
         exported_provided_deps = ctx.attrs.exported_provided_deps,
         runtime_deps = ctx.attrs.runtime_deps,
-        needs_desugar = source_level > 7 or target_level > 7,
         generated_sources = all_generated_sources,
         has_srcs = has_srcs,
         sources_jar = sources_jar,
