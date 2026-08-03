@@ -37,8 +37,9 @@ def get_dex_produced_from_java_library(
     dex_toolchain: DexToolchainInfo,
     jar_to_dex: Artifact,
     needs_desugar: bool = False,
-    desugar_deps: [TransitiveSetArgsProjection, list[Artifact], None] = None,
+    desugar_deps: [TransitiveSetArgsProjection, None] = None,
     weight_factor: int = 1,
+    desugar_deps_file: Artifact | None = None,
 ) -> DexLibraryInfo:
     d8_cmd = cmd_args(dex_toolchain.d8_command[RunInfo])
 
@@ -54,8 +55,18 @@ def get_dex_produced_from_java_library(
     if not needs_desugar:
         d8_cmd.add("--no-desugar")
     else:
-        desugar_deps_file = ctx.actions.write(prefix + "_desugar_deps_file.txt", desugar_deps or [], has_content_based_path = True)
-        d8_cmd.add(["--classpath-files", desugar_deps_file])
+        # Callers that dex many jars against one shared classpath pass desugar_deps_file so the
+        # list is written once instead of once per jar; writing it here would be quadratic in the
+        # number of jars.
+        #
+        # Invariant: desugar_deps_file only carries the jar *paths*. The jar artifacts are declared
+        # as action inputs via the hidden cmd_args below, sourced from desugar_deps. A caller that
+        # passes desugar_deps_file must therefore also pass desugar_deps, otherwise the jars are
+        # left untracked and may be missing when d8 runs. (Alternatively a caller could write the
+        # file with ctx.actions.write(..., with_inputs = True) so the artifacts ride along with the
+        # file, but no current caller does this.)
+        classpath_file = desugar_deps_file or ctx.actions.write(prefix + "_desugar_deps_file.txt", desugar_deps or [], has_content_based_path = True)
+        d8_cmd.add(["--classpath-files", classpath_file])
         d8_cmd.add(cmd_args(hidden = desugar_deps or []))
 
     referenced_resources_file = ctx.actions.declare_output(prefix + "_referenced_resources.txt", has_content_based_path = True)

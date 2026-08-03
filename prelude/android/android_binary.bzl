@@ -40,6 +40,18 @@ load(
 load("@prelude//java:proguard.bzl", "get_proguard_output")
 load("@prelude//utils:expect.bzl", "expect")
 
+def _preprocessed_jars_args(jars: list[Artifact]):
+    return cmd_args(jars)
+
+# Holds the preprocessed jar set in a single node so that each pre_dex action can reference one
+# shared projection. Handing the raw list to every action instead retains a copy of it per action,
+# which is quadratic in the number of jars.
+PreprocessedJarsTSet = transitive_set(
+    args_projections = {
+        "jars": _preprocessed_jars_args,
+    },
+)
+
 AndroidBinaryInfo = record(
     sub_targets = dict,
     java_packaging_deps = list[JavaPackagingDep],
@@ -233,6 +245,16 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
             # limit. Preserve the r_dot_java_weight_factor that compiled_r_dot_java_deps applies
             # on the non-preprocessed path so R.java spreads across secondary dexes here too.
             r_dot_java_jar_basenames = [dep.jar.basename for dep in compiled_r_dot_java_deps]
+
+            # Every jar desugars against the whole preprocessed set, so the classpath is identical
+            # for all of them. Share one projection and one classpath file rather than rebuilding
+            # both per jar.
+            desugar_deps = ctx.actions.tset(PreprocessedJarsTSet, value = preprocessed_jars).project_as_args("jars")
+            desugar_deps_file = ctx.actions.write(
+                "preprocessed_desugar_deps_file.txt",
+                desugar_deps,
+                has_content_based_path = True,
+            )
             pre_dexed_libs = []
             for jar in preprocessed_jars:
                 weight_factor = 1
@@ -246,8 +268,9 @@ def get_binary_info(ctx: AnalysisContext, use_proto_format: bool) -> AndroidBina
                         dex_toolchain = dex_toolchain,
                         jar_to_dex = jar,
                         needs_desugar = True,
-                        desugar_deps = preprocessed_jars,
+                        desugar_deps = desugar_deps,
                         weight_factor = weight_factor,
+                        desugar_deps_file = desugar_deps_file,
                     ),
                 )
             if ctx.attrs.use_split_dex:
