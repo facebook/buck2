@@ -333,6 +333,14 @@ enum ErrorTag {
   TEST_RUNNER_INTERNAL = 5502;
   TEST_RUNNER_UNKNOWN_EXIT_CODE = 5504;
 
+  // Test executor process was killed by a signal, e.g. SIGSEGV or an OOM kill
+  // (a real crash, as opposed to an orderly non-zero exit).
+  TEST_EXECUTOR_SIGNALED = 5505;
+  // Test executor process exited with a non-zero status without being signaled.
+  TEST_EXECUTOR_NON_ZERO_EXIT = 5506;
+  // Test executor process exited without reporting end-of-tests.
+  TEST_EXECUTOR_NO_END_OF_TESTS = 5507;
+
   // Errors while cleaning stale artifacts
   CLEAN_STALE = 280;
   // Clean stale command was interrupted

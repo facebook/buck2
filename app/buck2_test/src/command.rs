@@ -847,11 +847,21 @@ async fn test_targets(
         .await
         .buck_error_context("Failed to retrieve executor exit code")?;
 
-    if executor_output.exit_code != 0 {
+    if executor_output.signal.is_some() {
+        // The executor was killed by a signal: a crash (e.g. SIGSEGV) or an OOM kill,
+        // as opposed to an orderly non-zero exit.
         return Err(buck2_error::buck2_error!(
-            ErrorTag::TestExecutor,
+            ErrorTag::TestExecutorSignaled,
             "{}",
-            executor_output.to_string()
+            executor_output.termination_message()
+        ));
+    }
+
+    if executor_output.exit_code != Some(0) {
+        return Err(buck2_error::buck2_error!(
+            ErrorTag::TestExecutorNonZeroExit,
+            "{}",
+            executor_output.termination_message()
         ));
     }
 
@@ -862,7 +872,7 @@ async fn test_targets(
     // case we're about to get this Err out of test_statuses), then this will ensure we don't wait
     // forever on the executor to notify us!
     let _ignored = test_status_sender.unbounded_send(Err(buck2_error::buck2_error!(
-        ErrorTag::TestExecutor,
+        ErrorTag::TestExecutorNoEndOfTests,
         "Executor exited without reporting end-of-tests",
     )));
 

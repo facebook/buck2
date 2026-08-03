@@ -141,7 +141,14 @@ impl ErrorTagExtra for ErrorTag {
             ErrorSourceArea::Re
         } else if tag_name.starts_with("WATCHMAN") {
             ErrorSourceArea::Watchman
-        } else if *self == crate::ErrorTag::Tpx || *self == crate::ErrorTag::TestExecutor {
+        } else if matches!(
+            self,
+            crate::ErrorTag::Tpx
+                | crate::ErrorTag::TestExecutor
+                | crate::ErrorTag::TestExecutorSignaled
+                | crate::ErrorTag::TestExecutorNonZeroExit
+                | crate::ErrorTag::TestExecutorNoEndOfTests
+        ) {
             ErrorSourceArea::TestExecutor
         } else if tag_name.starts_with("INSTALLER") {
             ErrorSourceArea::Installer
@@ -471,6 +478,9 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::CleanInterrupt => rank!(unspecified),
         ErrorTag::Tpx => rank!(unspecified),
         ErrorTag::TestExecutor => rank!(unspecified),
+        ErrorTag::TestExecutorSignaled => rank!(unspecified),
+        ErrorTag::TestExecutorNonZeroExit => rank!(unspecified),
+        ErrorTag::TestExecutorNoEndOfTests => rank!(unspecified),
         ErrorTag::IoBlockingExecutor => rank!(unspecified),
         ErrorTag::Http => rank!(unspecified),
         ErrorTag::DownloadFileHeadRequest => rank!(unspecified),
