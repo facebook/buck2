@@ -745,6 +745,20 @@ impl SpanCounters {
     }
 }
 
+#[derive(Default)]
+struct CgroupMemoryMax {
+    anon_bytes: u64,
+    total_bytes: u64,
+}
+
+impl CgroupMemoryMax {
+    fn update(&mut self, anon_bytes: u64, total_bytes: u64) -> (u64, u64) {
+        self.anon_bytes = self.anon_bytes.max(anon_bytes);
+        self.total_bytes = self.total_bytes.max(total_bytes);
+        (self.anon_bytes, self.total_bytes)
+    }
+}
+
 struct ChromeTraceWriter {
     trace_events: Vec<serde_json::Value>,
     open_spans: StdBuckHashMap<buck2_events::span::SpanId, ChromeTraceOpenSpan>,
@@ -756,6 +770,8 @@ struct ChromeTraceWriter {
     // Wrappers to contain values from InstantEvent.Data.Snapshot as a timeseries
     snapshot_counters: SimpleCounters<u64>,
     process_memory_counters: SimpleCounters<f64>,
+    allprocs_memory_max: CgroupMemoryMax,
+    forkserver_actions_memory_max: CgroupMemoryMax,
     rate_of_change_counters: AverageRateOfChangeCounters,
 }
 
@@ -786,8 +802,34 @@ impl ChromeTraceWriter {
             span_counters: SpanCounters::new("spans"),
             snapshot_counters: SimpleCounters::<u64>::new("snapshot_counters", 0),
             process_memory_counters: SimpleCounters::<f64>::new("process_memory", 0.0),
+            allprocs_memory_max: CgroupMemoryMax::default(),
+            forkserver_actions_memory_max: CgroupMemoryMax::default(),
             rate_of_change_counters: AverageRateOfChangeCounters::new("rate_of_change_counters"),
         }
+    }
+
+    fn set_cgroup_memory_counters(
+        &mut self,
+        timestamp: SystemTime,
+        name: &str,
+        anon_bytes: u64,
+        total_bytes: u64,
+        max_bytes: (u64, u64),
+    ) -> buck2_error::Result<()> {
+        let (max_anon_bytes, max_total_bytes) = max_bytes;
+        for (counter, bytes) in [
+            (format!("{name}_anon_gigabyte"), anon_bytes),
+            (format!("{name}_max_anon_gigabyte"), max_anon_bytes),
+            (format!("{name}_total_gigabyte"), total_bytes),
+            (format!("{name}_max_total_gigabyte"), max_total_bytes),
+        ] {
+            self.process_memory_counters.set(
+                timestamp,
+                &counter,
+                bytes as f64 / Self::BYTES_PER_GIGABYTE,
+            )?;
+        }
+        Ok(())
     }
 
     fn mark_track_used(
@@ -1144,6 +1186,36 @@ impl ChromeTraceWriter {
                             event.timestamp(),
                             "malloc_allocated_gigabyte",
                             (malloc_bytes_allocated) as f64 / Self::BYTES_PER_GIGABYTE,
+                        )?;
+                    }
+                    if let Some(allprocs) = &snapshot.allprocs_cgroup {
+                        let total = allprocs
+                            .anon
+                            .saturating_add(allprocs.file)
+                            .saturating_add(allprocs.kernel);
+                        let max = self.allprocs_memory_max.update(allprocs.anon, total);
+                        self.set_cgroup_memory_counters(
+                            event.timestamp(),
+                            "allprocs",
+                            allprocs.anon,
+                            total,
+                            max,
+                        )?;
+                    }
+                    if let Some(forkserver_actions) = &snapshot.forkserver_actions_cgroup {
+                        let total = forkserver_actions
+                            .anon
+                            .saturating_add(forkserver_actions.file)
+                            .saturating_add(forkserver_actions.kernel);
+                        let max = self
+                            .forkserver_actions_memory_max
+                            .update(forkserver_actions.anon, total);
+                        self.set_cgroup_memory_counters(
+                            event.timestamp(),
+                            "forkserver_actions",
+                            forkserver_actions.anon,
+                            total,
+                            max,
                         )?;
                     }
                     self.rate_of_change_counters
