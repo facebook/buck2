@@ -63,6 +63,14 @@ _RUST_EXECUTABLE_ATTRIBUTES = {
     # TODO: enable distributed thinlto
     "enable_distributed_thinlto": attrs.bool(default = False),
     "extra_dwp_flags": attrs.list(attrs.string(), default = []),
+    # Opt the final executable output into a content-based buck-out path
+    # (default off). Only safe for fully-static binaries with no `resources`:
+    # a content-hash dir orphans adjacent files (`.resources.json`, an RPATH
+    # shlib tree), and analysis fails loudly on those combinations until
+    # content-based dist bundles land. Usage rule: opt in leaf static binaries
+    # (e.g. ones consumed as another target's resources); keep resource-bearing
+    # outer binaries config-based.
+    "has_content_based_path": attrs.bool(default = False),
     # Required by the rules but not supported, since Rust is auto-link groups only
     "link_group": attrs.default_only(attrs.option(attrs.string(), default = None)),
     "link_group_map": LINK_GROUP_MAP_ATTR,

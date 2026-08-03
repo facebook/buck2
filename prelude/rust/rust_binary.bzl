@@ -160,14 +160,15 @@ def _rust_binary_common(
     name = output_filename(compile_ctx, simple_crate, Emit("link"), params)
 
     enable_late_build_info_stamping = cxx_stamp_build_info(ctx)
+    content_based_output = getattr(ctx.attrs, "has_content_based_path", False)
     if enable_late_build_info_stamping:
         allow_cache_upload = True
         unstamped_name = output_filename(compile_ctx, simple_crate, Emit("link"), params, "-unstamped")
-        predeclared_output = ctx.actions.declare_output(unstamped_name, has_content_based_path = False)
-        final_output = ctx.actions.declare_output(name, has_content_based_path = False)
+        predeclared_output = ctx.actions.declare_output(unstamped_name, has_content_based_path = content_based_output)
+        final_output = ctx.actions.declare_output(name, has_content_based_path = content_based_output)
     else:
         # If not using late build info stamping, then the output will be stamped eagerly in rust_compile
-        predeclared_output = ctx.actions.declare_output(name, has_content_based_path = False)
+        predeclared_output = ctx.actions.declare_output(name, has_content_based_path = content_based_output)
         final_output = predeclared_output
 
     build_graph_info = new_build_graph_info(ctx, cxx_deps)
@@ -227,6 +228,21 @@ def _rust_binary_common(
     )
 
     # Gather and setup symlink tree of transitive shared library deps.
+    # A bare content-based exe orphans its adjacent files: `resources` resolve
+    # via a sibling `<exe>.resources.json`, and shared libraries via a baked
+    # sibling-dir `$ORIGIN` RPATH -- neither exists in the exe's content-hash
+    # dir. Until bundle support ships (the content-based `assembled_dir` dist
+    # change stacked above), fail at analysis time instead of emitting a
+    # binary that breaks at runtime. Usage rule: opt in leaf, fully-static,
+    # resource-free binaries (e.g. ones consumed as another target's
+    # resources); keep resource-bearing outer binaries config-based.
+    if content_based_output and resources:
+        fail(
+            "`has_content_based_path` on {}: unsupported with `resources` (the content-based exe would orphan its sibling `.resources.json`); keep the target config-based until content-based dist bundles land".format(
+                ctx.label
+            )
+        )
+
     shared_libs = build_shared_libs_for_symlink_tree(
         use_link_groups = rust_cxx_link_group_info != None,
         link_group_ctx = link_group_ctx,
@@ -237,6 +253,13 @@ def _rust_binary_common(
 
     # link groups shared libraries link args are directly added to the link command,
     # we don't have to add them here
+    if content_based_output and shared_libs:
+        fail(
+            "`has_content_based_path` on {}: unsupported with shared libraries (the exe's `$ORIGIN` RPATH points at a config-based sibling tree the content-hash dir does not contain); use a static link or keep the target config-based until content-based dist bundles land".format(
+                ctx.label
+            )
+        )
+
     executable_shlib_args = executable_shared_lib_arguments(
         ctx,
         compile_ctx.cxx_toolchain_info,
