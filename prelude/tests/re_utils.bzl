@@ -35,9 +35,27 @@ def _network_access_kwargs(network_access: str | None) -> dict[str, str]:
         return {}
     return {"network_access": network_access}
 
+def _force_local_re_tests() -> bool:
+    # Must agree with the `read_bool` of this key in
+    # `tools/build_defs/fb_native_wrapper.bzl`, which strips `remote_execution` off
+    # test targets: when the two disagree a target keeps its RE props but loses its
+    # executor, or vice versa. `read_bool` itself is not reusable here because its
+    # `read_config` binding is unavailable during analysis, so mirror its coercion —
+    # including rejecting values it cannot coerce rather than guessing.
+    value = read_config("fbcode", "disable_re_tests", default = "")
+
+    # An empty value means "unset", so that a later config can clear an earlier one.
+    if value == "":
+        return False
+    lowered = value.lower()
+    if lowered == "true":
+        return True
+    if lowered == "false":
+        return False
+    fail("`fbcode:disable_re_tests`: cannot coerce {!r} to bool".format(value))
+
 def _get_re_arg(ctx: AnalysisContext) -> ReArg:
-    force_local = read_config("fbcode", "disable_re_tests", default = False)
-    if force_local or not hasattr(ctx.attrs, "remote_execution"):
+    if _force_local_re_tests() or not hasattr(ctx.attrs, "remote_execution"):
         # NOTE: this is kinda weird, we take this path if the attr is missing completely
         # Even if the value is None we still follow. Adding force.local to give users
         # some means of bypassing.
