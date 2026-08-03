@@ -214,6 +214,7 @@ static_assertions = "1.1.0"
 strsim = "0.11.1"
 structopt = "0.3.26"
 strum = { version = "0.27.1", features = ["derive"] }
+syn = { version = "3", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
 syn1 = { package = "syn", version = "1.0.109", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
 syn2 = { package = "syn", version = "2.0.117", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
 sync_wrapper = "1.0.2"
