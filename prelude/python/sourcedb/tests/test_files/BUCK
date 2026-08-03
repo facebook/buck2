@@ -1,5 +1,6 @@
 load("@fbcode_macros//build_defs:python_library.bzl", fbcode_python_library = "python_library")
 load("@prelude//utils:source_listing.bzl", "source_listing")
+load(":test_rules.bzl", "build_mode_alias")
 
 oncall("pyre")
 
@@ -11,11 +12,17 @@ python_library(
     deps = [
         "prelude//python/sourcedb/tests/test_files/triton_collision:a_b_lib",
         "prelude//python/sourcedb/tests/test_files/triton_collision/a:b_lib",
+        ":build_mode_alias",
         ":lib",
         ":my_extension_lib",
         ":reexported_genrule_lib",
         ":triton_test_lib",
     ],
+)
+
+build_mode_alias(
+    name = "build_mode_alias",
+    actual = ":alias_lib",
 )
 
 # Test that multi-output genrule srcs are cleared when a parent python_library

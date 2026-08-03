@@ -39,7 +39,13 @@ _MANIFESTLESS_RULE_TYPES = set([
 
 def _rule_has_no_manifest(rule_type: str) -> bool:
     """Whether a rule contributes no manifest beyond targets already in its dependency graph."""
-    return rule_type in _MANIFESTLESS_RULE_TYPES
+    return (
+        rule_type in _MANIFESTLESS_RULE_TYPES
+        or rule_type.endswith(":target_group")
+        or rule_type.endswith("_fbcode_configured_alias_transition")
+        or rule_type.endswith(":rust_proc_macro_alias")
+        or rule_type.endswith(":fbpkg_builder")
+    )
 
 def _get_suffix(path: str) -> str | None:
     """Extract the file suffix without leading dot (e.g. 'py') from a path, or None if no suffix."""
@@ -456,19 +462,18 @@ def _main(ctx: bxl.Context) -> None:
         entry = {}
         entries[str(x.label.raw_target())] = entry
 
-        if x.rule_type == "prelude//rules.bzl:alias" or x.rule_type.endswith("_fbcode_configured_alias"):
+        if (
+            x.rule_type == "prelude//rules.bzl:alias"
+            or x.rule_type.endswith("_fbcode_configured_alias")
+            or x.rule_type.endswith(":build_mode_alias")
+            or x.rule_type.endswith(":_sanitizer_alias")
+        ):
             _handle_alias(entry, attrs, x)
-        elif x.rule_type.endswith("_fbcode_configured_alias_transition"):
-            pass
-        elif x.rule_type.endswith("rust_proc_macro_alias"):
-            pass
-        elif x.rule_type.endswith("fbpkg_builder"):
-            pass
         elif x.rule_type == "prelude//rules.bzl:cxx_python_extension":
             _handle_python_extension(entry, attrs, fs, x, known_targets)
         elif "genrule" in x.rule_type:
             _handle_genrule(entry, attrs, fs, x, known_targets, to_remove, to_build, to_insert, genrule_to_insert, extra_filetypes)
-        elif "python_library" in x.rule_type:
+        elif "python_library" in x.rule_type or x.rule_type.endswith(":python_binary") or x.rule_type.endswith(":python_test"):
             _handle_python_library(
                 actions, entry, attrs, fs, x, known_targets, to_remove, to_build, to_insert, catch_all_stubs_to_insert, extra_filetypes, genrules_reexported
             )

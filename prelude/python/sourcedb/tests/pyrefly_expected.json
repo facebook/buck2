@@ -79,6 +79,9 @@
         ]
       }
     },
+    "prelude//python/sourcedb/tests/test_files:build_mode_alias": {
+      "alias": "prelude//python/sourcedb/tests/test_files:alias_lib"
+    },
     "prelude//python/sourcedb/tests/test_files:generated_file": {
       "buildfile_path": "prelude/python/sourcedb/tests/test_files/BUCK",
       "deps": [],
@@ -127,6 +130,7 @@
       "deps": [
         "prelude//python/sourcedb/tests/test_files/triton_collision/a:b_lib",
         "prelude//python/sourcedb/tests/test_files/triton_collision:a_b_lib",
+        "prelude//python/sourcedb/tests/test_files:build_mode_alias",
         "prelude//python/sourcedb/tests/test_files:lib",
         "prelude//python/sourcedb/tests/test_files:my_extension_lib",
         "prelude//python/sourcedb/tests/test_files:reexported_genrule_lib",
