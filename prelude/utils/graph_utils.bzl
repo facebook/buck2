@@ -17,9 +17,11 @@ def pre_order_traversal(
     Perform a pre-order (topologically sorted) traversal of `graph` and return the ordered nodes
     """
 
+    # A repeated dep is counted once per occurrence here and decremented once per occurrence below,
+    # so it needs no deduplication (Kahn's algorithm works correctly for multigraphs).
     in_degrees = {node: 0 for node in graph}
     for _node, deps in graph.items():
-        for dep in dedupe(deps):
+        for dep in deps:
             in_degrees[dep] += 1
 
     queue = []
