@@ -135,6 +135,7 @@ def _create_kotlin_sources(
     kotlinc_cmd_args.add(["-Xjspecify-annotations=strict"])
 
     jdk_release = getattr(ctx.attrs, "jdk_release", None) or ctx.attrs.java_version
+    jvm_target = None
     if jdk_release and not ctx.attrs.no_x_jdk_release:
         kotlinc_cmd_args.add(["-Xjdk-release=" + jdk_release])
     else:
