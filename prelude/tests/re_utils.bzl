@@ -113,7 +113,37 @@ def get_re_executors_from_props(ctx: AnalysisContext, dynamic_image_override: [d
     Returns a `RemoteTestExecutorConfig`.
     """
 
-    re_arg = _get_re_arg(ctx)
+    return _get_re_executors(ctx, _get_re_arg(ctx), dynamic_image_override)
+
+def get_re_executors_from_explicit_props(ctx: AnalysisContext, re_props: dict | None) -> RemoteTestExecutorConfig:
+    """
+    Like `get_re_executors_from_props`, but for a rule that carries RE properties in
+    some attribute other than `remote_execution`.
+
+    `re_props` must already be a resolved property dict. The string form of
+    `remote_execution` — the name of a profile on the remote test execution toolchain —
+    is deliberately not accepted here: resolving one requires
+    `_remote_test_execution_toolchain`, and a rule that runs RE only for a secondary
+    test (a rustdoc doctest, say) should not have to take a toolchain dependency to
+    express that.
+
+    Returns a `RemoteTestExecutorConfig`.
+    """
+
+    if _force_local_re_tests():
+        re_props = None
+
+    return _get_re_executors(
+        ctx,
+        ReArg(re_props = re_props, default_run_as_bundle = False),
+        None,
+    )
+
+def _get_re_executors(
+    ctx: AnalysisContext,
+    re_arg: ReArg,
+    dynamic_image_override: [dict, None],
+) -> RemoteTestExecutorConfig:
     network_access = getattr(ctx.attrs, "network_access", None)
 
     if re_arg.disabled:
@@ -138,6 +168,9 @@ def get_re_executors_from_props(ctx: AnalysisContext, dynamic_image_override: [d
         return RemoteTestExecutorConfig()
 
     re_props_copy = dict(re_props)
+    missing_props = [name for name in ("capabilities", "use_case") if name not in re_props_copy]
+    if missing_props:
+        fail("{}: re props are missing required fields: {}".format(ctx.label, ", ".join(missing_props)))
     capabilities = re_props_copy.pop("capabilities")
     use_case = re_props_copy.pop("use_case")
     listing_capabilities = re_props_copy.pop("listing_capabilities", None)
@@ -155,7 +188,7 @@ def get_re_executors_from_props(ctx: AnalysisContext, dynamic_image_override: [d
         re_dynamic_image = dynamic_image_override
     if re_props_copy:
         unexpected_props = ", ".join(re_props_copy.keys())
-        fail("found unexpected re props: " + unexpected_props)
+        fail("{}: found unexpected re props: {}".format(ctx.label, unexpected_props))
 
     if re_gang != None:
         meta_internal_extra_params = dict(meta_internal_extra_params or {})

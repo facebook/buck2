@@ -63,6 +63,11 @@ load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//rust/rust-analyzer:provider.bzl", "rust_analyzer_provider")
 load(
+    "@prelude//tests:re_utils.bzl",
+    "RemoteTestExecutorConfig",
+    "get_re_executors_from_explicit_props",
+)
+load(
     "@prelude//third-party:build.bzl",
     "create_third_party_build_info",
 )
@@ -452,6 +457,10 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     )
 
     incr_enabled = ctx.attrs.incremental_enabled
+    re_executors = RemoteTestExecutorConfig()
+    if ctx.attrs.doc_remote_execution != None:
+        re_executors = get_re_executors_from_explicit_props(ctx, ctx.attrs.doc_remote_execution)
+
     providers = []
     providers += _default_providers(
         lang_style_param = lang_style_param,
@@ -462,6 +471,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         rustdoc = rustdoc,
         rustdoc_test = rustdoc_test,
         doctests_enabled = doctests_enabled,
+        re_executors = re_executors,
         check_artifacts = output_as_diag_subtargets(diag_artifacts[incr_enabled], clippy_artifacts[incr_enabled]),
         expand = expand,
         sources = compile_ctx.symlinked_srcs,
@@ -747,6 +757,7 @@ def _default_providers(
     rustdoc: Artifact,
     rustdoc_test: cmd_args | None,
     doctests_enabled: bool,
+    re_executors: RemoteTestExecutorConfig,
     check_artifacts: dict[str, Artifact | None],
     expand: Artifact | None,
     sources: Artifact,
@@ -803,6 +814,12 @@ def _default_providers(
         rustdoc_test_info = ExternalRunnerTestInfo(
             type = "rustdoc",
             command = [rustdoc_test],
+            default_executor = re_executors.default_executor,
+            executor_overrides = re_executors.executor_overrides,
+            # Doctests always run from the project root with project-relative paths,
+            # executor or not, so `re_executors.run_from_project_root` and
+            # `.use_project_relative_paths` are deliberately ignored: configuring an
+            # executor must not move a doctest's cwd out from under it.
             run_from_project_root = True,
             use_project_relative_paths = True,
         )

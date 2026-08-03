@@ -226,6 +226,19 @@ rust_library = prelude_rule(
             "supports_python_dlopen": attrs.option(attrs.bool(), default = None),
         }
         | _rust_binary_attrs_group(prefix = "doc_")
+        | {
+            "doc_remote_execution": attrs.option(
+                re_test_common.opts_for_tests_arg(),
+                default = None,
+                doc = """
+                Remote execution properties for this library's rustdoc test. Only a
+                property dict is accepted, not the name of a profile on the remote test
+                execution toolchain, so that `rust_library` does not have to depend on
+                that toolchain. When unset, the rustdoc test carries no executor and
+                runs wherever the test framework would otherwise place it.
+            """,
+            ),
+        }
         | rust_common.cxx_toolchain_arg()
         | rust_common.rust_toolchain_arg()
         | rust_common.workspaces_arg()
