@@ -1,6 +1,11 @@
-load(":defs.bzl", "consumer")
+load(":defs.bzl", "consumer", "src_consumer")
 
 consumer(
     name = "consumer",
     deps = ["//lib/greeting"],
+)
+
+src_consumer(
+    name = "src_consumer",
+    srcs = ["//lib/greeting"],
 )

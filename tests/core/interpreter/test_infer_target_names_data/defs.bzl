@@ -14,3 +14,12 @@ consumer = rule(
         "deps": attrs.list(attrs.dep(), default = []),
     },
 )
+
+# `attrs.source()` accepts either a path or a label, so it has its own coercion
+# logic and needs its own coverage for eponymous labels.
+src_consumer = rule(
+    impl = lambda _ctx: [DefaultInfo()],
+    attrs = {
+        "srcs": attrs.list(attrs.source(), default = []),
+    },
+)
