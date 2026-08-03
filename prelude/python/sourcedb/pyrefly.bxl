@@ -45,6 +45,7 @@ def _rule_has_no_manifest(rule_type: str) -> bool:
         or rule_type.endswith("_fbcode_configured_alias_transition")
         or rule_type.endswith(":rust_proc_macro_alias")
         or rule_type.endswith(":fbpkg_builder")
+        or rule_type.endswith(":_source_listing")
     )
 
 def _get_suffix(path: str) -> str | None:
