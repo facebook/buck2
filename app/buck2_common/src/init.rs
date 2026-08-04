@@ -248,6 +248,17 @@ pub struct ResourceControlConfig {
     ///
     /// Mainly for testing purpose.
     pub memory_max_actions: Option<String>,
+    /// Value buck2 writes to `memory.swap.max` on the actions-pool cgroup (the cgroup shared by all
+    /// running actions); the kernel enforces it from there. Accepts a byte count or `max`.
+    ///
+    /// Setting it to `0` disables swap for actions, so once `memory_high_actions` /
+    /// `memory_max_actions` is reached the kernel must reclaim by stalling the action rather than
+    /// paging its pages out. That stall is what produces the sustained memory pressure the
+    /// scheduler needs to trigger suspension.
+    ///
+    /// Mainly for testing purpose.
+    #[serde(default)]
+    pub memory_swap_max_actions: Option<String>,
     /// Enable suspension when memory pressure is high.
     pub enable_suspension: bool,
     pub experimental_suspension_algo_variant: Option<u8>,
@@ -421,6 +432,10 @@ impl ResourceControlConfig {
                 section: "buck2_resource_control",
                 property: "memory_max_actions",
             })?;
+            let memory_swap_max_actions = config.parse(BuckconfigKeyRef {
+                section: "buck2_resource_control",
+                property: "memory_swap_max_actions",
+            })?;
             let enable_suspension = config.parse(BuckconfigKeyRef {
                 section: "buck2_resource_control",
                 property: "enable_suspension",
@@ -452,6 +467,7 @@ impl ResourceControlConfig {
                 memory_high_per_action,
                 memory_high_actions,
                 memory_max_actions,
+                memory_swap_max_actions,
                 enable_suspension,
                 experimental_suspension_algo_variant,
                 preferred_action_suspend_strategy,

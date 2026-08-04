@@ -69,6 +69,11 @@ impl CgroupPool {
         if let Some(pool_memory_max) = &config.memory_max_actions {
             pool_cgroup.set_memory_max(pool_memory_max).await?;
         }
+        if let Some(pool_memory_swap_max) = &config.memory_swap_max_actions {
+            pool_cgroup
+                .set_memory_swap_max(pool_memory_swap_max)
+                .await?;
+        }
 
         Ok(CgroupPool {
             available: VecDeque::new(),

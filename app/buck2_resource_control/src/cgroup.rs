@@ -177,6 +177,18 @@ impl<M: MemoryMonitoring, K: CgroupKind> Cgroup<M, K> {
         .await
     }
 
+    /// Set the memory.swap.max limit for this cgroup
+    pub async fn set_memory_swap_max(&self, memory_swap_max: &str) -> buck2_error::Result<()> {
+        CgroupFile::open(
+            self.dir.dupe(),
+            FileNameBuf::unchecked_new("memory.swap.max"),
+            CgroupFileMode::ReadWrite,
+        )
+        .await?
+        .write(memory_swap_max.to_owned())
+        .await
+    }
+
     /// Set the cpuset.cpus value for this cgroup, restricting which CPU cores
     /// processes in this cgroup can run on.
     ///
