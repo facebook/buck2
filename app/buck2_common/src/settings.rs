@@ -10,6 +10,7 @@
 
 //! Typed buck settings, replaces buckconfig for core buck2 settings.
 
+pub mod args;
 pub mod parser;
 mod path;
 pub mod settings;

@@ -104,13 +104,18 @@ pub(crate) fn resolve(layers: Vec<toml::Table>) -> buck2_error::Result<BuckSetti
     )?)))
 }
 
-pub fn parse_settings(project_fs: &ProjectRoot) -> buck2_error::Result<BuckSettings> {
+pub fn parse_settings(
+    project_fs: &ProjectRoot,
+    settings_args: &[toml::Table],
+) -> buck2_error::Result<BuckSettings> {
     let repo_root = project_fs.root().as_abs_path();
     let home_dir = buck2_env!("BUCK2_TEST_SETTINGS_HOME_DIR", applicability = testing)?
         .map(PathBuf::from)
         .or_else(dirs::home_dir);
     let home_dir = home_dir.map(AbsPathBuf::new).transpose()?;
-    resolve(parse_layers(repo_root, home_dir.as_deref())?)
+    let mut layers = parse_layers(repo_root, home_dir.as_deref())?;
+    layers.extend_from_slice(settings_args);
+    resolve(layers)
 }
 
 #[cfg(test)]
@@ -123,13 +128,15 @@ mod tests {
     use buck2_core::fs::project::ProjectRootTemp;
 
     use super::*;
+    use crate::settings::args::parse_setting_flag_arg;
     use crate::settings::settings::testing::TestBuckSettingsData;
     use crate::settings::settings::testing::TestSection;
 
-    /// Writes files to a temp repo root and temp home dir. Parses test settings from those files.
-    fn resolve_from_files(
+    /// Resolves settings from a temp repo root, temp home dir, and command line arguments.
+    fn resolve_from_files_and_args(
         repo_files: &[(&str, &str)],
         home_files: &[(&str, &str)],
+        settings_args: &[&str],
     ) -> buck2_error::Result<TestBuckSettingsData> {
         let repo = ProjectRootTemp::new()?;
         for (name, content) in repo_files {
@@ -139,10 +146,17 @@ mod tests {
         for (name, content) in home_files {
             home.write_file(name, content);
         }
-        resolve_into::<TestBuckSettingsData>(parse_layers(
+        let mut layers = parse_layers(
             repo.path().root().as_abs_path(),
             Some(home.path().root().as_abs_path()),
-        )?)
+        )?;
+        layers.extend(
+            settings_args
+                .iter()
+                .map(|arg| parse_setting_flag_arg(arg))
+                .collect::<buck2_error::Result<Vec<_>>>()?,
+        );
+        resolve_into::<TestBuckSettingsData>(layers)
     }
 
     #[test]
@@ -202,12 +216,13 @@ mod tests {
 
     #[test]
     fn test_home_local_override_repo() -> buck2_error::Result<()> {
-        let resolved = resolve_from_files(
+        let resolved = resolve_from_files_and_args(
             &[(
                 ".bucksettings.toml",
                 "test_flag = true\n[test_section]\ntest_value = \"repo\"",
             )],
             &[(".bucksettings.local.toml", "test_flag = false")],
+            &[],
         )?;
         assert_eq!(
             resolved,
@@ -223,7 +238,7 @@ mod tests {
 
     #[test]
     fn test_repo_local_overrides_home_local_and_repo_root() -> buck2_error::Result<()> {
-        let resolved = resolve_from_files(
+        let resolved = resolve_from_files_and_args(
             &[
                 (".bucksettings.toml", "test_flag = true"),
                 (
@@ -235,6 +250,7 @@ mod tests {
                 ".bucksettings.local.toml",
                 "[test_section]\ntest_value = \"home_local\"",
             )],
+            &[],
         )?;
         assert_eq!(
             resolved,
@@ -245,6 +261,43 @@ mod tests {
                 }),
             }
         );
+        Ok(())
+    }
+
+    #[test]
+    fn test_settings_args_override_all() -> buck2_error::Result<()> {
+        let resolved = resolve_from_files_and_args(
+            &[
+                (
+                    ".bucksettings.toml",
+                    "[test_section]\ntest_value = \"repo\"",
+                ),
+                (
+                    ".bucksettings.local.toml",
+                    "[test_section]\ntest_value = \"repo_local\"",
+                ),
+            ],
+            &[(
+                ".bucksettings.local.toml",
+                "[test_section]\ntest_value = \"home_local\"",
+            )],
+            &["test_section.test_value=command_line"],
+        )?;
+        assert_eq!(
+            resolved.test_section,
+            Some(TestSection {
+                test_value: Some("command_line".to_owned()),
+            })
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_settings_args_ordering() -> buck2_error::Result<()> {
+        let resolved =
+            resolve_from_files_and_args(&[], &[], &["test_flag=false", "test_flag=true"])?;
+        assert_eq!(resolved.test_flag, Some(true));
+        assert!(resolved.test_section.is_none());
         Ok(())
     }
 }
