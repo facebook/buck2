@@ -444,7 +444,7 @@ def build_kotlin_library(
         bootclasspath_for_kotlinc = custom_jdk_info.bootclasspath if custom_jdk_info else []
         bootclasspath_jar_snapshots_for_kotlinc = custom_jdk_info.bootclasspath_jar_snapshots if custom_jdk_info and ctx.attrs.incremental else []
 
-        javac_tool = derive_javac(ctx.attrs.javac) if ctx.attrs.javac else None
+        javac_tool = derive_javac(ctx.attrs.javac) if getattr(ctx.attrs, "javac", None) else None
         source_level, target_level = get_java_version_attributes(ctx)
 
         kotlin_toolchain = ctx.attrs._kotlin_toolchain[KotlinToolchainInfo]

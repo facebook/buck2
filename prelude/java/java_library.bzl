@@ -704,7 +704,7 @@ def build_java_library(
             "debug_port": getattr(ctx.attrs, "debug_port", None),
             "deps": first_order_deps,
             "enable_depfiles": getattr(ctx.attrs, "enable_depfiles", True),
-            "javac_tool": derive_javac(ctx.attrs.javac) if ctx.attrs.javac else None,
+            "javac_tool": derive_javac(ctx.attrs.javac) if getattr(ctx.attrs, "javac", None) else None,
             "manifest_file": manifest_file,
             "remove_classes": ctx.attrs.remove_classes,
             "required_for_source_only_abi": ctx.attrs.required_for_source_only_abi,

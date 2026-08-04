@@ -518,8 +518,7 @@ android_aar = prelude_rule(
     )
     | jvm_common.abi_generation_mode()
     | jvm_common.annotation_processors()
-    | jvm_common.plugins()
-    | jvm_common.javac(),
+    | jvm_common.plugins(),
 )
 
 android_app_modularity = prelude_rule(
@@ -1087,7 +1086,6 @@ android_library = prelude_rule(
         | jvm_common.kotlin_compiler_plugins()
         | jvm_common.incremental()
         | jvm_common.kotlincd_content_based_paths()
-        | jvm_common.javac()
         | jvm_common.enable_used_classes()
         | jvm_common.classic_java_content_based_paths()
         | android_common.patches_system_module_arg()
@@ -1843,7 +1841,6 @@ robolectric_test = prelude_rule(
         | jvm_common.kotlincd_content_based_paths()
         | jvm_common.plugins()
         | jvm_common.kotlin_compiler_plugins()
-        | jvm_common.javac()
         | jvm_common.enable_used_classes()
         | jvm_common.classic_java_content_based_paths()
         | re_test_common.test_args()
