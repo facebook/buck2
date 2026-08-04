@@ -14,6 +14,8 @@ import com.facebook.buck.installer.android.AndroidInstallErrorClassifier
 import com.facebook.buck.installer.android.AndroidInstallErrorTag
 import com.facebook.buck.installer.android.AndroidInstallException
 import java.io.File
+import java.nio.file.Files
+import java.security.MessageDigest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -35,25 +37,44 @@ class AndroidDeviceImplTest {
 
   private lateinit var mockAdbUtils: AdbUtils
   private lateinit var androidDevice: AndroidDeviceImpl
+  private lateinit var apkFile: File
   private val serialNumber = "test-serial"
+  private val packageName = "com.test.app"
+  private val onDeviceApkPath = "/data/app/com.test.app-1/base.apk"
 
   @Before
   fun setUp() {
     mockAdbUtils = mock()
     androidDevice = AndroidDeviceImpl(serialNumber, mockAdbUtils)
+    // A real file is needed because installApkOnDevice hashes the local apk to verify the install.
+    val tempDir = Files.createTempDirectory("android-device-impl-test").toFile()
+    apkFile = File(tempDir, "test.apk")
+    apkFile.writeText("test apk contents")
   }
+
+  /** Stubs the post-install verification so the on-device apk matches [apkFile]. */
+  private fun stubInstallVerified() {
+    whenever(mockAdbUtils.executeAdbShellCommand("pm path $packageName", serialNumber))
+        .thenReturn("package:$onDeviceApkPath")
+    whenever(mockAdbUtils.executeAdbShellCommand("sha256sum $onDeviceApkPath", serialNumber))
+        .thenReturn("${sha256Hex(apkFile)}  $onDeviceApkPath")
+  }
+
+  private fun sha256Hex(file: File): String =
+      MessageDigest.getInstance("SHA-256").digest(file.readBytes()).joinToString("") {
+        "%02x".format(it.toInt() and 0xFF)
+      }
 
   @Test
   fun testInstallApkOnDevice() {
-    val apkFile = mock<File>()
-    whenever(apkFile.absolutePath).thenReturn("/path/to/test.apk")
-    whenever(apkFile.name).thenReturn("test.apk")
-    whenever(apkFile.length()).thenReturn(1024L)
     whenever(mockAdbUtils.executeAdbShellCommand("getprop ro.build.version.sdk", serialNumber))
         .thenReturn("28")
+    whenever(mockAdbUtils.executeAdbCommand("install -r -d ${apkFile.absolutePath}", serialNumber))
+        .thenReturn("Success")
+    stubInstallVerified()
 
     // Test with verifyTempWritable = true, SDK < 29 (no fastdeploy)
-    val result = androidDevice.installApkOnDevice(apkFile, false, false, true, false)
+    val result = androidDevice.installApkOnDevice(apkFile, false, false, true, false, packageName)
 
     // Verify temp file check uses UUID pattern
     verify(mockAdbUtils)
@@ -75,15 +96,14 @@ class AndroidDeviceImplTest {
 
   @Test
   fun testInstallApkOnDeviceWithInvalidSdkVersion() {
-    val apkFile = mock<File>()
-    whenever(apkFile.absolutePath).thenReturn("/path/to/test.apk")
-    whenever(apkFile.name).thenReturn("test.apk")
-    whenever(apkFile.length()).thenReturn(1024L)
     whenever(mockAdbUtils.executeAdbShellCommand("getprop ro.build.version.sdk", serialNumber))
         .thenReturn("invalid")
+    whenever(mockAdbUtils.executeAdbCommand("install -r -d ${apkFile.absolutePath}", serialNumber))
+        .thenReturn("Success")
+    stubInstallVerified()
 
     // Test with invalid SDK version (should fall back to no fastdeploy)
-    val result = androidDevice.installApkOnDevice(apkFile, false, false, false, false)
+    val result = androidDevice.installApkOnDevice(apkFile, false, false, false, false, packageName)
 
     verify(mockAdbUtils).executeAdbCommand("install -r -d ${apkFile.absolutePath}", serialNumber)
     assertTrue(result)
@@ -455,12 +475,7 @@ class AndroidDeviceImplTest {
 
   @Test
   fun testInstallApkRecoversFromSignatureMismatch() {
-    val apkFile = mock<File>()
-    whenever(apkFile.absolutePath).thenReturn("/path/to/test.apk")
-    whenever(apkFile.name).thenReturn("test.apk")
-    whenever(apkFile.length()).thenReturn(1024L)
-
-    val installCommand = "install -r -d /path/to/test.apk"
+    val installCommand = "install -r -d ${apkFile.absolutePath}"
 
     // First install attempt fails with a signature mismatch; the retry (after uninstall) succeeds.
     var installAttempts = 0
@@ -473,7 +488,7 @@ class AndroidDeviceImplTest {
                     "com.meta.ar.helixserver signatures do not match newer version; ignoring!]",
             )
           }
-          ""
+          "Success"
         }
         .whenever(mockAdbUtils)
         .executeAdbCommand(eq(installCommand), eq(serialNumber), any())
@@ -481,8 +496,9 @@ class AndroidDeviceImplTest {
     doReturn("Success")
         .whenever(mockAdbUtils)
         .executeAdbCommand(eq("uninstall com.meta.ar.helixserver"), eq(serialNumber), any())
+    stubInstallVerified()
 
-    val result = androidDevice.installApkOnDevice(apkFile, false, false, false, false)
+    val result = androidDevice.installApkOnDevice(apkFile, false, false, false, false, packageName)
     assertTrue(result)
 
     val inOrder = inOrder(mockAdbUtils)
@@ -498,12 +514,7 @@ class AndroidDeviceImplTest {
 
   @Test
   fun testInstallApkClassifiesInsufficientStorageWithoutUninstalling() {
-    val apkFile = mock<File>()
-    whenever(apkFile.absolutePath).thenReturn("/path/to/test.apk")
-    whenever(apkFile.name).thenReturn("test.apk")
-    whenever(apkFile.length()).thenReturn(1024L)
-
-    val installCommand = "install -r -d /path/to/test.apk"
+    val installCommand = "install -r -d ${apkFile.absolutePath}"
     doAnswer {
           throw AdbCommandFailedException(
               "Failure [INSTALL_FAILED_INSUFFICIENT_STORAGE: Not enough space]",
@@ -513,7 +524,7 @@ class AndroidDeviceImplTest {
         .executeAdbCommand(eq(installCommand), eq(serialNumber), any())
 
     try {
-      androidDevice.installApkOnDevice(apkFile, false, false, false, false)
+      androidDevice.installApkOnDevice(apkFile, false, false, false, false, packageName)
       fail("Expected AndroidInstallException")
     } catch (e: AndroidInstallException) {
       assertTrue(e.message!!.contains("Failed to install test.apk"))
@@ -533,5 +544,86 @@ class AndroidDeviceImplTest {
         )
 
     assertEquals(setOf(AndroidInstallErrorTag.NO_SPACE_LEFT_ON_DEVICE), error.tags)
+  }
+
+  @Test
+  fun testInstallFailsWhenApkNeverMatches() {
+    whenever(mockAdbUtils.executeAdbShellCommand("getprop ro.build.version.sdk", serialNumber))
+        .thenReturn("28")
+    whenever(mockAdbUtils.executeAdbCommand("install -r -d ${apkFile.absolutePath}", serialNumber))
+        .thenReturn("Success")
+    // adb reports success but the on-device apk never matches the local apk.
+    whenever(mockAdbUtils.executeAdbShellCommand("pm path $packageName", serialNumber))
+        .thenReturn("package:$onDeviceApkPath")
+    whenever(mockAdbUtils.executeAdbShellCommand("sha256sum $onDeviceApkPath", serialNumber))
+        .thenReturn(
+            "0000000000000000000000000000000000000000000000000000000000000000  $onDeviceApkPath"
+        )
+
+    try {
+      androidDevice.installApkOnDevice(apkFile, false, false, false, false, packageName)
+      fail("Expected AndroidInstallException")
+    } catch (e: AndroidInstallException) {
+      assertTrue(e.message!!.contains("could not be verified"))
+      assertEquals(setOf(AndroidInstallErrorTag.INSTALLED_APK_MISMATCH), e.installError.tags)
+    }
+  }
+
+  @Test
+  fun testInstallFailsWhenPackageNotPresentAfterInstall() {
+    whenever(mockAdbUtils.executeAdbShellCommand("getprop ro.build.version.sdk", serialNumber))
+        .thenReturn("28")
+    whenever(mockAdbUtils.executeAdbCommand("install -r -d ${apkFile.absolutePath}", serialNumber))
+        .thenReturn("Success")
+    // `pm path` prints nothing for a package that is not installed.
+    whenever(mockAdbUtils.executeAdbShellCommand("pm path $packageName", serialNumber))
+        .thenReturn("")
+
+    try {
+      androidDevice.installApkOnDevice(apkFile, false, false, false, false, packageName)
+      fail("Expected AndroidInstallException")
+    } catch (e: AndroidInstallException) {
+      assertTrue(e.message!!.contains("is not present on the"))
+      assertEquals(setOf(AndroidInstallErrorTag.INSTALLED_APK_MISMATCH), e.installError.tags)
+    }
+  }
+
+  @Test
+  fun testInstallVerifiesBaseApkWhenPmPathReturnsSplits() {
+    whenever(mockAdbUtils.executeAdbShellCommand("getprop ro.build.version.sdk", serialNumber))
+        .thenReturn("28")
+    whenever(mockAdbUtils.executeAdbCommand("install -r -d ${apkFile.absolutePath}", serialNumber))
+        .thenReturn("Success")
+    // Split install: `pm path` returns the base apk plus config splits, one per line. Verification
+    // must hash the base apk (first line) and not choke on the multi-line output.
+    whenever(mockAdbUtils.executeAdbShellCommand("pm path $packageName", serialNumber))
+        .thenReturn(
+            "package:$onDeviceApkPath\npackage:/data/app/com.test.app-1/split_config.arm64_v8a.apk"
+        )
+    whenever(mockAdbUtils.executeAdbShellCommand("sha256sum $onDeviceApkPath", serialNumber))
+        .thenReturn("${sha256Hex(apkFile)}  $onDeviceApkPath")
+
+    assertTrue(androidDevice.installApkOnDevice(apkFile, false, false, false, false, packageName))
+  }
+
+  @Test
+  fun testInstallFailsWithAdbErrorWhenHashUnreadable() {
+    whenever(mockAdbUtils.executeAdbShellCommand("getprop ro.build.version.sdk", serialNumber))
+        .thenReturn("28")
+    whenever(mockAdbUtils.executeAdbCommand("install -r -d ${apkFile.absolutePath}", serialNumber))
+        .thenReturn("Success")
+    whenever(mockAdbUtils.executeAdbShellCommand("pm path $packageName", serialNumber))
+        .thenReturn("package:$onDeviceApkPath")
+    // sha256sum reports an error on stdout while adb still exits 0, so the first token is not a
+    // digest. This must be classified as a read failure, not an apk mismatch.
+    whenever(mockAdbUtils.executeAdbShellCommand("sha256sum $onDeviceApkPath", serialNumber))
+        .thenReturn("sha256sum: $onDeviceApkPath: No such file or directory")
+
+    try {
+      androidDevice.installApkOnDevice(apkFile, false, false, false, false, packageName)
+      fail("Expected AndroidInstallException")
+    } catch (e: AndroidInstallException) {
+      assertEquals(setOf(AndroidInstallErrorTag.ADB_COMMAND_FAILED), e.installError.tags)
+    }
   }
 }

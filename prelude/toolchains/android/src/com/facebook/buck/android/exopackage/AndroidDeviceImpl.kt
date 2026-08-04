@@ -21,6 +21,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
+import java.security.MessageDigest
 import java.util.Optional
 import java.util.UUID
 import java.util.regex.Pattern
@@ -35,6 +36,7 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
       verifyTempWritable: Boolean,
       stagedInstallMode: Boolean,
       userId: String?,
+      packageName: String,
   ): Boolean {
     val elapsed = measureTimeMillis {
       if (verifyTempWritable) {
@@ -85,6 +87,10 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
             "Failed to install ${apk.name} after uninstalling $conflictingPackage.",
         )
       }
+
+      if (!stagedInstallMode) {
+        verifyInstalledApkMatches(apk, packageName)
+      }
     }
     val userSuffix = if (userId != null) " for user $userId" else ""
     val kbps = (apk.length() / 1024.0) / (elapsed / 1000.0)
@@ -92,6 +98,66 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
         "Installed ${apk.name}$userSuffix (${apk.length()} bytes) in ${elapsed/1000.0} s ($kbps kB/s)",
     )
     return true
+  }
+
+  /**
+   * Verifies that the apk installed for [packageName] matches [apk] byte-for-byte (adb stores it
+   * verbatim). Always throws [AndroidInstallException] on failure: tagged
+   * [AndroidInstallErrorTag.INSTALLED_APK_MISMATCH] if the package is absent or the on-device apk
+   * differs, and tagged [AndroidInstallErrorTag.ADB_COMMAND_FAILED] if the on-device apk cannot be
+   * read back.
+   */
+  private fun verifyInstalledApkMatches(apk: File, packageName: String) {
+    val installedApk =
+        getPackageInfo(packageName).orElseThrow {
+          AndroidInstallException.installedApkMismatch(
+              "Install of ${apk.name} could not be verified: $packageName is not present on the" +
+                  " device after installing."
+          )
+        }
+    val installedHash =
+        try {
+          getContentHash(installedApk.apkPath)
+        } catch (e: AdbCommandFailedException) {
+          throw AndroidInstallException.adbCommandFailedException(
+              "Could not read the on-device apk for $packageName to verify the install of" +
+                  " ${apk.name}.",
+              e.message,
+          )
+        }
+    val localApkHash = sha256Hex(apk)
+    if (!installedHash.equals(localApkHash, ignoreCase = true)) {
+      throw AndroidInstallException.installedApkMismatch(
+          "Install of ${apk.name} could not be verified: the on-device apk for $packageName does" +
+              " not match the local apk after installing."
+      )
+    }
+  }
+
+  @Throws(Exception::class)
+  override fun getContentHash(path: String): String {
+    val output = executeAdbShellCommand("sha256sum $path").trim()
+    val hash = output.split(Regex("\\s+")).first()
+    // `sha256sum` can report an error on stdout (e.g. a missing file) while adb still exits 0, so
+    // the first token is not always a digest. Treat any non-hex output as a read failure so the
+    // caller surfaces ADB_COMMAND_FAILED rather than a misleading apk mismatch.
+    if (!hash.matches(Regex("[0-9a-fA-F]{64}"))) {
+      throw AdbCommandFailedException("sha256sum returned unexpected output for $path: \"$output\"")
+    }
+    return hash
+  }
+
+  private fun sha256Hex(file: File): String {
+    val digest = MessageDigest.getInstance("SHA-256")
+    file.inputStream().use { input ->
+      val buffer = ByteArray(8192)
+      var read = input.read(buffer)
+      while (read >= 0) {
+        digest.update(buffer, 0, read)
+        read = input.read(buffer)
+      }
+    }
+    return digest.digest().joinToString("") { "%02x".format(it.toInt() and 0xFF) }
   }
 
   /**
@@ -333,13 +399,23 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
 
   @Throws(Exception::class)
   override fun getPackageInfo(packageName: String): Optional<PackageInfo> {
-    try {
-      val output: String = executeAdbShellCommand("pm path $packageName")
-      return Optional.of(PackageInfo(output.removePrefix("package:"), "", ""))
-    } catch (e: AdbCommandFailedException) {
-      LOG.warn("Failed to get package info for $packageName: ${e.message}")
-      return Optional.empty()
-    }
+    val output: String =
+        try {
+          executeAdbShellCommand("pm path $packageName")
+        } catch (e: AdbCommandFailedException) {
+          LOG.warn("Failed to get package info for $packageName: ${e.message}")
+          return Optional.empty()
+        }
+    // `pm path` prints one `package:<path>` line per installed apk (base plus any config splits),
+    // and prints nothing for a package that is not installed. Use the base apk (first line); treat
+    // output with no `package:` line as "not installed".
+    val apkPath =
+        output
+            .lineSequence()
+            .map { it.trim() }
+            .firstOrNull { it.startsWith("package:") }
+            ?.removePrefix("package:") ?: return Optional.empty()
+    return Optional.of(PackageInfo(apkPath, "", ""))
   }
 
   @Throws(Exception::class)

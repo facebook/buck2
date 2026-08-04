@@ -141,7 +141,7 @@ public class InstrumentationTestRunnerForClout extends InstrumentationTestRunner
   }
 
   @Override
-  protected void installPackage(String path) throws Throwable {
+  protected void installPackage(String path, String packageName) throws Throwable {
     RunShellCommand.run(getAdbPath(), "install " + path);
   }
 }

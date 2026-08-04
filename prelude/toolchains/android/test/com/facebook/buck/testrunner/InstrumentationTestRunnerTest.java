@@ -717,7 +717,8 @@ public class InstrumentationTestRunnerTest {
               boolean quiet,
               boolean verifyTempWritable,
               boolean stagedInstallMode,
-              String userId) {
+              String userId,
+              String packageName) {
             installedWithUserTarget.add(apk.getPath() + ":" + userId);
             return true;
           }
@@ -822,11 +823,11 @@ public class InstrumentationTestRunnerTest {
           }
 
           @Override
-          protected void installPackage(String path) throws Throwable {
+          protected void installPackage(String path, String packageName) throws Throwable {
             // When running as secondary user (userId > 0), install for all users
             String userTarget = (argsParser.userId != null && argsParser.userId > 0) ? "all" : null;
             testAndroidDevice.installApkOnDevice(
-                new File(path), false, false, true, false, userTarget);
+                new File(path), false, false, true, false, userTarget, packageName);
           }
         };
 
@@ -850,7 +851,8 @@ public class InstrumentationTestRunnerTest {
               boolean quiet,
               boolean verifyTempWritable,
               boolean stagedInstallMode,
-              String userId) {
+              String userId,
+              String packageName) {
             installedWithUserTarget.add(apk.getPath() + ":" + userId);
             return true;
           }
@@ -954,11 +956,11 @@ public class InstrumentationTestRunnerTest {
           }
 
           @Override
-          protected void installPackage(String path) throws Throwable {
+          protected void installPackage(String path, String packageName) throws Throwable {
             // When not running as secondary user, userId is null
             String userTarget = (argsParser.userId != null && argsParser.userId > 0) ? "all" : null;
             testAndroidDevice.installApkOnDevice(
-                new File(path), false, false, true, false, userTarget);
+                new File(path), false, false, true, false, userTarget, packageName);
           }
         };
 
@@ -1240,7 +1242,9 @@ public class InstrumentationTestRunnerTest {
               boolean installViaSd,
               boolean quiet,
               boolean verifyTempWritable,
-              boolean stagedInstallMode) {
+              boolean stagedInstallMode,
+              String userId,
+              String packageName) {
             installedPackages.add(apk.getPath());
             return true;
           }
@@ -1362,8 +1366,9 @@ public class InstrumentationTestRunnerTest {
           }
 
           @Override
-          protected void installPackage(String path) throws Throwable {
-            testAndroidDevice.installApkOnDevice(new File(path), false, false, false);
+          protected void installPackage(String path, String packageName) throws Throwable {
+            testAndroidDevice.installApkOnDevice(
+                new File(path), false, false, true, false, null, packageName);
           }
         };
 

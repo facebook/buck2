@@ -581,11 +581,12 @@ public class InstrumentationTestRunner extends DeviceRunner {
     }
   }
 
-  protected void installPackage(String path) throws Throwable {
+  protected void installPackage(String path, String packageName) throws Throwable {
     // When running as secondary user, install for all users so the APK is available
     // to the secondary user context
     String userTarget = (this.userId != null && this.userId > 0) ? "all" : null;
-    androidDevice.installApkOnDevice(new File(path), false, false, true, false, userTarget);
+    androidDevice.installApkOnDevice(
+        new File(path), false, false, true, false, userTarget, packageName);
   }
 
   /**
@@ -760,7 +761,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
               executor.submit(
                   () -> {
                     try {
-                      installPackage(this.instrumentationApkPath);
+                      installPackage(this.instrumentationApkPath, this.packageName);
                       return null;
                     } catch (Throwable t) {
                       throw new RuntimeException("Failed to install instrumentation APK", t);
@@ -771,7 +772,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
               executor.submit(
                   () -> {
                     try {
-                      installPackage(this.apkUnderTestPath);
+                      installPackage(this.apkUnderTestPath, this.targetPackageName);
                       return null;
                     } catch (Throwable t) {
                       throw new RuntimeException("Failed to install APK under test", t);
@@ -791,7 +792,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
         }
       } else {
         // Single APK installation (no APK under test)
-        installPackage(this.instrumentationApkPath);
+        installPackage(this.instrumentationApkPath, this.packageName);
       }
     }
 

@@ -125,7 +125,13 @@ public class ExopackageInstaller {
     if (shouldAppBeInstalled(isolatedApkInfo)) {
       boolean success =
           device.installApkOnDevice(
-              apk, /* installViaSd= */ false, false, /* stagedInstallMode= */ false);
+              apk,
+              /* installViaSd= */ false,
+              /* quiet */ false,
+              /* verifyTempWritable= */ true,
+              /* stagedInstallMode= */ false,
+              /* userId= */ null,
+              packageName);
       if (!success) {
         throw new RuntimeException("Installing Apk failed.");
       }

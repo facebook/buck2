@@ -818,7 +818,7 @@ public class AdbHelper implements AndroidDevicesHelper {
             return device.installApexOnDevice(apk, quiet, restart, options.getWaitForDeviceReady());
           } else {
             return device.installApkOnDevice(
-                apk, installViaSd, quiet, options.isStagedInstallModeEnabled());
+                apk, installViaSd, quiet, options.isStagedInstallModeEnabled(), packageName);
           }
         },
         quiet);
