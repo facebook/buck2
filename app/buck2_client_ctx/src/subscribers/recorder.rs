@@ -19,6 +19,7 @@ use std::time::Duration;
 use std::time::SystemTime;
 
 use async_trait::async_trait;
+use buck2_action_parallelism::ActionInterval;
 use buck2_cli_proto::command_result;
 use buck2_common::build_count::BuildCount;
 use buck2_common::build_count::BuildCountManager;
@@ -269,6 +270,9 @@ pub struct InvocationRecorder {
     max_in_progress_remote_actions: u64,
     current_in_progress_remote_uploads: u64,
     max_in_progress_remote_uploads: u64,
+    // Execution-only intervals of each executed action, used to compute the
+    // action-concurrency distribution emitted on the InvocationRecord.
+    action_intervals: Vec<ActionInterval>,
     // Track executor stage types by span ID to know which counter to decrement on end
     executor_stages_by_span: StdBuckHashMap<u64, ExecutorStageType>,
     // Track maximum buck2 daemon anon memory usage
@@ -487,6 +491,7 @@ impl InvocationRecorder {
             max_dice_compute_keys: 0,
             current_in_progress_actions: 0,
             max_in_progress_actions: 0,
+            action_intervals: Vec::new(),
             current_in_progress_local_actions: 0,
             max_in_progress_local_actions: 0,
             current_in_progress_remote_actions: 0,
@@ -1002,6 +1007,11 @@ impl InvocationRecorder {
 
         let errors = self.finalize_errors();
 
+        let action_parallelism = buck2_action_parallelism::compute(
+            &std::mem::take(&mut self.action_intervals),
+            &buck2_action_parallelism::PERCENTILES,
+        );
+
         let record = buck2_data::InvocationRecord {
             command_name: Some(self.command_name.unwrap_or("unknown").to_owned()),
             command_end: self.command_end.take(),
@@ -1224,6 +1234,20 @@ impl InvocationRecorder {
             max_in_progress_local_actions: Some(self.max_in_progress_local_actions),
             max_in_progress_remote_actions: Some(self.max_in_progress_remote_actions),
             max_in_progress_remote_uploads: Some(self.max_in_progress_remote_uploads),
+            action_concurrency_percentiles: action_parallelism
+                .percentiles
+                .iter()
+                .map(
+                    |&(percentile, concurrency)| buck2_data::ActionConcurrencyPercentile {
+                        percentile,
+                        concurrency,
+                    },
+                )
+                .collect(),
+            action_avg_concurrency: Some(action_parallelism.avg_concurrency),
+            action_active_duration_ms: Some(
+                (action_parallelism.total_active_duration_us.max(0) / 1000) as u64,
+            ),
             memory_max_anon_allprocs: self.memory_max_anon_allprocs,
             memory_max_anon_forkserver_actions: self.memory_max_anon_forkserver_actions,
             memory_max_total_allprocs: self.memory_max_total_allprocs,
@@ -1514,6 +1538,13 @@ impl InvocationRecorder {
             Some(duration_since(event.timestamp(), self.start_time));
 
         self.exec_time_ms += get_last_command_execution_time(action).exec_time_ms;
+
+        // Accumulate the execution-only interval for the action-concurrency
+        // distribution (cache hits / no-command actions are excluded by
+        // extract_interval).
+        if let Some(interval) = buck2_action_parallelism::extract_interval(action) {
+            self.action_intervals.push(interval);
+        }
 
         Ok(())
     }

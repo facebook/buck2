@@ -196,6 +196,7 @@ bit-set = "0.9"
 blake3 = { version = "=1.8.2", features = ["mmap", "rayon", "traits-preview"] }
 buck2_action_impl = { path = "app/buck2_action_impl" }
 buck2_action_metadata_proto = { path = "app/buck2_action_metadata_proto" }
+buck2_action_parallelism = { path = "app/buck2_action_parallelism" }
 buck2_analysis = { path = "app/buck2_analysis" }
 buck2_anon_target = { path = "app/buck2_anon_target" }
 buck2_artifact = { path = "app/buck2_artifact" }

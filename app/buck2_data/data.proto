@@ -2694,6 +2694,17 @@ enum DaemonWasStartedReason {
   NO_DAEMON_PROCESS = 16;
 }
 
+// A single (percentile, concurrency) point of the action-concurrency
+// distribution reported on the InvocationRecord. Self-describing so the
+// reported set of percentiles can evolve without misinterpreting historical
+// data.
+message ActionConcurrencyPercentile {
+  // The percentile (e.g. 5, 10, 50, 99, 100).
+  uint32 percentile = 1;
+  // The number of actions executing concurrently at that percentile.
+  uint64 concurrency = 2;
+}
+
 // This is the origin for every sample in buck2_builds scuba table
 // It's sent from the client to Scribe at the end of each invocation
 message InvocationRecord {
@@ -3079,6 +3090,19 @@ message InvocationRecord {
 
   // Total DICE page-in time on the critical path.
   google.protobuf.Duration critical_path_page_in = 449;
+
+  // Distribution of how many actions were executing concurrently during this
+  // invocation (execution-only intervals; cache hits excluded), computed by the
+  // client-side InvocationRecorder, as (percentile, concurrency) pairs. Each
+  // entry is self-describing so the reported set of percentiles can change over
+  // time without misinterpreting historical data. Empty if no actions executed.
+  repeated ActionConcurrencyPercentile action_concurrency_percentiles = 450;
+  // Time-weighted mean number of concurrently-executing actions over the time
+  // at least one action was executing.
+  optional double action_avg_concurrency = 451;
+  // Total wall-clock time in milliseconds during which at least one action was
+  // executing.
+  optional uint64 action_active_duration_ms = 452;
 }
 
 enum InvocationOutcome {
