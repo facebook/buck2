@@ -53,6 +53,7 @@ use buck2_execute::re::error::RemoteExecutionError;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
 use buck2_execute::re::remote_action_result::RemoteActionResult;
+use buck2_execute::re::ttl::re_expiration_from_ttl;
 use buck2_fs::paths::RelativePathBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_hash::BuckIndexMap;
@@ -376,8 +377,10 @@ impl CasDownloader<'_> {
         output_spec: &dyn RemoteActionResult,
     ) -> buck2_error::Result<ExtractedArtifacts> {
         let now = Utc::now();
-        let ttl = Duration::seconds(output_spec.ttl());
-        let expires = now + ttl;
+        let expires = re_expiration_from_ttl(now, output_spec.ttl(), &identity.action_key);
+        // Derived from the clamped expiration rather than the raw TTL so that the two can't
+        // disagree, and because the difference of two in-range datetimes can't overflow.
+        let ttl = expires.signed_duration_since(now);
 
         // Download process:
         // 1. merges all the outputs (files and trees) into the inputs structure
