@@ -67,18 +67,24 @@ Options:
           By default test executor's stderr stream is captured
 
       --build-default-info
-          Also build DefaultInfo provider, which is what `buck2 build` command builds (this is not
-          the default)
+          Also build DefaultInfo provider, which is what `buck2 build` builds.
+
+          This overrides the `buck2.test_builds_targets` buckconfig.
 
       --skip-default-info
-          Do not build DefaultInfo provider (this is the default)
+          Do not build DefaultInfo provider.
+
+          This overrides the `buck2.test_builds_targets` buckconfig.
 
       --build-run-info
-          Also build RunInfo provider, which builds artifacts needed for `buck2 run` (this is not
-          the default)
+          Also build RunInfo provider, which builds artifacts needed for `buck2 run`.
+
+          This overrides the `buck2.test_builds_targets` buckconfig.
 
       --skip-run-info
-          Do not build RunInfo provider (this is the default)
+          Do not build RunInfo provider.
+
+          This overrides the `buck2.test_builds_targets` buckconfig.
 
       --build-report <PATH>
           Print a build report
