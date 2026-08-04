@@ -10,6 +10,7 @@ load(
     "@prelude//:artifact_tset.bzl",
     "project_artifacts",
 )
+load("@prelude//:content_based_dist.bzl", "make_content_based_dist")
 load(
     "@prelude//:resources.bzl",
     "create_relocatable_resources_info",
@@ -133,6 +134,56 @@ def _strategy_params(ctx: AnalysisContext, compile_ctx: CompileContext) -> dict[
         )
     return params
 
+def _create_content_based_dist(
+    ctx: AnalysisContext,
+    name: str,
+    exe: Artifact,
+    relocatable_resources_json: Artifact | None,
+    relocatable_resources_contents: Artifact | None,
+    shlib_tree: Artifact | list | None,
+) -> (Artifact, Artifact):
+    """
+    Build the content-based `assembled_dir` bundle for a `rust_binary` that opts
+    into `has_content_based_path` and has adjacent files: the relocatable resource
+    DB (copied) + the content-based `__resources` dir (symlinked), and the shlib
+    symlink-tree (symlinked). The exe and the copy/symlink contract are handled by
+    `make_content_based_dist`. Returns `(bundle_dir, projected exe)`.
+    """
+    exe_rel = exe.short_path
+    copies = {}
+    symlinks = {}
+
+    # Resources: reuse the relocatable DB + `__<name>__resources` symlink dir
+    # from `create_relocatable_resources_info` -- which is CONTENT-BASED for this
+    # binary (rust_binary threads `has_content_based_path` through). Copy the DB
+    # (its bytes are captured in the bundle); symlink the content-based resource
+    # dir. The dir being content-based is load-bearing: its path is immutable and
+    # re-hashes when a content-based resource changes, so the bundle's symlink to
+    # it is trample-safe -- unlike the config-based default, which would be
+    # rewritten in place under a running bundle.
+    if relocatable_resources_json != None:
+        copies[exe_rel + ".resources.json"] = relocatable_resources_json
+        symlinks[relocatable_resources_contents.short_path] = relocatable_resources_contents
+
+    # Shared libraries: symlink the whole prebuilt shlib symlink-tree into the
+    # bundle at the `$ORIGIN/<tree>`-relative offset the exe's RPATH already
+    # encodes (`get_rpath_origin` => `$ORIGIN` for the gnu linker). Symlinking
+    # the tree the linker already targets -- rather than reconstructing it
+    # per-soname -- reuses the tree tool's exact layout, so binaries with
+    # computed (non-string) sonames are handled too, and the loader follows the
+    # symlinked dir like any RPATH entry.
+    if isinstance(shlib_tree, list) and shlib_tree:
+        # Windows produces a list of per-DLL symlink artifacts (no `$ORIGIN`
+        # RPATH); co-locating them here is unimplemented. Fail loudly rather
+        # than ship a bundle that silently can't find its DLLs at runtime.
+        fail(
+            "content-based `assembled_dir` bundle does not support a Windows shared-library tree; a content-based rust_binary with shared libraries is not supported on Windows yet"
+        )
+    if isinstance(shlib_tree, Artifact):
+        symlinks[shlib_tree.short_path] = shlib_tree
+
+    return make_content_based_dist(ctx, name, exe, copies = copies, symlinks = symlinks)
+
 def _rust_binary_common(
     ctx: AnalysisContext, compile_ctx: CompileContext, default_roots: list[str], extra_flags: list[str], allow_cache_upload: bool
 ) -> (list[Provider], cmd_args):
@@ -161,15 +212,13 @@ def _rust_binary_common(
 
     enable_late_build_info_stamping = cxx_stamp_build_info(ctx)
     content_based_output = getattr(ctx.attrs, "has_content_based_path", False)
+    unstamped_name = None
     if enable_late_build_info_stamping:
         allow_cache_upload = True
         unstamped_name = output_filename(compile_ctx, simple_crate, Emit("link"), params, "-unstamped")
-        predeclared_output = ctx.actions.declare_output(unstamped_name, has_content_based_path = content_based_output)
-        final_output = ctx.actions.declare_output(name, has_content_based_path = content_based_output)
-    else:
-        # If not using late build info stamping, then the output will be stamped eagerly in rust_compile
-        predeclared_output = ctx.actions.declare_output(name, has_content_based_path = content_based_output)
-        final_output = predeclared_output
+    # The exe output is declared below, once we know whether it ships in a
+    # content-based `copied_dir` bundle (see the `will_bundle` decision after
+    # `shared_libs` is computed).
 
     build_graph_info = new_build_graph_info(ctx, cxx_deps)
     transformation_spec_context = build_transformation_spec_context(ctx, build_graph_info)
@@ -228,21 +277,6 @@ def _rust_binary_common(
     )
 
     # Gather and setup symlink tree of transitive shared library deps.
-    # A bare content-based exe orphans its adjacent files: `resources` resolve
-    # via a sibling `<exe>.resources.json`, and shared libraries via a baked
-    # sibling-dir `$ORIGIN` RPATH -- neither exists in the exe's content-hash
-    # dir. Until bundle support ships (the content-based `assembled_dir` dist
-    # change stacked above), fail at analysis time instead of emitting a
-    # binary that breaks at runtime. Usage rule: opt in leaf, fully-static,
-    # resource-free binaries (e.g. ones consumed as another target's
-    # resources); keep resource-bearing outer binaries config-based.
-    if content_based_output and resources:
-        fail(
-            "`has_content_based_path` on {}: unsupported with `resources` (the content-based exe would orphan its sibling `.resources.json`); keep the target config-based until content-based dist bundles land".format(
-                ctx.label
-            )
-        )
-
     shared_libs = build_shared_libs_for_symlink_tree(
         use_link_groups = rust_cxx_link_group_info != None,
         link_group_ctx = link_group_ctx,
@@ -251,15 +285,50 @@ def _rust_binary_common(
         extra_shared_libraries = [],
     )
 
+    # Decide whether the content-based output ships as a bare exe or a
+    # `assembled_dir` bundle (see `_create_content_based_dist`). A binary with
+    # adjacent files -- resources and/or a shared-lib tree -- goes in a bundle,
+    # and its exe must stay config-based: a content-based exe sits at a deep
+    # content-hash path, so the linker bakes a long buck-out-relative `$ORIGIN`
+    # RPATH that no longer points at the shlib tree once the exe is copied into
+    # the bundle. A config-based exe is a direct sibling of the tree, yielding a
+    # clean `$ORIGIN/<tree>` RPATH that survives co-location; the bundle dir
+    # provides the content-addressing instead.
+    # `needs_shlib_tree` = a shlib symlink-tree (and a baked `$ORIGIN/<tree>`
+    # RPATH) was produced for this exe. That is exactly when `shared_libs` is
+    # non-empty: `link_strategy == shared`, a link-group binary (auto link groups
+    # are on by DEFAULT, so `link_strategy == shared` alone is NOT sufficient --
+    # a static_pic link-group binary still gets a tree + RPATH), or
+    # `runtime_dependency_handling = "symlink"` dlopen deps. In every such case
+    # the exe carries an `$ORIGIN/<tree>` RPATH, so a content-based (deep-hash)
+    # exe would bake a dangling RPATH; bundle, and keep the exe config-based, so
+    # the RPATH resolves against the co-located tree. A binary with NO shared
+    # libs (e.g. the fully-static node) has no tree/RPATH and stays a bare
+    # content-based exe.
+    needs_shlib_tree = bool(shared_libs)
+    will_bundle = content_based_output and (bool(resources) or needs_shlib_tree)
+
+    # The bare exe stays content-based -- so it is trample-safe when consumed by
+    # path or as another target's resource (e.g. clio's `:web-server` embeds the
+    # node) -- EXCEPT when it needs a shlib tree at startup. A content-based exe
+    # sits at a deep content-hash path, so the linker bakes a long
+    # buck-out-relative `$ORIGIN` RPATH that no longer points at the tree once
+    # the exe is copied into the bundle. Dynamic binaries therefore use a
+    # config-based exe (a direct sibling of the tree => clean `$ORIGIN/<tree>`
+    # RPATH that survives co-location) and get content-addressing from the
+    # bundle dir instead. Static binaries reuse their content-based exe in the
+    # bundle directly (no RPATH to break).
+    exe_content_based = content_based_output and not needs_shlib_tree
+    if enable_late_build_info_stamping:
+        predeclared_output = ctx.actions.declare_output(unstamped_name, has_content_based_path = exe_content_based)
+        final_output = ctx.actions.declare_output(name, has_content_based_path = exe_content_based)
+    else:
+        # If not using late build info stamping, then the output will be stamped eagerly in rust_compile
+        predeclared_output = ctx.actions.declare_output(name, has_content_based_path = exe_content_based)
+        final_output = predeclared_output
+
     # link groups shared libraries link args are directly added to the link command,
     # we don't have to add them here
-    if content_based_output and shared_libs:
-        fail(
-            "`has_content_based_path` on {}: unsupported with shared libraries (the exe's `$ORIGIN` RPATH points at a config-based sibling tree the content-hash dir does not contain); use a static link or keep the target config-based until content-based dist bundles land".format(
-                ctx.label
-            )
-        )
-
     executable_shlib_args = executable_shared_lib_arguments(
         ctx,
         compile_ctx.cxx_toolchain_info,
@@ -322,7 +391,31 @@ def _rust_binary_common(
             ctx = ctx,
             name = name,
             resources = resources,
+            has_content_based_path = content_based_output,
         )
+
+    # If opted into content-based output and the binary has adjacent files
+    # (resources and/or a shared-lib tree), package everything into a single
+    # content-based `assembled_dir` and point both the run command and
+    # `DefaultInfo.default_output` at the exe projected out of the bundle, so
+    # by-path and resource consumers get the self-contained, co-located form.
+    dist_bundle = None
+    dist_exe = None
+    if will_bundle:
+        dist_bundle, dist_exe = _create_content_based_dist(
+            ctx = ctx,
+            name = name,
+            exe = final_output,
+            relocatable_resources_json = relocatable_resources_json,
+            relocatable_resources_contents = relocatable_resources_contents,
+            shlib_tree = executable_shlib_args.shared_libs_symlink_tree,
+        )
+        # Run the bundled exe (projected out of the content-based bundle). The
+        # bundle carries the co-located resources / shlib tree; `runtime_files`
+        # is still added so a resource's own `other_outputs` (e.g. a resource
+        # that is itself a dynamic exe) materialize too, mirroring the
+        # non-bundle contract.
+        args = cmd_args(dist_exe, hidden = [dist_bundle] + runtime_files)
 
     # A simple dict of sub-target key to artifact, which we'll convert to
     # DefaultInfo providers at the end
@@ -547,16 +640,24 @@ def _rust_binary_common(
 
     sub_targets.update({k: [DefaultInfo(default_output = v)] for (k, v) in extra_compiled_targets.items()})
 
+    if dist_bundle:
+        sub_targets["dist"] = [DefaultInfo(default_output = dist_bundle)]
+
     providers += [
         DefaultInfo(
-            default_output = final_output,
+            default_output = dist_exe if dist_bundle else final_output,
             other_outputs = runtime_files
-            + (executable_shlib_args.external_debug_info + external_debug_info if compile_ctx.cxx_toolchain_info.materialize_external_debug_info else []),
+            + (executable_shlib_args.external_debug_info + external_debug_info if compile_ctx.cxx_toolchain_info.materialize_external_debug_info else [])
+            + ([dist_bundle] if dist_bundle else []),
             sub_targets = sub_targets,
         ),
         DistInfo(
             shared_libs = shlib_info.set,
-            nondebug_runtime_files = runtime_files,
+            # The bundle is load-bearing at runtime for a bundled binary: the
+            # projected exe resolves its manifest / shlib tree as bundle
+            # siblings, so dist consumers that materialize only
+            # `nondebug_runtime_files` must get the bundle too.
+            nondebug_runtime_files = runtime_files + ([dist_bundle] if dist_bundle else []),
             relocatable_resources_contents = relocatable_resources_contents,
             relocatable_resources_json = relocatable_resources_json,
         ),

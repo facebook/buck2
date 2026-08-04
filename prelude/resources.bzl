@@ -19,7 +19,9 @@ ResourceInfo = provider(
     }
 )
 
-def create_relocatable_resources_info(ctx: AnalysisContext, name: str, resources: dict[str, ArtifactOutputs]) -> [ArgLike, Artifact]:
+def create_relocatable_resources_info(
+    ctx: AnalysisContext, name: str, resources: dict[str, ArtifactOutputs], has_content_based_path: bool = False
+) -> [ArgLike, Artifact]:
     """
     Generate a resource DB (a JSON map of resource to its relative path) for the given
     binary in a way that is usable in relocatable contexts (where binaries must be fully
@@ -59,13 +61,13 @@ def create_relocatable_resources_info(ctx: AnalysisContext, name: str, resources
     resources_dir = ctx.actions.symlinked_dir(
         resources_dir_name,
         resources_dir_mapping,
-        has_content_based_path = False,
+        has_content_based_path = has_content_based_path,
     )
 
     packaged_resources_json = ctx.actions.write_json(
         name + ".resources_pkg.json",
         packaged_resource_name_to_json,
-        has_content_based_path = False,
+        has_content_based_path = has_content_based_path,
     )
 
     return (packaged_resources_json, resources_dir)
