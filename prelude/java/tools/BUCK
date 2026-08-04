@@ -108,3 +108,12 @@ prelude.python_test(
     ],
     base_module = "",
 )
+
+prelude.python_test(
+    name = "test_merge_class_to_source_maps",
+    srcs = [
+        "merge_class_to_source_maps.py",
+        "tests/test_merge_class_to_source_maps.py",
+    ],
+    base_module = "",
+)

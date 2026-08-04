@@ -174,6 +174,7 @@ def get_class_to_source_map_info(
             name = name + ".class_to_srcs.json",
             jar = outputs.classpath_entry.full_library,
             srcs = ctx.attrs.srcs,
+            owner_target = str(ctx.label.raw_target()),
             sources_jar_name = "{}-sources.jar".format(name) if generate_sources_jar else None,
             debuginfo = mapping_debuginfo,
         )

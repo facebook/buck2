@@ -73,6 +73,7 @@ def create_class_to_source_map_from_jar(
     java_toolchain: JavaToolchainInfo,
     jar: Artifact,
     srcs: list[Artifact],
+    owner_target: str,
     sources_jar_name: [str, None] = None,
     debuginfo: Artifact | None = None,
 ) -> (Artifact, Artifact | None):
@@ -84,6 +85,7 @@ def create_class_to_source_map_from_jar(
     cmd.add("-o", output.as_output())
     if debuginfo != None:
         cmd.add("--debuginfo", debuginfo)
+    cmd.add("--owner-target", owner_target)
     cmd.add(jar)
     cmd.add(at_argfile(actions = actions, name = "class_to_srcs_map_argsfile.txt", args = srcs, has_content_based_path = True))
     sources_jar = None

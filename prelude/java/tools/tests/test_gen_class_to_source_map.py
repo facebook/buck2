@@ -307,3 +307,26 @@ class GenClassToSourceMapTest(unittest.TestCase):
             json.loads(output.getvalue()),
             {"jarPath": str(jar_path), "classes": []},
         )
+
+    def test_serializes_owner_target(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            jar_path = pathlib.Path(temp_dir) / "library.jar"
+            with zipfile.ZipFile(jar_path, "w"):
+                pass
+
+            output = io.StringIO()
+            generate_class_to_source_map(
+                str(jar_path),
+                [],
+                output,
+                owner_target="cell//package:library",
+            )
+
+        self.assertEqual(
+            json.loads(output.getvalue()),
+            {
+                "jarPath": str(jar_path),
+                "classes": [],
+                "ownerTarget": "cell//package:library",
+            },
+        )

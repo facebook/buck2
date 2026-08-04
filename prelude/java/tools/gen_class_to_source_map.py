@@ -176,6 +176,7 @@ def generate_class_to_source_map(
     *,
     debuginfo: str | None = None,
     include_classes_prefixes: Iterable[str] = (),
+    owner_target: str | None = None,
     sources_jar: str | None = None,
 ) -> None:
     classes = _build_class_entries(
@@ -187,7 +188,10 @@ def generate_class_to_source_map(
     if sources_jar is not None:
         _write_sources_jar(classes, sources_jar)
 
-    json.dump({"jarPath": jar, "classes": classes}, output)
+    result = {"jarPath": jar, "classes": classes}
+    if owner_target is not None:
+        result["ownerTarget"] = owner_target
+    json.dump(result, output)
     output.write("\n")
 
 
@@ -205,6 +209,7 @@ def main(argv: list[str]) -> int:
     )
     parser.add_argument("--sources_jar", required=False)
     parser.add_argument("--debuginfo", required=False)
+    parser.add_argument("--owner-target", required=False)
     parser.add_argument("jar")
     parser.add_argument("sources", nargs="*")
     args = parser.parse_args(argv[1:])
@@ -215,6 +220,7 @@ def main(argv: list[str]) -> int:
         args.output,
         debuginfo=args.debuginfo,
         include_classes_prefixes=args.include_classes_prefixes,
+        owner_target=args.owner_target,
         sources_jar=args.sources_jar,
     )
     return 0
