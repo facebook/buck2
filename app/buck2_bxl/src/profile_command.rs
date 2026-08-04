@@ -65,7 +65,7 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
         &self,
         server_ctx: &dyn ServerCommandContextTrait,
         _partial_result_dispatcher: PartialResultDispatcher<Self::PartialResult>,
-        mut ctx: DiceTransaction,
+        ctx: DiceTransaction,
     ) -> buck2_error::Result<Self::Response> {
         let ProfileOpts::BxlProfile(opts) = self
             .req
@@ -99,7 +99,7 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
 
         let BxlResolvedCliArgs::Resolved(bxl_args) = get_bxl_cli_args(
             cwd,
-            &mut ctx,
+            &ctx,
             &bxl_label,
             &opts.bxl_args,
             &cell_resolver,

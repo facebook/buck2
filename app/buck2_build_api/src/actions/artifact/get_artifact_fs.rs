@@ -28,9 +28,9 @@ impl GetArtifactFs for DiceComputations<'_> {
     async fn get_artifact_fs(&mut self) -> buck2_error::Result<ArtifactFs> {
         let buck_out_path_resolver = self.get_buck_out_path().await?;
         let project_filesystem = self.global_data().get_io_provider().project_root().dupe();
-        let buck_path_resolver = self.get_cell_resolver().await?;
+        let cell_resolver = self.get_cell_resolver().await?.dupe();
         Ok(ArtifactFs::new(
-            buck_path_resolver,
+            cell_resolver,
             buck_out_path_resolver,
             project_filesystem,
         ))

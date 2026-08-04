@@ -29,12 +29,12 @@ pub struct ArtifactFs {
 
 impl ArtifactFs {
     pub fn new(
-        buck_path_resolver: CellResolver,
+        cell_resolver: CellResolver,
         buck_out_path_resolver: BuckOutPathResolver,
         project_filesystem: ProjectRoot,
     ) -> Self {
         Self {
-            cell_resolver: buck_path_resolver,
+            cell_resolver,
             buck_out_path_resolver,
             project_filesystem,
         }

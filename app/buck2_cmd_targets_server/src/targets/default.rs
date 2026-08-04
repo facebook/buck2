@@ -85,7 +85,7 @@ impl TargetHashOptions {
 
 pub(crate) async fn targets_batch(
     server_ctx: &dyn ServerCommandContextTrait,
-    dice: DiceTransaction,
+    dice: &DiceTransaction,
     formatter: &dyn TargetFormatter,
     parsed_patterns: Vec<ParsedPattern<TargetPatternExtra>>,
     global_cfg_options: &GlobalCfgOptions,
@@ -99,8 +99,7 @@ pub(crate) async fn targets_batch(
     )
     .await?;
 
-    let linear_dice = dice.dupe();
-    let target_hashes = linear_dice
+    let target_hashes = dice
         .ctx()
         .with_linear_recompute(|linear_ctx| {
             async move {

@@ -12,7 +12,6 @@ use allocative::Allocative;
 use buck2_build_api::audit_cell::audit_cell;
 use buck2_build_api::audit_output::AuditOutputResult;
 use buck2_build_api::audit_output::audit_output;
-use buck2_core::cells::CellResolver;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::internal_error;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
@@ -55,12 +54,9 @@ use crate::bxl::value_as_starlark_target_label::ValueAsStarlarkTargetLabel;
 pub(crate) struct StarlarkAuditCtx<'v> {
     #[derivative(Debug = "ignore")]
     ctx: ValueTyped<'v, BxlContext<'v>>,
-    #[trace(unsafe_ignore)]
+    #[trace(static)]
     #[derivative(Debug = "ignore")]
     working_dir: ProjectRelativePathBuf,
-    #[trace(unsafe_ignore)]
-    #[derivative(Debug = "ignore")]
-    cell_resolver: CellResolver,
 }
 
 starlark::methods_static!(AUDIT_METHODS = audit_methods);
@@ -82,13 +78,8 @@ impl<'v> StarlarkAuditCtx<'v> {
     pub(crate) fn new(
         ctx: ValueTyped<'v, BxlContext<'v>>,
         working_dir: ProjectRelativePathBuf,
-        cell_resolver: CellResolver,
     ) -> buck2_error::Result<Self> {
-        Ok(Self {
-            ctx,
-            working_dir,
-            cell_resolver,
-        })
+        Ok(Self { ctx, working_dir })
     }
 }
 
@@ -135,7 +126,7 @@ fn audit_methods(builder: &mut MethodsBuilder) {
                     let output = audit_output(
                         output_path,
                         &this.working_dir,
-                        &this.cell_resolver,
+                        this.ctx.cell_resolver(),
                         ctx,
                         &global_cfg_options,
                     )

@@ -55,7 +55,8 @@ impl BxlCqueryFunctionsImpl {
         let cell_alias_resolver = dice
             .get()
             .get_cell_alias_resolver_for_dir(&self.working_dir)
-            .await?;
+            .await?
+            .dupe();
 
         let target_alias_resolver = dice.get().target_alias_resolver().await?;
 

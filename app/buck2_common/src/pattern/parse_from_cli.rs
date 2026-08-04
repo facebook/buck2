@@ -25,16 +25,16 @@ use crate::pattern::resolve::ResolvedPattern;
 use crate::target_aliases::BuckConfigTargetAliasResolver;
 use crate::target_aliases::HasTargetAliasResolver;
 
-struct PatternParser {
-    cell_resolver: CellResolver,
-    cell_alias_resolver: CellAliasResolver,
+struct PatternParser<'d> {
+    cell_resolver: &'d CellResolver,
+    cell_alias_resolver: &'d CellAliasResolver,
     cwd: CellPath,
     target_alias_resolver: BuckConfigTargetAliasResolver,
 }
 
-impl PatternParser {
+impl<'d> PatternParser<'d> {
     async fn new(
-        ctx: &mut DiceComputations<'_>,
+        ctx: &mut DiceComputations<'d>,
         cwd: &ProjectRelativePath,
     ) -> buck2_error::Result<Self> {
         let cell_resolver = ctx.get_cell_resolver().await?;

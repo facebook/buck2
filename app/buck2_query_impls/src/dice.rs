@@ -58,6 +58,7 @@ use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use dice::DiceComputations;
 use dice::LinearRecomputeDiceComputations;
+use dupe::Dupe;
 use gazebo::prelude::*;
 
 use crate::cquery::environment::CqueryDelegate;
@@ -418,11 +419,12 @@ pub(crate) async fn get_dice_query_delegate<'a, 'c: 'a, 'd>(
     global_cfg_options: GlobalCfgOptions,
     allow_partial_graph: bool,
 ) -> buck2_error::Result<DiceQueryDelegate<'c, 'd>> {
-    let cell_resolver = ctx.get().get_cell_resolver().await?;
+    let cell_resolver = ctx.get().get_cell_resolver().await?.dupe();
     let cell_alias_resolver = ctx
         .get()
         .get_cell_alias_resolver_for_dir(working_dir)
-        .await?;
+        .await?
+        .dupe();
     let target_alias_resolver = ctx.get().target_alias_resolver().await?;
     let project_root = ctx
         .get()

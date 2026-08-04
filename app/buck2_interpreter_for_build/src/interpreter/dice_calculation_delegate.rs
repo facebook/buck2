@@ -134,8 +134,8 @@ impl<'c, 'd> HasCalculationDelegate<'c, 'd> for DiceComputations<'d> {
 
                 let cell_info = InterpreterCellInfo::new(
                     self.1,
-                    ctx.get_cell_resolver().await?,
-                    cell_alias_resolver,
+                    ctx.get_cell_resolver().await?.dupe(),
+                    cell_alias_resolver.dupe(),
                 )?;
 
                 Ok(Arc::new(InterpreterForDir::new(

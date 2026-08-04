@@ -102,7 +102,7 @@ impl ResolveAliasFormatter for LinesWriter {
 }
 
 pub(crate) async fn targets_resolve_aliases(
-    dice: DiceTransaction,
+    dice: &DiceTransaction,
     request: &TargetsRequest,
     parsed_target_patterns: Vec<ParsedPattern<TargetPatternExtra>>,
 ) -> buck2_error::Result<TargetsResponse> {

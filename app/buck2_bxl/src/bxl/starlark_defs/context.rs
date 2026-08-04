@@ -211,7 +211,7 @@ impl BxlContextCoreData {
         dice: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<Self> {
         let label = key.label();
-        let cell_resolver = dice.get_cell_resolver().await?;
+        let cell_resolver = dice.get_cell_resolver().await?.dupe();
         let cell = label.bxl_path.cell();
         let bxl_cell = cell_resolver
             .get(cell)
@@ -219,7 +219,7 @@ impl BxlContextCoreData {
             .dupe();
         let cell_name = bxl_cell.name();
         let target_alias_resolver = dice.target_alias_resolver().await?;
-        let cell_alias_resolver = dice.get_cell_alias_resolver(cell).await?;
+        let cell_alias_resolver = dice.get_cell_alias_resolver(cell).await?.dupe();
         let artifact_fs = dice.get_artifact_fs().await?;
         let project_fs = dice.global_data().get_io_provider().project_root().dupe();
 

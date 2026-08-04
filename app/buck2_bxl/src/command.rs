@@ -120,13 +120,13 @@ impl BxlServerCommand {
         &self,
         server_ctx: &dyn ServerCommandContextTrait,
         _stdout: impl Write + Send,
-        mut dice_ctx: DiceTransaction,
+        dice_ctx: DiceTransaction,
     ) -> buck2_error::Result<buck2_cli_proto::BxlResponse> {
         let bxl_cmd_ctx = self
-            .parse_and_validate_request(server_ctx, &mut dice_ctx)
+            .parse_and_validate_request(server_ctx, &dice_ctx)
             .await?;
 
-        let resolved_cli_args = self.resolve_cli_args(&bxl_cmd_ctx, &mut dice_ctx).await?;
+        let resolved_cli_args = self.resolve_cli_args(&bxl_cmd_ctx, &dice_ctx).await?;
         let bxl_args = match resolved_cli_args {
             BxlResolvedCliArgs::Resolved(bxl_args) => Arc::new(bxl_args),
             BxlResolvedCliArgs::Help => {
@@ -138,7 +138,7 @@ impl BxlServerCommand {
             }
         };
 
-        let bxl_eval_result = self.eval_bxl(&bxl_cmd_ctx, &mut dice_ctx, bxl_args).await;
+        let bxl_eval_result = self.eval_bxl(&bxl_cmd_ctx, &dice_ctx, bxl_args).await;
 
         // let per_transaction_data = dice_ctx.per_transaction_data();
         let dispatcher = dice_ctx.per_transaction_data().get_dispatcher().dupe();
@@ -148,7 +148,7 @@ impl BxlServerCommand {
         let bxl_result = match bxl_eval_result {
             Ok(bxl_result) => {
                 self.emit_streaming_output(
-                    &mut dice_ctx,
+                    &dice_ctx,
                     bxl_result.streaming(),
                     &mut streaming_output_writer,
                 )?;
@@ -157,7 +157,7 @@ impl BxlServerCommand {
             Err(e) => {
                 if let Some(output) = &e.output_stream_state {
                     self.emit_streaming_output(
-                        &mut dice_ctx,
+                        &dice_ctx,
                         &output.streaming,
                         &mut streaming_output_writer,
                     )?;
@@ -167,11 +167,7 @@ impl BxlServerCommand {
         };
 
         let errors = self
-            .materialize_artifacts(
-                &mut dice_ctx,
-                bxl_result.dupe(),
-                &mut streaming_output_writer,
-            )
+            .materialize_artifacts(&dice_ctx, bxl_result.dupe(), &mut streaming_output_writer)
             .await;
 
         self.emit_outputs(server_ctx, bxl_result, &mut streaming_output_writer)
@@ -184,7 +180,7 @@ impl BxlServerCommand {
             .collect();
 
         let serialized_build_report = self
-            .write_build_report(&bxl_cmd_ctx, &mut dice_ctx, server_ctx, errors)
+            .write_build_report(&bxl_cmd_ctx, &dice_ctx, server_ctx, errors)
             .await?;
 
         Ok(BxlResponse {
@@ -194,11 +190,11 @@ impl BxlServerCommand {
         })
     }
 
-    async fn parse_and_validate_request<'a>(
+    async fn parse_and_validate_request<'d>(
         &self,
-        server_ctx: &'a dyn ServerCommandContextTrait,
-        dice_ctx: &mut DiceTransaction,
-    ) -> buck2_error::Result<BxlCommandContext<'a>> {
+        server_ctx: &'d dyn ServerCommandContextTrait,
+        dice_ctx: &'d DiceTransaction,
+    ) -> buck2_error::Result<BxlCommandContext<'d>> {
         let cwd = server_ctx.working_dir();
         let cell_resolver = dice_ctx.ctx().get_cell_resolver().await?;
         let cell_alias_resolver = dice_ctx.ctx().get_cell_alias_resolver_for_dir(cwd).await?;
@@ -232,7 +228,7 @@ impl BxlServerCommand {
     async fn resolve_cli_args(
         &self,
         ctx: &BxlCommandContext<'_>,
-        dice_ctx: &mut DiceTransaction,
+        dice_ctx: &DiceTransaction,
     ) -> buck2_error::Result<BxlResolvedCliArgs> {
         let cur_package =
             PackageLabel::from_cell_path(ctx.cell_resolver.get_cell_path(ctx.cwd).as_ref())?;
@@ -249,7 +245,7 @@ impl BxlServerCommand {
         let frozen_callable = get_bxl_callable(&ctx.bxl_label, &bxl_module)?;
         let cli_ctx = CliResolutionCtx {
             target_alias_resolver,
-            cell_resolver: ctx.cell_resolver.dupe(),
+            cell_resolver: ctx.cell_resolver,
             cell_alias_resolver,
             relative_dir: cur_package,
             dice: dice_ctx,
@@ -269,7 +265,7 @@ impl BxlServerCommand {
     async fn eval_bxl(
         &self,
         ctx: &BxlCommandContext<'_>,
-        dice_ctx: &mut DiceTransaction,
+        dice_ctx: &DiceTransaction,
         bxl_args: Arc<OrderedMap<String, CliArgValue>>,
     ) -> bxl::eval::Result<Arc<BxlResult>> {
         let bxl_key = BxlKey::new(
@@ -287,7 +283,7 @@ impl BxlServerCommand {
     /// Returns errors encountered during materialization.
     async fn materialize_artifacts(
         &self,
-        dice_ctx: &mut DiceTransaction,
+        dice_ctx: &DiceTransaction,
         bxl_result: Arc<BxlResult>,
         output: &mut (impl Write + Send),
     ) -> Vec<buck2_error::Error> {
@@ -430,7 +426,7 @@ impl BxlServerCommand {
     /// Note that when cached, we do not eval the bxl, so we don't get the streaming output in the bxl script.
     fn emit_streaming_output(
         &self,
-        dice_ctx: &mut DiceTransaction,
+        dice_ctx: &DiceTransaction,
         streaming_output: &[u8],
         stdout: &mut impl Write,
     ) -> buck2_error::Result<()> {
@@ -450,7 +446,7 @@ impl BxlServerCommand {
     async fn write_build_report(
         &self,
         ctx: &BxlCommandContext<'_>,
-        dice_ctx: &mut DiceTransaction,
+        dice_ctx: &DiceTransaction,
         server_ctx: &dyn ServerCommandContextTrait,
         ensured_artifact_errors: Vec<buck2_error::Error>,
     ) -> buck2_error::Result<Option<String>> {
@@ -499,9 +495,9 @@ impl BxlServerCommand {
 }
 
 #[derive(Debug)]
-struct BxlCommandContext<'a> {
-    cwd: &'a ProjectRelativePath,
-    cell_resolver: CellResolver,
+struct BxlCommandContext<'d> {
+    cwd: &'d ProjectRelativePath,
+    cell_resolver: &'d CellResolver,
     bxl_label: BxlFunctionLabel,
     project_root: String,
     global_cfg_options: GlobalCfgOptions,
@@ -509,7 +505,7 @@ struct BxlCommandContext<'a> {
 
 pub(crate) async fn get_bxl_cli_args(
     cwd: &ProjectRelativePath,
-    ctx: &mut DiceTransaction,
+    ctx: &DiceTransaction,
     bxl_label: &BxlFunctionLabel,
     bxl_args: &Vec<String>,
     cell_resolver: &CellResolver,
@@ -529,7 +525,7 @@ pub(crate) async fn get_bxl_cli_args(
     let frozen_callable = get_bxl_callable(bxl_label, &bxl_module)?;
     let cli_ctx = CliResolutionCtx {
         target_alias_resolver,
-        cell_resolver: cell_resolver.dupe(),
+        cell_resolver,
         cell_alias_resolver,
         relative_dir: cur_package,
         dice: ctx,

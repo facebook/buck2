@@ -126,7 +126,7 @@ impl HasGlobalInterpreterState for DiceComputations<'_> {
                 _cancellation: &CancellationContext,
             ) -> Self::Value {
                 let interpreter_configuror = ctx.get_interpreter_configuror().await?;
-                let cell_resolver = ctx.get_cell_resolver().await?;
+                let cell_resolver = ctx.get_cell_resolver().await?.dupe();
                 let disable_starlark_types = ctx.get_disable_starlark_types().await?;
                 let unstable_typecheck = ctx.get_unstable_typecheck().await?;
 

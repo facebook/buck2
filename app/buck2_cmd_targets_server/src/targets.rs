@@ -204,7 +204,7 @@ async fn targets_with_output(
 
     match &request.targets {
         Some(targets_request::Targets::ResolveAlias(_)) => {
-            targets_resolve_aliases(dice, request, parsed_target_patterns).await
+            targets_resolve_aliases(&dice, request, parsed_target_patterns).await
         }
         Some(targets_request::Targets::Other(other)) => {
             if other.streaming {
@@ -247,7 +247,7 @@ async fn targets_with_output(
                 let fs = server_ctx.project_root();
                 targets_batch(
                     server_ctx,
-                    dice,
+                    &dice,
                     &*formatter,
                     parsed_target_patterns,
                     &global_cfg_options,

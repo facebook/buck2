@@ -379,12 +379,12 @@ pub(crate) fn get_bxl_callable(
     Ok(callable.downcast_starlark::<FrozenBxlFunction>()?)
 }
 
-pub(crate) struct CliResolutionCtx<'a> {
+pub(crate) struct CliResolutionCtx<'d> {
     pub(crate) target_alias_resolver: BuckConfigTargetAliasResolver,
-    pub(crate) cell_resolver: CellResolver,
-    pub(crate) cell_alias_resolver: CellAliasResolver,
+    pub(crate) cell_resolver: &'d CellResolver,
+    pub(crate) cell_alias_resolver: &'d CellAliasResolver,
     pub(crate) relative_dir: PackageLabel,
-    pub(crate) dice: &'a DiceTransaction,
+    pub(crate) dice: &'d DiceTransaction,
     pub(crate) global_cfg_options: GlobalCfgOptions,
 }
 
