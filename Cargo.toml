@@ -34,6 +34,7 @@ members = [
   "app/buck2_action_impl",
   "app/buck2_action_impl_tests",
   "app/buck2_action_metadata_proto",
+  "app/buck2_action_parallelism",
   "app/buck2_analysis",
   "app/buck2_anon_target",
   "app/buck2_artifact",
