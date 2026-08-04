@@ -21,7 +21,9 @@ use buck2_common::legacy_configs::dice::OpaqueLegacyBuckConfigOnDice;
 use buck2_common::package_boundary::HasPackageBoundaryExceptions;
 use buck2_common::package_listing::dice::DicePackageListingResolver;
 use buck2_common::package_listing::listing::PackageListing;
+use buck2_common::package_listing::resolver::PackageListingResolver;
 use buck2_core::build_file_path::BuildFilePath;
+use buck2_core::bzl::ImportFormat;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::package::PackageLabel;
@@ -69,6 +71,30 @@ use crate::interpreter::interpreter_for_dir::InterpreterForDir;
 use crate::interpreter::interpreter_for_dir::ParseData;
 use crate::interpreter::interpreter_for_dir::ParseResult;
 use crate::super_package::package_value::SuperPackageValuesImpl;
+
+#[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
+enum DataFileIsolationError {
+    #[error(
+        "`load(\"{path}\", ...)` is not allowed: `{path}` is a data file, which is only visible within its own package. `{loader}` is in package `{loader_package}`, but `{path}` is in package `{file_package}`. To make it available elsewhere, re-export from a neighboring .bzl file."
+    )]
+    CrossPackage {
+        loader: CellPath,
+        path: CellPath,
+        loader_package: PackageLabel,
+        file_package: PackageLabel,
+    },
+    #[error(
+        "`load(\"{path}?as={format}\", ...)` is not allowed: `{path}` is loaded as data, which is only visible within its own package. `{loader}` is in package `{loader_package}`, but `{path}` is in package `{file_package}`. To make it available elsewhere, re-export from a neighboring .bzl file."
+    )]
+    CrossPackageAs {
+        loader: CellPath,
+        path: CellPath,
+        format: &'static str,
+        loader_package: PackageLabel,
+        file_package: PackageLabel,
+    },
+}
 
 fn toml_value_to_json(value: toml::Value) -> serde_json::Value {
     match value {
@@ -230,11 +256,74 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         ))
     }
 
+    /// Enforce that a data-file load (`.json`/`.toml`, whether the format comes
+    /// from the extension or an `?as=` override) only references a file owned by
+    /// the same package as the file doing the load. Such data files are treated
+    /// like source files for isolation: they belong to exactly one package (its
+    /// `BUCK` file), and only that package may load them. `.bzl` loads are
+    /// unaffected.
+    async fn check_data_file_package_isolation(
+        &mut self,
+        starlark_file: StarlarkPath<'_>,
+        imports: &[(Option<FileSpan>, OwnedStarlarkModulePath)],
+    ) -> buck2_error::Result<()> {
+        let data_loads: Vec<(CellPath, Option<ImportFormat>)> = imports
+            .iter()
+            .filter_map(|(_, module)| match module {
+                OwnedStarlarkModulePath::JsonFile(import)
+                | OwnedStarlarkModulePath::TomlFile(import) => {
+                    Some((import.path().clone(), import.format_override()))
+                }
+                _ => None,
+            })
+            .collect();
+        if data_loads.is_empty() {
+            return Ok(());
+        }
+
+        let loader = starlark_file.path().into_owned();
+        let loader_package = DicePackageListingResolver(self.ctx)
+            .get_enclosing_package(loader.as_ref())
+            .await?;
+
+        for (path, format_override) in data_loads {
+            let file_package = DicePackageListingResolver(self.ctx)
+                .get_enclosing_package(path.as_ref())
+                .await?;
+            if file_package != loader_package {
+                // Two distinct load syntaxes reach this check, and the suggested
+                // `load(...)` string has to match what the user actually wrote:
+                // a verbatim `.json`/`.toml` load has no `?as=` suffix, while a
+                // `?as=` override does (and the bare path wouldn't be a data file
+                // at all).
+                return Err(match format_override {
+                    Some(format) => DataFileIsolationError::CrossPackageAs {
+                        loader: loader.clone(),
+                        path,
+                        format: format.as_str(),
+                        loader_package,
+                        file_package,
+                    },
+                    None => DataFileIsolationError::CrossPackage {
+                        loader: loader.clone(),
+                        path,
+                        loader_package,
+                        file_package,
+                    },
+                }
+                .into());
+            }
+        }
+        Ok(())
+    }
+
     pub async fn prepare_eval(
         &mut self,
         starlark_file: StarlarkPath<'_>,
     ) -> buck2_error::Result<(AstModule, ModuleDeps)> {
         let ParseData(ast, imports) = self.parse_file(starlark_file).await??;
+        self.check_data_file_package_isolation(starlark_file, &imports)
+            .await?;
         let deps = CycleGuard::<LoadCycleDescriptor>::new(self.ctx)?
             .guard_this(Self::eval_deps(self.ctx, &imports))
             .await
