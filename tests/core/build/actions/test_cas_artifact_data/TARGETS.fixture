@@ -1,0 +1,5 @@
+load(":defs.bzl", "cas_artifact_out_of_range_expiration")
+
+cas_artifact_out_of_range_expiration(
+    name = "out_of_range_expiration",
+)
