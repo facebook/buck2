@@ -92,6 +92,7 @@ def _cgo(
     own_pre: list[CPreprocessor],
     cgo_c_flags: list[str],
     cgo_cpp_flags: list[str],
+    cgo_ld_flags: list[str],
 ) -> (CGoToolOut, Artifact):
     """
     Run `cgo` on `.go` sources to generate Go, C, and C-Header sources.
@@ -118,6 +119,9 @@ def _cgo(
         ["-trimpath", trimpath_replaces if go_toolchain.version and go_toolchain.version.minor >= 27 else "%cwd%"],
         ["-import_runtime_cgo=false"] if unimport_runtime_cgo else [],
         ["-import_syscall=false"] if unimport_syscall else [],
+        # cmd/go encodes these args with `strconv.Quote`; `json.encode` on a `str` is that same
+        # Go-string-literal syntax, which decodes correctly with `splitQuoted`.
+        "-ldflags=" + " ".join([json.encode(flag) for flag in cgo_ld_flags]),
         "--",
         cgo_c_flags + cgo_cpp_flags,
         cgo_build_context.cxx_compiler_flags,
@@ -126,6 +130,12 @@ def _cgo(
 
     env = get_toolchain_env_vars(go_toolchain)
     env["CC"] = _cxx_wrapper(actions, go_toolchain, cgo_build_context, own_pre)
+
+    # Cleared because the flags are passed via `-ldflags` above, and anything that might appear in
+    # here would otherwise be a hermeticity bug.
+    # CGO_LDFLAGS is a deprecated alternate way to pass the flags, previously used by Bazel:
+    # https://github.com/golang/go/issues/66456
+    env["CGO_LDFLAGS"] = ""
 
     actions.run(cmd, env = env, category = "go_cgo", identifier = pkg_import_path, allow_cache_upload = go_toolchain.allow_cache_upload)
 
@@ -189,6 +199,8 @@ def build_cgo(
     c_files: list[Artifact],
     c_flags: list[str],
     cpp_flags: list[str],
+    cxx_flags: list[str],
+    ld_flags: list[str],
     anon_targets_allowed: bool = True,
 ) -> (list[Artifact], list[Artifact], Artifact):
     """
@@ -206,7 +218,7 @@ def build_cgo(
     own_pre = _own_pre(actions, cgo_build_context, package_root, h_files)
 
     # Separate sources into C++ and GO sources.
-    cgo_tool_out, gen_dir = _cgo(actions, go_toolchain_info, cgo_build_context, pkg_import_path, standard, cgo_files, [own_pre], c_flags, cpp_flags)
+    cgo_tool_out, gen_dir = _cgo(actions, go_toolchain_info, cgo_build_context, pkg_import_path, standard, cgo_files, [own_pre], c_flags, cpp_flags, ld_flags)
     go_gen_srcs = [cgo_tool_out.cgo_gotypes] + cgo_tool_out.cgo1_go_files
     c_gen_headers = [cgo_tool_out.cgo_export_h]
     c_gen_srcs = [cgo_tool_out.cgo_export_c] + cgo_tool_out.cgo2_c_files
@@ -236,7 +248,14 @@ def build_cgo(
             rule_type = "cgo_sources",
             headers_layout = cgo_build_context.headers_layout,
             srcs = [CxxSrcWithFlags(file = src) for src in c_files + c_gen_srcs],
-            compiler_flags = go_toolchain_info.cxx_compiler_flags + c_flags + cgo_build_context.cxx_compiler_flags + cgo_build_context.target_sdk_version_flags,
+            compiler_flags = go_toolchain_info.cxx_compiler_flags + cgo_build_context.cxx_compiler_flags + cgo_build_context.target_sdk_version_flags,
+            lang_compiler_flags = {
+                "assembler": c_flags,
+                "c_cpp_output": c_flags,
+                "cxx_cpp_output": cxx_flags,
+                "objc_cpp_output": c_flags,
+            },
+            # `#cgo CPPFLAGS:` is preprocessor-only, hence applies to every language.
             preprocessor_flags = cpp_flags + cgo_build_context.cxx_preprocessor_flags,
             anon_targets_allowed = anon_targets_allowed,
             _cxx_toolchain = cgo_build_context._cxx_toolchain,
