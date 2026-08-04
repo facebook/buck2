@@ -829,6 +829,20 @@ pub enum LowDiskCleanMode {
     Adaptive { min_ttl: Duration },
 }
 
+/// Rejects values (negative, NaN, out of range) that the datetime arithmetic these durations
+/// feed into cannot represent.
+fn duration_from_config_hours(hours: f64, property: &str) -> buck2_error::Result<Duration> {
+    Duration::try_from_secs_f64(hours * 3600.0).map_err(|e| {
+        buck2_error::buck2_error!(
+            buck2_error::ErrorTag::Input,
+            "Invalid value `{}` for `buck2.{}`: {}",
+            hours,
+            property,
+            e
+        )
+    })
+}
+
 impl CleanStaleConfig {
     pub fn from_buck_config(root_config: &LegacyBuckConfig) -> buck2_error::Result<Option<Self>> {
         let clean_stale_enabled = root_config
@@ -873,18 +887,23 @@ impl CleanStaleConfig {
                 property: "clean_stale_low_disk_adaptive_min_ttl_hours",
             })?
             .unwrap_or(12.0);
-        let adaptive_min_ttl = Duration::from_hours(1).mul_f64(adaptive_min_ttl_hours);
         let low_disk_artifact_ttl_hours: Option<f64> = root_config.parse(BuckconfigKeyRef {
             section: "buck2",
             property: "clean_stale_low_disk_artifact_ttl_hours",
         })?;
         let low_disk_mode = if adaptive_enabled {
             LowDiskCleanMode::Adaptive {
-                min_ttl: adaptive_min_ttl,
+                min_ttl: duration_from_config_hours(
+                    adaptive_min_ttl_hours,
+                    "clean_stale_low_disk_adaptive_min_ttl_hours",
+                )?,
             }
         } else {
             let hours = low_disk_artifact_ttl_hours.unwrap_or(48.0);
-            LowDiskCleanMode::Fixed(Duration::from_hours(1).mul_f64(hours))
+            LowDiskCleanMode::Fixed(duration_from_config_hours(
+                hours,
+                "clean_stale_low_disk_artifact_ttl_hours",
+            )?)
         };
         let low_disk_threshold_percent: Option<f64> = root_config.parse(BuckconfigKeyRef {
             section: "buck2",
@@ -896,9 +915,18 @@ impl CleanStaleConfig {
         });
         let clean_stale_config = if clean_stale_enabled {
             Some(Self {
-                clean_period: Duration::from_hours(1).mul_f64(clean_stale_period_hours),
-                artifact_ttl: Duration::from_hours(1).mul_f64(clean_stale_artifact_ttl_hours),
-                start_offset: Duration::from_hours(1).mul_f64(clean_stale_start_offset_hours),
+                clean_period: duration_from_config_hours(
+                    clean_stale_period_hours,
+                    "clean_stale_period_hours",
+                )?,
+                artifact_ttl: duration_from_config_hours(
+                    clean_stale_artifact_ttl_hours,
+                    "clean_stale_artifact_ttl_hours",
+                )?,
+                start_offset: duration_from_config_hours(
+                    clean_stale_start_offset_hours,
+                    "clean_stale_start_offset_hours",
+                )?,
                 low_disk,
                 dry_run: clean_stale_dry_run,
             })
@@ -941,6 +969,18 @@ mod tests {
     use crate::materializers::deferred::clean_stale::FoundPath;
     use crate::materializers::deferred::clean_stale::TrackedState;
     use crate::materializers::deferred::clean_stale::apply_adaptive_low_disk;
+    use crate::materializers::deferred::clean_stale::duration_from_config_hours;
+
+    #[test]
+    fn test_duration_from_config_hours() {
+        assert_eq!(
+            duration_from_config_hours(2.0, "prop").unwrap(),
+            std::time::Duration::from_secs(7200)
+        );
+        assert!(duration_from_config_hours(-1.0, "prop").is_err());
+        assert!(duration_from_config_hours(f64::NAN, "prop").is_err());
+        assert!(duration_from_config_hours(f64::INFINITY, "prop").is_err());
+    }
 
     fn t(secs: i64) -> DateTime<Utc> {
         Utc.timestamp_opt(secs, 0).unwrap()
