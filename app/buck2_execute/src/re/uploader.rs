@@ -69,6 +69,7 @@ use crate::re::action_identity::ReActionIdentity;
 use crate::re::client::RemoteExecutionClient;
 use crate::re::error::with_error_handler;
 use crate::re::metadata::RemoteExecutionMetadataExt;
+use crate::re::ttl::re_expiration_from_ttl;
 
 #[derive(Clone, Debug, Default)]
 pub struct UploadStats {
@@ -214,20 +215,7 @@ impl Uploader {
                 }
             } else {
                 tracing::debug!(digest=%digest, ttl=digest_ttl, "Not uploading");
-                let Some(ttl) = Duration::try_seconds(digest_ttl) else {
-                    let _ignored = soft_error!(
-                        "re_digest_ttl_out_of_bounds",
-                        buck2_error::buck2_error!(
-                            buck2_error::ErrorTag::ReInvalidGetCasResponse,
-                            "RE returned digest TTL outside the supported duration range; skipping digest expiration update. Digest: `{}`, TTL seconds: `{}`",
-                            digest,
-                            digest_ttl
-                        ),
-                        quiet: true
-                    );
-                    continue;
-                };
-                digest.update_expires(now + ttl);
+                digest.update_expires(re_expiration_from_ttl(now, digest_ttl, digest));
             }
         }
 
