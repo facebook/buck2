@@ -20,4 +20,5 @@ pub(crate) enum SettingsSource {
 pub(crate) static DEFAULT_SETTINGS_SOURCES: &[SettingsSource] = &[
     SettingsSource::RepoRootFile(DOT_BUCKSETTINGS),
     SettingsSource::HomeFile(DOT_BUCKSETTINGS_LOCAL),
+    SettingsSource::RepoRootFile(DOT_BUCKSETTINGS_LOCAL),
 ];

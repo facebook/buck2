@@ -220,4 +220,31 @@ mod tests {
         );
         Ok(())
     }
+
+    #[test]
+    fn test_repo_local_overrides_home_local_and_repo_root() -> buck2_error::Result<()> {
+        let resolved = resolve_from_files(
+            &[
+                (".bucksettings.toml", "test_flag = true"),
+                (
+                    ".bucksettings.local.toml",
+                    "test_flag = false\n[test_section]\ntest_value = \"repo_local\"",
+                ),
+            ],
+            &[(
+                ".bucksettings.local.toml",
+                "[test_section]\ntest_value = \"home_local\"",
+            )],
+        )?;
+        assert_eq!(
+            resolved,
+            TestBuckSettingsData {
+                test_flag: Some(false),
+                test_section: Some(TestSection {
+                    test_value: Some("repo_local".to_owned()),
+                }),
+            }
+        );
+        Ok(())
+    }
 }
