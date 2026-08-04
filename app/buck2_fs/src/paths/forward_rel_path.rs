@@ -1214,7 +1214,7 @@ impl TryFrom<PathBuf> for ForwardRelativePathBuf {
     /// ```
     fn try_from(p: PathBuf) -> buck2_error::Result<ForwardRelativePathBuf> {
         // `RelativePathBuf::from_system_path` would allocate a copy. Avoid it by going through
-        // `OsString::into_string` and letting the string verifier reject any backslashes.
+        // `OsString::into_string` and validating the resulting string directly.
         ForwardRelativePathBuf::try_from(p.into_os_string().into_string().map_err(|os| {
             ForwardRelativePathError::PathNotUtf8(os.to_string_lossy().into_owned())
         })?)
