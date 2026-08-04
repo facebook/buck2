@@ -1854,8 +1854,6 @@ mod tests {
         } else {
             assert_frame_contains(&frame, "Build ID:");
         }
-        assert_frame_contains(&frame, "RE session:");
-        assert_frame_contains(&frame, "reSessionID-123");
         assert_frame_contains(&frame, "Loading targets");
 
         console
@@ -1977,10 +1975,13 @@ mod tests {
             )?
             .fmt_for_test()
             .to_string();
+        let expected_network = if cfg!(fbcode_build) {
+            "Network: up    10MiB 1.0MiB/s\n         down 1.5GiB 154MiB/s"
+        } else {
+            "Network:  up    10MiB 1.0MiB/s\n          down 1.5GiB 154MiB/s"
+        };
         assert!(
-            normal.contains(
-                "RE session: reSessionID-123\nNetwork:    up    10MiB 1.0MiB/s\n            down 1.5GiB 154MiB/s"
-            ),
+            normal.contains(expected_network),
             "unexpected render:\n{normal}"
         );
 
@@ -1994,8 +1995,13 @@ mod tests {
             )?
             .fmt_for_test()
             .to_string();
+        let expected_network = if cfg!(fbcode_build) {
+            "Network: up 10MiB  down 1.5GiB"
+        } else {
+            "Network:  up 10MiB  down 1.5GiB"
+        };
         assert!(
-            final_render.contains("RE session: reSessionID-123\nNetwork:    up 10MiB  down 1.5GiB"),
+            final_render.contains(expected_network),
             "unexpected render:\n{final_render}"
         );
 

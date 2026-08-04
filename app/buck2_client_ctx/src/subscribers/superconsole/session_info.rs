@@ -50,10 +50,6 @@ impl Component for SessionInfoComponent<'_> {
             headers.push(Line::unstyled("Test UI:")?);
             ids.push(Span::new_unstyled(info)?);
         }
-        if let Some(session_id) = &self.re_state.session_id {
-            headers.push(Line::unstyled("RE session:")?);
-            ids.push(Span::new_unstyled(session_id)?);
-        }
         if let Some(NetworkStats {
             re_upload_bytes,
             re_upload_bytes_per_second,
