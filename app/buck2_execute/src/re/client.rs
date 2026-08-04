@@ -115,6 +115,7 @@ use crate::re::stats::LocalCacheStats;
 use crate::re::stats::OpStats;
 use crate::re::stats::RemoteExecutionClientOpStats;
 use crate::re::stats::RemoteExecutionClientStats;
+use crate::re::ttl::re_expiration_from_ttl;
 use crate::re::uploader::UploadStats;
 use crate::re::uploader::Uploader;
 
@@ -443,7 +444,10 @@ impl RemoteExecutionClient {
         Ok(ttls
             .digests_with_ttl
             .into_iter()
-            .map(|t| (t.digest, now + chrono::Duration::seconds(t.ttl)))
+            .map(|t| {
+                let expiration = re_expiration_from_ttl(now, t.ttl, &t.digest);
+                (t.digest, expiration)
+            })
             .collect())
     }
 
