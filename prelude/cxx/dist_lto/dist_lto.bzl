@@ -35,11 +35,12 @@ load("@prelude//linking:execution_preference.bzl", "get_action_execution_attribu
 load(
     "@prelude//linking:link_info.bzl",
     "ArchiveLinkable",
-    "FrameworksLinkable",  # @unused Used as a type
+    "FrameworksLinkable",
     "LinkInfo",
     "LinkedObject",
     "ObjectsLinkable",
     "SharedLibLinkable",  # @unused Used as a type
+    "SwiftmoduleLinkable",
     "append_linkable_args",
     "map_to_link_infos",
     "serialize_linkable_for_thinlto",
@@ -109,7 +110,9 @@ _LinkDataVariant = record(
     link_data = list[_BitcodeLinkData] | _ArchiveLinkData | None,
     # The linkable that this is derived from.
     # This field is used to get the `cmd_args` form.
-    origin = ArchiveLinkable | SharedLibLinkable | ObjectsLinkable | FrameworksLinkable,
+    # FrameworksLinkable / SwiftmoduleLinkable are skipped before a variant is
+    # built, so they never appear here.
+    origin = ArchiveLinkable | SharedLibLinkable | ObjectsLinkable,
 )
 
 # `_ThinLinkInfo` groups together pre/post flags and a list of LinkData.
@@ -325,6 +328,13 @@ def cxx_gnu_dist_link(
                 archive_opt_manifests.append(archive_opt_manifest)
                 plan_inputs.extend([archive_manifest, archive_objects])
                 plan_outputs.extend([archive_indexes.as_output(), archive_plan.as_output()])
+            elif isinstance(linkable, FrameworksLinkable) or isinstance(linkable, SwiftmoduleLinkable):
+                # These add no linker inputs on GNU: append_linkable_args no-ops them
+                # and serialize_linkable_for_thinlto rejects them, so there is nothing
+                # to emit here (the Darwin planner skips them likewise). Use `continue`,
+                # not `pass`: link_data_variants is appended below the if/elif/else, so
+                # falling through would emit a variant from the previous linkable.
+                continue
             else:
                 data_type = _DataType("cmd_args")
                 link_data = None
