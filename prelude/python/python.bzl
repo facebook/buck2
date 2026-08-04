@@ -18,6 +18,8 @@ NativeDepsInfoTSet = transitive_set()
 
 NativeDepsInfo = record(
     native_deps = field(dict[Label, Dependency], dict()),
+    dlopen_deps = field(dict[Label, Dependency], dict()),
+    shared_only_deps = field(dict[Label, Dependency], dict()),
 )
 
 PythonLibraryManifests = record(

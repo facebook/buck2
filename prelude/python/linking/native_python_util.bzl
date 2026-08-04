@@ -56,7 +56,7 @@ CxxExtensionLinkInfoReduced = record(
     shared_only_libs = field(list[LinkableProviders], []),
 )
 
-def merge_native_deps(ctx, deps: list[Dependency]) -> NativeDepsInfoTSet:
+def merge_native_deps(ctx, deps: list[Dependency], shared_deps: list[Dependency] = []) -> NativeDepsInfoTSet:
     native_deps = {}
     children = []
     for dep in deps:
@@ -77,9 +77,21 @@ def merge_native_deps(ctx, deps: list[Dependency]) -> NativeDepsInfoTSet:
         elif PythonLibraryInfo not in dep:
             native_deps[dep.label] = dep
 
+    dlopen_deps = {}
+    shared_only_deps = {}
+    for dep in shared_deps:
+        if DlopenableLibraryInfo in dep:
+            dlopen_deps[dep.label] = dep
+        elif MergedLinkInfo in dep and LinkableRootInfo not in dep:
+            shared_only_deps[dep.label] = dep
+
     return ctx.actions.tset(
         NativeDepsInfoTSet,
-        value = NativeDepsInfo(native_deps = native_deps),
+        value = NativeDepsInfo(
+            native_deps = native_deps,
+            dlopen_deps = dlopen_deps,
+            shared_only_deps = shared_only_deps,
+        ),
         children = children,
     )
 

@@ -358,7 +358,7 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
     deps, shared_libraries = gather_dep_libraries(raw_deps, resolve_versioned_deps = False)
     providers.append(gather_versioned_dependencies(raw_deps))
 
-    native_deps = merge_native_deps(ctx, raw_deps)
+    native_deps = merge_native_deps(ctx, raw_deps, shared_deps = raw_deps)
 
     lazy_imports_analyzer = get_lazy_imports_analyzer(ctx)
     lazy_imports_cache_output = None

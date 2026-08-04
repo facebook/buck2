@@ -97,8 +97,10 @@ process_native_linking_rule = rule(
     impl = _process_native_linking_rule_impl,
     attrs = {
         "deps": attrs.list(attrs.dep()),  # Note: cxx-only deps here
+        "dlopen_deps": attrs.list(attrs.dep(), default = []),
         "package_style": attrs.any(),
         "rpath": attrs.string(),
+        "shared_only_deps": attrs.list(attrs.dep(), default = []),
         "static_extension_utils": attrs.source(),
         "transformation_spec": attrs.option(
             attrs.dep(providers = [TransformationResultProvider]),

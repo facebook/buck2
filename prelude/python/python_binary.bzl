@@ -187,7 +187,7 @@ def python_executable(
         bytecode = bytecode_manifest,
         deps = python_deps,
         shared_libraries = shared_deps,
-        native_deps = merge_native_deps(ctx, raw_deps),
+        native_deps = merge_native_deps(ctx, raw_deps, shared_deps = ctx.attrs.deps + preload_deps),
         is_native_dep = False,
         par_style = ctx.attrs.par_style,
         package_style = get_package_style(ctx).value,
@@ -545,17 +545,22 @@ def _convert_python_library_to_executable(
     if link_strategy == NativeLinkStrategy("native"):
         use_anon_target = getattr(ctx.attrs, "use_anon_target_for_analysis", False)
         if use_anon_target:
-            # For caching link groups, we just need to pass cxx_deps
             native_deps = {}
-            for dep in library.native_deps.traverse():
-                native_deps.update(dep.native_deps)
+            dlopen_deps = {}
+            shared_only_deps = {}
+            for info in library.native_deps.traverse():
+                native_deps.update(info.native_deps)
+                dlopen_deps.update(info.dlopen_deps)
+                shared_only_deps.update(info.shared_only_deps)
 
             explicit_attrs = {
                 "allow_cache_upload": allow_cache_upload,
                 "deps": list(native_deps.values()),
+                "dlopen_deps": list(dlopen_deps.values()),
                 "name": "python_linking:" + ctx.attrs.name,
                 "package_style": package_style,
                 "rpath": ctx.attrs.name,
+                "shared_only_deps": list(shared_only_deps.values()),
                 "static_extension_utils": ctx.attrs.static_extension_utils,
                 "transformation_spec": ctx.attrs.transformation_spec,
                 "_cxx_toolchain": ctx.attrs._cxx_toolchain,

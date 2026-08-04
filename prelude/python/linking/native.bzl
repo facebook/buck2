@@ -240,11 +240,17 @@ def _get_link_group_info(
 
 def _compute_cxx_extension_info(ctx, deps) -> (CxxExtensionLinkInfo, CxxExtensionLinkInfoReduced):
     executable_deps = ctx.attrs.executable_deps
+
+    if getattr(ctx.attrs, "use_anon_target_for_analysis", False):
+        shared_deps = ctx.attrs.dlopen_deps + ctx.attrs.shared_only_deps
+    else:
+        shared_deps = ctx.attrs.deps + python_attr_preload_deps(ctx)
+
     extension_info = merge_cxx_extension_info(
         ctx.actions,
         deps + executable_deps,
         # Add in dlopen-enabled libs from first-order deps.
-        shared_deps = ctx.attrs.deps + python_attr_preload_deps(ctx),
+        shared_deps = shared_deps,
     )
     extension_info_reduced = reduce_cxx_extension_info(extension_info)
     return extension_info, extension_info_reduced
