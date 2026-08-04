@@ -433,7 +433,7 @@ impl<'d> DiceComputations<'d> {
 
     /// Data that is static per the entire lifetime of Dice. These data are initialized at the
     /// time that Dice is initialized via the constructor.
-    pub fn global_data(&self) -> &DiceData {
+    pub fn global_data(&self) -> &'d DiceData {
         self.0.global_data()
     }
 
@@ -441,7 +441,7 @@ impl<'d> DiceComputations<'d> {
     /// the lifetime of the top-level `DiceComputation` used for all requests.
     /// The data is also specific to each request context, so multiple concurrent requests can
     /// each have their own individual data.
-    pub fn per_transaction_data(&self) -> &UserComputationData {
+    pub fn per_transaction_data(&self) -> &'d UserComputationData {
         self.0.per_transaction_data()
     }
 

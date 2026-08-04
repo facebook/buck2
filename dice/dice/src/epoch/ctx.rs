@@ -569,7 +569,7 @@ impl<'d> TrackedComputations<'d> {
 
     /// Data that is static per the entire lifetime of Dice. These data are initialized at the
     /// time that Dice is initialized via the constructor.
-    pub(crate) fn global_data(&self) -> &DiceData {
+    pub(crate) fn global_data(&self) -> &'d DiceData {
         self.ctx_data().global_data()
     }
 
@@ -577,7 +577,7 @@ impl<'d> TrackedComputations<'d> {
     /// the lifetime of the top-level `DiceComputation` used for all requests.
     /// The data is also specific to each request context, so multiple concurrent requests can
     /// each have their own individual data.
-    pub(crate) fn per_transaction_data(&self) -> &UserComputationData {
+    pub(crate) fn per_transaction_data(&self) -> &'d UserComputationData {
         self.ctx_data().per_transaction_data()
     }
 
