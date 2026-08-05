@@ -547,6 +547,60 @@ class AndroidDeviceImplTest {
   }
 
   @Test
+  fun testInstallApkUsesFastdeployOnModernSdk() {
+    whenever(mockAdbUtils.executeAdbShellCommand("getprop ro.build.version.sdk", serialNumber))
+        .thenReturn("29")
+    whenever(
+            mockAdbUtils.executeAdbCommand(
+                "install -r -d --fastdeploy ${apkFile.absolutePath}",
+                serialNumber,
+            )
+        )
+        .thenReturn("Success")
+    stubInstallVerified()
+
+    val result = androidDevice.installApkOnDevice(apkFile, false, false, false, false, packageName)
+
+    verify(mockAdbUtils)
+        .executeAdbCommand("install -r -d --fastdeploy ${apkFile.absolutePath}", serialNumber)
+    assertTrue(result)
+  }
+
+  @Test
+  fun testFastInstallFallsBackToPlainWhenApkStaleDespiteSuccess() {
+    whenever(mockAdbUtils.executeAdbShellCommand("getprop ro.build.version.sdk", serialNumber))
+        .thenReturn("29")
+    // --fastdeploy reports success, but the on-device apk does not match (a stale apk). This must
+    // fall back to a plain install, after which the apk matches.
+    whenever(
+            mockAdbUtils.executeAdbCommand(
+                "install -r -d --fastdeploy ${apkFile.absolutePath}",
+                serialNumber,
+            )
+        )
+        .thenReturn("Success")
+    whenever(mockAdbUtils.executeAdbCommand("install -r -d ${apkFile.absolutePath}", serialNumber))
+        .thenReturn("Success")
+    whenever(mockAdbUtils.executeAdbShellCommand("pm path $packageName", serialNumber))
+        .thenReturn("package:$onDeviceApkPath")
+    // First read (after --fastdeploy) is stale; second read (after plain install) matches.
+    whenever(mockAdbUtils.executeAdbShellCommand("sha256sum $onDeviceApkPath", serialNumber))
+        .thenReturn("stalehash  $onDeviceApkPath")
+        .thenReturn("${sha256Hex(apkFile)}  $onDeviceApkPath")
+
+    val result = androidDevice.installApkOnDevice(apkFile, false, false, false, false, packageName)
+    assertTrue(result)
+
+    val inOrder = inOrder(mockAdbUtils)
+    inOrder
+        .verify(mockAdbUtils)
+        .executeAdbCommand("install -r -d --fastdeploy ${apkFile.absolutePath}", serialNumber)
+    inOrder
+        .verify(mockAdbUtils)
+        .executeAdbCommand("install -r -d ${apkFile.absolutePath}", serialNumber)
+  }
+
+  @Test
   fun testInstallFailsWhenApkNeverMatches() {
     whenever(mockAdbUtils.executeAdbShellCommand("getprop ro.build.version.sdk", serialNumber))
         .thenReturn("28")
@@ -625,5 +679,143 @@ class AndroidDeviceImplTest {
     } catch (e: AndroidInstallException) {
       assertEquals(setOf(AndroidInstallErrorTag.ADB_COMMAND_FAILED), e.installError.tags)
     }
+  }
+
+  @Test
+  fun testStagedInstallDoesNotUseFastdeploy() {
+    whenever(mockAdbUtils.executeAdbShellCommand("getprop ro.build.version.sdk", serialNumber))
+        .thenReturn("30")
+    whenever(
+            mockAdbUtils.executeAdbCommand(
+                "install -r -d --staged ${apkFile.absolutePath}",
+                serialNumber,
+            )
+        )
+        .thenReturn("Success")
+
+    // --fastdeploy is incompatible with staged installs, so a staged install must not use it even
+    // on SDK >= 29. Staged installs are not verified (not applied until reboot).
+    val result = androidDevice.installApkOnDevice(apkFile, false, false, false, true, packageName)
+
+    verify(mockAdbUtils)
+        .executeAdbCommand("install -r -d --staged ${apkFile.absolutePath}", serialNumber)
+    verify(mockAdbUtils, never())
+        .executeAdbCommand(argThat { contains("--fastdeploy") }, eq(serialNumber), any())
+    assertTrue(result)
+  }
+
+  @Test
+  fun testFastInstallFallsBackToPlainWhenFastdeployExitsNonZero() {
+    whenever(mockAdbUtils.executeAdbShellCommand("getprop ro.build.version.sdk", serialNumber))
+        .thenReturn("29")
+
+    // --fastdeploy exits non-zero; fall back to a plain install, which succeeds.
+    val fastInstall = "install -r -d --fastdeploy ${apkFile.absolutePath}"
+    doAnswer { throw AdbCommandFailedException("adb: failed to install via fastdeploy") }
+        .whenever(mockAdbUtils)
+        .executeAdbCommand(eq(fastInstall), eq(serialNumber), any())
+    whenever(mockAdbUtils.executeAdbCommand("install -r -d ${apkFile.absolutePath}", serialNumber))
+        .thenReturn("Success")
+    stubInstallVerified()
+
+    val result = androidDevice.installApkOnDevice(apkFile, false, false, false, false, packageName)
+    assertTrue(result)
+
+    val inOrder = inOrder(mockAdbUtils)
+    inOrder.verify(mockAdbUtils).executeAdbCommand(eq(fastInstall), eq(serialNumber), any())
+    inOrder
+        .verify(mockAdbUtils)
+        .executeAdbCommand("install -r -d ${apkFile.absolutePath}", serialNumber)
+  }
+
+  @Test
+  fun testInstallApkDetectsSilentInstallFailure() {
+    whenever(mockAdbUtils.executeAdbShellCommand("getprop ro.build.version.sdk", serialNumber))
+        .thenReturn("29")
+
+    // --fastdeploy exits 0 but leaves a stale apk (verify catches it), then the plain fallback
+    // fails
+    // for real with insufficient storage. This must surface as a failure, not a spurious success.
+    val fastInstall = "install -r -d --fastdeploy ${apkFile.absolutePath}"
+    val plainInstall = "install -r -d ${apkFile.absolutePath}"
+    whenever(mockAdbUtils.executeAdbCommand(fastInstall, serialNumber))
+        .thenReturn("Performing Streamed Install")
+    whenever(mockAdbUtils.executeAdbShellCommand("pm path $packageName", serialNumber))
+        .thenReturn("package:$onDeviceApkPath")
+    whenever(mockAdbUtils.executeAdbShellCommand("sha256sum $onDeviceApkPath", serialNumber))
+        .thenReturn("stalehash  $onDeviceApkPath")
+    doAnswer {
+          throw AdbCommandFailedException(
+              "Failure [INSTALL_FAILED_INSUFFICIENT_STORAGE: Not enough space]"
+          )
+        }
+        .whenever(mockAdbUtils)
+        .executeAdbCommand(eq(plainInstall), eq(serialNumber), any())
+
+    try {
+      androidDevice.installApkOnDevice(apkFile, false, false, false, false, packageName)
+      fail("Expected AndroidInstallException")
+    } catch (e: AndroidInstallException) {
+      assertTrue(e.message!!.contains("Failed to install test.apk"))
+    }
+
+    // An insufficient-storage failure is not a signature mismatch, so no uninstall must happen.
+    verify(mockAdbUtils, never())
+        .executeAdbCommand(argThat { startsWith("uninstall") }, eq(serialNumber), any())
+  }
+
+  @Test
+  fun testFastInstallRecoversFromSignatureMismatchViaPlainFallback() {
+    whenever(mockAdbUtils.executeAdbShellCommand("getprop ro.build.version.sdk", serialNumber))
+        .thenReturn("29")
+
+    // --fastdeploy exits 0 but leaves a stale apk (verify catches it); the plain fallback then
+    // surfaces the signature mismatch (adb exits non-zero), triggering uninstall + retry.
+    whenever(
+            mockAdbUtils.executeAdbCommand(
+                "install -r -d --fastdeploy ${apkFile.absolutePath}",
+                serialNumber,
+            )
+        )
+        .thenReturn("Performing Streamed Install")
+
+    val plainInstall = "install -r -d ${apkFile.absolutePath}"
+    var plainAttempts = 0
+    doAnswer {
+          plainAttempts++
+          if (plainAttempts == 1) {
+            throw AdbCommandFailedException(
+                "Executing 'adb $plainInstall' on $serialNumber failed with code 1.\nError:\n" +
+                    "Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE: Existing package " +
+                    "com.meta.ar.helixserver signatures do not match newer version; ignoring!]"
+            )
+          }
+          "Success"
+        }
+        .whenever(mockAdbUtils)
+        .executeAdbCommand(eq(plainInstall), eq(serialNumber), any())
+
+    doReturn("Success")
+        .whenever(mockAdbUtils)
+        .executeAdbCommand(eq("uninstall com.meta.ar.helixserver"), eq(serialNumber), any())
+    whenever(mockAdbUtils.executeAdbShellCommand("pm path $packageName", serialNumber))
+        .thenReturn("package:$onDeviceApkPath")
+    // Stale after --fastdeploy (triggers fallback); matches after the plain reinstall.
+    whenever(mockAdbUtils.executeAdbShellCommand("sha256sum $onDeviceApkPath", serialNumber))
+        .thenReturn("stalehash  $onDeviceApkPath")
+        .thenReturn("${sha256Hex(apkFile)}  $onDeviceApkPath")
+
+    val result = androidDevice.installApkOnDevice(apkFile, false, false, false, false, packageName)
+    assertTrue(result)
+
+    val inOrder = inOrder(mockAdbUtils)
+    inOrder
+        .verify(mockAdbUtils)
+        .executeAdbCommand("install -r -d --fastdeploy ${apkFile.absolutePath}", serialNumber)
+    inOrder.verify(mockAdbUtils).executeAdbCommand(eq(plainInstall), eq(serialNumber), any())
+    inOrder
+        .verify(mockAdbUtils)
+        .executeAdbCommand(eq("uninstall com.meta.ar.helixserver"), eq(serialNumber), any())
+    inOrder.verify(mockAdbUtils).executeAdbCommand(eq(plainInstall), eq(serialNumber), any())
   }
 }

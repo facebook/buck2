@@ -36,6 +36,7 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
       verifyTempWritable: Boolean,
       stagedInstallMode: Boolean,
       userId: String?,
+      allowFastDeploy: Boolean,
       packageName: String,
   ): Boolean {
     val elapsed = measureTimeMillis {
@@ -51,19 +52,27 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
         }
       }
 
-      val installArgs = buildString {
-        append("-r -d")
-        // --fastdeploy has a bug, it hides INSTALL_FAILED_UPDATE_INCOMPATIBLE error when there is a
-        // mismatch between the apk on the device and the one being installed. The operation will
-        // appear as successful without the apk being updated.
-        // https://issuetracker.google.com/231040652
-        // if (shouldUseFastDeploy()) append(" --fastdeploy")
-
-        if (stagedInstallMode) append(" --staged")
-        if (userId != null) append(" --user $userId")
+      var installCommand: String
+      // Fast path: use --fastdeploy on SDK-supported devices.
+      // On any failure we fall back to a plain install.
+      if (allowFastDeploy && !stagedInstallMode && sdkSupportsFastDeploy()) {
+        installCommand = buildInstallCommand(apk, true, stagedInstallMode, userId)
+        try {
+          executeAdbCommandCatching(
+              installCommand,
+              "Failed to install ${apk.name} with --fastdeploy.",
+          )
+          verifyInstalledApkMatches(apk, packageName)
+          return@measureTimeMillis
+        } catch (e: AndroidInstallException) {
+          LOG.warn(
+              "The fast install failed or left the on-device apk missing or stale: ${e.message}.\n" +
+                  "Reinstalling ${apk.name} without --fastdeploy to recover."
+          )
+        }
       }
 
-      val installCommand = "install $installArgs ${apk.absolutePath}"
+      installCommand = buildInstallCommand(apk, false, stagedInstallMode, userId)
       try {
         executeAdbCommand(installCommand)
       } catch (e: AdbCommandFailedException) {
@@ -174,7 +183,20 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
     }
   }
 
-  private fun shouldUseFastDeploy(): Boolean {
+  private fun buildInstallCommand(
+      apk: File,
+      fastDeploy: Boolean,
+      stagedInstallMode: Boolean,
+      userId: String?,
+  ): String = buildString {
+    append("install -r -d")
+    if (fastDeploy) append(" --fastdeploy")
+    if (stagedInstallMode) append(" --staged")
+    if (userId != null) append(" --user $userId")
+    append(" ${apk.absolutePath}")
+  }
+
+  private fun sdkSupportsFastDeploy(): Boolean {
     val sdkVersion =
         try {
           getProperty("ro.build.version.sdk").toInt()

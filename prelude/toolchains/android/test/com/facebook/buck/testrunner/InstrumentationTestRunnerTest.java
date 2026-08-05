@@ -718,6 +718,7 @@ public class InstrumentationTestRunnerTest {
               boolean verifyTempWritable,
               boolean stagedInstallMode,
               String userId,
+              boolean allowFastDeploy,
               String packageName) {
             installedWithUserTarget.add(apk.getPath() + ":" + userId);
             return true;
@@ -852,6 +853,7 @@ public class InstrumentationTestRunnerTest {
               boolean verifyTempWritable,
               boolean stagedInstallMode,
               String userId,
+              boolean allowFastDeploy,
               String packageName) {
             installedWithUserTarget.add(apk.getPath() + ":" + userId);
             return true;
@@ -1244,6 +1246,7 @@ public class InstrumentationTestRunnerTest {
               boolean verifyTempWritable,
               boolean stagedInstallMode,
               String userId,
+              boolean allowFastDeploy,
               String packageName) {
             installedPackages.add(apk.getPath());
             return true;

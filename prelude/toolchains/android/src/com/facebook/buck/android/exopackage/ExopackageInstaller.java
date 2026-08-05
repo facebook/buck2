@@ -131,6 +131,7 @@ public class ExopackageInstaller {
               /* verifyTempWritable= */ true,
               /* stagedInstallMode= */ false,
               /* userId= */ null,
+              /* allowFastDeploy= */ false,
               packageName);
       if (!success) {
         throw new RuntimeException("Installing Apk failed.");

@@ -42,12 +42,26 @@ public interface AndroidDevice {
         apk, installViaSd, quiet, verifyTempWritable, stagedInstallMode, null, packageName);
   }
 
+  default boolean installApkOnDevice(
+      File apk,
+      boolean installViaSd,
+      boolean quiet,
+      boolean verifyTempWritable,
+      boolean stagedInstallMode,
+      @Nullable String userId,
+      String packageName) {
+    return installApkOnDevice(
+        apk, installViaSd, quiet, verifyTempWritable, stagedInstallMode, userId, true, packageName);
+  }
+
   /**
    * Install an APK on the device with optional user targeting, then confirm it actually landed.
    *
-   * <p>After installing, the on-device apk is read back and compared to {@code apk}; the install
-   * fails if they differ. Staged installs are not verified, since they are not applied until
-   * reboot.
+   * <p>After installing, the on-device apk is read back and compared to {@code apk}; if the package
+   * is missing or the on-device apk is stale (which adb can report as success, notably under {@code
+   * --fastdeploy}, where the real failure only reaches logcat), the install is retried without
+   * {@code --fastdeploy}. The call fails if the apk still does not match. Staged installs are not
+   * verified, since they are not applied until reboot.
    *
    * @param apk The APK file to install
    * @param installViaSd Whether to install via SD card
@@ -56,6 +70,8 @@ public interface AndroidDevice {
    * @param stagedInstallMode If true, use staged installation
    * @param userId User to install for: "all" for all users, a specific user ID (e.g., "10"), or
    *     null for default behavior (current user only)
+   * @param allowFastDeploy If true, this install may use `adb install --fastdeploy` on supported
+   *     devices.
    * @param packageName The package name of {@code apk}, used to read the installed apk back and
    *     verify the install took effect.
    * @return true if installation succeeded
@@ -67,6 +83,7 @@ public interface AndroidDevice {
       boolean verifyTempWritable,
       boolean stagedInstallMode,
       @Nullable String userId,
+      boolean allowFastDeploy,
       String packageName);
 
   default boolean installApexOnDevice(File apex, boolean quiet) {

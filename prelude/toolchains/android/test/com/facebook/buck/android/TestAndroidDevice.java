@@ -33,6 +33,7 @@ public class TestAndroidDevice implements AndroidDevice {
       boolean verifyTempWritable,
       boolean stagedInstallMode,
       @Nullable String userId,
+      boolean allowFastDeploy,
       String packageName) {
     throw new UnsupportedOperationException();
   }
