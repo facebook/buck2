@@ -405,7 +405,7 @@ rand_distr = "0.6"
 rand_xoshiro = "0.8.1"
 rayon = "1.11.0"
 re_grpc_proto = { path = "remote_execution/oss/re_grpc_proto" }
-ref-cast = "1.0.18"
+ref-cast = "1.0.26"
 regex = "1.13.1"
 remote_execution = { path = "remote_execution/oss/re_grpc" }
 ruff_formatter = "0.0.6"
