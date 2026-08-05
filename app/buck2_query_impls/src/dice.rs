@@ -267,7 +267,7 @@ impl UqueryDelegate for DiceQueryDelegate<'_, '_> {
             .try_compute_join(resolver.cells(), async |ctx, (name, _)| {
                 DiceFileComputations::buildfiles(ctx, name)
                     .await
-                    .map(|x| (name, x))
+                    .map(|x| (name, x.dupe()))
             })
             .await?;
 
@@ -425,7 +425,7 @@ pub(crate) async fn get_dice_query_delegate<'a, 'c: 'a, 'd>(
         .get_cell_alias_resolver_for_dir(working_dir)
         .await?
         .dupe();
-    let target_alias_resolver = ctx.get().target_alias_resolver().await?;
+    let target_alias_resolver = ctx.get().target_alias_resolver().await?.dupe();
     let project_root = ctx
         .get()
         .global_data()

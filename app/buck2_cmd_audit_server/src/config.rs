@@ -29,6 +29,7 @@ use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::stdout_partial_output::StdoutPartialOutput;
+use dupe::Dupe;
 use gazebo::prelude::*;
 use serde_json::json;
 
@@ -369,7 +370,7 @@ impl ServerAuditSubcommand for AuditConfigCommand {
 
                 if self.all_cells {
                     for (cell, _) in cell_resolver.cells() {
-                        let cell_config = ctx.ctx().get_legacy_config_for_cell(cell).await?;
+                        let cell_config = ctx.ctx().get_legacy_config_for_cell(cell).await?.dupe();
                         render_cell_config(renderer.as_mut(), None, cell, cell_config, &specs)?;
                     }
                 } else {
@@ -378,7 +379,7 @@ impl ServerAuditSubcommand for AuditConfigCommand {
 
                     {
                         // Render the target cell first
-                        let cell_config = ctx.ctx().get_legacy_config_for_cell(cell).await?;
+                        let cell_config = ctx.ctx().get_legacy_config_for_cell(cell).await?.dupe();
                         render_cell_config(
                             renderer.as_mut(),
                             Some(cell),
@@ -394,7 +395,7 @@ impl ServerAuditSubcommand for AuditConfigCommand {
                     let relevant_cell = Some(cell);
 
                     for cell in cells_to_render {
-                        let cell_config = ctx.ctx().get_legacy_config_for_cell(cell).await?;
+                        let cell_config = ctx.ctx().get_legacy_config_for_cell(cell).await?.dupe();
                         render_cell_config(
                             renderer.as_mut(),
                             relevant_cell,

@@ -235,7 +235,7 @@ impl BxlServerCommand {
         let cell_name = ctx.cell_resolver.find(ctx.cwd);
         let cell_alias_resolver = dice_ctx.ctx().get_cell_alias_resolver(cell_name).await?;
 
-        let target_alias_resolver = dice_ctx.ctx().target_alias_resolver().await?;
+        let target_alias_resolver = dice_ctx.ctx().target_alias_resolver().await?.dupe();
 
         let bxl_module = dice_ctx
             .ctx()
@@ -515,7 +515,7 @@ pub(crate) async fn get_bxl_cli_args(
     let cell_name = cell_resolver.find(&cwd);
     let cell_alias_resolver = ctx.ctx().get_cell_alias_resolver(cell_name).await?;
 
-    let target_alias_resolver = ctx.ctx().target_alias_resolver().await?;
+    let target_alias_resolver = ctx.ctx().target_alias_resolver().await?.dupe();
 
     let bxl_module = ctx
         .ctx()

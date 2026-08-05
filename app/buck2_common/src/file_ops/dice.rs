@@ -149,10 +149,10 @@ impl DiceFileComputations {
             .await
     }
 
-    pub async fn buildfiles(
-        ctx: &mut DiceComputations<'_>,
+    pub async fn buildfiles<'d>(
+        ctx: &mut DiceComputations<'d>,
         cell: CellName,
-    ) -> buck2_error::Result<Arc<[FileNameBuf]>> {
+    ) -> buck2_error::Result<&'d Arc<[FileNameBuf]>> {
         ctx.get_buildfiles(cell).await
     }
 }

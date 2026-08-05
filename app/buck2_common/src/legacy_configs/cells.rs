@@ -440,7 +440,7 @@ impl BuckConfigBasedCells {
 
         let mut file_ops = DiceConfigFileOps::new(ctx, project_fs, &resolver);
 
-        Self::parse_single_cell_with_file_ops_inner(&external_data, &mut file_ops, cell_path).await
+        Self::parse_single_cell_with_file_ops_inner(external_data, &mut file_ops, cell_path).await
     }
 
     pub async fn parse_single_cell(

@@ -84,6 +84,8 @@ impl FileOps for DiceFileOps<'_, '_> {
     }
 
     async fn buildfiles<'a>(&self, cell: CellName) -> buck2_error::Result<Arc<[FileNameBuf]>> {
-        DiceFileComputations::buildfiles(&mut self.0.get(), cell).await
+        DiceFileComputations::buildfiles(&mut self.0.get(), cell)
+            .await
+            .map(Dupe::dupe)
     }
 }

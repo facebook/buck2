@@ -19,6 +19,7 @@ use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
+use dupe::ResultDupedErrExt;
 use itertools::Itertools;
 use pagable::Pagable;
 use pagable::pagable_typetag;
@@ -132,9 +133,10 @@ impl BuckConfigTargetAliasResolver {
 }
 
 #[async_trait]
-pub trait HasTargetAliasResolver {
-    async fn target_alias_resolver(&mut self)
-    -> buck2_error::Result<BuckConfigTargetAliasResolver>;
+pub trait HasTargetAliasResolver<'d> {
+    async fn target_alias_resolver(
+        &mut self,
+    ) -> buck2_error::Result<&'d BuckConfigTargetAliasResolver>;
 }
 
 #[derive(Debug, Display, Hash, PartialEq, Eq, Clone, Allocative, Pagable)]
@@ -168,11 +170,14 @@ impl Key for TargetAliasResolverKey {
 }
 
 #[async_trait]
-impl HasTargetAliasResolver for DiceComputations<'_> {
+impl<'d> HasTargetAliasResolver<'d> for DiceComputations<'d> {
     async fn target_alias_resolver(
         &mut self,
-    ) -> buck2_error::Result<BuckConfigTargetAliasResolver> {
-        Ok(self.compute(&TargetAliasResolverKey()).await??)
+    ) -> buck2_error::Result<&'d BuckConfigTargetAliasResolver> {
+        self.compute_ref(&TargetAliasResolverKey())
+            .await?
+            .as_ref()
+            .duped_err()
     }
 }
 

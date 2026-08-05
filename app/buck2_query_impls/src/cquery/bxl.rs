@@ -58,7 +58,7 @@ impl BxlCqueryFunctionsImpl {
             .await?
             .dupe();
 
-        let target_alias_resolver = dice.get().target_alias_resolver().await?;
+        let target_alias_resolver = dice.get().target_alias_resolver().await?.dupe();
 
         let query_data = Arc::new(DiceQueryData::new(
             self.global_cfg_options.dupe(),

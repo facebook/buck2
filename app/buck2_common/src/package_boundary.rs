@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-use std::sync::Arc;
-
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPath;
@@ -28,6 +26,7 @@ use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
+use dupe::ResultDupedErrExt;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use ref_cast::RefCast;
@@ -106,7 +105,7 @@ struct CellPackageBoundaryExceptionsKey(CellName);
 
 #[async_trait]
 impl Key for CellPackageBoundaryExceptionsKey {
-    type Value = buck2_error::Result<Option<Arc<CellPackageBoundaryExceptions>>>;
+    type Value = buck2_error::Result<Option<CellPackageBoundaryExceptions>>;
 
     async fn compute(
         &self,
@@ -123,7 +122,7 @@ impl Key for CellPackageBoundaryExceptionsKey {
             )
             .await?;
         if let Some(s) = s {
-            Ok(Some(Arc::new(CellPackageBoundaryExceptions::new(&s)?)))
+            Ok(Some(CellPackageBoundaryExceptions::new(&s)?))
         } else {
             Ok(None)
         }
@@ -147,18 +146,18 @@ impl Key for CellPackageBoundaryExceptionsKey {
 
 #[async_trait]
 pub trait HasPackageBoundaryExceptions {
-    async fn get_package_boundary_exception(
+    async fn has_package_boundary_exception(
         &mut self,
         path: CellPathRef<'async_trait>,
-    ) -> buck2_error::Result<Option<Arc<CellPath>>>;
+    ) -> buck2_error::Result<bool>;
 }
 
 #[async_trait]
 impl HasPackageBoundaryExceptions for DiceComputations<'_> {
-    async fn get_package_boundary_exception(
+    async fn has_package_boundary_exception(
         &mut self,
         path: CellPathRef<'async_trait>,
-    ) -> buck2_error::Result<Option<Arc<CellPath>>> {
+    ) -> buck2_error::Result<bool> {
         #[derive(
             Hash, Eq, PartialEq, Clone, Display, Debug, RefCast, Allocative, Pagable
         )]
@@ -168,7 +167,7 @@ impl HasPackageBoundaryExceptions for DiceComputations<'_> {
 
         #[async_trait]
         impl Key for PackageBoundaryExceptionKey {
-            type Value = buck2_error::Result<Option<Arc<CellPath>>>;
+            type Value = buck2_error::Result<Option<CellPath>>;
 
             async fn compute(
                 &self,
@@ -176,14 +175,16 @@ impl HasPackageBoundaryExceptions for DiceComputations<'_> {
                 _cancellations: &CancellationContext,
             ) -> Self::Value {
                 let Some(exceptions) = ctx
-                    .compute(&CellPackageBoundaryExceptionsKey(self.0.cell()))
-                    .await??
+                    .compute_ref(&CellPackageBoundaryExceptionsKey(self.0.cell()))
+                    .await?
+                    .as_ref()
+                    .duped_err()?
                 else {
                     return Ok(None);
                 };
                 Ok(exceptions
                     .get_package_boundary_exception_path(self.0.path())
-                    .map(|p| Arc::new(CellPath::new(self.0.cell(), p))))
+                    .map(|p| CellPath::new(self.0.cell(), p)))
             }
 
             fn validity(x: &Self::Value) -> bool {
@@ -202,8 +203,12 @@ impl HasPackageBoundaryExceptions for DiceComputations<'_> {
             }
         }
 
-        self.compute(&PackageBoundaryExceptionKey(path.to_owned()))
+        Ok(self
+            .compute_ref(&PackageBoundaryExceptionKey(path.to_owned()))
             .await?
+            .as_ref()
+            .duped_err()?
+            .is_some())
     }
 }
 

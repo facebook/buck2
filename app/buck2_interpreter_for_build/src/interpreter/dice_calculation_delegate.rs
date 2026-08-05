@@ -613,9 +613,8 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
 
             let package_boundary_exception = self
                 .ctx
-                .get_package_boundary_exception(package.as_cell_path())
-                .await?
-                .is_some();
+                .has_package_boundary_exception(package.as_cell_path())
+                .await?;
             let buckconfig = self.get_legacy_buck_config_for_starlark().await?;
             let root_buckconfig = self.ctx.get_legacy_root_config_on_dice().await?;
             let module_id = build_file_path.to_string();

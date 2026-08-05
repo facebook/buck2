@@ -18,6 +18,7 @@ use dice::DiceComputations;
 use dice::Key;
 use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
+use dupe::ResultDupedErrExt;
 use gazebo::prelude::SliceExt as _;
 use gazebo::prelude::VecExt as _;
 use pagable::Pagable;
@@ -71,11 +72,11 @@ pub fn parse_buildfile_name(
     Ok(base)
 }
 
-pub trait HasBuildfiles {
+pub trait HasBuildfiles<'d> {
     fn get_buildfiles(
         &mut self,
         cell: CellName,
-    ) -> impl Future<Output = buck2_error::Result<Arc<[FileNameBuf]>>>;
+    ) -> impl Future<Output = buck2_error::Result<&'d Arc<[FileNameBuf]>>>;
 }
 
 #[derive(
@@ -117,9 +118,15 @@ impl Key for BuildfilesKey {
     }
 }
 
-impl HasBuildfiles for DiceComputations<'_> {
-    async fn get_buildfiles(&mut self, cell: CellName) -> buck2_error::Result<Arc<[FileNameBuf]>> {
-        self.compute(&BuildfilesKey(cell)).await?
+impl<'d> HasBuildfiles<'d> for DiceComputations<'d> {
+    async fn get_buildfiles(
+        &mut self,
+        cell: CellName,
+    ) -> buck2_error::Result<&'d Arc<[FileNameBuf]>> {
+        self.compute_ref(&BuildfilesKey(cell))
+            .await?
+            .as_ref()
+            .duped_err()
     }
 }
 

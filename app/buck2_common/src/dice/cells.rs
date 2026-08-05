@@ -140,7 +140,7 @@ impl Key for CellAliasResolverKey {
         CellAliasResolver::new_for_non_root_cell(
             self.0,
             root_aliases,
-            BuckConfigBasedCells::get_cell_aliases_from_config(&config)?,
+            BuckConfigBasedCells::get_cell_aliases_from_config(config)?,
         )
     }
 
