@@ -164,11 +164,11 @@ impl FileHasher for PathsAndContentsHasher {
                     }
                     PathMetadata::Directory => {
                         res.push(2u8);
-                        let files = DiceFileComputations::read_dir(ctx, cell_path.dupe())
+                        let files = &DiceFileComputations::read_dir(ctx, cell_path.dupe())
                             .await?
                             .included;
                         res.extend(files.len().to_be_bytes());
-                        for x in &*files {
+                        for x in files.iter() {
                             let name = x.file_name.as_str();
                             res.extend(name.len().to_be_bytes());
                             res.extend(name.as_bytes());

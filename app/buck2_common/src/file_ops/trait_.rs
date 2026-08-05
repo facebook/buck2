@@ -15,6 +15,7 @@ use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::name::CellName;
 use buck2_fs::paths::file_name::FileNameBuf;
 use dice::LinearRecomputeDiceComputations;
+use dupe::Dupe;
 
 use crate::file_ops::dice::DiceFileComputations;
 use crate::file_ops::metadata::RawPathMetadata;
@@ -63,7 +64,9 @@ impl FileOps for DiceFileOps<'_, '_> {
         &self,
         path: CellPathRef<'async_trait>,
     ) -> buck2_error::Result<ReadDirOutput> {
-        DiceFileComputations::read_dir(&mut self.0.get(), path).await
+        DiceFileComputations::read_dir(&mut self.0.get(), path)
+            .await
+            .map(Dupe::dupe)
     }
 
     async fn read_path_metadata_if_exists(

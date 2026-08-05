@@ -288,7 +288,7 @@ async fn dir_artifact_value(
             ctx: &mut DiceComputations,
             _cancellation: &CancellationContext,
         ) -> Self::Value {
-            let files = DiceFileComputations::read_dir(ctx, self.0.as_ref().as_ref())
+            let files = &DiceFileComputations::read_dir(ctx, self.0.as_ref().as_ref())
                 .await?
                 .included;
 

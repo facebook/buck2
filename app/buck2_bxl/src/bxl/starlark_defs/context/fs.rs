@@ -30,6 +30,7 @@ use buck2_node::nodes::unconfigured::TargetNode;
 use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
+use dupe::Dupe;
 use futures::FutureExt;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
@@ -213,7 +214,7 @@ fn fs_operations(builder: &mut MethodsBuilder) {
                                 DiceFileComputations::read_dir(dice, path.as_ref()).await?;
                             Ok(StarlarkReadDirSet {
                                 cell_path: path,
-                                included: read_dir_output.included,
+                                included: read_dir_output.included.dupe(),
                                 dirs_only,
                             })
                         }

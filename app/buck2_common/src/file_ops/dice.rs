@@ -28,6 +28,7 @@ use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
+use dupe::ResultDupedErrExt;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 
@@ -46,15 +47,17 @@ pub struct DiceFileComputations;
 /// Functions for accessing files with keys on the dice graph.
 impl DiceFileComputations {
     /// Filters out ignored paths
-    pub async fn read_dir(
-        ctx: &mut DiceComputations<'_>,
+    pub async fn read_dir<'d>(
+        ctx: &mut DiceComputations<'d>,
         path: CellPathRef<'_>,
-    ) -> buck2_error::Result<ReadDirOutput> {
-        ctx.compute(&ReadDirKey {
+    ) -> buck2_error::Result<&'d ReadDirOutput> {
+        ctx.compute_ref(&ReadDirKey {
             path: path.to_owned(),
             check_ignores: CheckIgnores::Yes,
         })
         .await?
+        .as_ref()
+        .duped_err()
     }
 
     /// Returns if a directory or file exists at the given path, but checks for an exact,
@@ -70,15 +73,17 @@ impl DiceFileComputations {
             .await?
     }
 
-    pub async fn read_dir_include_ignores(
-        ctx: &mut DiceComputations<'_>,
+    pub async fn read_dir_include_ignores<'d>(
+        ctx: &mut DiceComputations<'d>,
         path: CellPathRef<'_>,
-    ) -> buck2_error::Result<ReadDirOutput> {
-        ctx.compute(&ReadDirKey {
+    ) -> buck2_error::Result<&'d ReadDirOutput> {
+        ctx.compute_ref(&ReadDirKey {
             path: path.to_owned(),
             check_ignores: CheckIgnores::No,
         })
         .await?
+        .as_ref()
+        .duped_err()
     }
 
     /// Like read_dir, but with extended error information. This may add additional dice dependencies.
@@ -96,8 +101,10 @@ impl DiceFileComputations {
         ctx: &mut DiceComputations<'_>,
         path: CellPathRef<'_>,
     ) -> buck2_error::Result<Option<String>> {
-        ctx.compute(&ReadFileKey(Arc::new(path.to_owned())))
-            .await??
+        ctx.compute_ref(&ReadFileKey(Arc::new(path.to_owned())))
+            .await?
+            .as_ref()
+            .duped_err()?
             .read_file_if_exists(ctx)
             .await
     }
@@ -441,7 +448,7 @@ async fn read_dir_ext(
     path: CellPathRef<'_>,
 ) -> Result<ReadDirOutput, ReadDirError> {
     match DiceFileComputations::read_dir(ctx, path).await {
-        Ok(v) => Ok(v),
+        Ok(v) => Ok(v.dupe()),
         Err(e) => match extended_ignore_error(ctx, path).await {
             Some(e) => Err(e),
             None => Err(e.into()),
