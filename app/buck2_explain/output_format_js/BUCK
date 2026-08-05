@@ -41,3 +41,7 @@ buck_genrule(
 export_file(
     name = "output_format.fbs",
 )
+
+export_file(
+    name = "yarn.lock",
+)

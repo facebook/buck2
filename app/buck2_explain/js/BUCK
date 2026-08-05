@@ -48,3 +48,7 @@ python_binary(
 export_file(
     name = "explain.fbs",
 )
+
+export_file(
+    name = "yarn.lock",
+)
