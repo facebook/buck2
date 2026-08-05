@@ -398,7 +398,7 @@ psutil = "3.3.0"
 quick-xml = { version = "0.37", features = ["overlapped-lists", "serialize"] }
 quickcheck = "1.1"
 quickcheck_macros = "1.2.0"
-quote = "1.0.46"
+quote = "1.0.47"
 rand = "0.10.2"
 rand_chacha = "0.10"
 rand_distr = "0.6"
