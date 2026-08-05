@@ -17,6 +17,7 @@ use buck2_error::BuckErrorContext;
 #[cfg(unix)]
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use dice::PagableStorageBackend;
+use dupe::Dupe;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -601,6 +602,7 @@ impl HydrationConfig {
 /// before parsing DaemonStartupConfig).
 #[derive(Allocative, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct DaemonStartupConfig {
+    pub buck_settings: BuckSettings,
     pub num_tokio_workers: Option<usize>,
     pub daemon_buster: Option<String>,
     pub digest_algorithms: Option<String>,
@@ -662,6 +664,7 @@ impl DaemonStartupConfig {
         }?;
 
         Ok(Self {
+            buck_settings: settings.dupe(),
             num_tokio_workers: config
                 .parse(BuckconfigKeyRef {
                     section: "build",
@@ -748,6 +751,7 @@ impl DaemonStartupConfig {
 
     pub fn testing_empty() -> Self {
         Self {
+            buck_settings: BuckSettings::empty(),
             num_tokio_workers: None,
             daemon_buster: None,
             digest_algorithms: None,

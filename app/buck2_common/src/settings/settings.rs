@@ -13,6 +13,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use dupe::Dupe;
 use serde::Deserialize;
+use serde::Serialize;
 
 struct SettingKey<T> {
     internal_default: Option<T>,
@@ -44,14 +45,14 @@ const LOG_USE_MANIFOLD: SettingKey<bool> = SettingKey {
     oss_default: Some(false),
 };
 
-#[derive(Debug, Default, Deserialize, Allocative)]
+#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Allocative)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct BuckSettingsData {
     log_use_manifold: Option<bool>,
     log_url: Option<String>,
 }
 
-#[derive(Clone, Dupe, Debug, Allocative)]
+#[derive(Clone, Dupe, Debug, Serialize, Deserialize, PartialEq, Eq, Allocative)]
 pub struct BuckSettings(pub(crate) Arc<BuckSettingsData>);
 
 impl BuckSettings {
