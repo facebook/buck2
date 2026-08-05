@@ -9,7 +9,6 @@
  */
 
 use allocative::Allocative;
-use dupe::Dupe;
 
 use crate::Pagable;
 use crate::PagableDeserializer;
@@ -45,7 +44,7 @@ impl<V> TodoValueSerialize<V> {
     }
 }
 
-impl<V: Allocative + Dupe + Send + Sync + 'static> ValueSerialize for TodoValueSerialize<V> {
+impl<V: Allocative + Send + Sync + 'static> ValueSerialize for TodoValueSerialize<V> {
     type Value = V;
 
     fn pagable_serialize_value(
@@ -72,7 +71,7 @@ impl<V> NoValueSerialize<V> {
     }
 }
 
-impl<V: Allocative + Dupe + Send + Sync + 'static> ValueSerialize for NoValueSerialize<V> {
+impl<V: Allocative + Send + Sync + 'static> ValueSerialize for NoValueSerialize<V> {
     type Value = V;
 
     fn pagable_serialize_value(
@@ -101,10 +100,8 @@ impl<V> OkPagableValueSerialize<V> {
     }
 }
 
-impl<
-    V: Pagable + Allocative + Dupe + Send + Sync + 'static,
-    E: Allocative + Dupe + Send + Sync + 'static,
-> ValueSerialize for OkPagableValueSerialize<Result<V, E>>
+impl<V: Pagable + Allocative + Send + Sync + 'static, E: Allocative + Send + Sync + 'static>
+    ValueSerialize for OkPagableValueSerialize<Result<V, E>>
 {
     type Value = Result<V, E>;
 
@@ -136,9 +133,7 @@ impl<V> PagableValueSerialize<V> {
     }
 }
 
-impl<V: Pagable + Allocative + Dupe + Send + Sync + 'static> ValueSerialize
-    for PagableValueSerialize<V>
-{
+impl<V: Pagable + Allocative + Send + Sync + 'static> ValueSerialize for PagableValueSerialize<V> {
     type Value = V;
 
     fn pagable_serialize_value(
