@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-use std::sync::Arc;
-
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_common::dice::cells::HasCellResolver;
@@ -36,15 +34,16 @@ use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
+use dupe::ResultDupedErrExt;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 
 use crate::configuration::get_platform_configuration;
 use crate::execution::get_execution_platform_toolchain_dep;
 
-async fn get_target_platform_detector(
-    ctx: &mut DiceComputations<'_>,
-) -> buck2_error::Result<Arc<TargetPlatformDetector>> {
+async fn get_target_platform_detector<'d>(
+    ctx: &mut DiceComputations<'d>,
+) -> buck2_error::Result<&'d TargetPlatformDetector> {
     // This requires a bit of computation so cache it on the graph.
     // TODO(cjhopman): Should we construct this (and similar buckconfig-derived objects) as part of the buck config itself?
     #[derive(Clone, Display, Debug, Dupe, Eq, Hash, PartialEq, Allocative, Pagable)]
@@ -54,7 +53,7 @@ async fn get_target_platform_detector(
 
     #[async_trait]
     impl Key for TargetPlatformDetectorKey {
-        type Value = buck2_error::Result<Arc<TargetPlatformDetector>>;
+        type Value = buck2_error::Result<TargetPlatformDetector>;
         async fn compute(
             &self,
             ctx: &mut DiceComputations,
@@ -66,7 +65,7 @@ async fn get_target_platform_detector(
             let root_cell = resolver.root_cell();
             let cell_alias_resolver = ctx.get_cell_alias_resolver(root_cell).await?;
 
-            Ok(Arc::new(
+            Ok(
                 match ctx
                     .get_legacy_config_property(
                         root_cell,
@@ -85,7 +84,7 @@ async fn get_target_platform_detector(
                         &cell_alias_resolver,
                     )?,
                 },
-            ))
+            )
         }
 
         fn equality(x: &Self::Value, y: &Self::Value) -> bool {
@@ -100,7 +99,10 @@ async fn get_target_platform_detector(
         }
     }
 
-    ctx.compute(&TargetPlatformDetectorKey).await?
+    ctx.compute_ref(&TargetPlatformDetectorKey)
+        .await?
+        .as_ref()
+        .duped_err()
 }
 
 async fn get_default_platform(

@@ -57,6 +57,9 @@ use dice::Key;
 use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
 use dupe::Dupe;
+use dupe::ResultDupedErrExt;
+use futures::FutureExt;
+use futures::future::BoxFuture;
 use itertools::Itertools;
 use pagable::Pagable;
 use pagable::pagable_typetag;
@@ -240,7 +243,7 @@ impl ToolchainExecutionPlatformCompatibilityKey {
         let unspecified_resolution = ExecutionPlatformResolution::unspecified();
         let cfg_ctx = AttrConfigurationContextImpl::new(
             self.target.inner().dupe(),
-            &matched_cfg_keys,
+            matched_cfg_keys,
             &unspecified_resolution,
             &resolved_transitions,
             &platform_cfgs,
@@ -333,7 +336,7 @@ pub(crate) async fn get_execution_platform_toolchain_dep(
         let unspecified_resolution = ExecutionPlatformResolution::unspecified();
         let cfg_ctx = AttrConfigurationContextImpl::new(
             target_label.inner().dupe(),
-            &matched_cfg_keys,
+            matched_cfg_keys,
             &unspecified_resolution,
             &resolved_transitions,
             &platform_cfgs,
@@ -354,7 +357,7 @@ pub(crate) async fn get_execution_platform_toolchain_dep(
             resolve_execution_platform(
                 ctx,
                 target_node,
-                &matched_cfg_keys,
+                matched_cfg_keys,
                 &gathered_deps,
                 &cfg_ctx,
             )
@@ -464,11 +467,11 @@ async fn compute_execution_platforms(
 /// This function is used in two places:
 /// 1. During execution platform selection (check_execution_platform) - to check target_compatible_with
 /// 2. During dependency graph construction (nodes.rs) - to create the final configured nodes
-pub(crate) async fn configure_exec_dep_with_modifiers(
-    ctx: &mut DiceComputations<'_>,
+pub(crate) async fn configure_exec_dep_with_modifiers<'d>(
+    ctx: &mut DiceComputations<'d>,
     exec_dep: &TargetLabel,
     execution_platform_cfg: &ConfigurationData,
-) -> ResultMaybeCompatible<ConfiguredTargetNode> {
+) -> ResultMaybeCompatible<&'d ConfiguredTargetNode> {
     let (node, super_package) = ctx.get_target_node_with_super_package(exec_dep).await?;
 
     if !execution_platform_cfg.is_bound() {
@@ -613,9 +616,10 @@ async fn check_execution_platform(
 async fn get_execution_platforms_enabled(
     ctx: &mut DiceComputations<'_>,
 ) -> buck2_error::Result<ExecutionPlatforms> {
-    ctx.get_execution_platforms()
-        .await?
-        .ok_or_else(|| internal_error!("Execution platforms are not enabled"))
+    match ctx.get_execution_platforms().await? {
+        Some(platforms) => Ok(platforms.dupe()),
+        None => Err(internal_error!("Execution platforms are not enabled")),
+    }
 }
 
 async fn resolve_execution_platform_from_constraints(
@@ -769,11 +773,20 @@ struct GetExecutionPlatformsInstance;
 
 #[async_trait]
 impl GetExecutionPlatformsImpl for GetExecutionPlatformsInstance {
-    async fn get_execution_platforms_impl(
+    fn get_execution_platforms_impl<'a, 'd>(
         &self,
-        ctx: &mut DiceComputations<'_>,
-    ) -> buck2_error::Result<Option<ExecutionPlatforms>> {
-        ctx.compute(&ExecutionPlatformsKey).await?
+        ctx: &'a mut DiceComputations<'d>,
+    ) -> BoxFuture<'a, buck2_error::Result<&'d Option<ExecutionPlatforms>>>
+    where
+        'd: 'a,
+    {
+        async move {
+            ctx.compute_ref(&ExecutionPlatformsKey)
+                .await?
+                .as_ref()
+                .duped_err()
+        }
+        .boxed()
     }
 
     async fn execution_platform_resolution_one_for_cell(

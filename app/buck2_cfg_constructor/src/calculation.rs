@@ -33,6 +33,7 @@ use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
+use dupe::ResultDupedErrExt;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 
@@ -58,9 +59,9 @@ async fn get_cfg_constructor_uncached(
     Ok(super_package.cfg_constructor().duped())
 }
 
-async fn get_cfg_constructor(
-    ctx: &mut DiceComputations<'_>,
-) -> buck2_error::Result<Option<Arc<dyn CfgConstructorImpl>>> {
+async fn get_cfg_constructor<'d>(
+    ctx: &mut DiceComputations<'d>,
+) -> buck2_error::Result<&'d Option<Arc<dyn CfgConstructorImpl>>> {
     #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
     #[pagable_typetag(dice::DiceKeyDyn)]
     struct GetCfgConstructorKey;
@@ -86,7 +87,10 @@ async fn get_cfg_constructor(
         }
     }
 
-    ctx.compute(&GetCfgConstructorKey).await?
+    ctx.compute_ref(&GetCfgConstructorKey)
+        .await?
+        .as_ref()
+        .duped_err()
 }
 
 #[async_trait]
@@ -122,9 +126,10 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
                 ctx: &mut DiceComputations,
                 cancellation: &CancellationContext,
             ) -> Self::Value {
-                let cfg_constructor = get_cfg_constructor(ctx).await?.ok_or_else(|| {
-                    internal_error!("Global cfg constructor instance should exist")
-                })?;
+                let cfg_constructor =
+                    get_cfg_constructor(ctx).await?.as_ref().ok_or_else(|| {
+                        internal_error!("Global cfg constructor instance should exist")
+                    })?;
                 cfg_constructor
                     .eval(
                         ctx,

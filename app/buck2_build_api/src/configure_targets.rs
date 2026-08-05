@@ -127,7 +127,9 @@ where
                         let target = ctx
                             .get_configured_target(target.label(), &duped_cfg_options)
                             .await?;
-                        ctx.get_configured_target_node(&target).await
+                        ctx.get_configured_target_node(&target)
+                            .await
+                            .map(Dupe::dupe)
                     })
                 });
 

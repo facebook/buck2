@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-use std::sync::Arc;
-
 use async_trait::async_trait;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::transition::TRANSITION_ATTRS_PROVIDER;
@@ -21,7 +19,10 @@ use dice::DiceComputations;
 use dice::Key;
 use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
+use dupe::ResultDupedErrExt;
 use either::Either;
+use futures::FutureExt;
+use futures::future::BoxFuture;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use ref_cast::RefCast;
@@ -119,9 +120,9 @@ impl FetchTransition for DiceComputations<'_> {
 
 /// Computes the attributes required by a transition.
 ///
-/// This basically only exists so that we have a lifetime to attach to the `Arc<[String]>`, as we
-/// cannot directly return the `FrozenStarlarkStr`s that are actually stored to crates that avoid
-/// depending on starlark.
+/// This basically only exists so that we have a place to hand out the transition's attribute names
+/// as owned `String`s, as we cannot directly return the `FrozenStarlarkStr`s that are actually
+/// stored to crates that avoid depending on starlark.
 #[derive(
     Debug,
     Eq,
@@ -140,7 +141,7 @@ struct TransitionAttrsKey(TransitionId);
 
 #[async_trait]
 impl Key for TransitionAttrsKey {
-    type Value = buck2_error::Result<Option<Arc<[String]>>>;
+    type Value = buck2_error::Result<Option<Box<[String]>>>;
 
     async fn compute(
         &self,
@@ -169,15 +170,20 @@ impl Key for TransitionAttrsKey {
 
 struct TransitionGetAttrs;
 
-#[async_trait]
 impl TransitionAttrProvider for TransitionGetAttrs {
-    async fn transition_attrs(
+    fn transition_attrs<'a, 'd>(
         &self,
-        ctx: &mut DiceComputations<'_>,
-        transition_id: &TransitionId,
-    ) -> buck2_error::Result<Option<Arc<[String]>>> {
-        let k = TransitionAttrsKey::ref_cast(transition_id);
-        ctx.compute(k).await?
+        ctx: &'a mut DiceComputations<'d>,
+        transition_id: &'a TransitionId,
+    ) -> BoxFuture<'a, buck2_error::Result<Option<&'d [String]>>>
+    where
+        'd: 'a,
+    {
+        async move {
+            let k = TransitionAttrsKey::ref_cast(transition_id);
+            Ok(ctx.compute_ref(k).await?.as_ref().duped_err()?.as_deref())
+        }
+        .boxed()
     }
 }
 

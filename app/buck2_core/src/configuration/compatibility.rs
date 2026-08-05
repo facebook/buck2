@@ -217,6 +217,15 @@ impl<T> ResultMaybeCompatible<T> {
         matches!(self, Self::Compatible(..))
     }
 
+    /// Borrows the compatible value, leaving the `Incompatible`/`Err` variants shared.
+    pub fn as_ref(&self) -> ResultMaybeCompatible<&T> {
+        match self {
+            Self::Compatible(t) => ResultMaybeCompatible::Compatible(t),
+            Self::Incompatible(reason) => ResultMaybeCompatible::Incompatible(reason.dupe()),
+            Self::Err(e) => ResultMaybeCompatible::Err(e.clone()),
+        }
+    }
+
     pub fn map<U>(self, func: impl FnOnce(T) -> U) -> ResultMaybeCompatible<U> {
         match self {
             Self::Compatible(t) => ResultMaybeCompatible::Compatible(func(t)),

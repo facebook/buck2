@@ -361,7 +361,7 @@ impl Key for LoadGraphPropertiesKey {
             .await
             .require_compatible()?;
 
-        let packages = collect_transitive_packages(&configured_node);
+        let packages = collect_transitive_packages(configured_node);
         let mut sketcher = DEFAULT_SKETCH_VERSION.create_sketcher();
 
         let pkg_results = ctx

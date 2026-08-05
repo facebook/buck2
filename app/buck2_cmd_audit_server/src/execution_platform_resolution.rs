@@ -19,6 +19,7 @@ use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
+use dupe::Dupe;
 use indent_write::io::IndentWriter;
 
 use crate::ServerAuditSubcommand;
@@ -69,7 +70,8 @@ impl ServerAuditSubcommand for AuditExecutionPlatformResolutionCommand {
                         .ctx()
                         .get_internal_configured_target_node(&configured_target)
                         .await
-                        .require_compatible()?;
+                        .require_compatible()?
+                        .dupe();
                     writeln!(stdout, "{configured_target}:")?;
                     let resolution = configured_node.execution_platform_resolution();
                     match resolution.platform() {

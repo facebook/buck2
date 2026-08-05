@@ -18,6 +18,8 @@ use buck2_core::target::label::label::TargetLabel;
 use buck2_core::target::target_configured_target_label::TargetConfiguredTargetLabel;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
+use futures::FutureExt;
+use futures::future::BoxFuture;
 
 use crate::configuration::calculation::CellNameForConfigurationResolution;
 use crate::configuration::resolved::ConfigurationSettingKey;
@@ -29,10 +31,12 @@ pub const EXECUTION_PLATFORMS_BUCKCONFIG: BuckconfigKeyRef = BuckconfigKeyRef {
 
 #[async_trait]
 pub trait GetExecutionPlatformsImpl: 'static + Send + Sync {
-    async fn get_execution_platforms_impl(
+    fn get_execution_platforms_impl<'a, 'd>(
         &self,
-        dice_computations: &mut DiceComputations<'_>,
-    ) -> buck2_error::Result<Option<ExecutionPlatforms>>;
+        dice_computations: &'a mut DiceComputations<'d>,
+    ) -> BoxFuture<'a, buck2_error::Result<&'d Option<ExecutionPlatforms>>>
+    where
+        'd: 'a;
 
     async fn execution_platform_resolution_one_for_cell(
         &self,
@@ -47,20 +51,28 @@ pub trait GetExecutionPlatformsImpl: 'static + Send + Sync {
 pub static GET_EXECUTION_PLATFORMS: LateBinding<&'static dyn GetExecutionPlatformsImpl> =
     LateBinding::new("EXECUTION_PLATFORMS");
 
-#[allow(async_fn_in_trait)]
-pub trait GetExecutionPlatforms: Send {
+pub trait GetExecutionPlatforms<'d>: Send {
     /// Returns a list of the configured execution platforms. This looks up the providers on the target
     /// configured **in the root cell's buckconfig** with key `build.execution_platforms`. If there's no
     /// value configured, it will return `None` which indicates we should fallback to the legacy execution
     /// platform behavior.
-    async fn get_execution_platforms(&mut self) -> buck2_error::Result<Option<ExecutionPlatforms>>;
+    fn get_execution_platforms<'a>(
+        &'a mut self,
+    ) -> BoxFuture<'a, buck2_error::Result<&'d Option<ExecutionPlatforms>>>
+    where
+        'd: 'a;
 }
 
-impl GetExecutionPlatforms for DiceComputations<'_> {
-    async fn get_execution_platforms(&mut self) -> buck2_error::Result<Option<ExecutionPlatforms>> {
-        GET_EXECUTION_PLATFORMS
-            .get()?
-            .get_execution_platforms_impl(self)
-            .await
+impl<'d> GetExecutionPlatforms<'d> for DiceComputations<'d> {
+    fn get_execution_platforms<'a>(
+        &'a mut self,
+    ) -> BoxFuture<'a, buck2_error::Result<&'d Option<ExecutionPlatforms>>>
+    where
+        'd: 'a,
+    {
+        match GET_EXECUTION_PLATFORMS.get() {
+            Ok(i) => i.get_execution_platforms_impl(self),
+            Err(e) => futures::future::ready(Err(e)).boxed(),
+        }
     }
 }

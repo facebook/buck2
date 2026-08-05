@@ -204,7 +204,7 @@ impl Key for ConfiguredGraphPropertiesKey {
     ) -> Self::Value {
         let configured_node = ctx.get_configured_target_node(&self.label).await?;
         ResultMaybeCompatible::Compatible(compute_configured_graph_sketch(
-            configured_node,
+            configured_node.dupe(),
             self.configured_graph_sketch,
         ))
     }

@@ -1620,7 +1620,7 @@ impl BuckTestOrchestrator<'_> {
         };
 
         let executor_config = Self::executor_config_with_remote_cache_override(
-            &node,
+            node,
             resolved_executor_override.as_ref().map(|a| &***a),
             stage,
             supports_test_execution_caching,

@@ -1270,7 +1270,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                 .get_configured_target_node(label.target())
                 .await
             {
-                ResultMaybeCompatible::Compatible(node) => node,
+                ResultMaybeCompatible::Compatible(node) => node.dupe(),
                 ResultMaybeCompatible::Incompatible(reason) => {
                     if skippable {
                         //TODO: add aggregated error message

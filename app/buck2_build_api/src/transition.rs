@@ -17,6 +17,7 @@ use buck2_core::configuration::transition::id::TransitionId;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
+use futures::future::BoxFuture;
 use starlark_map::ordered_map::OrderedMap;
 
 #[async_trait]
@@ -42,12 +43,13 @@ pub static TRANSITION_ATTRS_PROVIDER: LateBinding<&'static dyn TransitionAttrPro
 // * add a function like attrs to TransitionValue,
 // * call it from RuleCallable, and store in Rule.
 // * in TargetNode we have access to Rule.
-#[async_trait]
 pub trait TransitionAttrProvider: Send + Sync + 'static {
     /// Fetch attribute names accessed by transition function.
-    async fn transition_attrs(
+    fn transition_attrs<'a, 'd>(
         &self,
-        ctx: &mut DiceComputations<'_>,
-        transition_id: &TransitionId,
-    ) -> buck2_error::Result<Option<Arc<[String]>>>;
+        ctx: &'a mut DiceComputations<'d>,
+        transition_id: &'a TransitionId,
+    ) -> BoxFuture<'a, buck2_error::Result<Option<&'d [String]>>>
+    where
+        'd: 'a;
 }

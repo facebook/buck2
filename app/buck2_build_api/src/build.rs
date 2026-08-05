@@ -612,7 +612,8 @@ async fn build_configured_label_inner(
         .get()
         .get_configured_target_node(providers_label.target())
         .await
-        .require_compatible()?;
+        .require_compatible()?
+        .dupe();
 
     ctx.get().top_level_target(TopLevelTargetSpec {
         label: providers_label.dupe(),

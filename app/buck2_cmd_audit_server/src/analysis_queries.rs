@@ -21,6 +21,7 @@ use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
+use dupe::Dupe;
 
 use crate::ServerAuditSubcommand;
 use crate::common::target_resolution_config::audit_command_target_resolution_config;
@@ -68,7 +69,8 @@ impl ServerAuditSubcommand for AuditAnalysisQueriesCommand {
                                         .ctx()
                                         .get_configured_target_node(&configured_target)
                                         .await
-                                        .require_compatible()?;
+                                        .require_compatible()?
+                                        .dupe();
 
                                     let query_results =
                                         resolve_queries(&mut ctx.ctx(), node.as_ref()).await?;

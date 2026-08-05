@@ -94,6 +94,7 @@ impl ConfiguredGraphQueryEnvironmentDelegate for AnalysisConfiguredGraphQueryDel
                                 ctx.get_configured_target_node(target)
                                     .await
                                     .require_compatible()
+                                    .map(|n| n.dupe())
                             })
                             .await
                         },

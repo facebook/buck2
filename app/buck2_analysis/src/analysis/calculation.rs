@@ -258,9 +258,9 @@ async fn get_analysis_result_inner(
     target: &ConfiguredTargetLabel,
     cancellation: &CancellationContext,
 ) -> buck2_error::Result<MaybeCompatible<AnalysisResult>> {
-    let configured_node: MaybeCompatible<ConfiguredTargetNode> =
+    let configured_node: MaybeCompatible<&ConfiguredTargetNode> =
         ctx.get_configured_target_node(target).await.ok()?;
-    let configured_node: ConfiguredTargetNode = match configured_node {
+    let configured_node: &ConfiguredTargetNode = match configured_node {
         MaybeCompatible::Incompatible(reason) => {
             return Ok(MaybeCompatible::Incompatible(reason));
         }
@@ -443,7 +443,7 @@ pub async fn profile_analysis(
                 .get_configured_target_node(target)
                 .await
                 .require_compatible()?;
-            buck2_error::Ok(node)
+            buck2_error::Ok(node.dupe())
         })
         .await?;
 

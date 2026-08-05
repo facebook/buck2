@@ -240,6 +240,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
             ctx.get_configured_target_node(node_or_ref.node_ref())
                 .await
                 .ok()
+                .map(|n| n.map(|n| n.dupe()))
         })
         .await
         .into_iter()
@@ -255,7 +256,8 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
             Self::One(node_or_ref) => Some(
                 dice.get_configured_target_node(node_or_ref.node_ref())
                     .await
-                    .ok()?,
+                    .ok()?
+                    .map(|n| n.dupe()),
             ),
             _ => None,
         })
@@ -477,7 +479,9 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
                         let label = dice
                             .get_configured_target(node.label(), global_cfg_options)
                             .await?;
-                        dice.get_configured_target_node(&label).await
+                        dice.get_configured_target_node(&label)
+                            .await
+                            .map(|n| n.dupe())
                     })
                     .await;
 
@@ -663,7 +667,7 @@ async fn unpack_string_literal(
             let compatible_node = dice.get_configured_target_node(&label).await.ok()?;
             compatible_node
                 .require_compatible()
-                .map(SingleOrCompatibleConfiguredTargets::Single)
+                .map(|n| SingleOrCompatibleConfiguredTargets::Single(n.dupe()))
         }
         pattern => {
             let loaded_patterns =
@@ -723,6 +727,7 @@ impl OwnedTargetNodeOrTargetLabel {
         dice.get_configured_target_node(&configured_label)
             .await
             .require_compatible()
+            .map(|n| n.dupe())
     }
 
     pub(crate) async fn to_unconfigured_target_node(
@@ -781,7 +786,7 @@ impl OwnedConfiguredTargetNodeArg {
                 let compatible = dice.get_configured_target_node(label.label()).await.ok()?;
                 compatible
                     .require_compatible()
-                    .map(SingleOrCompatibleConfiguredTargets::Single)
+                    .map(|n| SingleOrCompatibleConfiguredTargets::Single(n.dupe()))
             }
             OwnedConfiguredTargetNodeArg::String(str) => {
                 unpack_string_literal(str, global_cfg_options, ctx, dice).await

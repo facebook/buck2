@@ -325,7 +325,8 @@ impl CqueryDelegate for DiceQueryDelegate<'_, '_> {
             .get()
             .get_configured_target_node(target)
             .await
-            .require_compatible()?)
+            .require_compatible()?
+            .dupe())
     }
 
     async fn get_node_for_default_configured_target(
@@ -338,6 +339,7 @@ impl CqueryDelegate for DiceQueryDelegate<'_, '_> {
             .get_configured_target_node(&target)
             .await
             .ok()
+            .map(|n| n.map(|n| n.dupe()))
     }
 
     fn ctx(&self) -> DiceComputations<'_> {

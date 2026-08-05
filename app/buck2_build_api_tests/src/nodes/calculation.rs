@@ -179,7 +179,8 @@ async fn test_get_node() -> buck2_error::Result<()> {
         .ctx()
         .get_configured_target_node(&label1.configure(cfg.dupe()))
         .await
-        .require_compatible()?;
+        .require_compatible()?
+        .dupe();
 
     let node_attrs: SmallMap<_, _> = node
         .attrs(AttrInspectOptions::All)
@@ -197,7 +198,8 @@ async fn test_get_node() -> buck2_error::Result<()> {
         .ctx()
         .get_configured_target_node(&label2.configure(cfg.dupe()))
         .await
-        .require_compatible()?;
+        .require_compatible()?
+        .dupe();
 
     let node_attrs: SmallMap<_, _> = node
         .attrs(AttrInspectOptions::All)

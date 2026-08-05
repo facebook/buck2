@@ -13,6 +13,7 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_query::query::traversal::AsyncNodeLookup;
 use dice::LinearRecomputeDiceComputations;
+use dupe::Dupe;
 
 use crate::nodes::configured::ConfiguredTargetNode;
 use crate::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
@@ -41,5 +42,6 @@ impl AsyncNodeLookup<ConfiguredTargetNode> for ConfiguredTargetNodeLookup<'_, '_
             .get_configured_target_node(label)
             .await
             .require_compatible()
+            .map(|n| n.dupe())
     }
 }
