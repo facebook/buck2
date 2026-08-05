@@ -27,6 +27,7 @@ class GenClassToSourceMapTest(unittest.TestCase):
         sources: list[pathlib.Path],
         debuginfo: list[dict] | None,
         include_prefixes: tuple[str, ...] = (),
+        sources_jar: str | None = None,
     ) -> list[dict[str, str]]:
         jar_path = directory / "library.jar"
         with zipfile.ZipFile(jar_path, "w") as jar:
@@ -46,6 +47,7 @@ class GenClassToSourceMapTest(unittest.TestCase):
             output,
             debuginfo=debuginfo_path,
             include_classes_prefixes=include_prefixes,
+            sources_jar=sources_jar,
         )
         return json.loads(output.getvalue())["classes"]
 
@@ -290,6 +292,52 @@ class GenClassToSourceMapTest(unittest.TestCase):
         self.assertEqual(
             classes,
             [{"className": "com.example.Legacy", "srcPath": str(source)}],
+        )
+
+    def test_sources_jar_writes_one_entry_per_source_file(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            directory = pathlib.Path(temp_dir)
+            shared = directory / "DatError.kt"
+            shared.write_text("interface DatError\ninternal class DatErrorImpl\n")
+            other = directory / "Feature.kt"
+            other.write_text("class Feature\n")
+            sources_jar = directory / "library-sources.jar"
+            self._generate(
+                directory,
+                jar_classes=[
+                    "com.example.DatError",
+                    "com.example.DatErrorImpl",
+                    "com.example.Feature",
+                ],
+                sources=[shared, other],
+                debuginfo=[
+                    {
+                        "file_path": str(shared),
+                        "classes": [
+                            {"name": "com.example.DatError"},
+                            {"name": "com.example.DatErrorImpl"},
+                        ],
+                    },
+                    {
+                        "file_path": str(other),
+                        "classes": [{"name": "com.example.Feature"}],
+                    },
+                ],
+                sources_jar=str(sources_jar),
+            )
+
+            with zipfile.ZipFile(sources_jar) as jar:
+                entries = jar.namelist()
+                shared_contents = jar.read("com/example/DatError.kt").decode()
+
+        # `DatErrorImpl` shares `DatError.kt`, so the file is written once under its
+        # own name instead of once per class.
+        self.assertCountEqual(
+            entries,
+            ["com/example/DatError.kt", "com/example/Feature.kt"],
+        )
+        self.assertEqual(
+            shared_contents, "interface DatError\ninternal class DatErrorImpl\n"
         )
 
     def test_defaults_output_to_stdout(self) -> None:

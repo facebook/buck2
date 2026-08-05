@@ -159,13 +159,21 @@ def _build_class_entries(
 
 
 def _write_sources_jar(classes: Iterable[dict[str, str]], output: str) -> None:
+    # Several classes can share one source file, so entries are keyed by source path
+    # and named after the file rather than the class to avoid source duplication.
+    written_sources: set[str] = set()
     with zipfile.ZipFile(output, "w") as sources_jar:
         for entry in classes:
             source_path = entry.get("srcPath")
-            if source_path is None:
+            if source_path is None or source_path in written_sources:
                 continue
-            source_extension = os.path.splitext(source_path)[1]
-            archive_path = entry["className"].replace(".", "/") + source_extension
+            written_sources.add(source_path)
+            package, _, _ = entry["className"].rpartition(".")
+            package_dir = package.replace(".", "/")
+            source_name = os.path.basename(source_path)
+            archive_path = (
+                package_dir + "/" + source_name if package_dir else source_name
+            )
             sources_jar.write(source_path, archive_path)
 
 
