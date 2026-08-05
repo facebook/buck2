@@ -280,7 +280,7 @@ def _embed_xctest_frameworks_default_value():
         "DEFAULT": False,
         # Xcode copies XCTest frameworks to test host apps, required when the
         # selected Xcode version != Xcode version used to build an app under test
-        "config//marker/apple/constraints:embed_xctest_frameworks_enabled": True,
+        "config//marker/apple/constraints:embed_xctest_frameworks[enabled]": True,
     })
 
 def apple_bundle_extra_attrs():
