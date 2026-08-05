@@ -405,7 +405,7 @@ async def main() -> int:  # noqa: C901
             stdin=subprocess.DEVNULL,
             stdout=None,  # Inherit
             stderr=subprocess.PIPE,
-            limit=1_000_000,
+            limit=20_000_000,
         )
         got_error_diag = await handle_output(proc, args, crate_map)
         res = await proc.wait()
