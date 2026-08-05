@@ -341,6 +341,58 @@ fn remove_file_impl(path: &Path) -> io::Result<()> {
     }
 }
 
+/// Like `remove_file`, but if permission is denied, add read, write, and
+/// execute permission for the owner of the containing directory and try again.
+/// Unlinking a file requires write and execute permission on the containing
+/// directory, and action outputs can contain read-only directories (e.g. OS
+/// images, where distributions give their top level directories and
+/// directories in /etc restrictive permissions). Only use this when the
+/// containing directory is itself being removed, since the permission change
+/// is not reverted.
+pub fn remove_file_harder<P: AsRef<AbsPath>>(path: P) -> Result<(), IoError> {
+    let _guard = IoCounterKey::Remove.guard();
+    with_retries(|| remove_file_harder_impl(path.as_ref().as_maybe_relativized()))
+        .map_err(|e| IoError::new_with_path("remove_file_harder", path, e))
+}
+
+#[cfg(not(unix))]
+fn remove_file_harder_impl(path: &Path) -> io::Result<()> {
+    // On Windows removal is blocked by the readonly attribute of the file
+    // itself, not by the permissions of the containing directory, and
+    // remove_file_impl already clears that attribute and retries.
+    remove_file_impl(path)
+}
+
+#[cfg(unix)]
+fn remove_file_harder_impl(path: &Path) -> io::Result<()> {
+    match remove_file_impl(path) {
+        Err(e) if e.kind() == io::ErrorKind::PermissionDenied => {
+            let parent = path.parent().filter(|p| !p.as_os_str().is_empty());
+            match parent.map(add_owner_rwx) {
+                Some(Ok(true)) => remove_file_impl(path),
+                // Adding permissions failed or they were already sufficient;
+                // report the original error.
+                _ => Err(e),
+            }
+        }
+        r => r,
+    }
+}
+
+/// Add read, write, and execute permission for the owner of `path`. Returns
+/// `false` if the permissions were already sufficient.
+#[cfg(unix)]
+fn add_owner_rwx(path: &Path) -> io::Result<bool> {
+    use std::os::unix::fs::PermissionsExt;
+
+    let mode = fs::symlink_metadata(path)?.permissions().mode();
+    if mode & 0o700 == 0o700 {
+        return Ok(false);
+    }
+    fs::set_permissions(path, fs::Permissions::from_mode(mode | 0o700))?;
+    Ok(true)
+}
+
 pub fn copy<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(from: P, to: Q) -> Result<u64, IoError> {
     let _guard = IoCounterKey::Copy.guard();
     let from_ref = from.as_ref();
@@ -470,8 +522,45 @@ pub fn set_executable<P: AsRef<AbsPath>>(path: P, executable: bool) -> Result<()
 
 pub fn remove_dir_all<P: AsRef<AbsPath>>(path: P) -> Result<(), IoError> {
     let _guard = IoCounterKey::RmDirAll.guard();
-    with_retries(|| fs::remove_dir_all(path.as_ref().as_maybe_relativized()))
+    with_retries(|| remove_dir_all_impl(path.as_ref().as_maybe_relativized()))
         .map_err(|e| IoError::new_with_path("remove_dir_all", path, e))
+}
+
+#[cfg(not(unix))]
+fn remove_dir_all_impl(path: &Path) -> io::Result<()> {
+    fs::remove_dir_all(path)
+}
+
+#[cfg(unix)]
+fn remove_dir_all_impl(path: &Path) -> io::Result<()> {
+    match fs::remove_dir_all(path) {
+        Err(e) if e.kind() == io::ErrorKind::PermissionDenied => {
+            // Removing a directory tree requires read, write, and execute
+            // permission on every directory in it, regardless of the
+            // permissions of the files. Some actions leave read-only
+            // directories in buck-out, so grant ourselves u+rwx on every
+            // directory in the tree and retry.
+            add_owner_rwx_recursively(path);
+            fs::remove_dir_all(path)
+        }
+        r => r,
+    }
+}
+
+/// Best-effort `chmod u+rwx` on `path` and every directory below it. Symlinks
+/// are not followed. Errors are ignored: whatever couldn't be fixed will make
+/// the retried removal fail with a more useful error.
+#[cfg(unix)]
+fn add_owner_rwx_recursively(path: &Path) {
+    if !fs::symlink_metadata(path).is_ok_and(|m| m.is_dir()) {
+        return;
+    }
+    drop(add_owner_rwx(path));
+    if let Ok(entries) = fs::read_dir(path) {
+        for entry in entries.flatten() {
+            add_owner_rwx_recursively(&entry.path());
+        }
+    }
 }
 
 fn symlink_metadata_if_exists_impl<P: AsRef<AbsPath>>(
@@ -809,6 +898,10 @@ pub mod uncategorized {
 
     pub fn remove_file<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<()> {
         super::remove_file(path).uncategorized()
+    }
+
+    pub fn remove_file_harder<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<()> {
+        super::remove_file_harder(path).uncategorized()
     }
 
     pub fn copy<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(from: P, to: Q) -> buck2_error::Result<u64> {
@@ -1259,6 +1352,86 @@ mod tests {
         let root = AbsPath::new(tempdir.path())?;
         let file_path = root.join("file_doesnt_exist");
         assert_matches!(fs_util::remove_file(file_path), Err(..));
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn remove_file_harder_in_readonly_directory() -> buck2_error::Result<()> {
+        use std::os::unix::fs::PermissionsExt;
+
+        let tempdir = tempfile::tempdir()?;
+        let root = AbsPath::new(tempdir.path())?;
+        let dir = root.join("dir");
+        let file = dir.join("file");
+        fs::create_dir(&dir)?;
+        fs::write(&file, b"content")?;
+        fs::set_permissions(&dir, fs::Permissions::from_mode(0o555))?;
+
+        fs_util::remove_file_harder(&file)?;
+        assert!(!file.try_exists()?);
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn remove_dir_all_readonly_tree() -> buck2_error::Result<()> {
+        use std::os::unix::fs::PermissionsExt;
+
+        let tempdir = tempfile::tempdir()?;
+        let root = AbsPath::new(tempdir.path())?;
+        let dir = root.join("dir");
+        let subdir = dir.join("subdir");
+        fs::create_dir_all(&subdir)?;
+        fs::write(subdir.join("file"), b"content")?;
+        // No permissions at all on the inner directory, read-only on the outer.
+        fs::set_permissions(&subdir, fs::Permissions::from_mode(0o000))?;
+        fs::set_permissions(&dir, fs::Permissions::from_mode(0o555))?;
+
+        fs_util::remove_dir_all(&dir)?;
+        assert!(!dir.try_exists()?);
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn remove_dir_all_does_not_modify_parent_permissions() -> buck2_error::Result<()> {
+        use std::os::unix::fs::PermissionsExt;
+
+        let tempdir = tempfile::tempdir()?;
+        let root = AbsPath::new(tempdir.path())?;
+        let parent = root.join("parent");
+        let dir = parent.join("dir");
+        fs::create_dir_all(&dir)?;
+        fs::set_permissions(&parent, fs::Permissions::from_mode(0o555))?;
+
+        // Depending on capabilities (e.g. CAP_DAC_OVERRIDE) the removal may
+        // succeed or fail; either way the parent's permissions must be left
+        // untouched.
+        drop(fs_util::remove_dir_all(&dir));
+        let mode = fs::symlink_metadata(&parent)?.permissions().mode();
+        assert_eq!(mode & 0o777, 0o555);
+
+        // Restore write permission so the tempdir can clean up after itself.
+        fs::set_permissions(&parent, fs::Permissions::from_mode(0o755))?;
+        Ok(())
+    }
+
+    #[test]
+    fn remove_dir_all_does_not_follow_symlinks() -> buck2_error::Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let root = AbsPath::new(tempdir.path())?;
+        let target = root.join("target");
+        let target_file = target.join("file");
+        fs::create_dir(&target)?;
+        fs::write(&target_file, b"content")?;
+        let dir = root.join("dir");
+        fs::create_dir(&dir)?;
+        fs_util::symlink(&target, dir.join("symlink"))?;
+
+        fs_util::remove_dir_all(&dir)?;
+        assert!(!dir.try_exists()?);
+        assert!(target_file.try_exists()?);
         Ok(())
     }
 
