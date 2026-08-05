@@ -61,11 +61,28 @@ impl ImmediateConfig {
             cells.get_cell_alias_resolver_for_cwd_fast(&roots.project_root, &roots.cwd),
         )?;
 
+        let paranoid_info_path = roots.paranoid_info_path()?;
+        let paranoid = match is_paranoid_enabled(&paranoid_info_path) {
+            Ok(paranoid) => paranoid,
+            Err(e) => {
+                tracing::warn!(
+                    "Failed to determine whether paranoid is enabled in `{}`: {:#}",
+                    paranoid_info_path,
+                    e
+                );
+                false
+            }
+        };
+
         Ok(ImmediateConfig {
             cell_resolver: cells.cell_resolver,
             cwd_cell_alias_resolver,
-            daemon_startup_config: DaemonStartupConfig::new(&cells.root_config, &settings)
-                .buck_error_context("Error loading daemon startup config")?,
+            daemon_startup_config: DaemonStartupConfig::new(
+                &cells.root_config,
+                &settings,
+                paranoid,
+            )
+            .buck_error_context("Error loading daemon startup config")?,
             #[cfg(fbcode_build)]
             allow_daemon_start_unsandboxed_via_wrapper: cells
                 .root_config
@@ -174,32 +191,12 @@ impl<'a> ImmediateConfigContext<'a> {
         self.data
             .get_or_try_init(|| {
                 let roots = find_invocation_roots(self.cwd)?;
-                let paranoid_info_path = roots.paranoid_info_path()?;
-
-                // See comment in `ImmediateConfig` about why we use `OnceLock` rather than `Lazy`
                 let cfg = ImmediateConfig::parse(&roots)?;
-
-                // It'd be nice to deal with this a little differently by having this be a separate
-                // type.
-                let mut daemon_startup_config = cfg.daemon_startup_config;
-
-                match is_paranoid_enabled(&paranoid_info_path) {
-                    Ok(paranoid) => {
-                        daemon_startup_config.paranoid = paranoid;
-                    }
-                    Err(e) => {
-                        tracing::warn!(
-                            "Failed to determine whether paranoid is enabled in `{}`: {:#}",
-                            paranoid_info_path,
-                            e
-                        );
-                    }
-                };
 
                 buck2_error::Ok(ImmediateConfigContextData {
                     cell_resolver: cfg.cell_resolver,
                     cwd_cell_alias_resolver: cfg.cwd_cell_alias_resolver,
-                    daemon_startup_config,
+                    daemon_startup_config: cfg.daemon_startup_config,
                     #[cfg(fbcode_build)]
                     allow_daemon_start_unsandboxed_via_wrapper: cfg
                         .allow_daemon_start_unsandboxed_via_wrapper,

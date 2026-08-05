@@ -621,7 +621,11 @@ pub struct DaemonStartupConfig {
 }
 
 impl DaemonStartupConfig {
-    pub fn new(config: &LegacyBuckConfig, settings: &BuckSettings) -> buck2_error::Result<Self> {
+    pub fn new(
+        config: &LegacyBuckConfig,
+        settings: &BuckSettings,
+        paranoid: bool,
+    ) -> buck2_error::Result<Self> {
         // Intepreted client side because we need the value here.
 
         let log_download_method = {
@@ -689,7 +693,7 @@ impl DaemonStartupConfig {
                     property: "source_digest_algorithm",
                 })
                 .map(ToOwned::to_owned),
-            paranoid: false, // Setup later in ImmediateConfig
+            paranoid,
             materializations: config
                 .get(BuckconfigKeyRef {
                     section: "buck2",
@@ -784,7 +788,7 @@ mod tests {
     #[test]
     fn test_daemon_idle_timeout_s_default() -> buck2_error::Result<()> {
         let config = parse(&[("config", indoc!(r#""#))], "config")?;
-        let startup_config = DaemonStartupConfig::new(&config, &BuckSettings::empty())?;
+        let startup_config = DaemonStartupConfig::new(&config, &BuckSettings::empty(), false)?;
         assert_eq!(startup_config.daemon_idle_timeout_s, None);
         Ok(())
     }
@@ -803,7 +807,7 @@ mod tests {
             )],
             "config",
         )?;
-        let startup_config = DaemonStartupConfig::new(&config, &BuckSettings::empty())?;
+        let startup_config = DaemonStartupConfig::new(&config, &BuckSettings::empty(), false)?;
         assert_eq!(startup_config.daemon_idle_timeout_s, Some(10800));
         Ok(())
     }
