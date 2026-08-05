@@ -98,7 +98,7 @@ async fn materialize_artifact_group(
         let shared_data = Arc::new((
             data.dupe(),
             artifact_fs.clone(),
-            ctx.per_transaction_data().get_materializer(),
+            ctx.per_transaction_data().get_materializer_handle(),
         ));
 
         let mut materialize_futs = Vec::new();
@@ -211,10 +211,11 @@ async fn ensure_uploaded(
         });
     ctx.per_transaction_data()
         .get_re_client()
+        .dupe()
         .with_use_case(re_use_case)
         .upload(
             artifact_fs.fs(),
-            &ctx.per_transaction_data().get_materializer(),
+            ctx.per_transaction_data().get_materializer(),
             &ActionBlobs::new(digest_config),
             ProjectRelativePath::empty(),
             &dir,

@@ -226,8 +226,8 @@ pub trait SetBlockingExecutor {
     fn set_blocking_executor(&mut self, exec: Arc<dyn BlockingExecutor>);
 }
 
-pub trait HasBlockingExecutor {
-    fn get_blocking_executor(&self) -> Arc<dyn BlockingExecutor>;
+pub trait HasBlockingExecutor<'d> {
+    fn get_blocking_executor(&self) -> &'d dyn BlockingExecutor;
 }
 
 impl SetBlockingExecutor for UserComputationData {
@@ -236,13 +236,13 @@ impl SetBlockingExecutor for UserComputationData {
     }
 }
 
-impl HasBlockingExecutor for DiceComputations<'_> {
-    fn get_blocking_executor(&self) -> Arc<dyn BlockingExecutor> {
-        self.per_transaction_data()
+impl<'d> HasBlockingExecutor<'d> for DiceComputations<'d> {
+    fn get_blocking_executor(&self) -> &'d dyn BlockingExecutor {
+        &**self
+            .per_transaction_data()
             .data
             .get::<Arc<dyn BlockingExecutor>>()
             .expect("BlockingExecutor should be set")
-            .dupe()
     }
 }
 

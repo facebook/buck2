@@ -357,7 +357,7 @@ impl Action for DownloadFileAction {
         // If we're tracing I/O, get the materializer to copy to the offline cache
         // so we can include it in the offline archive manifest later.
         let io_provider = ctx.io_provider();
-        if let Some(tracer) = TracingIoProvider::from_io(&*io_provider) {
+        if let Some(tracer) = TracingIoProvider::from_io(io_provider) {
             let offline_cache_path =
                 offline::declare_copy_to_offline_output_cache(ctx, self.output(), value.dupe())
                     .await?;

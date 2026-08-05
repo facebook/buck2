@@ -111,7 +111,7 @@ impl ReExecutor {
             let res = re_client
                 .upload(
                     &self.project_fs,
-                    &self.materializer,
+                    self.materializer.as_ref(),
                     blobs,
                     ProjectRelativePath::empty(),
                     paths.input_directory(),

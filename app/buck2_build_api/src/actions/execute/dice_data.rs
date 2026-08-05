@@ -112,7 +112,7 @@ pub trait SetReClient {
 }
 
 pub trait GetReClient {
-    fn get_re_client(&self) -> UnconfiguredRemoteExecutionClient;
+    fn get_re_client(&self) -> &UnconfiguredRemoteExecutionClient;
 }
 
 impl SetReClient for UserComputationData {
@@ -122,11 +122,10 @@ impl SetReClient for UserComputationData {
 }
 
 impl GetReClient for UserComputationData {
-    fn get_re_client(&self) -> UnconfiguredRemoteExecutionClient {
+    fn get_re_client(&self) -> &UnconfiguredRemoteExecutionClient {
         self.data
             .get::<UnconfiguredRemoteExecutionClient>()
-            .expect("Materializer should be set")
-            .dupe()
+            .expect("RE client should be set")
     }
 }
 

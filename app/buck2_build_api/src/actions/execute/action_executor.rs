@@ -264,19 +264,19 @@ impl ActionOutputs {
 }
 
 #[async_trait]
-pub trait HasActionExecutor {
+pub trait HasActionExecutor<'d> {
     async fn get_action_executor(
         &mut self,
         config: &CommandExecutorConfig,
-    ) -> buck2_error::Result<Arc<BuckActionExecutor>>;
+    ) -> buck2_error::Result<Arc<BuckActionExecutor<'d>>>;
 }
 
 #[async_trait]
-impl HasActionExecutor for DiceComputations<'_> {
+impl<'d> HasActionExecutor<'d> for DiceComputations<'d> {
     async fn get_action_executor(
         &mut self,
         executor_config: &CommandExecutorConfig,
-    ) -> buck2_error::Result<Arc<BuckActionExecutor>> {
+    ) -> buck2_error::Result<Arc<BuckActionExecutor<'d>>> {
         let artifact_fs = self.get_artifact_fs().await?;
         let digest_config = self.global_data().get_digest_config();
 
@@ -290,9 +290,9 @@ impl HasActionExecutor for DiceComputations<'_> {
         } = self.get_command_executor_from_dice(executor_config).await?;
         let blocking_executor = self.get_blocking_executor();
         let materializer = self.per_transaction_data().get_materializer();
-        let events = self.per_transaction_data().get_dispatcher().dupe();
+        let events = self.per_transaction_data().get_dispatcher();
         let re_client = self.per_transaction_data().get_re_client();
-        let run_action_knobs = self.per_transaction_data().get_run_action_knobs().dupe();
+        let run_action_knobs = self.per_transaction_data().get_run_action_knobs();
         let io_provider = self.global_data().get_io_provider();
         let http_client = self.per_transaction_data().get_http_client();
         let mergebase = self.per_transaction_data().get_mergebase();
@@ -323,33 +323,33 @@ impl HasActionExecutor for DiceComputations<'_> {
     }
 }
 
-pub struct BuckActionExecutor {
+pub struct BuckActionExecutor<'d> {
     command_executor: CommandExecutor,
-    blocking_executor: Arc<dyn BlockingExecutor>,
-    materializer: Arc<dyn Materializer>,
-    events: EventDispatcher,
-    re_client: UnconfiguredRemoteExecutionClient,
+    blocking_executor: &'d dyn BlockingExecutor,
+    materializer: &'d dyn Materializer,
+    events: &'d EventDispatcher,
+    re_client: &'d UnconfiguredRemoteExecutionClient,
     digest_config: DigestConfig,
-    run_action_knobs: RunActionKnobs,
-    io_provider: Arc<dyn IoProvider>,
-    http_client: HttpClient,
-    mergebase: Mergebase,
+    run_action_knobs: &'d RunActionKnobs,
+    io_provider: &'d dyn IoProvider,
+    http_client: &'d HttpClient,
+    mergebase: &'d Mergebase,
     invalidation_tracking_enabled: bool,
     output_trees_download_config: OutputTreesDownloadConfig,
 }
 
-impl BuckActionExecutor {
+impl<'d> BuckActionExecutor<'d> {
     pub fn new(
         command_executor: CommandExecutor,
-        blocking_executor: Arc<dyn BlockingExecutor>,
-        materializer: Arc<dyn Materializer>,
-        events: EventDispatcher,
-        re_client: UnconfiguredRemoteExecutionClient,
+        blocking_executor: &'d dyn BlockingExecutor,
+        materializer: &'d dyn Materializer,
+        events: &'d EventDispatcher,
+        re_client: &'d UnconfiguredRemoteExecutionClient,
         digest_config: DigestConfig,
-        run_action_knobs: RunActionKnobs,
-        io_provider: Arc<dyn IoProvider>,
-        http_client: HttpClient,
-        mergebase: Mergebase,
+        run_action_knobs: &'d RunActionKnobs,
+        io_provider: &'d dyn IoProvider,
+        http_client: &'d HttpClient,
+        mergebase: &'d Mergebase,
         invalidation_tracking_enabled: bool,
         output_trees_download_config: OutputTreesDownloadConfig,
     ) -> Self {
@@ -370,7 +370,7 @@ impl BuckActionExecutor {
     }
 
     pub(crate) fn materializer(&self) -> &dyn Materializer {
-        self.materializer.as_ref()
+        self.materializer
     }
 
     pub(crate) fn is_local_execution_possible(
@@ -386,8 +386,8 @@ impl BuckActionExecutor {
     }
 }
 
-struct BuckActionExecutionContext<'a> {
-    executor: &'a BuckActionExecutor,
+struct BuckActionExecutionContext<'a, 'd> {
+    executor: &'a BuckActionExecutor<'d>,
     action: &'a RegisteredAction,
     inputs: BuckIndexMap<ArtifactGroup, ArtifactGroupValues>,
     outputs: &'a [BuildArtifact],
@@ -396,7 +396,7 @@ struct BuckActionExecutionContext<'a> {
 }
 
 #[async_trait]
-impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
+impl ActionExecutionCtx for BuckActionExecutionContext<'_, '_> {
     fn target(&self) -> ActionExecutionTarget<'_> {
         ActionExecutionTarget::new(self.action)
     }
@@ -410,7 +410,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
     }
 
     fn materializer(&self) -> &dyn Materializer {
-        self.executor.materializer.as_ref()
+        self.executor.materializer
     }
 
     fn events(&self) -> &EventDispatcher {
@@ -452,7 +452,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
     }
 
     fn blocking_executor(&self) -> &dyn BlockingExecutor {
-        self.executor.blocking_executor.as_ref()
+        self.executor.blocking_executor
     }
 
     fn re_client(&self) -> UnconfiguredRemoteExecutionClient {
@@ -655,7 +655,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
             .await?)
     }
 
-    async fn cleanup_outputs(&mut self) -> buck2_error::Result<()> {
+    async fn cleanup_outputs(&self) -> buck2_error::Result<()> {
         // Delete all outputs before we start, so things will be clean.
         let output_paths = self
             .outputs
@@ -693,12 +693,12 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         Ok(())
     }
 
-    fn io_provider(&self) -> Arc<dyn IoProvider> {
-        self.executor.io_provider.dupe()
+    fn io_provider(&self) -> &dyn IoProvider {
+        self.executor.io_provider
     }
 
-    fn http_client(&self) -> HttpClient {
-        self.executor.http_client.dupe()
+    fn http_client(&self) -> &HttpClient {
+        self.executor.http_client
     }
 
     fn output_trees_download_config(&self) -> &OutputTreesDownloadConfig {
@@ -706,7 +706,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
     }
 }
 
-impl BuckActionExecutor {
+impl<'d> BuckActionExecutor<'d> {
     pub(crate) async fn execute(
         &self,
         waiting_data: WaitingData,
@@ -827,299 +827,10 @@ impl BuckActionExecutor {
 
 #[cfg(test)]
 mod tests {
-    use std::borrow::Cow;
-    use std::sync::Arc;
-    use std::sync::Mutex;
-    use std::sync::atomic::AtomicBool;
-    use std::sync::atomic::Ordering;
-
-    use allocative::Allocative;
-    use async_trait::async_trait;
-    use buck2_artifact::actions::key::ActionIndex;
-    use buck2_artifact::actions::key::ActionKey;
-    use buck2_artifact::artifact::artifact_type::Artifact;
-    use buck2_artifact::artifact::artifact_type::testing::BuildArtifactTestingExt;
-    use buck2_artifact::artifact::build_artifact::BuildArtifact;
-    use buck2_artifact::artifact::source_artifact::SourceArtifact;
-    use buck2_build_signals::env::WaitingData;
-    use buck2_common::cas_digest::CasDigestConfig;
-    use buck2_common::io::fs::FsIoProvider;
-    use buck2_core::category::CategoryRef;
-    use buck2_core::cells::CellResolver;
-    use buck2_core::cells::cell_root_path::CellRootPathBuf;
-    use buck2_core::cells::name::CellName;
-    use buck2_core::configuration::data::ConfigurationData;
-    use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
-    use buck2_core::deferred::key::DeferredHolderKey;
-    use buck2_core::execution_types::executor_config::CommandExecutorConfig;
-    use buck2_core::execution_types::executor_config::CommandGenerationOptions;
-    use buck2_core::execution_types::executor_config::PathSeparatorKind;
-    use buck2_core::fs::artifact_path_resolver::ArtifactFs;
-    use buck2_core::fs::buck_out_path::BuckOutPathResolver;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
-    use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-    use buck2_core::package::source_path::SourcePath;
-    use buck2_core::target::label::label::TargetLabel;
-    use buck2_events::dispatch::EventDispatcher;
-    use buck2_events::dispatch::with_dispatcher_async;
-    use buck2_execute::artifact_value::ArtifactValue;
-    use buck2_execute::digest_config::DigestConfig;
-    use buck2_execute::execute::blocking::testing::DummyBlockingExecutor;
-    use buck2_execute::execute::cache_uploader::NoOpCacheUploader;
     use buck2_execute::execute::clean_output_paths::cleanup_path;
-    use buck2_execute::execute::command_executor::ActionExecutionTimingData;
-    use buck2_execute::execute::command_executor::CommandExecutor;
-    use buck2_execute::execute::prepared::NoOpCommandOptionalExecutor;
-    use buck2_execute::execute::request::CommandExecutionInput;
-    use buck2_execute::execute::request::CommandExecutionOutput;
-    use buck2_execute::execute::request::CommandExecutionPaths;
-    use buck2_execute::execute::request::CommandExecutionRequest;
-    use buck2_execute::execute::request::OutputType;
-    use buck2_execute::execute::testing_dry_run::DryRunExecutor;
-    use buck2_execute::re::manager::UnconfiguredRemoteExecutionClient;
-    use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
-    use buck2_execute_impl::materializers::deferred::NoDiskDeferredMaterializer;
     use buck2_fs::fs_util::uncategorized as fs_util;
-    use buck2_hash::buck_indexset;
-    use buck2_http::HttpClientBuilder;
-    use dice_futures::cancellation::CancellationContext;
-    use dupe::Dupe;
-    use pagable::PagablePanic;
-    use pagable::pagable_typetag;
-    use sorted_vector_map::SortedVectorMap;
-
-    use crate::actions::Action;
-    use crate::actions::ActionExecutionCtx;
-    use crate::actions::ExecuteError;
-    use crate::actions::RegisteredAction;
-    use crate::actions::box_slice_set::BoxSliceSet;
-    use crate::actions::execute::action_executor::ActionExecutionKind;
-    use crate::actions::execute::action_executor::ActionExecutionMetadata;
-    use crate::actions::execute::action_executor::ActionOutputs;
-    use crate::actions::execute::action_executor::BuckActionExecutor;
-    use crate::artifact_groups::ArtifactGroup;
-    use crate::artifact_groups::ArtifactGroupValues;
-
-    #[tokio::test]
-    async fn can_execute_some_action() {
-        buck2_certs::certs::maybe_setup_cryptography();
-        let cells = CellResolver::testing_with_name_and_path(
-            CellName::testing_new("cell"),
-            CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new("cell_path".into())),
-        );
-
-        let temp_fs = ProjectRootTemp::new().unwrap();
-
-        let project_fs = temp_fs.path().dupe();
-        let artifact_fs = ArtifactFs::new(
-            cells,
-            BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new(
-                "cell/buck-out/v2".into(),
-            )),
-            project_fs.dupe(),
-        );
-
-        let tracker = Arc::new(Mutex::new(Vec::new()));
-
-        let executor = BuckActionExecutor::new(
-            CommandExecutor::new(
-                Arc::new(DryRunExecutor::new(tracker, artifact_fs.clone())),
-                Arc::new(NoOpCommandOptionalExecutor {}),
-                Arc::new(NoOpCommandOptionalExecutor {}),
-                Arc::new(NoOpCacheUploader {}),
-                artifact_fs,
-                CommandGenerationOptions {
-                    path_separator: PathSeparatorKind::Unix,
-                    output_paths_behavior: Default::default(),
-                    use_bazel_protocol_remote_persistent_workers: false,
-                    network_access: None,
-                },
-                Default::default(),
-            ),
-            Arc::new(DummyBlockingExecutor {
-                fs: project_fs.dupe(),
-            }),
-            Arc::new(
-                NoDiskDeferredMaterializer::testing_new_no_disk(project_fs.dupe())
-                    .expect("No-disk materializer should initialize"),
-            ),
-            EventDispatcher::null(),
-            UnconfiguredRemoteExecutionClient::testing_new_dummy(),
-            DigestConfig::testing_default(),
-            Default::default(),
-            Arc::new(FsIoProvider::new(
-                project_fs,
-                CasDigestConfig::testing_default(),
-                false,
-            )),
-            HttpClientBuilder::https_with_system_roots()
-                .await
-                .unwrap()
-                .build(),
-            Default::default(),
-            true,
-            OutputTreesDownloadConfig::new(None, true),
-        );
-
-        #[derive(Debug, Allocative, PagablePanic)] // test
-        struct TestingAction {
-            inputs: BoxSliceSet<ArtifactGroup>,
-            outputs: BoxSliceSet<BuildArtifact>,
-            ran: AtomicBool,
-        }
-
-        #[pagable_typetag]
-        #[async_trait]
-        impl Action for TestingAction {
-            fn kind(&self) -> buck2_data::ActionKind {
-                buck2_data::ActionKind::NotSet
-            }
-
-            fn inputs(&self) -> buck2_error::Result<Cow<'_, [ArtifactGroup]>> {
-                Ok(Cow::Borrowed(self.inputs.as_slice()))
-            }
-
-            fn outputs(&self) -> Cow<'_, [BuildArtifact]> {
-                Cow::Borrowed(self.outputs.as_slice())
-            }
-
-            fn first_output(&self) -> &BuildArtifact {
-                &self.outputs.as_slice()[0]
-            }
-
-            fn category(&self) -> CategoryRef<'_> {
-                CategoryRef::new("testing").unwrap()
-            }
-
-            fn identifier(&self) -> Option<&str> {
-                None
-            }
-
-            async fn execute(
-                &self,
-                ctx: &mut dyn ActionExecutionCtx,
-                waiting_data: WaitingData,
-            ) -> Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError> {
-                self.ran.store(true, Ordering::SeqCst);
-
-                let req = CommandExecutionRequest::new(
-                    vec![],
-                    vec!["foo".to_owned(), "bar".to_owned(), "cmd".to_owned()],
-                    CommandExecutionPaths::new(
-                        self.inputs
-                            .iter()
-                            .map(|x| {
-                                CommandExecutionInput::Artifact(Box::new(
-                                    ArtifactGroupValues::from_artifact(
-                                        x.unpack_artifact().unwrap().dupe(),
-                                        ArtifactValue::file(ctx.digest_config().empty_file()),
-                                    ),
-                                ))
-                            })
-                            .collect(),
-                        self.outputs
-                            .iter()
-                            .map(|b| CommandExecutionOutput::BuildArtifact {
-                                path: b.get_path().dupe(),
-                                output_type: OutputType::FileOrDirectory,
-                            })
-                            .collect(),
-                        ctx.fs(),
-                        ctx.digest_config(),
-                        None,
-                    )?,
-                    SortedVectorMap::new(),
-                );
-
-                // on fake executor, this does nothing
-                let prepared_action = ctx.prepare_action(&req, true)?;
-                let manager = ctx.command_execution_manager(waiting_data);
-                let res = ctx.exec_cmd(manager, &req, &prepared_action).await;
-
-                // Must write out the things we promised to do
-                for x in &self.outputs {
-                    let dest = x.get_path();
-                    let dest_path = ctx.fs().resolve_build(dest, None)?;
-                    ctx.fs().fs().write_file(&dest_path, "", false)?
-                }
-
-                ctx.unpack_command_execution_result(
-                    req.executor_preference,
-                    res,
-                    false,
-                    false,
-                    None,
-                    buck2_data::IncrementalKind::NonIncremental,
-                )?;
-                let outputs = self
-                    .outputs
-                    .iter()
-                    .map(|o| {
-                        (
-                            o.get_path().dupe(),
-                            ArtifactValue::file(ctx.digest_config().empty_file()),
-                        )
-                    })
-                    .collect();
-                Ok((
-                    ActionOutputs::new(outputs),
-                    ActionExecutionMetadata {
-                        execution_kind: ActionExecutionKind::Simple,
-                        timing: ActionExecutionTimingData::default(),
-                        input_files_bytes: None,
-                        waiting_data: WaitingData::new(),
-                    },
-                ))
-            }
-        }
-
-        let inputs = buck_indexset![ArtifactGroup::Artifact(Artifact::from(
-            SourceArtifact::new(SourcePath::testing_new("cell//pkg", "source"))
-        ))];
-        let label =
-            TargetLabel::testing_parse("cell//pkg:foo").configure(ConfigurationData::testing_new());
-        let outputs = buck_indexset![BuildArtifact::testing_new(
-            label.dupe(),
-            "output",
-            ActionIndex::new(0),
-        )];
-
-        let action = RegisteredAction::new(
-            ActionKey::new(
-                DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(label.dupe())),
-                ActionIndex::new(0),
-            ),
-            Box::new(TestingAction {
-                inputs: BoxSliceSet::from(inputs),
-                outputs: BoxSliceSet::from(outputs.clone()),
-                ran: Default::default(),
-            }),
-            CommandExecutorConfig::testing_local(),
-        );
-        let res = with_dispatcher_async(
-            EventDispatcher::null(),
-            executor.execute(
-                WaitingData::new(),
-                Default::default(),
-                &action,
-                CancellationContext::testing(),
-            ),
-        )
-        .await
-        .0
-        .unwrap();
-        let outputs = outputs
-            .iter()
-            .map(|o| {
-                (
-                    o.get_path().dupe(),
-                    ArtifactValue::file(executor.digest_config.empty_file()),
-                )
-            })
-            .collect();
-        assert_eq!(res.0, ActionOutputs::new(outputs));
-    }
 
     #[test]
     fn test_cleanup_path_missing() -> buck2_error::Result<()> {

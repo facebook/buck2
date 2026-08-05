@@ -284,7 +284,7 @@ async fn collect_eager_paths(
 async fn build_action_inner(
     ctx: &mut DiceComputations<'_>,
     cancellation: &CancellationContext,
-    executor: &BuckActionExecutor,
+    executor: &BuckActionExecutor<'_>,
     waiting_data: WaitingData,
     ensured_inputs: BuckIndexMap<ArtifactGroup, ArtifactGroupValues>,
     action: &Arc<RegisteredAction>,

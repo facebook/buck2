@@ -69,9 +69,5 @@ strong_hash.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 
-[dev-dependencies]
-buck2_certs.workspace = true
-buck2_execute_impl.workspace = true
-
 [lints]
 workspace = true

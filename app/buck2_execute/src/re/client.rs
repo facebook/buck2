@@ -269,7 +269,7 @@ impl RemoteExecutionClient {
     pub async fn upload(
         &self,
         fs: &ProjectRoot,
-        materializer: &Arc<dyn Materializer>,
+        materializer: &dyn Materializer,
         blobs: &ActionBlobs,
         dir_path: &ProjectRelativePath,
         input_dir: &ActionImmutableDirectory,

@@ -11,7 +11,6 @@
 use std::borrow::Borrow;
 use std::path::Path;
 use std::str::FromStr;
-use std::sync::Arc;
 use std::sync::LazyLock;
 use std::sync::Mutex;
 
@@ -225,7 +224,7 @@ impl Uploader {
     pub async fn upload(
         fs: &ProjectRoot,
         client: &RemoteExecutionClient,
-        materializer: &Arc<dyn Materializer>,
+        materializer: &dyn Materializer,
         dir_path: &ProjectRelativePath,
         input_dir: &ActionImmutableDirectory,
         blobs: &ActionBlobs,

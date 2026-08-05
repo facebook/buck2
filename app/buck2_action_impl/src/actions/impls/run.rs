@@ -1675,7 +1675,7 @@ impl Action for RunAction {
         // Cache outputs if tracing and parameter enabled
         if self.inner.allow_offline_output_cache {
             let io_provider = ctx.io_provider();
-            if let Some(tracer) = TracingIoProvider::from_io(&*io_provider) {
+            if let Some(tracer) = TracingIoProvider::from_io(io_provider) {
                 for output in self.outputs.iter() {
                     if let Some(value) = outputs.get(output.get_path()) {
                         let offline_cache_path = offline::declare_copy_to_offline_output_cache(

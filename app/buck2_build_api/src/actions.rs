@@ -316,7 +316,7 @@ pub trait ActionExecutionCtx: Send + Sync {
     /// Clean up all the output directories for this action. This requires a mutable reference
     /// because you shouldn't be doing anything else with the ActionExecutionCtx while cleaning the
     /// outputs.
-    async fn cleanup_outputs(&mut self) -> buck2_error::Result<()>;
+    async fn cleanup_outputs(&self) -> buck2_error::Result<()>;
 
     /// Get the value of an Artifact. This Artifact _must_ have been declared
     /// as an input to the associated action or a panic will be raised.
@@ -341,11 +341,11 @@ pub trait ActionExecutionCtx: Send + Sync {
     fn cancellation_context(&self) -> &CancellationContext;
 
     /// I/O layer access to add non-source files (e.g. downloaded files) to
-    /// offline archive trace. If None, tracing is not enabled.
-    fn io_provider(&self) -> Arc<dyn IoProvider>;
+    /// offline archive trace.
+    fn io_provider(&self) -> &dyn IoProvider;
 
     /// Http client used for fetching and downloading remote artifacts.
-    fn http_client(&self) -> HttpClient;
+    fn http_client(&self) -> &HttpClient;
 
     fn output_trees_download_config(&self) -> &OutputTreesDownloadConfig;
 }

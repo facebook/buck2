@@ -336,7 +336,7 @@ impl<'a> BuckTestOrchestrator<'a> {
     ) -> buck2_error::Result<BuckTestOrchestrator<'a>> {
         let events = dice.per_transaction_data().get_dispatcher().dupe();
         let re_client = Arc::new(remote_storage::ReClientWithCache::new(
-            dice.per_transaction_data().get_re_client(),
+            dice.per_transaction_data().get_re_client().dupe(),
         ));
         Ok(Self::from_parts(
             dice,
@@ -1069,7 +1069,7 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
 
         let materialized_inputs = materialize_inputs(
             &fs,
-            materializer.as_ref(),
+            materializer,
             &execution_request,
             self.dice.global_data().get_digest_config(),
         )
@@ -1089,7 +1089,7 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
         for local_resource_setup_command in setup_commands.iter() {
             let materialized_inputs = materialize_inputs(
                 &fs,
-                materializer.as_ref(),
+                materializer,
                 &local_resource_setup_command.execution_request,
                 self.dice.global_data().get_digest_config(),
             )

@@ -299,8 +299,8 @@ impl LocalExecutor {
                     create_output_dirs(
                         &self.artifact_fs,
                         request,
-                        self.materializer.dupe(),
-                        self.blocking_executor.dupe(),
+                        self.materializer.as_ref(),
+                        &*self.blocking_executor,
                         cancellations,
                     ),
                     prep_scratch_path(scratch_path, &self.artifact_fs),
@@ -1578,8 +1578,8 @@ async fn materialize_build_outputs(
 pub async fn create_output_dirs(
     artifact_fs: &ArtifactFs,
     request: &CommandExecutionRequest,
-    materializer: Arc<dyn Materializer>,
-    blocking_executor: Arc<dyn BlockingExecutor>,
+    materializer: &dyn Materializer,
+    blocking_executor: &dyn BlockingExecutor,
     cancellations: &CancellationContext,
 ) -> buck2_error::Result<()> {
     let outputs: Vec<_> = request

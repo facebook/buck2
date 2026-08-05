@@ -68,7 +68,7 @@ async fn audit_dep_files(
         declared_dep_files,
         state.result(),
         &artifact_fs,
-        ctx.per_transaction_data().get_materializer().as_ref(),
+        ctx.per_transaction_data().get_materializer(),
     )
     .await?
     .ok_or_else(|| internal_error!("Dep files have expired"))?;

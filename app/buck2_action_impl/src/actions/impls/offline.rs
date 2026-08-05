@@ -24,7 +24,7 @@ use dupe::Dupe;
 /// offline cache for use in an offline build. Returns the project-relative path
 /// to the offline cached file.
 pub(crate) async fn declare_copy_to_offline_output_cache(
-    ctx: &mut dyn ActionExecutionCtx,
+    ctx: &dyn ActionExecutionCtx,
     output: &BuildArtifact,
     value: ArtifactValue,
 ) -> buck2_error::Result<ProjectRelativePathBuf> {

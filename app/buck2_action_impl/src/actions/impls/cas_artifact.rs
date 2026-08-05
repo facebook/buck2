@@ -350,7 +350,7 @@ impl Action for CasArtifactAction {
             .await?;
 
         let io_provider = ctx.io_provider();
-        if let Some(tracer) = TracingIoProvider::from_io(&*io_provider) {
+        if let Some(tracer) = TracingIoProvider::from_io(io_provider) {
             let offline_cache_path =
                 offline::declare_copy_to_offline_output_cache(ctx, &self.output, value.dupe())
                     .await?;

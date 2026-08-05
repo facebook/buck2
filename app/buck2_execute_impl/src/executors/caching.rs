@@ -404,7 +404,7 @@ impl CacheUploader {
                         self.re_client
                             .upload(
                                 self.artifact_fs.fs(),
-                                &self.materializer,
+                                self.materializer.as_ref(),
                                 &action_blobs,
                                 output.path(),
                                 &d.dupe().as_immutable(),

@@ -20,8 +20,7 @@ use crate::cas_digest::CasDigestConfig;
 use crate::io::IoProvider;
 
 pub trait HasIoProvider {
-    // TODO(bobyf) can we make this not an arc
-    fn get_io_provider(&self) -> Arc<dyn IoProvider>;
+    fn get_io_provider(&self) -> &dyn IoProvider;
 }
 
 pub trait SetIoProvider {
@@ -29,10 +28,10 @@ pub trait SetIoProvider {
 }
 
 impl HasIoProvider for DiceData {
-    fn get_io_provider(&self) -> Arc<dyn IoProvider> {
-        self.get::<Arc<dyn IoProvider>>()
+    fn get_io_provider(&self) -> &dyn IoProvider {
+        &**self
+            .get::<Arc<dyn IoProvider>>()
             .expect("project filesystem should be set")
-            .dupe()
     }
 }
 

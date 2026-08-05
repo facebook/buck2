@@ -75,7 +75,7 @@ async fn query_action_cache_and_download_result(
     // Differentiate between regular action cache look up and remote dep file based look up
     cache_type: CacheType,
     artifact_fs: &ArtifactFs,
-    materializer: &Arc<dyn Materializer>,
+    materializer: &dyn Materializer,
     incremental_db_state: &Arc<IncrementalDbState>,
     re_client: &ManagedRemoteExecutionClient,
     re_action_key: &Option<String>,
@@ -171,7 +171,7 @@ async fn query_action_cache_and_download_result(
     let res = download_action_results(
         request,
         TimeSpan::start_now(),
-        materializer.as_ref(),
+        materializer,
         re_client,
         digest_config,
         manager,
@@ -259,7 +259,7 @@ impl PreparedCommandOptionalExecutor for ActionCacheChecker {
         query_action_cache_and_download_result(
             cache_type,
             &self.artifact_fs,
-            &self.materializer,
+            self.materializer.as_ref(),
             &self.incremental_db_state,
             &self.re_client,
             &self.re_action_key,
@@ -325,7 +325,7 @@ impl PreparedCommandOptionalExecutor for RemoteDepFileCacheChecker {
         query_action_cache_and_download_result(
             cache_type,
             &self.artifact_fs,
-            &self.materializer,
+            self.materializer.as_ref(),
             &self.incremental_db_state,
             &self.re_client,
             &self.re_action_key,

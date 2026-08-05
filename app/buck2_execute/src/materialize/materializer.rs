@@ -680,7 +680,9 @@ pub trait SetMaterializer {
 }
 
 pub trait HasMaterializer {
-    fn get_materializer(&self) -> Arc<dyn Materializer>;
+    fn get_materializer(&self) -> &dyn Materializer;
+
+    fn get_materializer_handle(&self) -> Arc<dyn Materializer>;
 }
 
 impl SetMaterializer for UserComputationData {
@@ -690,7 +692,14 @@ impl SetMaterializer for UserComputationData {
 }
 
 impl HasMaterializer for UserComputationData {
-    fn get_materializer(&self) -> Arc<dyn Materializer> {
+    fn get_materializer(&self) -> &dyn Materializer {
+        &**self
+            .data
+            .get::<Arc<dyn Materializer>>()
+            .expect("Materializer should be set")
+    }
+
+    fn get_materializer_handle(&self) -> Arc<dyn Materializer> {
         self.data
             .get::<Arc<dyn Materializer>>()
             .expect("Materializer should be set")
