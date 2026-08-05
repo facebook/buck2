@@ -88,3 +88,22 @@ async def test_repo_local_settings_override_repo_and_home_local(buck: Buck) -> N
 
     await buck.server()
     assert await _log_download_method(buck) == {"Curl": "repo_local"}
+
+
+@buck_test()
+async def test_cli_settings_override_local(buck: Buck) -> None:
+    _write_home_local_settings(buck, "log_use_manifold = true\n")
+    (buck.cwd / ".bucksettings.local.toml").write_text('log_url = "repo_local"\n')
+
+    await buck.server(
+        "--setting", "log_use_manifold=false", "--setting", "log_url=args"
+    )
+    assert await _log_download_method(buck) == {"Curl": "args"}
+
+
+@buck_test()
+async def test_cli_settings_after_mode(buck: Buck) -> None:
+    (buck.cwd / "mode").write_text("--verbose=0\n")
+
+    await buck.server("@mode", "--setting", "log_use_manifold=true")
+    assert await _log_download_method(buck) == "Manifold"

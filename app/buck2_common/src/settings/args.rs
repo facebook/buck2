@@ -23,8 +23,19 @@ enum SettingsArgumentError {
     MultipleKeyValuePairs(String),
 }
 
+/// A settings layer parsed from a single `--setting` argument.
+#[derive(Clone, Debug, PartialEq)]
+pub struct SettingOverride(toml::Table);
+
+impl SettingOverride {
+    /// Converts override into underlying TOML table.
+    pub fn into_table(self) -> toml::Table {
+        self.0
+    }
+}
+
 /// Parses one `--setting` argument in the format `key=value` or `section.key=value`.
-pub fn parse_setting_flag_arg(raw: &str) -> buck2_error::Result<toml::Table> {
+pub fn parse_setting_flag_arg(raw: &str) -> buck2_error::Result<SettingOverride> {
     let (raw_section_and_key, raw_value) = raw
         .split_once('=')
         .ok_or_else(|| SettingsArgumentError::NoEqualsSeparator(raw.to_owned()))?;
@@ -44,7 +55,7 @@ pub fn parse_setting_flag_arg(raw: &str) -> buck2_error::Result<toml::Table> {
     } else {
         table.insert(key.to_owned(), value);
     }
-    Ok(table)
+    Ok(SettingOverride(table))
 }
 
 fn parse_setting_section_and_key<'a>(
@@ -90,13 +101,16 @@ mod tests {
     fn test_parse_setting_flag_arg_valid_formats() -> buck2_error::Result<()> {
         assert_eq!(
             parse_setting_flag_arg("test_flag=false")?,
-            table("test_flag = false")
+            SettingOverride(table("test_flag = false"))
         );
         assert_eq!(
             parse_setting_flag_arg("test_section.test_value=cli")?,
-            table("[test_section]\ntest_value = \"cli\"")
+            SettingOverride(table("[test_section]\ntest_value = \"cli\""))
         );
-        assert_eq!(parse_setting_flag_arg("x=90")?, table("x = 90"));
+        assert_eq!(
+            parse_setting_flag_arg("x=90")?,
+            SettingOverride(table("x = 90"))
+        );
         Ok(())
     }
 
@@ -104,7 +118,7 @@ mod tests {
     fn test_parse_setting_flag_arg_whitespace() -> buck2_error::Result<()> {
         assert_eq!(
             parse_setting_flag_arg("x= value with whitespace  ")?,
-            table("x = \" value with whitespace  \"")
+            SettingOverride(table("x = \" value with whitespace  \""))
         );
         assert!(parse_setting_flag_arg("test flag=true").is_err());
         assert!(parse_setting_flag_arg("test_section. test_flag=true").is_err());

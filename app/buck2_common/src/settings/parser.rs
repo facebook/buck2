@@ -128,6 +128,7 @@ mod tests {
     use buck2_core::fs::project::ProjectRootTemp;
 
     use super::*;
+    use crate::settings::args::SettingOverride;
     use crate::settings::args::parse_setting_flag_arg;
     use crate::settings::settings::testing::TestBuckSettingsData;
     use crate::settings::settings::testing::TestSection;
@@ -153,7 +154,7 @@ mod tests {
         layers.extend(
             settings_args
                 .iter()
-                .map(|arg| parse_setting_flag_arg(arg))
+                .map(|arg| parse_setting_flag_arg(arg).map(SettingOverride::into_table))
                 .collect::<buck2_error::Result<Vec<_>>>()?,
         );
         resolve_into::<TestBuckSettingsData>(layers)

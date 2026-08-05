@@ -54,6 +54,8 @@ use buck2_cmd_starlark_client::StarlarkCommand;
 use buck2_common::argv::Argv;
 use buck2_common::invocation_paths_result::InvocationPathsResult;
 use buck2_common::invocation_roots::get_invocation_paths_result;
+use buck2_common::settings::args::SettingOverride;
+use buck2_common::settings::args::parse_setting_flag_arg;
 use buck2_core::buck2_env;
 use buck2_core::buck2_env_name;
 use buck2_data::ErrorReport;
@@ -131,6 +133,16 @@ struct BeforeSubcommandOptions {
     /// datasets.
     #[clap(long, global = true, value_parser = buck_error_clap_parser(parse_client_metadata))]
     client_metadata: Vec<ClientMetadata>,
+
+    /// Override a Buck setting using `key=value` or `section.key=value`.
+    #[clap(
+        long = "setting",
+        value_name = "KEY=VALUE",
+        global = true,
+        num_args = 1,
+        value_parser = buck_error_clap_parser(parse_setting_flag_arg)
+    )]
+    settings: Vec<SettingOverride>,
 
     /// Agent context key=value pairs for telemetry.
     /// Used by AI agents to pass structured metadata. Schema is defined via buckconfig.
@@ -239,7 +251,14 @@ pub fn exec(process: ProcessContext<'_>) -> ExitResult {
         }
     };
     let mut opt = ParsedArgv::parse(argv, matches)?;
-    immediate_config.set_setting_arg_layers(Vec::new())?;
+    let setting_arg_layers = opt
+        .opt
+        .common_opts
+        .settings
+        .drain(..)
+        .map(SettingOverride::into_table)
+        .collect();
+    immediate_config.set_setting_arg_layers(setting_arg_layers)?;
 
     let client_metadata = ClientMetadata::from_env()?;
     if !client_metadata.is_empty() {
