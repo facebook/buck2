@@ -133,7 +133,7 @@ config_setting(
 config_setting(
     name = "linux-arm64",
     constraint_values = [
-        "//cpu/constraints:arm64",
+        "//cpu/constraints:cpu[arm64]",
         "//os/constraints:linux",
     ],
     visibility = ["PUBLIC"],
