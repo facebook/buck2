@@ -26,7 +26,7 @@ pub trait GetArtifactFs {
 #[async_trait]
 impl GetArtifactFs for DiceComputations<'_> {
     async fn get_artifact_fs(&mut self) -> buck2_error::Result<ArtifactFs> {
-        let buck_out_path_resolver = self.get_buck_out_path().await?;
+        let buck_out_path_resolver = self.get_buck_out_path().await?.dupe();
         let project_filesystem = self.global_data().get_io_provider().project_root().dupe();
         let cell_resolver = self.get_cell_resolver().await?.dupe();
         Ok(ArtifactFs::new(

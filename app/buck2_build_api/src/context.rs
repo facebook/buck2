@@ -10,8 +10,6 @@
 
 //! Injects data used for build onto dice
 
-use std::sync::Arc;
-
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::fs::buck_out_path::BuckOutPathResolver;
@@ -27,8 +25,8 @@ use pagable::Pagable;
 use pagable::pagable_typetag;
 
 #[async_trait]
-pub trait HasBuildContextData {
-    async fn get_buck_out_path(&mut self) -> buck2_error::Result<BuckOutPathResolver>;
+pub trait HasBuildContextData<'d> {
+    async fn get_buck_out_path(&mut self) -> buck2_error::Result<&'d BuckOutPathResolver>;
 }
 
 pub trait SetBuildContextData {
@@ -40,7 +38,7 @@ pub trait SetBuildContextData {
 
 #[derive(PartialEq, Eq, Allocative, Pagable)]
 pub struct BuildData {
-    buck_out_path: ProjectRelativePathBuf,
+    buck_out_path_resolver: BuckOutPathResolver,
 }
 
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
@@ -49,7 +47,7 @@ pub struct BuildData {
 struct BuildDataKey;
 
 impl InjectedKey for BuildDataKey {
-    type Value = Arc<BuildData>;
+    type Value = BuildData;
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {
         x == y
@@ -61,10 +59,10 @@ impl InjectedKey for BuildDataKey {
 }
 
 #[async_trait]
-impl HasBuildContextData for DiceComputations<'_> {
-    async fn get_buck_out_path(&mut self) -> buck2_error::Result<BuckOutPathResolver> {
-        let data = self.compute(&BuildDataKey).await?;
-        Ok(BuckOutPathResolver::new(data.buck_out_path.to_buf()))
+impl<'d> HasBuildContextData<'d> for DiceComputations<'d> {
+    async fn get_buck_out_path(&mut self) -> buck2_error::Result<&'d BuckOutPathResolver> {
+        let data = self.compute_ref(&BuildDataKey).await?;
+        Ok(&data.buck_out_path_resolver)
     }
 }
 
@@ -75,11 +73,11 @@ impl SetBuildContextData for DiceTransactionUpdater {
     ) -> buck2_error::Result<()> {
         Ok(self.changed_to(vec![(
             BuildDataKey,
-            Arc::new(BuildData {
-                buck_out_path: path.unwrap_or_else(|| {
+            BuildData {
+                buck_out_path_resolver: BuckOutPathResolver::new(path.unwrap_or_else(|| {
                     ProjectRelativePathBuf::unchecked_new("buck-out/v2".to_owned())
-                }),
-            }),
+                })),
+            },
         )])?)
     }
 }

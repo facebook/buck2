@@ -249,7 +249,7 @@ impl BuckOutTestPath {
     }
 }
 
-#[derive(Clone, Dupe, Allocative, Pagable)]
+#[derive(Clone, Dupe, PartialEq, Eq, Allocative, Pagable)]
 pub struct BuckOutPathResolver {
     buck_out_v2: Arc<ProjectRelativePathBuf>,
 }
