@@ -28,7 +28,7 @@ toolchain_alias(
     name = "rust",
     actual = select({
         "DEFAULT": ":rust_toolchain_with_compiled_rustc",
-        "bootstrap//:use_bootstrap": ":rust_bootstrap_toolchain",
+        "bootstrap//:bootstrap[use]": ":rust_bootstrap_toolchain",
     }),
     visibility = ["PUBLIC"],
 )
