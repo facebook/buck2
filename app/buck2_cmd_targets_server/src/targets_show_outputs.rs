@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-use std::sync::Arc;
-
 use async_trait::async_trait;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
@@ -176,7 +174,7 @@ async fn retrieve_artifacts_for_spec(
     package: PackageLabel,
     spec: PackageSpec<ProvidersPatternExtra>,
     global_cfg_options: &GlobalCfgOptions,
-    res: Arc<EvaluationResult>,
+    res: &EvaluationResult,
 ) -> buck2_error::Result<Vec<TargetsArtifacts>> {
     let available_targets = res.targets();
 

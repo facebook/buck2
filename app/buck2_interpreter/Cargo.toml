@@ -23,6 +23,7 @@ dice_futures.workspace = true
 dupe.workspace = true
 either.workspace = true
 fancy-regex.workspace = true
+futures.workspace = true
 gazebo.workspace = true
 itertools.workspace = true
 pagable.workspace = true

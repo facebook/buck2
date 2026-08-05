@@ -45,6 +45,7 @@ use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
+use dupe::ResultDupedErrExt;
 use futures::FutureExt;
 use futures::future::BoxFuture;
 use pagable::Pagable;
@@ -127,13 +128,16 @@ impl TargetGraphCalculationImpl for TargetGraphCalculationInstance {
         }
     }
 
-    fn get_interpreter_results<'a>(
+    fn get_interpreter_results<'a, 'd>(
         &self,
-        ctx: &'a mut DiceComputations,
+        ctx: &'a mut DiceComputations<'d>,
         package: PackageLabel,
-    ) -> BoxFuture<'a, buck2_error::Result<Arc<EvaluationResult>>> {
-        ctx.compute(&InterpreterResultsKey(package.dupe()))
-            .map(|v| v?)
+    ) -> BoxFuture<'a, buck2_error::Result<&'d Arc<EvaluationResult>>>
+    where
+        'd: 'a,
+    {
+        ctx.compute_ref(&InterpreterResultsKey(package.dupe()))
+            .map(|v| v?.as_ref().duped_err())
             .boxed()
     }
 }
@@ -182,13 +186,17 @@ impl Key for EvalImportKey {
 
 #[async_trait]
 impl InterpreterCalculationImpl for InterpreterCalculationInstance {
-    async fn get_loaded_module(
+    fn get_loaded_module<'a, 'd>(
         &self,
-        ctx: &mut DiceComputations<'_>,
+        ctx: &'a mut DiceComputations<'d>,
         starlark_path: StarlarkModulePath<'_>,
-    ) -> buck2_error::Result<LoadedModule> {
-        ctx.compute(&EvalImportKey(OwnedStarlarkModulePath::new(starlark_path)))
-            .await?
+    ) -> BoxFuture<'a, buck2_error::Result<&'d LoadedModule>>
+    where
+        'd: 'a,
+    {
+        ctx.compute_ref(&EvalImportKey(OwnedStarlarkModulePath::new(starlark_path)))
+            .map(|v| v?.as_ref().duped_err())
+            .boxed()
     }
 
     async fn get_module_deps(

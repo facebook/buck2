@@ -73,7 +73,7 @@ impl Builder<'_, '_> {
         self.load_package_futs.push(
             OwningFuture::new(self.ctx.get(), move |ctx| {
                 ctx.get_interpreter_results(package)
-                    .map(move |res| (package, res))
+                    .map(move |res| (package, res.map(|r| r.dupe())))
                     .boxed()
             })
             .boxed(),

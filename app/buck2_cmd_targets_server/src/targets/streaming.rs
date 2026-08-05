@@ -380,7 +380,7 @@ async fn load_targets(
     Option<buck2_error::Error>,
 )> {
     let result = if cached {
-        dice.get_interpreter_results(package.dupe()).await?
+        dice.get_interpreter_results(package.dupe()).await?.dupe()
     } else {
         dice.get_interpreter_results_uncached(
             package.dupe(),

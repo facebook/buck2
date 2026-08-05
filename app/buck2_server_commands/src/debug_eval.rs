@@ -62,6 +62,7 @@ pub(crate) async fn debug_eval_command(
                         .ctx()
                         .get_loaded_module(import_path.borrow())
                         .await
+                        .map(|_| ())
                 });
             }
 

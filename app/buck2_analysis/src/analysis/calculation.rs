@@ -222,20 +222,17 @@ pub async fn get_dep_analysis<'v>(
     .await
 }
 
-pub async fn get_loaded_module(
-    ctx: &mut DiceComputations<'_>,
+pub async fn get_loaded_module<'d>(
+    ctx: &mut DiceComputations<'d>,
     func: &StarlarkRuleType,
-) -> buck2_error::Result<LoadedModule> {
-    let module = match &func.path {
+) -> buck2_error::Result<&'d LoadedModule> {
+    match &func.path {
         BzlOrBxlPath::Bxl(bxl_file_path) => {
             let module_path = StarlarkModulePath::BxlFile(bxl_file_path);
-            ctx.get_loaded_module(module_path).await?
+            ctx.get_loaded_module(module_path).await
         }
-        BzlOrBxlPath::Bzl(import_path) => {
-            ctx.get_loaded_module_from_import_path(import_path).await?
-        }
-    };
-    Ok(module)
+        BzlOrBxlPath::Bzl(import_path) => ctx.get_loaded_module_from_import_path(import_path).await,
+    }
 }
 
 pub async fn get_rule_spec(

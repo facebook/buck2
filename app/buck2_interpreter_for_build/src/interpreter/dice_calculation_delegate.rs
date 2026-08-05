@@ -228,6 +228,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                                     .to_string())
                         )
                     })
+                    .map(|m| m.dupe())
             })
             .await?,
         ))

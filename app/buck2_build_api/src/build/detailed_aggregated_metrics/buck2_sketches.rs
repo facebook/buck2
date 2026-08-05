@@ -368,7 +368,7 @@ impl Key for LoadGraphPropertiesKey {
             .try_compute_join(packages.iter(), async |ctx, pkg| {
                 ctx.get_interpreter_results(pkg.dupe())
                     .await
-                    .map(|r| (pkg.dupe(), r))
+                    .map(|r| (pkg.dupe(), r.dupe()))
             })
             .await?;
 

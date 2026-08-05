@@ -296,7 +296,8 @@ async fn eval_bxl_inner(
 ) -> Result<(BxlResult, Option<Arc<StarlarkProfileDataAndStats>>)> {
     let bxl_module = ctx
         .get_loaded_module(StarlarkModulePath::BxlFile(&key.label().bxl_path))
-        .await?;
+        .await?
+        .dupe();
 
     let digest_config = ctx.global_data().get_digest_config();
     let core_data = BxlContextCoreData::new(key.dupe(), ctx).await?;

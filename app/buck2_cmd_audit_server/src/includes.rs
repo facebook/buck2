@@ -106,7 +106,8 @@ async fn get_transitive_includes(
                 self.ctx
                     .get()
                     .get_loaded_module(StarlarkModulePath::LoadFile(&label.0))
-                    .await?,
+                    .await?
+                    .dupe(),
             ))
         }
     }
@@ -175,7 +176,7 @@ async fn load_and_collect_includes(
         .into());
     }
 
-    get_transitive_includes(ctx, &load_result).await
+    get_transitive_includes(ctx, load_result).await
 }
 
 fn resolve_path(

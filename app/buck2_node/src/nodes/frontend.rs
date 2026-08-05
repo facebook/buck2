@@ -38,18 +38,20 @@ pub trait TargetGraphCalculationImpl: Send + Sync + 'static {
 
     /// Returns the full interpreter evaluation result for a Package. This consists of the full set
     /// of `TargetNode`s of interpreting that build file.
-    fn get_interpreter_results<'a>(
+    fn get_interpreter_results<'a, 'd>(
         &self,
-        ctx: &'a mut DiceComputations,
+        ctx: &'a mut DiceComputations<'d>,
         package: PackageLabel,
-    ) -> BoxFuture<'a, buck2_error::Result<Arc<EvaluationResult>>>;
+    ) -> BoxFuture<'a, buck2_error::Result<&'d Arc<EvaluationResult>>>
+    where
+        'd: 'a;
 }
 
 pub static TARGET_GRAPH_CALCULATION_IMPL: LateBinding<&'static dyn TargetGraphCalculationImpl> =
     LateBinding::new("TARGET_GRAPH_CALCULATION_IMPL");
 
 #[async_trait]
-pub trait TargetGraphCalculation {
+pub trait TargetGraphCalculation<'d> {
     /// Like `get_interpreter_results` but doesn't cache the result on the DICE graph.
     async fn get_interpreter_results_uncached(
         &mut self,
@@ -59,10 +61,12 @@ pub trait TargetGraphCalculation {
 
     /// Returns the full interpreter evaluation result for a Package. This consists of the full set
     /// of `TargetNode`s of interpreting that build file.
-    fn get_interpreter_results(
-        &mut self,
+    fn get_interpreter_results<'a>(
+        &'a mut self,
         package: PackageLabel,
-    ) -> BoxFuture<'_, buck2_error::Result<Arc<EvaluationResult>>>;
+    ) -> BoxFuture<'a, buck2_error::Result<&'d Arc<EvaluationResult>>>
+    where
+        'd: 'a;
 
     /// For a TargetLabel, returns the TargetNode. This is really just part of the interpreter
     /// results for the label's package, and so this is just a utility for accessing that, it
@@ -80,7 +84,7 @@ pub trait TargetGraphCalculation {
 }
 
 #[async_trait]
-impl TargetGraphCalculation for DiceComputations<'_> {
+impl<'d> TargetGraphCalculation<'d> for DiceComputations<'d> {
     async fn get_interpreter_results_uncached(
         &mut self,
         package: PackageLabel,
@@ -95,10 +99,13 @@ impl TargetGraphCalculation for DiceComputations<'_> {
         }
     }
 
-    fn get_interpreter_results(
-        &mut self,
+    fn get_interpreter_results<'a>(
+        &'a mut self,
         package: PackageLabel,
-    ) -> BoxFuture<'_, buck2_error::Result<Arc<EvaluationResult>>> {
+    ) -> BoxFuture<'a, buck2_error::Result<&'d Arc<EvaluationResult>>>
+    where
+        'd: 'a,
+    {
         TARGET_GRAPH_CALCULATION_IMPL
             .get()
             .unwrap()

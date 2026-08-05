@@ -242,7 +242,7 @@ impl BxlServerCommand {
             .get_loaded_module(StarlarkModulePath::BxlFile(&ctx.bxl_label.bxl_path))
             .await?;
 
-        let frozen_callable = get_bxl_callable(&ctx.bxl_label, &bxl_module)?;
+        let frozen_callable = get_bxl_callable(&ctx.bxl_label, bxl_module)?;
         let cli_ctx = CliResolutionCtx {
             target_alias_resolver,
             cell_resolver: ctx.cell_resolver,
@@ -522,7 +522,7 @@ pub(crate) async fn get_bxl_cli_args(
         .get_loaded_module(StarlarkModulePath::BxlFile(&bxl_label.bxl_path))
         .await?;
 
-    let frozen_callable = get_bxl_callable(bxl_label, &bxl_module)?;
+    let frozen_callable = get_bxl_callable(bxl_label, bxl_module)?;
     let cli_ctx = CliResolutionCtx {
         target_alias_resolver,
         cell_resolver,

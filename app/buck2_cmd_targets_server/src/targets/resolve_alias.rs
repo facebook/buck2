@@ -131,7 +131,9 @@ pub(crate) async fn targets_resolve_aliases(
         .compute_join(packages, async |ctx: &mut _, package| {
             (
                 package.dupe(),
-                ctx.get_interpreter_results(package.dupe()).await,
+                ctx.get_interpreter_results(package.dupe())
+                    .await
+                    .map(|r| r.dupe()),
             )
         })
         .await
