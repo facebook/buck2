@@ -458,7 +458,9 @@ pub(crate) async fn get_file_ops_delegate(
         }
     }
 
-    ctx.compute(&BundledFileOpsDelegateKey(cell_name)).await?
+    ctx.compute(&BundledFileOpsDelegateKey(cell_name))
+        .await?
+        .dupe()
 }
 
 pub(crate) async fn materialize_all(

@@ -156,7 +156,7 @@ impl Key for Stage1 {
         _cancellations: &CancellationContext,
     ) -> Self::Value {
         ctx.store_evaluation_data(Data).unwrap();
-        ctx.compute(&Stage0).await.unwrap()
+        ctx.compute(&Stage0).await.unwrap();
     }
 
     fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {

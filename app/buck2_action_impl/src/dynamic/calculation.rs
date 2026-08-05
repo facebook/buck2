@@ -53,7 +53,7 @@ impl DynamicLambdaCalculation for DynamicLambdaCalculationImpl {
         'd: 'a,
     {
         async move {
-            dice.compute_ref(&DynamicLambdaDiceKey(key.dupe()))
+            dice.compute(&DynamicLambdaDiceKey(key.dupe()))
                 .await?
                 .as_ref()
                 .duped_err()

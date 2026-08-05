@@ -114,7 +114,7 @@ pub async fn get_outputs_for_top_level_target(
             OkPagableValueSerialize::<Self::Value>::new()
         }
     }
-    ctx.compute_ref(&TopLevelTargetOutputsKey(
+    ctx.compute(&TopLevelTargetOutputsKey(
         providers_label.clone(),
         providers_to_build.clone(),
     ))

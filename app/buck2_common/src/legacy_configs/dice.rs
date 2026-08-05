@@ -331,14 +331,14 @@ impl<'d> HasInjectedLegacyConfigs<'d> for DiceComputations<'d> {
     async fn get_injected_external_buckconfig_data(
         &mut self,
     ) -> buck2_error::Result<&'d ExternalBuckconfigData> {
-        self.compute_ref(&LegacyExternalBuckConfigDataKey).await?.as_ref().ok_or_else(|| internal_error!(
+        self.compute(&LegacyExternalBuckConfigDataKey).await?.as_ref().ok_or_else(|| internal_error!(
             "Tried to retrieve LegacyExternalBuckConfigDataKey from the graph, but key has None value"
         ))
     }
 
     async fn is_injected_external_buckconfig_data_key_set(&mut self) -> buck2_error::Result<bool> {
         Ok(self
-            .compute_ref(&LegacyExternalBuckConfigDataKey)
+            .compute(&LegacyExternalBuckConfigDataKey)
             .await?
             .is_some())
     }
@@ -383,7 +383,7 @@ impl<'d> HasLegacyConfigs<'d> for DiceComputations<'d> {
         &mut self,
         cell_name: CellName,
     ) -> buck2_error::Result<&'d LegacyBuckConfig> {
-        self.compute_ref(&LegacyBuckConfigForCellKey { cell_name })
+        self.compute(&LegacyBuckConfigForCellKey { cell_name })
             .await?
             .as_ref()
             .duped_err()

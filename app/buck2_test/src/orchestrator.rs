@@ -804,7 +804,7 @@ async fn prepare_and_execute_dice<'d>(
     ctx: &mut DiceComputations<'d>,
     key: &TestExecutionKey,
 ) -> Result<&'d ExecuteData, ExecuteError> {
-    ctx.compute_ref(key)
+    ctx.compute(key)
         .await
         .map_err(buck2_error::Error::from)?
         .as_ref()

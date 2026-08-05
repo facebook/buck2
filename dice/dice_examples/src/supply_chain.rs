@@ -176,7 +176,7 @@ impl Setup for DiceTransactionUpdater {
             .zip(companies)
             .zip(remote_resources)
             .map(|((resource, mut local_companies), remote_companies)| {
-                local_companies.append(&mut (*remote_companies?).clone());
+                local_companies.append(&mut (**remote_companies?).clone());
 
                 Ok((resource, Arc::new(local_companies)))
             })
@@ -279,6 +279,7 @@ async fn lookup_company_resource_cost(
     ctx.compute(&key)
         .await
         .map_err(|e| Arc::new(anyhow::anyhow!(e)))?
+        .dupe()
 }
 
 #[async_trait]
@@ -339,6 +340,7 @@ impl Cost for DiceComputations<'_> {
         self.compute(LookupResourceCost::ref_cast(resource))
             .await
             .map_err(|e| Arc::new(anyhow::anyhow!(e)))?
+            .dupe()
     }
 }
 

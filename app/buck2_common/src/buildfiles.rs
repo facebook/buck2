@@ -123,7 +123,7 @@ impl<'d> HasBuildfiles<'d> for DiceComputations<'d> {
         &mut self,
         cell: CellName,
     ) -> buck2_error::Result<&'d Arc<[FileNameBuf]>> {
-        self.compute_ref(&BuildfilesKey(cell))
+        self.compute(&BuildfilesKey(cell))
             .await?
             .as_ref()
             .duped_err()

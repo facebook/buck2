@@ -163,7 +163,8 @@ pub(crate) async fn get_delegated_file_ops(
             cell,
             check_ignores,
         })
-        .await??
+        .await?
+        .dupe()?
         .0)
 }
 

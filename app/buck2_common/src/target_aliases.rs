@@ -174,7 +174,7 @@ impl<'d> HasTargetAliasResolver<'d> for DiceComputations<'d> {
     async fn target_alias_resolver(
         &mut self,
     ) -> buck2_error::Result<&'d BuckConfigTargetAliasResolver> {
-        self.compute_ref(&TargetAliasResolverKey())
+        self.compute(&TargetAliasResolverKey())
             .await?
             .as_ref()
             .duped_err()

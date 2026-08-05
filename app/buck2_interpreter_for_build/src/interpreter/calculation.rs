@@ -136,7 +136,7 @@ impl TargetGraphCalculationImpl for TargetGraphCalculationInstance {
     where
         'd: 'a,
     {
-        ctx.compute_ref(&InterpreterResultsKey(package.dupe()))
+        ctx.compute(&InterpreterResultsKey(package.dupe()))
             .map(|v| v?.as_ref().duped_err())
             .boxed()
     }
@@ -194,7 +194,7 @@ impl InterpreterCalculationImpl for InterpreterCalculationInstance {
     where
         'd: 'a,
     {
-        ctx.compute_ref(&EvalImportKey(OwnedStarlarkModulePath::new(starlark_path)))
+        ctx.compute(&EvalImportKey(OwnedStarlarkModulePath::new(starlark_path)))
             .map(|v| v?.as_ref().duped_err())
             .boxed()
     }

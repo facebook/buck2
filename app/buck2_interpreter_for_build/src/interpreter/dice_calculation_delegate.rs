@@ -158,7 +158,7 @@ impl<'c, 'd> HasCalculationDelegate<'c, 'd> for DiceComputations<'d> {
 
         let build_file_cell = path.borrow().build_file_cell();
         let configs = self
-            .compute_ref(&InterpreterConfigForDirKey(
+            .compute(&InterpreterConfigForDirKey(
                 path.borrow()
                     .path()
                     .parent()
@@ -454,7 +454,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
 
         match self
             .ctx
-            .compute_ref(&PackageFileLookupKey(package.dupe()))
+            .compute(&PackageFileLookupKey(package.dupe()))
             .await?
             .as_ref()
             .duped_err()?
@@ -553,7 +553,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         }
 
         self.ctx
-            .compute_ref(&PackageFileKey(path))
+            .compute(&PackageFileKey(path))
             .await?
             .as_ref()
             .duped_err()

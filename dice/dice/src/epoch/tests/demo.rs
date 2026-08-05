@@ -22,6 +22,7 @@ use async_trait::async_trait;
 use derive_more::Display;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
+use dupe::ResultDupedExt;
 use pagable::Pagable;
 use pagable::PagablePanic;
 use pagable::pagable_typetag;
@@ -67,6 +68,7 @@ impl Encodings<'_, '_> {
             .compute(&EncodingConfig())
             .await
             .map_err(|e| Arc::new(anyhow::anyhow!(e)))
+            .duped()
     }
 }
 
@@ -133,6 +135,7 @@ impl Filesystem<'_, '_> {
             .compute(&File(file.to_path_buf()))
             .await
             .map_err(|e| Arc::new(anyhow::anyhow!(e)))?
+            .dupe()
     }
 }
 

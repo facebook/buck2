@@ -61,7 +61,7 @@ impl TransitiveValidationKey {
         let empty = BTreeSet::new();
         let enabled_optional_validations: &BTreeSet<String> =
             if info.validations().any(|spec| spec.optional()) {
-                ctx.compute_ref(&EnabledOptionalValidationsKey).await?
+                ctx.compute(&EnabledOptionalValidationsKey).await?
             } else {
                 &empty
             };
@@ -86,7 +86,7 @@ impl TransitiveValidationKey {
         ctx.try_compute_join(
             transitive_validations.0.children.iter().duped(),
             async |ctx, label| {
-                let result = ctx.compute_ref(&TransitiveValidationKey(label)).await?;
+                let result = ctx.compute(&TransitiveValidationKey(label)).await?;
                 tighten_cached_validation_result(result)
             },
         )
@@ -191,7 +191,7 @@ async fn compute_single_validation(
         .action_key()
         .ok_or_else(|| internal_error!("Expected validation to be a build artifact"))?;
     let key = SingleValidationKey(action_key.dupe());
-    let result = ctx.compute_ref(&key).await?;
+    let result = ctx.compute(&key).await?;
     tighten_cached_validation_result(result)
 }
 

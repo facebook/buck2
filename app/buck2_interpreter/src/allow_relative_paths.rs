@@ -145,7 +145,7 @@ impl<'d> HasAllowRelativePaths<'d> for DiceComputations<'d> {
             }
         }
 
-        self.compute_ref(&AllowRelativePathsKey { cell_path })
+        self.compute(&AllowRelativePathsKey { cell_path })
             .await?
             .as_ref()
             .duped_err()

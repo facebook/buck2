@@ -342,7 +342,7 @@ impl Key for Fib {
             .await
         };
         match (a, b) {
-            (Ok(a), Ok(b)) => Ok(a? + b?),
+            (Ok(a), Ok(b)) => Ok(a.dupe()? + b.dupe()?),
             _ => Err(Arc::new(anyhow::anyhow!("some dice error"))),
         }
     }

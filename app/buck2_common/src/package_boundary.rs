@@ -175,7 +175,7 @@ impl HasPackageBoundaryExceptions for DiceComputations<'_> {
                 _cancellations: &CancellationContext,
             ) -> Self::Value {
                 let Some(exceptions) = ctx
-                    .compute_ref(&CellPackageBoundaryExceptionsKey(self.0.cell()))
+                    .compute(&CellPackageBoundaryExceptionsKey(self.0.cell()))
                     .await?
                     .as_ref()
                     .duped_err()?
@@ -204,7 +204,7 @@ impl HasPackageBoundaryExceptions for DiceComputations<'_> {
         }
 
         Ok(self
-            .compute_ref(&PackageBoundaryExceptionKey(path.to_owned()))
+            .compute(&PackageBoundaryExceptionKey(path.to_owned()))
             .await?
             .as_ref()
             .duped_err()?

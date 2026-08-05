@@ -51,7 +51,7 @@ impl DiceFileComputations {
         ctx: &mut DiceComputations<'d>,
         path: CellPathRef<'_>,
     ) -> buck2_error::Result<&'d ReadDirOutput> {
-        ctx.compute_ref(&ReadDirKey {
+        ctx.compute(&ReadDirKey {
             path: path.to_owned(),
             check_ignores: CheckIgnores::Yes,
         })
@@ -71,13 +71,14 @@ impl DiceFileComputations {
     ) -> buck2_error::Result<bool> {
         ctx.compute(&ExistsMatchingExactCaseKey(path.to_owned()))
             .await?
+            .dupe()
     }
 
     pub async fn read_dir_include_ignores<'d>(
         ctx: &mut DiceComputations<'d>,
         path: CellPathRef<'_>,
     ) -> buck2_error::Result<&'d ReadDirOutput> {
-        ctx.compute_ref(&ReadDirKey {
+        ctx.compute(&ReadDirKey {
             path: path.to_owned(),
             check_ignores: CheckIgnores::No,
         })
@@ -101,7 +102,7 @@ impl DiceFileComputations {
         ctx: &mut DiceComputations<'_>,
         path: CellPathRef<'_>,
     ) -> buck2_error::Result<Option<String>> {
-        ctx.compute_ref(&ReadFileKey(Arc::new(path.to_owned())))
+        ctx.compute(&ReadFileKey(Arc::new(path.to_owned())))
             .await?
             .as_ref()
             .duped_err()?
@@ -125,7 +126,7 @@ impl DiceFileComputations {
         ctx: &mut DiceComputations<'_>,
         path: CellPathRef<'_>,
     ) -> buck2_error::Result<Option<RawPathMetadata>> {
-        ctx.compute(&PathMetadataKey(path.to_owned())).await?
+        ctx.compute(&PathMetadataKey(path.to_owned())).await?.dupe()
     }
 
     /// Does not check if the path is ignored
@@ -416,7 +417,10 @@ impl Key for PathMetadataKey {
             to: _,
         }) = res
         {
-            ctx.compute(&ReadFileKey(path.dupe())).await??;
+            ctx.compute(&ReadFileKey(path.dupe()))
+                .await?
+                .as_ref()
+                .duped_err()?;
         }
 
         Ok(res)

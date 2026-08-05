@@ -250,6 +250,7 @@ async fn get_configuration_node(
         cfg_target: cfg_target.dupe(),
     })
     .await?
+    .dupe()
     .with_buck_error_context(|| {
         format!(
             "Error getting configuration node of `{cfg_target}` within the `{target_cfg}` configuration",
@@ -346,6 +347,7 @@ pub(crate) async fn get_platform_configuration(
 
     ctx.compute(&PlatformConfigurationKey(target.dupe()))
         .await?
+        .dupe()
 }
 
 pub(crate) async fn compute_platform_cfgs(
@@ -376,7 +378,7 @@ pub(crate) async fn get_matched_cfg_keys<
 ) -> buck2_error::Result<&'d MatchedConfigurationSettingKeysWithCfg> {
     let configuration_deps: Vec<ConfigurationSettingKey> =
         configuration_deps.into_iter().map(|t| t.dupe()).collect();
-    ctx.compute_ref(&MatchedConfigurationSettingKeysKey {
+    ctx.compute(&MatchedConfigurationSettingKeysKey {
         target_cfg: target_cfg.dupe(),
         target_cell,
         configuration_deps,

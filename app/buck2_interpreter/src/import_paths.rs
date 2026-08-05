@@ -145,7 +145,7 @@ impl<'d> HasImportPaths<'d> for DiceComputations<'d> {
             }
         }
 
-        self.compute_ref(&ImportPathsKey { cell_name })
+        self.compute(&ImportPathsKey { cell_name })
             .await?
             .as_ref()
             .duped_err()

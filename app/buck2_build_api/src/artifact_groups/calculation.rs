@@ -121,7 +121,7 @@ pub(crate) fn ensure_artifact_group_staged<'a, 'd>(
         }
         ResolvedArtifactGroup::TransitiveSetProjection(key) => ctx
             .compute(EnsureTransitiveSetProjectionKey::ref_cast(key))
-            .map(|v| Ok(EnsureArtifactGroupReady::TransitiveSet(v??)))
+            .map(|v| Ok(EnsureArtifactGroupReady::TransitiveSet(v?.dupe()?)))
             .right_future(),
     }
 }
@@ -149,7 +149,7 @@ pub(super) fn ensure_artifact_staged<'a, 'd>(
         true => ensure_base_artifact_staged(dice, base).left_future(),
         false => dice
             .compute(EnsureProjectedArtifactKey::ref_cast(artifact.data()))
-            .map(|v| Ok(EnsureArtifactGroupReady::Single(v??)))
+            .map(|v| Ok(EnsureArtifactGroupReady::Single(v?.dupe()?)))
             .right_future(),
     }
 }
@@ -364,7 +364,7 @@ async fn dir_artifact_value(
         }
     }
 
-    ctx.compute(&DirArtifactValueKey(cell_path)).await?
+    ctx.compute(&DirArtifactValueKey(cell_path)).await?.dupe()
 }
 
 #[async_recursion]

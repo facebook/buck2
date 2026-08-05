@@ -64,7 +64,7 @@ impl Key for SpawnedKey {
         _cancellations: &CancellationContext,
     ) -> Self::Value {
         ctx.spawned(|ctx, _cancellation| {
-            async move { ctx.compute(&Injected(0)).await.unwrap() }.boxed()
+            async move { *ctx.compute(&Injected(0)).await.unwrap() }.boxed()
         })
         .await
     }
@@ -114,7 +114,7 @@ async fn spawned_tracks_deps() -> anyhow::Result<()> {
         ) -> Self::Value {
             COMPUTE_COUNT.fetch_add(1, Ordering::SeqCst);
             ctx.spawned(|ctx, _cancellation| {
-                async move { ctx.compute(&Injected(0)).await.unwrap() }.boxed()
+                async move { *ctx.compute(&Injected(0)).await.unwrap() }.boxed()
             })
             .await
         }
@@ -176,13 +176,13 @@ async fn spawned_multiple() -> anyhow::Result<()> {
         ) -> Self::Value {
             let a = ctx
                 .spawned(|ctx, _cancellation| {
-                    async move { ctx.compute(&Injected(0)).await.unwrap() }.boxed()
+                    async move { *ctx.compute(&Injected(0)).await.unwrap() }.boxed()
                 })
                 .await;
 
             let b = ctx
                 .spawned(|ctx, _cancellation| {
-                    async move { ctx.compute(&Injected(1)).await.unwrap() }.boxed()
+                    async move { *ctx.compute(&Injected(1)).await.unwrap() }.boxed()
                 })
                 .await;
 
@@ -225,7 +225,7 @@ async fn spawned_runs_without_await() -> anyhow::Result<()> {
     // Spawned task should start running immediately, even before we await
     let _future = ctx.spawned(|ctx, _cancellation| {
         async move {
-            let val = ctx.compute(&Injected(0)).await.unwrap();
+            let val = *ctx.compute(&Injected(0)).await.unwrap();
             let _ = tx.send(val);
         }
         .boxed()

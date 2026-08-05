@@ -35,7 +35,7 @@ pub trait GetArtifactFs<'d> {
 #[async_trait]
 impl<'d> GetArtifactFs<'d> for DiceComputations<'d> {
     async fn get_artifact_fs(&mut self) -> buck2_error::Result<&'d ArtifactFs> {
-        self.compute_ref(&ArtifactFsKey).await?.as_ref().duped_err()
+        self.compute(&ArtifactFsKey).await?.as_ref().duped_err()
     }
 }
 

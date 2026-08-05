@@ -54,19 +54,11 @@ fn _test_computations_sync_send() {
 
 impl<'d> DiceComputations<'d> {
     /// Gets the result of the given computation key.
+    ///
+    /// The returned reference is valid for the whole transaction, not just for the borrow of the
+    /// ctx that produced it, so it can be held across later computations. Callers that need an
+    /// owned value dupe it themselves.
     pub fn compute<'a, K>(
-        &'a mut self,
-        key: &K,
-    ) -> impl Future<Output = DiceResult<<K as Key>::Value>> + use<'a, 'd, K>
-    where
-        K: Key,
-        K::Value: Dupe,
-    {
-        self.0.compute(key).map(|r| r.map(Dupe::dupe))
-    }
-
-    /// Gets the result of the given computation key.
-    pub fn compute_ref<'a, K>(
         &'a mut self,
         key: &K,
     ) -> impl Future<Output = DiceResult<&'d <K as Key>::Value>> + use<'a, 'd, K>
@@ -572,8 +564,12 @@ fn _assert_dice_compute_future_sizes() {
     // The future of the canonical async closure mapper - the thing that is stored, unboxed, in the
     // join combinator's slot for each branch of a `compute_join_async`. This is mostly just here to
     // detect rustc size regressions (or improvements)
+    //
+    // The transaction lifetime is spelled `'static` because a closure written out standalone like
+    // this doesn't get the implied `'d: '_` bound that the real `compute_join` bounds provide, and
+    // without it returning the borrowed value doesn't typecheck. Lifetimes don't affect the size.
     mini_vec::size_assert::words_of_expr!(
-        (async |ctx: &mut DiceComputations, k: &K| ctx.compute(k).await)
+        (async |ctx: &mut DiceComputations<'static>, k: &K| ctx.compute(k).await)
             .async_call_once((panic!(), panic!())),
         11
     );

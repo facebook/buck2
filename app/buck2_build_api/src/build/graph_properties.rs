@@ -241,6 +241,7 @@ pub async fn get_graph_properties(
                     configured_graph_sketch,
                 })
                 .await?
+                .dupe()
             },
             async |ctx| {
                 let (retained, analysis_peak) =
@@ -250,7 +251,8 @@ pub async fn get_graph_properties(
                             compute_retained: retained_analysis_memory_sketch,
                             compute_peak: peak_analysis_memory_sketch,
                         })
-                        .await??
+                        .await?
+                        .dupe()?
                         .to_result_maybe_compatible()?
                     } else {
                         (None, None)
@@ -263,7 +265,8 @@ pub async fn get_graph_properties(
                         .compute(&LoadGraphPropertiesKey {
                             label: label.dupe(),
                         })
-                        .await??
+                        .await?
+                        .dupe()?
                         .to_result_maybe_compatible()?;
                     ResultMaybeCompatible::Compatible(Some(sketch))
                 } else {

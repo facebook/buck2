@@ -133,7 +133,7 @@ impl RuleAnalysisCalculationImpl for RuleAnalysisCalculationInstance {
     where
         'd: 'a,
     {
-        async move { ctx.compute_ref(&AnalysisKey(target.dupe())).await?.as_ref() }.boxed()
+        async move { ctx.compute(&AnalysisKey(target.dupe())).await?.as_ref() }.boxed()
     }
 }
 

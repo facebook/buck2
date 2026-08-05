@@ -73,8 +73,8 @@ async fn test_a_multiversion_bug() {
             _cancellations: &CancellationContext,
         ) -> Self::Value {
             match self {
-                Derived::Top => ctx.compute(&Derived::Mid).await.unwrap(),
-                Derived::Mid => ctx.compute(&Leaf).await.unwrap(),
+                Derived::Top => *ctx.compute(&Derived::Mid).await.unwrap(),
+                Derived::Mid => *ctx.compute(&Leaf).await.unwrap(),
             }
         }
 

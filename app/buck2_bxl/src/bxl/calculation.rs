@@ -57,7 +57,7 @@ pub(crate) async fn eval_bxl(
     bxl: BxlKey,
 ) -> bxl::eval::Result<Arc<BxlResult>> {
     match ctx.compute(&internal::BxlComputeKey(bxl)).await {
-        Ok(res) => res,
+        Ok(res) => res.dupe(),
         Err(e) => Err(buck2_error::Error::from(e).into()),
     }
 }
@@ -68,7 +68,7 @@ pub(crate) async fn eval_bxl_ref<'d>(
     ctx: &mut DiceComputations<'d>,
     bxl: BxlKey,
 ) -> buck2_error::Result<&'d Arc<BxlResult>> {
-    ctx.compute_ref(&internal::BxlComputeKey(bxl))
+    ctx.compute(&internal::BxlComputeKey(bxl))
         .await?
         .as_ref()
         .map_err(|e| e.error.dupe())

@@ -100,7 +100,7 @@ impl Key for Stage1 {
         ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
-        ctx.compute(&Stage0).await.unwrap()
+        ctx.compute(&Stage0).await.unwrap();
     }
 
     fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {

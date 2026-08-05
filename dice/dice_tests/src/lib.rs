@@ -10,7 +10,7 @@
 
 #![cfg(test)]
 
-mod compute_ref;
+mod compute_borrows;
 mod general;
 mod invalidation_tracking;
 mod legacy;

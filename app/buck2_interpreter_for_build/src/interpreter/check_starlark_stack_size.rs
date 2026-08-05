@@ -124,7 +124,7 @@ pub(crate) async fn check_starlark_stack_size(
         }
     }
 
-    ctx.compute_ref(&StarlarkStackSizeChecker)
+    ctx.compute(&StarlarkStackSizeChecker)
         .await?
         .as_ref()
         .duped_err()

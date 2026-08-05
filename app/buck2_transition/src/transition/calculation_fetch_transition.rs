@@ -181,7 +181,7 @@ impl TransitionAttrProvider for TransitionGetAttrs {
     {
         async move {
             let k = TransitionAttrsKey::ref_cast(transition_id);
-            Ok(ctx.compute_ref(k).await?.as_ref().duped_err()?.as_deref())
+            Ok(ctx.compute(k).await?.as_ref().duped_err()?.as_deref())
         }
         .boxed()
     }

@@ -81,7 +81,7 @@ impl Key for NormalChanged {
         ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
-        ctx.compute(&NormalInjected(self.0)).await.unwrap()
+        *ctx.compute(&NormalInjected(self.0)).await.unwrap()
     }
 
     fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
@@ -100,7 +100,7 @@ impl Key for HighChanged {
         ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
-        ctx.compute(&HighInjected(self.0)).await.unwrap()
+        *ctx.compute(&HighInjected(self.0)).await.unwrap()
     }
 
     fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {

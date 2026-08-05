@@ -62,8 +62,8 @@ async fn test_dice_recompute_doesnt_reuse_wrong_deps() -> anyhow::Result<()> {
             ctx: &mut DiceComputations,
             _cancellations: &CancellationContext,
         ) -> u32 {
-            let x = ctx.compute(&Leaf(0)).await.unwrap();
-            ctx.compute(&Leaf(x)).await.unwrap()
+            let x = *ctx.compute(&Leaf(0)).await.unwrap();
+            *ctx.compute(&Leaf(x)).await.unwrap()
         }
 
         fn equality(x: &Self::Value, y: &Self::Value) -> bool {
@@ -117,8 +117,8 @@ async fn test_dice_clear_doesnt_break_ongoing_computation() -> anyhow::Result<()
                 0 => 1,
                 1 => 1,
                 n => {
-                    ctx.compute(&Fib(n - 1)).await.ok()??
-                        + ctx.compute(&Fib(n - 2)).await.ok()??
+                    (*ctx.compute(&Fib(n - 1)).await.ok()?)?
+                        + (*ctx.compute(&Fib(n - 2)).await.ok()?)?
                 }
             })
         }

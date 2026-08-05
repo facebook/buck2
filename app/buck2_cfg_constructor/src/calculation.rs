@@ -87,7 +87,7 @@ async fn get_cfg_constructor<'d>(
         }
     }
 
-    ctx.compute_ref(&GetCfgConstructorKey)
+    ctx.compute(&GetCfgConstructorKey)
         .await?
         .as_ref()
         .duped_err()
@@ -203,6 +203,6 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
             rule_type: rule_type.dupe(),
             configuring_exec_dep,
         };
-        Ok(ctx.compute(&key).await??)
+        Ok(ctx.compute(&key).await?.dupe()?)
     }
 }

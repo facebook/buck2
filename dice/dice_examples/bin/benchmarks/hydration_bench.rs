@@ -87,8 +87,8 @@ impl Key for BenchKey {
         ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
-        let size = ctx.compute(&ValueSizeKey).await.unwrap();
-        let num_deps = ctx.compute(&NumDepsKey).await.unwrap();
+        let size = *ctx.compute(&ValueSizeKey).await.unwrap();
+        let num_deps = *ctx.compute(&NumDepsKey).await.unwrap();
 
         // Depend on `num_deps` predecessor keys (j < self.0) to form a DAG.
         let start = self.0.saturating_sub(num_deps);

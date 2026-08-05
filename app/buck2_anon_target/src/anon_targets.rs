@@ -405,7 +405,7 @@ impl AnonTargetKey {
         &self,
         dice: &mut DiceComputations<'d>,
     ) -> buck2_error::Result<&'d AnalysisResult> {
-        dice.compute_ref(self).await?.as_ref().duped_err()
+        dice.compute(self).await?.as_ref().duped_err()
     }
 
     fn run_analysis<'a>(

@@ -212,7 +212,7 @@ impl Key for DeferredPagableKey {
         }
 
         match self.0 {
-            0 => ctx
+            0 => *ctx
                 .compute(&DeferredNonPagableKey(0))
                 .await
                 .expect("modulo dependency should compute"),
@@ -223,11 +223,11 @@ impl Key for DeferredPagableKey {
                     % 2
             }
             2 => {
-                let selector = ctx
+                let selector = *ctx
                     .compute(&DeferredInput(1))
                     .await
                     .expect("injected selector should compute");
-                ctx.compute(&DeferredInput(
+                *ctx.compute(&DeferredInput(
                     u8::try_from(selector).expect("selector should fit in u8") + 2,
                 ))
                 .await

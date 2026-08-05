@@ -29,6 +29,7 @@ use dice::InjectedKey;
 use dice::Key;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
+use dupe::ResultDupedExt;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use tempfile::NamedTempFile;
@@ -64,6 +65,7 @@ impl Encodings<'_, '_> {
             .compute(&EncodingConfig())
             .await
             .map_err(|e| Arc::new(anyhow::anyhow!(e)))
+            .duped()
     }
 }
 
@@ -129,6 +131,7 @@ impl Filesystem<'_, '_> {
             .compute(&File(file.to_path_buf()))
             .await
             .map_err(|e| Arc::new(anyhow::anyhow!(e)))?
+            .dupe()
     }
 }
 

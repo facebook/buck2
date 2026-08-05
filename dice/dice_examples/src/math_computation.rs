@@ -165,7 +165,8 @@ impl Math for DiceComputations<'_> {
         Ok(self
             .compute(&EvalVar(var))
             .await
-            .map_err(|e| Arc::new(anyhow::anyhow!(e)))??)
+            .map_err(|e| Arc::new(anyhow::anyhow!(e)))?
+            .dupe()?)
     }
 }
 
@@ -187,7 +188,7 @@ async fn resolve_units<'a>(
 }
 
 async fn lookup_unit(ctx: &mut DiceComputations<'_>, var: &Var) -> anyhow::Result<Arc<Equation>> {
-    Ok(ctx.compute(&LookupVar(var.clone())).await?)
+    Ok(ctx.compute(&LookupVar(var.clone())).await?.dupe())
 }
 
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]

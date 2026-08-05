@@ -53,7 +53,7 @@ impl<'d> HasInterpreterContext<'d> for DiceComputations<'d> {
     async fn get_interpreter_configuror(
         &mut self,
     ) -> buck2_error::Result<&'d Arc<BuildInterpreterConfiguror>> {
-        Ok(self.compute_ref(&BuildContextKey()).await?)
+        Ok(self.compute(&BuildContextKey()).await?)
     }
 }
 

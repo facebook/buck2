@@ -99,7 +99,7 @@ async fn get_target_platform_detector<'d>(
         }
     }
 
-    ctx.compute_ref(&TargetPlatformDetectorKey)
+    ctx.compute(&TargetPlatformDetectorKey)
         .await?
         .as_ref()
         .duped_err()

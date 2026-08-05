@@ -145,6 +145,6 @@ impl<'d> HasGlobalInterpreterState<'d> for DiceComputations<'d> {
             }
         }
 
-        self.compute_ref(&GisKey()).await?.as_ref().duped_err()
+        self.compute(&GisKey()).await?.as_ref().duped_err()
     }
 }

@@ -348,6 +348,6 @@ impl TransitionCalculation for TransitionCalculationImpl {
             attrs,
         };
 
-        ctx.compute(&key).await?
+        ctx.compute(&key).await?.dupe()
     }
 }

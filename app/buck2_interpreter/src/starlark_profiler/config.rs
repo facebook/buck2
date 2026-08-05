@@ -114,7 +114,7 @@ impl Key for StarlarkProfilerConfigurationResolvedKey {
         ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
-        let configuration = ctx.compute_ref(&StarlarkProfilerConfigurationKey).await?;
+        let configuration = ctx.compute(&StarlarkProfilerConfigurationKey).await?;
         let new = match configuration {
             StarlarkProfilerConfiguration::None => StarlarkProfilerConfigurationResolved::None,
             StarlarkProfilerConfiguration::ProfileLoading(mode, patterns) => match patterns {

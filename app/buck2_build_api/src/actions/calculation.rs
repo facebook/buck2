@@ -765,7 +765,7 @@ impl ActionCalculation {
         ctx: &'a mut DiceComputations<'d>,
         action_key: &ActionKey,
     ) -> impl Future<Output = buck2_error::Result<&'d ActionOutputs>> + use<'a, 'd> {
-        ctx.compute_ref(BuildKey::ref_cast(action_key))
+        ctx.compute(BuildKey::ref_cast(action_key))
             .map(|v| v?.as_ref().duped_err())
     }
 

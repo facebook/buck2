@@ -81,7 +81,7 @@ pub enum Expr {
 }
 
 async fn lookup_unit(ctx: &mut DiceComputations<'_>, var: Var) -> anyhow::Result<Arc<Expr>> {
-    Ok(ctx.compute(&LookupVar(var)).await?)
+    Ok(ctx.compute(&LookupVar(var)).await?.dupe())
 }
 
 #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
@@ -131,11 +131,10 @@ pub trait FuzzMath {
 #[async_trait]
 impl FuzzMath for DiceComputations<'_> {
     async fn eval(&mut self, state: Arc<FuzzState>, var: Var) -> anyhow::Result<bool> {
-        Ok(*self
-            .compute(&state.eval_var(var))
-            .await?
-            .map_err(|e| anyhow::anyhow!(format!("{:#}", e)))?
-            .as_ref())
+        match self.compute(&state.eval_var(var)).await? {
+            Ok(v) => Ok(*v.as_ref()),
+            Err(e) => Err(anyhow::anyhow!(format!("{:#}", e))),
+        }
     }
 }
 

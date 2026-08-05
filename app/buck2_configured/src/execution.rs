@@ -201,6 +201,7 @@ impl ExecutionPlatformConstraints {
             toolchain_deps: self.toolchain_deps,
         })
         .await?
+        .dupe()
     }
 }
 
@@ -307,6 +308,7 @@ async fn check_toolchain_execution_platform_compatibility(
         exec_platform,
     })
     .await?
+    .dupe()
 }
 
 pub(crate) async fn get_execution_platform_toolchain_dep(
@@ -781,7 +783,7 @@ impl GetExecutionPlatformsImpl for GetExecutionPlatformsInstance {
         'd: 'a,
     {
         async move {
-            ctx.compute_ref(&ExecutionPlatformsKey)
+            ctx.compute(&ExecutionPlatformsKey)
                 .await?
                 .as_ref()
                 .duped_err()

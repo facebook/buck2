@@ -1241,7 +1241,7 @@ impl ConfiguredTargetNodeCalculationImpl for ConfiguredTargetNodeCalculationInst
     {
         async move {
             let maybe_compatible_result =
-                ctx.compute_ref(&ConfiguredTargetNodeKey(target.dupe())).await?;
+                ctx.compute(&ConfiguredTargetNodeKey(target.dupe())).await?;
             if check_dependency_incompatibility {
                 if let ResultMaybeCompatible::Incompatible(reason) = maybe_compatible_result {
                     if matches!(
@@ -1372,7 +1372,7 @@ async fn check_target_enabled_for_config(
     }
 
     let patterns = ctx
-        .compute_ref(&ConfigPatternCalculation {
+        .compute(&ConfigPatternCalculation {
             section: section.into(),
             property: property.into(),
         })
@@ -1444,7 +1444,7 @@ async fn get_dep_only_incompatible_custom_soft_error(
     }
 
     let Some(custom_soft_errors) = ctx
-        .compute_ref(&GetDepOnlyIncompatibleInfo)
+        .compute(&GetDepOnlyIncompatibleInfo)
         .await?
         .as_ref()
         .duped_err()?

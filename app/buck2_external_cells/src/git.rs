@@ -445,7 +445,9 @@ pub(crate) async fn get_file_ops_delegate(
         }
     }
 
-    ctx.compute(&GitFileOpsDelegateKey(cell, setup)).await?
+    ctx.compute(&GitFileOpsDelegateKey(cell, setup))
+        .await?
+        .dupe()
 }
 
 pub(crate) async fn materialize_all(

@@ -85,7 +85,7 @@ impl InjectedKey for CellResolverKey {
 #[async_trait]
 impl<'d> HasCellResolver<'d> for DiceComputations<'d> {
     async fn get_cell_resolver(&mut self) -> buck2_error::Result<&'d CellResolver> {
-        self.compute_ref(&CellResolverKey)
+        self.compute(&CellResolverKey)
             .await?
             .as_ref()
             .ok_or_else(|| {
@@ -94,14 +94,14 @@ impl<'d> HasCellResolver<'d> for DiceComputations<'d> {
     }
 
     async fn is_cell_resolver_key_set(&mut self) -> buck2_error::Result<bool> {
-        Ok(self.compute_ref(&CellResolverKey).await?.is_some())
+        Ok(self.compute(&CellResolverKey).await?.is_some())
     }
 
     async fn get_cell_alias_resolver(
         &mut self,
         cell: CellName,
     ) -> buck2_error::Result<&'d CellAliasResolver> {
-        self.compute_ref(&CellAliasResolverKey(cell))
+        self.compute(&CellAliasResolverKey(cell))
             .await?
             .as_ref()
             .duped_err()

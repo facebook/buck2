@@ -136,7 +136,7 @@ impl ConfiguredGraphQueryEnvironmentDelegate for AnalysisConfiguredGraphQueryDel
         Ok(self
             .dice_query_delegate
             .ctx()
-            .compute_ref(&TemplatePlaceholderInfoQueryKey {
+            .compute(&TemplatePlaceholderInfoQueryKey {
                 template_name,
                 targets: Arc::new(targets),
             })

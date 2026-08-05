@@ -8,7 +8,7 @@
  * above-listed licenses.
  */
 
-//! Tests that `&'d Value` references returned from `compute_ref` outlive the `&mut` borrows of
+//! Tests that `&'d Value` references returned from `compute` outlive the `&mut` borrows of
 //! the ctx that produced them, i.e. that they can be held across subsequent uses of the ctx.
 
 use std::sync::Arc;
@@ -76,16 +76,14 @@ impl Key for Top {
     ) -> Self::Value {
         // References obtained inside parallel branches must be holdable after the join completes.
         let refs: Vec<&Arc<u32>> = ctx
-            .compute_join(1..4u32, async |ctx, i| {
-                ctx.compute_ref(&Leaf(i)).await.unwrap()
-            })
+            .compute_join(1..4u32, async |ctx, i| ctx.compute(&Leaf(i)).await.unwrap())
             .await;
 
         // ...including refs from *nested* parallel branches escaping both levels.
         let nested: Vec<&Arc<u32>> = ctx
             .compute_join(1..3u32, async |ctx, i| {
                 ctx.compute_join(1..3u32, async move |ctx, j| {
-                    ctx.compute_ref(&Leaf(100 * i + j)).await.unwrap()
+                    ctx.compute(&Leaf(100 * i + j)).await.unwrap()
                 })
                 .await
             })
@@ -95,7 +93,7 @@ impl Key for Top {
             .collect();
 
         // ...and across a subsequent sequential compute on the same ctx.
-        let last: &Arc<u32> = ctx.compute_ref(&Leaf(1000)).await.unwrap();
+        let last: &Arc<u32> = ctx.compute(&Leaf(1000)).await.unwrap();
 
         refs.into_iter().chain(nested).map(|v| **v).sum::<u32>() + **last
     }
@@ -106,7 +104,7 @@ impl Key for Top {
 }
 
 #[tokio::test]
-async fn test_compute_ref_results_outlive_ctx_borrows() -> anyhow::Result<()> {
+async fn test_compute_results_outlive_ctx_borrows() -> anyhow::Result<()> {
     let dice = Dice::builder().build(DetectCycles::Enabled);
     let ctx = dice.updater().commit().await;
 
