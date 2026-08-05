@@ -268,7 +268,7 @@ pub trait HasActionExecutor<'d> {
     async fn get_action_executor(
         &mut self,
         config: &CommandExecutorConfig,
-    ) -> buck2_error::Result<Arc<BuckActionExecutor<'d>>>;
+    ) -> buck2_error::Result<BuckActionExecutor<'d>>;
 }
 
 #[async_trait]
@@ -276,7 +276,7 @@ impl<'d> HasActionExecutor<'d> for DiceComputations<'d> {
     async fn get_action_executor(
         &mut self,
         executor_config: &CommandExecutorConfig,
-    ) -> buck2_error::Result<Arc<BuckActionExecutor<'d>>> {
+    ) -> buck2_error::Result<BuckActionExecutor<'d>> {
         let artifact_fs = self.get_artifact_fs().await?;
         let digest_config = self.global_data().get_digest_config();
 
@@ -298,7 +298,7 @@ impl<'d> HasActionExecutor<'d> for DiceComputations<'d> {
         let mergebase = self.per_transaction_data().get_mergebase();
         let invalidation_tracking_enabled = self.get_invalidation_tracking_config().enabled;
 
-        Ok(Arc::new(BuckActionExecutor::new(
+        Ok(BuckActionExecutor::new(
             CommandExecutor::new(
                 executor,
                 action_cache_checker,
@@ -319,7 +319,7 @@ impl<'d> HasActionExecutor<'d> for DiceComputations<'d> {
             mergebase,
             invalidation_tracking_enabled,
             output_trees_download_config,
-        )))
+        ))
     }
 }
 
