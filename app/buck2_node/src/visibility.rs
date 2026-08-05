@@ -471,8 +471,19 @@ impl AnyMatches for VisibilityPatternList {
             VisibilityPatternList::Public => filter(VisibilityPattern::PUBLIC),
             VisibilityPatternList::List(patterns) => {
                 for p in patterns {
-                    if filter(&p.to_string())? {
-                        return Ok(true);
+                    match p {
+                        VisibilityPattern::Parsed(parsed) => {
+                            if filter(&parsed.to_string())? {
+                                return Ok(true);
+                            }
+                        }
+                        VisibilityPattern::TargetNameGlob(record) => {
+                            for g in record.name_globs.iter() {
+                                if filter(g.pattern())? {
+                                    return Ok(true);
+                                }
+                            }
+                        }
                     }
                 }
                 Ok(false)
@@ -1042,5 +1053,36 @@ mod tests {
             value.to_string(),
             r#"target_name_glob(["*-test"], within = ["root//foo:"])"#,
         );
+    }
+
+    #[test]
+    fn any_matches_yields_name_globs_not_rendered_call() {
+        // `any_matches` backs `attrfilter(visibility, ...)`; it must yield the
+        // constituent `name_globs` so `*-test` finds a glob entry, not the
+        // rendered `target_name_glob(...)` call string.
+        let list = VisibilityPatternList::List(
+            [VisibilityPattern::testing_new_record(&[], &["*-test"])]
+                .into_iter()
+                .collect(),
+        );
+        // Positive: filter on the glob pattern finds the entry.
+        assert!(
+            list.any_matches(&|s| Ok(s == "*-test")).unwrap(),
+            "any_matches must yield name_globs"
+        );
+        // Negative: filter on the rendered call must not be required.
+        assert!(
+            !list
+                .any_matches(&|s| Ok(s == "target_name_glob([\"*-test\"])"))
+                .unwrap(),
+            "any_matches must not require the rendered call string"
+        );
+    }
+
+    #[test]
+    fn any_matches_yields_parsed_pattern() {
+        let list = VisibilityPatternList::testing_parse(&["root//foo:"]);
+        assert!(list.any_matches(&|s| Ok(s == "root//foo:")).unwrap(),);
+        assert!(!list.any_matches(&|s| Ok(s == "root//bar:")).unwrap(),);
     }
 }
