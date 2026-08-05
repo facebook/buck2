@@ -1502,7 +1502,7 @@ impl BuckTestOrchestrator<'_> {
             action_cache_checker,
             Arc::new(NoOpCommandOptionalExecutor {}),
             cache_uploader,
-            fs.clone(),
+            fs.dupe(),
             executor_config.options,
             platform,
         );
@@ -1537,7 +1537,7 @@ impl BuckTestOrchestrator<'_> {
             Arc::new(NoOpCommandOptionalExecutor {}),
             Arc::new(NoOpCommandOptionalExecutor {}),
             Arc::new(NoOpCacheUploader {}),
-            fs.clone(),
+            fs.dupe(),
             executor_config.options,
             platform,
         );

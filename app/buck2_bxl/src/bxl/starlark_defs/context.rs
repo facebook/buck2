@@ -346,8 +346,8 @@ impl<'v> BxlContext<'v> {
         let root_data = RootBxlContextData {
             cli_args,
             output_stream: heap.alloc_typed(StarlarkOutputStream::new(
-                core.project_fs.clone(),
-                core.artifact_fs.clone(),
+                core.project_fs.dupe(),
+                core.artifact_fs.dupe(),
                 stream_state,
             )),
         };

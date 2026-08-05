@@ -97,7 +97,7 @@ async fn materialize_artifact_group(
         let data = ctx.data();
         let shared_data = Arc::new((
             data.dupe(),
-            artifact_fs.clone(),
+            artifact_fs.dupe(),
             ctx.per_transaction_data().get_materializer_handle(),
         ));
 

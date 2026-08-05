@@ -239,7 +239,7 @@ pub(crate) async fn compute_artifact_path_sketches_for_target(
         })
         .await?;
 
-    let artifact_fs = artifact_fs.clone();
+    let artifact_fs = artifact_fs.dupe();
     tokio::task::spawn_blocking(move || {
         compute_artifact_path_sketches(values, &artifact_fs, sketch_size, sketch_count)
     })

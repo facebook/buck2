@@ -249,16 +249,18 @@ impl BuckOutTestPath {
     }
 }
 
-#[derive(Clone, Allocative, Pagable)]
+#[derive(Clone, Dupe, Allocative, Pagable)]
 pub struct BuckOutPathResolver {
-    buck_out_v2: ProjectRelativePathBuf,
+    buck_out_v2: Arc<ProjectRelativePathBuf>,
 }
 
 impl BuckOutPathResolver {
     /// creates a 'BuckOutPathResolver' that will resolve outputs to the provided buck-out root.
     /// If not set, buck_out defaults to "buck-out/v2"
     pub fn new(buck_out_v2: ProjectRelativePathBuf) -> Self {
-        BuckOutPathResolver { buck_out_v2 }
+        BuckOutPathResolver {
+            buck_out_v2: Arc::new(buck_out_v2),
+        }
     }
 
     /// Returns the buck-out root.
@@ -459,7 +461,7 @@ impl BuckOutPathResolver {
     pub fn unhashed_gen(&self, path: &BuildArtifactPath) -> Option<ProjectRelativePathBuf> {
         Some(ProjectRelativePathBuf::from(
             ForwardRelativePathBuf::concat([
-                self.buck_out_v2.as_ref(),
+                self.buck_out_v2.as_forward_relative_path(),
                 ForwardRelativePath::unchecked_new("gen"),
                 &*path.0.owner.owner().make_unhashed_path()?,
                 path.path(),

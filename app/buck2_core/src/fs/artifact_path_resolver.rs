@@ -20,7 +20,7 @@ use crate::fs::project::ProjectRoot;
 use crate::fs::project_rel_path::ProjectRelativePathBuf;
 use crate::package::source_path::SourcePathRef;
 
-#[derive(Clone, Allocative)]
+#[derive(Clone, Dupe, Allocative)]
 pub struct ArtifactFs {
     cell_resolver: CellResolver,
     buck_out_path_resolver: BuckOutPathResolver,

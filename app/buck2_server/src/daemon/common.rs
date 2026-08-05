@@ -191,7 +191,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 None
             };
             LocalExecutor::new(
-                artifact_fs.clone(),
+                artifact_fs.dupe(),
                 self.materializer.dupe(),
                 self.incremental_db_state.dupe(),
                 self.blocking_executor.dupe(),
@@ -233,7 +233,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                                    gang_workers: &[ReGangWorker],
                                    priority: Option<i32>| {
             ReExecutor {
-                artifact_fs: artifact_fs.clone(),
+                artifact_fs: artifact_fs.dupe(),
                 project_fs: self.project_root.clone(),
                 materializer: self.materializer.dupe(),
                 incremental_db_state: self.incremental_db_state.dupe(),
@@ -302,7 +302,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     let remote_dep_file_cache_checker: Arc<dyn PreparedCommandOptionalExecutor> =
                         if remote_options.remote_dep_file_cache_enabled {
                             Arc::new(RemoteDepFileCacheChecker {
-                                artifact_fs: artifact_fs.clone(),
+                                artifact_fs: artifact_fs.dupe(),
                                 materializer: self.materializer.dupe(),
                                 incremental_db_state: self.incremental_db_state.dupe(),
                                 re_client: self.get_prepared_re_client(remote_options.re_use_case),
@@ -322,7 +322,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                             Arc::new(NoOpCommandOptionalExecutor {}) as _
                         } else {
                             Arc::new(ActionCacheChecker {
-                                artifact_fs: artifact_fs.clone(),
+                                artifact_fs: artifact_fs.dupe(),
                                 materializer: self.materializer.dupe(),
                                 incremental_db_state: self.incremental_db_state.dupe(),
                                 re_client: self.get_prepared_re_client(remote_options.re_use_case),
@@ -425,7 +425,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
 
                 let cache_uploader = if force_cache_upload()? {
                     Arc::new(CacheUploader::new(
-                        artifact_fs.clone(),
+                        artifact_fs.dupe(),
                         self.materializer.dupe(),
                         self.get_prepared_re_client(remote_options.re_use_case),
                         remote_options.re_properties.clone(),
@@ -439,7 +439,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     remote_options.cache_upload_behavior
                 {
                     Arc::new(CacheUploader::new(
-                        artifact_fs.clone(),
+                        artifact_fs.dupe(),
                         self.materializer.dupe(),
                         self.get_prepared_re_client(remote_options.re_use_case),
                         remote_options.re_properties.clone(),
