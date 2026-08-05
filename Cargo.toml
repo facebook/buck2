@@ -361,7 +361,7 @@ is_proc_translated = "0.1.1"
 itertools = "0.15.0"
 libc = "0.2.186"
 linked-hash-map = { version = "0.5", features = ["serde_impl"] }
-linkme = { version = "0.3.36", features = ["used_linker"] }
+linkme = { version = "0.3.37", features = ["used_linker"] }
 lock_free_hashtable = { path = "shed/lock_free_hashtable", features = ["allocative"] }
 lock_free_vec = { path = "shed/lock_free_vec" }
 lru = { version = "0.16.4", default-features = false }
