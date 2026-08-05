@@ -53,6 +53,7 @@
     }
   },
   "overrides": {
+    "brace-expansion": ">=5.0.9",
     "tar": ">=7.5.11",
     "@tootallnate/once": ">=3.0.1",
     "@xmldom/xmldom": ">=0.9.10",
