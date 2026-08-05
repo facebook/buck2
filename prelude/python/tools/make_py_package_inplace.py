@@ -43,6 +43,32 @@ import platform
 import stat
 from pathlib import Path
 
+# Shell/Python polyglot, substituted for `<PYTHON>` in the template (i.e. it is
+# what follows the `#!`). `/bin/sh` runs the block between the `"true"` line and
+# the closing quotes; Python parses that same text as a pair of implicitly
+# concatenated string literals and ignores it. Windows has no `#!` support and
+# runs the bootstrapper as `python <pex>`, where this is likewise inert.
+_SH_TRAMPOLINE = r"""/bin/sh
+"true" '''\'
+# The interpreter is at a path relative to this script rather than at a fixed
+# absolute one, so resolve it here (following symlinks) and hand off.
+_self=$0
+case $_self in */*) ;; *) _self=./$_self ;; esac
+_depth=0
+while [ -L "$_self" ] && [ "$_depth" -lt 32 ]; do
+    # `readlink` is not in POSIX sh builtins and `$PATH` may be scrubbed; if it is missing, settle
+    # for the directory holding the symlink.
+    _link=$(readlink "$_self" 2>/dev/null) || break
+    [ -n "$_link" ] || break
+    case $_link in
+        /*) _self=$_link ;;
+        *) _self=${_self%/*}/$_link ;;
+    esac
+    _depth=$((_depth + 1))
+done
+exec "${_self%/*}/<REL_PYTHON>" "$0" "$@"
+'''"""
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -69,7 +95,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--python",
         required=True,
-        help="The python binary to put in the bootstrapper hashbang",
+        help=(
+            "The python binary to launch the bootstrapper with. An absolute path"
+            " or a bare name goes straight into the hashbang; a path relative to"
+            " the project root is resolved at runtime relative to the"
+            " bootstrapper instead, see write_bootstrapper()"
+        ),
     )
     parser.add_argument(
         "--host-python",
@@ -155,24 +186,38 @@ def write_bootstrapper(args: argparse.Namespace) -> None:
     relative_modules_dir = os.path.relpath(args.modules_dir, args.output.parent)
     native_lib_dirs = [relative_modules_dir] + args.native_library_runtime_paths
 
-    # TODO(nmj): Remove this hack. So, if arg0 in your shebang is a bash script
-    #                 (like /usr/local/fbcode/platform007/bin/python3.7 on macs is)
-    #                 OSX just sort of ignores it and tries to run your thing with
-    #                 the current shell. So, we hack in /usr/bin/env in the front
-    #                 for now, and let it do the lifting. OSX: Bringing you the best
-    #                 of 1980s BSD in 2021...
-
     ld_preload = None
     if args.preload_libraries:
         ld_preload = [p.name for p in args.preload_libraries]
 
     python = str(args.python)
-    if not os.path.isabs(python) and os.path.sep in python:
-        python = os.path.abspath(python)
+    separators = [os.path.sep] + ([os.path.altsep] if os.path.altsep else [])
+    if os.path.isabs(python) or not any(sep in python for sep in separators):
+        # An absolute path is machine-independent already, and a bare word is for `/usr/bin/env` to
+        # look up on `$PATH`. Both are fine in a `#!` line.
+        #
+        # TODO(nmj): Remove this hack. So, if arg0 in your shebang is a bash script
+        #                 (like /usr/local/fbcode/platform007/bin/python3.7 on macs is)
+        #                 OSX just sort of ignores it and tries to run your thing with
+        #                 the current shell. So, we hack in /usr/bin/env in the front
+        #                 for now, and let it do the lifting. OSX: Bringing you the best
+        #                 of 1980s BSD in 2021...
+        launcher = f"/usr/bin/env {python}"
+    else:
+        # The interpreter is a build artifact, so we have a cwd (project/cell root) relative path.
+        #
+        # However, the shebang must be absolute (relative paths are resolved relative to cwd at
+        # runtime and we want to be cwd-independent).
+        # Thus we use a #!/bin/sh trampoline.
+        relative_python = os.path.relpath(python, args.output.parent)
+        launcher = _SH_TRAMPOLINE.replace(
+            "<REL_PYTHON>", relative_python.replace(os.path.sep, "/")
+        )
 
-    new_data = data.replace("<PYTHON>", f"/usr/bin/env {python}")
-    # Instead, pass interpreter flags via the Python variable that the re-exec
-    # path uses (e.g. -Xgil=0 for free-threaded builds).
+    new_data = data.replace("<PYTHON>", launcher, 1)
+    # Interpreter flags go into the Python variable that the re-exec path uses
+    # (e.g. -Xgil=0 for free-threaded builds) rather than onto the launcher line,
+    # which on Linux can carry at most one argument.
     new_data = new_data.replace(
         "<PYTHON_INTERPRETER_FLAGS>", " ".join(args.python_interpreter_flags or [])
     )
