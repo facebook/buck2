@@ -423,7 +423,7 @@ rustls-pki-types = { version = "1.15.0", features = ["alloc", "std"] }
 scopeguard = "1.2.0"
 sequence_trie = { version = "0.3.6", features = ["serde"] }
 serde = { version = "1.0.229", features = ["derive", "rc"] }
-serde_json = { version = "1.0.140", features = ["alloc", "float_roundtrip", "raw_value", "unbounded_depth"] }
+serde_json = { version = "1.0.151", features = ["alloc", "float_roundtrip", "raw_value", "unbounded_depth"] }
 serde_path_to_error = "0.1.20"
 setsketch = { path = "shed/setsketch" }
 sha1 = "0.10.7"
