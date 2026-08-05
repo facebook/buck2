@@ -347,10 +347,12 @@ async fn analysis(
     dice: &mut DiceComputations<'_>,
     label: &ConfiguredProvidersLabel,
 ) -> buck2_error::Result<StarlarkAnalysisResult> {
-    let maybe_result = dice.get_analysis_result(label.target()).await?;
+    let maybe_result = dice.get_analysis_result(label.target()).await.ok()?;
     match maybe_result {
         MaybeCompatible::Incompatible(reason) => Err(reason.to_err()),
-        MaybeCompatible::Compatible(result) => StarlarkAnalysisResult::new(result, label.dupe()),
+        MaybeCompatible::Compatible(result) => {
+            StarlarkAnalysisResult::new(result.dupe(), label.dupe())
+        }
     }
 }
 

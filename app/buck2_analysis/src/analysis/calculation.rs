@@ -23,6 +23,8 @@ use buck2_build_api::deferred::calculation::DeferredHolder;
 use buck2_build_api::keep_going::KeepGoing;
 use buck2_build_signals::env::WaitingData;
 use buck2_core::configuration::compatibility::MaybeCompatible;
+use buck2_core::configuration::compatibility::ResultMaybeCompatible;
+use buck2_core::configuration::compatibility::ResultMaybeCompatibleValueSerialize;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
@@ -57,10 +59,11 @@ use buck2_util::time_span::TimeSpan;
 use dice::CancellationContext;
 use dice::DiceComputations;
 use dice::Key;
-use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
 use dupe::Dupe;
 use dupe::IterDupedExt;
+use futures::FutureExt;
+use futures::future::BoxFuture;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use smallvec::SmallVec;
@@ -93,7 +96,7 @@ pub(crate) fn init_rule_analysis_calculation() {
 
 #[async_trait]
 impl Key for AnalysisKey {
-    type Value = buck2_error::Result<MaybeCompatible<AnalysisResult>>;
+    type Value = ResultMaybeCompatible<AnalysisResult>;
     async fn compute(
         &self,
         ctx: &mut DiceComputations,
@@ -105,9 +108,9 @@ impl Key for AnalysisKey {
             .await
             .with_buck_error_context(|| format!("Error running analysis for `{}`", self.0))?;
         if let MaybeCompatible::Compatible(v) = &res {
-            ctx.analysis_complete(&deferred_key, &DeferredHolder::Analysis(v.dupe()))?;
+            ctx.analysis_complete(&deferred_key, &DeferredHolder::Analysis(v))?;
         }
-        Ok(res)
+        res.to_result_maybe_compatible()
     }
 
     fn equality(_: &Self::Value, _: &Self::Value) -> bool {
@@ -117,18 +120,20 @@ impl Key for AnalysisKey {
     }
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
-        OkPagableValueSerialize::<Self::Value>::new()
+        ResultMaybeCompatibleValueSerialize::<AnalysisResult>::new()
     }
 }
 
-#[async_trait]
 impl RuleAnalysisCalculationImpl for RuleAnalysisCalculationInstance {
-    async fn get_analysis_result(
+    fn get_analysis_result<'a, 'd>(
         &self,
-        ctx: &mut DiceComputations<'_>,
-        target: &ConfiguredTargetLabel,
-    ) -> buck2_error::Result<MaybeCompatible<AnalysisResult>> {
-        ctx.compute(&AnalysisKey(target.dupe())).await?
+        ctx: &'a mut DiceComputations<'d>,
+        target: &'a ConfiguredTargetLabel,
+    ) -> BoxFuture<'a, ResultMaybeCompatible<&'d AnalysisResult>>
+    where
+        'd: 'a,
+    {
+        async move { ctx.compute_ref(&AnalysisKey(target.dupe())).await?.as_ref() }.boxed()
     }
 }
 
@@ -187,7 +192,7 @@ async fn resolve_queries_impl(
                     query_results.push((
                         label.dupe(),
                         ctx.get_analysis_result(label)
-                            .await?
+                            .await
                             .require_compatible()?
                             .providers()?
                             .to_owned(),
@@ -216,8 +221,8 @@ pub async fn get_dep_analysis<'v>(
         let res = ctx
             .get_analysis_result(dep.label())
             .await
-            .and_then(|v| v.require_compatible());
-        res.map(|x| (dep.label(), x))
+            .require_compatible();
+        res.map(|x| (dep.label(), x.dupe()))
     })
     .await
 }
@@ -453,10 +458,10 @@ pub async fn profile_analysis(
         .try_compute_join(all_deps.iter(), async |ctx, node| {
             let result = ctx
                 .get_analysis_result(node.label())
-                .await?
+                .await
                 .require_compatible()?;
             // This may be `None` if we are running profiling for a subset of the targets.
-            buck2_error::Ok(result.profile_data)
+            buck2_error::Ok(result.profile_data.dupe())
         })
         .await?;
 

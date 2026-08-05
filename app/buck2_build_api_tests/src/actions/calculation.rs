@@ -59,7 +59,6 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePathBuf;
-use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
@@ -155,7 +154,7 @@ fn mock_analysis_for_action_resolution(
 
     dice_builder = dice_builder.mock_and_return(
         AnalysisKey(configured_target_label.dupe()),
-        buck2_error::Ok(MaybeCompatible::Compatible(AnalysisResult::new(
+        ResultMaybeCompatible::Compatible(AnalysisResult::new(
             RecordedAnalysisValues::testing_new(
                 action_key.holder_key().dupe(),
                 Vec::new(),
@@ -166,7 +165,7 @@ fn mock_analysis_for_action_resolution(
             0,
             0,
             None,
-        ))),
+        )),
     );
 
     dice_builder.mock_and_return(

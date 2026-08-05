@@ -18,7 +18,6 @@ mod tests {
     use allocative::Allocative;
     use buck2_artifact::deferred::key::DeferredHolderKey;
     use buck2_build_api::actions::execute::dice_data::set_fallback_executor_config;
-    use buck2_build_api::bxl::calculation::BxlComputeResult;
     use buck2_build_api::bxl::result::BxlResult;
     use buck2_build_api::bxl::types::BxlFunctionLabel;
     use buck2_build_api::deferred::calculation::DeferredCalculation;
@@ -111,14 +110,14 @@ mod tests {
             })
             .mock_and_return(
                 BxlComputeKey(bxl.dupe()),
-                buck2_error::Ok(BxlComputeResult(Arc::new(BxlResult::BuildsArtifacts {
+                buck2_error::Ok(Arc::new(BxlResult::BuildsArtifacts {
                     output_loc: mk_stream_cache("test", &bxl),
                     error_loc: mk_stream_cache("errortest", &bxl),
                     built: vec![],
                     artifacts: vec![],
                     deferred: deferred_result,
                     analysis_values,
-                }))),
+                })),
             );
 
         let mut dice_data = UserComputationData::new();

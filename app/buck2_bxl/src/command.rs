@@ -275,7 +275,7 @@ impl BxlServerCommand {
             ctx.global_cfg_options.dupe(),
         );
 
-        Ok(eval_bxl(&mut dice_ctx.ctx(), bxl_key.clone()).await?.0)
+        eval_bxl(&mut dice_ctx.ctx(), bxl_key.clone()).await
     }
 
     /// Materializes artifacts from the BXL result

@@ -244,7 +244,7 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
                        -> buck2_error::Result<
                     Either<ConfiguredTargetLabel, TargetSet<ActionQueryNode>>,
                 > {
-                    let maybe_result = ctx.get_analysis_result(label.target()).await?;
+                    let maybe_result = ctx.get_analysis_result(label.target()).await.ok()?;
 
                     match maybe_result {
                         MaybeCompatible::Incompatible(reason) => {
@@ -257,7 +257,7 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
                                 async move {
                                     let delegate = &self.aquery_delegate(ctx).await?;
                                     let target_set = delegate
-                                        .get_target_set_from_analysis(&label, result.clone())
+                                        .get_target_set_from_analysis(&label, result.dupe())
                                         .await?;
                                     Ok(Either::Right(target_set))
                                 }

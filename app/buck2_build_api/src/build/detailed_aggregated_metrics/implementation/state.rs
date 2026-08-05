@@ -34,7 +34,7 @@ use crate::build::detailed_aggregated_metrics::types::DetailedAggregatedMetrics;
 use crate::build::detailed_aggregated_metrics::types::PerBuildEvents;
 use crate::build::detailed_aggregated_metrics::types::TopLevelTargetAggregatedData;
 use crate::build::detailed_aggregated_metrics::types::TopLevelTargetSpec;
-use crate::deferred::calculation::DeferredHolder;
+use crate::deferred::calculation::OwnedDeferredHolder;
 
 /// Tracks the state required to compute aggregated metrics.
 ///
@@ -47,7 +47,7 @@ use crate::deferred::calculation::DeferredHolder;
 /// and use that later to compute metrics both over the whole graph and just specific to the current build.
 pub struct DetailedAggregatedMetricsStateTracker {
     observed_executions: buck2_hash::BuckHashMap<ActionKey, ActionExecutionMetrics>,
-    analysis_nodes: Arc<buck2_hash::BuckHashMap<DeferredHolderKey, DeferredHolder>>,
+    analysis_nodes: Arc<buck2_hash::BuckHashMap<DeferredHolderKey, OwnedDeferredHolder>>,
 }
 
 impl DetailedAggregatedMetricsStateTracker {

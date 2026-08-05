@@ -147,7 +147,7 @@ pub(crate) struct DiceAqueryDelegate<'c, 'd> {
 }
 
 pub(crate) struct AqueryData {
-    artifact_fs: Arc<ArtifactFs>,
+    artifact_fs: ArtifactFs,
     delegate_query_data: Arc<DiceQueryData>,
     nodes_cache: DiceAqueryNodesCache,
 }
@@ -238,7 +238,7 @@ fn compute_action_node<'c>(
     node_cache: DiceAqueryNodesCache,
     ctx: &'c mut DiceComputations<'_>,
     key: ActionKey,
-    fs: Arc<ArtifactFs>,
+    fs: ArtifactFs,
 ) -> BoxFuture<'c, buck2_error::Result<ActionQueryNode>> {
     async move {
         let action = ActionCalculation::get_action(ctx, &key).await?;
@@ -252,7 +252,7 @@ async fn get_action_node(
     node_cache: DiceAqueryNodesCache,
     ctx: &mut DiceComputations<'_>,
     key: ActionKey,
-    fs: Arc<ArtifactFs>,
+    fs: ArtifactFs,
 ) -> buck2_error::Result<ActionQueryNode> {
     let copied_node_cache = node_cache.dupe();
     node_cache
@@ -267,7 +267,7 @@ impl<'c, 'd> DiceAqueryDelegate<'c, 'd> {
     pub(crate) async fn new(
         base_delegate: DiceQueryDelegate<'c, 'd>,
     ) -> buck2_error::Result<DiceAqueryDelegate<'c, 'd>> {
-        let artifact_fs = Arc::new(base_delegate.ctx().get_artifact_fs().await?.dupe());
+        let artifact_fs = base_delegate.ctx().get_artifact_fs().await?.dupe();
         let query_data = Arc::new(AqueryData {
             artifact_fs,
             delegate_query_data: base_delegate.query_data().dupe(),
@@ -407,7 +407,11 @@ impl QueryLiterals<ActionQueryNode> for AqueryData {
                         )
                         .await?;
 
-                    match dice.get_analysis_result(configured_label.target()).await? {
+                    match dice
+                        .get_analysis_result(configured_label.target())
+                        .await
+                        .ok()?
+                    {
                         MaybeCompatible::Incompatible(_) => {
                             // ignored
                         }
@@ -415,7 +419,7 @@ impl QueryLiterals<ActionQueryNode> for AqueryData {
                             let target_set = get_target_set_from_analysis_inner(
                                 self,
                                 &configured_label,
-                                analysis,
+                                analysis.dupe(),
                                 dice,
                             )
                             .await?;

@@ -11,10 +11,11 @@
 use std::sync::Arc;
 
 use allocative::Allocative;
-use async_trait::async_trait;
 use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
+use futures::FutureExt;
+use futures::future::BoxFuture;
 use pagable::Pagable;
 
 use crate::analysis::registry::RecordedAnalysisValues;
@@ -30,24 +31,28 @@ impl DynamicLambdaResult {
     }
 }
 
-#[async_trait]
 pub trait DynamicLambdaCalculation: Sync + 'static {
-    async fn dynamic_lambda_result(
+    fn dynamic_lambda_result<'a, 'd>(
         &self,
-        dice: &mut DiceComputations<'_>,
-        key: &DynamicLambdaResultsKey,
-    ) -> buck2_error::Result<Arc<DynamicLambdaResult>>;
+        dice: &'a mut DiceComputations<'d>,
+        key: &'a DynamicLambdaResultsKey,
+    ) -> BoxFuture<'a, buck2_error::Result<&'d Arc<DynamicLambdaResult>>>
+    where
+        'd: 'a;
 }
 
 pub static DYNAMIC_LAMBDA_CALCULATION_IMPL: LateBinding<&'static dyn DynamicLambdaCalculation> =
     LateBinding::new("DYNAMIC_LAMBDA_CALCULATION_IMPL");
 
-pub async fn dynamic_lambda_result(
-    dice: &mut DiceComputations<'_>,
-    key: &DynamicLambdaResultsKey,
-) -> buck2_error::Result<Arc<DynamicLambdaResult>> {
-    DYNAMIC_LAMBDA_CALCULATION_IMPL
-        .get()?
-        .dynamic_lambda_result(dice, key)
-        .await
+pub fn dynamic_lambda_result<'a, 'd>(
+    dice: &'a mut DiceComputations<'d>,
+    key: &'a DynamicLambdaResultsKey,
+) -> BoxFuture<'a, buck2_error::Result<&'d Arc<DynamicLambdaResult>>>
+where
+    'd: 'a,
+{
+    match DYNAMIC_LAMBDA_CALCULATION_IMPL.get() {
+        Ok(v) => v.dynamic_lambda_result(dice, key),
+        Err(e) => futures::future::ready(Err(e)).boxed(),
+    }
 }

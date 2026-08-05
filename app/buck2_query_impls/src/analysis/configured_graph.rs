@@ -31,6 +31,7 @@ use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use dupe::IterDupedExt;
 use dupe::OptionDupedExt;
+use dupe::ResultDupedErrExt;
 use pagable::Pagable;
 use pagable::StaticStr;
 use pagable::pagable_typetag;
@@ -80,7 +81,7 @@ impl ConfiguredGraphQueryEnvironmentDelegate for AnalysisConfiguredGraphQueryDel
 
         #[async_trait]
         impl Key for TemplatePlaceholderInfoQueryKey {
-            type Value = buck2_error::Result<Arc<TargetSet<ConfiguredGraphNodeRef>>>;
+            type Value = buck2_error::Result<TargetSet<ConfiguredGraphNodeRef>>;
 
             async fn compute(
                 &self,
@@ -115,7 +116,7 @@ impl ConfiguredGraphQueryEnvironmentDelegate for AnalysisConfiguredGraphQueryDel
                     .map(ConfiguredGraphNodeRef::new)
                     .collect();
                 let targets = find_target_nodes(targets, label_to_artifact)?;
-                Ok(Arc::new(targets))
+                Ok(targets)
             }
 
             fn equality(_: &Self::Value, _: &Self::Value) -> bool {
@@ -132,18 +133,17 @@ impl ConfiguredGraphQueryEnvironmentDelegate for AnalysisConfiguredGraphQueryDel
             .into_iter()
             .map(|target| target.label().dupe())
             .collect();
-        let targets = self
+        Ok(self
             .dice_query_delegate
             .ctx()
-            .compute(&TemplatePlaceholderInfoQueryKey {
+            .compute_ref(&TemplatePlaceholderInfoQueryKey {
                 template_name,
                 targets: Arc::new(targets),
             })
-            .await??;
-
-        // TODO(scottcao): Make all query functions return an Arc as an output so we can avoid making an unnecessary
-        // clone here
-        Ok(targets.as_ref().clone())
+            .await?
+            .as_ref()
+            .duped_err()?
+            .clone())
     }
 }
 

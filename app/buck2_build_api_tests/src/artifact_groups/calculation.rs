@@ -37,7 +37,7 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePathBuf;
-use buck2_core::configuration::compatibility::MaybeCompatible;
+use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::fs::project::ProjectRootTemp;
@@ -83,7 +83,7 @@ fn mock_analysis_for_tsets(
     for (target, tsets) in by_target.into_iter() {
         dice_builder = dice_builder.mock_and_return(
             AnalysisKey(target.dupe()),
-            buck2_error::Ok(MaybeCompatible::Compatible(AnalysisResult::new(
+            ResultMaybeCompatible::Compatible(AnalysisResult::new(
                 RecordedAnalysisValues::testing_new(
                     DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target)),
                     tsets,
@@ -94,7 +94,7 @@ fn mock_analysis_for_tsets(
                 0,
                 0,
                 None,
-            ))),
+            )),
         );
     }
 

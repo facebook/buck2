@@ -238,9 +238,9 @@ async fn alloc_deps<'v>(
         .try_compute_join(deps, async |ctx, target| {
             let res = ctx
                 .get_analysis_result(target.target())
-                .await?
+                .await
                 .require_compatible()?;
-            buck2_error::Ok((target, res))
+            buck2_error::Ok((target, res.dupe()))
         })
         .await?;
 

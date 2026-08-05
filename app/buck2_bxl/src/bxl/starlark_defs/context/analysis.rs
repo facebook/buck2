@@ -13,6 +13,7 @@ use buck2_core::configuration::compatibility::IncompatiblePlatformReason;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use dice::DiceComputations;
+use dupe::Dupe;
 use either::Either;
 use gazebo::prelude::*;
 
@@ -31,7 +32,11 @@ pub(crate) async fn analysis<'v>(
 > {
     let analysis = dice
         .compute_join(expr.labels(), async |dice, label| {
-            let maybe_result = dice.get_analysis_result(label.target()).await?;
+            let maybe_result = dice
+                .get_analysis_result(label.target())
+                .await
+                .ok()?
+                .map(|r| r.dupe());
             buck2_error::Ok((label, maybe_result))
         })
         .await

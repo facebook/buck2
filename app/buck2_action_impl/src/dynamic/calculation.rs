@@ -32,6 +32,9 @@ use dice::Key;
 use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
 use dupe::Dupe;
+use dupe::ResultDupedErrExt;
+use futures::FutureExt;
+use futures::future::BoxFuture;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 
@@ -40,14 +43,22 @@ use crate::dynamic::storage::FrozenDynamicLambdaParamsStorageImpl;
 
 struct DynamicLambdaCalculationImpl;
 
-#[async_trait]
 impl DynamicLambdaCalculation for DynamicLambdaCalculationImpl {
-    async fn dynamic_lambda_result(
+    fn dynamic_lambda_result<'a, 'd>(
         &self,
-        dice: &mut DiceComputations<'_>,
-        key: &DynamicLambdaResultsKey,
-    ) -> buck2_error::Result<Arc<DynamicLambdaResult>> {
-        Ok(dice.compute(&DynamicLambdaDiceKey(key.dupe())).await??)
+        dice: &'a mut DiceComputations<'d>,
+        key: &'a DynamicLambdaResultsKey,
+    ) -> BoxFuture<'a, buck2_error::Result<&'d Arc<DynamicLambdaResult>>>
+    where
+        'd: 'a,
+    {
+        async move {
+            dice.compute_ref(&DynamicLambdaDiceKey(key.dupe()))
+                .await?
+                .as_ref()
+                .duped_err()
+        }
+        .boxed()
     }
 }
 
@@ -93,10 +104,7 @@ impl Key for DynamicLambdaDiceKey {
                 format!("Error running dynamic analysis for `{}`", self.0.owner())
             })?;
         let res = Arc::new(DynamicLambdaResult { analysis_values });
-        ctx.analysis_complete(
-            &self_deferred_key,
-            &DeferredHolder::DynamicLambda(res.dupe()),
-        )?;
+        ctx.analysis_complete(&self_deferred_key, &DeferredHolder::DynamicLambda(&res))?;
         Ok(res)
     }
 

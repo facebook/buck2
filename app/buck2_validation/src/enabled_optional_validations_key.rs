@@ -9,7 +9,6 @@
  */
 
 use std::collections::BTreeSet;
-use std::sync::Arc;
 
 use allocative::Allocative;
 use derive_more::Display;
@@ -34,7 +33,7 @@ pub trait SetEnabledOptionalValidations {
 }
 
 impl InjectedKey for EnabledOptionalValidationsKey {
-    type Value = Arc<BTreeSet<String>>;
+    type Value = BTreeSet<String>;
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {
         x == y
@@ -52,7 +51,7 @@ impl SetEnabledOptionalValidations for DiceTransactionUpdater {
     ) -> buck2_error::Result<()> {
         Ok(self.changed_to(vec![(
             EnabledOptionalValidationsKey,
-            Arc::new(BTreeSet::from_iter(validations)),
+            BTreeSet::from_iter(validations),
         )])?)
     }
 }

@@ -20,6 +20,8 @@ use dice::DiceComputations;
 use dice::Key;
 use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
+use dupe::Dupe;
+use dupe::ResultDupedErrExt;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 
@@ -112,9 +114,12 @@ pub async fn get_outputs_for_top_level_target(
             OkPagableValueSerialize::<Self::Value>::new()
         }
     }
-    ctx.compute(&TopLevelTargetOutputsKey(
+    ctx.compute_ref(&TopLevelTargetOutputsKey(
         providers_label.clone(),
         providers_to_build.clone(),
     ))
     .await?
+    .as_ref()
+    .map(|v| v.dupe())
+    .duped_err()
 }

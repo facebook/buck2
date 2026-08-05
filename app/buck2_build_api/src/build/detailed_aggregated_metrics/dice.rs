@@ -44,7 +44,7 @@ pub trait HasDetailedAggregatedMetrics {
     fn analysis_complete(
         &self,
         key: &DeferredHolderKey,
-        result: &DeferredHolder,
+        result: &DeferredHolder<'_>,
     ) -> buck2_error::Result<()>;
     fn top_level_target(&self, spec: TopLevelTargetSpec) -> buck2_error::Result<()>;
     fn take_per_build_events(&self) -> buck2_error::Result<PerBuildEvents>;
@@ -91,7 +91,7 @@ impl HasDetailedAggregatedMetrics for DiceComputations<'_> {
     fn analysis_complete(
         &self,
         key: &DeferredHolderKey,
-        result: &DeferredHolder,
+        result: &DeferredHolder<'_>,
     ) -> buck2_error::Result<()> {
         get_detailed_aggregated_metrics_handle(self)?.analysis_complete(key, result)
     }

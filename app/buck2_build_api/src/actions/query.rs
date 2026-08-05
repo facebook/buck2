@@ -144,7 +144,7 @@ impl ActionQueryNode {
     pub fn new_action(
         action: Arc<RegisteredAction>,
         deps: Vec<ActionInput>,
-        fs: Arc<ArtifactFs>,
+        fs: ArtifactFs,
     ) -> Self {
         Self {
             key: ActionQueryNodeRef::Action(action.key().dupe()),
@@ -232,7 +232,7 @@ pub struct ActionData {
     action: Arc<RegisteredAction>,
     deps: Arc<Vec<ActionInput>>,
     #[derivative(Debug = "ignore")]
-    fs: Arc<ArtifactFs>,
+    fs: ArtifactFs,
 }
 
 impl ActionData {

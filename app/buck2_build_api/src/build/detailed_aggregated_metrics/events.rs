@@ -30,10 +30,11 @@ use crate::build::detailed_aggregated_metrics::types::DetailedAggregatedMetrics;
 use crate::build::detailed_aggregated_metrics::types::PerBuildEvents;
 use crate::build::detailed_aggregated_metrics::types::TopLevelTargetSpec;
 use crate::deferred::calculation::DeferredHolder;
+use crate::deferred::calculation::OwnedDeferredHolder;
 
 pub(crate) enum DetailedAggregatedMetricsEvent {
     AnalysisStarted(DeferredHolderKey),
-    AnalysisComplete(DeferredHolderKey, DeferredHolder),
+    AnalysisComplete(DeferredHolderKey, OwnedDeferredHolder),
     ComputeMetrics(
         PerBuildEvents,
         tokio::sync::oneshot::Sender<buck2_error::Result<DetailedAggregatedMetrics>>,
@@ -164,12 +165,12 @@ impl DetailedAggregatedMetricsHandle {
     pub fn analysis_complete(
         &self,
         key: &DeferredHolderKey,
-        result: &DeferredHolder,
+        result: &DeferredHolder<'_>,
     ) -> buck2_error::Result<()> {
         match self.tracker.get() {
             Some(tracker) => tracker.send(DetailedAggregatedMetricsEvent::AnalysisComplete(
                 key.dupe(),
-                result.dupe(),
+                result.to_owned_holder(),
             )),
             None => Ok(()),
         }

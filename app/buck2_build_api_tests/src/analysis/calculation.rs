@@ -180,13 +180,13 @@ async fn test_analysis_calculation() -> buck2_error::Result<()> {
     )?;
     let dice = dice.commit().await;
 
-    let analysis = dice
-        .ctx()
+    let mut ctx = dice.ctx();
+    let analysis = ctx
         .get_analysis_result(
             &TargetLabel::testing_parse("cell//pkg:rule1")
                 .configure(ConfigurationData::testing_new()),
         )
-        .await?
+        .await
         .require_compatible()?;
 
     assert_eq!(analysis.analysis_values().iter_actions().count(), 0);

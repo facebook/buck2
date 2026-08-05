@@ -103,14 +103,14 @@ async fn audit_output<'v>(
 
     let analysis = dice_ctx
         .get_analysis_result(&configured_target_label)
-        .await?
+        .await
         .require_compatible()?;
 
     Ok(FIND_MATCHING_ACTION.get()?(
         dice_ctx,
         working_dir,
         global_cfg_options,
-        &analysis,
+        analysis,
         short_path,
     )
     .await?

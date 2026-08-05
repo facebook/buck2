@@ -247,8 +247,8 @@ impl AnonTargetDependents {
             KeepGoing::try_compute_join_all(dice, self.deps.iter(), async |ctx, dep| {
                 ctx.get_analysis_result(dep)
                     .await
-                    .and_then(|v| v.require_compatible())
-                    .map(|r| (dep, r))
+                    .require_compatible()
+                    .map(|r| (dep, r.dupe()))
             })
             .await?;
         let promised_artifacts: StdBuckHashMap<_, _> = {

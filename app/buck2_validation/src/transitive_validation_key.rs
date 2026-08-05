@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::borrow::Cow;
 use std::collections::BTreeSet;
 use std::sync::Arc;
 
@@ -30,7 +29,6 @@ use dice::ValueSerialize;
 use dice_error::DiceError;
 use dupe::Dupe;
 use dupe::IterDupedExt;
-use either::Either;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 
@@ -60,14 +58,13 @@ impl TransitiveValidationKey {
             None => return Ok(()),
         };
 
-        let enabled_optional_validations = if info.validations().any(|spec| spec.optional()) {
-            Either::Left(ctx.compute(&EnabledOptionalValidationsKey).await?)
-        } else {
-            Either::Right(Cow::Owned(BTreeSet::new()))
-        };
-
+        let empty = BTreeSet::new();
         let enabled_optional_validations: &BTreeSet<String> =
-            AsRef::as_ref(&enabled_optional_validations);
+            if info.validations().any(|spec| spec.optional()) {
+                ctx.compute_ref(&EnabledOptionalValidationsKey).await?
+            } else {
+                &empty
+            };
 
         let artifacts = info
             .validations()
@@ -89,7 +86,7 @@ impl TransitiveValidationKey {
         ctx.try_compute_join(
             transitive_validations.0.children.iter().duped(),
             async |ctx, label| {
-                let result = ctx.compute(&TransitiveValidationKey(label)).await?;
+                let result = ctx.compute_ref(&TransitiveValidationKey(label)).await?;
                 tighten_cached_validation_result(result)
             },
         )
@@ -194,12 +191,12 @@ async fn compute_single_validation(
         .action_key()
         .ok_or_else(|| internal_error!("Expected validation to be a build artifact"))?;
     let key = SingleValidationKey(action_key.dupe());
-    let result = ctx.compute(&key).await?;
+    let result = ctx.compute_ref(&key).await?;
     tighten_cached_validation_result(result)
 }
 
 fn tighten_cached_validation_result(
-    result: buck2_error::Result<CachedValidationResult>,
+    result: &buck2_error::Result<CachedValidationResult>,
 ) -> Result<(), TreatValidationFailureAsError> {
     match result {
         Ok(result) => match result.0.as_ref() {
@@ -208,6 +205,6 @@ fn tighten_cached_validation_result(
                 Err(user_facing_error.clone().into())
             }
         },
-        Err(e) => Err(e.into()),
+        Err(e) => Err(e.dupe().into()),
     }
 }

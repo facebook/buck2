@@ -24,7 +24,7 @@ use starlark::values::OwnedFrozenValueTyped;
 use crate::actions::RegisteredAction;
 use crate::artifact_groups::ArtifactGroup;
 use crate::deferred::calculation::ActionLookup;
-use crate::deferred::calculation::DeferredHolder;
+use crate::deferred::calculation::OwnedDeferredHolder;
 use crate::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
@@ -76,20 +76,20 @@ impl Node {
     }
 }
 
-struct Graph<'a>(&'a buck2_hash::BuckHashMap<DeferredHolderKey, DeferredHolder>);
+struct Graph<'a>(&'a buck2_hash::BuckHashMap<DeferredHolderKey, OwnedDeferredHolder>);
 
 impl<'a> Graph<'a> {
     pub(crate) fn lookup_deferred(
         &self,
         holder_key: &DeferredHolderKey,
-    ) -> Option<&DeferredHolder> {
+    ) -> Option<&OwnedDeferredHolder> {
         self.0.get(holder_key)
     }
 
     fn lookup_node(&self, key: Key) -> buck2_error::Result<Node> {
         match key {
             Key::Action(action_key) => match self.lookup_deferred(action_key.holder_key()) {
-                Some(v) => match v.lookup_action(&action_key)? {
+                Some(v) => match v.as_ref().lookup_action(&action_key)? {
                     ActionLookup::Action(registered_action) => Ok(Node::Action(registered_action)),
                     ActionLookup::Deferred(action_key) => self.lookup_node(Key::Action(action_key)),
                 },
@@ -111,7 +111,7 @@ impl<'a> Graph<'a> {
                 let holder_key = key.key.key.holder_key();
                 match self.lookup_deferred(holder_key) {
                     Some(v) => {
-                        let tset = v.lookup_transitive_set(&key.key.key)?;
+                        let tset = v.as_ref().lookup_transitive_set(&key.key.key)?;
                         Ok(Some(Key::ResolvedTransitiveSetProjection(
                             ResolvedTransitiveSetProjection {
                                 projection: key.key.projection,
@@ -258,7 +258,7 @@ impl TraversalState {
 
 pub fn traverse_partial_action_graph<'a>(
     root_artifacts: impl IntoIterator<Item = &'a ArtifactGroup>,
-    state: &buck2_hash::BuckHashMap<DeferredHolderKey, DeferredHolder>,
+    state: &buck2_hash::BuckHashMap<DeferredHolderKey, OwnedDeferredHolder>,
 ) -> buck2_error::Result<(bool, buck2_hash::BuckHashSet<ActionKey>)> {
     let mut actions = buck2_hash::BuckHashSet::default();
 

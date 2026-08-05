@@ -164,6 +164,7 @@ use dice_futures::cancellation::CancellationContext;
 use display_container::fmt_container;
 use display_container::fmt_keyed_container;
 use dupe::Dupe;
+use dupe::ResultDupedErrExt;
 use futures::FutureExt;
 use futures::channel::mpsc::UnboundedSender;
 use futures::stream::FuturesUnordered;
@@ -714,7 +715,7 @@ struct TestExecutionKey {
 
 #[async_trait]
 impl Key for TestExecutionKey {
-    type Value = Result<Arc<ExecuteData>, ExecuteError>;
+    type Value = Result<ExecuteData, ExecuteError>;
 
     async fn compute(
         &self,
@@ -749,7 +750,6 @@ impl Key for TestExecutionKey {
                 .boxed()
             })
             .await
-            .map(Arc::new)
     }
 
     fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
@@ -800,11 +800,15 @@ async fn prepare_and_execute(
     }
 }
 
-async fn prepare_and_execute_dice(
-    ctx: &mut DiceComputations<'_>,
+async fn prepare_and_execute_dice<'d>(
+    ctx: &mut DiceComputations<'d>,
     key: &TestExecutionKey,
-) -> Result<Arc<ExecuteData>, ExecuteError> {
-    ctx.compute(key).await.map_err(buck2_error::Error::from)?
+) -> Result<&'d ExecuteData, ExecuteError> {
+    ctx.compute_ref(key)
+        .await
+        .map_err(buck2_error::Error::from)?
+        .as_ref()
+        .duped_err()
 }
 
 impl Display for TestExecutionKey {

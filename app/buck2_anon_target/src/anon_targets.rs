@@ -91,7 +91,6 @@ use dice::ValueSerialize;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use dupe::ResultDupedErrExt;
-use dupe::ResultDupedExt;
 use futures::FutureExt;
 use futures::future::BoxFuture;
 use pagable::Pagable;
@@ -192,7 +191,7 @@ impl Key for AnonTargetKey {
             anon_target_split,
         })?;
 
-        ctx.analysis_complete(&deferred_key, &DeferredHolder::Analysis(res.dupe()))?;
+        ctx.analysis_complete(&deferred_key, &DeferredHolder::Analysis(&res))?;
         Ok(res)
     }
 
@@ -628,9 +627,8 @@ impl AnonAttrCtx {
 }
 
 pub(crate) fn init_eval_anon_target() {
-    EVAL_ANON_TARGET.init(|ctx, key| {
-        Box::pin(async move { AnonTargetKey::downcast(key)?.resolve(ctx).await.duped() })
-    });
+    EVAL_ANON_TARGET
+        .init(|ctx, key| Box::pin(async move { AnonTargetKey::downcast(key)?.resolve(ctx).await }));
 }
 
 pub(crate) fn init_get_promised_artifact() {

@@ -13,7 +13,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use buck2_build_api::bxl::calculation::BXL_CALCULATION_IMPL;
 use buck2_build_api::bxl::calculation::BxlCalculationDyn;
-use buck2_build_api::bxl::calculation::BxlComputeResult;
+use buck2_build_api::bxl::result::BxlResult;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKeyBxl;
 use dice::DiceComputations;
 use dice::Key;
@@ -21,6 +21,7 @@ use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
+use futures::future::BoxFuture;
 use futures::future::FutureExt;
 
 use crate::bxl;
@@ -30,16 +31,20 @@ use crate::bxl::key::BxlKey;
 #[derive(Debug)]
 struct BxlCalculationImpl;
 
-#[async_trait]
 impl BxlCalculationDyn for BxlCalculationImpl {
-    async fn eval_bxl(
+    fn eval_bxl<'a, 'd>(
         &self,
-        ctx: &mut DiceComputations<'_>,
+        ctx: &'a mut DiceComputations<'d>,
         bxl: BaseDeferredKeyBxl,
-    ) -> buck2_error::Result<BxlComputeResult> {
-        eval_bxl(ctx, BxlKey::from_base_deferred_key_dyn_impl_err(bxl)?)
-            .await
-            .map_err(|e| e.error)
+    ) -> BoxFuture<'a, buck2_error::Result<&'d Arc<BxlResult>>>
+    where
+        'd: 'a,
+    {
+        async move {
+            let key = BxlKey::from_base_deferred_key_dyn_impl_err(bxl)?;
+            eval_bxl_ref(ctx, key).await
+        }
+        .boxed()
     }
 }
 
@@ -50,16 +55,28 @@ pub(crate) fn init_bxl_calculation_impl() {
 pub(crate) async fn eval_bxl(
     ctx: &mut DiceComputations<'_>,
     bxl: BxlKey,
-) -> bxl::eval::Result<BxlComputeResult> {
+) -> bxl::eval::Result<Arc<BxlResult>> {
     match ctx.compute(&internal::BxlComputeKey(bxl)).await {
         Ok(res) => res,
         Err(e) => Err(buck2_error::Error::from(e).into()),
     }
 }
 
+/// Like [`eval_bxl`] but borrows the result out of the dice graph rather than
+/// duping the `Arc` out of it; the bxl-eval error is surfaced as a plain error.
+pub(crate) async fn eval_bxl_ref<'d>(
+    ctx: &mut DiceComputations<'d>,
+    bxl: BxlKey,
+) -> buck2_error::Result<&'d Arc<BxlResult>> {
+    ctx.compute_ref(&internal::BxlComputeKey(bxl))
+        .await?
+        .as_ref()
+        .map_err(|e| e.error.dupe())
+}
+
 #[async_trait]
 impl Key for internal::BxlComputeKey {
-    type Value = bxl::eval::Result<BxlComputeResult>;
+    type Value = bxl::eval::Result<Arc<BxlResult>>;
 
     async fn compute(
         &self,
@@ -73,7 +90,7 @@ impl Key for internal::BxlComputeKey {
                 async move {
                     eval(ctx, key, observer)
                         .await
-                        .map(|(result, _)| BxlComputeResult(Arc::new(result)))
+                        .map(|(result, _)| Arc::new(result))
                 }
                 .boxed()
             })

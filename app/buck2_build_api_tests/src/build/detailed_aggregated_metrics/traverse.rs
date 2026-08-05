@@ -24,7 +24,7 @@ mod tests {
     use buck2_build_api::artifact_groups::ArtifactGroup;
     use buck2_build_api::artifact_groups::deferred::TransitiveSetKey;
     use buck2_build_api::build::detailed_aggregated_metrics::testing::traverse_partial_action_graph;
-    use buck2_build_api::deferred::calculation::DeferredHolder;
+    use buck2_build_api::deferred::calculation::OwnedDeferredHolder;
     use buck2_build_api::dynamic::calculation::DynamicLambdaResult;
     use buck2_build_api::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
     use buck2_core::category::Category;
@@ -81,13 +81,13 @@ mod tests {
 
         fn add_to_state(
             self,
-            state: &mut buck2_hash::BuckHashMap<DeferredHolderKey, DeferredHolder>,
+            state: &mut buck2_hash::BuckHashMap<DeferredHolderKey, OwnedDeferredHolder>,
         ) {
             let (key, holder) = self.build();
             state.insert(key, holder);
         }
 
-        fn build(self) -> (DeferredHolderKey, DeferredHolder) {
+        fn build(self) -> (DeferredHolderKey, OwnedDeferredHolder) {
             let Self {
                 holder_key,
                 actions,
@@ -108,7 +108,7 @@ mod tests {
                 RecordedAnalysisValues::testing_new(holder_key.dupe(), tsets, recorded_actions);
             let holder = match &holder_key {
                 DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(..)) => {
-                    DeferredHolder::Analysis(AnalysisResult::new(
+                    OwnedDeferredHolder::Analysis(AnalysisResult::new(
                         analysis_values,
                         None,
                         HashMap::new(),
@@ -118,7 +118,9 @@ mod tests {
                     ))
                 }
                 DeferredHolderKey::DynamicLambda(..) => {
-                    DeferredHolder::DynamicLambda(Arc::new(DynamicLambdaResult { analysis_values }))
+                    OwnedDeferredHolder::DynamicLambda(Arc::new(DynamicLambdaResult {
+                        analysis_values,
+                    }))
                 }
                 _ => unimplemented!(),
             };
