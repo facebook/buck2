@@ -6,6 +6,9 @@
 # License, Version 2.0 found in the LICENSE-APACHE file in the root directory
 # of this source tree.
 
+# N.B. When the interpreter is a build artifact, the `#!` line above expands to several
+# lines of shell/Python polyglot that resolve it relative to this file.
+
 # LINKTREEDIR=<MODULES_DIR>
 
 main_module = "<MAIN_MODULE>"

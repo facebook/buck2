@@ -43,6 +43,34 @@ import platform
 import stat
 from pathlib import Path
 
+# Substituted for `<PYTHON>` in the template, i.e. it is what follows the `#!`.
+#
+# A shell/Python polyglot: `/bin/sh` runs the lines between `"true" '''` and the
+# closing `'''`, while Python parses the same text as two implicitly concatenated
+# string literals and keeps it as the module docstring. Windows has no `#!` support
+# and invokes the bootstrapper as `python <pex>`, where it is likewise inert.
+#
+# `<REL_PYTHON>` is the interpreter's path relative to the bootstrapper.
+_SH_TRAMPOLINE = r"""/bin/sh
+"true" '''\'
+# Resolve this script, following symlinks, so the interpreter can be found next to it.
+_self=$0
+case $_self in */*) ;; *) _self=./$_self ;; esac
+_hops=0
+while [ -L "$_self" ] && [ "$_hops" -lt 32 ]; do
+    # `readlink` is not a shell builtin and `$PATH` may be scrubbed. Without it the
+    # best we can do is assume the symlink sits alongside the interpreter.
+    _link=$(readlink "$_self" 2>/dev/null) || break
+    [ -n "$_link" ] || break
+    case $_link in
+        /*) _self=$_link ;;
+        *) _self=${_self%/*}/$_link ;;
+    esac
+    _hops=$((_hops + 1))
+done
+exec "${_self%/*}/<REL_PYTHON>" "$0" "$@"
+'''"""
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -69,7 +97,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--python",
         required=True,
-        help="The python binary to put in the bootstrapper hashbang",
+        help=(
+            "The python binary to launch the bootstrapper with. An absolute path or a"
+            " bare name goes straight into the hashbang; a project-root-relative path"
+            " is resolved at runtime against the bootstrapper, see launcher()"
+        ),
     )
     parser.add_argument(
         "--host-python",
@@ -144,6 +176,36 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def launcher(python: str, output_dir: Path) -> str:
+    """Build the body of the bootstrapper's `#!` line, i.e. how to start `python`.
+
+    The result must not depend on where the project root happens to sit on this
+    machine. The action's command line doesn't, so neither does its cache key, and an
+    output holding a local absolute path would poison the cache for every other reader.
+    """
+
+    separators = (os.path.sep, os.path.altsep)
+    if os.path.isabs(python) or not any(sep and sep in python for sep in separators):
+        # An absolute path is machine-independent already, and a bare word is for
+        # `/usr/bin/env` to look up on `$PATH`. Both work directly in a `#!` line.
+        #
+        # TODO(nmj): Remove this hack. So, if arg0 in your shebang is a bash script
+        #                 (like /usr/local/fbcode/platform007/bin/python3.7 on macs is)
+        #                 OSX just sort of ignores it and tries to run your thing with
+        #                 the current shell. So, we hack in /usr/bin/env in the front
+        #                 for now, and let it do the lifting. OSX: Bringing you the best
+        #                 of 1980s BSD in 2021...
+        return f"/usr/bin/env {python}"
+
+    # The interpreter is a build artifact, so buck2 handed us a path relative to the
+    # project root. A `#!` line can't carry one, because the kernel resolves it against
+    # the caller's cwd, so defer to a shell that resolves it against the bootstrapper.
+    relative_python = os.path.relpath(python, output_dir)
+    return _SH_TRAMPOLINE.replace(
+        "<REL_PYTHON>", relative_python.replace(os.path.sep, "/")
+    )
+
+
 def write_bootstrapper(args: argparse.Namespace) -> None:
     """Write the .pex bootstrapper script using a template"""
 
@@ -155,24 +217,14 @@ def write_bootstrapper(args: argparse.Namespace) -> None:
     relative_modules_dir = os.path.relpath(args.modules_dir, args.output.parent)
     native_lib_dirs = [relative_modules_dir] + args.native_library_runtime_paths
 
-    # TODO(nmj): Remove this hack. So, if arg0 in your shebang is a bash script
-    #                 (like /usr/local/fbcode/platform007/bin/python3.7 on macs is)
-    #                 OSX just sort of ignores it and tries to run your thing with
-    #                 the current shell. So, we hack in /usr/bin/env in the front
-    #                 for now, and let it do the lifting. OSX: Bringing you the best
-    #                 of 1980s BSD in 2021...
-
     ld_preload = None
     if args.preload_libraries:
         ld_preload = [p.name for p in args.preload_libraries]
 
-    python = str(args.python)
-    if not os.path.isabs(python) and os.path.sep in python:
-        python = os.path.abspath(python)
-
-    new_data = data.replace("<PYTHON>", f"/usr/bin/env {python}")
-    # Instead, pass interpreter flags via the Python variable that the re-exec
-    # path uses (e.g. -Xgil=0 for free-threaded builds).
+    new_data = data.replace("<PYTHON>", launcher(str(args.python), args.output.parent))
+    # Interpreter flags go to the Python variable that the re-exec path reads (e.g.
+    # -Xgil=0 for free-threaded builds) rather than onto the `#!` line, which on Linux
+    # can carry at most one argument.
     new_data = new_data.replace(
         "<PYTHON_INTERPRETER_FLAGS>", " ".join(args.python_interpreter_flags or [])
     )
