@@ -163,6 +163,12 @@ fn read_heap_allocated_bytes() -> isize {
 }
 
 unsafe extern "C" {
+    // tikv_jemallocator uses a `_rjem_` prefix for its functions if prefixing is enabled:
+    // <https://docs.rs/crate/tikv-jemalloc-sys/0.7.1+5.3.1-0-g81034ce1f1373e37dc865038e1bc8eeecf559ce8/source/src/lib.rs#143>
+    // and the prefixing is force-enabled on Apple:
+    // <https://docs.rs/crate/tikv-jemalloc-sys/0.7.1+5.3.1-0-g81034ce1f1373e37dc865038e1bc8eeecf559ce8/source/src/env.rs#24>
+    // thus we have to prefix it. this would be avoidable if they exposed this function as API :)
+    #[cfg_attr(target_os = "macos", link_name = "_rjem_mallctl")]
     fn mallctl(
         name: *const std::ffi::c_char,
         oldp: *mut std::ffi::c_void,
