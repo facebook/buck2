@@ -42,18 +42,18 @@ impl InjectedKey for BuildContextKey {
 }
 
 #[async_trait]
-pub trait HasInterpreterContext {
+pub trait HasInterpreterContext<'d> {
     async fn get_interpreter_configuror(
         &mut self,
-    ) -> buck2_error::Result<Arc<BuildInterpreterConfiguror>>;
+    ) -> buck2_error::Result<&'d Arc<BuildInterpreterConfiguror>>;
 }
 
 #[async_trait]
-impl HasInterpreterContext for DiceComputations<'_> {
+impl<'d> HasInterpreterContext<'d> for DiceComputations<'d> {
     async fn get_interpreter_configuror(
         &mut self,
-    ) -> buck2_error::Result<Arc<BuildInterpreterConfiguror>> {
-        Ok(self.compute(&BuildContextKey()).await?.dupe())
+    ) -> buck2_error::Result<&'d Arc<BuildInterpreterConfiguror>> {
+        Ok(self.compute_ref(&BuildContextKey()).await?)
     }
 }
 

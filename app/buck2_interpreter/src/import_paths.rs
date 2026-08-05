@@ -27,6 +27,7 @@ use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
+use dupe::ResultDupedErrExt;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 
@@ -84,19 +85,19 @@ impl ImplicitImportPaths {
 }
 
 #[async_trait]
-pub trait HasImportPaths {
+pub trait HasImportPaths<'d> {
     async fn import_paths_for_cell(
         &mut self,
         cell_name: BuildFileCell,
-    ) -> buck2_error::Result<Arc<ImplicitImportPaths>>;
+    ) -> buck2_error::Result<&'d Arc<ImplicitImportPaths>>;
 }
 
 #[async_trait]
-impl HasImportPaths for DiceComputations<'_> {
+impl<'d> HasImportPaths<'d> for DiceComputations<'d> {
     async fn import_paths_for_cell(
         &mut self,
         cell_name: BuildFileCell,
-    ) -> buck2_error::Result<Arc<ImplicitImportPaths>> {
+    ) -> buck2_error::Result<&'d Arc<ImplicitImportPaths>> {
         #[derive(
             Debug,
             Eq,
@@ -129,7 +130,7 @@ impl HasImportPaths for DiceComputations<'_> {
                 Ok(Arc::new(ImplicitImportPaths::parse(
                     config.view(ctx),
                     self.cell_name,
-                    &cell_alias_resolver,
+                    cell_alias_resolver,
                 )?))
             }
 
@@ -144,6 +145,9 @@ impl HasImportPaths for DiceComputations<'_> {
             }
         }
 
-        self.compute(&ImportPathsKey { cell_name }).await?
+        self.compute_ref(&ImportPathsKey { cell_name })
+            .await?
+            .as_ref()
+            .duped_err()
     }
 }

@@ -28,6 +28,7 @@ use dice::Key;
 use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
 use dice_futures::cancellation::CancellationContext;
+use dupe::ResultDupedErrExt;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 
@@ -45,19 +46,19 @@ enum RelativePathParseError {
 }
 
 #[async_trait]
-pub trait HasAllowRelativePaths {
+pub trait HasAllowRelativePaths<'d> {
     async fn dirs_allowing_relative_paths(
         &mut self,
         cell_path: CellPath,
-    ) -> buck2_error::Result<Arc<CellPathWithAllowedRelativeDir>>;
+    ) -> buck2_error::Result<&'d Arc<CellPathWithAllowedRelativeDir>>;
 }
 
 #[async_trait]
-impl HasAllowRelativePaths for DiceComputations<'_> {
+impl<'d> HasAllowRelativePaths<'d> for DiceComputations<'d> {
     async fn dirs_allowing_relative_paths(
         &mut self,
         cell_path: CellPath,
-    ) -> buck2_error::Result<Arc<CellPathWithAllowedRelativeDir>> {
+    ) -> buck2_error::Result<&'d Arc<CellPathWithAllowedRelativeDir>> {
         #[derive(
             Debug,
             Eq,
@@ -144,7 +145,10 @@ impl HasAllowRelativePaths for DiceComputations<'_> {
             }
         }
 
-        self.compute(&AllowRelativePathsKey { cell_path }).await?
+        self.compute_ref(&AllowRelativePathsKey { cell_path })
+            .await?
+            .as_ref()
+            .duped_err()
     }
 }
 

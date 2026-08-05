@@ -114,8 +114,8 @@ impl Key for StarlarkProfilerConfigurationResolvedKey {
         ctx: &mut DiceComputations,
         _cancellations: &CancellationContext,
     ) -> Self::Value {
-        let configuration = ctx.compute(&StarlarkProfilerConfigurationKey).await?;
-        let new = match &*configuration {
+        let configuration = ctx.compute_ref(&StarlarkProfilerConfigurationKey).await?;
+        let new = match configuration {
             StarlarkProfilerConfiguration::None => StarlarkProfilerConfigurationResolved::None,
             StarlarkProfilerConfiguration::ProfileLoading(mode, patterns) => match patterns {
                 UnparsedPatternPredicate::Any => {
@@ -294,7 +294,7 @@ impl ProjectionKey for StarlarkProfileModeForKind {
 pub struct StarlarkProfilerConfigurationKey;
 
 impl InjectedKey for StarlarkProfilerConfigurationKey {
-    type Value = Arc<StarlarkProfilerConfiguration>;
+    type Value = StarlarkProfilerConfiguration;
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {
         x == y
@@ -327,7 +327,7 @@ impl SetStarlarkProfilerInstrumentation for DiceTransactionUpdater {
         &mut self,
         configuration: StarlarkProfilerConfiguration,
     ) -> buck2_error::Result<()> {
-        Ok(self.changed_to([(StarlarkProfilerConfigurationKey, Arc::new(configuration))])?)
+        Ok(self.changed_to([(StarlarkProfilerConfigurationKey, configuration)])?)
     }
 }
 

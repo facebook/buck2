@@ -87,12 +87,15 @@ pub trait GetStarlarkTypes {
 impl GetStarlarkTypes for DiceComputations<'_> {
     async fn get_disable_starlark_types(&mut self) -> buck2_error::Result<bool> {
         Ok(self
-            .compute(&StarlarkTypesKey)
+            .compute_ref(&StarlarkTypesKey)
             .await?
             .disable_starlark_types)
     }
 
     async fn get_unstable_typecheck(&mut self) -> buck2_error::Result<bool> {
-        Ok(self.compute(&StarlarkTypesKey).await?.unstable_typecheck)
+        Ok(self
+            .compute_ref(&StarlarkTypesKey)
+            .await?
+            .unstable_typecheck)
     }
 }

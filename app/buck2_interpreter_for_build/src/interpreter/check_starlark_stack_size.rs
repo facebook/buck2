@@ -21,6 +21,7 @@ use dice::Key;
 use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
 use dice_futures::cancellation::CancellationContext;
+use dupe::ResultDupedErrExt;
 use indoc::indoc;
 use pagable::Pagable;
 use pagable::pagable_typetag;
@@ -123,5 +124,9 @@ pub(crate) async fn check_starlark_stack_size(
         }
     }
 
-    ctx.compute(&StarlarkStackSizeChecker).await?
+    ctx.compute_ref(&StarlarkStackSizeChecker)
+        .await?
+        .as_ref()
+        .duped_err()
+        .map(|_| ())
 }

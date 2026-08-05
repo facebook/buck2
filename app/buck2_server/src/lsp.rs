@@ -541,12 +541,12 @@ impl<'a> BuckLspContext<'a> {
             match ParsedPattern::<ProvidersPatternExtra>::parse_not_relaxed(
                 literal,
                 if dir_with_allowed_relative_dirs.has_allowed_relative_dir() {
-                    TargetParsingRel::AllowRelative(&dir_with_allowed_relative_dirs, None)
+                    TargetParsingRel::AllowRelative(dir_with_allowed_relative_dirs, None)
                 } else {
                     TargetParsingRel::AllowLimitedRelative(current_package)
                 },
                 cell_resolver,
-                &cell_alias_resolver,
+                cell_alias_resolver,
                 infer_target_names,
             ) {
                 Ok(ParsedPattern::Target(package, target, _)) => {
