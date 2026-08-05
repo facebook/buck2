@@ -30,10 +30,12 @@ plist.workspace = true
 ref-cast.workspace = true
 regex.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 starlark.workspace = true
 starlark_map.workspace = true
 strong_hash.workspace = true
 tokio.workspace = true
+toml.workspace = true
 triomphe.workspace = true
 
 [dev-dependencies]

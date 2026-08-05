@@ -20,6 +20,7 @@ use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
+use buck2_interpreter::toml::toml_value_to_json;
 use gazebo::prelude::*;
 use starlark::any::ProvidesStaticType;
 use starlark::collections::SmallMap;
@@ -184,6 +185,18 @@ fn artifact_value_methods(builder: &mut MethodsBuilder) {
             .with_buck_error_context(|| format!("Error parsing JSON file `{path}`"))?;
         json_convert(value, heap)
     }
+
+    /// Reads and parses the artifact as TOML
+    fn read_toml<'v>(this: &StarlarkArtifactValue, heap: Heap<'v>) -> starlark::Result<Value<'v>> {
+        let path = this.fs.resolve(&this.path);
+        let contents = fs_util::read_to_string(&path)
+            // input path from starlark
+            .categorize_input()
+            .tag(ErrorTag::StarlarkValue)?;
+        let value: toml::Value = toml::from_str(&contents)
+            .with_buck_error_context(|| format!("Error parsing TOML file `{path}`"))?;
+        json_convert(toml_value_to_json(value), heap)
+    }
 }
 
 #[starlark_module]
@@ -204,6 +217,23 @@ mod tests {
             let value: serde_json::Value = serde_json::from_str(testcase).unwrap();
             let res = json_convert(value, heap).unwrap().to_repr();
             assert_eq!(res, testcase.replace("true", "True"))
+        });
+    }
+
+    #[test]
+    fn test_toml_convert() {
+        Heap::temp(|heap| {
+            let testcase = r#"test = [1, true, "pi", 7.5]
+date = 1979-05-27
+not_a_number = nan"#;
+            let value: toml::Value = toml::from_str(testcase).unwrap();
+            let res = json_convert(toml_value_to_json(value), heap)
+                .unwrap()
+                .to_repr();
+            assert_eq!(
+                res,
+                r#"{"date": "1979-05-27", "not_a_number": None, "test": [1, True, "pi", 7.5]}"#
+            )
         });
     }
 }

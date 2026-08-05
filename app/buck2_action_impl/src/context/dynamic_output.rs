@@ -115,9 +115,8 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
     ///   * `ctx` (context) - which is the same as that passed to the initial rule analysis.
     ///   * `artifacts` - using one of the artifacts from `dynamic` (example usage:
     ///     `artifacts[artifact_from_dynamic])` gives an artifact value containing the methods
-    ///     `read_string`, `read_lines`, and `read_json` to obtain the values from the disk in
-    ///     various formats.  Anything too complex should be piped through a Python script for
-    ///     transformation to JSON.
+    ///     `read_string`, `read_json`, and `read_toml` to obtain the values from the disk in
+    ///     various formats.
     ///   * `outputs` - using one of the artifacts from the `dynamic_output`'s `outputs` (example
     ///     usage: `outputs[artifact_from_dynamic_output_outputs]`) gives an unbounded artifact. The
     ///     function argument must use its `outputs` argument to bind output artifacts, rather than

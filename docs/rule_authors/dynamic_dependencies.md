@@ -61,9 +61,9 @@ The arguments are:
     into `dynamic_output` directly.
   - `artifacts` - using one of the artifacts from `dynamic` (example usage:
     `artifacts[artifact_from_dynamic])` gives an artifact value containing the
-    methods `read_string`, `read_lines`, and `read_json` to obtain the values
-    from the disk in various formats. Anything too complex should be piped
-    through a Python script for transformation to JSON.
+    methods `read_string`, `read_json`, and `read_toml` to obtain the values
+    from the disk in various formats. `read_toml` allows rules to consume files
+    such as `Cargo.toml` and `Cargo.lock` directly.
 - The function must call `ctx.actions` (probably `ctx.actions.run`) to bind all
   outputs. It can examine the values of the dynamic variables and depends on the
   inputs.
@@ -82,7 +82,7 @@ def erlang(ctx):
     beam_file = ctx.actions.declare_output(x + ".beam")
     beams[x] = beam_file
     def f(ctx, artifacts, outputs, x=x, dep_file=dep_file):
-      deps = artifacts[dep_file].read_lines()
+      deps = artifacts[dep_file].read_string().splitlines()
       ctx.actions.run(
         "erl", "-comp", x,
         [beams[d] for d in deps],
@@ -93,4 +93,4 @@ def erlang(ctx):
 ```
 
 The above code uses `declare_output` for the `beam_file` then binds it within
-the function `f`, after having read the `dep_file` with `read_lines`.
+the function `f`, after having read and split the `dep_file` with `read_string`.
