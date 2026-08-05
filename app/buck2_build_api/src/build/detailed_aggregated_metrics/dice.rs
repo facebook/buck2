@@ -65,7 +65,7 @@ pub trait HasDetailedAggregatedMetrics {
     fn compute_artifact_path_sketch(
         &mut self,
         events: &PerBuildEvents,
-        artifact_fs: ArtifactFs,
+        artifact_fs: &ArtifactFs,
         providers_to_skip: HashSet<BuildProviderType>,
         skip_targets: &HashSet<ConfiguredProvidersLabel>,
         sketch_count: bool,
@@ -138,7 +138,7 @@ impl HasDetailedAggregatedMetrics for DiceComputations<'_> {
     async fn compute_artifact_path_sketch(
         &mut self,
         events: &PerBuildEvents,
-        artifact_fs: ArtifactFs,
+        artifact_fs: &ArtifactFs,
         providers_to_skip: HashSet<BuildProviderType>,
         skip_targets: &HashSet<ConfiguredProvidersLabel>,
         sketch_count: bool,
@@ -154,7 +154,7 @@ impl HasDetailedAggregatedMetrics for DiceComputations<'_> {
                 match compute_artifact_path_sketches_for_target(
                     ctx,
                     &spec.outputs,
-                    &artifact_fs,
+                    artifact_fs,
                     &providers_to_skip,
                     sketch_size,
                     sketch_count,

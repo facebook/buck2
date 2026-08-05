@@ -238,7 +238,7 @@ impl BxlContextCoreData {
             cell_resolver,
             cell_alias_resolver,
             project_fs,
-            artifact_fs,
+            artifact_fs: artifact_fs.dupe(),
         })
     }
 

@@ -67,7 +67,7 @@ async fn audit_dep_files(
         state.has_signatures(),
         declared_dep_files,
         state.result(),
-        &artifact_fs,
+        artifact_fs,
         ctx.per_transaction_data().get_materializer(),
     )
     .await?
@@ -77,7 +77,7 @@ async fn audit_dep_files(
         Cow::Owned(dep_files),
         true,
         ctx.global_data().get_digest_config(),
-        &artifact_fs,
+        artifact_fs,
     )?;
 
     let dirs = match &*fingerprints {

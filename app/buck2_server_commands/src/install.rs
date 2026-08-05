@@ -450,7 +450,7 @@ struct InstallResult {
 
 struct ConnectedInstaller<'a> {
     client: InstallerClient<Channel>,
-    artifact_fs: ArtifactFs,
+    artifact_fs: &'a ArtifactFs,
     install_request_data: &'a InstallRequestData<'a>,
     device_metadata: Arc<Mutex<Vec<DeviceMetadata>>>,
     installer_ready: Instant,
@@ -461,7 +461,7 @@ struct ConnectedInstaller<'a> {
 impl<'a> ConnectedInstaller<'a> {
     async fn connect(
         tcp_port: u16,
-        artifact_fs: ArtifactFs,
+        artifact_fs: &'a ArtifactFs,
         install_request_data: &'a InstallRequestData<'a>,
         installer_run_args: &[String],
         installer_child: &mut tokio::process::Child,
@@ -941,7 +941,7 @@ async fn build_launch_installer(
         } else {
             PathSeparatorKind::Unix
         };
-        let executor_fs = ExecutorFs::new(&artifact_fs, path_separator);
+        let executor_fs = ExecutorFs::new(artifact_fs, path_separator);
         let mut run_args = Vec::<String>::new();
         let artifact_path_mapper = ArtifactPathMapperImpl::from(&ensured_inputs);
         let mut fmt = CommandLineBuilder::new_with_options(

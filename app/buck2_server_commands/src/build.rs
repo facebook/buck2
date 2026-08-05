@@ -568,7 +568,7 @@ async fn process_streaming_build_result(
 
     stream_build_report(
         build_report_opts,
-        &artifact_fs,
+        artifact_fs,
         &cell_resolver,
         fs,
         cwd,
@@ -688,7 +688,7 @@ async fn process_build_result(
     let artifact_fs = ctx.ctx().get_artifact_fs().await?;
 
     let result_reports = ResultReporter::convert(
-        &artifact_fs,
+        artifact_fs,
         server_ctx.cert_state(),
         ResultReporterOptions {
             return_outputs: response_options.return_outputs,
@@ -708,7 +708,7 @@ async fn process_build_result(
 
         write_build_report(
             build_report_opts,
-            &artifact_fs,
+            artifact_fs,
             &cell_resolver,
             fs,
             cwd,
@@ -749,7 +749,7 @@ async fn process_build_result(
                 .per_transaction_data()
                 .get_create_unhashed_symlink_lock();
             let _guard = lock.lock().await;
-            let res = create_unhashed_outputs(provider_artifacts, &artifact_fs, fs);
+            let res = create_unhashed_outputs(provider_artifacts, artifact_fs, fs);
 
             let created = match res.as_ref() {
                 Ok(n) => *n,

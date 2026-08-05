@@ -304,7 +304,7 @@ impl<'d> HasActionExecutor<'d> for DiceComputations<'d> {
                 action_cache_checker,
                 remote_dep_file_cache_checker,
                 cache_uploader,
-                artifact_fs,
+                artifact_fs.dupe(),
                 executor_config.options,
                 platform,
             ),

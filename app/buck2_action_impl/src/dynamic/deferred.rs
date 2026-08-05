@@ -328,7 +328,7 @@ async fn execute_lambda(
                         ensured_artifacts,
                         input_artifacts_materialized,
                         digest_config,
-                        &artifact_fs,
+                        artifact_fs,
                     )?;
 
                     declared_actions = Some(analysis_registry.num_declared_actions());
@@ -469,7 +469,7 @@ async fn materialize_inputs(
 
     for (artifact, artifact_value) in ensured_artifacts {
         let path = artifact.resolve_path(
-            &artifact_fs,
+            artifact_fs,
             if artifact.path_resolution_requires_artifact_value() {
                 Some(artifact_value.content_based_path_hash())
             } else {

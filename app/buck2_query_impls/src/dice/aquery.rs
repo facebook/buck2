@@ -267,7 +267,7 @@ impl<'c, 'd> DiceAqueryDelegate<'c, 'd> {
     pub(crate) async fn new(
         base_delegate: DiceQueryDelegate<'c, 'd>,
     ) -> buck2_error::Result<DiceAqueryDelegate<'c, 'd>> {
-        let artifact_fs = Arc::new(base_delegate.ctx().get_artifact_fs().await?);
+        let artifact_fs = Arc::new(base_delegate.ctx().get_artifact_fs().await?.dupe());
         let query_data = Arc::new(AqueryData {
             artifact_fs,
             delegate_query_data: base_delegate.query_data().dupe(),

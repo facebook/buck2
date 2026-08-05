@@ -607,7 +607,7 @@ impl Key for EnsureTransitiveSetProjectionKey {
             let time_span = TimeSpan::start_now();
             let digest_config = ctx.global_data().get_digest_config();
 
-            let values = ArtifactGroupValues::new(values, children, &artifact_fs, digest_config)
+            let values = ArtifactGroupValues::new(values, children, artifact_fs, digest_config)
                 .buck_error_context("Failed to construct ArtifactGroupValues")?;
 
             ctx.store_evaluation_data(EnsureTransitiveSetProjectionKeyActivationData {

@@ -8,31 +8,69 @@
  * above-listed licenses.
  */
 
+use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+use derive_more::Display;
+use dice::CancellationContext;
 use dice::DiceComputations;
+use dice::Key;
+use dice::OkPagableValueSerialize;
+use dice::ValueSerialize;
 use dupe::Dupe;
+use dupe::ResultDupedErrExt;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 
 use crate::context::HasBuildContextData;
 
 #[async_trait]
-pub trait GetArtifactFs {
+pub trait GetArtifactFs<'d> {
     /// Get the configured ArtifactFs.
-    async fn get_artifact_fs(&mut self) -> buck2_error::Result<ArtifactFs>;
+    async fn get_artifact_fs(&mut self) -> buck2_error::Result<&'d ArtifactFs>;
 }
 
 #[async_trait]
-impl GetArtifactFs for DiceComputations<'_> {
-    async fn get_artifact_fs(&mut self) -> buck2_error::Result<ArtifactFs> {
-        let buck_out_path_resolver = self.get_buck_out_path().await?.dupe();
-        let project_filesystem = self.global_data().get_io_provider().project_root().dupe();
-        let cell_resolver = self.get_cell_resolver().await?.dupe();
+impl<'d> GetArtifactFs<'d> for DiceComputations<'d> {
+    async fn get_artifact_fs(&mut self) -> buck2_error::Result<&'d ArtifactFs> {
+        self.compute_ref(&ArtifactFsKey).await?.as_ref().duped_err()
+    }
+}
+
+#[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
+#[display("{:?}", self)]
+#[pagable_typetag(dice::DiceKeyDyn)]
+struct ArtifactFsKey;
+
+#[async_trait]
+impl Key for ArtifactFsKey {
+    type Value = buck2_error::Result<ArtifactFs>;
+
+    async fn compute(
+        &self,
+        ctx: &mut DiceComputations,
+        _cancellations: &CancellationContext,
+    ) -> Self::Value {
+        let buck_out_path_resolver = ctx.get_buck_out_path().await?.dupe();
+        let cell_resolver = ctx.get_cell_resolver().await?.dupe();
+        let project_filesystem = ctx.global_data().get_io_provider().project_root().dupe();
         Ok(ArtifactFs::new(
             cell_resolver,
             buck_out_path_resolver,
             project_filesystem,
         ))
+    }
+
+    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
+        match (x, y) {
+            (Ok(x), Ok(y)) => x == y,
+            (_, _) => false,
+        }
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        OkPagableValueSerialize::<Self::Value>::new()
     }
 }

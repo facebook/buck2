@@ -82,7 +82,7 @@ impl DiceHasCommandExecutor for DiceComputations<'_> {
             .get::<HasCommandExecutorHolder>()
             .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
             .buck_error_context("CommandExecutorDelegate should be set")?;
-        holder.delegate.get_command_executor(&artifact_fs, config)
+        holder.delegate.get_command_executor(artifact_fs, config)
     }
 }
 

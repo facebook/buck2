@@ -183,7 +183,7 @@ async fn ensure_uploaded(
         let values = ctx.ensure_artifact_group(artifact_group).await?;
         for (artifact, value) in values.iter() {
             let path = artifact.resolve_path(
-                &artifact_fs,
+                artifact_fs,
                 if artifact.path_resolution_requires_artifact_value() {
                     Some(value.content_based_path_hash())
                 } else {

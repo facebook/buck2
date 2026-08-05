@@ -127,7 +127,7 @@ async fn build_action_no_redirect(
                 && (pref.prefers_local() || executor.is_full_hybrid_enabled())
         }) {
         let artifact_fs = ctx.get_artifact_fs().await?;
-        let eager_paths = collect_eager_paths(ctx, &inputs, &artifact_fs)
+        let eager_paths = collect_eager_paths(ctx, &inputs, artifact_fs)
             .boxed()
             .await?;
 
@@ -599,7 +599,7 @@ fn check_infra_error_patterns(
 fn try_run_error_handler(
     action: Arc<RegisteredAction>,
     last_command: Option<&buck2_data::CommandExecution>,
-    artifact_fs: buck2_error::Result<ArtifactFs>,
+    artifact_fs: buck2_error::Result<&ArtifactFs>,
     outputs: Option<&ActionOutputs>,
 ) -> Option<ActionErrorDiagnostics> {
     use buck2_data::action_error_diagnostics::Data;
@@ -639,7 +639,7 @@ fn try_run_error_handler(
                         };
 
                         let outputs_artifacts = match action.action.failed_action_output_artifacts(
-                            &artifact_fs,
+                            artifact_fs,
                             heap,
                             outputs,
                         ) {

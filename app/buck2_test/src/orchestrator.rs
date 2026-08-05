@@ -553,7 +553,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             &test_target,
             &test_info,
             executor_override,
-            &fs,
+            fs,
             &stage,
             effective_test_execution_caching,
         )
@@ -596,7 +596,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             .executor()
             .is_local_execution_possible(executor_preference)
         {
-            let setup_local_resources_executor = Self::get_local_executor(dice, &fs).await?;
+            let setup_local_resources_executor = Self::get_local_executor(dice, fs).await?;
             let simple_stage = stage.as_ref().into();
 
             let available_resources: HashMap<_, _> =
@@ -632,7 +632,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             expanded_env,
             ensured_inputs,
             declared_outputs,
-            &fs,
+            fs,
             Some(timeout),
             Some(host_sharing_requirements),
             Some(executor_preference),
@@ -988,7 +988,7 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
         // In contrast from actual test execution we do not check if local execution is possible.
         // We leave that decision to actual local execution runner that requests local execution preparation.
         let setup_local_resources_executor =
-            Self::get_local_executor(&mut self.dice.dupe().ctx(), &fs).await?;
+            Self::get_local_executor(&mut self.dice.dupe().ctx(), fs).await?;
         let available_resources: HashMap<_, _> = test_info.local_resources().into_iter().collect();
         let rule_required_names = test_info.execution_required_local_resource_names();
         let providers = {
@@ -1006,7 +1006,7 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
             .dupe()
             .ctx()
             .try_compute_join(providers, async |dice, provider| {
-                Self::prepare_local_resource(dice, provider, &fs, &executor_fs, Duration::default())
+                Self::prepare_local_resource(dice, provider, fs, &executor_fs, Duration::default())
                     .await
             })
             .await?;
@@ -1017,7 +1017,7 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
             &test_target,
             &test_info,
             None,
-            &fs,
+            fs,
             &stage,
             false,
         )
@@ -1052,7 +1052,7 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
             expanded_env,
             ensured_inputs,
             declared_outputs,
-            &fs,
+            fs,
             None,
             None,
             None,
@@ -1068,17 +1068,17 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
         let blocking_executor = self.dice.ctx().get_blocking_executor();
 
         let materialized_inputs = materialize_inputs(
-            &fs,
+            fs,
             materializer,
             &execution_request,
             self.dice.global_data().get_digest_config(),
         )
         .await?;
 
-        prep_scratch_path(&materialized_inputs.scratch, &fs).await?;
+        prep_scratch_path(&materialized_inputs.scratch, fs).await?;
 
         create_output_dirs(
-            &fs,
+            fs,
             &execution_request,
             materializer.dupe(),
             blocking_executor,
@@ -1088,7 +1088,7 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
 
         for local_resource_setup_command in setup_commands.iter() {
             let materialized_inputs = materialize_inputs(
-                &fs,
+                fs,
                 materializer,
                 &local_resource_setup_command.execution_request,
                 self.dice.global_data().get_digest_config(),
@@ -1096,10 +1096,10 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
             .await?;
             let blocking_executor = self.dice.ctx().get_blocking_executor();
 
-            prep_scratch_path(&materialized_inputs.scratch, &fs).await?;
+            prep_scratch_path(&materialized_inputs.scratch, fs).await?;
 
             create_output_dirs(
-                &fs,
+                fs,
                 &local_resource_setup_command.execution_request,
                 materializer.dupe(),
                 blocking_executor,
@@ -1109,7 +1109,7 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
         }
 
         Ok(create_prepare_for_local_execution_result(
-            &fs,
+            fs,
             execution_request,
             setup_commands,
         ))

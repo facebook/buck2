@@ -111,7 +111,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
         input_artifacts_materialized,
         ensured_artifacts,
         resolved_dynamic_values,
-        artifact_fs,
+        artifact_fs: artifact_fs.dupe(),
 
         print: EventDispatcherPrintHandler(dispatcher.dupe()),
     };

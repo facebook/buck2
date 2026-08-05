@@ -475,7 +475,7 @@ impl BxlServerCommand {
 
             write_bxl_build_report(
                 build_report_opts,
-                &artifact_fs,
+                artifact_fs,
                 &ctx.cell_resolver,
                 server_ctx.project_root(),
                 ctx.cwd,

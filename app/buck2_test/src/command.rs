@@ -604,7 +604,7 @@ async fn test(
 
         write_build_report(
             build_report_opts,
-            &artifact_fs,
+            artifact_fs,
             &cell_resolver,
             server_ctx.project_root(),
             cwd,

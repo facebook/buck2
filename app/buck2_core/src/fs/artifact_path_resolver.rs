@@ -10,6 +10,7 @@
 
 use allocative::Allocative;
 use dupe::Dupe;
+use pagable::Pagable;
 
 use crate::cells::CellResolver;
 use crate::cells::cell_path::CellPathRef;
@@ -20,7 +21,7 @@ use crate::fs::project::ProjectRoot;
 use crate::fs::project_rel_path::ProjectRelativePathBuf;
 use crate::package::source_path::SourcePathRef;
 
-#[derive(Clone, Dupe, Allocative)]
+#[derive(Clone, Dupe, PartialEq, Allocative, Pagable)]
 pub struct ArtifactFs {
     cell_resolver: CellResolver,
     buck_out_path_resolver: BuckOutPathResolver,
