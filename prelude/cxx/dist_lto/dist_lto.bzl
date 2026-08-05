@@ -413,7 +413,6 @@ def cxx_gnu_dist_link(
                             # as a string rather than a single-element list.
                             "archive_opt_objects_dir": cmd_args(link_data.opt_objects_dir, delimiter = "", ignore_artifacts = True),
                             "archive_plan": outputs[link_data.plan].as_output(),
-                            "link_whole": link_data.link_whole,
                             "objects": [] if manifest["objects"] else None,
                             "prepend": link_data.prepend,
                             "type": "archive",

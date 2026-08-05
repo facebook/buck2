@@ -259,7 +259,6 @@ def main(argv):
                     "meta_index": meta_entry_index2,
                     "archive_index": archive_idx,
                     "archive_name": archive_name,
-                    "link_whole": linkable["link_whole"],
                 }
                 for obj in linkable["objects"] or ():
                     path = obj["path"]
@@ -460,16 +459,6 @@ def main(argv):
         # the post flags are written for the previous meta_index and pre_flags are written for the new meta_index.
         prev_meta_index = None
 
-        # Objects extracted from a non-link_whole archive must be re-wrapped in
-        # `-Wl,--start-lib`/`-Wl,--end-lib` so the final link keeps archive member
-        # semantics (pull in only if a symbol is needed), matching the Phase 2 Thin
-        # Link index. Without the wrapper the members are force-linked.
-        # To minimize the wrapper flags, a single `-Wl,--start-lib`/`-Wl,--end-lib`
-        # is kept open across a run of consecutive archive members, closing it only
-        # when a non-member (a flag or a non-archive linkable) has to be written.
-        # `in_start_lib_group` tracks that open group, much like `prev_meta_index`.
-        in_start_lib_group = False
-
         for line in full_index_input:
             line = line.strip()
             if any(filter(line.endswith, KNOWN_REMOVABLE_DEPS_SUFFIX)):
@@ -501,22 +490,6 @@ def main(argv):
             if has_meta_entry:
                 # For simplicity, mark now that we have written the flags for this entry.
                 flags_written_tracker[meta_index] = 1
-
-            is_archive_member = (
-                mapping_entry is not None
-                and mapping_entry["archive_index"] is not None
-                and not mapping_entry.get("link_whole", False)
-            )
-
-            # Close the open `-Wl,--start-lib` group before anything that is not a
-            # groupable archive member is written: a non-member linkable, or the
-            # pre/post flags emitted when the meta_index changes. This keeps the group
-            # around a contiguous run of archive members from a single meta entry.
-            if in_start_lib_group and (
-                not is_archive_member or meta_index != prev_meta_index
-            ):
-                final_link_index_output.write("-Wl,--end-lib\n")
-                in_start_lib_group = False
 
             write_post_flags = (
                 prev_meta_index is not None and prev_meta_index != meta_index
@@ -559,11 +532,6 @@ def main(argv):
 
             prev_meta_index = meta_index
 
-            # Open a `-Wl,--start-lib` group for a run of consecutive archive members.
-            if is_archive_member and not in_start_lib_group:
-                final_link_index_output.write("-Wl,--start-lib\n")
-                in_start_lib_group = True
-
             if line in index_files_set and path in mapping and mapping[path]["output"]:
                 # This case is for a known and true LLVM IR Bitcode file that was
                 # NOT extracted from an archive.
@@ -601,11 +569,6 @@ def main(argv):
                 # - pre-built archives
                 # - input files that did not come from linker input, e.g. linkerscirpts
                 final_link_index_output.write(line + "\n")
-
-        # Close a still-open `-Wl,--start-lib` group left by the final archive members.
-        if in_start_lib_group:
-            final_link_index_output.write("-Wl,--end-lib\n")
-            in_start_lib_group = False
 
         # Write post flags for the last iteration of the loop
         if prev_meta_index is not None:
