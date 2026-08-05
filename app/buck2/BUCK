@@ -41,7 +41,7 @@ rust_library(
         },
     },
     rustc_flags = select({
-        ":buck2_client_only_build": ["--cfg=client_only"],
+        ":buck2_client_only_setting[build]": ["--cfg=client_only"],
         "DEFAULT": [],
     }),
     deps = [
@@ -73,7 +73,7 @@ rust_library(
         "//common/rust/shed/fbinit:fbinit",
     ]
     + select({
-        ":buck2_client_only_build": [],
+        ":buck2_client_only_setting[build]": [],
         "DEFAULT": [
             "//buck2/app/buck2_daemon:buck2_daemon",
             "//buck2/app/buck2_server:buck2_server",
@@ -121,7 +121,7 @@ buck_rust_binary(
     linker_flags = ["-Wl,--emit-relocs"] if read_config("buck2", "emit_relocs", "") == "true" else [],
     rustc_flags = (["--cfg=buck2_memfrag"] if _memfrag else [])
     + select({
-        ":buck2_client_only_build": ["--cfg=client_only"],
+        ":buck2_client_only_setting[build]": ["--cfg=client_only"],
         "DEFAULT": [],
     }),
     unittests = False,
@@ -147,7 +147,7 @@ buck_rust_binary(
         ],
     })
     + select({
-        ":buck2_client_only_build": [],
+        ":buck2_client_only_setting[build]": [],
         "DEFAULT": [
             "//buck2/app/buck2_action_impl:buck2_action_impl",
             "//buck2/app/buck2_analysis:buck2_analysis",
