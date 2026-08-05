@@ -8,7 +8,7 @@
 config_setting(
     name = "linux-fedora",
     constraint_values = [
-        "prelude//os/constraints:linux",
+        "prelude//os/constraints:os[linux]",
         "//os/linux/distro/constraints:fedora",
     ],
     visibility = ["PUBLIC"],
@@ -17,7 +17,7 @@ config_setting(
 config_setting(
     name = "linux-ubuntu",
     constraint_values = [
-        "prelude//os/constraints:linux",
+        "prelude//os/constraints:os[linux]",
         "//os/linux/distro/constraints:ubuntu",
     ],
     visibility = ["PUBLIC"],
@@ -26,7 +26,7 @@ config_setting(
 config_setting(
     name = "macos-homebrew",
     constraint_values = [
-        "prelude//os/constraints:macos",
+        "prelude//os/constraints:os[macos]",
     ],
     visibility = ["PUBLIC"],
 )
