@@ -52,6 +52,8 @@ use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
+use dupe::ResultDupedErrExt;
+use dupe::ResultDupedExt;
 use futures::FutureExt;
 use futures::future::BoxFuture;
 use pagable::Pagable;
@@ -98,8 +100,9 @@ async fn build_action_impl(
         // pointing at the same underlying action. We need to make sure that
         // underlying action only gets called once, so call build_action once
         // again with the new key to get DICE deduplication.
-        let res = ActionCalculation::build_action(ctx, action.key()).await;
-        return res;
+        return ActionCalculation::build_action(ctx, action.key())
+            .await
+            .duped();
     }
 
     build_action_no_redirect(ctx, cancellation, action).await
@@ -761,14 +764,15 @@ impl ActionCalculation {
     pub fn build_action<'a, 'd>(
         ctx: &'a mut DiceComputations<'d>,
         action_key: &ActionKey,
-    ) -> impl Future<Output = buck2_error::Result<ActionOutputs>> + use<'a, 'd> {
-        ctx.compute(BuildKey::ref_cast(action_key)).map(|v| v?)
+    ) -> impl Future<Output = buck2_error::Result<&'d ActionOutputs>> + use<'a, 'd> {
+        ctx.compute_ref(BuildKey::ref_cast(action_key))
+            .map(|v| v?.as_ref().duped_err())
     }
 
     pub fn build_artifact<'a, 'd>(
         ctx: &'a mut DiceComputations<'d>,
         artifact: &BuildArtifact,
-    ) -> impl Future<Output = buck2_error::Result<ActionOutputs>> + use<'a, 'd> {
+    ) -> impl Future<Output = buck2_error::Result<&'d ActionOutputs>> + use<'a, 'd> {
         Self::build_action(ctx, artifact.key())
     }
 }

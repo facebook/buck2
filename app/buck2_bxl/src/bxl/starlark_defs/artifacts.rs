@@ -18,7 +18,6 @@ use std::iter;
 use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::BaseArtifactKind;
 use buck2_build_api::actions::calculation::ActionCalculation;
-use buck2_build_api::actions::execute::action_executor::ActionOutputs;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::artifact_groups::ResolvedArtifactGroup;
 use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
@@ -505,26 +504,26 @@ impl LazyBuildArtifact {
     pub(crate) async fn build_artifacts(
         &self,
         ctx: &mut DiceComputations<'_>,
-    ) -> buck2_error::Result<Vec<ActionOutputs>> {
-        let res = ctx
-            .try_compute_join(&self.artifacts_to_build, async |ctx, artifact_group| {
-                let artifact_group_values = ctx.ensure_artifact_group(artifact_group).await?;
-                let build_artifacts = artifact_group_values
-                    .iter()
-                    .filter_map(|(artifact, _value)| {
-                        if let BaseArtifactKind::Build(artifact) = artifact.as_parts().0 {
-                            Some(artifact.dupe())
-                        } else {
-                            None
-                        }
-                    })
-                    .collect::<Vec<_>>();
-                ctx.try_compute_join(build_artifacts, async |ctx, build_artifact| {
-                    ActionCalculation::build_artifact(ctx, &build_artifact).await
+    ) -> buck2_error::Result<()> {
+        ctx.try_compute_join(&self.artifacts_to_build, async |ctx, artifact_group| {
+            let artifact_group_values = ctx.ensure_artifact_group(artifact_group).await?;
+            let build_artifacts = artifact_group_values
+                .iter()
+                .filter_map(|(artifact, _value)| {
+                    if let BaseArtifactKind::Build(artifact) = artifact.as_parts().0 {
+                        Some(artifact.dupe())
+                    } else {
+                        None
+                    }
                 })
-                .await
+                .collect::<Vec<_>>();
+            ctx.try_compute_join(build_artifacts, async |ctx, build_artifact| {
+                ActionCalculation::build_artifact(ctx, &build_artifact).await?;
+                buck2_error::Ok(())
             })
-            .await?;
-        Ok(res.into_iter().flatten().collect::<Vec<_>>())
+            .await
+        })
+        .await?;
+        Ok(())
     }
 }

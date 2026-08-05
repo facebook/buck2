@@ -163,10 +163,11 @@ fn ensure_build_artifact_staged<'a, 'd>(
         if let Some(value) = action_outputs.get(built.get_path()) {
             Ok(EnsureArtifactGroupReady::Single(value.dupe()))
         } else {
-            Err(
-                EnsureArtifactStagedError::BuildArtifactMissing(built.dupe(), action_outputs)
-                    .into(),
+            Err(EnsureArtifactStagedError::BuildArtifactMissing(
+                built.dupe(),
+                action_outputs.dupe(),
             )
+            .into())
         }
     })
 }
