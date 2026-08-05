@@ -239,6 +239,7 @@ pub fn exec(process: ProcessContext<'_>) -> ExitResult {
         }
     };
     let mut opt = ParsedArgv::parse(argv, matches)?;
+    immediate_config.set_setting_arg_layers(Vec::new())?;
 
     let client_metadata = ClientMetadata::from_env()?;
     if !client_metadata.is_empty() {

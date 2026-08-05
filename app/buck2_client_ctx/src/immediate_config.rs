@@ -17,6 +17,7 @@ use buck2_common::init::DaemonStartupConfig;
 use buck2_common::invocation_roots::InvocationRoots;
 use buck2_common::invocation_roots::find_invocation_roots;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
+use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 #[cfg(fbcode_build)]
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::settings::parser::parse_settings;
@@ -32,25 +33,29 @@ use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::abs_path::AbsPath;
+use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_fs::working_dir::AbsWorkingDir;
 use prost::Message;
 
-/// Limited view of the root config. This does not follow includes.
-struct ImmediateConfig {
+/// Lazy-computed immediate config data. This is produced by reading the root buckconfig (but not
+/// processing any includes).
+struct ImmediateConfigContextData {
     cell_resolver: CellResolver,
     cwd_cell_alias_resolver: CellAliasResolver,
-    daemon_startup_config: DaemonStartupConfig,
+    // Config retained for deferred `DaemonStartupConfig` creation.
+    root_config: LegacyBuckConfig,
     #[cfg(fbcode_build)]
     allow_daemon_start_unsandboxed_via_wrapper: bool,
+    project_filesystem: ProjectRoot,
+    paranoid_info_path: AbsPathBuf,
 }
 
-impl ImmediateConfig {
+impl ImmediateConfigContextData {
     /// Performs a parse of the root `.buckconfig` for the cell _only_ without following includes
     /// and without parsing any configs for any referenced cells. This means this function might return
     /// an empty mapping if the root `.buckconfig` does not contain the cell definitions.
-    fn parse(roots: &InvocationRoots) -> buck2_error::Result<ImmediateConfig> {
-        let settings = parse_settings(&roots.project_root, &[])?;
-
+    fn parse(roots: InvocationRoots) -> buck2_error::Result<Self> {
+        let paranoid_info_path = roots.paranoid_info_path()?;
         // This function is non-reentrant, and blocking for a bit should be ok
         let cells = futures::executor::block_on(BuckConfigBasedCells::parse_with_config_args(
             &roots.project_root,
@@ -61,49 +66,25 @@ impl ImmediateConfig {
             cells.get_cell_alias_resolver_for_cwd_fast(&roots.project_root, &roots.cwd),
         )?;
 
-        let paranoid_info_path = roots.paranoid_info_path()?;
-        let paranoid = match is_paranoid_enabled(&paranoid_info_path) {
-            Ok(paranoid) => paranoid,
-            Err(e) => {
-                tracing::warn!(
-                    "Failed to determine whether paranoid is enabled in `{}`: {:#}",
-                    paranoid_info_path,
-                    e
-                );
-                false
-            }
-        };
+        #[cfg(fbcode_build)]
+        let allow_daemon_start_unsandboxed_via_wrapper = cells
+            .root_config
+            .parse::<bool>(BuckconfigKeyRef {
+                section: "buck2",
+                property: "allow_daemon_start_unsandboxed_via_wrapper",
+            })?
+            .unwrap_or(false);
 
-        Ok(ImmediateConfig {
+        Ok(Self {
             cell_resolver: cells.cell_resolver,
             cwd_cell_alias_resolver,
-            daemon_startup_config: DaemonStartupConfig::new(
-                &cells.root_config,
-                &settings,
-                paranoid,
-            )
-            .buck_error_context("Error loading daemon startup config")?,
+            root_config: cells.root_config,
             #[cfg(fbcode_build)]
-            allow_daemon_start_unsandboxed_via_wrapper: cells
-                .root_config
-                .parse::<bool>(BuckconfigKeyRef {
-                    section: "buck2",
-                    property: "allow_daemon_start_unsandboxed_via_wrapper",
-                })?
-                .unwrap_or(false),
+            allow_daemon_start_unsandboxed_via_wrapper,
+            project_filesystem: roots.project_root,
+            paranoid_info_path,
         })
     }
-}
-
-/// Lazy-computed immediate config data. This is produced by reading the root buckconfig (but not
-/// processing any includes).
-struct ImmediateConfigContextData {
-    cell_resolver: CellResolver,
-    cwd_cell_alias_resolver: CellAliasResolver,
-    daemon_startup_config: DaemonStartupConfig,
-    #[cfg(fbcode_build)]
-    allow_daemon_start_unsandboxed_via_wrapper: bool,
-    project_filesystem: ProjectRoot,
 }
 
 pub struct ImmediateConfigContext<'a> {
@@ -113,6 +94,9 @@ pub struct ImmediateConfigContext<'a> {
     // we don't get the result by a shared reference but instead as local
     // value which can be returned.
     data: OnceLock<ImmediateConfigContextData>,
+    setting_arg_layers: OnceLock<Vec<toml::Table>>,
+    // Initialized after setting argument layers are available.
+    daemon_startup_config: OnceLock<DaemonStartupConfig>,
     cwd: &'a AbsWorkingDir,
     trace: Vec<AbsNormPathBuf>,
 }
@@ -121,6 +105,8 @@ impl<'a> ImmediateConfigContext<'a> {
     pub fn new(cwd: &'a AbsWorkingDir) -> Self {
         Self {
             data: OnceLock::new(),
+            setting_arg_layers: OnceLock::new(),
+            daemon_startup_config: OnceLock::new(),
             cwd,
             trace: Vec::new(),
         }
@@ -135,7 +121,39 @@ impl<'a> ImmediateConfigContext<'a> {
     }
 
     pub fn daemon_startup_config(&self) -> buck2_error::Result<&DaemonStartupConfig> {
-        Ok(&self.data()?.daemon_startup_config)
+        let setting_arg_layers = self.setting_arg_layers.get().ok_or_else(|| {
+            internal_error!("Daemon startup config read before setting arguments were set")
+        })?;
+
+        self.daemon_startup_config
+            .get_or_try_init(|| {
+                let data = self.data()?;
+                let buck_settings = parse_settings(&data.project_filesystem, setting_arg_layers)?;
+                let paranoid = match is_paranoid_enabled(&data.paranoid_info_path) {
+                    Ok(paranoid) => paranoid,
+                    Err(e) => {
+                        tracing::warn!(
+                            "Failed to determine whether paranoid is enabled in `{}`: {:#}",
+                            data.paranoid_info_path,
+                            e
+                        );
+                        false
+                    }
+                };
+
+                DaemonStartupConfig::new(&data.root_config, &buck_settings, paranoid)
+                    .buck_error_context("Error loading daemon startup config")
+            })
+            .buck_error_context("Error creating daemon startup config")
+    }
+
+    pub fn set_setting_arg_layers(
+        &self,
+        setting_arg_layers: Vec<toml::Table>,
+    ) -> buck2_error::Result<()> {
+        self.setting_arg_layers
+            .set(setting_arg_layers)
+            .map_err(|_| internal_error!("Attempted to set setting argument layers more than once"))
     }
 
     pub fn allow_daemon_start_unsandboxed_via_wrapper(&self) -> buck2_error::Result<bool> {
@@ -189,20 +207,7 @@ impl<'a> ImmediateConfigContext<'a> {
 
     fn data(&self) -> buck2_error::Result<&ImmediateConfigContextData> {
         self.data
-            .get_or_try_init(|| {
-                let roots = find_invocation_roots(self.cwd)?;
-                let cfg = ImmediateConfig::parse(&roots)?;
-
-                buck2_error::Ok(ImmediateConfigContextData {
-                    cell_resolver: cfg.cell_resolver,
-                    cwd_cell_alias_resolver: cfg.cwd_cell_alias_resolver,
-                    daemon_startup_config: cfg.daemon_startup_config,
-                    #[cfg(fbcode_build)]
-                    allow_daemon_start_unsandboxed_via_wrapper: cfg
-                        .allow_daemon_start_unsandboxed_via_wrapper,
-                    project_filesystem: roots.project_root,
-                })
-            })
+            .get_or_try_init(|| ImmediateConfigContextData::parse(find_invocation_roots(self.cwd)?))
             .buck_error_context("Error creating cell resolver")
     }
 
@@ -253,4 +258,64 @@ fn is_paranoid_enabled(path: &AbsPath) -> buck2_error::Result<bool> {
     )
     .buck_error_context("Invalid expires_at")?;
     Ok(now < expires_at)
+}
+
+#[cfg(test)]
+mod tests {
+    use buck2_common::init::LogDownloadMethod;
+    use buck2_fs::fs_util::uncategorized as fs_util;
+
+    use super::*;
+
+    fn working_dir(path: &AbsPath) -> buck2_error::Result<AbsWorkingDir> {
+        Ok(AbsWorkingDir::unchecked_new(fs_util::canonicalize(path)?))
+    }
+
+    #[test]
+    fn test_set_setting_arg_layers() -> buck2_error::Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let root = AbsPath::new(tempdir.path())?;
+        fs_util::write(root.join(".buckconfig"), "[cells]\nroot = .")?;
+        let cwd = working_dir(root)?;
+        let context = ImmediateConfigContext::new(&cwd);
+
+        assert!(
+            context.daemon_startup_config().is_err(),
+            "daemon startup config must not be available before setting argument layers are set"
+        );
+        context.set_setting_arg_layers(Vec::new())?;
+        assert!(
+            context.set_setting_arg_layers(Vec::new()).is_err(),
+            "setting argument layers must only be set once"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_setting_arg_layers_applied() -> buck2_error::Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let root = AbsPath::new(tempdir.path())?;
+        fs_util::write(root.join(".buckconfig"), "[cells]\nroot = .")?;
+        let cwd = working_dir(root)?;
+        let context = ImmediateConfigContext::new(&cwd);
+
+        // Ensure early cell initialization does not discard setting args.
+        context.resolve_cell_path("", "")?;
+
+        let mut setting_arg_layer = toml::Table::new();
+        setting_arg_layer.insert("log_use_manifold".to_owned(), toml::Value::Boolean(false));
+        setting_arg_layer.insert(
+            "log_url".to_owned(),
+            toml::Value::String("setting_arg".to_owned()),
+        );
+
+        context.set_setting_arg_layers(vec![setting_arg_layer])?;
+        assert_eq!(
+            context.daemon_startup_config()?.log_download_method,
+            LogDownloadMethod::Curl("setting_arg".to_owned())
+        );
+
+        Ok(())
+    }
 }
