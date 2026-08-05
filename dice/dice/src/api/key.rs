@@ -38,8 +38,9 @@ use crate::introspection::graph::short_type_name;
 /// The Key will need to be cloned. This occurs whenever the key is recomputed
 /// and needs to be stored. During normal lookups, only a reference is needed.
 ///
-/// The result also needs to be cloned whenever it is requested from DICE.
-/// Cloning therefore should be cheap.
+/// Values are handed out by reference via `compute_ref`. `compute` additionally
+/// dupes the value out for callers that want ownership, so a value only needs
+/// to be (cheaply) cloneable if it is requested through that API.
 #[async_trait]
 pub trait Key:
     Allocative + Debug + Display + Clone + Eq + Hash + Send + Sync + Pagable + PagableTagged + 'static
