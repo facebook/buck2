@@ -25,6 +25,7 @@ use std::sync::Condvar;
 use std::sync::Mutex;
 use std::sync::MutexGuard;
 use std::sync::OnceLock;
+use std::sync::RwLock;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 use std::thread::ThreadId;
@@ -244,6 +245,15 @@ pub(crate) struct HeapMetadata {
     base_pos: PagableCursor,
     /// Per-slot init state. See [`AtomicSlotState`].
     init_states: Vec<AtomicSlotState>,
+    /// Reverse map from each claimed payload address to its original recipe
+    /// index. Lazy allocation order is not necessarily recipe order.
+    ///
+    /// Populated when a slot is claimed: the mapping is a
+    /// property of the arena allocation, and recording it up front means no
+    /// reader can observe a payload address without also finding its index. An
+    /// aborted claim therefore leaves a correct-but-unreferenced entry, which is
+    /// preferable to the address resolving to nothing.
+    original_indices_by_payload: RwLock<HashMap<usize, u32>>,
     /// Coordinates waiters that lost a per-slot initialization race.
     init_waiters: InitWaiters,
 }
@@ -356,6 +366,7 @@ impl HeapDeserializationState {
             slots,
             base_pos,
             init_states,
+            original_indices_by_payload: RwLock::new(HashMap::new()),
             init_waiters: InitWaiters::new(),
         })
     }
@@ -376,12 +387,27 @@ impl HeapDeserializationState {
         m.init_states[index].load(Ordering::Acquire).done_ptr()
     }
 
+    /// Return the original recipe index for a claimed payload pointer.
+    pub(crate) fn original_value_index(&self, raw_ptr: usize) -> Option<u32> {
+        self.metadata
+            .get()?
+            .original_indices_by_payload
+            .read()
+            .expect("original index map lock poisoned")
+            .get(&raw_ptr)
+            .copied()
+    }
+
     /// Try to claim a slot for deserialization.
     ///
     /// Claims are serialized by the arena lock: the winner allocates the header
     /// and publishes its pointer into the slot's atomic *before* releasing the
     /// lock, so a claimed slot always carries its pointer and no reader ever has
     /// to wait for it to appear. This is why observing a started slot never blocks.
+    ///
+    /// The winner also records this slot's `payload address -> recipe index`
+    /// mapping before publishing, so the wire identity of a lazily allocated
+    /// value is in place for the whole time that value is reachable.
     ///
     /// On win, returns `Claimed(recipe)` with a freshly-allocated `header_ptr`
     /// pointing to a sentinel-vtable header in the arena. The caller must run
@@ -429,10 +455,19 @@ impl HeapDeserializationState {
                 AValueHeader(AValueVTable::uninitialized_sentinel()),
             );
         }
+        // SAFETY: the claim owns this header. `payload_ptr` is address
+        // arithmetic and never reads the (still sentinel) vtable.
+        let raw_ptr = unsafe { StarlarkValueRawPtr::new_header(&*header_ptr) };
+        m.original_indices_by_payload
+            .write()
+            .expect("original index map lock poisoned")
+            .insert(
+                raw_ptr.ptr as usize,
+                u32::try_from(index).expect("recipe index should fit in u32"),
+            );
         state.publish_in_progress(header_ptr);
         drop(arena);
 
-        let raw_ptr = unsafe { StarlarkValueRawPtr::new_header(&*header_ptr) };
         Ok(ClaimResult::Claimed(DeserializeRecipe {
             abs_pos: PagableCursor {
                 byte_pos: m.base_pos.byte_pos + slot.stream_offset as usize,

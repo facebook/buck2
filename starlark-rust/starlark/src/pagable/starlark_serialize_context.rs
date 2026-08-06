@@ -42,9 +42,9 @@ use crate::values::layout::heap::heap_type::WeakFrozenHeapRef;
 use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::pointer::PointerTags;
 
-/// Per-chunk entry in [`StarlarkSerState::chunks`]. The chunk's base
-/// address is the BTreeMap key. The wire's `value_index` for a header at
-/// within-chunk index `k` is `values_before + k`.
+/// Per-chunk entry in [`StarlarkSerState::chunks`]. The chunk's base address
+/// is the BTreeMap key. Native heaps use `values_before + k`; paged in heaps
+/// resolve the wire index through their retained page-in recipe.
 #[derive(Allocative)]
 pub(crate) struct ChunkEntry {
     /// Chunk size in bytes.
@@ -53,6 +53,9 @@ pub(crate) struct ChunkEntry {
     heap_id: HeapRefId,
     /// Exact process-local heap allocation that owns this chunk.
     heap_ptr: FrozenHeapPtr,
+    /// Whether values in this chunk use indices from a retained page-in recipe
+    /// rather than their current physical arena order.
+    uses_recipe_indices: bool,
     /// Cumulative count of values in earlier chunks of this heap, in
     /// serialization order (drop bump first, then non-drop).
     values_before: u32,
@@ -92,6 +95,7 @@ impl StarlarkSerState {
         heap_id: HeapRefId,
         heap_ptr: FrozenHeapPtr,
         heap: WeakFrozenHeapRef,
+        uses_recipe_indices: bool,
         entries: Vec<ChunkInfo>,
     ) {
         let chunks_by_value_index: Vec<_> = entries
@@ -102,6 +106,7 @@ impl StarlarkSerState {
                     size: info.size,
                     heap_id,
                     heap_ptr,
+                    uses_recipe_indices,
                     values_before: info.values_before,
                     payload_offsets: info.payload_offsets.into_boxed_slice(),
                 });
@@ -145,7 +150,10 @@ impl StarlarkSerState {
             .downgrade()
             .expect("named FrozenHeapRef should have an inner heap");
         let heap_ptr = heap.heap_ptr();
-        if self.registered_heaps.contains_key(&heap_ptr) {
+        let uses_recipe_indices = heap_ref.deser_state().is_some();
+        // A restored heap may lazily allocate more values after its first
+        // registration, so refresh its physical chunk coverage each time.
+        if !uses_recipe_indices && self.registered_heaps.contains_key(&heap_ptr) {
             return Ok(());
         }
 
@@ -154,7 +162,13 @@ impl StarlarkSerState {
         }
 
         heap_ref.register_ser_state(self)?;
-        self.register_heap(heap_id, heap_ptr, heap, heap_ref.build_chunk_index());
+        self.register_heap(
+            heap_id,
+            heap_ptr,
+            heap,
+            uses_recipe_indices,
+            heap_ref.build_chunk_index(),
+        );
         Ok(())
     }
 
@@ -207,15 +221,30 @@ impl StarlarkSerState {
         Some(FrozenValue::new_ptr(header, is_str))
     }
 
-    /// Resolve a raw payload pointer to its `(heap_id, value_index)` by
-    /// looking up the containing chunk in `chunks` and `binary_search`ing
-    /// the chunk's sorted `payload_offsets` for the within-chunk index.
+    /// Resolve a raw payload pointer to its `(heap_id, value_index)`.
+    /// Native heaps derive the index from allocation order. Restored heaps
+    /// retain their original recipe index because lazy allocation order can
+    /// differ from serialized order.
     pub(crate) fn lookup_ptr(&self, raw_ptr: usize) -> Option<(HeapRefId, u32)> {
-        let chunks = self.chunks.read().expect("chunks lock poisoned");
-        let (&base, entry) = chunks.range(..=raw_ptr).next_back()?;
-        if raw_ptr >= base + entry.size as usize {
-            return None;
+        let (base, entry) = {
+            let chunks = self.chunks.read().expect("chunks lock poisoned");
+            let (&base, entry) = chunks.range(..=raw_ptr).next_back()?;
+            if raw_ptr >= base + entry.size as usize {
+                return None;
+            }
+            (base, entry.dupe())
+        };
+
+        if entry.uses_recipe_indices {
+            let heap = {
+                let resident = self.registered_heaps.get(&entry.heap_ptr)?;
+                resident.heap.dupe()
+            }
+            .upgrade()?;
+            let value_index = heap.deser_state()?.original_value_index(raw_ptr)?;
+            return Some((entry.heap_id, value_index));
         }
+
         let within_chunk_offset = (raw_ptr - base) as u32;
         // `FrozenFrozenHeap` uses `Arena<ChunkAllocator>` (`Up` direction):
         // sorted-ascending offsets match allocation order, so the

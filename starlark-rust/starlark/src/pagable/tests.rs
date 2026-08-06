@@ -3022,7 +3022,6 @@ fn test_page_in_reuses_resident_shared_heap() -> crate::Result<()> {
 /// corrupts one of these two parents.
 /// ```
 #[test]
-#[should_panic(expected = "recipe index mapping is incorrect")]
 fn test_resident_heap_reuse_preserves_old_recipe_value_indices() {
     resident_heap_reuse_preserves_old_recipe_value_indices_impl()
         .expect("recipe-index regression setup should succeed");
