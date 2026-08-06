@@ -244,7 +244,7 @@ impl CleanStaleArtifactsCommand {
         let start_time = Instant::now();
 
         let mut artifact_dirs = Vec::new();
-        for dir_name in &["gen", "art"] {
+        for dir_name in &["gen", "art", "art-anon", "art-bxl"] {
             let dir_path = io
                 .buck_out_path()
                 .join(ProjectRelativePathBuf::unchecked_new(dir_name.to_string()));

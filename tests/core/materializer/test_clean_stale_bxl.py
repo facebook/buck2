@@ -25,15 +25,14 @@ async def test_clean_stale_bxl(buck: Buck) -> None:
     art_files = [path.name for path in (buck.cwd / "buck-out/v2/art").glob("**/*")]
     assert "out.json" in art_files
 
-    # Force clean of tracked artifacts, check that art is deleted but not bxl
+    # Force clean of tracked artifacts, check that art and bxl are both deleted
     await buck.kill()
     await buck.clean("--stale=0s")
 
     art_files = [path.name for path in (buck.cwd / "buck-out/v2/art").glob("**/*")]
     assert "out.json" not in art_files
 
-    # TODO these should probably be tracked and cleaned too (write to art instead?)
     art_bxl_files = [
         path.name for path in (buck.cwd / "buck-out/v2/art-bxl").glob("**/*")
     ]
-    assert "foo_out" in art_bxl_files
+    assert "foo_out" not in art_bxl_files
