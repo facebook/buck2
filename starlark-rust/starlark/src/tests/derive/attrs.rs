@@ -106,6 +106,10 @@ fn test_derive_attrs() {
     a.eq("example.type", "1");
     a.eq("example.escaped", "\"baz\"");
 
+    // getattr from inside a `def`, which is statically typechecked
+    a.eq("def f():\n    return example.hello\nf()", "\"world\"");
+    a.eq("def f():\n    return example.nested.foo\nf()", "\"bar\"");
+
     // hasattr
     a.is_true("not hasattr(example, \"answer\")");
     a.is_true("hasattr(example, \"hello\")");
