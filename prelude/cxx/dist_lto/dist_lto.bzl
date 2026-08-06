@@ -551,10 +551,14 @@ def cxx_gnu_dist_link(
         opt_cmd_parts = cxx_link_cmd_parts(cxx_toolchain, executable_link)
         opt_args = opt_cmd_parts.link_cmd
 
+        if cxx_toolchain.linker_info.dist_thin_lto_codegen_flags != None:
+            opt_args.add(cxx_toolchain.linker_info.dist_thin_lto_codegen_flags)
+
         # buildifier: disable=uninitialized
         for link in link_infos:
             for raw_flag in link.pre_flags + link.post_flags:
                 opt_args.add(raw_flag)
+            opt_args.add(link.dist_thin_lto_codegen_flags)
 
         opt_args.add(opt_cmd_parts.post_linker_flags)
         return opt_args
