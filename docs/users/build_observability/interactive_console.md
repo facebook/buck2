@@ -72,7 +72,7 @@ We support the following toggles:
 - `2` - toggle two lines mode when showing events
 - `r` - toggle detailed remote execution info, such as uploads, downloads, and
   action cache calls
-- `i` - toggle I/O counters
+- `i` - toggle I/O counters and memory stats
 - `p` - display target configurations
 - `x` - toggle expanded progress display
 - `+` - show more lines

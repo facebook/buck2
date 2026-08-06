@@ -99,25 +99,83 @@ fn do_render(
     width: usize,
 ) -> buck2_error::Result<Lines> {
     let mut lines = Vec::new();
-    let mut parts = Vec::new();
-    if let Some(buck2_rss) = snapshot.buck2_rss {
-        parts.push(format!("RSS = {}", HumanizedBytes::new(buck2_rss)));
-    } else {
-        // buck2_rss is only available on Linux. On other platforms, buck2 keeps track of buck2_max_rss so show that instead.
-        parts.push(format!(
-            "Max RSS = {}",
-            HumanizedBytes::new(snapshot.buck2_max_rss)
+    const RSS_FIELD_WIDTH: usize = "RSS = ".len() + HumanizedBytes::FIXED_WIDTH_WIDTH;
+
+    let mut allocator = Vec::new();
+    if let Some(rss) = snapshot.buck2_rss {
+        allocator.push(format!("RSS = {}", HumanizedBytes::fixed_width(rss)));
+    } else if snapshot.buck2_max_rss > 0
+        && (snapshot.malloc_bytes_active.is_some() || snapshot.malloc_bytes_allocated.is_some())
+    {
+        allocator.push(" ".repeat(RSS_FIELD_WIDTH));
+    }
+    if let Some(active) = snapshot.malloc_bytes_active {
+        allocator.push(format!("Active = {}", HumanizedBytes::fixed_width(active)));
+    }
+    if let Some(allocated) = snapshot.malloc_bytes_allocated {
+        allocator.push(format!(
+            "Allocated = {}",
+            HumanizedBytes::fixed_width(allocated)
         ));
+    }
+    if let (Some(active), Some(allocated)) = (
+        snapshot.malloc_bytes_active,
+        snapshot.malloc_bytes_allocated,
+    ) {
+        let slack = active.saturating_sub(allocated);
+        let percent = if allocated == 0 {
+            String::new()
+        } else {
+            format!(" ({:.1}%)", 100.0 * slack as f64 / allocated as f64)
+        };
+        allocator.push(format!("Slack = {}{}", HumanizedBytes::new(slack), percent));
+    }
+    if let Some(cgroup) = &snapshot.allprocs_cgroup {
+        allocator.push(format!(
+            "Cgroup swap = {}",
+            HumanizedBytes::new(cgroup.swap_bytes)
+        ));
+    }
+    if !allocator.is_empty() {
+        lines.push(Line::unstyled(&format!(
+            "Memory    : {}",
+            allocator.join("  ")
+        ))?);
     }
 
-    // We prefer to display malloc_bytes_active instead of malloc_bytes_allocated
-    // because it represents active pages which is more than allocated and better reflects actual memory use of buck2.
-    if let Some(malloc_bytes_active) = snapshot.malloc_bytes_active {
-        parts.push(format!(
-            "Malloc active = {}",
-            HumanizedBytes::new(malloc_bytes_active)
+    let mut allocator_max = Vec::new();
+    // Current RSS is unavailable on non-Linux Unix platforms, so keep max RSS independent of it.
+    if snapshot.buck2_max_rss > 0 {
+        allocator_max.push(format!(
+            "RSS = {}",
+            HumanizedBytes::fixed_width(snapshot.buck2_max_rss)
+        ));
+    } else if snapshot.buck2_rss.is_some()
+        && (two_snapshots.max_malloc_bytes_active.is_some()
+            || two_snapshots.max_malloc_bytes_allocated.is_some())
+    {
+        allocator_max.push(" ".repeat(RSS_FIELD_WIDTH));
+    }
+    if let Some(max_active) = two_snapshots.max_malloc_bytes_active {
+        allocator_max.push(format!(
+            "Active = {}",
+            HumanizedBytes::fixed_width(max_active)
         ));
     }
+    if let Some(max_allocated) = two_snapshots.max_malloc_bytes_allocated {
+        allocator_max.push(format!(
+            "Allocated = {}",
+            HumanizedBytes::fixed_width(max_allocated)
+        ));
+    }
+    if !allocator_max.is_empty() {
+        lines.push(Line::unstyled(&format!(
+            "Memory Max: {}",
+            allocator_max.join("  ")
+        ))?);
+    }
+
+    let mut parts = Vec::new();
     let user_cpu_percents = two_snapshots.user_cpu_percents();
     let system_cpu_percents = two_snapshots.system_cpu_percents();
     if user_cpu_percents.is_some() || system_cpu_percents.is_some() {

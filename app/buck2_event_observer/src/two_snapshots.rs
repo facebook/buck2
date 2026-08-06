@@ -15,10 +15,18 @@ use std::time::SystemTime;
 pub struct TwoSnapshots {
     pub penultimate: Option<(SystemTime, buck2_data::Snapshot)>,
     pub last: Option<(SystemTime, buck2_data::Snapshot)>,
+    pub max_malloc_bytes_active: Option<u64>,
+    pub max_malloc_bytes_allocated: Option<u64>,
 }
 
 impl TwoSnapshots {
     pub fn update(&mut self, timestamp: SystemTime, snapshot: &buck2_data::Snapshot) {
+        self.max_malloc_bytes_active =
+            std::cmp::max(self.max_malloc_bytes_active, snapshot.malloc_bytes_active);
+        self.max_malloc_bytes_allocated = std::cmp::max(
+            self.max_malloc_bytes_allocated,
+            snapshot.malloc_bytes_allocated,
+        );
         self.penultimate = self.last.replace((timestamp, snapshot.clone()));
     }
 
