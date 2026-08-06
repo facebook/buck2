@@ -1408,6 +1408,9 @@ swift_toolchain = prelude_rule(
             "serialized_diags_to_json": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
             "supports_explicit_module_debug_serialization": attrs.bool(default = False),
             "supports_incremental_file_hashing": attrs.bool(default = False),
+            # Only the Pika toolchain's swiftc understands
+            # -emit-modularization-dependency-dot-graph.
+            "supports_modularization_dependency_graph": attrs.bool(default = False),
             "supports_modulemaps_with_hmaps": attrs.bool(default = False),
             "supports_relative_resource_dir": attrs.bool(default = False),
             "swift_experimental_features": attrs.dict(

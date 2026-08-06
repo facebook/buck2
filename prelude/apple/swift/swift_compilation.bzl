@@ -869,7 +869,12 @@ def _compile_object(
 
 def _compile_modularization_dependency_graph(
     ctx: AnalysisContext, toolchain: SwiftToolchainInfo, shared_flags: cmd_args, srcs: list[CxxSrcWithFlags]
-) -> Artifact:
+) -> Artifact | None:
+    # -emit-modularization-dependency-dot-graph is only understood by the Pika
+    # toolchain's swiftc; Xcode's fails the action with "unknown argument".
+    if not toolchain.supports_modularization_dependency_graph:
+        return None
+
     modularization_dependecy_graph_output = ctx.actions.declare_output(
         "__modularization_dependency_graph__/swift_{}.dot".format(get_module_name(ctx)), has_content_based_path = False
     )

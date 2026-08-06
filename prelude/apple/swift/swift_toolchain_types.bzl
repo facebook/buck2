@@ -45,6 +45,10 @@ SwiftToolchainInfo = provider(
         "serialized_diags_to_json": provider_field([RunInfo, None], default = None),
         "supports_explicit_module_debug_serialization": provider_field(bool, default = False),
         "supports_incremental_file_hashing": provider_field(bool, default = False),
+        # Whether swiftc supports -emit-modularization-dependency-dot-graph.
+        # Only the Pika toolchain does; Xcode's swiftc errors with
+        # "unknown argument", so this defaults off.
+        "supports_modularization_dependency_graph": provider_field(bool, default = False),
         "supports_modulemaps_with_hmaps": provider_field(bool, default = False),
         "supports_relative_resource_dir": provider_field(bool),
         "swift_experimental_features": provider_field(dict[str, list[str]]),  # { "5": [], "6", [] }
