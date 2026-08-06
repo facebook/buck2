@@ -138,10 +138,10 @@ impl<'de> PagableDeserialize<'de> for FrozenModule {
     ) -> pagable::Result<Self> {
         let heap = FrozenHeapRef::pagable_deserialize(deserializer)?;
 
-        // The preceding heap deserialization registers its heap state in the
-        // session, so Starlark fields can resolve `FrozenValue` pointers.
-        let state = StarlarkDeserializerImpl::get_or_create_state(deserializer.as_dyn());
-        let mut ctx = StarlarkDeserializerImpl::new(deserializer.as_dyn(), state);
+        // The preceding heap deserialization registers its heap state in this
+        // page-in scope, so Starlark fields can resolve `FrozenValue` pointers.
+        let mut ctx = StarlarkDeserializerImpl::recover_from_pagable(deserializer.as_dyn())
+            .map_err(|e: crate::Error| e.into_anyhow())?;
 
         let module = <FrozenAnyValue<FrozenModuleData>>::starlark_deserialize(&mut ctx)
             .map_err(|e: crate::Error| e.into_anyhow())?;

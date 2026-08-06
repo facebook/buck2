@@ -232,11 +232,10 @@ impl<'de> PagableDeserialize<'de> for OwnedFrozenValue {
         // Deserialize the owner heap ref.
         let owner = FrozenHeapRef::pagable_deserialize(deserializer)?;
 
-        // Get or create the shared deserialization state. The owner heap is
-        // already fully deserialized and registered, so cross-heap pointer
-        // resolution in `deserialize_frozen_value` will find it.
-        let state = StarlarkDeserializerImpl::get_or_create_state(deserializer.as_dyn());
-        let mut ctx = StarlarkDeserializerImpl::new(deserializer.as_dyn(), state);
+        // Recover the page-in scope registered by the preceding owner heap so
+        // cross-heap pointer resolution can find it.
+        let mut ctx = StarlarkDeserializerImpl::recover_from_pagable(deserializer.as_dyn())
+            .map_err(|e: crate::Error| e.into_anyhow())?;
 
         // Deserialize the FrozenValue.
         let value = ctx

@@ -373,7 +373,6 @@ fn root_data(value: &OwnedFrozenValue) -> &ScopeRootData {
 /// B0 and A1 are independent DICE roots. Hydrating A1 must not replace the
 /// exact heap binding used by B0's in-progress deserialization scope.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-#[should_panic(expected = "B0 must resolve its target through H0")]
 async fn page_in_scopes_starlark_heaps_by_dice_root() {
     page_in_scopes_starlark_heaps_by_dice_root_impl()
         .await

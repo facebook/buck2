@@ -57,6 +57,7 @@ use crate::eval::runtime::profile::instant::ProfilerInstant;
 use crate::pagable::error::PagableError;
 use crate::pagable::heap_ref_id::HeapRefId;
 use crate::pagable::starlark_deserialize_context::HeapDeserializationState;
+use crate::pagable::starlark_deserialize_context::StarlarkDeserScope;
 use crate::pagable::starlark_deserialize_context::StarlarkDeserializerImpl;
 use crate::pagable::starlark_serialize::StarlarkSerializeContext;
 use crate::pagable::starlark_serialize_context::StarlarkSerState;
@@ -391,6 +392,8 @@ struct FrozenFrozenHeap {
     peak_allocated_bytes: Option<usize>,
     #[allocative(skip)]
     ser_state: OnceLock<Weak<StarlarkSerState>>,
+    #[allocative(skip)]
+    deser_state: OnceLock<Arc<HeapDeserializationState>>,
 }
 
 /// Process-local identity of an exact `FrozenFrozenHeap` allocation.
@@ -620,6 +623,8 @@ impl FrozenFrozenHeap {
         name: FrozenHeapName,
         recipe: Arc<dyn pagable::PagableDeserializerRecipe>,
     ) -> crate::Result<PartialPagableArc<Self>> {
+        let scope = StarlarkDeserializerImpl::get_or_create_scope(deserializer.as_dyn());
+
         // Refs are read eagerly — referenced heaps must be registered before
         // any of this heap's values can be resolved later.
         let (refs, metadata_start) = Self::deserialize_refs_and_skip_body(deserializer)?;
@@ -630,16 +635,25 @@ impl FrozenFrozenHeap {
             name: Some(name),
             peak_allocated_bytes: None,
             ser_state: OnceLock::new(),
+            deser_state: OnceLock::new(),
         });
         let arena_ptr: *const Arena<ChunkAllocator> = &heap.arena;
 
         // SAFETY: `arena_ptr` points into `*heap`. The returned arc keeps
-        // that allocation alive for at least as long as the deserialize session.
-        let deser_state =
-            Arc::new(unsafe { HeapDeserializationState::new(metadata_start, recipe, arena_ptr) });
+        // the state and arena in the same allocation lifetime, and state lookup
+        // retains the heap before borrowing this state.
+        let deser_state = Arc::new(unsafe {
+            HeapDeserializationState::new(scope.dupe(), heap_id, metadata_start, recipe, arena_ptr)
+        });
+        assert!(
+            heap.deser_state.set(deser_state).is_ok(),
+            "a deserialized heap state must only be initialized once",
+        );
 
-        let state = StarlarkDeserializerImpl::get_or_create_state(deserializer.as_dyn());
-        state.register_heap(heap_id, deser_state);
+        scope.register_heap(
+            heap_id,
+            WeakFrozenHeapRef(PartialPagableArc::downgrade(&heap)),
+        );
 
         Ok(heap)
     }
@@ -647,6 +661,10 @@ impl FrozenFrozenHeap {
 
 impl Drop for FrozenFrozenHeap {
     fn drop(&mut self) {
+        if let Some(state) = self.deser_state.get() {
+            state.unregister_heap(FrozenHeapPtr(self as *const Self as usize));
+        }
+
         let Some(name) = &self.name else {
             return;
         };
@@ -708,7 +726,9 @@ impl<'de> PagableDeserialize<'de> for FrozenHeapRef {
                 )
             })?
             .clone();
-        Ok(FrozenHeapRef(Some(arc)))
+        let heap = FrozenHeapRef(Some(arc));
+        heap.register_deser_state(deserializer.as_dyn());
+        Ok(heap)
     }
 }
 
@@ -792,6 +812,27 @@ impl PartialEq<FrozenHeapRef> for FrozenHeapRef {
 impl Eq for FrozenHeapRef {}
 
 impl FrozenHeapRef {
+    pub(crate) fn deser_state(&self) -> Option<&HeapDeserializationState> {
+        self.0
+            .as_ref()
+            .and_then(|heap| heap.deser_state.get())
+            .map(Arc::as_ref)
+    }
+
+    fn register_deser_state(&self, deserializer: &mut dyn PagableDeserializer<'_>) {
+        let Some(heap_id) = self.deser_state().map(HeapDeserializationState::heap_id) else {
+            return;
+        };
+        let scope = deserializer
+            .page_in_scope()
+            .get_or_init(StarlarkDeserScope::new);
+        scope.register_heap(
+            heap_id,
+            self.downgrade()
+                .expect("a deserialized heap must have an inner allocation"),
+        );
+    }
+
     /// Number of bytes allocated on this heap, not including any memory
     /// allocated outside of the starlark heap.
     pub fn allocated_bytes(&self) -> usize {
@@ -960,6 +1001,7 @@ impl FrozenHeap {
                 name,
                 peak_allocated_bytes,
                 ser_state: OnceLock::new(),
+                deser_state: OnceLock::new(),
             })))
         }
     }
