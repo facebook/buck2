@@ -33,6 +33,11 @@ load(
     "@prelude//apple:apple_resource_types.bzl",
     "CxxResourceSpec",
 )
+load(
+    "@prelude//apple:modularization_dependency_graph.bzl",
+    "ModularizationDependencyGraphInfo",
+    "create_modularization_dep_graph_subtargets_and_provider",
+)
 load("@prelude//apple:resource_groups.bzl", "create_resource_graph")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
@@ -380,6 +385,8 @@ _CxxLibraryParameterizedOutput = record(
     # IndexStoreInfo provider, so we can access the paths of all the index stores
     # or Swift-specific index stores.
     index_store_info = field([IndexStoreInfo, None], None),
+    # ModularizationDependencyGraphInfo provider for transitive modularization graphs.
+    modularization_dep_graph_info = field([ModularizationDependencyGraphInfo, None], None),
     # CxxCompilationDbInfo provider, returned separately as we cannot check
     # provider type from providers above
     cxx_compilationdb_info = field([CxxCompilationDbInfo, None], None),
@@ -1115,6 +1122,14 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     sub_targets.update(index_store_subtargets)
     providers.append(index_store_info)
 
+    mod_dep_graph_subtargets, mod_dep_graph_info = create_modularization_dep_graph_subtargets_and_provider(
+        ctx,
+        impl_params.modularization_dependency_graph,
+        deps_all_non_exported_first,
+    )
+    sub_targets.update(mod_dep_graph_subtargets)
+    providers.append(mod_dep_graph_info)
+
     linker_flags = cxx_attr_linker_flags_all(ctx)
 
     # Omnibus root provider.
@@ -1434,6 +1449,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         bitcode_bundle = bitcode_bundle,
         providers = providers,
         index_store_info = index_store_info,
+        modularization_dep_graph_info = mod_dep_graph_info,
         xcode_data_info = xcode_data_info,
         cxx_compilationdb_info = comp_db_info,
         linkable_root = linkable_root,

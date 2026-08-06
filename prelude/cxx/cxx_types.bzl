@@ -257,6 +257,8 @@ CxxRuleConstructorParams = record(
     index_store_factory = field(IndexStoreFactory | None, None),
     # Swift index stores to propagate
     index_stores = field(list[Artifact] | None, None),
+    # Modularization dependency graph artifact (from Swift compilation)
+    modularization_dependency_graph = field(Artifact | None, None),
     # Whether to add header units from dependencies to the command line.
     use_header_units = field(UseHeaderUnitsMode, UseHeaderUnitsMode("none")),
     # Whether to export a header unit to all dependents.

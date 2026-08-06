@@ -17,6 +17,11 @@ load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//apple:apple_test_frameworks_utility.bzl", "get_test_frameworks_bundle_parts")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 load("@prelude//apple:debug.bzl", "AppleSelectiveDebuggableMetadata")
+load(
+    "@prelude//apple:modularization_dependency_graph.bzl",
+    "ModularizationDependencyGraphInfo",  # @unused Used as a type
+    "create_modularization_dep_graph_subtargets_and_provider",
+)
 # @oss-disable[end= ]: load("@prelude//apple/meta_only:linker_outputs.bzl", "subtargets_for_apple_bundle_extra_outputs")
 load("@prelude//apple/user:apple_selected_debug_path_file.bzl", "SELECTED_DEBUG_PATH_FILE_NAME")
 load("@prelude//apple/user:apple_selective_debugging.bzl", "AppleSelectiveDebuggingInfo")
@@ -503,6 +508,10 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     index_store_subtargets, index_store_info = _index_store_data(ctx, deps_with_binary)
     sub_targets.update(index_store_subtargets)
 
+    # modularization dependency graphs
+    mod_dep_graph_subtargets, mod_dep_graph_info = _modularization_dep_graph_data(ctx, deps_with_binary)
+    sub_targets.update(mod_dep_graph_subtargets)
+
     bundle_and_dsym_info_json = {
         "bundle": bundle,
         "dsym": dsym_json_info.json_object,
@@ -580,6 +589,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
             extra_output_provider,
             link_cmd_debug_info,
             index_store_info,
+            mod_dep_graph_info,
             info_plist_info,
         ]
         + bundle_result.providers
@@ -632,6 +642,10 @@ def _link_command_debug_data(actions: AnalysisActions, deps_with_binary: list[De
 def _index_store_data(ctx: AnalysisContext, deps_with_binary: list[Dependency]) -> (dict[str, list[Provider]], IndexStoreInfo):
     index_store_subtargets, index_store_info = create_index_store_subtargets_and_provider(ctx, [], [], deps_with_binary)
     return index_store_subtargets, index_store_info
+
+def _modularization_dep_graph_data(ctx: AnalysisContext, deps_with_binary: list[Dependency]) -> (dict[str, list[Provider]], ModularizationDependencyGraphInfo):
+    subtargets, info = create_modularization_dep_graph_subtargets_and_provider(ctx, None, deps_with_binary)
+    return subtargets, info
 
 def _extra_output_provider(ctx: AnalysisContext) -> AppleBundleExtraOutputsInfo:
     # Collect the sub_targets for this bundle's binary that are extra_linker_outputs.

@@ -542,7 +542,6 @@ def apple_library_rule_constructor_params_and_swift_providers(
             ]
 
         subtargets["swiftmodule"] = [DefaultInfo(default_output = swift_compile.swiftmodule)]
-        subtargets["modularization-dependency-graph"] = [DefaultInfo(default_output = swift_compile.modularization_dependency_graph)]
 
     # Always provide the subtarget, so that clients don't need to handle conditional existence
     subtargets["swift.check"] = [DefaultInfo(default_output = swift_compile.typecheck_file if swift_compile else None)]
@@ -614,6 +613,7 @@ def apple_library_rule_constructor_params_and_swift_providers(
         error_handler = cxx_error_handler if cxx_error_deserializer(ctx) else apple_build_error_handler,
         index_store_factory = IndexStoreFactory(declare = _declare_index_store, compile = _compile_index_store),
         index_stores = [swift_compile.index_store] if swift_compile else None,
+        modularization_dependency_graph = swift_compile.modularization_dependency_graph if swift_compile else None,
         extra_transitive_diagnostics = [swift_compile.typecheck_file] if swift_compile else [],
         extra_diagnostics = {"swift": swift_compile.typecheck_file} if swift_compile else None,
         allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs, get_cxx_toolchain_info(ctx).cxx_compiler_info.allow_cache_upload),
