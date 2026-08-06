@@ -53,6 +53,7 @@ use crate::values::FrozenValue;
 use crate::values::layout::heap::allocator::alloc::allocator::ChunkAllocator;
 use crate::values::layout::heap::arena::Arena;
 use crate::values::layout::heap::arena::BumpKind;
+use crate::values::layout::heap::arena::ChunkInfo;
 use crate::values::layout::heap::heap_type::FrozenHeapPtr;
 use crate::values::layout::heap::heap_type::FrozenHeapRef;
 use crate::values::layout::heap::heap_type::WeakFrozenHeapRef;
@@ -258,6 +259,11 @@ pub(crate) struct HeapMetadata {
     init_waiters: InitWaiters,
 }
 
+struct HeapArenaState {
+    arena: NonNull<Arena<ChunkAllocator>>,
+    serialization_index_dirty: bool,
+}
+
 /// Locked pointer to the owning `FrozenFrozenHeap`'s arena plus the
 /// information needed to lazily parse this heap's slot metadata from its
 /// recipe. The metadata is materialized only on first `try_claim`.
@@ -269,9 +275,9 @@ pub(crate) struct HeapDeserializationState {
     metadata_start: PagableCursor,
     /// Reopen this heap's data to lazily parse metadata.
     recipe: Arc<dyn PagableDeserializerRecipe>,
-    /// Locked pointer into the owning `FrozenFrozenHeap`'s arena. The mutex
-    /// serializes concurrent `alloc_raw_one` calls during partial deseralization.
-    arena: Mutex<NonNull<Arena<ChunkAllocator>>>,
+    /// Locked pointer into the owning `FrozenFrozenHeap`'s arena and the state
+    /// needed to refresh its serialization index after lazy allocation.
+    arena: Mutex<HeapArenaState>,
     /// Lazy: parsed on first `try_claim` / `value_count` call.
     metadata: OnceLock<HeapMetadata>,
 }
@@ -298,8 +304,11 @@ impl HeapDeserializationState {
             heap_id,
             metadata_start,
             recipe,
-            // SAFETY: caller's contract — `arena` is a valid pointer.
-            arena: Mutex::new(unsafe { NonNull::new_unchecked(arena as *mut _) }),
+            arena: Mutex::new(HeapArenaState {
+                // SAFETY: caller's contract — `arena` is a valid pointer.
+                arena: unsafe { NonNull::new_unchecked(arena as *mut _) },
+                serialization_index_dirty: true,
+            }),
             metadata: OnceLock::new(),
         }
     }
@@ -398,6 +407,30 @@ impl HeapDeserializationState {
             .copied()
     }
 
+    pub(crate) fn serialization_index_is_dirty(&self) -> bool {
+        self.arena
+            .lock()
+            .expect("arena lock poisoned")
+            .serialization_index_dirty
+    }
+
+    pub(crate) fn refresh_serialization_index(
+        &self,
+        is_registered: impl FnOnce() -> bool,
+        register: impl FnOnce(Vec<ChunkInfo>),
+    ) {
+        let mut state = self.arena.lock().expect("arena lock poisoned");
+        if !state.serialization_index_dirty && is_registered() {
+            return;
+        }
+
+        // SAFETY: `state.arena` remains valid for this state's lifetime, and
+        // the lock excludes lazy allocation while the index is constructed.
+        let entries = unsafe { state.arena.as_ref().build_chunk_index() };
+        register(entries);
+        state.serialization_index_dirty = false;
+    }
+
     /// Try to claim a slot for deserialization.
     ///
     /// Claims are serialized by the arena lock: the winner allocates the header
@@ -431,7 +464,7 @@ impl HeapDeserializationState {
         // The arena lock serializes claims: its holder performs the not-started
         // -> in-progress transition and publishes the header pointer before
         // releasing, so an in-progress slot is never visible without its pointer.
-        let arena = self.arena.lock().expect("arena lock poisoned");
+        let mut arena = self.arena.lock().expect("arena lock poisoned");
 
         // Re-check under the lock; the slot may have been claimed since the load
         // above.
@@ -444,9 +477,11 @@ impl HeapDeserializationState {
         // concurrent allocation is excluded.
         let header_ptr = unsafe {
             arena
+                .arena
                 .as_ref()
                 .alloc_raw_one(slot.bump_kind, slot.alloc_size)
         };
+        arena.serialization_index_dirty = true;
         // SAFETY: sentinel vtable so any access before `starlark_deserialize`
         // would panic.
         unsafe {

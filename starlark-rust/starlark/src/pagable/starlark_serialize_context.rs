@@ -150,11 +150,13 @@ impl StarlarkSerState {
             .downgrade()
             .expect("named FrozenHeapRef should have an inner heap");
         let heap_ptr = heap.heap_ptr();
-        let uses_recipe_indices = heap_ref.deser_state().is_some();
-        // A restored heap may lazily allocate more values after its first
-        // registration, so refresh its physical chunk coverage each time.
-        if !uses_recipe_indices && self.registered_heaps.contains_key(&heap_ptr) {
-            return Ok(());
+        let deser_state = heap_ref.deser_state();
+        let uses_recipe_indices = deser_state.is_some();
+        if self.registered_heaps.contains_key(&heap_ptr) {
+            match deser_state {
+                Some(state) if state.serialization_index_is_dirty() => {}
+                Some(_) | None => return Ok(()),
+            }
         }
 
         for dep in heap_ref.refs_slice() {
@@ -162,13 +164,20 @@ impl StarlarkSerState {
         }
 
         heap_ref.register_ser_state(self)?;
-        self.register_heap(
-            heap_id,
-            heap_ptr,
-            heap,
-            uses_recipe_indices,
-            heap_ref.build_chunk_index(),
-        );
+        if let Some(deser_state) = deser_state {
+            deser_state.refresh_serialization_index(
+                || self.registered_heaps.contains_key(&heap_ptr),
+                |entries| self.register_heap(heap_id, heap_ptr, heap, uses_recipe_indices, entries),
+            );
+        } else {
+            self.register_heap(
+                heap_id,
+                heap_ptr,
+                heap,
+                uses_recipe_indices,
+                heap_ref.build_chunk_index(),
+            );
+        }
         Ok(())
     }
 
@@ -254,6 +263,13 @@ impl StarlarkSerState {
             .binary_search(&within_chunk_offset)
             .ok()? as u32;
         Some((entry.heap_id, entry.values_before + k))
+    }
+
+    #[cfg(all(test, feature = "pagable"))]
+    pub(crate) fn chunk_entry_identity_for_ptr(&self, raw_ptr: usize) -> Option<usize> {
+        let chunks = self.chunks.read().expect("chunks lock poisoned");
+        let (&base, entry) = chunks.range(..=raw_ptr).next_back()?;
+        (raw_ptr < base + entry.size as usize).then_some(Arc::as_ptr(entry) as usize)
     }
 }
 

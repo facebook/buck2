@@ -3351,6 +3351,95 @@ fn test_multi_ofv_shared_heap_incremental_partial_deser() -> crate::Result<()> {
     Ok(())
 }
 
+/// A restored heap whose serialization index is already registered must mark
+/// that index dirty when another value is materialized lazily.
+#[test]
+fn test_restored_heap_refreshes_index_after_later_materialization() -> crate::Result<()> {
+    use pagable::storage::handle::PagableStorageHandle;
+    use pagable::storage::in_memory::InMemoryPagableStorage;
+
+    fn serialize_parent(
+        backing: &InMemoryPagableStorage,
+        target: &OwnedFrozenValue,
+        heap_name: &'static str,
+    ) -> crate::Result<pagable::DataKey> {
+        let heap = FrozenHeap::new();
+        // SAFETY: this adds the target's owning heap to `heap.refs`.
+        let target = unsafe { target.owned_frozen_value(&heap) };
+        let root = heap.alloc_simple(RefData { label: 9, target });
+        let heap_ref = heap.into_ref_named(TestHeapName::heap_name(heap_name));
+        // SAFETY: `heap_ref` owns the arena containing `root`.
+        let root = unsafe { OwnedFrozenValue::new(heap_ref, root) };
+        ser_owned_frozen_value_into_storage(backing, &root)
+    }
+
+    let heap = FrozenHeap::new();
+    let first = heap.alloc_simple(SimpleData {
+        flag: true,
+        count: 1,
+    });
+    let second = heap.alloc_simple(SimpleData {
+        flag: true,
+        count: 2,
+    });
+    let heap_ref = heap.into_ref_named(TestHeapName::heap_name("refresh_later_dep"));
+    // SAFETY: both values belong to `heap_ref`.
+    let first = unsafe { OwnedFrozenValue::new(heap_ref.clone(), first) };
+    let second = unsafe { OwnedFrozenValue::new(heap_ref, second) };
+
+    let backing = InMemoryPagableStorage::new();
+    let handle = PagableStorageHandle::new(backing.handle());
+    let first_key = ser_owned_frozen_value_into_storage(&backing, &first)?;
+    let second_key = ser_owned_frozen_value_into_storage(&backing, &second)?;
+    drop(first);
+    drop(second);
+
+    let restored_first = deser_owned_frozen_value_from_storage(&backing, &handle, &first_key)?;
+    let _first_parent_key = serialize_parent(&backing, &restored_first, "refresh_later_parent_1")?;
+    let ser_state = backing
+        .storage_context()
+        .get::<StarlarkSerState>()
+        .expect("serializing the parent should initialize Starlark serialization state");
+    let first_ptr = restored_first.value().ptr_value().ptr_value_untagged();
+    let first_entry = ser_state
+        .chunk_entry_identity_for_ptr(first_ptr)
+        .expect("the first materialized value should be indexed");
+
+    let _clean_parent_key = serialize_parent(&backing, &restored_first, "refresh_clean_parent")?;
+    assert_eq!(
+        ser_state.chunk_entry_identity_for_ptr(first_ptr),
+        Some(first_entry),
+        "a clean restored heap should reuse its registered chunk index",
+    );
+
+    let restored_second = deser_owned_frozen_value_from_storage(&backing, &handle, &second_key)?;
+    assert_eq!(
+        restored_first.owner(),
+        restored_second.owner(),
+        "both values should materialize in the same restored heap",
+    );
+    let second_parent_key = serialize_parent(&backing, &restored_second, "refresh_later_parent_2")?;
+    assert_ne!(
+        ser_state.chunk_entry_identity_for_ptr(first_ptr),
+        Some(first_entry),
+        "materializing another value should refresh the restored heap's chunk index",
+    );
+
+    let restored_parent =
+        deser_owned_frozen_value_from_storage(&backing, &handle, &second_parent_key)?;
+    let restored_parent = restored_parent
+        .value()
+        .downcast_ref::<RefData>()
+        .expect("restored parent should remain RefData");
+    let restored_second = restored_parent
+        .target
+        .downcast_ref::<SimpleData>()
+        .expect("restored parent should point to the second lazy value");
+    assert_eq!(restored_second.count, 2);
+
+    Ok(())
+}
+
 /// Cross-thread cycle test: two values on the same heap reference each other.
 /// Two threads simultaneously deserialize one value each. Without cross-thread
 /// cycle detection, this deadlocks (thread A waits for B's value, B waits for A's).
