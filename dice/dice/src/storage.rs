@@ -314,8 +314,8 @@ impl DiceStorage {
         value: DiceValidValue,
         finished: &DashMap<usize, Arc<ArcSerSlot>>,
     ) -> anyhow::Result<Option<DataKey>> {
-        let session_context = self.storage.session_context();
-        let mut serializer = SerializerForPaging::new(session_context);
+        let storage_context = self.storage.storage_context();
+        let mut serializer = SerializerForPaging::new(storage_context);
         let serialize_result = match key_dyn {
             DiceKeyErased::Key(k) => k.pagable_serialize_value(value.as_dyn(), &mut serializer),
             DiceKeyErased::Projection(p) => p
@@ -335,7 +335,7 @@ impl DiceStorage {
                 let (data, arcs) = serializer.finish();
                 match self
                     .storage
-                    .page_out_item(data, arcs, finished, session_context)
+                    .page_out_item(data, arcs, finished, storage_context)
                 {
                     Ok(key) => Ok(Some(key)),
                     Err(PageOutError::Failed(e)) => Err(e),

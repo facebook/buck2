@@ -28,6 +28,7 @@ use dashmap::mapref::entry::Entry;
 use dupe::Dupe;
 use pagable::PagableSerialize;
 use pagable::PagableSerializer;
+use pagable::StorageState;
 
 use crate::pagable::error::PagableError;
 use crate::pagable::heap_ref_id::HeapRefId;
@@ -68,8 +69,7 @@ struct ResidentHeapEntry {
     chunks_by_value_index: Box<[(usize, Arc<ChunkEntry>)]>,
 }
 
-/// Shared resident-heap state across serialization and deserialization in a
-/// session, stored in `SessionContext` as `Arc<StarlarkSerState>`.
+/// Shared resident-heap state owned by the pagable storage backend.
 #[derive(Allocative)]
 pub(crate) struct StarlarkSerState {
     /// Per-chunk index keyed by chunk base address.
@@ -83,6 +83,8 @@ pub(crate) struct StarlarkSerState {
     /// with the same `HeapRefId` overwrite each other here.
     resident_heap_candidates: DashMap<HeapRefId, FrozenHeapPtr>,
 }
+
+impl StorageState for StarlarkSerState {}
 
 impl StarlarkSerState {
     pub(crate) fn new() -> Self {
@@ -275,13 +277,13 @@ impl<'a> StarlarkSerializerImpl<'a> {
         Self { pagable, state }
     }
 
-    /// Get or create the shared `StarlarkSerState` from the serializer's `SessionContext`.
+    /// Get or create the storage-owned `StarlarkSerState`.
     pub(crate) fn get_or_create_state(
         serializer: &mut dyn PagableSerializer,
     ) -> Arc<StarlarkSerState> {
         serializer
-            .session_context()
-            .get_or_insert_with(|| Arc::new(StarlarkSerState::new()))
+            .storage_context()
+            .get_or_init(StarlarkSerState::new)
     }
 }
 

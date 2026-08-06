@@ -15,7 +15,7 @@ use crate::storage::data::DataKey;
 use crate::storage::data::PagableData;
 use crate::storage::traits::DeserializedArcCache;
 use crate::storage::traits::PagableStorage;
-use crate::traits::SessionContext;
+use crate::traits::StorageContext;
 
 /// No-op storage backend that serializes data but discards it immediately.
 ///
@@ -23,14 +23,14 @@ use crate::traits::SessionContext;
 /// storage I/O overhead.
 pub struct NoopPagableStorage {
     arc_cache: DeserializedArcCache,
-    session_context: SessionContext,
+    storage_context: StorageContext,
 }
 
 impl NoopPagableStorage {
     pub fn new() -> Self {
         Self {
             arc_cache: DeserializedArcCache::new(),
-            session_context: SessionContext::new(),
+            storage_context: StorageContext::new(),
         }
     }
 }
@@ -57,8 +57,8 @@ impl PagableStorage for NoopPagableStorage {
 
     fn schedule_for_paging(&self, _arc: Box<dyn ArcEraseDyn>) {}
 
-    fn session_context(&self) -> &SessionContext {
-        &self.session_context
+    fn storage_context(&self) -> &StorageContext {
+        &self.storage_context
     }
 
     fn store_data(&self, data: PagableData) -> anyhow::Result<DataKey> {

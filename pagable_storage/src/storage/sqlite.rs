@@ -23,7 +23,7 @@ use pagable::storage::data::DataKey;
 use pagable::storage::data::PagableData;
 use pagable::storage::traits::DeserializedArcCache;
 use pagable::storage::traits::PagableStorage;
-use pagable::traits::SessionContext;
+use pagable::traits::StorageContext;
 use rusqlite::Connection;
 use rusqlite::ToSql;
 
@@ -48,7 +48,7 @@ const INSERT_SINGLE_SQL: &str =
 pub struct SqliteBackedPagableStorage {
     shards: Vec<Shard>,
     arcs: DeserializedArcCache,
-    session_context: SessionContext,
+    storage_context: StorageContext,
 }
 
 struct Shard {
@@ -434,7 +434,7 @@ impl SqliteBackedPagableStorage {
         Ok(Self {
             shards,
             arcs: DeserializedArcCache::new(),
-            session_context: SessionContext::new(),
+            storage_context: StorageContext::new(),
         })
     }
 
@@ -544,8 +544,8 @@ impl PagableStorage for SqliteBackedPagableStorage {
         panic!("schedule_for_paging not implemented");
     }
 
-    fn session_context(&self) -> &SessionContext {
-        &self.session_context
+    fn storage_context(&self) -> &StorageContext {
+        &self.storage_context
     }
 
     fn store_data(&self, data: PagableData) -> anyhow::Result<DataKey> {

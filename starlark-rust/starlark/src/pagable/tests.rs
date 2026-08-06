@@ -219,9 +219,9 @@ a.append(a)
     let backing = InMemoryPagableStorage::new();
     let storage = backing.handle();
     let handle = PagableStorageHandle::new(storage.clone());
-    let session_ctx = storage.session_context();
+    let storage_ctx = storage.storage_context();
 
-    let mut ser = SerializerForPaging::new(session_ctx);
+    let mut ser = SerializerForPaging::new(storage_ctx);
     frozen_module
         .pagable_serialize(&mut ser)
         .map_err(crate::Error::new_other)?;
@@ -230,7 +230,7 @@ a.append(a)
     let top_key = {
         let finished = dashmap::DashMap::new();
         storage
-            .page_out_item(data, arcs, &finished, session_ctx)
+            .page_out_item(data, arcs, &finished, storage_ctx)
             .map_err(|e| match e {
                 PageOutError::Failed(e) => crate::Error::new_other(e),
                 PageOutError::AlreadyFailed => {
@@ -2451,9 +2451,9 @@ fn round_trip_owned_frozen_value_pagable_ser_de_impl(
     let backing = InMemoryPagableStorage::new();
     let storage = backing.handle();
     let handle = PagableStorageHandle::new(storage.clone());
-    let session_ctx = storage.session_context();
+    let storage_ctx = storage.storage_context();
 
-    let mut ser = SerializerForPaging::new(session_ctx);
+    let mut ser = SerializerForPaging::new(storage_ctx);
     owned
         .pagable_serialize(&mut ser)
         .map_err(crate::Error::new_other)?;
@@ -2462,7 +2462,7 @@ fn round_trip_owned_frozen_value_pagable_ser_de_impl(
     let top_key = {
         let finished = dashmap::DashMap::new();
         storage
-            .page_out_item(data, arcs, &finished, session_ctx)
+            .page_out_item(data, arcs, &finished, storage_ctx)
             .map_err(crate::Error::new_other)?
     };
     drop(owned);
@@ -2761,16 +2761,16 @@ fn ser_owned_frozen_value_into_storage(
     use pagable::storage::support::SerializerForPaging;
 
     let storage = backing.handle();
-    let session_ctx = storage.session_context();
+    let storage_ctx = storage.storage_context();
 
-    let mut ser = SerializerForPaging::new(session_ctx);
+    let mut ser = SerializerForPaging::new(storage_ctx);
     owned
         .pagable_serialize(&mut ser)
         .map_err(crate::Error::new_other)?;
     let (data, arcs) = ser.finish();
     let finished = dashmap::DashMap::new();
     let key = storage
-        .page_out_item(data, arcs, &finished, session_ctx)
+        .page_out_item(data, arcs, &finished, storage_ctx)
         .map_err(crate::Error::new_other)?;
     Ok(key)
 }
@@ -3323,17 +3323,17 @@ b.append(a)
 
     let backing = InMemoryPagableStorage::new();
     let storage = backing.handle();
-    let session_ctx = storage.session_context();
+    let storage_ctx = storage.storage_context();
 
     // Serialize both OwnedFrozenValues.
     let ser_one = |ofv: &OwnedFrozenValue| -> crate::Result<pagable::DataKey> {
-        let mut ser = SerializerForPaging::new(session_ctx);
+        let mut ser = SerializerForPaging::new(storage_ctx);
         ofv.pagable_serialize(&mut ser)
             .map_err(crate::Error::new_other)?;
         let (data, arcs) = ser.finish();
         let finished = dashmap::DashMap::new();
         storage
-            .page_out_item(data, arcs, &finished, session_ctx)
+            .page_out_item(data, arcs, &finished, storage_ctx)
             .map_err(crate::Error::new_other)
     };
     let key_a = ser_one(&ofv_a).unwrap();
@@ -3428,10 +3428,10 @@ fn bench_owned_frozen_value_round_trip(
     let backing = InMemoryPagableStorage::new();
     let storage = backing.handle();
     let handle = PagableStorageHandle::new(storage.clone());
-    let session_ctx = storage.session_context();
+    let storage_ctx = storage.storage_context();
 
     let ser_start = Instant::now();
-    let mut ser = SerializerForPaging::new(session_ctx);
+    let mut ser = SerializerForPaging::new(storage_ctx);
     owned
         .pagable_serialize(&mut ser)
         .map_err(crate::Error::new_other)?;
@@ -3442,7 +3442,7 @@ fn bench_owned_frozen_value_round_trip(
     let top_key = {
         let finished = dashmap::DashMap::new();
         storage
-            .page_out_item(data, arcs, &finished, session_ctx)
+            .page_out_item(data, arcs, &finished, storage_ctx)
             .map_err(crate::Error::new_other)?
     };
 
@@ -3562,10 +3562,10 @@ fn bench_pagable_ser_deser_by_value_type() -> crate::Result<()> {
         let backing = InMemoryPagableStorage::new();
         let storage = backing.handle();
         let handle = PagableStorageHandle::new(storage.clone());
-        let session_ctx = storage.session_context();
+        let storage_ctx = storage.storage_context();
 
         let ser_start = Instant::now();
-        let mut ser = SerializerForPaging::new(session_ctx);
+        let mut ser = SerializerForPaging::new(storage_ctx);
         frozen_module
             .pagable_serialize(&mut ser)
             .map_err(crate::Error::new_other)?;
@@ -3576,7 +3576,7 @@ fn bench_pagable_ser_deser_by_value_type() -> crate::Result<()> {
         let top_key = {
             let finished = dashmap::DashMap::new();
             storage
-                .page_out_item(data, arcs, &finished, session_ctx)
+                .page_out_item(data, arcs, &finished, storage_ctx)
                 .map_err(crate::Error::new_other)?
         };
 
@@ -3744,14 +3744,14 @@ fn test_concurrent_page_in_does_not_hash_sentinel_key() {
     // Serialize each root through the production storage path.
     let backing = InMemoryPagableStorage::new();
     let storage = backing.handle();
-    let session_ctx = storage.session_context();
+    let storage_ctx = storage.storage_context();
     let ser_one = |ofv: &OwnedFrozenValue| -> pagable::DataKey {
-        let mut ser = SerializerForPaging::new(session_ctx);
+        let mut ser = SerializerForPaging::new(storage_ctx);
         ofv.pagable_serialize(&mut ser).unwrap();
         let (data, arcs) = ser.finish();
         let finished = dashmap::DashMap::new();
         storage
-            .page_out_item(data, arcs, &finished, session_ctx)
+            .page_out_item(data, arcs, &finished, storage_ctx)
             .unwrap()
     };
     let key_data = ser_one(&ofv_key);
@@ -3834,9 +3834,9 @@ fn page_out_in_module(
     let backing = InMemoryPagableStorage::new();
     let storage = backing.handle();
     let handle = PagableStorageHandle::new(storage.clone());
-    let session_ctx = storage.session_context();
+    let storage_ctx = storage.storage_context();
 
-    let mut ser = SerializerForPaging::new(session_ctx);
+    let mut ser = SerializerForPaging::new(storage_ctx);
     frozen_module
         .pagable_serialize(&mut ser)
         .map_err(crate::Error::new_other)?;
@@ -3845,7 +3845,7 @@ fn page_out_in_module(
     let top_key = {
         let finished = dashmap::DashMap::new();
         storage
-            .page_out_item(data, arcs, &finished, session_ctx)
+            .page_out_item(data, arcs, &finished, storage_ctx)
             .map_err(crate::Error::new_other)?
     };
 
@@ -3862,11 +3862,11 @@ fn page_out_in_module(
 /// Serialize a `FrozenModule`, returning the top-level data buffer.
 fn serialize_module_top_bytes(
     frozen_module: &crate::environment::FrozenModule,
-    session_ctx: &pagable::SessionContext,
+    storage_ctx: &pagable::StorageContext,
 ) -> crate::Result<Vec<u8>> {
     use pagable::storage::support::SerializerForPaging;
 
-    let mut ser = SerializerForPaging::new(session_ctx);
+    let mut ser = SerializerForPaging::new(storage_ctx);
     frozen_module
         .pagable_serialize(&mut ser)
         .map_err(crate::Error::new_other)?;
@@ -4052,10 +4052,10 @@ def use_comprehension():
 
     let backing = pagable::storage::in_memory::InMemoryPagableStorage::new();
     let storage = backing.handle();
-    let session_ctx = storage.session_context();
+    let storage_ctx = storage.storage_context();
 
-    let bytes_a = serialize_module_top_bytes(&compile()?, session_ctx)?;
-    let bytes_b = serialize_module_top_bytes(&compile()?, session_ctx)?;
+    let bytes_a = serialize_module_top_bytes(&compile()?, storage_ctx)?;
+    let bytes_b = serialize_module_top_bytes(&compile()?, storage_ctx)?;
 
     assert_eq!(
         bytes_a, bytes_b,

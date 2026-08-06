@@ -28,7 +28,7 @@ use crate::storage::handle::PagableStorageHandle;
 pub trait PagableDeserializerRecipe: Send + Sync {
     /// Build a fresh deserializer positioned at the start of this recipe's data.
     ///
-    /// Pass storage as a parameter, instead of a field: storage's `SessionContext` may
+    /// Pass storage as a parameter, instead of a field: storage's `StorageContext` may
     /// stash recipes, so a stored handle would form an Arc cycle.
     fn open<'a>(
         &'a self,

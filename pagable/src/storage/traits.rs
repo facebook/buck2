@@ -23,7 +23,7 @@ use crate::arc_erase::WeakEraseDyn;
 use crate::storage::data::DataKey;
 use crate::storage::data::PagableData;
 use crate::storage::support::SerializerForPaging;
-use crate::traits::SessionContext;
+use crate::traits::StorageContext;
 
 /// Thread-safe cache of arcs keyed by `(TypeId, DataKey)`.
 /// `OnceCell` per deserialized entry ensures each arc is deserialized at most once.
@@ -163,9 +163,8 @@ pub trait PagableStorage: Send + Sync + 'static {
     /// Called when a pagable arc becomes fully unpinned and eligible for eviction.
     fn schedule_for_paging(&self, arc: Box<dyn ArcEraseDyn>);
 
-    /// Access the session context for storing/retrieving layer-specific state
-    /// during serialization and deserialization.
-    fn session_context(&self) -> &SessionContext;
+    /// Access state owned by this storage backend.
+    fn storage_context(&self) -> &StorageContext;
 
     /// Stores a single content-addressable [`PagableData`] blob and returns its
     /// [`DataKey`]. The key is derived from the data via
@@ -191,10 +190,10 @@ pub trait PagableStorage: Send + Sync + 'static {
     /// Stores a previously-serialized item (and its transitively reachable arcs)
     /// to storage and returns its content-addressable [`DataKey`].
     ///
-    /// The caller is responsible for the initial serialization: lock
-    /// `session_context()`, build a [`SerializerForPaging`], serialize the value,
+    /// The caller is responsible for the initial serialization: obtain
+    /// `storage_context()`, build a [`SerializerForPaging`], serialize the value,
     /// `.finish()` to obtain `(item_data, item_arcs)`, then pass them in here
-    /// along with the still-locked `&mut SessionContext` (this method uses it to
+    /// along with the same `&StorageContext` (this method uses it to
     /// recursively serialize nested arcs).
     ///
     /// `finished` is a cache of arc identity → `ArcSerSlot` shared across workers
@@ -208,7 +207,7 @@ pub trait PagableStorage: Send + Sync + 'static {
         item_data: Vec<u8>,
         item_arcs: Vec<Box<dyn ArcEraseDyn>>,
         finished: &DashMap<usize, Arc<ArcSerSlot>>,
-        session_context: &SessionContext,
+        storage_context: &StorageContext,
     ) -> Result<DataKey, PageOutError> {
         enum Task {
             Start(Box<dyn ArcEraseDyn>),
@@ -240,7 +239,7 @@ pub trait PagableStorage: Send + Sync + 'static {
                         continue;
                     }
 
-                    let mut serializer = SerializerForPaging::new(session_context);
+                    let mut serializer = SerializerForPaging::new(storage_context);
                     let (data, arcs) = match v.serialize(&mut serializer) {
                         Ok(_) => serializer.finish(),
                         Err(e) => {
@@ -449,8 +448,8 @@ mod tests {
             self.inner.schedule_for_paging(arc)
         }
 
-        fn session_context(&self) -> &SessionContext {
-            self.inner.session_context()
+        fn storage_context(&self) -> &StorageContext {
+            self.inner.storage_context()
         }
 
         fn store_data(&self, data: PagableData) -> anyhow::Result<DataKey> {
@@ -471,14 +470,14 @@ mod tests {
         let finished: DashMap<usize, Arc<ArcSerSlot>> = DashMap::new();
         let mut keys = Vec::with_capacity(num_items);
         for i in 0..num_items {
-            let session = storage.session_context();
-            let mut ser = SerializerForPaging::new(session);
+            let storage_context = storage.storage_context();
+            let mut ser = SerializerForPaging::new(storage_context);
             (i as u8).pagable_serialize(&mut ser)?;
             shared_arc.pagable_serialize(&mut ser)?;
             let (data, arcs) = ser.finish();
             keys.push(
                 storage
-                    .page_out_item(data, arcs, &finished, session)
+                    .page_out_item(data, arcs, &finished, storage_context)
                     .map_err(|e| match e {
                         PageOutError::Failed(e) => e,
                         PageOutError::AlreadyFailed => {
@@ -556,13 +555,13 @@ mod tests {
                 let shared_arc = shared_arc.clone();
                 let finished = finished.clone();
                 tokio::spawn(async move {
-                    let session = storage.session_context();
-                    let mut ser = SerializerForPaging::new(session);
+                    let storage_context = storage.storage_context();
+                    let mut ser = SerializerForPaging::new(storage_context);
                     (i as u8).pagable_serialize(&mut ser)?;
                     shared_arc.pagable_serialize(&mut ser)?;
                     let (data, arcs) = ser.finish();
                     storage
-                        .page_out_item(data, arcs, &finished, session)
+                        .page_out_item(data, arcs, &finished, storage_context)
                         .map_err(|e| match e {
                             PageOutError::Failed(e) => e,
                             PageOutError::AlreadyFailed => {
@@ -597,13 +596,13 @@ mod tests {
 
         let original = PagableArc::new(42u8, handle.dupe());
         let first_finished: DashMap<usize, Arc<ArcSerSlot>> = DashMap::new();
-        let session = storage.session_context();
-        let mut ser = SerializerForPaging::new(session);
+        let storage_context = storage.storage_context();
+        let mut ser = SerializerForPaging::new(storage_context);
         1u8.pagable_serialize(&mut ser)?;
         original.pagable_serialize(&mut ser)?;
         let (data, arcs) = ser.finish();
         let first_parent_key = storage
-            .page_out_item(data, arcs, &first_finished, session)
+            .page_out_item(data, arcs, &first_finished, storage_context)
             .map_err(|e| match e {
                 PageOutError::Failed(e) => e,
                 PageOutError::AlreadyFailed => panic!("unexpected AlreadyFailed"),
@@ -621,13 +620,13 @@ mod tests {
 
         let stores_before = storage.store_count.load(Ordering::SeqCst);
         let second_finished: DashMap<usize, Arc<ArcSerSlot>> = DashMap::new();
-        let session = storage.session_context();
-        let mut ser = SerializerForPaging::new(session);
+        let storage_context = storage.storage_context();
+        let mut ser = SerializerForPaging::new(storage_context);
         2u8.pagable_serialize(&mut ser)?;
         restored.pagable_serialize(&mut ser)?;
         let (data, arcs) = ser.finish();
         let second_parent_key = storage
-            .page_out_item(data, arcs, &second_finished, session)
+            .page_out_item(data, arcs, &second_finished, storage_context)
             .map_err(|e| match e {
                 PageOutError::Failed(e) => e,
                 PageOutError::AlreadyFailed => panic!("unexpected AlreadyFailed"),
@@ -652,12 +651,12 @@ mod tests {
         let original = PartialPagableArc::new(ResidentArcValue(42));
 
         let finished: DashMap<usize, Arc<ArcSerSlot>> = DashMap::new();
-        let session = storage.session_context();
-        let mut ser = SerializerForPaging::new(session);
+        let storage_context = storage.storage_context();
+        let mut ser = SerializerForPaging::new(storage_context);
         original.pagable_serialize(&mut ser)?;
         let (data, arcs) = ser.finish();
         let parent_key = storage
-            .page_out_item(data, arcs, &finished, session)
+            .page_out_item(data, arcs, &finished, storage_context)
             .map_err(|e| match e {
                 PageOutError::Failed(e) => e,
                 PageOutError::AlreadyFailed => panic!("unexpected AlreadyFailed"),
@@ -722,13 +721,13 @@ mod tests {
         let failing_arc: Arc<FailingSer> = Arc::new(FailingSer);
         let finished: DashMap<usize, Arc<ArcSerSlot>> = DashMap::new();
 
-        let session = storage.session_context();
-        let mut ser = SerializerForPaging::new(session);
+        let storage_context = storage.storage_context();
+        let mut ser = SerializerForPaging::new(storage_context);
         42u8.pagable_serialize(&mut ser)?;
         failing_arc.pagable_serialize(&mut ser)?;
         let (data, arcs) = ser.finish();
 
-        let result = storage.page_out_item(data, arcs, &finished, session);
+        let result = storage.page_out_item(data, arcs, &finished, storage_context);
         let err = match result {
             Err(PageOutError::Failed(e)) => e,
             other => panic!("expected Failed, got {:?}", other.is_ok()),

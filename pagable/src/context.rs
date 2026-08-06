@@ -22,7 +22,7 @@ use crate::arc_erase::ArcEraseDyn;
 use crate::storage::data::DataKey;
 use crate::storage::handle::PagableStorageHandle;
 use crate::traits::PagableCursor;
-use crate::traits::SessionContext;
+use crate::traits::StorageContext;
 
 /// Concrete implementation of [`PagableSerializer`] backed by postcard.
 ///
@@ -31,7 +31,7 @@ use crate::traits::SessionContext;
 pub struct PagableSerializerImpl {
     pub(crate) inner: postcard::Serializer<crate::flavors::PagableVecFlavor>,
     arcs: Vec<Box<dyn ArcEraseDyn>>,
-    session_context: SessionContext,
+    storage_context: StorageContext,
 }
 
 /// Result of serialization containing the raw bytes and nested arc references.
@@ -51,7 +51,7 @@ impl PagableSerializerImpl {
                 output: crate::flavors::PagableVecFlavor::new(),
             },
             arcs: Vec::new(),
-            session_context: SessionContext::new(),
+            storage_context: StorageContext::new(),
         }
     }
 
@@ -81,8 +81,8 @@ impl PagableSerializer for PagableSerializerImpl {
         }
     }
 
-    fn session_context(&mut self) -> &SessionContext {
-        &self.session_context
+    fn storage_context(&self) -> &StorageContext {
+        &self.storage_context
     }
 }
 
@@ -177,7 +177,7 @@ impl<'de, 's> PagableDeserializer<'de> for PagableDeserializerImpl<'de, 's> {
         self
     }
 
-    fn session_context(&self) -> &SessionContext {
-        self.storage.backing_storage().session_context()
+    fn storage_context(&self) -> &StorageContext {
+        self.storage.backing_storage().storage_context()
     }
 }

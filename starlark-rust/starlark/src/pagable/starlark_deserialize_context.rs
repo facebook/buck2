@@ -35,6 +35,7 @@ use pagable::PagableCursor;
 use pagable::PagableDeserialize;
 use pagable::PagableDeserializer;
 use pagable::PagableDeserializerRecipe;
+use pagable::StorageState;
 use pagable::storage::handle::PagableStorageHandle;
 
 use crate::pagable::DeserTypeId;
@@ -491,8 +492,8 @@ impl HeapDeserializationState {
     }
 }
 
-/// Shared deserialization state across all heaps deserialized in a session.
-/// Stored in `SessionContext` as `Arc<StarlarkDeserState>` so that
+/// Shared deserialization state across all heaps using one storage backend.
+/// Stored in `StorageContext` so that
 /// independently-deserialized heaps (via pagable arcs) can all register
 /// their per-value addresses and resolve cross-heap references.
 pub(crate) struct StarlarkDeserState {
@@ -503,6 +504,8 @@ pub(crate) struct StarlarkDeserState {
     /// Cross-thread wait-for graph for cyclic-deser deadlock detection.
     wait_graph: Arc<WaitForGraph>,
 }
+
+impl StorageState for StarlarkDeserState {}
 
 /// Cross-thread "wait-for" graph for detecting cyclic-deserialization deadlocks.
 ///
@@ -657,13 +660,13 @@ impl<'a, 'de> StarlarkDeserializerImpl<'a, 'de> {
         Self { pagable, state }
     }
 
-    /// Get or create the shared `StarlarkDeserState` from the deserializer's `SessionContext`.
+    /// Get or create the storage-owned `StarlarkDeserState`.
     pub(crate) fn get_or_create_state(
         deserializer: &mut dyn PagableDeserializer<'_>,
     ) -> Arc<StarlarkDeserState> {
         deserializer
-            .session_context()
-            .get_or_insert_with(|| Arc::new(StarlarkDeserState::new()))
+            .storage_context()
+            .get_or_init(StarlarkDeserState::new)
     }
 }
 
@@ -707,8 +710,8 @@ impl<'a, 'de> StarlarkDeserializerImpl<'a, 'de> {
     ) -> crate::Result<FrozenValue> {
         if let Some(value) = self
             .pagable
-            .session_context()
-            .get::<Arc<StarlarkSerState>>()
+            .storage_context()
+            .get::<StarlarkSerState>()
             .and_then(|state| state.lookup_resident_value(heap_id, value_index, is_str))
         {
             return Ok(value);

@@ -55,7 +55,7 @@ use crate::storage::traits::PagableStorage;
 use crate::traits::PagableCursor;
 use crate::traits::PagableDeserializer;
 use crate::traits::PagableSerializer;
-use crate::traits::SessionContext;
+use crate::traits::StorageContext;
 
 /// A simple in-memory serializer for testing pagable types.
 ///
@@ -70,7 +70,7 @@ pub struct TestingSerializer {
     /// Only used to populate `PagableCursor::arc_index`. Not meaningful for
     /// testing because arcs are serialized inline in the byte stream.
     arc_count: usize,
-    session_context: SessionContext,
+    storage_context: StorageContext,
 }
 
 impl TestingSerializer {
@@ -82,7 +82,7 @@ impl TestingSerializer {
             },
             seen_arcs: HashSet::new(),
             arc_count: 0,
-            session_context: SessionContext::new(),
+            storage_context: StorageContext::new(),
         }
     }
 
@@ -124,8 +124,8 @@ impl PagableSerializer for TestingSerializer {
         }
     }
 
-    fn session_context(&mut self) -> &SessionContext {
-        &self.session_context
+    fn storage_context(&self) -> &StorageContext {
+        &self.storage_context
     }
 }
 
@@ -229,21 +229,21 @@ impl<'de> PagableDeserializer<'de> for TestingDeserializer<'de> {
         self
     }
 
-    fn session_context(&self) -> &SessionContext {
-        self.storage.backing_storage().session_context()
+    fn storage_context(&self) -> &StorageContext {
+        self.storage.backing_storage().storage_context()
     }
 }
 
 pub(crate) struct EmptyPagableStorage {
     arc_cache: DeserializedArcCache,
-    session_context: SessionContext,
+    storage_context: StorageContext,
 }
 
 impl EmptyPagableStorage {
     pub(crate) fn new() -> Self {
         Self {
             arc_cache: DeserializedArcCache::new(),
-            session_context: SessionContext::new(),
+            storage_context: StorageContext::new(),
         }
     }
 }
@@ -286,8 +286,8 @@ impl PagableStorage for EmptyPagableStorage {
         // no-op
     }
 
-    fn session_context(&self) -> &SessionContext {
-        &self.session_context
+    fn storage_context(&self) -> &StorageContext {
+        &self.storage_context
     }
 
     fn store_data(&self, data: PagableData) -> anyhow::Result<DataKey> {

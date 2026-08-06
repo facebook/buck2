@@ -720,8 +720,8 @@ fn deserialize_heap_arc_with_recipe(
     let (heap_id, name) =
         FrozenFrozenHeap::deserialize_heap_identity(de).map_err(|e| e.into_anyhow())?;
     if let Some(heap) = de
-        .session_context()
-        .get::<Arc<StarlarkSerState>>()
+        .storage_context()
+        .get::<StarlarkSerState>()
         .and_then(|state| state.resident_heap(heap_id))
     {
         // Reusing the allocation avoids reconstructing the heap, but its refs
