@@ -130,7 +130,11 @@ impl StreamingCommand for CleanStaleCommand {
                 )?;
                 // Round up to next second since timestamp below is rounded down
                 // (this way clean --stale=0s immediately after a build deletes the result)
-                keep_since_time + chrono::Duration::seconds(1)
+                keep_since_time
+                    .checked_add_signed(
+                        chrono::Duration::try_seconds(1).expect("constant is in range"),
+                    )
+                    .ok_or_else(|| internal_error!("Timestamp overflow"))?
             }
             KeepSinceArg::Time(timestamp) => Utc
                 .timestamp_opt(timestamp, 0)

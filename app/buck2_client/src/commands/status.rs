@@ -142,7 +142,19 @@ pub(crate) fn process_status(status: StatusResponse) -> buck2_error::Result<serd
     let uptime = match status.uptime {
         None => "unknown".to_owned(),
         Some(uptime) => {
-            let uptime = Duration::new(uptime.seconds as u64, uptime.nanos as u32);
+            // Saturating: this is display-only, and the daemon shouldn't be trusted to
+            // report a well-formed value.
+            if uptime.seconds < 0 || !(0..=999_999_999).contains(&uptime.nanos) {
+                tracing::warn!(
+                    "Daemon reported out-of-range uptime: {}s {}ns",
+                    uptime.seconds,
+                    uptime.nanos
+                );
+            }
+            let uptime = Duration::new(
+                uptime.seconds.max(0) as u64,
+                uptime.nanos.clamp(0, 999_999_999) as u32,
+            );
             duration_to_string(uptime)
         }
     };
