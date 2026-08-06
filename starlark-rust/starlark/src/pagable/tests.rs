@@ -740,11 +740,15 @@ fn test_ser_state_lookup_resolves_cross_heap_ptrs() -> crate::Result<()> {
         .ensure_chunk_index_registered(&heap_c_ref)
         .expect("register heap C chunk index");
 
-    for (heap_id, ptrs) in [
-        (heap_a_id, &heap_a_ptrs),
-        (heap_b_id, &heap_b_ptrs),
-        (heap_c_id, &heap_c_ptrs),
+    for (heap, heap_id, ptrs) in [
+        (&heap_a_ref, heap_a_id, &heap_a_ptrs),
+        (&heap_b_ref, heap_b_id, &heap_b_ptrs),
+        (&heap_c_ref, heap_c_id, &heap_c_ptrs),
     ] {
+        let heap_ptr = heap
+            .downgrade()
+            .expect("heap should have an allocation")
+            .heap_ptr();
         for (expected_index, &raw_ptr) in ptrs.iter().enumerate() {
             let (got_heap, got_index) = state.lookup_ptr(raw_ptr).unwrap_or_else(|| {
                 panic!("ptr {raw_ptr:#x} unexpectedly missing from chunk index")
@@ -755,7 +759,7 @@ fn test_ser_state_lookup_resolves_cross_heap_ptrs() -> crate::Result<()> {
                 "ptr {raw_ptr:#x}: got value_index {got_index}, expected {expected_index}",
             );
             let resident_value = state
-                .lookup_resident_value(heap_id, expected_index as u32, false)
+                .lookup_registered_value(heap_ptr, expected_index as u32, false)
                 .unwrap_or_else(|| {
                     panic!("value_index {expected_index} missing from resident heap {heap_id:?}")
                 });

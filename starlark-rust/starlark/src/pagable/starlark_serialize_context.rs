@@ -199,17 +199,16 @@ impl StarlarkSerState {
         }
     }
 
-    /// Resolve a value index directly into a heap that is still resident.
-    pub(crate) fn lookup_resident_value(
+    /// Resolve a value index against one exact registered heap allocation.
+    pub(crate) fn lookup_registered_value(
         &self,
-        heap_id: HeapRefId,
+        heap_ptr: FrozenHeapPtr,
         value_index: u32,
         is_str: bool,
     ) -> Option<FrozenValue> {
         // Keep the arena alive while converting its indexed payload address
         // back to an AValueHeader pointer.
         let (heap, base, entry) = {
-            let heap_ptr = *self.resident_heap_candidates.get(&heap_id)?;
             let resident = self.registered_heaps.get(&heap_ptr)?;
             let chunk_index = resident
                 .chunks_by_value_index

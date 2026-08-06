@@ -756,22 +756,33 @@ impl<'a, 'de> StarlarkDeserializerImpl<'a, 'de> {
         value_index: u32,
         is_str: bool,
     ) -> crate::Result<FrozenValue> {
-        if let Some(value) = self
-            .pagable
-            .storage_context()
-            .get::<StarlarkSerState>()
-            .and_then(|state| state.lookup_resident_value(heap_id, value_index, is_str))
-        {
-            return Ok(value);
-        }
-
         let target_heap = self
             .scope
             .get_heap(&heap_id)
-            .ok_or(PagableError::HeapBasesNotRegistered { heap_id })?;
-        let target_state = target_heap
-            .deser_state()
-            .ok_or(PagableError::HeapBasesNotRegistered { heap_id })?;
+            .ok_or(PagableError::HeapNotBoundInPageInScope { heap_id })?;
+        let target_heap_ptr = target_heap
+            .downgrade()
+            .expect("a registered deserialization heap must have an allocation")
+            .heap_ptr();
+        let Some(target_state) = target_heap.deser_state() else {
+            // Page-in reused a native heap that remained resident after page-out.
+            // Use the serialization state to resolve its value.
+            let Some(value) = self
+                .pagable
+                .storage_context()
+                .get::<StarlarkSerState>()
+                .and_then(|state| {
+                    state.lookup_registered_value(target_heap_ptr, value_index, is_str)
+                })
+            else {
+                return Err(PagableError::NativeHeapValueNotRegistered {
+                    heap_id,
+                    value_index,
+                }
+                .into());
+            };
+            return Ok(value);
+        };
 
         let storage = self.pagable.storage();
 
@@ -799,10 +810,7 @@ impl<'a, 'de> StarlarkDeserializerImpl<'a, 'de> {
         // Process-local heap identity prevents unrelated same-name heaps from
         // sharing active claim/wait edges in the storage-global graph.
         let in_progress_key = HeapValueId {
-            heap_ptr: target_heap
-                .downgrade()
-                .expect("a registered deserialization heap must have an allocation")
-                .heap_ptr(),
+            heap_ptr: target_heap_ptr,
             value_index,
         };
         let my_thread = std::thread::current().id();

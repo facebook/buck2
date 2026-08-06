@@ -52,11 +52,20 @@ pub enum PagableError {
         index: usize,
     },
 
-    /// Heap bases not registered for the heap a `FrozenValue` resolves to.
-    #[error("Heap bases not registered for heap {heap_id:?}")]
-    HeapBasesNotRegistered {
-        /// The HeapRefId whose bases were not found.
+    /// A serialized heap reference has no binding in the current page-in scope.
+    #[error("Heap {heap_id:?} is not bound in this page-in scope")]
+    HeapNotBoundInPageInScope {
+        /// The logical heap identity whose binding was not found.
         heap_id: crate::pagable::heap_ref_id::HeapRefId,
+    },
+
+    /// An exact native heap allocation has no registered value for the serialized index.
+    #[error("Native heap {heap_id:?} has no registered value at index {value_index}")]
+    NativeHeapValueNotRegistered {
+        /// The logical identity of the native heap.
+        heap_id: crate::pagable::heap_ref_id::HeapRefId,
+        /// The serialized index that could not be resolved.
+        value_index: u32,
     },
 
     /// One root page-in encountered two live heap allocations with the same
