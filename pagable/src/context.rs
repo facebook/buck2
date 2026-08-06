@@ -147,7 +147,9 @@ impl<'de, 's> PagableDeserializer<'de> for PagableDeserializerImpl<'de, 's> {
             // Build a recipe for deferred deserialization.
             let recipe: Arc<dyn PagableDeserializerRecipe> =
                 Arc::new(PagableDeserializerRecipeImpl::new(data.dupe()));
-            deserialize_fn(&mut deserializer, recipe)
+            let arc = deserialize_fn(&mut deserializer, recipe)?;
+            arc.set_data_key(*key);
+            Ok(arc)
         })?;
         Ok(arc.clone_dyn())
     }

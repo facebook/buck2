@@ -203,6 +203,11 @@ pub trait PagableStorage: Send + Sync + 'static {
                         continue;
                     }
 
+                    if let Some(key) = v.data_key() {
+                        slot.set_success(key);
+                        continue;
+                    }
+
                     let mut serializer = SerializerForPaging::new(session_context);
                     let (data, arcs) = match v.serialize(&mut serializer) {
                         Ok(_) => serializer.finish(),
@@ -323,6 +328,7 @@ mod tests {
     use dupe::Dupe;
 
     use super::*;
+    use crate::PagableArc;
     use crate::PagableDeserialize;
     use crate::PagableSerialize;
     use crate::context::PagableDeserializerImpl;
@@ -505,6 +511,61 @@ mod tests {
             num_items + 1,
             total,
         );
+        Ok(())
+    }
+
+    #[test]
+    fn page_out_reuses_data_key_recorded_during_deserialization() -> anyhow::Result<()> {
+        let mem = InMemoryPagableStorage::new();
+        let storage = Arc::new(CountingStorage::new(mem.handle()));
+        let handle = PagableStorageHandle::new(storage.dupe() as Arc<dyn PagableStorage>);
+
+        let original = PagableArc::new(42u8, handle.dupe());
+        let first_finished: DashMap<usize, Arc<ArcSerSlot>> = DashMap::new();
+        let session = storage.session_context();
+        let mut ser = SerializerForPaging::new(session);
+        1u8.pagable_serialize(&mut ser)?;
+        original.pagable_serialize(&mut ser)?;
+        let (data, arcs) = ser.finish();
+        let first_parent_key = storage
+            .page_out_item(data, arcs, &first_finished, session)
+            .map_err(|e| match e {
+                PageOutError::Failed(e) => e,
+                PageOutError::AlreadyFailed => panic!("unexpected AlreadyFailed"),
+            })?;
+        storage.flush()?;
+        drop(original);
+
+        let first_parent = storage.fetch_data_blocking(&first_parent_key)?;
+        let child_key = first_parent.arcs[0];
+        let mut deser =
+            PagableDeserializerImpl::new(&first_parent.data, &first_parent.arcs, &handle);
+        assert_eq!(u8::pagable_deserialize(&mut deser)?, 1);
+        let restored = PagableArc::<u8>::pagable_deserialize(&mut deser)?;
+        assert_eq!(restored.get_data_key(), Some(child_key));
+
+        let stores_before = storage.store_count.load(Ordering::SeqCst);
+        let second_finished: DashMap<usize, Arc<ArcSerSlot>> = DashMap::new();
+        let session = storage.session_context();
+        let mut ser = SerializerForPaging::new(session);
+        2u8.pagable_serialize(&mut ser)?;
+        restored.pagable_serialize(&mut ser)?;
+        let (data, arcs) = ser.finish();
+        let second_parent_key = storage
+            .page_out_item(data, arcs, &second_finished, session)
+            .map_err(|e| match e {
+                PageOutError::Failed(e) => e,
+                PageOutError::AlreadyFailed => panic!("unexpected AlreadyFailed"),
+            })?;
+        storage.flush()?;
+
+        assert_eq!(
+            storage.store_count.load(Ordering::SeqCst) - stores_before,
+            1,
+            "only the new parent should be written; its stored child should be reused",
+        );
+        let second_parent = storage.fetch_data_blocking(&second_parent_key)?;
+        assert_eq!(second_parent.arcs.as_slice(), &[child_key]);
         Ok(())
     }
 

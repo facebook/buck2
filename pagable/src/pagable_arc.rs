@@ -977,6 +977,10 @@ impl<T: Pagable> ArcErase for PagableArc<T> {
         self.set_data_key(k);
     }
 
+    fn data_key(&self) -> Option<DataKey> {
+        self.get_data_key()
+    }
+
     fn needs_paging_out(&self) -> bool {
         self.get_data_key().is_none()
     }

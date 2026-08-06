@@ -60,6 +60,9 @@ pub trait ArcEraseDyn: std::any::Any + Send + Sync + 'static {
     /// this is a no-op.
     fn set_data_key(&self, k: DataKey);
 
+    /// Returns the storage key already associated with this arc, if any.
+    fn data_key(&self) -> Option<DataKey>;
+
     /// Returns true if this arc needs to be written to storage.
     ///
     /// For pagable arcs, returns true if the arc doesn't have a storage key yet.
@@ -126,6 +129,10 @@ impl<T: ArcErase> ArcEraseDyn for T {
 
     fn set_data_key(&self, k: DataKey) {
         ArcErase::set_data_key(self, k)
+    }
+
+    fn data_key(&self) -> Option<DataKey> {
+        ArcErase::data_key(self)
     }
 
     fn needs_paging_out(&self) -> bool {
@@ -207,6 +214,11 @@ pub trait ArcErase: std::any::Any + Sized + Send + Sync + 'static {
     /// this is a no-op.
     fn set_data_key(&self, _k: DataKey) {
         // no-op
+    }
+
+    /// Returns the storage key already associated with this arc, if any.
+    fn data_key(&self) -> Option<DataKey> {
+        None
     }
 
     /// Returns true if this arc needs to be written to storage.

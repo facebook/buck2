@@ -98,6 +98,11 @@ impl SledBackedPagableStorage {
                         continue;
                     }
 
+                    if let Some(key) = v.data_key() {
+                        finished.insert(v.identity(), key);
+                        continue;
+                    }
+
                     let mut serializer = SerializerForPaging::new(session_context);
                     v.serialize(&mut serializer)?;
                     let (data, arcs) = serializer.finish();

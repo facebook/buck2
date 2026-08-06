@@ -171,6 +171,11 @@ impl InMemoryPagableStorage {
                                 continue;
                             }
 
+                            if let Some(key) = v.data_key() {
+                                finished.insert(v.identity(), key);
+                                continue;
+                            }
+
                             let mut serializer = SerializerForPaging::new(&self.session_context);
                             v.serialize(&mut serializer).unwrap();
                             let (data, arcs) = serializer.finish();
