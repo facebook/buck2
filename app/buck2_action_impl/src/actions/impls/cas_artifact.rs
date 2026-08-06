@@ -232,8 +232,8 @@ impl Action for CasArtifactAction {
             let now = Utc::now();
 
             // Adds a small buffer to avoid minor clock skew issues.
-            let new_ttl =
-                self.inner.expires_after.signed_duration_since(now) + chrono::Duration::minutes(5);
+            let new_ttl = self.inner.expires_after.signed_duration_since(now)
+                + chrono::Duration::try_minutes(5).expect("constant is in range");
 
             re_client
                 .extend_digest_ttl(

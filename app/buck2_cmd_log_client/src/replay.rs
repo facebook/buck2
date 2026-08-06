@@ -119,10 +119,11 @@ impl BuckSubcommand for ReplayCommand {
         }
 
         let seek = if let Some(seek) = seek {
-            if !seek.is_finite() || seek < 0.0 {
+            // Rejects non-finite, negative, and overflowing values.
+            let Ok(seek) = Duration::try_from_secs_f64(seek) else {
                 return ExitResult::from(buck2_error::Error::from(ReplayError::InvalidSeek(seek)));
-            }
-            Seek::Relative(Duration::from_secs(1).mul_f64(seek))
+            };
+            Seek::Relative(seek)
         } else if let Some(seek_absolute) = seek_absolute {
             Seek::Absolute(buck2_event_log::utils::timestamp::parse(seek_absolute.as_str())?.into())
         } else {
@@ -396,9 +397,17 @@ struct Syncher {
 
 impl Syncher {
     fn convert_instant(&self, instant: Instant) -> prost_types::Timestamp {
-        let elapsed = instant
-            .saturating_duration_since(self.reference_instant)
-            .mul_f64(self.speed);
+        // Speed is validated positive at startup and only ever scaled by positive factors (or set
+        // to zero while paused), so a negative speed would be a bug: `try_from_secs_f64` would
+        // reject the negative product and silently clamp to `Duration::MAX`.
+        debug_assert!(self.speed >= 0.0, "replay speed should never be negative");
+        let elapsed = Duration::try_from_secs_f64(
+            instant
+                .saturating_duration_since(self.reference_instant)
+                .as_secs_f64()
+                * self.speed,
+        )
+        .unwrap_or(Duration::MAX);
         timestamp_add_duration(self.reference_timestamp, elapsed)
     }
 
@@ -413,10 +422,17 @@ impl Syncher {
             return Either::Left(pending());
         }
         let log_offset_time = duration_between_timestamps(self.reference_timestamp, event_time);
-        let sync_offset_time = log_offset_time.div_f64(self.speed);
-        Either::Right(tokio::time::sleep_until(
-            self.reference_instant + sync_offset_time,
-        ))
+        let sync_offset_time =
+            Duration::try_from_secs_f64(log_offset_time.as_secs_f64() / self.speed)
+                .unwrap_or(Duration::MAX);
+        // A very small (but nonzero) speed can push the offset up to `Duration::MAX`, which would
+        // overflow the `Instant` addition and panic; `checked_add` sleeps effectively forever
+        // instead.
+        let deadline = self
+            .reference_instant
+            .checked_add(sync_offset_time)
+            .unwrap_or_else(|| self.reference_instant + Duration::from_secs(60 * 60 * 24 * 365));
+        Either::Right(tokio::time::sleep_until(deadline))
     }
 }
 

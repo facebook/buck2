@@ -98,7 +98,7 @@ impl Uploader {
         } else {
             600i64
         };
-        let ttl_deadline = now + Duration::seconds(ttl_wanted);
+        let ttl_deadline = now + Duration::try_seconds(ttl_wanted).expect("constant is in range");
 
         // See if anything needs uploading
         let mut input_digests = blobs.keys().collect::<StdBuckHashSet<_>>();
@@ -490,7 +490,7 @@ fn should_error_for_missing_digest(info: &CasDownloadInfo) -> bool {
     // tells us a digest doesn't exist even though it does) in order to provide better UX when we
     // hit a true positive.
     if let Some(age) = info.action_age() {
-        age >= Duration::seconds(3600 * 5)
+        age >= Duration::try_hours(5).expect("constant is in range")
     } else {
         true
     }

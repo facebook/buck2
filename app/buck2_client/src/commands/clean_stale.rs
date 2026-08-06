@@ -64,7 +64,9 @@ pub fn parse_clean_stale_args(
                 .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::InvalidDuration))?;
             Some(KeepSinceArg::Duration(duration))
         }
-        (Some(None), None) => Some(KeepSinceArg::Duration(chrono::Duration::weeks(1))),
+        (Some(None), None) => Some(KeepSinceArg::Duration(
+            chrono::Duration::try_weeks(1).expect("constant is in range"),
+        )),
         (None, Some(time)) => Some(KeepSinceArg::Time(time)),
         (Some(_), Some(_)) => unreachable!("keep-since-time conflicts_with stale"),
         (None, None) => None,

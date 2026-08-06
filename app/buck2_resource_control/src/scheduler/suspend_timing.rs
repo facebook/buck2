@@ -52,9 +52,12 @@ impl SuspendTiming for SpreadHalfSuspendTiming {
         estimated_point_of_oom_kill: Instant,
         candidates: &[SuspendCandidate],
     ) -> usize {
-        // Spread suspends across half the scenes (rounded up).
-        let divisor = candidates.len().div_ceil(2);
-        let suspend_interval = (estimated_point_of_oom_kill - now).div_f64(divisor as f64);
+        // Spread suspends across half the scenes (rounded up). Integer division avoids the
+        // panics of `div_f64`; `max(1)` guards the empty-candidates case.
+        let divisor = u32::try_from(candidates.len().div_ceil(2))
+            .unwrap_or(u32::MAX)
+            .max(1);
+        let suspend_interval = estimated_point_of_oom_kill.saturating_duration_since(now) / divisor;
         let suspends_to_issue = match self.last_suspend_or_decrease_time {
             Some(last_suspend_or_decrease_time) => {
                 usize::from(now - last_suspend_or_decrease_time >= suspend_interval)

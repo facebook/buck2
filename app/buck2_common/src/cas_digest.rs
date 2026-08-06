@@ -1155,7 +1155,7 @@ mod tests {
             "empty-digest singleton should start at the unix epoch"
         );
 
-        let requested = Utc::now() + Duration::days(7);
+        let requested = Utc::now() + Duration::try_days(7).expect("constant is in range");
         let from_empty =
             TrackedFileDigest::new_expires(FileDigest::empty(config), requested, config);
 
