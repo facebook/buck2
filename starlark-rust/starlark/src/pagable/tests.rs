@@ -2848,6 +2848,175 @@ fn test_page_in_reuses_resident_shared_heap() -> crate::Result<()> {
     Ok(())
 }
 
+/// An old serialized parent must resolve dependency indices through the dependency's
+/// original recipe, even after that dependency is paged in and reserialized.
+///
+/// ```text
+/// Initial resident heap graph:
+///
+///   dependency H0 (heap ID D)          old parent P0
+///   +-------------------------+        +-------------------------+
+///   | old index 0: target     |<--+----| parent_root.target      |
+///   |   SimpleData(42)        |   |    |   RefData(9)            |
+///   |                         |   |    +-------------------------+
+///   | old index 1: demand_root|   |
+///   |   RefData(7) -----------+---+
+///   +-------------------------+   
+///
+///   parent_key stores P0 and encodes parent_root.target as (D, old index 0).
+///   demand_root_key stores (D, old index 1).
+///
+/// After paging in demand_root_key, the replacement heap H1 has the same heap ID D,
+/// but lazy materialization allocates in demand order:
+///
+///   H1 physical order                     H0 recipe mapping retained by H1
+///   +-------------------------+            +----------------------------+
+///   | physical 0: demand_root |            | old index 0 -> physical 1  |
+///   | physical 1: target      |            | old index 1 -> physical 0  |
+///   +-------------------------+            +----------------------------+
+///
+/// A newly serialized parent C0 references H1. Serializing C0 registers H1's
+/// physical order as the resident mapping: (D, 0) -> demand_root and
+/// (D, 1) -> target. C0 must nevertheless encode its pointer to demand_root as
+/// the original recipe index (D, 1), not its current physical index (D, 0).
+///
+/// Conversely, when parent_key is restored, its old (D, 0) must use the recipe
+/// mapping and resolve to target. Using one index space for either direction
+/// corrupts one of these two parents.
+/// ```
+#[test]
+#[should_panic(expected = "recipe index mapping is incorrect")]
+fn test_resident_heap_reuse_preserves_old_recipe_value_indices() {
+    resident_heap_reuse_preserves_old_recipe_value_indices_impl()
+        .expect("recipe-index regression setup should succeed");
+}
+
+fn resident_heap_reuse_preserves_old_recipe_value_indices_impl() -> crate::Result<()> {
+    use pagable::storage::handle::PagableStorageHandle;
+    use pagable::storage::in_memory::InMemoryPagableStorage;
+
+    // Stage 1: Build H0 and P0 from the initial graph above.
+    let dep_heap = FrozenHeap::new();
+    let target = dep_heap.alloc_simple(SimpleData {
+        flag: true,
+        count: 42,
+    });
+    let demand_root = dep_heap.alloc_simple(RefData { label: 7, target });
+    let dep_heap_ref = dep_heap.into_ref_named(TestHeapName::heap_name("resident_old_recipe_dep"));
+
+    let parent_heap = FrozenHeap::new();
+    parent_heap.add_reference(&dep_heap_ref);
+    let parent_root = parent_heap.alloc_simple(RefData { label: 9, target });
+    let parent_heap_ref =
+        parent_heap.into_ref_named(TestHeapName::heap_name("resident_old_recipe_parent"));
+
+    // SAFETY: each owner keeps the heap containing its value alive.
+    let owned_parent = unsafe { OwnedFrozenValue::new(parent_heap_ref, parent_root) };
+    let owned_demand_root = unsafe { OwnedFrozenValue::new(dep_heap_ref.clone(), demand_root) };
+
+    let backing = InMemoryPagableStorage::new();
+    let handle = PagableStorageHandle::new(backing.handle());
+    let parent_key = ser_owned_frozen_value_into_storage(&backing, &owned_parent)?;
+    let demand_root_key = ser_owned_frozen_value_into_storage(&backing, &owned_demand_root)?;
+
+    // Stage 2: Persist both roots, then remove every owner of H0 and P0.
+    drop(owned_parent);
+    drop(owned_demand_root);
+    drop(dep_heap_ref);
+
+    // Stage 3: Restore H1 from demand_root_key and verify its new physical order.
+    // Its recipe still maps each old index to the correct physical address.
+    let restored_demand_root =
+        deser_owned_frozen_value_from_storage(&backing, &handle, &demand_root_key)?;
+    let restored_headers = restored_demand_root
+        .owner()
+        .collect_undrop_headers_ordered();
+    assert_eq!(restored_headers.len(), 2);
+    assert!(
+        restored_headers[0]
+            .unpack()
+            .downcast_ref::<RefData>()
+            .is_some(),
+        "the demand root should materialize before its target"
+    );
+    assert!(
+        restored_headers[1]
+            .unpack()
+            .downcast_ref::<SimpleData>()
+            .is_some(),
+        "the target should materialize after the demand root"
+    );
+
+    // Stage 4: Build C0 with a cross-heap pointer into H1. Paging out this new
+    // owner registers H1's current physical order in the resident index.
+    let new_parent_heap = FrozenHeap::new();
+    // SAFETY: `owned_frozen_value` adds H1 as a dependency of `new_parent_heap`.
+    let restored_root = unsafe { restored_demand_root.owned_frozen_value(&new_parent_heap) };
+    let new_parent_root = new_parent_heap.alloc_simple(RefData {
+        label: 11,
+        target: restored_root,
+    });
+    let new_parent_heap_ref =
+        new_parent_heap.into_ref_named(TestHeapName::heap_name("resident_old_recipe_new_parent"));
+    // SAFETY: `new_parent_heap_ref` keeps C0 and its H1 dependency alive.
+    let owned_new_parent = unsafe { OwnedFrozenValue::new(new_parent_heap_ref, new_parent_root) };
+    let new_parent_key = ser_owned_frozen_value_into_storage(&backing, &owned_new_parent)?;
+    drop(owned_new_parent);
+
+    // Stage 5: Restore C0. Its pointer to demand_root must have been serialized
+    // using H1's original recipe index, not H1's current physical arena index.
+    let restored_new_parent =
+        deser_owned_frozen_value_from_storage(&backing, &handle, &new_parent_key)?;
+    let restored_new_parent = restored_new_parent
+        .value()
+        .downcast_ref::<RefData>()
+        .expect("the new parent root should remain RefData");
+    let restored_demand_root = restored_new_parent
+        .target
+        .downcast_ref::<RefData>()
+        .unwrap_or_else(|| {
+            let wrong_target = restored_new_parent
+                .target
+                .downcast_ref::<SimpleData>()
+                .expect("the new parent target should be RefData, not another value type");
+            panic!(
+                "recipe index mapping is incorrect: the new parent target resolved to SimpleData({})",
+                wrong_target.count
+            );
+        });
+    assert_eq!(restored_demand_root.label, 7);
+    let restored_demand_target = restored_demand_root
+        .target
+        .downcast_ref::<SimpleData>()
+        .expect("the demand root should retain its target");
+    assert_eq!(restored_demand_target.count, 42);
+
+    // Stage 6: Restore P0. Its old (D, 0) reference must follow H1's recipe map,
+    // even though the resident map now gives (D, 0) a different meaning.
+    let restored_parent = deser_owned_frozen_value_from_storage(&backing, &handle, &parent_key)?;
+    let restored_parent = restored_parent
+        .value()
+        .downcast_ref::<RefData>()
+        .expect("the old parent root should remain RefData");
+    let restored_target = restored_parent
+        .target
+        .downcast_ref::<SimpleData>()
+        .unwrap_or_else(|| {
+            let wrong_target = restored_parent
+                .target
+                .downcast_ref::<RefData>()
+                .expect("the old parent target should be SimpleData, not another value type");
+            panic!(
+                "recipe index mapping is incorrect: the old parent target resolved to the demand root RefData({})",
+                wrong_target.label
+            );
+        });
+    assert!(restored_target.flag);
+    assert_eq!(restored_target.count, 42);
+
+    Ok(())
+}
+
 /// Multi-heap, multi-`OwnedFrozenValue` partial-deser, with incremental
 /// state checks between deserialization steps:
 ///
