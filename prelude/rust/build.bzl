@@ -8,6 +8,8 @@
 
 load(
     "@prelude//:artifact_tset.bzl",
+    "ArtifactTSet",
+    "make_artifact_tset",
     "project_artifacts",
 )
 load("@prelude//:local_only.bzl", "link_cxx_binary_locally")
@@ -32,16 +34,18 @@ load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load("@prelude//cxx:dwp.bzl", "dwp", "dwp_available")
 load(
     "@prelude//cxx:link.bzl",
+    "CxxLinkResult",  # @unused Used as a type
+    "cxx_link_into",
     "cxx_link_shared_library",
 )
 load(
     "@prelude//cxx:link_types.bzl",
+    "CxxLinkResultType",
     "link_options",
 )
 load(
     "@prelude//cxx:linker.bzl",
     "get_import_library",
-    "get_output_flags",
     "get_shared_library_name_linker_flags",
 )
 load(
@@ -56,7 +60,7 @@ load(
     "@prelude//linking:link_info.bzl",
     "LibOutputStyle",  # @unused Used as a type
     "LinkArgs",
-    "LinkInfo",  # @unused Used as a type
+    "LinkInfo",
     "LinkInfos",  # @unused Used as a type
     "LinkStrategy",  # @unused Used as a type
     "LinkedObject",  # @unused Used as a type
@@ -487,6 +491,43 @@ def _setup_link_extraction(ctx: AnalysisContext, compile_ctx: CompileContext, su
         out_artifacts_dir = out_artifacts_dir,
     )
 
+def _rust_cxx_link(
+    ctx: AnalysisContext,
+    compile_ctx: CompileContext,
+    extraction: LinkExtraction,
+    crate_type: CrateType,
+    inherited_link_args: LinkArgs,
+    extra_link_args: list[typing.Any],
+    external_debug_info: ArtifactTSet,
+    import_library: Artifact | None,
+    import_library_args: list[typing.Any],
+    output: Artifact,
+    identifier: str | None,
+) -> CxxLinkResult:
+    rust_objects = LinkArgs(flags = [cmd_args(extraction.out_argsfile, format = "@{}", hidden = extraction.out_artifacts_dir)])
+    links = [
+        LinkArgs(flags = compile_ctx.linker_pre_args),
+        LinkArgs(flags = extra_link_args),
+        rust_objects,
+        inherited_link_args,
+        LinkArgs(flags = import_library_args),
+        LinkArgs(infos = [LinkInfo(external_debug_info = external_debug_info)]),
+    ]
+
+    is_shared = crate_type in [CrateType("dylib"), CrateType("cdylib")]
+    return cxx_link_into(
+        ctx = ctx,
+        output = output,
+        result_type = CxxLinkResultType("shared_library" if is_shared else "executable"),
+        opts = link_options(
+            links = links,
+            link_execution_preference = LinkExecutionPreference("any"),
+            category_suffix = "rust_dylib" if is_shared else "rust_binary",
+            identifier = identifier,
+            import_library = import_library,
+        ),
+    )
+
 # Generate a compilation action. A single instance of rustc can emit
 # numerous output artifacts, so return an artifact object for each of
 # them.
@@ -537,10 +578,7 @@ def rust_compile(
 
     requires_linking = crate_type_linked(params.crate_type) and emit == Emit("link")
 
-    # TODO(pickett): We can expand this to support all linked crate types (cdylib + binary)
-    # We can also share logic here for producing linked artifacts with cxx_library (instead of using)
-    # deferred_link_action
-    deferred_link_enabled = requires_linking and _deferred_link_enabled(compile_ctx, params, emit)
+    deferred_link = requires_linking and deferred_link_enabled(compile_ctx, params, emit)
 
     rustc_cmd = cmd_args(
         # Lints go first to allow other args to override them.
@@ -588,7 +626,7 @@ def rust_compile(
             params = params,
             predeclared_output = predeclared_output,
             incremental_enabled = incremental_enabled,
-            deferred_link = deferred_link_enabled,
+            deferred_link = deferred_link,
             profile_mode = profile_mode,
         )
 
@@ -615,10 +653,13 @@ def rust_compile(
     split_debug_mode = compile_ctx.cxx_toolchain_info.split_debug_mode or SplitDebugMode("none")
     has_split_debug = split_debug_mode != SplitDebugMode("none")
 
-    deferred_link_cmd = None
     import_library = None
     pdb_artifact = None
     dwp_inputs = []
+    link_extraction = None
+    cxx_inherited_link_args = None
+    cxx_import_library_args = []
+    inherited_debug_info = ArtifactTSet()
     if requires_linking:
         if params.crate_type in [CrateType("cdylib"), CrateType("dylib")]:
             linker_info = compile_ctx.cxx_toolchain_info.linker_info
@@ -663,14 +704,12 @@ def rust_compile(
 
         separate_debug_info_args = cmd_args()
         if has_split_debug:
-            external_debug_infos = project_artifacts(
-                ctx.actions,
-                inherited_external_debug_info(
-                    ctx = ctx,
-                    dep_ctx = compile_ctx.dep_ctx,
-                    dep_link_strategy = params.dep_link_strategy,
-                ),
+            inherited_debug_info = inherited_external_debug_info(
+                ctx = ctx,
+                dep_ctx = compile_ctx.dep_ctx,
+                dep_link_strategy = params.dep_link_strategy,
             )
+            external_debug_infos = project_artifacts(ctx.actions, inherited_debug_info)
             dwp_inputs.extend(external_debug_infos)
 
             # Pass to the link wrapper the paths to the .dwo/.o files to rewrite, if we are
@@ -715,22 +754,11 @@ def rust_compile(
         pdb_artifact = link_args_output.pdb_artifact
         dwp_inputs.append(link_args_output.link_args)
 
-        if deferred_link_enabled:
-            extraction = _setup_link_extraction(ctx, compile_ctx, common_args.subdir, emit_cbp)
-            linker = extraction.linker_wrapper
-
-            deferred_link_cmd = cmd_args(
-                compile_ctx.internal_tools_info.deferred_link_action,
-                compile_ctx.linker_with_pre_args,
-                cmd_args(extraction.out_argsfile, format = "@{}"),
-                # If we are deferring the real link to a separate action, we no longer pass the linker
-                # argsfile to rustc. This allows the rustc action to complete with only transitive dep rmeta.
-                cmd_args(linker_argsfile, format = "@{}"),
-                # The -o flag passed to the linker by rustc is a temporary file. So we will strip it
-                # out in `extract_link_action.py` and provide our own output path here.
-                get_output_flags(compile_ctx.cxx_toolchain_info.linker_info.type, emit_op.output),
-                hidden = extraction.out_artifacts_dir,
-            )
+        if deferred_link:
+            link_extraction = _setup_link_extraction(ctx, compile_ctx, common_args.subdir, emit_cbp)
+            linker = link_extraction.linker_wrapper
+            cxx_inherited_link_args = inherited_link_args
+            cxx_import_library_args = import_library_args
         else:
             rustc_cmd.add(cmd_args(linker_argsfile, format = "-Clink-arg=@{}"))
             linker = compile_ctx.linker_with_pre_args
@@ -758,11 +786,33 @@ def rust_compile(
         crate_map = common_args.crate_map,
         env = emit_op.env,
         incremental_enabled = incremental_enabled,
-        deferred_link_cmd = deferred_link_cmd,
+        deferred_link = deferred_link,
         profile_mode = profile_mode,
     )
 
-    if infallible_diagnostics and emit != Emit("clippy"):
+    cxx_link_result = None
+    if deferred_link:
+        cxx_external_debug_info = make_artifact_tset(
+            actions = ctx.actions,
+            label = ctx.label,
+            artifacts = [emit_op.extra_out] if has_split_debug else [],
+            children = [inherited_debug_info],
+        )
+        cxx_link_result = _rust_cxx_link(
+            ctx = ctx,
+            compile_ctx = compile_ctx,
+            extraction = link_extraction,
+            crate_type = params.crate_type,
+            inherited_link_args = cxx_inherited_link_args,
+            extra_link_args = extra_link_args,
+            external_debug_info = cxx_external_debug_info,
+            import_library = import_library,
+            import_library_args = cxx_import_library_args,
+            output = emit_op.output,
+            identifier = invoke.identifier,
+        )
+        filtered_output = cxx_link_result.linked_object.output
+    elif infallible_diagnostics and emit != Emit("clippy"):
         # This is only needed when this action's output is being used as an
         # input, so we only need standard diagnostics (clippy is always
         # asked for explicitly).
@@ -792,7 +842,9 @@ def rust_compile(
     else:
         dwo_output_directory = None
 
-    if requires_linking and dwp_available(compile_ctx.cxx_toolchain_info):
+    if cxx_link_result != None:
+        dwp_output = cxx_link_result.linked_object.dwp
+    elif requires_linking and dwp_available(compile_ctx.cxx_toolchain_info):
         dwp_output = dwp(
             ctx,
             compile_ctx.cxx_toolchain_info,
@@ -846,8 +898,8 @@ def rust_compile(
             remarks_json = remarks_json,
         ),
         link_output = RustcLinkOutput(
-            import_library = import_library,
-            pdb = pdb_artifact,
+            import_library = cxx_link_result.linked_object.import_library if cxx_link_result else import_library,
+            pdb = cxx_link_result.linked_object.pdb if cxx_link_result else pdb_artifact,
             dwp_output = dwp_output,
         )
         if emit == Emit("link")
@@ -1575,7 +1627,7 @@ def _rustc_invoke(
     incremental_enabled: bool,
     crate_map: list[(CrateName, Label)],
     env: dict[str, str | ResolvedStringWithMacros | Artifact],
-    deferred_link_cmd: cmd_args | None,
+    deferred_link: bool,
     profile_mode: ProfileMode | None,
 ) -> Invoke:
     toolchain_info = compile_ctx.toolchain_info
@@ -1662,7 +1714,7 @@ def _rustc_invoke(
 
     # None defers the choice to the `buck2.default_allow_cache_upload` config; an
     # explicit False overrides it. Actions without a preference pass None.
-    if allow_cache_upload or deferred_link_cmd != None:
+    if allow_cache_upload or deferred_link:
         # Opted in, or a deferred link. In the latter rustc compiles objects
         # without linking, and we always cache those.
         action_allow_cache_upload = True
@@ -1677,24 +1729,13 @@ def _rustc_invoke(
         compile_cmd,
         local_only = local_only,
         # We only want to prefer_local here if rustc is performing the link
-        prefer_local = prefer_local and deferred_link_cmd == None,
+        prefer_local = prefer_local and not deferred_link,
         category = category,
         identifier = identifier,
         no_outputs_cleanup = incremental_enabled,
         allow_cache_upload = action_allow_cache_upload,
         error_handler = toolchain_info.rust_error_handler,
     )
-
-    if deferred_link_cmd:
-        ctx.actions.run(
-            deferred_link_cmd,
-            local_only = local_only,
-            prefer_local = prefer_local,
-            category = "deferred_link",
-            identifier = identifier,
-            # Defer to `buck2.default_allow_cache_upload` unless explicitly opted in.
-            allow_cache_upload = allow_cache_upload or None,
-        )
 
     return Invoke(
         diag_txt = diag_txt,
@@ -1808,8 +1849,20 @@ def process_env(
 
     return (plain_env, path_env)
 
-def _deferred_link_enabled(compile_ctx: CompileContext, params: BuildParams, emit: Emit) -> bool:
-    return compile_ctx.toolchain_info.advanced_unstable_linking and params.crate_type == CrateType("dylib") and emit == Emit("link")
+def deferred_link_enabled(compile_ctx: CompileContext, params: BuildParams, emit: Emit) -> bool:
+    if not compile_ctx.toolchain_info.advanced_unstable_linking or emit != Emit("link"):
+        return False
+
+    # The extraction wrapper does not handle windows-style paths and flags
+    linker_type = compile_ctx.cxx_toolchain_info.linker_info.type
+    if linker_type != LinkerType("gnu") and linker_type != LinkerType("darwin"):
+        return False
+
+    if compile_ctx.exec_is_windows:
+        return False
+
+    # TODO: support cdylib deferred link
+    return params.crate_type in [CrateType("dylib"), CrateType("bin")]
 
 def _inherited_link_args(
     ctx: AnalysisContext,

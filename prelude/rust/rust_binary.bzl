@@ -59,7 +59,7 @@ load(
     "merge_shared_libraries",
     "traverse_shared_library_info",
 )
-load("@prelude//linking:stamp_build_info.bzl", "cxx_stamp_build_info", "stamp_build_info")
+load("@prelude//linking:stamp_build_info.bzl", "PRE_STAMPED_SUFFIX", "cxx_stamp_build_info", "stamp_build_info")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//rust/rust-analyzer:provider.bzl", "rust_analyzer_provider")
 load("@prelude//test:inject_test_run_info.bzl", "inject_test_run_info")
@@ -76,6 +76,7 @@ load(
     ":build.bzl",
     "generate_rustdoc",
     "rust_compile",
+    _deferred_link_enabled = "deferred_link_enabled",
 )
 load(
     ":build_params.bzl",
@@ -210,12 +211,14 @@ def _rust_binary_common(
     params = strategy_param[link_strategy]
     name = output_filename(compile_ctx, simple_crate, Emit("link"), params)
 
+    deferred_link_enabled = _deferred_link_enabled(compile_ctx, params, Emit("link"))
     enable_late_build_info_stamping = cxx_stamp_build_info(ctx)
     content_based_output = getattr(ctx.attrs, "has_content_based_path", False)
     unstamped_name = None
     if enable_late_build_info_stamping:
         allow_cache_upload = True
         unstamped_name = output_filename(compile_ctx, simple_crate, Emit("link"), params, "-unstamped")
+
     # The exe output is declared below, once we know whether it ships in a
     # content-based `copied_dir` bundle (see the `will_bundle` decision after
     # `shared_libs` is computed).
@@ -319,20 +322,38 @@ def _rust_binary_common(
     # bundle dir instead. Static binaries reuse their content-based exe in the
     # bundle directly (no RPATH to break).
     exe_content_based = content_based_output and not needs_shlib_tree
-    if enable_late_build_info_stamping:
+    if deferred_link_enabled:
+        # cxx performs the terminal link and its own late build-info stamping, so
+        # rust_compile returns the final (stamped) binary; we must not stamp again.
+        if enable_late_build_info_stamping:
+            # Use the pre-stamp suffix so cxx's stamp strips it back to `name`.
+            predeclared_output = ctx.actions.declare_output(
+                output_filename(compile_ctx, simple_crate, Emit("link"), params, PRE_STAMPED_SUFFIX),
+                has_content_based_path = exe_content_based,
+            )
+        else:
+            predeclared_output = ctx.actions.declare_output(name, has_content_based_path = exe_content_based)
+
+        # final_output is whatever cxx returns, set after rust_compile below.
+        final_output = None
+        # rpath and symlink-tree are computed against the pre-stamped output
+        shlib_args_output = predeclared_output
+    elif enable_late_build_info_stamping:
         predeclared_output = ctx.actions.declare_output(unstamped_name, has_content_based_path = exe_content_based)
         final_output = ctx.actions.declare_output(name, has_content_based_path = exe_content_based)
+        shlib_args_output = final_output
     else:
         # If not using late build info stamping, then the output will be stamped eagerly in rust_compile
         predeclared_output = ctx.actions.declare_output(name, has_content_based_path = exe_content_based)
         final_output = predeclared_output
+        shlib_args_output = final_output
 
     # link groups shared libraries link args are directly added to the link command,
     # we don't have to add them here
     executable_shlib_args = executable_shared_lib_arguments(
         ctx,
         compile_ctx.cxx_toolchain_info,
-        final_output,
+        shlib_args_output,
         shared_libs,
     )
 
@@ -352,7 +373,10 @@ def _rust_binary_common(
         incremental_enabled = ctx.attrs.incremental_enabled,
     )
 
-    if enable_late_build_info_stamping:
+    if deferred_link_enabled:
+        # Use the cxx stamped output if available
+        final_output = link.output
+    elif enable_late_build_info_stamping:
         stamp_build_info(ctx, link.output, final_output)
 
     args = cmd_args(final_output, hidden = executable_shlib_args.runtime_files)

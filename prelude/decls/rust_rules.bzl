@@ -60,6 +60,9 @@ _RUST_EXECUTABLE_ATTRIBUTES = {
     # Unlike cxx which supports pre-defined link groups, we only support
     # auto_link_groups in rust
     "auto_link_groups": attrs.bool(default = True),
+    # BOLT post-link optimization only applies when deferred_link_enabled is True.
+    "bolt_flags": attrs.list(attrs.arg(), default = []),
+    "bolt_profile": attrs.option(attrs.source(), default = None),
     # TODO: enable distributed thinlto
     "enable_distributed_thinlto": attrs.bool(default = False),
     "extra_dwp_flags": attrs.list(attrs.string(), default = []),
