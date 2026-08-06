@@ -53,6 +53,7 @@ use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_hash::StdBuckHashMap;
 use buck2_hash::StdBuckHashSet;
 use buck2_http::HttpClient;
+use chrono::DateTime;
 use chrono::Duration;
 use chrono::Utc;
 use dice_futures::cancellation::CancellationContext;
@@ -657,7 +658,9 @@ pub(super) fn create_ttl_refresh(
 ) -> Option<impl Future<Output = buck2_error::Result<()>> + use<>> {
     let mut digests_to_refresh = StdBuckHashMap::<_, StdBuckHashSet<_>>::new();
 
-    let ttl_deadline = Utc::now() + min_ttl;
+    let ttl_deadline = Utc::now()
+        .checked_add_signed(min_ttl)
+        .unwrap_or(DateTime::<Utc>::MAX_UTC);
 
     for data in tree.iter_without_paths() {
         if let ArtifactMaterializationStage::Declared { entry, method } = &data.stage

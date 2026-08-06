@@ -280,7 +280,13 @@ impl<T: IoHandler> ExtensionCommand<T> for RefreshTtls {
         let task = create_ttl_refresh(
             &processor.tree,
             processor.io.re_client_manager(),
-            Duration::seconds(self.min_ttl),
+            // There is no error path out of an extension command, so clamp by sign; an absurd
+            // min TTL just means "refresh everything" or "refresh nothing".
+            Duration::try_seconds(self.min_ttl).unwrap_or(if self.min_ttl >= 0 {
+                Duration::MAX
+            } else {
+                Duration::MIN
+            }),
             processor.io.digest_config(),
         )
         .map(|f| processor.spawn(&EventDispatcher::error_on_event(), f));
@@ -466,10 +472,14 @@ impl<T: IoHandler> DeferredMaterializerExtensions for DeferredMaterializerAccess
             let min_ttl = args
                 .adaptive_min_ttl
                 .unwrap_or_else(|| std::time::Duration::from_secs(12 * 60 * 60));
-            let min_ttl_chrono = Duration::from_std(min_ttl).unwrap_or_else(|_| Duration::zero());
             crate::materializers::deferred::clean_stale::AdaptiveLowDiskParams {
                 threshold_percent,
-                min_access_time: Utc::now() - min_ttl_chrono,
+                // Clamping to MIN keeps everything protected, which is the safe direction
+                // for something that deletes artifacts.
+                min_access_time: Duration::from_std(min_ttl)
+                    .ok()
+                    .and_then(|d| Utc::now().checked_sub_signed(d))
+                    .unwrap_or(DateTime::<Utc>::MIN_UTC),
             }
         });
         let (sender, recv) = oneshot::channel();

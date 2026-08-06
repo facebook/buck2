@@ -487,8 +487,12 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 default_ttl,
                 Some(AdaptiveLowDiskParams {
                     threshold_percent: cfg.threshold_percent,
-                    min_access_time: chrono::Utc::now()
-                        - chrono::Duration::from_std(min_ttl).unwrap_or(chrono::Duration::zero()),
+                    // Clamping to MIN keeps everything protected, which is the safe direction
+                    // for something that deletes artifacts.
+                    min_access_time: chrono::Duration::from_std(min_ttl)
+                        .ok()
+                        .and_then(|d| chrono::Utc::now().checked_sub_signed(d))
+                        .unwrap_or(DateTime::<Utc>::MIN_UTC),
                 }),
             ),
         }
@@ -692,7 +696,10 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
 
                         let daemon_id = dispatcher.daemon_id().dupe();
                         let cmd = CleanStaleArtifactsCommand {
-                            keep_since_time: chrono::Utc::now() - artifact_ttl,
+                            keep_since_time: chrono::Duration::from_std(artifact_ttl)
+                                .ok()
+                                .and_then(|d| chrono::Utc::now().checked_sub_signed(d))
+                                .unwrap_or(DateTime::<Utc>::MIN_UTC),
                             dry_run: config.dry_run,
                             tracked_only: false,
                             dispatcher,
