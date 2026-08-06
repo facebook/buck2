@@ -63,7 +63,6 @@ _RUST_EXECUTABLE_ATTRIBUTES = {
     # BOLT post-link optimization only applies when deferred_link_enabled is True.
     "bolt_flags": attrs.list(attrs.arg(), default = []),
     "bolt_profile": attrs.option(attrs.source(), default = None),
-    # TODO: enable distributed thinlto
     "enable_distributed_thinlto": attrs.bool(default = False),
     "extra_dwp_flags": attrs.list(attrs.string(), default = []),
     # Opt the final executable output into content-based (immutable) buck-out

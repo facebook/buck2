@@ -59,16 +59,19 @@ load(
 )
 load(
     "@prelude//linking:link_info.bzl",
+    "Archive",
+    "ArchiveLinkable",
     "LibOutputStyle",  # @unused Used as a type
     "LinkArgs",
     "LinkInfo",
     "LinkInfos",  # @unused Used as a type
-    "LinkStrategy",  # @unused Used as a type
+    "LinkStrategy",
     "LinkedObject",  # @unused Used as a type
     "create_merged_link_info",
     "get_link_args_for_strategy",
     "set_link_info_link_whole",
 )
+load("@prelude//linking:lto.bzl", "LtoMode")
 load(
     "@prelude//linking:shared_libraries.bzl",
     "merge_shared_libraries",
@@ -468,8 +471,8 @@ LinkExtraction = record(
     out_argsfile = field(Artifact),
     # Extracted link inputs directory.
     out_artifacts_dir = field(Artifact),
-    # Archive of the rustc-produced objects. Only built when the caller asks for
-    # it; otherwise the objects are listed in `out_argsfile`.
+    # Archive of the rustc-produced objects. Only built when used by
+    # distributed thinlto.
     out_archive = field(Artifact | None),
 )
 
@@ -477,9 +480,6 @@ def _archiver_command(ctx: AnalysisContext, compile_ctx: CompileContext, subdir:
     linker_info = compile_ctx.cxx_toolchain_info.linker_info
     archiver_type = linker_info.archiver_type
 
-    # The archive is assembled inside the extraction action, which appends the
-    # output path and the objects to this command. That ordering only holds for
-    # archivers that take the output positionally after the flags.
     if archiver_type != "gnu" and archiver_type != "darwin":
         fail("archiving rust link objects is unsupported for archiver type '{}'".format(archiver_type))
 
@@ -515,8 +515,6 @@ def _setup_link_extraction(ctx: AnalysisContext, compile_ctx: CompileContext, su
 
     out_archive = None
     if archive_objects:
-        # Follow the toolchain's rule for archives rather than this action's
-        # other outputs, matching `_archive` in cxx/archive.bzl.
         archive_cbp = compile_ctx.cxx_toolchain_info.linker_info.supports_content_based_paths_for_archiving == True
         out_archive = ctx.actions.declare_output(subdir + "/extracted-objects.a", has_content_based_path = archive_cbp)
         linker_cmd.add(cmd_args(out_archive.as_output(), format = "--out_archive={}"))
@@ -542,6 +540,7 @@ def _rust_cxx_link(
     compile_ctx: CompileContext,
     extraction: LinkExtraction,
     crate_type: CrateType,
+    dist_thin_lto_codegen_flags: list[typing.Any],
     inherited_link_args: LinkArgs,
     extra_link_args: list[typing.Any],
     external_debug_info: ArtifactTSet,
@@ -549,8 +548,30 @@ def _rust_cxx_link(
     import_library_args: list[typing.Any],
     output: Artifact,
     identifier: str | None,
+    enable_distributed_thinlto: bool,
 ) -> CxxLinkResult:
-    rust_objects = LinkArgs(flags = [cmd_args(extraction.out_argsfile, format = "@{}", hidden = extraction.out_artifacts_dir)])
+    rust_argsfile = cmd_args(extraction.out_argsfile, format = "@{}", hidden = extraction.out_artifacts_dir)
+    if extraction.out_archive == None:
+        rust_objects = LinkArgs(flags = [rust_argsfile])
+    else:
+        rust_objects = LinkArgs(
+            infos = [
+                LinkInfo(
+                    name = "rust_objects",
+                    dist_thin_lto_codegen_flags = dist_thin_lto_codegen_flags,
+                    pre_flags = [rust_argsfile],
+                    linkables = [
+                        ArchiveLinkable(
+                            archive = Archive(artifact = extraction.out_archive),
+                            linker_type = compile_ctx.cxx_toolchain_info.linker_info.type,
+                            # link_whole because everything rustc emits has to end up in the input.
+                            link_whole = True,
+                        )
+                    ],
+                )
+            ]
+        )
+
     links = [
         LinkArgs(flags = compile_ctx.linker_pre_args),
         LinkArgs(flags = extra_link_args),
@@ -571,6 +592,7 @@ def _rust_cxx_link(
             category_suffix = "rust_dylib" if is_shared else "rust_binary",
             identifier = identifier,
             import_library = import_library,
+            enable_distributed_thinlto = enable_distributed_thinlto,
         ),
     )
 
@@ -625,6 +647,7 @@ def rust_compile(
     requires_linking = crate_type_linked(params.crate_type) and emit == Emit("link")
 
     deferred_link = requires_linking and deferred_link_enabled(compile_ctx, params, emit)
+    dist_thinlto = deferred_link and _dist_thinlto_enabled(ctx, compile_ctx)
 
     rustc_cmd = cmd_args(
         # Lints go first to allow other args to override them.
@@ -806,7 +829,7 @@ def rust_compile(
                 compile_ctx,
                 common_args.subdir,
                 emit_cbp,
-                archive_objects = False,
+                archive_objects = dist_thinlto,
             )
             linker = link_extraction.linker_wrapper
             cxx_inherited_link_args = inherited_link_args
@@ -855,6 +878,10 @@ def rust_compile(
             compile_ctx = compile_ctx,
             extraction = link_extraction,
             crate_type = params.crate_type,
+            # rustc emits `-pie` for every strategy but `static`, which gets
+            # `-no-pie`. The opt actions re-run codegen and take their relocation
+            # model from their own command line, so a PIE link has to ask for PIC.
+            dist_thin_lto_codegen_flags = (compile_ctx.toolchain_info.dist_thin_lto_codegen_flags if params.dep_link_strategy != LinkStrategy("static") else []),
             inherited_link_args = cxx_inherited_link_args,
             extra_link_args = extra_link_args,
             external_debug_info = cxx_external_debug_info,
@@ -862,6 +889,7 @@ def rust_compile(
             import_library_args = cxx_import_library_args,
             output = emit_op.output,
             identifier = invoke.identifier,
+            enable_distributed_thinlto = dist_thinlto,
         )
         filtered_output = cxx_link_result.linked_object.output
     elif infallible_diagnostics and emit != Emit("clippy"):
@@ -1915,6 +1943,12 @@ def deferred_link_enabled(compile_ctx: CompileContext, params: BuildParams, emit
 
     # TODO: support cdylib deferred link
     return params.crate_type in [CrateType("dylib"), CrateType("bin")]
+
+def _dist_thinlto_enabled(ctx: AnalysisContext, compile_ctx: CompileContext) -> bool:
+    if not getattr(ctx.attrs, "enable_distributed_thinlto", False):
+        return False
+    linker_info = compile_ctx.cxx_toolchain_info.linker_info
+    return linker_info.supports_distributed_thinlto and linker_info.lto_mode == LtoMode("thin")
 
 def _inherited_link_args(
     ctx: AnalysisContext,
