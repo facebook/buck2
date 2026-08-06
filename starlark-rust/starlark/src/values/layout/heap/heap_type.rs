@@ -393,6 +393,10 @@ struct FrozenFrozenHeap {
     ser_state: OnceLock<Weak<StarlarkSerState>>,
 }
 
+/// Process-local identity of an exact `FrozenFrozenHeap` allocation.
+#[derive(Debug, Clone, Copy, Dupe, PartialEq, Eq, Hash, Allocative)]
+pub(crate) struct FrozenHeapPtr(usize);
+
 #[derive(Clone, Dupe, Allocative)]
 pub(crate) struct WeakFrozenHeapRef(PartialPagableWeak<FrozenFrozenHeap>);
 
@@ -401,8 +405,8 @@ impl WeakFrozenHeapRef {
         self.0.upgrade().map(|heap| FrozenHeapRef(Some(heap)))
     }
 
-    pub(crate) fn points_to(&self, heap_ptr: *const ()) -> bool {
-        self.0.as_ptr().cast::<()>() == heap_ptr
+    pub(crate) fn heap_ptr(&self) -> FrozenHeapPtr {
+        FrozenHeapPtr(self.0.as_ptr() as usize)
     }
 }
 
@@ -651,7 +655,7 @@ impl Drop for FrozenFrozenHeap {
         };
         state.unregister_heap(
             HeapRefId::from_heap_name(name),
-            (self as *const Self).cast::<()>(),
+            FrozenHeapPtr(self as *const Self as usize),
             self.arena.allocated_chunk_bases(),
         );
     }

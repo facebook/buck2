@@ -36,6 +36,7 @@ use crate::pagable::starlark_serialize::StarlarkSerializeContext;
 use crate::pagable::static_value::get_static_value_id;
 use crate::values::FrozenValue;
 use crate::values::layout::heap::arena::ChunkInfo;
+use crate::values::layout::heap::heap_type::FrozenHeapPtr;
 use crate::values::layout::heap::heap_type::FrozenHeapRef;
 use crate::values::layout::heap::heap_type::WeakFrozenHeapRef;
 use crate::values::layout::heap::repr::AValueHeader;
@@ -50,6 +51,8 @@ pub(crate) struct ChunkEntry {
     size: u32,
     /// Heap that owns this chunk.
     heap_id: HeapRefId,
+    /// Exact process-local heap allocation that owns this chunk.
+    heap_ptr: FrozenHeapPtr,
     /// Cumulative count of values in earlier chunks of this heap, in
     /// serialization order (drop bump first, then non-drop).
     values_before: u32,
@@ -71,19 +74,32 @@ struct ResidentHeapEntry {
 pub(crate) struct StarlarkSerState {
     /// Per-chunk index keyed by chunk base address.
     chunks: RwLock<BTreeMap<usize, Arc<ChunkEntry>>>,
-    /// Resident heaps and their value-index-ordered chunks.
-    resident_heaps: DashMap<HeapRefId, ResidentHeapEntry>,
+    /// Exact heap registrations used when resolving pointers for serialization.
+    registered_heaps: DashMap<FrozenHeapPtr, ResidentHeapEntry>,
+    /// Single resident candidate retained for existing `HeapRefId` page-in lookups.
+    ///
+    /// TODO(nero): Remove this temporary index once page-in resolves resident
+    /// heaps through per-root scope and `DataKey`. Different heap incarnations
+    /// with the same `HeapRefId` overwrite each other here.
+    resident_heap_candidates: DashMap<HeapRefId, FrozenHeapPtr>,
 }
 
 impl StarlarkSerState {
     pub(crate) fn new() -> Self {
         Self {
             chunks: RwLock::new(BTreeMap::new()),
-            resident_heaps: DashMap::new(),
+            registered_heaps: DashMap::new(),
+            resident_heap_candidates: DashMap::new(),
         }
     }
 
-    fn register_heap(&self, heap_id: HeapRefId, heap: WeakFrozenHeapRef, entries: Vec<ChunkInfo>) {
+    fn register_heap(
+        &self,
+        heap_id: HeapRefId,
+        heap_ptr: FrozenHeapPtr,
+        heap: WeakFrozenHeapRef,
+        entries: Vec<ChunkInfo>,
+    ) {
         let chunks_by_value_index: Vec<_> = entries
             .into_iter()
             .map(|info| {
@@ -91,6 +107,7 @@ impl StarlarkSerState {
                 let entry = Arc::new(ChunkEntry {
                     size: info.size,
                     heap_id,
+                    heap_ptr,
                     values_before: info.values_before,
                     payload_offsets: info.payload_offsets.into_boxed_slice(),
                 });
@@ -104,20 +121,22 @@ impl StarlarkSerState {
                 chunks.insert(*base, entry.dupe());
             }
         }
-        // Publish the heap after its chunks so a successful weak upgrade is
+        // Publish the heap after its chunks so a completed registration is
         // guaranteed to have a complete pointer index.
-        self.resident_heaps.insert(
-            heap_id,
+        self.registered_heaps.insert(
+            heap_ptr,
             ResidentHeapEntry {
                 heap,
                 chunks_by_value_index: chunks_by_value_index.into_boxed_slice(),
             },
         );
+        self.resident_heap_candidates.insert(heap_id, heap_ptr);
     }
 
     pub(crate) fn resident_heap(&self, heap_id: HeapRefId) -> Option<FrozenHeapRef> {
-        self.resident_heaps
-            .get(&heap_id)
+        let heap_ptr = *self.resident_heap_candidates.get(&heap_id)?;
+        self.registered_heaps
+            .get(&heap_ptr)
             .and_then(|entry| entry.heap.upgrade())
     }
 
@@ -136,7 +155,11 @@ impl StarlarkSerState {
             return Ok(());
         };
         let heap_id = HeapRefId::from_heap_name(name);
-        if self.resident_heap(heap_id).is_some() {
+        let heap = heap_ref
+            .downgrade()
+            .expect("named FrozenHeapRef should have an inner heap");
+        let heap_ptr = heap.heap_ptr();
+        if self.registered_heaps.contains_key(&heap_ptr) {
             return Ok(());
         }
 
@@ -145,23 +168,21 @@ impl StarlarkSerState {
         }
 
         heap_ref.register_ser_state(self)?;
-        let heap = heap_ref
-            .downgrade()
-            .expect("named FrozenHeapRef should have an inner heap");
-        self.register_heap(heap_id, heap, heap_ref.build_chunk_index());
+        self.register_heap(heap_id, heap_ptr, heap, heap_ref.build_chunk_index());
         Ok(())
     }
 
     pub(crate) fn unregister_heap(
         &self,
         heap_id: HeapRefId,
-        heap_ptr: *const (),
+        heap_ptr: FrozenHeapPtr,
         chunk_bases: impl IntoIterator<Item = usize>,
     ) {
         // Let future registrations proceed before removing this still-live
         // arena's addresses, which cannot be reused until Drop completes.
-        if let Entry::Occupied(entry) = self.resident_heaps.entry(heap_id)
-            && entry.get().heap.points_to(heap_ptr)
+        self.registered_heaps.remove(&heap_ptr);
+        if let Entry::Occupied(entry) = self.resident_heap_candidates.entry(heap_id)
+            && *entry.get() == heap_ptr
         {
             entry.remove();
         }
@@ -169,7 +190,7 @@ impl StarlarkSerState {
         for base in chunk_bases {
             if chunks
                 .get(&base)
-                .is_some_and(|entry| entry.heap_id == heap_id)
+                .is_some_and(|entry| entry.heap_ptr == heap_ptr)
             {
                 chunks.remove(&base);
             }
@@ -186,7 +207,8 @@ impl StarlarkSerState {
         // Keep the arena alive while converting its indexed payload address
         // back to an AValueHeader pointer.
         let (heap, base, entry) = {
-            let resident = self.resident_heaps.get(&heap_id)?;
+            let heap_ptr = *self.resident_heap_candidates.get(&heap_id)?;
+            let resident = self.registered_heaps.get(&heap_ptr)?;
             let chunk_index = resident
                 .chunks_by_value_index
                 .partition_point(|(_, entry)| entry.values_before <= value_index)

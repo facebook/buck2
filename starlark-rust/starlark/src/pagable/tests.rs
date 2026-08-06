@@ -2800,17 +2800,9 @@ fn deser_owned_frozen_value_from_storage(
 /// logical name. Serialization registration must distinguish the exact heap
 /// allocations rather than treating `HeapRefId` as their resident identity.
 #[test]
-#[should_panic(expected = "same-name heap serialization collision")]
 fn test_same_name_heaps_serialize_independently_in_shared_session() {
-    let error = same_name_heaps_serialize_independently_in_shared_session_impl()
-        .expect_err("same-name heaps should collide before exact allocation registration");
-    let message = format!("{error:#}");
-    assert!(
-        message.contains("FrozenValue pointer")
-            && message.contains("not found in any registered heap's chunk index"),
-        "unexpected serialization error: {message}",
-    );
-    panic!("same-name heap serialization collision");
+    same_name_heaps_serialize_independently_in_shared_session_impl()
+        .expect("same-name heaps should serialize independently");
 }
 
 fn same_name_heaps_serialize_independently_in_shared_session_impl() -> crate::Result<()> {
