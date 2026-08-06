@@ -18,6 +18,7 @@
 import argparse
 import os
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any, IO, NamedTuple
@@ -30,6 +31,8 @@ def eprint(*args: Any, **kwargs: Any) -> None:
 class Args(NamedTuple):
     out_argsfile: IO[str]
     out_artifacts: Path
+    out_archive: Path | None
+    archiver_argsfile: Path | None
     linker: list[str]
 
 
@@ -45,6 +48,21 @@ def arg_parse() -> Args:
         type=Path,
         required=True,
     )
+    # When --out_archive and archiver_argsfile are set, the rustc objects are
+    # collected into an archive rather than in the argsfile. Distributed ThinLTO needs
+    # the objects to arrive as an `ArchiveLinkable` so it can plan a per-object
+    # opt action for each linkable.
+    parser.add_argument(
+        "--out_archive",
+        type=Path,
+        default=None,
+    )
+    parser.add_argument(
+        "--archiver_argsfile",
+        type=Path,
+        default=None,
+        help="File holding the archiver command, one argument per line",
+    )
     parser.add_argument(
         "linker",
         nargs=argparse.REMAINDER,
@@ -55,8 +73,18 @@ def arg_parse() -> Args:
     return Args(**vars(parser.parse_args()))
 
 
-def process_link_args(args: list[str], out_artifacts: Path) -> list[str]:
+def process_link_args(
+    args: list[str], out_artifacts: Path, collect_objects: bool
+) -> tuple[list[str], list[str]]:
+    """Filter rustc's linker argv, returning (filtered args, objects).
+
+    With `collect_objects`, the rustc-produced object files are returned
+    separately and left out of the filtered args, for the caller to archive
+    instead. Otherwise they are listed in the args as usual and no objects are
+    returned.
+    """
     new_args = []
+    objects = []
 
     i = 0
     size = len(args)
@@ -98,7 +126,10 @@ def process_link_args(args: list[str], out_artifacts: Path) -> list[str]:
             or arg.endswith("dll_imports.lib")
         ):
             new_path = shutil.copy(Path(arg), out_artifacts)
-            new_args.append(new_path)
+            if collect_objects:
+                objects.append(new_path)
+            else:
+                new_args.append(new_path)
             i += 1
             continue
 
@@ -132,7 +163,17 @@ def process_link_args(args: list[str], out_artifacts: Path) -> list[str]:
         new_args.append(arg)
         i += 1
 
-    return new_args
+    return new_args, objects
+
+
+def archive_objects(
+    archiver_argsfile: Path, out_archive: Path, objects: list[str]
+) -> None:
+    archiver = archiver_argsfile.read_text().split("\n")
+    archiver = [arg for arg in archiver if arg]
+
+    env = {**os.environ, "ZERO_AR_DATE": "1"}
+    subprocess.check_call([*archiver, str(out_archive), *objects], env=env)
 
 
 def main() -> int:
@@ -140,9 +181,20 @@ def main() -> int:
 
     os.mkdir(args.out_artifacts)
 
-    filtered_args = process_link_args(args.linker[1:], out_artifacts=args.out_artifacts)
+    archiver_argsfile = args.archiver_argsfile
+    out_archive = args.out_archive
+    archiving = archiver_argsfile is not None and out_archive is not None
+
+    filtered_args, objects = process_link_args(
+        args.linker[1:],
+        out_artifacts=args.out_artifacts,
+        collect_objects=archiving,
+    )
     args.out_argsfile.write("\n".join(filtered_args))
     args.out_argsfile.close()
+
+    if objects and archiver_argsfile is not None and out_archive is not None:
+        archive_objects(archiver_argsfile, out_archive, objects)
 
     return 0
 
