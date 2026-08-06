@@ -484,10 +484,14 @@ def _run_ibtool(
     ibtool_command.extend(action_flags)
     if output_is_dir:
         ibtool_command.append('"$TMPDIR"')
-        ibtool_command.append(cmd_args(raw_file, format = '"$EXEC_ROOT"/{}'))
     else:
         ibtool_command.append(output)
-        ibtool_command.append(raw_file)
+    ibtool_command.append(cmd_args(raw_file, format = '"$EXEC_ROOT"/{}'))
+
+    script_lines = [
+        cmd_args("set -euo pipefail"),
+        cmd_args('EXEC_ROOT="$PWD"'),
+    ]
 
     if output_is_dir:
         # Sandboxing and fs isolation on RE machines results in Xcode tools failing
@@ -495,21 +499,21 @@ def _run_ibtool(
         # See https://fb.workplace.com/groups/1042353022615812/permalink/1872164996301273/
         # As a workaround create a directory in tmp, use it for Xcode tools, then
         # copy the result to buck-out.
-        wrapper_script, _ = ctx.actions.write(
-            "ibtool_wrapper_" + action_identifier.replace(" ", "_").replace("/", "_") + ".sh",
-            [
-                cmd_args("set -euo pipefail"),
-                cmd_args('EXEC_ROOT="$PWD"'),
-                cmd_args('export TMPDIR="$(mktemp -d)"'),
-                cmd_args(cmd_args(ibtool_command), delimiter = " "),
-                cmd_args(output, format = 'mkdir -p {} && cp -r "$TMPDIR"/ {}'),
-            ],
-            allow_args = True,
-            has_content_based_path = False,
-        )
-        command = cmd_args(["/bin/sh", wrapper_script], hidden = [ibtool_command, output])
+        script_lines.extend([
+            cmd_args('export TMPDIR="$(mktemp -d)"'),
+            cmd_args(cmd_args(ibtool_command), delimiter = " "),
+            cmd_args(output, format = 'mkdir -p {} && cp -r "$TMPDIR"/ {}'),
+        ])
     else:
-        command = ibtool_command
+        script_lines.append(cmd_args(cmd_args(ibtool_command), delimiter = " "))
+
+    wrapper_script, _ = ctx.actions.write(
+        "ibtool_wrapper_" + action_identifier.replace(" ", "_").replace("/", "_") + ".sh",
+        script_lines,
+        allow_args = True,
+        has_content_based_path = False,
+    )
+    command = cmd_args(["/bin/sh", wrapper_script], hidden = [ibtool_command, output])
 
     processing_options = get_bundle_resource_processing_options(ctx)
     ctx.actions.run(
