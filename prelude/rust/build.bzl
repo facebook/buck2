@@ -20,6 +20,7 @@ load(
     "apple_build_link_args_with_deduped_flags",
     "apple_get_link_info_by_deduping_link_infos",
 )
+load("@prelude//cxx:archive.bzl", "archive_flags")
 load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps")
 load(
     "@prelude//cxx:cxx_link_utility.bzl",
@@ -467,17 +468,61 @@ LinkExtraction = record(
     out_argsfile = field(Artifact),
     # Extracted link inputs directory.
     out_artifacts_dir = field(Artifact),
+    # Archive of the rustc-produced objects. Only built when the caller asks for
+    # it; otherwise the objects are listed in `out_argsfile`.
+    out_archive = field(Artifact | None),
 )
 
-def _setup_link_extraction(ctx: AnalysisContext, compile_ctx: CompileContext, subdir: str, emit_cbp: bool) -> LinkExtraction:
+def _archiver_command(ctx: AnalysisContext, compile_ctx: CompileContext, subdir: str, archive_cbp: bool) -> cmd_args:
+    linker_info = compile_ctx.cxx_toolchain_info.linker_info
+    archiver_type = linker_info.archiver_type
+
+    # The archive is assembled inside the extraction action, which appends the
+    # output path and the objects to this command. That ordering only holds for
+    # archivers that take the output positionally after the flags.
+    if archiver_type != "gnu" and archiver_type != "darwin":
+        fail("archiving rust link objects is unsupported for archiver type '{}'".format(archiver_type))
+
+    archiver_cmd = cmd_args(
+        linker_info.archiver,
+        archive_flags(
+            archiver_type,
+            linker_info.type,
+            linker_info.use_archiver_flags,
+            linker_info.archive_symbol_table,
+            thin = False,
+        ),
+    )
+    if linker_info.use_archiver_flags and linker_info.archiver_flags != None:
+        archiver_cmd.add(linker_info.archiver_flags)
+
+    argsfile, _ = ctx.actions.write(
+        subdir + "/archiver.args",
+        archiver_cmd,
+        allow_args = True,
+        has_content_based_path = archive_cbp,
+    )
+    return cmd_args(argsfile, hidden = linker_info.archiver)
+
+def _setup_link_extraction(ctx: AnalysisContext, compile_ctx: CompileContext, subdir: str, emit_cbp: bool, archive_objects: bool) -> LinkExtraction:
     out_argsfile = ctx.actions.declare_output(subdir + "/extracted-link-args.args", has_content_based_path = emit_cbp)
     out_artifacts_dir = ctx.actions.declare_output(subdir + "/extracted-link-artifacts", dir = True, has_content_based_path = emit_cbp)
     linker_cmd = cmd_args(
         compile_ctx.internal_tools_info.extract_link_action,
         cmd_args(out_argsfile.as_output(), format = "--out_argsfile={}"),
         cmd_args(out_artifacts_dir.as_output(), format = "--out_artifacts={}"),
-        compile_ctx.linker_with_pre_args,
     )
+
+    out_archive = None
+    if archive_objects:
+        # Follow the toolchain's rule for archives rather than this action's
+        # other outputs, matching `_archive` in cxx/archive.bzl.
+        archive_cbp = compile_ctx.cxx_toolchain_info.linker_info.supports_content_based_paths_for_archiving == True
+        out_archive = ctx.actions.declare_output(subdir + "/extracted-objects.a", has_content_based_path = archive_cbp)
+        linker_cmd.add(cmd_args(out_archive.as_output(), format = "--out_archive={}"))
+        linker_cmd.add(cmd_args(_archiver_command(ctx, compile_ctx, subdir, archive_cbp), format = "--archiver_argsfile={}"))
+
+    linker_cmd.add(compile_ctx.linker_with_pre_args)
     linker_wrapper = cmd_script(
         actions = ctx.actions,
         name = subdir + "/linker_wrapper",
@@ -489,6 +534,7 @@ def _setup_link_extraction(ctx: AnalysisContext, compile_ctx: CompileContext, su
         linker_wrapper = linker_wrapper,
         out_argsfile = out_argsfile,
         out_artifacts_dir = out_artifacts_dir,
+        out_archive = out_archive,
     )
 
 def _rust_cxx_link(
@@ -755,7 +801,13 @@ def rust_compile(
         dwp_inputs.append(link_args_output.link_args)
 
         if deferred_link:
-            link_extraction = _setup_link_extraction(ctx, compile_ctx, common_args.subdir, emit_cbp)
+            link_extraction = _setup_link_extraction(
+                ctx,
+                compile_ctx,
+                common_args.subdir,
+                emit_cbp,
+                archive_objects = False,
+            )
             linker = link_extraction.linker_wrapper
             cxx_inherited_link_args = inherited_link_args
             cxx_import_library_args = import_library_args

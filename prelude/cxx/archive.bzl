@@ -12,7 +12,7 @@ load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:utils.bzl", "value_or")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 
-def _archive_flags(archiver_type: str, linker_type: LinkerType, use_archiver_flags: bool, symbol_table: bool, thin: bool) -> list[str]:
+def archive_flags(archiver_type: str, linker_type: LinkerType, use_archiver_flags: bool, symbol_table: bool, thin: bool) -> list[str]:
     if not use_archiver_flags:
         return []
 
@@ -58,7 +58,7 @@ def _archive(
     command = cmd_args(toolchain.linker_info.archiver)
     archiver_type = toolchain.linker_info.archiver_type
     command.add(
-        _archive_flags(
+        archive_flags(
             archiver_type,
             toolchain.linker_info.type,
             toolchain.linker_info.use_archiver_flags,
