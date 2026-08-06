@@ -24,7 +24,6 @@ use std::sync::RwLock;
 
 use allocative::Allocative;
 use dashmap::DashMap;
-use dashmap::mapref::entry::Entry;
 use dupe::Dupe;
 use pagable::PagableSerialize;
 use pagable::PagableSerializer;
@@ -76,12 +75,6 @@ pub(crate) struct StarlarkSerState {
     chunks: RwLock<BTreeMap<usize, Arc<ChunkEntry>>>,
     /// Exact heap registrations used when resolving pointers for serialization.
     registered_heaps: DashMap<FrozenHeapPtr, ResidentHeapEntry>,
-    /// Single resident candidate retained for existing `HeapRefId` page-in lookups.
-    ///
-    /// TODO(nero): Remove this temporary index once page-in resolves resident
-    /// heaps through per-root scope and `DataKey`. Different heap incarnations
-    /// with the same `HeapRefId` overwrite each other here.
-    resident_heap_candidates: DashMap<HeapRefId, FrozenHeapPtr>,
 }
 
 impl StorageState for StarlarkSerState {}
@@ -91,7 +84,6 @@ impl StarlarkSerState {
         Self {
             chunks: RwLock::new(BTreeMap::new()),
             registered_heaps: DashMap::new(),
-            resident_heap_candidates: DashMap::new(),
         }
     }
 
@@ -132,14 +124,6 @@ impl StarlarkSerState {
                 chunks_by_value_index: chunks_by_value_index.into_boxed_slice(),
             },
         );
-        self.resident_heap_candidates.insert(heap_id, heap_ptr);
-    }
-
-    pub(crate) fn resident_heap(&self, heap_id: HeapRefId) -> Option<FrozenHeapRef> {
-        let heap_ptr = *self.resident_heap_candidates.get(&heap_id)?;
-        self.registered_heaps
-            .get(&heap_ptr)
-            .and_then(|entry| entry.heap.upgrade())
     }
 
     /// Recursively ensure that chunk indices are registered for a heap
@@ -176,18 +160,12 @@ impl StarlarkSerState {
 
     pub(crate) fn unregister_heap(
         &self,
-        heap_id: HeapRefId,
         heap_ptr: FrozenHeapPtr,
         chunk_bases: impl IntoIterator<Item = usize>,
     ) {
         // Let future registrations proceed before removing this still-live
         // arena's addresses, which cannot be reused until Drop completes.
         self.registered_heaps.remove(&heap_ptr);
-        if let Entry::Occupied(entry) = self.resident_heap_candidates.entry(heap_id)
-            && *entry.get() == heap_ptr
-        {
-            entry.remove();
-        }
         let mut chunks = self.chunks.write().expect("chunks lock poisoned");
         for base in chunk_bases {
             if chunks

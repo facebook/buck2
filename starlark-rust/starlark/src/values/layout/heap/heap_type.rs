@@ -665,14 +665,10 @@ impl Drop for FrozenFrozenHeap {
             state.unregister_heap(FrozenHeapPtr(self as *const Self as usize));
         }
 
-        let Some(name) = &self.name else {
-            return;
-        };
         let Some(state) = self.ser_state.get().and_then(Weak::upgrade) else {
             return;
         };
         state.unregister_heap(
-            HeapRefId::from_heap_name(name),
             FrozenHeapPtr(self as *const Self as usize),
             self.arena.allocated_chunk_bases(),
         );
@@ -732,27 +728,13 @@ impl<'de> PagableDeserialize<'de> for FrozenHeapRef {
     }
 }
 
-/// Reuses a resident heap when possible; otherwise creates its lazy-deserialization state.
+/// Creates a heap's lazy-deserialization state after the generic Arc cache misses.
 fn deserialize_heap_arc_with_recipe(
     de: &mut dyn PagableDeserializer<'_>,
     recipe: Arc<dyn pagable::PagableDeserializerRecipe>,
 ) -> pagable::Result<Box<dyn pagable::arc_erase::ArcEraseDyn>> {
     let (heap_id, name) =
         FrozenFrozenHeap::deserialize_heap_identity(de).map_err(|e| e.into_anyhow())?;
-    if let Some(heap) = de
-        .storage_context()
-        .get::<StarlarkSerState>()
-        .and_then(|state| state.resident_heap(heap_id))
-    {
-        // Reusing the allocation avoids reconstructing the heap, but its refs
-        // and body still occupy this deserializer's byte and arc streams.
-        // Consume them so the next value starts at the correct cursor.
-        FrozenFrozenHeap::deserialize_refs_and_skip_body(de).map_err(|e| e.into_anyhow())?;
-        let arc = heap
-            .0
-            .expect("resident FrozenHeapRef should have an inner heap");
-        return Ok(Box::new(arc));
-    }
     let arc = FrozenFrozenHeap::deserialize_skeleton(de, heap_id, name, recipe)
         .map_err(|e| e.into_anyhow())?;
     Ok(Box::new(arc))
