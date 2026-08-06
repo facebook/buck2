@@ -66,6 +66,12 @@ pub(super) struct TyNamespaceFunction;
 pagable::register_typetag!(TyCustomFunction<TyNamespaceFunction> as dyn TyCustomDyn);
 
 impl TyCustomFunctionImpl for TyNamespaceFunction {
+    fn is_type(&self) -> bool {
+        // `namespace` is declared `as_type = FrozenNamespace`, so at runtime it has a
+        // `.type` attribute and can be used in a type expression (`namespace | None`).
+        true
+    }
+
     fn as_callable(&self) -> TyCallable {
         // TODO(nga): this should be obtained from function signature from function definition.
         TyCallable::new(

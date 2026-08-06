@@ -50,6 +50,12 @@ struct StructType;
 pagable::register_typetag!(TyCustomFunction<StructType> as dyn TyCustomDyn);
 
 impl TyCustomFunctionImpl for StructType {
+    fn is_type(&self) -> bool {
+        // `struct` is declared `as_type = FrozenStruct`, so at runtime it has a
+        // `.type` attribute and can be used in a type expression (`struct | None`).
+        true
+    }
+
     fn as_callable(&self) -> TyCallable {
         // TODO(nga): this should be obtained from function signature from function definition.
         TyCallable::new(ParamSpec::kwargs(Ty::any()), Ty::any_struct())
