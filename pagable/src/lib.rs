@@ -40,6 +40,7 @@ pub mod deser_recipe;
 pub mod flavors;
 mod impls;
 mod pagable_arc;
+mod page_in_scope;
 mod partial_pagable_arc;
 pub mod storage;
 #[cfg(test)]
@@ -55,6 +56,7 @@ pub use impls::StaticStr;
 pub use impls::static_value;
 pub use impls::static_value::StaticBytes;
 pub use impls::static_value::StaticValue;
+pub use page_in_scope::PageInScope;
 pub use storage::data::DataKey;
 pub use traits::Pagable;
 pub use traits::PagableBoxDeserialize;

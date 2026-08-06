@@ -11,9 +11,11 @@
 use dupe::Dupe;
 
 use crate::Pagable;
+use crate::PageInScope;
 use crate::context::PagableDeserializerImpl;
 use crate::pagable_arc::PagableArc;
 use crate::storage::data::DataKey;
+use crate::storage::data::PagableData;
 use crate::storage::traits::PagableStorage;
 
 /// Handle for interacting with pagable storage.
@@ -34,8 +36,7 @@ impl PagableStorageHandle {
         // Fetch the raw data from storage
         let data = self.backing_storage.fetch_data(key).await?;
 
-        // Create a deserializer with the data
-        let mut deserializer = PagableDeserializerImpl::new(&data.data, &data.arcs, self);
+        let mut deserializer = self.root_deserializer(*key, &data);
 
         // Deserialize the pagable data
         T::pagable_deserialize(&mut deserializer)
@@ -52,6 +53,15 @@ impl PagableStorageHandle {
     /// Creates a new handle wrapping the given storage implementation.
     pub fn new(backing_storage: std::sync::Arc<dyn PagableStorage>) -> Self {
         Self { backing_storage }
+    }
+
+    /// Starts a new root page-in scope for `data` stored at `root_key`.
+    pub fn root_deserializer<'de, 's>(
+        &'s self,
+        root_key: DataKey,
+        data: &'de PagableData,
+    ) -> PagableDeserializerImpl<'de, 's> {
+        PageInScope::new(root_key).deserializer(data, self)
     }
 
     pub(crate) fn backing_storage(&self) -> &dyn PagableStorage {

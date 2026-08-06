@@ -364,7 +364,6 @@ mod tests {
     use crate::PagableDeserializerRecipe;
     use crate::PagableSerialize;
     use crate::PartialPagableArc;
-    use crate::context::PagableDeserializerImpl;
     use crate::storage::handle::PagableStorageHandle;
     use crate::storage::in_memory::InMemoryPagableStorage;
     use crate::storage::support::SerializerForPaging;
@@ -513,7 +512,7 @@ mod tests {
                 let handle = handle.dupe();
                 tokio::spawn(async move {
                     let data = storage.fetch_data_blocking(&key)?;
-                    let mut deser = PagableDeserializerImpl::new(&data.data, &data.arcs, &handle);
+                    let mut deser = handle.root_deserializer(key, &data);
                     let _value: u8 = crate::PagableDeserialize::pagable_deserialize(&mut deser)?;
                     let _values: Arc<Vec<u8>> =
                         crate::PagableDeserialize::pagable_deserialize(&mut deser)?;
@@ -612,8 +611,7 @@ mod tests {
 
         let first_parent = storage.fetch_data_blocking(&first_parent_key)?;
         let child_key = first_parent.arcs[0];
-        let mut deser =
-            PagableDeserializerImpl::new(&first_parent.data, &first_parent.arcs, &handle);
+        let mut deser = handle.root_deserializer(first_parent_key, &first_parent);
         assert_eq!(u8::pagable_deserialize(&mut deser)?, 1);
         let restored = PagableArc::<u8>::pagable_deserialize(&mut deser)?;
         assert_eq!(restored.get_data_key(), Some(child_key));
@@ -665,7 +663,7 @@ mod tests {
         RESIDENT_ARC_DESERIALIZATIONS.store(0, Ordering::SeqCst);
         let parent = storage.fetch_data_blocking(&parent_key)?;
         let child_key = parent.arcs[0];
-        let mut deser = PagableDeserializerImpl::new(&parent.data, &parent.arcs, &handle);
+        let mut deser = handle.root_deserializer(parent_key, &parent);
         let restored = deserialize_resident_partial_arc(&mut deser)?;
 
         assert!(
@@ -688,7 +686,7 @@ mod tests {
             "the resident registry must not keep the allocation alive",
         );
 
-        let mut deser = PagableDeserializerImpl::new(&parent.data, &parent.arcs, &handle);
+        let mut deser = handle.root_deserializer(parent_key, &parent);
         let restored = deserialize_resident_partial_arc(&mut deser)?;
         assert_eq!(restored.0, 42);
         assert_eq!(RESIDENT_ARC_DESERIALIZATIONS.load(Ordering::SeqCst), 1);

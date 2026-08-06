@@ -18,8 +18,10 @@ use crate::PagableDeserializer;
 use crate::PagableDeserializerRecipe;
 use crate::PagableDeserializerRecipeImpl;
 use crate::PagableSerializer;
+use crate::PageInScope;
 use crate::arc_erase::ArcEraseDyn;
 use crate::storage::data::DataKey;
+use crate::storage::data::PagableData;
 use crate::storage::handle::PagableStorageHandle;
 use crate::traits::PagableCursor;
 use crate::traits::StorageContext;
@@ -100,19 +102,25 @@ pub struct PagableDeserializerImpl<'de, 's> {
     inner: postcard::Deserializer<'de, crate::flavors::PagableSlice<'de>>,
     arcs: &'de [DataKey],
     storage: &'s PagableStorageHandle,
+    page_in_scope: PageInScope,
 }
 
 impl<'de, 's> PagableDeserializerImpl<'de, 's> {
-    pub fn new(data: &'de [u8], arcs: &'de [DataKey], storage: &'s PagableStorageHandle) -> Self {
+    pub(crate) fn new(
+        data: &'de PagableData,
+        storage: &'s PagableStorageHandle,
+        page_in_scope: PageInScope,
+    ) -> Self {
         let pos = crate::flavors::SharedPosition::new();
         Self {
             pos: pos.clone(),
             inner: postcard::Deserializer::from_flavor(crate::flavors::PagableSlice::new(
-                data, pos,
+                &data.data, pos,
             )),
-            arcs,
+            arcs: &data.arcs,
             arc_index: 0,
             storage,
+            page_in_scope,
         }
     }
 }
@@ -145,11 +153,11 @@ impl<'de, 's> PagableDeserializer<'de> for PagableDeserializerImpl<'de, 's> {
         // First thread to reach here deserializes; others block.
         let arc = cell.get_or_try_init(|| -> crate::Result<Box<dyn ArcEraseDyn>> {
             let data = storage.fetch_data_blocking(key)?;
-            let mut deserializer =
-                PagableDeserializerImpl::new(&data.data, &data.arcs, self.storage);
+            let mut deserializer = self.page_in_scope.deserializer(&data, self.storage);
             // Build a recipe for deferred deserialization.
-            let recipe: Arc<dyn PagableDeserializerRecipe> =
-                Arc::new(PagableDeserializerRecipeImpl::new(data.dupe()));
+            let recipe: Arc<dyn PagableDeserializerRecipe> = Arc::new(
+                PagableDeserializerRecipeImpl::new(data.dupe(), self.page_in_scope.dupe()),
+            );
             let arc = deserialize_fn(&mut deserializer, recipe)?;
             storage.associate_arc_with_data_key(&*arc, *key);
             Ok(arc)
@@ -170,7 +178,11 @@ impl<'de, 's> PagableDeserializer<'de> for PagableDeserializerImpl<'de, 's> {
     }
 
     fn storage(&self) -> PagableStorageHandle {
-        self.storage.clone()
+        self.storage.dupe()
+    }
+
+    fn page_in_scope(&self) -> &PageInScope {
+        &self.page_in_scope
     }
 
     fn as_dyn(&mut self) -> &mut dyn PagableDeserializer<'de> {

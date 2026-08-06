@@ -43,6 +43,7 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::PagableDeserializerRecipe;
+use crate::PageInScope;
 use crate::arc_erase::ArcEraseDyn;
 use crate::flavors::PagableSlice;
 use crate::flavors::PagableVecFlavor;
@@ -145,6 +146,7 @@ pub struct TestingDeserializer<'de> {
     /// testing because arcs are deserialized inline from the byte stream.
     arc_index: usize,
     storage: PagableStorageHandle,
+    page_in_scope: PageInScope,
 }
 
 impl<'de> TestingDeserializer<'de> {
@@ -154,18 +156,24 @@ impl<'de> TestingDeserializer<'de> {
     /// [`TestingSerializer::finish`].
     pub fn new(bytes: &'de [u8]) -> Self {
         let pos = SharedPosition::new();
+        let storage = PagableStorageHandle::new(Arc::new(EmptyPagableStorage::new()));
         Self {
             bytes_arc: Arc::from(bytes.to_vec().into_boxed_slice()),
             pos: pos.clone(),
             serde: postcard::Deserializer::from_flavor(PagableSlice::new(bytes, pos)),
             seen_arcs: HashMap::new(),
             arc_index: 0,
-            storage: PagableStorageHandle::new(Arc::new(EmptyPagableStorage::new())),
+            storage,
+            page_in_scope: PageInScope::new(DataKey::compute(0, bytes, &[])),
         }
     }
 
-    /// Construct a deserializer sharing an existing `Arc<[u8]>` and storage.
-    pub fn from_bytes_arc(bytes: &'de Arc<[u8]>, storage: PagableStorageHandle) -> Self {
+    /// Construct a deserializer sharing an existing `Arc<[u8]>` and page-in scope.
+    pub(crate) fn from_bytes_arc(
+        bytes: &'de Arc<[u8]>,
+        storage: PagableStorageHandle,
+        page_in_scope: PageInScope,
+    ) -> Self {
         let pos = SharedPosition::new();
         Self {
             bytes_arc: bytes.dupe(),
@@ -174,6 +182,7 @@ impl<'de> TestingDeserializer<'de> {
             seen_arcs: HashMap::new(),
             arc_index: 0,
             storage,
+            page_in_scope,
         }
     }
 }
@@ -214,6 +223,7 @@ impl<'de> PagableDeserializer<'de> for TestingDeserializer<'de> {
             // First time - deserialize, store in map, return
             let recipe: Arc<dyn PagableDeserializerRecipe> = Arc::new(TestingRecipe {
                 bytes: self.bytes_arc.dupe(),
+                page_in_scope: self.page_in_scope.dupe(),
             });
             let arc = deserialize_fn(self, recipe)?;
             self.seen_arcs.insert(identity, arc.clone_dyn());
@@ -222,7 +232,11 @@ impl<'de> PagableDeserializer<'de> for TestingDeserializer<'de> {
     }
 
     fn storage(&self) -> PagableStorageHandle {
-        self.storage.clone()
+        self.storage.dupe()
+    }
+
+    fn page_in_scope(&self) -> &PageInScope {
+        &self.page_in_scope
     }
 
     fn as_dyn(&mut self) -> &mut dyn crate::traits::PagableDeserializer<'de> {
@@ -250,6 +264,7 @@ impl EmptyPagableStorage {
 
 pub(crate) struct TestingRecipe {
     bytes: Arc<[u8]>,
+    page_in_scope: PageInScope,
 }
 
 impl PagableDeserializerRecipe for TestingRecipe {
@@ -260,6 +275,7 @@ impl PagableDeserializerRecipe for TestingRecipe {
         Box::new(TestingDeserializer::from_bytes_arc(
             &self.bytes,
             storage.dupe(),
+            self.page_in_scope.dupe(),
         ))
     }
 }

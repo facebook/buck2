@@ -30,7 +30,6 @@ use dashmap::DashMap;
 use dice_error::storage::PagableStorageBackendParseError;
 use dupe::Dupe;
 use pagable::DataKey;
-use pagable::context::PagableDeserializerImpl;
 use pagable::storage::handle::PagableStorageHandle;
 use pagable::storage::noop::NoopPagableStorage;
 use pagable::storage::support::SerializerForPaging;
@@ -400,7 +399,7 @@ impl DiceStorage {
         // so deser_us also covers that nested I/O, not just CPU.
         let deser_start = Instant::now();
         let handle = PagableStorageHandle::new(self.storage.dupe());
-        let mut deserializer = PagableDeserializerImpl::new(&data.data, &data.arcs, &handle);
+        let mut deserializer = handle.root_deserializer(data_key, &data);
         let arc = match key_dyn {
             DiceKeyErased::Key(k) => k.pagable_deserialize_value(&mut deserializer)?,
             DiceKeyErased::Projection(p) => {

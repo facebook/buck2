@@ -24,6 +24,7 @@ use std::sync::Arc;
 use dashmap::DashMap;
 
 use crate::PagableDeserializerRecipe;
+use crate::PageInScope;
 use crate::arc_erase::ArcEraseDyn;
 use crate::storage::handle::PagableStorageHandle;
 
@@ -271,6 +272,9 @@ pub trait PagableDeserializer<'de> {
     /// that are connected to the appropriate storage backend for future paging.
     fn storage(&self) -> PagableStorageHandle;
 
+    /// Scope shared by the root value and all nested page-in work.
+    fn page_in_scope(&self) -> &PageInScope;
+
     /// Returns this deserializer as a trait object.
     ///
     /// This is useful when you need to pass the deserializer to code that
@@ -309,6 +313,10 @@ impl<'de, D: PagableDeserializer<'de> + ?Sized> PagableDeserializer<'de> for &mu
 
     fn storage(&self) -> PagableStorageHandle {
         <D as PagableDeserializer<'de>>::storage(self)
+    }
+
+    fn page_in_scope(&self) -> &PageInScope {
+        <D as PagableDeserializer<'de>>::page_in_scope(self)
     }
 
     fn as_dyn(&mut self) -> &mut dyn PagableDeserializer<'de> {

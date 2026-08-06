@@ -185,7 +185,6 @@ fn test_module_eval_round_trip() -> crate::Result<()> {
     use std::any::TypeId;
 
     use pagable::PagableDeserialize;
-    use pagable::context::PagableDeserializerImpl;
     use pagable::storage::handle::PagableStorageHandle;
     use pagable::storage::in_memory::InMemoryPagableStorage;
     use pagable::storage::support::SerializerForPaging;
@@ -245,7 +244,7 @@ a.append(a)
         .right()
         .expect("top-level key should return data, not a cached arc");
 
-    let mut de = PagableDeserializerImpl::new(&top_data.data, &top_data.arcs, &handle);
+    let mut de = handle.root_deserializer(top_key, &top_data);
     let restored = FrozenModule::pagable_deserialize(&mut de).map_err(crate::Error::new_other)?;
 
     let x = restored.get("x")?.value().unpack_i32().unwrap();
@@ -2443,7 +2442,6 @@ fn round_trip_owned_frozen_value_pagable_ser_de_impl(
     use std::any::TypeId;
 
     use pagable::PagableDeserialize;
-    use pagable::context::PagableDeserializerImpl;
     use pagable::storage::handle::PagableStorageHandle;
     use pagable::storage::in_memory::InMemoryPagableStorage;
     use pagable::storage::support::SerializerForPaging;
@@ -2473,7 +2471,7 @@ fn round_trip_owned_frozen_value_pagable_ser_de_impl(
         .right()
         .expect("top-level key should return data, not a cached arc");
 
-    let mut de = PagableDeserializerImpl::new(&top_data.data, &top_data.arcs, &handle);
+    let mut de = handle.root_deserializer(top_key, &top_data);
     OwnedFrozenValue::pagable_deserialize(&mut de).map_err(crate::Error::new_other)
 }
 
@@ -2784,7 +2782,6 @@ fn deser_owned_frozen_value_from_storage(
     use std::any::TypeId;
 
     use pagable::PagableDeserialize;
-    use pagable::context::PagableDeserializerImpl;
 
     let top_data = backing
         .handle()
@@ -2792,7 +2789,7 @@ fn deser_owned_frozen_value_from_storage(
         .map_err(crate::Error::new_other)?
         .right()
         .expect("top-level key should return data, not a cached arc");
-    let mut de = PagableDeserializerImpl::new(&top_data.data, &top_data.arcs, handle);
+    let mut de = handle.root_deserializer(*top_key, &top_data);
     OwnedFrozenValue::pagable_deserialize(&mut de).map_err(crate::Error::new_other)
 }
 
@@ -3288,7 +3285,6 @@ fn test_cross_thread_cycle_does_not_deadlock() {
     use std::time::Duration;
 
     use pagable::PagableDeserialize;
-    use pagable::context::PagableDeserializerImpl;
     use pagable::storage::handle::PagableStorageHandle;
     use pagable::storage::in_memory::InMemoryPagableStorage;
     use pagable::storage::support::SerializerForPaging;
@@ -3355,7 +3351,7 @@ b.append(a)
             // Synchronize so both threads enter deserialization at the same time.
             barrier.wait();
 
-            let mut de = PagableDeserializerImpl::new(&top_data.data, &top_data.arcs, &handle);
+            let mut de = handle.root_deserializer(key, &top_data);
             let _restored =
                 OwnedFrozenValue::pagable_deserialize(&mut de).map_err(crate::Error::new_other)?;
             Ok(())
@@ -3418,7 +3414,6 @@ fn bench_owned_frozen_value_round_trip(
     use std::time::Instant;
 
     use pagable::PagableDeserialize;
-    use pagable::context::PagableDeserializerImpl;
     use pagable::storage::handle::PagableStorageHandle;
     use pagable::storage::in_memory::InMemoryPagableStorage;
     use pagable::storage::support::SerializerForPaging;
@@ -3453,7 +3448,7 @@ fn bench_owned_frozen_value_round_trip(
         .expect("should be data");
 
     let deser_start = Instant::now();
-    let mut de = PagableDeserializerImpl::new(&top_data.data, &top_data.arcs, &handle);
+    let mut de = handle.root_deserializer(top_key, &top_data);
     let _restored =
         OwnedFrozenValue::pagable_deserialize(&mut de).map_err(crate::Error::new_other)?;
     let deser_us = deser_start.elapsed().as_micros();
@@ -3554,7 +3549,6 @@ fn bench_pagable_ser_deser_by_value_type() -> crate::Result<()> {
         use std::time::Instant;
 
         use pagable::PagableDeserialize;
-        use pagable::context::PagableDeserializerImpl;
         use pagable::storage::handle::PagableStorageHandle;
         use pagable::storage::in_memory::InMemoryPagableStorage;
         use pagable::storage::support::SerializerForPaging;
@@ -3587,7 +3581,7 @@ fn bench_pagable_ser_deser_by_value_type() -> crate::Result<()> {
             .expect("should be data");
 
         let deser_start = Instant::now();
-        let mut de = PagableDeserializerImpl::new(&top_data.data, &top_data.arcs, &handle);
+        let mut de = handle.root_deserializer(top_key, &top_data);
         let restored =
             FrozenModule::pagable_deserialize(&mut de).map_err(crate::Error::new_other)?;
         let deser_us = deser_start.elapsed().as_micros();
@@ -3715,7 +3709,6 @@ fn test_concurrent_page_in_does_not_hash_sentinel_key() {
     use std::time::Duration;
 
     use dupe::Dupe;
-    use pagable::context::PagableDeserializerImpl;
     use pagable::storage::handle::PagableStorageHandle;
     use pagable::storage::in_memory::InMemoryPagableStorage;
     use pagable::storage::support::SerializerForPaging;
@@ -3781,7 +3774,7 @@ fn test_concurrent_page_in_does_not_hash_sentinel_key() {
             let top = storage
                 .fetch_data_blocking(&key)
                 .map_err(crate::Error::new_other)?;
-            let mut de = PagableDeserializerImpl::new(&top.data, &top.arcs, &handle);
+            let mut de = handle.root_deserializer(key, &top);
             OwnedFrozenValue::pagable_deserialize(&mut de).map_err(crate::Error::new_other)?;
             Ok(())
         })
@@ -3824,7 +3817,6 @@ fn page_out_in_module(
     use std::any::TypeId;
 
     use pagable::PagableDeserialize;
-    use pagable::context::PagableDeserializerImpl;
     use pagable::storage::handle::PagableStorageHandle;
     use pagable::storage::in_memory::InMemoryPagableStorage;
     use pagable::storage::support::SerializerForPaging;
@@ -3855,7 +3847,7 @@ fn page_out_in_module(
         .right()
         .expect("top-level key should return data, not a cached arc");
 
-    let mut de = PagableDeserializerImpl::new(&top_data.data, &top_data.arcs, &handle);
+    let mut de = handle.root_deserializer(top_key, &top_data);
     FrozenModule::pagable_deserialize(&mut de).map_err(crate::Error::new_other)
 }
 
