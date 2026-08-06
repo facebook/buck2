@@ -43,7 +43,10 @@ impl AttrTypeCoerce for SourceAttrType {
     ) -> buck2_error::Result<CoercedAttr> {
         let source_label = value.unpack_str_err()?;
 
-        let label_err = if source_label.contains(':') {
+        // A label needs a `:` (`//foo:bar`, `:bar`) unless the target name is being inferred from
+        // the package name, in which case `//foo/bar` means `//foo/bar:bar`. `//` can't appear in a
+        // valid path, so testing for it doesn't cost us any path coercions.
+        let label_err = if source_label.contains(':') || source_label.contains("//") {
             match ctx.coerce_providers_label(source_label) {
                 Ok(l) => return Ok(CoercedAttr::SourceLabel(l)),
                 Err(e) => Some(e),

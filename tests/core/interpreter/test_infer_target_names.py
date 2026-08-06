@@ -41,6 +41,27 @@ async def test_eponymous_dep_in_build_file_inferred_when_enabled(buck: Buck) -> 
 
 
 @buck_test()
+async def test_eponymous_source_in_build_file_rejected_by_default(buck: Buck) -> None:
+    # `attrs.source()` takes either a path or a label, so it coerces separately
+    # from `attrs.dep()`. Without the buckconfig, `//lib/greeting` fails as both
+    # a label without an explicit target name and as a non-relative path.
+    await expect_failure(
+        buck.uquery("deps(root//source:src_consumer)", "--console=none", "-v0"),
+        stderr_regex=r"Couldn't coerce `//lib/greeting` as a source",
+    )
+
+
+@buck_test()
+async def test_eponymous_source_in_build_file_inferred_when_enabled(
+    buck: Buck,
+) -> None:
+    # With the buckconfig, the source attr coerces to the eponymous label rather
+    # than being (mis)treated as a path.
+    res = await buck.uquery("deps(root//source:src_consumer)", "-c", _ENABLE)
+    assert "root//lib/greeting:greeting" in res.stdout
+
+
+@buck_test()
 async def test_eponymous_attr_default_in_bzl_rejected_by_default(buck: Buck) -> None:
     # The `//bzl_default` rule declares `attrs.dep(default = "//lib/greeting")`.
     # The default is coerced while evaluating the .bzl module, so it errors
