@@ -13,7 +13,7 @@ load(
     "module_name",
 )
 load(":erlang_dependencies.bzl", "erlang_deps_rule")
-load(":erlang_info.bzl", "ErlangAppInfo", "ErlangAppOrTestInfo", "ErlangDependencyInfo", "ErlangTestInfo")
+load(":erlang_info.bzl", "CodePathEntry", "CodePathTSet", "ErlangAppInfo", "ErlangAppOrTestInfo", "ErlangDependencyInfo", "ErlangTestInfo", "code_path_args")
 load(":erlang_otp_application.bzl", "normalize_application")
 load(":erlang_paths.bzl", "basename_without_extension")
 load(":erlang_shell.bzl", "erlang_shell")
@@ -208,6 +208,11 @@ def _build_erlang_test(ctx: AnalysisContext, dep_info: ErlangDependencyInfo, bin
     test_info = ErlangTestInfo(
         name = suite_name,
         dependencies = dep_info.dependencies,
+        code_path_tset = ctx.actions.tset(
+            CodePathTSet,
+            value = CodePathEntry(dir = output_dir, ebin = False),
+            children = [dep_info.code_path_tset],
+        ),
         output_dir = output_dir,
     )
 
@@ -227,8 +232,7 @@ def _build_default_info(dep_info: ErlangDependencyInfo, output_dir: Artifact) ->
 
     # We depend on the code path of all dependencies to force them to be compiled
     # and emit errors when users compile just this one application
-    # This was already flattened in erlang_deps_rule
-    return DefaultInfo(default_output = output_dir, other_outputs = [dep_info.code_path])
+    return DefaultInfo(default_output = output_dir, other_outputs = [code_path_args(dep_info.code_path_tset)])
 
 def _write_test_info_file(
     ctx: AnalysisContext,
@@ -245,7 +249,7 @@ def _write_test_info_file(
         "common_app_env": ctx.attrs.common_app_env,
         "config_files": config_files,
         "ct_opts": ctx.attrs._ct_opts,
-        "dependencies": dep_info.code_path,
+        "dependencies": code_path_args(dep_info.code_path_tset),
         "erl_cmd": erl_cmd,
         "extra_ct_hooks": ctx.attrs.extra_ct_hooks,
         "extra_flags": ctx.attrs.extra_erl_flags,

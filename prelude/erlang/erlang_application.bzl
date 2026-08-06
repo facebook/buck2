@@ -14,15 +14,17 @@ load(
 )
 load(
     ":erlang_dependencies.bzl",
-    "ErlAppDependencies",
     "erlang_deps_rule",
 )
 load(
     ":erlang_info.bzl",
+    "CodePathEntry",
+    "CodePathTSet",
     "ErlangAppIncludeInfo",
     "ErlangAppInfo",
     "ErlangAppOrTestInfo",
     "ErlangDependencyInfo",
+    "code_path_args",
 )
 load(":erlang_shell.bzl", "erlang_shell")
 load(
@@ -93,7 +95,7 @@ def build_application(ctx: AnalysisContext, name: str, toolchain: Toolchain, dep
 
     app_info = build_app_info(
         ctx,
-        dep_info.dependencies,
+        dep_info,
         build_environment,
         app_folder,
         start_dependencies,
@@ -412,23 +414,30 @@ def _build_default_info(dep_info: ErlangDependencyInfo, app_dir: Artifact) -> Pr
 
     # We depend on the code path of all dependencies to force them to be compiled
     # and emit errors when users compile just this one application
-    return DefaultInfo(default_output = app_dir, other_outputs = [dep_info.code_path])
+    return DefaultInfo(default_output = app_dir, other_outputs = [code_path_args(dep_info.code_path_tset)])
 
 def build_app_info(
     ctx: AnalysisContext,
-    dependencies: ErlAppDependencies,
+    dep_info: ErlangDependencyInfo,
     build_environment: BuildEnvironment,
     app_folder: Artifact,
     start_dependencies: list[StartDependencySet],
 ) -> Provider:
     name = app_name(ctx)
 
+    code_path_tset = ctx.actions.tset(
+        CodePathTSet,
+        value = CodePathEntry(dir = app_folder, ebin = True),
+        children = [dep_info.code_path_tset],
+    )
+
     # build application info
     return ErlangAppInfo(
         name = name,
         version = ctx.attrs.version,
         beams = build_environment.beams.get(name),
-        dependencies = dependencies,
+        dependencies = dep_info.dependencies,
+        code_path_tset = code_path_tset,
         start_dependencies = start_dependencies,
         includes = build_environment.includes.get(name),
         include_dir = build_environment.include_dirs.get(name),

@@ -8,7 +8,7 @@
 
 load(":erlang_build.bzl", "erlang_build")
 load(":erlang_dependencies.bzl", "erlang_deps_rule")
-load(":erlang_info.bzl", "ErlangDependencyInfo")
+load(":erlang_info.bzl", "ErlangDependencyInfo", "code_path_args")
 load(":erlang_toolchain.bzl", "get_toolchain")
 
 def _build_run_info(
@@ -47,7 +47,13 @@ def _do_build_run_info(
     erl_args = cmd_args("exec", erl, delimiter = " \\\n")
 
     # add paths
-    code_path = cmd_args(dep_info.code_path, additional_code_path, shell_dep_info.code_path, prepend = "-pa", absolute_prefix = '"${REPO_ROOT}"/')
+    code_path = cmd_args(
+        code_path_args(dep_info.code_path_tset),
+        additional_code_path,
+        code_path_args(shell_dep_info.code_path_tset),
+        prepend = "-pa",
+        absolute_prefix = '"${REPO_ROOT}"/',
+    )
     erl_args.add(code_path)
 
     # add configs

@@ -121,6 +121,7 @@ def _erlang_otp_application_impl(ctx: AnalysisContext) -> list[Provider]:
             beams = [],
             includes = [],
             dependencies = {},
+            code_path_tset = None,
             start_dependencies = None,
             include_dir = None,
             virtual = True,
