@@ -582,13 +582,18 @@ def _rust_cxx_link(
     ]
 
     is_shared = crate_type in [CrateType("dylib"), CrateType("cdylib")]
+    if not is_shared and link_cxx_binary_locally(ctx, compile_ctx.cxx_toolchain_info):
+        link_execution_preference = LinkExecutionPreference("local")
+    else:
+        link_execution_preference = LinkExecutionPreference("any")
+
     return cxx_link_into(
         ctx = ctx,
         output = output,
         result_type = CxxLinkResultType("shared_library" if is_shared else "executable"),
         opts = link_options(
             links = links,
-            link_execution_preference = LinkExecutionPreference("any"),
+            link_execution_preference = link_execution_preference,
             category_suffix = "rust_dylib" if is_shared else "rust_binary",
             identifier = identifier,
             import_library = import_library,
