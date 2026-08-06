@@ -135,10 +135,12 @@ def complete_distributed_link_with_expanded_archive_link_data(
     lto_opt = cxx_toolchain.internal_tools.dist_lto.opt[LinkerType("darwin")]
     lto_archive_mapper = cxx_toolchain.internal_tools.dist_lto.archive_mapper
 
+    normalized_identifier = link_options.identifier.replace("[", "_").replace("]", "_").replace(" ", "_") if link_options.identifier != None else None
+
     def make_id(i: str) -> str:
         """Used to make sure identifiers for our actions include the provided identifier"""
-        if link_options.identifier != None:
-            return link_options.identifier + "_" + i
+        if normalized_identifier != None:
+            return normalized_identifier + "_" + i
         return i
 
     recorded_outputs = {}
