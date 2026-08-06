@@ -267,8 +267,34 @@ impl AbsNormPath {
         &self,
         base: P,
     ) -> buck2_error::Result<Cow<'_, ForwardRelativePath>> {
-        let stripped_path = self.strip_prefix_impl(base.as_ref())?;
+        let stripped_path = self.strip_prefix_untyped(base)?;
         ForwardRelativePathNormalizer::normalize_path(stripped_path)
+    }
+
+    /// Like `strip_prefix`, but returns the raw remainder without requiring it
+    /// to be representable as a `ForwardRelativePath`.
+    ///
+    /// ```
+    /// use std::path::Path;
+    ///
+    /// use buck2_fs::paths::abs_norm_path::AbsNormPath;
+    ///
+    /// if cfg!(not(windows)) {
+    ///     let path = AbsNormPath::new(r"/test/foo\bar")?;
+    ///     assert!(path.strip_prefix(AbsNormPath::new("/test")?).is_err());
+    ///     assert_eq!(
+    ///         Path::new(r"foo\bar"),
+    ///         path.strip_prefix_untyped(AbsNormPath::new("/test")?)?
+    ///     );
+    /// }
+    ///
+    /// # buck2_error::Ok(())
+    /// ```
+    pub fn strip_prefix_untyped<P: AsRef<AbsNormPath>>(
+        &self,
+        base: P,
+    ) -> buck2_error::Result<&Path> {
+        self.strip_prefix_impl(base.as_ref())
     }
 
     #[cfg(not(windows))]

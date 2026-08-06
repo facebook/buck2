@@ -9,6 +9,7 @@
  */
 
 use std::mem;
+use std::path::Path;
 use std::sync::Arc;
 use std::sync::Mutex;
 
@@ -21,6 +22,7 @@ use buck2_core::cells::CellResolver;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::name::CellName;
 use buck2_core::fs::project::ProjectRoot;
+use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_data::FileWatcherEventType;
 use buck2_data::FileWatcherKind;
 use buck2_error::conversion::from_any_with_tag;
@@ -31,6 +33,7 @@ use dice::DiceTransactionUpdater;
 use dupe::Dupe;
 use notify::EventKind;
 use notify::RecommendedWatcher;
+use notify::WatchFilter;
 use notify::Watcher;
 use notify::event::CreateKind;
 use notify::event::MetadataKind;
@@ -43,6 +46,7 @@ use tracing::info;
 use crate::file_watcher::FileWatcher;
 use crate::mergebase::Mergebase;
 use crate::stats::FileWatcherStats;
+use crate::watchman::utils::find_first_valid_parent;
 
 fn ignore_event_kind(event_kind: EventKind) -> bool {
     match event_kind {
@@ -84,22 +88,56 @@ impl NotifyFileData {
         let event =
             event.map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::NotifyWatcher))?;
 
-        for path in &event.paths {
-            // Testing shows that we get absolute paths back from the `notify` library.
-            // It's not documented though.
-            let path = root.relativize(AbsNormPath::new(&path)?)?;
+        if event.need_rescan() {
+            self.missed_events = true;
+            debug!("FileWatcher: File change events were missed");
+        }
 
+        for path in &event.paths {
             // We ignore the buck-out prefix, as those are uninteresting events caused by us.
             // We also ignore other buck-out directories, as if you have two isolation dirs running at once, they are not interesting.
-            // We do this in the notify-watcher, rather than a generic layer, as watchman users should configure
-            // to ignore buck-out, to reduce the number of events, rather than hiding them later.
-            if path.starts_with(InvocationPaths::buck_out_dir_prefix()) {
+            // The watch filter already prunes buck-out at watch registration time, but backends
+            // that cannot watch selectively may still let events slip through in rare cases.
+            //
+            // Checked on the raw path so this dominant event class is discarded
+            // cheaply, whatever bytes the path contains.
+            if let Ok(rel) = path.strip_prefix(root.root().as_path())
+                && rel.starts_with(InvocationPaths::buck_out_dir_prefix().as_str())
+            {
                 // We don't want to event add them as ignored events, since they are super common
                 // and very boring
                 continue;
             }
 
-            let cell_path = cells.get_cell_path(&path);
+            // Uninteresting event kinds don't need the path at all.
+            if ignore_event_kind(event.kind) {
+                self.ignored += 1;
+                continue;
+            }
+
+            // Testing shows that we get absolute paths back from the `notify` library.
+            // It's not documented though.
+            //
+            // Relativized leniently because ignored directories can transiently
+            // contain names `ProjectRelativePath` rejects (e.g. a literal backslash),
+            // and those must reach the ignore check below rather than fail: an error
+            // would poison the watcher permanently.
+            let rel = match AbsNormPath::new(&path).and_then(|path| root.relativize_relaxed(path)) {
+                Ok(rel) => rel,
+                Err(e) => match path.strip_prefix(root.root().as_path()) {
+                    // Not relativizable at all (in practice: a non-UTF-8 name).
+                    Ok(raw_rel) => {
+                        self.degrade_to_parent(raw_rel, cells, ignore_specs);
+                        continue;
+                    }
+                    // Outside the project root: a genuine error.
+                    Err(_) => return Err(e),
+                },
+            };
+
+            // The relaxed path may violate the `ProjectRelativePath` invariants; it
+            // is only used to match the ignores, never to identify a file.
+            let cell_path = cells.get_cell_path(ProjectRelativePath::unchecked_new(&rel));
             let ignore = ignore_specs
                 .get(&cell_path.cell())
                 // See the comment on the analogous code in `watchman/interface.rs`
@@ -107,21 +145,50 @@ impl NotifyFileData {
 
             info!(
                 "FileWatcher: {:?} {:?} (ignore = {})",
-                path, &event.kind, ignore
+                rel, &event.kind, ignore
             );
 
-            if event.need_rescan() {
-                self.missed_events = true;
-                debug!("FileWatcher: File change events were missed");
-            }
-
-            if ignore || ignore_event_kind(event.kind) {
+            if ignore {
                 self.ignored += 1;
-            } else {
+            } else if ProjectRelativePath::new(&*rel).is_ok() {
                 self.events.insert((cell_path, event.kind));
+            } else {
+                // Interesting, but not representable (e.g. an embedded backslash).
+                self.degrade_to_parent(Path::new(&*rel), cells, ignore_specs);
             }
         }
         Ok(())
+    }
+
+    /// The event path cannot be represented as a `ProjectRelativePath`. Buck
+    /// cannot read such paths anyway, so record a change of the nearest
+    /// representable parent directory instead — mirroring the watchman and
+    /// edenfs watchers — rather than erroring, which would poison the watcher.
+    fn degrade_to_parent(
+        &mut self,
+        rel: &Path,
+        cells: &CellResolver,
+        ignore_specs: &StdBuckHashMap<CellName, IgnoreSet>,
+    ) {
+        let parent = find_first_valid_parent(rel).unwrap_or(ProjectRelativePath::empty());
+        let cell_path = cells.get_cell_path(parent);
+        let ignore = ignore_specs
+            .get(&cell_path.cell())
+            .is_some_and(|ignore| ignore.is_match(cell_path.path()));
+
+        info!(
+            "FileWatcher: {:?} -> {:?} (unrepresentable path, ignore = {})",
+            rel, parent, ignore
+        );
+
+        if ignore {
+            self.ignored += 1;
+        } else {
+            // Maps to `dir_added_or_removed` in `sync`, invalidating the
+            // parent's directory listing.
+            self.events
+                .insert((cell_path, EventKind::Create(CreateKind::Folder)));
+        }
     }
 
     fn sync(self) -> (buck2_data::FileWatcherStats, Option<FileChangeTracker>) {
@@ -265,11 +332,44 @@ impl NotifyFileData {
     }
 }
 
+/// A filter that prunes buck-out and ignored directories at watch-registration
+/// time: inotify never installs watches beneath them, so they generate no
+/// events at all. Backends that cannot watch selectively (FSEvents, Windows)
+/// suppress the events on delivery instead, before they reach our callback.
+///
+/// This prunes any directory whose own path matches an ignore pattern, so a
+/// file-shaped glob (e.g. `*.tmp`) matching a directory name prunes that
+/// whole subtree.
+fn ignore_watch_filter(
+    root: &ProjectRoot,
+    cells: &CellResolver,
+    ignore_specs: &StdBuckHashMap<CellName, IgnoreSet>,
+) -> WatchFilter {
+    let root = root.dupe();
+    let cells = cells.dupe();
+    let ignore_specs = ignore_specs.clone();
+    WatchFilter::with_filter(move |path| {
+        // Prune paths we cannot represent (e.g. non-UTF-8): buck cannot read
+        // them anyway, so their events would be unusable.
+        let Ok(rel) = AbsNormPath::new(path).and_then(|abs| root.relativize(abs)) else {
+            return false;
+        };
+        if rel.starts_with(InvocationPaths::buck_out_dir_prefix()) {
+            return false;
+        }
+        let cell_path = cells.get_cell_path(&rel);
+        !ignore_specs
+            .get(&cell_path.cell())
+            .is_some_and(|i| i.is_match(cell_path.path()))
+    })
+}
+
 #[derive(Allocative)]
 pub struct NotifyFileWatcher {
-    #[allocative(skip)]
+    /// Never used directly, but must be kept alive: dropping the watcher
+    /// removes all its watches.
     #[expect(unused)]
-    // FIXME(JakobDegen): Clarify if this just needs to be kept alive or can be removed?
+    #[allocative(skip)]
     watcher: RecommendedWatcher,
     data: Arc<Mutex<buck2_error::Result<NotifyFileData>>>,
 }
@@ -283,6 +383,7 @@ impl NotifyFileWatcher {
         let data = Arc::new(Mutex::new(Ok(NotifyFileData::new())));
         let data2 = data.dupe();
         let root2 = root.dupe();
+        let watch_filter = ignore_watch_filter(root, &cells, &ignore_specs);
         let mut watcher = notify::recommended_watcher(move |event| {
             let mut guard = data2.lock().unwrap();
             if let Ok(state) = &mut *guard {
@@ -293,7 +394,11 @@ impl NotifyFileWatcher {
         })
         .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::NotifyWatcher))?;
         watcher
-            .watch(root.root().as_path(), notify::RecursiveMode::Recursive)
+            .watch_filtered(
+                root.root().as_path(),
+                notify::RecursiveMode::Recursive,
+                watch_filter,
+            )
             .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::NotifyWatcher))?;
         Ok(Self { watcher, data })
     }
@@ -339,5 +444,124 @@ impl FileWatcher for NotifyFileWatcher {
             },
         )
         .await
+    }
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use buck2_core::cells::cell_root_path::CellRootPathBuf;
+    use buck2_core::fs::project::ProjectRootTemp;
+
+    use super::*;
+
+    fn process_path(
+        fs: &ProjectRootTemp,
+        rel: impl AsRef<Path>,
+    ) -> buck2_error::Result<NotifyFileData> {
+        let cells = CellResolver::testing_with_name_and_path(
+            CellName::testing_new("root"),
+            CellRootPathBuf::testing_new(""),
+        );
+        let mut ignore_specs = StdBuckHashMap::default();
+        ignore_specs.insert(
+            CellName::testing_new("root"),
+            IgnoreSet::from_ignore_spec("ignored", true)?,
+        );
+
+        let event = notify::Event::new(EventKind::Create(CreateKind::File))
+            .add_path(fs.path().root().as_path().join(rel.as_ref()));
+        let mut data = NotifyFileData::new();
+        data.process(Ok(event), fs.path(), &cells, &ignore_specs)?;
+        Ok(data)
+    }
+
+    #[test]
+    fn test_ignores_apply_before_path_validation() -> buck2_error::Result<()> {
+        let fs = ProjectRootTemp::new()?;
+
+        // A regular event is recorded.
+        let data = process_path(&fs, "src/file")?;
+        assert_eq!(1, data.events.len());
+        assert_eq!(0, data.ignored);
+
+        // Ignored paths are discarded even when they contain components
+        // `ProjectRelativePath` rejects, such as a literal backslash.
+        let data = process_path(&fs, r"buck-out/foo\bar")?;
+        assert_eq!(0, data.events.len());
+        assert_eq!(0, data.ignored);
+
+        let data = process_path(&fs, r"ignored/foo\bar")?;
+        assert_eq!(0, data.events.len());
+        assert_eq!(1, data.ignored);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_unrepresentable_paths_never_error() -> buck2_error::Result<()> {
+        use std::ffi::OsStr;
+        use std::os::unix::ffi::OsStrExt;
+
+        let fs = ProjectRootTemp::new()?;
+
+        // An unrepresentable name outside any ignored directory degrades to a
+        // change of the nearest representable parent directory instead of
+        // erroring, like the watchman and edenfs watchers.
+        let data = process_path(&fs, r"src/foo\bar")?;
+        assert_eq!(0, data.ignored);
+        let (cell_path, kind) = data.events.iter().next().unwrap();
+        assert_eq!("root//src", cell_path.to_string());
+        assert_eq!(EventKind::Create(CreateKind::Folder), *kind);
+
+        // Same for non-UTF-8 names, which cannot even be relativized.
+        let non_utf8 = OsStr::from_bytes(b"foo\xff");
+        let data = process_path(&fs, Path::new("src").join(non_utf8))?;
+        assert_eq!(0, data.ignored);
+        let (cell_path, kind) = data.events.iter().next().unwrap();
+        assert_eq!("root//src", cell_path.to_string());
+        assert_eq!(EventKind::Create(CreateKind::Folder), *kind);
+
+        // Under buck-out and ignored directories they are discarded like any
+        // other path there.
+        let data = process_path(&fs, Path::new("buck-out").join(non_utf8))?;
+        assert_eq!(0, data.events.len());
+        assert_eq!(0, data.ignored);
+
+        let data = process_path(&fs, Path::new("ignored").join(non_utf8))?;
+        assert_eq!(0, data.events.len());
+        assert_eq!(1, data.ignored);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_watch_filter_prunes_buck_out_and_ignored() -> buck2_error::Result<()> {
+        use std::ffi::OsStr;
+        use std::os::unix::ffi::OsStrExt;
+
+        let fs = ProjectRootTemp::new()?;
+        let root_path = fs.path().root().as_path();
+        let cells = CellResolver::testing_with_name_and_path(
+            CellName::testing_new("root"),
+            CellRootPathBuf::testing_new(""),
+        );
+        let mut specs = StdBuckHashMap::default();
+        specs.insert(
+            CellName::testing_new("root"),
+            IgnoreSet::from_ignore_spec("**/node_modules", true)?,
+        );
+        let filter = ignore_watch_filter(fs.path(), &cells, &specs);
+
+        assert!(filter.should_watch(root_path));
+        assert!(filter.should_watch(&root_path.join("src")));
+        assert!(!filter.should_watch(&root_path.join("buck-out")));
+        assert!(!filter.should_watch(&root_path.join("buck-out/v2/gen")));
+        assert!(!filter.should_watch(&root_path.join("src/node_modules")));
+        assert!(filter.should_watch(&root_path.join("src/node_modules_not")));
+
+        // Unrepresentable names are pruned too: buck cannot read them.
+        assert!(!filter.should_watch(&root_path.join(r"back\slash")));
+        assert!(!filter.should_watch(&root_path.join(OsStr::from_bytes(b"foo\xff"))));
+        Ok(())
     }
 }
