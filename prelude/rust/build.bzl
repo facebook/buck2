@@ -480,7 +480,7 @@ def _archiver_command(ctx: AnalysisContext, compile_ctx: CompileContext, subdir:
     linker_info = compile_ctx.cxx_toolchain_info.linker_info
     archiver_type = linker_info.archiver_type
 
-    if archiver_type != "gnu" and archiver_type != "darwin":
+    if archiver_type not in ["gnu", "llvm", "bsd"]:
         fail("archiving rust link objects is unsupported for archiver type '{}'".format(archiver_type))
 
     archiver_cmd = cmd_args(
