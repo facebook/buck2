@@ -456,6 +456,37 @@ def generate_rustdoc_test(
         has_content_based_path = getattr(ctx.attrs, "use_content_based_paths", False),
     )
 
+LinkExtraction = record(
+    # cmd_script set via `-Clinker=`.
+    linker_wrapper = field(typing.Any),
+    # Filtered rustc link argv.
+    out_argsfile = field(Artifact),
+    # Extracted link inputs directory.
+    out_artifacts_dir = field(Artifact),
+)
+
+def _setup_link_extraction(ctx: AnalysisContext, compile_ctx: CompileContext, subdir: str, emit_cbp: bool) -> LinkExtraction:
+    out_argsfile = ctx.actions.declare_output(subdir + "/extracted-link-args.args", has_content_based_path = emit_cbp)
+    out_artifacts_dir = ctx.actions.declare_output(subdir + "/extracted-link-artifacts", dir = True, has_content_based_path = emit_cbp)
+    linker_cmd = cmd_args(
+        compile_ctx.internal_tools_info.extract_link_action,
+        cmd_args(out_argsfile.as_output(), format = "--out_argsfile={}"),
+        cmd_args(out_artifacts_dir.as_output(), format = "--out_artifacts={}"),
+        compile_ctx.linker_with_pre_args,
+    )
+    linker_wrapper = cmd_script(
+        actions = ctx.actions,
+        name = subdir + "/linker_wrapper",
+        cmd = linker_cmd,
+        language = ctx.attrs._exec_os_type[OsLookup].script,
+        has_content_based_path = True,
+    )
+    return LinkExtraction(
+        linker_wrapper = linker_wrapper,
+        out_argsfile = out_argsfile,
+        out_artifacts_dir = out_artifacts_dir,
+    )
+
 # Generate a compilation action. A single instance of rustc can emit
 # numerous output artifacts, so return an artifact object for each of
 # them.
@@ -685,34 +716,20 @@ def rust_compile(
         dwp_inputs.append(link_args_output.link_args)
 
         if deferred_link_enabled:
-            out_argsfile = ctx.actions.declare_output(common_args.subdir + "/extracted-link-args.args", has_content_based_path = emit_cbp)
-            out_artifacts_dir = ctx.actions.declare_output(common_args.subdir + "/extracted-link-artifacts", dir = True, has_content_based_path = emit_cbp)
-            linker_cmd = cmd_args(
-                compile_ctx.internal_tools_info.extract_link_action,
-                cmd_args(out_argsfile.as_output(), format = "--out_argsfile={}"),
-                cmd_args(out_artifacts_dir.as_output(), format = "--out_artifacts={}"),
-                compile_ctx.linker_with_pre_args,
-            )
-
-            linker = cmd_script(
-                actions = ctx.actions,
-                name = common_args.subdir + "/linker_wrapper",
-                cmd = linker_cmd,
-                language = ctx.attrs._exec_os_type[OsLookup].script,
-                has_content_based_path = True,
-            )
+            extraction = _setup_link_extraction(ctx, compile_ctx, common_args.subdir, emit_cbp)
+            linker = extraction.linker_wrapper
 
             deferred_link_cmd = cmd_args(
                 compile_ctx.internal_tools_info.deferred_link_action,
                 compile_ctx.linker_with_pre_args,
-                cmd_args(out_argsfile, format = "@{}"),
+                cmd_args(extraction.out_argsfile, format = "@{}"),
                 # If we are deferring the real link to a separate action, we no longer pass the linker
                 # argsfile to rustc. This allows the rustc action to complete with only transitive dep rmeta.
                 cmd_args(linker_argsfile, format = "@{}"),
                 # The -o flag passed to the linker by rustc is a temporary file. So we will strip it
                 # out in `extract_link_action.py` and provide our own output path here.
                 get_output_flags(compile_ctx.cxx_toolchain_info.linker_info.type, emit_op.output),
-                hidden = out_artifacts_dir,
+                hidden = extraction.out_artifacts_dir,
             )
         else:
             rustc_cmd.add(cmd_args(linker_argsfile, format = "-Clink-arg=@{}"))
