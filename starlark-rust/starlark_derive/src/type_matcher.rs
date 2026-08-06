@@ -54,7 +54,7 @@ fn derive_type_matcher_impl(_attr: TokenStream, input: TokenStream) -> syn::Resu
     let trait_path = item_impl
         .trait_
         .as_ref()
-        .map(|(_, path, _)| path)
+        .map(|(path, _)| path)
         .ok_or_else(|| {
             syn::Error::new(
                 item_impl.span(),

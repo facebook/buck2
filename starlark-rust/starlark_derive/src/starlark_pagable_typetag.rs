@@ -63,7 +63,7 @@ fn expand_trait(trait_item: ItemTrait) -> proc_macro2::TokenStream {
 
 fn expand_impl(impl_item: ItemImpl) -> proc_macro::TokenStream {
     let trait_path = match impl_item.trait_.as_ref() {
-        Some((_, path, _)) => path.clone(),
+        Some((path, _)) => path.clone(),
         None => {
             return syn::Error::new_spanned(
                 &impl_item,

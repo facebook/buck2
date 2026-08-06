@@ -188,7 +188,7 @@ pub fn pagable_typetag_impl(
     } else if let Ok(impl_item) = syn::parse::<ItemImpl>(item) {
         let self_ty = (*impl_item.self_ty).clone();
         let trait_path = match impl_item.trait_.as_ref() {
-            Some((_, path, _)) => path.clone(),
+            Some((path, _)) => path.clone(),
             None => {
                 return syn::Error::new_spanned(
                     &impl_item,

@@ -110,8 +110,9 @@ fn type_param_bound_replace_lifetimes_with_static(
             }
             Ok(syn::TypeParamBound::Trait(syn::TraitBound {
                 paren_token: trait_bound.paren_token,
-                modifier: trait_bound.modifier,
                 lifetimes: trait_bound.lifetimes.clone(),
+                modifiers: trait_bound.modifiers.clone(),
+                maybe: trait_bound.maybe,
                 path: path_replace_lifetimes_with_static(&trait_bound.path)?,
             }))
         }

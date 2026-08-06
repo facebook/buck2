@@ -32,7 +32,7 @@ fn derive_pagable_panic_impl(
     let mut generics_for_de = input.generics.clone();
     generics_for_de
         .params
-        .push(GenericParam::from(LifetimeParam::new(Lifetime::new(
+        .push(GenericParam::Lifetime(LifetimeParam::new(Lifetime::new(
             "'de",
             Span::call_site(),
         ))));

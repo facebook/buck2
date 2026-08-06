@@ -175,7 +175,9 @@ fn descend_type(ty: &mut Type, op: impl Fn(&mut Type) -> syn::Result<()>) -> syn
                         })?
                     }
                     PathArguments::Parenthesized(x) => {
-                        x.inputs.iter_mut().try_for_each(&op)?;
+                        for input in &mut x.inputs {
+                            op(&mut input.ty)?;
+                        }
                         if let ReturnType::Type(_, ty) = &mut x.output {
                             op(ty)?;
                         }

@@ -184,6 +184,7 @@ impl ProviderCodegen {
             return Err(syn::Error::new_spanned(field, error));
         };
         let syn::TypePath {
+            attrs: _,
             qself: None,
             path:
                 syn::Path {

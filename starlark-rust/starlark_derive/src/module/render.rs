@@ -115,6 +115,7 @@ fn render_impl(x: StarModule) -> syn::Result<TokenStream> {
     let inner_fn = syn::ItemFn {
         attrs: Default::default(),
         vis: syn::Visibility::Inherited,
+        modifiers: syn::FnModifiers::default(),
         sig: syn::Signature {
             ident: syn::Ident::new("build", input.sig.ident.span()),
             ..input.sig.clone()

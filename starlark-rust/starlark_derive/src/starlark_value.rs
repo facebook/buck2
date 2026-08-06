@@ -105,7 +105,7 @@ fn is_impl_starlark_value(
     attrs: StarlarkValueAttrs,
 ) -> syn::Result<ImplStarlarkValue> {
     let err = "expected `impl StarlarkValue for ...`";
-    let Some((_, path, _)) = &input.trait_ else {
+    let Some((path, _)) = &input.trait_ else {
         return Err(syn::Error::new_spanned(input, err));
     };
     let Some(last) = path.segments.last() else {
@@ -413,7 +413,11 @@ impl ImplStarlarkValue {
                 "self type is not path",
             ));
         };
-        let syn::TypePath { qself, path } = type_path;
+        let syn::TypePath {
+            attrs: _,
+            qself,
+            path,
+        } = type_path;
         if qself.is_some() {
             return Err(syn::Error::new_spanned(
                 type_path,

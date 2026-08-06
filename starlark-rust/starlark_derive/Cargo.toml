@@ -15,4 +15,4 @@ proc-macro = true
 dupe = { workspace = true }
 proc-macro2 = "1.0"
 quote = "1.0"
-syn = { version = "2", features = ["extra-traits", "full", "visit", "visit-mut"] }
+syn = { version = "3", features = ["extra-traits", "full", "visit", "visit-mut"] }
