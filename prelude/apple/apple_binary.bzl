@@ -10,6 +10,10 @@ load("@prelude//:paths.bzl", "paths")
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
 load("@prelude//apple:apple_utility.bzl", "get_module_name")
+load(
+    "@prelude//apple:modularization_dependency_graph.bzl",
+    "create_modularization_dep_graph_subtargets_and_provider",
+)
 # @oss-disable[end= ]: load(
     # @oss-disable[end= ]: "@prelude//apple/meta_only:linker_outputs.bzl",
     # @oss-disable[end= ]: "extra_distributed_thin_lto_opt_outputs_merger",
@@ -253,6 +257,18 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         index_store_subtargets, index_store_info = create_index_store_subtargets_and_provider(ctx, index_stores, swift_index_stores, all_deps)
         cxx_output.sub_targets.update(index_store_subtargets)
 
+        # Modularization dependency graphs. Unlike apple_library (which routes
+        # through cxx_library), binaries go through cxx_executable, which does
+        # not create this provider -- so build it here. Without it the tset is
+        # severed at the binary and apple_bundle collects nothing from the
+        # libraries beneath it.
+        mod_dep_graph_subtargets, mod_dep_graph_info = create_modularization_dep_graph_subtargets_and_provider(
+            ctx,
+            swift_compile.modularization_dependency_graph if swift_compile else None,
+            all_deps,
+        )
+        cxx_output.sub_targets.update(mod_dep_graph_subtargets)
+
         validation_providers = [ValidationInfo(validations = cxx_output.validation_specs)] if cxx_output.validation_specs else []
 
         all_diagnostics = []
@@ -281,6 +297,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
                 merge_bundle_linker_maps_info(bundle_infos),
                 UnstrippedLinkOutputInfo(artifact = unstripped_binary),
                 index_store_info,
+                mod_dep_graph_info,
             ]
             + [resource_graph]
             + min_version_providers
