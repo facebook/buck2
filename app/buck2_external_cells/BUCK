@@ -5,6 +5,17 @@ oncall("build_infra")
 rust_library(
     name = "buck2_external_cells",
     srcs = glob(["src/**/*.rs"]),
+    autocargo = {
+        "cargo_toml_config": {
+            "dependencies_override": {
+                "dependencies": {
+                    "blake3": {
+                        "version": "1.8",
+                    },
+                },
+            },
+        },
+    },
     test_deps = [
         "fbsource//third-party/rust:tokio",
     ],

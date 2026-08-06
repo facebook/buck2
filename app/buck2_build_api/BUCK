@@ -10,6 +10,13 @@ rust_library(
     # the OSS rust_library directly for cargo's sake.
     autocargo = {
         "cargo_toml_config": {
+            "dependencies_override": {
+                "dependencies": {
+                    "blake3": {
+                        "version": "1.8",
+                    },
+                },
+            },
             "extra_buck_dependencies": {
                 "dependencies": [
                     "fbcode//buck2/remote_execution/oss/re_grpc:remote_execution",

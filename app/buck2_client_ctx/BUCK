@@ -9,6 +9,9 @@ rust_library(
         "cargo_toml_config": {
             "dependencies_override": {
                 "dependencies": {
+                    "blake3": {
+                        "version": "1.8",
+                    },
                     "fbinit": {
                         "path": None,
                         "version": "0.2",

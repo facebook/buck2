@@ -5,6 +5,17 @@ oncall("buck2")
 rust_library(
     name = "buck2_cmd_targets_server",
     srcs = glob(["src/**/*.rs"]),
+    autocargo = {
+        "cargo_toml_config": {
+            "dependencies_override": {
+                "dependencies": {
+                    "blake3": {
+                        "version": "1.8",
+                    },
+                },
+            },
+        },
+    },
     crate_root = "src/lib.rs",
     test_deps = [],
     deps = [
