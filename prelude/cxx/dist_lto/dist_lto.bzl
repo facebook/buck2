@@ -158,6 +158,10 @@ def cxx_gnu_dist_link(
     # differentiating multiple link actions in the same rule.
     identifier = opts.identifier
 
+    # Names derived from the identifier below become artifact paths, and callers
+    # pass identifiers containing spaces and brackets.
+    normalized_identifier = identifier.replace("[", "_").replace("]", "_").replace(" ", "_") if identifier != None else None
+
     enable_late_build_info_stamping = executable_link and cxx_stamp_build_info(ctx)
 
     link_action_execution_properties = get_action_execution_attributes(opts.link_execution_preference)
@@ -171,8 +175,8 @@ def cxx_gnu_dist_link(
 
     def make_id(i: str) -> str:
         """Used to make sure identifiers for our actions include the provided identifier"""
-        if identifier != None:
-            return identifier + "_" + i
+        if normalized_identifier != None:
+            return normalized_identifier + "_" + i
         return i
 
     recorded_outputs = {}
