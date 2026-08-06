@@ -28,6 +28,8 @@ pub use pagable_derive::PagablePanic;
 pub use pagable_derive::PagableSerialize;
 pub use pagable_derive::pagable_tagged;
 pub use pagable_derive::pagable_typetag;
+pub use partial_pagable_arc::PartialPagableArc;
+pub use partial_pagable_arc::PartialPagableWeak;
 pub use typetag::PagableRegisteredFor;
 pub use typetag::PagableTagged;
 pub use typetag::PagableTypeTag;
@@ -38,6 +40,7 @@ pub mod deser_recipe;
 pub mod flavors;
 mod impls;
 mod pagable_arc;
+mod partial_pagable_arc;
 pub mod storage;
 #[cfg(test)]
 mod test;

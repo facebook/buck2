@@ -38,12 +38,13 @@ use allocative::Allocative;
 use bumpalo::Bump;
 use dupe::Dupe;
 use dupe::IterDupedExt;
-use pagable::PagableBoxDeserialize;
 use pagable::PagableCursor;
 use pagable::PagableDeserialize;
 use pagable::PagableDeserializer;
 use pagable::PagableSerialize;
 use pagable::PagableSerializer;
+use pagable::PartialPagableArc;
+use pagable::PartialPagableWeak;
 use starlark_map::small_set::SmallSet;
 use strong_hash::StrongHash;
 
@@ -393,7 +394,7 @@ struct FrozenFrozenHeap {
 }
 
 #[derive(Clone, Dupe, Allocative)]
-pub(crate) struct WeakFrozenHeapRef(#[allocative(skip)] Weak<FrozenFrozenHeap>);
+pub(crate) struct WeakFrozenHeapRef(PartialPagableWeak<FrozenFrozenHeap>);
 
 impl WeakFrozenHeapRef {
     pub(crate) fn upgrade(&self) -> Option<FrozenHeapRef> {
@@ -601,12 +602,12 @@ impl FrozenFrozenHeap {
     }
 
     /// Read refs + body header given an already-read `heap_id`, then seek
-    /// past the heap body. Returns an `Arc<Self>` with an empty arena.
+    /// past the heap body. Returns a `PartialPagableArc<Self>` with an empty arena.
     /// Slot metadata is parsed lazily on first `ensure_initialized` via the
     /// recipe stashed in `HeapDeserializationState`. Values are materialized
     /// on demand by [`StarlarkDeserializerImpl::ensure_initialized`].
     ///
-    /// Returns `Arc<Self>` directly: `HeapDeserializationState` holds a raw
+    /// Returns a stable arc allocation directly: `HeapDeserializationState` holds a raw
     /// pointer into `arena`, so the address must be stable.
     /// `Arc::from(Box<T>)` would reallocate and dangle the pointer.
     pub fn deserialize_skeleton<'de, D: PagableDeserializer<'de> + ?Sized>(
@@ -614,12 +615,12 @@ impl FrozenFrozenHeap {
         heap_id: HeapRefId,
         name: FrozenHeapName,
         recipe: Arc<dyn pagable::PagableDeserializerRecipe>,
-    ) -> crate::Result<Arc<Self>> {
+    ) -> crate::Result<PartialPagableArc<Self>> {
         // Refs are read eagerly — referenced heaps must be registered before
         // any of this heap's values can be resolved later.
         let (refs, metadata_start) = Self::deserialize_refs_and_skip_body(deserializer)?;
 
-        let heap = Arc::new(FrozenFrozenHeap {
+        let heap = PartialPagableArc::new(FrozenFrozenHeap {
             arena: Arena::default(),
             refs,
             name: Some(name),
@@ -628,7 +629,7 @@ impl FrozenFrozenHeap {
         });
         let arena_ptr: *const Arena<ChunkAllocator> = &heap.arena;
 
-        // SAFETY: `arena_ptr` points into `*heap`. The returned `Arc` keeps
+        // SAFETY: `arena_ptr` points into `*heap`. The returned arc keeps
         // that allocation alive for at least as long as the deserialize session.
         let deser_state =
             Arc::new(unsafe { HeapDeserializationState::new(metadata_start, recipe, arena_ptr) });
@@ -665,18 +666,6 @@ impl PagableSerialize for FrozenFrozenHeap {
     }
 }
 
-/// Exists only to satisfy the `Arc<T>: ArcErase` trait bound. This path is
-/// never run — deserialize via `FrozenHeapRef` so the recipe can be captured.
-impl<'de> PagableBoxDeserialize<'de> for FrozenFrozenHeap {
-    fn deserialize_box<D: PagableDeserializer<'de> + ?Sized>(
-        _deserializer: &mut D,
-    ) -> pagable::Result<Box<Self>> {
-        unreachable!(
-            "FrozenFrozenHeap must be deserialized via FrozenHeapRef so the recipe is captured",
-        );
-    }
-}
-
 /// PagableSerialize for FrozenHeapRef — serializes the inner Arc via pagable arc mechanism.
 impl PagableSerialize for FrozenHeapRef {
     fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
@@ -703,15 +692,15 @@ impl<'de> PagableDeserialize<'de> for FrozenHeapRef {
         }
 
         let arc_box = deserializer.deserialize_arc(
-            std::any::TypeId::of::<Arc<FrozenFrozenHeap>>(),
+            std::any::TypeId::of::<PartialPagableArc<FrozenFrozenHeap>>(),
             deserialize_heap_arc_with_recipe,
         )?;
         let arc = arc_box
             .as_arc_any()
-            .downcast_ref::<Arc<FrozenFrozenHeap>>()
+            .downcast_ref::<PartialPagableArc<FrozenFrozenHeap>>()
             .ok_or_else(|| {
                 pagable::Error::msg(
-                    "FrozenHeapRef: type mismatch downcasting Arc<FrozenFrozenHeap>",
+                    "FrozenHeapRef: type mismatch downcasting PartialPagableArc<FrozenFrozenHeap>",
                 )
             })?
             .clone();
@@ -769,7 +758,7 @@ impl Debug for FrozenFrozenHeap {
 #[derive(Default, Clone, Dupe, Debug, Allocative)]
 // The Eq/Hash are by pointer rather than value, since we produce unique values
 // given an underlying FrozenHeap.
-pub struct FrozenHeapRef(Option<Arc<FrozenFrozenHeap>>);
+pub struct FrozenHeapRef(Option<PartialPagableArc<FrozenFrozenHeap>>);
 
 fn _test_frozen_heap_ref_send_sync()
 where
@@ -789,7 +778,7 @@ impl Hash for FrozenHeapRef {
 impl PartialEq<FrozenHeapRef> for FrozenHeapRef {
     fn eq(&self, other: &FrozenHeapRef) -> bool {
         match (&self.0, &other.0) {
-            (Some(a), Some(b)) => Arc::ptr_eq(a, b),
+            (Some(a), Some(b)) => PartialPagableArc::ptr_eq(a, b),
             (None, None) => true,
             (Some(_), None) | (None, Some(_)) => false,
         }
@@ -859,7 +848,7 @@ impl FrozenHeapRef {
     pub(crate) fn downgrade(&self) -> Option<WeakFrozenHeapRef> {
         self.0
             .as_ref()
-            .map(|heap| WeakFrozenHeapRef(Arc::downgrade(heap)))
+            .map(|heap| WeakFrozenHeapRef(PartialPagableArc::downgrade(heap)))
     }
 
     pub(crate) fn iter_values(&self) -> impl Iterator<Item = FrozenValue> {
@@ -961,7 +950,7 @@ impl FrozenHeap {
         if arena.is_empty() && refs.is_empty() {
             FrozenHeapRef::default()
         } else {
-            FrozenHeapRef(Some(Arc::new(FrozenFrozenHeap {
+            FrozenHeapRef(Some(PartialPagableArc::new(FrozenFrozenHeap {
                 arena,
                 refs: refs.into_iter().collect(),
                 name,

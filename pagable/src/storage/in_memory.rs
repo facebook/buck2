@@ -277,3 +277,39 @@ impl PagableStorage for InMemoryPagableStorageHandle {
         Ok(key)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::PagableSerialize;
+    use crate::PagableSerializer;
+    use crate::PartialPagableArc;
+    use crate::arc_erase::ArcErase;
+
+    struct ParentWithStoredChild(PartialPagableArc<u8>);
+
+    impl PagableSerialize for ParentWithStoredChild {
+        fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
+            self.0.pagable_serialize(serializer)
+        }
+    }
+
+    #[test]
+    fn pending_page_out_reuses_nested_stored_arc() -> crate::Result<()> {
+        let mut storage = InMemoryPagableStorage::new();
+        let handle = storage.handle();
+        let child_key = handle.store_data(PagableData {
+            data: vec![42],
+            arcs: Vec::new(),
+        })?;
+        let child = PartialPagableArc::new(42u8);
+        ArcErase::set_data_key(&child, child_key);
+        let parent = PartialPagableArc::new(ParentWithStoredChild(child));
+
+        handle.schedule_for_paging(Box::new(parent));
+        assert_eq!(storage.pending_paging_count(), 1);
+        storage.page_out_pending();
+        assert_eq!(storage.pending_paging_count(), 0);
+        Ok(())
+    }
+}

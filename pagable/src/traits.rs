@@ -253,9 +253,10 @@ pub trait PagableDeserializer<'de> {
     /// should return clones that point to the same allocation (preserving identity).
     ///
     /// Takes a function pointer that performs the actual deserialization. The
-    /// function receives both a type-erased deserializer  and an
-    /// `Arc<dyn PagableDeserializerRecipe>`. Callbacks that want to defer further reads
-    /// (e.g. partial-deser) can retain or stash the recipe `Arc` for later reopening.
+    /// function receives both a type-erased deserializer and an
+    /// `Arc<dyn PagableDeserializerRecipe>`. Callbacks that want to defer further
+    /// reads (e.g. partial-deser) can retain or stash the recipe `Arc` for later
+    /// reopening.
     ///
     /// The `type_id` parameter provides the TypeId of the Arc being deserialized,
     /// which is needed for storage cache lookups.
