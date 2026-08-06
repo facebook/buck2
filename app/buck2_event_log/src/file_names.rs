@@ -46,7 +46,10 @@ pub(crate) fn get_logfile_name(
 
 pub(crate) async fn remove_old_logs(logdir: &AbsNormPath, retained_event_logs: usize) {
     if let Ok(logfiles) = get_files_in_log_dir(logdir) {
-        futures::stream::iter(logfiles.into_iter().rev().skip(retained_event_logs - 1))
+        // `retained_event_logs` counts the log about to be written, so one fewer
+        // existing log is kept. Saturate rather than wrap: zero means retain none.
+        let retained_existing_logs = retained_event_logs.saturating_sub(1);
+        futures::stream::iter(logfiles.into_iter().rev().skip(retained_existing_logs))
             .then(|file| async move {
                 // The oldest logs might be open from another concurrent build, so suppress error.
                 tokio::fs::remove_file(file).await.ok()
@@ -201,6 +204,40 @@ mod tests {
                 "{} should remain",
                 inside_file.display()
             );
+        }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_remove_old_logs_with_zero_retained() -> buck2_error::Result<()> {
+        let logdir = tempfile::tempdir()?;
+        let logdir_path = AbsPath::new(logdir.path())?;
+        let logdir_norm = AbsNormPath::new(logdir_path)?;
+
+        let base_time = SystemTime::now()
+            .checked_sub(Duration::from_secs(100))
+            .unwrap();
+
+        let mut log_paths = Vec::new();
+        for i in 0..3 {
+            let log_path = logdir_path.join(format!("buck-log-{}.zst", i));
+            let mut file = File::create(&log_path)?;
+            file.write_all(format!("log content {}", i).as_bytes())?;
+
+            let mod_time = base_time + Duration::from_secs((i as u64) * 10);
+            let times = std::fs::FileTimes::new().set_modified(mod_time);
+            file.set_times(times)?;
+
+            log_paths.push(log_path);
+        }
+
+        // Zero used to underflow to usize::MAX, which skipped (and so kept)
+        // every existing log.
+        remove_old_logs(logdir_norm, 0).await;
+
+        for path in &log_paths {
+            assert!(!path.exists(), "{} should be removed", path.display());
         }
 
         Ok(())
