@@ -99,6 +99,7 @@ impl SledBackedPagableStorage {
                     }
 
                     if let Some(key) = v.data_key() {
+                        self.associate_arc_with_data_key(&*v, key);
                         finished.insert(v.identity(), key);
                         continue;
                     }
@@ -128,7 +129,7 @@ impl SledBackedPagableStorage {
 
                     let key = self.store_data(PagableData { data, arcs })?;
                     finished.insert(arc.identity(), key);
-                    arc.set_data_key(key);
+                    self.associate_arc_with_data_key(&*arc, key);
                 }
             }
         }

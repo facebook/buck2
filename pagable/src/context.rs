@@ -137,6 +137,9 @@ impl<'de, 's> PagableDeserializer<'de> for PagableDeserializerImpl<'de, 's> {
         self.arc_index += 1;
 
         let storage = self.storage.backing_storage();
+        if let Some(arc) = storage.arc_cache().get(&type_id, key) {
+            return Ok(arc);
+        }
         let cell = storage.arc_cache().get_or_create_cell(type_id, *key);
 
         // First thread to reach here deserializes; others block.
@@ -148,7 +151,7 @@ impl<'de, 's> PagableDeserializer<'de> for PagableDeserializerImpl<'de, 's> {
             let recipe: Arc<dyn PagableDeserializerRecipe> =
                 Arc::new(PagableDeserializerRecipeImpl::new(data.dupe()));
             let arc = deserialize_fn(&mut deserializer, recipe)?;
-            arc.set_data_key(*key);
+            storage.associate_arc_with_data_key(&*arc, *key);
             Ok(arc)
         })?;
         Ok(arc.clone_dyn())

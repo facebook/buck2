@@ -19,29 +19,50 @@ use either::Either;
 use once_cell::sync::OnceCell;
 
 use crate::arc_erase::ArcEraseDyn;
+use crate::arc_erase::WeakEraseDyn;
 use crate::storage::data::DataKey;
 use crate::storage::data::PagableData;
 use crate::storage::support::SerializerForPaging;
 use crate::traits::SessionContext;
 
-/// Thread-safe cache of deserialized arcs, keyed by `(TypeId, DataKey)`.
-/// `OnceCell` per entry ensures each arc is deserialized at most once.
-// TODO: this should store weak pointers
+/// Thread-safe cache of arcs keyed by `(TypeId, DataKey)`.
+/// `OnceCell` per deserialized entry ensures each arc is deserialized at most once.
+// TODO: Merge `map` and `resident`, and add eviction for resident values when
+// paged-in values can be paged out again.
 pub struct DeserializedArcCache {
     map: DashMap<(TypeId, DataKey), Arc<OnceCell<Box<dyn ArcEraseDyn>>>>,
+    resident: DashMap<(TypeId, DataKey), Box<dyn WeakEraseDyn>>,
 }
 
 impl DeserializedArcCache {
     pub fn new() -> Self {
         Self {
             map: DashMap::new(),
+            resident: DashMap::new(),
         }
     }
 
     pub fn get(&self, type_id: &TypeId, key: &DataKey) -> Option<Box<dyn ArcEraseDyn>> {
-        self.map
+        if let Some(arc) = self
+            .map
             .get(&(*type_id, *key))
             .and_then(|cell| cell.get().map(|v| v.clone_dyn()))
+        {
+            return Some(arc);
+        }
+        self.resident
+            .get(&(*type_id, *key))
+            .and_then(|weak| weak.upgrade())
+    }
+
+    pub fn register_resident(&self, key: DataKey, arc: &dyn ArcEraseDyn) {
+        if arc.data_key() != Some(key) {
+            return;
+        }
+        if let Some(weak) = arc.downgrade() {
+            self.resident
+                .insert((arc.as_arc_any().type_id(), key), weak);
+        }
     }
 
     /// Returns the `OnceCell` for this key, creating it if needed.
@@ -59,6 +80,7 @@ impl DeserializedArcCache {
 
     pub fn clear(&self) {
         self.map.clear();
+        self.resident.clear();
     }
 
     pub fn on_arc_deserialized(
@@ -95,6 +117,15 @@ impl DeserializedArcCache {
 pub trait PagableStorage: Send + Sync + 'static {
     /// Returns the deserialized arcs cache for this storage backend.
     fn arc_cache(&self) -> &DeserializedArcCache;
+
+    /// Associate a stored representation with its resident arc.
+    ///
+    /// The weak registration lets a later page-in reuse the exact allocation
+    /// without keeping it alive or deserializing the stored representation.
+    fn associate_arc_with_data_key(&self, arc: &dyn ArcEraseDyn, key: DataKey) {
+        arc.set_data_key(key);
+        self.arc_cache().register_resident(key, arc);
+    }
 
     /// Attempts to fetch either a cached deserialized arc or raw data synchronously.
     fn fetch_arc_or_data_blocking(
@@ -204,6 +235,7 @@ pub trait PagableStorage: Send + Sync + 'static {
                     }
 
                     if let Some(key) = v.data_key() {
+                        self.associate_arc_with_data_key(&*v, key);
                         slot.set_success(key);
                         continue;
                     }
@@ -234,8 +266,8 @@ pub trait PagableStorage: Send + Sync + 'static {
                     let slot = finished.get(&arc.identity()).expect("slot should exist");
                     match resolve_and_store(self, data, &child_arcs, finished) {
                         Ok(key) => {
+                            self.associate_arc_with_data_key(&*arc, key);
                             slot.set_success(key);
-                            arc.set_data_key(key);
                         }
                         Err(e) => {
                             slot.set_failed();
@@ -330,13 +362,56 @@ mod tests {
     use super::*;
     use crate::PagableArc;
     use crate::PagableDeserialize;
+    use crate::PagableDeserializerRecipe;
     use crate::PagableSerialize;
+    use crate::PartialPagableArc;
     use crate::context::PagableDeserializerImpl;
     use crate::storage::handle::PagableStorageHandle;
     use crate::storage::in_memory::InMemoryPagableStorage;
     use crate::storage::support::SerializerForPaging;
     use crate::traits::PagableDeserializer;
     use crate::traits::PagableSerializer;
+
+    static RESIDENT_ARC_DESERIALIZATIONS: AtomicUsize = AtomicUsize::new(0);
+
+    struct ResidentArcValue(u8);
+
+    impl PagableSerialize for ResidentArcValue {
+        fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
+            self.0.pagable_serialize(serializer)
+        }
+    }
+
+    impl<'de> PagableDeserialize<'de> for ResidentArcValue {
+        fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
+            deserializer: &mut D,
+        ) -> crate::Result<Self> {
+            RESIDENT_ARC_DESERIALIZATIONS.fetch_add(1, Ordering::SeqCst);
+            Ok(Self(u8::pagable_deserialize(deserializer)?))
+        }
+    }
+
+    fn deserialize_resident_partial_arc<'de, D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> crate::Result<PartialPagableArc<ResidentArcValue>> {
+        fn deserialize_fn(
+            deserializer: &mut dyn PagableDeserializer<'_>,
+            _recipe: Arc<dyn PagableDeserializerRecipe>,
+        ) -> crate::Result<Box<dyn ArcEraseDyn>> {
+            Ok(Box::new(PartialPagableArc::new(
+                ResidentArcValue::pagable_deserialize(deserializer)?,
+            )))
+        }
+
+        let arc = deserializer.deserialize_arc(
+            TypeId::of::<PartialPagableArc<ResidentArcValue>>(),
+            deserialize_fn,
+        )?;
+        arc.as_arc_any()
+            .downcast_ref::<PartialPagableArc<ResidentArcValue>>()
+            .ok_or_else(|| anyhow::anyhow!("resident partial arc type mismatch"))
+            .cloned()
+    }
 
     /// Counts `fetch_data_blocking` and `store_data` calls per `DataKey`.
     struct CountingStorage {
@@ -566,6 +641,58 @@ mod tests {
         );
         let second_parent = storage.fetch_data_blocking(&second_parent_key)?;
         assert_eq!(second_parent.arcs.as_slice(), &[child_key]);
+        Ok(())
+    }
+
+    #[test]
+    fn page_in_reuses_arc_still_resident_after_page_out() -> anyhow::Result<()> {
+        let mem = InMemoryPagableStorage::new();
+        let storage = Arc::new(CountingStorage::new(mem.handle()));
+        let handle = PagableStorageHandle::new(storage.dupe() as Arc<dyn PagableStorage>);
+        let original = PartialPagableArc::new(ResidentArcValue(42));
+
+        let finished: DashMap<usize, Arc<ArcSerSlot>> = DashMap::new();
+        let session = storage.session_context();
+        let mut ser = SerializerForPaging::new(session);
+        original.pagable_serialize(&mut ser)?;
+        let (data, arcs) = ser.finish();
+        let parent_key = storage
+            .page_out_item(data, arcs, &finished, session)
+            .map_err(|e| match e {
+                PageOutError::Failed(e) => e,
+                PageOutError::AlreadyFailed => panic!("unexpected AlreadyFailed"),
+            })?;
+
+        RESIDENT_ARC_DESERIALIZATIONS.store(0, Ordering::SeqCst);
+        let parent = storage.fetch_data_blocking(&parent_key)?;
+        let child_key = parent.arcs[0];
+        let mut deser = PagableDeserializerImpl::new(&parent.data, &parent.arcs, &handle);
+        let restored = deserialize_resident_partial_arc(&mut deser)?;
+
+        assert!(
+            PartialPagableArc::ptr_eq(&original, &restored),
+            "page-in should reuse the allocation retained across page-out",
+        );
+        assert_eq!(restored.0, 42);
+        assert_eq!(RESIDENT_ARC_DESERIALIZATIONS.load(Ordering::SeqCst), 0);
+
+        drop(restored);
+        drop(original);
+        assert!(
+            storage
+                .arc_cache()
+                .get(
+                    &TypeId::of::<PartialPagableArc<ResidentArcValue>>(),
+                    &child_key,
+                )
+                .is_none(),
+            "the resident registry must not keep the allocation alive",
+        );
+
+        let mut deser = PagableDeserializerImpl::new(&parent.data, &parent.arcs, &handle);
+        let restored = deserialize_resident_partial_arc(&mut deser)?;
+        assert_eq!(restored.0, 42);
+        assert_eq!(RESIDENT_ARC_DESERIALIZATIONS.load(Ordering::SeqCst), 1);
         Ok(())
     }
 

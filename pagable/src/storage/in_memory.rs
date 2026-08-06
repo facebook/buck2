@@ -172,6 +172,7 @@ impl InMemoryPagableStorage {
                             }
 
                             if let Some(key) = v.data_key() {
+                                self.handle.associate_arc_with_data_key(&*v, key);
                                 finished.insert(v.identity(), key);
                                 continue;
                             }
@@ -206,7 +207,7 @@ impl InMemoryPagableStorage {
                             self.handle.cache.insert_data(key, Arc::new(data));
                             finished.insert(arc.identity(), key);
 
-                            arc.set_data_key(key);
+                            self.handle.associate_arc_with_data_key(&*arc, key);
                         }
                     }
                 }
