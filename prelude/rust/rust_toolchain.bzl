@@ -106,6 +106,8 @@ rust_toolchain_attrs = {
     # FIXME(JakobDegen): This should require `explicit_sysroot_deps` in the
     # future.
     "advanced_unstable_linking": provider_field(bool, default = False),
+    # Codegen flags for the distributed ThinLTO opt actions.
+    "dist_thin_lto_codegen_flags": provider_field(list[typing.Any], default = []),
     # Override the implicit sysroot with the provided Artifact containing a directory to
     # a prebuilt sysroot. Will be forwarded to rustc as `--sysroot=<sysroot_path>`. Only
     # one of this and `explicit_sysroot_deps` may be set.
