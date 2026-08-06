@@ -653,7 +653,7 @@ impl FrozenFrozenHeap {
         scope.register_heap(
             heap_id,
             WeakFrozenHeapRef(PartialPagableArc::downgrade(&heap)),
-        );
+        )?;
 
         Ok(heap)
     }
@@ -727,7 +727,7 @@ impl<'de> PagableDeserialize<'de> for FrozenHeapRef {
             })?
             .clone();
         let heap = FrozenHeapRef(Some(arc));
-        heap.register_deser_state(deserializer.as_dyn());
+        heap.register_in_deser_scope(deserializer.as_dyn())?;
         Ok(heap)
     }
 }
@@ -819,18 +819,24 @@ impl FrozenHeapRef {
             .map(Arc::as_ref)
     }
 
-    fn register_deser_state(&self, deserializer: &mut dyn PagableDeserializer<'_>) {
-        let Some(heap_id) = self.deser_state().map(HeapDeserializationState::heap_id) else {
-            return;
-        };
+    fn register_in_deser_scope(
+        &self,
+        deserializer: &mut dyn PagableDeserializer<'_>,
+    ) -> pagable::Result<()> {
+        let name = self
+            .name()
+            .ok_or_else(|| pagable::Error::msg("deserialized frozen heap must have a name"))?;
+        let heap_id = HeapRefId::from_heap_name(name);
         let scope = deserializer
             .page_in_scope()
             .get_or_init(StarlarkDeserScope::new);
-        scope.register_heap(
-            heap_id,
-            self.downgrade()
-                .expect("a deserialized heap must have an inner allocation"),
-        );
+        scope
+            .register_heap(
+                heap_id,
+                self.downgrade()
+                    .expect("a deserialized heap must have an inner allocation"),
+            )
+            .map_err(pagable::Error::new)
     }
 
     /// Number of bytes allocated on this heap, not including any memory

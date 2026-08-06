@@ -298,10 +298,6 @@ impl HeapDeserializationState {
         self.scope.unregister_heap(self.heap_id, heap_ptr);
     }
 
-    pub(crate) fn heap_id(&self) -> HeapRefId {
-        self.heap_id
-    }
-
     /// Number of values in this heap.
     pub(crate) fn value_count(&self, storage: &PagableStorageHandle) -> crate::Result<usize> {
         Ok(self.metadata(storage)?.slots.len())
@@ -649,8 +645,27 @@ impl StarlarkDeserScope {
     }
 
     /// Register a heap for cross-heap value resolution.
-    pub(crate) fn register_heap(&self, heap_id: HeapRefId, heap: WeakFrozenHeapRef) {
-        self.heap_bindings.insert(heap_id, heap);
+    pub(crate) fn register_heap(
+        &self,
+        heap_id: HeapRefId,
+        heap: WeakFrozenHeapRef,
+    ) -> Result<(), PagableError> {
+        let heap_ptr = heap.heap_ptr();
+        match self.heap_bindings.entry(heap_id) {
+            Entry::Vacant(entry) => {
+                entry.insert(heap);
+            }
+            Entry::Occupied(mut entry) => {
+                if entry.get().heap_ptr() == heap_ptr {
+                    return Ok(());
+                }
+                if entry.get().upgrade().is_some() {
+                    return Err(PagableError::ConflictingHeapBinding { heap_id });
+                }
+                entry.insert(heap);
+            }
+        }
+        Ok(())
     }
 
     pub(crate) fn unregister_heap(&self, heap_id: HeapRefId, heap_ptr: FrozenHeapPtr) {

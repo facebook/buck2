@@ -59,6 +59,14 @@ pub enum PagableError {
         heap_id: crate::pagable::heap_ref_id::HeapRefId,
     },
 
+    /// One root page-in encountered two live heap allocations with the same
+    /// logical heap identity.
+    #[error("Heap {heap_id:?} is already bound to a different heap in this page-in scope")]
+    ConflictingHeapBinding {
+        /// The ambiguous logical heap identity.
+        heap_id: crate::pagable::heap_ref_id::HeapRefId,
+    },
+
     /// A frozen heap was registered with more than one serialization state.
     #[error("Frozen heap is already registered with a different StarlarkSerState")]
     HeapRegisteredWithDifferentSerState,

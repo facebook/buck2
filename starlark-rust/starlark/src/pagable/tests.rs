@@ -40,6 +40,7 @@ use crate::environment::GlobalsBuilder;
 use crate::environment::MethodFrozenHeapName;
 use crate::pagable::error::PagableError;
 use crate::pagable::heap_ref_id::HeapRefId;
+use crate::pagable::starlark_deserialize_context::StarlarkDeserScope;
 use crate::pagable::starlark_serialize_context::StarlarkSerState;
 use crate::singleton_heap_name;
 use crate::starlark_simple_value;
@@ -810,6 +811,53 @@ fn test_heap_registration_rejects_different_ser_state() {
         error.downcast_ref::<PagableError>(),
         Some(PagableError::HeapRegisteredWithDifferentSerState),
     ));
+}
+
+#[test]
+fn test_deser_scope_rejects_conflicting_live_heap_binding() {
+    let make_heap = |count| {
+        let heap = FrozenHeap::new();
+        heap.alloc_simple(SimpleData { flag: true, count });
+        heap.into_ref_named(TestHeapName::heap_name("conflicting_deser_binding"))
+    };
+
+    let first = make_heap(1);
+    let second = make_heap(2);
+    let heap_id = HeapRefId::from_heap_name(first.name().expect("heap should have a name"));
+    let scope = StarlarkDeserScope::new();
+
+    scope
+        .register_heap(
+            heap_id,
+            first.downgrade().expect("heap should have an allocation"),
+        )
+        .expect("first binding should be accepted");
+    scope
+        .register_heap(
+            heap_id,
+            first.downgrade().expect("heap should have an allocation"),
+        )
+        .expect("repeating the exact binding should be accepted");
+
+    let error = scope
+        .register_heap(
+            heap_id,
+            second.downgrade().expect("heap should have an allocation"),
+        )
+        .expect_err("a different live heap with the same ID should be rejected");
+    assert!(matches!(
+        error,
+        PagableError::ConflictingHeapBinding { heap_id: actual } if actual == heap_id,
+    ));
+
+    drop(first);
+    scope
+        .register_heap(
+            heap_id,
+            second.downgrade().expect("heap should have an allocation"),
+        )
+        .expect("an expired binding should be replaceable");
+    assert_eq!(scope.get_heap(&heap_id).as_ref(), Some(&second));
 }
 
 #[test]
@@ -2779,9 +2827,18 @@ fn deser_owned_frozen_value_from_storage(
     handle: &pagable::storage::handle::PagableStorageHandle,
     top_key: &pagable::DataKey,
 ) -> crate::Result<OwnedFrozenValue> {
+    Ok(deser_owned_frozen_value_with_scope_from_storage(backing, handle, top_key)?.0)
+}
+
+fn deser_owned_frozen_value_with_scope_from_storage(
+    backing: &pagable::storage::in_memory::InMemoryPagableStorage,
+    handle: &pagable::storage::handle::PagableStorageHandle,
+    top_key: &pagable::DataKey,
+) -> crate::Result<(OwnedFrozenValue, Arc<StarlarkDeserScope>)> {
     use std::any::TypeId;
 
     use pagable::PagableDeserialize;
+    use pagable::PagableDeserializer;
 
     let top_data = backing
         .handle()
@@ -2790,7 +2847,12 @@ fn deser_owned_frozen_value_from_storage(
         .right()
         .expect("top-level key should return data, not a cached arc");
     let mut de = handle.root_deserializer(*top_key, &top_data);
-    OwnedFrozenValue::pagable_deserialize(&mut de).map_err(crate::Error::new_other)
+    let value = OwnedFrozenValue::pagable_deserialize(&mut de).map_err(crate::Error::new_other)?;
+    let scope = de
+        .page_in_scope()
+        .get::<StarlarkDeserScope>()
+        .expect("OwnedFrozenValue page-in should initialize a Starlark scope");
+    Ok((value, scope))
 }
 
 /// Two independently stored roots may own different live heaps with the same
@@ -2887,11 +2949,23 @@ fn test_page_in_reuses_resident_shared_heap() -> crate::Result<()> {
 
     // `owned_y` is now the only application-owned reference keeping the
     // original heap resident while X is paged back in.
-    let restored_x = deser_owned_frozen_value_from_storage(&backing, &handle, &key_x)?;
+    let (restored_x, scope) =
+        deser_owned_frozen_value_with_scope_from_storage(&backing, &handle, &key_x)?;
+    let heap_id = HeapRefId::from_heap_name(
+        restored_x
+            .owner()
+            .name()
+            .expect("restored heap should retain its name"),
+    );
     assert_eq!(
         restored_x.owner(),
         owned_y.owner(),
         "page-in should reuse the original heap kept alive by Y",
+    );
+    assert_eq!(
+        scope.get_heap(&heap_id).as_ref(),
+        Some(restored_x.owner()),
+        "the current root scope should bind the reused native heap",
     );
     assert_eq!(
         restored_x.value().ptr_value().ptr_value_untagged(),
