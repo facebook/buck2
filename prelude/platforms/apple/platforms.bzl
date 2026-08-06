@@ -54,7 +54,7 @@ _SUPPORTED_WATCHOS_PLATFORMS = [
     watch_platforms.WATCHSIMULATOR_X86_64,
 ]
 
-_ANALYSIS_CONSTRAINTS = ["ovr_config//bitcode/constraints:bitcode"]
+_ANALYSIS_CONSTRAINTS = ["ovr_config//bitcode/constraints:bitcode_mode[bitcode]"]
 _DEFAULT_ANALYSIS_IOS_PLATFORM = ios_platforms.IPHONEOS_ARM64
 _DEFAULT_ANALYSIS_MACOS_PLATFORM = mac_platforms.MACOS_X86_64
 _DEFAULT_ANALYSIS_WATCHOS_PLATFORM = watch_platforms.WATCHOS_ARM64
