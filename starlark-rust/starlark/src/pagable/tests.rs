@@ -2796,6 +2796,76 @@ fn deser_owned_frozen_value_from_storage(
     OwnedFrozenValue::pagable_deserialize(&mut de).map_err(crate::Error::new_other)
 }
 
+/// Two independently stored roots may own different live heaps with the same
+/// logical name. Serialization registration must distinguish the exact heap
+/// allocations rather than treating `HeapRefId` as their resident identity.
+#[test]
+#[should_panic(expected = "same-name heap serialization collision")]
+fn test_same_name_heaps_serialize_independently_in_shared_session() {
+    let error = same_name_heaps_serialize_independently_in_shared_session_impl()
+        .expect_err("same-name heaps should collide before exact allocation registration");
+    let message = format!("{error:#}");
+    assert!(
+        message.contains("FrozenValue pointer")
+            && message.contains("not found in any registered heap's chunk index"),
+        "unexpected serialization error: {message}",
+    );
+    panic!("same-name heap serialization collision");
+}
+
+fn same_name_heaps_serialize_independently_in_shared_session_impl() -> crate::Result<()> {
+    use pagable::storage::handle::PagableStorageHandle;
+    use pagable::storage::in_memory::InMemoryPagableStorage;
+
+    let heap0 = FrozenHeap::new();
+    let value0 = heap0.alloc_simple(SimpleData {
+        flag: true,
+        count: 111,
+    });
+    let owner0 = heap0.into_ref_named(TestHeapName::heap_name("same_name_independent_roots"));
+    // SAFETY: `owner0` owns the arena hosting `value0`.
+    let root0 = unsafe { OwnedFrozenValue::new(owner0, value0) };
+
+    let heap1 = FrozenHeap::new();
+    let value1 = heap1.alloc_simple(SimpleData {
+        flag: false,
+        count: 222,
+    });
+    let owner1 = heap1.into_ref_named(TestHeapName::heap_name("same_name_independent_roots"));
+    // SAFETY: `owner1` owns the arena hosting `value1`.
+    let root1 = unsafe { OwnedFrozenValue::new(owner1, value1) };
+
+    assert_eq!(
+        HeapRefId::from_heap_name(root0.owner().name().unwrap()),
+        HeapRefId::from_heap_name(root1.owner().name().unwrap()),
+    );
+    assert_ne!(root0.owner(), root1.owner());
+
+    let backing = InMemoryPagableStorage::new();
+    let handle = PagableStorageHandle::new(backing.handle());
+
+    // Keep both roots alive so both exact heaps are resident in the shared
+    // Starlark serialization state when the second root is serialized.
+    let _key0 = ser_owned_frozen_value_into_storage(&backing, &root0)?;
+    let key1 = ser_owned_frozen_value_into_storage(&backing, &root1)?;
+
+    drop(root0);
+    drop(root1);
+
+    // Round-trip only the second root. Paging both roots in under one current
+    // session would additionally exercise the separate deserialization-scope
+    // problem for same-name heaps.
+    let restored1 = deser_owned_frozen_value_from_storage(&backing, &handle, &key1)?;
+    let data1 = restored1
+        .value()
+        .downcast_ref::<SimpleData>()
+        .expect("second root should restore its own SimpleData");
+    assert!(!data1.flag);
+    assert_eq!(data1.count, 222);
+
+    Ok(())
+}
+
 /// X and Y point into the same heap. After X is paged out and its owner is
 /// dropped, Y keeps that heap resident. Paging X back in must reuse Y's heap
 /// and X's original allocation instead of reconstructing a duplicate heap.
