@@ -1824,7 +1824,9 @@ impl BuckSubcommand for ChromeTraceCommand {
             let username = sys_info
                 .username
                 .unwrap_or_else(|| "unknown_user".to_owned());
-            let timestamp = chrono::Utc::now().to_rfc3339();
+            let timestamp = jiff::Timestamp::now()
+                .strftime("%Y-%m-%dT%H:%M:%S%.3f%:z")
+                .to_string();
 
             let manifold_filename =
                 format!("flat/{trace_id}_{username}_{timestamp}.chrome_trace.gz");

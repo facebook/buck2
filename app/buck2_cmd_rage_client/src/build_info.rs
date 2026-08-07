@@ -18,8 +18,6 @@ use buck2_event_log::utils::Invocation;
 use buck2_events::BuckEvent;
 use buck2_util::truncate::truncate;
 use buck2_wrapper_common::invocation_id::TraceId;
-use chrono::DateTime;
-use chrono::Local;
 use futures::TryStreamExt;
 use humantime::format_duration;
 
@@ -39,7 +37,7 @@ struct LogInfo {
 
 pub(crate) struct BuildInfo {
     uuid: TraceId,
-    pub timestamp: DateTime<Local>,
+    pub timestamp: jiff::Zoned,
     pub command: String,
     working_dir: String,
     pub buck2_revision: String,
@@ -62,7 +60,7 @@ daemon uptime: {}
 RE session id: {}
         ",
             self.uuid,
-            self.timestamp.format("%c %Z"),
+            self.timestamp.strftime("%c %Z"),
             self.command,
             self.working_dir,
             self.buck2_revision,
@@ -118,7 +116,9 @@ pub(crate) async fn get(log: &EventLogPathBuf) -> buck2_error::Result<BuildInfo>
         }
     };
 
-    let t_start: DateTime<Local> = timestamp_start.into();
+    let t_start = jiff::Timestamp::try_from(timestamp_start)
+        .unwrap_or(jiff::Timestamp::UNIX_EPOCH)
+        .to_zoned(jiff::tz::TimeZone::system());
 
     let output = BuildInfo {
         uuid: first_event.trace_id()?,

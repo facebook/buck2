@@ -62,7 +62,11 @@ static ELAPSED_HEALTH_CHECK_MAP: LazyLock<Mutex<StdBuckHashMap<HealthCheckType, 
     LazyLock::new(|| Mutex::new(StdBuckHashMap::default()));
 
 fn now_display() -> impl Display {
-    chrono::Local::now().to_rfc3339_opts(::chrono::SecondsFormat::Millis, false)
+    // Millisecond precision with a numeric offset, like the rfc3339 formatting this had
+    // historically.
+    jiff::Zoned::now()
+        .strftime("%Y-%m-%dT%H:%M:%S%.3f%:z")
+        .to_string()
 }
 
 fn with_timestamps(message: &str) -> String {
