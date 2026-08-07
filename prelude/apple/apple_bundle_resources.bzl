@@ -455,7 +455,7 @@ def _bundle_parts_for_variant_files(ctx: AnalysisContext, spec: AppleResourceSpe
                 ctx = ctx,
                 file = variant_file,
                 destination = bundle_destination,
-                destination_relative_path = paths.join(locale, paths.basename(variant_file.short_path)),
+                destination_relative_path = paths.join(locale, variant_file.basename),
             )
             for variant_file in variant_files
         ]
@@ -569,7 +569,7 @@ def _process_apple_resource_file_if_needed(
     codesign_flags_override: list[str] | None = None,
 ) -> AppleBundlePart:
     output_dir = "_ProcessedResources"
-    basename = paths.basename(file.short_path)
+    basename = file.basename
     output_is_contents_dir = False
     if basename.endswith(".plist") or basename.endswith(".stringsdict"):
         processed = ctx.actions.declare_output(paths.join(output_dir, file.short_path), has_content_based_path = False)
@@ -622,7 +622,7 @@ def _get_dest_subpath_for_variant_file(variant_file: Artifact) -> str:
     dir_name = _get_variant_dirname(variant_file)
     if not dir_name:
         fail("Variant files have to be in a directory with name ending in '.lproj' but `{}` was not.".format(variant_file.short_path))
-    file_name = paths.basename(variant_file.short_path)
+    file_name = variant_file.basename
     return paths.join(dir_name, file_name)
 
 def _get_variant_dirname(variant_file: Artifact) -> str | None:

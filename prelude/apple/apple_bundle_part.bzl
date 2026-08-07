@@ -514,7 +514,7 @@ def get_apple_bundle_part_relative_destination_path(ctx: AnalysisContext, part: 
     bundle_relative_path = bundle_relative_path_for_destination(
         part.destination, get_apple_sdk_name(ctx), ctx.attrs.extension, ctx.attrs.versioned_macos_bundle
     )
-    destination_file_or_directory_name = part.new_name if part.new_name != None else paths.basename(part.source.short_path)
+    destination_file_or_directory_name = part.new_name if part.new_name != None else part.source.basename
     return paths.join(bundle_relative_path, destination_file_or_directory_name)
 
 # Returns JSON to be passed into bundle assembling tool. It should contain a dictionary which maps bundle relative destination paths to source paths."
