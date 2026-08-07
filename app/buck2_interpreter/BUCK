@@ -5,6 +5,19 @@ oncall("build_infra")
 rust_library(
     name = "buck2_interpreter",
     srcs = glob(["src/**/*.rs"]),
+    # Autocargo does not propagate Starlark's constraint-selected pagable
+    # feature, so enable it explicitly on the generated Cargo dependency edge.
+    autocargo = {
+        "cargo_toml_config": {
+            "dependencies_override": {
+                "dependencies": {
+                    "starlark": {
+                        "features": ["pagable"],
+                    },
+                },
+            },
+        },
+    },
     crate_root = "src/lib.rs",
     test_deps = [
         "fbsource//third-party/rust:tempfile",

@@ -434,7 +434,7 @@ siphasher = "1.0.3"
 slog = { version = "2.8.2", features = ["max_level_trace", "nested-values"] }
 smallvec = { version = "1.15.2", features = ["const_generics", "impl_bincode", "serde", "specialization", "union", "write"] }
 sorted_vector_map = "0.2.1"
-starlark = { path = "starlark-rust/starlark" }
+starlark = { path = "starlark-rust/starlark", features = ["pagable"] }
 starlark_lsp = { path = "starlark-rust/starlark_lsp" }
 starlark_map = { path = "starlark-rust/starlark_map", features = ["pagable_dep"] }
 starlark_syntax = { path = "starlark-rust/starlark_syntax" }
