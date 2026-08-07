@@ -16,6 +16,7 @@ import com.android.tools.r8.D8Command;
 import com.android.tools.r8.Diagnostic;
 import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.OutputMode;
+import com.android.tools.r8.graph.DexItemFactory;
 import com.android.tools.r8.utils.InternalOptions;
 import com.facebook.buck.android.apkmodule.APKModule;
 import com.facebook.buck.util.zip.CustomZipOutputStream;
@@ -41,6 +42,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -71,7 +73,6 @@ public class D8Utils {
         androidJarPath,
         classpathFiles,
         minSdkVersion,
-        // NULLSAFE_FIXME[Not Vetted Third-Party]
         OptionalInt.empty());
   }
 
@@ -103,27 +104,18 @@ public class D8Utils {
     Path output = outputToDex ? Files.createTempDirectory("buck-d8") : outputDexFile;
 
     D8Command.Builder builder =
-        // NULLSAFE_FIXME[Not Vetted Third-Party]
         D8Command.builder(diagnosticsHandler)
-            // NULLSAFE_FIXME[Not Vetted Third-Party]
             .addProgramFiles(inputs)
-            // NULLSAFE_FIXME[Not Vetted Third-Party]
             .setIntermediate(options.contains(D8Options.INTERMEDIATE))
-            // NULLSAFE_FIXME[Not Vetted Third-Party]
             .addLibraryFiles(androidJarPath)
-            // NULLSAFE_FIXME[Not Vetted Third-Party]
             .setMode(
                 options.contains(D8Options.NO_OPTIMIZE)
                     ? CompilationMode.DEBUG
                     : CompilationMode.RELEASE)
-            // NULLSAFE_FIXME[Not Vetted Third-Party]
             .setOutput(output, OutputMode.DexIndexed)
-            // NULLSAFE_FIXME[Not Vetted Third-Party]
             .setDisableDesugaring(options.contains(D8Options.NO_DESUGAR))
-            // NULLSAFE_FIXME[Not Vetted Third-Party]
             .setInternalOptionsModifier(
                 (InternalOptions opt) -> {
-                  // NULLSAFE_FIXME[Not Vetted Third-Party]
                   opt.testing.forceJumboStringProcessing = options.contains(D8Options.FORCE_JUMBO);
                   if (options.contains(D8Options.MINIMIZE_PRIMARY_DEX)) {
                     opt.minimalMainDex = true;
@@ -146,7 +138,6 @@ public class D8Utils {
       builder.addClasspathFiles(classpathFiles);
     }
 
-    // NULLSAFE_FIXME[Not Vetted Third-Party]
     D8Command d8Command = builder.build();
     com.android.tools.r8.D8.run(d8Command);
 
@@ -154,11 +145,10 @@ public class D8Utils {
       moveSingleDexOutput(output, outputDexFile, options);
     }
 
+    // Only null for the help/version commands produced by D8Command.parse, never for a built one.
+    DexItemFactory dexItemFactory = Objects.requireNonNull(d8Command.getDexItemFactory());
     return new D8Output(
-        // NULLSAFE_FIXME[Not Vetted Third-Party]
-        d8Command.getDexItemFactory().computeReferencedResources(),
-        // NULLSAFE_FIXME[Not Vetted Third-Party]
-        d8Command.getDexItemFactory().computeSynthesizedTypes());
+        dexItemFactory.computeReferencedResources(), dexItemFactory.computeSynthesizedTypes());
   }
 
   static void writeSecondaryDexJarAndMetadataFile(
