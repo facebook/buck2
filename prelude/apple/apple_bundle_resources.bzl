@@ -528,9 +528,10 @@ def _run_ibtool(
 def _ibtool_identifier(action: str, raw_file: Artifact) -> str:
     "*.xib files can live in .lproj folders and have the same name, so we need to split the id"
     identifier_parts = []
-    variant_name = _get_variant_dirname(raw_file)
-    if variant_name:
+    variant_dirname = _get_variant_dirname(raw_file)
+    if variant_dirname:
         # variant_name is like "zh_TW.lproj", and we only want "zh_TW"
+        variant_name = paths.replace_extension(variant_dirname, "")
         identifier_parts.append(variant_name)
     identifier_parts += [raw_file.basename]
     return "ibtool_" + action + " " + "/".join(identifier_parts)
