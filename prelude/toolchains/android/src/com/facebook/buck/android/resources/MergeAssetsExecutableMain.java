@@ -87,13 +87,14 @@ public class MergeAssetsExecutableMain {
   }
 
   private void run() throws IOException {
+    // readValue only yields null for a literal JSON `null` document.
     ImmutableMap<String, ImmutableSet<Path>> rawDirs =
-        ObjectMappers.READER.readValue(
-            ObjectMappers.createParser(Paths.get(assetsDirs)),
-            new TypeReference<ImmutableMap<String, ImmutableSet<Path>>>() {});
+        Objects.requireNonNull(
+            ObjectMappers.READER.readValue(
+                ObjectMappers.createParser(Paths.get(assetsDirs)),
+                new TypeReference<ImmutableMap<String, ImmutableSet<Path>>>() {}));
 
     ImmutableMap<String, ImmutableSet<RelPath>> dirs =
-        // NULLSAFE_FIXME[Nullable Dereference]
         rawDirs.entrySet().stream()
             .collect(
                 ImmutableMap.toImmutableMap(
