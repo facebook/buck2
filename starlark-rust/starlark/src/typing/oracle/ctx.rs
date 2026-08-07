@@ -29,6 +29,7 @@ use crate::typing::ParamSpec;
 use crate::typing::Ty;
 use crate::typing::TypingBinOp;
 use crate::typing::TypingUnOp;
+use crate::typing::arc_ty::ArcTy;
 use crate::typing::basic::TyBasic;
 use crate::typing::call_args::TyCallArgs;
 use crate::typing::callable::TyCallable;
@@ -140,6 +141,48 @@ impl<'a> TypingOracleCtx<'a> {
         } else {
             Ok(())
         }
+    }
+
+    /// Widen `int` to `int | float` (and vice versa) for the purposes of `==` / `!=`.
+    ///
+    /// Starlark compares numbers numerically across the two types, so `1 == 1.0` is
+    /// `True` and such a comparison must not be reported as a type error. The same is
+    /// true of numbers nested in containers — `[1] == [1.0]`, `(1,) == (1.0,)` and
+    /// `{1: "a"} == {1.0: "a"}` are all `True` — so the widening recurses through
+    /// element types.
+    ///
+    /// `bool` is deliberately not widened: `StarlarkBool` has no `equals` override and
+    /// `True.unpack_num()` is `None`, so `True == 1` really is `False` and flagging
+    /// `bool == int` is correct.
+    ///
+    /// Widening never hides a real mismatch: `list[int] == list[str]` still fails,
+    /// because `list[int | float]` does not intersect `list[str]`.
+    fn widen_numeric(ty: &Ty) -> Ty {
+        Ty::unions(
+            ty.iter_union()
+                .iter()
+                .flat_map(Self::widen_numeric_basic)
+                .collect(),
+        )
+    }
+
+    fn widen_numeric_basic(basic: &TyBasic) -> Vec<Ty> {
+        if *basic == TyBasic::int() || *basic == TyBasic::float() {
+            return vec![Ty::int(), Ty::float()];
+        }
+        let widened = match basic {
+            TyBasic::List(item) => TyBasic::list(Self::widen_numeric(item)),
+            TyBasic::Set(item) => TyBasic::set(Self::widen_numeric(item)),
+            TyBasic::Dict(k, v) => TyBasic::dict(Self::widen_numeric(k), Self::widen_numeric(v)),
+            TyBasic::Tuple(TyTuple::Of(item)) => {
+                TyBasic::Tuple(TyTuple::Of(ArcTy::new(Self::widen_numeric(item))))
+            }
+            TyBasic::Tuple(TyTuple::Elems(elems)) => TyBasic::Tuple(TyTuple::Elems(
+                elems.iter().map(Self::widen_numeric).collect(),
+            )),
+            other => other.clone(),
+        };
+        vec![Ty::basic(widened)]
     }
 
     #[allow(clippy::redundant_pattern_matching)]
@@ -787,8 +830,20 @@ impl<'a> TypingOracleCtx<'a> {
                 }
             }
             BinOp::Equal | BinOp::NotEqual => {
-                // It's not an error to compare two different types, but it is pointless
-                self.validate_type(rhs.as_ref(), &lhs)?;
+                // It's not an error to compare two different types, but it is pointless.
+                // `int` and `float` are the exception: they compare equal numerically
+                // (`1 == 1.0` evaluates to `True`), so comparing across the two is
+                // meaningful and must not be rejected. Widen only for the check, so the
+                // error message still names the type the user actually wrote.
+                if !self.intersects(&rhs.node, &Self::widen_numeric(&lhs.node))? {
+                    return Err(self.mk_error_as_maybe_internal(
+                        rhs.span,
+                        TypingOracleCtxError::IncompatibleType {
+                            got: rhs.to_string(),
+                            require: lhs.to_string(),
+                        },
+                    ));
+                }
                 Ok(bool_ret)
             }
             BinOp::In | BinOp::NotIn => {
