@@ -35,6 +35,8 @@ def _network_access_kwargs(network_access: str | None) -> dict[str, str]:
         return {}
     return {"network_access": network_access}
 
+_FORCE_RUN_AS_BUNDLE = read_root_config("tpx", "force_run_as_bundle", "False")
+
 def _force_local_re_tests() -> bool:
     # Must agree with the `read_bool` of this key in
     # `tools/build_defs/fb_native_wrapper.bzl`, which strips `remote_execution` off
@@ -42,7 +44,7 @@ def _force_local_re_tests() -> bool:
     # executor, or vice versa. `read_bool` itself is not reusable here because its
     # `read_config` binding is unavailable during analysis, so mirror its coercion —
     # including rejecting values it cannot coerce rather than guessing.
-    value = read_config("fbcode", "disable_re_tests", default = "")
+    value = read_root_config("fbcode", "disable_re_tests", "")
 
     # An empty value means "unset", so that a later config can clear an earlier one.
     if value == "":
@@ -90,7 +92,7 @@ def maybe_add_run_as_bundle_label(ctx: AnalysisContext, labels: list[str]) -> No
     if "re_ignore_force_run_as_bundle" in labels:
         return
     re_arg = _get_re_arg(ctx)
-    if re_arg.default_run_as_bundle or read_config("tpx", "force_run_as_bundle") == "True":
+    if re_arg.default_run_as_bundle or _FORCE_RUN_AS_BUNDLE == "True":
         labels.extend(["run_as_bundle"])
 
 def get_re_executors_from_props(ctx: AnalysisContext, dynamic_image_override: [dict, None] = None) -> RemoteTestExecutorConfig:

@@ -8,14 +8,15 @@
 
 # @nolint
 
-def loop_long(kind):
-    if read_config("should", "loop", "") != kind:
-        return
-
+def spin():
     for i in range(2147483647):
         for j in range(2147483647):
             for k in range(2147483647):
                 pass
+
+def loop_long(kind):
+    if read_root_config("should", "loop", "") == kind:
+        spin()
 
 def _noop(ctx):
     outs = []
