@@ -22,6 +22,7 @@ either = { version = "1.8", optional = true }
 futures = { version = "0.3.24", optional = true }
 hashbrown = { version = "0.16.1", optional = true }
 indexmap = { version = "2.2.6", optional = true }
+jiff = { version = "0.2.32", optional = true }
 num-bigint = { version = "0.4.3", optional = true }
 once_cell = { version = "1.21.4", optional = true }
 parking_lot = { version = "0.11.2", optional = true }
@@ -50,6 +51,7 @@ either = ["dep:either"]
 futures = ["dep:futures"]
 hashbrown = ["dep:hashbrown"]
 indexmap = ["dep:indexmap"]
+jiff = ["dep:jiff"]
 num-bigint = ["dep:num-bigint"]
 once_cell = ["dep:once_cell"]
 parking_lot = ["dep:parking_lot"]

@@ -21,6 +21,7 @@ mod futures;
 pub(crate) mod hashbrown;
 pub mod hashbrown_util;
 mod indexmap;
+mod jiff;
 mod lock_api;
 mod num_bigint;
 mod once_cell;
