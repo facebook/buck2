@@ -156,6 +156,21 @@ fn ttimestamp_from(ts: Option<::prost_types::Timestamp>) -> TTimestamp {
     }
 }
 
+fn tany_to(any: TAny) -> ::prost_types::Any {
+    ::prost_types::Any {
+        type_url: any.type_url,
+        value: any.value,
+    }
+}
+
+fn tany_from(any: ::prost_types::Any) -> TAny {
+    TAny {
+        type_url: any.type_url,
+        value: any.value,
+        ..Default::default()
+    }
+}
+
 /// Contains information queried from the Remote Execution Capabilities service.
 pub struct RECapabilities {
     /// Largest size of a message before being uploaded using bytestream service.
@@ -1179,6 +1194,7 @@ fn convert_action_result(action_result: ActionResult) -> anyhow::Result<TActionR
             output_upload_completed_timestamp: ttimestamp_from(
                 execution_metadata.output_upload_completed_timestamp,
             ),
+            auxiliary_metadata: execution_metadata.auxiliary_metadata.into_map(tany_from),
             input_analyzing_start_timestamp: Default::default(),
             input_analyzing_completed_timestamp: Default::default(),
             execution_dir: "".to_owned(),
@@ -1225,7 +1241,7 @@ fn convert_t_action_result2(t_action_result: TActionResult2) -> anyhow::Result<A
         output_upload_completed_timestamp: Some(ttimestamp_to(
             t_execution_metadata.output_upload_completed_timestamp,
         )),
-        auxiliary_metadata: Vec::new(),
+        auxiliary_metadata: t_execution_metadata.auxiliary_metadata.into_map(tany_to),
     });
 
     let output_files = t_action_result
