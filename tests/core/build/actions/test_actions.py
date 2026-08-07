@@ -42,6 +42,19 @@ async def test_write_json(buck: Buck) -> None:
 
 
 @buck_test(data_dir="actions")
+async def test_write_json_stack_overflow(buck: Buck) -> None:
+    # Deeply nested `write_json` values currently overflow the native stack and
+    # kill the daemon; all the client sees is the connection dropping.
+    res = await expect_failure(
+        buck.build("//write_json_stack_overflow:deep_write_json")
+    )
+    assert "broken pipe" in res.stderr or "transport error" in res.stderr
+
+    res = await expect_failure(buck.build("//write_json_stack_overflow:deep_tset"))
+    assert "broken pipe" in res.stderr or "transport error" in res.stderr
+
+
+@buck_test(data_dir="actions")
 async def test_copies_files(buck: Buck) -> None:
     result = await buck.build(
         "//copy:file_uses_declared_output",
