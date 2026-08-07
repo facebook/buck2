@@ -215,7 +215,8 @@ fn delete_key_in_tx(
 ) -> buck2_error::Result<()> {
     for table in [STATE_TABLE_NAME, OUTPUTS_TABLE_NAME, DECLARED_TABLE_NAME] {
         let sql = format!("DELETE FROM {table} WHERE logical_key = ?1 AND config_key = ?2");
-        tx.execute(&sql, rusqlite::params![logical_key, config_key])
+        tx.prepare_cached(&sql)?
+            .execute(rusqlite::params![logical_key, config_key])
             .with_buck_error_context(|| format!("deleting from {table}"))?;
     }
     Ok(())
@@ -332,9 +333,8 @@ impl DepFileStateSqliteTable {
         // full composite PK, so it would update/insert the surviving rows but leave the vanished ones
         // orphaned -- it can't delete rows no longer in the new set.
         delete_key_in_tx(&tx, &logical_key, &config_key)?;
-        tx.execute(
-            &state_sql,
-            rusqlite::params![
+        tx.prepare_cached(&state_sql)?
+            .execute(rusqlite::params![
                 logical_key,
                 config_key,
                 state.cli_digest,
@@ -346,9 +346,8 @@ impl DepFileStateSqliteTable {
                 local_worker.map(|(_, _, kind)| kind),
                 state.was_produced_locally,
                 last_write_time,
-            ],
-        )
-        .with_buck_error_context(|| format!("inserting into {STATE_TABLE_NAME}"))?;
+            ])
+            .with_buck_error_context(|| format!("inserting into {STATE_TABLE_NAME}"))?;
 
         for output in &state.outputs {
             let path = &output.path;
@@ -432,9 +431,8 @@ impl DepFileStateSqliteTable {
                     }
                 },
             };
-            tx.execute(
-                &output_sql,
-                rusqlite::params![
+            tx.prepare_cached(&output_sql)?
+                .execute(rusqlite::params![
                     logical_key,
                     config_key,
                     path.as_str(),
@@ -446,15 +444,13 @@ impl DepFileStateSqliteTable {
                     symlink_target,
                     symlink_remaining_path,
                     last_write_time,
-                ],
-            )
-            .with_buck_error_context(|| format!("inserting into {OUTPUTS_TABLE_NAME}"))?;
+                ])
+                .with_buck_error_context(|| format!("inserting into {OUTPUTS_TABLE_NAME}"))?;
         }
 
         for identity in &state.declared {
-            tx.execute(
-                &declared_sql,
-                rusqlite::params![
+            tx.prepare_cached(&declared_sql)?
+                .execute(rusqlite::params![
                     logical_key,
                     config_key,
                     identity.label,
@@ -462,9 +458,8 @@ impl DepFileStateSqliteTable {
                     identity.projected,
                     identity.is_content_based,
                     last_write_time,
-                ],
-            )
-            .with_buck_error_context(|| format!("inserting into {DECLARED_TABLE_NAME}"))?;
+                ])
+                .with_buck_error_context(|| format!("inserting into {DECLARED_TABLE_NAME}"))?;
         }
 
         tx.commit()?;
@@ -586,7 +581,7 @@ impl DepFileStateSqliteTable {
         };
 
         {
-            let mut stmt = conn.prepare(&format!(
+            let mut stmt = conn.prepare_cached(&format!(
                 "SELECT logical_key, config_key, output_path, artifact_type, entry_size, entry_hash, entry_hash_kind, file_is_executable, symlink_target, symlink_remaining_path FROM {OUTPUTS_TABLE_NAME}{where_clause}"
             ))?;
             let rows = stmt
@@ -616,7 +611,7 @@ impl DepFileStateSqliteTable {
         }
 
         {
-            let mut stmt = conn.prepare(&format!(
+            let mut stmt = conn.prepare_cached(&format!(
                 "SELECT logical_key, config_key, label, path, projected, is_content_based FROM {DECLARED_TABLE_NAME}{where_clause}"
             ))?;
             let rows = stmt
@@ -641,11 +636,11 @@ impl DepFileStateSqliteTable {
             }
         }
 
-        let mut stmt = conn.prepare(&format!(
-            "SELECT logical_key, config_key, cli_digest, directory_size, directory_hash, directory_hash_kind, local_worker_size, local_worker_hash, local_worker_hash_kind, was_produced_locally FROM {STATE_TABLE_NAME}{where_clause}"
-        ))?;
-        let scalar_rows = stmt
-            .query_map(rusqlite::params_from_iter(key_slice), |row| {
+        let scalar_rows = {
+            let mut stmt = conn.prepare_cached(&format!(
+                "SELECT logical_key, config_key, cli_digest, directory_size, directory_hash, directory_hash_kind, local_worker_size, local_worker_hash, local_worker_hash_kind, was_produced_locally FROM {STATE_TABLE_NAME}{where_clause}"
+            ))?;
+            stmt.query_map(rusqlite::params_from_iter(key_slice), |row| {
                 let key = EntryKey {
                     logical_key: row.get(0)?,
                     config_key: row.get(1)?,
@@ -671,7 +666,13 @@ impl DepFileStateSqliteTable {
                 ))
             })?
             .collect::<Result<Vec<_>, _>>()
-            .with_buck_error_context(|| format!("reading {STATE_TABLE_NAME}"))?;
+            .with_buck_error_context(|| format!("reading {STATE_TABLE_NAME}"))?
+        };
+
+        // Every row is now materialized, so release the connection before rebuilding digests and
+        // artifact values: that work is pure CPU and would otherwise run inside the critical section
+        // that every concurrent lookup contends on.
+        drop(conn);
 
         let mut result = Vec::with_capacity(scalar_rows.len());
         for (
