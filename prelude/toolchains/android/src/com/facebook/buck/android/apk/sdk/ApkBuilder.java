@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
 import org.jetbrains.annotations.Nullable;
@@ -52,7 +53,8 @@ public final class ApkBuilder implements IArchiveBuilder {
 
   /** A No-op zip filter. It's used to detect conflicts. */
   private final class NullZipFilter implements IZipEntryFilter {
-    private File mInputFile;
+    /** Null until {@link #reset} names the archive whose entries are about to be filtered. */
+    @Nullable private File mInputFile;
 
     void reset(File inputFile) {
       mInputFile = inputFile;
@@ -62,11 +64,12 @@ public final class ApkBuilder implements IArchiveBuilder {
     public boolean checkEntry(String archivePath) throws IZipEntryFilter.ZipAbortException {
       verbosePrintln("=> %s", archivePath);
 
+      File inputFile = Objects.requireNonNull(mInputFile, "reset() must precede checkEntry()");
       File duplicate = checkFileForDuplicate(archivePath);
       if (duplicate != null) {
-        throw new DuplicateFileException(archivePath, duplicate, mInputFile);
+        throw new DuplicateFileException(archivePath, duplicate, inputFile);
       } else {
-        mAddedFiles.put(archivePath, mInputFile);
+        mAddedFiles.put(archivePath, inputFile);
       }
 
       return true;
@@ -84,7 +87,9 @@ public final class ApkBuilder implements IArchiveBuilder {
     private final Set<String> mExcludedResources;
     private final List<String> mNativeLibs = new ArrayList<String>();
     private boolean mNativeLibsConflict = false;
-    private File mInputFile;
+
+    /** Null until {@link #reset} names the archive whose entries are about to be filtered. */
+    @Nullable private File mInputFile;
 
     JavaAndNativeResourceFilter(Set<String> excludedResources) {
       mExcludedResources = excludedResources;
@@ -123,11 +128,12 @@ public final class ApkBuilder implements IArchiveBuilder {
       if (check) {
         verbosePrintln("=> %s", archivePath);
 
+        File inputFile = Objects.requireNonNull(mInputFile, "reset() must precede checkEntry()");
         File duplicate = checkFileForDuplicate(archivePath);
         if (duplicate != null) {
-          throw new DuplicateFileException(archivePath, duplicate, mInputFile);
+          throw new DuplicateFileException(archivePath, duplicate, inputFile);
         } else {
-          mAddedFiles.put(archivePath, mInputFile);
+          mAddedFiles.put(archivePath, inputFile);
         }
 
         if (archivePath.endsWith(".so") || archivePath.endsWith(".bc")) {
@@ -167,7 +173,7 @@ public final class ApkBuilder implements IArchiveBuilder {
   private File mApkFile;
   private File mResFile;
   @Nullable private File mDexFile;
-  private PrintStream mVerboseStream;
+  @Nullable private PrintStream mVerboseStream;
   private ApkJarBuilder mBuilder;
   private boolean mDebugMode = false;
   private boolean mIsSealed = false;
@@ -231,9 +237,9 @@ public final class ApkBuilder implements IArchiveBuilder {
   public ApkBuilder(
       File apkFile,
       File resFile,
-      File dexFile,
+      @Nullable File dexFile,
       boolean packageMetaInfVersionFiles,
-      PrintStream verboseStream,
+      @Nullable PrintStream verboseStream,
       Set<String> excludedResources)
       throws ApkCreationException {
     mFilter = new JavaAndNativeResourceFilter(excludedResources);
@@ -243,9 +249,9 @@ public final class ApkBuilder implements IArchiveBuilder {
   private void init(
       File apkFile,
       File resFile,
-      File dexFile,
+      @Nullable File dexFile,
       boolean packageMetaInfVersionFiles,
-      PrintStream verboseStream)
+      @Nullable PrintStream verboseStream)
       throws ApkCreationException {
 
     try {
