@@ -16,25 +16,35 @@ from buck2.tests.e2e_util.api.buck_result import BuckException
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-ALL_STAGES = ["load", "package", "analysis", "bxl"]
+ALL_STAGES = ["load", "package", "analysis", "bxl", "streaming_targets"]
 
 
 @buck_test()
 @pytest.mark.parametrize("stage", ALL_STAGES)
 async def test_cancellation(buck: Buck, stage: str) -> None:
     if stage == "bxl":
-        preempted_target = "//:root.bxl:loop_test"
-        a_method = buck.bxl
+        aproc = buck.bxl(
+            "--preemptible=always",
+            "--config",
+            "should.loop=bxl",
+            "//:root.bxl:loop_test",
+        )
+    elif stage == "streaming_targets":
+        aproc = buck.targets(
+            "--streaming",
+            "--no-cache",
+            "--preemptible=always",
+            "--config",
+            "should.loop=load",
+            ":target",
+        )
     else:
-        preempted_target = ":target"
-        a_method = buck.build
-
-    aproc = a_method(
-        "--preemptible=always",
-        "--config",
-        f"should.loop={stage}",
-        preempted_target,
-    )
+        aproc = buck.build(
+            "--preemptible=always",
+            "--config",
+            f"should.loop={stage}",
+            ":target",
+        )
     bproc = buck.build(
         ":target",
     )

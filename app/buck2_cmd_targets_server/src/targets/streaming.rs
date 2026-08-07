@@ -90,12 +90,13 @@ pub(crate) async fn targets_streaming(
             let ctx = cloned_dice.dupe();
 
             spawn_dropcancel(
-                |_cancellation| {
+                |cancellation| {
                     {
                         async move {
                             let (package, spec) = x?;
                             let res = process_package(
                                 &mut ctx.ctx(),
+                                cancellation,
                                 formatter,
                                 package,
                                 spec,
@@ -288,6 +289,7 @@ impl PreparePackageResult {
 
 async fn process_package(
     ctx: &mut DiceComputations<'_>,
+    cancellation: &CancellationContext,
     formatter: Arc<dyn TargetFormatter>,
     package: PackageLabel,
     spec: PackageSpec<TargetPatternExtra>,
@@ -302,7 +304,7 @@ async fn process_package(
     let targets = {
         // This bit of code is the heavy CPU stuff, so guard it with the threads
         let _permit = threads.acquire().await.unwrap();
-        load_targets(ctx, package.dupe(), spec, cached, keep_going).await
+        load_targets(ctx, cancellation, package.dupe(), spec, cached, keep_going).await
     };
 
     match targets {
@@ -370,6 +372,7 @@ enum TargetsError {
 /// Load the targets from a package. If `keep_going` is specified then it may return a `Some` error in the triple.
 async fn load_targets(
     dice: &mut DiceComputations<'_>,
+    cancellation: &CancellationContext,
     package: PackageLabel,
     spec: PackageSpec<TargetPatternExtra>,
     cached: bool,
@@ -382,12 +385,9 @@ async fn load_targets(
     let result = if cached {
         dice.get_interpreter_results(package.dupe()).await?.dupe()
     } else {
-        dice.get_interpreter_results_uncached(
-            package.dupe(),
-            CancellationContext::never_cancelled(),
-        )
-        .await
-        .1?
+        dice.get_interpreter_results_uncached(package.dupe(), cancellation)
+            .await
+            .1?
     };
 
     match spec {
