@@ -16,8 +16,6 @@ use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileNameBuf;
 use buck2_wrapper_common::invocation_id::TraceId;
-use chrono::DateTime;
-use chrono::Utc;
 use futures::StreamExt;
 use gazebo::prelude::VecExt;
 
@@ -31,8 +29,9 @@ pub(crate) fn get_logfile_name(
     command_name: &str,
 ) -> buck2_error::Result<FileNameBuf> {
     let time_str = {
-        let datetime: DateTime<Utc> = event.timestamp().into();
-        datetime.format("%Y%m%d-%H%M%S").to_string()
+        let timestamp =
+            jiff::Timestamp::try_from(event.timestamp()).unwrap_or(jiff::Timestamp::UNIX_EPOCH);
+        timestamp.strftime("%Y%m%d-%H%M%S").to_string()
     };
 
     let trace_id = event.trace_id()?;

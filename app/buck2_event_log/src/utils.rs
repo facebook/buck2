@@ -195,13 +195,11 @@ impl Invocation {
 }
 
 pub mod timestamp {
-    use chrono::DateTime;
-    use chrono::Utc;
-    use prost_types::Timestamp;
+    use jiff::Timestamp;
 
     use super::EventLogErrors;
 
-    pub fn parse_as_unixtime_float(time: &str) -> Option<DateTime<Utc>> {
+    pub fn parse_as_unixtime_float(time: &str) -> Option<Timestamp> {
         let (ipart, fpart) = time.split_once(".")?;
 
         let ipart = ipart.parse::<i64>().ok()?;
@@ -211,35 +209,39 @@ pub mod timestamp {
         let fmult = 10u32.pow(0i64.max(9i64 - (fpart.len() as i64)) as u32);
         let fpart = fpart.parse::<u32>().ok()?;
 
-        DateTime::from_timestamp(ipart, fpart * fmult)
+        Timestamp::new(ipart, (fpart * fmult) as i32).ok()
     }
 
-    pub fn parse_as_unixtime_seconds(time: &str) -> Option<DateTime<Utc>> {
+    pub fn parse_as_unixtime_seconds(time: &str) -> Option<Timestamp> {
         let ipart = time.parse::<i64>().ok()?;
-        DateTime::from_timestamp(ipart, 0)
+        Timestamp::from_second(ipart).ok()
     }
 
-    pub fn parse_as_unixtime_nanoseconds(time: &str) -> Option<DateTime<Utc>> {
+    pub fn parse_as_unixtime_nanoseconds(time: &str) -> Option<Timestamp> {
         // Perfetto lets you copy the "raw value" of timestamps as billions of nanoseconds
         if time.len() < 19 {
             return None;
         }
         let ipart = time[..time.len() - 9].parse::<i64>().ok()?;
         let fpart = time[time.len() - 9..].parse::<u32>().ok()?;
-        DateTime::from_timestamp(ipart, fpart)
+        Timestamp::new(ipart, fpart as i32).ok()
     }
 
-    pub fn parse(time: &str) -> buck2_error::Result<DateTime<Utc>> {
+    pub fn parse(time: &str) -> buck2_error::Result<Timestamp> {
         parse_as_unixtime_float(time)
             .or_else(|| parse_as_unixtime_seconds(time))
             .or_else(|| parse_as_unixtime_nanoseconds(time))
             .ok_or(EventLogErrors::InvalidTimestamp(time.to_owned()).into())
     }
 
-    pub fn to_protobuf_timestamp(dt: DateTime<Utc>) -> Timestamp {
-        Timestamp {
-            seconds: dt.timestamp(),
-            nanos: dt.timestamp_subsec_nanos() as i32,
+    pub fn to_protobuf_timestamp(t: Timestamp) -> prost_types::Timestamp {
+        // Explicit floor division: protobuf wants nanos in [0, 1e9) with the seconds
+        // rounded down, which is not the convention of `Timestamp`'s accessors for
+        // pre-epoch values.
+        let nanos_total = t.as_nanosecond();
+        prost_types::Timestamp {
+            seconds: nanos_total.div_euclid(1_000_000_000) as i64,
+            nanos: nanos_total.rem_euclid(1_000_000_000) as i32,
         }
     }
 }
