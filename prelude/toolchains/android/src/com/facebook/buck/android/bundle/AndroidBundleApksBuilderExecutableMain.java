@@ -57,22 +57,14 @@ public class AndroidBundleApksBuilderExecutableMain {
   private void run() throws Exception {
     Path apksDirectory = Files.createTempDirectory("derived.apks");
     BuildApksCommand.Builder buildApksCommandBuilder =
-        // NULLSAFE_FIXME[Not Vetted Third-Party]
         BuildApksCommand.builder()
-            // NULLSAFE_FIXME[Not Vetted Third-Party]
             .setApkBuildMode(BuildApksCommand.ApkBuildMode.UNIVERSAL)
-            // NULLSAFE_FIXME[Not Vetted Third-Party]
             .setAapt2Command(Aapt2Command.createFromExecutablePath(aapt2BinaryPath))
-            // NULLSAFE_FIXME[Not Vetted Third-Party]
             .setP7ZipCommand(P7ZipCommand.defaultP7ZipCommand(p7zipBinaryPath, 4))
-            // NULLSAFE_FIXME[Not Vetted Third-Party]
             .setOutputFormat(BuildApksCommand.OutputFormat.DIRECTORY)
-            // NULLSAFE_FIXME[Not Vetted Third-Party]
             .setOutputFile(apksDirectory)
-            // NULLSAFE_FIXME[Not Vetted Third-Party]
             .setBundlePath(inputBundle);
 
-    // NULLSAFE_FIXME[Not Vetted Third-Party]
     buildApksCommandBuilder.build().execute();
 
     Path universalApkPath = apksDirectory.resolve("universal.apk");
