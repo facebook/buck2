@@ -19,8 +19,14 @@ use std::time::Instant;
 use buck2_core::soft_error;
 use regex::Regex;
 
-static KERNEL_OOM_KILL_RE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"oom-kill:.*task_memcg=/([^,]+)").unwrap());
+use super::OomEvidence;
+
+static KERNEL_OOM_VICTIM_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r"(?:Out of memory|Memory cgroup out of memory): Killed process (\d+) \(buck2(?:-daemon)?\)",
+    )
+    .unwrap()
+});
 
 static OOMD_KILL_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"oomd kill:\s+\S+\s+\S+\s+\S+\s+(\S+)").unwrap());
@@ -31,37 +37,37 @@ static SYSTEMD_OOMD_KILL_RE: LazyLock<Regex> =
 /// Monotonic lookback used when the daemon start time is unavailable.
 const DMESG_LOOKBACK: Duration = Duration::from_secs(5 * 60);
 
-pub(crate) async fn check_daemon_oom_killed(
-    cgroup_path_of_buck2_daemon: &str,
+pub(crate) async fn find_daemon_oom_evidence(
+    daemon_pid: i64,
+    cgroup_path_of_buck2_daemon: Option<&str>,
     daemon_start_instant: Option<Instant>,
-) -> buck2_error::Result<bool> {
+) -> buck2_error::Result<Option<OomEvidence>> {
     let cgroup_path_of_buck2_daemon =
-        match cgroup_path_of_buck2_daemon.strip_prefix("/sys/fs/cgroup/") {
-            Some(rel) => rel,
+        cgroup_path_of_buck2_daemon.and_then(|path| match path.strip_prefix("/sys/fs/cgroup/") {
+            Some(rel) => Some(rel),
             None => {
                 let _unused = soft_error!(
                     "oom_cgroup_path_unexpected_prefix",
                     buck2_error::buck2_error!(
                         buck2_error::ErrorTag::Environment,
                         "cgroup path does not start with /sys/fs/cgroup/: {}",
-                        cgroup_path_of_buck2_daemon
+                        path
                     ),
                     quiet: true
                 );
-                return Ok(false);
+                None
             }
-        };
+        });
 
-    // Check kernel OOM killer messages in dmesg.
-    // The kernel writes these synchronously when OOM killing, so they are
-    // immediately available
     let lower_bound = match dmesg_lower_bound(daemon_start_instant) {
         Ok(lower_bound) => lower_bound,
         Err(e) => {
             let _unused = soft_error!("dmesg_monotonic_clock_failed", e, quiet: true);
-            return Ok(false);
+            return Ok(None);
         }
     };
+    // The dmesg read supplies the upper snapshot. A derived upper timestamp would be unsafe:
+    // the kernel can emit its definitive victim record after the daemon connection closes.
     // Raw output fixes timestamps in boot-time seconds and prefixes records with `<priority>`.
     let child = match buck2_util::process::async_background_command("dmesg")
         .arg("--raw")
@@ -81,7 +87,7 @@ pub(crate) async fn check_daemon_oom_killed(
                 ),
                 quiet: true
             );
-            return Ok(false);
+            return Ok(None);
         }
     };
 
@@ -98,7 +104,7 @@ pub(crate) async fn check_daemon_oom_killed(
                 ),
                 quiet: true
             );
-            return Ok(false);
+            return Ok(None);
         }
         Err(_elapsed) => {
             let _unused = soft_error!(
@@ -109,7 +115,7 @@ pub(crate) async fn check_daemon_oom_killed(
                 ),
                 quiet: true
             );
-            return Ok(false);
+            return Ok(None);
         }
     };
 
@@ -119,13 +125,16 @@ pub(crate) async fn check_daemon_oom_killed(
         stdout_str.lines().count(),
         stdout_str.lines().next_back(),
     );
-    if let Some(line) =
-        find_matching_oom_kill(&stdout_str, cgroup_path_of_buck2_daemon, lower_bound)
-    {
-        tracing::debug!("OOM detection matched dmesg line: {:?}", line);
-        return Ok(true);
+    if let Some(evidence) = find_matching_oom_kill(
+        &stdout_str,
+        daemon_pid,
+        cgroup_path_of_buck2_daemon,
+        lower_bound,
+    ) {
+        tracing::debug!("OOM detection matched dmesg line: {:?}", evidence.line());
+        return Ok(Some(evidence));
     }
-    Ok(false)
+    Ok(None)
 }
 
 fn dmesg_lower_bound(daemon_start_instant: Option<Instant>) -> buck2_error::Result<Duration> {
@@ -177,12 +186,13 @@ fn monotonic_now() -> buck2_error::Result<Duration> {
     ))
 }
 
-fn find_matching_oom_kill<'a>(
-    dmesg: &'a str,
-    cgroup_path_of_buck2_daemon: &str,
+fn find_matching_oom_kill(
+    dmesg: &str,
+    daemon_pid: i64,
+    cgroup_path_of_buck2_daemon: Option<&str>,
     lower_bound: Duration,
-) -> Option<&'a str> {
-    let matcher = Buck2CgroupMatcher::new(cgroup_path_of_buck2_daemon);
+) -> Option<OomEvidence> {
+    let cgroup_matcher = cgroup_path_of_buck2_daemon.map(Buck2CgroupMatcher::new);
     for line in dmesg.lines().rev() {
         let Some(event_time) = parse_dmesg_timestamp(line) else {
             continue;
@@ -191,10 +201,34 @@ fn find_matching_oom_kill<'a>(
             // `dmesg` records are chronological, so every preceding record is older too.
             break;
         }
-        if !matcher.dmesg_line_matches_oom_kill(line) {
-            continue;
+
+        // The victim record names both the PID and the task comm, so it identifies this
+        // daemon on its own, with no cgroup or start-time corroboration needed.
+        if parse_kernel_oom_victim_pid(line) == Some(daemon_pid) {
+            return Some(OomEvidence::KernelVictim {
+                pid: daemon_pid,
+                line: line.to_owned(),
+            });
         }
-        return Some(line);
+        let Some(cgroup_matcher) = &cgroup_matcher else {
+            continue;
+        };
+        if let Some(cgroup) = parse_oomd_kill_cgroup(line)
+            && cgroup_matcher.killed_cgroup_contains_daemon(cgroup)
+        {
+            return Some(OomEvidence::OomdCgroup {
+                cgroup: cgroup.to_owned(),
+                line: line.to_owned(),
+            });
+        }
+        if let Some(cgroup) = parse_systemd_oomd_kill_cgroup(line)
+            && cgroup_matcher.killed_cgroup_contains_daemon(cgroup)
+        {
+            return Some(OomEvidence::SystemdOomdCgroup {
+                cgroup: cgroup.to_owned(),
+                line: line.to_owned(),
+            });
+        }
     }
     None
 }
@@ -264,23 +298,13 @@ impl<'a> Buck2CgroupMatcher<'a> {
         }
     }
 
-    /// Check whether a dmesg line reports an OOM kill whose cgroup matches
-    /// this buck2 cgroup (either exactly, as a parent, as a child, or as an
-    /// ancestor under a cgroup-namespace prefix).
-    fn dmesg_line_matches_oom_kill(&self, line: &str) -> bool {
-        let Some(matched_cgroup) = parse_kernel_oom_kill_cgroup(line)
-            .or_else(|| parse_oomd_kill_cgroup(line))
-            .or_else(|| parse_systemd_oomd_kill_cgroup(line))
-        else {
-            return false;
-        };
-        let killed: Vec<&str> = matched_cgroup.split('/').collect();
-        killed.starts_with(&self.components)
-            || self.components.starts_with(&killed)
-            || self.prefix_matches_suffix(&killed)
+    /// Check whether the killed cgroup is the daemon's cgroup or one of its ancestors.
+    fn killed_cgroup_contains_daemon(&self, killed_cgroup: &str) -> bool {
+        let killed: Vec<&str> = killed_cgroup.split('/').collect();
+        self.components.starts_with(&killed) || self.prefix_matches_suffix(&killed)
     }
 
-    /// Check whether some non-empty proper suffix of `killed`'s path
+    /// Check whether a proper suffix of `killed`'s path with at least two
     /// components equals a prefix of this buck2 cgroup's path components.
     /// This is the case when oomd from the physical host kills `killed`
     /// while the buck2 daemon (or one of its ancestors) is observed inside a
@@ -304,19 +328,22 @@ impl<'a> Buck2CgroupMatcher<'a> {
             })
             .any(|(i, suffix_hash)| {
                 let suffix_len = killed.len() - i;
-                suffix_hash == self.prefix_hashes[suffix_len]
+                // One shared component is too ambiguous to identify a cgroup namespace.
+                suffix_len >= 2
+                    && suffix_hash == self.prefix_hashes[suffix_len]
                     && self.components[..suffix_len] == killed[i..]
             })
     }
 }
 
-/// Parse a kernel OOM kill line to extract the cgroup path.
-///
-/// Input format: `[timestamp] oom-kill:constraint=...,task_memcg=/<cgroup_path>,task=...,pid=...,uid=...`
-/// Returns the cgroup path without leading `/`, e.g. `user.slice/.../allprocs/daemon`.
-fn parse_kernel_oom_kill_cgroup(line: &str) -> Option<&str> {
-    let caps = KERNEL_OOM_KILL_RE.captures(line)?;
-    Some(caps.get(1)?.as_str())
+/// Parse the PID from a definitive victim line whose task name identifies the daemon.
+fn parse_kernel_oom_victim_pid(line: &str) -> Option<i64> {
+    KERNEL_OOM_VICTIM_RE
+        .captures(line)?
+        .get(1)?
+        .as_str()
+        .parse()
+        .ok()
 }
 
 /// Parse an oomd kill line to extract the cgroup path.
@@ -344,135 +371,60 @@ mod tests {
     use std::time::Duration;
 
     use super::Buck2CgroupMatcher;
+    use super::OomEvidence;
     use super::dmesg_lower_bound_at;
     use super::find_matching_oom_kill;
     use super::parse_dmesg_timestamp;
 
+    const UNMATCHED_DAEMON_PID: i64 = -1;
+
     #[test]
-    fn test_dmesg_line_matches_oom_kill_cgroup() {
-        let matches = |line: &str, buck2_cgroup: &str| {
-            Buck2CgroupMatcher::new(buck2_cgroup).dmesg_line_matches_oom_kill(line)
-        };
+    fn test_oomd_cgroup_must_contain_daemon() {
+        let daemon =
+            "user.slice/user-190155.slice/user@190155.service/buck2.slice/buck2_daemon.scope";
+        let matcher = Buck2CgroupMatcher::new(daemon);
 
-        let line = "[Thu Jan  1 00:00:00 2025] oom-kill:constraint=CONSTRAINT_MEMCG,task_memcg=/user.slice/user-190155.slice/user@190155.service/buck2.slice/buck2_daemon.fbsource.v2.1ac02af6_d3c8_4eb1_bb72_c351ba823628.scope,task=buck2,pid=1234,uid=1000";
-
-        assert!(matches(
-            line,
-            "user.slice/user-190155.slice/user@190155.service/buck2.slice/buck2_daemon.fbsource.v2.1ac02af6_d3c8_4eb1_bb72_c351ba823628.scope"
-        ));
-        assert!(matches(
-            line,
+        assert!(matcher.killed_cgroup_contains_daemon(daemon));
+        assert!(matcher.killed_cgroup_contains_daemon(
             "user.slice/user-190155.slice/user@190155.service/buck2.slice"
         ));
-        assert!(matches(
-            line,
-            "user.slice/user-190155.slice/user@190155.service/buck2.slice/buck2_daemon.fbsource.v2.1ac02af6_d3c8_4eb1_bb72_c351ba823628.scope/child"
+        assert!(!matcher.killed_cgroup_contains_daemon(
+            "user.slice/user-190155.slice/user@190155.service/buck2.slice/buck2_daemon.scope/child"
         ));
-
-        // Sibling cgroup that shares a prefix should not match
-        assert!(!matches(
-            line,
-            "user.slice/user-190155.slice/user@190155.service/buck2.slice/buck2_daemon.fbsource.v2.1ac02af6_d3c8_4eb1_bb72_c351ba823628.scope_sibling"
-        ));
-
-        // oomd kill line format
-        let oomd_line = "[1813654.116643] oomd kill: 81.28 80.05 42.78 user.slice/user-190155.slice/user@190155.service/buck2.slice/buck2_daemon.fbsource.v2.1ac02af6_d3c8_4eb1_bb72_c351ba823628.scope 137490391040 ruleset:[protection against low swap] detectorgroup:[free swap goes below 5%] killCommand: build";
-
-        assert!(matches(
-            oomd_line,
-            "user.slice/user-190155.slice/user@190155.service/buck2.slice/buck2_daemon.fbsource.v2.1ac02af6_d3c8_4eb1_bb72_c351ba823628.scope"
-        ));
-        assert!(matches(
-            oomd_line,
-            "user.slice/user-190155.slice/user@190155.service/buck2.slice"
-        ));
-        assert!(matches(
-            oomd_line,
-            "user.slice/user-190155.slice/user@190155.service/buck2.slice/buck2_daemon.fbsource.v2.1ac02af6_d3c8_4eb1_bb72_c351ba823628.scope/daemon"
-        ));
-
-        // Sibling cgroup that shares a prefix should not match
-        assert!(!matches(
-            oomd_line,
-            "user.slice/user-190155.slice/user@190155.service/buck2.slice/buck2_daemon.fbsource.v2.1ac02af6_d3c8_4eb1_bb72_c351ba823628.scope_sibling"
+        assert!(!matcher.killed_cgroup_contains_daemon(
+            "user.slice/user-190155.slice/user@190155.service/buck2.slice/buck2_daemon.scope_sibling"
         ));
     }
 
     #[test]
-    fn test_dmesg_line_matches_oom_kill_cgroup_namespace_prefix() {
-        let matches = |line: &str, buck2_cgroup: &str| {
-            Buck2CgroupMatcher::new(buck2_cgroup).dmesg_line_matches_oom_kill(line)
-        };
+    fn test_oomd_cgroup_namespace_prefix_contains_daemon() {
+        let daemon = "task/user.slice/user-29230.slice/user@29230.service/buck2.slice/buck2_daemon.scope/daemon";
+        let matcher = Buck2CgroupMatcher::new(daemon);
 
-        // oomd on the physical host logs the absolute
-        // host-prefixed cgroup path (`workload.slice/...`),
-        // while the buck2 client reads the daemon's cgroup path from
-        // inside a container's cgroup namespace
-        // (starts at `task/...`). A parent of the daemon's cgroup is killed.
-        let od_oomd_line = "[1813654.116643] oomd kill: 81.28 80.05 42.78 workload.slice/workload-tw.slice/workload-tw-twcli_fake_uuid.a36daf.allotment.slice/fbcode_154651.0_od0473.vll6_65021946483df_252.task.xx._650219bcdd5a4_258.tw.task.service/task/user.slice/user-29230.slice/user@29230.service/buck2.slice 137490391040 ruleset:[protection against low swap] detectorgroup:[free swap goes below 5%] killCommand: build";
-
-        assert!(matches(
-            od_oomd_line,
-            "task/user.slice/user-29230.slice/user@29230.service/buck2.slice/buck2_daemon.fbsource.v2.f73409b0_6cb5_4f25_8d82_55a1c4a2d4ba.scope/daemon"
+        assert!(matcher.killed_cgroup_contains_daemon(
+            "workload.slice/workload-tw.slice/task/user.slice/user-29230.slice/user@29230.service/buck2.slice"
         ));
-
-        // Daemon's own cgroup is killed
-        let od_oomd_line_daemon_killed = "[1813654.116643] oomd kill: 81.28 80.05 42.78 workload.slice/workload-tw.slice/workload-tw-twcli_fake_uuid.a36daf.allotment.slice/fbcode_154651.0_od0473.vll6_65021946483df_252.task.xx._650219bcdd5a4_258.tw.task.service/task/user.slice/user-29230.slice/user@29230.service/buck2.slice/buck2_daemon.fbsource.v2.f73409b0_6cb5_4f25_8d82_55a1c4a2d4ba.scope/daemon 137490391040 ruleset:[protection against low swap] detectorgroup:[free swap goes below 5%] killCommand: build";
-
-        assert!(matches(
-            od_oomd_line_daemon_killed,
-            "task/user.slice/user-29230.slice/user@29230.service/buck2.slice/buck2_daemon.fbsource.v2.f73409b0_6cb5_4f25_8d82_55a1c4a2d4ba.scope/daemon"
+        assert!(matcher.killed_cgroup_contains_daemon(
+            "workload.slice/workload-tw.slice/task/user.slice/user-29230.slice/user@29230.service/buck2.slice/buck2_daemon.scope/daemon"
         ));
-
-        // Negative: matched_cgroup tail looks like `buck2_cgroup` but not at a
-        // `/` boundary — for instance, host path ends with `xtask` while
-        // buck2_cgroup starts with `task`. Must not match.
-        let bad_boundary_line = "[1813654.116643] oomd kill: 81.28 80.05 42.78 workload.slice/workload-tw.slice/sometask/user.slice/user-29230.slice/user@29230.service/buck2.slice 137490391040 ruleset:[protection against low swap] detectorgroup:[free swap goes below 5%] killCommand: build";
-
-        assert!(!matches(
-            bad_boundary_line,
-            "task/user.slice/user-29230.slice/user@29230.service/buck2.slice/buck2_daemon.fbsource.v2.f73409b0_6cb5_4f25_8d82_55a1c4a2d4ba.scope/daemon"
+        assert!(!matcher.killed_cgroup_contains_daemon("unrelated.slice/task"));
+        assert!(!matcher.killed_cgroup_contains_daemon(
+            "workload.slice/workload-tw.slice/sometask/user.slice/user-29230.slice/user@29230.service/buck2.slice"
         ));
-
-        // Negative: totally unrelated host cgroup (no overlap at all).
-        let unrelated_line = "[1813654.116643] oomd kill: 81.28 80.05 42.78 system.slice/some-other.service 137490391040 ruleset:[protection against low swap] detectorgroup:[free swap goes below 5%] killCommand: build";
-
-        assert!(!matches(
-            unrelated_line,
-            "task/user.slice/user-29230.slice/user@29230.service/buck2.slice/buck2_daemon.fbsource.v2.f73409b0_6cb5_4f25_8d82_55a1c4a2d4ba.scope/daemon"
+        assert!(!matcher.killed_cgroup_contains_daemon(
+            "workload.slice/workload-tw.slice/system.slice/some-other.service"
         ));
     }
 
     #[test]
-    fn test_dmesg_line_matches_systemd_oomd_kill_cgroup() {
-        let matches = |line: &str, buck2_cgroup: &str| {
-            Buck2CgroupMatcher::new(buck2_cgroup).dmesg_line_matches_oom_kill(line)
-        };
+    fn test_systemd_oomd_match_returns_source() {
+        let cgroup = "user.slice/buck2.slice/buck2_daemon.scope";
+        let lower_bound = Duration::from_secs(100);
+        let line = "<6>[101.000000] Killed /user.slice/buck2.slice/buck2_daemon.scope due to memory pressure for /user.slice being 76.55% > 70.00%";
 
-        let line = "[858172.042162] Killed /user.slice/user-190155.slice/user@190155.service/buck2.slice/buck2_daemon.fbsource.v2.1ac02af6_d3c8_4eb1_bb72_c351ba823628.scope due to memory pressure for /user.slice being 76.55% > 70.00% for > 3min with reclaim activity";
-
-        // Exact cgroup match
-        assert!(matches(
-            line,
-            "user.slice/user-190155.slice/user@190155.service/buck2.slice/buck2_daemon.fbsource.v2.1ac02af6_d3c8_4eb1_bb72_c351ba823628.scope"
-        ));
-
-        // Parent cgroup match
-        assert!(matches(
-            line,
-            "user.slice/user-190155.slice/user@190155.service/buck2.slice"
-        ));
-
-        // Child cgroup match
-        assert!(matches(
-            line,
-            "user.slice/user-190155.slice/user@190155.service/buck2.slice/buck2_daemon.fbsource.v2.1ac02af6_d3c8_4eb1_bb72_c351ba823628.scope/child"
-        ));
-
-        // Sibling cgroup that shares a prefix should not match
-        assert!(!matches(
-            line,
-            "user.slice/user-190155.slice/user@190155.service/buck2.slice/buck2_daemon.fbsource.v2.1ac02af6_d3c8_4eb1_bb72_c351ba823628.scope_sibling"
+        assert!(matches!(
+            find_matching_oom_kill(line, UNMATCHED_DAEMON_PID, Some(cgroup), lower_bound),
+            Some(OomEvidence::SystemdOomdCgroup { cgroup: matched, .. }) if matched == cgroup
         ));
     }
 
@@ -520,23 +472,52 @@ mod tests {
     }
 
     #[test]
-    fn test_stale_matching_oom_does_not_misclassify_daemon_crash() {
+    fn test_oomd_match_is_after_lower_bound() {
         let cgroup = "user.slice/buck2.slice/buck2_daemon.scope";
-        let stale_oom = "<6>[99.999999] oom-kill:constraint=CONSTRAINT_MEMCG,task_memcg=/user.slice/buck2.slice/buck2_daemon.scope,task=buck2,pid=1234,uid=1000";
-        let unparseable_oom = "<6>[Thu Jan 1 00:00:00 2025] oom-kill:constraint=CONSTRAINT_MEMCG,task_memcg=/user.slice/buck2.slice/buck2_daemon.scope,task=buck2,pid=1234,uid=1000";
-        let unrelated_current_oom = "<6>[101.000000] oom-kill:constraint=CONSTRAINT_MEMCG,task_memcg=/system.slice/unrelated.scope,task=other,pid=5678,uid=1000";
+        let lower_bound = Duration::from_secs(100);
+        let stale_oom = "<6>[99.999999] oomd kill: 81.28 80.05 42.78 user.slice/buck2.slice/buck2_daemon.scope 1000 ruleset:[test]";
+        let unparseable_oom = "<6>[Thu Jan 1 00:00:00 2025] oomd kill: 81.28 80.05 42.78 user.slice/buck2.slice/buck2_daemon.scope 1000 ruleset:[test]";
+        let unrelated_current_oom = "<6>[101.000000] oomd kill: 81.28 80.05 42.78 system.slice/unrelated.scope 1000 ruleset:[test]";
         let dmesg = format!("{stale_oom}\n{unparseable_oom}\n{unrelated_current_oom}");
 
         assert_eq!(
             None,
-            find_matching_oom_kill(&dmesg, cgroup, Duration::from_secs(100))
+            find_matching_oom_kill(&dmesg, UNMATCHED_DAEMON_PID, Some(cgroup), lower_bound)
         );
 
-        let current_oom = "<6>[100.000000] oom-kill:constraint=CONSTRAINT_MEMCG,task_memcg=/user.slice/buck2.slice/buck2_daemon.scope,task=buck2,pid=1234,uid=1000";
-        let dmesg = format!("{dmesg}\n{current_oom}");
+        let current_oom = "<6>[100.000000] oomd kill: 81.28 80.05 42.78 user.slice/buck2.slice/buck2_daemon.scope 1000 ruleset:[test]";
+        assert!(matches!(
+            find_matching_oom_kill(current_oom, UNMATCHED_DAEMON_PID, Some(cgroup), lower_bound),
+            Some(OomEvidence::OomdCgroup { cgroup: matched, .. }) if matched == cgroup
+        ));
+    }
+
+    #[test]
+    fn test_kernel_oom_requires_daemon_victim_pid_and_comm() {
+        let lower_bound = Duration::from_secs(100);
+        let triggering_task = "<6>[100.000000] oom-kill:constraint=CONSTRAINT_MEMCG,task_memcg=/user.slice/buck2.slice/buck2_daemon.scope,task=buck2,pid=1234,uid=1000";
+        let wrong_pid_victim = "<6>[100.500000] Memory cgroup out of memory: Killed process 5678 (buck2) total-vm:1000kB";
+        let wrong_comm_victim = "<6>[102.000000] Memory cgroup out of memory: Killed process 1234 (other) total-vm:1000kB";
+        let buck2_victim = "<6>[103.000000] Memory cgroup out of memory: Killed process 1234 (buck2) total-vm:1000kB";
+        let buck2_daemon_victim = "<6>[104.000000] Memory cgroup out of memory: Killed process 1234 (buck2-daemon) total-vm:1000kB";
+
         assert_eq!(
-            Some(current_oom),
-            find_matching_oom_kill(&dmesg, cgroup, Duration::from_secs(100))
+            None,
+            find_matching_oom_kill(triggering_task, 1234, None, lower_bound)
         );
+        assert_eq!(
+            None,
+            find_matching_oom_kill(wrong_pid_victim, 1234, None, lower_bound)
+        );
+        assert_eq!(
+            None,
+            find_matching_oom_kill(wrong_comm_victim, 1234, None, lower_bound)
+        );
+        for daemon_victim in [buck2_victim, buck2_daemon_victim] {
+            assert!(matches!(
+                find_matching_oom_kill(daemon_victim, 1234, None, lower_bound),
+                Some(OomEvidence::KernelVictim { pid: 1234, .. })
+            ));
+        }
     }
 }

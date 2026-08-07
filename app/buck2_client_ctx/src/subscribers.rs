@@ -8,6 +8,28 @@
  * above-listed licenses.
  */
 
+use derive_more::Display;
+
+#[derive(Debug, Display, Eq, PartialEq)]
+pub(crate) enum OomEvidence {
+    #[display("the kernel reported killing daemon PID {pid}")]
+    KernelVictim { pid: i64, line: String },
+    #[display("oomd reported killing cgroup `{cgroup}` containing the daemon")]
+    OomdCgroup { cgroup: String, line: String },
+    #[display("systemd-oomd reported killing cgroup `{cgroup}` containing the daemon")]
+    SystemdOomdCgroup { cgroup: String, line: String },
+}
+
+impl OomEvidence {
+    fn line(&self) -> &str {
+        match self {
+            Self::KernelVictim { line, .. }
+            | Self::OomdCgroup { line, .. }
+            | Self::SystemdOomdCgroup { line, .. } => line,
+        }
+    }
+}
+
 pub(crate) mod build_graph_stats;
 pub(crate) mod build_id_writer;
 pub(crate) mod classify_server_stderr;

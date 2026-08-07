@@ -264,6 +264,7 @@ impl<T: StreamingCommand> BuckSubcommand for T {
                 }
             };
 
+            events_ctx.daemon_pid = Some(buckd.daemon_pid);
             events_ctx.cgroup_path_of_buck2_daemon = buckd.cgroup_path_of_buck2_daemon.clone();
             events_ctx.daemon_start_instant = buckd.daemon_start_instant;
 
