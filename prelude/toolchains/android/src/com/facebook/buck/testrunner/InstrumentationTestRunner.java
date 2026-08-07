@@ -586,7 +586,14 @@ public class InstrumentationTestRunner extends DeviceRunner {
     // to the secondary user context
     String userTarget = (this.userId != null && this.userId > 0) ? "all" : null;
     androidDevice.installApkOnDevice(
-        new File(path), false, false, true, false, userTarget, packageName);
+        new File(path),
+        false,
+        false,
+        true,
+        false,
+        userTarget,
+        /* allowFastDeploy= */ false,
+        packageName);
   }
 
   /**
