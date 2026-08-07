@@ -8,9 +8,13 @@
  * above-listed licenses.
  */
 
+use std::collections::HashMap;
+use std::collections::HashSet;
 use std::mem;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::time::SystemTime;
 
 use allocative::Allocative;
 use async_trait::async_trait;
@@ -33,6 +37,7 @@ use notify::EventKind;
 use notify::RecommendedWatcher;
 use notify::Watcher;
 use notify::event::CreateKind;
+use notify::event::DataChange;
 use notify::event::MetadataKind;
 use notify::event::ModifyKind;
 use notify::event::RemoveKind;
@@ -265,13 +270,32 @@ impl NotifyFileData {
     }
 }
 
+/// Last-known state for a non-ignored top-level entry under the project root,
+/// used by [`rescan_root`] to detect modifications to root-level files
+/// (e.g. `BUCK`, `.buckconfig`) and to discover new top-level subdirectories
+/// that need a recursive watch added.
+#[derive(Debug, Clone, PartialEq)]
+enum RootEntryState {
+    File {
+        size: u64,
+        mtime: Option<SystemTime>,
+    },
+    Dir,
+}
+
 #[derive(Allocative)]
 pub struct NotifyFileWatcher {
     #[allocative(skip)]
-    #[expect(unused)]
-    // FIXME(JakobDegen): Clarify if this just needs to be kept alive or can be removed?
-    watcher: RecommendedWatcher,
+    watcher: Mutex<RecommendedWatcher>,
     data: Arc<Mutex<buck2_error::Result<NotifyFileData>>>,
+    root: ProjectRoot,
+    cells: CellResolver,
+    ignore_specs: StdBuckHashMap<CellName, IgnoreSet>,
+    /// Last-known state of non-ignored top-level entries. `Some` when the
+    /// per-subdirectory watching strategy is active; `None` when the project
+    /// root is watched recursively.
+    #[allocative(skip)]
+    root_state: Option<Mutex<HashMap<PathBuf, RootEntryState>>>,
 }
 
 impl NotifyFileWatcher {
@@ -279,31 +303,104 @@ impl NotifyFileWatcher {
         root: &ProjectRoot,
         cells: CellResolver,
         ignore_specs: StdBuckHashMap<CellName, IgnoreSet>,
+        watch_included_root_dirs_only: bool,
     ) -> buck2_error::Result<Self> {
         let data = Arc::new(Mutex::new(Ok(NotifyFileData::new())));
         let data2 = data.dupe();
         let root2 = root.dupe();
+        let cells_for_callback = cells.dupe();
+        let ignore_specs_for_callback = ignore_specs.clone();
         let mut watcher = notify::recommended_watcher(move |event| {
             let mut guard = data2.lock().unwrap();
             if let Ok(state) = &mut *guard {
-                if let Err(e) = state.process(event, &root2, &cells, &ignore_specs) {
+                if let Err(e) = state.process(
+                    event,
+                    &root2,
+                    &cells_for_callback,
+                    &ignore_specs_for_callback,
+                ) {
                     *guard = Err(e);
                 }
             }
         })
         .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::NotifyWatcher))?;
-        watcher
-            .watch(root.root().as_path(), notify::RecursiveMode::Recursive)
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::NotifyWatcher))?;
-        Ok(Self { watcher, data })
+
+        let root_state = if watch_included_root_dirs_only {
+            // Seed root state and register a recursive watch for each
+            // non-ignored top-level subdirectory. The project root itself
+            // is not watched; root-level files are picked up by `rescan_root`
+            // on each sync. DICE is cold at startup so we discard the
+            // synthesized events from the initial scan.
+            let mut state = HashMap::new();
+            let RescanResult { new_watches, .. } =
+                rescan_root(&mut state, root, &cells, &ignore_specs)?;
+            for path in new_watches {
+                watcher
+                    .watch(&path, notify::RecursiveMode::Recursive)
+                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::NotifyWatcher))?;
+            }
+            Some(Mutex::new(state))
+        } else {
+            watcher
+                .watch(root.root().as_path(), notify::RecursiveMode::Recursive)
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::NotifyWatcher))?;
+            None
+        };
+
+        Ok(Self {
+            watcher: Mutex::new(watcher),
+            data,
+            root: root.dupe(),
+            cells,
+            ignore_specs,
+            root_state,
+        })
     }
 
     fn sync2(
         &self,
         mut dice: DiceTransactionUpdater,
     ) -> buck2_error::Result<(buck2_data::FileWatcherStats, DiceTransactionUpdater)> {
+        let synth_events = if let Some(state_mu) = &self.root_state {
+            let RescanResult {
+                events,
+                new_watches,
+                removed_watches,
+            } = {
+                let mut state = state_mu.lock().unwrap();
+                rescan_root(&mut state, &self.root, &self.cells, &self.ignore_specs)?
+            };
+            if !new_watches.is_empty() || !removed_watches.is_empty() {
+                let mut watcher = self.watcher.lock().unwrap();
+                for path in new_watches {
+                    debug!("FileWatcher: Watching new root subdirectory: {:?}", path);
+                    watcher
+                        .watch(&path, notify::RecursiveMode::Recursive)
+                        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::NotifyWatcher))?;
+                }
+                for path in removed_watches {
+                    debug!("FileWatcher: Unwatching removed root subdirectory: {:?}", path);
+                    // `WatchNotFound` is the expected case on Linux, where
+                    // inotify auto-removes the watch in response to
+                    // IN_IGNORED before we get here.
+                    match watcher.unwatch(&path) {
+                        Ok(()) | Err(notify::Error { kind: notify::ErrorKind::WatchNotFound, .. }) => {}
+                        Err(e) => return Err(from_any_with_tag(e, buck2_error::ErrorTag::NotifyWatcher)),
+                    }
+                }
+            }
+            events
+        } else {
+            Vec::new()
+        };
+
         let old = {
             let mut guard = self.data.lock().unwrap();
+            if let Ok(data) = &mut *guard {
+                for ev in synth_events {
+                    data.events.insert(ev);
+                }
+            }
             mem::replace(&mut *guard, Ok(NotifyFileData::new()))
         };
         let (stats, changes) = old?.sync();
@@ -315,6 +412,111 @@ impl NotifyFileWatcher {
         }
         Ok((stats, dice))
     }
+}
+
+/// Outcome of a `rescan_root` pass.
+struct RescanResult {
+    /// Synthetic events for deltas vs. the previous state.
+    events: Vec<(CellPath, EventKind)>,
+    /// Newly-discovered directories that need a recursive watch registered
+    /// by the caller.
+    new_watches: Vec<PathBuf>,
+    /// Directories that vanished and should have their recursive watch
+    /// unregistered by the caller.
+    removed_watches: Vec<PathBuf>,
+}
+
+/// Re-enumerate top-level entries under the project root and update `state`
+/// in place. Ignored entries are not tracked. See [`RescanResult`].
+fn rescan_root(
+    state: &mut HashMap<PathBuf, RootEntryState>,
+    root: &ProjectRoot,
+    cells: &CellResolver,
+    ignore_specs: &StdBuckHashMap<CellName, IgnoreSet>,
+) -> buck2_error::Result<RescanResult> {
+    let mut events = Vec::new();
+    let mut new_watches = Vec::new();
+    let mut removed_watches = Vec::new();
+    let mut seen = HashSet::new();
+
+    for entry in std::fs::read_dir(root.root().as_path())
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Environment))?
+    {
+        let entry = entry.map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Environment))?;
+        let file_type = entry
+            .file_type()
+            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Environment))?;
+        if file_type.is_symlink() {
+            continue;
+        }
+        let path = entry.path();
+        let cell_path = cells.get_cell_path(&root.relativize(AbsNormPath::new(&path)?)?);
+        if ignore_specs
+            .get(&cell_path.cell())
+            .is_some_and(|i| i.is_match(cell_path.path()))
+        {
+            continue;
+        }
+        seen.insert(path.clone());
+
+        if file_type.is_dir() {
+            if !state.contains_key(&path) {
+                new_watches.push(path.clone());
+                events.push((cell_path, EventKind::Create(CreateKind::Folder)));
+            }
+            state.insert(path, RootEntryState::Dir);
+        } else if file_type.is_file() {
+            let metadata = entry
+                .metadata()
+                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Environment))?;
+            let new_state = RootEntryState::File {
+                size: metadata.len(),
+                mtime: metadata.modified().ok(),
+            };
+            match state.get(&path) {
+                Some(prev) if *prev == new_state => {}
+                Some(_) => {
+                    debug!("FileWatcher: Root file modified: {:?}", path);
+                    events.push((
+                        cell_path,
+                        EventKind::Modify(ModifyKind::Data(DataChange::Any)),
+                    ));
+                }
+                None => {
+                    events.push((cell_path, EventKind::Create(CreateKind::File)));
+                }
+            }
+            state.insert(path, new_state);
+        }
+    }
+
+    state.retain(|path, entry| {
+        if seen.contains(path) {
+            return true;
+        }
+        let cell_path = match AbsNormPath::new(path)
+            .and_then(|abs| root.relativize(abs))
+            .map(|rel| cells.get_cell_path(&rel))
+        {
+            Ok(p) => p,
+            Err(_) => return false,
+        };
+        let kind = match entry {
+            RootEntryState::File { .. } => EventKind::Remove(RemoveKind::File),
+            RootEntryState::Dir => {
+                removed_watches.push(path.clone());
+                EventKind::Remove(RemoveKind::Folder)
+            }
+        };
+        events.push((cell_path, kind));
+        false
+    });
+
+    Ok(RescanResult {
+        events,
+        new_watches,
+        removed_watches,
+    })
 }
 
 #[async_trait]
@@ -339,5 +541,177 @@ impl FileWatcher for NotifyFileWatcher {
             },
         )
         .await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use buck2_core::cells::cell_root_path::CellRootPathBuf;
+    use buck2_fs::fs_util::uncategorized as fs_util;
+    use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+    use notify::event::ModifyKind;
+
+    use super::*;
+
+    fn make_root() -> buck2_error::Result<(tempfile::TempDir, ProjectRoot, CellResolver)> {
+        let tempdir = tempfile::tempdir()?;
+        let root_path = fs_util::canonicalize(AbsNormPathBuf::new(tempdir.path().to_owned())?)?;
+        let proj_root = ProjectRoot::new(root_path)?;
+        let cells = CellResolver::testing_with_name_and_path(
+            CellName::testing_new("root"),
+            CellRootPathBuf::testing_new(""),
+        );
+        Ok((tempdir, proj_root, cells))
+    }
+
+    fn ignore_root_buck_out() -> buck2_error::Result<StdBuckHashMap<CellName, IgnoreSet>> {
+        // `from_ignore_spec` with `root_cell=true` always seeds `buck-out`.
+        let mut specs = StdBuckHashMap::default();
+        specs.insert(
+            CellName::testing_new("root"),
+            IgnoreSet::from_ignore_spec("", true)?,
+        );
+        Ok(specs)
+    }
+
+    #[test]
+    fn skips_ignored_dirs_at_startup() -> buck2_error::Result<()> {
+        let (_td, root, cells) = make_root()?;
+        let root_path = root.root().as_path();
+        std::fs::create_dir(root_path.join("buck-out"))?;
+        std::fs::create_dir(root_path.join("src"))?;
+
+        let mut state = HashMap::new();
+        let RescanResult { new_watches, .. } =
+            rescan_root(&mut state, &root, &cells, &ignore_root_buck_out()?)?;
+
+        assert_eq!(new_watches, vec![root_path.join("src")]);
+        Ok(())
+    }
+
+    #[test]
+    fn detects_new_top_level_dir() -> buck2_error::Result<()> {
+        let (_td, root, cells) = make_root()?;
+        let root_path = root.root().as_path();
+        let ignores = ignore_root_buck_out()?;
+        let mut state = HashMap::new();
+        rescan_root(&mut state, &root, &cells, &ignores)?; // seed
+
+        std::fs::create_dir(root_path.join("newdir"))?;
+        let RescanResult {
+            events, new_watches, ..
+        } = rescan_root(&mut state, &root, &cells, &ignores)?;
+
+        assert_eq!(new_watches, vec![root_path.join("newdir")]);
+        assert_eq!(events.len(), 1);
+        assert!(matches!(
+            events[0].1,
+            EventKind::Create(CreateKind::Folder)
+        ));
+        Ok(())
+    }
+
+    #[test]
+    fn ignored_dir_appearing_mid_session_is_invisible() -> buck2_error::Result<()> {
+        let (_td, root, cells) = make_root()?;
+        let root_path = root.root().as_path();
+        let ignores = ignore_root_buck_out()?;
+        let mut state = HashMap::new();
+        rescan_root(&mut state, &root, &cells, &ignores)?; // seed
+
+        std::fs::create_dir(root_path.join("buck-out"))?;
+        let RescanResult {
+            events, new_watches, ..
+        } = rescan_root(&mut state, &root, &cells, &ignores)?;
+
+        assert!(new_watches.is_empty());
+        assert!(events.is_empty());
+        assert!(state.is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn detects_modified_root_file() -> buck2_error::Result<()> {
+        let (_td, root, cells) = make_root()?;
+        let buck_path = root.root().as_path().join("BUCK");
+        std::fs::write(&buck_path, b"original")?;
+        let ignores = ignore_root_buck_out()?;
+        let mut state = HashMap::new();
+        rescan_root(&mut state, &root, &cells, &ignores)?; // seed
+
+        // Sleep past one-second mtime resolution that some filesystems use.
+        std::thread::sleep(std::time::Duration::from_millis(1100));
+        std::fs::write(&buck_path, b"changed contents that are longer")?;
+        let RescanResult { events, .. } = rescan_root(&mut state, &root, &cells, &ignores)?;
+
+        assert_eq!(events.len(), 1);
+        assert!(matches!(events[0].1, EventKind::Modify(ModifyKind::Data(_))));
+        Ok(())
+    }
+
+    #[test]
+    fn detects_removed_root_file() -> buck2_error::Result<()> {
+        let (_td, root, cells) = make_root()?;
+        let buck_path = root.root().as_path().join("BUCK");
+        std::fs::write(&buck_path, b"hello")?;
+        let ignores = ignore_root_buck_out()?;
+        let mut state = HashMap::new();
+        rescan_root(&mut state, &root, &cells, &ignores)?; // seed
+
+        std::fs::remove_file(&buck_path)?;
+        let RescanResult {
+            events,
+            removed_watches,
+            ..
+        } = rescan_root(&mut state, &root, &cells, &ignores)?;
+
+        assert_eq!(events.len(), 1);
+        assert!(matches!(events[0].1, EventKind::Remove(RemoveKind::File)));
+        // File removals don't produce a watch unregistration.
+        assert!(removed_watches.is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn detects_removed_top_level_dir() -> buck2_error::Result<()> {
+        let (_td, root, cells) = make_root()?;
+        let root_path = root.root().as_path();
+        std::fs::create_dir(root_path.join("src"))?;
+        let ignores = ignore_root_buck_out()?;
+        let mut state = HashMap::new();
+        rescan_root(&mut state, &root, &cells, &ignores)?; // seed
+
+        std::fs::remove_dir(root_path.join("src"))?;
+        let RescanResult {
+            events,
+            removed_watches,
+            ..
+        } = rescan_root(&mut state, &root, &cells, &ignores)?;
+
+        assert_eq!(events.len(), 1);
+        assert!(matches!(events[0].1, EventKind::Remove(RemoveKind::Folder)));
+        assert_eq!(removed_watches, vec![root_path.join("src")]);
+        Ok(())
+    }
+
+    #[test]
+    fn no_op_when_unchanged() -> buck2_error::Result<()> {
+        let (_td, root, cells) = make_root()?;
+        let root_path = root.root().as_path();
+        std::fs::write(root_path.join("BUCK"), b"hi")?;
+        std::fs::create_dir(root_path.join("src"))?;
+        let ignores = ignore_root_buck_out()?;
+        let mut state = HashMap::new();
+        rescan_root(&mut state, &root, &cells, &ignores)?; // seed
+
+        let RescanResult {
+            events,
+            new_watches,
+            removed_watches,
+        } = rescan_root(&mut state, &root, &cells, &ignores)?;
+        assert!(events.is_empty());
+        assert!(new_watches.is_empty());
+        assert!(removed_watches.is_empty());
+        Ok(())
     }
 }
