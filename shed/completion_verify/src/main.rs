@@ -72,7 +72,11 @@ fn extract_from_single_output(input: &str, raw_out: &str) -> Option<Vec<String>>
         // the output by whitespace is unfortunate wrong in hypothetical cases of completions with
         // spaces, but those should be uncommon so this is fine.
         Some(
-            rest.split_ascii_whitespace()
+            rest.lines()
+                // Fish can redraw the command line on another terminal row while rendering the
+                // completion menu. Do not treat redrawn prompt lines as completion candidates.
+                .filter(|line| !line.starts_with("% "))
+                .flat_map(str::split_ascii_whitespace)
                 .filter(|s| !s.is_empty())
                 .map(str::to_owned)
                 .collect(),
@@ -187,6 +191,7 @@ fn main() -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use crate::Shell;
+    use crate::extract_from_single_output;
     use crate::run;
 
     const BASH_SCRIPT: &str = "complete -W 'car1 cat2' find";
@@ -251,6 +256,22 @@ compdef _impl find
         assert!(
             output.status.success(),
             "checking that `{shell:?}` is available",
+        );
+    }
+
+    #[test]
+    fn test_extract_from_single_output_with_redrawn_prompt() {
+        let input = "buck2 abcdefghijkl";
+        let output = "\
+% buck2 abcdefghijkl
+% buck2 abcdefghijkl
+% buck2 abcdefghijkl0
+abcdefghijkl0  abcdefghijkl1
+";
+
+        assert_eq!(
+            extract_from_single_output(input, output),
+            Some(vec!["abcdefghijkl0".to_owned(), "abcdefghijkl1".to_owned(),])
         );
     }
 
