@@ -6,6 +6,20 @@ oncall("build_infra")
 rust_library(
     name = "games",
     srcs = glob(["src/**/*.rs"]) + glob(["src/**/*.txt"]) + glob(["sprites/**/*.png"]),
+    # Games only embeds PNG assets. Other codecs pull in dependencies that do
+    # not compile with the OSS Rust toolchain.
+    autocargo = {
+        "cargo_toml_config": {
+            "dependencies_override": {
+                "dependencies": {
+                    "image": {
+                        "default-features": False,
+                        "features": ["png"],
+                    },
+                },
+            },
+        },
+    },
     crate_root = "src/lib.rs",
     deps = [
         "fbsource//third-party/rust:anyhow",

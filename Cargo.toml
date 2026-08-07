@@ -348,7 +348,7 @@ hyper-rustls = { version = "0.27.9", features = ["http2"] }
 hyper-timeout = "0.5.2"
 hyper-util = { version = "0.1.20", features = ["client-legacy", "http1", "http2", "server-auto", "service", "tokio"] }
 hyperlocal = { version = "0.9", features = ["client"] }
-image = { version = "0.25.10", features = ["bmp", "dds", "ff", "gif", "hdr", "ico", "jpeg", "png", "pnm", "tga", "tiff", "webp"], default-features = false }
+image = { version = "0.25.10", features = ["png"], default-features = false }
 indent_write = "2.2.0"
 indexmap = { version = "2.14.0", features = ["arbitrary", "rayon", "serde"] }
 indoc = "2.0.2"
