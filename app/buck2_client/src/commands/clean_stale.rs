@@ -26,10 +26,8 @@ use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_error::internal_error;
-use chrono::DateTime;
-use chrono::Duration;
-use chrono::TimeZone;
-use chrono::Utc;
+use jiff::SignedDuration;
+use jiff::Timestamp;
 
 /// Clean only old artifacts from a running buck daemon without killing the daemon.
 /// This can be interrupted by other commands that run in parallel and request materialization.
@@ -50,7 +48,7 @@ pub struct CleanStaleCommand {
 
 /// Specifies the maximum age of artifacts to keep
 pub enum KeepSinceArg {
-    Duration(Duration),
+    Duration(SignedDuration),
     Time(i64),
 }
 
@@ -60,13 +58,11 @@ pub fn parse_clean_stale_args(
 ) -> buck2_error::Result<Option<KeepSinceArg>> {
     let arg = match (stale, keep_since_time) {
         (Some(Some(human_duration)), None) => {
-            let duration = chrono::Duration::from_std(human_duration.into())
+            let duration = SignedDuration::try_from(std::time::Duration::from(human_duration))
                 .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::InvalidDuration))?;
             Some(KeepSinceArg::Duration(duration))
         }
-        (Some(None), None) => Some(KeepSinceArg::Duration(
-            chrono::Duration::try_weeks(1).expect("constant is in range"),
-        )),
+        (Some(None), None) => Some(KeepSinceArg::Duration(SignedDuration::from_hours(24 * 7))),
         (None, Some(time)) => Some(KeepSinceArg::Time(time)),
         (Some(_), Some(_)) => unreachable!("keep-since-time conflicts_with stale"),
         (None, None) => None,
@@ -115,14 +111,13 @@ impl StreamingCommand for CleanStaleCommand {
     ) -> ExitResult {
         let keep_since_time = match self.keep_since_arg {
             KeepSinceArg::Duration(duration) => {
-                let keep_since_time: DateTime<Utc> = Utc::now()
-                    .checked_sub_signed(duration)
-                    .ok_or_else(|| internal_error!("Duration underflow"))?;
+                let keep_since_time = Timestamp::now()
+                    .checked_sub(duration)
+                    .map_err(|_| internal_error!("Duration underflow"))?;
                 buck2_client_ctx::eprintln!(
                     "Cleaning artifacts more than {} old",
                     humantime::format_duration(
-                        duration
-                            .to_std()
+                        std::time::Duration::try_from(duration)
                             .map_err(|e| from_any_with_tag(
                                 e,
                                 buck2_error::ErrorTag::InvalidDuration
@@ -133,15 +128,11 @@ impl StreamingCommand for CleanStaleCommand {
                 // Round up to next second since timestamp below is rounded down
                 // (this way clean --stale=0s immediately after a build deletes the result)
                 keep_since_time
-                    .checked_add_signed(
-                        chrono::Duration::try_seconds(1).expect("constant is in range"),
-                    )
-                    .ok_or_else(|| internal_error!("Timestamp overflow"))?
+                    .checked_add(SignedDuration::from_secs(1))
+                    .map_err(|_| internal_error!("Timestamp overflow"))?
             }
-            KeepSinceArg::Time(timestamp) => Utc
-                .timestamp_opt(timestamp, 0)
-                .single()
-                .ok_or_else(|| internal_error!("Invalid timestamp"))?,
+            KeepSinceArg::Time(timestamp) => Timestamp::from_second(timestamp)
+                .map_err(|_| internal_error!("Invalid timestamp"))?,
         };
 
         if let Some(threshold) = self.adaptive_low_disk_threshold {
@@ -162,7 +153,7 @@ impl StreamingCommand for CleanStaleCommand {
             .clean_stale(
                 CleanStaleRequest {
                     context: Some(context),
-                    keep_since_time: keep_since_time.timestamp(),
+                    keep_since_time: keep_since_time.as_second(),
                     dry_run: self.dry_run,
                     tracked_only: self.tracked_only,
                     adaptive_low_disk_threshold: self.adaptive_low_disk_threshold,
