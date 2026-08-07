@@ -191,17 +191,18 @@ public class ErrorInterceptor extends PrintStream {
   public enum FileType {
     JAVA(JAVA_FILE_PATTERN, JAVA_KEYWORDS),
     KOTLIN(KOTLIN_FILE_PATTERN, KOTLIN_KEYWORDS),
-    // NULLSAFE_FIXME[Parameter Not Nullable]
     UNKNOWN(null, new String[0]);
 
-    private final Pattern filePattern;
+    @Nullable private final Pattern filePattern;
     private final String[] keywords;
 
-    FileType(Pattern filePattern, String[] keywords) {
+    FileType(@Nullable Pattern filePattern, String[] keywords) {
       this.filePattern = filePattern;
       this.keywords = keywords;
     }
 
+    /** Null for {@link #UNKNOWN}, which by definition matches no file. */
+    @Nullable
     public Pattern getFilePattern() {
       return filePattern;
     }
@@ -283,8 +284,8 @@ public class ErrorInterceptor extends PrintStream {
 
   private static FileType determineFileType(String exception) {
     for (FileType type : FileType.values()) {
-      if (type == FileType.UNKNOWN) continue;
-      if (type.getFilePattern().matcher(exception).find()) {
+      Pattern filePattern = type.getFilePattern();
+      if (filePattern != null && filePattern.matcher(exception).find()) {
         return type;
       }
     }
@@ -298,9 +299,7 @@ public class ErrorInterceptor extends PrintStream {
         colorizePattern(
             ERROR_PATTERN, exception, match -> highlightError(match, FileType.JAVA.getKeywords()));
     exception = colorizePattern(WARNING_PATTERN, exception, ErrorInterceptor::highlightWarning);
-    exception =
-        colorizePattern(
-            FileType.JAVA.getFilePattern(), exception, ErrorInterceptor::highlightJavaFile);
+    exception = colorizePattern(JAVA_FILE_PATTERN, exception, ErrorInterceptor::highlightJavaFile);
     return exception;
   }
 
@@ -312,8 +311,7 @@ public class ErrorInterceptor extends PrintStream {
             match -> highlightError(match, FileType.KOTLIN.getKeywords()));
     exception = colorizePattern(WARNING_PATTERN, exception, ErrorInterceptor::highlightWarning);
     exception =
-        colorizePattern(
-            FileType.KOTLIN.getFilePattern(), exception, ErrorInterceptor::highlightKotlinFile);
+        colorizePattern(KOTLIN_FILE_PATTERN, exception, ErrorInterceptor::highlightKotlinFile);
     return exception;
   }
 
