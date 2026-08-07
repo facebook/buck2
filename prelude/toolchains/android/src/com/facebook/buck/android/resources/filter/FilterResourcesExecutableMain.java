@@ -100,12 +100,13 @@ public class FilterResourcesExecutableMain {
 
   private void run() throws IOException {
     AbsPath root = AbsPath.of(Paths.get(".").normalize().toAbsolutePath());
+    // readValue only yields null for a literal JSON `null` document.
     Map<String, ImmutableBiMap<Path, Path>> rawMap =
-        ObjectMappers.READER.readValue(
-            ObjectMappers.createParser(Paths.get(inResDirToOutResDirMapPath)),
-            new TypeReference<Map<String, ImmutableBiMap<Path, Path>>>() {});
+        Objects.requireNonNull(
+            ObjectMappers.READER.readValue(
+                ObjectMappers.createParser(Paths.get(inResDirToOutResDirMapPath)),
+                new TypeReference<Map<String, ImmutableBiMap<Path, Path>>>() {}));
     ImmutableBiMap<Path, Path> inResDirToOutResDirMap =
-        // NULLSAFE_FIXME[Nullable Dereference]
         Objects.requireNonNull(rawMap.get("res_dir_map"));
     ImmutableSet<ResourceFilters.Density> targetDensitiesSet =
         targetDensities != null
@@ -128,9 +129,10 @@ public class FilterResourcesExecutableMain {
 
     ImmutableMap<Path, ImmutableSet<String>> allowlistedLocalesDirs =
         allowlistedLocalesFile != null
-            ? ObjectMappers.READER.readValue(
-                ObjectMappers.createParser(Paths.get(allowlistedLocalesFile)),
-                new TypeReference<ImmutableMap<Path, ImmutableSet<String>>>() {})
+            ? Objects.requireNonNull(
+                ObjectMappers.READER.readValue(
+                    ObjectMappers.createParser(Paths.get(allowlistedLocalesFile)),
+                    new TypeReference<ImmutableMap<Path, ImmutableSet<String>>>() {}))
             : ImmutableMap.of();
 
     Predicate<Path> filteringPredicate =
@@ -144,7 +146,6 @@ public class FilterResourcesExecutableMain {
             packagedLocales,
             enableStringsAsAssetsFiltering,
             notFilteredStringDirs,
-            // NULLSAFE_FIXME[Parameter Not Nullable]
             allowlistedLocalesDirs);
 
     timed(
@@ -157,17 +158,17 @@ public class FilterResourcesExecutableMain {
               filteringPredicate);
         });
 
-    if (voltronInResDirToOutResDirMapPath != null) {
+    String voltronMapPath = voltronInResDirToOutResDirMapPath;
+    if (voltronMapPath != null) {
       timed(
           "Copying & filtering voltron resources",
           () -> {
             Map<String, ImmutableBiMap<Path, Path>> rawVoltronMap =
-                ObjectMappers.READER.readValue(
-                    // NULLSAFE_FIXME[Parameter Not Nullable]
-                    ObjectMappers.createParser(Paths.get(voltronInResDirToOutResDirMapPath)),
-                    new TypeReference<Map<String, ImmutableBiMap<Path, Path>>>() {});
+                Objects.requireNonNull(
+                    ObjectMappers.READER.readValue(
+                        ObjectMappers.createParser(Paths.get(voltronMapPath)),
+                        new TypeReference<Map<String, ImmutableBiMap<Path, Path>>>() {}));
             ImmutableBiMap<Path, Path> voltronInResDirToOutResDirMap =
-                // NULLSAFE_FIXME[Nullable Dereference]
                 Objects.requireNonNull(rawVoltronMap.get("res_dir_map"));
 
             FilteredDirectoryCopier.copyDirsParallel(
@@ -178,7 +179,8 @@ public class FilterResourcesExecutableMain {
           });
     }
 
-    if (postFilterResourcesCmd != null) {
+    String postFilterCmd = postFilterResourcesCmd;
+    if (postFilterCmd != null) {
       timed(
           "Running post-filter-resources command",
           () -> {
@@ -188,14 +190,10 @@ public class FilterResourcesExecutableMain {
                     + " specified!");
             ImmutableList.Builder<String> postFilterResourcesCmdList = ImmutableList.builder();
             postFilterResourcesCmdList
-                .addAll(
-                    // NULLSAFE_FIXME[Nullable Dereference]
-                    Arrays.stream(postFilterResourcesCmd.split("\\s+"))
-                        .collect(Collectors.toList()))
+                .addAll(Arrays.stream(postFilterCmd.split("\\s+")).collect(Collectors.toList()))
                 .add(inResDirToOutResDirMapPath)
                 .add(postFilterResourcesCmdOverrideSymbols);
             Process postFilterResourcesProcess =
-                // NULLSAFE_FIXME[Not Vetted Third-Party]
                 new ProcessBuilder().command(postFilterResourcesCmdList.build()).start();
             try {
               int exitCode = postFilterResourcesProcess.waitFor();
@@ -214,14 +212,14 @@ public class FilterResourcesExecutableMain {
 
     // We need to output a list of all the string files if and only if we are doing
     // strings-as-assets filtering.
-    Preconditions.checkState(enableStringsAsAssetsFiltering == (stringFilesListOutput != null));
-    if (stringFilesListOutput != null) {
+    String stringFilesList = stringFilesListOutput;
+    Preconditions.checkState(enableStringsAsAssetsFiltering == (stringFilesList != null));
+    if (stringFilesList != null) {
       timed(
           "Writing string files list",
           () -> {
             Files.write(
-                // NULLSAFE_FIXME[Parameter Not Nullable]
-                Paths.get(stringFilesListOutput),
+                Paths.get(stringFilesList),
                 (Iterable<String>)
                     GetStringsFiles.getFilesAsStream(
                                 root,
