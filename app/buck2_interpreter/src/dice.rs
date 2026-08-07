@@ -21,5 +21,5 @@ pub mod starlark_debug;
 pub mod starlark_provider;
 pub mod starlark_types;
 
-#[cfg(test)]
+#[cfg(all(test, buck_build))]
 mod pagable_starlark_test;
