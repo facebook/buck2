@@ -54,25 +54,15 @@ async def test_sh_test(buck: Buck) -> None:
 # TODO(marwhal): Fix and enable on Windows
 @buck_test(inplace=True, skip_for_os=["windows"])
 async def test_sh_test_remote_checks(buck: Buck) -> None:
-    # Forcing a `local_only = True` test onto RE. Deployed buck2 hard-fails with
-    # an incompatible-executor error; newer buck2 classifies it as an infra
-    # failure (Buck2InfraError). Drop the deployed branch once that change ships.
-    if is_deployed_buck2():
-        await expect_failure(
-            buck.test(
-                "fbcode//buck2/tests/targets/rules/sh_test:test",
-                "--remote-only",
-            ),
-            stderr_regex="Incompatible executor preferences: `RemoteRequired` & `LocalRequired`",
-        )
-    else:
-        result = await buck.test(
-            "fbcode//buck2/tests/targets/rules/sh_test:test",
-            "--remote-only",
-        )
-        assert "Infra Failure 1" in result.stderr
-        assert "Incompatible executor preferences" in result.stderr
-        assert "FATAL" not in result.stderr
+    # Forcing a `local_only = True` test onto RE is an infra failure
+    # (Buck2InfraError), not a fatal error.
+    result = await buck.test(
+        "fbcode//buck2/tests/targets/rules/sh_test:test",
+        "--remote-only",
+    )
+    assert "Infra Failure 1" in result.stderr
+    assert "Incompatible executor preferences" in result.stderr
+    assert "FATAL" not in result.stderr
     await buck.test(
         "fbcode//buck2/tests/targets/rules/sh_test:test_remote_implicit",
         "--local-only",
@@ -478,30 +468,19 @@ async def test_allow_tests_on_re(buck: Buck) -> None:
 
 @buck_test(inplace=True)
 async def test_incompatible_tests_do_not_run_on_re(buck: Buck) -> None:
-    # Trying to run a `local_only = True` action on RE. Deployed buck2 hard-fails
-    # with a fatal error; newer buck2 classifies it as an infra failure
-    # (Buck2InfraError). Drop the deployed branch once that change ships.
-    if is_deployed_buck2():
-        await expect_failure(
-            buck.test(
-                "fbcode//buck2/tests/targets/rules/external_runner_test_info:invalid_test",
-                "-c",
-                "external_runner_test_info.declare_invalid_test=1",
-            ),
-            stderr_regex="Trying to execute a `local_only = True` action on remote executor",
-        )
-    else:
-        result = await buck.test(
-            "fbcode//buck2/tests/targets/rules/external_runner_test_info:invalid_test",
-            "-c",
-            "external_runner_test_info.declare_invalid_test=1",
-        )
-        assert "Infra Failure 1" in result.stderr
-        assert (
-            "Trying to execute a `local_only = True` action on remote executor"
-            in result.stderr
-        )
-        assert "FATAL" not in result.stderr
+    # Trying to run a `local_only = True` action on RE is an infra failure
+    # (Buck2InfraError), not a fatal error.
+    result = await buck.test(
+        "fbcode//buck2/tests/targets/rules/external_runner_test_info:invalid_test",
+        "-c",
+        "external_runner_test_info.declare_invalid_test=1",
+    )
+    assert "Infra Failure 1" in result.stderr
+    assert (
+        "Trying to execute a `local_only = True` action on remote executor"
+        in result.stderr
+    )
+    assert "FATAL" not in result.stderr
 
 
 @buck_test(inplace=True)
