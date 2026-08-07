@@ -52,6 +52,11 @@ use buck2_error::internal_error;
 use buck2_events::dispatch::span_async_simple;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact_value::ArtifactValue;
+use buck2_execute::dep_file_state::DEP_FILE_STORE;
+use buck2_execute::dep_file_state::StoredDepFileIdentity;
+use buck2_execute::dep_file_state::StoredDepFileState;
+use buck2_execute::dep_file_state::StoredOutput;
+use buck2_execute::dep_file_state::StoredOutputValue;
 use buck2_execute::digest::CasDigestToReExt;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::ActionDirectoryBuilder;
@@ -83,6 +88,7 @@ use buck2_fs::paths::forward_rel_path::ForwardRelativePathNormalizer;
 use buck2_hash::BuckDashMap;
 use buck2_hash::StdBuckHashMap;
 use buck2_hash::StdBuckHashSet;
+use buck2_util::strong_hasher::Blake3StrongHasher;
 use derive_more::Display;
 use dupe::Dupe;
 use either::Either;
@@ -93,10 +99,35 @@ use parking_lot::Mutex;
 use parking_lot::MutexGuard;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map::SmallMap;
+use strong_hash::StrongHash;
 use tracing::instrument;
 
 use crate::actions::impls::run::LogicalActionKey;
 use crate::actions::impls::run::RunActionKey;
+
+/// Stable, forward-only key: the raw 32-byte blake3 `StrongHash` of `value` (stored as a `BLOB`).
+/// `StrongHash` hashes full content, so the digest is stable across daemon restarts and collision-resistant.
+/// Never decoded.
+fn strong_hash_bytes<T: StrongHash>(value: &T) -> Vec<u8> {
+    let mut hasher = Blake3StrongHasher::new();
+    value.strong_hash(&mut hasher);
+    hasher.finalize().as_bytes().to_vec()
+}
+
+/// Stable, forward-only key for a logical action, used as the persisted database key. Returns `None`
+/// for anon-target/BXL actions (`Other`), which Phase 1 does not persist.
+fn encode_logical_key(logical: &LogicalActionKey) -> Option<Vec<u8>> {
+    match logical {
+        LogicalActionKey::Configured { .. } => Some(strong_hash_bytes(logical)),
+        LogicalActionKey::Other(_) => None,
+    }
+}
+
+/// Stable, forward-only key for a configuration, used as the persisted database `config_key` (which
+/// distinguishes per-configuration rows of one logical action). `None` and `Some` hash distinctly.
+fn encode_config_key(cfg: &Option<Configuration>) -> Vec<u8> {
+    strong_hash_bytes(cfg)
+}
 
 /// Groups the per-configuration dep-file states of one logical action, keyed by the action's
 /// configuration. The key is `None` for anon-target and BXL actions, which have no
@@ -260,6 +291,9 @@ fn keep_directories() -> buck2_error::Result<bool> {
 fn flush_dep_files() {
     tracing::info!("Flushing all {} dep files", DEP_FILES.len());
     DEP_FILES.clear();
+    if let Ok(store) = DEP_FILE_STORE.get() {
+        store.clear();
+    }
 }
 
 /// Flush all dep files that were not produced locally.
@@ -288,9 +322,15 @@ pub(crate) fn get_dep_files(key: &RunActionKey) -> Option<Arc<DepFileState>> {
     DEP_FILES.get(&key.to_logical(), &key.configuration())
 }
 
-/// Remove a single configuration's entry from the cache.
+/// Remove a single configuration's entry from the cache (both in-memory and persisted).
 fn remove_dep_file_entry(key: &RunActionKey) {
-    DEP_FILES.remove(&key.to_logical(), &key.configuration());
+    let logical = key.to_logical();
+    DEP_FILES.remove(&logical, &key.configuration());
+    if let Ok(store) = DEP_FILE_STORE.get()
+        && let Some(logical_key) = encode_logical_key(&logical)
+    {
+        store.delete(logical_key, encode_config_key(&key.configuration()));
+    }
 }
 
 /// The input signatures for a DepFileState. We compute those lazily, so we either have the input
@@ -345,6 +385,17 @@ struct DeclaredDepFileIdentity {
     is_content_based: bool,
 }
 
+impl DeclaredDepFileIdentity {
+    fn to_stored(&self) -> StoredDepFileIdentity {
+        StoredDepFileIdentity {
+            label: self.label.to_string(),
+            path: self.path.to_string(),
+            projected: self.projected.to_string(),
+            is_content_based: self.is_content_based,
+        }
+    }
+}
+
 /// The state that resulted from the previous evaluation of a command that produced dep files. This
 /// contains everything we need to determine whether re-evaluation is necessary (and if it isn't,
 /// to return the previous value).
@@ -385,6 +436,47 @@ impl DepFileState {
 
     pub(crate) fn result(&self) -> &ActionOutputs {
         &self.result
+    }
+
+    /// Convert to the persisted, configuration-independent form, or `None` if the entry must not be
+    /// persisted. Leaf outputs are stored in full; directory outputs store only their fingerprint
+    /// (the tree is rehydrated from the materializer on reuse).
+    fn to_stored(&self) -> buck2_error::Result<Option<StoredDepFileState>> {
+        let mut outputs = Vec::new();
+        for (path, value) in self.result.iter() {
+            // `ArtifactValue::deps` records the artifacts an output's symlinks point at, and there
+            // is no column for it here, so a reloaded output would always come back with
+            // `deps: None`. `Materializer::declare_match` cannot repair that -- it copies deps *from*
+            // the value it is handed -- and the materializer's own state does not persist deps
+            // either, so nothing would ever materialize those symlink destinations and the served
+            // output could be a dangling symlink. Refuse to persist such an entry: a miss just
+            // re-executes the action.
+            if value.deps().is_some() {
+                return Ok(None);
+            }
+            let stored_value = match value.entry() {
+                DirectoryEntry::Dir(d) => {
+                    StoredOutputValue::Directory(d.fingerprint().data().dupe())
+                }
+                DirectoryEntry::Leaf(_) => StoredOutputValue::Leaf(value.dupe()),
+            };
+            outputs.push(StoredOutput {
+                path: path.path().to_owned(),
+                value: stored_value,
+            });
+        }
+        let declared = match self.declared_dep_files() {
+            Some(d) => d.identities()?.into_iter().map(|i| i.to_stored()).collect(),
+            None => Vec::new(),
+        };
+        Ok(Some(StoredDepFileState {
+            cli_digest: self.digests.cli.as_bytes().to_vec(),
+            directory_digest: self.digests.directory.dupe(),
+            local_worker_directory_digest: self.digests.local_worker_directory.dupe(),
+            was_produced_locally: self.was_produced_locally,
+            declared,
+            outputs,
+        }))
     }
 
     /// Compute the signature for this DepFileState, having provided the dep files from
@@ -1370,11 +1462,32 @@ pub(crate) async fn populate_dep_files(
         }
     };
 
-    DEP_FILES.insert(
-        dep_files_key.to_logical(),
-        dep_files_key.configuration(),
-        Arc::new(state),
-    );
+    // Persist the entry (best-effort) before installing it in memory. We only persist
+    // locally-produced entries: those are the ones worth reloading (their outputs are already on
+    // disk), and it keeps the on-disk cache consistent with `flush_non_local_dep_files`, which
+    // evicts non-local entries from memory. `encode_logical_key` returns `None` for anon-target/BXL
+    // actions, which are not persisted, and `to_stored` returns `None` for an entry that is not safe
+    // to persist (an output's symlink destinations are *not* covered by "already on disk").
+    let logical = dep_files_key.to_logical();
+    let cfg = dep_files_key.configuration();
+    if was_produced_locally
+        && let Ok(store) = DEP_FILE_STORE.get()
+        && let Some(logical_key) = encode_logical_key(&logical)
+    {
+        // Persisting is best-effort, per the `DepFileStore` contract: a failure to serialize costs a
+        // cache miss in a later session and must not fail this build.
+        match state.to_stored() {
+            Ok(Some(stored)) => store.insert(logical_key, encode_config_key(&cfg), stored),
+            Ok(None) => {}
+            Err(e) => tracing::debug!("Not persisting dep-file entry: {}", e),
+        }
+    }
+
+    // Install the live entry. It shadows any persisted row for this `(logical, cfg)` on subsequent
+    // lookups, since the live `map` is consulted before the persisted store. When we declined to
+    // persist above, the previous row is left in place: like every stored row it is deps-free, and a
+    // lookup re-validates it against the action's digests and the materializer before serving it.
+    DEP_FILES.insert(logical.dupe(), cfg, Arc::new(state));
     Ok(())
 }
 
@@ -2009,8 +2122,16 @@ mod tests {
 
     use buck2_artifact::actions::key::ActionIndex;
     use buck2_artifact::artifact::artifact_type::testing::BuildArtifactTestingExt;
+    use buck2_build_api::actions::impls::expanded_command_line::ExpandedCommandLineFingerprinter;
+    use buck2_common::file_ops::metadata::FileMetadata;
+    use buck2_common::file_ops::metadata::Symlink;
     use buck2_core::configuration::data::ConfigurationData;
+    use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+    use buck2_execute::directory::extract_artifact_value;
+    use buck2_execute::directory::insert_entry;
+    use buck2_execute::directory::insert_file;
+    use buck2_hash::BuckIndexMap;
 
     use super::*;
 
@@ -2156,6 +2277,77 @@ mod tests {
         // A different output path is still not a match, even across configurations.
         let cfg_b_other = make(ConfigurationData::unbound(), "foo/other.h");
         assert!(cfg_a.identities()? != cfg_b_other.identities()?);
+        Ok(())
+    }
+
+    /// Build an `ActionOutputs` holding a single output named `out` with `value`.
+    fn outputs_with(value: ArtifactValue) -> ActionOutputs {
+        let target =
+            ConfiguredTargetLabel::testing_parse("cell//pkg:foo", ConfigurationData::testing_new());
+        let artifact = BuildArtifact::testing_new(target, "out", ActionIndex::new(0));
+        ActionOutputs::new(BuckIndexMap::from_iter([(
+            artifact.get_path().dupe(),
+            value,
+        )]))
+    }
+
+    fn dep_file_state_with(result: ActionOutputs, digest_config: DigestConfig) -> DepFileState {
+        DepFileState {
+            digests: CommandDigests {
+                cli: ExpandedCommandLineFingerprinter::new().finalize(),
+                directory: TrackedFileDigest::from_content(
+                    b"dir",
+                    digest_config.cas_digest_config(),
+                )
+                .data()
+                .dupe(),
+                local_worker_directory: None,
+            },
+            result,
+            was_produced_locally: true,
+            has_declared_dep_files: None,
+        }
+    }
+
+    #[test]
+    fn test_to_stored_skips_outputs_with_deps() -> buck2_error::Result<()> {
+        let digest_config = DigestConfig::testing_default();
+
+        // An output that is a symlink pointing at another artifact: `extract_artifact_value`
+        // records that artifact in `deps`.
+        let mut builder = ActionDirectoryBuilder::empty();
+        insert_file(
+            &mut builder,
+            ProjectRelativePathBuf::unchecked_new("target".to_owned()),
+            FileMetadata::empty(digest_config.cas_digest_config()),
+        )?;
+        insert_entry(
+            &mut builder,
+            ProjectRelativePathBuf::unchecked_new("out".to_owned()),
+            DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(Arc::new(Symlink::new(
+                "target".into(),
+            )))),
+        )?;
+        let with_deps = extract_artifact_value(
+            &builder,
+            ProjectRelativePath::unchecked_new("out"),
+            digest_config,
+        )?
+        .expect("`out` is in the builder");
+        assert!(
+            with_deps.deps().is_some(),
+            "test setup: the symlink output should have deps"
+        );
+
+        // `deps` has nowhere to go in the database, so the whole entry is not persistable.
+        let state = dep_file_state_with(outputs_with(with_deps), digest_config);
+        assert!(state.to_stored()?.is_none());
+
+        // The same action without a deps-bearing output is persisted as usual.
+        let plain = ArtifactValue::file(FileMetadata::empty(digest_config.cas_digest_config()));
+        assert!(plain.deps().is_none());
+        let state = dep_file_state_with(outputs_with(plain), digest_config);
+        assert!(state.to_stored()?.is_some());
         Ok(())
     }
 }

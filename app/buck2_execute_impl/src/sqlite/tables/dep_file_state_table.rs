@@ -733,7 +733,13 @@ impl DepFileStateSqliteTable {
 #[cfg(test)]
 mod tests {
     use buck2_common::file_ops::metadata::FileMetadata;
+    use buck2_core::fs::project_rel_path::ProjectRelativePath;
+    use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
     use buck2_execute::artifact_value::ArtifactValue;
+    use buck2_execute::directory::ActionDirectoryBuilder;
+    use buck2_execute::directory::extract_artifact_value;
+    use buck2_execute::directory::insert_entry;
+    use buck2_execute::directory::insert_file;
     use dupe::Dupe;
 
     use super::*;
@@ -1051,6 +1057,70 @@ mod tests {
         // The stale output row from the first insert must be gone (no orphans).
         assert_eq!(read.outputs.len(), 1);
         assert_eq!(read.outputs[0].path.as_str(), "b.o");
+        Ok(())
+    }
+
+    #[test]
+    fn test_deps_do_not_survive_the_round_trip() -> buck2_error::Result<()> {
+        // There is no column for `ArtifactValue::deps` -- the artifacts an output's symlinks point
+        // at -- so it cannot round-trip. `DepFileState::to_stored` refuses to persist a deps-bearing
+        // entry for exactly this reason; this test pins the loss so that guard is not dropped on the
+        // assumption that deps survives. Serving such an output would leave a dangling symlink,
+        // because nothing downstream would know to materialize the destinations.
+        let digest_config = DigestConfig::testing_default();
+        let table = table();
+
+        let mut builder = ActionDirectoryBuilder::empty();
+        insert_file(
+            &mut builder,
+            ProjectRelativePathBuf::unchecked_new("target".to_owned()),
+            FileMetadata::empty(digest_config.cas_digest_config()),
+        )?;
+        insert_entry(
+            &mut builder,
+            ProjectRelativePathBuf::unchecked_new("out".to_owned()),
+            DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(Arc::new(Symlink::new(
+                "target".into(),
+            )))),
+        )?;
+        let with_deps = extract_artifact_value(
+            &builder,
+            ProjectRelativePath::unchecked_new("out"),
+            digest_config,
+        )?
+        .expect("`out` is in the builder");
+        assert!(
+            with_deps.deps().is_some(),
+            "test setup: the symlink output should have deps"
+        );
+
+        let stored = StoredDepFileState {
+            cli_digest: vec![7u8; 32],
+            directory_digest: TrackedFileDigest::from_content(
+                b"d",
+                digest_config.cas_digest_config(),
+            )
+            .data()
+            .dupe(),
+            local_worker_directory_digest: None,
+            was_produced_locally: true,
+            declared: vec![],
+            outputs: vec![leaf_output("out", with_deps.dupe())],
+        };
+        table.insert(b"k".to_vec(), b"c".to_vec(), stored)?;
+
+        let mut all = table.read_all(digest_config)?;
+        assert_eq!(all.len(), 1);
+        let (_, _, read) = all.pop().unwrap();
+        match &read.outputs[0].value {
+            StoredOutputValue::Leaf(v) => {
+                // The symlink itself round-trips ...
+                assert_eq!(v.entry(), with_deps.entry());
+                // ... but what it points at is gone.
+                assert!(v.deps().is_none());
+            }
+            StoredOutputValue::Directory(_) => panic!("expected a leaf"),
+        }
         Ok(())
     }
 }
