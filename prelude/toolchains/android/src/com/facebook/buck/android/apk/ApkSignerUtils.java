@@ -36,17 +36,11 @@ public class ApkSignerUtils {
     ApkSigner.Builder apkSignerBuilder = new ApkSigner.Builder(signerConfigs);
     try {
       apkSignerBuilder
-          // NULLSAFE_FIXME[Not Vetted Third-Party]
           .setV1SigningEnabled(true)
-          // NULLSAFE_FIXME[Not Vetted Third-Party]
           .setV2SigningEnabled(true)
-          // NULLSAFE_FIXME[Not Vetted Third-Party]
           .setV3SigningEnabled(false)
-          // NULLSAFE_FIXME[Not Vetted Third-Party]
           .setInputApk(inputApk)
-          // NULLSAFE_FIXME[Not Vetted Third-Party]
           .setOutputApk(outputApk)
-          // NULLSAFE_FIXME[Not Vetted Third-Party]
           .build()
           .sign();
     } catch (Exception e) {
@@ -64,7 +58,6 @@ public class ApkSignerUtils {
     PrivateKey key = loadPrivateKey(keystore, keyAlias, keyPassword);
     List<X509Certificate> certs = loadCertificates(keystore, keyAlias);
     ApkSigner.SignerConfig signerConfig =
-        // NULLSAFE_FIXME[Not Vetted Third-Party]
         new ApkSigner.SignerConfig.Builder("CERT", key, certs).build();
     return ImmutableList.of(signerConfig);
   }
