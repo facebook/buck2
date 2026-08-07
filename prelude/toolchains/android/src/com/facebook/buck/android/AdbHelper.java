@@ -472,17 +472,13 @@ public class AdbHelper implements AndroidDevicesHelper {
     final AndroidIntent intent;
     final String intentTargetNiceName;
     if (intentUri != null) {
-      // NULLSAFE_FIXME[Parameter Not Nullable]
       intent =
           new AndroidIntent(
               packageName,
-              // NULLSAFE_FIXME[Parameter Not Nullable]
               null,
               AndroidIntent.ACTION_VIEW,
-              // NULLSAFE_FIXME[Parameter Not Nullable]
               null,
               intentUri,
-              // NULLSAFE_FIXME[Parameter Not Nullable]
               null,
               waitForDebugger,
               skipSetDebugApp);
@@ -516,7 +512,6 @@ public class AdbHelper implements AndroidDevicesHelper {
               activity,
               AndroidIntent.ACTION_MAIN,
               AndroidIntent.CATEGORY_LAUNCHER,
-              // NULLSAFE_FIXME[Parameter Not Nullable]
               null,
               "0x10200000",
               waitForDebugger,
