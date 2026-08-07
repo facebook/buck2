@@ -121,13 +121,7 @@ def _build_erlang_test(ctx: AnalysisContext, dep_info: ErlangDependencyInfo, bin
     tools = toolchain.otp_binaries
 
     # prepare build environment
-    build_environment = erlang_build.prepare_build_environment(dep_info)
-
-    erlang_build.utils.peek_private_includes(
-        ctx,
-        build_environment,
-        force_peek = True,
-    )
+    build_environment = erlang_build.prepare_build_environment(dep_info, peek_private_includes = True)
 
     # Config files for ct
     config_files = [config_file[DefaultInfo].default_outputs[0] for config_file in ctx.attrs.config_files]

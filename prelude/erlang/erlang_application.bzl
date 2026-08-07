@@ -122,7 +122,7 @@ def _build_erlang_application(ctx: AnalysisContext, name: str, toolchain: Toolch
             )
         if include_info.name != name:
             fail("includes_target must have the same name as the application, got {} and {}".format(include_info.name, name))
-    build_environment = erlang_build.prepare_build_environment(dep_info, include_info)
+    build_environment = erlang_build.prepare_build_environment(dep_info, include_info, ctx.attrs.peek_private_includes)
 
     # build generated inputs
     generated_source_artifacts = erlang_build.build_steps.generated_source_artifacts(ctx, toolchain)
@@ -157,12 +157,6 @@ def _build_erlang_application(ctx: AnalysisContext, name: str, toolchain: Toolch
         name,
         private_header_artifacts,
         is_private = True,
-    )
-
-    # maybe peek private includes
-    erlang_build.utils.peek_private_includes(
-        ctx,
-        build_environment,
     )
 
     # doc files
@@ -336,8 +330,9 @@ def link_output(ctx: AnalysisContext, link_path: str, built: BuiltApplication) -
     if ctx.attrs.include_src:
         link_spec["src"] = built.src_dir
     link_spec["priv"] = built.priv_dir
-    if name in build_environment.include_dirs:
-        link_spec["include"] = build_environment.include_dirs[name]
+    include_dir = erlang_build.own_or_dep(build_environment.include_dirs, build_environment.dep_include_dirs, name)
+    if include_dir != None:
+        link_spec["include"] = include_dir
 
     return ctx.actions.symlinked_dir(link_path, link_spec, has_content_based_path = False)
 
@@ -439,11 +434,11 @@ def build_app_info(
         dependencies = dep_info.dependencies,
         code_path_tset = code_path_tset,
         start_dependencies = start_dependencies,
-        includes = build_environment.includes.get(name),
-        include_dir = build_environment.include_dirs.get(name),
+        includes = erlang_build.own_or_dep(build_environment.includes, build_environment.dep_includes, name),
+        include_dir = erlang_build.own_or_dep(build_environment.include_dirs, build_environment.dep_include_dirs, name),
         private_includes = build_environment.private_includes.get(name),
         private_include_dir = build_environment.private_include_dirs.get(name),
-        header_deps_file = build_environment.header_deps_files.get(name),
+        header_deps_file = erlang_build.own_or_dep(build_environment.header_deps_files, build_environment.dep_header_deps_files, name),
         virtual = False,
         app_folder = app_folder,
     )

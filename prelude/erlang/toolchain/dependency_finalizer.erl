@@ -11,7 +11,10 @@
 
 -export([main/1]).
 
--type dep_files_data() :: #{filename() => #{string() := filename()}}.
+%% Layers of application -> merged dep file, outermost first. The keys are unused;
+%% the layering exists so the caller can pass its own entries alongside the ones it
+%% inherits without merging maps sized by its transitive closure.
+-type dep_files_data() :: [#{filename() => filename()}].
 
 -type filename() :: binary().
 
@@ -34,8 +37,10 @@ do(Source0, InFile0, OutSpec) ->
     InFile = dependency_utils:chars_to_binary(InFile0),
     try
         case read_file(InFile) of
-            {ok, DepFiles} ->
-                FlatDepFiles = maps:fold(fun merge_deps/3, #{}, DepFiles),
+            {ok, DepFileLayers} ->
+                FlatDepFiles = lists:foldl(
+                    fun(Layer, Acc) -> maps:fold(fun merge_deps/3, Acc, Layer) end, #{}, DepFileLayers
+                ),
                 Dependencies = build_dep_info(Source, FlatDepFiles),
                 OutData = json:encode(Dependencies),
                 case OutSpec of
