@@ -29,6 +29,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.zip.ZipEntry;
@@ -444,8 +445,8 @@ public class D8ExecutableMain {
       ZipEntry entry = entries.nextElement();
       if (entry.getName().endsWith(".dex")) {
         try (InputStream is = dexJar.getInputStream(entry)) {
-          // NULLSAFE_FIXME[Parameter Not Nullable]
-          DexRefCounts counts = readDexRefCounts(is);
+          // Only null when the entry is absent, but it came from dexJar.entries().
+          DexRefCounts counts = readDexRefCounts(Objects.requireNonNull(is));
           methodRefCount += counts.methodIds;
           fieldRefCount += counts.fieldIds;
           typeRefCount += counts.typeIds;
