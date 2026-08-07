@@ -14,7 +14,7 @@ use std::hash::Hasher;
 use std::process::Stdio;
 use std::sync::LazyLock;
 use std::time::Duration;
-use std::time::SystemTime;
+use std::time::Instant;
 
 use buck2_core::soft_error;
 use regex::Regex;
@@ -28,14 +28,12 @@ static OOMD_KILL_RE: LazyLock<Regex> =
 static SYSTEMD_OOMD_KILL_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"Killed (\S+) due to memory pressure for ").unwrap());
 
-/// How far before the daemon-disconnect time the `dmesg --since` window starts.
-///
-/// OOM detection runs `dmesg --since <daemon disconnect time - DMESG_SINCE_BUFFER>`.
-const DMESG_SINCE_BUFFER: Duration = Duration::from_secs(5 * 60);
+/// Monotonic lookback used when the daemon start time is unavailable.
+const DMESG_LOOKBACK: Duration = Duration::from_secs(5 * 60);
 
 pub(crate) async fn check_daemon_oom_killed(
     cgroup_path_of_buck2_daemon: &str,
-    daemon_disconnect_time: SystemTime,
+    daemon_start_instant: Option<Instant>,
 ) -> buck2_error::Result<bool> {
     let cgroup_path_of_buck2_daemon =
         match cgroup_path_of_buck2_daemon.strip_prefix("/sys/fs/cgroup/") {
@@ -57,12 +55,16 @@ pub(crate) async fn check_daemon_oom_killed(
     // Check kernel OOM killer messages in dmesg.
     // The kernel writes these synchronously when OOM killing, so they are
     // immediately available
-    let since = daemon_disconnect_time
-        .checked_sub(DMESG_SINCE_BUFFER)
-        .unwrap_or(SystemTime::UNIX_EPOCH);
-    let since_str = format_timestamp_for_dmesg(since);
+    let lower_bound = match dmesg_lower_bound(daemon_start_instant) {
+        Ok(lower_bound) => lower_bound,
+        Err(e) => {
+            let _unused = soft_error!("dmesg_monotonic_clock_failed", e, quiet: true);
+            return Ok(false);
+        }
+    };
+    // Raw output fixes timestamps in boot-time seconds and prefixes records with `<priority>`.
     let child = match buck2_util::process::async_background_command("dmesg")
-        .args(["--since", &since_str])
+        .arg("--raw")
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .kill_on_drop(true)
@@ -112,27 +114,117 @@ pub(crate) async fn check_daemon_oom_killed(
     };
 
     let stdout_str = String::from_utf8_lossy(&output.stdout);
-    let reversed_lines: Vec<&str> = stdout_str.lines().rev().collect();
     tracing::debug!(
-        "OOM detection: dmesg --since {:?} returned {} lines, last: {:?}",
-        since_str,
-        reversed_lines.len(),
-        reversed_lines.first(),
+        "OOM detection: dmesg returned {} lines, last: {:?}",
+        stdout_str.lines().count(),
+        stdout_str.lines().next_back(),
     );
-    let matcher = Buck2CgroupMatcher::new(cgroup_path_of_buck2_daemon);
-    for line in &reversed_lines {
-        if matcher.dmesg_line_matches_oom_kill(line) {
-            return Ok(true);
-        }
+    if let Some(line) =
+        find_matching_oom_kill(&stdout_str, cgroup_path_of_buck2_daemon, lower_bound)
+    {
+        tracing::debug!("OOM detection matched dmesg line: {:?}", line);
+        return Ok(true);
     }
     Ok(false)
 }
 
-/// Format a `SystemTime` as `"YYYY-MM-DD HH:MM:SS"` in local time,
-/// matching Eden's `timestampToDateTimeString` for use with `dmesg --since`.
-fn format_timestamp_for_dmesg(time: SystemTime) -> String {
-    let dt: chrono::DateTime<chrono::Local> = time.into();
-    dt.format("%Y-%m-%d %H:%M:%S").to_string()
+fn dmesg_lower_bound(daemon_start_instant: Option<Instant>) -> buck2_error::Result<Duration> {
+    // Sample the raw clock first so call latency moves the estimated start earlier.
+    let now_monotonic = monotonic_now()?;
+    let daemon_start_monotonic = daemon_start_instant.and_then(|start| {
+        let daemon_age = Instant::now().checked_duration_since(start)?;
+        now_monotonic.checked_sub(daemon_age)
+    });
+    Ok(dmesg_lower_bound_at(now_monotonic, daemon_start_monotonic))
+}
+
+fn dmesg_lower_bound_at(
+    now_monotonic: Duration,
+    daemon_start_monotonic: Option<Duration>,
+) -> Duration {
+    let buffered_since = now_monotonic.saturating_sub(DMESG_LOOKBACK);
+    let lower_bound = daemon_start_monotonic.unwrap_or(buffered_since);
+    // Raw dmesg timestamps have microsecond precision, so round the lower bound down rather
+    // than exclude an event from the daemon's first displayed microsecond.
+    Duration::new(lower_bound.as_secs(), lower_bound.subsec_micros() * 1_000)
+}
+
+fn monotonic_now() -> buck2_error::Result<Duration> {
+    let mut timestamp = libc::timespec {
+        tv_sec: 0,
+        tv_nsec: 0,
+    };
+    // SAFETY: `timestamp` is valid, aligned, writable storage for a `timespec` throughout
+    // the call, and POSIX `clock_gettime` does not retain the pointer.
+    if unsafe { libc::clock_gettime(libc::CLOCK_MONOTONIC, &mut timestamp) } != 0 {
+        return Err(buck2_error::buck2_error!(
+            buck2_error::ErrorTag::Environment,
+            "clock_gettime(CLOCK_MONOTONIC) failed: {}",
+            std::io::Error::last_os_error()
+        ));
+    }
+    if timestamp.tv_sec < 0 || !(0..1_000_000_000).contains(&timestamp.tv_nsec) {
+        return Err(buck2_error::buck2_error!(
+            buck2_error::ErrorTag::Environment,
+            "clock_gettime(CLOCK_MONOTONIC) returned invalid timespec: {}s {}ns",
+            timestamp.tv_sec,
+            timestamp.tv_nsec
+        ));
+    }
+    Ok(Duration::new(
+        timestamp.tv_sec as u64,
+        timestamp.tv_nsec as u32,
+    ))
+}
+
+fn find_matching_oom_kill<'a>(
+    dmesg: &'a str,
+    cgroup_path_of_buck2_daemon: &str,
+    lower_bound: Duration,
+) -> Option<&'a str> {
+    let matcher = Buck2CgroupMatcher::new(cgroup_path_of_buck2_daemon);
+    for line in dmesg.lines().rev() {
+        let Some(event_time) = parse_dmesg_timestamp(line) else {
+            continue;
+        };
+        if event_time < lower_bound {
+            // `dmesg` records are chronological, so every preceding record is older too.
+            break;
+        }
+        if !matcher.dmesg_line_matches_oom_kill(line) {
+            continue;
+        }
+        return Some(line);
+    }
+    None
+}
+
+fn parse_dmesg_timestamp(line: &str) -> Option<Duration> {
+    // Linux `dmesg --raw` prefixes each record with priority and seconds since boot, for example
+    // `<6>[1813654.116643] oomd kill: ...`.
+    let line = line.trim_start();
+    let line = if let Some(line) = line.strip_prefix('<') {
+        line.split_once('>')?.1
+    } else {
+        line
+    };
+    let raw = line
+        .trim_start()
+        .strip_prefix('[')?
+        .split_once(']')?
+        .0
+        .trim();
+    let (seconds, fraction) = raw.split_once('.').unwrap_or((raw, ""));
+    let seconds = seconds.parse::<u64>().ok()?;
+    if fraction.len() > 9 || !fraction.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    let nanoseconds = if fraction.is_empty() {
+        0
+    } else {
+        fraction.parse::<u32>().ok()? * 10u32.pow(9 - fraction.len() as u32)
+    };
+    Some(Duration::new(seconds, nanoseconds))
 }
 
 /// FNV prime, used as the polynomial base in `Buck2CgroupMatcher`.
@@ -249,7 +341,12 @@ fn parse_systemd_oomd_kill_cgroup(line: &str) -> Option<&str> {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use super::Buck2CgroupMatcher;
+    use super::dmesg_lower_bound_at;
+    use super::find_matching_oom_kill;
+    use super::parse_dmesg_timestamp;
 
     #[test]
     fn test_dmesg_line_matches_oom_kill_cgroup() {
@@ -377,5 +474,69 @@ mod tests {
             line,
             "user.slice/user-190155.slice/user@190155.service/buck2.slice/buck2_daemon.fbsource.v2.1ac02af6_d3c8_4eb1_bb72_c351ba823628.scope_sibling"
         ));
+    }
+
+    #[test]
+    fn test_dmesg_lower_bound_uses_daemon_start_or_lookback() {
+        let now = Duration::from_secs(1_000);
+
+        assert_eq!(Duration::from_secs(700), dmesg_lower_bound_at(now, None));
+        assert_eq!(
+            Duration::from_secs(970),
+            dmesg_lower_bound_at(now, Some(Duration::from_secs(970)))
+        );
+        assert_eq!(
+            Duration::from_secs(100),
+            dmesg_lower_bound_at(now, Some(Duration::from_secs(100)))
+        );
+        assert_eq!(
+            Duration::ZERO,
+            dmesg_lower_bound_at(Duration::from_secs(100), None)
+        );
+        assert_eq!(
+            Duration::new(970, 123_456_000),
+            dmesg_lower_bound_at(
+                Duration::new(1_000, 123_456_789),
+                Some(Duration::new(970, 123_456_789))
+            )
+        );
+    }
+
+    #[test]
+    fn test_parse_dmesg_timestamp() {
+        assert_eq!(
+            Some(Duration::new(1_813_654, 116_643_000)),
+            parse_dmesg_timestamp("<6>[1813654.116643] oomd kill")
+        );
+        assert_eq!(
+            Some(Duration::new(42, 100_000_000)),
+            parse_dmesg_timestamp("  [ 42.1 ] oom-kill")
+        );
+        assert_eq!(
+            Some(Duration::from_secs(42)),
+            parse_dmesg_timestamp("[42] oom-kill")
+        );
+        assert_eq!(None, parse_dmesg_timestamp("[Thu Jan 1] oom-kill"));
+    }
+
+    #[test]
+    fn test_stale_matching_oom_does_not_misclassify_daemon_crash() {
+        let cgroup = "user.slice/buck2.slice/buck2_daemon.scope";
+        let stale_oom = "<6>[99.999999] oom-kill:constraint=CONSTRAINT_MEMCG,task_memcg=/user.slice/buck2.slice/buck2_daemon.scope,task=buck2,pid=1234,uid=1000";
+        let unparseable_oom = "<6>[Thu Jan 1 00:00:00 2025] oom-kill:constraint=CONSTRAINT_MEMCG,task_memcg=/user.slice/buck2.slice/buck2_daemon.scope,task=buck2,pid=1234,uid=1000";
+        let unrelated_current_oom = "<6>[101.000000] oom-kill:constraint=CONSTRAINT_MEMCG,task_memcg=/system.slice/unrelated.scope,task=other,pid=5678,uid=1000";
+        let dmesg = format!("{stale_oom}\n{unparseable_oom}\n{unrelated_current_oom}");
+
+        assert_eq!(
+            None,
+            find_matching_oom_kill(&dmesg, cgroup, Duration::from_secs(100))
+        );
+
+        let current_oom = "<6>[100.000000] oom-kill:constraint=CONSTRAINT_MEMCG,task_memcg=/user.slice/buck2.slice/buck2_daemon.scope,task=buck2,pid=1234,uid=1000";
+        let dmesg = format!("{dmesg}\n{current_oom}");
+        assert_eq!(
+            Some(current_oom),
+            find_matching_oom_kill(&dmesg, cgroup, Duration::from_secs(100))
+        );
     }
 }

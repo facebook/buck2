@@ -11,6 +11,7 @@
 use std::fs::File;
 use std::fs::create_dir_all;
 use std::time::Duration;
+use std::time::Instant;
 
 use async_trait::async_trait;
 use buck2_cli_proto::daemon_api_client::*;
@@ -61,6 +62,7 @@ enum LifecycleError {
 pub struct BuckdClientConnector {
     client: BuckdClient,
     pub cgroup_path_of_buck2_daemon: Option<String>,
+    pub daemon_start_instant: Option<Instant>,
 }
 
 impl BuckdClientConnector {

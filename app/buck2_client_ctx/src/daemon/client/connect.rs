@@ -19,6 +19,7 @@ use std::io::BufReader;
 use std::net::Ipv4Addr;
 use std::path::PathBuf;
 use std::time::Duration;
+use std::time::Instant;
 
 use buck2_cli_proto::DaemonProcessInfo;
 use buck2_cli_proto::daemon_api_client::DaemonApiClient;
@@ -604,15 +605,16 @@ impl BuckdChannel {
             mut client,
         } = self;
 
-        let constraints = get_constraints(&mut client)
+        let daemon_status = get_daemon_status(&mut client)
             .await
-            .buck_error_context("Error obtaining daemon constraints")?;
+            .buck_error_context("Error obtaining daemon status")?;
 
         Ok(BootstrapBuckdClient {
             info,
             daemon_dir,
             client,
-            constraints,
+            constraints: daemon_status.constraints,
+            daemon_start_instant: daemon_status.start_instant,
         })
     }
 }
@@ -625,6 +627,7 @@ pub struct BootstrapBuckdClient {
     client: DaemonApiClient<InterceptedService<Channel, BuckAddAuthTokenInterceptor>>,
     /// The constraints for the daemon we're connected to.
     constraints: buck2_cli_proto::DaemonConstraints,
+    daemon_start_instant: Option<Instant>,
 }
 
 impl BootstrapBuckdClient {
@@ -676,6 +679,7 @@ impl BootstrapBuckdClient {
                 constraints: self.constraints,
             },
             cgroup_path_of_buck2_daemon,
+            daemon_start_instant: self.daemon_start_instant,
         }
     }
 
@@ -1091,12 +1095,20 @@ impl<'a> BuckdProcessInfo<'a> {
     }
 }
 
-async fn get_constraints(
+struct DaemonStatus {
+    constraints: buck2_cli_proto::DaemonConstraints,
+    start_instant: Option<Instant>,
+}
+
+async fn get_daemon_status(
     client: &mut DaemonApiClient<InterceptedService<Channel, BuckAddAuthTokenInterceptor>>,
-) -> buck2_error::Result<buck2_cli_proto::DaemonConstraints> {
+) -> buck2_error::Result<DaemonStatus> {
     // NOTE: No tailers in bootstrap client, we capture logs if we fail to connect, but
     // otherwise we leave them alone.
     let mut events_ctx = EventsCtx::new(None, vec![Box::new(StdoutStderrForwarder)]);
+    // Subtracting server uptime from the request start makes RPC latency move the estimated
+    // daemon start earlier, so it cannot exclude a relevant OOM record.
+    let status_request_start = Instant::now();
     let status = DaemonEventsCtx::without_tailers(&mut events_ctx)
         .unpack_oneshot({
             client.status(tonic::Request::new(buck2_cli_proto::StatusRequest {
@@ -1114,7 +1126,15 @@ async fn get_constraints(
         )),
     }?;
 
-    Ok(status.daemon_constraints.unwrap_or_default())
+    let start_instant = status
+        .uptime
+        .and_then(|uptime| Duration::try_from(uptime).ok())
+        .and_then(|uptime| status_request_start.checked_sub(uptime));
+
+    Ok(DaemonStatus {
+        constraints: status.daemon_constraints.unwrap_or_default(),
+        start_instant,
+    })
 }
 
 pub fn get_daemon_exe() -> buck2_error::Result<PathBuf> {

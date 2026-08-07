@@ -469,6 +469,7 @@ pub struct EventsCtx {
     // which is a child cgroup created under the root cgroup (i.e. {root}/daemon) and is only
     // available when daemon cgroup mode is enabled.
     pub cgroup_path_of_buck2_daemon: Option<String>,
+    pub daemon_start_instant: Option<Instant>,
     /// Whether a superconsole was actually constructed for this command.
     /// Set by `streaming.rs` from the authoritative answer returned by
     /// `get_console_with_root`. Defaults to `false` for non-streaming entry
@@ -489,6 +490,7 @@ impl EventsCtx {
             command_report_path: None,
             log_invocation_record: true,
             cgroup_path_of_buck2_daemon: None,
+            daemon_start_instant: None,
             used_superconsole: false,
         }
     }
@@ -499,8 +501,7 @@ impl EventsCtx {
             let Some(path) = self.cgroup_path_of_buck2_daemon.as_deref() else {
                 return Ok(false);
             };
-            let daemon_disconnect_time = SystemTime::now();
-            crate::subscribers::oom::check_daemon_oom_killed(path, daemon_disconnect_time).await
+            crate::subscribers::oom::check_daemon_oom_killed(path, self.daemon_start_instant).await
         }
         #[cfg(not(target_os = "linux"))]
         {
