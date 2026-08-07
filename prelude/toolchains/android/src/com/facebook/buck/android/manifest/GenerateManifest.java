@@ -135,8 +135,10 @@ public class GenerateManifest {
     // Post-process merge report to make all paths relative to current directory
     makePathsRelativeInMergeReport(mergeReportPath, logger);
 
-    String xmlText = mergingReport.getMergedDocument(MergingReport.MergedManifestKind.MERGED);
-    // NULLSAFE_FIXME[Parameter Not Nullable]
+    // Absent only when the merge failed, which mergeManifests already turns into an exception.
+    String xmlText =
+        Objects.requireNonNull(
+            mergingReport.getMergedDocument(MergingReport.MergedManifestKind.MERGED));
     xmlText = replacePlaceholders(xmlText, placeholders);
     xmlText = moveActivityAliasesToEnd(xmlText);
 
@@ -200,7 +202,6 @@ public class GenerateManifest {
               .merge();
       if (mergingReport.getResult().isError()) {
         for (MergingReport.Record record : mergingReport.getLoggingRecords()) {
-          // NULLSAFE_FIXME[Parameter Not Nullable]
           logger.error(null, record.toString());
         }
         throw new RuntimeException("Error generating manifest file");
@@ -299,16 +300,13 @@ public class GenerateManifest {
       }
 
       // Use XmlPrettyPrinter to format the output, matching the manifest merger's formatting
-      // NULLSAFE_FIXME[Not Vetted Third-Party]
       XmlFormatPreferences prefs = XmlFormatPreferences.defaults();
       prefs.removeEmptyLines = true;
 
-      // NULLSAFE_FIXME[Not Vetted Third-Party]
       return XmlPrettyPrinter.prettyPrint(
           doc,
           prefs,
           XmlFormatStyle.get(doc),
-          // NULLSAFE_FIXME[Parameter Not Nullable]
           null, /* lineSeparator */
           false /* endWithNewline */);
 
@@ -519,7 +517,6 @@ public class GenerateManifest {
       return (Element) Objects.requireNonNull(usesSdkNodes.item(0));
     }
 
-    // NULLSAFE_FIXME[Not Vetted Third-Party]
     Element usesSdk = doc.createElement("uses-sdk");
     Element manifestElement = Objects.requireNonNull(doc.getDocumentElement());
 
@@ -539,16 +536,13 @@ public class GenerateManifest {
     File processedFile = outputDir.resolve(originalFile.getPath()).toFile();
     Objects.requireNonNull(processedFile.getParentFile()).mkdirs();
 
-    // NULLSAFE_FIXME[Not Vetted Third-Party]
     XmlFormatPreferences prefs = XmlFormatPreferences.defaults();
     prefs.removeEmptyLines = true;
     String formattedXml =
-        // NULLSAFE_FIXME[Not Vetted Third-Party]
         XmlPrettyPrinter.prettyPrint(
             doc,
             prefs,
             XmlFormatStyle.get(doc),
-            // NULLSAFE_FIXME[Parameter Not Nullable]
             null, /* lineSeparator */
             false /* endWithNewline */);
 
