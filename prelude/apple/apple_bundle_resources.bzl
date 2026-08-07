@@ -468,7 +468,7 @@ def _run_ibtool(
     output: OutputArtifact,
     action_flags: list[str],
     target_device: [None, str],
-    action_identifier: str,
+    command_for_identifier: str,
     output_is_dir: bool,
 ) -> None:
     # TODO(T110378103): detect and add minimum deployment target automatically
@@ -508,13 +508,13 @@ def _run_ibtool(
         script_lines.append(cmd_args(cmd_args(ibtool_command), delimiter = " "))
 
     wrapper_script, _ = ctx.actions.write(
-        "ibtool_wrapper_" + action_identifier.replace(" ", "_").replace("/", "_") + ".sh",
+        "ibtool_wrapper_" + _wrapper_suffix(command_for_identifier, raw_file) + ".sh",
         script_lines,
         allow_args = True,
         has_content_based_path = False,
     )
     command = cmd_args(["/bin/sh", wrapper_script], hidden = [ibtool_command, output])
-
+    action_identifier = _ibtool_identifier(command_for_identifier, raw_file)
     processing_options = get_bundle_resource_processing_options(ctx)
     ctx.actions.run(
         command,
@@ -525,8 +525,7 @@ def _run_ibtool(
         identifier = action_identifier,
     )
 
-def _ibtool_identifier(action: str, raw_file: Artifact) -> str:
-    "*.xib files can live in .lproj folders and have the same name, so we need to split the id"
+def _identifier_parts(raw_file: Artifact) -> list[str]:
     identifier_parts = []
     variant_dirname = _get_variant_dirname(raw_file)
     if variant_dirname:
@@ -534,7 +533,15 @@ def _ibtool_identifier(action: str, raw_file: Artifact) -> str:
         variant_name = paths.replace_extension(variant_dirname, "")
         identifier_parts.append(variant_name)
     identifier_parts += [raw_file.basename]
+    return identifier_parts
+
+def _ibtool_identifier(action: str, raw_file: Artifact) -> str:
+    "*.xib files can live in .lproj folders and have the same name, so we need to split the id"
+    identifier_parts = _identifier_parts(raw_file)
     return "ibtool_" + action + " " + "/".join(identifier_parts)
+
+def _wrapper_suffix(action: str, raw_file: Artifact) -> str:
+    return "_".join([action] + _identifier_parts(raw_file))
 
 def _compile_ui_resource(
     ctx: AnalysisContext, raw_file: Artifact, output: OutputArtifact, target_device: [None, str] = None, output_is_dir: bool = False
@@ -545,7 +552,7 @@ def _compile_ui_resource(
         output = output,
         action_flags = ["--compile"],
         target_device = target_device,
-        action_identifier = _ibtool_identifier("compile", raw_file),
+        command_for_identifier = "compile",
         output_is_dir = output_is_dir,
     )
 
@@ -556,7 +563,7 @@ def _link_ui_resource(ctx: AnalysisContext, raw_file: Artifact, output: OutputAr
         output = output,
         action_flags = ["--link"],
         target_device = target_device,
-        action_identifier = _ibtool_identifier("link", raw_file),
+        command_for_identifier = "link",
         output_is_dir = output_is_dir,
     )
 
