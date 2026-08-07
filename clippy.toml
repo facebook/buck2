@@ -1,0 +1,25 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is dual-licensed under either the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree or the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree. You may select, at your option, one of the
+# above-listed licenses.
+
+# Bans on panicking datetime APIs: buck2 must not panic on out-of-range time values, no
+# matter how absurd — TTLs reported by RE, timestamps from configs, and durations from rule
+# code have all historically reached these calls with out-of-range values.
+#
+# NOTE: clippy cannot flag the overloaded `+`/`-` operators on datetime types, and those
+# panic on overflow too. Datetime arithmetic must use the `checked_*` methods or the helpers
+# in `buck2_execute::re::ttl`.
+disallowed-methods = [
+    { path = "chrono::TimeDelta::seconds", reason = "panics on out-of-range values; use `try_seconds`" },
+    { path = "chrono::TimeDelta::minutes", reason = "panics on out-of-range values; use `try_minutes`" },
+    { path = "chrono::TimeDelta::hours", reason = "panics on out-of-range values; use `try_hours`" },
+    { path = "chrono::TimeDelta::days", reason = "panics on out-of-range values; use `try_days`" },
+    { path = "chrono::TimeDelta::weeks", reason = "panics on out-of-range values; use `try_weeks`" },
+    { path = "chrono::TimeZone::timestamp", reason = "panics on out-of-range values; use `timestamp_opt`" },
+    { path = "std::time::Duration::mul_f64", reason = "panics on negative/NaN/overflowing values; use `Duration::try_from_secs_f64`" },
+    { path = "std::time::Duration::div_f64", reason = "panics on negative/NaN/overflowing values; use `Duration::try_from_secs_f64`" },
+]
