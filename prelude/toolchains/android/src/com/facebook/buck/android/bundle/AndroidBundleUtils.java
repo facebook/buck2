@@ -67,10 +67,8 @@ public class AndroidBundleUtils {
         new ApkBuilder(
             moduleZipOutputFile,
             fakeResourceApkFile,
-            // NULLSAFE_FIXME[Parameter Not Nullable]
             null,
             packageMetaInfVersionFiles,
-            // NULLSAFE_FIXME[Parameter Not Nullable]
             verboseStream,
             excludedResources);
     addModuleFiles(
@@ -109,7 +107,6 @@ public class AndroidBundleUtils {
       addFile(
           moduleBuilder,
           dexFile,
-          // NULLSAFE_FIXME[Not Vetted Third-Party]
           Paths.get(BundleModule.DEX_DIRECTORY.toString())
               .resolve(dexFile.getFileName())
               .toString(),
@@ -237,9 +234,7 @@ public class AndroidBundleUtils {
       throws DuplicateFileException, ApkCreationException, SealedApkException {
     path = Paths.get(path).resolve(file.getName()).toString();
     if (file.isDirectory() && ApkBuilder.checkFolderForPackaging(file.getName())) {
-      // NULLSAFE_FIXME[Not Vetted Third-Party]
       if (file.getName().equals(BundleModule.RESOURCES_DIRECTORY.toString())) {
-        // NULLSAFE_FIXME[Not Vetted Third-Party]
         path = BundleModule.RESOURCES_DIRECTORY.toString();
       }
       File[] files = file.listFiles();
@@ -255,7 +250,6 @@ public class AndroidBundleUtils {
         addFile(
             builder,
             file.toPath(),
-            // NULLSAFE_FIXME[Not Vetted Third-Party]
             Paths.get(BundleModule.DEX_DIRECTORY.toString()).resolve(file.getName()).toString(),
             addedFiles,
             addedSourceFiles,
@@ -264,7 +258,6 @@ public class AndroidBundleUtils {
         addFile(
             builder,
             file.toPath(),
-            // NULLSAFE_FIXME[Not Vetted Third-Party]
             Paths.get(BundleModule.MANIFEST_DIRECTORY.toString())
                 .resolve(file.getName())
                 .toString(),
@@ -272,7 +265,6 @@ public class AndroidBundleUtils {
             addedSourceFiles,
             duplicateFileListener);
       } else if (file.getName()
-          // NULLSAFE_FIXME[Not Vetted Third-Party]
           .equals(BundleModule.SpecialModuleEntry.RESOURCE_TABLE.getPath().toString())) {
         addFile(
             builder,
@@ -318,7 +310,6 @@ public class AndroidBundleUtils {
           continue;
         }
         Path libPath =
-            // NULLSAFE_FIXME[Not Vetted Third-Party]
             Paths.get(BundleModule.LIB_DIRECTORY.toString())
                 .resolve(abi.getName())
                 .resolve(lib.getName());
@@ -433,23 +424,17 @@ public class AndroidBundleUtils {
     String empty = "";
 
     if (entry.getName().equals(BundleModule.MANIFEST_FILENAME)) {
-      // NULLSAFE_FIXME[Not Vetted Third-Party]
       location = BundleModule.MANIFEST_DIRECTORY.toString();
 
-      // NULLSAFE_FIXME[Not Vetted Third-Party]
     } else if (entry.getName().startsWith(BundleModule.LIB_DIRECTORY.toString() + fileSeparator)
-        // NULLSAFE_FIXME[Not Vetted Third-Party]
         || entry.getName().startsWith(BundleModule.RESOURCES_DIRECTORY.toString() + fileSeparator)
-        // NULLSAFE_FIXME[Not Vetted Third-Party]
         || entry.getName().startsWith(BundleModule.ASSETS_DIRECTORY.toString() + fileSeparator)
-        // NULLSAFE_FIXME[Not Vetted Third-Party]
         || entry.getName().startsWith(BundleModule.DEX_DIRECTORY.toString() + fileSeparator)
         || entry.getName().endsWith(".pb")) {
       // They are already in the right folder
       location = empty;
 
     } else {
-      // NULLSAFE_FIXME[Not Vetted Third-Party]
       location = BundleModule.ROOT_DIRECTORY.toString();
     }
 
