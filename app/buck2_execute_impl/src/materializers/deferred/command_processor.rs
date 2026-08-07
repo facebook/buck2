@@ -40,8 +40,6 @@ use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_hash::StdBuckHashSet;
 use buck2_util::threads::check_stack_overflow;
 use buck2_wrapper_common::invocation_id::TraceId;
-use chrono::DateTime;
-use chrono::Utc;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
@@ -55,6 +53,7 @@ use futures::stream::FuturesOrdered;
 use futures::stream::Stream;
 use futures::stream::StreamExt;
 use gazebo::prelude::*;
+use jiff::Timestamp;
 use pin_project::pin_project;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::UnboundedReceiver;
@@ -122,7 +121,7 @@ pub(super) struct DeferredMaterializerCommandProcessor<T: 'static> {
     /// small and we create it infrequently, that's fine.
     pub(super) ttl_refresh_history: Vec<TtlRefreshHistoryEntry>,
     /// The current ttl_refresh instance, if any exists.
-    ttl_refresh_instance: Option<oneshot::Receiver<(DateTime<Utc>, buck2_error::Result<()>)>>,
+    ttl_refresh_instance: Option<oneshot::Receiver<(Timestamp, buck2_error::Result<()>)>>,
     pub(super) cancellations: &'static CancellationContext,
     pub(super) stats: Arc<DeferredMaterializerStats>,
     access_times_buffer: Option<StdBuckHashSet<ProjectRelativePathBuf>>,
@@ -289,7 +288,7 @@ pub(super) enum LowPriorityMaterializerCommand {
     /// happen under normal conditions - we can react accordingly.
     MaterializationFinished {
         path: ProjectRelativePathBuf,
-        timestamp: DateTime<Utc>,
+        timestamp: Timestamp,
         version: Version,
         result: Result<(), SharedMaterializingError>,
     },
@@ -489,10 +488,9 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     threshold_percent: cfg.threshold_percent,
                     // Clamping to MIN keeps everything protected, which is the safe direction
                     // for something that deletes artifacts.
-                    min_access_time: chrono::Duration::from_std(min_ttl)
-                        .ok()
-                        .and_then(|d| chrono::Utc::now().checked_sub_signed(d))
-                        .unwrap_or(DateTime::<Utc>::MIN_UTC),
+                    min_access_time: Timestamp::now()
+                        .checked_sub(min_ttl)
+                        .unwrap_or(Timestamp::MIN),
                 }),
             ),
         }
@@ -662,7 +660,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
 
                                 self.spawn(&EventDispatcher::error_on_event(), async {
                                     let res = fut.await;
-                                    let _ignored = tx.send((Utc::now(), res));
+                                    let _ignored = tx.send((Timestamp::now(), res));
                                 });
 
                                 rx
@@ -673,7 +671,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                                 self.ttl_refresh_instance = Some(ttl_refresh);
                             }
                             None => self.ttl_refresh_history.push(TtlRefreshHistoryEntry {
-                                at: Utc::now(),
+                                at: Timestamp::now(),
                                 outcome: None,
                             }),
                         }
@@ -696,10 +694,9 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
 
                         let daemon_id = dispatcher.daemon_id().dupe();
                         let cmd = CleanStaleArtifactsCommand {
-                            keep_since_time: chrono::Duration::from_std(artifact_ttl)
-                                .ok()
-                                .and_then(|d| chrono::Utc::now().checked_sub_signed(d))
-                                .unwrap_or(DateTime::<Utc>::MIN_UTC),
+                            keep_since_time: Timestamp::now()
+                                .checked_sub(artifact_ttl)
+                                .unwrap_or(Timestamp::MIN),
                             dry_run: config.dry_run,
                             tracked_only: false,
                             dispatcher,
@@ -923,7 +920,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 Err(TryRecvError::Closed) => {
                     // Shouldnt really happen unless Tokio is shutting down, but be safe.
                     self.ttl_refresh_history.push(TtlRefreshHistoryEntry {
-                        at: Utc::now(),
+                        at: Timestamp::now(),
                         outcome: Some(Err(buck2_error!(buck2_error::ErrorTag::Tier0, "Shutdown"))),
                     });
                     None
@@ -1089,7 +1086,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             &self.subscriptions,
             path,
             &metadata,
-            Utc::now(),
+            Timestamp::now(),
             classification,
             "materializer_declare_existing_error",
         );
@@ -1102,7 +1099,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 logical_size_bytes,
                 stage: ArtifactMaterializationStage::Materialized {
                     metadata,
-                    last_access_time: Utc::now(),
+                    last_access_time: Timestamp::now(),
                     active: true,
                 },
                 processing: Processing::Done(self.version_tracker.next()),
@@ -1319,7 +1316,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             } => {
                 // Treat this case much like a `declare_existing`
                 *active = true;
-                *last_access_time = Utc::now();
+                *last_access_time = Timestamp::now();
                 if let Some(sqlite_db) = &mut self.sqlite_db {
                     if let Err(e) = sqlite_db
                         .materializer_state_table()
@@ -1481,7 +1478,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 false => {
                     if let Some(ref mut buffer) = self.access_times_buffer.as_mut() {
                         // TODO (torozco): Why is it legal for something to be Materialized + Cleaning?
-                        let timestamp = Utc::now();
+                        let timestamp = Timestamp::now();
                         *last_access_time = timestamp;
 
                         // NOTE (T142264535): We mostly expect that artifacts are always declared
@@ -1567,7 +1564,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         let command_sender = self.command_sender.dupe();
         let task = self
             .spawn(&spawn_dispatcher, async move {
-                let timestamp = Utc::now();
+                let timestamp = Timestamp::now();
                 // Materialize the deps and this entry. Regardless of whether this succeeds or fails we
                 // need to notify the materializer, so don't check the result.
                 let res = Self::perform_materialization(
@@ -1696,7 +1693,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
     fn materialization_finished(
         &mut self,
         artifact_path: ProjectRelativePathBuf,
-        timestamp: DateTime<Utc>,
+        timestamp: Timestamp,
         version: Version,
         result: Result<(), SharedMaterializingError>,
     ) {
@@ -1810,7 +1807,7 @@ fn on_materialization(
     subscriptions: &MaterializerSubscriptions,
     path: &ProjectRelativePath,
     metadata: &ArtifactMetadata,
-    timestamp: DateTime<Utc>,
+    timestamp: Timestamp,
     classification: ArtifactClassification,
     error_name: &'static str,
 ) {
@@ -1915,7 +1912,7 @@ pub(super) trait TestingDeferredMaterializerCommandProcessor<T> {
     fn testing_materialization_finished(
         &mut self,
         artifact_path: ProjectRelativePathBuf,
-        timestamp: DateTime<Utc>,
+        timestamp: Timestamp,
         result: Result<(), SharedMaterializingError>,
     );
 }
@@ -1981,7 +1978,7 @@ impl<T: IoHandler> TestingDeferredMaterializerCommandProcessor<T>
     fn testing_materialization_finished(
         &mut self,
         artifact_path: ProjectRelativePathBuf,
-        timestamp: DateTime<Utc>,
+        timestamp: Timestamp,
         result: Result<(), SharedMaterializingError>,
     ) {
         self.materialization_finished(

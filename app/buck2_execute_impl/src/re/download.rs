@@ -60,14 +60,13 @@ use buck2_hash::BuckIndexMap;
 use buck2_hash::StdBuckHashSet;
 use buck2_util::time_span::TimeSpan;
 use buck2_util::time_span::TimeSpanBuilder;
-use chrono::DateTime;
-use chrono::Duration;
-use chrono::Utc;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::FutureExt;
 use futures::future;
 use gazebo::prelude::*;
+use jiff::SignedDuration;
+use jiff::Timestamp;
 use remote_execution as RE;
 
 use crate::executors::local::materialize_inputs;
@@ -376,11 +375,11 @@ impl CasDownloader<'_> {
         requested_outputs: impl IntoIterator<Item = CommandExecutionOutputRef<'a>>,
         output_spec: &dyn RemoteActionResult,
     ) -> buck2_error::Result<ExtractedArtifacts> {
-        let now = Utc::now();
+        let now = Timestamp::now();
         let expires = re_expiration_from_ttl(now, output_spec.ttl(), &identity.action_key);
         // Derived from the clamped expiration rather than the raw TTL so that the two can't
         // disagree, and because the difference of two in-range datetimes can't overflow.
-        let ttl = expires.signed_duration_since(now);
+        let ttl = expires.duration_since(now);
 
         // Download process:
         // 1. merges all the outputs (files and trees) into the inputs structure
@@ -539,9 +538,9 @@ fn re_forward_path(re_path: &str) -> buck2_error::Result<&ForwardRelativePath> {
 struct ExtractedArtifacts {
     to_declare: Vec<DeclareArtifactPayload>,
     mapped_outputs: BuckIndexMap<CommandExecutionOutput, ArtifactValue>,
-    now: DateTime<Utc>,
-    expires: DateTime<Utc>,
-    ttl: Duration,
+    now: Timestamp,
+    expires: Timestamp,
+    ttl: SignedDuration,
 }
 
 /// Did this download work out?

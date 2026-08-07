@@ -31,8 +31,6 @@ use buck2_error::conversion::from_any_with_tag;
 use buck2_error::internal_error;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_re_configuration::RemoteExecutionStaticMetadata;
-use chrono::DateTime;
-use chrono::Utc;
 use dupe::Dupe;
 use fbinit::FacebookInit;
 use futures::FutureExt;
@@ -505,7 +503,7 @@ impl ManagedRemoteExecutionClient {
     pub async fn get_digest_expirations(
         &self,
         digests: Vec<TDigest>,
-    ) -> buck2_error::Result<Vec<(TDigest, DateTime<Utc>)>> {
+    ) -> buck2_error::Result<Vec<(TDigest, jiff::Timestamp)>> {
         self.lock()?
             .get()
             .await?

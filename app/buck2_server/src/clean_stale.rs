@@ -17,8 +17,6 @@ use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
 use buck2_server_ctx::template::ServerCommandTemplate;
 use buck2_server_ctx::template::run_server_command;
-use chrono::TimeZone;
-use chrono::Utc;
 use dice::DiceTransaction;
 
 use crate::ctx::ServerCommandContext;
@@ -62,10 +60,8 @@ impl ServerCommandTemplate for CleanStaleServerCommand {
                     .as_deferred_materializer_extension()
                     .ok_or_else(|| internal_error!("Deferred materializer is not in use"))?;
 
-                let keep_since_time = Utc
-                    .timestamp_opt(self.req.keep_since_time, 0)
-                    .single()
-                    .ok_or_else(|| internal_error!("Invalid timestamp"))?;
+                let keep_since_time = jiff::Timestamp::from_second(self.req.keep_since_time)
+                    .map_err(|_| internal_error!("Invalid timestamp"))?;
 
                 let adaptive_min_ttl = self
                     .req

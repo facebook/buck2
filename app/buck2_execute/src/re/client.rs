@@ -40,8 +40,6 @@ use buck2_hash::StdBuckHashMap;
 #[cfg(fbcode_build)]
 use buck2_re_configuration::CASdMode;
 use buck2_re_configuration::RemoteExecutionStaticMetadataImpl;
-use chrono::DateTime;
-use chrono::Utc;
 use dupe::Dupe;
 use either::Either;
 use futures::FutureExt;
@@ -438,8 +436,8 @@ impl RemoteExecutionClient {
         &self,
         digests: Vec<TDigest>,
         metadata: &RemoteExecutionMetadata,
-    ) -> buck2_error::Result<Vec<(TDigest, DateTime<Utc>)>> {
-        let now = Utc::now();
+    ) -> buck2_error::Result<Vec<(TDigest, jiff::Timestamp)>> {
+        let now = jiff::Timestamp::now();
         let ttls = self.get_digests_ttl(digests, metadata, false).await?;
         Ok(ttls
             .digests_with_ttl

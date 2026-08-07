@@ -44,7 +44,6 @@ buck2_test.workspace = true
 buck2_util.workspace = true
 buck2_validation.workspace = true
 buck2_wrapper_common.workspace = true
-chrono.workspace = true
 constant_time_eq.workspace = true
 crossbeam-channel.workspace = true
 dice.workspace = true

@@ -40,13 +40,12 @@ use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::file_name::FileNameBuf;
 use buck2_hash::StdBuckHashMap;
 use buck2_wrapper_common::invocation_id::TraceId;
-use chrono::DateTime;
-use chrono::Utc;
 use derivative::Derivative;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::FutureExt;
 use futures::future::BoxFuture;
+use jiff::Timestamp;
 use tokio::sync::oneshot::Sender;
 
 use crate::materializers::deferred::ArtifactMaterializationStage;
@@ -62,7 +61,7 @@ use crate::sqlite::materializer_db::MaterializerStateSqliteDb;
 
 #[derive(Debug, Clone)]
 pub struct CleanStaleArtifactsCommand {
-    pub keep_since_time: DateTime<Utc>,
+    pub keep_since_time: Timestamp,
     pub dry_run: bool,
     pub tracked_only: bool,
     pub dispatcher: EventDispatcher,
@@ -82,7 +81,7 @@ pub struct AdaptiveLowDiskParams {
     pub threshold_percent: f64,
     /// Retained artifacts last accessed at or after this instant are protected
     /// from adaptive promotion, regardless of free disk pressure.
-    pub min_access_time: DateTime<Utc>,
+    pub min_access_time: Timestamp,
 }
 
 #[derive(Derivative)]
@@ -551,7 +550,7 @@ pub fn get_size(path: &AbsNormPath) -> buck2_error::Result<u64> {
 
 struct StaleFinder<'a, T: IoHandler> {
     io: Arc<T>,
-    keep_since_time: DateTime<Utc>,
+    keep_since_time: Timestamp,
     found_paths: &'a mut Vec<FoundPath>,
     liveliness_observer: Arc<dyn LivelinessObserverSync>,
 }
@@ -574,7 +573,7 @@ enum TrackedState {
     Stale,
     /// Materialized, not-stale, and not active. Eligible to be promoted
     /// to `Stale` by `apply_adaptive_low_disk`.
-    Retained { last_access_time: DateTime<Utc> },
+    Retained { last_access_time: Timestamp },
     /// Materialized and is active. Must never be promoted/deleted.
     ActiveRetained,
 }
@@ -707,7 +706,7 @@ impl<T: IoHandler> StaleFinder<'_, T> {
 
 fn find_stale_tracked_only(
     tree: &ArtifactTree,
-    keep_since_time: DateTime<Utc>,
+    keep_since_time: Timestamp,
     found_paths: &mut Vec<FoundPath>,
 ) -> buck2_error::Result<()> {
     for (f_path, v) in tree.iter_with_paths() {
@@ -757,7 +756,7 @@ fn apply_adaptive_low_disk(
     free_space: u64,
     total_space: u64,
     threshold_percent: f64,
-    min_access_time: DateTime<Utc>,
+    min_access_time: Timestamp,
 ) {
     if total_space == 0 {
         return;
@@ -773,7 +772,7 @@ fn apply_adaptive_low_disk(
         return;
     }
 
-    let mut promotable: Vec<(usize, DateTime<Utc>, u64)> = found_paths
+    let mut promotable: Vec<(usize, Timestamp, u64)> = found_paths
         .iter()
         .enumerate()
         .filter_map(|(i, p)| match p {
@@ -962,9 +961,7 @@ impl CleanStaleConfig {
 #[cfg(test)]
 mod tests {
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-    use chrono::DateTime;
-    use chrono::TimeZone;
-    use chrono::Utc;
+    use jiff::Timestamp;
 
     use crate::materializers::deferred::clean_stale::FoundPath;
     use crate::materializers::deferred::clean_stale::TrackedState;
@@ -982,8 +979,8 @@ mod tests {
         assert!(duration_from_config_hours(f64::INFINITY, "prop").is_err());
     }
 
-    fn t(secs: i64) -> DateTime<Utc> {
-        Utc.timestamp_opt(secs, 0).unwrap()
+    fn t(secs: i64) -> Timestamp {
+        Timestamp::from_second(secs).unwrap()
     }
 
     fn retained(name: &str, last_access_secs: i64, size: u64) -> FoundPath {
@@ -1038,8 +1035,8 @@ mod tests {
     /// Sentinel `min_access_time` that protects no artifacts — every retained
     /// artifact has `last_access_time` strictly less than this far-future
     /// instant, so the full promotion logic is exercised end-to-end.
-    fn no_min_ttl() -> DateTime<Utc> {
-        DateTime::<Utc>::MAX_UTC
+    fn no_min_ttl() -> Timestamp {
+        Timestamp::MAX
     }
 
     #[test]

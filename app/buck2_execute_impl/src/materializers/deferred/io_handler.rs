@@ -53,9 +53,6 @@ use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_hash::StdBuckHashMap;
 use buck2_hash::StdBuckHashSet;
 use buck2_http::HttpClient;
-use chrono::DateTime;
-use chrono::Duration;
-use chrono::Utc;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::future::BoxFuture;
@@ -63,6 +60,8 @@ use futures::future::Future;
 use futures::future::FutureExt;
 use futures::future::TryFutureExt;
 use gazebo::prelude::VecExt;
+use jiff::SignedDuration;
+use jiff::Timestamp;
 use remote_execution::NamedDigest;
 use remote_execution::NamedDigestWithPermissions;
 use remote_execution::TCode;
@@ -164,7 +163,7 @@ pub trait IoHandler: Sized + Sync + Send + 'static {
     fn create_ttl_refresh(
         self: &Arc<Self>,
         tree: &ArtifactTree,
-        min_ttl: Duration,
+        min_ttl: SignedDuration,
     ) -> Option<BoxFuture<'static, buck2_error::Result<()>>>;
 
     fn read_dir(&self, path: &AbsNormPathBuf) -> buck2_error::Result<ReadDir>;
@@ -475,7 +474,7 @@ impl IoHandler for DefaultIoHandler {
     fn create_ttl_refresh(
         self: &Arc<Self>,
         tree: &ArtifactTree,
-        min_ttl: Duration,
+        min_ttl: SignedDuration,
     ) -> Option<BoxFuture<'static, buck2_error::Result<()>>> {
         create_ttl_refresh(tree, &self.re_client_manager, min_ttl, self.digest_config)
             .map(|f| f.boxed())
@@ -516,7 +515,7 @@ impl IoHandler for NoDiskIoHandler {
             let _ignored = command_sender.send_low_priority(
                 LowPriorityMaterializerCommand::MaterializationFinished {
                     path,
-                    timestamp: Utc::now(),
+                    timestamp: Timestamp::now(),
                     version,
                     result: Ok(()),
                 },
@@ -587,7 +586,7 @@ impl IoHandler for NoDiskIoHandler {
     fn create_ttl_refresh(
         self: &Arc<Self>,
         _tree: &ArtifactTree,
-        _min_ttl: Duration,
+        _min_ttl: SignedDuration,
     ) -> Option<BoxFuture<'static, buck2_error::Result<()>>> {
         None
     }
@@ -653,14 +652,14 @@ fn maybe_tombstone_digest(digest: &FileDigest) -> buck2_error::Result<&FileDiges
 pub(super) fn create_ttl_refresh(
     tree: &ArtifactTree,
     re_manager: &Arc<ReConnectionManager>,
-    min_ttl: Duration,
+    min_ttl: SignedDuration,
     digest_config: DigestConfig,
 ) -> Option<impl Future<Output = buck2_error::Result<()>> + use<>> {
     let mut digests_to_refresh = StdBuckHashMap::<_, StdBuckHashSet<_>>::new();
 
-    let ttl_deadline = Utc::now()
-        .checked_add_signed(min_ttl)
-        .unwrap_or(DateTime::<Utc>::MAX_UTC);
+    let ttl_deadline = Timestamp::now()
+        .checked_add(min_ttl)
+        .unwrap_or(Timestamp::MAX);
 
     for data in tree.iter_without_paths() {
         if let ArtifactMaterializationStage::Declared { entry, method } = &data.stage
@@ -777,7 +776,7 @@ impl IoRequest for WriteIoRequest {
         let _ignored = self.command_sender.send_low_priority(
             LowPriorityMaterializerCommand::MaterializationFinished {
                 path: self.path,
-                timestamp: Utc::now(),
+                timestamp: Timestamp::now(),
                 version: self.version,
                 result: res.dupe().map_err(SharedMaterializingError::Error),
             },

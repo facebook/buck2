@@ -28,12 +28,12 @@ rust_library(
     deps = [
         "fbsource//third-party/rust:async-condvar-fair",
         "fbsource//third-party/rust:async-trait",
-        "fbsource//third-party/rust:chrono",
         "fbsource//third-party/rust:derivative",
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:futures",
         "fbsource//third-party/rust:hostname",
         "fbsource//third-party/rust:itertools",
+        "fbsource//third-party/rust:jiff",
         "fbsource//third-party/rust:parking_lot",
         "fbsource//third-party/rust:pin-project",
         "fbsource//third-party/rust:prost",

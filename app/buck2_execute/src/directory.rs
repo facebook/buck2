@@ -52,8 +52,6 @@ use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_hash::StdBuckHashMap;
 use buck2_hash::StdBuckHashSet;
-use chrono::DateTime;
-use chrono::Utc;
 use derive_more::Display;
 use dupe::Dupe;
 use pagable::Pagable;
@@ -328,7 +326,7 @@ pub async fn re_directory_to_re_tree(
 #[allow(clippy::trivially_copy_pass_by_ref)] // SystemTime is a different size on Windows
 pub fn re_tree_to_directory(
     tree: &RE::Tree,
-    leaf_expires: &DateTime<Utc>,
+    leaf_expires: &jiff::Timestamp,
     digest_config: DigestConfig,
     fingerprint: bool,
 ) -> buck2_error::Result<ActionDirectoryBuilder> {
@@ -373,7 +371,7 @@ pub fn re_tree_to_directory(
         re_dir: &'_ RE::Directory,
         re_dir_name: &'_ (impl fmt::Display + ?Sized),
         dirmap: &'_ mut DirMap<'_>,
-        leaf_expires: &DateTime<Utc>,
+        leaf_expires: &jiff::Timestamp,
         digest_config: DigestConfig,
         fingerprint: bool,
     ) -> buck2_error::Result<ActionDirectoryBuilder> {
@@ -1191,7 +1189,7 @@ mod tests {
         let dir = builder.fingerprint(digest_config.as_directory_serializer());
 
         let tree = directory_to_re_tree(&dir);
-        let dir2 = re_tree_to_directory(&tree, &Utc::now(), digest_config, true)?;
+        let dir2 = re_tree_to_directory(&tree, &jiff::Timestamp::now(), digest_config, true)?;
 
         assert_dirs_eq(&dir, &dir2);
 

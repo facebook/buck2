@@ -19,7 +19,6 @@ use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileName;
 use buck2_hash::IntentionallyStdHashMap;
-use chrono::Utc;
 use derive_more::Display;
 use derive_more::From;
 use dupe::Dupe;
@@ -86,7 +85,7 @@ pub trait SqliteDb {
     where
         Self: std::marker::Sized,
     {
-        let timestamp_on_initialization = Utc::now().to_rfc3339();
+        let timestamp_on_initialization = jiff::Timestamp::now().to_string();
         current_instance_metadata.insert(IDENTITY_KEY.to_owned(), timestamp_on_initialization);
 
         let db_path = db_dir.join(FileName::unchecked_new(Self::db_filename()));
@@ -130,7 +129,7 @@ pub trait SqliteDb {
     where
         Self: std::marker::Sized,
     {
-        let timestamp_on_initialization = Utc::now().to_rfc3339();
+        let timestamp_on_initialization = jiff::Timestamp::now().to_string();
         current_instance_metadata.insert(IDENTITY_KEY.to_owned(), timestamp_on_initialization);
 
         let db_path = db_dir.join(FileName::unchecked_new(Self::db_filename()));

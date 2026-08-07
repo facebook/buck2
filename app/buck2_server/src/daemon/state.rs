@@ -507,15 +507,7 @@ impl DaemonState {
                     defer_write_actions,
                     ttl_refresh: TtlRefreshConfiguration {
                         frequency: std::time::Duration::from_secs(ttl_refresh_frequency),
-                        min_ttl: chrono::Duration::try_seconds(ttl_refresh_min_ttl).ok_or_else(
-                            || {
-                                buck2_error::buck2_error!(
-                                    buck2_error::ErrorTag::Input,
-                                    "Invalid value `{}` for `buck2.ttl_refresh_min_ttl_seconds`",
-                                    ttl_refresh_min_ttl
-                                )
-                            },
-                        )?,
+                        min_ttl: jiff::SignedDuration::from_secs(ttl_refresh_min_ttl),
                         enabled: ttl_refresh_enabled,
                     },
                     update_access_times,

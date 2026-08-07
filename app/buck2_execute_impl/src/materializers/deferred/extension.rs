@@ -32,14 +32,12 @@ use buck2_execute::materialize::materializer::DeferredMaterializerSubscription;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_path::AbsPath;
-use chrono::DateTime;
-use chrono::Duration;
-use chrono::TimeZone;
-use chrono::Utc;
 use derivative::Derivative;
 use dupe::Dupe;
 use futures::stream::BoxStream;
 use futures::stream::StreamExt;
+use jiff::SignedDuration;
+use jiff::Timestamp;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::oneshot;
@@ -88,10 +86,7 @@ struct PathData {
 
 #[derive(Debug)]
 enum PathStage {
-    Materialized {
-        ts: DateTime<Utc>,
-        size: Option<u64>,
-    },
+    Materialized { ts: Timestamp, size: Option<u64> },
     Declared(Arc<ArtifactMaterializationMethod>),
 }
 
@@ -157,10 +152,8 @@ impl<T: IoHandler> ExtensionCommand<T> for Iterate {
                     ..
                 } => {
                     // drop nano-seconds
-                    let ts = Utc
-                        .timestamp_opt(last_access_time.timestamp(), 0)
-                        .single()
-                        .unwrap();
+                    let ts = Timestamp::from_second(last_access_time.as_second())
+                        .expect("whole seconds of a valid timestamp are in range");
                     PathStage::Materialized {
                         ts,
                         size: Some(artifact_metadata_size(metadata)),
@@ -280,13 +273,7 @@ impl<T: IoHandler> ExtensionCommand<T> for RefreshTtls {
         let task = create_ttl_refresh(
             &processor.tree,
             processor.io.re_client_manager(),
-            // There is no error path out of an extension command, so clamp by sign; an absurd
-            // min TTL just means "refresh everything" or "refresh nothing".
-            Duration::try_seconds(self.min_ttl).unwrap_or(if self.min_ttl >= 0 {
-                Duration::MAX
-            } else {
-                Duration::MIN
-            }),
+            SignedDuration::from_secs(self.min_ttl),
             processor.io.digest_config(),
         )
         .map(|f| processor.spawn(&EventDispatcher::error_on_event(), f));
@@ -476,10 +463,9 @@ impl<T: IoHandler> DeferredMaterializerExtensions for DeferredMaterializerAccess
                 threshold_percent,
                 // Clamping to MIN keeps everything protected, which is the safe direction
                 // for something that deletes artifacts.
-                min_access_time: Duration::from_std(min_ttl)
-                    .ok()
-                    .and_then(|d| Utc::now().checked_sub_signed(d))
-                    .unwrap_or(DateTime::<Utc>::MIN_UTC),
+                min_access_time: Timestamp::now()
+                    .checked_sub(min_ttl)
+                    .unwrap_or(Timestamp::MIN),
             }
         });
         let (sender, recv) = oneshot::channel();

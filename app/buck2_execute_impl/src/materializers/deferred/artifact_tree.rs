@@ -29,12 +29,11 @@ use buck2_execute::materialize::materializer::CopiedArtifact;
 use buck2_execute::materialize::materializer::HttpDownloadInfo;
 use buck2_execute::materialize::utils::dynamic_priority_handle::DynamicPriorityHandle;
 use buck2_execute::output_size::OutputSize;
-use chrono::DateTime;
-use chrono::Utc;
 use derive_more::Display;
 use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::future::Shared;
+use jiff::Timestamp;
 use tracing::instrument;
 
 use crate::materializers::deferred::DeferredMaterializerStats;
@@ -199,7 +198,7 @@ pub enum ArtifactMaterializationStage {
         /// check if materialized artifact matches declared artifact.
         metadata: ArtifactMetadata,
         /// Used to clean older artifacts from buck-out.
-        last_access_time: DateTime<Utc>,
+        last_access_time: Timestamp,
         /// Artifact declared by running daemon.
         /// Should not be deleted without invalidating DICE nodes, which currently
         /// means killing the daemon.

@@ -38,7 +38,6 @@ use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_hash::StdBuckHashMap;
-use chrono::Utc;
 use parking_lot::Mutex;
 use rusqlite::Connection;
 use rusqlite::OptionalExtension;
@@ -319,7 +318,7 @@ impl DepFileStateSqliteTable {
             .as_ref()
             .map(tracked_digest_parts);
         // Stamped on write (re-stamped every rebuild); `prune` uses it to bound the db by age.
-        let last_write_time = Utc::now().timestamp();
+        let last_write_time = jiff::Timestamp::now().as_second();
 
         let mut conn = self.connection.lock();
         let tx = conn.transaction()?;

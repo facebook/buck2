@@ -243,7 +243,7 @@ mod state_machine {
                 let _ignored = command_sender.send_low_priority(
                     LowPriorityMaterializerCommand::MaterializationFinished {
                         path,
-                        timestamp: Utc::now(),
+                        timestamp: jiff::Timestamp::now(),
                         version,
                         result: Ok(()),
                     },
@@ -328,7 +328,7 @@ mod state_machine {
         fn create_ttl_refresh(
             self: &Arc<Self>,
             _tree: &ArtifactTree,
-            _min_ttl: Duration,
+            _min_ttl: SignedDuration,
         ) -> Option<BoxFuture<'static, buck2_error::Result<()>>> {
             unimplemented!()
         }
@@ -516,7 +516,7 @@ mod state_machine {
                     command_receiver,
                     TtlRefreshConfiguration {
                         frequency: std::time::Duration::default(),
-                        min_ttl: chrono::Duration::zero(),
+                        min_ttl: jiff::SignedDuration::ZERO,
                         enabled: false,
                     },
                     AccessTimesUpdates::Disabled,
@@ -594,7 +594,7 @@ mod state_machine {
                 .await;
             assert_eq!(dm.io.take_log(), &[(Op::Materialize, path.clone())]);
 
-            dm.testing_materialization_finished(path.clone(), Utc::now(), res);
+            dm.testing_materialization_finished(path.clone(), jiff::Timestamp::now(), res);
             assert_eq!(dm.io.take_log(), &[]);
 
             // When redeclaring the same artifact nothing happens.
@@ -902,7 +902,7 @@ mod state_machine {
             assert_eq!(logs, &[(Op::Materialize, symlink_path.clone())]);
 
             // Mark the symlink as materialized
-            dm.testing_materialization_finished(symlink_path.clone(), Utc::now(), res);
+            dm.testing_materialization_finished(symlink_path.clone(), jiff::Timestamp::now(), res);
             assert_eq!(dm.io.take_log(), &[]);
 
             // Declare symlink target
@@ -1300,7 +1300,7 @@ mod state_machine {
 
             let res = dm
                 .clean_stale_artifacts(CleanStaleArtifactsArgs {
-                    keep_since_time: DateTime::<Utc>::MAX_UTC,
+                    keep_since_time: jiff::Timestamp::MAX,
                     dry_run: false,
                     tracked_only: false,
                     adaptive_low_disk_threshold: None,
@@ -1353,7 +1353,7 @@ mod state_machine {
             let dm = Arc::new(dm);
             let dm_dup = dm.dupe();
             let fut = dm_dup.clean_stale_artifacts(CleanStaleArtifactsArgs {
-                keep_since_time: DateTime::<Utc>::MAX_UTC,
+                keep_since_time: jiff::Timestamp::MAX,
                 dry_run: false,
                 tracked_only: false,
                 adaptive_low_disk_threshold: None,
@@ -1396,7 +1396,7 @@ mod state_machine {
             let dm = Arc::new(dm);
             let dm_dup = dm.dupe();
             let fut = dm_dup.clean_stale_artifacts(CleanStaleArtifactsArgs {
-                keep_since_time: DateTime::<Utc>::MAX_UTC,
+                keep_since_time: jiff::Timestamp::MAX,
                 dry_run: false,
                 tracked_only: false,
                 adaptive_low_disk_threshold: None,

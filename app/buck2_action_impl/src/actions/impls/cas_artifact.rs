@@ -43,10 +43,9 @@ use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_hash::BuckIndexSet;
-use chrono::DateTime;
-use chrono::TimeZone;
-use chrono::Utc;
 use dupe::Dupe;
+use jiff::SignedDuration;
+use jiff::Timestamp;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use remote_execution as RE;
@@ -69,9 +68,9 @@ enum CasArtifactActionExecutionError {
     #[buck2(tag = ReCasArtifactInvalidExpiration)]
     InvalidExpiration {
         digest: FileDigest,
-        declared_expiration: DateTime<Utc>,
-        effective_expiration: DateTime<Utc>,
-        updated_expiration: DateTime<Utc>,
+        declared_expiration: Timestamp,
+        effective_expiration: Timestamp,
+        updated_expiration: Timestamp,
     },
 }
 
@@ -100,7 +99,7 @@ pub(crate) struct UnregisteredCasArtifactAction {
     /// callers to pay some modicum of attention to when their digests expire.
     #[allocative(skip)]
     #[pagable(flatten_serde)]
-    pub(crate) expires_after: DateTime<Utc>,
+    pub(crate) expires_after: Timestamp,
     pub(crate) executable: bool,
     pub(crate) kind: ArtifactKind,
 }
@@ -229,17 +228,16 @@ impl Action for CasArtifactAction {
             // If the observed expiration is too short, we'll log a soft error and try to extend it.
             //
             // TODO(cjhopman): It would be reasonable for this behavior to be more configurable, there just hasn't been need for it yet.
-            let now = Utc::now();
+            let now = Timestamp::now();
 
             // Adds a small buffer to avoid minor clock skew issues.
-            let new_ttl = self.inner.expires_after.signed_duration_since(now)
-                + chrono::Duration::try_minutes(5).expect("constant is in range");
+            let new_ttl =
+                self.inner.expires_after.duration_since(now) + SignedDuration::from_mins(5);
 
             re_client
                 .extend_digest_ttl(
                     vec![self.inner.digest.to_re()],
-                    new_ttl
-                        .to_std()
+                    std::time::Duration::try_from(new_ttl)
                         .map_err(|e| internal_error!("casting ttl to std duration `{}`", e))?,
                 )
                 .await?;
@@ -297,7 +295,7 @@ impl Action for CasArtifactAction {
                 // have very large trees so that might not be wise.
                 let dir = re_tree_to_directory(
                     &tree,
-                    &Utc.timestamp_opt(0, 0).unwrap(),
+                    &Timestamp::UNIX_EPOCH,
                     ctx.digest_config(),
                     ctx.output_trees_download_config()
                         .fingerprint_re_output_trees_eagerly(),

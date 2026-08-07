@@ -36,8 +36,6 @@ use buck2_error::internal_error;
 use buck2_hash::IntentionallyStdHashMap;
 use buck2_hash::StdBuckHashMap;
 use buck2_hash::StdBuckHashSet;
-use chrono::Duration;
-use chrono::Utc;
 use dupe::Dupe;
 use either::Either;
 use futures::FutureExt;
@@ -46,6 +44,8 @@ use futures::future::BoxFuture;
 use futures::future::Shared;
 use futures::stream::FuturesUnordered;
 use gazebo::prelude::*;
+use jiff::SignedDuration;
+use jiff::Timestamp;
 use remote_execution::GetDigestsTtlResponse;
 use remote_execution::InlinedBlobWithDigest;
 use remote_execution::NamedDigest;
@@ -92,13 +92,13 @@ impl Uploader {
         StdBuckHashSet<&'a TrackedCasDigest<FileDigestKind>>,
     )> {
         // RE mentions they usually take 5-10 minutes of leeway so we mirror this here.
-        let now = Utc::now();
+        let now = Timestamp::now();
         let ttl_wanted = if buck2_core::is_open_source() {
             1
         } else {
             600i64
         };
-        let ttl_deadline = now + Duration::try_seconds(ttl_wanted).expect("constant is in range");
+        let ttl_deadline = now + SignedDuration::from_secs(ttl_wanted);
 
         // See if anything needs uploading
         let mut input_digests = blobs.keys().collect::<StdBuckHashSet<_>>();
@@ -490,7 +490,7 @@ fn should_error_for_missing_digest(info: &CasDownloadInfo) -> bool {
     // tells us a digest doesn't exist even though it does) in order to provide better UX when we
     // hit a true positive.
     if let Some(age) = info.action_age() {
-        age >= Duration::try_hours(5).expect("constant is in range")
+        age >= SignedDuration::from_hours(5)
     } else {
         true
     }

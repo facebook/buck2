@@ -19,9 +19,6 @@ use std::sync::atomic::AtomicI64;
 use std::sync::atomic::Ordering;
 
 use allocative::Allocative;
-use chrono::DateTime;
-use chrono::TimeZone;
-use chrono::Utc;
 use derivative::Derivative;
 use derive_more::Display;
 use digest::Digest;
@@ -818,7 +815,7 @@ impl<Kind: CasDigestKind> TrackedCasDigest<Kind> {
 
     pub fn new_expires(
         data: CasDigest<Kind>,
-        expiry: DateTime<Utc>,
+        expiry: jiff::Timestamp,
         config: CasDigestConfig,
     ) -> Self
     where
@@ -830,7 +827,7 @@ impl<Kind: CasDigestKind> TrackedCasDigest<Kind> {
         Self {
             inner: Arc::new(TrackedCasDigestInner {
                 data,
-                expires: AtomicI64::new(expiry.timestamp()),
+                expires: AtomicI64::new(expiry.as_second()),
             }),
         }
     }
@@ -878,26 +875,21 @@ impl<Kind: CasDigestKind> TrackedCasDigest<Kind> {
         self.inner.data.size()
     }
 
-    pub fn expires(&self) -> buck2_error::Result<DateTime<Utc>> {
-        match Utc.timestamp_opt(self.inner.expires.load(Ordering::Relaxed), 0) {
-            chrono::MappedLocalTime::Single(t) => Ok(t),
-            chrono::MappedLocalTime::None => Err(buck2_error::buck2_error!(
+    pub fn expires(&self) -> buck2_error::Result<jiff::Timestamp> {
+        let expires = self.inner.expires.load(Ordering::Relaxed);
+        jiff::Timestamp::from_second(expires).map_err(|_| {
+            buck2_error::buck2_error!(
                 buck2_error::ErrorTag::Environment,
-                "CAS Digest expiration is an invalid local time"
-            )),
-            chrono::MappedLocalTime::Ambiguous(t1, t2) => Err(buck2_error::buck2_error!(
-                buck2_error::ErrorTag::Environment,
-                "Cas Digest expiration is ambiguous, ranging from {:?} to {:?}",
-                t1,
-                t2
-            )),
-        }
+                "CAS Digest expiration is out of the representable time range: {}",
+                expires
+            )
+        })
     }
 
-    pub fn update_expires(&self, time: DateTime<Utc>) {
+    pub fn update_expires(&self, time: jiff::Timestamp) {
         self.inner
             .expires
-            .store(time.timestamp(), Ordering::Relaxed)
+            .store(time.as_second(), Ordering::Relaxed)
     }
 }
 
@@ -972,8 +964,6 @@ pub mod testing {
 
 #[cfg(test)]
 mod tests {
-    use chrono::Duration;
-
     use super::*;
     use crate::file_ops::metadata::FileDigest;
     use crate::file_ops::metadata::FileDigestKind;
@@ -1151,11 +1141,11 @@ mod tests {
         let original_expiry = TrackedFileDigest::empty(config).expires().unwrap();
         assert_eq!(
             original_expiry,
-            Utc.timestamp_opt(0, 0).unwrap(),
+            jiff::Timestamp::UNIX_EPOCH,
             "empty-digest singleton should start at the unix epoch"
         );
 
-        let requested = Utc::now() + Duration::try_days(7).expect("constant is in range");
+        let requested = jiff::Timestamp::now() + jiff::SignedDuration::from_hours(24 * 7);
         let from_empty =
             TrackedFileDigest::new_expires(FileDigest::empty(config), requested, config);
 

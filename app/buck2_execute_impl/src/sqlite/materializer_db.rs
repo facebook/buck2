@@ -22,9 +22,8 @@ use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_hash::IntentionallyStdHashMap;
-use chrono::DateTime;
-use chrono::Utc;
 use dupe::Dupe;
+use jiff::Timestamp;
 
 use crate::materializers::deferred::artifact_tree::ArtifactClassification;
 use crate::materializers::deferred::artifact_tree::ArtifactMetadata;
@@ -41,7 +40,7 @@ pub const MATERIALIZER_DB_SCHEMA_VERSION: u64 = 9;
 pub struct MaterializerStateEntry {
     pub path: ProjectRelativePathBuf,
     pub metadata: ArtifactMetadata,
-    pub last_access_time: DateTime<Utc>,
+    pub last_access_time: Timestamp,
     pub classification: ArtifactClassification,
 }
 
@@ -203,7 +202,6 @@ mod tests {
     use buck2_execute::directory::new_symlink;
     use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
     use buck2_hash::StdBuckHashMap;
-    use chrono::TimeZone;
     use itertools::Itertools;
     use parking_lot::Mutex;
     use rusqlite::Connection;
@@ -220,10 +218,8 @@ mod tests {
         }
     }
 
-    fn now_seconds() -> DateTime<Utc> {
-        Utc.timestamp_opt(Utc::now().timestamp(), 0)
-            .single()
-            .unwrap()
+    fn now_seconds() -> Timestamp {
+        Timestamp::from_second(Timestamp::now().as_second()).unwrap()
     }
 
     #[test]

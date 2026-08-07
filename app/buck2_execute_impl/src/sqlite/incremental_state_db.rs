@@ -23,9 +23,8 @@ use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_hash::BuckDashMap;
 use buck2_hash::IntentionallyStdHashMap;
-use chrono::DateTime;
-use chrono::Utc;
 use dupe::Dupe;
+use jiff::Timestamp;
 
 use crate::incremental_actions_helper::IncrementalPathMap;
 use crate::materializers::deferred::artifact_tree::ArtifactMetadata;
@@ -115,7 +114,7 @@ impl IncrementalDbState {
 pub struct IncrementalStateEntry {
     pub path: ProjectRelativePathBuf,
     pub metadata: ArtifactMetadata,
-    pub last_access_time: DateTime<Utc>,
+    pub last_access_time: Timestamp,
 }
 
 /// Concrete implementation of SqliteTable for IncrementalStateSqliteTable

@@ -71,14 +71,13 @@ use buck2_execute::re::manager::ReConnectionManager;
 use buck2_hash::StdBuckHashSet;
 use buck2_http::HttpClient;
 use buck2_util::threads::thread_spawn;
-use chrono::DateTime;
-use chrono::Duration;
-use chrono::Utc;
 use derivative::Derivative;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::TryStreamExt;
 use futures::stream::BoxStream;
+use jiff::SignedDuration;
+use jiff::Timestamp;
 use parking_lot::RwLock;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc;
@@ -210,7 +209,7 @@ pub struct DeferredMaterializerConfigs {
 
 pub struct TtlRefreshConfiguration {
     pub frequency: std::time::Duration,
-    pub min_ttl: Duration,
+    pub min_ttl: SignedDuration,
     pub enabled: bool,
 }
 
@@ -316,7 +315,7 @@ struct MaterializerReceiver<T: 'static> {
 }
 
 struct TtlRefreshHistoryEntry {
-    at: DateTime<Utc>,
+    at: Timestamp,
     outcome: Option<buck2_error::Result<()>>,
 }
 
@@ -866,7 +865,7 @@ impl DeferredMaterializerAccessor<NoDiskIoHandler> {
                 defer_write_actions: true,
                 ttl_refresh: TtlRefreshConfiguration {
                     frequency: std::time::Duration::default(),
-                    min_ttl: Duration::zero(),
+                    min_ttl: SignedDuration::ZERO,
                     enabled: false,
                 },
                 update_access_times: AccessTimesUpdates::Disabled,
