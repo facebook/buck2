@@ -73,7 +73,7 @@ load(
 load(":debug.bzl", "SplitDebugMode")
 load(":dwp.bzl", "dwp", "dwp_available")
 load(":hip_debug_extract.bzl", "PRE_EXTRACT_SUFFIX", "hip_debug_extract_available")
-load(":link_types.bzl", "CxxLinkResultType", "LinkOptions", "merge_link_options")
+load(":link_types.bzl", "CxxLinkResultType", "LinkOptions", "get_dwp_execution_preference", "merge_link_options")
 load(
     ":linker.bzl",
     "SharedLibraryFlagOverrides",  # @unused Used as a type
@@ -503,7 +503,9 @@ def cxx_link_into(
             # just pass in the full link line and extract all inputs from that,
             # which is a bit of an overspecification.
             referenced_objects = [dwp_inputs],
-            action_execution_properties = action_execution_properties,
+            action_execution_properties = get_action_execution_attributes(
+                get_dwp_execution_preference(opts),
+            ),
         )
 
     # Per-TU device-debug stripping runs at compile time (compile.bzl).

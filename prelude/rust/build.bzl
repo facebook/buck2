@@ -594,6 +594,12 @@ def _rust_cxx_link(
         opts = link_options(
             links = links,
             link_execution_preference = link_execution_preference,
+            # The link is local only so the fbcode linker wrapper can stamp
+            # build info from the repo (D115067153); dwp needs no repo and is
+            # memory-hungry enough that pinning it to the link's host thrashes
+            # small workers. Let it schedule anywhere, matching the
+            # non-deferred-link path, which runs dwp with no preference.
+            dwp_execution_preference = LinkExecutionPreference("any"),
             category_suffix = "rust_dylib" if is_shared else "rust_binary",
             identifier = identifier,
             import_library = import_library,

@@ -107,6 +107,7 @@ def serialize_anon_attrs(output: str, result_type: CxxLinkResultType, opts: Link
         output = output,
         import_library = opts.import_library,
         link_execution_preference = opts.link_execution_preference.value,
+        dwp_execution_preference = opts.dwp_execution_preference.value if opts.dwp_execution_preference != None else None,
         enable_distributed_thinlto = opts.enable_distributed_thinlto,
         identifier = opts.identifier,
         category_suffix = opts.category_suffix,
@@ -177,6 +178,7 @@ def deserialize_anon_attrs(actions: AnalysisActions, label: Label, attrs: struct
         links = [_deserialize_link_args(actions, label, link) for link in attrs.links],
         import_library = attrs.import_library,
         link_execution_preference = LinkExecutionPreference(attrs.link_execution_preference),
+        dwp_execution_preference = LinkExecutionPreference(attrs.dwp_execution_preference) if attrs.dwp_execution_preference != None else None,
         category_suffix = attrs.category_suffix,
         identifier = attrs.identifier,
         enable_distributed_thinlto = attrs.enable_distributed_thinlto,
@@ -192,6 +194,7 @@ def deserialize_anon_attrs(actions: AnalysisActions, label: Label, attrs: struct
 ANON_ATTRS = {
     "allow_cache_upload": attrs.bool(),
     "category_suffix": attrs.string(),
+    "dwp_execution_preference": attrs.option(attrs.enum(LinkExecutionPreference.values()), default = None),
     "enable_distributed_thinlto": attrs.bool(),
     "identifier": attrs.option(attrs.string(), default = None),
     "import_library": attrs.option(attrs.source(), default = None),

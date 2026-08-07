@@ -31,6 +31,15 @@ LinkOptions = record(
     # common link args
     links = list[LinkArgs],
     link_execution_preference = LinkExecutionPreference,
+    # Execution preference for the `dwp` action that packages the split debug
+    # info of the linked output, if the toolchain produces one.
+    #
+    # `None` (the default) means "whatever the link itself uses", which is the
+    # historical behavior: dwp ran alongside the link to avoid round-tripping
+    # dwo files. Set this explicitly when the link has to be local for reasons
+    # that do not apply to dwp (e.g. build-info stamping), so that dwp is not
+    # dragged onto the local host with it.
+    dwp_execution_preference = field([LinkExecutionPreference, None], None),
     link_weight = int,
     link_ordering = [LinkOrdering, None],
     enable_distributed_thinlto = bool,
@@ -61,6 +70,7 @@ LinkOptions = record(
 def link_options(
     links: list[LinkArgs],
     link_execution_preference: LinkExecutionPreference,
+    dwp_execution_preference: [LinkExecutionPreference, None] = None,
     link_weight: int = 1,
     binary_links: list[LinkArgs] = [],
     link_ordering: [LinkOrdering, None] = None,
@@ -88,6 +98,7 @@ def link_options(
         binary_links = binary_links,
         links = links,
         link_execution_preference = link_execution_preference,
+        dwp_execution_preference = dwp_execution_preference,
         link_weight = link_weight,
         link_ordering = link_ordering,
         enable_distributed_thinlto = enable_distributed_thinlto,
@@ -118,6 +129,7 @@ def merge_link_options(
     binary_links: [list[LinkArgs], _NotProvided] = _NOT_PROVIDED,
     links: [list[LinkArgs], _NotProvided] = _NOT_PROVIDED,
     link_execution_preference: [LinkExecutionPreference, _NotProvided] = _NOT_PROVIDED,
+    dwp_execution_preference: [LinkExecutionPreference, None, _NotProvided] = _NOT_PROVIDED,
     link_weight: [int, _NotProvided] = _NOT_PROVIDED,
     link_ordering: [LinkOrdering, None, _NotProvided] = _NOT_PROVIDED,
     enable_distributed_thinlto: [bool, _NotProvided] = _NOT_PROVIDED,
@@ -139,6 +151,7 @@ def merge_link_options(
         binary_links = base.binary_links if binary_links == _NOT_PROVIDED else binary_links,
         links = base.links if links == _NOT_PROVIDED else links,
         link_execution_preference = base.link_execution_preference if link_execution_preference == _NOT_PROVIDED else link_execution_preference,
+        dwp_execution_preference = base.dwp_execution_preference if dwp_execution_preference == _NOT_PROVIDED else dwp_execution_preference,
         link_weight = base.link_weight if link_weight == _NOT_PROVIDED else link_weight,
         link_ordering = base.link_ordering if link_ordering == _NOT_PROVIDED else link_ordering,
         enable_distributed_thinlto = base.enable_distributed_thinlto if enable_distributed_thinlto == _NOT_PROVIDED else enable_distributed_thinlto,
@@ -158,3 +171,14 @@ def merge_link_options(
         incremental_link = base.incremental_link if incremental_link == _NOT_PROVIDED else incremental_link,
         has_hip_device_debug = base.has_hip_device_debug,
     )
+
+def get_dwp_execution_preference(opts: LinkOptions) -> LinkExecutionPreference:
+    """
+    The execution preference the `dwp` action for this link should run with.
+
+    Defaults to the link's own preference, so callers that do not care keep
+    dwp next to the link.
+    """
+    if opts.dwp_execution_preference != None:
+        return opts.dwp_execution_preference
+    return opts.link_execution_preference

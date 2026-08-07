@@ -30,7 +30,7 @@ load(
     "@prelude//cxx:dwp.bzl",
     "run_dwp_action",
 )
-load("@prelude//cxx:link_types.bzl", "LinkOptions")
+load("@prelude//cxx:link_types.bzl", "LinkOptions", "get_dwp_execution_preference")
 load("@prelude//linking:execution_preference.bzl", "get_action_execution_attributes")
 load(
     "@prelude//linking:link_info.bzl",
@@ -165,6 +165,7 @@ def cxx_gnu_dist_link(
     enable_late_build_info_stamping = executable_link and cxx_stamp_build_info(ctx)
 
     link_action_execution_properties = get_action_execution_attributes(opts.link_execution_preference)
+    dwp_action_execution_properties = get_action_execution_attributes(get_dwp_execution_preference(opts))
     enable_bolt = executable_link and cxx_use_bolt(ctx)
 
     def make_cat(c: str) -> str:
@@ -859,8 +860,10 @@ def cxx_gnu_dist_link(
                 dwp_output = outputs[dwp_output],
                 # Mirror the link action's execution preference so dwp runs
                 # alongside the link (avoids round-tripping dwo files when link
-                # is local).
-                action_execution_properties = link_action_execution_properties,
+                # is local) -- unless the caller asked for dwp to be scheduled
+                # separately, e.g. because the link is only local for
+                # build-info stamping.
+                action_execution_properties = dwp_action_execution_properties,
             )
 
         ctx.actions.dynamic_output(
