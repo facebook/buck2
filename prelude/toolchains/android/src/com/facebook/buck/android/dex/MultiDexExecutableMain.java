@@ -52,7 +52,6 @@ public class MultiDexExecutableMain {
 
   /** Thread count for main D8 compilation (capped to avoid diminishing returns). */
   private static final OptionalInt D8_THREAD_COUNT =
-      // NULLSAFE_FIXME[Not Vetted Third-Party]
       OptionalInt.of(Math.min(Runtime.getRuntime().availableProcessors(), 48));
 
   @Option(name = "--primary-dex")
@@ -66,8 +65,7 @@ public class MultiDexExecutableMain {
   @Nullable
   private String primaryDexFilesToDexList = null;
 
-  @Option(name = "--files-to-dex-list")
-  // NULLSAFE_FIXME[Field Not Initialized]
+  @Option(name = "--files-to-dex-list", required = true)
   private String filesToDexList;
 
   @Option(name = "--module", required = true)
@@ -76,8 +74,7 @@ public class MultiDexExecutableMain {
   @Option(name = "--canary-class-name", required = true)
   private String canaryClassName;
 
-  @Option(name = "--android-jar")
-  // NULLSAFE_FIXME[Field Not Initialized]
+  @Option(name = "--android-jar", required = true)
   private String androidJar;
 
   @Option(name = "--primary-dex-patterns-path")
@@ -450,7 +447,6 @@ public class MultiDexExecutableMain {
     int threadCount = Math.min(tasks.size(), Runtime.getRuntime().availableProcessors());
     ExecutorService executor = Executors.newFixedThreadPool(threadCount);
     try {
-      // NULLSAFE_FIXME[Not Vetted Third-Party]
       for (Future<Void> future : executor.invokeAll(tasks)) {
         future.get();
       }
