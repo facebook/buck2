@@ -15,6 +15,7 @@ use dupe::Dupe;
 use serde::Deserialize;
 use serde::Serialize;
 
+/// Source categories used to define a setting's override policy.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum OverrideSource {
     CommandLine,
@@ -144,7 +145,7 @@ mod tests {
     use std::collections::BTreeSet;
 
     use super::*;
-    use crate::settings::parser::resolve;
+    use crate::settings::parser::resolve_setting_flags;
     use crate::settings::parser::table;
 
     #[test]
@@ -159,14 +160,14 @@ mod tests {
 
     #[test]
     fn test_log_use_manifold() -> buck2_error::Result<()> {
-        let settings = resolve(vec![table("log_use_manifold = false")])?;
+        let settings = resolve_setting_flags(vec![table("log_use_manifold = false")])?;
         assert_eq!(settings.log_use_manifold(), Some(false));
         Ok(())
     }
 
     #[test]
     fn test_log_url() -> buck2_error::Result<()> {
-        let settings = resolve(vec![table("log_url = \"test.com\"")])?;
+        let settings = resolve_setting_flags(vec![table("log_url = \"test.com\"")])?;
         assert_eq!(settings.log_url(), Some("test.com"));
         Ok(())
     }

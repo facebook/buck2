@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -21,14 +22,108 @@ use serde::de::DeserializeOwned;
 
 use crate::settings::BuckSettings;
 use crate::settings::path::DEFAULT_SETTINGS_SOURCES;
-use crate::settings::path::SettingsSource;
-use crate::settings::settings::BuckSettingsData;
+use crate::settings::path::DOT_BUCKSETTINGS;
+use crate::settings::path::SettingsSource as SettingsPathSource;
+#[cfg(test)]
+use crate::settings::settings::SettingKeyRef;
+
+/// Source of a setting value.
+#[derive(Debug, PartialEq, Eq)]
+enum Provenance {
+    /// Repo root setting file
+    Base(AbsPathBuf),
+    /// Local setting file
+    LocalSettings(AbsPathBuf),
+    CommandLine,
+}
 
 #[derive(buck2_error::Error, Debug)]
 #[buck2(input)]
 enum SettingsError {
     #[error("Error parsing buck settings: {0}")]
     Parse(toml::de::Error),
+}
+
+/// Settings parsed from a single source.
+#[derive(Clone, Debug)]
+struct SettingsLayer {
+    provenance: Arc<Provenance>,
+    table: toml::Table,
+}
+
+impl SettingsLayer {
+    fn new(provenance: Provenance, table: toml::Table) -> Self {
+        Self {
+            provenance: Arc::new(provenance),
+            table,
+        }
+    }
+
+    fn setting_flag(table: toml::Table) -> Self {
+        Self::new(Provenance::CommandLine, table)
+    }
+}
+
+/// A node in `MergedSettings`. Either a section or a setting value with provenance.
+#[derive(Debug)]
+enum SourcedValue {
+    /// A settings section containing merged values.
+    Section(MergedSettings),
+    /// A setting value from one source, replaced by higher-priority sources during merging.
+    Leaf {
+        value: toml::Value,
+        #[cfg_attr(
+            not(test),
+            expect(
+                dead_code,
+                reason = "provenance is consumed by validation in a follow-up diff"
+            )
+        )]
+        provenance: Arc<Provenance>,
+    },
+}
+
+impl SourcedValue {
+    fn new(value: toml::Value, provenance: &Arc<Provenance>) -> Self {
+        match value {
+            toml::Value::Table(table) => Self::Section(MergedSettings(
+                table
+                    .into_iter()
+                    .map(|(key, value)| (key, Self::new(value, provenance)))
+                    .collect(),
+            )),
+            value => Self::Leaf {
+                value,
+                provenance: Arc::clone(provenance),
+            },
+        }
+    }
+
+    fn into_value(self) -> toml::Value {
+        match self {
+            Self::Section(section) => toml::Value::Table(section.into_table()),
+            Self::Leaf { value, .. } => value,
+        }
+    }
+}
+
+/// Recursively merged settings keyed by section or setting name at each level.
+#[derive(Debug, Default)]
+struct MergedSettings(BTreeMap<String, SourcedValue>);
+
+impl MergedSettings {
+    fn into_table(self) -> toml::Table {
+        self.0
+            .into_iter()
+            .map(|(key, value)| (key, value.into_value()))
+            .collect()
+    }
+
+    fn deserialize<T: DeserializeOwned>(self) -> buck2_error::Result<T> {
+        Ok(toml::Value::Table(self.into_table())
+            .try_into()
+            .map_err(SettingsError::Parse)?)
+    }
 }
 
 /// Parses a settings file into an untyped table.
@@ -50,58 +145,68 @@ fn parse_table(path: &AbsPath) -> buck2_error::Result<Option<toml::Table>> {
 fn parse_layers(
     repo_root: &AbsPath,
     home_dir: Option<&AbsPath>,
-) -> buck2_error::Result<Vec<toml::Table>> {
+) -> buck2_error::Result<Vec<SettingsLayer>> {
     let mut layers = Vec::new();
     for source in DEFAULT_SETTINGS_SOURCES {
-        let path = match source {
-            SettingsSource::RepoRootFile(name) => repo_root.join(name),
-            SettingsSource::HomeFile(name) => {
+        let (path, is_base) = match source {
+            SettingsPathSource::RepoRootFile(name) => {
+                let path = repo_root.join(name);
+                (path, *name == DOT_BUCKSETTINGS)
+            }
+            SettingsPathSource::HomeFile(name) => {
                 let Some(home_dir) = home_dir else {
                     continue;
                 };
-                home_dir.join(name)
+                (home_dir.join(name), false)
             }
         };
         if let Some(table) = parse_table(&path)? {
-            layers.push(table);
+            let provenance = if is_base {
+                Provenance::Base(path)
+            } else {
+                Provenance::LocalSettings(path)
+            };
+            layers.push(SettingsLayer::new(provenance, table));
         }
     }
     Ok(layers)
 }
 
 /// Recursively merges overlay into base. Overlay values take precedence over base values.
-fn merge(base: &mut toml::Table, overlay: toml::Table) {
+/// TOML tables are merged recursively by key instead of replaced atomically.
+fn merge(base: &mut MergedSettings, overlay: toml::Table, provenance: &Arc<Provenance>) {
     for (k, v) in overlay {
-        match (base.get_mut(&k), v) {
-            (Some(toml::Value::Table(base_table)), toml::Value::Table(overlay_table)) => {
-                merge(base_table, overlay_table);
+        match (base.0.get_mut(&k), v) {
+            (Some(SourcedValue::Section(base_section)), toml::Value::Table(overlay_table)) => {
+                merge(base_section, overlay_table, provenance);
             }
             (_, v) => {
-                base.insert(k, v);
+                base.0.insert(k, SourcedValue::new(v, provenance));
             }
         }
     }
 }
 
-/// Merges layers from lowest to highest priority and deserializes.
-pub(crate) fn resolve_into<T: DeserializeOwned>(
-    layers: Vec<toml::Table>,
-) -> buck2_error::Result<T> {
-    let mut merged = toml::Table::new();
-    for layer in layers {
-        merge(&mut merged, layer);
+fn merge_layers(layers: Vec<SettingsLayer>) -> MergedSettings {
+    let mut merged = MergedSettings::default();
+    for SettingsLayer { provenance, table } in layers {
+        merge(&mut merged, table, &provenance);
     }
-
-    let resolved = toml::Value::Table(merged)
-        .try_into()
-        .map_err(SettingsError::Parse)?;
-    Ok(resolved)
+    merged
 }
 
-pub(crate) fn resolve(layers: Vec<toml::Table>) -> buck2_error::Result<BuckSettings> {
-    Ok(BuckSettings(Arc::new(resolve_into::<BuckSettingsData>(
-        layers,
-    )?)))
+fn resolve(layers: Vec<SettingsLayer>) -> buck2_error::Result<BuckSettings> {
+    Ok(BuckSettings(Arc::new(merge_layers(layers).deserialize()?)))
+}
+
+#[cfg(test)]
+pub(crate) fn resolve_setting_flags(tables: Vec<toml::Table>) -> buck2_error::Result<BuckSettings> {
+    resolve(
+        tables
+            .into_iter()
+            .map(SettingsLayer::setting_flag)
+            .collect(),
+    )
 }
 
 pub fn parse_settings(
@@ -114,7 +219,12 @@ pub fn parse_settings(
         .or_else(dirs::home_dir);
     let home_dir = home_dir.map(AbsPathBuf::new).transpose()?;
     let mut layers = parse_layers(repo_root, home_dir.as_deref())?;
-    layers.extend_from_slice(settings_args);
+    layers.extend(
+        settings_args
+            .iter()
+            .cloned()
+            .map(SettingsLayer::setting_flag),
+    );
     resolve(layers)
 }
 
@@ -133,7 +243,22 @@ mod tests {
     use crate::settings::settings::testing::TestBuckSettingsData;
     use crate::settings::settings::testing::TestSection;
 
-    /// Resolves settings from a temp repo root, temp home dir, and command line arguments.
+    impl MergedSettings {
+        fn provenance(&self, key: SettingKeyRef<'_>) -> Option<&Provenance> {
+            let value = match key.section {
+                Some(section) => match self.0.get(section)? {
+                    SourcedValue::Section(section) => section.0.get(key.name)?,
+                    SourcedValue::Leaf { .. } => return None,
+                },
+                None => self.0.get(key.name)?,
+            };
+            match value {
+                SourcedValue::Leaf { provenance, .. } => Some(provenance),
+                SourcedValue::Section(_) => None,
+            }
+        }
+    }
+
     fn resolve_from_files_and_args(
         repo_files: &[(&str, &str)],
         home_files: &[(&str, &str)],
@@ -155,9 +280,10 @@ mod tests {
             settings_args
                 .iter()
                 .map(|arg| parse_setting_flag_arg(arg).map(SettingOverride::into_table))
+                .map(|result| result.map(SettingsLayer::setting_flag))
                 .collect::<buck2_error::Result<Vec<_>>>()?,
         );
-        resolve_into::<TestBuckSettingsData>(layers)
+        merge_layers(layers).deserialize()
     }
 
     #[test]
@@ -194,25 +320,76 @@ mod tests {
 
     #[test]
     fn test_merge() {
-        let mut base = table("a = 1\nb = 2");
-        merge(&mut base, table("b = 3\nc = 4"));
-        assert_eq!(base, table("a = 1\nb = 3\nc = 4"));
-
-        let mut base = table("[s]\nx = 1\ny = 2");
-        merge(&mut base, table("[s]\ny = 3"));
-        assert_eq!(base, table("[s]\nx = 1\ny = 3"));
-    }
-
-    #[test]
-    fn test_resolve_into_rejects_unknown_key() {
-        assert!(resolve_into::<TestBuckSettingsData>(vec![table("nonexistent = true")]).is_err());
-    }
-
-    #[test]
-    fn test_resolve_into_rejects_invalid_type() {
-        assert!(
-            resolve_into::<TestBuckSettingsData>(vec![table("test_flag = \"invalid\"")]).is_err()
+        let merged = merge_layers(vec![
+            SettingsLayer::setting_flag(table("a = 1\nb = 2\n[s]\nx = 1\ny = 2")),
+            SettingsLayer::setting_flag(table("b = 3\nc = 4\n[s]\ny = 3")),
+        ]);
+        assert_eq!(
+            merged.into_table(),
+            table("a = 1\nb = 3\nc = 4\n[s]\nx = 1\ny = 3")
         );
+    }
+
+    #[test]
+    fn test_layer_sources_and_winning_origins() -> buck2_error::Result<()> {
+        let repo = ProjectRootTemp::new()?;
+        repo.write_file(".bucksettings.toml", "test_flag = true");
+        repo.write_file(".bucksettings.local.toml", "test_flag = false");
+        let home = ProjectRootTemp::new()?;
+        home.write_file(
+            ".bucksettings.local.toml",
+            "[test_section]\ntest_value = \"home\"",
+        );
+
+        let mut layers = parse_layers(
+            repo.path().root().as_abs_path(),
+            Some(home.path().root().as_abs_path()),
+        )?;
+        assert_eq!(
+            layers[0].provenance.as_ref(),
+            &Provenance::Base(repo.path().root().as_abs_path().join(DOT_BUCKSETTINGS))
+        );
+        assert_eq!(
+            layers[1].provenance.as_ref(),
+            &Provenance::LocalSettings(
+                home.path()
+                    .root()
+                    .as_abs_path()
+                    .join(".bucksettings.local.toml")
+            )
+        );
+        assert_eq!(
+            layers[2].provenance.as_ref(),
+            &Provenance::LocalSettings(
+                repo.path()
+                    .root()
+                    .as_abs_path()
+                    .join(".bucksettings.local.toml")
+            )
+        );
+        layers.push(SettingsLayer::setting_flag(table("test_flag = true")));
+
+        let merged = merge_layers(layers);
+        assert_eq!(
+            merged.provenance(SettingKeyRef {
+                section: None,
+                name: "test_flag",
+            }),
+            Some(&Provenance::CommandLine)
+        );
+        assert_eq!(
+            merged.provenance(SettingKeyRef {
+                section: Some("test_section"),
+                name: "test_value",
+            }),
+            Some(&Provenance::LocalSettings(
+                home.path()
+                    .root()
+                    .as_abs_path()
+                    .join(".bucksettings.local.toml")
+            ))
+        );
+        Ok(())
     }
 
     #[test]
