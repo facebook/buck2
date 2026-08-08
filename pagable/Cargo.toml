@@ -4,7 +4,7 @@ edition = "2024"
 license = { workspace = true }
 name = "pagable"
 repository = { workspace = true }
-version = "0.4.1"
+version = "0.4.2"
 
 [dependencies]
 allocative = { workspace = true }
@@ -21,7 +21,7 @@ indexmap = { workspace = true }
 inventory = { workspace = true }
 num-bigint = { workspace = true }
 once_cell = "1.21.4"
-pagable_derive = { version = "=0.4.1", path = "../pagable_derive" }
+pagable_derive = { version = "=0.4.2", path = "../pagable_derive" }
 parking_lot = { workspace = true }
 postcard = { version = "1.0.8", features = ["use-crc", "use-std"] }
 regex = { workspace = true }
