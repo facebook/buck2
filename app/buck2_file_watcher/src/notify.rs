@@ -84,6 +84,14 @@ impl NotifyFileData {
         let event =
             event.map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::NotifyWatcher))?;
 
+        // Checked before the path loop: the kernel-overflow rescan signal can arrive with no
+        // paths attached (platform dependent), and a missed rescan means the daemon keeps
+        // answering from a stale graph.
+        if event.need_rescan() {
+            self.missed_events = true;
+            debug!("FileWatcher: File change events were missed");
+        }
+
         for path in &event.paths {
             // Testing shows that we get absolute paths back from the `notify` library.
             // It's not documented though.
@@ -109,11 +117,6 @@ impl NotifyFileData {
                 "FileWatcher: {:?} {:?} (ignore = {})",
                 path, &event.kind, ignore
             );
-
-            if event.need_rescan() {
-                self.missed_events = true;
-                debug!("FileWatcher: File change events were missed");
-            }
 
             if ignore || ignore_event_kind(event.kind) {
                 self.ignored += 1;
@@ -339,5 +342,90 @@ impl FileWatcher for NotifyFileWatcher {
             },
         )
         .await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use buck2_core::cells::cell_root_path::CellRootPathBuf;
+    use buck2_core::cells::name::CellName;
+    use buck2_core::fs::project_rel_path::ProjectRelativePath;
+    use buck2_fs::fs_util::uncategorized as fs_util;
+    use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+    use notify::event::CreateKind;
+    use notify::event::Flag;
+
+    use super::*;
+
+    fn fixture() -> (
+        ProjectRoot,
+        CellResolver,
+        StdBuckHashMap<CellName, IgnoreSet>,
+        tempfile::TempDir,
+    ) {
+        let cells = CellResolver::testing_with_name_and_path(
+            CellName::testing_new("root"),
+            CellRootPathBuf::testing_new(""),
+        );
+        let tempdir = tempfile::tempdir().unwrap();
+        let root_path =
+            fs_util::canonicalize(AbsNormPathBuf::new(tempdir.path().to_owned()).unwrap()).unwrap();
+        let root = ProjectRoot::new(root_path).unwrap();
+        (root, cells, StdBuckHashMap::default(), tempdir)
+    }
+
+    /// The kernel-overflow signal can arrive as a rescan-flagged event with no paths attached
+    /// (platform dependent). The flag must still be recorded, otherwise lost notifications go
+    /// undetected and the daemon keeps answering from a stale graph, which is the cache
+    /// inconsistency the missed-events handling exists to close.
+    #[test]
+    fn rescan_event_with_no_paths_sets_missed_events() {
+        let (root, cells, ignores, _t) = fixture();
+        let mut state = NotifyFileData::new();
+        let event = notify::Event::new(EventKind::Any).set_flag(Flag::Rescan);
+        state.process(Ok(event), &root, &cells, &ignores).unwrap();
+        assert!(
+            state.missed_events,
+            "a pathless rescan event must set missed_events"
+        );
+    }
+
+    #[test]
+    fn rescan_event_with_paths_sets_missed_events() {
+        let (root, cells, ignores, _t) = fixture();
+        let mut state = NotifyFileData::new();
+        let path = root.resolve(ProjectRelativePath::new("f").unwrap());
+        let event = notify::Event::new(EventKind::Create(CreateKind::File))
+            .add_path(path.into_abs_path_buf().into_path_buf())
+            .set_flag(Flag::Rescan);
+        state.process(Ok(event), &root, &cells, &ignores).unwrap();
+        assert!(state.missed_events);
+    }
+
+    /// Missed events: the sync result carries no tracker (the caller drops the graph) and the
+    /// stats surface the wipe the same way watchman's fresh-instance path does.
+    #[test]
+    fn sync_with_missed_events_reports_fresh_instance_and_drops_changes() {
+        let mut state = NotifyFileData::new();
+        state.missed_events = true;
+        let (stats, changes) = state.sync();
+        assert!(changes.is_none(), "missed events must drop the tracker");
+        assert!(stats.fresh_instance);
+        let fresh = stats
+            .fresh_instance_data
+            .expect("fresh instance data populated");
+        assert!(fresh.cleared_dice);
+        assert!(stats.incomplete_events_reason.is_some());
+    }
+
+    #[test]
+    fn sync_without_missed_events_returns_changes() {
+        let (stats, changes) = NotifyFileData::new().sync();
+        assert!(
+            changes.is_some(),
+            "no missed events: incremental tracker must survive"
+        );
+        assert!(!stats.fresh_instance);
+        assert!(stats.incomplete_events_reason.is_none());
     }
 }
