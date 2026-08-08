@@ -122,8 +122,6 @@ def _extract_symbol_names(
             + ' | sed "/_ITM_registerTMCloneTable/d"'
             + ' | sed "/MallocExtension_Internal_GetNumericProperty/d"'
             + ' | sed "/_ZTHN3c104impl26raw_local_dispatch_key_setE/d"'
-            + ' | sed "/_Z15io_buf_alloc_cbPvm/d"'
-            + ' | sed "/_Z14io_buf_free_cbPvm/d"'
             +
             # Sort and dedup symbols.  Use the `C` locale and do it in-memory to
             # make it significantly faster. CAUTION: if ten of these processes
