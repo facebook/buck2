@@ -24,17 +24,33 @@ use crate::settings::BuckSettings;
 use crate::settings::path::DEFAULT_SETTINGS_SOURCES;
 use crate::settings::path::DOT_BUCKSETTINGS;
 use crate::settings::path::SettingsSource as SettingsPathSource;
-#[cfg(test)]
+use crate::settings::settings::ALL_SETTING_METADATA;
+use crate::settings::settings::OverrideSource;
+use crate::settings::settings::SettingKeyMetadata;
 use crate::settings::settings::SettingKeyRef;
+use crate::settings::settings::SettingSource;
+use crate::settings::settings::find_setting_metadata;
 
 /// Source of a setting value.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, derive_more::Display)]
 enum Provenance {
     /// Repo root setting file
     Base(AbsPathBuf),
     /// Local setting file
+    #[display("local settings file `{_0}`")]
     LocalSettings(AbsPathBuf),
+    #[display("`--setting`")]
     CommandLine,
+}
+
+impl Provenance {
+    fn setting_source(&self) -> SettingSource {
+        match self {
+            Self::Base(_) => SettingSource::Base,
+            Self::LocalSettings(_) => SettingSource::Override(OverrideSource::LocalSettings),
+            Self::CommandLine => SettingSource::Override(OverrideSource::CommandLine),
+        }
+    }
 }
 
 #[derive(buck2_error::Error, Debug)]
@@ -42,6 +58,11 @@ enum Provenance {
 enum SettingsError {
     #[error("Error parsing buck settings: {0}")]
     Parse(toml::de::Error),
+    #[error("Buck setting `{key}` cannot be overridden from {origin}")]
+    InvalidOverride {
+        key: String,
+        origin: Arc<Provenance>,
+    },
 }
 
 /// Settings parsed from a single source.
@@ -72,13 +93,6 @@ enum SourcedValue {
     /// A setting value from one source, replaced by higher-priority sources during merging.
     Leaf {
         value: toml::Value,
-        #[cfg_attr(
-            not(test),
-            expect(
-                dead_code,
-                reason = "provenance is consumed by validation in a follow-up diff"
-            )
-        )]
         provenance: Arc<Provenance>,
     },
 }
@@ -117,6 +131,47 @@ impl MergedSettings {
             .into_iter()
             .map(|(key, value)| (key, value.into_value()))
             .collect()
+    }
+
+    fn validate_inner<'a>(
+        &'a self,
+        metadata: &[SettingKeyMetadata],
+        path: &mut Vec<&'a str>,
+    ) -> buck2_error::Result<()> {
+        for (name, value) in &self.0 {
+            path.push(name);
+            match value {
+                SourcedValue::Section(section) => {
+                    section.validate_inner(metadata, path)?;
+                }
+                SourcedValue::Leaf { provenance, .. } => {
+                    let (name, section) = path.split_last().expect("a setting always has a name");
+                    let section = (!section.is_empty()).then(|| section.join("."));
+                    let key = SettingKeyRef {
+                        section: section.as_deref(),
+                        name,
+                    };
+                    let Some(metadata) = find_setting_metadata(metadata, key) else {
+                        path.pop();
+                        continue;
+                    };
+                    if !metadata.allows_source(provenance.setting_source()) {
+                        return Err(SettingsError::InvalidOverride {
+                            key: path.join("."),
+                            origin: Arc::clone(provenance),
+                        }
+                        .into());
+                    }
+                }
+            }
+            path.pop();
+        }
+        Ok(())
+    }
+
+    /// Validates override sources for final merged values, ignoring overridden values.
+    fn validate(&self, metadata: &[SettingKeyMetadata]) -> buck2_error::Result<()> {
+        self.validate_inner(metadata, &mut Vec::new())
     }
 
     fn deserialize<T: DeserializeOwned>(self) -> buck2_error::Result<T> {
@@ -196,7 +251,9 @@ fn merge_layers(layers: Vec<SettingsLayer>) -> MergedSettings {
 }
 
 fn resolve(layers: Vec<SettingsLayer>) -> buck2_error::Result<BuckSettings> {
-    Ok(BuckSettings(Arc::new(merge_layers(layers).deserialize()?)))
+    let merged = merge_layers(layers);
+    merged.validate(ALL_SETTING_METADATA)?;
+    Ok(BuckSettings(Arc::new(merged.deserialize()?)))
 }
 
 #[cfg(test)]
@@ -259,6 +316,40 @@ mod tests {
         }
     }
 
+    const TEST_FLAG_METADATA: SettingKeyMetadata = SettingKeyMetadata {
+        key: SettingKeyRef {
+            section: None,
+            name: "test_flag",
+        },
+        overridable_in: &[OverrideSource::CommandLine],
+    };
+
+    const TEST_SETTINGS_METADATA: &[SettingKeyMetadata] = &[
+        SettingKeyMetadata {
+            key: SettingKeyRef {
+                section: None,
+                name: "test_flag",
+            },
+            overridable_in: &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
+        },
+        SettingKeyMetadata {
+            key: SettingKeyRef {
+                section: Some("test_section"),
+                name: "test_value",
+            },
+            overridable_in: &[OverrideSource::CommandLine, OverrideSource::LocalSettings],
+        },
+    ];
+
+    fn resolve_with_metadata<T: DeserializeOwned>(
+        layers: Vec<SettingsLayer>,
+        metadata: &[SettingKeyMetadata],
+    ) -> buck2_error::Result<T> {
+        let merged = merge_layers(layers);
+        merged.validate(metadata)?;
+        merged.deserialize()
+    }
+
     fn resolve_from_files_and_args(
         repo_files: &[(&str, &str)],
         home_files: &[(&str, &str)],
@@ -283,7 +374,7 @@ mod tests {
                 .map(|result| result.map(SettingsLayer::setting_flag))
                 .collect::<buck2_error::Result<Vec<_>>>()?,
         );
-        merge_layers(layers).deserialize()
+        resolve_with_metadata(layers, TEST_SETTINGS_METADATA)
     }
 
     #[test]
@@ -349,6 +440,7 @@ mod tests {
             layers[0].provenance.as_ref(),
             &Provenance::Base(repo.path().root().as_abs_path().join(DOT_BUCKSETTINGS))
         );
+        assert_eq!(layers[0].provenance.setting_source(), SettingSource::Base);
         assert_eq!(
             layers[1].provenance.as_ref(),
             &Provenance::LocalSettings(
@@ -378,6 +470,24 @@ mod tests {
             Some(&Provenance::CommandLine)
         );
         assert_eq!(
+            merged
+                .provenance(SettingKeyRef {
+                    section: None,
+                    name: "test_flag",
+                })
+                .map(Provenance::setting_source),
+            Some(SettingSource::Override(OverrideSource::CommandLine))
+        );
+        assert_eq!(
+            merged
+                .provenance(SettingKeyRef {
+                    section: Some("test_section"),
+                    name: "test_value",
+                })
+                .map(Provenance::setting_source),
+            Some(SettingSource::Override(OverrideSource::LocalSettings))
+        );
+        assert_eq!(
             merged.provenance(SettingKeyRef {
                 section: Some("test_section"),
                 name: "test_value",
@@ -390,6 +500,104 @@ mod tests {
             ))
         );
         Ok(())
+    }
+
+    #[test]
+    fn test_rejects_disallowed_local_settings_override() {
+        let local = ProjectRootTemp::new().unwrap();
+        let path = local
+            .path()
+            .root()
+            .as_abs_path()
+            .join(".bucksettings.local.toml");
+        let error = resolve_with_metadata::<TestBuckSettingsData>(
+            vec![SettingsLayer::new(
+                Provenance::LocalSettings(path.clone()),
+                table("test_flag = true"),
+            )],
+            &[TEST_FLAG_METADATA],
+        )
+        .unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            format!(
+                "Buck setting `test_flag` cannot be overridden from local settings file `{}`",
+                path.display()
+            )
+        );
+    }
+
+    #[test]
+    fn test_rejects_disallowed_command_line_override() {
+        let error = resolve_with_metadata::<TestBuckSettingsData>(
+            vec![SettingsLayer::setting_flag(table("test_flag = true"))],
+            &[SettingKeyMetadata {
+                key: TEST_FLAG_METADATA.key,
+                overridable_in: &[],
+            }],
+        )
+        .unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "Buck setting `test_flag` cannot be overridden from `--setting`"
+        );
+    }
+
+    #[test]
+    fn test_repo_root_settings_always_valid() -> buck2_error::Result<()> {
+        let repo = ProjectRootTemp::new()?;
+        let base = resolve_with_metadata::<TestBuckSettingsData>(
+            vec![SettingsLayer::new(
+                Provenance::Base(repo.path().root().as_abs_path().join(".bucksettings.toml")),
+                table("test_flag = true"),
+            )],
+            &[TEST_FLAG_METADATA],
+        )?;
+        assert_eq!(base.test_flag, Some(true));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_overridden_disallowed_source_is_ignored() -> buck2_error::Result<()> {
+        let local = ProjectRootTemp::new()?;
+        let shadowed = resolve_with_metadata::<TestBuckSettingsData>(
+            vec![
+                SettingsLayer::new(
+                    Provenance::LocalSettings(
+                        local
+                            .path()
+                            .root()
+                            .as_abs_path()
+                            .join(".bucksettings.local.toml"),
+                    ),
+                    table("test_flag = false"),
+                ),
+                SettingsLayer::setting_flag(table("test_flag = true")),
+            ],
+            &[TEST_FLAG_METADATA],
+        )?;
+        assert_eq!(shadowed.test_flag, Some(true));
+        Ok(())
+    }
+
+    #[test]
+    fn test_overridden_invalid_type_is_ignored() -> buck2_error::Result<()> {
+        let resolved = resolve_with_metadata::<TestBuckSettingsData>(
+            vec![
+                SettingsLayer::setting_flag(table("test_flag = \"invalid\"")),
+                SettingsLayer::setting_flag(table("test_flag = true")),
+            ],
+            &[TEST_FLAG_METADATA],
+        )?;
+        assert_eq!(resolved.test_flag, Some(true));
+        Ok(())
+    }
+
+    #[test]
+    fn test_unknown_key_uses_deserialization_error() {
+        let error = resolve_setting_flags(vec![table("nonexistent = true")]).unwrap_err();
+        assert!(error.to_string().contains("unknown field"));
     }
 
     #[test]

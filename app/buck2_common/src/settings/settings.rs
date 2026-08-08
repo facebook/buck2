@@ -22,6 +22,14 @@ pub(crate) enum OverrideSource {
     LocalSettings,
 }
 
+/// Classifies a setting's provenance as base or an override source.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum SettingSource {
+    /// Repo-root `.bucksettings.toml`
+    Base,
+    Override(OverrideSource),
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct SettingKeyRef<'a> {
     pub(crate) section: Option<&'a str>,
@@ -32,6 +40,15 @@ pub(crate) struct SettingKeyRef<'a> {
 pub(crate) struct SettingKeyMetadata {
     pub(crate) key: SettingKeyRef<'static>,
     pub(crate) overridable_in: &'static [OverrideSource],
+}
+
+impl SettingKeyMetadata {
+    pub(super) fn allows_source(&self, source: SettingSource) -> bool {
+        match source {
+            SettingSource::Base => true,
+            SettingSource::Override(source) => self.overridable_in.contains(&source),
+        }
+    }
 }
 
 struct SettingKey<T> {
@@ -82,17 +99,11 @@ const LOG_USE_MANIFOLD: SettingKey<bool> = SettingKey {
 pub(crate) static ALL_SETTING_METADATA: &[SettingKeyMetadata] =
     &[LOG_USE_MANIFOLD.metadata, LOG_URL.metadata];
 
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "registry lookup is consumed by validation in a follow-up diff"
-    )
-)]
-pub(crate) fn find_setting_metadata(key: SettingKeyRef<'_>) -> Option<&'static SettingKeyMetadata> {
-    ALL_SETTING_METADATA
-        .iter()
-        .find(|metadata| metadata.key == key)
+pub(crate) fn find_setting_metadata<'a>(
+    metadata: &'a [SettingKeyMetadata],
+    key: SettingKeyRef<'_>,
+) -> Option<&'a SettingKeyMetadata> {
+    metadata.iter().find(|metadata| metadata.key == key)
 }
 
 #[derive(Debug, Default, Deserialize, Serialize, PartialEq, Eq, Allocative)]
@@ -175,24 +186,33 @@ mod tests {
     #[test]
     fn test_find_setting_metadata() {
         assert_eq!(
-            find_setting_metadata(SettingKeyRef {
-                section: None,
-                name: "log_use_manifold",
-            }),
+            find_setting_metadata(
+                ALL_SETTING_METADATA,
+                SettingKeyRef {
+                    section: None,
+                    name: "log_use_manifold",
+                },
+            ),
             Some(&LOG_USE_MANIFOLD.metadata)
         );
         assert_eq!(
-            find_setting_metadata(SettingKeyRef {
-                section: None,
-                name: "log_use_maniflod",
-            }),
+            find_setting_metadata(
+                ALL_SETTING_METADATA,
+                SettingKeyRef {
+                    section: None,
+                    name: "log_use_maniflod",
+                },
+            ),
             None
         );
         assert_eq!(
-            find_setting_metadata(SettingKeyRef {
-                section: Some("buck2"),
-                name: "log_url",
-            }),
+            find_setting_metadata(
+                ALL_SETTING_METADATA,
+                SettingKeyRef {
+                    section: Some("buck2"),
+                    name: "log_url",
+                },
+            ),
             None
         );
     }
