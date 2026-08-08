@@ -9,10 +9,10 @@
 
 # A "fake" linker command meant to be provided to rustc as `-Clinker={}`. This script will process
 # the arguments passed in from rustc and export the objects, version script, and other arguments
-# as outputs to later be used by an invocation of `deferred_link_action.py`.
+# as outputs to later be consumed by the cxx-driven link of this crate.
 #
 # Some arguments here are stripped out e.g. -L<sysroot> in order to save work from having to persist
-# an artifact between this action and the deferred link action. See the comments in
+# an artifact between this action and the link action. See the comments in
 # `process_link_args()` for more details.
 
 import argparse
