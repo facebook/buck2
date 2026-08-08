@@ -31,7 +31,9 @@ GraphQLAndroidInfo = record(
     use_implicit_codegen = bool,
 )
 
-GraphQLCxxInfo = record()
+GraphQLCxxInfo = record(
+    use_implicit_codegen = bool,
+)
 
 GraphQLInfo = provider(
     fields = {
