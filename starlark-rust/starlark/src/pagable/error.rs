@@ -82,10 +82,18 @@ pub enum PagableError {
 
     /// A `FrozenValue` being serialized points into a heap whose chunk index
     /// was never registered, so its `value_index` cannot be resolved.
-    #[error("FrozenValue pointer {raw_ptr:#x} not found in any registered heap's chunk index")]
+    #[error(
+        "FrozenValue pointer {raw_ptr:#x} not found in any registered heap's chunk index; target type: `{target_type}`; chunk index: {chunk_index_diagnostic}; live heap scan: {live_heap_diagnostic}"
+    )]
     FrozenValueNotRegistered {
         /// Payload address of the unresolved `FrozenValue`.
         raw_ptr: usize,
+        /// Starlark type of the unresolved value.
+        target_type: &'static str,
+        /// State of the serialization chunk index around `raw_ptr`.
+        chunk_index_diagnostic: String,
+        /// Result of scanning the live registered heap allocations directly.
+        live_heap_diagnostic: String,
     },
 
     /// A `StarlarkPagable`-derived enum was deserialized with an unknown variant tag.

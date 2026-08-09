@@ -20,6 +20,7 @@ use std::cell::Cell;
 use std::cell::RefCell;
 use std::cell::RefMut;
 use std::cmp;
+use std::collections::HashSet;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Formatter;
@@ -526,13 +527,22 @@ impl FrozenFrozenHeap {
 
         // Serialize value data, recording start cursor per value.
         let mut entry_cursors: Vec<(u32, u32)> = Vec::with_capacity(table_entry_count);
-        for header in &all_headers_in_order {
+        for (value_index, header) in all_headers_in_order.iter().enumerate() {
             let start = ctx.pagable().position();
             entry_cursors.push((
                 (start.byte_pos - base_pos.byte_pos) as u32,
                 (start.arc_index - base_pos.arc_index) as u32,
             ));
-            header.unpack().starlark_serialize(&mut ctx)?;
+            let value = header.unpack();
+            value.starlark_serialize(&mut ctx).map_err(|error| {
+                self.enrich_value_serialization_error(
+                    error,
+                    heap_name,
+                    value_index,
+                    value.vtable().type_name,
+                    &all_headers_in_order,
+                )
+            })?;
         }
         // End sentinel: position after all value data.
         let end = ctx.pagable().position();
@@ -983,14 +993,15 @@ impl FrozenHeap {
         if arena.is_empty() && refs.is_empty() {
             FrozenHeapRef::default()
         } else {
-            FrozenHeapRef(Some(PartialPagableArc::new(FrozenFrozenHeap {
+            let heap = PartialPagableArc::new(FrozenFrozenHeap {
                 arena,
                 refs: refs.into_iter().collect(),
                 name,
                 peak_allocated_bytes,
                 ser_state: OnceLock::new(),
                 deser_state: OnceLock::new(),
-            })))
+            });
+            FrozenHeapRef(Some(heap))
         }
     }
 
@@ -1344,6 +1355,164 @@ impl<'v> Tracer<'v> {
             AValueOrForwardUnpack::Forward(x) => unsafe { x.forward_ptr().unpack_unfrozen_value() },
             AValueOrForwardUnpack::Header(v) => unsafe { v.unpack().heap_copy(self) },
         }
+    }
+}
+
+// Error-path diagnostics for unresolved frozen pointers. These types and
+// searches are not used by successful serialization.
+#[derive(Debug, derive_more::Display)]
+enum FrozenValueIndexDiagnostic {
+    #[display(
+        "target_physical_index={physical_index}, target_original_recipe_index=<native heap>, target_type={value_type}, target_owner_is_restored=false"
+    )]
+    Native {
+        physical_index: usize,
+        value_type: &'static str,
+    },
+    #[display(
+        "target_physical_index=<restored allocation order is not wire order>, target_original_recipe_index={original_recipe_index}, target_owner_is_restored=true"
+    )]
+    Restored { original_recipe_index: u32 },
+}
+
+#[derive(Debug, derive_more::Display)]
+#[display("target_owner_heap={heap_name}, target_owner_ptr={heap_ptr:#x}, {index}")]
+pub(crate) struct FrozenValueLocationDiagnostic {
+    heap_name: String,
+    heap_ptr: usize,
+    index: FrozenValueIndexDiagnostic,
+}
+
+pub(crate) enum FrozenValueOwnerSearchResult {
+    Found {
+        location: FrozenValueLocationDiagnostic,
+        heaps_scanned: usize,
+    },
+    NotFound {
+        heaps_scanned: usize,
+    },
+}
+
+impl FrozenFrozenHeap {
+    #[cold]
+    fn locate_value_for_diagnostic(&self, raw_ptr: usize) -> Option<FrozenValueLocationDiagnostic> {
+        let heap_ptr = self as *const Self as usize;
+        let heap_name = self
+            .name
+            .as_ref()
+            .map(ToString::to_string)
+            .unwrap_or_else(|| "<unnamed>".to_owned());
+
+        if let Some(state) = self.deser_state.get() {
+            let original_recipe_index = state.original_value_index(raw_ptr)?;
+            return Some(FrozenValueLocationDiagnostic {
+                heap_name,
+                heap_ptr,
+                index: FrozenValueIndexDiagnostic::Restored {
+                    original_recipe_index,
+                },
+            });
+        }
+
+        let drop_headers = self.arena.collect_drop_headers_ordered();
+        let non_drop_headers = self.arena.collect_undrop_headers_ordered();
+        let (physical_index, header) = drop_headers
+            .iter()
+            .chain(non_drop_headers.iter())
+            .enumerate()
+            .find(|(_, header)| header.payload_ptr().ptr as usize == raw_ptr)?;
+        Some(FrozenValueLocationDiagnostic {
+            heap_name,
+            heap_ptr,
+            index: FrozenValueIndexDiagnostic::Native {
+                physical_index,
+                value_type: header.unpack().vtable().type_name,
+            },
+        })
+    }
+
+    #[cold]
+    fn find_reachable_value_for_diagnostic(&self, raw_ptr: usize) -> FrozenValueOwnerSearchResult {
+        let mut pending = vec![self];
+        let mut visited = HashSet::new();
+
+        while let Some(heap) = pending.pop() {
+            let heap_ptr = heap as *const Self as usize;
+            if !visited.insert(heap_ptr) {
+                continue;
+            }
+
+            if let Some(location) = heap.locate_value_for_diagnostic(raw_ptr) {
+                return FrozenValueOwnerSearchResult::Found {
+                    location,
+                    heaps_scanned: visited.len(),
+                };
+            }
+
+            for heap_ref in heap.refs.iter() {
+                if let Some(referenced_heap) = heap_ref.0.as_ref() {
+                    pending.push(Deref::deref(referenced_heap));
+                }
+            }
+        }
+
+        FrozenValueOwnerSearchResult::NotFound {
+            heaps_scanned: visited.len(),
+        }
+    }
+
+    #[cold]
+    fn enrich_value_serialization_error(
+        &self,
+        error: crate::Error,
+        heap_name: &FrozenHeapName,
+        value_index: usize,
+        value_type: &'static str,
+        all_headers_in_order: &[&&AValueHeader],
+    ) -> crate::Error {
+        let heap_ptr = self as *const Self as usize;
+        let missing_target = match error.kind() {
+            crate::ErrorKind::Other(error) => match error.downcast_ref::<PagableError>() {
+                Some(PagableError::FrozenValueNotRegistered { raw_ptr, .. }) => Some(*raw_ptr),
+                _ => None,
+            },
+            _ => None,
+        };
+        let target_diagnostic = missing_target.map_or_else(
+            || "target location is unavailable for this error".to_owned(),
+            |raw_ptr| {
+                let source_snapshot_index = all_headers_in_order
+                    .iter()
+                    .position(|header| header.payload_ptr().ptr as usize == raw_ptr);
+                let owner_diagnostic = match self.find_reachable_value_for_diagnostic(raw_ptr) {
+                    FrozenValueOwnerSearchResult::Found { location, .. } => location.to_string(),
+                    FrozenValueOwnerSearchResult::NotFound { heaps_scanned } => format!(
+                        "target owner was not found in the source heap or its {heaps_scanned} reachable heap allocations",
+                    ),
+                };
+                format!(
+                    "{owner_diagnostic}; target_source_snapshot_index={source_snapshot_index:?}",
+                )
+            },
+        );
+
+        error.with_context(format!(
+            "serializing heap `{heap_name}` allocation {heap_ptr:#x} value_index {value_index} type `{value_type}`; source_heap_is_restored={}, direct_ref_count={}; {target_diagnostic}",
+            self.deser_state.get().is_some(),
+            self.refs.len(),
+        ))
+    }
+}
+
+impl FrozenHeapRef {
+    #[cold]
+    pub(crate) fn locate_value_for_diagnostic(
+        &self,
+        raw_ptr: usize,
+    ) -> Option<FrozenValueLocationDiagnostic> {
+        self.0
+            .as_ref()
+            .and_then(|heap| heap.locate_value_for_diagnostic(raw_ptr))
     }
 }
 

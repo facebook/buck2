@@ -38,6 +38,7 @@ use crate::values::FrozenValue;
 use crate::values::layout::heap::arena::ChunkInfo;
 use crate::values::layout::heap::heap_type::FrozenHeapPtr;
 use crate::values::layout::heap::heap_type::FrozenHeapRef;
+use crate::values::layout::heap::heap_type::FrozenValueOwnerSearchResult;
 use crate::values::layout::heap::heap_type::WeakFrozenHeapRef;
 use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::pointer::PointerTags;
@@ -273,6 +274,87 @@ impl StarlarkSerState {
     }
 }
 
+// Expensive diagnostics used only after pointer resolution fails.
+impl StarlarkSerState {
+    #[cold]
+    pub(crate) fn lookup_ptr_diagnostic(&self, raw_ptr: usize) -> String {
+        let chunks = self.chunks.read().expect("chunks lock poisoned");
+        let registered_heap_count = self.registered_heaps.len();
+        let registered_chunk_count = chunks.len();
+        let previous = chunks.range(..=raw_ptr).next_back().map(|(&base, entry)| {
+            let end = base + entry.size as usize;
+            let offset = raw_ptr.saturating_sub(base);
+            let payload_position = entry.payload_offsets.binary_search(&(offset as u32));
+            format!(
+                "previous chunk: range={base:#x}..{end:#x}, contains_target={}, heap_id={:?}, heap_ptr={:?}, uses_recipe_indices={}, values_before={}, value_count={}, payload_position={payload_position:?}",
+                raw_ptr < end,
+                entry.heap_id,
+                entry.heap_ptr,
+                entry.uses_recipe_indices,
+                entry.values_before,
+                entry.payload_offsets.len(),
+            )
+        });
+        let next = raw_ptr
+            .checked_add(1)
+            .and_then(|start| chunks.range(start..).next())
+            .map(|(&base, entry)| {
+                let end = base + entry.size as usize;
+                format!(
+                    "next chunk: range={base:#x}..{end:#x}, heap_id={:?}, heap_ptr={:?}, uses_recipe_indices={}, values_before={}, value_count={}",
+                    entry.heap_id,
+                    entry.heap_ptr,
+                    entry.uses_recipe_indices,
+                    entry.values_before,
+                    entry.payload_offsets.len(),
+                )
+            });
+
+        format!(
+            "registered_heaps={registered_heap_count}, registered_chunks={registered_chunk_count}; {}; {}",
+            previous.unwrap_or_else(|| "no previous chunk".to_owned()),
+            next.unwrap_or_else(|| "no next chunk".to_owned()),
+        )
+    }
+
+    /// Scans only heaps registered in this serialization state, so the reported
+    /// interpretation is evidence about that scope rather than every process heap.
+    #[cold]
+    pub(crate) fn lookup_live_heap_diagnostic(&self, raw_ptr: usize) -> String {
+        match self.find_registered_owner_for_diagnostic(raw_ptr) {
+            FrozenValueOwnerSearchResult::Found {
+                location,
+                heaps_scanned,
+            } => format!(
+                "{location}; scanned_live_registered_heaps={heaps_scanned}; interpretation: a live registered heap owns the pointer, so its chunk registration or index is missing or inconsistent",
+            ),
+            FrozenValueOwnerSearchResult::NotFound { heaps_scanned } => format!(
+                "target owner was not found among {heaps_scanned} live registered heaps; interpretation: the owner heap is not live and registered in this serialization state, likely due to a missing heap reference or registration",
+            ),
+        }
+    }
+
+    #[cold]
+    fn find_registered_owner_for_diagnostic(&self, raw_ptr: usize) -> FrozenValueOwnerSearchResult {
+        let mut live_heap_count = 0;
+        for entry in self.registered_heaps.iter() {
+            let Some(heap) = entry.heap.upgrade() else {
+                continue;
+            };
+            live_heap_count += 1;
+            if let Some(location) = heap.locate_value_for_diagnostic(raw_ptr) {
+                return FrozenValueOwnerSearchResult::Found {
+                    location,
+                    heaps_scanned: live_heap_count,
+                };
+            }
+        }
+        FrozenValueOwnerSearchResult::NotFound {
+            heaps_scanned: live_heap_count,
+        }
+    }
+}
+
 /// Concrete implementation of StarlarkSerializeContext.
 ///
 /// Wraps a `PagableSerializer` and a shared `StarlarkSerState` to
@@ -328,10 +410,15 @@ impl StarlarkSerializeContext for StarlarkSerializerImpl<'_> {
                 // Payload pointer, must match the key used in `Arena::build_ptr_to_offset_map`.
                 let raw_ptr = fv.to_value().get_ref().value.ptr as usize;
 
-                let (heap_id, value_index) = self
-                    .state
-                    .lookup_ptr(raw_ptr)
-                    .ok_or(PagableError::FrozenValueNotRegistered { raw_ptr })?;
+                let Some((heap_id, value_index)) = self.state.lookup_ptr(raw_ptr) else {
+                    return Err(PagableError::FrozenValueNotRegistered {
+                        raw_ptr,
+                        target_type: fv.to_value().get_type(),
+                        chunk_index_diagnostic: self.state.lookup_ptr_diagnostic(raw_ptr),
+                        live_heap_diagnostic: self.state.lookup_live_heap_diagnostic(raw_ptr),
+                    }
+                    .into());
+                };
 
                 let serialized = SerializedFrozenValue::HeapPtr {
                     heap_id,
