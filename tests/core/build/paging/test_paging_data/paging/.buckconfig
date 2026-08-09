@@ -4,6 +4,9 @@
 [buildfile]
   name=TARGETS.fixture
 
+[build]
+  execution_platforms = root//platforms:platforms
+
 [buck2_hydration]
   enable_paging = true
   page_out_on_idle = true

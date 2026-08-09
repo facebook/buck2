@@ -141,6 +141,21 @@ async def test_page_out_frozen_value_into_already_paged_out_heap(
 
 
 @buck_test(data_dir="paging", write_invocation_record=True)
+async def test_page_out_bxl_dynamic_callback_after_page_in(buck: Buck) -> None:
+    # `page_out.bxl` creates a nested dynamic-output callback. The callback is
+    # allocated on the BXL evaluation heap, but its compiler metadata lives on
+    # the loaded `.bxl` module heap. Page-out must retain and serialize that
+    # owning module heap instead of following an unowned `FrozenValue` pointer.
+    await buck.bxl("//page_out.bxl:main", "--", "--value", "first")
+    await buck.debug("hydration", "page-out")
+
+    # A distinct BXL key pages the module back in while computing a new root.
+    # The restored module must be retained by that root's evaluation heap too.
+    await buck.bxl("//page_out.bxl:main", "--", "--value", "second")
+    await buck.debug("hydration", "page-out")
+
+
+@buck_test(data_dir="paging", write_invocation_record=True)
 async def test_page_in_shared_anon_target(buck: Buck) -> None:
     # Bound post-page-out commands because the old typetag mismatch hung hydration.
     command_timeout_seconds = 60

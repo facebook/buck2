@@ -328,6 +328,9 @@ fn eval_bxl<'v>(
     ctx: ValueTyped<'v, BxlContext<'v>>,
     force_print_stacktrace: bool,
 ) -> buck2_error::Result<()> {
+    let frozen_callable = eval
+        .heap()
+        .access_owned_frozen_value_typed(&frozen_callable);
     let bxl_impl = frozen_callable.implementation();
     let result = eval.eval_function(bxl_impl.to_value(), &[ctx.to_value()], &[]);
 
