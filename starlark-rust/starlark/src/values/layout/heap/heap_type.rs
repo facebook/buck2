@@ -815,19 +815,38 @@ impl FrozenHeapRef {
         &self,
         deserializer: &mut dyn PagableDeserializer<'_>,
     ) -> pagable::Result<()> {
+        let scope = deserializer
+            .page_in_scope()
+            .get_or_init(StarlarkDeserScope::new);
+        self.register_heap_graph_in_deser_scope(&scope)
+    }
+
+    fn register_heap_graph_in_deser_scope(
+        &self,
+        scope: &StarlarkDeserScope,
+    ) -> pagable::Result<()> {
         let name = self
             .name()
             .ok_or_else(|| pagable::Error::msg("deserialized frozen heap must have a name"))?;
         let heap_id = HeapRefId::from_heap_name(name);
-        let scope = deserializer
-            .page_in_scope()
-            .get_or_init(StarlarkDeserScope::new);
+        let heap = self
+            .downgrade()
+            .expect("a deserialized heap must have an inner allocation");
+        if scope
+            .is_heap_bound(heap_id, heap.heap_ptr())
+            .map_err(pagable::Error::new)?
+        {
+            return Ok(());
+        }
+
+        // A cached owner can contain FrozenValue pointers into any transitive
+        // dependency, so publish the complete graph before the owner binding.
+        for dep in self.refs_slice() {
+            dep.register_heap_graph_in_deser_scope(scope)?;
+        }
+
         scope
-            .register_heap(
-                heap_id,
-                self.downgrade()
-                    .expect("a deserialized heap must have an inner allocation"),
-            )
+            .register_heap(heap_id, heap)
             .map_err(pagable::Error::new)
     }
 

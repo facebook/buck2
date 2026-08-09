@@ -738,6 +738,23 @@ impl StarlarkDeserScope {
         Ok(())
     }
 
+    pub(crate) fn is_heap_bound(
+        &self,
+        heap_id: HeapRefId,
+        heap_ptr: FrozenHeapPtr,
+    ) -> Result<bool, PagableError> {
+        let Some(entry) = self.heap_bindings.get(&heap_id) else {
+            return Ok(false);
+        };
+        if entry.heap_ptr() == heap_ptr {
+            return Ok(true);
+        }
+        if entry.upgrade().is_some() {
+            return Err(PagableError::ConflictingHeapBinding { heap_id });
+        }
+        Ok(false)
+    }
+
     pub(crate) fn unregister_heap(&self, heap_id: HeapRefId, heap_ptr: FrozenHeapPtr) {
         if let Entry::Occupied(entry) = self.heap_bindings.entry(heap_id)
             && entry.get().heap_ptr() == heap_ptr

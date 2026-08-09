@@ -2921,6 +2921,83 @@ fn same_name_heaps_serialize_independently_in_shared_session_impl() -> crate::Re
     Ok(())
 }
 
+/// A cached owner heap must bring its transitive heap graph into each new
+/// page-in scope, because an `OwnedFrozenValue` may point into one of those
+/// dependency heaps rather than the owner heap itself.
+#[test]
+fn test_cached_owner_registers_transitive_heap_in_new_page_in_scope() -> crate::Result<()> {
+    use pagable::storage::handle::PagableStorageHandle;
+    use pagable::storage::in_memory::InMemoryPagableStorage;
+
+    // Stored graph: the OwnedFrozenValue retains P, while its value physically
+    // lives in L. P's reference to L makes this a valid ownership relationship.
+    let leaf_heap = FrozenHeap::new();
+    let leaf_value = leaf_heap.alloc_simple(SimpleData {
+        flag: true,
+        count: 42,
+    });
+    let leaf_ref = leaf_heap.into_ref_named(TestHeapName::heap_name("cached_scope_leaf"));
+
+    let owner_heap = FrozenHeap::new();
+    owner_heap.add_reference(&leaf_ref);
+    let owner_ref = owner_heap.into_ref_named(TestHeapName::heap_name("cached_scope_owner"));
+    // SAFETY: `owner_ref` retains `leaf_ref`, which owns `leaf_value`.
+    let root = unsafe { OwnedFrozenValue::new(owner_ref, leaf_value) };
+
+    let backing = InMemoryPagableStorage::new();
+    let handle = PagableStorageHandle::new(backing.handle());
+    let root_key = ser_owned_frozen_value_into_storage(&backing, &root)?;
+    drop(root);
+    drop(leaf_ref);
+
+    // The first root page-in misses the Arc cache and reconstructs both P and L.
+    let first = deser_owned_frozen_value_from_storage(&backing, &handle, &root_key)?;
+    assert_eq!(
+        first
+            .value()
+            .downcast_ref::<SimpleData>()
+            .expect("the first root should resolve through L")
+            .count,
+        42,
+    );
+
+    // The second root page-in has a fresh StarlarkDeserScope but reuses cached
+    // P. It must register P -> L in that scope before resolving the value's
+    // `(HeapRefId(L), value_index)` wire pointer.
+    let (second, second_scope) =
+        deser_owned_frozen_value_with_scope_from_storage(&backing, &handle, &root_key)?;
+    assert_eq!(
+        first.owner(),
+        second.owner(),
+        "the owner Arc should be reused"
+    );
+    let second_leaf_ref = second
+        .owner()
+        .refs()
+        .next()
+        .expect("P should retain L after page-in");
+    let leaf_id = HeapRefId::from_heap_name(
+        second_leaf_ref
+            .name()
+            .expect("the deserialized leaf heap should remain named"),
+    );
+    assert_eq!(
+        second_scope.get_heap(&leaf_id).as_ref(),
+        Some(second_leaf_ref),
+        "the cache hit must bind transitive heap L in the second root scope",
+    );
+    assert_eq!(
+        second
+            .value()
+            .downcast_ref::<SimpleData>()
+            .expect("the cached owner should still resolve through L")
+            .count,
+        42,
+    );
+
+    Ok(())
+}
+
 /// X and Y point into the same heap. After X is paged out and its owner is
 /// dropped, Y keeps that heap resident. Paging X back in must reuse Y's heap
 /// and X's original allocation instead of reconstructing a duplicate heap.
