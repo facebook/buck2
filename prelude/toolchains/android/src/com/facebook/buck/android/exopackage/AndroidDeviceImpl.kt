@@ -67,7 +67,7 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
         } catch (e: AndroidInstallException) {
           LOG.warn(
               "The fast install failed or left the on-device apk missing or stale: ${e.message}.\n" +
-                  "Reinstalling ${apk.name} without --fastdeploy to recover."
+                  "Reinstalling ${apk.name} without --fastdeploy to recover.",
           )
         }
       }
@@ -121,7 +121,7 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
         getPackageInfo(packageName).orElseThrow {
           AndroidInstallException.installedApkMismatch(
               "Install of ${apk.name} could not be verified: $packageName is not present on the" +
-                  " device after installing."
+                  " device after installing.",
           )
         }
     val installedHash =
@@ -138,7 +138,7 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
     if (!installedHash.equals(localApkHash, ignoreCase = true)) {
       throw AndroidInstallException.installedApkMismatch(
           "Install of ${apk.name} could not be verified: the on-device apk for $packageName does" +
-              " not match the local apk after installing."
+              " not match the local apk after installing.",
       )
     }
   }

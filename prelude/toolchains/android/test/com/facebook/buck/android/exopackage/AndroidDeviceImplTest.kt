@@ -551,11 +551,11 @@ class AndroidDeviceImplTest {
     whenever(mockAdbUtils.executeAdbShellCommand("getprop ro.build.version.sdk", serialNumber))
         .thenReturn("29")
     whenever(
-            mockAdbUtils.executeAdbCommand(
-                "install -r -d --fastdeploy ${apkFile.absolutePath}",
-                serialNumber,
-            )
-        )
+        mockAdbUtils.executeAdbCommand(
+            "install -r -d --fastdeploy ${apkFile.absolutePath}",
+            serialNumber,
+        ),
+    )
         .thenReturn("Success")
     stubInstallVerified()
 
@@ -573,11 +573,11 @@ class AndroidDeviceImplTest {
     // --fastdeploy reports success, but the on-device apk does not match (a stale apk). This must
     // fall back to a plain install, after which the apk matches.
     whenever(
-            mockAdbUtils.executeAdbCommand(
-                "install -r -d --fastdeploy ${apkFile.absolutePath}",
-                serialNumber,
-            )
-        )
+        mockAdbUtils.executeAdbCommand(
+            "install -r -d --fastdeploy ${apkFile.absolutePath}",
+            serialNumber,
+        ),
+    )
         .thenReturn("Success")
     whenever(mockAdbUtils.executeAdbCommand("install -r -d ${apkFile.absolutePath}", serialNumber))
         .thenReturn("Success")
@@ -611,7 +611,7 @@ class AndroidDeviceImplTest {
         .thenReturn("package:$onDeviceApkPath")
     whenever(mockAdbUtils.executeAdbShellCommand("sha256sum $onDeviceApkPath", serialNumber))
         .thenReturn(
-            "0000000000000000000000000000000000000000000000000000000000000000  $onDeviceApkPath"
+            "0000000000000000000000000000000000000000000000000000000000000000  $onDeviceApkPath",
         )
 
     try {
@@ -652,7 +652,7 @@ class AndroidDeviceImplTest {
     // must hash the base apk (first line) and not choke on the multi-line output.
     whenever(mockAdbUtils.executeAdbShellCommand("pm path $packageName", serialNumber))
         .thenReturn(
-            "package:$onDeviceApkPath\npackage:/data/app/com.test.app-1/split_config.arm64_v8a.apk"
+            "package:$onDeviceApkPath\npackage:/data/app/com.test.app-1/split_config.arm64_v8a.apk",
         )
     whenever(mockAdbUtils.executeAdbShellCommand("sha256sum $onDeviceApkPath", serialNumber))
         .thenReturn("${sha256Hex(apkFile)}  $onDeviceApkPath")
@@ -686,11 +686,11 @@ class AndroidDeviceImplTest {
     whenever(mockAdbUtils.executeAdbShellCommand("getprop ro.build.version.sdk", serialNumber))
         .thenReturn("30")
     whenever(
-            mockAdbUtils.executeAdbCommand(
-                "install -r -d --staged ${apkFile.absolutePath}",
-                serialNumber,
-            )
-        )
+        mockAdbUtils.executeAdbCommand(
+            "install -r -d --staged ${apkFile.absolutePath}",
+            serialNumber,
+        ),
+    )
         .thenReturn("Success")
 
     // --fastdeploy is incompatible with staged installs, so a staged install must not use it even
@@ -746,7 +746,7 @@ class AndroidDeviceImplTest {
         .thenReturn("stalehash  $onDeviceApkPath")
     doAnswer {
           throw AdbCommandFailedException(
-              "Failure [INSTALL_FAILED_INSUFFICIENT_STORAGE: Not enough space]"
+              "Failure [INSTALL_FAILED_INSUFFICIENT_STORAGE: Not enough space]",
           )
         }
         .whenever(mockAdbUtils)
@@ -772,11 +772,11 @@ class AndroidDeviceImplTest {
     // --fastdeploy exits 0 but leaves a stale apk (verify catches it); the plain fallback then
     // surfaces the signature mismatch (adb exits non-zero), triggering uninstall + retry.
     whenever(
-            mockAdbUtils.executeAdbCommand(
-                "install -r -d --fastdeploy ${apkFile.absolutePath}",
-                serialNumber,
-            )
-        )
+        mockAdbUtils.executeAdbCommand(
+            "install -r -d --fastdeploy ${apkFile.absolutePath}",
+            serialNumber,
+        ),
+    )
         .thenReturn("Performing Streamed Install")
 
     val plainInstall = "install -r -d ${apkFile.absolutePath}"
@@ -787,7 +787,7 @@ class AndroidDeviceImplTest {
             throw AdbCommandFailedException(
                 "Executing 'adb $plainInstall' on $serialNumber failed with code 1.\nError:\n" +
                     "Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE: Existing package " +
-                    "com.meta.ar.helixserver signatures do not match newer version; ignoring!]"
+                    "com.meta.ar.helixserver signatures do not match newer version; ignoring!]",
             )
           }
           "Success"

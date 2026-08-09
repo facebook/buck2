@@ -53,10 +53,9 @@ class AndroidInstallException(val installError: InstallError) :
         InstallError("Adb path not found.", AndroidInstallErrorTag.ADB_NOT_FOUND),
     )
 
-    fun installedApkMismatch(message: String) =
-        AndroidInstallException(
-            InstallError(message, AndroidInstallErrorTag.INSTALLED_APK_MISMATCH)
-        )
+    fun installedApkMismatch(message: String) = AndroidInstallException(
+        InstallError(message, AndroidInstallErrorTag.INSTALLED_APK_MISMATCH),
+    )
 
     fun adbCommandFailedException(
         message: String,
