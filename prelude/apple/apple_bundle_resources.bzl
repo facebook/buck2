@@ -484,28 +484,25 @@ def _run_ibtool(
     ibtool_command.extend(action_flags)
     if output_is_dir:
         ibtool_command.append('"$TMPDIR"')
+        copy_back = cmd_args(output, format = 'mkdir -p {} && cp -r "$TMPDIR"/ {}')
     else:
-        ibtool_command.append(output)
+        output_for_tool_invocation = '"$TMPDIR"/"' + output.basename + '"'
+        ibtool_command.append(output_for_tool_invocation)
+        copy_back = cmd_args(output, format = "cp " + output_for_tool_invocation + " {}")
     ibtool_command.append(cmd_args(raw_file, format = '"$EXEC_ROOT"/{}'))
 
+    # Sandboxing and fs isolation on RE machines results in Xcode tools failing
+    # when those are working in freshly created directories in buck-out.
+    # See https://fb.workplace.com/groups/1042353022615812/permalink/1872164996301273/
+    # As a workaround create a directory in tmp, use it for Xcode tools, then
+    # copy the result to buck-out.
     script_lines = [
         cmd_args("set -euo pipefail"),
         cmd_args('EXEC_ROOT="$PWD"'),
+        cmd_args('TMPDIR="$(mktemp -d)"'),
+        cmd_args(ibtool_command, delimiter = " "),
+        copy_back,
     ]
-
-    if output_is_dir:
-        # Sandboxing and fs isolation on RE machines results in Xcode tools failing
-        # when those are working in freshly created directories in buck-out.
-        # See https://fb.workplace.com/groups/1042353022615812/permalink/1872164996301273/
-        # As a workaround create a directory in tmp, use it for Xcode tools, then
-        # copy the result to buck-out.
-        script_lines.extend([
-            cmd_args('TMPDIR="$(mktemp -d)"'),
-            cmd_args(cmd_args(ibtool_command), delimiter = " "),
-            cmd_args(output, format = 'mkdir -p {} && cp -r "$TMPDIR"/ {}'),
-        ])
-    else:
-        script_lines.append(cmd_args(cmd_args(ibtool_command), delimiter = " "))
 
     wrapper_script, _ = ctx.actions.write(
         "ibtool_wrapper_" + _wrapper_suffix(command_for_identifier, raw_file) + ".sh",
