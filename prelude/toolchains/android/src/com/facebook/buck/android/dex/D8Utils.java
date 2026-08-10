@@ -10,13 +10,15 @@
 
 package com.facebook.buck.android.dex;
 
+import com.android.tools.r8.ByteDataView;
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.CompilationMode;
 import com.android.tools.r8.D8Command;
+import com.android.tools.r8.DexIndexedConsumer;
 import com.android.tools.r8.Diagnostic;
 import com.android.tools.r8.DiagnosticsHandler;
-import com.android.tools.r8.OutputMode;
 import com.android.tools.r8.graph.DexItemFactory;
+import com.android.tools.r8.utils.FileUtils;
 import com.android.tools.r8.utils.InternalOptions;
 import com.facebook.buck.android.apkmodule.APKModule;
 import com.facebook.buck.util.zip.CustomZipOutputStream;
@@ -103,6 +105,29 @@ public class D8Utils {
     boolean outputToDex = outputDexFile.getFileName().toString().endsWith(".dex");
     Path output = outputToDex ? Files.createTempDirectory("buck-d8") : outputDexFile;
 
+    // Wrap the consumer that setOutput() would have installed so we can record which classes D8
+    // actually wrote.
+    Set<String> writtenDescriptors = Collections.synchronizedSet(new HashSet<>());
+    // Picks the consumer the same way setOutput() would, using the same predicate it uses.
+    DexIndexedConsumer outputConsumer =
+        FileUtils.isArchive(output)
+            ? new DexIndexedConsumer.ArchiveConsumer(output)
+            : new DexIndexedConsumer.DirectoryConsumer(output);
+    DexIndexedConsumer recordingConsumer =
+        new DexIndexedConsumer.ForwardingConsumer(outputConsumer) {
+          @Override
+          public void accept(
+              int fileIndex,
+              ByteDataView data,
+              Set<String> descriptors,
+              DiagnosticsHandler handler) {
+            if (descriptors != null) {
+              writtenDescriptors.addAll(descriptors);
+            }
+            super.accept(fileIndex, data, descriptors, handler);
+          }
+        };
+
     D8Command.Builder builder =
         D8Command.builder(diagnosticsHandler)
             .addProgramFiles(inputs)
@@ -112,7 +137,7 @@ public class D8Utils {
                 options.contains(D8Options.NO_OPTIMIZE)
                     ? CompilationMode.DEBUG
                     : CompilationMode.RELEASE)
-            .setOutput(output, OutputMode.DexIndexed)
+            .setProgramConsumer(recordingConsumer)
             .setDisableDesugaring(options.contains(D8Options.NO_DESUGAR))
             .setInternalOptionsModifier(
                 (InternalOptions opt) -> {
@@ -147,8 +172,7 @@ public class D8Utils {
 
     // Only null for the help/version commands produced by D8Command.parse, never for a built one.
     DexItemFactory dexItemFactory = Objects.requireNonNull(d8Command.getDexItemFactory());
-    return new D8Output(
-        dexItemFactory.computeReferencedResources(), dexItemFactory.computeSynthesizedTypes());
+    return new D8Output(dexItemFactory.computeReferencedResources(), writtenDescriptors);
   }
 
   static void writeSecondaryDexJarAndMetadataFile(

@@ -14,6 +14,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import com.facebook.buck.android.dex.D8ExecutableMain.DexRefCounts;
+import com.google.common.collect.ImmutableList;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -245,5 +246,24 @@ public class D8ExecutableMainTest {
     } finally {
       Files.deleteIfExists(jarPath);
     }
+  }
+
+  @Test
+  public void testToInternalClassNames() {
+    // "Foo-IA" is the nest access constructor marker D8 synthesizes for target 11+ bytecode; it
+    // reaches us only through the output consumer, since it has no .class counterpart.
+    assertEquals(
+        ImmutableList.of("com/example/Foo", "com/example/Foo$Bar", "com/example/Foo-IA"),
+        D8ExecutableMain.toInternalClassNames(
+            ImmutableList.of(
+                "Lcom/example/Foo$Bar;", "Lcom/example/Foo-IA;", "Lcom/example/Foo;")));
+  }
+
+  @Test
+  public void testToInternalClassNames_skipsNonClassDescriptors() {
+    assertEquals(
+        ImmutableList.of("com/example/Foo"),
+        D8ExecutableMain.toInternalClassNames(
+            ImmutableList.of("Lcom/example/Foo;", "[Lcom/example/Foo;", "I", "L;")));
   }
 }
