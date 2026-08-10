@@ -261,7 +261,9 @@ def compile_with_argsfile(
     # leak into .swiftmodule files, breaking @_implementationOnly blast radius.
     expect_eligible_for_dedupe = False  # _get_should_expect_eligible_for_dedupe(ctx, category)
     if toolchain.prioritize_swift_critical_path and _is_swift_object_category(category):
-        weight = num_threads * 3
+        # Empirically tuned to preserve local capacity for prioritized swiftmodule
+        # emits. Re-benchmark builds before changing.
+        weight = num_threads * 4
     else:
         weight = num_threads
     ctx.actions.run(
