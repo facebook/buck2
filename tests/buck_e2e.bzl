@@ -62,8 +62,9 @@ def buck_e2e_test(
     # -vv shows full assertion output on failures.
     # ---tb=native shows python native traceback instead of default pytest traceback with source code.
     # --no-header disables headers printed after "test session starts" on output
-    # --no-summary disables pytest summary printed after each test run on output
-    env["PYTEST_ADDOPTS"] = "-vv --tb=native --no-header --no-summary"
+    # --no-summary disables pytest summary printed after each test run on output, including the
+    # traceback of an error raised while pytest imports a test module or its conftest
+    env.setdefault("PYTEST_ADDOPTS", "-vv --tb=native --no-header --no-summary")
 
     # For autodeps
     read_package_value = getattr(native, "read_package_value", None)
