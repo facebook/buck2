@@ -297,6 +297,11 @@ def _compute_emulator_platform(labels: list[str]) -> str:
         "multiple 're_platform_' labels were found:[{}], there must be only one!".format(", ".join(emulator_platform_labels)),
     )
     if len(emulator_platform_labels) == 0:
+        subplatform = _compute_emulator_subplatform(labels)
+        if "aarch64" in subplatform:
+            return "android-emulator-aarch64"
+        if subplatform == "android-33-google-arm64":
+            return "android-emulator-mac"
         return DEFAULT_ANDROID_PLATFORM
     else:  # len(emulator_platform_labels) == 1:
         return emulator_platform_labels[0].replace("re_platform_", "")
