@@ -27,7 +27,7 @@ NAMED_CONSTRAINT_SETTINGS = {
     "ovr_config//toolchain/clang/constraints:clang-toolchain-version": (lambda label: "clang" + str(label.name)),
     "ovr_config//build_mode:sanitizer_type": (lambda label: str(label.sub_target[0])),
     "fbcode//fdo/constraints:fdo": (lambda label: str(label.name)),
-    "ovr_config//build_mode/default_opt_cxx:default_opt_cxx_setting": (lambda label: "opt-by-default" if str(label.name) == "enabled" else None),
+    "ovr_config//build_mode/default_opt_cxx:default_opt_cxx_setting": (lambda label: "opt-by-default" if str(label.sub_target[0]) == "enabled" else None),
     "ovr_config//build_mode:arvr_mode": (lambda label: "arvr" if str(label.sub_target[0]) == "enabled" else None),
 }
 
