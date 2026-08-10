@@ -30,5 +30,6 @@ mod macros;
 mod no_hasher;
 mod path_accumulator;
 pub mod shared_directory;
+pub mod sorted_slice_map;
 mod test;
 pub mod walk;

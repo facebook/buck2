@@ -23,6 +23,7 @@ use crate::directory::entry::DirectoryEntry;
 use crate::directory::exhaustiveness::Exhaustiveness;
 use crate::directory::exhaustiveness::ExhaustivenessHash;
 use crate::directory::fingerprinted_directory::FingerprintedDirectory;
+use crate::directory::sorted_slice_map::SortedSliceMap;
 
 #[derive(Derivative, Display, Allocative, Pagable)]
 #[derivative(Debug(bound = "D: ::std::fmt::Debug, L: ::std::fmt::Debug"))]
@@ -32,9 +33,7 @@ pub struct DirectoryData<D, L, H>
 where
     H: DirectoryDigest,
 {
-    /// SortedVectorMap is a more compact immutable representation for directories.
-    /// Experimentally, it takes about 30% less space, while resulting in no runtime regression.
-    pub entries: SortedVectorMap<FileNameBuf, DirectoryEntry<D, L>>,
+    pub entries: SortedSliceMap<FileNameBuf, DirectoryEntry<D, L>>,
 
     /// The size of the directory.
     ///
@@ -105,7 +104,7 @@ where
             "Exhaustive directories must contain only exhaustive directories",
         );
         Self {
-            entries,
+            entries: SortedSliceMap::from(entries),
             size,
             fingerprint,
             exhaustiveness_hash,

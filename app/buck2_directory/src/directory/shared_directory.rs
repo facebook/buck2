@@ -235,14 +235,18 @@ where
         // Hard to convince the borrow checker that this is safe, so write this using indexing in
         // this slightly awkward way
         (0..self.inner.data.entries.len()).map(move |i| {
-            let (k, v) = self.inner.data.entries.get_key_value_at_index(i).unwrap();
+            let (k, v) = self.inner.data.entries.get_index(i).unwrap();
             (k.clone(), v.clone().map_dir(|v| v.into_builder()))
         })
     }
 }
 
 pub struct SharedDirectoryEntries<'a, L, H>(
-    sorted_vector_map::map::Iter<'a, FileNameBuf, DirectoryEntry<SharedDirectory<L, H>, L>>,
+    crate::directory::sorted_slice_map::Iter<
+        'a,
+        FileNameBuf,
+        DirectoryEntry<SharedDirectory<L, H>, L>,
+    >,
 )
 where
     H: DirectoryDigest;

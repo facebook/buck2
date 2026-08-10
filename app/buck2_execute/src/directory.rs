@@ -98,6 +98,16 @@ pub type ActionImmutableDirectory = ImmutableDirectory<ActionDirectoryMember, Tr
 
 pub type ActionSharedDirectory = SharedDirectory<ActionDirectoryMember, TrackedFileDigest>;
 
+// Interned directories exist in the millions; keep the node payload within the 64-byte jemalloc
+// bin its Arc allocation occupies (4 words of data + 1 word interner handle + 2 words header).
+buck2_util::size_assert::words_of_type!(
+    buck2_directory::directory::shared_directory::SharedDirectoryData<
+        ActionDirectoryMember,
+        TrackedFileDigest,
+    >,
+    4
+);
+
 pub type ActionDirectoryBuilder = DirectoryBuilder<ActionDirectoryMember, TrackedFileDigest>;
 
 pub type LazyActionDirectoryBuilder =
