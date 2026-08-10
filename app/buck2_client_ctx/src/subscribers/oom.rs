@@ -17,9 +17,8 @@ use std::time::Duration;
 use std::time::Instant;
 
 use buck2_core::soft_error;
+use derive_more::Display;
 use regex::Regex;
-
-use super::OomEvidence;
 
 static KERNEL_OOM_VICTIM_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
@@ -36,6 +35,26 @@ static SYSTEMD_OOMD_KILL_RE: LazyLock<Regex> =
 
 /// Monotonic lookback used when the daemon start time is unavailable.
 const DMESG_LOOKBACK: Duration = Duration::from_secs(5 * 60);
+
+#[derive(Debug, Display, Eq, PartialEq)]
+pub(crate) enum OomEvidence {
+    #[display("the kernel reported killing daemon PID {pid}")]
+    KernelVictim { pid: i64, line: String },
+    #[display("oomd reported killing cgroup `{cgroup}` containing the daemon")]
+    OomdCgroup { cgroup: String, line: String },
+    #[display("systemd-oomd reported killing cgroup `{cgroup}` containing the daemon")]
+    SystemdOomdCgroup { cgroup: String, line: String },
+}
+
+impl OomEvidence {
+    fn line(&self) -> &str {
+        match self {
+            Self::KernelVictim { line, .. }
+            | Self::OomdCgroup { line, .. }
+            | Self::SystemdOomdCgroup { line, .. } => line,
+        }
+    }
+}
 
 pub(crate) async fn find_daemon_oom_evidence(
     daemon_pid: i64,

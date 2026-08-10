@@ -188,11 +188,11 @@ impl<'a> DaemonEventsCtx<'a> {
                 Ok(next) => next,
                 Err(e) => {
                     self.inner.handle_events(events, shutdown).await?;
-                    let oom_evidence = self.inner.daemon_oom_evidence().await?;
-                    return if let Some(oom_evidence) = oom_evidence {
+                    let oom_reason = self.inner.daemon_oom_reason().await?;
+                    return if let Some(oom_reason) = oom_reason {
                         Err(e)
                             .buck_error_context(
-                                format!("Buck2 daemon was killed by an OOM killer due to high memory pressure ({oom_evidence}). \
+                                format!("Buck2 daemon was killed by an OOM killer due to high memory pressure ({oom_reason}). \
                                 Common causes are large or numerous build or test targets or \
                                 too many Buck2 daemons running simultaneously."))
                             .tag(ErrorTag::ClientGrpcStream)
@@ -497,25 +497,26 @@ impl EventsCtx {
         }
     }
 
-    pub(crate) async fn daemon_oom_evidence(
-        &self,
-    ) -> buck2_error::Result<Option<crate::subscribers::OomEvidence>> {
-        #[cfg(target_os = "linux")]
-        {
-            let Some(pid) = self.daemon_pid else {
-                return Ok(None);
-            };
-            crate::subscribers::oom::find_daemon_oom_evidence(
-                pid,
-                self.cgroup_path_of_buck2_daemon.as_deref(),
-                self.daemon_start_instant,
-            )
-            .await
-        }
-        #[cfg(not(target_os = "linux"))]
-        {
-            Ok(None)
-        }
+    /// Describes why the daemon is believed to have been OOM-killed, if it was.
+    ///
+    /// The evidence is read from `dmesg`, so this never reports anything off Linux.
+    #[cfg(target_os = "linux")]
+    pub(crate) async fn daemon_oom_reason(&self) -> buck2_error::Result<Option<String>> {
+        let Some(pid) = self.daemon_pid else {
+            return Ok(None);
+        };
+        let evidence = crate::subscribers::oom::find_daemon_oom_evidence(
+            pid,
+            self.cgroup_path_of_buck2_daemon.as_deref(),
+            self.daemon_start_instant,
+        )
+        .await?;
+        Ok(evidence.map(|evidence| evidence.to_string()))
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    pub(crate) async fn daemon_oom_reason(&self) -> buck2_error::Result<Option<String>> {
+        Ok(None)
     }
 
     async fn handle_tailer_stderr(&mut self, stderr: &[u8]) -> buck2_error::Result<()> {
