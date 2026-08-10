@@ -20,6 +20,7 @@ use buck2_hash::BuckHashMap;
 use buck2_interpreter::types::cell_path::StarlarkCellPath;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
+use buck2_util::threads::check_stack_overflow;
 use either::Either;
 use serde::Serialize;
 use serde::Serializer;
@@ -143,6 +144,10 @@ impl<'a, 'v> Serialize for SerializeValue<'a, 'v> {
     where
         S: Serializer,
     {
+        // The recursion depth of this function is determined by the nesting
+        // depth of the value, which is unbounded. Detect such cases and return
+        // an error nicely rather than crashing.
+        err(check_stack_overflow())?;
         match &self.value {
             JsonUnpack::None(_) => serializer.serialize_none(),
             JsonUnpack::String(x) => serializer.serialize_str(x),
@@ -307,6 +312,10 @@ pub fn visit_json_artifacts<'v>(
     v: Value<'v>,
     visitor: &mut dyn CommandLineArtifactVisitor<'v>,
 ) -> buck2_error::Result<()> {
+    // The recursion depth of this function is determined by the nesting depth
+    // of the value, which is unbounded. Detect such cases and return an error
+    // nicely rather than crashing.
+    check_stack_overflow()?;
     match JsonUnpack::unpack_value_err(v)? {
         JsonUnpack::None(_)
         | JsonUnpack::String(_)

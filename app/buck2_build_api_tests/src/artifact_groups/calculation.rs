@@ -106,6 +106,9 @@ fn mock_analysis_for_tsets(
 async fn test_ensure_artifact_group() -> buck2_error::Result<()> {
     // Serialize with other tests that use make_tset() and its shared global counter
     let _guard = TSET_TEST_LOCK.lock().unwrap();
+    // Covers DICE tasks too: the current-thread tokio runtime polls them all on
+    // this thread.
+    let _stack_guard = buck2_util::threads::ignore_stack_overflow_checks_for_current_thread();
 
     let digest_config = DigestConfig::testing_default();
 

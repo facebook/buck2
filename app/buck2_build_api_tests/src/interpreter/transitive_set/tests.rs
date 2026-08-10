@@ -452,6 +452,7 @@ fn test_projection_iteration() -> buck2_error::Result<()> {
 
 #[test]
 fn test_json_projection() -> buck2_error::Result<()> {
+    let _guard = buck2_util::threads::ignore_stack_overflow_checks_for_current_thread();
     let mut tester = transitive_set_tester();
 
     /*
@@ -670,6 +671,7 @@ fn test_transitive_set_ordering_docs() -> buck2_error::Result<()> {
 
 #[test]
 fn test_accessors() -> buck2_error::Result<()> {
+    let _guard = buck2_util::threads::ignore_stack_overflow_checks_for_current_thread();
     let mut tester = transitive_set_tester();
 
     tester.run_starlark_bzl_test(indoc!(

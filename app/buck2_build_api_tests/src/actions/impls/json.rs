@@ -33,6 +33,8 @@ use crate::interpreter::rule_defs::artifact_tagging::testing::artifact_tag_facto
 
 #[test]
 fn test_tagging() -> buck2_error::Result<()> {
+    let _guard = buck2_util::threads::ignore_stack_overflow_checks_for_current_thread();
+
     struct AssertVisitor {
         tag: ArtifactTag,
         artifact: Artifact,
