@@ -41,6 +41,16 @@ pub enum Exhaustiveness {
     NonExhaustive,
 }
 
+impl Exhaustiveness {
+    /// The join of the marking lattice: exhaustive wins.
+    pub fn join(self, other: Self) -> Self {
+        match (self, other) {
+            (Self::NonExhaustive, Self::NonExhaustive) => Self::NonExhaustive,
+            _ => Self::Exhaustive,
+        }
+    }
+}
+
 /// Identity of a directory tree's exhaustiveness marking.
 ///
 /// Every fingerprinted directory carries an [`Exhaustiveness`] marking. The marking is
@@ -92,6 +102,22 @@ impl ExhaustivenessHash {
     /// Whether this directory and every directory below it are non-exhaustive.
     pub fn is_uniformly_non_exhaustive(self) -> bool {
         self == Self::UNIFORMLY_NON_EXHAUSTIVE
+    }
+
+    /// This directory's own marking (bit 0), disregarding the subtree.
+    pub fn own_exhaustiveness(self) -> Exhaustiveness {
+        if self.is_exhaustive() {
+            Exhaustiveness::Exhaustive
+        } else {
+            Exhaustiveness::NonExhaustive
+        }
+    }
+
+    /// For two directories of equal fingerprint: whether `self`'s marking already equals the
+    /// pointwise join of both markings, making it free for a merge to keep `self`'s tree
+    /// unchanged. When neither side covers the other, the join must be computed pointwise.
+    pub fn covers(self, other: Self) -> bool {
+        self == other || self.is_uniformly_exhaustive() || other.is_uniformly_non_exhaustive()
     }
 
     /// Computes the hash for a directory from its own marking and its direct dir-children's
@@ -209,6 +235,33 @@ mod tests {
             [b, a]
         });
         assert_ne!(ab, ba);
+    }
+
+    #[test]
+    fn test_join() {
+        use Exhaustiveness::*;
+        assert_eq!(NonExhaustive.join(NonExhaustive), NonExhaustive);
+        assert_eq!(Exhaustive.join(NonExhaustive), Exhaustive);
+        assert_eq!(NonExhaustive.join(Exhaustive), Exhaustive);
+        assert_eq!(Exhaustive.join(Exhaustive), Exhaustive);
+    }
+
+    #[test]
+    fn test_covers() {
+        let top = ExhaustivenessHash::UNIFORMLY_EXHAUSTIVE;
+        let bottom = ExhaustivenessHash::UNIFORMLY_NON_EXHAUSTIVE;
+        let mixed_a = ExhaustivenessHash::compute(Exhaustiveness::NonExhaustive, mixed_input);
+        let mixed_b = ExhaustivenessHash::compute(Exhaustiveness::Exhaustive, mixed_input);
+
+        for h in [top, bottom, mixed_a, mixed_b] {
+            assert!(h.covers(h));
+            assert!(top.covers(h));
+            assert!(h.covers(bottom));
+        }
+        assert!(!bottom.covers(mixed_a));
+        assert!(!mixed_a.covers(top));
+        assert!(!mixed_a.covers(mixed_b));
+        assert!(!mixed_b.covers(mixed_a));
     }
 
     #[test]
