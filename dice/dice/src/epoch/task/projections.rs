@@ -12,10 +12,6 @@ use std::sync::OnceLock;
 
 use allocative::Allocative;
 use dupe::Dupe;
-use futures::future::BoxFuture;
-use parking_lot::MappedRwLockReadGuard;
-use parking_lot::RwLock;
-use parking_lot::RwLockReadGuard;
 
 use crate::arc::Arc;
 use crate::epoch::cache::TransactionCancelled;
@@ -24,54 +20,22 @@ use crate::introspection::DiceTaskState;
 use crate::key::DiceKey;
 use crate::value::DiceComputedValue;
 
-/// The result of actually evaluating the `compute` on a projection
-pub(crate) struct DiceSyncResult {
-    /// The value that's ready now without checking core state
-    ///
-    /// Usually, after finishing a `Key::compute` and before letting rdeps use the result, we
-    /// roundtrip to the core state. The value returned after that is typically about the same as
-    /// the value we had before, but it may be valid at a wider range of versions.
-    ///
-    /// On sync computes we can't go to the core state and so we kind of make up a conservative
-    /// version range and spawn a background task that'll report the real one later. This is the
-    /// value that we use until then.
-    pub(crate) sync_result: DiceComputedValue,
-    /// The future with the value that core state returns
-    pub(crate) state_future: BoxFuture<'static, TransactionResult<DiceComputedValue>>,
-}
-
-impl DiceSyncResult {
-    #[cfg(test)]
-    pub(crate) fn testing(v: DiceComputedValue) -> Self {
-        use dupe::Dupe;
-        use futures::FutureExt;
-
-        Self {
-            sync_result: v.dupe(),
-            state_future: futures::future::ready(TransactionResult::ok(v)).boxed(),
-        }
-    }
-}
-
 #[derive(Allocative)]
 #[allocative(skip)]
 pub(crate) struct ProjectionTask {
     pub(crate) key: DiceKey,
-    /// This holds the sync result as described above when it's ready.
+    /// Set once the projection's `compute` has finished running, before the completing thread
+    /// does its core state roundtrip.
     ///
-    /// An important note about the semantics here: For basically all purposes, we treat this task
-    /// as having "completed" once the sync result is available here and before the core state
-    /// result comes back. That's anyway the point at which rdeps can begin using this value, so the
-    /// opposite would be very difficult to reason about.
-    critical: RwLock<Option<Box<Critical>>>,
-    /// The value that the core state returned, once it's actually ready.
+    /// This exists for `wait_computed`, which must be callable from the core state thread itself:
+    /// waiting on `value` there would deadlock, because setting `value` requires a response from
+    /// the core state thread.
+    computed: OnceLock<()>,
+    /// Set once the computation has finished entirely.
     ///
-    /// This is always set before the `Some` in `critical` is replaced with a `None`.
+    /// This includes the roundtrip to the core state - the thread performing the compute blocks
+    /// on the core state's response before completing the task with it.
     value: OnceLock<TransactionResult<DiceComputedValue>>,
-}
-
-struct Critical {
-    sync_value: OnceLock<TransactionResult<DiceComputedValue>>,
 }
 
 /// The handle given to the thread responsible for performing and completing the computation.
@@ -107,9 +71,7 @@ impl ProjectionTask {
     ) -> Result<ProjectionTaskCompletionHandle, E> {
         let t = Arc::new(Self {
             key,
-            critical: RwLock::new(Some(Box::new(Critical {
-                sync_value: OnceLock::new(),
-            }))),
+            computed: OnceLock::new(),
             value: OnceLock::new(),
         });
         // We don't actually need the return value but we keep it for consistency with the
@@ -123,86 +85,36 @@ impl ProjectionTask {
         self.value.get()
     }
 
-    fn value_or_guard(
-        &self,
-    ) -> Result<&TransactionResult<DiceComputedValue>, MappedRwLockReadGuard<'_, Critical>> {
-        // Fast path check
-        if let Some(v) = self.value.get() {
-            return Ok(v);
-        }
-        let critical = self.critical.read();
-        if let Ok(r) = RwLockReadGuard::try_map(critical, |c| c.as_deref()) {
-            Err(r)
-        } else {
-            // We raced, `value` must have been set at this point though
-            Ok(self.value.get().expect("Value must have been set"))
-        }
-    }
-
     fn insert_computed(
         this: Arc<Self>,
-        result: DiceSyncResult,
+        result: TransactionResult<DiceComputedValue>,
     ) -> TransactionResult<DiceComputedValue> {
-        match this.value_or_guard() {
-            Ok(v) => {
-                // This doesn't normally happen, except in the case of a cancellation
-                return v.dupe();
-            }
-            Err(g) => {
-                if g.sync_value
-                    .set(TransactionResult::ok(result.sync_result.dupe()))
-                    .is_err()
-                {
-                    // Same here, someone else beat us to it. For consistency, make sure we return that value
-                    return g.sync_value.get().unwrap().dupe();
-                }
-            }
-        }
-        // We do not in any meaningful way attempt to keep track of and in particular cancel this
-        // task. That's justified by our knowledge of what `state_future` does, but not by much
-        // else.
-        tokio::spawn({
-            let future = result.state_future;
-            async move {
-                let Ok(res) = future.await.unpack() else {
-                    // FIXME(JakobDegen): It's really not clear what we should do in the
-                    // cancellation case. However, in the face of uncertainty it's probably best to
-                    // guarantee that `.try_read()` on a projection task always agree on whether
-                    // things were cancelled or not, so we ignore the cancellation.
-                    return;
-                };
-                this.value.set(TransactionResult::ok(res)).unwrap();
-                // Clear `critical` now that we're done
-                drop(this.critical.write().take().unwrap());
-            }
-        });
-
-        TransactionResult::ok(result.sync_result)
+        let _ignored = this.computed.set(());
+        // The `set` failing doesn't normally happen, except in the case of a cancellation. For
+        // consistency, make sure we return the value that's actually in the task.
+        let _ignored = this.value.set(result);
+        this.value.get().unwrap().dupe()
     }
 
     fn cancel(&self, token: TransactionCancelled) {
-        // This is effectively exactly the same logic as `insert_computed`
-        if let Err(g) = self.value_or_guard() {
-            if g.sync_value.set(TransactionResult::err(token)).is_ok() {
-                self.value.set(TransactionResult::err(token)).unwrap();
-                drop(g);
-                drop(self.critical.write().take().unwrap());
-            }
-        }
+        let _ignored = self.computed.set(());
+        let _ignored = self.value.set(TransactionResult::err(token));
     }
 
     pub(crate) fn wait_sync(&self) -> TransactionResult<DiceComputedValue> {
-        match self.value_or_guard() {
-            Ok(v) => v.dupe(),
-            Err(g) => g.sync_value.wait().dupe(),
-        }
+        self.value.wait().dupe()
+    }
+
+    /// Waits until the projection's `compute` has finished running, but not necessarily its core
+    /// state roundtrip.
+    ///
+    /// Unlike `wait_sync`, this is safe to call from the core state thread.
+    pub(crate) fn wait_computed(&self) {
+        self.computed.wait();
     }
 
     pub(crate) fn is_pending(&self) -> bool {
-        match self.value_or_guard() {
-            Ok(_) => false,
-            Err(g) => g.sync_value.get().is_none(),
-        }
+        self.value.get().is_none()
     }
 
     pub(crate) fn introspect_state(&self) -> DiceTaskState {
@@ -215,9 +127,16 @@ impl ProjectionTask {
 }
 
 impl ProjectionTaskCompletionHandle {
+    /// Reports that the projection's `compute` has finished running.
+    ///
+    /// Must be called before the completing thread blocks on the core state.
+    pub(crate) fn compute_finished(&self) {
+        let _ignored = self.0.as_ref().unwrap().computed.set(());
+    }
+
     pub(crate) fn complete(
         mut self,
-        result: DiceSyncResult,
+        result: TransactionResult<DiceComputedValue>,
     ) -> TransactionResult<DiceComputedValue> {
         ProjectionTask::insert_computed(self.0.take().unwrap(), result)
     }
@@ -250,10 +169,8 @@ mod tests {
     use derive_more::Display;
     use dice_futures::cancellation::CancellationContext;
     use dupe::Dupe;
-    use futures::FutureExt;
     use pagable::Pagable;
     use pagable::pagable_typetag;
-    use tokio::sync::oneshot;
 
     use super::ProjectionTask;
     use crate::DiceKeyDyn;
@@ -263,7 +180,6 @@ mod tests {
     use crate::api::key::ValueSerialize;
     use crate::arc::Arc;
     use crate::epoch::cache::TransactionResult;
-    use crate::epoch::task::projections::DiceSyncResult;
     use crate::key::DiceKey;
     use crate::value::DiceComputedValue;
     use crate::value::DiceKeyValue;
@@ -316,6 +232,19 @@ mod tests {
     async fn insert_computed_delivers_value_to_winner_and_waiters() -> anyhow::Result<()> {
         let (task, handle) = ProjectionTask::prepare_testing(DiceKey { index: 100 });
 
+        assert!(
+            task.try_read().is_none(),
+            "the value is unavailable before completion"
+        );
+
+        // The compute-finished flag becomes visible before the value does.
+        handle.compute_finished();
+        task.wait_computed();
+        assert!(
+            task.try_read().is_none(),
+            "compute_finished does not make the value available"
+        );
+
         // Callers that ask for the value before it has been computed block until it lands.
         let waiters: Vec<_> = (0..3)
             .map(|_| {
@@ -326,10 +255,14 @@ mod tests {
         // Give the waiters a chance to reach their blocking point before the value is inserted.
         tokio::task::yield_now().await;
 
-        let returned = handle.complete(DiceSyncResult::testing(computed(2)));
+        let returned = handle.complete(TransactionResult::ok(computed(2)));
         assert!(
             is_val(&returned.into_dice_result()?, 2),
             "insert_computed returns the computed value"
+        );
+        assert!(
+            is_val(task.try_read().unwrap().as_ref().into_dice_result()?, 2),
+            "the value is available immediately after completion"
         );
 
         for waiter in waiters {
@@ -338,49 +271,6 @@ mod tests {
                 "every waiter observes the computed value"
             );
         }
-
-        Ok(())
-    }
-
-    /// `insert_computed` exposes the conservative sync value immediately, then the spawned
-    /// background task replaces it with the value reported by core state.
-    #[tokio::test]
-    async fn async_future_replaces_sync_value() -> anyhow::Result<()> {
-        let (task, handle) = ProjectionTask::prepare_testing(DiceKey { index: 100 });
-
-        // `2` is the sync value; `99` is the (deliberately different) value the future reports.
-        let (tx, rx) = oneshot::channel();
-        let returned = handle.complete(DiceSyncResult {
-            sync_result: computed(2),
-            state_future: rx.map(|res| TransactionResult::ok(res.unwrap())).boxed(),
-        });
-
-        assert!(
-            is_val(returned.as_ref().into_dice_result().unwrap(), 2),
-            "the sync value is returned immediately"
-        );
-        assert!(
-            task.try_read().is_none(),
-            "the final value is unavailable until the future resolves"
-        );
-        assert!(
-            is_val(&task.wait_sync().into_dice_result()?, 2),
-            "waiters get the sync value while the future is pending"
-        );
-
-        tx.send(computed(99)).unwrap();
-        while task.try_read().is_none() {
-            tokio::task::yield_now().await;
-        }
-
-        assert!(
-            is_val(task.try_read().unwrap().as_ref().into_dice_result()?, 99),
-            "the final value reflects the future's result"
-        );
-        assert!(
-            is_val(&task.wait_sync().into_dice_result()?, 99),
-            "wait_sync now fast-paths to the final value"
-        );
 
         Ok(())
     }

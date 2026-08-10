@@ -265,10 +265,12 @@ impl SharedCache {
         // projections at this point. We know this can't take too long because the number of
         // outstanding projections is bounded by the worker thread count (given their synchronous
         // nature)
+        //
+        // We must only wait for the `compute`s though, not for the tasks' values: completing a
+        // projection task requires a response from the core state thread, which is typically the
+        // thread this is running on.
         for t in self.data.projection_storage.iter() {
-            if t.is_pending() {
-                drop(t.wait_sync());
-            }
+            t.wait_computed();
         }
 
         regular

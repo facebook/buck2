@@ -13,7 +13,6 @@ use std::sync::Arc as StdArc;
 
 use derivative::Derivative;
 use dupe::Dupe;
-use futures::FutureExt;
 use parking_lot::Mutex;
 
 use crate::ActivationData;
@@ -39,7 +38,6 @@ use crate::epoch::task::PreviouslyCancelledTask;
 use crate::epoch::task::dice::DiceTaskDependedOnByResult;
 use crate::epoch::task::dice::PreparedDiceTask;
 use crate::epoch::task::handle::DiceTaskHandle;
-use crate::epoch::task::projections::DiceSyncResult;
 use crate::epoch::task::projections::ProjectionTaskCompletionHandle;
 use crate::epoch::task::promise::DicePromise;
 use crate::epoch::worker::DiceTaskWorker;
@@ -56,7 +54,6 @@ use crate::value::DiceComputedValue;
 use crate::value::MaybeValidDiceValue;
 use crate::value::TrackedInvalidationPaths;
 use crate::versions::VersionNumber;
-use crate::versions::VersionRange;
 
 /// Context that is shared for all current live computations of the same version.
 #[derive(Derivative, Dupe, Clone)]
@@ -258,10 +255,9 @@ impl TransactionData {
                 //
                 // Double unfortunately, this is not just a "someone called the wrong function"
                 // issue. It's load bearing because the normal projection compute path never
-                // actually does any check-deps like behavior; it returns a value with a valid
-                // version ranges only ever at the latest version, which means that a dep validity
-                // check on it would always fail. By going through the `compute_opaque` path we make
-                // sure to check the core state and therefore get a wider valid range.
+                // actually does any check-deps like behavior; it unconditionally recomputes the
+                // projection instead of consulting the core state for an existing valid value. By
+                // going through the `compute_opaque` path we get normal dep checking.
                 //
                 // FIXME(JakobDegen):
                 //  1. There's supposed to be an invariant that we only evaluate keys once and this
@@ -397,54 +393,49 @@ fn handle_project_eval_result(
     version_epoch: VersionEpoch,
     eval_result: KeyEvaluationResult,
 ) -> TransactionResult<DiceComputedValue> {
-    let (res, invalidation_paths, state_future) = {
-        let KeyEvaluationResult {
-            value,
-            deps,
-            storage,
-            invalidation_paths,
-        } = eval_result;
-        // send the update but don't wait for it
-        let state_future = match value.dupe().into_valid_value() {
-            Ok(value) => {
-                let rx = state.update_computed(
-                    VersionedGraphKey::new(v, k),
-                    version_epoch,
-                    storage,
-                    value,
-                    deps.into_arc(),
-                    invalidation_paths.dupe(),
-                );
-
-                rx.map(|res| res).boxed()
-            }
-            Err(_transient_result) => {
-                // transients are never stored in the state, but the result should be shared
-                // with async computations as if it were.
-                futures::future::ready(TransactionResult::ok(DiceComputedValue::new_for_transient(
-                    value.dupe(),
-                    v,
-                    invalidation_paths.dupe(),
-                )))
-                .boxed()
-            }
-        };
-
-        (value, invalidation_paths, state_future)
-    };
-
-    let computed_value = DiceComputedValue::new(
-        res,
-        Arc::new(VersionRange::begins_with(v).into_ranges()),
+    let KeyEvaluationResult {
+        value,
+        deps,
+        storage,
         invalidation_paths,
-    );
+    } = eval_result;
 
-    let res = DiceSyncResult {
-        sync_result: computed_value,
-        state_future,
+    handle.compute_finished();
+
+    let result = match value.dupe().into_valid_value() {
+        Ok(valid_value) => {
+            let rx = state.update_computed(
+                VersionedGraphKey::new(v, k),
+                version_epoch,
+                storage,
+                valid_value,
+                deps.into_arc(),
+                invalidation_paths,
+            );
+            // Blocking here is safe: the core state runs on its own dedicated thread and never
+            // waits on compute threads (`compute_finished` above is what makes the second half
+            // of that true), so the response arrives after the (bounded) requests ahead of us in
+            // its queue are processed.
+            //
+            // The `unconstrained` is load bearing, not an optimization: we are typically inside
+            // a tokio task's poll here, and `oneshot::Receiver` participates in tokio's coop
+            // budget. With the budget exhausted, the poll would return `Pending` without even
+            // looking at the channel, deferring our waker until the surrounding task yields to
+            // the runtime - which it never does, because we're blocking its thread right here.
+            futures::executor::block_on(tokio::task::unconstrained(rx))
+        }
+        Err(_transient_result) => {
+            // transients are never stored in the state, but the result should be shared
+            // with async computations as if it were.
+            TransactionResult::ok(DiceComputedValue::new_for_transient(
+                value,
+                v,
+                invalidation_paths,
+            ))
+        }
     };
 
-    handle.complete(res)
+    handle.complete(result)
 }
 
 pub(crate) struct KeyEvaluationResult {
