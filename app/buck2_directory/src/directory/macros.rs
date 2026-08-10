@@ -34,6 +34,10 @@ macro_rules! impl_fingerprinted_directory {
                 $this::fingerprint(self)
             }
 
+            fn exhaustiveness_hash(&self) -> $crate::directory::exhaustiveness::ExhaustivenessHash {
+                $this::exhaustiveness_hash(self)
+            }
+
             fn size(&self) -> u64 {
                 $this::size(self)
             }
@@ -45,6 +49,7 @@ macro_rules! impl_fingerprinted_directory {
         {
             fn eq(&self, other: &Self) -> bool {
                 self.fingerprint() == other.fingerprint()
+                    && self.exhaustiveness_hash() == other.exhaustiveness_hash()
             }
         }
 

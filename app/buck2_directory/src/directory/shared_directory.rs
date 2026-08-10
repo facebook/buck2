@@ -37,6 +37,7 @@ use crate::directory::directory_data::DirectoryData;
 use crate::directory::directory_ref::DirectoryRef;
 use crate::directory::directory_ref::FingerprintedDirectoryRef;
 use crate::directory::entry::DirectoryEntry;
+use crate::directory::exhaustiveness::ExhaustivenessHash;
 use crate::directory::fingerprinted_directory::FingerprintedDirectory;
 use crate::directory::immutable_directory::ImmutableDirectory;
 use crate::directory::macros::impl_fingerprinted_directory;
@@ -194,6 +195,10 @@ where
 
     pub fn fingerprint(&self) -> &H {
         self.inner.data.fingerprint()
+    }
+
+    pub fn exhaustiveness_hash(&self) -> ExhaustivenessHash {
+        self.inner.data.exhaustiveness_hash
     }
 
     pub fn size(&self) -> u64 {

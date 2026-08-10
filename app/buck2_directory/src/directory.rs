@@ -21,6 +21,7 @@ pub mod directory_ref;
 pub mod directory_selector;
 pub mod entry;
 mod exclusive_directory;
+pub mod exhaustiveness;
 pub mod find;
 pub mod fingerprinted_directory;
 pub mod immutable_directory;

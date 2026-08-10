@@ -30,6 +30,7 @@ use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::package::PackageLabel;
 use buck2_directory::directory::directory_data::DirectoryData;
+use buck2_directory::directory::exhaustiveness::Exhaustiveness;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use buck2_execute::artifact_value::ArtifactValue;
@@ -335,8 +336,11 @@ async fn dir_artifact_value(
             let entries = entries.into_iter().collect();
 
             let digest_config = ctx.global_data().get_digest_config();
-            let d: DirectoryData<_, _, _> =
-                DirectoryData::new(entries, digest_config.as_directory_serializer());
+            let d: DirectoryData<_, _, _> = DirectoryData::new(
+                entries,
+                digest_config.as_directory_serializer(),
+                Exhaustiveness::NonExhaustive,
+            );
             let d = INTERNER.intern(d);
 
             let deps = match deps_merger {

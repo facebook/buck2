@@ -34,6 +34,7 @@ use crate::directory::directory_mut::DirectoryMut;
 use crate::directory::directory_ref::DirectoryRef;
 use crate::directory::entry::DirectoryEntry;
 use crate::directory::exclusive_directory::ExclusiveDirectory;
+use crate::directory::exhaustiveness::Exhaustiveness;
 use crate::directory::find::DirectoryFindError;
 use crate::directory::find::find;
 use crate::directory::fingerprinted_directory::FingerprintedDirectory;
@@ -698,7 +699,7 @@ where
                     .map(|(k, v)| (k, v.map_dir(|v| v.fingerprint(hasher))))
                     .collect();
                 ImmutableDirectory::Exclusive(ExclusiveDirectory {
-                    data: DirectoryData::new(entries, hasher),
+                    data: DirectoryData::new(entries, hasher, Exhaustiveness::NonExhaustive),
                 })
             }
             Self::Immutable(c) => c,

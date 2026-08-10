@@ -21,6 +21,7 @@ use crate::directory::dashmap_directory_interner::DashMapDirectoryInterner;
 use crate::directory::directory::Directory;
 use crate::directory::directory_data::DirectoryData;
 use crate::directory::entry::DirectoryEntry;
+use crate::directory::exhaustiveness::ExhaustivenessHash;
 use crate::directory::immutable_directory::ImmutableDirectory;
 use crate::directory::immutable_or_exclusive::ImmutableOrExclusiveDirectoryRef;
 use crate::directory::macros::impl_fingerprinted_directory;
@@ -44,7 +45,7 @@ where
     H: DirectoryDigest,
 {
     pub fn shared(self, interner: &DashMapDirectoryInterner<L, H>) -> SharedDirectory<L, H> {
-        if let Some(shared) = interner.get(self.fingerprint()) {
+        if let Some(shared) = interner.get(self.fingerprint(), self.exhaustiveness_hash()) {
             return shared;
         }
 
@@ -52,6 +53,7 @@ where
             entries,
             fingerprint,
             size,
+            exhaustiveness_hash,
             _hash,
         } = self.data;
 
@@ -64,6 +66,7 @@ where
             entries,
             size,
             fingerprint,
+            exhaustiveness_hash,
             _hash,
         };
 
@@ -102,6 +105,10 @@ where
 
     pub fn fingerprint(&self) -> &H {
         self.data.fingerprint()
+    }
+
+    pub fn exhaustiveness_hash(&self) -> ExhaustivenessHash {
+        self.data.exhaustiveness_hash
     }
 
     pub fn size(&self) -> u64 {

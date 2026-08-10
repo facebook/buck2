@@ -20,6 +20,8 @@ use sorted_vector_map::SortedVectorMap;
 
 use crate::directory::directory_hasher::DirectoryDigester;
 use crate::directory::entry::DirectoryEntry;
+use crate::directory::exhaustiveness::Exhaustiveness;
+use crate::directory::exhaustiveness::ExhaustivenessHash;
 use crate::directory::fingerprinted_directory::FingerprintedDirectory;
 
 #[derive(Derivative, Display, Allocative, Pagable)]
@@ -44,6 +46,8 @@ where
 
     pub(super) fingerprint: H,
 
+    pub(super) exhaustiveness_hash: ExhaustivenessHash,
+
     #[derivative(Debug = "ignore")]
     pub(super) _hash: PhantomData<H>,
 }
@@ -55,6 +59,10 @@ where
     pub fn fingerprint(&self) -> &H {
         &self.fingerprint
     }
+
+    pub fn exhaustiveness_hash(&self) -> ExhaustivenessHash {
+        self.exhaustiveness_hash
+    }
 }
 
 impl<D, L, H> DirectoryData<D, L, H>
@@ -65,6 +73,7 @@ where
     pub fn new(
         entries: SortedVectorMap<FileNameBuf, DirectoryEntry<D, L>>,
         hasher: &impl DirectoryDigester<L, H>,
+        exhaustiveness: Exhaustiveness,
     ) -> Self {
         let fingerprint = hasher.hash_entries(
             entries
@@ -78,10 +87,17 @@ where
                 DirectoryEntry::Dir(d) => d.size(),
             })
             .fold(0_u64, |acc, x| acc.saturating_add(x));
+        let exhaustiveness_hash = ExhaustivenessHash::compute(exhaustiveness, || {
+            entries.iter().filter_map(|(_, e)| match e {
+                DirectoryEntry::Dir(d) => Some(d.exhaustiveness_hash()),
+                DirectoryEntry::Leaf(_) => None,
+            })
+        });
         Self {
             entries,
             size,
             fingerprint,
+            exhaustiveness_hash,
             _hash: PhantomData,
         }
     }

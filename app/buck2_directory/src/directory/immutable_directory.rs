@@ -21,6 +21,7 @@ use crate::directory::dashmap_directory_interner::DashMapDirectoryInterner;
 use crate::directory::directory::Directory;
 use crate::directory::entry::DirectoryEntry;
 use crate::directory::exclusive_directory::ExclusiveDirectory;
+use crate::directory::exhaustiveness::ExhaustivenessHash;
 use crate::directory::fingerprinted_directory::FingerprintedDirectory;
 use crate::directory::immutable_or_exclusive::ImmutableOrExclusiveDirectoryRef;
 use crate::directory::shared_directory::SharedDirectory;
@@ -142,6 +143,13 @@ where
         }
     }
 
+    fn exhaustiveness_hash(&self) -> ExhaustivenessHash {
+        match self {
+            Self::Exclusive(dir) => FingerprintedDirectory::exhaustiveness_hash(dir),
+            Self::Shared(dir) => FingerprintedDirectory::exhaustiveness_hash(dir),
+        }
+    }
+
     fn size(&self) -> u64 {
         match self {
             Self::Exclusive(dir) => FingerprintedDirectory::size(dir),
@@ -156,6 +164,7 @@ where
 {
     fn eq(&self, other: &Self) -> bool {
         self.fingerprint() == other.fingerprint()
+            && self.exhaustiveness_hash() == other.exhaustiveness_hash()
     }
 }
 
