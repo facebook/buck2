@@ -20,6 +20,7 @@ use buck2_action_metadata_proto::RemoteDepFile;
 use buck2_build_signals::env::WaitingData;
 use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_data::SchedulingMode;
 use buck2_hash::BuckIndexMap;
 use buck2_util::time_span::TimeSpan;
@@ -307,27 +308,48 @@ impl CommandExecutionResult {
         )
     }
 
-    /// For content-based outputs, resolve the outputs to the "constant" (non-content-based) paths
-    /// that are used during execution.
+    /// Resolves the output path as used by execution, a stable path it can be
+    /// accessed at without holding a lock, and the artifact value.
+    ///
+    /// For content-based outputs, we resolve the outputs to the placeholder
+    /// paths that are used during execution, so that e.g. remote execution can
+    /// key on a path matching that used by execution.
+    ///
+    /// The [`ResolvedCommandExecutionOutput`] returned by this function is not
+    /// safe to read without holding a `NamedSemaphores` permit for it: when it
+    /// is a [`ContentBasedPathHash::OutputArtifact`] path,
+    /// concurrently-running `run` actions in different configurations may
+    /// overwrite it.
     pub fn resolve_outputs<'a>(
         &'a self,
         fs: &'a ArtifactFs,
     ) -> impl Iterator<
-        Item = buck2_error::Result<(ResolvedCommandExecutionOutput, &'a ArtifactValue)>,
+        Item = buck2_error::Result<(
+            ResolvedCommandExecutionOutput,
+            ProjectRelativePathBuf,
+            &'a ArtifactValue,
+        )>,
     > + 'a {
         self.outputs.iter().map(|(output, value)| {
-            Ok((
-                output.as_ref().resolve(
-                    fs,
-                    if output.has_content_based_path() {
-                        Some(ContentBasedPathHash::OutputArtifact)
-                    } else {
-                        None
-                    }
-                    .as_ref(),
-                )?,
-                value,
-            ))
+            let has_content_based_path = output.has_content_based_path();
+            let resolved = output.as_ref().resolve(
+                fs,
+                if has_content_based_path {
+                    Some(ContentBasedPathHash::OutputArtifact)
+                } else {
+                    None
+                }
+                .as_ref(),
+            )?;
+            let content_path = if has_content_based_path {
+                output
+                    .as_ref()
+                    .resolve(fs, Some(&value.content_based_path_hash()))?
+                    .into_path()
+            } else {
+                resolved.path().to_buf()
+            };
+            Ok((resolved, content_path, value))
         })
     }
 }
