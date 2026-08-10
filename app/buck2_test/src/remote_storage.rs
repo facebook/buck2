@@ -166,7 +166,7 @@ mod tests {
     fn test_collect_digests_dir() {
         let digest_config = DigestConfig::testing_default();
         let mut expected: Vec<TDigest> = vec![];
-        let mut builder = ActionDirectoryBuilder::empty();
+        let mut builder = ActionDirectoryBuilder::empty_non_exhaustive();
 
         // construct a directory with 3 files, f1, f2, and f3
         for file in &["d1/f1", "d1/f2", "d1/f3"] {
@@ -184,6 +184,8 @@ mod tests {
                 empty_file,
             );
         }
+
+        builder.mark_uniformly_exhaustive();
 
         let value = extract_artifact_value(
             &builder,

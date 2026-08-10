@@ -77,7 +77,7 @@ impl<'v> ActionsRegistry<'v> {
             declared_dynamic_outputs: SmallMap::new(),
             pending: Default::default(),
             execution_platform,
-            claimed_output_paths: DirectoryBuilder::empty(),
+            claimed_output_paths: DirectoryBuilder::empty_non_exhaustive(),
             artifact_tag_count: 0,
         }
     }

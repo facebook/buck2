@@ -43,7 +43,7 @@ impl<'a> ArtifactValueBuilder<'a> {
     pub fn new(project_fs: &'a ProjectRoot, digest_config: DigestConfig) -> Self {
         Self {
             project_fs,
-            builder: ActionDirectoryBuilder::empty(),
+            builder: ActionDirectoryBuilder::empty_non_exhaustive(),
             digest_config,
         }
     }

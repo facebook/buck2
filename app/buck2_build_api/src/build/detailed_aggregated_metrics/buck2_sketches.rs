@@ -752,7 +752,7 @@ mod tests {
         let digest_config = DigestConfig::testing_default();
         let cas = digest_config.cas_digest_config();
 
-        let mut deps_builder = ActionDirectoryBuilder::empty();
+        let mut deps_builder = ActionDirectoryBuilder::empty_non_exhaustive();
         insert_file(
             &mut deps_builder,
             p_shared.clone(),
@@ -774,7 +774,7 @@ mod tests {
             (p_other.clone(), make_value()),
         ];
 
-        let mut builder = ActionDirectoryBuilder::empty();
+        let mut builder = ActionDirectoryBuilder::empty_non_exhaustive();
         for (path, value) in input {
             insert_artifact(&mut builder, path, &value)?;
         }

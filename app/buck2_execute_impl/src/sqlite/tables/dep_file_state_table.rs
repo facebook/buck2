@@ -1069,7 +1069,7 @@ mod tests {
         let digest_config = DigestConfig::testing_default();
         let table = table();
 
-        let mut builder = ActionDirectoryBuilder::empty();
+        let mut builder = ActionDirectoryBuilder::empty_non_exhaustive();
         insert_file(
             &mut builder,
             ProjectRelativePathBuf::unchecked_new("target".to_owned()),

@@ -57,7 +57,7 @@ where
 {
     pub fn empty() -> Self {
         Self {
-            builder: DirectoryBuilder::empty(),
+            builder: DirectoryBuilder::empty_non_exhaustive(),
             to_merge: Vec::new(),
             to_insert: Vec::new(),
         }
@@ -160,7 +160,7 @@ mod tests {
         a.insert(path("a/b").to_buf(), DirectoryEntry::Leaf(NopEntry))?;
 
         let b = {
-            let mut b = TestDirectoryBuilder::empty();
+            let mut b = TestDirectoryBuilder::empty_non_exhaustive();
             b.insert(path("a/c"), DirectoryEntry::Leaf(NopEntry))?;
             b.fingerprint(&TestHasher).shared(&interner)
         };

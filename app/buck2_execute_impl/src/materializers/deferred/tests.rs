@@ -41,7 +41,7 @@ fn test_find_artifacts() -> buck2_error::Result<()> {
     let file = FileMetadata::empty(DigestConfig::testing_default().cas_digest_config());
 
     // Build deps with artifacts 1-3, and non-artifacts 1-2
-    let mut builder = ActionDirectoryBuilder::empty();
+    let mut builder = ActionDirectoryBuilder::empty_non_exhaustive();
     insert_file(
         &mut builder,
         artifact1.join(ForwardRelativePath::new("f1").unwrap()),
@@ -622,7 +622,7 @@ mod state_machine {
         target_from_symlink: &RelativePathBuf,
         digest_config: DigestConfig,
     ) -> buck2_error::Result<ArtifactValue> {
-        let mut deps = ActionDirectoryBuilder::empty();
+        let mut deps = ActionDirectoryBuilder::empty_non_exhaustive();
         let target = ActionDirectoryEntry::Leaf(ActionDirectoryMember::File(FileMetadata::empty(
             digest_config.cas_digest_config(),
         )));
@@ -1607,7 +1607,7 @@ mod state_machine {
             //   child/file.txt
             //   child/subdir/nested.txt
             //   top_file.txt
-            let mut builder = ActionDirectoryBuilder::empty();
+            let mut builder = ActionDirectoryBuilder::empty_non_exhaustive();
             insert_file(
                 &mut builder,
                 ProjectRelativePathBuf::unchecked_new("child/file.txt".to_owned()),
@@ -1623,6 +1623,7 @@ mod state_machine {
                 ProjectRelativePathBuf::unchecked_new("top_file.txt".to_owned()),
                 FileMetadata::empty(digest_config.cas_digest_config()),
             )?;
+            builder.mark_uniformly_exhaustive();
             let shared_dir = builder
                 .fingerprint(digest_config.as_directory_serializer())
                 .shared(&*INTERNER);

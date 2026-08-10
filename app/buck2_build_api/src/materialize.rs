@@ -179,7 +179,7 @@ async fn ensure_uploaded(
     let digest_config = ctx.global_data().get_digest_config();
     let artifact_fs = ctx.get_artifact_fs().await?;
     let dir = {
-        let mut dir = ActionDirectoryBuilder::empty();
+        let mut dir = ActionDirectoryBuilder::empty_non_exhaustive();
         let values = ctx.ensure_artifact_group(artifact_group).await?;
         for (artifact, value) in values.iter() {
             let path = artifact.resolve_path(

@@ -361,7 +361,7 @@ fn get_file_ops_delegate_impl(
     digest_config: DigestConfig,
 ) -> buck2_error::Result<BundledFileOpsDelegate> {
     let mut builder: DirectoryBuilder<ContentsAndMetadata, BundledDirectoryDigest> =
-        DirectoryBuilder::empty();
+        DirectoryBuilder::empty_non_exhaustive();
     let source_digest_config = digest_config.cas_digest_config().source_files_config();
     for file in data.files {
         let path = ForwardRelativePath::new(file.path)

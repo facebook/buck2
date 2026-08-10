@@ -150,7 +150,7 @@ mod tests {
 
     #[test]
     fn test_find() -> buck2_error::Result<()> {
-        let mut a = TestDirectoryBuilder::empty();
+        let mut a = TestDirectoryBuilder::empty_non_exhaustive();
         a.insert(path("a/b/c"), DirectoryEntry::Leaf(NopEntry))?;
 
         assert_matches!(
@@ -173,7 +173,7 @@ mod tests {
 
     #[test]
     fn test_find_prefix() -> buck2_error::Result<()> {
-        let mut a = TestDirectoryBuilder::empty();
+        let mut a = TestDirectoryBuilder::empty_non_exhaustive();
         a.insert(path("a/b/c"), DirectoryEntry::Leaf(NopEntry))?;
 
         assert_matches!(

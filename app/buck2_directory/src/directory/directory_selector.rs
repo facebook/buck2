@@ -298,7 +298,7 @@ mod tests {
 
     #[test]
     fn test_search() -> buck2_error::Result<()> {
-        let mut b = TestDirectoryBuilder::empty();
+        let mut b = TestDirectoryBuilder::empty_non_exhaustive();
         b.insert(path("a/b"), DirectoryEntry::Leaf(NopEntry))?;
         b.insert(path("b/c"), DirectoryEntry::Leaf(NopEntry))?;
         let d = b.fingerprint(&TestHasher);
@@ -350,7 +350,7 @@ mod tests {
 
     #[test]
     fn test_filter() -> buck2_error::Result<()> {
-        let mut b = TestDirectoryBuilder::empty();
+        let mut b = TestDirectoryBuilder::empty_non_exhaustive();
         b.insert(path("a/aa"), DirectoryEntry::Leaf(NopEntry))?;
         b.insert(path("a/a"), DirectoryEntry::Leaf(NopEntry))?;
         b.insert(path("b/b"), DirectoryEntry::Leaf(NopEntry))?;
@@ -394,7 +394,7 @@ mod tests {
 
     #[test]
     fn test_filter_continues_on_error() -> buck2_error::Result<()> {
-        let mut b = TestDirectoryBuilder::empty();
+        let mut b = TestDirectoryBuilder::empty_non_exhaustive();
         b.insert(path("a/aa/aaa"), DirectoryEntry::Leaf(NopEntry))?;
         b.insert(path("a/aa/bbb"), DirectoryEntry::Leaf(NopEntry))?;
         b.insert(path("a/bb"), DirectoryEntry::Leaf(NopEntry))?;

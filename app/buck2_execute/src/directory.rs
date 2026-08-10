@@ -375,7 +375,8 @@ pub fn re_tree_to_directory(
         digest_config: DigestConfig,
         fingerprint: bool,
     ) -> buck2_error::Result<ActionDirectoryBuilder> {
-        let mut builder = ActionDirectoryBuilder::empty();
+        // A downloaded RE directory is a complete listing of its contents.
+        let mut builder = ActionDirectoryBuilder::empty_exhaustive();
         for node in &re_dir.files {
             let name = FileNameBuf::try_from(node.name.clone()).map_err(|_| {
                 DirectoryReConversionError::IncorrectFileName {
@@ -476,7 +477,7 @@ pub fn re_tree_to_directory(
 
     let root_dir = match &tree.root {
         Some(d) => d,
-        None => return Ok(ActionDirectoryBuilder::empty()),
+        None => return Ok(ActionDirectoryBuilder::empty_exhaustive()),
     };
 
     dfs_build(
@@ -526,7 +527,7 @@ pub fn relativize_directory(
     orig_root: &ProjectRelativePath,
     new_root: &ProjectRelativePath,
 ) -> buck2_error::Result<()> {
-    let mut replacements = ActionDirectoryBuilder::empty();
+    let mut replacements = ActionDirectoryBuilder::empty_non_exhaustive();
 
     {
         let mut walk = builder.unordered_walk_leaves();
@@ -570,7 +571,7 @@ pub fn override_executable_bit(
     builder: &mut ActionDirectoryBuilder,
     executable_bit_override: bool,
 ) -> buck2_error::Result<()> {
-    let mut replacements = ActionDirectoryBuilder::empty();
+    let mut replacements = ActionDirectoryBuilder::empty_non_exhaustive();
 
     {
         let mut walk = builder.unordered_walk_leaves();
@@ -809,7 +810,7 @@ pub fn extract_artifact_value(
 
     expand_selector_for_dependencies(builder, &mut paths_to_take);
 
-    let mut deps = ActionDirectoryBuilder::empty();
+    let mut deps = ActionDirectoryBuilder::empty_non_exhaustive();
     let mut has_deps = false;
 
     for (entry_path, entry) in paths_to_take.unordered_search(builder).with_paths() {
@@ -914,7 +915,7 @@ mod tests {
         let digest_config = DigestConfig::testing_default();
 
         let mut dir = {
-            let mut builder = ActionDirectoryBuilder::empty();
+            let mut builder = ActionDirectoryBuilder::empty_non_exhaustive();
             insert_file(
                 &mut builder,
                 path("inter/f"),
@@ -934,7 +935,7 @@ mod tests {
         };
 
         let expected_dir = {
-            let mut builder = ActionDirectoryBuilder::empty();
+            let mut builder = ActionDirectoryBuilder::empty_non_exhaustive();
             insert_file(
                 &mut builder,
                 path("inter/f"),
@@ -964,7 +965,7 @@ mod tests {
     fn build_test_dir() -> buck2_error::Result<ActionDirectoryBuilder> {
         let digest_config = DigestConfig::testing_default();
 
-        let mut builder = ActionDirectoryBuilder::empty();
+        let mut builder = ActionDirectoryBuilder::empty_non_exhaustive();
         // /
         // |-f1
         // |-d1/
@@ -1005,6 +1006,9 @@ mod tests {
             )?;
         }
 
+        // Real action trees hold artifact content, which is exhaustive.
+        builder.mark_uniformly_exhaustive();
+
         Ok(builder)
     }
 
@@ -1028,7 +1032,7 @@ mod tests {
             .ok_or_else(|| internal_error!("Not value!"))?;
 
         let expected = {
-            let mut builder = ActionDirectoryBuilder::empty();
+            let mut builder = ActionDirectoryBuilder::empty_non_exhaustive();
 
             for p in &["d6/s4", "d6/f4", "d1/d2/d4", "f1"] {
                 let path = path(p);
@@ -1050,6 +1054,34 @@ mod tests {
         Ok(())
     }
 
+    /// The extracted value's boundary structure: the entry is complete content; the deps tree
+    /// is scaffolding whose exhaustive subtrees are exactly the captured dep regions.
+    #[test]
+    fn test_extract_deps_marking() -> buck2_error::Result<()> {
+        let digest_config = DigestConfig::testing_default();
+
+        let root = build_test_dir()?;
+        let value = extract_artifact_value(&root, &path("d1/d2/d3"), digest_config)?
+            .ok_or_else(|| internal_error!("Not value!"))?;
+
+        match value.entry() {
+            DirectoryEntry::Dir(d) => assert!(d.exhaustiveness_hash().is_uniformly_exhaustive()),
+            _ => panic!("Expected a dir entry"),
+        }
+
+        let deps = value.deps().ok_or_else(|| internal_error!("No deps!"))?;
+        assert!(!deps.exhaustiveness_hash().is_exhaustive());
+
+        let region = find(deps.as_ref(), ForwardRelativePath::new("d1/d2/d4").unwrap())?
+            .ok_or_else(|| internal_error!("Missing region"))?;
+        match region {
+            DirectoryEntry::Dir(d) => assert!(d.exhaustiveness_hash().is_uniformly_exhaustive()),
+            _ => panic!("Expected a dir region"),
+        }
+
+        Ok(())
+    }
+
     #[test]
     fn test_extract_has_deps_leaf() -> buck2_error::Result<()> {
         let digest_config = DigestConfig::testing_default();
@@ -1059,7 +1091,7 @@ mod tests {
             .ok_or_else(|| internal_error!("Not value!"))?;
 
         let expected = {
-            let mut builder = ActionDirectoryBuilder::empty();
+            let mut builder = ActionDirectoryBuilder::empty_non_exhaustive();
             insert_file(
                 &mut builder,
                 path("f1"),
@@ -1080,7 +1112,7 @@ mod tests {
     fn test_extract_cycle() -> buck2_error::Result<()> {
         let digest_config = DigestConfig::testing_default();
 
-        let mut builder = ActionDirectoryBuilder::empty();
+        let mut builder = ActionDirectoryBuilder::empty_non_exhaustive();
 
         for (sym, target) in &[("d1/f1", "../d2/f2"), ("d2/f2", "../d1/f1")] {
             insert_symlink(
@@ -1091,7 +1123,7 @@ mod tests {
         }
 
         let expected = {
-            let mut builder = ActionDirectoryBuilder::empty();
+            let mut builder = ActionDirectoryBuilder::empty_non_exhaustive();
             insert_symlink(
                 &mut builder,
                 path("d2/f2"),
@@ -1118,7 +1150,7 @@ mod tests {
         // symlinks and traverse them, but might a well support it properly.
         let digest_config = DigestConfig::testing_default();
 
-        let mut builder = ActionDirectoryBuilder::empty();
+        let mut builder = ActionDirectoryBuilder::empty_non_exhaustive();
         insert_symlink(
             &mut builder,
             path("l1"),
@@ -1141,7 +1173,7 @@ mod tests {
             .ok_or_else(|| internal_error!("Not value!"))?;
 
         let expected = {
-            let mut builder = ActionDirectoryBuilder::empty();
+            let mut builder = ActionDirectoryBuilder::empty_non_exhaustive();
 
             insert_symlink(
                 &mut builder,
@@ -1170,7 +1202,7 @@ mod tests {
     fn test_re_tree_roundtrip() -> buck2_error::Result<()> {
         let digest_config = DigestConfig::testing_default();
 
-        let mut builder = ActionDirectoryBuilder::empty();
+        let mut builder = ActionDirectoryBuilder::empty_non_exhaustive();
         insert_file(
             &mut builder,
             path("a/aa"),
@@ -1208,7 +1240,7 @@ mod tests {
     fn test_re_tree_compatibility() -> buck2_error::Result<()> {
         let digest_config = DigestConfig::testing_default();
 
-        let mut builder = ActionDirectoryBuilder::empty();
+        let mut builder = ActionDirectoryBuilder::empty_non_exhaustive();
         for p in &["a/aa/f", "a/aaa/f", "b/bb/f", "d/f"] {
             insert_file(
                 &mut builder,
@@ -1241,7 +1273,7 @@ mod tests {
 
         let digest_config = DigestConfig::testing_default();
 
-        let mut builder = ActionDirectoryBuilder::empty();
+        let mut builder = ActionDirectoryBuilder::empty_non_exhaustive();
         insert_symlink(
             &mut builder,
             path("d1/f1"),
@@ -1269,7 +1301,7 @@ mod tests {
     fn external_symlink_serializer_preserves_target_str_verbatim() -> buck2_error::Result<()> {
         let digest_config = DigestConfig::testing_default();
 
-        let mut builder = ActionDirectoryBuilder::empty();
+        let mut builder = ActionDirectoryBuilder::empty_non_exhaustive();
         let sym = Arc::new(ExternalSymlink::new(
             PathBuf::from("/mnt/gvfs/openssl/lib"),
             ForwardRelativePathBuf::default(),
@@ -1308,7 +1340,7 @@ mod tests {
     -> buck2_error::Result<()> {
         let digest_config = DigestConfig::testing_default();
 
-        let mut builder = ActionDirectoryBuilder::empty();
+        let mut builder = ActionDirectoryBuilder::empty_non_exhaustive();
         let sym = Arc::new(ExternalSymlink::new(
             PathBuf::from(r"\mnt\gvfs\openssl\lib"),
             ForwardRelativePathBuf::default(),
@@ -1370,7 +1402,7 @@ mod tests {
     fn test_rename_and_serialize() -> buck2_error::Result<()> {
         let digest_config = DigestConfig::testing_default();
 
-        let mut builder1 = ActionDirectoryBuilder::empty();
+        let mut builder1 = ActionDirectoryBuilder::empty_non_exhaustive();
 
         insert_file(
             &mut builder1,
@@ -1383,7 +1415,7 @@ mod tests {
             FileMetadata::empty(digest_config.cas_digest_config()),
         )?;
 
-        let mut builder2 = ActionDirectoryBuilder::empty();
+        let mut builder2 = ActionDirectoryBuilder::empty_non_exhaustive();
         insert_file(
             &mut builder2,
             path("b/aa"),

@@ -237,7 +237,7 @@ mod tests {
         table.create_table().unwrap();
 
         let shared_directory = {
-            let mut builder = DirectoryBuilder::empty();
+            let mut builder = DirectoryBuilder::empty_non_exhaustive();
             // Create the following directory:
             // ├── foo - file
             // ├── bar - empty directory
@@ -256,13 +256,13 @@ mod tests {
                     .unwrap();
             }
             {
-                let empty_directory = DirectoryEntry::Dir(DirectoryBuilder::empty());
+                let empty_directory = DirectoryEntry::Dir(DirectoryBuilder::empty_non_exhaustive());
                 builder
                     .insert(ForwardRelativePath::unchecked_new("bar"), empty_directory)
                     .unwrap();
             }
             {
-                let mut directory_builder = DirectoryBuilder::empty();
+                let mut directory_builder = DirectoryBuilder::empty_non_exhaustive();
                 let symlink =
                     ActionDirectoryMember::Symlink(Arc::new(Symlink::new("../foo".into())));
                 directory_builder

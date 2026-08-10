@@ -380,7 +380,7 @@ fn convert_sqlite_entries_to_materializer_state(
     ) in directories
     {
         let dir = {
-            let mut builder = ActionDirectoryBuilder::empty();
+            let mut builder = ActionDirectoryBuilder::empty_non_exhaustive();
             for child in children {
                 let child_path = child.path.clone();
                 let parent_dir_rel_path = {
@@ -397,6 +397,8 @@ fn convert_sqlite_entries_to_materializer_state(
                     builder.insert(parent_dir_rel_path, DirectoryEntry::Leaf(member))?;
                 }
             }
+            // A materialized directory artifact reloaded from sqlite is complete content.
+            builder.mark_uniformly_exhaustive();
             let fingerprint = builder.fingerprint(digest_config.as_directory_serializer());
             fingerprint.shared(&*INTERNER)
         };
@@ -792,7 +794,7 @@ mod tests {
 
         let metadata = {
             let directory = {
-                let mut builder = DirectoryBuilder::empty();
+                let mut builder = DirectoryBuilder::empty_non_exhaustive();
                 {
                     let digest =
                         TrackedCasDigest::from_content(b"hello", digest_config.cas_digest_config());
@@ -806,13 +808,14 @@ mod tests {
                         .unwrap();
                 }
                 {
-                    let empty_directory = DirectoryEntry::Dir(DirectoryBuilder::empty());
+                    let empty_directory =
+                        DirectoryEntry::Dir(DirectoryBuilder::empty_non_exhaustive());
                     builder
                         .insert(ForwardRelativePath::unchecked_new("bar"), empty_directory)
                         .unwrap();
                 }
                 {
-                    let mut directory_builder = DirectoryBuilder::empty();
+                    let mut directory_builder = DirectoryBuilder::empty_non_exhaustive();
                     let symlink =
                         ActionDirectoryMember::Symlink(Arc::new(Symlink::new("../foo".into())));
                     directory_builder

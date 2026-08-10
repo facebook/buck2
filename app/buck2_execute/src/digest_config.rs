@@ -74,6 +74,8 @@ impl DigestConfig {
         ReDirectorySerializer::ref_cast(&self.inner.cas_digest_config)
     }
 
+    /// The empty directory as artifact content: an exhaustive listing of nothing, i.e. "this
+    /// directory exists and contains exactly nothing".
     pub fn empty_directory(&self) -> ActionSharedDirectory {
         self.inner.empty_directory.dupe()
     }
@@ -103,7 +105,7 @@ struct DigestConfigInner {
 
 impl DigestConfigInner {
     fn new(cas_digest_config: CasDigestConfig) -> Self {
-        let empty_directory = ActionDirectoryBuilder::empty()
+        let empty_directory = ActionDirectoryBuilder::empty_exhaustive()
             .fingerprint(&ReDirectorySerializer { cas_digest_config })
             .shared(&*INTERNER);
         let empty_file = FileMetadata::empty(cas_digest_config);

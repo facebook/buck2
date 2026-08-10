@@ -93,7 +93,7 @@ mod tests {
     #[test]
     fn test_directory_with_multiple_files() -> buck2_error::Result<()> {
         let digest_config = DigestConfig::testing_default();
-        let mut builder = ActionDirectoryBuilder::empty();
+        let mut builder = ActionDirectoryBuilder::empty_non_exhaustive();
 
         let content1 = b"hello"; // 5 bytes
         let content2 = b"world!"; // 6 bytes
@@ -148,7 +148,7 @@ mod tests {
     #[test]
     fn test_nested_directory() -> buck2_error::Result<()> {
         let digest_config = DigestConfig::testing_default();
-        let mut builder = ActionDirectoryBuilder::empty();
+        let mut builder = ActionDirectoryBuilder::empty_non_exhaustive();
 
         // Create nested directory structure:
         // /
@@ -201,7 +201,7 @@ mod tests {
     #[test]
     fn test_symlinks_not_counted() -> buck2_error::Result<()> {
         let digest_config = DigestConfig::testing_default();
-        let mut builder = ActionDirectoryBuilder::empty();
+        let mut builder = ActionDirectoryBuilder::empty_non_exhaustive();
 
         // Create directory with only symlinks (no regular files)
         insert_symlink(
@@ -236,7 +236,7 @@ mod tests {
     #[test]
     fn test_symlinks_counted_when_included() -> buck2_error::Result<()> {
         let digest_config = DigestConfig::testing_default();
-        let mut builder = ActionDirectoryBuilder::empty();
+        let mut builder = ActionDirectoryBuilder::empty_non_exhaustive();
 
         let target1 = "target1"; // 7 bytes
         let target2 = "target2"; // 7 bytes
@@ -320,7 +320,7 @@ mod tests {
         ];
 
         let mut total_disk_size = 0u64;
-        let mut builder = ActionDirectoryBuilder::empty();
+        let mut builder = ActionDirectoryBuilder::empty_non_exhaustive();
 
         for (name, content) in &files {
             let file_path = tempdir.path().join(name);
@@ -374,7 +374,7 @@ mod tests {
         ];
 
         // Create target files for each symlink and add them to the directory
-        let mut builder = ActionDirectoryBuilder::empty();
+        let mut builder = ActionDirectoryBuilder::empty_non_exhaustive();
         let mut total_file_size = 0u64;
         for (_, _, resolved_target) in &symlinks {
             let target_path = tempdir.path().join(resolved_target);

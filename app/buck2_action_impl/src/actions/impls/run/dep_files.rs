@@ -2315,7 +2315,7 @@ mod tests {
 
         // An output that is a symlink pointing at another artifact: `extract_artifact_value`
         // records that artifact in `deps`.
-        let mut builder = ActionDirectoryBuilder::empty();
+        let mut builder = ActionDirectoryBuilder::empty_non_exhaustive();
         insert_file(
             &mut builder,
             ProjectRelativePathBuf::unchecked_new("target".to_owned()),

@@ -183,7 +183,9 @@ async fn build_dir_from_disk(
     blocking_executor: &dyn BlockingExecutor,
     project_root: &AbsNormPath,
 ) -> buck2_error::Result<(ActionDirectoryBuilder, HashingInfo)> {
-    let mut builder = ActionDirectoryBuilder::empty();
+    // A disk scan is a complete listing of what's there, so the tree this builds is uniformly
+    // exhaustive (each level is built from its own builder, bottom-up).
+    let mut builder = ActionDirectoryBuilder::empty_exhaustive();
     let mut hashing_info = HashingInfo::default();
 
     let mut directory_names: Vec<FileNameBuf> = Vec::new();

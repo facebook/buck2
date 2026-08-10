@@ -93,6 +93,17 @@ where
                 DirectoryEntry::Leaf(_) => None,
             })
         });
+        // Semantic invariant, monotone downward by induction. The identity hash above stays
+        // sound even when this is violated (violations hash as mixed), so this is a tripwire,
+        // not load-bearing.
+        debug_assert!(
+            matches!(exhaustiveness, Exhaustiveness::NonExhaustive)
+                || entries.iter().all(|(_, e)| match e {
+                    DirectoryEntry::Dir(d) => d.exhaustiveness_hash().is_exhaustive(),
+                    DirectoryEntry::Leaf(_) => true,
+                }),
+            "Exhaustive directories must contain only exhaustive directories",
+        );
         Self {
             entries,
             size,

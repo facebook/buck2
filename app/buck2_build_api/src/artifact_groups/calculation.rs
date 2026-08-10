@@ -336,10 +336,12 @@ async fn dir_artifact_value(
             let entries = entries.into_iter().collect();
 
             let digest_config = ctx.global_data().get_digest_config();
+            // A source directory listing is complete content (only ever *interpreted* under
+            // buck-out, but exhaustive is the accurate marking).
             let d: DirectoryData<_, _, _> = DirectoryData::new(
                 entries,
                 digest_config.as_directory_serializer(),
-                Exhaustiveness::NonExhaustive,
+                Exhaustiveness::Exhaustive,
             );
             let d = INTERNER.intern(d);
 
@@ -438,7 +440,7 @@ async fn path_artifact_value(
             if dont_read_through_symlink {
                 let artifact_fs = ctx.get_artifact_fs().await?;
                 let target_path = artifact_fs.resolve_cell_path((*target).as_ref())?;
-                let mut builder = ActionDirectoryBuilder::empty();
+                let mut builder = ActionDirectoryBuilder::empty_non_exhaustive();
                 insert_artifact(&mut builder, target_path, &target_artifact_value)?;
                 let deps = builder
                     .fingerprint(
@@ -507,7 +509,7 @@ impl Key for EnsureProjectedArtifactKey {
 
         let projected_path = base_path.join(path);
 
-        let mut builder = ActionDirectoryBuilder::empty();
+        let mut builder = ActionDirectoryBuilder::empty_non_exhaustive();
         insert_artifact(&mut builder, base_path, &base_value)?;
 
         let value = extract_artifact_value(&builder, &projected_path, digest_config)

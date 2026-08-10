@@ -354,7 +354,7 @@ mod tests {
             .lock()
             .expect("pagable shared directory test mutex should not be poisoned");
 
-        let mut builder = TestDirectoryBuilder::empty();
+        let mut builder = TestDirectoryBuilder::empty_non_exhaustive();
         builder
             .insert(path("a/b"), DirectoryEntry::Leaf(NopEntry))
             .expect("test path should insert");
@@ -382,7 +382,7 @@ mod tests {
             .lock()
             .expect("pagable shared directory test mutex should not be poisoned");
 
-        let mut builder = TestDirectoryBuilder::empty();
+        let mut builder = TestDirectoryBuilder::empty_non_exhaustive();
         builder.insert(path("a/b"), DirectoryEntry::Leaf(NopEntry))?;
         let interner = <NopEntry as SharedDirectoryInternable<TestDigest>>::interner();
         let dir = builder.fingerprint(&TestHasher).shared(&interner);

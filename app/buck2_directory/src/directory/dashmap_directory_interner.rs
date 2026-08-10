@@ -146,13 +146,13 @@ mod tests {
         let interner = DashMapDirectoryInterner::new();
 
         let d1 = {
-            let mut b = TestDirectoryBuilder::empty();
+            let mut b = TestDirectoryBuilder::empty_non_exhaustive();
             b.insert(path("a/b"), DirectoryEntry::Leaf(NopEntry))?;
             b.fingerprint(&TestHasher).shared(&interner)
         };
 
         let d2 = {
-            let mut b = TestDirectoryBuilder::empty();
+            let mut b = TestDirectoryBuilder::empty_non_exhaustive();
             b.insert(path("a/b"), DirectoryEntry::Leaf(NopEntry))?;
             b.fingerprint(&TestHasher).shared(&interner)
         };
@@ -230,13 +230,13 @@ mod tests {
         let interner = DashMapDirectoryInterner::new();
 
         let d1 = {
-            let mut b = TestDirectoryBuilder::empty();
+            let mut b = TestDirectoryBuilder::empty_non_exhaustive();
             b.insert(path("a/b"), DirectoryEntry::Leaf(NopEntry))?;
             b.fingerprint(&TestHasher).shared(&interner)
         };
 
         let _d2 = {
-            let mut b = TestDirectoryBuilder::empty();
+            let mut b = TestDirectoryBuilder::empty_non_exhaustive();
             b.insert(path("b"), DirectoryEntry::Leaf(NopEntry))?;
             b.fingerprint(&TestHasher).shared(&interner)
         };
